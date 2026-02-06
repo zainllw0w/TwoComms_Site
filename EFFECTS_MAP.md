@@ -56,9 +56,17 @@
   - hover/focus states
   - единая кнопочная система и micro-feedback
 
-## Planned (Part 2)
-- `/blog/`:
-  - Heavy/Medium: Tracing Beam (с lazy init + reduced-motion fallback)
-  - Micro: Cards on click overlay, reading progress, link hovers
-- `/blog/<slug>/`:
-  - Micro: reading progress, internal link interactions
+### `/blog/`
+- Heavy/Medium:
+  - Tracing Beam timeline (lazy update + fallback на mobile/reduced-motion)
+- Micro:
+  - Cards on click overlay
+  - Hover/focus подсказки
+  - Stateful links
+
+### `/blog/<slug>/`
+- Heavy: нет
+- Medium: нет
+- Micro:
+  - Reading progress bar
+  - Related links / internal linking

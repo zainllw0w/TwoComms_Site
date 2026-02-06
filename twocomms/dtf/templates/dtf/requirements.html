@@ -112,6 +112,14 @@
       <p>{% trans "Надішліть файли — менеджер допоможе з розкладкою." %}</p>
       <a class="btn btn-primary" href="{% url 'dtf:order' %}?tab=help">{% trans "Потрібна допомога" %}</a>
     </div>
+
+    <div class="card knowledge-inline">
+      <h3>{% trans "Читати в базі знань" %}</h3>
+      <ul class="list">
+        <li><a href="{% url 'dtf:blog_post' slug='yak-pidhotuvaty-fail-dlia-dtf-druku' %}">{% trans "Як підготувати файл для DTF-друку без браку" %}</a></li>
+        <li><a href="{% url 'dtf:blog_post' slug='kolir-i-shchilnist-plivky-iak-unyknuty-siurpryziv' %}">{% trans "Колір і щільність плівки: як уникнути сюрпризів" %}</a></li>
+      </ul>
+    </div>
   </div>
 </section>
 {% endblock %}

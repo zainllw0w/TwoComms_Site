@@ -10,9 +10,9 @@
 - [x] Добавлены проектные журналы: `DTF_CHECKLIST.md`, `EFFECTS_MAP.md`, `MCP_TODO.md`
 
 ## Part 2 - Knowledge Base + SEO
-- [ ] SSR-раздел `/blog/` и `/blog/<slug>/`
-- [ ] Tracing Beam на списке статей
-- [ ] Overlay “Cards on Click” с прогрессивным fallback
-- [ ] Превью статей на главной в mixed grid
-- [ ] SEO для статей: meta/canonical/schema/sitemap
-- [ ] Документация SEO-базы (`SEO_BASELINE.md`) и обновление карты эффектов
+- [x] SSR-раздел `/blog/` и `/blog/<slug>/`
+- [x] Tracing Beam на списке статей
+- [x] Overlay “Cards on Click” с прогрессивным fallback
+- [x] Превью статей на главной в mixed grid
+- [x] SEO для статей: meta/canonical/schema/sitemap
+- [x] Документация SEO-базы (`SEO_BASELINE.md`) и обновление карты эффектов

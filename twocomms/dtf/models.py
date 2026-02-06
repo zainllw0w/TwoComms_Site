@@ -3,8 +3,28 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import models, IntegrityError, transaction
 from django.db.models import Max
+from django.utils.html import escape
+from django.utils.text import slugify
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+
+try:
+    import markdown as markdown_lib
+except Exception:  # pragma: no cover - fallback when optional dependency is missing
+    markdown_lib = None
+
+
+def render_markdown_to_html(source: str) -> str:
+    source = (source or "").strip()
+    if not source:
+        return ""
+    if markdown_lib:
+        return markdown_lib.markdown(
+            source,
+            extensions=["extra", "sane_lists"],
+        )
+    # Fallback keeps output safe and readable if Markdown package is unavailable.
+    return "<p>{}</p>".format("<br>".join(escape(source).splitlines()))
 
 
 class ContactChannel(models.TextChoices):
@@ -196,6 +216,46 @@ class DtfOrder(models.Model):
         else:
             counter = 1
         return f"{prefix}{counter:02d}"
+
+
+class KnowledgePostQuerySet(models.QuerySet):
+    def published(self):
+        return self.filter(is_published=True, pub_date__lte=timezone.localdate())
+
+
+class KnowledgePost(models.Model):
+    title = models.CharField(max_length=220)
+    slug = models.SlugField(max_length=240, unique=True)
+    excerpt = models.CharField(max_length=320)
+    content_md = models.TextField()
+    content_html = models.TextField(blank=True, editable=False)
+    pub_date = models.DateField(default=timezone.localdate, db_index=True)
+    is_published = models.BooleanField(default=True)
+    seo_title = models.CharField(max_length=160, blank=True)
+    seo_description = models.CharField(max_length=220, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = KnowledgePostQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["-pub_date", "-id"]
+        verbose_name = "Knowledge Base Post"
+        verbose_name_plural = "Knowledge Base Posts"
+
+    def __str__(self):
+        return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)[:240]
+        self.content_html = render_markdown_to_html(self.content_md)
+        if not self.seo_title:
+            self.seo_title = self.title
+        if not self.seo_description:
+            source = (self.excerpt or self.content_md or "").strip()
+            self.seo_description = source[:220]
+        super().save(*args, **kwargs)
 
 
 class WorkCategory(models.TextChoices):

@@ -1,0 +1,74 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "База знань DTF" %}{% endblock %}
+{% block page_id %}blog{% endblock %}
+{% block description %}{% trans "Експертні статті про DTF-друк: підготовка файлів, вибір матеріалів, порівняння технологій і практичні поради." %}{% endblock %}
+
+{% block extra_head %}
+  {% trans "База знань" as crumb_label %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "DTF",
+        "item": "https://dtf.twocomms.shop/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "{{ crumb_label|escapejs }}",
+        "item": "https://dtf.twocomms.shop{{ request.path }}"
+      }
+    ]
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<section class="section knowledge-page">
+  <div class="dtf-container">
+    <div class="section-head" data-reveal>
+      <h1>{% trans "Knowledge Base" %}</h1>
+      <p>{% trans "Практичні матеріали для клієнтів DTF: від підготовки макета до догляду за нанесенням." %}</p>
+    </div>
+
+    <div class="knowledge-timeline-shell" data-tracing-beam>
+      <div class="tracing-beam" aria-hidden="true">
+        <span class="tracing-beam-progress" data-tracing-beam-progress></span>
+      </div>
+      <div class="knowledge-timeline">
+        {% for group in post_month_groups %}
+          <section class="knowledge-month" id="month-{{ group.key }}">
+            <h2>{{ group.month|date:"F Y" }}</h2>
+            <div class="knowledge-cards">
+              {% for post in group.posts %}
+                <article class="knowledge-card" data-reveal>
+                  <time datetime="{{ post.pub_date|date:'Y-m-d' }}">{{ post.pub_date|date:"d M Y" }}</time>
+                  <h3>
+                    <a href="{% url 'dtf:blog_post' slug=post.slug %}" data-knowledge-link>{{ post.title }}</a>
+                  </h3>
+                  <p>{{ post.excerpt }}</p>
+                  <div class="knowledge-card-actions">
+                    <a class="btn btn-outline" href="{% url 'dtf:blog_post' slug=post.slug %}" data-knowledge-link>{% trans "Читати в overlay" %}</a>
+                    <a class="btn btn-ghost" href="{% url 'dtf:blog_post' slug=post.slug %}" data-stateful-link>{% trans "Окрема сторінка" %}</a>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          </section>
+        {% empty %}
+          <article class="card">
+            <h3>{% trans "База знань готується" %}</h3>
+            <p>{% trans "Перші матеріали будуть опубліковані найближчим часом." %}</p>
+          </article>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

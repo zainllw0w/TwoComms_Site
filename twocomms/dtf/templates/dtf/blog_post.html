@@ -1,0 +1,98 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{{ post.seo_title|default:post.title }}{% endblock %}
+{% block page_id %}blog-post{% endblock %}
+{% block description %}{{ post.seo_description|default:post.excerpt }}{% endblock %}
+{% block og_title %}{{ post.seo_title|default:post.title }}{% endblock %}
+{% block og_description %}{{ post.seo_description|default:post.excerpt }}{% endblock %}
+
+{% block extra_head %}
+  {% trans "База знань" as blog_label %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "{{ post.title|escapejs }}",
+    "description": "{{ post.seo_description|default:post.excerpt|escapejs }}",
+    "datePublished": "{{ post.pub_date|date:'Y-m-d' }}",
+    "dateModified": "{{ post.updated_at|date:'Y-m-d' }}",
+    "author": {
+      "@type": "Organization",
+      "name": "TwoComms"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "TwoComms"
+    },
+    "mainEntityOfPage": "{{ request.build_absolute_uri }}"
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "DTF",
+        "item": "https://dtf.twocomms.shop/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "{{ blog_label|escapejs }}",
+        "item": "https://dtf.twocomms.shop/blog/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": "{{ post.title|escapejs }}",
+        "item": "{{ request.build_absolute_uri }}"
+      }
+    ]
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<div class="reading-progress" data-reading-progress aria-hidden="true">
+  <span class="reading-progress-bar" data-reading-progress-bar></span>
+</div>
+<section class="section">
+  <div class="dtf-container blog-post-layout">
+    <article class="blog-article" data-reading-article>
+      <p class="blog-post-meta">
+        <span>{{ post.pub_date|date:"d M Y" }}</span>
+        <span>•</span>
+        <span>{% trans "База знань" %}</span>
+      </p>
+      <h1>{{ post.title }}</h1>
+      <p class="blog-post-excerpt">{{ post.excerpt }}</p>
+      <div class="blog-post-content">
+        {{ post.content_html|safe }}
+      </div>
+      <div class="blog-post-actions">
+        <a class="btn btn-primary" href="{% url 'dtf:order' %}?tab=help" data-stateful-link>{% trans "Потрібна допомога з макетом" %}</a>
+        <a class="btn btn-outline" href="{% url 'dtf:blog' %}">{% trans "Всі статті" %}</a>
+      </div>
+    </article>
+
+    <aside class="blog-sidebar">
+      <div class="card">
+        <h3>{% trans "Пов'язані матеріали" %}</h3>
+        <ul class="blog-related-list">
+          {% for related in related_posts %}
+            <li>
+              <a href="{% url 'dtf:blog_post' slug=related.slug %}">{{ related.title }}</a>
+            </li>
+          {% empty %}
+            <li>{% trans "Незабаром додамо ще матеріали." %}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </aside>
+  </div>
+</section>
+{% endblock %}

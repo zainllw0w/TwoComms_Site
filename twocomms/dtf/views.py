@@ -1,4 +1,5 @@
 from decimal import Decimal, InvalidOperation
+from itertools import groupby
 import xml.etree.ElementTree as ET
 from urllib.parse import quote
 
@@ -11,7 +12,17 @@ from django.views.decorators.http import require_http_methods, require_POST
 from django.utils.translation import gettext_lazy as _
 
 from .forms import DtfOrderForm, DtfHelpForm, DtfFabLeadForm
-from .models import DtfOrder, DtfLead, DtfLeadAttachment, DtfWork, WorkCategory, OrderStatus, LeadType, LengthSource
+from .models import (
+    DtfOrder,
+    DtfLead,
+    DtfLeadAttachment,
+    DtfWork,
+    WorkCategory,
+    OrderStatus,
+    LeadType,
+    LengthSource,
+    KnowledgePost,
+)
 from .telegram import (
     notify_new_lead,
     notify_new_order,
@@ -42,6 +53,32 @@ STATUS_STEPS = [
     (OrderStatus.SHIPPED, _("Відправлено")),
     (OrderStatus.CLOSED, _("Закрито")),
 ]
+
+
+def _get_published_posts():
+    return list(
+        KnowledgePost.objects.published()
+        .order_by("-pub_date", "-id")
+    )
+
+
+def _group_posts_by_month(posts):
+    def month_key(post):
+        return post.pub_date.strftime("%Y-%m")
+
+    ordered = sorted(posts, key=lambda post: post.pub_date, reverse=True)
+    groups = []
+    for key, items in groupby(ordered, key=month_key):
+        chunk = list(items)
+        if not chunk:
+            continue
+        anchor = chunk[0].pub_date
+        groups.append({
+            "key": key,
+            "month": anchor,
+            "posts": chunk,
+        })
+    return groups
 
 
 def _build_initials(value: str | None, fallback: str = "U") -> str:
@@ -174,12 +211,14 @@ def _render(request, template, context, status: int | None = None):
 def landing(request):
     ctx = _base_context(request)
     works = DtfWork.objects.filter(is_active=True).order_by("sort_order", "-created_at")
+    knowledge_posts = _get_published_posts()[:3]
     ctx.update({
         "works": works,
         "work_macro": [w for w in works if w.category == WorkCategory.MACRO][:3],
         "work_process": [w for w in works if w.category == WorkCategory.PROCESS][:3],
         "work_final": [w for w in works if w.category == WorkCategory.FINAL][:3],
         "status_steps": STATUS_STEPS,
+        "knowledge_posts_preview": knowledge_posts,
     })
     return _render(request, "dtf/index.html", ctx)
 
@@ -446,12 +485,19 @@ def sitemap_xml(request):
         "dtf:templates",
         "dtf:how_to_press",
         "dtf:preflight",
+        "dtf:blog",
     ]
 
     unique_paths = []
     seen = set()
     for route_name in route_names:
         path = reverse(route_name)
+        if path not in seen:
+            unique_paths.append(path)
+            seen.add(path)
+
+    for post in KnowledgePost.objects.published().only("slug"):
+        path = reverse("dtf:blog_post", kwargs={"slug": post.slug})
         if path not in seen:
             unique_paths.append(path)
             seen.add(path)
@@ -503,6 +549,34 @@ def delivery_payment(request):
 def contacts(request):
     ctx = _base_context(request)
     return _render(request, "dtf/contacts.html", ctx)
+
+
+def blog(request):
+    ctx = _base_context(request)
+    posts = _get_published_posts()
+    ctx.update({
+        "posts": posts,
+        "post_month_groups": _group_posts_by_month(posts),
+    })
+    return _render(request, "dtf/blog.html", ctx)
+
+
+def blog_post(request, slug: str):
+    post = get_object_or_404(KnowledgePost.objects.published(), slug=slug)
+    ctx = _base_context(request)
+    related = list(
+        KnowledgePost.objects.published()
+        .exclude(pk=post.pk)
+        .order_by("-pub_date", "-id")[:3]
+    )
+    ctx.update({
+        "post": post,
+        "related_posts": related,
+    })
+    overlay = request.GET.get("overlay") == "1"
+    if overlay:
+        return render(request, "dtf/partials/blog_overlay_content.html", ctx)
+    return _render(request, "dtf/blog_post.html", ctx)
 
 
 def privacy(request):

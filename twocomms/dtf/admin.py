@@ -7,6 +7,7 @@ from .models import (
     DtfLeadAttachment,
     DtfOrder,
     DtfWork,
+    KnowledgePost,
     LeadStatus,
     OrderStatus,
 )
@@ -127,3 +128,26 @@ class DtfWorkAdmin(admin.ModelAdmin):
     list_filter = ("category", "is_active")
     search_fields = ("title",)
     ordering = ("sort_order",)
+
+
+@admin.register(KnowledgePost)
+class KnowledgePostAdmin(admin.ModelAdmin):
+    list_display = ("title", "pub_date", "is_published", "updated_at")
+    list_filter = ("is_published", "pub_date")
+    search_fields = ("title", "slug", "excerpt", "content_md")
+    prepopulated_fields = {"slug": ("title",)}
+    readonly_fields = ("content_html", "created_at", "updated_at")
+    fieldsets = (
+        (None, {
+            "fields": ("title", "slug", "is_published", "pub_date"),
+        }),
+        (_("Контент"), {
+            "fields": ("excerpt", "content_md", "content_html"),
+        }),
+        (_("SEO"), {
+            "fields": ("seo_title", "seo_description"),
+        }),
+        (_("Службове"), {
+            "fields": ("created_at", "updated_at"),
+        }),
+    )

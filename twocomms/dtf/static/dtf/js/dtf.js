@@ -21,6 +21,9 @@
     heroBeams: false,
     flipWords: false,
     statefulLinks: false,
+    knowledgeOverlay: false,
+    tracingBeam: false,
+    readingProgress: false,
     speculation: false,
   };
   let lensModalInstance = null;
@@ -1408,6 +1411,155 @@
     initState.statefulLinks = true;
   }
 
+  function initKnowledgeOverlay(root = document) {
+    const overlay = document.getElementById('knowledge-overlay');
+    if (!overlay) return;
+    const dialog = overlay.querySelector('.knowledge-overlay-dialog');
+    const content = overlay.querySelector('[data-knowledge-content]');
+    if (!dialog || !content) return;
+
+    const close = () => {
+      releaseFocusTrap();
+      overlay.classList.remove('is-open');
+      overlay.setAttribute('aria-hidden', 'true');
+      if (document.body) document.body.classList.remove('is-modal-open');
+      content.innerHTML = '';
+    };
+
+    const bindCloseActions = (scope = overlay) => {
+      const closers = scope.querySelectorAll('[data-knowledge-close]');
+      closers.forEach(btn => {
+        if (!initOnce(btn, 'KnowledgeClose')) return;
+        btn.addEventListener('click', () => close());
+      });
+    };
+
+    if (!initState.knowledgeOverlay) {
+      bindCloseActions(overlay);
+      overlay.addEventListener('click', (event) => {
+        if (event.target && event.target.dataset && event.target.dataset.knowledgeClose !== undefined) {
+          close();
+        }
+      });
+      initState.knowledgeOverlay = true;
+    }
+
+    collectTargets(root, 'a[data-knowledge-link]').forEach(link => {
+      if (!initOnce(link, 'KnowledgeLink')) return;
+      link.addEventListener('click', async (event) => {
+        if (event.defaultPrevented) return;
+        if (event.button && event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+
+        setButtonState(link, 'loading');
+        try {
+          const url = new URL(link.href, window.location.origin);
+          url.searchParams.set('overlay', '1');
+          const response = await fetch(url.toString(), {
+            credentials: 'same-origin',
+            headers: {
+              'X-Requested-With': 'fetch',
+            },
+          });
+          if (!response.ok) {
+            throw new Error(`Overlay request failed: ${response.status}`);
+          }
+          const html = await response.text();
+          content.innerHTML = html;
+          bindCloseActions(content);
+          overlay.classList.add('is-open');
+          overlay.setAttribute('aria-hidden', 'false');
+          if (document.body) document.body.classList.add('is-modal-open');
+          setFocusTrap(dialog, link, close);
+          trackEvent('knowledge_overlay_open', { href: link.getAttribute('href') || '' });
+        } catch (err) {
+          window.location.assign(link.href);
+        } finally {
+          setButtonState(link, 'default');
+        }
+      });
+    });
+  }
+
+  function initTracingBeam(root = document) {
+    const timelines = collectTargets(root, '[data-tracing-beam]');
+    timelines.forEach(timeline => {
+      if (!initOnce(timeline, 'TracingBeam')) return;
+      const progress = timeline.querySelector('[data-tracing-beam-progress]');
+      if (!progress) return;
+
+      if (prefersReduced || window.matchMedia('(max-width: 640px)').matches) {
+        progress.style.height = '100%';
+        return;
+      }
+
+      let active = false;
+      let ticking = false;
+
+      const update = () => {
+        ticking = false;
+        if (!active || document.hidden) return;
+        const rect = timeline.getBoundingClientRect();
+        const visible = Math.min(Math.max(window.innerHeight - rect.top, 0), rect.height);
+        const ratio = rect.height > 0 ? Math.max(0, Math.min(1, visible / rect.height)) : 0;
+        progress.style.height = `${(ratio * 100).toFixed(2)}%`;
+      };
+
+      const queueUpdate = () => {
+        if (ticking) return;
+        ticking = true;
+        window.requestAnimationFrame(update);
+      };
+
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(
+          entries => {
+            entries.forEach(entry => {
+              active = entry.isIntersecting;
+              if (active) queueUpdate();
+            });
+          },
+          { threshold: 0.05 }
+        );
+        observer.observe(timeline);
+      } else {
+        active = true;
+      }
+
+      window.addEventListener('scroll', queueUpdate, { passive: true });
+      window.addEventListener('resize', queueUpdate);
+      document.addEventListener('visibilitychange', queueUpdate);
+      queueUpdate();
+    });
+    initState.tracingBeam = true;
+  }
+
+  function initReadingProgress(root = document) {
+    const bars = collectTargets(root, '[data-reading-progress-bar]');
+    bars.forEach(bar => {
+      if (!initOnce(bar, 'ReadingProgress')) return;
+      const article = document.querySelector('[data-reading-article]');
+      if (!article) {
+        bar.style.width = '0%';
+        return;
+      }
+
+      const update = () => {
+        const articleTop = article.getBoundingClientRect().top + window.scrollY;
+        const scrollable = Math.max(article.offsetHeight - window.innerHeight, 1);
+        const raw = (window.scrollY - articleTop) / scrollable;
+        const ratio = Math.max(0, Math.min(1, raw));
+        bar.style.width = `${(ratio * 100).toFixed(2)}%`;
+      };
+
+      window.addEventListener('scroll', update, { passive: true });
+      window.addEventListener('resize', update);
+      update();
+    });
+    initState.readingProgress = true;
+  }
+
   function initKeyboardMode() {
     if (initState.keyboard) return;
     const vv = window.visualViewport;
@@ -1947,6 +2099,9 @@
     initOrderHtmxCalc(root);
     initSubmitGuard(root);
     initStatefulLinks(root);
+    initKnowledgeOverlay(root);
+    initTracingBeam(root);
+    initReadingProgress(root);
     initKeyboardMode();
     initOrderDrafts();
     initUnderbaseToggle(root);

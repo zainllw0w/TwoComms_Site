@@ -35,6 +35,9 @@
 ## Phase 6 — SEO/Trust Pages
 - [x] requirements/quality/templates/how-to-press/preflight
 - [x] schema.org + sitemap + OG
+- [x] Knowledge Base SSR (`/blog/`, `/blog/<slug>/`)
+- [x] Tracing Beam + Cards on Click overlay (progressive enhancement)
+- [x] Home integration + internal linking + SEO baseline
 
 ## Phase 7 — Polish/Perf/Deploy
 - [ ] Device matrix pass

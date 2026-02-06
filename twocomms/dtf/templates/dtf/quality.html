@@ -160,6 +160,13 @@
         <p>{% trans "Не запускаємо друк без узгодження при ризиках." %}</p>
         <a class="btn btn-outline" href="{% url 'dtf:order' %}?tab=help">{% trans "Перевірити файл" %}</a>
       </div>
+      <div class="info-card">
+        <h3>{% trans "Пов'язані матеріали" %}</h3>
+        <ul class="list">
+          <li><a href="{% url 'dtf:blog_post' slug='chomu-dtf-vyhidnishe-za-shovkohrafiiu' %}">{% trans "Чому DTF часто вигідніше за шовкографію" %}</a></li>
+          <li><a href="{% url 'dtf:blog_post' slug='dtf-vs-dtg-shcho-krashche-dlia-merchu-2026' %}">{% trans "DTF vs DTG: що краще для мерчу у 2026" %}</a></li>
+        </ul>
+      </div>
     </div>
   </div>
 </section>
