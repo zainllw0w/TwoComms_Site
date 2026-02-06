@@ -1,6 +1,7 @@
 from decimal import Decimal
 import xml.etree.ElementTree as ET
 
+from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from .forms import DtfHelpForm, DtfOrderForm
@@ -243,3 +244,43 @@ class DtfSubdomainIsolationTests(TestCase):
         self.assertIn("https://dtf.twocomms.shop/", dtf_sitemap)
         self.assertNotIn("https://twocomms.shop/", dtf_sitemap)
         self.assertIn("https://twocomms.shop/", main_sitemap)
+
+
+class DtfAuthSurfaceTests(TestCase):
+    def setUp(self):
+        self.client = Client(HTTP_HOST="dtf.twocomms.shop")
+
+    def test_accounts_ajax_routes_are_available_on_dtf_subdomain(self):
+        login_resp = self.client.get("/accounts/ajax/login/", secure=True)
+        register_resp = self.client.get("/accounts/ajax/register/", secure=True)
+        self.assertEqual(login_resp.status_code, 405)
+        self.assertEqual(register_resp.status_code, 405)
+
+    def test_guest_profile_menu_contains_login_controls(self):
+        response = self.client.get("/", secure=True)
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8", "ignore")
+        self.assertIn('data-profile-menu', html)
+        self.assertIn('/accounts/ajax/login/', html)
+        self.assertIn('/accounts/ajax/register/', html)
+        self.assertIn('>Повна форма входу<', html)
+
+    def test_manager_profile_menu_contains_management_link(self):
+        user = User.objects.create_user(username="manager_user", password="secure-pass-123")
+        profile = user.userprofile
+        profile.is_manager = True
+        profile.save(update_fields=["is_manager"])
+        self.client.force_login(user)
+
+        response = self.client.get("/", secure=True)
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8", "ignore")
+        self.assertIn('https://management.twocomms.shop/', html)
+        self.assertIn('/auth/logout/', html)
+
+    def test_logout_endpoint_clears_session(self):
+        user = User.objects.create_user(username="dtf_logout_user", password="secure-pass-123")
+        self.client.force_login(user)
+        response = self.client.post("/auth/logout/", secure=True, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("_auth_user_id", self.client.session)

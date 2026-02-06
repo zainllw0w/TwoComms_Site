@@ -1,6 +1,8 @@
 from decimal import Decimal, InvalidOperation
 import xml.etree.ElementTree as ET
+from urllib.parse import quote
 
+from django.contrib.auth import logout
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
@@ -42,12 +44,96 @@ STATUS_STEPS = [
 ]
 
 
+def _build_initials(value: str | None, fallback: str = "U") -> str:
+    source = (value or "").strip() or (fallback or "").strip()
+    if not source:
+        return "U"
+    parts = [chunk for chunk in source.replace("_", " ").split() if chunk]
+    if len(parts) >= 2:
+        return f"{parts[0][0]}{parts[1][0]}".upper()
+    return parts[0][:2].upper() if parts else source[:2].upper()
+
+
+def _extract_profile_meta(user):
+    if not user.is_authenticated:
+        return {
+            "display_name": _("Гість"),
+            "initials": "TC",
+            "avatar_url": "",
+            "can_management": False,
+            "can_store_admin": False,
+            "can_django_admin": False,
+        }
+
+    profile = None
+    try:
+        profile = user.userprofile
+    except Exception:
+        profile = None
+
+    profile_name = (getattr(profile, "full_name", "") or "").strip() if profile else ""
+    display_name = profile_name or (user.get_full_name() or "").strip() or user.username
+    avatar_url = ""
+    if profile:
+        avatar_field = getattr(profile, "avatar", None)
+        if avatar_field:
+            try:
+                if getattr(avatar_field, "name", ""):
+                    avatar_url = avatar_field.url
+            except Exception:
+                avatar_url = ""
+
+    can_management = bool(
+        user.is_staff
+        or user.is_superuser
+        or (profile and bool(getattr(profile, "is_manager", False)))
+    )
+    can_store_admin = bool(user.is_staff)
+    can_django_admin = bool(user.is_staff or user.is_superuser)
+    return {
+        "display_name": display_name,
+        "initials": _build_initials(display_name, fallback=user.username),
+        "avatar_url": avatar_url,
+        "can_management": can_management,
+        "can_store_admin": can_store_admin,
+        "can_django_admin": can_django_admin,
+    }
+
+
+def _resolve_platform_hosts(request):
+    scheme = "https" if request.is_secure() else "http"
+    current_host = request.get_host().split(":")[0].lower()
+    if current_host.endswith(".twocomms.shop"):
+        main_host = "twocomms.shop"
+    elif current_host in {"twocomms.shop", "www.twocomms.shop"}:
+        main_host = "twocomms.shop"
+    else:
+        main_host = current_host
+
+    management_host = f"management.{main_host}" if main_host not in {"localhost", "127.0.0.1"} else main_host
+    return scheme, current_host, main_host, management_host
+
+
 def _base_context(request):
     lang = activate_language_from_request(request)
     pricing = get_pricing_config()
     rates = [pricing["base_rate"], *[tier["rate"] for tier in pricing["tiers"]]]
     pricing_rate_high = max(rates) if rates else pricing["base_rate"]
     pricing_rate_low = min(rates) if rates else pricing["base_rate"]
+    profile_meta = _extract_profile_meta(request.user)
+    scheme, current_host, main_host, management_host = _resolve_platform_hosts(request)
+    current_url = request.build_absolute_uri()
+    next_param = quote(current_url, safe="")
+    profile_links = {
+        "login": f"{scheme}://{main_host}/login/?next={next_param}",
+        "register": f"{scheme}://{main_host}/register/?next={next_param}",
+        "profile": f"{scheme}://{main_host}/profile/setup/",
+        "orders": f"{scheme}://{main_host}/my/orders/",
+        "store_admin": f"{scheme}://{main_host}/admin-panel/",
+        "management_home": f"{scheme}://{management_host}/",
+        "management_login": f"{scheme}://{management_host}/login/",
+        "django_admin": f"{scheme}://{current_host}/admin/",
+    }
     return {
         "current_lang": lang,
         "lang_links": build_lang_links(request),
@@ -57,6 +143,13 @@ def _base_context(request):
         "pricing_range_label": f"{pricing_rate_high}-{pricing_rate_low}",
         "limits": get_limits(),
         "feature_flags": get_feature_flags(),
+        "profile_display_name": profile_meta["display_name"],
+        "profile_initials": profile_meta["initials"],
+        "profile_avatar_url": profile_meta["avatar_url"],
+        "profile_can_management": profile_meta["can_management"],
+        "profile_can_store_admin": profile_meta["can_store_admin"],
+        "profile_can_django_admin": profile_meta["can_django_admin"],
+        "profile_links": profile_links,
     }
 
 
@@ -157,6 +250,13 @@ def order(request):
         "order_form": order_form,
     })
     return _render(request, "dtf/order.html", ctx)
+
+
+@require_POST
+def logout_view(request):
+    logout(request)
+    messages.success(request, _("Ви вийшли з акаунту"))
+    return redirect("dtf:landing")
 
 
 def thanks(request, kind: str, number: str):

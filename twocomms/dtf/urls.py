@@ -7,6 +7,7 @@ app_name = "dtf"
 
 urlpatterns = [
     path("", views.landing, name="landing"),
+    path("auth/logout/", views.logout_view, name="logout"),
     path("robots.txt", views.robots_txt, name="robots_txt"),
     path("estimate/", views.estimate, name="estimate"),
     path("order/", views.order, name="order"),
