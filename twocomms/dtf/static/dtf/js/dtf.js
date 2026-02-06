@@ -1272,6 +1272,29 @@
     const body = document.body;
     let isOpen = false;
 
+    const syncGeometry = () => {
+      if (!panel) return;
+      drawer.style.position = 'fixed';
+      drawer.style.top = '0';
+      drawer.style.right = '0';
+      drawer.style.bottom = '0';
+      drawer.style.left = '0';
+
+      if (window.innerWidth <= 640) {
+        panel.style.position = 'fixed';
+        panel.style.top = '0';
+        panel.style.right = '0';
+        panel.style.bottom = '0';
+        panel.style.left = '0';
+      } else {
+        panel.style.position = '';
+        panel.style.top = '';
+        panel.style.right = '';
+        panel.style.bottom = '';
+        panel.style.left = '';
+      }
+    };
+
     const syncState = (open) => {
       if (isOpen === open) return;
       isOpen = open;
@@ -1286,6 +1309,7 @@
       if (body) body.classList.toggle('is-drawer-open', open);
 
       if (open && panel) {
+        syncGeometry();
         setFocusTrap(panel, openBtn, close);
       }
     };
@@ -1299,10 +1323,13 @@
     navLinks.forEach(link => link.addEventListener('click', close));
 
     window.addEventListener('resize', () => {
+      syncGeometry();
       if (window.innerWidth > 960 && isOpen) {
         close();
       }
     });
+
+    syncGeometry();
   }
 
   function trackEvent(name, payload) {
