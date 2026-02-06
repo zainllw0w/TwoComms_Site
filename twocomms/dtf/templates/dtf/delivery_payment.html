@@ -1,0 +1,26 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Доставка та оплата" %}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container">
+    <h1>{% trans "Доставка та оплата" %}</h1>
+    <div class="info-grid">
+      <div class="info-card">
+        <h3>{% trans "Доставка" %}</h3>
+        <p>{% trans "Нова Пошта по Україні. Вкажіть місто та відділення при оформленні." %}</p>
+      </div>
+      <div class="info-card">
+        <h3>{% trans "Оплата" %}</h3>
+        <p>{% trans "Оплата після перевірки макета. Надсилаємо реквізити у ваш канал зв'язку." %}</p>
+      </div>
+      <div class="info-card">
+        <h3>{% trans "Юридичні" %}</h3>
+        <p>{% trans "Оферта та політика конфіденційності надаються за запитом." %}</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

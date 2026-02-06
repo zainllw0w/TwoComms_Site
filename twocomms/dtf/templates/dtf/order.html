@@ -1,0 +1,281 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Замовити DTF друк" %}{% endblock %}
+{% block page_id %}order{% endblock %}
+
+{% block content %}
+<section class="section order-section">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "Замовлення DTF" %}</h1>
+      <p>{% trans "Оберіть формат: готовий ганг-лист або допомога з підготовкою." %}</p>
+    </div>
+
+    <div class="order-tabs" data-tab="{{ tab }}">
+      <button class="tab-btn {% if tab == 'ready' %}active{% endif %}" data-target="ready">{% trans "Є готовий ганг-лист (60 см)" %}</button>
+      <button class="tab-btn {% if tab == 'help' %}active{% endif %}" data-target="help">{% trans "Потрібна допомога з розкладкою" %}</button>
+      <div class="tab-indicator"></div>
+    </div>
+
+    <div class="order-panels">
+      <div class="panel {% if tab == 'ready' %}active{% endif %}" id="panel-ready">
+        <form id="order-ready-form" method="post" enctype="multipart/form-data" class="order-form" data-calc="server" data-calc-url="{% url 'dtf:estimate' %}?context=order" data-submit-guard>
+          {% csrf_token %}
+          <input type="hidden" name="tab" value="ready">
+
+          {% if order_form.errors %}
+            <div class="form-errors">
+              {% for field, errors in order_form.errors.items %}
+                {% for error in errors %}
+                  <div class="form-error">{{ error }}</div>
+                {% endfor %}
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="order-layout">
+            <div class="order-left">
+              <div class="order-block upload-block">
+                <div class="block-head">
+                  <h2>{% trans "Upload" %}</h2>
+                  <p>{% trans "Перетягніть файл або натисніть, щоб обрати." %}</p>
+                </div>
+                <label class="upload-zone" data-dropzone>
+                  <div class="upload-title">{% trans "PDF/PNG до 50 МБ" %}</div>
+                  <div class="upload-meta">{% trans "Готовий ганг-лист 60 см" %}</div>
+                  <div class="upload-actions">
+                    <button type="button" class="btn btn-ghost" data-paste>{% trans "Вставити з буфера" %}</button>
+                    <button type="button" class="btn btn-outline" data-add-file>{% trans "Обрати файл" %}</button>
+                  </div>
+                  <div class="upload-filename" data-file-name>—</div>
+                  {{ order_form.gang_file }}
+                </label>
+                <div class="upload-steps">
+                  <span class="chip">{% trans "Upload" %}</span>
+                  <span class="chip">{% trans "Preflight" %}</span>
+                  <span class="chip">{% trans "Ready" %}</span>
+                </div>
+              </div>
+
+              <div class="order-block preview-block">
+                <div class="block-head">
+                  <h3>{% trans "Preview" %}</h3>
+                  <p>{% trans "Перший кадр PDF або PNG (після завантаження)." %}</p>
+                </div>
+                <div class="preview-card asset-slot">
+                  <div class="asset-placeholder">{% trans "Прев'ю з'явиться після завантаження" %}</div>
+                </div>
+              <div class="preview-actions">
+                <button type="button" class="btn btn-ghost" data-replace-file>{% trans "Замінити" %}</button>
+                <button type="button" class="btn btn-ghost" data-remove-file>{% trans "Видалити" %}</button>
+              </div>
+              <label class="toggle underbase-toggle">
+                <input type="checkbox" data-underbase-toggle>
+                <span>{% trans "На чорній тканині (симуляція)" %}</span>
+              </label>
+            </div>
+
+              <div class="order-block preflight-block">
+                <div class="block-head">
+                  <h3>{% trans "Preflight Terminal" %}</h3>
+                  <p>{% trans "Перевірки допомагають уникнути сюрпризів. WARN не блокує замовлення." %}</p>
+                </div>
+                <div class="preflight-list">
+                  <div class="preflight-item">
+                    <span class="preflight-label">DPI</span>
+                    <span class="preflight-status ok">300 — OK</span>
+                  </div>
+                  <div class="preflight-item">
+                    <span class="preflight-label">{% trans "Тонкі лінії" %}</span>
+                    <span class="preflight-status warn">{% trans "Можуть не пропечататись" %}</span>
+                  </div>
+                  <div class="preflight-item">
+                    <span class="preflight-label">{% trans "Прозорість" %}</span>
+                    <span class="preflight-status ok">OK</span>
+                  </div>
+                  <div class="preflight-item">
+                    <span class="preflight-label">{% trans "Ширина" %}</span>
+                    <span class="preflight-status ok">60 см — OK</span>
+                  </div>
+                </div>
+                <label class="risk-check">
+                  <input type="checkbox" name="risk_ack">
+                  <span>{% trans "Я розумію можливі ризики та погоджуюсь" %}</span>
+                </label>
+              </div>
+            </div>
+
+            <aside class="order-right">
+              <div class="order-block params-block">
+                <div class="block-head">
+                  <h2>{% trans "Параметри" %}</h2>
+                  <p>{% trans "Метраж і копії потрібні для точного розрахунку." %}</p>
+                </div>
+                <div class="form-grid">
+                  <label>{% trans "Довжина файлу, м" %}
+                    {{ order_form.length_m }}
+                    <small>{% trans "Якщо не визначилось автоматично — вкажіть вручну" %}</small>
+                  </label>
+                  <label>{% trans "Копії" %}
+                    {{ order_form.copies }}
+                    <small>{% trans "Наприклад: 1 м × 50 = 50 м без великого файлу" %}</small>
+                  </label>
+                </div>
+                <label>{% trans "Коментар" %}
+                  {{ order_form.comment }}
+                </label>
+              </div>
+
+              <div class="order-block delivery-block">
+                <div class="block-head">
+                  <h2>{% trans "Доставка" %}</h2>
+                  <p>{% trans "Нова Пошта, узгодимо відправку після перевірки." %}</p>
+                </div>
+                <div class="form-grid">
+                  <label>{% trans "Ім'я" %}
+                    {{ order_form.name }}
+                  </label>
+                  <label>{% trans "Телефон" %}
+                    {{ order_form.phone }}
+                  </label>
+                  <label>{% trans "Канал зв'язку" %}
+                    {{ order_form.contact_channel }}
+                  </label>
+                  <label>{% trans "Нік/посилання" %}
+                    {{ order_form.contact_handle }}
+                  </label>
+                  <label>{% trans "Місто" %}
+                    {{ order_form.city }}
+                  </label>
+                  <label>{% trans "Відділення НП" %}
+                    {{ order_form.np_branch }}
+                  </label>
+                </div>
+              </div>
+
+              <div class="order-summary" data-summary>
+                <div class="summary-head">
+                  <div class="overline">{% trans "SUMMARY" %}</div>
+                  <div class="summary-title">{% trans "Замовлення" %}</div>
+                </div>
+                <div id="order-calc" data-swap-focus>
+                  {% include 'dtf/partials/order_calc.html' %}
+                </div>
+                <label class="trust-check">
+                  <input type="checkbox" checked disabled>
+                  <span>{% trans "Ручна перевірка макета перед друком" %}</span>
+                </label>
+                <button class="btn btn-primary" type="submit" data-submit>{% trans "Надіслати замовлення" %}</button>
+                <div class="summary-foot">{% trans "Відповімо протягом робочого дня" %}</div>
+              </div>
+            </aside>
+          </div>
+        </form>
+      </div>
+
+      <div class="panel {% if tab == 'help' %}active{% endif %}" id="panel-help">
+        <form id="order-help-form" method="post" enctype="multipart/form-data" class="order-form" data-submit-guard>
+          {% csrf_token %}
+          <input type="hidden" name="tab" value="help">
+
+          {% if help_form.errors %}
+            <div class="form-errors">
+              {% for field, errors in help_form.errors.items %}
+                {% for error in errors %}
+                  <div class="form-error">{{ error }}</div>
+                {% endfor %}
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="order-layout">
+            <div class="order-left">
+              <div class="order-block upload-block">
+                <div class="block-head">
+                  <h2>{% trans "Файли для розкладки" %}</h2>
+                  <p>{% trans "Надішліть архів або посилання — менеджер допоможе з підготовкою." %}</p>
+                </div>
+                <label class="upload-zone" data-dropzone>
+                  <div class="upload-title">{% trans "Файли (multiple)" %}</div>
+                  <div class="upload-meta">{% trans "PNG/PDF/ZIP" %}</div>
+                  <div class="upload-actions">
+                    <button type="button" class="btn btn-ghost" data-add-file>{% trans "Обрати файли" %}</button>
+                  </div>
+                  <div class="upload-filename" data-file-name>—</div>
+                  {{ help_form.files }}
+                </label>
+                <label>{% trans "Посилання на папку" %}
+                  {{ help_form.folder_link }}
+                </label>
+              </div>
+
+              <div class="order-block preflight-block">
+                <div class="block-head">
+                  <h3>{% trans "Задача" %}</h3>
+                  <p>{% trans "Опишіть виріб, кількість і вимоги." %}</p>
+                </div>
+                <label>{% trans "Задача / деталі" %}
+                  {{ help_form.task_description }}
+                </label>
+                <label>{% trans "Терміни" %}
+                  {{ help_form.deadline_note }}
+                </label>
+              </div>
+            </div>
+
+            <aside class="order-right">
+              <div class="order-block delivery-block">
+                <div class="block-head">
+                  <h2>{% trans "Контакти" %}</h2>
+                  <p>{% trans "Ми підтвердимо метраж, вартість та строки." %}</p>
+                </div>
+                <div class="form-grid">
+                  <label>{% trans "Ім'я" %}
+                    {{ help_form.name }}
+                  </label>
+                  <label>{% trans "Телефон" %}
+                    {{ help_form.phone }}
+                  </label>
+                  <label>{% trans "Канал зв'язку" %}
+                    {{ help_form.contact_channel }}
+                  </label>
+                  <label>{% trans "Нік/посилання" %}
+                    {{ help_form.contact_handle }}
+                  </label>
+                  <label>{% trans "Місто" %}
+                    {{ help_form.city }}
+                  </label>
+                  <label>{% trans "Відділення НП" %}
+                    {{ help_form.np_branch }}
+                  </label>
+                </div>
+              </div>
+
+              <div class="order-summary" data-summary>
+                <div class="summary-head">
+                  <div class="overline">{% trans "SUMMARY" %}</div>
+                  <div class="summary-title">{% trans "Заявка" %}</div>
+                </div>
+                <div class="summary-row">
+                  <span>{% trans "Формат" %}</span>
+                  <span class="tabular-nums">{% trans "Допомога з розкладкою" %}</span>
+                </div>
+                <div class="summary-note">{% trans "Менеджер підтвердить метраж та вартість" %}</div>
+                <button class="btn btn-primary" type="submit" data-submit>{% trans "Надіслати заявку" %}</button>
+                <div class="summary-foot">{% trans "Відповімо протягом робочого дня" %}</div>
+              </div>
+            </aside>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="pricing-data"
+     data-base-rate="{{ pricing.base_rate }}"
+     data-tiers="{% for tier in pricing.tiers %}{{ tier.min }}:{{ tier.rate }}{% if not forloop.last %},{% endif %}{% endfor %}"
+     data-max-meters-review="{{ limits.max_meters_review }}"
+     data-max-copies="{{ limits.max_copies }}"></div>
+{% endblock %}
