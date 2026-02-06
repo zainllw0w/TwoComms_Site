@@ -367,6 +367,14 @@
       const panel = menu.querySelector('[data-profile-panel]');
       const scrim = menu.querySelector('[data-profile-scrim]');
       if (!trigger || !panel || !scrim) return;
+      if (body) {
+        if (scrim.parentElement !== body) {
+          body.appendChild(scrim);
+        }
+        if (panel.parentElement !== body) {
+          body.appendChild(panel);
+        }
+      }
 
       let open = false;
       const syncHeaderBackdrop = (active) => {
@@ -382,11 +390,47 @@
         }
       };
 
+      const syncPanelPosition = () => {
+        if (!open) return;
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        const triggerRect = trigger.getBoundingClientRect();
+        const isMobile = viewportWidth <= 640;
+
+        if (isMobile) {
+          const top = Math.max(54, Math.round(triggerRect.bottom + 8));
+          const maxHeight = Math.max(220, Math.floor(viewportHeight - top - 12));
+          panel.style.left = '10px';
+          panel.style.right = '10px';
+          panel.style.top = `${top}px`;
+          panel.style.width = 'auto';
+          panel.style.maxHeight = `${maxHeight}px`;
+          return;
+        }
+
+        panel.style.right = 'auto';
+        panel.style.width = '';
+
+        const panelWidth = panel.offsetWidth || 348;
+        const minLeft = 12;
+        const maxLeft = Math.max(minLeft, viewportWidth - panelWidth - 12);
+        const rawLeft = triggerRect.right - panelWidth;
+        const left = Math.min(maxLeft, Math.max(minLeft, Number.isFinite(rawLeft) ? rawLeft : minLeft));
+        const top = Math.max(12, Math.round(triggerRect.bottom + 10));
+        const maxHeight = Math.max(240, Math.floor(viewportHeight - top - 12));
+
+        panel.style.left = `${Math.round(left)}px`;
+        panel.style.top = `${top}px`;
+        panel.style.maxHeight = `${maxHeight}px`;
+      };
+
       const setOpen = (value, focusMode = 'restore') => {
         const next = Boolean(value);
         if (open === next) return;
         open = next;
         menu.classList.toggle('is-open', open);
+        panel.classList.toggle('is-open', open);
+        scrim.classList.toggle('is-open', open);
         trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
         panel.setAttribute('aria-hidden', open ? 'false' : 'true');
         scrim.setAttribute('aria-hidden', open ? 'false' : 'true');
@@ -399,6 +443,8 @@
           }
           return;
         }
+
+        syncPanelPosition();
 
         const activeForm = panel.querySelector('.profile-auth-form.is-active:not([hidden])');
         let target = null;
@@ -450,7 +496,8 @@
       scrim.addEventListener('click', () => closePanel('restore'));
 
       document.addEventListener('click', (event) => {
-        if (open && !menu.contains(event.target)) {
+        const clickTarget = event.target;
+        if (open && !menu.contains(clickTarget) && !panel.contains(clickTarget)) {
           closePanel('none');
         }
       });
@@ -461,6 +508,14 @@
           closePanel('restore');
         }
       });
+      window.addEventListener('resize', () => {
+        if (!open) return;
+        syncPanelPosition();
+      }, { passive: true });
+      window.addEventListener('scroll', () => {
+        if (!open) return;
+        syncPanelPosition();
+      }, { passive: true });
 
       const tabButtons = Array.from(panel.querySelectorAll('[data-profile-tab-trigger]'));
       const authForms = Array.from(panel.querySelectorAll('[data-profile-auth-form]'));
