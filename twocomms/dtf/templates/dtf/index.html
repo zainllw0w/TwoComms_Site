@@ -1,10 +1,23 @@
 {% extends 'dtf/base.html' %}
 {% load static i18n %}
 
-{% block title %}{% trans "DTF друк у рулоні 60 см — від 280 грн/м" %}{% endblock %}
+{% block title %}
+  {% if current_lang == 'ru' %}
+    DTF печать в рулоне 60 см — {{ pricing_range_label }} {% trans "грн/м" %}
+  {% elif current_lang == 'en' %}
+    DTF roll printing 60 cm — {{ pricing_range_label }} UAH/m
+  {% else %}
+    DTF друк у рулоні 60 см — {{ pricing_range_label }} {% trans "грн/м" %}
+  {% endif %}
+{% endblock %}
 {% block page_id %}home{% endblock %}
 
 {% block extra_head %}
+{% trans "DTF друк рулоном 60 см" as service_name %}
+{% trans "Не відклеїться?" as faq_q1 %}
+{% trans "DTF витримує багато циклів прання за умови правильного переносу." as faq_a1 %}
+{% trans "Є білий шар?" as faq_q2 %}
+{% trans "Так, використовується білий підклад для насичених кольорів." as faq_a2 %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -17,7 +30,7 @@
 {
   "@context": "https://schema.org",
   "@type": "Service",
-  "name": "DTF друк рулоном 60 см",
+  "name": "{{ service_name|escapejs }}",
   "areaServed": "UA",
   "provider": {
     "@type": "Organization",
@@ -32,23 +45,33 @@
   "mainEntity": [
     {
       "@type": "Question",
-      "name": "Не відклеїться?",
+      "name": "{{ faq_q1|escapejs }}",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "DTF витримує багато циклів прання за умови правильного переносу."
+        "text": "{{ faq_a1|escapejs }}"
       }
     },
     {
       "@type": "Question",
-      "name": "Є білий шар?",
+      "name": "{{ faq_q2|escapejs }}",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Так, використовується білий підклад для насичених кольорів."
+        "text": "{{ faq_a2|escapejs }}"
       }
     }
   ]
 }
 </script>
+<link
+  rel="preload"
+  as="image"
+  href="{% static 'dtf/assets/hero-printhead-1024.avif' %}"
+  type="image/avif"
+  imagesrcset="
+    {% static 'dtf/assets/hero-printhead-512.avif' %} 512w,
+    {% static 'dtf/assets/hero-printhead-768.avif' %} 768w,
+    {% static 'dtf/assets/hero-printhead-1024.avif' %} 1024w"
+  imagesizes="(max-width: 960px) 100vw, 45vw">
 {% endblock %}
 
 {% block content %}
@@ -60,11 +83,11 @@
       <h1 class="scan-title">
         <span class="scan-outline ink-spread">
           {% trans "60 см, Hot Peel, все включено" %}<br>
-          <span class="scan-accent">{% trans "від 280 грн/м" %}</span>
+          <span class="scan-accent">{{ pricing_range_label }} {% trans "грн/м" %}</span>
         </span>
         <span class="scan-fill ink-spread" aria-hidden="true">
           {% trans "60 см, Hot Peel, все включено" %}<br>
-          <span class="scan-accent">{% trans "від 280 грн/м" %}</span>
+          <span class="scan-accent">{{ pricing_range_label }} {% trans "грн/м" %}</span>
         </span>
         <span class="scan-line" aria-hidden="true"></span>
       </h1>
@@ -77,25 +100,49 @@
     </div>
     <div class="hero-card" data-reveal>
       <div class="hero-card-header">
-        <div class="price-badge">280–350 грн/м</div>
-        <div class="hot-peel">
-          <img src="{% static 'dtf/assets/hot-peel.gif' %}" alt="Hot Peel" loading="lazy">
-          <span>{% trans "Hot Peel" %}</span>
+        <div class="price-badge">{{ pricing_range_label }} {% trans "грн/м" %}</div>
+        <div class="hot-peel" aria-label="{% trans 'Hot Peel' %}">
+          <span class="hot-peel-mark" aria-hidden="true">
+            <span class="hot-peel-core"></span>
+          </span>
+          <span class="hot-peel-copy">
+            <strong>{% trans "Hot Peel" %}</strong>
+            <small>{% trans "Гаряче зняття" %}</small>
+          </span>
         </div>
       </div>
       <div class="hero-media asset-slot" style="aspect-ratio: 16 / 9">
-        <img src="{% static 'dtf/assets/hero-printhead.png' %}"
-             alt="{% trans 'Фото друкуючої головки DTF (hero)' %}"
-             loading="eager"
-             decoding="async">
+        <picture>
+          <source
+            type="image/avif"
+            srcset="
+              {% static 'dtf/assets/hero-printhead-512.avif' %} 512w,
+              {% static 'dtf/assets/hero-printhead-768.avif' %} 768w,
+              {% static 'dtf/assets/hero-printhead-1024.avif' %} 1024w"
+            sizes="(max-width: 960px) 100vw, 45vw">
+          <source
+            type="image/webp"
+            srcset="
+              {% static 'dtf/assets/hero-printhead-512.webp' %} 512w,
+              {% static 'dtf/assets/hero-printhead-768.webp' %} 768w,
+              {% static 'dtf/assets/hero-printhead-1024.webp' %} 1024w"
+            sizes="(max-width: 960px) 100vw, 45vw">
+          <img src="{% static 'dtf/assets/hero-printhead.png' %}"
+               alt="{% trans 'Фото друкуючої головки DTF (hero)' %}"
+               loading="eager"
+               decoding="async"
+               fetchpriority="high"
+               width="1024"
+               height="1024">
+        </picture>
       </div>
       <div class="hero-card-body">
         <div class="hero-stat">
-          <strong>60 см</strong>
+          <strong>{% trans "60 см" %}</strong>
           <span>{% trans "Ширина рулону" %}</span>
         </div>
         <div class="hero-stat">
-          <strong>24–48 год</strong>
+          <strong>{% trans "24–48 год" %}</strong>
           <span>{% trans "Середній термін" %}</span>
         </div>
         <div class="hero-stat">
@@ -200,13 +247,13 @@
         <span>{% trans "Коментар" %}</span>
       </div>
       <div class="price-row">
-        <span>1–9 м</span>
+        <span>{% trans "1–9 м" %}</span>
         <span>{{ pricing.base_rate }}</span>
         <span>{% trans "Базова" %}</span>
       </div>
       {% for tier in pricing.tiers %}
       <div class="price-row">
-        <span>{% blocktrans %}Від {{ tier.min }} м{% endblocktrans %}</span>
+        <span>{% blocktrans with min=tier.min %}Від {{ min }} м{% endblocktrans %}</span>
         <span>{{ tier.rate }}</span>
         <span>{% trans "Знижка" %}</span>
       </div>
@@ -229,9 +276,9 @@
             <div class="work-media">
               <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" class="skeleton">
               <div class="work-chips">
-                <span class="chip">60 см</span>
+                <span class="chip">{% trans "60 см" %}</span>
                 <span class="chip">{% trans "Макро" %}</span>
-                <span class="chip">24–48 год</span>
+                <span class="chip">{% trans "24–48 год" %}</span>
               </div>
             </div>
             <figcaption>{% if item.title %}{{ item.title }}{% else %}{% trans "Макро" %}{% endif %}</figcaption>
@@ -244,7 +291,7 @@
               <div class="work-chips">
                 <span class="chip">{% trans "Процес" %}</span>
                 <span class="chip">{% trans "Hot Peel" %}</span>
-                <span class="chip">60 см</span>
+                <span class="chip">{% trans "60 см" %}</span>
               </div>
             </div>
             <figcaption>{% if item.title %}{{ item.title }}{% else %}{% trans "Процес" %}{% endif %}</figcaption>
@@ -257,7 +304,7 @@
               <div class="work-chips">
                 <span class="chip">{% trans "Готове" %}</span>
                 <span class="chip">{% trans "Матеріал" %}</span>
-                <span class="chip">1–9 м</span>
+                <span class="chip">{% trans "1–9 м" %}</span>
               </div>
             </div>
             <figcaption>{% if item.title %}{{ item.title }}{% else %}{% trans "Готове" %}{% endif %}</figcaption>
@@ -268,9 +315,9 @@
           <div class="work-media">
             <img src="{% static 'dtf/assets/gallery-macro-01.jpg' %}" alt="{% trans 'Приклад DTF 01' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="work-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Макро" %}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <figcaption>{% trans "Приклад" %}</figcaption>
@@ -279,9 +326,9 @@
           <div class="work-media">
             <img src="{% static 'dtf/assets/gallery-macro-02.jpg' %}" alt="{% trans 'Приклад DTF 02' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="work-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Процес" %}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <figcaption>{% trans "Приклад" %}</figcaption>
@@ -290,9 +337,9 @@
           <div class="work-media">
             <img src="{% static 'dtf/assets/gallery-macro-03.jpg' %}" alt="{% trans 'Приклад DTF 03' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="work-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Готове" %}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <figcaption>{% trans "Приклад" %}</figcaption>
@@ -301,9 +348,9 @@
           <div class="work-media">
             <img src="{% static 'dtf/assets/gallery-macro-04.jpg' %}" alt="{% trans 'Приклад DTF 04' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="work-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Макро" %}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <figcaption>{% trans "Приклад" %}</figcaption>
@@ -312,9 +359,9 @@
           <div class="work-media">
             <img src="{% static 'dtf/assets/gallery-macro-05.jpg' %}" alt="{% trans 'Приклад DTF 05' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="work-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Процес" %}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <figcaption>{% trans "Приклад" %}</figcaption>
@@ -323,9 +370,9 @@
           <div class="work-media">
             <img src="{% static 'dtf/assets/gallery-macro-06.jpg' %}" alt="{% trans 'Приклад DTF 06' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="work-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Готове" %}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <figcaption>{% trans "Приклад" %}</figcaption>
@@ -403,6 +450,17 @@
     </div>
     <div class="section-actions" data-reveal>
       <a class="btn btn-outline" href="{% url 'dtf:gallery' %}">{% trans "Дивитись всі роботи" %}</a>
+    </div>
+
+    <div class="lens-modal" id="lens-modal" aria-hidden="true">
+      <div class="lens-modal-backdrop" data-close></div>
+      <div class="lens-modal-dialog" role="dialog" aria-modal="true" aria-label="{% trans 'Збільшення' %}">
+        <button class="lens-modal-close" type="button" data-close aria-label="{% trans 'Закрити' %}">×</button>
+        <div class="lens-modal-media asset-slot" style="aspect-ratio: 4 / 3">
+          <img data-lens-modal-img src="" alt="" loading="lazy" decoding="async" hidden>
+          <div class="asset-placeholder" data-lens-modal-placeholder>{% trans "Макро‑превʼю (placeholder)" %}</div>
+        </div>
+      </div>
     </div>
   </div>
 </section>

@@ -1,5 +1,6 @@
 (function () {
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const locale = ((document.documentElement.lang || 'uk').toLowerCase() || 'uk').slice(0, 2);
   const flags = getFeatureFlags();
   const initState = {
     keyboard: false,
@@ -27,6 +28,64 @@
   };
 
   const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex=\"-1\"])';
+  const MESSAGES = {
+    uk: {
+      unsupported_ready_file: 'Формат файлу не підтримується для готового ганг-листа. Перейшли у допомогу.',
+      fab_success: "Дякуємо! Менеджер зв'яжеться найближчим часом.",
+      fab_error_form: 'Помилка. Перевірте форму.',
+      fab_error_network: 'Не вдалося надіслати. Спробуйте пізніше.',
+      file_added: 'Файл додано',
+      clipboard_unavailable: 'Буфер недоступний у цьому браузері',
+      file_added_from_clipboard: 'Файл додано з буфера',
+      clipboard_no_file: 'У буфері немає файлу',
+      clipboard_read_failed: 'Не вдалося прочитати буфер',
+      clipboard_has_file_hint: 'Файл у буфері. Натисніть "Вставити з буфера"',
+      link_copied: 'Лінк скопійовано',
+      copy_failed: 'Не вдалося скопіювати',
+      reorder_prefill_added: 'Додали референс до коментаря',
+      auth_success_reload: 'Готово. Оновлюємо сторінку...',
+      auth_error_default: 'Не вдалося увійти. Спробуйте ще раз.',
+    },
+    ru: {
+      unsupported_ready_file: 'Формат файла не поддерживается для готового ганг-листа. Переключили на вкладку помощи.',
+      fab_success: 'Спасибо! Менеджер свяжется с вами в ближайшее время.',
+      fab_error_form: 'Ошибка. Проверьте форму.',
+      fab_error_network: 'Не удалось отправить. Попробуйте позже.',
+      file_added: 'Файл добавлен',
+      clipboard_unavailable: 'Буфер обмена недоступен в этом браузере',
+      file_added_from_clipboard: 'Файл добавлен из буфера',
+      clipboard_no_file: 'В буфере нет файла',
+      clipboard_read_failed: 'Не удалось прочитать буфер обмена',
+      clipboard_has_file_hint: 'Файл есть в буфере. Нажмите "Вставить из буфера"',
+      link_copied: 'Ссылка скопирована',
+      copy_failed: 'Не удалось скопировать',
+      reorder_prefill_added: 'Добавили референс в комментарий',
+      auth_success_reload: 'Готово. Обновляем страницу...',
+      auth_error_default: 'Не удалось войти. Попробуйте снова.',
+    },
+    en: {
+      unsupported_ready_file: 'This file format is not supported for a ready gang sheet. Switched to the help tab.',
+      fab_success: 'Thanks! A manager will contact you shortly.',
+      fab_error_form: 'Error. Please check the form.',
+      fab_error_network: 'Failed to submit. Please try again later.',
+      file_added: 'File added',
+      clipboard_unavailable: 'Clipboard is not available in this browser',
+      file_added_from_clipboard: 'File added from clipboard',
+      clipboard_no_file: 'No file found in clipboard',
+      clipboard_read_failed: 'Failed to read clipboard',
+      clipboard_has_file_hint: 'A file is available in clipboard. Click "Paste from clipboard"',
+      link_copied: 'Link copied',
+      copy_failed: 'Could not copy',
+      reorder_prefill_added: 'Added reorder reference to comment',
+      auth_success_reload: 'Done. Reloading...',
+      auth_error_default: 'Could not complete sign in. Try again.',
+    },
+  };
+
+  function t(key, fallback = '') {
+    const pack = MESSAGES[locale] || MESSAGES.uk;
+    return pack[key] || MESSAGES.uk[key] || fallback || key;
+  }
 
   function allowAmbientEffects() {
     if (prefersReduced) return false;
@@ -115,6 +174,8 @@
   function getFeatureFlags() {
     const defaults = {
       enable_printhead_scan: true,
+      enable_compare: true,
+      enable_lens: true,
       tier_mode: 'auto'
     };
     const el = document.getElementById('dtf-feature-flags');
@@ -274,7 +335,7 @@
       if (!allowed.includes(ext)) {
         const helpTab = document.querySelector('.tab-btn[data-target="help"]');
         if (helpTab) helpTab.click();
-        alert('Формат файлу не підтримується для готового ганг-листа. Перейшли у допомогу.');
+        alert(t('unsupported_ready_file'));
       }
     });
   }
@@ -295,6 +356,264 @@
     return value ? decodeURIComponent(value.split('=')[1]) : '';
   }
 
+  function initProfileMenu(root = document) {
+    const menus = collectTargets(root, '[data-profile-menu]');
+    if (!menus.length) return;
+    menus.forEach(menu => {
+      if (!initOnce(menu, 'ProfileMenu')) return;
+      const body = document.body;
+      const header = document.querySelector('.dtf-header');
+      const trigger = menu.querySelector('[data-profile-trigger]');
+      const panel = menu.querySelector('[data-profile-panel]');
+      const scrim = menu.querySelector('[data-profile-scrim]');
+      if (!trigger || !panel || !scrim) return;
+      if (body) {
+        if (scrim.parentElement !== body) {
+          body.appendChild(scrim);
+        }
+        if (panel.parentElement !== body) {
+          body.appendChild(panel);
+        }
+      }
+
+      let open = false;
+      const syncHeaderBackdrop = (active) => {
+        if (!header) return;
+        if (active) {
+          header.style.background = 'rgba(10, 10, 10, 0.96)';
+          header.style.webkitBackdropFilter = 'none';
+          header.style.backdropFilter = 'none';
+        } else {
+          header.style.background = '';
+          header.style.webkitBackdropFilter = '';
+          header.style.backdropFilter = '';
+        }
+      };
+
+      const syncPanelPosition = () => {
+        if (!open) return;
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        const triggerRect = trigger.getBoundingClientRect();
+        const isMobile = viewportWidth <= 640;
+
+        if (isMobile) {
+          const top = Math.max(54, Math.round(triggerRect.bottom + 8));
+          const maxHeight = Math.max(220, Math.floor(viewportHeight - top - 12));
+          panel.style.left = '10px';
+          panel.style.right = '10px';
+          panel.style.top = `${top}px`;
+          panel.style.width = 'auto';
+          panel.style.maxHeight = `${maxHeight}px`;
+          return;
+        }
+
+        panel.style.right = 'auto';
+        panel.style.width = '';
+
+        const panelWidth = panel.offsetWidth || 348;
+        const minLeft = 12;
+        const maxLeft = Math.max(minLeft, viewportWidth - panelWidth - 12);
+        const rawLeft = triggerRect.right - panelWidth;
+        const left = Math.min(maxLeft, Math.max(minLeft, Number.isFinite(rawLeft) ? rawLeft : minLeft));
+        const top = Math.max(12, Math.round(triggerRect.bottom + 10));
+        const maxHeight = Math.max(240, Math.floor(viewportHeight - top - 12));
+
+        panel.style.left = `${Math.round(left)}px`;
+        panel.style.top = `${top}px`;
+        panel.style.maxHeight = `${maxHeight}px`;
+      };
+
+      const setOpen = (value, focusMode = 'restore') => {
+        const next = Boolean(value);
+        if (open === next) return;
+        open = next;
+        menu.classList.toggle('is-open', open);
+        panel.classList.toggle('is-open', open);
+        scrim.classList.toggle('is-open', open);
+        trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+        scrim.setAttribute('aria-hidden', open ? 'false' : 'true');
+        if (body) body.classList.toggle('is-profile-open', open);
+        syncHeaderBackdrop(open);
+
+        if (!open) {
+          if (focusMode === 'restore' && trigger && trigger.focus) {
+            trigger.focus({ preventScroll: true });
+          }
+          return;
+        }
+
+        syncPanelPosition();
+
+        const activeForm = panel.querySelector('.profile-auth-form.is-active:not([hidden])');
+        let target = null;
+        if (focusMode === 'last') {
+          const focusables = getFocusable(panel);
+          target = focusables[focusables.length - 1] || null;
+        } else if (activeForm) {
+          target = activeForm.querySelector('input, button, [href]');
+        }
+        if (!target) {
+          target = panel.querySelector('.profile-link, .profile-auth-tab, button, input, [href]');
+        }
+        if (target && target.focus) {
+          window.requestAnimationFrame(() => target.focus({ preventScroll: true }));
+        }
+      };
+
+      const closePanel = (focusMode = 'restore') => {
+        setOpen(false, focusMode);
+      };
+
+      const openPanel = (focusMode = 'first') => {
+        setOpen(true, focusMode);
+      };
+
+      trigger.addEventListener('click', (event) => {
+        event.preventDefault();
+        if (open) {
+          closePanel('restore');
+        } else {
+          openPanel('first');
+        }
+      });
+
+      trigger.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          openPanel('first');
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          openPanel('last');
+        }
+      });
+
+      panel.querySelectorAll('[data-profile-close]').forEach(link => {
+        link.addEventListener('click', () => closePanel('none'));
+      });
+
+      scrim.addEventListener('click', () => closePanel('restore'));
+
+      document.addEventListener('click', (event) => {
+        const clickTarget = event.target;
+        if (open && !menu.contains(clickTarget) && !panel.contains(clickTarget)) {
+          closePanel('none');
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && open) {
+          event.preventDefault();
+          closePanel('restore');
+        }
+      });
+      window.addEventListener('resize', () => {
+        if (!open) return;
+        syncPanelPosition();
+      }, { passive: true });
+      window.addEventListener('scroll', () => {
+        if (!open) return;
+        syncPanelPosition();
+      }, { passive: true });
+
+      const tabButtons = Array.from(panel.querySelectorAll('[data-profile-tab-trigger]'));
+      const authForms = Array.from(panel.querySelectorAll('[data-profile-auth-form]'));
+      const feedback = panel.querySelector('[data-profile-feedback]');
+
+      const setFeedback = (message, tone = '') => {
+        if (!feedback) return;
+        feedback.textContent = message || '';
+        feedback.classList.remove('is-error', 'is-success');
+        if (tone === 'error') feedback.classList.add('is-error');
+        if (tone === 'success') feedback.classList.add('is-success');
+      };
+
+      const activateTab = (tabName) => {
+        tabButtons.forEach(btn => {
+          btn.classList.toggle('is-active', btn.dataset.profileTabTrigger === tabName);
+          btn.setAttribute('aria-selected', btn.dataset.profileTabTrigger === tabName ? 'true' : 'false');
+        });
+        authForms.forEach(form => {
+          const active = form.dataset.profileAuthForm === tabName;
+          form.classList.toggle('is-active', active);
+          form.hidden = !active;
+          form.setAttribute('aria-hidden', active ? 'false' : 'true');
+        });
+        setFeedback('');
+      };
+
+      if (tabButtons.length && authForms.length) {
+        tabButtons.forEach(btn => {
+          btn.addEventListener('click', () => activateTab(btn.dataset.profileTabTrigger));
+        });
+      }
+
+      authForms.forEach(form => {
+        if (!initOnce(form, 'ProfileAuthForm')) return;
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const submitBtn = form.querySelector('[data-auth-submit]');
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('is-loading');
+          }
+          setFeedback('');
+
+          const payload = new FormData(form);
+          try {
+            const response = await fetch(form.action, {
+              method: 'POST',
+              body: payload,
+              headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+              },
+              credentials: 'same-origin',
+            });
+            const data = await response.json().catch(() => ({}));
+            if (response.ok && data && data.success) {
+              setFeedback(data.message || t('auth_success_reload'), 'success');
+              window.setTimeout(() => {
+                window.location.reload();
+              }, 250);
+              return;
+            }
+
+            const collectedErrors = [];
+            if (data && typeof data.error === 'string') {
+              collectedErrors.push(data.error);
+            }
+            if (data && data.errors && typeof data.errors === 'object') {
+              Object.values(data.errors).forEach(value => {
+                if (Array.isArray(value)) {
+                  value.forEach(item => {
+                    if (item) collectedErrors.push(String(item));
+                  });
+                } else if (value) {
+                  collectedErrors.push(String(value));
+                }
+              });
+            }
+
+            const message = collectedErrors.join(' ') || t('auth_error_default');
+            setFeedback(message, 'error');
+          } catch (err) {
+            setFeedback(t('auth_error_default'), 'error');
+          } finally {
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.classList.remove('is-loading');
+            }
+          }
+        });
+      });
+
+      if (tabButtons.length) {
+        activateTab('login');
+      }
+    });
+  }
+
   function initFab() {
     if (initState.fab) return;
     const btn = document.getElementById('dtf-fab');
@@ -307,13 +626,20 @@
     const openModal = () => {
       modal.classList.add('active');
       modal.setAttribute('aria-hidden', 'false');
+      if (document.body) document.body.classList.add('is-modal-open');
       if (dialog) setFocusTrap(dialog, btn, closeModal);
     };
 
     const closeModal = () => {
+      const active = document.activeElement;
+      if (active && modal.contains(active)) {
+        if (active.blur) active.blur();
+        if (btn && btn.focus) btn.focus({ preventScroll: true });
+      }
+      releaseFocusTrap();
       modal.classList.remove('active');
       modal.setAttribute('aria-hidden', 'true');
-      releaseFocusTrap();
+      if (document.body) document.body.classList.remove('is-modal-open');
     };
 
     btn.addEventListener('click', () => {
@@ -341,14 +667,14 @@
           const data = await resp.json();
           if (resp.ok) {
             form.reset();
-            modal.classList.remove('active');
-            alert('Дякуємо! Менеджер звʼяжеться найближчим часом.');
+            closeModal();
+            alert(t('fab_success'));
           } else {
-            alert('Помилка. Перевірте форму.');
+            alert(t('fab_error_form'));
             console.error(data);
           }
         } catch (err) {
-          alert('Не вдалося надіслати. Спробуйте пізніше.');
+          alert(t('fab_error_network'));
         }
       });
     }
@@ -819,7 +1145,7 @@
         e.preventDefault();
         zone.classList.remove('is-dragover');
         setFiles(e.dataTransfer.files);
-        showToast('Файл додано', 'success');
+        showToast(t('file_added'), 'success');
       });
 
       input.addEventListener('change', updateName);
@@ -837,7 +1163,7 @@
           e.preventDefault();
           e.stopPropagation();
           if (!navigator.clipboard || !navigator.clipboard.read) {
-            showToast('Буфер недоступний у цьому браузері', 'warn');
+            showToast(t('clipboard_unavailable'), 'warn');
             return;
           }
           try {
@@ -848,12 +1174,12 @@
               const blob = await item.getType(type);
               const file = new File([blob], `clipboard.${type.includes('pdf') ? 'pdf' : 'png'}`, { type });
               setFiles([file]);
-              showToast('Файл додано з буфера', 'success');
+              showToast(t('file_added_from_clipboard'), 'success');
               return;
             }
-            showToast('У буфері немає файлу', 'warn');
+            showToast(t('clipboard_no_file'), 'warn');
           } catch (err) {
-            showToast('Не вдалося прочитати буфер', 'error');
+            showToast(t('clipboard_read_failed'), 'error');
           }
         });
       }
@@ -865,7 +1191,7 @@
         if (!items) return;
         const hasFile = Array.from(items).some(item => item.kind === 'file');
         if (hasFile) {
-          showToast('Файл у буфері. Натисніть \"Вставити з буфера\"', 'warn');
+          showToast(t('clipboard_has_file_hint'), 'warn');
         }
       });
       initState.dropzonePaste = true;
@@ -981,9 +1307,9 @@
         if (!value) return;
         try {
           await navigator.clipboard.writeText(value);
-          showToast('Лінк скопійовано', 'success');
+          showToast(t('link_copied'), 'success');
         } catch (err) {
-          showToast('Не вдалося скопіювати', 'error');
+          showToast(t('copy_failed'), 'error');
         }
       });
     });
@@ -1028,7 +1354,7 @@
     if (comment && !comment.value) {
       comment.value = `Reorder: ${ref}`;
     }
-    showToast('Додали референс до коментаря', 'success');
+    showToast(t('reorder_prefill_added'), 'success');
   }
 
   function initCompare(root = document) {
@@ -1041,14 +1367,100 @@
     cards.forEach(card => {
       if (!initOnce(card, 'Compare')) return;
       const range = card.querySelector('.compare-range');
+      const media = card.querySelector('.compare-media');
       if (!range) return;
-      const update = () => {
-        const value = `${range.value}%`;
-        card.style.setProperty('--compare', value);
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+      const apply = (value) => {
+        const clamped = clamp(Math.round(value), 0, 100);
+        range.value = String(clamped);
+        const compareHost = media || card;
+        compareHost.style.setProperty('--compare', `${clamped}%`);
       };
-      range.addEventListener('input', update);
+      const valueFromClientX = (clientX) => {
+        if (!media) return parseFloat(range.value || '50');
+        const rect = media.getBoundingClientRect();
+        if (!rect.width) return parseFloat(range.value || '50');
+        const ratio = clamp((clientX - rect.left) / rect.width, 0, 1);
+        return ratio * 100;
+      };
+      range.addEventListener('input', () => apply(parseFloat(range.value || '0')));
       range.addEventListener('change', () => trackEvent('compare_interaction', { value: range.value }));
-      update();
+
+      if (media) {
+        let dragging = false;
+        let activePointerId = null;
+        const pointerSupported = 'PointerEvent' in window;
+
+        const stopDrag = () => {
+          if (!dragging) return;
+          dragging = false;
+          activePointerId = null;
+          media.classList.remove('is-dragging');
+          trackEvent('compare_interaction', { value: range.value, mode: 'drag' });
+        };
+
+        if (pointerSupported) {
+          media.addEventListener('pointerdown', (event) => {
+            dragging = true;
+            activePointerId = event.pointerId;
+            media.classList.add('is-dragging');
+            if (media.setPointerCapture) {
+              media.setPointerCapture(event.pointerId);
+            }
+            apply(valueFromClientX(event.clientX));
+          });
+
+          media.addEventListener('pointermove', (event) => {
+            if (!dragging) return;
+            if (activePointerId !== null && event.pointerId !== activePointerId) return;
+            apply(valueFromClientX(event.clientX));
+          });
+
+          media.addEventListener('pointerup', stopDrag);
+          media.addEventListener('pointercancel', stopDrag);
+          media.addEventListener('lostpointercapture', stopDrag);
+        } else {
+          const onMouseMove = (event) => {
+            if (!dragging) return;
+            apply(valueFromClientX(event.clientX));
+          };
+          const onMouseUp = () => {
+            stopDrag();
+            window.removeEventListener('mousemove', onMouseMove);
+          };
+          media.addEventListener('mousedown', (event) => {
+            dragging = true;
+            media.classList.add('is-dragging');
+            apply(valueFromClientX(event.clientX));
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp, { once: true });
+          });
+
+          const onTouchMove = (event) => {
+            if (!dragging) return;
+            const touch = event.touches && event.touches[0];
+            if (!touch) return;
+            apply(valueFromClientX(touch.clientX));
+            event.preventDefault();
+          };
+          const onTouchEnd = () => {
+            stopDrag();
+            window.removeEventListener('touchmove', onTouchMove);
+          };
+          media.addEventListener('touchstart', (event) => {
+            const touch = event.touches && event.touches[0];
+            if (!touch) return;
+            dragging = true;
+            media.classList.add('is-dragging');
+            apply(valueFromClientX(touch.clientX));
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            window.addEventListener('touchend', onTouchEnd, { once: true });
+            window.addEventListener('touchcancel', onTouchEnd, { once: true });
+          }, { passive: true });
+        }
+      }
+
+      apply(parseFloat(range.value || '50'));
     });
   }
 
@@ -1061,9 +1473,12 @@
     const dialog = modal.querySelector('.lens-modal-dialog');
 
     const close = () => {
+      if (document.activeElement && modal.contains(document.activeElement)) {
+        modal.blur && modal.blur();
+      }
+      releaseFocusTrap();
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
-      releaseFocusTrap();
     };
 
     if (!initState.lensModal) {
@@ -1220,23 +1635,68 @@
     initState.drawer = true;
     const panel = drawer.querySelector('.nav-panel');
     const closeButtons = drawer.querySelectorAll('[data-drawer-close]');
+    const navLinks = drawer.querySelectorAll('.nav-panel-links a');
+    const body = document.body;
+    let isOpen = false;
 
-    const open = () => {
-      drawer.classList.add('is-open');
-      drawer.setAttribute('aria-hidden', 'false');
-      openBtn.setAttribute('aria-expanded', 'true');
-      if (panel) setFocusTrap(panel, openBtn, close);
+    const syncGeometry = () => {
+      if (!panel) return;
+      drawer.style.position = 'fixed';
+      drawer.style.top = '0';
+      drawer.style.right = '0';
+      drawer.style.bottom = '0';
+      drawer.style.left = '0';
+
+      if (window.innerWidth <= 640) {
+        panel.style.position = 'fixed';
+        panel.style.top = '0';
+        panel.style.right = '0';
+        panel.style.bottom = '0';
+        panel.style.left = '0';
+      } else {
+        panel.style.position = '';
+        panel.style.top = '';
+        panel.style.right = '';
+        panel.style.bottom = '';
+        panel.style.left = '';
+      }
     };
 
-    const close = () => {
-      drawer.classList.remove('is-open');
-      drawer.setAttribute('aria-hidden', 'true');
-      openBtn.setAttribute('aria-expanded', 'false');
-      releaseFocusTrap();
+    const syncState = (open) => {
+      if (isOpen === open) return;
+      isOpen = open;
+
+      if (!open) {
+        releaseFocusTrap();
+      }
+
+      drawer.classList.toggle('is-open', open);
+      drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+      openBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (body) body.classList.toggle('is-drawer-open', open);
+
+      if (open && panel) {
+        syncGeometry();
+        setFocusTrap(panel, openBtn, close);
+      }
     };
 
-    openBtn.addEventListener('click', open);
+    const open = () => syncState(true);
+    const close = () => syncState(false);
+    const toggle = () => syncState(!isOpen);
+
+    openBtn.addEventListener('click', toggle);
     closeButtons.forEach(btn => btn.addEventListener('click', close));
+    navLinks.forEach(link => link.addEventListener('click', close));
+
+    window.addEventListener('resize', () => {
+      syncGeometry();
+      if (window.innerWidth > 960 && isOpen) {
+        close();
+      }
+    });
+
+    syncGeometry();
   }
 
   function trackEvent(name, payload) {
@@ -1296,6 +1756,7 @@
     initFileGuard(root);
     initSkeletons(root);
     initFab();
+    initProfileMenu(root);
     initPrintheadScan();
     initInkFlow();
     initHeroTilt();

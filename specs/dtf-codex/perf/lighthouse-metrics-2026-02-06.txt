@@ -1,0 +1,18 @@
+home-desktop-baseline.report.json
+  performance=57 accessibility=91 best_practices=96 seo=100
+  lcp=5.58s cls=0.017 inp=5.58s (interactive_proxy)
+home-mobile-baseline.report.json
+  performance=60 accessibility=91 best_practices=96 seo=100
+  lcp=7.29s cls=0.000 inp=7.31s (interactive_proxy)
+order-desktop-baseline.report.json
+  performance=83 accessibility=100 best_practices=96 seo=100
+  lcp=2.08s cls=0.014 inp=2.08s (interactive_proxy)
+order-mobile-baseline.report.json
+  performance=88 accessibility=100 best_practices=96 seo=100
+  lcp=3.02s cls=0.017 inp=3.02s (interactive_proxy)
+price-desktop-baseline.report.json
+  performance=84 accessibility=94 best_practices=96 seo=100
+  lcp=1.80s cls=0.037 inp=1.80s (interactive_proxy)
+price-mobile-baseline.report.json
+  performance=73 accessibility=94 best_practices=96 seo=100
+  lcp=4.75s cls=0.051 inp=4.75s (interactive_proxy)

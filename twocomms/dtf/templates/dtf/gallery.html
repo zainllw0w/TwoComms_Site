@@ -67,9 +67,9 @@
           <div class="gallery-media">
             <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" class="skeleton">
             <div class="gallery-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{{ item.get_category_display }}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <div class="gallery-body">
@@ -78,8 +78,8 @@
               <summary>{% trans "Паспорт кейса" %}</summary>
               <div class="passport-body">
                 <div>{% trans "Матеріал" %}: {% trans "бавовна" %}</div>
-                <div>{% trans "Метраж" %}: 12 м</div>
-                <div>{% trans "Термін" %}: 24–48 год</div>
+                <div>{% trans "Метраж" %}: {% trans "12 м" %}</div>
+                <div>{% trans "Термін" %}: {% trans "24–48 год" %}</div>
               </div>
             </details>
             <a class="btn btn-outline" href="{% url 'dtf:order' %}?ref={{ item.id }}">{% trans "Зробити як тут" %}</a>
@@ -90,9 +90,9 @@
           <div class="gallery-media asset-slot">
             <img src="{% static 'dtf/assets/gallery-macro-01.jpg' %}" alt="{% trans 'Галерея приклад 01' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="gallery-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Макро" %}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <div class="gallery-body">
@@ -105,9 +105,9 @@
           <div class="gallery-media asset-slot">
             <img src="{% static 'dtf/assets/gallery-macro-02.jpg' %}" alt="{% trans 'Галерея приклад 02' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="gallery-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Процес" %}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <div class="gallery-body">
@@ -120,9 +120,9 @@
           <div class="gallery-media asset-slot">
             <img src="{% static 'dtf/assets/gallery-macro-03.jpg' %}" alt="{% trans 'Галерея приклад 03' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="gallery-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Готове" %}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <div class="gallery-body">
@@ -135,9 +135,9 @@
           <div class="gallery-media asset-slot">
             <img src="{% static 'dtf/assets/gallery-macro-04.jpg' %}" alt="{% trans 'Галерея приклад 04' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="gallery-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Макро" %}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <div class="gallery-body">
@@ -150,9 +150,9 @@
           <div class="gallery-media asset-slot">
             <img src="{% static 'dtf/assets/gallery-macro-05.jpg' %}" alt="{% trans 'Галерея приклад 05' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="gallery-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Процес" %}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <div class="gallery-body">
@@ -165,9 +165,9 @@
           <div class="gallery-media asset-slot">
             <img src="{% static 'dtf/assets/gallery-macro-06.jpg' %}" alt="{% trans 'Галерея приклад 06' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="gallery-chips">
-              <span class="chip">60 см</span>
+              <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Готове" %}</span>
-              <span class="chip">24–48 год</span>
+              <span class="chip">{% trans "24–48 год" %}</span>
             </div>
           </div>
           <div class="gallery-body">

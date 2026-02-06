@@ -1,9 +1,12 @@
 from decimal import Decimal, InvalidOperation
+import xml.etree.ElementTree as ET
+from urllib.parse import quote
 
+from django.contrib.auth import logout
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse
+from django.urls import reverse, NoReverseMatch
 from django.views.decorators.http import require_http_methods, require_POST
 from django.utils.translation import gettext_lazy as _
 
@@ -41,21 +44,129 @@ STATUS_STEPS = [
 ]
 
 
+def _build_initials(value: str | None, fallback: str = "U") -> str:
+    source = (value or "").strip() or (fallback or "").strip()
+    if not source:
+        return "U"
+    parts = [chunk for chunk in source.replace("_", " ").split() if chunk]
+    if len(parts) >= 2:
+        return f"{parts[0][0]}{parts[1][0]}".upper()
+    return parts[0][:2].upper() if parts else source[:2].upper()
+
+
+def _extract_profile_meta(user):
+    if not user.is_authenticated:
+        return {
+            "display_name": _("Гість"),
+            "initials": "TC",
+            "avatar_url": "",
+            "can_management": False,
+            "can_store_admin": False,
+            "can_django_admin": False,
+        }
+
+    profile = None
+    try:
+        profile = user.userprofile
+    except Exception:
+        profile = None
+
+    profile_name = (getattr(profile, "full_name", "") or "").strip() if profile else ""
+    display_name = profile_name or (user.get_full_name() or "").strip() or user.username
+    avatar_url = ""
+    if profile:
+        avatar_field = getattr(profile, "avatar", None)
+        if avatar_field:
+            try:
+                if getattr(avatar_field, "name", ""):
+                    avatar_url = avatar_field.url
+            except Exception:
+                avatar_url = ""
+
+    can_management = bool(
+        user.is_staff
+        or user.is_superuser
+        or (profile and bool(getattr(profile, "is_manager", False)))
+    )
+    can_store_admin = bool(user.is_staff)
+    can_django_admin = bool(user.is_staff or user.is_superuser)
+    return {
+        "display_name": display_name,
+        "initials": _build_initials(display_name, fallback=user.username),
+        "avatar_url": avatar_url,
+        "can_management": can_management,
+        "can_store_admin": can_store_admin,
+        "can_django_admin": can_django_admin,
+    }
+
+
+def _resolve_platform_hosts(request):
+    scheme = "https" if request.is_secure() else "http"
+    current_host = request.get_host().split(":")[0].lower()
+    if current_host.endswith(".twocomms.shop"):
+        main_host = "twocomms.shop"
+    elif current_host in {"twocomms.shop", "www.twocomms.shop"}:
+        main_host = "twocomms.shop"
+    else:
+        main_host = current_host
+
+    management_host = f"management.{main_host}" if main_host not in {"localhost", "127.0.0.1"} else main_host
+    return scheme, current_host, main_host, management_host
+
+
 def _base_context(request):
     lang = activate_language_from_request(request)
+    pricing = get_pricing_config()
+    rates = [pricing["base_rate"], *[tier["rate"] for tier in pricing["tiers"]]]
+    pricing_rate_high = max(rates) if rates else pricing["base_rate"]
+    pricing_rate_low = min(rates) if rates else pricing["base_rate"]
+    profile_meta = _extract_profile_meta(request.user)
+    scheme, current_host, main_host, management_host = _resolve_platform_hosts(request)
+    current_url = request.build_absolute_uri()
+    next_param = quote(current_url, safe="")
+    next_path_param = quote(request.get_full_path() or "/", safe="")
+    try:
+        google_login_path = reverse("social:begin", args=("google-oauth2",))
+    except NoReverseMatch:
+        google_login_path = "/oauth/login/google-oauth2/"
+    profile_links = {
+        "login": f"{scheme}://{main_host}/login/?next={next_param}",
+        "register": f"{scheme}://{main_host}/register/?next={next_param}",
+        "google_login": (
+            f"{scheme}://{current_host}"
+            f"{google_login_path}"
+            f"?next={next_path_param}"
+        ),
+        "profile": f"{scheme}://{main_host}/profile/setup/",
+        "orders": f"{scheme}://{main_host}/my/orders/",
+        "store_admin": f"{scheme}://{main_host}/admin-panel/",
+        "management_home": f"{scheme}://{management_host}/",
+        "management_login": f"{scheme}://{management_host}/login/",
+        "django_admin": f"{scheme}://{current_host}/admin/",
+    }
     return {
         "current_lang": lang,
         "lang_links": build_lang_links(request),
-        "pricing": get_pricing_config(),
+        "pricing": pricing,
+        "pricing_rate_high": pricing_rate_high,
+        "pricing_rate_low": pricing_rate_low,
+        "pricing_range_label": f"{pricing_rate_high}-{pricing_rate_low}",
         "limits": get_limits(),
         "feature_flags": get_feature_flags(),
+        "profile_display_name": profile_meta["display_name"],
+        "profile_initials": profile_meta["initials"],
+        "profile_avatar_url": profile_meta["avatar_url"],
+        "profile_can_management": profile_meta["can_management"],
+        "profile_can_store_admin": profile_meta["can_store_admin"],
+        "profile_can_django_admin": profile_meta["can_django_admin"],
+        "profile_links": profile_links,
     }
 
 
 def _render(request, template, context, status: int | None = None):
     response = render(request, template, context, status=status)
     lang = request.GET.get("lang")
-    if lang in ("uk", "ru"):
+    if lang in ("uk", "ru", "en"):
         response.set_cookie("dtf_lang", lang, max_age=365 * 24 * 3600)
     return response
 
@@ -117,7 +228,7 @@ def order(request):
                 lead.lead_type = LeadType.HELP
                 lead.source = "order_help"
                 lead.save()
-                for file in request.FILES.getlist("files"):
+                for file in getattr(help_form, "_validated_files", []):
                     DtfLeadAttachment.objects.create(lead=lead, file=file)
                 notify_new_lead(lead)
                 return redirect("dtf:thanks", kind="lead", number=lead.lead_number)
@@ -149,6 +260,13 @@ def order(request):
         "order_form": order_form,
     })
     return _render(request, "dtf/order.html", ctx)
+
+
+@require_POST
+def logout_view(request):
+    logout(request)
+    messages.success(request, _("Ви вийшли з акаунту"))
+    return redirect("dtf:landing")
 
 
 def thanks(request, kind: str, number: str):
@@ -292,6 +410,61 @@ def quality(request):
     return _render(request, "dtf/quality.html", ctx)
 
 
+def robots_txt(request):
+    host = request.get_host().split(":")[0]
+    scheme = request.scheme or "https"
+    lines = [
+        "User-agent: *",
+        "Allow: /",
+        "",
+        f"Sitemap: {scheme}://{host}/sitemap.xml",
+        "",
+        "Disallow: /admin/",
+    ]
+    return HttpResponse("\n".join(lines) + "\n", content_type="text/plain; charset=utf-8")
+
+
+def sitemap_xml(request):
+    host = request.get_host().split(":")[0]
+    scheme = request.scheme or "https"
+    base_url = f"{scheme}://{host}"
+
+    route_names = [
+        "dtf:landing",
+        "dtf:order",
+        "dtf:status",
+        "dtf:gallery",
+        "dtf:requirements",
+        "dtf:price",
+        "dtf:delivery_payment",
+        "dtf:contacts",
+        "dtf:privacy",
+        "dtf:terms",
+        "dtf:returns",
+        "dtf:requisites",
+        "dtf:quality",
+        "dtf:templates",
+        "dtf:how_to_press",
+        "dtf:preflight",
+    ]
+
+    unique_paths = []
+    seen = set()
+    for route_name in route_names:
+        path = reverse(route_name)
+        if path not in seen:
+            unique_paths.append(path)
+            seen.add(path)
+
+    urlset = ET.Element("urlset", {"xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"})
+    for path in unique_paths:
+        url_el = ET.SubElement(urlset, "url")
+        ET.SubElement(url_el, "loc").text = f"{base_url}{path}"
+
+    xml_payload = ET.tostring(urlset, encoding="utf-8", xml_declaration=True)
+    return HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
+
+
 def templates(request):
     ctx = _base_context(request)
     return _render(request, "dtf/templates.html", ctx)
@@ -312,7 +485,7 @@ def preflight(request):
             lead.lead_type = LeadType.HELP
             lead.source = "preflight"
             lead.save()
-            for file in request.FILES.getlist("files"):
+            for file in getattr(form, "_validated_files", []):
                 DtfLeadAttachment.objects.create(lead=lead, file=file)
             notify_new_lead(lead)
             return redirect("dtf:thanks", kind="lead", number=lead.lead_number)
@@ -330,6 +503,26 @@ def delivery_payment(request):
 def contacts(request):
     ctx = _base_context(request)
     return _render(request, "dtf/contacts.html", ctx)
+
+
+def privacy(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/legal/privacy.html", ctx)
+
+
+def terms(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/legal/terms.html", ctx)
+
+
+def returns(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/legal/returns.html", ctx)
+
+
+def requisites(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/legal/requisites.html", ctx)
 
 
 def handler404(request, exception):
