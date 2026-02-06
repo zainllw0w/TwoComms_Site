@@ -49,7 +49,7 @@
       </div>
       {% for tier in pricing.tiers %}
       <div class="price-row">
-        <span>{% if current_lang == 'ru' %}От {{ tier.min }} м{% else %}Від {{ tier.min }} м{% endif %}</span>
+        <span>{% blocktrans with min=tier.min %}Від {{ min }} м{% endblocktrans %}</span>
         <span>{{ tier.rate }}</span>
         <span>
           {% trans "Знижка" %}

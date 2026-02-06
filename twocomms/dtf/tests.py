@@ -74,6 +74,12 @@ class DtfP0RoutesTests(TestCase):
         self.assertEqual(response.status_code, 301)
         self.assertEqual(response["Location"], "/price/")
 
+    def test_legal_pages_return_200(self):
+        for path in ("/privacy/", "/terms/", "/returns/", "/requisites/"):
+            with self.subTest(path=path):
+                response = self.client.get(path, secure=True)
+                self.assertEqual(response.status_code, 200)
+
     def test_robots_points_to_current_host_sitemap(self):
         response = self.client.get("/robots.txt", secure=True)
         self.assertEqual(response.status_code, 200)
@@ -90,6 +96,7 @@ class DtfP0RoutesTests(TestCase):
         locs = [node.text for node in xml_root.findall("sm:url/sm:loc", ns) if node.text]
 
         self.assertTrue(any(loc.endswith("/price/") for loc in locs))
+        self.assertTrue(any(loc.endswith("/privacy/") for loc in locs))
         self.assertTrue(all(loc.startswith("https://dtf.twocomms.shop/") for loc in locs))
         self.assertFalse(any(loc.startswith("https://twocomms.shop/") for loc in locs))
 
@@ -210,6 +217,16 @@ class DtfSubdomainIsolationTests(TestCase):
         self.assertIn('width="1024"', html)
         self.assertIn('height="1024"', html)
         self.assertIn('id="lens-modal"', html)
+        self.assertIn('class="hot-peel-mark"', html)
+        self.assertNotIn("hot-peel.gif", html)
+
+    def test_dtf_home_supports_en_language_switch(self):
+        response = self.dtf_client.get("/?lang=en", secure=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.cookies["dtf_lang"].value, "en")
+        html = response.content.decode("utf-8", "ignore")
+        self.assertIn('>EN</a>', html)
+        self.assertIn('lang=en', html)
 
     def test_robots_are_isolated_by_host(self):
         dtf_robots = self.dtf_client.get("/robots.txt", secure=True).content.decode("utf-8", "ignore")
