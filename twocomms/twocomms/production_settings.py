@@ -63,7 +63,7 @@ if _allowed_hosts_env:
         if 'twocomms.shop' in ALLOWED_HOSTS and 'www.twocomms.shop' not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append('www.twocomms.shop')
             
-    # Always ensure management subdomain is allowed
+    # Always ensure subdomains are allowed
     if 'management.twocomms.shop' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append('management.twocomms.shop')
     if 'dtf.twocomms.shop' not in ALLOWED_HOSTS:
@@ -73,6 +73,7 @@ else:
     ALLOWED_HOSTS = [
         'twocomms.shop',
         'www.twocomms.shop',
+        'dtf.twocomms.shop',
         'test.com',
         'www.test.com',
         'localhost',

@@ -77,6 +77,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get
     'www.test.com',
     'twocomms.shop',
     'www.twocomms.shop',
+    'dtf.twocomms.shop',
     'localhost',
     '127.0.0.1',
     'mail.twocomms.shop',  # Added for mail subdomain
@@ -126,12 +127,12 @@ INSTALLED_APPS = [
     "accounts",                     # регистрируем приложение аккаунтов
     "orders.apps.OrdersConfig",     # заказы (корректный AppConfig)
     "productcolors.apps.ProductColorsConfig",  # цветовые варианты товаров
+    "dtf.apps.DtfConfig",           # DTF subdomain app
     # Social auth
     "social_django",
     
     # Management Subdomain App
     "management",
-    "dtf.apps.DtfConfig",
 ]
 
 # Явно переопределим список middleware, чтобы исключить любые лишние строки
@@ -625,6 +626,8 @@ SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 дней
 SESSION_COOKIE_HTTPONLY = True  # Защита от XSS атак (cookie недоступен для JavaScript)
 SESSION_COOKIE_SAMESITE = 'Lax'  # Защита от CSRF атак (cookie не отправляется с других сайтов)
 SESSION_COOKIE_SECURE = not DEBUG  # HTTPS только в продакшене
+# Shared session for trusted subdomains (dtf, management, main site)
+SESSION_COOKIE_DOMAIN = os.environ.get('SESSION_COOKIE_DOMAIN') or ('.twocomms.shop' if not DEBUG else None)
 
 # Session serializer (JSON для безопасности)
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.JSONSerializer'
@@ -778,6 +781,7 @@ if not DEBUG:
 
 # CSRF cookie security (адаптивная для локальной разработки и продакшена)
 CSRF_COOKIE_SECURE = not DEBUG      # HTTPS только в продакшене
+CSRF_COOKIE_DOMAIN = os.environ.get('CSRF_COOKIE_DOMAIN') or ('.twocomms.shop' if not DEBUG else None)
 
 # CSRF настройки
 CSRF_TRUSTED_ORIGINS = [
@@ -785,7 +789,9 @@ CSRF_TRUSTED_ORIGINS = [
     'http://www.twocomms.shop',
     'https://twocomms.shop',
     'https://www.twocomms.shop',
+    'https://dtf.twocomms.shop',
     'https://management.twocomms.shop',
+    'https://*.twocomms.shop',
     # удалён домен pythonanywhere по требованию
 ]
 

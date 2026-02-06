@@ -39,7 +39,7 @@
         <span>{% trans "Коментар" %}</span>
       </div>
       <div class="price-row">
-        <span>1–9 м</span>
+        <span>{% trans "1–9 м" %}</span>
         <span>{{ pricing.base_rate }}</span>
         <span>
           {% trans "Базова" %}
@@ -49,7 +49,7 @@
       </div>
       {% for tier in pricing.tiers %}
       <div class="price-row">
-        <span>{% blocktrans %}Від {{ tier.min }} м{% endblocktrans %}</span>
+        <span>{% blocktrans with min=tier.min %}Від {{ min }} м{% endblocktrans %}</span>
         <span>{{ tier.rate }}</span>
         <span>
           {% trans "Знижка" %}
