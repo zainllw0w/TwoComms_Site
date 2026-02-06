@@ -433,6 +433,17 @@
     <div class="section-actions" data-reveal>
       <a class="btn btn-outline" href="{% url 'dtf:gallery' %}">{% trans "Дивитись всі роботи" %}</a>
     </div>
+
+    <div class="lens-modal" id="lens-modal" aria-hidden="true">
+      <div class="lens-modal-backdrop" data-close></div>
+      <div class="lens-modal-dialog" role="dialog" aria-modal="true" aria-label="{% trans 'Збільшення' %}">
+        <button class="lens-modal-close" type="button" data-close aria-label="{% trans 'Закрити' %}">×</button>
+        <div class="lens-modal-media asset-slot" style="aspect-ratio: 4 / 3">
+          <img data-lens-modal-img src="" alt="" loading="lazy" decoding="async" hidden>
+          <div class="asset-placeholder" data-lens-modal-placeholder>{% trans "Макро‑превʼю (placeholder)" %}</div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
