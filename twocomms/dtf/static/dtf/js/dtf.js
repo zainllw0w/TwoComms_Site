@@ -1051,7 +1051,8 @@
       const apply = (value) => {
         const clamped = clamp(Math.round(value), 0, 100);
         range.value = String(clamped);
-        card.style.setProperty('--compare', `${clamped}%`);
+        const compareHost = media || card;
+        compareHost.style.setProperty('--compare', `${clamped}%`);
       };
       const valueFromClientX = (clientX) => {
         if (!media) return parseFloat(range.value || '50');
