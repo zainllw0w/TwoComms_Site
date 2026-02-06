@@ -23,6 +23,10 @@ urlpatterns = [
     path("prices/", RedirectView.as_view(pattern_name="dtf:price", permanent=True), name="prices"),
     path("delivery-payment/", views.delivery_payment, name="delivery_payment"),
     path("contacts/", views.contacts, name="contacts"),
+    path("privacy/", views.privacy, name="privacy"),
+    path("terms/", views.terms, name="terms"),
+    path("returns/", views.returns, name="returns"),
+    path("requisites/", views.requisites, name="requisites"),
     path("lead/fab/", views.fab_lead, name="fab_lead"),
     path("sitemap.xml", views.sitemap_xml, name="dtf-sitemap"),
 ]

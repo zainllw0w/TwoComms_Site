@@ -1,0 +1,18 @@
+{% extends "dtf/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Реквізити" %}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container">
+    <h1>{% trans "Реквізити" %}</h1>
+    <p>{% trans "TEMP: Публічні реквізити оновлюються. Актуальні реквізити менеджер надсилає перед оплатою." %}</p>
+    <ul class="list">
+      <li>{% trans "Оплата узгоджується після ручної перевірки макета і підтвердження деталей." %}</li>
+      <li>{% trans "Для отримання рахунку/реквізитів залиште заявку на сторінці замовлення." %}</li>
+      <li>{% trans "За потреби реквізити дублюються у Telegram/WhatsApp/Instagram." %}</li>
+    </ul>
+  </div>
+</section>
+{% endblock %}

@@ -1,7 +1,15 @@
 {% extends 'dtf/base.html' %}
 {% load static i18n %}
 
-{% block title %}{% if current_lang == 'ru' %}DTF печать в рулоне 60 см — {{ pricing_range_label }} грн/м{% else %}DTF друк у рулоні 60 см — {{ pricing_range_label }} грн/м{% endif %}{% endblock %}
+{% block title %}
+  {% if current_lang == 'ru' %}
+    DTF печать в рулоне 60 см — {{ pricing_range_label }} грн/м
+  {% elif current_lang == 'en' %}
+    DTF roll printing 60 cm — {{ pricing_range_label }} UAH/m
+  {% else %}
+    DTF друк у рулоні 60 см — {{ pricing_range_label }} грн/м
+  {% endif %}
+{% endblock %}
 {% block page_id %}home{% endblock %}
 
 {% block extra_head %}
@@ -88,9 +96,14 @@
     <div class="hero-card" data-reveal>
       <div class="hero-card-header">
         <div class="price-badge">{{ pricing_range_label }} грн/м</div>
-        <div class="hot-peel">
-          <img src="{% static 'dtf/assets/hot-peel.gif' %}" alt="Hot Peel" loading="lazy">
-          <span>{% trans "Hot Peel" %}</span>
+        <div class="hot-peel" aria-label="{% trans 'Hot Peel' %}">
+          <span class="hot-peel-mark" aria-hidden="true">
+            <span class="hot-peel-core"></span>
+          </span>
+          <span class="hot-peel-copy">
+            <strong>{% trans "Hot Peel" %}</strong>
+            <small>{% trans "Гаряче зняття" %}</small>
+          </span>
         </div>
       </div>
       <div class="hero-media asset-slot" style="aspect-ratio: 16 / 9">
@@ -235,7 +248,7 @@
       </div>
       {% for tier in pricing.tiers %}
       <div class="price-row">
-        <span>{% if current_lang == 'ru' %}От {{ tier.min }} м{% else %}Від {{ tier.min }} м{% endif %}</span>
+        <span>{% blocktrans with min=tier.min %}Від {{ min }} м{% endblocktrans %}</span>
         <span>{{ tier.rate }}</span>
         <span>{% trans "Знижка" %}</span>
       </div>

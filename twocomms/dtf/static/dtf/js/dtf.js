@@ -115,6 +115,8 @@
   function getFeatureFlags() {
     const defaults = {
       enable_printhead_scan: true,
+      enable_compare: true,
+      enable_lens: true,
       tier_mode: 'auto'
     };
     const el = document.getElementById('dtf-feature-flags');
@@ -307,13 +309,15 @@
     const openModal = () => {
       modal.classList.add('active');
       modal.setAttribute('aria-hidden', 'false');
+      if (document.body) document.body.classList.add('is-modal-open');
       if (dialog) setFocusTrap(dialog, btn, closeModal);
     };
 
     const closeModal = () => {
+      releaseFocusTrap();
       modal.classList.remove('active');
       modal.setAttribute('aria-hidden', 'true');
-      releaseFocusTrap();
+      if (document.body) document.body.classList.remove('is-modal-open');
     };
 
     btn.addEventListener('click', () => {
@@ -341,7 +345,7 @@
           const data = await resp.json();
           if (resp.ok) {
             form.reset();
-            modal.classList.remove('active');
+            closeModal();
             alert('Дякуємо! Менеджер звʼяжеться найближчим часом.');
           } else {
             alert('Помилка. Перевірте форму.');
@@ -1041,14 +1045,58 @@
     cards.forEach(card => {
       if (!initOnce(card, 'Compare')) return;
       const range = card.querySelector('.compare-range');
+      const media = card.querySelector('.compare-media');
       if (!range) return;
-      const update = () => {
-        const value = `${range.value}%`;
-        card.style.setProperty('--compare', value);
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+      const apply = (value) => {
+        const clamped = clamp(Math.round(value), 0, 100);
+        range.value = String(clamped);
+        card.style.setProperty('--compare', `${clamped}%`);
       };
-      range.addEventListener('input', update);
+      const valueFromClientX = (clientX) => {
+        if (!media) return parseFloat(range.value || '50');
+        const rect = media.getBoundingClientRect();
+        if (!rect.width) return parseFloat(range.value || '50');
+        const ratio = clamp((clientX - rect.left) / rect.width, 0, 1);
+        return ratio * 100;
+      };
+      range.addEventListener('input', () => apply(parseFloat(range.value || '0')));
       range.addEventListener('change', () => trackEvent('compare_interaction', { value: range.value }));
-      update();
+
+      if (media) {
+        let dragging = false;
+        let activePointerId = null;
+
+        const stopDrag = () => {
+          if (!dragging) return;
+          dragging = false;
+          activePointerId = null;
+          media.classList.remove('is-dragging');
+          trackEvent('compare_interaction', { value: range.value, mode: 'drag' });
+        };
+
+        media.addEventListener('pointerdown', (event) => {
+          dragging = true;
+          activePointerId = event.pointerId;
+          media.classList.add('is-dragging');
+          if (media.setPointerCapture) {
+            media.setPointerCapture(event.pointerId);
+          }
+          apply(valueFromClientX(event.clientX));
+        });
+
+        media.addEventListener('pointermove', (event) => {
+          if (!dragging) return;
+          if (activePointerId !== null && event.pointerId !== activePointerId) return;
+          apply(valueFromClientX(event.clientX));
+        });
+
+        media.addEventListener('pointerup', stopDrag);
+        media.addEventListener('pointercancel', stopDrag);
+        media.addEventListener('lostpointercapture', stopDrag);
+      }
+
+      apply(parseFloat(range.value || '50'));
     });
   }
 
@@ -1220,23 +1268,41 @@
     initState.drawer = true;
     const panel = drawer.querySelector('.nav-panel');
     const closeButtons = drawer.querySelectorAll('[data-drawer-close]');
+    const navLinks = drawer.querySelectorAll('.nav-panel-links a');
+    const body = document.body;
+    let isOpen = false;
 
-    const open = () => {
-      drawer.classList.add('is-open');
-      drawer.setAttribute('aria-hidden', 'false');
-      openBtn.setAttribute('aria-expanded', 'true');
-      if (panel) setFocusTrap(panel, openBtn, close);
+    const syncState = (open) => {
+      if (isOpen === open) return;
+      isOpen = open;
+
+      if (!open) {
+        releaseFocusTrap();
+      }
+
+      drawer.classList.toggle('is-open', open);
+      drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+      openBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (body) body.classList.toggle('is-drawer-open', open);
+
+      if (open && panel) {
+        setFocusTrap(panel, openBtn, close);
+      }
     };
 
-    const close = () => {
-      drawer.classList.remove('is-open');
-      drawer.setAttribute('aria-hidden', 'true');
-      openBtn.setAttribute('aria-expanded', 'false');
-      releaseFocusTrap();
-    };
+    const open = () => syncState(true);
+    const close = () => syncState(false);
+    const toggle = () => syncState(!isOpen);
 
-    openBtn.addEventListener('click', open);
+    openBtn.addEventListener('click', toggle);
     closeButtons.forEach(btn => btn.addEventListener('click', close));
+    navLinks.forEach(link => link.addEventListener('click', close));
+
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 960 && isOpen) {
+        close();
+      }
+    });
   }
 
   function trackEvent(name, payload) {
