@@ -4,23 +4,21 @@
 - DTF-only rollout for `dtf.twocomms.shop` without changing `twocomms.shop` behavior.
 
 ## Deployed commit
-- `21ef640` on branch `codex/dtf-p0p1-fixes-2026-02`
+- `2c05731` on branch `codex/dtf-p0p1-fixes-2026-02`
 
 ## Commands executed on server
 ```bash
 source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 git checkout codex/dtf-p0p1-fixes-2026-02
-git pull
+git pull --ff-only
 python manage.py check
-python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 mkdir -p tmp && touch tmp/restart.txt
 ```
 
 ## Server notes
 - `check`: OK
-- `migrate`: no migrations to apply
 - Warning remains: model changes in `accounts`, `dtf`, `management` are not represented by migrations (pre-existing project state)
 - `collectstatic`: completed
 

@@ -2,12 +2,14 @@
 
 ## Git / branch
 - Branch: `codex/dtf-p0p1-fixes-2026-02`
-- Local commit pushed: `21ef640` (`fix(dtf): rebaseline dtf-only p0/p1 and verify isolation`)
-- Server HEAD after deploy: `21ef640`
+- Local commits pushed:
+  - `74f84f8` (`fix(dtf): complete p1 hero optimization and contrast token`)
+  - `2c05731` (`fix(dtf): enable touch lens modal on home page`)
+- Server HEAD after deploy: `2c05731`
 
 ## Local validation
-- `python3 manage.py check --settings=test_settings` -> `System check identified no issues (0 silenced).`
-- `python3 manage.py test dtf --settings=test_settings` -> `Ran 15 tests ... OK`
+- `SECRET_KEY=test-secret-key-123 python3 twocomms/manage.py check` -> `System check identified no issues (0 silenced).`
+- `python3 twocomms/manage.py test dtf --settings=test_settings` -> `Ran 16 tests ... OK`
 
 ## What is covered by tests
 - DTF P0 routes (`/quality/`, `/price/`, `/prices/` redirect)
@@ -15,9 +17,11 @@
 - DTF upload security (size/ext/mime/magic + safe naming)
 - DTF vs main host isolation for robots/sitemap
 - DTF landing renders DTF template markers/assets
+- DTF hero uses responsive AVIF/WebP sources with preload/fetchpriority
+- DTF home touch-lens fallback modal exists and opens on tap
 
 ## Production deploy output summary
-- `git pull` updated `90aed2b..21ef640`
+- `git pull` updated `be59420..74f84f8`, then `74f84f8..2c05731`
 - `python manage.py check` -> no issues
 - `python manage.py migrate --noinput` -> no migrations to apply
 - `python manage.py collectstatic --noinput` -> completed
@@ -40,6 +44,8 @@
 - `dtf_home_has_logo_mark=yes`
 - `main_home_has_dtf_css=no`
 - `main_home_has_logo_mark=no`
+- `dtf_home_has_lens_modal=yes`
+- `dtf_home_has_hero_avif_sources=yes`
 
 ### Robots assertions
 - DTF: `Sitemap: https://dtf.twocomms.shop/sitemap.xml`
