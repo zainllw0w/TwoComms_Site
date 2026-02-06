@@ -575,6 +575,64 @@ body[data-page="order"] .film-layer {
   gap: 6px;
 }
 
+.profile-auth-divider {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profile-auth-divider::before,
+.profile-auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04));
+}
+
+.profile-google-btn {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.profile-google-btn img {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.profile-google-btn:hover,
+.profile-google-btn:focus-visible {
+  border-color: rgba(255, 140, 0, 0.5);
+  background: linear-gradient(180deg, rgba(255, 140, 0, 0.18), rgba(255, 92, 0, 0.13));
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 22px rgba(255, 92, 0, 0.22),
+    inset 0 0 0 1px rgba(255, 166, 0, 0.22);
+}
+
 .profile-auth-tab {
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;

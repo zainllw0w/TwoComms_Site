@@ -263,6 +263,8 @@ class DtfAuthSurfaceTests(TestCase):
         self.assertIn('data-profile-menu', html)
         self.assertIn('/accounts/ajax/login/', html)
         self.assertIn('/accounts/ajax/register/', html)
+        self.assertIn('/oauth/login/google-oauth2/', html)
+        self.assertIn('>Увійти через Google<', html)
         self.assertIn('>Повна форма входу<', html)
 
     def test_manager_profile_menu_contains_management_link(self):
