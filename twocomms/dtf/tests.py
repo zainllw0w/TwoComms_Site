@@ -267,6 +267,10 @@ class DtfAuthSurfaceTests(TestCase):
         self.assertIn('>Увійти через Google<', html)
         self.assertIn('>Повна форма входу<', html)
 
+    def test_google_oauth_entrypoint_is_available(self):
+        response = self.client.get("/oauth/login/google-oauth2/?next=%2F", secure=True)
+        self.assertIn(response.status_code, {301, 302})
+
     def test_manager_profile_menu_contains_management_link(self):
         user = User.objects.create_user(username="manager_user", password="secure-pass-123")
         profile = user.userprofile
