@@ -1,34 +1,62 @@
-# QA Checklist (DTF backlog re-run)
+# QA Matrix — DTF POLISH ONLY (2026-02-06)
 
-## Automated checks
+## Automated Checks (Local)
 - [x] `DJANGO_SETTINGS_MODULE=test_settings python3 manage.py check`
 - [x] `DJANGO_SETTINGS_MODULE=test_settings python3 manage.py test dtf.tests --keepdb`
 - [x] `DJANGO_SETTINGS_MODULE=test_settings python3 manage.py compilemessages -l uk -l ru -l en`
+- [x] `python3 -m pip_audit -r twocomms/requirements.txt -f json -o specs/dtf-codex/perf/pip-audit-postfix.json`
 
-## Regression test map (`dtf.tests`)
-- [x] `/quality/` returns 200
-- [x] `/price/` returns 200
-- [x] `/prices/` redirects 301 to `/price/`
-- [x] `/robots.txt` points to DTF sitemap and excludes main host sitemap
-- [x] `/sitemap.xml` returns DTF-host URLs and includes `/price/`
-- [x] DTF legal pages (`/privacy/`, `/terms/`, `/returns/`, `/requisites/`) return 200
-- [x] Upload security rejects invalid payloads and renames valid uploads safely
-- [x] DTF/main host isolation checks for robots and sitemap
-- [x] Home hero responsive assets/preload/fetchpriority are present
-- [x] EN language switch works and sets `dtf_lang=en`
-- [x] Hot Peel old spinner asset is absent (`hot-peel.gif` not rendered)
+## Regression Coverage (`dtf.tests`)
+- [x] DTF routes are stable (`/quality/`, `/price/`, `/prices/` redirect).
+- [x] Robots/sitemap are host-isolated for DTF vs main domain.
+- [x] DTF legal pages return `200`.
+- [x] Upload security blocks invalid files and renames valid uploads safely.
+- [x] Hero responsive asset hints remain intact.
+- [x] EN switch wiring remains functional.
 
-## Manual checks performed (pre-deploy baseline)
-- [x] `curl -I https://dtf.twocomms.shop/quality/` => 200
-- [x] `curl -I https://dtf.twocomms.shop/price/` => 200
-- [x] `curl -I https://dtf.twocomms.shop/prices/` => 301 + `Location: /price/`
-- [x] `curl -i https://dtf.twocomms.shop/robots.txt` => DTF sitemap line
-- [x] `curl -i https://dtf.twocomms.shop/sitemap.xml` => 200 + DTF host `<loc>` values
+## Performance Baseline (Lighthouse)
+- [x] Mobile + desktop baseline reports generated for `/`, `/order/`, `/price/`.
+- [x] Metrics summary generated.
+- Artifacts:
+  - `specs/dtf-codex/perf/home-mobile-baseline.report.json`
+  - `specs/dtf-codex/perf/order-mobile-baseline.report.json`
+  - `specs/dtf-codex/perf/price-mobile-baseline.report.json`
+  - `specs/dtf-codex/perf/home-desktop-baseline.report.json`
+  - `specs/dtf-codex/perf/order-desktop-baseline.report.json`
+  - `specs/dtf-codex/perf/price-desktop-baseline.report.json`
+  - `specs/dtf-codex/perf/lighthouse-metrics-2026-02-06.txt`
 
-## Post-deploy checklist (must pass)
-- [x] `https://dtf.twocomms.shop/` renders new assets (`dtf.css?v=20260206j`, `dtf.js?v=20260206j`)
-- [x] Mobile drawer opens/closes cleanly and does not leave background interactive
-- [x] Manager modal is visually solid (not over-transparent) and FAB does not overlap when modal is open
-- [x] Before/after slider supports direct drag and range movement
-- [x] EN language switch visible and functional
-- [x] `https://dtf.twocomms.shop/sitemap.xml` includes legal URLs
+## Guardrails (Mandatory For Any Next Visual Change)
+- Re-run Lighthouse on `/` and `/order/` before and after change.
+- `CLS` must stay `<= 0.10`.
+- `LCP` must not degrade by more than `10%` versus baseline on same profile (mobile vs mobile, desktop vs desktop).
+- If guardrail fails, rollback or optimize before deploy.
+
+## Breakpoints QA (Production Visual Baseline)
+- [x] Captured screenshots for `320/375/768/1024/1440` for:
+  - `/`
+  - `/order/`
+  - `/price/`
+  - `/quality/`
+  - `/gallery/`
+  - `/privacy/`
+- Artifacts: `specs/dtf-codex/perf/screens/`, `specs/dtf-codex/perf/screens/index-2026-02-06.txt`
+
+## Headers And SEO Sanity (Production)
+- [x] `curl` snapshot includes status and security headers for DTF pages.
+- [x] `robots.txt` and `sitemap.xml` confirmed for DTF host.
+- [x] Main domain robots/sitemap unchanged.
+- Artifacts:
+  - `specs/dtf-codex/perf/discovery-curl-2026-02-06.txt`
+  - `specs/dtf-codex/perf/robots-sitemap-2026-02-06.txt`
+
+## Post-Deploy Minimum (Must Re-Run After Server Pull)
+1. `curl -i https://dtf.twocomms.shop/`
+2. `curl -i https://dtf.twocomms.shop/order/`
+3. `curl -i https://dtf.twocomms.shop/price/`
+4. `curl -i https://dtf.twocomms.shop/prices/`
+5. `curl -i https://dtf.twocomms.shop/quality/`
+6. `curl -i https://dtf.twocomms.shop/robots.txt`
+7. `curl -i https://dtf.twocomms.shop/sitemap.xml`
+8. Visual smoke on mobile `/order/` (drawer + modal + summary overlap).
+9. Quick Lighthouse compare for `/` and `/order/` mobile profile against baseline.
