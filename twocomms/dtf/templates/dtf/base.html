@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260206b">
-  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260206i">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260206j">
   {% block extra_head %}{% endblock %}
 </head>
 <body data-page="{% block page_id %}{% endblock %}">
@@ -168,7 +168,7 @@
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
   <script src="{% static 'dtf/js/vendor/htmx.min.js' %}?v=20260206b" defer></script>
-  <script src="{% static 'dtf/js/dtf.js' %}?v=20260206i" defer></script>
+  <script src="{% static 'dtf/js/dtf.js' %}?v=20260206j" defer></script>
   {% block extra_scripts %}{% endblock %}
 
 </body>
