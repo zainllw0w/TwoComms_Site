@@ -1,5 +1,6 @@
 (function () {
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const locale = ((document.documentElement.lang || 'uk').toLowerCase() || 'uk').slice(0, 2);
   const flags = getFeatureFlags();
   const initState = {
     keyboard: false,
@@ -27,6 +28,58 @@
   };
 
   const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex=\"-1\"])';
+  const MESSAGES = {
+    uk: {
+      unsupported_ready_file: 'Формат файлу не підтримується для готового ганг-листа. Перейшли у допомогу.',
+      fab_success: "Дякуємо! Менеджер зв'яжеться найближчим часом.",
+      fab_error_form: 'Помилка. Перевірте форму.',
+      fab_error_network: 'Не вдалося надіслати. Спробуйте пізніше.',
+      file_added: 'Файл додано',
+      clipboard_unavailable: 'Буфер недоступний у цьому браузері',
+      file_added_from_clipboard: 'Файл додано з буфера',
+      clipboard_no_file: 'У буфері немає файлу',
+      clipboard_read_failed: 'Не вдалося прочитати буфер',
+      clipboard_has_file_hint: 'Файл у буфері. Натисніть "Вставити з буфера"',
+      link_copied: 'Лінк скопійовано',
+      copy_failed: 'Не вдалося скопіювати',
+      reorder_prefill_added: 'Додали референс до коментаря',
+    },
+    ru: {
+      unsupported_ready_file: 'Формат файла не поддерживается для готового ганг-листа. Переключили на вкладку помощи.',
+      fab_success: 'Спасибо! Менеджер свяжется с вами в ближайшее время.',
+      fab_error_form: 'Ошибка. Проверьте форму.',
+      fab_error_network: 'Не удалось отправить. Попробуйте позже.',
+      file_added: 'Файл добавлен',
+      clipboard_unavailable: 'Буфер обмена недоступен в этом браузере',
+      file_added_from_clipboard: 'Файл добавлен из буфера',
+      clipboard_no_file: 'В буфере нет файла',
+      clipboard_read_failed: 'Не удалось прочитать буфер обмена',
+      clipboard_has_file_hint: 'Файл есть в буфере. Нажмите "Вставить из буфера"',
+      link_copied: 'Ссылка скопирована',
+      copy_failed: 'Не удалось скопировать',
+      reorder_prefill_added: 'Добавили референс в комментарий',
+    },
+    en: {
+      unsupported_ready_file: 'This file format is not supported for a ready gang sheet. Switched to the help tab.',
+      fab_success: 'Thanks! A manager will contact you shortly.',
+      fab_error_form: 'Error. Please check the form.',
+      fab_error_network: 'Failed to submit. Please try again later.',
+      file_added: 'File added',
+      clipboard_unavailable: 'Clipboard is not available in this browser',
+      file_added_from_clipboard: 'File added from clipboard',
+      clipboard_no_file: 'No file found in clipboard',
+      clipboard_read_failed: 'Failed to read clipboard',
+      clipboard_has_file_hint: 'A file is available in clipboard. Click "Paste from clipboard"',
+      link_copied: 'Link copied',
+      copy_failed: 'Could not copy',
+      reorder_prefill_added: 'Added reorder reference to comment',
+    },
+  };
+
+  function t(key, fallback = '') {
+    const pack = MESSAGES[locale] || MESSAGES.uk;
+    return pack[key] || MESSAGES.uk[key] || fallback || key;
+  }
 
   function allowAmbientEffects() {
     if (prefersReduced) return false;
@@ -276,7 +329,7 @@
       if (!allowed.includes(ext)) {
         const helpTab = document.querySelector('.tab-btn[data-target="help"]');
         if (helpTab) helpTab.click();
-        alert('Формат файлу не підтримується для готового ганг-листа. Перейшли у допомогу.');
+        alert(t('unsupported_ready_file'));
       }
     });
   }
@@ -351,13 +404,13 @@
           if (resp.ok) {
             form.reset();
             closeModal();
-            alert('Дякуємо! Менеджер звʼяжеться найближчим часом.');
+            alert(t('fab_success'));
           } else {
-            alert('Помилка. Перевірте форму.');
+            alert(t('fab_error_form'));
             console.error(data);
           }
         } catch (err) {
-          alert('Не вдалося надіслати. Спробуйте пізніше.');
+          alert(t('fab_error_network'));
         }
       });
     }
@@ -828,7 +881,7 @@
         e.preventDefault();
         zone.classList.remove('is-dragover');
         setFiles(e.dataTransfer.files);
-        showToast('Файл додано', 'success');
+        showToast(t('file_added'), 'success');
       });
 
       input.addEventListener('change', updateName);
@@ -846,7 +899,7 @@
           e.preventDefault();
           e.stopPropagation();
           if (!navigator.clipboard || !navigator.clipboard.read) {
-            showToast('Буфер недоступний у цьому браузері', 'warn');
+            showToast(t('clipboard_unavailable'), 'warn');
             return;
           }
           try {
@@ -857,12 +910,12 @@
               const blob = await item.getType(type);
               const file = new File([blob], `clipboard.${type.includes('pdf') ? 'pdf' : 'png'}`, { type });
               setFiles([file]);
-              showToast('Файл додано з буфера', 'success');
+              showToast(t('file_added_from_clipboard'), 'success');
               return;
             }
-            showToast('У буфері немає файлу', 'warn');
+            showToast(t('clipboard_no_file'), 'warn');
           } catch (err) {
-            showToast('Не вдалося прочитати буфер', 'error');
+            showToast(t('clipboard_read_failed'), 'error');
           }
         });
       }
@@ -874,7 +927,7 @@
         if (!items) return;
         const hasFile = Array.from(items).some(item => item.kind === 'file');
         if (hasFile) {
-          showToast('Файл у буфері. Натисніть \"Вставити з буфера\"', 'warn');
+          showToast(t('clipboard_has_file_hint'), 'warn');
         }
       });
       initState.dropzonePaste = true;
@@ -990,9 +1043,9 @@
         if (!value) return;
         try {
           await navigator.clipboard.writeText(value);
-          showToast('Лінк скопійовано', 'success');
+          showToast(t('link_copied'), 'success');
         } catch (err) {
-          showToast('Не вдалося скопіювати', 'error');
+          showToast(t('copy_failed'), 'error');
         }
       });
     });
@@ -1037,7 +1090,7 @@
     if (comment && !comment.value) {
       comment.value = `Reorder: ${ref}`;
     }
-    showToast('Додали референс до коментаря', 'success');
+    showToast(t('reorder_prefill_added'), 'success');
   }
 
   function initCompare(root = document) {
