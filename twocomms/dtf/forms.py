@@ -200,6 +200,15 @@ class DtfFabLeadForm(forms.ModelForm):
             "task_description": forms.Textarea(attrs={"rows": 3}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "name" in self.fields:
+            self.fields["name"].widget.attrs.setdefault("autocomplete", "name")
+        if "phone" in self.fields:
+            self.fields["phone"].widget.attrs.setdefault("autocomplete", "tel")
+        if "contact_handle" in self.fields:
+            self.fields["contact_handle"].widget.attrs.setdefault("autocomplete", "off")
+
     def clean_phone(self):
         value = self.cleaned_data.get("phone", "").strip()
         digits = normalize_phone(value)
