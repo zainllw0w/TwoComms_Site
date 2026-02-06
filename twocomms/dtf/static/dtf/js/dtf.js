@@ -315,8 +315,9 @@
 
     const closeModal = () => {
       const active = document.activeElement;
-      if (active && modal.contains(active) && btn && btn.focus) {
-        btn.focus({ preventScroll: true });
+      if (active && modal.contains(active)) {
+        if (active.blur) active.blur();
+        if (btn && btn.focus) btn.focus({ preventScroll: true });
       }
       releaseFocusTrap();
       modal.classList.remove('active');
