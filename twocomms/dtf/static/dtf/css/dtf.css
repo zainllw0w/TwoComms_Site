@@ -2011,12 +2011,20 @@ body[data-page="home"] section.section > .dtf-container {
   margin-bottom: 16px;
 }
 
+.form-grid > label {
+  min-width: 0;
+}
+
 /* Order layout */
 .order-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
   gap: 32px;
   align-items: start;
+}
+
+.order-layout > * {
+  min-width: 0;
 }
 
 .order-block {
@@ -2238,6 +2246,8 @@ label small,
 }
 
 input, select, textarea {
+  width: 100%;
+  max-width: 100%;
   padding: 10px 12px;
   border-radius: var(--r-2);
   border: 1px solid var(--border);
@@ -2702,6 +2712,10 @@ textarea:disabled {
   z-index: var(--z-popover);
 }
 
+body[data-page="order"] .dtf-fab {
+  display: none;
+}
+
 .fab-btn {
   background: var(--accent);
   color: #fff;
@@ -2919,15 +2933,16 @@ body[data-page="order"] .mobile-dock {
     grid-template-columns: 1fr;
   }
   .order-right {
-    padding-bottom: 150px;
+    padding-bottom: 0;
   }
   .order-summary {
-    position: fixed;
-    left: 12px;
-    right: 12px;
-    bottom: calc(12px + env(safe-area-inset-bottom));
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
     top: auto;
     z-index: var(--z-sticky);
+    margin-bottom: 12px;
   }
 }
 
