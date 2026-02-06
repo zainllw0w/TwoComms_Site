@@ -118,7 +118,7 @@ def order(request):
                 lead.lead_type = LeadType.HELP
                 lead.source = "order_help"
                 lead.save()
-                for file in request.FILES.getlist("files"):
+                for file in getattr(help_form, "_validated_files", []):
                     DtfLeadAttachment.objects.create(lead=lead, file=file)
                 notify_new_lead(lead)
                 return redirect("dtf:thanks", kind="lead", number=lead.lead_number)
@@ -364,7 +364,7 @@ def preflight(request):
             lead.lead_type = LeadType.HELP
             lead.source = "preflight"
             lead.save()
-            for file in request.FILES.getlist("files"):
+            for file in getattr(form, "_validated_files", []):
                 DtfLeadAttachment.objects.create(lead=lead, file=file)
             notify_new_lead(lead)
             return redirect("dtf:thanks", kind="lead", number=lead.lead_number)

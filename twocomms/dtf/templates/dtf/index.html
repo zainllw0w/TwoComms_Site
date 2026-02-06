@@ -5,6 +5,7 @@
 {% block page_id %}home{% endblock %}
 
 {% block extra_head %}
+<link rel="preload" as="image" href="{% static 'dtf/assets/hero-printhead.png' %}" fetchpriority="high">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -79,7 +80,7 @@
       <div class="hero-card-header">
         <div class="price-badge">280–350 грн/м</div>
         <div class="hot-peel">
-          <img src="{% static 'dtf/assets/hot-peel.gif' %}" alt="Hot Peel" loading="lazy">
+          <img src="{% static 'dtf/assets/hot-peel.gif' %}" alt="Hot Peel" loading="lazy" width="96" height="96">
           <span>{% trans "Hot Peel" %}</span>
         </div>
       </div>
@@ -87,7 +88,10 @@
         <img src="{% static 'dtf/assets/hero-printhead.png' %}"
              alt="{% trans 'Фото друкуючої головки DTF (hero)' %}"
              loading="eager"
-             decoding="async">
+             fetchpriority="high"
+             decoding="async"
+             width="1024"
+             height="1024">
       </div>
       <div class="hero-card-body">
         <div class="hero-stat">
