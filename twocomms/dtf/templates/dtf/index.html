@@ -5,7 +5,13 @@
 {% block page_id %}home{% endblock %}
 
 {% block extra_head %}
-<link rel="preload" as="image" href="{% static 'dtf/assets/hero-printhead.png' %}" fetchpriority="high">
+<link rel="preload"
+      as="image"
+      href="{% static 'dtf/assets/hero-printhead-1024.avif' %}"
+      type="image/avif"
+      fetchpriority="high"
+      imagesrcset="{% static 'dtf/assets/hero-printhead-640.avif' %} 640w, {% static 'dtf/assets/hero-printhead-1024.avif' %} 1024w"
+      imagesizes="(max-width: 960px) 88vw, 42vw">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -85,13 +91,23 @@
         </div>
       </div>
       <div class="hero-media asset-slot" style="aspect-ratio: 16 / 9">
-        <img src="{% static 'dtf/assets/hero-printhead.png' %}"
-             alt="{% trans 'Фото друкуючої головки DTF (hero)' %}"
-             loading="eager"
-             fetchpriority="high"
-             decoding="async"
-             width="1024"
-             height="1024">
+        <picture>
+          <source
+            type="image/avif"
+            srcset="{% static 'dtf/assets/hero-printhead-640.avif' %} 640w, {% static 'dtf/assets/hero-printhead-1024.avif' %} 1024w"
+            sizes="(max-width: 960px) 88vw, 42vw">
+          <source
+            type="image/webp"
+            srcset="{% static 'dtf/assets/hero-printhead-640.webp' %} 640w, {% static 'dtf/assets/hero-printhead-1024.webp' %} 1024w"
+            sizes="(max-width: 960px) 88vw, 42vw">
+          <img src="{% static 'dtf/assets/hero-printhead.png' %}"
+               alt="{% trans 'Фото друкуючої головки DTF (hero)' %}"
+               loading="eager"
+               fetchpriority="high"
+               decoding="async"
+               width="1024"
+               height="1024">
+        </picture>
       </div>
       <div class="hero-card-body">
         <div class="hero-stat">
@@ -210,7 +226,7 @@
       </div>
       {% for tier in pricing.tiers %}
       <div class="price-row">
-        <span>{% blocktrans %}Від {{ tier.min }} м{% endblocktrans %}</span>
+        <span>{% if current_lang == 'ru' %}От {{ tier.min }} м{% else %}Від {{ tier.min }} м{% endif %}</span>
         <span>{{ tier.rate }}</span>
         <span>{% trans "Знижка" %}</span>
       </div>
