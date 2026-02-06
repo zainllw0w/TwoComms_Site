@@ -329,35 +329,66 @@ body[data-page="order"] .film-layer {
   isolation: isolate;
 }
 
+.profile-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 4, 5, 0.56);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--motion-fast) var(--motion-ease),
+    visibility 0s linear var(--motion-fast);
+  z-index: var(--z-modal);
+}
+
+@supports ((-webkit-backdrop-filter: blur(6px)) or (backdrop-filter: blur(6px))) {
+  .profile-scrim {
+    backdrop-filter: blur(6px) saturate(118%);
+  }
+}
+
+.profile-menu.is-open .profile-scrim {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
 .profile-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 40px;
+  gap: 9px;
+  min-height: 42px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
   color: var(--text);
-  padding: 4px 10px 4px 4px;
+  padding: 4px 11px 4px 4px;
   font: inherit;
   cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   transition:
     border-color var(--motion-fast) var(--motion-ease),
     background var(--motion-fast) var(--motion-ease),
-    transform var(--motion-fast) var(--motion-ease);
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
 }
 
 .profile-trigger:hover,
 .profile-trigger:focus-visible {
-  border-color: rgba(255, 140, 0, 0.56);
-  background: rgba(255, 140, 0, 0.14);
+  border-color: rgba(255, 140, 0, 0.62);
+  background: linear-gradient(180deg, rgba(255, 140, 0, 0.24), rgba(255, 92, 0, 0.16));
   transform: translateY(-1px);
+  box-shadow:
+    0 10px 22px rgba(255, 92, 0, 0.25),
+    inset 0 0 0 1px rgba(255, 166, 0, 0.28);
 }
 
 .profile-avatar,
 .profile-panel-avatar {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -382,25 +413,28 @@ body[data-page="order"] .film-layer {
 }
 
 .profile-trigger-label {
-  max-width: 150px;
+  max-width: 146px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 700;
   letter-spacing: 0.02em;
 }
 
 .profile-panel {
   position: absolute;
   right: 0;
-  top: calc(100% + 10px);
-  width: min(360px, calc(100vw - 24px));
+  top: calc(100% + 12px);
+  width: min(348px, calc(100vw - 22px));
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
   padding: 14px;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  background: linear-gradient(170deg, rgba(22, 22, 22, 0.99), rgba(12, 12, 12, 0.99));
+  background: linear-gradient(168deg, rgba(18, 18, 19, 0.98), rgba(10, 10, 10, 0.99));
   box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 30px 64px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   opacity: 0;
   visibility: hidden;
@@ -410,7 +444,24 @@ body[data-page="order"] .film-layer {
     opacity var(--motion-fast) var(--motion-ease),
     transform var(--motion-fast) var(--motion-ease),
     visibility 0s linear var(--motion-fast);
-  z-index: var(--z-modal);
+  z-index: var(--z-popover);
+}
+
+.profile-panel::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 10px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 92, 0, 0.62), rgba(255, 255, 255, 0.08));
+  pointer-events: none;
+}
+
+@supports ((-webkit-backdrop-filter: blur(8px)) or (backdrop-filter: blur(8px))) {
+  .profile-panel {
+    backdrop-filter: blur(10px) saturate(128%);
+  }
 }
 
 .profile-menu.is-open .profile-panel {
@@ -421,6 +472,17 @@ body[data-page="order"] .film-layer {
   transition-delay: 0s;
 }
 
+.profile-panel-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  border: 0;
+  padding: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+}
+
 .profile-panel-head {
   display: flex;
   align-items: center;
@@ -429,29 +491,30 @@ body[data-page="order"] .film-layer {
 }
 
 .profile-panel-head.guest {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .profile-panel-meta {
   min-width: 0;
   display: grid;
-  gap: 2px;
+  gap: 3px;
 }
 
 .profile-panel-meta strong {
-  font-size: 0.94rem;
+  font-size: 0.95rem;
   line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .profile-panel-meta small {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   line-height: 1.25;
 }
 
 .profile-panel-links {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .profile-link,
@@ -461,14 +524,15 @@ body[data-page="order"] .film-layer {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  min-height: 40px;
-  padding: 10px 12px;
-  font-size: 0.86rem;
+  min-height: 42px;
+  padding: 11px 12px;
+  font-size: 0.84rem;
+  font-weight: 600;
   line-height: 1.2;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  text-align: center;
+  justify-content: flex-start;
+  text-align: left;
   transition:
     border-color var(--motion-fast) var(--motion-ease),
     background var(--motion-fast) var(--motion-ease),
@@ -485,21 +549,26 @@ body[data-page="order"] .film-layer {
 }
 
 .profile-link-ghost {
-  margin-top: 10px;
+  margin-top: 8px;
   border-style: dashed;
   color: var(--muted);
+  justify-content: center;
+  text-align: center;
 }
 
 .profile-logout-form {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .profile-logout-btn {
   cursor: pointer;
   font: inherit;
+  justify-content: center;
+  text-align: center;
 }
 
 .profile-auth-tabs {
+  margin-top: 2px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
@@ -510,9 +579,10 @@ body[data-page="order"] .film-layer {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
-  min-height: 34px;
+  min-height: 36px;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.79rem;
+  font-weight: 700;
   cursor: pointer;
   transition:
     border-color var(--motion-fast) var(--motion-ease),
@@ -523,30 +593,39 @@ body[data-page="order"] .film-layer {
 .profile-auth-tab.is-active {
   color: #fff;
   border-color: rgba(255, 92, 0, 0.62);
-  background: rgba(255, 92, 0, 0.2);
+  background: linear-gradient(180deg, rgba(255, 92, 0, 0.26), rgba(255, 92, 0, 0.17));
 }
 
 .profile-auth-form {
   display: grid;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 9px;
+  margin-top: 9px;
 }
 
 .profile-auth-form[hidden] {
   display: none !important;
 }
 
+.profile-auth-form > label {
+  font-size: 0.79rem;
+  gap: 5px;
+}
+
+.profile-auth-form input:not([type="range"]) {
+  min-height: 40px;
+}
+
 .profile-auth-form .btn {
   width: 100%;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .profile-feedback {
-  min-height: 18px;
-  margin: 6px 0 0;
+  min-height: 22px;
+  margin: 8px 0 0;
   color: var(--muted);
   font-size: 0.76rem;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .profile-feedback.is-error {
@@ -555,6 +634,20 @@ body[data-page="order"] .film-layer {
 
 .profile-feedback.is-success {
   color: #a7f3d0;
+}
+
+body.is-drawer-open .profile-menu.is-open .profile-panel,
+body.is-modal-open .profile-menu.is-open .profile-panel {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+body.is-drawer-open .profile-menu.is-open .profile-scrim,
+body.is-modal-open .profile-menu.is-open .profile-scrim {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .nav-toggle {
@@ -3628,8 +3721,8 @@ body[data-page="order"] .mobile-dock {
     width: calc(100% - 20px);
   }
   .profile-panel {
-    right: -4px;
-    width: min(360px, calc(100vw - 14px));
+    right: -2px;
+    width: min(360px, calc(100vw - 12px));
     border-radius: 16px;
   }
   .price-row {
@@ -3643,6 +3736,18 @@ body[data-page="order"] .mobile-dock {
   }
   .price-row.head {
     display: none;
+  }
+  .profile-panel {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    top: calc(60px + env(safe-area-inset-top));
+    width: auto;
+    max-height: calc(100dvh - 76px - env(safe-area-inset-top));
+    border-radius: 16px;
+  }
+  .profile-scrim {
+    background: rgba(4, 4, 5, 0.68);
   }
 }
 

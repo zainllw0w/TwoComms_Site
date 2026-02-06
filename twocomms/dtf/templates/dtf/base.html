@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260206b">
-  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260206k">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260206m">
   {% block extra_head %}{% endblock %}
 </head>
 <body data-page="{% block page_id %}{% endblock %}">
@@ -54,7 +54,7 @@
             <a href="{{ lang_links.en }}" class="{% if current_lang == 'en' %}active{% endif %}">EN</a>
           </div>
           <div class="profile-menu" data-profile-menu>
-            <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-controls="dtf-profile-panel" aria-haspopup="menu">
+            <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-controls="dtf-profile-panel" aria-haspopup="dialog">
               <span class="profile-avatar" aria-hidden="true">
                 {% if profile_avatar_url %}
                   <img src="{{ profile_avatar_url }}" alt="">
@@ -66,11 +66,19 @@
                 {% if request.user.is_authenticated %}
                   {{ profile_display_name }}
                 {% else %}
-                  {% trans "Акаунт" %}
+                  {% trans "Увійти" %}
                 {% endif %}
               </span>
             </button>
-            <div class="profile-panel" id="dtf-profile-panel" data-profile-panel aria-hidden="true" role="menu">
+            <div class="profile-scrim" data-profile-scrim aria-hidden="true"></div>
+            <div class="profile-panel" id="dtf-profile-panel" data-profile-panel aria-hidden="true" role="dialog" aria-modal="false" aria-labelledby="dtf-profile-panel-title">
+              <h3 class="profile-panel-title" id="dtf-profile-panel-title">
+                {% if request.user.is_authenticated %}
+                  {% trans "Мінікабінет" %}
+                {% else %}
+                  {% trans "Вхід до кабінету TwoComms" %}
+                {% endif %}
+              </h3>
               {% if request.user.is_authenticated %}
                 <div class="profile-panel-head">
                   <span class="profile-panel-avatar" aria-hidden="true">
@@ -86,18 +94,18 @@
                   </div>
                 </div>
                 <div class="profile-panel-links">
-                  <a href="{{ profile_links.profile }}" class="profile-link" role="menuitem" data-profile-close>{% trans "Профіль" %}</a>
-                  <a href="{{ profile_links.orders }}" class="profile-link" role="menuitem" data-profile-close>{% trans "Мої замовлення" %}</a>
+                  <a href="{{ profile_links.profile }}" class="profile-link" data-profile-close>{% trans "Профіль" %}</a>
+                  <a href="{{ profile_links.orders }}" class="profile-link" data-profile-close>{% trans "Мої замовлення" %}</a>
                   {% if profile_can_management %}
-                    <a href="{{ profile_links.management_home }}" class="profile-link" role="menuitem" data-profile-close>{% trans "Management-панель" %}</a>
+                    <a href="{{ profile_links.management_home }}" class="profile-link" data-profile-close>{% trans "Management-панель" %}</a>
                   {% else %}
-                    <a href="{{ profile_links.management_login }}" class="profile-link" role="menuitem" data-profile-close>{% trans "Вхід у Management" %}</a>
+                    <a href="{{ profile_links.management_login }}" class="profile-link" data-profile-close>{% trans "Вхід у Management" %}</a>
                   {% endif %}
                   {% if profile_can_store_admin %}
-                    <a href="{{ profile_links.store_admin }}" class="profile-link" role="menuitem" data-profile-close>{% trans "Адмін-панель сайту" %}</a>
+                    <a href="{{ profile_links.store_admin }}" class="profile-link" data-profile-close>{% trans "Адмін-панель сайту" %}</a>
                   {% endif %}
                   {% if profile_can_django_admin %}
-                    <a href="{{ profile_links.django_admin }}" class="profile-link" role="menuitem" data-profile-close>{% trans "Django admin (DTF)" %}</a>
+                    <a href="{{ profile_links.django_admin }}" class="profile-link" data-profile-close>{% trans "Django admin (DTF)" %}</a>
                   {% endif %}
                 </div>
                 <form method="post" action="{% url 'dtf:logout' %}" class="profile-logout-form">
@@ -107,16 +115,16 @@
               {% else %}
                 <div class="profile-panel-head guest">
                   <div class="profile-panel-meta">
-                    <strong>{% trans "Вхід до акаунту TwoComms" %}</strong>
+                    <strong>{% trans "Вхід до кабінету TwoComms" %}</strong>
                     <small>{% trans "Ті самі облікові дані, що і на основному сайті." %}</small>
                   </div>
                 </div>
                 <div class="profile-auth-tabs" role="tablist" aria-label="{% trans 'Авторизація' %}">
-                  <button type="button" class="profile-auth-tab is-active" data-profile-tab-trigger="login">{% trans "Вхід" %}</button>
-                  <button type="button" class="profile-auth-tab" data-profile-tab-trigger="register">{% trans "Реєстрація" %}</button>
+                  <button type="button" id="profile-auth-tab-login" class="profile-auth-tab is-active" data-profile-tab-trigger="login" role="tab" aria-selected="true" aria-controls="profile-auth-panel-login">{% trans "Вхід" %}</button>
+                  <button type="button" id="profile-auth-tab-register" class="profile-auth-tab" data-profile-tab-trigger="register" role="tab" aria-selected="false" aria-controls="profile-auth-panel-register">{% trans "Реєстрація" %}</button>
                 </div>
                 <p class="profile-feedback" data-profile-feedback aria-live="polite"></p>
-                <form class="profile-auth-form is-active" data-profile-auth-form="login" method="post" action="{% url 'ajax_login' %}">
+                <form id="profile-auth-panel-login" class="profile-auth-form is-active" data-profile-auth-form="login" role="tabpanel" aria-labelledby="profile-auth-tab-login" method="post" action="{% url 'ajax_login' %}">
                   {% csrf_token %}
                   <input type="hidden" name="next" value="{{ request.get_full_path }}">
                   <label>
@@ -129,7 +137,7 @@
                   </label>
                   <button type="submit" class="btn btn-primary" data-auth-submit>{% trans "Увійти" %}</button>
                 </form>
-                <form class="profile-auth-form" data-profile-auth-form="register" method="post" action="{% url 'ajax_register' %}" hidden>
+                <form id="profile-auth-panel-register" class="profile-auth-form" data-profile-auth-form="register" role="tabpanel" aria-labelledby="profile-auth-tab-register" method="post" action="{% url 'ajax_register' %}" hidden>
                   {% csrf_token %}
                   <input type="hidden" name="next" value="{{ request.get_full_path }}">
                   <label>
@@ -269,7 +277,7 @@
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
   <script src="{% static 'dtf/js/vendor/htmx.min.js' %}?v=20260206b" defer></script>
-  <script src="{% static 'dtf/js/dtf.js' %}?v=20260206q" defer></script>
+  <script src="{% static 'dtf/js/dtf.js' %}?v=20260206r" defer></script>
   {% block extra_scripts %}{% endblock %}
 
 </body>
