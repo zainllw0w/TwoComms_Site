@@ -75,25 +75,45 @@
 {% endblock %}
 
 {% block content %}
+{% trans "точно" as hero_flip_1 %}
+{% trans "швидко" as hero_flip_2 %}
+{% trans "стабільно" as hero_flip_3 %}
 <section class="hero scan-hero">
   <!-- ASSET_REQUEST | id=hero-printhead-photo | type=photo | usage=HOME Hero / Printhead Scan | spec=transparent PNG, 2x, ~2200px wide | notes=industrial lab lighting, top-left view, clean background -->
+  <div class="hero-beams" aria-hidden="true">
+    <span class="beam beam-1"></span>
+    <span class="beam beam-2"></span>
+    <span class="beam beam-3"></span>
+  </div>
   <div class="dtf-container hero-grid">
     <div class="hero-copy" data-reveal>
       <div class="eyebrow">{% trans "DTF друк в рулоні" %}</div>
       <h1 class="scan-title">
         <span class="scan-outline ink-spread">
-          {% trans "60 см, Hot Peel, все включено" %}<br>
+          {% trans "60 см, Hot Peel," %}
+          <span class="flip-words"
+                data-flip-words
+                data-flip-group="hero"
+                data-words="{{ hero_flip_1 }},{{ hero_flip_2 }},{{ hero_flip_3 }}">
+            <span class="flip-word is-active">{{ hero_flip_1 }}</span>
+          </span><br>
           <span class="scan-accent">{{ pricing_range_label }} {% trans "грн/м" %}</span>
         </span>
         <span class="scan-fill ink-spread" aria-hidden="true">
-          {% trans "60 см, Hot Peel, все включено" %}<br>
+          {% trans "60 см, Hot Peel," %}
+          <span class="flip-words"
+                data-flip-words
+                data-flip-group="hero"
+                data-words="{{ hero_flip_1 }},{{ hero_flip_2 }},{{ hero_flip_3 }}">
+            <span class="flip-word is-active">{{ hero_flip_1 }}</span>
+          </span><br>
           <span class="scan-accent">{{ pricing_range_label }} {% trans "грн/м" %}</span>
         </span>
         <span class="scan-line" aria-hidden="true"></span>
       </h1>
       <p class="hero-sub">{% trans "Швидкий розрахунок, ручна перевірка макета, друк та доставка Новою Поштою." %}</p>
       <div class="cta-group">
-        <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% trans "Розрахувати / Замовити" %}</a>
+        <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% trans "Розрахувати / Замовити" %}</a>
         <a class="btn btn-ghost" href="{% url 'dtf:order' %}?tab=help">{% trans "Потрібна допомога з макетом" %}</a>
       </div>
       <div class="hero-trust">{% trans "Ручна перевірка макета перед друком" %}</div>
@@ -180,7 +200,7 @@
         </div>
       </div>
       <div class="estimate-actions">
-        <button class="btn btn-primary" type="submit">{% trans "Далі" %}</button>
+        <button class="btn btn-primary" type="submit" data-stateful>{% trans "Далі" %}</button>
         <a class="btn btn-ghost" href="{% url 'dtf:order' %}">{% trans "Замовити без розрахунку" %}</a>
       </div>
     </form>

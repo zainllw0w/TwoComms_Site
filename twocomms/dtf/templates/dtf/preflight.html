@@ -2,6 +2,7 @@
 {% load i18n %}
 
 {% block title %}{% trans "Preflight" %}{% endblock %}
+{% block page_id %}preflight{% endblock %}
 
 {% block extra_head %}
   {% trans "Preflight" as crumb_label %}
@@ -150,7 +151,7 @@
               <span class="tabular-nums">{% trans "OK/WARN звіт" %}</span>
             </div>
             <div class="summary-note">{% trans "Відповімо протягом робочого дня" %}</div>
-            <button class="btn btn-primary" type="submit" data-submit>{% trans "Надіслати на перевірку" %}</button>
+            <button class="btn btn-primary" type="submit" data-submit data-stateful>{% trans "Надіслати на перевірку" %}</button>
           </div>
         </aside>
       </div>
