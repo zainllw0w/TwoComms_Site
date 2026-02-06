@@ -1,4 +1,5 @@
 from decimal import Decimal, InvalidOperation
+import xml.etree.ElementTree as ET
 
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest
@@ -304,6 +305,43 @@ def robots_txt(request):
         "Disallow: /admin/",
     ]
     return HttpResponse("\n".join(lines) + "\n", content_type="text/plain; charset=utf-8")
+
+
+def sitemap_xml(request):
+    host = request.get_host().split(":")[0]
+    scheme = request.scheme or "https"
+    base_url = f"{scheme}://{host}"
+
+    route_names = [
+        "dtf:landing",
+        "dtf:order",
+        "dtf:status",
+        "dtf:gallery",
+        "dtf:requirements",
+        "dtf:price",
+        "dtf:delivery_payment",
+        "dtf:contacts",
+        "dtf:quality",
+        "dtf:templates",
+        "dtf:how_to_press",
+        "dtf:preflight",
+    ]
+
+    unique_paths = []
+    seen = set()
+    for route_name in route_names:
+        path = reverse(route_name)
+        if path not in seen:
+            unique_paths.append(path)
+            seen.add(path)
+
+    urlset = ET.Element("urlset", {"xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"})
+    for path in unique_paths:
+        url_el = ET.SubElement(urlset, "url")
+        ET.SubElement(url_el, "loc").text = f"{base_url}{path}"
+
+    xml_payload = ET.tostring(urlset, encoding="utf-8", xml_declaration=True)
+    return HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
 
 
 def templates(request):
