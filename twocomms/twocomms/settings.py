@@ -21,11 +21,14 @@ pymysql.install_as_MySQLdb()
 # Build paths inside the project
 
 # Helper parsers for environment variables
+
+
 def _env_bool(name, default=False):
     value = os.environ.get(name)
     if value is None:
         return default
     return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
 
 def _env_list(name, default=''):
     value = os.environ.get(name, default)
@@ -33,11 +36,13 @@ def _env_list(name, default=''):
         return []
     return [item.strip() for item in value.split(',') if item.strip()]
 
+
 def _env_int(name, default):
     try:
         return int(os.environ.get(name, default))
     except (TypeError, ValueError):
         return default
+
 
 def _env_json(name, default=None):
     value = os.environ.get(name)
@@ -48,6 +53,8 @@ def _env_json(name, default=None):
         return json.loads(value)
     except Exception:
         return {} if default is None else default
+
+
 # Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -78,12 +85,13 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get
     'twocomms.shop',
     'www.twocomms.shop',
     'dtf.twocomms.shop',
+    'www.dtf.twocomms.shop',  # Added: www variant for DTF subdomain
     'localhost',
     '127.0.0.1',
     'mail.twocomms.shop',  # Added for mail subdomain
     'management.twocomms.shop',
-    'dtf.twocomms.shop',
 ]
+
 
 # Security settings (только для продакшена)
 if not DEBUG:
@@ -130,7 +138,7 @@ INSTALLED_APPS = [
     "dtf.apps.DtfConfig",           # DTF subdomain app
     # Social auth
     "social_django",
-    
+
     # Management Subdomain App
     "management",
 ]
@@ -198,7 +206,7 @@ AUTHENTICATION_BACKENDS = (
 
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get('GOOGLE_CLIENT_ID', '')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
-SOCIAL_AUTH_REDIRECT_IS_HTTPS = os.environ.get('SOCIAL_AUTH_REDIRECT_IS_HTTPS', 'True').lower() in ('1','true','yes')
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = os.environ.get('SOCIAL_AUTH_REDIRECT_IS_HTTPS', 'True').lower() in ('1', 'true', 'yes')
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
 SOCIAL_AUTH_LOGIN_ERROR_URL = '/login/'
@@ -208,9 +216,9 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY') or os.environ.get('OPEN_API_KE
 # Default OpenAI model for AI-assisted SEO keyword generation
 OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o')
 # Whether to use AI-generated keywords in addition to rule-based keywords
-USE_AI_KEYWORDS = os.environ.get('USE_AI_KEYWORDS', 'False').lower() in ('1','true','yes')
+USE_AI_KEYWORDS = os.environ.get('USE_AI_KEYWORDS', 'False').lower() in ('1', 'true', 'yes')
 # Whether to use AI-generated product descriptions in SEO meta (experimental)
-USE_AI_DESCRIPTIONS = os.environ.get('USE_AI_DESCRIPTIONS', 'False').lower() in ('1','true','yes')
+USE_AI_DESCRIPTIONS = os.environ.get('USE_AI_DESCRIPTIONS', 'False').lower() in ('1', 'true', 'yes')
 
 # TikTok Pixel configuration
 TIKTOK_PIXEL_ID = os.environ.get('TIKTOK_PIXEL_ID', 'D43L7DBC77UA61AHLTVG')  # Default fallback if not set
@@ -655,6 +663,7 @@ STATICFILES_FINDERS = [
     'compressor.finders.CompressorFinder',
 ]
 
+
 def ensure_compress_offline(enabled_flag):
     """
     Проверяем, что для offline-компрессии сгенерирован manifest.
@@ -672,6 +681,7 @@ def ensure_compress_offline(enabled_flag):
         )
         return False
     return True
+
 
 COMPRESS_ENABLED = True
 COMPRESS_OFFLINE = not DEBUG
@@ -803,29 +813,29 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',  # для браузера
     ],
-    
+
     # Парсеры
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
         'rest_framework.parsers.FormParser',
         'rest_framework.parsers.MultiPartParser',
     ],
-    
+
     # Аутентификация (Session + Basic для browsable API)
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.BasicAuthentication',
     ],
-    
+
     # Права доступа по умолчанию (read-only для всех)
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
-    
+
     # Пагинация
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
-    
+
     # Throttling (ограничение запросов)
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
@@ -835,7 +845,7 @@ REST_FRAMEWORK = {
         'anon': '100/hour',  # Анонимные пользователи: 100 запросов/час
         'user': '1000/hour',  # Аутентифицированные: 1000 запросов/час
     },
-    
+
     # OpenAPI Schema (drf-spectacular)
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
@@ -847,24 +857,24 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'RESTful API для магазина TwoComms - категории, товары, корзина',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    
+
     # Схема
     'SCHEMA_PATH_PREFIX': r'/api/',
     'COMPONENT_SPLIT_REQUEST': True,
-    
+
     # UI настройки
     'SWAGGER_UI_SETTINGS': {
         'deepLinking': True,
         'persistAuthorization': True,
         'displayOperationId': True,
     },
-    
+
     # Аутентификация в документации
     'SECURITY': [
         {'SessionAuth': []},
         {'BasicAuth': []},
     ],
-    
+
     # Сортировка
     'SORT_OPERATIONS': True,
     'SORT_OPERATION_PARAMETERS': True,
