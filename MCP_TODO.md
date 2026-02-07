@@ -11,7 +11,11 @@
 - `DTF-104` [Done] Встроены карточки статей на главной (mixed grid).
 - `DTF-105` [Done] Включен SEO-пакет блога: sitemap, canonical, Article JSON-LD.
 - `DTF-106` [Done] Создан `SEO_BASELINE.md`.
+- `DTF-301` [Done] Внедрён Part 3 runbook-контур (execution/QA/evidence/rollback).
+- `DTF-302` [Done] Обновлены артефакты и индексы: `CHANGELOG_CODEX.md`, `EVIDENCE.md`, `DEPLOY.md`.
+- `DTF-303` [Done] Прогнаны quality gates и зафиксированы артефакты (`tests`, `pip-audit`, `curl`, `lighthouse`).
 
 ## Todo
 - `DTF-201` [Todo] Добавить редакционный workflow для ежемесячной публикации через админку.
 - `DTF-202` [Todo] Подключить отчёт Search Console/Lighthouse по страницам Knowledge Base.
+- `DTF-304` [Todo] Подготовить автоматизированный браузерный smoke (desktop/mobile) в Playwright.
