@@ -1,0 +1,27 @@
+.pointer-highlight {
+  position: relative;
+  display: inline;
+  box-decoration-break: clone;
+}
+
+.pointer-highlight::after {
+  content: "";
+  position: absolute;
+  left: -0.08em;
+  right: -0.08em;
+  bottom: 0.02em;
+  height: 0.5em;
+  background: linear-gradient(180deg, rgba(255, 132, 0, 0.0), rgba(255, 132, 0, 0.35));
+  transform: scaleX(0.12);
+  transform-origin: left center;
+  opacity: 0;
+  transition: transform 180ms ease, opacity 180ms ease;
+  pointer-events: none;
+}
+
+.pointer-highlight.is-pointed::after,
+.pointer-highlight:hover::after,
+.pointer-highlight:focus-visible::after {
+  transform: scaleX(1);
+  opacity: 1;
+}

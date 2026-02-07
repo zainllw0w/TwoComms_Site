@@ -101,3 +101,33 @@
 - `/products/`: card specs + trust pointer highlights
 - `/about/`: trust copy highlights + outbound proof pin
 - `/cabinet/*`: tabbed MVP structure + loyalty explainer
+
+## Part 5-6 Update (2026-02-07)
+
+### Effect infra
+- Added shared utils:
+  - `twocomms/dtf/static/dtf/js/components/_utils.js`
+- Updated registry/init contract:
+  - `DTF.registerEffect(name, selector, initFn)`
+  - idempotent element init via `data-init-*`
+  - HTMX hooks for `afterSwap` and `beforeCleanupElement`
+- Added effect modules (`effect.*`):
+  - `effect.bg-beams`
+  - `effect.dotted-glow`
+  - `effect.encrypted-text`
+  - `effect.compare`
+  - `effect.stateful-button`
+  - `effect.pointer-highlight`
+  - `effect.tracing-beam`
+  - `effect.infinite-cards`
+
+### QA route
+- Added non-indexed effect playground:
+  - `/effects-lab/` (`dtf:effects_lab`)
+  - includes reduced-motion + coarse-pointer simulation toggles
+
+### UI polish from Part4 audit
+- Hero copy normalized (removed duplicate flip terms and technical checksum line).
+- Footer layout simplified and balanced for desktop/mobile.
+- Floating dock auto-hides near footer and modal/drawer states.
+- Constructor step pills rebuilt (predictable rectangular rhythm instead of oversized capsule artifacts).

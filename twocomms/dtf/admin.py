@@ -3,10 +3,17 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 
 from .models import (
+    DtfEventLog,
     DtfLead,
     DtfLeadAttachment,
+    DtfLifecycleStatus,
     DtfOrder,
+    DtfPreflightReport,
+    DtfPricingConfig,
+    DtfQuote,
     DtfSampleLead,
+    DtfStatusEvent,
+    DtfUpload,
     DtfBuilderSession,
     DtfWork,
     KnowledgePost,
@@ -19,6 +26,7 @@ from .telegram import (
     notify_paid,
     notify_shipped,
 )
+from .notify import notify_customer_status_change
 from .utils import calculate_pricing
 
 
@@ -38,8 +46,8 @@ class DtfLeadAdmin(admin.ModelAdmin):
 
 @admin.register(DtfOrder)
 class DtfOrderAdmin(admin.ModelAdmin):
-    list_display = ("order_number", "name", "phone", "status_badge", "meters_total", "price_total", "created_at")
-    list_filter = ("status", "created_at")
+    list_display = ("order_number", "name", "phone", "status_badge", "lifecycle_status", "meters_total", "price_total", "created_at")
+    list_filter = ("status", "lifecycle_status", "requires_review", "order_type", "created_at")
     search_fields = ("order_number", "name", "phone")
     readonly_fields = ("order_number", "created_at", "updated_at")
     actions = [
@@ -48,6 +56,9 @@ class DtfOrderAdmin(admin.ModelAdmin):
         "action_send_payment_link",
         "action_mark_paid",
         "action_mark_shipped",
+        "action_lifecycle_confirmed",
+        "action_lifecycle_in_production",
+        "action_lifecycle_delivered",
     ]
 
     def status_badge(self, obj):
@@ -105,12 +116,67 @@ class DtfOrderAdmin(admin.ModelAdmin):
                 continue
             order.status = OrderStatus.SHIPPED
             order.save(update_fields=["status"])
+            try:
+                order.transition_lifecycle(
+                    DtfLifecycleStatus.SHIPPED,
+                    actor="manager",
+                    public_message=_("Замовлення відправлено"),
+                )
+                notify_customer_status_change(order, _("Замовлення відправлено"))
+            except ValueError:
+                pass
             notify_shipped(order)
             updated += 1
         if updated:
             self.message_user(request, _("Відправлено %(count)s замовлень") % {"count": updated}, messages.SUCCESS)
         else:
             self.message_user(request, _("Не знайдено ТТН для відправки"), messages.WARNING)
+
+    @admin.action(description=_("Lifecycle → Confirmed"))
+    def action_lifecycle_confirmed(self, request, queryset):
+        updated = 0
+        for order in queryset:
+            try:
+                order.transition_lifecycle(
+                    DtfLifecycleStatus.CONFIRMED,
+                    actor="manager",
+                    public_message=_("Замовлення підтверджено менеджером"),
+                )
+                updated += 1
+            except ValueError:
+                continue
+        self.message_user(request, _("Оновлено %(count)s lifecycle-переходів") % {"count": updated}, messages.SUCCESS)
+
+    @admin.action(description=_("Lifecycle → In production"))
+    def action_lifecycle_in_production(self, request, queryset):
+        updated = 0
+        for order in queryset:
+            try:
+                order.transition_lifecycle(
+                    DtfLifecycleStatus.IN_PRODUCTION,
+                    actor="manager",
+                    public_message=_("Замовлення передано у виробництво"),
+                )
+                updated += 1
+            except ValueError:
+                continue
+        self.message_user(request, _("Оновлено %(count)s lifecycle-переходів") % {"count": updated}, messages.SUCCESS)
+
+    @admin.action(description=_("Lifecycle → Delivered"))
+    def action_lifecycle_delivered(self, request, queryset):
+        updated = 0
+        for order in queryset:
+            try:
+                order.transition_lifecycle(
+                    DtfLifecycleStatus.DELIVERED,
+                    actor="manager",
+                    public_message=_("Замовлення доставлено"),
+                )
+                notify_customer_status_change(order, _("Замовлення доставлено"))
+                updated += 1
+            except ValueError:
+                continue
+        self.message_user(request, _("Оновлено %(count)s lifecycle-переходів") % {"count": updated}, messages.SUCCESS)
 
     def save_model(self, request, obj, form, change):
         if obj.length_m and obj.copies:
@@ -169,3 +235,50 @@ class DtfBuilderSessionAdmin(admin.ModelAdmin):
     list_filter = ("status", "product_type", "placement", "updated_at")
     search_fields = ("session_id", "delivery_city", "delivery_np_branch")
     readonly_fields = ("session_id", "created_at", "updated_at")
+
+
+@admin.register(DtfPricingConfig)
+class DtfPricingConfigAdmin(admin.ModelAdmin):
+    list_display = ("name", "version", "is_active", "effective_from", "base_price_per_meter", "updated_at")
+    list_filter = ("is_active", "effective_from")
+    search_fields = ("name",)
+
+
+@admin.register(DtfUpload)
+class DtfUploadAdmin(admin.ModelAdmin):
+    list_display = ("id", "sha256", "mime_type", "size_bytes", "source", "created_at")
+    list_filter = ("mime_type", "source", "created_at")
+    search_fields = ("sha256", "file")
+    readonly_fields = ("sha256", "size_bytes", "created_at")
+
+
+@admin.register(DtfPreflightReport)
+class DtfPreflightReportAdmin(admin.ModelAdmin):
+    list_display = ("id", "upload", "result", "engine_version", "created_at")
+    list_filter = ("result", "engine_version", "created_at")
+    search_fields = ("upload__sha256",)
+    readonly_fields = ("created_at",)
+
+
+@admin.register(DtfQuote)
+class DtfQuoteAdmin(admin.ModelAdmin):
+    list_display = ("id", "source", "length_m", "unit_price", "total", "currency", "valid_until", "created_at")
+    list_filter = ("source", "currency", "created_at")
+    search_fields = ("source", "pricing_version")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(DtfStatusEvent)
+class DtfStatusEventAdmin(admin.ModelAdmin):
+    list_display = ("order", "status_from", "status_to", "actor", "created_at")
+    list_filter = ("status_from", "status_to", "actor", "created_at")
+    search_fields = ("order__order_number", "public_message")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(DtfEventLog)
+class DtfEventLogAdmin(admin.ModelAdmin):
+    list_display = ("event_name", "order", "created_at")
+    list_filter = ("event_name", "created_at")
+    search_fields = ("event_name", "order__order_number")
+    readonly_fields = ("created_at",)

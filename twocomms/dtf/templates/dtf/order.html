@@ -20,7 +20,7 @@
 
     <div class="order-panels">
       <div class="panel {% if tab == 'ready' %}active{% endif %}" id="panel-ready" data-ui="dtf:order:ready">
-        <form id="order-ready-form" method="post" enctype="multipart/form-data" class="order-form" data-calc="server" data-calc-url="{% url 'dtf:estimate' %}?context=order" data-submit-guard>
+        <form id="order-ready-form" method="post" enctype="multipart/form-data" class="order-form" data-calc="server" data-calc-url="{% url 'dtf:api_quote' %}?context=order" data-submit-guard>
           {% csrf_token %}
           <input type="hidden" name="tab" value="ready">
 

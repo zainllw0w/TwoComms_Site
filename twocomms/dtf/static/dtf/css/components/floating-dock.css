@@ -1,18 +1,20 @@
 [data-floating-dock] {
   position: fixed;
   right: 20px;
-  bottom: 22px;
+  bottom: 26px;
   z-index: 80;
   display: grid;
   gap: 8px;
   opacity: 0;
   transform: translateY(14px);
-  transition: opacity 220ms ease, transform 220ms ease;
+  transition: opacity 220ms ease, transform 220ms ease, visibility 220ms ease;
+  visibility: hidden;
 }
 
 [data-floating-dock].dock-ready {
   opacity: 0.86;
   transform: translateY(0);
+  visibility: visible;
 }
 
 [data-floating-dock].dock-scrolled {
@@ -23,7 +25,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 136px;
+  min-width: 140px;
   padding: 8px 12px;
   border-radius: 999px;
   font-size: 12px;
@@ -32,6 +34,13 @@
   border: 1px solid rgba(134, 145, 210, 0.6);
   background: rgba(14, 16, 22, 0.88);
   backdrop-filter: blur(8px);
+}
+
+[data-floating-dock].dock-hidden {
+  opacity: 0 !important;
+  transform: translateY(20px);
+  pointer-events: none;
+  visibility: hidden;
 }
 
 @media (max-width: 900px) {
