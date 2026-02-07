@@ -1,0 +1,9 @@
+[data-compare],
+[data-effect~="compare"] {
+  --compare: 50%;
+}
+
+[data-compare] .compare-media,
+[data-effect~="compare"] .compare-media {
+  --compare: 50%;
+}

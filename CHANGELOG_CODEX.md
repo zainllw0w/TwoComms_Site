@@ -1,5 +1,47 @@
 # CHANGELOG CODEX
 
+## 2026-02-07 03:10 UTC
+- Scope: Part4 audit polish + Part5 effect infra + Part6 business core foundation.
+- Summary:
+  - Fixed critical visual issues from screenshots: hero text duplication, noisy/over-lit gradients, footer structure, constructor step UI, dock overlap near footer.
+  - Implemented Part5 vanilla effect infrastructure:
+    - added `_utils.js`, upgraded registry (`name+selector+initFn`), HTMX cleanup hooks
+    - introduced `effect.*` JS/CSS modules and enabled `/effects-lab/` (noindex)
+  - Implemented Part6 foundation:
+    - added models for pricing config, uploads, preflight reports, quotes, lifecycle status events, analytics event log
+    - added deterministic pricing engine (`dtf/pricing.py`) and `/api/quote/`
+    - upgraded status security (phone-bound lookup + rate limit + timeline from status events)
+    - integrated preflight engine v2 (`dtf/preflight/engine.py`) into constructor flow
+    - added baseline email notification adapter (`dtf/notify.py`) and admin lifecycle actions
+- Files:
+  - `twocomms/dtf/models.py`
+  - `twocomms/dtf/migrations/0005_dtfpreflightreport_dtfpricingconfig_and_more.py`
+  - `twocomms/dtf/pricing.py`
+  - `twocomms/dtf/preflight/engine.py`
+  - `twocomms/dtf/notify.py`
+  - `twocomms/dtf/views.py`
+  - `twocomms/dtf/forms.py`
+  - `twocomms/dtf/admin.py`
+  - `twocomms/dtf/urls.py`
+  - `twocomms/dtf/tests.py`
+  - `twocomms/dtf/templates/dtf/base.html`
+  - `twocomms/dtf/templates/dtf/index.html`
+  - `twocomms/dtf/templates/dtf/order.html`
+  - `twocomms/dtf/templates/dtf/status.html`
+  - `twocomms/dtf/templates/dtf/constructor_app.html`
+  - `twocomms/dtf/templates/dtf/effects_lab.html`
+  - `twocomms/dtf/templates/dtf/blog.html`
+  - `twocomms/dtf/templates/dtf/gallery.html`
+  - `twocomms/dtf/templates/dtf/requirements.html`
+  - `twocomms/dtf/static/dtf/js/components/core.js`
+  - `twocomms/dtf/static/dtf/js/components/_utils.js`
+  - `twocomms/dtf/static/dtf/js/components/effect.*`
+  - `twocomms/dtf/static/dtf/css/components/effect.*`
+  - `twocomms/dtf/static/dtf/css/components/floating-dock.css`
+  - `twocomms/dtf/static/dtf/css/dtf.css`
+  - `twocomms/dtf/static/dtf/js/dtf.js`
+  - `EFFECTS_MAP.md`
+
 ## 2026-02-07 02:05 UTC
 - Scope: Part 3 execution protocol hardening and QA/evidence updates for `dtf.twocomms.shop`.
 - Summary:

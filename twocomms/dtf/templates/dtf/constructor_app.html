@@ -15,12 +15,27 @@
 
     <div class="constructor-layout" data-ui="dtf:constructor:layout">
       <aside class="constructor-sidebar card" data-ui="dtf:constructor:steps">
-        <div class="constructor-step-tabs">
-          <span class="chip">1. {% trans "Product" %}</span>
-          <span class="chip">2. {% trans "Print" %}</span>
-          <span class="chip">3. {% trans "Upload" %}</span>
-          <span class="chip">4. {% trans "Delivery" %}</span>
-          <span class="chip">5. {% trans "Summary" %}</span>
+        <div class="constructor-step-tabs" aria-label="{% trans 'Етапи конструктора' %}">
+          <span class="constructor-step is-active">
+            <span class="constructor-step-index">1</span>
+            <span class="constructor-step-label">{% trans "Виріб" %}</span>
+          </span>
+          <span class="constructor-step">
+            <span class="constructor-step-index">2</span>
+            <span class="constructor-step-label">{% trans "Друк" %}</span>
+          </span>
+          <span class="constructor-step">
+            <span class="constructor-step-index">3</span>
+            <span class="constructor-step-label">{% trans "Завантаження" %}</span>
+          </span>
+          <span class="constructor-step">
+            <span class="constructor-step-index">4</span>
+            <span class="constructor-step-label">{% trans "Доставка" %}</span>
+          </span>
+          <span class="constructor-step">
+            <span class="constructor-step-index">5</span>
+            <span class="constructor-step-label">{% trans "Резюме" %}</span>
+          </span>
         </div>
 
         <form method="post" enctype="multipart/form-data" class="order-form" data-submit-guard data-upload-flow data-effect="multi-step-loader">
@@ -47,10 +62,10 @@
           <label>{% trans "Розміщення принта" %} {{ builder_form.placement }}</label>
           <label>{% trans "Макет" %} {{ builder_form.design_file }}</label>
           <div class="upload-steps">
-            <span class="chip" data-upload-step="1">Upload</span>
-            <span class="chip" data-upload-step="2">Preflight</span>
-            <span class="chip" data-upload-step="3">Preview</span>
-            <span class="chip" data-upload-step="4">Ready</span>
+            <span class="upload-step-pill" data-upload-step="1">{% trans "Файл" %}</span>
+            <span class="upload-step-pill" data-upload-step="2">{% trans "Preflight" %}</span>
+            <span class="upload-step-pill" data-upload-step="3">{% trans "Preview" %}</span>
+            <span class="upload-step-pill" data-upload-step="4">{% trans "Готово" %}</span>
           </div>
           <label>{% trans "Місто" %} {{ builder_form.delivery_city }}</label>
           <label>{% trans "Відділення НП" %} {{ builder_form.delivery_np_branch }}</label>

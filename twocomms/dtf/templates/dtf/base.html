@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#050505">
   <title>{% block title %}{% trans "DTF друк у рулоні 60 см — TwoComms" %}{% endblock %}</title>
   <meta name="description" content="{% block description %}{% trans "DTF друк 60 см: швидкий розрахунок метражу, перевірка макета та доставка НП." %}{% endblock %}">
+  {% if robots_noindex %}<meta name="robots" content="noindex,nofollow">{% endif %}
   <meta property="og:type" content="website">
   <meta property="og:title" content="{% block og_title %}{% trans "DTF друк у рулоні 60 см" %}{% endblock %}">
   <meta property="og:description" content="{% block og_description %}{% trans "Прозорий розрахунок, ручна перевірка макета, доставка Новою Поштою." %}{% endblock %}">
@@ -20,13 +21,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260206b">
-  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260207a">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/bg-beams.css' %}?v=20260207a">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/dotted-glow.css' %}?v=20260207a">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/text-encrypted.css' %}?v=20260207a">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/pointer-highlight.css' %}?v=20260207a">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260207b">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.bg-beams.css' %}?v=20260207b">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.dotted-glow.css' %}?v=20260207b">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.encrypted-text.css' %}?v=20260207b">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.pointer-highlight.css' %}?v=20260207b">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.compare.css' %}?v=20260207b">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.stateful-button.css' %}?v=20260207b">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.tracing-beam.css' %}?v=20260207b">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.infinite-cards.css' %}?v=20260207b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/sparkles.css' %}?v=20260207a">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/floating-dock.css' %}?v=20260207a">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/floating-dock.css' %}?v=20260207b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/multi-step-loader.css' %}?v=20260207a">
   <link rel="stylesheet" href="{% static 'dtf/css/components/vanish-input.css' %}?v=20260207a">
   <link rel="stylesheet" href="{% static 'dtf/css/components/tabs-download.css' %}?v=20260207a">
@@ -216,7 +221,7 @@
       {% block content %}{% endblock %}
     </main>
 
-    <footer class="dtf-footer" data-ui="dtf:base:footer">
+    <footer class="dtf-footer" data-ui="dtf:base:footer" data-footer-anchor>
       <div class="dtf-container footer-inner">
         <div>
           <div class="footer-title">TwoComms DTF</div>
@@ -284,7 +289,7 @@
     </div>
   </div>
 
-  <nav class="dtf-floating-dock" data-floating-dock data-ui="dtf:global:floating-dock" aria-label="{% trans 'Швидкі дії' %}">
+  <nav class="dtf-floating-dock" data-floating-dock data-ui="dtf:global:floating-dock" data-hide-near-footer="[data-footer-anchor]" aria-label="{% trans 'Швидкі дії' %}">
     <a href="{% url 'dtf:order' %}">{% trans "Замовити" %}</a>
     <a href="{% url 'dtf:sample' %}">{% trans "Зразок" %}</a>
     <a href="#dtf-fab">{% trans "Менеджер" %}</a>
@@ -319,19 +324,24 @@
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
   <script src="{% static 'dtf/js/vendor/htmx.min.js' %}?v=20260206b" defer></script>
-  <script src="{% static 'dtf/js/components/core.js' %}?v=20260207a" defer></script>
+  <script src="{% static 'dtf/js/components/core.js' %}?v=20260207b" defer></script>
+  <script src="{% static 'dtf/js/components/_utils.js' %}?v=20260207b" defer></script>
   <script src="{% static 'dtf/js/components/motion.js' %}?v=20260207a" defer></script>
-  <script src="{% static 'dtf/js/components/bg-beams.js' %}?v=20260207a" defer></script>
-  <script src="{% static 'dtf/js/components/dotted-glow.js' %}?v=20260207a" defer></script>
-  <script src="{% static 'dtf/js/components/text-encrypted.js' %}?v=20260207a" defer></script>
-  <script src="{% static 'dtf/js/components/pointer-highlight.js' %}?v=20260207a" defer></script>
+  <script src="{% static 'dtf/js/components/effect.bg-beams.js' %}?v=20260207b" defer></script>
+  <script src="{% static 'dtf/js/components/effect.dotted-glow.js' %}?v=20260207b" defer></script>
+  <script src="{% static 'dtf/js/components/effect.encrypted-text.js' %}?v=20260207b" defer></script>
+  <script src="{% static 'dtf/js/components/effect.pointer-highlight.js' %}?v=20260207b" defer></script>
+  <script src="{% static 'dtf/js/components/effect.compare.js' %}?v=20260207b" defer></script>
+  <script src="{% static 'dtf/js/components/effect.stateful-button.js' %}?v=20260207b" defer></script>
+  <script src="{% static 'dtf/js/components/effect.tracing-beam.js' %}?v=20260207b" defer></script>
+  <script src="{% static 'dtf/js/components/effect.infinite-cards.js' %}?v=20260207b" defer></script>
   <script src="{% static 'dtf/js/components/sparkles.js' %}?v=20260207a" defer></script>
-  <script src="{% static 'dtf/js/components/floating-dock.js' %}?v=20260207a" defer></script>
+  <script src="{% static 'dtf/js/components/floating-dock.js' %}?v=20260207b" defer></script>
   <script src="{% static 'dtf/js/components/multi-step-loader.js' %}?v=20260207a" defer></script>
   <script src="{% static 'dtf/js/components/vanish-input.js' %}?v=20260207a" defer></script>
   <script src="{% static 'dtf/js/components/tabs-download.js' %}?v=20260207a" defer></script>
   <script src="{% static 'dtf/js/components/cards-on-click.js' %}?v=20260207a" defer></script>
-  <script src="{% static 'dtf/js/dtf.js' %}?v=20260207a" defer></script>
+  <script src="{% static 'dtf/js/dtf.js' %}?v=20260207b" defer></script>
   {% block extra_scripts %}{% endblock %}
 
 </body>

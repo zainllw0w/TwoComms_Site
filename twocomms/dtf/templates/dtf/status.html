@@ -60,13 +60,13 @@
           <div>
             <div class="label">{% trans "Замовлення" %}</div>
             <div class="value">{{ order.order_number }}</div>
-            <div class="status-sub">{{ order.get_status_display }}</div>
+            <div class="status-sub">{{ order.get_lifecycle_status_display }}</div>
           </div>
           <div class="status-actions">
             {% if share_url %}
               <button class="btn btn-outline" type="button" data-copy="{{ share_url }}">{% trans "Скопіювати лінк" %}</button>
             {% endif %}
-            {% if not share_mode %}
+            {% if not share_mode and share_url %}
               <a class="btn btn-ghost" href="{{ share_url }}" target="_blank" rel="noopener">{% trans "Share" %}</a>
             {% endif %}
           </div>
@@ -92,6 +92,25 @@
                 </div>
               {% endfor %}
             </div>
+          </div>
+
+          <div class="status-card">
+            <h3>{% trans "Таймлайн" %}</h3>
+            {% if status_timeline %}
+              <div class="qc-list">
+                {% for event in status_timeline %}
+                  <div class="qc-item">
+                    <span class="qc-label">{{ event.from_label }} → {{ event.to_label }}</span>
+                    <span class="qc-status ok">{{ event.created_at|date:"d.m H:i" }}</span>
+                  </div>
+                  {% if event.message %}
+                    <div class="status-next">{{ event.message }}</div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="status-next">{% trans "Події з'являться після зміни етапів." %}</div>
+            {% endif %}
           </div>
 
           {% if not share_mode %}
