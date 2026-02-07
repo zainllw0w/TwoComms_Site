@@ -1084,52 +1084,8 @@
     resizeCanvas();
     createDrops();
 
-    const updatePointer = (x, y) => {
-      targetPointerX = (x / width) * baseWidth;
-      targetPointerY = (y / height) * baseHeight;
-      pointerActive = true;
-      layer.style.setProperty('--drop-opacity', '0.65');
-    };
-
-    window.addEventListener('mousemove', (event) => {
-      updatePointer(event.clientX, event.clientY);
-    });
-
-    window.addEventListener('mouseleave', () => {
-      pointerActive = false;
-      layer.style.setProperty('--drop-opacity', '0.4');
-    });
-
-    let tiltEnabled = false;
-    let tiltRequested = false;
-
-    const onTilt = (event) => {
-      if (event.beta == null || event.gamma == null) return;
-      const gamma = Math.max(-30, Math.min(30, event.gamma));
-      const beta = Math.max(-30, Math.min(30, event.beta));
-      const xRatio = (gamma + 30) / 60;
-      const yRatio = (beta + 30) / 60;
-      updatePointer(xRatio * width, yRatio * height);
-    };
-
-    const enableTilt = async () => {
-      if (tiltRequested) return;
-      tiltRequested = true;
-      try {
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          const result = await DeviceOrientationEvent.requestPermission();
-          if (result !== 'granted') return;
-        }
-        window.addEventListener('deviceorientation', onTilt, true);
-        tiltEnabled = true;
-      } catch (err) {
-        // ignore
-      }
-    };
-
-    document.addEventListener('touchstart', () => {
-      if (!tiltEnabled) enableTilt();
-    }, { once: true, passive: true });
+    // Keep droplets purely ambient on home page (no mouse/tilt chase).
+    layer.style.setProperty('--drop-opacity', '0.52');
 
     const step = (time) => {
       if (!running) return;
