@@ -81,6 +81,10 @@
 {% trans "Preflight: OK • Макет перевіряє менеджер" as hero_secure_line %}
 <section class="hero scan-hero" data-ui="dtf:home:hero" data-effect="bg-beams sparkles">
   <!-- ASSET_REQUEST | id=hero-printhead-photo | type=photo | usage=HOME Hero / Printhead Scan | spec=transparent PNG, 2x, ~2200px wide | notes=industrial lab lighting, top-left view, clean background -->
+  <div class="hero-dot-distortion" aria-hidden="true">
+    <span class="dot-field"></span>
+    <span class="dot-field dot-field-alt"></span>
+  </div>
   <div class="hero-beams" aria-hidden="true" data-effect="bg-beams">
     <span class="beam beam-1"></span>
     <span class="beam beam-2"></span>
