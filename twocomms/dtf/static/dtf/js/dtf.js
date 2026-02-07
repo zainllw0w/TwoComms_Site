@@ -1075,22 +1075,30 @@
       schedule();
     };
 
-    if (ctx) {
-      resizeCanvas();
-      renderCanvas(0);
-      window.addEventListener('resize', () => {
+    const boot = () => {
+      if (ctx) {
         resizeCanvas();
         renderCanvas(0);
-      }, { passive: true });
-    }
+        window.addEventListener('resize', () => {
+          resizeCanvas();
+          renderCanvas(0);
+        }, { passive: true });
+      }
 
-    if (canAnimate) {
-      window.addEventListener('pointermove', updateTarget, { passive: true });
-      window.addEventListener('pointerdown', updateTarget, { passive: true });
-      window.addEventListener('pointerleave', resetTarget);
-      window.addEventListener('blur', resetTarget);
+      if (canAnimate) {
+        window.addEventListener('pointermove', updateTarget, { passive: true });
+        window.addEventListener('pointerdown', updateTarget, { passive: true });
+        window.addEventListener('pointerleave', resetTarget);
+        window.addEventListener('blur', resetTarget);
+      } else {
+        setStatic();
+      }
+    };
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(boot, { timeout: 900 });
     } else {
-      setStatic();
+      window.setTimeout(boot, 180);
     }
   }
 
