@@ -6,6 +6,7 @@ Primary DTF deploy runbook is maintained at:
 Canonical target for this initiative:
 - Host: `dtf.twocomms.shop`
 - Branch: `codex/codex-refactor-v1`
+- Last deployed commit: `8da5b5e`
 
 Standard restart trigger on server:
 ```bash
