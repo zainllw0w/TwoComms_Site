@@ -1,0 +1,36 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "DTF Конструктор" %}{% endblock %}
+{% block page_id %}constructor{% endblock %}
+
+{% block content %}
+<section class="section" data-ui="dtf:constructor:landing" data-effect="dotted-glow">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "DTF Конструктор (MVP)" %}</h1>
+      <p>{% trans "Оберіть виріб, позицію друку, завантажте макет і отримайте оцінку перед запуском." %}</p>
+    </div>
+
+    <div class="constructor-intro-grid">
+      <article class="card">
+        <h3>{% trans "Що можна зараз" %}</h3>
+        <ol class="list">
+          <li>{% trans "Вибрати тип виробу, колір і кількість" %}</li>
+          <li>{% trans "Вибрати позицію друку (front/back/chest/sleeve)" %}</li>
+          <li>{% trans "Завантажити файл і пройти preflight" %}</li>
+          <li>{% trans "Отримати 2D preview і відправити запит менеджеру" %}</li>
+        </ol>
+      </article>
+      <article class="card">
+        <h3>{% trans "Куди далі" %}</h3>
+        <p>{% trans "Після підтвердження менеджером узгодимо матеріал, тираж і логістику." %}</p>
+        <div class="cta-group">
+          <a class="btn btn-primary" href="{% url 'dtf:constructor_app' %}" data-stateful-link>{% trans "Відкрити конструктор" %}</a>
+          <a class="btn btn-ghost" href="{% url 'dtf:requirements' %}">{% trans "Переглянути вимоги" %}</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+{% endblock %}

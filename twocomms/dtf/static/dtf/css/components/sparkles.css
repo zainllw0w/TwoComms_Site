@@ -1,0 +1,24 @@
+[data-effect~="sparkles"] {
+  position: relative;
+}
+
+.sparkle-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 225, 151, 1) 0%, rgba(255, 157, 62, 0.25) 70%);
+  pointer-events: none;
+  animation: dtfSparkle 2.8s ease-in-out infinite;
+  animation-delay: calc(var(--sparkle-index, 0) * 0.22s);
+}
+
+.sparkles-static .sparkle-dot {
+  animation: none;
+  opacity: 0.5;
+}
+
+@keyframes dtfSparkle {
+  0%, 100% { transform: scale(0.4); opacity: 0.2; }
+  50% { transform: scale(1); opacity: 0.85; }
+}

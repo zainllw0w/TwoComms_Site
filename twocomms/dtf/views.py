@@ -3,19 +3,31 @@ from itertools import groupby
 import xml.etree.ElementTree as ET
 from urllib.parse import quote
 
+from django.conf import settings
 from django.contrib.auth import logout
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.cache import cache
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, NoReverseMatch
 from django.views.decorators.http import require_http_methods, require_POST
 from django.utils.translation import gettext_lazy as _
 
-from .forms import DtfOrderForm, DtfHelpForm, DtfFabLeadForm
+from .forms import (
+    DtfBuilderSessionForm,
+    DtfFabLeadForm,
+    DtfHelpForm,
+    DtfOrderForm,
+    DtfSampleLeadForm,
+)
 from .models import (
+    BuilderStatus,
     DtfOrder,
+    DtfBuilderSession,
     DtfLead,
     DtfLeadAttachment,
+    DtfSampleLead,
     DtfWork,
     WorkCategory,
     OrderStatus,
@@ -198,6 +210,66 @@ def _base_context(request):
         "profile_can_django_admin": profile_meta["can_django_admin"],
         "profile_links": profile_links,
     }
+
+
+def _is_rate_limited(request, key_prefix: str, *, limit: int = 5, window_seconds: int = 3600) -> bool:
+    ip = (request.META.get("HTTP_X_FORWARDED_FOR") or request.META.get("REMOTE_ADDR") or "unknown").split(",")[0].strip()
+    key = f"dtf:{key_prefix}:{ip}"
+    current = cache.get(key, 0)
+    if current >= limit:
+        return True
+    cache.set(key, current + 1, timeout=window_seconds)
+    return False
+
+
+def _get_user_phone_digits(user):
+    if not user or not user.is_authenticated:
+        return ""
+    try:
+        profile = user.userprofile
+    except Exception:
+        profile = None
+    profile_phone = ""
+    if profile:
+        profile_phone = (
+            getattr(profile, "phone", "")
+            or getattr(profile, "phone_number", "")
+            or getattr(profile, "mobile", "")
+            or ""
+        )
+    return normalize_phone(profile_phone)
+
+
+def _calc_loyalty_meta(order_count: int):
+    points_per_order = int(getattr(settings, "DTF_LOYALTY_POINTS_PER_ORDER", 10))
+    manager_badge_after = int(getattr(settings, "DTF_LOYALTY_MANAGER_BADGE_AFTER_ORDERS", 5))
+    points = max(0, order_count) * max(1, points_per_order)
+    return {
+        "order_count": max(0, order_count),
+        "points": points,
+        "points_per_order": points_per_order,
+        "manager_badge_after": manager_badge_after,
+        "has_manager_badge": order_count >= manager_badge_after,
+    }
+
+
+def _build_constructor_task_description(builder_session: DtfBuilderSession) -> str:
+    payload = [
+        f"Builder session: {builder_session.session_id}",
+        f"Product: {builder_session.product_type}",
+        f"Placement: {builder_session.placement}",
+        f"Color: {builder_session.product_color}",
+        f"Qty: {builder_session.quantity}",
+    ]
+    if builder_session.size_breakdown_json:
+        payload.append(f"Sizes: {builder_session.size_breakdown_json}")
+    if builder_session.delivery_city or builder_session.delivery_np_branch:
+        payload.append(f"Delivery: {builder_session.delivery_city} / {builder_session.delivery_np_branch}")
+    if builder_session.preflight_json:
+        payload.append(f"Preflight: {builder_session.preflight_json}")
+    if builder_session.comment:
+        payload.append(f"Comment: {builder_session.comment}")
+    return "\n".join(payload)
 
 
 def _render(request, template, context, status: int | None = None):
@@ -449,6 +521,169 @@ def quality(request):
     return _render(request, "dtf/quality.html", ctx)
 
 
+@require_http_methods(["GET", "POST"])
+def sample(request):
+    ctx = _base_context(request)
+    saved = False
+    if request.method == "POST":
+        if _is_rate_limited(request, "sample_form", limit=6, window_seconds=3600):
+            messages.error(request, _("Забагато спроб. Спробуйте трохи пізніше."))
+            form = DtfSampleLeadForm(request.POST)
+        else:
+            form = DtfSampleLeadForm(request.POST)
+            if form.is_valid():
+                sample_lead = form.save(commit=False)
+                sample_lead.source = "sample_page"
+                sample_lead.save()
+                saved = True
+                form = DtfSampleLeadForm(initial={"sample_size": sample_lead.sample_size})
+    else:
+        form = DtfSampleLeadForm(initial={"sample_size": "a4"})
+    ctx.update({
+        "sample_form": form,
+        "sample_saved": saved,
+    })
+    return _render(request, "dtf/sample.html", ctx)
+
+
+def about(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/about.html", ctx)
+
+
+def products(request):
+    ctx = _base_context(request)
+    product_cards = [
+        {
+            "key": "hoodie",
+            "title": _("Худі"),
+            "description": _("Щільні худі під DTF: підбір blank + друк + контроль якості."),
+            "spec": _("Щільність 280–420 gsm, front/back/left chest"),
+        },
+        {
+            "key": "tshirt",
+            "title": _("Футболки"),
+            "description": _("Базові та преміум футболки, підібрані під ваш бренд."),
+            "spec": _("S–XXL, білий/чорний/кольори, опт і дрібні партії"),
+        },
+        {
+            "key": "tote",
+            "title": _("Шопери"),
+            "description": _("Готові шопери з нанесенням під запуск мерчу чи промо."),
+            "spec": _("Бавовна/саржа, front print, серійні тиражі"),
+        },
+    ]
+    ctx.update({"product_cards": product_cards})
+    return _render(request, "dtf/products.html", ctx)
+
+
+def constructor_landing(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/constructor_landing.html", ctx)
+
+
+@require_http_methods(["GET", "POST"])
+def constructor_app(request):
+    ctx = _base_context(request)
+    session_obj = None
+    sid = (request.GET.get("sid") or request.POST.get("session_id") or "").strip()
+    if sid:
+        session_obj = DtfBuilderSession.objects.filter(session_id=sid).first()
+    if not session_obj:
+        session_obj = DtfBuilderSession.objects.create(
+            user=request.user if request.user.is_authenticated else None,
+        )
+    if request.method == "POST":
+        form = DtfBuilderSessionForm(request.POST, request.FILES, instance=session_obj)
+        if form.is_valid():
+            builder = form.save(commit=False)
+            builder.size_breakdown_json = form.cleaned_data.get("size_breakdown_json", {})
+            builder.placements_json = form.cleaned_data.get("placements_json", [])
+            builder.preflight_json = form.cleaned_data.get("preflight_json", {})
+            preview_file = form.cleaned_data.get("preview_image_file")
+            if preview_file:
+                builder.preview_image = preview_file
+            if request.user.is_authenticated and not builder.user_id:
+                builder.user = request.user
+            builder.status = BuilderStatus.DRAFT
+            builder.save()
+            messages.success(request, _("Чернетку конструктора збережено"))
+            return redirect(f"{reverse('dtf:constructor_app')}?sid={builder.session_id}")
+    else:
+        initial = {}
+        if session_obj.size_breakdown_json:
+            initial["size_breakdown"] = ",".join(f"{k}:{v}" for k, v in session_obj.size_breakdown_json.items())
+        form = DtfBuilderSessionForm(instance=session_obj, initial=initial)
+    preflight = session_obj.preflight_json if session_obj.preflight_json else {}
+    ctx.update({
+        "builder_session": session_obj,
+        "builder_form": form,
+        "builder_preflight": preflight,
+    })
+    return _render(request, "dtf/constructor_app.html", ctx)
+
+
+@require_POST
+def constructor_submit(request):
+    sid = (request.POST.get("session_id") or "").strip()
+    if not sid:
+        return JsonResponse({"ok": False, "error": _("Session ID required")}, status=400)
+    builder = get_object_or_404(DtfBuilderSession, session_id=sid)
+    if builder.status == BuilderStatus.SUBMITTED and builder.submitted_lead_id:
+        return JsonResponse({"ok": True, "lead_number": builder.submitted_lead.lead_number})
+    if _is_rate_limited(request, "constructor_submit", limit=8, window_seconds=3600):
+        return JsonResponse({"ok": False, "error": _("Too many submissions. Try later.")}, status=429)
+
+    name = (request.POST.get("name") or "").strip()
+    phone = (request.POST.get("phone") or "").strip()
+    city = (request.POST.get("city") or builder.delivery_city or "").strip()
+    np_branch = (request.POST.get("np_branch") or builder.delivery_np_branch or "").strip()
+    contact_channel = (request.POST.get("contact_channel") or "telegram").strip()
+    risk_ack = (request.POST.get("risk_ack") or "").strip() in {"1", "true", "on", "yes"}
+
+    if not name or len(normalize_phone(phone)) < 10:
+        return JsonResponse({"ok": False, "error": _("Provide valid name and phone")}, status=400)
+
+    preflight = builder.preflight_json or {}
+    has_fail = bool(preflight.get("has_fail"))
+    has_warn = bool(preflight.get("has_warn"))
+    if has_fail:
+        return JsonResponse({"ok": False, "error": _("Fix critical preflight issues before submit")}, status=400)
+    if has_warn and not risk_ack:
+        return JsonResponse({"ok": False, "error": _("Please accept preflight risks to continue")}, status=400)
+
+    lead = DtfLead.objects.create(
+        lead_type=LeadType.CONSULTATION,
+        name=name,
+        phone=phone,
+        city=city,
+        np_branch=np_branch,
+        contact_channel=contact_channel if contact_channel in {"telegram", "whatsapp", "instagram", "call"} else "telegram",
+        task_description=_build_constructor_task_description(builder),
+        source="constructor_submit",
+    )
+    notify_new_lead(lead)
+    builder.status = BuilderStatus.SUBMITTED
+    builder.submitted_lead = lead
+    builder.risk_ack = risk_ack
+    builder.delivery_city = city
+    builder.delivery_np_branch = np_branch
+    builder.save(update_fields=[
+        "status",
+        "submitted_lead",
+        "risk_ack",
+        "delivery_city",
+        "delivery_np_branch",
+        "updated_at",
+    ])
+    return JsonResponse({"ok": True, "lead_number": lead.lead_number, "redirect": reverse("dtf:thanks", kwargs={"kind": "lead", "number": lead.lead_number})})
+
+
+def constructor_session_detail(request, session_id: str):
+    session_obj = get_object_or_404(DtfBuilderSession, session_id=session_id)
+    return redirect(f"{reverse('dtf:constructor_app')}?sid={session_obj.session_id}")
+
+
 def robots_txt(request):
     host = request.get_host().split(":")[0]
     scheme = request.scheme or "https"
@@ -473,6 +708,10 @@ def sitemap_xml(request):
         "dtf:order",
         "dtf:status",
         "dtf:gallery",
+        "dtf:sample",
+        "dtf:about",
+        "dtf:products",
+        "dtf:constructor",
         "dtf:requirements",
         "dtf:price",
         "dtf:delivery_payment",
@@ -577,6 +816,67 @@ def blog_post(request, slug: str):
     if overlay:
         return render(request, "dtf/partials/blog_overlay_content.html", ctx)
     return _render(request, "dtf/blog_post.html", ctx)
+
+
+@login_required
+def cabinet_home(request):
+    ctx = _base_context(request)
+    user_phone = _get_user_phone_digits(request.user)
+    orders = []
+    if user_phone:
+        for order in DtfOrder.objects.order_by("-created_at")[:300]:
+            if normalize_phone(order.phone) == user_phone:
+                orders.append(order)
+    elif request.user.is_staff:
+        orders = list(DtfOrder.objects.order_by("-created_at")[:10])
+    sessions_qs = DtfBuilderSession.objects.filter(user=request.user).order_by("-updated_at")
+    loyalty_meta = _calc_loyalty_meta(len(orders))
+    ctx.update({
+        "cabinet_tab": "home",
+        "cabinet_orders": orders[:5],
+        "cabinet_sessions": sessions_qs[:5],
+        "loyalty": loyalty_meta,
+    })
+    return _render(request, "dtf/cabinet_home.html", ctx)
+
+
+@login_required
+def cabinet_orders(request):
+    ctx = _base_context(request)
+    user_phone = _get_user_phone_digits(request.user)
+    orders = []
+    if user_phone:
+        for order in DtfOrder.objects.order_by("-created_at")[:300]:
+            if normalize_phone(order.phone) == user_phone:
+                orders.append(order)
+    elif request.user.is_staff:
+        orders = list(DtfOrder.objects.order_by("-created_at")[:30])
+    loyalty_meta = _calc_loyalty_meta(len(orders))
+    ctx.update({
+        "cabinet_tab": "orders",
+        "cabinet_orders": orders,
+        "loyalty": loyalty_meta,
+    })
+    return _render(request, "dtf/cabinet_orders.html", ctx)
+
+
+@login_required
+def cabinet_sessions(request):
+    ctx = _base_context(request)
+    sessions = DtfBuilderSession.objects.filter(user=request.user).order_by("-updated_at")
+    user_phone = _get_user_phone_digits(request.user)
+    orders = []
+    if user_phone:
+        for order in DtfOrder.objects.order_by("-created_at")[:300]:
+            if normalize_phone(order.phone) == user_phone:
+                orders.append(order)
+    loyalty_meta = _calc_loyalty_meta(len(orders))
+    ctx.update({
+        "cabinet_tab": "sessions",
+        "cabinet_sessions": sessions,
+        "loyalty": loyalty_meta,
+    })
+    return _render(request, "dtf/cabinet_sessions.html", ctx)
 
 
 def privacy(request):

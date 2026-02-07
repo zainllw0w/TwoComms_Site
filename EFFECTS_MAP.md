@@ -70,3 +70,34 @@
 - Micro:
   - Reading progress bar
   - Related links / internal linking
+
+## Part 4 Update (2026-02-07)
+
+### Global component pack
+- JS: `core`, `motion`, `bg-beams`, `dotted-glow`, `text-encrypted`, `pointer-highlight`, `sparkles`, `floating-dock`, `multi-step-loader`, `vanish-input`, `tabs-download`, `cards-on-click`
+- CSS: matching component styles in `dtf/static/dtf/css/components/`
+- Init protocol:
+  - `DTF.init()` in `dtf.js`
+  - `DTF.initEffects(root)` call inside init loop
+  - `htmx:afterSwap` re-runs effects idempotently (`data-init="1"` guard)
+
+### Anchors (`data-ui`) introduced
+- `dtf:home:*`: `hero`, `hero-cta`, `works`, `knowledge`, `quick-calc`, `how-it-works`, `requirements-preview`, `delivery`
+- `dtf:order:*`: `root`, `ready`, `help`, `upload`, `preflight`
+- `dtf:gallery:*`: `root`, `grid`, `filters`, `cards-on-click`
+- `dtf:requirements:*`: `root`, `content`, `rules`
+- `dtf:status:*`: `root`, `lookup`
+- `dtf:templates:*`: `root`, `downloads`
+- New pages:
+  - `dtf:sample:*`
+  - `dtf:constructor:*`
+  - `dtf:products:*`
+  - `dtf:about:*`
+  - `dtf:cabinet:*`
+
+### New page signatures
+- `/sample/`: dotted glow + pointer highlight + stateful submit
+- `/constructor/app/`: multi-step loader + preflight terminal + 2D preview
+- `/products/`: card specs + trust pointer highlights
+- `/about/`: trust copy highlights + outbound proof pin
+- `/cabinet/*`: tabbed MVP structure + loyalty explainer

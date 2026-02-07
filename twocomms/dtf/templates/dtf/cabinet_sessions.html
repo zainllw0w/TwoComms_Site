@@ -1,0 +1,39 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Кабінет: сесії конструктора" %}{% endblock %}
+{% block page_id %}cabinet-sessions{% endblock %}
+
+{% block content %}
+<section class="section" data-ui="dtf:cabinet:sessions">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "Сесії конструктора" %}</h1>
+    </div>
+
+    <div class="cabinet-tabs" role="tablist">
+      <a class="chip" href="{% url 'dtf:cabinet' %}">{% trans "Огляд" %}</a>
+      <a class="chip" href="{% url 'dtf:cabinet_orders' %}">{% trans "Замовлення" %}</a>
+      <a class="chip active" href="{% url 'dtf:cabinet_sessions' %}">{% trans "Сесії" %}</a>
+    </div>
+
+    <div class="card">
+      {% if cabinet_sessions %}
+        <ul class="list">
+          {% for session in cabinet_sessions %}
+            <li>
+              <strong>{{ session.get_product_type_display }}</strong>
+              / {{ session.get_placement_display }}
+              / {{ session.get_status_display }}
+              · <a href="{% url 'dtf:constructor_app' %}?sid={{ session.session_id }}">{% trans "Відкрити" %}</a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">{% trans "Поки сесій немає." %}</p>
+      {% endif %}
+      <p class="muted">{{ loyalty.points }} pts</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

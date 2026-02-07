@@ -48,18 +48,19 @@
 {% endblock %}
 
 {% block content %}
-<section class="section">
-  <div class="dtf-container">
+<section class="section" data-ui="dtf:gallery:root">
+  <div class="dtf-container" data-ui="dtf:gallery:grid">
     <div class="section-head">
       <h1>{% trans "Галерея DTF" %}</h1>
       <p>{% trans "Реальні кейси, макро‑деталі та порівняння до/після." %}</p>
     </div>
 
-    <div class="filter-bar">
+    <div class="filter-bar" data-ui="dtf:gallery:filters">
       <a class="chip {% if category == 'all' %}active{% endif %}" href="{% url 'dtf:gallery' %}">{% trans "Всі" %}</a>
       <a class="chip {% if category == 'macro' %}active{% endif %}" href="{% url 'dtf:gallery' %}?category=macro">{% trans "Макро" %}</a>
       <a class="chip {% if category == 'process' %}active{% endif %}" href="{% url 'dtf:gallery' %}?category=process">{% trans "Процес" %}</a>
       <a class="chip {% if category == 'final' %}active{% endif %}" href="{% url 'dtf:gallery' %}?category=final">{% trans "Готове" %}</a>
+      <span class="tooltip" tabindex="0" role="button" data-tooltip="{% trans 'Макро — крупний план, Процес — етапи друку, Готове — фінальний виріб.' %}">?</span>
     </div>
 
     <div class="gallery-grid">
@@ -83,6 +84,14 @@
                 <div>{% trans "Термін" %}: {% trans "24–48 год" %}</div>
               </div>
             </details>
+            <button type="button"
+                    class="btn btn-ghost gallery-open-btn"
+                    data-gallery-open
+                    data-case-title="{% if item.title %}{{ item.title }}{% else %}{% trans 'Кейс DTF' %}{% endif %}"
+                    data-case-desc="{% trans 'Детальний перегляд кейса у модальному вікні.' %}"
+                    data-case-image="{{ item.image.url }}">
+              {% trans "Відкрити кейс" %}
+            </button>
             <a class="btn btn-outline" href="{% url 'dtf:order' %}?ref={{ item.id }}">{% trans "Зробити як тут" %}</a>
           </div>
         </article>
@@ -99,6 +108,7 @@
           <div class="gallery-body">
             <h3>{% trans "Кейс" %}</h3>
             <div class="passport-body">{% trans "Додамо реальні роботи" %}</div>
+            <button type="button" class="btn btn-ghost gallery-open-btn" data-gallery-open data-case-title="{% trans 'Кейс DTF' %}" data-case-desc="{% trans 'Збільшений перегляд кейса.' %}" data-case-image="{% static 'dtf/assets/gallery-macro-01.jpg' %}">{% trans "Відкрити кейс" %}</button>
             <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
           </div>
         </article>
@@ -114,6 +124,7 @@
           <div class="gallery-body">
             <h3>{% trans "Кейс" %}</h3>
             <div class="passport-body">{% trans "Додамо реальні роботи" %}</div>
+            <button type="button" class="btn btn-ghost gallery-open-btn" data-gallery-open data-case-title="{% trans 'Кейс DTF' %}" data-case-desc="{% trans 'Збільшений перегляд кейса.' %}" data-case-image="{% static 'dtf/assets/gallery-macro-02.jpg' %}">{% trans "Відкрити кейс" %}</button>
             <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
           </div>
         </article>
@@ -129,6 +140,7 @@
           <div class="gallery-body">
             <h3>{% trans "Кейс" %}</h3>
             <div class="passport-body">{% trans "Додамо реальні роботи" %}</div>
+            <button type="button" class="btn btn-ghost gallery-open-btn" data-gallery-open data-case-title="{% trans 'Кейс DTF' %}" data-case-desc="{% trans 'Збільшений перегляд кейса.' %}" data-case-image="{% static 'dtf/assets/gallery-macro-03.jpg' %}">{% trans "Відкрити кейс" %}</button>
             <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
           </div>
         </article>
@@ -144,6 +156,7 @@
           <div class="gallery-body">
             <h3>{% trans "Кейс" %}</h3>
             <div class="passport-body">{% trans "Додамо реальні роботи" %}</div>
+            <button type="button" class="btn btn-ghost gallery-open-btn" data-gallery-open data-case-title="{% trans 'Кейс DTF' %}" data-case-desc="{% trans 'Збільшений перегляд кейса.' %}" data-case-image="{% static 'dtf/assets/gallery-macro-04.jpg' %}">{% trans "Відкрити кейс" %}</button>
             <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
           </div>
         </article>
@@ -159,6 +172,7 @@
           <div class="gallery-body">
             <h3>{% trans "Кейс" %}</h3>
             <div class="passport-body">{% trans "Додамо реальні роботи" %}</div>
+            <button type="button" class="btn btn-ghost gallery-open-btn" data-gallery-open data-case-title="{% trans 'Кейс DTF' %}" data-case-desc="{% trans 'Збільшений перегляд кейса.' %}" data-case-image="{% static 'dtf/assets/gallery-macro-05.jpg' %}">{% trans "Відкрити кейс" %}</button>
             <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
           </div>
         </article>
@@ -174,6 +188,7 @@
           <div class="gallery-body">
             <h3>{% trans "Кейс" %}</h3>
             <div class="passport-body">{% trans "Додамо реальні роботи" %}</div>
+            <button type="button" class="btn btn-ghost gallery-open-btn" data-gallery-open data-case-title="{% trans 'Кейс DTF' %}" data-case-desc="{% trans 'Збільшений перегляд кейса.' %}" data-case-image="{% static 'dtf/assets/gallery-macro-06.jpg' %}">{% trans "Відкрити кейс" %}</button>
             <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
           </div>
         </article>
@@ -283,6 +298,18 @@
         <div class="lens-modal-media asset-slot" style="aspect-ratio: 4 / 3">
           <img data-lens-modal-img src="" alt="" loading="lazy" decoding="async" hidden>
           <div class="asset-placeholder" data-lens-modal-placeholder>{% trans "Макро‑превʼю (placeholder)" %}</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="gallery-case-modal" aria-hidden="true" data-ui="dtf:gallery:cards-on-click">
+      <div class="case-modal-backdrop" data-case-close></div>
+      <div class="case-modal-dialog" role="dialog" aria-modal="true">
+        <button type="button" class="case-modal-close" data-case-close aria-label="{% trans 'Закрити' %}">×</button>
+        <h3 data-case-title>{% trans "Кейс DTF" %}</h3>
+        <p data-case-desc>{% trans "Деталі кейса" %}</p>
+        <div class="asset-slot" style="aspect-ratio: 4 / 3">
+          <img data-case-image src="" alt="" loading="lazy">
         </div>
       </div>
     </div>

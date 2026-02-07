@@ -75,18 +75,19 @@
 {% endblock %}
 
 {% block content %}
-{% trans "точно" as hero_flip_1 %}
-{% trans "швидко" as hero_flip_2 %}
-{% trans "стабільно" as hero_flip_3 %}
-<section class="hero scan-hero">
+{% trans "Hot Peel" as hero_flip_1 %}
+{% trans "Ручна перевірка" as hero_flip_2 %}
+{% trans "24–48 год" as hero_flip_3 %}
+{% trans "60 см" as hero_flip_4 %}
+<section class="hero scan-hero" data-ui="dtf:home:hero" data-effect="bg-beams sparkles">
   <!-- ASSET_REQUEST | id=hero-printhead-photo | type=photo | usage=HOME Hero / Printhead Scan | spec=transparent PNG, 2x, ~2200px wide | notes=industrial lab lighting, top-left view, clean background -->
-  <div class="hero-beams" aria-hidden="true">
+  <div class="hero-beams" aria-hidden="true" data-effect="bg-beams">
     <span class="beam beam-1"></span>
     <span class="beam beam-2"></span>
     <span class="beam beam-3"></span>
   </div>
   <div class="dtf-container hero-grid">
-    <div class="hero-copy" data-reveal>
+    <div class="hero-copy" data-reveal data-ui="dtf:home:hero-copy">
       <div class="eyebrow">{% trans "DTF друк в рулоні" %}</div>
       <h1 class="scan-title">
         <span class="scan-outline ink-spread">
@@ -94,7 +95,7 @@
           <span class="flip-words"
                 data-flip-words
                 data-flip-group="hero"
-                data-words="{{ hero_flip_1 }},{{ hero_flip_2 }},{{ hero_flip_3 }}">
+                data-words="{{ hero_flip_1 }},{{ hero_flip_2 }},{{ hero_flip_3 }},{{ hero_flip_4 }}">
             <span class="flip-word is-active">{{ hero_flip_1 }}</span>
           </span><br>
           <span class="scan-accent">{{ pricing_range_label }} {% trans "грн/м" %}</span>
@@ -104,7 +105,7 @@
           <span class="flip-words"
                 data-flip-words
                 data-flip-group="hero"
-                data-words="{{ hero_flip_1 }},{{ hero_flip_2 }},{{ hero_flip_3 }}">
+                data-words="{{ hero_flip_1 }},{{ hero_flip_2 }},{{ hero_flip_3 }},{{ hero_flip_4 }}">
             <span class="flip-word is-active">{{ hero_flip_1 }}</span>
           </span><br>
           <span class="scan-accent">{{ pricing_range_label }} {% trans "грн/м" %}</span>
@@ -112,11 +113,16 @@
         <span class="scan-line" aria-hidden="true"></span>
       </h1>
       <p class="hero-sub">{% trans "Швидкий розрахунок, ручна перевірка макета, друк та доставка Новою Поштою." %}</p>
-      <div class="cta-group">
+      <div class="hero-encrypted-line" data-effect="encrypted-text" data-encrypted-text="preflight_checksum: OK | manager_review: pending"></div>
+      <div class="cta-group" data-ui="dtf:home:hero-cta">
         <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% trans "Розрахувати / Замовити" %}</a>
         <a class="btn btn-ghost" href="{% url 'dtf:order' %}?tab=help">{% trans "Потрібна допомога з макетом" %}</a>
+        <a class="btn btn-outline" href="{% url 'dtf:sample' %}" data-stateful-link>{% trans "Отримати безкоштовний зразок" %}</a>
       </div>
-      <div class="hero-trust">{% trans "Ручна перевірка макета перед друком" %}</div>
+      <div class="hero-trust" data-ui="dtf:home:hero-trust">
+        <span data-pointer>{% trans "Ручна перевірка макета перед друком (без сюрпризів)" %}</span>
+      </div>
+      <div class="hero-reassure">{% trans "Не спамимо. Відповідь протягом робочого дня." %}</div>
     </div>
     <div class="hero-card" data-reveal>
       <div class="hero-card-header">
@@ -179,7 +185,7 @@
   <div class="hero-bg" aria-hidden="true"></div>
 </section>
 
-<section class="section estimate-section">
+<section class="section estimate-section" data-ui="dtf:home:quick-calc">
   <div class="dtf-container">
     <form class="estimate-bar" action="{% url 'dtf:order' %}" method="get" data-calc="server">
       <label class="estimate-field" for="estimate-length">
@@ -193,10 +199,10 @@
       </label>
       <input type="hidden" name="copies" value="1">
       <div class="estimate-field estimate-output">
-        <div class="overline">{% trans "≈ ЦІНА" %}</div>
+        <div class="overline">{% trans "ОРІЄНТИР" %}</div>
         <div id="estimate-result" data-swap-focus>
-          <div class="estimate-value tabular-nums" id="calc-price" aria-live="polite">—</div>
-          <div class="estimate-sub tabular-nums" id="calc-meters">—</div>
+          <div class="estimate-value tabular-nums" id="calc-price" aria-live="polite">{% trans "Вкажіть метраж → покажемо орієнтир" %}</div>
+          <div class="estimate-sub tabular-nums" id="calc-meters"></div>
         </div>
       </div>
       <div class="estimate-actions">
@@ -207,7 +213,7 @@
   </div>
 </section>
 
-<section class="section">
+<section class="section" data-ui="dtf:home:how-it-works" data-effect="dotted-glow">
   <div class="dtf-container">
     <div class="section-head" data-reveal>
       <h2>{% trans "Як це працює" %}</h2>
@@ -254,7 +260,7 @@
   </div>
 </section>
 
-<section class="section price-section">
+<section class="section price-section" data-ui="dtf:home:price">
   <div class="dtf-container">
     <div class="section-head" data-reveal>
       <h2>{% trans "Ціни та знижки" %}</h2>
@@ -282,7 +288,7 @@
   </div>
 </section>
 
-<section class="section works-section" id="works">
+<section class="section works-section" id="works" data-ui="dtf:home:works">
   <div class="dtf-container">
     <div class="section-head" data-reveal>
       <h2>{% trans "Наші роботи" %}</h2>
@@ -486,7 +492,7 @@
 </section>
 
 {% if knowledge_posts_preview %}
-<section class="section knowledge-preview-section">
+<section class="section knowledge-preview-section" data-ui="dtf:home:knowledge">
   <div class="dtf-container">
     <div class="section-head" data-reveal>
       <h2>{% trans "База знань" %}</h2>
@@ -520,7 +526,7 @@
 </section>
 {% endif %}
 
-<section class="section">
+<section class="section" data-ui="dtf:home:requirements-preview">
   <div class="dtf-container split" data-reveal>
     <div>
       <h2>{% trans "Вимоги до файлів" %}</h2>
@@ -549,7 +555,7 @@
   </div>
 </section>
 
-<section class="section">
+<section class="section" data-ui="dtf:home:delivery">
   <div class="dtf-container delivery" data-reveal>
     <h2>{% trans "Доставка та оплата" %}</h2>
     <p>{% trans "Нова Пошта по Україні. Оплата після перевірки макета. Реквізити надсилаємо у зручний канал." %}</p>

@@ -80,3 +80,11 @@
   - curl matrix for DTF routes + main-domain isolation checks
   - lighthouse mobile baseline for `/`, `/order/`, `/price/`, `/quality/`
   - Evidence: `specs/dtf-codex/perf/*-2026-02-07*`
+
+## Part 4 — WOW + Constructor + Sample + Cabinet
+- [x] Stable `data-ui` anchors added to legacy and new DTF pages.
+- [x] Free Sample flow implemented (`/sample/`, model/form/admin).
+- [x] Effects component-pack scaffolded and wired to global `DTF.init()` + HTMX effect re-init.
+- [x] Constructor MVP implemented (`/constructor/*`) with preflight and preview compositing.
+- [x] Products/About/Cabinet MVP routes live and covered by tests.
+- [x] Extended DTF test suite green (`33` tests).

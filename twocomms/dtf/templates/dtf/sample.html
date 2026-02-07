@@ -1,0 +1,86 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Безкоштовний зразок DTF" %}{% endblock %}
+{% block page_id %}sample{% endblock %}
+
+{% block content %}
+<section class="section" data-ui="dtf:sample:hero" data-effect="dotted-glow">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "Безкоштовний зразок DTF" %}</h1>
+      <p><span data-pointer>{% trans "Обери формат, залиш заявку — ми покажемо реальну якість до запуску тиражу." %}</span></p>
+    </div>
+
+    <div class="sample-grid">
+      <article class="card sample-card">
+        <h3>{% trans "Що в зразку" %}</h3>
+        <ul class="list">
+          <li>{% trans "Тест адгезії та білої підкладки" %}</li>
+          <li>{% trans "Оцінка кольору та щільності" %}</li>
+          <li>{% trans "Пояснення по переносу / пранню" %}</li>
+        </ul>
+      </article>
+      <article class="card sample-card">
+        <h3>{% trans "Як надсилаємо" %}</h3>
+        <div class="sample-timeline">
+          <div>{% trans "Запит" %}</div>
+          <div>{% trans "Підбір формату" %}</div>
+          <div>{% trans "Відправка НП" %}</div>
+          <div>{% trans "Отримання + feedback" %}</div>
+        </div>
+        <p class="muted">{% trans "Доставка Новою Поштою оплачується отримувачем." %}</p>
+      </article>
+    </div>
+
+    {% if sample_saved %}
+      <div class="alert alert-success">{% trans "Заявку прийнято. Менеджер підтвердить формат і відправку." %}</div>
+    {% endif %}
+
+    <form method="post" class="order-form sample-form" data-submit-guard data-ui="dtf:sample:form">
+      {% csrf_token %}
+      {{ sample_form.honeypot }}
+      {% if sample_form.errors %}
+        <div class="form-errors">
+          {% for field, errors in sample_form.errors.items %}
+            {% for error in errors %}
+              <div class="form-error">{{ error }}</div>
+            {% endfor %}
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="form-grid sample-size-grid">
+        {% for radio in sample_form.sample_size %}
+          <label class="sample-size-option">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+
+      <label class="toggle">
+        {{ sample_form.is_brand_volume }}
+        <span>{% trans "Я бренд / планую об'єм (потрібен A3 або серійний запуск)" %}</span>
+      </label>
+
+      <div class="form-grid">
+        <label>{% trans "Ім'я" %} {{ sample_form.name }}</label>
+        <label>{% trans "Телефон" %} {{ sample_form.phone }}</label>
+        <label>{% trans "Канал" %} {{ sample_form.contact_channel }}</label>
+        <label>{% trans "Нік/посилання" %} {{ sample_form.contact_handle }}</label>
+        <label>{% trans "Місто" %} {{ sample_form.city }}</label>
+        <label>{% trans "Відділення НП" %} {{ sample_form.np_branch }}</label>
+        <label>{% trans "Ніша" %} {{ sample_form.niche }}</label>
+        <label>{% trans "Орієнтовний обсяг/міс" %} {{ sample_form.monthly_volume }}</label>
+      </div>
+
+      <label>{% trans "Коментар" %} {{ sample_form.comment }}</label>
+      <label class="toggle">
+        {{ sample_form.consent }}
+        <span>{% trans "Погоджуюсь на обробку персональних даних" %}</span>
+      </label>
+
+      <button class="btn btn-primary" type="submit" data-stateful>{% trans "Отримати безкоштовний зразок" %}</button>
+      <div class="summary-foot">{% trans "Не спамимо. Відповідь протягом робочого дня." %}</div>
+    </form>
+  </div>
+</section>
+{% endblock %}

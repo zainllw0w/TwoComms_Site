@@ -57,22 +57,23 @@
 {% endblock %}
 
 {% block content %}
-<section class="section">
-  <div class="dtf-container requirements">
+<section class="section" data-ui="dtf:requirements:root">
+  <div class="dtf-container requirements" data-ui="dtf:requirements:content">
     <h1>{% trans "Вимоги до файлів" %}</h1>
-    <div class="req-grid">
+    <div class="req-grid tracing-beam-doc" data-tracing-beam data-ui="dtf:requirements:rules">
+      <div class="tracing-beam-line" aria-hidden="true"><span data-tracing-beam-progress></span></div>
       <div class="req-card">
         <h3>{% trans "Формат" %}</h3>
         <ul>
           <li>{% trans "PDF або PNG" %}</li>
-          <li>{% trans "Ширина 60 см" %}</li>
-          <li>{% trans "Прозорий фон" %}</li>
+          <li><span data-pointer>{% trans "Ширина 60 см" %}</span></li>
+          <li><span data-pointer>{% trans "Прозорий фон" %}</span></li>
         </ul>
       </div>
       <div class="req-card">
         <h3>{% trans "Якість" %}</h3>
         <ul>
-          <li>{% trans "Рекомендовано 300 DPI" %}</li>
+          <li><span data-pointer>{% trans "Рекомендовано 300 DPI" %}</span></li>
           <li>{% trans "Без зайвих відступів" %}</li>
           <li>{% trans "Кольори у CMYK/RGB" %}</li>
         </ul>

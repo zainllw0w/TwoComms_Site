@@ -239,3 +239,33 @@ python3 -m pip_audit -r /Users/zainllw0w/PycharmProjects/TwoComms/twocomms/requi
 - Postdeploy re-check:
   - `specs/dtf-codex/perf/postdeploy-curl-2026-02-07.txt`
   - Includes DTF `200` checks and `301` for `/prices/`, plus blog URL checks.
+
+---
+
+## PART 4 — WOW + Constructor + Sample + Products + Cabinet (2026-02-07)
+
+### Scope
+- Branch: `codex/codex-refactor-v1`
+- Isolation: DTF-only (`twocomms/dtf/*`), no main-domain route/template modifications.
+
+### Implemented artifacts
+- New backend models:
+  - `DtfSampleLead`
+  - `DtfBuilderSession`
+- New routes/pages:
+  - `/sample/`, `/about/`, `/products/`
+  - `/constructor/`, `/constructor/app/`, `/constructor/submit/`, `/constructor/sessions/<id>/`
+  - `/cabinet/`, `/cabinet/orders/`, `/cabinet/sessions/`
+- New frontend effect pack:
+  - `dtf/static/dtf/js/components/*`
+  - `dtf/static/dtf/css/components/*`
+- Updated templates with stable anchors `data-ui="dtf:<page>:<section>"`.
+
+### Verification
+- `python3 -m compileall -q twocomms/dtf` -> OK
+- `python3 twocomms/manage.py test dtf --settings=test_settings` -> `Ran 33 tests ... OK`
+- Coverage highlights from tests:
+  - `/sample/` POST persists lead (`DtfSampleLead`)
+  - `/constructor/app/` saves draft session and preview image
+  - `/constructor/submit/` creates consultation lead and marks session submitted
+  - `/cabinet/*` requires auth and renders for logged-in user

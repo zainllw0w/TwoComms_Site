@@ -23,3 +23,13 @@
 - [x] Обновлена post-deploy curl матрица для DTF + проверка main-domain изоляции
 - [x] Снят lighthouse baseline (mobile) для `/`, `/order/`, `/price/`, `/quality/`
 - [x] Обновлены rollback/deploy протоколы и индексация артефактов в корне проекта
+
+## Part 4 - WOW Visuals + Constructor + Sample + Products + Cabinet
+- [x] Добавлены стабильные `data-ui` anchors для DTF секций (home/order/gallery/requirements/status/templates + новые страницы)
+- [x] Реализован Free Sample flow: `/sample/` + `DtfSampleLead` + форма + anti-spam + admin
+- [x] Добавлен component pack (`dtf/static/dtf/js/components`, `dtf/static/dtf/css/components`) и global init (`DTF.init` + `initEffects` + HTMX re-init)
+- [x] Усилен home WOW-набор: encrypted line, 3rd CTA sample, dotted/pointer/sparkles/floating dock
+- [x] Усилен order/status/requirements/templates UX: multi-step loader, vanish inputs, tracing beam, tabs download
+- [x] Реализован Constructor MVP: `/constructor/`, `/constructor/app/`, `/constructor/submit/`, sessions, preflight и 2D preview
+- [x] Добавлены `/products/`, `/about/` и cabinet MVP: `/cabinet/`, `/cabinet/orders/`, `/cabinet/sessions/`
+- [x] Обновлены тесты `dtf` (33 test cases, все зелёные)

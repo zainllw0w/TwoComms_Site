@@ -1,0 +1,5 @@
+[data-effect~="encrypted-text"] {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  letter-spacing: 0.04em;
+  color: rgba(157, 173, 255, 0.95);
+}

@@ -81,3 +81,10 @@
     - `specs/dtf-codex/perf/price-mobile-2026-02-07.report.report.json`
     - `specs/dtf-codex/perf/quality-mobile-2026-02-07.report.report.json`
     - `specs/dtf-codex/perf/lighthouse-metrics-2026-02-07.txt`
+
+## Part 4 Validation (Local, 2026-02-07)
+- [x] `python3 -m compileall -q twocomms/dtf`
+- [x] `python3 twocomms/manage.py test dtf --settings=test_settings` (`33 tests`, all passed)
+- [x] Sample flow smoke (GET/POST) covered in `DtfPart4FeaturesTests`
+- [x] Constructor save + submit smoke covered in `DtfPart4FeaturesTests`
+- [x] Cabinet auth-gating smoke covered in `DtfPart4FeaturesTests`

@@ -1,0 +1,43 @@
+#gallery-case-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 120;
+}
+
+#gallery-case-modal.is-open {
+  display: block;
+}
+
+#gallery-case-modal .case-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 5, 8, 0.72);
+}
+
+#gallery-case-modal .case-modal-dialog {
+  position: relative;
+  width: min(880px, calc(100vw - 24px));
+  margin: 36px auto;
+  border-radius: 20px;
+  border: 1px solid rgba(120, 131, 178, 0.55);
+  background: #11151d;
+  padding: 16px;
+}
+
+#gallery-case-modal .case-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: 0;
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+
+.gallery-open-btn {
+  margin-top: 8px;
+}
