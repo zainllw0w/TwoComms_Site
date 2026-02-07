@@ -325,7 +325,7 @@ def estimate(request):
     return render(request, "dtf/partials/estimate_result.html", ctx)
 
 
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "POST", "HEAD"])
 def order(request):
     ctx = _base_context(request)
     tab = request.GET.get("tab") or "ready"
@@ -391,7 +391,7 @@ def thanks(request, kind: str, number: str):
     return _render(request, "dtf/thanks.html", ctx)
 
 
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "POST", "HEAD"])
 def status(request, order_number: str | None = None):
     ctx = _base_context(request)
     order = None
@@ -521,7 +521,7 @@ def quality(request):
     return _render(request, "dtf/quality.html", ctx)
 
 
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "POST", "HEAD"])
 def sample(request):
     ctx = _base_context(request)
     saved = False
@@ -582,7 +582,7 @@ def constructor_landing(request):
     return _render(request, "dtf/constructor_landing.html", ctx)
 
 
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "POST", "HEAD"])
 def constructor_app(request):
     ctx = _base_context(request)
     session_obj = None
@@ -760,7 +760,7 @@ def how_to_press(request):
     return _render(request, "dtf/how_to_press.html", ctx)
 
 
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "POST", "HEAD"])
 def preflight(request):
     ctx = _base_context(request)
     if request.method == "POST":
