@@ -78,7 +78,7 @@
 {% trans "Hot Peel" as hero_flip_1 %}
 {% trans "Ручна перевірка" as hero_flip_2 %}
 {% trans "24–48 год" as hero_flip_3 %}
-{% trans "60 см" as hero_flip_4 %}
+{% trans "Preflight: OK • Макет перевіряє менеджер" as hero_secure_line %}
 <section class="hero scan-hero" data-ui="dtf:home:hero" data-effect="bg-beams sparkles">
   <!-- ASSET_REQUEST | id=hero-printhead-photo | type=photo | usage=HOME Hero / Printhead Scan | spec=transparent PNG, 2x, ~2200px wide | notes=industrial lab lighting, top-left view, clean background -->
   <div class="hero-beams" aria-hidden="true" data-effect="bg-beams">
@@ -91,21 +91,21 @@
       <div class="eyebrow">{% trans "DTF друк в рулоні" %}</div>
       <h1 class="scan-title">
         <span class="scan-outline ink-spread">
-          {% trans "60 см, Hot Peel," %}
+          {% trans "60 см," %}
           <span class="flip-words"
                 data-flip-words
                 data-flip-group="hero"
-                data-words="{{ hero_flip_1 }},{{ hero_flip_2 }},{{ hero_flip_3 }},{{ hero_flip_4 }}">
+                data-words="{{ hero_flip_1 }},{{ hero_flip_2 }},{{ hero_flip_3 }}">
             <span class="flip-word is-active">{{ hero_flip_1 }}</span>
           </span><br>
           <span class="scan-accent">{{ pricing_range_label }} {% trans "грн/м" %}</span>
         </span>
         <span class="scan-fill ink-spread" aria-hidden="true">
-          {% trans "60 см, Hot Peel," %}
+          {% trans "60 см," %}
           <span class="flip-words"
                 data-flip-words
                 data-flip-group="hero"
-                data-words="{{ hero_flip_1 }},{{ hero_flip_2 }},{{ hero_flip_3 }},{{ hero_flip_4 }}">
+                data-words="{{ hero_flip_1 }},{{ hero_flip_2 }},{{ hero_flip_3 }}">
             <span class="flip-word is-active">{{ hero_flip_1 }}</span>
           </span><br>
           <span class="scan-accent">{{ pricing_range_label }} {% trans "грн/м" %}</span>
@@ -113,7 +113,7 @@
         <span class="scan-line" aria-hidden="true"></span>
       </h1>
       <p class="hero-sub">{% trans "Швидкий розрахунок, ручна перевірка макета, друк та доставка Новою Поштою." %}</p>
-      <div class="hero-encrypted-line" data-effect="encrypted-text" data-encrypted-text="preflight_checksum: OK | manager_review: pending"></div>
+      <div class="hero-encrypted-line" data-effect="encrypted-text" data-encrypted-text="{{ hero_secure_line }}">{{ hero_secure_line }}</div>
       <div class="cta-group" data-ui="dtf:home:hero-cta">
         <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% trans "Розрахувати / Замовити" %}</a>
         <a class="btn btn-ghost" href="{% url 'dtf:order' %}?tab=help">{% trans "Потрібна допомога з макетом" %}</a>
@@ -191,10 +191,11 @@
       <label class="estimate-field" for="estimate-length">
         <span class="overline">{% trans "МЕТРИ" %}</span>
         <input id="estimate-length" type="number" name="length_m" step="0.01" min="0" inputmode="decimal" placeholder="0.0"
-               hx-get="{% url 'dtf:estimate' %}"
+               hx-get="{% url 'dtf:api_quote' %}"
                hx-trigger="input changed delay:500ms"
                hx-target="#estimate-result"
                hx-include="[name='copies']"
+               hx-vals='{"context":"estimate"}'
                hx-sync="this:replace">
       </label>
       <input type="hidden" name="copies" value="1">
@@ -406,7 +407,7 @@
       {% endif %}
     </div>
     <div class="proof-grid" data-reveal>
-      <article class="proof-card compare-card" data-compare>
+      <article class="proof-card compare-card" data-compare data-effect="compare">
         <!-- ASSET_REQUEST | id=compare-case-1-before | type=photo | usage=Home Proof Compare #1 (before) | spec=2x, ~1400px wide | notes=raw print / pre-clean stage -->
         <!-- ASSET_REQUEST | id=compare-case-1-after | type=photo | usage=Home Proof Compare #1 (after) | spec=2x, ~1400px wide | notes=finished print, same framing -->
         <div class="compare-media asset-slot">
@@ -432,7 +433,7 @@
           <div class="proof-sub">{% trans "Макро + контроль підкладки" %}</div>
         </div>
       </article>
-      <article class="proof-card compare-card" data-compare>
+      <article class="proof-card compare-card" data-compare data-effect="compare">
         <!-- ASSET_REQUEST | id=compare-case-2-before | type=photo | usage=Home Proof Compare #2 (before) | spec=2x, ~1400px wide | notes=raw print / underbase focus -->
         <!-- ASSET_REQUEST | id=compare-case-2-after | type=photo | usage=Home Proof Compare #2 (after) | spec=2x, ~1400px wide | notes=finished print, same framing -->
         <div class="compare-media asset-slot">

@@ -1,0 +1,13 @@
+[data-tracing-beam] [data-tracing-beam-progress] {
+  display: block;
+  width: 100%;
+  height: 0;
+  border-radius: inherit;
+  transition: height 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tracing-beam] [data-tracing-beam-progress] {
+    height: 100% !important;
+  }
+}

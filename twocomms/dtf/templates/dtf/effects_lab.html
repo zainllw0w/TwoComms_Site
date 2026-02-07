@@ -1,0 +1,197 @@
+{% extends 'dtf/base.html' %}
+{% load i18n static %}
+
+{% block title %}DTF Effects Lab{% endblock %}
+{% block page_id %}effects-lab{% endblock %}
+
+{% block extra_head %}
+<style>
+  .effects-lab-grid {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+  .effects-lab-switches {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .effects-lab-switches label {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .effects-lab-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 26px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    min-height: 220px;
+    display: grid;
+    align-content: end;
+    gap: 8px;
+  }
+  .effects-lab-hero .hero-beams {
+    inset: -28% -12%;
+  }
+  .effects-lab-track {
+    display: flex;
+    gap: 10px;
+    width: max-content;
+  }
+  .effects-lab-pill {
+    display: inline-flex;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(123, 137, 198, 0.56);
+    background: rgba(8, 11, 18, 0.8);
+    color: rgba(233, 237, 255, 0.9);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>Effects Lab</h1>
+      <p>{% trans "Локальна QA-сторінка для перевірки ефектів після змін та HTMX swap." %}</p>
+    </div>
+
+    <article class="card">
+      <h3>{% trans "Simulation toggles" %}</h3>
+      <div class="effects-lab-switches" data-effects-lab-switches>
+        <label>
+          <input type="checkbox" data-lab-toggle="reduced">
+          <span>{% trans "Force reduced motion" %}</span>
+        </label>
+        <label>
+          <input type="checkbox" data-lab-toggle="coarse">
+          <span>{% trans "Force coarse pointer" %}</span>
+        </label>
+        <button class="btn btn-ghost" type="button" data-lab-action="reinit">{% trans "Re-init effects" %}</button>
+      </div>
+    </article>
+
+    <div class="effects-lab-grid">
+      <article class="effects-lab-hero" data-effect="bg-beams">
+        <div class="hero-beams" data-effect="bg-beams" aria-hidden="true">
+          <span class="beam beam-1"></span>
+          <span class="beam beam-2"></span>
+          <span class="beam beam-3"></span>
+        </div>
+        <div class="eyebrow">{% trans "Background beams" %}</div>
+        <strong>60 см · Hot Peel</strong>
+      </article>
+
+      <article class="card" data-effect="dotted-glow">
+        <h3>{% trans "Dotted glow + encrypted text" %}</h3>
+        <p data-effect="encrypted-text" data-encrypted-text="Preflight: PASS · Safe margins: OK">
+          Preflight: PASS · Safe margins: OK
+        </p>
+        <p><span data-pointer>{% trans "Наведи курсор на цей текст" %}</span></p>
+      </article>
+    </div>
+
+    <article class="card compare-card" data-compare data-effect="compare">
+      <h3>{% trans "Compare slider" %}</h3>
+      <div class="compare-media asset-slot">
+        <div class="compare-layer compare-before">
+          <img src="{% static 'dtf/assets/compare-case-1-before.jpg' %}" alt="{% trans 'Before' %}" loading="lazy">
+        </div>
+        <div class="compare-layer compare-after">
+          <img src="{% static 'dtf/assets/compare-case-1-after.jpg' %}" alt="{% trans 'After' %}" loading="lazy">
+        </div>
+        <div class="compare-handle" aria-hidden="true"></div>
+      </div>
+      <input class="compare-range" type="range" min="0" max="100" value="54" aria-label="{% trans 'Compare slider' %}">
+    </article>
+
+    <article class="card">
+      <h3>{% trans "Stateful button API" %}</h3>
+      <div class="cta-group">
+        <button class="btn btn-primary" type="button" data-stateful data-lab-action="state-loading">{% trans "Тест кнопки" %}</button>
+        <a class="btn btn-ghost" href="{% url 'dtf:order' %}" data-stateful-link>{% trans "Stateful link" %}</a>
+      </div>
+    </article>
+
+    <article class="card tracing-beam-doc" data-tracing-beam data-effect="tracing-beam">
+      <div class="tracing-beam-line" aria-hidden="true">
+        <span data-tracing-beam-progress></span>
+      </div>
+      <h3>{% trans "Tracing beam" %}</h3>
+      <ul class="list">
+        <li>{% trans "Upload" %}</li>
+        <li>{% trans "Preflight" %}</li>
+        <li>{% trans "Manager review" %}</li>
+        <li>{% trans "Production" %}</li>
+        <li>{% trans "Shipping" %}</li>
+        <li>{% trans "Delivery" %}</li>
+      </ul>
+    </article>
+
+    <article class="card" data-effect="infinite-cards">
+      <h3>{% trans "Infinite cards (CSS marquee)" %}</h3>
+      <div class="effects-lab-track infinite-track">
+        <span class="effects-lab-pill infinite-item">Hot Peel</span>
+        <span class="effects-lab-pill infinite-item">60 cm</span>
+        <span class="effects-lab-pill infinite-item">Manual QC</span>
+        <span class="effects-lab-pill infinite-item">24-48h</span>
+        <span class="effects-lab-pill infinite-item">Nova Poshta</span>
+        <span class="effects-lab-pill infinite-item">Hot Peel</span>
+        <span class="effects-lab-pill infinite-item">60 cm</span>
+        <span class="effects-lab-pill infinite-item">Manual QC</span>
+        <span class="effects-lab-pill infinite-item">24-48h</span>
+        <span class="effects-lab-pill infinite-item">Nova Poshta</span>
+      </div>
+    </article>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  (function () {
+    const html = document.documentElement;
+    const toggles = document.querySelectorAll('[data-lab-toggle]');
+    const actions = document.querySelectorAll('[data-lab-action]');
+    const setToggleState = (key, enabled) => {
+      if (key === 'reduced') {
+        html.dataset.labReducedMotion = enabled ? '1' : '0';
+      }
+      if (key === 'coarse') {
+        html.dataset.labCoarsePointer = enabled ? '1' : '0';
+      }
+    };
+
+    toggles.forEach((toggle) => {
+      toggle.addEventListener('change', () => {
+        setToggleState(toggle.dataset.labToggle, toggle.checked);
+      });
+    });
+
+    actions.forEach((action) => {
+      action.addEventListener('click', () => {
+        const kind = action.dataset.labAction;
+        if (kind === 'reinit' && window.DTF && typeof window.DTF.initEffects === 'function') {
+          window.DTF.initEffects(document);
+        }
+        if (kind === 'state-loading' && window.DTF && window.DTF.Button && typeof window.DTF.Button.setState === 'function') {
+          window.DTF.Button.setState(action, 'loading');
+          window.setTimeout(() => window.DTF.Button.setState(action, 'success'), 700);
+          window.setTimeout(() => window.DTF.Button.setState(action, 'idle'), 1500);
+        }
+      });
+    });
+  })();
+</script>
+{% endblock %}

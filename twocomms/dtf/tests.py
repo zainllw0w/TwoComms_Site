@@ -1,13 +1,25 @@
 from decimal import Decimal
 from datetime import date
+import base64
 import xml.etree.ElementTree as ET
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from .forms import DtfHelpForm, DtfOrderForm
-from .models import BuilderStatus, DtfBuilderSession, DtfOrder, DtfSampleLead, KnowledgePost
+from .models import (
+    BuilderStatus,
+    DtfBuilderSession,
+    DtfLifecycleStatus,
+    DtfOrder,
+    DtfQuote,
+    DtfSampleLead,
+    DtfStatusEvent,
+    KnowledgePost,
+)
 from .utils import calculate_pricing, get_pricing_config
+from .pricing import calculate_quote
+from .preflight.engine import analyze_upload
 
 
 class DtfOrderTests(TestCase):
@@ -101,6 +113,42 @@ class DtfP0RoutesTests(TestCase):
         self.assertTrue(any(loc.endswith("/privacy/") for loc in locs))
         self.assertTrue(all(loc.startswith("https://dtf.twocomms.shop/") for loc in locs))
         self.assertFalse(any(loc.startswith("https://twocomms.shop/") for loc in locs))
+
+
+class DtfPricingEngineTests(TestCase):
+    def test_small_length_without_discount(self):
+        quote = calculate_quote({"length_m": "2", "width_cm": "60", "urgency": "standard"})
+        self.assertEqual(str(quote["pricing_tier"]), "base")
+        self.assertGreater(quote["breakdown"]["total"], Decimal("0"))
+
+    def test_volume_discount_applies(self):
+        quote = calculate_quote({"length_m": "60", "width_cm": "60", "urgency": "standard"})
+        self.assertNotEqual(quote["pricing_tier"], "base")
+        self.assertGreaterEqual(quote["breakdown"]["discount_total"], Decimal("0"))
+
+    def test_invalid_negative_length_raises(self):
+        with self.assertRaises(ValueError):
+            calculate_quote({"length_m": "-1", "width_cm": "60"})
+
+    def test_urgency_and_service_fee_impact_total(self):
+        regular = calculate_quote({"length_m": "5", "width_cm": "60", "urgency": "standard"})
+        rush = calculate_quote(
+            {
+                "length_m": "5",
+                "width_cm": "60",
+                "urgency": "rush",
+                "help_layout": "1",
+                "with_shipping": "1",
+            }
+        )
+        self.assertGreater(rush["breakdown"]["total"], regular["breakdown"]["total"])
+
+    def test_quote_schema_has_required_keys(self):
+        quote = calculate_quote({"length_m": "8", "width_cm": "60"})
+        for key in ("config_version", "pricing_tier", "unit_price", "breakdown", "valid_until", "disclaimer"):
+            self.assertIn(key, quote)
+        for key in ("base_total", "discount_total", "urgency_extra", "services_total", "shipping_total", "total"):
+            self.assertIn(key, quote["breakdown"])
 
 
 class DtfUploadSecurityTests(TestCase):
@@ -247,6 +295,23 @@ class DtfSubdomainIsolationTests(TestCase):
         self.assertIn("https://twocomms.shop/", main_sitemap)
 
 
+class DtfPreflightEngineTests(TestCase):
+    PNG_1X1 = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a7wAAAAASUVORK5CYII=")
+
+    def test_rejects_magic_mismatch(self):
+        payload = SimpleUploadedFile("bad.png", b"%PDF-1.4\n%%EOF", content_type="image/png")
+        result = analyze_upload(payload)
+        self.assertEqual(result["result"], "FAIL")
+        self.assertIn("PF_MAGIC_MISMATCH", result["errors"])
+
+    def test_accepts_png_and_returns_structured_codes(self):
+        payload = SimpleUploadedFile("ok.png", self.PNG_1X1, content_type="image/png")
+        result = analyze_upload(payload)
+        self.assertIn(result["result"], {"PASS", "WARN"})
+        self.assertIn("checks", result)
+        self.assertTrue(any("code" in item for item in result["checks"]))
+
+
 class DtfKnowledgeBaseTests(TestCase):
     def setUp(self):
         self.client = Client(HTTP_HOST="dtf.twocomms.shop")
@@ -338,13 +403,7 @@ class DtfAuthSurfaceTests(TestCase):
 
 
 class DtfPart4FeaturesTests(TestCase):
-    PNG_1X1 = (
-        b"\x89PNG\r\n\x1a\n"
-        b"\x00\x00\x00\rIHDR"
-        b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
-        b"\x00\x00\x00\x0cIDATx\x9cc`\x00\x00\x00\x02\x00\x01\xe2!\xbc3"
-        b"\x00\x00\x00\x00IEND\xaeB`\x82"
-    )
+    PNG_1X1 = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a7wAAAAASUVORK5CYII=")
 
     def setUp(self):
         self.client = Client(HTTP_HOST="dtf.twocomms.shop")
@@ -441,3 +500,86 @@ class DtfPart4FeaturesTests(TestCase):
         self.assertEqual(home.status_code, 200)
         self.assertEqual(orders.status_code, 200)
         self.assertEqual(sessions.status_code, 200)
+
+
+class DtfPart5Part6Tests(TestCase):
+    def setUp(self):
+        self.client = Client(HTTP_HOST="dtf.twocomms.shop")
+
+    @override_settings(DTF_EFFECTS_LAB_ENABLED=True)
+    def test_effects_lab_route_available(self):
+        response = self.client.get("/effects-lab/", secure=True)
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8", "ignore")
+        self.assertIn("Effects Lab", html)
+        self.assertIn('name="robots" content="noindex,nofollow"', html)
+
+    def test_quote_api_json_response(self):
+        response = self.client.get(
+            "/api/quote/",
+            {
+                "length_m": "12",
+                "width_cm": "60",
+                "urgency": "standard",
+                "context": "estimate",
+            },
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data.get("ok"))
+        self.assertIn("quote_id", data)
+        self.assertTrue(DtfQuote.objects.filter(id=data["quote_id"]).exists())
+
+    def test_quote_api_htmx_partial(self):
+        response = self.client.get(
+            "/api/quote/",
+            {"length_m": "4", "context": "estimate"},
+            secure=True,
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8", "ignore")
+        self.assertIn("грн", html)
+
+    def test_order_submit_creates_lifecycle_event(self):
+        pdf_file = SimpleUploadedFile(
+            "ready-layout.pdf",
+            b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF",
+            content_type="application/pdf",
+        )
+        response = self.client.post(
+            "/order/",
+            data={
+                "tab": "ready",
+                "name": "Lifecycle User",
+                "phone": "+380501112299",
+                "contact_channel": "telegram",
+                "contact_handle": "@life",
+                "city": "Kyiv",
+                "np_branch": "1",
+                "gang_file": pdf_file,
+                "length_m": "2",
+                "copies": "1",
+                "comment": "Lifecycle test",
+            },
+            secure=True,
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        order = DtfOrder.objects.order_by("-id").first()
+        self.assertIsNotNone(order)
+        self.assertIn(order.lifecycle_status, {DtfLifecycleStatus.NEW, DtfLifecycleStatus.NEEDS_REVIEW})
+        self.assertTrue(DtfStatusEvent.objects.filter(order=order).exists())
+
+    def test_status_share_requires_phone(self):
+        order = DtfOrder.objects.create(
+            name="Client",
+            phone="+380501112244",
+            city="Kyiv",
+            np_branch="1",
+        )
+        response = self.client.get(f"/status/{order.order_number}/", secure=True)
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8", "ignore")
+        self.assertIn("Не вдалося знайти замовлення", html)

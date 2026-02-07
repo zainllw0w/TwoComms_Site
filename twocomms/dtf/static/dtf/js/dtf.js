@@ -2086,7 +2086,6 @@
   function initAll(root = document) {
     initEffects(root);
     revealOnScroll(root);
-    initHeroBeams(root);
     initFlipWords(root);
     initFaq(root);
     initTabs(root);
@@ -2100,14 +2099,11 @@
     initHeroTilt();
     initSpotlight(root);
     initInkDroplets();
-    initCompare(root);
     initLens(root);
     initDropzones(root);
     initOrderHtmxCalc(root);
     initSubmitGuard(root);
-    initStatefulLinks(root);
     initKnowledgeOverlay(root);
-    initTracingBeam(root);
     initReadingProgress(root);
     initKeyboardMode();
     initOrderDrafts();

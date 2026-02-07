@@ -15,12 +15,12 @@ from .models import (
     LeadType,
     SampleSize,
 )
+from .preflight.engine import analyze_upload
 from .utils import (
     ALLOWED_CONSTRUCTOR_EXTS,
     ALLOWED_HELP_EXTS,
     ALLOWED_READY_EXTS,
     build_safe_upload_name,
-    build_preflight_report,
     build_content_file_from_bytes,
     detect_length_m,
     get_limits,
@@ -377,10 +377,10 @@ class DtfBuilderSessionForm(forms.ModelForm):
 
         design_file = cleaned.get("design_file")
         if design_file:
-            report = build_preflight_report(design_file, allowed_exts=ALLOWED_CONSTRUCTOR_EXTS)
+            report = analyze_upload(design_file, allowed_exts=ALLOWED_CONSTRUCTOR_EXTS)
             cleaned["preflight_json"] = report
-            has_warn = bool(report.get("has_warn"))
-            has_fail = bool(report.get("has_fail"))
+            has_warn = bool(report.get("result") == "WARN" or report.get("has_warn"))
+            has_fail = bool(report.get("result") == "FAIL" or report.get("has_fail"))
             if has_fail:
                 self.add_error("design_file", _("Файл має критичні помилки preflight. Виправте перед відправкою."))
             if has_warn and not cleaned.get("risk_ack"):

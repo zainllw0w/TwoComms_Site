@@ -1,13 +1,16 @@
 from decimal import Decimal, InvalidOperation
 from itertools import groupby
+from datetime import date
 import xml.etree.ElementTree as ET
 from urllib.parse import quote
+import hashlib
 
 from django.conf import settings
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.cache import cache
+from django.core.files.base import ContentFile
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, NoReverseMatch
@@ -25,9 +28,16 @@ from .models import (
     BuilderStatus,
     DtfOrder,
     DtfBuilderSession,
+    DtfEventLog,
     DtfLead,
     DtfLeadAttachment,
+    DtfLifecycleStatus,
     DtfSampleLead,
+    DtfStatusEvent,
+    DtfUpload,
+    DtfPreflightReport,
+    DtfPreflightResult,
+    DtfQuote,
     DtfWork,
     WorkCategory,
     OrderStatus,
@@ -43,10 +53,15 @@ from .telegram import (
     notify_paid,
     notify_shipped,
 )
+from .notify import (
+    notify_customer_status_change,
+    notify_manager_new_order,
+)
+from .pricing import calculate_quote
+from .preflight.engine import analyze_upload, build_preview_assets
 from .utils import (
     activate_language_from_request,
     build_lang_links,
-    calculate_pricing,
     get_file_extension,
     get_feature_flags,
     get_limits,
@@ -253,6 +268,65 @@ def _calc_loyalty_meta(order_count: int):
     }
 
 
+def _hash_ip(request):
+    raw_ip = (request.META.get("HTTP_X_FORWARDED_FOR") or request.META.get("REMOTE_ADDR") or "").split(",")[0].strip()
+    if not raw_ip:
+        return ""
+    return hashlib.sha256(raw_ip.encode("utf-8")).hexdigest()
+
+
+def _log_event(name: str, *, request, payload: dict | None = None, order=None, quote=None, preflight=None):
+    DtfEventLog.objects.create(
+        event_name=name,
+        payload=payload or {},
+        order=order,
+        quote=quote,
+        preflight_report=preflight,
+        ip_hash=_hash_ip(request),
+    )
+
+
+def _persist_quote(quote_data: dict, *, source: str, raw_inputs: dict, order=None, upload=None):
+    breakdown = quote_data.get("breakdown", {})
+    valid_until = quote_data.get("valid_until")
+    if isinstance(valid_until, str):
+        try:
+            valid_until = date.fromisoformat(valid_until)
+        except ValueError:
+            valid_until = None
+    return DtfQuote.objects.create(
+        source=source,
+        width_cm=quote_data.get("width_cm") or Decimal("60.00"),
+        length_m=quote_data.get("length_m") or Decimal("0.00"),
+        urgency=quote_data.get("urgency") or "standard",
+        services_json=quote_data.get("services") or {},
+        shipping_method="estimate" if (quote_data.get("services") or {}).get("with_shipping") else "none",
+        unit_price=quote_data.get("unit_price", Decimal("0")),
+        base_total=breakdown.get("base_total", Decimal("0")),
+        discount_total=breakdown.get("discount_total", Decimal("0")),
+        services_total=breakdown.get("services_total", Decimal("0")),
+        shipping_total=breakdown.get("shipping_total", Decimal("0")),
+        total=breakdown.get("total", Decimal("0")),
+        pricing_version=quote_data.get("config_version", "default"),
+        valid_until=valid_until,
+        disclaimer=quote_data.get("disclaimer", ""),
+        order=order,
+        upload=upload,
+        raw_inputs=raw_inputs or {},
+    )
+
+
+def _quote_to_legacy_calc(quote_data: dict):
+    breakdown = quote_data.get("breakdown", {})
+    return {
+        "meters_total": quote_data.get("effective_length_m", quote_data.get("length_m", Decimal("0.00"))),
+        "rate": quote_data.get("unit_price", Decimal("0.00")),
+        "price_total": breakdown.get("total", Decimal("0.00")),
+        "pricing_tier": quote_data.get("pricing_tier", "base"),
+        "requires_review": quote_data.get("min_order_applied", False),
+    }
+
+
 def _build_constructor_task_description(builder_session: DtfBuilderSession) -> str:
     payload = [
         f"Builder session: {builder_session.session_id}",
@@ -314,7 +388,17 @@ def estimate(request):
 
     pricing = None
     if length_m and copies:
-        pricing = calculate_pricing(length_m, copies)
+        try:
+            quote_data = calculate_quote({
+                "length_m": length_m * Decimal(copies),
+                "width_cm": Decimal("60"),
+                "urgency": "standard",
+                "help_layout": False,
+                "with_shipping": False,
+            })
+            pricing = _quote_to_legacy_calc(quote_data)
+        except ValueError:
+            pricing = None
 
     ctx = _base_context(request)
     ctx.update({
@@ -323,6 +407,75 @@ def estimate(request):
     if context_kind == "order":
         return render(request, "dtf/partials/order_calc.html", ctx)
     return render(request, "dtf/partials/estimate_result.html", ctx)
+
+
+@require_http_methods(["GET", "POST"])
+def api_quote(request):
+    payload = request.POST if request.method == "POST" else request.GET
+    length_raw = (payload.get("length_m") or "").replace(",", ".")
+    width_raw = (payload.get("width_cm") or "60").replace(",", ".")
+    context_kind = payload.get("context") or "estimate"
+    urgency = payload.get("urgency") or "standard"
+    help_layout = payload.get("help_layout") or payload.get("service_layout") or ""
+    with_shipping = payload.get("with_shipping") or payload.get("shipping") or ""
+
+    try:
+        length_m = Decimal(length_raw)
+    except (InvalidOperation, TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "invalid_length"}, status=400)
+
+    try:
+        width_cm = Decimal(width_raw)
+    except (InvalidOperation, TypeError, ValueError):
+        width_cm = Decimal("60")
+
+    try:
+        quote_data = calculate_quote({
+            "length_m": length_m,
+            "width_cm": width_cm,
+            "urgency": urgency,
+            "help_layout": help_layout,
+            "with_shipping": with_shipping,
+        })
+    except ValueError:
+        return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
+
+    quote_obj = _persist_quote(
+        quote_data,
+        source=context_kind,
+        raw_inputs={
+            "length_m": str(length_m),
+            "width_cm": str(width_cm),
+            "urgency": urgency,
+            "help_layout": str(help_layout),
+            "with_shipping": str(with_shipping),
+        },
+    )
+    _log_event(
+        "quote_requested",
+        request=request,
+        payload={
+            "context": context_kind,
+            "pricing_tier": quote_data.get("pricing_tier"),
+            "total": str(quote_data.get("breakdown", {}).get("total", "")),
+        },
+        quote=quote_obj,
+    )
+
+    if request.headers.get("HX-Request") == "true":
+        ctx = _base_context(request)
+        ctx.update({
+            "pricing_result": _quote_to_legacy_calc(quote_data),
+        })
+        if context_kind == "order":
+            return render(request, "dtf/partials/order_calc.html", ctx)
+        return render(request, "dtf/partials/estimate_result.html", ctx)
+
+    return JsonResponse({
+        "ok": True,
+        "quote_id": quote_obj.id,
+        "quote": quote_data,
+    })
 
 
 @require_http_methods(["GET", "POST", "HEAD"])
@@ -350,16 +503,56 @@ def order(request):
                 order = order_form.save(commit=False)
                 if hasattr(order_form, "_auto_length_m"):
                     order.length_source = LengthSource.AUTO
-                pricing = calculate_pricing(order.length_m, order.copies)
-                if pricing:
-                    order.meters_total = pricing["meters_total"]
-                    order.price_per_meter = pricing["rate"]
-                    order.price_total = pricing["price_total"]
-                    order.pricing_tier = pricing["pricing_tier"]
-                    order.requires_review = pricing["requires_review"] or getattr(order_form, "_copies_requires_review", False)
+                quote_data = calculate_quote({
+                    "length_m": (order.length_m or Decimal("0")) * Decimal(order.copies or 1),
+                    "width_cm": Decimal("60"),
+                    "urgency": "standard",
+                    "help_layout": False,
+                    "with_shipping": False,
+                })
+                pricing = _quote_to_legacy_calc(quote_data)
+                order.meters_total = pricing["meters_total"]
+                order.price_per_meter = pricing["rate"]
+                order.price_total = pricing["price_total"]
+                order.pricing_tier = pricing["pricing_tier"]
+                order.requires_review = bool(pricing["requires_review"] or getattr(order_form, "_copies_requires_review", False))
                 order.status = OrderStatus.CHECK_MOCKUP
+                order.lifecycle_status = DtfLifecycleStatus.NEW
                 order.save()
+                DtfStatusEvent.objects.create(
+                    order=order,
+                    status_from=DtfLifecycleStatus.NEW,
+                    status_to=DtfLifecycleStatus.NEW,
+                    actor="system",
+                    public_message=_("Замовлення створено"),
+                )
+                if order.requires_review:
+                    order.transition_lifecycle(
+                        DtfLifecycleStatus.NEEDS_REVIEW,
+                        actor="system",
+                        public_message=_("Потрібна перевірка менеджером"),
+                    )
+                quote_obj = _persist_quote(
+                    quote_data,
+                    source="order_form",
+                    raw_inputs={
+                        "length_m": str(order.length_m),
+                        "copies": order.copies,
+                    },
+                    order=order,
+                )
+                _log_event(
+                    "order_submitted",
+                    request=request,
+                    payload={
+                        "order_number": order.order_number,
+                        "requires_review": order.requires_review,
+                    },
+                    order=order,
+                    quote=quote_obj,
+                )
                 notify_new_order(order)
+                notify_manager_new_order(order, quote_obj)
                 return redirect("dtf:thanks", kind="order", number=order.order_number)
     else:
         help_form = DtfHelpForm()
@@ -396,29 +589,59 @@ def status(request, order_number: str | None = None):
     ctx = _base_context(request)
     order = None
     error = None
+    status_timeline = []
+    generic_error = _("Не вдалося знайти замовлення за цими даними")
     share_mode = request.GET.get("share") == "1"
     share_number = request.GET.get("order")
     if order_number:
         share_mode = True
         share_number = order_number
     if request.method == "POST":
-        number = request.POST.get("order_number", "").strip()
-        phone = request.POST.get("phone", "").strip()
-        phone_digits = normalize_phone(phone)
-        if not number or not phone_digits:
-            error = _("Вкажіть номер і телефон")
+        if _is_rate_limited(request, "status_lookup", limit=18, window_seconds=900):
+            error = _("Тимчасово обмежено. Спробуйте трохи пізніше")
+            share_mode = False
+            share_number = None
         else:
-            order = DtfOrder.objects.filter(order_number__iexact=number).first()
-            if not order:
-                error = _("Замовлення не знайдено")
+            number = request.POST.get("order_number", "").strip()
+            phone = request.POST.get("phone", "").strip()
+            phone_digits = normalize_phone(phone)
+            if not number or not phone_digits:
+                error = generic_error
             else:
-                if normalize_phone(order.phone) != phone_digits:
-                    error = _("Телефон не збігається із замовленням")
-                    order = None
+                candidate = DtfOrder.objects.filter(order_number__iexact=number).first()
+                if not candidate or normalize_phone(candidate.phone) != phone_digits:
+                    error = generic_error
+                else:
+                    order = candidate
+                    _log_event(
+                        "status_check_success",
+                        request=request,
+                        payload={"order_number": order.order_number},
+                        order=order,
+                    )
     elif share_mode and share_number:
-        order = DtfOrder.objects.filter(order_number__iexact=str(share_number).strip()).first()
-        if not order:
-            error = _("Замовлення не знайдено")
+        number = str(share_number).strip()
+        phone_digits = normalize_phone(request.GET.get("phone", ""))
+        if not number or not phone_digits:
+            error = generic_error
+        else:
+            candidate = DtfOrder.objects.filter(order_number__iexact=number).first()
+            if not candidate or normalize_phone(candidate.phone) != phone_digits:
+                error = generic_error
+            else:
+                order = candidate
+                _log_event(
+                    "status_check_success",
+                    request=request,
+                    payload={"order_number": order.order_number, "via": "share"},
+                    order=order,
+                )
+    elif request.method == "GET" and request.GET.get("order_number"):
+        _log_event(
+            "status_check_fail",
+            request=request,
+            payload={"reason": "missing_phone_or_submit"},
+        )
 
     pipeline_steps = [
         {"key": "intake", "label": _("Intake")},
@@ -429,6 +652,17 @@ def status(request, order_number: str | None = None):
         {"key": "pack", "label": _("Pack")},
         {"key": "ship", "label": _("Ship")},
     ]
+    lifecycle_status_map = {
+        DtfLifecycleStatus.NEW: 0,
+        DtfLifecycleStatus.NEEDS_REVIEW: 1,
+        DtfLifecycleStatus.CONFIRMED: 1,
+        DtfLifecycleStatus.IN_PRODUCTION: 2,
+        DtfLifecycleStatus.QA_CHECK: 4,
+        DtfLifecycleStatus.PACKED: 5,
+        DtfLifecycleStatus.SHIPPED: 6,
+        DtfLifecycleStatus.DELIVERED: 6,
+        DtfLifecycleStatus.CANCELLED: 0,
+    }
     status_map = {
         OrderStatus.NEW_ORDER: 0,
         OrderStatus.CHECK_MOCKUP: 1,
@@ -440,10 +674,9 @@ def status(request, order_number: str | None = None):
     }
     status_index = None
     if order:
-        try:
+        status_index = lifecycle_status_map.get(order.lifecycle_status)
+        if status_index is None:
             status_index = status_map.get(order.status)
-        except Exception:
-            status_index = None
     qc_checks = []
     if order:
         limits = get_limits()
@@ -476,15 +709,28 @@ def status(request, order_number: str | None = None):
                 "value": ext.upper() if ext else _("Невідомо"),
             },
         ]
+        for event in order.status_events.order_by("created_at", "id"):
+            status_timeline.append({
+                "from_label": event.get_status_from_display(),
+                "to_label": event.get_status_to_display(),
+                "message": event.public_message,
+                "created_at": event.created_at,
+            })
+
     share_url = None
-    if order and request.build_absolute_uri:
-        share_url = request.build_absolute_uri(f"{request.path}?share=1&order={order.order_number}")
+    if error and request.method == "POST":
+        _log_event(
+            "status_check_fail",
+            request=request,
+            payload={"reason": "not_found_or_mismatch"},
+        )
     ctx.update({
         "order": order,
         "error": error,
         "status_steps": pipeline_steps,
         "status_index": status_index,
         "qc_checks": qc_checks,
+        "status_timeline": status_timeline,
         "share_mode": share_mode,
         "share_url": share_url,
     })
@@ -607,6 +853,65 @@ def constructor_app(request):
                 builder.user = request.user
             builder.status = BuilderStatus.DRAFT
             builder.save()
+            design_file = form.cleaned_data.get("design_file")
+            if design_file:
+                try:
+                    design_file.seek(0)
+                except Exception:
+                    pass
+                raw = design_file.read()
+                try:
+                    design_file.seek(0)
+                except Exception:
+                    pass
+                upload = DtfUpload.objects.create(
+                    file=design_file,
+                    size_bytes=int(getattr(design_file, "size", len(raw) if raw else 0) or 0),
+                    mime_type=(getattr(design_file, "content_type", "") or "").split(";")[0].strip().lower(),
+                    sha256=hashlib.sha256(raw).hexdigest() if raw else hashlib.sha256(str(builder.session_id).encode("utf-8")).hexdigest(),
+                    owner=request.user if request.user.is_authenticated else None,
+                    source="constructor_draft",
+                )
+                report_payload = builder.preflight_json or {}
+                result_map = {
+                    "PASS": DtfPreflightResult.PASS,
+                    "WARN": DtfPreflightResult.WARN,
+                    "FAIL": DtfPreflightResult.FAIL,
+                }
+                preflight = DtfPreflightReport.objects.create(
+                    upload=upload,
+                    result=result_map.get(str(report_payload.get("result", "PASS")).upper(), DtfPreflightResult.PASS),
+                    checks_json=report_payload.get("checks", []),
+                    metrics_json=report_payload.get("metrics", {}),
+                    warnings_json=report_payload.get("warnings", []),
+                    errors_json=report_payload.get("errors", []),
+                    preflight_version=report_payload.get("preflight_version", "2.0"),
+                    engine_version=report_payload.get("engine_version", "2.0.0"),
+                )
+                thumb_bytes, overlay_bytes = build_preview_assets(design_file)
+                if thumb_bytes:
+                    preflight.thumbnail.save(
+                        f"preflight-thumb-{upload.sha256[:12]}.jpg",
+                        ContentFile(thumb_bytes),
+                        save=False,
+                    )
+                if overlay_bytes:
+                    preflight.overlay_image.save(
+                        f"preflight-overlay-{upload.sha256[:12]}.jpg",
+                        ContentFile(overlay_bytes),
+                        save=False,
+                    )
+                preflight.save()
+                _log_event(
+                    "preflight_completed",
+                    request=request,
+                    payload={
+                        "result": preflight.result,
+                        "warnings": len(preflight.warnings_json or []),
+                        "errors": len(preflight.errors_json or []),
+                    },
+                    preflight=preflight,
+                )
             messages.success(request, _("Чернетку конструктора збережено"))
             return redirect(f"{reverse('dtf:constructor_app')}?sid={builder.session_id}")
     else:
@@ -753,6 +1058,19 @@ def sitemap_xml(request):
 def templates(request):
     ctx = _base_context(request)
     return _render(request, "dtf/templates.html", ctx)
+
+
+def effects_lab(request):
+    enabled = bool(getattr(settings, "DTF_EFFECTS_LAB_ENABLED", settings.DEBUG))
+    is_staff = bool(getattr(request.user, "is_staff", False))
+    if not enabled and not is_staff:
+        ctx = _base_context(request)
+        return _render(request, "dtf/404.html", ctx, status=404)
+    ctx = _base_context(request)
+    ctx.update({
+        "robots_noindex": True,
+    })
+    return _render(request, "dtf/effects_lab.html", ctx)
 
 
 def how_to_press(request):

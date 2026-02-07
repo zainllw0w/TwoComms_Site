@@ -1,0 +1,23 @@
+[data-effect~="infinite-cards"] {
+  overflow: hidden;
+}
+
+[data-effect~="infinite-cards"] .infinite-track {
+  display: flex;
+  gap: 12px;
+  width: max-content;
+  animation: dtfInfiniteCards 24s linear infinite;
+}
+
+[data-effect~="infinite-cards"] .infinite-item {
+  flex: 0 0 auto;
+}
+
+[data-effect~="infinite-cards"].infinite-cards-static .infinite-track {
+  animation: none;
+}
+
+@keyframes dtfInfiniteCards {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}

@@ -136,6 +136,18 @@ class OrderStatus(models.TextChoices):
     CLOSED = "closed", _("Закрито")
 
 
+class DtfLifecycleStatus(models.TextChoices):
+    NEW = "new", _("Нове")
+    NEEDS_REVIEW = "needs_review", _("Потребує перевірки")
+    CONFIRMED = "confirmed", _("Підтверджено")
+    IN_PRODUCTION = "in_production", _("У виробництві")
+    QA_CHECK = "qa_check", _("Контроль якості")
+    PACKED = "packed", _("Упаковано")
+    SHIPPED = "shipped", _("Відправлено")
+    DELIVERED = "delivered", _("Доставлено")
+    CANCELLED = "cancelled", _("Скасовано")
+
+
 class OrderType(models.TextChoices):
     READY = "ready", _("Готовий ганг-лист")
     HELP = "help", _("Потрібна допомога")
@@ -150,6 +162,12 @@ class DtfOrder(models.Model):
     order_number = models.CharField(max_length=24, unique=True, blank=True)
     order_type = models.CharField(max_length=20, choices=OrderType.choices, default=OrderType.READY)
     status = models.CharField(max_length=20, choices=OrderStatus.choices, default=OrderStatus.CHECK_MOCKUP)
+    lifecycle_status = models.CharField(
+        max_length=24,
+        choices=DtfLifecycleStatus.choices,
+        default=DtfLifecycleStatus.NEW,
+        db_index=True,
+    )
 
     name = models.CharField(max_length=200)
     phone = models.CharField(max_length=32, db_index=True)
@@ -217,6 +235,201 @@ class DtfOrder(models.Model):
         else:
             counter = 1
         return f"{prefix}{counter:02d}"
+
+    def transition_lifecycle(self, to_status: str, *, actor: str = "system", public_message: str = "", internal_message: str = ""):
+        transitions = {
+            DtfLifecycleStatus.NEW: {DtfLifecycleStatus.NEEDS_REVIEW, DtfLifecycleStatus.CONFIRMED, DtfLifecycleStatus.CANCELLED},
+            DtfLifecycleStatus.NEEDS_REVIEW: {DtfLifecycleStatus.CONFIRMED, DtfLifecycleStatus.CANCELLED},
+            DtfLifecycleStatus.CONFIRMED: {DtfLifecycleStatus.IN_PRODUCTION, DtfLifecycleStatus.CANCELLED},
+            DtfLifecycleStatus.IN_PRODUCTION: {DtfLifecycleStatus.QA_CHECK, DtfLifecycleStatus.CANCELLED},
+            DtfLifecycleStatus.QA_CHECK: {DtfLifecycleStatus.PACKED, DtfLifecycleStatus.CANCELLED},
+            DtfLifecycleStatus.PACKED: {DtfLifecycleStatus.SHIPPED, DtfLifecycleStatus.CANCELLED},
+            DtfLifecycleStatus.SHIPPED: {DtfLifecycleStatus.DELIVERED},
+            DtfLifecycleStatus.DELIVERED: set(),
+            DtfLifecycleStatus.CANCELLED: set(),
+        }
+        current = self.lifecycle_status or DtfLifecycleStatus.NEW
+        if to_status == current:
+            return None
+        if to_status not in transitions.get(current, set()):
+            raise ValueError(f"Invalid transition from {current} to {to_status}")
+
+        self.lifecycle_status = to_status
+        self.save(update_fields=["lifecycle_status", "updated_at"])
+        return DtfStatusEvent.objects.create(
+            order=self,
+            status_from=current,
+            status_to=to_status,
+            actor=actor,
+            public_message=public_message or "",
+            internal_message=internal_message or "",
+        )
+
+
+class DtfPricingConfig(models.Model):
+    name = models.CharField(max_length=120, default="Default DTF pricing")
+    is_active = models.BooleanField(default=True, db_index=True)
+    effective_from = models.DateField(default=timezone.localdate, db_index=True)
+    version = models.PositiveIntegerField(default=1)
+
+    width_cm = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("60.00"))
+    min_order_m = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("1.00"))
+    base_price_per_meter = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("350.00"))
+    tiers_json = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of objects: [{\"min_m\": 10, \"rate\": 330}, ...]",
+    )
+    urgency_multipliers_json = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Dict of urgency multipliers, e.g. {'standard': 1.0, 'rush': 1.2}",
+    )
+    layout_help_fee = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
+    shipping_estimate_fee = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
+    validity_days = models.PositiveIntegerField(default=7)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-effective_from", "-id"]
+        verbose_name = "DTF Pricing Config"
+        verbose_name_plural = "DTF Pricing Configs"
+
+    def __str__(self):
+        return f"{self.name} v{self.version} ({self.effective_from})"
+
+
+class DtfUpload(models.Model):
+    file = models.FileField(upload_to="dtf/uploads/")
+    size_bytes = models.PositiveBigIntegerField(default=0)
+    mime_type = models.CharField(max_length=120, blank=True)
+    sha256 = models.CharField(max_length=64, db_index=True)
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dtf_uploads",
+    )
+    lead = models.ForeignKey("DtfLead", null=True, blank=True, on_delete=models.SET_NULL, related_name="uploads")
+    order = models.ForeignKey("DtfOrder", null=True, blank=True, on_delete=models.SET_NULL, related_name="uploads")
+    source = models.CharField(max_length=40, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "DTF Upload"
+        verbose_name_plural = "DTF Uploads"
+
+    def __str__(self):
+        return f"{self.sha256[:12]}… ({self.mime_type or 'unknown'})"
+
+
+class DtfPreflightResult(models.TextChoices):
+    PASS = "pass", _("PASS")
+    WARN = "warn", _("WARN")
+    FAIL = "fail", _("FAIL")
+
+
+class DtfPreflightReport(models.Model):
+    upload = models.ForeignKey(DtfUpload, on_delete=models.CASCADE, related_name="preflight_reports")
+    result = models.CharField(max_length=10, choices=DtfPreflightResult.choices, default=DtfPreflightResult.PASS)
+    checks_json = models.JSONField(default=list, blank=True)
+    metrics_json = models.JSONField(default=dict, blank=True)
+    warnings_json = models.JSONField(default=list, blank=True)
+    errors_json = models.JSONField(default=list, blank=True)
+
+    thumbnail = models.ImageField(upload_to="dtf/preflight/thumbs/", blank=True)
+    overlay_image = models.ImageField(upload_to="dtf/preflight/overlays/", blank=True)
+    preflight_version = models.CharField(max_length=24, default="2.0")
+    engine_version = models.CharField(max_length=24, default="1.0.0")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "DTF Preflight Report"
+        verbose_name_plural = "DTF Preflight Reports"
+
+    def __str__(self):
+        return f"{self.get_result_display()} ({self.upload_id})"
+
+
+class DtfQuote(models.Model):
+    source = models.CharField(max_length=40, blank=True, default="")
+    width_cm = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("60.00"))
+    length_m = models.DecimalField(max_digits=8, decimal_places=2)
+    urgency = models.CharField(max_length=20, default="standard")
+    services_json = models.JSONField(default=dict, blank=True)
+    shipping_method = models.CharField(max_length=40, blank=True, default="")
+
+    unit_price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
+    base_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    discount_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    services_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    shipping_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    currency = models.CharField(max_length=10, default="UAH")
+    pricing_version = models.CharField(max_length=32, default="default")
+    valid_until = models.DateField(null=True, blank=True)
+    disclaimer = models.CharField(max_length=255, blank=True)
+
+    order = models.ForeignKey("DtfOrder", null=True, blank=True, on_delete=models.SET_NULL, related_name="quotes")
+    upload = models.ForeignKey("DtfUpload", null=True, blank=True, on_delete=models.SET_NULL, related_name="quotes")
+    raw_inputs = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "DTF Quote"
+        verbose_name_plural = "DTF Quotes"
+
+    def __str__(self):
+        return f"{self.total} {self.currency} ({self.length_m}m)"
+
+
+class DtfStatusActor(models.TextChoices):
+    SYSTEM = "system", _("System")
+    MANAGER = "manager", _("Manager")
+    CUSTOMER = "customer", _("Customer")
+
+
+class DtfStatusEvent(models.Model):
+    order = models.ForeignKey(DtfOrder, on_delete=models.CASCADE, related_name="status_events")
+    status_from = models.CharField(max_length=24, choices=DtfLifecycleStatus.choices)
+    status_to = models.CharField(max_length=24, choices=DtfLifecycleStatus.choices)
+    actor = models.CharField(max_length=20, choices=DtfStatusActor.choices, default=DtfStatusActor.SYSTEM)
+    public_message = models.CharField(max_length=255, blank=True)
+    internal_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        verbose_name = "DTF Status Event"
+        verbose_name_plural = "DTF Status Events"
+
+    def __str__(self):
+        return f"{self.order_id}: {self.status_from} -> {self.status_to}"
+
+
+class DtfEventLog(models.Model):
+    event_name = models.CharField(max_length=80, db_index=True)
+    payload = models.JSONField(default=dict, blank=True)
+    order = models.ForeignKey("DtfOrder", null=True, blank=True, on_delete=models.SET_NULL, related_name="event_logs")
+    quote = models.ForeignKey("DtfQuote", null=True, blank=True, on_delete=models.SET_NULL, related_name="event_logs")
+    preflight_report = models.ForeignKey("DtfPreflightReport", null=True, blank=True, on_delete=models.SET_NULL, related_name="event_logs")
+    ip_hash = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "DTF Event Log"
+        verbose_name_plural = "DTF Event Logs"
+
+    def __str__(self):
+        return f"{self.event_name} ({self.created_at:%Y-%m-%d %H:%M})"
 
 
 class KnowledgePostQuerySet(models.QuerySet):
