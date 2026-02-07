@@ -1,0 +1,41 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Кабінет: замовлення" %}{% endblock %}
+{% block page_id %}cabinet-orders{% endblock %}
+
+{% block content %}
+<section class="section" data-ui="dtf:cabinet:orders">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "Мої замовлення" %}</h1>
+    </div>
+
+    <div class="cabinet-tabs" role="tablist">
+      <a class="chip" href="{% url 'dtf:cabinet' %}">{% trans "Огляд" %}</a>
+      <a class="chip active" href="{% url 'dtf:cabinet_orders' %}">{% trans "Замовлення" %}</a>
+      <a class="chip" href="{% url 'dtf:cabinet_sessions' %}">{% trans "Сесії" %}</a>
+    </div>
+
+    <div class="card">
+      <h3>{% trans "Історія" %}</h3>
+      {% if cabinet_orders %}
+        <div class="status-steps">
+          {% for order in cabinet_orders %}
+            <div class="status-step done">
+              <span class="status-dot" aria-hidden="true"></span>
+              <div>
+                <strong>{{ order.order_number }}</strong>
+                <small>{{ order.get_status_display }} · {{ order.created_at|date:'d.m.Y H:i' }}</small>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">{% trans "Замовлень поки немає." %}</p>
+      {% endif %}
+      <p class="muted">{{ loyalty.points }} pts</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

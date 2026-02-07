@@ -4,20 +4,25 @@ import math
 import os
 import re
 import secrets
+from io import BytesIO
 from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import urlencode
 
 from django.conf import settings
 from django.utils import translation
+from django.core.files.base import ContentFile
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageDraw, ImageFont
 except Exception:
     Image = None
+    ImageDraw = None
+    ImageFont = None
 
 
 ALLOWED_READY_EXTS = {"pdf", "png"}
 ALLOWED_HELP_EXTS = {"pdf", "png", "jpg", "jpeg", "webp", "tif", "tiff", "zip", "rar", "7z", "ai", "psd", "svg"}
+ALLOWED_CONSTRUCTOR_EXTS = {"pdf", "png", "jpg", "jpeg", "webp"}
 MIME_BY_EXT = {
     "pdf": {"application/pdf"},
     "png": {"image/png"},
@@ -110,6 +115,12 @@ def build_safe_upload_name(prefix: str, original_name: str) -> str:
     safe_prefix = re.sub(r"[^a-z0-9_-]+", "-", (prefix or "file").lower()).strip("-") or "file"
     safe_ext = f".{ext}" if ext else ""
     return f"{safe_prefix}-{token}{safe_ext}"
+
+
+def build_content_file_from_bytes(payload: bytes, name: str) -> ContentFile:
+    file_obj = ContentFile(payload)
+    file_obj.name = name
+    return file_obj
 
 
 def validate_uploaded_file(uploaded_file, *, allowed_exts: set[str], max_file_mb: int, strict_magic: bool = True):
@@ -280,6 +291,185 @@ def _length_from_dimensions(width_cm: float, height_cm: float) -> Decimal | None
         return None
     length_m = Decimal(str(length_cm / 100.0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return length_m if length_m > 0 else None
+
+
+def _detect_page_dimensions_cm(uploaded_file) -> tuple[float | None, float | None]:
+    if not uploaded_file:
+        return None, None
+    ext = get_file_extension(getattr(uploaded_file, "name", ""))
+    try:
+        if ext == "pdf":
+            head = uploaded_file.read(50000)
+            uploaded_file.seek(0)
+            box = _detect_pdf_mediabox(head)
+            if not box:
+                return None, None
+            width_pt, height_pt = box
+            return width_pt * 2.54 / 72.0, height_pt * 2.54 / 72.0
+        if ext in {"png", "jpg", "jpeg", "webp"} and Image:
+            img = Image.open(uploaded_file)
+            width_px, height_px = img.size
+            dpi = img.info.get("dpi") or img.info.get("resolution")
+            uploaded_file.seek(0)
+            if not dpi:
+                return None, None
+            if isinstance(dpi, (tuple, list)):
+                dpi_x = float(dpi[0] or 0)
+                dpi_y = float(dpi[1] or dpi_x or 0)
+            else:
+                dpi_x = float(dpi or 0)
+                dpi_y = dpi_x
+            if dpi_x <= 0 or dpi_y <= 0:
+                return None, None
+            width_cm = (width_px / dpi_x) * 2.54
+            height_cm = (height_px / dpi_y) * 2.54
+            return width_cm, height_cm
+    except Exception:
+        try:
+            uploaded_file.seek(0)
+        except Exception:
+            pass
+        return None, None
+    return None, None
+
+
+def build_preflight_report(uploaded_file, *, allowed_exts: set[str] | None = None):
+    checks = []
+    if not uploaded_file:
+        return {
+            "checks": [{"key": "file", "label": "Файл", "status": "fail", "message": "Файл не завантажено"}],
+            "has_warn": False,
+            "has_fail": True,
+        }
+
+    limits = get_limits()
+    ext = get_file_extension(getattr(uploaded_file, "name", ""))
+    allowed = allowed_exts or ALLOWED_CONSTRUCTOR_EXTS
+    checks.append({
+        "key": "format",
+        "label": "Формат",
+        "status": "ok" if ext in allowed else "fail",
+        "message": ext.upper() if ext else "N/A",
+    })
+    max_bytes = int(limits["max_file_mb"]) * 1024 * 1024
+    size = int(getattr(uploaded_file, "size", 0) or 0)
+    checks.append({
+        "key": "size",
+        "label": "Розмір",
+        "status": "ok" if size and size <= max_bytes else ("warn" if size else "fail"),
+        "message": f"{round(size / (1024 * 1024), 2)} MB" if size else "N/A",
+    })
+
+    width_cm, height_cm = _detect_page_dimensions_cm(uploaded_file)
+    if width_cm and height_cm:
+        roll_ok = abs(width_cm - 60.0) <= 8.0 or abs(height_cm - 60.0) <= 8.0
+        checks.append({
+            "key": "roll_width",
+            "label": "Ширина 60 см",
+            "status": "ok" if roll_ok else "warn",
+            "message": f"{width_cm:.1f}×{height_cm:.1f} см",
+        })
+    else:
+        checks.append({
+            "key": "roll_width",
+            "label": "Ширина 60 см",
+            "status": "warn",
+            "message": "Не вдалося точно визначити",
+        })
+
+    mime_result = "ok"
+    try:
+        validate_uploaded_file(
+            uploaded_file,
+            allowed_exts=allowed,
+            max_file_mb=limits["max_file_mb"],
+            strict_magic=True,
+        )
+    except ValueError as exc:
+        code = str(exc)
+        if code in {"unsupported_extension", "file_too_large"}:
+            mime_result = "fail"
+        else:
+            mime_result = "warn"
+
+    checks.append({
+        "key": "security",
+        "label": "Security",
+        "status": mime_result,
+        "message": "Magic/MIME check",
+    })
+    has_warn = any(item["status"] == "warn" for item in checks)
+    has_fail = any(item["status"] == "fail" for item in checks)
+    return {
+        "checks": checks,
+        "has_warn": has_warn,
+        "has_fail": has_fail,
+    }
+
+
+def _load_design_image(uploaded_file):
+    if not uploaded_file or not Image:
+        return None
+    ext = get_file_extension(getattr(uploaded_file, "name", ""))
+    if ext not in {"png", "jpg", "jpeg", "webp"}:
+        return None
+    try:
+        image = Image.open(uploaded_file).convert("RGBA")
+        uploaded_file.seek(0)
+        return image
+    except Exception:
+        try:
+            uploaded_file.seek(0)
+        except Exception:
+            pass
+        return None
+
+
+def render_constructor_preview(uploaded_file, *, product_type: str, placement: str, product_color: str = "#151515") -> bytes | None:
+    if not Image or not ImageDraw:
+        return None
+    canvas = Image.new("RGBA", (1200, 1200), "#0b0b0d")
+    draw = ImageDraw.Draw(canvas)
+    panel = (140, 120, 1060, 1090)
+    draw.rounded_rectangle(panel, radius=36, fill="#101318", outline="#2e3340", width=3)
+
+    garment = (280, 220, 920, 1040)
+    draw.rounded_rectangle(garment, radius=56, fill=product_color, outline="#5f6475", width=2)
+    draw.ellipse((515, 210, 685, 340), fill="#0b0b0d")
+
+    label = f"{(product_type or 'product').upper()} • {(placement or 'front').upper()}"
+    font = ImageFont.load_default() if ImageFont else None
+    draw.text((180, 145), "DTF CONSTRUCTOR PREVIEW", fill="#d7dbff", font=font)
+    draw.text((180, 176), label, fill="#8e95bb", font=font)
+
+    placement_map = {
+        "front": (600, 560, 460, 460),
+        "back": (600, 560, 460, 460),
+        "left_chest": (485, 470, 240, 240),
+        "sleeve": (820, 470, 180, 180),
+    }
+    cx, cy, box_w, box_h = placement_map.get(placement, placement_map["front"])
+    x0 = int(cx - box_w / 2)
+    y0 = int(cy - box_h / 2)
+    x1 = x0 + box_w
+    y1 = y0 + box_h
+    draw.rounded_rectangle((x0, y0, x1, y1), radius=18, outline="#f6f7ff", width=2)
+
+    design = _load_design_image(uploaded_file)
+    if design:
+        ratio = min((box_w - 20) / design.width, (box_h - 20) / design.height)
+        new_size = (max(1, int(design.width * ratio)), max(1, int(design.height * ratio)))
+        design = design.resize(new_size)
+        px = int(cx - new_size[0] / 2)
+        py = int(cy - new_size[1] / 2)
+        canvas.alpha_composite(design, (px, py))
+    else:
+        draw.text((x0 + 18, y0 + 18), "DESIGN PLACEHOLDER", fill="#c7cbdd", font=font)
+        draw.text((x0 + 18, y0 + 44), "PDF/FILE UPLOADED", fill="#8087aa", font=font)
+
+    buf = BytesIO()
+    canvas.convert("RGB").save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
 
 
 def activate_language_from_request(request, allowed=("uk", "ru", "en")):

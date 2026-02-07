@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from .forms import DtfHelpForm, DtfOrderForm
-from .models import DtfOrder, KnowledgePost
+from .models import BuilderStatus, DtfBuilderSession, DtfOrder, DtfSampleLead, KnowledgePost
 from .utils import calculate_pricing, get_pricing_config
 
 
@@ -335,3 +335,109 @@ class DtfAuthSurfaceTests(TestCase):
         response = self.client.post("/auth/logout/", secure=True, follow=True)
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("_auth_user_id", self.client.session)
+
+
+class DtfPart4FeaturesTests(TestCase):
+    PNG_1X1 = (
+        b"\x89PNG\r\n\x1a\n"
+        b"\x00\x00\x00\rIHDR"
+        b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+        b"\x00\x00\x00\x0cIDATx\x9cc`\x00\x00\x00\x02\x00\x01\xe2!\xbc3"
+        b"\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+
+    def setUp(self):
+        self.client = Client(HTTP_HOST="dtf.twocomms.shop")
+
+    def test_part4_public_routes_available(self):
+        for path in ("/sample/", "/about/", "/products/", "/constructor/"):
+            with self.subTest(path=path):
+                response = self.client.get(path, secure=True)
+                self.assertEqual(response.status_code, 200)
+
+    def test_sample_form_creates_lead(self):
+        response = self.client.post(
+            "/sample/",
+            {
+                "sample_size": "a4",
+                "is_brand_volume": "on",
+                "name": "Sample Lead",
+                "phone": "+380501112255",
+                "contact_channel": "telegram",
+                "contact_handle": "@sample",
+                "city": "Kyiv",
+                "np_branch": "12",
+                "niche": "Fashion",
+                "monthly_volume": "30-50m",
+                "comment": "Need sample",
+                "consent": "on",
+                "honeypot": "",
+            },
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(DtfSampleLead.objects.count(), 1)
+        self.assertTrue(DtfSampleLead.objects.first().sample_number.startswith("DTF"))
+
+    def test_constructor_save_generates_session_preview(self):
+        image_file = SimpleUploadedFile("design.png", self.PNG_1X1, content_type="image/png")
+        response = self.client.post(
+            "/constructor/app/",
+            {
+                "product_type": "tshirt",
+                "product_color": "#151515",
+                "quantity": "10",
+                "size_breakdown": "M:5,L:5",
+                "placement": "front",
+                "design_file": image_file,
+                "delivery_city": "Kyiv",
+                "delivery_np_branch": "22",
+                "comment": "MVP test",
+                "risk_ack": "on",
+            },
+            secure=True,
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        session = DtfBuilderSession.objects.first()
+        self.assertIsNotNone(session)
+        self.assertEqual(session.status, BuilderStatus.DRAFT)
+        self.assertTrue(bool(session.preflight_json))
+        self.assertTrue(bool(getattr(session.preview_image, "name", "")))
+
+    def test_constructor_submit_creates_consultation_lead(self):
+        session = DtfBuilderSession.objects.create(
+            product_type="tshirt",
+            placement="front",
+            preflight_json={"checks": [], "has_warn": False, "has_fail": False},
+        )
+        response = self.client.post(
+            "/constructor/submit/",
+            {
+                "session_id": str(session.session_id),
+                "name": "Builder Client",
+                "phone": "+380501112266",
+                "contact_channel": "telegram",
+                "city": "Kyiv",
+                "np_branch": "45",
+                "risk_ack": "on",
+            },
+            secure=True,
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+        self.assertEqual(response.status_code, 200)
+        session.refresh_from_db()
+        self.assertEqual(session.status, BuilderStatus.SUBMITTED)
+        self.assertIsNotNone(session.submitted_lead_id)
+
+    def test_cabinet_routes_require_auth(self):
+        response = self.client.get("/cabinet/", secure=True)
+        self.assertEqual(response.status_code, 302)
+        user = User.objects.create_user(username="cabinet_user", password="secure-pass-123")
+        self.client.force_login(user)
+        home = self.client.get("/cabinet/", secure=True)
+        orders = self.client.get("/cabinet/orders/", secure=True)
+        sessions = self.client.get("/cabinet/sessions/", secure=True)
+        self.assertEqual(home.status_code, 200)
+        self.assertEqual(orders.status_code, 200)
+        self.assertEqual(sessions.status_code, 200)

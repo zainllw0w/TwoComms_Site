@@ -1,4 +1,5 @@
 from decimal import Decimal
+import uuid
 
 from django.conf import settings
 from django.db import models, IntegrityError, transaction
@@ -279,3 +280,136 @@ class DtfWork(models.Model):
 
     def __str__(self):
         return self.title or f"DTF Work #{self.pk}"
+
+
+class SampleSize(models.TextChoices):
+    A4 = "a4", _("A4 sample")
+    A3 = "a3", _("A3 sample")
+    STRIP_60x10 = "strip_60x10", _("Calibration strip 60x10 cm")
+
+
+class SampleStatus(models.TextChoices):
+    NEW = "new", _("Нова")
+    CONTACTED = "contacted", _("В роботі")
+    SHIPPED = "shipped", _("Відправлено")
+    CLOSED = "closed", _("Закрито")
+
+
+class DtfSampleLead(models.Model):
+    sample_number = models.CharField(max_length=24, unique=True, blank=True)
+    status = models.CharField(max_length=20, choices=SampleStatus.choices, default=SampleStatus.NEW)
+    sample_size = models.CharField(max_length=20, choices=SampleSize.choices, default=SampleSize.A4)
+    is_brand_volume = models.BooleanField(default=False)
+
+    name = models.CharField(max_length=200)
+    phone = models.CharField(max_length=32, db_index=True)
+    contact_channel = models.CharField(max_length=20, choices=ContactChannel.choices, default=ContactChannel.TELEGRAM)
+    contact_handle = models.CharField(max_length=200, blank=True)
+
+    city = models.CharField(max_length=120)
+    np_branch = models.CharField(max_length=240)
+    niche = models.CharField(max_length=200, blank=True)
+    monthly_volume = models.CharField(max_length=120, blank=True)
+    comment = models.TextField(blank=True)
+
+    consent = models.BooleanField(default=False)
+    source = models.CharField(max_length=50, blank=True, default="sample_page")
+    manager_note = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "DTF Sample Lead"
+        verbose_name_plural = "DTF Sample Leads"
+
+    def __str__(self):
+        return f"{self.sample_number or 'DTF Sample'} — {self.name}"
+
+    def save(self, *args, **kwargs):
+        attempts = 0
+        while True:
+            if not self.sample_number:
+                self.sample_number = self.generate_sample_number()
+            try:
+                with transaction.atomic():
+                    super().save(*args, **kwargs)
+                break
+            except IntegrityError:
+                attempts += 1
+                if attempts >= 5:
+                    raise
+                self.sample_number = None
+
+    @staticmethod
+    def generate_sample_number():
+        today = timezone.localdate()
+        date_str = today.strftime("%d%m%Y")
+        prefix = f"DTF{date_str}S"
+        last = DtfSampleLead.objects.filter(sample_number__startswith=prefix).aggregate(Max("sample_number"))
+        max_number = last.get("sample_number__max")
+        if max_number:
+            try:
+                suffix = max_number.replace(prefix, "")
+                counter = int(suffix) + 1
+            except ValueError:
+                counter = 1
+        else:
+            counter = 1
+        return f"{prefix}{counter:02d}"
+
+
+class BuilderStatus(models.TextChoices):
+    DRAFT = "draft", _("Чернетка")
+    SUBMITTED = "submitted", _("Надіслано")
+
+
+class BuilderProductType(models.TextChoices):
+    TSHIRT = "tshirt", _("T-shirt")
+    HOODIE = "hoodie", _("Hoodie")
+    TOTE = "tote", _("Tote")
+    MY_ITEM = "my_item", _("My item")
+
+
+class BuilderPlacement(models.TextChoices):
+    FRONT = "front", _("Front")
+    BACK = "back", _("Back")
+    LEFT_CHEST = "left_chest", _("Left chest")
+    SLEEVE = "sleeve", _("Sleeve")
+
+
+class DtfBuilderSession(models.Model):
+    session_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="dtf_builder_sessions")
+    status = models.CharField(max_length=20, choices=BuilderStatus.choices, default=BuilderStatus.DRAFT)
+
+    product_type = models.CharField(max_length=20, choices=BuilderProductType.choices, default=BuilderProductType.TSHIRT)
+    product_color = models.CharField(max_length=40, default="#151515")
+    quantity = models.PositiveIntegerField(default=1)
+    size_breakdown_json = models.JSONField(default=dict, blank=True)
+    placement = models.CharField(max_length=20, choices=BuilderPlacement.choices, default=BuilderPlacement.FRONT)
+    placements_json = models.JSONField(default=list, blank=True)
+
+    design_file = models.FileField(upload_to="dtf/builder/uploads/", blank=True)
+    preflight_json = models.JSONField(default=dict, blank=True)
+    preview_image = models.ImageField(upload_to="dtf/builder/previews/", blank=True)
+    risk_ack = models.BooleanField(default=False)
+
+    delivery_city = models.CharField(max_length=120, blank=True)
+    delivery_np_branch = models.CharField(max_length=240, blank=True)
+    comment = models.TextField(blank=True)
+
+    submitted_lead = models.ForeignKey(DtfLead, null=True, blank=True, on_delete=models.SET_NULL, related_name="builder_sessions")
+    source = models.CharField(max_length=50, blank=True, default="constructor")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        verbose_name = "DTF Builder Session"
+        verbose_name_plural = "DTF Builder Sessions"
+
+    def __str__(self):
+        return f"{self.session_id} ({self.get_product_type_display()})"

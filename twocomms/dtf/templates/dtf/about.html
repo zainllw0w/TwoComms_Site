@@ -1,0 +1,44 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Про команду DTF" %}{% endblock %}
+{% block page_id %}about{% endblock %}
+
+{% block content %}
+<section class="section" data-ui="dtf:about:hero">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "Команда DTF TwoComms" %}</h1>
+      <p>
+        <span data-pointer>{% trans "Бренд-рівень процесу" %}</span>,
+        <span data-pointer>{% trans "24/7 комунікація" %}</span>,
+        <span data-pointer>{% trans "без брака" %}</span>.
+      </p>
+    </div>
+
+    <div class="team-grid">
+      <article class="card team-card">
+        <h3>{% trans "Менеджер запуску" %}</h3>
+        <p>{% trans "Підкаже формат, ризики preflight і строки відправки." %}</p>
+        <span class="chip">{% trans "24/7" %}</span>
+      </article>
+      <article class="card team-card">
+        <h3>{% trans "Preflight оператор" %}</h3>
+        <p>{% trans "Ручна перевірка макетів і контроль дрібних деталей." %}</p>
+        <span class="chip">{% trans "QC" %}</span>
+      </article>
+      <article class="card team-card">
+        <h3>{% trans "Production lead" %}</h3>
+        <p>{% trans "Контроль переносу, кольору й стабільності партії." %}</p>
+        <span class="chip">{% trans "Hot Peel" %}</span>
+      </article>
+    </div>
+
+    <div class="about-pin card">
+      <h3>{% trans "3D Pin / Proof" %}</h3>
+      <p>{% trans "Основний бренд і виробнича експертиза: TwoComms." %}</p>
+      <a class="btn btn-outline" href="https://twocomms.shop" target="_blank" rel="noopener">twocomms.shop ↗</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Кабінет DTF" %}{% endblock %}
+{% block page_id %}cabinet-home{% endblock %}
+
+{% block content %}
+<section class="section" data-ui="dtf:cabinet:home">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "Кабінет" %}</h1>
+      <p>{% trans "Замовлення, сесії конструктора та лояльність." %}</p>
+    </div>
+
+    <div class="cabinet-tabs" role="tablist">
+      <a class="chip active" href="{% url 'dtf:cabinet' %}">{% trans "Огляд" %}</a>
+      <a class="chip" href="{% url 'dtf:cabinet_orders' %}">{% trans "Замовлення" %}</a>
+      <a class="chip" href="{% url 'dtf:cabinet_sessions' %}">{% trans "Сесії" %}</a>
+    </div>
+
+    <div class="cabinet-grid">
+      <article class="card">
+        <h3>{% trans "Лояльність" %}</h3>
+        <p><strong>{{ loyalty.points }}</strong> pts</p>
+        <p class="muted">
+          {% blocktrans with ppo=loyalty.points_per_order %}{{ ppo }} pts за кожне замовлення.{% endblocktrans %}
+        </p>
+        <p class="muted">
+          {% if loyalty.has_manager_badge %}
+            {% trans "Badge: персональний менеджер активовано" %}
+          {% else %}
+            {% blocktrans with n=loyalty.manager_badge_after %}Badge після {{ n }} замовлень{% endblocktrans %}
+          {% endif %}
+        </p>
+      </article>
+
+      <article class="card">
+        <h3>{% trans "Останні замовлення" %}</h3>
+        {% if cabinet_orders %}
+          <ul class="list">
+            {% for order in cabinet_orders %}
+              <li>{{ order.order_number }} — {{ order.get_status_display }}</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="muted">{% trans "Поки що немає замовлень для вашого профілю." %}</p>
+        {% endif %}
+      </article>
+
+      <article class="card">
+        <h3>{% trans "Збережені сесії" %}</h3>
+        {% if cabinet_sessions %}
+          <ul class="list">
+            {% for session in cabinet_sessions %}
+              <li>
+                {{ session.get_product_type_display }} / {{ session.get_placement_display }}
+                <a href="{% url 'dtf:constructor_app' %}?sid={{ session.session_id }}">{% trans "Відкрити" %}</a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="muted">{% trans "Ще немає сесій. Запустіть конструктор." %}</p>
+        {% endif %}
+      </article>
+    </div>
+  </div>
+</section>
+{% endblock %}
