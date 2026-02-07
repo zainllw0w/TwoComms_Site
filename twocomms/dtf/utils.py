@@ -46,11 +46,9 @@ DEFAULT_FEATURE_FLAGS = {
     "enable_printhead_scan": True,
     "enable_compare": True,
     "enable_lens": True,
-    "enable_preflight": False,
+    "enable_preflight": True,
     "enable_underbase_preview": False,
-    "enable_haptics": False,
-    "enable_sound": False,
-    "enable_dynamic_favicon": False,
+    "enable_dynamic_favicon": True,
     "tier_mode": "auto",
 }
 
