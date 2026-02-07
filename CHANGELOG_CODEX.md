@@ -49,3 +49,13 @@
   - `python3 twocomms/manage.py test dtf --settings=test_settings` -> `33 tests OK`
 - Rollback note:
   - Revert to previous commit, run `collectstatic --noinput`, then `touch tmp/restart.txt`.
+
+## 2026-02-07 01:25 UTC
+- Scope: Post-Part4 deploy hardening for QA matrix compatibility.
+- Summary:
+  - Added HEAD support on form pages (`/order/`, `/status/`, `/sample/`, `/constructor/app/`, `/preflight/`) so `curl -I` checks align with runbook.
+  - Re-deployed branch and verified key endpoints now return `HTTP 200` for HEAD requests.
+- Files:
+  - `twocomms/dtf/views.py`
+- Commit:
+  - `40986e7`
