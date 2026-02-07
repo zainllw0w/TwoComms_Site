@@ -318,11 +318,11 @@
     <a class="dock-item {% if request.path == '/price/' %}is-active{% endif %}" href="{% url 'dtf:price' %}" {% if request.path == '/price/' %}aria-current="page"{% endif %}>
       <span>{% trans "Ціни" %}</span>
     </a>
-    <a class="dock-item {% if request.path == '/status/' %}is-active{% endif %}" href="{% url 'dtf:status' %}" {% if request.path == '/status/' %}aria-current="page"{% endif %}>
-      <span>{% trans "Статус" %}</span>
+    <a class="dock-item {% if request.path == '/constructor/' or request.path == '/constructor/app/' %}is-active{% endif %}" href="{% url 'dtf:constructor' %}" {% if request.path == '/constructor/' or request.path == '/constructor/app/' %}aria-current="page"{% endif %}>
+      <span>{% trans "Конструктор" %}</span>
     </a>
-    <a class="dock-item {% if request.path == '/order/' and request.GET.tab == 'help' %}is-active{% endif %}" href="{% url 'dtf:order' %}?tab=help" {% if request.path == '/order/' and request.GET.tab == 'help' %}aria-current="page"{% endif %}>
-      <span>{% trans "Допомога" %}</span>
+    <a class="dock-item {% if request.path == '/gallery/' %}is-active{% endif %}" href="{% url 'dtf:gallery' %}" {% if request.path == '/gallery/' %}aria-current="page"{% endif %}>
+      <span>{% trans "Галерея" %}</span>
     </a>
   </nav>
 
