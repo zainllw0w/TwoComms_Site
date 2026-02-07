@@ -100,3 +100,14 @@ sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@19
 - Evidence:
   - `specs/dtf-codex/perf/postdeploy-curl-2026-02-07.txt`
   - `specs/dtf-codex/perf/robots-sitemap-2026-02-07.txt`
+
+### Sync deploy (docs update) — 2026-02-07
+- Fast-forward to latest commit: `41186a6`
+- `python manage.py check` -> OK
+- `python manage.py migrate --noinput` -> no migrations to apply
+- Server warning observed:
+  - `Your models in app(s): 'accounts', 'dtf', 'management' have changes that are not yet reflected in a migration`
+- `collectstatic` -> `0 copied, 328 unmodified`
+- Restart trigger updated: `touch tmp/restart.txt`
+- Action:
+  - Added follow-up task `DTF-305` in `MCP_TODO.md` to investigate migration-state drift.
