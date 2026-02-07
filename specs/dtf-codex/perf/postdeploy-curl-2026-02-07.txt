@@ -1,39 +1,27 @@
-# Post-deploy curl matrix 2026-02-07
+# Post-deploy curl matrix 2026-02-07 (after server deploy)
 
 ## https://dtf.twocomms.shop/
-HTTP/2 200 
+HTTP/2 500 
 content-type: text/html; charset=utf-8
-x-frame-options: SAMEORIGIN
-vary: Cookie, Accept-Language, Accept-Encoding
-content-language: uk
 content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
 x-xss-protection: 1; mode=block
 referrer-policy: strict-origin-when-cross-origin
 strict-transport-security: max-age=31536000; includeSubDomains; preload
 x-content-type-options: nosniff
-set-cookie: csrftoken=evrf9c82yIN4QtvtMHFgOi2sjcl2jTSV; Domain=.twocomms.shop; expires=Fri, 05 Feb 2027 23:57:25 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
-set-cookie: sessionid=gkhxxq4u0sykk0flxcvx9scumqq5en4x; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:25 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
-content-length: 33028
-date: Fri, 06 Feb 2026 23:57:25 GMT
+date: Sat, 07 Feb 2026 00:05:34 GMT
 server: LiteSpeed
 alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
 
 
 ## https://dtf.twocomms.shop/order/
-HTTP/2 405 
+HTTP/2 500 
 content-type: text/html; charset=utf-8
-allow: GET, POST
-x-frame-options: SAMEORIGIN
-vary: Accept-Language, Cookie
-content-language: uk
 content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
 x-xss-protection: 1; mode=block
 referrer-policy: strict-origin-when-cross-origin
 strict-transport-security: max-age=31536000; includeSubDomains; preload
 x-content-type-options: nosniff
-set-cookie: sessionid=4d2w4gcaigr5jupz245qkmyp9xz8xob5; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:25 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
-content-length: 0
-date: Fri, 06 Feb 2026 23:57:25 GMT
+date: Sat, 07 Feb 2026 00:05:34 GMT
 server: LiteSpeed
 alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
 
@@ -49,10 +37,10 @@ x-xss-protection: 1; mode=block
 referrer-policy: strict-origin-when-cross-origin
 strict-transport-security: max-age=31536000; includeSubDomains; preload
 x-content-type-options: nosniff
-set-cookie: csrftoken=nR4eV9Jpz9xMJUSstzPANJ4NUXS5Ul7W; Domain=.twocomms.shop; expires=Fri, 05 Feb 2027 23:57:26 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
-set-cookie: sessionid=5bevcbrsq58euazk5myxjhnegwhucc8p; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:26 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
-content-length: 16657
-date: Fri, 06 Feb 2026 23:57:26 GMT
+set-cookie: csrftoken=1M54ERcHtLgsgn4JD7sG3jOI9ShokyMW; Domain=.twocomms.shop; expires=Sat, 06 Feb 2027 00:05:35 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=87jbdo0rszz0ppt42oy5e9kj0b9rm5jb; Domain=.twocomms.shop; expires=Mon, 09 Mar 2026 00:05:35 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 17416
+date: Sat, 07 Feb 2026 00:05:35 GMT
 server: LiteSpeed
 alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
 
@@ -68,10 +56,10 @@ x-xss-protection: 1; mode=block
 referrer-policy: strict-origin-when-cross-origin
 strict-transport-security: max-age=31536000; includeSubDomains; preload
 x-content-type-options: nosniff
-set-cookie: csrftoken=7JtRYMgUqFFQYwv4X3EWTNolDoYSzHqB; Domain=.twocomms.shop; expires=Fri, 05 Feb 2027 23:57:26 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
-set-cookie: sessionid=9q1klc3lib9yacobeworindw6md9784t; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:26 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
-content-length: 18562
-date: Fri, 06 Feb 2026 23:57:26 GMT
+set-cookie: csrftoken=YTcOr9lv2uV6kydUSST6g5ccQCL0NBhb; Domain=.twocomms.shop; expires=Sat, 06 Feb 2027 00:05:36 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=w2ef0nlmja2gj0gc8z54tr4ac5dsxcdf; Domain=.twocomms.shop; expires=Mon, 09 Mar 2026 00:05:36 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 19746
+date: Sat, 07 Feb 2026 00:05:36 GMT
 server: LiteSpeed
 alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
 
@@ -87,10 +75,10 @@ x-xss-protection: 1; mode=block
 referrer-policy: strict-origin-when-cross-origin
 strict-transport-security: max-age=31536000; includeSubDomains; preload
 x-content-type-options: nosniff
-set-cookie: csrftoken=BMFr43UIuh7CLdnSGzp1mY5j0KIGeETV; Domain=.twocomms.shop; expires=Fri, 05 Feb 2027 23:57:27 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
-set-cookie: sessionid=6s8e6n32gz1xxam22d4g8b63d1q3edm3; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:27 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
-content-length: 24652
-date: Fri, 06 Feb 2026 23:57:27 GMT
+set-cookie: csrftoken=2nvTI58tw21rXjO9de3QWawqwFeYcZIr; Domain=.twocomms.shop; expires=Sat, 06 Feb 2027 00:05:36 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=8b959nn699wke3hxjxlqghjxgfdi5my1; Domain=.twocomms.shop; expires=Mon, 09 Mar 2026 00:05:36 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 25413
+date: Sat, 07 Feb 2026 00:05:36 GMT
 server: LiteSpeed
 alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
 
@@ -106,10 +94,48 @@ x-xss-protection: 1; mode=block
 referrer-policy: strict-origin-when-cross-origin
 strict-transport-security: max-age=31536000; includeSubDomains; preload
 x-content-type-options: nosniff
-set-cookie: csrftoken=rbBh1Ym2gnBIcP8wrgVtv9tWB4RXcqeD; Domain=.twocomms.shop; expires=Fri, 05 Feb 2027 23:57:27 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
-set-cookie: sessionid=qcmfujviekgrb4d8b5tw5v37ilwbvar3; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:27 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
-content-length: 16670
-date: Fri, 06 Feb 2026 23:57:27 GMT
+set-cookie: csrftoken=keN5hKP05poUG5wvwi2oZo3metvtjXdZ; Domain=.twocomms.shop; expires=Sat, 06 Feb 2027 00:05:36 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=v3ysbvog0cx6kkkrn16fef77ag7pc54y; Domain=.twocomms.shop; expires=Mon, 09 Mar 2026 00:05:36 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 17902
+date: Sat, 07 Feb 2026 00:05:36 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+
+## https://dtf.twocomms.shop/blog/
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+x-frame-options: SAMEORIGIN
+vary: Cookie, Accept-Language, Accept-Encoding
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: csrftoken=zIEmUyZidV7zc7YKcTdfiGidZQnOF6Uf; Domain=.twocomms.shop; expires=Sat, 06 Feb 2027 00:05:37 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=6nmc26ttu41tdkxnlr8d0ir2c217y0ku; Domain=.twocomms.shop; expires=Mon, 09 Mar 2026 00:05:37 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 16161
+date: Sat, 07 Feb 2026 00:05:37 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+
+## https://dtf.twocomms.shop/blog/yak-pidhotuvaty-fail-dlia-dtf-druku/
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+x-frame-options: SAMEORIGIN
+vary: Cookie, Accept-Language, Accept-Encoding
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: csrftoken=u1UPjkDU2QuVK0vc50WBG96D5uiPBJ5x; Domain=.twocomms.shop; expires=Sat, 06 Feb 2027 00:05:37 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=7s6pbhd8vkeugo1se5bcc9qgxzwoln7g; Domain=.twocomms.shop; expires=Mon, 09 Mar 2026 00:05:37 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 17037
+date: Sat, 07 Feb 2026 00:05:37 GMT
 server: LiteSpeed
 alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
 
@@ -125,9 +151,9 @@ x-xss-protection: 1; mode=block
 referrer-policy: strict-origin-when-cross-origin
 strict-transport-security: max-age=31536000; includeSubDomains; preload
 x-content-type-options: nosniff
-set-cookie: sessionid=7nktfzypcrkcehapr2pyuftb3f9izj8y; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:28 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=ygvfwqfub16i2j7963vape2wsvg5skwf; Domain=.twocomms.shop; expires=Mon, 09 Mar 2026 00:05:38 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
 content-length: 90
-date: Fri, 06 Feb 2026 23:57:28 GMT
+date: Sat, 07 Feb 2026 00:05:38 GMT
 server: LiteSpeed
 alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
 
@@ -143,9 +169,9 @@ x-xss-protection: 1; mode=block
 referrer-policy: strict-origin-when-cross-origin
 strict-transport-security: max-age=31536000; includeSubDomains; preload
 x-content-type-options: nosniff
-set-cookie: sessionid=x4r4newdz8lndx3sh95ry40k7wijduql; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:28 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
-content-length: 1016
-date: Fri, 06 Feb 2026 23:57:28 GMT
+set-cookie: sessionid=8xuzo6pzkgwupy9cymhnr4n325m2etd2; Domain=.twocomms.shop; expires=Mon, 09 Mar 2026 00:05:39 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 1158
+date: Sat, 07 Feb 2026 00:05:39 GMT
 server: LiteSpeed
 alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
 
@@ -162,9 +188,9 @@ x-xss-protection: 1; mode=block
 referrer-policy: strict-origin-when-cross-origin
 strict-transport-security: max-age=31536000; includeSubDomains; preload
 x-content-type-options: nosniff
-set-cookie: sessionid=1ibkbpavp96pydndn2mca7cxi8yil6fr; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:29 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=kyjxdif67uuxb4jdzu3ldyggzmnpmpg0; Domain=.twocomms.shop; expires=Mon, 09 Mar 2026 00:05:39 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
 content-length: 0
-date: Fri, 06 Feb 2026 23:57:29 GMT
+date: Sat, 07 Feb 2026 00:05:39 GMT
 server: LiteSpeed
 alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
 
@@ -180,9 +206,9 @@ x-xss-protection: 1; mode=block
 referrer-policy: strict-origin-when-cross-origin
 strict-transport-security: max-age=31536000; includeSubDomains; preload
 x-content-type-options: nosniff
-set-cookie: sessionid=xjwttrkfqekxcucah9gggauwbsi1njhj; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:29 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=8v86jinzck29bd33siql0yx9b5830k8g; Domain=.twocomms.shop; expires=Mon, 09 Mar 2026 00:05:40 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
 content-length: 199
-date: Fri, 06 Feb 2026 23:57:29 GMT
+date: Sat, 07 Feb 2026 00:05:40 GMT
 server: LiteSpeed
 alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
 
@@ -198,9 +224,9 @@ x-xss-protection: 1; mode=block
 referrer-policy: strict-origin-when-cross-origin
 strict-transport-security: max-age=31536000; includeSubDomains; preload
 x-content-type-options: nosniff
-set-cookie: sessionid=mjlzdzme8ba15dtxoz35aideqsg9c85q; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:30 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=79ty3x9dd45qtgiq64ay1j70s3dg1d6t; Domain=.twocomms.shop; expires=Mon, 09 Mar 2026 00:05:40 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
 content-length: 4838
-date: Fri, 06 Feb 2026 23:57:30 GMT
+date: Sat, 07 Feb 2026 00:05:40 GMT
 server: LiteSpeed
 alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
 
