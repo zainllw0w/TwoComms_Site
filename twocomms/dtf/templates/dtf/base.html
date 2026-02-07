@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260206b">
-  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260207e">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260207f">
   <link rel="stylesheet" href="{% static 'dtf/css/components/effect.bg-beams.css' %}?v=20260207b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/effect.dotted-glow.css' %}?v=20260207b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/effect.encrypted-text.css' %}?v=20260207b">
@@ -45,6 +45,14 @@
   <div class="dtf-shell">
     <!-- ASSET_REQUEST | id=ink-droplets-field | type=texture | usage=global ambient ink droplets layer | spec=seamless 1400x1400 PNG, soft orange translucent droplets | notes=subtle, no harsh edges -->
     <div class="ink-droplets" aria-hidden="true"></div>
+    <div class="home-dot-distortion" aria-hidden="true">
+      <canvas class="dot-distortion-canvas" data-dot-canvas></canvas>
+      <span class="dot-field"></span>
+      <span class="dot-field dot-field-alt"></span>
+      <span class="dot-orb dot-orb-1" data-dot-orb data-depth="0.16"></span>
+      <span class="dot-orb dot-orb-2" data-dot-orb data-depth="0.28"></span>
+      <span class="dot-orb dot-orb-3" data-dot-orb data-depth="0.22"></span>
+    </div>
     <header class="dtf-header" data-ui="dtf:base:header">
       <div class="dtf-container header-inner">
         <a href="{% url 'dtf:landing' %}" class="logo">
@@ -58,8 +66,6 @@
           <a href="{% url 'dtf:products' %}" class="{% if request.path == '/products/' %}is-active{% endif %}" {% if request.path == '/products/' %}aria-current="page"{% endif %}>{% trans "Вироби" %}</a>
           <a href="{% url 'dtf:gallery' %}" class="{% if request.path == '/gallery/' %}is-active{% endif %}" {% if request.path == '/gallery/' %}aria-current="page"{% endif %}>{% trans "Галерея" %}</a>
           <a href="{% url 'dtf:requirements' %}" class="{% if request.path == '/requirements/' %}is-active{% endif %}" {% if request.path == '/requirements/' %}aria-current="page"{% endif %}>{% trans "Вимоги" %}</a>
-          <a href="{% url 'dtf:status' %}" class="{% if request.path == '/status/' %}is-active{% endif %}" {% if request.path == '/status/' %}aria-current="page"{% endif %}>{% trans "Статус" %}</a>
-          <a href="{% url 'dtf:order' %}?tab=help" class="{% if request.path == '/order/' and request.GET.tab == 'help' %}is-active{% endif %}" {% if request.path == '/order/' and request.GET.tab == 'help' %}aria-current="page"{% endif %}>{% trans "Допомога" %}</a>
         </nav>
         <div class="header-actions">
           <button class="nav-toggle" type="button" data-drawer-open aria-controls="nav-drawer" aria-expanded="false">
@@ -203,8 +209,6 @@
           <a href="{% url 'dtf:products' %}" class="{% if request.path == '/products/' %}is-active{% endif %}" {% if request.path == '/products/' %}aria-current="page"{% endif %}>{% trans "Вироби" %}</a>
           <a href="{% url 'dtf:gallery' %}" class="{% if request.path == '/gallery/' %}is-active{% endif %}" {% if request.path == '/gallery/' %}aria-current="page"{% endif %}>{% trans "Галерея" %}</a>
           <a href="{% url 'dtf:requirements' %}" class="{% if request.path == '/requirements/' %}is-active{% endif %}" {% if request.path == '/requirements/' %}aria-current="page"{% endif %}>{% trans "Вимоги" %}</a>
-          <a href="{% url 'dtf:status' %}" class="{% if request.path == '/status/' %}is-active{% endif %}" {% if request.path == '/status/' %}aria-current="page"{% endif %}>{% trans "Статус" %}</a>
-          <a href="{% url 'dtf:order' %}?tab=help" class="{% if request.path == '/order/' and request.GET.tab == 'help' %}is-active{% endif %}" {% if request.path == '/order/' and request.GET.tab == 'help' %}aria-current="page"{% endif %}>{% trans "Допомога" %}</a>
         </nav>
       </div>
     </div>
@@ -341,7 +345,7 @@
   <script src="{% static 'dtf/js/components/vanish-input.js' %}?v=20260207a" defer></script>
   <script src="{% static 'dtf/js/components/tabs-download.js' %}?v=20260207a" defer></script>
   <script src="{% static 'dtf/js/components/cards-on-click.js' %}?v=20260207a" defer></script>
-  <script src="{% static 'dtf/js/dtf.js' %}?v=20260207e" defer></script>
+  <script src="{% static 'dtf/js/dtf.js' %}?v=20260207f" defer></script>
   {% block extra_scripts %}{% endblock %}
 
 </body>

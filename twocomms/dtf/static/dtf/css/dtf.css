@@ -204,8 +204,28 @@ body[data-page="home"][data-legacy-ink="on"] .ink-droplets {
   display: block;
 }
 
+.home-dot-distortion {
+  display: none;
+  --dot-pointer-x: 50%;
+  --dot-pointer-y: 42%;
+  --dot-shift-x: 0px;
+  --dot-shift-y: 0px;
+  --dot-arc-x: 0px;
+  --dot-arc-y: 0px;
+  --dot-glow: 0.56;
+}
 
-.dtf-shell > *:not(.ink-droplets):not(.nav-drawer):not(.dtf-modal):not(.dtf-fab):not(.mobile-dock) {
+body[data-page="home"] .home-dot-distortion {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+
+.dtf-shell > *:not(.ink-droplets):not(.home-dot-distortion):not(.nav-drawer):not(.dtf-modal):not(.dtf-fab):not(.mobile-dock) {
   position: relative;
   z-index: 1;
 }
@@ -1226,79 +1246,65 @@ body[data-page="home"] section.section > .dtf-container {
   transition: opacity 700ms ease;
 }
 
-.hero-dot-distortion {
+.home-dot-distortion .dot-distortion-canvas {
   position: absolute;
-  inset: -14% -10% -16%;
-  z-index: 0;
-  pointer-events: none;
-  --dot-pointer-x: 52%;
-  --dot-pointer-y: 36%;
-  --dot-shift-x: 0px;
-  --dot-shift-y: 0px;
-  --dot-arc-x: 0px;
-  --dot-arc-y: 0px;
-  --dot-glow: 0.56;
-}
-
-.hero-dot-distortion .dot-distortion-canvas {
-  position: absolute;
-  inset: 10% 9% 13%;
-  width: auto;
-  height: auto;
-  border-radius: 24px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
   opacity: 0;
   mix-blend-mode: screen;
-  filter: saturate(1.06) contrast(1.08);
+  filter: blur(0.2px) saturate(1.03) contrast(1.04);
   pointer-events: none;
   transition: opacity 260ms ease;
 }
 
-.hero-dot-distortion.has-canvas .dot-distortion-canvas {
+.home-dot-distortion.has-canvas .dot-distortion-canvas {
   opacity: 0.92;
 }
 
-.hero-dot-distortion.has-canvas .dot-field,
-.hero-dot-distortion.has-canvas .dot-orb {
+.home-dot-distortion.has-canvas .dot-field,
+.home-dot-distortion.has-canvas .dot-orb {
   display: none;
 }
 
-.hero-dot-distortion::before {
+.home-dot-distortion::before {
   content: "";
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(68% 56% at var(--dot-pointer-x) var(--dot-pointer-y), rgba(255, 118, 20, 0.24), transparent 72%),
-    radial-gradient(62% 52% at 78% 20%, rgba(255, 189, 82, 0.17), transparent 74%),
-    radial-gradient(110% 88% at 52% 74%, rgba(5, 5, 7, 0.25), rgba(5, 5, 7, 0.82) 72%, rgba(5, 5, 7, 0.95) 100%);
-  filter: blur(2px);
+    radial-gradient(56% 44% at var(--dot-pointer-x) var(--dot-pointer-y), rgba(255, 118, 20, 0.18), transparent 74%),
+    radial-gradient(42% 36% at 78% 22%, rgba(255, 189, 82, 0.13), transparent 72%),
+    radial-gradient(120% 90% at 52% 76%, rgba(6, 7, 9, 0.2), rgba(5, 5, 7, 0.78) 72%, rgba(5, 5, 7, 0.9) 100%);
+  filter: blur(1.2px);
   opacity: var(--dot-glow);
   transition: opacity 320ms ease;
 }
 
-.hero-dot-distortion::after {
+.home-dot-distortion::after {
   content: "";
   position: absolute;
-  inset: 6% 6% 8%;
-  border-radius: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(6, 8, 11, 0.78), rgba(5, 5, 7, 0.9));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  inset: 0;
+  background:
+    radial-gradient(38% 30% at 12% 18%, rgba(255, 118, 20, 0.11), transparent 74%),
+    radial-gradient(30% 28% at 84% 26%, rgba(255, 189, 82, 0.08), transparent 76%);
+  opacity: 0.9;
 }
 
-.hero-dot-distortion .dot-field {
+.home-dot-distortion .dot-field {
   position: absolute;
-  inset: 10% 9% 13%;
-  border-radius: 24px;
+  inset: 0;
+  border-radius: 0;
   background-image: radial-gradient(circle at 1px 1px, rgba(255, 154, 64, 0.6) 1.1px, transparent 1.9px);
-  background-size: 23px 23px;
-  opacity: 0.44;
-  mask-image: radial-gradient(ellipse at 46% 40%, #000 52%, rgba(0, 0, 0, 0.35) 76%, transparent 100%);
+  background-size: 26px 26px;
+  opacity: 0.22;
+  mask-image: radial-gradient(ellipse at 50% 44%, #000 50%, rgba(0, 0, 0, 0.45) 76%, transparent 100%);
   animation: dot-drift 24s linear infinite;
   transform: translate3d(var(--dot-shift-x), var(--dot-shift-y), 0);
   will-change: transform, opacity;
 }
 
-.hero-dot-distortion .dot-field::before {
+.home-dot-distortion .dot-field::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -1313,10 +1319,10 @@ body[data-page="home"] section.section > .dtf-container {
   will-change: transform;
 }
 
-.hero-dot-distortion .dot-field-alt {
+.home-dot-distortion .dot-field-alt {
   background-image: radial-gradient(circle at 1px 1px, rgba(255, 212, 120, 0.44) 1px, transparent 1.8px);
-  background-size: 29px 29px;
-  opacity: 0.28;
+  background-size: 34px 34px;
+  opacity: 0.12;
   filter: blur(0.2px);
   mix-blend-mode: screen;
   animation-duration: 30s;
@@ -1324,7 +1330,7 @@ body[data-page="home"] section.section > .dtf-container {
   transform: translate3d(calc(var(--dot-shift-x) * -0.65), calc(var(--dot-shift-y) * -0.65), 0);
 }
 
-.hero-dot-distortion .dot-orb {
+.home-dot-distortion .dot-orb {
   position: absolute;
   width: clamp(120px, 12vw, 220px);
   aspect-ratio: 1;
@@ -1339,22 +1345,22 @@ body[data-page="home"] section.section > .dtf-container {
   animation: dot-orb-float 18s ease-in-out infinite;
 }
 
-.hero-dot-distortion .dot-orb-1 {
-  top: 22%;
-  left: 14%;
+.home-dot-distortion .dot-orb-1 {
+  top: 24%;
+  left: 18%;
 }
 
-.hero-dot-distortion .dot-orb-2 {
-  top: 52%;
-  left: 56%;
+.home-dot-distortion .dot-orb-2 {
+  top: 56%;
+  left: 54%;
   width: clamp(150px, 14vw, 250px);
   opacity: 0.34;
   animation-delay: -5s;
 }
 
-.hero-dot-distortion .dot-orb-3 {
-  top: 18%;
-  left: 72%;
+.home-dot-distortion .dot-orb-3 {
+  top: 20%;
+  left: 76%;
   width: clamp(98px, 9vw, 170px);
   opacity: 0.3;
   animation-delay: -9s;
@@ -4281,24 +4287,13 @@ body[data-page="order"] .mobile-dock {
   .hero {
     padding-top: 60px;
   }
-  .hero-dot-distortion {
-    inset: -10% -8% -14%;
+  .home-dot-distortion .dot-field {
+    background-size: 24px 24px;
   }
-  .hero-dot-distortion::after {
-    inset: 8% 4% 12%;
-    border-radius: 22px;
-  }
-  .hero-dot-distortion .dot-field {
-    inset: 12% 7% 16%;
-    background-size: 20px 20px;
-  }
-  .hero-dot-distortion .dot-distortion-canvas {
-    inset: 12% 7% 16%;
-  }
-  .hero-dot-distortion .dot-orb {
+  .home-dot-distortion .dot-orb {
     filter: blur(7px);
   }
-  .hero-dot-distortion .dot-orb-2 {
+  .home-dot-distortion .dot-orb-2 {
     left: 52%;
   }
   .hero-grid {
@@ -4405,26 +4400,15 @@ body[data-page="order"] .mobile-dock {
   .hot-peel-copy small {
     font-size: 0.64rem;
   }
-  .hero-dot-distortion {
-    inset: -8% -6% -12%;
+  .home-dot-distortion .dot-field {
+    background-size: 20px 20px;
+    opacity: 0.2;
   }
-  .hero-dot-distortion::after {
-    inset: 10% 3% 14%;
-    border-radius: 18px;
-  }
-  .hero-dot-distortion .dot-field {
-    inset: 14% 6% 18%;
-    background-size: 18px 18px;
-    opacity: 0.34;
-  }
-  .hero-dot-distortion .dot-distortion-canvas {
-    inset: 14% 6% 18%;
-  }
-  .hero-dot-distortion .dot-orb {
+  .home-dot-distortion .dot-orb {
     opacity: 0.28;
     filter: blur(6px);
   }
-  .hero-dot-distortion .dot-orb-3 {
+  .home-dot-distortion .dot-orb-3 {
     display: none;
   }
   .btn {
@@ -4510,9 +4494,9 @@ body[data-page="order"] .mobile-dock {
   .hero-beams {
     display: none;
   }
-  .hero-dot-distortion .dot-field,
-  .hero-dot-distortion .dot-field::before,
-  .hero-dot-distortion .dot-orb {
+  .home-dot-distortion .dot-field,
+  .home-dot-distortion .dot-field::before,
+  .home-dot-distortion .dot-orb {
     animation: none;
     transform: none;
   }
