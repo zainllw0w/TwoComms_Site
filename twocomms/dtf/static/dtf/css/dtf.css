@@ -196,6 +196,14 @@ body[data-page="order"] .film-layer {
   pointer-events: none;
 }
 
+body[data-page="home"] .ink-droplets {
+  display: none;
+}
+
+body[data-page="home"][data-legacy-ink="on"] .ink-droplets {
+  display: block;
+}
+
 
 .dtf-shell > *:not(.ink-droplets):not(.nav-drawer):not(.dtf-modal):not(.dtf-fab):not(.mobile-dock) {
   position: relative;
@@ -1223,6 +1231,13 @@ body[data-page="home"] section.section > .dtf-container {
   inset: -14% -10% -16%;
   z-index: 0;
   pointer-events: none;
+  --dot-pointer-x: 52%;
+  --dot-pointer-y: 36%;
+  --dot-shift-x: 0px;
+  --dot-shift-y: 0px;
+  --dot-arc-x: 0px;
+  --dot-arc-y: 0px;
+  --dot-glow: 0.56;
 }
 
 .hero-dot-distortion::before {
@@ -1230,10 +1245,12 @@ body[data-page="home"] section.section > .dtf-container {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(68% 56% at 22% 16%, rgba(255, 118, 20, 0.21), transparent 70%),
+    radial-gradient(68% 56% at var(--dot-pointer-x) var(--dot-pointer-y), rgba(255, 118, 20, 0.24), transparent 72%),
     radial-gradient(62% 52% at 78% 20%, rgba(255, 189, 82, 0.17), transparent 74%),
     radial-gradient(110% 88% at 52% 74%, rgba(5, 5, 7, 0.25), rgba(5, 5, 7, 0.82) 72%, rgba(5, 5, 7, 0.95) 100%);
   filter: blur(2px);
+  opacity: var(--dot-glow);
+  transition: opacity 320ms ease;
 }
 
 .hero-dot-distortion::after {
@@ -1255,6 +1272,8 @@ body[data-page="home"] section.section > .dtf-container {
   opacity: 0.44;
   mask-image: radial-gradient(ellipse at 46% 40%, #000 52%, rgba(0, 0, 0, 0.35) 76%, transparent 100%);
   animation: dot-drift 24s linear infinite;
+  transform: translate3d(var(--dot-shift-x), var(--dot-shift-y), 0);
+  will-change: transform, opacity;
 }
 
 .hero-dot-distortion .dot-field::before {
@@ -1268,6 +1287,8 @@ body[data-page="home"] section.section > .dtf-container {
     radial-gradient(26% 24% at 84% 24%, rgba(4, 4, 6, 0.76), transparent 72%);
   mix-blend-mode: multiply;
   animation: dot-warp 20s ease-in-out infinite;
+  transform: translate3d(var(--dot-arc-x), var(--dot-arc-y), 0);
+  will-change: transform;
 }
 
 .hero-dot-distortion .dot-field-alt {
@@ -1278,6 +1299,43 @@ body[data-page="home"] section.section > .dtf-container {
   mix-blend-mode: screen;
   animation-duration: 30s;
   animation-direction: reverse;
+  transform: translate3d(calc(var(--dot-shift-x) * -0.65), calc(var(--dot-shift-y) * -0.65), 0);
+}
+
+.hero-dot-distortion .dot-orb {
+  position: absolute;
+  width: clamp(120px, 12vw, 220px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 28%, rgba(255, 242, 214, 0.34), rgba(255, 176, 74, 0.2) 38%, rgba(255, 116, 18, 0.07) 62%, rgba(255, 116, 18, 0) 100%);
+  mix-blend-mode: screen;
+  filter: blur(8px);
+  opacity: 0.4;
+  transform: translate3d(var(--orb-x, 0px), var(--orb-y, 0px), 0);
+  will-change: transform, opacity;
+  animation: dot-orb-float 18s ease-in-out infinite;
+}
+
+.hero-dot-distortion .dot-orb-1 {
+  top: 22%;
+  left: 14%;
+}
+
+.hero-dot-distortion .dot-orb-2 {
+  top: 52%;
+  left: 56%;
+  width: clamp(150px, 14vw, 250px);
+  opacity: 0.34;
+  animation-delay: -5s;
+}
+
+.hero-dot-distortion .dot-orb-3 {
+  top: 18%;
+  left: 72%;
+  width: clamp(98px, 9vw, 170px);
+  opacity: 0.3;
+  animation-delay: -9s;
 }
 
 .hero-grid {
@@ -1603,6 +1661,11 @@ body[data-page="home"] section.section > .dtf-container {
 @keyframes dot-warp {
   0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
   50% { transform: translate3d(3%, -2%, 0) scale(1.06); }
+}
+
+@keyframes dot-orb-float {
+  0%, 100% { transform: translate3d(var(--orb-x, 0px), var(--orb-y, 0px), 0) scale(1); }
+  50% { transform: translate3d(calc(var(--orb-x, 0px) + 8px), calc(var(--orb-y, 0px) - 10px), 0) scale(1.05); }
 }
 
 @keyframes hero-glow {
@@ -4207,6 +4270,12 @@ body[data-page="order"] .mobile-dock {
     inset: 12% 7% 16%;
     background-size: 20px 20px;
   }
+  .hero-dot-distortion .dot-orb {
+    filter: blur(7px);
+  }
+  .hero-dot-distortion .dot-orb-2 {
+    left: 52%;
+  }
   .hero-grid {
     gap: 28px;
   }
@@ -4323,6 +4392,13 @@ body[data-page="order"] .mobile-dock {
     background-size: 18px 18px;
     opacity: 0.34;
   }
+  .hero-dot-distortion .dot-orb {
+    opacity: 0.28;
+    filter: blur(6px);
+  }
+  .hero-dot-distortion .dot-orb-3 {
+    display: none;
+  }
   .btn {
     min-height: 48px;
   }
@@ -4405,6 +4481,12 @@ body[data-page="order"] .mobile-dock {
   }
   .hero-beams {
     display: none;
+  }
+  .hero-dot-distortion .dot-field,
+  .hero-dot-distortion .dot-field::before,
+  .hero-dot-distortion .dot-orb {
+    animation: none;
+    transform: none;
   }
   .flip-word {
     transition: none !important;
