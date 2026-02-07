@@ -18,3 +18,6 @@
 - Rollback note:
   - Docs-only rollback: checkout previous commit and restore docs.
   - If deployed and any regression appears: checkout last good commit on server, run `collectstatic`, then `touch tmp/restart.txt`.
+- Deploy status:
+  - Branch `codex/codex-refactor-v1` pushed and deployed.
+  - Server applied `dtf.0003_knowledgepost` migration and restarted app.

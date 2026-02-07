@@ -224,3 +224,18 @@ python3 -m pip_audit -r /Users/zainllw0w/PycharmProjects/TwoComms/twocomms/requi
 - `specs/dtf-codex/CHECKLIST.md`
 - `specs/dtf-codex/QA.md`
 - `specs/dtf-codex/DEPLOY.md`
+
+### Server deploy execution (2026-02-07)
+- SSH deploy executed on host `195.191.24.169` in project venv.
+- Deployed branch: `codex/codex-refactor-v1`
+- Deployed commit: `8da5b5e`
+- Server command results:
+  - `git checkout codex/codex-refactor-v1` -> switched/tracking branch created
+  - `git pull --ff-only` -> up to date
+  - `python manage.py check` -> no issues
+  - `python manage.py migrate --noinput` -> `Applying dtf.0003_knowledgepost... OK`
+  - `python manage.py collectstatic --noinput` -> `12 static files copied, 316 unmodified`
+  - `touch tmp/restart.txt` -> restart trigger updated
+- Postdeploy re-check:
+  - `specs/dtf-codex/perf/postdeploy-curl-2026-02-07.txt`
+  - Includes DTF `200` checks and `301` for `/prices/`, plus blog URL checks.
