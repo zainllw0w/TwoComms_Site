@@ -16,6 +16,7 @@
     htmxA11y: false,
     drawer: false,
     inkFlow: false,
+    heroDotDistortion: false,
     spotlight: false,
     inkDroplets: false,
     heroTilt: false,
@@ -225,6 +226,7 @@
       enable_printhead_scan: true,
       enable_compare: true,
       enable_lens: true,
+      enable_legacy_ink_droplets: false,
       tier_mode: 'auto'
     };
     const el = document.getElementById('dtf-feature-flags');
@@ -926,6 +928,100 @@
     hero.addEventListener('mouseleave', () => hero.style.setProperty('--ink-opacity', '0'));
   }
 
+  function initHeroDotDistortion() {
+    if (initState.heroDotDistortion) return;
+    const layer = document.querySelector('.hero-dot-distortion');
+    if (!layer) return;
+    const hero = layer.closest('.hero') || document.querySelector('.hero');
+    if (!hero) return;
+    initState.heroDotDistortion = true;
+
+    const setStatic = () => {
+      layer.style.setProperty('--dot-glow', '0.5');
+      layer.style.setProperty('--dot-shift-x', '0px');
+      layer.style.setProperty('--dot-shift-y', '0px');
+      layer.style.setProperty('--dot-arc-x', '0px');
+      layer.style.setProperty('--dot-arc-y', '0px');
+      layer.style.setProperty('--dot-pointer-x', '52%');
+      layer.style.setProperty('--dot-pointer-y', '36%');
+    };
+
+    if (!allowAmbientEffects()) {
+      setStatic();
+      return;
+    }
+
+    const orbs = Array.from(layer.querySelectorAll('[data-dot-orb]'));
+    const state = {
+      x: 0,
+      y: 0,
+      tx: 0,
+      ty: 0,
+      active: false,
+    };
+    let frame = null;
+
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const schedule = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(step);
+    };
+
+    const step = () => {
+      frame = null;
+      state.x += (state.tx - state.x) * 0.11;
+      state.y += (state.ty - state.y) * 0.11;
+
+      const shiftX = state.x * 30;
+      const shiftY = state.y * 22;
+      const arcX = state.x * -22;
+      const arcY = state.y * -16;
+
+      layer.style.setProperty('--dot-pointer-x', `${(52 + state.x * 20).toFixed(2)}%`);
+      layer.style.setProperty('--dot-pointer-y', `${(36 + state.y * 18).toFixed(2)}%`);
+      layer.style.setProperty('--dot-shift-x', `${shiftX.toFixed(2)}px`);
+      layer.style.setProperty('--dot-shift-y', `${shiftY.toFixed(2)}px`);
+      layer.style.setProperty('--dot-arc-x', `${arcX.toFixed(2)}px`);
+      layer.style.setProperty('--dot-arc-y', `${arcY.toFixed(2)}px`);
+      layer.style.setProperty('--dot-glow', state.active ? '0.72' : '0.54');
+
+      orbs.forEach((orb) => {
+        const depth = parseFloat(orb.dataset.depth || '0.2');
+        const orbX = shiftX * (0.8 + depth);
+        const orbY = shiftY * (0.7 + depth);
+        orb.style.setProperty('--orb-x', `${orbX.toFixed(2)}px`);
+        orb.style.setProperty('--orb-y', `${orbY.toFixed(2)}px`);
+      });
+
+      const settled = Math.abs(state.tx - state.x) < 0.003 && Math.abs(state.ty - state.y) < 0.003;
+      if (state.active || !settled) schedule();
+    };
+
+    const updateTarget = (event) => {
+      const rect = hero.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const relX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const relY = ((event.clientY - rect.top) / rect.height) * 2 - 1;
+      state.tx = clamp(relX, -1, 1);
+      state.ty = clamp(relY, -1, 1);
+      state.active = true;
+      schedule();
+    };
+
+    const resetTarget = () => {
+      state.active = false;
+      state.tx = 0;
+      state.ty = 0;
+      schedule();
+    };
+
+    hero.addEventListener('pointerenter', updateTarget, { passive: true });
+    hero.addEventListener('pointermove', updateTarget, { passive: true });
+    hero.addEventListener('pointerleave', resetTarget);
+    hero.addEventListener('pointercancel', resetTarget);
+    resetTarget();
+  }
+
   function initHeroTilt() {
     if (initState.heroTilt) return;
     const card = document.querySelector('.hero-card');
@@ -999,6 +1095,10 @@
     if (!layer) return;
     const page = document.body ? document.body.dataset.page : '';
     if (page !== 'home') return;
+    if (!flags.enable_legacy_ink_droplets) return;
+    if (document.body) {
+      document.body.setAttribute('data-legacy-ink', 'on');
+    }
     if (!allowDroplets()) {
       layer.style.opacity = '0';
       return;
@@ -2052,6 +2152,7 @@
     initProfileMenu(root);
     initPrintheadScan();
     initInkFlow();
+    initHeroDotDistortion();
     initHeroTilt();
     initSpotlight(root);
     initInkDroplets();
