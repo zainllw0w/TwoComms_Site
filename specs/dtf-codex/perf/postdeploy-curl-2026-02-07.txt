@@ -1,0 +1,207 @@
+# Post-deploy curl matrix 2026-02-07
+
+## https://dtf.twocomms.shop/
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+x-frame-options: SAMEORIGIN
+vary: Cookie, Accept-Language, Accept-Encoding
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: csrftoken=evrf9c82yIN4QtvtMHFgOi2sjcl2jTSV; Domain=.twocomms.shop; expires=Fri, 05 Feb 2027 23:57:25 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=gkhxxq4u0sykk0flxcvx9scumqq5en4x; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:25 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 33028
+date: Fri, 06 Feb 2026 23:57:25 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+
+## https://dtf.twocomms.shop/order/
+HTTP/2 405 
+content-type: text/html; charset=utf-8
+allow: GET, POST
+x-frame-options: SAMEORIGIN
+vary: Accept-Language, Cookie
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: sessionid=4d2w4gcaigr5jupz245qkmyp9xz8xob5; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:25 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 0
+date: Fri, 06 Feb 2026 23:57:25 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+
+## https://dtf.twocomms.shop/price/
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+x-frame-options: SAMEORIGIN
+vary: Cookie, Accept-Language, Accept-Encoding
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: csrftoken=nR4eV9Jpz9xMJUSstzPANJ4NUXS5Ul7W; Domain=.twocomms.shop; expires=Fri, 05 Feb 2027 23:57:26 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=5bevcbrsq58euazk5myxjhnegwhucc8p; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:26 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 16657
+date: Fri, 06 Feb 2026 23:57:26 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+
+## https://dtf.twocomms.shop/quality/
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+x-frame-options: SAMEORIGIN
+vary: Cookie, Accept-Language, Accept-Encoding
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: csrftoken=7JtRYMgUqFFQYwv4X3EWTNolDoYSzHqB; Domain=.twocomms.shop; expires=Fri, 05 Feb 2027 23:57:26 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=9q1klc3lib9yacobeworindw6md9784t; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:26 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 18562
+date: Fri, 06 Feb 2026 23:57:26 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+
+## https://dtf.twocomms.shop/gallery/
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+x-frame-options: SAMEORIGIN
+vary: Cookie, Accept-Language, Accept-Encoding
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: csrftoken=BMFr43UIuh7CLdnSGzp1mY5j0KIGeETV; Domain=.twocomms.shop; expires=Fri, 05 Feb 2027 23:57:27 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=6s8e6n32gz1xxam22d4g8b63d1q3edm3; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:27 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 24652
+date: Fri, 06 Feb 2026 23:57:27 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+
+## https://dtf.twocomms.shop/requirements/
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+x-frame-options: SAMEORIGIN
+vary: Cookie, Accept-Language, Accept-Encoding
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: csrftoken=rbBh1Ym2gnBIcP8wrgVtv9tWB4RXcqeD; Domain=.twocomms.shop; expires=Fri, 05 Feb 2027 23:57:27 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+set-cookie: sessionid=qcmfujviekgrb4d8b5tw5v37ilwbvar3; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:27 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 16670
+date: Fri, 06 Feb 2026 23:57:27 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+
+## https://dtf.twocomms.shop/robots.txt
+HTTP/2 200 
+content-type: text/plain; charset=utf-8
+x-frame-options: SAMEORIGIN
+vary: Accept-Language, Cookie
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: sessionid=7nktfzypcrkcehapr2pyuftb3f9izj8y; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:28 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 90
+date: Fri, 06 Feb 2026 23:57:28 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+
+## https://dtf.twocomms.shop/sitemap.xml
+HTTP/2 200 
+content-type: application/xml; charset=utf-8
+x-frame-options: SAMEORIGIN
+vary: Accept-Language, Cookie, Accept-Encoding
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: sessionid=x4r4newdz8lndx3sh95ry40k7wijduql; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:28 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 1016
+date: Fri, 06 Feb 2026 23:57:28 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+
+## https://dtf.twocomms.shop/prices/
+HTTP/2 301 
+content-type: text/html; charset=utf-8
+location: /price/
+x-frame-options: SAMEORIGIN
+vary: Accept-Language, Cookie
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: sessionid=1ibkbpavp96pydndn2mca7cxi8yil6fr; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:29 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 0
+date: Fri, 06 Feb 2026 23:57:29 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+
+## https://twocomms.shop/robots.txt
+HTTP/2 200 
+content-type: text/plain
+x-frame-options: SAMEORIGIN
+vary: Accept-Language, Cookie
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: sessionid=xjwttrkfqekxcucah9gggauwbsi1njhj; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:29 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 199
+date: Fri, 06 Feb 2026 23:57:29 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+
+## https://twocomms.shop/sitemap.xml
+HTTP/2 200 
+content-type: application/xml; charset=utf-8
+x-frame-options: SAMEORIGIN
+vary: Accept-Language, Cookie, Accept-Encoding
+content-language: uk
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com https://connect.facebook.net https://www.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.amazonaws.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net https://www.googleadservices.com https://pagead2.googlesyndication.com https://connect.facebook.net https://www.facebook.com https://facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms https://c.bing.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com.ua; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com https://region1.analytics.google.com https://region1.google-analytics.com https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.run.app https://*.datah04.com https://*.tiktokw.us; frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net https://www.facebook.com https://connect.facebook.net https://web.facebook.com https://analytics.tiktok.com https://ads.tiktok.com https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+set-cookie: sessionid=mjlzdzme8ba15dtxoz35aideqsg9c85q; Domain=.twocomms.shop; expires=Sun, 08 Mar 2026 23:57:30 GMT; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax; Secure
+content-length: 4838
+date: Fri, 06 Feb 2026 23:57:30 GMT
+server: LiteSpeed
+alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
+
+

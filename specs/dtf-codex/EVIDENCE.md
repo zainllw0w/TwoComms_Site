@@ -168,3 +168,59 @@ python3 -m pip_audit -r /Users/zainllw0w/PycharmProjects/TwoComms/twocomms/requi
   - Main domain `robots/sitemap` remained main-domain scoped
   - JS asset version on live page: `dtf/js/dtf.js?v=20260206p`
   - RU/EN live smoke strings reflect updated translations
+
+---
+
+## PART 3 — Execution Protocol Validation (2026-02-07)
+
+### Branch / Scope
+- Branch: `codex/codex-refactor-v1`
+- Scope: Part 3 runbook enforcement (execution/qa/evidence/rollback protocol)
+- Isolation intent: DTF-only verification and documentation; no main-domain behavior changes.
+
+### Local quality gates
+- `python3 -m compileall -q twocomms/dtf`
+  - Artifact: `specs/dtf-codex/perf/compileall-2026-02-07.txt`
+  - Result: `compileall: OK`
+- `python3 twocomms/manage.py test dtf --settings=test_settings`
+  - Artifact: `specs/dtf-codex/perf/tests-dtf-2026-02-07.txt`
+  - Result: `Ran 28 tests ... OK`
+- `python3 -m pip_audit -r twocomms/requirements.txt`
+  - Artifacts:
+    - `specs/dtf-codex/perf/pip-audit-2026-02-07.txt`
+    - `specs/dtf-codex/perf/pip-audit-2026-02-07.json`
+  - Result: `No known vulnerabilities found`
+
+### Curl QA matrix (host isolation + status)
+- Artifact: `specs/dtf-codex/perf/postdeploy-curl-2026-02-07.txt`
+- Verified:
+  - DTF routes return expected statuses:
+    - `/`, `/price/`, `/quality/`, `/gallery/`, `/requirements/`, `/robots.txt`, `/sitemap.xml` -> `200`
+    - `/prices/` -> `301` to `/price/`
+  - Main-domain checks:
+    - `https://twocomms.shop/robots.txt` -> `200`
+    - `https://twocomms.shop/sitemap.xml` -> `200`
+- Body check artifact: `specs/dtf-codex/perf/robots-sitemap-2026-02-07.txt`
+  - DTF robots points to DTF sitemap.
+  - Main robots/sitemap remain main-domain scoped.
+
+### Lighthouse baseline refresh (mobile)
+- Artifacts:
+  - `specs/dtf-codex/perf/home-mobile-2026-02-07.report.report.json`
+  - `specs/dtf-codex/perf/order-mobile-2026-02-07.report.report.json`
+  - `specs/dtf-codex/perf/price-mobile-2026-02-07.report.report.json`
+  - `specs/dtf-codex/perf/quality-mobile-2026-02-07.report.report.json`
+  - `specs/dtf-codex/perf/lighthouse-metrics-2026-02-07.txt`
+- Summary metrics:
+  - home: perf 84, LCP 4.4s, CLS 0.012
+  - order: perf 100, LCP 1.5s, CLS 0.014
+  - price: perf 100, LCP 1.5s, CLS 0.03
+  - quality: perf 94, LCP 3.0s, CLS 0.012
+
+### Documentation updates tied to this run
+- `CHANGELOG_CODEX.md`
+- `EVIDENCE.md` (root index)
+- `DEPLOY.md` (root index)
+- `specs/dtf-codex/CHECKLIST.md`
+- `specs/dtf-codex/QA.md`
+- `specs/dtf-codex/DEPLOY.md`

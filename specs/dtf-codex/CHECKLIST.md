@@ -1,7 +1,7 @@
-# DTF Codex Checklist — POLISH ONLY (2026-02-06)
+# DTF Codex Checklist — POLISH + RUNBOOK (2026-02-07)
 
 ## Scope
-- Branch: `codex/dtf-p2-polish-only-2026-02`
+- Branch: `codex/codex-refactor-v1`
 - Target host: `dtf.twocomms.shop`
 - Isolation rule: DTF-only codepaths and docs, no main-domain routing changes.
 
@@ -62,3 +62,21 @@
 
 ## Blockers
 - [x] None.
+
+## Part 3 — Execution Protocol / QA Gates / Evidence
+- [x] Standard working loop formalized (plan -> implement -> test -> evidence -> commit -> deploy).
+  - Evidence: `specs/dtf-codex/EVIDENCE.md`
+- [x] Mandatory artifacts refreshed:
+  - `DTF_CHECKLIST.md`
+  - `EFFECTS_MAP.md`
+  - `MCP_TODO.md`
+  - `CHANGELOG_CODEX.md`
+  - `EVIDENCE.md` (root index + detailed `specs/dtf-codex/EVIDENCE.md`)
+  - `DEPLOY.md` (root index + detailed `specs/dtf-codex/DEPLOY.md`)
+- [x] Quality gates re-run on 2026-02-07:
+  - compileall
+  - `manage.py test dtf`
+  - `pip-audit`
+  - curl matrix for DTF routes + main-domain isolation checks
+  - lighthouse mobile baseline for `/`, `/order/`, `/price/`, `/quality/`
+  - Evidence: `specs/dtf-codex/perf/*-2026-02-07*`

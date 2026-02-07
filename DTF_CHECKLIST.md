@@ -16,3 +16,10 @@
 - [x] Превью статей на главной в mixed grid
 - [x] SEO для статей: meta/canonical/schema/sitemap
 - [x] Документация SEO-базы (`SEO_BASELINE.md`) и обновление карты эффектов
+
+## Part 3 - Execution Protocol / QA / Evidence / Rollback
+- [x] Обновлены обязательные артефакты: `CHECKLIST`, `QA`, `DEPLOY`, `EVIDENCE`, `CHANGELOG_CODEX`
+- [x] Прогнаны quality gates: compileall, `manage.py test dtf`, `pip-audit`
+- [x] Обновлена post-deploy curl матрица для DTF + проверка main-domain изоляции
+- [x] Снят lighthouse baseline (mobile) для `/`, `/order/`, `/price/`, `/quality/`
+- [x] Обновлены rollback/deploy протоколы и индексация артефактов в корне проекта

@@ -1,0 +1,6 @@
+# Lighthouse mobile metrics 2026-02-07
+
+home: perf=84, LCP=4.4 s, CLS=0.012, INP=None, TBT=0 ms
+order: perf=100, LCP=1.5 s, CLS=0.014, INP=None, TBT=0 ms
+price: perf=100, LCP=1.5 s, CLS=0.03, INP=None, TBT=0 ms
+quality: perf=94, LCP=3.0 s, CLS=0.012, INP=None, TBT=0 ms
