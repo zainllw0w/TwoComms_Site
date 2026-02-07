@@ -1240,6 +1240,28 @@ body[data-page="home"] section.section > .dtf-container {
   --dot-glow: 0.56;
 }
 
+.hero-dot-distortion .dot-distortion-canvas {
+  position: absolute;
+  inset: 10% 9% 13%;
+  width: auto;
+  height: auto;
+  border-radius: 24px;
+  opacity: 0;
+  mix-blend-mode: screen;
+  filter: saturate(1.06) contrast(1.08);
+  pointer-events: none;
+  transition: opacity 260ms ease;
+}
+
+.hero-dot-distortion.has-canvas .dot-distortion-canvas {
+  opacity: 0.92;
+}
+
+.hero-dot-distortion.has-canvas .dot-field,
+.hero-dot-distortion.has-canvas .dot-orb {
+  display: none;
+}
+
 .hero-dot-distortion::before {
   content: "";
   position: absolute;
@@ -4270,6 +4292,9 @@ body[data-page="order"] .mobile-dock {
     inset: 12% 7% 16%;
     background-size: 20px 20px;
   }
+  .hero-dot-distortion .dot-distortion-canvas {
+    inset: 12% 7% 16%;
+  }
   .hero-dot-distortion .dot-orb {
     filter: blur(7px);
   }
@@ -4391,6 +4416,9 @@ body[data-page="order"] .mobile-dock {
     inset: 14% 6% 18%;
     background-size: 18px 18px;
     opacity: 0.34;
+  }
+  .hero-dot-distortion .dot-distortion-canvas {
+    inset: 14% 6% 18%;
   }
   .hero-dot-distortion .dot-orb {
     opacity: 0.28;
