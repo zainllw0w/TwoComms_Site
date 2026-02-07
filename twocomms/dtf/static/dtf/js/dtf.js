@@ -935,6 +935,8 @@
     const hero = layer.closest('.hero') || document.querySelector('.hero');
     if (!hero) return;
     initState.heroDotDistortion = true;
+    const canvas = layer.querySelector('[data-dot-canvas]');
+    const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
 
     const setStatic = () => {
       layer.style.setProperty('--dot-glow', '0.5');
@@ -946,10 +948,11 @@
       layer.style.setProperty('--dot-pointer-y', '36%');
     };
 
-    if (!allowAmbientEffects()) {
+    const canAnimate = allowAmbientEffects();
+    if (!canAnimate) {
       setStatic();
-      return;
     }
+    if (ctx) layer.classList.add('has-canvas');
 
     const orbs = Array.from(layer.querySelectorAll('[data-dot-orb]'));
     const state = {
@@ -960,15 +963,87 @@
       active: false,
     };
     let frame = null;
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    const dots = [];
 
     const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+    const resizeCanvas = () => {
+      if (!ctx || !canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      width = Math.max(220, Math.round(rect.width || 0));
+      height = Math.max(140, Math.round(rect.height || 0));
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      dots.length = 0;
+      const spacing = clamp(Math.round(Math.min(width, height) / 16), 14, 22);
+      for (let y = spacing * 0.5; y <= height - spacing * 0.25; y += spacing) {
+        for (let x = spacing * 0.5; x <= width - spacing * 0.25; x += spacing) {
+          dots.push({
+            x,
+            y,
+            phase: Math.random() * Math.PI * 2,
+            bias: 0.5 + Math.random() * 0.5,
+          });
+        }
+      }
+    };
+
+    const renderCanvas = (time) => {
+      if (!ctx || !width || !height) return;
+      ctx.clearRect(0, 0, width, height);
+      const px = ((state.x + 1) * 0.5) * width;
+      const py = ((state.y + 1) * 0.5) * height;
+      const radius = Math.min(width, height) * 0.42;
+
+      const halo = ctx.createRadialGradient(px, py, 0, px, py, radius * 0.92);
+      halo.addColorStop(0, 'rgba(255, 170, 84, 0.26)');
+      halo.addColorStop(0.45, 'rgba(255, 132, 36, 0.12)');
+      halo.addColorStop(1, 'rgba(255, 132, 36, 0)');
+      ctx.fillStyle = halo;
+      ctx.fillRect(0, 0, width, height);
+
+      for (let i = 0; i < dots.length; i += 1) {
+        const dot = dots[i];
+        const dx = dot.x - px;
+        const dy = dot.y - py;
+        const dist = Math.max(1, Math.hypot(dx, dy));
+        const influence = Math.max(0, 1 - dist / radius);
+        const pull = influence * influence * 22;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const swirl = Math.sin(time * 0.0016 + dot.phase) * influence * 7.5;
+
+        const x = dot.x - nx * pull - ny * swirl + state.x * 6;
+        const y = dot.y - ny * pull + nx * swirl + state.y * 5;
+        const size = 0.88 + influence * 1.45 + Math.sin(time * 0.0022 + dot.phase) * 0.16;
+        const green = clamp(136 + influence * 82 + dot.bias * 24, 120, 240);
+        const blue = clamp(30 + dot.bias * 18 + influence * 26, 20, 86);
+        const alpha = clamp(0.18 + dot.bias * 0.16 + influence * 0.46, 0.14, 0.9);
+        ctx.fillStyle = `rgba(255, ${Math.round(green)}, ${Math.round(blue)}, ${alpha.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    };
+
     const schedule = () => {
       if (frame) return;
       frame = window.requestAnimationFrame(step);
     };
 
-    const step = () => {
+    const step = (time) => {
       frame = null;
+      if (!canAnimate) return;
+      if (!state.active) {
+        const phase = time * 0.00028;
+        state.tx = Math.sin(phase * 1.4) * 0.42;
+        state.ty = Math.cos(phase * 1.05) * 0.3;
+      }
       state.x += (state.tx - state.x) * 0.11;
       state.y += (state.ty - state.y) * 0.11;
 
@@ -993,8 +1068,9 @@
         orb.style.setProperty('--orb-y', `${orbY.toFixed(2)}px`);
       });
 
+      renderCanvas(time);
       const settled = Math.abs(state.tx - state.x) < 0.003 && Math.abs(state.ty - state.y) < 0.003;
-      if (state.active || !settled) schedule();
+      if (state.active || !settled || !!ctx) schedule();
     };
 
     const updateTarget = (event) => {
@@ -1015,11 +1091,25 @@
       schedule();
     };
 
-    hero.addEventListener('pointerenter', updateTarget, { passive: true });
-    hero.addEventListener('pointermove', updateTarget, { passive: true });
-    hero.addEventListener('pointerleave', resetTarget);
-    hero.addEventListener('pointercancel', resetTarget);
-    resetTarget();
+    if (canAnimate) {
+      hero.addEventListener('pointerenter', updateTarget, { passive: true });
+      hero.addEventListener('pointermove', updateTarget, { passive: true });
+      hero.addEventListener('pointerleave', resetTarget);
+      hero.addEventListener('pointercancel', resetTarget);
+      resetTarget();
+    } else {
+      setStatic();
+    }
+
+    if (ctx) {
+      resizeCanvas();
+      if (canAnimate) {
+        schedule();
+      } else {
+        renderCanvas(0);
+      }
+      window.addEventListener('resize', resizeCanvas, { passive: true });
+    }
   }
 
   function initHeroTilt() {
