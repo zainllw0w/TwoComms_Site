@@ -111,3 +111,18 @@ sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "b
 - Restart trigger updated: `touch tmp/restart.txt`
 - Action:
   - Added follow-up task `DTF-305` in `MCP_TODO.md` to investigate migration-state drift.
+
+### Part 4 deploy — 2026-02-07
+- Fast-forward deploy commit: `a3c1943` (Part 4 implementation wave)
+- Follow-up deploy commit: `40986e7` (HEAD support for curl matrix endpoints)
+- Server checks:
+  - `python manage.py check` -> OK
+  - `python manage.py migrate --noinput` -> applied `dtf.0004_dtfsamplelead_alter_dtforder_length_source_and_more`
+  - `python manage.py collectstatic --noinput` -> static refreshed and restart triggered
+- Postdeploy curl smoke:
+  - `/`, `/order/`, `/sample/`, `/constructor/`, `/products/`, `/about/`, `/price/`, `/quality/`, `/robots.txt`, `/sitemap.xml` -> `200`
+  - `/prices/` -> `301` to `/price/`
+- Current server branch head: `40986e7`
+- Remaining server warning:
+  - `Your models in app(s): 'accounts', 'management' have changes that are not yet reflected in a migration`
+  - `dtf` warning was removed after applying `dtf.0004_*`.

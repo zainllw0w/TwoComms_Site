@@ -269,3 +269,10 @@ python3 -m pip_audit -r /Users/zainllw0w/PycharmProjects/TwoComms/twocomms/requi
   - `/constructor/app/` saves draft session and preview image
   - `/constructor/submit/` creates consultation lead and marks session submitted
   - `/cabinet/*` requires auth and renders for logged-in user
+
+### Deploy verification
+- Server branch updated to `40986e7`.
+- `dtf.0004_dtfsamplelead_alter_dtforder_length_source_and_more` migration applied.
+- HEAD curl checks after deploy:
+  - `/`, `/order/`, `/sample/`, `/constructor/`, `/products/`, `/about/`, `/price/`, `/quality/`, `/robots.txt`, `/sitemap.xml` -> `HTTP/2 200`
+  - `/prices/` -> `HTTP/2 301` (`Location: /price/`)

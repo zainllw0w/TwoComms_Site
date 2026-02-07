@@ -26,6 +26,6 @@
 - `DTF-201` [Todo] Добавить редакционный workflow для ежемесячной публикации через админку.
 - `DTF-202` [Todo] Подключить отчёт Search Console/Lighthouse по страницам Knowledge Base.
 - `DTF-304` [Todo] Подготовить автоматизированный браузерный smoke (desktop/mobile) в Playwright.
-- `DTF-305` [Todo] Разобрать server warning: model changes not reflected in migrations (`accounts`, `dtf`, `management`) и синхронизировать migration state.
+- `DTF-305` [Todo] Разобрать server warning: model changes not reflected in migrations (`accounts`, `management`) и синхронизировать migration state.
 - `DTF-408` [Todo] Добавить persistent export CSV для `DtfSampleLead`/`DtfBuilderSession` из admin actions.
 - `DTF-409` [Todo] Расширить constructor preview до нескольких mock-пресетов (front/back assets per product).
