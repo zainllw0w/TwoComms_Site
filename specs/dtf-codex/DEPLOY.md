@@ -1,4 +1,4 @@
-# Deploy Runbook — DTF POLISH ONLY
+# Deploy Runbook — DTF Execution Protocol
 
 ## Target
 - Host: `dtf.twocomms.shop`
@@ -75,8 +75,16 @@ sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@19
 - If LiteSpeed/docroot static override exists, verify it does not shadow DTF routes.
 
 ## Deploy Log — 2026-02-07
-- Branch planned for deploy: `codex/codex-refactor-v1`
+- Branch deployed: `codex/codex-refactor-v1`
+- Deployed commit: `8da5b5e`
 - Local predeploy gates: passed (compileall/tests/pip-audit)
+- Server deploy output:
+  - `git checkout codex/codex-refactor-v1` -> OK
+  - `git pull --ff-only` -> Already up to date
+  - `python manage.py check` -> system check OK
+  - `python manage.py migrate --noinput` -> applied `dtf.0003_knowledgepost`
+  - `python manage.py collectstatic --noinput` -> 12 copied / 316 unmodified
+  - `touch tmp/restart.txt` -> restart trigger updated
 - Postdeploy verification commands:
   - `curl -sI https://dtf.twocomms.shop/`
   - `curl -sI https://dtf.twocomms.shop/order/`
