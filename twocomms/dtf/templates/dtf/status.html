@@ -29,8 +29,8 @@
 {% endblock %}
 
 {% block content %}
-<section class="section">
-  <div class="dtf-container status-page">
+<section class="section" data-ui="dtf:status:root">
+  <div class="dtf-container status-page" data-ui="dtf:status:lookup">
     <div class="section-head">
       <h1>{% trans "Статус замовлення" %}</h1>
       <p>{% trans "Контроль виробництва та трекінг без зайвих деталей." %}</p>
@@ -41,17 +41,17 @@
       <form method="post" class="status-form order-form" data-submit-guard>
         {% csrf_token %}
         <label>{% trans "Номер замовлення" %}
-          <input type="text" name="order_number" placeholder="DTF01012025N01" required>
+          <input type="text" name="order_number" placeholder="DTF01012025N01" required data-vanish-input data-effect="vanish-input">
         </label>
         <label>{% trans "Телефон" %}
-          <input type="tel" name="phone" required>
+          <input type="tel" name="phone" required data-vanish-input data-effect="vanish-input">
         </label>
         <button class="btn btn-primary" type="submit" data-submit data-stateful>{% trans "Перевірити" %}</button>
       </form>
     {% endif %}
 
     {% if error %}
-      <div class="form-error" role="alert">{{ error }}</div>
+      <div class="form-error terminal-error" role="alert">{{ error }}</div>
     {% endif %}
 
     {% if order %}

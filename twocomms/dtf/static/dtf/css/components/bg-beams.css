@@ -1,0 +1,14 @@
+[data-effect~="bg-beams"].beams-active .beam {
+  opacity: 0.9;
+  animation: dtfBeamsPulse 6s ease-in-out infinite;
+}
+
+[data-effect~="bg-beams"].beams-static .beam {
+  opacity: 0.3;
+  animation: none;
+}
+
+@keyframes dtfBeamsPulse {
+  0%, 100% { transform: translateY(0); opacity: 0.45; }
+  50% { transform: translateY(-6px); opacity: 0.95; }
+}

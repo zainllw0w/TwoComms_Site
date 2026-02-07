@@ -1,0 +1,16 @@
+[data-upload-flow] .upload-steps [data-upload-step] {
+  opacity: 0.55;
+  border-color: rgba(100, 108, 151, 0.35);
+  transition: opacity 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+[data-upload-flow] .upload-steps [data-upload-step].is-active {
+  opacity: 1;
+  transform: translateY(-1px);
+  border-color: rgba(255, 138, 45, 0.75);
+}
+
+[data-upload-flow] .upload-steps [data-upload-step].is-done {
+  opacity: 0.9;
+  border-color: rgba(79, 214, 143, 0.8);
+}

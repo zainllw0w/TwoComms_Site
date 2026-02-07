@@ -1,0 +1,171 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Конструктор DTF" %}{% endblock %}
+{% block page_id %}constructor-app{% endblock %}
+
+{% block content %}
+<section class="section constructor-section" data-ui="dtf:constructor:app">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "Конструктор виробу" %}</h1>
+      <p>{% trans "MVP: підбір виробу, позиції друку, preflight перевірка і запит на прорахунок." %}</p>
+      <p class="muted">Session: {{ builder_session.session_id }}</p>
+    </div>
+
+    <div class="constructor-layout" data-ui="dtf:constructor:layout">
+      <aside class="constructor-sidebar card" data-ui="dtf:constructor:steps">
+        <div class="constructor-step-tabs">
+          <span class="chip">1. {% trans "Product" %}</span>
+          <span class="chip">2. {% trans "Print" %}</span>
+          <span class="chip">3. {% trans "Upload" %}</span>
+          <span class="chip">4. {% trans "Delivery" %}</span>
+          <span class="chip">5. {% trans "Summary" %}</span>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="order-form" data-submit-guard data-upload-flow data-effect="multi-step-loader">
+          {% csrf_token %}
+          <input type="hidden" name="session_id" value="{{ builder_session.session_id }}">
+
+          {% if builder_form.errors %}
+            <div class="form-errors">
+              {% for field, errors in builder_form.errors.items %}
+                {% for error in errors %}
+                  <div class="form-error">{{ error }}</div>
+                {% endfor %}
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <label>{% trans "Тип виробу" %} {{ builder_form.product_type }}</label>
+          <label>{% trans "Колір" %} {{ builder_form.product_color }}</label>
+          <label>{% trans "Кількість" %} {{ builder_form.quantity }}</label>
+          <label>{% trans "Розміри" %}
+            {{ builder_form.size_breakdown }}
+            <small>{% trans "Формат: S:10,M:20,L:5" %}</small>
+          </label>
+          <label>{% trans "Розміщення принта" %} {{ builder_form.placement }}</label>
+          <label>{% trans "Макет" %} {{ builder_form.design_file }}</label>
+          <div class="upload-steps">
+            <span class="chip" data-upload-step="1">Upload</span>
+            <span class="chip" data-upload-step="2">Preflight</span>
+            <span class="chip" data-upload-step="3">Preview</span>
+            <span class="chip" data-upload-step="4">Ready</span>
+          </div>
+          <label>{% trans "Місто" %} {{ builder_form.delivery_city }}</label>
+          <label>{% trans "Відділення НП" %} {{ builder_form.delivery_np_branch }}</label>
+          <label>{% trans "Коментар" %} {{ builder_form.comment }}</label>
+          <label class="risk-check">
+            {{ builder_form.risk_ack }}
+            <span>{% trans "Підтверджую ризики WARN у preflight" %}</span>
+          </label>
+          <button class="btn btn-outline" type="submit" data-stateful>{% trans "Зберегти чернетку" %}</button>
+        </form>
+      </aside>
+
+      <div class="constructor-main" data-ui="dtf:constructor:preview">
+        <article class="card constructor-preview-card">
+          <h3>{% trans "Preview" %}</h3>
+          {% if builder_session.preview_image %}
+            <div class="asset-slot" style="aspect-ratio: 1 / 1">
+              <img src="{{ builder_session.preview_image.url }}" alt="Preview" loading="lazy" class="skeleton">
+            </div>
+          {% else %}
+            <div class="asset-slot" style="aspect-ratio: 1 / 1">
+              <div class="asset-placeholder">{% trans "Збережіть чернетку, щоб побачити 2D preview" %}</div>
+            </div>
+          {% endif %}
+        </article>
+
+        <article class="card constructor-preflight-card">
+          <h3>{% trans "Preflight Terminal" %}</h3>
+          {% if builder_preflight.checks %}
+            <div class="preflight-list">
+              {% for item in builder_preflight.checks %}
+                <div class="preflight-item">
+                  <span class="preflight-label">{{ item.label }}</span>
+                  <span class="preflight-status {{ item.status }}">{{ item.message }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="preflight-item"><span class="preflight-label">INFO</span><span class="preflight-status">{% trans "Завантажте файл для preflight" %}</span></div>
+          {% endif %}
+        </article>
+
+        <article class="card constructor-submit-card">
+          <h3>{% trans "Request quote" %}</h3>
+          <form method="post" action="{% url 'dtf:constructor_submit' %}" data-constructor-submit>
+            {% csrf_token %}
+            <input type="hidden" name="session_id" value="{{ builder_session.session_id }}">
+            <label>{% trans "Ім'я" %}
+              <input type="text" name="name" required>
+            </label>
+            <label>{% trans "Телефон" %}
+              <input type="tel" name="phone" required data-vanish-input data-effect="vanish-input">
+            </label>
+            <label>{% trans "Канал" %}
+              <select name="contact_channel">
+                <option value="telegram">Telegram</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="instagram">Instagram</option>
+                <option value="call">{% trans "Дзвінок" %}</option>
+              </select>
+            </label>
+            <label>{% trans "Місто" %}
+              <input type="text" name="city" value="{{ builder_form.delivery_city.value|default:'' }}">
+            </label>
+            <label>{% trans "Відділення НП" %}
+              <input type="text" name="np_branch" value="{{ builder_form.delivery_np_branch.value|default:'' }}">
+            </label>
+            <label class="risk-check">
+              <input type="checkbox" name="risk_ack" value="1">
+              <span>{% trans "Підтверджую WARN/ризики перед відправкою" %}</span>
+            </label>
+            <button class="btn btn-primary" type="submit" data-stateful>{% trans "Надіслати запит" %}</button>
+            <div class="summary-foot" data-constructor-submit-feedback></div>
+          </form>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  (function () {
+    const forms = document.querySelectorAll('[data-constructor-submit]');
+    forms.forEach((form) => {
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const feedback = form.querySelector('[data-constructor-submit-feedback]');
+        const submitButton = form.querySelector('button[type="submit"]');
+        const payload = new FormData(form);
+        if (submitButton) submitButton.disabled = true;
+        if (feedback) feedback.textContent = '...';
+        try {
+          const response = await fetch(form.action, {
+            method: 'POST',
+            body: payload,
+            headers: { 'X-Requested-With': 'fetch' },
+            credentials: 'same-origin'
+          });
+          const data = await response.json();
+          if (!response.ok || !data.ok) {
+            throw new Error(data.error || 'Submit error');
+          }
+          if (feedback) feedback.textContent = 'OK';
+          if (data.redirect) {
+            window.location.assign(data.redirect);
+          }
+        } catch (error) {
+          if (feedback) feedback.textContent = error.message || 'Помилка';
+        } finally {
+          if (submitButton) submitButton.disabled = false;
+        }
+      });
+    });
+  })();
+</script>
+{% endblock %}

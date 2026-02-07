@@ -29,15 +29,16 @@
 {% endblock %}
 
 {% block content %}
-<section class="section">
-  <div class="dtf-container">
+<section class="section" data-ui="dtf:templates:root">
+  <div class="dtf-container" data-ui="dtf:templates:downloads">
     <div class="section-head">
       <h1>{% trans "Шаблони 60 см" %}</h1>
       <p>{% trans "PDF/AI/Figma для швидкої підготовки ганг-листів." %}</p>
+      <div class="templates-encrypted" data-effect="encrypted-text" data-encrypted-text="template_checksum_verified: true"></div>
     </div>
 
     <!-- ASSET_REQUEST | id=template-preview-60cm | type=photo | usage=Templates page preview | spec=2x, ~1200px wide | notes=60cm layout preview -->
-    <div class="template-grid">
+    <div class="template-grid" data-template-tabs data-effect="tabs-download">
       <div class="card">
         <div class="asset-slot" style="aspect-ratio: 16 / 9">
           <img src="{% static 'dtf/assets/template-preview-60cm.jpg' %}"
@@ -48,9 +49,18 @@
         </div>
         <h3>{% trans "Шаблон 60 см" %}</h3>
         <p class="muted">{% trans "PDF, AI, Figma" %}</p>
-        <div class="cta-group">
+        <div class="template-tabs" role="tablist" aria-label="{% trans 'Формат файлу' %}">
+          <button type="button" class="is-active" data-tab-target="pdf" role="tab" aria-selected="true">PDF</button>
+          <button type="button" data-tab-target="ai" role="tab" aria-selected="false">AI</button>
+          <button type="button" data-tab-target="figma" role="tab" aria-selected="false">Figma</button>
+        </div>
+        <div data-tab-panel="pdf">
           <a class="btn btn-outline" href="{% static 'dtf/assets/template-60cm.pdf' %}" download>{% trans "Download PDF" %}</a>
+        </div>
+        <div data-tab-panel="ai" hidden>
           <a class="btn btn-ghost" href="{% static 'dtf/assets/template-60cm.ai' %}" download>{% trans "Adobe Illustrator" %}</a>
+        </div>
+        <div data-tab-panel="figma" hidden>
           <a class="btn btn-ghost" href="{% static 'dtf/assets/template-60cm.fig' %}" download>{% trans "Figma" %}</a>
         </div>
       </div>

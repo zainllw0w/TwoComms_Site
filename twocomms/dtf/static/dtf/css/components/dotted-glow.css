@@ -1,0 +1,20 @@
+[data-effect~="dotted-glow"] {
+  position: relative;
+  overflow: hidden;
+}
+
+[data-effect~="dotted-glow"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 122, 0, 0.28) 1px, transparent 0);
+  background-size: 18px 18px;
+  opacity: 0;
+  transition: opacity 260ms ease;
+  pointer-events: none;
+}
+
+[data-effect~="dotted-glow"].dotted-active::before,
+[data-effect~="dotted-glow"].dotted-static::before {
+  opacity: 0.75;
+}

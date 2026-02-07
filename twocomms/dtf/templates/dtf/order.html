@@ -5,7 +5,7 @@
 {% block page_id %}order{% endblock %}
 
 {% block content %}
-<section class="section order-section">
+<section class="section order-section" data-ui="dtf:order:root" data-feature="resizable-nav">
   <div class="dtf-container">
     <div class="section-head">
       <h1>{% trans "Замовлення DTF" %}</h1>
@@ -19,7 +19,7 @@
     </div>
 
     <div class="order-panels">
-      <div class="panel {% if tab == 'ready' %}active{% endif %}" id="panel-ready">
+      <div class="panel {% if tab == 'ready' %}active{% endif %}" id="panel-ready" data-ui="dtf:order:ready">
         <form id="order-ready-form" method="post" enctype="multipart/form-data" class="order-form" data-calc="server" data-calc-url="{% url 'dtf:estimate' %}?context=order" data-submit-guard>
           {% csrf_token %}
           <input type="hidden" name="tab" value="ready">
@@ -36,7 +36,7 @@
 
           <div class="order-layout">
             <div class="order-left">
-              <div class="order-block upload-block">
+              <div class="order-block upload-block" data-upload-flow data-effect="multi-step-loader" data-ui="dtf:order:upload">
                 <div class="block-head">
                   <h2>{% trans "Upload" %}</h2>
                   <p>{% trans "Перетягніть файл або натисніть, щоб обрати." %}</p>
@@ -52,9 +52,10 @@
                   {{ order_form.gang_file }}
                 </label>
                 <div class="upload-steps">
-                  <span class="chip">{% trans "Upload" %}</span>
-                  <span class="chip">{% trans "Preflight" %}</span>
-                  <span class="chip">{% trans "Ready" %}</span>
+                  <span class="chip" data-upload-step="1">{% trans "Upload" %}</span>
+                  <span class="chip" data-upload-step="2">{% trans "Preflight" %}</span>
+                  <span class="chip" data-upload-step="3">{% trans "Preview" %}</span>
+                  <span class="chip" data-upload-step="4">{% trans "Ready" %}</span>
                 </div>
               </div>
 
@@ -76,7 +77,7 @@
               </label>
             </div>
 
-              <div class="order-block preflight-block">
+              <div class="order-block preflight-block" data-ui="dtf:order:preflight">
                 <div class="block-head">
                   <h3>{% trans "Preflight Terminal" %}</h3>
                   <p>{% trans "Перевірки допомагають уникнути сюрпризів. WARN не блокує замовлення." %}</p>
@@ -101,7 +102,7 @@
                 </div>
                 <label class="risk-check">
                   <input type="checkbox" name="risk_ack">
-                  <span>{% trans "Я розумію можливі ризики та погоджуюсь" %}</span>
+                  <span><span data-pointer>{% trans "Я розумію можливі ризики та погоджуюсь" %}</span></span>
                 </label>
               </div>
             </div>
@@ -174,7 +175,7 @@
         </form>
       </div>
 
-      <div class="panel {% if tab == 'help' %}active{% endif %}" id="panel-help">
+      <div class="panel {% if tab == 'help' %}active{% endif %}" id="panel-help" data-ui="dtf:order:help">
         <form id="order-help-form" method="post" enctype="multipart/form-data" class="order-form" data-submit-guard>
           {% csrf_token %}
           <input type="hidden" name="tab" value="help">

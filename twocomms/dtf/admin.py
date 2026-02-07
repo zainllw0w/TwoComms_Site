@@ -6,6 +6,8 @@ from .models import (
     DtfLead,
     DtfLeadAttachment,
     DtfOrder,
+    DtfSampleLead,
+    DtfBuilderSession,
     DtfWork,
     KnowledgePost,
     LeadStatus,
@@ -151,3 +153,19 @@ class KnowledgePostAdmin(admin.ModelAdmin):
             "fields": ("created_at", "updated_at"),
         }),
     )
+
+
+@admin.register(DtfSampleLead)
+class DtfSampleLeadAdmin(admin.ModelAdmin):
+    list_display = ("sample_number", "name", "phone", "sample_size", "status", "is_brand_volume", "created_at")
+    list_filter = ("sample_size", "status", "is_brand_volume", "created_at")
+    search_fields = ("sample_number", "name", "phone", "city", "np_branch")
+    readonly_fields = ("sample_number", "created_at", "updated_at")
+
+
+@admin.register(DtfBuilderSession)
+class DtfBuilderSessionAdmin(admin.ModelAdmin):
+    list_display = ("session_id", "status", "product_type", "placement", "quantity", "updated_at")
+    list_filter = ("status", "product_type", "placement", "updated_at")
+    search_fields = ("session_id", "delivery_city", "delivery_np_branch")
+    readonly_fields = ("session_id", "created_at", "updated_at")

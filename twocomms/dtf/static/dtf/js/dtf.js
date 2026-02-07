@@ -1,4 +1,5 @@
 (function () {
+  const DTF = (window.DTF = window.DTF || {});
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const locale = ((document.documentElement.lang || 'uk').toLowerCase() || 'uk').slice(0, 2);
   const flags = getFeatureFlags();
@@ -204,6 +205,11 @@
     if (el.dataset && el.dataset[attr]) return false;
     if (el.dataset) el.dataset[attr] = '1';
     return true;
+  }
+
+  function initEffects(root = document) {
+    if (!DTF || typeof DTF.initEffects !== 'function') return;
+    DTF.initEffects(root);
   }
 
   function collectTargets(root, selector) {
@@ -438,7 +444,7 @@
       const copies = parseInt(copiesInput.value || '0', 10);
       if (!length || !copies) {
         metersEl.textContent = '—';
-        priceEl.textContent = '—';
+        priceEl.textContent = 'Вкажіть метраж → покажемо орієнтир';
         if (warningEl) warningEl.hidden = true;
         return;
       }
@@ -2078,6 +2084,7 @@
   }
 
   function initAll(root = document) {
+    initEffects(root);
     revealOnScroll(root);
     initHeroBeams(root);
     initFlipWords(root);
@@ -2116,12 +2123,20 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    initAll(document);
+    DTF.init = (root = document) => {
+      initAll(root);
+    };
+    DTF.init(document);
     if (window.htmx) {
       if (typeof window.htmx.onLoad === 'function') {
-        window.htmx.onLoad((content) => initAll(content));
+        window.htmx.onLoad((content) => DTF.init(content));
       } else if (document.body) {
-        document.body.addEventListener('htmx:afterSwap', (evt) => initAll(evt.detail.target));
+        document.body.addEventListener('htmx:afterSwap', (evt) => {
+          if (evt && evt.detail && evt.detail.target) {
+            initEffects(evt.detail.target);
+            DTF.init(evt.detail.target);
+          }
+        });
       }
     }
   });
