@@ -1,4 +1,4 @@
-# QA Matrix — DTF POLISH ONLY (2026-02-06)
+# QA Matrix — DTF Execution Runbook (2026-02-07)
 
 ## Automated Checks (Local)
 - [x] `DJANGO_SETTINGS_MODULE=test_settings python3 manage.py check`
@@ -64,3 +64,20 @@
 ## Post-Deploy Run (2026-02-06)
 - [x] Post-deploy curl/body/i18n checks completed.
 - Evidence: `specs/dtf-codex/perf/postdeploy-curl-2026-02-06.txt`
+
+## Runbook Validation (2026-02-07)
+- [x] `python3 -m compileall -q twocomms/dtf`
+  - Evidence: `specs/dtf-codex/perf/compileall-2026-02-07.txt`
+- [x] `python3 twocomms/manage.py test dtf --settings=test_settings`
+  - Evidence: `specs/dtf-codex/perf/tests-dtf-2026-02-07.txt`
+- [x] `python3 -m pip_audit -r twocomms/requirements.txt`
+  - Evidence: `specs/dtf-codex/perf/pip-audit-2026-02-07.txt`, `specs/dtf-codex/perf/pip-audit-2026-02-07.json`
+- [x] Curl matrix (DTF + main domain robots/sitemap isolation)
+  - Evidence: `specs/dtf-codex/perf/postdeploy-curl-2026-02-07.txt`, `specs/dtf-codex/perf/robots-sitemap-2026-02-07.txt`
+- [x] Lighthouse mobile baseline refreshed for `/`, `/order/`, `/price/`, `/quality/`
+  - Evidence:
+    - `specs/dtf-codex/perf/home-mobile-2026-02-07.report.report.json`
+    - `specs/dtf-codex/perf/order-mobile-2026-02-07.report.report.json`
+    - `specs/dtf-codex/perf/price-mobile-2026-02-07.report.report.json`
+    - `specs/dtf-codex/perf/quality-mobile-2026-02-07.report.report.json`
+    - `specs/dtf-codex/perf/lighthouse-metrics-2026-02-07.txt`
