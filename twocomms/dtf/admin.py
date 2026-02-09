@@ -17,7 +17,6 @@ from .models import (
     DtfBuilderSession,
     DtfWork,
     KnowledgePost,
-    LeadStatus,
     OrderStatus,
 )
 from .telegram import (

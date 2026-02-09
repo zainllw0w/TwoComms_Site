@@ -1,12 +1,110 @@
+/* ============================================
+   Vanish Input — shake + dissolve + clear
+   Cycling placeholders animation
+   ============================================ */
+
+/* --- Shake animation on invalid --- */
+[data-vanish-input].vanish-shake {
+  animation: vanishShake 400ms ease;
+  border-color: #ff5c5c !important;
+  box-shadow: 0 0 0 3px rgba(255, 92, 92, 0.2);
+}
+
+/* --- Dissolve/vanish effect --- */
+[data-vanish-input].vanish-dissolve {
+  animation: vanishDissolve 350ms ease forwards;
+  border-color: #ff8f4f !important;
+}
+
+/* --- Placeholder cycling animations --- */
+[data-vanish-input].vanish-placeholder-out {
+  /* Placeholder text slides up and fades */
+}
+
+[data-vanish-input].vanish-placeholder-out::placeholder {
+  animation: vanishPlaceholderOut 200ms ease forwards;
+}
+
+[data-vanish-input].vanish-placeholder-in::placeholder {
+  animation: vanishPlaceholderIn 200ms ease forwards;
+}
+
+/* --- Legacy compat: is-vanish class --- */
 [data-vanish-input].is-vanish {
-  animation: dtfVanishPulse 360ms ease;
+  animation: vanishShake 360ms ease;
   border-color: #ff8f4f !important;
   box-shadow: 0 0 0 3px rgba(255, 143, 79, 0.2);
 }
 
+/* --- Keyframes --- */
+
+@keyframes vanishShake {
+  0%   { transform: translateX(0); }
+  15%  { transform: translateX(-6px); }
+  30%  { transform: translateX(5px); }
+  45%  { transform: translateX(-4px); }
+  60%  { transform: translateX(3px); }
+  75%  { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes vanishDissolve {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+  40% {
+    opacity: 0.6;
+    filter: blur(2px);
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(8px);
+    transform: scale(0.95) translateY(-4px);
+  }
+}
+
+@keyframes vanishPlaceholderOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes vanishPlaceholderIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Legacy fallback --- */
 @keyframes dtfVanishPulse {
-  0% { transform: translateX(0); opacity: 1; }
-  25% { transform: translateX(-4px); opacity: 0.8; }
-  50% { transform: translateX(4px); opacity: 0.7; }
+  0%   { transform: translateX(0); opacity: 1; }
+  25%  { transform: translateX(-4px); opacity: 0.8; }
+  50%  { transform: translateX(4px); opacity: 0.7; }
   100% { transform: translateX(0); opacity: 1; }
+}
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  [data-vanish-input].vanish-shake,
+  [data-vanish-input].vanish-dissolve,
+  [data-vanish-input].is-vanish {
+    animation: none !important;
+  }
+
+  [data-vanish-input].vanish-dissolve {
+    opacity: 0;
+  }
 }

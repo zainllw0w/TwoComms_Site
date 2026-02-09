@@ -1,9 +1,158 @@
+/* ============================================
+   Compare Effect — before/after image slider
+   Modes: drag | hover | autoplay
+   ============================================ */
+
 [data-compare],
 [data-effect~="compare"] {
   --compare: 50%;
+  position: relative;
+  overflow: hidden;
 }
 
-[data-compare] .compare-media,
-[data-effect~="compare"] .compare-media {
-  --compare: 50%;
+/* --- Media container --- */
+.compare-media {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  cursor: col-resize;
+  touch-action: pan-y;
+  user-select: none;
+  border-radius: var(--radius-lg, 12px);
+}
+
+.compare-media.is-dragging {
+  cursor: grabbing;
+}
+
+/* --- Layers --- */
+.compare-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.compare-before {
+  z-index: 1;
+  clip-path: inset(0 calc(100% - var(--compare)) 0 0);
+}
+
+.compare-after {
+  z-index: 0;
+}
+
+.compare-layer img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* --- Handle / divider --- */
+.compare-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--compare);
+  z-index: 3;
+  width: 3px;
+  background: rgba(255, 255, 255, 0.85);
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: background 150ms ease;
+}
+
+.compare-handle::before,
+.compare-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  border: 2px solid rgba(14, 16, 22, 0.3);
+  transform: translateX(-50%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.compare-handle::before {
+  top: 50%;
+  margin-top: -14px;
+}
+
+/* Hide bottom circle (only need one handle knob) */
+.compare-handle::after {
+  display: none;
+}
+
+/* Arrow indicators in handle */
+.compare-handle::before {
+  background:
+    rgba(255, 255, 255, 0.92)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M4 8l3-3v6l-3-3zm5-3l3 3-3 3V5z' fill='%23333'/%3E%3C/svg%3E")
+    center / 16px no-repeat;
+}
+
+/* --- Range slider (screen reader / keyboard accessible) --- */
+.compare-range {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: col-resize;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.compare-range:focus-visible + .compare-media .compare-handle {
+  background: var(--accent, #ff8a2d);
+  box-shadow: 0 0 0 3px rgba(255, 138, 45, 0.3);
+}
+
+/* --- Proof meta below compare --- */
+.proof-meta {
+  padding: 12px 0 0;
+}
+
+.proof-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.proof-sub {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+/* --- Mode-specific tweaks --- */
+.compare-mode-hover .compare-media {
+  cursor: ew-resize;
+}
+
+.compare-autoplay .compare-handle {
+  transition: left 50ms linear;
+}
+
+/* --- Mobile fallback --- */
+@media (max-width: 600px) {
+  .compare-handle::before {
+    width: 24px;
+    height: 24px;
+    margin-top: -12px;
+  }
+}
+
+/* --- Sparkles integration (if present) --- */
+[data-effect~="compare"] .compare-sparkle {
+  position: absolute;
+  top: 50%;
+  left: var(--compare);
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  pointer-events: none;
 }
