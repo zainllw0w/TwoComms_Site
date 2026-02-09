@@ -1,0 +1,79 @@
+/* ============================================
+   Tooltip Card — rich tooltip following mouse
+   For preflight terms explanation
+   ============================================ */
+
+.dtf-tooltip-card {
+  position: fixed;
+  z-index: 999;
+  min-width: 200px;
+  max-width: 320px;
+  padding: 0;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid rgba(134, 145, 210, 0.2);
+  background: rgba(14, 16, 22, 0.96);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(134, 145, 210, 0.1);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px) scale(0.97);
+  transition: opacity 180ms ease, transform 180ms ease;
+  overflow: hidden;
+}
+
+.dtf-tooltip-card.dtf-tooltip-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.dtf-tooltip-inner {
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #b4bcd0);
+}
+
+.dtf-tooltip-inner strong {
+  color: var(--text-primary, #f7f8ff);
+}
+
+.dtf-tooltip-inner img {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-sm, 4px);
+  margin-bottom: 8px;
+}
+
+/* Term highlight style for inline trigger */
+[data-tooltip-content],
+[data-effect~="tooltip-card"] {
+  cursor: help;
+  border-bottom: 1px dashed rgba(134, 145, 210, 0.4);
+  transition: border-color 150ms ease;
+}
+
+[data-tooltip-content]:hover,
+[data-effect~="tooltip-card"]:hover {
+  border-bottom-color: var(--accent, #ff8a2d);
+}
+
+/* --- Preflight terms row --- */
+.preflight-terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 0.78rem;
+}
+
+.preflight-terms span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.preflight-terms abbr {
+  text-decoration: none;
+  font-weight: 600;
+  color: var(--text-secondary, #b4bcd0);
+}

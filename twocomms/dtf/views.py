@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.cache import cache
 from django.core.files.base import ContentFile
-from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, NoReverseMatch
 from django.views.decorators.http import require_http_methods, require_POST
@@ -32,7 +32,6 @@ from .models import (
     DtfLead,
     DtfLeadAttachment,
     DtfLifecycleStatus,
-    DtfSampleLead,
     DtfStatusEvent,
     DtfUpload,
     DtfPreflightReport,
@@ -48,17 +47,12 @@ from .models import (
 from .telegram import (
     notify_new_lead,
     notify_new_order,
-    notify_need_fix,
-    notify_awaiting_payment,
-    notify_paid,
-    notify_shipped,
 )
 from .notify import (
-    notify_customer_status_change,
     notify_manager_new_order,
 )
 from .pricing import calculate_quote
-from .preflight.engine import analyze_upload, build_preview_assets
+from .preflight.engine import build_preview_assets
 from .utils import (
     activate_language_from_request,
     build_lang_links,
@@ -919,7 +913,9 @@ def constructor_app(request):
         if session_obj.size_breakdown_json:
             initial["size_breakdown"] = ",".join(f"{k}:{v}" for k, v in session_obj.size_breakdown_json.items())
         form = DtfBuilderSessionForm(instance=session_obj, initial=initial)
-    preflight = session_obj.preflight_json if session_obj.preflight_json else {}
+    from .preflight.engine import normalize_preflight_report
+    raw_preflight = session_obj.preflight_json if session_obj.preflight_json else {}
+    preflight = normalize_preflight_report(raw_preflight)
     ctx.update({
         "builder_session": session_obj,
         "builder_form": form,

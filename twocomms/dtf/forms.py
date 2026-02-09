@@ -7,12 +7,10 @@ from django.utils.translation import gettext_lazy as _
 from .models import (
     BuilderPlacement,
     BuilderProductType,
-    ContactChannel,
     DtfBuilderSession,
     DtfLead,
     DtfOrder,
     DtfSampleLead,
-    LeadType,
     SampleSize,
 )
 from .preflight.engine import analyze_upload

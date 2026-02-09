@@ -1,3 +1,9 @@
+/* ============================================
+   Multi-step Loader — real preflight steps
+   Animated step display with PASS/WARN/FAIL
+   ============================================ */
+
+/* --- Legacy upload step chips --- */
 [data-upload-flow] .upload-steps [data-upload-step] {
   opacity: 0.55;
   border-color: rgba(100, 108, 151, 0.35);
@@ -13,4 +19,156 @@
 [data-upload-flow] .upload-steps [data-upload-step].is-done {
   opacity: 0.9;
   border-color: rgba(79, 214, 143, 0.8);
+}
+
+/* --- Multi-Step Loader container --- */
+.msl-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+}
+
+.msl-container.msl-active {
+  /* Active state */
+}
+
+/* --- Individual step --- */
+.msl-step {
+  display: grid;
+  grid-template-columns: 28px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.82rem;
+  transition: background 180ms ease;
+}
+
+.msl-step:hover {
+  background: rgba(134, 145, 210, 0.06);
+}
+
+/* --- Step icon --- */
+.msl-step-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* --- Status colors --- */
+.msl-status-ok .msl-step-icon,
+.msl-status-pass .msl-step-icon {
+  background: rgba(79, 214, 143, 0.15);
+  color: #4fd68f;
+  border: 1px solid rgba(79, 214, 143, 0.3);
+}
+
+.msl-status-warn .msl-step-icon {
+  background: rgba(255, 186, 73, 0.15);
+  color: #ffba49;
+  border: 1px solid rgba(255, 186, 73, 0.3);
+}
+
+.msl-status-fail .msl-step-icon {
+  background: rgba(255, 92, 92, 0.15);
+  color: #ff5c5c;
+  border: 1px solid rgba(255, 92, 92, 0.3);
+}
+
+.msl-status-pending .msl-step-icon,
+.msl-status-skipped .msl-step-icon {
+  background: rgba(134, 145, 210, 0.08);
+  color: rgba(134, 145, 210, 0.4);
+  border: 1px solid rgba(134, 145, 210, 0.15);
+}
+
+.msl-status-loading .msl-step-icon {
+  background: rgba(134, 145, 210, 0.12);
+  color: #8691d2;
+  border: 1px solid rgba(134, 145, 210, 0.3);
+  animation: mslSpin 1s linear infinite;
+}
+
+/* --- Labels and messages --- */
+.msl-step-label {
+  font-weight: 600;
+  color: var(--text-primary, #f7f8ff);
+}
+
+.msl-step-message {
+  font-size: 0.78rem;
+  opacity: 0.7;
+  text-align: right;
+}
+
+.msl-step-value {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.72rem;
+  opacity: 0.55;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(134, 145, 210, 0.08);
+}
+
+/* Status-specific text colors */
+.msl-status-ok .msl-step-label { color: #4fd68f; }
+.msl-status-warn .msl-step-label { color: #ffba49; }
+.msl-status-fail .msl-step-label { color: #ff5c5c; }
+.msl-status-skipped .msl-step-label { opacity: 0.35; }
+.msl-status-skipped .msl-step-message { opacity: 0.25; }
+
+/* --- Recommendations list --- */
+.msl-recommendations {
+  grid-column: 1 / -1;
+  list-style: none;
+  padding: 8px 0 0 36px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.msl-recommendations li {
+  font-size: 0.76rem;
+  opacity: 0.7;
+  padding-left: 12px;
+  position: relative;
+}
+
+.msl-recommendations li::before {
+  content: '\2192'; /* → */
+  position: absolute;
+  left: 0;
+  opacity: 0.5;
+}
+
+/* --- Animations --- */
+@keyframes mslSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* --- Responsive --- */
+@media (max-width: 600px) {
+  .msl-step {
+    grid-template-columns: 24px 1fr;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .msl-step-message {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .msl-step-value {
+    grid-column: 2;
+  }
 }

@@ -407,7 +407,7 @@
       {% endif %}
     </div>
     <div class="proof-grid" data-reveal>
-      <article class="proof-card compare-card" data-compare data-effect="compare">
+      <article class="proof-card compare-card" data-compare data-effect="compare" data-compare-mode="hover" data-autoplay="true" data-autoplay-duration="6000">
         <!-- ASSET_REQUEST | id=compare-case-1-before | type=photo | usage=Home Proof Compare #1 (before) | spec=2x, ~1400px wide | notes=raw print / pre-clean stage -->
         <!-- ASSET_REQUEST | id=compare-case-1-after | type=photo | usage=Home Proof Compare #1 (after) | spec=2x, ~1400px wide | notes=finished print, same framing -->
         <div class="compare-media asset-slot">
@@ -433,7 +433,7 @@
           <div class="proof-sub">{% trans "Макро + контроль підкладки" %}</div>
         </div>
       </article>
-      <article class="proof-card compare-card" data-compare data-effect="compare">
+      <article class="proof-card compare-card" data-compare data-effect="compare" data-compare-mode="drag">
         <!-- ASSET_REQUEST | id=compare-case-2-before | type=photo | usage=Home Proof Compare #2 (before) | spec=2x, ~1400px wide | notes=raw print / underbase focus -->
         <!-- ASSET_REQUEST | id=compare-case-2-after | type=photo | usage=Home Proof Compare #2 (after) | spec=2x, ~1400px wide | notes=finished print, same framing -->
         <div class="compare-media asset-slot">
@@ -499,27 +499,41 @@
       <h2>{% trans "База знань" %}</h2>
       <p>{% trans "Короткі практичні матеріали, що допомагають уникати браку і прискорюють запуск друку." %}</p>
     </div>
-    <div class="knowledge-bento" data-reveal>
+    {# --- Infinite Moving Cards for knowledge posts (SEO-safe) --- #}
+    <div class="knowledge-infinite" data-effect="infinite-cards" data-direction="left" data-speed="slow" data-pause-on-hover="true" data-reveal>
+      <div class="infinite-track">
+        {% for post in knowledge_posts_preview %}
+          <article class="infinite-item">
+            <div class="knowledge-card">
+              <time datetime="{{ post.pub_date|date:'Y-m-d' }}">{{ post.pub_date|date:"F Y" }}</time>
+              <h4><a href="{% url 'dtf:blog_post' slug=post.slug %}" data-knowledge-link>{{ post.title }}</a></h4>
+              <p>{{ post.excerpt }}</p>
+            </div>
+          </article>
+        {% endfor %}
+        {% for item in work_final %}
+          <article class="infinite-item">
+            <div class="knowledge-card">
+              <h4>{% if item.title %}{{ item.title }}{% else %}{% trans "Кейс друку" %}{% endif %}</h4>
+              <p>{% trans "Реальний результат друку для порівняння з рекомендаціями з бази знань." %}</p>
+            </div>
+          </article>
+        {% empty %}
+        {% endfor %}
+      </div>
+    </div>
+    {# --- Static bento grid (fallback / SEO content) --- #}
+    <noscript>
+    <div class="knowledge-bento">
       {% for post in knowledge_posts_preview %}
         <article class="knowledge-tile">
           <time datetime="{{ post.pub_date|date:'Y-m-d' }}">{{ post.pub_date|date:"F Y" }}</time>
-          <h3><a href="{% url 'dtf:blog_post' slug=post.slug %}" data-knowledge-link>{{ post.title }}</a></h3>
+          <h3><a href="{% url 'dtf:blog_post' slug=post.slug %}">{{ post.title }}</a></h3>
           <p>{{ post.excerpt }}</p>
-          <a class="btn btn-outline" href="{% url 'dtf:blog_post' slug=post.slug %}" data-knowledge-link>{% trans "Читати в overlay" %}</a>
         </article>
-      {% endfor %}
-      {% for item in work_final %}
-        <article class="knowledge-tile work">
-          <div class="asset-slot" style="aspect-ratio: 4 / 3">
-            <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" decoding="async" class="skeleton">
-          </div>
-          <h3>{% if item.title %}{{ item.title }}{% else %}{% trans "Кейс друку" %}{% endif %}</h3>
-          <p>{% trans "Реальний результат друку для порівняння з рекомендаціями з бази знань." %}</p>
-          <a class="btn btn-ghost" href="{% url 'dtf:gallery' %}">{% trans "Дивитись кейси" %}</a>
-        </article>
-      {% empty %}
       {% endfor %}
     </div>
+    </noscript>
     <div class="section-actions" data-reveal>
       <a class="btn btn-outline" href="{% url 'dtf:blog' %}" data-stateful-link>{% trans "Усі статті Knowledge Base" %}</a>
     </div>
@@ -560,6 +574,10 @@
   <div class="dtf-container delivery" data-reveal>
     <h2>{% trans "Доставка та оплата" %}</h2>
     <p>{% trans "Нова Пошта по Україні. Оплата після перевірки макета. Реквізити надсилаємо у зручний канал." %}</p>
+    <p class="delivery-speed">
+      {% trans "Друкуємо та відправляємо" %}
+      <span data-effect="speed-text" data-speed-mode="hover" data-speed-text="{% trans 'день в день' %}">{% trans "день в день" %}</span>
+    </p>
     <div class="cta-group">
       <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% trans "Замовити" %}</a>
       <a class="btn btn-ghost" href="{% url 'dtf:delivery_payment' %}">{% trans "Детальніше" %}</a>

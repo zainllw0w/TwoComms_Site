@@ -1,23 +1,131 @@
+/* ============================================
+   Infinite Moving Cards — SEO-safe marquee
+   CSS-driven animation with clone protocol
+   ============================================ */
+
 [data-effect~="infinite-cards"] {
   overflow: hidden;
+  position: relative;
 }
 
-[data-effect~="infinite-cards"] .infinite-track {
+/* Wrapper holds original + clone side by side */
+.infinite-track-wrapper {
   display: flex;
-  gap: 12px;
   width: max-content;
-  animation: dtfInfiniteCards 24s linear infinite;
+  animation: dtfInfiniteScroll var(--infinite-duration, 36s) linear infinite;
+  animation-direction: var(--infinite-direction, normal);
 }
 
-[data-effect~="infinite-cards"] .infinite-item {
+/* Each track (original + clone) */
+.infinite-track {
+  display: flex;
+  gap: var(--infinite-gap, 16px);
+  flex-shrink: 0;
+  padding-right: var(--infinite-gap, 16px);
+}
+
+.infinite-item {
   flex: 0 0 auto;
 }
 
-[data-effect~="infinite-cards"].infinite-cards-static .infinite-track {
+/* --- States --- */
+.infinite-cards-ready .infinite-track-wrapper {
+  /* Animation is active */
+}
+
+.infinite-track-wrapper.is-paused {
+  animation-play-state: paused;
+}
+
+/* Static fallback (reduced motion or no-JS) */
+.infinite-cards-static .infinite-track-wrapper,
+[data-effect~="infinite-cards"]:not(.infinite-cards-ready) .infinite-track-wrapper {
   animation: none;
 }
 
-@keyframes dtfInfiniteCards {
+.infinite-cards-static .infinite-track {
+  animation: none;
+  flex-wrap: wrap;
+}
+
+/* --- Gradient masks for smooth fade edges --- */
+[data-effect~="infinite-cards"]::before,
+[data-effect~="infinite-cards"]::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+[data-effect~="infinite-cards"]::before {
+  left: 0;
+  background: linear-gradient(to right, var(--surface-primary, #0e1016), transparent);
+}
+
+[data-effect~="infinite-cards"]::after {
+  right: 0;
+  background: linear-gradient(to left, var(--surface-primary, #0e1016), transparent);
+}
+
+/* --- Card styling --- */
+.infinite-item .knowledge-card {
+  width: 280px;
+  padding: 20px;
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(134, 145, 210, 0.15);
+  background: rgba(14, 16, 22, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.infinite-item .knowledge-card h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.infinite-item .knowledge-card p {
+  font-size: 0.82rem;
+  opacity: 0.75;
+  line-height: 1.5;
+}
+
+.infinite-item .knowledge-card time {
+  font-size: 0.72rem;
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* --- Keyframes --- */
+@keyframes dtfInfiniteScroll {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
+}
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  .infinite-track-wrapper {
+    animation: none !important;
+  }
+  .infinite-cards-static .infinite-track {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
+/* --- Mobile --- */
+@media (max-width: 600px) {
+  [data-effect~="infinite-cards"]::before,
+  [data-effect~="infinite-cards"]::after {
+    width: 24px;
+  }
+
+  .infinite-item .knowledge-card {
+    width: 240px;
+    padding: 14px;
+  }
 }

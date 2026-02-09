@@ -1,0 +1,31 @@
+/* ============================================
+   Text Generate Effect — word-by-word fade-in
+   For preflight summary text
+   ============================================ */
+
+[data-effect~="text-generate"] {
+  /* Container ready */
+}
+
+.text-generate-ready .tg-word {
+  display: inline-block;
+  transition: opacity 300ms ease, filter 300ms ease;
+}
+
+.text-generate-static .tg-word {
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.text-generate-played .tg-word {
+  /* All words revealed */
+}
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  .text-generate-ready .tg-word {
+    opacity: 1 !important;
+    filter: none !important;
+    transition: none !important;
+  }
+}

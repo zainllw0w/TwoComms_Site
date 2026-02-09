@@ -82,23 +82,24 @@
                   <h3>{% trans "Preflight Terminal" %}</h3>
                   <p>{% trans "Перевірки допомагають уникнути сюрпризів. WARN не блокує замовлення." %}</p>
                 </div>
-                <div class="preflight-list">
-                  <div class="preflight-item">
-                    <span class="preflight-label">DPI</span>
-                    <span class="preflight-status ok">300 — OK</span>
+                <div class="msl-container" data-preflight-loader>
+                  {# Real preflight steps will be rendered here by multi-step-loader.js #}
+                  <div class="msl-step msl-status-pending">
+                    <span class="msl-step-icon" aria-hidden="true">&#8226;</span>
+                    <span class="msl-step-label">{% trans "Завантажте файл для preflight" %}</span>
+                    <span class="msl-step-message"></span>
                   </div>
-                  <div class="preflight-item">
-                    <span class="preflight-label">{% trans "Тонкі лінії" %}</span>
-                    <span class="preflight-status warn">{% trans "Можуть не пропечататись" %}</span>
-                  </div>
-                  <div class="preflight-item">
-                    <span class="preflight-label">{% trans "Прозорість" %}</span>
-                    <span class="preflight-status ok">OK</span>
-                  </div>
-                  <div class="preflight-item">
-                    <span class="preflight-label">{% trans "Ширина" %}</span>
-                    <span class="preflight-status ok">{% trans "60 см — OK" %}</span>
-                  </div>
+                </div>
+                <div class="preflight-terms">
+                  <span data-tooltip-content="{% trans 'DPI — щільність точок на дюйм. Для якісного друку рекомендовано ≥300 DPI.' %}" data-effect="tooltip-card">
+                    <abbr>DPI</abbr>
+                  </span>
+                  <span data-tooltip-content="{% trans 'Safe margin — зона безпеки від краю файлу. Мінімум 20 пікселів.' %}" data-effect="tooltip-card">
+                    <abbr>{% trans "Безпечні поля" %}</abbr>
+                  </span>
+                  <span data-tooltip-content="{% trans 'Тонкі лінії менше 1 pt можуть не пропечататись при DTF друку.' %}" data-effect="tooltip-card">
+                    <abbr>{% trans "Тонкі лінії" %}</abbr>
+                  </span>
                 </div>
                 <label class="risk-check">
                   <input type="checkbox" name="risk_ack">

@@ -1624,58 +1624,8 @@
     });
   }
 
-  function initTracingBeam(root = document) {
-    const timelines = collectTargets(root, '[data-tracing-beam]');
-    timelines.forEach(timeline => {
-      if (!initOnce(timeline, 'TracingBeam')) return;
-      const progress = timeline.querySelector('[data-tracing-beam-progress]');
-      if (!progress) return;
-
-      if (prefersReduced || window.matchMedia('(max-width: 640px)').matches) {
-        progress.style.height = '100%';
-        return;
-      }
-
-      let active = false;
-      let ticking = false;
-
-      const update = () => {
-        ticking = false;
-        if (!active || document.hidden) return;
-        const rect = timeline.getBoundingClientRect();
-        const visible = Math.min(Math.max(window.innerHeight - rect.top, 0), rect.height);
-        const ratio = rect.height > 0 ? Math.max(0, Math.min(1, visible / rect.height)) : 0;
-        progress.style.height = `${(ratio * 100).toFixed(2)}%`;
-      };
-
-      const queueUpdate = () => {
-        if (ticking) return;
-        ticking = true;
-        window.requestAnimationFrame(update);
-      };
-
-      if ('IntersectionObserver' in window) {
-        const observer = new IntersectionObserver(
-          entries => {
-            entries.forEach(entry => {
-              active = entry.isIntersecting;
-              if (active) queueUpdate();
-            });
-          },
-          { threshold: 0.05 }
-        );
-        observer.observe(timeline);
-      } else {
-        active = true;
-      }
-
-      window.addEventListener('scroll', queueUpdate, { passive: true });
-      window.addEventListener('resize', queueUpdate);
-      document.addEventListener('visibilitychange', queueUpdate);
-      queueUpdate();
-    });
-    initState.tracingBeam = true;
-  }
+  /* Legacy initTracingBeam removed — now handled by effect.tracing-beam.js via DTF.registerEffect. */
+  function initTracingBeam() { /* noop — delegated to effect.tracing-beam.js */ }
 
   function initReadingProgress(root = document) {
     const bars = collectTargets(root, '[data-reading-progress-bar]');
@@ -1828,112 +1778,9 @@
     showToast(t('reorder_prefill_added'), 'success');
   }
 
-  function initCompare(root = document) {
-    const cards = collectTargets(root, '[data-compare]');
-    if (!cards.length) return;
-    if (!flags.enable_compare) {
-      cards.forEach(card => card.classList.add('is-disabled'));
-      return;
-    }
-    cards.forEach(card => {
-      if (!initOnce(card, 'Compare')) return;
-      const range = card.querySelector('.compare-range');
-      const media = card.querySelector('.compare-media');
-      if (!range) return;
-      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-      const apply = (value) => {
-        const clamped = clamp(Math.round(value), 0, 100);
-        range.value = String(clamped);
-        const compareHost = media || card;
-        compareHost.style.setProperty('--compare', `${clamped}%`);
-      };
-      const valueFromClientX = (clientX) => {
-        if (!media) return parseFloat(range.value || '50');
-        const rect = media.getBoundingClientRect();
-        if (!rect.width) return parseFloat(range.value || '50');
-        const ratio = clamp((clientX - rect.left) / rect.width, 0, 1);
-        return ratio * 100;
-      };
-      range.addEventListener('input', () => apply(parseFloat(range.value || '0')));
-      range.addEventListener('change', () => trackEvent('compare_interaction', { value: range.value }));
-
-      if (media) {
-        let dragging = false;
-        let activePointerId = null;
-        const pointerSupported = 'PointerEvent' in window;
-
-        const stopDrag = () => {
-          if (!dragging) return;
-          dragging = false;
-          activePointerId = null;
-          media.classList.remove('is-dragging');
-          trackEvent('compare_interaction', { value: range.value, mode: 'drag' });
-        };
-
-        if (pointerSupported) {
-          media.addEventListener('pointerdown', (event) => {
-            dragging = true;
-            activePointerId = event.pointerId;
-            media.classList.add('is-dragging');
-            if (media.setPointerCapture) {
-              media.setPointerCapture(event.pointerId);
-            }
-            apply(valueFromClientX(event.clientX));
-          });
-
-          media.addEventListener('pointermove', (event) => {
-            if (!dragging) return;
-            if (activePointerId !== null && event.pointerId !== activePointerId) return;
-            apply(valueFromClientX(event.clientX));
-          });
-
-          media.addEventListener('pointerup', stopDrag);
-          media.addEventListener('pointercancel', stopDrag);
-          media.addEventListener('lostpointercapture', stopDrag);
-        } else {
-          const onMouseMove = (event) => {
-            if (!dragging) return;
-            apply(valueFromClientX(event.clientX));
-          };
-          const onMouseUp = () => {
-            stopDrag();
-            window.removeEventListener('mousemove', onMouseMove);
-          };
-          media.addEventListener('mousedown', (event) => {
-            dragging = true;
-            media.classList.add('is-dragging');
-            apply(valueFromClientX(event.clientX));
-            window.addEventListener('mousemove', onMouseMove);
-            window.addEventListener('mouseup', onMouseUp, { once: true });
-          });
-
-          const onTouchMove = (event) => {
-            if (!dragging) return;
-            const touch = event.touches && event.touches[0];
-            if (!touch) return;
-            apply(valueFromClientX(touch.clientX));
-            event.preventDefault();
-          };
-          const onTouchEnd = () => {
-            stopDrag();
-            window.removeEventListener('touchmove', onTouchMove);
-          };
-          media.addEventListener('touchstart', (event) => {
-            const touch = event.touches && event.touches[0];
-            if (!touch) return;
-            dragging = true;
-            media.classList.add('is-dragging');
-            apply(valueFromClientX(touch.clientX));
-            window.addEventListener('touchmove', onTouchMove, { passive: false });
-            window.addEventListener('touchend', onTouchEnd, { once: true });
-            window.addEventListener('touchcancel', onTouchEnd, { once: true });
-          }, { passive: true });
-        }
-      }
-
-      apply(parseFloat(range.value || '50'));
-    });
-  }
+  /* Legacy initCompare removed — now handled by effect.compare.js via DTF.registerEffect.
+     The new module supports drag/hover/autoplay modes, keyboard/ARIA, and cleanup. */
+  function initCompare() { /* noop — delegated to effect.compare.js */ }
 
   function getLensModal() {
     if (lensModalInstance) return lensModalInstance;
