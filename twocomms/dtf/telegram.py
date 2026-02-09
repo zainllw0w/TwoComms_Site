@@ -1,6 +1,5 @@
 import logging
 
-from django.urls import reverse
 from django.utils.html import escape
 
 from orders.telegram_notifications import TelegramNotifier
@@ -32,7 +31,7 @@ def notify_new_lead(lead):
             message += _format_contact_line("💬", lead.contact_handle) + "\n"
         if lead.task_description:
             message += f"\n📝 {escape(lead.task_description)}\n"
-        message += f"\n🌐 Адмін: <a href=\"{_build_admin_link('/admin/dtf/dtflead/') }\">відкрити</a>"
+        message += f"\n🌐 Адмін: <a href=\"{_build_admin_link('/admin/dtf/dtflead/')}\">відкрити</a>"
         notifier.send_admin_message(message)
     except Exception as exc:
         logger.warning("DTF Telegram notify_new_lead failed: %s", exc, exc_info=True)
@@ -52,8 +51,8 @@ def notify_new_order(order):
             message += f"\n📏 Метраж: {order.meters_total} м"
         if order.price_total:
             message += f"\n💰 Сума: {order.price_total} грн"
-        message += f"\n\n🌐 Статус: <a href=\"{_build_admin_link('/status') }\">перевірити</a>"
-        message += f"\n🌐 Адмін: <a href=\"{_build_admin_link('/admin/dtf/dtforder/') }\">відкрити</a>"
+        message += f"\n\n🌐 Статус: <a href=\"{_build_admin_link('/status')}\">перевірити</a>"
+        message += f"\n🌐 Адмін: <a href=\"{_build_admin_link('/admin/dtf/dtforder/')}\">відкрити</a>"
         notifier.send_admin_message(message)
     except Exception as exc:
         logger.warning("DTF Telegram notify_new_order failed: %s", exc, exc_info=True)

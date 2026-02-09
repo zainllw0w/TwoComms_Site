@@ -94,17 +94,51 @@
 
         <article class="card constructor-preflight-card">
           <h3>{% trans "Preflight Terminal" %}</h3>
-          {% if builder_preflight.checks %}
-            <div class="preflight-list">
+          {% if builder_preflight.step_items %}
+            <div class="msl-container" data-preflight-loader>
+              {% for item in builder_preflight.step_items %}
+                <div class="msl-step msl-status-{{ item.status }}" data-step-key="{{ item.key }}">
+                  <span class="msl-step-icon" aria-hidden="true">
+                    {% if item.status == 'ok' %}&#10003;{% elif item.status == 'warn' %}&#9888;{% elif item.status == 'fail' %}&#10007;{% else %}&#8226;{% endif %}
+                  </span>
+                  <span class="msl-step-label">{{ item.label }}</span>
+                  <span class="msl-step-message">{{ item.message }}</span>
+                  {% if item.value %}<span class="msl-step-value">{{ item.value }}</span>{% endif %}
+                  {% if item.recommendations %}
+                    <ul class="msl-recommendations">
+                      {% for rec in item.recommendations %}
+                        <li>{{ rec }}</li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          {% elif builder_preflight.checks %}
+            <div class="msl-container" data-preflight-loader>
               {% for item in builder_preflight.checks %}
-                <div class="preflight-item">
-                  <span class="preflight-label">{{ item.label }}</span>
-                  <span class="preflight-status {{ item.status }}">{{ item.message }}</span>
+                <div class="msl-step msl-status-{{ item.status|default:'pending' }}">
+                  <span class="msl-step-icon" aria-hidden="true">
+                    {% if item.status == 'ok' %}&#10003;{% elif item.status == 'warn' %}&#9888;{% elif item.status == 'fail' %}&#10007;{% else %}&#8226;{% endif %}
+                  </span>
+                  <span class="msl-step-label">{{ item.label|default:item.code }}</span>
+                  <span class="msl-step-message">{{ item.message }}</span>
                 </div>
               {% endfor %}
             </div>
           {% else %}
-            <div class="preflight-item"><span class="preflight-label">INFO</span><span class="preflight-status">{% trans "Завантажте файл для preflight" %}</span></div>
+            <div class="msl-container" data-preflight-loader>
+              <div class="msl-step msl-status-pending">
+                <span class="msl-step-icon" aria-hidden="true">&#8226;</span>
+                <span class="msl-step-label">{% trans "Завантажте файл для preflight" %}</span>
+                <span class="msl-step-message"></span>
+              </div>
+            </div>
+          {% endif %}
+          {% if builder_preflight.summary %}
+            <div class="preflight-summary" data-effect="text-generate" data-generate-text="{{ builder_preflight.summary.message }}">
+              {{ builder_preflight.summary.message }}
+            </div>
           {% endif %}
         </article>
 
@@ -117,7 +151,9 @@
               <input type="text" name="name" required>
             </label>
             <label>{% trans "Телефон" %}
-              <input type="tel" name="phone" required data-vanish-input data-effect="vanish-input">
+              <input type="tel" name="phone" required data-vanish-input data-effect="vanish-input"
+                     data-placeholders='["{% trans "+380 XX XXX XX XX" %}", "{% trans "Ваш номер телефону" %}"]'
+                     data-cycle-duration="4000">
             </label>
             <label>{% trans "Канал" %}
               <select name="contact_channel">
@@ -146,6 +182,35 @@
   </div>
 </section>
 {% endblock %}
+
+{# --- Constructor local action dock --- #}
+<nav class="dtf-floating-dock" data-floating-dock data-dock-type="constructor" aria-label="{% trans 'Дії конструктора' %}">
+  <button type="button" class="dock-item" data-action="upload" aria-label="{% trans 'Завантажити файл' %}">
+    <span class="dock-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    </span>
+    {% trans "Файл" %}
+    <span class="dock-badge badge-pending" hidden data-effect="images-badge"></span>
+  </button>
+  <button type="button" class="dock-item" data-action="clear" aria-label="{% trans 'Очистити' %}">
+    <span class="dock-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+    </span>
+    {% trans "Очистити" %}
+  </button>
+  <button type="button" class="dock-item" data-action="check" aria-label="{% trans 'Перевірити' %}">
+    <span class="dock-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </span>
+    {% trans "Preflight" %}
+  </button>
+  <button type="submit" class="dock-item" form="constructor-submit-form" data-action="submit" aria-label="{% trans 'Надіслати' %}">
+    <span class="dock-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </span>
+    {% trans "Надіслати" %}
+  </button>
+</nav>
 
 {% block extra_scripts %}
 <script>

@@ -1,10 +1,17 @@
+/* ============================================
+   Floating Dock — macOS-like magnification
+   Global dock + Constructor local dock
+   ============================================ */
+
+/* --- Base global dock --- */
 [data-floating-dock] {
   position: fixed;
   right: 20px;
   bottom: 26px;
   z-index: 80;
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   opacity: 0;
   transform: translateY(14px);
   transition: opacity 220ms ease, transform 220ms ease, visibility 220ms ease;
@@ -12,7 +19,7 @@
 }
 
 [data-floating-dock].dock-ready {
-  opacity: 0.86;
+  opacity: 0.92;
   transform: translateY(0);
   visibility: visible;
 }
@@ -21,21 +28,42 @@
   opacity: 1;
 }
 
-[data-floating-dock] a {
+/* --- Dock items --- */
+[data-floating-dock] a,
+[data-floating-dock] button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 140px;
-  padding: 8px 12px;
+  gap: 6px;
+  min-width: 44px;
+  padding: 8px 14px;
   border-radius: 999px;
   font-size: 12px;
+  font-weight: 500;
   color: #f7f8ff;
   text-decoration: none;
-  border: 1px solid rgba(134, 145, 210, 0.6);
-  background: rgba(14, 16, 22, 0.88);
-  backdrop-filter: blur(8px);
+  border: 1px solid rgba(134, 145, 210, 0.5);
+  background: rgba(14, 16, 22, 0.92);
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  transform-origin: center bottom;
+  transition: transform 100ms ease-out, box-shadow 150ms ease, border-color 150ms ease;
+  will-change: transform;
 }
 
+[data-floating-dock] a:hover,
+[data-floating-dock] button:hover {
+  border-color: rgba(255, 138, 45, 0.6);
+  box-shadow: 0 4px 16px rgba(255, 138, 45, 0.12);
+}
+
+[data-floating-dock] a:focus-visible,
+[data-floating-dock] button:focus-visible {
+  outline: 2px solid var(--accent, #ff8a2d);
+  outline-offset: 2px;
+}
+
+/* --- Hidden state --- */
 [data-floating-dock].dock-hidden {
   opacity: 0 !important;
   transform: translateY(20px);
@@ -43,8 +71,114 @@
   visibility: hidden;
 }
 
+/* --- Dock icon (for constructor dock) --- */
+.dock-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dock-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* --- Badge (file count indicator) --- */
+.dock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dock-badge[hidden] {
+  display: none;
+}
+
+.badge-ok {
+  background: rgba(79, 214, 143, 0.2);
+  color: #4fd68f;
+}
+
+.badge-warn {
+  background: rgba(255, 186, 73, 0.2);
+  color: #ffba49;
+}
+
+.badge-fail {
+  background: rgba(255, 92, 92, 0.2);
+  color: #ff5c5c;
+}
+
+.badge-pending {
+  background: rgba(134, 145, 210, 0.15);
+  color: #8691d2;
+}
+
+/* --- Constructor local dock --- */
+[data-dock-type="constructor"] {
+  position: sticky;
+  bottom: 16px;
+  right: auto;
+  left: auto;
+  z-index: 40;
+  flex-direction: row;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(134, 145, 210, 0.2);
+  background: rgba(14, 16, 22, 0.95);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+[data-dock-type="constructor"] a,
+[data-dock-type="constructor"] button {
+  min-width: auto;
+  padding: 6px 10px;
+  font-size: 11px;
+  border: none;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+[data-dock-type="constructor"] a:hover,
+[data-dock-type="constructor"] button:hover {
+  background: rgba(134, 145, 210, 0.1);
+}
+
+/* --- Hide on mobile (global dock only) --- */
 @media (max-width: 900px) {
-  [data-floating-dock] {
+  [data-floating-dock]:not([data-dock-type="constructor"]) {
     display: none !important;
+  }
+}
+
+/* --- Constructor dock mobile layout --- */
+@media (max-width: 600px) {
+  [data-dock-type="constructor"] {
+    position: fixed;
+    bottom: 70px; /* above mobile-dock */
+    left: 8px;
+    right: 8px;
+    justify-content: space-around;
+  }
+}
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  [data-floating-dock] a,
+  [data-floating-dock] button {
+    transition: none !important;
+    transform: none !important;
   }
 }
