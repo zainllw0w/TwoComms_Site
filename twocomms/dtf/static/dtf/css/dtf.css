@@ -225,7 +225,7 @@ body[data-page="home"] .home-dot-distortion {
 }
 
 
-.dtf-shell > *:not(.ink-droplets):not(.home-dot-distortion):not(.nav-drawer):not(.dtf-modal):not(.dtf-fab):not(.mobile-dock) {
+.dtf-shell > *:not(.ink-droplets):not(.home-dot-distortion):not(.nav-drawer):not(.mobile-dock) {
   position: relative;
   z-index: 1;
 }
@@ -951,7 +951,7 @@ body.is-drawer-open {
 }
 
 body.is-drawer-open .mobile-dock,
-body.is-drawer-open .dtf-fab {
+body.is-drawer-open .dtf-floating-dock {
   opacity: 0;
   pointer-events: none;
 }
@@ -962,7 +962,7 @@ body.is-modal-open {
 }
 
 body.is-modal-open .mobile-dock,
-body.is-modal-open .dtf-fab {
+body.is-modal-open .dtf-floating-dock {
   opacity: 0;
   pointer-events: none;
 }
@@ -1266,6 +1266,32 @@ body[data-page="home"] section.section > .dtf-container {
 .home-dot-distortion.has-canvas .dot-field,
 .home-dot-distortion.has-canvas .dot-orb {
   display: none;
+}
+
+.home-dot-distortion.is-static .dot-distortion-canvas {
+  opacity: 0 !important;
+}
+
+.home-dot-distortion.is-static .dot-field,
+.home-dot-distortion.is-static .dot-field::before,
+.home-dot-distortion.is-static .dot-orb {
+  animation: none !important;
+  transform: none !important;
+}
+
+.home-dot-distortion.is-static .dot-field {
+  opacity: 0.18;
+}
+
+.home-dot-distortion.is-static .dot-orb {
+  opacity: 0.2;
+}
+
+.home-dot-distortion.is-static::before {
+  background:
+    radial-gradient(54% 40% at 48% 36%, rgba(255, 132, 28, 0.2), transparent 76%),
+    radial-gradient(120% 90% at 52% 74%, rgba(6, 7, 9, 0.28), rgba(5, 5, 7, 0.82) 74%, rgba(5, 5, 7, 0.92) 100%);
+  opacity: 0.62;
 }
 
 .home-dot-distortion::before {
@@ -3959,187 +3985,6 @@ textarea:disabled {
   color: rgba(233, 236, 248, 0.75);
 }
 
-.dtf-fab {
-  position: fixed;
-  right: 20px;
-  bottom: 90px;
-  z-index: var(--z-popover);
-  transition: opacity var(--motion-fast) var(--motion-ease);
-}
-
-body[data-page="order"] .dtf-fab {
-  display: none;
-}
-
-.fab-btn {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 999px;
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  align-items: center;
-  box-shadow: 0 12px 24px rgba(255, 106, 0, 0.35);
-  cursor: pointer;
-}
-
-.fab-btn span {
-  font-size: 20px;
-}
-
-.dtf-modal {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px 12px calc(20px + env(safe-area-inset-bottom));
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition:
-    opacity var(--motion-base) var(--motion-ease),
-    visibility 0s linear var(--motion-base);
-  z-index: var(--z-modal-backdrop);
-}
-
-.dtf-modal.active {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  transition-delay: 0s;
-}
-
-.modal-backdrop {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  background:
-    radial-gradient(circle at 82% 18%, rgba(255, 92, 0, 0.16), transparent 34%),
-    rgba(4, 4, 4, 0.9);
-  transition: opacity var(--motion-base) var(--motion-ease);
-  z-index: var(--z-modal-backdrop);
-}
-
-.dtf-modal.active .modal-backdrop {
-  opacity: 1;
-}
-
-@supports ((-webkit-backdrop-filter: blur(8px)) or (backdrop-filter: blur(8px))) {
-  .modal-backdrop {
-    backdrop-filter: blur(9px) saturate(118%);
-  }
-}
-
-.modal-content {
-  position: relative;
-  width: min(460px, 100%);
-  max-height: min(86vh, 820px);
-  overflow: auto;
-  padding: 24px 22px 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: linear-gradient(168deg, rgba(22, 22, 22, 0.995) 0%, rgba(12, 12, 12, 0.985) 100%);
-  z-index: var(--z-modal);
-  box-shadow:
-    0 26px 60px rgba(0, 0, 0, 0.58),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transform: translateY(14px) scale(0.985);
-  opacity: 0;
-  transition:
-    transform var(--motion-base) var(--motion-ease),
-    opacity var(--motion-base) var(--motion-ease);
-}
-
-.modal-content::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: radial-gradient(130% 80% at 100% 0, rgba(255, 92, 0, 0.14), transparent 56%);
-}
-
-.dtf-modal.active .modal-content {
-  transform: translateY(0) scale(1);
-  opacity: 1;
-}
-
-.modal-content h3 {
-  margin: 0 0 8px;
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  letter-spacing: var(--letter-tight-soft);
-}
-
-#dtf-fab-form {
-  display: grid;
-  gap: 12px;
-}
-
-#dtf-fab-form input,
-#dtf-fab-form select,
-#dtf-fab-form textarea {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-#dtf-fab-form input:focus-visible,
-#dtf-fab-form select:focus-visible,
-#dtf-fab-form textarea:focus-visible {
-  border-color: rgba(255, 92, 0, 0.7);
-  box-shadow: 0 0 0 3px rgba(255, 92, 0, 0.18), inset 0 0 0 1px rgba(255, 92, 0, 0.45);
-}
-
-#dtf-fab-form .btn {
-  width: 100%;
-  margin-top: 4px;
-}
-
-.modal-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(0, 0, 0, 0.36);
-  color: #fff;
-  font-size: 22px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition:
-    background var(--motion-fast) var(--motion-ease),
-    border-color var(--motion-fast) var(--motion-ease),
-    transform var(--motion-fast) var(--motion-ease);
-}
-
-.modal-close:hover,
-.modal-close:focus-visible {
-  background: rgba(255, 92, 0, 0.2);
-  border-color: rgba(255, 92, 0, 0.55);
-  transform: scale(1.03);
-}
-
-.modal-close:active {
-  transform: scale(0.97);
-}
-
-.modal-sub {
-  margin: 0 0 16px;
-  color: rgba(245, 245, 242, 0.74);
-}
-
-.modal-content .form-note {
-  color: rgba(245, 245, 242, 0.68);
-}
-
 .mobile-dock {
   position: fixed;
   bottom: calc(16px + env(safe-area-inset-bottom));
@@ -4335,19 +4180,6 @@ body[data-page="order"] .mobile-dock {
 @media (max-width: 640px) {
   section.section {
     padding: 60px 0;
-  }
-  .dtf-modal {
-    align-items: flex-end;
-    padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
-  }
-  .modal-content {
-    width: 100%;
-    max-height: 88vh;
-    border-radius: 18px;
-    padding: 20px 18px 16px;
-  }
-  .modal-content h3 {
-    font-size: 1.2rem;
   }
   .nav-backdrop {
     background: rgba(5, 5, 6, 0.98);

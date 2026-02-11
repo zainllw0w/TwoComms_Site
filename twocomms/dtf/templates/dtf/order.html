@@ -36,7 +36,11 @@
 
           <div class="order-layout">
             <div class="order-left">
-              <div class="order-block upload-block" data-upload-flow data-effect="multi-step-loader" data-ui="dtf:order:upload">
+              <div class="order-block upload-block"
+                   data-upload-flow
+                   data-effect="multi-step-loader"
+                   data-preflight-url="{% url 'dtf:api_preflight' %}"
+                   data-ui="dtf:order:upload">
                 <div class="block-head">
                   <h2>{% trans "Upload" %}</h2>
                   <p>{% trans "Перетягніть файл або натисніть, щоб обрати." %}</p>

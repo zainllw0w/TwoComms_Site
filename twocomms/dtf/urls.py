@@ -11,6 +11,7 @@ urlpatterns = [
     path("robots.txt", views.robots_txt, name="robots_txt"),
     path("estimate/", views.estimate, name="estimate"),
     path("api/quote/", views.api_quote, name="api_quote"),
+    path("api/preflight/", views.api_preflight, name="api_preflight"),
     path("order/", views.order, name="order"),
     path("order/thanks/<str:kind>/<str:number>/", views.thanks, name="thanks"),
     path("status/", views.status, name="status"),

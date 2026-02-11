@@ -1,77 +1,113 @@
 /* ============================================
-   Speed / Tremble Text Effect
-   For "день в день", "швидко" messaging
+   Speed / Tremble Text
+   Per-character animation for "day in day" copy
    ============================================ */
 
 [data-effect~="speed-text"] {
-  display: inline-block;
+  display: inline-flex;
+  align-items: baseline;
   position: relative;
+  white-space: nowrap;
+  gap: 0;
   cursor: default;
+  color: inherit;
 }
 
-.speed-text-ready {
-  /* Ready for animation */
+[data-effect~="speed-text"] .speed-char {
+  position: relative;
+  display: inline-block;
+  transform: translate3d(0, 0, 0);
+  will-change: transform, filter;
 }
 
-.speed-text-static {
-  /* Reduced motion: no animation */
+[data-effect~="speed-text"] .speed-char-space {
+  width: 0.32em;
 }
 
-/* --- Active tremble animation --- */
-.speed-text-active {
-  animation: speedTremble var(--speed-duration, 600ms) ease;
-}
-
-@keyframes speedTremble {
-  0%   { transform: translate(0, 0) rotate(0deg); }
-  5%   { transform: translate(-1px, -1px) rotate(-0.5deg); }
-  10%  { transform: translate(2px, 0px) rotate(0.5deg); }
-  15%  { transform: translate(-1px, 1px) rotate(-0.3deg); }
-  20%  { transform: translate(1px, -1px) rotate(0.4deg); }
-  25%  { transform: translate(-2px, 0px) rotate(-0.5deg); }
-  30%  { transform: translate(1px, 1px) rotate(0.3deg); }
-  35%  { transform: translate(-1px, -1px) rotate(-0.4deg); }
-  40%  { transform: translate(2px, 1px) rotate(0.5deg); }
-  45%  { transform: translate(0px, -1px) rotate(0deg); }
-  50%  { transform: translate(-1px, 1px) rotate(-0.3deg); }
-  55%  { transform: translate(1px, 0px) rotate(0.4deg); }
-  60%  { transform: translate(-2px, -1px) rotate(-0.5deg); }
-  65%  { transform: translate(1px, 1px) rotate(0.3deg); }
-  70%  { transform: translate(-1px, 0px) rotate(-0.2deg); }
-  75%  { transform: translate(1px, -1px) rotate(0.3deg); }
-  80%  { transform: translate(-1px, 1px) rotate(-0.2deg); }
-  85%  { transform: translate(0px, 0px) rotate(0.1deg); }
-  90%  { transform: translate(0px, -1px) rotate(0deg); }
-  95%  { transform: translate(0px, 0px) rotate(-0.1deg); }
-  100% { transform: translate(0, 0) rotate(0deg); }
-}
-
-/* Optional blur trail effect */
-.speed-text-active::after {
-  content: attr(data-speed-text);
+[data-effect~="speed-text"] .speed-char::after {
+  content: attr(data-char);
   position: absolute;
   inset: 0;
-  opacity: 0.3;
-  filter: blur(3px);
-  color: var(--accent, #ff8a2d);
-  animation: speedGhost var(--speed-duration, 600ms) ease;
+  color: rgba(255, 154, 74, 0.4);
+  opacity: 0;
+  filter: blur(2px);
   pointer-events: none;
+  transform: translateX(0);
 }
 
-@keyframes speedGhost {
-  0%   { opacity: 0; transform: translateX(0); }
-  20%  { opacity: 0.4; transform: translateX(3px); }
-  50%  { opacity: 0.2; transform: translateX(-2px); }
-  80%  { opacity: 0.1; transform: translateX(1px); }
-  100% { opacity: 0; transform: translateX(0); }
+[data-effect~="speed-text"].speed-text-active .speed-char:not(.speed-char-space) {
+  animation-name: speedCharShake;
+  animation-duration: var(--speed-duration, 680ms);
+  animation-timing-function: cubic-bezier(0.25, 0.8, 0.24, 1);
+  animation-fill-mode: both;
+  animation-iteration-count: 1;
+  animation-delay: var(--char-delay, 0ms);
 }
 
-/* --- Reduced motion --- */
-@media (prefers-reduced-motion: reduce) {
-  .speed-text-active {
-    animation: none !important;
+[data-effect~="speed-text"].speed-text-active .speed-char:not(.speed-char-space)::after {
+  animation-name: speedCharGhost;
+  animation-duration: var(--speed-duration, 680ms);
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+  animation-iteration-count: 1;
+  animation-delay: var(--char-delay, 0ms);
+}
+
+[data-effect~="speed-text"].speed-text-static .speed-char,
+[data-effect~="speed-text"].speed-text-static .speed-char::after {
+  animation: none !important;
+}
+
+@keyframes speedCharShake {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    filter: blur(0);
   }
-  .speed-text-active::after {
-    display: none;
+  14% {
+    transform: translate3d(calc(-1px * var(--speed-intensity, 1) * var(--char-shift, 1)), calc(-0.6px * var(--speed-intensity, 1)), 0)
+      rotate(calc(-0.6deg * var(--char-rot, 1)));
+  }
+  30% {
+    transform: translate3d(calc(1.4px * var(--speed-intensity, 1) * var(--char-shift, 1)), calc(0.7px * var(--speed-intensity, 1)), 0)
+      rotate(calc(0.7deg * var(--char-rot, 1)));
+  }
+  48% {
+    transform: translate3d(calc(-1.1px * var(--speed-intensity, 1) * var(--char-shift, 1)), calc(0.3px * var(--speed-intensity, 1)), 0)
+      rotate(calc(-0.5deg * var(--char-rot, 1)));
+  }
+  68% {
+    transform: translate3d(calc(1.1px * var(--speed-intensity, 1) * var(--char-shift, 1)), calc(-0.3px * var(--speed-intensity, 1)), 0)
+      rotate(calc(0.5deg * var(--char-rot, 1)));
+    filter: blur(0.12px);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    filter: blur(0);
+  }
+}
+
+@keyframes speedCharGhost {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  18% {
+    opacity: 0.34;
+    transform: translateX(calc(2.2px * var(--speed-intensity, 1)));
+  }
+  56% {
+    opacity: 0.16;
+    transform: translateX(calc(-1.4px * var(--speed-intensity, 1)));
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-effect~="speed-text"] .speed-char,
+  [data-effect~="speed-text"] .speed-char::after {
+    animation: none !important;
   }
 }

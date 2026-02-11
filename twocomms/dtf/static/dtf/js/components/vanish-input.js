@@ -1,150 +1,243 @@
 /**
- * Vanish Input — invalid input shake + vanish + clear
- * Cycling placeholders that stop on focus/typing
- * Registered via DTF.registerEffect
+ * Vanish Input
+ * - Invalid value: shake + dissolve + clear
+ * - Cycling placeholders with focus/typing pause
  */
 (function () {
   'use strict';
-  var DTF = (window.DTF = window.DTF || {});
 
+  var DTF = (window.DTF = window.DTF || {});
   var DEFAULT_CYCLE_DURATION = 3000;
 
-  function initVanishInput(root) {
-    var scope = root || document;
+  function parsePlaceholders(raw, fallback) {
+    var values = [];
+    if (raw) {
+      try {
+        values = JSON.parse(raw);
+      } catch (err) {
+        values = String(raw).split(',').map(function (item) { return item.trim(); });
+      }
+    }
+    if (!Array.isArray(values)) values = [];
+    values = values
+      .map(function (item) { return String(item || '').trim(); })
+      .filter(Boolean);
+    if (!values.length && fallback) values.push(String(fallback));
+    return values;
+  }
+
+  function collectFields(scope) {
+    var root = scope || document;
     var fields = [];
-    if (scope.matches && scope.matches('[data-vanish-input]')) fields.push(scope);
-    if (scope.querySelectorAll) fields.push.apply(fields, scope.querySelectorAll('[data-vanish-input]'));
+    if (root.matches && root.matches('[data-vanish-input]')) fields.push(root);
+    if (root.querySelectorAll) fields.push.apply(fields, root.querySelectorAll('[data-vanish-input]'));
+    return fields;
+  }
 
-    fields.forEach(function (field) {
-      if (field.dataset.vanishInit === '1') return;
-      field.dataset.vanishInit = '1';
+  function ensureWrapper(field) {
+    var wrapper = field.parentElement && field.parentElement.classList.contains('vanish-field-wrap')
+      ? field.parentElement
+      : null;
+    if (!wrapper) {
+      wrapper = document.createElement('span');
+      wrapper.className = 'vanish-field-wrap';
+      field.parentNode.insertBefore(wrapper, field);
+      wrapper.appendChild(field);
+    }
 
-      var listeners = [];
-      var cycleTimer = null;
-      var placeholders = [];
-      var placeholderIndex = 0;
-      var isFocused = false;
-      var isTyping = false;
+    var overlay = wrapper.querySelector('.vanish-placeholder');
+    if (!overlay) {
+      overlay = document.createElement('span');
+      overlay.className = 'vanish-placeholder';
+      overlay.setAttribute('aria-hidden', 'true');
+      wrapper.appendChild(overlay);
+    }
 
-      function on(el, evt, fn, opts) {
-        el.addEventListener(evt, fn, opts || false);
-        listeners.push([el, evt, fn, opts || false]);
+    return { wrapper: wrapper, overlay: overlay };
+  }
+
+  function initVanishField(field) {
+    if (!field || field.dataset.vanishInit === '1') return;
+    field.dataset.vanishInit = '1';
+
+    var listeners = [];
+    var timers = [];
+    var cycleTimer = null;
+    var isFocused = false;
+    var isAnimating = false;
+    var originalPlaceholder = field.getAttribute('placeholder') || '';
+    var placeholders = parsePlaceholders(field.dataset.placeholders, originalPlaceholder);
+    var placeholderIndex = 0;
+    var cycleDuration = parseInt(field.dataset.cycleDuration || DEFAULT_CYCLE_DURATION, 10) || DEFAULT_CYCLE_DURATION;
+    var nodes = ensureWrapper(field);
+    var wrapper = nodes.wrapper;
+    var overlay = nodes.overlay;
+
+    if (placeholders.length) {
+      field.setAttribute('placeholder', '');
+      overlay.textContent = placeholders[0];
+      overlay.hidden = !!field.value;
+    }
+
+    function on(el, eventName, handler, options) {
+      el.addEventListener(eventName, handler, options || false);
+      listeners.push([el, eventName, handler, options || false]);
+    }
+
+    function addTimer(timerId) {
+      timers.push(timerId);
+    }
+
+    function clearTimers() {
+      while (timers.length) {
+        clearTimeout(timers.pop());
       }
+    }
 
-      /* --- Placeholders cycling --- */
-      var placeholderAttr = field.dataset.placeholders;
-      if (placeholderAttr) {
-        try {
-          placeholders = JSON.parse(placeholderAttr);
-        } catch (e) {
-          placeholders = placeholderAttr.split(',').map(function (s) { return s.trim(); });
-        }
-      }
+    function hasValue() {
+      return String(field.value || '').length > 0;
+    }
 
-      var cycleDuration = parseInt(field.dataset.cycleDuration || DEFAULT_CYCLE_DURATION, 10) || DEFAULT_CYCLE_DURATION;
+    function updateStateClasses() {
+      wrapper.classList.toggle('is-focused', isFocused);
+      wrapper.classList.toggle('has-value', hasValue());
+      wrapper.classList.toggle('is-animating', isAnimating);
+      if (overlay) overlay.hidden = hasValue();
+    }
 
-      function updatePlaceholder() {
-        if (!placeholders.length) return;
-        /* Animate out current placeholder */
-        field.classList.add('vanish-placeholder-out');
-        setTimeout(function () {
-          placeholderIndex = (placeholderIndex + 1) % placeholders.length;
-          field.setAttribute('placeholder', placeholders[placeholderIndex]);
-          field.classList.remove('vanish-placeholder-out');
-          field.classList.add('vanish-placeholder-in');
-          setTimeout(function () {
-            field.classList.remove('vanish-placeholder-in');
-          }, 200);
-        }, 200);
-      }
+    function stopCycling() {
+      if (!cycleTimer) return;
+      clearInterval(cycleTimer);
+      cycleTimer = null;
+    }
 
-      function startCycling() {
-        if (isFocused || isTyping || !placeholders.length) return;
-        stopCycling();
-        cycleTimer = setInterval(updatePlaceholder, cycleDuration);
-      }
+    function canCycle() {
+      return placeholders.length > 1
+        && !isFocused
+        && !hasValue()
+        && !isAnimating
+        && document.visibilityState !== 'hidden';
+    }
 
-      function stopCycling() {
-        if (cycleTimer) {
-          clearInterval(cycleTimer);
-          cycleTimer = null;
-        }
-      }
+    function swapPlaceholder(nextIndex) {
+      if (!overlay || !placeholders.length) return;
+      overlay.classList.remove('vanish-placeholder-out', 'vanish-placeholder-in');
+      overlay.classList.add('vanish-placeholder-out');
+      addTimer(window.setTimeout(function () {
+        placeholderIndex = nextIndex;
+        overlay.textContent = placeholders[placeholderIndex];
+        overlay.classList.remove('vanish-placeholder-out');
+        overlay.classList.add('vanish-placeholder-in');
+        addTimer(window.setTimeout(function () {
+          overlay.classList.remove('vanish-placeholder-in');
+        }, 180));
+      }, 170));
+    }
 
-      if (placeholders.length > 1) {
-        field.setAttribute('placeholder', placeholders[0]);
-        startCycling();
-      }
-
-      /* Stop cycling on focus */
-      on(field, 'focus', function () {
-        isFocused = true;
-        stopCycling();
-      });
-
-      on(field, 'blur', function () {
-        isFocused = false;
-        isTyping = false;
-        if (!field.value) {
-          startCycling();
-        }
-      });
-
-      /* Stop cycling on typing */
-      on(field, 'input', function () {
-        isTyping = field.value.length > 0;
-        if (isTyping) {
+    function startCycling() {
+      if (!canCycle()) return;
+      stopCycling();
+      cycleTimer = window.setInterval(function () {
+        if (!canCycle()) {
           stopCycling();
+          return;
         }
-      });
+        var next = (placeholderIndex + 1) % placeholders.length;
+        swapPlaceholder(next);
+      }, cycleDuration);
+    }
 
-      /* --- Invalid: shake + vanish + clear --- */
-      function vanishClear() {
-        /* 1. Shake animation */
-        field.classList.add('vanish-shake');
+    function syncPlaceholder() {
+      updateStateClasses();
+      if (placeholders.length && !hasValue() && !overlay.textContent) {
+        overlay.textContent = placeholders[placeholderIndex];
+      }
+      if (canCycle()) startCycling();
+      else stopCycling();
+    }
 
-        setTimeout(function () {
-          /* 2. Vanish: dissolve the text */
-          field.classList.remove('vanish-shake');
-          field.classList.add('vanish-dissolve');
+    function playShakeOnly() {
+      field.classList.remove('vanish-shake');
+      void field.offsetWidth;
+      field.classList.add('vanish-shake');
+      addTimer(window.setTimeout(function () {
+        field.classList.remove('vanish-shake');
+      }, 320));
+    }
 
-          setTimeout(function () {
-            /* 3. Clear the field */
-            field.value = '';
-            field.classList.remove('vanish-dissolve');
-
-            /* Restart cycling if placeholders exist */
-            isTyping = false;
-            if (placeholders.length > 1 && !isFocused) {
-              startCycling();
-            }
-          }, 350);
-        }, 400);
+    function playVanishAndClear() {
+      if (isAnimating) return;
+      if (!hasValue()) {
+        playShakeOnly();
+        return;
       }
 
-      on(field, 'invalid', function (evt) {
-        evt.preventDefault();
-        vanishClear();
-      });
+      isAnimating = true;
+      updateStateClasses();
+      field.classList.remove('vanish-dissolve');
+      field.classList.add('vanish-shake');
 
-      /* Also trigger on explicit data-vanish-trigger event */
-      on(field, 'vanish', function () {
-        vanishClear();
-      });
+      addTimer(window.setTimeout(function () {
+        field.classList.remove('vanish-shake');
+        field.classList.add('vanish-dissolve');
+        addTimer(window.setTimeout(function () {
+          field.value = '';
+          field.classList.remove('vanish-dissolve');
+          isAnimating = false;
+          syncPlaceholder();
+        }, 320));
+      }, 320));
+    }
 
-      /* Cleanup */
-      field._vanishCleanup = function () {
-        stopCycling();
-        for (var i = 0; i < listeners.length; i++) {
-          var l = listeners[i];
-          l[0].removeEventListener(l[1], l[2], l[3]);
-        }
-        listeners.length = 0;
-      };
+    on(field, 'focus', function () {
+      isFocused = true;
+      syncPlaceholder();
     });
+
+    on(field, 'blur', function () {
+      isFocused = false;
+      syncPlaceholder();
+    });
+
+    on(field, 'input', function () {
+      syncPlaceholder();
+    });
+
+    on(field, 'change', function () {
+      syncPlaceholder();
+    });
+
+    on(field, 'invalid', function () {
+      playVanishAndClear();
+    });
+
+    on(field, 'vanish', function () {
+      playVanishAndClear();
+    });
+
+    on(document, 'visibilitychange', function () {
+      if (document.visibilityState === 'hidden') stopCycling();
+      else syncPlaceholder();
+    });
+
+    syncPlaceholder();
+
+    field._vanishCleanup = function () {
+      stopCycling();
+      clearTimers();
+      for (var i = 0; i < listeners.length; i += 1) {
+        var item = listeners[i];
+        item[0].removeEventListener(item[1], item[2], item[3]);
+      }
+      listeners.length = 0;
+    };
+  }
+
+  function initVanishInput(root) {
+    collectFields(root).forEach(initVanishField);
   }
 
   if (DTF.registerEffect) {
-    DTF.registerEffect('vanish-input', initVanishInput);
+    DTF.registerEffect('vanish-input', '[data-vanish-input], [data-effect~="vanish-input"]', initVanishInput);
   }
 })();
