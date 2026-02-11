@@ -1256,9 +1256,9 @@ body[data-page="home"] section.section > .dtf-container {
   border-radius: 0;
   opacity: 0;
   mix-blend-mode: screen;
-  filter: blur(0.2px) saturate(1.03) contrast(1.04);
+  filter: blur(0.08px) saturate(1.08) contrast(1.08);
   pointer-events: none;
-  transition: opacity 260ms ease;
+  transition: opacity 180ms ease;
 }
 
 .home-dot-distortion.has-canvas .dot-distortion-canvas {
@@ -1306,7 +1306,7 @@ body[data-page="home"] section.section > .dtf-container {
     radial-gradient(120% 90% at 52% 76%, rgba(6, 7, 9, 0.2), rgba(5, 5, 7, 0.78) 72%, rgba(5, 5, 7, 0.9) 100%);
   filter: blur(1.2px);
   opacity: var(--dot-glow);
-  transition: opacity 320ms ease;
+  transition: opacity 200ms ease;
 }
 
 .home-dot-distortion::after {
