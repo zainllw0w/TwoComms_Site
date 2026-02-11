@@ -7,6 +7,7 @@
     keyboard: false,
     webVitals: false,
     printhead: false,
+    managerFab: false,
     dropzonePaste: false,
     dynamicFavicon: false,
     reorderPrefill: false,
@@ -38,6 +39,9 @@
   const MESSAGES = {
     uk: {
       unsupported_ready_file: 'Формат файлу не підтримується для готового ганг-листа. Перейшли у допомогу.',
+      manager_success: "Дякуємо! Менеджер зв'яжеться найближчим часом.",
+      manager_error_form: 'Помилка. Перевірте форму.',
+      manager_error_network: 'Не вдалося надіслати. Спробуйте пізніше.',
       file_added: 'Файл додано',
       clipboard_unavailable: 'Буфер недоступний у цьому браузері',
       file_added_from_clipboard: 'Файл додано з буфера',
@@ -55,6 +59,9 @@
     },
     ru: {
       unsupported_ready_file: 'Формат файла не поддерживается для готового ганг-листа. Переключили на вкладку помощи.',
+      manager_success: 'Спасибо! Менеджер свяжется с вами в ближайшее время.',
+      manager_error_form: 'Ошибка. Проверьте форму.',
+      manager_error_network: 'Не удалось отправить. Попробуйте позже.',
       file_added: 'Файл добавлен',
       clipboard_unavailable: 'Буфер обмена недоступен в этом браузере',
       file_added_from_clipboard: 'Файл добавлен из буфера',
@@ -72,6 +79,9 @@
     },
     en: {
       unsupported_ready_file: 'This file format is not supported for a ready gang sheet. Switched to the help tab.',
+      manager_success: 'Thanks! A manager will contact you shortly.',
+      manager_error_form: 'Error. Please check the form.',
+      manager_error_network: 'Failed to submit. Please try again later.',
       file_added: 'File added',
       clipboard_unavailable: 'Clipboard is not available in this browser',
       file_added_from_clipboard: 'File added from clipboard',
@@ -752,6 +762,86 @@
         activateTab('login');
       }
     });
+  }
+
+  function initManagerFab() {
+    if (initState.managerFab) return;
+    const fab = document.getElementById('dtf-manager-fab');
+    const modal = document.getElementById('dtf-manager-modal');
+    if (!fab || !modal) return;
+    initState.managerFab = true;
+    const openBtn = fab.querySelector('.manager-fab-btn') || fab;
+    const form = document.getElementById('dtf-manager-form');
+    const dialog = modal.querySelector('.manager-modal-content');
+
+    const openModal = () => {
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden', 'false');
+      if (document.body) document.body.classList.add('is-modal-open');
+      if (dialog) setFocusTrap(dialog, openBtn, closeModal);
+    };
+
+    const closeModal = () => {
+      releaseFocusTrap();
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden', 'true');
+      if (document.body) document.body.classList.remove('is-modal-open');
+      if (openBtn && openBtn.focus) openBtn.focus({ preventScroll: true });
+    };
+
+    openBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      openModal();
+    });
+
+    modal.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!target) return;
+      if (target.dataset && target.dataset.closeManager !== undefined) {
+        closeModal();
+      }
+    });
+
+    if (form) {
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = new FormData(form);
+        const submitBtn = form.querySelector('[data-submit], button[type=\"submit\"]');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.dataset.stateLoading = submitBtn.dataset.stateLoading || t('stateful_sending');
+          setButtonState(submitBtn, 'loading');
+        }
+
+        try {
+          const resp = await fetch(form.action, {
+            method: 'POST',
+            body: payload,
+            headers: {
+              'X-CSRFToken': getCookie('csrftoken'),
+              'X-Requested-With': 'fetch',
+            },
+            credentials: 'same-origin',
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (resp.ok && data && data.ok) {
+            if (submitBtn) setButtonState(submitBtn, 'success');
+            form.reset();
+            closeModal();
+            showToast(t('manager_success'), 'success');
+          } else {
+            showToast((data && data.error) || t('manager_error_form'), 'error');
+          }
+        } catch (err) {
+          showToast(t('manager_error_network'), 'error');
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            setButtonState(submitBtn, 'default');
+          }
+        }
+      });
+    }
   }
 
   function resolveScanTier() {
@@ -1990,6 +2080,7 @@
     initFileGuard(root);
     initSkeletons(root);
     initProfileMenu(root);
+    initManagerFab();
     initPrintheadScan();
     initInkFlow();
     initHomeDotBackground();
