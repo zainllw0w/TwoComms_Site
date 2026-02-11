@@ -7,7 +7,6 @@
     keyboard: false,
     webVitals: false,
     printhead: false,
-    fab: false,
     dropzonePaste: false,
     dynamicFavicon: false,
     reorderPrefill: false,
@@ -39,9 +38,6 @@
   const MESSAGES = {
     uk: {
       unsupported_ready_file: 'Формат файлу не підтримується для готового ганг-листа. Перейшли у допомогу.',
-      fab_success: "Дякуємо! Менеджер зв'яжеться найближчим часом.",
-      fab_error_form: 'Помилка. Перевірте форму.',
-      fab_error_network: 'Не вдалося надіслати. Спробуйте пізніше.',
       file_added: 'Файл додано',
       clipboard_unavailable: 'Буфер недоступний у цьому браузері',
       file_added_from_clipboard: 'Файл додано з буфера',
@@ -59,9 +55,6 @@
     },
     ru: {
       unsupported_ready_file: 'Формат файла не поддерживается для готового ганг-листа. Переключили на вкладку помощи.',
-      fab_success: 'Спасибо! Менеджер свяжется с вами в ближайшее время.',
-      fab_error_form: 'Ошибка. Проверьте форму.',
-      fab_error_network: 'Не удалось отправить. Попробуйте позже.',
       file_added: 'Файл добавлен',
       clipboard_unavailable: 'Буфер обмена недоступен в этом браузере',
       file_added_from_clipboard: 'Файл добавлен из буфера',
@@ -79,9 +72,6 @@
     },
     en: {
       unsupported_ready_file: 'This file format is not supported for a ready gang sheet. Switched to the help tab.',
-      fab_success: 'Thanks! A manager will contact you shortly.',
-      fab_error_form: 'Error. Please check the form.',
-      fab_error_network: 'Failed to submit. Please try again later.',
       file_added: 'File added',
       clipboard_unavailable: 'Clipboard is not available in this browser',
       file_added_from_clipboard: 'File added from clipboard',
@@ -764,84 +754,6 @@
     });
   }
 
-  function initFab() {
-    if (initState.fab) return;
-    const btn = document.getElementById('dtf-fab');
-    const modal = document.getElementById('dtf-fab-modal');
-    if (!btn || !modal) return;
-    initState.fab = true;
-    const form = document.getElementById('dtf-fab-form');
-    const dialog = modal.querySelector('.modal-content');
-
-    const openModal = () => {
-      modal.classList.add('active');
-      modal.setAttribute('aria-hidden', 'false');
-      if (document.body) document.body.classList.add('is-modal-open');
-      if (dialog) setFocusTrap(dialog, btn, closeModal);
-    };
-
-    const closeModal = () => {
-      const active = document.activeElement;
-      if (active && modal.contains(active)) {
-        if (active.blur) active.blur();
-        if (btn && btn.focus) btn.focus({ preventScroll: true });
-      }
-      releaseFocusTrap();
-      modal.classList.remove('active');
-      modal.setAttribute('aria-hidden', 'true');
-      if (document.body) document.body.classList.remove('is-modal-open');
-    };
-
-    btn.addEventListener('click', () => {
-      openModal();
-    });
-
-    modal.addEventListener('click', (e) => {
-      if (e.target.dataset.close) {
-        closeModal();
-      }
-    });
-
-    if (form) {
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(form);
-        const submitBtn = form.querySelector('[data-submit], button[type=\"submit\"]');
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.dataset.stateLoading = submitBtn.dataset.stateLoading || t('stateful_sending');
-          setButtonState(submitBtn, 'loading');
-        }
-        try {
-          const resp = await fetch(form.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'X-CSRFToken': getCookie('csrftoken'),
-            }
-          });
-          const data = await resp.json();
-          if (resp.ok) {
-            if (submitBtn) setButtonState(submitBtn, 'success');
-            form.reset();
-            closeModal();
-            alert(t('fab_success'));
-          } else {
-            alert(t('fab_error_form'));
-            console.error(data);
-          }
-        } catch (err) {
-          alert(t('fab_error_network'));
-        } finally {
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            setButtonState(submitBtn, 'default');
-          }
-        }
-      });
-    }
-  }
-
   function resolveScanTier() {
     const mode = String(flags.tier_mode || 'auto').toLowerCase();
     if (mode.startsWith('force')) {
@@ -940,6 +852,7 @@
     const canAnimate = allowAmbientEffects();
 
     const setStatic = () => {
+      layer.classList.add('is-static');
       layer.style.setProperty('--dot-glow', '0.52');
       layer.style.setProperty('--dot-shift-x', '0px');
       layer.style.setProperty('--dot-shift-y', '0px');
@@ -951,6 +864,7 @@
 
     if (ctx) layer.classList.add('has-canvas');
     if (!canAnimate) setStatic();
+    else layer.classList.remove('is-static');
 
     const orbs = Array.from(layer.querySelectorAll('[data-dot-orb]'));
     const state = { x: 0, y: 0, tx: 0, ty: 0, active: false };
@@ -2075,7 +1989,6 @@
     initCalc(root);
     initFileGuard(root);
     initSkeletons(root);
-    initFab();
     initProfileMenu(root);
     initPrintheadScan();
     initInkFlow();

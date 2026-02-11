@@ -13,7 +13,11 @@
       <p class="muted">Session: {{ builder_session.session_id }}</p>
     </div>
 
-    <div class="constructor-layout" data-ui="dtf:constructor:layout">
+    <div class="constructor-layout"
+         data-ui="dtf:constructor:layout"
+         data-upload-flow
+         data-effect="multi-step-loader"
+         data-preflight-url="{% url 'dtf:api_preflight' %}">
       <aside class="constructor-sidebar card" data-ui="dtf:constructor:steps">
         <div class="constructor-step-tabs" aria-label="{% trans 'Етапи конструктора' %}">
           <span class="constructor-step is-active">
@@ -38,7 +42,7 @@
           </span>
         </div>
 
-        <form method="post" enctype="multipart/form-data" class="order-form" data-submit-guard data-upload-flow data-effect="multi-step-loader">
+        <form id="constructor-builder-form" method="post" enctype="multipart/form-data" class="order-form" data-submit-guard data-constructor-builder-form>
           {% csrf_token %}
           <input type="hidden" name="session_id" value="{{ builder_session.session_id }}">
 
@@ -144,7 +148,7 @@
 
         <article class="card constructor-submit-card">
           <h3>{% trans "Request quote" %}</h3>
-          <form method="post" action="{% url 'dtf:constructor_submit' %}" data-constructor-submit>
+          <form id="constructor-submit-form" method="post" action="{% url 'dtf:constructor_submit' %}" data-constructor-submit>
             {% csrf_token %}
             <input type="hidden" name="session_id" value="{{ builder_session.session_id }}">
             <label>{% trans "Ім'я" %}
@@ -178,43 +182,49 @@
           </form>
         </article>
       </div>
+
+      {# --- Constructor local action dock --- #}
+      <nav class="dtf-floating-dock"
+           data-floating-dock
+           data-dock-type="constructor"
+           aria-label="{% trans 'Дії конструктора' %}">
+        <button type="button" class="dock-item" data-action="upload" data-dock-title="{% trans 'Завантажити файл' %}" aria-label="{% trans 'Завантажити файл' %}">
+          <span class="dock-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </span>
+          <span class="dock-item-label">{% trans "Файл" %}</span>
+          <span class="dock-badge badge-pending" hidden></span>
+        </button>
+        <button type="button" class="dock-item" data-action="clear" data-dock-title="{% trans 'Очистити файл' %}" aria-label="{% trans 'Очистити файл' %}">
+          <span class="dock-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </span>
+          <span class="dock-item-label">{% trans "Очистити" %}</span>
+        </button>
+        <button type="button" class="dock-item" data-action="check" data-dock-title="{% trans 'Запустити preflight' %}" aria-label="{% trans 'Запустити preflight' %}">
+          <span class="dock-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </span>
+          <span class="dock-item-label">{% trans "Preflight" %}</span>
+        </button>
+        <button type="button" class="dock-item" data-action="submit" data-dock-title="{% trans 'Надіслати запит' %}" aria-label="{% trans 'Надіслати запит' %}">
+          <span class="dock-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </span>
+          <span class="dock-item-label">{% trans "Надіслати" %}</span>
+        </button>
+      </nav>
     </div>
   </div>
 </section>
 {% endblock %}
 
-{# --- Constructor local action dock --- #}
-<nav class="dtf-floating-dock" data-floating-dock data-dock-type="constructor" aria-label="{% trans 'Дії конструктора' %}">
-  <button type="button" class="dock-item" data-action="upload" aria-label="{% trans 'Завантажити файл' %}">
-    <span class="dock-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    </span>
-    {% trans "Файл" %}
-    <span class="dock-badge badge-pending" hidden data-effect="images-badge"></span>
-  </button>
-  <button type="button" class="dock-item" data-action="clear" aria-label="{% trans 'Очистити' %}">
-    <span class="dock-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-    </span>
-    {% trans "Очистити" %}
-  </button>
-  <button type="button" class="dock-item" data-action="check" aria-label="{% trans 'Перевірити' %}">
-    <span class="dock-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-    </span>
-    {% trans "Preflight" %}
-  </button>
-  <button type="submit" class="dock-item" form="constructor-submit-form" data-action="submit" aria-label="{% trans 'Надіслати' %}">
-    <span class="dock-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-    </span>
-    {% trans "Надіслати" %}
-  </button>
-</nav>
-
 {% block extra_scripts %}
 <script>
   (function () {
+    const loadingText = '{% trans "Надсилаємо..." %}';
+    const successText = '{% trans "Готово" %}';
+    const errorText = '{% trans "Помилка" %}';
     const forms = document.querySelectorAll('[data-constructor-submit]');
     forms.forEach((form) => {
       form.addEventListener('submit', async (event) => {
@@ -223,7 +233,7 @@
         const submitButton = form.querySelector('button[type="submit"]');
         const payload = new FormData(form);
         if (submitButton) submitButton.disabled = true;
-        if (feedback) feedback.textContent = '...';
+        if (feedback) feedback.textContent = loadingText;
         try {
           const response = await fetch(form.action, {
             method: 'POST',
@@ -235,12 +245,12 @@
           if (!response.ok || !data.ok) {
             throw new Error(data.error || 'Submit error');
           }
-          if (feedback) feedback.textContent = 'OK';
+          if (feedback) feedback.textContent = successText;
           if (data.redirect) {
             window.location.assign(data.redirect);
           }
         } catch (error) {
-          if (feedback) feedback.textContent = error.message || 'Помилка';
+          if (feedback) feedback.textContent = error.message || errorText;
         } finally {
           if (submitButton) submitButton.disabled = false;
         }

@@ -21,22 +21,22 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260206b">
-  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260207f">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260211b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/effect.bg-beams.css' %}?v=20260207b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/effect.dotted-glow.css' %}?v=20260207b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/effect.encrypted-text.css' %}?v=20260207b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/effect.pointer-highlight.css' %}?v=20260207b">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.compare.css' %}?v=20260210a">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.compare.css' %}?v=20260211a">
   <link rel="stylesheet" href="{% static 'dtf/css/components/effect.stateful-button.css' %}?v=20260207b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/effect.tracing-beam.css' %}?v=20260207b">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.infinite-cards.css' %}?v=20260210a">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.infinite-cards.css' %}?v=20260211a">
   <link rel="stylesheet" href="{% static 'dtf/css/components/sparkles.css' %}?v=20260207a">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/floating-dock.css' %}?v=20260210a">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/multi-step-loader.css' %}?v=20260210a">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/vanish-input.css' %}?v=20260210a">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/floating-dock.css' %}?v=20260211a">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/multi-step-loader.css' %}?v=20260211a">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/vanish-input.css' %}?v=20260211b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/tabs-download.css' %}?v=20260207a">
   <link rel="stylesheet" href="{% static 'dtf/css/components/cards-on-click.css' %}?v=20260207a">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.speed-text.css' %}?v=20260210a">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/effect.speed-text.css' %}?v=20260211b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/effect.tooltip-card.css' %}?v=20260210a">
   <link rel="stylesheet" href="{% static 'dtf/css/components/effect.text-generate.css' %}?v=20260210a">
   <link rel="stylesheet" href="{% static 'dtf/css/components/effect.images-badge.css' %}?v=20260210a">
@@ -256,52 +256,36 @@
     </footer>
   </div>
 
-  <div class="dtf-fab" id="dtf-fab">
-    <button class="fab-btn" type="button" aria-label="{% trans 'Менеджер' %}">
-      <span>+</span>
-      <small>{% trans "Менеджер" %}</small>
-    </button>
-  </div>
-
-  <div class="dtf-modal" id="dtf-fab-modal" aria-hidden="true">
-    <div class="modal-backdrop" data-close="1"></div>
-    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="fab-modal-title" aria-describedby="fab-modal-desc">
-      <button class="modal-close" type="button" data-close="1">×</button>
-      <h3 id="fab-modal-title">{% trans "Менеджер зв'яжеться" %}</h3>
-      <p class="modal-sub" id="fab-modal-desc">{% trans "Залиште контакти та коротке питання." %}</p>
-      <form id="dtf-fab-form" method="post" action="{% url 'dtf:fab_lead' %}" data-submit-guard>
-        {% csrf_token %}
-        <label>{% trans "Ім'я" %}
-          <input type="text" name="name" required>
-        </label>
-        <label>{% trans "Телефон" %}
-          <input type="tel" name="phone" required>
-        </label>
-        <label>{% trans "Канал" %}
-          <select name="contact_channel">
-            <option value="telegram">Telegram</option>
-            <option value="whatsapp">WhatsApp</option>
-            <option value="instagram">Instagram</option>
-            <option value="call">{% trans "Дзвінок" %}</option>
-          </select>
-        </label>
-        <label>{% trans "Нік/посилання" %}
-          <input type="text" name="contact_handle">
-        </label>
-        <label>{% trans "Питання" %}
-          <textarea name="task_description" rows="3"></textarea>
-        </label>
-        <button class="btn btn-primary" type="submit" data-submit data-stateful>{% trans "Надіслати" %}</button>
-        <div class="form-note">{% trans "Ручна перевірка макета перед друком" %}</div>
-      </form>
-    </div>
-  </div>
-
-  <nav class="dtf-floating-dock" data-floating-dock data-ui="dtf:global:floating-dock" data-hide-near-footer="[data-footer-anchor]" aria-label="{% trans 'Швидкі дії' %}">
-    <a href="{% url 'dtf:order' %}">{% trans "Замовити" %}</a>
-    <a href="{% url 'dtf:sample' %}">{% trans "Зразок" %}</a>
-    <a href="#dtf-fab">{% trans "Менеджер" %}</a>
-    <a href="{% url 'dtf:templates' %}">{% trans "Шаблони" %}</a>
+  <nav class="dtf-floating-dock"
+       data-floating-dock
+       data-dock-type="global"
+       data-ui="dtf:global:floating-dock"
+       data-hide-near-footer="[data-footer-anchor]"
+       aria-label="{% trans 'Швидкі дії' %}">
+    <a class="dock-item"
+       href="{% url 'dtf:order' %}"
+       aria-label="{% trans 'Замовити' %}"
+       data-dock-title="{% trans 'Замовити' %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h12l2 5v11a2 2 0 0 1-2 2h-1v-5H7v5H6a2 2 0 0 1-2-2V8l2-5Zm2.3 5h7.4l-.8-2H9.1l-.8 2ZM8 18v3h2v-3H8Zm6 0v3h2v-3h-2Z"></path></svg>
+    </a>
+    <a class="dock-item"
+       href="{% url 'dtf:constructor' %}"
+       aria-label="{% trans 'Конструктор' %}"
+       data-dock-title="{% trans 'Конструктор' %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4h7v7H4V4Zm9 0h7v4h-7V4Zm0 6h7v10h-7V10ZM4 13h7v7H4v-7Zm2 2v3h3v-3H6Zm9-9v2h3V6h-3Zm0 6v6h3v-6h-3Z"></path></svg>
+    </a>
+    <a class="dock-item"
+       href="{% url 'dtf:gallery' %}"
+       aria-label="{% trans 'Галерея' %}"
+       data-dock-title="{% trans 'Галерея' %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm0 2v8.6l4.4-4.1a1 1 0 0 1 1.3-.04l3.1 2.6 2.8-2.8a1 1 0 0 1 1.4 0l2 2V6H5Zm15 9.1-2.7-2.7-2.8 2.8a1 1 0 0 1-1.35.07l-3.1-2.6L5 17.3V18h15v-2.9ZM8.5 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"></path></svg>
+    </a>
+    <a class="dock-item"
+       href="{% url 'dtf:blog' %}"
+       aria-label="{% trans 'База знань' %}"
+       data-dock-title="{% trans 'База знань' %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2Zm0 2v13a1 1 0 0 0 1 1h11V5H6Zm3 3h6v2H9V8Zm0 4h6v2H9v-2Z"></path></svg>
+    </a>
   </nav>
 
   <div class="knowledge-overlay" id="knowledge-overlay" aria-hidden="true">
@@ -339,21 +323,21 @@
   <script src="{% static 'dtf/js/components/effect.dotted-glow.js' %}?v=20260207b" defer></script>
   <script src="{% static 'dtf/js/components/effect.encrypted-text.js' %}?v=20260207b" defer></script>
   <script src="{% static 'dtf/js/components/effect.pointer-highlight.js' %}?v=20260207b" defer></script>
-  <script src="{% static 'dtf/js/components/effect.compare.js' %}?v=20260210a" defer></script>
+  <script src="{% static 'dtf/js/components/effect.compare.js' %}?v=20260211a" defer></script>
   <script src="{% static 'dtf/js/components/effect.stateful-button.js' %}?v=20260207b" defer></script>
   <script src="{% static 'dtf/js/components/effect.tracing-beam.js' %}?v=20260207b" defer></script>
-  <script src="{% static 'dtf/js/components/effect.infinite-cards.js' %}?v=20260210a" defer></script>
+  <script src="{% static 'dtf/js/components/effect.infinite-cards.js' %}?v=20260211a" defer></script>
   <script src="{% static 'dtf/js/components/sparkles.js' %}?v=20260207a" defer></script>
-  <script src="{% static 'dtf/js/components/floating-dock.js' %}?v=20260210a" defer></script>
-  <script src="{% static 'dtf/js/components/multi-step-loader.js' %}?v=20260210a" defer></script>
-  <script src="{% static 'dtf/js/components/vanish-input.js' %}?v=20260210a" defer></script>
-  <script src="{% static 'dtf/js/components/effect.speed-text.js' %}?v=20260210a" defer></script>
+  <script src="{% static 'dtf/js/components/floating-dock.js' %}?v=20260211a" defer></script>
+  <script src="{% static 'dtf/js/components/multi-step-loader.js' %}?v=20260211b" defer></script>
+  <script src="{% static 'dtf/js/components/vanish-input.js' %}?v=20260211b" defer></script>
+  <script src="{% static 'dtf/js/components/effect.speed-text.js' %}?v=20260211b" defer></script>
   <script src="{% static 'dtf/js/components/effect.tooltip-card.js' %}?v=20260210a" defer></script>
   <script src="{% static 'dtf/js/components/effect.text-generate.js' %}?v=20260210a" defer></script>
   <script src="{% static 'dtf/js/components/effect.images-badge.js' %}?v=20260210a" defer></script>
   <script src="{% static 'dtf/js/components/tabs-download.js' %}?v=20260207a" defer></script>
   <script src="{% static 'dtf/js/components/cards-on-click.js' %}?v=20260207a" defer></script>
-  <script src="{% static 'dtf/js/dtf.js' %}?v=20260210a" defer></script>
+  <script src="{% static 'dtf/js/dtf.js' %}?v=20260211b" defer></script>
   {% block extra_scripts %}{% endblock %}
 
 </body>

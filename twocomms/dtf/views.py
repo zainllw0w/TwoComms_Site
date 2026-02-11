@@ -52,7 +52,11 @@ from .notify import (
     notify_manager_new_order,
 )
 from .pricing import calculate_quote
-from .preflight.engine import build_preview_assets
+from .preflight.engine import (
+    analyze_upload,
+    build_preview_assets,
+    normalize_preflight_report,
+)
 from .utils import (
     activate_language_from_request,
     build_lang_links,
@@ -469,6 +473,20 @@ def api_quote(request):
         "ok": True,
         "quote_id": quote_obj.id,
         "quote": quote_data,
+    })
+
+
+@require_POST
+def api_preflight(request):
+    uploaded_file = request.FILES.get("file")
+    if not uploaded_file:
+        return JsonResponse({"ok": False, "error": "file_required"}, status=400)
+
+    report = analyze_upload(uploaded_file, allowed_exts=ALLOWED_READY_EXTS)
+    normalized = normalize_preflight_report(report)
+    return JsonResponse({
+        "ok": True,
+        "report": normalized,
     })
 
 
@@ -913,7 +931,6 @@ def constructor_app(request):
         if session_obj.size_breakdown_json:
             initial["size_breakdown"] = ",".join(f"{k}:{v}" for k, v in session_obj.size_breakdown_json.items())
         form = DtfBuilderSessionForm(instance=session_obj, initial=initial)
-    from .preflight.engine import normalize_preflight_report
     raw_preflight = session_obj.preflight_json if session_obj.preflight_json else {}
     preflight = normalize_preflight_report(raw_preflight)
     ctx.update({
