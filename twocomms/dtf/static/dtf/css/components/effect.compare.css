@@ -1,6 +1,5 @@
 /* ============================================
-   Compare Effect — before/after image slider
-   Modes: drag | hover | autoplay
+   Compare Effect
    ============================================ */
 
 [data-compare],
@@ -10,22 +9,20 @@
   overflow: hidden;
 }
 
-/* --- Media container --- */
 .compare-media {
   position: relative;
   width: 100%;
+  border-radius: var(--radius-lg, 12px);
   overflow: hidden;
-  cursor: col-resize;
   touch-action: pan-y;
   user-select: none;
-  border-radius: var(--radius-lg, 12px);
+  cursor: col-resize;
 }
 
 .compare-media.is-dragging {
   cursor: grabbing;
 }
 
-/* --- Layers --- */
 .compare-layer {
   position: absolute;
   inset: 0;
@@ -33,126 +30,173 @@
 }
 
 .compare-before {
-  z-index: 1;
+  z-index: 2;
   clip-path: inset(0 calc(100% - var(--compare)) 0 0);
 }
 
 .compare-after {
-  z-index: 0;
+  z-index: 1;
 }
 
 .compare-layer img {
-  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
-/* --- Handle / divider --- */
 .compare-handle {
   position: absolute;
   top: 0;
   bottom: 0;
   left: var(--compare);
-  z-index: 3;
-  width: 3px;
-  background: rgba(255, 255, 255, 0.85);
+  width: 2px;
   transform: translateX(-50%);
+  z-index: 4;
   pointer-events: none;
-  transition: background 150ms ease;
+  background: linear-gradient(
+    to bottom,
+    rgba(99, 102, 241, 0) 4%,
+    rgba(99, 102, 241, 0.95) 35%,
+    rgba(56, 189, 248, 0.95) 65%,
+    rgba(56, 189, 248, 0) 96%
+  );
+  box-shadow: 0 0 20px rgba(72, 125, 255, 0.35);
 }
 
-.compare-handle::before,
-.compare-handle::after {
-  content: '';
+.compare-handle::before {
+  content: "";
   position: absolute;
   left: 50%;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  border: 2px solid rgba(14, 16, 22, 0.3);
-  transform: translateX(-50%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.compare-handle::before {
   top: 50%;
-  margin-top: -14px;
-}
-
-/* Hide bottom circle (only need one handle knob) */
-.compare-handle::after {
-  display: none;
-}
-
-/* Arrow indicators in handle */
-.compare-handle::before {
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  border-radius: 10px;
+  border: 1px solid rgba(201, 218, 255, 0.65);
   background:
-    rgba(255, 255, 255, 0.92)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M4 8l3-3v6l-3-3zm5-3l3 3-3 3V5z' fill='%23333'/%3E%3C/svg%3E")
-    center / 16px no-repeat;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(229, 236, 255, 0.9))
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M4 8l3-3v6L4 8zm8-3l-3 3 3 3V5z' fill='%2311141f'/%3E%3C/svg%3E")
+    center / 16px 16px no-repeat;
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(112, 134, 223, 0.22);
 }
 
-/* --- Range slider (screen reader / keyboard accessible) --- */
-.compare-range {
+.compare-handle::after {
+  content: "";
   position: absolute;
-  inset: 0;
-  z-index: 4;
-  width: 100%;
+  left: -1px;
+  top: 50%;
+  width: 32px;
+  height: 60%;
+  transform: translate(-100%, -50%);
+  background: linear-gradient(
+    to right,
+    rgba(129, 140, 248, 0.52),
+    rgba(99, 102, 241, 0.2) 45%,
+    rgba(56, 189, 248, 0)
+  );
+  mask-image: radial-gradient(100px at left, #000, transparent);
+  pointer-events: none;
+}
+
+.compare-sparkles {
+  position: absolute;
+  right: -18px;
+  top: 0;
+  width: 18px;
   height: 100%;
-  margin: 0;
-  padding: 0;
-  opacity: 0;
-  cursor: col-resize;
-  -webkit-appearance: none;
-  appearance: none;
+  pointer-events: none;
 }
 
-.compare-range:focus-visible + .compare-media .compare-handle {
-  background: var(--accent, #ff8a2d);
-  box-shadow: 0 0 0 3px rgba(255, 138, 45, 0.3);
-}
-
-/* --- Proof meta below compare --- */
-.proof-meta {
-  padding: 12px 0 0;
-}
-
-.proof-title {
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
-.proof-sub {
-  font-size: 0.8rem;
-  opacity: 0.7;
-}
-
-/* --- Mode-specific tweaks --- */
-.compare-mode-hover .compare-media {
-  cursor: ew-resize;
+.compare-spark {
+  position: absolute;
+  right: 0;
+  top: var(--spark-y, 50%);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  filter: drop-shadow(0 0 5px rgba(148, 197, 255, 0.9));
+  opacity: 0.25;
+  animation: compareSpark 1.8s ease-in-out infinite;
+  animation-delay: calc(var(--spark-i, 0) * 0.14s);
 }
 
 .compare-autoplay .compare-handle {
   transition: left 50ms linear;
 }
 
-/* --- Mobile fallback --- */
-@media (max-width: 600px) {
-  .compare-handle::before {
-    width: 24px;
-    height: 24px;
-    margin-top: -12px;
+.compare-range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  z-index: 5;
+  opacity: 0;
+  cursor: col-resize;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.compare-range-focus .compare-handle::before {
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.38),
+    0 0 0 2px rgba(255, 149, 80, 0.52),
+    0 0 0 5px rgba(255, 149, 80, 0.24);
+}
+
+.compare-mode-drag .compare-media,
+.compare-mode-autoplay .compare-media {
+  cursor: grab;
+}
+
+.proof-meta {
+  padding: 12px 0 0;
+}
+
+.proof-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.proof-sub {
+  font-size: 0.8rem;
+  opacity: 0.72;
+}
+
+@keyframes compareSpark {
+  0% {
+    opacity: 0.12;
+    transform: translateX(0) scale(0.6);
+  }
+  45% {
+    opacity: 0.95;
+    transform: translateX(6px) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(10px) scale(0.5);
   }
 }
 
-/* --- Sparkles integration (if present) --- */
-[data-effect~="compare"] .compare-sparkle {
-  position: absolute;
-  top: 50%;
-  left: var(--compare);
-  transform: translate(-50%, -50%);
-  z-index: 5;
-  pointer-events: none;
+@media (max-width: 640px) {
+  .compare-handle::before {
+    width: 25px;
+    height: 25px;
+    border-radius: 8px;
+  }
+
+  .compare-sparkles {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compare-spark {
+    animation: none;
+    opacity: 0.35;
+  }
 }

@@ -1,21 +1,20 @@
 /**
- * Multi-step Loader — real preflight step display
- * Integrates with backend preflight step_items
- * No fake delays: sync-first, honest UX
- * Shows PASS/WARN/FAIL per step, stops chain on FAIL
- * Registered via DTF.registerEffect
+ * Multi-step Loader
+ * - Uses real backend preflight when data-preflight-url is provided
+ * - No synthetic completion timers
+ * - Shared between order and constructor flows
  */
 (function () {
   'use strict';
   var DTF = (window.DTF = window.DTF || {});
 
   var STATUS_ICONS = {
-    ok: '\u2713',     /* ✓ */
+    ok: '\u2713',
     pass: '\u2713',
-    warn: '\u26A0',   /* ⚠ */
-    fail: '\u2717',   /* ✗ */
-    loading: '\u21BB', /* ↻ */
-    pending: '\u2022', /* • */
+    warn: '\u26A0',
+    fail: '\u2717',
+    loading: '\u21BB',
+    pending: '\u2022',
   };
 
   var STEP_LABELS = {
@@ -27,6 +26,19 @@
     summary: { uk: 'Підсумок', ru: 'Итог', en: 'Summary' },
   };
 
+  var UI_TEXT = {
+    preflight_running: {
+      uk: 'Preflight виконується...',
+      ru: 'Preflight выполняется...',
+      en: 'Preflight is running...',
+    },
+    preflight_failed: {
+      uk: 'Preflight не виконано. Спробуйте ще раз.',
+      ru: 'Preflight не выполнен. Попробуйте ещё раз.',
+      en: 'Preflight failed. Please try again.',
+    },
+  };
+
   function getLang() {
     return ((document.documentElement.lang || 'uk').toLowerCase() || 'uk').slice(0, 2);
   }
@@ -34,165 +46,241 @@
   function stepLabel(key) {
     var lang = getLang();
     var labels = STEP_LABELS[key];
-    if (labels) return labels[lang] || labels['uk'] || key;
-    return key;
+    if (!labels) return key || '';
+    return labels[lang] || labels.uk || key;
   }
 
-  /**
-   * Render preflight steps into a container
-   * @param {HTMLElement} container - the loader container
-   * @param {Array} stepItems - array from preflight engine step_items
-   * @param {Object} options - { animated: true, onComplete: fn }
-   */
-  function renderSteps(container, stepItems, options) {
-    if (!container || !stepItems) return;
-    var opts = options || {};
-    var animated = opts.animated !== false;
-    var onComplete = opts.onComplete || null;
+  function uiText(key) {
+    var lang = getLang();
+    var values = UI_TEXT[key] || {};
+    return values[lang] || values.uk || values.en || key;
+  }
 
+  function getCsrfToken(host) {
+    var input = host.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (input && input.value) return input.value;
+    var cookie = document.cookie.split('; ').find(function (row) {
+      return row.indexOf('csrftoken=') === 0;
+    });
+    return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+  }
+
+  function renderSteps(container, stepItems, options) {
+    if (!container || !Array.isArray(stepItems)) return;
+    var opts = options || {};
+    var animated = !!opts.animated;
     container.innerHTML = '';
     container.classList.add('msl-active');
-    var failReached = false;
-    var currentDelay = 0;
-    var STEP_DELAY = animated ? 180 : 0;
 
-    stepItems.forEach(function (step, idx) {
-      var el = document.createElement('div');
-      el.className = 'msl-step';
-      el.setAttribute('data-step-key', step.key || '');
-      el.setAttribute('data-step-status', failReached ? 'skipped' : (step.status || 'pending'));
+    stepItems.forEach(function (step, index) {
+      var status = (step && step.status) ? String(step.status).toLowerCase() : 'pending';
+      var row = document.createElement('div');
+      row.className = 'msl-step msl-status-' + status;
+      if (step && step.key) row.setAttribute('data-step-key', step.key);
 
       var icon = document.createElement('span');
       icon.className = 'msl-step-icon';
-      var statusKey = failReached ? 'pending' : (step.status || 'pending');
-      icon.textContent = STATUS_ICONS[statusKey] || STATUS_ICONS.pending;
       icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = STATUS_ICONS[status] || STATUS_ICONS.pending;
 
       var label = document.createElement('span');
       label.className = 'msl-step-label';
-      label.textContent = stepLabel(step.key) || step.label || '';
+      label.textContent = stepLabel(step.key || '') || step.label || '';
 
-      var msg = document.createElement('span');
-      msg.className = 'msl-step-message';
-      msg.textContent = failReached ? '' : (step.message || '');
+      var message = document.createElement('span');
+      message.className = 'msl-step-message';
+      message.textContent = step.message || '';
 
-      var value = document.createElement('span');
-      value.className = 'msl-step-value';
-      value.textContent = (step.value || '');
+      row.appendChild(icon);
+      row.appendChild(label);
+      row.appendChild(message);
 
-      el.appendChild(icon);
-      el.appendChild(label);
-      el.appendChild(msg);
-      if (step.value) el.appendChild(value);
-
-      /* Status class */
-      if (!failReached) {
-        el.classList.add('msl-status-' + (step.status || 'pending'));
-      } else {
-        el.classList.add('msl-status-skipped');
+      if (step.value) {
+        var value = document.createElement('span');
+        value.className = 'msl-step-value';
+        value.textContent = step.value;
+        row.appendChild(value);
       }
 
-      /* Recommendations for summary step */
-      if (step.key === 'summary' && step.recommendations && step.recommendations.length) {
-        var recList = document.createElement('ul');
-        recList.className = 'msl-recommendations';
-        step.recommendations.forEach(function (rec) {
+      if (step.key === 'summary' && Array.isArray(step.recommendations) && step.recommendations.length) {
+        var list = document.createElement('ul');
+        list.className = 'msl-recommendations';
+        step.recommendations.forEach(function (item) {
           var li = document.createElement('li');
-          li.textContent = rec;
-          recList.appendChild(li);
+          li.textContent = item;
+          list.appendChild(li);
         });
-        el.appendChild(recList);
+        row.appendChild(list);
       }
 
       if (animated) {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(6px)';
-        setTimeout(function () {
-          el.style.transition = 'opacity 220ms ease, transform 220ms ease';
-          el.style.opacity = '1';
-          el.style.transform = 'translateY(0)';
-        }, currentDelay);
-        currentDelay += STEP_DELAY;
+        row.style.opacity = '0';
+        row.style.transform = 'translateY(8px)';
+        window.setTimeout(function () {
+          row.style.transition = 'opacity 220ms ease, transform 220ms ease';
+          row.style.opacity = '1';
+          row.style.transform = 'translateY(0)';
+        }, index * 110);
       }
 
-      container.appendChild(el);
-
-      /* Stop chain on FAIL */
-      if (step.status === 'fail' && !failReached) {
-        failReached = true;
-      }
+      container.appendChild(row);
     });
-
-    if (onComplete) {
-      setTimeout(onComplete, currentDelay + 100);
-    }
   }
 
-  /**
-   * Simple upload-step chip toggler (fallback for basic upload flow)
-   */
   function setUploadStep(host, value) {
-    var steps = host.querySelectorAll('[data-upload-step]');
-    steps.forEach(function (stepNode) {
-      var step = parseInt(stepNode.getAttribute('data-upload-step') || '0', 10);
-      stepNode.classList.toggle('is-active', step === value);
-      stepNode.classList.toggle('is-done', step < value);
+    if (!host) return;
+    host.querySelectorAll('[data-upload-step]').forEach(function (chip) {
+      var step = parseInt(chip.getAttribute('data-upload-step') || '0', 10);
+      chip.classList.toggle('is-active', step === value);
+      chip.classList.toggle('is-done', step < value);
     });
   }
 
-  /**
-   * Legacy init: basic upload flow with file change detection
-   */
-  function initMultiStepLoader(root) {
-    var scope = root || document;
-    var hosts = [];
-    if (scope.matches && scope.matches('[data-upload-flow]')) hosts.push(scope);
-    if (scope.querySelectorAll) hosts.push.apply(hosts, scope.querySelectorAll('[data-upload-flow]'));
+  function deriveStepProgress(container) {
+    if (!container) return 1;
+    if (container.querySelector('.msl-status-fail')) return 2;
+    if (container.querySelector('.msl-status-ok, .msl-status-pass, .msl-status-warn')) return 4;
+    return 2;
+  }
 
-    hosts.forEach(function (host) {
-      if (host.dataset.mslInit === '1') return;
-      host.dataset.mslInit = '1';
+  function renderLoadingState(container) {
+    if (!container) return;
+    renderSteps(container, [
+      {
+        key: 'format_signature',
+        status: 'loading',
+        message: uiText('preflight_running'),
+      },
+      {
+        key: 'dpi',
+        status: 'pending',
+        message: '',
+      },
+      {
+        key: 'physical_size_60cm',
+        status: 'pending',
+        message: '',
+      },
+      {
+        key: 'transparency_bounds',
+        status: 'pending',
+        message: '',
+      },
+      {
+        key: 'tiny_lines',
+        status: 'pending',
+        message: '',
+      },
+      {
+        key: 'summary',
+        status: 'pending',
+        message: '',
+      },
+    ], { animated: false });
+  }
 
-      var input = host.querySelector('input[type="file"]');
-      var loaderContainer = host.querySelector('.msl-container');
+  function initMultiStepLoader(host, ctx) {
+    if (!host) return null;
+    var reducedMotion = !!(ctx && ctx.reducedMotion);
+    var input = host.querySelector('input[type="file"]');
+    var loaderContainer = host.querySelector('.msl-container[data-preflight-loader], .msl-container');
+    var preflightUrl = host.getAttribute('data-preflight-url') || '';
+    var listeners = [];
+    var aborter = null;
 
-      setUploadStep(host, 1);
+    function on(el, evt, fn, opts) {
+      el.addEventListener(evt, fn, opts || false);
+      listeners.push([el, evt, fn, opts || false]);
+    }
 
-      if (input) {
-        input.addEventListener('change', function () {
-          if (!input.files || !input.files.length) {
-            setUploadStep(host, 1);
-            return;
-          }
-          setUploadStep(host, 2);
-
-          /* Try to get preflight data if available from form submission */
-          var preflightDataEl = host.querySelector('[data-preflight-steps]');
-          if (preflightDataEl) {
-            try {
-              var stepItems = JSON.parse(preflightDataEl.textContent || '[]');
-              if (stepItems.length && loaderContainer) {
-                renderSteps(loaderContainer, stepItems, {
-                  animated: true,
-                  onComplete: function () {
-                    var hasFail = stepItems.some(function (s) { return s.status === 'fail'; });
-                    setUploadStep(host, hasFail ? 2 : 4);
-                  },
-                });
-                return;
-              }
-            } catch (e) { /* ignore parse errors */ }
-          }
-
-          /* Fallback: advance steps with minimal delay */
-          setUploadStep(host, 3);
-          setTimeout(function () { setUploadStep(host, 4); }, 300);
-        });
+    function syncFromDom() {
+      if (!input || !(input.files && input.files.length)) {
+        setUploadStep(host, 1);
+        return;
       }
+      setUploadStep(host, deriveStepProgress(loaderContainer));
+    }
+
+    function requestPreflight(file) {
+      if (!preflightUrl || !file || !loaderContainer) return;
+      if (aborter) aborter.abort();
+      aborter = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      renderLoadingState(loaderContainer);
+      var body = new FormData();
+      body.append('file', file);
+      body.append('csrfmiddlewaretoken', getCsrfToken(host));
+
+      fetch(preflightUrl, {
+        method: 'POST',
+        body: body,
+        credentials: 'same-origin',
+        headers: {
+          'X-Requested-With': 'fetch',
+          'X-CSRFToken': getCsrfToken(host),
+        },
+        signal: aborter ? aborter.signal : undefined,
+      })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error('Preflight request failed');
+          }
+          return response.json();
+        })
+        .then(function (payload) {
+          if (!payload || !payload.ok || !payload.report) {
+            throw new Error('Invalid preflight payload');
+          }
+          var stepItems = payload.report.step_items || [];
+          if (!stepItems.length) {
+            throw new Error('No preflight steps returned');
+          }
+          renderSteps(loaderContainer, stepItems, { animated: !reducedMotion });
+          setUploadStep(host, deriveStepProgress(loaderContainer));
+        })
+        .catch(function (error) {
+          if (error && error.name === 'AbortError') return;
+          renderSteps(loaderContainer, [
+            {
+              key: 'summary',
+              status: 'fail',
+              message: uiText('preflight_failed'),
+            },
+          ], { animated: false });
+          setUploadStep(host, 2);
+        });
+    }
+
+    syncFromDom();
+
+    if (input) {
+      on(input, 'change', function () {
+        if (!input.files || !input.files.length) {
+          if (aborter) aborter.abort();
+          setUploadStep(host, 1);
+          return;
+        }
+        setUploadStep(host, 2);
+        requestPreflight(input.files[0]);
+      });
+    }
+
+    on(host, 'dtf:preflight-ready', function (event) {
+      var detail = event && event.detail ? event.detail : {};
+      var steps = detail.stepItems || [];
+      if (!steps.length || !loaderContainer) return;
+      renderSteps(loaderContainer, steps, { animated: !reducedMotion });
+      setUploadStep(host, deriveStepProgress(loaderContainer));
     });
+
+    return function cleanup() {
+      if (aborter) aborter.abort();
+      listeners.forEach(function (entry) {
+        entry[0].removeEventListener(entry[1], entry[2], entry[3]);
+      });
+      listeners.length = 0;
+    };
   }
 
-  /* Export renderSteps for use by other modules */
   DTF.MultiStepLoader = {
     renderSteps: renderSteps,
     setUploadStep: setUploadStep,
@@ -201,6 +289,6 @@
   };
 
   if (DTF.registerEffect) {
-    DTF.registerEffect('multi-step-loader', initMultiStepLoader);
+    DTF.registerEffect('multi-step-loader', '[data-upload-flow], [data-effect~="multi-step-loader"]', initMultiStepLoader);
   }
 })();
