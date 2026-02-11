@@ -999,7 +999,7 @@
       ctx.clearRect(0, 0, width, height);
       const px = ((state.x + 1) * 0.5) * width;
       const py = ((state.y + 1) * 0.5) * height;
-      const radius = Math.min(width, height) * 0.46;
+      const radius = Math.min(width, height) * 0.44;
 
       const halo = ctx.createRadialGradient(px, py, 0, px, py, radius);
       halo.addColorStop(0, 'rgba(255, 178, 94, 0.22)');
@@ -1014,17 +1014,17 @@
         const dy = dot.y - py;
         const dist = Math.max(1, Math.hypot(dx, dy));
         const influence = Math.max(0, 1 - dist / radius);
-        const pull = influence * influence * 14;
+        const pull = influence * influence * 19;
         const nx = dx / dist;
         const ny = dy / dist;
-        const swirl = Math.sin(time * 0.0012 + dot.phase) * influence * 4.8;
+        const swirl = Math.sin(time * 0.0019 + dot.phase) * influence * 6.2;
 
-        const x = dot.x - nx * pull - ny * swirl + state.x * 4;
-        const y = dot.y - ny * pull + nx * swirl + state.y * 3.5;
-        const size = 0.7 + influence * 1.2 + Math.sin(time * 0.0018 + dot.phase) * 0.1;
-        const green = clamp(138 + influence * 74 + dot.bias * 18, 120, 232);
-        const blue = clamp(28 + dot.bias * 14 + influence * 22, 20, 78);
-        const alpha = clamp(0.16 + dot.bias * 0.14 + influence * 0.34, 0.12, 0.68);
+        const x = dot.x - nx * pull - ny * swirl + state.x * 5.6;
+        const y = dot.y - ny * pull + nx * swirl + state.y * 4.8;
+        const size = 0.78 + influence * 1.38 + Math.sin(time * 0.0021 + dot.phase) * 0.14;
+        const green = clamp(136 + influence * 80 + dot.bias * 20, 118, 236);
+        const blue = clamp(26 + dot.bias * 16 + influence * 24, 18, 84);
+        const alpha = clamp(0.16 + dot.bias * 0.15 + influence * 0.42, 0.12, 0.8);
         ctx.fillStyle = `rgba(255, ${Math.round(green)}, ${Math.round(blue)}, ${alpha.toFixed(3)})`;
         ctx.beginPath();
         ctx.arc(x, y, size, 0, Math.PI * 2);
@@ -1034,21 +1034,22 @@
 
     const step = (time) => {
       frame = null;
-      state.x += (state.tx - state.x) * 0.12;
-      state.y += (state.ty - state.y) * 0.12;
+      const follow = state.active ? 0.22 : 0.16;
+      state.x += (state.tx - state.x) * follow;
+      state.y += (state.ty - state.y) * follow;
 
-      const shiftX = state.x * 24;
-      const shiftY = state.y * 18;
-      const arcX = state.x * -18;
-      const arcY = state.y * -12;
+      const shiftX = state.x * 30;
+      const shiftY = state.y * 22;
+      const arcX = state.x * -22;
+      const arcY = state.y * -16;
 
-      layer.style.setProperty('--dot-pointer-x', `${(50 + state.x * 22).toFixed(2)}%`);
-      layer.style.setProperty('--dot-pointer-y', `${(42 + state.y * 18).toFixed(2)}%`);
+      layer.style.setProperty('--dot-pointer-x', `${(50 + state.x * 25).toFixed(2)}%`);
+      layer.style.setProperty('--dot-pointer-y', `${(42 + state.y * 20).toFixed(2)}%`);
       layer.style.setProperty('--dot-shift-x', `${shiftX.toFixed(2)}px`);
       layer.style.setProperty('--dot-shift-y', `${shiftY.toFixed(2)}px`);
       layer.style.setProperty('--dot-arc-x', `${arcX.toFixed(2)}px`);
       layer.style.setProperty('--dot-arc-y', `${arcY.toFixed(2)}px`);
-      layer.style.setProperty('--dot-glow', state.active ? '0.7' : '0.56');
+      layer.style.setProperty('--dot-glow', state.active ? '0.76' : '0.58');
 
       orbs.forEach((orb) => {
         const depth = parseFloat(orb.dataset.depth || '0.2');
@@ -1066,8 +1067,10 @@
       const viewH = Math.max(window.innerHeight || 1, 1);
       const relX = (event.clientX / viewW) * 2 - 1;
       const relY = (event.clientY / viewH) * 2 - 1;
-      state.tx = clamp(relX, -1, 1);
-      state.ty = clamp(relY, -1, 1);
+      const shapedX = Math.sign(relX) * Math.pow(Math.abs(relX), 0.86);
+      const shapedY = Math.sign(relY) * Math.pow(Math.abs(relY), 0.88);
+      state.tx = clamp(shapedX, -1, 1);
+      state.ty = clamp(shapedY, -1, 1);
       state.active = true;
       schedule();
     };
