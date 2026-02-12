@@ -28,6 +28,69 @@
       min-height: 100svh;
       background: linear-gradient(180deg, #050505, #0b0b0b);
     }
+    .home-dot-distortion {
+      display: none;
+      --dot-pointer-x: 50%;
+      --dot-pointer-y: 42%;
+      --dot-shift-x: 0px;
+      --dot-shift-y: 0px;
+      --dot-arc-x: 0px;
+      --dot-arc-y: 0px;
+      --dot-glow: 0.56;
+    }
+    body[data-page="home"] .home-dot-distortion {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .home-dot-distortion::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(56% 44% at var(--dot-pointer-x) var(--dot-pointer-y), rgba(255, 118, 20, 0.18), transparent 74%),
+        radial-gradient(120% 90% at 52% 76%, rgba(6, 7, 9, 0.2), rgba(5, 5, 7, 0.8) 74%, rgba(5, 5, 7, 0.9) 100%);
+      opacity: var(--dot-glow);
+    }
+    .home-dot-distortion .dot-distortion-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .home-dot-distortion .dot-field,
+    .home-dot-distortion .dot-orb {
+      position: absolute;
+      pointer-events: none;
+    }
+    .home-dot-distortion .dot-field {
+      inset: 0;
+      background-image: radial-gradient(circle at 1px 1px, rgba(255, 154, 64, 0.58) 1.1px, transparent 1.9px);
+      background-size: 26px 26px;
+      opacity: 0.2;
+      transform: translate3d(var(--dot-shift-x), var(--dot-shift-y), 0);
+    }
+    .home-dot-distortion .dot-field-alt {
+      background-size: 34px 34px;
+      opacity: 0.1;
+      transform: translate3d(calc(var(--dot-shift-x) * -0.6), calc(var(--dot-shift-y) * -0.6), 0);
+    }
+    .home-dot-distortion .dot-orb {
+      width: clamp(120px, 12vw, 220px);
+      aspect-ratio: 1;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 28%, rgba(255, 242, 214, 0.3), rgba(255, 176, 74, 0.18) 42%, rgba(255, 116, 18, 0.05) 68%, rgba(255, 116, 18, 0) 100%);
+      opacity: 0.32;
+      transform: translate3d(var(--orb-x, 0px), var(--orb-y, 0px), 0);
+    }
+    .home-dot-distortion .dot-orb-1 { top: 24%; left: 18%; }
+    .home-dot-distortion .dot-orb-2 { top: 56%; left: 54%; }
+    .home-dot-distortion .dot-orb-3 { top: 20%; left: 76%; }
   </style>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -364,6 +427,99 @@
       <span>{% trans "Галерея" %}</span>
     </a>
   </nav>
+
+  <script>
+    (function () {
+      if (window.__dtfCriticalBoot) return;
+      window.__dtfCriticalBoot = true;
+      var body = document.body;
+      if (!body) return;
+      var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      body.classList.add('reveal-ready');
+      var revealNodes = Array.prototype.slice.call(document.querySelectorAll('[data-reveal]'));
+      if (revealNodes.length) {
+        if (!prefersReduced && 'IntersectionObserver' in window) {
+          var viewportHeight = Math.max(window.innerHeight || 0, document.documentElement ? document.documentElement.clientHeight : 0);
+          revealNodes.forEach(function (el) {
+            el.dataset.initReveal = '1';
+            var rect = el.getBoundingClientRect();
+            if (rect.bottom > 0 && rect.top < viewportHeight * 0.98) {
+              el.classList.add('is-visible');
+            }
+          });
+          var revealObserver = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add('is-visible');
+              if (entry.target.classList.contains('section-head')) {
+                var section = entry.target.closest('section');
+                if (section) section.classList.add('is-hot');
+              }
+              revealObserver.unobserve(entry.target);
+            });
+          }, { threshold: 0.05, rootMargin: '0px 0px -8% 0px' });
+          revealNodes.forEach(function (el) {
+            if (!el.classList.contains('is-visible')) revealObserver.observe(el);
+          });
+        } else {
+          revealNodes.forEach(function (el) {
+            el.dataset.initReveal = '1';
+            el.classList.add('is-visible');
+          });
+        }
+      }
+
+      if (prefersReduced || body.dataset.page !== 'home') return;
+      var layer = document.querySelector('.home-dot-distortion');
+      if (!layer) return;
+
+      var state = { x: 0, y: 0, tx: 0, ty: 0, active: false };
+      var frame = 0;
+      var clamp = function (v, min, max) { return Math.min(max, Math.max(min, v)); };
+      var schedule = function () {
+        if (!frame) frame = window.requestAnimationFrame(step);
+      };
+      var step = function () {
+        frame = 0;
+        var follow = state.active ? 0.22 : 0.15;
+        state.x += (state.tx - state.x) * follow;
+        state.y += (state.ty - state.y) * follow;
+        var shiftX = state.x * 28;
+        var shiftY = state.y * 20;
+        layer.style.setProperty('--dot-pointer-x', (50 + state.x * 25).toFixed(2) + '%');
+        layer.style.setProperty('--dot-pointer-y', (42 + state.y * 20).toFixed(2) + '%');
+        layer.style.setProperty('--dot-shift-x', shiftX.toFixed(2) + 'px');
+        layer.style.setProperty('--dot-shift-y', shiftY.toFixed(2) + 'px');
+        layer.style.setProperty('--dot-arc-x', (state.x * -20).toFixed(2) + 'px');
+        layer.style.setProperty('--dot-arc-y', (state.y * -15).toFixed(2) + 'px');
+        layer.style.setProperty('--dot-glow', state.active ? '0.74' : '0.56');
+        if (state.active || Math.abs(state.tx - state.x) > 0.002 || Math.abs(state.ty - state.y) > 0.002) schedule();
+      };
+      var update = function (event) {
+        var viewW = Math.max(window.innerWidth || 1, 1);
+        var viewH = Math.max(window.innerHeight || 1, 1);
+        var relX = (event.clientX / viewW) * 2 - 1;
+        var relY = (event.clientY / viewH) * 2 - 1;
+        state.tx = clamp(Math.sign(relX) * Math.pow(Math.abs(relX), 0.86), -1, 1);
+        state.ty = clamp(Math.sign(relY) * Math.pow(Math.abs(relY), 0.88), -1, 1);
+        state.active = true;
+        schedule();
+      };
+      var reset = function () {
+        state.active = false;
+        state.tx = 0;
+        state.ty = 0;
+        schedule();
+      };
+
+      window.addEventListener('pointermove', update, { passive: true });
+      window.addEventListener('pointerdown', update, { passive: true });
+      window.addEventListener('pointerleave', reset);
+      window.addEventListener('blur', reset);
+      schedule();
+    })();
+  </script>
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
   <script src="{% static 'dtf/js/dtf.js' %}?v=20260213g" defer></script>
