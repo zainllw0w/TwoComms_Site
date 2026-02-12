@@ -993,6 +993,18 @@
       maxDots: ambientTier >= 4 ? 1250 : ambientTier >= 3 ? 900 : 620,
       frameBudget: ambientTier >= 4 ? 16 : ambientTier >= 3 ? 20 : 30,
     };
+    let canvasReady = false;
+    let canvasReadyHandle = null;
+
+    const markCanvasReady = () => {
+      if (canvasReady) return;
+      canvasReady = true;
+      if (canvasReadyHandle) {
+        window.cancelAnimationFrame(canvasReadyHandle);
+        canvasReadyHandle = null;
+      }
+      layer.classList.add('is-canvas-ready');
+    };
 
     const setStatic = () => {
       layer.classList.add('is-static');
@@ -1005,7 +1017,8 @@
       layer.style.setProperty('--dot-pointer-y', '42%');
     };
 
-    if (ctx) layer.classList.add('has-canvas');
+    if (ctx && canAnimate) layer.classList.add('has-canvas');
+    else layer.classList.remove('has-canvas', 'is-canvas-ready');
     if (!canAnimate) setStatic();
     else layer.classList.remove('is-static');
 
@@ -1091,6 +1104,7 @@
         ctx.arc(x, y, size, 0, Math.PI * 2);
         ctx.fill();
       }
+      if (!canvasReady) markCanvasReady();
     };
 
     const step = (time) => {
@@ -1149,9 +1163,11 @@
     };
 
     const boot = () => {
-      if (ctx) {
+      if (ctx && canAnimate) {
+        layer.classList.remove('is-canvas-ready');
         resizeCanvas();
         renderCanvas(0);
+        canvasReadyHandle = window.requestAnimationFrame(() => markCanvasReady());
         window.addEventListener('resize', () => {
           resizeCanvas();
           renderCanvas(0);
@@ -2182,7 +2198,17 @@
     initSpeculationRules();
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  function initCritical(root = document) {
+    initAmbientBackdrop();
+    revealOnScroll(root);
+    initPrintheadScan();
+    initInkFlow();
+    initHomeDotBackground();
+    initHeroTilt();
+    initSpotlight(root);
+  }
+
+  function bootMain() {
     DTF.init = (root = document) => {
       initAll(root);
     };
@@ -2199,5 +2225,19 @@
         });
       }
     }
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      initCritical(document);
+      bootMain();
+    }, { once: true });
+  } else {
+    initCritical(document);
+    if (document.readyState === 'complete') {
+      bootMain();
+    } else {
+      document.addEventListener('DOMContentLoaded', bootMain, { once: true });
+    }
+  }
 })();
