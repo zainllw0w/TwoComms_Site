@@ -281,7 +281,10 @@
           }
         });
       },
-      { threshold: 0.2 }
+      {
+        threshold: 0.05,
+        rootMargin: '0px 0px -8% 0px'
+      }
     );
     items.forEach(el => {
       if (!initOnce(el, 'Reveal')) return;
