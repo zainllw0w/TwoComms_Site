@@ -937,21 +937,30 @@
     if (initState.ambientBackdrop) return;
     initState.ambientBackdrop = true;
     if (!document.body) return;
+    if (prefersReduced) return;
 
-    const activate = () => document.body.classList.add('ambient-fx-ready');
-    const schedule = () => {
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(activate, { timeout: 1200 });
-      } else {
-        window.setTimeout(activate, 260);
+    let activated = false;
+    let fallbackTimer = null;
+    const interactionEvents = ['pointerdown', 'touchstart', 'keydown', 'scroll'];
+    const activate = () => {
+      if (activated || !document.body) return;
+      activated = true;
+      document.body.classList.add('ambient-fx-ready');
+      if (fallbackTimer) {
+        window.clearTimeout(fallbackTimer);
+        fallbackTimer = null;
       }
+      interactionEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, activate);
+      });
     };
 
-    if ('requestAnimationFrame' in window) {
-      window.requestAnimationFrame(schedule);
-    } else {
-      schedule();
-    }
+    interactionEvents.forEach((eventName) => {
+      window.addEventListener(eventName, activate, { passive: true });
+    });
+
+    // Keep ambient FX out of the first-paint window unless user interacts earlier.
+    fallbackTimer = window.setTimeout(activate, 4200);
   }
 
   function initHomeDotBackground() {
