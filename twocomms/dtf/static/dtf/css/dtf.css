@@ -4323,7 +4323,7 @@ body[data-page="order"] .mobile-dock {
 body.reveal-ready [data-reveal] {
   opacity: 0;
   transform: translateY(20px);
-  transition: all 0.6s ease;
+  transition: opacity 0.34s ease, transform 0.34s ease;
 }
 
 body.reveal-ready [data-reveal].is-visible {
