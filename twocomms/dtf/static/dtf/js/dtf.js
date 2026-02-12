@@ -27,6 +27,7 @@
     tracingBeam: false,
     readingProgress: false,
     speculation: false,
+    ambientBackdrop: false,
   };
   let lensModalInstance = null;
   const focusTrap = {
@@ -930,6 +931,27 @@
     hero.addEventListener('mousemove', handleMove);
     hero.addEventListener('mouseenter', () => hero.style.setProperty('--ink-opacity', '0.65'));
     hero.addEventListener('mouseleave', () => hero.style.setProperty('--ink-opacity', '0'));
+  }
+
+  function initAmbientBackdrop() {
+    if (initState.ambientBackdrop) return;
+    initState.ambientBackdrop = true;
+    if (!document.body) return;
+
+    const activate = () => document.body.classList.add('ambient-fx-ready');
+    const schedule = () => {
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(activate, { timeout: 1200 });
+      } else {
+        window.setTimeout(activate, 260);
+      }
+    };
+
+    if ('requestAnimationFrame' in window) {
+      window.requestAnimationFrame(schedule);
+    } else {
+      schedule();
+    }
   }
 
   function initHomeDotBackground() {
@@ -2076,6 +2098,7 @@
   }
 
   function initAll(root = document) {
+    initAmbientBackdrop();
     initEffects(root);
     revealOnScroll(root);
     initFlipWords(root);
