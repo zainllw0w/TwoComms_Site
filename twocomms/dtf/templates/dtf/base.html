@@ -40,7 +40,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   </noscript>
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260206b">
-  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260213e">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260213f">
   <link
     rel="preload"
     as="style"
@@ -49,6 +49,7 @@
   <noscript>
     <link rel="stylesheet" href="{% static 'dtf/css/components/effects-bundle.css' %}?v=20260213b">
   </noscript>
+  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.js' %}?v=20260213g">
   {% block extra_head %}{% endblock %}
 </head>
 <body data-page="{% block page_id %}{% endblock %}">
@@ -365,12 +366,12 @@
   </nav>
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
+  <script src="{% static 'dtf/js/dtf.js' %}?v=20260213g" defer></script>
   <script src="{% static 'dtf/js/vendor/htmx.min.js' %}?v=20260206b" defer></script>
   <script src="{% static 'dtf/js/components/core.js' %}?v=20260207b" defer></script>
   <script src="{% static 'dtf/js/components/_utils.js' %}?v=20260207b" defer></script>
   <script src="{% static 'dtf/js/components/motion.js' %}?v=20260207a" defer></script>
   <script src="{% static 'dtf/js/components/effects-bundle.js' %}?v=20260213b" defer></script>
-  <script src="{% static 'dtf/js/dtf.js' %}?v=20260213f" defer></script>
   {% block extra_scripts %}{% endblock %}
 
 </body>
