@@ -340,7 +340,20 @@
       {% else %}
         <figure class="work-card">
           <div class="work-media">
-            <img src="{% static 'dtf/assets/gallery-macro-01.jpg' %}" alt="{% trans 'Приклад DTF 01' %}" loading="lazy" decoding="async" class="skeleton">
+            <img
+              src="{% static 'dtf/assets/gallery-macro-01-768.jpg' %}"
+              srcset="
+                {% static 'dtf/assets/gallery-macro-01-480.jpg' %} 480w,
+                {% static 'dtf/assets/gallery-macro-01-768.jpg' %} 768w,
+                {% static 'dtf/assets/gallery-macro-01.jpg' %} 1200w"
+              sizes="(max-width: 960px) calc(100vw - 32px), (max-width: 1200px) 30vw, 334px"
+              alt="{% trans 'Приклад DTF 01' %}"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              width="1200"
+              height="800"
+              class="skeleton">
             <div class="work-chips">
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Макро" %}</span>
@@ -351,7 +364,20 @@
         </figure>
         <figure class="work-card">
           <div class="work-media">
-            <img src="{% static 'dtf/assets/gallery-macro-02.jpg' %}" alt="{% trans 'Приклад DTF 02' %}" loading="lazy" decoding="async" class="skeleton">
+            <img
+              src="{% static 'dtf/assets/gallery-macro-02-768.jpg' %}"
+              srcset="
+                {% static 'dtf/assets/gallery-macro-02-480.jpg' %} 480w,
+                {% static 'dtf/assets/gallery-macro-02-768.jpg' %} 768w,
+                {% static 'dtf/assets/gallery-macro-02.jpg' %} 1200w"
+              sizes="(max-width: 960px) calc(100vw - 32px), (max-width: 1200px) 30vw, 334px"
+              alt="{% trans 'Приклад DTF 02' %}"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              width="1200"
+              height="800"
+              class="skeleton">
             <div class="work-chips">
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Процес" %}</span>
@@ -362,7 +388,20 @@
         </figure>
         <figure class="work-card">
           <div class="work-media">
-            <img src="{% static 'dtf/assets/gallery-macro-03.jpg' %}" alt="{% trans 'Приклад DTF 03' %}" loading="lazy" decoding="async" class="skeleton">
+            <img
+              src="{% static 'dtf/assets/gallery-macro-03-768.jpg' %}"
+              srcset="
+                {% static 'dtf/assets/gallery-macro-03-480.jpg' %} 480w,
+                {% static 'dtf/assets/gallery-macro-03-768.jpg' %} 768w,
+                {% static 'dtf/assets/gallery-macro-03.jpg' %} 1200w"
+              sizes="(max-width: 960px) calc(100vw - 32px), (max-width: 1200px) 30vw, 334px"
+              alt="{% trans 'Приклад DTF 03' %}"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              width="1200"
+              height="800"
+              class="skeleton">
             <div class="work-chips">
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Готове" %}</span>
@@ -373,7 +412,20 @@
         </figure>
         <figure class="work-card">
           <div class="work-media">
-            <img src="{% static 'dtf/assets/gallery-macro-04.jpg' %}" alt="{% trans 'Приклад DTF 04' %}" loading="lazy" decoding="async" class="skeleton">
+            <img
+              src="{% static 'dtf/assets/gallery-macro-04-768.jpg' %}"
+              srcset="
+                {% static 'dtf/assets/gallery-macro-04-480.jpg' %} 480w,
+                {% static 'dtf/assets/gallery-macro-04-768.jpg' %} 768w,
+                {% static 'dtf/assets/gallery-macro-04.jpg' %} 1200w"
+              sizes="(max-width: 960px) calc(100vw - 32px), (max-width: 1200px) 30vw, 334px"
+              alt="{% trans 'Приклад DTF 04' %}"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              width="1200"
+              height="800"
+              class="skeleton">
             <div class="work-chips">
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Макро" %}</span>
@@ -384,7 +436,20 @@
         </figure>
         <figure class="work-card">
           <div class="work-media">
-            <img src="{% static 'dtf/assets/gallery-macro-05.jpg' %}" alt="{% trans 'Приклад DTF 05' %}" loading="lazy" decoding="async" class="skeleton">
+            <img
+              src="{% static 'dtf/assets/gallery-macro-05-768.jpg' %}"
+              srcset="
+                {% static 'dtf/assets/gallery-macro-05-480.jpg' %} 480w,
+                {% static 'dtf/assets/gallery-macro-05-768.jpg' %} 768w,
+                {% static 'dtf/assets/gallery-macro-05.jpg' %} 1200w"
+              sizes="(max-width: 960px) calc(100vw - 32px), (max-width: 1200px) 30vw, 334px"
+              alt="{% trans 'Приклад DTF 05' %}"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              width="1200"
+              height="800"
+              class="skeleton">
             <div class="work-chips">
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Процес" %}</span>
@@ -395,7 +460,20 @@
         </figure>
         <figure class="work-card">
           <div class="work-media">
-            <img src="{% static 'dtf/assets/gallery-macro-06.jpg' %}" alt="{% trans 'Приклад DTF 06' %}" loading="lazy" decoding="async" class="skeleton">
+            <img
+              src="{% static 'dtf/assets/gallery-macro-06-768.jpg' %}"
+              srcset="
+                {% static 'dtf/assets/gallery-macro-06-480.jpg' %} 480w,
+                {% static 'dtf/assets/gallery-macro-06-768.jpg' %} 768w,
+                {% static 'dtf/assets/gallery-macro-06.jpg' %} 1200w"
+              sizes="(max-width: 960px) calc(100vw - 32px), (max-width: 1200px) 30vw, 334px"
+              alt="{% trans 'Приклад DTF 06' %}"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              width="1200"
+              height="800"
+              class="skeleton">
             <div class="work-chips">
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Готове" %}</span>
@@ -412,18 +490,62 @@
         <!-- ASSET_REQUEST | id=compare-case-1-after | type=photo | usage=Home Proof Compare #1 (after) | spec=2x, ~1400px wide | notes=finished print, same framing -->
         <div class="compare-media asset-slot">
           <div class="compare-layer compare-before">
-            <img src="{% static 'dtf/assets/compare-case-1-before.jpg' %}"
-                 alt="{% trans 'До друку — кейс 1' %}"
-                 loading="lazy"
-                 decoding="async"
-                 class="skeleton">
+            <picture>
+              <source
+                type="image/avif"
+                srcset="
+                  {% static 'dtf/assets/compare-case-1-before-512.avif' %} 512w,
+                  {% static 'dtf/assets/compare-case-1-before-768.avif' %} 768w"
+                sizes="(max-width: 768px) 84vw, 355px">
+              <source
+                type="image/webp"
+                srcset="
+                  {% static 'dtf/assets/compare-case-1-before-512.webp' %} 512w,
+                  {% static 'dtf/assets/compare-case-1-before-768.webp' %} 768w"
+                sizes="(max-width: 768px) 84vw, 355px">
+              <img src="{% static 'dtf/assets/compare-case-1-before-768.jpg' %}"
+                   srcset="
+                     {% static 'dtf/assets/compare-case-1-before-512.jpg' %} 512w,
+                     {% static 'dtf/assets/compare-case-1-before-768.jpg' %} 768w,
+                     {% static 'dtf/assets/compare-case-1-before.jpg' %} 1024w"
+                   sizes="(max-width: 768px) 84vw, 355px"
+                   alt="{% trans 'До друку — кейс 1' %}"
+                   loading="lazy"
+                   decoding="async"
+                   fetchpriority="low"
+                   width="1024"
+                   height="1024"
+                   class="skeleton">
+            </picture>
           </div>
           <div class="compare-layer compare-after">
-            <img src="{% static 'dtf/assets/compare-case-1-after.jpg' %}"
-                 alt="{% trans 'Після друку — кейс 1' %}"
-                 loading="lazy"
-                 decoding="async"
-                 class="skeleton">
+            <picture>
+              <source
+                type="image/avif"
+                srcset="
+                  {% static 'dtf/assets/compare-case-1-after-512.avif' %} 512w,
+                  {% static 'dtf/assets/compare-case-1-after-768.avif' %} 768w"
+                sizes="(max-width: 768px) 84vw, 355px">
+              <source
+                type="image/webp"
+                srcset="
+                  {% static 'dtf/assets/compare-case-1-after-512.webp' %} 512w,
+                  {% static 'dtf/assets/compare-case-1-after-768.webp' %} 768w"
+                sizes="(max-width: 768px) 84vw, 355px">
+              <img src="{% static 'dtf/assets/compare-case-1-after-768.jpg' %}"
+                   srcset="
+                     {% static 'dtf/assets/compare-case-1-after-512.jpg' %} 512w,
+                     {% static 'dtf/assets/compare-case-1-after-768.jpg' %} 768w,
+                     {% static 'dtf/assets/compare-case-1-after.jpg' %} 1024w"
+                   sizes="(max-width: 768px) 84vw, 355px"
+                   alt="{% trans 'Після друку — кейс 1' %}"
+                   loading="lazy"
+                   decoding="async"
+                   fetchpriority="low"
+                   width="1024"
+                   height="1024"
+                   class="skeleton">
+            </picture>
           </div>
           <div class="compare-handle" aria-hidden="true"></div>
         </div>
@@ -438,18 +560,62 @@
         <!-- ASSET_REQUEST | id=compare-case-2-after | type=photo | usage=Home Proof Compare #2 (after) | spec=2x, ~1400px wide | notes=finished print, same framing -->
         <div class="compare-media asset-slot">
           <div class="compare-layer compare-before">
-            <img src="{% static 'dtf/assets/compare-case-2-before.jpg' %}"
-                 alt="{% trans 'До друку — кейс 2' %}"
-                 loading="lazy"
-                 decoding="async"
-                 class="skeleton">
+            <picture>
+              <source
+                type="image/avif"
+                srcset="
+                  {% static 'dtf/assets/compare-case-2-before-512.avif' %} 512w,
+                  {% static 'dtf/assets/compare-case-2-before-768.avif' %} 768w"
+                sizes="(max-width: 768px) 84vw, 355px">
+              <source
+                type="image/webp"
+                srcset="
+                  {% static 'dtf/assets/compare-case-2-before-512.webp' %} 512w,
+                  {% static 'dtf/assets/compare-case-2-before-768.webp' %} 768w"
+                sizes="(max-width: 768px) 84vw, 355px">
+              <img src="{% static 'dtf/assets/compare-case-2-before-768.jpg' %}"
+                   srcset="
+                     {% static 'dtf/assets/compare-case-2-before-512.jpg' %} 512w,
+                     {% static 'dtf/assets/compare-case-2-before-768.jpg' %} 768w,
+                     {% static 'dtf/assets/compare-case-2-before.jpg' %} 1024w"
+                   sizes="(max-width: 768px) 84vw, 355px"
+                   alt="{% trans 'До друку — кейс 2' %}"
+                   loading="lazy"
+                   decoding="async"
+                   fetchpriority="low"
+                   width="1024"
+                   height="1024"
+                   class="skeleton">
+            </picture>
           </div>
           <div class="compare-layer compare-after">
-            <img src="{% static 'dtf/assets/compare-case-2-after.jpg' %}"
-                 alt="{% trans 'Після друку — кейс 2' %}"
-                 loading="lazy"
-                 decoding="async"
-                 class="skeleton">
+            <picture>
+              <source
+                type="image/avif"
+                srcset="
+                  {% static 'dtf/assets/compare-case-2-after-512.avif' %} 512w,
+                  {% static 'dtf/assets/compare-case-2-after-768.avif' %} 768w"
+                sizes="(max-width: 768px) 84vw, 355px">
+              <source
+                type="image/webp"
+                srcset="
+                  {% static 'dtf/assets/compare-case-2-after-512.webp' %} 512w,
+                  {% static 'dtf/assets/compare-case-2-after-768.webp' %} 768w"
+                sizes="(max-width: 768px) 84vw, 355px">
+              <img src="{% static 'dtf/assets/compare-case-2-after-768.jpg' %}"
+                   srcset="
+                     {% static 'dtf/assets/compare-case-2-after-512.jpg' %} 512w,
+                     {% static 'dtf/assets/compare-case-2-after-768.jpg' %} 768w,
+                     {% static 'dtf/assets/compare-case-2-after.jpg' %} 1024w"
+                   sizes="(max-width: 768px) 84vw, 355px"
+                   alt="{% trans 'Після друку — кейс 2' %}"
+                   loading="lazy"
+                   decoding="async"
+                   fetchpriority="low"
+                   width="1024"
+                   height="1024"
+                   class="skeleton">
+            </picture>
           </div>
           <div class="compare-handle" aria-hidden="true"></div>
         </div>
@@ -462,11 +628,33 @@
       <article class="proof-card lens-card" data-lens>
         <!-- ASSET_REQUEST | id=lens-macro-1 | type=photo | usage=Home Proof Lens (macro) | spec=2x, ~1400px wide | notes=texture close-up for lens zoom -->
         <div class="lens-media asset-slot" data-lens-src="{% static 'dtf/assets/lens-macro-1.jpg' %}">
-          <img src="{% static 'dtf/assets/lens-macro-1.jpg' %}"
-               alt="{% trans 'Макро-текстура DTF' %}"
-               loading="lazy"
-               decoding="async"
-               class="skeleton">
+          <picture>
+            <source
+              type="image/avif"
+              srcset="
+                {% static 'dtf/assets/lens-macro-1-512.avif' %} 512w,
+                {% static 'dtf/assets/lens-macro-1-768.avif' %} 768w"
+              sizes="(max-width: 768px) 84vw, 355px">
+            <source
+              type="image/webp"
+              srcset="
+                {% static 'dtf/assets/lens-macro-1-512.webp' %} 512w,
+                {% static 'dtf/assets/lens-macro-1-768.webp' %} 768w"
+              sizes="(max-width: 768px) 84vw, 355px">
+            <img src="{% static 'dtf/assets/lens-macro-1-768.jpg' %}"
+                 srcset="
+                   {% static 'dtf/assets/lens-macro-1-512.jpg' %} 512w,
+                   {% static 'dtf/assets/lens-macro-1-768.jpg' %} 768w,
+                   {% static 'dtf/assets/lens-macro-1.jpg' %} 1024w"
+                 sizes="(max-width: 768px) 84vw, 355px"
+                 alt="{% trans 'Макро-текстура DTF' %}"
+                 loading="lazy"
+                 decoding="async"
+                 fetchpriority="low"
+                 width="1024"
+                 height="1024"
+                 class="skeleton">
+          </picture>
           <div class="lens-glass" aria-hidden="true"></div>
         </div>
         <div class="proof-meta">

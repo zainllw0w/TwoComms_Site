@@ -1,0 +1,2226 @@
+/* --- effect.bg-beams.js --- */
+(function () {
+  const DTF = (window.DTF = window.DTF || {});
+
+  function initBeamEffect(node, ctx) {
+    if (!node) return null;
+    if (ctx && ctx.reducedMotion) {
+      node.classList.add('beams-static');
+      node.classList.remove('beams-active');
+      return null;
+    }
+
+    if (!('IntersectionObserver' in window)) {
+      node.classList.add('beams-active');
+      return null;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          node.classList.toggle('beams-active', entry.isIntersecting);
+        });
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(node);
+    return function cleanup() {
+      observer.disconnect();
+    };
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('bg-beams', '[data-effect~="bg-beams"]', initBeamEffect);
+  }
+})();
+
+
+/* --- effect.dotted-glow.js --- */
+(function () {
+  const DTF = (window.DTF = window.DTF || {});
+
+  function initDottedGlow(node, ctx) {
+    if (!node) return null;
+    if (ctx && ctx.reducedMotion) {
+      node.classList.add('dotted-static');
+      node.classList.remove('dotted-active');
+      return null;
+    }
+    if (!('IntersectionObserver' in window)) {
+      node.classList.add('dotted-active');
+      return null;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          node.classList.toggle('dotted-active', entry.isIntersecting);
+        });
+      },
+      { threshold: 0.2 }
+    );
+    observer.observe(node);
+    return function cleanup() {
+      observer.disconnect();
+    };
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('dotted-glow', '[data-effect~="dotted-glow"]', initDottedGlow);
+  }
+})();
+
+
+/* --- effect.encrypted-text.js --- */
+(function () {
+  const DTF = (window.DTF = window.DTF || {});
+  const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#@$%';
+
+  function scrambleStep(target, progress) {
+    const keep = Math.floor(target.length * progress);
+    return target
+      .split('')
+      .map((char, index) => {
+        if (char === ' ' || index <= keep) return char;
+        return CHARS[Math.floor(Math.random() * CHARS.length)];
+      })
+      .join('');
+  }
+
+  function initEncryptedText(node, ctx) {
+    if (!node) return null;
+    const finalText = (node.dataset.encryptedText || node.dataset.encrypted || node.textContent || '').trim();
+    if (!finalText) return null;
+    node.setAttribute('aria-label', finalText);
+
+    if (ctx && ctx.reducedMotion) {
+      node.textContent = finalText;
+      return null;
+    }
+
+    let rafId = null;
+    let started = false;
+    const duration = Math.min(900, Math.max(500, finalText.length * 18));
+    const startAnimation = () => {
+      if (started) return;
+      started = true;
+      const startedAt = performance.now();
+      const frame = (time) => {
+        const progress = Math.min(1, (time - startedAt) / duration);
+        node.textContent = scrambleStep(finalText, progress);
+        if (progress < 1) {
+          rafId = window.requestAnimationFrame(frame);
+        } else {
+          rafId = null;
+          node.textContent = finalText;
+        }
+      };
+      rafId = window.requestAnimationFrame(frame);
+    };
+
+    if (!('IntersectionObserver' in window)) {
+      startAnimation();
+      return null;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          startAnimation();
+          observer.disconnect();
+        });
+      },
+      { threshold: 0.2 }
+    );
+    observer.observe(node);
+
+    return function cleanup() {
+      observer.disconnect();
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('encrypted-text', '[data-effect~="encrypted-text"]', initEncryptedText);
+  }
+})();
+
+
+/* --- effect.pointer-highlight.js --- */
+(function () {
+  const DTF = (window.DTF = window.DTF || {});
+
+  function initPointerHighlight(node, ctx) {
+    if (!node) return null;
+    node.classList.add('pointer-highlight');
+    if (ctx && ctx.coarsePointer) return null;
+
+    const onEnter = () => node.classList.add('is-pointed');
+    const onLeave = () => node.classList.remove('is-pointed');
+
+    node.addEventListener('mouseenter', onEnter);
+    node.addEventListener('mouseleave', onLeave);
+    node.addEventListener('focus', onEnter);
+    node.addEventListener('blur', onLeave);
+
+    return function cleanup() {
+      node.removeEventListener('mouseenter', onEnter);
+      node.removeEventListener('mouseleave', onLeave);
+      node.removeEventListener('focus', onEnter);
+      node.removeEventListener('blur', onLeave);
+    };
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('pointer-highlight', '[data-pointer], [data-effect~="pointer-highlight"]', initPointerHighlight);
+  }
+})();
+
+
+/* --- effect.compare.js --- */
+/**
+ * Compare effect
+ * Modes: drag | hover | autoplay
+ * Features: keyboard + ARIA, autoplay ping-pong, sparkles line, hover reset
+ */
+(function () {
+  'use strict';
+  var DTF = (window.DTF = window.DTF || {});
+
+  function ensureSparkles(handle) {
+    if (!handle || handle.querySelector('.compare-sparkles')) return;
+    var wrap = document.createElement('span');
+    wrap.className = 'compare-sparkles';
+    for (var i = 0; i < 8; i += 1) {
+      var spark = document.createElement('span');
+      spark.className = 'compare-spark';
+      spark.style.setProperty('--spark-i', String(i));
+      spark.style.setProperty('--spark-y', String((i % 4) * 20 + 8) + '%');
+      wrap.appendChild(spark);
+    }
+    handle.appendChild(wrap);
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function initCompare(node, ctx) {
+    if (!node) return null;
+    var range = node.querySelector('.compare-range');
+    var media = node.querySelector('.compare-media');
+    var handle = node.querySelector('.compare-handle');
+    if (!range || !media) return null;
+
+    var mode = (node.dataset.compareMode || 'drag').toLowerCase();
+    var autoplayEnabled = node.dataset.autoplay === 'true' || mode === 'autoplay';
+    var autoplayDuration = parseInt(node.dataset.autoplayDuration || '5000', 10) || 5000;
+    var initialValue = parseInt(range.value || '50', 10) || 50;
+    var reducedMotion = !!(ctx && ctx.reducedMotion);
+
+    var dragging = false;
+    var hoverActive = false;
+    var pointerId = null;
+    var listeners = [];
+    var raf = null;
+    var autoplayRunning = false;
+    var autoplayStart = 0;
+    var userStoppedAutoplay = false;
+
+    function on(el, evt, fn, opts) {
+      el.addEventListener(evt, fn, opts || false);
+      listeners.push([el, evt, fn, opts || false]);
+    }
+
+    function apply(value) {
+      var pct = clamp(Math.round(Number(value) || 0), 0, 100);
+      range.value = String(pct);
+      range.setAttribute('aria-valuenow', String(pct));
+      media.style.setProperty('--compare', pct + '%');
+    }
+
+    function valueByX(clientX) {
+      var rect = media.getBoundingClientRect();
+      if (!rect.width) return Number(range.value || initialValue);
+      return clamp((clientX - rect.left) / rect.width, 0, 1) * 100;
+    }
+
+    function stopDrag() {
+      dragging = false;
+      pointerId = null;
+      media.classList.remove('is-dragging');
+    }
+
+    function stopAutoplay() {
+      if (!autoplayRunning) return;
+      autoplayRunning = false;
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = null;
+      }
+      node.classList.remove('compare-autoplay');
+    }
+
+    function stopAutoplayPermanently() {
+      userStoppedAutoplay = true;
+      stopAutoplay();
+    }
+
+    function canResumeAutoplay() {
+      if (!autoplayEnabled || reducedMotion) return false;
+      if (userStoppedAutoplay) return false;
+      if (dragging || hoverActive) return false;
+      if (document.hidden) return false;
+      return true;
+    }
+
+    function autoplayTick(timestamp) {
+      if (!autoplayRunning) return;
+      if (!autoplayStart) autoplayStart = timestamp;
+      var elapsed = timestamp - autoplayStart;
+      var progress = (elapsed % (autoplayDuration * 2)) / autoplayDuration;
+      var percentage = progress <= 1 ? progress * 100 : (2 - progress) * 100;
+      apply(percentage);
+      raf = requestAnimationFrame(autoplayTick);
+    }
+
+    function startAutoplay() {
+      if (!canResumeAutoplay() || autoplayRunning) return;
+      autoplayRunning = true;
+      autoplayStart = 0;
+      node.classList.add('compare-autoplay');
+      raf = requestAnimationFrame(autoplayTick);
+    }
+
+    ensureSparkles(handle);
+    node.classList.add('compare-ready', 'compare-mode-' + mode);
+    media.style.setProperty('--compare', initialValue + '%');
+    media.style.cursor = (mode === 'drag' || mode === 'autoplay') ? 'grab' : 'col-resize';
+
+    range.setAttribute('role', 'slider');
+    range.setAttribute('aria-valuemin', '0');
+    range.setAttribute('aria-valuemax', '100');
+    range.setAttribute('aria-valuenow', String(initialValue));
+    if (!range.getAttribute('aria-label')) {
+      range.setAttribute('aria-label', 'Compare slider');
+    }
+
+    on(range, 'focus', function () {
+      node.classList.add('compare-range-focus');
+      stopAutoplay();
+    });
+    on(range, 'blur', function () {
+      node.classList.remove('compare-range-focus');
+      startAutoplay();
+    });
+
+    on(range, 'keydown', function (event) {
+      var step = event.shiftKey ? 10 : 2;
+      var current = parseInt(range.value || '50', 10);
+      if (autoplayEnabled) stopAutoplayPermanently();
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        apply(current - step);
+      } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        apply(current + step);
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        apply(0);
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        apply(100);
+      }
+    });
+
+    on(range, 'input', function () {
+      if (autoplayEnabled) stopAutoplayPermanently();
+      apply(range.value);
+    });
+
+    if ('PointerEvent' in window && (mode === 'drag' || mode === 'autoplay')) {
+      on(media, 'pointerdown', function (event) {
+        if (autoplayEnabled) stopAutoplayPermanently();
+        dragging = true;
+        pointerId = event.pointerId;
+        media.classList.add('is-dragging');
+        media.style.cursor = 'grabbing';
+        if (media.setPointerCapture) media.setPointerCapture(event.pointerId);
+        apply(valueByX(event.clientX));
+      });
+      on(media, 'pointermove', function (event) {
+        if (!dragging) return;
+        if (pointerId !== null && event.pointerId !== pointerId) return;
+        apply(valueByX(event.clientX));
+      });
+      on(media, 'pointerup', function () {
+        stopDrag();
+        media.style.cursor = 'grab';
+      });
+      on(media, 'pointercancel', function () {
+        stopDrag();
+        media.style.cursor = 'grab';
+      });
+      on(media, 'lostpointercapture', function () {
+        stopDrag();
+        media.style.cursor = 'grab';
+      });
+    }
+
+    if (mode === 'hover') {
+      on(media, 'mouseenter', function () {
+        hoverActive = true;
+        stopAutoplay();
+      });
+      on(media, 'mousemove', function (event) {
+        if (!hoverActive) return;
+        apply(valueByX(event.clientX));
+      });
+      on(media, 'mouseleave', function () {
+        hoverActive = false;
+        apply(initialValue);
+        startAutoplay();
+      });
+      on(media, 'touchstart', function () {
+        if (autoplayEnabled) stopAutoplayPermanently();
+      }, { passive: true });
+    } else {
+      on(media, 'mouseenter', function () {
+        stopAutoplay();
+      });
+      on(media, 'mouseleave', function () {
+        startAutoplay();
+      });
+    }
+
+    on(document, 'visibilitychange', function () {
+      if (document.hidden) stopAutoplay();
+      else startAutoplay();
+    });
+
+    apply(initialValue);
+    startAutoplay();
+
+    return function cleanup() {
+      stopAutoplay();
+      stopDrag();
+      for (var i = 0; i < listeners.length; i += 1) {
+        var entry = listeners[i];
+        entry[0].removeEventListener(entry[1], entry[2], entry[3]);
+      }
+      listeners.length = 0;
+      node.classList.remove('compare-ready', 'compare-range-focus', 'compare-autoplay');
+    };
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('compare', '[data-compare], [data-effect~="compare"]', initCompare);
+  }
+})();
+
+
+/* --- effect.stateful-button.js --- */
+(function () {
+  const DTF = (window.DTF = window.DTF || {});
+
+  function rememberLabel(el) {
+    if (!el || el.dataset.stateLabelDefault) return;
+    el.dataset.stateLabelDefault = (el.textContent || '').trim();
+  }
+
+  function setState(el, state) {
+    if (!el) return;
+    rememberLabel(el);
+    const nextState = state || 'idle';
+    const idleLabel = el.dataset.stateLabelDefault || '';
+    const loadingLabel = el.dataset.stateLoading || 'Надсилаємо...';
+    const successLabel = el.dataset.stateSuccess || 'Готово';
+    const errorLabel = el.dataset.stateError || 'Помилка';
+
+    el.classList.remove('is-loading', 'is-success', 'is-error');
+    el.removeAttribute('aria-busy');
+
+    if (nextState === 'loading') {
+      el.classList.add('is-loading');
+      el.setAttribute('aria-busy', 'true');
+      if (el.tagName === 'BUTTON') el.disabled = true;
+      el.textContent = loadingLabel;
+      return;
+    }
+    if (nextState === 'success') {
+      el.classList.add('is-success');
+      if (el.tagName === 'BUTTON') el.disabled = false;
+      el.textContent = successLabel;
+      return;
+    }
+    if (nextState === 'error') {
+      el.classList.add('is-error');
+      if (el.tagName === 'BUTTON') el.disabled = false;
+      el.textContent = errorLabel;
+      return;
+    }
+    if (el.tagName === 'BUTTON') el.disabled = false;
+    el.textContent = idleLabel;
+  }
+
+  function findStatefulTarget(source) {
+    if (!source) return null;
+    if (source.matches && source.matches('[data-stateful], [data-stateful-link], [data-effect~="stateful-button"]')) {
+      return source;
+    }
+    if (source.closest) {
+      const direct = source.closest('[data-stateful], [data-stateful-link], [data-effect~="stateful-button"]');
+      if (direct) return direct;
+      const form = source.closest('form');
+      if (form) {
+        return form.querySelector('button[type="submit"][data-stateful], button[type="submit"][data-effect~="stateful-button"]');
+      }
+    }
+    return null;
+  }
+
+  function bindGlobalHtmxHandlers() {
+    if (!document.body || DTF.__statefulHtmxBound || !window.htmx) return;
+    DTF.__statefulHtmxBound = true;
+
+    document.body.addEventListener('htmx:beforeRequest', (event) => {
+      const source = (event.detail && event.detail.elt) || event.target;
+      const target = findStatefulTarget(source);
+      if (!target) return;
+      setState(target, 'loading');
+    });
+
+    document.body.addEventListener('htmx:afterRequest', (event) => {
+      const source = (event.detail && event.detail.elt) || event.target;
+      const target = findStatefulTarget(source);
+      if (!target) return;
+      const successful = !!(event.detail && event.detail.successful);
+      setState(target, successful ? 'success' : 'error');
+      window.setTimeout(() => setState(target, 'idle'), successful ? 900 : 1400);
+    });
+  }
+
+  function initStatefulButton(node) {
+    if (!node) return null;
+    rememberLabel(node);
+
+    const isLink = node.tagName === 'A';
+    const onClick = () => {
+      if (!isLink) return;
+      setState(node, 'loading');
+      window.setTimeout(() => setState(node, 'idle'), 1200);
+    };
+
+    const onFormSubmit = () => {
+      if (isLink) return;
+      setState(node, 'loading');
+    };
+
+    if (isLink) {
+      node.addEventListener('click', onClick);
+    } else {
+      const form = node.closest('form');
+      if (form) {
+        form.addEventListener('submit', onFormSubmit);
+      }
+    }
+
+    return function cleanup() {
+      if (isLink) {
+        node.removeEventListener('click', onClick);
+      } else {
+        const form = node.closest('form');
+        if (form) {
+          form.removeEventListener('submit', onFormSubmit);
+        }
+      }
+    };
+  }
+
+  DTF.Button = DTF.Button || {};
+  DTF.Button.setState = setState;
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect(
+      'stateful-button',
+      '[data-stateful], [data-stateful-link], [data-effect~="stateful-button"]',
+      initStatefulButton
+    );
+  }
+
+  bindGlobalHtmxHandlers();
+})();
+
+
+/* --- effect.tracing-beam.js --- */
+(function () {
+  const DTF = (window.DTF = window.DTF || {});
+
+  function initTracingBeam(node, ctx) {
+    if (!node) return null;
+    const progressNode = node.querySelector('[data-tracing-beam-progress]');
+    if (!progressNode) return null;
+
+    if (ctx && ctx.reducedMotion) {
+      progressNode.style.height = '100%';
+      return null;
+    }
+
+    const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+    const update = () => {
+      const rect = node.getBoundingClientRect();
+      const viewport = window.innerHeight || document.documentElement.clientHeight || 1;
+      const visible = clamp((viewport * 0.8 - rect.top) / (rect.height + viewport * 0.8), 0, 1);
+      progressNode.style.height = `${Math.round(visible * 100)}%`;
+    };
+
+    let rafId = null;
+    const onScroll = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        update();
+      });
+    };
+
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+
+    return function cleanup() {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('tracing-beam', '[data-tracing-beam], [data-effect~="tracing-beam"]', initTracingBeam);
+  }
+})();
+
+
+/* --- effect.infinite-cards.js --- */
+/**
+ * Infinite Moving Cards — SEO-safe infinite scroll
+ * Clone protocol: clones are aria-hidden, inert, no active links
+ * Pause on hover/focus, reduced-motion fallback
+ * Registered via DTF.registerEffect
+ */
+(function () {
+  'use strict';
+  var DTF = (window.DTF = window.DTF || {});
+
+  var SPEED_MAP = {
+    slow: 60,
+    normal: 36,
+    fast: 18,
+  };
+
+  function initInfiniteCards(node, ctx) {
+    if (!node) return null;
+
+    var track = node.querySelector('.infinite-track');
+    if (!track) return null;
+
+    var direction = (node.dataset.direction || 'left').toLowerCase();
+    var speedName = (node.dataset.speed || 'normal').toLowerCase();
+    var pauseOnHover = node.dataset.pauseOnHover !== 'false';
+    var duration = SPEED_MAP[speedName] || SPEED_MAP.normal;
+    var reducedMotion = ctx && ctx.reducedMotion;
+    var listeners = [];
+    var paused = false;
+
+    function on(el, evt, fn, opts) {
+      el.addEventListener(evt, fn, opts || false);
+      listeners.push([el, evt, fn, opts || false]);
+    }
+
+    /* Reduced motion: static layout, no animation */
+    if (reducedMotion) {
+      node.classList.add('infinite-cards-static');
+      return null;
+    }
+
+    /* Clone the track items for seamless loop */
+    var originalItems = track.querySelectorAll('.infinite-item');
+    if (!originalItems.length) return null;
+
+    var clone = track.cloneNode(true);
+    /* Make clones decorative: aria-hidden, inert, strip links */
+    clone.setAttribute('aria-hidden', 'true');
+    if ('inert' in clone) clone.inert = true;
+    clone.setAttribute('role', 'presentation');
+    /* Remove active links from clones */
+    var cloneLinks = clone.querySelectorAll('a[href]');
+    for (var i = 0; i < cloneLinks.length; i++) {
+      cloneLinks[i].removeAttribute('href');
+      cloneLinks[i].setAttribute('tabindex', '-1');
+      cloneLinks[i].setAttribute('aria-hidden', 'true');
+    }
+    /* Remove IDs from clones to avoid duplicates */
+    var cloneIds = clone.querySelectorAll('[id]');
+    for (var j = 0; j < cloneIds.length; j++) {
+      cloneIds[j].removeAttribute('id');
+    }
+    /* Wrap both original and clone in an outer track */
+    var wrapper = document.createElement('div');
+    wrapper.className = 'infinite-track-wrapper';
+    wrapper.setAttribute('aria-live', 'off');
+
+    /* Move original track into wrapper */
+    track.parentNode.insertBefore(wrapper, track);
+    wrapper.appendChild(track);
+    wrapper.appendChild(clone);
+
+    /* Animation CSS custom properties */
+    wrapper.style.setProperty('--infinite-duration', duration + 's');
+    wrapper.style.setProperty('--infinite-direction', direction === 'right' ? 'reverse' : 'normal');
+
+    node.classList.add('infinite-cards-ready');
+
+    /* Pause on hover */
+    if (pauseOnHover) {
+      on(node, 'mouseenter', function () {
+        paused = true;
+        wrapper.style.animationPlayState = 'paused';
+        wrapper.classList.add('is-paused');
+      });
+      on(node, 'mouseleave', function () {
+        paused = false;
+        wrapper.style.animationPlayState = 'running';
+        wrapper.classList.remove('is-paused');
+      });
+    }
+
+    /* Pause on focus within (for keyboard navigation) */
+    on(node, 'focusin', function () {
+      paused = true;
+      wrapper.style.animationPlayState = 'paused';
+      wrapper.classList.add('is-paused');
+    });
+    on(node, 'focusout', function (e) {
+      if (!node.contains(e.relatedTarget)) {
+        paused = false;
+        wrapper.style.animationPlayState = 'running';
+        wrapper.classList.remove('is-paused');
+      }
+    });
+
+    return function cleanup() {
+      for (var k = 0; k < listeners.length; k++) {
+        var l = listeners[k];
+        l[0].removeEventListener(l[1], l[2], l[3]);
+      }
+      listeners.length = 0;
+      /* Restore DOM: move track back, remove wrapper and clone */
+      if (wrapper.parentNode) {
+        wrapper.parentNode.insertBefore(track, wrapper);
+        wrapper.parentNode.removeChild(wrapper);
+      }
+      node.classList.remove('infinite-cards-ready');
+    };
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('infinite-cards', '[data-effect~="infinite-cards"]', initInfiniteCards);
+  }
+})();
+
+
+/* --- sparkles.js --- */
+(function () {
+  const DTF = (window.DTF = window.DTF || {});
+
+  function createDot(index) {
+    const dot = document.createElement('span');
+    dot.className = 'sparkle-dot';
+    dot.style.setProperty('--sparkle-index', String(index));
+    dot.style.left = `${12 + index * 18}%`;
+    dot.style.top = `${20 + (index % 3) * 18}%`;
+    return dot;
+  }
+
+  function initSparkles(root) {
+    const scope = root || document;
+    const nodes = [];
+    if (scope.matches && scope.matches('[data-effect~="sparkles"]')) nodes.push(scope);
+    if (scope.querySelectorAll) nodes.push(...scope.querySelectorAll('[data-effect~="sparkles"]'));
+
+    nodes.forEach((node) => {
+      if (node.dataset.init === '1') return;
+      node.dataset.init = '1';
+      if (DTF.motion && DTF.motion.isReducedMotion()) {
+        node.classList.add('sparkles-static');
+        return;
+      }
+      node.classList.add('sparkles-ready');
+      for (let i = 0; i < 4; i += 1) {
+        node.appendChild(createDot(i));
+      }
+    });
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('sparkles', initSparkles);
+  }
+})();
+
+
+/* --- floating-dock.js --- */
+/**
+ * Floating Dock
+ * - Desktop global dock with macOS-like magnification
+ * - Constructor local dock with file actions + badge state
+ * - Unified visibility contract (desktop only, hide near footer and overlays)
+ */
+(function () {
+  'use strict';
+  var DTF = (window.DTF = window.DTF || {});
+
+  var DESKTOP_QUERY = '(min-width: 961px)';
+  var FINE_POINTER_QUERY = '(hover: hover) and (pointer: fine)';
+  var MAGNIFY_DISTANCE = 170;
+  var MAGNIFY_SCALE = 1.82;
+  var MAGNIFY_LIFT = 14;
+  var HIDDEN_PAGES = {
+    order: true,
+    constructor: true,
+    'constructor-app': true,
+  };
+
+  function prefersReduced() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  function isDesktop() {
+    return !!(window.matchMedia && window.matchMedia(DESKTOP_QUERY).matches);
+  }
+
+  function hasFinePointer() {
+    return !!(window.matchMedia && window.matchMedia(FINE_POINTER_QUERY).matches);
+  }
+
+  function initDockTooltip(item) {
+    if (!item || item.querySelector('.dock-tooltip')) return;
+    var title = item.getAttribute('data-dock-title') || item.getAttribute('aria-label') || '';
+    if (!title) return;
+    var tooltip = document.createElement('span');
+    tooltip.className = 'dock-tooltip';
+    tooltip.textContent = title;
+    tooltip.setAttribute('aria-hidden', 'true');
+    item.appendChild(tooltip);
+  }
+
+  function clearMagnify(items) {
+    items.forEach(function (item) {
+      item.style.setProperty('--dock-item-scale', '1');
+      item.style.setProperty('--dock-item-lift', '0px');
+    });
+  }
+
+  function applyMagnify(items, x) {
+    items.forEach(function (item) {
+      var rect = item.getBoundingClientRect();
+      var cx = rect.left + rect.width / 2;
+      var distance = Math.abs(x - cx);
+      var ratio = distance >= MAGNIFY_DISTANCE ? 0 : 1 - (distance / MAGNIFY_DISTANCE);
+      var eased = ratio * ratio;
+      var scale = 1 + eased * (MAGNIFY_SCALE - 1);
+      var lift = eased * MAGNIFY_LIFT;
+      item.style.setProperty('--dock-item-scale', scale.toFixed(3));
+      item.style.setProperty('--dock-item-lift', (-lift).toFixed(2) + 'px');
+    });
+  }
+
+  function initGlobalDock(dock, items, listeners, observers) {
+    var footerSelector = dock.getAttribute('data-hide-near-footer') || '[data-footer-anchor]';
+    var footer = document.querySelector(footerSelector);
+    var nearFooter = false;
+
+    function on(el, evt, fn, opts) {
+      el.addEventListener(evt, fn, opts || false);
+      listeners.push([el, evt, fn, opts || false]);
+    }
+
+    function sync() {
+      var body = document.body;
+      var page = body && body.dataset ? body.dataset.page : '';
+      var modalOpen = !!(
+        body && (
+          body.classList.contains('is-modal-open') ||
+          body.classList.contains('is-drawer-open') ||
+          body.classList.contains('is-profile-open')
+        )
+      );
+      var shouldHide = !isDesktop() || modalOpen || nearFooter || !!HIDDEN_PAGES[page];
+      dock.classList.toggle('dock-hidden', shouldHide);
+      dock.classList.toggle('dock-scrolled', (window.scrollY || 0) > 120);
+      if (!shouldHide) dock.classList.add('dock-ready');
+    }
+
+    if (footer && 'IntersectionObserver' in window) {
+      var footerObserver = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (entry) {
+            nearFooter = !!entry.isIntersecting;
+            sync();
+          });
+        },
+        { threshold: 0, rootMargin: '0px 0px 130px 0px' }
+      );
+      footerObserver.observe(footer);
+      observers.push(footerObserver);
+    }
+
+    if (!prefersReduced() && hasFinePointer()) {
+      on(dock, 'mousemove', function (event) {
+        applyMagnify(items, event.clientX);
+      });
+      on(dock, 'mouseleave', function () {
+        clearMagnify(items);
+      });
+    } else {
+      clearMagnify(items);
+    }
+
+    on(window, 'scroll', sync, { passive: true });
+    on(window, 'resize', sync, { passive: true });
+    on(document, 'visibilitychange', sync);
+    sync();
+  }
+
+  function setBadgeState(badge, status, count, previewUrl) {
+    if (!badge) return;
+    var normalized = status || 'pending';
+    badge.className = 'dock-badge badge-' + normalized + (previewUrl ? ' badge-has-preview' : '');
+    badge.textContent = count > 1 ? String(count) : '';
+    badge.hidden = count <= 0;
+    if (previewUrl) {
+      badge.style.setProperty('--badge-preview', 'url("' + previewUrl + '")');
+    } else {
+      badge.style.removeProperty('--badge-preview');
+    }
+  }
+
+  function collectPreflightStatus(scope) {
+    if (!scope) return 'pending';
+    var steps = scope.querySelectorAll('.constructor-preflight-card .msl-step');
+    if (!steps.length) return 'pending';
+    var hasFail = false;
+    var hasWarn = false;
+    var hasOk = false;
+    steps.forEach(function (step) {
+      var className = step.className || '';
+      if (className.indexOf('msl-status-fail') >= 0) hasFail = true;
+      if (className.indexOf('msl-status-warn') >= 0) hasWarn = true;
+      if (className.indexOf('msl-status-ok') >= 0 || className.indexOf('msl-status-pass') >= 0) hasOk = true;
+    });
+    if (hasFail) return 'fail';
+    if (hasWarn) return 'warn';
+    if (hasOk) return 'ok';
+    return 'pending';
+  }
+
+  function clearFileInput(input) {
+    if (!input) return;
+    try {
+      input.value = '';
+      if (typeof DataTransfer !== 'undefined') {
+        input.files = new DataTransfer().files;
+      }
+    } catch (err) {
+      input.value = '';
+    }
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function initConstructorDock(dock, listeners, observers) {
+    var scope = dock.closest('[data-ui="dtf:constructor:layout"]') || document;
+    var builderForm = scope.querySelector('[data-constructor-builder-form]') || document.getElementById('constructor-builder-form');
+    var submitForm = scope.querySelector('[data-constructor-submit]') || document.getElementById('constructor-submit-form');
+    var fileInput = builderForm && (
+      builderForm.querySelector('input[type="file"][name$="design_file"]') ||
+      builderForm.querySelector('input[type="file"][name="design_file"]')
+    );
+    var badge = dock.querySelector('.dock-badge');
+    var actionButtons = dock.querySelectorAll('[data-action]');
+    var previewUrl = '';
+
+    function on(el, evt, fn, opts) {
+      el.addEventListener(evt, fn, opts || false);
+      listeners.push([el, evt, fn, opts || false]);
+    }
+
+    function revokePreviewUrl() {
+      if (!previewUrl) return;
+      try {
+        URL.revokeObjectURL(previewUrl);
+      } catch (err) {
+        // no-op
+      }
+      previewUrl = '';
+    }
+
+    function refreshBadgeFromState() {
+      if (!badge || !fileInput) return;
+      var count = fileInput.files ? fileInput.files.length : 0;
+      if (!count) {
+        revokePreviewUrl();
+        setBadgeState(badge, 'pending', 0, '');
+        return;
+      }
+      var status = collectPreflightStatus(scope);
+      if (status === 'pending') status = 'pending';
+      setBadgeState(badge, status, count, previewUrl);
+    }
+
+    function refreshBadgeFromInput() {
+      if (!badge || !fileInput) return;
+      revokePreviewUrl();
+      var count = fileInput.files ? fileInput.files.length : 0;
+      if (count === 0) {
+        setBadgeState(badge, 'pending', 0, '');
+        return;
+      }
+      var file = fileInput.files[0];
+      if (file && file.type && file.type.indexOf('image/') === 0) {
+        try {
+          previewUrl = URL.createObjectURL(file);
+        } catch (err) {
+          previewUrl = '';
+        }
+      }
+      setBadgeState(badge, 'pending', count, previewUrl);
+    }
+
+    actionButtons.forEach(function (button) {
+      initDockTooltip(button);
+      on(button, 'click', function (event) {
+        event.preventDefault();
+        var action = button.getAttribute('data-action');
+        if (action === 'upload' && fileInput) {
+          fileInput.click();
+          return;
+        }
+        if (action === 'clear') {
+          clearFileInput(fileInput);
+          return;
+        }
+        if (action === 'check' && builderForm) {
+          if (builderForm.requestSubmit) builderForm.requestSubmit();
+          else builderForm.submit();
+          return;
+        }
+        if (action === 'submit' && submitForm) {
+          if (submitForm.requestSubmit) submitForm.requestSubmit();
+          else submitForm.submit();
+        }
+      });
+    });
+
+    if (fileInput) {
+      on(fileInput, 'change', function () {
+        refreshBadgeFromInput();
+      });
+      refreshBadgeFromInput();
+    }
+
+    var preflightPanel = scope.querySelector('.constructor-preflight-card');
+    if (preflightPanel && typeof MutationObserver !== 'undefined') {
+      var mutationObserver = new MutationObserver(function () {
+        refreshBadgeFromState();
+      });
+      mutationObserver.observe(preflightPanel, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class'],
+      });
+      observers.push(mutationObserver);
+    }
+
+    dock.classList.add('dock-ready');
+    return function cleanupConstructorDock() {
+      revokePreviewUrl();
+    };
+  }
+
+  function initFloatingDock(dock, ctx) {
+    if (!dock) return null;
+
+    var listeners = [];
+    var observers = [];
+    var cleanupFns = [];
+    var items = Array.prototype.slice.call(dock.querySelectorAll('.dock-item, a, button'));
+    var isConstructor = dock.getAttribute('data-dock-type') === 'constructor';
+
+    items.forEach(initDockTooltip);
+    clearMagnify(items);
+
+    if (isConstructor) {
+      var cleanup = initConstructorDock(dock, listeners, observers);
+      if (typeof cleanup === 'function') cleanupFns.push(cleanup);
+    } else {
+      initGlobalDock(dock, items, listeners, observers);
+    }
+
+    return function cleanup() {
+      listeners.forEach(function (entry) {
+        entry[0].removeEventListener(entry[1], entry[2], entry[3]);
+      });
+      listeners.length = 0;
+      observers.forEach(function (observer) {
+        if (!observer) return;
+        if (typeof observer.disconnect === 'function') observer.disconnect();
+      });
+      observers.length = 0;
+      cleanupFns.forEach(function (fn) {
+        try {
+          fn();
+        } catch (err) {
+          // no-op
+        }
+      });
+      cleanupFns.length = 0;
+      clearMagnify(items);
+    };
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('floating-dock', '[data-floating-dock]', initFloatingDock);
+  }
+})();
+
+
+/* --- multi-step-loader.js --- */
+/**
+ * Multi-step Loader
+ * - Uses real backend preflight when data-preflight-url is provided
+ * - No synthetic completion timers
+ * - Shared between order and constructor flows
+ */
+(function () {
+  'use strict';
+  var DTF = (window.DTF = window.DTF || {});
+
+  var STATUS_ICONS = {
+    ok: '\u2713',
+    pass: '\u2713',
+    warn: '\u26A0',
+    fail: '\u2717',
+    loading: '\u21BB',
+    pending: '\u2022',
+  };
+
+  var STEP_LABELS = {
+    format_signature: { uk: 'Формат / сигнатура', ru: 'Формат / сигнатура', en: 'Format / signature' },
+    dpi: { uk: 'DPI', ru: 'DPI', en: 'DPI' },
+    physical_size_60cm: { uk: 'Розміри / 60 см', ru: 'Размеры / 60 см', en: 'Physical size / 60 cm' },
+    transparency_bounds: { uk: 'Прозорість / межі', ru: 'Прозрачность / границы', en: 'Transparency / bounds' },
+    tiny_lines: { uk: 'Тонкі лінії', ru: 'Тонкие линии', en: 'Tiny lines risk' },
+    summary: { uk: 'Підсумок', ru: 'Итог', en: 'Summary' },
+  };
+
+  var UI_TEXT = {
+    preflight_running: {
+      uk: 'Preflight виконується...',
+      ru: 'Preflight выполняется...',
+      en: 'Preflight is running...',
+    },
+    preflight_failed: {
+      uk: 'Preflight не виконано. Спробуйте ще раз.',
+      ru: 'Preflight не выполнен. Попробуйте ещё раз.',
+      en: 'Preflight failed. Please try again.',
+    },
+  };
+
+  function getLang() {
+    return ((document.documentElement.lang || 'uk').toLowerCase() || 'uk').slice(0, 2);
+  }
+
+  function stepLabel(key) {
+    var lang = getLang();
+    var labels = STEP_LABELS[key];
+    if (!labels) return key || '';
+    return labels[lang] || labels.uk || key;
+  }
+
+  function uiText(key) {
+    var lang = getLang();
+    var values = UI_TEXT[key] || {};
+    return values[lang] || values.uk || values.en || key;
+  }
+
+  function getCsrfToken(host) {
+    var input = host.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (input && input.value) return input.value;
+    var cookie = document.cookie.split('; ').find(function (row) {
+      return row.indexOf('csrftoken=') === 0;
+    });
+    return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+  }
+
+  function renderSteps(container, stepItems, options) {
+    if (!container || !Array.isArray(stepItems)) return;
+    var opts = options || {};
+    var animated = !!opts.animated;
+    container.innerHTML = '';
+    container.classList.add('msl-active');
+
+    stepItems.forEach(function (step, index) {
+      var status = (step && step.status) ? String(step.status).toLowerCase() : 'pending';
+      var row = document.createElement('div');
+      row.className = 'msl-step msl-status-' + status;
+      if (step && step.key) row.setAttribute('data-step-key', step.key);
+
+      var icon = document.createElement('span');
+      icon.className = 'msl-step-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = STATUS_ICONS[status] || STATUS_ICONS.pending;
+
+      var label = document.createElement('span');
+      label.className = 'msl-step-label';
+      label.textContent = stepLabel(step.key || '') || step.label || '';
+
+      var message = document.createElement('span');
+      message.className = 'msl-step-message';
+      message.textContent = step.message || '';
+
+      row.appendChild(icon);
+      row.appendChild(label);
+      row.appendChild(message);
+
+      if (step.value) {
+        var value = document.createElement('span');
+        value.className = 'msl-step-value';
+        value.textContent = step.value;
+        row.appendChild(value);
+      }
+
+      if (step.key === 'summary' && Array.isArray(step.recommendations) && step.recommendations.length) {
+        var list = document.createElement('ul');
+        list.className = 'msl-recommendations';
+        step.recommendations.forEach(function (item) {
+          var li = document.createElement('li');
+          li.textContent = item;
+          list.appendChild(li);
+        });
+        row.appendChild(list);
+      }
+
+      if (animated) {
+        row.style.opacity = '0';
+        row.style.transform = 'translateY(8px)';
+        window.setTimeout(function () {
+          row.style.transition = 'opacity 220ms ease, transform 220ms ease';
+          row.style.opacity = '1';
+          row.style.transform = 'translateY(0)';
+        }, index * 110);
+      }
+
+      container.appendChild(row);
+    });
+  }
+
+  function setUploadStep(host, value) {
+    if (!host) return;
+    host.querySelectorAll('[data-upload-step]').forEach(function (chip) {
+      var step = parseInt(chip.getAttribute('data-upload-step') || '0', 10);
+      chip.classList.toggle('is-active', step === value);
+      chip.classList.toggle('is-done', step < value);
+    });
+  }
+
+  function deriveStepProgress(container) {
+    if (!container) return 1;
+    if (container.querySelector('.msl-status-fail')) return 2;
+    if (container.querySelector('.msl-status-ok, .msl-status-pass, .msl-status-warn')) return 4;
+    return 2;
+  }
+
+  function renderLoadingState(container) {
+    if (!container) return;
+    renderSteps(container, [
+      {
+        key: 'format_signature',
+        status: 'loading',
+        message: uiText('preflight_running'),
+      },
+      {
+        key: 'dpi',
+        status: 'pending',
+        message: '',
+      },
+      {
+        key: 'physical_size_60cm',
+        status: 'pending',
+        message: '',
+      },
+      {
+        key: 'transparency_bounds',
+        status: 'pending',
+        message: '',
+      },
+      {
+        key: 'tiny_lines',
+        status: 'pending',
+        message: '',
+      },
+      {
+        key: 'summary',
+        status: 'pending',
+        message: '',
+      },
+    ], { animated: false });
+  }
+
+  function initMultiStepLoader(host, ctx) {
+    if (!host) return null;
+    var reducedMotion = !!(ctx && ctx.reducedMotion);
+    var input = host.querySelector('input[type="file"]');
+    var loaderContainer = host.querySelector('.msl-container[data-preflight-loader], .msl-container');
+    var preflightUrl = host.getAttribute('data-preflight-url') || '';
+    var listeners = [];
+    var aborter = null;
+
+    function on(el, evt, fn, opts) {
+      el.addEventListener(evt, fn, opts || false);
+      listeners.push([el, evt, fn, opts || false]);
+    }
+
+    function syncFromDom() {
+      if (!input || !(input.files && input.files.length)) {
+        setUploadStep(host, 1);
+        return;
+      }
+      setUploadStep(host, deriveStepProgress(loaderContainer));
+    }
+
+    function requestPreflight(file) {
+      if (!preflightUrl || !file || !loaderContainer) return;
+      if (aborter) aborter.abort();
+      aborter = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      renderLoadingState(loaderContainer);
+      var body = new FormData();
+      body.append('file', file);
+      body.append('csrfmiddlewaretoken', getCsrfToken(host));
+
+      fetch(preflightUrl, {
+        method: 'POST',
+        body: body,
+        credentials: 'same-origin',
+        headers: {
+          'X-Requested-With': 'fetch',
+          'X-CSRFToken': getCsrfToken(host),
+        },
+        signal: aborter ? aborter.signal : undefined,
+      })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error('Preflight request failed');
+          }
+          return response.json();
+        })
+        .then(function (payload) {
+          if (!payload || !payload.ok || !payload.report) {
+            throw new Error('Invalid preflight payload');
+          }
+          var stepItems = payload.report.step_items || [];
+          if (!stepItems.length) {
+            throw new Error('No preflight steps returned');
+          }
+          renderSteps(loaderContainer, stepItems, { animated: !reducedMotion });
+          setUploadStep(host, deriveStepProgress(loaderContainer));
+        })
+        .catch(function (error) {
+          if (error && error.name === 'AbortError') return;
+          renderSteps(loaderContainer, [
+            {
+              key: 'summary',
+              status: 'fail',
+              message: uiText('preflight_failed'),
+            },
+          ], { animated: false });
+          setUploadStep(host, 2);
+        });
+    }
+
+    syncFromDom();
+
+    if (input) {
+      on(input, 'change', function () {
+        if (!input.files || !input.files.length) {
+          if (aborter) aborter.abort();
+          setUploadStep(host, 1);
+          return;
+        }
+        setUploadStep(host, 2);
+        requestPreflight(input.files[0]);
+      });
+    }
+
+    on(host, 'dtf:preflight-ready', function (event) {
+      var detail = event && event.detail ? event.detail : {};
+      var steps = detail.stepItems || [];
+      if (!steps.length || !loaderContainer) return;
+      renderSteps(loaderContainer, steps, { animated: !reducedMotion });
+      setUploadStep(host, deriveStepProgress(loaderContainer));
+    });
+
+    return function cleanup() {
+      if (aborter) aborter.abort();
+      listeners.forEach(function (entry) {
+        entry[0].removeEventListener(entry[1], entry[2], entry[3]);
+      });
+      listeners.length = 0;
+    };
+  }
+
+  DTF.MultiStepLoader = {
+    renderSteps: renderSteps,
+    setUploadStep: setUploadStep,
+    stepLabel: stepLabel,
+    STATUS_ICONS: STATUS_ICONS,
+  };
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('multi-step-loader', '[data-upload-flow], [data-effect~="multi-step-loader"]', initMultiStepLoader);
+  }
+})();
+
+
+/* --- vanish-input.js --- */
+/**
+ * Vanish Input
+ * - Invalid value: shake + dissolve + clear
+ * - Cycling placeholders with focus/typing pause
+ */
+(function () {
+  'use strict';
+
+  var DTF = (window.DTF = window.DTF || {});
+  var DEFAULT_CYCLE_DURATION = 3000;
+
+  function parsePlaceholders(raw, fallback) {
+    var values = [];
+    if (raw) {
+      try {
+        values = JSON.parse(raw);
+      } catch (err) {
+        values = String(raw).split(',').map(function (item) { return item.trim(); });
+      }
+    }
+    if (!Array.isArray(values)) values = [];
+    values = values
+      .map(function (item) { return String(item || '').trim(); })
+      .filter(Boolean);
+    if (!values.length && fallback) values.push(String(fallback));
+    return values;
+  }
+
+  function collectFields(scope) {
+    var root = scope || document;
+    var fields = [];
+    if (root.matches && root.matches('[data-vanish-input]')) fields.push(root);
+    if (root.querySelectorAll) fields.push.apply(fields, root.querySelectorAll('[data-vanish-input]'));
+    return fields;
+  }
+
+  function ensureWrapper(field) {
+    var wrapper = field.parentElement && field.parentElement.classList.contains('vanish-field-wrap')
+      ? field.parentElement
+      : null;
+    if (!wrapper) {
+      wrapper = document.createElement('span');
+      wrapper.className = 'vanish-field-wrap';
+      field.parentNode.insertBefore(wrapper, field);
+      wrapper.appendChild(field);
+    }
+
+    var overlay = wrapper.querySelector('.vanish-placeholder');
+    if (!overlay) {
+      overlay = document.createElement('span');
+      overlay.className = 'vanish-placeholder';
+      overlay.setAttribute('aria-hidden', 'true');
+      wrapper.appendChild(overlay);
+    }
+
+    return { wrapper: wrapper, overlay: overlay };
+  }
+
+  function initVanishField(field) {
+    if (!field || field.dataset.vanishInit === '1') return;
+    field.dataset.vanishInit = '1';
+
+    var listeners = [];
+    var timers = [];
+    var cycleTimer = null;
+    var isFocused = false;
+    var isAnimating = false;
+    var originalPlaceholder = field.getAttribute('placeholder') || '';
+    var placeholders = parsePlaceholders(field.dataset.placeholders, originalPlaceholder);
+    var placeholderIndex = 0;
+    var cycleDuration = parseInt(field.dataset.cycleDuration || DEFAULT_CYCLE_DURATION, 10) || DEFAULT_CYCLE_DURATION;
+    var nodes = ensureWrapper(field);
+    var wrapper = nodes.wrapper;
+    var overlay = nodes.overlay;
+
+    if (placeholders.length) {
+      field.setAttribute('placeholder', '');
+      overlay.textContent = placeholders[0];
+      overlay.hidden = !!field.value;
+    }
+
+    function on(el, eventName, handler, options) {
+      el.addEventListener(eventName, handler, options || false);
+      listeners.push([el, eventName, handler, options || false]);
+    }
+
+    function addTimer(timerId) {
+      timers.push(timerId);
+    }
+
+    function clearTimers() {
+      while (timers.length) {
+        clearTimeout(timers.pop());
+      }
+    }
+
+    function hasValue() {
+      return String(field.value || '').length > 0;
+    }
+
+    function updateStateClasses() {
+      wrapper.classList.toggle('is-focused', isFocused);
+      wrapper.classList.toggle('has-value', hasValue());
+      wrapper.classList.toggle('is-animating', isAnimating);
+      if (overlay) overlay.hidden = hasValue();
+    }
+
+    function stopCycling() {
+      if (!cycleTimer) return;
+      clearInterval(cycleTimer);
+      cycleTimer = null;
+    }
+
+    function canCycle() {
+      return placeholders.length > 1
+        && !isFocused
+        && !hasValue()
+        && !isAnimating
+        && document.visibilityState !== 'hidden';
+    }
+
+    function swapPlaceholder(nextIndex) {
+      if (!overlay || !placeholders.length) return;
+      overlay.classList.remove('vanish-placeholder-out', 'vanish-placeholder-in');
+      overlay.classList.add('vanish-placeholder-out');
+      addTimer(window.setTimeout(function () {
+        placeholderIndex = nextIndex;
+        overlay.textContent = placeholders[placeholderIndex];
+        overlay.classList.remove('vanish-placeholder-out');
+        overlay.classList.add('vanish-placeholder-in');
+        addTimer(window.setTimeout(function () {
+          overlay.classList.remove('vanish-placeholder-in');
+        }, 180));
+      }, 170));
+    }
+
+    function startCycling() {
+      if (!canCycle()) return;
+      stopCycling();
+      cycleTimer = window.setInterval(function () {
+        if (!canCycle()) {
+          stopCycling();
+          return;
+        }
+        var next = (placeholderIndex + 1) % placeholders.length;
+        swapPlaceholder(next);
+      }, cycleDuration);
+    }
+
+    function syncPlaceholder() {
+      updateStateClasses();
+      if (placeholders.length && !hasValue() && !overlay.textContent) {
+        overlay.textContent = placeholders[placeholderIndex];
+      }
+      if (canCycle()) startCycling();
+      else stopCycling();
+    }
+
+    function playShakeOnly() {
+      field.classList.remove('vanish-shake');
+      void field.offsetWidth;
+      field.classList.add('vanish-shake');
+      addTimer(window.setTimeout(function () {
+        field.classList.remove('vanish-shake');
+      }, 320));
+    }
+
+    function playVanishAndClear() {
+      if (isAnimating) return;
+      if (!hasValue()) {
+        playShakeOnly();
+        return;
+      }
+
+      isAnimating = true;
+      updateStateClasses();
+      field.classList.remove('vanish-dissolve');
+      field.classList.add('vanish-shake');
+
+      addTimer(window.setTimeout(function () {
+        field.classList.remove('vanish-shake');
+        field.classList.add('vanish-dissolve');
+        addTimer(window.setTimeout(function () {
+          field.value = '';
+          field.classList.remove('vanish-dissolve');
+          isAnimating = false;
+          syncPlaceholder();
+        }, 320));
+      }, 320));
+    }
+
+    on(field, 'focus', function () {
+      isFocused = true;
+      syncPlaceholder();
+    });
+
+    on(field, 'blur', function () {
+      isFocused = false;
+      syncPlaceholder();
+    });
+
+    on(field, 'input', function () {
+      syncPlaceholder();
+    });
+
+    on(field, 'change', function () {
+      syncPlaceholder();
+    });
+
+    on(field, 'invalid', function () {
+      playVanishAndClear();
+    });
+
+    on(field, 'vanish', function () {
+      playVanishAndClear();
+    });
+
+    on(document, 'visibilitychange', function () {
+      if (document.visibilityState === 'hidden') stopCycling();
+      else syncPlaceholder();
+    });
+
+    syncPlaceholder();
+
+    field._vanishCleanup = function () {
+      stopCycling();
+      clearTimers();
+      for (var i = 0; i < listeners.length; i += 1) {
+        var item = listeners[i];
+        item[0].removeEventListener(item[1], item[2], item[3]);
+      }
+      listeners.length = 0;
+    };
+  }
+
+  function initVanishInput(root) {
+    collectFields(root).forEach(initVanishField);
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('vanish-input', '[data-vanish-input], [data-effect~="vanish-input"]', initVanishInput);
+  }
+})();
+
+
+/* --- effect.speed-text.js --- */
+/**
+ * Speed / Tremble text
+ * - Per-character vibration with stagger
+ * - Modes: hover | reveal | once
+ */
+(function () {
+  'use strict';
+
+  var DTF = (window.DTF = window.DTF || {});
+
+  function splitIntoChars(node, sourceText) {
+    var text = String(sourceText || '').trim();
+    node.innerHTML = '';
+    var fragment = document.createDocumentFragment();
+    var characters = Array.from(text);
+    for (var i = 0; i < characters.length; i += 1) {
+      var char = characters[i];
+      var span = document.createElement('span');
+      span.className = 'speed-char';
+      if (char === ' ') {
+        span.classList.add('speed-char-space');
+        span.innerHTML = '&nbsp;';
+      } else {
+        span.textContent = char;
+        span.setAttribute('data-char', char);
+        span.style.setProperty('--char-delay', (Math.random() * 120 + i * 12).toFixed(0) + 'ms');
+        span.style.setProperty('--char-shift', (0.55 + Math.random() * 0.9).toFixed(3));
+        span.style.setProperty('--char-rot', (0.3 + Math.random() * 0.8).toFixed(3));
+      }
+      fragment.appendChild(span);
+    }
+    node.appendChild(fragment);
+  }
+
+  function initSpeedText(node, ctx) {
+    if (!node) return null;
+    if (node.dataset.speedInit === '1') return null;
+    node.dataset.speedInit = '1';
+
+    var reducedMotion = !!(ctx && ctx.reducedMotion);
+    var mode = String(node.dataset.speedMode || 'hover').toLowerCase();
+    var repeatReveal = String(node.dataset.speedRepeat || 'false').toLowerCase() === 'true';
+    var intensity = parseFloat(node.dataset.speedIntensity || '1') || 1;
+    var duration = parseInt(node.dataset.speedDuration || '680', 10) || 680;
+    var listeners = [];
+    var timer = null;
+    var observer = null;
+    var animating = false;
+    var hasPlayed = false;
+    var sourceText = node.dataset.speedSource || node.textContent || '';
+
+    node.dataset.speedSource = sourceText;
+    node.style.setProperty('--speed-intensity', intensity.toFixed(2));
+    node.style.setProperty('--speed-duration', duration + 'ms');
+    node.classList.add('speed-text-ready');
+    node.setAttribute('aria-label', String(sourceText).trim());
+    splitIntoChars(node, sourceText);
+
+    if (reducedMotion) {
+      node.classList.add('speed-text-static');
+      return null;
+    }
+
+    function on(el, eventName, handler, options) {
+      el.addEventListener(eventName, handler, options || false);
+      listeners.push([el, eventName, handler, options || false]);
+    }
+
+    function clearTimer() {
+      if (!timer) return;
+      clearTimeout(timer);
+      timer = null;
+    }
+
+    function triggerAnimation() {
+      if (animating) return;
+      if (mode === 'once' && hasPlayed) return;
+      if (mode === 'reveal' && hasPlayed && !repeatReveal) return;
+
+      clearTimer();
+      animating = true;
+      node.classList.remove('speed-text-active');
+      void node.offsetWidth;
+      node.classList.add('speed-text-active');
+
+      timer = window.setTimeout(function () {
+        node.classList.remove('speed-text-active');
+        animating = false;
+        hasPlayed = true;
+      }, duration + 260);
+    }
+
+    if (mode === 'hover') {
+      on(node, 'mouseenter', triggerAnimation);
+      on(node, 'focusin', triggerAnimation);
+      on(node, 'touchstart', triggerAnimation, { passive: true });
+    } else if (mode === 'reveal' || mode === 'once') {
+      if ('IntersectionObserver' in window) {
+        observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              triggerAnimation();
+            } else if (mode === 'reveal' && repeatReveal) {
+              hasPlayed = false;
+            }
+          });
+        }, { threshold: 0.55 });
+        observer.observe(node);
+      } else {
+        triggerAnimation();
+      }
+    } else {
+      on(node, 'mouseenter', triggerAnimation);
+    }
+
+    return function cleanup() {
+      clearTimer();
+      if (observer && typeof observer.disconnect === 'function') observer.disconnect();
+      for (var i = 0; i < listeners.length; i += 1) {
+        var item = listeners[i];
+        item[0].removeEventListener(item[1], item[2], item[3]);
+      }
+      listeners.length = 0;
+    };
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('speed-text', '[data-effect~="speed-text"]', initSpeedText);
+  }
+})();
+
+
+/* --- effect.tooltip-card.js --- */
+/**
+ * Tooltip Card — rich tooltip that follows mouse pointer
+ * For preflight terms (DPI, safe margin, tiny lines)
+ * Touch support, viewport boundary detection
+ * Registered via DTF.registerEffect
+ */
+(function () {
+  'use strict';
+  var DTF = (window.DTF = window.DTF || {});
+
+  function initTooltipCard(node, ctx) {
+    if (!node) return null;
+
+    var content = node.dataset.tooltipContent || node.getAttribute('title') || '';
+    var htmlContent = node.dataset.tooltipHtml || '';
+    if (!content && !htmlContent) return null;
+
+    /* Remove native title to prevent double tooltip */
+    if (node.getAttribute('title')) {
+      node.removeAttribute('title');
+    }
+
+    var tooltip = null;
+    var visible = false;
+    var listeners = [];
+    var hideTimeout = null;
+
+    function on(el, evt, fn, opts) {
+      el.addEventListener(evt, fn, opts || false);
+      listeners.push([el, evt, fn, opts || false]);
+    }
+
+    function createTooltip() {
+      if (tooltip) return;
+      tooltip = document.createElement('div');
+      tooltip.className = 'dtf-tooltip-card';
+      tooltip.setAttribute('role', 'tooltip');
+      tooltip.setAttribute('aria-hidden', 'true');
+
+      var inner = document.createElement('div');
+      inner.className = 'dtf-tooltip-inner';
+      if (htmlContent) {
+        inner.innerHTML = htmlContent;
+      } else {
+        inner.textContent = content;
+      }
+      tooltip.appendChild(inner);
+      document.body.appendChild(tooltip);
+    }
+
+    function positionTooltip(mouseX, mouseY) {
+      if (!tooltip) return;
+      var offset = 12;
+      var rect = tooltip.getBoundingClientRect();
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+
+      var x = mouseX + offset;
+      var y = mouseY + offset;
+
+      /* Boundary check */
+      if (x + rect.width > vw - 10) {
+        x = mouseX - rect.width - offset;
+      }
+      if (y + rect.height > vh - 10) {
+        y = mouseY - rect.height - offset;
+      }
+      if (x < 10) x = 10;
+      if (y < 10) y = 10;
+
+      tooltip.style.left = x + 'px';
+      tooltip.style.top = y + 'px';
+    }
+
+    function show(mouseX, mouseY) {
+      if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+      createTooltip();
+      visible = true;
+      tooltip.setAttribute('aria-hidden', 'false');
+      tooltip.classList.add('dtf-tooltip-visible');
+      positionTooltip(mouseX, mouseY);
+    }
+
+    function hide() {
+      if (!tooltip) return;
+      visible = false;
+      tooltip.classList.remove('dtf-tooltip-visible');
+      tooltip.setAttribute('aria-hidden', 'true');
+    }
+
+    on(node, 'mouseenter', function (e) {
+      show(e.clientX, e.clientY);
+    });
+
+    on(node, 'mousemove', function (e) {
+      if (visible) positionTooltip(e.clientX, e.clientY);
+    });
+
+    on(node, 'mouseleave', function () {
+      hide();
+    });
+
+    /* Touch: toggle on tap */
+    on(node, 'touchstart', function (e) {
+      if (visible) {
+        hide();
+      } else {
+        var touch = e.touches[0];
+        if (touch) show(touch.clientX, touch.clientY);
+        hideTimeout = setTimeout(hide, 3000);
+      }
+    }, { passive: true });
+
+    /* ARIA: node points to tooltip via describedby */
+    node.style.cursor = 'help';
+
+    return function cleanup() {
+      for (var i = 0; i < listeners.length; i++) {
+        var l = listeners[i];
+        l[0].removeEventListener(l[1], l[2], l[3]);
+      }
+      listeners.length = 0;
+      if (tooltip && tooltip.parentNode) {
+        tooltip.parentNode.removeChild(tooltip);
+      }
+      tooltip = null;
+    };
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('tooltip-card', '[data-effect~="tooltip-card"], [data-tooltip-content]', initTooltipCard);
+  }
+})();
+
+
+/* --- effect.text-generate.js --- */
+/**
+ * Text Generate Effect — word-by-word fade-in
+ * For preflight summary recommendation text
+ * One-shot on viewport entry
+ * Registered via DTF.registerEffect
+ */
+(function () {
+  'use strict';
+  var DTF = (window.DTF = window.DTF || {});
+
+  function initTextGenerate(node, ctx) {
+    if (!node) return null;
+
+    var text = node.dataset.generateText || node.textContent || '';
+    if (!text.trim()) return null;
+
+    var wordDuration = parseInt(node.dataset.generateDuration || '40', 10) || 40;
+    var filterEnabled = node.dataset.generateFilter !== 'false';
+    var reducedMotion = ctx && ctx.reducedMotion;
+
+    if (reducedMotion) {
+      node.classList.add('text-generate-static');
+      return null;
+    }
+
+    var words = text.trim().split(/\s+/);
+    var hasPlayed = false;
+
+    /* Replace content with individual word spans */
+    node.textContent = '';
+    node.setAttribute('aria-label', text);
+    var spans = [];
+    words.forEach(function (word, idx) {
+      var span = document.createElement('span');
+      span.className = 'tg-word';
+      span.textContent = word;
+      span.style.opacity = '0';
+      if (filterEnabled) {
+        span.style.filter = 'blur(8px)';
+      }
+      span.style.transition = 'opacity 300ms ease, filter 300ms ease';
+      span.setAttribute('aria-hidden', 'true');
+      if (idx > 0) {
+        node.appendChild(document.createTextNode(' '));
+      }
+      node.appendChild(span);
+      spans.push(span);
+    });
+
+    function play() {
+      if (hasPlayed) return;
+      hasPlayed = true;
+      spans.forEach(function (span, idx) {
+        setTimeout(function () {
+          span.style.opacity = '1';
+          if (filterEnabled) {
+            span.style.filter = 'blur(0)';
+          }
+        }, idx * wordDuration);
+      });
+      node.classList.add('text-generate-played');
+    }
+
+    /* Trigger on viewport entry */
+    if ('IntersectionObserver' in window) {
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            play();
+            observer.disconnect();
+          }
+        });
+      }, { threshold: 0.3 });
+      observer.observe(node);
+    } else {
+      play();
+    }
+
+    node.classList.add('text-generate-ready');
+
+    return function cleanup() {
+      /* Restore original text */
+      node.textContent = text;
+      node.removeAttribute('aria-label');
+    };
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('text-generate', '[data-effect~="text-generate"]', initTextGenerate);
+  }
+})();
+
+
+/* --- effect.images-badge.js --- */
+/**
+ * Images Badge — folder icon with preview images that fan out on hover
+ * For constructor file state indication
+ * Vanilla JS port of Aceternity's ImagesBadge
+ * Registered via DTF.registerEffect
+ */
+(function () {
+  'use strict';
+  var DTF = (window.DTF = window.DTF || {});
+
+  function initImagesBadge(node, ctx) {
+    if (!node) return null;
+
+    var text = node.dataset.badgeText || '';
+    var imagesAttr = node.dataset.badgeImages || '';
+    var images = [];
+    try {
+      images = JSON.parse(imagesAttr);
+    } catch (e) {
+      if (imagesAttr) images = imagesAttr.split(',').map(function (s) { return s.trim(); });
+    }
+    images = images.slice(0, 3);
+
+    var folderW = parseInt(node.dataset.folderWidth || '32', 10);
+    var folderH = parseInt(node.dataset.folderHeight || '24', 10);
+    var hoverSpread = parseInt(node.dataset.hoverSpread || '20', 10);
+    var hoverRotation = parseInt(node.dataset.hoverRotation || '15', 10);
+    var hoverTranslateY = parseInt(node.dataset.hoverTranslateY || '-35', 10);
+
+    var listeners = [];
+    var isHovered = false;
+    var reducedMotion = ctx && ctx.reducedMotion;
+
+    function on(el, evt, fn, opts) {
+      el.addEventListener(evt, fn, opts || false);
+      listeners.push([el, evt, fn, opts || false]);
+    }
+
+    /* Build DOM structure */
+    node.classList.add('images-badge');
+
+    var folder = document.createElement('div');
+    folder.className = 'ib-folder';
+    folder.style.width = folderW + 'px';
+    folder.style.height = folderH + 'px';
+
+    var tabEl = document.createElement('div');
+    tabEl.className = 'ib-folder-tab';
+    folder.appendChild(tabEl);
+
+    var bodyEl = document.createElement('div');
+    bodyEl.className = 'ib-folder-body';
+    folder.appendChild(bodyEl);
+
+    /* Image elements inside folder */
+    var imgEls = [];
+    images.forEach(function (src, idx) {
+      var img = document.createElement('img');
+      img.className = 'ib-preview-img';
+      img.src = src;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.setAttribute('aria-hidden', 'true');
+      img.style.zIndex = String(images.length - idx);
+      folder.appendChild(img);
+      imgEls.push(img);
+    });
+
+    var label = document.createElement('span');
+    label.className = 'ib-label';
+    label.textContent = text;
+
+    node.appendChild(folder);
+    if (text) node.appendChild(label);
+
+    /* Hover animation */
+    function applyHover() {
+      if (reducedMotion) return;
+      isHovered = true;
+      var count = imgEls.length;
+      imgEls.forEach(function (img, idx) {
+        var spreadOffset = (idx - (count - 1) / 2) * hoverSpread;
+        var rotation = (idx - (count - 1) / 2) * hoverRotation;
+        img.style.transition = 'transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease';
+        img.style.transform = 'translateX(' + spreadOffset + 'px) translateY(' + hoverTranslateY + 'px) rotate(' + rotation + 'deg) scale(1.1)';
+        img.style.opacity = '1';
+      });
+    }
+
+    function resetHover() {
+      isHovered = false;
+      imgEls.forEach(function (img) {
+        img.style.transition = 'transform 250ms ease, opacity 200ms ease';
+        img.style.transform = '';
+        img.style.opacity = '';
+      });
+    }
+
+    on(node, 'mouseenter', applyHover);
+    on(node, 'mouseleave', resetHover);
+    on(node, 'touchstart', function () {
+      if (isHovered) resetHover(); else applyHover();
+    }, { passive: true });
+
+    node.classList.add('images-badge-ready');
+
+    return function cleanup() {
+      for (var i = 0; i < listeners.length; i++) {
+        var l = listeners[i];
+        l[0].removeEventListener(l[1], l[2], l[3]);
+      }
+      listeners.length = 0;
+    };
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('images-badge', '[data-effect~="images-badge"]', initImagesBadge);
+  }
+})();
+
+
+/* --- tabs-download.js --- */
+(function () {
+  const DTF = (window.DTF = window.DTF || {});
+
+  function initTabsDownload(root) {
+    const scope = root || document;
+    const hosts = [];
+    if (scope.matches && scope.matches('[data-template-tabs]')) hosts.push(scope);
+    if (scope.querySelectorAll) hosts.push(...scope.querySelectorAll('[data-template-tabs]'));
+
+    hosts.forEach((host) => {
+      if (host.dataset.init === '1') return;
+      host.dataset.init = '1';
+      const tabs = Array.from(host.querySelectorAll('[data-tab-target]'));
+      const panels = Array.from(host.querySelectorAll('[data-tab-panel]'));
+
+      function activate(target) {
+        tabs.forEach((tab) => {
+          const active = tab.getAttribute('data-tab-target') === target;
+          tab.classList.toggle('is-active', active);
+          tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        panels.forEach((panel) => {
+          const active = panel.getAttribute('data-tab-panel') === target;
+          panel.hidden = !active;
+          panel.classList.toggle('is-active', active);
+        });
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => activate(tab.getAttribute('data-tab-target')));
+      });
+      if (tabs[0]) activate(tabs[0].getAttribute('data-tab-target'));
+    });
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('tabs-download', initTabsDownload);
+  }
+})();
+
+
+/* --- cards-on-click.js --- */
+(function () {
+  const DTF = (window.DTF = window.DTF || {});
+
+  function initCardsOnClick(root) {
+    const scope = root || document;
+    const modal = document.getElementById('gallery-case-modal');
+    if (!modal) return;
+    const titleNode = modal.querySelector('[data-case-title]');
+    const descNode = modal.querySelector('[data-case-desc]');
+    const imgNode = modal.querySelector('[data-case-image]');
+
+    const openButtons = [];
+    if (scope.matches && scope.matches('[data-gallery-open]')) openButtons.push(scope);
+    if (scope.querySelectorAll) openButtons.push(...scope.querySelectorAll('[data-gallery-open]'));
+
+    const close = () => {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('is-modal-open');
+    };
+
+    if (!modal.dataset.init) {
+      modal.dataset.init = '1';
+      modal.addEventListener('click', (event) => {
+        if (event.target.dataset.caseClose !== undefined) {
+          close();
+        }
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal.classList.contains('is-open')) close();
+      });
+    }
+
+    openButtons.forEach((button) => {
+      if (button.dataset.init === '1') return;
+      button.dataset.init = '1';
+      button.addEventListener('click', () => {
+        if (titleNode) titleNode.textContent = button.dataset.caseTitle || 'Case';
+        if (descNode) descNode.textContent = button.dataset.caseDesc || '';
+        if (imgNode) {
+          imgNode.src = button.dataset.caseImage || '';
+          imgNode.alt = button.dataset.caseTitle || 'Case image';
+        }
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('is-modal-open');
+      });
+    });
+  }
+
+  if (DTF.registerEffect) {
+    DTF.registerEffect('cards-on-click', initCardsOnClick);
+  }
+})();
+
+
