@@ -86,7 +86,11 @@ img {
   content: "";
   position: fixed;
   inset: 0;
-  background-image: url("../assets/noise-tiling-1.png");
+  background-image: image-set(
+    url("../assets/noise-tiling-1.avif") type("image/avif"),
+    url("../assets/noise-tiling-1.webp") type("image/webp"),
+    url("../assets/noise-tiling-1.png") type("image/png")
+  );
   background-size: 320px 320px;
   opacity: 0.04;
   pointer-events: none;
@@ -107,7 +111,11 @@ img {
   position: absolute;
   inset: -20%;
   background-image:
-    url("../assets/noise-tiling-1.png"),
+    image-set(
+      url("../assets/noise-tiling-1.avif") type("image/avif"),
+      url("../assets/noise-tiling-1.webp") type("image/webp"),
+      url("../assets/noise-tiling-1.png") type("image/png")
+    ),
     repeating-linear-gradient(
       0deg,
       rgba(255, 255, 255, 0.02) 0px,
@@ -1558,15 +1566,15 @@ body[data-page="home"] section.section > .dtf-container {
 
 .scan-outline {
   display: inline-block;
-  color: transparent;
-  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.6);
-  text-stroke: 1px rgba(255, 255, 255, 0.6);
+  color: var(--text);
+  -webkit-text-stroke: 0;
+  text-stroke: 0;
 }
 
 .scan-fill {
   position: absolute;
   inset: 0;
-  display: inline-block;
+  display: none;
   color: var(--c-molten);
   clip-path: inset(0 100% 0 0);
 }
@@ -1601,6 +1609,7 @@ body[data-page="home"] section.section > .dtf-container {
   position: absolute;
   top: 0;
   bottom: 0;
+  display: none;
   width: 4px;
   left: 0;
   background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.8), transparent);
@@ -1608,6 +1617,20 @@ body[data-page="home"] section.section > .dtf-container {
   pointer-events: none;
   box-shadow: 0 0 18px rgba(255, 92, 0, 0.45);
   mix-blend-mode: screen;
+}
+
+.scan-hero.scan-enhanced .scan-outline {
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.6);
+  text-stroke: 1px rgba(255, 255, 255, 0.6);
+}
+
+.scan-hero.scan-enhanced .scan-fill {
+  display: inline-block;
+}
+
+.scan-hero.scan-enhanced .scan-line {
+  display: block;
 }
 
 .scan-hero.scan-animate .scan-fill {

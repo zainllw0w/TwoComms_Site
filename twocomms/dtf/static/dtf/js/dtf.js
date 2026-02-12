@@ -874,6 +874,8 @@
     const hero = document.querySelector('.scan-hero');
     if (!hero) return;
     initState.printhead = true;
+    // Keep hero readable by default; enable scan visuals only after JS boot.
+    hero.classList.add('scan-enhanced');
     const tier = resolveScanTier();
     hero.dataset.scanTier = String(tier);
     hero.classList.add(`scan-tier-${tier}`);
@@ -1852,7 +1854,7 @@
       const glass = card.querySelector('.lens-glass');
       if (!media || !glass) return;
       const img = media.querySelector('img');
-      const src = (img && img.getAttribute('src')) || media.dataset.lensSrc;
+      const src = media.dataset.lensSrc || (img && (img.currentSrc || img.getAttribute('src')));
       const alt = (img && img.getAttribute('alt')) || (card.querySelector('.proof-title') || {}).textContent || '';
       if (!src) {
         card.classList.add('is-disabled');
