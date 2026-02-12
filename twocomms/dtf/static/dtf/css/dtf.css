@@ -1270,11 +1270,16 @@ body[data-page="home"] section.section > .dtf-container {
 }
 
 .home-dot-distortion.has-canvas .dot-distortion-canvas {
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+.home-dot-distortion.has-canvas.is-canvas-ready .dot-distortion-canvas {
   opacity: 0.92;
 }
 
-.home-dot-distortion.has-canvas .dot-field,
-.home-dot-distortion.has-canvas .dot-orb {
+.home-dot-distortion.has-canvas.is-canvas-ready .dot-field,
+.home-dot-distortion.has-canvas.is-canvas-ready .dot-orb {
   display: none;
 }
 
