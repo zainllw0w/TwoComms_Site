@@ -243,6 +243,20 @@
   function revealOnScroll(root = document) {
     const items = collectTargets(root, '[data-reveal]');
     if (!items.length) return;
+
+    if (root === document && document.body && !document.body.classList.contains('reveal-ready')) {
+      const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement ? document.documentElement.clientHeight : 0);
+      if (viewportHeight > 0) {
+        items.forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          if (rect.bottom > 0 && rect.top < viewportHeight * 0.98) {
+            el.classList.add('is-visible');
+          }
+        });
+      }
+      document.body.classList.add('reveal-ready');
+    }
+
     if (!('IntersectionObserver' in window) || prefersReduced) {
       items.forEach(el => {
         if (!initOnce(el, 'Reveal')) return;
@@ -271,6 +285,7 @@
     );
     items.forEach(el => {
       if (!initOnce(el, 'Reveal')) return;
+      if (el.classList.contains('is-visible')) return;
       observer.observe(el);
     });
   }
@@ -870,6 +885,19 @@
     return tier;
   }
 
+  function resolveAmbientTier() {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (prefersReduced || (connection && connection.saveData)) return 0;
+    const width = window.innerWidth || 0;
+    const memory = navigator.deviceMemory || 4;
+    const cores = navigator.hardwareConcurrency || 4;
+
+    if (memory <= 2 || cores <= 2) return 1;
+    if (width < 768 || memory <= 4 || cores <= 4) return 2;
+    if (width >= 1440 && memory >= 8 && cores >= 8) return 4;
+    return 3;
+  }
+
   function initPrintheadScan() {
     if (initState.printhead) return;
     const hero = document.querySelector('.scan-hero');
@@ -937,30 +965,11 @@
     if (initState.ambientBackdrop) return;
     initState.ambientBackdrop = true;
     if (!document.body) return;
-    if (prefersReduced) return;
-
-    let activated = false;
-    let fallbackTimer = null;
-    const interactionEvents = ['pointerdown', 'touchstart', 'keydown', 'scroll'];
-    const activate = () => {
-      if (activated || !document.body) return;
-      activated = true;
-      document.body.classList.add('ambient-fx-ready');
-      if (fallbackTimer) {
-        window.clearTimeout(fallbackTimer);
-        fallbackTimer = null;
-      }
-      interactionEvents.forEach((eventName) => {
-        window.removeEventListener(eventName, activate);
-      });
-    };
-
-    interactionEvents.forEach((eventName) => {
-      window.addEventListener(eventName, activate, { passive: true });
-    });
-
-    // Keep ambient FX out of the first-paint window unless user interacts earlier.
-    fallbackTimer = window.setTimeout(activate, 4200);
+    if (prefersReduced) {
+      document.body.classList.remove('ambient-fx-ready');
+      return;
+    }
+    document.body.classList.add('ambient-fx-ready');
   }
 
   function initHomeDotBackground() {
@@ -972,7 +981,15 @@
     initState.homeDotBackground = true;
     const canvas = layer.querySelector('[data-dot-canvas]');
     const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
-    const canAnimate = allowAmbientEffects();
+    const ambientTier = resolveAmbientTier();
+    const canAnimate = ambientTier > 0 && allowAmbientEffects();
+    const quality = {
+      maxDpr: ambientTier >= 4 ? 1.5 : ambientTier >= 3 ? 1.35 : 1.15,
+      spacingMin: ambientTier >= 4 ? 24 : ambientTier >= 3 ? 28 : 34,
+      spacingMax: ambientTier >= 4 ? 34 : ambientTier >= 3 ? 42 : 52,
+      maxDots: ambientTier >= 4 ? 1250 : ambientTier >= 3 ? 900 : 620,
+      frameBudget: ambientTier >= 4 ? 16 : ambientTier >= 3 ? 20 : 30,
+    };
 
     const setStatic = () => {
       layer.classList.add('is-static');
@@ -989,12 +1006,16 @@
     if (!canAnimate) setStatic();
     else layer.classList.remove('is-static');
 
-    const orbs = Array.from(layer.querySelectorAll('[data-dot-orb]'));
+    const orbs = Array.from(layer.querySelectorAll('[data-dot-orb]')).map((orb) => ({
+      el: orb,
+      depth: parseFloat(orb.dataset.depth || '0.2') || 0.2,
+    }));
     const state = { x: 0, y: 0, tx: 0, ty: 0, active: false };
     let frame = null;
     let width = 0;
     let height = 0;
     let dpr = 1;
+    let lastFrameTime = 0;
     const dots = [];
 
     const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -1008,13 +1029,17 @@
       const rect = canvas.getBoundingClientRect();
       width = Math.max(480, Math.round(rect.width || window.innerWidth || 0));
       height = Math.max(280, Math.round(rect.height || window.innerHeight || 0));
-      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      dpr = Math.min(window.devicePixelRatio || 1, quality.maxDpr);
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       dots.length = 0;
-      const spacing = clamp(Math.round(Math.min(width, height) / 18), 20, 32);
+      let spacing = clamp(Math.round(Math.min(width, height) / 18), quality.spacingMin, quality.spacingMax);
+      const estimatedCount = Math.ceil(width / spacing) * Math.ceil(height / spacing);
+      if (estimatedCount > quality.maxDots) {
+        spacing = Math.max(spacing, Math.round(spacing * Math.sqrt(estimatedCount / quality.maxDots)));
+      }
       for (let y = spacing * 0.5; y <= height; y += spacing) {
         for (let x = spacing * 0.5; x <= width; x += spacing) {
           dots.push({
@@ -1067,6 +1092,12 @@
 
     const step = (time) => {
       frame = null;
+      if (document.hidden) return;
+      if (lastFrameTime && time - lastFrameTime < quality.frameBudget) {
+        schedule();
+        return;
+      }
+      lastFrameTime = time;
       const follow = state.active ? 0.22 : 0.16;
       state.x += (state.tx - state.x) * follow;
       state.y += (state.ty - state.y) * follow;
@@ -1084,10 +1115,9 @@
       layer.style.setProperty('--dot-arc-y', `${arcY.toFixed(2)}px`);
       layer.style.setProperty('--dot-glow', state.active ? '0.76' : '0.58');
 
-      orbs.forEach((orb) => {
-        const depth = parseFloat(orb.dataset.depth || '0.2');
-        orb.style.setProperty('--orb-x', `${(shiftX * (0.78 + depth)).toFixed(2)}px`);
-        orb.style.setProperty('--orb-y', `${(shiftY * (0.68 + depth)).toFixed(2)}px`);
+      orbs.forEach(({ el, depth }) => {
+        el.style.setProperty('--orb-x', `${(shiftX * (0.78 + depth)).toFixed(2)}px`);
+        el.style.setProperty('--orb-y', `${(shiftY * (0.68 + depth)).toFixed(2)}px`);
       });
 
       renderCanvas(time);
@@ -1130,16 +1160,22 @@
         window.addEventListener('pointerdown', updateTarget, { passive: true });
         window.addEventListener('pointerleave', resetTarget);
         window.addEventListener('blur', resetTarget);
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            state.active = false;
+            state.tx = 0;
+            state.ty = 0;
+            return;
+          }
+          schedule();
+        });
+        schedule();
       } else {
         setStatic();
       }
     };
 
-    if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(boot, { timeout: 900 });
-    } else {
-      window.setTimeout(boot, 180);
-    }
+    boot();
   }
 
   function initHeroTilt() {
