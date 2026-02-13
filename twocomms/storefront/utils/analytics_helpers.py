@@ -36,13 +36,13 @@ def _build_color_slug(raw_color: Optional[str]) -> str:
 def get_offer_id(product_id: int, color_variant_id: Optional[int] = None, size: str = 'S', color_name: Optional[str] = None) -> str:
     """
     Генерирует offer_id в том же формате, что и товарный фид.
-    
+
     Args:
         product_id: ID товара
         color_variant_id: ID цветового варианта (может быть None)
         size: Размер (S, M, L, XL, XXL)
         color_name: Название цвета (опционально, чтобы избежать запроса к БД)
-    
+
     Returns:
         str: offer_id в формате TC-{product_id:04d}-{COLOR}-{SIZE}
     """
@@ -89,13 +89,13 @@ def build_feed_color_slug(raw_color: Optional[str]) -> str:
 def get_item_group_id(product_id: int) -> str:
     """
     Генерирует item_group_id для группировки вариантов товара.
-    
+
     Args:
         product_id: ID товара
-    
+
     Returns:
         str: item_group_id в формате фида
-    
+
     Example:
         >>> get_item_group_id(1)
         'TC-GROUP-1'
@@ -106,13 +106,13 @@ def get_item_group_id(product_id: int) -> str:
 def parse_offer_id(offer_id: str) -> dict:
     """
     Парсит offer_id обратно в компоненты.
-    
+
     Args:
         offer_id: offer_id в формате TC-{id}-{variant}-{SIZE}
-    
+
     Returns:
         dict: {'product_id': int, 'variant_key': str, 'size': str}
-    
+
     Example:
         >>> parse_offer_id('TC-4-cv2-M')
         {'product_id': 4, 'variant_key': 'cv2', 'size': 'M', 'variant_id': 2}
@@ -120,15 +120,15 @@ def parse_offer_id(offer_id: str) -> dict:
         {'product_id': 1, 'variant_key': 'default', 'size': 'S', 'variant_id': None}
     """
     parts = offer_id.split('-')
-    
+
     if len(parts) < 4:
         raise ValueError(f"Invalid offer_id format: {offer_id}")
-    
+
     # TC-{id}-{variant}-{SIZE}
     product_id = int(parts[1])
     variant_key = parts[2]
     size = parts[3]
-    
+
     # Извлекаем variant_id если это cv{id}
     variant_id = None
     if variant_key.startswith('cv') and len(variant_key) > 2:
@@ -136,7 +136,7 @@ def parse_offer_id(offer_id: str) -> dict:
             variant_id = int(variant_key[2:])
         except ValueError:
             pass
-    
+
     return {
         'product_id': product_id,
         'variant_key': variant_key,
@@ -156,9 +156,9 @@ def build_ecommerce_payload(
 ) -> dict:
     """
     Создает унифицированный payload для e-commerce событий пикселей.
-    
+
     Поддерживает Meta Pixel, TikTok Pixel и GA4.
-    
+
     Args:
         offer_ids: Список offer_id товаров
         product_name: Название товара
@@ -167,7 +167,7 @@ def build_ecommerce_payload(
         currency: Валюта (по умолчанию UAH)
         quantity: Количество
         brand: Бренд (по умолчанию TwoComms)
-    
+
     Returns:
         dict: Унифицированный payload для всех платформ
     """
@@ -177,7 +177,7 @@ def build_ecommerce_payload(
         'content_type': 'product',
         'content_name': product_name,
         'currency': currency.upper(),
-        
+
         # Meta Pixel contents array
         'contents': [
             {
@@ -187,7 +187,7 @@ def build_ecommerce_payload(
             }
             for offer_id in offer_ids
         ],
-        
+
         # GA4 items array
         'items': [
             {
@@ -201,16 +201,16 @@ def build_ecommerce_payload(
             for offer_id in offer_ids
         ]
     }
-    
+
     # Добавляем value только если цена указана
     if price is not None:
         payload['value'] = float(price) * quantity
-    
+
     # Добавляем категорию если указана (для TikTok)
     if product_category:
         payload['content_category'] = product_category
-    
+
     # Количество товаров
     payload['num_items'] = len(offer_ids) * quantity
-    
+
     return payload

@@ -19,4 +19,3 @@ __all__ = [
     'normalize_color_variant_id',
     'get_color_variant_safe',
 ]
-

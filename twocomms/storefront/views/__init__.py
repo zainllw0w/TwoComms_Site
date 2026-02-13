@@ -21,7 +21,6 @@ Storefront views package.
 
 import importlib.machinery
 import importlib.util
-from functools import wraps
 from pathlib import Path
 
 # ==================== НОВЫЕ МОДУЛИ ====================
@@ -78,8 +77,6 @@ from .cart import (
     remove_promo_code,
     cart_summary,
     cart_mini,
-    contact_manager,
-    cart_items_api,
 )
 
 # Статические страницы
@@ -87,7 +84,6 @@ from .static_pages import (
     robots_txt,
     static_sitemap,
     google_merchant_feed,
-    uaprom_products_feed,
     prom_feed_xml,
     static_verification_file,
     about,
@@ -109,10 +105,10 @@ from .profile import (
     favorites,
     favorites_list,
     toggle_favorite,
-    add_to_favorites, 
+    add_to_favorites,
     remove_from_favorites,
     check_favorite_status,
-    favorites_count, 
+    favorites_count,
     points_history,
     settings,
     # User Points & Rewards
@@ -164,38 +160,16 @@ from .api import (
 )
 
 # Surveys
-from .survey import (
-    survey_start_or_resume,
-    survey_current_question,
-    survey_submit_answer,
-    survey_back_one_step,
-    survey_close,
-    survey_complete,
-)
 
 # Оформление заказа
 from .checkout import (
     create_order,
-    payment_method,
-    monobank_webhook,
-    payment_callback,
-    order_success,
-    order_success_preview,
-    order_failed,
-    calculate_shipping,
-    calculate_shipping,
-    handle_payment,
-    checkout_view,
-    update_payment_method,
-    confirm_payment
+    monobank_webhook
 )
-from .utils import get_liqpay_context
 
 
 # Monobank оплата
 from .monobank import (
-    monobank_create_invoice,
-    _monobank_finalize_invoice,
     monobank_webhook,
     monobank_return,
 )
@@ -206,7 +180,6 @@ from .admin import (
     admin_dashboard,
     manage_products,
     add_product,
-    admin_product_builder,
     admin_reorder_products,
     admin_update_product_status,
     admin_toggle_manager,
@@ -342,34 +315,34 @@ __all__ = [
     'cache_page_for_anon', 'unique_slugify', 'get_cart_from_session',
     'save_cart_to_session', 'calculate_cart_total', 'get_favorites_from_session',
     'save_favorites_to_session', 'HOME_PRODUCTS_PER_PAGE',
-    
+
     # Auth
     'LoginForm', 'RegisterForm', 'ProfileSetupForm',
     'login_view', 'register_view', 'logout_view',
-    
+
     # Catalog
     'home', 'load_more_products', 'catalog', 'search',
-    
+
     # Product
     'product_detail', 'get_product_images', 'get_product_variants', 'quick_view',
-    
+
     # Cart
     'view_cart', 'add_to_cart', 'update_cart', 'remove_from_cart', 'clear_cart',
     'get_cart_count', 'apply_promo_code', 'remove_promo_code', 'cart_summary', 'cart_mini',
-    
+
     # Static Pages
     'robots_txt', 'static_sitemap', 'google_merchant_feed',
     'static_verification_file', 'about', 'contacts', 'delivery', 'returns',
     'privacy_policy', 'terms_of_service', 'test_analytics_events',
     'prom_feed_xml',
-    
+
     # Profile
     'profile', 'edit_profile', 'profile_setup', 'order_history', 'order_detail',
-    'favorites', 'favorites_list', 'toggle_favorite', 'add_to_favorites', 
-    'remove_from_favorites', 'check_favorite_status', 'favorites_count', 
+    'favorites', 'favorites_list', 'toggle_favorite', 'add_to_favorites',
+    'remove_from_favorites', 'check_favorite_status', 'favorites_count',
     'points_history', 'settings',
     'user_points', 'my_promocodes', 'buy_with_points', 'purchase_with_points',
-    
+
     # Promo Codes
     'PromoCodeForm', 'PromoCodeGroupForm', 'get_promo_admin_context',
     'admin_promocodes', 'admin_promocode_create', 'admin_promocode_edit',
@@ -379,18 +352,18 @@ __all__ = [
     'admin_promocode_get_form', 'admin_promocode_edit_ajax',
     'admin_promo_group_get_form', 'admin_promo_group_edit_ajax',
     'admin_promocode_change_group', 'admin_promo_export',
-    
+
     # API
     'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
     'product_availability', 'get_related_products', 'newsletter_subscribe', 'contact_form',
-    
+
     # Admin
     'admin_panel', 'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
     'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
     'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
     'admin_reorder_products', 'admin_update_product_status',
     'admin_toggle_manager',
-    
+
     # Aliases (для обратной совместимости)
     'cart', 'cart_remove', 'clean_cart', 'profile_setup_db', 'register_view_new',
     'order_create', 'my_orders',

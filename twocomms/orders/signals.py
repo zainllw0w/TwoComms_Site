@@ -73,7 +73,7 @@ def track_order_changes(sender, instance, **kwargs):
     if instance.pk:
         try:
             old_instance = Order.objects.get(pk=instance.pk)
-            
+
             # Отслеживаем изменение статуса заказа
             if old_instance.status != instance.status:
                 # Async Telegram notification (не блочим збереження при помилці)
@@ -83,14 +83,13 @@ def track_order_changes(sender, instance, **kwargs):
                     old_status=old_instance.get_status_display(),
                     new_status=instance.get_status_display()
                 )
-            
+
             # Отслеживаем добавление ТТН
             if not old_instance.tracking_number and instance.tracking_number:
                 _safe_queue_notification(instance.id, 'ttn_added')
-                
+
         except Order.DoesNotExist:
             pass
-
 
 
 @receiver(pre_save, sender=WholesaleInvoice)

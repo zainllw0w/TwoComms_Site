@@ -7,6 +7,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(unique=True)
@@ -20,7 +21,7 @@ class Category(models.Model):
     ai_keywords = models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
     ai_description = models.TextField(blank=True, null=True, verbose_name='AI-опис')
     ai_content_generated = models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
-    
+
     class Meta:
         ordering = ['order', 'name']
         indexes = [
@@ -28,7 +29,7 @@ class Category(models.Model):
             models.Index(fields=['is_featured'], name='idx_category_featured'),
             models.Index(fields=['order'], name='idx_category_order'),
         ]
-    
+
     def __str__(self):
         return self.name
 
@@ -176,6 +177,7 @@ class PrintProposal(models.Model):
             base += f" (+{self.awarded_points} б.)"
         return base
 
+
 class ProductStatus(models.TextChoices):
     DRAFT = 'draft', _('Чернетка')
     REVIEW = 'review', _('На модерації')
@@ -230,18 +232,18 @@ class Product(models.Model):
     seo_keywords = models.CharField(max_length=300, blank=True, verbose_name='SEO ключові слова')
     seo_schema = models.JSONField(blank=True, default=dict, verbose_name='Structured data')
     recommendation_tags = models.JSONField(blank=True, default=list, verbose_name='Теги рекомендацій')
-    
+
     # Дропшип цены
     drop_price = models.PositiveIntegerField(default=0, verbose_name='Ціна дропа (грн)')
     recommended_price = models.PositiveIntegerField(default=0, verbose_name='Рекомендована ціна (грн)')
-    
+
     # Оптовые цены для дропшипа
     wholesale_price = models.PositiveIntegerField(default=0, verbose_name='Оптова ціна (грн)')
-    
+
     # Поля для определения участия в дропшипе
     is_dropship_available = models.BooleanField(default=True, verbose_name='Доступний для дропшипа')
     dropship_note = models.CharField(max_length=200, blank=True, null=True, verbose_name='Примітка для дропшипа')
-    
+
     # AI-generated content fields
     ai_keywords = models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
     ai_description = models.TextField(blank=True, null=True, verbose_name='AI-опис')
@@ -260,23 +262,24 @@ class Product(models.Model):
             else:
                 self.short_description = plain
         super().save(*args, **kwargs)
+
     @property
     def has_discount(self):
         """Автоматически определяет, есть ли скидка"""
         return bool(self.discount_percent and self.discount_percent > 0)
-    
+
     @property
     def final_price(self):
         if self.has_discount:
             return int(self.price*(100-self.discount_percent)/100)
         return self.price
-    
+
     @property
     def display_image(self):
         """Возвращает главное изображение или первую фотографию первого цвета"""
         if self.main_image:
             return self.main_image
-        
+
         # Если нет главного изображения, ищем в цветах
         # Оптимизация: используем предзагруженные данные, если они есть
         if hasattr(self, '_prefetched_objects_cache') and 'color_variants' in self._prefetched_objects_cache:
@@ -284,7 +287,7 @@ class Product(models.Model):
             first_color_variant = variants[0] if variants else None
         else:
             first_color_variant = self.color_variants.first()
-            
+
         if first_color_variant:
             # Оптимизация для изображений варианта
             if hasattr(first_color_variant, '_prefetched_objects_cache') and 'images' in first_color_variant._prefetched_objects_cache:
@@ -292,19 +295,19 @@ class Product(models.Model):
                 first_image = images[0] if images else None
             else:
                 first_image = first_color_variant.images.first()
-                
+
             if first_image:
                 return first_image.image
-        
+
         return None
-    
+
     def __str__(self):
         return self.title
-    
+
     def get_drop_price(self, dropshipper=None):
         """Получить цену дропа (оптовая цена) с учетом скидки за успешные дропы"""
         base_price = 0
-        
+
         if self.category and self.category.slug == 'hoodie':
             base_price = 1350
         elif self.category and self.category.slug == 'long-sleeve':
@@ -319,21 +322,21 @@ class Product(models.Model):
                 return self.wholesale_price
             else:
                 return self.drop_price
-        
+
         # Если не указан дропшипер, возвращаем базовую цену
         if not dropshipper:
             return base_price
-        
+
         # Рассчитываем скидку за успешные дропы
         from orders.models import DropshipperOrder
         successful_orders = DropshipperOrder.objects.filter(
             dropshipper=dropshipper,
             status='delivered'
         ).count()
-        
+
         # Скидка 10 грн за каждый успешный дроп
         discount = successful_orders * 10
-        
+
         # Минимальные цены
         if base_price == 1350:  # худи
             min_price = 1200
@@ -341,10 +344,10 @@ class Product(models.Model):
             min_price = 500
         else:
             min_price = base_price
-        
+
         final_price = max(min_price, base_price - discount)
         return final_price
-    
+
     def get_recommended_price(self):
         """Получить рекомендованную цену (цена со скидкой +-10%)"""
         if self.has_discount and self.discount_percent:
@@ -362,7 +365,7 @@ class Product(models.Model):
             'max': int(self.price * 1.1),
             'base': self.price
         }
-    
+
     def is_available_for_dropship(self):
         """Проверить доступность для дропшипа"""
         if not self.is_dropship_available:
@@ -374,15 +377,15 @@ class Product(models.Model):
     def get_offer_id(self, color_variant_id=None, size='S', color_name=None):
         """
         Генерирует offer_id для синхронизации с Google Merchant Feed и пикселями.
-        
+
         Args:
             color_variant_id: ID цветового варианта (опционально)
             size: Размер (S, M, L, XL, XXL)
             color_name: Название цвета (опционально, для оптимизации)
-        
+
         Returns:
             str: offer_id в формате TC-{id:04d}-{COLOR}-{SIZE}
-        
+
         Examples:
             >>> product.get_offer_id()
             'TC-0001-CHERNYI-S'
@@ -391,25 +394,25 @@ class Product(models.Model):
         """
         from storefront.utils.analytics_helpers import get_offer_id
         return get_offer_id(self.id, color_variant_id, size, color_name)
-    
+
     def get_all_offer_ids(self, sizes=None):
         """
         Генерирует все возможные offer_ids для товара (все цвета × все размеры).
-        
+
         Args:
             sizes: Список размеров (по умолчанию ['S', 'M', 'L', 'XL', 'XXL'])
-        
+
         Returns:
             list: Список всех offer_ids
         """
         if sizes is None:
             sizes = ['S', 'M', 'L', 'XL', 'XXL']
-        
+
         offer_ids = []
-        
+
         # Получаем цветовые варианты
         color_variants = self.color_variants.all()
-        
+
         if color_variants.exists():
             # Если есть цветовые варианты - генерируем для каждого
             for variant in color_variants:
@@ -419,7 +422,7 @@ class Product(models.Model):
             # Если нет цветовых вариантов - генерируем с default
             for size in sizes:
                 offer_ids.append(self.get_offer_id(None, size))
-        
+
         return offer_ids
 
     class Meta:
@@ -434,17 +437,19 @@ class Product(models.Model):
             models.Index(fields=['published_at'], name='idx_product_published_at'),
         ]
 
+
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(upload_to='products/extra/')
     order = models.IntegerField(default=0, db_index=True)
     alt_text = models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст зображення')
-    
+
     class Meta:
         ordering = ['order', 'id']
 
     def __str__(self):
         return f'Image for {self.product_id}'
+
 
 class PromoCodeGroup(models.Model):
     """Группа промокодов с ограничением 'один на аккаунт'"""
@@ -454,7 +459,7 @@ class PromoCodeGroup(models.Model):
     is_active = models.BooleanField(default=True, verbose_name='Активна')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
-    
+
     class Meta:
         verbose_name = 'Група промокодів'
         verbose_name_plural = 'Групи промокодів'
@@ -462,7 +467,7 @@ class PromoCodeGroup(models.Model):
         indexes = [
             models.Index(fields=['is_active', '-created_at'], name='idx_group_active_created'),
         ]
-    
+
     def __str__(self):
         return f'{self.name} {"(один на акаунт)" if self.one_per_account else ""}'
 
@@ -472,51 +477,51 @@ class PromoCode(models.Model):
         ('percentage', 'Відсоток'),
         ('fixed', 'Фіксована сума'),
     ]
-    
+
     PROMO_TYPES = [
         ('regular', 'Звичайний промокод'),
         ('voucher', 'Ваучер (фіксована сума)'),
         ('grouped', 'Груповий промокод'),
     ]
-    
+
     # Основні поля
     code = models.CharField(max_length=20, unique=True, blank=True, verbose_name='Код промокоду')
     promo_type = models.CharField(max_length=10, choices=PROMO_TYPES, default='regular', verbose_name='Тип промокоду')
     discount_type = models.CharField(max_length=10, choices=DISCOUNT_TYPES, verbose_name='Тип знижки')
     discount_value = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Значення знижки')
     description = models.TextField(blank=True, null=True, verbose_name='Опис')
-    
+
     # Группировка
     group = models.ForeignKey(
-        PromoCodeGroup, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
+        PromoCodeGroup,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='promo_codes',
         verbose_name='Група'
     )
-    
+
     # Ограничения использования
     max_uses = models.PositiveIntegerField(default=0, verbose_name='Максимальна кількість використань (0 = безліміт)')
     current_uses = models.PositiveIntegerField(default=0, verbose_name='Поточна кількість використань')
     one_time_per_user = models.BooleanField(default=False, verbose_name='Одноразове використання на користувача')
     min_order_amount = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        null=True, 
-        blank=True, 
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
         verbose_name='Мінімальна сума замовлення'
     )
-    
+
     # Период действия
     valid_from = models.DateTimeField(null=True, blank=True, verbose_name='Дійсний з')
     valid_until = models.DateTimeField(null=True, blank=True, verbose_name='Дійсний до')
-    
+
     # Статус
     is_active = models.BooleanField(default=True, verbose_name='Активний')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
-    
+
     class Meta:
         verbose_name = 'Промокод'
         verbose_name_plural = 'Промокоди'
@@ -527,18 +532,18 @@ class PromoCode(models.Model):
             models.Index(fields=['promo_type', 'is_active'], name='idx_promo_type_active'),
             models.Index(fields=['code'], name='idx_promo_code'),
         ]
-    
+
     def __str__(self):
         type_label = dict(self.PROMO_TYPES).get(self.promo_type, 'Промокод')
         return f'{self.code} ({type_label}) - {self.get_discount_display()}'
-    
+
     def get_discount_display(self):
         """Возвращает отображаемое значение скидки"""
         if self.discount_type == 'percentage':
             return f'{self.discount_value}%'
         else:
             return f'{self.discount_value} грн'
-    
+
     def is_valid_now(self):
         """Проверяет, действителен ли промокод по времени"""
         now = timezone.now()
@@ -547,7 +552,7 @@ class PromoCode(models.Model):
         if self.valid_until and now > self.valid_until:
             return False
         return True
-    
+
     def can_be_used(self):
         """Проверяет, можно ли использовать промокод (без проверки пользователя)"""
         if not self.is_active:
@@ -557,12 +562,12 @@ class PromoCode(models.Model):
         if self.max_uses > 0 and self.current_uses >= self.max_uses:
             return False
         return True
-    
+
     def can_be_used_by_user(self, user):
         """Проверяет, может ли конкретный пользователь использовать промокод"""
         if not user or not user.is_authenticated:
             return False, 'Промокоди доступні тільки для зареєстрованих користувачів'
-        
+
         if not self.can_be_used():
             if not self.is_active:
                 return False, 'Промокод неактивний'
@@ -571,20 +576,20 @@ class PromoCode(models.Model):
             if self.max_uses > 0 and self.current_uses >= self.max_uses:
                 return False, 'Промокод вичерпано'
             return False, 'Промокод неактивний або вичерпаний'
-        
+
         # Проверка one_time_per_user
         if self.one_time_per_user:
             if PromoCodeUsage.objects.filter(user=user, promo_code=self).exists():
                 return False, 'Ви вже використали цей промокод'
-        
+
         # Проверка группы (one_per_account)
         if self.group and self.group.one_per_account:
             # Проверяем, использовал ли пользователь какой-либо промокод из этой группы
             if PromoCodeUsage.objects.filter(user=user, group=self.group).exists():
                 return False, f'Ви вже використали промокод з групи "{self.group.name}"'
-        
+
         return True, 'OK'
-    
+
     def use(self):
         """Использует промокод (увеличивает счетчик)"""
         if self.can_be_used():
@@ -592,12 +597,12 @@ class PromoCode(models.Model):
             self.save(update_fields=['current_uses'])
             return True
         return False
-    
+
     def record_usage(self, user, order=None):
         """Записывает использование промокода пользователем"""
         if not user or not user.is_authenticated:
             return None
-        
+
         usage = PromoCodeUsage.objects.create(
             user=user,
             promo_code=self,
@@ -606,33 +611,33 @@ class PromoCode(models.Model):
         )
         self.use()
         return usage
-    
+
     def calculate_discount(self, total_amount):
         """Рассчитывает скидку для указанной суммы"""
         if not self.can_be_used():
             return Decimal('0.00')
-        
+
         # Проверяем минимальную сумму заказа
         total = Decimal(str(total_amount))
-        
+
         if self.min_order_amount and total < self.min_order_amount:
             return Decimal('0.00')
-        
+
         discount_value = Decimal(str(self.discount_value or 0))
         if discount_value <= 0:
             return Decimal('0.00')
-        
+
         if self.discount_type == 'percentage':
             discount = (total * discount_value) / Decimal('100')
         else:
             # Для ваучеров и фиксированной скидки
             discount = min(discount_value, total)
-        
+
         if discount > total:
             discount = total
-        
+
         return discount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    
+
     def get_purchases_count(self):
         """Возвращает количество покупок с этим промокодом (исключая отмененные и в обработке)"""
         from orders.models import Order
@@ -640,13 +645,13 @@ class PromoCode(models.Model):
             promo_code=self,
             status__in=['prep', 'ship', 'done']
         ).count()
-    
+
     @classmethod
     def generate_code(cls, length=8):
         """Генерирует уникальный код промокода"""
         import random
         import string
-        
+
         while True:
             # Генерируем код из букв и цифр
             code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
@@ -658,21 +663,21 @@ class PromoCode(models.Model):
 class PromoCodeUsage(models.Model):
     """История использования промокодов пользователями"""
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
         related_name='promo_usages',
         verbose_name='Користувач'
     )
     promo_code = models.ForeignKey(
-        PromoCode, 
-        on_delete=models.CASCADE, 
+        PromoCode,
+        on_delete=models.CASCADE,
         related_name='usages',
         verbose_name='Промокод'
     )
     group = models.ForeignKey(
-        PromoCodeGroup, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        PromoCodeGroup,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         related_name='usages',
         verbose_name='Група'
@@ -686,7 +691,7 @@ class PromoCodeUsage(models.Model):
         verbose_name='Замовлення'
     )
     used_at = models.DateTimeField(auto_now_add=True, verbose_name='Використано')
-    
+
     class Meta:
         verbose_name = 'Використання промокоду'
         verbose_name_plural = 'Використання промокодів'
@@ -696,7 +701,7 @@ class PromoCodeUsage(models.Model):
             models.Index(fields=['user', 'group'], name='idx_usage_user_group'),
             models.Index(fields=['-used_at'], name='idx_usage_date'),
         ]
-    
+
     def __str__(self):
         return f'{self.user.username} - {self.promo_code.code} ({self.used_at.strftime("%Y-%m-%d %H:%M")})'
 
@@ -802,7 +807,7 @@ class OfflineStore(models.Model):
     order = models.PositiveIntegerField(default=0, verbose_name='Порядок відображення')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
-    
+
     class Meta:
         verbose_name = 'Оффлайн магазин'
         verbose_name_plural = 'Оффлайн магазини'
@@ -810,7 +815,7 @@ class OfflineStore(models.Model):
         indexes = [
             models.Index(fields=['is_active', 'order'], name='idx_store_active_order'),
         ]
-    
+
     def __str__(self):
         return self.name
 
@@ -840,16 +845,16 @@ class SiteSession(models.Model):
 
     def __str__(self) -> str:
         return f"{self.session_key} ({'bot' if self.is_bot else 'user'})"
-    
+
     def get_utm_session(self):
         """Возвращает связанную UTM сессию"""
         return getattr(self, 'utm_data', None)
-    
+
     def get_utm_source(self):
         """Возвращает utm_source из связанной UTM сессии"""
         utm = self.get_utm_session()
         return utm.utm_source if utm else None
-    
+
     def get_utm_campaign(self):
         """Возвращает utm_campaign из связанной UTM сессии"""
         utm = self.get_utm_session()
@@ -889,16 +894,16 @@ class StoreProduct(models.Model):
     is_active = models.BooleanField(default=True, verbose_name='Активний')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
-    
+
     class Meta:
         verbose_name = 'Товар в магазині'
         verbose_name_plural = 'Товари в магазинах'
         ordering = ['-created_at']
         unique_together = [['store', 'product', 'size', 'color']]
-    
+
     def __str__(self):
         return f"{self.product.title} - {self.store.name}"
-    
+
     @property
     def margin(self):
         """Маржа товара"""
@@ -926,18 +931,18 @@ class StoreOrder(models.Model):
         ('completed', 'Виконано'),
         ('cancelled', 'Скасовано'),
     ]
-    
+
     store = models.ForeignKey(OfflineStore, on_delete=models.CASCADE, related_name='store_orders', verbose_name='Магазин')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name='Статус')
     notes = models.TextField(blank=True, null=True, verbose_name='Примітки')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
-    
+
     class Meta:
         verbose_name = 'Заказ магазина'
         verbose_name_plural = 'Заказы магазинов'
         ordering = ['-created_at']
-    
+
     def __str__(self):
         return f"Замовлення #{self.id} - {self.store.name}"
 
@@ -951,15 +956,15 @@ class StoreOrderItem(models.Model):
     quantity = models.PositiveIntegerField(default=1, verbose_name='Кількість')
     cost_price = models.PositiveIntegerField(verbose_name='Собівартість (грн)')
     selling_price = models.PositiveIntegerField(verbose_name='Ціна продажу (грн)')
-    
+
     class Meta:
         verbose_name = 'Товар в заказі'
         verbose_name_plural = 'Товари в заказах'
         ordering = ['id']
-    
+
     def __str__(self):
         return f"{self.product.title} - {self.order}"
-    
+
     @property
     def total_price(self):
         """Общая цена элемента заказа"""
@@ -1031,12 +1036,12 @@ class StoreInvoice(models.Model):
     file_name = models.CharField(max_length=255, default='', verbose_name='Назва файлу')
     file_path = models.CharField(max_length=500, default='', verbose_name='Шлях до файлу')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
-    
+
     class Meta:
         verbose_name = 'Накладна'
         verbose_name_plural = 'Накладні'
         ordering = ['-created_at']
-    
+
     def __str__(self):
         return f"Накладна #{self.id} - {self.store.name}"
 
@@ -1057,21 +1062,21 @@ class UTMSession(models.Model):
         blank=True
     )
     session_key = models.CharField(max_length=40, db_index=True, unique=True)
-    
+
     # UTM параметры (стандартные)
     utm_source = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Джерело (utm_source)')
     utm_medium = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Канал (utm_medium)')
     utm_campaign = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Кампанія (utm_campaign)')
     utm_content = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Контент/Креатив (utm_content)')
     utm_term = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Ключове слово (utm_term)')
-    
+
     # Платформенные идентификаторы
     fbclid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Facebook Click ID')
     gclid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Google Click ID')
     ttclid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='TikTok Click ID')
     fbc = models.CharField(max_length=255, blank=True, null=True, verbose_name='Facebook Click Cookie')
     fbp = models.CharField(max_length=255, blank=True, null=True, verbose_name='Facebook Browser Cookie')
-    
+
     # Геолокация (определяется по IP)
     ip_address = models.GenericIPAddressField(null=True, blank=True, db_index=True, verbose_name='IP-адреса')
     country = models.CharField(max_length=2, blank=True, null=True, db_index=True, verbose_name='Код країни (ISO 3166-1)')
@@ -1079,7 +1084,7 @@ class UTMSession(models.Model):
     city = models.CharField(max_length=100, blank=True, null=True, db_index=True, verbose_name='Місто')
     region = models.CharField(max_length=100, blank=True, null=True, verbose_name='Регіон/Область')
     timezone = models.CharField(max_length=50, blank=True, null=True, verbose_name='Часовий пояс')
-    
+
     # Устройство и браузер
     device_type = models.CharField(max_length=20, blank=True, null=True, db_index=True, choices=[
         ('desktop', 'Desktop'),
@@ -1094,24 +1099,24 @@ class UTMSession(models.Model):
     browser_name = models.CharField(max_length=50, blank=True, null=True, db_index=True, verbose_name='Браузер')
     browser_version = models.CharField(max_length=50, blank=True, null=True, verbose_name='Версія браузера')
     user_agent = models.TextField(blank=True, null=True, verbose_name='User Agent')
-    
+
     # Дополнительные данные
     referrer = models.URLField(max_length=512, blank=True, null=True, verbose_name='Реферер')
     landing_page = models.CharField(max_length=512, blank=True, null=True, verbose_name='Посадкова сторінка')
-    
+
     # Отслеживание повторных визитов
     visit_count = models.PositiveIntegerField(default=1, db_index=True, verbose_name='Кількість візитів')
     is_first_visit = models.BooleanField(default=True, db_index=True, verbose_name='Перший візит')
     is_returning_visitor = models.BooleanField(default=False, db_index=True, verbose_name='Постійний відвідувач')
-    
+
     # Регистрация пользователя
     user_registered = models.BooleanField(default=False, db_index=True, verbose_name='Користувач зареєструвався')
     user_registered_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата реєстрації')
-    
+
     # Метаданные
     first_seen = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='Перший візит')
     last_seen = models.DateTimeField(auto_now=True, db_index=True, verbose_name='Останній візит')
-    
+
     # Флаги конверсии
     is_converted = models.BooleanField(default=False, db_index=True, verbose_name='Конверсія відбулася')
     converted_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата конверсії')
@@ -1119,7 +1124,7 @@ class UTMSession(models.Model):
         ('lead', 'Лід (передплата)'),
         ('purchase', 'Покупка'),
     ], db_index=True, verbose_name='Тип конверсії')
-    
+
     class Meta:
         ordering = ['-first_seen']
         indexes = [
@@ -1133,10 +1138,10 @@ class UTMSession(models.Model):
         ]
         verbose_name = 'UTM Сесія'
         verbose_name_plural = 'UTM Сесії'
-    
+
     def __str__(self):
         return f"UTM: {self.utm_source or 'direct'}/{self.utm_medium or 'none'} - {self.utm_campaign or 'N/A'}"
-    
+
     @property
     def utm_string(self):
         """Возвращает строковое представление UTM-параметров"""
@@ -1152,7 +1157,7 @@ class UTMSession(models.Model):
         if self.utm_term:
             parts.append(f"term={self.utm_term}")
         return "&".join(parts) if parts else "direct"
-    
+
     def mark_as_converted(self, conversion_type='purchase'):
         """Отмечает сессию как конверсионную"""
         if not self.is_converted:
@@ -1160,7 +1165,7 @@ class UTMSession(models.Model):
             self.converted_at = timezone.now()
             self.conversion_type = conversion_type
             self.save(update_fields=['is_converted', 'converted_at', 'conversion_type'])
-    
+
     def increment_visit(self):
         """Увеличивает счетчик визитов"""
         self.visit_count = F('visit_count') + 1
@@ -1168,7 +1173,7 @@ class UTMSession(models.Model):
         self.is_returning_visitor = True
         self.last_seen = timezone.now()
         self.save(update_fields=['visit_count', 'is_first_visit', 'is_returning_visitor', 'last_seen'])
-    
+
     def mark_user_registered(self):
         """Отмечает, что пользователь зарегистрировался"""
         if not self.user_registered:
@@ -1196,7 +1201,7 @@ class UserAction(models.Model):
         ('scroll', 'Прокрутка'),
         ('time_on_page', 'Час на сторінці'),
     ]
-    
+
     utm_session = models.ForeignKey(
         UTMSession,
         on_delete=models.CASCADE,
@@ -1220,9 +1225,9 @@ class UserAction(models.Model):
         blank=True,
         verbose_name='Користувач'
     )
-    
+
     action_type = models.CharField(max_length=50, choices=ACTION_TYPES, db_index=True, verbose_name='Тип дії')
-    
+
     # Данные действия
     page_path = models.CharField(max_length=512, blank=True, null=True, verbose_name='Шлях сторінки')
     product_id = models.IntegerField(null=True, blank=True, db_index=True, verbose_name='ID товару')
@@ -1230,14 +1235,14 @@ class UserAction(models.Model):
     cart_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name='Сума кошика')
     order_id = models.IntegerField(null=True, blank=True, db_index=True, verbose_name='ID замовлення')
     order_number = models.CharField(max_length=20, blank=True, null=True, verbose_name='Номер замовлення')
-    
+
     # Метаданные
     metadata = models.JSONField(default=dict, blank=True, verbose_name='Метадані')
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='Час')
-    
+
     # Баллы за действие
     points_earned = models.IntegerField(default=0, verbose_name='Нараховані бали')
-    
+
     class Meta:
         ordering = ['-timestamp']
         indexes = [
@@ -1248,6 +1253,6 @@ class UserAction(models.Model):
         ]
         verbose_name = 'Дія користувача'
         verbose_name_plural = 'Дії користувачів'
-    
+
     def __str__(self):
         return f"{self.get_action_type_display()} - {self.timestamp}"

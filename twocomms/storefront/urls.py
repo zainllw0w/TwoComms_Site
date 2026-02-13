@@ -26,12 +26,15 @@ def _legacy_view(name):
 
     _wrapped.__name__ = name
     return _wrapped
+
+
 def admin_panel_view(request, *args, **kwargs):
     from .views.admin import admin_panel as _admin_panel
 
     return _admin_panel(request, *args, **kwargs)
 
-urlpatterns=[
+
+urlpatterns = [
     path('', views.home, name='home'),
     path('load-more-products/', views.load_more_products, name='load_more_products'),
     path('catalog/', views.catalog, name='catalog'),
@@ -165,7 +168,7 @@ urlpatterns=[
     path('prom-feed.xml', views.prom_feed_xml, name='prom_feed_xml'),
     # Try to intercept media path (might be blocked by Nginx, but worth adding for user request)
     path('media/prom-feed.xml', views.prom_feed_xml, name='prom_feed_xml_legacy_path'),
-    
+
     path('contacts/', views.contacts, name='contacts'),
     path('search/', views.search, name='search'),
     # Test analytics events page

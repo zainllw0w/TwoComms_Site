@@ -15,7 +15,7 @@ class Command(BaseCommand):
             site.domain = 'twocomms.shop'
             site.name = 'TwoComms'
             site.save()
-            
+
             self.stdout.write(
                 self.style.SUCCESS(
                     f'Домен успешно изменен с "{old_domain}" на "{site.domain}"'

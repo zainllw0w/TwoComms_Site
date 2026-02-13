@@ -17,7 +17,7 @@ class UserProfileInline(admin.StackedInline):
     verbose_name = 'Профіль користувача'
     verbose_name_plural = 'Профіль'
     fields = (
-        'phone', 'email', 'full_name', 
+        'phone', 'email', 'full_name',
         'city', 'np_office', 'pay_type',
         'telegram', 'telegram_id', 'instagram',
         'company_name', 'company_number', 'delivery_address', 'website',
@@ -52,10 +52,10 @@ class FavoriteProductInline(admin.TabularInline):
 class UserAdmin(BaseUserAdmin):
     """Расширенная админка для пользователей."""
     inlines = (UserProfileInline, UserPointsInline, FavoriteProductInline)
-    list_display = ('username', 'email', 'first_name', 'last_name', 
-                   'is_staff', 'user_phone', 'user_points', 'date_joined')
+    list_display = ('username', 'email', 'first_name', 'last_name',
+                    'is_staff', 'user_phone', 'user_points', 'date_joined')
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'date_joined')
-    
+
     def user_phone(self, obj):
         """Отображает телефон из профиля."""
         try:
@@ -63,7 +63,7 @@ class UserAdmin(BaseUserAdmin):
         except UserProfile.DoesNotExist:
             return '—'
     user_phone.short_description = 'Телефон'
-    
+
     def user_points(self, obj):
         """Отображает баллы пользователя."""
         try:
@@ -85,13 +85,13 @@ admin.site.register(User, UserAdmin)
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
     """Административная панель для профилей пользователей."""
-    list_display = ('user', 'phone', 'email', 'full_name', 'city', 
-                   'company_name', 'is_ubd')
+    list_display = ('user', 'phone', 'email', 'full_name', 'city',
+                    'company_name', 'is_ubd')
     list_filter = ('is_ubd', 'pay_type', 'payment_method')
-    search_fields = ('user__username', 'phone', 'email', 'full_name', 
-                    'company_name', 'telegram', 'instagram')
+    search_fields = ('user__username', 'phone', 'email', 'full_name',
+                     'company_name', 'telegram', 'instagram')
     readonly_fields = ('user',)
-    
+
     fieldsets = (
         ('Основна інформація', {
             'fields': ('user', 'full_name', 'phone', 'email')
@@ -103,8 +103,8 @@ class UserProfileAdmin(admin.ModelAdmin):
             'fields': ('telegram', 'telegram_id', 'instagram')
         }),
         ('Компанія (для опту)', {
-            'fields': ('company_name', 'company_number', 'website', 
-                      'payment_method', 'payment_details'),
+            'fields': ('company_name', 'company_number', 'website',
+                       'payment_method', 'payment_details'),
             'classes': ('collapse',)
         }),
         ('УБД статус', {
@@ -131,13 +131,13 @@ class FavoriteProductAdmin(admin.ModelAdmin):
 @admin.register(UserPoints)
 class UserPointsAdmin(admin.ModelAdmin):
     """Административная панель для баллов пользователей."""
-    list_display = ('user', 'points_display', 'total_earned', 'total_spent', 
-                   'updated_at')
+    list_display = ('user', 'points_display', 'total_earned', 'total_spent',
+                    'updated_at')
     list_filter = ('updated_at',)
     search_fields = ('user__username',)
-    readonly_fields = ('user', 'points', 'total_earned', 'total_spent', 
-                      'created_at', 'updated_at')
-    
+    readonly_fields = ('user', 'points', 'total_earned', 'total_spent',
+                       'created_at', 'updated_at')
+
     fieldsets = (
         ('Користувач', {
             'fields': ('user',)
@@ -149,7 +149,7 @@ class UserPointsAdmin(admin.ModelAdmin):
             'fields': ('created_at', 'updated_at')
         }),
     )
-    
+
     def points_display(self, obj):
         """Отображает баланс с форматированием."""
         color = '#10b981' if obj.points > 0 else '#6b7280'
@@ -158,12 +158,11 @@ class UserPointsAdmin(admin.ModelAdmin):
             color, obj.points
         )
     points_display.short_description = 'Баланс'
-    
+
     def has_add_permission(self, request):
         """Запрещаем ручное создание (создаются автоматически)."""
         return False
-    
+
     def has_delete_permission(self, request, obj=None):
         """Запрещаем удаление."""
         return False
-

@@ -1,15 +1,9 @@
-from social_core.pipeline.user import get_username
-from social_core.pipeline.social_auth import social_details
-from social_core.pipeline.user import create_user
-from social_core.pipeline.social_auth import associate_user
-from social_core.pipeline.social_auth import load_extra_data
-from social_core.pipeline.user import user_details
 from social_core.exceptions import AuthException
-from django.contrib.auth.models import User
 from accounts.models import UserProfile
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 def get_avatar_url(strategy, details, backend, user=None, social=None, *args, **kwargs):
     """Извлекает URL аватарки из Google"""
@@ -20,19 +14,20 @@ def get_avatar_url(strategy, details, backend, user=None, social=None, *args, **
             kwargs['avatar_url'] = avatar_url
     return kwargs
 
+
 def create_or_update_profile(strategy, details, backend, user=None, social=None, *args, **kwargs):
     """Создает или обновляет профиль пользователя с данными из Google"""
     if not user:
         return
-    
+
     try:
         profile, created = UserProfile.objects.get_or_create(user=user)
-        
+
         # Заполняем email если он есть
         if details.get('email'):
             if not profile.email:
                 profile.email = details['email']
-        
+
         # Заполняем полное имя если есть
         if details.get('fullname'):
             if not profile.full_name:
@@ -41,14 +36,14 @@ def create_or_update_profile(strategy, details, backend, user=None, social=None,
             full_name = f"{details['first_name']} {details['last_name']}"
             if not profile.full_name:
                 profile.full_name = full_name
-        
+
         # Сохраняем аватарку (заменяем существующую)
         avatar_url = kwargs.get('avatar_url')
         if avatar_url:
             try:
                 import requests
                 from django.core.files.base import ContentFile
-                
+
                 # Скачиваем аватарку с короткими таймаутами для быстрой отрисовки страницы
                 response = requests.get(avatar_url, timeout=(2, 5))  # connect=2, read=5
                 if response.status_code == 200:
@@ -58,10 +53,10 @@ def create_or_update_profile(strategy, details, backend, user=None, social=None,
                             profile.avatar.delete(save=False)
                         except Exception as e:
                             pass
-                    
+
                     # Создаем имя файла
                     filename = f"avatar_{user.id}_{user.username}.jpg"
-                    
+
                     # Сохраняем новый файл
                     profile.avatar.save(
                         filename,
@@ -71,13 +66,13 @@ def create_or_update_profile(strategy, details, backend, user=None, social=None,
             except Exception as e:
                 # Тихая обработка ошибок - не блокируем авторизацию из-за проблем с аватаром
                 logger.debug(f"Failed to download avatar for user {user.username}: {e}")
-                pass
-        
+
         # Сохраняем все изменения
         profile.save()
-        
+
     except Exception as e:
         pass
+
 
 def require_email(strategy, details, backend, user=None, social=None, *args, **kwargs):
     """Требует email для регистрации"""

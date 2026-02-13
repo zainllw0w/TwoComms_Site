@@ -18,7 +18,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         service = NovaPoshtaService()
-        
+
         # Находим заказы с ТТН и статусом посылки, но статусом заказа не "done"
         orders_to_fix = Order.objects.filter(
             tracking_number__isnull=False
@@ -31,36 +31,36 @@ class Command(BaseCommand):
         ).exclude(
             status='done'
         )
-        
+
         total_orders = orders_to_fix.count()
-        
+
         if total_orders == 0:
             self.stdout.write("Нет заказов для исправления")
             return
-        
+
         self.stdout.write(f"Найдено {total_orders} заказов для проверки")
-        
+
         fixed_count = 0
-        
+
         for order in orders_to_fix:
             # Проверяем, получена ли посылка
             if order.shipment_status:
                 parts = order.shipment_status.split(' - ')
                 status = parts[0] if parts else order.shipment_status
                 status_description = parts[1] if len(parts) > 1 else ''
-                
+
                 # Проверяем ключевые слова доставки
                 delivered_keywords = [
-                    'отримано', 'получено', 'доставлено', 'вручено', 
+                    'отримано', 'получено', 'доставлено', 'вручено',
                     'отримано отримувачем', 'получено получателем'
                 ]
-                
+
                 status_lower = status.lower()
                 description_lower = status_description.lower() if status_description else ''
-                
-                is_delivered = any(keyword in status_lower or keyword in description_lower 
-                                  for keyword in delivered_keywords)
-                
+
+                is_delivered = any(keyword in status_lower or keyword in description_lower
+                                   for keyword in delivered_keywords)
+
                 if is_delivered:
                     if options['dry_run']:
                         self.stdout.write(
@@ -84,7 +84,7 @@ class Command(BaseCommand):
                             f"  {order.order_number}: статус не изменен "
                             f"(посылка: {order.shipment_status})"
                         )
-        
+
         if options['dry_run']:
             self.stdout.write(f"\nDRY RUN: Будет исправлено {fixed_count} заказов")
         else:

@@ -32,6 +32,8 @@ DEFAULT_FEED_SEASON = "Демисезон"
 _LEGACY_GOOGLE_MERCHANT_FEED = None
 
 # Вспомогательные функции для feed
+
+
 def _sanitize_feed_description(raw: str) -> str:
     if not raw:
         return ""
@@ -52,7 +54,7 @@ def _material_for_product(product) -> str:
         product.title or "",
         product.slug or ""
     ])).lower()
-    
+
     if any(token in lookup_source for token in ("худі", "hood", "hudi")):
         return "трехнитка с начесом"
     if "лонг" in lookup_source or "long" in lookup_source:
@@ -79,7 +81,7 @@ def _absolute_media_url(base_url: str, path: str | None) -> str | None:
 def robots_txt(request):
     """
     Генерирует robots.txt файл.
-    
+
     Returns:
         HttpResponse: текстовый файл robots.txt
     """
@@ -96,14 +98,14 @@ def robots_txt(request):
         "Disallow: /cart/",
         "Disallow: /checkout/",
     ]
-    
+
     return HttpResponse("\n".join(lines), content_type="text/plain")
 
 
 def static_sitemap(request):
     """
     Sitemap.xml endpoint.
-    
+
     Генерирует XML карту сайта для поисковых систем.
     Импортирует реальную функцию из старого views.py.
     """
@@ -143,7 +145,7 @@ def static_sitemap(request):
 def google_merchant_feed(request):
     """
     Google Merchant Center Product Feed.
-    
+
     Генерирует XML feed для Google Shopping.
     """
     global _LEGACY_GOOGLE_MERCHANT_FEED
@@ -172,7 +174,7 @@ def google_merchant_feed(request):
             logging.getLogger(__name__).exception(
                 "Legacy google_merchant_feed failed, using minimal fallback."
             )
-    
+
     return HttpResponse(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<feed xmlns="http://www.w3.org/2005/Atom"></feed>',
@@ -184,7 +186,7 @@ def uaprom_products_feed(request):
     """
     Генерирует XML feed для Prom.ua / UAPROM.
     Формат: YML (Yandex Market Language)
-    
+
     Обновленная версия:
     - Включает только опубликованные товары
     - Правильно обрабатывает все изображения (main_image + images + color variants)
@@ -209,7 +211,7 @@ def uaprom_products_feed(request):
             .order_by("-priority", "-id")  # Сначала по приоритету, потом по ID (новые первыми)
         )
         products = list(products_qs)
-        
+
         logger.info(f"Generating feed for {len(products)} published products")
     except Exception as e:
         logger.error(f"Error in uaprom_products_feed: {e}", exc_info=True)
@@ -249,7 +251,7 @@ def uaprom_products_feed(request):
 
             # Собираем все изображения товара
             base_image_paths = []
-            
+
             # Главное изображение
             if product.main_image:
                 try:
@@ -258,7 +260,7 @@ def uaprom_products_feed(request):
                         base_image_paths.append(main_img_url)
                 except Exception as e:
                     logger.debug(f"Error getting main_image for product {product.id}: {e}")
-            
+
             # Дополнительные изображения товара
             try:
                 for img in product.images.all():
@@ -272,7 +274,7 @@ def uaprom_products_feed(request):
                         continue
             except Exception as e:
                 logger.warning(f"Error processing product images for product {product.id}: {e}")
-            
+
             # Убираем дубликаты, сохраняя порядок
             base_image_paths = list(dict.fromkeys(base_image_paths))
 
@@ -284,7 +286,7 @@ def uaprom_products_feed(request):
                         try:
                             color_label = _normalize_color_name(variant.color.name if variant.color else None)
                             variant_images = []
-                            
+
                             # Собираем все изображения варианта
                             for img in variant.images.all():
                                 try:
@@ -295,7 +297,7 @@ def uaprom_products_feed(request):
                                 except Exception as e:
                                     logger.debug(f"Error getting variant image {img.id}: {e}")
                                     continue
-                            
+
                             variant_payloads.append((color_label, variant_images, variant.id))
                         except Exception as e:
                             logger.warning(f"Error processing variant {variant.id} for product {product.id}: {e}")
@@ -319,7 +321,7 @@ def uaprom_products_feed(request):
                     else:
                         # Если у варианта нет изображений, используем базовые
                         images_to_use = base_image_paths
-                    
+
                     # Преобразуем в абсолютные URL
                     image_urls = []
                     for path in images_to_use:
@@ -330,10 +332,10 @@ def uaprom_products_feed(request):
                         except Exception as e:
                             logger.debug(f"Error converting image URL {path}: {e}")
                             continue
-                    
+
                     # Убираем дубликаты, сохраняя порядок
                     image_urls = list(dict.fromkeys(image_urls))
-                    
+
                     # Fallback: если нет изображений, пытаемся использовать первое базовое
                     if not image_urls and base_image_paths:
                         fallback = _absolute_media_url(base_url, base_image_paths[0])
@@ -376,7 +378,7 @@ def uaprom_products_feed(request):
                             # Правильная обработка цен
                             final_price = product.final_price if hasattr(product, 'final_price') else product.price
                             base_price = product.price
-                            
+
                             # Если есть скидка, oldprice = старая цена, price = цена со скидкой
                             if product.has_discount and final_price < base_price:
                                 ET.SubElement(offer_el, "oldprice").text = str(base_price)
@@ -384,7 +386,7 @@ def uaprom_products_feed(request):
                             else:
                                 # Если нет скидки, только price
                                 ET.SubElement(offer_el, "price").text = str(base_price)
-                            
+
                             ET.SubElement(offer_el, "currencyId").text = "UAH"
 
                             if product.category_id:
@@ -453,12 +455,12 @@ def uaprom_products_feed(request):
 def static_verification_file(request):
     """
     Файл верификации для внешних сервисов.
-    
+
     Например: Google Search Console, Bing Webmaster Tools, и т.д.
     """
     # Путь к файлу верификации
     verification_file = Path(settings.BASE_DIR) / '494cb80b2da94b4395dbbed566ab540d.txt'
-    
+
     try:
         if verification_file.exists():
             return FileResponse(
@@ -467,7 +469,7 @@ def static_verification_file(request):
             )
     except Exception:
         pass
-    
+
     raise Http404("Verification file not found")
 
 
@@ -528,20 +530,20 @@ def terms_of_service(request):
 def test_analytics_events(request):
     """
     Тестовая страница для проверки аналитических событий.
-    
+
     Автоматически отправляет все типы событий для тестирования
     в TikTok Events Manager и Facebook Events Manager.
-    
+
     Использование:
     - Откройте /test-analytics/
     - Добавьте ?ttq_test=YOUR_TEST_CODE для TikTok
     - События отправятся автоматически при загрузке
     """
     import os
-    
+
     # Получаем test_event_code из URL или environment
     ttq_test_code = request.GET.get('ttq_test') or os.environ.get('TIKTOK_TEST_EVENT_CODE')
-    
+
     # Генерируем тестовые данные для событий
     test_product = {
         'id': 'TC-999-test-001-M',
@@ -550,25 +552,12 @@ def test_analytics_events(request):
         'price': 599,
         'quantity': 1
     }
-    
+
     return render(request, 'pages/test_analytics.html', {
         'page_title': 'Тест аналитических событий',
         'ttq_test_code': ttq_test_code,
         'test_product': test_product,
     })
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ==================== NEW PROM.UA DYNAMIC FEED (v2) ====================
@@ -582,14 +571,14 @@ def _material_for_prom_new(product) -> str:
         product.title or "",
         product.slug or ""
     ])).lower()
-    
+
     if any(token in lookup_source for token in ("худі", "hood", "hudi", "hoodie")):
         return '90% бавовна, 10% поліестер'
     if any(token in lookup_source for token in ("лонг", "long", "longsleeve", "лонгслів")):
         return '95% бамбук, 5% еластан'
     if any(token in lookup_source for token in ("футболк", "tshirt", "t-shirt", "tee")):
         return '95% бавовна, 5% еластан'
-        
+
     return '95% бавовна, 5% еластан'
 
 
@@ -603,34 +592,34 @@ def _format_description_for_prom(raw_desc: str) -> str:
     """
     if not raw_desc:
         return ""
-    
+
     # Basic cleaning (strip prices if needed, but keep structure)
     # Removing aggressive whitespace collapsing to preserve user formatting
     cleaned = re.sub(r"(?is)<[^>]*?(?:цена|price|грн|uah|₴)[^>]*?>.*?</[^>]+>", "", raw_desc)
     cleaned = re.sub(r"(?i)цена\s*[:\-]?[^\n<]*", "", cleaned)
     cleaned = re.sub(r"\d+[\s.,]*(?:грн|uah|₴)", "", cleaned, flags=re.IGNORECASE)
-    
+
     # Convert newlines to HTML
     # Logic: Double newline = new paragraph. Single newline = br.
     paragraphs = re.split(r'\n\s*\n', cleaned.strip())
     html_parts = []
-    
+
     for p in paragraphs:
         if not p.strip():
             continue
         # Convert internal single newlines to <br>
         p_html = p.replace('\n', '<br>')
         html_parts.append(f"<p>{p_html}</p>")
-        
+
     final_html = "".join(html_parts)
-    
+
     # Add signature/styling if needed, e.g. <b> header?
-    # User asked for <b> but didn't specify logic. 
+    # User asked for <b> but didn't specify logic.
     # We'll assume the user uses <b> tags in the text or we leave it for now.
     # We won't auto-bold random things to avoid breaking it.
-    
+
     # CDATA MARKERS for post-processing
-    # We use a unique marker that survives XML escaping (mostly) 
+    # We use a unique marker that survives XML escaping (mostly)
     # and then replace it in the byte string.
     return f"___CDATA_START___{final_html}___CDATA_END___"
 
@@ -643,7 +632,7 @@ def prom_feed_xml(request):
     logger = logging.getLogger(__name__)
 
     try:
-        base_url = "https://twocomms.shop" 
+        base_url = "https://twocomms.shop"
 
         products_qs = (
             Product.objects
@@ -657,7 +646,7 @@ def prom_feed_xml(request):
             .order_by("-id")
         )
         products = list(products_qs)
-        
+
         # Collect relevant categories
         categories_ids = {p.category_id for p in products if p.category_id}
         categories_map = {
@@ -693,12 +682,12 @@ def prom_feed_xml(request):
             cat_id = str(product.category.id) if product.category else ""
             group_id = str(product.id)
             material_value = _material_for_prom_new(product)
-            
+
             # Prepare variants
             color_variants = list(product.color_variants.all())
-            
+
             final_variants = []
-            
+
             # --- Variant Preparation Logic ---
             if not color_variants:
                 # Fallback for no variants
@@ -711,17 +700,17 @@ def prom_feed_xml(request):
                     'stock': stock_val
                 }
                 if product.main_image:
-                     fake_variant['images'].append(product.main_image.url)
-                
-                for size in FEED_SIZE_OPTIONS: # Use predefined sizes
-                     final_variants.append({
-                         'color_var': fake_variant,
-                         'size': size
-                     })
+                    fake_variant['images'].append(product.main_image.url)
+
+                for size in FEED_SIZE_OPTIONS:  # Use predefined sizes
+                    final_variants.append({
+                        'color_var': fake_variant,
+                        'size': size
+                    })
             else:
-                 for cv in color_variants:
+                for cv in color_variants:
                     c_name = cv.color.name if cv.color and cv.color.name else normalize_feed_color(getattr(cv.color, 'primary_hex', ''))
-                    
+
                     cv_images = [img.image.url for img in cv.images.all() if img.image]
                     var_data = {
                         'color_name': c_name,
@@ -734,17 +723,17 @@ def prom_feed_xml(request):
                             'color_var': var_data,
                             'size': size
                         })
-            
+
             # --- Write Offers ---
             for item in final_variants:
                 var = item['color_var']
                 size = item['size']
-                
+
                 offer_id_suffix = f"-{var['variant_id']}" if var['variant_id'] else "-0"
                 offer_id = f"{product.id}{offer_id_suffix}-{size}"
-                
+
                 # FORCE AVAILABLE = TRUE as per user request (IDs 100, 101 issue)
-                is_available = "true" 
+                is_available = "true"
 
                 offer_el = ET.SubElement(offers_el, "offer", {
                     "id": offer_id,
@@ -754,28 +743,28 @@ def prom_feed_xml(request):
                 # URL
                 product_path = f"/product/{product.slug}/" if product.slug else f"/product/{product.id}/"
                 ET.SubElement(offer_el, "url").text = urljoin(base_url, product_path)
-                
+
                 # Price Logic
                 selling_price = getattr(product, 'final_price', product.price)
                 old_price = product.price
-                
+
                 ET.SubElement(offer_el, "price").text = str(selling_price)
                 if selling_price < old_price:
-                     ET.SubElement(offer_el, "oldprice").text = str(old_price)
-                
+                    ET.SubElement(offer_el, "oldprice").text = str(old_price)
+
                 ET.SubElement(offer_el, "currencyId").text = "UAH"
                 ET.SubElement(offer_el, "categoryId").text = cat_id
-                
+
                 # Pictures
                 imgs = var['images'][:]
                 # Add main image if missing
                 if product.main_image and product.main_image.url not in imgs:
-                     imgs.append(product.main_image.url)
+                    imgs.append(product.main_image.url)
                 # Add other product images
                 for p_img in product.images.all():
                     if p_img.image and p_img.image.url not in imgs:
                         imgs.append(p_img.image.url)
-                
+
                 for img_url in imgs[:10]:
                     full_img_url = urljoin(base_url, img_url)
                     ET.SubElement(offer_el, "picture").text = full_img_url
@@ -783,20 +772,20 @@ def prom_feed_xml(request):
                 ET.SubElement(offer_el, "name").text = product.title
                 ET.SubElement(offer_el, "vendor").text = "TwoComms"
                 ET.SubElement(offer_el, "group_id").text = group_id
-                
+
                 # Description with HTML and CDATA placeholders
                 desc = getattr(product, 'full_description', None) or product.description or ""
                 if not desc:
-                     cat_for_desc = product.category.name.lower() if product.category else 'одяг'
-                     desc = f"Якісний {cat_for_desc} з ексклюзивним дизайном від TwoComms"
-                
+                    cat_for_desc = product.category.name.lower() if product.category else 'одяг'
+                    desc = f"Якісний {cat_for_desc} з ексклюзивним дизайном від TwoComms"
+
                 formatted_desc = _format_description_for_prom(desc)
                 ET.SubElement(offer_el, "description").text = formatted_desc
 
                 # Params
                 ET.SubElement(offer_el, "param", {"name": "Розмір"}).text = size
                 if var['color_name']:
-                     ET.SubElement(offer_el, "param", {"name": "Колір"}).text = var['color_name']
+                    ET.SubElement(offer_el, "param", {"name": "Колір"}).text = var['color_name']
                 ET.SubElement(offer_el, "param", {"name": "Матеріал"}).text = material_value
 
         except Exception as e:
@@ -806,11 +795,11 @@ def prom_feed_xml(request):
     try:
         ET.indent(catalog, space="  ", level=0)
         xml_payload = ET.tostring(catalog, encoding="utf-8", xml_declaration=True)
-        
+
         # POST-PROCESSING FOR CDATA
         # 1. Unescape HTML inside the CDATA block (ET escaped < to &lt;)
         # 2. Replace markers with real CDATA tags
-        
+
         # Helper to unescape ONLY inside markers
         def unescape_cdata_content(match):
             content = match.group(1)
@@ -825,4 +814,3 @@ def prom_feed_xml(request):
         return HttpResponse(xml_payload_final, content_type="application/xml; charset=utf-8")
     except Exception as e:
         return HttpResponse(f"<error>{str(e)}</error>", status=500)
-

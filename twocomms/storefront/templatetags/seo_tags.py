@@ -6,9 +6,9 @@ from django import template
 from django.utils.safestring import mark_safe
 from django.urls import reverse
 from ..seo_utils import (
-    get_product_seo_meta, 
-    get_category_seo_meta, 
-    get_product_schema, 
+    get_product_seo_meta,
+    get_category_seo_meta,
+    get_product_schema,
     get_breadcrumb_schema,
     get_google_merchant_schema,
     SEOContentOptimizer
@@ -28,6 +28,7 @@ def seo_title(context, product=None, category=None):
         return meta_data.get('title', 'TwoComms — Стріт & Мілітарі Одяг')
     return 'TwoComms — Стріт & Мілітарі Одяг'
 
+
 @register.simple_tag(takes_context=True)
 def seo_description(context, product=None, category=None):
     """Возвращает SEO описание"""
@@ -38,6 +39,7 @@ def seo_description(context, product=None, category=None):
         meta_data = get_category_seo_meta(category)
         return meta_data.get('description', 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.')
     return 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.'
+
 
 @register.simple_tag(takes_context=True)
 def seo_keywords(context, product=None, category=None):
@@ -50,6 +52,7 @@ def seo_keywords(context, product=None, category=None):
         return meta_data.get('keywords', 'стріт одяг, мілітарі одяг, TwoComms')
     return 'стріт одяг, мілітарі одяг, TwoComms'
 
+
 @register.simple_tag(takes_context=True)
 def seo_og_image(context, product=None, category=None):
     """Возвращает Open Graph изображение"""
@@ -61,13 +64,14 @@ def seo_og_image(context, product=None, category=None):
         return meta_data.get('og_image', '')
     return ''
 
+
 @register.inclusion_tag('partials/seo_meta.html', takes_context=True)
 def seo_meta_tags(context, product=None, category=None):
     """
     Генерирует SEO мета-теги для товара или категории
     """
     meta_data = {}
-    
+
     if product:
         meta_data = get_product_seo_meta(product)
     elif category:
@@ -85,7 +89,7 @@ def seo_meta_tags(context, product=None, category=None):
             'twitter_description': 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером.',
             'twitter_image': ''
         }
-    
+
     return {
         'meta_data': meta_data,
         'request': context['request']
@@ -99,9 +103,10 @@ def product_schema(product):
     """
     if not product:
         return ''
-    
+
     schema = get_product_schema(product)
     return mark_safe(f'<script type="application/ld+json">{schema}</script>')
+
 
 @register.simple_tag
 def google_merchant_schema(product):
@@ -110,7 +115,7 @@ def google_merchant_schema(product):
     """
     if not product:
         return ''
-    
+
     schema = get_google_merchant_schema(product)
     return mark_safe(f'<script type="application/ld+json">{schema}</script>')
 
@@ -122,7 +127,7 @@ def breadcrumb_schema(breadcrumbs):
     """
     if not breadcrumbs:
         return ''
-    
+
     schema = get_breadcrumb_schema(breadcrumbs)
     return mark_safe(f'<script type="application/ld+json">{schema}</script>')
 
@@ -138,25 +143,25 @@ def breadcrumbs(request, product=None, category=None):
             'url': reverse('home')
         }
     ]
-    
+
     if category:
         breadcrumb_list.append({
             'name': category.name,
             'url': reverse('catalog_by_cat', kwargs={'cat_slug': category.slug})
         })
-    
+
     if product:
         if product.category:
             breadcrumb_list.append({
                 'name': product.category.name,
                 'url': reverse('catalog_by_cat', kwargs={'cat_slug': product.category.slug})
             })
-        
+
         breadcrumb_list.append({
             'name': product.title,
             'url': reverse('product', kwargs={'slug': product.slug})
         })
-    
+
     return {
         'breadcrumbs': breadcrumb_list,
         'request': request
@@ -178,7 +183,7 @@ def seo_suggestions(product):
     """
     if not product:
         return []
-    
+
     return SEOContentOptimizer.suggest_content_improvements(product)
 
 
@@ -189,10 +194,10 @@ def truncate_meta(text, length=160):
     """
     if not text:
         return ''
-    
+
     if len(text) <= length:
         return text
-    
+
     return text[:length-3] + '...'
 
 
@@ -211,10 +216,10 @@ def og_image_url(request, image_url=None):
     """
     if not image_url:
         return f"{request.scheme}://{request.get_host()}/static/img/logo.svg"
-    
+
     if image_url.startswith('http'):
         return image_url
-    
+
     return f"{request.scheme}://{request.get_host()}{image_url}"
 
 
@@ -225,13 +230,13 @@ def faq_schema(faq_items):
     """
     if not faq_items:
         return {}
-    
+
     schema = {
         "@context": "https://schema.org",
         "@type": "FAQPage",
         "mainEntity": []
     }
-    
+
     for faq in faq_items:
         schema["mainEntity"].append({
             "@type": "Question",
@@ -241,7 +246,7 @@ def faq_schema(faq_items):
                 "text": faq["answer"]
             }
         })
-    
+
     return {
         'faq_schema': json.dumps(schema, ensure_ascii=False, indent=2)
     }
@@ -269,7 +274,7 @@ def local_business_schema():
         "paymentAccepted": "Cash, Credit Card",
         "currenciesAccepted": "UAH"
     }
-    
+
     return mark_safe(f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False, indent=2)}</script>')
 
 
@@ -280,7 +285,7 @@ def product_rating_schema(product, rating=None, review_count=None):
     """
     if not product:
         return ''
-    
+
     schema = {
         "@context": "https://schema.org",
         "@type": "Product",
@@ -304,12 +309,12 @@ def product_rating_schema(product, rating=None, review_count=None):
             }
         }
     }
-    
+
     if rating and review_count:
         schema["aggregateRating"] = {
             "@type": "AggregateRating",
             "ratingValue": str(rating),
             "reviewCount": str(review_count)
         }
-    
+
     return mark_safe(f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False, indent=2)}</script>')
