@@ -729,7 +729,6 @@ class ManagementStatsConfig(models.Model):
         return "ManagementStatsConfig"
 
 
-
 class ManagerCommissionAccrual(models.Model):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,

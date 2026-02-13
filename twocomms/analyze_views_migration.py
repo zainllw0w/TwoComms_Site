@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 import re
-import os
+
 
 def get_functions_from_file(filepath):
     try:
         with open(filepath, 'r') as f:
             content = f.read()
         return set(re.findall(r'^def (\w+)\(', content, re.MULTILINE))
-    except:
+    except Exception:
         return set()
+
 
 def get_exclude_list():
     init_path = 'storefront/views/__init__.py'
@@ -20,14 +21,15 @@ def get_exclude_list():
         return set(re.findall(r"'([^']+)'", exclude_str))
     return set()
 
+
 def main():
     print("="*70)
     print("VIEWS MIGRATION ANALYSIS")
     print("="*70)
-    
+
     views_py_funcs = get_functions_from_file('storefront/views.py')
     print("\n[*] views.py: {} functions".format(len(views_py_funcs)))
-    
+
     modules = {
         'views/cart.py': get_functions_from_file('storefront/views/cart.py'),
         'views/promo.py': get_functions_from_file('storefront/views/promo.py'),
@@ -41,7 +43,7 @@ def main():
         'views/static_pages.py': get_functions_from_file('storefront/views/static_pages.py'),
         'views/utils.py': get_functions_from_file('storefront/views/utils.py'),
     }
-    
+
     all_module_funcs = set()
     print("\n[*] Modules:")
     for module_name, funcs in modules.items():
@@ -50,16 +52,16 @@ def main():
             all_module_funcs.update(funcs)
         else:
             print("  [-] {}: not found or empty".format(module_name))
-    
+
     print("\n  Total in modules: {} functions".format(len(all_module_funcs)))
-    
+
     exclude_list = get_exclude_list()
     print("\n[*] _exclude list: {} items".format(len(exclude_list)))
-    
+
     still_in_views_py = views_py_funcs - all_module_funcs - exclude_list
-    
+
     print("\n[!] FUNCTIONS STILL ONLY IN views.py: {}".format(len(still_in_views_py)))
-    
+
     if still_in_views_py:
         categories = {
             'Admin': [],
@@ -69,7 +71,7 @@ def main():
             'Feed/SEO': [],
             'Other': [],
         }
-        
+
         for func in sorted(still_in_views_py):
             if 'admin_' in func:
                 categories['Admin'].append(func)
@@ -83,7 +85,7 @@ def main():
                 categories['Feed/SEO'].append(func)
             else:
                 categories['Other'].append(func)
-        
+
         for category, funcs in categories.items():
             if funcs:
                 print("\n  [>] {} ({}):".format(category, len(funcs)))
@@ -91,11 +93,11 @@ def main():
                     print("     - {}".format(func))
                 if len(funcs) > 10:
                     print("     ... and {} more".format(len(funcs) - 10))
-    
+
     print("\n" + "="*70)
     print("RECOMMENDATIONS")
     print("="*70)
-    
+
     if not still_in_views_py:
         print("\n[YES] ALL FUNCTIONS MIGRATED TO MODULES!")
         print("   Can:")
@@ -107,7 +109,7 @@ def main():
         print("   1. Move functions to appropriate modules")
         print("   2. Add them to _exclude list")
         print("   3. Then can delete views.py")
-    
+
     duplicates = views_py_funcs & all_module_funcs
     if duplicates:
         print("\n[!] DUPLICATES (in views.py AND modules): {}".format(len(duplicates)))
@@ -116,6 +118,7 @@ def main():
                 if func in funcs:
                     print("     - {} (in {})".format(func, module_name))
                     break
+
 
 if __name__ == '__main__':
     main()

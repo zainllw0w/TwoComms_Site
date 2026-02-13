@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from orders.models import DropshipperOrder, DropshipperOrderItem, DropshipperStats, DropshipperPayout
+from orders.models import DropshipperOrder, DropshipperOrderItem, DropshipperStats
 
 
 class Command(BaseCommand):
@@ -9,11 +9,11 @@ class Command(BaseCommand):
         # Удаляем все элементы заказов
         deleted_items = DropshipperOrderItem.objects.all().delete()
         self.stdout.write(self.style.SUCCESS(f'Удалено элементов заказов: {deleted_items[0]}'))
-        
+
         # Удаляем все заказы
         deleted_orders = DropshipperOrder.objects.all().delete()
         self.stdout.write(self.style.SUCCESS(f'Удалено заказов: {deleted_orders[0]}'))
-        
+
         # Сбрасываем статистику
         stats = DropshipperStats.objects.all()
         for stat in stats:
@@ -26,8 +26,7 @@ class Command(BaseCommand):
             stat.total_items_sold = 0
             stat.last_order_date = None
             stat.save()
-        
-        self.stdout.write(self.style.SUCCESS(f'Сброшена статистика для {stats.count()} пользователей'))
-        
-        self.stdout.write(self.style.SUCCESS('✅ Все заказы дропшиперов успешно удалены!'))
 
+        self.stdout.write(self.style.SUCCESS(f'Сброшена статистика для {stats.count()} пользователей'))
+
+        self.stdout.write(self.style.SUCCESS('✅ Все заказы дропшиперов успешно удалены!'))

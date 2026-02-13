@@ -79,13 +79,8 @@
 {% trans "Ручна перевірка" as hero_flip_2 %}
 {% trans "24–48 год" as hero_flip_3 %}
 {% trans "Preflight: OK • Макет перевіряє менеджер" as hero_secure_line %}
-<section class="hero scan-hero" data-ui="dtf:home:hero" data-effect="bg-beams sparkles">
+<section class="hero scan-hero" data-ui="dtf:home:hero" data-effect="sparkles">
   <!-- ASSET_REQUEST | id=hero-printhead-photo | type=photo | usage=HOME Hero / Printhead Scan | spec=transparent PNG, 2x, ~2200px wide | notes=industrial lab lighting, top-left view, clean background -->
-  <div class="hero-beams" aria-hidden="true" data-effect="bg-beams">
-    <span class="beam beam-1"></span>
-    <span class="beam beam-2"></span>
-    <span class="beam beam-3"></span>
-  </div>
   <div class="dtf-container hero-grid">
     <div class="hero-copy" data-reveal data-ui="dtf:home:hero-copy">
       <div class="eyebrow">{% trans "DTF друк в рулоні" %}</div>
@@ -627,7 +622,7 @@
       </article>
       <article class="proof-card lens-card" data-lens>
         <!-- ASSET_REQUEST | id=lens-macro-1 | type=photo | usage=Home Proof Lens (macro) | spec=2x, ~1400px wide | notes=texture close-up for lens zoom -->
-        <div class="lens-media asset-slot" data-lens-src="{% static 'dtf/assets/lens-macro-1.jpg' %}">
+        <div class="lens-media asset-slot" data-lens-src="{% static 'dtf/assets/lens-macro-1-768.avif' %}">
           <picture>
             <source
               type="image/avif"

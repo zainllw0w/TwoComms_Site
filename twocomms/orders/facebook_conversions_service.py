@@ -19,8 +19,10 @@ import logging
 import hashlib
 import time
 import re
-from decimal import Decimal
-from typing import Optional, Dict, Any
+from typing import Optional, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from facebook_business.adobjects.serverside import UserData, CustomData
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -33,7 +35,7 @@ logger = logging.getLogger(__name__)
 class FacebookConversionsService:
     """
     Сервис для работы с Facebook Conversions API.
-    
+
     Основные возможности:
     - Отправка Purchase событий при полной оплате
     - Отправка Lead событий при предоплате
@@ -47,7 +49,7 @@ class FacebookConversionsService:
     PHONE_MIN_LENGTH = 10
     PHONE_MAX_LENGTH = 15
     CITY_SANITIZE_RE = re.compile(r'[^a-z0-9]')
-    
+
     def __init__(self):
         """Инициализация сервиса с настройками из ENV"""
         self.access_token = getattr(settings, 'FACEBOOK_CONVERSIONS_API_TOKEN', None)
@@ -56,7 +58,7 @@ class FacebookConversionsService:
         self.retry_max_attempts = getattr(settings, 'FACEBOOK_CAPI_MAX_RETRIES', 3)
         self.retry_initial_delay = getattr(settings, 'FACEBOOK_CAPI_RETRY_DELAY', 1)
         self.retry_backoff = getattr(settings, 'FACEBOOK_CAPI_RETRY_BACKOFF', 2)
-        
+
         # Проверяем наличие обязательных настроек
         if not self.access_token or not self.pixel_id:
             logger.error(
@@ -71,7 +73,7 @@ class FacebookConversionsService:
             logger.info(
                 f"✅ Facebook Conversions API configured: Pixel ID={self.pixel_id}"
             )
-            
+
         # Импортируем Facebook SDK только если настройки есть
         if self.enabled:
             try:
@@ -83,16 +85,16 @@ class FacebookConversionsService:
                     ActionSource
                 )
                 from facebook_business.api import FacebookAdsApi
-                
+
                 self.Event = Event
                 self.UserData = UserData
                 self.CustomData = CustomData
                 self.EventRequest = EventRequest
                 self.ActionSource = ActionSource
-                
+
                 # Инициализируем Facebook API
                 FacebookAdsApi.init(access_token=self.access_token)
-                
+
                 logger.info("✅ Facebook Conversions API initialized successfully")
             except ImportError:
                 logger.error(
@@ -103,7 +105,7 @@ class FacebookConversionsService:
             except Exception as e:
                 logger.error(f"Failed to initialize Facebook Conversions API: {e}")
                 self.enabled = False
-    
+
     def _hash_data(self, value: Optional[str]) -> Optional[str]:
         """
         Хеширует данные для Facebook (SHA-256).
@@ -111,12 +113,12 @@ class FacebookConversionsService:
         """
         if not value:
             return None
-        
+
         # Очищаем и нормализуем значение
         cleaned = str(value).strip().lower()
         if not cleaned:
             return None
-        
+
         # Хешируем SHA-256
         return hashlib.sha256(cleaned.encode('utf-8')).hexdigest()
 
@@ -309,18 +311,18 @@ class FacebookConversionsService:
                 time.sleep(max(0.5, delay))
                 delay *= max(1, self.retry_backoff)
                 attempt += 1
-    
-    def _prepare_user_data(self, order) -> 'UserData':
+
+    def _prepare_user_data(self, order) -> "UserData":
         """
         Подготавливает user_data для Advanced Matching.
-        
+
         Advanced Matching повышает качество атрибуции событий,
         связывая серверные события с пользователями Facebook.
         """
         from facebook_business.adobjects.serverside import UserData
-        
+
         user_data = UserData()
-        
+
         # Email (хешированный, только валидный)
         email = None
         if order.user and order.user.email:
@@ -336,7 +338,7 @@ class FacebookConversionsService:
                     order.order_number,
                     email,
                 )
-        
+
         # Phone (хешированный, только цифры)
         if order.phone:
             phone_digits = self._clean_phone_digits(order.phone)
@@ -348,7 +350,7 @@ class FacebookConversionsService:
                     order.order_number,
                     order.phone,
                 )
-        
+
         # Full Name (хешированный)
         if order.full_name:
             # Разделяем на имя и фамилию
@@ -357,12 +359,12 @@ class FacebookConversionsService:
                 user_data.first_name = self._hash_data(name_parts[0])
             if len(name_parts) >= 2:
                 user_data.last_name = self._hash_data(name_parts[-1])
-        
+
         # City (хешированный с нормализацией)
         normalized_city = self._normalize_city_value(order.city)
         if normalized_city:
             user_data.city = self._hash_data(normalized_city)
-        
+
         # Country (для Украины)
         user_data.country_code = self._hash_data('ua')
 
@@ -387,7 +389,7 @@ class FacebookConversionsService:
                 external_source = f"session:{order.session_key}"
             elif order.order_number:
                 external_source = f"order:{order.order_number}"
-            
+
             if external_source:
                 logger.info(
                     f"📊 External ID generated as fallback for order {order.order_number}: {external_source}"
@@ -396,7 +398,7 @@ class FacebookConversionsService:
             logger.debug(
                 f"📊 External ID from tracking_data for order {order.order_number}: {external_source}"
             )
-        
+
         if external_source:
             hashed_external = self._hash_data(external_source)
             if hashed_external:
@@ -408,24 +410,24 @@ class FacebookConversionsService:
             logger.warning(
                 f"⚠️ External ID not available for order {order.order_number} - this may reduce match quality!"
             )
-        
+
         # Client IP address (если есть в payload)
         if order.payment_payload and isinstance(order.payment_payload, dict):
             client_ip = order.payment_payload.get('client_ip_address')
             if client_ip:
                 user_data.client_ip_address = client_ip
-            
+
             # User Agent
             user_agent = order.payment_payload.get('client_user_agent')
             if user_agent:
                 user_data.client_user_agent = user_agent
-        
+
         return user_data
-    
-    def _prepare_custom_data(self, order) -> 'CustomData':
+
+    def _prepare_custom_data(self, order) -> "CustomData":
         """
         Подготавливает custom_data с деталями заказа.
-        
+
         Включает:
         - value: общая сумма
         - currency: валюта (UAH)
@@ -435,9 +437,9 @@ class FacebookConversionsService:
         - num_items: количество товаров
         """
         from facebook_business.adobjects.serverside import CustomData, Content
-        
+
         custom_data = CustomData()
-        
+
         # Основные данные
         custom_data.value = self._ensure_positive_value(
             order.total_sum,
@@ -445,10 +447,10 @@ class FacebookConversionsService:
             'Purchase value',
         )
         custom_data.currency = 'UAH'
-        
+
         # Получаем товары заказа
         order_items = order.items.select_related('product', 'color_variant').all()
-        
+
         if order_items:
             # Content IDs (offer_ids в формате фида)
             content_ids = []
@@ -456,7 +458,7 @@ class FacebookConversionsService:
                 # Генерируем offer_id для каждого товара
                 color_variant_id = item.color_variant.id if item.color_variant else None
                 size = (item.size or 'S').upper()  # Размер из OrderItem или S по умолчанию
-                
+
                 # Используем метод из Product модели для генерации offer_id
                 getter = getattr(item.product, "get_offer_id", None)
                 if callable(getter):
@@ -464,19 +466,19 @@ class FacebookConversionsService:
                 else:
                     offer_id = build_offer_id(item.product.id, color_variant_id, size)
                 content_ids.append(offer_id)
-            
+
             custom_data.content_ids = content_ids
-            
+
             # Content Names (названия товаров)
             content_names = [item.title for item in order_items]
             custom_data.content_name = ', '.join(content_names[:3])  # Первые 3 товара
-            
+
             # Content Type
             custom_data.content_type = 'product'
-            
+
             # Num Items (общее количество)
             custom_data.num_items = sum(item.qty for item in order_items)
-            
+
             # Contents (детальная информация о товарах)
             contents = []
             for item in order_items:
@@ -488,7 +490,7 @@ class FacebookConversionsService:
                     offer_id = getter(color_variant_id, size)
                 else:
                     offer_id = build_offer_id(item.product.id, color_variant_id, size)
-                
+
                 content = Content(
                     product_id=offer_id,  # Используем offer_id вместо product.id
                     quantity=item.qty,
@@ -497,10 +499,10 @@ class FacebookConversionsService:
                 )
                 contents.append(content)
             custom_data.contents = contents
-        
+
         # Order ID
         custom_data.order_id = order.order_number
-        
+
         return custom_data
 
     def send_add_payment_info_event(
@@ -602,7 +604,7 @@ class FacebookConversionsService:
                 exc_info=True,
             )
             return False
-    
+
     def send_purchase_event(
         self,
         order,
@@ -611,23 +613,23 @@ class FacebookConversionsService:
     ) -> bool:
         """
         Отправляет Purchase событие в Facebook Conversions API.
-        
+
         Используется когда:
         - Заказ полностью оплачен (payment_status = 'paid')
         - Внесена успешная предоплата (payment_status = 'prepaid')
         - Товар получен через Новую Почту и автоматически оплачен
-        
+
         Args:
             order: Объект заказа (Order model)
             source_url: URL страницы (опционально)
-            
+
         Returns:
             bool: True если событие отправлено успешно
         """
         if not self.enabled:
             logger.warning("Facebook Conversions API disabled, skipping Purchase event")
             return False
-        
+
         try:
             # Event ID для дедупликации - всегда генерируем детерминированный
             # НЕ используем event_id из tracking_data, так как он не сохраняется при создании заказа
@@ -635,16 +637,16 @@ class FacebookConversionsService:
             logger.info(
                 f"📊 Generated Purchase event_id for order {order.order_number}: {event_id}"
             )
-            
+
             # Event Time (timestamp заказа с ограничением по возрасту)
             event_time = self._calculate_event_time(order)
-            
+
             # User Data (Advanced Matching)
             user_data = self._prepare_user_data(order)
-            
+
             # Custom Data (детали покупки)
             custom_data = self._prepare_custom_data(order)
-            
+
             # Создаем событие
             event = self.Event(
                 event_name='Purchase',
@@ -655,29 +657,29 @@ class FacebookConversionsService:
                 action_source=self.ActionSource.WEBSITE,
                 event_source_url=source_url or f"https://twocomms.com/orders/{order.order_number}/"
             )
-            
+
             # Создаем запрос
             event_request = self.EventRequest(
                 pixel_id=self.pixel_id,
                 events=[event]
             )
-            
+
             # Добавляем test_event_code если есть
             test_code = test_event_code or self.test_event_code
             if test_code:
                 event_request.test_event_code = test_code
-            
+
             # Отправляем с повторными попытками
             response = self._send_request_with_retry(event_request, order, 'Purchase')
             if not self._validate_response(response, order, 'Purchase', event_id):
                 return False
-            
+
             logger.info(
                 f"✅ Purchase event sent to Facebook Conversions API: "
                 f"Order {order.order_number}, Value {order.total_sum} UAH, "
                 f"Event ID: {event_id}"
             )
-            
+
             # Сохраняем информацию об отправке в payload
             if not order.payment_payload:
                 order.payment_payload = {}
@@ -695,16 +697,16 @@ class FacebookConversionsService:
                 'currency': 'UAH'
             }
             order.save(update_fields=['payment_payload'])
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(
                 f"❌ Failed to send Purchase event to Facebook Conversions API: {e}",
                 exc_info=True
             )
             return False
-    
+
     def send_lead_event(
         self,
         order,
@@ -713,34 +715,34 @@ class FacebookConversionsService:
     ) -> bool:
         """
         Отправляет Lead событие в Facebook Conversions API.
-        
+
         Используется когда:
         - Заявка без оплаты (payment_status = 'unpaid', но заказ создан)
-        
+
         Args:
             order: Объект заказа (Order model)
             source_url: URL страницы (опционально)
-            
+
         Returns:
             bool: True если событие отправлено успешно
         """
         if not self.enabled:
             logger.warning("Facebook Conversions API disabled, skipping Lead event")
             return False
-        
+
         try:
             # Event ID для дедупликации - всегда генерируем детерминированный
             event_id = order.get_lead_event_id()
             logger.info(
                 f"📋 Generated Lead event_id for order {order.order_number}: {event_id}"
             )
-            
+
             # Event Time
             event_time = self._calculate_event_time(order)
-            
+
             # User Data
             user_data = self._prepare_user_data(order)
-            
+
             # Custom Data (для Lead - базовая информация)
             # Для prepaid используем сумму предоплаты, не полную сумму заказа
             custom_data = self.CustomData()
@@ -761,7 +763,7 @@ class FacebookConversionsService:
                 )
             custom_data.currency = 'UAH'
             custom_data.content_name = f"Lead: Order {order.order_number}"
-            
+
             # Создаем событие
             event = self.Event(
                 event_name='Lead',
@@ -772,49 +774,49 @@ class FacebookConversionsService:
                 action_source=self.ActionSource.WEBSITE,
                 event_source_url=source_url or f"https://twocomms.com/orders/{order.order_number}/"
             )
-            
+
             # Создаем запрос
             event_request = self.EventRequest(
                 pixel_id=self.pixel_id,
                 events=[event]
             )
-            
+
             # Добавляем test_event_code если есть
             test_code = test_event_code or self.test_event_code
             if test_code:
                 event_request.test_event_code = test_code
-            
+
             # Отправляем
             response = self._send_request_with_retry(event_request, order, 'Lead')
             if not self._validate_response(response, order, 'Lead', event_id):
                 return False
-            
+
             logger.info(
                 f"✅ Lead event sent to Facebook Conversions API: "
                 f"Order {order.order_number}, Event ID: {event_id}"
             )
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(
                 f"❌ Failed to send Lead event to Facebook Conversions API: {e}",
                 exc_info=True
             )
             return False
-    
+
     def send_event_for_order_status(self, order) -> bool:
         """
         Автоматически определяет и отправляет нужное событие на основе статуса заказа.
-        
+
         Логика:
         - payment_status = 'paid' → Purchase
         - payment_status = 'prepaid' → Purchase
         - payment_status = 'unpaid' или 'checking' → пропускаем (заявка без оплаты)
-        
+
         Args:
             order: Объект заказа
-            
+
         Returns:
             bool: True если событие отправлено
         """
@@ -834,6 +836,7 @@ class FacebookConversionsService:
 
 # Глобальный экземпляр сервиса
 _facebook_service = None
+
 
 def get_facebook_conversions_service() -> FacebookConversionsService:
     """Возвращает глобальный экземпляр Facebook Conversions Service (Singleton)"""

@@ -13,7 +13,6 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from django.contrib.auth.models import User
 
 from accounts.models import UserProfile, FavoriteProduct, UserPoints, PointsHistory
 from orders.models import Order
@@ -38,7 +37,7 @@ def _published_products(request):
 def profile(request):
     """
     Главная страница профиля пользователя.
-    
+
     Показывает:
     - Основную информацию
     - Статистику заказов
@@ -49,21 +48,21 @@ def profile(request):
         user_profile = request.user.userprofile
     except UserProfile.DoesNotExist:
         user_profile = UserProfile.objects.create(user=request.user)
-    
+
     # Статистика заказов
     orders = Order.objects.filter(user=request.user).order_by('-created')
     total_orders = orders.count()
     recent_orders = orders[:5]
-    
+
     # Баллы
     try:
         user_points = request.user.points
     except (UserPoints.DoesNotExist, AttributeError):
         user_points = UserPoints.objects.create(user=request.user)
-    
+
     # Избранное
     favorites_count = FavoriteProduct.objects.filter(user=request.user).count()
-    
+
     return render(
         request,
         'pages/profile.html',
@@ -81,7 +80,7 @@ def profile(request):
 def edit_profile(request):
     """
     Редактирование профиля пользователя.
-    
+
     Позволяет обновить:
     - ФИО
     - Телефон, Email
@@ -94,14 +93,14 @@ def edit_profile(request):
         user_profile = request.user.userprofile
     except UserProfile.DoesNotExist:
         user_profile = UserProfile.objects.create(user=request.user)
-    
+
     if request.method == 'POST':
         # Обновляем основные данные пользователя
         request.user.first_name = request.POST.get('first_name', '')
         request.user.last_name = request.POST.get('last_name', '')
         request.user.email = request.POST.get('email', '')
         request.user.save()
-        
+
         # Обновляем профиль
         user_profile.full_name = request.POST.get('full_name', '')
         user_profile.phone = request.POST.get('phone', '')
@@ -111,20 +110,20 @@ def edit_profile(request):
         user_profile.city = request.POST.get('city', '')
         user_profile.np_office = request.POST.get('np_office', '')
         user_profile.pay_type = request.POST.get('pay_type', 'full')
-        
+
         # Аватар
         if 'avatar' in request.FILES:
             user_profile.avatar = request.FILES['avatar']
-        
+
         # УБД
         user_profile.is_ubd = 'is_ubd' in request.POST
         if 'ubd_doc' in request.FILES:
             user_profile.ubd_doc = request.FILES['ubd_doc']
-        
+
         user_profile.save()
-        
+
         return redirect('profile')
-    
+
     return render(
         request,
         'pages/edit_profile.html',
@@ -136,10 +135,10 @@ def edit_profile(request):
 def profile_setup(request):
     """
     Первоначальная настройка профиля после регистрации.
-    
+
     Обязательные поля:
     - Телефон
-    
+
     Опциональные:
     - ФИО, Email, Telegram, Instagram
     - Адрес доставки
@@ -148,7 +147,7 @@ def profile_setup(request):
         prof = request.user.userprofile
     except UserProfile.DoesNotExist:
         prof = UserProfile.objects.create(user=request.user)
-    
+
     if request.method == 'POST':
         form = ProfileSetupForm(request.POST, request.FILES)
         if form.is_valid():
@@ -161,19 +160,19 @@ def profile_setup(request):
             prof.np_office = form.cleaned_data.get('np_office', '')
             prof.pay_type = form.cleaned_data.get('pay_type', 'full')
             prof.is_ubd = form.cleaned_data.get('is_ubd', False)
-            
+
             if form.cleaned_data.get('avatar'):
                 prof.avatar = form.cleaned_data['avatar']
             if form.cleaned_data.get('ubd_doc'):
                 prof.ubd_doc = form.cleaned_data['ubd_doc']
-            
+
             prof.save()
-            
+
             # Обновляем email пользователя
             if form.cleaned_data.get('email'):
                 request.user.email = form.cleaned_data['email']
                 request.user.save()
-            
+
             return redirect('profile')
     else:
         initial = {
@@ -188,7 +187,7 @@ def profile_setup(request):
             'is_ubd': prof.is_ubd,
         }
         form = ProfileSetupForm(initial=initial)
-    
+
     return render(request, 'pages/auth_profile_setup.html', {'form': form})
 
 
@@ -196,20 +195,20 @@ def profile_setup(request):
 def order_history(request):
     """
     История заказов пользователя.
-    
+
     Показывает все заказы с возможностью фильтрации по статусу.
     """
     status_filter = request.GET.get('status', '')
-    
+
     orders = Order.objects.filter(user=request.user).order_by('-created').prefetch_related(
         'items__product',
         'items__color_variant__color',
         'items__color_variant__images'
     )
-    
+
     if status_filter:
         orders = orders.filter(status=status_filter)
-    
+
     return render(
         request,
         'pages/my_orders.html',
@@ -224,7 +223,7 @@ def order_history(request):
 def order_detail(request, order_number):
     """
     Детальная информация о заказе.
-    
+
     Args:
         order_number (str): Номер заказа
     """
@@ -238,7 +237,7 @@ def order_detail(request, order_number):
         order_number=order_number,
         user=request.user
     )
-    
+
     return render(
         request,
         'pages/order_detail.html',
@@ -262,7 +261,7 @@ def favorites(request):
         # Для неавторизованных пользователей - получаем из сессии
         session_favorites = request.session.get('favorites', [])
         favorites = []
-        
+
         if session_favorites:
             # Получаем товары по ID из сессии
             products = _published_products(request).filter(
@@ -270,7 +269,7 @@ def favorites(request):
             ).select_related('category').prefetch_related(
                 'color_variants__color'
             )
-            
+
             # Создаем объекты, похожие на FavoriteProduct
             for product in products:
                 favorite = type('FavoriteProduct', (), {
@@ -278,7 +277,7 @@ def favorites(request):
                     'color_variants_data': []
                 })()
                 favorites.append(favorite)
-    
+
     # Получаем варианты цветов для избранных товаров
     for favorite in favorites:
         try:
@@ -296,7 +295,7 @@ def favorites(request):
             favorite.color_variants_data = color_variants_data
         except Exception:
             favorite.color_variants_data = []
-    
+
     return render(request, 'pages/favorites.html', {
         'favorites': favorites,
         'title': 'Обрані товари'
@@ -314,14 +313,14 @@ def toggle_favorite(request, product_id):
     """
     try:
         product = get_object_or_404(_published_products(request), id=product_id)
-        
+
         if request.user.is_authenticated:
             # Для авторизованных пользователей - используем базу данных
             favorite, created = FavoriteProduct.objects.get_or_create(
                 user=request.user,
                 product=product
             )
-            
+
             if not created:
                 # Если запись уже существует, удаляем её
                 favorite.delete()
@@ -335,7 +334,7 @@ def toggle_favorite(request, product_id):
             session_favorites = request.session.get('favorites', [])
             # Преобразуем product_id в int для корректного сравнения
             product_id_int = int(product_id)
-            
+
             if product_id_int in session_favorites:
                 # Удаляем из избранного
                 session_favorites.remove(product_id_int)
@@ -346,17 +345,17 @@ def toggle_favorite(request, product_id):
                 session_favorites.append(product_id_int)
                 is_favorite = True
                 message = 'Товар додано до обраного'
-            
+
             # Сохраняем в сессии
             request.session['favorites'] = session_favorites
             request.session.modified = True
-        
+
         # Подсчитываем общее количество избранных товаров
         if request.user.is_authenticated:
             favorites_count_val = FavoriteProduct.objects.filter(user=request.user).count()
         else:
             favorites_count_val = len(request.session.get('favorites', []))
-        
+
         return JsonResponse({
             'success': True,
             'is_favorite': is_favorite,
@@ -433,7 +432,7 @@ def check_favorite_status(request, product_id):
             session_favorites = request.session.get('favorites', [])
             product_id_int = int(product_id)
             is_favorite = product_id_int in session_favorites
-        
+
         return JsonResponse({'is_favorite': is_favorite})
     except Exception:
         return JsonResponse({'is_favorite': False})
@@ -449,7 +448,7 @@ def favorites_count(request):
             # Для неавторизованных пользователей - считаем в сессии
             session_favorites = request.session.get('favorites', [])
             count = len(session_favorites)
-        
+
         return JsonResponse({'count': count})
     except Exception as e:
         return JsonResponse({'count': 0, 'error': str(e)})
@@ -464,9 +463,9 @@ def points_history(request):
         user_points = request.user.points
     except (UserPoints.DoesNotExist, AttributeError):
         user_points = UserPoints.objects.create(user=request.user)
-    
+
     history = PointsHistory.objects.filter(user=request.user).order_by('-created_at')
-    
+
     return render(
         request,
         'pages/points_history.html',
@@ -481,7 +480,7 @@ def points_history(request):
 def settings(request):
     """
     Настройки аккаунта.
-    
+
     Позволяет изменить:
     - Пароль
     - Email
@@ -489,18 +488,18 @@ def settings(request):
     """
     if request.method == 'POST':
         action = request.POST.get('action')
-        
+
         if action == 'change_password':
             old_password = request.POST.get('old_password')
             new_password = request.POST.get('new_password')
-            
+
             if request.user.check_password(old_password):
                 request.user.set_password(new_password)
                 request.user.save()
-                
+
                 from django.contrib.auth import update_session_auth_hash
                 update_session_auth_hash(request, request.user)
-                
+
                 return JsonResponse({
                     'success': True,
                     'message': 'Пароль успішно змінено'
@@ -510,7 +509,7 @@ def settings(request):
                     'success': False,
                     'error': 'Невірний старий пароль'
                 }, status=400)
-    
+
     return render(request, 'pages/settings.html')
 
 
@@ -523,17 +522,17 @@ def user_points(request):
     Показывает текущий баланс и историю начислений/списаний.
     """
     from accounts.models import UserPoints, PointsHistory
-    
+
     # Получаем или создаем объект баллов пользователя
     try:
         user_points_obj = UserPoints.get_or_create_points(request.user)
     except AttributeError:
         # Если метод get_or_create_points не существует, используем get_or_create
         user_points_obj, _ = UserPoints.objects.get_or_create(user=request.user)
-    
+
     # Получаем историю баллов (последние 20 записей)
     history = PointsHistory.objects.filter(user=request.user).order_by('-created_at')[:20]
-    
+
     return render(request, 'pages/user_points.html', {
         'user_points': user_points_obj,
         'history': history
@@ -549,13 +548,13 @@ def my_promocodes(request):
     from orders.models import Order
     from django.utils import timezone
     from ..models import UserPromoCode, PromoCodeUsage
-    
+
     # Получаем все заказы пользователя с промокодами
     orders_with_promocodes = Order.objects.filter(
         user=request.user,
         promo_code__isnull=False
     ).select_related('promo_code').order_by('-created')
-    
+
     # Создаем список использованных промокодов
     used_promocodes = []
     for order in orders_with_promocodes:
@@ -567,7 +566,7 @@ def my_promocodes(request):
                 'discount_amount': order.discount_amount,
                 'order_total': order.total_sum
             })
-    
+
     granted = UserPromoCode.objects.filter(user=request.user).select_related('promo_code')
     used_promo_ids = set(
         PromoCodeUsage.objects.filter(user=request.user, promo_code__in=[g.promo_code for g in granted])
@@ -607,14 +606,14 @@ def buy_with_points(request):
     Показывает доступные товары/услуги за баллы лояльности.
     """
     from accounts.models import UserPoints
-    
+
     # Получаем баллы пользователя
     try:
         user_points_obj = UserPoints.objects.get(user=request.user)
         current_points = user_points_obj.points
     except UserPoints.DoesNotExist:
         current_points = 0
-    
+
     # Определяем доступные товары за баллы
     available_items = [
         {
@@ -638,7 +637,7 @@ def buy_with_points(request):
             'can_afford': current_points > 0
         }
     ]
-    
+
     return render(request, 'pages/buy_with_points.html', {
         'current_points': current_points,
         'available_items': available_items
@@ -654,15 +653,15 @@ def purchase_with_points(request):
     """
     from accounts.models import UserPoints
     from django.contrib import messages
-    
+
     item_id = request.POST.get('item_id')
-    
+
     try:
         user_points_obj = UserPoints.objects.get(user=request.user)
     except UserPoints.DoesNotExist:
         messages.error(request, 'У вас немає балів для покупки')
         return redirect('buy_with_points')
-    
+
     if item_id == 'promo_10':
         # Покупка промокода на 10% скидки
         if user_points_obj.points >= 100:
@@ -678,7 +677,7 @@ def purchase_with_points(request):
                 messages.error(request, f'Помилка при списанні балів: {e}')
         else:
             messages.error(request, 'Недостатньо балів для покупки промокода')
-    
+
     elif item_id == 'donate_zsu':
         # Донат на ЗСУ
         if user_points_obj.points > 0:
@@ -693,8 +692,8 @@ def purchase_with_points(request):
                 messages.error(request, f'Помилка при пожертвуванні: {e}')
         else:
             messages.error(request, 'У вас немає балів для пожертвування')
-    
+
     else:
         messages.error(request, 'Невідомий товар')
-    
+
     return redirect('buy_with_points')

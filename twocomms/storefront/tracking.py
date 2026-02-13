@@ -2,7 +2,6 @@ from __future__ import annotations
 from django.utils.deprecation import MiddlewareMixin
 from django.utils import timezone
 from django.db import transaction
-from django.conf import settings
 from .models import SiteSession, PageView
 
 
@@ -23,6 +22,12 @@ class SimpleAnalyticsMiddleware(MiddlewareMixin):
 
     def process_request(self, request):
         try:
+            host = request.get_host().split(':')[0].lower()
+            # DTF subdomain has its own product analytics and should avoid
+            # write-heavy storefront tracking on every page view.
+            if host.startswith('dtf.'):
+                return None
+
             # Не трекаем ботов и служебные пути
             ua = request.META.get('HTTP_USER_AGENT', '')
             path = request.path or ''
@@ -80,5 +85,3 @@ class SimpleAnalyticsMiddleware(MiddlewareMixin):
         except Exception as e:
             # Никогда не ломаем страницу из-за аналитики
             pass
-
-

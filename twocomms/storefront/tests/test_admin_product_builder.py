@@ -11,7 +11,6 @@ from storefront.models import (
     SizeGrid,
     ProductStatus,
 )
-from productcolors.models import ProductColorVariant
 
 
 class ProductBuilderViewTests(TestCase):

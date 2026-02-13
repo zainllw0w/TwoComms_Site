@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>O1_DEEP_TECH_FACTCHECK_BLUEPRINT_2026-02-09</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1
+id="o1-deep-tech-fact-check-blueprint-for-next-opus-4.6-iteration">O1
+Deep Tech Fact-Check Blueprint (for next Opus 4.6 iteration)</h1>
+<p>Дата: 2026-02-09<br />
+Проект: <code>TwoComms / dtf.twocomms.shop</code><br />
+Цель документа: дать следующему исследовательскому агенту полный,
+технически точный контекст о текущем состоянии проекта, качестве отчета
+<code>Ideas/Audit/o1/1.md</code>, приоритетных внедрениях по
+<code>twocomms/Promt/Effects.MD</code>, и о реальных инфраструктурных
+ограничениях production.</p>
+<hr />
+<h2 id="что-именно-проверено">1. Что именно проверено</h2>
+<h3 id="база-отчетовидей">1.1 База отчетов/идей</h3>
+<p>Проверены файлы:</p>
+<ul>
+<li><code>Ideas/Audit/o1/1.md</code> (основной целевой отчет Opus)</li>
+<li><code>Ideas/Audit/opus 4.6 v1.MD</code></li>
+<li><code>Ideas/Audit/opus 4.6 v2.MD</code></li>
+<li><code>Ideas/Audit/FINAL_TECH_AUDIT_FOR_OPUS_4_6_2026-02-09.md</code></li>
+<li><code>Ideas/Audit/MASTER_TECH_AUDIT_2026-02-09.md</code></li>
+<li><code>Ideas/Audit/Antigravity_Deep_Audit.md</code></li>
+<li><code>Ideas/Audit/Antigravity_Gap_Analysis.md</code></li>
+<li><code>Ideas/Audit/CONSOLIDATED_EFFECTS_GAP_ANALYSIS.md</code></li>
+<li><code>Ideas/CODEX_Report.md</code></li>
+<li><code>Ideas/Antigravity_Report.md</code></li>
+<li><code>Ideas/Gemini_1.5_Pro.md</code></li>
+</ul>
+<h3 id="технические-источники-проекта">1.2 Технические источники
+проекта</h3>
+<ul>
+<li><code>twocomms/Promt/Effects.MD</code></li>
+<li><code>twocomms/dtf/templates/dtf/base.html</code></li>
+<li><code>twocomms/dtf/templates/dtf/index.html</code></li>
+<li><code>twocomms/dtf/templates/dtf/order.html</code></li>
+<li><code>twocomms/dtf/templates/dtf/constructor_app.html</code></li>
+<li><code>twocomms/dtf/static/dtf/js/components/core.js</code></li>
+<li><code>twocomms/dtf/static/dtf/js/components/effect.compare.js</code></li>
+<li><code>twocomms/dtf/static/dtf/js/components/multi-step-loader.js</code></li>
+<li><code>twocomms/dtf/static/dtf/js/components/vanish-input.js</code></li>
+<li><code>twocomms/dtf/static/dtf/js/components/effect.infinite-cards.js</code></li>
+<li><code>twocomms/dtf/static/dtf/js/components/floating-dock.js</code></li>
+<li><code>twocomms/dtf/static/dtf/js/dtf.js</code></li>
+<li><code>twocomms/dtf/preflight/engine.py</code></li>
+<li><code>twocomms/dtf/forms.py</code></li>
+<li><code>twocomms/dtf/views.py</code></li>
+<li><code>twocomms/dtf/urls.py</code></li>
+<li><code>twocomms/twocomms/settings.py</code></li>
+<li><code>twocomms/twocomms/production_settings.py</code></li>
+<li><code>twocomms/requirements.txt</code></li>
+</ul>
+<h3 id="production-ssh-сверка-факт-а-не-предположение">1.3 Production
+SSH-сверка (факт, а не предположение)</h3>
+<p>Проверка выполнена по SSH на <code>2026-02-09</code>:</p>
+<ul>
+<li>хост: <code>guru-ua6.hostsila.org</code></li>
+<li><code>DEBUG=False</code></li>
+<li><code>CELERY_BROKER_URL</code> настроен на Redis Cloud URL</li>
+<li><code>REDIS_PING</code> с production завершился ошибкой DNS
+(<code>Name or service not known</code>)</li>
+<li>celery/huey/redis worker-процессы не обнаружены</li>
+<li>cron-задачи активны (в т.ч. <code>update_tracking_statuses</code> и
+<code>check_survey_inactivity</code>)</li>
+</ul>
+<p>Вывод: инфраструктурно backend сейчас работает как web+cron, не как
+полноценная worker-архитектура с живым брокером задач.</p>
+<hr />
+<h2 id="на-каком-этапе-проект-текущая-фактическая-стадия">2. На каком
+этапе проект (текущая фактическая стадия)</h2>
+<p>Проект уже в рабочем состоянии как продуктовый сайт, но слой
+“wow-эффектов” и часть preflight UX находятся в смешанном состоянии:</p>
+<ul>
+<li><strong>работает</strong>: SSR Django, основная структура страниц,
+формы, базовый constructor flow, sync preflight для конструктора,
+preflight storage/reporting, эффекты как компонентный слой;</li>
+<li><strong>частично</strong>: эффектные UI-компоненты реализованы
+неравномерно (часть зрелые, часть заглушки);</li>
+<li><strong>проблемные зоны</strong>: конфликт нижнего правого UI,
+старый/новый JS-подход в одном проекте, несовпадение between
+report-claims and real code, слабая production-готовность Celery/Redis
+сценария.</li>
+</ul>
+<p>Коротко: это не MVP-черновик и не “нулевой сайт”; это <strong>рабочая
+продуктовая база с незавершенной унификацией визуального и
+async-слоя</strong>.</p>
+<hr />
+<h2 id="факт-чек-отчета-ideasaudito11.md">3. Факт-чек отчета
+<code>Ideas/Audit/o1/1.md</code></h2>
+<p>Ниже оценка ключевых положений <code>o1/1.md</code> с точки зрения
+текущего кода.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Claim из <code>o1/1.md</code></th>
+<th>Вердикт</th>
+<th>Комментарий по факту</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Нужна унификация lifecycle эффектов</td>
+<td><code>Частично уже сделано</code></td>
+<td>В <code>core.js</code> уже есть <code>DTF.registerEffect</code>,
+init/cleanup и HTMX hooks, но в проекте сохраняются legacy-функции в
+<code>dtf.js</code> и дубли файлов.</td>
+</tr>
+<tr>
+<td>Нужны feature flags</td>
+<td><code>Сделано частично</code></td>
+<td>Flags уже есть (<code>DTF_FEATURE_FLAGS</code> +
+<code>get_feature_flags()</code>), но маппинг флагов на новые эффекты
+неполный и непоследовательный.</td>
+</tr>
+<tr>
+<td>Compare требует доработки (autoplay/hover/keyboard)</td>
+<td><code>Верно</code></td>
+<td>Текущий <code>effect.compare.js</code> поддерживает
+range/pointer-drag; нет полноценных autoplay/hover-mode parity, нет
+расширенной keyboard/a11y логики.</td>
+</tr>
+<tr>
+<td>Infinite cards нужно SEO-safe</td>
+<td><code>Верно</code></td>
+<td>Текущий <code>effect.infinite-cards.js</code> фактически заглушка;
+нет clone strategy с <code>aria-hidden/inert</code>, нет pause-on-hover
+orchestration.</td>
+</tr>
+<tr>
+<td>Multi-step loader сейчас fake</td>
+<td><code>Верно</code></td>
+<td><code>multi-step-loader.js</code> делает шаги по таймерам
+(<code>setTimeout</code> 260/520ms), не из реальных backend этапов.</td>
+</tr>
+<tr>
+<td>Vanish input недореализован</td>
+<td><code>Верно</code></td>
+<td>Сейчас это краткий pulse/shake на invalid; нет циклических
+placeholder’ов и vanish-clear текста.</td>
+</tr>
+<tr>
+<td>FAB/Dock конфликтует</td>
+<td><code>Верно</code></td>
+<td>В <code>base.html</code> одновременно есть <code>#dtf-fab</code>,
+<code>data-floating-dock</code>, и отдельный
+<code>.mobile-dock</code>.</td>
+</tr>
+<tr>
+<td>Celery/Redis на shared хостинге проблематичен</td>
+<td><code>Верно по текущему production</code></td>
+<td>На production broker DNS не резолвится и worker-процессов нет.</td>
+</tr>
+<tr>
+<td>Нужен sync preflight путь</td>
+<td><code>Верно</code></td>
+<td>Для текущей инфраструктуры sync+deterministic UX действительно
+реалистичнее и стабильнее.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="что-в-o11.md-нужно-скорректировать">3.1 Что в
+<code>o1/1.md</code> нужно скорректировать</h3>
+<ol type="1">
+<li>Формулировка “всё async невозможно” слишком абсолютна. Точная
+версия: <strong>в текущем production-контуре async через Celery/Redis
+сейчас недоступен надежно</strong>.</li>
+<li>Часть рекомендаций “внедрить error boundary” уже реализована в
+<code>core.js</code> через <code>try/catch</code> на init каждого
+эффекта.</li>
+<li>В отчете местами смешаны контексты страниц:
+<ul>
+<li>в <code>constructor_app</code> preflight уже реальный (sync в
+форме);</li>
+<li>в <code>order</code> preflight-терминал пока mostly декларативный
+UI.</li>
+</ul></li>
+</ol>
+<hr />
+<h2 id="сверка-v1v2-и-других-ai-отчетов">4. Сверка v1/v2 и других
+AI-отчетов</h2>
+<h3 id="opus-4.6-v1-и-v2">4.1 <code>opus 4.6 v1</code> и
+<code>v2</code></h3>
+<ul>
+<li><code>v1</code> неполный (обрыв структуры).</li>
+<li><code>v2</code> структурно лучше и пригоден как рабочий каркас.</li>
+<li>Использовать только после fact-check с кодом (этот документ = такой
+fact-check).</li>
+</ul>
+<h3 id="практическая-ценность-источников">4.2 Практическая ценность
+источников</h3>
+<ul>
+<li><code>Ideas/CODEX_Report.md</code>: высокий инженерный вес, хороший
+grounded-фундамент.</li>
+<li><code>Ideas/Antigravity_Report.md</code>: сильный креатив-бэклог,
+ниже точность по архитектурным ограничениям.</li>
+<li><code>Ideas/Gemini_1.5_Pro.md</code>: сильные идеи по
+behavioral/performance, но часть предложений слишком радикальны для
+текущего стека.</li>
+</ul>
+<h3 id="итог-по-качеству-аналитики">4.3 Итог по качеству аналитики</h3>
+<p>Лучший подход: <strong>брать отчеты как гипотезы и фильтровать через
+код/сервер-факты</strong>.<br />
+Этот документ фиксирует такой фильтр и даёт операционный план
+внедрения.</p>
+<hr />
+<h2 id="что-реально-есть-в-effects.md-и-что-уже-перенесено">5. Что
+реально есть в <code>Effects.MD</code> и что уже перенесено</h2>
+<p><code>twocomms/Promt/Effects.MD</code> — это в основном Aceternity
+React-референсы (CLI <code>npx shadcn ...</code>) с демо-кодом.</p>
+<p>Ключевые компоненты, которые для нас критичны:</p>
+<ul>
+<li><code>Compare</code></li>
+<li><code>Floating Dock</code></li>
+<li><code>Infinite Moving Cards</code></li>
+<li><code>Placeholders And Vanish Input</code></li>
+<li><code>Sidebar</code></li>
+<li><code>Multi Step Loader</code></li>
+<li><code>Text Generate Effect</code></li>
+<li><code>Images Badge</code> (для upload badge/иконки в доке)</li>
+</ul>
+<h3 id="статус-переноса-в-текущем-проекте">5.1 Статус переноса в текущем
+проекте</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Компонент</th>
+<th>Статус сейчас</th>
+<th>Комментарий</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Compare</td>
+<td><code>Частично</code></td>
+<td>Есть drag/range/pointer, но нет режима “визуально как в референсе”
+(autoplay/hover orchestration, расширенная a11y).</td>
+</tr>
+<tr>
+<td>Floating Dock</td>
+<td><code>Частично</code></td>
+<td>Есть минимальный floating nav, но без macOS magnification и с
+конфликтом через FAB/mobile-dock.</td>
+</tr>
+<tr>
+<td>Infinite Cards</td>
+<td><code>Минимум</code></td>
+<td>CSS-анимация есть, JS почти пустой, нет SEO-safe cloning.</td>
+</tr>
+<tr>
+<td>Vanish Input</td>
+<td><code>Минимум</code></td>
+<td>Только invalid pulse/shake; нет vanish-clear/placeholder-cycle.</td>
+</tr>
+<tr>
+<td>Multi Step Loader</td>
+<td><code>Fake</code></td>
+<td>Ступени переключаются таймерами, не backend-driven.</td>
+</tr>
+<tr>
+<td>Sidebar</td>
+<td><code>Отдельный компонент-референс</code></td>
+<td>В конструкторе уже есть левый <code>aside</code>, но не тот
+интерактивный эффект expand/sidebar из референса.</td>
+</tr>
+<tr>
+<td>Text Generate</td>
+<td><code>Фрагментарно</code></td>
+<td>Есть encrypted text эффекты; dedicated text-generate behavior для
+trust storytelling не оформлен отдельным модулем.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="глубокий-техразбор-must-have-внедрений-по-вашему-тз">6. Глубокий
+техразбор must-have внедрений (по вашему ТЗ)</h2>
+<p>Ниже именно те эффекты/фишки, которые вы обозначили как
+обязательные.</p>
+<h2 id="compare-допосле-визуально-как-референс">6.1 Compare “до/после”
+(визуально как референс)</h2>
+<h3 id="цель">Цель</h3>
+<p>Сделать compare визуально максимально близким к референсу из
+<code>Effects.MD</code>:</p>
+<ul>
+<li>поддержка <code>drag</code> + <code>hover</code> +
+<code>autoplay</code></li>
+<li>autoplay привлекает внимание, interaction переводит в ручной
+режим</li>
+<li>mobile fallback без hover</li>
+</ul>
+<h3 id="что-уже-есть">Что уже есть</h3>
+<ul>
+<li><code>effect.compare.js</code> уже инициализирует drag/pointer +
+range</li>
+<li>CSS содержит <code>touch-action: pan-y</code> (важно для скролла на
+mobile)</li>
+</ul>
+<h3 id="что-добавить">Что добавить</h3>
+<ol type="1">
+<li><code>data-compare-mode="drag|hover|autoplay"</code></li>
+<li><code>data-compare-autoplay="true|false"</code></li>
+<li>автопетля 20%→80%→20% с остановкой при user interaction</li>
+<li>keyboard support (<code>ArrowLeft/ArrowRight/Home/End</code>) + ARIA
+slider semantics</li>
+<li>reduced-motion disable autoplay</li>
+</ol>
+<h3 id="где-интегрировать">Где интегрировать</h3>
+<ul>
+<li><code>twocomms/dtf/static/dtf/js/components/effect.compare.js</code></li>
+<li><code>twocomms/dtf/static/dtf/css/components/effect.compare.css</code></li>
+<li>шаблоны с <code>[data-compare]</code>:
+<ul>
+<li><code>twocomms/dtf/templates/dtf/index.html</code></li>
+<li><code>twocomms/dtf/templates/dtf/gallery.html</code></li>
+<li><code>twocomms/dtf/templates/dtf/effects_lab.html</code></li>
+</ul></li>
+</ul>
+<h3 id="критерии-готовности">Критерии готовности</h3>
+<ul>
+<li>визуально совпадает по поведению с референсом (autoplay + ручной
+контроль)</li>
+<li>без CLS</li>
+<li>mobile не ломает вертикальный scroll</li>
+</ul>
+<hr />
+<h2 id="multi-step-loader-для-реальной-проверки-файла">6.2 Multi-step
+loader для реальной проверки файла</h2>
+<h3 id="цель-1">Цель</h3>
+<p>Показывать именно реальные этапы preflight, а не fixed таймеры:</p>
+<ol type="1">
+<li>проверка типа/магии</li>
+<li>проверка размеров и DPI</li>
+<li>проверка прозрачности/границ</li>
+<li>риск тонких линий/детализации</li>
+<li>итог PASS/WARN/FAIL</li>
+</ol>
+<h3 id="что-уже-есть-в-backend">Что уже есть в backend</h3>
+<p>В <code>twocomms/dtf/preflight/engine.py</code> уже реализовано:</p>
+<ul>
+<li>magic bytes/extension</li>
+<li>file size</li>
+<li>DPI</li>
+<li>alpha channel + bbox + margin</li>
+<li>color mode (RGB/CMYK)</li>
+<li>tiny-detail risk (<code>PF_TINY_TEXT_RISK</code>)</li>
+<li>PDF page/media box</li>
+</ul>
+<h3 id="где-разрыв">Где разрыв</h3>
+<ul>
+<li>UI <code>multi-step-loader.js</code> сейчас не связан с backend
+этапами</li>
+<li>в <code>order</code> preflight-блок largely статичный</li>
+</ul>
+<h3 id="рекомендованный-путь-без-celery">Рекомендованный путь (без
+Celery)</h3>
+<ul>
+<li>оставить sync preflight request-response</li>
+<li>до ответа отображать step-progress честно по фазам клиента
+(upload/read/send/wait)</li>
+<li>после ответа отображать <strong>реальные checks из JSON</strong> с
+иконками и объяснениями</li>
+<li>если нужно ощущение “долгой умной проверки”, делать это честно:
+“анализируем…” + стрим/пошаговая отрисовка уже полученных checks</li>
+</ul>
+<h3 id="где-интегрировать-1">Где интегрировать</h3>
+<ul>
+<li><code>twocomms/dtf/static/dtf/js/components/multi-step-loader.js</code></li>
+<li><code>twocomms/dtf/templates/dtf/order.html</code></li>
+<li><code>twocomms/dtf/templates/dtf/constructor_app.html</code></li>
+<li>(опционально) отдельный endpoint для preflight JSON (сейчас нет
+dedicated <code>api/preflight/check/</code> в
+<code>dtf/urls.py</code>)</li>
+</ul>
+<hr />
+<h2 id="vanish-input-очистка-текста-с-эффектом">6.3 Vanish Input
+(очистка текста с эффектом)</h2>
+<h3 id="цель-2">Цель</h3>
+<p>При invalid submit/ошибке валидации:</p>
+<ul>
+<li>поле визуально сигнализирует ошибку</li>
+<li>введенный текст очищается через vanish-анимацию</li>
+<li>placeholder циклически подсказывает пример корректного ввода</li>
+</ul>
+<h3 id="что-уже-есть-1">Что уже есть</h3>
+<ul>
+<li><code>vanish-input.js</code>: invalid blur/pulse</li>
+<li><code>vanish-input.css</code>: краткий shake/pulse</li>
+</ul>
+<h3 id="что-добавить-1">Что добавить</h3>
+<ol type="1">
+<li>очередь placeholder’ов + cycle interval</li>
+<li>onInvalid: animate-out текста и clear value</li>
+<li>onValid: нормальное поведение без очистки</li>
+<li>для mobile облегченный режим (без тяжелых particles/canvas)</li>
+</ol>
+<h3 id="где-интегрировать-2">Где интегрировать</h3>
+<ul>
+<li><code>twocomms/dtf/static/dtf/js/components/vanish-input.js</code></li>
+<li><code>twocomms/dtf/static/dtf/css/components/vanish-input.css</code></li>
+<li>поля телефонов/емейлов в constructor/order flows</li>
+</ul>
+<hr />
+<h2 id="floating-dock-нижнее-меню-левый-тулбар-конструктора">6.4
+Floating Dock + нижнее меню + левый тулбар конструктора</h2>
+<h3 id="цель-3">Цель</h3>
+<p>Собрать один coherent паттерн навигации:</p>
+<ul>
+<li>desktop: floating dock c “док-ощущением”</li>
+<li>mobile: bottom dock</li>
+<li>constructor: слева интерактивный toolbar/sidebar (под выбор
+шагов/инструментов)</li>
+</ul>
+<h3 id="что-сейчас-конфликтует">Что сейчас конфликтует</h3>
+<p>В <code>base.html</code> одновременно присутствуют:</p>
+<ul>
+<li><code>#dtf-fab</code></li>
+<li><code>[data-floating-dock]</code></li>
+<li><code>.mobile-dock</code></li>
+</ul>
+<p>Это визуально и логически конфликтует.</p>
+<h3 id="что-сделать">Что сделать</h3>
+<ol type="1">
+<li>унифицировать в единый navigation contract</li>
+<li>FAB действие “Менеджер” встроить в dock item</li>
+<li>mobile оставить как responsive режим того же компонента</li>
+<li>для constructor внедрить отдельный <code>constructor-sidebar</code>
+эффектный режим (expand/collapse), без дублирования глобального dock
+UX</li>
+</ol>
+<h3 id="где-интегрировать-3">Где интегрировать</h3>
+<ul>
+<li><code>twocomms/dtf/templates/dtf/base.html</code></li>
+<li><code>twocomms/dtf/static/dtf/js/components/floating-dock.js</code></li>
+<li><code>twocomms/dtf/static/dtf/css/components/floating-dock.css</code></li>
+<li><code>twocomms/dtf/templates/dtf/constructor_app.html</code></li>
+</ul>
+<hr />
+<h2 id="бегущие-карточки-для-блога-а-не-отзывы-seo-safe">6.5 Бегущие
+карточки для блога (а не отзывы), SEO-safe</h2>
+<h3 id="цель-4">Цель</h3>
+<p>Сделать движущийся блок именно по blog/knowledge контенту, но с
+сохранением индексации.</p>
+<h3 id="что-сейчас">Что сейчас</h3>
+<ul>
+<li><code>infinite-cards</code> используется в <code>effects_lab</code>
+(демо)</li>
+<li>на главной knowledge-блок сейчас bento-grid статический</li>
+</ul>
+<h3 id="что-сделать-1">Что сделать</h3>
+<ol type="1">
+<li>источник карточек = реальные посты из
+<code>knowledge_posts_preview</code></li>
+<li>первый трек = indexable HTML</li>
+<li>клоны для бесшовности =
+<code>aria-hidden="true" inert role="presentation"</code></li>
+<li>pause-on-hover/focus</li>
+<li>reduced motion fallback: static list</li>
+</ol>
+<h3 id="где-интегрировать-4">Где интегрировать</h3>
+<ul>
+<li><code>twocomms/dtf/templates/dtf/index.html</code> (knowledge
+section)</li>
+<li><code>twocomms/dtf/static/dtf/js/components/effect.infinite-cards.js</code></li>
+<li><code>twocomms/dtf/static/dtf/css/components/effect.infinite-cards.css</code></li>
+</ul>
+<hr />
+<h2 id="эффект-скорости-текста-и-дополнительные-текстовые-эффекты">6.6
+“Эффект скорости текста” и дополнительные текстовые эффекты</h2>
+<h3 id="цель-5">Цель</h3>
+<p>Добавить controlled micro-motion в тексты типа “Отправка день в день
+/ скорость / оперативность”, без перегруза.</p>
+<h3 id="рекомендация">Рекомендация</h3>
+<ul>
+<li>использовать lightweight текстовый jitter/scan только на акцентных
+словах</li>
+<li>длительность короткая (120–240ms)</li>
+<li>при reduced motion отключать</li>
+<li>SSR-текст всегда читаем до JS</li>
+</ul>
+<h3 id="где">Где</h3>
+<ul>
+<li>hero/CTA блоки в <code>index.html</code></li>
+<li>отдельный легкий модуль <code>effect.text-speed.js</code> (или
+расширение <code>effect.encrypted-text.js</code>)</li>
+</ul>
+<hr />
+<h2 id="preflight-что-уже-покрыто-и-что-нужно-добавить">7. Preflight:
+что уже покрыто и что нужно добавить</h2>
+<h2 id="уже-покрыто-в-engine.py">7.1 Уже покрыто в
+<code>engine.py</code></h2>
+<ul>
+<li>формат и magic bytes</li>
+<li>размер файла</li>
+<li>DPI (warn если &lt;300)</li>
+<li>alpha channel presence</li>
+<li>bounding box + margin risk</li>
+<li>color mode (RGB/CMYK)</li>
+<li>tiny detail risk heuristic</li>
+<li>PDF page count и media box</li>
+</ul>
+<h2 id="что-запросили-дополнительно-и-это-нужно">7.2 Что запросили
+дополнительно (и это нужно)</h2>
+<p>Ваши обязательные проверки:</p>
+<ul>
+<li>тонкие линии</li>
+<li>белая подкладка / поведение на подложке</li>
+<li>прозрачность</li>
+<li>не выходит ли за края</li>
+<li>соответствие 60 см</li>
+<li>DPI</li>
+</ul>
+<h3 id="реальный-статус">Реальный статус</h3>
+<ul>
+<li><code>прозрачность</code>, <code>границы</code>, <code>DPI</code>
+уже есть частично/полностью</li>
+<li><code>60 см</code> пока не валидация rule-level (есть данные
+размеров, но нет явного pass/fail по 60см)</li>
+<li><code>тонкие линии</code> сейчас косвенно через heuristic, нужен
+более прозрачный rule и message</li>
+<li><code>белая подкладка</code> как отдельная проверка бизнес-логики
+отсутствует</li>
+</ul>
+<h3 id="что-добавить-в-engine">Что добавить в engine</h3>
+<ol type="1">
+<li><code>PF_WIDTH_60CM_OK/WARN/FAIL</code>
+<ul>
+<li>для raster: вычислять физическую ширину через
+<code>width_px / dpi * 2.54</code></li>
+<li>для pdf: через <code>mediabox_pt * 2.54 / 72</code></li>
+</ul></li>
+<li><code>PF_STROKE_THIN_RISK</code>
+<ul>
+<li>улучшить алгоритм тонких элементов (mask + morphology) и explainable
+threshold</li>
+</ul></li>
+<li><code>PF_WHITE_BACKGROUND_RISK</code>
+<ul>
+<li>если фон непрозрачный и почти белый при отсутствии alpha —
+предупреждать</li>
+</ul></li>
+<li>нормализованный UI mapping code→human label (сейчас шаблон может
+ожидать <code>label</code>, а engine дает
+<code>code/message</code>)</li>
+</ol>
+<hr />
+<h2 id="rediscelery-селлари-и-альтернативы">8. Redis/Celery (“селлари”)
+и альтернативы</h2>
+<h2 id="факт-сейчас">8.1 Факт сейчас</h2>
+<ul>
+<li>Celery зависимости есть в коде/requirements</li>
+<li>production broker URL задан</li>
+<li>broker DNS в production не резолвится</li>
+<li>worker-процессы не работают</li>
+</ul>
+<p>Значит на текущем контуре <strong>Celery сейчас не
+operational</strong>.</p>
+<h2 id="альтернатива-без-redis-рекомендуется-сейчас">8.2 Альтернатива
+без Redis (рекомендуется сейчас)</h2>
+<h3
+id="вариант-a-sync-first-cron-рекомендуемый-для-текущего-этапа">Вариант
+A: Sync-first + cron (рекомендуемый для текущего этапа)</h3>
+<ul>
+<li>preflight, critical UX checks — sync</li>
+<li>тяжелые не-критичные задачи — cron management commands</li>
+<li>пользователь не зависит от фоновго queue health</li>
+</ul>
+<p>Плюсы:</p>
+<ul>
+<li>стабильность на shared/cPanel</li>
+<li>простой дебаг</li>
+<li>предсказуемый UX</li>
+</ul>
+<p>Минусы:</p>
+<ul>
+<li>ограниченный real-time async experience</li>
+</ul>
+<h3
+id="вариант-b-managed-redis-free-tier-celery-worker-только-при-готовой-infra">Вариант
+B: Managed Redis free tier + Celery worker (только при готовой
+infra)</h3>
+<p>Возможен после подтверждения:</p>
+<ul>
+<li>DNS/egress до Redis провайдера работает</li>
+<li>есть где держать worker-процесс 24/7 (VPS/контейнер/process
+manager)</li>
+</ul>
+<p>Без этого Celery будет “в коде” но не “в проде”.</p>
+<h3 id="вариант-c-hueydb-backed-queue-как-переходный">Вариант C:
+Huey/DB-backed queue как переходный</h3>
+<p>Возможен как временный путь, но на shared тоже рискован без
+гарантированного daemon process.</p>
+<h2 id="что-делать-прямо-сейчас">8.3 Что делать прямо сейчас</h2>
+<ul>
+<li>не блокировать UX реализацию на Celery</li>
+<li>строить preflight и эффекты в sync-mode</li>
+<li>async вернуть после инфраструктурной нормализации (или миграции с
+shared-хостинга)</li>
+</ul>
+<hr />
+<h2
+id="конкретная-карта-внедрения-не-про-сложность-а-про-точность-интеграции">9.
+Конкретная карта внедрения (не про “сложность”, а про точность
+интеграции)</h2>
+<h2 id="wave-1-must-have-ядро">9.1 Wave 1 (must-have ядро)</h2>
+<ol type="1">
+<li>Unified right-bottom nav (Dock/FAB/mobile)</li>
+<li>Compare parity (drag+hover+autoplay)</li>
+<li>Real preflight step rendering (без fake таймеров)</li>
+<li>Vanish clear behavior</li>
+<li>Knowledge cards as infinite moving blog block (SEO-safe)</li>
+</ol>
+<h2 id="wave-2-усиление-конструктора">9.2 Wave 2 (усиление
+конструктора)</h2>
+<ol type="1">
+<li>Left interactive constructor toolbar/sidebar</li>
+<li>Upload dock item with image badge + hover animation on desktop</li>
+<li>Detailed preflight result cards (каждый check с guidance)</li>
+<li>Compare-in-preflight preview for WARN quality cases</li>
+</ol>
+<h2 id="wave-3-refine-analytics">9.3 Wave 3 (refine + analytics)</h2>
+<ol type="1">
+<li>Event schema + telemetry</li>
+<li>A/B only where есть трафик и baseline</li>
+<li>adaptive UX mode newcomer/pro</li>
+</ol>
+<hr />
+<h2
+id="что-нужно-подготовить-coding-агенту-перед-следующей-итерацией">10.
+Что нужно подготовить coding-агенту перед следующей итерацией</h2>
+<p>Минимальный пакет:</p>
+<ol type="1">
+<li><strong>Component contracts</strong> (JSON/TS-like) для:
+<ul>
+<li>compare</li>
+<li>preflight-flow</li>
+<li>infinite-blog-cards</li>
+<li>vanish-input</li>
+<li>unified-dock</li>
+</ul></li>
+<li><strong>Message catalog</strong> для preflight checks
+(UA/RU/EN)</li>
+<li><strong>Feature-flag map</strong> (что включено/выключено в
+rollout)</li>
+<li><strong>Acceptance criteria</strong> по каждому эффекту</li>
+<li><strong>Template placement map</strong> (где какой компонент должен
+жить)</li>
+</ol>
+<hr />
+<h2
+id="что-нужно-исследовать-следующему-агенту-opus-4.6-обязательный-research-brief">11.
+Что нужно исследовать следующему агенту (Opus 4.6) — обязательный
+research brief</h2>
+<h2 id="businessbehavior-блок">11.1 Business/behavior блок</h2>
+<ol type="1">
+<li>Для DTF аудитории (новички/про) какие preflight формулировки лучше
+снижают drop-off?</li>
+<li>Как лучше показывать WARN так, чтобы не снижать доверие?</li>
+<li>Что конвертит лучше для главной: moving blog cards vs static
+knowledge bento?</li>
+<li>Где граница между “wow” и “шум” в B2B/B2C печатном сервисе?</li>
+</ol>
+<h2 id="technicalweb-research-блок">11.2 Technical/web research
+блок</h2>
+<ol type="1">
+<li>Лучшие production-паттерны before/after compare для e-commerce print
+services</li>
+<li>SEO-safe infinite marquee patterns (SSR-first, decorative
+clones)</li>
+<li>Pattern library для multi-step loaders, где шаги отражают реальные
+backend checks</li>
+<li>Подходы к легкому vanish effect без тяжелой графики</li>
+</ol>
+<h2 id="infrastructure-блок">11.3 Infrastructure блок</h2>
+<ol type="1">
+<li>Когда sync preflight перестает быть достаточным по
+latency/throughput</li>
+<li>На каких минимальных условиях Celery реально жизнеспособен (infra
+checklist)</li>
+<li>Какие managed Redis/free tiers реально подходят под ожидаемую
+нагрузку</li>
+</ol>
+<hr />
+<h2 id="вопросы-которые-нужно-задать-opus-4.6">12. Вопросы, которые
+нужно задать Opus 4.6</h2>
+<ol type="1">
+<li>Сформируй лучший UX-текст для PASS/WARN/FAIL preflight (UA/RU/EN, с
+tone variants).</li>
+<li>Дай 2–3 сценария адаптивной логики для новичка и профи, без
+перегруза интерфейса.</li>
+<li>Сравни moving blog cards vs static cards по ожидаемому влиянию на
+trust и SEO.</li>
+<li>Предложи строгий policy: где autoplay допустим, где только manual
+interaction.</li>
+<li>Определи оптимальный motion budget для мобильного трафика
+DTF-сайта.</li>
+<li>Сформируй модель риска/выгоды для Celery в текущем окружении и после
+миграции на VPS.</li>
+<li>Дай структуру финального prompt для coding-агента, чтобы он сразу
+писал правильный код без переизобретения архитектуры.</li>
+<li>Проверь, какие подходы конкурентов
+(printful/printify/customink/другие) можно переносить без потери
+конверсии.</li>
+<li>Дай уточненные критерии “визуально как в Effects.MD” в формате
+checklist для QA.</li>
+<li>Предложи план тестов (manual + automation) для эффектов
+compare/vanish/loader/dock/cards.</li>
+</ol>
+<hr />
+<h2 id="готовый-промпт-для-opus-4.6-вставлять-как-есть">13. Готовый
+промпт для Opus 4.6 (вставлять как есть)</h2>
+<pre class="text"><code>Ты получаешь технический документ по проекту dtf.twocomms.shop (Django SSR + Vanilla JS effects).
+Твоя задача: провести глубокий research-аудит и вернуть практические решения, которые можно напрямую перевести в coding-задачи.
+
+Контекст, который нужно считать фактом:
+1) В проекте уже есть working effect-layer (DTF.registerEffect/core.js), но часть эффектов недореализованы.
+2) Compare / multi-step loader / vanish input / floating dock / infinite cards — must-have направления.
+3) В production сейчас нет надежного рабочего Celery/Redis контура (broker DNS не резолвится, worker не найден).
+4) Constructor preflight уже sync на backend, но UI и order-flow нуждаются в доработке и унификации.
+
+Что от тебя нужно:
+A. Проведи исследование best practices (UX, SEO, performance, print-on-demand паттерны) и предложи только применимые для текущего стека решения.
+B. Оцени, какие идеи из отчета o1/1.md точные, какие нет, и как их переписать в actionable форму.
+C. Сформируй финальный implementation brief для coding-агента:
+   - архитектурные принципы
+   - contracts компонентов
+   - feature flag strategy
+   - acceptance criteria
+   - roadmap волнами
+D. Дай отдельный блок про Celery (селлари):
+   - что можно делать без него уже сейчас
+   - минимальные условия для возвращения Celery позже
+   - альтернативы на случай shared hosting ограничений
+E. Сформируй пакет вопросов владельцу проекта, если каких-то данных объективно не хватает.
+
+Важно:
+- Не предлагай полную миграцию на React/Vue как обязательный путь.
+- Сохраняй SSR+Vanilla-first подход.
+- Любые “wow” эффекты проверяй на SEO, readability, trust и mobile performance.
+- Ответ должен быть максимально конкретным и технически применимым.</code></pre>
+<hr />
+<h2
+id="ключевые-технические-риски-и-неочевидные-места-для-повторной-проверки">14.
+Ключевые технические риски и неочевидные места (для повторной
+проверки)</h2>
+<ol type="1">
+<li>В <code>constructor_app.html</code> preflight rendering ожидает
+<code>item.label</code>, а engine checks дают <code>code/message</code>
+— требуется нормализация данных для UI.</li>
+<li>В <code>order.html</code> preflight terminal выглядит как реальный,
+но сейчас фактически не связан с real checks pipeline.</li>
+<li><code>dtf.js</code> содержит legacy-функции
+(<code>initCompare</code>, <code>initTracingBeam</code>), которые важно
+либо удалить, либо синхронизировать с новым effect layer.</li>
+<li>Конфликт навигации в нижнем правом углу может маскировать реальные
+проблемы UX/конверсии.</li>
+<li>Feature flags существуют, но не покрывают весь план must-have
+rollout.</li>
+</ol>
+<hr />
+<h2 id="источники-для-внешней-сверки-исследовательский-минимум">15.
+Источники для внешней сверки (исследовательский минимум)</h2>
+<ul>
+<li>Google JS SEO Basics: <a
+href="https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics"
+class="uri">https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics</a></li>
+<li>MDN <code>aria-hidden</code>: <a
+href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-hidden"
+class="uri">https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-hidden</a></li>
+<li>MDN <code>inert</code>: <a
+href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/inert"
+class="uri">https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/inert</a></li>
+<li>MDN Vibration API: <a
+href="https://developer.mozilla.org/en-US/docs/Web/API/Vibration_API"
+class="uri">https://developer.mozilla.org/en-US/docs/Web/API/Vibration_API</a></li>
+<li>Celery docs (getting started/next steps): <a
+href="https://docs.celeryq.dev/en/stable/getting-started/next-steps.html"
+class="uri">https://docs.celeryq.dev/en/stable/getting-started/next-steps.html</a></li>
+<li>cPanel cron jobs: <a
+href="https://docs.cpanel.net/cpanel/advanced/cron-jobs/"
+class="uri">https://docs.cpanel.net/cpanel/advanced/cron-jobs/</a></li>
+<li>Huey Django integration: <a
+href="https://huey.readthedocs.io/en/stable/django.html"
+class="uri">https://huey.readthedocs.io/en/stable/django.html</a></li>
+<li>Upstash pricing (managed Redis option): <a
+href="https://upstash.com/pricing"
+class="uri">https://upstash.com/pricing</a></li>
+<li>Redis pricing: <a href="https://redis.io/pricing/"
+class="uri">https://redis.io/pricing/</a></li>
+</ul>
+<hr />
+<h2 id="финальный-вывод">16. Финальный вывод</h2>
+<p><code>Ideas/Audit/o1/1.md</code> — полезный, но не полностью
+“ready-to-implement” документ.<br />
+После факт-чека:</p>
+<ul>
+<li>стратегическое направление в целом верное;</li>
+<li>ряд формулировок нужно переписать более точно под текущий код и
+production;</li>
+<li>главная практическая линия: <strong>не ждать Celery</strong>, а
+внедрять must-have эффекты и real preflight UX уже сейчас на
+sync-архитектуре;</li>
+<li>следующий Opus-цикл должен работать уже не “с нуля”, а с этим
+техническим фундаментом и исследовательским брифом.</li>
+</ul>
+</body>
+</html>

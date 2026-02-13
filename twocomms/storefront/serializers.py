@@ -13,7 +13,7 @@ from productcolors.models import ProductColorVariant
 class CategorySerializer(serializers.ModelSerializer):
     """
     Сериализатор для категорий товаров.
-    
+
     Fields:
         - id: ID категории
         - name: Название категории
@@ -22,12 +22,12 @@ class CategorySerializer(serializers.ModelSerializer):
         - products_count: Количество товаров (read-only)
     """
     products_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Category
         fields = ['id', 'name', 'slug', 'products_count']
         read_only_fields = ['id', 'slug']
-    
+
     def get_products_count(self, obj):
         """Возвращает количество товаров в категории."""
         return obj.products.count()
@@ -36,7 +36,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class ProductColorSerializer(serializers.ModelSerializer):
     """
     Сериализатор для цветовых вариантов товара.
-    
+
     Fields:
         - id: ID варианта
         - color: Объект цвета
@@ -52,7 +52,7 @@ class ProductColorSerializer(serializers.ModelSerializer):
 class ProductListSerializer(serializers.ModelSerializer):
     """
     Сериализатор для списка товаров (минимальная информация).
-    
+
     Оптимизирован для быстрой загрузки списков.
     Fields:
         - id: ID товара
@@ -66,7 +66,7 @@ class ProductListSerializer(serializers.ModelSerializer):
     """
     category = serializers.CharField(source='category.name', read_only=True)
     image = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Product
         fields = [
@@ -74,7 +74,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             'category', 'featured'
         ]
         read_only_fields = ['id', 'slug']
-    
+
     def get_image(self, obj):
         """Возвращает URL главного изображения."""
         if obj.main_image:
@@ -88,7 +88,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 class ProductDetailSerializer(serializers.ModelSerializer):
     """
     Сериализатор для детальной информации о товаре.
-    
+
     Включает полную информацию о товаре и связанных сущностях.
     Fields:
         - id: ID товара
@@ -108,7 +108,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     colors = ProductColorSerializer(many=True, read_only=True, source='color_variants')
     image = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Product
         fields = [
@@ -118,7 +118,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'colors', 'points_reward'
         ]
         read_only_fields = ['id', 'slug']
-    
+
     def get_image(self, obj):
         """Возвращает URL главного изображения."""
         if obj.main_image:
@@ -132,7 +132,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 class CartItemSerializer(serializers.Serializer):
     """
     Сериализатор для элемента корзины.
-    
+
     Fields:
         - product_id: ID товара
         - quantity: Количество
@@ -143,7 +143,7 @@ class CartItemSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(required=True, min_value=1)
     color = serializers.CharField(required=False, allow_blank=True)
     size = serializers.CharField(required=False, allow_blank=True)
-    
+
     def validate_product_id(self, value):
         """Проверяет существование товара."""
         if not Product.objects.filter(id=value).exists():
@@ -154,7 +154,7 @@ class CartItemSerializer(serializers.Serializer):
 class SearchQuerySerializer(serializers.Serializer):
     """
     Сериализатор для параметров поиска.
-    
+
     Fields:
         - q: Поисковый запрос
         - category: ID категории (optional)
@@ -165,9 +165,9 @@ class SearchQuerySerializer(serializers.Serializer):
     q = serializers.CharField(required=True, max_length=200)
     category = serializers.IntegerField(required=False, allow_null=True)
     min_price = serializers.DecimalField(
-        required=False, 
+        required=False,
         allow_null=True,
-        max_digits=10, 
+        max_digits=10,
         decimal_places=2
     )
     max_price = serializers.DecimalField(
@@ -184,7 +184,7 @@ class SearchQuerySerializer(serializers.Serializer):
 class SearchSuggestionSerializer(serializers.Serializer):
     """
     Сериализатор для автодополнения поиска.
-    
+
     Fields:
         - id: ID товара
         - title: Название товара
@@ -198,7 +198,7 @@ class SearchSuggestionSerializer(serializers.Serializer):
 class ProductAvailabilitySerializer(serializers.Serializer):
     """
     Сериализатор для проверки доступности товара.
-    
+
     Fields:
         - available: Доступен ли товар
         - in_stock: В наличии
@@ -212,7 +212,7 @@ class ProductAvailabilitySerializer(serializers.Serializer):
 class RelatedProductSerializer(serializers.ModelSerializer):
     """
     Упрощенный сериализатор для похожих товаров.
-    
+
     Fields:
         - id: ID товара
         - title: Название
@@ -223,12 +223,12 @@ class RelatedProductSerializer(serializers.ModelSerializer):
     """
     main_image = serializers.SerializerMethodField()
     final_price = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Product
         fields = ['id', 'title', 'slug', 'price', 'final_price', 'main_image']
         read_only_fields = ['id', 'slug']
-    
+
     def get_main_image(self, obj):
         """Возвращает URL главного изображения."""
         if obj.main_image:
@@ -237,7 +237,7 @@ class RelatedProductSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.main_image.url)
             return obj.main_image.url
         return None
-    
+
     def get_final_price(self, obj):
         """Возвращает итоговую цену с учетом скидки."""
         if hasattr(obj, 'final_price'):
@@ -250,7 +250,7 @@ class RelatedProductSerializer(serializers.ModelSerializer):
 class TrackEventSerializer(serializers.Serializer):
     """
     Сериализатор для трекинга событий аналитики.
-    
+
     Fields:
         - event_type: Тип события (view, click, add_to_cart, etc.)
         - product_id: ID товара (optional)
@@ -261,7 +261,7 @@ class TrackEventSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(required=False, allow_null=True)
     category_id = serializers.IntegerField(required=False, allow_null=True)
     metadata = serializers.JSONField(required=False, default=dict)
-    
+
     def validate_event_type(self, value):
         """Проверяет валидность типа события."""
         allowed_types = [
@@ -278,12 +278,12 @@ class TrackEventSerializer(serializers.Serializer):
 class NewsletterSubscribeSerializer(serializers.Serializer):
     """
     Сериализатор для подписки на рассылку.
-    
+
     Fields:
         - email: Email адрес подписчика
     """
     email = serializers.EmailField(required=True)
-    
+
     def validate_email(self, value):
         """Проверяет валидность email."""
         if not value or len(value) < 5:
@@ -294,7 +294,7 @@ class NewsletterSubscribeSerializer(serializers.Serializer):
 class ContactFormSerializer(serializers.Serializer):
     """
     Сериализатор для формы обратной связи.
-    
+
     Fields:
         - name: Имя отправителя
         - email: Email отправителя
@@ -305,17 +305,15 @@ class ContactFormSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     phone = serializers.CharField(required=False, allow_blank=True, max_length=20)
     message = serializers.CharField(required=True, max_length=1000)
-    
+
     def validate_name(self, value):
         """Проверяет имя."""
         if len(value.strip()) < 2:
             raise serializers.ValidationError("Ім'я занадто коротке")
         return value.strip()
-    
+
     def validate_message(self, value):
         """Проверяет сообщение."""
         if len(value.strip()) < 10:
             raise serializers.ValidationError("Повідомлення занадто коротке")
         return value.strip()
-
-

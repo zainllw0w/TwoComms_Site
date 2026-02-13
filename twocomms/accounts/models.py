@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     phone = models.CharField(max_length=32, blank=True)
@@ -76,7 +77,7 @@ class UserPoints(models.Model):
         self.points += amount
         self.total_earned += amount
         self.save()
-        
+
         # Создаем запись в истории баллов
         PointsHistory.objects.create(
             user=self.user,
@@ -92,7 +93,7 @@ class UserPoints(models.Model):
             self.points -= amount
             self.total_spent += amount
             self.save()
-            
+
             # Создаем запись в истории баллов
             PointsHistory.objects.create(
                 user=self.user,
@@ -109,6 +110,7 @@ class UserPoints(models.Model):
         """Получает или создает объект баллов для пользователя"""
         points, created = cls.objects.get_or_create(user=user)
         return points
+
 
 class PointsHistory(models.Model):
     """История изменений баллов пользователя"""
@@ -154,7 +156,7 @@ class FavoriteProduct(models.Model):
 def create_user_related_models(sender, instance, created, **kwargs):
     """
     Automatically creates UserProfile and UserPoints for new users.
-    
+
     Note: UserProfile is linked via OneToOneField, so it will be auto-created
     if accessed via instance.userprofile. However, we create it explicitly here
     to ensure it exists immediately after user creation.

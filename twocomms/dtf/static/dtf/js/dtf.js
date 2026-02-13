@@ -17,6 +17,7 @@
     drawer: false,
     inkFlow: false,
     homeDotBackground: false,
+    homeDotBackgroundScheduled: false,
     spotlight: false,
     inkDroplets: false,
     heroTilt: false,
@@ -224,7 +225,7 @@
 
   function getFeatureFlags() {
     const defaults = {
-      enable_printhead_scan: true,
+      enable_printhead_scan: false,
       enable_compare: true,
       enable_lens: true,
       enable_legacy_ink_droplets: false,
@@ -906,6 +907,12 @@
     const hero = document.querySelector('.scan-hero');
     if (!hero) return;
     initState.printhead = true;
+
+    if (prefersReduced || !flags.enable_printhead_scan) {
+      hero.classList.add('scan-static');
+      return;
+    }
+
     // Keep hero readable by default; enable scan visuals only after JS boot.
     hero.classList.add('scan-enhanced');
     const tier = resolveScanTier();
@@ -931,6 +938,35 @@
       }
     }
     trackEvent('used_printhead_scan', { tier });
+  }
+
+  function scheduleHomeDotBackground() {
+    if (initState.homeDotBackground || initState.homeDotBackgroundScheduled) return;
+    const page = document.body ? document.body.dataset.page : '';
+    if (page !== 'home') return;
+    initState.homeDotBackgroundScheduled = true;
+
+    const run = () => {
+      if (initState.homeDotBackground) return;
+      initHomeDotBackground();
+    };
+
+    const runOnIntent = () => {
+      run();
+      window.removeEventListener('pointermove', runOnIntent);
+      window.removeEventListener('touchstart', runOnIntent);
+      window.removeEventListener('keydown', runOnIntent);
+    };
+
+    window.addEventListener('pointermove', runOnIntent, { passive: true });
+    window.addEventListener('touchstart', runOnIntent, { passive: true });
+    window.addEventListener('keydown', runOnIntent);
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(run, { timeout: 900 });
+    } else {
+      window.setTimeout(run, 260);
+    }
   }
 
   function initInkFlow() {
@@ -2175,7 +2211,7 @@
     initManagerFab();
     initPrintheadScan();
     initInkFlow();
-    initHomeDotBackground();
+    scheduleHomeDotBackground();
     initHeroTilt();
     initSpotlight(root);
     initInkDroplets();
@@ -2202,17 +2238,19 @@
     initAmbientBackdrop();
     revealOnScroll(root);
     initPrintheadScan();
-    initInkFlow();
-    initHomeDotBackground();
-    initHeroTilt();
-    initSpotlight(root);
+    scheduleHomeDotBackground();
   }
 
   function bootMain() {
     DTF.init = (root = document) => {
       initAll(root);
     };
-    DTF.init(document);
+    const runInitial = () => DTF.init(document);
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(runInitial, { timeout: 1200 });
+    } else {
+      window.setTimeout(runInitial, 160);
+    }
     if (window.htmx) {
       if (typeof window.htmx.onLoad === 'function') {
         window.htmx.onLoad((content) => DTF.init(content));

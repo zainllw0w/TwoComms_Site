@@ -1,10 +1,9 @@
-from pathlib import Path
 
 from django.core.management.base import BaseCommand
-from django.apps import apps
 
 from storefront.models import Product, ProductImage, Category, CatalogOptionValue, SizeGrid, PrintProposal
 from productcolors.models import ProductColorImage
+
 
 class Command(BaseCommand):
     """

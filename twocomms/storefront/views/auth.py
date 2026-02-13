@@ -27,6 +27,7 @@ def _published_products_for_user(user):
         qs = qs.filter(status='published')
     return qs
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 class LoginForm(forms.Form):
     """Форма входа в систему."""
-    
+
     username = forms.CharField(
         label="Логін",
         max_length=150,
@@ -48,7 +49,7 @@ class LoginForm(forms.Form):
 
 class RegisterForm(forms.Form):
     """Форма регистрации нового пользователя."""
-    
+
     username = forms.CharField(
         label="Логін",
         max_length=150,
@@ -62,37 +63,37 @@ class RegisterForm(forms.Form):
         label="Повтор паролю",
         widget=forms.PasswordInput(attrs={"class": "form-control bg-elevate"})
     )
-    
+
     def clean_username(self):
         """Проверка username на корректность."""
         username = self.cleaned_data.get('username', '')
-        
+
         # Минимальная длина
         if len(username) < 3:
             raise ValidationError("Логін повинен містити мінімум 3 символи")
-        
+
         # Проверка на допустимые символы (латиница, цифры, . _ -)
         if not re.match(r'^[a-zA-Z0-9._-]+$', username):
             raise ValidationError("Логін може містити тільки латинські літери, цифри та символи ._-")
-        
+
         return username
-    
+
     def clean(self):
         """Проверка совпадения паролей."""
         data = super().clean()
         password1 = data.get("password1")
         password2 = data.get("password2")
-        
+
         if password1 and password2:
             if password1 != password2:
                 self.add_error("password2", "Паролі не співпадають")
-        
+
         return data
 
 
 class ProfileSetupForm(forms.Form):
     """Форма первоначальной настройки профиля."""
-    
+
     full_name = forms.CharField(
         label="ПІБ",
         max_length=200,
@@ -169,7 +170,7 @@ class ProfileSetupForm(forms.Form):
         label="Фото посвідчення УБД",
         required=False
     )
-    
+
     def clean(self):
         data = super().clean()
         if data.get("is_ubd") and not data.get("ubd_doc"):
@@ -182,7 +183,7 @@ class ProfileSetupForm(forms.Form):
 def login_view(request):
     """
     View для входа в систему.
-    
+
     Features:
     - Проверяет аутентификацию
     - Переносит избранные товары из сессии в БД
@@ -191,19 +192,19 @@ def login_view(request):
     """
     if request.user.is_authenticated:
         return redirect('profile_setup')
-    
+
     form = LoginForm(request.POST or None)
-    
+
     if request.method == 'POST' and form.is_valid():
         user = authenticate(
             request,
             username=form.cleaned_data['username'],
             password=form.cleaned_data['password']
         )
-        
+
         if user:
             login(request, user)
-            
+
             # Переносим избранные товары из сессии в базу данных
             session_favorites = request.session.get('favorites', [])
             if session_favorites:
@@ -217,29 +218,29 @@ def login_view(request):
                     except Product.DoesNotExist:
                         # Товар был удален, пропускаем
                         continue
-                
+
                 # Очищаем сессию
                 del request.session['favorites']
                 request.session.modified = True
-            
+
             # Если профиль пустой по телефону — просим заполнить
             try:
                 prof = user.userprofile
             except UserProfile.DoesNotExist:
                 prof = UserProfile.objects.create(user=user)
-            
+
             if not prof.phone:
                 return redirect('profile_setup')
-            
+
             # Проверяем параметр next для перенаправления
             next_url = request.GET.get('next') or request.POST.get('next')
             if next_url:
                 return redirect(next_url)
-            
+
             return redirect('home')
         else:
             form.add_error(None, "Невірний логін або пароль")
-    
+
     return render(request, 'pages/auth_login.html', {
         'form': form,
         'next': request.GET.get('next')
@@ -249,7 +250,7 @@ def login_view(request):
 def register_view(request):
     """
     View для регистрации нового пользователя.
-    
+
     Features:
     - Проверяет уникальность username
     - Валидирует пароль согласно Django password validators
@@ -260,13 +261,13 @@ def register_view(request):
     """
     if request.user.is_authenticated:
         return redirect('profile_setup')
-    
+
     form = RegisterForm(request.POST or None)
-    
+
     if request.method == 'POST' and form.is_valid():
         username = form.cleaned_data['username']
         password = form.cleaned_data['password1']
-        
+
         # Проверяем уникальность username
         if User.objects.filter(username=username).exists():
             form.add_error('username', 'Користувач з таким логіном вже існує')
@@ -275,18 +276,18 @@ def register_view(request):
                 # КРИТИЧЕСКОЕ: Валидируем пароль ПЕРЕД созданием пользователя
                 # Это предотвратит ошибки при создании пользователя
                 validate_password(password, user=None)
-                
+
                 # Создаем пользователя
                 user = User.objects.create_user(
                     username=username,
                     password=password
                 )
-                
+
                 logger.info(f"New user registered: {username}")
-                
+
                 # Автоматически авторизуем
                 login(request, user)
-                
+
                 # Переносим избранные товары из сессии в базу данных
                 session_favorites = request.session.get('favorites', [])
                 if session_favorites:
@@ -300,17 +301,17 @@ def register_view(request):
                         except Product.DoesNotExist:
                             # Товар был удален, пропускаем
                             continue
-                    
+
                     # Очищаем сессию
                     del request.session['favorites']
                     request.session.modified = True
-                
+
                 return redirect('profile_setup')
-                
+
             except ValidationError as e:
                 # Обрабатываем ошибки валидации пароля
                 logger.warning(f"Password validation failed for user {username}: {e}")
-                
+
                 # ValidationError может содержать список сообщений или одно сообщение
                 if hasattr(e, 'error_list'):
                     for error in e.error_list:
@@ -323,7 +324,7 @@ def register_view(request):
                         'This password is entirely numeric': 'Пароль не може складатися лише з цифр.',
                         'The password is too similar to the': 'Пароль занадто схожий на логін.',
                     }
-                    
+
                     error_text = str(e)
                     translated = False
                     for eng, ukr in error_messages.items():
@@ -331,21 +332,23 @@ def register_view(request):
                             form.add_error('password1', ukr)
                             translated = True
                             break
-                    
+
                     if not translated:
                         # Если не нашли перевод, показываем оригинальную ошибку
                         form.add_error('password1', error_text)
-                        
+
             except Exception as e:
                 # Логируем неожиданные ошибки
                 logger.error(f"Unexpected error during registration: {e}", exc_info=True)
                 form.add_error(None, 'Виникла помилка при реєстрації. Спробуйте ще раз або зверніться до підтримки.')
-    
+
     return render(request, 'pages/auth_register.html', {'form': form})
+
+
 def logout_view(request):
     """
     View для выхода из системы.
-    
+
     Разлогинивает пользователя и редиректит на главную.
     """
     logout(request)

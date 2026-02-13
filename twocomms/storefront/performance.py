@@ -6,15 +6,16 @@ from django.utils import timezone
 import time
 from cache_utils import get_cache
 
+
 class PerformanceMonitor:
     """
     Мониторинг производительности приложения
     """
-    
+
     def __init__(self):
         self.start_time = time.time()
         self.queries_count = len(connection.queries)
-    
+
     def get_metrics(self):
         """
         Получает метрики производительности
@@ -22,22 +23,22 @@ class PerformanceMonitor:
         end_time = time.time()
         execution_time = end_time - self.start_time
         queries_executed = len(connection.queries) - self.queries_count
-        
+
         return {
             'execution_time': execution_time,
             'queries_count': queries_executed,
             'timestamp': timezone.now(),
         }
-    
+
     def log_slow_request(self, request, threshold=1.0):
         """
         Логирует медленные запросы
         """
         metrics = self.get_metrics()
-        
+
         if metrics['execution_time'] > threshold:
             pass
-    
+
     def cache_performance_metrics(self, view_name, metrics):
         """
         Кэширует метрики производительности
@@ -46,48 +47,50 @@ class PerformanceMonitor:
         cache_key = f"perf_metrics_{view_name}_{timezone.now().strftime('%Y%m%d%H')}"
         cache_backend.set(cache_key, metrics, 3600)  # 1 час
 
+
 def performance_middleware(get_response):
     """
     Middleware для мониторинга производительности
     """
     def middleware(request):
         monitor = PerformanceMonitor()
-        
+
         response = get_response(request)
-        
+
         # Логируем медленные запросы
         monitor.log_slow_request(request)
-        
+
         # Добавляем заголовки производительности
         metrics = monitor.get_metrics()
         response['X-Execution-Time'] = f"{metrics['execution_time']:.3f}"
         response['X-Query-Count'] = str(metrics['queries_count'])
-        
+
         return response
-    
+
     return middleware
+
 
 class DatabaseOptimizer:
     """
     Оптимизатор базы данных
     """
-    
+
     @staticmethod
     def get_slow_queries(threshold=0.1):
         """
         Получает медленные запросы
         """
         slow_queries = []
-        
+
         for query in connection.queries:
             if float(query['time']) > threshold:
                 slow_queries.append({
                     'sql': query['sql'],
                     'time': query['time']
                 })
-        
+
         return slow_queries
-    
+
     @staticmethod
     def analyze_query_performance():
         """
@@ -95,7 +98,7 @@ class DatabaseOptimizer:
         """
         total_time = sum(float(q['time']) for q in connection.queries)
         total_queries = len(connection.queries)
-        
+
         return {
             'total_time': total_time,
             'total_queries': total_queries,
@@ -103,11 +106,12 @@ class DatabaseOptimizer:
             'slow_queries': DatabaseOptimizer.get_slow_queries()
         }
 
+
 class CacheOptimizer:
     """
     Оптимизатор кэширования
     """
-    
+
     @staticmethod
     def get_cache_stats():
         """
@@ -120,41 +124,41 @@ class CacheOptimizer:
             'cache_misses': 0,  # Заглушка
             'cache_size': 0,  # Заглушка
         }
-    
+
     @staticmethod
     def optimize_cache_keys():
         """
         Оптимизирует ключи кэша
         """
         # Логика для оптимизации ключей кэша
-        pass
+
 
 class SEOOptimizer:
     """
     Оптимизатор SEO
     """
-    
+
     @staticmethod
     def check_page_seo(request, response):
         """
         Проверяет SEO страницы
         """
         issues = []
-        
+
         # Проверяем наличие title
         if '<title>' not in response.content.decode():
             issues.append('Missing title tag')
-        
+
         # Проверяем наличие meta description
         if 'name="description"' not in response.content.decode():
             issues.append('Missing meta description')
-        
+
         # Проверяем наличие h1
         if '<h1>' not in response.content.decode():
             issues.append('Missing h1 tag')
-        
+
         return issues
-    
+
     @staticmethod
     def generate_structured_data(product=None):
         """
@@ -174,5 +178,5 @@ class SEOOptimizer:
                     "availability": "https://schema.org/InStock" if product.is_active else "https://schema.org/OutOfStock"
                 }
             }
-        
+
         return None

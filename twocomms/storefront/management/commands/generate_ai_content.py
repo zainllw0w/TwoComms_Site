@@ -55,7 +55,7 @@ class Command(BaseCommand):
 
         use_keywords = getattr(settings, 'USE_AI_KEYWORDS', False)
         use_descriptions = getattr(settings, 'USE_AI_DESCRIPTIONS', False)
-        
+
         if not use_keywords and not use_descriptions:
             self.stdout.write(
                 self.style.WARNING('USE_AI_KEYWORDS и USE_AI_DESCRIPTIONS отключены. Включите их в настройках.')
@@ -70,16 +70,16 @@ class Command(BaseCommand):
         if not categories_only:
             self.stdout.write('Обрабатываем товары...')
             products = Product.objects.all()
-            
+
             for product in products:
                 try:
                     # Пропускаем если контент уже сгенерирован и не принудительная генерация
                     if not force and product.ai_content_generated:
                         continue
-                    
+
                     processed_products += 1
                     self.stdout.write(f'Товар {processed_products}: {product.title}')
-                    
+
                     if not dry_run:
                         with transaction.atomic():
                             # Генерируем AI-ключевые слова
@@ -88,14 +88,14 @@ class Command(BaseCommand):
                                 if ai_keywords:
                                     product.ai_keywords = ', '.join(ai_keywords)
                                     self.stdout.write(f'  AI-ключевые слова: {len(ai_keywords)} слов')
-                            
+
                             # Генерируем AI-описание
                             if use_descriptions:
                                 ai_description = SEOContentOptimizer.generate_ai_product_description(product)
                                 if ai_description:
                                     product.ai_description = ai_description
                                     self.stdout.write(f'  AI-описание: {len(ai_description)} символов')
-                            
+
                             # Отмечаем что контент сгенерирован
                             if (use_keywords and product.ai_keywords) or (use_descriptions and product.ai_description):
                                 product.ai_content_generated = True
@@ -103,7 +103,7 @@ class Command(BaseCommand):
                                 self.stdout.write(f'  ✅ Сохранено')
                             else:
                                 self.stdout.write(f'  ⚠️ AI-контент не сгенерирован')
-                    
+
                 except Exception as e:
                     errors += 1
                     self.stdout.write(
@@ -114,16 +114,16 @@ class Command(BaseCommand):
         if not products_only:
             self.stdout.write('Обрабатываем категории...')
             categories = Category.objects.all()
-            
+
             for category in categories:
                 try:
                     # Пропускаем если контент уже сгенерирован и не принудительная генерация
                     if not force and category.ai_content_generated:
                         continue
-                    
+
                     processed_categories += 1
                     self.stdout.write(f'Категория {processed_categories}: {category.name}')
-                    
+
                     if not dry_run:
                         with transaction.atomic():
                             # Генерируем AI-ключевые слова
@@ -132,14 +132,14 @@ class Command(BaseCommand):
                                 if ai_keywords:
                                     category.ai_keywords = ', '.join(ai_keywords)
                                     self.stdout.write(f'  AI-ключевые слова: {len(ai_keywords)} слов')
-                            
+
                             # Генерируем AI-описание
                             if use_descriptions:
                                 ai_description = SEOContentOptimizer.generate_ai_category_description(category)
                                 if ai_description:
                                     category.ai_description = ai_description
                                     self.stdout.write(f'  AI-описание: {len(ai_description)} символов')
-                            
+
                             # Отмечаем что контент сгенерирован
                             if (use_keywords and category.ai_keywords) or (use_descriptions and category.ai_description):
                                 category.ai_content_generated = True
@@ -147,7 +147,7 @@ class Command(BaseCommand):
                                 self.stdout.write(f'  ✅ Сохранено')
                             else:
                                 self.stdout.write(f'  ⚠️ AI-контент не сгенерирован')
-                    
+
                 except Exception as e:
                     errors += 1
                     self.stdout.write(

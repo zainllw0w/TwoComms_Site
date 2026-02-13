@@ -2,10 +2,8 @@
 Сигналы для автоматического обновления фидов при изменении товаров
 """
 import logging
-import os
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from django.conf import settings
 from .tasks import generate_google_merchant_feed_task, optimize_image_field_task
 
 from .models import Product
@@ -23,17 +21,17 @@ def update_google_merchant_feed_on_product_save(sender, instance, created, **kwa
         from django.core.cache import cache
         LOCK_KEY = 'google_merchant_feed_update_pending'
         LOCK_TIMEOUT = 300  # 5 минут
-        
+
         if not cache.get(LOCK_KEY):
             # Если обновления еще не запланировано, планируем через 5 минут
             generate_google_merchant_feed_task.apply_async(countdown=300)
             cache.set(LOCK_KEY, True, timeout=LOCK_TIMEOUT)
-            
+
             action = "создан" if created else "обновлен"
             logger.info(f"Товар {instance.title} (ID: {instance.id}) {action}. Запланировано обновление Google Merchant feed через 5 минут.")
         else:
             logger.debug(f"Обновление Google Merchant feed уже запланировано.")
-        
+
     except Exception as e:
         logger.error(f"Ошибка при планировании обновления Google Merchant feed: {e}", exc_info=True)
 
@@ -48,31 +46,17 @@ def update_google_merchant_feed_on_product_delete(sender, instance, **kwargs):
         from django.core.cache import cache
         LOCK_KEY = 'google_merchant_feed_update_pending'
         LOCK_TIMEOUT = 300  # 5 минут
-        
+
         if not cache.get(LOCK_KEY):
             generate_google_merchant_feed_task.apply_async(countdown=300)
             cache.set(LOCK_KEY, True, timeout=LOCK_TIMEOUT)
-            
+
             logger.info(f"Товар {instance.title} (ID: {instance.id}) удален. Запланировано обновление Google Merchant feed через 5 минут.")
         else:
             logger.debug(f"Обновление Google Merchant feed уже запланировано.")
-        
+
     except Exception as e:
         logger.error(f"Ошибка при планировании обновления Google Merchant feed: {e}", exc_info=True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def _enqueue_image_optimization(instance, field_name: str):
@@ -103,7 +87,7 @@ def _enqueue_image_optimization(instance, field_name: str):
 
 # ===== Image Optimization Signals =====
 from .models import ProductImage, CatalogOptionValue, SizeGrid, PrintProposal
-from productcolors.models import ProductColorImage, ProductColorVariant
+from productcolors.models import ProductColorImage
 
 
 @receiver(post_save, sender=Product)

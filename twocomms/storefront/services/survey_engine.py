@@ -12,6 +12,7 @@ from ..models import PromoCode, PromoCodeGroup, UserPromoCode
 
 logger = logging.getLogger(__name__)
 
+
 def _default_survey_path() -> Path:
     return Path(
         getattr(
@@ -20,6 +21,7 @@ def _default_survey_path() -> Path:
             settings.BASE_DIR / "surveys" / "print_feedback_v1.json",
         )
     )
+
 
 _SURVEY_CACHE: Dict[str, Any] = {
     "path": None,

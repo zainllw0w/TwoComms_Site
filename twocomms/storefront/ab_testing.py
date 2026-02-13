@@ -4,52 +4,52 @@
 import hashlib
 from cache_utils import get_cache
 
+
 class ABTestManager:
     """
     Менеджер A/B тестов
     """
-    
+
     def __init__(self, user_id=None, session_key=None):
         self.user_id = user_id
         self.session_key = session_key
         self.cache_timeout = 86400  # 24 часа
         self.cache = get_cache('fragments')
-    
+
     def get_variant(self, test_name, variants=None, default_variant='A'):
         """
         Получает вариант для A/B теста
         """
         if variants is None:
             variants = ['A', 'B']
-        
+
         # Создаем уникальный ключ для пользователя/сессии
         user_key = self.user_id or self.session_key or 'anonymous'
-        
+
         # Генерируем детерминированный хэш
         hash_input = f"{test_name}_{user_key}"
         hash_value = int(hashlib.md5(hash_input.encode()).hexdigest(), 16)
-        
+
         # Выбираем вариант на основе хэша
         variant_index = hash_value % len(variants)
         variant = variants[variant_index]
-        
+
         # Кэшируем результат
         cache_key = f"ab_test_{test_name}_{user_key}"
         self.cache.set(cache_key, variant, self.cache_timeout)
-        
+
         # Логируем участие в тесте
         self._log_test_participation(test_name, variant, user_key)
-        
+
         return variant
-    
+
     def _log_test_participation(self, test_name, variant, user_key):
         """
         Логирует участие в A/B тесте
         """
         # Здесь можно добавить логику для сохранения в базу данных
         # или отправки в аналитику
-        pass
-    
+
     def track_conversion(self, test_name, conversion_type, value=None):
         """
         Отслеживает конверсию для A/B теста
@@ -57,25 +57,26 @@ class ABTestManager:
         user_key = self.user_id or self.session_key or 'anonymous'
         cache_key = f"ab_test_{test_name}_{user_key}"
         variant = self.cache.get(cache_key)
-        
+
         if variant:
             # Логируем конверсию
             self._log_conversion(test_name, variant, conversion_type, value, user_key)
-    
+
     def _log_conversion(self, test_name, variant, conversion_type, value, user_key):
         """
         Логирует конверсию
         """
         # Здесь можно добавить логику для сохранения в базу данных
         # или отправки в аналитику
-        pass
 
 # Предустановленные A/B тесты
+
+
 class HomePageTests:
     """
     A/B тесты для главной страницы
     """
-    
+
     @staticmethod
     def get_hero_layout_variant(user_id=None, session_key=None):
         """
@@ -87,7 +88,7 @@ class HomePageTests:
             ['centered', 'left_aligned', 'right_aligned'],
             'centered'
         )
-    
+
     @staticmethod
     def get_cta_button_variant(user_id=None, session_key=None):
         """
@@ -99,7 +100,7 @@ class HomePageTests:
             ['primary', 'outline', 'gradient'],
             'primary'
         )
-    
+
     @staticmethod
     def get_product_grid_variant(user_id=None, session_key=None):
         """
@@ -112,11 +113,12 @@ class HomePageTests:
             'grid_4'
         )
 
+
 class ProductPageTests:
     """
     A/B тесты для страницы товара
     """
-    
+
     @staticmethod
     def get_image_gallery_variant(user_id=None, session_key=None):
         """
@@ -128,7 +130,7 @@ class ProductPageTests:
             ['carousel', 'grid', 'single_large'],
             'carousel'
         )
-    
+
     @staticmethod
     def get_add_to_cart_variant(user_id=None, session_key=None):
         """
@@ -141,11 +143,12 @@ class ProductPageTests:
             'button_large'
         )
 
+
 class CheckoutTests:
     """
     A/B тесты для процесса оформления заказа
     """
-    
+
     @staticmethod
     def get_checkout_layout_variant(user_id=None, session_key=None):
         """
@@ -157,7 +160,7 @@ class CheckoutTests:
             ['single_column', 'two_column', 'step_by_step'],
             'single_column'
         )
-    
+
     @staticmethod
     def get_payment_methods_variant(user_id=None, session_key=None):
         """
@@ -171,13 +174,15 @@ class CheckoutTests:
         )
 
 # Контекстный процессор для A/B тестов
+
+
 def ab_test_context(request):
     """
     Контекстный процессор для A/B тестов
     """
     user_id = request.user.id if request.user.is_authenticated else None
     session_key = request.session.session_key
-    
+
     return {
         'ab_test_hero_layout': HomePageTests.get_hero_layout_variant(user_id, session_key),
         'ab_test_cta_button': HomePageTests.get_cta_button_variant(user_id, session_key),

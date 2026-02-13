@@ -19,7 +19,6 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import (
     Avg,
-    Count,
     DurationField,
     ExpressionWrapper,
     F,
@@ -42,7 +41,6 @@ from ..models import (
     ProductStatus,
     Category,
     PromoCode,
-    PromoCodeGroup,
     PromoCodeUsage,
     PrintProposal,
     Catalog,
@@ -59,7 +57,7 @@ from ..forms import (
     build_color_variant_formset,
 )
 from .utils import unique_slugify
-from accounts.models import FavoriteProduct, UserPoints
+from accounts.models import FavoriteProduct, UserPoints, UserProfile
 from orders.models import (
     DropshipperOrder,
     DropshipperPayout,
@@ -506,7 +504,7 @@ def _build_collaboration_context():
 def admin_dashboard(request):
     """
     Главная страница административной панели.
-    
+
     Показывает:
     - Статистику продаж
     - Последние заказы
@@ -515,7 +513,7 @@ def admin_dashboard(request):
     """
     # Статистика за последние 30 дней
     last_30_days = timezone.now() - timedelta(days=30)
-    
+
     stats = {
         'total_orders': Order.objects.filter(created__gte=last_30_days).count(),
         'total_revenue': Order.objects.filter(
@@ -526,13 +524,13 @@ def admin_dashboard(request):
         'total_products': Product.objects.count(),
         'total_categories': Category.objects.count()
     }
-    
+
     # Последние заказы
     recent_orders = Order.objects.order_by('-created')[:10]
-    
+
     # Популярные товары
     # TODO: Реализовать на основе статистики продаж
-    
+
     return render(
         request,
         'admin/dashboard.html',
@@ -667,28 +665,28 @@ def admin_toggle_manager(request, user_id: int):
 def manage_products(request):
     """
     Список всех товаров с возможностью фильтрации.
-    
+
     Query params:
         category: ID категории для фильтрации
         featured: Показать только featured
         search: Поиск по названию
     """
     products = Product.objects.select_related('category').order_by('-id')
-    
+
     # Фильтры
     category_id = request.GET.get('category')
     if category_id:
         products = products.filter(category_id=category_id)
-    
+
     if request.GET.get('featured'):
         products = products.filter(featured=True)
-    
+
     search = request.GET.get('search')
     if search:
         products = products.filter(title__icontains=search)
-    
+
     categories = Category.objects.all()
-    
+
     return render(
         request,
         'admin/manage_products.html',
@@ -703,7 +701,7 @@ def manage_products(request):
 def add_product(request):
     """
     Добавление нового товара через унифицированный интерфейс.
-    
+
     Supports:
     - AJAX форма (JSON response)
     - Обычная форма (HTML redirect)
@@ -715,7 +713,7 @@ def add_product(request):
     from storefront import views as old_views
     if hasattr(old_views, 'add_product'):
         return old_views.add_product(request)
-    
+
     if request.method == 'POST':
         form = ProductForm(request.POST, request.FILES)
         if form.is_valid():
@@ -727,7 +725,7 @@ def add_product(request):
             return redirect('product', slug=product.slug)
     else:
         form = ProductForm()
-    
+
     return render(
         request,
         'pages/add_product_new.html',
@@ -743,7 +741,7 @@ def add_product(request):
 def admin_product_builder(request, product_id=None):
     """
     Новый конструктор товара.
-    
+
     Поддерживает создание и редактирование товара с цветовыми вариантами.
     """
     is_new = product_id is None
@@ -1123,7 +1121,7 @@ def add_category(request):
             return redirect('catalog')
     else:
         form = CategoryForm()
-    
+
     return render(
         request,
         'pages/add_category.html',
@@ -1134,7 +1132,7 @@ def add_category(request):
 def add_print(request):
     """
     Страница предложения принтов от пользователей.
-    
+
     Features:
     - Анти-спам (лимит 1 минута)
     - Загрузка изображений или URL
@@ -1212,7 +1210,7 @@ def add_print(request):
 def manage_print_proposals(request):
     """
     Административная панель для управления предложениями принтов.
-    
+
     Actions:
     - Approve (одобрить)
     - Reject (отклонить)
@@ -1220,11 +1218,11 @@ def manage_print_proposals(request):
     - Award promocode (выдать промокод)
     """
     status_filter = request.GET.get('status', 'pending')
-    
+
     proposals = PrintProposal.objects.filter(
         status=status_filter
     ).select_related('user').order_by('-created_at')
-    
+
     return render(
         request,
         'admin/manage_print_proposals.html',
@@ -1239,7 +1237,7 @@ def manage_print_proposals(request):
 def manage_promo_codes(request):
     """
     Управление промокодами.
-    
+
     Features:
     - Создание новых промокодов
     - Редактирование существующих
@@ -1247,7 +1245,7 @@ def manage_promo_codes(request):
     - Статистика использования
     """
     promo_codes = PromoCode.objects.all().order_by('-created_at')
-    
+
     return render(
         request,
         'admin/manage_promo_codes.html',
@@ -1259,7 +1257,7 @@ def manage_promo_codes(request):
 def generate_seo_content(request):
     """
     Генерация SEO контента с помощью AI (OpenAI).
-    
+
     Features:
     - AI-генерация keywords
     - AI-генерация descriptions
@@ -1270,7 +1268,7 @@ def generate_seo_content(request):
     from storefront import views as old_views
     if hasattr(old_views, 'generate_seo_content'):
         return old_views.generate_seo_content(request)
-    
+
     return render(request, 'admin/generate_seo.html')
 
 
@@ -1278,7 +1276,7 @@ def generate_seo_content(request):
 def generate_alt_texts(request):
     """
     Генерация ALT текстов для изображений.
-    
+
     Uses AI для автоматического описания изображений товаров.
     """
     # TODO: Реализовать генерацию alt текстов
@@ -1289,7 +1287,7 @@ def generate_alt_texts(request):
 def manage_orders(request):
     """
     Управление заказами.
-    
+
     Features:
     - Список всех заказов
     - Фильтрация по статусу
@@ -1298,14 +1296,14 @@ def manage_orders(request):
     - Печать накладных
     """
     from orders.models import Order
-    
+
     status_filter = request.GET.get('status', '')
-    
+
     orders = Order.objects.select_related('user').order_by('-created')
-    
+
     if status_filter:
         orders = orders.filter(status=status_filter)
-    
+
     return render(
         request,
         'admin/manage_orders.html',
@@ -1320,7 +1318,7 @@ def manage_orders(request):
 def sales_statistics(request):
     """
     Статистика продаж.
-    
+
     Features:
     - Графики продаж по дням/неделям/месяцам
     - Топ товары
@@ -1336,7 +1334,7 @@ def sales_statistics(request):
 def inventory_management(request):
     """
     Управление складом.
-    
+
     Features:
     - Остатки товаров
     - Поступления
@@ -1350,7 +1348,7 @@ def inventory_management(request):
 def _build_dispatcher_context(request):
     """
     Собирает данные для секции 'Диспетчер' (UTM Analytics).
-    
+
     Показывает детальную аналитику по UTM-меткам:
     - Общая статистика (сессии, конверсии, доход)
     - Статистика по источникам трафика
@@ -1380,7 +1378,7 @@ def _build_dispatcher_context(request):
         get_repeat_purchase_rate,
         get_cohort_analysis,
     )
-    
+
     # Получаем параметры фильтрации
     period = request.GET.get('period', 'today')
     source_filter = request.GET.get('source', None)
@@ -1401,7 +1399,7 @@ def _build_dispatcher_context(request):
     ]
     cohort_end = timezone.now()
     cohort_start = cohort_end - timedelta(days=90)
-    
+
     # Собираем данные
     try:
         cohort_analysis = get_cohort_analysis(
@@ -1416,43 +1414,43 @@ def _build_dispatcher_context(request):
             'period': period,
             'source_filter': source_filter,
             'campaign_filter': campaign_filter,
-            
+
             # Общая статистика
             'general_stats': get_general_stats(period),
-            
+
             # Источники трафика
             'sources_stats': get_sources_stats(period, limit=20),
-            
+
             # Кампании
             'campaigns_stats': get_campaigns_stats(period, source_filter=source_filter, limit=20),
-            
+
             # Креативы/контент
             'content_stats': get_content_stats(period, campaign_filter=campaign_filter, limit=20),
-            
+
             # Воронка конверсий
             'funnel_stats': get_funnel_stats(period),
-            
+
             # Геолокация
             'geo_stats': get_geo_stats(period, limit=15),
-            
+
             # Устройства
             'device_stats': get_device_stats(period),
-            
+
             # Браузеры
             'browser_stats': get_browser_stats(period, limit=10),
-            
+
             # ОС
             'os_stats': get_os_stats(period, limit=10),
-            
+
             # Повторные визиты
             'returning_stats': get_returning_visitors_stats(period),
-            
+
             # Последние сессии
             'recent_sessions': get_recent_sessions(period, limit=50),
-            
+
             # LTV сравнение (топ-5)
             'ltv_comparison': get_source_ltv_comparison(period)[:5],
-            
+
             # Повторные покупки
             'repeat_rate': get_repeat_purchase_rate(period),
 
@@ -1466,7 +1464,7 @@ def _build_dispatcher_context(request):
                 'start': cohort_start.date(),
                 'end': cohort_end.date(),
             },
-            
+
             # Периоды для фильтра
             'periods': [
                 {'value': 'today', 'label': 'Сьогодні'},
@@ -1475,13 +1473,13 @@ def _build_dispatcher_context(request):
                 {'value': 'all_time', 'label': 'Весь час'},
             ],
         }
-        
+
     except Exception as e:
         # В случае ошибки возвращаем пустой контекст с сообщением об ошибке
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"Error building dispatcher context: {e}", exc_info=True)
-        
+
         context = {
             'period': period,
             'error': str(e),
@@ -1549,5 +1547,5 @@ def _build_dispatcher_context(request):
                 {'value': 'all_time', 'label': 'Весь час'},
             ],
         }
-    
+
     return context

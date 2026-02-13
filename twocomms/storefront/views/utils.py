@@ -37,16 +37,16 @@ def _build_anon_cache_key(request, view_func, key_prefix=None):
 def cache_page_for_anon(timeout, key_prefix=None):
     """
     Кэширует страницу только для анонимных пользователей.
-    
+
     Избегаем проблем с кэшированием персональных данных для авторизованных пользователей.
     Для authenticated пользователей кэширование отключается.
-    
+
     Args:
         timeout (int): Время кэширования в секундах
-        
+
     Returns:
         decorator: Декоратор для view функции
-        
+
     Usage:
         @cache_page_for_anon(300)  # 5 минут
         def product_list(request):
@@ -79,17 +79,17 @@ def cache_page_for_anon(timeout, key_prefix=None):
 def unique_slugify(model, base_slug):
     """
     Створює унікальний slug на основі base_slug для заданої моделі.
-    
+
     Якщо slug вже існує, додає числовий суфікс (-2, -3, і т.д.) 
     до тих пір, поки не знайде унікальне значення.
-    
+
     Args:
         model: Django модель (клас, не інстанс)
         base_slug (str): Базовий slug для генерації
-        
+
     Returns:
         str: Унікальний slug
-        
+
     Example:
         >>> unique_slugify(Product, 'my-product')
         'my-product'
@@ -99,25 +99,25 @@ def unique_slugify(model, base_slug):
     slug = base_slug or 'item'
     # Видаляємо зайві дефіси по краям
     slug = slug.strip('-') or 'item'
-    
+
     uniq = slug
     i = 2
-    
+
     # Перевіряємо унікальність, якщо вже існує - додаємо номер
     while model.objects.filter(slug=uniq).exists():
         uniq = f"{slug}-{i}"
         i += 1
-    
+
     return uniq
 
 
 def get_cart_from_session(request):
     """
     Извлекает корзину из сессии.
-    
+
     Args:
         request: Django request object
-        
+
     Returns:
         dict: Словарь с данными корзины
     """
@@ -127,7 +127,7 @@ def get_cart_from_session(request):
 def save_cart_to_session(request, cart):
     """
     Сохраняет корзину в сессию.
-    
+
     Args:
         request: Django request object
         cart (dict): Данные корзины
@@ -139,43 +139,43 @@ def save_cart_to_session(request, cart):
 def calculate_cart_total(cart):
     """
     Рассчитывает общую стоимость товаров в корзине.
-    
+
     ВАЖНО: Цена ВСЕГДА берется из Product.final_price, а НЕ из сессии!
     Это обеспечивает актуальность цен и предотвращает манипуляции.
-    
+
     Args:
         cart (dict): Данные корзины из сессии
-        
+
     Returns:
         Decimal: Общая сумма
     """
     from decimal import Decimal
     from ..models import Product
-    
+
     if not cart:
         return Decimal('0')
-    
+
     # Получаем все товары одним запросом
     ids = [item['product_id'] for item in cart.values()]
     products = Product.objects.in_bulk(ids)
-    
+
     total = Decimal('0')
     for item in cart.values():
         product = products.get(item['product_id'])
         if product:
             qty = int(item.get('qty', 0))
             total += product.final_price * qty
-    
+
     return total
 
 
 def get_favorites_from_session(request):
     """
     Получает избранные товары из сессии (для анонимных пользователей).
-    
+
     Args:
         request: Django request object
-        
+
     Returns:
         list: Список ID избранных товаров
     """
@@ -185,7 +185,7 @@ def get_favorites_from_session(request):
 def save_favorites_to_session(request, favorites):
     """
     Сохраняет избранные товары в сессию.
-    
+
     Args:
         request: Django request object
         favorites (list): Список ID товаров
@@ -260,7 +260,7 @@ def _normalize_order_pay_type(value):
 def _reset_monobank_session(request, drop_pending=False):
     """
     Сбрасывает связанные с Mono checkout данные в сессии.
-    
+
     Args:
         request: HTTP request
         drop_pending: Если True, отменяет pending заказ в БД
@@ -423,7 +423,7 @@ MONOBANK_FAILURE_STATUSES = {
 def _record_monobank_status(order, payload, source='api'):
     """
     Записывает статус платежа Monobank в заказ с блокировкой записи.
-    
+
     Args:
         order: Объект заказа
         payload: Данные от Monobank API
@@ -461,7 +461,7 @@ def _record_monobank_status(order, payload, source='api'):
 def _record_monobank_status_locked(order, payload, source='api'):
     """Реализация логики записи статуса под транзакционной блокировкой."""
     from django.utils import timezone
-    
+
     if not payload:
         return
 
@@ -531,7 +531,7 @@ def _record_monobank_status_locked(order, payload, source='api'):
             order.save(update_fields=update_fields)
         except Exception:
             order.save()
-        
+
         # Отправляем уведомления только если статус изменился
         if previous_status != order.payment_status:
             # Уведомление админу о смене статуса оплаты
@@ -553,14 +553,14 @@ def _record_monobank_status_locked(order, payload, source='api'):
             payment_payload = order.payment_payload or {}
             telegram_notifications = payment_payload.get('telegram_notifications', {})
             telegram_sent = telegram_notifications.get('order_notification_sent', False)
-            
+
             # 1. Telegram уведомление (только если еще не отправлено)
             if not telegram_sent:
                 try:
                     from orders.telegram_notifications import TelegramNotifier
                     notifier = TelegramNotifier()
                     notifier.send_new_order_notification(order)
-                    
+
                     # Сохраняем в payment_payload что уведомление отправлено
                     if 'telegram_notifications' not in payment_payload:
                         payment_payload['telegram_notifications'] = {}
@@ -569,7 +569,7 @@ def _record_monobank_status_locked(order, payload, source='api'):
                     payment_payload['telegram_notifications']['order_notification_status'] = order.payment_status
                     order.payment_payload = payment_payload
                     order.save(update_fields=['payment_payload'])
-                    
+
                     monobank_logger.info(
                         f'📱 Telegram notification sent for order {order.order_number} '
                         f'(status: {previous_status} → {order.payment_status})'
@@ -581,14 +581,14 @@ def _record_monobank_status_locked(order, payload, source='api'):
                     f'⚠️ Order {order.order_number}: Telegram notification already sent '
                     f'(status changed: {previous_status} → {order.payment_status}), skipping duplicate'
                 )
-            
+
             # 2. Facebook событие
             try:
                 from orders.facebook_conversions_service import get_facebook_conversions_service
                 fb_service = get_facebook_conversions_service()
                 payment_payload = order.payment_payload or {}
                 facebook_events = payment_payload.get('facebook_events', {})
-                
+
                 if fb_service.enabled:
                     if order.payment_status in ('paid', 'prepaid', 'partial'):
                         if facebook_events.get('purchase_sent', False):
@@ -667,7 +667,7 @@ def _record_monobank_status_locked(order, payload, source='api'):
                 monobank_logger.debug('TikTok Events service module not found, skipping')
             except Exception as e:
                 monobank_logger.exception(f'Failed to send TikTok event for order {order.order_number}: {e}')
-        
+
         return
 
     if status in MONOBANK_PENDING_STATUSES:
@@ -687,27 +687,27 @@ def _verify_monobank_signature(request):
     """
     Проверяет подпись Monobank webhook запроса.
     ВОССТАНОВЛЕНА РАБОЧАЯ ЛОГИКА из старого views.py
-    
+
     Args:
         request: HTTP request с заголовком X-Sign
-        
+
     Returns:
         bool: True если подпись валидна, False иначе
     """
     import base64
     from django.core.cache import cache
     from django.conf import settings
-    
+
     try:
         signature = request.headers.get('X-Sign')
         if not signature:
             monobank_logger.warning('Missing X-Sign header in Monobank webhook')
             return False
-        
+
         # Получаем публичный ключ из кеша или API
         MONOBANK_PUBLIC_KEY_CACHE_KEY = 'monobank_public_key'
         cached_key = cache.get(MONOBANK_PUBLIC_KEY_CACHE_KEY)
-        
+
         if not cached_key:
             # Запрашиваем у API
             import requests
@@ -718,31 +718,31 @@ def _verify_monobank_signature(request):
             )
             response.raise_for_status()
             cached_key = response.json().get('key')
-            
+
             if cached_key:
                 cache.set(MONOBANK_PUBLIC_KEY_CACHE_KEY, cached_key, 3600)
-        
+
         if not cached_key:
             monobank_logger.error('Failed to get Monobank public key for verification')
             return False
-        
+
         # Получаем тело запроса
         body = request.body
-        
+
         # Проверяем подпись
         from cryptography.hazmat.primitives import hashes, serialization
         from cryptography.hazmat.primitives.asymmetric import padding
         from cryptography.hazmat.backends import default_backend
-        
+
         # Загружаем публичный ключ
         public_key = serialization.load_pem_public_key(
             cached_key.encode(),
             backend=default_backend()
         )
-        
+
         # Декодируем подпись из base64
         signature_bytes = base64.b64decode(signature)
-        
+
         # Проверяем
         try:
             public_key.verify(
@@ -755,7 +755,7 @@ def _verify_monobank_signature(request):
         except Exception as verify_error:
             monobank_logger.warning(f'Monobank signature verification failed: {verify_error}')
             return False
-            
+
     except Exception as e:
         monobank_logger.error(f'Error verifying Monobank signature: {e}', exc_info=True)
         return False
@@ -764,7 +764,7 @@ def _verify_monobank_signature(request):
 def _update_order_from_checkout_result(order, result, source='api'):
     """
     Обновляет заказ из результата Monobank checkout.
-    
+
     Args:
         order: Объект заказа
         result: Результат от Monobank checkout API
@@ -778,20 +778,10 @@ def _update_order_from_checkout_result(order, result, source='api'):
     _record_monobank_status(order, payload, source=source)
 
 
-
-
-
-
-
-
-
-
-
-
 def clear_cart(request):
     """
     Очистка корзины.
-    
+
     Удаляет все товары из корзины и сбрасывает промокод.
     """
     request.session['cart'] = {}

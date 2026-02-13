@@ -5,7 +5,6 @@ from django.contrib import admin
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
 from storefront import views as storefront_views
-from django.contrib.sitemaps.views import sitemap
 from storefront.sitemaps import StaticViewSitemap, ProductSitemap, CategorySitemap
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
@@ -19,7 +18,7 @@ sitemaps = {
 urlpatterns = [
     # Core - главная страница должна быть первой!
     path("", include("storefront.urls")),
-    
+
     # ==================== API (Django REST Framework) ====================
     # REST API endpoints
     path("api/", include("storefront.api_urls")),
@@ -31,24 +30,24 @@ urlpatterns = [
     path('api/redoc/', SpectacularRedocView.as_view(url_name='api-schema'), name='api-redoc'),
     # Browsable API auth (login/logout для DRF)
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    
+
     # Social auth - только для OAuth путей
     path('oauth/', include('social_django.urls', namespace='social')),
     path('social/', include(('social_django.urls', 'social'), namespace='social_fallback')),  # fallback для старых ссылок
     path("admin/", admin.site.urls),
-    
+
     # Accounts
     path("accounts/", include("accounts.urls")),
-    
+
     # Orders (включая дропшип)
     path("orders/", include("orders.urls")),
-    
+
     # Дропшип редирект
     path("dropshipper/", RedirectView.as_view(url="/orders/dropshipper/", permanent=False), name="dropshipper_redirect"),
-    
+
     # Sitemap
     path('sitemap.xml', storefront_views.static_sitemap, name='django.contrib.sitemaps.views.sitemap'),
-    
+
     # Явный маршрут для /favicon.ico → статический файл
     path("favicon.ico", RedirectView.as_view(
         url=staticfiles_storage.url("img/favicon.ico"), permanent=False

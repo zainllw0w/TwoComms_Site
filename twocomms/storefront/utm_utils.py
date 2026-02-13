@@ -6,7 +6,7 @@
 
 import logging
 import re
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ def get_client_ip(request) -> Optional[str]:
         ip = x_forwarded_for.split(',')[0].strip()
     else:
         ip = request.META.get('REMOTE_ADDR', '')
-    
+
     # Валидация IP
     if ip and _is_valid_ip(ip):
         return ip
@@ -48,12 +48,12 @@ def _is_valid_ip(ip: str) -> bool:
 def get_geolocation(ip_address: str) -> Dict[str, Optional[str]]:
     """
     Определяет геолокацию по IP-адресу.
-    
+
     Использует:
     1. GeoIP2 (если установлен)
     2. Fallback на внешний API (опционально)
     3. Возвращает пустые значения, если определить не удалось
-    
+
     Returns:
         dict: {
             'country': 'UA',
@@ -70,15 +70,15 @@ def get_geolocation(ip_address: str) -> Dict[str, Optional[str]]:
         'region': None,
         'timezone': None,
     }
-    
+
     if not ip_address or ip_address == '127.0.0.1' or ip_address.startswith('192.168.'):
         return result
-    
+
     # Попытка использовать GeoIP2
     try:
         from django.contrib.gis.geoip2 import GeoIP2
         g = GeoIP2()
-        
+
         try:
             city_data = g.city(ip_address)
             if city_data:
@@ -90,7 +90,7 @@ def get_geolocation(ip_address: str) -> Dict[str, Optional[str]]:
                 return result
         except Exception as e:
             logger.debug(f"GeoIP2 city lookup failed for {ip_address}: {e}")
-        
+
         # Fallback на country
         try:
             country_data = g.country(ip_address)
@@ -100,15 +100,15 @@ def get_geolocation(ip_address: str) -> Dict[str, Optional[str]]:
                 return result
         except Exception as e:
             logger.debug(f"GeoIP2 country lookup failed for {ip_address}: {e}")
-            
+
     except ImportError:
         logger.debug("GeoIP2 not available")
     except Exception as e:
         logger.warning(f"GeoIP2 error: {e}")
-    
+
     # Fallback: внешний API (опционально, закомментировано для производительности)
     # result = _get_geolocation_from_api(ip_address)
-    
+
     return result
 
 
@@ -124,7 +124,7 @@ def _get_geolocation_from_api(ip_address: str) -> Dict[str, Optional[str]]:
         'region': None,
         'timezone': None,
     }
-    
+
     try:
         import requests
         # Используем бесплатный API (лимит: 15000 запросов/час)
@@ -142,14 +142,14 @@ def _get_geolocation_from_api(ip_address: str) -> Dict[str, Optional[str]]:
                 result['timezone'] = data.get('timezone')
     except Exception as e:
         logger.debug(f"External API geolocation failed: {e}")
-    
+
     return result
 
 
 def parse_user_agent(user_agent_string: str) -> Dict[str, Optional[str]]:
     """
     Парсит User-Agent для определения устройства, ОС и браузера.
-    
+
     Returns:
         dict: {
             'device_type': 'mobile|desktop|tablet|unknown',
@@ -170,17 +170,17 @@ def parse_user_agent(user_agent_string: str) -> Dict[str, Optional[str]]:
         'browser_name': None,
         'browser_version': None,
     }
-    
+
     if not user_agent_string:
         return result
-    
+
     ua_lower = user_agent_string.lower()
-    
+
     # Попытка использовать библиотеку user-agents
     try:
         from user_agents import parse as ua_parse
         ua = ua_parse(user_agent_string)
-        
+
         # Device type
         if ua.is_mobile:
             result['device_type'] = 'mobile'
@@ -190,32 +190,32 @@ def parse_user_agent(user_agent_string: str) -> Dict[str, Optional[str]]:
             result['device_type'] = 'desktop'
         else:
             result['device_type'] = 'unknown'
-        
+
         # Device info
         if ua.device.family and ua.device.family != 'Other':
             result['device_brand'] = ua.device.brand or None
             result['device_model'] = ua.device.model or ua.device.family
-        
+
         # OS info
         if ua.os.family and ua.os.family != 'Other':
             result['os_name'] = ua.os.family
             result['os_version'] = ua.os.version_string or None
-        
+
         # Browser info
         if ua.browser.family and ua.browser.family != 'Other':
             result['browser_name'] = ua.browser.family
             result['browser_version'] = ua.browser.version_string or None
-        
+
         return result
-        
+
     except ImportError:
         logger.debug("user-agents library not available, using simple parsing")
     except Exception as e:
         logger.debug(f"user-agents parsing failed: {e}")
-    
+
     # Fallback: простой парсинг
     result = _simple_parse_user_agent(user_agent_string, ua_lower)
-    
+
     return result
 
 
@@ -230,13 +230,13 @@ def _simple_parse_user_agent(user_agent_string: str, ua_lower: str) -> Dict[str,
         'browser_name': None,
         'browser_version': None,
     }
-    
+
     # Device type
     if 'mobile' in ua_lower or 'android' in ua_lower or 'iphone' in ua_lower:
         result['device_type'] = 'mobile'
     elif 'tablet' in ua_lower or 'ipad' in ua_lower:
         result['device_type'] = 'tablet'
-    
+
     # OS detection
     if 'windows' in ua_lower:
         result['os_name'] = 'Windows'
@@ -259,7 +259,7 @@ def _simple_parse_user_agent(user_agent_string: str, ua_lower: str) -> Dict[str,
             result['os_version'] = match.group(1)
     elif 'linux' in ua_lower:
         result['os_name'] = 'Linux'
-    
+
     # Browser detection
     if 'chrome' in ua_lower and 'edg' not in ua_lower:
         result['browser_name'] = 'Chrome'
@@ -281,7 +281,7 @@ def _simple_parse_user_agent(user_agent_string: str, ua_lower: str) -> Dict[str,
         match = re.search(r'edg/(\d+\.?\d*)', ua_lower)
         if match:
             result['browser_version'] = match.group(1)
-    
+
     # Device brand/model for mobile
     if result['device_type'] in ['mobile', 'tablet']:
         if 'iphone' in ua_lower:
@@ -296,18 +296,18 @@ def _simple_parse_user_agent(user_agent_string: str, ua_lower: str) -> Dict[str,
             result['device_brand'] = 'Huawei'
         elif 'xiaomi' in ua_lower:
             result['device_brand'] = 'Xiaomi'
-    
+
     return result
 
 
 def calculate_action_points(action_type: str, **kwargs) -> int:
     """
     Рассчитывает баллы за действие пользователя.
-    
+
     Args:
         action_type: Тип действия (page_view, product_view, add_to_cart, etc.)
         **kwargs: Дополнительные параметры (cart_value, order_value, etc.)
-    
+
     Returns:
         int: Количество баллов
     """
@@ -324,9 +324,9 @@ def calculate_action_points(action_type: str, **kwargs) -> int:
         'scroll': 0,
         'time_on_page': 0,
     }
-    
+
     base_points = points_map.get(action_type, 0)
-    
+
     # Бонусные баллы за высокий чек
     if action_type in ['lead', 'purchase']:
         order_value = kwargs.get('cart_value', 0) or kwargs.get('order_value', 0)
@@ -334,61 +334,61 @@ def calculate_action_points(action_type: str, **kwargs) -> int:
             # +1 балл за каждые 100 грн
             bonus = int(float(order_value) / 100)
             base_points += bonus
-    
+
     return base_points
 
 
 def sanitize_utm_param(value: str, max_length: int = 255) -> Optional[str]:
     """
     Очищает и валидирует UTM-параметр.
-    
+
     Args:
         value: Значение параметра
         max_length: Максимальная длина
-    
+
     Returns:
         str или None: Очищенное значение или None
     """
     if not value:
         return None
-    
+
     # Убираем лишние пробелы
     value = value.strip()
-    
+
     if not value:
         return None
-    
+
     # Ограничиваем длину
     if len(value) > max_length:
         value = value[:max_length]
-    
+
     # Удаляем потенциально опасные символы
     # Разрешаем: буквы, цифры, дефис, подчеркивание, точку
     value = re.sub(r'[^\w\-\.]', '_', value)
-    
+
     return value or None
 
 
 def is_bot_user_agent(user_agent: str) -> bool:
     """
     Определяет, является ли User-Agent ботом.
-    
+
     Args:
         user_agent: Строка User-Agent
-    
+
     Returns:
         bool: True если бот, False если обычный пользователь
     """
     if not user_agent:
         return False
-    
+
     ua_lower = user_agent.lower()
-    
+
     bot_patterns = [
         'bot', 'crawler', 'spider', 'scraper',
         'google', 'facebook', 'twitter', 'linkedin',
         'curl', 'wget', 'python-requests',
         'headless', 'phantom', 'selenium',
     ]
-    
+
     return any(pattern in ua_lower for pattern in bot_patterns)

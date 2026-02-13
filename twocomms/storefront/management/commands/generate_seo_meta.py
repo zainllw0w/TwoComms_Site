@@ -2,10 +2,8 @@
 Django команда для генерации и обновления SEO мета-тегов
 """
 from django.core.management.base import BaseCommand
-from django.db import transaction
 from storefront.models import Product, Category
-from storefront.seo_utils import SEOKeywordGenerator, SEOMetaGenerator
-import json
+from storefront.seo_utils import SEOKeywordGenerator, SEOMetaGenerator, SEOContentOptimizer
 
 
 class Command(BaseCommand):
@@ -166,7 +164,7 @@ class Command(BaseCommand):
         self.stdout.write(f'  С описанием: {report["products"]["with_description"]}')
         self.stdout.write(f'  С изображением: {report["products"]["with_main_image"]}')
         self.stdout.write(f'  Со скидкой: {report["products"]["with_discount"]}')
-        
+
         self.stdout.write(f'Категории:')
         self.stdout.write(f'  Всего: {report["categories"]["total"]}')
         self.stdout.write(f'  С описанием: {report["categories"]["with_description"]}')

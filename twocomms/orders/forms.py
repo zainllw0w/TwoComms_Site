@@ -1,5 +1,6 @@
 from django import forms
 
+
 class CompanyProfileForm(forms.Form):
     company_name = forms.CharField(
         label="Назва компанії",

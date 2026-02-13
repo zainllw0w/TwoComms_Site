@@ -12,11 +12,9 @@ import csv
 import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
-from io import StringIO
 
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
-from django.views.decorators.cache import cache_page
 from django.views.decorators.http import require_http_methods
 from django.contrib.admin.views.decorators import staff_member_required
 from rest_framework import viewsets, status
@@ -52,7 +50,7 @@ logger = logging.getLogger(__name__)
 class UTMAnalyticsViewSet(viewsets.ViewSet):
     """
     ViewSet для UTM аналитики.
-    
+
     Endpoints:
     - GET /api/utm/general-stats/?period=today
     - GET /api/utm/sources/?period=week&limit=20
@@ -63,7 +61,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
     - GET /api/utm/compare/?period=today
     """
     permission_classes = [IsAdminUser]
-    
+
     @action(detail=False, methods=['get'])
     def general_stats(self, request):
         """Получить общую статистику"""
@@ -81,7 +79,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def sources(self, request):
         """Получить статистику по источникам"""
@@ -101,7 +99,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def campaigns(self, request):
         """Получить статистику по кампаниям"""
@@ -122,7 +120,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def content(self, request):
         """Получить статистику по контенту/креативам"""
@@ -143,7 +141,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def funnel(self, request):
         """Получить статистику воронки конверсий"""
@@ -157,7 +155,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def geo(self, request):
         """Получить географическую статистику"""
@@ -172,7 +170,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def devices(self, request):
         """Получить статистику по устройствам"""
@@ -186,7 +184,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def browsers(self, request):
         """Получить статистику по браузерам"""
@@ -201,7 +199,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def operating_systems(self, request):
         """Получить статистику по операционным системам"""
@@ -216,7 +214,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def returning_visitors(self, request):
         """Получить статистику по возвратам"""
@@ -230,7 +228,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def sessions(self, request):
         """Получить последние сессии"""
@@ -268,20 +266,20 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=True, methods=['get'])
     def session_detail(self, request, pk=None):
         """Получить детальную информацию о сессии"""
         try:
             session = UTMSession.objects.get(pk=pk)
-            
+
             # Получаем действия пользователя
             actions = UserAction.objects.filter(utm_session=session).order_by('-timestamp')[:50]
-            
+
             # Получаем заказы
             from orders.models import Order
             orders = Order.objects.filter(utm_session=session)
-            
+
             data = {
                 'session': {
                     'id': session.id,
@@ -335,9 +333,9 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                     for order in orders
                 ],
             }
-            
+
             return Response(data)
-            
+
         except UTMSession.DoesNotExist:
             return Response(
                 {'error': 'Session not found'},
@@ -349,7 +347,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def compare(self, request):
         """Сравнить текущий период с предыдущим"""
@@ -357,19 +355,19 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
         try:
             from .utm_analytics import compare_periods
             comparison = compare_periods(period)
-            
+
             # Преобразуем Decimal в float
             for key in ['current', 'previous']:
                 if key in comparison:
                     for stat_key, value in comparison[key].items():
                         if isinstance(value, Decimal):
                             comparison[key][stat_key] = float(value)
-            
+
             if 'change' in comparison:
                 for stat_key, value in comparison['change'].items():
                     if isinstance(value, Decimal):
                         comparison['change'][stat_key] = float(value)
-            
+
             return Response(comparison)
         except Exception as e:
             logger.error(f"Error comparing periods: {e}", exc_info=True)
@@ -377,22 +375,22 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def roi(self, request):
         """Рассчитать ROI для периода"""
         period = request.query_params.get('period', 'today')
         ad_spend = request.query_params.get('ad_spend', '0')
-        
+
         try:
             ad_spend = Decimal(ad_spend)
             roi_data = calculate_roi(period, ad_spend)
-            
+
             # Преобразуем Decimal в float
             for key, value in roi_data.items():
                 if isinstance(value, Decimal):
                     roi_data[key] = float(value)
-            
+
             return Response(roi_data)
         except Exception as e:
             logger.error(f"Error calculating ROI: {e}", exc_info=True)
@@ -400,7 +398,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def cohort_analysis(self, request):
         """Когортный анализ (retention, ltv, orders, revenue)"""
@@ -409,7 +407,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
         utm_source = request.query_params.get('utm_source')
         start_date_str = request.query_params.get('start_date')
         end_date_str = request.query_params.get('end_date')
-        
+
         try:
             if start_date_str:
                 start_date = datetime.fromisoformat(start_date_str)
@@ -417,14 +415,14 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                     start_date = timezone.make_aware(start_date)
             else:
                 start_date = timezone.now() - timedelta(days=90)
-            
+
             if end_date_str:
                 end_date = datetime.fromisoformat(end_date_str)
                 if timezone.is_naive(end_date):
                     end_date = timezone.make_aware(end_date)
             else:
                 end_date = timezone.now()
-            
+
             data = get_cohort_analysis(
                 start_date=start_date,
                 end_date=end_date,
@@ -432,13 +430,13 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 metric=metric,
                 utm_source=utm_source
             )
-            
+
             # Преобразуем Decimal в float
             for total in data.get('totals', []):
                 for key, value in total.items():
                     if isinstance(value, Decimal):
                         total[key] = float(value)
-            
+
             return Response(data)
         except Exception as e:
             logger.error(f"Error getting cohort analysis: {e}", exc_info=True)
@@ -446,7 +444,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def ltv_comparison(self, request):
         """Сравнение LTV по источникам"""
@@ -464,7 +462,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def repeat_rate(self, request):
         """Расчет повторных покупок"""
@@ -479,7 +477,7 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=False, methods=['get'])
     def ab_test(self, request):
         """Результаты A/B тестирования по кампании"""
@@ -510,31 +508,31 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
 def export_utm_csv(request):
     """
     Экспорт данных UTM в CSV.
-    
+
     Параметры:
     - period: today/week/month/all_time
     - type: sessions/sources/campaigns/content
     """
     period = request.GET.get('period', 'today')
     export_type = request.GET.get('type', 'sessions')
-    
+
     try:
         # Создаем CSV response
         response = HttpResponse(content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = f'attachment; filename="utm_{export_type}_{period}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
-        
+
         # Добавляем BOM для правильного отображения в Excel
         response.write('\ufeff')
-        
+
         writer = csv.writer(response)
-        
+
         if export_type == 'sessions':
             # Экспорт сессий
             from .utm_analytics import filter_by_period
             sessions_qs = UTMSession.objects.all()
             sessions_qs = filter_by_period(sessions_qs, 'first_seen', period)
             sessions_qs = sessions_qs.select_related('session').prefetch_related('orders')[:1000]
-            
+
             # Заголовки
             writer.writerow([
                 'ID',
@@ -556,7 +554,7 @@ def export_utm_csv(request):
                 'Тип конверсії',
                 'Дата конверсії',
             ])
-            
+
             # Данные
             for session in sessions_qs:
                 writer.writerow([
@@ -579,11 +577,11 @@ def export_utm_csv(request):
                     session.conversion_type or '',
                     session.converted_at.strftime('%Y-%m-%d %H:%M:%S') if session.converted_at else '',
                 ])
-        
+
         elif export_type == 'sources':
             # Экспорт по источникам
             sources = get_sources_stats(period, limit=100)
-            
+
             # Заголовки
             writer.writerow([
                 'Джерело',
@@ -594,7 +592,7 @@ def export_utm_csv(request):
                 'Середній чек (грн)',
                 'Бали',
             ])
-            
+
             # Данные
             for source in sources:
                 writer.writerow([
@@ -606,11 +604,11 @@ def export_utm_csv(request):
                     source.get('avg_order_value', 0),
                     source.get('total_score', 0),
                 ])
-        
+
         elif export_type == 'campaigns':
             # Экспорт по кампаниям
             campaigns = get_campaigns_stats(period, limit=100)
-            
+
             # Заголовки
             writer.writerow([
                 'Джерело',
@@ -622,7 +620,7 @@ def export_utm_csv(request):
                 'Дохід (грн)',
                 'Середній чек (грн)',
             ])
-            
+
             # Данные
             for campaign in campaigns:
                 writer.writerow([
@@ -635,11 +633,11 @@ def export_utm_csv(request):
                     campaign.get('revenue', 0),
                     campaign.get('avg_order_value', 0),
                 ])
-        
+
         elif export_type == 'content':
             # Экспорт по контенту
             content = get_content_stats(period, limit=100)
-            
+
             # Заголовки
             writer.writerow([
                 'Джерело',
@@ -650,7 +648,7 @@ def export_utm_csv(request):
                 'CR%',
                 'Дохід (грн)',
             ])
-            
+
             # Данные
             for item in content:
                 writer.writerow([
@@ -662,9 +660,9 @@ def export_utm_csv(request):
                     item.get('conversion_rate', 0),
                     item.get('revenue', 0),
                 ])
-        
+
         return response
-        
+
     except Exception as e:
         logger.error(f"Error exporting CSV: {e}", exc_info=True)
         return JsonResponse(

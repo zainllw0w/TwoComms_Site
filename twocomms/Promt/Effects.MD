@@ -1,0 +1,1589 @@
+1. Tooltip Card
+js:
+"use client";
+import { Tooltip } from "@/components/ui/tooltip-card";
+import React from "react";
+
+export function TooltipCardDemo() {
+  return (
+    <div className="mx-auto max-w-2xl p-4 md:p-10">
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+        There was a problem with the server. Once{" "}
+        <Tooltip
+          containerClassName="text-neutral-600 dark:text-neutral-400"
+          content="AWS markets itself as the “world's most comprehensive and broadly adopted cloud platform” offering over 200 fully featured services globally.">
+          <span className="font-bold">AWS</span>
+        </Tooltip>{" "}
+        went down, we had to quickly migrate to a new provider. AWS in general
+        is a great service, but sometimes it&apos;s not available.
+      </p>
+      <p className="mt-10 text-sm text-neutral-600 dark:text-neutral-400">
+        The server was administered by{" "}
+        <Tooltip
+          containerClassName="text-neutral-600 dark:text-neutral-400"
+          content={<TooltipCard />}>
+          {" "}
+          <span className="cursor-pointer font-bold">Tyler Durden.</span>
+        </Tooltip>{" "}
+        Tyler has been with us for a long time. He is a great asset to the team
+        and sometimes tries to act in different ways which can be difficult to
+        manage.{" "}
+      </p>
+      <p className="mt-10 text-sm text-neutral-600 dark:text-neutral-400">
+        That is when we approached Tyler for a cute little{" "}
+        <Tooltip
+          containerClassName="text-neutral-600 dark:text-neutral-400"
+          content={<TestimonialCard />}>
+          {" "}
+          <span className="cursor-pointer font-bold">testimonial.</span>
+        </Tooltip>{" "}
+        Instead of a testimonial, he started yapping about project mayhem and
+        how we should be using our skills to build a better future.
+      </p>
+    </div>
+  );
+}
+
+const TooltipCard = () => {
+  return (
+    <div>
+      <img
+        src="https://assets.aceternity.com/screenshots/tyler.webp"
+        alt="Tyler Durden"
+        className="aspect-square w-full rounded-sm" />
+      <div className="my-4 flex flex-col">
+        <p className="text-lg font-bold">Tyler Durden</p>
+        <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+          Soap Developer from a Tier 3 college. Enthusiastic and exhibits
+          entrepreneurial spirit.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const TestimonialCard = () => {
+  return (
+    <div className="">
+      <blockquote className="mb-4 text-neutral-700 dark:text-neutral-300">
+        This product is absolutely, grade A horse shit.
+      </blockquote>
+      <div className="flex items-center gap-2">
+        <img
+          src="https://assets.aceternity.com/screenshots/tyler.webp"
+          alt="Tyler Durden"
+          className="size-6 rounded-full object-cover" />
+        <div>
+          <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
+            Tyler Durden
+          </p>
+          <p className="text-[10px] text-neutral-600 dark:text-neutral-400">
+            Senior Product Manager at FC
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+typescript:
+"use client";
+import { Tooltip } from "@/components/ui/tooltip-card";
+import React from "react";
+
+export function TooltipCardDemo() {
+  return (
+    <div className="mx-auto max-w-2xl p-4 md:p-10">
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+        There was a problem with the server. Once{" "}
+        <Tooltip
+          containerClassName="text-neutral-600 dark:text-neutral-400"
+          content="AWS markets itself as the “world's most comprehensive and broadly adopted cloud platform” offering over 200 fully featured services globally."
+        >
+          <span className="font-bold">AWS</span>
+        </Tooltip>{" "}
+        went down, we had to quickly migrate to a new provider. AWS in general
+        is a great service, but sometimes it&apos;s not available.
+      </p>
+      <p className="mt-10 text-sm text-neutral-600 dark:text-neutral-400">
+        The server was administered by{" "}
+        <Tooltip
+          containerClassName="text-neutral-600 dark:text-neutral-400"
+          content={<TooltipCard />}
+        >
+          {" "}
+          <span className="cursor-pointer font-bold">Tyler Durden.</span>
+        </Tooltip>{" "}
+        Tyler has been with us for a long time. He is a great asset to the team
+        and sometimes tries to act in different ways which can be difficult to
+        manage.{" "}
+      </p>
+
+      <p className="mt-10 text-sm text-neutral-600 dark:text-neutral-400">
+        That is when we approached Tyler for a cute little{" "}
+        <Tooltip
+          containerClassName="text-neutral-600 dark:text-neutral-400"
+          content={<TestimonialCard />}
+        >
+          {" "}
+          <span className="cursor-pointer font-bold">testimonial.</span>
+        </Tooltip>{" "}
+        Instead of a testimonial, he started yapping about project mayhem and
+        how we should be using our skills to build a better future.
+      </p>
+    </div>
+  );
+}
+
+const TooltipCard = () => {
+  return (
+    <div>
+      <img
+        src="https://assets.aceternity.com/screenshots/tyler.webp"
+        alt="Tyler Durden"
+        className="aspect-square w-full rounded-sm"
+      />
+      <div className="my-4 flex flex-col">
+        <p className="text-lg font-bold">Tyler Durden</p>
+        <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+          Soap Developer from a Tier 3 college. Enthusiastic and exhibits
+          entrepreneurial spirit.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const TestimonialCard = () => {
+  return (
+    <div className="">
+      <blockquote className="mb-4 text-neutral-700 dark:text-neutral-300">
+        This product is absolutely, grade A horse shit.
+      </blockquote>
+      <div className="flex items-center gap-2">
+        <img
+          src="https://assets.aceternity.com/screenshots/tyler.webp"
+          alt="Tyler Durden"
+          className="size-6 rounded-full object-cover"
+        />
+        <div>
+          <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
+            Tyler Durden
+          </p>
+          <p className="text-[10px] text-neutral-600 dark:text-neutral-400">
+            Senior Product Manager at FC
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+Instaletions:
+npx shadcn@latest add @aceternity/tooltip-card
+
+manusal:
+Install dependencies
+npm i motion clsx tailwind-merge
+Copy
+lib/utils.ts
+import { ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+ 
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+Copy
+
+Copy the source code
+components/ui/tooltip-card.tsx
+
+"use client";
+import React, { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { cn } from "@/lib/utils";
+ 
+export const Tooltip = ({
+  content,
+  children,
+  containerClassName,
+}: {
+  content: string | React.ReactNode;
+  children: React.ReactNode;
+  containerClassName?: string;
+}) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const [mouse, setMouse] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [height, setHeight] = useState(0);
+  const [position, setPosition] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+  const contentRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+ 
+  useEffect(() => {
+    if (isVisible && contentRef.current) {
+      setHeight(contentRef.current.scrollHeight);
+    }
+  }, [isVisible, content]);
+ 
+  const calculatePosition = (mouseX: number, mouseY: number) => {
+    if (!contentRef.current || !containerRef.current)
+      return { x: mouseX + 12, y: mouseY + 12 };
+ 
+    const tooltip = contentRef.current;
+    const container = containerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+ 
+    // Get tooltip dimensions
+    const tooltipWidth = 240; // min-w-[15rem] = 240px
+    const tooltipHeight = tooltip.scrollHeight;
+ 
+    // Calculate absolute position relative to viewport
+    const absoluteX = containerRect.left + mouseX;
+    const absoluteY = containerRect.top + mouseY;
+ 
+    let finalX = mouseX + 12;
+    let finalY = mouseY + 12;
+ 
+    // Check if tooltip goes beyond right edge
+    if (absoluteX + 12 + tooltipWidth > viewportWidth) {
+      finalX = mouseX - tooltipWidth - 12;
+    }
+ 
+    // Check if tooltip goes beyond left edge
+    if (absoluteX + finalX < 0) {
+      finalX = -containerRect.left + 12;
+    }
+ 
+    // Check if tooltip goes beyond bottom edge
+    if (absoluteY + 12 + tooltipHeight > viewportHeight) {
+      finalY = mouseY - tooltipHeight - 12;
+    }
+ 
+    // Check if tooltip goes beyond top edge
+    if (absoluteY + finalY < 0) {
+      finalY = -containerRect.top + 12;
+    }
+ 
+    return { x: finalX, y: finalY };
+  };
+ 
+  const updateMousePosition = (mouseX: number, mouseY: number) => {
+    setMouse({ x: mouseX, y: mouseY });
+    const newPosition = calculatePosition(mouseX, mouseY);
+    setPosition(newPosition);
+  };
+ 
+  const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsVisible(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    updateMousePosition(mouseX, mouseY);
+  };
+ 
+  const handleMouseLeave = () => {
+    setMouse({ x: 0, y: 0 });
+    setPosition({ x: 0, y: 0 });
+    setIsVisible(false);
+  };
+ 
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isVisible) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    updateMousePosition(mouseX, mouseY);
+  };
+ 
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = touch.clientX - rect.left;
+    const mouseY = touch.clientY - rect.top;
+    updateMousePosition(mouseX, mouseY);
+    setIsVisible(true);
+  };
+ 
+  const handleTouchEnd = () => {
+    // Delay hiding to allow for tap interaction
+    setTimeout(() => {
+      setIsVisible(false);
+      setMouse({ x: 0, y: 0 });
+      setPosition({ x: 0, y: 0 });
+    }, 2000);
+  };
+ 
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Toggle visibility on click for mobile devices
+    if (window.matchMedia("(hover: none)").matches) {
+      e.preventDefault();
+      if (isVisible) {
+        setIsVisible(false);
+        setMouse({ x: 0, y: 0 });
+        setPosition({ x: 0, y: 0 });
+      } else {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        updateMousePosition(mouseX, mouseY);
+        setIsVisible(true);
+      }
+    }
+  };
+ 
+  // Update position when tooltip becomes visible or content changes
+  useEffect(() => {
+    if (isVisible && contentRef.current) {
+      const newPosition = calculatePosition(mouse.x, mouse.y);
+      setPosition(newPosition);
+    }
+  }, [isVisible, height, mouse.x, mouse.y]);
+ 
+  return (
+    <div
+      ref={containerRef}
+      className={cn("relative inline-block", containerClassName)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onMouseMove={handleMouseMove}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onClick={handleClick}
+    >
+      {children}
+      <AnimatePresence>
+        {isVisible && (
+          <motion.div
+            key={String(isVisible)}
+            initial={{ height: 0, opacity: 1 }}
+            animate={{ height, opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{
+              type: "spring",
+              stiffness: 200,
+              damping: 20,
+            }}
+            className="pointer-events-none absolute z-50 min-w-[15rem] overflow-hidden rounded-md border border-transparent bg-white shadow-sm ring-1 shadow-black/5 ring-black/5 dark:bg-neutral-900 dark:shadow-white/10 dark:ring-white/5"
+            style={{
+              top: position.y,
+              left: position.x,
+            }}
+          >
+            <div
+              ref={contentRef}
+              className="p-2 text-sm text-neutral-600 md:p-4 dark:text-neutral-400"
+            >
+              {content}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+Copy
+
+Collapse
+Props
+Tooltip Props
+Prop	Type	Default	Description	Required
+content	string | React.ReactNode	-	The content to display inside the tooltip.	Yes
+children	React.ReactNode	-	The element that triggers the tooltip on hover/touch.	Yes
+containerClassName	string	-	Additional CSS classes to apply to the tooltip container.	No
+
+2. Dotted Glow Background
+code:
+js:
+import React from "react";
+import { DottedGlowBackground } from "@/components/ui/dotted-glow-background";
+
+export function DottedGlowBackgroundDemo() {
+  return (
+    <div
+      className="relative flex size-60 items-end justify-end overflow-hidden rounded-md rounded-tl-3xl rounded-br-3xl rounded-bl-3xl border border-transparent px-4 shadow ring-1 shadow-black/10 ring-black/5 md:size-100 dark:shadow-white/10 dark:ring-white/5">
+      <img
+        src="https://assets.aceternity.com/logos/calcom.png"
+        className="absolute inset-0 z-20 m-auto size-10 md:size-20 dark:invert dark:filter" />
+      <div
+        className="relative z-20 flex w-full justify-between px-2 py-3 backdrop-blur-[2px] md:px-4">
+        <p
+          className="text-xs font-normal text-neutral-600 md:text-sm dark:text-neutral-400">
+          The modern call scheduling app
+        </p>
+        <p
+          className="text-xs font-normal text-neutral-600 md:text-sm dark:text-neutral-400">
+          &rarr;
+        </p>
+      </div>
+      <DottedGlowBackground
+        className="pointer-events-none mask-radial-to-90% mask-radial-at-center"
+        opacity={1}
+        gap={10}
+        radius={1.6}
+        colorLightVar="--color-neutral-500"
+        glowColorLightVar="--color-neutral-600"
+        colorDarkVar="--color-neutral-500"
+        glowColorDarkVar="--color-sky-800"
+        backgroundOpacity={0}
+        speedMin={0.3}
+        speedMax={1.6}
+        speedScale={1} />
+    </div>
+  );
+}
+
+instalations:
+npx shadcn@latest add @aceternity/dotted-glow-background
+
+example code:
+import React from "react";
+import { DottedGlowBackground } from "@/components/ui/dotted-glow-background";
+
+export function DottedGlowBackgroundDemoSecond() {
+  return (
+    <div
+      className="relative mx-auto flex w-full max-w-7xl items-center justify-center">
+      <DottedGlowBackground
+        className="pointer-events-none mask-radial-to-90% mask-radial-at-center opacity-20 dark:opacity-100"
+        opacity={1}
+        gap={10}
+        radius={1.6}
+        colorLightVar="--color-neutral-500"
+        glowColorLightVar="--color-neutral-600"
+        colorDarkVar="--color-neutral-500"
+        glowColorDarkVar="--color-sky-800"
+        backgroundOpacity={0}
+        speedMin={0.3}
+        speedMax={1.6}
+        speedScale={1} />
+      <div
+        className="relative z-10 flex w-full flex-col items-center justify-between space-y-6 px-8 py-16 text-center md:flex-row">
+        <div>
+          <h2
+            className="text-center text-4xl font-normal tracking-tight text-neutral-900 sm:text-5xl md:text-left dark:text-neutral-400">
+            Ready to buy{" "}
+            <span className="font-bold dark:text-white">Aceternity Pro</span>?
+          </h2>
+          <p
+            className="mt-4 max-w-lg text-center text-base text-neutral-600 md:text-left dark:text-neutral-300">
+            Unlock premium components, advanced animations, and exclusive
+            templates to build stunning modern interfaces.
+          </p>
+        </div>
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <button
+            className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-8 py-3 text-sm font-medium text-neutral-700 shadow-sm transition-all duration-200 hover:bg-neutral-50 hover:shadow-md dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700">
+            View Pricing
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+Props
+DottedGlowBackground Props
+Prop	Type	Default	Description	Required
+className	string	-	Additional CSS classes to apply to the container.	No
+gap	number	12	Distance between dot centers in pixels.	No
+radius	number	2	Base radius of each dot in CSS pixels.	No
+color	string	"rgba(0,0,0,0.7)"	Dot color (will pulse by alpha).	No
+darkColor	string	-	Optional dot color for dark mode.	No
+glowColor	string	"rgba(0, 170, 255, 0.85)"	Shadow/glow color for bright dots.	No
+darkGlowColor	string	-	Optional glow color for dark mode.	No
+colorLightVar	string	-	Optional CSS variable name for light dot color (e.g. --color-zinc-900).	No
+colorDarkVar	string	-	Optional CSS variable name for dark dot color (e.g. --color-zinc-100).	No
+glowColorLightVar	string	-	Optional CSS variable name for light glow color.	No
+glowColorDarkVar	string	-	Optional CSS variable name for dark glow color.	No
+opacity	number	0.6	Global opacity for the whole layer.	No
+backgroundOpacity	number	0	Background radial fade opacity (0 = transparent background).	No
+speedMin	number	0.4	Minimum per-dot speed in rad/s.	No
+speedMax	number	1.3	Maximum per-dot speed in rad/s.	No
+speedScale	number	1	Global speed multiplier for all dots.	No
+
+3. Encrypted Text
+    code:
+    import { EncryptedText } from "@/components/ui/encrypted-text";
+import React from "react";
+
+export function EncryptedTextDemoSecond() {
+  return (
+    <p className="mx-auto max-w-lg py-10 text-left">
+      <EncryptedText
+        text="Welcome to the Matrix, Neo."
+        encryptedClassName="text-neutral-500"
+        revealedClassName="dark:text-white text-black"
+        revealDelayMs={50} />
+    </p>
+  );
+}
+
+CLI:
+npx shadcn@latest add @aceternity/encrypted-text
+
+Props
+Encrypted Text Props
+Prop	Type	Default	Description	Required
+text	string	-	The text to be encrypted and revealed.	Yes
+className	string	-	Additional CSS classes to apply to the component.	No
+revealDelayMs	number	50	Time in milliseconds between revealing each subsequent real character.	No
+charset	string	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-={}[];:,.<>/?"	Custom character set to use for the gibberish effect.	No
+flipDelayMs	number	50	Time in milliseconds between gibberish flips for unrevealed characters.	No
+encryptedClassName	string	-	CSS class for styling the encrypted/scrambled characters.	No
+revealedClassName	string	-	CSS class for styling the revealed characters.
+
+4. Images Badge
+    code:
+    "use client";
+import { ImagesBadge } from "@/components/ui/images-badge";
+
+export function ImagesBadgeDemo() {
+  return (
+    <div className="flex h-[10rem] w-full items-center justify-center">
+      <ImagesBadge
+        text="Introducing Agenforce Marketing Template"
+        images={[
+          "https://assets.aceternity.com/pro/agenforce-1.webp",
+          "https://assets.aceternity.com/pro/agenforce-2.webp",
+          "https://assets.aceternity.com/pro/agenforce-3.webp",
+        ]} />
+    </div>
+  );
+}
+
+CLI:
+npx shadcn@latest add @aceternity/images-badge
+
+example code Default:
+"use client";
+import { ImagesBadge } from "@/components/ui/images-badge";
+
+export function ImagesBadgeDemo() {
+  return (
+    <div className="flex h-[10rem] w-full items-center justify-center">
+      <ImagesBadge
+        text="Introducing Agenforce Marketing Template"
+        images={[
+          "https://assets.aceternity.com/pro/agenforce-1.webp",
+          "https://assets.aceternity.com/pro/agenforce-2.webp",
+          "https://assets.aceternity.com/pro/agenforce-3.webp",
+        ]} />
+    </div>
+  );
+}
+
+example code Large:
+"use client";
+import { ImagesBadge } from "@/components/ui/images-badge";
+
+export function ImagesBadgeDemoTwo() {
+  return (
+    <div className="flex w-full items-center justify-center">
+      <ImagesBadge
+        text="Introducing Aceternity UI Pro"
+        images={[
+          "https://assets.aceternity.com/pro/agenforce-2.webp",
+          "https://assets.aceternity.com/pro/minimal-3-min.webp",
+          "https://assets.aceternity.com/pro/bento-4.png",
+        ]}
+        folderSize={{ width: 48, height: 36 }}
+        teaserImageSize={{ width: 40, height: 28 }}
+        hoverImageSize={{ width: 140, height: 108 }}
+        hoverTranslateY={-110}
+        hoverSpread={50} />
+    </div>
+  );
+}
+
+example code 3 Compact:
+"use client";
+import { ImagesBadge } from "@/components/ui/images-badge";
+
+export function ImagesBadgeDemoThree() {
+  return (
+    <div className="flex h-[8rem] w-full items-center justify-center">
+      <ImagesBadge
+        text="Quick Preview"
+        images={[
+          "https://assets.aceternity.com/pro/agenforce-1.webp",
+          "https://assets.aceternity.com/pro/agenforce-2.webp",
+        ]}
+        folderSize={{ width: 24, height: 18 }}
+        teaserImageSize={{ width: 14, height: 10 }}
+        hoverImageSize={{ width: 36, height: 24 }}
+        hoverTranslateY={-28}
+        hoverSpread={14} />
+    </div>
+  );
+}
+
+example code Wide Spread:
+"use client";
+import { ImagesBadge } from "@/components/ui/images-badge";
+
+export function ImagesBadgeDemoFour() {
+  return (
+    <div className="flex h-[10rem] w-full items-center justify-center">
+      <ImagesBadge
+        text="Gallery View"
+        images={[
+          "https://assets.aceternity.com/pro/agenforce-1.webp",
+          "https://assets.aceternity.com/pro/agenforce-2.webp",
+          "https://assets.aceternity.com/pro/agenforce-3.webp",
+        ]}
+        hoverSpread={35}
+        hoverRotation={20} />
+    </div>
+  );
+}
+
+Props
+Prop	Type	Default	Description
+text	string	-	The text to display next to the folder
+images	string[]	-	Array of image URLs (max 3 displayed)
+className	string	-	Additional class name for the container
+href	string	-	Optional link URL to make the badge clickable
+target	string	-	Link target attribute (e.g., "_blank" for new tab)
+folderSize	{ width: number; height: number }	{ width: 32, height: 24 }	Folder dimensions in pixels
+teaserImageSize	{ width: number; height: number }	{ width: 20, height: 14 }	Image dimensions when teased (peeking) in pixels
+hoverImageSize	{ width: number; height: number }	{ width: 48, height: 32 }	Image dimensions when hovered in pixels
+hoverTranslateY	number	-35	How far images translate up on hover in pixels
+hoverSpread	number	20	How far images spread horizontally on hover
+hoverRotation	number	15	Rotation angle for fanned images on hover (degrees
+
+5. Compare
+    code:
+    import React from "react";
+import { Compare } from "@/components/ui/compare";
+
+export function CompareDemo() {
+  return (
+    <div
+      className="p-4 border rounded-3xl dark:bg-neutral-900 bg-neutral-100  border-neutral-200 dark:border-neutral-800 px-4">
+      <Compare
+        firstImage="https://assets.aceternity.com/code-problem.png"
+        secondImage="https://assets.aceternity.com/code-solution.png"
+        firstImageClassName="object-cover object-left-top"
+        secondImageClassname="object-cover object-left-top"
+        className="h-[250px] w-[200px] md:h-[500px] md:w-[500px]"
+        slideMode="hover" />
+    </div>
+  );
+}
+
+CLI:
+npx shadcn@latest add @aceternity/compare @aceternity/sparkles
+
+Examples
+Standard:
+import React from "react";
+import { Compare } from "@/components/ui/compare";
+
+export function CompareDemo() {
+  return (
+    <div
+      className="p-4 border rounded-3xl dark:bg-neutral-900 bg-neutral-100  border-neutral-200 dark:border-neutral-800 px-4">
+      <Compare
+        firstImage="https://assets.aceternity.com/code-problem.png"
+        secondImage="https://assets.aceternity.com/code-solution.png"
+        firstImageClassName="object-cover object-left-top"
+        secondImageClassname="object-cover object-left-top"
+        className="h-[250px] w-[200px] md:h-[500px] md:w-[500px]"
+        slideMode="hover" />
+    </div>
+  );
+}
+
+Autoplay:
+import React from "react";
+import { Compare } from "@/components/ui/compare";
+
+export function CompareDemo() {
+  return (
+    <div
+      className="w-3/4 h-[60vh] px-1 md:px-8 flex items-center justify-center [perspective:800px] [transform-style:preserve-3d]">
+      <div
+        style={{
+          transform: "rotateX(15deg) translateZ(80px)",
+        }}
+        className="p-1 md:p-4 border rounded-3xl dark:bg-neutral-900 bg-neutral-100  border-neutral-200 dark:border-neutral-800 mx-auto w-3/4 h-1/2 md:h-3/4">
+        <Compare
+          firstImage="https://assets.aceternity.com/notes-dark.png"
+          secondImage="https://assets.aceternity.com/linear-dark.png"
+          firstImageClassName="object-cover object-left-top w-full"
+          secondImageClassname="object-cover object-left-top w-full"
+          className="w-full h-full rounded-[22px] md:rounded-lg"
+          slideMode="hover"
+          autoplay={true} />
+      </div>
+    </div>
+  );
+}
+
+Drag Mode:
+import React from "react";
+import { Compare } from "@/components/ui/compare";
+
+export function CompareDemo() {
+  return (
+    <div
+      className="flex h-[60vh] w-3/4 items-center justify-center px-1 [perspective:800px] [transform-style:preserve-3d] md:px-8">
+      <div
+        style={{
+          transform: "rotateX(15deg) translateZ(80px)",
+        }}
+        className="mx-auto h-1/2 w-3/4 rounded-3xl border border-neutral-200 bg-neutral-100 p-1 md:h-3/4 md:p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <Compare
+          firstImage="https://assets.aceternity.com/notes-dark.png"
+          secondImage="https://assets.aceternity.com/linear-dark.png"
+          firstImageClassName="object-cover object-left-top w-full"
+          secondImageClassname="object-cover object-left-top w-full"
+          className="h-full w-full rounded-[22px] md:rounded-lg"
+          slideMode="drag"
+          autoplay={false} />
+      </div>
+    </div>
+  );
+}
+
+Props
+Prop	Type	Default	Description
+firstImage	string	""	URL of the first image
+secondImage	string	""	URL of the second image
+className	string	undefined	Additional CSS classes for the container
+firstImageClassName	string	undefined	Additional CSS classes for the first image
+secondImageClassname	string	undefined	Additional CSS classes for the second image
+initialSliderPercentage	number	50	Initial position of the slider (0-100)
+slideMode	"hover" | "drag"	"hover"	Mode of interaction for the slider
+showHandlebar	boolean	true	Whether to show the slider handle
+autoplay	boolean	false	Enable automatic sliding
+autoplayDuration	number	5000	Duration of one autoplay cycle in milliseconds
+
+
+6. Cover
+A Cover component that wraps any children, providing beams and space effect, hover to reveal speed.
+
+code:
+import React from "react";
+import { Cover } from "@/components/ui/cover";
+
+export function CoverDemo() {
+  return (
+    <div>
+      <h1
+        className="text-4xl md:text-4xl lg:text-6xl font-semibold max-w-7xl mx-auto text-center mt-6 relative z-20 py-6 bg-clip-text text-transparent bg-gradient-to-b from-neutral-800 via-neutral-700 to-neutral-700 dark:from-neutral-800 dark:via-white dark:to-white">
+        Build amazing websites <br /> at <Cover>warp speed</Cover>
+      </h1>
+    </div>
+  );
+}
+
+CLI:
+npx shadcn@latest add @aceternity/cover
+
+Props
+Prop	Type	Default	Description
+children	React.ReactNode	undefined	The content to be wrapped by the Cover component
+className	string	undefined	Additional CSS classes to apply to the content wrapper
+
+7. Floating Dock
+A floating dock mac os style component, acts as a navigation bar.
+
+code:
+import React from "react";
+import { FloatingDock } from "@/components/ui/floating-dock";
+import {
+  IconBrandGithub,
+  IconBrandX,
+  IconExchange,
+  IconHome,
+  IconNewSection,
+  IconTerminal2,
+} from "@tabler/icons-react";
+
+export function FloatingDockDemo() {
+  const links = [
+    {
+      title: "Home",
+      icon: (
+        <IconHome className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+    },
+
+    {
+      title: "Products",
+      icon: (
+        <IconTerminal2 className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+    },
+    {
+      title: "Components",
+      icon: (
+        <IconNewSection className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+    },
+    {
+      title: "Aceternity UI",
+      icon: (
+        <img
+          src="https://assets.aceternity.com/logo-dark.png"
+          width={20}
+          height={20}
+          alt="Aceternity Logo" />
+      ),
+      href: "#",
+    },
+    {
+      title: "Changelog",
+      icon: (
+        <IconExchange className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+    },
+
+    {
+      title: "Twitter",
+      icon: (
+        <IconBrandX className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+    },
+    {
+      title: "GitHub",
+      icon: (
+        <IconBrandGithub className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+    },
+  ];
+  return (
+    <div className="flex items-center justify-center h-[35rem] w-full">
+      <FloatingDock
+        // only for demo, remove for production
+        mobileClassName="translate-y-20"
+        items={links} />
+    </div>
+  );
+}
+
+CLI:
+npx shadcn@latest add @aceternity/floating-dock
+
+Props:
+Props
+Floating Dock
+Prop Name	Type	Description
+items	{ title: string; icon: React.ReactNode; href: string }[]	Array of items to display in the dock.
+desktopClassName	string	Optional class name for the desktop dock.
+mobileClassName	string	Optional class name for the mobile dock.
+Floating Dock Mobile
+Prop Name	Type	Description
+items	{ title: string; icon: React.ReactNode; href: string }[]	Array of items to display in the mobile dock.
+className	string	Optional class name for the mobile dock.
+Floating Dock Desktop
+Prop Name	Type	Description
+items	{ title: string; icon: React.ReactNode; href: string }[]	Array of items to display in the desktop dock.
+className	string	Optional class name for the desktop dock.
+IconContainer Component
+Prop Name	Type	Description
+mouseX	MotionValue	Motion value for the mouse X position.
+title	string	Title of the item.
+icon	React.ReactNode	Icon to display for the item.
+href	string	URL to navigate to when the item is clicked.
+
+8. Loaders
+A set of simple and minimal loaders for your loading screens and components.
+
+code:
+import React from "react";
+import { LoaderOne } from "@/components/ui/loader";
+
+export function LoaderOneDemo() {
+  return <LoaderOne />;
+}
+
+CLI:
+npx shadcn@latest add @aceternity/loader
+
+example:
+Simple Loader
+
+import React from "react";
+import { LoaderOne } from "@/components/ui/loader";
+
+export function LoaderOneDemo() {
+  return <LoaderOne />;
+}
+
+
+Shimmer Loader
+
+import React from "react";
+import { LoaderFive } from "@/components/ui/loader";
+
+export function LoaderFiveDemo() {
+  return <LoaderFive text="Generating chat..." />;
+}
+
+
+Compact Loader
+
+import React from "react";
+import { LoaderTwo } from "@/components/ui/loader";
+
+export function LoaderTwoDemo() {
+  return <LoaderTwo />;
+}
+
+SVG Loader
+import React from "react";
+import { LoaderThree } from "@/components/ui/loader";
+
+export function LoaderThreeDemo() {
+  return <LoaderThree />;
+}
+
+Glitch Loader
+
+import React from "react";
+import { LoaderFour } from "@/components/ui/loader";
+
+export function LoaderFourDemo() {
+  return <LoaderFour />;
+}
+
+9. Tracing Beam
+A Beam that follows the path of an SVG as the user scrolls. Adjusts beam length with scroll speed.
+
+code:
+"use client";
+import React from "react";
+import { calsans } from "@/fonts/calsans";
+
+import { twMerge } from "tailwind-merge";
+import { TracingBeam } from "../ui/tracing-beam";
+
+export function TracingBeamDemo() {
+  return (
+    <TracingBeam className="px-6">
+      <div className="max-w-2xl mx-auto antialiased pt-4 relative">
+        {dummyContent.map((item, index) => (
+          <div key={`content-${index}`} className="mb-10">
+            <h2 className="bg-black text-white rounded-full text-sm w-fit px-4 py-1 mb-4">
+              {item.badge}
+            </h2>
+
+            <p className={twMerge(calsans.className, "text-xl mb-4")}>
+              {item.title}
+            </p>
+
+            <div className="text-sm  prose prose-sm dark:prose-invert">
+              {item?.image && (
+                <img
+                  src={item.image}
+                  alt="blog thumbnail"
+                  height="1000"
+                  width="1000"
+                  className="rounded-lg mb-10 object-cover" />
+              )}
+              {item.description}
+            </div>
+          </div>
+        ))}
+      </div>
+    </TracingBeam>
+  );
+}
+
+const dummyContent = [
+  {
+    title: "Lorem Ipsum Dolor Sit Amet",
+    description: (
+      <>
+        <p>
+          Sit duis est minim proident non nisi velit non consectetur. Esse
+          adipisicing laboris consectetur enim ipsum reprehenderit eu deserunt
+          Lorem ut aliqua anim do. Duis cupidatat qui irure cupidatat incididunt
+          incididunt enim magna id est qui sunt fugiat. Laboris do duis pariatur
+          fugiat Lorem aute sit ullamco. Qui deserunt non reprehenderit dolore
+          nisi velit exercitation Lorem qui do enim culpa. Aliqua eiusmod in
+          occaecat reprehenderit laborum nostrud fugiat voluptate do Lorem culpa
+          officia sint labore. Tempor consectetur excepteur ut fugiat veniam
+          commodo et labore dolore commodo pariatur.
+        </p>
+        <p>
+          Dolor minim irure ut Lorem proident. Ipsum do pariatur est ad ad
+          veniam in commodo id reprehenderit adipisicing. Proident duis
+          exercitation ad quis ex cupidatat cupidatat occaecat adipisicing.
+        </p>
+        <p>
+          Tempor quis dolor veniam quis dolor. Sit reprehenderit eiusmod
+          reprehenderit deserunt amet laborum consequat adipisicing officia qui
+          irure id sint adipisicing. Adipisicing fugiat aliqua nulla nostrud.
+          Amet culpa officia aliquip deserunt veniam deserunt officia
+          adipisicing aliquip proident officia sunt.
+        </p>
+      </>
+    ),
+    badge: "React",
+    image:
+      "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=3540&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+  },
+  {
+    title: "Lorem Ipsum Dolor Sit Amet",
+    description: (
+      <>
+        <p>
+          Ex irure dolore veniam ex velit non aute nisi labore ipsum occaecat
+          deserunt cupidatat aute. Enim cillum dolor et nulla sunt exercitation
+          non voluptate qui aliquip esse tempor. Ullamco ut sunt consectetur
+          sint qui qui do do qui do. Labore laborum culpa magna reprehenderit ea
+          velit id esse adipisicing deserunt amet dolore. Ipsum occaecat veniam
+          commodo proident aliqua id ad deserunt dolor aliquip duis veniam sunt.
+        </p>
+        <p>
+          In dolore veniam excepteur eu est et sunt velit. Ipsum sint esse
+          veniam fugiat esse qui sint ad sunt reprehenderit do qui proident
+          reprehenderit. Laborum exercitation aliqua reprehenderit ea sint
+          cillum ut mollit.
+        </p>
+      </>
+    ),
+    badge: "Changelog",
+    image:
+      "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&q=80&w=3540&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+  },
+  {
+    title: "Lorem Ipsum Dolor Sit Amet",
+    description: (
+      <>
+        <p>
+          Ex irure dolore veniam ex velit non aute nisi labore ipsum occaecat
+          deserunt cupidatat aute. Enim cillum dolor et nulla sunt exercitation
+          non voluptate qui aliquip esse tempor. Ullamco ut sunt consectetur
+          sint qui qui do do qui do. Labore laborum culpa magna reprehenderit ea
+          velit id esse adipisicing deserunt amet dolore. Ipsum occaecat veniam
+          commodo proident aliqua id ad deserunt dolor aliquip duis veniam sunt.
+        </p>
+      </>
+    ),
+    badge: "Launch Week",
+    image:
+      "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&q=80&w=3506&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+  },
+];
+
+CLI:
+npx shadcn@latest add @aceternity/tracing-beam
+
+Props
+Prop name	Type	Description
+className	string	The class name of the child component.
+children	React.ReactNode	The contents of your page
+
+10. Animated Tooltip
+A cool tooltip that reveals on hover, follows mouse pointer
+
+code:
+"use client";
+import React from "react";
+import { AnimatedTooltip } from "../ui/animated-tooltip";
+const people = [
+  {
+    id: 1,
+    name: "John Doe",
+    designation: "Software Engineer",
+    image:
+      "https://images.unsplash.com/photo-1599566150163-29194dcaad36?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=3387&q=80",
+  },
+  {
+    id: 2,
+    name: "Robert Johnson",
+    designation: "Product Manager",
+    image:
+      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8YXZhdGFyfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+  },
+  {
+    id: 3,
+    name: "Jane Smith",
+    designation: "Data Scientist",
+    image:
+      "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8YXZhdGFyfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+  },
+  {
+    id: 4,
+    name: "Emily Davis",
+    designation: "UX Designer",
+    image:
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGF2YXRhcnxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60",
+  },
+  {
+    id: 5,
+    name: "Tyler Durden",
+    designation: "Soap Developer",
+    image:
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=3540&q=80",
+  },
+  {
+    id: 6,
+    name: "Dora",
+    designation: "The Explorer",
+    image:
+      "https://images.unsplash.com/photo-1544725176-7c40e5a71c5e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=3534&q=80",
+  },
+];
+
+export function AnimatedTooltipPreview() {
+  return (
+    <div className="flex flex-row items-center justify-center mb-10 w-full">
+      <AnimatedTooltip items={people} />
+    </div>
+  );
+}
+
+CLI:
+npx shadcn@latest add @aceternity/animated-tooltip
+
+Props
+Prop name	Type	Description
+items	Array<{id: number, name: string, designation: string, image: string}>	An array of objects, each representing an item. Each object in the array should have the following properties: id, name, designation, image
+
+11. Flip Words
+A component that flips through a list of words
+
+code:
+import React from "react";
+import { FlipWords } from "../ui/flip-words";
+
+export function FlipWordsDemo() {
+  const words = ["better", "cute", "beautiful", "modern"];
+
+  return (
+    <div className="h-[40rem] flex justify-center items-center px-4">
+      <div
+        className="text-4xl mx-auto font-normal text-neutral-600 dark:text-neutral-400">
+        Build
+        <FlipWords words={words} /> <br />
+        websites with Aceternity UI
+      </div>
+    </div>
+  );
+}
+
+CLI:
+npx shadcn@latest add @aceternity/flip-words
+
+Props
+Prop name	Type	Default	Description
+words	string[]	N/A	An array of words to be displayed and animated.
+duration	number	3000	Duration (in milliseconds) for each word to be displayed before flipping to the next word.
+className	string	N/A	Additional CSS classes to apply to the component.
+
+12. Infinite Moving Cards
+A customizable group of cards that move infinitely in a loop. Made with Framer Motion and Tailwind CSS.
+
+code:
+"use client";
+
+import React from "react";
+import { InfiniteMovingCards } from "../ui/infinite-moving-cards";
+
+export function InfiniteMovingCardsDemo() {
+  return (
+    <div
+      className="h-[40rem] rounded-md flex flex-col antialiased bg-white dark:bg-black dark:bg-grid-white/[0.05] items-center justify-center relative overflow-hidden">
+      <InfiniteMovingCards items={testimonials} direction="right" speed="slow" />
+    </div>
+  );
+}
+
+const testimonials = [
+  {
+    quote:
+      "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity, it was the season of Light, it was the season of Darkness, it was the spring of hope, it was the winter of despair.",
+    name: "Charles Dickens",
+    title: "A Tale of Two Cities",
+  },
+  {
+    quote:
+      "To be, or not to be, that is the question: Whether 'tis nobler in the mind to suffer The slings and arrows of outrageous fortune, Or to take Arms against a Sea of troubles, And by opposing end them: to die, to sleep.",
+    name: "William Shakespeare",
+    title: "Hamlet",
+  },
+  {
+    quote: "All that we see or seem is but a dream within a dream.",
+    name: "Edgar Allan Poe",
+    title: "A Dream Within a Dream",
+  },
+  {
+    quote:
+      "It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.",
+    name: "Jane Austen",
+    title: "Pride and Prejudice",
+  },
+  {
+    quote:
+      "Call me Ishmael. Some years ago—never mind how long precisely—having little or no money in my purse, and nothing particular to interest me on shore, I thought I would sail about a little and see the watery part of the world.",
+    name: "Herman Melville",
+    title: "Moby-Dick",
+  },
+];
+
+CLI:
+npx shadcn@latest add @aceternity/infinite-moving-cards
+
+css:
+@import "tailwindcss";
+
+@theme inline {
+  --animate-scroll: scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite;
+
+  @keyframes scroll {
+    to {
+      transform: translate(calc(-50% - 0.5rem));
+    }
+  }
+}
+
+Props
+Prop	Type	Description
+items	{ quote: string; name: string; title: string; }[]	An array of objects, each containing a quote, name, and title.
+direction	"left" | "right"	The direction of the animation. Default is "left".
+speed	"fast" | "normal" | "slow"	The speed of the animation. Default is "fast".
+pauseOnHover	boolean	If true, the animation will pause when the mouse hovers over it. Default is true.
+className	string	Optional additional CSS classes to apply to the component.
+
+
+13. Placeholders And Vanish Input
+Sliding in placeholders and vanish effect of input on submit
+
+code:
+"use client";
+
+import { PlaceholdersAndVanishInput } from "../ui/placeholders-and-vanish-input";
+
+export function PlaceholdersAndVanishInputDemo() {
+  const placeholders = [
+    "What's the first rule of Fight Club?",
+    "Who is Tyler Durden?",
+    "Where is Andrew Laeddis Hiding?",
+    "Write a Javascript method to reverse a string",
+    "How to assemble your own PC?",
+  ];
+
+  const handleChange = (e) => {
+    console.log(e.target.value);
+  };
+  const onSubmit = (e) => {
+    e.preventDefault();
+    console.log("submitted");
+  };
+  return (
+    <div className="h-[40rem] flex flex-col justify-center  items-center px-4">
+      <h2
+        className="mb-10 sm:mb-20 text-xl text-center sm:text-5xl dark:text-white text-black">
+        Ask Aceternity UI Anything
+      </h2>
+      <PlaceholdersAndVanishInput placeholders={placeholders} onChange={handleChange} onSubmit={onSubmit} />
+    </div>
+  );
+}
+
+CLI:
+npx shadcn@latest add @aceternity/placeholders-and-vanish-input
+
+Props
+Prop Name	Type	Description
+placeholders	string[]	An array of strings used as placeholders that cycle in the input field.
+onChange	(e: React.ChangeEvent<HTMLInputElement>) => void	Function called when the input value changes.
+onSubmit	(e: React.FormEvent<HTMLFormElement>) => void	Function called when the form is submitted.
+
+ 
+ 14. Sidebar
+Expandable sidebar that expands on hover, mobile responsive and dark mode support
+
+code:
+"use client";
+import React, { useState } from "react";
+import { Sidebar, SidebarBody, SidebarLink } from "../ui/sidebar";
+import {
+  IconArrowLeft,
+  IconBrandTabler,
+  IconSettings,
+  IconUserBolt,
+} from "@tabler/icons-react";
+import { motion } from "motion/react";
+import { cn } from "@/lib/utils";
+
+export function SidebarDemo() {
+  const links = [
+    {
+      label: "Dashboard",
+      href: "#",
+      icon: (
+        <IconBrandTabler className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "Profile",
+      href: "#",
+      icon: (
+        <IconUserBolt className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "Settings",
+      href: "#",
+      icon: (
+        <IconSettings className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "Logout",
+      href: "#",
+      icon: (
+        <IconArrowLeft className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+  ];
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className={cn(
+        "mx-auto flex w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-md border border-neutral-200 bg-gray-100 md:flex-row dark:border-neutral-700 dark:bg-neutral-800",
+        // for your use case, use `h-screen` instead of `h-[60vh]`
+        "h-[60vh]"
+      )}>
+      <Sidebar open={open} setOpen={setOpen}>
+        <SidebarBody className="justify-between gap-10">
+          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
+            {open ? <Logo /> : <LogoIcon />}
+            <div className="mt-8 flex flex-col gap-2">
+              {links.map((link, idx) => (
+                <SidebarLink key={idx} link={link} />
+              ))}
+            </div>
+          </div>
+          <div>
+            <SidebarLink
+              link={{
+                label: "Manu Arora",
+                href: "#",
+                icon: (
+                  <img
+                    src="https://assets.aceternity.com/manu.png"
+                    className="h-7 w-7 shrink-0 rounded-full"
+                    width={50}
+                    height={50}
+                    alt="Avatar" />
+                ),
+              }} />
+          </div>
+        </SidebarBody>
+      </Sidebar>
+      <Dashboard />
+    </div>
+  );
+}
+export const Logo = () => {
+  return (
+    <a
+      href="#"
+      className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal text-black">
+      <div
+        className="h-5 w-6 shrink-0 rounded-tl-lg rounded-tr-sm rounded-br-lg rounded-bl-sm bg-black dark:bg-white" />
+      <motion.span
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="font-medium whitespace-pre text-black dark:text-white">
+        Acet Labs
+      </motion.span>
+    </a>
+  );
+};
+export const LogoIcon = () => {
+  return (
+    <a
+      href="#"
+      className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal text-black">
+      <div
+        className="h-5 w-6 shrink-0 rounded-tl-lg rounded-tr-sm rounded-br-lg rounded-bl-sm bg-black dark:bg-white" />
+    </a>
+  );
+};
+
+// Dummy dashboard component with content
+const Dashboard = () => {
+  return (
+    <div className="flex flex-1">
+      <div
+        className="flex h-full w-full flex-1 flex-col gap-2 rounded-tl-2xl border border-neutral-200 bg-white p-2 md:p-10 dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="flex gap-2">
+          {[...new Array(4)].map((i, idx) => (
+            <div
+              key={"first-array-demo-1" + idx}
+              className="h-20 w-full animate-pulse rounded-lg bg-gray-100 dark:bg-neutral-800"></div>
+          ))}
+        </div>
+        <div className="flex flex-1 gap-2">
+          {[...new Array(2)].map((i, idx) => (
+            <div
+              key={"second-array-demo-1" + idx}
+              className="h-full w-full animate-pulse rounded-lg bg-gray-100 dark:bg-neutral-800"></div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+CLI:
+npx shadcn@latest add @aceternity/sidebar
+
+Props
+SidebarProvider Props
+Prop Name	Type	Default	Description
+children	React.ReactNode	-	The content to be rendered inside the provider.
+open	boolean	false	Controls the open state of the sidebar.
+setOpen	React.Dispatch<React.SetStateAction<boolean>>	-	Function to set the open state of the sidebar.
+Sidebar Props
+Prop Name	Type	Default	Description
+children	React.ReactNode	-	The content to be rendered inside the sidebar.
+open	boolean	false	Controls the open state of the sidebar.
+setOpen	React.Dispatch<React.SetStateAction<boolean>>	-	Function to set the open state of the sidebar.
+animate	boolean	true	Controls the animation of the sidebar. Put false if you want to disable animation
+SidebarBody Props
+Prop Name	Type	Default	Description
+props	React.ComponentProps<typeof motion.div>	-	Props to be passed to the motion.div component.
+DesktopSidebar Props
+Prop Name	Type	Default	Description
+className	string	-	Additional class names for styling.
+children	React.ReactNode	-	The content to be rendered inside the desktop sidebar.
+props	React.ComponentProps<typeof motion.div>	-	Props to be passed to the motion.div component.
+MobileSidebar Props
+Prop Name	Type	Default	Description
+className	string	-	Additional class names for styling.
+children	React.ReactNode	-	The content to be rendered inside the mobile sidebar.
+props	React.ComponentProps<"div">	-	Props to be passed to the div component.
+SidebarLink Props
+Prop Name	Type	Default	Description
+link	Links	-	The link object containing label, href, and icon.
+className	string	-	Additional class names for styling.
+props	LinkProps	-	Props to be passed to the Link component.
+Links Interface
+Property	Type	Description
+label	string	The text label for the link.
+href	string	The URL the link points to.
+icon	React.JSX.Element | React.ReactNode	The icon to be displayed alongside the link.
+SidebarContextProps Interface
+Property	Type	Description
+open	boolean	Indicates whether the sidebar is open.
+setOpen	React.Dispatch<React.SetStateAction<boolean>>	Function to set the open state of the sidebar.
+
+15. Text Generate Effect
+A cool text effect that fades in text on page load, one by one.
+
+code:
+"use client";
+import { TextGenerateEffect } from "../ui/text-generate-effect";
+
+const words = `Oxygen gets you high. In a catastrophic emergency, we're taking giant, panicked breaths. Suddenly you become euphoric, docile. You accept your fate. It's all right here. Emergency water landing, six hundred miles an hour. Blank faces, calm as Hindu cows
+`;
+
+export function TextGenerateEffectDemo() {
+  return <TextGenerateEffect words={words} />;
+}
+
+CLI:
+npx shadcn@latest add @aceternity/text-generate-effect
+
+Props
+Prop name	Type	Description
+className	string	The class name of the child component.
+words	string	The word string that you want to animate
+duration	number	The duration of the animation
+filter	boolean	Whether to apply a filter to the text
+
+16. Multi Step Loader
+A step loader for screens that take a lot of time to load.
+
+"use client";
+import React, { useState } from "react";
+import { MultiStepLoader as Loader } from "../ui/multi-step-loader";
+import { IconSquareRoundedX } from "@tabler/icons-react";
+
+const loadingStates = [
+  {
+    text: "Buying a condo",
+  },
+  {
+    text: "Travelling in a flight",
+  },
+  {
+    text: "Meeting Tyler Durden",
+  },
+  {
+    text: "He makes soap",
+  },
+  {
+    text: "We goto a bar",
+  },
+  {
+    text: "Start a fight",
+  },
+  {
+    text: "We like it",
+  },
+  {
+    text: "Welcome to F**** C***",
+  },
+];
+
+export function MultiStepLoaderDemo() {
+  const [loading, setLoading] = useState(false);
+  return (
+    <div className="w-full h-[60vh] flex items-center justify-center">
+      {/* Core Loader Modal */}
+      <Loader loadingStates={loadingStates} loading={loading} duration={2000} />
+      {/* The buttons are for demo only, remove it in your actual code ⬇️ */}
+      <button
+        onClick={() => setLoading(true)}
+        className="bg-[#39C3EF] hover:bg-[#39C3EF]/90 text-black mx-auto text-sm md:text-base transition font-medium duration-200 h-10 rounded-lg px-8 flex items-center justify-center"
+        style={{
+          boxShadow:
+            "0px -1px 0px 0px #ffffff40 inset, 0px 1px 0px 0px #ffffff40 inset",
+        }}>
+        Click to load
+      </button>
+      {loading && (
+        <button
+          className="fixed top-4 right-4 text-black dark:text-white z-[120]"
+          onClick={() => setLoading(false)}>
+          <IconSquareRoundedX className="h-10 w-10" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+
+CLI:
+npx shadcn@latest add @aceternity/multi-step-loader
+
+Props
+Prop Name	Type	Default Value	Description
+loadingStates	LoadingState[]	N/A	An array of objects, each with a text property to display the current loading state message.
+loading	boolean	undefined	A boolean to control whether the loader is active or not.
+duration	number	2000	The duration (in milliseconds) before transitioning to the next loading state.
+loop	boolean	true	A boolean to control whether the loading states should loop back to the start.
+value	number (optional)	0	(Only in LoaderCore) The current index of the loading state to be displayed.
+
+
+
+

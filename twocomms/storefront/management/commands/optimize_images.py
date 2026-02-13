@@ -1,13 +1,12 @@
-import os
 import time
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
-from django.conf import settings
 
 from image_optimizer import ImageOptimizer
 from storefront.models import Product, ProductImage, Category, CatalogOptionValue, SizeGrid
 from productcolors.models import ProductColorImage
+
 
 class Command(BaseCommand):
     help = 'Optimizes images for all products and categories using ImageOptimizer'
@@ -42,10 +41,10 @@ class Command(BaseCommand):
                 'category', 'option', 'size', 'proposal'
             }
         sleep = float(options.get('sleep') or 0)
-        
+
         self.stdout.write('Starting image optimization...')
         self.stdout.flush()
-        
+
         def _already_optimized(image_path: Path) -> bool:
             """
             Быстрый пропуск, если оптимизированные версии уже есть.
@@ -57,6 +56,7 @@ class Command(BaseCommand):
 
         saved_total = 0
         processed = 0
+
         def _pause():
             if sleep > 0:
                 time.sleep(sleep)
@@ -70,7 +70,7 @@ class Command(BaseCommand):
             total_products = products.count()
             self.stdout.write(f'Found {total_products} products with main images')
             self.stdout.flush()
-            
+
             for i, product in enumerate(products.iterator(chunk_size=1000), 1):
                 if product.main_image:
                     path = Path(product.main_image.path)
@@ -96,7 +96,7 @@ class Command(BaseCommand):
             total_p_images = product_images.count()
             self.stdout.write(f'\nFound {total_p_images} extra product images')
             self.stdout.flush()
-            
+
             for i, img in enumerate(product_images.iterator(chunk_size=1000), 1):
                 if img.image:
                     path = Path(img.image.path)
@@ -122,7 +122,7 @@ class Command(BaseCommand):
             total_c_images = color_images.count()
             self.stdout.write(f'\nFound {total_c_images} product color images')
             self.stdout.flush()
-            
+
             for i, img in enumerate(color_images.iterator(chunk_size=1000), 1):
                 if img.image:
                     path = Path(img.image.path)
@@ -147,7 +147,7 @@ class Command(BaseCommand):
             categories = Category.objects.all()
             self.stdout.write(f'\nFound {categories.count()} categories')
             self.stdout.flush()
-            
+
             for cat in categories.iterator(chunk_size=1000):
                 # Icon
                 if cat.icon:
@@ -166,7 +166,7 @@ class Command(BaseCommand):
                                     self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
                                     self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
                                     return
-                
+
                 # Cover
                 if cat.cover:
                     path = Path(cat.cover.path)
@@ -174,7 +174,7 @@ class Command(BaseCommand):
                         if not _already_optimized(path):
                             self.stdout.write(f'Optimizing Category Cover: {cat.name}')
                             self.stdout.flush()
-                            variants = optimizer.optimize_product_image(str(path)) # Treat cover as product image for responsive sizes
+                            variants = optimizer.optimize_product_image(str(path))  # Treat cover as product image for responsive sizes
                             if variants:
                                 optimizer.save_optimized_images(variants, path.parent / "optimized")
                                 saved_total += len(variants)
@@ -190,7 +190,7 @@ class Command(BaseCommand):
             options = CatalogOptionValue.objects.exclude(image='')
             self.stdout.write(f'\nFound {options.count()} catalog options with images')
             self.stdout.flush()
-            
+
             for opt in options.iterator(chunk_size=1000):
                 if opt.image:
                     path = Path(opt.image.path)
@@ -215,7 +215,7 @@ class Command(BaseCommand):
             grids = SizeGrid.objects.exclude(image='')
             self.stdout.write(f'\nFound {grids.count()} size grids with images')
             self.stdout.flush()
-            
+
             for grid in grids.iterator(chunk_size=1000):
                 if grid.image:
                     path = Path(grid.image.path)

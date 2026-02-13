@@ -8,9 +8,7 @@ Django команда для генерации Google Merchant Center фида
 """
 import xml.etree.ElementTree as ET
 from django.core.management.base import BaseCommand
-from django.utils import timezone
-from storefront.models import Product, Category
-from productcolors.models import ProductColorVariant
+from storefront.models import Product
 from typing import Optional
 from storefront.utils.analytics_helpers import get_offer_id
 
@@ -116,14 +114,14 @@ class Command(BaseCommand):
 
         # Создаем канал
         channel = ET.SubElement(rss, 'channel')
-        
+
         # Заголовок канала
         title = ET.SubElement(channel, 'title')
         title.text = 'TwoComms - Стріт & Мілітарі Одяг'
-        
+
         link = ET.SubElement(channel, 'link')
         link.text = 'https://twocomms.shop'
-        
+
         description = ET.SubElement(channel, 'description')
         description.text = 'Магазин стріт & мілітарі одягу з ексклюзивним дизайном'
 
@@ -151,11 +149,11 @@ class Command(BaseCommand):
                     color_name = (cv.color.name or "").strip()
                     if not color_name:
                         color_name = hex_to_basic_color_name(getattr(cv.color, 'primary_hex', ''), getattr(cv.color, 'secondary_hex', None))
-                    
+
                     # Безопасное получение изображения из кэша prefetch
                     cv_images = list(cv.images.all())
                     image = cv_images[0].image if cv_images else None
-                    
+
                     variants.append({
                         'key': f"cv{cv.id}",
                         'color': color_name,
@@ -277,15 +275,15 @@ class Command(BaseCommand):
                     # Матеріал — залежить від типу товару (визначаємо за slug/категорією)
                     def get_material(p):
                         slug = (p.slug or '').lower()
-                        cat = (p.category.name if p.category else '' ).lower()
+                        cat = (p.category.name if p.category else '').lower()
                         # Hoodie
-                        if any(k in slug for k in ['hood', 'hudi', 'hoodie']) or any(k in cat for k in ['худі','худи','hood']):
+                        if any(k in slug for k in ['hood', 'hudi', 'hoodie']) or any(k in cat for k in ['худі', 'худи', 'hood']):
                             return '90% бавовна, 10% поліестер'
                         # Longsleeve
-                        if any(k in slug for k in ['long', 'longsleeve', 'longsliv']) or any(k in cat for k in ['лонгслів','лонгслив','лонг']):
+                        if any(k in slug for k in ['long', 'longsleeve', 'longsliv']) or any(k in cat for k in ['лонгслів', 'лонгслив', 'лонг']):
                             return '95% бамбук, 5% еластан'
                         # T-shirt / футболка
-                        if any(k in slug for k in ['tshirt','t-shirt','tee','tshort','futbol']) or any(k in cat for k in ['футболк']):
+                        if any(k in slug for k in ['tshirt', 't-shirt', 'tee', 'tshort', 'futbol']) or any(k in cat for k in ['футболк']):
                             return '95% бавовна, 5% еластан'
                         # За замовчуванням — бавовна
                         return '95% бавовна, 5% еластан'
@@ -323,7 +321,7 @@ class Command(BaseCommand):
             # Сохраняем XML файл
             tree = ET.ElementTree(rss)
             ET.indent(tree, space="  ", level=0)  # Форматируем XML
-            
+
             with open(output_file, 'wb') as f:
                 tree.write(f, encoding='utf-8', xml_declaration=True)
 
