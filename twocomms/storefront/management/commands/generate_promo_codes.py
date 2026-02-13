@@ -8,6 +8,7 @@ from storefront.models import PromoCode
 import random
 import string
 
+
 class Command(BaseCommand):
     help = 'Генерирует промокоды для маркетинговых кампаний'
 
@@ -44,17 +45,17 @@ class Command(BaseCommand):
         prefix = options['prefix']
 
         created_codes = []
-        
+
         for i in range(count):
             # Генерируем уникальный код
             random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
             code = f"{prefix}{random_part}"
-            
+
             # Проверяем уникальность
             while PromoCode.objects.filter(code=code).exists():
                 random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
                 code = f"{prefix}{random_part}"
-            
+
             # Создаем промокод
             promo_code = PromoCode.objects.create(
                 code=code,
@@ -63,12 +64,12 @@ class Command(BaseCommand):
                 created_at=timezone.now(),
                 expires_at=timezone.now() + timedelta(days=days)
             )
-            
+
             created_codes.append(code)
-        
+
         self.stdout.write(
             self.style.SUCCESS(
-                f'Успешно создано {count} промокодов:\n' + 
+                f'Успешно создано {count} промокодов:\n' +
                 '\n'.join(created_codes)
             )
         )

@@ -1,0 +1,490 @@
+# FILE: Ideas/Audit/FINAL_TECH_AUDIT_FOR_OPUS_4_6_2026-02-09.pdf
+# PAGES: 10
+
+
+
+===== PAGE 1 =====
+FINAL TECH AUDIT FOR OPUS 4.6
+Дата: 2026-02-09
+Проект: `dtf.twocomms.shop` (внутри монорепозитория TwoComms)
+Назначение: единый технический документ для следующей аналитической итерации (Opus 4.6 / другой 
+research-agent), чтобы затем сформировать максимально точный промпт для coding-агента.
+---
+1. Что было проверено
+1.1 Локальные источники
+- Папка отчетов и идей:
+  - `Ideas/Audit/opus 4.6 v1.MD`
+  - `Ideas/Audit/opus 4.6 v2.MD`
+  - `Ideas/CODEX_Report.md`
+  - `Ideas/Antigravity_Report.md`
+  - `Ideas/Gemini_1.5_Pro.md`
+  - `twocomms/Ideas/Claude-4-Sonnet.md`
+- Каталог компонентов-референсов:
+  - `twocomms/Promt/Effects.MD`
+- Фактический код DTF:
+  - шаблоны `twocomms/dtf/templates/dtf/*.html`
+  - JS/CSS эффекты `twocomms/dtf/static/dtf/js/components/*`, 
+`twocomms/dtf/static/dtf/css/components/*`
+  - основная логика `twocomms/dtf/static/dtf/js/dtf.js`
+  - backend `twocomms/dtf/views.py`, `twocomms/dtf/forms.py`, 
+`twocomms/dtf/preflight/engine.py`, `twocomms/dtf/urls.py`
+- Техническая документация проекта:
+  - `specs/dtf-codex/CHECKLIST.md`
+  - `specs/dtf-codex/EVIDENCE.md`
+  - `specs/dtf-codex/QA.md`
+  - `specs/dtf-codex/DEPLOY.md`
+  - `DEPLOY.md`
+- Конфиги окружения:
+  - `twocomms/twocomms/settings.py`
+  - `twocomms/twocomms/production_settings.py`
+  - `twocomms/twocomms/celery.py`
+1.2 Серверная сверка (production, по SSH)
+Проверено на сервере:
+- branch: `codex/codex-refactor-v1`
+- commit: `d355a47`
+- `python manage.py check`: без ошибок
+- `DEBUG=False`
+- DB engine: `django.db.backends.mysql` (`localhost:3306`)
+- Celery broker в settings задан
+- celery-процессы не обнаружены
+- Redis broker для Celery не резолвится по DNS (пинг брокера завершился `Name or service not 
+known`)
+- активные cron-задачи есть (в т.ч. `update_tracking_statuses`, `check_survey_inactivity`, 
+генерация feed)
+Это критично для оценки реалистичности любых предложений про «реальный multi-step-loader через 
+Celery task status polling».
+---
+2. Текущий этап проекта (факт)
+2.1 Общая стадия
+
+
+===== PAGE 2 =====
+Проект не находится в стадии прототипа. Это рабочий DTF-поддомен с реализацией основных бизнес-
+сценариев:
+- лендинг/каталог/цены/требования/качество/блог
+- заказ и lead-flow
+- constructor MVP с сохранением сессии
+- preflight-анализ файлов
+- sample flow
+- cabinet routes
+- host-aware robots/sitemap
+Подтверждение:
+- `specs/dtf-codex/CHECKLIST.md` фиксирует исполненные Part 3/Part 4 блоки
+- `specs/dtf-codex/EVIDENCE.md` фиксирует тесты, deploy, smoke
+- `twocomms/dtf/tests.py` содержит расширенный набор сценариев (в т.ч. Part4/Part5/Part6)
+2.2 Архитектурное состояние frontend
+Фактический подход: Django SSR + progressive enhancement через JS.
+Ключевые элементы:
+- эффект-реестр и HTMX lifecycle:
+  - `twocomms/dtf/static/dtf/js/components/core.js`
+  - поддержка `htmx:afterSwap` и `htmx:beforeCleanupElement`
+- утилиты эффекторного слоя:
+  - `twocomms/dtf/static/dtf/js/components/_utils.js`
+- бизнес/страничная логика:
+  - `twocomms/dtf/static/dtf/js/dtf.js`
+В `base.html` подключен модульный effect-layer (CSS+JS), но одновременно есть legacy-pattern 
+(часть эффектов в `effect.*`, часть в именах без `effect.`).
+2.3 Архитектурное состояние backend
+- Валидация и preflight реализованы на backend:
+  - `twocomms/dtf/forms.py` + `twocomms/dtf/preflight/engine.py`
+- Preflight реально проверяет:
+  - magic bytes, extension
+  - размер
+  - DPI
+  - alpha/margins
+  - color mode
+  - PDF single-page/media box
+- Constructor flow сохраняет preflight report и preview assets.
+2.4 Что это значит по зрелости
+Стадия: «рабочая продуктовая база + незавершенная унификация UI-effect слоя».
+То есть:
+- продукт уже можно развивать итеративно
+- но перед масштабным добавлением новых эффектов нужно закрыть слой согласованности (единые 
+контракты компонентов, cleanup legacy, SEO-safe правила, production prerequisites)
+---
+3. Аудит папки `Ideas` и `Ideas/Audit`
+3.1 Важный факт о `opus 4.6 v1` и `v2`
+- `v1` — неполный (обрывается в блоке Sprint 1 / ЗАДАЧА 2)
+- `v2` — существенно полнее и содержит завершение до раздела «Промпт-заготовка»
+- это не «два разных проекта», а две попытки одной консолидации
+Практический вывод: использовать `v2` как базу, но только после сверки с реальным кодом.
+
+
+===== PAGE 3 =====
+3.2 Оценка отчетов (практическая ценность)
+`Ideas/CODEX_Report.md`
+Сильные стороны:
+- максимально приземленный аудит реального кода
+- верная логика: Django + Vanilla + progressive enhancement
+- сильная ценность для sprint-планирования
+Ограничения:
+- часть утверждений могла устареть относительно текущей версии файлов
+Вердикт: высокий вес как инженерной базы.
+`twocomms/Ideas/Claude-4-Sonnet.md`
+Сильные стороны:
+- хорошая каталогизация компонентов
+- полезная структура 100 идей
+Ограничения:
+- частичная ориентация на React-мышление
+- меньше backend-grounded проверок
+Вердикт: хороший источник backlog-идей, не источник архитектурной истины.
+`Ideas/Antigravity_Report.md`
+Сильные стороны:
+- много креатива по страницам
+- полезно для long-term wow-фич
+Ограничения:
+- рекомендация React+Vite как основной слой конфликтует с текущим зрелым Django/Vanilla стеком
+- ниже точность по фактическим ограничениям текущего проекта
+Вердикт: использовать как источник экспериментальных идей, не как основной implementation-plan.
+`Ideas/Gemini_1.5_Pro.md`
+Сильные стороны:
+- сильный блок про performance budget и поведенческую UX-психологию
+- полезные long-term идеи
+Ограничения:
+- Web Components + Shadow DOM как core-путь сейчас слишком радикален для текущей кодовой базы
+- haptics/audio не являются MVP-приоритетом
+Вердикт: использовать selectively для research и growth-фазы.
+`Ideas/Audit/opus 4.6 v1.MD` и `v2.MD`
+Сильные стороны:
+- глубокая попытка собрать все мнения в один документ
+- удобная структура: матрицы, sprint roadmap, task specs, открытые вопросы
+Ограничения:
+- есть технические неточности/устаревшие claims относительно текущего состояния репозитория
+- в `v1` документ не завершен
+Вердикт: хороший мета-каркас, но требует строгого fact-check перед передачей coding-агенту.
+---
+4. Fact-check ключевых claim’ов `opus v1/v2`
+
+
+===== PAGE 4 =====
+Ниже только критичные расхождения, влияющие на реализацию.
+| Claim из `v1/v2` | Статус после проверки | Комментарий |
+|---|---|---|
+| Multi-Step Loader «не реализован» | Частично неверно | Реализация есть, но упрощенная 
+(`twocomms/dtf/static/dtf/js/components/multi-step-loader.js`) |
+| Flip Words «не реализован» | Неверно | Flip Words работает через `data-flip-words` + 
+`initFlipWords` в `dtf.js` |
+| Dotted Glow нужно добавить IntersectionObserver | Уже реализовано | `effect.dotted-glow.js` 
+уже использует `IntersectionObserver` |
+| BG Beams нужно добавить IntersectionObserver | Уже реализовано | `effect.bg-beams.js` уже 
+использует `IntersectionObserver` |
+| Основной файл для Dock: `effect.floating-dock.js` | Неверный путь | В проекте фактически 
+`floating-dock.js` |
+| Compare требует touch-action | Уже частично учтено | В CSS у `.compare-media` уже `touch-
+action: pan-y` |
+| Legacy cleanup (`initCompare`, `initTracingBeam` в `dtf.js`) | Актуально | Эти функции 
+определены, но не вызываются (кандидаты на cleanup) |
+| Внедрить real backend polling через Celery | Частично блокируется prod-инфрой | На сервере 
+Celery broker DNS сейчас не резолвится и worker-процессы не найдены |
+Дополнительный важный факт:
+- В проекте есть «двойные» файлы-компоненты (`bg-beams.js` и `effect.bg-beams.js` и т.д.), что
+ увеличивает риск рассинхронизации.
+---
+5. Разбор `Effects.MD`: что это, и что реально перенесено
+5.1 Что содержит `Effects.MD`
+В `twocomms/Promt/Effects.MD` зафиксированы команды установки Aceternity-компонентов через `npx 
+shadcn`.
+Обнаружены пакеты:
+- `@aceternity/tooltip-card`
+- `@aceternity/dotted-glow-background`
+- `@aceternity/encrypted-text`
+- `@aceternity/images-badge`
+- `@aceternity/compare`
+- `@aceternity/sparkles`
+- `@aceternity/cover`
+- `@aceternity/floating-dock`
+- `@aceternity/loader`
+- `@aceternity/tracing-beam`
+- `@aceternity/animated-tooltip`
+- `@aceternity/flip-words`
+- `@aceternity/infinite-moving-cards`
+- `@aceternity/placeholders-and-vanish-input`
+- `@aceternity/sidebar`
+- `@aceternity/text-generate-effect`
+- `@aceternity/multi-step-loader`
+Практический смысл для проекта:
+- это reference-набор поведения/UX
+- не «готовая вставка» в текущий Django runtime
+- нужен porting-contract (HTML/CSS/JS API) на текущую систему
+5.2 Маппинг компонент → текущее состояние проекта
+| Компонент | Статус в проекте | Где проверено | Что делать дальше |
+|---|---|---|---|
+| Compare | Реализован (базово) | `effect.compare.js`, `gallery/index/effects_lab` | Добавить 
+
+
+===== PAGE 5 =====
+dual-mode (auto+manual), stop-on-interaction, контентные сценарии |
+| Floating Dock | Реализован (упрощенно) | `floating-dock.js`, `floating-dock.css`, `base.html` 
+| Решить окончательно конфликт с FAB, определить единый UX-контракт |
+| Multi-Step Loader | Реализован (упрощенно) | `multi-step-loader.js`, `multi-step-loader.css`, 
+`order/constructor_app` | Привязать к реальному backend статусу или честно оставить fake-flow |
+| Vanish Input | Реализован (минимум) | `vanish-input.js`, `status/constructor_app` | Доделать 
+clear/cycling placeholders по контракту |
+| Infinite Cards | Реализован (минимум) | `effect.infinite-cards.js`, `effects_lab` | SEO-safe 
+duplication + richer content + speed map |
+| Encrypted Text | Реализован | `effect.encrypted-text.js` | Оставить точечно, проверить UX-
+уместность |
+| Tracing Beam | Реализован | `effect.tracing-beam.js`, `blog/requirements/effects_lab` | 
+Проверка на длинных статьях/мобилке |
+| Dotted Glow | Реализован | `effect.dotted-glow.js` | Точечная tuning-оптимизация |
+| BG Beams | Реализован | `effect.bg-beams.js` | Точечная tuning-оптимизация |
+| Sparkles | Реализован (легкий) | `sparkles.js` | Использовать очень дозированно |
+| Stateful Button | Реализован | `effect.stateful-button.js` | Расширить покрытие всех форм |
+| Flip Words | Реализован (через `dtf.js`) | `index.html` + `initFlipWords` | Вынести в 
+отдельный effect-модуль для консистентности |
+| Tooltip Card | Не реализован | нет модуля/шаблонов | Можно внедрять точечно (термины, 
+требования, price hints) |
+| Images Badge | Не реализован | нет модуля | Добавлять только при реальном сценарии 
+загрузки/менеджера файлов |
+| Cover | Не реализован | нет модуля | Отложенный декоративный кандидат |
+| Animated Tooltip | Не реализован | нет модуля | Низкий приоритет |
+| Sidebar | Не реализован | нет модуля | Актуален в кабинете только при расширении IA |
+| Text Generate Effect | Не реализован | нет модуля | Средний приоритет для trust/info блоков |
+5.3 Что уже используется по шаблонам (`data-effect`)
+Суммарно по `twocomms/dtf/templates/dtf/*.html`:
+- `compare`: 6
+- `bg-beams`: 4
+- `dotted-glow`: 4
+- `encrypted-text`: 3
+- `tracing-beam`: 3
+- `vanish-input`: 3
+- `multi-step-loader`: 2
+- `infinite-cards`: 1
+- `sparkles`: 1
+- `tabs-download`: 1
+Вывод: ядро визуального языка уже есть. Основной дефицит не в «добавить еще 20 эффектов», а в 
+доведении текущих критичных эффектов до production-grade контрактов.
+---
+6. Критические ограничения и предпосылки перед следующей итерацией
+6.1 Инфра/фоновые задачи
+Факт по production:
+- MySQL используется
+- Celery settings присутствуют
+- но фактическая связка Celery+Redis сейчас не операбельна (нет worker + broker DNS error)
+Следствие:
+- любые планы «реального polling статусов Celery task» сейчас ненадежны
+- нужно сначала решить инфраструктурный prerequisite, либо формально принять sync/fake-step 
+стратегию
+6.2 Техдолг согласованности фронта
+
+
+===== PAGE 6 =====
+- В `dtf.js` остаются legacy-функции эффектов (минимум `initCompare`, `initTracingBeam`), не 
+вызываемые в bootstrap
+- В `js/components` и `css/components` есть дубли `effect.*` и старых версий
+Это усиливает риск того, что разные агенты будут развивать разные версии одного и того же 
+эффекта.
+6.3 UX-конфликт правого нижнего угла
+В `base.html` одновременно присутствуют:
+- `#dtf-fab`
+- `nav[data-floating-dock]`
+- `nav.mobile-dock`
+Это давно зафиксированная проблема, подтвержденная несколькими отчетами.
+---
+7. Что интегрировать в проект в первую очередь (без обсуждения сложности)
+Здесь фокус только на ценности и правильности интеграции, как вы просили.
+1. Единый контракт «Quick Actions Layer»
+- Утвердить поведение `FAB/Dock/Mobile Dock` как одну систему, а не три конкурирующих блока.
+- Определить single source of truth по breakpoint-логике и z-index.
+2. Multi-Step Loader как честный state-machine
+- Либо реально привязка к backend step-status
+- Либо прозрачная синхронная модель без имитации «несуществующих шагов Celery».
+3. Compare как доверительный коммерческий блок
+- Оставить как ключевой доказательный компонент (до/после, 72 vs 300 DPI, RGB vs print 
+reality).
+- Добавить сценарии stop autoplay on interaction + mobile-first gesture logic.
+4. Vanish Input до бизнес-контракта
+- clear-on-invalid
+- optional placeholder cycling
+- не применять indiscriminately ко всем полям
+5. Infinite Cards в SEO-safe формате
+- first track = реальный HTML контент
+- clone track = `aria-hidden`
+- корректный fallback без JS
+6. Cleanup и унификация effect-layer
+- вынести Flip Words из `dtf.js` в `effect.flip-words.js`
+- удалить/архивировать неиспользуемые legacy-дубли
+- привести именование к единому стандарту
+---
+8. Насколько корректны выводы отчетов v1/v2 как база для внедрения
+Короткий итог:
+- Направление правильное.
+- Структура полезная.
+- Но есть фактические ошибки статуса компонентов и путей файлов.
+- Без верификации по текущему коду использовать v1/v2 как «готовое ТЗ для coding-агента» 
+нельзя.
+Итоговая оценка пригодности:
+- как стратегический каркас: высокая
+- как точная инженерная спецификация без правок: средняя
+---
+
+
+===== PAGE 7 =====
+9. Что нужно исследовать следующему агенту (Opus 4.6 / business+research)
+Ниже конкретные исследовательские блоки, которые имеют смысл отдать сильному текстово-
+бизнесовому агенту с интернет-ресерчем.
+9.1 Business/UX моделирование
+1. Психотипы DTF-аудитории:
+- новички (нуждаются в reassurance)
+- профи (нужны speed and control)
+- агент должен предложить copy/UX-modes под оба сегмента
+2. Моделирование конверсии по сценариям:
+- baseline без изменений
+- after «dock conflict resolved»
+- after «honest multi-step preflight flow»
+- after «compare trust blocks expanded»
+3. Риск «визуального шума»:
+- определить лимит одновременно активных motion-эффектов на странице
+- предложить policy «trust-first motion»
+9.2 Интернет-ресерч
+1. Актуальные паттерны для индустриальных B2B/B2B2C print-services:
+- как показывают preflight
+- как показывают file acceptance/rejection
+- как оформляют before/after proof blocks
+2. SEO-safe подходы для JS-анимаций и SSR:
+- проверить практические кейсы для анимируемых carousels/text effects
+3. Вопрос haptics/audio:
+- агент должен дать аргументированный verdict: что реально использовать в MVP, что отложить
+9.3 Инфраструктурная аналитика
+1. Если нужен «реальный async progress»:
+- предложить варианты под cPanel/shared-host ограничения
+- сравнить: Celery+Redis vs polling synchronous checkpoints vs job queue через cron
+2. Сверка надежности:
+- какие prerequisites обязательны перед включением backend polling loader
+---
+10. Вопросы, которые нужно задать Opus 4.6
+1. Какие 3 UX-механики дают максимальный прирост доверия в DTF сервисах без роста когнитивной 
+нагрузки?
+2. Какой минимальный motion-набор оставить на каждой ключевой странице (`/`, `/order/`, 
+`/constructor/app/`, `/price/`, `/gallery/`, `/blog/`), чтобы сохранить «вау» и не потерять 
+ясность?
+3. Какой copy-framework для preflight лучше применить, чтобы WARN/FAIL снижали тревожность, а не
+ увеличивали?
+4. Какой формат сравнения «screen vs print reality» лучше конвертирует: slider, tabs, step 
+cards, или гибрид?
+5. Стоит ли внедрять real-time прогресс через очереди сейчас, или лучше staged честный 
+synchronous flow до стабилизации инфраструктуры?
+6. Какие SEO-риски наиболее вероятны для текущего набора эффектов, и как их предотвратить без 
+удаления эффектов?
+7. Какие метрики успеха следует закрепить для каждой UX-фичи (CTR, submit rate, fail recovery 
+rate, time-to-submit, consultation share)?
+8. Как правильно адаптировать интерфейс под двухрежимную аудиторию (новички/профи) без 
+раздвоения архитектуры?
+9. Какие решения из Web Components/React-островов реально стоит оставить только как long-term, а
+
+
+===== PAGE 8 =====
+ какие можно взять уже сейчас?
+10. Какие 5 гипотез A/B теста приоритетнее всего для DTF-конверсии в этом конкретном проекте?
+---
+11. Готовый промпт для Opus 4.6 (для загрузки вместе с PDF)
+```text
+Ты получаешь PDF-документ "FINAL_TECH_AUDIT_FOR_OPUS_4_6_2026-02-09" по проекту dtf.twocomms.shop.
+Твоя роль: senior research + business + technical analyst.
+ВАЖНО:
+1) Не пересказывай PDF. Используй его как baseline и делай следующий уровень анализа.
+2) Проверяй гипотезы интернет-ресерчем и указывай источники.
+3) Делай выводы только в формате, пригодном для последующего coding-агента.
+Контекст проекта:
+- Стек: Django + Vanilla JS + HTMX + CSS.
+- В проекте уже реализованы ключевые бизнес-потоки (order, constructor MVP, preflight, sample, cabinet).
+- Есть существующий effect-layer и частичный legacy-техдолг.
+- В production MySQL активен.
+- Celery config есть, но по факту broker/worker сейчас не подтверждены как рабочие.
+Тебе нужно выдать 6 блоков:
+БЛОК 1. Verification Matrix
+- Таблица: "утверждение из PDF" -> "подтверждено/оспорено/нужно проверить" -> "почему" -> "что с этим 
+делать".
+БЛОК 2. Market/UX Research (с источниками)
+- Лучшие практики для DTF/print-on-demand интерфейсов.
+- Как оформлять preflight, before/after, trust-секции.
+- Какие motion-паттерны повышают конверсию и не ломают SEO.
+БЛОК 3. Behavioral Model
+- Модель 2 аудиторий: новичок vs профи.
+- Как меняется UX-контент и интеракции для каждой аудитории.
+- Рекомендации по адаптивной сложности интерфейса.
+БЛОК 4. Forecast & Scenarios
+- Сценарии A/B/C на 90 дней:
+  A) conservative (только стабилизация)
+  B) balanced (стабилизация + 3 wow-фичи)
+  C) aggressive (широкий эффектный rollout)
+- Для каждого: ожидаемые плюсы, риски, метрики контроля.
+БЛОК 5. Pre-Codex Technical Prep
+- Четкий список данных, которые нужно подготовить перед передачей coding-агенту:
+  - JSON contracts для компонентов
+  - контентные словари
+  - event schema
+  - acceptance criteria
+  - feature flag map
+БЛОК 6. Final Prompt Pack
+- Сформируй улучшенный большой промпт для coding-агента, разбитый на этапы реализации.
+- Формат: "Phase -> Tasks -> File-level targets -> Done criteria -> QA checks".
+Ограничения:
+- Не предлагай полную миграцию стека (React/Next/Web Components) как short-term core путь.
+- Учитывай ограничения cPanel/shared hosting.
+
+
+===== PAGE 9 =====
+- Учитывай, что в проекте важнее качество реализации, чем "сложность".
+Выходной формат:
+- Строго структурированный markdown.
+- Таблицы для решений и рисков.
+- В конце: "Top-15 Questions for Owner" для уточнения бизнес-данных.
+```
+---
+12. Технический пакет, который нужно подготовить перед следующим coding-
+циклом
+Этот раздел нужен, чтобы следующий coding-агент не работал «по ощущениям».
+1. Component Contracts (по каждому эффекту)
+- входные data-атрибуты
+- required HTML-structure
+- lifecycle hooks
+- accessibility contract
+- reduced-motion behavior
+- no-js fallback behavior
+2. Event Contracts
+- какие custom events эмитятся
+- кто подписчик
+- какие payload fields
+3. Content Contracts
+- тексты для step-loader, compare scenarios, tooltips
+- языковые версии UA/RU/EN
+4. Feature Flag Map
+- какие эффекты включаем globally
+- какие на конкретных страницах
+- kill-switch policy
+5. QA Gates
+- Lighthouse thresholds
+- mobile interaction checks
+- HTMX re-init checks
+- no-js and reduced-motion checks
+---
+13. Внешние технические reference-ссылки (для следующего агента)
+- HTMX events (`htmx:afterSwap`, `htmx:beforeCleanupElement`):
+  - https://htmx.org/events/
+- Core Web Vitals thresholds:
+  - https://web.dev/articles/vitals
+- Google Search and JavaScript SEO basics:
+  - https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-
+basics
+- Vibration API (ограниченная поддержка):
+  - https://developer.mozilla.org/en-US/docs/Web/API/Vibration_API
+- CSS `touch-action` (для gesture-конфликтов):
+  - https://developer.mozilla.org/en-US/docs/Web/CSS/touch-action
+- shadcn CLI / add workflow:
+  - https://ui.shadcn.com/docs/cli
+- Aceternity installation pattern (`npx shadcn add @aceternity/...`):
+  - https://ui.aceternity.com/docs/installation
+---
+14. Финальный вывод
+
+
+===== PAGE 10 =====
+1. Проект уже в зрелой рабочей фазе, а не в нулевой.
+2. Главная задача следующего цикла: не «добавить максимум эффектов», а привести effect-layer к 
+строго определенным контрактам и production-валидной логике.
+3. Отчеты `opus v1/v2` полезны как стратегический каркас, но в текущем виде содержат неточности,
+ которые нужно было исправить перед передачей coding-агенту.
+4. Самый важный practical blocker для «real async loader»: production-infra (Celery/Redis).
+5. Этот документ можно напрямую использовать как baseline для Opus 4.6, а затем на основе его 
+ответа собрать финальный mega-prompt для coding-итерации.

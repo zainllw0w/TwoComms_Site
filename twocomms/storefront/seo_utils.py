@@ -5,11 +5,9 @@ import re
 import json
 import os
 from decimal import Decimal
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict
 from urllib.parse import urljoin
 from django.conf import settings
-from django.utils.text import slugify
-from django.template.loader import render_to_string
 from .models import Product, Category
 
 SITE_BASE_URL = getattr(settings, 'SITE_BASE_URL', 'https://twocomms.shop')
@@ -28,7 +26,7 @@ def _build_absolute_url(path: str) -> str:
 
 class SEOKeywordGenerator:
     """Генератор ключевых слов на основе анализа контента"""
-    
+
     # Базовые ключевые слова для магазина одежды
     BASE_KEYWORDS = [
         'стріт одяг', 'мілітарі одяг', 'футболки', 'худі', 'лонгсліви',
@@ -36,14 +34,14 @@ class SEOKeywordGenerator:
         'стріт стиль', 'мілітарі стиль', 'TwoComms', 'купити одяг онлайн',
         'модний одяг', 'трендовий одяг', 'український бренд'
     ]
-    
+
     # Ключевые слова по категориям
     CATEGORY_KEYWORDS = {
         'футболки': ['чоловічі футболки', 'жіночі футболки', 'базові футболки', 'принтовані футболки'],
         'худі': ['чоловічі худі', 'жіночі худі', 'базові худі', 'принтовані худі'],
         'лонгсліви': ['чоловічі лонгсліви', 'жіночі лонгсліви', 'базові лонгсліви', 'принтовані лонгсліви']
     }
-    
+
     # Ключевые слова по цветам
     COLOR_KEYWORDS = {
         'чорний': ['чорна футболка', 'чорне худі', 'чорний лонгслів'],
@@ -52,60 +50,60 @@ class SEOKeywordGenerator:
         'зелений': ['зелена футболка', 'зелене худі', 'зелений лонгслів'],
         'синій': ['синя футболка', 'синє худі', 'синій лонгслів']
     }
-    
+
     @classmethod
     def extract_keywords_from_text(cls, text: str) -> List[str]:
         """Извлекает ключевые слова из текста"""
         if not text:
             return []
-        
+
         # Очищаем текст от HTML тегов
         clean_text = re.sub(r'<[^>]+>', '', text)
-        
+
         # Разбиваем на слова и фильтруем
         words = re.findall(r'\b[а-яіїєґ]{3,}\b', clean_text.lower())
-        
+
         # Убираем стоп-слова
         stop_words = {
             'для', 'від', 'до', 'на', 'у', 'з', 'по', 'про', 'та', 'або', 'але',
             'як', 'що', 'де', 'коли', 'чому', 'який', 'яка', 'яке', 'які',
             'можна', 'потрібно', 'варто', 'краще', 'добре', 'гарний', 'якісний'
         }
-        
+
         keywords = [word for word in words if word not in stop_words and len(word) > 2]
-        
+
         # Подсчитываем частоту
         word_freq = {}
         for word in keywords:
             word_freq[word] = word_freq.get(word, 0) + 1
-        
+
         # Сортируем по частоте и возвращаем топ-10
         sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
         return [word for word, freq in sorted_words[:10]]
-    
+
     @classmethod
     def generate_product_keywords(cls, product: Product) -> List[str]:
         """Генерирует ключевые слова для товара"""
         keywords = []
-        
+
         # Базовые ключевые слова
         keywords.extend(cls.BASE_KEYWORDS)
-        
+
         # Ключевые слова категории
         if product.category:
             category_name = product.category.name.lower()
             if category_name in cls.CATEGORY_KEYWORDS:
                 keywords.extend(cls.CATEGORY_KEYWORDS[category_name])
-        
+
         # Ключевые слова из названия товара
         title_keywords = cls.extract_keywords_from_text(product.title)
         keywords.extend(title_keywords)
-        
+
         # Ключевые слова из описания
         if product.description:
             desc_keywords = cls.extract_keywords_from_text(product.description)
             keywords.extend(desc_keywords)
-        
+
         # Ключевые слова по цветам (если есть цветовые варианты)
         try:
             from productcolors.models import ProductColorVariant
@@ -117,14 +115,14 @@ class SEOKeywordGenerator:
                         keywords.extend(cls.COLOR_KEYWORDS[color_name])
         except ImportError:
             pass
-        
+
         # Добавляем сохраненные AI-ключевые слова, если они есть
         if hasattr(product, 'ai_keywords') and product.ai_keywords:
             ai_keywords = [kw.strip() for kw in product.ai_keywords.split(',') if kw.strip()]
             for kw in ai_keywords:
                 if kw and kw not in keywords:
                     keywords.append(kw)
-        
+
         return list(dict.fromkeys(keywords))[:20]  # Максимум 20 ключевых слов
 
     @classmethod
@@ -180,32 +178,32 @@ class SEOKeywordGenerator:
             if len(keywords) >= 20:
                 break
         return keywords
-    
+
     @classmethod
     def generate_category_keywords(cls, category: Category) -> List[str]:
         """Генерирует ключевые слова для категории"""
         keywords = []
-        
+
         # Базовые ключевые слова
         keywords.extend(cls.BASE_KEYWORDS)
-        
+
         # Ключевые слова категории
         category_name = category.name.lower()
         if category_name in cls.CATEGORY_KEYWORDS:
             keywords.extend(cls.CATEGORY_KEYWORDS[category_name])
-        
+
         # Ключевые слова из описания категории
         if category.description:
             desc_keywords = cls.extract_keywords_from_text(category.description)
             keywords.extend(desc_keywords)
-        
+
         # Добавляем сохраненные AI-ключевые слова, если они есть
         if hasattr(category, 'ai_keywords') and category.ai_keywords:
             ai_keywords = [kw.strip() for kw in category.ai_keywords.split(',') if kw.strip()]
             for kw in ai_keywords:
                 if kw and kw not in keywords:
                     keywords.append(kw)
-        
+
         return list(dict.fromkeys(keywords))[:15]
 
     @classmethod
@@ -248,17 +246,17 @@ class SEOKeywordGenerator:
             if len(keywords) >= 20:
                 break
         return keywords
-    
+
     @classmethod
     def generate_meta_description(cls, product: Product) -> str:
         """Генерирует мета-описание для товара"""
         # Используем сохраненное AI-описание, если оно есть
         if hasattr(product, 'ai_description') and product.ai_description:
             return product.ai_description[:160]
-        
+
         # Иначе генерируем стандартное описание
         base_desc = f"Купити {product.title} в TwoComms. "
-        
+
         if product.description:
             # Берем первые 120 символов описания
             clean_desc = re.sub(r'<[^>]+>', '', product.description)
@@ -267,25 +265,25 @@ class SEOKeywordGenerator:
             base_desc += clean_desc
         else:
             base_desc += f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном."
-        
+
         base_desc += f" Ціна: {product.final_price} грн. Швидка доставка по Україні."
-        
+
         return base_desc[:160]  # Максимум 160 символов
-    
+
     @classmethod
     def generate_meta_title(cls, product: Product) -> str:
         """Генерирует мета-заголовок для товара"""
         title = f"{product.title} - TwoComms"
-        
+
         if product.category:
             title = f"{product.title} ({product.category.name}) - TwoComms"
-        
+
         return title[:60]  # Максимум 60 символов
 
 
 class SEOMetaGenerator:
     """Генератор SEO мета-тегов"""
-    
+
     @staticmethod
     def generate_product_meta(product: Product) -> Dict[str, str]:
         """Генерирует все мета-теги для товара"""
@@ -293,7 +291,7 @@ class SEOMetaGenerator:
         description = SEOKeywordGenerator.generate_meta_description(product)
         # AI-описание уже должно быть сохранено в базе данных
         # Эта функция вызывается при каждом запросе, поэтому не генерируем AI контент здесь
-        
+
         return {
             'title': SEOKeywordGenerator.generate_meta_title(product),
             'description': description,
@@ -305,26 +303,26 @@ class SEOMetaGenerator:
             'twitter_description': description,
             'twitter_image': product.display_image.url if product.display_image else '',
         }
-    
+
     @staticmethod
     def generate_category_meta(category: Category) -> Dict[str, str]:
         """Генерирует мета-теги для категории"""
         keywords = SEOKeywordGenerator.generate_category_keywords(category)
-        
+
         title = f"{category.name} - TwoComms"
-        
+
         # Используем сохраненное AI-описание, если оно есть
         if hasattr(category, 'ai_description') and category.ai_description:
             description = category.ai_description[:160]
         else:
             description = f"Купити {category.name.lower()} в TwoComms. Якісний одяг з ексклюзивним дизайном. Швидка доставка по Україні."
-            
+
             if category.description:
                 clean_desc = re.sub(r'<[^>]+>', '', category.description)
                 if len(clean_desc) > 120:
                     clean_desc = clean_desc[:117] + "..."
                 description = clean_desc
-        
+
         return {
             'title': title,
             'description': description,
@@ -468,14 +466,14 @@ class StructuredDataGenerator:
         images = []
         if product.display_image:
             images.append(f"https://twocomms.shop{product.display_image.url}")
-        
+
         # Добавляем дополнительные изображения
         try:
             for img in product.images.all()[:4]:  # Максимум 4 дополнительных изображения
                 images.append(f"https://twocomms.shop{img.image.url}")
-        except:
+        except Exception:
             pass
-        
+
         # Добавляем изображения из цветовых вариантов
         try:
             from productcolors.models import ProductColorVariant
@@ -484,9 +482,9 @@ class StructuredDataGenerator:
                 for img in variant.images.all()[:2]:
                     if f"https://twocomms.shop{img.image.url}" not in images:
                         images.append(f"https://twocomms.shop{img.image.url}")
-        except:
+        except Exception:
             pass
-        
+
         schema = {
             "@context": "https://schema.org",
             "@type": "Product",
@@ -503,7 +501,7 @@ class StructuredDataGenerator:
                     "value": "100% бавовна"
                 },
                 {
-                    "@type": "PropertyValue", 
+                    "@type": "PropertyValue",
                     "name": "Країна виробництва",
                     "value": "Україна"
                 },
@@ -555,7 +553,7 @@ class StructuredDataGenerator:
             "aggregateRating": StructuredDataGenerator._get_aggregate_rating(),
             "review": StructuredDataGenerator._get_default_reviews(product)
         }
-        
+
         # Добавляем категорию
         if product.category:
             schema["category"] = product.category.name
@@ -564,11 +562,11 @@ class StructuredDataGenerator:
                 "name": "Категорія",
                 "value": product.category.name
             })
-        
+
         # Добавляем все изображения
         if len(images) > 1:
             schema["image"] = images
-        
+
         # Добавляем размеры
         schema["additionalProperty"].extend([
             {
@@ -582,7 +580,7 @@ class StructuredDataGenerator:
                 "value": "Різні кольори"
             }
         ])
-        
+
         # Добавляем скидку если есть
         if product.has_discount:
             schema["offers"]["priceSpecification"] = {
@@ -596,9 +594,9 @@ class StructuredDataGenerator:
                 }
             }
             schema["offers"]["priceValidUntil"] = "2025-12-31"
-        
+
         return schema
-    
+
     @staticmethod
     def generate_google_merchant_schema(product: Product) -> Dict:
         """Генерирует схему специально для Google Merchant Center"""
@@ -606,14 +604,14 @@ class StructuredDataGenerator:
         images = []
         if product.display_image:
             images.append(f"https://twocomms.shop{product.display_image.url}")
-        
+
         # Дополнительные изображения
         try:
             for img in product.images.all()[:10]:  # До 10 изображений для Google
                 images.append(f"https://twocomms.shop{img.image.url}")
-        except:
+        except Exception:
             pass
-        
+
         # Изображения цветовых вариантов
         try:
             from productcolors.models import ProductColorVariant
@@ -623,20 +621,20 @@ class StructuredDataGenerator:
                     img_url = f"https://twocomms.shop{img.image.url}"
                     if img_url not in images:
                         images.append(img_url)
-        except:
+        except Exception:
             pass
-        
+
         # Определяем возрастную группу и пол
         age_group = "adult"
         gender = "unisex"
-        
+
         if product.category:
             category_name = product.category.name.lower()
             if any(word in category_name for word in ['чоловіч', 'мужск', 'men']):
                 gender = "male"
             elif any(word in category_name for word in ['жіноч', 'женск', 'women']):
                 gender = "female"
-        
+
         schema = {
             "@context": "https://schema.org",
             "@type": "Product",
@@ -651,7 +649,7 @@ class StructuredDataGenerator:
                 "name": "TwoComms"
             },
             "manufacturer": {
-                "@type": "Organization", 
+                "@type": "Organization",
                 "name": "TwoComms"
             },
             "offers": {
@@ -689,7 +687,7 @@ class StructuredDataGenerator:
                 },
                 {
                     "@type": "PropertyValue",
-                    "name": "gender", 
+                    "name": "gender",
                     "value": gender
                 },
                 {
@@ -719,7 +717,7 @@ class StructuredDataGenerator:
                 }
             ]
         }
-        
+
         # Добавляем категорию
         if product.category:
             schema["category"] = product.category.name
@@ -728,14 +726,14 @@ class StructuredDataGenerator:
                 "name": "google_product_category",
                 "value": "1604"  # Apparel & Accessories > Clothing
             })
-        
+
         # Добавляем размеры
         schema["additionalProperty"].append({
             "@type": "PropertyValue",
             "name": "size",
             "value": "S,M,L,XL,XXL"
         })
-        
+
         # Добавляем цвета если есть
         try:
             from productcolors.models import ProductColorVariant
@@ -744,18 +742,18 @@ class StructuredDataGenerator:
             for variant in color_variants:
                 if variant.color and variant.color.name:
                     colors.append(variant.color.name)
-            
+
             if colors:
                 schema["additionalProperty"].append({
                     "@type": "PropertyValue",
                     "name": "color",
                     "value": ",".join(colors[:3])  # Максимум 3 цвета
                 })
-        except:
+        except Exception:
             pass
-        
+
         return schema
-    
+
     @staticmethod
     def generate_breadcrumb_schema(breadcrumbs: List[Dict]) -> Dict:
         """Генерирует BreadcrumbList schema"""
@@ -764,7 +762,7 @@ class StructuredDataGenerator:
             "@type": "BreadcrumbList",
             "itemListElement": []
         }
-        
+
         for i, breadcrumb in enumerate(breadcrumbs):
             item_url = _build_absolute_url(breadcrumb.get("url", ""))
             schema["itemListElement"].append({
@@ -776,7 +774,7 @@ class StructuredDataGenerator:
             })
 
         return schema
-    
+
     @staticmethod
     def generate_faq_schema(faq_items: List[Dict]) -> Dict:
         """Генерирует FAQ schema"""
@@ -785,7 +783,7 @@ class StructuredDataGenerator:
             "@type": "FAQPage",
             "mainEntity": []
         }
-        
+
         for faq in faq_items:
             schema["mainEntity"].append({
                 "@type": "Question",
@@ -795,26 +793,26 @@ class StructuredDataGenerator:
                     "text": faq["answer"]
                 }
             })
-        
+
         return schema
 
 
 class SEOContentOptimizer:
     """Оптимизатор контента для SEO"""
-    
+
     @staticmethod
     def suggest_content_improvements(product: Product) -> List[str]:
         """Предлагает улучшения контента для товара"""
         suggestions = []
-        
+
         # Проверяем длину описания
         if not product.description or len(product.description) < 100:
             suggestions.append("Додайте детальний опис товару (мінімум 100 символів)")
-        
+
         # Проверяем наличие изображений
         if not product.display_image:
             suggestions.append("Додайте головне зображення товару")
-        
+
         # Проверяем наличие цветовых вариантов
         try:
             from productcolors.models import ProductColorVariant
@@ -823,26 +821,26 @@ class SEOContentOptimizer:
                 suggestions.append("Додайте кольорові варіанти товару")
         except ImportError:
             pass
-        
+
         # Проверяем длину названия
         if len(product.title) < 10:
             suggestions.append("Збільште назву товару для кращого SEO")
-        
+
         return suggestions
-    
+
     @staticmethod
     def generate_alt_text_for_image(image_name: str, product_title: str = "") -> str:
         """Генерирует alt-текст для изображения"""
         if product_title:
             return f"Зображення товару {product_title}"
-        
+
         # Извлекаем ключевые слова из имени файла
         clean_name = re.sub(r'[^a-zA-Zа-яіїєґ0-9\s]', ' ', image_name.lower())
         words = clean_name.split()
-        
+
         if words:
             return f"Зображення {' '.join(words[:3])}"
-        
+
         return "Зображення товару TwoComms"
 
     @staticmethod
@@ -882,7 +880,7 @@ class SEOContentOptimizer:
             from django.conf import settings
             use_descriptions = getattr(settings, 'USE_AI_DESCRIPTIONS', False)
             if isinstance(use_descriptions, str):
-                use_descriptions = use_descriptions.lower() in ('1','true','yes')
+                use_descriptions = use_descriptions.lower() in ('1', 'true', 'yes')
             if not use_descriptions:
                 return ''
             api_key = getattr(settings, 'OPENAI_API_KEY', None) or os.environ.get('OPENAI_API_KEY')
@@ -894,7 +892,7 @@ class SEOContentOptimizer:
             prompt = (
                 f"Напишіть стислий SEO-дружній опис товару '{product.title}'. "
                 f"Категорія: {product.category.name if product.category else 'N/A'}. "
-                f"Ціна: {product.final_price}." 
+                f"Ціна: {product.final_price}."
             )
             resp = client.chat.completions.create(
                 model=model,
@@ -930,6 +928,7 @@ def get_product_seo_meta(product: Product) -> Dict[str, str]:
             'twitter_image': product.main_image.url if product.main_image else '',
         }
 
+
 def get_category_seo_meta(category: Category) -> Dict[str, str]:
     """Возвращает SEO мета-теги для категории"""
     try:
@@ -948,6 +947,7 @@ def get_category_seo_meta(category: Category) -> Dict[str, str]:
             'twitter_image': category.cover.url if category.cover else '',
         }
 
+
 def get_product_schema(product: Product) -> str:
     """Возвращает JSON-LD schema для товара"""
     try:
@@ -957,6 +957,7 @@ def get_product_schema(product: Product) -> str:
         # Возвращаем пустую строку в случае ошибки
         return ""
 
+
 def get_breadcrumb_schema(breadcrumbs: List[Dict]) -> str:
     """Возвращает JSON-LD schema для хлебных крошек"""
     try:
@@ -965,6 +966,7 @@ def get_breadcrumb_schema(breadcrumbs: List[Dict]) -> str:
     except Exception as e:
         # Возвращаем пустую строку в случае ошибки
         return ""
+
 
 def get_google_merchant_schema(product: Product) -> str:
     """Возвращает JSON-LD schema для Google Merchant Center"""

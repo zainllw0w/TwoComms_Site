@@ -46,7 +46,7 @@ class PromoCodeForm(forms.ModelForm):
     class Meta:
         model = PromoCode
         fields = [
-            'code', 'promo_type', 'discount_type', 'discount_value', 
+            'code', 'promo_type', 'discount_type', 'discount_value',
             'description', 'group', 'max_uses', 'one_time_per_user',
             'min_order_amount', 'valid_from', 'valid_until', 'is_active'
         ]
@@ -90,15 +90,15 @@ class PromoCodeForm(forms.ModelForm):
             }),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
-    
+
     def clean_code(self):
         """Позволяет оставить поле code пустым для автоматической генерации"""
         code = self.cleaned_data.get('code', '').strip()
-        
+
         # Если код пустой, это нормально - он будет сгенерирован автоматически
         if not code:
             return ''
-        
+
         # Если код указан, проверяем его уникальность
         if PromoCode.objects.filter(code=code).exists():
             if self.instance and self.instance.pk:
@@ -106,7 +106,7 @@ class PromoCodeForm(forms.ModelForm):
                 if not PromoCode.objects.filter(code=code).exclude(pk=self.instance.pk).exists():
                     return code
             raise forms.ValidationError("Промокод з таким кодом вже існує")
-        
+
         return code
 
 
@@ -337,18 +337,18 @@ def admin_promocode_create(request):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
         return redirect('home')
-    
+
     if request.method == 'POST':
         form = PromoCodeForm(normalize_promocode_payload(request.POST))
         if form.is_valid():
             promocode = form.save(commit=False)
-            
+
             # Если код не указан или пустой, генерируем автоматически
             if not promocode.code or promocode.code.strip() == '':
                 promocode.code = PromoCode.generate_code()
-            
+
             promocode.save()
-            
+
             # AJAX ответ
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
@@ -357,7 +357,7 @@ def admin_promocode_create(request):
                     'promo_id': promocode.id,
                     'promo_code': promocode.code
                 })
-            
+
             return redirect('/admin-panel/?section=promocodes&tab=promocodes')
         else:
             # AJAX ответ с ошибками
@@ -369,7 +369,7 @@ def admin_promocode_create(request):
                 }, status=400)
     else:
         form = PromoCodeForm()
-    
+
     return render(request, 'pages/admin_promocode_form.html', {
         'form': form,
         'mode': 'create',
@@ -382,23 +382,23 @@ def admin_promocode_edit(request, pk):
     """Редактирование промокода"""
     if not request.user.is_staff:
         return redirect('home')
-    
+
     promocode = get_object_or_404(PromoCode, pk=pk)
-    
+
     if request.method == 'POST':
         form = PromoCodeForm(normalize_promocode_payload(request.POST), instance=promocode)
         if form.is_valid():
             edited_promocode = form.save(commit=False)
-            
+
             # Если код не указан или пустой, генерируем автоматически
             if not edited_promocode.code or edited_promocode.code.strip() == '':
                 edited_promocode.code = PromoCode.generate_code()
-            
+
             edited_promocode.save()
             return redirect('/admin-panel/?section=promocodes&tab=promocodes')
     else:
         form = PromoCodeForm(instance=promocode)
-    
+
     return render(request, 'pages/admin_promocode_form.html', {
         'form': form,
         'mode': 'edit',
@@ -412,11 +412,11 @@ def admin_promocode_toggle(request, pk):
     """Активация/деактивация промокода"""
     if not request.user.is_staff:
         return redirect('home')
-    
+
     promocode = get_object_or_404(PromoCode, pk=pk)
     promocode.is_active = not promocode.is_active
     promocode.save()
-    
+
     return redirect('/admin-panel/?section=promocodes&tab=promocodes')
 
 
@@ -425,10 +425,10 @@ def admin_promocode_delete(request, pk):
     """Удаление промокода"""
     if not request.user.is_staff:
         return redirect('home')
-    
+
     promocode = get_object_or_404(PromoCode, pk=pk)
     promocode.delete()
-    
+
     return redirect('/admin-panel/?section=promocodes&tab=promocodes')
 
 
@@ -447,12 +447,12 @@ def admin_promo_group_create(request):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
         return redirect('home')
-    
+
     if request.method == 'POST':
         form = PromoCodeGroupForm(request.POST)
         if form.is_valid():
             group = form.save()
-            
+
             # AJAX ответ
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
@@ -461,7 +461,7 @@ def admin_promo_group_create(request):
                     'group_id': group.id,
                     'group_name': group.name
                 })
-            
+
             return redirect('/admin-panel/?section=promocodes&tab=groups')
         else:
             # AJAX ответ с ошибками
@@ -473,7 +473,7 @@ def admin_promo_group_create(request):
                 }, status=400)
     else:
         form = PromoCodeGroupForm()
-    
+
     return render(request, 'pages/admin_promo_group_form.html', {
         'form': form,
         'mode': 'create',
@@ -486,9 +486,9 @@ def admin_promo_group_edit(request, pk):
     """Редактирование группы промокодов"""
     if not request.user.is_staff:
         return redirect('home')
-    
+
     group = get_object_or_404(PromoCodeGroup, pk=pk)
-    
+
     if request.method == 'POST':
         form = PromoCodeGroupForm(request.POST, instance=group)
         if form.is_valid():
@@ -496,10 +496,10 @@ def admin_promo_group_edit(request, pk):
             return redirect('/admin-panel/?section=promocodes&tab=groups')
     else:
         form = PromoCodeGroupForm(instance=group)
-    
+
     # Получаем промокоды этой группы
     promocodes = PromoCode.objects.filter(group=group)
-    
+
     return render(request, 'pages/admin_promo_group_form.html', {
         'form': form,
         'mode': 'edit',
@@ -514,14 +514,14 @@ def admin_promo_group_delete(request, pk):
     """Удаление группы промокодов"""
     if not request.user.is_staff:
         return redirect('home')
-    
+
     group = get_object_or_404(PromoCodeGroup, pk=pk)
-    
+
     # При удалении группы, промокоды остаются, но теряют связь с группой
     PromoCode.objects.filter(group=group).update(group=None)
-    
+
     group.delete()
-    
+
     return redirect('/admin-panel/?section=promocodes&tab=groups')
 
 
@@ -543,17 +543,17 @@ def admin_promocode_get_form(request, pk):
     """
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
-    
+
     if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
         return JsonResponse({'success': False, 'error': 'Тільки AJAX запити'}, status=400)
-    
+
     promocode = get_object_or_404(PromoCode, pk=pk)
     groups = PromoCodeGroup.objects.filter(is_active=True)
-    
+
     # Преобразуем даты в ISO формат для datetime-local input
     valid_from = promocode.valid_from.strftime('%Y-%m-%dT%H:%M') if promocode.valid_from else ''
     valid_until = promocode.valid_until.strftime('%Y-%m-%dT%H:%M') if promocode.valid_until else ''
-    
+
     return JsonResponse({
         'success': True,
         'promo': {
@@ -586,25 +586,25 @@ def admin_promocode_edit_ajax(request, pk):
     """
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
-    
+
     if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
         return JsonResponse({'success': False, 'error': 'Тільки AJAX запити'}, status=400)
-    
+
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Тільки POST запити'}, status=405)
-    
+
     promocode = get_object_or_404(PromoCode, pk=pk)
     form = PromoCodeForm(normalize_promocode_payload(request.POST), instance=promocode)
-    
+
     if form.is_valid():
         updated_promo = form.save(commit=False)
-        
+
         # Если код пустой, генерируем
         if not updated_promo.code or updated_promo.code.strip() == '':
             updated_promo.code = PromoCode.generate_code()
-        
+
         updated_promo.save()
-        
+
         return JsonResponse({
             'success': True,
             'message': 'Промокод успішно оновлено',
@@ -627,13 +627,13 @@ def admin_promo_group_get_form(request, pk):
     """
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
-    
+
     if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
         return JsonResponse({'success': False, 'error': 'Тільки AJAX запити'}, status=400)
-    
+
     group = get_object_or_404(PromoCodeGroup, pk=pk)
     promocodes = PromoCode.objects.filter(group=group).order_by('-created_at')
-    
+
     return JsonResponse({
         'success': True,
         'group': {
@@ -662,19 +662,19 @@ def admin_promo_group_edit_ajax(request, pk):
     """
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
-    
+
     if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
         return JsonResponse({'success': False, 'error': 'Тільки AJAX запити'}, status=400)
-    
+
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Тільки POST запити'}, status=405)
-    
+
     group = get_object_or_404(PromoCodeGroup, pk=pk)
     form = PromoCodeGroupForm(request.POST, instance=group)
-    
+
     if form.is_valid():
         updated_group = form.save()
-        
+
         return JsonResponse({
             'success': True,
             'message': 'Групу успішно оновлено',
@@ -697,19 +697,19 @@ def admin_promo_export(request):
     """
     if not request.user.is_staff:
         return JsonResponse({'error': 'Доступ заборонено'}, status=403)
-    
+
     import csv
     from django.http import HttpResponse
     from datetime import datetime, timedelta
-    
+
     export_format = request.GET.get('format', 'csv')
     period = request.GET.get('period', 'all')
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
-    
+
     # Визначити діапазон дат
     queryset = PromoCode.objects.all()
-    
+
     if period == 'today':
         today = datetime.now().date()
         queryset = queryset.filter(created_at__date=today)
@@ -721,18 +721,18 @@ def admin_promo_export(request):
         queryset = queryset.filter(created_at__gte=month_ago)
     elif period == 'custom' and date_from and date_to:
         queryset = queryset.filter(created_at__date__range=[date_from, date_to])
-    
+
     # CSV експорт
     if export_format == 'csv':
         response = HttpResponse(content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = f'attachment; filename="promo_stats_{datetime.now().strftime("%Y%m%d")}.csv"'
-        
+
         # Додати BOM для правильного відображення UTF-8 в Excel
         response.write('\ufeff')
-        
+
         writer = csv.writer(response)
         writer.writerow(['Код', 'Тип', 'Знижка', 'Група', 'Використань', 'Макс. використань', 'Активний', 'Створено'])
-        
+
         for promo in queryset.iterator():
             writer.writerow([
                 promo.code,
@@ -744,32 +744,32 @@ def admin_promo_export(request):
                 'Так' if promo.is_active else 'Ні',
                 promo.created_at.strftime('%d.%m.%Y %H:%M'),
             ])
-        
+
         return response
-    
+
     # Excel експорт (потребує openpyxl)
     elif export_format == 'excel':
         try:
             from openpyxl import Workbook
             from openpyxl.styles import Font, PatternFill, Alignment
-            
+
             wb = Workbook()
             ws = wb.active
             ws.title = "Промокоди"
-            
+
             # Заголовки
             headers = ['Код', 'Тип', 'Знижка', 'Група', 'Використань', 'Макс. використань', 'Активний', 'Створено']
             ws.append(headers)
-            
+
             # Стилізація заголовків
             header_fill = PatternFill(start_color="667eea", end_color="667eea", fill_type="solid")
             header_font = Font(bold=True, color="FFFFFF")
-            
+
             for cell in ws[1]:
                 cell.fill = header_fill
                 cell.font = header_font
                 cell.alignment = Alignment(horizontal='center')
-            
+
             # Дані
             for promo in queryset.iterator():
                 ws.append([
@@ -782,7 +782,7 @@ def admin_promo_export(request):
                     'Так' if promo.is_active else 'Ні',
                     promo.created_at.strftime('%d.%m.%Y %H:%M'),
                 ])
-            
+
             # Автоширина колонок
             for column in ws.columns:
                 max_length = 0
@@ -791,38 +791,37 @@ def admin_promo_export(request):
                     try:
                         if len(str(cell.value)) > max_length:
                             max_length = len(cell.value)
-                    except:
+                    except Exception:
                         pass
                 adjusted_width = min(max_length + 2, 50)
                 ws.column_dimensions[column_letter].width = adjusted_width
-            
+
             response = HttpResponse(
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             )
             response['Content-Disposition'] = f'attachment; filename="promo_stats_{datetime.now().strftime("%Y%m%d")}.xlsx"'
-            
+
             wb.save(response)
             return response
-            
+
         except ImportError:
             return HttpResponse("Excel export requires 'openpyxl' library. Please install it.", status=500)
-    
+
     # PDF експорт (потребує reportlab)
     elif export_format == 'pdf':
         try:
             from reportlab.lib import colors
-            from reportlab.lib.pagesizes import letter, A4
-            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
-            from reportlab.lib.styles import getSampleStyleSheet
+            from reportlab.lib.pagesizes import A4
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
             from io import BytesIO
-            
+
             buffer = BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=A4)
             elements = []
-            
+
             # Дані для таблиці
             data = [['Код', 'Тип', 'Знижка', 'Група', 'Використань', 'Активний']]
-            
+
             for promo in queryset[:50]:  # Обмежуємо до 50 для PDF
                 data.append([
                     promo.code,
@@ -832,7 +831,7 @@ def admin_promo_export(request):
                     f"{promo.current_uses}/{promo.max_uses if promo.max_uses > 0 else '∞'}",
                     'Так' if promo.is_active else 'Ні',
                 ])
-            
+
             table = Table(data)
             table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
@@ -844,22 +843,22 @@ def admin_promo_export(request):
                 ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
-            
+
             elements.append(table)
             doc.build(elements)
-            
+
             pdf = buffer.getvalue()
             buffer.close()
-            
+
             response = HttpResponse(content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="promo_stats_{datetime.now().strftime("%Y%m%d")}.pdf"'
             response.write(pdf)
-            
+
             return response
-            
+
         except ImportError:
             return HttpResponse("PDF export requires 'reportlab' library. Please install it.", status=500)
-    
+
     return HttpResponse("Invalid format", status=400)
 
 
@@ -871,25 +870,25 @@ def admin_promocode_change_group(request, pk):
     """
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
-    
+
     if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
         return JsonResponse({'success': False, 'error': 'Тільки AJAX запити'}, status=400)
-    
+
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Тільки POST запити'}, status=405)
-    
+
     promocode = get_object_or_404(PromoCode, pk=pk)
-    
+
     try:
         import json
         data = json.loads(request.body)
         group_id = data.get('group_id')
-        
+
         if group_id:
             group = get_object_or_404(PromoCodeGroup, pk=group_id)
             promocode.group = group
             promocode.save()
-            
+
             return JsonResponse({
                 'success': True,
                 'message': f'Промокод переміщено до групи "{group.name}"',
@@ -900,14 +899,14 @@ def admin_promocode_change_group(request, pk):
             # Прибрати з групи
             promocode.group = None
             promocode.save()
-            
+
             return JsonResponse({
                 'success': True,
                 'message': 'Промокод прибрано з групи',
                 'group_id': None,
                 'group_name': None
             })
-            
+
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Невірний JSON'}, status=400)
     except Exception as e:

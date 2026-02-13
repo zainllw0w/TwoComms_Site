@@ -6,7 +6,6 @@ from storefront.services.catalog import ensure_color_identity
 
 from .models import (
     Product,
-    ProductImage,
     Category,
     PrintProposal,
     Catalog,
@@ -16,10 +15,14 @@ from .models import (
 )
 
 # ✅ Виджет с поддержкой множественной загрузки
+
+
 class MultiFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
 # ✅ Поле, умеющее принимать список файлов (или пусто) без ошибки "No file was submitted"
+
+
 class MultiFileField(forms.FileField):
     def clean(self, data, initial=None):
         # Пустое значение — это ок для required=False
@@ -39,6 +42,7 @@ class MultiFileField(forms.FileField):
             return cleaned
         # Одиночный файл (на случай, если браузер не поддерживает multiple)
         return super().clean(data, initial)
+
 
 class ProductForm(forms.ModelForm):
     # множественный аплоад: безопасно обрабатываем список файлов
@@ -109,7 +113,7 @@ class ProductForm(forms.ModelForm):
         data = super().clean()
         # Главное изображение необязательно - оно может быть взято из цветовых вариантов
         # или добавлено позже через редактирование товара
-        
+
         # Валидация цены
         price = data.get('price')
         if price is not None:
@@ -121,7 +125,7 @@ class ProductForm(forms.ModelForm):
                     self.add_error('price', "Ціна не може перевищувати 999,999.99 грн")
             except (ValueError, TypeError):
                 self.add_error('price', "Невірний формат ціни")
-        
+
         # Обработка points_reward
         points_reward = data.get('points_reward')
         if points_reward is not None:
@@ -134,7 +138,7 @@ class ProductForm(forms.ModelForm):
                 data['points_reward'] = points_reward
             except (ValueError, TypeError):
                 data['points_reward'] = 0
-        
+
         # Обработка discount_percent
         discount_percent = data.get('discount_percent')
         if discount_percent is not None:
@@ -184,7 +188,7 @@ class ProductForm(forms.ModelForm):
                     data[field_name] = numeric_value
             except (ValueError, TypeError):
                 self.add_error(field_name, "Невірний формат ціни")
-        
+
         return data
 
     def save(self, commit=True):
@@ -433,7 +437,7 @@ class CategoryForm(forms.ModelForm):
     class Meta:
         model = Category
         fields = ["name", "slug", "icon", "cover", "order", "description"]
-    
+
     def clean_slug(self):
         slug = self.cleaned_data.get('slug')
         if slug:
@@ -448,7 +452,7 @@ class CategoryForm(forms.ModelForm):
                 # Если возникает ошибка кодировки, пропускаем проверку
                 pass
         return slug
-    
+
     def save(self, commit=True):
         instance = super().save(commit=False)
         # По умолчанию категория всегда активна и без рекомендации

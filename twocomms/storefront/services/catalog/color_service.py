@@ -163,4 +163,3 @@ def ensure_color_identity(
         updated=updated,
         merged_ids=merged_ids,
     )
-

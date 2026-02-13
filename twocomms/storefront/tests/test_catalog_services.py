@@ -190,4 +190,3 @@ class MediaServiceTests(CatalogServiceTestCase):
             self.assertEqual(len(images), 1)
             self.assertEqual(images[0].order, 0)
             self.assertEqual(images[0].alt_text, "Primary(updated)")
-

@@ -6,6 +6,7 @@ from django.http import HttpResponsePermanentRedirect, HttpResponse
 from django.conf import settings
 from django.utils.deprecation import MiddlewareMixin
 from django.core.cache import cache
+from django.contrib.redirects.middleware import RedirectFallbackMiddleware
 import time
 
 
@@ -13,20 +14,20 @@ class ForceHTTPSMiddleware(MiddlewareMixin):
     """
     Middleware для принудительного редиректа на HTTPS
     """
-    
+
     def process_request(self, request):
         # Проверяем, что мы не в режиме отладки
         if settings.DEBUG:
             return None
-            
+
         # Проверяем, что запрос идет по HTTP
         if not request.is_secure():
             # Создаем HTTPS URL
             https_url = request.build_absolute_uri().replace('http://', 'https://', 1)
-            
+
             # Выполняем постоянный редирект (301)
             return HttpResponsePermanentRedirect(https_url)
-        
+
         return None
 
 
@@ -34,20 +35,20 @@ class WWWRedirectMiddleware(MiddlewareMixin):
     """
     Middleware для редиректа с www на основной домен
     """
-    
+
     def process_request(self, request):
         # Проверяем, что мы не в режиме отладки
         if settings.DEBUG:
             return None
-            
+
         # Проверяем, что запрос идет с www
         if request.get_host().startswith('www.'):
             # Создаем URL без www
             non_www_url = request.build_absolute_uri().replace('://www.', '://', 1)
-            
+
             # Выполняем постоянный редирект (301)
             return HttpResponsePermanentRedirect(non_www_url)
-        
+
         return None
 
 
@@ -56,6 +57,7 @@ class SubdomainURLRoutingMiddleware(MiddlewareMixin):
     Middleware для маршрутизации поддоменов.
     Если запрос приходит на main.domain.com, переключаем urlconf на специальный конфиг.
     """
+
     def process_request(self, request):
         host = request.get_host().split(":")[0].lower()
 
@@ -63,19 +65,31 @@ class SubdomainURLRoutingMiddleware(MiddlewareMixin):
         if host.startswith('dtf.'):
             request.urlconf = 'twocomms.urls_dtf'
             return None
-        
+
         # Если это management поддомен
         if host.startswith('management.'):
             request.urlconf = 'twocomms.urls_management'
             return None
 
-        # Если это dtf поддомен
-        if host.startswith('dtf.'):
-            request.urlconf = 'twocomms.urls_dtf'
-            return None
-            
         # Продолжаем обычную обработку
         return None
+
+
+class SubdomainRedirectFallbackMiddleware(RedirectFallbackMiddleware):
+    """
+    RedirectFallbackMiddleware only for non-DTF hosts.
+
+    DTF pages should not hit django_redirect lookups for each 404 path probe.
+    """
+
+    def process_response(self, request, response):
+        try:
+            host = request.get_host().split(":")[0].lower()
+        except Exception:
+            host = ""
+        if host.startswith("dtf."):
+            return response
+        return super().process_response(request, response)
 
 
 class SecurityHeadersMiddleware(MiddlewareMixin):
@@ -104,36 +118,36 @@ class SimpleRateLimitMiddleware(MiddlewareMixin):
     Simple rate limiting middleware to prevent abuse.
     Limits requests per IP address.
     """
-    
+
     def process_request(self, request):
         # Skip rate limiting in DEBUG mode
         if settings.DEBUG:
             return None
-            
+
         # Skip static and media files (double check, though WhiteNoise handles them first now)
         path = request.path
         if path.startswith(settings.STATIC_URL) or path.startswith(settings.MEDIA_URL):
             return None
-        
+
         # Get client IP
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
             ip = x_forwarded_for.split(',')[0].strip()
         else:
             ip = request.META.get('REMOTE_ADDR', '')
-        
+
         # Skip if no IP
         if not ip:
             return None
-        
+
         # Rate limit: 100 requests per minute per IP
         cache_key = f'ratelimit:ip:{ip}'
         current_time = int(time.time())
         window_key = f'{cache_key}:{current_time // 60}'  # 1-minute window
-        
+
         try:
             request_count = cache.get(window_key, 0)
-            
+
             # Check if limit exceeded
             if request_count >= 100:
                 response = HttpResponse(
@@ -142,12 +156,12 @@ class SimpleRateLimitMiddleware(MiddlewareMixin):
                 )
                 response['Retry-After'] = '60'
                 return response
-            
+
             # Increment counter
             cache.set(window_key, request_count + 1, 120)  # Store for 2 minutes
-            
+
         except Exception:
             # If cache fails, allow the request
             pass
-        
+
         return None

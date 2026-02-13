@@ -8,4 +8,3 @@ if os.environ.get("MYSQL_USE_PYMYSQL") == "1":
         pymysql.install_as_MySQLdb()
     except Exception:
         pass
-

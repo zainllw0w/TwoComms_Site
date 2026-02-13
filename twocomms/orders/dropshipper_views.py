@@ -72,7 +72,7 @@ def _enrich_product(product, dropshipper=None):
     product.recommended_price_info = recommended
     product.recommended_base_price = int(base_price)
     product.drop_price_value = int(drop_price)
-    
+
     # Добавляем информацию о скидке лояльности для дропшипера
     if dropshipper:
         try:
@@ -82,7 +82,7 @@ def _enrich_product(product, dropshipper=None):
             product.drop_price_with_loyalty = max(int(drop_price) - product.loyalty_discount, 0)
             # Маржа с учетом скидки лояльности
             product.dropship_margin = max(int(base_price) - product.drop_price_with_loyalty, 0)
-        except:
+        except Exception:
             product.loyalty_discount = 0
             product.drop_price_with_loyalty = int(drop_price)
             product.dropship_margin = max(int(base_price) - int(drop_price), 0)
@@ -128,10 +128,10 @@ def _build_products_context(request, *, per_page=None):
         # Передаем None для анонимных пользователей
         dropshipper = request.user if request.user.is_authenticated else None
         enriched = [_enrich_product(product, dropshipper) for product in all_products]
-        
+
         categories = _get_dropship_categories()
         inactive_categories = [category for category in categories if category['disabled']]
-        
+
         return {
             'products': enriched,
             'total_count': len(enriched),
@@ -140,7 +140,7 @@ def _build_products_context(request, *, per_page=None):
             'search_query': search_query,
             'inactive_categories': inactive_categories,
         }
-    
+
     # Старый код с пагинацией (для совместимости)
     paginator = Paginator(products_qs, per_page)
     page_number = request.GET.get('page')
@@ -170,18 +170,18 @@ def dropshipper_dashboard(request):
         return render(request, 'pages/dropshipper_dashboard.html', {
             'is_locked': True  # Флаг для шаблона
         })
-    
+
     # Получаем или создаем статистику дропшипера
     stats, created = DropshipperStats.objects.get_or_create(dropshipper=request.user)
     if not created:
         stats.update_stats()
-    
+
     # Получаем последние заказы
     recent_orders = DropshipperOrder.objects.filter(dropshipper=request.user).order_by('-created_at')[:5]
-    
+
     # Получаем общее количество заказов
     total_orders_count = DropshipperOrder.objects.filter(dropshipper=request.user).count()
-    
+
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
 
     products_preview = [
@@ -192,23 +192,23 @@ def dropshipper_dashboard(request):
     categories_info = _get_dropship_categories()
     active_categories_count = sum(1 for category in categories_info if not category['disabled'])
     inactive_categories = [category for category in categories_info if category['disabled']]
-    
+
     # Статистика по выплатам
     from datetime import datetime
     from django.db.models import Sum
     from decimal import Decimal
-    
+
     # Получаем все выплаты для отладки
     all_payouts = DropshipperPayout.objects.filter(dropshipper=request.user)
     monobank_logger.info(f"📊 Total payouts for {request.user.username}: {all_payouts.count()}")
     for payout in all_payouts:
         monobank_logger.info(f"  - Payout #{payout.payout_number}: {payout.amount} грн, status={payout.status}, completed_at={payout.completed_at}, requested_at={payout.requested_at}")
-    
+
     pending_payouts_sum = DropshipperPayout.objects.filter(
         dropshipper=request.user,
         status='pending'
     ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
-    
+
     current_month = datetime.now().month
     current_year = datetime.now().year
     completed_payouts_sum = DropshipperPayout.objects.filter(
@@ -217,7 +217,7 @@ def dropshipper_dashboard(request):
         completed_at__month=current_month,
         completed_at__year=current_year
     ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
-    
+
     # Логирование для отладки
     monobank_logger.info(f"📊 Payout stats for {request.user.username}: pending={pending_payouts_sum}, completed={completed_payouts_sum} (month={current_month}, year={current_year})")
     monobank_logger.info(f"💰 Stats for {request.user.username}: total_profit={stats.total_profit}, total_revenue={stats.total_revenue}, total_drop_cost={stats.total_drop_cost}")
@@ -236,29 +236,29 @@ def dropshipper_dashboard(request):
         'pending_payouts_sum': pending_payouts_sum,
         'completed_payouts_sum': completed_payouts_sum,
     }
-    
+
     return render(request, 'pages/dropshipper_dashboard.html', context)
 
 
 def dropshipper_products(request):
     """Страница с товарами для дропшиперов - показываем все товары без пагинации (доступна всем)"""
     products_context = _build_products_context(request, per_page=None)  # per_page=None показывает все товары
-    
+
     context = {
         **products_context,
     }
-    
+
     # Добавляем дополнительный контекст только для зарегистрированных
     if request.user.is_authenticated:
         context.update({
-        'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
-        'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
+            'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
+            'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
         })
 
     template_name = 'pages/dropshipper_products.html'
     if request.GET.get('partial'):
         template_name = 'partials/dropshipper_products_panel.html'
-    
+
     return render(request, template_name, context)
 
 
@@ -266,7 +266,7 @@ def dropshipper_products(request):
 def dropshipper_orders(request):
     """Страница с заказами дропшипера"""
     status_filter = request.GET.get('status', '')
-    
+
     # Базовый queryset - сортировка от новых к старым (новые сверху)
     orders = DropshipperOrder.objects.filter(dropshipper=request.user).prefetch_related(
         'items__product',
@@ -275,28 +275,28 @@ def dropshipper_orders(request):
     print(f"=== ОТЛАДКА ЗАКАЗОВ ===")
     print(f"Пользователь: {request.user.username} (ID: {request.user.id})")
     print(f"Всего заказов в БД: {orders.count()}")
-    
+
     # Выводим все заказы для отладки
     for order in orders:
         print(f"Заказ {order.id}: {order.order_number}, статус: {order.status}, клиент: {order.client_name}")
-    
+
     # Фильтрация по статусу
     if status_filter:
         orders = orders.filter(status=status_filter)
         print(f"После фильтрации по статусу '{status_filter}': {orders.count()} заказов")
-    
+
     # Пагинация
     paginator = Paginator(orders, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
+
     print(f"Пагинация: страница {page_number}, всего страниц: {paginator.num_pages}, заказов на странице: {len(page_obj)}")
     print(f"page_obj.object_list содержит: {len(page_obj.object_list)} заказов")
-    
+
     # Проверяем каждый заказ в page_obj
     for i, order in enumerate(page_obj.object_list):
         print(f"page_obj[{i}]: {order.order_number} (статус: {order.status})")
-    
+
     context = {
         'page_obj': page_obj,
         'status_choices': DropshipperOrder.STATUS_CHOICES,
@@ -304,7 +304,7 @@ def dropshipper_orders(request):
         'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
         'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
     }
-    
+
     print(f"Контекст: page_obj содержит {len(page_obj)} заказов")
     print(f"page_obj.has_other_pages: {page_obj.has_other_pages()}")
     print(f"page_obj.number: {page_obj.number}")
@@ -314,7 +314,7 @@ def dropshipper_orders(request):
     template_name = 'pages/dropshipper_orders.html'
     if request.GET.get('partial'):
         template_name = 'partials/dropshipper_orders_panel.html'
-    
+
     return render(request, template_name, context)
 
 
@@ -325,7 +325,7 @@ def dropshipper_statistics(request):
     stats, created = DropshipperStats.objects.get_or_create(dropshipper=request.user)
     if not created:
         stats.update_stats()
-    
+
     # Получаем статистику по месяцам
     monthly_stats = DropshipperOrder.objects.filter(
         dropshipper=request.user,
@@ -337,7 +337,7 @@ def dropshipper_statistics(request):
         total_revenue=Sum('total_selling_price'),
         total_profit=Sum('profit')
     ).order_by('month')
-    
+
     # Получаем топ товаров
     top_products = DropshipperOrderItem.objects.filter(
         order__dropshipper=request.user,
@@ -346,7 +346,7 @@ def dropshipper_statistics(request):
         total_sold=Sum('quantity'),
         total_revenue=Sum('total_selling_price')
     ).order_by('-total_sold')[:10]
-    
+
     average_order_value = Decimal('0')
     if stats.completed_orders:
         average_order_value = (stats.total_revenue / stats.completed_orders).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
@@ -368,7 +368,7 @@ def dropshipper_statistics(request):
     template_name = 'pages/dropshipper_statistics.html'
     if request.GET.get('partial'):
         template_name = 'partials/dropshipper_statistics_panel.html'
-    
+
     return render(request, template_name, context)
 
 
@@ -380,16 +380,16 @@ def dropshipper_payouts(request):
         dropshipper=request.user,
         status__in=['pending', 'processing', 'completed']
     ).prefetch_related('included_orders').order_by('-requested_at')
-    
+
     # Пагинация
     paginator = Paginator(payouts, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
+
     # Получаем доступную сумму для выплаты из DropshipperStats
     stats, created = DropshipperStats.objects.get_or_create(dropshipper=request.user)
     available_amount = stats.available_for_payout
-    
+
     context = {
         'page_obj': page_obj,
         'available_amount': available_amount,
@@ -402,7 +402,7 @@ def dropshipper_payouts(request):
     template_name = 'pages/dropshipper_payouts.html'
     if request.GET.get('partial'):
         template_name = 'partials/dropshipper_payouts_panel.html'
-    
+
     return render(request, template_name, context)
 
 
@@ -491,7 +491,7 @@ def add_to_cart(request):
         size = data.get('size', '')
         quantity = int(data.get('quantity', 1))
         selling_price = data.get('selling_price')
-        
+
         # Данные клиента
         client_name = data.get('client_name', '').strip()
         client_phone = data.get('client_phone', '').strip()
@@ -500,32 +500,32 @@ def add_to_cart(request):
         order_source = data.get('order_source', '').strip()
         notes = data.get('notes', '').strip()
         payment_method = data.get('payment_method', 'cod')  # Способ оплаты
-        
+
         if not product_id:
             return JsonResponse({
                 'success': False,
                 'message': 'ID товара обязателен'
             })
-        
+
         # Проверяем обязательные поля клиента
         if not all([client_name, client_phone, client_city, client_np_office]):
             return JsonResponse({
                 'success': False,
                 'message': 'Заповніть всі обов\'язкові поля клієнта'
             })
-        
+
         product = get_object_or_404(Product, id=product_id)
         color_variant = None
-        
+
         if color_variant_id:
             color_variant = get_object_or_404(ProductColorVariant, id=color_variant_id)
-        
+
         # Получаем актуальную цену дропа
         actual_drop_price = product.get_drop_price(request.user)
-        
+
         # Формируем адрес доставки
         client_np_address = f"{client_city}, {client_np_office}"
-        
+
         # Создаем заказ сразу (новая логика - не используем корзину)
         with transaction.atomic():
             order = DropshipperOrder.objects.create(
@@ -538,7 +538,7 @@ def add_to_cart(request):
                 payment_method=payment_method,
                 status='pending'
             )
-            
+
             # Добавляем товар в заказ
             order_item = DropshipperOrderItem.objects.create(
                 order=order,
@@ -550,17 +550,17 @@ def add_to_cart(request):
                 selling_price=selling_price or product.recommended_price,
                 recommended_price=product.recommended_price
             )
-            
+
             # Обновляем итоговые суммы
             order.total_drop_price = order_item.total_drop_price
             order.total_selling_price = order_item.total_selling_price
             order.profit = order.total_selling_price - order.total_drop_price
-            
+
             # Рассчитываем платеж дропшипера в зависимости от способа оплаты
             order.calculate_dropshipper_payment()
-            
+
             order.save()
-            
+
             # Отправляем уведомление в Telegram админу
             try:
                 from .telegram_notifications import telegram_notifier
@@ -569,7 +569,7 @@ def add_to_cart(request):
             except Exception as e:
                 # Не прерываем создание заказа если Telegram не работает
                 print(f"⚠️ Ошибка отправки Telegram уведомления: {e}")
-        
+
         # Проверяем требуется ли оплата
         requires_payment = order.payment_method in ['prepaid', 'cod']
         payment_amount = None
@@ -577,7 +577,7 @@ def add_to_cart(request):
             payment_amount = float(order.total_drop_price)
         elif order.payment_method == 'cod':
             payment_amount = 200.00
-        
+
         return JsonResponse({
             'success': True,
             'message': 'Замовлення створено!',
@@ -587,7 +587,7 @@ def add_to_cart(request):
             'payment_amount': payment_amount,
             'payment_method': order.payment_method
         })
-        
+
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -616,23 +616,23 @@ def remove_from_cart(request):
         product_id = data.get('product_id')
         color_variant_id = data.get('color_variant_id')
         size = data.get('size', '')
-        
+
         cart = request.session.get('dropshipper_cart', [])
         cart = [item for item in cart if not (
-            item.get('product_id') == product_id and 
-            item.get('color_variant_id') == color_variant_id and 
+            item.get('product_id') == product_id and
+            item.get('color_variant_id') == color_variant_id and
             item.get('size') == size
         )]
-        
+
         request.session['dropshipper_cart'] = cart
         request.session.modified = True
-        
+
         return JsonResponse({
             'success': True,
             'message': 'Товар видалено з корзини',
             'cart_count': len(cart)
         })
-        
+
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -646,7 +646,7 @@ def clear_cart(request):
     """Очистка корзины"""
     request.session['dropshipper_cart'] = []
     request.session.modified = True
-    
+
     return JsonResponse({
         'success': True,
         'message': 'Корзина очищена'
@@ -660,20 +660,20 @@ def create_dropshipper_order(request):
     try:
         data = json.loads(request.body)
         print(f"Создаем заказ для пользователя {request.user.id}: {data}")
-        
+
         # Получаем корзину из сессии
         cart = request.session.get('dropshipper_cart', [])
-        
+
         if not cart:
             return JsonResponse({
                 'success': False,
                 'message': 'Корзина пуста. Добавьте товары перед созданием заказа.'
             })
-        
+
         with transaction.atomic():
             # Получаем способ оплаты
             payment_method = data.get('payment_method', 'cod')  # По умолчанию - наложенный платеж
-            
+
             # Создаем заказ
             order = DropshipperOrder.objects.create(
                 dropshipper=request.user,
@@ -685,18 +685,18 @@ def create_dropshipper_order(request):
                 payment_method=payment_method,
                 status='pending'  # Изменяем статус на pending для отображения
             )
-            
+
             # Добавляем товары из корзины
             total_drop_price = 0
             total_selling_price = 0
-            
+
             for item_data in cart:
                 product = get_object_or_404(Product, id=item_data['product_id'])
                 color_variant = None
-                
+
                 if item_data.get('color_variant_id'):
                     color_variant = get_object_or_404(ProductColorVariant, id=item_data['color_variant_id'])
-                
+
                 order_item = DropshipperOrderItem.objects.create(
                     order=order,
                     product=product,
@@ -707,22 +707,22 @@ def create_dropshipper_order(request):
                     selling_price=item_data.get('selling_price', 0),
                     recommended_price=product.recommended_price
                 )
-                
+
                 print(f"Создан элемент заказа: {order_item.product.title}, количество: {order_item.quantity}, цена дропа: {order_item.drop_price}, цена продажи: {order_item.selling_price}")
-                
+
                 total_drop_price += order_item.total_drop_price
                 total_selling_price += order_item.total_selling_price
-            
+
             # Обновляем итоговые суммы заказа
             order.total_drop_price = total_drop_price
             order.total_selling_price = total_selling_price
             order.profit = total_selling_price - total_drop_price
-            
+
             # Рассчитываем сумму, которую должен оплатить дропшипер
             order.calculate_dropshipper_payment()
-            
+
             order.save()
-            
+
             # Отправляем уведомление в Telegram админу
             try:
                 from .telegram_notifications import telegram_notifier
@@ -731,7 +731,7 @@ def create_dropshipper_order(request):
             except Exception as e:
                 # Не прерываем создание заказа если Telegram не работает
                 print(f"Ошибка отправки Telegram уведомления админу: {e}")
-            
+
             # Отправляем уведомление дропшиперу
             try:
                 from .telegram_notifications import telegram_notifier
@@ -740,20 +740,20 @@ def create_dropshipper_order(request):
             except Exception as e:
                 # Не прерываем создание заказа если Telegram не работает
                 print(f"⚠️ Ошибка отправки Telegram уведомления дропшиперу: {e}")
-            
+
             # Очищаем корзину после создания заказа
             request.session['dropshipper_cart'] = []
             request.session.modified = True
-            
+
             print(f"Заказ создан: ID={order.id}, номер={order.order_number}")
-            
+
             return JsonResponse({
                 'success': True,
                 'order_id': order.id,
                 'order_number': order.order_number,
                 'message': 'Замовлення успішно створено!'
             })
-            
+
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -766,19 +766,19 @@ def create_dropshipper_order(request):
 def update_order_status(request, order_id):
     """Обновление статуса заказа"""
     order = get_object_or_404(DropshipperOrder, id=order_id, dropshipper=request.user)
-    
+
     try:
         data = json.loads(request.body)
         new_status = data.get('status')
-        
+
         if new_status in [choice[0] for choice in DropshipperOrder.STATUS_CHOICES]:
             order.status = new_status
             order.save()
-            
+
             # Обновляем статистику
             stats, created = DropshipperStats.objects.get_or_create(dropshipper=request.user)
             stats.update_stats()
-            
+
             return JsonResponse({
                 'success': True,
                 'message': 'Статус замовлення оновлено!'
@@ -788,7 +788,7 @@ def update_order_status(request, order_id):
                 'success': False,
                 'message': 'Невірний статус!'
             })
-            
+
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -799,18 +799,16 @@ def update_order_status(request, order_id):
 # Удалено старая версия request_payout (дублировалась)
 
 
-
-
 @login_required
 @require_http_methods(["GET"])
 def get_product_details(request, product_id):
     """Получение детальной информации о товаре для модального окна"""
     try:
         product = get_object_or_404(Product, id=product_id)
-        
+
         # Получаем актуальную цену дропа
         drop_price = product.get_drop_price(request.user)
-        
+
         # Получаем информацию о лояльности дропшипера
         loyalty_discount = 0
         drop_price_with_loyalty = float(drop_price)
@@ -818,9 +816,9 @@ def get_product_details(request, product_id):
             stats, _ = DropshipperStats.objects.get_or_create(dropshipper=request.user)
             loyalty_discount = float(stats.loyalty_discount) if stats.loyalty_discount else 0
             drop_price_with_loyalty = max(float(drop_price) - loyalty_discount, 0)
-        except:
+        except Exception:
             pass
-        
+
         # Получаем рекомендованную цену (как на сайте)
         recommended = product.get_recommended_price()
         recommended_price = recommended.get('base', product.price)
@@ -828,7 +826,7 @@ def get_product_details(request, product_id):
             'min': recommended.get('min', int(recommended_price * 0.9)),
             'max': recommended.get('max', int(recommended_price * 1.1))
         }
-        
+
         # Получаем варианты цветов
         color_variants = []
         for variant in product.color_variants.all():
@@ -839,7 +837,7 @@ def get_product_details(request, product_id):
                 'color_code': variant.color.primary_hex,
                 'secondary_color_code': variant.color.secondary_hex if variant.color.secondary_hex else None
             })
-        
+
         # Получаем основное изображение товара
         main_image_url = None
         if product.main_image:
@@ -849,7 +847,7 @@ def get_product_details(request, product_id):
             first_variant = product.color_variants.first()
             if first_variant and hasattr(first_variant, 'images') and first_variant.images.exists():
                 main_image_url = first_variant.images.first().image.url
-        
+
         # Формируем ответ
         product_data = {
             'id': product.id,
@@ -867,12 +865,12 @@ def get_product_details(request, product_id):
                 'name': product.category.name
             }
         }
-        
+
         return JsonResponse({
             'success': True,
             'product': product_data
         })
-        
+
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -889,7 +887,6 @@ def get_product_details(request, product_id):
 
 class MonobankAPIError(Exception):
     """Ошибка API Monobank"""
-    pass
 
 
 def _monobank_api_request(method, endpoint, json_payload=None):
@@ -897,26 +894,26 @@ def _monobank_api_request(method, endpoint, json_payload=None):
     token = getattr(settings, 'MONOBANK_TOKEN', None)
     if not token:
         raise MonobankAPIError('Monobank API token не налаштований')
-    
+
     base_url = getattr(settings, 'MONOBANK_API_BASE', 'https://api.monobank.ua').rstrip('/')
     url = f"{base_url}{endpoint}"
-    
+
     headers = {
         'X-Token': token,
         'Content-Type': 'application/json'
     }
-    
+
     monobank_logger.info(f'Monobank API request: {method} {endpoint}, payload: {json_payload}')
-    
+
     try:
         if method == 'POST':
             response = requests.post(url, json=json_payload, headers=headers, timeout=30)
         else:
             response = requests.get(url, headers=headers, timeout=30)
-        
+
         data = response.json()
         monobank_logger.info(f'Monobank API response: status={response.status_code}, data={data}')
-        
+
         response.raise_for_status()
         return data
     except requests.exceptions.RequestException as e:
@@ -931,23 +928,23 @@ def create_dropshipper_monobank_payment(request):
     try:
         data = json.loads(request.body)
         order_id = data.get('order_id')
-        
+
         if not order_id:
             return JsonResponse({
                 'success': False,
                 'error': 'ID замовлення не вказано'
             })
-        
+
         # Получаем заказ
         order = get_object_or_404(DropshipperOrder, id=order_id, dropshipper=request.user)
-        
+
         # Проверяем что заказ требует оплаты
         if order.payment_method == 'delegation':
             return JsonResponse({
                 'success': False,
                 'error': 'Це замовлення не потребує оплати (повне делегування)'
             })
-        
+
         # Определяем сумму к оплате и тип платежа
         if order.payment_method == 'prepaid':
             amount = order.total_drop_price
@@ -962,11 +959,11 @@ def create_dropshipper_monobank_payment(request):
                 'success': False,
                 'error': 'Невідомий спосіб оплати'
             })
-        
+
         # Формируем корзину товаров для Monobank (с фото, размерами и правильными суммами)
         basket_entries = []
         items_qs = list(order.items.select_related('product', 'color_variant__color').all())
-        
+
         for item in items_qs:
             # Формируем название: Товар • розмір X • колір
             name_parts = [item.product.title]
@@ -975,7 +972,7 @@ def create_dropshipper_monobank_payment(request):
             if item.color_variant and item.color_variant.color:
                 name_parts.append(item.color_variant.color.name)
             display_name = ' • '.join(filter(None, name_parts))[:128]
-            
+
             # Получаем фото товара
             icon_url = ''
             try:
@@ -991,7 +988,7 @@ def create_dropshipper_monobank_payment(request):
             except Exception as e:
                 monobank_logger.warning(f'Failed to get image for item {item.id}: {e}')
                 icon_url = ''
-            
+
             # Для предоплаты показываем фиксированную сумму 200 грн
             # Для полной оплаты показываем реальную стоимость дропа
             if order.payment_method == 'cod':
@@ -1004,24 +1001,24 @@ def create_dropshipper_monobank_payment(request):
                 item_sum = int(item.drop_price * item.quantity * 100)
                 item_qty = item.quantity
                 item_name = display_name
-            
+
             basket_entries.append({
                 'name': item_name,
                 'qty': item_qty,
                 'sum': item_sum,
                 'icon': icon_url
             })
-            
+
             # Для предоплаты достаточно одного товара
             if order.payment_method == 'cod':
                 break
-        
+
         if not basket_entries:
             return JsonResponse({
                 'success': False,
                 'error': 'Замовлення не містить товарів'
             })
-        
+
         # Формируем payload для Monobank Acquiring API
         payload = {
             'amount': int(amount * 100),  # сумма в копейках
@@ -1034,9 +1031,9 @@ def create_dropshipper_monobank_payment(request):
             'redirectUrl': request.build_absolute_uri('/orders/dropshipper/monobank/return/').replace('http://', 'https://', 1),
             'webHookUrl': request.build_absolute_uri('/orders/dropshipper/monobank/callback/').replace('http://', 'https://', 1),
         }
-        
+
         monobank_logger.info(f'Creating Monobank payment for dropshipper order {order.id}, payload: {payload}')
-        
+
         # Создаем платеж в Monobank
         try:
             creation_data = _monobank_api_request('POST', '/api/merchant/invoice/create', json_payload=payload)
@@ -1046,36 +1043,36 @@ def create_dropshipper_monobank_payment(request):
                 'success': False,
                 'error': str(e)
             })
-        
+
         result = creation_data.get('result') or creation_data
         invoice_id = result.get('invoiceId')
         invoice_url = result.get('pageUrl')
-        
+
         if not invoice_id or not invoice_url:
             monobank_logger.error(f'Invalid Monobank response for dropshipper order {order.id}: {creation_data}')
             return JsonResponse({
                 'success': False,
                 'error': 'Не вдалося створити платіж. Спробуйте пізніше.'
             })
-        
+
         # Сохраняем данные платежа в заказе
         order.monobank_invoice_id = invoice_id
         order.save()
-        
+
         # Сохраняем в сессию
         request.session['dropshipper_monobank_order_id'] = order.id
         request.session['dropshipper_monobank_invoice_id'] = invoice_id
         request.session.modified = True
-        
+
         monobank_logger.info(f'Monobank payment created for dropshipper order {order.id}: {invoice_id}')
-        
+
         return JsonResponse({
             'success': True,
             'page_url': invoice_url,
             'order_id': order.id,
             'invoice_id': invoice_id
         })
-        
+
     except Exception as e:
         monobank_logger.exception(f'Error creating dropshipper Monobank payment: {e}')
         return JsonResponse({
@@ -1091,28 +1088,28 @@ def dropshipper_monobank_callback(request):
     try:
         data = json.loads(request.body)
         monobank_logger.info(f'Received Monobank callback for dropshipper: {data}')
-        
+
         invoice_id = data.get('invoiceId')
         status = data.get('status')
-        
+
         if not invoice_id:
             monobank_logger.error('No invoiceId in callback')
             return JsonResponse({'success': False})
-        
+
         # Находим заказ по invoice_id
         try:
             order = DropshipperOrder.objects.get(monobank_invoice_id=invoice_id)
         except DropshipperOrder.DoesNotExist:
             monobank_logger.error(f'Order not found for invoice_id: {invoice_id}')
             return JsonResponse({'success': False})
-        
+
         # Обновляем статус оплаты
         if status == 'success':
             order.payment_status = 'paid'
             order.status = 'confirmed'  # Меняем статус на "Підтверджено"
             order.save()
             monobank_logger.info(f'Payment successful for dropshipper order {order.order_number}')
-            
+
             # Отправляем уведомление в Telegram админу об оплате
             try:
                 from .telegram_notifications import telegram_notifier
@@ -1125,9 +1122,9 @@ def dropshipper_monobank_callback(request):
             order.payment_status = 'failed'
             order.save()
             monobank_logger.warning(f'Payment failed for dropshipper order {order.order_number}')
-        
+
         return JsonResponse({'success': True})
-        
+
     except Exception as e:
         monobank_logger.exception(f'Error processing dropshipper Monobank callback: {e}')
         return JsonResponse({'success': False})
@@ -1137,31 +1134,31 @@ def dropshipper_monobank_callback(request):
 def dropshipper_monobank_return(request):
     """Обработка возврата пользователя после оплаты Monobank"""
     from django.contrib import messages
-    
+
     order_id = request.session.get('dropshipper_monobank_order_id')
     invoice_id = request.GET.get('invoiceId') or request.session.get('dropshipper_monobank_invoice_id')
-    
+
     if order_id:
         try:
             order = DropshipperOrder.objects.get(id=order_id, dropshipper=request.user)
-            
+
             # Очищаем сессию
             request.session.pop('dropshipper_monobank_order_id', None)
             request.session.pop('dropshipper_monobank_invoice_id', None)
             request.session.modified = True
-            
+
             if order.payment_status == 'paid':
                 messages.success(request, f'Оплата успішна! Замовлення {order.order_number} оплачено.')
             else:
                 messages.warning(request, f'Очікується підтвердження оплати для замовлення {order.order_number}')
-            
+
             return redirect('orders:dropshipper_orders')
-            
+
         except DropshipperOrder.DoesNotExist:
             messages.error(request, 'Замовлення не знайдено')
     else:
         messages.error(request, 'Помилка: дані про замовлення відсутні')
-    
+
     return redirect('orders:dropshipper_dashboard')
 
 
@@ -1173,42 +1170,42 @@ def admin_update_dropship_status(request, order_id):
     """Обновление статуса заказа дропшипера администратором"""
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
-    
+
     try:
         data = json.loads(request.body)
         order = get_object_or_404(DropshipperOrder, id=order_id)
-        
+
         new_status = data.get('status')
         new_payment_status = data.get('payment_status')
         tracking_number = data.get('tracking_number', '').strip()
-        
+
         if not new_status:
             return JsonResponse({'success': False, 'error': 'Статус не вказано'})
-        
+
         # Валидация статуса
         valid_statuses = [choice[0] for choice in DropshipperOrder.STATUS_CHOICES]
         if new_status not in valid_statuses:
             return JsonResponse({'success': False, 'error': 'Невірний статус'})
-        
+
         # Валидация payment_status если указан
         if new_payment_status:
             valid_payment_statuses = [choice[0] for choice in DropshipperOrder.PAYMENT_STATUS_CHOICES]
             if new_payment_status not in valid_payment_statuses:
                 return JsonResponse({'success': False, 'error': 'Невірний статус оплати'})
-        
+
         old_status = order.status
         old_payment_status = order.payment_status
-        
+
         order.status = new_status
-        
+
         # Обновляем payment_status если указан
         if new_payment_status:
             order.payment_status = new_payment_status
-        
+
         # Обновляем ТТН если предоставлен
         if tracking_number:
             order.tracking_number = tracking_number
-        
+
         # Логика изменения статуса
         # Если переводим в "Відправлено" - требуем ТТН
         if new_status == 'shipped' and not tracking_number and not order.tracking_number:
@@ -1216,9 +1213,9 @@ def admin_update_dropship_status(request, order_id):
                 'success': False,
                 'error': 'Для статусу "Відправлено" необхідно вказати ТТН'
             })
-        
+
         order.save()
-        
+
         # Обрабатываем выплату если статус изменен на "received" и выплата еще не обработана
         if new_status == 'received' and not order.payout_processed:
             try:
@@ -1226,7 +1223,7 @@ def admin_update_dropship_status(request, order_id):
                 monobank_logger.info(f"💰 Payout processing for order {order.order_number}: success={success}, message={message}")
             except Exception as e:
                 monobank_logger.error(f"⚠️ Error processing payout for order {order.order_number}: {e}")
-            
+
             # Обновляем скидку лояльности при успешном получении заказа
             try:
                 stats, _ = DropshipperStats.objects.get_or_create(dropshipper=order.dropshipper)
@@ -1234,7 +1231,7 @@ def admin_update_dropship_status(request, order_id):
                 monobank_logger.info(f"🎁 Loyalty discount updated for {order.dropshipper.username}: {new_discount} грн ({stats.successful_orders} успешных заказов)")
             except Exception as e:
                 monobank_logger.error(f"⚠️ Error updating loyalty discount: {e}")
-        
+
         # Отправляем уведомления об изменении статуса
         if old_status != new_status:
             # Уведомление дропшиперу
@@ -1244,7 +1241,7 @@ def admin_update_dropship_status(request, order_id):
                 monobank_logger.info(f"✅ Telegram уведомление дропшиперу отправлено для заказа {order.order_number}")
             except Exception as e:
                 monobank_logger.error(f"⚠️ Ошибка отправки Telegram уведомления дропшиперу: {e}")
-            
+
             # Уведомление админу об изменении статуса
             try:
                 from .telegram_notifications import telegram_notifier
@@ -1259,30 +1256,30 @@ def admin_update_dropship_status(request, order_id):
 
 <b>Клієнт:</b> {order.client_name if order.client_name else 'Не вказано'}
 <b>Телефон:</b> {order.client_phone if order.client_phone else 'Не вказано'}"""
-                
+
                 if order.tracking_number:
                     admin_message += f"\n<b>ТТН:</b> {order.tracking_number}"
-                
+
                 admin_message += f"\n\n🔗 <a href=\"https://twocomms.shop/admin-panel/?section=collaboration\">Переглянути в адмін-панелі</a>"
-                
+
                 telegram_notifier.send_message(admin_message)
                 monobank_logger.info(f"✅ Telegram уведомление админу об изменении статуса отправлено для заказа {order.order_number}")
             except Exception as e:
                 monobank_logger.error(f"⚠️ Ошибка отправки Telegram уведомления админу: {e}")
-        
+
         # Логируем изменение
         monobank_logger.info(
             f'Admin {request.user.username} changed order {order.order_number} '
             f'status from {old_status} to {new_status}'
         )
-        
+
         return JsonResponse({
             'success': True,
             'message': f'Статус змінено на "{order.get_status_display()}"',
             'new_status': new_status,
             'new_status_display': order.get_status_display()
         })
-        
+
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Невірний формат даних'}, status=400)
     except Exception as e:
@@ -1296,13 +1293,13 @@ def admin_check_np_status(request, order_id):
     """Проверка статуса НП и автоматическое обновление заказа"""
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
-    
+
     try:
         order = get_object_or_404(DropshipperOrder, id=order_id)
-        
+
         # Вызываем метод модели для проверки статуса
         success, message = order.check_np_status_and_update()
-        
+
         if success:
             return JsonResponse({
                 'success': True,
@@ -1314,7 +1311,7 @@ def admin_check_np_status(request, order_id):
             })
         else:
             return JsonResponse({'success': False, 'error': message})
-        
+
     except Exception as e:
         monobank_logger.exception(f'Error checking NP status: {e}')
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
@@ -1327,34 +1324,34 @@ def request_payout(request):
     try:
         # Парсим данные из запроса
         data = json.loads(request.body)
-        
+
         # Получаем статистику дропшипера
         stats, created = DropshipperStats.objects.get_or_create(dropshipper=request.user)
-        
+
         if stats.available_for_payout <= 0:
             return JsonResponse({
                 'success': False,
                 'error': 'Немає доступної суми для виплати'
             }, status=400)
-        
+
         # Получаем данные из формы
         payment_method = data.get('payment_method')
         payment_details = data.get('payment_details', '').strip()
         notes = data.get('notes', '').strip()
-        
+
         # Валидация
         if not payment_method or payment_method not in ['card', 'iban']:
             return JsonResponse({
                 'success': False,
                 'error': 'Будь ласка, оберіть спосіб виплати'
             }, status=400)
-        
+
         if not payment_details:
             return JsonResponse({
                 'success': False,
                 'error': 'Будь ласка, вкажіть реквізити для виплати'
             }, status=400)
-        
+
         # Создаем запрос на выплату
         payout = DropshipperPayout.objects.create(
             dropshipper=request.user,
@@ -1365,24 +1362,24 @@ def request_payout(request):
             notes=notes,
             description=f"Запит на виплату від {request.user.username}"
         )
-        
+
         # Обнуляем available_for_payout
         stats.available_for_payout = 0
         stats.save(update_fields=['available_for_payout'])
-        
+
         # Получаем профиль пользователя для уведомлений
         try:
             profile = request.user.userprofile
         except UserProfile.DoesNotExist:
             profile = None
-        
+
         # Отправляем уведомления в Telegram (админу и дропшиперу)
         try:
             from .telegram_notifications import telegram_notifier
-            
+
             company_name = profile.company_name if profile and profile.company_name else request.user.username
             payment_method_display = 'На картку' if payout.payment_method == 'card' else 'IBAN'
-            
+
             # Уведомление админу
             admin_message = f"""💰 <b>НОВИЙ ЗАПИТ НА ВИПЛАТУ</b>
 
@@ -1398,10 +1395,10 @@ def request_payout(request):
 <b>Email:</b> {profile.email if profile and profile.email else 'Не вказано'}
 
 🔗 <a href="https://twocomms.shop/admin-panel/?section=collaboration&mode=payouts">Переглянути в адмін-панелі</a>"""
-            
+
             telegram_notifier.send_message(admin_message)
             monobank_logger.info(f"✅ Telegram уведомление админу о запросе выплаты отправлено для {request.user.username}")
-            
+
             # Уведомление дропшиперу
             dropshipper_telegram_id = profile.telegram_id if profile else None
             if dropshipper_telegram_id:
@@ -1414,19 +1411,19 @@ def request_payout(request):
 Менеджер зв'яжеться з вами найближчим часом для підтвердження виплати.
 
 📊 <a href="https://twocomms.shop/orders/dropshipper/?tab=payouts">Переглянути виплати</a>"""
-                
+
                 telegram_notifier.send_personal_message(dropshipper_telegram_id, dropshipper_message)
                 monobank_logger.info(f"✅ Telegram уведомление дропшиперу о запросе выплаты отправлено")
         except Exception as e:
             monobank_logger.error(f"⚠️ Ошибка отправки Telegram уведомления о запросе выплаты: {e}")
-        
+
         return JsonResponse({
             'success': True,
             'message': 'Запит на виплату створено! Менеджер зв\'яжеться з вами найближчим часом.',
             'payout_number': payout.payout_number,
             'amount': float(payout.amount)
         })
-        
+
     except Exception as e:
         monobank_logger.exception(f'Error creating payout request: {e}')
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
@@ -1439,33 +1436,33 @@ def admin_update_payout_status(request, payout_id):
     try:
         data = json.loads(request.body)
         payout = get_object_or_404(DropshipperPayout, id=payout_id)
-        
+
         new_status = data.get('status')
-        
+
         # Валидация статуса
         valid_statuses = [choice[0] for choice in DropshipperPayout.STATUS_CHOICES]
         if new_status not in valid_statuses:
             return JsonResponse({'success': False, 'error': 'Невірний статус'})
-        
+
         old_status = payout.status
         payout.status = new_status
-        
+
         # Обновляем временные метки
         if new_status == 'processing' and not payout.processed_at:
             payout.processed_at = timezone.now()
         elif new_status == 'completed' and not payout.completed_at:
             payout.completed_at = timezone.now()
-        
+
         payout.save()
-        
+
         monobank_logger.info(f"✅ Payout {payout.payout_number} status updated: {old_status} → {new_status}")
-        
+
         # Отправляем уведомление дропшиперу
         try:
             from .telegram_notifications import telegram_notifier
-            
+
             dropshipper_telegram_id = payout.dropshipper.userprofile.telegram_id
-            
+
             if dropshipper_telegram_id:
                 status_emoji = {
                     'pending': '⏳',
@@ -1473,7 +1470,7 @@ def admin_update_payout_status(request, payout_id):
                     'completed': '✅',
                     'cancelled': '❌'
                 }
-                
+
                 dropshipper_message = f"""{status_emoji.get(new_status, '📋')} <b>ОНОВЛЕННЯ СТАТУСУ ВИПЛАТИ</b>
 
 <b>Номер виплати:</b> #{payout.payout_number}
@@ -1481,19 +1478,19 @@ def admin_update_payout_status(request, payout_id):
 <b>Новий статус:</b> {payout.get_status_display()}
 
 {'💰 Кошти переведені на ваші реквізити!' if new_status == 'completed' else ''}"""
-                
+
                 telegram_notifier.send_personal_message(dropshipper_telegram_id, dropshipper_message)
                 monobank_logger.info(f"✅ Telegram уведомление дропшиперу о смене статуса выплаты отправлено")
         except Exception as e:
             monobank_logger.error(f"⚠️ Ошибка отправки Telegram уведомления о смене статуса выплаты: {e}")
-        
+
         return JsonResponse({
             'success': True,
             'message': 'Статус виплати оновлено',
             'new_status': new_status,
             'new_status_display': payout.get_status_display()
         })
-        
+
     except Exception as e:
         monobank_logger.exception(f'Error updating payout status: {e}')
         return JsonResponse({'success': False, 'error': str(e)}, status=500)

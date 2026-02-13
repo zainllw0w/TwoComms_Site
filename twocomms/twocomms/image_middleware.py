@@ -16,6 +16,7 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
+
 class ImageOptimizationMiddleware(MiddlewareMixin):
     """
     Middleware для автоматической оптимизации изображений с кэшированием на диске
@@ -35,7 +36,7 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
                 os.makedirs(self.cache_dir, exist_ok=True)
         else:
             self.cache_dir = None
-            
+
     def process_request(self, request):
         """
         Проверяем наличие кэшированной версии изображения перед обработкой запроса
@@ -46,11 +47,11 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
             return None
         if not self._client_supports_webp(request):
             return None
-            
+
         # Генерируем ключ кэша на основе URL
         cache_key = self._get_cache_key(request.path)
         cache_path = os.path.join(self.cache_dir, cache_key)
-        
+
         # Если файл есть в кэше, отдаем его сразу
         if os.path.exists(cache_path):
             # logger.debug(f"Serving cached image: {request.path}")
@@ -59,30 +60,30 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
             response['Cache-Control'] = 'public, max-age=31536000'
             response['X-Image-Cache'] = 'HIT'
             return response
-            
+
         return None
-    
+
     def process_response(self, request, response):
         # Проверяем, что это запрос изображения
         if not self.enabled:
             return response
         if not self._is_image_request(request):
             return response
-        
+
         # Проверяем, что ответ содержит изображение и статус 200
         if response.status_code != 200 or not self._is_image_response(response):
             return response
 
         if not self._client_supports_webp(request):
             return response
-            
+
         # Если уже отдали из кэша (в process_request), ничего не делаем
         if response.has_header('X-Image-Cache'):
             return response
         # В продакшене отключаем оптимизацию "на лету" — только возвращаем исходный ответ
         if not self.allow_on_demand:
             return response
-        
+
         # Оптимизируем изображение
         try:
             cache_key = self._get_cache_key(request.path)
@@ -99,7 +100,7 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
         except Exception as e:
             logger.error(f"Ошибка оптимизации изображения: {e}")
             return response
-    
+
     def _is_image_request(self, request):
         """Проверяет, является ли запрос запросом изображения"""
         path = request.path.lower()
@@ -120,17 +121,17 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
                 return 'version/14' in ua or 'version/15' in ua or 'version/16' in ua or 'version/17' in ua
             return True
         return False
-    
+
     def _is_image_response(self, response):
         """Проверяет, является ли ответ изображением"""
         content_type = response.get('Content-Type', '').lower()
         return any(img_type in content_type for img_type in ['image/jpeg', 'image/png', 'image/webp'])
-    
+
     def _get_cache_key(self, path):
         """Генерирует имя файла кэша на основе MD5 хеша пути"""
         hash_object = hashlib.md5(path.encode())
         return f"{hash_object.hexdigest()}.webp"
-    
+
     def _optimize_and_build_response(self, cache_path, image_data, original_response):
         """Оптимизирует изображение синхронно и возвращает HttpResponse"""
         optimized_data = self._convert_to_webp_bytes(image_data)
@@ -175,17 +176,17 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
                     self._pending_paths.discard(path_key)
 
         self.executor.submit(task)
-    
+
     def _should_optimize(self, img, size):
         """Определяет, нужно ли оптимизировать изображение"""
         # Не оптимизируем очень маленькие изображения
         if size < 5 * 1024:  # Меньше 5KB
             return False
-        
+
         # Не оптимизируем уже оптимизированные форматы (если они уже WebP)
         if img.format == 'WEBP':
             return False
-        
+
         # Оптимизируем все остальное
         return True
 
@@ -206,7 +207,7 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         with open(cache_path, 'wb') as f:
             f.write(optimized_data)
-    
+
     def _optimize_image(self, img):
         """Оптимизирует изображение"""
         try:
@@ -217,13 +218,13 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
                     img = img.convert('RGBA')
             elif img.mode != 'RGB':
                 img = img.convert('RGB')
-            
+
             # Сохраняем в буфер как WebP
             output_buffer = io.BytesIO()
-            img.save(output_buffer, format='WEBP', quality=80, method=4) # method=4 быстрее чем 6, но хорошее качество
-            
+            img.save(output_buffer, format='WEBP', quality=80, method=4)  # method=4 быстрее чем 6, но хорошее качество
+
             return output_buffer.getvalue()
-            
+
         except Exception as e:
             logger.error(f"Ошибка оптимизации изображения: {e}")
             return None

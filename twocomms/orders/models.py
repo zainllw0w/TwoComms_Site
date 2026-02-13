@@ -5,6 +5,7 @@ from storefront.models import Product, PromoCode
 from productcolors.models import ProductColorVariant
 from django.utils import timezone
 
+
 class Order(models.Model):
     STATUS_CHOICES = [
         ('new', 'В обробці'),
@@ -13,7 +14,7 @@ class Order(models.Model):
         ('done', 'Отримано'),
         ('cancelled', 'Скасовано'),
     ]
-    
+
     PAY_TYPE_CHOICES = [
         ('online_full', 'Онлайн оплата (повна сума)'),
         ('prepay_200', 'Передплата 200 грн'),
@@ -22,7 +23,7 @@ class Order(models.Model):
         ('full', 'Повна оплата'),
         ('partial', 'Часткова оплата'),
     ]
-    
+
     PAYMENT_STATUS_CHOICES = [
         ('unpaid', 'Не оплачено'),
         ('checking', 'На перевірці'),
@@ -31,7 +32,7 @@ class Order(models.Model):
         # Legacy value (для обратной совместимости)
         ('partial', 'Внесена передплата (старе)'),
     ]
-    
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
     order_number = models.CharField(max_length=20, unique=True, blank=True)
     session_key = models.CharField(max_length=40, blank=True, null=True)
@@ -75,7 +76,7 @@ class Order(models.Model):
         null=True,
         verbose_name='Коментар до скасування'
     )
-    
+
     # UTM tracking fields
     utm_session = models.ForeignKey(
         'storefront.UTMSession',
@@ -90,7 +91,7 @@ class Order(models.Model):
     utm_campaign = models.CharField(max_length=255, blank=True, null=True, db_index=True, verbose_name='UTM Campaign')
     utm_content = models.CharField(max_length=255, blank=True, null=True, db_index=True, verbose_name='UTM Content')
     utm_term = models.CharField(max_length=255, blank=True, null=True, db_index=True, verbose_name='UTM Term')
-    
+
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 
@@ -104,7 +105,7 @@ class Order(models.Model):
 
     def __str__(self):
         return f'Order {self.order_number} by {self.get_user_display()} — {self.get_status_display()}'
-    
+
     def save(self, *args, **kwargs):
         attempts = 0
         while True:
@@ -120,7 +121,7 @@ class Order(models.Model):
                     raise
                 # сбросим номер и попробуем ещё раз
                 self.order_number = None
-    
+
     def generate_order_number(self):
         """
         Генерирует уникальный номер заказа в формате TWC+дата+N+номер.
@@ -129,12 +130,12 @@ class Order(models.Model):
         today = timezone.localdate()
         date_str = today.strftime('%d%m%Y')
         prefix = f"TWC{date_str}N"
-        
+
         # Ищем максимальный номер за сегодня с этим префиксом
         # Используем startswith для надежности, хотя можно и по дате фильтровать
         last_order = Order.objects.filter(order_number__startswith=prefix).aggregate(Max('order_number'))
         max_number = last_order.get('order_number__max')
-        
+
         if max_number:
             # Извлекаем последние цифры и инкрементируем
             try:
@@ -149,13 +150,13 @@ class Order(models.Model):
 
         # Формируем новый номер
         return f"{prefix}{counter:02d}"
-    
+
     def get_user_display(self):
         """Возвращает отображаемое имя пользователя"""
         if self.user:
             return f"{self.user.first_name} {self.user.last_name}".strip() or self.user.username
         return "Гість"
-    
+
     def get_payment_status_display(self):
         """Возвращает отображаемое название статуса оплаты"""
         payment_status_choices = dict([
@@ -167,15 +168,15 @@ class Order(models.Model):
             ('partial', 'Внесена передплата'),
         ])
         return payment_status_choices.get(self.payment_status, self.payment_status)
-    
+
     def get_facebook_event_id(self, event_type='purchase'):
         """
         Генерирует уникальный event_id для Facebook Pixel/Conversions API.
         Используется для дедупликации событий между браузером и сервером.
-        
+
         Args:
             event_type: Тип события ('purchase', 'lead') - для генерации разных event_id
-        
+
         Format: {order_number}_{timestamp}_{event_type}
         Example: TWC30102025N01_1730304000_purchase
         """
@@ -193,55 +194,55 @@ class Order(models.Model):
         Example: TWC30102025N01_1730304000_add_payment_info
         """
         return self.get_facebook_event_id(event_type='add_payment_info')
-    
+
     def get_lead_event_id(self):
         """
         Генерирует event_id для Lead событий (предоплата).
         Используется в шаблоне order_success.html и для дедупликации с CAPI.
-        
+
         Format: {order_number}_{timestamp}_lead
         Example: TWC30102025N01_1730304000_lead
         """
         return self.get_facebook_event_id(event_type='lead')
-    
+
     def get_purchase_event_id(self):
         """
         Генерирует event_id для Purchase событий (полная оплата).
         Используется в шаблоне order_success.html и для дедупликации с CAPI.
-        
+
         Format: {order_number}_{timestamp}_purchase
         Example: TWC30102025N01_1730304000_purchase
         """
         return self.get_facebook_event_id(event_type='purchase')
-    
+
     def get_prepayment_amount(self):
         """Возвращает сумму предоплаты для pay_type=prepay_200"""
         from decimal import Decimal
         if self.pay_type == 'prepay_200':
             return Decimal('200.00')
         return Decimal('0.00')
-    
+
     def get_remaining_amount(self):
         """Возвращает остаток к оплате после предоплаты"""
         if self.pay_type == 'prepay_200':
             return self.total_sum - self.get_prepayment_amount()
         return self.total_sum
-    
+
     @classmethod
     def get_processing_count(cls):
         """Возвращает количество заказов в обработке"""
         return cls.objects.filter(status='new').count()
-    
+
     @property
     def subtotal(self):
         """Сумма без скидки"""
         return sum(item.line_total for item in self.items.all())
-    
+
     @property
     def final_total(self):
         """Итоговая сумма с учетом скидки"""
         return self.total_sum
-    
+
     @property
     def total_points(self):
         """Возвращает общее количество балов за заказ"""
@@ -250,17 +251,17 @@ class Order(models.Model):
             if hasattr(item.product, 'points_reward') and item.product.points_reward:
                 total += item.product.points_reward * item.qty
         return total
-    
+
     def apply_promo_code(self, promo_code):
         """Применяет промокод к заказу"""
         if not promo_code or not promo_code.can_be_used():
             return False
-        
+
         from decimal import Decimal
-        
+
         subtotal = self.subtotal
         discount = promo_code.calculate_discount(subtotal)
-        
+
         if discount > 0:
             # Преобразуем discount в Decimal для совместимости
             discount_decimal = Decimal(str(discount))
@@ -268,8 +269,9 @@ class Order(models.Model):
             self.total_sum = subtotal - discount_decimal
             self.promo_code = promo_code
             return True
-        
+
         return False
+
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
@@ -283,20 +285,20 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f'{self.title} × {self.qty}'
-    
+
     def get_offer_id(self):
         """Генерирует offer_id для синхронизации с Google Merchant Feed и пикселями"""
         from storefront.utils.analytics_helpers import get_offer_id
-        
+
         color_variant_id = self.color_variant.id if self.color_variant else None
         size = self.size if self.size else 'S'
-        
+
         return get_offer_id(
             product_id=self.product.id,
             color_variant_id=color_variant_id,
             size=size
         )
-    
+
     @property
     def color_name(self):
         """Возвращает название цвета или None"""
@@ -335,7 +337,7 @@ class OrderItem(models.Model):
                 if secondary and secondary in hex_map:
                     return hex_map[secondary]
         return None
-    
+
     @property
     def product_image(self):
         """Возвращает изображение товара с учетом выбранного цвета"""
@@ -361,25 +363,25 @@ class WholesaleInvoice(models.Model):
         ('approved', 'Підтверджено'),
         ('rejected', 'Відхилено'),
     ]
-    
+
     invoice_number = models.CharField(max_length=100, unique=True, verbose_name="Номер накладної")
     company_name = models.CharField(max_length=200, verbose_name="Назва компанії/ФОП/ПІБ")
     company_number = models.CharField(max_length=50, blank=True, verbose_name="Номер компанії/ЄДРПОУ/ІПН")
     contact_phone = models.CharField(max_length=32, verbose_name="Номер телефону")
     delivery_address = models.TextField(verbose_name="Адреса доставки")
     store_link = models.URLField(blank=True, null=True, verbose_name="Посилання на магазин")
-    
+
     total_tshirts = models.IntegerField(default=0, verbose_name="Кількість футболок")
     total_hoodies = models.IntegerField(default=0, verbose_name="Кількість худі")
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Загальна сума")
-    
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Статус")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата створення")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата оновлення")
-    
+
     # JSON поле для хранения деталей заказа
     order_details = models.JSONField(verbose_name="Деталі замовлення")
-    
+
     # Путь к файлу накладной
     file_path = models.CharField(max_length=500, blank=True, null=True, verbose_name="Шлях до файлу")
 
@@ -426,15 +428,15 @@ class WholesaleInvoice(models.Model):
     )
     payment_url = models.URLField(blank=True, null=True, verbose_name="Посилання на оплату")
     monobank_invoice_id = models.CharField(max_length=128, blank=True, null=True, verbose_name="Monobank invoiceId")
-    
+
     class Meta:
         verbose_name = "Оптова накладна"
         verbose_name_plural = "Оптові накладні"
         ordering = ['-created_at']
-    
+
     def __str__(self):
         return f"{self.invoice_number} - {self.company_name}"
-    
+
     @property
     def file_name(self):
         """Генерирует имя файла для Excel"""
@@ -458,46 +460,46 @@ class DropshipperOrder(models.Model):
         ('delivered', 'Доставлено'),  # Оставляем для совместимости
         ('cancelled', 'Скасовано'),
     ]
-    
+
     # Словарь для быстрого доступа к названиям статусов
     STATUS_CHOICES_DICT = dict(STATUS_CHOICES)
-    
+
     PAYMENT_STATUS_CHOICES = [
         ('unpaid', 'Не оплачено'),
         ('paid', 'Оплачено'),
         ('refunded', 'Повернено'),
     ]
-    
+
     PAYMENT_METHOD_CHOICES = [
         ('prepaid', 'Товар оплачено'),
         ('cod', 'Накладний платіж'),
         ('delegation', 'Повне делегування'),
     ]
-    
+
     # Информация о дропшипере
     dropshipper = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='dropshipper_orders', verbose_name="Дропшипер")
-    
+
     # Информация о клиенте
     client_name = models.CharField(max_length=200, verbose_name="ПІБ клієнта")
     client_phone = models.CharField(max_length=32, verbose_name="Телефон клієнта")
     client_np_address = models.CharField(max_length=500, verbose_name="Адреса НП клієнта")
-    
+
     # Информация о заказе
     order_number = models.CharField(max_length=20, unique=True, blank=True, verbose_name="Номер замовлення")
     status = models.CharField(max_length=35, choices=STATUS_CHOICES, default='draft', verbose_name="Статус")
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='unpaid', verbose_name="Статус оплати")
-    
+
     # Финансовая информация
     total_drop_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Загальна ціна дропа")
     total_selling_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Загальна ціна продажу")
     profit = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Прибуток")
-    
+
     # Информация об оплате
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cod', verbose_name="Спосіб оплати")
     prepayment_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Сума передоплати")
     dropshipper_payment_required = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Дропшипер має сплатити")
     monobank_invoice_id = models.CharField(max_length=100, blank=True, null=True, verbose_name="ID інвойсу Monobank")
-    
+
     # Дополнительная информация
     notes = models.TextField(blank=True, null=True, verbose_name="Примітки")
     order_source = models.CharField(max_length=500, blank=True, null=True, verbose_name="Джерело замовлення")
@@ -505,11 +507,11 @@ class DropshipperOrder(models.Model):
     shipment_status = models.CharField(max_length=100, blank=True, null=True, verbose_name='Статус НП')
     shipment_status_updated = models.DateTimeField(null=True, blank=True, verbose_name='Оновлення статусу НП')
     payout_processed = models.BooleanField(default=False, verbose_name="Виплату оброблено")
-    
+
     # Временные метки
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата створення")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата оновлення")
-    
+
     class Meta:
         verbose_name = "Замовлення дропшипера"
         verbose_name_plural = "Замовлення дропшиперів"
@@ -519,27 +521,27 @@ class DropshipperOrder(models.Model):
             models.Index(fields=['status', '-created_at'], name='dropship_ord_status'),
             models.Index(fields=['payment_status', '-created_at'], name='dropship_ord_payment'),
         ]
-    
+
     def __str__(self):
         return f"Дропшип замовлення #{self.order_number} - {self.client_name}"
-    
+
     def save(self, *args, **kwargs):
         if not self.order_number:
             self.order_number = self.generate_order_number()
-        
+
         # Автоматически меняем payment_status на paid если статус confirmed или выше
         # (confirmed, processing, awaiting_shipment, shipped, delivered_awaiting_pickup, received)
         # НО только если payment_status еще не был установлен вручную админом
         confirmed_and_higher_statuses = [
-            'confirmed', 'processing', 'awaiting_shipment', 'shipped', 
+            'confirmed', 'processing', 'awaiting_shipment', 'shipped',
             'delivered_awaiting_pickup', 'received'
         ]
-        
+
         if self.status in confirmed_and_higher_statuses and self.payment_status == 'unpaid':
             self.payment_status = 'paid'
-        
+
         super().save(*args, **kwargs)
-    
+
     def generate_order_number(self):
         """
         Генерирует уникальный номер заказа дропшипера.
@@ -547,14 +549,14 @@ class DropshipperOrder(models.Model):
         """
         from django.utils import timezone
         from django.db.models import Max
-        
+
         today = timezone.localdate()
         date_str = today.strftime('%d%m%Y')
         prefix = f"DS{date_str}"
-        
+
         last_order = DropshipperOrder.objects.filter(order_number__startswith=prefix).aggregate(Max('order_number'))
         max_number = last_order.get('order_number__max')
-        
+
         if max_number:
             try:
                 # DS30102025001 -> 001
@@ -564,14 +566,14 @@ class DropshipperOrder(models.Model):
                 counter = 1
         else:
             counter = 1
-            
+
         return f"{prefix}{counter:03d}"
-    
+
     def calculate_profit(self):
         """Рассчитывает прибыль от заказа"""
         self.profit = self.total_selling_price - self.total_drop_price
         return self.profit
-    
+
     def calculate_dropshipper_payment(self):
         """Рассчитывает сумму которую должен оплатить дропшипер"""
         if self.payment_method == 'prepaid':
@@ -586,9 +588,9 @@ class DropshipperOrder(models.Model):
             # Ми все беремо на себе - дропшипер нічого не платить
             self.prepayment_amount = 0
             self.dropshipper_payment_required = 0
-        
+
         return self.dropshipper_payment_required
-    
+
     def get_payment_method_display_detailed(self):
         """Возвращает детальное описание способа оплаты"""
         if self.payment_method == 'prepaid':
@@ -597,35 +599,34 @@ class DropshipperOrder(models.Model):
             return f"Накладний платіж (200 грн вираховується з суми при отриманні)"
         else:  # delegation
             return "Повне делегування (0 грн - всі ризики на нас)"
-    
+
     def process_payout(self):
         """Обрабатывает выплату дропшиперу при получении товара"""
         if self.payout_processed:
             return False, "Виплату вже оброблено"
-        
-        from decimal import Decimal
-        
+
+
         # Сумма выплаты дропшиперу = его прибыль (независимо от способа оплаты)
         # 200 грн при COD - это наша страховка от клиента, она не влияет на прибыль дропшипера
         payout_amount = self.profit
-        
+
         # Проверяем что сумма положительная
         if payout_amount <= 0:
             self.payout_processed = True
             self.save(update_fields=['payout_processed'])
             return False, f"Сума виплати <= 0 (прибуток: {payout_amount} грн)"
-        
+
         # Обновляем available_for_payout в статистике дропшипера
         stats, created = DropshipperStats.objects.get_or_create(dropshipper=self.dropshipper)
         stats.available_for_payout += payout_amount
         stats.save(update_fields=['available_for_payout'])
-        
+
         # Отмечаем что выплата обработана
         self.payout_processed = True
         self.save(update_fields=['payout_processed'])
-        
+
         return True, f"Додано {payout_amount} грн до доступних виплат (метод: {self.get_payment_method_display()}, прибуток: {self.profit} грн)"
-    
+
     def update_status_on_payment(self):
         """Обновляет статус заказа после оплаты"""
         if self.payment_status == 'paid':
@@ -638,32 +639,32 @@ class DropshipperOrder(models.Model):
             self.save(update_fields=['status'])
             return True
         return False
-    
+
     def check_np_status_and_update(self):
         """Проверяет статус НП и обновляет статус заказа"""
         if not self.tracking_number:
             return False, "ТТН не вказано"
-        
+
         try:
             from .nova_poshta_service import NovaPoshtaService
             np_service = NovaPoshtaService()
             status_info = np_service.get_tracking_info(self.tracking_number)
-            
+
             if not status_info:
                 return False, "Не вдалося отримати статус"
-            
+
             old_status = self.shipment_status
             self.shipment_status = status_info.get('Status', '')
             self.shipment_status_updated = timezone.now()
-            
+
             # Обновляем статус заказа на основе статуса НП
             np_status_code = status_info.get('StatusCode', 0)
-            
+
             # 3 - Прибыло в отделение
             # 9 - Получено
             # 10 - Возвращено отправителю
             # 11 - Отказ от получения
-            
+
             if np_status_code == 3:
                 self.status = 'delivered_awaiting_pickup'
             elif np_status_code == 9:
@@ -673,11 +674,11 @@ class DropshipperOrder(models.Model):
                     self.process_payout()
             elif np_status_code in [10, 11]:
                 self.status = 'refused'
-            
+
             self.save()
-            
+
             return True, f"Статус оновлено: {old_status} -> {self.shipment_status}"
-        
+
         except Exception as e:
             return False, f"Помилка: {str(e)}"
 
@@ -689,25 +690,25 @@ class DropshipperOrderItem(models.Model):
     color_variant = models.ForeignKey('productcolors.ProductColorVariant', on_delete=models.PROTECT, null=True, blank=True, verbose_name="Колір")
     size = models.CharField(max_length=16, verbose_name="Розмір")
     quantity = models.PositiveIntegerField(default=1, verbose_name="Кількість")
-    
+
     # Цены
     drop_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Ціна дропа")
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Ціна продажу")
     recommended_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Рекомендована ціна")
-    
+
     # Итоговые суммы
     total_drop_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Загальна ціна дропа")
     total_selling_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Загальна ціна продажу")
     item_profit = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Прибуток з товару")
-    
+
     class Meta:
         verbose_name = "Товар в замовленні дропшипера"
         verbose_name_plural = "Товари в замовленнях дропшиперів"
         ordering = ['id']
-    
+
     def __str__(self):
         return f"{self.product.title} - {self.size} x{self.quantity}"
-    
+
     def save(self, *args, **kwargs):
         # Рассчитываем итоговые суммы
         self.total_drop_price = self.drop_price * self.quantity
@@ -719,88 +720,88 @@ class DropshipperOrderItem(models.Model):
 class DropshipperStats(models.Model):
     """Статистика дропшипера"""
     dropshipper = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='dropshipper_stats', verbose_name="Дропшипер")
-    
+
     # Общая статистика
     total_orders = models.PositiveIntegerField(default=0, verbose_name="Всього замовлень")
     completed_orders = models.PositiveIntegerField(default=0, verbose_name="Виконаних замовлень")
     cancelled_orders = models.PositiveIntegerField(default=0, verbose_name="Скасованих замовлень")
-    
+
     # Финансовая статистика
     total_revenue = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Загальний дохід")
     total_profit = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Загальний прибуток")
     total_drop_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Загальна собівартість")
     available_for_payout = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Доступно до виплати")
-    
+
     # Статистика по товарам
     total_items_sold = models.PositiveIntegerField(default=0, verbose_name="Всього товарів продано")
-    
+
     # Система лояльности
     successful_orders = models.PositiveIntegerField(default=0, verbose_name="Успішних замовлень (отримано)")
     loyalty_discount = models.DecimalField(max_digits=6, decimal_places=2, default=0, verbose_name="Знижка лояльності (грн)")
-    
+
     # Временные метки
     last_order_date = models.DateTimeField(null=True, blank=True, verbose_name="Дата останнього замовлення")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата створення")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата оновлення")
-    
+
     class Meta:
         verbose_name = "Статистика дропшипера"
         verbose_name_plural = "Статистика дропшиперів"
-    
+
     def __str__(self):
         return f"Статистика {self.dropshipper.username}"
-    
+
     def update_loyalty_discount(self):
         """Обновляет скидку лояльности: -10 грн за каждый успешный заказ, максимум -120 грн"""
         from decimal import Decimal
-        
+
         # Считаем успешные заказы (статус received)
         self.successful_orders = DropshipperOrder.objects.filter(
             dropshipper=self.dropshipper,
             status='received'
         ).count()
-        
+
         # Рассчитываем скидку: -10 грн за заказ, но не больше -120 грн
         discount_per_order = Decimal('10.00')
         max_discount = Decimal('120.00')
-        
+
         self.loyalty_discount = min(
             Decimal(self.successful_orders) * discount_per_order,
             max_discount
         )
-        
+
         self.save(update_fields=['successful_orders', 'loyalty_discount'])
         return self.loyalty_discount
-    
+
     def update_stats(self):
         """Обновляет статистику на основе заказов"""
         orders = DropshipperOrder.objects.filter(dropshipper=self.dropshipper)
-        
+
         self.total_orders = orders.count()
         # Считаем заказы со статусом 'received' (клиент забрал товар)
         self.completed_orders = orders.filter(status='received').count()
         self.cancelled_orders = orders.filter(status='cancelled').count()
-        
+
         # Финансовая статистика - считаем только полученные заказы (received)
         received_orders = orders.filter(status='received')
         self.total_revenue = sum(order.total_selling_price for order in received_orders)
         self.total_drop_cost = sum(order.total_drop_price for order in received_orders)
         self.total_profit = self.total_revenue - self.total_drop_cost
-        
+
         # Статистика по товарам
         self.total_items_sold = sum(
-            sum(item.quantity for item in order.items.all()) 
+            sum(item.quantity for item in order.items.all())
             for order in received_orders
         )
-        
+
         # Дата последнего заказа
         last_order = orders.order_by('-created_at').first()
         if last_order:
             self.last_order_date = last_order.created_at
-        
+
         # Обновляем скидку лояльности
         self.update_loyalty_discount()
-        
+
         self.save()
 
 
@@ -812,54 +813,54 @@ class DropshipperPayout(models.Model):
         ('completed', 'Виплачено'),
         ('cancelled', 'Скасовано'),
     ]
-    
+
     PAYMENT_METHOD_CHOICES = [
         ('card', 'На картку'),
         ('iban', 'IBAN'),
     ]
-    
+
     dropshipper = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='dropshipper_payouts', verbose_name="Дропшипер")
     order = models.ForeignKey(DropshipperOrder, on_delete=models.SET_NULL, null=True, blank=True, related_name='single_payout', verbose_name="Замовлення")
-    
+
     # Информация о выплате
     payout_number = models.CharField(max_length=20, unique=True, blank=True, verbose_name="Номер виплати")
     amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Сума виплати")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Статус")
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, blank=True, null=True, verbose_name="Спосіб виплати")
     description = models.CharField(max_length=500, blank=True, verbose_name="Опис")
-    
+
     # Детали выплаты
     payment_details = models.CharField(max_length=500, blank=True, null=True, verbose_name="Деталі виплати (номер картки/рахунку)")
     notes = models.TextField(blank=True, null=True, verbose_name="Примітки")
-    
+
     # Заказы, включенные в выплату
     included_orders = models.ManyToManyField(DropshipperOrder, related_name='payouts', blank=True, verbose_name="Включені замовлення")
-    
+
     # Временные метки
     requested_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата запиту")
     processed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата обробки")
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата виплати")
-    
+
     class Meta:
         verbose_name = "Виплата дропшипера"
         verbose_name_plural = "Виплати дропшиперів"
         ordering = ['-requested_at']
-    
+
     def __str__(self):
         return f"Виплата #{self.payout_number} - {self.dropshipper.username} ({self.amount} грн)"
-    
+
     def save(self, *args, **kwargs):
         if not self.payout_number:
             self.payout_number = self.generate_payout_number()
         super().save(*args, **kwargs)
-    
+
     def generate_payout_number(self):
         """Генерирует уникальный номер выплаты"""
         from django.utils import timezone
         today = timezone.localdate()
         date_str = today.strftime('%d%m%Y')
         counter = 1
-        
+
         while True:
             number = f"PY{date_str}{counter:03d}"
             if not DropshipperPayout.objects.filter(payout_number=number).exists():

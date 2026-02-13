@@ -11,7 +11,6 @@ import os
 # Устанавливаем тестовый SECRET_KEY перед импортом settings
 os.environ.setdefault('SECRET_KEY', 'test-secret-key-for-testing-only-do-not-use-in-production')
 
-from twocomms.settings import *
 
 # Используем SQLite для тестов (быстрее и не требует MySQL)
 DATABASES = {
@@ -22,6 +21,8 @@ DATABASES = {
 }
 
 # Отключаем миграции для ускорения тестов (не обязательно)
+
+
 class DisableMigrations:
     def __contains__(self, item):
         return True

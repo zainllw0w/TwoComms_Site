@@ -8,7 +8,7 @@ from pathlib import Path
 from django.conf import settings
 from django.shortcuts import render, redirect
 from django.utils import timezone
-from django.utils.html import escape, strip_tags
+from django.utils.html import escape
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -24,13 +24,12 @@ from django.views.decorators.http import require_POST
 
 import requests
 from io import BytesIO
-import datetime as dt
 import os
 import secrets
 
 from docx import Document
 
-from .forms import CommercialOfferEmailForm, CommercialOfferEmailPreviewForm
+from .forms import CommercialOfferEmailForm
 from .models import (
     Client,
     ClientFollowUp,
@@ -58,7 +57,7 @@ from .email_templates.twocomms_cp import (
     DROP_FIXED_HOODIE_PRICE,
 )
 
-from .constants import POINTS, REMINDER_WINDOW_MINUTES, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
+from .constants import POINTS, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
 
@@ -445,6 +444,7 @@ def send_telegram_report(user, stats, clients, file_bytes, filename):
             requests.post(url, data=data, files=files, timeout=10)
         except Exception:
             pass
+
 
 @login_required(login_url='management_login')
 def home(request):
@@ -1955,8 +1955,6 @@ def _send_contract_review_request_to_admin(contract, *, request=None):
         contract.save(update_fields=['admin_tg_chat_id', 'admin_tg_message_id'])
 
 
-
-
 def _format_admin_payout_message(payout_req, *, status_line=None, include_links=True):
     import re
 
@@ -2124,14 +2122,14 @@ def _send_manager_bot_notifications(user, reminders):
             continue
         if ReminderSent.objects.filter(key=key, chat_id=chat_id).exists():
             continue
-        when = 'зараз' if eta == 0 else (f"через {eta//60} хв {eta%60:02d} с" if eta >= 60 else f"через {eta} с")
+        when = 'зараз' if eta == 0 else (f"через {eta//60} хв {eta % 60:02d} с" if eta >= 60 else f"через {eta} с")
         kind = r.get('kind')
         contact_label = "Контакт" if kind == 'shop' else "Клієнт"
         text = (
             "Нагадування\n"
-            f"Магазин: {r.get('shop','')}\n"
-            f"{contact_label}: {r.get('name','')}\n"
-            f"Телефон: {r.get('phone','')}\n"
+            f"Магазин: {r.get('shop', '')}\n"
+            f"{contact_label}: {r.get('name', '')}\n"
+            f"Телефон: {r.get('phone', '')}\n"
             f"Коли: {when}\n"
         )
         _send_telegram_message(bot_token, chat_id, text)
@@ -2165,8 +2163,6 @@ def management_bot_webhook(request, token):
         if admin_chat_cfg and str(chat_id) not in {str(v) for v in admin_chat_cfg}:
             _tg_answer_callback(bot_token, cb_id, "Недостатньо прав")
             return JsonResponse({'ok': True})
-
-
 
         # ==================== CALLBACK QUERIES (ADMIN PAYOUTS) ====================
         if data.startswith('pay:'):
@@ -2526,8 +2522,6 @@ def management_bot_webhook(request, token):
             else:
                 _tg_send_message(bot_token, chat_id, "Накладна вже оброблена або недоступна.", parse_mode='HTML')
             return JsonResponse({'ok': True})
-
-
 
         contract_req = ContractRejectionReasonRequest.objects.select_related('contract').filter(
             admin_chat_id=chat_id,
@@ -4141,6 +4135,7 @@ def _get_profile_phone(user):
     except Exception:
         return ""
 
+
 def _manager_photo_url(user, request) -> str:
     try:
         prof = user.userprofile
@@ -4372,10 +4367,8 @@ def _build_cp_messenger_context(*, user, settings_obj, default_name, default_pho
     }
 
 
-
 @login_required(login_url='management_login')
 def commercial_offer_email(request):
-
 
     if not user_is_management(request.user):
         return redirect('management_login')
@@ -5285,7 +5278,6 @@ def commercial_offer_email_send_api(request):
     )
 
 
-
 @login_required(login_url='management_login')
 def info(request):
     if not user_is_management(request.user):
@@ -5572,7 +5564,6 @@ def payouts_request_api(request):
             status=ManagerPayoutRequest.Status.PROCESSING,
         )
 
-
     # Telegram notifications (best-effort)
     try:
         import re
@@ -5601,7 +5592,6 @@ def payouts_request_api(request):
             'created_at': timezone.localtime(req.created_at).strftime('%d.%m.%Y %H:%M') if req.created_at else '',
         }
     })
-
 
 
 @login_required(login_url='management_login')

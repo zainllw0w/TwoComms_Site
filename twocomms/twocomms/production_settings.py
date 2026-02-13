@@ -62,7 +62,7 @@ if _allowed_hosts_env:
         ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
         if 'twocomms.shop' in ALLOWED_HOSTS and 'www.twocomms.shop' not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append('www.twocomms.shop')
-            
+
     # Always ensure subdomains are allowed
     if 'management.twocomms.shop' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append('management.twocomms.shop')
@@ -129,7 +129,7 @@ AUTHENTICATION_BACKENDS = (
 )
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get('GOOGLE_CLIENT_ID', '')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
-SOCIAL_AUTH_REDIRECT_IS_HTTPS = os.environ.get('SOCIAL_AUTH_REDIRECT_IS_HTTPS', 'True').lower() in ('1','true','yes')
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = os.environ.get('SOCIAL_AUTH_REDIRECT_IS_HTTPS', 'True').lower() in ('1', 'true', 'yes')
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
 SOCIAL_AUTH_LOGIN_ERROR_URL = '/login/'
@@ -225,7 +225,15 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # ===== ОПТИМИЗАЦИИ ДЛЯ ПРОДАКШЕНА =====
 
-# Кэширование: Redis для продакшена
+# Кэширование: по умолчанию file-based (безопасно для shared hosting).
+# Redis можно включить явно через CACHE_BACKEND=redis.
+#
+# Поддерживаемые значения:
+#   CACHE_BACKEND=file   -> django.core.cache.backends.filebased.FileBasedCache
+#   CACHE_BACKEND=redis  -> django_redis.cache.RedisCache
+#   CACHE_BACKEND=locmem -> django.core.cache.backends.locmem.LocMemCache
+CACHE_BACKEND = os.environ.get('CACHE_BACKEND', 'file').strip().lower()
+
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.environ.get('REDIS_PORT', '6379'))
 REDIS_DB = os.environ.get('REDIS_DB', '0')
@@ -277,54 +285,117 @@ COMMON_REDIS_OPTIONS = {
     'PICKLE_VERSION': -1,
 }
 
+if CACHE_BACKEND == 'redis':
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': _build_redis_location(REDIS_DB, REDIS_CACHE_URL),
+            'OPTIONS': {
+                **COMMON_REDIS_OPTIONS,
+                'PASSWORD': REDIS_PASSWORD or None,
+                'CONNECTION_POOL_KWARGS': {
+                    'max_connections': REDIS_MAX_CONNECTIONS,
+                    'retry_on_timeout': True,
+                },
+            },
+            'KEY_PREFIX': 'twocomms',
+            'TIMEOUT': int(os.environ.get('CACHE_DEFAULT_TIMEOUT', '600')),
+        },
+        'staticfiles': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': _build_redis_location(REDIS_STATIC_DB, REDIS_STATIC_URL),
+            'OPTIONS': {
+                **COMMON_REDIS_OPTIONS,
+                'PASSWORD': REDIS_PASSWORD or None,
+                'CONNECTION_POOL_KWARGS': {
+                    'max_connections': max(REDIS_FRAGMENT_MAX_CONNECTIONS // 2, 10),
+                    'retry_on_timeout': True,
+                },
+            },
+            'KEY_PREFIX': 'staticfiles',
+            'TIMEOUT': int(os.environ.get('CACHE_STATIC_TIMEOUT', str(60 * 60 * 24))),  # 24 часа
+        },
+        'fragments': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': _build_redis_location(REDIS_FRAGMENT_DB, REDIS_FRAGMENT_URL),
+            'OPTIONS': {
+                **COMMON_REDIS_OPTIONS,
+                'PASSWORD': REDIS_PASSWORD or None,
+                'CONNECTION_POOL_KWARGS': {
+                    'max_connections': REDIS_FRAGMENT_MAX_CONNECTIONS,
+                    'retry_on_timeout': True,
+                },
+            },
+            'KEY_PREFIX': 'twocomms:frag',
+            'TIMEOUT': int(os.environ.get('CACHE_FRAGMENT_TIMEOUT', '900')),  # 15 минут
+        },
+    }
+elif CACHE_BACKEND == 'locmem':
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'twocomms-default',
+            'TIMEOUT': int(os.environ.get('CACHE_DEFAULT_TIMEOUT', '600')),
+            'OPTIONS': {'MAX_ENTRIES': 5000},
+        },
+        'staticfiles': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'twocomms-static',
+            'TIMEOUT': int(os.environ.get('CACHE_STATIC_TIMEOUT', str(60 * 60 * 24))),
+            'OPTIONS': {'MAX_ENTRIES': 5000},
+        },
+        'fragments': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'twocomms-fragments',
+            'TIMEOUT': int(os.environ.get('CACHE_FRAGMENT_TIMEOUT', '900')),
+            'OPTIONS': {'MAX_ENTRIES': 10000},
+        },
+    }
+else:
+    preferred_cache_root = Path(os.environ.get('DJANGO_FILE_CACHE_DIR', '/home/qlknpodo/tmp/django_cache'))
+    file_cache_root = preferred_cache_root
+    if not os.environ.get('DJANGO_FILE_CACHE_DIR') and not preferred_cache_root.exists():
+        file_cache_root = BASE_DIR / '.cache' / 'django_cache'
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': _build_redis_location(REDIS_DB, REDIS_CACHE_URL),
-        'OPTIONS': {
-            **COMMON_REDIS_OPTIONS,
-            'PASSWORD': REDIS_PASSWORD or None,
-            'CONNECTION_POOL_KWARGS': {
-                'max_connections': REDIS_MAX_CONNECTIONS,
-                'retry_on_timeout': True,
-            },
-        },
-        'KEY_PREFIX': 'twocomms',
-        'TIMEOUT': int(os.environ.get('CACHE_DEFAULT_TIMEOUT', '600')),
-    },
-    'staticfiles': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': _build_redis_location(REDIS_STATIC_DB, REDIS_STATIC_URL),
-        'OPTIONS': {
-            **COMMON_REDIS_OPTIONS,
-            'PASSWORD': REDIS_PASSWORD or None,
-            'CONNECTION_POOL_KWARGS': {
-                'max_connections': max(REDIS_FRAGMENT_MAX_CONNECTIONS // 2, 10),
-                'retry_on_timeout': True,
-            },
-        },
-        'KEY_PREFIX': 'staticfiles',
-        'TIMEOUT': int(os.environ.get('CACHE_STATIC_TIMEOUT', str(60 * 60 * 24))),  # 24 часа
-    },
-    'fragments': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': _build_redis_location(REDIS_FRAGMENT_DB, REDIS_FRAGMENT_URL),
-        'OPTIONS': {
-            **COMMON_REDIS_OPTIONS,
-            'PASSWORD': REDIS_PASSWORD or None,
-            'CONNECTION_POOL_KWARGS': {
-                'max_connections': REDIS_FRAGMENT_MAX_CONNECTIONS,
-                'retry_on_timeout': True,
-            },
-        },
-        'KEY_PREFIX': 'twocomms:frag',
-        'TIMEOUT': int(os.environ.get('CACHE_FRAGMENT_TIMEOUT', '900')),  # 15 минут
-    },
-}
+    file_cache_default = file_cache_root / 'default'
+    file_cache_static = file_cache_root / 'staticfiles'
+    file_cache_fragments = file_cache_root / 'fragments'
+    for cache_dir in (file_cache_default, file_cache_static, file_cache_fragments):
+        try:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            file_cache_root = BASE_DIR / '.cache' / 'django_cache'
+            file_cache_default = file_cache_root / 'default'
+            file_cache_static = file_cache_root / 'staticfiles'
+            file_cache_fragments = file_cache_root / 'fragments'
+            for fallback_dir in (file_cache_default, file_cache_static, file_cache_fragments):
+                fallback_dir.mkdir(parents=True, exist_ok=True)
+            break
 
-SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
-SESSION_CACHE_ALIAS = 'default'
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': str(file_cache_default),
+            'TIMEOUT': int(os.environ.get('CACHE_DEFAULT_TIMEOUT', '600')),
+            'OPTIONS': {'MAX_ENTRIES': 8000},
+        },
+        'staticfiles': {
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': str(file_cache_static),
+            'TIMEOUT': int(os.environ.get('CACHE_STATIC_TIMEOUT', str(60 * 60 * 24))),
+            'OPTIONS': {'MAX_ENTRIES': 5000},
+        },
+        'fragments': {
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': str(file_cache_fragments),
+            'TIMEOUT': int(os.environ.get('CACHE_FRAGMENT_TIMEOUT', '900')),
+            'OPTIONS': {'MAX_ENTRIES': 12000},
+        },
+    }
+
+SESSION_ENGINE = os.environ.get('SESSION_ENGINE', 'django.contrib.sessions.backends.db')
+if SESSION_ENGINE == 'django.contrib.sessions.backends.cached_db':
+    SESSION_CACHE_ALIAS = os.environ.get('SESSION_CACHE_ALIAS', 'default')
 
 # Кэширование шаблонов (включено для продакшена)
 TEMPLATES[0]['OPTIONS']['loaders'] = [
@@ -359,6 +430,8 @@ WHITENOISE_AUTOREFRESH = False  # Отключаем автообновлени�
 WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'eot']
 
 # Настройки кеширования статических файлов
+
+
 def add_cache_headers(headers, path, url):
     """Добавляет заголовки кеширования для статических файлов"""
     if path.endswith('sw.js') or 'sw.js' in path:
@@ -387,6 +460,7 @@ def add_cache_headers(headers, path, url):
     if any(path.endswith(ext) for ext in ['.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot']):
         headers['Cache-Control'] = 'public, max-age=15552000, immutable'  # 180 дней
         headers['Vary'] = 'Accept-Encoding'
+
 
 WHITENOISE_ADD_HEADERS_FUNCTION = add_cache_headers
 

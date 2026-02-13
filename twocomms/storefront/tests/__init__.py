@@ -8,6 +8,3 @@ Test structure:
 - test_product.py: Product views tests
 - test_catalog.py: Catalog and search tests
 """
-
-
-

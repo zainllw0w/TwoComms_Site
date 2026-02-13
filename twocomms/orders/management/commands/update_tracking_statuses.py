@@ -36,7 +36,7 @@ class Command(BaseCommand):
             logging.basicConfig(level=logging.DEBUG)
         else:
             logging.basicConfig(level=logging.INFO)
-        
+
         # Проверяем наличие API ключа
         if not getattr(settings, 'NOVA_POSHTA_API_KEY', ''):
             self.stdout.write(
@@ -49,7 +49,7 @@ class Command(BaseCommand):
             return
 
         service = NovaPoshtaService()
-        
+
         if options['order_number']:
             # Обновляем конкретный заказ
             self._update_single_order(service, options['order_number'], options['dry_run'])
@@ -60,33 +60,33 @@ class Command(BaseCommand):
     def _update_single_order(self, service, order_number, dry_run):
         """Обновляет статус одного заказа"""
         from orders.models import Order
-        
+
         try:
             order = Order.objects.get(order_number=order_number)
-            
+
             if not order.tracking_number:
                 self.stdout.write(
                     self.style.WARNING(f"Заказ {order_number} не имеет ТТН")
                 )
                 logger.warning(f"Order {order_number} has no tracking number")
                 return
-            
+
             self.stdout.write(f"Обновление статуса для заказа {order_number}...")
             logger.info(f"Updating tracking status for order {order_number}")
-            
+
             if dry_run:
                 tracking_info = service.get_tracking_info(order.tracking_number)
                 if tracking_info:
                     status = tracking_info.get('Status', '')
                     status_code = tracking_info.get('StatusCode')
                     status_desc = tracking_info.get('StatusDescription', '')
-                    
+
                     self.stdout.write(
                         f"  Текущий статус: {status} (код: {status_code})"
                     )
                     if status_desc:
                         self.stdout.write(f"  Описание: {status_desc}")
-                    
+
                     logger.info(
                         f"Order {order_number}: Status={status}, "
                         f"StatusCode={status_code}, Description={status_desc}"
@@ -105,7 +105,7 @@ class Command(BaseCommand):
                         self.style.WARNING(f"⚠ Статус заказа {order_number} не изменился")
                     )
                     logger.info(f"Order {order_number} status unchanged")
-                    
+
         except Order.DoesNotExist:
             self.stdout.write(
                 self.style.ERROR(f"❌ Заказ {order_number} не найден")
@@ -115,28 +115,28 @@ class Command(BaseCommand):
     def _update_all_orders(self, service, dry_run):
         """Обновляет статусы всех заказов"""
         from orders.models import Order
-        
+
         # Получаем заказы с ТТН
         orders_with_ttn = Order.objects.filter(
             tracking_number__isnull=False
         ).exclude(
             tracking_number=''
         )
-        
+
         total_orders = orders_with_ttn.count()
-        
+
         if total_orders == 0:
             self.stdout.write("Нет заказов с ТТН для обновления")
             logger.info("No orders with tracking numbers to update")
             return
-        
+
         self.stdout.write(f"Найдено {total_orders} заказов с ТТН")
         logger.info(f"Found {total_orders} orders with tracking numbers")
-        
+
         if dry_run:
             self.stdout.write("DRY RUN - показываем что будет обновлено:")
             logger.info("Running in DRY RUN mode")
-            
+
             for order in orders_with_ttn:
                 tracking_info = service.get_tracking_info(order.tracking_number)
                 if tracking_info:
@@ -145,7 +145,7 @@ class Command(BaseCommand):
                     status_desc = tracking_info.get('StatusDescription', '')
                     current_status = order.shipment_status or 'Неизвестно'
                     new_status = f"{status} - {status_desc}" if status_desc else status
-                    
+
                     if current_status.strip() != new_status.strip():
                         self.stdout.write(
                             f"  {order.order_number}: {current_status} → {new_status} (код: {status_code})"
@@ -165,11 +165,11 @@ class Command(BaseCommand):
             timestamp_start = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
             self.stdout.write(f"[{timestamp_start}] Начало обновления статусов...")
             logger.info("Starting tracking status update")
-            
+
             result = service.update_all_tracking_statuses()
-            
+
             timestamp_end = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
-            
+
             summary = (
                 f"[{timestamp_end}] Обновление завершено:\n"
                 f"  Всего заказов с ТТН: {result['total_orders']}\n"
@@ -177,7 +177,7 @@ class Command(BaseCommand):
                 f"  Обновлено статусов: {result['updated']}\n"
                 f"  Ошибок: {result['errors']}"
             )
-            
+
             if result['updated'] > 0:
                 self.stdout.write(self.style.SUCCESS(summary))
                 logger.info(

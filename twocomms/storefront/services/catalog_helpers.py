@@ -76,7 +76,7 @@ def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str,
         if not images:
             # Fallback if prefetch didn't work
             images = list(variant.images.all()) if hasattr(variant, 'images') else []
-            
+
         first_image = images[0].image.url if images else ''
         preview_map[variant.product_id].append(
             {
@@ -120,7 +120,7 @@ def get_detailed_color_variants(product) -> List[Dict[str, Any]]:
         image_urls = [
             image.image.url for image in images if getattr(image, "image", None)
         ]
-        
+
         variants.append(
             {
                 'id': variant.id,
