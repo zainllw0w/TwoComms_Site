@@ -107,3 +107,28 @@ Maximally reduce perceived and real load latency for `https://dtf.twocomms.shop`
 
 ## Notes
 This log is intended as continuation context for future agents/sessions when context window resets.
+
+## Unified Git Tree (as of 2026-02-13)
+
+```text
+* bc8171a (HEAD -> codex/codex-refactor-v1, origin/codex/codex-refactor-v1) fix: keep twocomms/passenger_wsgi.py unchanged for deploy
+* e974368 perf: unify full tree and optimize dtf load path
+* cfb2497 Inline critical ambient and reveal bootstrap
+* 51329f6 Prioritize ambient boot and smooth canvas handoff
+* e419105 Tighten reveal trigger timing for fast scroll
+* 16ba95a Optimize ambient startup and remove deferred reveal gaps
+* 46fe28e Delay ambient background activation until interaction window
+* 0cd3722 Improve DTF first paint with progressive hero and deferred ambient FX
+* 015155c Rename DTF bundles to dash names for static serving
+* 8ad7cdc Optimize DTF first-load rendering path and media payload
+* 41fb7e5 Tune home dot background feel and response
+* c7b4bba Restore side manager FAB and modal
+* 37ad67b fix(dtf): align effects, docks, and preflight UX
+* 38b0953 DTF: ефекти O2 — Compare parity, Infinite Cards SEO, Multi-step Loader, Vanish Input, Floating Dock, Speed Text, Tooltip/Text-generate/Images-badge
+* d355a47 fix: add www.dtf.twocomms.shop to ALLOWED_HOSTS
+* c24b907 dtf: defer home background init to idle
+* 75039cd dtf: remove status/help from mobile dock
+* 22efdfa dtf: move dot effect to home background and optimize render loop
+* 0f44c52 dtf: render mcp-style dot distortion on hero canvas
+* fe52904 dtf: switch home background to interactive dot distortion
+```
