@@ -29,6 +29,7 @@
     readingProgress: false,
     speculation: false,
     ambientBackdrop: false,
+    visualFxReady: false,
   };
   let lensModalInstance = null;
   const focusTrap = {
@@ -1006,9 +1007,44 @@
     if (!document.body) return;
     if (prefersReduced) {
       document.body.classList.remove('ambient-fx-ready');
+      document.body.classList.add('fx-ready');
       return;
     }
     document.body.classList.add('ambient-fx-ready');
+    scheduleVisualFxReady();
+  }
+
+  function scheduleVisualFxReady() {
+    if (initState.visualFxReady) return;
+    initState.visualFxReady = true;
+    const body = document.body;
+    if (!body) return;
+    if (body.classList.contains('fx-ready')) return;
+
+    const activate = () => {
+      if (!body.classList.contains('fx-ready')) {
+        body.classList.add('fx-ready');
+      }
+    };
+
+    const onIntent = () => {
+      activate();
+      window.removeEventListener('pointermove', onIntent);
+      window.removeEventListener('pointerdown', onIntent);
+      window.removeEventListener('touchstart', onIntent);
+      window.removeEventListener('keydown', onIntent);
+    };
+
+    window.addEventListener('pointermove', onIntent, { passive: true, once: true });
+    window.addEventListener('pointerdown', onIntent, { passive: true, once: true });
+    window.addEventListener('touchstart', onIntent, { passive: true, once: true });
+    window.addEventListener('keydown', onIntent, { once: true });
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(activate, { timeout: 700 });
+    } else {
+      window.setTimeout(activate, 260);
+    }
   }
 
   function initHomeDotBackground() {

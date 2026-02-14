@@ -4343,6 +4343,23 @@ body[data-page="home"] .hero [data-reveal].is-visible {
   transition: none;
 }
 
+body:not(.fx-ready) .dtf-shell::before,
+body:not(.fx-ready) .dtf-shell::after {
+  content: none;
+  animation: none;
+}
+
+body:not(.fx-ready) .film-layer::before,
+body:not(.fx-ready) .film-layer::after {
+  content: none;
+  animation: none;
+}
+
+body:not(.fx-ready) .dtf-header {
+  background: rgba(10, 10, 10, 0.98);
+  backdrop-filter: none !important;
+}
+
 @media (max-width: 960px) {
   .header-actions {
     gap: 10px;
