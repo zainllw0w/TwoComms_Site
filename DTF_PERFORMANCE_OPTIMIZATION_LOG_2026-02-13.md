@@ -132,3 +132,44 @@ This log is intended as continuation context for future agents/sessions when con
 * 0f44c52 dtf: render mcp-style dot distortion on hero canvas
 * fe52904 dtf: switch home background to interactive dot distortion
 ```
+
+## Post-Deploy Notes (2026-02-15)
+
+### Server sync and conflict handling
+- Deployment branch `codex/codex-refactor-v1` was behind by 2 commits.
+- `git pull` failed due untracked-overwrite conflicts.
+- Moved conflicting untracked files to server backup folder:
+  - `.untracked_backup_20260215_003548/`
+  - moved files count: `91`
+- After move, server pull completed to latest branch head.
+
+### Emergency runtime fixes
+- `fix: restore clear_cart view export and behavior` (`33abc5b`)
+  - Added missing `clear_cart` view in `storefront/views/cart.py`.
+- `fix: export missing storefront view handlers for urls` (`44e8fee`)
+  - Restored missing exports in `storefront/views/__init__.py` for:
+    - `cart_items_api`, `contact_manager`
+    - `order_success`, `order_success_preview`, `update_payment_method`, `confirm_payment`
+    - `monobank_create_invoice`
+    - survey handlers (`survey_*`)
+    - `uaprom_products_feed`
+- Result: `python manage.py check` on production passes with `0 issues`.
+
+### Production verification
+- `python manage.py migrate --noinput`: no pending migrations.
+- `python manage.py collectstatic --noinput`: static updated (`25 copied`, `420 unmodified`).
+- Cache probe in production shell:
+  - `CACHE_BACKEND=django.core.cache.backends.filebased.FileBasedCache`
+  - `cache.set/get` now returns expected value (`ok`).
+
+### Current external TTFB snapshot (n=20 per URL)
+- `/`: avg `0.428s`, p50 `0.147s`, p95 `1.037s`, slow>=0.5s `7/20`
+- `/about/`: avg `0.465s`, p50 `0.142s`, p95 `1.029s`, slow>=0.5s `8/20`
+- `/blog/`: avg `0.454s`, p50 `0.209s`, p95 `1.078s`, slow>=0.5s `7/20`
+- `/order/`: avg `0.442s`, p50 `0.089s`, p95 `1.229s`, slow>=0.5s `7/20`
+- `/gallery/`: avg `0.466s`, p50 `0.190s`, p95 `1.072s`, slow>=0.5s `7/20`
+
+### Interpretation
+- Frontend updates are live (`dtf.js?v=20260213h`, lens AVIF source, beams removed).
+- Cache backend misbehavior is fixed.
+- Main unresolved bottleneck remains intermittent backend latency spikes (~1s bucket), likely outside static/JS path.
