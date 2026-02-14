@@ -7,6 +7,7 @@ from django.conf import settings
 from django.utils.deprecation import MiddlewareMixin
 from django.core.cache import cache
 from django.contrib.redirects.middleware import RedirectFallbackMiddleware
+import os
 import time
 
 
@@ -110,6 +111,47 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
         if referrer_policy and not response.has_header("Referrer-Policy"):
             response["Referrer-Policy"] = referrer_policy
 
+        return response
+
+
+class RequestTraceMiddleware(MiddlewareMixin):
+    """
+    Lightweight request tracing for DTF diagnostics.
+
+    Enabled per-request via header: X-DTF-Debug: 1
+    """
+
+    def process_request(self, request):
+        request._twc_trace_start = time.perf_counter()
+        return None
+
+    def process_response(self, request, response):
+        started = getattr(request, "_twc_trace_start", None)
+        if started is None:
+            return response
+
+        duration_ms = (time.perf_counter() - started) * 1000.0
+
+        debug_header = request.META.get("HTTP_X_DTF_DEBUG", "")
+        if str(debug_header).strip() != "1":
+            return response
+
+        try:
+            host = request.get_host().split(":")[0].lower()
+        except Exception:
+            host = ""
+        if not host.startswith("dtf."):
+            return response
+
+        response["X-App-Pid"] = str(os.getpid())
+        response["X-App-Django-Ms"] = f"{duration_ms:.2f}"
+        existing_server_timing = response.get("Server-Timing")
+        trace_value = f"django;dur={duration_ms:.2f}"
+        response["Server-Timing"] = (
+            f"{existing_server_timing}, {trace_value}"
+            if existing_server_timing
+            else trace_value
+        )
         return response
 
 
