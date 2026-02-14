@@ -582,6 +582,32 @@ def remove_from_cart(request):
     return redirect('cart')
 
 
+@require_POST
+def clear_cart(request):
+    """
+    Полная очистка корзины и промокода.
+
+    Для обычного запроса выполняет redirect в корзину, для AJAX возвращает JSON.
+    """
+    request.session['cart'] = {}
+    request.session.pop('promo_code_id', None)
+    request.session.pop('promo_code_data', None)
+    request.session.modified = True
+    _reset_monobank_session(request, drop_pending=True)
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if is_ajax:
+        return JsonResponse({
+            'ok': True,
+            'count': 0,
+            'subtotal': 0.0,
+            'discount': 0.0,
+            'total': 0.0,
+        })
+
+    return redirect('cart')
+
+
 def get_cart_count(request):
     """
     AJAX endpoint для получения количества товаров в корзине.
