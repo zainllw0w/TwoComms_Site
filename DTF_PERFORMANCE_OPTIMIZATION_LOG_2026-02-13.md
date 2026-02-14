@@ -173,3 +173,59 @@ This log is intended as continuation context for future agents/sessions when con
 - Frontend updates are live (`dtf.js?v=20260213h`, lens AVIF source, beams removed).
 - Cache backend misbehavior is fixed.
 - Main unresolved bottleneck remains intermittent backend latency spikes (~1s bucket), likely outside static/JS path.
+
+## Deep Profiling Pass (2026-02-15)
+
+### Implemented additional fixes
+- `perf: reduce request-path and tracking-update overhead` (`31ca17d`)
+  - `twocomms/orders/nova_poshta_service.py`:
+    - `update_all_tracking_statuses()` now excludes final statuses: `done`, `cancelled`.
+  - `twocomms/twocomms/middleware.py`:
+    - `SimpleRateLimitMiddleware` skips `GET/HEAD/OPTIONS` for `dtf.*` host.
+  - `twocomms/twocomms/production_settings.py`:
+    - DB `CONN_MAX_AGE` defaults increased from `60` to `300` (env-overridable).
+
+- `perf: skip final-status orders in tracking update command` (`9eda77e`)
+  - `twocomms/orders/management/commands/update_tracking_statuses.py`:
+    - command-level queryset now also excludes `done`, `cancelled`.
+
+- `chore: add opt-in dtf request tracing headers` (`7eba32b`)
+  - Added `RequestTraceMiddleware` (enabled per request via `X-DTF-Debug: 1`).
+  - Returns debug headers for `dtf.*`:
+    - `X-App-Pid`
+    - `X-App-Django-Ms`
+    - `Server-Timing: django;dur=...`
+
+- `perf: defer heavy visual layers until idle on dtf` (`8c7e7b6`)
+  - `twocomms/dtf/static/dtf/js/dtf.js`:
+    - added deferred `fx-ready` activation (idle or first user intent).
+  - `twocomms/dtf/static/dtf/css/dtf.css`:
+    - heavy film/noise/aurora layers now disabled until `body.fx-ready`.
+  - `twocomms/dtf/templates/dtf/base.html`:
+    - asset bumps to `dtf.css?v=20260215a`, `dtf.js?v=20260215a`.
+
+### Server operational changes
+- Cron normalization:
+  - removed duplicated `update_tracking_statuses` jobs (`* * * * *` and `*/5 * * * *`).
+  - left single guarded job:
+    - `*/10 * * * * flock ... update_tracking_statuses`
+  - added warmup ping:
+    - `*/2 * * * * flock ... curl https://dtf.twocomms.shop/about/`
+  - crontab backups:
+    - `crontab_backup_20260215_013732.txt`
+    - `crontab_backup_cleanup_20260215_013752.txt`
+    - `crontab_backup_warmup_20260215_014743.txt`
+
+### Key profiling result (root-cause isolation)
+- With `X-DTF-Debug: 1`, slow external TTFB bursts (`~0.95–1.10s`) show:
+  - `X-App-Django-Ms` around `~6–9 ms` (fast app execution),
+  - same behavior across multiple worker PIDs.
+- This proves the ~1s spikes are **outside Django app runtime** (hosting/web-server layer queue/throttle under rapid synthetic request bursts).
+- Under human-like pacing (1-second interval), measured TTFB becomes stable:
+  - sample: avg `~0.077s`, slow>=0.5s `0/12`.
+
+### Deployment/restart caveat
+- `touch twocomms/passenger_wsgi.py` is blocked (`Operation not permitted`) on this host.
+- Reliable runtime refresh path used in this pass:
+  - write `public_html/tmp/restart.txt`
+  - if needed, gracefully terminate stale app PIDs observed via debug headers, then re-hit site.
