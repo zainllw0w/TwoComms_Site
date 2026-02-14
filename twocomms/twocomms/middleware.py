@@ -124,6 +124,15 @@ class SimpleRateLimitMiddleware(MiddlewareMixin):
         if settings.DEBUG:
             return None
 
+        # DTF public pages are read-heavy and already protected by endpoint-level limits.
+        # Skip generic IP limiter for safe methods to reduce cache I/O in hot path.
+        try:
+            host = request.get_host().split(':')[0].lower()
+        except Exception:
+            host = ''
+        if host.startswith('dtf.') and request.method in ('GET', 'HEAD', 'OPTIONS'):
+            return None
+
         # Skip static and media files (double check, though WhiteNoise handles them first now)
         path = request.path
         if path.startswith(settings.STATIC_URL) or path.startswith(settings.MEDIA_URL):
