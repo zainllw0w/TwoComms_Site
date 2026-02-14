@@ -72,11 +72,13 @@ from .cart import (
     update_cart,
     remove_from_cart,
     clear_cart,
+    contact_manager,
     get_cart_count,
     apply_promo_code,
     remove_promo_code,
     cart_summary,
     cart_mini,
+    cart_items_api,
 )
 
 # Статические страницы
@@ -84,6 +86,7 @@ from .static_pages import (
     robots_txt,
     static_sitemap,
     google_merchant_feed,
+    uaprom_products_feed,
     prom_feed_xml,
     static_verification_file,
     about,
@@ -160,11 +163,23 @@ from .api import (
 )
 
 # Surveys
+from .survey import (
+    survey_start_or_resume,
+    survey_current_question,
+    survey_submit_answer,
+    survey_back_one_step,
+    survey_close,
+    survey_complete,
+)
 
 # Оформление заказа
 from .checkout import (
     create_order,
-    monobank_webhook
+    order_success,
+    order_success_preview,
+    update_payment_method,
+    confirm_payment,
+    monobank_webhook,
 )
 
 
@@ -172,6 +187,7 @@ from .checkout import (
 from .monobank import (
     monobank_webhook,
     monobank_return,
+    monobank_create_invoice,
 )
 
 # Админка
@@ -328,13 +344,18 @@ __all__ = [
 
     # Cart
     'view_cart', 'add_to_cart', 'update_cart', 'remove_from_cart', 'clear_cart',
-    'get_cart_count', 'apply_promo_code', 'remove_promo_code', 'cart_summary', 'cart_mini',
+    'contact_manager', 'get_cart_count', 'apply_promo_code', 'remove_promo_code',
+    'cart_summary', 'cart_mini', 'cart_items_api',
 
     # Static Pages
     'robots_txt', 'static_sitemap', 'google_merchant_feed',
     'static_verification_file', 'about', 'contacts', 'delivery', 'returns',
     'privacy_policy', 'terms_of_service', 'test_analytics_events',
-    'prom_feed_xml',
+    'prom_feed_xml', 'uaprom_products_feed',
+
+    # Surveys
+    'survey_start_or_resume', 'survey_current_question', 'survey_submit_answer',
+    'survey_back_one_step', 'survey_close', 'survey_complete',
 
     # Profile
     'profile', 'edit_profile', 'profile_setup', 'order_history', 'order_detail',
@@ -366,7 +387,8 @@ __all__ = [
 
     # Aliases (для обратной совместимости)
     'cart', 'cart_remove', 'clean_cart', 'profile_setup_db', 'register_view_new',
-    'order_create', 'my_orders',
+    'order_create', 'my_orders', 'order_success', 'order_success_preview',
+    'update_payment_method', 'confirm_payment', 'monobank_create_invoice',
 
     # Legacy Stubs
     'admin_offline_stores', 'admin_offline_store_create', 'admin_offline_store_edit',
