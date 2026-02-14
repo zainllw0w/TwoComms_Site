@@ -148,6 +148,7 @@ MIDDLEWARE = [
     "twocomms.middleware.ForceHTTPSMiddleware",  # Принудительный HTTPS
     "twocomms.middleware.WWWRedirectMiddleware",  # Редирект с www
     "twocomms.middleware.SubdomainURLRoutingMiddleware",  # Subdomain routing (before SecurityMiddleware to handle routing early)
+    "twocomms.middleware.RequestTraceMiddleware",  # Optional per-request tracing (X-DTF-Debug: 1)
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.gzip.GZipMiddleware",  # Gzip compression for dynamic responses
     "twocomms.middleware.SecurityHeadersMiddleware",  # CSP и дополнительные заголовки
