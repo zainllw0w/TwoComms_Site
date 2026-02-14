@@ -757,6 +757,8 @@ class NovaPoshtaService:
             tracking_number__isnull=False
         ).exclude(
             tracking_number=''
+        ).exclude(
+            status__in=['done', 'cancelled']
         )
 
         total_orders = orders_with_ttn.count()
