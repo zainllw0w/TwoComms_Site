@@ -229,3 +229,24 @@ This log is intended as continuation context for future agents/sessions when con
 - Reliable runtime refresh path used in this pass:
   - write `public_html/tmp/restart.txt`
   - if needed, gracefully terminate stale app PIDs observed via debug headers, then re-hit site.
+
+## Hero Scan Smoothing Pass (2026-02-15)
+
+### Implemented
+- `dtf/static/dtf/js/dtf.js`
+  - `initPrintheadScan()` now defers `scan-animate` start until `body.fx-ready`.
+  - Added safe fallback timer (`1600ms`) so scan still starts even if class observer does not fire.
+
+- `dtf/static/dtf/css/dtf.css`
+  - For home page before `fx-ready`, disabled heavy hero ambient animations:
+    - `hero::before`, `hero-bg`, `scan-hero::after`, `hero-media::after`, `hero-card::after`
+  - Kept static visual baseline so Hero remains visible without hard pop-in.
+
+- `dtf/templates/dtf/base.html`
+  - cache-bust updates:
+    - `dtf.css?v=20260215b`
+    - `dtf.js?v=20260215b`
+
+### Goal
+- Remove perceived “late rays/scan lag” on first 1–2 seconds.
+- Keep same design language while moving expensive hero animation work to idle/intent phase.
