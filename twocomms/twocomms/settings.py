@@ -413,6 +413,11 @@ if DB_NAME_DTF:
     DB_PORT_DTF = os.environ.get('DB_PORT_DTF', DB_PORT or '')
 
     if DB_ENGINE_DTF.startswith('mysql'):
+        dtf_sql_mode = (
+            os.environ.get('DB_SQL_MODE_DTF')
+            or os.environ.get('DB_SQL_MODE')
+            or 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ZERO_DATE,NO_ZERO_IN_DATE,NO_ENGINE_SUBSTITUTION'
+        )
         DATABASES['dtf'] = {
             'ENGINE': 'django.db.backends.mysql',
             'NAME': DB_NAME_DTF,
@@ -424,6 +429,7 @@ if DB_NAME_DTF:
             'OPTIONS': {
                 'charset': 'utf8mb4',
                 'use_unicode': True,
+                'sql_mode': dtf_sql_mode,
             },
         }
     elif DB_ENGINE_DTF.startswith('post'):

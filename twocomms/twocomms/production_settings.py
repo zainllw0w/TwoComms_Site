@@ -229,6 +229,11 @@ if DB_NAME_DTF and 'default' in DATABASES:
             'use_unicode': True,
             'init_command': "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'",
         }
+        _sql_mode_dtf = os.environ.get('DB_SQL_MODE_DTF') or os.environ.get('DB_SQL_MODE')
+        if _sql_mode_dtf:
+            dtf_options['sql_mode'] = _sql_mode_dtf
+        else:
+            dtf_options['sql_mode'] = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ZERO_DATE,NO_ZERO_IN_DATE,NO_ENGINE_SUBSTITUTION'
         DATABASES['dtf'] = {
             'ENGINE': 'django.db.backends.mysql',
             'NAME': DB_NAME_DTF,
