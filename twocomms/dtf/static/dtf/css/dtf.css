@@ -4839,10 +4839,25 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
 }
 
 /* DTF Admin Panel */
+.dtf-admin-root {
+  position: relative;
+  overflow-x: clip;
+}
+
+.dtf-admin-mobile-toggle {
+  display: none;
+}
+
 .dtf-admin-layout {
   display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
+  grid-template-columns: 88px minmax(0, 1fr);
   gap: 16px;
+  align-items: start;
+  position: relative;
+}
+
+.dtf-admin-sidebar-backdrop {
+  display: none;
 }
 
 .dtf-admin-sidebar {
@@ -4852,16 +4867,27 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
   min-height: calc(100vh - 120px);
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(190deg, rgba(16, 16, 18, 0.96), rgba(8, 8, 10, 0.92));
+  background: linear-gradient(190deg, rgba(13, 14, 18, 0.98), rgba(8, 9, 12, 0.98));
   transition: width 220ms ease, box-shadow 220ms ease;
-  width: 84px;
+  width: 88px;
   overflow: hidden;
   box-shadow: 0 22px 56px rgba(0, 0, 0, 0.45);
+  isolation: isolate;
+}
+
+.dtf-admin-sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(255, 146, 68, 0.1), transparent 36%, rgba(54, 99, 170, 0.14));
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .dtf-admin-sidebar:hover,
 .dtf-admin-sidebar.is-open {
-  width: 286px;
+  width: 292px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(255, 117, 24, 0.16);
 }
 
@@ -4873,6 +4899,8 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
   padding: 14px;
   display: grid;
   gap: 18px;
+  position: relative;
+  z-index: 1;
 }
 
 .dtf-admin-logo {
@@ -4929,12 +4957,21 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
 }
 
 .dtf-admin-nav-item .icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
   background: rgba(255, 146, 68, 0.2);
   border: 1px solid rgba(255, 146, 68, 0.4);
   flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 197, 151, 0.95);
+}
+
+.dtf-admin-nav-item .icon svg {
+  width: 17px;
+  height: 17px;
+  display: block;
 }
 
 .dtf-admin-nav-item .label {
@@ -4955,6 +4992,13 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
   border-color: rgba(255, 136, 50, 0.64);
   background: linear-gradient(130deg, rgba(255, 136, 50, 0.16), rgba(126, 165, 255, 0.1));
   transform: translateX(2px);
+}
+
+.dtf-admin-nav-item:hover .icon,
+.dtf-admin-nav-item.is-active .icon {
+  background: rgba(255, 136, 50, 0.25);
+  border-color: rgba(255, 167, 107, 0.65);
+  color: #ffe1c8;
 }
 
 .dtf-admin-main {
@@ -5532,38 +5576,89 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
 }
 
 @media (max-width: 1120px) {
+  body.is-dtf-admin-menu-open {
+    overflow: hidden;
+  }
+
+  .dtf-admin-mobile-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: linear-gradient(130deg, rgba(255, 130, 42, 0.22), rgba(36, 74, 144, 0.2));
+    color: #f9fafb;
+    padding: 0 14px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.36);
+  }
+
+  .dtf-admin-mobile-toggle .burger {
+    width: 18px;
+    height: 14px;
+    display: inline-grid;
+    gap: 3px;
+  }
+
+  .dtf-admin-mobile-toggle .burger span {
+    display: block;
+    width: 100%;
+    border-radius: 99px;
+    background: rgba(255, 239, 225, 0.92);
+  }
+
   .dtf-admin-layout {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .dtf-admin-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 6, 10, 0.76);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms ease;
+    z-index: 1090;
+  }
+
+  .dtf-admin-root.is-sidebar-open .dtf-admin-sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .dtf-admin-sidebar {
-    position: static;
-    min-height: 0;
-    width: 100%;
-    max-height: 64px;
-    transition: max-height 220ms ease;
+    position: fixed;
+    inset: 0 auto 0 0;
+    top: 0;
+    width: min(360px, calc(100vw - 20px));
+    max-width: 100%;
+    min-height: 100dvh;
+    border-radius: 0 24px 24px 0;
+    transform: translateX(-108%);
+    transition: transform 260ms ease, box-shadow 220ms ease;
+    z-index: 1100;
+    box-shadow: 26px 0 54px rgba(0, 0, 0, 0.48);
   }
 
   .dtf-admin-sidebar.is-open {
-    max-height: min(82vh, 640px);
+    width: min(360px, calc(100vw - 20px));
+    transform: translateX(0);
   }
 
   .dtf-admin-sidebar-toggle {
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-height: 40px;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.02);
+    border-radius: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.04);
     color: #f9fafb;
     padding: 0 14px;
-    margin: 10px;
-  }
-
-  .dtf-admin-sidebar:not(.is-open) .dtf-admin-nav,
-  .dtf-admin-sidebar:not(.is-open) .dtf-admin-logo .text {
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
   }
 
   .dtf-admin-sidebar .dtf-admin-logo .text,
@@ -5574,7 +5669,15 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
 
   .dtf-admin-sidebar-inner {
     gap: 12px;
-    padding-top: 8px;
+    padding: 14px;
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .dtf-admin-main {
+    position: relative;
+    z-index: 1;
   }
 }
 
