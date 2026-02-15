@@ -11,6 +11,12 @@ from .models import (
 )
 from .utils import unique_slug_for_queryset
 
+try:
+    from storefront.models import PromoCode, PromoCodeGroup
+except Exception:  # pragma: no cover - storefront is expected in production
+    PromoCode = None
+    PromoCodeGroup = None
+
 
 class DtfAdminOrderUpdateForm(forms.ModelForm):
     class Meta:
@@ -98,3 +104,73 @@ class DtfKnowledgePostAdminForm(forms.ModelForm):
         if not content_md and not content_rich_html:
             self.add_error("content_md", _("Додайте контент: Markdown або Rich HTML."))
         return cleaned
+
+
+if PromoCode is not None:
+    class DtfAdminPromoCodeForm(forms.ModelForm):
+        valid_from = forms.DateTimeField(
+            required=False,
+            input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S"],
+            widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+        )
+        valid_until = forms.DateTimeField(
+            required=False,
+            input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S"],
+            widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+        )
+
+        class Meta:
+            model = PromoCode
+            fields = [
+                "code",
+                "promo_type",
+                "discount_type",
+                "discount_value",
+                "description",
+                "group",
+                "max_uses",
+                "one_time_per_user",
+                "min_order_amount",
+                "valid_from",
+                "valid_until",
+                "is_active",
+            ]
+            widgets = {
+                "description": forms.Textarea(attrs={"rows": 3}),
+            }
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            if PromoCodeGroup is not None and "group" in self.fields:
+                self.fields["group"].queryset = PromoCodeGroup.objects.filter(is_active=True).order_by("name")
+                self.fields["group"].required = False
+
+            for field_name in ("valid_from", "valid_until"):
+                dt = getattr(self.instance, field_name, None)
+                if dt and field_name in self.fields and not self.initial.get(field_name):
+                    self.initial[field_name] = timezone.localtime(dt).strftime("%Y-%m-%dT%H:%M")
+
+        def clean_code(self):
+            raw = (self.cleaned_data.get("code") or "").strip().upper()
+            if raw:
+                return raw
+            if getattr(self.instance, "pk", None) and getattr(self.instance, "code", ""):
+                return self.instance.code
+            if hasattr(PromoCode, "generate_code"):
+                return PromoCode.generate_code()
+            return ""
+
+        def clean(self):
+            cleaned = super().clean()
+            valid_from = cleaned.get("valid_from")
+            valid_until = cleaned.get("valid_until")
+            if valid_from and valid_until and valid_until <= valid_from:
+                self.add_error("valid_until", _("Дата завершення має бути пізніше дати початку."))
+
+            discount_value = cleaned.get("discount_value")
+            if discount_value is not None and discount_value <= 0:
+                self.add_error("discount_value", _("Значення знижки має бути більше нуля."))
+            return cleaned
+else:
+    class DtfAdminPromoCodeForm(forms.Form):
+        """Fallback form if storefront app is unavailable."""
