@@ -437,3 +437,29 @@ This log is intended as continuation context for future agents/sessions when con
 - Full JS/CSS build minification pipeline (`esbuild/terser/cssnano`) and deterministic deploy hooks.
 - Aggressive font subsetting removal (kept visual/text coverage safety first).
 - Service Worker layer (needs cache invalidation strategy and deployment testing).
+
+## DTF Admin UX Reliability Pass (2026-02-15)
+
+### Trigger
+- Запрос на поведение sidebar как в reference (расширение через auto-layout без некрасивого перекрытия контента).
+- Интермиттентная ошибка переключения вкладок: "Не вдалося завантажити вкладку" (повторный клик иногда срабатывал).
+
+### Implemented
+- `twocomms/dtf/templates/dtf/admin/panel.html`
+  - Added `data-admin-layout` on admin grid container for explicit desktop sidebar layout control.
+  - Bumped admin JS asset version: `dtf-admin.js?v=20260215c`.
+
+- `twocomms/dtf/static/dtf/js/dtf-admin.js`
+  - Added desktop layout state controller for sidebar expand/collapse (`is-sidebar-expanded`) on hover/focus.
+  - Added robust tab loading pipeline:
+    - in-flight request cancellation on rapid tab switching,
+    - retry once for transient failures/timeouts,
+    - timeout per attempt,
+    - stale response protection via request token,
+    - fallback to cached tab HTML when network request fails,
+    - background prefetch for inactive tabs (idle time).
+  - Unified mobile breakpoint check via shared constant.
+
+### Result
+- Desktop sidebar expansion now behaves as controlled layout state (closer to reference behavior).
+- Tab switching is more resilient to transient network/backend hiccups; less user-facing hard failures.
