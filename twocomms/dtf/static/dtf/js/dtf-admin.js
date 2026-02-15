@@ -31,6 +31,14 @@
     }, 2600);
   }
 
+  function extractFirstError(data, fallback) {
+    const firstError = data && data.errors ? Object.values(data.errors)[0] : null;
+    if (Array.isArray(firstError) && firstError.length) return firstError[0];
+    if (typeof firstError === "string" && firstError) return firstError;
+    if (data && typeof data.error === "string" && data.error) return data.error;
+    return fallback;
+  }
+
   function setActiveTab(tabKey) {
     state.activeTab = tabKey;
     shell.querySelectorAll("[data-admin-tab]").forEach((btn) => {
@@ -146,6 +154,28 @@
     if (quill) quill.root.innerHTML = html;
   }
 
+  async function uploadBlogImage(host, file) {
+    if (!host || !file || !host.dataset.blogUploadUrl) {
+      throw new Error("upload endpoint missing");
+    }
+    const payload = new FormData();
+    payload.append("file", file);
+    const response = await fetch(host.dataset.blogUploadUrl, {
+      method: "POST",
+      body: payload,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRFToken": getCookie("csrftoken"),
+        "X-Requested-With": "fetch",
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok || !data.url) {
+      throw new Error(extractFirstError(data, "Не вдалося завантажити зображення"));
+    }
+    return data.url;
+  }
+
   async function initBlogAdmin() {
     const host = content.querySelector("[data-blog-admin]");
     if (!host) return;
@@ -159,19 +189,44 @@
     if (host.dataset.blogInit === "1") return;
     host.dataset.blogInit = "1";
 
+    const imagePicker = document.createElement("input");
+    imagePicker.type = "file";
+    imagePicker.accept = "image/png,image/jpeg,image/webp";
+    imagePicker.hidden = true;
+    host.appendChild(imagePicker);
+
     const quill = new window.Quill(editorEl, {
       theme: "snow",
       modules: {
-        toolbar: [
-          [{ font: [] }, { size: ["small", false, "large", "huge"] }],
-          ["bold", "italic", "underline", "strike"],
-          [{ color: [] }, { background: [] }],
-          [{ align: [] }],
-          [{ list: "ordered" }, { list: "bullet" }],
-          ["link", "image", "blockquote", "code-block"],
-          ["clean"],
-        ],
+        toolbar: {
+          container: [
+            [{ font: [] }, { size: ["small", false, "large", "huge"] }],
+            ["bold", "italic", "underline", "strike"],
+            [{ color: [] }, { background: [] }],
+            [{ align: [] }],
+            [{ list: "ordered" }, { list: "bullet" }],
+            ["link", "image", "blockquote", "code-block"],
+            ["clean"],
+          ],
+          handlers: {
+            image: () => imagePicker.click(),
+          },
+        },
       },
+    });
+
+    imagePicker.addEventListener("change", async () => {
+      const file = imagePicker.files && imagePicker.files[0];
+      if (!file) return;
+      imagePicker.value = "";
+      try {
+        const imageUrl = await uploadBlogImage(host, file);
+        const range = quill.getSelection(true) || { index: quill.getLength(), length: 0 };
+        quill.insertEmbed(range.index, "image", imageUrl, "user");
+        quill.setSelection(range.index + 1, 0, "user");
+      } catch (error) {
+        notify(error.message || "Не вдалося завантажити зображення", "error");
+      }
     });
 
     resetBlogForm(host, quill);
@@ -264,13 +319,163 @@
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok || !data.ok) {
-          const firstError = data.errors ? Object.values(data.errors)[0] : null;
-          const errorText = Array.isArray(firstError) ? firstError[0] : (firstError || "Помилка збереження");
-          throw new Error(errorText);
+          throw new Error(extractFirstError(data, "Помилка збереження"));
         }
         notify(data.message || "Збережено", "success");
         const activeBtn = findTabButton("blog");
         if (activeBtn) loadTab("blog", activeBtn.getAttribute("data-admin-tab-url"));
+      } catch (error) {
+        notify(error.message || "Не вдалося зберегти", "error");
+      }
+    });
+  }
+
+  function resetPromoForm(host) {
+    const form = host.querySelector("[data-promo-form]");
+    if (!form) return;
+    form.reset();
+    form.querySelector('input[name="promo_id"]').value = "";
+    form.dataset.updateUrl = "";
+    form.dataset.toggleUrl = "";
+    form.dataset.deleteUrl = "";
+    const toggleBtn = form.querySelector("[data-promo-toggle]");
+    const deleteBtn = form.querySelector("[data-promo-delete]");
+    if (toggleBtn) toggleBtn.hidden = true;
+    if (deleteBtn) deleteBtn.hidden = true;
+  }
+
+  function loadPromo(host, promoId) {
+    const payloadNode = document.getElementById("promo-json-" + promoId);
+    if (!payloadNode) return;
+    let payload = null;
+    try {
+      payload = JSON.parse(payloadNode.textContent || "{}");
+    } catch (_error) {
+      notify("Не вдалося прочитати промокод", "error");
+      return;
+    }
+    const form = host.querySelector("[data-promo-form]");
+    if (!form) return;
+    form.querySelector('input[name="promo_id"]').value = payload.id || "";
+    form.querySelector('input[name="code"]').value = payload.code || "";
+    form.querySelector('select[name="promo_type"]').value = payload.promo_type || "regular";
+    form.querySelector('select[name="discount_type"]').value = payload.discount_type || "percentage";
+    form.querySelector('input[name="discount_value"]').value = payload.discount_value || "";
+    form.querySelector('textarea[name="description"]').value = payload.description || "";
+    form.querySelector('select[name="group"]').value = payload.group_id || "";
+    form.querySelector('input[name="max_uses"]').value = payload.max_uses || 0;
+    form.querySelector('input[name="min_order_amount"]').value = payload.min_order_amount || "";
+    form.querySelector('input[name="valid_from"]').value = payload.valid_from || "";
+    form.querySelector('input[name="valid_until"]').value = payload.valid_until || "";
+    form.querySelector('input[name="one_time_per_user"]').checked = Boolean(payload.one_time_per_user);
+    form.querySelector('input[name="is_active"]').checked = Boolean(payload.is_active);
+    form.dataset.updateUrl = payload.update_url || "";
+    form.dataset.toggleUrl = payload.toggle_url || "";
+    form.dataset.deleteUrl = payload.delete_url || "";
+    const toggleBtn = form.querySelector("[data-promo-toggle]");
+    const deleteBtn = form.querySelector("[data-promo-delete]");
+    if (toggleBtn) toggleBtn.hidden = false;
+    if (deleteBtn) deleteBtn.hidden = false;
+  }
+
+  async function initPromoAdmin() {
+    const host = content.querySelector("[data-promo-admin]");
+    if (!host || host.dataset.promoInit === "1") return;
+    host.dataset.promoInit = "1";
+    const form = host.querySelector("[data-promo-form]");
+    if (!form) return;
+
+    resetPromoForm(host);
+
+    host.addEventListener("click", async (event) => {
+      const newBtn = event.target.closest("[data-promo-new]");
+      if (newBtn) {
+        resetPromoForm(host);
+        return;
+      }
+
+      const loadBtn = event.target.closest("[data-promo-load]");
+      if (loadBtn) {
+        loadPromo(host, loadBtn.getAttribute("data-promo-load"));
+        return;
+      }
+
+      const toggleBtn = event.target.closest("[data-promo-toggle]");
+      if (toggleBtn) {
+        if (!form.dataset.toggleUrl) return;
+        try {
+          const response = await fetch(form.dataset.toggleUrl, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "X-CSRFToken": getCookie("csrftoken"),
+              "X-Requested-With": "fetch",
+            },
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || !data.ok) {
+            throw new Error(extractFirstError(data, "Не вдалося змінити статус"));
+          }
+          notify(data.message || "Статус оновлено", "success");
+          const activeBtn = findTabButton("promocodes");
+          if (activeBtn) loadTab("promocodes", activeBtn.getAttribute("data-admin-tab-url"));
+        } catch (error) {
+          notify(error.message || "Помилка", "error");
+        }
+        return;
+      }
+
+      const deleteBtn = event.target.closest("[data-promo-delete]");
+      if (deleteBtn) {
+        if (!form.dataset.deleteUrl) return;
+        try {
+          const response = await fetch(form.dataset.deleteUrl, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "X-CSRFToken": getCookie("csrftoken"),
+              "X-Requested-With": "fetch",
+            },
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || !data.ok) {
+            throw new Error(extractFirstError(data, "Не вдалося видалити"));
+          }
+          notify(data.message || "Промокод видалено", "success");
+          const activeBtn = findTabButton("promocodes");
+          if (activeBtn) loadTab("promocodes", activeBtn.getAttribute("data-admin-tab-url"));
+        } catch (error) {
+          notify(error.message || "Помилка", "error");
+        }
+      }
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const promoId = form.querySelector('input[name="promo_id"]').value;
+      const endpoint = promoId ? form.dataset.updateUrl : host.dataset.promoCreateUrl;
+      if (!endpoint) {
+        notify("Не знайдено endpoint для збереження", "error");
+        return;
+      }
+      const payload = new FormData(form);
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          body: payload,
+          credentials: "same-origin",
+          headers: {
+            "X-CSRFToken": getCookie("csrftoken"),
+            "X-Requested-With": "fetch",
+          },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) {
+          throw new Error(extractFirstError(data, "Помилка збереження"));
+        }
+        notify(data.message || "Збережено", "success");
+        const activeBtn = findTabButton("promocodes");
+        if (activeBtn) loadTab("promocodes", activeBtn.getAttribute("data-admin-tab-url"));
       } catch (error) {
         notify(error.message || "Не вдалося зберегти", "error");
       }
@@ -316,9 +521,7 @@
           });
           const data = await response.json().catch(() => ({}));
           if (!response.ok || !data.ok) {
-            const firstError = data.errors ? Object.values(data.errors)[0] : null;
-            const errorText = Array.isArray(firstError) ? firstError[0] : (firstError || "Помилка оновлення");
-            throw new Error(errorText);
+            throw new Error(extractFirstError(data, "Помилка оновлення"));
           }
           notify(data.message || "Замовлення оновлено", "success");
           const activeBtn = findTabButton("orders");
@@ -334,6 +537,9 @@
     initOrderEditors();
     initBlogAdmin().catch(() => {
       notify("Не вдалося ініціалізувати редактор блогу", "error");
+    });
+    initPromoAdmin().catch(() => {
+      notify("Не вдалося ініціалізувати промокоди", "error");
     });
   }
 
