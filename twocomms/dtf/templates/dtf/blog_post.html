@@ -8,6 +8,7 @@
 {% block og_description %}{{ post.seo_description|default:post.excerpt }}{% endblock %}
 
 {% block extra_head %}
+  {% if post.seo_keywords %}<meta name="keywords" content="{{ post.seo_keywords }}">{% endif %}
   {% trans "База знань" as blog_label %}
   <script type="application/ld+json">
   {

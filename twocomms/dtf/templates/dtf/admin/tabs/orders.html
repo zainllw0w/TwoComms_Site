@@ -1,0 +1,150 @@
+{% load i18n %}
+
+<div class="dtf-admin-tab-header">
+  <h2>{% trans "Замовлення" %}</h2>
+  <p>{% trans "Керування статусами, оплатою, доставкою та деталями виробу." %}</p>
+</div>
+
+{% if admin_order_cards %}
+  <div class="dtf-admin-orders-list">
+    {% for card in admin_order_cards %}
+      <article class="admin-order-card" data-admin-order-card data-order-id="{{ card.id }}">
+        <header class="admin-order-head">
+          <div>
+            <h3>{{ card.number }}</h3>
+            <p>{{ card.item_summary }}</p>
+          </div>
+          <div class="admin-order-meta">
+            <span class="badge tone-{{ card.payment_tone }}">{{ card.payment_status }}</span>
+            <span class="badge">{{ card.stage_label }}</span>
+            <button class="btn btn-outline" type="button" data-order-editor-open="{{ card.id }}">
+              {% trans "Редагувати" %}
+            </button>
+          </div>
+        </header>
+
+        <div class="admin-order-stage-line">
+          {% for step in admin_progress_steps %}
+            <div class="stage-node {% if forloop.counter0 < card.stage_index %}is-done{% endif %}{% if forloop.counter0 == card.stage_index %}is-active{% endif %}">
+              <span class="dot"></span>
+              <small>{{ step.label }}</small>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="admin-order-grid">
+          <div>
+            <small>{% trans "Оплата" %}</small>
+            <strong>
+              {% if card.payment_amount %}
+                {{ card.payment_amount }} UAH
+              {% else %}
+                {% trans "Узгоджується" %}
+              {% endif %}
+            </strong>
+          </div>
+          <div>
+            <small>{% trans "ТТН" %}</small>
+            <strong>{{ card.ttn|default:"—" }}</strong>
+          </div>
+          <div>
+            <small>{% trans "Точка доставки" %}</small>
+            <strong>{{ card.delivery_point_label|default:"—" }}</strong>
+          </div>
+          <div>
+            <small>{% trans "Оновлено" %}</small>
+            <strong>{{ card.updated_at|date:"d.m.Y H:i" }}</strong>
+          </div>
+        </div>
+
+        <form class="admin-order-editor" data-order-editor-form="{{ card.id }}" method="post" action="{% url 'dtf:admin_order_update' order_id=card.id %}" hidden>
+          {% csrf_token %}
+          <div class="editor-grid">
+            <label>
+              {% trans "Order status" %}
+              <select name="status">
+                {% for key, label in order_status_choices %}
+                  <option value="{{ key }}"{% if key == card.status %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              {% trans "Lifecycle" %}
+              <select name="lifecycle_status">
+                {% for key, label in lifecycle_choices %}
+                  <option value="{{ key }}"{% if key == card.lifecycle_status %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              {% trans "Payment status" %}
+              <select name="payment_status">
+                {% for key, label in payment_choices %}
+                  <option value="{{ key }}"{% if key == card.payment_status_key %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              {% trans "Payment amount" %}
+              <input type="number" step="0.01" min="0" name="payment_amount" value="{{ card.payment_amount|default:'' }}">
+            </label>
+            <label>
+              {% trans "Payment reference" %}
+              <input type="text" name="payment_reference" value="{{ card.payment_reference }}">
+            </label>
+            <label>
+              {% trans "Payment link" %}
+              <input type="url" name="payment_link" value="{{ card.payment_link }}">
+            </label>
+            <label>
+              {% trans "ТТН" %}
+              <input type="text" name="tracking_number" value="{{ card.ttn }}">
+            </label>
+            <label>
+              {% trans "Delivery type" %}
+              <input type="text" name="delivery_point_type" value="{{ card.delivery_point_type }}">
+            </label>
+            <label>
+              {% trans "Delivery code" %}
+              <input type="text" name="delivery_point_code" value="{{ card.delivery_point_code }}">
+            </label>
+            <label>
+              {% trans "Delivery label" %}
+              <input type="text" name="delivery_point_label" value="{{ card.delivery_point_label }}">
+            </label>
+            <label>
+              {% trans "Fulfillment kind" %}
+              <select name="fulfillment_kind">
+                {% for key, label in fulfillment_choices %}
+                  <option value="{{ key }}"{% if key == card.fulfillment_kind %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              {% trans "Product type" %}
+              <input type="text" name="product_type" value="{{ card.product_type }}">
+            </label>
+            <label>
+              {% trans "Print placement" %}
+              <input type="text" name="print_placement" value="{{ card.print_placement }}">
+            </label>
+            <label>
+              {% trans "Product quantity" %}
+              <input type="number" min="0" name="product_quantity" value="{{ card.product_quantity }}">
+            </label>
+          </div>
+          <label>
+            {% trans "Manager note" %}
+            <textarea name="manager_note" rows="3">{{ card.manager_note }}</textarea>
+          </label>
+          <div class="editor-actions">
+            <button class="btn btn-primary" type="submit">{% trans "Зберегти" %}</button>
+            <button class="btn btn-ghost" type="button" data-order-editor-cancel="{{ card.id }}">{% trans "Скасувати" %}</button>
+          </div>
+        </form>
+      </article>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="muted">{% trans "Замовлень ще немає." %}</p>
+{% endif %}

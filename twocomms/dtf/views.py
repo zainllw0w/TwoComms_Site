@@ -7,13 +7,15 @@ import hashlib
 
 from django.conf import settings
 from django.contrib.auth import logout
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, NoReverseMatch
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 from django.utils.translation import gettext_lazy as _
 
@@ -24,6 +26,10 @@ from .forms import (
     DtfOrderForm,
     DtfSampleLeadForm,
 )
+from .admin_panel_forms import (
+    DtfAdminOrderUpdateForm,
+    DtfKnowledgePostAdminForm,
+)
 from .models import (
     BuilderStatus,
     DtfOrder,
@@ -32,6 +38,8 @@ from .models import (
     DtfLead,
     DtfLeadAttachment,
     DtfLifecycleStatus,
+    DtfPaymentStatus,
+    DtfFulfillmentKind,
     DtfStatusEvent,
     DtfUpload,
     DtfPreflightReport,
@@ -65,6 +73,7 @@ from .utils import (
     get_limits,
     get_pricing_config,
     normalize_phone,
+    unique_slug_for_queryset,
 )
 from .utils import ALLOWED_READY_EXTS
 
@@ -78,6 +87,25 @@ STATUS_STEPS = [
     (OrderStatus.SHIPPED, _("Відправлено")),
     (OrderStatus.CLOSED, _("Закрито")),
 ]
+
+
+CUSTOMER_PROGRESS_STEPS = [
+    {"key": "moderation", "label": _("На модерації")},
+    {"key": "awaiting_payment", "label": _("Очікує оплату")},
+    {"key": "printing", "label": _("Прийнято в роботу / друк")},
+    {"key": "shipped", "label": _("Відправлено")},
+    {"key": "delivered", "label": _("Доставлено у відділення / поштомат")},
+    {"key": "received", "label": _("Отримано")},
+]
+
+PAYMENT_STATUS_TONE = {
+    DtfPaymentStatus.PENDING_REVIEW: "pending",
+    DtfPaymentStatus.AWAITING_PAYMENT: "due",
+    DtfPaymentStatus.PAID: "paid",
+    DtfPaymentStatus.PARTIAL: "partial",
+    DtfPaymentStatus.FAILED: "error",
+    DtfPaymentStatus.REFUNDED: "muted",
+}
 
 
 DTF_EFFECTS_TEMPLATES = {
@@ -98,6 +126,127 @@ DTF_HTMX_TEMPLATES = {
     "dtf/index.html",
     "dtf/order.html",
 }
+
+
+def _is_dtf_admin(user):
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_staff or user.is_superuser:
+        return True
+    try:
+        return bool(user.userprofile and getattr(user.userprofile, "is_manager", False))
+    except Exception:
+        return False
+
+
+def _order_stage_index(order: DtfOrder) -> int:
+    stage_key = order.customer_stage()
+    order_map = {item["key"]: idx for idx, item in enumerate(CUSTOMER_PROGRESS_STEPS)}
+    return order_map.get(stage_key, 0)
+
+
+def _order_payment_tone(order: DtfOrder) -> str:
+    return PAYMENT_STATUS_TONE.get(order.payment_status, "pending")
+
+
+def _order_item_summary(order: DtfOrder) -> str:
+    if order.fulfillment_kind == DtfFulfillmentKind.CUSTOM_PRODUCT:
+        product = (order.product_type or _("Готовий виріб")).strip()
+        placement = (order.print_placement or "").strip()
+        qty = order.product_quantity or order.copies
+        if placement:
+            return _("%(product)s · %(placement)s · %(qty)s шт") % {
+                "product": product,
+                "placement": placement,
+                "qty": qty,
+            }
+        return _("%(product)s · %(qty)s шт") % {"product": product, "qty": qty}
+    if order.meters_total:
+        return _("%(meters)s пог.м · %(copies)s коп.") % {
+            "meters": order.meters_total,
+            "copies": order.copies,
+        }
+    if order.length_m:
+        return _("%(meters)s пог.м · %(copies)s коп.") % {
+            "meters": order.length_m,
+            "copies": order.copies,
+        }
+    return _("Фільм DTF")
+
+
+def _build_order_card_payload(order: DtfOrder) -> dict:
+    stage_key = order.customer_stage()
+    payment_amount = order.payment_amount if order.payment_amount is not None else order.price_total
+    return {
+        "id": order.id,
+        "number": order.order_number,
+        "created_at": order.created_at,
+        "updated_at": order.updated_at,
+        "status": order.status,
+        "lifecycle_status": order.lifecycle_status,
+        "fulfillment_kind": order.fulfillment_kind,
+        "product_type": order.product_type or "",
+        "print_placement": order.print_placement or "",
+        "product_quantity": order.product_quantity or order.copies,
+        "stage_key": stage_key,
+        "stage_index": _order_stage_index(order),
+        "stage_label": dict((item["key"], item["label"]) for item in CUSTOMER_PROGRESS_STEPS).get(stage_key, _("На модерації")),
+        "payment_status_key": order.payment_status,
+        "payment_status": order.get_payment_status_display(),
+        "payment_tone": _order_payment_tone(order),
+        "payment_due": order.is_payment_due(),
+        "payment_amount": payment_amount,
+        "payment_reference": order.payment_reference or "",
+        "payment_link": order.payment_link or "",
+        "ttn": order.tracking_number or "",
+        "delivery_point_type": order.delivery_point_type or "",
+        "delivery_point_code": order.delivery_point_code or "",
+        "delivery_point_label": order.delivery_point_label or order.np_branch,
+        "item_summary": _order_item_summary(order),
+        "manager_note": order.manager_note or "",
+        "need_fix_reason": order.need_fix_reason or "",
+        "can_pay_now": order.payment_status in {DtfPaymentStatus.AWAITING_PAYMENT, DtfPaymentStatus.FAILED},
+        "reorder_url": f"{reverse('dtf:order')}?reorder={order.order_number}",
+        "contact_url": f"{reverse('dtf:order')}?tab=help&order={order.order_number}",
+    }
+
+
+def _build_custom_session_card(session: DtfBuilderSession) -> dict:
+    size_parts = []
+    for size, qty in (session.size_breakdown_json or {}).items():
+        size_parts.append(f"{size}:{qty}")
+    size_text = ", ".join(size_parts)
+    subtitle = _("Конструктор: %(product)s · %(placement)s · %(qty)s шт") % {
+        "product": session.get_product_type_display(),
+        "placement": session.get_placement_display(),
+        "qty": session.quantity,
+    }
+    if size_text:
+        subtitle = f"{subtitle} · {size_text}"
+    return {
+        "id": str(session.session_id),
+        "number": f"CNSTR-{str(session.session_id)[:8].upper()}",
+        "created_at": session.created_at,
+        "updated_at": session.updated_at,
+        "stage_key": "moderation",
+        "stage_index": 0,
+        "stage_label": _("На модерації"),
+        "payment_status": _("Сума після узгодження"),
+        "payment_tone": "pending",
+        "payment_due": False,
+        "payment_amount": None,
+        "payment_link": "",
+        "ttn": "",
+        "delivery_point_type": "",
+        "delivery_point_code": "",
+        "delivery_point_label": session.delivery_np_branch or "",
+        "item_summary": subtitle,
+        "manager_note": "",
+        "need_fix_reason": "",
+        "can_pay_now": False,
+        "reorder_url": f"{reverse('dtf:constructor_app')}?sid={session.session_id}",
+        "contact_url": f"{reverse('dtf:order')}?tab=help&session={session.session_id}",
+    }
 
 
 def _get_published_posts():
@@ -170,7 +319,11 @@ def _extract_profile_meta(user):
         or user.is_superuser
         or (profile and bool(getattr(profile, "is_manager", False)))
     )
-    can_store_admin = bool(user.is_staff)
+    can_store_admin = bool(
+        user.is_staff
+        or user.is_superuser
+        or (profile and bool(getattr(profile, "is_manager", False)))
+    )
     can_django_admin = bool(user.is_staff or user.is_superuser)
     return {
         "display_name": display_name,
@@ -204,6 +357,7 @@ def _base_context(request):
     pricing_rate_low = min(rates) if rates else pricing["base_rate"]
     profile_meta = _extract_profile_meta(request.user)
     scheme, current_host, main_host, management_host = _resolve_platform_hosts(request)
+    store_admin_host = current_host if current_host.startswith("dtf.") else main_host
     current_url = request.build_absolute_uri()
     next_param = quote(current_url, safe="")
     next_path_param = quote(request.get_full_path() or "/", safe="")
@@ -221,7 +375,7 @@ def _base_context(request):
         ),
         "profile": f"{scheme}://{main_host}/profile/setup/",
         "orders": f"{scheme}://{main_host}/my/orders/",
-        "store_admin": f"{scheme}://{main_host}/admin-panel/",
+        "store_admin": f"{scheme}://{store_admin_host}/admin-panel/",
         "management_home": f"{scheme}://{management_host}/",
         "management_login": f"{scheme}://{management_host}/login/",
         "django_admin": f"{scheme}://{current_host}/admin/",
@@ -271,6 +425,19 @@ def _get_user_phone_digits(user):
             or ""
         )
     return normalize_phone(profile_phone)
+
+
+def _get_user_orders_for_cabinet(user, *, max_scan: int = 300, staff_fallback: int = 30):
+    user_phone = _get_user_phone_digits(user)
+    if user_phone:
+        items = []
+        for item in DtfOrder.objects.order_by("-created_at")[:max_scan]:
+            if normalize_phone(item.phone) == user_phone:
+                items.append(item)
+        return items
+    if user.is_staff:
+        return list(DtfOrder.objects.order_by("-created_at")[:staff_fallback])
+    return []
 
 
 def _calc_loyalty_meta(order_count: int):
@@ -552,6 +719,10 @@ def order(request):
                 order.requires_review = bool(pricing["requires_review"] or getattr(order_form, "_copies_requires_review", False))
                 order.status = OrderStatus.CHECK_MOCKUP
                 order.lifecycle_status = DtfLifecycleStatus.NEW
+                order.fulfillment_kind = DtfFulfillmentKind.FILM
+                order.product_quantity = order.copies
+                order.payment_status = DtfPaymentStatus.PENDING_REVIEW
+                order.payment_amount = pricing["price_total"]
                 order.save()
                 DtfStatusEvent.objects.create(
                     order=order,
@@ -695,6 +866,7 @@ def status(request, order_number: str | None = None):
         DtfLifecycleStatus.PACKED: 5,
         DtfLifecycleStatus.SHIPPED: 6,
         DtfLifecycleStatus.DELIVERED: 6,
+        DtfLifecycleStatus.RECEIVED: 6,
         DtfLifecycleStatus.CANCELLED: 0,
     }
     status_map = {
@@ -1174,19 +1346,13 @@ def blog_post(request, slug: str):
 @login_required
 def cabinet_home(request):
     ctx = _base_context(request)
-    user_phone = _get_user_phone_digits(request.user)
-    orders = []
-    if user_phone:
-        for order in DtfOrder.objects.order_by("-created_at")[:300]:
-            if normalize_phone(order.phone) == user_phone:
-                orders.append(order)
-    elif request.user.is_staff:
-        orders = list(DtfOrder.objects.order_by("-created_at")[:10])
+    orders = _get_user_orders_for_cabinet(request.user, staff_fallback=10)
     sessions_qs = DtfBuilderSession.objects.filter(user=request.user).order_by("-updated_at")
     loyalty_meta = _calc_loyalty_meta(len(orders))
     ctx.update({
         "cabinet_tab": "home",
         "cabinet_orders": orders[:5],
+        "cabinet_order_cards": [_build_order_card_payload(item) for item in orders[:5]],
         "cabinet_sessions": sessions_qs[:5],
         "loyalty": loyalty_meta,
     })
@@ -1196,18 +1362,24 @@ def cabinet_home(request):
 @login_required
 def cabinet_orders(request):
     ctx = _base_context(request)
-    user_phone = _get_user_phone_digits(request.user)
-    orders = []
-    if user_phone:
-        for order in DtfOrder.objects.order_by("-created_at")[:300]:
-            if normalize_phone(order.phone) == user_phone:
-                orders.append(order)
-    elif request.user.is_staff:
-        orders = list(DtfOrder.objects.order_by("-created_at")[:30])
+    orders = _get_user_orders_for_cabinet(request.user, staff_fallback=30)
+    session_items = list(
+        DtfBuilderSession.objects.filter(user=request.user, status=BuilderStatus.SUBMITTED)
+        .order_by("-updated_at")[:30]
+    )
     loyalty_meta = _calc_loyalty_meta(len(orders))
+    order_cards = [_build_order_card_payload(item) for item in orders]
+    session_cards = [_build_custom_session_card(item) for item in session_items]
+    combined_cards = sorted(
+        [*order_cards, *session_cards],
+        key=lambda payload: payload.get("updated_at") or payload.get("created_at"),
+        reverse=True,
+    )
     ctx.update({
         "cabinet_tab": "orders",
         "cabinet_orders": orders,
+        "cabinet_order_cards": combined_cards,
+        "cabinet_progress_steps": CUSTOMER_PROGRESS_STEPS,
         "loyalty": loyalty_meta,
     })
     return _render(request, "dtf/cabinet_orders.html", ctx)
@@ -1217,12 +1389,7 @@ def cabinet_orders(request):
 def cabinet_sessions(request):
     ctx = _base_context(request)
     sessions = DtfBuilderSession.objects.filter(user=request.user).order_by("-updated_at")
-    user_phone = _get_user_phone_digits(request.user)
-    orders = []
-    if user_phone:
-        for order in DtfOrder.objects.order_by("-created_at")[:300]:
-            if normalize_phone(order.phone) == user_phone:
-                orders.append(order)
+    orders = _get_user_orders_for_cabinet(request.user)
     loyalty_meta = _calc_loyalty_meta(len(orders))
     ctx.update({
         "cabinet_tab": "sessions",
@@ -1230,6 +1397,198 @@ def cabinet_sessions(request):
         "loyalty": loyalty_meta,
     })
     return _render(request, "dtf/cabinet_sessions.html", ctx)
+
+
+def _dtf_admin_shell_tabs():
+    return [
+        {"key": "dashboard", "label": _("Статистика / Dashboard"), "icon": "gauge"},
+        {"key": "orders", "label": _("Замовлення"), "icon": "package"},
+        {"key": "blog", "label": _("Блог"), "icon": "book"},
+        {"key": "users", "label": _("Користувачі"), "icon": "users"},
+        {"key": "promocodes", "label": _("Промокоди"), "icon": "ticket"},
+    ]
+
+
+def _dtf_admin_stats_snapshot():
+    total_orders = DtfOrder.objects.count()
+    active_orders = DtfOrder.objects.exclude(
+        lifecycle_status__in=[DtfLifecycleStatus.CANCELLED, DtfLifecycleStatus.RECEIVED]
+    ).count()
+    awaiting_payment = DtfOrder.objects.filter(payment_status=DtfPaymentStatus.AWAITING_PAYMENT).count()
+    shipped_today = DtfOrder.objects.filter(lifecycle_status=DtfLifecycleStatus.SHIPPED, updated_at__date=timezone.localdate()).count()
+    return {
+        "total_orders": total_orders,
+        "active_orders": active_orders,
+        "awaiting_payment": awaiting_payment,
+        "shipped_today": shipped_today,
+    }
+
+
+def _dtf_admin_tab_context(tab_key: str):
+    context = {
+        "admin_tab_key": tab_key,
+        "admin_stats": _dtf_admin_stats_snapshot(),
+        "admin_progress_steps": CUSTOMER_PROGRESS_STEPS,
+    }
+    if tab_key == "orders":
+        orders = list(DtfOrder.objects.order_by("-created_at")[:80])
+        order_cards = [_build_order_card_payload(item) for item in orders]
+        context.update({
+            "admin_orders": orders,
+            "admin_order_cards": order_cards,
+            "admin_order_cards_map": {card["id"]: card for card in order_cards},
+            "admin_order_form": DtfAdminOrderUpdateForm(),
+            "order_status_choices": DtfOrder._meta.get_field("status").choices,
+            "lifecycle_choices": DtfOrder._meta.get_field("lifecycle_status").choices,
+            "payment_choices": DtfOrder._meta.get_field("payment_status").choices,
+            "fulfillment_choices": DtfOrder._meta.get_field("fulfillment_kind").choices,
+        })
+    elif tab_key == "blog":
+        context.update({
+            "blog_posts": KnowledgePost.objects.order_by("-pub_date", "-id")[:120],
+            "blog_form": DtfKnowledgePostAdminForm(),
+        })
+    elif tab_key == "users":
+        user_model = get_user_model()
+        context.update({
+            "admin_users": user_model.objects.order_by("-date_joined")[:60],
+        })
+    elif tab_key == "promocodes":
+        context.update({
+            "promocodes_placeholder": [
+                {"code": "DTF-SOON", "discount": "10%", "status": _("В розробці")},
+                {"code": "PRINT-LAB", "discount": "15%", "status": _("В розробці")},
+            ]
+        })
+    return context
+
+
+@login_required
+@user_passes_test(_is_dtf_admin)
+def admin_panel(request):
+    ctx = _base_context(request)
+    tabs = _dtf_admin_shell_tabs()
+    allowed = {item["key"] for item in tabs}
+    default_tab = "dashboard"
+    requested_tab = (request.GET.get("tab") or "").strip()
+    active_tab = requested_tab if requested_tab in allowed else default_tab
+    ctx.update({
+        "admin_tabs": tabs,
+        "admin_default_tab": default_tab,
+    })
+    ctx.update(_dtf_admin_tab_context(active_tab))
+    return _render(request, "dtf/admin/panel.html", ctx)
+
+
+@login_required
+@user_passes_test(_is_dtf_admin)
+@require_http_methods(["GET"])
+def admin_panel_tab(request, tab_key: str):
+    allowed = {item["key"] for item in _dtf_admin_shell_tabs()}
+    if tab_key not in allowed:
+        return JsonResponse({"ok": False, "error": "unknown_tab"}, status=404)
+    ctx = _base_context(request)
+    ctx.update(_dtf_admin_tab_context(tab_key))
+    return render(request, f"dtf/admin/tabs/{tab_key}.html", ctx)
+
+
+@login_required
+@user_passes_test(_is_dtf_admin)
+@require_POST
+def admin_order_update(request, order_id: int):
+    order = get_object_or_404(DtfOrder, pk=order_id)
+    form = DtfAdminOrderUpdateForm(request.POST, instance=order)
+    if not form.is_valid():
+        return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+
+    current_lifecycle = order.lifecycle_status
+    target_lifecycle = form.cleaned_data.get("lifecycle_status")
+    updated_order = form.save(commit=False)
+
+    if target_lifecycle and target_lifecycle != current_lifecycle:
+        DtfStatusEvent.objects.create(
+            order=order,
+            status_from=current_lifecycle,
+            status_to=target_lifecycle,
+            actor="manager",
+            public_message=_("Статус оновлено менеджером в DTF Admin"),
+        )
+        updated_order.lifecycle_status = target_lifecycle
+        if target_lifecycle == DtfLifecycleStatus.DELIVERED and not updated_order.delivered_at:
+            updated_order.delivered_at = timezone.now()
+        if target_lifecycle == DtfLifecycleStatus.RECEIVED and not updated_order.received_at:
+            updated_order.received_at = timezone.now()
+
+    if updated_order.payment_status in {DtfPaymentStatus.PAID, DtfPaymentStatus.PARTIAL} and not updated_order.payment_updated_at:
+        updated_order.payment_updated_at = timezone.now()
+
+    updated_order.save()
+    return JsonResponse({
+        "ok": True,
+        "message": _("Замовлення оновлено"),
+        "order": _build_order_card_payload(updated_order),
+    })
+
+
+@login_required
+@user_passes_test(_is_dtf_admin)
+@require_POST
+def admin_blog_create(request):
+    form = DtfKnowledgePostAdminForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+    post = form.save()
+    return JsonResponse({
+        "ok": True,
+        "message": _("Публікацію створено"),
+        "post": {
+            "id": post.id,
+            "title": post.title,
+            "slug": post.slug,
+            "published": post.is_published,
+            "pub_date": post.pub_date.strftime("%Y-%m-%d"),
+        },
+    })
+
+
+@login_required
+@user_passes_test(_is_dtf_admin)
+@require_POST
+def admin_blog_update(request, post_id: int):
+    post = get_object_or_404(KnowledgePost, pk=post_id)
+    form = DtfKnowledgePostAdminForm(request.POST, instance=post)
+    if not form.is_valid():
+        return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+    post = form.save()
+    return JsonResponse({
+        "ok": True,
+        "message": _("Публікацію оновлено"),
+        "post": {
+            "id": post.id,
+            "title": post.title,
+            "slug": post.slug,
+            "published": post.is_published,
+            "pub_date": post.pub_date.strftime("%Y-%m-%d"),
+        },
+    })
+
+
+@login_required
+@user_passes_test(_is_dtf_admin)
+@require_POST
+def admin_blog_delete(request, post_id: int):
+    post = get_object_or_404(KnowledgePost, pk=post_id)
+    post.delete()
+    return JsonResponse({"ok": True, "message": _("Публікацію видалено")})
+
+
+@login_required
+@user_passes_test(_is_dtf_admin)
+@require_http_methods(["GET"])
+def admin_blog_slug_preview(request):
+    raw = (request.GET.get("value") or request.GET.get("title") or "").strip()
+    slug = unique_slug_for_queryset(KnowledgePost.objects.all(), raw, fallback="knowledge-post", max_length=240)
+    return JsonResponse({"ok": True, "slug": slug})
 
 
 def privacy(request):

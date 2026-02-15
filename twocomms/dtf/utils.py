@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.utils import translation
+from django.utils.text import slugify
 from django.core.files.base import ContentFile
 
 try:
@@ -56,12 +57,94 @@ DEFAULT_FEATURE_FLAGS = {
     "tier_mode": "auto",
 }
 
+CYRILLIC_TRANSLIT_MAP = {
+    "а": "a",
+    "б": "b",
+    "в": "v",
+    "г": "h",
+    "ґ": "g",
+    "д": "d",
+    "е": "e",
+    "є": "ye",
+    "ж": "zh",
+    "з": "z",
+    "и": "y",
+    "і": "i",
+    "ї": "yi",
+    "й": "y",
+    "к": "k",
+    "л": "l",
+    "м": "m",
+    "н": "n",
+    "о": "o",
+    "п": "p",
+    "р": "r",
+    "с": "s",
+    "т": "t",
+    "у": "u",
+    "ф": "f",
+    "х": "kh",
+    "ц": "ts",
+    "ч": "ch",
+    "ш": "sh",
+    "щ": "shch",
+    "ь": "",
+    "ю": "yu",
+    "я": "ya",
+    "ъ": "",
+    "ы": "y",
+    "э": "e",
+    "ё": "yo",
+}
+
 
 def normalize_phone(value: str) -> str:
     if not value:
         return ""
     digits = re.sub(r"\D+", "", value)
     return digits
+
+
+def transliterate_cyrillic(value: str) -> str:
+    source = (value or "").strip()
+    if not source:
+        return ""
+    chunks = []
+    for char in source:
+        lower = char.lower()
+        mapped = CYRILLIC_TRANSLIT_MAP.get(lower)
+        if mapped is None:
+            chunks.append(char)
+            continue
+        chunks.append(mapped.upper() if char.isupper() else mapped)
+    return "".join(chunks)
+
+
+def build_slug(value: str, *, fallback: str = "item", max_length: int = 240) -> str:
+    base = transliterate_cyrillic(value or "")
+    slug = slugify(base, allow_unicode=False)
+    if not slug:
+        slug = slugify(value or "", allow_unicode=False)
+    slug = (slug or fallback or "item").strip("-")
+    if not slug:
+        slug = fallback or "item"
+    return slug[:max_length].strip("-") or (fallback or "item")
+
+
+def unique_slug_for_queryset(queryset, value: str, *, fallback: str = "item", max_length: int = 240, exclude_pk=None) -> str:
+    scope = queryset
+    if exclude_pk is not None:
+        scope = scope.exclude(pk=exclude_pk)
+
+    base = build_slug(value, fallback=fallback, max_length=max_length)
+    candidate = base
+    counter = 2
+    while scope.filter(slug=candidate).exists():
+        suffix = f"-{counter}"
+        trimmed = base[: max_length - len(suffix)].rstrip("-")
+        candidate = f"{trimmed}{suffix}"
+        counter += 1
+    return candidate
 
 
 def get_file_extension(filename: str) -> str:
