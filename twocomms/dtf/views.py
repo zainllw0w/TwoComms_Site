@@ -12,6 +12,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.core.cache import cache
 from django.core.files.base import ContentFile
+from django.db.models import Count, Sum
+from django.db.models.functions import TruncDate
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, NoReverseMatch
@@ -1432,6 +1434,70 @@ def _dtf_admin_stats_snapshot():
     }
 
 
+def _dtf_admin_dashboard_snapshot(days: int = 14) -> dict:
+    today = timezone.localdate()
+    start = today - timedelta(days=max(1, days) - 1)
+
+    daily_rows = (
+        DtfOrder.objects.filter(created_at__date__gte=start, created_at__date__lte=today)
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(count=Count("id"))
+        .order_by("day")
+    )
+    daily_map = {row["day"]: int(row["count"]) for row in daily_rows}
+    daily_points = []
+    peak_count = 0
+    for index in range(days):
+        day = start + timedelta(days=index)
+        count = int(daily_map.get(day, 0))
+        peak_count = max(peak_count, count)
+        daily_points.append({
+            "date": day,
+            "label": day.strftime("%d.%m"),
+            "count": count,
+        })
+
+    lifecycle_rows = DtfOrder.objects.values("lifecycle_status").annotate(count=Count("id")).order_by("-count")
+    lifecycle_labels = dict(DtfLifecycleStatus.choices)
+    lifecycle_total = sum(int(row["count"]) for row in lifecycle_rows) or 1
+    lifecycle_points = []
+    for row in lifecycle_rows:
+        key = row["lifecycle_status"]
+        count = int(row["count"])
+        lifecycle_points.append({
+            "key": key,
+            "label": lifecycle_labels.get(key, key),
+            "count": count,
+            "percent": int(round((count / lifecycle_total) * 100)),
+        })
+
+    payment_expected = (
+        DtfOrder.objects.exclude(payment_amount__isnull=True)
+        .aggregate(total=Sum("payment_amount"))
+        .get("total")
+        or Decimal("0")
+    )
+    payment_paid = (
+        DtfOrder.objects.filter(payment_status__in=[DtfPaymentStatus.PAID, DtfPaymentStatus.PARTIAL])
+        .aggregate(total=Sum("payment_amount"))
+        .get("total")
+        or Decimal("0")
+    )
+    payment_due = payment_expected - payment_paid
+    if payment_due < 0:
+        payment_due = Decimal("0")
+
+    return {
+        "daily_points": daily_points,
+        "daily_peak": peak_count,
+        "lifecycle_points": lifecycle_points,
+        "payment_expected": payment_expected,
+        "payment_paid": payment_paid,
+        "payment_due": payment_due,
+    }
+
+
 def _promo_models_ready() -> bool:
     return PromoCode is not None and hasattr(PromoCode, "objects")
 
@@ -1464,7 +1530,11 @@ def _dtf_admin_tab_context(tab_key: str):
         "admin_stats": _dtf_admin_stats_snapshot(),
         "admin_progress_steps": CUSTOMER_PROGRESS_STEPS,
     }
-    if tab_key == "orders":
+    if tab_key == "dashboard":
+        context.update({
+            "admin_dashboard": _dtf_admin_dashboard_snapshot(),
+        })
+    elif tab_key == "orders":
         orders = list(DtfOrder.objects.order_by("-created_at")[:80])
         order_cards = [_build_order_card_payload(item) for item in orders]
         context.update({

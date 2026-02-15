@@ -2,7 +2,7 @@
 
 <div class="dtf-admin-tab-header">
   <h2>{% trans "Статистика / Dashboard" %}</h2>
-  <p>{% trans "Плейсхолдер-аналітика. Блок підключення live-метрик в процесі." %}</p>
+  <p>{% trans "Живі метрики DTF: динаміка замовлень, lifecycle та платіжний зріз." %}</p>
 </div>
 
 <div class="dtf-admin-kpi-grid">
@@ -24,17 +24,56 @@
   </article>
 </div>
 
-<div class="dtf-admin-placeholder-grid">
+<div class="dtf-admin-dashboard-grid">
   <article class="placeholder-card">
-    <h3>{% trans "Конверсія DTF" %}</h3>
-    <p>{% trans "Графік конверсії буде підключено після інтеграції event-потоку." %}</p>
+    <h3>{% trans "Динаміка замовлень (14 днів)" %}</h3>
+    <div class="dtf-mini-chart">
+      {% for point in admin_dashboard.daily_points %}
+        <div class="dtf-mini-chart-item" title="{{ point.label }} · {{ point.count }}">
+          <div
+            class="bar"
+            style="height:{% if admin_dashboard.daily_peak %}{% widthratio point.count admin_dashboard.daily_peak 100 %}{% else %}0{% endif %}%">
+          </div>
+          <small>{{ point.label }}</small>
+        </div>
+      {% endfor %}
+    </div>
   </article>
+
   <article class="placeholder-card">
-    <h3>{% trans "SLA менеджера" %}</h3>
-    <p>{% trans "Середній час першої відповіді / підтвердження замовлення (в розробці)." %}</p>
+    <h3>{% trans "Розподіл lifecycle" %}</h3>
+    <div class="dtf-lifecycle-list">
+      {% for item in admin_dashboard.lifecycle_points %}
+        <div class="dtf-lifecycle-item">
+          <div class="row">
+            <strong>{{ item.label }}</strong>
+            <span>{{ item.count }} · {{ item.percent }}%</span>
+          </div>
+          <div class="progress">
+            <span style="width:{{ item.percent }}%"></span>
+          </div>
+        </div>
+      {% empty %}
+        <p class="muted">{% trans "Поки немає даних." %}</p>
+      {% endfor %}
+    </div>
   </article>
+
   <article class="placeholder-card">
-    <h3>{% trans "Стан виробництва" %}</h3>
-    <p>{% trans "Розподіл замовлень по етапах друку та доставки (в розробці)." %}</p>
+    <h3>{% trans "Платіжний зріз" %}</h3>
+    <div class="dtf-payment-grid">
+      <div class="pay-card">
+        <small>{% trans "Очікувана сума" %}</small>
+        <strong>{{ admin_dashboard.payment_expected }} UAH</strong>
+      </div>
+      <div class="pay-card">
+        <small>{% trans "Вже оплачено" %}</small>
+        <strong>{{ admin_dashboard.payment_paid }} UAH</strong>
+      </div>
+      <div class="pay-card">
+        <small>{% trans "До отримання" %}</small>
+        <strong>{{ admin_dashboard.payment_due }} UAH</strong>
+      </div>
+    </div>
   </article>
 </div>
