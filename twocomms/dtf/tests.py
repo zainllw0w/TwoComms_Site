@@ -583,3 +583,62 @@ class DtfPart5Part6Tests(TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.content.decode("utf-8", "ignore")
         self.assertIn("Не вдалося знайти замовлення", html)
+
+
+class DtfAdminAndCabinetV2Tests(TestCase):
+    def setUp(self):
+        self.client = Client(HTTP_HOST="dtf.twocomms.shop")
+
+    def test_knowledge_post_slug_transliteration(self):
+        post = KnowledgePost.objects.create(
+            title="Тестова стаття про худі",
+            slug="",
+            excerpt="Короткий опис",
+            content_md="Тест контент",
+            is_published=True,
+            pub_date=date.today(),
+        )
+        self.assertTrue(post.slug.startswith("testova-stattya-pro-khudi"))
+
+    def test_admin_panel_access_for_manager(self):
+        user = User.objects.create_user(username="dtf_manager", password="secure-pass-123")
+        self.client.force_login(user)
+        denied = self.client.get("/admin-panel/", secure=True)
+        self.assertEqual(denied.status_code, 302)
+
+        profile = user.userprofile
+        profile.is_manager = True
+        profile.phone = "+380501112233"
+        profile.save(update_fields=["is_manager", "phone"])
+
+        allowed = self.client.get("/admin-panel/", secure=True)
+        self.assertEqual(allowed.status_code, 200)
+        html = allowed.content.decode("utf-8", "ignore")
+        self.assertIn("DTF Control Center", html)
+
+    def test_admin_slug_preview_endpoint(self):
+        user = User.objects.create_user(username="dtf_slug_admin", password="secure-pass-123", is_staff=True)
+        self.client.force_login(user)
+        response = self.client.get("/admin-panel/blog/slug-preview/?value=Футболка Київ", secure=True)
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("ok"))
+        self.assertIn("futbolka-kyyiv", payload.get("slug", ""))
+
+    def test_cabinet_orders_v2_shows_payment_placeholder(self):
+        user = User.objects.create_user(username="cabinet_v2", password="secure-pass-123")
+        profile = user.userprofile
+        profile.phone = "+380501110099"
+        profile.save(update_fields=["phone"])
+        DtfOrder.objects.create(
+            name="Cabinet V2",
+            phone="+380501110099",
+            city="Kyiv",
+            np_branch="1",
+            payment_status="awaiting_payment",
+        )
+        self.client.force_login(user)
+        response = self.client.get("/cabinet/orders/", secure=True)
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8", "ignore")
+        self.assertIn("Оплатити (скоро)", html)

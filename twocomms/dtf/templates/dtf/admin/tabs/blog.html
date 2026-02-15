@@ -1,0 +1,108 @@
+{% load i18n %}
+
+<div class="dtf-admin-tab-header">
+  <h2>{% trans "Блог / База знань" %}</h2>
+  <p>{% trans "CRUD, SEO і slug з транслітерацією для статей DTF." %}</p>
+</div>
+
+<div class="dtf-admin-blog-layout" data-blog-admin
+     data-blog-create-url="{% url 'dtf:admin_blog_create' %}"
+     data-blog-slug-url="{% url 'dtf:admin_blog_slug_preview' %}">
+  <aside class="dtf-admin-blog-list">
+    <button class="btn btn-outline full" type="button" data-blog-new>
+      {% trans "Нова публікація" %}
+    </button>
+    <div class="blog-admin-items">
+      {% for post in blog_posts %}
+        <button class="blog-admin-item" type="button" data-blog-load="{{ post.id }}">
+          <strong>{{ post.title }}</strong>
+          <small>{{ post.pub_date|date:"d.m.Y" }} · {% if post.is_published %}{% trans "Опубліковано" %}{% else %}{% trans "Чернетка" %}{% endif %}</small>
+        </button>
+        <script type="application/json" id="blog-post-json-{{ post.id }}">
+          {
+            "id": {{ post.id }},
+            "title": "{{ post.title|escapejs }}",
+            "slug": "{{ post.slug|escapejs }}",
+            "excerpt": "{{ post.excerpt|escapejs }}",
+            "content_md": "{{ post.content_md|escapejs }}",
+            "content_rich_html": "{{ post.content_rich_html|escapejs }}",
+            "pub_date": "{{ post.pub_date|date:'Y-m-d' }}",
+            "is_published": {% if post.is_published %}true{% else %}false{% endif %},
+            "seo_title": "{{ post.seo_title|escapejs }}",
+            "seo_description": "{{ post.seo_description|escapejs }}",
+            "seo_keywords": "{{ post.seo_keywords|escapejs }}",
+            "update_url": "{% url 'dtf:admin_blog_update' post_id=post.id %}",
+            "delete_url": "{% url 'dtf:admin_blog_delete' post_id=post.id %}"
+          }
+        </script>
+      {% empty %}
+        <p class="muted">{% trans "Поки немає публікацій." %}</p>
+      {% endfor %}
+    </div>
+  </aside>
+
+  <form class="dtf-admin-blog-form" method="post" data-blog-form>
+    {% csrf_token %}
+    <input type="hidden" name="post_id" value="">
+    <div class="editor-grid">
+      <label>
+        {% trans "Заголовок" %}
+        <input type="text" name="title" required>
+      </label>
+      <label>
+        Slug
+        <div class="slug-row">
+          <input type="text" name="slug" data-blog-slug-input>
+          <button class="btn btn-ghost" type="button" data-blog-slug-generate>{% trans "Auto" %}</button>
+        </div>
+      </label>
+      <label class="wide">
+        {% trans "Короткий опис" %}
+        <textarea name="excerpt" rows="3" required></textarea>
+      </label>
+      <label>
+        {% trans "Дата публікації" %}
+        <input type="date" name="pub_date">
+      </label>
+      <label>
+        {% trans "Статус" %}
+        <select name="is_published">
+          <option value="1">{% trans "Опубліковано" %}</option>
+          <option value="0">{% trans "Чернетка" %}</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="blog-editor-block">
+      <p class="muted">{% trans "Rich editor (шрифти, розмір, лінки, зображення)" %}</p>
+      <div class="blog-rich-editor" data-blog-editor></div>
+      <textarea name="content_rich_html" data-blog-editor-input hidden></textarea>
+    </div>
+
+    <details class="blog-markdown-fallback">
+      <summary>{% trans "Markdown fallback" %}</summary>
+      <textarea name="content_md" rows="8"></textarea>
+    </details>
+
+    <div class="editor-grid">
+      <label>
+        SEO Title
+        <input type="text" name="seo_title">
+      </label>
+      <label>
+        {% trans "SEO keywords" %}
+        <input type="text" name="seo_keywords" placeholder="{% trans 'через кому' %}">
+      </label>
+      <label class="wide">
+        SEO Description
+        <textarea name="seo_description" rows="3"></textarea>
+      </label>
+    </div>
+
+    <div class="editor-actions">
+      <button class="btn btn-primary" type="submit" data-blog-save>{% trans "Зберегти" %}</button>
+      <button class="btn btn-outline" type="button" data-blog-delete hidden>{% trans "Видалити" %}</button>
+      <span class="muted" data-blog-feedback aria-live="polite"></span>
+    </div>
+  </form>
+</div>

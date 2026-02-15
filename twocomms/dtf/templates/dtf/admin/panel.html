@@ -1,0 +1,83 @@
+{% extends 'dtf/base.html' %}
+{% load i18n static %}
+
+{% block title %}{% trans "DTF Admin Panel" %}{% endblock %}
+{% block page_id %}dtf-admin{% endblock %}
+
+{% block extra_head %}
+  <script defer src="{% static 'dtf/js/dtf-admin.js' %}?v=20260215a"></script>
+{% endblock %}
+
+{% block content %}
+<section class="section dtf-admin-root" data-ui="dtf:admin:root" data-admin-shell data-admin-default-tab="{{ admin_default_tab }}">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "DTF Control Center" %}</h1>
+      <p>{% trans "Окрема адмін-панель субдомену DTF. Основний сайт не зачіпається." %}</p>
+    </div>
+
+    <div class="dtf-admin-layout">
+      <aside class="dtf-admin-sidebar" data-admin-sidebar>
+        <button class="dtf-admin-sidebar-toggle" type="button" data-admin-sidebar-toggle aria-expanded="false">
+          {% trans "Меню" %}
+        </button>
+
+        <div class="dtf-admin-sidebar-inner">
+          <a class="dtf-admin-logo" href="{% url 'dtf:landing' %}">
+            <span class="mark">DTF</span>
+            <span class="text">TwoComms Admin</span>
+          </a>
+
+          <nav class="dtf-admin-nav" aria-label="{% trans 'Навігація DTF admin' %}">
+            {% for item in admin_tabs %}
+              <button
+                type="button"
+                class="dtf-admin-nav-item {% if admin_tab_key == item.key %}is-active{% endif %}"
+                data-admin-tab="{{ item.key }}"
+                data-admin-tab-url="{% url 'dtf:admin_panel_tab' tab_key=item.key %}">
+                <span class="icon" aria-hidden="true"></span>
+                <span class="label">{{ item.label }}</span>
+              </button>
+            {% endfor %}
+          </nav>
+        </div>
+      </aside>
+
+      <div class="dtf-admin-main">
+        <header class="dtf-admin-toolbar">
+          <div class="dtf-admin-toolbar-tabs">
+            {% for item in admin_tabs %}
+              <button
+                type="button"
+                class="chip {% if admin_tab_key == item.key %}active{% endif %}"
+                data-admin-tab="{{ item.key }}"
+                data-admin-tab-url="{% url 'dtf:admin_panel_tab' tab_key=item.key %}">
+                {{ item.label }}
+              </button>
+            {% endfor %}
+          </div>
+          <div class="dtf-admin-toolbar-meta">
+            <span class="chip">{{ admin_stats.total_orders }} {% trans "замовлень" %}</span>
+            <span class="chip">{{ admin_stats.awaiting_payment }} {% trans "очікують оплату" %}</span>
+            <span class="chip">{{ admin_stats.shipped_today }} {% trans "відправлено сьогодні" %}</span>
+          </div>
+        </header>
+
+        <div class="dtf-admin-panel card" data-admin-tab-content>
+          {% if admin_tab_key == "dashboard" %}
+            {% include "dtf/admin/tabs/dashboard.html" %}
+          {% elif admin_tab_key == "orders" %}
+            {% include "dtf/admin/tabs/orders.html" %}
+          {% elif admin_tab_key == "blog" %}
+            {% include "dtf/admin/tabs/blog.html" %}
+          {% elif admin_tab_key == "users" %}
+            {% include "dtf/admin/tabs/users.html" %}
+          {% elif admin_tab_key == "promocodes" %}
+            {% include "dtf/admin/tabs/promocodes.html" %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

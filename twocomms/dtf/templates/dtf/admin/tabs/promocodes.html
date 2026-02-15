@@ -1,0 +1,16 @@
+{% load i18n %}
+
+<div class="dtf-admin-tab-header">
+  <h2>{% trans "Промокоди" %}</h2>
+  <p>{% trans "Секція в розробці. Каркас готовий для підключення реальної логіки." %}</p>
+</div>
+
+<div class="dtf-admin-placeholder-grid">
+  {% for item in promocodes_placeholder %}
+    <article class="placeholder-card">
+      <h3>{{ item.code }}</h3>
+      <p>{{ item.discount }}</p>
+      <small class="muted">{{ item.status }}</small>
+    </article>
+  {% endfor %}
+</div>

@@ -43,6 +43,13 @@ urlpatterns = [
     path("cabinet/", views.cabinet_home, name="cabinet"),
     path("cabinet/orders/", views.cabinet_orders, name="cabinet_orders"),
     path("cabinet/sessions/", views.cabinet_sessions, name="cabinet_sessions"),
+    path("admin-panel/", views.admin_panel, name="admin_panel"),
+    path("admin-panel/tab/<str:tab_key>/", views.admin_panel_tab, name="admin_panel_tab"),
+    path("admin-panel/orders/<int:order_id>/update/", views.admin_order_update, name="admin_order_update"),
+    path("admin-panel/blog/create/", views.admin_blog_create, name="admin_blog_create"),
+    path("admin-panel/blog/<int:post_id>/update/", views.admin_blog_update, name="admin_blog_update"),
+    path("admin-panel/blog/<int:post_id>/delete/", views.admin_blog_delete, name="admin_blog_delete"),
+    path("admin-panel/blog/slug-preview/", views.admin_blog_slug_preview, name="admin_blog_slug_preview"),
     path("lead/fab/", views.fab_lead, name="fab_lead"),
     path("sitemap.xml", views.sitemap_xml, name="dtf-sitemap"),
 ]
