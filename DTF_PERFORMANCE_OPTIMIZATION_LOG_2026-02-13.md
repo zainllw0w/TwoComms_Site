@@ -497,3 +497,51 @@ This log is intended as continuation context for future agents/sessions when con
 ### Expected impact
 - Significant reduction of one-off first-hit 500 errors caused by stale DB sockets.
 - More reliable error-page rendering during transient DB incidents (no recursive failure in handler500).
+
+## DTF Auto-Minification Pipeline (2026-02-16)
+
+### Goal
+- Remove manual minification steps and make DTF asset minification automatic on every deploy path that runs `collectstatic`.
+
+### Implemented
+- Added reusable minification module:
+  - `twocomms/dtf/minify_assets.py`
+  - Targets:
+    - `dtf/static/dtf/css/dtf.css` -> `dtf/static/dtf/css/dtf.min.css`
+    - `dtf/static/dtf/js/dtf.js` -> `dtf/static/dtf/js/dtf.min.js`
+    - `dtf/static/dtf/js/components/effects-bundle.js` -> `dtf/static/dtf/js/components/effects-bundle.min.js`
+  - Engine:
+    - CSS: `rcssmin`
+    - JS: `rjsmin`
+
+- Added management commands:
+  - `twocomms/dtf/management/commands/minify_dtf_assets.py`
+    - manual run: `python manage.py minify_dtf_assets`
+  - `twocomms/dtf/management/commands/collectstatic.py`
+    - overrides default `collectstatic` and runs minification automatically before static collection.
+
+- Ensured command override precedence:
+  - moved `dtf.apps.DtfConfig` above `django.contrib.staticfiles` in `INSTALLED_APPS` (`twocomms/twocomms/settings.py`).
+
+- Switched template to minified DTF bundles:
+  - `twocomms/dtf/templates/dtf/base.html`
+    - `dtf.min.css`
+    - `dtf.min.js`
+    - `effects-bundle.min.js`
+
+### Verification
+- Command resolution:
+  - `manage.py help collectstatic` now shows custom help: auto-minify before collectstatic.
+- Runtime:
+  - `manage.py collectstatic` prints:
+    - `Running DTF asset minification before collectstatic...`
+    - `DTF minification complete ...`
+- Sizes (source -> min):
+  - `dtf.js`: `84,282` -> `63,402` bytes
+  - `effects-bundle.js`: `68,596` -> `50,296` bytes
+  - `dtf.css`: `120,761` -> `99,782` bytes
+  - Total saved: `60,159` bytes (uncompressed).
+
+### Notes
+- This pipeline has no Node.js dependency on server (important for current hosting where `node/npx` are absent).
+- Minification now happens automatically whenever deploy flow executes `python manage.py collectstatic`.

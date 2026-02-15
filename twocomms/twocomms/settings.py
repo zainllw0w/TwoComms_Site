@@ -122,6 +122,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "dtf.apps.DtfConfig",           # DTF app first to override collectstatic command
     "django.contrib.staticfiles",   # ← только один раз!
     "django.contrib.sites",         # Sites framework для redirects
     "django.contrib.sitemaps",      # Sitemap для SEO
@@ -136,7 +137,6 @@ INSTALLED_APPS = [
     "accounts",                     # регистрируем приложение аккаунтов
     "orders.apps.OrdersConfig",     # заказы (корректный AppConfig)
     "productcolors.apps.ProductColorsConfig",  # цветовые варианты товаров
-    "dtf.apps.DtfConfig",           # DTF subdomain app
     # Social auth
     "social_django",
 
