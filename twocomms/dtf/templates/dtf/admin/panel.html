@@ -44,25 +44,6 @@
       </aside>
 
       <div class="dtf-admin-main">
-        <header class="dtf-admin-toolbar">
-          <div class="dtf-admin-toolbar-tabs">
-            {% for item in admin_tabs %}
-              <button
-                type="button"
-                class="chip {% if admin_tab_key == item.key %}active{% endif %}"
-                data-admin-tab="{{ item.key }}"
-                data-admin-tab-url="{% url 'dtf:admin_panel_tab' tab_key=item.key %}">
-                {{ item.label }}
-              </button>
-            {% endfor %}
-          </div>
-          <div class="dtf-admin-toolbar-meta">
-            <span class="chip">{{ admin_stats.total_orders }} {% trans "замовлень" %}</span>
-            <span class="chip">{{ admin_stats.awaiting_payment }} {% trans "очікують оплату" %}</span>
-            <span class="chip">{{ admin_stats.shipped_today }} {% trans "відправлено сьогодні" %}</span>
-          </div>
-        </header>
-
         <div class="dtf-admin-panel card" data-admin-tab-content>
           {% if admin_tab_key == "dashboard" %}
             {% include "dtf/admin/tabs/dashboard.html" %}
