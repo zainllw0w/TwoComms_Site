@@ -92,15 +92,13 @@
     .home-dot-distortion .dot-orb-2 { top: 56%; left: 54%; }
     .home-dot-distortion .dot-orb-3 { top: 20%; left: 76%; }
   </style>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
     rel="preload"
     as="style"
-    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    href="{% static 'dtf/css/fonts-local.css' %}?v=20260215a"
     onload="this.onload=null;this.rel='stylesheet'">
   <noscript>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'dtf/css/fonts-local.css' %}?v=20260215a">
   </noscript>
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260206b">
   <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260215c">

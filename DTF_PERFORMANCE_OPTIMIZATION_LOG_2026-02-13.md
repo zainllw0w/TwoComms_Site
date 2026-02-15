@@ -276,3 +276,23 @@ This log is intended as continuation context for future agents/sessions when con
   - `Manrope`
   - `JetBrains Mono`
 - Google Fonts configuration and visual typography are preserved.
+
+## Local Fonts Hosting Pass (2026-02-15)
+
+### Implemented
+- Added local static font files under:
+  - `twocomms/dtf/static/dtf/fonts/google/`
+- Added local font-face bundle:
+  - `twocomms/dtf/static/dtf/css/fonts-local.css`
+  - generated from the same Google Fonts CSS2 query used before:
+    - `Space Grotesk` (400/500/600/700)
+    - `Manrope` (400/500/600/700)
+    - `JetBrains Mono` (400/500/600)
+- Updated base template:
+  - removed `fonts.googleapis.com` / `fonts.gstatic.com` links
+  - replaced with local preload + noscript stylesheet:
+    - `dtf/css/fonts-local.css?v=20260215a`
+
+### Result
+- Typography remains visually identical (same families/weights/subsets),
+- but font loading is now fully local from DTF static, without external font DNS/TLS requests.
