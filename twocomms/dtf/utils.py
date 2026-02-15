@@ -557,10 +557,22 @@ def render_constructor_preview(uploaded_file, *, product_type: str, placement: s
 def activate_language_from_request(request, allowed=("uk", "ru", "en")):
     lang = request.GET.get("lang")
     if lang in allowed:
-        request.session["dtf_lang"] = lang
+        try:
+            request.session["dtf_lang"] = lang
+        except Exception:
+            # Session backend may be temporarily unavailable (e.g. transient DB disconnect).
+            # Language fallback still works via cookie/default below.
+            pass
         request._dtf_lang = lang
     else:
-        lang = request.session.get("dtf_lang") or request.COOKIES.get("dtf_lang") or allowed[0]
+        session_lang = None
+        try:
+            session_lang = request.session.get("dtf_lang")
+        except Exception:
+            session_lang = None
+        lang = session_lang or request.COOKIES.get("dtf_lang") or allowed[0]
+        if lang not in allowed:
+            lang = allowed[0]
         request._dtf_lang = lang
     translation.activate(lang)
     request.LANGUAGE_CODE = lang

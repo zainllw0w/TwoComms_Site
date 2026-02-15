@@ -66,6 +66,8 @@ if _allowed_hosts_env:
     # Always ensure subdomains are allowed
     if 'management.twocomms.shop' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append('management.twocomms.shop')
+    if 'www.management.twocomms.shop' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('www.management.twocomms.shop')
     if 'dtf.twocomms.shop' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append('dtf.twocomms.shop')
 else:
@@ -80,6 +82,7 @@ else:
         '127.0.0.1',
         'testserver',  # Для Django тестового клиента
         'management.twocomms.shop',
+        'www.management.twocomms.shop',
         'dtf.twocomms.shop',
     ]
 
@@ -168,6 +171,9 @@ if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
             'charset': 'utf8mb4',
             'use_unicode': True,
             'init_command': "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'",
+            'connect_timeout': int(os.environ.get('DB_CONNECT_TIMEOUT', '10')),
+            'read_timeout': int(os.environ.get('DB_READ_TIMEOUT', '30')),
+            'write_timeout': int(os.environ.get('DB_WRITE_TIMEOUT', '30')),
         }
 
         # Поддержка SSL через переменные окружения (опционально)
@@ -190,6 +196,7 @@ if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
                 'HOST': os.environ.get('DB_HOST', 'localhost'),
                 'PORT': os.environ.get('DB_PORT', '3306'),
                 'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '300')),
+                'CONN_HEALTH_CHECKS': True,
                 'OPTIONS': _options,
             }
         }
@@ -209,6 +216,7 @@ if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
                 'HOST': os.environ.get('DB_HOST', 'localhost'),
                 'PORT': os.environ.get('DB_PORT', '5432'),
                 'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '300')),
+                'CONN_HEALTH_CHECKS': True,
                 'OPTIONS': {
                     'sslmode': os.environ.get('DB_SSLMODE', 'require')
                 }
@@ -228,6 +236,9 @@ if DB_NAME_DTF and 'default' in DATABASES:
             'charset': 'utf8mb4',
             'use_unicode': True,
             'init_command': "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'",
+            'connect_timeout': int(os.environ.get('DB_CONNECT_TIMEOUT_DTF', os.environ.get('DB_CONNECT_TIMEOUT', '10'))),
+            'read_timeout': int(os.environ.get('DB_READ_TIMEOUT_DTF', os.environ.get('DB_READ_TIMEOUT', '30'))),
+            'write_timeout': int(os.environ.get('DB_WRITE_TIMEOUT_DTF', os.environ.get('DB_WRITE_TIMEOUT', '30'))),
         }
         _sql_mode_dtf = os.environ.get('DB_SQL_MODE_DTF') or os.environ.get('DB_SQL_MODE')
         if _sql_mode_dtf:
@@ -242,6 +253,7 @@ if DB_NAME_DTF and 'default' in DATABASES:
             'HOST': DB_HOST_DTF,
             'PORT': DB_PORT_DTF or '3306',
             'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE_DTF', os.environ.get('DB_CONN_MAX_AGE', '300'))),
+            'CONN_HEALTH_CHECKS': True,
             'OPTIONS': dtf_options,
         }
     else:
@@ -253,6 +265,7 @@ if DB_NAME_DTF and 'default' in DATABASES:
             'HOST': DB_HOST_DTF,
             'PORT': DB_PORT_DTF or '5432',
             'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE_DTF', os.environ.get('DB_CONN_MAX_AGE', '300'))),
+            'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'sslmode': os.environ.get('DB_SSLMODE_DTF', os.environ.get('DB_SSLMODE', 'require'))
             }

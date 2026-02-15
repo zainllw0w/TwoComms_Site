@@ -90,6 +90,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get
     '127.0.0.1',
     'mail.twocomms.shop',  # Added for mail subdomain
     'management.twocomms.shop',
+    'www.management.twocomms.shop',
 ]
 
 
@@ -370,9 +371,13 @@ elif DB_ENGINE.startswith('mysql') and DB_NAME and DB_USER:
             'HOST': DB_HOST,
             'PORT': DB_PORT or '3306',
             'CONN_MAX_AGE': 60,
+            'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'charset': 'utf8mb4',
                 'use_unicode': True,
+                'connect_timeout': 10,
+                'read_timeout': 30,
+                'write_timeout': 30,
                 # 'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             },
         }
@@ -388,6 +393,7 @@ elif (DB_ENGINE.startswith('post') or (DB_NAME and DB_USER)):
             'HOST': DB_HOST,
             'PORT': DB_PORT or '5432',
             'CONN_MAX_AGE': 60,
+            'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'sslmode': os.environ.get('DB_SSLMODE', 'prefer')
             }
@@ -426,10 +432,14 @@ if DB_NAME_DTF:
             'HOST': DB_HOST_DTF,
             'PORT': DB_PORT_DTF or '3306',
             'CONN_MAX_AGE': 60,
+            'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'charset': 'utf8mb4',
                 'use_unicode': True,
                 'sql_mode': dtf_sql_mode,
+                'connect_timeout': 10,
+                'read_timeout': 30,
+                'write_timeout': 30,
             },
         }
     elif DB_ENGINE_DTF.startswith('post'):
@@ -441,6 +451,7 @@ if DB_NAME_DTF:
             'HOST': DB_HOST_DTF,
             'PORT': DB_PORT_DTF or '5432',
             'CONN_MAX_AGE': 60,
+            'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'sslmode': os.environ.get('DB_SSLMODE_DTF', os.environ.get('DB_SSLMODE', 'prefer')),
             },
