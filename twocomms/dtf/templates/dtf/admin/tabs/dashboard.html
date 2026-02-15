@@ -1,79 +1,17 @@
 {% load i18n %}
 
 <div class="dtf-admin-tab-header">
-  <h2>{% trans "Статистика / Dashboard" %}</h2>
-  <p>{% trans "Живі метрики DTF: динаміка замовлень, lifecycle та платіжний зріз." %}</p>
+  <h2>{% trans "Dashboard" %}</h2>
+  <p>{% trans "Оглядовий розділ. Операційна статистика винесена в блок Замовлення." %}</p>
 </div>
 
-<div class="dtf-admin-kpi-grid">
-  <article class="kpi-card">
-    <small>{% trans "Всього замовлень" %}</small>
-    <strong>{{ admin_stats.total_orders }}</strong>
-  </article>
-  <article class="kpi-card">
-    <small>{% trans "Активні" %}</small>
-    <strong>{{ admin_stats.active_orders }}</strong>
-  </article>
-  <article class="kpi-card">
-    <small>{% trans "Очікують оплату" %}</small>
-    <strong>{{ admin_stats.awaiting_payment }}</strong>
-  </article>
-  <article class="kpi-card">
-    <small>{% trans "Відправлено сьогодні" %}</small>
-    <strong>{{ admin_stats.shipped_today }}</strong>
-  </article>
-</div>
-
-<div class="dtf-admin-dashboard-grid">
+<div class="dtf-admin-placeholder-grid">
   <article class="placeholder-card">
-    <h3>{% trans "Динаміка замовлень (14 днів)" %}</h3>
-    <div class="dtf-mini-chart">
-      {% for point in admin_dashboard.daily_points %}
-        <div class="dtf-mini-chart-item" title="{{ point.label }} · {{ point.count }}">
-          <div
-            class="bar"
-            style="height:{% if admin_dashboard.daily_peak %}{% widthratio point.count admin_dashboard.daily_peak 100 %}{% else %}0{% endif %}%">
-          </div>
-          <small>{{ point.label }}</small>
-        </div>
-      {% endfor %}
-    </div>
+    <h3>{% trans "План розвитку" %}</h3>
+    <p>{% trans "Тут буде зведений огляд KPI, SLA менеджерів та фінансова аналітика в одному місці." %}</p>
   </article>
-
   <article class="placeholder-card">
-    <h3>{% trans "Розподіл lifecycle" %}</h3>
-    <div class="dtf-lifecycle-list">
-      {% for item in admin_dashboard.lifecycle_points %}
-        <div class="dtf-lifecycle-item">
-          <div class="row">
-            <strong>{{ item.label }}</strong>
-            <span>{{ item.count }} · {{ item.percent }}%</span>
-          </div>
-          <div class="progress">
-            <span style="width:{{ item.percent }}%"></span>
-          </div>
-        </div>
-      {% empty %}
-        <p class="muted">{% trans "Поки немає даних." %}</p>
-      {% endfor %}
-    </div>
-  </article>
-
-  <article class="placeholder-card">
-    <h3>{% trans "Платіжний зріз" %}</h3>
-    <div class="dtf-payment-grid">
-      <div class="pay-card">
-        <small>{% trans "Очікувана сума" %}</small>
-        <strong>{{ admin_dashboard.payment_expected }} UAH</strong>
-      </div>
-      <div class="pay-card">
-        <small>{% trans "Вже оплачено" %}</small>
-        <strong>{{ admin_dashboard.payment_paid }} UAH</strong>
-      </div>
-      <div class="pay-card">
-        <small>{% trans "До отримання" %}</small>
-        <strong>{{ admin_dashboard.payment_due }} UAH</strong>
-      </div>
-    </div>
+    <h3>{% trans "Швидкий перехід" %}</h3>
+    <p>{% trans "Операційні дії та актуальна статистика доступні у розділі Замовлення." %}</p>
   </article>
 </div>

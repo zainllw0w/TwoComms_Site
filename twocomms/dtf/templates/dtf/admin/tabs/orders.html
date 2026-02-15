@@ -5,6 +5,25 @@
   <p>{% trans "Керування статусами, оплатою, доставкою та деталями виробу." %}</p>
 </div>
 
+<div class="orders-stats-strip">
+  <article class="orders-stat-card">
+    <small>{% trans "Всього замовлень" %}</small>
+    <strong>{{ admin_stats.total_orders }}</strong>
+  </article>
+  <article class="orders-stat-card">
+    <small>{% trans "Активні" %}</small>
+    <strong>{{ admin_stats.active_orders }}</strong>
+  </article>
+  <article class="orders-stat-card">
+    <small>{% trans "Очікують оплату" %}</small>
+    <strong>{{ admin_stats.awaiting_payment }}</strong>
+  </article>
+  <article class="orders-stat-card">
+    <small>{% trans "Відправлено сьогодні" %}</small>
+    <strong>{{ admin_stats.shipped_today }}</strong>
+  </article>
+</div>
+
 {% if admin_order_cards %}
   <div class="dtf-admin-orders-list">
     {% for card in admin_order_cards %}
