@@ -101,7 +101,7 @@
     <link rel="stylesheet" href="{% static 'dtf/css/fonts-local.css' %}?v=20260215a">
   </noscript>
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260206b">
-  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260215d">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260215e">
   {% if dtf_load_effects %}
     <link
       rel="preload"
@@ -427,99 +427,6 @@
       <span>{% trans "Галерея" %}</span>
     </a>
   </nav>
-
-  <script>
-    (function () {
-      if (window.__dtfCriticalBoot) return;
-      window.__dtfCriticalBoot = true;
-      var body = document.body;
-      if (!body) return;
-      var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-      body.classList.add('reveal-ready');
-      var revealNodes = Array.prototype.slice.call(document.querySelectorAll('[data-reveal]'));
-      if (revealNodes.length) {
-        if (!prefersReduced && 'IntersectionObserver' in window) {
-          var viewportHeight = Math.max(window.innerHeight || 0, document.documentElement ? document.documentElement.clientHeight : 0);
-          revealNodes.forEach(function (el) {
-            el.dataset.initReveal = '1';
-            var rect = el.getBoundingClientRect();
-            if (rect.bottom > 0 && rect.top < viewportHeight * 0.98) {
-              el.classList.add('is-visible');
-            }
-          });
-          var revealObserver = new IntersectionObserver(function (entries) {
-            entries.forEach(function (entry) {
-              if (!entry.isIntersecting) return;
-              entry.target.classList.add('is-visible');
-              if (entry.target.classList.contains('section-head')) {
-                var section = entry.target.closest('section');
-                if (section) section.classList.add('is-hot');
-              }
-              revealObserver.unobserve(entry.target);
-            });
-          }, { threshold: 0.05, rootMargin: '0px 0px -8% 0px' });
-          revealNodes.forEach(function (el) {
-            if (!el.classList.contains('is-visible')) revealObserver.observe(el);
-          });
-        } else {
-          revealNodes.forEach(function (el) {
-            el.dataset.initReveal = '1';
-            el.classList.add('is-visible');
-          });
-        }
-      }
-
-      if (prefersReduced || body.dataset.page !== 'home') return;
-      var layer = document.querySelector('.home-dot-distortion');
-      if (!layer) return;
-
-      var state = { x: 0, y: 0, tx: 0, ty: 0, active: false };
-      var frame = 0;
-      var clamp = function (v, min, max) { return Math.min(max, Math.max(min, v)); };
-      var schedule = function () {
-        if (!frame) frame = window.requestAnimationFrame(step);
-      };
-      var step = function () {
-        frame = 0;
-        var follow = state.active ? 0.22 : 0.15;
-        state.x += (state.tx - state.x) * follow;
-        state.y += (state.ty - state.y) * follow;
-        var shiftX = state.x * 28;
-        var shiftY = state.y * 20;
-        layer.style.setProperty('--dot-pointer-x', (50 + state.x * 25).toFixed(2) + '%');
-        layer.style.setProperty('--dot-pointer-y', (42 + state.y * 20).toFixed(2) + '%');
-        layer.style.setProperty('--dot-shift-x', shiftX.toFixed(2) + 'px');
-        layer.style.setProperty('--dot-shift-y', shiftY.toFixed(2) + 'px');
-        layer.style.setProperty('--dot-arc-x', (state.x * -20).toFixed(2) + 'px');
-        layer.style.setProperty('--dot-arc-y', (state.y * -15).toFixed(2) + 'px');
-        layer.style.setProperty('--dot-glow', state.active ? '0.74' : '0.56');
-        if (state.active || Math.abs(state.tx - state.x) > 0.002 || Math.abs(state.ty - state.y) > 0.002) schedule();
-      };
-      var update = function (event) {
-        var viewW = Math.max(window.innerWidth || 1, 1);
-        var viewH = Math.max(window.innerHeight || 1, 1);
-        var relX = (event.clientX / viewW) * 2 - 1;
-        var relY = (event.clientY / viewH) * 2 - 1;
-        state.tx = clamp(Math.sign(relX) * Math.pow(Math.abs(relX), 0.86), -1, 1);
-        state.ty = clamp(Math.sign(relY) * Math.pow(Math.abs(relY), 0.88), -1, 1);
-        state.active = true;
-        schedule();
-      };
-      var reset = function () {
-        state.active = false;
-        state.tx = 0;
-        state.ty = 0;
-        schedule();
-      };
-
-      window.addEventListener('pointermove', update, { passive: true });
-      window.addEventListener('pointerdown', update, { passive: true });
-      window.addEventListener('pointerleave', reset);
-      window.addEventListener('blur', reset);
-      schedule();
-    })();
-  </script>
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
   <script src="{% static 'dtf/js/dtf.js' %}?v=20260215c" defer></script>
