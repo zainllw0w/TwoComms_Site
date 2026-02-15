@@ -10,7 +10,7 @@ from django.contrib.auth import logout
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.core.cache import cache
+from django.core.cache import cache, caches
 from django.core.files.base import ContentFile
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -257,11 +257,37 @@ def _build_custom_session_card(session: DtfBuilderSession) -> dict:
     }
 
 
+def _get_fragment_cache():
+    try:
+        return caches["fragments"]
+    except Exception:
+        return cache
+
+
 def _get_published_posts():
-    return list(
-        KnowledgePost.objects.published()
-        .order_by("-pub_date", "-id")
-    )
+    cache_backend = _get_fragment_cache()
+    cache_key = "dtf:published_posts:v1"
+    posts = cache_backend.get(cache_key)
+    if posts is None:
+        posts = list(
+            KnowledgePost.objects.published()
+            .order_by("-pub_date", "-id")
+        )
+        cache_backend.set(cache_key, posts, 300)
+    return posts
+
+
+def _get_active_works():
+    cache_backend = _get_fragment_cache()
+    cache_key = "dtf:active_works:v1"
+    works = cache_backend.get(cache_key)
+    if works is None:
+        works = list(
+            DtfWork.objects.filter(is_active=True)
+            .order_by("sort_order", "-created_at")
+        )
+        cache_backend.set(cache_key, works, 300)
+    return works
 
 
 def _group_posts_by_month(posts):
@@ -551,7 +577,7 @@ def _render(request, template, context, status: int | None = None):
 
 def landing(request):
     ctx = _base_context(request)
-    works = DtfWork.objects.filter(is_active=True).order_by("sort_order", "-created_at")
+    works = _get_active_works()
     knowledge_posts = _get_published_posts()[:3]
     ctx.update({
         "works": works,
@@ -954,10 +980,11 @@ def status(request, order_number: str | None = None):
 def gallery(request):
     ctx = _base_context(request)
     category = request.GET.get("category", "all")
-    works = DtfWork.objects.filter(is_active=True).order_by("sort_order", "-created_at")
+    works = _get_active_works()
     if category in {WorkCategory.MACRO, WorkCategory.PROCESS, WorkCategory.FINAL}:
-        works = works.filter(category=category)
-    works_list = list(works)
+        works_list = [work for work in works if work.category == category]
+    else:
+        works_list = list(works)
     ctx.update({
         "works": works_list,
         "works_with_images": [work for work in works_list if getattr(work, "image", None)],
