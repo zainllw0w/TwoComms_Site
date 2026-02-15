@@ -463,3 +463,37 @@ This log is intended as continuation context for future agents/sessions when con
 ### Result
 - Desktop sidebar expansion now behaves as controlled layout state (closer to reference behavior).
 - Tab switching is more resilient to transient network/backend hiccups; less user-facing hard failures.
+
+## Intermittent Internal Error Root Cause + Hardening (2026-02-15)
+
+### Incident pattern
+- Symptoms: occasional `Internal Error` on first hit to pages (including DTF admin); page works after refresh.
+- Production traceback evidence:
+  - `django.db.utils.OperationalError: (2006, "MySQL server has gone away ... Connection reset by peer")`
+  - `django.db.utils.InterfaceError: (0, '')`
+- Additional cascade observed: DTF `handler500` called `_base_context()`, which again touched session/DB and could fail while rendering 500 page.
+
+### Root cause
+- Intermittent stale/dropped MySQL connections in web workers.
+- First request after a dropped socket can fail before connection is re-established; second request succeeds with a new DB connection.
+
+### Mitigations implemented
+- `twocomms/twocomms/production_settings.py`
+  - Enabled `CONN_HEALTH_CHECKS=True` for default and DTF DB configs.
+  - Added MySQL socket timeouts (`connect/read/write`) for default and DTF DB configs.
+  - Added `www.management.twocomms.shop` to allowed hosts fallback/append logic.
+
+- `twocomms/twocomms/settings.py`
+  - Mirrored DB hardening defaults (`CONN_HEALTH_CHECKS`, MySQL timeout options) for consistency.
+  - Added `www.management.twocomms.shop` in default `ALLOWED_HOSTS` list.
+
+- `twocomms/dtf/utils.py`
+  - Hardened `activate_language_from_request(...)` against temporary session backend failures.
+
+- `twocomms/dtf/views.py`
+  - Added `_safe_base_context()` fallback path for error handlers.
+  - Switched `handler404`/`handler500` to safe context to avoid recursive DB/session failure while rendering error pages.
+
+### Expected impact
+- Significant reduction of one-off first-hit 500 errors caused by stale DB sockets.
+- More reliable error-page rendering during transient DB incidents (no recursive failure in handler500).

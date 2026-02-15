@@ -433,6 +433,56 @@ def _base_context(request):
     }
 
 
+def _fallback_base_context(request):
+    allowed_langs = ("uk", "ru", "en")
+    lang = (request.COOKIES.get("dtf_lang") or "uk").strip().lower()
+    if lang not in allowed_langs:
+        lang = "uk"
+
+    pricing = get_pricing_config()
+    rates = [pricing["base_rate"], *[tier["rate"] for tier in pricing["tiers"]]]
+    pricing_rate_high = max(rates) if rates else pricing["base_rate"]
+    pricing_rate_low = min(rates) if rates else pricing["base_rate"]
+
+    # Keep links deterministic even when request/session/DB are partially unavailable.
+    profile_links = {
+        "login": "https://twocomms.shop/login/",
+        "register": "https://twocomms.shop/register/",
+        "google_login": "https://twocomms.shop/oauth/login/google-oauth2/",
+        "profile": "https://twocomms.shop/profile/setup/",
+        "orders": "https://twocomms.shop/my/orders/",
+        "store_admin": "https://twocomms.shop/admin-panel/",
+        "management_home": "https://management.twocomms.shop/",
+        "management_login": "https://management.twocomms.shop/login/",
+        "django_admin": "https://dtf.twocomms.shop/admin/",
+    }
+
+    return {
+        "current_lang": lang,
+        "lang_links": build_lang_links(request),
+        "pricing": pricing,
+        "pricing_rate_high": pricing_rate_high,
+        "pricing_rate_low": pricing_rate_low,
+        "pricing_range_label": f"{pricing_rate_high}-{pricing_rate_low}",
+        "limits": get_limits(),
+        "feature_flags": get_feature_flags(),
+        "profile_display_name": _("Гість"),
+        "profile_initials": "TC",
+        "profile_avatar_url": "",
+        "profile_can_management": False,
+        "profile_can_store_admin": False,
+        "profile_can_django_admin": False,
+        "profile_links": profile_links,
+    }
+
+
+def _safe_base_context(request):
+    try:
+        return _base_context(request)
+    except Exception:
+        return _fallback_base_context(request)
+
+
 def _is_rate_limited(request, key_prefix: str, *, limit: int = 5, window_seconds: int = 3600) -> bool:
     ip = (request.META.get("HTTP_X_FORWARDED_FOR") or request.META.get("REMOTE_ADDR") or "unknown").split(",")[0].strip()
     key = f"dtf:{key_prefix}:{ip}"
@@ -1800,12 +1850,12 @@ def requisites(request):
 
 
 def handler404(request, exception):
-    ctx = _base_context(request)
+    ctx = _safe_base_context(request)
     return _render(request, "dtf/404.html", ctx, status=404)
 
 
 def handler500(request):
-    ctx = _base_context(request)
+    ctx = _safe_base_context(request)
     return _render(request, "dtf/500.html", ctx, status=500)
 
 
