@@ -250,3 +250,29 @@ This log is intended as continuation context for future agents/sessions when con
 ### Goal
 - Remove perceived “late rays/scan lag” on first 1–2 seconds.
 - Keep same design language while moving expensive hero animation work to idle/intent phase.
+
+## Conditional Bundle Loading Pass (2026-02-15)
+
+### Implemented
+- `twocomms/dtf/views.py`
+  - Added per-template flags in `_render()`:
+    - `dtf_load_effects`
+    - `dtf_load_htmx`
+  - Introduced template allow-lists:
+    - `DTF_EFFECTS_TEMPLATES`
+    - `DTF_HTMX_TEMPLATES`
+
+- `twocomms/dtf/templates/dtf/base.html`
+  - `effects-bundle.css` now loads only when `dtf_load_effects=True`.
+  - `core.js`, `_utils.js`, `motion.js`, `effects-bundle.js` now load only when `dtf_load_effects=True`.
+  - `htmx.min.js` now loads only when `dtf_load_htmx=True`.
+  - Asset bump:
+    - `dtf.css?v=20260215c`
+    - `dtf.js?v=20260215c`
+
+### Typography constraint
+- Font stack intentionally unchanged:
+  - `Space Grotesk`
+  - `Manrope`
+  - `JetBrains Mono`
+- Google Fonts configuration and visual typography are preserved.
