@@ -296,3 +296,31 @@ This log is intended as continuation context for future agents/sessions when con
 ### Result
 - Typography remains visually identical (same families/weights/subsets),
 - but font loading is now fully local from DTF static, without external font DNS/TLS requests.
+
+## Nova Poshta / Telegram Reliability Pass (2026-02-15)
+
+### Diagnostics
+- `nova_poshta_cron.log` showed repeated API throttling (`Rate limit exceeded`) and long periods with no status updates.
+- Current production data snapshot:
+  - orders with TTN: `13`
+  - active by previous filter (`status not in done/cancelled`): `0`
+  - orders with TTN + user `telegram_id`: `0`
+- Result: personal Telegram shipment notifications could not be delivered for TTN orders.
+
+### Implemented fixes
+- `twocomms/orders/nova_poshta_service.py`
+  - Added admin fallback for shipment status notifications when:
+    - order has no user,
+    - user has no profile,
+    - user has no `telegram_id`,
+    - personal Telegram send failed/raised exception.
+  - Added helper `_send_admin_tracking_fallback(...)`.
+
+- `twocomms/orders/nova_poshta_service.py`
+  - Refined TTN update queryset:
+    - exclude only `cancelled`,
+    - exclude `done` **only** when `shipment_status` already indicates received (`icontains='отримано'`).
+  - This allows re-checking `done` orders with non-final/bad shipment statuses (e.g. `Номер не знайдено`).
+
+- `twocomms/orders/management/commands/update_tracking_statuses.py`
+  - Aligned queryset logic with service (same refined exclusion rules).

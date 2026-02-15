@@ -122,7 +122,10 @@ class Command(BaseCommand):
         ).exclude(
             tracking_number=''
         ).exclude(
-            status__in=['done', 'cancelled']
+            status='cancelled'
+        ).exclude(
+            status='done',
+            shipment_status__icontains='отримано'
         )
 
         total_orders = orders_with_ttn.count()
