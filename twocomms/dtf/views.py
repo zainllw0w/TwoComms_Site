@@ -80,6 +80,26 @@ STATUS_STEPS = [
 ]
 
 
+DTF_EFFECTS_TEMPLATES = {
+    "dtf/index.html",
+    "dtf/order.html",
+    "dtf/status.html",
+    "dtf/gallery.html",
+    "dtf/requirements.html",
+    "dtf/sample.html",
+    "dtf/constructor_landing.html",
+    "dtf/constructor_app.html",
+    "dtf/templates.html",
+    "dtf/effects_lab.html",
+    "dtf/blog.html",
+}
+
+DTF_HTMX_TEMPLATES = {
+    "dtf/index.html",
+    "dtf/order.html",
+}
+
+
 def _get_published_posts():
     return list(
         KnowledgePost.objects.published()
@@ -345,6 +365,8 @@ def _build_constructor_task_description(builder_session: DtfBuilderSession) -> s
 
 
 def _render(request, template, context, status: int | None = None):
+    context.setdefault("dtf_load_effects", template in DTF_EFFECTS_TEMPLATES)
+    context.setdefault("dtf_load_htmx", template in DTF_HTMX_TEMPLATES)
     response = render(request, template, context, status=status)
     lang = request.GET.get("lang")
     if lang in ("uk", "ru", "en"):
