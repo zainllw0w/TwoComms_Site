@@ -4,7 +4,8 @@
 
   const content = shell.querySelector("[data-admin-tab-content]");
   const sidebar = shell.querySelector("[data-admin-sidebar]");
-  const sidebarToggle = shell.querySelector("[data-admin-sidebar-toggle]");
+  const sidebarToggles = shell.querySelectorAll("[data-admin-sidebar-toggle]");
+  const sidebarBackdrop = shell.querySelector("[data-admin-sidebar-backdrop]");
   const defaultTab = shell.getAttribute("data-admin-default-tab") || "dashboard";
   const state = {
     activeTab: null,
@@ -83,7 +84,10 @@
     if (!sidebar) return;
     const next = typeof forceOpen === "boolean" ? forceOpen : !sidebar.classList.contains("is-open");
     sidebar.classList.toggle("is-open", next);
-    if (sidebarToggle) sidebarToggle.setAttribute("aria-expanded", next ? "true" : "false");
+    shell.classList.toggle("is-sidebar-open", next);
+    const lockBody = next && window.matchMedia("(max-width: 1120px)").matches;
+    document.body.classList.toggle("is-dtf-admin-menu-open", lockBody);
+    sidebarToggles.forEach((toggleBtn) => toggleBtn.setAttribute("aria-expanded", next ? "true" : "false"));
   }
 
   async function ensureQuillAssets() {
@@ -564,17 +568,45 @@
       return;
     }
 
+    if (event.target.closest("[data-admin-sidebar-backdrop]")) {
+      event.preventDefault();
+      toggleSidebar(false);
+      return;
+    }
+
     if (sidebar && sidebar.classList.contains("is-open")) {
+      if (!window.matchMedia("(max-width: 1120px)").matches) return;
       const clickedInsideSidebar = Boolean(event.target.closest("[data-admin-sidebar]"));
       if (!clickedInsideSidebar) toggleSidebar(false);
     }
   });
 
-  if (sidebarToggle) {
+  sidebarToggles.forEach((sidebarToggle) => {
     sidebarToggle.addEventListener("keydown", (event) => {
       if (event.key === "Escape") toggleSidebar(false);
     });
+  });
+
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") toggleSidebar(false);
+    });
   }
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && sidebar && sidebar.classList.contains("is-open")) {
+      toggleSidebar(false);
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (!window.matchMedia("(max-width: 1120px)").matches) {
+      document.body.classList.remove("is-dtf-admin-menu-open");
+      shell.classList.remove("is-sidebar-open");
+      if (sidebar) sidebar.classList.remove("is-open");
+      sidebarToggles.forEach((toggleBtn) => toggleBtn.setAttribute("aria-expanded", "false"));
+    }
+  });
 
   window.addEventListener("popstate", () => {
     const url = new URL(window.location.href);
