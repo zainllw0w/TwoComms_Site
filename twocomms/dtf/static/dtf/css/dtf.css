@@ -5026,6 +5026,98 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.dtf-admin-dashboard-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.dtf-mini-chart {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 6px;
+  align-items: end;
+  min-height: 148px;
+  margin-top: 10px;
+}
+
+.dtf-mini-chart-item {
+  min-width: 0;
+}
+
+.dtf-mini-chart-item .bar {
+  min-height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 154, 77, 0.92), rgba(255, 124, 32, 0.78));
+  box-shadow: 0 8px 16px rgba(255, 124, 32, 0.22);
+  transition: transform 180ms ease;
+}
+
+.dtf-mini-chart-item:hover .bar {
+  transform: translateY(-2px);
+}
+
+.dtf-mini-chart-item small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.dtf-lifecycle-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.dtf-lifecycle-item .row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.dtf-lifecycle-item .row span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.dtf-lifecycle-item .progress {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.dtf-lifecycle-item .progress span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(106, 212, 168, 0.95), rgba(66, 152, 248, 0.86));
+}
+
+.dtf-payment-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pay-card {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 10px;
+}
+
+.pay-card small {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
 .btn.full {
   width: 100%;
   justify-content: center;
@@ -5513,5 +5605,16 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
   .stage-node:last-child::after {
     display: block;
     height: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .dtf-mini-chart {
+    gap: 4px;
+    min-height: 124px;
+  }
+
+  .dtf-mini-chart-item small {
+    font-size: 0.62rem;
   }
 }
