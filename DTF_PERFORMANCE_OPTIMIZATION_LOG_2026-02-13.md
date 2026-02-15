@@ -373,3 +373,67 @@ This log is intended as continuation context for future agents/sessions when con
 
 ### Tracking
 - Linear update posted to `TWO-35` with implementation details and touched files.
+
+## Cross-Audit Execution Pass (2026-02-15, continued)
+
+### Goal
+- Implement high-impact optimizations from `cross_audit_50_tips.md` with low regression risk:
+  - no font family changes,
+  - no changes to other subdomains/main site behavior,
+  - preserve DTF visual language while reducing first-load overhead.
+
+### Implemented in this pass
+
+- `twocomms/dtf/templates/dtf/base.html`
+  - Removed large blocking inline runtime that duplicated:
+    - reveal observer bootstrap,
+    - home ambient pointer loop.
+  - Result: less main-thread work during HTML parse, no duplicate early pointer listeners/RAF loop.
+
+- `twocomms/dtf/static/dtf/js/dtf.js`
+  - Tuned first-load scheduling to reduce delayed visual activation:
+    - `scheduleHomeDotBackground()` idle timeout: `900ms -> 520ms`
+    - fallback timeout: `260ms -> 140ms`
+    - `scheduleVisualFxReady()` idle timeout: `700ms -> 340ms`
+    - fallback timeout: `260ms -> 120ms`
+    - printhead scan fallback start: `1600ms -> 900ms`
+  - Added passive listeners where safe:
+    - `visualViewport.resize`
+    - `visualViewport.scroll`
+    - speculation `touchstart`.
+
+- `twocomms/dtf/views.py`
+  - Added fragment-cache-aware helpers:
+    - `_get_fragment_cache()`
+    - `_get_published_posts()` with 300s cache
+    - `_get_active_works()` with 300s cache
+  - Switched `landing()` and `gallery()` to use cached datasets.
+
+- `twocomms/dtf/templates/dtf/index.html`
+  - Enabled template fragment caching (300s, `fragments` cache):
+    - home works grid
+    - knowledge preview section
+  - Added `decoding="async"` for dynamic works images and step icons.
+
+- `twocomms/dtf/templates/dtf/gallery.html`
+  - Added `decoding="async"` for DB-driven gallery card image and modal case image.
+
+- `twocomms/dtf/static/dtf/css/dtf.css`
+  - Added render deferral for offscreen sections:
+    - `content-visibility: auto`
+    - `contain-intrinsic-size`
+  - Added CSS containment for repeated card blocks:
+    - `.work-card`, `.proof-card`, `.gallery-card`, `.knowledge-card`, `.blog-sidebar .card`
+  - Added mobile GPU guard for blur-heavy surfaces (`max-width: 768px`):
+    - disables `backdrop-filter` for key card/header/modal/dock surfaces.
+
+### Why these changes were selected
+- They align with cross-audit priorities (`content-visibility`, caching, JS boot cleanup, mobile GPU pressure).
+- They are reversible and scoped to DTF templates/static only.
+- They avoid risky full-page caching (`@cache_page`) for personalized pages with auth/profile menu and CSRF-sensitive markup.
+
+### Deferred for next pass (intentionally)
+- Full `@cache_page` for static pages (needs safe split between anonymous and authenticated variants).
+- Full JS/CSS build minification pipeline (`esbuild/terser/cssnano`) and deterministic deploy hooks.
+- Aggressive font subsetting removal (kept visual/text coverage safety first).
+- Service Worker layer (needs cache invalidation strategy and deployment testing).

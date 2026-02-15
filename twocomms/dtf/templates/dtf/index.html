@@ -1,5 +1,5 @@
 {% extends 'dtf/base.html' %}
-{% load static i18n %}
+{% load static i18n cache %}
 
 {% block title %}
   {% if current_lang == 'ru' %}
@@ -218,7 +218,7 @@
     <div class="steps" data-reveal>
       <div class="step">
         <span class="step-icon" data-step="1" aria-hidden="true">
-          <img src="{% static 'dtf/assets/step-upload.svg' %}" alt="" loading="lazy">
+          <img src="{% static 'dtf/assets/step-upload.svg' %}" alt="" loading="lazy" decoding="async">
         </span>
         <div>
           <h3>{% trans "Завантаження" %}</h3>
@@ -227,7 +227,7 @@
       </div>
       <div class="step">
         <span class="step-icon" data-step="2" aria-hidden="true">
-          <img src="{% static 'dtf/assets/step-preflight.svg' %}" alt="" loading="lazy">
+          <img src="{% static 'dtf/assets/step-preflight.svg' %}" alt="" loading="lazy" decoding="async">
         </span>
         <div>
           <h3>{% trans "Перевірка макета" %}</h3>
@@ -236,7 +236,7 @@
       </div>
       <div class="step">
         <span class="step-icon" data-step="3" aria-hidden="true">
-          <img src="{% static 'dtf/assets/step-payment.svg' %}" alt="" loading="lazy">
+          <img src="{% static 'dtf/assets/step-payment.svg' %}" alt="" loading="lazy" decoding="async">
         </span>
         <div>
           <h3>{% trans "Оплата" %}</h3>
@@ -245,7 +245,7 @@
       </div>
       <div class="step">
         <span class="step-icon" data-step="4" aria-hidden="true">
-          <img src="{% static 'dtf/assets/step-print-ship.svg' %}" alt="" loading="lazy">
+          <img src="{% static 'dtf/assets/step-print-ship.svg' %}" alt="" loading="lazy" decoding="async">
         </span>
         <div>
           <h3>{% trans "Друк + НП" %}</h3>
@@ -292,11 +292,12 @@
     </div>
     <!-- ASSET_REQUEST | id=gallery-macro-photos | type=photo | usage=Gallery proof grid | spec=2x, consistent lighting | notes=real DTF macro + final shots -->
     <div class="works-grid" data-reveal>
+      {% cache 300 dtf_home_works current_lang using="fragments" %}
       {% if work_macro or work_process or work_final %}
         {% for item in work_macro %}
           <figure class="work-card">
             <div class="work-media">
-              <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" class="skeleton">
+              <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" decoding="async" class="skeleton">
               <div class="work-chips">
                 <span class="chip">{% trans "60 см" %}</span>
                 <span class="chip">{% trans "Макро" %}</span>
@@ -309,7 +310,7 @@
         {% for item in work_process %}
           <figure class="work-card">
             <div class="work-media">
-              <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" class="skeleton">
+              <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" decoding="async" class="skeleton">
               <div class="work-chips">
                 <span class="chip">{% trans "Процес" %}</span>
                 <span class="chip">{% trans "Hot Peel" %}</span>
@@ -322,7 +323,7 @@
         {% for item in work_final %}
           <figure class="work-card">
             <div class="work-media">
-              <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" class="skeleton">
+              <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" decoding="async" class="skeleton">
               <div class="work-chips">
                 <span class="chip">{% trans "Готове" %}</span>
                 <span class="chip">{% trans "Матеріал" %}</span>
@@ -478,6 +479,7 @@
           <figcaption>{% trans "Приклад" %}</figcaption>
         </figure>
       {% endif %}
+      {% endcache %}
     </div>
     <div class="proof-grid" data-reveal>
       <article class="proof-card compare-card" data-compare data-effect="compare" data-compare-mode="hover" data-autoplay="true" data-autoplay-duration="6000">
@@ -677,6 +679,7 @@
 
 {% if knowledge_posts_preview %}
 <section class="section knowledge-preview-section" data-ui="dtf:home:knowledge">
+  {% cache 300 dtf_home_knowledge current_lang using="fragments" %}
   <div class="dtf-container">
     <div class="section-head" data-reveal>
       <h2>{% trans "База знань" %}</h2>
@@ -721,6 +724,7 @@
       <a class="btn btn-outline" href="{% url 'dtf:blog' %}" data-stateful-link>{% trans "Усі статті Knowledge Base" %}</a>
     </div>
   </div>
+  {% endcache %}
 </section>
 {% endif %}
 

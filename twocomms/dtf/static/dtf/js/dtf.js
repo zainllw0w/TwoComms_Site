@@ -954,11 +954,11 @@
       window.setTimeout(() => {
         observer.disconnect();
         requestAnimationFrame(startScan);
-      }, 1600);
+      }, 900);
     } else {
       window.setTimeout(() => {
         requestAnimationFrame(startScan);
-      }, 280);
+      }, 180);
     }
 
     trackEvent('used_printhead_scan', { tier });
@@ -987,9 +987,9 @@
     window.addEventListener('keydown', runOnIntent);
 
     if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(run, { timeout: 900 });
+      window.requestIdleCallback(run, { timeout: 520 });
     } else {
-      window.setTimeout(run, 260);
+      window.setTimeout(run, 140);
     }
   }
 
@@ -1064,9 +1064,9 @@
     window.addEventListener('keydown', onIntent, { once: true });
 
     if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(activate, { timeout: 700 });
+      window.requestIdleCallback(activate, { timeout: 340 });
     } else {
-      window.setTimeout(activate, 260);
+      window.setTimeout(activate, 120);
     }
   }
 
@@ -1580,7 +1580,7 @@
     triggers.forEach(btn => {
       btn.addEventListener('mouseenter', inject, { once: true });
       btn.addEventListener('focus', inject, { once: true });
-      btn.addEventListener('touchstart', inject, { once: true });
+      btn.addEventListener('touchstart', inject, { once: true, passive: true });
     });
   }
 
@@ -1851,8 +1851,8 @@
       const keyboardOpen = vv.height < window.innerHeight;
       document.body.classList.toggle('keyboard-open', keyboardOpen);
     };
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
+    vv.addEventListener('resize', update, { passive: true });
+    vv.addEventListener('scroll', update, { passive: true });
     update();
   }
 

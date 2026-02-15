@@ -67,7 +67,7 @@
       {% for item in works %}
         <article class="gallery-card">
           <div class="gallery-media">
-            <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" class="skeleton">
+            <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" decoding="async" class="skeleton">
             <div class="gallery-chips">
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{{ item.get_category_display }}</span>
@@ -309,7 +309,7 @@
         <h3 data-case-title>{% trans "Кейс DTF" %}</h3>
         <p data-case-desc>{% trans "Деталі кейса" %}</p>
         <div class="asset-slot" style="aspect-ratio: 4 / 3">
-          <img data-case-image src="" alt="" loading="lazy">
+          <img data-case-image src="" alt="" loading="lazy" decoding="async">
         </div>
       </div>
     </div>
