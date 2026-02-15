@@ -4360,6 +4360,26 @@ body:not(.fx-ready) .dtf-header {
   backdrop-filter: none !important;
 }
 
+body[data-page="home"]:not(.fx-ready) .hero::before,
+body[data-page="home"]:not(.fx-ready) .hero-bg {
+  animation: none !important;
+}
+
+body[data-page="home"]:not(.fx-ready) .hero::before {
+  opacity: 0.12;
+  filter: blur(16px);
+}
+
+body[data-page="home"]:not(.fx-ready) .hero-bg {
+  opacity: 0.3;
+}
+
+body[data-page="home"]:not(.fx-ready) .scan-hero::after,
+body[data-page="home"]:not(.fx-ready) .hero-media::after,
+body[data-page="home"]:not(.fx-ready) .hero-card::after {
+  animation: none !important;
+}
+
 @media (max-width: 960px) {
   .header-actions {
     gap: 10px;
