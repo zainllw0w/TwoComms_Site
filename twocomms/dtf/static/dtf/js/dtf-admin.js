@@ -2,7 +2,9 @@
   const shell = document.querySelector("[data-admin-shell]");
   if (!shell) return;
 
+  const MOBILE_BP_QUERY = "(max-width: 1120px)";
   const content = shell.querySelector("[data-admin-tab-content]");
+  const layout = shell.querySelector("[data-admin-layout]");
   const sidebar = shell.querySelector("[data-admin-sidebar]");
   const sidebarToggles = shell.querySelectorAll("[data-admin-sidebar-toggle]");
   const sidebarBackdrop = shell.querySelector("[data-admin-sidebar-backdrop]");
@@ -11,7 +13,14 @@
     activeTab: null,
     loading: false,
     quillLoaded: false,
+    activeLoadController: null,
+    activeLoadToken: 0,
+    tabHtmlCache: new Map(),
   };
+
+  function isMobileLayout() {
+    return window.matchMedia(MOBILE_BP_QUERY).matches;
+  }
 
   function getCookie(name) {
     const value = document.cookie.split("; ").find((row) => row.startsWith(name + "="));
@@ -56,27 +65,126 @@
     return shell.querySelector('[data-admin-tab="' + tabKey + '"]');
   }
 
+  function setDesktopSidebarExpanded(next) {
+    if (!layout) return;
+    if (isMobileLayout()) {
+      layout.classList.remove("is-sidebar-expanded");
+      return;
+    }
+    layout.classList.toggle("is-sidebar-expanded", Boolean(next));
+  }
+
+  async function prefetchTabs() {
+    const tabButtons = Array.from(shell.querySelectorAll("[data-admin-tab]"));
+    for (const btn of tabButtons) {
+      const tabKey = btn.getAttribute("data-admin-tab");
+      const tabUrl = btn.getAttribute("data-admin-tab-url");
+      if (!tabKey || !tabUrl || tabKey === state.activeTab || state.tabHtmlCache.has(tabKey)) continue;
+      try {
+        const response = await fetch(tabUrl, {
+          credentials: "same-origin",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            Accept: "text/html",
+          },
+          cache: "force-cache",
+        });
+        if (!response.ok) continue;
+        const html = await response.text();
+        state.tabHtmlCache.set(tabKey, html);
+      } catch (_error) {
+        // Prefetch is opportunistic: ignore network failures.
+      }
+    }
+  }
+
+  function schedulePrefetchTabs() {
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(() => prefetchTabs(), { timeout: 2200 });
+      return;
+    }
+    window.setTimeout(() => prefetchTabs(), 1200);
+  }
+
   async function loadTab(tabKey, tabUrl) {
-    if (!content || !tabUrl || state.loading) return;
+    if (!content || !tabUrl) return;
+    const requestToken = state.activeLoadToken + 1;
+    state.activeLoadToken = requestToken;
+    if (state.activeLoadController) {
+      state.activeLoadController.abort("superseded");
+    }
+    const controller = new AbortController();
+    state.activeLoadController = controller;
     state.loading = true;
     content.classList.add("is-loading");
+    let lastError = null;
     try {
-      const response = await fetch(tabUrl, {
-        credentials: "same-origin",
-        headers: { "X-Requested-With": "fetch" },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to load tab: " + response.status);
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const attemptController = new AbortController();
+        const relayAbort = () => {
+          attemptController.abort(controller.signal.reason || "superseded");
+        };
+        controller.signal.addEventListener("abort", relayAbort, { once: true });
+        const timeoutId = window.setTimeout(() => attemptController.abort("timeout"), attempt === 1 ? 7000 : 11000);
+        try {
+          const response = await fetch(tabUrl, {
+            credentials: "same-origin",
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+              Accept: "text/html",
+            },
+            cache: "no-store",
+            signal: attemptController.signal,
+          });
+          window.clearTimeout(timeoutId);
+          controller.signal.removeEventListener("abort", relayAbort);
+          if (!response.ok) {
+            if (response.status >= 500 && attempt < 2) {
+              await new Promise((resolve) => window.setTimeout(resolve, 260));
+              continue;
+            }
+            throw new Error("tab_http_" + response.status);
+          }
+          const html = await response.text();
+          if (state.activeLoadToken !== requestToken) return;
+          lastError = null;
+          state.tabHtmlCache.set(tabKey, html);
+          content.innerHTML = html;
+          setActiveTab(tabKey);
+          initDynamicSections();
+          schedulePrefetchTabs();
+          return;
+        } catch (error) {
+          window.clearTimeout(timeoutId);
+          controller.signal.removeEventListener("abort", relayAbort);
+          if (attemptController.signal.aborted && attemptController.signal.reason === "superseded") return;
+          lastError = error;
+          if (attempt < 2) {
+            await new Promise((resolve) => window.setTimeout(resolve, 320));
+          }
+        }
       }
-      const html = await response.text();
-      content.innerHTML = html;
-      setActiveTab(tabKey);
-      initDynamicSections();
     } catch (error) {
-      notify("Не вдалося завантажити вкладку", "error");
+      lastError = error;
     } finally {
-      state.loading = false;
-      content.classList.remove("is-loading");
+      if (state.activeLoadToken === requestToken) {
+        state.loading = false;
+        content.classList.remove("is-loading");
+        if (state.activeLoadController === controller) {
+          state.activeLoadController = null;
+        }
+        if (lastError) {
+          const fallbackHtml = state.tabHtmlCache.get(tabKey);
+          if (fallbackHtml) {
+            content.innerHTML = fallbackHtml;
+            setActiveTab(tabKey);
+            initDynamicSections();
+            notify("Тимчасовий збій мережі. Показано кеш вкладки.", "error");
+          } else {
+            notify("Не вдалося завантажити вкладку. Спробуйте ще раз.", "error");
+          }
+        }
+      }
     }
   }
 
@@ -85,7 +193,7 @@
     const next = typeof forceOpen === "boolean" ? forceOpen : !sidebar.classList.contains("is-open");
     sidebar.classList.toggle("is-open", next);
     shell.classList.toggle("is-sidebar-open", next);
-    const lockBody = next && window.matchMedia("(max-width: 1120px)").matches;
+    const lockBody = next && isMobileLayout();
     document.body.classList.toggle("is-dtf-admin-menu-open", lockBody);
     sidebarToggles.forEach((toggleBtn) => toggleBtn.setAttribute("aria-expanded", next ? "true" : "false"));
   }
@@ -547,6 +655,21 @@
     });
   }
 
+  if (sidebar) {
+    sidebar.addEventListener("mouseenter", () => setDesktopSidebarExpanded(true));
+    sidebar.addEventListener("mouseleave", () => {
+      if (sidebar.contains(document.activeElement)) return;
+      setDesktopSidebarExpanded(false);
+    });
+    sidebar.addEventListener("focusin", () => setDesktopSidebarExpanded(true));
+    sidebar.addEventListener("focusout", (event) => {
+      const nextTarget = event.relatedTarget;
+      if (!nextTarget || !sidebar.contains(nextTarget)) {
+        setDesktopSidebarExpanded(false);
+      }
+    });
+  }
+
   shell.addEventListener("click", (event) => {
     const tabBtn = event.target.closest("[data-admin-tab]");
     if (tabBtn) {
@@ -555,7 +678,7 @@
       const tabUrl = tabBtn.getAttribute("data-admin-tab-url");
       if (tabKey && tabUrl) {
         loadTab(tabKey, tabUrl);
-        if (window.matchMedia("(max-width: 1120px)").matches) {
+        if (isMobileLayout()) {
           toggleSidebar(false);
         }
       }
@@ -575,7 +698,7 @@
     }
 
     if (sidebar && sidebar.classList.contains("is-open")) {
-      if (!window.matchMedia("(max-width: 1120px)").matches) return;
+      if (!isMobileLayout()) return;
       const clickedInsideSidebar = Boolean(event.target.closest("[data-admin-sidebar]"));
       if (!clickedInsideSidebar) toggleSidebar(false);
     }
@@ -600,11 +723,12 @@
   });
 
   window.addEventListener("resize", () => {
-    if (!window.matchMedia("(max-width: 1120px)").matches) {
+    if (!isMobileLayout()) {
       document.body.classList.remove("is-dtf-admin-menu-open");
       shell.classList.remove("is-sidebar-open");
       if (sidebar) sidebar.classList.remove("is-open");
       sidebarToggles.forEach((toggleBtn) => toggleBtn.setAttribute("aria-expanded", "false"));
+      setDesktopSidebarExpanded(false);
     }
   });
 
@@ -624,5 +748,9 @@
     const fallback = findTabButton(defaultTab);
     if (fallback) setActiveTab(defaultTab);
   }
+  if (content && state.activeTab) {
+    state.tabHtmlCache.set(state.activeTab, content.innerHTML);
+  }
   initDynamicSections();
+  schedulePrefetchTabs();
 })();
