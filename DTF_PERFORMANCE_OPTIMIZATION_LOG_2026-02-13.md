@@ -324,3 +324,52 @@ This log is intended as continuation context for future agents/sessions when con
 
 - `twocomms/orders/management/commands/update_tracking_statuses.py`
   - Aligned queryset logic with service (same refined exclusion rules).
+
+## DTF Admin Mobile Sidebar + Icons Hotfix (2026-02-15)
+
+### Trigger
+- User QA screenshot showed two defects in DTF admin panel:
+  - nav icons rendered as empty placeholders,
+  - mobile sidebar looked visually clipped/cut with background bleed-through.
+
+### Analysis
+- Current nav item markup had empty `.icon` block without SVG content.
+- Mobile sidebar used `max-height` expand/collapse in normal page flow; this caused awkward boundaries and transparency artifacts.
+- Effects reference (validated via `npx shadcn@latest view @aceternity/sidebar`) confirms dedicated mobile drawer pattern.
+
+### Implemented
+- `twocomms/dtf/templates/dtf/admin/panel.html`
+  - Added real inline SVG icons for all admin tabs (`dashboard/orders/blog/users/promocodes`).
+  - Added dedicated mobile menu trigger button (`data-admin-sidebar-toggle`).
+  - Added sidebar backdrop layer (`data-admin-sidebar-backdrop`).
+
+- `twocomms/dtf/static/dtf/css/dtf.css`
+  - Refactored admin mobile sidebar to off-canvas drawer (fixed + slide-in + backdrop).
+  - Added body scroll lock style while drawer is open.
+  - Improved sidebar surface opacity/gradient and icon visual styling.
+
+- `twocomms/dtf/static/dtf/js/dtf-admin.js`
+  - Switched sidebar control to support multiple toggles.
+  - Added root/body open-state sync classes.
+  - Added close handlers for backdrop and `Esc`.
+
+- `twocomms/dtf/templates/dtf/base.html`
+  - Cache-bust for updated stylesheet: `dtf.css?v=20260215d`.
+
+- `twocomms/dtf/templates/dtf/admin/panel.html`
+  - Cache-bust for admin JS: `dtf-admin.js?v=20260215b`.
+
+### Deploy
+- Commit: `d9e4055` (`fix(dtf-admin): render nav icons and refactor mobile sidebar drawer`)
+- Branch: `codex/codex-refactor-v1`
+- Deployed to server via SSH (`git pull` + Passenger restart touch).
+
+### Verification
+- Public endpoints after deploy:
+  - `https://dtf.twocomms.shop/` → `200`
+  - `https://dtf.twocomms.shop/blog/` → `200`
+  - `https://dtf.twocomms.shop/admin-panel/` → `302` to login (expected).
+- Local `manage.py check` in this workstation failed due missing env `SECRET_KEY` (environment-only issue, not code syntax issue).
+
+### Tracking
+- Linear update posted to `TWO-35` with implementation details and touched files.
