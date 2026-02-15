@@ -101,7 +101,7 @@
     <link rel="stylesheet" href="{% static 'dtf/css/fonts-local.css' %}?v=20260215a">
   </noscript>
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260206b">
-  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260215e">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.min.css' %}?v=20260216a">
   {% if dtf_load_effects %}
     <link
       rel="preload"
@@ -112,7 +112,7 @@
       <link rel="stylesheet" href="{% static 'dtf/css/components/effects-bundle.css' %}?v=20260213b">
     </noscript>
   {% endif %}
-  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.js' %}?v=20260215c">
+  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.min.js' %}?v=20260216a">
   {% block extra_head %}{% endblock %}
 </head>
 <body data-page="{% block page_id %}{% endblock %}">
@@ -429,7 +429,7 @@
   </nav>
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
-  <script src="{% static 'dtf/js/dtf.js' %}?v=20260215c" defer></script>
+  <script src="{% static 'dtf/js/dtf.min.js' %}?v=20260216a" defer></script>
   {% if dtf_load_htmx %}
     <script src="{% static 'dtf/js/vendor/htmx.min.js' %}?v=20260206b" defer></script>
   {% endif %}
@@ -437,7 +437,7 @@
     <script src="{% static 'dtf/js/components/core.js' %}?v=20260207b" defer></script>
     <script src="{% static 'dtf/js/components/_utils.js' %}?v=20260207b" defer></script>
     <script src="{% static 'dtf/js/components/motion.js' %}?v=20260207a" defer></script>
-    <script src="{% static 'dtf/js/components/effects-bundle.js' %}?v=20260213b" defer></script>
+    <script src="{% static 'dtf/js/components/effects-bundle.min.js' %}?v=20260216a" defer></script>
   {% endif %}
   {% block extra_scripts %}{% endblock %}
 
