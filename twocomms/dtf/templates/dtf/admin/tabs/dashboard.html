@@ -1,0 +1,40 @@
+{% load i18n %}
+
+<div class="dtf-admin-tab-header">
+  <h2>{% trans "Статистика / Dashboard" %}</h2>
+  <p>{% trans "Плейсхолдер-аналітика. Блок підключення live-метрик в процесі." %}</p>
+</div>
+
+<div class="dtf-admin-kpi-grid">
+  <article class="kpi-card">
+    <small>{% trans "Всього замовлень" %}</small>
+    <strong>{{ admin_stats.total_orders }}</strong>
+  </article>
+  <article class="kpi-card">
+    <small>{% trans "Активні" %}</small>
+    <strong>{{ admin_stats.active_orders }}</strong>
+  </article>
+  <article class="kpi-card">
+    <small>{% trans "Очікують оплату" %}</small>
+    <strong>{{ admin_stats.awaiting_payment }}</strong>
+  </article>
+  <article class="kpi-card">
+    <small>{% trans "Відправлено сьогодні" %}</small>
+    <strong>{{ admin_stats.shipped_today }}</strong>
+  </article>
+</div>
+
+<div class="dtf-admin-placeholder-grid">
+  <article class="placeholder-card">
+    <h3>{% trans "Конверсія DTF" %}</h3>
+    <p>{% trans "Графік конверсії буде підключено після інтеграції event-потоку." %}</p>
+  </article>
+  <article class="placeholder-card">
+    <h3>{% trans "SLA менеджера" %}</h3>
+    <p>{% trans "Середній час першої відповіді / підтвердження замовлення (в розробці)." %}</p>
+  </article>
+  <article class="placeholder-card">
+    <h3>{% trans "Стан виробництва" %}</h3>
+    <p>{% trans "Розподіл замовлень по етапах друку та доставки (в розробці)." %}</p>
+  </article>
+</div>

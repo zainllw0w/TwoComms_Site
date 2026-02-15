@@ -215,6 +215,45 @@ if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
             }
         }
 
+DB_NAME_DTF = (os.environ.get('DB_NAME_DTF') or '').strip()
+if DB_NAME_DTF and 'default' in DATABASES:
+    DB_ENGINE_DTF = (os.environ.get('DB_ENGINE_DTF') or DB_ENGINE or '').lower()
+    DB_USER_DTF = os.environ.get('DB_USER_DTF', os.environ.get('DB_USER', ''))
+    DB_PASSWORD_DTF = os.environ.get('DB_PASSWORD_DTF', os.environ.get('DB_PASSWORD', ''))
+    DB_HOST_DTF = os.environ.get('DB_HOST_DTF', os.environ.get('DB_HOST', 'localhost'))
+    DB_PORT_DTF = os.environ.get('DB_PORT_DTF', os.environ.get('DB_PORT', ''))
+
+    if DB_ENGINE_DTF.startswith('mysql'):
+        dtf_options = {
+            'charset': 'utf8mb4',
+            'use_unicode': True,
+            'init_command': "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'",
+        }
+        DATABASES['dtf'] = {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': DB_NAME_DTF,
+            'USER': DB_USER_DTF,
+            'PASSWORD': DB_PASSWORD_DTF,
+            'HOST': DB_HOST_DTF,
+            'PORT': DB_PORT_DTF or '3306',
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE_DTF', os.environ.get('DB_CONN_MAX_AGE', '300'))),
+            'OPTIONS': dtf_options,
+        }
+    else:
+        DATABASES['dtf'] = {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': DB_NAME_DTF,
+            'USER': DB_USER_DTF,
+            'PASSWORD': DB_PASSWORD_DTF,
+            'HOST': DB_HOST_DTF,
+            'PORT': DB_PORT_DTF or '5432',
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE_DTF', os.environ.get('DB_CONN_MAX_AGE', '300'))),
+            'OPTIONS': {
+                'sslmode': os.environ.get('DB_SSLMODE_DTF', os.environ.get('DB_SSLMODE', 'require'))
+            }
+        }
+    DATABASE_ROUTERS = ['twocomms.db_routers.DtfDatabaseRouter']
+
 # Настройки статических файлов для продакшена
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'

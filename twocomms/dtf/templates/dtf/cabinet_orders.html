@@ -9,6 +9,7 @@
   <div class="dtf-container">
     <div class="section-head">
       <h1>{% trans "Мої замовлення" %}</h1>
+      <p>{% trans "Від модерації до отримання: повний трекінг, оплата і повторне замовлення." %}</p>
     </div>
 
     <div class="cabinet-tabs" role="tablist">
@@ -17,25 +18,88 @@
       <a class="chip" href="{% url 'dtf:cabinet_sessions' %}">{% trans "Сесії" %}</a>
     </div>
 
-    <div class="card">
-      <h3>{% trans "Історія" %}</h3>
-      {% if cabinet_orders %}
-        <div class="status-steps">
-          {% for order in cabinet_orders %}
-            <div class="status-step done">
-              <span class="status-dot" aria-hidden="true"></span>
+    {% if cabinet_order_cards %}
+      <div class="cabinet-orders-list">
+        {% for card in cabinet_order_cards %}
+          <article class="cabinet-order-card card">
+            <header class="cabinet-order-head">
               <div>
-                <strong>{{ order.order_number }}</strong>
-                <small>{{ order.get_status_display }} · {{ order.created_at|date:'d.m.Y H:i' }}</small>
+                <h3>{{ card.number }}</h3>
+                <small>{{ card.created_at|date:"d.m.Y H:i" }}</small>
+              </div>
+              <div class="cabinet-order-head-meta">
+                <span class="badge">{{ card.stage_label }}</span>
+                <span class="badge tone-{{ card.payment_tone }}">{{ card.payment_status }}</span>
+              </div>
+            </header>
+
+            <div class="cabinet-order-progress">
+              {% for step in cabinet_progress_steps %}
+                <div class="stage-node {% if forloop.counter0 < card.stage_index %}is-done{% endif %}{% if forloop.counter0 == card.stage_index %}is-active{% endif %}">
+                  <span class="dot"></span>
+                  <small>{{ step.label }}</small>
+                </div>
+              {% endfor %}
+            </div>
+
+            <div class="cabinet-order-grid">
+              <div>
+                <small>{% trans "Формат" %}</small>
+                <strong>{{ card.item_summary }}</strong>
+              </div>
+              <div>
+                <small>{% trans "Сума" %}</small>
+                <strong>
+                  {% if card.payment_amount %}
+                    {{ card.payment_amount }} UAH
+                  {% else %}
+                    {% trans "Уточнюється менеджером" %}
+                  {% endif %}
+                </strong>
+              </div>
+              <div>
+                <small>{% trans "ТТН" %}</small>
+                <strong>{{ card.ttn|default:"—" }}</strong>
+              </div>
+              <div>
+                <small>{% trans "Доставка" %}</small>
+                <strong>
+                  {% if card.delivery_point_label %}
+                    {{ card.delivery_point_label }}
+                    {% if card.delivery_point_code %} · №{{ card.delivery_point_code }}{% endif %}
+                  {% else %}
+                    —
+                  {% endif %}
+                </strong>
               </div>
             </div>
-          {% endfor %}
-        </div>
-      {% else %}
+
+            {% if card.need_fix_reason %}
+              <p class="status-next">{{ card.need_fix_reason }}</p>
+            {% endif %}
+            {% if card.manager_note %}
+              <p class="status-next">{{ card.manager_note }}</p>
+            {% endif %}
+
+            <div class="cabinet-order-actions">
+              <a class="btn btn-outline" href="{{ card.contact_url }}">{% trans "Зв'язатися з менеджером" %}</a>
+              <a class="btn btn-ghost" href="{{ card.reorder_url }}">{% trans "Повторити замовлення" %}</a>
+              {% if card.can_pay_now %}
+                <button class="btn btn-primary" type="button" disabled title="{% trans 'Інтеграція оплати буде в наступному етапі' %}">
+                  {% trans "Оплатити (скоро)" %}
+                </button>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="card">
         <p class="muted">{% trans "Замовлень поки немає." %}</p>
-      {% endif %}
-      <p class="muted">{{ loyalty.points }} pts</p>
-    </div>
+      </div>
+    {% endif %}
+
+    <p class="muted">{{ loyalty.points }} pts</p>
   </div>
 </section>
 {% endblock %}

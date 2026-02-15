@@ -402,6 +402,58 @@ else:
         }
     }
 
+# Optional separate DB for DTF app data.
+# Users/auth remain in default DB, so DTF and main domain share credentials.
+DB_NAME_DTF = (os.environ.get('DB_NAME_DTF') or '').strip()
+if DB_NAME_DTF:
+    DB_ENGINE_DTF = (os.environ.get('DB_ENGINE_DTF') or DB_ENGINE or '').lower()
+    DB_USER_DTF = os.environ.get('DB_USER_DTF', DB_USER or '')
+    DB_PASSWORD_DTF = os.environ.get('DB_PASSWORD_DTF', DB_PASSWORD or '')
+    DB_HOST_DTF = os.environ.get('DB_HOST_DTF', DB_HOST or 'localhost')
+    DB_PORT_DTF = os.environ.get('DB_PORT_DTF', DB_PORT or '')
+
+    if DB_ENGINE_DTF.startswith('mysql'):
+        DATABASES['dtf'] = {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': DB_NAME_DTF,
+            'USER': DB_USER_DTF,
+            'PASSWORD': DB_PASSWORD_DTF,
+            'HOST': DB_HOST_DTF,
+            'PORT': DB_PORT_DTF or '3306',
+            'CONN_MAX_AGE': 60,
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+                'use_unicode': True,
+            },
+        }
+    elif DB_ENGINE_DTF.startswith('post'):
+        DATABASES['dtf'] = {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': DB_NAME_DTF,
+            'USER': DB_USER_DTF,
+            'PASSWORD': DB_PASSWORD_DTF,
+            'HOST': DB_HOST_DTF,
+            'PORT': DB_PORT_DTF or '5432',
+            'CONN_MAX_AGE': 60,
+            'OPTIONS': {
+                'sslmode': os.environ.get('DB_SSLMODE_DTF', os.environ.get('DB_SSLMODE', 'prefer')),
+            },
+        }
+    else:
+        # SQLite fallback for local verification of two-db mode.
+        if DB_NAME_DTF.endswith('.sqlite3'):
+            dtf_name = BASE_DIR / DB_NAME_DTF
+        else:
+            dtf_name = BASE_DIR / 'db_dtf.sqlite3'
+        DATABASES['dtf'] = {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': dtf_name,
+        }
+
+    DATABASE_ROUTERS = ['twocomms.db_routers.DtfDatabaseRouter']
+else:
+    DATABASE_ROUTERS = []
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

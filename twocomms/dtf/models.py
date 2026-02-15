@@ -5,9 +5,10 @@ from django.conf import settings
 from django.db import models, IntegrityError, transaction
 from django.db.models import Max
 from django.utils.html import escape
-from django.utils.text import slugify
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+
+from .utils import unique_slug_for_queryset
 
 try:
     import markdown as markdown_lib
@@ -145,12 +146,27 @@ class DtfLifecycleStatus(models.TextChoices):
     PACKED = "packed", _("Упаковано")
     SHIPPED = "shipped", _("Відправлено")
     DELIVERED = "delivered", _("Доставлено")
+    RECEIVED = "received", _("Отримано")
     CANCELLED = "cancelled", _("Скасовано")
 
 
 class OrderType(models.TextChoices):
     READY = "ready", _("Готовий ганг-лист")
     HELP = "help", _("Потрібна допомога")
+
+
+class DtfFulfillmentKind(models.TextChoices):
+    FILM = "film", _("Плівка DTF")
+    CUSTOM_PRODUCT = "custom_product", _("Готовий виріб під замовлення")
+
+
+class DtfPaymentStatus(models.TextChoices):
+    PENDING_REVIEW = "pending_review", _("На модерації менеджером")
+    AWAITING_PAYMENT = "awaiting_payment", _("Очікує оплату")
+    PAID = "paid", _("Оплачено")
+    PARTIAL = "partial", _("Частково оплачено")
+    FAILED = "failed", _("Оплата не пройшла")
+    REFUNDED = "refunded", _("Повернено")
 
 
 class LengthSource(models.TextChoices):
@@ -191,7 +207,33 @@ class DtfOrder(models.Model):
     comment = models.TextField(blank=True)
     need_fix_reason = models.CharField(max_length=255, blank=True)
     tracking_number = models.CharField(max_length=64, blank=True)
+    delivery_point_code = models.CharField(max_length=120, blank=True)
+    delivery_point_type = models.CharField(max_length=40, blank=True, default="")
+    delivery_point_label = models.CharField(max_length=200, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    received_at = models.DateTimeField(null=True, blank=True)
     manager_note = models.TextField(blank=True)
+    payment_status = models.CharField(
+        max_length=32,
+        choices=DtfPaymentStatus.choices,
+        default=DtfPaymentStatus.PENDING_REVIEW,
+        db_index=True,
+    )
+    payment_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    payment_reference = models.CharField(max_length=140, blank=True)
+    payment_link = models.URLField(blank=True)
+    payment_updated_at = models.DateTimeField(null=True, blank=True)
+
+    fulfillment_kind = models.CharField(
+        max_length=24,
+        choices=DtfFulfillmentKind.choices,
+        default=DtfFulfillmentKind.FILM,
+        db_index=True,
+    )
+    product_type = models.CharField(max_length=80, blank=True)
+    print_placement = models.CharField(max_length=120, blank=True)
+    custom_specs_json = models.JSONField(default=dict, blank=True)
+    product_quantity = models.PositiveIntegerField(default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -209,6 +251,7 @@ class DtfOrder(models.Model):
         while True:
             if not self.order_number:
                 self.order_number = self.generate_order_number()
+            self.sync_payment_snapshot()
             try:
                 with transaction.atomic():
                     super().save(*args, **kwargs)
@@ -244,8 +287,9 @@ class DtfOrder(models.Model):
             DtfLifecycleStatus.IN_PRODUCTION: {DtfLifecycleStatus.QA_CHECK, DtfLifecycleStatus.CANCELLED},
             DtfLifecycleStatus.QA_CHECK: {DtfLifecycleStatus.PACKED, DtfLifecycleStatus.CANCELLED},
             DtfLifecycleStatus.PACKED: {DtfLifecycleStatus.SHIPPED, DtfLifecycleStatus.CANCELLED},
-            DtfLifecycleStatus.SHIPPED: {DtfLifecycleStatus.DELIVERED},
-            DtfLifecycleStatus.DELIVERED: set(),
+            DtfLifecycleStatus.SHIPPED: {DtfLifecycleStatus.DELIVERED, DtfLifecycleStatus.RECEIVED},
+            DtfLifecycleStatus.DELIVERED: {DtfLifecycleStatus.RECEIVED},
+            DtfLifecycleStatus.RECEIVED: set(),
             DtfLifecycleStatus.CANCELLED: set(),
         }
         current = self.lifecycle_status or DtfLifecycleStatus.NEW
@@ -264,6 +308,36 @@ class DtfOrder(models.Model):
             public_message=public_message or "",
             internal_message=internal_message or "",
         )
+
+    def sync_payment_snapshot(self):
+        if self.payment_amount is None and self.price_total is not None:
+            self.payment_amount = self.price_total
+
+    def customer_stage(self) -> str:
+        lifecycle = self.lifecycle_status or ""
+        status = self.status or ""
+        if lifecycle == DtfLifecycleStatus.CANCELLED:
+            return "cancelled"
+        if lifecycle == DtfLifecycleStatus.RECEIVED or self.received_at:
+            return "received"
+        if lifecycle == DtfLifecycleStatus.DELIVERED:
+            return "delivered"
+        if lifecycle == DtfLifecycleStatus.SHIPPED or status == OrderStatus.SHIPPED:
+            return "shipped"
+        if lifecycle in {DtfLifecycleStatus.IN_PRODUCTION, DtfLifecycleStatus.QA_CHECK, DtfLifecycleStatus.PACKED}:
+            return "printing"
+        if status == OrderStatus.PRINTING:
+            return "printing"
+        if self.payment_status == DtfPaymentStatus.AWAITING_PAYMENT or status == OrderStatus.AWAITING_PAYMENT:
+            return "awaiting_payment"
+        return "moderation"
+
+    def is_payment_due(self) -> bool:
+        return self.payment_status in {
+            DtfPaymentStatus.PENDING_REVIEW,
+            DtfPaymentStatus.AWAITING_PAYMENT,
+            DtfPaymentStatus.FAILED,
+        }
 
 
 class DtfPricingConfig(models.Model):
@@ -313,6 +387,7 @@ class DtfUpload(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="dtf_uploads",
+        db_constraint=False,
     )
     lead = models.ForeignKey("DtfLead", null=True, blank=True, on_delete=models.SET_NULL, related_name="uploads")
     order = models.ForeignKey("DtfOrder", null=True, blank=True, on_delete=models.SET_NULL, related_name="uploads")
@@ -447,6 +522,8 @@ class KnowledgePost(models.Model):
     is_published = models.BooleanField(default=True)
     seo_title = models.CharField(max_length=160, blank=True)
     seo_description = models.CharField(max_length=220, blank=True)
+    seo_keywords = models.CharField(max_length=320, blank=True)
+    content_rich_html = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -461,9 +538,19 @@ class KnowledgePost(models.Model):
         return self.title
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.title)[:240]
-        self.content_html = render_markdown_to_html(self.content_md)
+        slug_source = self.slug or self.title
+        self.slug = unique_slug_for_queryset(
+            KnowledgePost.objects.all(),
+            slug_source,
+            fallback="knowledge-post",
+            max_length=240,
+            exclude_pk=self.pk,
+        )
+
+        if self.content_rich_html:
+            self.content_html = self.content_rich_html
+        else:
+            self.content_html = render_markdown_to_html(self.content_md)
         if not self.seo_title:
             self.seo_title = self.title
         if not self.seo_description:
@@ -594,7 +681,14 @@ class BuilderPlacement(models.TextChoices):
 
 class DtfBuilderSession(models.Model):
     session_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="dtf_builder_sessions")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dtf_builder_sessions",
+        db_constraint=False,
+    )
     status = models.CharField(max_length=20, choices=BuilderStatus.choices, default=BuilderStatus.DRAFT)
 
     product_type = models.CharField(max_length=20, choices=BuilderProductType.choices, default=BuilderProductType.TSHIRT)

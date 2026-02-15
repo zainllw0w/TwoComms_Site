@@ -1,13 +1,16 @@
 from django.contrib import admin, messages
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 
 from .models import (
     DtfEventLog,
+    DtfFulfillmentKind,
     DtfLead,
     DtfLeadAttachment,
     DtfLifecycleStatus,
     DtfOrder,
+    DtfPaymentStatus,
     DtfPreflightReport,
     DtfPricingConfig,
     DtfQuote,
@@ -45,8 +48,27 @@ class DtfLeadAdmin(admin.ModelAdmin):
 
 @admin.register(DtfOrder)
 class DtfOrderAdmin(admin.ModelAdmin):
-    list_display = ("order_number", "name", "phone", "status_badge", "lifecycle_status", "meters_total", "price_total", "created_at")
-    list_filter = ("status", "lifecycle_status", "requires_review", "order_type", "created_at")
+    list_display = (
+        "order_number",
+        "name",
+        "phone",
+        "status_badge",
+        "lifecycle_status",
+        "payment_status",
+        "fulfillment_kind",
+        "meters_total",
+        "price_total",
+        "created_at",
+    )
+    list_filter = (
+        "status",
+        "lifecycle_status",
+        "payment_status",
+        "fulfillment_kind",
+        "requires_review",
+        "order_type",
+        "created_at",
+    )
     search_fields = ("order_number", "name", "phone")
     readonly_fields = ("order_number", "created_at", "updated_at")
     actions = [
@@ -58,6 +80,7 @@ class DtfOrderAdmin(admin.ModelAdmin):
         "action_lifecycle_confirmed",
         "action_lifecycle_in_production",
         "action_lifecycle_delivered",
+        "action_lifecycle_received",
     ]
 
     def status_badge(self, obj):
@@ -82,7 +105,7 @@ class DtfOrderAdmin(admin.ModelAdmin):
 
     @admin.action(description=_("Підтвердити макет (AwaitingPayment)"))
     def action_approve_mockup(self, request, queryset):
-        updated = queryset.update(status=OrderStatus.AWAITING_PAYMENT)
+        updated = queryset.update(status=OrderStatus.AWAITING_PAYMENT, payment_status=DtfPaymentStatus.AWAITING_PAYMENT)
         for order in queryset:
             notify_awaiting_payment(order)
         self.message_user(request, _("Оновлено %(count)s замовлень") % {"count": updated}, messages.SUCCESS)
@@ -96,7 +119,7 @@ class DtfOrderAdmin(admin.ModelAdmin):
 
     @admin.action(description=_("Надіслати посилання на оплату (AwaitingPayment)"))
     def action_send_payment_link(self, request, queryset):
-        updated = queryset.update(status=OrderStatus.AWAITING_PAYMENT)
+        updated = queryset.update(status=OrderStatus.AWAITING_PAYMENT, payment_status=DtfPaymentStatus.AWAITING_PAYMENT)
         for order in queryset:
             notify_awaiting_payment(order)
         self.message_user(request, _("Оновлено %(count)s замовлень") % {"count": updated}, messages.SUCCESS)
@@ -104,6 +127,9 @@ class DtfOrderAdmin(admin.ModelAdmin):
     @admin.action(description=_("Позначити як оплачено (Paid)"))
     def action_mark_paid(self, request, queryset):
         for order in queryset:
+            order.payment_status = DtfPaymentStatus.PAID
+            order.payment_updated_at = timezone.now()
+            order.save(update_fields=["payment_status", "payment_updated_at", "updated_at"])
             notify_paid(order)
         self.message_user(request, _("Сповіщення про оплату надіслано"), messages.SUCCESS)
 
@@ -177,6 +203,21 @@ class DtfOrderAdmin(admin.ModelAdmin):
                 continue
         self.message_user(request, _("Оновлено %(count)s lifecycle-переходів") % {"count": updated}, messages.SUCCESS)
 
+    @admin.action(description=_("Lifecycle → Received"))
+    def action_lifecycle_received(self, request, queryset):
+        updated = 0
+        for order in queryset:
+            try:
+                order.transition_lifecycle(
+                    DtfLifecycleStatus.RECEIVED,
+                    actor="manager",
+                    public_message=_("Замовлення отримано клієнтом"),
+                )
+                updated += 1
+            except ValueError:
+                continue
+        self.message_user(request, _("Оновлено %(count)s lifecycle-переходів") % {"count": updated}, messages.SUCCESS)
+
     def save_model(self, request, obj, form, change):
         if obj.length_m and obj.copies:
             pricing = calculate_pricing(obj.length_m, obj.copies)
@@ -186,6 +227,10 @@ class DtfOrderAdmin(admin.ModelAdmin):
                 obj.price_total = pricing["price_total"]
                 obj.pricing_tier = pricing["pricing_tier"]
                 obj.requires_review = pricing["requires_review"]
+        if obj.fulfillment_kind == DtfFulfillmentKind.FILM and not obj.product_quantity:
+            obj.product_quantity = obj.copies
+        if obj.payment_status == DtfPaymentStatus.PAID and not obj.payment_updated_at:
+            obj.payment_updated_at = timezone.now()
         super().save_model(request, obj, form, change)
 
 
@@ -201,18 +246,17 @@ class DtfWorkAdmin(admin.ModelAdmin):
 class KnowledgePostAdmin(admin.ModelAdmin):
     list_display = ("title", "pub_date", "is_published", "updated_at")
     list_filter = ("is_published", "pub_date")
-    search_fields = ("title", "slug", "excerpt", "content_md")
-    prepopulated_fields = {"slug": ("title",)}
+    search_fields = ("title", "slug", "excerpt", "content_md", "content_rich_html", "seo_keywords")
     readonly_fields = ("content_html", "created_at", "updated_at")
     fieldsets = (
         (None, {
             "fields": ("title", "slug", "is_published", "pub_date"),
         }),
         (_("Контент"), {
-            "fields": ("excerpt", "content_md", "content_html"),
+            "fields": ("excerpt", "content_md", "content_rich_html", "content_html"),
         }),
         (_("SEO"), {
-            "fields": ("seo_title", "seo_description"),
+            "fields": ("seo_title", "seo_description", "seo_keywords"),
         }),
         (_("Службове"), {
             "fields": ("created_at", "updated_at"),
