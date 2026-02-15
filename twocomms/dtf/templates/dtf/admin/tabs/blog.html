@@ -7,7 +7,8 @@
 
 <div class="dtf-admin-blog-layout" data-blog-admin
      data-blog-create-url="{% url 'dtf:admin_blog_create' %}"
-     data-blog-slug-url="{% url 'dtf:admin_blog_slug_preview' %}">
+     data-blog-slug-url="{% url 'dtf:admin_blog_slug_preview' %}"
+     data-blog-upload-url="{% url 'dtf:admin_blog_upload_image' %}">
   <aside class="dtf-admin-blog-list">
     <button class="btn btn-outline full" type="button" data-blog-new>
       {% trans "Нова публікація" %}
@@ -74,7 +75,7 @@
     </div>
 
     <div class="blog-editor-block">
-      <p class="muted">{% trans "Rich editor (шрифти, розмір, лінки, зображення)" %}</p>
+      <p class="muted">{% trans "Rich editor (шрифти, розмір, лінки, зображення через upload)" %}</p>
       <div class="blog-rich-editor" data-blog-editor></div>
       <textarea name="content_rich_html" data-blog-editor-input hidden></textarea>
     </div>

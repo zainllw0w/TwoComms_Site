@@ -1,6 +1,6 @@
 from decimal import Decimal, InvalidOperation
 from itertools import groupby
-from datetime import date
+from datetime import date, timedelta
 import xml.etree.ElementTree as ET
 from urllib.parse import quote
 import hashlib
@@ -29,6 +29,7 @@ from .forms import (
 from .admin_panel_forms import (
     DtfAdminOrderUpdateForm,
     DtfKnowledgePostAdminForm,
+    DtfAdminPromoCodeForm,
 )
 from .models import (
     BuilderStatus,
@@ -67,6 +68,7 @@ from .preflight.engine import (
 )
 from .utils import (
     activate_language_from_request,
+    build_safe_upload_name,
     build_lang_links,
     get_file_extension,
     get_feature_flags,
@@ -74,8 +76,14 @@ from .utils import (
     get_pricing_config,
     normalize_phone,
     unique_slug_for_queryset,
+    validate_uploaded_file,
 )
 from .utils import ALLOWED_READY_EXTS
+
+try:
+    from storefront.models import PromoCode
+except Exception:  # pragma: no cover - storefront app is expected on production
+    PromoCode = None
 
 
 STATUS_STEPS = [
@@ -1424,6 +1432,32 @@ def _dtf_admin_stats_snapshot():
     }
 
 
+def _promo_models_ready() -> bool:
+    return PromoCode is not None and hasattr(PromoCode, "objects")
+
+
+def _serialize_promocode(promo) -> dict:
+    return {
+        "id": promo.id,
+        "code": promo.code,
+        "promo_type": promo.promo_type,
+        "discount_type": promo.discount_type,
+        "discount_value": promo.discount_value,
+        "description": promo.description or "",
+        "group_id": promo.group_id or "",
+        "group_name": promo.group.name if promo.group_id and promo.group else "",
+        "max_uses": promo.max_uses,
+        "current_uses": promo.current_uses,
+        "one_time_per_user": bool(promo.one_time_per_user),
+        "min_order_amount": promo.min_order_amount,
+        "valid_from": timezone.localtime(promo.valid_from).strftime("%Y-%m-%dT%H:%M") if promo.valid_from else "",
+        "valid_until": timezone.localtime(promo.valid_until).strftime("%Y-%m-%dT%H:%M") if promo.valid_until else "",
+        "is_active": bool(promo.is_active),
+        "is_valid_now": bool(promo.is_valid_now()),
+        "can_be_used": bool(promo.can_be_used()),
+    }
+
+
 def _dtf_admin_tab_context(tab_key: str):
     context = {
         "admin_tab_key": tab_key,
@@ -1454,12 +1488,31 @@ def _dtf_admin_tab_context(tab_key: str):
             "admin_users": user_model.objects.order_by("-date_joined")[:60],
         })
     elif tab_key == "promocodes":
-        context.update({
-            "promocodes_placeholder": [
-                {"code": "DTF-SOON", "discount": "10%", "status": _("В розробці")},
-                {"code": "PRINT-LAB", "discount": "15%", "status": _("В розробці")},
-            ]
-        })
+        if _promo_models_ready():
+            promos = list(PromoCode.objects.select_related("group").order_by("-created_at")[:120])
+            active_count = sum(1 for item in promos if item.is_active)
+            exhausted_count = sum(1 for item in promos if item.max_uses > 0 and item.current_uses >= item.max_uses)
+            expiring_soon_count = sum(
+                1
+                for item in promos
+                if item.valid_until
+                and item.valid_until <= timezone.now() + timedelta(days=7)
+                and item.is_active
+            )
+            context.update({
+                "admin_promocodes": promos,
+                "admin_promocode_form": DtfAdminPromoCodeForm(),
+                "admin_promocode_stats": {
+                    "total": len(promos),
+                    "active": active_count,
+                    "exhausted": exhausted_count,
+                    "expiring_soon": expiring_soon_count,
+                },
+            })
+        else:
+            context.update({
+                "promocodes_unavailable": True,
+            })
     return context
 
 
@@ -1589,6 +1642,114 @@ def admin_blog_slug_preview(request):
     raw = (request.GET.get("value") or request.GET.get("title") or "").strip()
     slug = unique_slug_for_queryset(KnowledgePost.objects.all(), raw, fallback="knowledge-post", max_length=240)
     return JsonResponse({"ok": True, "slug": slug})
+
+
+@login_required
+@user_passes_test(_is_dtf_admin)
+@require_POST
+def admin_blog_upload_image(request):
+    uploaded = request.FILES.get("file") or request.FILES.get("image")
+    if not uploaded:
+        return JsonResponse({"ok": False, "error": _("Файл не передано")}, status=400)
+
+    max_file_mb = int(getattr(settings, "DTF_BLOG_IMAGE_MAX_MB", 8))
+    try:
+        validate_uploaded_file(
+            uploaded,
+            allowed_exts={"png", "jpg", "jpeg", "webp"},
+            max_file_mb=max_file_mb,
+            strict_magic=True,
+        )
+    except ValueError:
+        return JsonResponse({"ok": False, "error": _("Недопустимий формат або розмір файлу")}, status=400)
+
+    safe_name = build_safe_upload_name("blog", uploaded.name)
+    uploaded.name = safe_name
+    try:
+        uploaded.seek(0)
+    except Exception:
+        pass
+    raw = uploaded.read()
+    try:
+        uploaded.seek(0)
+    except Exception:
+        pass
+
+    media = DtfUpload.objects.create(
+        file=uploaded,
+        size_bytes=int(getattr(uploaded, "size", len(raw) if raw else 0) or 0),
+        mime_type=(getattr(uploaded, "content_type", "") or "").split(";")[0].strip().lower(),
+        sha256=hashlib.sha256(raw).hexdigest() if raw else hashlib.sha256(safe_name.encode("utf-8")).hexdigest(),
+        owner=request.user,
+        source="blog_editor",
+    )
+    return JsonResponse({
+        "ok": True,
+        "url": media.file.url,
+        "upload_id": media.id,
+    })
+
+
+@login_required
+@user_passes_test(_is_dtf_admin)
+@require_POST
+def admin_promocode_create(request):
+    if not _promo_models_ready():
+        return JsonResponse({"ok": False, "error": "promocodes_unavailable"}, status=503)
+    form = DtfAdminPromoCodeForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+    promo = form.save()
+    return JsonResponse({
+        "ok": True,
+        "message": _("Промокод створено"),
+        "promo": _serialize_promocode(promo),
+    })
+
+
+@login_required
+@user_passes_test(_is_dtf_admin)
+@require_POST
+def admin_promocode_update(request, promo_id: int):
+    if not _promo_models_ready():
+        return JsonResponse({"ok": False, "error": "promocodes_unavailable"}, status=503)
+    promo = get_object_or_404(PromoCode, pk=promo_id)
+    form = DtfAdminPromoCodeForm(request.POST, instance=promo)
+    if not form.is_valid():
+        return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+    promo = form.save()
+    return JsonResponse({
+        "ok": True,
+        "message": _("Промокод оновлено"),
+        "promo": _serialize_promocode(promo),
+    })
+
+
+@login_required
+@user_passes_test(_is_dtf_admin)
+@require_POST
+def admin_promocode_toggle(request, promo_id: int):
+    if not _promo_models_ready():
+        return JsonResponse({"ok": False, "error": "promocodes_unavailable"}, status=503)
+    promo = get_object_or_404(PromoCode, pk=promo_id)
+    promo.is_active = not promo.is_active
+    promo.save(update_fields=["is_active", "updated_at"])
+    return JsonResponse({
+        "ok": True,
+        "message": _("Статус промокоду змінено"),
+        "promo": _serialize_promocode(promo),
+    })
+
+
+@login_required
+@user_passes_test(_is_dtf_admin)
+@require_POST
+def admin_promocode_delete(request, promo_id: int):
+    if not _promo_models_ready():
+        return JsonResponse({"ok": False, "error": "promocodes_unavailable"}, status=503)
+    promo = get_object_or_404(PromoCode, pk=promo_id)
+    promo.delete()
+    return JsonResponse({"ok": True, "message": _("Промокод видалено")})
 
 
 def privacy(request):

@@ -15,11 +15,17 @@ from .models import (
     DtfQuote,
     DtfSampleLead,
     DtfStatusEvent,
+    DtfUpload,
     KnowledgePost,
 )
 from .utils import calculate_pricing, get_pricing_config
 from .pricing import calculate_quote
 from .preflight.engine import analyze_upload
+
+try:
+    from storefront.models import PromoCode
+except Exception:  # pragma: no cover
+    PromoCode = None
 
 
 class DtfOrderTests(TestCase):
@@ -642,3 +648,48 @@ class DtfAdminAndCabinetV2Tests(TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.content.decode("utf-8", "ignore")
         self.assertIn("Оплатити (скоро)", html)
+
+    def test_admin_blog_image_upload_endpoint(self):
+        user = User.objects.create_user(username="dtf_blog_media_admin", password="secure-pass-123", is_staff=True)
+        self.client.force_login(user)
+        png_payload = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a7wAAAAASUVORK5CYII="
+        )
+        image = SimpleUploadedFile("editor.png", png_payload, content_type="image/png")
+        response = self.client.post(
+            "/admin-panel/blog/upload-image/",
+            {"file": image},
+            secure=True,
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("ok"))
+        self.assertTrue(payload.get("url", "").startswith("/media/"))
+        self.assertTrue(DtfUpload.objects.filter(source="blog_editor").exists())
+
+    def test_admin_promocode_create_endpoint(self):
+        if PromoCode is None:
+            self.skipTest("storefront.PromoCode is unavailable")
+        user = User.objects.create_user(username="dtf_promocode_admin", password="secure-pass-123", is_staff=True)
+        self.client.force_login(user)
+        response = self.client.post(
+            "/admin-panel/promocodes/create/",
+            {
+                "code": "DTFTEST26",
+                "promo_type": "regular",
+                "discount_type": "percentage",
+                "discount_value": "10.00",
+                "description": "DTF test promo",
+                "max_uses": "50",
+                "one_time_per_user": "1",
+                "min_order_amount": "1000.00",
+                "is_active": "1",
+            },
+            secure=True,
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("ok"))
+        self.assertTrue(PromoCode.objects.filter(code="DTFTEST26").exists())

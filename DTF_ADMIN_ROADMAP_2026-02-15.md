@@ -124,7 +124,7 @@ python manage.py collectstatic --noinput
 ```
 
 ## Remaining Work (next execution block)
-- [ ] Connect real promo-code entities in DTF admin tab.
-- [ ] Add media upload endpoint for blog rich editor images (instead of data URLs).
+- [x] Connect real promo-code entities in DTF admin tab.
+- [x] Add media upload endpoint for blog rich editor images (instead of data URLs).
 - [ ] Add dashboard real-time charts and business metrics.
 - [ ] Add browser-level QA artifacts (desktop/mobile) and finalize release checklist.

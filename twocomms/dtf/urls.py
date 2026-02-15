@@ -50,6 +50,11 @@ urlpatterns = [
     path("admin-panel/blog/<int:post_id>/update/", views.admin_blog_update, name="admin_blog_update"),
     path("admin-panel/blog/<int:post_id>/delete/", views.admin_blog_delete, name="admin_blog_delete"),
     path("admin-panel/blog/slug-preview/", views.admin_blog_slug_preview, name="admin_blog_slug_preview"),
+    path("admin-panel/blog/upload-image/", views.admin_blog_upload_image, name="admin_blog_upload_image"),
+    path("admin-panel/promocodes/create/", views.admin_promocode_create, name="admin_promocode_create"),
+    path("admin-panel/promocodes/<int:promo_id>/update/", views.admin_promocode_update, name="admin_promocode_update"),
+    path("admin-panel/promocodes/<int:promo_id>/toggle/", views.admin_promocode_toggle, name="admin_promocode_toggle"),
+    path("admin-panel/promocodes/<int:promo_id>/delete/", views.admin_promocode_delete, name="admin_promocode_delete"),
     path("lead/fab/", views.fab_lead, name="fab_lead"),
     path("sitemap.xml", views.sitemap_xml, name="dtf-sitemap"),
 ]
