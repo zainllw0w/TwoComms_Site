@@ -926,18 +926,41 @@
       return;
     }
 
-    requestAnimationFrame(() => {
+    const startScan = () => {
+      if (hero.dataset.scanStarted === '1') return;
+      hero.dataset.scanStarted = '1';
       hero.classList.add('scan-animate');
-    });
-    if (!prefersReduced) {
-      const cta = hero.querySelector('.cta-group .btn-primary');
-      if (cta) {
-        const delay = tier >= 2 ? 600 : 300;
-        window.setTimeout(() => {
-          cta.classList.add('cta-pulse');
-        }, delay);
+      if (!prefersReduced) {
+        const cta = hero.querySelector('.cta-group .btn-primary');
+        if (cta) {
+          const delay = tier >= 2 ? 600 : 300;
+          window.setTimeout(() => {
+            cta.classList.add('cta-pulse');
+          }, delay);
+        }
       }
+    };
+
+    const body = document.body;
+    if (body && body.classList.contains('fx-ready')) {
+      requestAnimationFrame(startScan);
+    } else if (body && 'MutationObserver' in window) {
+      const observer = new MutationObserver(() => {
+        if (!body.classList.contains('fx-ready')) return;
+        observer.disconnect();
+        requestAnimationFrame(startScan);
+      });
+      observer.observe(body, { attributes: true, attributeFilter: ['class'] });
+      window.setTimeout(() => {
+        observer.disconnect();
+        requestAnimationFrame(startScan);
+      }, 1600);
+    } else {
+      window.setTimeout(() => {
+        requestAnimationFrame(startScan);
+      }, 280);
     }
+
     trackEvent('used_printhead_scan', { tier });
   }
 
