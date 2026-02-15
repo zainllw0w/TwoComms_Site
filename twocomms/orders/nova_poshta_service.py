@@ -644,23 +644,47 @@ class NovaPoshtaService:
             new_status (str): Новый статус
         """
         if not order.user:
-            logger.debug(f"Order {order.order_number}: no user, skipping status notification")
+            logger.debug(f"Order {order.order_number}: no user, fallback to admin notification")
+            self._send_admin_tracking_fallback(
+                order,
+                old_status=old_status,
+                new_status=new_status,
+                reason="no_user",
+            )
             return
 
         # Проверяем есть ли telegram_id у пользователя
         try:
             userprofile = getattr(order.user, 'userprofile', None)
             if userprofile is None:
-                logger.debug(f"Order {order.order_number}: user has no profile")
+                logger.debug(f"Order {order.order_number}: user has no profile, fallback to admin")
+                self._send_admin_tracking_fallback(
+                    order,
+                    old_status=old_status,
+                    new_status=new_status,
+                    reason="no_profile",
+                )
                 return
 
             telegram_id = getattr(userprofile, 'telegram_id', None)
             if not telegram_id:
-                logger.debug(f"Order {order.order_number}: user has no telegram_id")
+                logger.debug(f"Order {order.order_number}: user has no telegram_id, fallback to admin")
+                self._send_admin_tracking_fallback(
+                    order,
+                    old_status=old_status,
+                    new_status=new_status,
+                    reason="no_user_telegram_id",
+                )
                 return
         except (AttributeError, ObjectDoesNotExist) as e:
             logger.debug(
                 f"Error accessing userprofile for order {order.order_number}: {e}"
+            )
+            self._send_admin_tracking_fallback(
+                order,
+                old_status=old_status,
+                new_status=new_status,
+                reason="profile_access_error",
             )
             return
 
@@ -669,10 +693,62 @@ class NovaPoshtaService:
 
         # Отправляем личное сообщение пользователю
         try:
-            self.telegram_notifier.send_personal_message(telegram_id, message)
-            logger.info(f"Status notification sent to user for order {order.order_number}")
+            sent = self.telegram_notifier.send_personal_message(telegram_id, message)
+            if sent:
+                logger.info(f"Status notification sent to user for order {order.order_number}")
+            else:
+                logger.warning(
+                    f"Status notification not delivered to user for order {order.order_number}, "
+                    f"fallback to admin"
+                )
+                self._send_admin_tracking_fallback(
+                    order,
+                    old_status=old_status,
+                    new_status=new_status,
+                    reason="user_send_failed",
+                )
         except Exception as e:
             logger.error(f"Failed to send status notification for order {order.order_number}: {e}")
+            self._send_admin_tracking_fallback(
+                order,
+                old_status=old_status,
+                new_status=new_status,
+                reason="user_send_exception",
+            )
+
+    def _send_admin_tracking_fallback(self, order, old_status, new_status, reason="unknown"):
+        """
+        Резервное уведомление админу, когда персональное уведомление клиенту недоступно.
+        """
+        if not self.telegram_notifier.is_configured():
+            return
+
+        customer = getattr(order, "full_name", "") or "Невідомо"
+        phone = getattr(order, "phone", "") or "Невідомо"
+        message = f"""📦 <b>РЕЗЕРВНЕ ОНОВЛЕННЯ СТАТУСУ ПОСИЛКИ</b>
+
+🆔 <b>Замовлення:</b> #{order.order_number}
+📋 <b>ТТН:</b> {order.tracking_number or 'Не вказано'}
+👤 <b>Клієнт:</b> {customer}
+📞 <b>Телефон:</b> {phone}
+
+📊 <b>Статус змінено:</b>
+├─ Було: {old_status or 'Невідомо'}
+└─ Стало: <b>{new_status or 'Невідомо'}</b>
+
+⚠️ <b>Причина fallback:</b> {reason}
+🕐 <b>Час:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}"""
+
+        try:
+            self.telegram_notifier.send_admin_message(message)
+            logger.info(
+                f"Admin fallback notification sent for order {order.order_number} "
+                f"(reason={reason})"
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to send admin fallback notification for order {order.order_number}: {e}"
+            )
 
     def _format_delivery_message(self, order, shipment_status):
         """
@@ -758,7 +834,10 @@ class NovaPoshtaService:
         ).exclude(
             tracking_number=''
         ).exclude(
-            status__in=['done', 'cancelled']
+            status='cancelled'
+        ).exclude(
+            status='done',
+            shipment_status__icontains='отримано'
         )
 
         total_orders = orders_with_ttn.count()
