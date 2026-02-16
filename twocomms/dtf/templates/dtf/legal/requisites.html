@@ -1,18 +1,58 @@
 {% extends "dtf/base.html" %}
-{% load i18n %}
 
-{% block title %}{% trans "Реквізити" %}{% endblock %}
+{% block title %}
+  {% if current_lang == 'ru' %}Реквизиты{% elif current_lang == 'en' %}Requisites{% else %}Реквізити{% endif %}
+{% endblock %}
 
 {% block content %}
-<section class="section">
-  <div class="dtf-container">
-    <h1>{% trans "Реквізити" %}</h1>
-    <p>{% trans "TEMP: Публічні реквізити оновлюються. Актуальні реквізити менеджер надсилає перед оплатою." %}</p>
-    <ul class="list">
-      <li>{% trans "Оплата узгоджується після ручної перевірки макета і підтвердження деталей." %}</li>
-      <li>{% trans "Для отримання рахунку/реквізитів залиште заявку на сторінці замовлення." %}</li>
-      <li>{% trans "За потреби реквізити дублюються у Telegram/WhatsApp/Instagram." %}</li>
-    </ul>
+<section class="section" data-ui="dtf:legal:requisites">
+  <div class="dtf-container legal-copy">
+    <h1>{% if current_lang == 'ru' %}Реквизиты{% elif current_lang == 'en' %}Requisites{% else %}Реквізити{% endif %}</h1>
+
+    <div class="card">
+      <dl class="list">
+        {% if current_lang == 'ru' %}
+          <dt><strong>Получатель</strong></dt>
+          <dd>ФОП Синіло Артем Віталійович</dd>
+          <dt><strong>IBAN</strong></dt>
+          <dd>UA323220010000026000360039460</dd>
+          <dt><strong>ИНН/ЄДРПОУ</strong></dt>
+          <dd>3490607272</dd>
+          <dt><strong>Банк</strong></dt>
+          <dd>Акционерное общество «УНІВЕРСАЛ БАНК»</dd>
+          <dt><strong>МФО</strong></dt>
+          <dd>322001</dd>
+          <dt><strong>ЄДРПОУ Банка</strong></dt>
+          <dd>21133352</dd>
+        {% elif current_lang == 'en' %}
+          <dt><strong>Recipient</strong></dt>
+          <dd>FOP Sinilo Artem Vitaliiovych</dd>
+          <dt><strong>IBAN</strong></dt>
+          <dd>UA323220010000026000360039460</dd>
+          <dt><strong>Tax ID</strong></dt>
+          <dd>3490607272</dd>
+          <dt><strong>Bank</strong></dt>
+          <dd>Universal Bank (JSC)</dd>
+          <dt><strong>MFO</strong></dt>
+          <dd>322001</dd>
+          <dt><strong>Bank EDPRPOU</strong></dt>
+          <dd>21133352</dd>
+        {% else %}
+          <dt><strong>Отримувач</strong></dt>
+          <dd>ФОП Синіло Артем Віталійович</dd>
+          <dt><strong>IBAN</strong></dt>
+          <dd>UA323220010000026000360039460</dd>
+          <dt><strong>ІПН/ЄДРПОУ</strong></dt>
+          <dd>3490607272</dd>
+          <dt><strong>Банк</strong></dt>
+          <dd>Акціонерне товариство «УНІВЕРСАЛ БАНК»</dd>
+          <dt><strong>МФО</strong></dt>
+          <dd>322001</dd>
+          <dt><strong>ЄДРПОУ Банку</strong></dt>
+          <dd>21133352</dd>
+        {% endif %}
+      </dl>
+    </div>
   </div>
 </section>
 {% endblock %}

@@ -41,7 +41,7 @@
   const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex=\"-1\"])';
   const MESSAGES = {
     uk: {
-      unsupported_ready_file: 'Формат файлу не підтримується для готового ганг-листа. Перейшли у допомогу.',
+      unsupported_ready_file: 'Формат файлу не підтримується для готового макета 60 см (ганг-лист). Перейшли у допомогу.',
       manager_success: "Дякуємо! Менеджер зв'яжеться найближчим часом.",
       manager_error_form: 'Помилка. Перевірте форму.',
       manager_error_network: 'Не вдалося надіслати. Спробуйте пізніше.',
@@ -61,7 +61,7 @@
       stateful_done: 'Готово',
     },
     ru: {
-      unsupported_ready_file: 'Формат файла не поддерживается для готового ганг-листа. Переключили на вкладку помощи.',
+      unsupported_ready_file: 'Формат файла не поддерживается для готового макета 60 см (ганг-лист). Переключили на вкладку помощи.',
       manager_success: 'Спасибо! Менеджер свяжется с вами в ближайшее время.',
       manager_error_form: 'Ошибка. Проверьте форму.',
       manager_error_network: 'Не удалось отправить. Попробуйте позже.',
@@ -81,7 +81,7 @@
       stateful_done: 'Готово',
     },
     en: {
-      unsupported_ready_file: 'This file format is not supported for a ready gang sheet. Switched to the help tab.',
+      unsupported_ready_file: 'This file format is not supported for a ready 60 cm layout (gang sheet). Switched to the help tab.',
       manager_success: 'Thanks! A manager will contact you shortly.',
       manager_error_form: 'Error. Please check the form.',
       manager_error_network: 'Failed to submit. Please try again later.',

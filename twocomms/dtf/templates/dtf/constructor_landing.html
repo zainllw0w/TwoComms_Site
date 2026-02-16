@@ -1,15 +1,15 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "DTF Конструктор" %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Конструктор мерча{% elif current_lang == 'en' %}Merch builder{% else %}Конструктор мерчу{% endif %}{% endblock %}
 {% block page_id %}constructor{% endblock %}
 
 {% block content %}
 <section class="section" data-ui="dtf:constructor:landing" data-effect="dotted-glow">
   <div class="dtf-container">
     <div class="section-head">
-      <h1>{% trans "DTF Конструктор (MVP)" %}</h1>
-      <p>{% trans "Оберіть виріб, позицію друку, завантажте макет і отримайте оцінку перед запуском." %}</p>
+      <h1>{% if current_lang == 'ru' %}Конструктор мерча{% elif current_lang == 'en' %}Merch builder{% else %}Конструктор мерчу{% endif %}</h1>
+      <p>{% if current_lang == 'ru' %}Подобрать изделие и подготовить печать. Если нужно — поможем с макетом 60 см (ганг‑лист).{% elif current_lang == 'en' %}Pick garments and prep print. If needed, we can build a 60 cm layout (gang sheet) for you.{% else %}Підібрати виріб і підготувати друк. Якщо потрібно — допоможемо з макетом 60 см (ганг‑лист).{% endif %}</p>
     </div>
 
     <div class="constructor-intro-grid">
@@ -18,7 +18,7 @@
         <ol class="list">
           <li>{% trans "Вибрати тип виробу, колір і кількість" %}</li>
           <li>{% trans "Вибрати позицію друку (front/back/chest/sleeve)" %}</li>
-          <li>{% trans "Завантажити файл і пройти preflight" %}</li>
+          <li>{% if current_lang == 'ru' %}Загрузить файл и пройти проверку{% elif current_lang == 'en' %}Upload file and run file check{% else %}Завантажити файл і пройти перевірку{% endif %}</li>
           <li>{% trans "Отримати 2D preview і відправити запит менеджеру" %}</li>
         </ol>
       </article>
@@ -26,7 +26,7 @@
         <h3>{% trans "Куди далі" %}</h3>
         <p>{% trans "Після підтвердження менеджером узгодимо матеріал, тираж і логістику." %}</p>
         <div class="cta-group">
-          <a class="btn btn-primary" href="{% url 'dtf:constructor_app' %}" data-stateful-link>{% trans "Відкрити конструктор" %}</a>
+          <a class="btn btn-primary" href="{% url 'dtf:constructor_app' %}" data-stateful-link>{% if current_lang == 'ru' %}Начать{% elif current_lang == 'en' %}Start{% else %}Почати{% endif %}</a>
           <a class="btn btn-ghost" href="{% url 'dtf:requirements' %}">{% trans "Переглянути вимоги" %}</a>
         </div>
       </article>

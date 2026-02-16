@@ -1118,24 +1118,33 @@
   };
 
   var STEP_LABELS = {
-    format_signature: { uk: 'Формат / сигнатура', ru: 'Формат / сигнатура', en: 'Format / signature' },
+    format_signature: { uk: 'Формат файлу', ru: 'Формат файла', en: 'File format' },
     dpi: { uk: 'DPI', ru: 'DPI', en: 'DPI' },
-    physical_size_60cm: { uk: 'Розміри / 60 см', ru: 'Размеры / 60 см', en: 'Physical size / 60 cm' },
-    transparency_bounds: { uk: 'Прозорість / межі', ru: 'Прозрачность / границы', en: 'Transparency / bounds' },
-    tiny_lines: { uk: 'Тонкі лінії', ru: 'Тонкие линии', en: 'Tiny lines risk' },
-    summary: { uk: 'Підсумок', ru: 'Итог', en: 'Summary' },
+    physical_size_60cm: { uk: 'Розмір / 60 см', ru: 'Размер / 60 см', en: 'Size / 60 cm' },
+    transparency_bounds: { uk: 'Прозорість / поля', ru: 'Прозрачность / поля', en: 'Transparency / safe area' },
+    tiny_lines: { uk: 'Тонкі лінії / дрібний текст', ru: 'Тонкие линии / мелкий текст', en: 'Thin lines / tiny text' },
+    summary: { uk: 'Результат перевірки', ru: 'Результат проверки', en: 'Check result' },
+  };
+
+  var STATUS_LABELS = {
+    ok: { uk: 'OK — Все добре', ru: 'OK — Все ок', en: 'OK — All good' },
+    info: { uk: 'INFO — Є рекомендація', ru: 'INFO — Есть рекомендация', en: 'INFO — Recommendation' },
+    warn: { uk: 'WARN — Потрібна увага', ru: 'WARN — Нужно внимание', en: 'WARN — Needs attention' },
+    fail: { uk: 'FAIL — Потрібна правка', ru: 'FAIL — Нужна правка', en: 'FAIL — Fix required' },
+    loading: { uk: 'Проводимо перевірку...', ru: 'Проводим проверку...', en: 'Running file check...' },
+    pending: { uk: 'Очікує перевірки', ru: 'Ожидает проверки', en: 'Waiting for check' },
   };
 
   var UI_TEXT = {
     preflight_running: {
-      uk: 'Preflight виконується...',
-      ru: 'Preflight выполняется...',
-      en: 'Preflight is running...',
+      uk: 'Перевірка файлу виконується...',
+      ru: 'Проверка файла выполняется...',
+      en: 'File check is running...',
     },
     preflight_failed: {
-      uk: 'Preflight не виконано. Спробуйте ще раз.',
-      ru: 'Preflight не выполнен. Попробуйте ещё раз.',
-      en: 'Preflight failed. Please try again.',
+      uk: 'Перевірка файлу не виконана. Спробуйте ще раз.',
+      ru: 'Проверка файла не выполнена. Попробуйте ещё раз.',
+      en: 'File check failed. Please try again.',
     },
   };
 
@@ -1154,6 +1163,12 @@
     var lang = getLang();
     var values = UI_TEXT[key] || {};
     return values[lang] || values.uk || values.en || key;
+  }
+
+  function statusLabel(status) {
+    var lang = getLang();
+    var labels = STATUS_LABELS[status] || STATUS_LABELS.pending;
+    return labels[lang] || labels.uk || labels.en || status;
   }
 
   function getCsrfToken(host) {
@@ -1189,10 +1204,15 @@
 
       var message = document.createElement('span');
       message.className = 'msl-step-message';
-      message.textContent = step.message || '';
+      message.textContent = '';
+
+      var statusText = document.createElement('span');
+      statusText.className = 'msl-step-message';
+      statusText.textContent = statusLabel(status);
 
       row.appendChild(icon);
       row.appendChild(label);
+      row.appendChild(statusText);
       row.appendChild(message);
 
       if (step.value) {
@@ -1200,17 +1220,6 @@
         value.className = 'msl-step-value';
         value.textContent = step.value;
         row.appendChild(value);
-      }
-
-      if (step.key === 'summary' && Array.isArray(step.recommendations) && step.recommendations.length) {
-        var list = document.createElement('ul');
-        list.className = 'msl-recommendations';
-        step.recommendations.forEach(function (item) {
-          var li = document.createElement('li');
-          li.textContent = item;
-          list.appendChild(li);
-        });
-        row.appendChild(list);
       }
 
       if (animated) {
@@ -2222,5 +2231,3 @@
     DTF.registerEffect('cards-on-click', initCardsOnClick);
   }
 })();
-
-

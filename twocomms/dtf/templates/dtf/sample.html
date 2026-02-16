@@ -1,15 +1,15 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Безкоштовний зразок DTF" %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Бесплатный образец DTF (A4){% elif current_lang == 'en' %}Free DTF sample (A4){% else %}Безкоштовний зразок DTF (A4){% endif %}{% endblock %}
 {% block page_id %}sample{% endblock %}
 
 {% block content %}
 <section class="section" data-ui="dtf:sample:hero" data-effect="dotted-glow">
   <div class="dtf-container">
     <div class="section-head">
-      <h1>{% trans "Безкоштовний зразок DTF" %}</h1>
-      <p><span data-pointer>{% trans "Обери формат, залиш заявку — ми покажемо реальну якість до запуску тиражу." %}</span></p>
+      <h1>{% if current_lang == 'ru' %}Бесплатный образец DTF (A4){% elif current_lang == 'en' %}Free DTF sample (A4){% else %}Безкоштовний зразок DTF (A4){% endif %}</h1>
+      <p><span data-pointer>{% if current_lang == 'ru' %}Проверьте качество на своей ткани до тиража. Печать A4 — бесплатно, вы оплачиваете только доставку. 24/7 — ответ до 10 минут.{% elif current_lang == 'en' %}Test on your fabric before scaling. A4 print is free — you only pay shipping. 24/7 support — ~10 min reply.{% else %}Перевірте якість на своїй тканині до тиражу. Друк A4 — безкоштовно, ви сплачуєте лише доставку. 24/7 — відповідь до 10 хв.{% endif %}</span></p>
     </div>
 
     <div class="sample-grid">
@@ -78,8 +78,8 @@
         <span>{% trans "Погоджуюсь на обробку персональних даних" %}</span>
       </label>
 
-      <button class="btn btn-primary" type="submit" data-stateful>{% trans "Отримати безкоштовний зразок" %}</button>
-      <div class="summary-foot">{% trans "Не спамимо. Відповідь протягом робочого дня." %}</div>
+      <button class="btn btn-primary" type="submit" data-stateful>{% if current_lang == 'ru' %}Заказать образец A4{% elif current_lang == 'en' %}Request A4 sample{% else %}Замовити зразок A4{% endif %}</button>
+      <div class="summary-foot">{% if current_lang == 'ru' %}24/7 поддержка · обычно отвечаем до 10 минут.{% elif current_lang == 'en' %}24/7 support · typical reply in ~10 minutes.{% else %}24/7 підтримка · зазвичай відповідаємо до 10 хв.{% endif %}</div>
     </form>
   </div>
 </section>
