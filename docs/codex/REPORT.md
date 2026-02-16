@@ -54,10 +54,16 @@ Subdomain-only implementation for `dtf.twocomms.shop` based on:
 - Minor locale text consistency fixes in header/footer and delivery copy.
 
 ## Commits
-- Added after commit step.
+- `94b832d` — `dtf copy/localization pages and preflight microcopy`
+- `b667edf` — `dtf blog seed: add 10 UA SEO posts migration`
+- `b01f291` — `docs: add codex report checklist and assets brief`
 
 ## Verification
-- Added after verification step.
+- `SECRET_KEY='codex-local-secret-key' python3 manage.py check` — passed, no system issues.
+- `SECRET_KEY='codex-local-secret-key' python3 manage.py migrate dtf 0008 --plan` — migration plan resolves and includes `dtf.0008_seed_codex_blog_posts_ua`.
+- `python3` import check for migration module — confirms `POSTS` count = `10` and expected first/last slugs.
+- `SECRET_KEY='codex-local-secret-key' python3 manage.py test dtf.tests.DtfKnowledgeBaseTests dtf.tests.DtfP0RoutesTests` — blocked by unrelated cross-app migration issue outside DTF scope:
+  `ValueError: Related model 'orders.order' cannot be resolved` during `storefront.0031_promo_codes_redesign`.
 
 ## Notes
 - Linear integration was requested in prompt, but no Linear MCP resources were available in this session, so tasks could not be created programmatically.
