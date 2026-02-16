@@ -1,0 +1,26 @@
+# Acceptance Checklist
+
+- [x] No UI effect/component/animation removals in DTF templates.
+- [x] Hero media container on home page kept intact.
+- [x] Profile/login area retained; cabinet route present and linked.
+- [x] Global contacts updated: `+380966543212`, `https://t.me/twocomms`.
+- [x] Contact links are clickable in header/footer/contacts page.
+- [x] Core hooks added on key pages: `24/7`, `reply up to 10 min`, `by 12:00 ship today`.
+- [x] Turnaround clarified: standard `0–24h`, peak up to `48h`.
+- [x] Terminology switched to `макет 60 см (ганг‑лист)` and `60 cm layout (gang sheet)` in user-facing copy.
+- [x] Order/constructor preflight text updated to human-readable wording.
+- [x] Preflight statuses (`OK/INFO/WARN/FAIL`) include user-facing explanations.
+- [x] Tooltips include DPI, transparency, thin lines, safe area context.
+- [x] Risk acknowledgement shown only in print-as-is flow (`WARN`) by default-hidden checkbox logic.
+- [x] Legal pages filled (no TEMP): `/privacy/`, `/terms/`, `/returns/`, `/requisites/`.
+- [x] Requisites use exact provided values.
+- [x] Home page modules and CTA blocks rewritten per copy spec.
+- [x] Delivery & Payment page rewritten per copy spec.
+- [x] FAQ page `/faq/` exists, localized, and linked.
+- [x] Key nav/footer links avoid known 404 targets.
+- [x] Blog seed added: 10 UA SEO posts with slug+SEO fields.
+- [x] Blog seed migration updates existing slugs instead of duplicating.
+- [x] `docs/codex/REPORT.md` created.
+- [x] `docs/codex/CHECKLIST.md` created.
+- [x] `docs/codex/TODO_NEXT.md` created.
+- [x] `docs/codex/ASSETS_BRIEF.md` created from source brief.
