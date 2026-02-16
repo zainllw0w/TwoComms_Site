@@ -1,0 +1,101 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}
+  {% if current_lang == 'ru' %}FAQ — вопросы и ответы{% elif current_lang == 'en' %}FAQ{% else %}FAQ — питання та відповіді{% endif %}
+{% endblock %}
+{% block page_id %}faq{% endblock %}
+
+{% block content %}
+<section class="section" data-ui="dtf:faq:root">
+  <div class="dtf-container">
+    <div class="section-head" data-reveal>
+      <h1>{% if current_lang == 'ru' %}FAQ — вопросы и ответы{% elif current_lang == 'en' %}FAQ{% else %}FAQ — питання та відповіді{% endif %}</h1>
+      <p>
+        {% if current_lang == 'ru' %}
+          Собрали ответы на самые частые вопросы про DTF, макеты 60 см и перенос. Если не нашли свое — напишите в Telegram: https://t.me/twocomms (24/7, ответ до 10 минут).
+        {% elif current_lang == 'en' %}
+          Common questions about DTF, 60 cm layouts, and application. Need help? Telegram: https://t.me/twocomms (24/7, ~10 min reply).
+        {% else %}
+          Зібрали відповіді на найчастіші питання про DTF, макети 60 см і перенос. Якщо не знайшли своє — напишіть у Telegram: https://t.me/twocomms (24/7, відповідь до 10 хв).
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="info-grid" data-reveal>
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Файлы и подготовка{% elif current_lang == 'en' %}Files & prep{% else %}Файли та підготовка{% endif %}</h3>
+        <details>
+          <summary>{% if current_lang == 'ru' %}Какой формат файла нужен?{% elif current_lang == 'en' %}What file format do you need?{% else %}Який формат файлу потрібен?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Лучше всего: PNG с прозрачным фоном или PDF. Если не уверены — отправьте файл, мы проверим и подскажем.{% elif current_lang == 'en' %}Best: transparent PNG or PDF. If unsure — send it and we’ll advise.{% else %}Найкраще: PNG з прозорим фоном або PDF. Якщо не впевнені — надішліть файл, ми перевіримо і підкажемо.{% endif %}</p>
+        </details>
+        <details>
+          <summary>{% if current_lang == 'ru' %}Что такое “макет 60 см (ганг‑лист)”?{% elif current_lang == 'en' %}What is a 60 cm layout (gang sheet)?{% else %}Що таке “макет 60 см (ганг‑лист)”?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Это файл шириной 60 см, в котором вы размещаете несколько дизайнов. Оплата считается по длине файла в метрах (метраж).{% elif current_lang == 'en' %}A 60 cm wide file with multiple designs arranged. Pricing is based on the file length in meters.{% else %}Це файл шириною 60 см, у якому ви розкладаєте кілька дизайнів. Оплата рахується по довжині файлу в метрах (метраж).{% endif %}</p>
+        </details>
+        <details>
+          <summary>{% if current_lang == 'ru' %}Проверяете ли вы макет перед печатью? (preflight){% elif current_lang == 'en' %}Do you check files before printing (preflight)?{% else %}Чи перевіряєте ви макет перед друком? (preflight){% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Да. Проверяем DPI, прозрачность, тонкие линии, поля. Если есть риск — покажем и попросим подтверждение.{% elif current_lang == 'en' %}Yes. We check DPI, transparency, thin lines, and safe margins. If there’s a risk, we’ll show it and ask for approval.{% else %}Так. Перевіряємо DPI, прозорість, тонкі лінії, поля. Якщо є ризик — покажемо і попросимо підтвердження.{% endif %}</p>
+        </details>
+        <details>
+          <summary>{% if current_lang == 'ru' %}У меня нет макета 60 см — можете помочь?{% elif current_lang == 'en' %}I don’t have a 60 cm layout — can you help?{% else %}У мене немає макета 60 см — можете допомогти?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Да. Отправьте отдельные PNG/PDF — мы соберем макет 60 см и согласуем перед печатью.{% elif current_lang == 'en' %}Yes. Send separate PNG/PDF files — we’ll assemble the 60 cm layout and confirm before printing.{% else %}Так. Надішліть окремі PNG/PDF — ми зберемо макет 60 см і погодимо перед друком.{% endif %}</p>
+        </details>
+      </article>
+
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Печать и качество{% elif current_lang == 'en' %}Printing & quality{% else %}Друк і якість{% endif %}</h3>
+        <details>
+          <summary>{% if current_lang == 'ru' %}Что такое hot peel?{% elif current_lang == 'en' %}What is hot peel?{% else %}Що таке hot peel?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Hot peel — “горячий отрыв”: пленка снимается сразу после пресса. Это быстрее в производстве.{% elif current_lang == 'en' %}Hot peel means removing the film immediately after pressing — faster workflow.{% else %}Hot peel означає “гарячий відрив”: плівка знімається одразу після преса. Це швидше у виробництві.{% endif %}</p>
+        </details>
+        <details>
+          <summary>{% if current_lang == 'ru' %}Можно ли печатать мелкий текст?{% elif current_lang == 'en' %}Can you print tiny text?{% else %}Чи можна друкувати дрібний текст?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Да, но мелкий текст и тонкие линии — зона риска. Если что-то “на грани”, предупредим и предложим правку или тест A4.{% elif current_lang == 'en' %}Yes, but tiny text/thin lines can be risky. If something is borderline, we’ll warn you and suggest a fix or an A4 test.{% else %}Так, але дрібний текст і тонкі лінії — зона ризику. Якщо щось “на межі”, ми попередимо і запропонуємо правку або тест A4.{% endif %}</p>
+        </details>
+      </article>
+
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Перенос и уход{% elif current_lang == 'en' %}Application & care{% else %}Перенос і догляд{% endif %}</h3>
+        <details>
+          <summary>{% if current_lang == 'ru' %}Как переносить DTF на ткань?{% elif current_lang == 'en' %}How do I apply DTF to fabric?{% else %}Як переносити DTF на тканину?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Прикладываем инструкцию к заказу. Если скажете ткань и ваш пресс — подскажем стартовые параметры.{% elif current_lang == 'en' %}Instructions are included. Tell us your fabric and heat press — we’ll recommend starting settings.{% else %}Додаємо інструкцію до замовлення. Якщо скажете тканину і ваш прес — підкажемо стартові параметри.{% endif %}</p>
+        </details>
+        <details>
+          <summary>{% if current_lang == 'ru' %}Как ухаживать за изделием с DTF?{% elif current_lang == 'en' %}How do I care for a DTF print?{% else %}Як доглядати за виробом з DTF?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Первые 24 часа — без стирки. Стирать наизнанку, деликатный режим, без агрессивного отбеливателя. Не гладить прямо по принту.{% elif current_lang == 'en' %}No washing for 24h. Wash inside‑out on gentle cycle, avoid harsh bleach. Don’t iron directly on the print.{% else %}Перші 24 год — без прання. Прати навиворіт, делікатний режим, без агресивного відбілювача. Не прасувати напряму по принту.{% endif %}</p>
+        </details>
+      </article>
+
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Сроки, доставка, оплата{% elif current_lang == 'en' %}Turnaround, shipping, payment{% else %}Терміни, доставка, оплата{% endif %}</h3>
+        <details>
+          <summary>{% if current_lang == 'ru' %}Сколько занимает печать и отправка?{% elif current_lang == 'en' %}How fast is production & shipping?{% else %}Скільки триває друк і відправка?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Подтвердили до 12:00 — отправка сегодня. Стандартно: 0–24 ч, в пиковые дни — до 48 ч (после проверки файла).{% elif current_lang == 'en' %}Approved by 12:00 — ship today. Standard: 0–24h, peak days up to 48h (after file check).{% else %}Підтвердили до 12:00 — відправка сьогодні. Стандартно: 0–24 год, у пікові дні — до 48 год (після перевірки файлу).{% endif %}</p>
+        </details>
+        <details>
+          <summary>{% if current_lang == 'ru' %}Как осуществляется доставка?{% elif current_lang == 'en' %}How do you ship?{% else %}Як здійснюється доставка?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Отправляем Новой почтой по Украине. ТТН отправляем после отправки. Доставка — по тарифам перевозчика.{% elif current_lang == 'en' %}We ship via Nova Poshta across Ukraine. Tracking is sent after dispatch. Shipping cost per carrier rates.{% else %}Відправляємо Новою поштою по Україні. Номер ТТН надсилаємо після відправки. Доставка — за тарифами перевізника.{% endif %}</p>
+        </details>
+        <details>
+          <summary>{% if current_lang == 'ru' %}Как оплатить?{% elif current_lang == 'en' %}How do I pay?{% else %}Як оплатити?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Оплату согласовываем после проверки файла и подтверждения метража/цены. Оплата возможна переводом на IBAN (реквизиты: /requisites/).{% elif current_lang == 'en' %}Payment is confirmed after file check and meters/price approval. Bank transfer via IBAN is available (see /requisites/).{% else %}Оплату узгоджуємо після перевірки файлу та підтвердження метражу/ціни. Оплата можлива переказом на IBAN (реквізити: /requisites/).{% endif %}</p>
+        </details>
+      </article>
+
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Риски и гарантии{% elif current_lang == 'en' %}Risks & guarantees{% else %}Ризики та гарантії{% endif %}</h3>
+        <details>
+          <summary>{% if current_lang == 'ru' %}Что если файл рисковый, но мне нужно “как есть”?{% elif current_lang == 'en' %}What if my file is risky but I want it as‑is?{% else %}Що якщо файл ризиковий, але мені треба “як є”?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Мы покажем, в чем риск, и предложим варианты. Если печатать “как есть” — нужно ваше явное подтверждение.{% elif current_lang == 'en' %}We’ll explain the risk and options. Printing as‑is requires your explicit approval.{% else %}Ми покажемо, у чому ризик, і запропонуємо варіанти. Якщо друкувати “як є” — потрібне ваше явне підтвердження.{% endif %}</p>
+        </details>
+      </article>
+    </div>
+
+    <div class="cta-group" data-reveal>
+      <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% if current_lang == 'ru' %}Отправить файл на проверку{% elif current_lang == 'en' %}Send file for check{% else %}Надіслати файл на перевірку{% endif %}</a>
+      <a class="btn btn-outline" href="{% url 'dtf:sample' %}">{% if current_lang == 'ru' %}Получить образец A4{% elif current_lang == 'en' %}Get A4 sample{% else %}Отримати зразок A4{% endif %}</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

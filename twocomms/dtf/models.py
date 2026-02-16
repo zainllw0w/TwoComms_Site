@@ -151,7 +151,7 @@ class DtfLifecycleStatus(models.TextChoices):
 
 
 class OrderType(models.TextChoices):
-    READY = "ready", _("Готовий ганг-лист")
+    READY = "ready", _("Макет 60 см (ганг-лист)")
     HELP = "help", _("Потрібна допомога")
 
 

@@ -1,16 +1,15 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Конструктор DTF" %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Конструктор мерча{% elif current_lang == 'en' %}Merch builder{% else %}Конструктор мерчу{% endif %}{% endblock %}
 {% block page_id %}constructor-app{% endblock %}
 
 {% block content %}
 <section class="section constructor-section" data-ui="dtf:constructor:app">
   <div class="dtf-container">
     <div class="section-head">
-      <h1>{% trans "Конструктор виробу" %}</h1>
-      <p>{% trans "MVP: підбір виробу, позиції друку, preflight перевірка і запит на прорахунок." %}</p>
-      <p class="muted">Session: {{ builder_session.session_id }}</p>
+      <h1>{% if current_lang == 'ru' %}Конструктор мерча{% elif current_lang == 'en' %}Merch builder{% else %}Конструктор мерчу{% endif %}</h1>
+      <p>{% if current_lang == 'ru' %}Подобрать изделие и подготовить печать. Если нужно — поможем с макетом 60 см (ганг‑лист).{% elif current_lang == 'en' %}Pick garments and prep print. If needed, we can build a 60 cm layout (gang sheet) for you.{% else %}Підібрати виріб і підготувати друк. Якщо потрібно — допоможемо з макетом 60 см (ганг‑лист).{% endif %}</p>
     </div>
 
     <div class="constructor-layout"
@@ -64,19 +63,19 @@
             <small>{% trans "Формат: S:10,M:20,L:5" %}</small>
           </label>
           <label>{% trans "Розміщення принта" %} {{ builder_form.placement }}</label>
-          <label>{% trans "Макет" %} {{ builder_form.design_file }}</label>
+          <label>{% if current_lang == 'ru' %}Ваш макет 60 см (ганг‑лист){% elif current_lang == 'en' %}Your 60 cm layout (gang sheet){% else %}Ваш макет 60 см (ганг‑лист){% endif %} {{ builder_form.design_file }}</label>
           <div class="upload-steps">
-            <span class="upload-step-pill" data-upload-step="1">{% trans "Файл" %}</span>
-            <span class="upload-step-pill" data-upload-step="2">{% trans "Preflight" %}</span>
-            <span class="upload-step-pill" data-upload-step="3">{% trans "Preview" %}</span>
-            <span class="upload-step-pill" data-upload-step="4">{% trans "Готово" %}</span>
+            <span class="upload-step-pill" data-upload-step="1">{% if current_lang == 'ru' %}Файл{% elif current_lang == 'en' %}File{% else %}Файл{% endif %}</span>
+            <span class="upload-step-pill" data-upload-step="2">{% if current_lang == 'ru' %}Проверка файла{% elif current_lang == 'en' %}File check{% else %}Перевірка файлу{% endif %}</span>
+            <span class="upload-step-pill" data-upload-step="3">{% if current_lang == 'ru' %}Превью{% elif current_lang == 'en' %}Preview{% else %}Прев'ю{% endif %}</span>
+            <span class="upload-step-pill" data-upload-step="4">{% if current_lang == 'ru' %}Готово{% elif current_lang == 'en' %}Ready{% else %}Готово{% endif %}</span>
           </div>
           <label>{% trans "Місто" %} {{ builder_form.delivery_city }}</label>
           <label>{% trans "Відділення НП" %} {{ builder_form.delivery_np_branch }}</label>
           <label>{% trans "Коментар" %} {{ builder_form.comment }}</label>
-          <label class="risk-check">
+          <label class="risk-check" data-risk-check hidden>
             {{ builder_form.risk_ack }}
-            <span>{% trans "Підтверджую ризики WARN у preflight" %}</span>
+            <span>{% if current_lang == 'ru' %}Я подтверждаю печать “как есть” и понимаю возможные последствия: потеря мелких деталей / нечеткий текст / артефакты по краю.{% elif current_lang == 'en' %}I approve printing as‑is and understand possible outcomes: loss of fine details / blurry text / edge artifacts.{% else %}Я підтверджую друк “як є” і розумію можливі наслідки: втрата дрібних деталей / нечіткий текст / артефакти по краю.{% endif %}</span>
           </label>
           <button class="btn btn-outline" type="submit" data-stateful>{% trans "Зберегти чернетку" %}</button>
         </form>
@@ -84,20 +83,21 @@
 
       <div class="constructor-main" data-ui="dtf:constructor:preview">
         <article class="card constructor-preview-card">
-          <h3>{% trans "Preview" %}</h3>
+          <h3>{% if current_lang == 'ru' %}Превью{% elif current_lang == 'en' %}Preview{% else %}Прев'ю{% endif %}</h3>
           {% if builder_session.preview_image %}
             <div class="asset-slot" style="aspect-ratio: 1 / 1">
               <img src="{{ builder_session.preview_image.url }}" alt="Preview" loading="lazy" class="skeleton">
             </div>
           {% else %}
             <div class="asset-slot" style="aspect-ratio: 1 / 1">
-              <div class="asset-placeholder">{% trans "Збережіть чернетку, щоб побачити 2D preview" %}</div>
+              <div class="asset-placeholder">{% if current_lang == 'ru' %}Сохраните черновик, чтобы увидеть 2D‑превью{% elif current_lang == 'en' %}Save draft to see 2D preview{% else %}Збережіть чернетку, щоб побачити 2D‑прев'ю{% endif %}</div>
             </div>
           {% endif %}
         </article>
 
         <article class="card constructor-preflight-card">
-          <h3>{% trans "Preflight Terminal" %}</h3>
+          <h3>{% if current_lang == 'ru' %}Проверка файла перед печатью{% elif current_lang == 'en' %}File check before print{% else %}Перевірка файлу перед друком{% endif %}</h3>
+          <p>{% if current_lang == 'ru' %}Проверяем критичные вещи, чтобы избежать брака. Если есть риск — покажем и попросим подтверждение.{% elif current_lang == 'en' %}We check critical issues to prevent misprints. If there’s risk — we’ll show it and ask for approval.{% else %}Перевіряємо критичні речі, щоб уникнути браку. Якщо є ризик — покажемо і попросимо підтвердження.{% endif %}</p>
           {% if builder_preflight.step_items %}
             <div class="msl-container" data-preflight-loader>
               {% for item in builder_preflight.step_items %}
@@ -106,15 +106,8 @@
                     {% if item.status == 'ok' %}&#10003;{% elif item.status == 'warn' %}&#9888;{% elif item.status == 'fail' %}&#10007;{% else %}&#8226;{% endif %}
                   </span>
                   <span class="msl-step-label">{{ item.label }}</span>
-                  <span class="msl-step-message">{{ item.message }}</span>
+                  <span class="msl-step-message"></span>
                   {% if item.value %}<span class="msl-step-value">{{ item.value }}</span>{% endif %}
-                  {% if item.recommendations %}
-                    <ul class="msl-recommendations">
-                      {% for rec in item.recommendations %}
-                        <li>{{ rec }}</li>
-                      {% endfor %}
-                    </ul>
-                  {% endif %}
                 </div>
               {% endfor %}
             </div>
@@ -126,7 +119,7 @@
                     {% if item.status == 'ok' %}&#10003;{% elif item.status == 'warn' %}&#9888;{% elif item.status == 'fail' %}&#10007;{% else %}&#8226;{% endif %}
                   </span>
                   <span class="msl-step-label">{{ item.label|default:item.code }}</span>
-                  <span class="msl-step-message">{{ item.message }}</span>
+                  <span class="msl-step-message"></span>
                 </div>
               {% endfor %}
             </div>
@@ -134,11 +127,36 @@
             <div class="msl-container" data-preflight-loader>
               <div class="msl-step msl-status-pending">
                 <span class="msl-step-icon" aria-hidden="true">&#8226;</span>
-                <span class="msl-step-label">{% trans "Завантажте файл для preflight" %}</span>
+                <span class="msl-step-label">{% if current_lang == 'ru' %}Загрузите файл для проверки{% elif current_lang == 'en' %}Upload file for check{% else %}Завантажте файл для перевірки{% endif %}</span>
                 <span class="msl-step-message"></span>
               </div>
             </div>
           {% endif %}
+          <div class="preflight-status-legend">
+            <span><strong>OK</strong> — {% if current_lang == 'ru' %}Все ок{% elif current_lang == 'en' %}All good{% else %}Все добре{% endif %}</span>
+            <span><strong>INFO</strong> — {% if current_lang == 'ru' %}Есть рекомендация{% elif current_lang == 'en' %}Recommendation{% else %}Є рекомендація{% endif %}</span>
+            <span><strong>WARN</strong> — {% if current_lang == 'ru' %}Нужно внимание{% elif current_lang == 'en' %}Needs attention{% else %}Потрібна увага{% endif %}</span>
+            <span><strong>FAIL</strong> — {% if current_lang == 'ru' %}Нужна правка (печать невозможна){% elif current_lang == 'en' %}Fix required (can’t print){% else %}Потрібна правка (друк неможливий){% endif %}</span>
+          </div>
+          <div class="preflight-terms">
+            <span data-tooltip-content="{% if current_lang == 'ru' %}Рекомендуем ~300 DPI в финальном размере. Ниже может быть “мыло/пиксели”.{% elif current_lang == 'en' %}~300 DPI at final size is recommended. Lower may look blurry/pixelated.{% else %}Рекомендовано ~300 DPI у фінальному розмірі. Нижче може бути “мило/пікселі”.{% endif %}" data-effect="tooltip-card">
+              <abbr>DPI</abbr>
+            </span>
+            <span data-tooltip-content="{% if current_lang == 'ru' %}Прозрачный фон нужен, чтобы не напечатать “квадрат” вокруг дизайна.{% elif current_lang == 'en' %}Transparent background prevents an unwanted “box” around the artwork.{% else %}Прозорий фон потрібен, щоб не надрукувати “квадрат” навколо дизайну.{% endif %}" data-effect="tooltip-card">
+              <abbr>{% if current_lang == 'ru' %}Прозрачность{% elif current_lang == 'en' %}Transparency{% else %}Прозорість{% endif %}</abbr>
+            </span>
+            <span data-tooltip-content="{% if current_lang == 'ru' %}Слишком тонкие линии и мелкий текст могут потеряться при переносе. Лучше немного утолстить.{% elif current_lang == 'en' %}Very thin lines & tiny text may not hold during transfer. Consider thickening slightly.{% else %}Дуже тонкі лінії й дрібний текст можуть втратитися при переносі. Краще трохи потовстити.{% endif %}" data-effect="tooltip-card">
+              <abbr>{% if current_lang == 'ru' %}Тонкие линии{% elif current_lang == 'en' %}Thin lines{% else %}Тонкі лінії{% endif %}</abbr>
+            </span>
+            <span data-tooltip-content="{% if current_lang == 'ru' %}Держите важные элементы внутри safe‑area шаблона, чтобы край не “срезало”.{% elif current_lang == 'en' %}Keep important elements inside the template safe area to avoid edge issues.{% else %}Тримайте важливі елементи всередині safe‑area шаблону, щоб край не “зрізало”.{% endif %}" data-effect="tooltip-card">
+              <abbr>Safe area</abbr>
+            </span>
+          </div>
+          <div class="preflight-actions">
+            <button type="button" class="btn btn-ghost" data-preflight-help>{% if current_lang == 'ru' %}Запросить подсказку{% elif current_lang == 'en' %}Ask for help{% else %}Попросити підказку{% endif %}</button>
+            <button type="button" class="btn btn-outline" data-preflight-upload-fixed>{% if current_lang == 'ru' %}Загрузить исправленный файл{% elif current_lang == 'en' %}Upload fixed file{% else %}Завантажити виправлений файл{% endif %}</button>
+            <button type="button" class="btn btn-outline" data-preflight-print-as-is>{% if current_lang == 'ru' %}Печатать как есть{% elif current_lang == 'en' %}Print as-is{% else %}Друкувати як є{% endif %}</button>
+          </div>
           {% if builder_preflight.summary %}
             <div class="preflight-summary" data-effect="text-generate" data-generate-text="{{ builder_preflight.summary.message }}">
               {{ builder_preflight.summary.message }}
@@ -173,9 +191,9 @@
             <label>{% trans "Відділення НП" %}
               <input type="text" name="np_branch" value="{{ builder_form.delivery_np_branch.value|default:'' }}">
             </label>
-            <label class="risk-check">
+            <label class="risk-check" data-risk-check hidden>
               <input type="checkbox" name="risk_ack" value="1">
-              <span>{% trans "Підтверджую WARN/ризики перед відправкою" %}</span>
+              <span>{% if current_lang == 'ru' %}Я подтверждаю печать “как есть” и понимаю возможные последствия: потеря мелких деталей / нечеткий текст / артефакты по краю.{% elif current_lang == 'en' %}I approve printing as-is and understand possible outcomes: loss of fine details / blurry text / edge artifacts.{% else %}Я підтверджую друк “як є” і розумію можливі наслідки: втрата дрібних деталей / нечіткий текст / артефакти по краю.{% endif %}</span>
             </label>
             <button class="btn btn-primary" type="submit" data-stateful>{% trans "Надіслати запит" %}</button>
             <div class="summary-foot" data-constructor-submit-feedback></div>
@@ -201,11 +219,11 @@
           </span>
           <span class="dock-item-label">{% trans "Очистити" %}</span>
         </button>
-        <button type="button" class="dock-item" data-action="check" data-dock-title="{% trans 'Запустити preflight' %}" aria-label="{% trans 'Запустити preflight' %}">
+        <button type="button" class="dock-item" data-action="check" data-dock-title="{% if current_lang == 'ru' %}Запустить проверку файла{% elif current_lang == 'en' %}Run file check{% else %}Запустити перевірку файлу{% endif %}" aria-label="{% if current_lang == 'ru' %}Запустить проверку файла{% elif current_lang == 'en' %}Run file check{% else %}Запустити перевірку файлу{% endif %}">
           <span class="dock-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           </span>
-          <span class="dock-item-label">{% trans "Preflight" %}</span>
+          <span class="dock-item-label">{% if current_lang == 'ru' %}Проверка{% elif current_lang == 'en' %}File check{% else %}Перевірка{% endif %}</span>
         </button>
         <button type="button" class="dock-item" data-action="submit" data-dock-title="{% trans 'Надіслати запит' %}" aria-label="{% trans 'Надіслати запит' %}">
           <span class="dock-icon" aria-hidden="true">
@@ -222,6 +240,15 @@
 {% block extra_scripts %}
 <script>
   (function () {
+    document.querySelectorAll('[data-preflight-print-as-is]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var root = btn.closest('.constructor-layout') || document;
+        root.querySelectorAll('[data-risk-check]').forEach(function (item) {
+          item.hidden = false;
+        });
+      });
+    });
+
     const loadingText = '{% trans "Надсилаємо..." %}';
     const successText = '{% trans "Готово" %}';
     const errorText = '{% trans "Помилка" %}';

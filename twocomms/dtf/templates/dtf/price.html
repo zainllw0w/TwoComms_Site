@@ -1,8 +1,17 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Ціни DTF" %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Прайс на DTF‑печать (60 см){% elif current_lang == 'en' %}DTF pricing (60 cm){% else %}Прайс на DTF‑друк (60 см){% endif %}{% endblock %}
 {% block page_id %}price{% endblock %}
+{% block description %}
+  {% if current_lang == 'ru' %}
+    DTF печать 60 см: цена за метраж, скидки, сроки 0–24 ч (до 48 ч в пиковые дни), 24/7 поддержка.
+  {% elif current_lang == 'en' %}
+    60 cm DTF pricing by meter: tier discounts, 0–24h turnaround (up to 48h on peak days), 24/7 support.
+  {% else %}
+    DTF друк 60 см: ціна за метраж, знижки, терміни 0–24 год (до 48 год у пікові дні), 24/7 підтримка.
+  {% endif %}
+{% endblock %}
 
 {% block extra_head %}
   {% trans "Ціни" as crumb_label %}
@@ -31,8 +40,16 @@
 {% block content %}
 <section class="section">
   <div class="dtf-container">
-    <h1>{% trans "Ціни" %}</h1>
-    <p>{% trans "Розрахунок: довжина файлу × кількість копій = загальний метраж." %}</p>
+    <h1>{% if current_lang == 'ru' %}Прайс на DTF‑печать (60 см){% elif current_lang == 'en' %}DTF pricing (60 cm){% else %}Прайс на DTF‑друк (60 см){% endif %}</h1>
+    <p>
+      {% if current_lang == 'ru' %}
+        Цена зависит от метража (длины файла в метрах). Подтвердили до 12:00 — отправка сегодня. 24/7 поддержка — ответ до 10 минут.
+      {% elif current_lang == 'en' %}
+        Price depends on meters (file length). Approved by 12:00 — ship today. 24/7 support — ~10 min reply.
+      {% else %}
+        Ціна залежить від метражу (довжини файлу в метрах). Підтвердили до 12:00 — відправка сьогодні. 24/7 підтримка — відповідь до 10 хв.
+      {% endif %}
+    </p>
     <div class="price-table">
       <div class="price-row head">
         <span>{% trans "Метраж" %}</span>
@@ -64,13 +81,22 @@
       <h3>{% trans "Приклад" %}</h3>
       <p>{% trans "Файл 2.5 м × 10 копій = 25 м. Розрахунок за відповідною ціною." %}</p>
     </div>
-    <div class="cutoff-block card">
-      <h3>{% trans "Cutoff / терміни" %}</h3>
-      <ul class="list">
-        <li>{% trans "Cutoff на виробництво: після підтвердження макета." %}</li>
-        <li>{% trans "Стандартний термін: 24–48 год (узгоджується менеджером)." %}</li>
-        <li>{% trans "Доставка: за тарифами Нової Пошти." %}</li>
-      </ul>
+
+    <div class="card">
+      <p>
+        {% if current_lang == 'ru' %}
+          Стандартно печатаем 0–24 ч, в пиковые дни — до 48 ч (после подтверждения файла).
+        {% elif current_lang == 'en' %}
+          Standard turnaround: 0–24h, peak days up to 48h (after file confirmation).
+        {% else %}
+          Стандартно друкуємо 0–24 год, у пікові дні — до 48 год (після підтвердження файлу).
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="cta-group" style="margin-top: 20px;">
+      <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% if current_lang == 'ru' %}Рассчитать стоимость{% elif current_lang == 'en' %}Calculate price{% else %}Розрахувати вартість{% endif %}</a>
+      <a class="btn btn-ghost" href="{% url 'dtf:sample' %}" data-stateful-link>{% if current_lang == 'ru' %}Получить бесплатный образец A4{% elif current_lang == 'en' %}Get a free A4 sample{% else %}Отримати безкоштовний зразок A4{% endif %}</a>
     </div>
   </div>
 </section>
