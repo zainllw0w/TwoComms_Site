@@ -1,7 +1,15 @@
 {% extends 'dtf/base.html' %}
 {% load static i18n %}
 
-{% block title %}{% trans "Вимоги до файлів" %}{% endblock %}
+{% block title %}
+  {% if current_lang == 'ru' %}
+    Требования к макетам 60 см
+  {% elif current_lang == 'en' %}
+    Artwork requirements (60 cm)
+  {% else %}
+    Вимоги до макетів 60 см
+  {% endif %}
+{% endblock %}
 {% block page_id %}requirements{% endblock %}
 
 {% block extra_head %}
@@ -59,7 +67,16 @@
 {% block content %}
 <section class="section" data-ui="dtf:requirements:root">
   <div class="dtf-container requirements" data-ui="dtf:requirements:content">
-    <h1>{% trans "Вимоги до файлів" %}</h1>
+    <h1>{% if current_lang == 'ru' %}Требования к макетам 60 см{% elif current_lang == 'en' %}Artwork requirements (60 cm){% else %}Вимоги до макетів 60 см{% endif %}</h1>
+    <p>
+      {% if current_lang == 'ru' %}
+        Чтобы печать была предсказуемой, подготовьте макет 60 см (ганг‑лист) по этим правилам. Если не уверены — отправьте файл: проверим и подскажем.
+      {% elif current_lang == 'en' %}
+        For predictable results, prepare a 60 cm layout (gang sheet) using these rules. If unsure — send it, we’ll check and advise.
+      {% else %}
+        Щоб друк був передбачуваним, підготуйте макет 60 см (ганг‑лист) за цими правилами. Якщо не впевнені — надішліть файл: ми перевіримо і підкажемо.
+      {% endif %}
+    </p>
     <div class="req-grid tracing-beam-doc" data-tracing-beam data-effect="tracing-beam" data-ui="dtf:requirements:rules">
       <div class="tracing-beam-line" aria-hidden="true"><span data-tracing-beam-progress></span></div>
       <div class="req-card">
@@ -100,26 +117,18 @@
     </div>
 
     <div class="template-links">
-      <h3>{% trans "Шаблони 60 см" %}</h3>
+      <h3>{% if current_lang == 'ru' %}Шаблоны 60 см для макета{% elif current_lang == 'en' %}60 cm layout templates{% else %}Шаблони 60 см для макета{% endif %}</h3>
       <div class="cta-group">
         <!-- ASSET_REQUEST | id=template-60cm-file | type=mockup | usage=Requirements download button | spec=PDF/AI/FIGMA file set | notes=final 60cm template files -->
-        <a class="btn btn-primary" href="{% static 'dtf/assets/template-60cm.pdf' %}" download>{% trans "Скачати шаблон 60 см" %}</a>
+        <a class="btn btn-primary" href="{% static 'dtf/assets/template-60cm.pdf' %}" download>{% if current_lang == 'ru' %}Скачать шаблон{% elif current_lang == 'en' %}Download template{% else %}Завантажити шаблон{% endif %}</a>
         <a class="btn btn-outline" href="{% url 'dtf:templates' %}">{% trans "Перейти до шаблонів" %}</a>
       </div>
     </div>
 
     <div class="cta-block">
-      <h3>{% trans "Не вмієте підготувати?" %}</h3>
-      <p>{% trans "Надішліть файли — менеджер допоможе з розкладкою." %}</p>
-      <a class="btn btn-primary" href="{% url 'dtf:order' %}?tab=help">{% trans "Потрібна допомога" %}</a>
-    </div>
-
-    <div class="card knowledge-inline">
-      <h3>{% trans "Читати в базі знань" %}</h3>
-      <ul class="list">
-        <li><a href="{% url 'dtf:blog_post' slug='yak-pidhotuvaty-fail-dlia-dtf-druku' %}">{% trans "Як підготувати файл для DTF-друку без браку" %}</a></li>
-        <li><a href="{% url 'dtf:blog_post' slug='kolir-i-shchilnist-plivky-iak-unyknuty-siurpryziv' %}">{% trans "Колір і щільність плівки: як уникнути сюрпризів" %}</a></li>
-      </ul>
+      <h3>{% if current_lang == 'ru' %}Не хотите собирать макет 60 см? Поможем{% elif current_lang == 'en' %}Don’t want to build a 60 cm layout? We can{% else %}Не хочете збирати макет 60 см? Допоможемо{% endif %}</h3>
+      <p>{% if current_lang == 'ru' %}Отправьте отдельные PNG/PDF — мы соберем макет 60 см (ганг‑лист) и согласуем перед печатью.{% elif current_lang == 'en' %}Send separate PNG/PDF files — we’ll assemble a 60 cm layout (gang sheet) and confirm before printing.{% else %}Надішліть окремі PNG/PDF — ми зберемо макет 60 см (ганг‑лист) і погодимо перед друком.{% endif %}</p>
+      <a class="btn btn-primary" href="{% url 'dtf:order' %}?tab=help">{% if current_lang == 'ru' %}Нужна помощь с макетом{% elif current_lang == 'en' %}Need help with artwork{% else %}Потрібна допомога з макетом{% endif %}</a>
     </div>
   </div>
 </section>

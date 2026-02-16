@@ -1,9 +1,25 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "База знань DTF" %}{% endblock %}
+{% block title %}
+  {% if current_lang == 'ru' %}
+    База знаний
+  {% elif current_lang == 'en' %}
+    Knowledge base
+  {% else %}
+    База знань
+  {% endif %}
+{% endblock %}
 {% block page_id %}blog{% endblock %}
-{% block description %}{% trans "Експертні статті про DTF-друк: підготовка файлів, вибір матеріалів, порівняння технологій і практичні поради." %}{% endblock %}
+{% block description %}
+  {% if current_lang == 'ru' %}
+    Гайды по DTF, подготовке макетов и переносу на ткань.
+  {% elif current_lang == 'en' %}
+    Guides on DTF, file prep, and heat‑press application.
+  {% else %}
+    Гайди по DTF, підготовці макетів і переносу на тканину.
+  {% endif %}
+{% endblock %}
 
 {% block extra_head %}
   {% trans "База знань" as crumb_label %}
@@ -33,8 +49,16 @@
 <section class="section knowledge-page">
   <div class="dtf-container">
     <div class="section-head" data-reveal>
-      <h1>{% trans "Knowledge Base" %}</h1>
-      <p>{% trans "Практичні матеріали для клієнтів DTF: від підготовки макета до догляду за нанесенням." %}</p>
+      <h1>{% if current_lang == 'ru' %}База знаний{% elif current_lang == 'en' %}Knowledge base{% else %}База знань{% endif %}</h1>
+      <p>
+        {% if current_lang == 'ru' %}
+          Гайды по DTF, подготовке макетов и переносу на ткань.
+        {% elif current_lang == 'en' %}
+          Guides on DTF, file prep, and heat‑press application.
+        {% else %}
+          Гайди по DTF, підготовці макетів і переносу на тканину.
+        {% endif %}
+      </p>
     </div>
 
     <div class="knowledge-timeline-shell" data-tracing-beam data-effect="tracing-beam">

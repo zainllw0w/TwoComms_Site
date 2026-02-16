@@ -1,18 +1,113 @@
 {% extends "dtf/base.html" %}
-{% load i18n %}
 
-{% block title %}{% trans "Повернення та рекламації" %}{% endblock %}
+{% block title %}
+  {% if current_lang == 'ru' %}Возвраты и рекламации{% elif current_lang == 'en' %}Returns & Claims{% else %}Повернення та рекламації{% endif %}
+{% endblock %}
 
 {% block content %}
-<section class="section">
-  <div class="dtf-container">
-    <h1>{% trans "Повернення та рекламації" %}</h1>
-    <p>{% trans "TEMP: Розділ уточнюється. Нижче діє базовий порядок для DTF замовлень." %}</p>
-    <ul class="list">
-      <li>{% trans "Якщо є виробничий брак, надішліть номер замовлення, фото/відео та опис проблеми." %}</li>
-      <li>{% trans "Рекламації розглядаються після перевірки файлу, партії друку та умов переносу." %}</li>
-      <li>{% trans "Рішення: переробка, часткова компенсація або інший узгоджений формат." %}</li>
-    </ul>
+<section class="section" data-ui="dtf:legal:returns">
+  <div class="dtf-container legal-copy">
+    {% if current_lang == 'ru' %}
+      <h1>Возвраты и рекламации</h1>
+      <p><strong>Дата вступления в силу:</strong> 15.02.2026</p>
+      <p>Поскольку DTF‑печать выполняется <strong>индивидуально под ваш макет</strong>, стандартный “возврат товара” как для массовых товаров может быть ограничен. При этом мы отвечаем за качество печати со своей стороны.</p>
+
+      <h2>1. Когда возможна перепечатка / компенсация</h2>
+      <p>Мы предложим перепечатку или компенсацию, если проблема возникла по нашей вине, например:</p>
+      <ul>
+        <li>дефект печати (полосы, пропуски, явный брак),</li>
+        <li>механические повреждения пленки по нашей вине,</li>
+        <li>несоответствие согласованному метражу/параметрам.</li>
+      </ul>
+
+      <h2>2. Когда рекламация может быть отклонена</h2>
+      <ul>
+        <li>файл был напечатан “как есть” после вашего явного подтверждения рисков (WARN);</li>
+        <li>результат испорчен из‑за неправильного переноса (температура/время/давление/ткань), нарушения инструкции;</li>
+        <li>повреждения возникли из‑за неправильного хранения/транспортировки после получения.</li>
+      </ul>
+
+      <h2>3. Как подать рекламацию</h2>
+      <ol>
+        <li>Напишите в Telegram: https://t.me/twocomms или позвоните +380966543212</li>
+        <li>Приложите: номер заказа/дату, фото/видео дефекта (лучше крупным планом), короткое описание.</li>
+      </ol>
+      <p><strong>Срок:</strong> желательно сообщить в течение <strong>48 часов</strong> после получения.</p>
+
+      <h2>4. Решение</h2>
+      <p>После проверки мы предложим:</p>
+      <ul>
+        <li>перепечатку,</li>
+        <li>частичную/полную компенсацию (по согласованию),</li>
+        <li>другое согласованное решение.</li>
+      </ul>
+    {% elif current_lang == 'en' %}
+      <h1>Returns & Claims</h1>
+      <p><strong>Effective date:</strong> 2026‑02‑15</p>
+      <p>DTF printing is <strong>custom</strong> to your artwork, so standard retail returns may be limited. However, we stand behind print quality on our side.</p>
+
+      <h2>1. When a reprint/compensation applies</h2>
+      <p>We will offer a reprint or компенсация if the issue is on our side, for example:</p>
+      <ul>
+        <li>print defects (banding, missing areas, clear misprint),</li>
+        <li>film damage caused by us,</li>
+        <li>mismatch vs agreed meters/specs.</li>
+      </ul>
+
+      <h2>2. When a claim may be rejected</h2>
+      <ul>
+        <li>the file was printed “as‑is” after your explicit approval of WARN risks;</li>
+        <li>the issue is caused by incorrect heat‑press application or ignored instructions;</li>
+        <li>damage occurred after delivery due to storage/handling.</li>
+      </ul>
+
+      <h2>3. How to submit a claim</h2>
+      <p>Contact us via Telegram https://t.me/twocomms or phone +380966543212 and provide:</p>
+      <ul>
+        <li>order number/date,</li>
+        <li>фото/video of the defect,</li>
+        <li>short description.</li>
+      </ul>
+      <p><strong>Timing:</strong> preferably within <strong>48 hours</strong> after delivery.</p>
+
+      <h2>4. Resolution</h2>
+      <p>After review, we may offer a reprint, partial/full refund (by agreement), or another mutually agreed solution.</p>
+    {% else %}
+      <h1>Повернення та рекламації</h1>
+      <p><strong>Дата набрання чинності:</strong> 15.02.2026</p>
+      <p>Оскільки DTF‑друк виконується <strong>індивідуально під ваш макет</strong>, стандартне “повернення товару” як для масових товарів може бути обмеженим. Водночас ми відповідаємо за якість друку зі свого боку.</p>
+
+      <h2>1. Коли можлива переробка / компенсація</h2>
+      <p>Ми запропонуємо переробку або компенсацію, якщо проблема виникла з нашого боку, наприклад:</p>
+      <ul>
+        <li>дефект друку (смужки, пропуски, явний брак),</li>
+        <li>механічні пошкодження плівки з нашої вини,</li>
+        <li>невідповідність узгодженому метражу/параметрам.</li>
+      </ul>
+
+      <h2>2. Коли рекламація може бути відхилена</h2>
+      <ul>
+        <li>файл був надрукований “як є” після вашого явного підтвердження ризиків (WARN);</li>
+        <li>результат зіпсовано через неправильний перенос (температура/час/тиск/тканина), порушення інструкції;</li>
+        <li>пошкодження виникли при неправильному зберіганні/транспортуванні після отримання.</li>
+      </ul>
+
+      <h2>3. Як подати рекламацію</h2>
+      <p>Щоб ми швидко допомогли:</p>
+      <ol>
+        <li>Напишіть у Telegram: https://t.me/twocomms або зателефонуйте +380966543212</li>
+        <li>Додайте: номер замовлення/дату, фото/відео дефекту (бажано крупним планом), короткий опис, що сталося.</li>
+      </ol>
+      <p><strong>Строк:</strong> бажано повідомити протягом <strong>48 годин</strong> після отримання.</p>
+
+      <h2>4. Рішення</h2>
+      <p>Після перевірки ми запропонуємо одне з рішень:</p>
+      <ul>
+        <li>переробка (перепечатка),</li>
+        <li>часткова/повна компенсація (за домовленістю),</li>
+        <li>інше узгоджене рішення.</li>
+      </ul>
+    {% endif %}
   </div>
 </section>
 {% endblock %}

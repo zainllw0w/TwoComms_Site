@@ -1,27 +1,45 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Контакти" %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Контакты{% elif current_lang == 'en' %}Contacts{% else %}Контакти{% endif %}{% endblock %}
 {% block page_id %}contacts{% endblock %}
 
 {% block content %}
-<section class="section">
+<section class="section" data-ui="dtf:contacts:root">
   <div class="dtf-container">
-    <h1>{% trans "Контакти" %}</h1>
-    <div class="info-grid">
-      <div class="info-card">
-        <h3>{% trans "Графік" %}</h3>
-        <p>{% trans "Пн–Пт: 10:00–18:00" %}</p>
-      </div>
-      <div class="info-card">
-        <h3>{% trans "Телефон" %}</h3>
-        <p>+380 XX XXX XX XX</p>
-      </div>
-      <div class="info-card">
-        <h3>{% trans "Telegram" %}</h3>
-        <p>@twocomms</p>
-      </div>
+    <div class="section-head">
+      <h1>{% if current_lang == 'ru' %}Контакты{% elif current_lang == 'en' %}Contacts{% else %}Контакти{% endif %}</h1>
+      <p>
+        {% if current_lang == 'ru' %}
+          Мы на связи 24/7 и обычно отвечаем до 10 минут. Напишите в Telegram или позвоните.
+        {% elif current_lang == 'en' %}
+          We’re available 24/7 and typically reply in ~10 minutes. Message us on Telegram or call.
+        {% else %}
+          Ми на зв’язку 24/7 і зазвичай відповідаємо до 10 хв. Напишіть у Telegram або зателефонуйте.
+        {% endif %}
+      </p>
     </div>
+
+    <div class="info-grid">
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Телефон{% elif current_lang == 'en' %}Phone{% else %}Телефон{% endif %}</h3>
+        <p><a href="tel:+380966543212">+380966543212</a></p>
+      </article>
+      <article class="info-card">
+        <h3>Telegram</h3>
+        <p><a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer">@twocomms</a></p>
+      </article>
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}График работы{% elif current_lang == 'en' %}Working hours{% else %}Графік роботи{% endif %}</h3>
+        <p>24/7</p>
+      </article>
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Время ответа{% elif current_lang == 'en' %}Response time{% else %}Час відповіді{% endif %}</h3>
+        <p>{% if current_lang == 'ru' %}До 10 минут{% elif current_lang == 'en' %}~10 minutes{% else %}До 10 хвилин{% endif %}</p>
+      </article>
+    </div>
+
+    <p class="summary-foot">{% if current_lang == 'ru' %}Подтвердили до 12:00 — отправляем сегодня.{% elif current_lang == 'en' %}Approved by 12:00 — we ship today.{% else %}Підтвердили до 12:00 — відправляємо сьогодні.{% endif %}</p>
   </div>
 </section>
 {% endblock %}

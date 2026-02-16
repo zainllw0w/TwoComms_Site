@@ -3,21 +3,26 @@
 
 {% block title %}
   {% if current_lang == 'ru' %}
-    DTF печать в рулоне 60 см — {{ pricing_range_label }} {% trans "грн/м" %}
+    DTF печать 60 см (hot peel) — 350 грн/м | Отправка сегодня до 12:00
   {% elif current_lang == 'en' %}
-    DTF roll printing 60 cm — {{ pricing_range_label }} UAH/m
+    60 cm DTF printing (hot peel) — from 350 UAH/m | Ship today by 12:00
   {% else %}
-    DTF друк у рулоні 60 см — {{ pricing_range_label }} {% trans "грн/м" %}
+    DTF друк 60 см (hot peel) — 350 грн/м | Відправка сьогодні до 12:00
+  {% endif %}
+{% endblock %}
+{% block description %}
+  {% if current_lang == 'ru' %}
+    DTF‑трансферы 60 см: проверка файла перед печатью, 24/7 поддержка, ответ до 10 минут, бесплатный образец A4. Скидки до 280 грн/м.
+  {% elif current_lang == 'en' %}
+    60 cm DTF transfers with file check before print, 24/7 support, ~10 min reply, free A4 sample. Discounts down to 280 UAH/m.
+  {% else %}
+    DTF‑трансфери 60 см: перевірка файлу перед друком, 24/7 підтримка, відповідь до 10 хв, безкоштовний зразок A4. Знижки до 280 грн/м.
   {% endif %}
 {% endblock %}
 {% block page_id %}home{% endblock %}
 
 {% block extra_head %}
 {% trans "DTF друк рулоном 60 см" as service_name %}
-{% trans "Не відклеїться?" as faq_q1 %}
-{% trans "DTF витримує багато циклів прання за умови правильного переносу." as faq_a1 %}
-{% trans "Є білий шар?" as faq_q2 %}
-{% trans "Так, використовується білий підклад для насичених кольорів." as faq_a2 %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -45,18 +50,18 @@
   "mainEntity": [
     {
       "@type": "Question",
-      "name": "{{ faq_q1|escapejs }}",
+      "name": "{% if current_lang == 'ru' %}Формат файла?{% elif current_lang == 'en' %}File format?{% else %}Формат файлу?{% endif %}",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "{{ faq_a1|escapejs }}"
+        "text": "{% if current_lang == 'ru' %}PNG с прозрачностью или PDF — если не уверены, отправьте и подскажем.{% elif current_lang == 'en' %}Transparent PNG or PDF — if unsure, send it and we’ll advise.{% else %}PNG з прозорістю або PDF — якщо не впевнені, надішліть і підкажемо.{% endif %}"
       }
     },
     {
       "@type": "Question",
-      "name": "{{ faq_q2|escapejs }}",
+      "name": "{% if current_lang == 'ru' %}Что такое hot peel?{% elif current_lang == 'en' %}What is hot peel?{% else %}Що таке hot peel?{% endif %}",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "{{ faq_a2|escapejs }}"
+        "text": "{% if current_lang == 'ru' %}Пленка снимается сразу после пресса — быстрее в работе.{% elif current_lang == 'en' %}Remove film immediately after pressing — faster workflow.{% else %}Плівка знімається одразу після преса — швидше у роботі.{% endif %}"
       }
     }
   ]
@@ -76,48 +81,76 @@
 
 {% block content %}
 {% trans "Hot Peel" as hero_flip_1 %}
-{% trans "Ручна перевірка" as hero_flip_2 %}
-{% trans "24–48 год" as hero_flip_3 %}
-{% trans "Preflight: OK • Макет перевіряє менеджер" as hero_secure_line %}
+{% if current_lang == 'ru' %}
+  {% trans "Проверка файла" as hero_flip_2 %}
+  {% trans "Отправка сегодня" as hero_flip_3 %}
+  {% trans "Рисковые файлы не печатаем без вашего подтверждения." as hero_secure_line %}
+{% elif current_lang == 'en' %}
+  {% trans "File check" as hero_flip_2 %}
+  {% trans "Ship today" as hero_flip_3 %}
+  {% trans "We don’t print risky files without your approval." as hero_secure_line %}
+{% else %}
+  {% trans "Перевірка файлу" as hero_flip_2 %}
+  {% trans "Відправка сьогодні" as hero_flip_3 %}
+  {% trans "Ризикові файли не друкуємо без вашого підтвердження." as hero_secure_line %}
+{% endif %}
 <section class="hero scan-hero" data-ui="dtf:home:hero" data-effect="sparkles">
   <!-- ASSET_REQUEST | id=hero-printhead-photo | type=photo | usage=HOME Hero / Printhead Scan | spec=transparent PNG, 2x, ~2200px wide | notes=industrial lab lighting, top-left view, clean background -->
   <div class="dtf-container hero-grid">
     <div class="hero-copy" data-reveal data-ui="dtf:home:hero-copy">
-      <div class="eyebrow">{% trans "DTF друк в рулоні" %}</div>
+      <div class="eyebrow">
+        {% if current_lang == 'ru' %}
+          24/7 · отвечаем за 10 минут · подтверждение до 12:00 — отправка сегодня
+        {% elif current_lang == 'en' %}
+          24/7 · reply in ~10 min · approved by 12:00 — ship today
+        {% else %}
+          24/7 · відповідаємо за 10 хв · підтвердження до 12:00 — відправка сьогодні
+        {% endif %}
+      </div>
       <h1 class="scan-title">
         <span class="scan-outline ink-spread">
-          {% trans "60 см," %}
+          {% if current_lang == 'ru' %}
+            DTF‑трансферы 60 см (hot peel) — четко, быстро, без сюрпризов
+          {% elif current_lang == 'en' %}
+            60 cm hot‑peel DTF transfers — sharp, fast, no surprises
+          {% else %}
+            DTF‑трансфери 60 см (hot peel) — чітко, швидко, без сюрпризів
+          {% endif %}
           <span class="flip-words"
                 data-flip-words
                 data-flip-group="hero"
                 data-words="{{ hero_flip_1 }},{{ hero_flip_2 }},{{ hero_flip_3 }}">
             <span class="flip-word is-active">{{ hero_flip_1 }}</span>
-          </span><br>
-          <span class="scan-accent">{{ pricing_range_label }} {% trans "грн/м" %}</span>
+          </span>
         </span>
         <span class="scan-fill ink-spread" aria-hidden="true">
-          {% trans "60 см," %}
+          {% if current_lang == 'ru' %}
+            DTF‑трансферы 60 см (hot peel) — четко, быстро, без сюрпризов
+          {% elif current_lang == 'en' %}
+            60 cm hot‑peel DTF transfers — sharp, fast, no surprises
+          {% else %}
+            DTF‑трансфери 60 см (hot peel) — чітко, швидко, без сюрпризів
+          {% endif %}
           <span class="flip-words"
                 data-flip-words
                 data-flip-group="hero"
                 data-words="{{ hero_flip_1 }},{{ hero_flip_2 }},{{ hero_flip_3 }}">
             <span class="flip-word is-active">{{ hero_flip_1 }}</span>
-          </span><br>
-          <span class="scan-accent">{{ pricing_range_label }} {% trans "грн/м" %}</span>
+          </span>
         </span>
         <span class="scan-line" aria-hidden="true"></span>
       </h1>
-      <p class="hero-sub">{% trans "Швидкий розрахунок, ручна перевірка макета, друк та доставка Новою Поштою." %}</p>
+      <p class="hero-sub">{% if current_lang == 'ru' %}Печать + клей уже нанесены. Отправьте макет 60 см (ганг‑лист) — мы проверим файл, подтвердим метраж и запустим в печать.{% elif current_lang == 'en' %}Print + adhesive are already applied. Send a 60 cm layout (gang sheet) — we’ll check the file, confirm meters & price, then print.{% else %}Друк + клей уже нанесені. Надішліть макет 60 см (ганг‑лист) — ми перевіримо файл, підтвердимо метраж і запустимо в друк.{% endif %}</p>
       <div class="hero-encrypted-line" data-effect="encrypted-text" data-encrypted-text="{{ hero_secure_line }}">{{ hero_secure_line }}</div>
       <div class="cta-group" data-ui="dtf:home:hero-cta">
-        <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% trans "Розрахувати / Замовити" %}</a>
-        <a class="btn btn-ghost" href="{% url 'dtf:order' %}?tab=help">{% trans "Потрібна допомога з макетом" %}</a>
-        <a class="btn btn-outline" href="{% url 'dtf:sample' %}" data-stateful-link>{% trans "Отримати безкоштовний зразок" %}</a>
+        <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% if current_lang == 'ru' %}Рассчитать стоимость{% elif current_lang == 'en' %}Calculate price{% else %}Розрахувати вартість{% endif %}</a>
+        <a class="btn btn-ghost" href="{% url 'dtf:sample' %}" data-stateful-link>{% if current_lang == 'ru' %}Получить бесплатный образец A4{% elif current_lang == 'en' %}Get a free A4 sample{% else %}Отримати безкоштовний зразок A4{% endif %}</a>
+        <a class="btn btn-outline" href="{% url 'dtf:order' %}?tab=help">{% if current_lang == 'ru' %}Нужна помощь с макетом{% elif current_lang == 'en' %}Need help with artwork?{% else %}Потрібна допомога з макетом{% endif %}</a>
       </div>
       <div class="hero-trust" data-ui="dtf:home:hero-trust">
-        <span data-pointer>{% trans "Ручна перевірка макета перед друком (без сюрпризів)" %}</span>
+        <span data-pointer>{% if current_lang == 'ru' %}Проверка файла: авто + менеджер{% elif current_lang == 'en' %}File check: auto + human{% else %}Перевірка файлу: авто + менеджер{% endif %}</span>
       </div>
-      <div class="hero-reassure">{% trans "Не спамимо. Відповідь протягом робочого дня." %}</div>
+      <div class="hero-reassure">{{ hero_secure_line }}</div>
     </div>
     <div class="hero-card" data-reveal>
       <div class="hero-card-header">
@@ -159,25 +192,44 @@
       </div>
       <div class="hero-card-body">
         <div class="hero-stat">
-          <strong>{% trans "60 см" %}</strong>
-          <span>{% trans "Ширина рулону" %}</span>
+          <strong>{% if current_lang == 'ru' %}350 грн/м{% elif current_lang == 'en' %}350 UAH/m{% else %}350 грн/м{% endif %}</strong>
+          <span>{% if current_lang == 'ru' %}Скидки до 280 грн/м{% elif current_lang == 'en' %}Down to 280 UAH/m{% else %}Знижки до 280 грн/м{% endif %}</span>
         </div>
         <div class="hero-stat">
-          <strong>{% trans "24–48 год" %}</strong>
-          <span>{% trans "Середній термін" %}</span>
+          <strong>24/7</strong>
+          <span>{% if current_lang == 'ru' %}Ответ до 10 минут{% elif current_lang == 'en' %}~10 min reply{% else %}Відповідь до 10 хв{% endif %}</span>
         </div>
         <div class="hero-stat">
-          <strong>{% trans "НП" %}</strong>
-          <span>{% trans "Доставка по Україні" %}</span>
+          <strong>{% if current_lang == 'ru' %}до 12:00{% elif current_lang == 'en' %}by 12:00{% else %}до 12:00{% endif %}</strong>
+          <span>{% if current_lang == 'ru' %}Отправка сегодня{% elif current_lang == 'en' %}Ship today{% else %}Відправка сьогодні{% endif %}</span>
         </div>
       </div>
       <div class="hero-card-foot">
-        <a class="btn btn-outline" href="{% url 'dtf:requirements' %}">{% trans "Вимоги до файлів" %}</a>
-        <span class="note">{% trans "PDF/PNG рекомендовано" %}</span>
+        <a class="btn btn-outline" href="{% url 'dtf:requirements' %}">{% if current_lang == 'ru' %}Требования к макетам{% elif current_lang == 'en' %}Artwork requirements{% else %}Вимоги до макетів{% endif %}</a>
+        <span class="note">{% if current_lang == 'ru' %}Подтвердили до 12:00 — отправка сегодня{% elif current_lang == 'en' %}Approved by 12:00 — ship today{% else %}Підтвердили до 12:00 — відправка сьогодні{% endif %}</span>
       </div>
     </div>
   </div>
   <div class="hero-bg" aria-hidden="true"></div>
+</section>
+
+<section class="section" data-ui="dtf:home:trust-bar">
+  <div class="dtf-container" data-reveal>
+    <div class="info-grid">
+      <article class="info-card">
+        <p>{% if current_lang == 'ru' %}24/7 поддержка · ответ до 10 мин{% elif current_lang == 'en' %}24/7 support · ~10 min reply{% else %}24/7 підтримка · відповідь до 10 хв{% endif %}</p>
+      </article>
+      <article class="info-card">
+        <p>{% if current_lang == 'ru' %}Проверка файла перед печатью{% elif current_lang == 'en' %}File check before print{% else %}Перевірка файлу перед друком{% endif %}</p>
+      </article>
+      <article class="info-card">
+        <p>{% if current_lang == 'ru' %}Бесплатный образец A4 (вы платите только доставку){% elif current_lang == 'en' %}Free A4 sample (shipping only){% else %}Безкоштовний зразок A4 (ви сплачуєте лише доставку){% endif %}</p>
+      </article>
+      <article class="info-card">
+        <p>{% if current_lang == 'ru' %}Новая почта по Украине{% elif current_lang == 'en' %}Nova Poshta shipping{% else %}Нова пошта по Україні{% endif %}</p>
+      </article>
+    </div>
+  </div>
 </section>
 
 <section class="section estimate-section" data-ui="dtf:home:quick-calc">
@@ -209,6 +261,28 @@
   </div>
 </section>
 
+<section class="section" data-ui="dtf:home:who-for">
+  <div class="dtf-container">
+    <div class="section-head" data-reveal>
+      <h2>{% if current_lang == 'ru' %}Кому подходит наш DTF{% elif current_lang == 'en' %}Who this is for{% else %}Кому підходить наш DTF{% endif %}</h2>
+    </div>
+    <div class="info-grid" data-reveal>
+      <article class="info-card">
+        <p>{% if current_lang == 'ru' %}Брендам одежды — быстро запускать дропы без больших тиражей.{% elif current_lang == 'en' %}Clothing brands — launch drops without huge runs.{% else %}Брендам одягу — швидко запускати дропи без великого тиражу.{% endif %}</p>
+      </article>
+      <article class="info-card">
+        <p>{% if current_lang == 'ru' %}Швейным цехам — стабильная печать под партии, быстрое согласование и отправка.{% elif current_lang == 'en' %}Sewing workshops — stable prints for batches, fast approval & shipping.{% else %}Швейним цехам — стабільний друк під партії, швидке погодження і відправка.{% endif %}</p>
+      </article>
+      <article class="info-card">
+        <p>{% if current_lang == 'ru' %}Корпоративному мерчу — когда нужно быстро и без лишних правок в файлах.{% elif current_lang == 'en' %}Corporate merch — fast, predictable, minimal back-and-forth.{% else %}Корпоративному мерчу — коли треба швидко й без зайвих правок у файлах.{% endif %}</p>
+      </article>
+    </div>
+    <div class="section-actions" data-reveal>
+      <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% if current_lang == 'ru' %}Посчитать стоимость{% elif current_lang == 'en' %}Calculate cost{% else %}Порахувати вартість{% endif %}</a>
+    </div>
+  </div>
+</section>
+
 <section class="section" data-ui="dtf:home:how-it-works" data-effect="dotted-glow">
   <div class="dtf-container">
     <div class="section-head" data-reveal>
@@ -221,8 +295,8 @@
           <img src="{% static 'dtf/assets/step-upload.svg' %}" alt="" loading="lazy" decoding="async">
         </span>
         <div>
-          <h3>{% trans "Завантаження" %}</h3>
-          <p>{% trans "Надішліть ганг-лист або файли для допомоги." %}</p>
+          <h3>{% if current_lang == 'ru' %}Шаг 1{% elif current_lang == 'en' %}Step 1{% else %}Крок 1{% endif %}</h3>
+          <p>{% if current_lang == 'ru' %}Отправляете макет 60 см (ганг‑лист) или просите помощь с раскладкой{% elif current_lang == 'en' %}Send a 60 cm layout (gang sheet) or ask us to build it{% else %}Надсилаєте макет 60 см (ганг‑лист) або просите допомогу з розкладкою{% endif %}</p>
         </div>
       </div>
       <div class="step">
@@ -230,8 +304,8 @@
           <img src="{% static 'dtf/assets/step-preflight.svg' %}" alt="" loading="lazy" decoding="async">
         </span>
         <div>
-          <h3>{% trans "Перевірка макета" %}</h3>
-          <p>{% trans "Менеджер перевіряє, підтверджує метраж та узгоджує правки." %}</p>
+          <h3>{% if current_lang == 'ru' %}Шаг 2{% elif current_lang == 'en' %}Step 2{% else %}Крок 2{% endif %}</h3>
+          <p>{% if current_lang == 'ru' %}Проверяем файл: DPI, прозрачность, тонкие линии, поля{% elif current_lang == 'en' %}We check DPI, transparency, thin lines & safe margins{% else %}Перевіряємо файл: DPI, прозорість, тонкі лінії, поля{% endif %}</p>
         </div>
       </div>
       <div class="step">
@@ -239,8 +313,8 @@
           <img src="{% static 'dtf/assets/step-payment.svg' %}" alt="" loading="lazy" decoding="async">
         </span>
         <div>
-          <h3>{% trans "Оплата" %}</h3>
-          <p>{% trans "Після перевірки надсилаємо реквізити у вибраний канал." %}</p>
+          <h3>{% if current_lang == 'ru' %}Шаг 3{% elif current_lang == 'en' %}Step 3{% else %}Крок 3{% endif %}</h3>
+          <p>{% if current_lang == 'ru' %}Согласуем метраж и цену — запускаем в печать{% elif current_lang == 'en' %}We confirm meters & price — then print{% else %}Погоджуємо метраж і ціну — запускаємо у друк{% endif %}</p>
         </div>
       </div>
       <div class="step">
@@ -248,10 +322,34 @@
           <img src="{% static 'dtf/assets/step-print-ship.svg' %}" alt="" loading="lazy" decoding="async">
         </span>
         <div>
-          <h3>{% trans "Друк + НП" %}</h3>
-          <p>{% trans "Друкуємо, пакуємо і відправляємо Новою Поштою." %}</p>
+          <h3>{% if current_lang == 'ru' %}Шаг 4{% elif current_lang == 'en' %}Step 4{% else %}Крок 4{% endif %}</h3>
+          <p>{% if current_lang == 'ru' %}Отправляем Новой почтой. Вы переносите прессом (инструкцию прикладываем){% elif current_lang == 'en' %}We ship. You heat-press it (instructions included){% else %}Відправляємо Новою поштою. Ви переносите пресом (інструкцію додаємо){% endif %}</p>
         </div>
       </div>
+    </div>
+    <div class="section-actions" data-reveal>
+      <a class="btn btn-outline" href="{% url 'dtf:requirements' %}" data-stateful-link>{% if current_lang == 'ru' %}Показать требования к макетам{% elif current_lang == 'en' %}See artwork requirements{% else %}Показати вимоги до макетів{% endif %}</a>
+    </div>
+  </div>
+</section>
+
+<section class="section" data-ui="dtf:home:why-us">
+  <div class="dtf-container">
+    <div class="section-head" data-reveal>
+      <h2>{% if current_lang == 'ru' %}Почему с нами спокойнее{% elif current_lang == 'en' %}Why it feels safer with us{% else %}Чому з нами спокійніше{% endif %}</h2>
+    </div>
+    <article class="card" data-reveal>
+      <ul class="list">
+        <li>{% if current_lang == 'ru' %}Не печатаем риски без подтверждения. Если файл “на грани” — предупредим и подскажем, как исправить.{% elif current_lang == 'en' %}We don’t print risky files without approval. If something is borderline — we warn you and suggest fixes.{% else %}Не друкуємо ризики без підтвердження. Якщо файл “на межі” — попередимо і підкажемо, як виправити.{% endif %}</li>
+        <li>{% if current_lang == 'ru' %}24/7 на связи. Обычно отвечаем до 10 минут.{% elif current_lang == 'en' %}We’re available 24/7. Typical reply time is ~10 minutes.{% else %}24/7 на зв’язку. Зазвичай відповідаємо до 10 хвилин.{% endif %}</li>
+        <li>{% if current_lang == 'ru' %}Подтвердили до 12:00 — отправляем сегодня.{% elif current_lang == 'en' %}Approved by 12:00 — we ship today.{% else %}Підтвердили до 12:00 — відправляємо сьогодні.{% endif %}</li>
+        <li>{% if current_lang == 'ru' %}Hot peel — быстрее в работе: пленка снимается сразу после пресса.{% elif current_lang == 'en' %}Hot peel speeds up workflow: film removes immediately after pressing.{% else %}Hot peel — швидше у виробництві: плівка знімається одразу після преса.{% endif %}</li>
+        <li>{% if current_lang == 'ru' %}Бесплатный образец A4 — проверьте качество на своей ткани до тиража.{% elif current_lang == 'en' %}Free A4 sample — test on your fabric before scaling.{% else %}Безкоштовний зразок A4 — перевірте якість на своїй тканині до тиражу.{% endif %}</li>
+      </ul>
+    </article>
+    <div class="section-actions" data-reveal>
+      <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% if current_lang == 'ru' %}Рассчитать стоимость{% elif current_lang == 'en' %}Calculate price{% else %}Розрахувати вартість{% endif %}</a>
+      <a class="btn btn-ghost" href="{% url 'dtf:sample' %}" data-stateful-link>{% if current_lang == 'ru' %}Получить образец A4{% elif current_lang == 'en' %}Get A4 sample{% else %}Отримати зразок A4{% endif %}</a>
     </div>
   </div>
 </section>
@@ -259,8 +357,9 @@
 <section class="section price-section" data-ui="dtf:home:price">
   <div class="dtf-container">
     <div class="section-head" data-reveal>
-      <h2>{% trans "Ціни та знижки" %}</h2>
-      <p>{% trans "Базова ціна та знижки від метражу. Точну суму підтвердить менеджер." %}</p>
+      <h2>{% if current_lang == 'ru' %}Прозрачная цена за метраж{% elif current_lang == 'en' %}Transparent per-meter pricing{% else %}Прозора ціна за метраж{% endif %}</h2>
+      <p>{% if current_lang == 'ru' %}Считаем по длине файла (в метрах). Чем больше объем — тем ниже цена.{% elif current_lang == 'en' %}We charge by file length (meters). Larger volume - lower price.{% else %}Рахуємо по довжині файлу (у метрах). Чим більший обсяг — тим нижча ціна.{% endif %}</p>
+      <p><strong>{% if current_lang == 'ru' %}350 грн/м → скидки до 280 грн/м{% elif current_lang == 'en' %}350 UAH/m → down to 280 UAH/m{% else %}350 грн/м → знижки до 280 грн/м{% endif %}</strong></p>
     </div>
     <div class="price-table" data-reveal>
       <div class="price-row head">
@@ -281,14 +380,17 @@
       </div>
       {% endfor %}
     </div>
+    <div class="section-actions" data-reveal>
+      <a class="btn btn-outline" href="{% url 'dtf:price' %}" data-stateful-link>{% if current_lang == 'ru' %}Посмотреть прайс{% elif current_lang == 'en' %}View pricing{% else %}Подивитися прайс{% endif %}</a>
+    </div>
   </div>
 </section>
 
 <section class="section works-section" id="works" data-ui="dtf:home:works">
   <div class="dtf-container">
     <div class="section-head" data-reveal>
-      <h2>{% trans "Наші роботи" %}</h2>
-      <p>{% trans "Кілька реальних прикладів з макро та готовим результатом." %}</p>
+      <h2>{% if current_lang == 'ru' %}Качество видно в деталях{% elif current_lang == 'en' %}Quality shows in the details{% else %}Якість видно в деталях{% endif %}</h2>
+      <p>{% if current_lang == 'ru' %}Перед запуском смотрим макро-детали и проверяем печать по чек-листу: мелкий текст, тонкие линии, чистые края, ровный белый подклад.{% elif current_lang == 'en' %}We review macro details and run a QC checklist: tiny text, thin lines, clean edges, consistent white base.{% else %}Перед запуском дивимось макро-деталі й перевіряємо друк по чек-листу: дрібний текст, тонкі лінії, чисті краї, рівномірний білий підклад.{% endif %}</p>
     </div>
     <!-- ASSET_REQUEST | id=gallery-macro-photos | type=photo | usage=Gallery proof grid | spec=2x, consistent lighting | notes=real DTF macro + final shots -->
     <div class="works-grid" data-reveal>
@@ -661,7 +763,7 @@
       </article>
     </div>
     <div class="section-actions" data-reveal>
-      <a class="btn btn-outline" href="{% url 'dtf:gallery' %}">{% trans "Дивитись всі роботи" %}</a>
+      <a class="btn btn-outline" href="{% url 'dtf:gallery' %}" data-stateful-link>{% if current_lang == 'ru' %}Посмотреть примеры (макро){% elif current_lang == 'en' %}See macro samples{% else %}Подивитися приклади (макро){% endif %}</a>
     </div>
 
     <div class="lens-modal" id="lens-modal" aria-hidden="true">
@@ -731,27 +833,41 @@
 <section class="section" data-ui="dtf:home:requirements-preview">
   <div class="dtf-container split" data-reveal>
     <div>
-      <h2>{% trans "Вимоги до файлів" %}</h2>
-      <p>{% trans "PDF/PNG, ширина 60 см, прозорість для фону. Додаткові вимоги та шаблони — на окремій сторінці." %}</p>
-      <a class="btn btn-outline" href="{% url 'dtf:requirements' %}">{% trans "Перейти до вимог" %}</a>
+      <h2>{% if current_lang == 'ru' %}Подготовьте макет без боли{% elif current_lang == 'en' %}Prep your layout without headaches{% else %}Підготуйте макет без болю{% endif %}</h2>
+      <p>{% if current_lang == 'ru' %}Скачайте шаблон 60 см и разместите дизайны в safe-area. Если что-то может испортить результат — мы предупредим.{% elif current_lang == 'en' %}Download the 60 cm template and place designs inside the safe area. If something may affect quality - we'll warn you.{% else %}Завантажте шаблон 60 см і розкладіть дизайни у межах safe-area. Якщо щось може зіпсувати результат — ми попередимо.{% endif %}</p>
+      <div class="cta-group">
+        <a class="btn btn-outline" href="{% url 'dtf:templates' %}" data-stateful-link>{% if current_lang == 'ru' %}Скачать шаблоны{% elif current_lang == 'en' %}Download templates{% else %}Завантажити шаблони{% endif %}</a>
+        <a class="btn btn-ghost" href="{% url 'dtf:requirements' %}" data-stateful-link>{% if current_lang == 'ru' %}Требования к макетам{% elif current_lang == 'en' %}Artwork requirements{% else %}Вимоги до макетів{% endif %}</a>
+      </div>
     </div>
     <div class="faq">
-      <h3>{% trans "FAQ" %}</h3>
+      <h3>{% if current_lang == 'ru' %}Частые вопросы{% elif current_lang == 'en' %}FAQ{% else %}Часті питання{% endif %}</h3>
       <div class="faq-item">
-        <button type="button" class="faq-q">{% trans "Не відклеїться?" %}</button>
-        <div class="faq-a">{% trans "DTF витримує багато циклів прання за умови правильного переносу." %}</div>
+        <button type="button" class="faq-q">{% if current_lang == 'ru' %}Формат файла?{% elif current_lang == 'en' %}File format?{% else %}Формат файлу?{% endif %}</button>
+        <div class="faq-a">{% if current_lang == 'ru' %}PNG с прозрачностью или PDF — если не уверены, отправьте и подскажем.{% elif current_lang == 'en' %}Transparent PNG or PDF — if unsure, send it and we'll advise.{% else %}PNG з прозорістю або PDF — якщо не впевнені, надішліть і підкажемо.{% endif %}</div>
       </div>
       <div class="faq-item">
-        <button type="button" class="faq-q">{% trans "Є білий шар?" %}</button>
-        <div class="faq-a">{% trans "Так, використовується білий підклад для насичених кольорів." %}</div>
+        <button type="button" class="faq-q">{% if current_lang == 'ru' %}Что такое hot peel?{% elif current_lang == 'en' %}What is hot peel?{% else %}Що таке hot peel?{% endif %}</button>
+        <div class="faq-a">{% if current_lang == 'ru' %}Пленка снимается сразу после пресса — быстрее в работе.{% elif current_lang == 'en' %}Remove film immediately after pressing - faster workflow.{% else %}Плівка знімається одразу після преса — швидше у роботі.{% endif %}</div>
       </div>
       <div class="faq-item">
-        <button type="button" class="faq-q">{% trans "Як переносити?" %}</button>
-        <div class="faq-a">{% trans "Надаємо інструкцію під ваш прес та матеріал." %}</div>
+        <button type="button" class="faq-q">{% if current_lang == 'ru' %}Сколько ждать?{% elif current_lang == 'en' %}Turnaround?{% else %}Скільки чекати?{% endif %}</button>
+        <div class="faq-a">{% if current_lang == 'ru' %}Подтвердили до 12:00 — отправка сегодня. Стандартно: 0-24 ч, в пиковые дни — до 48 ч.{% elif current_lang == 'en' %}Approved by 12:00 - ship today. Standard: 0-24h, peak days up to 48h.{% else %}Підтвердили до 12:00 — відправка сьогодні. Стандартно: 0-24 год, у пікові дні — до 48 год.{% endif %}</div>
       </div>
       <div class="faq-item">
-        <button type="button" class="faq-q">{% trans "Якщо макет слабкий?" %}</button>
-        <div class="faq-a">{% trans "Менеджер підкаже, як виправити, або запропонує допомогу." %}</div>
+        <button type="button" class="faq-q">{% if current_lang == 'ru' %}Проверяете макет?{% elif current_lang == 'en' %}Do you check files?{% else %}Чи перевіряєте макет?{% endif %}</button>
+        <div class="faq-a">{% if current_lang == 'ru' %}Да. Риски не печатаем без вашего подтверждения.{% elif current_lang == 'en' %}Yes. Risky prints require your approval.{% else %}Так. Ризики не друкуємо без вашого підтвердження.{% endif %}</div>
+      </div>
+      <div class="faq-item">
+        <button type="button" class="faq-q">{% if current_lang == 'ru' %}Как переносить?{% elif current_lang == 'en' %}How to apply?{% else %}Як переносити?{% endif %}</button>
+        <div class="faq-a">{% if current_lang == 'ru' %}Даем инструкцию. Если скажете ткань и пресс — подскажем параметры.{% elif current_lang == 'en' %}Instructions included. Tell us your fabric & press - we'll recommend settings.{% else %}Додаємо інструкцію. Якщо скажете тканину й прес — підкажемо параметри.{% endif %}</div>
+      </div>
+      <div class="faq-item">
+        <button type="button" class="faq-q">{% if current_lang == 'ru' %}Есть образец?{% elif current_lang == 'en' %}Sample?{% else %}Є зразок?{% endif %}</button>
+        <div class="faq-a">{% if current_lang == 'ru' %}Да, A4 бесплатно (вы оплачиваете только доставку).{% elif current_lang == 'en' %}Yes, free A4 (shipping only).{% else %}Так, A4 безкоштовно (ви оплачуєте лише доставку).{% endif %}</div>
+      </div>
+      <div class="section-actions">
+        <a class="btn btn-outline" href="{% url 'dtf:faq' %}" data-stateful-link>{% if current_lang == 'ru' %}Все вопросы и ответы{% elif current_lang == 'en' %}See all FAQs{% else %}Всі питання та відповіді{% endif %}</a>
       </div>
     </div>
   </div>
@@ -759,15 +875,22 @@
 
 <section class="section" data-ui="dtf:home:delivery">
   <div class="dtf-container delivery" data-reveal>
-    <h2>{% trans "Доставка та оплата" %}</h2>
-    <p>{% trans "Нова Пошта по Україні. Оплата після перевірки макета. Реквізити надсилаємо у зручний канал." %}</p>
-    <p class="delivery-speed">
-      {% trans "Друкуємо та відправляємо" %}
-      <span data-effect="speed-text" data-speed-mode="hover" data-speed-text="{% trans 'день в день' %}">{% trans "день в день" %}</span>
-    </p>
+    <h2>{% if current_lang == 'ru' %}Не хотите собирать макет 60 см? Поможем{% elif current_lang == 'en' %}Don't want to build a 60 cm layout? We can{% else %}Не хочете збирати макет 60 см? Допоможемо{% endif %}</h2>
+    <p>{% if current_lang == 'ru' %}Отправьте отдельные PNG/PDF — мы соберем макет 60 см (ганг-лист) и согласуем перед печатью.{% elif current_lang == 'en' %}Send separate PNG/PDF files — we'll assemble a 60 cm layout (gang sheet) and confirm before printing.{% else %}Надішліть окремі PNG/PDF — ми зберемо макет 60 см (ганг-лист) і погодимо перед друком.{% endif %}</p>
     <div class="cta-group">
-      <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% trans "Замовити" %}</a>
-      <a class="btn btn-ghost" href="{% url 'dtf:delivery_payment' %}">{% trans "Детальніше" %}</a>
+      <a class="btn btn-primary" href="{% url 'dtf:order' %}?tab=help" data-stateful-link>{% if current_lang == 'ru' %}Нужна помощь с макетом{% elif current_lang == 'en' %}Help with artwork{% else %}Потрібна допомога з макетом{% endif %}</a>
+      <a class="btn btn-ghost" href="{% url 'dtf:delivery_payment' %}" data-stateful-link>{% if current_lang == 'ru' %}Доставка и оплата{% elif current_lang == 'en' %}Shipping & payment{% else %}Доставка та оплата{% endif %}</a>
+    </div>
+  </div>
+</section>
+
+<section class="section" data-ui="dtf:home:final-cta">
+  <div class="dtf-container delivery" data-reveal>
+    <h2>{% if current_lang == 'ru' %}Готовы печатать?{% elif current_lang == 'en' %}Ready to print?{% else %}Готові друкувати?{% endif %}</h2>
+    <p>{% if current_lang == 'ru' %}Отправьте макет 60 см (ганг-лист) — проверим файл и подтвердим метраж перед запуском.{% elif current_lang == 'en' %}Send a 60 cm layout (gang sheet) — we'll check it and confirm meters before printing.{% else %}Надішліть макет 60 см (ганг-лист) — перевіримо файл і підтвердимо метраж перед запуском.{% endif %}</p>
+    <div class="cta-group">
+      <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% if current_lang == 'ru' %}Рассчитать стоимость{% elif current_lang == 'en' %}Calculate price{% else %}Розрахувати вартість{% endif %}</a>
+      <a class="btn btn-ghost" href="{% url 'dtf:sample' %}" data-stateful-link>{% if current_lang == 'ru' %}Получить образец A4{% elif current_lang == 'en' %}Get A4 sample{% else %}Отримати зразок A4{% endif %}</a>
     </div>
   </div>
 </section>

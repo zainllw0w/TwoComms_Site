@@ -1313,6 +1313,7 @@ def sitemap_xml(request):
         "dtf:price",
         "dtf:delivery_payment",
         "dtf:contacts",
+        "dtf:faq",
         "dtf:privacy",
         "dtf:terms",
         "dtf:returns",
@@ -1398,6 +1399,11 @@ def delivery_payment(request):
 def contacts(request):
     ctx = _base_context(request)
     return _render(request, "dtf/contacts.html", ctx)
+
+
+def faq(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/faq.html", ctx)
 
 
 def blog(request):

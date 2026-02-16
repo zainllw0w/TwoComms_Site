@@ -8,13 +8,14 @@
 <section class="section order-section" data-ui="dtf:order:root" data-feature="resizable-nav">
   <div class="dtf-container">
     <div class="section-head">
-      <h1>{% trans "Замовлення DTF" %}</h1>
-      <p>{% trans "Оберіть формат: готовий ганг-лист або допомога з підготовкою." %}</p>
+      <h1>{% if current_lang == 'ru' %}Заказать DTF‑печать (60 см){% elif current_lang == 'en' %}Order DTF printing (60 cm){% else %}Замовити DTF‑друк (60 см){% endif %}</h1>
+      <p>{% if current_lang == 'ru' %}Отправьте макет 60 см (ганг‑лист). Мы проверим файл, подтвердим метраж и запустим в печать. 24/7 на связи — ответ до 10 минут.{% elif current_lang == 'en' %}Send a 60 cm layout (gang sheet). We’ll check the file, confirm meters & price, then print. 24/7 support — ~10 min reply.{% else %}Надішліть макет 60 см (ганг‑лист). Ми перевіримо файл, підтвердимо метраж і запустимо у друк. 24/7 на зв’язку — відповідь до 10 хв.{% endif %}</p>
+      <p class="summary-foot">{% if current_lang == 'ru' %}Подтвердили до 12:00 — отправка сегодня{% elif current_lang == 'en' %}Approved by 12:00 — ship today{% else %}Підтвердили до 12:00 — відправка сьогодні{% endif %}</p>
     </div>
 
     <div class="order-tabs" data-tab="{{ tab }}">
-      <button class="tab-btn {% if tab == 'ready' %}active{% endif %}" data-target="ready">{% trans "Є готовий ганг-лист (60 см)" %}</button>
-      <button class="tab-btn {% if tab == 'help' %}active{% endif %}" data-target="help">{% trans "Потрібна допомога з розкладкою" %}</button>
+      <button class="tab-btn {% if tab == 'ready' %}active{% endif %}" data-target="ready">{% if current_lang == 'ru' %}Есть макет 60 см (ганг‑лист){% elif current_lang == 'en' %}I have a 60 cm layout (gang sheet){% else %}Є макет 60 см (ганг‑лист){% endif %}</button>
+      <button class="tab-btn {% if tab == 'help' %}active{% endif %}" data-target="help">{% if current_lang == 'ru' %}Нужна помощь с макетом{% elif current_lang == 'en' %}Need help with artwork{% else %}Потрібна допомога з макетом{% endif %}</button>
       <div class="tab-indicator"></div>
     </div>
 
@@ -42,12 +43,12 @@
                    data-preflight-url="{% url 'dtf:api_preflight' %}"
                    data-ui="dtf:order:upload">
                 <div class="block-head">
-                  <h2>{% trans "Upload" %}</h2>
+                  <h2>{% if current_lang == 'ru' %}Ваш макет 60 см (ганг‑лист){% elif current_lang == 'en' %}Your 60 cm layout (gang sheet){% else %}Ваш макет 60 см (ганг‑лист){% endif %}</h2>
                   <p>{% trans "Перетягніть файл або натисніть, щоб обрати." %}</p>
                 </div>
                 <label class="upload-zone" data-dropzone>
                   <div class="upload-title">{% trans "PDF/PNG до 50 МБ" %}</div>
-                  <div class="upload-meta">{% trans "Готовий ганг-лист 60 см" %}</div>
+                  <div class="upload-meta">{% if current_lang == 'ru' %}Готовый макет 60 см (ганг‑лист){% elif current_lang == 'en' %}Ready 60 cm layout (gang sheet){% else %}Готовий макет 60 см (ганг‑лист){% endif %}</div>
                   <div class="upload-actions">
                     <button type="button" class="btn btn-ghost" data-paste>{% trans "Вставити з буфера" %}</button>
                     <button type="button" class="btn btn-outline" data-add-file>{% trans "Обрати файл" %}</button>
@@ -56,17 +57,17 @@
                   {{ order_form.gang_file }}
                 </label>
                 <div class="upload-steps">
-                  <span class="chip" data-upload-step="1">{% trans "Upload" %}</span>
-                  <span class="chip" data-upload-step="2">{% trans "Preflight" %}</span>
-                  <span class="chip" data-upload-step="3">{% trans "Preview" %}</span>
-                  <span class="chip" data-upload-step="4">{% trans "Ready" %}</span>
+                  <span class="chip" data-upload-step="1">{% if current_lang == 'ru' %}Файл{% elif current_lang == 'en' %}File{% else %}Файл{% endif %}</span>
+                  <span class="chip" data-upload-step="2">{% if current_lang == 'ru' %}Проверка файла{% elif current_lang == 'en' %}File check{% else %}Перевірка файлу{% endif %}</span>
+                  <span class="chip" data-upload-step="3">{% if current_lang == 'ru' %}Превью{% elif current_lang == 'en' %}Preview{% else %}Прев'ю{% endif %}</span>
+                  <span class="chip" data-upload-step="4">{% if current_lang == 'ru' %}Готово{% elif current_lang == 'en' %}Ready{% else %}Готово{% endif %}</span>
                 </div>
               </div>
 
               <div class="order-block preview-block">
                 <div class="block-head">
-                  <h3>{% trans "Preview" %}</h3>
-                  <p>{% trans "Перший кадр PDF або PNG (після завантаження)." %}</p>
+                  <h3>{% if current_lang == 'ru' %}Превью{% elif current_lang == 'en' %}Preview{% else %}Прев'ю{% endif %}</h3>
+                  <p>{% if current_lang == 'ru' %}Первый кадр PDF или PNG (после загрузки).{% elif current_lang == 'en' %}First PDF page or PNG frame (after upload).{% else %}Перший кадр PDF або PNG (після завантаження).{% endif %}</p>
                 </div>
                 <div class="preview-card asset-slot">
                   <div class="asset-placeholder">{% trans "Прев'ю з'явиться після завантаження" %}</div>
@@ -83,31 +84,46 @@
 
               <div class="order-block preflight-block" data-ui="dtf:order:preflight">
                 <div class="block-head">
-                  <h3>{% trans "Preflight Terminal" %}</h3>
-                  <p>{% trans "Перевірки допомагають уникнути сюрпризів. WARN не блокує замовлення." %}</p>
+                  <h3>{% if current_lang == 'ru' %}Проверка файла перед печатью{% elif current_lang == 'en' %}File check before print{% else %}Перевірка файлу перед друком{% endif %}</h3>
+                  <p>{% if current_lang == 'ru' %}Проверяем критичные вещи, чтобы избежать брака. Если есть риск — покажем и попросим подтверждение.{% elif current_lang == 'en' %}We check critical issues to prevent misprints. If there’s risk — we’ll show it and ask for approval.{% else %}Перевіряємо критичні речі, щоб уникнути браку. Якщо є ризик — покажемо і попросимо підтвердження.{% endif %}</p>
                 </div>
                 <div class="msl-container" data-preflight-loader>
                   {# Real preflight steps will be rendered here by multi-step-loader.js #}
                   <div class="msl-step msl-status-pending">
                     <span class="msl-step-icon" aria-hidden="true">&#8226;</span>
-                    <span class="msl-step-label">{% trans "Завантажте файл для preflight" %}</span>
+                    <span class="msl-step-label">{% if current_lang == 'ru' %}Загрузите файл для проверки{% elif current_lang == 'en' %}Upload file for check{% else %}Завантажте файл для перевірки{% endif %}</span>
                     <span class="msl-step-message"></span>
                   </div>
                 </div>
+                <div class="preflight-status-legend">
+                  <span><strong>OK</strong> — {% if current_lang == 'ru' %}Все ок{% elif current_lang == 'en' %}All good{% else %}Все добре{% endif %}</span>
+                  <span><strong>INFO</strong> — {% if current_lang == 'ru' %}Есть рекомендация{% elif current_lang == 'en' %}Recommendation{% else %}Є рекомендація{% endif %}</span>
+                  <span><strong>WARN</strong> — {% if current_lang == 'ru' %}Нужно внимание{% elif current_lang == 'en' %}Needs attention{% else %}Потрібна увага{% endif %}</span>
+                  <span><strong>FAIL</strong> — {% if current_lang == 'ru' %}Нужна правка (печать невозможна){% elif current_lang == 'en' %}Fix required (can’t print){% else %}Потрібна правка (друк неможливий){% endif %}</span>
+                </div>
                 <div class="preflight-terms">
-                  <span data-tooltip-content="{% trans 'DPI — щільність точок на дюйм. Для якісного друку рекомендовано ≥300 DPI.' %}" data-effect="tooltip-card">
+                  <span data-tooltip-content="{% if current_lang == 'ru' %}Рекомендуем ~300 DPI в финальном размере. Ниже может быть “мыло/пиксели”.{% elif current_lang == 'en' %}~300 DPI at final size is recommended. Lower may look blurry/pixelated.{% else %}Рекомендовано ~300 DPI у фінальному розмірі. Нижче може бути “мило/пікселі”.{% endif %}" data-effect="tooltip-card">
                     <abbr>DPI</abbr>
                   </span>
-                  <span data-tooltip-content="{% trans 'Safe margin — зона безпеки від краю файлу. Мінімум 20 пікселів.' %}" data-effect="tooltip-card">
-                    <abbr>{% trans "Безпечні поля" %}</abbr>
+                  <span data-tooltip-content="{% if current_lang == 'ru' %}Прозрачный фон нужен, чтобы не напечатать “квадрат” вокруг дизайна.{% elif current_lang == 'en' %}Transparent background prevents an unwanted “box” around the artwork.{% else %}Прозорий фон потрібен, щоб не надрукувати “квадрат” навколо дизайну.{% endif %}" data-effect="tooltip-card">
+                    <abbr>{% if current_lang == 'ru' %}Прозрачность{% elif current_lang == 'en' %}Transparency{% else %}Прозорість{% endif %}</abbr>
                   </span>
-                  <span data-tooltip-content="{% trans 'Тонкі лінії менше 1 pt можуть не пропечататись при DTF друку.' %}" data-effect="tooltip-card">
-                    <abbr>{% trans "Тонкі лінії" %}</abbr>
+                  <span data-tooltip-content="{% if current_lang == 'ru' %}Слишком тонкие линии и мелкий текст могут потеряться при переносе. Лучше немного утолстить.{% elif current_lang == 'en' %}Very thin lines & tiny text may not hold during transfer. Consider thickening slightly.{% else %}Дуже тонкі лінії й дрібний текст можуть втратитися при переносі. Краще трохи потовстити.{% endif %}" data-effect="tooltip-card">
+                    <abbr>{% if current_lang == 'ru' %}Тонкие линии{% elif current_lang == 'en' %}Thin lines{% else %}Тонкі лінії{% endif %}</abbr>
+                  </span>
+                  <span data-tooltip-content="{% if current_lang == 'ru' %}Держите важные элементы внутри safe‑area шаблона, чтобы край не “срезало”.{% elif current_lang == 'en' %}Keep important elements inside the template safe area to avoid edge issues.{% else %}Тримайте важливі елементи всередині safe‑area шаблону, щоб край не “зрізало”.{% endif %}" data-effect="tooltip-card">
+                    <abbr>Safe area</abbr>
                   </span>
                 </div>
-                <label class="risk-check">
+                <div class="preflight-actions">
+                  <button type="button" class="btn btn-ghost" data-preflight-help>{% if current_lang == 'ru' %}Запросить подсказку{% elif current_lang == 'en' %}Ask for help{% else %}Попросити підказку{% endif %}</button>
+                  <button type="button" class="btn btn-outline" data-preflight-upload-fixed>{% if current_lang == 'ru' %}Загрузить исправленный файл{% elif current_lang == 'en' %}Upload fixed file{% else %}Завантажити виправлений файл{% endif %}</button>
+                  <button type="button" class="btn btn-outline" data-preflight-print-as-is>{% if current_lang == 'ru' %}Печатать как есть{% elif current_lang == 'en' %}Print as-is{% else %}Друкувати як є{% endif %}</button>
+                </div>
+                <label class="risk-check" data-risk-check hidden>
                   <input type="checkbox" name="risk_ack">
-                  <span><span data-pointer>{% trans "Я розумію можливі ризики та погоджуюсь" %}</span></span>
+                  <span><span data-pointer>{% if current_lang == 'ru' %}Я подтверждаю печать “как есть” и понимаю возможные последствия: потеря мелких деталей / нечеткий текст / артефакты по краю.{% elif current_lang == 'en' %}I approve printing as‑is and understand possible outcomes: loss of fine details / blurry text / edge artifacts.{% else %}Я підтверджую друк “як є” і розумію можливі наслідки: втрата дрібних деталей / нечіткий текст / артефакти по краю.{% endif %}</span></span>
+                  <small>{% if current_lang == 'ru' %}Если хотите — подскажем, как исправить за 5–10 минут.{% elif current_lang == 'en' %}We can suggest a quick fix (5–10 minutes).{% else %}Хочете — підкажемо, як виправити за 5–10 хв.{% endif %}</small>
                 </label>
               </div>
             </div>
@@ -172,8 +188,8 @@
                   <input type="checkbox" checked disabled>
                   <span>{% trans "Ручна перевірка макета перед друком" %}</span>
                 </label>
-                <button class="btn btn-primary" type="submit" data-submit data-stateful>{% trans "Надіслати замовлення" %}</button>
-                <div class="summary-foot">{% trans "Відповімо протягом робочого дня" %}</div>
+                <button class="btn btn-primary" type="submit" data-submit data-stateful>{% if current_lang == 'ru' %}Отправить на проверку и расчет{% elif current_lang == 'en' %}Send for check & quote{% else %}Надіслати на перевірку й розрахунок{% endif %}</button>
+                <div class="summary-foot">{% if current_lang == 'ru' %}24/7 поддержка · обычно отвечаем до 10 минут{% elif current_lang == 'en' %}24/7 support · typical reply in ~10 minutes{% else %}24/7 підтримка · зазвичай відповідаємо до 10 хв{% endif %}</div>
               </div>
             </aside>
           </div>
@@ -199,7 +215,7 @@
             <div class="order-left">
               <div class="order-block upload-block">
                 <div class="block-head">
-                  <h2>{% trans "Файли для розкладки" %}</h2>
+                  <h2>{% if current_lang == 'ru' %}Файлы для сборки макета 60 см{% elif current_lang == 'en' %}Files to assemble 60 cm layout{% else %}Файли для складання макета 60 см{% endif %}</h2>
                   <p>{% trans "Надішліть архів або посилання — менеджер допоможе з підготовкою." %}</p>
                 </div>
                 <label class="upload-zone" data-dropzone>
@@ -267,10 +283,10 @@
                   <span>{% trans "Формат" %}</span>
                   <span class="tabular-nums">{% trans "Допомога з розкладкою" %}</span>
                 </div>
-                <div class="summary-note">{% trans "Менеджер підтвердить метраж та вартість" %}</div>
-                <button class="btn btn-primary" type="submit" data-submit data-stateful>{% trans "Надіслати заявку" %}</button>
-                <div class="summary-foot">{% trans "Відповімо протягом робочого дня" %}</div>
-              </div>
+                  <div class="summary-note">{% if current_lang == 'ru' %}Менеджер подтвердит метраж и стоимость{% elif current_lang == 'en' %}Manager confirms meters and price{% else %}Менеджер підтвердить метраж та вартість{% endif %}</div>
+                  <button class="btn btn-primary" type="submit" data-submit data-stateful>{% trans "Надіслати заявку" %}</button>
+                  <div class="summary-foot">{% if current_lang == 'ru' %}24/7 поддержка · обычно отвечаем до 10 минут{% elif current_lang == 'en' %}24/7 support · typical reply in ~10 minutes{% else %}24/7 підтримка · зазвичай відповідаємо до 10 хв{% endif %}</div>
+                </div>
             </aside>
           </div>
         </form>
@@ -284,4 +300,26 @@
      data-tiers="{% for tier in pricing.tiers %}{{ tier.min }}:{{ tier.rate }}{% if not forloop.last %},{% endif %}{% endfor %}"
      data-max-meters-review="{{ limits.max_meters_review }}"
      data-max-copies="{{ limits.max_copies }}"></div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  (function () {
+    var root = document.querySelector('[data-ui=\"dtf:order:root\"]');
+    if (!root) return;
+    var showRisk = function (container) {
+      if (!container) return;
+      var risk = container.querySelector('[data-risk-check]');
+      if (!risk) return;
+      risk.hidden = false;
+      var input = risk.querySelector('input[type=\"checkbox\"]');
+      if (input) input.focus();
+    };
+    root.querySelectorAll('[data-preflight-print-as-is]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        showRisk(btn.closest('.preflight-block'));
+      });
+    });
+  })();
+</script>
 {% endblock %}

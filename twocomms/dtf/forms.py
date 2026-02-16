@@ -80,7 +80,7 @@ class DtfOrderForm(forms.ModelForm):
     def clean_gang_file(self):
         file = self.cleaned_data.get("gang_file")
         if not file:
-            raise ValidationError(_("Завантажте файл ганг-листа"))
+            raise ValidationError(_("Завантажте макет 60 см (ганг-лист)"))
         limits = get_limits()
         try:
             validate_uploaded_file(
@@ -93,7 +93,7 @@ class DtfOrderForm(forms.ModelForm):
             code = str(exc)
             if code == "unsupported_extension":
                 raise ValidationError(
-                    _("Формат файлу не підтримується для готового ганг-листа. Використайте PDF або PNG.")
+                    _("Формат файлу не підтримується для готового макета 60 см (ганг-лист). Використайте PDF або PNG.")
                 )
             if code == "file_too_large":
                 raise ValidationError(

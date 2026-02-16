@@ -1,7 +1,7 @@
 {% extends 'dtf/base.html' %}
 {% load static i18n %}
 
-{% block title %}{% trans "Шаблони 60 см" %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Шаблоны 60 см для макета{% elif current_lang == 'en' %}60 cm layout templates{% else %}Шаблони 60 см для макета{% endif %}{% endblock %}
 {% block page_id %}templates{% endblock %}
 
 {% block extra_head %}
@@ -32,8 +32,8 @@
 <section class="section" data-ui="dtf:templates:root">
   <div class="dtf-container" data-ui="dtf:templates:downloads">
     <div class="section-head">
-      <h1>{% trans "Шаблони 60 см" %}</h1>
-      <p>{% trans "PDF/AI/Figma для швидкої підготовки ганг-листів." %}</p>
+      <h1>{% if current_lang == 'ru' %}Шаблоны 60 см для макета{% elif current_lang == 'en' %}60 cm layout templates{% else %}Шаблони 60 см для макета{% endif %}</h1>
+      <p>{% if current_lang == 'ru' %}Шаблоны помогают быстро собрать макет 60 см (ганг‑лист) и не выйти за safe‑area.{% elif current_lang == 'en' %}Templates help you build a 60 cm layout (gang sheet) and stay within the safe area.{% else %}Шаблони допомагають швидко зібрати макет 60 см (ганг‑лист) і не вилізти за safe‑area.{% endif %}</p>
       <div class="templates-encrypted" data-effect="encrypted-text" data-encrypted-text="template_checksum_verified: true"></div>
     </div>
 
@@ -55,7 +55,7 @@
           <button type="button" data-tab-target="figma" role="tab" aria-selected="false">Figma</button>
         </div>
         <div data-tab-panel="pdf">
-          <a class="btn btn-outline" href="{% static 'dtf/assets/template-60cm.pdf' %}" download>{% trans "Download PDF" %}</a>
+          <a class="btn btn-outline" href="{% static 'dtf/assets/template-60cm.pdf' %}" download>{% if current_lang == 'ru' %}Скачать шаблон{% elif current_lang == 'en' %}Download template{% else %}Завантажити шаблон{% endif %}</a>
         </div>
         <div data-tab-panel="ai" hidden>
           <a class="btn btn-ghost" href="{% static 'dtf/assets/template-60cm.ai' %}" download>{% trans "Adobe Illustrator" %}</a>

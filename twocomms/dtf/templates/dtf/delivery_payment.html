@@ -1,26 +1,55 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Доставка та оплата" %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Доставка и оплата{% elif current_lang == 'en' %}Shipping & payment{% else %}Доставка та оплата{% endif %}{% endblock %}
 {% block page_id %}delivery-payment{% endblock %}
 
 {% block content %}
-<section class="section">
+<section class="section" data-ui="dtf:delivery-payment:root">
   <div class="dtf-container">
-    <h1>{% trans "Доставка та оплата" %}</h1>
+    <div class="section-head">
+      <h1>{% if current_lang == 'ru' %}Доставка и оплата{% elif current_lang == 'en' %}Shipping & payment{% else %}Доставка та оплата{% endif %}</h1>
+      <p>
+        {% if current_lang == 'ru' %}
+          24/7 на связи — отвечаем до 10 минут. Подтвердили до 12:00 — отправка сегодня.
+        {% elif current_lang == 'en' %}
+          24/7 support — ~10 min reply. Approved by 12:00 — ship today.
+        {% else %}
+          24/7 на зв’язку — відповідаємо до 10 хв. Підтвердили до 12:00 — відправка сьогодні.
+        {% endif %}
+      </p>
+    </div>
+
     <div class="info-grid">
-      <div class="info-card">
-        <h3>{% trans "Доставка" %}</h3>
-        <p>{% trans "Нова Пошта по Україні. Вкажіть місто та відділення при оформленні." %}</p>
-      </div>
-      <div class="info-card">
-        <h3>{% trans "Оплата" %}</h3>
-        <p>{% trans "Оплата після перевірки макета. Надсилаємо реквізити у ваш канал зв'язку." %}</p>
-      </div>
-      <div class="info-card">
-        <h3>{% trans "Юридичні" %}</h3>
-        <p>{% trans "Оферта та політика конфіденційності надаються за запитом." %}</p>
-      </div>
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Производство{% elif current_lang == 'en' %}Production{% else %}Терміни виробництва{% endif %}</h3>
+        <p>{% if current_lang == 'ru' %}Стандартно печатаем 0–24 часа после проверки файла и подтверждения метража/цены. В пиковые дни — до 48 часов.{% elif current_lang == 'en' %}Standard: 0–24h after file check and meters/price confirmation. Peak days: up to 48h.{% else %}Стандартно друкуємо 0–24 год після перевірки файлу та підтвердження метражу/ціни. У пікові дні — до 48 год.{% endif %}</p>
+      </article>
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Отправка сегодня до 12:00{% elif current_lang == 'en' %}Ship today by 12:00{% else %}Відправка сьогодні до 12:00{% endif %}</h3>
+        <p>{% if current_lang == 'ru' %}Если вы подтвердили макет и заказ до 12:00 — отправляем в тот же день.{% elif current_lang == 'en' %}If you approve the layout and order by 12:00 — we ship the same day.{% else %}Якщо ви підтвердили макет і замовлення до 12:00 — відправляємо в той же день.{% endif %}</p>
+      </article>
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Доставка{% elif current_lang == 'en' %}Shipping{% else %}Доставка{% endif %}</h3>
+        <p>{% if current_lang == 'ru' %}Отправляем Новой почтой по Украине. ТТН отправляем сразу после отправки. Стоимость доставки — по тарифам перевозчика.{% elif current_lang == 'en' %}We ship via Nova Poshta across Ukraine. Tracking number is sent after dispatch. Shipping cost is per carrier rates.{% else %}Відправляємо Новою поштою по Україні. Номер ТТН надсилаємо одразу після відправки. Вартість доставки — за тарифами перевізника.{% endif %}</p>
+      </article>
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Оплата{% elif current_lang == 'en' %}Payment{% else %}Оплата{% endif %}</h3>
+        <p>{% if current_lang == 'ru' %}Оплату согласовываем после проверки файла и подтверждения метража/цены.{% elif current_lang == 'en' %}Payment is confirmed after file check and meters/price approval.{% else %}Оплату узгоджуємо після перевірки файлу та підтвердження метражу/ціни.{% endif %}</p>
+      </article>
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Упаковка{% elif current_lang == 'en' %}Packing{% else %}Упаковка{% endif %}</h3>
+        <p>{% if current_lang == 'ru' %}Упаковываем так, чтобы пленка не мялась и не повреждалась в пути.{% elif current_lang == 'en' %}We pack to prevent creases and damage.{% else %}Пакуємо так, щоб плівка не зминалась і не пошкоджувалась під час доставки.{% endif %}</p>
+      </article>
+      <article class="info-card">
+        <h3>{% if current_lang == 'ru' %}Данные для отправки{% elif current_lang == 'en' %}Shipping data{% else %}Дані для відправки{% endif %}</h3>
+        <p>{% if current_lang == 'ru' %}ФИО, телефон, город и отделение НП.{% elif current_lang == 'en' %}Full name, phone, city and Nova Poshta branch.{% else %}ПІБ, телефон, місто та відділення Нової пошти.{% endif %}</p>
+      </article>
+    </div>
+
+    <div class="cta-group">
+      <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% if current_lang == 'ru' %}Рассчитать стоимость{% elif current_lang == 'en' %}Calculate price{% else %}Розрахувати вартість{% endif %}</a>
+      <a class="btn btn-outline" href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Написать в Telegram{% elif current_lang == 'en' %}Message us on Telegram{% else %}Написати в Telegram{% endif %}</a>
     </div>
   </div>
 </section>

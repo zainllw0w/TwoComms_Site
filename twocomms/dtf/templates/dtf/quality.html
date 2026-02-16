@@ -1,7 +1,7 @@
 {% extends 'dtf/base.html' %}
 {% load i18n static %}
 
-{% block title %}{% trans "Quality / Lab Proof" %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Контроль качества (QC){% elif current_lang == 'en' %}Quality control (QC){% else %}Контроль якості (QC){% endif %}{% endblock %}
 {% block page_id %}quality{% endblock %}
 
 {% block extra_head %}
@@ -60,8 +60,8 @@
 <section class="section">
   <div class="dtf-container">
     <div class="section-head">
-      <h1>{% trans "Quality / Lab Proof" %}</h1>
-      <p>{% trans "Контроль кольору, реєстрації та прання. Нічого зайвого — тільки факти." %}</p>
+      <h1>{% if current_lang == 'ru' %}Контроль качества (QC){% elif current_lang == 'en' %}Quality control (QC){% else %}Контроль якості (QC){% endif %}</h1>
+      <p>{% if current_lang == 'ru' %}Контролируем печать по чек‑листу и смотрим макро‑детали: мелкий текст, тонкие линии, чистые края, ровный белый подклад.{% elif current_lang == 'en' %}We run a QC checklist and review macro details: tiny text, thin lines, clean edges, consistent white base.{% else %}Контролюємо друк по чек‑листу та дивимось макро‑деталі: дрібний текст, тонкі лінії, чисті краї, рівномірний білий підклад.{% endif %}</p>
     </div>
 
     <!-- ASSET_REQUEST | id=lab-proof-photos | type=photo | usage=Quality/Lab Proof sections | spec=4–6 photos, 2x | notes=QC / process / texture close-ups -->
@@ -161,11 +161,8 @@
         <a class="btn btn-outline" href="{% url 'dtf:order' %}?tab=help">{% trans "Перевірити файл" %}</a>
       </div>
       <div class="info-card">
-        <h3>{% trans "Пов'язані матеріали" %}</h3>
-        <ul class="list">
-          <li><a href="{% url 'dtf:blog_post' slug='chomu-dtf-vyhidnishe-za-shovkohrafiiu' %}">{% trans "Чому DTF часто вигідніше за шовкографію" %}</a></li>
-          <li><a href="{% url 'dtf:blog_post' slug='dtf-vs-dtg-shcho-krashche-dlia-merchu-2026' %}">{% trans "DTF vs DTG: що краще для мерчу у 2026" %}</a></li>
-        </ul>
+        <h3>{% if current_lang == 'ru' %}Примеры и контроль{% elif current_lang == 'en' %}Samples & control{% else %}Приклади і контроль{% endif %}</h3>
+        <p>{% if current_lang == 'ru' %}Смотрите макро‑примеры выше и отправляйте макет на проверку перед печатью.{% elif current_lang == 'en' %}See macro samples above and send artwork for pre-print checks.{% else %}Дивіться макро‑приклади вище та надсилайте макет на перевірку перед друком.{% endif %}</p>
       </div>
     </div>
   </div>

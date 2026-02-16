@@ -91,6 +91,17 @@
     .home-dot-distortion .dot-orb-1 { top: 24%; left: 18%; }
     .home-dot-distortion .dot-orb-2 { top: 56%; left: 54%; }
     .home-dot-distortion .dot-orb-3 { top: 20%; left: 76%; }
+    .header-service-badge {
+      max-width: min(560px, 52vw);
+      font-size: 12px;
+      line-height: 1.35;
+      color: rgba(245, 245, 242, 0.85);
+    }
+    @media (max-width: 1100px) {
+      .header-service-badge {
+        display: none;
+      }
+    }
   </style>
   <link
     rel="preload"
@@ -112,7 +123,7 @@
       <link rel="stylesheet" href="{% static 'dtf/css/components/effects-bundle.css' %}?v=20260213b">
     </noscript>
   {% endif %}
-  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.min.js' %}?v=20260216a">
+  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.js' %}?v=20260216b">
   {% block extra_head %}{% endblock %}
 </head>
 <body data-page="{% block page_id %}{% endblock %}">
@@ -136,12 +147,22 @@
           <span class="logo-mark">DTF</span>
           <span class="logo-text">TwoComms</span>
         </a>
+        <div class="header-service-badge">
+          {% if current_lang == 'ru' %}
+            24/7 · отвечаем за 10 минут · подтверждение до 12:00 — отправка сегодня
+          {% elif current_lang == 'en' %}
+            24/7 · reply in ~10 min · approved by 12:00 — ship today
+          {% else %}
+            24/7 · відповідаємо за 10 хв · підтвердження до 12:00 — відправка сьогодні
+          {% endif %}
+        </div>
         <nav class="main-nav" aria-label="{% trans 'Основна навігація' %}">
           <a href="{% url 'dtf:order' %}" class="{% if request.path == '/order/' %}is-active{% endif %}" {% if request.path == '/order/' %}aria-current="page"{% endif %}>{% trans "Замовити" %}</a>
           <a href="{% url 'dtf:constructor' %}" class="{% if request.path == '/constructor/' or request.path == '/constructor/app/' %}is-active{% endif %}" {% if request.path == '/constructor/' or request.path == '/constructor/app/' %}aria-current="page"{% endif %}>{% trans "Конструктор" %}</a>
           <a href="{% url 'dtf:price' %}" class="{% if request.path == '/price/' %}is-active{% endif %}" {% if request.path == '/price/' %}aria-current="page"{% endif %}>{% trans "Ціни" %}</a>
           <a href="{% url 'dtf:products' %}" class="{% if request.path == '/products/' %}is-active{% endif %}" {% if request.path == '/products/' %}aria-current="page"{% endif %}>{% trans "Вироби" %}</a>
           <a href="{% url 'dtf:gallery' %}" class="{% if request.path == '/gallery/' %}is-active{% endif %}" {% if request.path == '/gallery/' %}aria-current="page"{% endif %}>{% trans "Галерея" %}</a>
+          <a href="{% url 'dtf:faq' %}" class="{% if request.path == '/faq/' %}is-active{% endif %}" {% if request.path == '/faq/' %}aria-current="page"{% endif %}>FAQ</a>
           <a href="{% url 'dtf:requirements' %}" class="{% if request.path == '/requirements/' %}is-active{% endif %}" {% if request.path == '/requirements/' %}aria-current="page"{% endif %}>{% trans "Вимоги" %}</a>
         </nav>
         <div class="header-actions">
@@ -153,6 +174,8 @@
             <a href="{{ lang_links.ru }}" class="{% if current_lang == 'ru' %}active{% endif %}">RU</a>
             <a href="{{ lang_links.en }}" class="{% if current_lang == 'en' %}active{% endif %}">EN</a>
           </div>
+          <a href="tel:+380966543212" class="btn btn-ghost">+380966543212</a>
+          <a href="https://t.me/twocomms" class="btn btn-outline" target="_blank" rel="noopener noreferrer">@twocomms</a>
           <div class="profile-menu" data-profile-menu>
             <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-controls="dtf-profile-panel" aria-haspopup="dialog">
               <span class="profile-avatar" aria-hidden="true">
@@ -267,7 +290,15 @@
               {% endif %}
             </div>
           </div>
-          <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% trans "Розрахувати" %}</a>
+          <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>
+            {% if current_lang == 'ru' %}
+              Рассчитать стоимость
+            {% elif current_lang == 'en' %}
+              Calculate price
+            {% else %}
+              Розрахувати вартість
+            {% endif %}
+          </a>
         </div>
       </div>
     </header>
@@ -285,6 +316,7 @@
           <a href="{% url 'dtf:price' %}" class="{% if request.path == '/price/' %}is-active{% endif %}" {% if request.path == '/price/' %}aria-current="page"{% endif %}>{% trans "Ціни" %}</a>
           <a href="{% url 'dtf:products' %}" class="{% if request.path == '/products/' %}is-active{% endif %}" {% if request.path == '/products/' %}aria-current="page"{% endif %}>{% trans "Вироби" %}</a>
           <a href="{% url 'dtf:gallery' %}" class="{% if request.path == '/gallery/' %}is-active{% endif %}" {% if request.path == '/gallery/' %}aria-current="page"{% endif %}>{% trans "Галерея" %}</a>
+          <a href="{% url 'dtf:faq' %}" class="{% if request.path == '/faq/' %}is-active{% endif %}" {% if request.path == '/faq/' %}aria-current="page"{% endif %}>FAQ</a>
           <a href="{% url 'dtf:requirements' %}" class="{% if request.path == '/requirements/' %}is-active{% endif %}" {% if request.path == '/requirements/' %}aria-current="page"{% endif %}>{% trans "Вимоги" %}</a>
         </nav>
       </div>
@@ -306,17 +338,30 @@
       <div class="dtf-container footer-inner">
         <div>
           <div class="footer-title">TwoComms DTF</div>
-          <div class="footer-text">{% trans "DTF друк рулоном 60 см. Ручна перевірка макета перед друком." %}</div>
+          <div class="footer-text">
+            {% if current_lang == 'ru' %}
+              24/7 поддержка · ответ до 10 минут · подтверждение до 12:00 — отправка сегодня
+            {% elif current_lang == 'en' %}
+              24/7 support · ~10 min reply · approved by 12:00 — ship today
+            {% else %}
+              24/7 підтримка · відповідь до 10 хв · підтвердження до 12:00 — відправка сьогодні
+            {% endif %}
+          </div>
+          <div class="footer-text">
+            <a href="tel:+380966543212">+380966543212</a> ·
+            <a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer">@twocomms</a>
+          </div>
         </div>
         <div class="footer-links">
           <a href="{% url 'dtf:blog' %}">{% trans "База знань" %}</a>
+          <a href="{% url 'dtf:faq' %}">FAQ</a>
           <a href="{% url 'dtf:sample' %}">{% trans "Безкоштовний зразок" %}</a>
           <a href="{% url 'dtf:constructor' %}">{% trans "Конструктор" %}</a>
           <a href="{% url 'dtf:products' %}">{% trans "Готові вироби" %}</a>
           <a href="{% url 'dtf:cabinet' %}">{% trans "Кабінет" %}</a>
           <a href="{% url 'dtf:delivery_payment' %}">{% trans "Доставка та оплата" %}</a>
           <a href="{% url 'dtf:requirements' %}">{% trans "Вимоги до файлів" %}</a>
-          <a href="{% url 'dtf:quality' %}">{% trans "Quality" %}</a>
+          <a href="{% url 'dtf:quality' %}">{% if current_lang == 'ru' %}Качество{% elif current_lang == 'en' %}Quality{% else %}Якість{% endif %}</a>
           <a href="{% url 'dtf:templates' %}">{% trans "Шаблони" %}</a>
           <a href="{% url 'dtf:contacts' %}">{% trans "Контакти" %}</a>
           <a href="{% url 'dtf:privacy' %}">{% trans "Конфіденційність" %}</a>
@@ -429,7 +474,7 @@
   </nav>
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
-  <script src="{% static 'dtf/js/dtf.min.js' %}?v=20260216a" defer></script>
+  <script src="{% static 'dtf/js/dtf.js' %}?v=20260216b" defer></script>
   {% if dtf_load_htmx %}
     <script src="{% static 'dtf/js/vendor/htmx.min.js' %}?v=20260206b" defer></script>
   {% endif %}
@@ -437,7 +482,7 @@
     <script src="{% static 'dtf/js/components/core.js' %}?v=20260207b" defer></script>
     <script src="{% static 'dtf/js/components/_utils.js' %}?v=20260207b" defer></script>
     <script src="{% static 'dtf/js/components/motion.js' %}?v=20260207a" defer></script>
-    <script src="{% static 'dtf/js/components/effects-bundle.min.js' %}?v=20260216a" defer></script>
+    <script src="{% static 'dtf/js/components/effects-bundle.js' %}?v=20260216b" defer></script>
   {% endif %}
   {% block extra_scripts %}{% endblock %}
 

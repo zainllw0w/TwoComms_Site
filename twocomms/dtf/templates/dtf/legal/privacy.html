@@ -1,18 +1,184 @@
 {% extends "dtf/base.html" %}
-{% load i18n %}
 
-{% block title %}{% trans "Політика конфіденційності" %}{% endblock %}
+{% block title %}
+  {% if current_lang == 'ru' %}Политика конфиденциальности{% elif current_lang == 'en' %}Privacy Policy{% else %}Політика конфіденційності{% endif %}
+{% endblock %}
 
 {% block content %}
-<section class="section">
-  <div class="dtf-container">
-    <h1>{% trans "Політика конфіденційності" %}</h1>
-    <p>{% trans "TEMP: Оновлюємо повний юридичний текст. Нижче коротка робоча версія для DTF сайту." %}</p>
-    <ul class="list">
-      <li>{% trans "Ми використовуємо контактні дані лише для обробки звернень і замовлень DTF." %}</li>
-      <li>{% trans "Передача даних третім сторонам відбувається тільки для доставки, оплати або за вимогою закону." %}</li>
-      <li>{% trans "Для видалення або уточнення ваших даних зверніться через сторінку Контактів." %}</li>
-    </ul>
+<section class="section" data-ui="dtf:legal:privacy">
+  <div class="dtf-container legal-copy">
+    {% if current_lang == 'ru' %}
+      <h1>Политика конфиденциальности</h1>
+      <p><strong>Дата вступления в силу:</strong> 15.02.2026</p>
+      <p>Мы уважаем вашу приватность и заботимся о защите персональных данных. Эта Политика конфиденциальности объясняет, какие данные мы можем собирать на сайте <strong>dtf.twocomms.shop</strong>, как мы их используем и какие права есть у пользователя.</p>
+
+      <h2>1. Кто мы</h2>
+      <p>Сайт <strong>dtf.twocomms.shop</strong> предоставляет услуги DTF‑печати (изготовление DTF‑трансферов) и сопутствующие сервисные услуги (проверка файлов, консультации, помощь с подготовкой макетов).</p>
+      <p><strong>Контакты по вопросам приватности:</strong><br>Телефон: +380966543212<br>Telegram: https://t.me/twocomms</p>
+
+      <h2>2. Какие данные мы собираем</h2>
+      <ol>
+        <li><strong>Контактные данные</strong>, которые вы предоставляете добровольно: имя, телефон, контакт в Telegram, данные для доставки (город/отделение Новой почты и т.д.).</li>
+        <li><strong>Данные заказа:</strong> параметры, комментарии, метраж, опции.</li>
+        <li><strong>Файлы, которые вы загружаете/отправляете</strong> (макеты) — только для выполнения заказа и проверки файла перед печатью.</li>
+        <li><strong>Технические данные</strong> (могут собираться автоматически): IP‑адрес, тип браузера, посещаемые страницы, cookies (если используются).</li>
+      </ol>
+
+      <h2>3. Зачем мы используем данные</h2>
+      <ul>
+        <li>обработать и выполнить заказ;</li>
+        <li>связаться с вами для подтверждения макета/метража/цены;</li>
+        <li>оказывать поддержку 24/7 и консультации;</li>
+        <li>улучшать качество сервиса и работу сайта;</li>
+        <li>выполнять требования законодательства Украины (в т.ч. бухгалтерский учет).</li>
+      </ul>
+
+      <h2>4. Передача данных третьим сторонам</h2>
+      <p>Мы можем передавать минимально необходимые данные:</p>
+      <ul>
+        <li><strong>службам доставки</strong> (например, Новая почта) — для отправки заказа;</li>
+        <li><strong>платежным сервисам/банкам</strong> — для приема оплаты (если применимо);</li>
+        <li><strong>подрядчикам</strong> (хостинг, техподдержка) — только в объеме, необходимом для работы сервиса.</li>
+      </ul>
+      <p>Мы <strong>не продаем</strong> персональные данные третьим лицам.</p>
+
+      <h2>5. Хранение данных</h2>
+      <p>Мы храним данные столько, сколько необходимо:</p>
+      <ul>
+        <li>для выполнения заказа и поддержки клиента;</li>
+        <li>для выполнения юридических и бухгалтерских требований.</li>
+      </ul>
+      <p>Файлы макетов могут храниться разумный срок для повторной печати/подтверждения истории заказов, если вы не попросите удалить их (по возможности).</p>
+
+      <h2>6. Cookies</h2>
+      <p>Сайт может использовать cookies и похожие технологии для корректной работы и аналитики. Вы можете ограничить cookies в настройках браузера, но часть функций сайта может работать некорректно.</p>
+
+      <h2>7. Безопасность</h2>
+      <p>Мы применяем разумные меры защиты. При этом ни один способ передачи данных через интернет не гарантирует 100% безопасность.</p>
+
+      <h2>8. Ваши права</h2>
+      <p>Вы можете:</p>
+      <ul>
+        <li>получить доступ к своим данным;</li>
+        <li>исправить неточные данные;</li>
+        <li>попросить удаление данных (если это не противоречит закону и нашим обязательствам);</li>
+        <li>отозвать согласие на обработку (если применимо).</li>
+      </ul>
+      <p>Для реализации прав — напишите в Telegram или позвоните.</p>
+
+      <h2>9. Изменения политики</h2>
+      <p>Мы можем обновлять Политику. Актуальная версия всегда доступна на этой странице.</p>
+    {% elif current_lang == 'en' %}
+      <h1>Privacy Policy</h1>
+      <p><strong>Effective date:</strong> 2026‑02‑15</p>
+      <p>We respect your privacy and take personal data protection seriously. This Privacy Policy explains what data we may collect on <strong>dtf.twocomms.shop</strong>, how we use it, and your rights.</p>
+
+      <h2>1. Who we are</h2>
+      <p><strong>dtf.twocomms.shop</strong> provides DTF printing services (DTF transfers) and related services (file checks, консультації, artwork help).</p>
+      <p><strong>Privacy contact:</strong><br>Phone: +380966543212<br>Telegram: https://t.me/twocomms</p>
+
+      <h2>2. What data we collect</h2>
+      <ol>
+        <li><strong>Contact data</strong> you provide voluntarily: name, phone, Telegram contact, shipping details (city/branch).</li>
+        <li><strong>Order data:</strong> order parameters, notes, meters, options.</li>
+        <li><strong>Files you upload/send</strong> (artwork) — used only to fulfill the order and run a file check before printing.</li>
+        <li><strong>Technical data</strong> (may be collected automatically): IP address, browser type, visited pages, cookies (if used).</li>
+      </ol>
+
+      <h2>3. How we use data</h2>
+      <ul>
+        <li>process and fulfill your order;</li>
+        <li>contact you to confirm artwork/meters/price;</li>
+        <li>provide 24/7 support and консультації;</li>
+        <li>improve service and website performance;</li>
+        <li>comply with Ukrainian legal/accounting requirements.</li>
+      </ul>
+
+      <h2>4. Sharing with third parties</h2>
+      <p>We may share minimal necessary data with:</p>
+      <ul>
+        <li><strong>shipping providers</strong> (e.g., Nova Poshta) for delivery;</li>
+        <li><strong>payment providers/banks</strong> for payment processing (if applicable);</li>
+        <li><strong>contractors</strong> (hosting/technical support) only as needed to run the service.</li>
+      </ul>
+      <p>We <strong>do not sell</strong> personal data.</p>
+
+      <h2>5. Data retention</h2>
+      <p>We keep data only as long as needed to fulfill orders, provide support, and meet legal/accounting obligations. Artwork files may be stored for a reasonable time for reprints/order history unless you request deletion (where feasible).</p>
+
+      <h2>6. Cookies</h2>
+      <p>We may use cookies to ensure proper site function and analytics. You can disable cookies in your browser, but some features may not work correctly.</p>
+
+      <h2>7. Security</h2>
+      <p>We apply reasonable safeguards, but no internet transmission method is 100% secure.</p>
+
+      <h2>8. Your rights</h2>
+      <p>You can request access, correction, or deletion of your data (where legally possible) and withdraw consent (if applicable). Contact us via Telegram or phone.</p>
+
+      <h2>9. Changes</h2>
+      <p>We may update this Policy. The latest version is always available on this page.</p>
+    {% else %}
+      <h1>Політика конфіденційності</h1>
+      <p><strong>Дата набрання чинності:</strong> 15.02.2026</p>
+      <p>Ми поважаємо вашу приватність і дбаємо про захист персональних даних. Ця Політика конфіденційності пояснює, які дані ми можемо збирати на сайті <strong>dtf.twocomms.shop</strong>, як ми їх використовуємо та які права має користувач.</p>
+
+      <h2>1. Хто ми</h2>
+      <p>Сайт <strong>dtf.twocomms.shop</strong> надає послуги DTF‑друку (виготовлення DTF‑трансферів) та супутні сервісні послуги (перевірка файлів, консультації, допомога з підготовкою макетів).</p>
+      <p><strong>Контакти для питань щодо приватності:</strong><br>Телефон: +380966543212<br>Telegram: https://t.me/twocomms</p>
+
+      <h2>2. Які дані ми збираємо</h2>
+      <ol>
+        <li><strong>Контактні дані</strong>, які ви надаєте добровільно: ім’я, номер телефону, нік/контакт у Telegram, дані для доставки (місто/відділення Нової пошти тощо).</li>
+        <li><strong>Дані замовлення:</strong> параметри замовлення, коментарі, метраж, обрані опції.</li>
+        <li><strong>Файли, які ви завантажуєте/надсилаєте</strong> (макети) — виключно для виконання замовлення та перевірки файлу перед друком.</li>
+        <li><strong>Технічні дані</strong> (можуть збиратись автоматично): IP‑адреса, тип браузера, сторінки, які ви відвідуєте, файли cookie (за наявності).</li>
+      </ol>
+
+      <h2>3. Для чого ми використовуємо дані</h2>
+      <ul>
+        <li>обробити та виконати ваше замовлення;</li>
+        <li>зв’язатися з вами для підтвердження макета/метражу/ціни;</li>
+        <li>надати підтримку 24/7 та консультації;</li>
+        <li>покращувати якість сервісу та роботу сайту;</li>
+        <li>виконувати вимоги законодавства України (у т.ч. бухгалтерський облік).</li>
+      </ul>
+
+      <h2>4. Передача даних третім сторонам</h2>
+      <p>Ми можемо передавати мінімально необхідні дані:</p>
+      <ul>
+        <li><strong>службам доставки</strong> (наприклад, Нова пошта) — для відправлення замовлення;</li>
+        <li><strong>платіжним сервісам/банкам</strong> — для прийняття оплати (якщо застосовується);</li>
+        <li><strong>підрядникам</strong> (хостинг, технічна підтримка сайту) — лише в обсязі, потрібному для роботи сервісу.</li>
+      </ul>
+      <p>Ми <strong>не продаємо</strong> персональні дані третім особам.</p>
+
+      <h2>5. Зберігання даних</h2>
+      <p>Ми зберігаємо персональні дані лише стільки, скільки це потрібно:</p>
+      <ul>
+        <li>для виконання замовлення та підтримки клієнта;</li>
+        <li>для виконання юридичних та бухгалтерських вимог.</li>
+      </ul>
+      <p>Файли макетів можуть зберігатися протягом розумного строку для повторного друку/підтвердження історії замовлень, якщо ви не попросите їх видалити (за можливості).</p>
+
+      <h2>6. Cookies</h2>
+      <p>Сайт може використовувати cookie та подібні технології для коректної роботи та аналітики. Ви можете обмежити cookie у налаштуваннях браузера, але частина функцій сайту може працювати некоректно.</p>
+
+      <h2>7. Безпека</h2>
+      <p>Ми застосовуємо розумні технічні та організаційні заходи для захисту даних. Водночас жоден спосіб передачі даних через інтернет не є на 100% безпечним.</p>
+
+      <h2>8. Ваші права</h2>
+      <p>Ви маєте право:</p>
+      <ul>
+        <li>отримати доступ до своїх даних;</li>
+        <li>виправити неточні дані;</li>
+        <li>попросити видалення даних (коли це не суперечить законодавству та нашим обов’язкам);</li>
+        <li>відкликати згоду на обробку (якщо застосовується).</li>
+      </ul>
+      <p>Щоб реалізувати права — напишіть нам у Telegram або зателефонуйте.</p>
+
+      <h2>9. Зміни до Політики</h2>
+      <p>Ми можемо оновлювати Політику. Актуальна версія завжди доступна на цій сторінці.</p>
+    {% endif %}
   </div>
 </section>
 {% endblock %}
