@@ -358,12 +358,12 @@
         <li>{% if current_lang == 'ru' %}24/7 на связи. Обычно отвечаем до 10 минут.{% elif current_lang == 'en' %}We’re available 24/7. Typical reply time is ~10 minutes.{% else %}24/7 на зв’язку. Зазвичай відповідаємо до 10 хвилин.{% endif %}</li>
         <li>{% if current_lang == 'ru' %}Подтвердили до 12:00 — отправляем сегодня.{% elif current_lang == 'en' %}Approved by 12:00 — we ship today.{% else %}Підтвердили до 12:00 — відправляємо сьогодні.{% endif %}</li>
         <li>{% if current_lang == 'ru' %}Hot peel — быстрее в работе: пленка снимается сразу после пресса.{% elif current_lang == 'en' %}Hot peel speeds up workflow: film removes immediately after pressing.{% else %}Hot peel — швидше у виробництві: плівка знімається одразу після преса.{% endif %}</li>
-        <li>{% if current_lang == 'ru' %}Бесплатный образец A4 — проверьте качество на своей ткани до тиража.{% elif current_lang == 'en' %}Free A4 sample — test on your fabric before scaling.{% else %}Безкоштовний зразок A4 — перевірте якість на своїй тканині до тиражу.{% endif %}</li>
+        <li>{% if current_lang == 'ru' %}Бесплатный тест‑пак — проверьте качество на своей ткани до тиража.{% elif current_lang == 'en' %}Free test pack — validate quality on your fabric before scaling.{% else %}Безкоштовний тест‑пак — перевірте якість на своїй тканині до тиражу.{% endif %}</li>
       </ul>
     </article>
     <div class="section-actions" data-reveal>
       <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% if current_lang == 'ru' %}Рассчитать стоимость{% elif current_lang == 'en' %}Calculate price{% else %}Розрахувати вартість{% endif %}</a>
-      <a class="btn btn-ghost" href="{% url 'dtf:sample' %}" data-stateful-link>{% if current_lang == 'ru' %}Получить образец A4{% elif current_lang == 'en' %}Get A4 sample{% else %}Отримати зразок A4{% endif %}</a>
+      <a class="btn btn-ghost" href="{% url 'dtf:sample' %}" data-stateful-link>{% if current_lang == 'ru' %}Получить тест‑пак{% elif current_lang == 'en' %}Get test pack{% else %}Отримати тест‑пак{% endif %}</a>
     </div>
   </div>
 </section>
@@ -878,7 +878,7 @@
       </div>
       <div class="faq-item">
         <button type="button" class="faq-q">{% if current_lang == 'ru' %}Есть образец?{% elif current_lang == 'en' %}Sample?{% else %}Є зразок?{% endif %}</button>
-        <div class="faq-a">{% if current_lang == 'ru' %}Да, A4 бесплатно (вы оплачиваете только доставку).{% elif current_lang == 'en' %}Yes, free A4 (shipping only).{% else %}Так, A4 безкоштовно (ви оплачуєте лише доставку).{% endif %}</div>
+        <div class="faq-a">{% if current_lang == 'ru' %}Да, тест‑пак бесплатный (вы оплачиваете только доставку). Стандартный формат подтверждаем после заявки.{% elif current_lang == 'en' %}Yes, test pack is free (shipping only). Standard format is confirmed after request.{% else %}Так, тест‑пак безкоштовний (ви оплачуєте лише доставку). Стандартний формат підтверджуємо після заявки.{% endif %}</div>
       </div>
       <div class="section-actions">
         <a class="btn btn-outline" href="{% url 'dtf:faq' %}" data-stateful-link>{% if current_lang == 'ru' %}Все вопросы и ответы{% elif current_lang == 'en' %}See all FAQs{% else %}Всі питання та відповіді{% endif %}</a>
@@ -904,7 +904,7 @@
     <p>{% if current_lang == 'ru' %}Отправьте макет 60 см (ганг-лист) — проверим файл и подтвердим метраж перед запуском.{% elif current_lang == 'en' %}Send a 60 cm layout (gang sheet) — we'll check it and confirm meters before printing.{% else %}Надішліть макет 60 см (ганг-лист) — перевіримо файл і підтвердимо метраж перед запуском.{% endif %}</p>
     <div class="cta-group">
       <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% if current_lang == 'ru' %}Рассчитать стоимость{% elif current_lang == 'en' %}Calculate price{% else %}Розрахувати вартість{% endif %}</a>
-      <a class="btn btn-ghost" href="{% url 'dtf:sample' %}" data-stateful-link>{% if current_lang == 'ru' %}Получить образец A4{% elif current_lang == 'en' %}Get A4 sample{% else %}Отримати зразок A4{% endif %}</a>
+      <a class="btn btn-ghost" href="{% url 'dtf:sample' %}" data-stateful-link>{% if current_lang == 'ru' %}Получить тест‑пак{% elif current_lang == 'en' %}Get test pack{% else %}Отримати тест‑пак{% endif %}</a>
     </div>
   </div>
 </section>

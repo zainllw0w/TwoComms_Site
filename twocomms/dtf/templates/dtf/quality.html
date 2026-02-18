@@ -61,7 +61,7 @@
   <div class="dtf-container">
     <div class="section-head">
       <h1>{% if current_lang == 'ru' %}Контроль качества (QC){% elif current_lang == 'en' %}Quality control (QC){% else %}Контроль якості (QC){% endif %}</h1>
-      <p>{% if current_lang == 'ru' %}Контролируем печать по чек‑листу и смотрим макро‑детали: мелкий текст, тонкие линии, чистые края, ровный белый подклад.{% elif current_lang == 'en' %}We run a QC checklist and review macro details: tiny text, thin lines, clean edges, consistent white base.{% else %}Контролюємо друк по чек‑листу та дивимось макро‑деталі: дрібний текст, тонкі лінії, чисті краї, рівномірний білий підклад.{% endif %}</p>
+      <p>{% if current_lang == 'ru' %}Проверяем файл до печати и контролируем тираж по QC‑чеклисту: совмещение слоёв, белый подклад, тонкие линии, край, тест стирки.{% elif current_lang == 'en' %}We preflight files before print and run a QC checklist per batch: layer registration, white underbase, thin lines, edge quality, wash test.{% else %}Перевіряємо файл до друку та контролюємо тираж по QC‑чеклисту: суміщення шарів, білий підклад, тонкі лінії, край, тест прання.{% endif %}</p>
     </div>
 
     <!-- ASSET_REQUEST | id=lab-proof-photos | type=photo | usage=Quality/Lab Proof sections | spec=4–6 photos, 2x | notes=QC / process / texture close-ups -->
@@ -144,6 +144,34 @@
           <div class="proof-sub">{% trans "Остаточний огляд" %}</div>
         </div>
       </div>
+    </div>
+
+    <div class="quality-compare-grid" data-reveal>
+      <article class="proof-card compare-card" data-compare data-effect="compare" data-compare-mode="drag">
+        <h3>{% if current_lang == 'ru' %}До/после QC{% elif current_lang == 'en' %}Before/after QC{% else %}До/після QC{% endif %}</h3>
+        <div class="compare-media asset-slot">
+          <div class="compare-layer compare-before">
+            <img src="{% static 'dtf/assets/compare-case-1-before.jpg' %}"
+                 alt="{% if current_lang == 'ru' %}До контроля качества{% elif current_lang == 'en' %}Before quality control{% else %}До контролю якості{% endif %}"
+                 loading="lazy"
+                 decoding="async"
+                 class="skeleton">
+          </div>
+          <div class="compare-layer compare-after">
+            <img src="{% static 'dtf/assets/compare-case-1-after.jpg' %}"
+                 alt="{% if current_lang == 'ru' %}После контроля качества{% elif current_lang == 'en' %}After quality control{% else %}Після контролю якості{% endif %}"
+                 loading="lazy"
+                 decoding="async"
+                 class="skeleton">
+          </div>
+          <div class="compare-handle" aria-hidden="true"></div>
+        </div>
+        <input class="compare-range" type="range" min="0" max="100" value="52" aria-label="{% trans 'Порівняння якості' %}">
+        <div class="proof-meta">
+          <div class="proof-title">{% if current_lang == 'ru' %}Результат после проверки{% elif current_lang == 'en' %}Result after checks{% else %}Результат після перевірки{% endif %}</div>
+          <div class="proof-sub">{% if current_lang == 'ru' %}Чётче край, стабильнее белый подклад, меньше риска брака{% elif current_lang == 'en' %}Cleaner edge, steadier white base, lower misprint risk{% else %}Чистіший край, стабільніший білий підклад, менше ризику браку{% endif %}</div>
+        </div>
+      </article>
     </div>
 
     <div class="info-grid" data-reveal>

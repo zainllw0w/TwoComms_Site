@@ -43,18 +43,29 @@
     <h1>{% if current_lang == 'ru' %}Прайс на DTF‑печать (60 см){% elif current_lang == 'en' %}DTF pricing (60 cm){% else %}Прайс на DTF‑друк (60 см){% endif %}</h1>
     <p>
       {% if current_lang == 'ru' %}
-        Цена зависит от метража (длины файла в метрах). Подтвердили до 12:00 — отправка сегодня. 24/7 поддержка — ответ до 10 минут.
+        Считаем по метражу: длина файла в метрах при ширине 60 см. Подтвердили до 12:00 — отправка сегодня.
       {% elif current_lang == 'en' %}
-        Price depends on meters (file length). Approved by 12:00 — ship today. 24/7 support — ~10 min reply.
+        We charge by meterage: file length in meters at 60 cm width. Approved by 12:00 — ship today.
       {% else %}
-        Ціна залежить від метражу (довжини файлу в метрах). Підтвердили до 12:00 — відправка сьогодні. 24/7 підтримка — відповідь до 10 хв.
+        Рахуємо по метражу: довжина файлу в метрах при ширині 60 см. Підтвердили до 12:00 — відправка сьогодні.
       {% endif %}
     </p>
+
+    <article class="card meter-explainer">
+      <h2>{% if current_lang == 'ru' %}Как считать метраж{% elif current_lang == 'en' %}How to calculate meterage{% else %}Як порахувати метраж{% endif %}</h2>
+      <div class="meter-steps">
+        <div class="meter-step"><strong>1.</strong> {% if current_lang == 'ru' %}Измерьте длину файла в метрах.{% elif current_lang == 'en' %}Measure file length in meters.{% else %}Виміряйте довжину файлу в метрах.{% endif %}</div>
+        <div class="meter-step"><strong>2.</strong> {% if current_lang == 'ru' %}Умножьте на количество копий.{% elif current_lang == 'en' %}Multiply by number of copies.{% else %}Помножте на кількість копій.{% endif %}</div>
+        <div class="meter-step"><strong>3.</strong> {% if current_lang == 'ru' %}Подберите тариф по итоговому метражу.{% elif current_lang == 'en' %}Pick tier by total meterage.{% else %}Оберіть тариф за підсумковим метражем.{% endif %}</div>
+      </div>
+      <p class="muted">{% trans "Приклад: файл 2.5 м × 10 копій = 25 м." %}</p>
+    </article>
+
     <div class="price-table">
       <div class="price-row head">
         <span>{% trans "Метраж" %}</span>
         <span>{% trans "Ціна, грн/м" %}</span>
-        <span>{% trans "Коментар" %}</span>
+        <span>{% trans "Коментар (знижка)" %}</span>
       </div>
       <div class="price-row">
         <span>{% trans "1–9 м" %}</span>
@@ -77,12 +88,36 @@
       </div>
       {% endfor %}
     </div>
-    <div class="calc-example">
-      <h3>{% trans "Приклад" %}</h3>
-      <p>{% trans "Файл 2.5 м × 10 копій = 25 м. Розрахунок за відповідною ціною." %}</p>
+
+    <div class="calc-example card" data-ui="dtf:price:orient-calc">
+      <h3>{% if current_lang == 'ru' %}Калькулятор‑ориентир{% elif current_lang == 'en' %}Quick estimate{% else %}Калькулятор‑орієнтир{% endif %}</h3>
+      <div class="form-grid">
+        <label>{% if current_lang == 'ru' %}Длина файла, м{% elif current_lang == 'en' %}File length, m{% else %}Довжина файлу, м{% endif %}
+          <input type="number" name="length_m" step="0.01" min="0" inputmode="decimal" placeholder="0.0">
+        </label>
+        <label>{% if current_lang == 'ru' %}Копии{% elif current_lang == 'en' %}Copies{% else %}Копії{% endif %}
+          <input type="number" name="copies" min="1" step="1" value="1">
+        </label>
+      </div>
+      <div class="summary-row">
+        <span>{% trans "Метраж" %}</span>
+        <span class="tabular-nums" id="calc-meters">—</span>
+      </div>
+      <div class="summary-row">
+        <span>{% if current_lang == 'ru' %}Ориентировочная цена{% elif current_lang == 'en' %}Estimated price{% else %}Орієнтовна ціна{% endif %}</span>
+        <span class="tabular-nums" id="calc-price" aria-live="polite">{% trans "Вкажіть метраж → покажемо орієнтир" %}</span>
+      </div>
+      <div class="summary-note">{% if current_lang == 'ru' %}Точную сумму подтверждаем после проверки файла.{% elif current_lang == 'en' %}Final price is confirmed after file check.{% else %}Точну суму підтвердимо після перевірки файлу.{% endif %}</div>
+      <div class="calc-warning" id="calc-warning" hidden>
+        {% trans "Оптовий метраж — уточнимо терміни та вартість" %}
+      </div>
+      <div class="cta-group">
+        <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% if current_lang == 'ru' %}Далее{% elif current_lang == 'en' %}Continue{% else %}Далі{% endif %}</a>
+        <a class="btn btn-ghost" href="{% url 'dtf:order' %}?tab=ready" data-stateful-link>{% if current_lang == 'ru' %}Отправить файл{% elif current_lang == 'en' %}Send file{% else %}Надіслати файл{% endif %}</a>
+      </div>
     </div>
 
-    <div class="card">
+    <div class="card cutoff-block">
       <p>
         {% if current_lang == 'ru' %}
           Стандартно печатаем 0–24 ч, в пиковые дни — до 48 ч (после подтверждения файла).
@@ -92,12 +127,28 @@
           Стандартно друкуємо 0–24 год, у пікові дні — до 48 год (після підтвердження файлу).
         {% endif %}
       </p>
+      <p class="price-b2b-note">
+        {% if current_lang == 'ru' %}
+          Для цехов и опта: пришлите метраж, отправим условия и SLA →
+        {% elif current_lang == 'en' %}
+          For workshops and wholesale: send your meterage to get custom terms and SLA →
+        {% else %}
+          Для цехів та опту: напишіть метраж, надішлемо умови та SLA →
+        {% endif %}
+        <a href="{% url 'dtf:order' %}?tab=help">{% if current_lang == 'ru' %}написать менеджеру{% elif current_lang == 'en' %}contact manager{% else %}написати менеджеру{% endif %}</a>
+      </p>
     </div>
 
-    <div class="cta-group" style="margin-top: 20px;">
+    <div class="cta-group price-cta-group">
       <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% if current_lang == 'ru' %}Рассчитать стоимость{% elif current_lang == 'en' %}Calculate price{% else %}Розрахувати вартість{% endif %}</a>
-      <a class="btn btn-ghost" href="{% url 'dtf:sample' %}" data-stateful-link>{% if current_lang == 'ru' %}Получить бесплатный образец A4{% elif current_lang == 'en' %}Get a free A4 sample{% else %}Отримати безкоштовний зразок A4{% endif %}</a>
+      <a class="btn btn-ghost" href="{% url 'dtf:sample' %}" data-stateful-link>{% if current_lang == 'ru' %}Получить тест‑пак{% elif current_lang == 'en' %}Get a test pack{% else %}Отримати тест‑пак{% endif %}</a>
     </div>
   </div>
 </section>
+
+<div id="pricing-data"
+     data-base-rate="{{ pricing.base_rate }}"
+     data-tiers="{% for tier in pricing.tiers %}{{ tier.min }}:{{ tier.rate }}{% if not forloop.last %},{% endif %}{% endfor %}"
+     data-max-meters-review="{{ limits.max_meters_review }}"
+     data-max-copies="{{ limits.max_copies }}"></div>
 {% endblock %}

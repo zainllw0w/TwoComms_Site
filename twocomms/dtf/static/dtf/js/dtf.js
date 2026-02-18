@@ -8,6 +8,7 @@
     webVitals: false,
     printhead: false,
     managerFab: false,
+    mobileContact: false,
     dropzonePaste: false,
     dynamicFavicon: false,
     reorderPrefill: false,
@@ -59,6 +60,7 @@
       stateful_opening: 'Відкриваємо...',
       stateful_sending: 'Надсилаємо...',
       stateful_done: 'Готово',
+      calc_hint: 'Вкажіть метраж → покажемо орієнтир',
     },
     ru: {
       unsupported_ready_file: 'Формат файла не поддерживается для готового макета 60 см (ганг-лист). Переключили на вкладку помощи.',
@@ -79,6 +81,7 @@
       stateful_opening: 'Открываем...',
       stateful_sending: 'Отправляем...',
       stateful_done: 'Готово',
+      calc_hint: 'Укажите метраж → покажем ориентир',
     },
     en: {
       unsupported_ready_file: 'This file format is not supported for a ready 60 cm layout (gang sheet). Switched to the help tab.',
@@ -99,6 +102,7 @@
       stateful_opening: 'Opening...',
       stateful_sending: 'Sending...',
       stateful_done: 'Done',
+      calc_hint: 'Enter meterage → we will show an estimate',
     },
   };
 
@@ -469,7 +473,7 @@
       const copies = parseInt(copiesInput.value || '0', 10);
       if (!length || !copies) {
         metersEl.textContent = '—';
-        priceEl.textContent = 'Вкажіть метраж → покажемо орієнтир';
+        priceEl.textContent = t('calc_hint');
         if (warningEl) warningEl.hidden = true;
         return;
       }
@@ -865,6 +869,51 @@
         }
       });
     }
+  }
+
+  function initMobileContactSheet(root = document) {
+    const sheet = document.getElementById('mobile-contact-sheet');
+    if (!sheet) return;
+    const openers = collectTargets(root, '[data-mobile-contact-open]');
+    if (!openers.length) return;
+
+    const dialog = sheet.querySelector('.mobile-contact-sheet-dialog');
+    const close = () => {
+      releaseFocusTrap();
+      sheet.classList.remove('is-open');
+      sheet.setAttribute('aria-hidden', 'true');
+      if (document.body) document.body.classList.remove('is-modal-open');
+    };
+
+    const open = (trigger) => {
+      sheet.classList.add('is-open');
+      sheet.setAttribute('aria-hidden', 'false');
+      if (document.body) document.body.classList.add('is-modal-open');
+      if (dialog) setFocusTrap(dialog, trigger || document.activeElement, close);
+    };
+
+    if (!initState.mobileContact) {
+      sheet.addEventListener('click', (event) => {
+        const target = event.target;
+        if (target && target.dataset && target.dataset.mobileContactClose !== undefined) {
+          close();
+        }
+      });
+      initState.mobileContact = true;
+    }
+
+    openers.forEach((btn) => {
+      if (!initOnce(btn, 'MobileContactOpen')) return;
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        open(btn);
+      });
+    });
+
+    sheet.querySelectorAll('a').forEach((link) => {
+      if (!initOnce(link, 'MobileContactCloseLink')) return;
+      link.addEventListener('click', () => close());
+    });
   }
 
   function resolveScanTier() {
@@ -2270,6 +2319,7 @@
     initSkeletons(root);
     initProfileMenu(root);
     initManagerFab();
+    initMobileContactSheet(root);
     initPrintheadScan();
     initInkFlow();
     scheduleHomeDotBackground();

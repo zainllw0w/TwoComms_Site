@@ -16,6 +16,27 @@
   <!-- ASSET_REQUEST | id=og-dtf | type=photo | usage=Open Graph share image | spec=1200x630 | notes=DTF Lab Proof cover -->
   <meta property="og:image" content="{% static 'dtf/assets/og-dtf.jpg' %}">
   <link rel="canonical" href="{{ request.build_absolute_uri }}">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "TwoComms DTF",
+    "url": "https://dtf.twocomms.shop/",
+    "logo": "https://dtf.twocomms.shop{% static 'dtf/assets/og-dtf.jpg' %}",
+    "contactPoint": [
+      {
+        "@type": "ContactPoint",
+        "telephone": "+380966543212",
+        "contactType": "customer support",
+        "availableLanguage": ["uk", "ru", "en"]
+      }
+    ],
+    "sameAs": [
+      "https://t.me/twocomms",
+      "https://twocomms.shop/"
+    ]
+  }
+  </script>
   <style>
     html, body {
       margin: 0;
@@ -155,9 +176,9 @@
         </a>
         <nav class="main-nav" aria-label="{% trans 'Основна навігація' %}">
           <a href="{% url 'dtf:order' %}" class="{% if request.path == '/order/' %}is-active{% endif %}" {% if request.path == '/order/' %}aria-current="page"{% endif %}>{% trans "Замовити" %}</a>
-          <a href="{% url 'dtf:constructor' %}" class="{% if request.path == '/constructor/' or request.path == '/constructor/app/' %}is-active{% endif %}" {% if request.path == '/constructor/' or request.path == '/constructor/app/' %}aria-current="page"{% endif %}>{% trans "Конструктор" %}</a>
+          <a href="{% url 'dtf:constructor' %}" class="{% if request.path == '/constructor/' or request.path == '/constructor/app/' %}is-active{% endif %}" {% if request.path == '/constructor/' or request.path == '/constructor/app/' %}aria-current="page"{% endif %} title="{% if current_lang == 'ru' %}Под ключ: blank + печать + превью{% elif current_lang == 'en' %}Turnkey: blank + print + preview{% else %}Під ключ: blank + друк + прев'ю{% endif %}">{% trans "Конструктор" %}</a>
           <a href="{% url 'dtf:price' %}" class="{% if request.path == '/price/' %}is-active{% endif %}" {% if request.path == '/price/' %}aria-current="page"{% endif %}>{% trans "Ціни" %}</a>
-          <a href="{% url 'dtf:products' %}" class="{% if request.path == '/products/' %}is-active{% endif %}" {% if request.path == '/products/' %}aria-current="page"{% endif %}>{% trans "Вироби" %}</a>
+          <a href="{% url 'dtf:products' %}" class="{% if request.path == '/products/' %}is-active{% endif %}" {% if request.path == '/products/' %}aria-current="page"{% endif %} title="{% if current_lang == 'ru' %}Готовые изделия с нанесением{% elif current_lang == 'en' %}Ready garments with print{% else %}Готові вироби з нанесенням{% endif %}">{% trans "Вироби" %}</a>
           <a href="{% url 'dtf:gallery' %}" class="{% if request.path == '/gallery/' %}is-active{% endif %}" {% if request.path == '/gallery/' %}aria-current="page"{% endif %}>{% trans "Галерея" %}</a>
           <a href="{% url 'dtf:faq' %}" class="{% if request.path == '/faq/' %}is-active{% endif %}" {% if request.path == '/faq/' %}aria-current="page"{% endif %}>FAQ</a>
           <a href="{% url 'dtf:requirements' %}" class="{% if request.path == '/requirements/' %}is-active{% endif %}" {% if request.path == '/requirements/' %}aria-current="page"{% endif %}>{% trans "Вимоги" %}</a>
@@ -311,9 +332,9 @@
         </div>
         <nav class="nav-panel-links" aria-label="{% trans 'Мобільна навігація' %}">
           <a href="{% url 'dtf:order' %}" class="{% if request.path == '/order/' %}is-active{% endif %}" {% if request.path == '/order/' %}aria-current="page"{% endif %}>{% trans "Замовити" %}</a>
-          <a href="{% url 'dtf:constructor' %}" class="{% if request.path == '/constructor/' or request.path == '/constructor/app/' %}is-active{% endif %}" {% if request.path == '/constructor/' or request.path == '/constructor/app/' %}aria-current="page"{% endif %}>{% trans "Конструктор" %}</a>
+          <a href="{% url 'dtf:constructor' %}" class="{% if request.path == '/constructor/' or request.path == '/constructor/app/' %}is-active{% endif %}" {% if request.path == '/constructor/' or request.path == '/constructor/app/' %}aria-current="page"{% endif %} title="{% if current_lang == 'ru' %}Под ключ: blank + печать + превью{% elif current_lang == 'en' %}Turnkey: blank + print + preview{% else %}Під ключ: blank + друк + прев'ю{% endif %}">{% trans "Конструктор" %}</a>
           <a href="{% url 'dtf:price' %}" class="{% if request.path == '/price/' %}is-active{% endif %}" {% if request.path == '/price/' %}aria-current="page"{% endif %}>{% trans "Ціни" %}</a>
-          <a href="{% url 'dtf:products' %}" class="{% if request.path == '/products/' %}is-active{% endif %}" {% if request.path == '/products/' %}aria-current="page"{% endif %}>{% trans "Вироби" %}</a>
+          <a href="{% url 'dtf:products' %}" class="{% if request.path == '/products/' %}is-active{% endif %}" {% if request.path == '/products/' %}aria-current="page"{% endif %} title="{% if current_lang == 'ru' %}Готовые изделия с нанесением{% elif current_lang == 'en' %}Ready garments with print{% else %}Готові вироби з нанесенням{% endif %}">{% trans "Вироби" %}</a>
           <a href="{% url 'dtf:gallery' %}" class="{% if request.path == '/gallery/' %}is-active{% endif %}" {% if request.path == '/gallery/' %}aria-current="page"{% endif %}>{% trans "Галерея" %}</a>
           <a href="{% url 'dtf:faq' %}" class="{% if request.path == '/faq/' %}is-active{% endif %}" {% if request.path == '/faq/' %}aria-current="page"{% endif %}>FAQ</a>
           <a href="{% url 'dtf:requirements' %}" class="{% if request.path == '/requirements/' %}is-active{% endif %}" {% if request.path == '/requirements/' %}aria-current="page"{% endif %}>{% trans "Вимоги" %}</a>
@@ -458,19 +479,50 @@
   </div>
 
   <nav class="mobile-dock" aria-label="{% trans 'Мобільна навігація' %}">
-    <a class="dock-item {% if request.path == '/order/' %}is-active{% endif %}" href="{% url 'dtf:order' %}" {% if request.path == '/order/' %}aria-current="page"{% endif %}>
-      <span>{% trans "Замовити" %}</span>
-    </a>
     <a class="dock-item {% if request.path == '/price/' %}is-active{% endif %}" href="{% url 'dtf:price' %}" {% if request.path == '/price/' %}aria-current="page"{% endif %}>
       <span>{% trans "Ціни" %}</span>
     </a>
-    <a class="dock-item {% if request.path == '/constructor/' or request.path == '/constructor/app/' %}is-active{% endif %}" href="{% url 'dtf:constructor' %}" {% if request.path == '/constructor/' or request.path == '/constructor/app/' %}aria-current="page"{% endif %}>
-      <span>{% trans "Конструктор" %}</span>
+    <a class="dock-item {% if request.path == '/order/' %}is-active{% endif %}" href="{% url 'dtf:order' %}" {% if request.path == '/order/' %}aria-current="page"{% endif %}>
+      <span>{% if current_lang == 'ru' %}Расчёт{% elif current_lang == 'en' %}Quote{% else %}Розрахунок{% endif %}</span>
     </a>
-    <a class="dock-item {% if request.path == '/gallery/' %}is-active{% endif %}" href="{% url 'dtf:gallery' %}" {% if request.path == '/gallery/' %}aria-current="page"{% endif %}>
-      <span>{% trans "Галерея" %}</span>
+    <a class="dock-item" href="{% url 'dtf:order' %}?tab=ready">
+      <span>{% if current_lang == 'ru' %}Файл{% elif current_lang == 'en' %}File{% else %}Файл{% endif %}</span>
     </a>
+    <button class="dock-item dock-item-button" type="button" data-mobile-contact-open>
+      <span>{% if current_lang == 'ru' %}Связь{% elif current_lang == 'en' %}Contact{% else %}Звʼязок{% endif %}</span>
+    </button>
   </nav>
+
+  <div class="mobile-contact-sheet" id="mobile-contact-sheet" aria-hidden="true">
+    <div class="mobile-contact-sheet-backdrop" data-mobile-contact-close></div>
+    <div class="mobile-contact-sheet-dialog" role="dialog" aria-modal="true" aria-labelledby="mobile-contact-title">
+      <button type="button" class="mobile-contact-close" data-mobile-contact-close aria-label="{% trans 'Закрити' %}">×</button>
+      <h3 id="mobile-contact-title">{% if current_lang == 'ru' %}Быстрая связь{% elif current_lang == 'en' %}Quick contact{% else %}Швидкий звʼязок{% endif %}</h3>
+      <div class="mobile-contact-actions">
+        <a class="mobile-contact-action" href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer">
+          <strong>Telegram</strong>
+          <span>@twocomms</span>
+        </a>
+        <a class="mobile-contact-action" href="tel:+380966543212">
+          <strong>{% if current_lang == 'ru' %}Телефон{% elif current_lang == 'en' %}Phone{% else %}Телефон{% endif %}</strong>
+          <span>+380966543212</span>
+        </a>
+        <a class="mobile-contact-action" href="{% url 'dtf:order' %}?tab=help">
+          <strong>{% if current_lang == 'ru' %}Помощь с макетом{% elif current_lang == 'en' %}Layout help{% else %}Допомога з макетом{% endif %}</strong>
+          <span>{% if current_lang == 'ru' %}Ответим и подскажем шаги{% elif current_lang == 'en' %}We reply with next steps{% else %}Відповімо і підкажемо кроки{% endif %}</span>
+        </a>
+      </div>
+      <p class="mobile-contact-status">
+        {% if current_lang == 'ru' %}
+          До 12:00 подтверждение — отправка сегодня.
+        {% elif current_lang == 'en' %}
+          Approved by 12:00 — ship today.
+        {% else %}
+          До 12:00 підтвердження — відправка сьогодні.
+        {% endif %}
+      </p>
+    </div>
+  </div>
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
   <script src="{% static 'dtf/js/dtf.js' %}?v=20260216b" defer></script>
