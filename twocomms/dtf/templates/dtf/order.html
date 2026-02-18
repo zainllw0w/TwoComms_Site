@@ -16,7 +16,6 @@
     <div class="order-tabs" data-tab="{{ tab }}">
       <button class="tab-btn {% if tab == 'ready' %}active{% endif %}" data-target="ready">{% if current_lang == 'ru' %}Есть макет 60 см (ганг‑лист){% elif current_lang == 'en' %}I have a 60 cm layout (gang sheet){% else %}Є макет 60 см (ганг‑лист){% endif %}</button>
       <button class="tab-btn {% if tab == 'help' %}active{% endif %}" data-target="help">{% if current_lang == 'ru' %}Нужна помощь с макетом{% elif current_lang == 'en' %}Need help with artwork{% else %}Потрібна допомога з макетом{% endif %}</button>
-      <div class="tab-indicator"></div>
     </div>
 
     <div class="order-panels">
@@ -178,7 +177,7 @@
 
               <div class="order-summary" data-summary>
                 <div class="summary-head">
-                  <div class="overline">{% trans "SUMMARY" %}</div>
+                  <div class="overline">{% if current_lang == 'ru' %}ИТОГ{% elif current_lang == 'en' %}SUMMARY{% else %}ПІДСУМОК{% endif %}</div>
                   <div class="summary-title">{% trans "Замовлення" %}</div>
                 </div>
                 <div id="order-calc" data-swap-focus>
@@ -276,7 +275,7 @@
 
               <div class="order-summary" data-summary>
                 <div class="summary-head">
-                  <div class="overline">{% trans "SUMMARY" %}</div>
+                  <div class="overline">{% if current_lang == 'ru' %}ИТОГ{% elif current_lang == 'en' %}SUMMARY{% else %}ПІДСУМОК{% endif %}</div>
                   <div class="summary-title">{% trans "Заявка" %}</div>
                 </div>
                 <div class="summary-row">

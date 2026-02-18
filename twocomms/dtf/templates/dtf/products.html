@@ -30,7 +30,7 @@
     </div>
 
     <div class="about-pin card">
-      <h3>{% trans "Proof of quality" %}</h3>
+      <h3>{% if current_lang == 'ru' %}Доказательство качества{% elif current_lang == 'en' %}Quality proof{% else %}Підтвердження якості{% endif %}</h3>
       <p><span data-pointer>{% trans "Контроль якості підтверджений досвідом основного бренду." %}</span></p>
       <a class="btn btn-outline" href="https://twocomms.shop" target="_blank" rel="noopener">twocomms.shop ↗</a>
     </div>

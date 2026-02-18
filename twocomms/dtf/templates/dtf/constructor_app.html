@@ -165,7 +165,7 @@
         </article>
 
         <article class="card constructor-submit-card">
-          <h3>{% trans "Request quote" %}</h3>
+          <h3>{% if current_lang == 'ru' %}Запрос стоимости{% elif current_lang == 'en' %}Get a quote{% else %}Запит вартості{% endif %}</h3>
           <form id="constructor-submit-form" method="post" action="{% url 'dtf:constructor_submit' %}" data-constructor-submit>
             {% csrf_token %}
             <input type="hidden" name="session_id" value="{{ builder_session.session_id }}">
