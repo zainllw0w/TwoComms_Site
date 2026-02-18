@@ -1,35 +1,37 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% if current_lang == 'ru' %}Бесплатный образец DTF (A4){% elif current_lang == 'en' %}Free DTF sample (A4){% else %}Безкоштовний зразок DTF (A4){% endif %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Бесплатный тест‑пак DTF{% elif current_lang == 'en' %}Free DTF test pack{% else %}Безкоштовний тест‑пак DTF{% endif %}{% endblock %}
 {% block page_id %}sample{% endblock %}
 
 {% block content %}
 <section class="section" data-ui="dtf:sample:hero" data-effect="dotted-glow">
   <div class="dtf-container">
     <div class="section-head">
-      <h1>{% if current_lang == 'ru' %}Бесплатный образец DTF (A4){% elif current_lang == 'en' %}Free DTF sample (A4){% else %}Безкоштовний зразок DTF (A4){% endif %}</h1>
-      <p><span data-pointer>{% if current_lang == 'ru' %}Проверьте качество на своей ткани до тиража. Печать A4 — бесплатно, вы оплачиваете только доставку. 24/7 — ответ до 10 минут.{% elif current_lang == 'en' %}Test on your fabric before scaling. A4 print is free — you only pay shipping. 24/7 support — ~10 min reply.{% else %}Перевірте якість на своїй тканині до тиражу. Друк A4 — безкоштовно, ви сплачуєте лише доставку. 24/7 — відповідь до 10 хв.{% endif %}</span></p>
+      <h1>{% if current_lang == 'ru' %}Проверьте качество на своей ткани — бесплатный тест‑пак{% elif current_lang == 'en' %}Check quality on your own fabric — free test pack{% else %}Перевірте якість на своїй тканині — безкоштовний тест‑пак{% endif %}</h1>
+      <p><span data-pointer>{% if current_lang == 'ru' %}Печать тест‑пакета бесплатная, вы оплачиваете только доставку. В деталях честно показываем формат и условия отправки.{% elif current_lang == 'en' %}Printing the test pack is free, you only cover shipping. Details below clearly explain the format and shipping terms.{% else %}Друк тест‑паку безкоштовний, ви сплачуєте лише доставку. У деталях чесно показуємо формат і умови відправки.{% endif %}</span></p>
     </div>
 
     <div class="sample-grid">
       <article class="card sample-card">
-        <h3>{% trans "Що в зразку" %}</h3>
+        <h3>{% if current_lang == 'ru' %}Что в тест‑паке{% elif current_lang == 'en' %}What is inside the test pack{% else %}Що в тест‑паку{% endif %}</h3>
         <ul class="list">
           <li>{% trans "Тест адгезії та білої підкладки" %}</li>
+          <li>{% if current_lang == 'ru' %}Проверка мелкого текста и тонких линий{% elif current_lang == 'en' %}Fine text and thin lines check{% else %}Перевірка дрібного тексту та тонких ліній{% endif %}</li>
           <li>{% trans "Оцінка кольору та щільності" %}</li>
-          <li>{% trans "Пояснення по переносу / пранню" %}</li>
+          <li>{% if current_lang == 'ru' %}Короткие рекомендации по переносу и стирке{% elif current_lang == 'en' %}Short transfer and wash recommendations{% else %}Короткі рекомендації щодо переносу й прання{% endif %}</li>
         </ul>
       </article>
       <article class="card sample-card">
-        <h3>{% trans "Як надсилаємо" %}</h3>
+        <h3>{% if current_lang == 'ru' %}Условия и логистика{% elif current_lang == 'en' %}Terms and logistics{% else %}Умови та логістика{% endif %}</h3>
         <div class="sample-timeline">
-          <div>{% trans "Запит" %}</div>
-          <div>{% trans "Підбір формату" %}</div>
+          <div>{% if current_lang == 'ru' %}Шаг 1: короткая заявка (30 сек){% elif current_lang == 'en' %}Step 1: short request (30 sec){% else %}Крок 1: коротка заявка (30 сек){% endif %}</div>
+          <div>{% if current_lang == 'ru' %}Шаг 2: подтверждаем формат теста{% elif current_lang == 'en' %}Step 2: test format confirmation{% else %}Крок 2: підтверджуємо формат тесту{% endif %}</div>
           <div>{% trans "Відправка НП" %}</div>
-          <div>{% trans "Отримання + feedback" %}</div>
+          <div>{% if current_lang == 'ru' %}Шаг 4: получаете и даете обратную связь{% elif current_lang == 'en' %}Step 4: receive and send feedback{% else %}Крок 4: отримуєте і даєте зворотний зв'язок{% endif %}</div>
         </div>
-        <p class="muted">{% trans "Доставка Новою Поштою оплачується отримувачем." %}</p>
+        <p class="muted">{% if current_lang == 'ru' %}Печать бесплатная. Доставку Новой Почтой оплачивает получатель.{% elif current_lang == 'en' %}Print is free. Nova Poshta shipping is paid by recipient.{% else %}Друк безкоштовний. Доставку Новою Поштою оплачує отримувач.{% endif %}</p>
+        <a class="btn btn-ghost" href="{% url 'dtf:quality' %}">{% if current_lang == 'ru' %}Посмотреть примеры качества{% elif current_lang == 'en' %}See quality examples{% else %}Побачити приклади якості{% endif %}</a>
       </article>
     </div>
 
@@ -50,36 +52,54 @@
         </div>
       {% endif %}
 
-      <div class="form-grid sample-size-grid">
-        {% for radio in sample_form.sample_size %}
-          <label class="sample-size-option">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
-        {% endfor %}
-      </div>
-
-      <label class="toggle">
-        {{ sample_form.is_brand_volume }}
-        <span>{% trans "Я бренд / планую об'єм (потрібен A3 або серійний запуск)" %}</span>
-      </label>
-
-      <div class="form-grid">
+      <div class="form-grid sample-compact-grid">
         <label>{% trans "Ім'я" %} {{ sample_form.name }}</label>
         <label>{% trans "Телефон" %} {{ sample_form.phone }}</label>
         <label>{% trans "Канал" %} {{ sample_form.contact_channel }}</label>
-        <label>{% trans "Нік/посилання" %} {{ sample_form.contact_handle }}</label>
-        <label>{% trans "Місто" %} {{ sample_form.city }}</label>
-        <label>{% trans "Відділення НП" %} {{ sample_form.np_branch }}</label>
-        <label>{% trans "Ніша" %} {{ sample_form.niche }}</label>
-        <label>{% trans "Орієнтовний обсяг/міс" %} {{ sample_form.monthly_volume }}</label>
       </div>
 
-      <label>{% trans "Коментар" %} {{ sample_form.comment }}</label>
+      <details class="sample-advanced card">
+        <summary>{% if current_lang == 'ru' %}Добавить данные для отправки и деталей{% elif current_lang == 'en' %}Add shipping and extra details{% else %}Додати дані для відправки та деталей{% endif %}</summary>
+
+        <div class="form-grid sample-size-grid">
+          {% for radio in sample_form.sample_size %}
+            <label class="sample-size-option">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+          {% endfor %}
+        </div>
+
+        <label class="toggle">
+          {{ sample_form.is_brand_volume }}
+          <span>{% trans "Я бренд / планую об'єм (потрібен A3 або серійний запуск)" %}</span>
+        </label>
+
+        <div class="form-grid">
+          <label>{% trans "Нік/посилання" %} {{ sample_form.contact_handle }}</label>
+          <label>{% trans "Місто" %} {{ sample_form.city }}</label>
+          <label>{% trans "Відділення НП" %} {{ sample_form.np_branch }}</label>
+          <label>{% trans "Ніша" %} {{ sample_form.niche }}</label>
+          <label>{% trans "Орієнтовний обсяг/міс" %} {{ sample_form.monthly_volume }}</label>
+        </div>
+        <label>{% trans "Коментар" %} {{ sample_form.comment }}</label>
+      </details>
+
+      <label class="sample-format-note muted">
+        {% if current_lang == 'ru' %}
+          Стандартный формат теста подтверждаем после заявки. Если нужен A3/кастом — укажите это в деталях.
+        {% elif current_lang == 'en' %}
+          Standard test format is confirmed after request. If you need A3/custom, mention it in details.
+        {% else %}
+          Стандартний формат тесту підтверджуємо після заявки. Якщо потрібен A3/кастом — вкажіть це в деталях.
+        {% endif %}
+      </label>
+
       <label class="toggle">
         {{ sample_form.consent }}
         <span>{% trans "Погоджуюсь на обробку персональних даних" %}</span>
       </label>
 
-      <button class="btn btn-primary" type="submit" data-stateful>{% if current_lang == 'ru' %}Заказать образец A4{% elif current_lang == 'en' %}Request A4 sample{% else %}Замовити зразок A4{% endif %}</button>
-      <div class="summary-foot">{% if current_lang == 'ru' %}24/7 поддержка · обычно отвечаем до 10 минут.{% elif current_lang == 'en' %}24/7 support · typical reply in ~10 minutes.{% else %}24/7 підтримка · зазвичай відповідаємо до 10 хв.{% endif %}</div>
+      <button class="btn btn-primary" type="submit" data-stateful>{% if current_lang == 'ru' %}Получить тест‑пак{% elif current_lang == 'en' %}Get test pack{% else %}Отримати тест‑пак{% endif %}</button>
+      <div class="summary-foot">{% if current_lang == 'ru' %}Обычно отвечаем в рабочее время до 10 минут.{% elif current_lang == 'en' %}Typical reply during working hours is up to 10 minutes.{% else %}Зазвичай відповідаємо у робочий час до 10 хв.{% endif %}</div>
+      <div class="muted">{% if current_lang == 'ru' %}Минимум для отправки: имя, телефон и канал связи.{% elif current_lang == 'en' %}Minimum required: name, phone, and preferred contact channel.{% else %}Мінімум для відправки: ім'я, телефон та канал зв'язку.{% endif %}</div>
     </form>
   </div>
 </section>

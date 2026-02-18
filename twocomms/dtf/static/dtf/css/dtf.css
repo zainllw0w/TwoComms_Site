@@ -1223,6 +1223,27 @@ body.is-modal-open .dtf-manager-fab-wrap {
   box-shadow: inset 0 0 0 1px rgba(255, 140, 0, 0.35);
 }
 
+/* CTA hierarchy: primary (intent), secondary (alternative), tertiary (context link). */
+.btn-tertiary,
+.hero-cta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(241, 245, 255, 0.82);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 168, 112, 0.52);
+  text-underline-offset: 3px;
+}
+
+.btn-tertiary:hover,
+.btn-tertiary:focus-visible,
+.hero-cta-link:hover,
+.hero-cta-link:focus-visible {
+  color: #fff;
+  text-decoration-color: rgba(255, 168, 112, 0.92);
+}
+
 section.section {
   padding: 80px 0;
 }
@@ -2441,6 +2462,42 @@ body[data-page="home"] section.section > .dtf-container {
   margin-top: 20px;
 }
 
+.meter-explainer {
+  margin: 20px 0;
+}
+
+.meter-steps {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.meter-step {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: rgba(240, 244, 255, 0.88);
+}
+
+.meter-step strong {
+  color: var(--accent);
+  min-width: 18px;
+}
+
+.price-b2b-note {
+  margin-top: 10px;
+  color: rgba(224, 232, 255, 0.82);
+}
+
+.price-b2b-note a {
+  color: #ffd19c;
+  text-decoration: underline;
+}
+
+.price-cta-group {
+  margin-top: 20px;
+}
+
 .cutoff-block {
   margin-top: 20px;
 }
@@ -2544,6 +2601,10 @@ body[data-page="home"] section.section > .dtf-container {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
   margin-top: 24px;
+}
+
+.quality-compare-grid {
+  margin-top: 20px;
 }
 
 .proof-card {
@@ -4112,12 +4173,71 @@ textarea:disabled {
   gap: 6px;
 }
 
+.requirements-checklist {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.requirements-checklist li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.safe-area-card h3 {
+  margin-bottom: 10px;
+}
+
+.safe-area-schema {
+  position: relative;
+  width: min(100%, 260px);
+  aspect-ratio: 16 / 10;
+  margin: 0 auto 10px;
+  border-radius: 10px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 92, 0, 0.08));
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.safe-area-outer,
+.safe-area-inner {
+  position: absolute;
+  border-radius: 8px;
+}
+
+.safe-area-outer {
+  inset: 10%;
+  border: 1px dashed rgba(255, 255, 255, 0.42);
+}
+
+.safe-area-inner {
+  inset: 22%;
+  border: 2px solid rgba(255, 140, 0, 0.7);
+}
+
 .req-visual {
   margin: 20px 0 28px;
 }
 
 .template-links {
   margin-bottom: 24px;
+}
+
+.template-steps {
+  margin: 12px 0 8px;
+  padding-left: 18px;
+}
+
+.template-linkline a {
+  color: #ffd19c;
+  text-decoration: underline;
 }
 
 .cta-block {
@@ -4415,6 +4535,17 @@ textarea:disabled {
   z-index: 1;
 }
 
+.mobile-dock .dock-item {
+  min-height: 44px;
+}
+
+.dock-item-button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
 body[data-page="order"] .mobile-dock {
   display: none;
 }
@@ -4440,6 +4571,88 @@ body[data-page="order"] .mobile-dock {
   color: var(--text);
   background: rgba(255, 92, 0, 0.12);
   box-shadow: inset 0 0 0 1px rgba(255, 92, 0, 0.35);
+}
+
+.mobile-contact-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--motion-base) var(--motion-ease), visibility 0s linear var(--motion-base);
+}
+
+.mobile-contact-sheet.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
+.mobile-contact-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 6, 8, 0.72);
+}
+
+.mobile-contact-sheet-dialog {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(19, 19, 19, 0.98), rgba(10, 10, 10, 0.98));
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.45);
+  padding: 16px 14px;
+}
+
+.mobile-contact-sheet-dialog h3 {
+  margin: 0 0 10px;
+}
+
+.mobile-contact-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+}
+
+.mobile-contact-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.mobile-contact-action {
+  display: grid;
+  gap: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mobile-contact-action strong {
+  color: #fff;
+  font-size: 0.92rem;
+}
+
+.mobile-contact-action span {
+  color: rgba(223, 233, 255, 0.74);
+  font-size: 0.8rem;
+}
+
+.mobile-contact-status {
+  margin: 10px 0 0;
+  color: rgba(223, 233, 255, 0.78);
+  font-size: 0.8rem;
 }
 
 @supports not ((-webkit-backdrop-filter: blur(12px)) or (backdrop-filter: blur(12px))) {
@@ -4866,10 +5079,20 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.product-flow {
+  margin: 6px 0 10px;
+  color: rgba(220, 229, 255, 0.82);
+  font-size: 0.9rem;
+}
+
 .sample-size-grid {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 14px;
+}
+
+.sample-compact-grid {
   margin-bottom: 14px;
 }
 
@@ -4881,6 +5104,32 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
   border-radius: 12px;
   border: 1px solid rgba(108, 120, 170, 0.6);
   background: rgba(11, 15, 24, 0.7);
+}
+
+.sample-advanced {
+  margin: 6px 0 14px;
+}
+
+.sample-advanced > summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+  color: rgba(239, 244, 255, 0.92);
+  margin-bottom: 12px;
+}
+
+.sample-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sample-advanced[open] > summary {
+  color: #fff;
+}
+
+.sample-format-note {
+  display: block;
+  margin: 0 0 10px;
+  font-size: 0.84rem;
 }
 
 .sample-timeline {

@@ -262,6 +262,10 @@ class DtfSampleLeadForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if "phone" in self.fields:
             self.fields["phone"].widget.attrs.setdefault("data-vanish-input", "1")
+        # Keep first step light: delivery and niche details are optional and can be filled later.
+        for field_name in ("city", "np_branch", "contact_handle", "niche", "monthly_volume", "comment"):
+            if field_name in self.fields:
+                self.fields[field_name].required = False
 
     def clean_honeypot(self):
         value = (self.cleaned_data.get("honeypot") or "").strip()

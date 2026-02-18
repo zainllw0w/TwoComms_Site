@@ -27,7 +27,7 @@
         <p>{% trans "Після підтвердження менеджером узгодимо матеріал, тираж і логістику." %}</p>
         <div class="cta-group">
           <a class="btn btn-primary" href="{% url 'dtf:constructor_app' %}" data-stateful-link>{% if current_lang == 'ru' %}Начать{% elif current_lang == 'en' %}Start{% else %}Почати{% endif %}</a>
-          <a class="btn btn-ghost" href="{% url 'dtf:requirements' %}">{% trans "Переглянути вимоги" %}</a>
+          <a class="btn btn-ghost" href="{% url 'dtf:requirements' %}">{% if current_lang == 'ru' %}Требования к макету{% elif current_lang == 'en' %}Artwork requirements{% else %}Переглянути вимоги до макета{% endif %}</a>
         </div>
       </article>
     </div>
