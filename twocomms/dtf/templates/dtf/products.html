@@ -17,6 +17,7 @@
         <article class="card product-card" data-ui="dtf:products:card-{{ card.key }}">
           <h3>{{ card.title }}</h3>
           <p>{{ card.description }}</p>
+          <p class="product-flow">{% if current_lang == 'ru' %}Выбираете blank → загружаете дизайн → получаете превью → подтверждаем запуск.{% elif current_lang == 'en' %}Choose a blank → upload design → get preview → confirm launch.{% else %}Обираєте blank → завантажуєте дизайн → отримуєте прев'ю → підтверджуємо запуск.{% endif %}</p>
           <details class="case-passport">
             <summary>{% trans "Специфікація" %}</summary>
             <div class="passport-body">{{ card.spec }}</div>

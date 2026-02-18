@@ -70,38 +70,63 @@
     <h1>{% if current_lang == 'ru' %}Требования к макетам 60 см{% elif current_lang == 'en' %}Artwork requirements (60 cm){% else %}Вимоги до макетів 60 см{% endif %}</h1>
     <p>
       {% if current_lang == 'ru' %}
-        Чтобы печать была предсказуемой, подготовьте макет 60 см (ганг‑лист) по этим правилам. Если не уверены — отправьте файл: проверим и подскажем.
+        Чтобы печать была предсказуемой, подготовьте макет 60 см (gang sheet) по этим правилам. Если не уверены — отправьте файл: проверим и подскажем.
       {% elif current_lang == 'en' %}
         For predictable results, prepare a 60 cm layout (gang sheet) using these rules. If unsure — send it, we’ll check and advise.
       {% else %}
-        Щоб друк був передбачуваним, підготуйте макет 60 см (ганг‑лист) за цими правилами. Якщо не впевнені — надішліть файл: ми перевіримо і підкажемо.
+        Щоб друк був передбачуваним, підготуйте макет 60 см (ганг‑ліст) за цими правилами. Якщо не впевнені — надішліть файл: ми перевіримо і підкажемо.
       {% endif %}
     </p>
+
+    <article class="card requirements-quick" data-ui="dtf:requirements:quick-checklist">
+      <h2>{% if current_lang == 'ru' %}Готовность макета (60 см){% elif current_lang == 'en' %}Artwork readiness (60 cm){% else %}Готовність макета (60 см){% endif %}</h2>
+      <ul class="requirements-checklist">
+        <li>
+          <span>{% if current_lang == 'ru' %}Формат: PDF/PNG{% elif current_lang == 'en' %}Format: PDF/PNG{% else %}Формат: PDF/PNG{% endif %}</span>
+          <span class="tooltip" tabindex="0" role="button" aria-label="{% trans 'Чому важливий правильний формат файлу' %}" data-tooltip="{% if current_lang == 'ru' %}Эти форматы сохраняют качество и прозрачность без лишней компрессии.{% elif current_lang == 'en' %}These formats preserve quality and transparency without heavy compression.{% else %}Ці формати зберігають якість і прозорість без зайвого стискання.{% endif %}">i</span>
+        </li>
+        <li>
+          <span>{% if current_lang == 'ru' %}Ширина: 60 см{% elif current_lang == 'en' %}Width: 60 cm{% else %}Ширина: 60 см{% endif %}</span>
+          <span class="tooltip" tabindex="0" role="button" aria-label="{% trans 'Чому важлива ширина 60 см' %}" data-tooltip="{% if current_lang == 'ru' %}Расчет и производство настроены под фиксированную рабочую ширину 60 см.{% elif current_lang == 'en' %}Pricing and production are aligned to a fixed 60 cm working width.{% else %}Розрахунок і виробництво налаштовані під фіксовану робочу ширину 60 см.{% endif %}">i</span>
+        </li>
+        <li>
+          <span>{% if current_lang == 'ru' %}Прозрачный фон{% elif current_lang == 'en' %}Transparent background{% else %}Прозорий фон{% endif %}</span>
+          <span class="tooltip" tabindex="0" role="button" aria-label="{% trans 'Чому важлива прозорість фону' %}" data-tooltip="{% if current_lang == 'ru' %}Без прозрачности можно получить нежелательный цветной прямоугольник вокруг дизайна.{% elif current_lang == 'en' %}Without transparency you may get an unwanted colored box around the artwork.{% else %}Без прозорості можна отримати небажаний кольоровий прямокутник навколо дизайну.{% endif %}">i</span>
+        </li>
+        <li>
+          <span>{% if current_lang == 'ru' %}Качество: 300 DPI (рекомендовано){% elif current_lang == 'en' %}Quality: 300 DPI (recommended){% else %}Якість: 300 DPI (рекомендовано){% endif %}</span>
+          <span class="tooltip" tabindex="0" role="button" aria-label="{% trans 'Чому важливий DPI' %}" data-tooltip="{% if current_lang == 'ru' %}Меньше DPI — выше риск потери резкости, особенно в мелком тексте.{% elif current_lang == 'en' %}Lower DPI increases the risk of blur, especially on small text.{% else %}Менший DPI підвищує ризик втрати різкості, особливо на дрібному тексті.{% endif %}">i</span>
+        </li>
+        <li>
+          <span>{% if current_lang == 'ru' %}Цвета: CMYK/RGB{% elif current_lang == 'en' %}Colors: CMYK/RGB{% else %}Кольори: CMYK/RGB{% endif %}</span>
+          <span class="tooltip" tabindex="0" role="button" aria-label="{% trans 'Чому важливий колірний профіль' %}" data-tooltip="{% if current_lang == 'ru' %}Оба профиля принимаем, но итоговый цвет проверяем перед печатью.{% elif current_lang == 'en' %}Both profiles are accepted, and final color is checked before print.{% else %}Обидва профілі приймаємо, а фінальний колір перевіряємо перед друком.{% endif %}">i</span>
+        </li>
+      </ul>
+    </article>
+
     <div class="req-grid tracing-beam-doc" data-tracing-beam data-effect="tracing-beam" data-ui="dtf:requirements:rules">
       <div class="tracing-beam-line" aria-hidden="true"><span data-tracing-beam-progress></span></div>
       <div class="req-card">
-        <h3>{% trans "Формат" %}</h3>
+        <h3>{% if current_lang == 'ru' %}Типичные ошибки{% elif current_lang == 'en' %}Common mistakes{% else %}Типові помилки{% endif %}</h3>
         <ul>
-          <li>{% trans "PDF або PNG" %}</li>
-          <li><span data-pointer>{% trans "Ширина 60 см" %}</span></li>
-          <li><span data-pointer>{% trans "Прозорий фон" %}</span></li>
+          <li><strong>{% trans "Дуже тонкі лінії" %}</strong> — {% if current_lang == 'ru' %}могут частично исчезнуть при переносе{% elif current_lang == 'en' %}can partially disappear after transfer{% else %}можуть частково зникнути під час переносу{% endif %}</li>
+          <li><strong>{% trans "Низька роздільна здатність" %}</strong> — {% if current_lang == 'ru' %}даёт «мыло» и потерю деталей{% elif current_lang == 'en' %}causes blur and detail loss{% else %}дає «мило» і втрату деталей{% endif %}</li>
+          <li><strong>{% trans "Відсутній білий підклад" %}</strong> — {% if current_lang == 'ru' %}цвет на тёмной ткани будет грязным{% elif current_lang == 'en' %}color on dark fabric will look dull{% else %}колір на темній тканині буде тьмяним{% endif %}</li>
         </ul>
+        <a class="btn btn-ghost" href="{% url 'dtf:order' %}?tab=help">{% if current_lang == 'ru' %}Отправить файл на проверку →{% elif current_lang == 'en' %}Send file for check →{% else %}Надіслати файл на перевірку →{% endif %}</a>
       </div>
       <div class="req-card">
-        <h3>{% trans "Якість" %}</h3>
-        <ul>
-          <li><span data-pointer>{% trans "Рекомендовано 300 DPI" %}</span></li>
-          <li>{% trans "Без зайвих відступів" %}</li>
-          <li>{% trans "Кольори у CMYK/RGB" %}</li>
-        </ul>
+        <h3>OK: VECTOR / RISK: RASTER</h3>
+        <p>{% if current_lang == 'ru' %}Вектор и качественный исходник держат мелкий текст и тонкие линии стабильнее.{% elif current_lang == 'en' %}Vector and high-quality source files keep fine text and thin lines more stable.{% else %}Вектор і якісний вихідний файл краще тримають дрібний текст і тонкі лінії.{% endif %}</p>
+        <p class="muted">{% if current_lang == 'ru' %}Наведите/нажмите на подсказки в блоке ниже, чтобы увидеть риски по пунктам.{% elif current_lang == 'en' %}Hover/tap the hints below to see per-item risks.{% else %}Наведіть/натисніть підказки нижче, щоб побачити ризики по пунктах.{% endif %}</p>
       </div>
-      <div class="req-card">
-        <h3>{% trans "Типові помилки" %}</h3>
-        <ul>
-          <li>{% trans "Дуже тонкі лінії" %}</li>
-          <li>{% trans "Низька роздільна здатність" %}</li>
-          <li>{% trans "Відсутній білий підклад" %}</li>
-        </ul>
+      <div class="req-card safe-area-card">
+        <h3>Safe area</h3>
+        <div class="safe-area-schema" aria-hidden="true">
+          <span class="safe-area-outer"></span>
+          <span class="safe-area-inner"></span>
+        </div>
+        <p class="muted">{% if current_lang == 'ru' %}Держите важные элементы внутри внутренней зоны, чтобы край не «срезало».{% elif current_lang == 'en' %}Keep important elements inside the inner zone to avoid edge cutoffs.{% else %}Тримайте важливі елементи всередині внутрішньої зони, щоб край не «зрізало».{% endif %}</p>
       </div>
     </div>
 
@@ -117,17 +142,27 @@
     </div>
 
     <div class="template-links">
-      <h3>{% if current_lang == 'ru' %}Шаблоны 60 см для макета{% elif current_lang == 'en' %}60 cm layout templates{% else %}Шаблони 60 см для макета{% endif %}</h3>
+      <h3>{% if current_lang == 'ru' %}Шаблоны 60 см{% elif current_lang == 'en' %}60 cm templates{% else %}Шаблони 60 см{% endif %}</h3>
       <div class="cta-group">
         <!-- ASSET_REQUEST | id=template-60cm-file | type=mockup | usage=Requirements download button | spec=PDF/AI/FIGMA file set | notes=final 60cm template files -->
         <a class="btn btn-primary" href="{% static 'dtf/assets/template-60cm.pdf' %}" download>{% if current_lang == 'ru' %}Скачать шаблон{% elif current_lang == 'en' %}Download template{% else %}Завантажити шаблон{% endif %}</a>
-        <a class="btn btn-outline" href="{% url 'dtf:templates' %}">{% trans "Перейти до шаблонів" %}</a>
+        <a class="btn btn-outline" href="{% static 'dtf/assets/template-60cm.ai' %}" download>AI</a>
+        <a class="btn btn-outline" href="{% static 'dtf/assets/template-60cm.fig' %}" download>Figma</a>
+        <a class="btn btn-ghost" href="{% url 'dtf:templates' %}">{% if current_lang == 'ru' %}Как пользоваться{% elif current_lang == 'en' %}How to use{% else %}Як користуватись{% endif %}</a>
+      </div>
+      <ol class="template-steps muted">
+        <li>{% if current_lang == 'ru' %}Скачайте PDF/AI/Figma и разместите дизайны внутри safe area.{% elif current_lang == 'en' %}Download PDF/AI/Figma and place designs inside the safe area.{% else %}Скачайте PDF/AI/Figma і розкладіть дизайни в межах safe area.{% endif %}</li>
+        <li>{% if current_lang == 'ru' %}Проверьте прозрачность фона и минимальную толщину линий.{% elif current_lang == 'en' %}Check background transparency and minimum line thickness.{% else %}Перевірте прозорість фону та мінімальну товщину ліній.{% endif %}</li>
+        <li>{% if current_lang == 'ru' %}Сохраните PDF/PNG и отправьте на preflight перед печатью.{% elif current_lang == 'en' %}Save as PDF/PNG and send for preflight before print.{% else %}Збережіть у PDF/PNG і надішліть на preflight перед друком.{% endif %}</li>
+      </ol>
+      <div class="template-linkline">
+        <a href="{% url 'dtf:quality' %}">{% if current_lang == 'ru' %}Смотреть QC и макро‑примеры →{% elif current_lang == 'en' %}See QC and macro examples →{% else %}Дивитись QC та макро‑приклади →{% endif %}</a>
       </div>
     </div>
 
     <div class="cta-block">
       <h3>{% if current_lang == 'ru' %}Не хотите собирать макет 60 см? Поможем{% elif current_lang == 'en' %}Don’t want to build a 60 cm layout? We can{% else %}Не хочете збирати макет 60 см? Допоможемо{% endif %}</h3>
-      <p>{% if current_lang == 'ru' %}Отправьте отдельные PNG/PDF — мы соберем макет 60 см (ганг‑лист) и согласуем перед печатью.{% elif current_lang == 'en' %}Send separate PNG/PDF files — we’ll assemble a 60 cm layout (gang sheet) and confirm before printing.{% else %}Надішліть окремі PNG/PDF — ми зберемо макет 60 см (ганг‑лист) і погодимо перед друком.{% endif %}</p>
+      <p>{% if current_lang == 'ru' %}Отправьте отдельные PNG/PDF — мы соберем макет 60 см (gang sheet) и согласуем перед печатью.{% elif current_lang == 'en' %}Send separate PNG/PDF files — we’ll assemble a 60 cm layout (gang sheet) and confirm before printing.{% else %}Надішліть окремі PNG/PDF — ми зберемо макет 60 см (ганг‑ліст) і погодимо перед друком.{% endif %}</p>
       <a class="btn btn-primary" href="{% url 'dtf:order' %}?tab=help">{% if current_lang == 'ru' %}Нужна помощь с макетом{% elif current_lang == 'en' %}Need help with artwork{% else %}Потрібна допомога з макетом{% endif %}</a>
     </div>
   </div>

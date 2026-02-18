@@ -51,7 +51,7 @@
         </details>
         <details>
           <summary>{% if current_lang == 'ru' %}Можно ли печатать мелкий текст?{% elif current_lang == 'en' %}Can you print tiny text?{% else %}Чи можна друкувати дрібний текст?{% endif %}</summary>
-          <p>{% if current_lang == 'ru' %}Да, но мелкий текст и тонкие линии — зона риска. Если что-то “на грани”, предупредим и предложим правку или тест A4.{% elif current_lang == 'en' %}Yes, but tiny text/thin lines can be risky. If something is borderline, we’ll warn you and suggest a fix or an A4 test.{% else %}Так, але дрібний текст і тонкі лінії — зона ризику. Якщо щось “на межі”, ми попередимо і запропонуємо правку або тест A4.{% endif %}</p>
+          <p>{% if current_lang == 'ru' %}Да, но мелкий текст и тонкие линии — зона риска. Если что-то “на грани”, предупредим и предложим правку или тест‑пак.{% elif current_lang == 'en' %}Yes, but tiny text/thin lines can be risky. If something is borderline, we’ll warn you and suggest a fix or a test pack.{% else %}Так, але дрібний текст і тонкі лінії — зона ризику. Якщо щось “на межі”, ми попередимо і запропонуємо правку або тест‑пак.{% endif %}</p>
         </details>
       </article>
 
@@ -94,7 +94,7 @@
 
     <div class="cta-group" data-reveal>
       <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% if current_lang == 'ru' %}Отправить файл на проверку{% elif current_lang == 'en' %}Send file for check{% else %}Надіслати файл на перевірку{% endif %}</a>
-      <a class="btn btn-outline" href="{% url 'dtf:sample' %}">{% if current_lang == 'ru' %}Получить образец A4{% elif current_lang == 'en' %}Get A4 sample{% else %}Отримати зразок A4{% endif %}</a>
+      <a class="btn btn-outline" href="{% url 'dtf:sample' %}">{% if current_lang == 'ru' %}Получить тест‑пак{% elif current_lang == 'en' %}Get test pack{% else %}Отримати тест‑пак{% endif %}</a>
     </div>
   </div>
 </section>
