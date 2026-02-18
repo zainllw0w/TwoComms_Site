@@ -409,6 +409,8 @@
       if (!initOnce(tabs, 'Tabs')) return;
       const indicator = tabs.querySelector('.tab-indicator');
       const buttons = Array.from(tabs.querySelectorAll('.tab-btn'));
+      const panelRoot = tabs.closest('[data-ui="dtf:order:root"]') || document;
+      let activeBtn = tabs.querySelector('.tab-btn.active') || buttons[0];
 
       function moveIndicator(btn) {
         if (!indicator || !btn) return;
@@ -422,8 +424,9 @@
         btn.addEventListener('click', () => {
           buttons.forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
+          activeBtn = btn;
           const target = btn.dataset.target;
-          document.querySelectorAll('.order-panels .panel').forEach(panel => {
+          panelRoot.querySelectorAll('.order-panels .panel').forEach(panel => {
             panel.classList.toggle('active', panel.id === `panel-${target}`);
           });
           moveIndicator(btn);
@@ -433,7 +436,6 @@
         });
       });
 
-      const activeBtn = tabs.querySelector('.tab-btn.active') || buttons[0];
       moveIndicator(activeBtn);
       window.addEventListener('resize', () => moveIndicator(activeBtn));
     });

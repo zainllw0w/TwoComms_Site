@@ -409,6 +409,8 @@ def _base_context(request):
         ),
         "profile": f"{scheme}://{main_host}/profile/setup/",
         "orders": f"{scheme}://{main_host}/my/orders/",
+        "sessions": f"{scheme}://{main_host}/my/sessions/",
+        "loyalty": f"{scheme}://{main_host}/my/loyalty/",
         "store_admin": f"{scheme}://{store_admin_host}/admin-panel/",
         "management_home": f"{scheme}://{management_host}/",
         "management_login": f"{scheme}://{management_host}/login/",

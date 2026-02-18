@@ -139,7 +139,7 @@
 
           <div class="order-summary" data-summary>
             <div class="summary-head">
-              <div class="overline">{% trans "SUMMARY" %}</div>
+              <div class="overline">{% if current_lang == 'ru' %}ИТОГ{% elif current_lang == 'en' %}SUMMARY{% else %}ПІДСУМОК{% endif %}</div>
               <div class="summary-title">{% trans "Preflight" %}</div>
             </div>
             <div class="summary-row">

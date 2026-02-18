@@ -4,7 +4,6 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="view-transition" content="same-origin">
   <meta name="theme-color" content="#050505">
   <title>{% block title %}{% trans "DTF друк у рулоні 60 см — TwoComms" %}{% endblock %}</title>
   <meta name="description" content="{% block description %}{% trans "DTF друк 60 см: швидкий розрахунок метражу, перевірка макета та доставка НП." %}{% endblock %}">
@@ -91,17 +90,6 @@
     .home-dot-distortion .dot-orb-1 { top: 24%; left: 18%; }
     .home-dot-distortion .dot-orb-2 { top: 56%; left: 54%; }
     .home-dot-distortion .dot-orb-3 { top: 20%; left: 76%; }
-    .header-service-badge {
-      max-width: min(560px, 52vw);
-      font-size: 12px;
-      line-height: 1.35;
-      color: rgba(245, 245, 242, 0.85);
-    }
-    @media (max-width: 1100px) {
-      .header-service-badge {
-        display: none;
-      }
-    }
   </style>
   <link
     rel="preload"
@@ -112,7 +100,7 @@
     <link rel="stylesheet" href="{% static 'dtf/css/fonts-local.css' %}?v=20260215a">
   </noscript>
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260206b">
-  <link rel="stylesheet" href="{% static 'dtf/css/dtf.min.css' %}?v=20260216a">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260218a">
   {% if dtf_load_effects %}
     <link
       rel="preload"
@@ -142,20 +130,29 @@
       <span class="dot-orb dot-orb-3" data-dot-orb data-depth="0.22"></span>
     </div>
     <header class="dtf-header" data-ui="dtf:base:header">
+      <div class="dtf-header-topbar">
+        <div class="dtf-container header-topbar-inner">
+          <div class="lang-switch" aria-label="{% trans 'Зміна мови' %}">
+            <a href="{{ lang_links.uk }}" class="{% if current_lang == 'uk' %}active{% endif %}">UA</a>
+            <a href="{{ lang_links.ru }}" class="{% if current_lang == 'ru' %}active{% endif %}">RU</a>
+            <a href="{{ lang_links.en }}" class="{% if current_lang == 'en' %}active{% endif %}">EN</a>
+          </div>
+          <span class="header-status-chip">
+            {% if current_lang == 'ru' %}
+              Онлайн · до 12:00 подтверждение, отправка сегодня
+            {% elif current_lang == 'en' %}
+              Online · approve by 12:00, ship today
+            {% else %}
+              Онлайн · до 12:00 підтвердження, відправка сьогодні
+            {% endif %}
+          </span>
+        </div>
+      </div>
       <div class="dtf-container header-inner">
         <a href="{% url 'dtf:landing' %}" class="logo">
           <span class="logo-mark">DTF</span>
           <span class="logo-text">TwoComms</span>
         </a>
-        <div class="header-service-badge">
-          {% if current_lang == 'ru' %}
-            24/7 · отвечаем за 10 минут · подтверждение до 12:00 — отправка сегодня
-          {% elif current_lang == 'en' %}
-            24/7 · reply in ~10 min · approved by 12:00 — ship today
-          {% else %}
-            24/7 · відповідаємо за 10 хв · підтвердження до 12:00 — відправка сьогодні
-          {% endif %}
-        </div>
         <nav class="main-nav" aria-label="{% trans 'Основна навігація' %}">
           <a href="{% url 'dtf:order' %}" class="{% if request.path == '/order/' %}is-active{% endif %}" {% if request.path == '/order/' %}aria-current="page"{% endif %}>{% trans "Замовити" %}</a>
           <a href="{% url 'dtf:constructor' %}" class="{% if request.path == '/constructor/' or request.path == '/constructor/app/' %}is-active{% endif %}" {% if request.path == '/constructor/' or request.path == '/constructor/app/' %}aria-current="page"{% endif %}>{% trans "Конструктор" %}</a>
@@ -169,13 +166,20 @@
           <button class="nav-toggle" type="button" data-drawer-open aria-controls="nav-drawer" aria-expanded="false">
             {% trans "Меню" %}
           </button>
-          <div class="lang-switch">
-            <a href="{{ lang_links.uk }}" class="{% if current_lang == 'uk' %}active{% endif %}">UA</a>
-            <a href="{{ lang_links.ru }}" class="{% if current_lang == 'ru' %}active{% endif %}">RU</a>
-            <a href="{{ lang_links.en }}" class="{% if current_lang == 'en' %}active{% endif %}">EN</a>
+          <div class="header-contact-actions" aria-label="{% trans 'Контакти' %}">
+            <a href="tel:+380966543212" class="contact-chip contact-chip-phone" aria-label="+380966543212">
+              <span class="contact-chip-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M6.6 10.8a15.5 15.5 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.24c1.1.37 2.28.56 3.5.56a1 1 0 0 1 1 1V21a1 1 0 0 1-1 1C10.85 22 2 13.15 2 2a1 1 0 0 1 1-1h4.5a1 1 0 0 1 1 1c0 1.22.19 2.4.56 3.5a1 1 0 0 1-.24 1l-2.22 2.3Z" fill="currentColor"/></svg>
+              </span>
+              <span class="contact-chip-label">+380966543212</span>
+            </a>
+            <a href="https://t.me/twocomms" class="contact-chip contact-chip-telegram" target="_blank" rel="noopener noreferrer" aria-label="Telegram @twocomms">
+              <span class="contact-chip-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M21.5 4.6c.3-.98-.66-1.87-1.58-1.45L2.8 10.3c-.98.4-.92 1.8.08 2.12l4.4 1.4 1.68 5.07c.3.92 1.48 1.15 2.1.4l2.46-3 4.82 3.53c.83.6 2 .16 2.23-.82l2.89-14.43ZM9.8 13.2l8.45-6.5-6.53 7.57-.65 2.32-1.27-3.4Z" fill="currentColor"/></svg>
+              </span>
+              <span class="contact-chip-label">@twocomms</span>
+            </a>
           </div>
-          <a href="tel:+380966543212" class="btn btn-ghost">+380966543212</a>
-          <a href="https://t.me/twocomms" class="btn btn-outline" target="_blank" rel="noopener noreferrer">@twocomms</a>
           <div class="profile-menu" data-profile-menu>
             <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-controls="dtf-profile-panel" aria-haspopup="dialog">
               <span class="profile-avatar" aria-hidden="true">
@@ -183,13 +187,6 @@
                   <img src="{{ profile_avatar_url }}" alt="">
                 {% else %}
                   <span>{{ profile_initials }}</span>
-                {% endif %}
-              </span>
-              <span class="profile-trigger-label">
-                {% if request.user.is_authenticated %}
-                  {{ profile_display_name }}
-                {% else %}
-                  {% trans "Увійти" %}
                 {% endif %}
               </span>
             </button>
@@ -217,18 +214,20 @@
                   </div>
                 </div>
                 <div class="profile-panel-links">
-                  <a href="{{ profile_links.profile }}" class="profile-link" data-profile-close>{% trans "Профіль" %}</a>
-                  <a href="{{ profile_links.orders }}" class="profile-link" data-profile-close>{% trans "Мої замовлення" %}</a>
+                  <a href="{{ profile_links.profile }}" class="profile-link" data-profile-close>{% if current_lang == 'ru' %}Кабинет{% elif current_lang == 'en' %}Cabinet{% else %}Кабінет{% endif %}</a>
+                  <a href="{{ profile_links.orders }}" class="profile-link" data-profile-close>{% if current_lang == 'ru' %}Заказы{% elif current_lang == 'en' %}Orders{% else %}Замовлення{% endif %}</a>
+                  <a href="{{ profile_links.sessions }}" class="profile-link" data-profile-close>{% if current_lang == 'ru' %}Сессии{% elif current_lang == 'en' %}Sessions{% else %}Сесії{% endif %}</a>
+                  <a href="{{ profile_links.loyalty }}" class="profile-link" data-profile-close>{% if current_lang == 'ru' %}Лояльность{% elif current_lang == 'en' %}Loyalty{% else %}Лояльність{% endif %}</a>
                   {% if profile_can_management %}
-                    <a href="{{ profile_links.management_home }}" class="profile-link" data-profile-close>{% trans "Management-панель" %}</a>
+                    <a href="{{ profile_links.management_home }}" class="profile-link profile-link-ghost" data-profile-close>{% trans "Management-панель" %}</a>
                   {% else %}
-                    <a href="{{ profile_links.management_login }}" class="profile-link" data-profile-close>{% trans "Вхід у Management" %}</a>
+                    <a href="{{ profile_links.management_login }}" class="profile-link profile-link-ghost" data-profile-close>{% trans "Вхід у Management" %}</a>
                   {% endif %}
                   {% if profile_can_store_admin %}
-                    <a href="{{ profile_links.store_admin }}" class="profile-link" data-profile-close>{% trans "Адмін-панель сайту" %}</a>
+                    <a href="{{ profile_links.store_admin }}" class="profile-link profile-link-ghost" data-profile-close>{% trans "Адмін-панель сайту" %}</a>
                   {% endif %}
                   {% if profile_can_django_admin %}
-                    <a href="{{ profile_links.django_admin }}" class="profile-link" data-profile-close>{% trans "Django admin (DTF)" %}</a>
+                    <a href="{{ profile_links.django_admin }}" class="profile-link profile-link-ghost" data-profile-close>{% trans "Django admin (DTF)" %}</a>
                   {% endif %}
                 </div>
                 <form method="post" action="{% url 'dtf:logout' %}" class="profile-logout-form">
@@ -294,7 +293,7 @@
             {% if current_lang == 'ru' %}
               Рассчитать стоимость
             {% elif current_lang == 'en' %}
-              Calculate price
+              Get a quote
             {% else %}
               Розрахувати вартість
             {% endif %}
