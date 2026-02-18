@@ -20,7 +20,8 @@ python manage.py runserver
 - `DTF_MAX_COPIES` — поріг копій для ручної перевірки (default 500)
 - `DTF_MAX_METERS_REVIEW` — метраж для ручної перевірки (default 200)
 - `DTF_PRICING` — словник з базовою ціною та tier
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`/`TELEGRAM_ADMIN_ID` — для повідомлень
+- `DTF_TG_BOT_TOKEN` — окремий токен Telegram-бота саме для DTF
+- `DTF_TG_CHAT_ID`/`DTF_TG_ADMIN_ID` — chat-id для DTF (якщо не задано, fallback на `TELEGRAM_CHAT_ID`/`TELEGRAM_ADMIN_ID`)
 
 ## Файли
 - Замовлення: `MEDIA_ROOT/dtf/orders/`
