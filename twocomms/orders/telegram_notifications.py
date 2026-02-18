@@ -23,12 +23,23 @@ def _parse_chat_ids(raw_value):
 class TelegramNotifier:
     """Класс для отправки уведомлений в Telegram"""
 
-    def __init__(self):
-        self.bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
-        self.chat_id = os.environ.get('TELEGRAM_CHAT_ID')
-        self.admin_id = os.environ.get('TELEGRAM_ADMIN_ID')
+    def __init__(
+        self,
+        *,
+        bot_token=None,
+        chat_id=None,
+        admin_id=None,
+        bot_token_env="TELEGRAM_BOT_TOKEN",
+        chat_id_env="TELEGRAM_CHAT_ID",
+        admin_id_env="TELEGRAM_ADMIN_ID",
+        async_enabled=True,
+    ):
+        self.bot_token = bot_token if bot_token is not None else os.environ.get(bot_token_env)
+        self.chat_id = chat_id if chat_id is not None else os.environ.get(chat_id_env)
+        self.admin_id = admin_id if admin_id is not None else os.environ.get(admin_id_env)
         self.chat_ids = _parse_chat_ids(self.chat_id)
         self.admin_ids = _parse_chat_ids(self.admin_id)
+        self.async_enabled = bool(async_enabled)
 
     def is_configured(self):
         """Проверяет, настроен ли бот"""
@@ -51,7 +62,7 @@ class TelegramNotifier:
         if not target_ids:
             return False
 
-        if send_telegram_notification_task:
+        if self.async_enabled and send_telegram_notification_task:
             print(f"🟢 Delegating to Celery task (chat_id={target_ids})")
             for target_id in target_ids:
                 send_telegram_notification_task.delay(message, chat_id=target_id, parse_mode=parse_mode)
@@ -126,7 +137,7 @@ class TelegramNotifier:
             print(f"❌ No telegram_id provided")
             return False
 
-        if send_telegram_notification_task:
+        if self.async_enabled and send_telegram_notification_task:
             print(f"🟢 Delegating to Celery task (chat_id={telegram_id})")
             send_telegram_notification_task.delay(message, chat_id=telegram_id, parse_mode=parse_mode)
             return True
