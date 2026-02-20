@@ -4295,26 +4295,28 @@ textarea:disabled {
 .dtf-manager-fab-wrap {
   position: fixed;
   right: 18px;
-  bottom: calc(92px + env(safe-area-inset-bottom));
-  transform: none;
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
   z-index: var(--z-popover);
   transition: opacity var(--motion-fast) var(--motion-ease);
 }
 
 .manager-fab-btn {
-  min-width: 52px;
-  min-height: 52px;
+  min-width: 54px;
+  min-height: 54px;
+  padding: 8px 14px 8px 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  background: linear-gradient(180deg, rgba(255, 120, 22, 0.92), rgba(226, 96, 11, 0.95));
+  border-radius: 999px;
+  background: linear-gradient(140deg, rgba(255, 126, 36, 0.95), rgba(232, 97, 10, 0.96));
   color: #fff;
   display: inline-flex;
-  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 0;
-  box-shadow: 0 14px 28px rgba(255, 92, 0, 0.3);
+  justify-content: flex-start;
+  gap: 10px;
+  box-shadow: 0 16px 30px rgba(255, 92, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
   cursor: pointer;
+  white-space: nowrap;
   transition:
     transform var(--motion-fast) var(--motion-ease),
     box-shadow var(--motion-fast) var(--motion-ease),
@@ -4323,19 +4325,40 @@ textarea:disabled {
 
 .manager-fab-btn:hover,
 .manager-fab-btn:focus-visible {
-  transform: translateY(-2px);
-  box-shadow: 0 18px 30px rgba(255, 92, 0, 0.38);
+  transform: translateY(-1px) translateX(-2px);
+  box-shadow: 0 20px 34px rgba(255, 92, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.14) inset;
   filter: brightness(1.04);
 }
 
 .manager-fab-plus {
-  font-size: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  font-size: 22px;
   line-height: 1;
   font-weight: 700;
 }
 
-.manager-fab-btn small {
-  display: none;
+.manager-fab-label {
+  display: inline-block;
+  font-size: 0.75rem;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  max-width: 146px;
+  text-align: left;
+}
+
+@media (max-width: 1260px) {
+  .manager-fab-label {
+    max-width: 122px;
+    font-size: 0.7rem;
+  }
 }
 
 .dtf-manager-modal {
