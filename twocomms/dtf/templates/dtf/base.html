@@ -395,9 +395,9 @@
   </div>
 
   <div class="dtf-manager-fab-wrap" id="dtf-manager-fab" data-manager-fab>
-    <button class="manager-fab-btn" type="button" aria-label="{% trans 'Менеджер' %}">
+    <button class="manager-fab-btn" type="button" aria-label="{% if current_lang == 'ru' %}Связаться с менеджером{% elif current_lang == 'en' %}Contact manager{% else %}Зв'язатися з менеджером{% endif %}">
       <span class="manager-fab-plus" aria-hidden="true">+</span>
-      <small>{% trans "Менеджер" %}</small>
+      <span class="manager-fab-label">{% if current_lang == 'ru' %}Связаться с менеджером{% elif current_lang == 'en' %}Contact manager{% else %}Зв'язатися з менеджером{% endif %}</span>
     </button>
   </div>
 
