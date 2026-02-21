@@ -54,6 +54,9 @@
                     </div>
                     <div class="offer-help" id="parser-query-info">Запит: —</div>
                 </div>
+                <div class="field field-span-2">
+                    <div class="offer-help" id="parser-last-error" hidden></div>
+                </div>
             </form>
         </div>
 
@@ -198,6 +201,7 @@ function initParsingPage() {
     const parserForm = document.getElementById('parser-form');
     const statusChip = document.getElementById('parser-status-chip');
     const queryInfo = document.getElementById('parser-query-info');
+    const lastErrorInfo = document.getElementById('parser-last-error');
     const moderationTableBody = document.querySelector('#moderation-table tbody');
     const rejectedTableBody = document.querySelector('#rejected-table tbody');
     const resultsTableBody = document.querySelector('#parser-results-table tbody');
@@ -272,11 +276,24 @@ function initParsingPage() {
             statusChip.textContent = 'Не запущено';
             statusChip.className = 'status-chip';
             queryInfo.textContent = 'Запит: —';
+            if (lastErrorInfo) {
+                lastErrorInfo.hidden = true;
+                lastErrorInfo.textContent = '';
+            }
             return;
         }
         statusChip.textContent = activeJob.status_display || activeJob.status;
         statusChip.className = `status-chip status-${activeJob.status}`;
         queryInfo.textContent = `Запит: ${activeJob.current_query || '—'}`;
+        if (lastErrorInfo) {
+            if (activeJob.last_error) {
+                lastErrorInfo.hidden = false;
+                lastErrorInfo.textContent = `Помилка: ${activeJob.last_error}`;
+            } else {
+                lastErrorInfo.hidden = true;
+                lastErrorInfo.textContent = '';
+            }
+        }
     };
 
     const renderModeration = (items) => {
