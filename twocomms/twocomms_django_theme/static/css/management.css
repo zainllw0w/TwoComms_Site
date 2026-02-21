@@ -3354,6 +3354,36 @@ button.shop-card {
     box-shadow: 0 10px 26px rgba(255, 126, 41, 0.22);
 }
 
+.home-pane {
+    display: none;
+}
+
+.home-pane.home-pane-active {
+    display: block;
+}
+
+.mgmt-home-tabs {
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+.btn-process-lead {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    box-shadow: none;
+}
+
+.parsing-panel #parser-counters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.parsing-panel summary.offer-title {
+    cursor: pointer;
+}
+
 .offer-grid.offer-grid-single {
     grid-template-columns: 1fr;
 }
@@ -3850,6 +3880,44 @@ button.shop-card {
     border-color: rgba(255, 255, 255, 0.10);
     background: rgba(255, 255, 255, 0.03);
     color: var(--text-secondary);
+}
+
+.status-chip.status-running {
+    border-color: rgba(16, 185, 129, 0.32);
+    background: rgba(16, 185, 129, 0.10);
+}
+
+.status-chip.status-running::before {
+    background: rgba(16, 185, 129, 0.95);
+}
+
+.status-chip.status-paused {
+    border-color: rgba(245, 158, 11, 0.30);
+    background: rgba(245, 158, 11, 0.10);
+}
+
+.status-chip.status-paused::before {
+    background: rgba(245, 158, 11, 0.95);
+}
+
+.status-chip.status-stopped,
+.status-chip.status-completed {
+    border-color: rgba(148, 163, 184, 0.30);
+    background: rgba(148, 163, 184, 0.10);
+}
+
+.status-chip.status-stopped::before,
+.status-chip.status-completed::before {
+    background: rgba(148, 163, 184, 0.95);
+}
+
+.status-chip.status-failed {
+    border-color: rgba(239, 68, 68, 0.30);
+    background: rgba(239, 68, 68, 0.10);
+}
+
+.status-chip.status-failed::before {
+    background: rgba(239, 68, 68, 0.95);
 }
 
 @media (max-width: 980px) {
