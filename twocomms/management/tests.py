@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import Client, ClientFollowUp, LeadParsingJob, LeadParsingResult, ManagementLead, Report
-from .parser_service import create_parsing_job, parse_cities, parser_run_step
+from .parser_service import _places_search_text, create_parsing_job, parse_cities, parser_run_step
 from .stats_service import compute_kpd, parse_stats_range
 from .views import _close_followups_for_report, _sync_client_followup
 
@@ -177,6 +177,30 @@ class ParserServiceTests(TestCase):
         result = LeadParsingResult.objects.filter(job=job).first()
         self.assertIsNotNone(result)
         self.assertEqual(result.status, LeadParsingResult.ResultStatus.NO_PHONE)
+
+    def test_places_search_uses_configured_referer_headers(self):
+        class DummyResponse:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {"places": [], "nextPageToken": ""}
+
+        with patch("management.parser_service.geocode_city_center", return_value=None), patch(
+            "management.parser_service.get_maps_request_referer",
+            return_value="https://management.twocomms.shop/",
+        ), patch("management.parser_service.requests.post", return_value=DummyResponse()) as post_mock:
+            places, next_page_token = _places_search_text(
+                api_key="test-key",
+                text_query="військторг Харків",
+                city="Харків",
+            )
+
+        self.assertEqual(places, [])
+        self.assertEqual(next_page_token, "")
+        headers = post_mock.call_args.kwargs["headers"]
+        self.assertEqual(headers.get("Referer"), "https://management.twocomms.shop/")
+        self.assertEqual(headers.get("Origin"), "https://management.twocomms.shop")
 
 
 @override_settings(
