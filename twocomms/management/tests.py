@@ -1,10 +1,14 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import Client as DjangoClient
+from django.test import TestCase, override_settings
+from django.urls import reverse
 from django.utils import timezone
 
-from .models import Client, ClientFollowUp, Report
+from .models import Client, ClientFollowUp, LeadParsingJob, LeadParsingResult, ManagementLead, Report
+from .parser_service import create_parsing_job, parse_cities, parser_run_step
 from .stats_service import compute_kpd, parse_stats_range
 from .views import _close_followups_for_report, _sync_client_followup
 
@@ -139,3 +143,115 @@ class FollowUpTests(TestCase):
         fu = ClientFollowUp.objects.get(client=client, owner=self.user)
         self.assertEqual(fu.status, ClientFollowUp.Status.MISSED)
         self.assertEqual(fu.closed_by_report_id, report.id)
+
+
+class ParserServiceTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="admin_mgr", password="x", is_staff=True)
+
+    def test_parse_cities_keeps_single_city_phrase(self):
+        self.assertEqual(parse_cities("Харків"), ["Харків"])
+        self.assertEqual(parse_cities("Нью Йорк"), ["Нью Йорк"])
+        self.assertEqual(parse_cities("Харків, Київ"), ["Харків", "Київ"])
+
+    def test_parser_records_no_phone_results(self):
+        job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=3)
+        fake_places = [
+            {
+                "id": "test-place-1",
+                "displayName": {"text": "Магазин без номера"},
+                "formattedAddress": "Харків",
+            }
+        ]
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            return_value=(fake_places, ""),
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.no_phone_skipped, 1)
+        self.assertEqual(job.added_to_moderation, 0)
+        self.assertFalse(ManagementLead.objects.filter(parser_job=job).exists())
+        result = LeadParsingResult.objects.filter(job=job).first()
+        self.assertIsNotNone(result)
+        self.assertEqual(result.status, LeadParsingResult.ResultStatus.NO_PHONE)
+
+
+@override_settings(
+    ROOT_URLCONF="twocomms.urls_management",
+    ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1", "management.twocomms.shop"],
+)
+class ParserApiTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="staff_user", password="x", is_staff=True)
+        self.client_http = DjangoClient(enforce_csrf_checks=True)
+        self.client_http.force_login(self.user)
+        # Subdomain redirects in test environment can hide csrf cookie issuance.
+        # Set a deterministic csrf cookie and use the same value in form/header.
+        self.csrf = "a" * 32
+        self.client_http.cookies["csrftoken"] = self.csrf
+
+    def _post(self, url_name, data):
+        payload = dict(data)
+        payload.setdefault("csrfmiddlewaretoken", self.csrf)
+        return self.client_http.post(
+            reverse(url_name),
+            payload,
+            HTTP_X_CSRFTOKEN=self.csrf,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_HOST="management.twocomms.shop",
+            HTTP_REFERER="https://management.twocomms.shop/parsing/",
+            secure=True,
+        )
+
+    def test_pause_endpoint_accepts_valid_csrf(self):
+        job = LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=LeadParsingJob.Status.RUNNING,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+        )
+        response = self._post("management_parser_pause_api", {"job_id": str(job.id)})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("success"))
+        job.refresh_from_db()
+        self.assertEqual(job.status, LeadParsingJob.Status.PAUSED)
+
+    def test_start_step_resume_stop_flow_returns_json(self):
+        start = self._post(
+            "management_parser_start_api",
+            {
+                "keywords": "військторг",
+                "cities": "Харків",
+                "request_limit": "2",
+            },
+        )
+        self.assertEqual(start.status_code, 200)
+        start_payload = start.json()
+        self.assertTrue(start_payload.get("success"))
+        job_id = str(start_payload["job"]["id"])
+        self.assertEqual(start_payload["job"]["status"], LeadParsingJob.Status.RUNNING)
+
+        with patch("management.parsing_views.parser_run_step", side_effect=lambda j: j):
+            step = self._post("management_parser_step_api", {"job_id": job_id})
+        self.assertEqual(step.status_code, 200)
+        self.assertTrue(step.json().get("success"))
+
+        pause = self._post("management_parser_pause_api", {"job_id": job_id})
+        self.assertEqual(pause.status_code, 200)
+        self.assertEqual(pause.json()["job"]["status"], LeadParsingJob.Status.PAUSED)
+
+        resume = self._post("management_parser_resume_api", {"job_id": job_id})
+        self.assertEqual(resume.status_code, 200)
+        self.assertEqual(resume.json()["job"]["status"], LeadParsingJob.Status.RUNNING)
+
+        stop = self._post("management_parser_stop_api", {"job_id": job_id})
+        self.assertEqual(stop.status_code, 200)
+        self.assertEqual(stop.json()["job"]["status"], LeadParsingJob.Status.STOPPED)
