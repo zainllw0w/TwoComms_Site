@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+import os
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 from django.db.models import Q
@@ -63,7 +65,6 @@ def get_maps_api_key() -> str:
     key = (getattr(settings, "GMapsAPI", None) or "").strip()
     if key:
         return key
-    import os
 
     key = (os.environ.get("GMapsAPI") or "").strip()
     if not key:
@@ -71,11 +72,36 @@ def get_maps_api_key() -> str:
     return key
 
 
+def get_maps_request_referer() -> str:
+    from django.conf import settings
+
+    referer = (
+        getattr(settings, "GMAPS_REQUEST_REFERER", None)
+        or os.environ.get("GMAPS_REQUEST_REFERER")
+        or "https://management.twocomms.shop/"
+    )
+    referer = str(referer or "").strip()
+    if referer and not referer.endswith("/"):
+        referer += "/"
+    return referer
+
+
+def _google_context_headers() -> dict[str, str]:
+    referer = get_maps_request_referer()
+    if not referer:
+        return {}
+    headers = {"Referer": referer}
+    parsed = urlparse(referer)
+    if parsed.scheme and parsed.netloc:
+        headers["Origin"] = f"{parsed.scheme}://{parsed.netloc}"
+    return headers
+
+
 @lru_cache(maxsize=256)
 def geocode_city_center(city: str, api_key: str) -> dict[str, float] | None:
     params = {"address": city, "key": api_key}
     try:
-        resp = requests.get(GEOCODE_URL, params=params, timeout=12)
+        resp = requests.get(GEOCODE_URL, params=params, headers=_google_context_headers(), timeout=12)
         if resp.status_code != 200:
             return None
         payload = resp.json() or {}
@@ -100,6 +126,7 @@ def _places_search_text(api_key: str, text_query: str, city: str, page_token: st
         "X-Goog-Api-Key": api_key,
         "X-Goog-FieldMask": PLACES_FIELD_MASK,
     }
+    headers.update(_google_context_headers())
     body: dict[str, Any] = {
         "textQuery": text_query,
         "languageCode": "uk",
