@@ -1,6 +1,13 @@
 {% extends "management/base.html" %}
 
 {% block content %}
+<div id="home-endpoints"
+     data-lead-create-url="{% url 'management_lead_create_api' %}"
+     data-lead-detail-url-template="{% url 'management_lead_detail_api' 0 %}"
+     data-lead-process-url-template="{% url 'management_lead_process_api' 0 %}"
+     data-client-delete-url-template="{% url 'management_delete_client' 0 %}">
+</div>
+
 <div class="clients-panel">
     <div class="panel-header">
         <div>
@@ -25,80 +32,151 @@
                 </button>
             </form>
             <button class="btn-primary open-add-client">+ Додати клієнта</button>
+            <button class="btn-ghost open-add-lead">+ Додати лід</button>
         </div>
     </div>
 
-    {% if grouped_clients %}
-        {% for label, items in grouped_clients %}
-        <div class="date-group">
-            <div class="date-chip">{{ label }}</div>
-            <div class="table-shell">
-                <table class="nexus-table">
-                    <thead>
-                        <tr>
-                            <th>Магазин/Insta</th>
-                            <th>Телефон</th>
-                            <th>ПІБ</th>
-                            <th>Статус</th>
-                            <th>Джерело</th>
-                            <th>Результат</th>
-                            <th>Наступний дзвінок</th>
-                            <th class="col-actions">Дія</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for client in items %}
-                        <tr data-client-id="{{ client.id }}"
-                            data-shop="{{ client.shop_name|escape }}"
-                            data-phone="{{ client.phone|escape }}"
-                            data-full-name="{{ client.full_name|escape }}"
-                            data-role="{{ client.role }}"
-                            data-source="{{ client.source|escape }}"
-                            data-call-result="{{ client.call_result }}"
-                            data-call-details="{{ client.call_result_details|escape }}"
-                            data-next-call-date="{{ client.next_call_at|date:'Y-m-d' }}"
-                            data-next-call-time="{{ client.next_call_at|date:'H:i' }}">
-                            <td>{{ client.shop_name }}</td>
-                            <td>{{ client.phone }}</td>
-                            <td>{{ client.full_name }}</td>
-                            <td><span class="status-badge role-{{ client.role }}">{{ client.get_role_display }}</span></td>
-                            <td>{{ client.source }}</td>
-                            <td>
-                                <span class="result-badge result-{{ client.call_result }}">{{ client.get_call_result_display }}</span>
-                                {% if client.call_result_details %}<span class="muted-detail">• {{ client.call_result_details }}</span>{% endif %}
-                            </td>
-                            <td>
-                                {% if client.next_call_at %}
-                                    {{ client.next_call_at|date:"d.m.Y H:i" }}
-                                {% else %}
-                                    –
-                                {% endif %}
-                            </td>
-                            <td class="actions-cell">
-                                <button type="button" class="icon-btn edit-client" aria-label="Редагувати">
-                                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                                        <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
-                                    </svg>
-                                </button>
-                                <form method="post" action="{% url 'management_delete_client' client.id %}" class="inline-form delete-client-form">
-                                    {% csrf_token %}
-                                    <button type="submit" class="icon-btn ghost danger" aria-label="Видалити" onclick="return confirm('Видалити клієнта?');">
+    <div class="cp-top-tabs mgmt-home-tabs" id="home-mode-tabs">
+        <button type="button" class="cp-top-tab active" data-home-pane="processing-pane">Обробка</button>
+        <button type="button" class="cp-top-tab" data-home-pane="lead-base-pane">База</button>
+    </div>
+
+    <div id="processing-pane" class="home-pane home-pane-active">
+        {% if grouped_clients %}
+            {% for label, items in grouped_clients %}
+            <div class="date-group">
+                <div class="date-chip">{{ label }}</div>
+                <div class="table-shell">
+                    <table class="nexus-table">
+                        <thead>
+                            <tr>
+                                <th>Магазин/Insta</th>
+                                <th>Телефон</th>
+                                <th>Сайт</th>
+                                <th>ПІБ</th>
+                                <th>Статус</th>
+                                <th>Джерело</th>
+                                <th>Результат</th>
+                                <th>Наступний дзвінок</th>
+                                <th class="col-actions">Дія</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for client in items %}
+                            <tr data-client-id="{{ client.id }}"
+                                data-shop="{{ client.shop_name|escape }}"
+                                data-phone="{{ client.phone|escape }}"
+                                data-website-url="{{ client.website_url|escape }}"
+                                data-full-name="{{ client.full_name|escape }}"
+                                data-role="{{ client.role }}"
+                                data-source="{{ client.source|escape }}"
+                                data-call-result="{{ client.call_result }}"
+                                data-call-details="{{ client.call_result_details|escape }}"
+                                data-next-call-date="{{ client.next_call_at|date:'Y-m-d' }}"
+                                data-next-call-time="{{ client.next_call_at|date:'H:i' }}">
+                                <td>{{ client.shop_name }}</td>
+                                <td>{{ client.phone }}</td>
+                                <td>
+                                    {% if client.website_url %}
+                                        <a href="{{ client.website_url }}" target="_blank" rel="noopener noreferrer">{{ client.website_url|truncatechars:32 }}</a>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                <td>{{ client.full_name }}</td>
+                                <td><span class="status-badge role-{{ client.role }}">{{ client.get_role_display }}</span></td>
+                                <td>{{ client.source }}</td>
+                                <td>
+                                    <span class="result-badge result-{{ client.call_result }}">{{ client.get_call_result_display }}</span>
+                                    {% if client.call_result_details %}<span class="muted-detail">• {{ client.call_result_details }}</span>{% endif %}
+                                </td>
+                                <td>
+                                    {% if client.next_call_at %}
+                                        {{ client.next_call_at|date:"d.m.Y H:i" }}
+                                    {% else %}
+                                        –
+                                    {% endif %}
+                                </td>
+                                <td class="actions-cell">
+                                    <button type="button" class="icon-btn edit-client" aria-label="Редагувати">
                                         <svg viewBox="0 0 24 24" aria-hidden="true">
-                                            <path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"/>
+                                            <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
                                         </svg>
                                     </button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                    <form method="post" action="{% url 'management_delete_client' client.id %}" class="inline-form delete-client-form">
+                                        {% csrf_token %}
+                                        <button type="submit" class="icon-btn ghost danger" aria-label="Видалити" onclick="return confirm('Видалити клієнта?');">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                <path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"/>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
+            {% endfor %}
+        {% else %}
+            <div class="table-empty">Немає даних. Додайте першого клієнта.</div>
+        {% endif %}
+    </div>
+
+    <div id="lead-base-pane" class="home-pane">
+        <div class="table-shell">
+            <table class="nexus-table" id="lead-base-table">
+                <thead>
+                    <tr>
+                        <th>Магазин</th>
+                        <th>Телефон</th>
+                        <th>Сайт</th>
+                        <th>Місто</th>
+                        <th>Статус людини</th>
+                        <th>Додав</th>
+                        <th>Коментарі</th>
+                        <th class="col-actions">Дія</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for lead in base_leads %}
+                    <tr data-lead-id="{{ lead.id }}"
+                        data-shop-name="{{ lead.shop_name|escape }}"
+                        data-phone="{{ lead.phone|escape }}"
+                        data-website-url="{{ lead.website_url|escape }}"
+                        data-full-name="{{ lead.full_name|escape }}"
+                        data-role="{{ lead.role }}"
+                        data-source="{{ lead.source|escape }}"
+                        data-city="{{ lead.city|escape }}"
+                        data-comments="{{ lead.comments|escape }}"
+                        data-details="{{ lead.details|escape }}">
+                        <td>{{ lead.shop_name }}</td>
+                        <td>{{ lead.phone }}</td>
+                        <td>
+                            {% if lead.website_url %}
+                                <a href="{{ lead.website_url }}" target="_blank" rel="noopener noreferrer">{{ lead.website_url|truncatechars:30 }}</a>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>{{ lead.city|default:"—" }}</td>
+                        <td><span class="status-badge role-{{ lead.role }}">{{ lead.get_role_display }}</span></td>
+                        <td>{{ lead.added_by_display }}</td>
+                        <td>{{ lead.comments|default:"—"|truncatechars:80 }}</td>
+                        <td class="actions-cell">
+                            <button type="button" class="btn-primary btn-process-lead process-lead" data-lead-id="{{ lead.id }}">Обробити</button>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr class="lead-base-empty">
+                        <td colspan="8" class="table-empty">База лідів порожня.</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
         </div>
-        {% endfor %}
-    {% else %}
-        <div class="table-empty">Немає даних. Додайте першого клієнта.</div>
-    {% endif %}
+    </div>
 </div>
 
 <!-- Modal: Add Client -->
@@ -122,6 +200,10 @@
                 <div class="field">
                     <label for="phone">Номер телефону</label>
                     <input type="tel" id="phone" name="phone" placeholder="+380..." required>
+                </div>
+                <div class="field">
+                    <label for="website_url">Сайт (необов'язково)</label>
+                    <input type="url" id="website_url" name="website_url" placeholder="https://example.com">
                 </div>
                 <div class="field">
                     <label for="full_name">ПІБ (необовʼязково)</label>
@@ -195,18 +277,238 @@
         </form>
     </div>
 </div>
+
+<!-- Modal: Add Lead -->
+<div id="lead-modal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">База лідів</p>
+                <h3>Додати лід</h3>
+            </div>
+            <button type="button" class="modal-close" aria-label="Закрити">×</button>
+        </div>
+        <form id="lead-form" class="modal-body">
+            {% csrf_token %}
+            <div class="field-grid">
+                <div class="field">
+                    <label for="lead_shop_name">Магазин / Instagram</label>
+                    <input type="text" id="lead_shop_name" name="shop_name" required>
+                </div>
+                <div class="field">
+                    <label for="lead_phone">Номер телефону</label>
+                    <input type="tel" id="lead_phone" name="phone" required>
+                </div>
+                <div class="field">
+                    <label for="lead_website_url">Сайт (необов'язково)</label>
+                    <input type="url" id="lead_website_url" name="website_url" placeholder="https://example.com">
+                </div>
+                <div class="field">
+                    <label for="lead_full_name">ПІБ (необов'язково)</label>
+                    <input type="text" id="lead_full_name" name="full_name">
+                </div>
+                <div class="field">
+                    <label for="lead_role">Статус людини</label>
+                    <select id="lead_role" name="role">
+                        <option value="owner">Власник</option>
+                        <option value="supervisor">Управляючий</option>
+                        <option value="manager">Менеджер</option>
+                        <option value="realizer">Реалізатор</option>
+                        <option value="other">Інше</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="lead_source">Де взяли контакт</label>
+                    <select id="lead_source" name="source">
+                        <option value="google_maps">Google Карти</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="prom_ua">Prom.ua</option>
+                        <option value="forums">Сайти / форуми</option>
+                        <option value="other">Інше</option>
+                    </select>
+                    <input type="url" id="lead_source_link" name="source_link" class="field-conditional" placeholder="Вкажіть лінк" />
+                    <input type="text" id="lead_source_other" name="source_other" class="field-conditional" placeholder="Що саме?" />
+                </div>
+                <div class="field">
+                    <label for="lead_city">Місто</label>
+                    <input type="text" id="lead_city" name="city">
+                </div>
+                <div class="field field-span-2">
+                    <label for="lead_comments">Коментарі</label>
+                    <textarea id="lead_comments" name="comments" placeholder="Коментарі від лідогенератора"></textarea>
+                </div>
+                <div class="field field-span-2">
+                    <label for="lead_details">Інша інформація</label>
+                    <textarea id="lead_details" name="details" placeholder="Додаткова інформація про магазин"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-ghost modal-close">Відмінити</button>
+                <button type="submit" class="btn-primary">Додати в базу</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Process Lead -->
+<div id="lead-process-modal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">База лідів</p>
+                <h3>Обробити лід</h3>
+            </div>
+            <button type="button" class="modal-close" aria-label="Закрити">×</button>
+        </div>
+        <form id="lead-process-form" class="modal-body">
+            {% csrf_token %}
+            <input type="hidden" id="process_lead_id" name="lead_id">
+            <div class="field-grid">
+                <div class="field">
+                    <label for="process_shop_name">Магазин / Instagram</label>
+                    <input type="text" id="process_shop_name" name="shop_name" required>
+                </div>
+                <div class="field">
+                    <label for="process_phone">Номер телефону</label>
+                    <input type="tel" id="process_phone" name="phone" required>
+                </div>
+                <div class="field">
+                    <label for="process_website_url">Сайт (необов'язково)</label>
+                    <input type="url" id="process_website_url" name="website_url">
+                </div>
+                <div class="field">
+                    <label for="process_full_name">ПІБ (необов'язково)</label>
+                    <input type="text" id="process_full_name" name="full_name">
+                </div>
+                <div class="field">
+                    <label for="process_role">Статус людини</label>
+                    <select id="process_role" name="role">
+                        <option value="owner">Власник</option>
+                        <option value="supervisor">Управляючий</option>
+                        <option value="manager">Менеджер</option>
+                        <option value="realizer">Реалізатор</option>
+                        <option value="other">Інше</option>
+                    </select>
+                    <input type="text" id="process_role_custom" name="role_custom" class="field-conditional" placeholder="Кого саме?" />
+                </div>
+                <div class="field">
+                    <label for="process_source">Де взяли контакт</label>
+                    <select id="process_source" name="source">
+                        <option value="google_maps">Google Карти</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="prom_ua">Prom.ua</option>
+                        <option value="forums">Сайти / форуми</option>
+                        <option value="other">Інше</option>
+                    </select>
+                    <input type="url" id="process_source_link" name="source_link" class="field-conditional" placeholder="Вкажіть лінк" />
+                    <input type="text" id="process_source_other" name="source_other" class="field-conditional" placeholder="Що саме?" />
+                </div>
+                <div class="field">
+                    <label for="process_call_result">Підсумок розмови</label>
+                    <select id="process_call_result" name="call_result">
+                        <option value="order">Оформив замовлення</option>
+                        <option value="sent_email">Відправили КП на e-mail</option>
+                        <option value="sent_messenger">Відправили КП у месенджери</option>
+                        <option value="wrote_ig">Написали в Instagram</option>
+                        <option value="no_answer">Не відповідає</option>
+                        <option value="not_interested">Не цікавить</option>
+                        <option value="invalid_number">Номер недоступний</option>
+                        <option value="xml_connected">Підключив XML</option>
+                        <option value="thinking" selected>Подумає</option>
+                        <option value="expensive">Дорого</option>
+                        <option value="waiting_payment">Очікується оплата</option>
+                        <option value="waiting_prepayment">Очікується передоплата</option>
+                        <option value="test_batch">Замовив тестову партію</option>
+                        <option value="other">Інше</option>
+                    </select>
+                    <textarea id="process_call_result_other" name="call_result_other" class="field-conditional" placeholder="Що саме інше?"></textarea>
+                </div>
+                <div class="field field-span-2">
+                    <label>Наступний дзвінок</label>
+                    <div class="next-call-options">
+                        <label class="pill-radio">
+                            <input type="radio" name="next_call_type" value="scheduled" checked>
+                            <span>Дата та час</span>
+                        </label>
+                        <label class="pill-radio">
+                            <input type="radio" name="next_call_type" value="no_follow">
+                            <span>Неконверcійний клієнт</span>
+                        </label>
+                    </div>
+                    <div class="next-call-datetime" id="process_next_call_datetime">
+                        <input type="date" id="process_next_call_date" name="next_call_date">
+                        <input type="time" id="process_next_call_time" name="next_call_time">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-ghost modal-close">Відмінити</button>
+                <button type="submit" class="btn-primary">Зберегти в обробку</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 function initManagementHomePage() {
-    const modal = document.getElementById('client-modal');
-    if (!modal) return;
-    if (modal.dataset.mgmtInitialized === '1') return;
-    modal.dataset.mgmtInitialized = '1';
     const body = document.body;
-    const openButtons = document.querySelectorAll('.open-add-client');
-    const closeButtons = modal.querySelectorAll('.modal-close');
+    const endpoints = document.getElementById('home-endpoints');
+    if (!endpoints) return;
+    if (endpoints.dataset.homeInit === '1') return;
+    endpoints.dataset.homeInit = '1';
+
+    const leadCreateUrl = endpoints.dataset.leadCreateUrl;
+    const leadDetailTpl = endpoints.dataset.leadDetailUrlTemplate;
+    const leadProcessTpl = endpoints.dataset.leadProcessUrlTemplate;
+    const clientDeleteTpl = endpoints.dataset.clientDeleteUrlTemplate;
+
+    const clientModal = document.getElementById('client-modal');
+    const leadModal = document.getElementById('lead-modal');
+    const processModal = document.getElementById('lead-process-modal');
+    const reportCountdown = document.getElementById('report-countdown');
+    const reportSubmit = document.getElementById('report-submit');
+    const reportForm = document.getElementById('report-form');
+
+    const setDefaultDateTime = (dateInput, timeInput) => {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 30);
+        dateInput.value = now.toISOString().slice(0, 10);
+        timeInput.value = now.toTimeString().slice(0, 5);
+    };
+
+    const openModal = (modal) => {
+        modal.classList.add('show');
+        body.classList.add('modal-open');
+    };
+    const closeModal = (modal) => {
+        modal.classList.remove('show');
+        if (!document.querySelector('.modal-overlay.show')) {
+            body.classList.remove('modal-open');
+        }
+    };
+
+    document.querySelectorAll('.modal-overlay .modal-close').forEach((btn) => {
+        btn.addEventListener('click', () => closeModal(btn.closest('.modal-overlay')));
+    });
+    document.querySelectorAll('.modal-overlay').forEach((modal) => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal(modal);
+        });
+    });
+
+    document.getElementById('home-mode-tabs')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-home-pane]');
+        if (!btn) return;
+        document.querySelectorAll('[data-home-pane]').forEach((node) => node.classList.remove('active'));
+        btn.classList.add('active');
+        const targetId = btn.dataset.homePane;
+        document.querySelectorAll('.home-pane').forEach((pane) => pane.classList.remove('home-pane-active'));
+        const target = document.getElementById(targetId);
+        if (target) target.classList.add('home-pane-active');
+    });
+
     const roleSelect = document.getElementById('role');
     const roleCustom = document.getElementById('role_custom');
     const sourceSelect = document.getElementById('source');
@@ -214,86 +516,51 @@ function initManagementHomePage() {
     const sourceOther = document.getElementById('source_other');
     const callResultSelect = document.getElementById('call_result');
     const callResultOther = document.getElementById('call_result_other');
-    const nextCallRadios = document.querySelectorAll('input[name="next_call_type"]');
+    const nextCallRadios = document.querySelectorAll('#client-form input[name="next_call_type"]');
     const nextCallWrap = document.getElementById('next_call_datetime');
     const nextCallDate = document.getElementById('next_call_date');
     const nextCallTime = document.getElementById('next_call_time');
     const clientIdInput = document.getElementById('client_id');
-    const shopNameInput = document.getElementById('shop_name');
-    const phoneInput = document.getElementById('phone');
-    const fullNameInput = document.getElementById('full_name');
-    const modalTitle = document.querySelector('.modal-header h3');
-    const modalSubmit = modal.querySelector('.modal-footer .btn-primary');
-    const editButtons = document.querySelectorAll('.edit-client');
-    const reportCountdown = document.getElementById('report-countdown');
-    const reportSubmit = document.getElementById('report-submit');
-    const reportForm = document.getElementById('report-form');
+    const clientForm = document.getElementById('client-form');
+    const modalTitle = clientModal.querySelector('.modal-header h3');
+    const modalSubmit = clientModal.querySelector('.modal-footer .btn-primary');
 
-    const setDefaultDateTime = () => {
-        const now = new Date();
-        now.setMinutes(now.getMinutes() + 30);
-        const dateIso = now.toISOString().slice(0, 10);
-        const timeIso = now.toTimeString().slice(0, 5);
-        nextCallDate.value = dateIso;
-        nextCallTime.value = timeIso;
-    };
-    setDefaultDateTime();
+    const leadSourceSelect = document.getElementById('lead_source');
+    const leadSourceLink = document.getElementById('lead_source_link');
+    const leadSourceOther = document.getElementById('lead_source_other');
+    const leadForm = document.getElementById('lead-form');
 
-    const openModal = () => {
-        modal.classList.add('show');
-        body.classList.add('modal-open');
-    };
+    const processLeadIdInput = document.getElementById('process_lead_id');
+    const processRole = document.getElementById('process_role');
+    const processRoleCustom = document.getElementById('process_role_custom');
+    const processSource = document.getElementById('process_source');
+    const processSourceLink = document.getElementById('process_source_link');
+    const processSourceOther = document.getElementById('process_source_other');
+    const processCallResult = document.getElementById('process_call_result');
+    const processCallResultOther = document.getElementById('process_call_result_other');
+    const processNextCallRadios = document.querySelectorAll('#lead-process-form input[name="next_call_type"]');
+    const processNextCallWrap = document.getElementById('process_next_call_datetime');
+    const processNextCallDate = document.getElementById('process_next_call_date');
+    const processNextCallTime = document.getElementById('process_next_call_time');
+    const processForm = document.getElementById('lead-process-form');
 
-    const closeModal = () => {
-        modal.classList.remove('show');
-        body.classList.remove('modal-open');
-    };
-
-    closeButtons.forEach(btn => btn.addEventListener('click', closeModal));
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-    });
-
-    const toggleRole = () => {
-        const show = roleSelect.value === 'other';
-        roleCustom.style.display = show ? 'block' : 'none';
-        if (!show) roleCustom.value = '';
+    const toggleConditional = (select, target, showValue) => {
+        if (!select || !target) return;
+        const show = select.value === showValue;
+        target.style.display = show ? 'block' : 'none';
+        if (!show) target.value = '';
     };
 
-    const toggleSource = () => {
-        sourceLink.style.display = sourceSelect.value === 'forums' ? 'block' : 'none';
-        sourceOther.style.display = sourceSelect.value === 'other' ? 'block' : 'none';
-        if (sourceSelect.value !== 'forums') sourceLink.value = '';
-        if (sourceSelect.value !== 'other') sourceOther.value = '';
-    };
-
-    const toggleCallResult = () => {
-        const show = callResultSelect.value === 'other';
-        callResultOther.style.display = show ? 'block' : 'none';
-        if (!show) callResultOther.value = '';
-    };
-
-    const toggleNextCall = () => {
-        const selected = document.querySelector('input[name="next_call_type"]:checked');
+    const toggleNextCall = (radios, wrap, dateInput, timeInput) => {
+        const selected = Array.from(radios).find((r) => r.checked);
         const show = selected && selected.value === 'scheduled';
-        nextCallWrap.style.display = show ? 'flex' : 'none';
+        wrap.style.display = show ? 'flex' : 'none';
         if (!show) {
-            nextCallDate.value = '';
-            nextCallTime.value = '';
-        } else if (!nextCallDate.value || !nextCallTime.value) {
-            setDefaultDateTime();
+            dateInput.value = '';
+            timeInput.value = '';
+        } else if (!dateInput.value || !timeInput.value) {
+            setDefaultDateTime(dateInput, timeInput);
         }
-    };
-
-    const resetForm = () => {
-        document.getElementById('client-form').reset();
-        clientIdInput.value = '';
-        setDefaultDateTime();
-        document.querySelector('input[name="next_call_type"][value="scheduled"]').checked = true;
-        toggleRole();
-        toggleSource();
-        toggleCallResult();
-        toggleNextCall();
     };
 
     const mapSourceValue = (sourceText) => {
@@ -305,15 +572,27 @@ function initManagementHomePage() {
             const parts = sourceText.split(':');
             return { val: 'forums', link: parts.slice(1).join(':').trim(), other: '' };
         }
-        return { val: 'other', link: '', other: sourceText };
+        return { val: 'other', link: '', other: sourceText || '' };
     };
 
-    const fillFormForEdit = (row) => {
-        const cid = row.dataset.clientId || '';
-        clientIdInput.value = cid;
-        shopNameInput.value = row.dataset.shop || '';
-        phoneInput.value = row.dataset.phone || '';
-        fullNameInput.value = row.dataset.fullName || '';
+    const resetClientForm = () => {
+        clientForm.reset();
+        clientIdInput.value = '';
+        setDefaultDateTime(nextCallDate, nextCallTime);
+        clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked = true;
+        toggleConditional(roleSelect, roleCustom, 'other');
+        toggleConditional(sourceSelect, sourceLink, 'forums');
+        toggleConditional(sourceSelect, sourceOther, 'other');
+        toggleConditional(callResultSelect, callResultOther, 'other');
+        toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime);
+    };
+
+    const fillClientFormForEdit = (row) => {
+        clientIdInput.value = row.dataset.clientId || '';
+        document.getElementById('shop_name').value = row.dataset.shop || '';
+        document.getElementById('phone').value = row.dataset.phone || '';
+        document.getElementById('website_url').value = row.dataset.websiteUrl || '';
+        document.getElementById('full_name').value = row.dataset.fullName || '';
         roleSelect.value = row.dataset.role || 'manager';
         roleCustom.value = roleSelect.value === 'other' ? (row.dataset.callDetails || '').replace('Роль: ', '') : '';
 
@@ -328,61 +607,228 @@ function initManagementHomePage() {
             : '';
 
         if (row.dataset.nextCallDate && row.dataset.nextCallTime) {
-            document.querySelector('input[name="next_call_type"][value="scheduled"]').checked = true;
+            clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked = true;
             nextCallDate.value = row.dataset.nextCallDate;
             nextCallTime.value = row.dataset.nextCallTime;
         } else {
-            document.querySelector('input[name="next_call_type"][value="no_follow"]').checked = true;
+            clientForm.querySelector('input[name="next_call_type"][value="no_follow"]').checked = true;
             nextCallDate.value = '';
             nextCallTime.value = '';
         }
 
-        modalTitle.textContent = 'Редагувати клієнта';
-        modalSubmit.textContent = 'Оновити';
-
-        toggleRole();
-        toggleSource();
-        toggleCallResult();
-        toggleNextCall();
+        toggleConditional(roleSelect, roleCustom, 'other');
+        toggleConditional(sourceSelect, sourceLink, 'forums');
+        toggleConditional(sourceSelect, sourceOther, 'other');
+        toggleConditional(callResultSelect, callResultOther, 'other');
+        toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime);
     };
 
-    const openCreate = () => {
-        resetForm();
-        modalTitle.textContent = 'Додати клієнта';
-        modalSubmit.textContent = 'Зберегти';
-        openModal();
+    const updateStats = (data) => {
+        const pointsValEl = document.getElementById('gauge-points-value');
+        const arcFill = document.getElementById('gauge-arc-fill');
+        const clientsBar = document.getElementById('clients-bar');
+        const clientsLegend = document.getElementById('clients-legend');
+        if (pointsValEl && typeof data.user_points_today !== 'undefined') pointsValEl.textContent = data.user_points_today;
+        if (arcFill && typeof data.progress_points_pct !== 'undefined') {
+            const arcLen = 251.3;
+            arcFill.style.strokeDashoffset = arcLen * (1 - data.progress_points_pct / 100);
+        }
+        if (clientsBar && typeof data.progress_clients_pct !== 'undefined') {
+            clientsBar.style.width = `${data.progress_clients_pct}%`;
+        }
+        if (clientsLegend && typeof data.processed_today !== 'undefined' && typeof data.target_clients !== 'undefined') {
+            clientsLegend.textContent = `Оброблено: ${data.processed_today} / ${data.target_clients}`;
+        }
     };
 
-    openButtons.forEach(btn => btn.addEventListener('click', openCreate));
-    editButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const row = e.currentTarget.closest('tr');
-            if (!row) return;
-            fillFormForEdit(row);
-            openModal();
+    const buildClientRowHtml = (client, csrfToken) => {
+        const deleteUrl = clientDeleteTpl.replace('/0/', `/${client.id}/`);
+        const websiteCell = client.website_url
+            ? `<a href="${client.website_url}" target="_blank" rel="noopener noreferrer">${client.website_url}</a>`
+            : '—';
+        return `<tr data-client-id="${client.id}"
+                    data-shop="${client.shop}"
+                    data-phone="${client.phone}"
+                    data-website-url="${client.website_url || ''}"
+                    data-full-name="${client.full_name}"
+                    data-role="${client.role}"
+                    data-source="${client.source}"
+                    data-call-result="${client.call_result}"
+                    data-call-details="${client.call_result_details || ''}"
+                    data-next-call-date=""
+                    data-next-call-time="">
+                    <td>${client.shop}</td>
+                    <td>${client.phone}</td>
+                    <td>${websiteCell}</td>
+                    <td>${client.full_name}</td>
+                    <td><span class="status-badge role-${client.role}">${client.role_display}</span></td>
+                    <td>${client.source}</td>
+                    <td><span class="result-badge result-${client.call_result}">${client.call_result_display}</span>${client.call_result_details ? `<span class="muted-detail">• ${client.call_result_details}</span>` : ''}</td>
+                    <td>${client.next_call || '–'}</td>
+                    <td class="actions-cell">
+                        <button type="button" class="icon-btn edit-client" aria-label="Редагувати">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"></path></svg>
+                        </button>
+                        <form method="post" action="${deleteUrl}" class="inline-form delete-client-form">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+                            <button type="submit" class="icon-btn ghost danger" aria-label="Видалити" onclick="return confirm('Видалити клієнта?');">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"></path></svg>
+                            </button>
+                        </form>
+                    </td>
+                </tr>`;
+    };
+
+    const prependClientToToday = (client, csrfToken) => {
+        let todayGroup = Array.from(document.querySelectorAll('.date-group .date-chip')).find((chip) => chip.textContent.trim() === 'Сьогодні');
+        if (!todayGroup) {
+            const processingPane = document.getElementById('processing-pane');
+            const shell = document.createElement('div');
+            shell.className = 'date-group';
+            shell.innerHTML = `
+                <div class="date-chip">Сьогодні</div>
+                <div class="table-shell">
+                    <table class="nexus-table">
+                        <thead>
+                            <tr>
+                                <th>Магазин/Insta</th><th>Телефон</th><th>Сайт</th><th>ПІБ</th><th>Статус</th><th>Джерело</th><th>Результат</th><th>Наступний дзвінок</th><th class="col-actions">Дія</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>`;
+            processingPane.prepend(shell);
+            todayGroup = shell.querySelector('.date-chip');
+        }
+        const tbody = todayGroup.parentElement.querySelector('tbody');
+        if (tbody) {
+            tbody.insertAdjacentHTML('afterbegin', buildClientRowHtml(client, csrfToken));
+        }
+    };
+
+    const prependLeadToBase = (lead) => {
+        const tableBody = document.querySelector('#lead-base-table tbody');
+        if (!tableBody) return;
+        const emptyRow = tableBody.querySelector('.lead-base-empty');
+        if (emptyRow) emptyRow.remove();
+        const website = lead.website_url
+            ? `<a href="${lead.website_url}" target="_blank" rel="noopener noreferrer">${lead.website_url}</a>`
+            : '—';
+        const rowHtml = `<tr data-lead-id="${lead.id}"
+                            data-shop-name="${lead.shop_name}"
+                            data-phone="${lead.phone}"
+                            data-website-url="${lead.website_url || ''}"
+                            data-full-name="${lead.full_name || ''}"
+                            data-role="${lead.role}"
+                            data-source="${lead.source || ''}"
+                            data-city="${lead.city || ''}"
+                            data-comments="${lead.comments || ''}"
+                            data-details="${lead.details || ''}">
+                            <td>${lead.shop_name}</td>
+                            <td>${lead.phone}</td>
+                            <td>${website}</td>
+                            <td>${lead.city || '—'}</td>
+                            <td><span class="status-badge role-${lead.role}">${lead.role_display}</span></td>
+                            <td>${lead.added_by}</td>
+                            <td>${lead.comments ? lead.comments : '—'}</td>
+                            <td class="actions-cell">
+                                <button type="button" class="btn-primary btn-process-lead process-lead" data-lead-id="${lead.id}">Обробити</button>
+                            </td>
+                        </tr>`;
+        tableBody.insertAdjacentHTML('afterbegin', rowHtml);
+    };
+
+    document.querySelectorAll('.open-add-client').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            resetClientForm();
+            modalTitle.textContent = 'Додати клієнта';
+            modalSubmit.textContent = 'Зберегти';
+            openModal(clientModal);
+        });
+    });
+    document.querySelectorAll('.open-add-lead').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            leadForm.reset();
+            toggleConditional(leadSourceSelect, leadSourceLink, 'forums');
+            toggleConditional(leadSourceSelect, leadSourceOther, 'other');
+            openModal(leadModal);
         });
     });
 
-    roleSelect.addEventListener('change', toggleRole);
-    sourceSelect.addEventListener('change', toggleSource);
-    callResultSelect.addEventListener('change', toggleCallResult);
-    nextCallRadios.forEach(r => r.addEventListener('change', toggleNextCall));
+    roleSelect?.addEventListener('change', () => toggleConditional(roleSelect, roleCustom, 'other'));
+    sourceSelect?.addEventListener('change', () => {
+        toggleConditional(sourceSelect, sourceLink, 'forums');
+        toggleConditional(sourceSelect, sourceOther, 'other');
+    });
+    callResultSelect?.addEventListener('change', () => toggleConditional(callResultSelect, callResultOther, 'other'));
+    nextCallRadios.forEach((radio) => radio.addEventListener('change', () => toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime)));
 
-    toggleRole();
-    toggleSource();
-    toggleCallResult();
-    toggleNextCall();
+    leadSourceSelect?.addEventListener('change', () => {
+        toggleConditional(leadSourceSelect, leadSourceLink, 'forums');
+        toggleConditional(leadSourceSelect, leadSourceOther, 'other');
+    });
 
-    // Apply initial arc progress
-    const arcFill = document.getElementById('gauge-arc-fill');
-    if (arcFill) {
-        const arcLen = 251.3;
-        const init = parseFloat(arcFill.dataset.progress || '0');
-        arcFill.style.strokeDashoffset = arcLen * (1 - init / 100);
-    }
+    processRole?.addEventListener('change', () => toggleConditional(processRole, processRoleCustom, 'other'));
+    processSource?.addEventListener('change', () => {
+        toggleConditional(processSource, processSourceLink, 'forums');
+        toggleConditional(processSource, processSourceOther, 'other');
+    });
+    processCallResult?.addEventListener('change', () => toggleConditional(processCallResult, processCallResultOther, 'other'));
+    processNextCallRadios.forEach((radio) => radio.addEventListener('change', () => toggleNextCall(processNextCallRadios, processNextCallWrap, processNextCallDate, processNextCallTime)));
 
-    // AJAX submit to update stats instantly
-    const clientForm = document.getElementById('client-form');
+    resetClientForm();
+    leadForm.reset();
+    setDefaultDateTime(processNextCallDate, processNextCallTime);
+    toggleNextCall(processNextCallRadios, processNextCallWrap, processNextCallDate, processNextCallTime);
+
+    document.addEventListener('click', async (e) => {
+        const editBtn = e.target.closest('.edit-client');
+        if (editBtn) {
+            const row = editBtn.closest('tr');
+            if (!row) return;
+            fillClientFormForEdit(row);
+            modalTitle.textContent = 'Редагувати клієнта';
+            modalSubmit.textContent = 'Оновити';
+            openModal(clientModal);
+            return;
+        }
+        const processBtn = e.target.closest('.process-lead');
+        if (processBtn) {
+            const leadId = processBtn.dataset.leadId || processBtn.closest('tr')?.dataset.leadId;
+            if (!leadId) return;
+            const detailUrl = leadDetailTpl.replace('/0/', `/${leadId}/`);
+            try {
+                const res = await fetch(detailUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Не вдалося завантажити лід');
+                const lead = data.lead;
+                processLeadIdInput.value = lead.id;
+                document.getElementById('process_shop_name').value = lead.shop_name || '';
+                document.getElementById('process_phone').value = lead.phone || '';
+                document.getElementById('process_website_url').value = lead.website_url || '';
+                document.getElementById('process_full_name').value = lead.full_name || '';
+                processRole.value = lead.role || 'manager';
+                const mapped = mapSourceValue(lead.source || '');
+                processSource.value = mapped.val;
+                processSourceLink.value = mapped.link;
+                processSourceOther.value = mapped.other;
+                processRoleCustom.value = '';
+                processCallResult.value = 'thinking';
+                processCallResultOther.value = '';
+                processForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked = true;
+                setDefaultDateTime(processNextCallDate, processNextCallTime);
+                toggleConditional(processRole, processRoleCustom, 'other');
+                toggleConditional(processSource, processSourceLink, 'forums');
+                toggleConditional(processSource, processSourceOther, 'other');
+                toggleConditional(processCallResult, processCallResultOther, 'other');
+                toggleNextCall(processNextCallRadios, processNextCallWrap, processNextCallDate, processNextCallTime);
+                openModal(processModal);
+            } catch (err) {
+                alert(err.message || 'Не вдалося відкрити лід');
+            }
+        }
+    });
+
     clientForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(clientForm);
@@ -393,99 +839,80 @@ function initManagementHomePage() {
                 headers: {'X-Requested-With': 'XMLHttpRequest'},
             });
             const data = await res.json();
-            if (!data.success) {
-                clientForm.submit();
-                return;
-            }
-            // Update gauges
-            const pointsValEl = document.getElementById('gauge-points-value');
-            const arcFill = document.getElementById('gauge-arc-fill');
-            const pointsLegend = document.getElementById('points-legend');
-            const clientsBar = document.getElementById('clients-bar');
-            const clientsLegend = document.getElementById('clients-legend');
-            if (pointsValEl) pointsValEl.textContent = data.user_points_today;
-            if (arcFill) {
-                const arcLen = 251.3;
-                arcFill.style.strokeDashoffset = arcLen * (1 - data.progress_points_pct / 100);
-            }
-            if (pointsLegend) pointsLegend.textContent = `Бали за сьогодні: ${data.user_points_today} / ${data.target_points}`;
-            if (clientsBar) clientsBar.style.width = `${data.progress_clients_pct}%`;
-            if (clientsLegend) clientsLegend.textContent = `Оброблено: ${data.processed_today} / ${data.target_clients}`;
-
-            // Insert row into "Сьогодні" group if available
-            if (data.latest) {
-                const todayChip = Array.from(document.querySelectorAll('.date-chip')).find(chip => chip.textContent.trim() === 'Сьогодні');
-                if (todayChip) {
-                    const table = todayChip.parentElement.querySelector('table');
-                    const tbody = table ? table.querySelector('tbody') : null;
-                    if (tbody) {
-                        const tr = document.createElement('tr');
-                        tr.dataset.clientId = data.latest.id;
-                        tr.dataset.shop = data.latest.shop;
-                        tr.dataset.phone = data.latest.phone;
-                        tr.dataset.fullName = data.latest.full_name;
-                        tr.dataset.role = data.latest.role;
-                        tr.dataset.source = data.latest.source;
-                        tr.dataset.callResult = data.latest.call_result;
-                        tr.dataset.callDetails = data.latest.call_result_details || '';
-                        tr.dataset.nextCallDate = '';
-                        tr.dataset.nextCallTime = '';
-                        tr.innerHTML = `
-                            <td>${data.latest.shop}</td>
-                            <td>${data.latest.phone}</td>
-                            <td>${data.latest.full_name}</td>
-                            <td><span class="status-badge role-${data.latest.role}">${data.latest.role_display}</span></td>
-                            <td>${data.latest.source}</td>
-                            <td><span class="result-badge result-${data.latest.call_result}">${data.latest.call_result_display}</span>${data.latest.call_result_details ? '<span class="muted-detail">• '+data.latest.call_result_details+'</span>' : ''}</td>
-                            <td>${data.latest.next_call}</td>
-                            <td class="actions-cell">
-                                <button type="button" class="icon-btn edit-client" aria-label="Редагувати">
-                                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                                        <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
-                                    </svg>
-                                </button>
-                                <form method="post" action="/clients/${data.latest.id}/delete/" class="inline-form delete-client-form">
-                                    <input type="hidden" name="csrfmiddlewaretoken" value="${formData.get('csrfmiddlewaretoken') || ''}">
-                                    <button type="submit" class="icon-btn ghost danger" aria-label="Видалити" onclick="return confirm('Видалити клієнта?');">
-                                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                                            <path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"/>
-                                        </svg>
-                                    </button>
-                                </form>
-                            </td>`;
-                        tbody.prepend(tr);
-                    }
-                }
-            }
-            closeModal();
+            if (!data.success) throw new Error(data.error || 'Помилка збереження');
+            updateStats(data);
+            if (data.latest) prependClientToToday(data.latest, formData.get('csrfmiddlewaretoken') || '');
+            closeModal(clientModal);
         } catch (err) {
             clientForm.submit();
         }
     });
 
-    // Countdown to next weekday 19:00
+    leadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(leadForm);
+        try {
+            const res = await fetch(leadCreateUrl, {
+                method: 'POST',
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+                body: formData,
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Помилка додавання ліда');
+            prependLeadToBase(data.lead);
+            updateStats(data);
+            closeModal(leadModal);
+        } catch (err) {
+            alert(err.message || 'Помилка додавання ліда');
+        }
+    });
+
+    processForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const leadId = processLeadIdInput.value;
+        if (!leadId) return;
+        const processUrl = leadProcessTpl.replace('/0/', `/${leadId}/`);
+        const formData = new FormData(processForm);
+        try {
+            const res = await fetch(processUrl, {
+                method: 'POST',
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+                body: formData,
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Помилка обробки ліда');
+            const row = document.querySelector(`#lead-base-table tr[data-lead-id="${leadId}"]`);
+            if (row) row.remove();
+            updateStats(data);
+            if (data.client) prependClientToToday(data.client, formData.get('csrfmiddlewaretoken') || '');
+            closeModal(processModal);
+        } catch (err) {
+            alert(err.message || 'Помилка обробки ліда');
+        }
+    });
+
+    const arcFill = document.getElementById('gauge-arc-fill');
+    if (arcFill) {
+        const arcLen = 251.3;
+        const init = parseFloat(arcFill.dataset.progress || '0');
+        arcFill.style.strokeDashoffset = arcLen * (1 - init / 100);
+    }
+
     const updateCountdown = () => {
         if (!reportCountdown) return;
         const now = new Date();
         let target = new Date(now);
         target.setHours(19, 0, 0, 0);
-
-        const baseLabel = (reportSubmit && reportSubmit.dataset.sent === 'true')
-            ? 'Відправити ще раз'
-            : 'Відправити звіт';
-
-        const day = target.getDay(); // 0 Sun, 6 Sat
+        const baseLabel = (reportSubmit && reportSubmit.dataset.sent === 'true') ? 'Відправити ще раз' : 'Відправити звіт';
+        const day = target.getDay();
         const isWeekend = day === 0 || day === 6;
         const passedToday = now > target;
-
-        // У будній день після 19:00 показуємо нагадування до 00:00, не перезапускаючи таймер
         if (!isWeekend && passedToday) {
             reportCountdown.textContent = 'Треба відправити звіт';
             reportCountdown.style.color = '#ff7e29';
             if (reportSubmit) reportSubmit.textContent = baseLabel;
             return;
         }
-
         if (isWeekend || passedToday) {
             let offset = 1;
             while (true) {
@@ -500,7 +927,6 @@ function initManagementHomePage() {
                 offset += 1;
             }
         }
-
         const diffMs = target - now;
         if (diffMs <= 0) {
             reportCountdown.textContent = 'Час подати звіт';
@@ -516,20 +942,16 @@ function initManagementHomePage() {
         reportCountdown.style.color = totalSec < 3600 ? '#ff7e29' : '#ffb347';
         if (reportSubmit) reportSubmit.textContent = baseLabel;
     };
-
     updateCountdown();
     setInterval(updateCountdown, 1000);
 
-    // Confirmation before sending report if норма не виконана
     if (reportForm && reportSubmit) {
         reportForm.addEventListener('submit', (e) => {
             const pts = parseInt(reportSubmit.dataset.progressPoints || '0', 10);
             const cls = parseInt(reportSubmit.dataset.progressClients || '0', 10);
             if (pts < 100 || cls < 100) {
                 const ok = confirm('Денна норма не заповнена (бали або клієнти). Відправити звіт зараз?');
-                if (!ok) {
-                    e.preventDefault();
-                }
+                if (!ok) e.preventDefault();
             }
         });
     }

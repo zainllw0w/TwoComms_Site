@@ -34,7 +34,7 @@
 </head>
 
 <body class="management-body"
-      data-mgmt-shell="{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_contracts' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %}1{% else %}0{% endif %}"
+      data-mgmt-shell="{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_contracts' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' or request.resolver_match.url_name == 'management_parsing' %}1{% else %}0{% endif %}"
       data-url-name="{{ request.resolver_match.url_name }}"
       data-activity-pulse-url="{% url 'management_activity_pulse' %}">
     <!-- Глобальный верхний хедер -->
@@ -55,6 +55,7 @@
             <a href="{% url 'management_payouts' %}" class="tab{% if request.resolver_match.url_name == 'management_payouts' %} active{% endif %}">Виплати</a>
                         <a href="{% url 'management_info' %}" class="tab{% if request.resolver_match.url_name == 'management_info' %} active{% endif %}">Інформація</a>
             {% if request.user.is_staff %}
+            <a href="{% url 'management_parsing' %}" class="tab{% if request.resolver_match.url_name == 'management_parsing' %} active{% endif %}">Парсинг</a>
             <a href="{% url 'management_admin' %}" class="tab{% if request.resolver_match.url_name == 'management_admin' %} active{% endif %}">Адміністрування</a>
             {% endif %}
         </nav>
@@ -118,7 +119,7 @@
 
     <div class="workspace">
         <!-- Left Sidebar -->
-        {% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_contracts' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %}
+        {% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_contracts' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' or request.resolver_match.url_name == 'management_parsing' %}
         <aside class="sidebar">
             <div class="user-profile">
                 {% if request.user.userprofile.avatar %}
@@ -211,6 +212,14 @@
                     </span>
                     <span>Магазини</span>
                 </a>
+                {% if request.user.is_staff %}
+                <a href="{% url 'management_parsing' %}" class="nav-item{% if request.resolver_match.url_name == 'management_parsing' %} active{% endif %}">
+                    <span class="nav-icon">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zm2 5h12v2H6zm-2 5h16v2H4zm2 5h12v2H6z"/></svg>
+                    </span>
+                    <span>Парсинг</span>
+                </a>
+                {% endif %}
             </nav>
         </aside>
         {% endif %}
