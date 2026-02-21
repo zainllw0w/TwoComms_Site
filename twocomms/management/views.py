@@ -39,6 +39,7 @@ from .models import (
     ContractRejectionReasonRequest,
     InvoiceRejectionReasonRequest,
     ManagementContract,
+    ManagementLead,
     ReminderRead,
     ReminderSent,
     Report,
@@ -57,7 +58,8 @@ from .email_templates.twocomms_cp import (
     DROP_FIXED_HOODIE_PRICE,
 )
 
-from .constants import POINTS, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
+from .constants import LEAD_BASE_PROCESSING_PENALTY, POINTS, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
+from .lead_services import calc_client_points, get_user_lead_bonus_points
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
 
@@ -116,10 +118,7 @@ def user_is_management(user):
 
 
 def calc_points(qs):
-    total = 0
-    for c in qs:
-        total += POINTS.get(c.call_result, 0)
-    return total
+    return calc_client_points(qs)
 
 
 def get_manager_bot_username():
@@ -346,9 +345,14 @@ def get_user_stats(user):
     base_qs = Client.objects.filter(owner=user)
     today_start, today_end = get_today_range()
     today_qs = base_qs.filter(created_at__gte=today_start, created_at__lt=today_end)
+    lead_bonus_today, lead_bonus_total = get_user_lead_bonus_points(user, today_start, today_end)
+    points_today = calc_points(today_qs) + lead_bonus_today
+    points_total = calc_points(base_qs) + lead_bonus_total
     return {
-        'points_today': calc_points(today_qs),
-        'points_total': calc_points(base_qs),
+        'points_today': points_today,
+        'points_total': points_total,
+        'lead_bonus_today': lead_bonus_today,
+        'lead_bonus_total': lead_bonus_total,
         'processed_today': today_qs.count(),
         'processed_total': base_qs.count(),
     }
@@ -455,6 +459,7 @@ def home(request):
         client_id = data.get('client_id')
         shop_name = data.get('shop_name', '').strip()
         phone = data.get('phone', '').strip()
+        website_url = data.get('website_url', '').strip()
         full_name = data.get('full_name', '').strip()
         role = data.get('role', Client.Role.MANAGER)
         role_custom = data.get('role_custom', '').strip()
@@ -504,6 +509,7 @@ def home(request):
                         prev_next_call_at = client.next_call_at
                         client.shop_name = shop_name
                         client.phone = phone
+                        client.website_url = website_url
                         client.full_name = full_name
                         client.role = role
                         client.source = source_display
@@ -511,6 +517,8 @@ def home(request):
                         client.call_result_details = details
                         client.next_call_at = next_call_at
                         client.owner = client.owner or request.user
+                        if client.points_override is not None:
+                            client.points_override = max(0, int(POINTS.get(call_result, 0)) - LEAD_BASE_PROCESSING_PENALTY)
                         client.save()
                         _sync_client_followup(client, prev_next_call_at, client.next_call_at, timezone.now())
                 except Client.DoesNotExist:
@@ -519,6 +527,7 @@ def home(request):
                 client = Client.objects.create(
                     shop_name=shop_name,
                     phone=phone,
+                    website_url=website_url,
                     full_name=full_name,
                     role=role,
                     source=source_display,
@@ -544,6 +553,7 @@ def home(request):
                     'id': latest.id,
                     'shop': latest.shop_name,
                     'phone': latest.phone,
+                    'website_url': latest.website_url,
                     'full_name': latest.full_name,
                     'role': latest.role,
                     'role_display': latest.get_role_display(),
@@ -590,8 +600,7 @@ def home(request):
         grouped.setdefault(label, []).append(client)
 
     grouped_clients = list(grouped.items())
-
-    clients_today = clients_qs.filter(created_at__gte=today_start, created_at__lt=today_end)
+    base_leads = ManagementLead.objects.filter(status=ManagementLead.Status.BASE).select_related('added_by').order_by('-created_at')[:400]
 
     user_stats = get_user_stats(request.user)
     user_points_today = user_stats['points_today']
@@ -606,6 +615,7 @@ def home(request):
     bot_username = get_manager_bot_username()
     return render(request, 'management/home.html', {
         'grouped_clients': grouped_clients,
+        'base_leads': base_leads,
         'user_points_today': user_points_today,
         'user_points_total': user_points_total,
         'processed_today': processed_today,
@@ -670,17 +680,15 @@ def admin_overview(request):
                 last_login_local = timezone.localtime(last_login)
                 online = (timezone.now() - last_login) <= timedelta(minutes=5)
             user_clients = Client.objects.filter(owner=u).order_by('-created_at')
-            user_clients_today = user_clients.filter(created_at__gte=today_start, created_at__lt=today_end)
-            points_today = calc_points(user_clients_today)
-            points_total = calc_points(user_clients)
+            points_stats = get_user_stats(u)
             admin_user_data.append({
                 'id': u.id,
                 'name': u.get_full_name() or u.username,
                 'role': 'Адмін' if u.is_staff else 'Менеджер',
                 'today': u.today_clients,
                 'total': u.total_clients,
-                'points_today': points_today,
-                'points_total': points_total,
+                'points_today': points_stats['points_today'],
+                'points_total': points_stats['points_total'],
                 'online': online,
                 'last_login': last_login_local.strftime('%d.%m.%Y %H:%M') if last_login_local else 'Немає даних',
             })

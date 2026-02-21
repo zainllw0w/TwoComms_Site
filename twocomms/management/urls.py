@@ -3,6 +3,8 @@ from django.contrib.auth import views as auth_views
 from . import views
 from . import shop_views
 from . import stats_views
+from . import lead_views
+from . import parsing_views
 
 urlpatterns = [
     path('login/', auth_views.LoginView.as_view(
@@ -67,5 +69,16 @@ urlpatterns = [
     path('info/', views.info, name='management_info'),
     path('payouts/', views.payouts, name='management_payouts'),
     path('payouts/api/request/', views.payouts_request_api, name='management_payouts_request_api'),
+    path('leads/api/create/', lead_views.lead_create_api, name='management_lead_create_api'),
+    path('leads/api/<int:lead_id>/detail/', lead_views.lead_detail_api, name='management_lead_detail_api'),
+    path('leads/api/<int:lead_id>/process/', lead_views.lead_process_api, name='management_lead_process_api'),
+    path('parsing/', parsing_views.parsing_dashboard, name='management_parsing'),
+    path('parsing/api/start/', parsing_views.parser_start_api, name='management_parser_start_api'),
+    path('parsing/api/step/', parsing_views.parser_step_api, name='management_parser_step_api'),
+    path('parsing/api/pause/', parsing_views.parser_pause_api, name='management_parser_pause_api'),
+    path('parsing/api/resume/', parsing_views.parser_resume_api, name='management_parser_resume_api'),
+    path('parsing/api/stop/', parsing_views.parser_stop_api, name='management_parser_stop_api'),
+    path('parsing/api/status/', parsing_views.parser_status_api, name='management_parser_status_api'),
+    path('parsing/api/leads/<int:lead_id>/action/', parsing_views.lead_moderation_action_api, name='management_lead_moderation_action_api'),
     path('', views.home, name='management_home'),
 ]

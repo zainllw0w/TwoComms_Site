@@ -1,6 +1,23 @@
+import re
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
+
+
+def normalize_phone(raw_phone: str) -> str:
+    digits = re.sub(r"\D+", "", raw_phone or "")
+    if not digits:
+        return ""
+    if digits.startswith("380") and len(digits) == 12:
+        return f"+{digits}"
+    if digits.startswith("0") and len(digits) == 10:
+        return f"+38{digits}"
+    if len(digits) == 9:
+        return f"+380{digits}"
+    if raw_phone and str(raw_phone).strip().startswith("+"):
+        return f"+{digits}"
+    return digits
 
 
 class Client(models.Model):
@@ -29,10 +46,13 @@ class Client(models.Model):
 
     shop_name = models.CharField(_("Назва магазину / Instagram"), max_length=255)
     phone = models.CharField(_("Номер телефону"), max_length=50)
+    phone_normalized = models.CharField(_("Нормалізований номер"), max_length=50, blank=True, db_index=True)
+    website_url = models.CharField(_("Сайт"), max_length=500, blank=True)
     full_name = models.CharField(_("ПІБ"), max_length=255)
     role = models.CharField(_("Статус"), max_length=50, choices=Role.choices, default=Role.MANAGER)
     source = models.CharField(_("Джерело контакту"), max_length=255, blank=True)
     call_result = models.CharField(_("Підсумок розмови"), max_length=50, choices=CallResult.choices, default=CallResult.NO_ANSWER)
+    points_override = models.PositiveIntegerField(_("Кастомні бали"), null=True, blank=True)
     call_result_details = models.TextField(_("Деталі підсумку"), blank=True, help_text="Якщо вибрано 'Інше'")
     next_call_at = models.DateTimeField(_("Наступний дзвінок"), null=True, blank=True)
     owner = models.ForeignKey(
@@ -51,8 +71,215 @@ class Client(models.Model):
         verbose_name_plural = _("Клієнти")
         ordering = ['-created_at']
 
+    def save(self, *args, **kwargs):
+        self.phone_normalized = normalize_phone(self.phone)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.shop_name} ({self.full_name})"
+
+
+class ManagementLead(models.Model):
+    class Status(models.TextChoices):
+        MODERATION = "moderation", _("На модерації")
+        BASE = "base", _("У базі")
+        CONVERTED = "converted", _("Оброблено")
+        REJECTED = "rejected", _("Не підходить")
+
+    class LeadSource(models.TextChoices):
+        MANUAL = "manual", _("Ручне додавання")
+        PARSER = "parser", _("Парсинг")
+
+    class NicheStatus(models.TextChoices):
+        NICHE = "niche", _("Нішевий")
+        MAYBE = "maybe", _("Під питанням")
+        NON_NICHE = "non_niche", _("Не нішевий")
+
+    shop_name = models.CharField(_("Назва магазину"), max_length=255)
+    phone = models.CharField(_("Номер телефону"), max_length=50)
+    phone_normalized = models.CharField(_("Нормалізований номер"), max_length=50, blank=True, db_index=True)
+    full_name = models.CharField(_("ПІБ"), max_length=255, blank=True)
+    role = models.CharField(_("Статус людини"), max_length=50, choices=Client.Role.choices, default=Client.Role.OTHER)
+    source = models.CharField(_("Де взяли контакт"), max_length=255, blank=True)
+    website_url = models.CharField(_("Сайт"), max_length=500, blank=True)
+    city = models.CharField(_("Місто"), max_length=120, blank=True)
+    parser_keyword = models.CharField(_("Ключове слово парсера"), max_length=255, blank=True)
+    parser_query = models.CharField(_("Пошуковий запит"), max_length=500, blank=True)
+    google_place_id = models.CharField(_("Google Place ID"), max_length=255, blank=True, db_index=True)
+    google_maps_url = models.CharField(_("Google Maps URL"), max_length=500, blank=True)
+    details = models.TextField(_("Деталі"), blank=True)
+    comments = models.TextField(_("Коментарі"), blank=True)
+    extra_data = models.JSONField(_("Сирі дані"), default=dict, blank=True)
+    status = models.CharField(_("Статус"), max_length=20, choices=Status.choices, default=Status.BASE, db_index=True)
+    lead_source = models.CharField(_("Джерело ліда"), max_length=20, choices=LeadSource.choices, default=LeadSource.MANUAL, db_index=True)
+    niche_status = models.CharField(_("Нішевість"), max_length=20, choices=NicheStatus.choices, default=NicheStatus.MAYBE, db_index=True)
+    rejection_reason = models.TextField(_("Причина відхилення"), blank=True)
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Додав"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_leads_added",
+    )
+    moderated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Модератор"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_leads_moderated",
+    )
+    processed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Обробив"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_leads_processed",
+    )
+    converted_client = models.OneToOneField(
+        Client,
+        verbose_name=_("Створений клієнт"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="source_lead",
+    )
+    parser_job = models.ForeignKey(
+        "LeadParsingJob",
+        verbose_name=_("Сесія парсингу"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="generated_leads",
+    )
+    approved_to_base_at = models.DateTimeField(_("Додано у базу"), null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Лід")
+        verbose_name_plural = _("Ліди")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "-created_at"], name="mgmt_lead_status_dt"),
+            models.Index(fields=["lead_source", "-created_at"], name="mgmt_lead_src_dt"),
+            models.Index(fields=["city", "status"], name="mgmt_lead_city_st"),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.phone_normalized = normalize_phone(self.phone)
+        super().save(*args, **kwargs)
+
+    @property
+    def added_by_display(self) -> str:
+        if self.lead_source == self.LeadSource.PARSER:
+            return "парсинг"
+        if self.added_by:
+            return self.added_by.get_full_name() or self.added_by.username
+        return "невідомо"
+
+    def __str__(self):
+        return f"{self.shop_name} ({self.get_status_display()})"
+
+
+class LeadParsingJob(models.Model):
+    class Status(models.TextChoices):
+        RUNNING = "running", _("Працює")
+        PAUSED = "paused", _("Пауза")
+        STOPPED = "stopped", _("Зупинено")
+        COMPLETED = "completed", _("Завершено")
+        FAILED = "failed", _("Помилка")
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_lead_parsing_jobs",
+        verbose_name=_("Створив"),
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.RUNNING, db_index=True)
+    keywords_raw = models.TextField(_("Ключові слова (raw)"), blank=True)
+    cities_raw = models.TextField(_("Міста (raw)"), blank=True)
+    keywords = models.JSONField(_("Ключові слова"), default=list, blank=True)
+    cities = models.JSONField(_("Міста"), default=list, blank=True)
+    request_limit = models.PositiveIntegerField(_("Ліміт запитів"), default=100)
+    request_count = models.PositiveIntegerField(_("Виконано запитів"), default=0)
+    current_keyword_index = models.PositiveIntegerField(default=0)
+    current_city_index = models.PositiveIntegerField(default=0)
+    total_found = models.PositiveIntegerField(default=0)
+    no_phone_skipped = models.PositiveIntegerField(default=0)
+    duplicate_skipped = models.PositiveIntegerField(default=0)
+    added_to_moderation = models.PositiveIntegerField(default=0)
+    moved_to_bad = models.PositiveIntegerField(default=0)
+    already_rejected_skipped = models.PositiveIntegerField(default=0)
+    current_query = models.CharField(max_length=500, blank=True)
+    next_page_token = models.CharField(max_length=255, blank=True)
+    last_error = models.TextField(blank=True)
+    started_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Сесія парсингу лідів")
+        verbose_name_plural = _("Сесії парсингу лідів")
+        ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["status", "-started_at"], name="mgmt_parse_status_dt"),
+        ]
+
+    def __str__(self):
+        return f"ParseJob#{self.id} ({self.status})"
+
+
+class LeadParsingResult(models.Model):
+    class ResultStatus(models.TextChoices):
+        ADDED = "added", _("Додано до модерації")
+        DUPLICATE = "duplicate", _("Дубль")
+        NO_PHONE = "no_phone", _("Без телефону")
+        REJECTED = "rejected", _("Раніше відхилено")
+        ERROR = "error", _("Помилка")
+
+    job = models.ForeignKey(
+        LeadParsingJob,
+        on_delete=models.CASCADE,
+        related_name="results",
+        verbose_name=_("Сесія парсингу"),
+    )
+    lead = models.ForeignKey(
+        ManagementLead,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="parser_results",
+        verbose_name=_("Лід"),
+    )
+    keyword = models.CharField(max_length=255, blank=True, verbose_name=_("Ключове слово"))
+    city = models.CharField(max_length=120, blank=True, verbose_name=_("Місто"))
+    query = models.CharField(max_length=500, blank=True, verbose_name=_("Запит"))
+    place_id = models.CharField(max_length=255, blank=True, db_index=True, verbose_name=_("Place ID"))
+    place_name = models.CharField(max_length=255, blank=True, verbose_name=_("Назва"))
+    phone = models.CharField(max_length=50, blank=True, verbose_name=_("Телефон"))
+    website_url = models.CharField(max_length=500, blank=True, verbose_name=_("Сайт"))
+    maps_url = models.CharField(max_length=500, blank=True, verbose_name=_("Google Maps URL"))
+    status = models.CharField(max_length=20, choices=ResultStatus.choices, default=ResultStatus.ADDED, db_index=True)
+    reason = models.CharField(max_length=255, blank=True, verbose_name=_("Причина"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Результат парсингу")
+        verbose_name_plural = _("Результати парсингу")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["job", "-created_at"], name="mgmt_parse_res_job_dt"),
+            models.Index(fields=["status", "-created_at"], name="mgmt_parse_res_st_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.job_id}:{self.status}:{self.place_name}"
 
 
 class Report(models.Model):

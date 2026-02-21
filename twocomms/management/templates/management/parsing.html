@@ -1,0 +1,476 @@
+{% extends "management/base.html" %}
+
+{% block content %}
+{{ active_job_json|default:None|json_script:"parser-initial-job" }}
+{{ moderation_leads|json_script:"parser-initial-moderation" }}
+{{ rejected_leads|json_script:"parser-initial-rejected" }}
+{{ parser_counters|json_script:"parser-initial-counters" }}
+
+<div id="parsing-endpoints"
+     data-start-url="{% url 'management_parser_start_api' %}"
+     data-step-url="{% url 'management_parser_step_api' %}"
+     data-pause-url="{% url 'management_parser_pause_api' %}"
+     data-resume-url="{% url 'management_parser_resume_api' %}"
+     data-stop-url="{% url 'management_parser_stop_api' %}"
+     data-status-url="{% url 'management_parser_status_api' %}"
+     data-lead-action-url-template="{% url 'management_lead_moderation_action_api' 0 %}">
+</div>
+
+<div class="clients-panel parsing-panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Google Maps API</p>
+            <h2>Парсинг лідів</h2>
+        </div>
+        <div class="panel-actions">
+            <span class="status-chip" id="parser-status-chip">—</span>
+        </div>
+    </div>
+
+    <div class="offer-grid offer-grid-single">
+        <div class="offer-card">
+            <h3 class="offer-title">Налаштування парсингу</h3>
+            <form id="parser-form" class="field-grid">
+                {% csrf_token %}
+                <div class="field field-span-2">
+                    <label for="parser_keywords">Ключові слова</label>
+                    <textarea id="parser_keywords" name="keywords" placeholder='Напр.: Военторг, "військове спорядження", Одяг'></textarea>
+                    <div class="offer-help">Розділяйте комою, новим рядком або лапками для фраз.</div>
+                </div>
+                <div class="field">
+                    <label for="parser_cities">Міста</label>
+                    <textarea id="parser_cities" name="cities" placeholder="Харків, Київ, Дніпро"></textarea>
+                </div>
+                <div class="field">
+                    <label for="parser_request_limit">Ліміт запитів</label>
+                    <input type="number" id="parser_request_limit" name="request_limit" min="1" value="50">
+                </div>
+                <div class="cp-messenger-toolbar field-span-2">
+                    <div class="cp-template-pills">
+                        <button type="submit" class="btn-primary" id="parser-start-btn">Старт</button>
+                        <button type="button" class="btn-ghost" id="parser-pause-btn">Пауза</button>
+                        <button type="button" class="btn-ghost" id="parser-resume-btn">Продовжити</button>
+                        <button type="button" class="btn-ghost" id="parser-stop-btn">Стоп</button>
+                    </div>
+                    <div class="offer-help" id="parser-query-info">Запит: —</div>
+                </div>
+            </form>
+        </div>
+
+        <div class="admin-summary-grid" id="parser-counters-grid">
+            <div class="admin-metric"><div class="admin-metric__label">Спарсено</div><div class="admin-metric__value" id="cnt-total-found">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Запитів виконано</div><div class="admin-metric__value" id="cnt-request-count">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Додано в модерацію</div><div class="admin-metric__value" id="cnt-added-moderation">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Дублі</div><div class="admin-metric__value" id="cnt-duplicates">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Без телефону</div><div class="admin-metric__value" id="cnt-no-phone">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Вже відхилені</div><div class="admin-metric__value" id="cnt-rejected-skip">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">У базі (необроблені)</div><div class="admin-metric__value" id="cnt-base-unprocessed">{{ parser_counters.unprocessed|default:0 }}</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">У блок "не підходить"</div><div class="admin-metric__value" id="cnt-bad">{{ parser_counters.rejected|default:0 }}</div></div>
+        </div>
+
+        <div class="offer-card">
+            <h3 class="offer-title">Модерація</h3>
+            <div class="table-shell">
+                <table class="nexus-table" id="moderation-table">
+                    <thead>
+                    <tr>
+                        <th>Магазин</th>
+                        <th>Телефон</th>
+                        <th>Сайт</th>
+                        <th>Місто</th>
+                        <th>Ключ</th>
+                        <th>Нішевість</th>
+                        <th>Дія</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <details class="offer-card">
+            <summary class="offer-title">Не підходить (архів)</summary>
+            <div class="table-shell" style="margin-top: 14px;">
+                <table class="nexus-table" id="rejected-table">
+                    <thead>
+                    <tr>
+                        <th>Магазин</th>
+                        <th>Телефон</th>
+                        <th>Місто</th>
+                        <th>Причина</th>
+                        <th>Коли</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </details>
+
+        <div class="offer-card">
+            <h3 class="offer-title">Статистика поточного парсингу</h3>
+            <div class="table-shell">
+                <table class="nexus-table" id="parser-results-table">
+                    <thead>
+                    <tr>
+                        <th>Час</th>
+                        <th>Статус</th>
+                        <th>Магазин</th>
+                        <th>Телефон</th>
+                        <th>Ключ</th>
+                        <th>Місто</th>
+                        <th>Причина</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="lead-moderation-modal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">Модерація ліда</p>
+                <h3 id="moderation-modal-title">Огляд ліда</h3>
+            </div>
+            <button type="button" class="modal-close" aria-label="Закрити">×</button>
+        </div>
+        <form id="lead-moderation-form" class="modal-body">
+            {% csrf_token %}
+            <input type="hidden" name="lead_id" id="moderation_lead_id">
+            <div class="field-grid">
+                <div class="field"><label>Магазин</label><input type="text" name="shop_name" id="moderation_shop_name" required></div>
+                <div class="field"><label>Телефон</label><input type="tel" name="phone" id="moderation_phone" required></div>
+                <div class="field"><label>Сайт</label><input type="url" name="website_url" id="moderation_website_url"></div>
+                <div class="field"><label>ПІБ</label><input type="text" name="full_name" id="moderation_full_name"></div>
+                <div class="field">
+                    <label>Статус людини</label>
+                    <select name="role" id="moderation_role">
+                        <option value="owner">Власник</option>
+                        <option value="supervisor">Управляючий</option>
+                        <option value="manager">Менеджер</option>
+                        <option value="realizer">Реалізатор</option>
+                        <option value="other">Інше</option>
+                    </select>
+                </div>
+                <div class="field"><label>Джерело контакту</label><input type="text" name="source" id="moderation_source"></div>
+                <div class="field"><label>Місто</label><input type="text" name="city" id="moderation_city"></div>
+                <div class="field">
+                    <label>Нішевість</label>
+                    <select name="niche_status" id="moderation_niche_status">
+                        <option value="niche">Нішевий</option>
+                        <option value="maybe">Під питанням</option>
+                        <option value="non_niche">Не нішевий</option>
+                    </select>
+                </div>
+                <div class="field field-span-2"><label>Коментарі</label><textarea name="comments" id="moderation_comments"></textarea></div>
+                <div class="field field-span-2"><label>Деталі</label><textarea name="details" id="moderation_details"></textarea></div>
+                <div class="field field-span-2"><label>Причина відхилення</label><textarea name="rejection_reason" id="moderation_rejection_reason"></textarea></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-ghost" data-moderation-action="save">Зберегти</button>
+                <button type="button" class="btn-primary" data-moderation-action="approve">Підтвердити в базу</button>
+                <button type="button" class="btn-ghost" data-moderation-action="reject">Не підходить</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function initParsingPage() {
+    const endpoints = document.getElementById('parsing-endpoints');
+    if (!endpoints) return;
+    if (endpoints.dataset.init === '1') return;
+    endpoints.dataset.init = '1';
+
+    const startUrl = endpoints.dataset.startUrl;
+    const stepUrl = endpoints.dataset.stepUrl;
+    const pauseUrl = endpoints.dataset.pauseUrl;
+    const resumeUrl = endpoints.dataset.resumeUrl;
+    const stopUrl = endpoints.dataset.stopUrl;
+    const statusUrl = endpoints.dataset.statusUrl;
+    const leadActionTpl = endpoints.dataset.leadActionUrlTemplate;
+
+    const parserForm = document.getElementById('parser-form');
+    const statusChip = document.getElementById('parser-status-chip');
+    const queryInfo = document.getElementById('parser-query-info');
+    const moderationTableBody = document.querySelector('#moderation-table tbody');
+    const rejectedTableBody = document.querySelector('#rejected-table tbody');
+    const resultsTableBody = document.querySelector('#parser-results-table tbody');
+    const modal = document.getElementById('lead-moderation-modal');
+    const modalForm = document.getElementById('lead-moderation-form');
+    const body = document.body;
+
+    let activeJob = JSON.parse(document.getElementById('parser-initial-job').textContent);
+    let moderation = JSON.parse(document.getElementById('parser-initial-moderation').textContent);
+    let rejected = JSON.parse(document.getElementById('parser-initial-rejected').textContent);
+    let counters = JSON.parse(document.getElementById('parser-initial-counters').textContent);
+    let stepTimer = null;
+    let pollTimer = null;
+
+    const getCsrfToken = () => (modalForm.querySelector('input[name="csrfmiddlewaretoken"]')?.value
+        || parserForm.querySelector('input[name="csrfmiddlewaretoken"]')?.value
+        || '');
+
+    const openModal = () => {
+        modal.classList.add('show');
+        body.classList.add('modal-open');
+    };
+    const closeModal = () => {
+        modal.classList.remove('show');
+        if (!document.querySelector('.modal-overlay.show')) body.classList.remove('modal-open');
+    };
+
+    modal.querySelectorAll('.modal-close').forEach((btn) => btn.addEventListener('click', closeModal));
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    const setCounter = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value ?? 0;
+    };
+
+    const renderCounters = (payload) => {
+        counters = payload || counters || {};
+        if (activeJob) {
+            setCounter('cnt-total-found', activeJob.total_found || 0);
+            setCounter('cnt-request-count', `${activeJob.request_count || 0}/${activeJob.request_limit || 0}`);
+            setCounter('cnt-added-moderation', activeJob.added_to_moderation || 0);
+            setCounter('cnt-duplicates', activeJob.duplicate_skipped || 0);
+            setCounter('cnt-no-phone', activeJob.no_phone_skipped || 0);
+            setCounter('cnt-rejected-skip', activeJob.already_rejected_skipped || 0);
+        } else {
+            setCounter('cnt-total-found', 0);
+            setCounter('cnt-request-count', 0);
+            setCounter('cnt-added-moderation', 0);
+            setCounter('cnt-duplicates', 0);
+            setCounter('cnt-no-phone', 0);
+            setCounter('cnt-rejected-skip', 0);
+        }
+        setCounter('cnt-base-unprocessed', counters.unprocessed || 0);
+        setCounter('cnt-bad', counters.rejected || 0);
+    };
+
+    const renderStatus = () => {
+        if (!activeJob) {
+            statusChip.textContent = 'Не запущено';
+            statusChip.className = 'status-chip';
+            queryInfo.textContent = 'Запит: —';
+            return;
+        }
+        statusChip.textContent = activeJob.status_display || activeJob.status;
+        statusChip.className = `status-chip status-${activeJob.status}`;
+        queryInfo.textContent = `Запит: ${activeJob.current_query || '—'}`;
+    };
+
+    const renderModeration = (items) => {
+        moderation = items || [];
+        if (!moderation.length) {
+            moderationTableBody.innerHTML = '<tr><td colspan="7" class="table-empty">Черга модерації порожня.</td></tr>';
+            return;
+        }
+        moderationTableBody.innerHTML = moderation.map((lead) => `
+            <tr>
+                <td>${lead.shop_name || '—'}</td>
+                <td>${lead.phone || '—'}</td>
+                <td>${lead.website_url ? `<a href="${lead.website_url}" target="_blank" rel="noopener noreferrer">${lead.website_url}</a>` : '—'}</td>
+                <td>${lead.city || '—'}</td>
+                <td>${lead.keyword || '—'}</td>
+                <td>${lead.niche_status_display || '—'}</td>
+                <td><button type="button" class="btn-primary open-moderation" data-lead-id="${lead.id}">Оглянути</button></td>
+            </tr>`).join('');
+    };
+
+    const renderRejected = (items) => {
+        rejected = items || [];
+        if (!rejected.length) {
+            rejectedTableBody.innerHTML = '<tr><td colspan="5" class="table-empty">Архів порожній.</td></tr>';
+            return;
+        }
+        rejectedTableBody.innerHTML = rejected.map((lead) => `
+            <tr>
+                <td>${lead.shop_name || '—'}</td>
+                <td>${lead.phone || '—'}</td>
+                <td>${lead.city || '—'}</td>
+                <td>${lead.reason || '—'}</td>
+                <td>${lead.updated_at || lead.created_at || '—'}</td>
+            </tr>`).join('');
+    };
+
+    const renderResults = (items) => {
+        const results = items || [];
+        if (!results.length) {
+            resultsTableBody.innerHTML = '<tr><td colspan="7" class="table-empty">Поки немає результатів.</td></tr>';
+            return;
+        }
+        resultsTableBody.innerHTML = results.map((row) => `
+            <tr>
+                <td>${row.created_at || '—'}</td>
+                <td>${row.status_display || row.status}</td>
+                <td>${row.place_name || '—'}</td>
+                <td>${row.phone || '—'}</td>
+                <td>${row.keyword || '—'}</td>
+                <td>${row.city || '—'}</td>
+                <td>${row.reason || '—'}</td>
+            </tr>`).join('');
+    };
+
+    const applyPayload = (payload) => {
+        if (!payload) return;
+        if (payload.job !== undefined) activeJob = payload.job;
+        if (payload.counters) renderCounters(payload.counters);
+        if (payload.moderation) renderModeration(payload.moderation);
+        if (payload.rejected) renderRejected(payload.rejected);
+        renderStatus();
+        renderResults(activeJob?.results || []);
+        updateLoopState();
+    };
+
+    const apiRequest = async (url, data = null, method = 'POST') => {
+        const headers = {'X-Requested-With': 'XMLHttpRequest'};
+        const options = {method, headers};
+        if (data instanceof FormData) {
+            options.body = data;
+        } else if (data) {
+            const formData = new FormData();
+            Object.entries(data).forEach(([key, value]) => formData.append(key, value));
+            options.body = formData;
+        }
+        const res = await fetch(url, options);
+        const payload = await res.json();
+        if (!payload.success) throw new Error(payload.error || 'Помилка запиту');
+        return payload;
+    };
+
+    const runStep = async () => {
+        if (!activeJob || activeJob.status !== 'running') return;
+        try {
+            const payload = await apiRequest(stepUrl, {job_id: activeJob.id});
+            applyPayload(payload);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const updateLoopState = () => {
+        const shouldRun = activeJob && activeJob.status === 'running';
+        if (shouldRun && !stepTimer) {
+            stepTimer = setInterval(runStep, 1800);
+        }
+        if (!shouldRun && stepTimer) {
+            clearInterval(stepTimer);
+            stepTimer = null;
+        }
+    };
+
+    parserForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(parserForm);
+        try {
+            const payload = await apiRequest(startUrl, formData);
+            applyPayload(payload);
+        } catch (err) {
+            alert(err.message || 'Не вдалося запустити парсер');
+        }
+    });
+
+    document.getElementById('parser-pause-btn').addEventListener('click', async () => {
+        if (!activeJob) return;
+        try {
+            const payload = await apiRequest(pauseUrl, {job_id: activeJob.id});
+            applyPayload(payload);
+        } catch (err) {
+            alert(err.message || 'Не вдалося поставити на паузу');
+        }
+    });
+
+    document.getElementById('parser-resume-btn').addEventListener('click', async () => {
+        if (!activeJob) return;
+        try {
+            const payload = await apiRequest(resumeUrl, {job_id: activeJob.id});
+            applyPayload(payload);
+        } catch (err) {
+            alert(err.message || 'Не вдалося відновити');
+        }
+    });
+
+    document.getElementById('parser-stop-btn').addEventListener('click', async () => {
+        if (!activeJob) return;
+        try {
+            const payload = await apiRequest(stopUrl, {job_id: activeJob.id});
+            applyPayload(payload);
+        } catch (err) {
+            alert(err.message || 'Не вдалося зупинити');
+        }
+    });
+
+    moderationTableBody.addEventListener('click', (e) => {
+        const btn = e.target.closest('.open-moderation');
+        if (!btn) return;
+        const leadId = Number(btn.dataset.leadId);
+        const lead = moderation.find((item) => item.id === leadId);
+        if (!lead) return;
+        modalForm.reset();
+        document.getElementById('moderation_lead_id').value = lead.id;
+        document.getElementById('moderation_shop_name').value = lead.shop_name || '';
+        document.getElementById('moderation_phone').value = lead.phone || '';
+        document.getElementById('moderation_website_url').value = lead.website_url || '';
+        document.getElementById('moderation_full_name').value = lead.full_name || '';
+        document.getElementById('moderation_role').value = lead.role || 'other';
+        document.getElementById('moderation_source').value = lead.source || '';
+        document.getElementById('moderation_city').value = lead.city || '';
+        document.getElementById('moderation_niche_status').value = lead.niche_status || 'maybe';
+        document.getElementById('moderation_comments').value = lead.comments || '';
+        document.getElementById('moderation_details').value = lead.details || '';
+        document.getElementById('moderation_rejection_reason').value = '';
+        openModal();
+    });
+
+    modalForm.querySelectorAll('[data-moderation-action]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const leadId = document.getElementById('moderation_lead_id').value;
+            if (!leadId) return;
+            const action = btn.dataset.moderationAction;
+            const actionUrl = leadActionTpl.replace('/0/', `/${leadId}/`);
+            const formData = new FormData(modalForm);
+            formData.append('action', action);
+            try {
+                const payload = await apiRequest(actionUrl, formData);
+                applyPayload(payload);
+                closeModal();
+            } catch (err) {
+                alert(err.message || 'Не вдалося зберегти модерацію');
+            }
+        });
+    });
+
+    pollTimer = setInterval(async () => {
+        try {
+            const query = activeJob ? `?job_id=${activeJob.id}` : '';
+            const payload = await apiRequest(`${statusUrl}${query}`, null, 'GET');
+            applyPayload(payload);
+        } catch (err) {
+            console.warn(err);
+        }
+    }, 6000);
+
+    applyPayload({
+        job: activeJob,
+        moderation,
+        rejected,
+        counters,
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initParsingPage);
+} else {
+    initParsingPage();
+}
+</script>
+{% endblock %}
