@@ -205,10 +205,21 @@ function initParsingPage() {
     const modalForm = document.getElementById('lead-moderation-form');
     const body = document.body;
 
-    let activeJob = JSON.parse(document.getElementById('parser-initial-job').textContent);
-    let moderation = JSON.parse(document.getElementById('parser-initial-moderation').textContent);
-    let rejected = JSON.parse(document.getElementById('parser-initial-rejected').textContent);
-    let counters = JSON.parse(document.getElementById('parser-initial-counters').textContent);
+    const parseJsonScript = (id, fallback) => {
+        const el = document.getElementById(id);
+        if (!el) return fallback;
+        try {
+            return JSON.parse(el.textContent);
+        } catch (err) {
+            console.error(`Invalid JSON in script#${id}`, err);
+            return fallback;
+        }
+    };
+
+    let activeJob = parseJsonScript('parser-initial-job', null);
+    let moderation = parseJsonScript('parser-initial-moderation', []);
+    let rejected = parseJsonScript('parser-initial-rejected', []);
+    let counters = parseJsonScript('parser-initial-counters', {});
     let stepTimer = null;
     let pollTimer = null;
 
@@ -332,18 +343,53 @@ function initParsingPage() {
     };
 
     const apiRequest = async (url, data = null, method = 'POST') => {
-        const headers = {'X-Requested-With': 'XMLHttpRequest'};
-        const options = {method, headers};
-        if (data instanceof FormData) {
-            options.body = data;
-        } else if (data) {
-            const formData = new FormData();
-            Object.entries(data).forEach(([key, value]) => formData.append(key, value));
-            options.body = formData;
+        const headers = {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+        };
+        const options = {
+            method,
+            headers,
+            credentials: 'same-origin',
+        };
+
+        const csrfToken = getCsrfToken();
+        if (method !== 'GET' && csrfToken) {
+            headers['X-CSRFToken'] = csrfToken;
         }
+
+        if (method !== 'GET') {
+            if (data instanceof FormData) {
+                if (csrfToken && !data.has('csrfmiddlewaretoken')) {
+                    data.append('csrfmiddlewaretoken', csrfToken);
+                }
+                options.body = data;
+            } else if (data) {
+                const formData = new FormData();
+                Object.entries(data).forEach(([key, value]) => formData.append(key, value));
+                if (csrfToken) {
+                    formData.append('csrfmiddlewaretoken', csrfToken);
+                }
+                options.body = formData;
+            } else if (csrfToken) {
+                const formData = new FormData();
+                formData.append('csrfmiddlewaretoken', csrfToken);
+                options.body = formData;
+            }
+        }
+
         const res = await fetch(url, options);
+        const contentType = (res.headers.get('content-type') || '').toLowerCase();
+        if (!contentType.includes('application/json')) {
+            const raw = await res.text();
+            const shortRaw = (raw || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+            throw new Error(`Помилка відповіді сервера (${res.status}). ${shortRaw || 'Очікувався JSON.'}`);
+        }
+
         const payload = await res.json();
-        if (!payload.success) throw new Error(payload.error || 'Помилка запиту');
+        if (!res.ok || !payload.success) {
+            throw new Error(payload.error || `Помилка запиту (${res.status})`);
+        }
         return payload;
     };
 
@@ -374,6 +420,9 @@ function initParsingPage() {
         try {
             const payload = await apiRequest(startUrl, formData);
             applyPayload(payload);
+            if (payload.job && payload.job.status === 'running') {
+                await runStep();
+            }
         } catch (err) {
             alert(err.message || 'Не вдалося запустити парсер');
         }
