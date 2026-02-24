@@ -2,7 +2,7 @@
 {% load i18n %}
 
 {% block title %}
-  {% if current_lang == 'ru' %}FAQ — вопросы и ответы{% elif current_lang == 'en' %}FAQ{% else %}FAQ — питання та відповіді{% endif %}
+  {% if current_lang == 'ru' %}FAQ по DTF-печати 60 см — ответы на частые вопросы | TwoComms{% elif current_lang == 'en' %}DTF FAQ (60 cm) — answers to common questions | TwoComms{% else %}FAQ по DTF‑друку 60 см — відповіді на часті питання | TwoComms{% endif %}
 {% endblock %}
 {% block page_id %}faq{% endblock %}
 
@@ -10,14 +10,14 @@
 <section class="section" data-ui="dtf:faq:root">
   <div class="dtf-container">
     <div class="section-head" data-reveal>
-      <h1>{% if current_lang == 'ru' %}FAQ — вопросы и ответы{% elif current_lang == 'en' %}FAQ{% else %}FAQ — питання та відповіді{% endif %}</h1>
+      <h1>FAQ</h1>
       <p>
         {% if current_lang == 'ru' %}
-          Собрали ответы на самые частые вопросы про DTF, макеты 60 см и перенос. Если не нашли свое — напишите в Telegram: https://t.me/twocomms (24/7, ответ до 10 минут).
+          Форматы файлов, сроки, доставка, перенос и уход. Если не нашли ответ — напишите в Telegram.
         {% elif current_lang == 'en' %}
-          Common questions about DTF, 60 cm layouts, and application. Need help? Telegram: https://t.me/twocomms (24/7, ~10 min reply).
+          File formats, timing, delivery, transfer, care. If you didn't find an answer — message us in Telegram.
         {% else %}
-          Зібрали відповіді на найчастіші питання про DTF, макети 60 см і перенос. Якщо не знайшли своє — напишіть у Telegram: https://t.me/twocomms (24/7, відповідь до 10 хв).
+          Формати файлів, терміни, доставка, перенесення, догляд. Якщо не знайшли відповідь — напишіть у Telegram.
         {% endif %}
       </p>
     </div>
@@ -30,11 +30,11 @@
           <p>{% if current_lang == 'ru' %}Лучше всего: PNG с прозрачным фоном или PDF. Если не уверены — отправьте файл, мы проверим и подскажем.{% elif current_lang == 'en' %}Best: transparent PNG or PDF. If unsure — send it and we’ll advise.{% else %}Найкраще: PNG з прозорим фоном або PDF. Якщо не впевнені — надішліть файл, ми перевіримо і підкажемо.{% endif %}</p>
         </details>
         <details>
-          <summary>{% if current_lang == 'ru' %}Что такое “макет 60 см (ганг‑лист)”?{% elif current_lang == 'en' %}What is a 60 cm layout (gang sheet)?{% else %}Що таке “макет 60 см (ганг‑лист)”?{% endif %}</summary>
+          <summary>{% if current_lang == 'ru' %}Что такое лист 60 см?{% elif current_lang == 'en' %}What is a 60 cm sheet?{% else %}Що таке лист 60 см?{% endif %}</summary>
           <p>{% if current_lang == 'ru' %}Это файл шириной 60 см, в котором вы размещаете несколько дизайнов. Оплата считается по длине файла в метрах (метраж).{% elif current_lang == 'en' %}A 60 cm wide file with multiple designs arranged. Pricing is based on the file length in meters.{% else %}Це файл шириною 60 см, у якому ви розкладаєте кілька дизайнів. Оплата рахується по довжині файлу в метрах (метраж).{% endif %}</p>
         </details>
         <details>
-          <summary>{% if current_lang == 'ru' %}Проверяете ли вы макет перед печатью? (preflight){% elif current_lang == 'en' %}Do you check files before printing (preflight)?{% else %}Чи перевіряєте ви макет перед друком? (preflight){% endif %}</summary>
+          <summary>{% if current_lang == 'ru' %}Проверяете ли вы файл перед печатью?{% elif current_lang == 'en' %}Do you check files before printing?{% else %}Чи перевіряєте ви файл перед друком?{% endif %}</summary>
           <p>{% if current_lang == 'ru' %}Да. Проверяем DPI, прозрачность, тонкие линии, поля. Если есть риск — покажем и попросим подтверждение.{% elif current_lang == 'en' %}Yes. We check DPI, transparency, thin lines, and safe margins. If there’s a risk, we’ll show it and ask for approval.{% else %}Так. Перевіряємо DPI, прозорість, тонкі лінії, поля. Якщо є ризик — покажемо і попросимо підтвердження.{% endif %}</p>
         </details>
         <details>
@@ -46,8 +46,8 @@
       <article class="info-card">
         <h3>{% if current_lang == 'ru' %}Печать и качество{% elif current_lang == 'en' %}Printing & quality{% else %}Друк і якість{% endif %}</h3>
         <details>
-          <summary>{% if current_lang == 'ru' %}Что такое hot peel?{% elif current_lang == 'en' %}What is hot peel?{% else %}Що таке hot peel?{% endif %}</summary>
-          <p>{% if current_lang == 'ru' %}Hot peel — “горячий отрыв”: пленка снимается сразу после пресса. Это быстрее в производстве.{% elif current_lang == 'en' %}Hot peel means removing the film immediately after pressing — faster workflow.{% else %}Hot peel означає “гарячий відрив”: плівка знімається одразу після преса. Це швидше у виробництві.{% endif %}</p>
+          <summary>{% if current_lang == 'ru' %}Что такое «горячее снятие»?{% elif current_lang == 'en' %}What does "peel while hot" mean?{% else %}Що таке «гаряче зняття»?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}Плёнка снимается сразу после пресса. Это быстрее в работе на тиражах.{% elif current_lang == 'en' %}The film peels right after pressing. It speeds up workflow on larger runs.{% else %}Плівка знімається одразу після пресу. Це швидше у роботі на тиражах.{% endif %}</p>
         </details>
         <details>
           <summary>{% if current_lang == 'ru' %}Можно ли печатать мелкий текст?{% elif current_lang == 'en' %}Can you print tiny text?{% else %}Чи можна друкувати дрібний текст?{% endif %}</summary>
@@ -70,8 +70,8 @@
       <article class="info-card">
         <h3>{% if current_lang == 'ru' %}Сроки, доставка, оплата{% elif current_lang == 'en' %}Turnaround, shipping, payment{% else %}Терміни, доставка, оплата{% endif %}</h3>
         <details>
-          <summary>{% if current_lang == 'ru' %}Сколько занимает печать и отправка?{% elif current_lang == 'en' %}How fast is production & shipping?{% else %}Скільки триває друк і відправка?{% endif %}</summary>
-          <p>{% if current_lang == 'ru' %}Подтвердили до 12:00 — отправка сегодня. Стандартно: 0–24 ч, в пиковые дни — до 48 ч (после проверки файла).{% elif current_lang == 'en' %}Approved by 12:00 — ship today. Standard: 0–24h, peak days up to 48h (after file check).{% else %}Підтвердили до 12:00 — відправка сьогодні. Стандартно: 0–24 год, у пікові дні — до 48 год (після перевірки файлу).{% endif %}</p>
+          <summary>{% if current_lang == 'ru' %}Сколько занимает печать и отправка?{% elif current_lang == 'en' %}How long do printing and shipping take?{% else %}Скільки триває друк і відправка?{% endif %}</summary>
+          <p>{% if current_lang == 'ru' %}После проверки файла согласуем детали, печатаем и передаём в Новую Почту. Вы получите ТТН для отслеживания.{% elif current_lang == 'en' %}After file check, we confirm details, print, and hand over to Nova Poshta. You'll receive a tracking number.{% else %}Після перевірки файлу погоджуємо деталі, друкуємо та передаємо в Нову Пошту. Ви отримаєте ТТН для відстеження.{% endif %}</p>
         </details>
         <details>
           <summary>{% if current_lang == 'ru' %}Как осуществляется доставка?{% elif current_lang == 'en' %}How do you ship?{% else %}Як здійснюється доставка?{% endif %}</summary>
@@ -94,7 +94,7 @@
 
     <div class="cta-group" data-reveal>
       <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% if current_lang == 'ru' %}Отправить файл на проверку{% elif current_lang == 'en' %}Send file for check{% else %}Надіслати файл на перевірку{% endif %}</a>
-      <a class="btn btn-outline" href="{% url 'dtf:sample' %}">{% if current_lang == 'ru' %}Получить тест‑пак{% elif current_lang == 'en' %}Get test pack{% else %}Отримати тест‑пак{% endif %}</a>
+      <a class="hero-cta-link" href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Хочу заказать DTF-печать 60 см. Подскажите, пожалуйста, по цене и срокам.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! I want to order DTF print (60 cm). Please tell me the price and timing.'|urlencode }}{% else %}{{ 'Привіт! Хочу замовити DTF-друк 60 см. Підкажіть, будь ласка, по ціні та термінах.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Спросить в Telegram →{% elif current_lang == 'en' %}Ask in Telegram →{% else %}Запитати в Telegram →{% endif %}</a>
     </div>
   </div>
 </section>

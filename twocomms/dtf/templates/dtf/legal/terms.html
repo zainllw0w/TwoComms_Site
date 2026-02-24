@@ -1,180 +1,21 @@
 {% extends "dtf/base.html" %}
 
 {% block title %}
-  {% if current_lang == 'ru' %}Условия использования и заказа{% elif current_lang == 'en' %}Terms of Service{% else %}Умови використання та замовлення{% endif %}
+  {% if current_lang == 'ru' %}Публичная оферта{% elif current_lang == 'en' %}Public offer / terms{% else %}Публічна оферта{% endif %}
 {% endblock %}
 
 {% block content %}
 <section class="section" data-ui="dtf:legal:terms">
   <div class="dtf-container legal-copy">
     {% if current_lang == 'ru' %}
-      <h1>Условия использования и заказа</h1>
-      <p><strong>Дата вступления в силу:</strong> 15.02.2026</p>
-      <p>Эти Условия регулируют использование сайта <strong>dtf.twocomms.shop</strong> и заказ услуг DTF‑печати.</p>
-
-      <h2>1. Термины</h2>
-      <ul>
-        <li><strong>Сервис</strong> — сайт dtf.twocomms.shop и услуги DTF‑печати.</li>
-        <li><strong>Клиент</strong> — лицо, оформляющее заказ.</li>
-        <li><strong>Макет 60 см (ганг‑лист)</strong> — файл шириной 60 см с размещенными дизайнами, который идет в печать.</li>
-        <li><strong>Проверка файла (preflight)</strong> — проверка макета на типичные ошибки до запуска печати.</li>
-      </ul>
-
-      <h2>2. Как оформить заказ</h2>
-      <ol>
-        <li>Клиент отправляет <strong>макет 60 см (ганг‑лист)</strong> через форму заказа/иной согласованный канал.</li>
-        <li>Мы выполняем <strong>проверку файла</strong> и сообщаем результат (OK/INFO/WARN/FAIL).</li>
-        <li>Мы <strong>подтверждаем метраж и стоимость</strong>.</li>
-        <li>После подтверждения клиентом — запускаем в печать и отправляем.</li>
-      </ol>
-
-      <h2>3. Отправка сегодня до 12:00</h2>
-      <p>Если клиент подтвердил макет и заказ <strong>до 12:00</strong>, мы отправляем заказ <strong>в тот же день</strong> (при наличии производственного окна). Если подтверждение после 12:00 — действует стандартный срок.</p>
-
-      <h2>4. Сроки производства</h2>
-      <p>Стандартный срок печати: <strong>0–24 часа</strong> после проверки файла и подтверждения метража/цены. В пиковые дни срок может увеличиться <strong>до 48 часов</strong>.</p>
-
-      <h2>5. Требования к файлам и ответственность</h2>
-      <ul>
-        <li>Клиент отвечает за содержание макетов (авторские права, торговые марки и т.д.).</li>
-        <li>Мы проверяем файл на типовые технические риски, но <strong>не редактируем дизайн без согласования</strong>.</li>
-        <li>Если файл имеет статус <strong>WARN</strong>, мы рекомендуем правку. Печать “как есть” возможна <strong>только после явного подтверждения клиента</strong>.</li>
-      </ul>
-
-      <h2>6. Цвет и ожидания</h2>
-      <p>Цвет на экране может отличаться от печати из‑за настроек монитора, материалов и особенностей технологии. Чтобы снизить риск, рекомендуем заказать <strong>бесплатный тест‑пак</strong>.</p>
-
-      <h2>7. Перенос на ткань</h2>
-      <p>Клиент переносит на ткань самостоятельно (термопрессом). Мы даем инструкцию, но конечный результат зависит от ткани/состава, температуры/времени/давления пресса и соблюдения технологии.</p>
-
-      <h2>8. Оплата</h2>
-      <p>Условия оплаты согласовываются после подтверждения метража и стоимости заказа. Оплата возможна переводом на IBAN (реквизиты на странице <a href="/requisites/">/requisites/</a>).</p>
-
-      <h2>9. Доставка</h2>
-      <p>Доставка осуществляется службой (например, Новая почта) по тарифам перевозчика. После отправки предоставляем ТТН.</p>
-
-      <h2>10. Ограничение ответственности</h2>
-      <p>Мы не несем ответственности за:</p>
-      <ul>
-        <li>результат переноса при нарушении инструкции или неверных параметрах пресса/ткани;</li>
-        <li>ошибки файла, которые были явно подтверждены клиентом до печати (“печать как есть”);</li>
-        <li>задержки перевозчика.</li>
-      </ul>
-
-      <h2>11. Изменения условий</h2>
-      <p>Мы можем обновлять Условия. Актуальная версия доступна на этой странице.</p>
+      <h1>Публичная оферта</h1>
+      <p>Условия сотрудничества, оплаты и ответственность сторон. Если есть вопрос — напишите в Telegram.</p>
     {% elif current_lang == 'en' %}
-      <h1>Terms of Service</h1>
-      <p><strong>Effective date:</strong> 2026‑02‑15</p>
-      <p>These Terms govern use of <strong>dtf.twocomms.shop</strong> and ordering DTF printing services.</p>
-
-      <h2>1. Definitions</h2>
-      <ul>
-        <li><strong>Service</strong> — dtf.twocomms.shop and DTF printing services.</li>
-        <li><strong>Customer</strong> — a person placing an order.</li>
-        <li><strong>60 cm layout (gang sheet)</strong> — a 60 cm wide file with multiple designs arranged for printing.</li>
-        <li><strong>File check (preflight)</strong> — technical file review before printing.</li>
-      </ul>
-
-      <h2>2. Ordering process</h2>
-      <ol>
-        <li>Customer submits a <strong>60 cm layout (gang sheet)</strong> via the order form or another agreed channel.</li>
-        <li>We run a <strong>file check</strong> and report status (OK/INFO/WARN/FAIL).</li>
-        <li>We confirm <strong>meters and price</strong>.</li>
-        <li>After customer approval — we print and ship.</li>
-      </ol>
-
-      <h2>3. Ship today by 12:00</h2>
-      <p>If the customer approves the layout and order <strong>by 12:00</strong>, we ship <strong>the same day</strong> (slot dependent). Approvals after 12:00 follow the standard turnaround.</p>
-
-      <h2>4. Production time</h2>
-      <p>Standard turnaround: <strong>0–24 hours</strong> after file check and meters/price approval. Peak days may extend up to <strong>48 hours</strong>.</p>
-
-      <h2>5. Artwork responsibility</h2>
-      <ul>
-        <li>Customer is responsible for the content of submitted artwork (copyrights, trademarks, etc.).</li>
-        <li>We check for typical technical risks but <strong>do not edit artwork without approval</strong>.</li>
-        <li>If status is <strong>WARN</strong>, we recommend fixing. Printing “as‑is” is possible <strong>only with explicit customer approval</strong>.</li>
-      </ul>
-
-      <h2>6. Color disclaimer</h2>
-      <p>On‑screen colors may differ from print due to monitor settings, materials, and technological specifics. To reduce risk, we recommend ordering a <strong>free test pack</strong>.</p>
-
-      <h2>7. Heat‑press application</h2>
-      <p>Customer applies transfers using a heat press. We provide instructions, but final results depend on fabric, press settings, and correct application.</p>
-
-      <h2>8. Payment</h2>
-      <p>Payment terms are agreed after meters/price confirmation. Bank transfer via IBAN is available (see <a href="/requisites/">/requisites/</a>).</p>
-
-      <h2>9. Shipping</h2>
-      <p>Shipping is handled by carriers (e.g., Nova Poshta) per carrier тариф. Tracking is provided after dispatch.</p>
-
-      <h2>10. Limitation of liability</h2>
-      <p>We are not liable for:</p>
-      <ul>
-        <li>application results if instructions are not followed or incorrect press/fabric settings are used;</li>
-        <li>file issues explicitly approved by the customer (“print as‑is”);</li>
-        <li>carrier delays.</li>
-      </ul>
-
-      <h2>11. Changes</h2>
-      <p>We may update these Terms. The latest version is available on this page.</p>
+      <h1>Public offer / terms</h1>
+      <p>Terms of cooperation, payment and responsibilities. If you have questions — message us in Telegram.</p>
     {% else %}
-      <h1>Умови використання та замовлення</h1>
-      <p><strong>Дата набрання чинності:</strong> 15.02.2026</p>
-      <p>Ці Умови регулюють користування сайтом <strong>dtf.twocomms.shop</strong> та замовлення послуг DTF‑друку.</p>
-
-      <h2>1. Терміни</h2>
-      <ul>
-        <li><strong>Сервіс</strong> — сайт dtf.twocomms.shop та послуги DTF‑друку.</li>
-        <li><strong>Клієнт</strong> — особа, що оформлює замовлення.</li>
-        <li><strong>Макет 60 см (ганг‑лист)</strong> — файл шириною 60 см із розкладеними дизайнами, який передається в друк.</li>
-        <li><strong>Перевірка файлу (preflight)</strong> — перевірка макета на типові помилки до запуску друку.</li>
-      </ul>
-
-      <h2>2. Як оформити замовлення</h2>
-      <ol>
-        <li>Клієнт надсилає <strong>макет 60 см (ганг‑лист)</strong> через форму замовлення/інший погоджений канал.</li>
-        <li>Ми виконуємо <strong>перевірку файлу</strong> і повідомляємо результат (OK/INFO/WARN/FAIL).</li>
-        <li>Ми <strong>підтверджуємо метраж і вартість</strong>.</li>
-        <li>Після підтвердження клієнтом — запускаємо у друк і відправляємо.</li>
-      </ol>
-
-      <h2>3. Відправка сьогодні до 12:00</h2>
-      <p>Якщо клієнт підтвердив макет і замовлення <strong>до 12:00</strong>, ми відправляємо замовлення <strong>того ж дня</strong> (за умови наявності виробничого вікна). Якщо підтвердження після 12:00 — діє стандартний термін.</p>
-
-      <h2>4. Терміни виробництва</h2>
-      <p>Стандартний термін друку: <strong>0–24 год</strong> після перевірки файлу та підтвердження метражу/ціни. У пікові дні термін може збільшитись <strong>до 48 год</strong>.</p>
-
-      <h2>5. Вимоги до файлів і відповідальність</h2>
-      <ul>
-        <li>Клієнт несе відповідальність за зміст переданих макетів (авторські права, торгові марки тощо).</li>
-        <li>Ми перевіряємо файл на типові технічні ризики, але <strong>не редагуємо дизайн без погодження</strong>.</li>
-        <li>Якщо файл має статус <strong>WARN</strong>, ми рекомендуємо правку. Друк “як є” можливий <strong>лише після явного підтвердження клієнта</strong>.</li>
-      </ul>
-
-      <h2>6. Колір і очікування</h2>
-      <p>Колір на екрані може відрізнятися від друку через налаштування монітора, матеріали та технологічні особливості. Для зниження ризику рекомендуємо замовити <strong>безкоштовний тест‑пак</strong>.</p>
-
-      <h2>7. Перенос на тканину</h2>
-      <p>Клієнт виконує перенос на тканину (термопресом) самостійно. Ми надаємо інструкцію, але кінцевий результат залежить від тканини/складу матеріалу, температури/часу/тиску преса та дотримання технології.</p>
-
-      <h2>8. Оплата</h2>
-      <p>Умови оплати погоджуються після підтвердження метражу та вартості замовлення. Оплата можлива переказом на IBAN (реквізити див. на сторінці <a href="/requisites/">/requisites/</a>).</p>
-
-      <h2>9. Доставка</h2>
-      <p>Доставка здійснюється службою (наприклад, Нова пошта) за тарифами перевізника. Після відправки надаємо номер ТТН.</p>
-
-      <h2>10. Обмеження відповідальності</h2>
-      <p>Ми не несемо відповідальності за:</p>
-      <ul>
-        <li>результат переносу, якщо порушено інструкції або використано невідповідні параметри преса/матеріал;</li>
-        <li>помилки у файлі, які були явно підтверджені клієнтом до друку (“друк як є”);</li>
-        <li>затримки перевізника.</li>
-      </ul>
-
-      <h2>11. Зміни умов</h2>
-      <p>Ми можемо оновлювати Умови. Актуальна версія доступна на цій сторінці.</p>
+      <h1>Публічна оферта</h1>
+      <p>Умови співпраці, оплати та відповідальність сторін. Якщо є питання — напишіть у Telegram.</p>
     {% endif %}
   </div>
 </section>

@@ -1,7 +1,7 @@
 {% extends 'dtf/base.html' %}
 {% load static i18n %}
 
-{% block title %}{% if current_lang == 'ru' %}Шаблоны 60 см для макета{% elif current_lang == 'en' %}60 cm layout templates{% else %}Шаблони 60 см для макета{% endif %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Шаблоны листа 60 см для DTF-печати (AI/PSD/PDF) | TwoComms{% elif current_lang == 'en' %}60 cm templates for DTF — AI/PSD/PDF | TwoComms{% else %}Шаблони листа 60 см для DTF‑друку (AI/PSD/PDF) | TwoComms{% endif %}{% endblock %}
 {% block page_id %}templates{% endblock %}
 
 {% block extra_head %}
@@ -32,8 +32,8 @@
 <section class="section" data-ui="dtf:templates:root">
   <div class="dtf-container" data-ui="dtf:templates:downloads">
     <div class="section-head">
-      <h1>{% if current_lang == 'ru' %}Шаблоны 60 см для макета{% elif current_lang == 'en' %}60 cm layout templates{% else %}Шаблони 60 см для макета{% endif %}</h1>
-      <p>{% if current_lang == 'ru' %}Шаблоны помогают быстро собрать макет 60 см (ганг‑лист) и не выйти за safe‑area.{% elif current_lang == 'en' %}Templates help you build a 60 cm layout (gang sheet) and stay within the safe area.{% else %}Шаблони допомагають швидко зібрати макет 60 см (ганг‑лист) і не вилізти за safe‑area.{% endif %}</p>
+      <h1>{% if current_lang == 'ru' %}Шаблоны 60 см для DTF-печати{% elif current_lang == 'en' %}60 cm templates for DTF{% else %}Шаблони 60 см для DTF‑друку{% endif %}</h1>
+      <p>{% if current_lang == 'ru' %}Чтобы было проще, мы подготовили шаблоны под ширину 60 см. Размещайте дизайн в пределах безопасной зоны — и отправляйте на печать.{% elif current_lang == 'en' %}To make it easier, we prepared templates for 60 cm width. Keep important elements inside the safe area — and send it to print.{% else %}Щоб було простіше, ми підготували шаблони під ширину 60 см. Розміщуйте дизайн у межах безпечної зони — і надсилайте на друк.{% endif %}</p>
     </div>
 
     <!-- ASSET_REQUEST | id=template-preview-60cm | type=photo | usage=Templates page preview | spec=2x, ~1200px wide | notes=60cm layout preview -->
@@ -54,22 +54,23 @@
           <button type="button" data-tab-target="figma" role="tab" aria-selected="false">Figma</button>
         </div>
         <div data-tab-panel="pdf">
-          <a class="btn btn-outline" href="{% static 'dtf/assets/template-60cm.pdf' %}" download>{% if current_lang == 'ru' %}Скачать шаблон{% elif current_lang == 'en' %}Download template{% else %}Завантажити шаблон{% endif %}</a>
+          <a class="btn btn-outline" href="{% static 'dtf/assets/template-60cm.pdf' %}" download>{% if current_lang == 'ru' %}Скачать шаблон PDF{% elif current_lang == 'en' %}Download PDF template{% else %}Завантажити шаблон PDF{% endif %}</a>
         </div>
         <div data-tab-panel="ai" hidden>
-          <a class="btn btn-ghost" href="{% static 'dtf/assets/template-60cm.ai' %}" download>{% trans "Adobe Illustrator" %}</a>
+          <a class="btn btn-ghost" href="{% static 'dtf/assets/template-60cm.ai' %}" download>{% if current_lang == 'ru' %}Скачать шаблон AI{% elif current_lang == 'en' %}Download AI template{% else %}Завантажити шаблон AI{% endif %}</a>
         </div>
         <div data-tab-panel="figma" hidden>
-          <a class="btn btn-ghost" href="{% static 'dtf/assets/template-60cm.fig' %}" download>{% trans "Figma" %}</a>
+          <a class="btn btn-ghost" href="{% static 'dtf/assets/template-60cm.fig' %}" download>{% if current_lang == 'ru' %}Скачать шаблон Figma{% elif current_lang == 'en' %}Download Figma template{% else %}Завантажити шаблон Figma{% endif %}</a>
         </div>
       </div>
       <div class="card">
-        <h3>{% trans "Як користуватись" %}</h3>
+        <h3>{% if current_lang == 'ru' %}Как использовать{% elif current_lang == 'en' %}How to use{% else %}Як користуватись{% endif %}</h3>
         <ol class="list">
           <li>{% trans "Відкрийте шаблон" %}</li>
-          <li>{% trans "Розмістіть макети в межах 60 см" %}</li>
+          <li>{% if current_lang == 'ru' %}Разместите дизайн в пределах безопасной зоны{% elif current_lang == 'en' %}Place design inside the safe area{% else %}Розмістіть дизайн у межах безпечної зони{% endif %}</li>
           <li>{% trans "Експортуйте PDF/PNG" %}</li>
         </ol>
+        <p class="muted">{% if current_lang == 'ru' %}Не знаете, какой выбрать? Начните с PDF — он самый простой.{% elif current_lang == 'en' %}Not sure which one to use? Start with PDF — it's the simplest.{% else %}Не знаєте, який вибрати? Почніть з PDF — він найпростіший.{% endif %}</p>
       </div>
     </div>
   </div>

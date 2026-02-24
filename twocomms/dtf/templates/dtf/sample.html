@@ -1,15 +1,15 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% if current_lang == 'ru' %}Бесплатный тест‑пак DTF{% elif current_lang == 'en' %}Free DTF test pack{% else %}Безкоштовний тест‑пак DTF{% endif %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Бесплатный тест DTF-печати 60 см | TwoComms{% elif current_lang == 'en' %}Free DTF test print (60 cm) | TwoComms{% else %}Безкоштовний тест DTF‑друку 60 см | TwoComms{% endif %}{% endblock %}
 {% block page_id %}sample{% endblock %}
 
 {% block content %}
 <section class="section" data-ui="dtf:sample:hero" data-effect="dotted-glow">
   <div class="dtf-container">
     <div class="section-head">
-      <h1>{% if current_lang == 'ru' %}Проверьте качество на своей ткани — бесплатный тест‑пак{% elif current_lang == 'en' %}Check quality on your own fabric — free test pack{% else %}Перевірте якість на своїй тканині — безкоштовний тест‑пак{% endif %}</h1>
-      <p><span data-pointer>{% if current_lang == 'ru' %}Печать тест‑пакета бесплатная, вы оплачиваете только доставку. В деталях честно показываем формат и условия отправки.{% elif current_lang == 'en' %}Printing the test pack is free, you only cover shipping. Details below clearly explain the format and shipping terms.{% else %}Друк тест‑паку безкоштовний, ви сплачуєте лише доставку. У деталях чесно показуємо формат і умови відправки.{% endif %}</span></p>
+      <h1>{% if current_lang == 'ru' %}Бесплатный тест DTF-печати{% elif current_lang == 'en' %}Free DTF test print{% else %}Безкоштовний тест DTF‑друку{% endif %}</h1>
+      <p><span data-pointer>{% if current_lang == 'ru' %}Хотите сначала увидеть качество? Отправьте один дизайн — сделаем тест-принт и подскажем режим переноса.{% elif current_lang == 'en' %}Want to see the quality first? Send one design — we'll make a test print and suggest transfer settings.{% else %}Хочете спочатку побачити якість? Надішліть один дизайн — зробимо тест‑принт і підкажемо режим перенесення.{% endif %}</span></p>
     </div>
 
     <div class="sample-grid">
@@ -97,8 +97,8 @@
         <span>{% trans "Погоджуюсь на обробку персональних даних" %}</span>
       </label>
 
-      <button class="btn btn-primary" type="submit" data-stateful>{% if current_lang == 'ru' %}Получить тест‑пак{% elif current_lang == 'en' %}Get test pack{% else %}Отримати тест‑пак{% endif %}</button>
-      <div class="summary-foot">{% if current_lang == 'ru' %}Обычно отвечаем в рабочее время до 10 минут.{% elif current_lang == 'en' %}Typical reply during working hours is up to 10 minutes.{% else %}Зазвичай відповідаємо у робочий час до 10 хв.{% endif %}</div>
+      <button class="btn btn-primary" type="submit" data-stateful>{% if current_lang == 'ru' %}Получить бесплатный тест{% elif current_lang == 'en' %}Get a free test print{% else %}Отримати безкоштовний тест{% endif %}</button>
+      <div class="summary-foot">{% if current_lang == 'ru' %}Пишем в Telegram после проверки заявки в рабочее время.{% elif current_lang == 'en' %}We message in Telegram after reviewing your request during business hours.{% else %}Пишемо в Telegram після перевірки заявки в робочий час.{% endif %}</div>
       <div class="muted">{% if current_lang == 'ru' %}Минимум для отправки: имя, телефон и канал связи.{% elif current_lang == 'en' %}Minimum required: name, phone, and preferred contact channel.{% else %}Мінімум для відправки: ім'я, телефон та канал зв'язку.{% endif %}</div>
     </form>
   </div>

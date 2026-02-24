@@ -1,15 +1,15 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% if current_lang == 'ru' %}Конструктор мерча{% elif current_lang == 'en' %}Merch builder{% else %}Конструктор мерчу{% endif %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Собрать лист 60 см{% elif current_lang == 'en' %}Build a 60 cm sheet{% else %}Зібрати лист 60 см{% endif %}{% endblock %}
 {% block page_id %}constructor{% endblock %}
 
 {% block content %}
 <section class="section" data-ui="dtf:constructor:landing" data-effect="dotted-glow">
   <div class="dtf-container">
     <div class="section-head">
-      <h1>{% if current_lang == 'ru' %}Конструктор мерча{% elif current_lang == 'en' %}Merch builder{% else %}Конструктор мерчу{% endif %}</h1>
-      <p>{% if current_lang == 'ru' %}Подобрать изделие и подготовить печать. Если нужно — поможем с макетом 60 см (ганг‑лист).{% elif current_lang == 'en' %}Pick garments and prep print. If needed, we can build a 60 cm layout (gang sheet) for you.{% else %}Підібрати виріб і підготувати друк. Якщо потрібно — допоможемо з макетом 60 см (ганг‑лист).{% endif %}</p>
+      <h1>{% if current_lang == 'ru' %}Собрать лист 60 см{% elif current_lang == 'en' %}Build a 60 cm sheet{% else %}Зібрати лист 60 см{% endif %}</h1>
+      <p>{% if current_lang == 'ru' %}Подобрать изделие и подготовить печать. Если нужно — поможем собрать лист 60 см.{% elif current_lang == 'en' %}Pick garments and prep print. If needed, we can help build a 60 cm sheet.{% else %}Підібрати виріб і підготувати друк. Якщо потрібно — допоможемо зібрати лист 60 см.{% endif %}</p>
     </div>
 
     <div class="constructor-intro-grid">

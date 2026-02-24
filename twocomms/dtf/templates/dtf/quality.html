@@ -1,11 +1,11 @@
 {% extends 'dtf/base.html' %}
 {% load i18n static %}
 
-{% block title %}{% if current_lang == 'ru' %}Контроль качества (QC){% elif current_lang == 'en' %}Quality control (QC){% else %}Контроль якості (QC){% endif %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Качество DTF-печати: чистый край, цвет, износостойкость | TwoComms{% elif current_lang == 'en' %}DTF quality: clean edge, color, durability | TwoComms{% else %}Якість DTF‑друку: чистий край, колір, зносостійкість | TwoComms{% endif %}{% endblock %}
 {% block page_id %}quality{% endblock %}
 
 {% block extra_head %}
-  {% trans "Які перевірки входять у QC?" as faq_q1 %}
+  {% trans "Що перевіряєте перед друком?" as faq_q1 %}
   {% trans "Перевіряємо прозорість, DPI, білу підкладку і тест переносу." as faq_a1 %}
   {% trans "Чи друкуєте без узгодження?" as faq_q2 %}
   {% trans "Ні, при ризиках узгоджуємо правки до друку." as faq_a2 %}
@@ -60,8 +60,8 @@
 <section class="section">
   <div class="dtf-container">
     <div class="section-head">
-      <h1>{% if current_lang == 'ru' %}Контроль качества (QC){% elif current_lang == 'en' %}Quality control (QC){% else %}Контроль якості (QC){% endif %}</h1>
-      <p>{% if current_lang == 'ru' %}Проверяем файл до печати и контролируем тираж по QC‑чеклисту: совмещение слоёв, белый подклад, тонкие линии, край, тест стирки.{% elif current_lang == 'en' %}We preflight files before print and run a QC checklist per batch: layer registration, white underbase, thin lines, edge quality, wash test.{% else %}Перевіряємо файл до друку та контролюємо тираж по QC‑чеклисту: суміщення шарів, білий підклад, тонкі лінії, край, тест прання.{% endif %}</p>
+      <h1>{% if current_lang == 'ru' %}Качество DTF-печати, которое видно{% elif current_lang == 'en' %}DTF quality you can see{% else %}Якість DTF‑друку, яку видно{% endif %}</h1>
+      <p>{% if current_lang == 'ru' %}Мы не "обещаем" — мы показываем. Посмотрите макро-фото и сравнения: край, цвет, белый слой.{% elif current_lang == 'en' %}We don't just promise — we show. Check the macro photos: edge, color, white layer.{% else %}Ми не “обіцяємо” — ми показуємо. Подивіться макро‑фото і порівняння: край, колір, білий шар.{% endif %}</p>
     </div>
 
     <!-- ASSET_REQUEST | id=lab-proof-photos | type=photo | usage=Quality/Lab Proof sections | spec=4–6 photos, 2x | notes=QC / process / texture close-ups -->
@@ -69,7 +69,7 @@
       <div class="proof-card">
         <div class="asset-slot" style="aspect-ratio: 4 / 3">
           <img src="{% static 'dtf/assets/lab-proof-01.jpg' %}"
-               alt="{% trans 'QC макро' %}"
+               alt="{% if current_lang == 'ru' %}Макро качества{% elif current_lang == 'en' %}Quality macro{% else %}Макро якості{% endif %}"
                loading="lazy"
                decoding="async"
                class="skeleton">
@@ -108,7 +108,7 @@
       <div class="proof-card">
         <div class="asset-slot" style="aspect-ratio: 4 / 3">
           <img src="{% static 'dtf/assets/lab-proof-04.jpg' %}"
-               alt="{% trans 'QC контроль білої підкладки' %}"
+               alt="{% if current_lang == 'ru' %}Контроль белого слоя{% elif current_lang == 'en' %}White layer control{% else %}Контроль білого шару{% endif %}"
                loading="lazy"
                decoding="async"
                class="skeleton">
@@ -121,7 +121,7 @@
       <div class="proof-card">
         <div class="asset-slot" style="aspect-ratio: 4 / 3">
           <img src="{% static 'dtf/assets/lab-proof-05.jpg' %}"
-               alt="{% trans 'QC контроль порошку' %}"
+               alt="{% if current_lang == 'ru' %}Контроль порошка{% elif current_lang == 'en' %}Powder control{% else %}Контроль порошку{% endif %}"
                loading="lazy"
                decoding="async"
                class="skeleton">
@@ -134,7 +134,7 @@
       <div class="proof-card">
         <div class="asset-slot" style="aspect-ratio: 4 / 3">
           <img src="{% static 'dtf/assets/lab-proof-06.jpg' %}"
-               alt="{% trans 'QC фінішний огляд' %}"
+               alt="{% if current_lang == 'ru' %}Финальный контроль{% elif current_lang == 'en' %}Final check{% else %}Фінальний огляд{% endif %}"
                loading="lazy"
                decoding="async"
                class="skeleton">
@@ -148,7 +148,7 @@
 
     <div class="quality-compare-grid" data-reveal>
       <article class="proof-card compare-card" data-compare data-effect="compare" data-compare-mode="drag">
-        <h3>{% if current_lang == 'ru' %}До/после QC{% elif current_lang == 'en' %}Before/after QC{% else %}До/після QC{% endif %}</h3>
+        <h3>{% if current_lang == 'ru' %}До/после проверки{% elif current_lang == 'en' %}Before/after checks{% else %}До/після перевірки{% endif %}</h3>
         <div class="compare-media asset-slot">
           <div class="compare-layer compare-before">
             <img src="{% static 'dtf/assets/compare-case-1-before.jpg' %}"
@@ -176,7 +176,7 @@
 
     <div class="info-grid" data-reveal>
       <div class="info-card">
-        <h3>{% trans "QC чек" %}</h3>
+        <h3>{% if current_lang == 'ru' %}Проверка качества{% elif current_lang == 'en' %}Quality check{% else %}Контроль якості{% endif %}</h3>
         <ul class="list">
           <li>{% trans "Перевірка файлу на прозорість і DPI" %}</li>
           <li>{% trans "Контроль білої підкладки" %}</li>
@@ -192,6 +192,11 @@
         <h3>{% if current_lang == 'ru' %}Примеры и контроль{% elif current_lang == 'en' %}Samples & control{% else %}Приклади і контроль{% endif %}</h3>
         <p>{% if current_lang == 'ru' %}Смотрите макро‑примеры выше и отправляйте макет на проверку перед печатью.{% elif current_lang == 'en' %}See macro samples above and send artwork for pre-print checks.{% else %}Дивіться макро‑приклади вище та надсилайте макет на перевірку перед друком.{% endif %}</p>
       </div>
+    </div>
+    <div class="cta-group" data-reveal>
+      <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% if current_lang == 'ru' %}Заказать печать{% elif current_lang == 'en' %}Order print{% else %}Замовити друк{% endif %}</a>
+      <a class="btn btn-outline btn-secondary breathe" href="{% url 'dtf:sample' %}">{% if current_lang == 'ru' %}Бесплатный тест{% elif current_lang == 'en' %}Free test print{% else %}Безкоштовний тест{% endif %}</a>
+      <a class="hero-cta-link" href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Подскажите, пожалуйста, по переносу и уходу за DTF-принтом.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! Please advise on transfer settings and care for DTF prints.'|urlencode }}{% else %}{{ 'Привіт! Підкажіть, будь ласка, по перенесенню та догляду за DTF-принтом.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Спросить в Telegram →{% elif current_lang == 'en' %}Ask in Telegram →{% else %}Запитати в Telegram →{% endif %}</a>
     </div>
   </div>
 </section>

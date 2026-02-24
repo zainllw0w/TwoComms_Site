@@ -7,17 +7,21 @@
 {% block content %}
 <section class="section">
   <div class="dtf-container thanks">
-    <h1>{% trans "Дякуємо!" %}</h1>
     {% if kind == 'order' %}
-      <p>{% trans "Ваше замовлення прийнято." %}</p>
+      <h1>{% if current_lang == 'ru' %}🎉 Готово! Заявку получили{% elif current_lang == 'en' %}🎉 Done! Request received{% else %}🎉 Готово! Заявку отримали{% endif %}</h1>
+      <p>{% if current_lang == 'ru' %}Проверим файл и напишем вам в Telegram в течение рабочего дня. Обычно — до 30 минут в рабочее время.{% elif current_lang == 'en' %}We'll check your file and message you in Telegram during business hours. Usually within 30 minutes.{% else %}Перевіримо файл і напишемо вам у Telegram протягом робочого дня. Зазвичай — до 30 хвилин у робочий час.{% endif %}</p>
       <div class="thanks-card">
         <div class="label">{% trans "Номер замовлення" %}</div>
         <div class="value">{{ item.order_number }}</div>
         <div class="status">{% trans "Статус" %}: {{ item.get_status_display }}</div>
       </div>
-      <p>{% trans "Реквізити на оплату надішлемо після перевірки макета." %}</p>
-      <a class="btn btn-primary" href="{% url 'dtf:status' %}">{% trans "Перевірити статус" %}</a>
+      <a class="btn btn-primary" href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Я только что оставил(а) заявку на сайте по DTF-печати.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! I just submitted a DTF order request on your website.'|urlencode }}{% else %}{{ 'Привіт! Я щойно залишив(ла) заявку на сайті по DTF-друку.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Открыть Telegram{% elif current_lang == 'en' %}Open Telegram{% else %}Відкрити Telegram{% endif %}</a>
+      <div class="thanks-links">
+        <a class="hero-cta-link" href="{% url 'dtf:gallery' %}">{% if current_lang == 'ru' %}Посмотреть наши кейсы →{% elif current_lang == 'en' %}See our cases →{% else %}Подивитись наші кейси →{% endif %}</a>
+        <a class="hero-cta-link" href="{% url 'dtf:quality' %}">{% if current_lang == 'ru' %}Пока ждёте — как ухаживать за DTF‑принтом →{% elif current_lang == 'en' %}While you wait — DTF care tips →{% else %}Поки чекаєте — як доглядати за DTF‑принтом →{% endif %}</a>
+      </div>
     {% else %}
+      <h1>{% trans "Дякуємо!" %}</h1>
       <p>{% trans "Заявка прийнята. Менеджер зв'яжеться з вами." %}</p>
       <div class="thanks-card">
         <div class="label">{% trans "Номер заявки" %}</div>

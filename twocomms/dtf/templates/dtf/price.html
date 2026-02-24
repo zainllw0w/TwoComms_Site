@@ -1,15 +1,15 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% if current_lang == 'ru' %}Прайс на DTF‑печать (60 см){% elif current_lang == 'en' %}DTF pricing (60 cm){% else %}Прайс на DTF‑друк (60 см){% endif %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Цены на DTF-печать 60 см — от 280 грн/м + калькулятор | TwoComms{% elif current_lang == 'en' %}DTF 60 cm pricing — from 280 UAH/m + calculator | TwoComms{% else %}Ціни на DTF‑друк 60 см — від 280 грн/м + калькулятор | TwoComms{% endif %}{% endblock %}
 {% block page_id %}price{% endblock %}
 {% block description %}
   {% if current_lang == 'ru' %}
-    DTF печать 60 см: цена за метраж, скидки, сроки 0–24 ч (до 48 ч в пиковые дни), 24/7 поддержка.
+    Посчитать стоимость DTF-печати 60 см: цена за погонный метр, калькулятор по метражу и по размерам. Проверка файла перед печатью — уже в цене.
   {% elif current_lang == 'en' %}
-    60 cm DTF pricing by meter: tier discounts, 0–24h turnaround (up to 48h on peak days), 24/7 support.
+    Calculate DTF 60 cm price: per running meter, calculator by meters and by sizes. File check before print is included.
   {% else %}
-    DTF друк 60 см: ціна за метраж, знижки, терміни 0–24 год (до 48 год у пікові дні), 24/7 підтримка.
+    Порахувати вартість DTF‑друку 60 см: ціна за погонний метр, калькулятор за метражем і за розмірами. Перевірка файлу перед друком — вже в ціні.
   {% endif %}
 {% endblock %}
 
@@ -40,14 +40,14 @@
 {% block content %}
 <section class="section">
   <div class="dtf-container">
-    <h1>{% if current_lang == 'ru' %}Прайс на DTF‑печать (60 см){% elif current_lang == 'en' %}DTF pricing (60 cm){% else %}Прайс на DTF‑друк (60 см){% endif %}</h1>
+    <h1>{% if current_lang == 'ru' %}Цены на DTF-печать 60 см{% elif current_lang == 'en' %}DTF 60 cm pricing{% else %}Ціни на DTF‑друк 60 см{% endif %}</h1>
     <p>
       {% if current_lang == 'ru' %}
-        Считаем по метражу: длина файла в метрах при ширине 60 см. Подтвердили до 12:00 — отправка сегодня.
+        Считаем по погонным метрам при ширине 60 см. Проверка файла перед печатью — уже в цене.
       {% elif current_lang == 'en' %}
-        We charge by meterage: file length in meters at 60 cm width. Approved by 12:00 — ship today.
+        We calculate by running meters at 60 cm width. File check before print is included.
       {% else %}
-        Рахуємо по метражу: довжина файлу в метрах при ширині 60 см. Підтвердили до 12:00 — відправка сьогодні.
+        Рахуємо по погонних метрах при ширині 60 см. Перевірка файлу перед друком — вже в ціні.
       {% endif %}
     </p>
 
@@ -90,7 +90,8 @@
     </div>
 
     <div class="calc-example card" data-ui="dtf:price:orient-calc">
-      <h3>{% if current_lang == 'ru' %}Калькулятор‑ориентир{% elif current_lang == 'en' %}Quick estimate{% else %}Калькулятор‑орієнтир{% endif %}</h3>
+      <h3>{% if current_lang == 'ru' %}Посчитать стоимость{% elif current_lang == 'en' %}Calculate the price{% else %}Порахувати вартість{% endif %}</h3>
+      <p>{% if current_lang == 'ru' %}Укажите метраж или размеры — покажем ориентировочную цену. Не хотите считать? Напишите в Telegram — посчитаем за вас.{% elif current_lang == 'en' %}Enter meters or sizes to see an estimated price. Don't want to calculate? Message us in Telegram — we'll do it for you.{% else %}Вкажіть метраж або розміри — покажемо орієнтовну ціну. Не хочете рахувати? Напишіть у Telegram — порахуємо за вас.{% endif %}</p>
       <div class="form-grid">
         <label>{% if current_lang == 'ru' %}Длина файла, м{% elif current_lang == 'en' %}File length, m{% else %}Довжина файлу, м{% endif %}
           <input type="number" name="length_m" step="0.01" min="0" inputmode="decimal" placeholder="0.0">
@@ -112,19 +113,19 @@
         {% trans "Оптовий метраж — уточнимо терміни та вартість" %}
       </div>
       <div class="cta-group">
-        <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% if current_lang == 'ru' %}Далее{% elif current_lang == 'en' %}Continue{% else %}Далі{% endif %}</a>
-        <a class="btn btn-ghost" href="{% url 'dtf:order' %}?tab=ready" data-stateful-link>{% if current_lang == 'ru' %}Отправить файл{% elif current_lang == 'en' %}Send file{% else %}Надіслати файл{% endif %}</a>
+        <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% if current_lang == 'ru' %}Заказать печать{% elif current_lang == 'en' %}Order print{% else %}Замовити друк{% endif %}</a>
+        <a class="btn btn-ghost" href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Нужен просчёт DTF-печати 60 см. Примерный метраж: __ м.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! I need a quote for DTF print (60 cm). Approx. meters: __ m.'|urlencode }}{% else %}{{ 'Привіт! Потрібен прорахунок DTF-друку 60 см. Орієнтовний метраж: __ м.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Посчитать в Telegram{% elif current_lang == 'en' %}Calculate in Telegram{% else %}Порахувати в Telegram{% endif %}</a>
       </div>
     </div>
 
     <div class="card cutoff-block">
       <p>
         {% if current_lang == 'ru' %}
-          Стандартно печатаем 0–24 ч, в пиковые дни — до 48 ч (после подтверждения файла).
+          Напишем в Telegram после проверки файла (в рабочее время).
         {% elif current_lang == 'en' %}
-          Standard turnaround: 0–24h, peak days up to 48h (after file confirmation).
+          We message in Telegram after file check (during business hours).
         {% else %}
-          Стандартно друкуємо 0–24 год, у пікові дні — до 48 год (після підтвердження файлу).
+          Напишемо в Telegram після перевірки файлу (в робочий час).
         {% endif %}
       </p>
       <p class="price-b2b-note">

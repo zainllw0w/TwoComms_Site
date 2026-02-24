@@ -1,0 +1,65 @@
+:root {
+  --dtf-accent: var(--c-molten, #ff5c00);
+  --dtf-success: #22c55e;
+  --dtf-warning: #eab308;
+  --dtf-danger: #ef4444;
+  --dtf-info: #3b82f6;
+  --dtf-border: rgba(255, 255, 255, 0.16);
+}
+
+.dtf-icon {
+  --dtf-icon-size: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--dtf-icon-size);
+  height: var(--dtf-icon-size);
+  flex: 0 0 var(--dtf-icon-size);
+  color: currentColor;
+  line-height: 1;
+}
+
+.dtf-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+}
+
+.dtf-icon-check,
+.dtf-icon-success {
+  color: var(--dtf-success);
+}
+
+.dtf-icon-info {
+  color: var(--dtf-info);
+}
+
+.dtf-icon-warning {
+  color: var(--dtf-warning);
+}
+
+.dtf-icon-fix,
+.dtf-icon-danger {
+  color: var(--dtf-danger);
+}
+
+.dtf-icon-scan,
+.dtf-icon-upload,
+.dtf-icon-telegram,
+.dtf-icon-calculator {
+  color: var(--dtf-accent);
+}
+
+.preflight-status-legend .dtf-icon,
+.status-legend .dtf-icon,
+.msl-step .dtf-icon,
+.file-scan .dtf-icon {
+  --dtf-icon-size: 1rem;
+}
+
+.icon-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
