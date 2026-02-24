@@ -22,7 +22,7 @@
         </ul>
       </div>
       <div class="info-card">
-        <h3>{% trans "Hot Peel" %}</h3>
+        <h3>{% if current_lang == 'ru' %}Горячее снятие{% elif current_lang == 'en' %}Peel while hot{% else %}Гаряче зняття{% endif %}</h3>
         <ul class="list">
           <li>{% trans "Знімати плівку відразу" %}</li>
           <li>{% trans "Фінальний прес 5–7 сек" %}</li>

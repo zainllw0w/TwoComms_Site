@@ -1,7 +1,7 @@
 {% extends 'dtf/base.html' %}
 {% load static i18n %}
 
-{% block title %}{% trans "Галерея робіт" %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Кейсы и фото DTF-печати — как выглядит на ткани | TwoComms{% elif current_lang == 'en' %}DTF cases & photos — how it looks on fabric | TwoComms{% else %}Кейси та фото DTF‑друку — як виглядає на тканині | TwoComms{% endif %}{% endblock %}
 {% block page_id %}gallery{% endblock %}
 
 {% block extra_head %}
@@ -51,8 +51,8 @@
 <section class="section" data-ui="dtf:gallery:root">
   <div class="dtf-container" data-ui="dtf:gallery:grid">
     <div class="section-head">
-      <h1>{% trans "Галерея DTF" %}</h1>
-      <p>{% trans "Реальні кейси, макро‑деталі та порівняння до/після." %}</p>
+      <h1>{% if current_lang == 'ru' %}Кейсы DTF-печати{% elif current_lang == 'en' %}DTF cases{% else %}Кейси DTF‑друку{% endif %}</h1>
+      <p>{% if current_lang == 'ru' %}Посмотрите, как DTF-принты выглядят на ткани в реальной жизни: край, цвет и мелкие детали.{% elif current_lang == 'en' %}See how DTF prints look on real garments: edge, color and fine details.{% else %}Подивіться, як DTF‑принти виглядають на тканині в реальному житті: край, колір і дрібні деталі.{% endif %}</p>
     </div>
 
     <div class="filter-bar" data-ui="dtf:gallery:filters">
@@ -103,6 +103,7 @@
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Макро" %}</span>
               <span class="chip">{% trans "24–48 год" %}</span>
+              <span class="chip">{% if current_lang == 'ru' %}DEMO / обновляем{% elif current_lang == 'en' %}DEMO / updating{% else %}DEMO / оновлюємо{% endif %}</span>
             </div>
           </div>
           <div class="gallery-body">
@@ -119,6 +120,7 @@
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Процес" %}</span>
               <span class="chip">{% trans "24–48 год" %}</span>
+              <span class="chip">{% if current_lang == 'ru' %}DEMO / обновляем{% elif current_lang == 'en' %}DEMO / updating{% else %}DEMO / оновлюємо{% endif %}</span>
             </div>
           </div>
           <div class="gallery-body">
@@ -135,6 +137,7 @@
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Готове" %}</span>
               <span class="chip">{% trans "24–48 год" %}</span>
+              <span class="chip">{% if current_lang == 'ru' %}DEMO / обновляем{% elif current_lang == 'en' %}DEMO / updating{% else %}DEMO / оновлюємо{% endif %}</span>
             </div>
           </div>
           <div class="gallery-body">
@@ -151,6 +154,7 @@
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Макро" %}</span>
               <span class="chip">{% trans "24–48 год" %}</span>
+              <span class="chip">{% if current_lang == 'ru' %}DEMO / обновляем{% elif current_lang == 'en' %}DEMO / updating{% else %}DEMO / оновлюємо{% endif %}</span>
             </div>
           </div>
           <div class="gallery-body">
@@ -167,6 +171,7 @@
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Процес" %}</span>
               <span class="chip">{% trans "24–48 год" %}</span>
+              <span class="chip">{% if current_lang == 'ru' %}DEMO / обновляем{% elif current_lang == 'en' %}DEMO / updating{% else %}DEMO / оновлюємо{% endif %}</span>
             </div>
           </div>
           <div class="gallery-body">
@@ -183,6 +188,7 @@
               <span class="chip">{% trans "60 см" %}</span>
               <span class="chip">{% trans "Готове" %}</span>
               <span class="chip">{% trans "24–48 год" %}</span>
+              <span class="chip">{% if current_lang == 'ru' %}DEMO / обновляем{% elif current_lang == 'en' %}DEMO / updating{% else %}DEMO / оновлюємо{% endif %}</span>
             </div>
           </div>
           <div class="gallery-body">

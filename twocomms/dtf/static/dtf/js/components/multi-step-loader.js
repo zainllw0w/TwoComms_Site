@@ -27,10 +27,10 @@
   };
 
   var STATUS_LABELS = {
-    ok: { uk: 'OK — Все добре', ru: 'OK — Все ок', en: 'OK — All good' },
-    info: { uk: 'INFO — Є рекомендація', ru: 'INFO — Есть рекомендация', en: 'INFO — Recommendation' },
-    warn: { uk: 'WARN — Потрібна увага', ru: 'WARN — Нужно внимание', en: 'WARN — Needs attention' },
-    fail: { uk: 'FAIL — Потрібна правка', ru: 'FAIL — Нужна правка', en: 'FAIL — Fix required' },
+    ok: { uk: 'Все добре', ru: 'Все хорошо', en: 'All good' },
+    info: { uk: 'Є рекомендація', ru: 'Есть рекомендация', en: 'Recommendation' },
+    warn: { uk: 'Потрібна увага', ru: 'Нужно внимание', en: 'Needs attention' },
+    fail: { uk: 'Потрібна правка', ru: 'Нужна правка', en: 'Needs fix' },
     loading: { uk: 'Проводимо перевірку...', ru: 'Проводим проверку...', en: 'Running file check...' },
     pending: { uk: 'Очікує перевірки', ru: 'Ожидает проверки', en: 'Waiting for check' },
   };

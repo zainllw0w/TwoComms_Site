@@ -1,11 +1,17 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Preflight" %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Проверка файла{% elif current_lang == 'en' %}File check{% else %}Перевірка файлу{% endif %}{% endblock %}
 {% block page_id %}preflight{% endblock %}
 
 {% block extra_head %}
-  {% trans "Preflight" as crumb_label %}
+  {% if current_lang == 'ru' %}
+    {% trans "Проверка файла" as crumb_label %}
+  {% elif current_lang == 'en' %}
+    {% trans "File check" as crumb_label %}
+  {% else %}
+    {% trans "Перевірка файлу" as crumb_label %}
+  {% endif %}
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -32,7 +38,7 @@
 <section class="section">
   <div class="dtf-container">
     <div class="section-head">
-      <h1>{% trans "Preflight" %}</h1>
+      <h1>{% if current_lang == 'ru' %}Проверка файла{% elif current_lang == 'en' %}File check{% else %}Перевірка файлу{% endif %}</h1>
       <p>{% trans "Перевірка файла без замовлення. Отримаєте рекомендації та попередній звіт." %}</p>
     </div>
 
@@ -86,20 +92,20 @@
           <div class="order-block">
             <div class="block-head">
               <h3>{% trans "Приклад звіту" %}</h3>
-              <p>{% trans "Після перевірки ви отримаєте список OK/WARN та рекомендації." %}</p>
+              <p>{% if current_lang == 'ru' %}После проверки получите статусы и рекомендации.{% elif current_lang == 'en' %}After the check, you'll get statuses and recommendations.{% else %}Після перевірки отримаєте статуси та рекомендації.{% endif %}</p>
             </div>
             <div class="preflight-list">
               <div class="preflight-item">
                 <span class="preflight-label">{% trans "Формат файлу" %}</span>
-                <span class="preflight-status ok">OK</span>
+                <span class="preflight-status ok icon-label"><span class="dtf-icon dtf-icon-check" aria-hidden="true">{% include 'dtf/svg/icon-check.svg' %}</span>{% if current_lang == 'ru' %}Все хорошо{% elif current_lang == 'en' %}All good{% else %}Все добре{% endif %}</span>
               </div>
               <div class="preflight-item">
                 <span class="preflight-label">{% trans "DPI / розміри" %}</span>
-                <span class="preflight-status warn">WARN</span>
+                <span class="preflight-status warn icon-label"><span class="dtf-icon dtf-icon-warning" aria-hidden="true">{% include 'dtf/svg/icon-warning.svg' %}</span>{% if current_lang == 'ru' %}Нужно внимание{% elif current_lang == 'en' %}Needs attention{% else %}Потрібна увага{% endif %}</span>
               </div>
               <div class="preflight-item">
                 <span class="preflight-label">{% trans "Прозорість фону" %}</span>
-                <span class="preflight-status ok">OK</span>
+                <span class="preflight-status ok icon-label"><span class="dtf-icon dtf-icon-check" aria-hidden="true">{% include 'dtf/svg/icon-check.svg' %}</span>{% if current_lang == 'ru' %}Все хорошо{% elif current_lang == 'en' %}All good{% else %}Все добре{% endif %}</span>
               </div>
             </div>
             <div class="cta-group">
@@ -140,7 +146,7 @@
           <div class="order-summary" data-summary>
             <div class="summary-head">
               <div class="overline">{% if current_lang == 'ru' %}ИТОГ{% elif current_lang == 'en' %}SUMMARY{% else %}ПІДСУМОК{% endif %}</div>
-              <div class="summary-title">{% trans "Preflight" %}</div>
+              <div class="summary-title">{% if current_lang == 'ru' %}Проверка файла{% elif current_lang == 'en' %}File check{% else %}Перевірка файлу{% endif %}</div>
             </div>
             <div class="summary-row">
               <span>{% trans "Формат" %}</span>
@@ -148,7 +154,7 @@
             </div>
             <div class="summary-row">
               <span>{% trans "Результат" %}</span>
-              <span class="tabular-nums">{% trans "OK/WARN звіт" %}</span>
+              <span class="tabular-nums">{% if current_lang == 'ru' %}Отчёт проверки файла{% elif current_lang == 'en' %}File check report{% else %}Звіт перевірки файлу{% endif %}</span>
             </div>
             <div class="summary-note">{% trans "Відповімо протягом робочого дня" %}</div>
             <button class="btn btn-primary" type="submit" data-submit data-stateful>{% trans "Надіслати на перевірку" %}</button>
