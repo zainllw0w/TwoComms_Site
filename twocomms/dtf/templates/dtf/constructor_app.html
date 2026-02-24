@@ -1,15 +1,15 @@
 {% extends 'dtf/base.html' %}
 {% load i18n %}
 
-{% block title %}{% if current_lang == 'ru' %}Конструктор мерча{% elif current_lang == 'en' %}Merch builder{% else %}Конструктор мерчу{% endif %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}Собрать лист 60 см{% elif current_lang == 'en' %}Build a 60 cm sheet{% else %}Зібрати лист 60 см{% endif %}{% endblock %}
 {% block page_id %}constructor-app{% endblock %}
 
 {% block content %}
 <section class="section constructor-section" data-ui="dtf:constructor:app">
   <div class="dtf-container">
     <div class="section-head">
-      <h1>{% if current_lang == 'ru' %}Конструктор мерча{% elif current_lang == 'en' %}Merch builder{% else %}Конструктор мерчу{% endif %}</h1>
-      <p>{% if current_lang == 'ru' %}Подобрать изделие и подготовить печать. Если нужно — поможем с макетом 60 см (ганг‑лист).{% elif current_lang == 'en' %}Pick garments and prep print. If needed, we can build a 60 cm layout (gang sheet) for you.{% else %}Підібрати виріб і підготувати друк. Якщо потрібно — допоможемо з макетом 60 см (ганг‑лист).{% endif %}</p>
+      <h1>{% if current_lang == 'ru' %}Собрать лист 60 см{% elif current_lang == 'en' %}Build a 60 cm sheet{% else %}Зібрати лист 60 см{% endif %}</h1>
+      <p>{% if current_lang == 'ru' %}Подберите изделие и подготовьте печать. Если нужно — поможем собрать лист 60 см.{% elif current_lang == 'en' %}Pick garments and prep print. If needed, we can help build a 60 cm sheet.{% else %}Підберіть виріб і підготуйте друк. Якщо потрібно — допоможемо зібрати лист 60 см.{% endif %}</p>
     </div>
 
     <div class="constructor-layout"
@@ -37,7 +37,7 @@
           </span>
           <span class="constructor-step">
             <span class="constructor-step-index">5</span>
-            <span class="constructor-step-label">{% trans "Резюме" %}</span>
+            <span class="constructor-step-label">{% if current_lang == 'ru' %}Итог{% elif current_lang == 'en' %}Summary{% else %}Підсумок{% endif %}</span>
           </span>
         </div>
 
@@ -63,7 +63,7 @@
             <small>{% trans "Формат: S:10,M:20,L:5" %}</small>
           </label>
           <label>{% trans "Розміщення принта" %} {{ builder_form.placement }}</label>
-          <label>{% if current_lang == 'ru' %}Ваш макет 60 см (ганг‑лист){% elif current_lang == 'en' %}Your 60 cm layout (gang sheet){% else %}Ваш макет 60 см (ганг‑лист){% endif %} {{ builder_form.design_file }}</label>
+          <label>{% if current_lang == 'ru' %}Ваш лист 60 см{% elif current_lang == 'en' %}Your 60 cm sheet{% else %}Ваш лист 60 см{% endif %} {{ builder_form.design_file }}</label>
           <div class="upload-steps">
             <span class="upload-step-pill" data-upload-step="1">{% if current_lang == 'ru' %}Файл{% elif current_lang == 'en' %}File{% else %}Файл{% endif %}</span>
             <span class="upload-step-pill" data-upload-step="2">{% if current_lang == 'ru' %}Проверка файла{% elif current_lang == 'en' %}File check{% else %}Перевірка файлу{% endif %}</span>
@@ -133,10 +133,10 @@
             </div>
           {% endif %}
           <div class="preflight-status-legend">
-            <span><strong>OK</strong> — {% if current_lang == 'ru' %}Все ок{% elif current_lang == 'en' %}All good{% else %}Все добре{% endif %}</span>
-            <span><strong>INFO</strong> — {% if current_lang == 'ru' %}Есть рекомендация{% elif current_lang == 'en' %}Recommendation{% else %}Є рекомендація{% endif %}</span>
-            <span><strong>WARN</strong> — {% if current_lang == 'ru' %}Нужно внимание{% elif current_lang == 'en' %}Needs attention{% else %}Потрібна увага{% endif %}</span>
-            <span><strong>FAIL</strong> — {% if current_lang == 'ru' %}Нужна правка (печать невозможна){% elif current_lang == 'en' %}Fix required (can’t print){% else %}Потрібна правка (друк неможливий){% endif %}</span>
+            <span class="icon-label"><span class="dtf-icon dtf-icon-check dtf-icon-animate" aria-hidden="true">{% include 'dtf/svg/icon-check.svg' %}</span>{% if current_lang == 'ru' %}Все хорошо{% elif current_lang == 'en' %}All good{% else %}Все добре{% endif %}</span>
+            <span class="icon-label"><span class="dtf-icon dtf-icon-info dtf-icon-animate" aria-hidden="true">{% include 'dtf/svg/icon-info.svg' %}</span>{% if current_lang == 'ru' %}Есть рекомендация{% elif current_lang == 'en' %}Recommendation{% else %}Є рекомендація{% endif %}</span>
+            <span class="icon-label"><span class="dtf-icon dtf-icon-warning dtf-icon-animate" aria-hidden="true">{% include 'dtf/svg/icon-warning.svg' %}</span>{% if current_lang == 'ru' %}Нужно внимание{% elif current_lang == 'en' %}Needs attention{% else %}Потрібна увага{% endif %}</span>
+            <span class="icon-label"><span class="dtf-icon dtf-icon-fix dtf-icon-animate" aria-hidden="true">{% include 'dtf/svg/icon-fix.svg' %}</span>{% if current_lang == 'ru' %}Нужна правка{% elif current_lang == 'en' %}Needs fix{% else %}Потрібна правка{% endif %}</span>
           </div>
           <div class="preflight-terms">
             <span data-tooltip-content="{% if current_lang == 'ru' %}Рекомендуем ~300 DPI в финальном размере. Ниже может быть “мыло/пиксели”.{% elif current_lang == 'en' %}~300 DPI at final size is recommended. Lower may look blurry/pixelated.{% else %}Рекомендовано ~300 DPI у фінальному розмірі. Нижче може бути “мило/пікселі”.{% endif %}" data-effect="tooltip-card">
@@ -148,14 +148,14 @@
             <span data-tooltip-content="{% if current_lang == 'ru' %}Слишком тонкие линии и мелкий текст могут потеряться при переносе. Лучше немного утолстить.{% elif current_lang == 'en' %}Very thin lines & tiny text may not hold during transfer. Consider thickening slightly.{% else %}Дуже тонкі лінії й дрібний текст можуть втратитися при переносі. Краще трохи потовстити.{% endif %}" data-effect="tooltip-card">
               <abbr>{% if current_lang == 'ru' %}Тонкие линии{% elif current_lang == 'en' %}Thin lines{% else %}Тонкі лінії{% endif %}</abbr>
             </span>
-            <span data-tooltip-content="{% if current_lang == 'ru' %}Держите важные элементы внутри safe‑area шаблона, чтобы край не “срезало”.{% elif current_lang == 'en' %}Keep important elements inside the template safe area to avoid edge issues.{% else %}Тримайте важливі елементи всередині safe‑area шаблону, щоб край не “зрізало”.{% endif %}" data-effect="tooltip-card">
-              <abbr>Safe area</abbr>
+            <span data-tooltip-content="{% if current_lang == 'ru' %}Безопасная зона — границы, в которых дизайн не будет обрезан при переносе.{% elif current_lang == 'en' %}Safe area is the zone where design won't be cut during transfer.{% else %}Безпечна зона — межі, в яких дизайн не буде обрізано при переносі.{% endif %}" data-effect="tooltip-card">
+              <abbr>{% if current_lang == 'ru' %}Безопасная зона{% elif current_lang == 'en' %}Safe area{% else %}Безпечна зона{% endif %}</abbr>
             </span>
           </div>
           <div class="preflight-actions">
-            <button type="button" class="btn btn-ghost" data-preflight-help>{% if current_lang == 'ru' %}Запросить подсказку{% elif current_lang == 'en' %}Ask for help{% else %}Попросити підказку{% endif %}</button>
+            <a class="btn btn-ghost" href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Проверьте, пожалуйста, подходит ли мой файл для DTF-печати.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! Please check if my file is OK for DTF printing.'|urlencode }}{% else %}{{ 'Привіт! Перевірте, будь ласка, чи підходить мій файл для DTF-друку.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Попросить подсказку в Telegram{% elif current_lang == 'en' %}Ask for help in Telegram{% else %}Попросити підказку в Telegram{% endif %}</a>
             <button type="button" class="btn btn-outline" data-preflight-upload-fixed>{% if current_lang == 'ru' %}Загрузить исправленный файл{% elif current_lang == 'en' %}Upload fixed file{% else %}Завантажити виправлений файл{% endif %}</button>
-            <button type="button" class="btn btn-outline" data-preflight-print-as-is>{% if current_lang == 'ru' %}Печатать как есть{% elif current_lang == 'en' %}Print as-is{% else %}Друкувати як є{% endif %}</button>
+            <button type="button" class="btn btn-outline" data-preflight-print-as-is>{% if current_lang == 'ru' %}Печатать без правок{% elif current_lang == 'en' %}Print as is{% else %}Друкувати без правок{% endif %}</button>
           </div>
           {% if builder_preflight.summary %}
             <div class="preflight-summary" data-effect="text-generate" data-generate-text="{{ builder_preflight.summary.message }}">

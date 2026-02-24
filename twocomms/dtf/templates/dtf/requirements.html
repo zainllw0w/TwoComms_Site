@@ -3,11 +3,11 @@
 
 {% block title %}
   {% if current_lang == 'ru' %}
-    Требования к макетам 60 см
+    Требования к файлу для DTF-печати 60 см (PNG/PDF) | TwoComms
   {% elif current_lang == 'en' %}
-    Artwork requirements (60 cm)
+    DTF file requirements (60 cm) — PNG/PDF | TwoComms
   {% else %}
-    Вимоги до макетів 60 см
+    Вимоги до файлу для DTF‑друку 60 см (PNG/PDF) | TwoComms
   {% endif %}
 {% endblock %}
 {% block page_id %}requirements{% endblock %}
@@ -67,41 +67,39 @@
 {% block content %}
 <section class="section" data-ui="dtf:requirements:root">
   <div class="dtf-container requirements" data-ui="dtf:requirements:content">
-    <h1>{% if current_lang == 'ru' %}Требования к макетам 60 см{% elif current_lang == 'en' %}Artwork requirements (60 cm){% else %}Вимоги до макетів 60 см{% endif %}</h1>
+    <h1>{% if current_lang == 'ru' %}Требования к файлу для DTF-печати{% elif current_lang == 'en' %}DTF file requirements{% else %}Вимоги до файлу для DTF‑друку{% endif %}</h1>
     <p>
       {% if current_lang == 'ru' %}
-        Чтобы печать была предсказуемой, подготовьте макет 60 см (gang sheet) по этим правилам. Если не уверены — отправьте файл: проверим и подскажем.
+        Самый простой вариант — PNG с прозрачным фоном в нужном размере. Белый слой настраиваем сами — вам не нужно "рисовать подложку".
       {% elif current_lang == 'en' %}
-        For predictable results, prepare a 60 cm layout (gang sheet) using these rules. If unsure — send it, we’ll check and advise.
+        The easiest option is PNG with a transparent background in the final size. We set up the white layer ourselves — you don't need to create it.
       {% else %}
-        Щоб друк був передбачуваним, підготуйте макет 60 см (ганг‑ліст) за цими правилами. Якщо не впевнені — надішліть файл: ми перевіримо і підкажемо.
+        Найпростіший варіант — PNG з прозорим фоном у потрібному розмірі. Білий шар ми налаштовуємо самі — вам не потрібно “малювати підклад”.
       {% endif %}
     </p>
 
     <article class="card requirements-quick" data-ui="dtf:requirements:quick-checklist">
-      <h2>{% if current_lang == 'ru' %}Готовность макета (60 см){% elif current_lang == 'en' %}Artwork readiness (60 cm){% else %}Готовність макета (60 см){% endif %}</h2>
+      <h2>{% if current_lang == 'ru' %}Подготовьте макет без боли{% elif current_lang == 'en' %}Prep your file without pain{% else %}Підготуйте макет без болю{% endif %}</h2>
+      <p>{% if current_lang == 'ru' %}Если у вас только картинка из Instagram/Google — тоже ок. Отправьте её нам: подскажем, хватит ли качества, и если нужно — подгоним под размер, чтобы печать не была "мыльной".{% elif current_lang == 'en' %}If you only have an image from Instagram/Google — that's fine. Send it to us: we'll tell you if the quality is enough, and if needed we'll resize it so it won't look blurry.{% else %}Якщо у вас тільки картинка з Instagram/Google — теж ок. Надішліть її нам: підкажемо, чи вистачить якості, і якщо треба — підженемо під розмір, щоб друк не був “мильним”.{% endif %}</p>
       <ul class="requirements-checklist">
         <li>
-          <span>{% if current_lang == 'ru' %}Формат: PDF/PNG{% elif current_lang == 'en' %}Format: PDF/PNG{% else %}Формат: PDF/PNG{% endif %}</span>
+          <span>{% if current_lang == 'ru' %}PNG — прозрачный фон{% elif current_lang == 'en' %}PNG — transparent background{% else %}PNG — прозорий фон{% endif %}</span>
           <span class="tooltip" tabindex="0" role="button" aria-label="{% trans 'Чому важливий правильний формат файлу' %}" data-tooltip="{% if current_lang == 'ru' %}Эти форматы сохраняют качество и прозрачность без лишней компрессии.{% elif current_lang == 'en' %}These formats preserve quality and transparency without heavy compression.{% else %}Ці формати зберігають якість і прозорість без зайвого стискання.{% endif %}">i</span>
         </li>
         <li>
-          <span>{% if current_lang == 'ru' %}Ширина: 60 см{% elif current_lang == 'en' %}Width: 60 cm{% else %}Ширина: 60 см{% endif %}</span>
+          <span>{% if current_lang == 'ru' %}Размер в сантиметрах (как будет на ткани){% elif current_lang == 'en' %}Size in centimeters (final on fabric){% else %}Розмір у сантиметрах (як має бути на тканині){% endif %}</span>
           <span class="tooltip" tabindex="0" role="button" aria-label="{% trans 'Чому важлива ширина 60 см' %}" data-tooltip="{% if current_lang == 'ru' %}Расчет и производство настроены под фиксированную рабочую ширину 60 см.{% elif current_lang == 'en' %}Pricing and production are aligned to a fixed 60 cm working width.{% else %}Розрахунок і виробництво налаштовані під фіксовану робочу ширину 60 см.{% endif %}">i</span>
         </li>
         <li>
-          <span>{% if current_lang == 'ru' %}Прозрачный фон{% elif current_lang == 'en' %}Transparent background{% else %}Прозорий фон{% endif %}</span>
+          <span>{% if current_lang == 'ru' %}Лучше 300 DPI (но проверим и подскажем){% elif current_lang == 'en' %}300 DPI is best (we'll check and advise){% else %}Краще 300 DPI (але перевіримо й підкажемо){% endif %}</span>
           <span class="tooltip" tabindex="0" role="button" aria-label="{% trans 'Чому важлива прозорість фону' %}" data-tooltip="{% if current_lang == 'ru' %}Без прозрачности можно получить нежелательный цветной прямоугольник вокруг дизайна.{% elif current_lang == 'en' %}Without transparency you may get an unwanted colored box around the artwork.{% else %}Без прозорості можна отримати небажаний кольоровий прямокутник навколо дизайну.{% endif %}">i</span>
         </li>
         <li>
-          <span>{% if current_lang == 'ru' %}Качество: 300 DPI (рекомендовано){% elif current_lang == 'en' %}Quality: 300 DPI (recommended){% else %}Якість: 300 DPI (рекомендовано){% endif %}</span>
+          <span>{% if current_lang == 'ru' %}Избегайте очень тонких линий и мелкого текста{% elif current_lang == 'en' %}Avoid ultra-thin lines and tiny text{% else %}Уникайте дуже тонких ліній і дрібного тексту{% endif %}</span>
           <span class="tooltip" tabindex="0" role="button" aria-label="{% trans 'Чому важливий DPI' %}" data-tooltip="{% if current_lang == 'ru' %}Меньше DPI — выше риск потери резкости, особенно в мелком тексте.{% elif current_lang == 'en' %}Lower DPI increases the risk of blur, especially on small text.{% else %}Менший DPI підвищує ризик втрати різкості, особливо на дрібному тексті.{% endif %}">i</span>
         </li>
-        <li>
-          <span>{% if current_lang == 'ru' %}Цвета: CMYK/RGB{% elif current_lang == 'en' %}Colors: CMYK/RGB{% else %}Кольори: CMYK/RGB{% endif %}</span>
-          <span class="tooltip" tabindex="0" role="button" aria-label="{% trans 'Чому важливий колірний профіль' %}" data-tooltip="{% if current_lang == 'ru' %}Оба профиля принимаем, но итоговый цвет проверяем перед печатью.{% elif current_lang == 'en' %}Both profiles are accepted, and final color is checked before print.{% else %}Обидва профілі приймаємо, а фінальний колір перевіряємо перед друком.{% endif %}">i</span>
-        </li>
       </ul>
+      <p><strong>{% if current_lang == 'ru' %}Сомневаетесь? Отправьте файл — проверим и скажем, что лучше сделать.{% elif current_lang == 'en' %}Not sure? Send the file — we'll check it and tell you what to improve.{% else %}Сумніваєтесь? Надішліть файл — перевіримо і скажемо, що краще зробити.{% endif %}</strong></p>
     </article>
 
     <div class="req-grid tracing-beam-doc" data-tracing-beam data-effect="tracing-beam" data-ui="dtf:requirements:rules">
@@ -116,17 +114,17 @@
         <a class="btn btn-ghost" href="{% url 'dtf:order' %}?tab=help">{% if current_lang == 'ru' %}Отправить файл на проверку →{% elif current_lang == 'en' %}Send file for check →{% else %}Надіслати файл на перевірку →{% endif %}</a>
       </div>
       <div class="req-card">
-        <h3>OK: VECTOR / RISK: RASTER</h3>
+        <h3>{% if current_lang == 'ru' %}Вектор лучше для мелких деталей{% elif current_lang == 'en' %}Vector is better for fine details{% else %}Вектор краще для дрібних деталей{% endif %}</h3>
         <p>{% if current_lang == 'ru' %}Вектор и качественный исходник держат мелкий текст и тонкие линии стабильнее.{% elif current_lang == 'en' %}Vector and high-quality source files keep fine text and thin lines more stable.{% else %}Вектор і якісний вихідний файл краще тримають дрібний текст і тонкі лінії.{% endif %}</p>
         <p class="muted">{% if current_lang == 'ru' %}Наведите/нажмите на подсказки в блоке ниже, чтобы увидеть риски по пунктам.{% elif current_lang == 'en' %}Hover/tap the hints below to see per-item risks.{% else %}Наведіть/натисніть підказки нижче, щоб побачити ризики по пунктах.{% endif %}</p>
       </div>
       <div class="req-card safe-area-card">
-        <h3>Safe area</h3>
+        <h3>{% if current_lang == 'ru' %}Безопасная зона{% elif current_lang == 'en' %}Safe area{% else %}Безпечна зона{% endif %}</h3>
         <div class="safe-area-schema" aria-hidden="true">
           <span class="safe-area-outer"></span>
           <span class="safe-area-inner"></span>
         </div>
-        <p class="muted">{% if current_lang == 'ru' %}Держите важные элементы внутри внутренней зоны, чтобы край не «срезало».{% elif current_lang == 'en' %}Keep important elements inside the inner zone to avoid edge cutoffs.{% else %}Тримайте важливі елементи всередині внутрішньої зони, щоб край не «зрізало».{% endif %}</p>
+        <p class="muted">{% if current_lang == 'ru' %}Безопасная зона — границы, в которых дизайн не будет обрезан при переносе.{% elif current_lang == 'en' %}Safe area is the zone where design won't be cut during transfer.{% else %}Безпечна зона — межі, в яких дизайн не буде обрізано при переносі.{% endif %}</p>
       </div>
     </div>
 
@@ -134,7 +132,7 @@
       <!-- ASSET_REQUEST | id=requirements-ok-risk | type=photo | usage=Requirements OK vs RISK | spec=2x, ~1400px wide | notes=side-by-side example -->
       <div class="asset-slot" style="aspect-ratio: 16 / 9">
         <img src="{% static 'dtf/assets/requirements-ok-risk.jpg' %}"
-             alt="{% trans 'Приклад OK vs RISK' %}"
+             alt="{% if current_lang == 'ru' %}Пример сравнения макета{% elif current_lang == 'en' %}Artwork comparison example{% else %}Приклад порівняння макета{% endif %}"
              loading="lazy"
              decoding="async"
              class="skeleton">
@@ -151,19 +149,19 @@
         <a class="btn btn-ghost" href="{% url 'dtf:templates' %}">{% if current_lang == 'ru' %}Как пользоваться{% elif current_lang == 'en' %}How to use{% else %}Як користуватись{% endif %}</a>
       </div>
       <ol class="template-steps muted">
-        <li>{% if current_lang == 'ru' %}Скачайте PDF/AI/Figma и разместите дизайны внутри safe area.{% elif current_lang == 'en' %}Download PDF/AI/Figma and place designs inside the safe area.{% else %}Скачайте PDF/AI/Figma і розкладіть дизайни в межах safe area.{% endif %}</li>
+        <li>{% if current_lang == 'ru' %}Скачайте PDF/AI/Figma и разместите дизайны внутри безопасной зоны.{% elif current_lang == 'en' %}Download PDF/AI/Figma and place designs inside the safe area.{% else %}Скачайте PDF/AI/Figma і розкладіть дизайни в межах безпечної зони.{% endif %}</li>
         <li>{% if current_lang == 'ru' %}Проверьте прозрачность фона и минимальную толщину линий.{% elif current_lang == 'en' %}Check background transparency and minimum line thickness.{% else %}Перевірте прозорість фону та мінімальну товщину ліній.{% endif %}</li>
-        <li>{% if current_lang == 'ru' %}Сохраните PDF/PNG и отправьте на preflight перед печатью.{% elif current_lang == 'en' %}Save as PDF/PNG and send for preflight before print.{% else %}Збережіть у PDF/PNG і надішліть на preflight перед друком.{% endif %}</li>
+        <li>{% if current_lang == 'ru' %}Сохраните PDF/PNG и отправьте на проверку перед печатью.{% elif current_lang == 'en' %}Save as PDF/PNG and send for file check before print.{% else %}Збережіть у PDF/PNG і надішліть на перевірку перед друком.{% endif %}</li>
       </ol>
       <div class="template-linkline">
-        <a href="{% url 'dtf:quality' %}">{% if current_lang == 'ru' %}Смотреть QC и макро‑примеры →{% elif current_lang == 'en' %}See QC and macro examples →{% else %}Дивитись QC та макро‑приклади →{% endif %}</a>
+        <a href="{% url 'dtf:quality' %}">{% if current_lang == 'ru' %}Смотреть качество и макро‑примеры →{% elif current_lang == 'en' %}See quality and macro examples →{% else %}Дивитись якість та макро‑приклади →{% endif %}</a>
       </div>
     </div>
 
     <div class="cta-block">
-      <h3>{% if current_lang == 'ru' %}Не хотите собирать макет 60 см? Поможем{% elif current_lang == 'en' %}Don’t want to build a 60 cm layout? We can{% else %}Не хочете збирати макет 60 см? Допоможемо{% endif %}</h3>
-      <p>{% if current_lang == 'ru' %}Отправьте отдельные PNG/PDF — мы соберем макет 60 см (gang sheet) и согласуем перед печатью.{% elif current_lang == 'en' %}Send separate PNG/PDF files — we’ll assemble a 60 cm layout (gang sheet) and confirm before printing.{% else %}Надішліть окремі PNG/PDF — ми зберемо макет 60 см (ганг‑ліст) і погодимо перед друком.{% endif %}</p>
-      <a class="btn btn-primary" href="{% url 'dtf:order' %}?tab=help">{% if current_lang == 'ru' %}Нужна помощь с макетом{% elif current_lang == 'en' %}Need help with artwork{% else %}Потрібна допомога з макетом{% endif %}</a>
+      <h3>{% if current_lang == 'ru' %}Не хотите собирать лист 60 см? Поможем{% elif current_lang == 'en' %}Don't want to build a 60 cm sheet? We can help{% else %}Не хочете збирати лист 60 см? Допоможемо{% endif %}</h3>
+      <p>{% if current_lang == 'ru' %}Отправьте отдельные PNG/PDF — мы соберем лист 60 см и согласуем перед печатью.{% elif current_lang == 'en' %}Send separate PNG/PDF files — we'll assemble a 60 cm sheet and confirm before printing.{% else %}Надішліть окремі PNG/PDF — ми зберемо лист 60 см і погодимо перед друком.{% endif %}</p>
+      <a class="btn btn-primary" href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Проверьте, пожалуйста, подходит ли мой файл для DTF-печати.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! Please check if my file is OK for DTF printing.'|urlencode }}{% else %}{{ 'Привіт! Перевірте, будь ласка, чи підходить мій файл для DTF-друку.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Отправить файл на проверку{% elif current_lang == 'en' %}Send file for check{% else %}Надіслати файл на перевірку{% endif %}</a>
     </div>
   </div>
 </section>

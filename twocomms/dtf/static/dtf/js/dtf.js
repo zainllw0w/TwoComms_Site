@@ -42,7 +42,7 @@
   const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex=\"-1\"])';
   const MESSAGES = {
     uk: {
-      unsupported_ready_file: 'Формат файлу не підтримується для готового макета 60 см (ганг-лист). Перейшли у допомогу.',
+      unsupported_ready_file: 'Формат файлу не підтримується для готового листа 60 см. Перейшли у допомогу.',
       manager_success: "Дякуємо! Менеджер зв'яжеться найближчим часом.",
       manager_error_form: 'Помилка. Перевірте форму.',
       manager_error_network: 'Не вдалося надіслати. Спробуйте пізніше.',
@@ -63,7 +63,7 @@
       calc_hint: 'Вкажіть метраж → покажемо орієнтир',
     },
     ru: {
-      unsupported_ready_file: 'Формат файла не поддерживается для готового макета 60 см (ганг-лист). Переключили на вкладку помощи.',
+      unsupported_ready_file: 'Формат файла не поддерживается для готового листа 60 см. Переключили на вкладку помощи.',
       manager_success: 'Спасибо! Менеджер свяжется с вами в ближайшее время.',
       manager_error_form: 'Ошибка. Проверьте форму.',
       manager_error_network: 'Не удалось отправить. Попробуйте позже.',
@@ -84,7 +84,7 @@
       calc_hint: 'Укажите метраж → покажем ориентир',
     },
     en: {
-      unsupported_ready_file: 'This file format is not supported for a ready 60 cm layout (gang sheet). Switched to the help tab.',
+      unsupported_ready_file: 'This file format is not supported for a ready 60 cm sheet. Switched to the help tab.',
       manager_success: 'Thanks! A manager will contact you shortly.',
       manager_error_form: 'Error. Please check the form.',
       manager_error_network: 'Failed to submit. Please try again later.',
@@ -403,6 +403,92 @@
         const item = btn.closest('.faq-item');
         if (item) item.classList.toggle('open');
       });
+    });
+  }
+
+  function initCardReveal(root = document) {
+    const cards = collectTargets(root, '.work-card, .proof-card, .hero-card, .info-card');
+    if (!cards.length) return;
+
+    const applyStagger = (card, index) => {
+      card.style.setProperty('--card-stagger', `${Math.min((index % 6) * 70, 280)}ms`);
+    };
+
+    if (!('IntersectionObserver' in window) || prefersReduced) {
+      cards.forEach((card, index) => {
+        if (!initOnce(card, 'CardReveal')) return;
+        applyStagger(card, index);
+        card.classList.add('is-visible');
+      });
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        observer.unobserve(entry.target);
+      });
+    }, {
+      threshold: 0.12,
+      rootMargin: '0px 0px -6% 0px',
+    });
+
+    const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement ? document.documentElement.clientHeight : 0);
+    cards.forEach((card, index) => {
+      if (!initOnce(card, 'CardReveal')) return;
+      applyStagger(card, index);
+      const rect = card.getBoundingClientRect();
+      if (viewportHeight > 0 && rect.bottom > 0 && rect.top < viewportHeight * 0.98) {
+        card.classList.add('is-visible');
+        return;
+      }
+      observer.observe(card);
+    });
+  }
+
+  function initMobileDockPolish(root = document) {
+    const docks = collectTargets(root, '.mobile-dock');
+    if (!docks.length) return;
+
+    const canUseDockFx = () => window.matchMedia('(max-width: 960px)').matches && !prefersReduced;
+
+    docks.forEach((dock) => {
+      if (!initOnce(dock, 'MobileDockPolish')) return;
+
+      if (canUseDockFx()) {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            dock.classList.add('is-visible');
+          });
+        });
+      } else {
+        dock.classList.add('is-visible');
+      }
+
+      const trigger = dock.querySelector('[data-mobile-contact-open]') || dock.querySelector('.dock-item-button');
+      if (!trigger || !canUseDockFx()) return;
+
+      const runGlow = () => {
+        if (trigger.dataset.telegramGlowDone === '1') return;
+        trigger.dataset.telegramGlowDone = '1';
+        trigger.classList.add('is-telegram-glow');
+        window.setTimeout(() => trigger.classList.remove('is-telegram-glow'), 420);
+      };
+
+      if (!('IntersectionObserver' in window)) {
+        window.setTimeout(runGlow, 560);
+        return;
+      }
+
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          runGlow();
+          io.disconnect();
+        });
+      }, { threshold: 0.35 });
+      io.observe(dock);
     });
   }
 
@@ -1132,6 +1218,7 @@
     const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
     const ambientTier = resolveAmbientTier();
     const canAnimate = ambientTier > 0 && allowAmbientEffects();
+    const interactionRadius = ambientTier >= 4 ? 176 : ambientTier >= 3 ? 150 : ambientTier >= 2 ? 96 : 82;
     const quality = {
       maxDpr: ambientTier >= 4 ? 1.5 : ambientTier >= 3 ? 1.35 : 1.15,
       spacingMin: ambientTier >= 4 ? 24 : ambientTier >= 3 ? 28 : 34,
@@ -1205,10 +1292,16 @@
       for (let y = spacing * 0.5; y <= height; y += spacing) {
         for (let x = spacing * 0.5; x <= width; x += spacing) {
           dots.push({
+            gridX: x,
+            gridY: y,
             x,
             y,
+            vx: 0,
+            vy: 0,
+            baseSize: 0.76 + Math.random() * 0.4,
             phase: Math.random() * Math.PI * 2,
             bias: 0.45 + Math.random() * 0.55,
+            glowUntil: 0,
           });
         }
       }
@@ -1219,35 +1312,46 @@
       ctx.clearRect(0, 0, width, height);
       const px = ((state.x + 1) * 0.5) * width;
       const py = ((state.y + 1) * 0.5) * height;
-      const radius = Math.min(width, height) * 0.44;
-
-      const halo = ctx.createRadialGradient(px, py, 0, px, py, radius);
-      halo.addColorStop(0, 'rgba(255, 178, 94, 0.22)');
-      halo.addColorStop(0.45, 'rgba(255, 132, 36, 0.1)');
-      halo.addColorStop(1, 'rgba(255, 132, 36, 0)');
-      ctx.fillStyle = halo;
-      ctx.fillRect(0, 0, width, height);
+      const radius = interactionRadius;
+      const breathingSpeed = ambientTier <= 2 ? 0.0012 : 0.00185;
+      const glowChance = ambientTier <= 2 ? 0.000025 : 0.00005;
+      const spring = ambientTier <= 2 ? 0.058 : 0.072;
+      const damping = ambientTier <= 2 ? 0.83 : 0.86;
+      const repulsion = ambientTier >= 4 ? 0.74 : ambientTier >= 3 ? 0.66 : 0.58;
 
       for (let i = 0; i < dots.length; i += 1) {
         const dot = dots[i];
         const dx = dot.x - px;
         const dy = dot.y - py;
-        const dist = Math.max(1, Math.hypot(dx, dy));
-        const influence = Math.max(0, 1 - dist / radius);
-        const pull = influence * influence * 19;
-        const nx = dx / dist;
-        const ny = dy / dist;
-        const swirl = Math.sin(time * 0.0019 + dot.phase) * influence * 6.2;
+        const dist = Math.max(0.001, Math.hypot(dx, dy));
+        let influence = 0;
 
-        const x = dot.x - nx * pull - ny * swirl + state.x * 5.6;
-        const y = dot.y - ny * pull + nx * swirl + state.y * 4.8;
-        const size = 0.78 + influence * 1.38 + Math.sin(time * 0.0021 + dot.phase) * 0.14;
-        const green = clamp(136 + influence * 80 + dot.bias * 20, 118, 236);
-        const blue = clamp(26 + dot.bias * 16 + influence * 24, 18, 84);
-        const alpha = clamp(0.16 + dot.bias * 0.15 + influence * 0.42, 0.12, 0.8);
+        if (state.active && dist < radius) {
+          influence = 1 - dist / radius;
+          const force = influence * influence * repulsion;
+          dot.vx += (dx / dist) * force * 22;
+          dot.vy += (dy / dist) * force * 22;
+        }
+
+        dot.vx += (dot.gridX - dot.x) * spring;
+        dot.vy += (dot.gridY - dot.y) * spring;
+        dot.vx *= damping;
+        dot.vy *= damping;
+        dot.x += dot.vx;
+        dot.y += dot.vy;
+
+        if (Math.random() < glowChance) {
+          dot.glowUntil = time + 280 + Math.random() * 260;
+        }
+        const glowBoost = time < dot.glowUntil ? 0.36 : 0;
+        const breathe = 1 + Math.sin(time * breathingSpeed + dot.phase) * 0.15;
+        const size = dot.baseSize * breathe;
+        const green = clamp(136 + dot.bias * 28 + influence * 34 + glowBoost * 120, 118, 242);
+        const blue = clamp(26 + dot.bias * 16 + influence * 18 + glowBoost * 48, 18, 94);
+        const alpha = clamp(0.16 + dot.bias * 0.14 + glowBoost + influence * 0.08, 0.12, 0.82);
         ctx.fillStyle = `rgba(255, ${Math.round(green)}, ${Math.round(blue)}, ${alpha.toFixed(3)})`;
         ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.arc(dot.x, dot.y, size, 0, Math.PI * 2);
         ctx.fill();
       }
       if (!canvasReady) markCanvasReady();
@@ -1276,7 +1380,7 @@
       layer.style.setProperty('--dot-shift-y', `${shiftY.toFixed(2)}px`);
       layer.style.setProperty('--dot-arc-x', `${arcX.toFixed(2)}px`);
       layer.style.setProperty('--dot-arc-y', `${arcY.toFixed(2)}px`);
-      layer.style.setProperty('--dot-glow', state.active ? '0.76' : '0.58');
+      layer.style.setProperty('--dot-glow', state.active ? '0.64' : '0.56');
 
       orbs.forEach(({ el, depth }) => {
         el.style.setProperty('--orb-x', `${(shiftX * (0.78 + depth)).toFixed(2)}px`);
@@ -1284,8 +1388,7 @@
       });
 
       renderCanvas(time);
-      const settled = Math.abs(state.tx - state.x) < 0.0025 && Math.abs(state.ty - state.y) < 0.0025;
-      if (state.active || !settled) schedule();
+      schedule();
     };
 
     const updateTarget = (event) => {
@@ -1674,13 +1777,13 @@
 
       zone.addEventListener('dragenter', (e) => {
         e.preventDefault();
-        zone.classList.add('is-dragover');
+        zone.classList.add('is-drag-over');
       });
       zone.addEventListener('dragover', (e) => e.preventDefault());
-      zone.addEventListener('dragleave', () => zone.classList.remove('is-dragover'));
+      zone.addEventListener('dragleave', () => zone.classList.remove('is-drag-over'));
       zone.addEventListener('drop', (e) => {
         e.preventDefault();
-        zone.classList.remove('is-dragover');
+        zone.classList.remove('is-drag-over');
         setFiles(e.dataTransfer.files);
         showToast(t('file_added'), 'success');
       });
@@ -2313,6 +2416,7 @@
     revealOnScroll(root);
     initFlipWords(root);
     initFaq(root);
+    initCardReveal(root);
     initTabs(root);
     initCalc(root);
     initFileGuard(root);
@@ -2320,6 +2424,7 @@
     initProfileMenu(root);
     initManagerFab();
     initMobileContactSheet(root);
+    initMobileDockPolish(root);
     initPrintheadScan();
     initInkFlow();
     scheduleHomeDotBackground();

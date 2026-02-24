@@ -1422,7 +1422,6 @@ body[data-page="home"] section.section > .dtf-container {
 
 .home-dot-distortion.is-static::before {
   background:
-    radial-gradient(54% 40% at 48% 36%, rgba(255, 132, 28, 0.2), transparent 76%),
     radial-gradient(120% 90% at 52% 74%, rgba(6, 7, 9, 0.28), rgba(5, 5, 7, 0.82) 74%, rgba(5, 5, 7, 0.92) 100%);
   opacity: 0.62;
 }
@@ -1432,10 +1431,7 @@ body[data-page="home"] section.section > .dtf-container {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(56% 44% at var(--dot-pointer-x) var(--dot-pointer-y), rgba(255, 118, 20, 0.18), transparent 74%),
-    radial-gradient(42% 36% at 78% 22%, rgba(255, 189, 82, 0.13), transparent 72%),
     radial-gradient(120% 90% at 52% 76%, rgba(6, 7, 9, 0.2), rgba(5, 5, 7, 0.78) 72%, rgba(5, 5, 7, 0.9) 100%);
-  filter: blur(1.2px);
   opacity: var(--dot-glow);
   transition: opacity 200ms ease;
 }
@@ -3556,6 +3552,7 @@ body[data-page="home"] section.section > .dtf-container {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+.upload-zone.is-drag-over,
 .upload-zone.is-dragover {
   border-color: var(--c-molten);
   box-shadow: 0 0 0 2px rgba(255, 106, 0, 0.2);

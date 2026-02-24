@@ -90,13 +90,13 @@
           <span class="beam beam-3"></span>
         </div>
         <div class="eyebrow">{% trans "Background beams" %}</div>
-        <strong>60 см · Hot Peel</strong>
+        <strong>{% if current_lang == 'ru' %}60 см · Горячее снятие{% elif current_lang == 'en' %}60 cm · Peel while hot{% else %}60 см · Гаряче зняття{% endif %}</strong>
       </article>
 
       <article class="card" data-effect="dotted-glow">
         <h3>{% trans "Dotted glow + encrypted text" %}</h3>
-        <p data-effect="encrypted-text" data-encrypted-text="Preflight: PASS · Safe margins: OK">
-          Preflight: PASS · Safe margins: OK
+        <p data-effect="encrypted-text" data-encrypted-text="{% if current_lang == 'ru' %}Проверка файла: готово · Безопасная зона: учтена{% elif current_lang == 'en' %}File check: ready · Safe area: covered{% else %}Перевірка файлу: готово · Безпечна зона: врахована{% endif %}">
+          {% if current_lang == 'ru' %}Проверка файла: готово · Безопасная зона: учтена{% elif current_lang == 'en' %}File check: ready · Safe area: covered{% else %}Перевірка файлу: готово · Безпечна зона: врахована{% endif %}
         </p>
         <p><span data-pointer>{% trans "Наведи курсор на цей текст" %}</span></p>
       </article>
@@ -159,7 +159,7 @@
       <h3>{% trans "Tracing beam" %}</h3>
       <ul class="list">
         <li>{% trans "Upload" %}</li>
-        <li>{% trans "Preflight" %}</li>
+        <li>{% if current_lang == 'ru' %}Проверка файла{% elif current_lang == 'en' %}File check{% else %}Перевірка файлу{% endif %}</li>
         <li>{% trans "Manager review" %}</li>
         <li>{% trans "Production" %}</li>
         <li>{% trans "Shipping" %}</li>
@@ -170,9 +170,9 @@
     <article class="card" data-effect="infinite-cards" data-direction="left" data-speed="normal" data-pause-on-hover="true">
       <h3>{% trans "Infinite cards (SEO-safe marquee)" %}</h3>
       <div class="infinite-track">
-        <article class="infinite-item"><div class="knowledge-card"><h4>Hot Peel</h4><p>{% trans "Гаряче зняття для кращої стійкості" %}</p></div></article>
+        <article class="infinite-item"><div class="knowledge-card"><h4>{% if current_lang == 'ru' %}Горячее снятие{% elif current_lang == 'en' %}Peel while hot{% else %}Гаряче зняття{% endif %}</h4><p>{% trans "Гаряче зняття для кращої стійкості" %}</p></div></article>
         <article class="infinite-item"><div class="knowledge-card"><h4>60 cm</h4><p>{% trans "Ширина рулону для DTF друку" %}</p></div></article>
-        <article class="infinite-item"><div class="knowledge-card"><h4>Manual QC</h4><p>{% trans "Ручна перевірка макета менеджером" %}</p></div></article>
+        <article class="infinite-item"><div class="knowledge-card"><h4>{% if current_lang == 'ru' %}Ручная проверка качества{% elif current_lang == 'en' %}Manual quality check{% else %}Ручна перевірка якості{% endif %}</h4><p>{% trans "Ручна перевірка макета менеджером" %}</p></div></article>
         <article class="infinite-item"><div class="knowledge-card"><h4>24-48h</h4><p>{% trans "Середній термін виконання" %}</p></div></article>
         <article class="infinite-item"><div class="knowledge-card"><h4>Nova Poshta</h4><p>{% trans "Доставка по всій Україні" %}</p></div></article>
       </div>
