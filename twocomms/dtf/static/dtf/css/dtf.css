@@ -5187,12 +5187,14 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
 .constructor-main {
   display: grid;
   gap: 14px;
+  align-content: start;
 }
 
 .constructor-step-tabs {
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-self: start;
 }
 
 .constructor-step {
