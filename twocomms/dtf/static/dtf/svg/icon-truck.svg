@@ -1,6 +1,6 @@
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-  <path d="M3 6h11v9H3z"/>
-  <path d="M14 9h3l3 3v3h-6"/>
-  <circle cx="7" cy="17" r="2"/>
-  <circle cx="17" cy="17" r="2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <rect x="1" y="3" width="15" height="13"></rect>
+  <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+  <circle cx="5.5" cy="18.5" r="2.5"></circle>
+  <circle cx="18.5" cy="18.5" r="2.5"></circle>
 </svg>
