@@ -70,12 +70,15 @@ if _allowed_hosts_env:
         ALLOWED_HOSTS.append('www.management.twocomms.shop')
     if 'dtf.twocomms.shop' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append('dtf.twocomms.shop')
+    if 'www.dtf.twocomms.shop' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('www.dtf.twocomms.shop')
 else:
     # Значения по умолчанию: ваш домен(ы)
     ALLOWED_HOSTS = [
         'twocomms.shop',
         'www.twocomms.shop',
         'dtf.twocomms.shop',
+        'www.dtf.twocomms.shop',
         'test.com',
         'www.test.com',
         'localhost',
@@ -83,7 +86,6 @@ else:
         'testserver',  # Для Django тестового клиента
         'management.twocomms.shop',
         'www.management.twocomms.shop',
-        'dtf.twocomms.shop',
     ]
 
 _csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS')
@@ -108,7 +110,10 @@ CSRF_TRUSTED_ORIGINS.extend([
     'http://management.twocomms.shop',
     'https://dtf.twocomms.shop',
     'http://dtf.twocomms.shop',
+    'https://www.dtf.twocomms.shop',
+    'http://www.dtf.twocomms.shop',
 ])
+CSRF_FAILURE_VIEW = 'twocomms.csrf.csrf_failure'
 
 # Social Auth: приложения и контекст-процессоры уже подключены из base settings
 if 'social_django' not in INSTALLED_APPS:

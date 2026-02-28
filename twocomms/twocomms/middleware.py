@@ -6,6 +6,7 @@ from django.http import HttpResponsePermanentRedirect, HttpResponse
 from django.conf import settings
 from django.utils.deprecation import MiddlewareMixin
 from django.core.cache import cache
+from django.core.exceptions import DisallowedHost
 from django.contrib.redirects.middleware import RedirectFallbackMiddleware
 import os
 import time
@@ -23,8 +24,12 @@ class ForceHTTPSMiddleware(MiddlewareMixin):
 
         # Проверяем, что запрос идет по HTTP
         if not request.is_secure():
-            # Создаем HTTPS URL
-            https_url = request.build_absolute_uri().replace('http://', 'https://', 1)
+            try:
+                # Создаем HTTPS URL
+                https_url = request.build_absolute_uri().replace('http://', 'https://', 1)
+            except DisallowedHost:
+                # Let Django return a regular DisallowedHost response without noisy middleware traceback.
+                return None
 
             # Выполняем постоянный редирект (301)
             return HttpResponsePermanentRedirect(https_url)
@@ -42,8 +47,13 @@ class WWWRedirectMiddleware(MiddlewareMixin):
         if settings.DEBUG:
             return None
 
+        try:
+            host = request.get_host()
+        except DisallowedHost:
+            return None
+
         # Проверяем, что запрос идет с www
-        if request.get_host().startswith('www.'):
+        if host.startswith('www.'):
             # Создаем URL без www
             non_www_url = request.build_absolute_uri().replace('://www.', '://', 1)
 
@@ -60,7 +70,10 @@ class SubdomainURLRoutingMiddleware(MiddlewareMixin):
     """
 
     def process_request(self, request):
-        host = request.get_host().split(":")[0].lower()
+        try:
+            host = request.get_host().split(":")[0].lower()
+        except DisallowedHost:
+            return None
 
         # DTF subdomain should run its own site/urlconf.
         if host.startswith('dtf.'):

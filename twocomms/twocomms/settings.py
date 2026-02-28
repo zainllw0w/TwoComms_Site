@@ -870,10 +870,13 @@ CSRF_TRUSTED_ORIGINS = [
     'https://twocomms.shop',
     'https://www.twocomms.shop',
     'https://dtf.twocomms.shop',
+    'https://www.dtf.twocomms.shop',
     'https://management.twocomms.shop',
+    'https://www.management.twocomms.shop',
     'https://*.twocomms.shop',
     # удалён домен pythonanywhere по требованию
 ]
+CSRF_FAILURE_VIEW = "twocomms.csrf.csrf_failure"
 
 # ==================== DJANGO REST FRAMEWORK ====================
 
