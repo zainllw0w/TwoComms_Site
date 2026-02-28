@@ -110,12 +110,12 @@
 }
 
 .compare-before {
-  z-index: 2;
-  clip-path: inset(0 calc(100% - var(--compare)) 0 0);
+  z-index: 1;
 }
 
 .compare-after {
-  z-index: 1;
+  z-index: 2;
+  clip-path: inset(0 calc(100% - var(--compare)) 0 0);
 }
 
 .compare-layer img {
@@ -383,7 +383,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 48px;
+  width: 18px;
   z-index: 2;
   pointer-events: none;
 }
@@ -449,7 +449,7 @@
 @media (max-width: 600px) {
   [data-effect~="infinite-cards"]::before,
   [data-effect~="infinite-cards"]::after {
-    width: 24px;
+    width: 10px;
   }
 
   .infinite-item .knowledge-card {
@@ -1305,10 +1305,54 @@
   gap: 4px;
 }
 
+.preflight-terms .preflight-terms-hint {
+  font-weight: 700;
+  color: rgba(246, 232, 201, 0.95);
+  margin-right: 6px;
+}
+
+.preflight-terms .preflight-terms-hint .dtf-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .preflight-terms abbr {
   text-decoration: none;
   font-weight: 600;
   color: var(--text-secondary, #b4bcd0);
+}
+
+.preflight-status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 10px;
+}
+
+.preflight-status-legend .icon-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.preflight-status-legend .dtf-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.preflight-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.preflight-summary {
+  margin-top: 8px;
+  color: rgba(255, 198, 130, 0.96);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 
@@ -1431,5 +1475,3 @@
     transform: translateX(-50%) !important;
   }
 }
-
-

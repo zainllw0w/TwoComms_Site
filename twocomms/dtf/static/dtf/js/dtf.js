@@ -407,7 +407,7 @@
   }
 
   function initCardReveal(root = document) {
-    const cards = collectTargets(root, '.work-card, .proof-card, .hero-card, .info-card');
+    const cards = collectTargets(root, '.work-card, .proof-card, .hero-card, .info-card, .price-row, .feature-card, .step-card');
     if (!cards.length) return;
 
     const applyStagger = (card, index) => {

@@ -5246,7 +5246,21 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
   }
 
   .constructor-step-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .constructor-step-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .constructor-step {
+    flex: 0 0 auto;
+    min-width: 132px;
   }
 
   .footer-inner {

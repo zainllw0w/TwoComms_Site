@@ -42,9 +42,12 @@
 }
 
 /* 3. soft-glow */
-.dtf-icon-bulb.dtf-icon-animate,
+.dtf-icon-bulb.dtf-icon-animate {
+  animation: soft-glow 2.4s ease-in-out infinite;
+}
 .dtf-icon-telegram.dtf-icon-animate {
-  animation: soft-glow 0.4s ease-out;
+  animation: soft-glow 2.8s ease-in-out infinite;
+  animation-delay: 0.3s;
 }
 @keyframes soft-glow {
   0%   { filter: drop-shadow(0 0 0 transparent); }
@@ -54,21 +57,21 @@
 
 /* 4. upload-bounce */
 .dtf-icon-upload.dtf-icon-animate {
-  animation: upload-bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: upload-bounce 2.6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
 }
 @keyframes upload-bounce {
-  0%   { transform: translateY(0); }
-  40%  { transform: translateY(-6px); }
-  100% { transform: translateY(0); }
+  0%, 65%, 100% { transform: translateY(0); }
+  75%  { transform: translateY(-6px); }
+  85%  { transform: translateY(0); }
 }
 
 /* 5. truck-slide */
 .dtf-icon-truck.dtf-icon-animate {
-  animation: truck-slide 0.6s ease-out;
+  animation: truck-slide 2.9s ease-out infinite;
 }
 @keyframes truck-slide {
-  0%   { transform: translateX(-12px); opacity: 0; }
-  100% { transform: translateX(0); opacity: 1; }
+  0%, 68%, 100% { transform: translateX(0); opacity: 1; }
+  80% { transform: translateX(-8px); opacity: 0.8; }
 }
 
 /* 6. pulse-ring */

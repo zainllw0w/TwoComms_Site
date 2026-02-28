@@ -101,6 +101,10 @@
                   <span class="icon-label"><span class="dtf-icon dtf-icon-fix dtf-icon-animate" aria-hidden="true">{% include 'dtf/svg/icon-fix.svg' %}</span>{% if current_lang == 'ru' %}Нужна правка{% elif current_lang == 'en' %}Needs fix{% else %}Потрібна правка{% endif %}</span>
                 </div>
                 <div class="preflight-terms">
+                  <span class="preflight-terms-hint">
+                    <span class="dtf-icon dtf-icon-bulb dtf-icon-animate" aria-hidden="true">{% include 'dtf/svg/icon-bulb.svg' %}</span>
+                    {% if current_lang == 'ru' %}Подсказки{% elif current_lang == 'en' %}Quick tips{% else %}Підказки{% endif %}
+                  </span>
                   <span data-tooltip-content="{% if current_lang == 'ru' %}Рекомендуем ~300 DPI в финальном размере. Ниже может быть “мыло/пиксели”.{% elif current_lang == 'en' %}~300 DPI at final size is recommended. Lower may look blurry/pixelated.{% else %}Рекомендовано ~300 DPI у фінальному розмірі. Нижче може бути “мило/пікселі”.{% endif %}" data-effect="tooltip-card">
                     <abbr>DPI</abbr>
                   </span>
@@ -115,9 +119,9 @@
                   </span>
                 </div>
                 <div class="preflight-actions">
-                  <a class="btn btn-ghost" href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Проверьте, пожалуйста, подходит ли мой файл для DTF-печати.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! Please check if my file is OK for DTF printing.'|urlencode }}{% else %}{{ 'Привіт! Перевірте, будь ласка, чи підходить мій файл для DTF-друку.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Попросить подсказку в Telegram{% elif current_lang == 'en' %}Ask for help in Telegram{% else %}Попросити підказку в Telegram{% endif %}</a>
-                  <button type="button" class="btn btn-outline" data-preflight-upload-fixed>{% if current_lang == 'ru' %}Загрузить исправленный файл{% elif current_lang == 'en' %}Upload fixed file{% else %}Завантажити виправлений файл{% endif %}</button>
-                  <button type="button" class="btn btn-outline" data-preflight-print-as-is>{% if current_lang == 'ru' %}Печатать без правок{% elif current_lang == 'en' %}Print as is{% else %}Друкувати без правок{% endif %}</button>
+                  <a class="btn btn-ghost" href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Проверьте, пожалуйста, подходит ли мой файл для DTF-печати.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! Please check if my file is OK for DTF printing.'|urlencode }}{% else %}{{ 'Привіт! Перевірте, будь ласка, чи підходить мій файл для DTF-друку.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer"><span class="dtf-icon dtf-icon-telegram dtf-icon-animate" aria-hidden="true">{% include 'dtf/svg/icon-telegram.svg' %}</span>{% if current_lang == 'ru' %}Попросить подсказку в Telegram{% elif current_lang == 'en' %}Ask for help in Telegram{% else %}Попросити підказку в Telegram{% endif %}</a>
+                  <button type="button" class="btn btn-outline" data-preflight-upload-fixed><span class="dtf-icon dtf-icon-upload dtf-icon-animate" aria-hidden="true">{% include 'dtf/svg/icon-upload.svg' %}</span>{% if current_lang == 'ru' %}Загрузить исправленный файл{% elif current_lang == 'en' %}Upload fixed file{% else %}Завантажити виправлений файл{% endif %}</button>
+                  <button type="button" class="btn btn-outline" data-preflight-print-as-is><span class="dtf-icon dtf-icon-shield dtf-icon-animate" aria-hidden="true">{% include 'dtf/svg/icon-shield.svg' %}</span>{% if current_lang == 'ru' %}Печатать без правок{% elif current_lang == 'en' %}Print as is{% else %}Друкувати без правок{% endif %}</button>
                 </div>
                 <label class="risk-check" data-risk-check hidden>
                   <input type="checkbox" name="risk_ack">

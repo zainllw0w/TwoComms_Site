@@ -182,9 +182,9 @@
       </label>
       <input type="hidden" name="copies" value="1">
       <div class="estimate-field estimate-output">
-        <div class="overline">{% trans "ОРІЄНТИР" %}</div>
+        <div class="overline">{% if current_lang == 'ru' %}ОРИЕНТИР ЦЕНЫ{% elif current_lang == 'en' %}PRICE GUIDE{% else %}ОРІЄНТИР ЦІНИ{% endif %}</div>
         <div id="estimate-result" data-swap-focus>
-          <div class="estimate-value tabular-nums" id="calc-price" aria-live="polite">{% trans "Вкажіть метраж → покажемо орієнтир" %}</div>
+          <div class="estimate-value tabular-nums" id="calc-price" aria-live="polite">{% if current_lang == 'ru' %}Укажите метраж → покажем ориентир цены{% elif current_lang == 'en' %}Enter meterage → we&apos;ll show a price guide{% else %}Вкажіть метраж → покажемо орієнтир ціни{% endif %}</div>
           <div class="estimate-sub tabular-nums" id="calc-meters"></div>
         </div>
       </div>
