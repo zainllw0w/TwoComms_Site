@@ -4,15 +4,20 @@
 .btn-primary {
   transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease;
 }
+
 .btn-primary:hover {
   transform: scale(1.02) translateY(-1px);
   box-shadow: 0 4px 16px rgba(249, 115, 22, 0.25);
 }
-.btn-primary:active { transform: scale(0.98); }
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
 
 .btn-secondary {
   transition: border-color 0.2s ease, transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease;
 }
+
 .btn-secondary:hover {
   border-color: var(--dtf-accent, #f97316);
   transform: scale(1.01) translateY(-1px);
@@ -20,35 +25,75 @@
 }
 
 @media (pointer: coarse) {
-  .btn-primary, .btn-secondary { min-height: 48px; }
+
+  .btn-primary,
+  .btn-secondary {
+    min-height: 48px;
+  }
 }
 
 /* 2. Card entrance */
-.work-card, .proof-card, .price-row {
+.work-card,
+.proof-card,
+.price-row,
+.feature-card,
+.step-card {
   opacity: 0;
   transform: translateY(20px);
   transition: opacity 0.5s ease-out, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.work-card.is-visible, .proof-card.is-visible, .price-row.is-visible {
+
+.work-card.is-visible,
+.proof-card.is-visible,
+.price-row.is-visible,
+.feature-card.is-visible,
+.step-card.is-visible {
   opacity: 1;
   transform: translateY(0);
 }
-.work-card:nth-child(2), .price-row:nth-child(2) { transition-delay: 0.1s; }
-.work-card:nth-child(3), .price-row:nth-child(3) { transition-delay: 0.2s; }
-.work-card:nth-child(4), .price-row:nth-child(4) { transition-delay: 0.3s; }
+
+.work-card:nth-child(2),
+.price-row:nth-child(2),
+.feature-card:nth-child(2),
+.step-card:nth-child(2) {
+  transition-delay: 0.1s;
+}
+
+.work-card:nth-child(3),
+.price-row:nth-child(3),
+.feature-card:nth-child(3),
+.step-card:nth-child(3) {
+  transition-delay: 0.2s;
+}
+
+.work-card:nth-child(4),
+.price-row:nth-child(4),
+.feature-card:nth-child(4),
+.step-card:nth-child(4) {
+  transition-delay: 0.3s;
+}
 
 /* 3. Form input focus underline */
-.form-group { position: relative; }
+.form-group {
+  position: relative;
+}
+
 .form-group::after {
   content: '';
   position: absolute;
-  bottom: 0; left: 50%; right: 50%;
+  bottom: 0;
+  left: 50%;
+  right: 50%;
   height: 2px;
   background: var(--dtf-accent, #f97316);
   transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1), right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   border-radius: 2px 2px 0 0;
 }
-.form-group:focus-within::after { left: 0; right: 0; }
+
+.form-group:focus-within::after {
+  left: 0;
+  right: 0;
+}
 
 /* 4. FAQ accordion */
 .faq-answer {
@@ -57,14 +102,17 @@
   transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease-out;
   opacity: 0;
 }
+
 .faq-item.is-open .faq-answer {
   max-height: 300px;
   opacity: 1;
 }
+
 .faq-item {
   transition: border-left-color 0.3s ease;
   border-left: 3px solid transparent;
 }
+
 .faq-item.is-open {
   border-left-color: var(--dtf-accent, #f97316);
 }
@@ -74,16 +122,29 @@
   position: relative;
   overflow: hidden;
 }
+
 .price-badge::after {
   content: '';
   position: absolute;
-  top: 0; left: -100%; width: 60%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
   animation: shimmer 4s ease-in-out infinite;
 }
+
 @keyframes shimmer {
-  0%, 80%, 100% { left: -100%; }
-  40% { left: 150%; }
+
+  0%,
+  80%,
+  100% {
+    left: -100%;
+  }
+
+  40% {
+    left: 150%;
+  }
 }
 
 /* 6. Mobile dock entrance */
@@ -91,31 +152,82 @@
   transform: translateY(120%);
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.mobile-dock.is-visible { transform: translateY(0); }
+
+.mobile-dock.is-visible {
+  transform: translateY(0);
+}
 
 /* 7. Dropzone drag-over */
-.dropzone {
+.dropzone,
+.upload-zone {
   transition: border-color 0.3s ease, background-color 0.3s ease;
 }
-.dropzone.is-drag-over {
+
+.dropzone.is-drag-over,
+.upload-zone.is-drag-over {
   animation: dropzone-pulse 1s ease-in-out infinite alternate;
   border-color: var(--dtf-accent, #f97316);
   background-color: rgba(249, 115, 22, 0.02);
 }
+
 @keyframes dropzone-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.2); }
-  100% { box-shadow: 0 0 0 8px rgba(249, 115, 22, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.2);
+  }
+
+  100% {
+    box-shadow: 0 0 0 8px rgba(249, 115, 22, 0);
+  }
 }
 
 /* Reduced Motion Fallbacks */
 @media (prefers-reduced-motion: reduce) {
-  .btn-primary, .btn-secondary { transition: none; }
-  .btn-primary:hover, .btn-secondary:hover { transform: none; box-shadow: none; }
-  .work-card, .proof-card, .price-row { opacity: 1; transform: none; transition: none; }
-  .form-group::after { transition: none; }
-  .faq-answer { transition: none; }
-  .price-badge::after { display: none; }
-  .mobile-dock { transform: none; transition: none; }
-  .dropzone { transition: none; }
-  .dropzone.is-drag-over { animation: none; }
+
+  .btn-primary,
+  .btn-secondary {
+    transition: none;
+  }
+
+  .btn-primary:hover,
+  .btn-secondary:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .work-card,
+  .proof-card,
+  .price-row,
+  .feature-card,
+  .step-card {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .form-group::after {
+    transition: none;
+  }
+
+  .faq-answer {
+    transition: none;
+  }
+
+  .price-badge::after {
+    display: none;
+  }
+
+  .mobile-dock {
+    transform: none;
+    transition: none;
+  }
+
+  .dropzone,
+  .upload-zone {
+    transition: none;
+  }
+
+  .dropzone.is-drag-over,
+  .upload-zone.is-drag-over {
+    animation: none;
+  }
 }
