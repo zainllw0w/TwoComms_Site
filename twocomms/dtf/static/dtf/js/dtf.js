@@ -1233,13 +1233,13 @@
     };
     const alphaProfile = {
       reference: {
-        baseMin: 0.12,
-        baseTone: 0.2,
-        motionInfluence: 0.08,
-        motionDisplacement: 0.2,
-        motionGlow: 0.18,
-        min: 0.09,
-        max: 0.86,
+        baseMin: 0.16,
+        baseTone: 0.24,
+        motionInfluence: 0.1,
+        motionDisplacement: 0.22,
+        motionGlow: 0.2,
+        min: 0.12,
+        max: 0.94,
       },
       balanced: {
         baseMin: 0.11,
@@ -1271,9 +1271,9 @@
     };
     const colorProfileBlue = {
       reference: {
-        r: { base: 16, tone: 26, influence: 14, glow: 34, min: 10, max: 88 },
-        g: { base: 128, tone: 72, influence: 24, glow: 46, min: 96, max: 225 },
-        b: { base: 220, tone: 30, influence: 20, glow: 24, min: 190, max: 255 },
+        r: { base: 20, tone: 30, influence: 16, glow: 38, min: 14, max: 96 },
+        g: { base: 142, tone: 78, influence: 28, glow: 50, min: 104, max: 235 },
+        b: { base: 228, tone: 34, influence: 24, glow: 28, min: 198, max: 255 },
       },
       balanced: {
         r: { base: 18, tone: 18, influence: 12, glow: 26, min: 12, max: 76 },
@@ -1311,7 +1311,7 @@
 
     const setStatic = () => {
       layer.classList.add('is-static');
-      layer.style.setProperty('--dot-glow', '0.52');
+      layer.style.setProperty('--dot-glow', '0.4');
       layer.style.setProperty('--dot-shift-x', '0px');
       layer.style.setProperty('--dot-shift-y', '0px');
       layer.style.setProperty('--dot-arc-x', '0px');
@@ -1577,7 +1577,7 @@
       layer.style.setProperty('--dot-shift-y', `${shiftY.toFixed(2)}px`);
       layer.style.setProperty('--dot-arc-x', `${arcX.toFixed(2)}px`);
       layer.style.setProperty('--dot-arc-y', `${arcY.toFixed(2)}px`);
-      layer.style.setProperty('--dot-glow', moving ? '0.6' : '0.52');
+      layer.style.setProperty('--dot-glow', moving ? '0.44' : '0.36');
 
       orbs.forEach(({ el, depth }) => {
         el.style.setProperty('--orb-x', `${(shiftX * (0.78 + depth)).toFixed(2)}px`);

@@ -220,7 +220,7 @@ body[data-page="home"][data-legacy-ink="on"] .ink-droplets {
   --dot-shift-y: 0px;
   --dot-arc-x: 0px;
   --dot-arc-y: 0px;
-  --dot-glow: 0.56;
+  --dot-glow: 0.4;
 }
 
 body[data-page="home"] .home-dot-distortion {
@@ -1393,7 +1393,7 @@ body[data-page="home"] section.section > .dtf-container {
 }
 
 .home-dot-distortion.has-canvas.is-canvas-ready .dot-distortion-canvas {
-  opacity: 0.96;
+  opacity: 0.98;
 }
 
 .home-dot-distortion.has-canvas.is-canvas-ready .dot-field,
@@ -1431,7 +1431,7 @@ body[data-page="home"] section.section > .dtf-container {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(120% 90% at 52% 76%, rgba(6, 7, 9, 0.2), rgba(5, 5, 7, 0.78) 72%, rgba(5, 5, 7, 0.9) 100%);
+    radial-gradient(120% 90% at 52% 76%, rgba(6, 7, 9, 0.12), rgba(5, 5, 7, 0.62) 72%, rgba(5, 5, 7, 0.76) 100%);
   opacity: var(--dot-glow);
   transition: opacity 200ms ease;
 }
