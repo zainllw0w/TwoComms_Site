@@ -133,7 +133,7 @@
       <link rel="stylesheet" href="{% static 'dtf/css/components/effects-bundle.css' %}?v=20260228b">
     </noscript>
   {% endif %}
-  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.js' %}?v=20260228b">
+  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.js' %}?v=20260302a">
   {% block extra_head %}{% endblock %}
 </head>
 <body data-page="{% block page_id %}{% endblock %}">
@@ -526,7 +526,7 @@
   </div>
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
-  <script src="{% static 'dtf/js/dtf.js' %}?v=20260228b" defer></script>
+  <script src="{% static 'dtf/js/dtf.js' %}?v=20260302a" defer></script>
   {% if dtf_load_htmx %}
     <script src="{% static 'dtf/js/vendor/htmx.min.js' %}?v=20260228b" defer></script>
   {% endif %}
