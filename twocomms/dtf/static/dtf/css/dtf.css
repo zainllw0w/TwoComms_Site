@@ -1441,18 +1441,18 @@ body[data-page="home"] section.section > .dtf-container {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(38% 30% at 12% 18%, rgba(255, 118, 20, 0.11), transparent 74%),
-    radial-gradient(30% 28% at 84% 26%, rgba(255, 189, 82, 0.08), transparent 76%);
-  opacity: 0.9;
+    radial-gradient(36% 28% at 12% 18%, rgba(94, 138, 255, 0.1), transparent 74%),
+    radial-gradient(30% 27% at 84% 26%, rgba(154, 189, 255, 0.08), transparent 76%);
+  opacity: 0.72;
 }
 
 .home-dot-distortion .dot-field {
   position: absolute;
   inset: 0;
   border-radius: 0;
-  background-image: radial-gradient(circle at 1px 1px, rgba(255, 154, 64, 0.6) 1.1px, transparent 1.9px);
-  background-size: 26px 26px;
-  opacity: 0.22;
+  background-image: radial-gradient(circle at 1px 1px, rgba(98, 154, 255, 0.54) 1px, transparent 1.7px);
+  background-size: 18px 18px;
+  opacity: 0.14;
   mask-image: radial-gradient(ellipse at 50% 44%, #000 50%, rgba(0, 0, 0, 0.45) 76%, transparent 100%);
   animation: dot-drift 24s linear infinite;
   transform: translate3d(var(--dot-shift-x), var(--dot-shift-y), 0);
@@ -1475,9 +1475,9 @@ body[data-page="home"] section.section > .dtf-container {
 }
 
 .home-dot-distortion .dot-field-alt {
-  background-image: radial-gradient(circle at 1px 1px, rgba(255, 212, 120, 0.44) 1px, transparent 1.8px);
-  background-size: 34px 34px;
-  opacity: 0.12;
+  background-image: radial-gradient(circle at 1px 1px, rgba(154, 189, 255, 0.38) 1px, transparent 1.7px);
+  background-size: 24px 24px;
+  opacity: 0.08;
   filter: blur(0.2px);
   mix-blend-mode: screen;
   animation-duration: 30s;
@@ -1491,10 +1491,10 @@ body[data-page="home"] section.section > .dtf-container {
   aspect-ratio: 1;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 30% 28%, rgba(255, 242, 214, 0.34), rgba(255, 176, 74, 0.2) 38%, rgba(255, 116, 18, 0.07) 62%, rgba(255, 116, 18, 0) 100%);
+    radial-gradient(circle at 30% 28%, rgba(227, 239, 255, 0.3), rgba(105, 157, 255, 0.16) 38%, rgba(68, 116, 238, 0.05) 62%, rgba(68, 116, 238, 0) 100%);
   mix-blend-mode: screen;
   filter: blur(8px);
-  opacity: 0.4;
+  opacity: 0.18;
   transform: translate3d(var(--orb-x, 0px), var(--orb-y, 0px), 0);
   will-change: transform, opacity;
   animation: dot-orb-float 18s ease-in-out infinite;
@@ -1509,7 +1509,7 @@ body[data-page="home"] section.section > .dtf-container {
   top: 56%;
   left: 54%;
   width: clamp(150px, 14vw, 250px);
-  opacity: 0.34;
+  opacity: 0.16;
   animation-delay: -5s;
 }
 
@@ -1517,7 +1517,7 @@ body[data-page="home"] section.section > .dtf-container {
   top: 20%;
   left: 76%;
   width: clamp(98px, 9vw, 170px);
-  opacity: 0.3;
+  opacity: 0.14;
   animation-delay: -9s;
 }
 
