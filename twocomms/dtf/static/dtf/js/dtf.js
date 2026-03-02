@@ -1218,14 +1218,16 @@
     const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
     const ambientTier = resolveAmbientTier();
     const canAnimate = ambientTier > 0 && allowAmbientEffects();
-    const interactionRadius = ambientTier >= 4 ? 176 : ambientTier >= 3 ? 150 : ambientTier >= 2 ? 96 : 82;
+    const interactionRadius = ambientTier >= 4 ? 112 : ambientTier >= 3 ? 102 : ambientTier >= 2 ? 92 : 82;
     const quality = {
-      maxDpr: ambientTier >= 4 ? 1.5 : ambientTier >= 3 ? 1.35 : 1.15,
-      spacingMin: ambientTier >= 4 ? 24 : ambientTier >= 3 ? 28 : 34,
-      spacingMax: ambientTier >= 4 ? 34 : ambientTier >= 3 ? 42 : 52,
-      maxDots: ambientTier >= 4 ? 1250 : ambientTier >= 3 ? 900 : 620,
-      frameBudget: ambientTier >= 4 ? 16 : ambientTier >= 3 ? 20 : 30,
+      maxDpr: ambientTier >= 4 ? 1.42 : ambientTier >= 3 ? 1.3 : 1.1,
+      baseGap: ambientTier >= 4 ? 15 : ambientTier >= 3 ? 17 : 20,
+      maxDots: ambientTier >= 4 ? 6800 : ambientTier >= 3 ? 4600 : 2600,
+      frameBudget: ambientTier >= 4 ? 16 : ambientTier >= 3 ? 18 : 28,
     };
+    const movementThreshold = ambientTier <= 2 ? 0.34 : 0.5;
+    const dotPalette = (layer.dataset.dotPalette || 'blue').toLowerCase();
+    const useBluePalette = dotPalette !== 'amber';
     let canvasReady = false;
     let canvasReadyHandle = null;
 
@@ -1270,14 +1272,10 @@
       ty: 0,
       active: false,
       pointerInside: false,
-      rawPxX: initialPointer.x,
-      rawPxY: initialPointer.y,
-      smoothPxX: initialPointer.x,
-      smoothPxY: initialPointer.y,
-      prevPxX: initialPointer.x,
-      prevPxY: initialPointer.y,
-      mouseVx: 0,
-      mouseVy: 0,
+      pointerX: initialPointer.x,
+      pointerY: initialPointer.y,
+      pointerDx: 0,
+      pointerDy: 0,
       frameScale: 1,
       lastMoveAt: 0,
     };
@@ -1301,13 +1299,13 @@
 
     const setNeutralPointer = (snap = false) => {
       const neutral = getNeutralPointer();
-      state.rawPxX = neutral.x;
-      state.rawPxY = neutral.y;
+      state.pointerX = neutral.x;
+      state.pointerY = neutral.y;
+      state.pointerDx = 0;
+      state.pointerDy = 0;
       if (snap) {
-        state.smoothPxX = neutral.x;
-        state.smoothPxY = neutral.y;
-        state.prevPxX = neutral.x;
-        state.prevPxY = neutral.y;
+        state.pointerX = neutral.x;
+        state.pointerY = neutral.y;
       }
     };
 
@@ -1322,13 +1320,15 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       dots.length = 0;
-      let spacing = clamp(Math.round(Math.min(width, height) / 18), quality.spacingMin, quality.spacingMax);
+      let spacing = quality.baseGap;
       const estimatedCount = Math.ceil(width / spacing) * Math.ceil(height / spacing);
       if (estimatedCount > quality.maxDots) {
-        spacing = Math.max(spacing, Math.round(spacing * Math.sqrt(estimatedCount / quality.maxDots)));
+        spacing = Math.max(spacing, Math.ceil(spacing * Math.sqrt(estimatedCount / quality.maxDots)));
       }
-      for (let y = spacing * 0.5; y <= height; y += spacing) {
-        for (let x = spacing * 0.5; x <= width; x += spacing) {
+      const offsetX = (width % spacing) * 0.5;
+      const offsetY = (height % spacing) * 0.5;
+      for (let y = offsetY; y <= height; y += spacing) {
+        for (let x = offsetX; x <= width; x += spacing) {
           dots.push({
             gridX: x,
             gridY: y,
@@ -1336,7 +1336,7 @@
             y,
             vx: 0,
             vy: 0,
-            baseSize: 0.76 + Math.random() * 0.4,
+            baseSize: 0.9 + Math.random() * 0.2,
             phase: Math.random() * Math.PI * 2,
             bias: 0.45 + Math.random() * 0.55,
             glowUntil: 0,
@@ -1349,8 +1349,8 @@
       } else {
         const maxW = Math.max(window.innerWidth || width || 1, 1);
         const maxH = Math.max(window.innerHeight || height || 1, 1);
-        state.rawPxX = clamp(state.rawPxX, 0, maxW);
-        state.rawPxY = clamp(state.rawPxY, 0, maxH);
+        state.pointerX = clamp(state.pointerX, 0, maxW);
+        state.pointerY = clamp(state.pointerY, 0, maxH);
       }
     };
 
@@ -1359,20 +1359,20 @@
       ctx.clearRect(0, 0, width, height);
       const viewW = Math.max(window.innerWidth || width || 1, 1);
       const viewH = Math.max(window.innerHeight || height || 1, 1);
-      const px = clamp((state.smoothPxX / viewW) * width, 0, width);
-      const py = clamp((state.smoothPxY / viewH) * height, 0, height);
-      const mouseSpeed = Math.hypot(state.mouseVx, state.mouseVy);
+      const px = clamp((state.pointerX / viewW) * width, 0, width);
+      const py = clamp((state.pointerY / viewH) * height, 0, height);
+      const mouseSpeed = Math.hypot(state.pointerDx, state.pointerDy);
       const radius = interactionRadius;
-      const breathingSpeed = ambientTier <= 2 ? 0.0012 : 0.00185;
+      const breathingSpeed = ambientTier <= 2 ? 0.0011 : 0.00155;
       const glowChance = ambientTier <= 2 ? 0.000025 : 0.00005;
-      const spring = ambientTier >= 4 ? 0.021 : ambientTier >= 3 ? 0.02 : 0.017;
-      const returnSpeed = ambientTier >= 4 ? 0.064 : ambientTier >= 3 ? 0.06 : 0.053;
-      const friction = ambientTier >= 4 ? 0.922 : ambientTier >= 3 ? 0.916 : 0.902;
-      const velocityMultiplier = ambientTier >= 4 ? 0.34 : ambientTier >= 3 ? 0.3 : 0.24;
-      const movementThreshold = ambientTier <= 2 ? 0.22 : 0.38;
+      const spring = ambientTier >= 4 ? 0.02 : ambientTier >= 3 ? 0.019 : 0.017;
+      const returnSpeed = ambientTier >= 4 ? 0.06 : ambientTier >= 3 ? 0.058 : 0.052;
+      const friction = ambientTier >= 4 ? 0.92 : ambientTier >= 3 ? 0.915 : 0.9;
+      const distortionStrength = ambientTier >= 4 ? 1.2 : ambientTier >= 3 ? 1.12 : 1;
+      const velocityKick = ambientTier >= 4 ? 0.3 : ambientTier >= 3 ? 0.285 : 0.24;
       const isMoving = mouseSpeed > movementThreshold;
       const frameScale = state.frameScale || 1;
-      const maxDisp = radius * 1.45;
+      const maxDisp = radius * 1.08;
 
       for (let i = 0; i < dots.length; i += 1) {
         const dot = dots[i];
@@ -1383,9 +1383,9 @@
 
         if (state.pointerInside && isMoving && dist < radius) {
           influence = 1 - dist / radius;
-          const falloff = influence * influence;
-          dot.vx += state.mouseVx * falloff * velocityMultiplier * frameScale;
-          dot.vy += state.mouseVy * falloff * velocityMultiplier * frameScale;
+          const force = influence * influence * distortionStrength;
+          dot.vx += state.pointerDx * force * velocityKick;
+          dot.vy += state.pointerDy * force * velocityKick;
         }
 
         dot.x += dot.vx * frameScale;
@@ -1412,14 +1412,22 @@
         if (Math.random() < glowChance) {
           dot.glowUntil = time + 280 + Math.random() * 260;
         }
-        const glowBoost = time < dot.glowUntil ? 0.36 : 0;
+        const glowBoost = time < dot.glowUntil ? 0.28 : 0;
         const breathe = 1 + Math.sin(time * breathingSpeed + dot.phase) * 0.15;
         const size = dot.baseSize * breathe;
         const displacementBoost = clamp(Math.hypot(dot.x - dot.gridX, dot.y - dot.gridY) * 0.032, 0, 0.26);
-        const green = clamp(136 + dot.bias * 28 + influence * 26 + displacementBoost * 38 + glowBoost * 120, 118, 242);
-        const blue = clamp(26 + dot.bias * 16 + influence * 14 + displacementBoost * 19 + glowBoost * 48, 18, 94);
-        const alpha = clamp(0.16 + dot.bias * 0.14 + glowBoost + influence * 0.06 + displacementBoost * 0.24, 0.12, 0.82);
-        ctx.fillStyle = `rgba(255, ${Math.round(green)}, ${Math.round(blue)}, ${alpha.toFixed(3)})`;
+        if (useBluePalette) {
+          const red = clamp(70 + dot.bias * 34 + influence * 18 + displacementBoost * 32 + glowBoost * 92, 58, 210);
+          const green = clamp(138 + dot.bias * 32 + influence * 26 + displacementBoost * 24 + glowBoost * 78, 112, 236);
+          const blue = clamp(214 + dot.bias * 18 + influence * 24 + displacementBoost * 18 + glowBoost * 42, 174, 255);
+          const alpha = clamp(0.12 + dot.bias * 0.11 + glowBoost + influence * 0.06 + displacementBoost * 0.22, 0.09, 0.78);
+          ctx.fillStyle = `rgba(${Math.round(red)}, ${Math.round(green)}, ${Math.round(blue)}, ${alpha.toFixed(3)})`;
+        } else {
+          const green = clamp(136 + dot.bias * 28 + influence * 26 + displacementBoost * 38 + glowBoost * 120, 118, 242);
+          const blue = clamp(26 + dot.bias * 16 + influence * 14 + displacementBoost * 19 + glowBoost * 48, 18, 94);
+          const alpha = clamp(0.16 + dot.bias * 0.14 + glowBoost + influence * 0.06 + displacementBoost * 0.24, 0.12, 0.82);
+          ctx.fillStyle = `rgba(255, ${Math.round(green)}, ${Math.round(blue)}, ${alpha.toFixed(3)})`;
+        }
         ctx.beginPath();
         ctx.arc(dot.x, dot.y, size, 0, Math.PI * 2);
         ctx.fill();
@@ -1437,41 +1445,30 @@
       }
       lastFrameTime = time;
       state.frameScale = clamp(elapsed / 16.67, 0.72, 1.58);
-      state.active = state.pointerInside && time - state.lastMoveAt < 120;
+      state.active = state.pointerInside && time - state.lastMoveAt < 130;
       if (!state.active) {
         state.tx *= 0.9;
         state.ty *= 0.9;
       }
 
-      const follow = state.active ? 0.22 : 0.12;
+      const follow = state.active ? 0.2 : 0.11;
       state.x += (state.tx - state.x) * follow;
       state.y += (state.ty - state.y) * follow;
 
-      const mouseFollow = state.pointerInside ? 0.32 : 0.16;
-      state.prevPxX = state.smoothPxX;
-      state.prevPxY = state.smoothPxY;
-      state.smoothPxX += (state.rawPxX - state.smoothPxX) * mouseFollow;
-      state.smoothPxY += (state.rawPxY - state.smoothPxY) * mouseFollow;
-      state.mouseVx = (state.smoothPxX - state.prevPxX) / state.frameScale;
-      state.mouseVy = (state.smoothPxY - state.prevPxY) / state.frameScale;
-      if (!state.active) {
-        state.mouseVx *= state.pointerInside ? 0.84 : 0.72;
-        state.mouseVy *= state.pointerInside ? 0.84 : 0.72;
-      }
-      const moving = Math.hypot(state.mouseVx, state.mouseVy) > (ambientTier <= 2 ? 0.22 : 0.38);
+      const moving = Math.hypot(state.pointerDx, state.pointerDy) > movementThreshold;
 
-      const shiftX = state.x * 30;
-      const shiftY = state.y * 22;
-      const arcX = state.x * -22;
-      const arcY = state.y * -16;
+      const shiftX = state.x * 18;
+      const shiftY = state.y * 13;
+      const arcX = state.x * -12;
+      const arcY = state.y * -8;
 
-      layer.style.setProperty('--dot-pointer-x', `${(50 + state.x * 25).toFixed(2)}%`);
-      layer.style.setProperty('--dot-pointer-y', `${(42 + state.y * 20).toFixed(2)}%`);
+      layer.style.setProperty('--dot-pointer-x', `${(50 + state.x * 18).toFixed(2)}%`);
+      layer.style.setProperty('--dot-pointer-y', `${(42 + state.y * 15).toFixed(2)}%`);
       layer.style.setProperty('--dot-shift-x', `${shiftX.toFixed(2)}px`);
       layer.style.setProperty('--dot-shift-y', `${shiftY.toFixed(2)}px`);
       layer.style.setProperty('--dot-arc-x', `${arcX.toFixed(2)}px`);
       layer.style.setProperty('--dot-arc-y', `${arcY.toFixed(2)}px`);
-      layer.style.setProperty('--dot-glow', moving ? '0.64' : '0.56');
+      layer.style.setProperty('--dot-glow', moving ? '0.6' : '0.52');
 
       orbs.forEach(({ el, depth }) => {
         el.style.setProperty('--orb-x', `${(shiftX * (0.78 + depth)).toFixed(2)}px`);
@@ -1479,6 +1476,8 @@
       });
 
       renderCanvas(time);
+      state.pointerDx *= state.pointerInside ? 0.9 : 0.76;
+      state.pointerDy *= state.pointerInside ? 0.9 : 0.76;
       schedule();
     };
 
@@ -1491,10 +1490,17 @@
       const shapedY = Math.sign(relY) * Math.pow(Math.abs(relY), 0.88);
       state.tx = clamp(shapedX, -1, 1);
       state.ty = clamp(shapedY, -1, 1);
+      if (state.pointerInside) {
+        state.pointerDx = event.clientX - state.pointerX;
+        state.pointerDy = event.clientY - state.pointerY;
+      } else {
+        state.pointerDx = 0;
+        state.pointerDy = 0;
+      }
+      state.pointerX = event.clientX;
+      state.pointerY = event.clientY;
       state.pointerInside = true;
       state.active = true;
-      state.rawPxX = event.clientX;
-      state.rawPxY = event.clientY;
       state.lastMoveAt = performance.now();
       schedule();
     };
@@ -1505,6 +1511,8 @@
       state.tx = 0;
       state.ty = 0;
       state.lastMoveAt = 0;
+      state.pointerDx = 0;
+      state.pointerDy = 0;
       setNeutralPointer(false);
       schedule();
     };
@@ -1533,6 +1541,8 @@
             state.tx = 0;
             state.ty = 0;
             state.lastMoveAt = 0;
+            state.pointerDx = 0;
+            state.pointerDy = 0;
             return;
           }
           setNeutralPointer(false);
