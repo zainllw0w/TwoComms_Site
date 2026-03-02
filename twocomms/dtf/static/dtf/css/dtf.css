@@ -1382,7 +1382,7 @@ body[data-page="home"] section.section > .dtf-container {
   border-radius: 0;
   opacity: 0;
   mix-blend-mode: screen;
-  filter: blur(0.08px) saturate(1.08) contrast(1.08);
+  filter: saturate(1.10) contrast(1.12);
   pointer-events: none;
   transition: opacity 180ms ease;
 }
@@ -1393,7 +1393,7 @@ body[data-page="home"] section.section > .dtf-container {
 }
 
 .home-dot-distortion.has-canvas.is-canvas-ready .dot-distortion-canvas {
-  opacity: 0.92;
+  opacity: 0.96;
 }
 
 .home-dot-distortion.has-canvas.is-canvas-ready .dot-field,
@@ -1413,7 +1413,7 @@ body[data-page="home"] section.section > .dtf-container {
 }
 
 .home-dot-distortion.is-static .dot-field {
-  opacity: 0.18;
+  opacity: 0.22;
 }
 
 .home-dot-distortion.is-static .dot-orb {
@@ -1450,9 +1450,9 @@ body[data-page="home"] section.section > .dtf-container {
   position: absolute;
   inset: 0;
   border-radius: 0;
-  background-image: radial-gradient(circle at 1px 1px, rgba(98, 154, 255, 0.54) 1px, transparent 1.7px);
+  background-image: radial-gradient(circle at 1px 1px, rgba(94, 155, 255, 0.62) 1px, transparent 1.7px);
   background-size: 18px 18px;
-  opacity: 0.14;
+  opacity: 0.16;
   mask-image: radial-gradient(ellipse at 50% 44%, #000 50%, rgba(0, 0, 0, 0.45) 76%, transparent 100%);
   animation: dot-drift 24s linear infinite;
   transform: translate3d(var(--dot-shift-x), var(--dot-shift-y), 0);
@@ -1475,10 +1475,10 @@ body[data-page="home"] section.section > .dtf-container {
 }
 
 .home-dot-distortion .dot-field-alt {
-  background-image: radial-gradient(circle at 1px 1px, rgba(154, 189, 255, 0.38) 1px, transparent 1.7px);
+  background-image: radial-gradient(circle at 1px 1px, rgba(158, 194, 255, 0.34) 1px, transparent 1.7px);
   background-size: 24px 24px;
-  opacity: 0.08;
-  filter: blur(0.2px);
+  opacity: 0.07;
+  filter: none;
   mix-blend-mode: screen;
   animation-duration: 30s;
   animation-direction: reverse;
@@ -1493,8 +1493,8 @@ body[data-page="home"] section.section > .dtf-container {
   background:
     radial-gradient(circle at 30% 28%, rgba(227, 239, 255, 0.3), rgba(105, 157, 255, 0.16) 38%, rgba(68, 116, 238, 0.05) 62%, rgba(68, 116, 238, 0) 100%);
   mix-blend-mode: screen;
-  filter: blur(8px);
-  opacity: 0.18;
+  filter: none;
+  opacity: 0.12;
   transform: translate3d(var(--orb-x, 0px), var(--orb-y, 0px), 0);
   will-change: transform, opacity;
   animation: dot-orb-float 18s ease-in-out infinite;
@@ -4808,10 +4808,8 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
     padding-top: 60px;
   }
   .home-dot-distortion .dot-field {
-    background-size: 24px 24px;
-  }
-  .home-dot-distortion .dot-orb {
-    filter: blur(7px);
+    background-size: 20px 20px;
+    opacity: 0.17;
   }
   .home-dot-distortion .dot-orb-2 {
     left: 52%;
@@ -4925,11 +4923,11 @@ body[data-page="home"]:not(.fx-ready) .hero-card::after {
   }
   .home-dot-distortion .dot-field {
     background-size: 20px 20px;
-    opacity: 0.2;
+    opacity: 0.17;
   }
   .home-dot-distortion .dot-orb {
-    opacity: 0.28;
-    filter: blur(6px);
+    opacity: 0.12;
+    filter: none;
   }
   .home-dot-distortion .dot-orb-3 {
     display: none;
