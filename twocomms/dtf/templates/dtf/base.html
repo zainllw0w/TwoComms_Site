@@ -89,14 +89,14 @@
     }
     .home-dot-distortion .dot-field {
       inset: 0;
-      background-image: radial-gradient(circle at 1px 1px, rgba(98, 154, 255, 0.54) 1px, transparent 1.7px);
+      background-image: radial-gradient(circle at 1px 1px, rgba(94, 155, 255, 0.62) 1px, transparent 1.7px);
       background-size: 18px 18px;
-      opacity: 0.14;
+      opacity: 0.16;
       transform: translate3d(var(--dot-shift-x), var(--dot-shift-y), 0);
     }
     .home-dot-distortion .dot-field-alt {
       background-size: 24px 24px;
-      opacity: 0.08;
+      opacity: 0.07;
       transform: translate3d(calc(var(--dot-shift-x) * -0.6), calc(var(--dot-shift-y) * -0.6), 0);
     }
     .home-dot-distortion .dot-orb {
@@ -104,7 +104,7 @@
       aspect-ratio: 1;
       border-radius: 999px;
       background: radial-gradient(circle at 30% 28%, rgba(227, 239, 255, 0.28), rgba(105, 157, 255, 0.16) 42%, rgba(68, 116, 238, 0.05) 68%, rgba(68, 116, 238, 0) 100%);
-      opacity: 0.18;
+      opacity: 0.12;
       transform: translate3d(var(--orb-x, 0px), var(--orb-y, 0px), 0);
     }
     .home-dot-distortion .dot-orb-1 { top: 24%; left: 18%; }
@@ -120,7 +120,7 @@
     <link rel="stylesheet" href="{% static 'dtf/css/fonts-local.css' %}?v=20260228b">
   </noscript>
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260228b">
-  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260302b">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260302c">
   <link rel="stylesheet" href="{% static 'dtf/css/components/icons.css' %}?v=20260228b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/animations.css' %}?v=20260228b">
   {% if dtf_load_effects %}
@@ -133,7 +133,7 @@
       <link rel="stylesheet" href="{% static 'dtf/css/components/effects-bundle.css' %}?v=20260228b">
     </noscript>
   {% endif %}
-  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.js' %}?v=20260302b">
+  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.js' %}?v=20260302c">
   {% block extra_head %}{% endblock %}
 </head>
 <body data-page="{% block page_id %}{% endblock %}">
@@ -143,7 +143,7 @@
   <div class="dtf-shell">
     <!-- ASSET_REQUEST | id=ink-droplets-field | type=texture | usage=global ambient ink droplets layer | spec=seamless 1400x1400 PNG, soft orange translucent droplets | notes=subtle, no harsh edges -->
     <div class="ink-droplets" aria-hidden="true"></div>
-    <div class="home-dot-distortion" data-dot-palette="blue" aria-hidden="true">
+    <div class="home-dot-distortion" data-dot-palette="blue" data-dot-brightness="reference" aria-hidden="true">
       <canvas class="dot-distortion-canvas" data-dot-canvas></canvas>
       <span class="dot-field"></span>
       <span class="dot-field dot-field-alt"></span>
@@ -526,7 +526,7 @@
   </div>
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
-  <script src="{% static 'dtf/js/dtf.js' %}?v=20260302b" defer></script>
+  <script src="{% static 'dtf/js/dtf.js' %}?v=20260302c" defer></script>
   {% if dtf_load_htmx %}
     <script src="{% static 'dtf/js/vendor/htmx.min.js' %}?v=20260228b" defer></script>
   {% endif %}

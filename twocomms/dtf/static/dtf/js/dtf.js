@@ -1218,15 +1218,83 @@
     const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
     const ambientTier = resolveAmbientTier();
     const canAnimate = ambientTier > 0 && allowAmbientEffects();
-    const interactionRadius = ambientTier >= 4 ? 112 : ambientTier >= 3 ? 102 : ambientTier >= 2 ? 92 : 82;
+    const tierKey = ambientTier >= 4 ? 4 : ambientTier >= 3 ? 3 : ambientTier >= 2 ? 2 : 1;
+    const interactionRadiusByTier = {
+      4: 110,
+      3: 102,
+      2: 92,
+      1: 82,
+    };
+    const gridGapByTier = {
+      4: 14,
+      3: 15,
+      2: 18,
+      1: 20,
+    };
+    const alphaProfile = {
+      reference: {
+        baseMin: 0.12,
+        baseTone: 0.2,
+        motionInfluence: 0.08,
+        motionDisplacement: 0.2,
+        motionGlow: 0.18,
+        min: 0.09,
+        max: 0.86,
+      },
+      balanced: {
+        baseMin: 0.11,
+        baseTone: 0.16,
+        motionInfluence: 0.07,
+        motionDisplacement: 0.15,
+        motionGlow: 0.14,
+        min: 0.08,
+        max: 0.78,
+      },
+    };
+    const bandProfile = {
+      reference: {
+        rowBase: 0.82,
+        rowAmplitude: 0.18,
+        rowFrequency: 0.55,
+        rowPhase: 0.4,
+        toneMin: 0.08,
+        toneMax: 1,
+      },
+      balanced: {
+        rowBase: 0.87,
+        rowAmplitude: 0.13,
+        rowFrequency: 0.52,
+        rowPhase: 0.36,
+        toneMin: 0.1,
+        toneMax: 1,
+      },
+    };
+    const colorProfileBlue = {
+      reference: {
+        r: { base: 16, tone: 26, influence: 14, glow: 34, min: 10, max: 88 },
+        g: { base: 128, tone: 72, influence: 24, glow: 46, min: 96, max: 225 },
+        b: { base: 220, tone: 30, influence: 20, glow: 24, min: 190, max: 255 },
+      },
+      balanced: {
+        r: { base: 18, tone: 18, influence: 12, glow: 26, min: 12, max: 76 },
+        g: { base: 122, tone: 56, influence: 20, glow: 34, min: 90, max: 210 },
+        b: { base: 214, tone: 26, influence: 18, glow: 20, min: 184, max: 246 },
+      },
+    };
+    const interactionRadius = interactionRadiusByTier[tierKey];
     const quality = {
       maxDpr: ambientTier >= 4 ? 1.42 : ambientTier >= 3 ? 1.3 : 1.1,
-      baseGap: ambientTier >= 4 ? 15 : ambientTier >= 3 ? 17 : 20,
+      baseGap: gridGapByTier[tierKey],
       maxDots: ambientTier >= 4 ? 6800 : ambientTier >= 3 ? 4600 : 2600,
       frameBudget: ambientTier >= 4 ? 16 : ambientTier >= 3 ? 18 : 28,
     };
-    const movementThreshold = ambientTier <= 2 ? 0.34 : 0.5;
+    const movementThreshold = tierKey >= 3 ? 0.5 : 0.34;
     const dotPalette = (layer.dataset.dotPalette || 'blue').toLowerCase();
+    const dotBrightness = (layer.dataset.dotBrightness || 'reference').toLowerCase();
+    const brightnessMode = dotBrightness === 'balanced' ? 'balanced' : 'reference';
+    const activeAlphaProfile = alphaProfile[brightnessMode];
+    const activeBandProfile = bandProfile[brightnessMode];
+    const activeBlueProfile = colorProfileBlue[brightnessMode];
     const useBluePalette = dotPalette !== 'amber';
     let canvasReady = false;
     let canvasReadyHandle = null;
@@ -1327,18 +1395,34 @@
       }
       const offsetX = (width % spacing) * 0.5;
       const offsetY = (height % spacing) * 0.5;
-      for (let y = offsetY; y <= height; y += spacing) {
-        for (let x = offsetX; x <= width; x += spacing) {
+      for (let j = 0, y = offsetY; y <= height; y += spacing, j += 1) {
+        for (let i = 0, x = offsetX; x <= width; x += spacing, i += 1) {
+          const brightnessSeed = clamp(
+            0.3
+              + 0.3 * Math.sin(0.3 * i + 0.2 * j)
+              + 0.2 * Math.sin(0.7 * i - 0.5 * j)
+              + 0.2 * Math.sin((i + j) * 0.4)
+              + 0.3 * Math.random(),
+            0.1,
+            1
+          );
+          const rowBand = activeBandProfile.rowBase
+            + activeBandProfile.rowAmplitude * Math.sin(j * activeBandProfile.rowFrequency + activeBandProfile.rowPhase);
+          const tone = clamp(brightnessSeed * rowBand, activeBandProfile.toneMin, activeBandProfile.toneMax);
           dots.push({
             gridX: x,
             gridY: y,
             x,
             y,
+            gridI: i,
+            gridJ: j,
+            brightnessSeed,
+            rowBand,
+            tone,
             vx: 0,
             vy: 0,
             baseSize: 0.9 + Math.random() * 0.2,
             phase: Math.random() * Math.PI * 2,
-            bias: 0.45 + Math.random() * 0.55,
             glowUntil: 0,
           });
         }
@@ -1415,17 +1499,42 @@
         const glowBoost = time < dot.glowUntil ? 0.28 : 0;
         const breathe = 1 + Math.sin(time * breathingSpeed + dot.phase) * 0.15;
         const size = dot.baseSize * breathe;
-        const displacementBoost = clamp(Math.hypot(dot.x - dot.gridX, dot.y - dot.gridY) * 0.032, 0, 0.26);
+        const displacementBoost = clamp(Math.hypot(dot.x - dot.gridX, dot.y - dot.gridY) * 0.025, 0, 0.24);
         if (useBluePalette) {
-          const red = clamp(70 + dot.bias * 34 + influence * 18 + displacementBoost * 32 + glowBoost * 92, 58, 210);
-          const green = clamp(138 + dot.bias * 32 + influence * 26 + displacementBoost * 24 + glowBoost * 78, 112, 236);
-          const blue = clamp(214 + dot.bias * 18 + influence * 24 + displacementBoost * 18 + glowBoost * 42, 174, 255);
-          const alpha = clamp(0.12 + dot.bias * 0.11 + glowBoost + influence * 0.06 + displacementBoost * 0.22, 0.09, 0.78);
+          const red = clamp(
+            activeBlueProfile.r.base
+              + dot.tone * activeBlueProfile.r.tone
+              + influence * activeBlueProfile.r.influence
+              + glowBoost * activeBlueProfile.r.glow,
+            activeBlueProfile.r.min,
+            activeBlueProfile.r.max
+          );
+          const green = clamp(
+            activeBlueProfile.g.base
+              + dot.tone * activeBlueProfile.g.tone
+              + influence * activeBlueProfile.g.influence
+              + glowBoost * activeBlueProfile.g.glow,
+            activeBlueProfile.g.min,
+            activeBlueProfile.g.max
+          );
+          const blue = clamp(
+            activeBlueProfile.b.base
+              + dot.tone * activeBlueProfile.b.tone
+              + influence * activeBlueProfile.b.influence
+              + glowBoost * activeBlueProfile.b.glow,
+            activeBlueProfile.b.min,
+            activeBlueProfile.b.max
+          );
+          const baseAlpha = activeAlphaProfile.baseMin + dot.tone * activeAlphaProfile.baseTone;
+          const motionAlpha = influence * activeAlphaProfile.motionInfluence
+            + displacementBoost * activeAlphaProfile.motionDisplacement
+            + glowBoost * activeAlphaProfile.motionGlow;
+          const alpha = clamp(baseAlpha + motionAlpha, activeAlphaProfile.min, activeAlphaProfile.max);
           ctx.fillStyle = `rgba(${Math.round(red)}, ${Math.round(green)}, ${Math.round(blue)}, ${alpha.toFixed(3)})`;
         } else {
-          const green = clamp(136 + dot.bias * 28 + influence * 26 + displacementBoost * 38 + glowBoost * 120, 118, 242);
-          const blue = clamp(26 + dot.bias * 16 + influence * 14 + displacementBoost * 19 + glowBoost * 48, 18, 94);
-          const alpha = clamp(0.16 + dot.bias * 0.14 + glowBoost + influence * 0.06 + displacementBoost * 0.24, 0.12, 0.82);
+          const green = clamp(136 + dot.tone * 28 + influence * 26 + displacementBoost * 24 + glowBoost * 80, 118, 242);
+          const blue = clamp(26 + dot.tone * 16 + influence * 14 + displacementBoost * 12 + glowBoost * 44, 18, 94);
+          const alpha = clamp(0.14 + dot.tone * 0.16 + glowBoost * 0.4 + influence * 0.06 + displacementBoost * 0.18, 0.1, 0.82);
           ctx.fillStyle = `rgba(255, ${Math.round(green)}, ${Math.round(blue)}, ${alpha.toFixed(3)})`;
         }
         ctx.beginPath();
