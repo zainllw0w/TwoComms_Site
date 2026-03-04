@@ -1,6 +1,6 @@
 /**
  * Text Generate Effect — word-by-word fade-in
- * For preflight summary recommendation text
+ * For file check summary recommendation text
  * One-shot on viewport entry
  * Registered via DTF.registerEffect
  */

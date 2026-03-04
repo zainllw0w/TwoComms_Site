@@ -38,6 +38,12 @@
   z-index: 1;
 }
 
+.compare-layer picture {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
 .compare-layer img {
   width: 100%;
   height: 100%;

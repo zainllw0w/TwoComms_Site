@@ -24,6 +24,8 @@
     heroTilt: false,
     heroBeams: false,
     flipWords: false,
+    topbarRotator: false,
+    iconAnimations: false,
     statefulLinks: false,
     knowledgeOverlay: false,
     tracingBeam: false,
@@ -33,6 +35,7 @@
     visualFxReady: false,
   };
   let lensModalInstance = null;
+  let faqCounter = 0;
   const focusTrap = {
     container: null,
     trigger: null,
@@ -396,12 +399,122 @@
     initState.flipWords = true;
   }
 
+  function initTopbarRotator(root = document) {
+    collectTargets(root, '[data-topbar-rotator]').forEach((chip) => {
+      if (!initOnce(chip, 'TopbarRotator')) return;
+      if (prefersReduced) return;
+      const textNode = chip.querySelector('[data-rotator-text]');
+      const phrases = String(chip.dataset.rotatorPhrases || '')
+        .split('||')
+        .map((part) => part.trim())
+        .filter(Boolean);
+      if (!textNode || phrases.length < 2) return;
+      const interval = Math.max(3200, Math.min(12000, parseInt(chip.dataset.rotatorInterval || '6200', 10) || 6200));
+      let index = 0;
+      let visible = !document.hidden;
+
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            visible = entry.isIntersecting && !document.hidden;
+          });
+        }, { threshold: 0.25 });
+        observer.observe(chip);
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        visible = !document.hidden;
+      });
+
+      window.setInterval(() => {
+        if (!visible) return;
+        chip.classList.add('is-swapping');
+        window.setTimeout(() => {
+          index = (index + 1) % phrases.length;
+          textNode.textContent = phrases[index];
+          chip.classList.remove('is-swapping');
+        }, 170);
+      }, interval);
+    });
+    initState.topbarRotator = true;
+  }
+
+  function initIconAnimations(root = document) {
+    const icons = collectTargets(root, '.dtf-icon');
+    if (!icons.length || prefersReduced) return;
+
+    const rerun = (icon, duration = 560) => {
+      icon.classList.remove('dtf-icon-animate');
+      void icon.offsetWidth;
+      icon.classList.add('dtf-icon-animate');
+      window.setTimeout(() => {
+        icon.classList.remove('dtf-icon-animate');
+      }, duration);
+    };
+
+    const oneShot = [];
+    icons.forEach((icon) => {
+      if (!initOnce(icon, 'IconAnim')) return;
+      oneShot.push(icon);
+
+      const host = icon.closest('a, button, .btn, .status-card, .status-step');
+      if (host) {
+        host.addEventListener('mouseenter', () => rerun(icon, 620));
+        host.addEventListener('focus', () => rerun(icon, 620), { passive: true });
+        host.addEventListener('click', () => rerun(icon, 620), { passive: true });
+      }
+
+      if (icon.classList.contains('dtf-icon-bulb-home')) {
+        const desktopLoop = window.matchMedia('(min-width: 961px) and (hover: hover) and (pointer: fine)').matches;
+        if (desktopLoop) {
+          const pulse = () => {
+            if (!document.hidden) rerun(icon, 260);
+            const next = 7000 + Math.round(Math.random() * 2000);
+            window.setTimeout(pulse, next);
+          };
+          window.setTimeout(pulse, 900);
+        }
+      }
+    });
+
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          rerun(entry.target, 620);
+          observer.unobserve(entry.target);
+        });
+      }, { threshold: 0.35, rootMargin: '0px 0px -8% 0px' });
+      oneShot.forEach((icon) => observer.observe(icon));
+    } else {
+      oneShot.forEach((icon) => rerun(icon, 620));
+    }
+
+    initState.iconAnimations = true;
+  }
+
   function initFaq(root = document) {
-    collectTargets(root, '.faq-q').forEach(btn => {
+    collectTargets(root, '.faq-item').forEach(item => {
+      const btn = item.querySelector('.faq-q');
+      const answer = item.querySelector('.faq-a');
+      if (!btn || !answer) return;
+
+      if (!answer.id) {
+        faqCounter += 1;
+        answer.id = `faq-answer-${faqCounter}`;
+      }
+
+      btn.setAttribute('aria-controls', answer.id);
+      const expandedInitially = item.classList.contains('open');
+      btn.setAttribute('aria-expanded', expandedInitially ? 'true' : 'false');
+      answer.hidden = !expandedInitially;
+
       if (!initOnce(btn, 'Faq')) return;
       btn.addEventListener('click', () => {
-        const item = btn.closest('.faq-item');
-        if (item) item.classList.toggle('open');
+        const expanded = !item.classList.contains('open');
+        item.classList.toggle('open', expanded);
+        btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        answer.hidden = !expanded;
       });
     });
   }
@@ -1453,23 +1566,31 @@
       const returnSpeed = ambientTier >= 4 ? 0.06 : ambientTier >= 3 ? 0.058 : 0.052;
       const friction = ambientTier >= 4 ? 0.92 : ambientTier >= 3 ? 0.915 : 0.9;
       const distortionStrength = ambientTier >= 4 ? 1.2 : ambientTier >= 3 ? 1.12 : 1;
-      const velocityKick = ambientTier >= 4 ? 0.3 : ambientTier >= 3 ? 0.285 : 0.24;
+      const staticField = ambientTier >= 4 ? 0.15 : ambientTier >= 3 ? 0.14 : 0.12;
       const isMoving = mouseSpeed > movementThreshold;
       const frameScale = state.frameScale || 1;
       const maxDisp = radius * 1.08;
 
       for (let i = 0; i < dots.length; i += 1) {
         const dot = dots[i];
-        const dx = px - dot.x;
-        const dy = py - dot.y;
+        const dx = dot.x - px;
+        const dy = dot.y - py;
         const dist = Math.max(0.001, Math.hypot(dx, dy));
         let influence = 0;
 
-        if (state.pointerInside && isMoving && dist < radius) {
+        if (state.pointerInside && dist < radius) {
           influence = 1 - dist / radius;
-          const force = influence * influence * distortionStrength;
-          dot.vx += state.pointerDx * force * velocityKick;
-          dot.vy += state.pointerDy * force * velocityKick;
+          const nx = dx / dist;
+          const ny = dy / dist;
+
+          dot.vx += nx * (influence * staticField);
+          dot.vy += ny * (influence * staticField);
+
+          if (isMoving) {
+            const dynamicForce = influence * influence * distortionStrength;
+            dot.vx += nx * dynamicForce;
+            dot.vy += ny * dynamicForce;
+          }
         }
 
         dot.x += dot.vx * frameScale;
@@ -2635,6 +2756,8 @@
     initEffects(root);
     revealOnScroll(root);
     initFlipWords(root);
+    initTopbarRotator(root);
+    initIconAnimations(root);
     initFaq(root);
     initCardReveal(root);
     initTabs(root);

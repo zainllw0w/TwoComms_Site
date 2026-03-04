@@ -79,7 +79,7 @@
     </p>
 
     <article class="card requirements-quick" data-ui="dtf:requirements:quick-checklist">
-      <h2>{% if current_lang == 'ru' %}Подготовьте макет без боли{% elif current_lang == 'en' %}Prep your file without pain{% else %}Підготуйте макет без болю{% endif %}</h2>
+      <h2><span class="dtf-icon dtf-icon-palette" aria-hidden="true">{% include 'dtf/svg/icon-palette.svg' %}</span>{% if current_lang == 'ru' %}Подготовьте макет без боли{% elif current_lang == 'en' %}Prep your file without pain{% else %}Підготуйте макет без болю{% endif %}</h2>
       <p>{% if current_lang == 'ru' %}Если у вас только картинка из Instagram/Google — тоже ок. Отправьте её нам: подскажем, хватит ли качества, и если нужно — подгоним под размер, чтобы печать не была "мыльной".{% elif current_lang == 'en' %}If you only have an image from Instagram/Google — that's fine. Send it to us: we'll tell you if the quality is enough, and if needed we'll resize it so it won't look blurry.{% else %}Якщо у вас тільки картинка з Instagram/Google — теж ок. Надішліть її нам: підкажемо, чи вистачить якості, і якщо треба — підженемо під розмір, щоб друк не був “мильним”.{% endif %}</p>
       <ul class="requirements-checklist">
         <li>
@@ -161,7 +161,7 @@
     <div class="cta-block">
       <h3>{% if current_lang == 'ru' %}Не хотите собирать лист 60 см? Поможем{% elif current_lang == 'en' %}Don't want to build a 60 cm sheet? We can help{% else %}Не хочете збирати лист 60 см? Допоможемо{% endif %}</h3>
       <p>{% if current_lang == 'ru' %}Отправьте отдельные PNG/PDF — мы соберем лист 60 см и согласуем перед печатью.{% elif current_lang == 'en' %}Send separate PNG/PDF files — we'll assemble a 60 cm sheet and confirm before printing.{% else %}Надішліть окремі PNG/PDF — ми зберемо лист 60 см і погодимо перед друком.{% endif %}</p>
-      <a class="btn btn-primary" href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Проверьте, пожалуйста, подходит ли мой файл для DTF-печати.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! Please check if my file is OK for DTF printing.'|urlencode }}{% else %}{{ 'Привіт! Перевірте, будь ласка, чи підходить мій файл для DTF-друку.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Отправить файл на проверку{% elif current_lang == 'en' %}Send file for check{% else %}Надіслати файл на перевірку{% endif %}</a>
+      <a class="btn btn-primary" href="https://t.me/twocomms?text={% include 'dtf/partials/tg_prefill_query.html' %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Отправить файл на проверку{% elif current_lang == 'en' %}Send file for check{% else %}Надіслати файл на перевірку{% endif %}</a>
     </div>
   </div>
 </section>

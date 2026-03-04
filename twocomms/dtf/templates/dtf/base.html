@@ -120,20 +120,20 @@
     <link rel="stylesheet" href="{% static 'dtf/css/fonts-local.css' %}?v=20260228b">
   </noscript>
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260228b">
-  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260302c">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/icons.css' %}?v=20260228b">
-  <link rel="stylesheet" href="{% static 'dtf/css/components/animations.css' %}?v=20260228b">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260304a">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/icons.css' %}?v=20260304a">
+  <link rel="stylesheet" href="{% static 'dtf/css/components/animations.css' %}?v=20260304a">
   {% if dtf_load_effects %}
     <link
       rel="preload"
       as="style"
-      href="{% static 'dtf/css/components/effects-bundle.css' %}?v=20260228b"
+      href="{% static 'dtf/css/components/effects-bundle.css' %}?v=20260304a"
       onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
-      <link rel="stylesheet" href="{% static 'dtf/css/components/effects-bundle.css' %}?v=20260228b">
+      <link rel="stylesheet" href="{% static 'dtf/css/components/effects-bundle.css' %}?v=20260304a">
     </noscript>
   {% endif %}
-  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.js' %}?v=20260302c">
+  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.js' %}?v=20260304a">
   {% block extra_head %}{% endblock %}
 </head>
 <body data-page="{% block page_id %}{% endblock %}">
@@ -159,14 +159,19 @@
             <a href="{{ lang_links.ru }}" class="{% if current_lang == 'ru' %}active{% endif %}">RU</a>
             <a href="{{ lang_links.en }}" class="{% if current_lang == 'en' %}active{% endif %}">EN</a>
           </div>
-          <span class="header-status-chip">
-            {% if current_lang == 'ru' %}
-              Печатаем от 1 метра · отправка по Украине
-            {% elif current_lang == 'en' %}
-              Printing from 1 meter · shipped across Ukraine
-            {% else %}
-              Друкуємо від 1 метра · відправка по Україні
-            {% endif %}
+          <span class="header-status-chip"
+                data-topbar-rotator
+                data-rotator-interval="6200"
+                data-rotator-phrases="{% if current_lang == 'ru' %}Печатаем от 1 метра · отправка по Украине||Бесплатная проверка файла перед печатью||Горячее снятие · стабильный результат{% elif current_lang == 'en' %}Printing from 1 meter · shipped across Ukraine||Free file check before printing||Peel while hot · stable result{% else %}Друкуємо від 1 метра · відправка по Україні||Безкоштовна перевірка файлу перед друком||Гаряче зняття · стабільний результат{% endif %}">
+            <span class="header-status-chip-text" data-rotator-text>
+              {% if current_lang == 'ru' %}
+                Печатаем от 1 метра · отправка по Украине
+              {% elif current_lang == 'en' %}
+                Printing from 1 meter · shipped across Ukraine
+              {% else %}
+                Друкуємо від 1 метра · відправка по Україні
+              {% endif %}
+            </span>
           </span>
         </div>
       </div>
@@ -195,7 +200,7 @@
               </span>
               <span class="contact-chip-label">+380966543212</span>
             </a>
-            <a href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Хочу заказать DTF-печать 60 см. Подскажите, пожалуйста, по цене и срокам.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! I want to order DTF print (60 cm). Please tell me the price and timing.'|urlencode }}{% else %}{{ 'Привіт! Хочу замовити DTF-друк 60 см. Підкажіть, будь ласка, по ціні та термінах.'|urlencode }}{% endif %}" class="contact-chip contact-chip-telegram" target="_blank" rel="noopener noreferrer" aria-label="Telegram @twocomms">
+            <a href="https://t.me/twocomms?text={% include 'dtf/partials/tg_prefill_query.html' %}" class="contact-chip contact-chip-telegram" target="_blank" rel="noopener noreferrer" aria-label="Telegram @twocomms">
               <span class="contact-chip-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M21.5 4.6c.3-.98-.66-1.87-1.58-1.45L2.8 10.3c-.98.4-.92 1.8.08 2.12l4.4 1.4 1.68 5.07c.3.92 1.48 1.15 2.1.4l2.46-3 4.82 3.53c.83.6 2 .16 2.23-.82l2.89-14.43ZM9.8 13.2l8.45-6.5-6.53 7.57-.65 2.32-1.27-3.4Z" fill="currentColor"/></svg>
               </span>
@@ -370,7 +375,7 @@
           </div>
           <div class="footer-text">
             <a href="tel:+380966543212">+380966543212</a> ·
-            <a href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Хочу заказать DTF-печать 60 см. Подскажите, пожалуйста, по цене и срокам.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! I want to order DTF print (60 cm). Please tell me the price and timing.'|urlencode }}{% else %}{{ 'Привіт! Хочу замовити DTF-друк 60 см. Підкажіть, будь ласка, по ціні та термінах.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer">@twocomms</a>
+            <a href="https://t.me/twocomms?text={% include 'dtf/partials/tg_prefill_query.html' %}" target="_blank" rel="noopener noreferrer">@twocomms</a>
           </div>
         </div>
         <div class="footer-links">
@@ -500,7 +505,7 @@
       <button type="button" class="mobile-contact-close" data-mobile-contact-close aria-label="{% trans 'Закрити' %}">×</button>
       <h3 id="mobile-contact-title">{% if current_lang == 'ru' %}Быстрая связь{% elif current_lang == 'en' %}Quick contact{% else %}Швидкий звʼязок{% endif %}</h3>
       <div class="mobile-contact-actions">
-        <a class="mobile-contact-action" href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Хочу заказать DTF-печать 60 см. Подскажите, пожалуйста, по цене и срокам.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! I want to order DTF print (60 cm). Please tell me the price and timing.'|urlencode }}{% else %}{{ 'Привіт! Хочу замовити DTF-друк 60 см. Підкажіть, будь ласка, по ціні та термінах.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer">
+        <a class="mobile-contact-action" href="https://t.me/twocomms?text={% include 'dtf/partials/tg_prefill_query.html' %}" target="_blank" rel="noopener noreferrer">
           <strong>Telegram</strong>
           <span>@twocomms</span>
         </a>
@@ -526,7 +531,7 @@
   </div>
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
-  <script src="{% static 'dtf/js/dtf.js' %}?v=20260302c" defer></script>
+  <script src="{% static 'dtf/js/dtf.js' %}?v=20260304a" defer></script>
   {% if dtf_load_htmx %}
     <script src="{% static 'dtf/js/vendor/htmx.min.js' %}?v=20260228b" defer></script>
   {% endif %}
@@ -534,7 +539,7 @@
     <script src="{% static 'dtf/js/components/core.js' %}?v=20260228b" defer></script>
     <script src="{% static 'dtf/js/components/_utils.js' %}?v=20260228b" defer></script>
     <script src="{% static 'dtf/js/components/motion.js' %}?v=20260228b" defer></script>
-    <script src="{% static 'dtf/js/components/effects-bundle.js' %}?v=20260228b" defer></script>
+    <script src="{% static 'dtf/js/components/effects-bundle.js' %}?v=20260304a" defer></script>
   {% endif %}
   {% block extra_scripts %}{% endblock %}
 
