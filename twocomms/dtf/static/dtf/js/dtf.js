@@ -464,17 +464,6 @@
         host.addEventListener('click', () => rerun(icon, 620), { passive: true });
       }
 
-      if (icon.classList.contains('dtf-icon-bulb-home')) {
-        const desktopLoop = window.matchMedia('(min-width: 961px) and (hover: hover) and (pointer: fine)').matches;
-        if (desktopLoop) {
-          const pulse = () => {
-            if (!document.hidden) rerun(icon, 260);
-            const next = 7000 + Math.round(Math.random() * 2000);
-            window.setTimeout(pulse, next);
-          };
-          window.setTimeout(pulse, 900);
-        }
-      }
     });
 
     if ('IntersectionObserver' in window) {
@@ -1566,7 +1555,7 @@
       const returnSpeed = ambientTier >= 4 ? 0.06 : ambientTier >= 3 ? 0.058 : 0.052;
       const friction = ambientTier >= 4 ? 0.92 : ambientTier >= 3 ? 0.915 : 0.9;
       const distortionStrength = ambientTier >= 4 ? 1.2 : ambientTier >= 3 ? 1.12 : 1;
-      const staticField = ambientTier >= 4 ? 0.15 : ambientTier >= 3 ? 0.14 : 0.12;
+      const velocityKick = ambientTier >= 4 ? 0.3 : ambientTier >= 3 ? 0.285 : 0.24;
       const isMoving = mouseSpeed > movementThreshold;
       const frameScale = state.frameScale || 1;
       const maxDisp = radius * 1.08;
@@ -1578,19 +1567,11 @@
         const dist = Math.max(0.001, Math.hypot(dx, dy));
         let influence = 0;
 
-        if (state.pointerInside && dist < radius) {
+        if (state.pointerInside && isMoving && dist < radius) {
           influence = 1 - dist / radius;
-          const nx = dx / dist;
-          const ny = dy / dist;
-
-          dot.vx += nx * (influence * staticField);
-          dot.vy += ny * (influence * staticField);
-
-          if (isMoving) {
-            const dynamicForce = influence * influence * distortionStrength;
-            dot.vx += nx * dynamicForce;
-            dot.vy += ny * dynamicForce;
-          }
+          const force = influence * influence * distortionStrength;
+          dot.vx += state.pointerDx * force * velocityKick;
+          dot.vy += state.pointerDy * force * velocityKick;
         }
 
         dot.x += dot.vx * frameScale;

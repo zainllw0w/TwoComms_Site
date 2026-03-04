@@ -3042,6 +3042,10 @@ body[data-page="home"] section.section > .dtf-container {
   color: var(--dtf-accent, #f97316);
 }
 
+.list li .dtf-icon-bulb-home {
+  color: rgba(255, 168, 68, 0.72);
+}
+
 h2 .dtf-icon,
 h3 .dtf-icon,
 .tab-btn .dtf-icon,
