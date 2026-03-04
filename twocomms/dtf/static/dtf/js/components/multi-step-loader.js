@@ -1,6 +1,6 @@
 /**
  * Multi-step Loader
- * - Uses real backend preflight when data-preflight-url is provided
+ * - Uses real backend file check when data-filecheck-url is provided
  * - No synthetic completion timers
  * - Shared between order and constructor flows
  */
@@ -36,12 +36,12 @@
   };
 
   var UI_TEXT = {
-    preflight_running: {
+    filecheck_running: {
       uk: 'Перевірка файлу виконується...',
       ru: 'Проверка файла выполняется...',
       en: 'File check is running...',
     },
-    preflight_failed: {
+    filecheck_failed: {
       uk: 'Перевірка файлу не виконана. Спробуйте ще раз.',
       ru: 'Проверка файла не выполнена. Попробуйте ещё раз.',
       en: 'File check failed. Please try again.',
@@ -158,7 +158,7 @@
       {
         key: 'format_signature',
         status: 'loading',
-        message: uiText('preflight_running'),
+        message: uiText('filecheck_running'),
       },
       {
         key: 'dpi',
@@ -192,8 +192,8 @@
     if (!host) return null;
     var reducedMotion = !!(ctx && ctx.reducedMotion);
     var input = host.querySelector('input[type="file"]');
-    var loaderContainer = host.querySelector('.msl-container[data-preflight-loader], .msl-container');
-    var preflightUrl = host.getAttribute('data-preflight-url') || '';
+    var loaderContainer = host.querySelector('.msl-container[data-filecheck-loader], .msl-container');
+    var filecheckUrl = host.getAttribute('data-filecheck-url') || '';
     var listeners = [];
     var aborter = null;
 
@@ -210,8 +210,8 @@
       setUploadStep(host, deriveStepProgress(loaderContainer));
     }
 
-    function requestPreflight(file) {
-      if (!preflightUrl || !file || !loaderContainer) return;
+    function requestFilecheck(file) {
+      if (!filecheckUrl || !file || !loaderContainer) return;
       if (aborter) aborter.abort();
       aborter = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       renderLoadingState(loaderContainer);
@@ -219,7 +219,7 @@
       body.append('file', file);
       body.append('csrfmiddlewaretoken', getCsrfToken(host));
 
-      fetch(preflightUrl, {
+      fetch(filecheckUrl, {
         method: 'POST',
         body: body,
         credentials: 'same-origin',
@@ -231,17 +231,17 @@
       })
         .then(function (response) {
           if (!response.ok) {
-            throw new Error('Preflight request failed');
+            throw new Error('File check request failed');
           }
           return response.json();
         })
         .then(function (payload) {
           if (!payload || !payload.ok || !payload.report) {
-            throw new Error('Invalid preflight payload');
+            throw new Error('Invalid file check payload');
           }
           var stepItems = payload.report.step_items || [];
           if (!stepItems.length) {
-            throw new Error('No preflight steps returned');
+            throw new Error('No file check steps returned');
           }
           renderSteps(loaderContainer, stepItems, { animated: !reducedMotion });
           setUploadStep(host, deriveStepProgress(loaderContainer));
@@ -252,7 +252,7 @@
             {
               key: 'summary',
               status: 'fail',
-              message: uiText('preflight_failed'),
+              message: uiText('filecheck_failed'),
             },
           ], { animated: false });
           setUploadStep(host, 2);
@@ -269,11 +269,11 @@
           return;
         }
         setUploadStep(host, 2);
-        requestPreflight(input.files[0]);
+        requestFilecheck(input.files[0]);
       });
     }
 
-    on(host, 'dtf:preflight-ready', function (event) {
+    on(host, 'dtf:filecheck-ready', function (event) {
       var detail = event && event.detail ? event.detail : {};
       var steps = detail.stepItems || [];
       if (!steps.length || !loaderContainer) return;

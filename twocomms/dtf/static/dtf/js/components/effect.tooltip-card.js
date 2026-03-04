@@ -1,6 +1,6 @@
 /**
  * Tooltip Card — rich tooltip that follows mouse pointer
- * For preflight terms (DPI, safe margin, tiny lines)
+ * For file check terms (DPI, safe margin, tiny lines)
  * Touch support, viewport boundary detection
  * Registered via DTF.registerEffect
  */

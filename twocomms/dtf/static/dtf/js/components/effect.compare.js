@@ -25,6 +25,11 @@
     return Math.min(max, Math.max(min, value));
   }
 
+  function easeInOutQuad(value) {
+    var t = clamp(Number(value) || 0, 0, 1);
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
+
   function initCompare(node, ctx) {
     if (!node) return null;
     var range = node.querySelector('.compare-range');
@@ -98,8 +103,14 @@
       if (!autoplayRunning) return;
       if (!autoplayStart) autoplayStart = timestamp;
       var elapsed = timestamp - autoplayStart;
-      var progress = (elapsed % (autoplayDuration * 2)) / autoplayDuration;
-      var percentage = progress <= 1 ? progress * 100 : (2 - progress) * 100;
+      var cycle = autoplayDuration * 2;
+      var position = elapsed % cycle;
+      var inForward = position <= autoplayDuration;
+      var progress = inForward
+        ? position / autoplayDuration
+        : (position - autoplayDuration) / autoplayDuration;
+      var eased = easeInOutQuad(progress);
+      var percentage = inForward ? eased * 100 : (1 - eased) * 100;
       apply(percentage);
       raf = requestAnimationFrame(autoplayTick);
     }

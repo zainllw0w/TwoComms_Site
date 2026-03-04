@@ -110,12 +110,18 @@
 }
 
 .compare-before {
-  z-index: 1;
+  z-index: 2;
+  clip-path: inset(0 calc(100% - var(--compare)) 0 0);
 }
 
 .compare-after {
-  z-index: 2;
-  clip-path: inset(0 calc(100% - var(--compare)) 0 0);
+  z-index: 1;
+}
+
+.compare-layer picture {
+  position: absolute;
+  inset: 0;
+  display: block;
 }
 
 .compare-layer img {
@@ -730,7 +736,7 @@
 
 /* --- multi-step-loader.css --- */
 /* ============================================
-   Multi-step Loader — real preflight steps
+   Multi-step Loader — real file check steps
    Animated step display with PASS/WARN/FAIL
    ============================================ */
 
@@ -1233,7 +1239,7 @@
 /* --- effect.tooltip-card.css --- */
 /* ============================================
    Tooltip Card — rich tooltip following mouse
-   For preflight terms explanation
+   For file check terms explanation
    ============================================ */
 
 .dtf-tooltip-card {
@@ -1291,7 +1297,7 @@
 }
 
 /* --- Preflight terms row --- */
-.preflight-terms {
+.filecheck-terms {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -1299,56 +1305,56 @@
   font-size: 0.78rem;
 }
 
-.preflight-terms span {
+.filecheck-terms span {
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 
-.preflight-terms .preflight-terms-hint {
+.filecheck-terms .filecheck-terms-hint {
   font-weight: 700;
   color: rgba(246, 232, 201, 0.95);
   margin-right: 6px;
 }
 
-.preflight-terms .preflight-terms-hint .dtf-icon {
+.filecheck-terms .filecheck-terms-hint .dtf-icon {
   width: 18px;
   height: 18px;
 }
 
-.preflight-terms abbr {
+.filecheck-terms abbr {
   text-decoration: none;
   font-weight: 600;
   color: var(--text-secondary, #b4bcd0);
 }
 
-.preflight-status-legend {
+.filecheck-status-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 10px 14px;
   margin-top: 10px;
 }
 
-.preflight-status-legend .icon-label {
+.filecheck-status-legend .icon-label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 0.9rem;
 }
 
-.preflight-status-legend .dtf-icon {
+.filecheck-status-legend .dtf-icon {
   width: 20px;
   height: 20px;
 }
 
-.preflight-actions {
+.filecheck-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 10px;
 }
 
-.preflight-summary {
+.filecheck-summary {
   margin-top: 8px;
   color: rgba(255, 198, 130, 0.96);
   font-size: 0.88rem;
@@ -1359,7 +1365,7 @@
 /* --- effect.text-generate.css --- */
 /* ============================================
    Text Generate Effect — word-by-word fade-in
-   For preflight summary text
+   For file check summary text
    ============================================ */
 
 [data-effect~="text-generate"] {

@@ -64,7 +64,7 @@
       <p>{% if current_lang == 'ru' %}Мы не "обещаем" — мы показываем. Посмотрите макро-фото и сравнения: край, цвет, белый слой.{% elif current_lang == 'en' %}We don't just promise — we show. Check the macro photos: edge, color, white layer.{% else %}Ми не “обіцяємо” — ми показуємо. Подивіться макро‑фото і порівняння: край, колір, білий шар.{% endif %}</p>
     </div>
 
-    <!-- ASSET_REQUEST | id=lab-proof-photos | type=photo | usage=Quality/Lab Proof sections | spec=4–6 photos, 2x | notes=QC / process / texture close-ups -->
+    <!-- ASSET_REQUEST | id=lab-proof-photos | type=photo | usage=Quality/Lab Proof sections | spec=4–6 photos, 2x | notes=file check / process / texture close-ups -->
     <div class="proof-grid">
       <div class="proof-card">
         <div class="asset-slot" style="aspect-ratio: 4 / 3">
@@ -196,7 +196,7 @@
     <div class="cta-group" data-reveal>
       <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% if current_lang == 'ru' %}Заказать печать{% elif current_lang == 'en' %}Order print{% else %}Замовити друк{% endif %}</a>
       <a class="btn btn-outline btn-secondary breathe" href="{% url 'dtf:sample' %}">{% if current_lang == 'ru' %}Бесплатный тест{% elif current_lang == 'en' %}Free test print{% else %}Безкоштовний тест{% endif %}</a>
-      <a class="hero-cta-link" href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Подскажите, пожалуйста, по переносу и уходу за DTF-принтом.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! Please advise on transfer settings and care for DTF prints.'|urlencode }}{% else %}{{ 'Привіт! Підкажіть, будь ласка, по перенесенню та догляду за DTF-принтом.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Спросить в Telegram →{% elif current_lang == 'en' %}Ask in Telegram →{% else %}Запитати в Telegram →{% endif %}</a>
+      <a class="hero-cta-link" href="https://t.me/twocomms?text={% include 'dtf/partials/tg_prefill_query.html' %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Спросить в Telegram →{% elif current_lang == 'en' %}Ask in Telegram →{% else %}Запитати в Telegram →{% endif %}</a>
     </div>
   </div>
 </section>
