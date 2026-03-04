@@ -42,7 +42,7 @@
       <p>{% trans "Перевірка файла без замовлення. Отримаєте рекомендації та попередній звіт." %}</p>
     </div>
 
-    <form method="post" enctype="multipart/form-data" class="order-form preflight-form" data-submit-guard>
+    <form method="post" enctype="multipart/form-data" class="order-form filecheck-form" data-submit-guard>
       {% csrf_token %}
 
       {% if preflight_form.errors %}
@@ -76,7 +76,7 @@
             </label>
           </div>
 
-          <div class="order-block preflight-block">
+          <div class="order-block filecheck-block">
             <div class="block-head">
               <h3>{% trans "Коментар до перевірки" %}</h3>
               <p>{% trans "Опишіть виріб, матеріал і очікування." %}</p>
@@ -94,18 +94,18 @@
               <h3>{% trans "Приклад звіту" %}</h3>
               <p>{% if current_lang == 'ru' %}После проверки получите статусы и рекомендации.{% elif current_lang == 'en' %}After the check, you'll get statuses and recommendations.{% else %}Після перевірки отримаєте статуси та рекомендації.{% endif %}</p>
             </div>
-            <div class="preflight-list">
-              <div class="preflight-item">
-                <span class="preflight-label">{% trans "Формат файлу" %}</span>
-                <span class="preflight-status ok icon-label"><span class="dtf-icon dtf-icon-check" aria-hidden="true">{% include 'dtf/svg/icon-check.svg' %}</span>{% if current_lang == 'ru' %}Все хорошо{% elif current_lang == 'en' %}All good{% else %}Все добре{% endif %}</span>
+            <div class="filecheck-list">
+              <div class="filecheck-item">
+                <span class="filecheck-label">{% trans "Формат файлу" %}</span>
+                <span class="filecheck-status ok icon-label"><span class="dtf-icon dtf-icon-check" aria-hidden="true">{% include 'dtf/svg/icon-check.svg' %}</span>{% if current_lang == 'ru' %}Все хорошо{% elif current_lang == 'en' %}All good{% else %}Все добре{% endif %}</span>
               </div>
-              <div class="preflight-item">
-                <span class="preflight-label">{% trans "DPI / розміри" %}</span>
-                <span class="preflight-status warn icon-label"><span class="dtf-icon dtf-icon-warning" aria-hidden="true">{% include 'dtf/svg/icon-warning.svg' %}</span>{% if current_lang == 'ru' %}Нужно внимание{% elif current_lang == 'en' %}Needs attention{% else %}Потрібна увага{% endif %}</span>
+              <div class="filecheck-item">
+                <span class="filecheck-label">{% trans "DPI / розміри" %}</span>
+                <span class="filecheck-status warn icon-label"><span class="dtf-icon dtf-icon-warning" aria-hidden="true">{% include 'dtf/svg/icon-warning.svg' %}</span>{% if current_lang == 'ru' %}Нужно внимание{% elif current_lang == 'en' %}Needs attention{% else %}Потрібна увага{% endif %}</span>
               </div>
-              <div class="preflight-item">
-                <span class="preflight-label">{% trans "Прозорість фону" %}</span>
-                <span class="preflight-status ok icon-label"><span class="dtf-icon dtf-icon-check" aria-hidden="true">{% include 'dtf/svg/icon-check.svg' %}</span>{% if current_lang == 'ru' %}Все хорошо{% elif current_lang == 'en' %}All good{% else %}Все добре{% endif %}</span>
+              <div class="filecheck-item">
+                <span class="filecheck-label">{% trans "Прозорість фону" %}</span>
+                <span class="filecheck-status ok icon-label"><span class="dtf-icon dtf-icon-check" aria-hidden="true">{% include 'dtf/svg/icon-check.svg' %}</span>{% if current_lang == 'ru' %}Все хорошо{% elif current_lang == 'en' %}All good{% else %}Все добре{% endif %}</span>
               </div>
             </div>
             <div class="cta-group">

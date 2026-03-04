@@ -90,7 +90,7 @@
     </div>
 
     <div class="calc-example card" data-ui="dtf:price:orient-calc">
-      <h3>{% if current_lang == 'ru' %}Посчитать стоимость{% elif current_lang == 'en' %}Calculate the price{% else %}Порахувати вартість{% endif %}</h3>
+      <h3><span class="dtf-icon dtf-icon-calculator" aria-hidden="true">{% include 'dtf/svg/icon-calculator.svg' %}</span>{% if current_lang == 'ru' %}Посчитать стоимость{% elif current_lang == 'en' %}Calculate the price{% else %}Порахувати вартість{% endif %}</h3>
       <p>{% if current_lang == 'ru' %}Укажите метраж или размеры — покажем ориентировочную цену. Не хотите считать? Напишите в Telegram — посчитаем за вас.{% elif current_lang == 'en' %}Enter meters or sizes to see an estimated price. Don't want to calculate? Message us in Telegram — we'll do it for you.{% else %}Вкажіть метраж або розміри — покажемо орієнтовну ціну. Не хочете рахувати? Напишіть у Telegram — порахуємо за вас.{% endif %}</p>
       <div class="form-grid">
         <label>{% if current_lang == 'ru' %}Длина файла, м{% elif current_lang == 'en' %}File length, m{% else %}Довжина файлу, м{% endif %}
@@ -114,7 +114,7 @@
       </div>
       <div class="cta-group">
         <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% if current_lang == 'ru' %}Заказать печать{% elif current_lang == 'en' %}Order print{% else %}Замовити друк{% endif %}</a>
-        <a class="btn btn-ghost" href="https://t.me/twocomms?text={% if current_lang == 'ru' %}{{ 'Привет! Нужен просчёт DTF-печати 60 см. Примерный метраж: __ м.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! I need a quote for DTF print (60 cm). Approx. meters: __ m.'|urlencode }}{% else %}{{ 'Привіт! Потрібен прорахунок DTF-друку 60 см. Орієнтовний метраж: __ м.'|urlencode }}{% endif %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Посчитать в Telegram{% elif current_lang == 'en' %}Calculate in Telegram{% else %}Порахувати в Telegram{% endif %}</a>
+        <a class="btn btn-ghost" href="https://t.me/twocomms?text={% include 'dtf/partials/tg_prefill_query.html' %}" target="_blank" rel="noopener noreferrer">{% if current_lang == 'ru' %}Посчитать в Telegram{% elif current_lang == 'en' %}Calculate in Telegram{% else %}Порахувати в Telegram{% endif %}</a>
       </div>
     </div>
 
