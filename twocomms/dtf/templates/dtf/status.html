@@ -82,7 +82,7 @@
             <div class="status-steps">
               {% for step in status_steps %}
                 <div class="status-step {% if status_index is not None and forloop.counter0 < status_index %}done{% endif %}{% if status_index is not None and forloop.counter0 == status_index %} active{% endif %}">
-                  {% cycle 'status-intake.svg' 'status-preflight.svg' 'status-print.svg' 'status-powder.svg' 'status-cure.svg' 'status-pack.svg' 'status-ship.svg' as status_icon silent %}
+                  {% cycle 'status-intake.svg' 'status-filecheck.svg' 'status-print.svg' 'status-powder.svg' 'status-cure.svg' 'status-pack.svg' 'status-ship.svg' as status_icon silent %}
                   <span class="status-dot" aria-hidden="true"></span>
                   <span class="status-icon" aria-hidden="true">
                     <img src="{% static 'dtf/assets/' %}{{ status_icon }}" alt="" loading="lazy">
@@ -101,11 +101,11 @@
           <div class="status-card">
             <h3>{% trans "Таймлайн" %}</h3>
             {% if status_timeline %}
-              <div class="qc-list">
+              <div class="check-list">
                 {% for event in status_timeline %}
-                  <div class="qc-item">
-                    <span class="qc-label">{{ event.from_label }} → {{ event.to_label }}</span>
-                    <span class="qc-status ok">{{ event.created_at|date:"d.m H:i" }}</span>
+                  <div class="check-item">
+                    <span class="check-label">{{ event.from_label }} → {{ event.to_label }}</span>
+                    <span class="check-status ok">{{ event.created_at|date:"d.m H:i" }}</span>
                   </div>
                   {% if event.message %}
                     <div class="status-next">{{ event.message }}</div>
@@ -120,11 +120,11 @@
           {% if not share_mode %}
             <div class="status-card">
               <h3>{% if current_lang == 'ru' %}Отчёт проверки качества{% elif current_lang == 'en' %}Quality check report{% else %}Звіт перевірки якості{% endif %}</h3>
-              <div class="qc-list">
+              <div class="check-list">
                 {% for item in qc_checks %}
-                  <div class="qc-item">
-                    <span class="qc-label">{{ item.label }}</span>
-                    <span class="qc-status {{ item.status }}">{{ item.value }}</span>
+                  <div class="check-item">
+                    <span class="check-label">{{ item.label }}</span>
+                    <span class="check-status {{ item.status }}">{{ item.value }}</span>
                   </div>
                 {% endfor %}
               </div>
@@ -133,7 +133,7 @@
           {% endif %}
 
           <div class="status-card">
-            <h3>{% trans "Доставка" %}</h3>
+            <h3><span class="dtf-icon dtf-icon-truck" aria-hidden="true">{% include 'dtf/svg/icon-truck.svg' %}</span>{% trans "Доставка" %}</h3>
             {% if order.tracking_number %}
               <div class="ttn">{% trans "ТТН" %}: {{ order.tracking_number }}</div>
               <a class="btn btn-ghost" href="https://novaposhta.ua/tracking/?cargo_number={{ order.tracking_number }}" target="_blank" rel="noopener">{% trans "Відстежити" %}</a>

@@ -1,0 +1,19 @@
+{% if '/order/' in request.path %}
+  {% if current_lang == 'ru' %}{{ 'Привет! Заполняю заказ на сайте, есть вопрос по моему файлу.'|urlencode }}{% elif current_lang == 'en' %}{{ "Hi! I'm filling out an order on your site and have a question about my file."|urlencode }}{% else %}{{ 'Привіт! Заповнюю замовлення на сайті, маю питання щодо мого файлу.'|urlencode }}{% endif %}
+{% elif '/constructor/' in request.path %}
+  {% if current_lang == 'ru' %}{{ 'Привет! Собираю лист 60 см в конструкторе, нужна помощь с раскладкой.'|urlencode }}{% elif current_lang == 'en' %}{{ "Hi! I'm building a 60 cm sheet in the constructor and need help with the layout."|urlencode }}{% else %}{{ 'Привіт! Збираю лист 60 см у конструкторі, потрібна допомога з розкладкою.'|urlencode }}{% endif %}
+{% elif '/quality/' in request.path %}
+  {% if current_lang == 'ru' %}{{ 'Привет! Смотрю страницу качества, хочу узнать больше о ваших стандартах печати.'|urlencode }}{% elif current_lang == 'en' %}{{ "Hi! Looking at your quality page, I'd like to know more about your print standards."|urlencode }}{% else %}{{ 'Привіт! Переглядаю сторінку якості, хочу дізнатись більше про ваші стандарти друку.'|urlencode }}{% endif %}
+{% elif '/gallery/' in request.path %}
+  {% if current_lang == 'ru' %}{{ 'Привет! Вижу примеры в галерее — хочу обсудить печать подобного.'|urlencode }}{% elif current_lang == 'en' %}{{ "Hi! I see examples in the gallery — I'd like to discuss printing something similar."|urlencode }}{% else %}{{ 'Привіт! Бачу приклади у галереї — хочу обговорити друк подібного.'|urlencode }}{% endif %}
+{% elif '/price/' in request.path %}
+  {% if current_lang == 'ru' %}{{ 'Привет! Смотрю прайс. Подскажите по моему объему.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! Checking your prices. Can you advise on my volume?'|urlencode }}{% else %}{{ 'Привіт! Переглядаю прайс. Підкажіть по моєму обсягу.'|urlencode }}{% endif %}
+{% elif '/requirements/' in request.path %}
+  {% if current_lang == 'ru' %}{{ 'Привет! Есть вопрос по требованиям к файлу.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! I have a question about file requirements.'|urlencode }}{% else %}{{ 'Привіт! Маю питання щодо вимог до файлу.'|urlencode }}{% endif %}
+{% elif '/faq/' in request.path %}
+  {% if current_lang == 'ru' %}{{ 'Привет! Прочитал FAQ, но есть дополнительный вопрос.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! Read the FAQ, but have another question.'|urlencode }}{% else %}{{ 'Привіт! Прочитав FAQ, але маю додаткове питання.'|urlencode }}{% endif %}
+{% elif '/status/' in request.path %}
+  {% if current_lang == 'ru' %}{{ 'Привет! Хочу уточнить статус моего заказа.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! I want to check the status of my order.'|urlencode }}{% else %}{{ 'Привіт! Хочу уточнити статус мого замовлення.'|urlencode }}{% endif %}
+{% else %}
+  {% if current_lang == 'ru' %}{{ 'Привет! Хочу заказать DTF-печать 60 см. Подскажите, пожалуйста, по цене и срокам.'|urlencode }}{% elif current_lang == 'en' %}{{ 'Hi! I want to order DTF print (60 cm). Please tell me the price and timing.'|urlencode }}{% else %}{{ 'Привіт! Хочу замовити DTF-друк 60 см. Підкажіть, будь ласка, по ціні та термінах.'|urlencode }}{% endif %}
+{% endif %}

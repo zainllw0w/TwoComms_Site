@@ -133,9 +133,9 @@
     }
   }
 
-  function collectPreflightStatus(scope) {
+  function collectFilecheckStatus(scope) {
     if (!scope) return 'pending';
-    var steps = scope.querySelectorAll('.constructor-preflight-card .msl-step');
+    var steps = scope.querySelectorAll('.constructor-filecheck-card .msl-step');
     if (!steps.length) return 'pending';
     var hasFail = false;
     var hasWarn = false;
@@ -200,7 +200,7 @@
         setBadgeState(badge, 'pending', 0, '');
         return;
       }
-      var status = collectPreflightStatus(scope);
+      var status = collectFilecheckStatus(scope);
       if (status === 'pending') status = 'pending';
       setBadgeState(badge, status, count, previewUrl);
     }
@@ -256,12 +256,12 @@
       refreshBadgeFromInput();
     }
 
-    var preflightPanel = scope.querySelector('.constructor-preflight-card');
-    if (preflightPanel && typeof MutationObserver !== 'undefined') {
+    var filecheckPanel = scope.querySelector('.constructor-filecheck-card');
+    if (filecheckPanel && typeof MutationObserver !== 'undefined') {
       var mutationObserver = new MutationObserver(function () {
         refreshBadgeFromState();
       });
-      mutationObserver.observe(preflightPanel, {
+      mutationObserver.observe(filecheckPanel, {
         childList: true,
         subtree: true,
         attributes: true,

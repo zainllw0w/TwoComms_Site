@@ -1,6 +1,6 @@
 /* ============================================
    Tooltip Card — rich tooltip following mouse
-   For preflight terms explanation
+   For file check terms explanation
    ============================================ */
 
 .dtf-tooltip-card {
@@ -58,7 +58,7 @@
 }
 
 /* --- Preflight terms row --- */
-.preflight-terms {
+.filecheck-terms {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -66,13 +66,13 @@
   font-size: 0.78rem;
 }
 
-.preflight-terms span {
+.filecheck-terms span {
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 
-.preflight-terms abbr {
+.filecheck-terms abbr {
   text-decoration: none;
   font-weight: 600;
   color: var(--text-secondary, #b4bcd0);

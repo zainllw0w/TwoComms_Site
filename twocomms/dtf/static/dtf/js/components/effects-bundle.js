@@ -207,6 +207,11 @@
     return Math.min(max, Math.max(min, value));
   }
 
+  function easeInOutQuad(value) {
+    var t = clamp(Number(value) || 0, 0, 1);
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
+
   function initCompare(node, ctx) {
     if (!node) return null;
     var range = node.querySelector('.compare-range');
@@ -280,8 +285,14 @@
       if (!autoplayRunning) return;
       if (!autoplayStart) autoplayStart = timestamp;
       var elapsed = timestamp - autoplayStart;
-      var progress = (elapsed % (autoplayDuration * 2)) / autoplayDuration;
-      var percentage = progress <= 1 ? progress * 100 : (2 - progress) * 100;
+      var cycle = autoplayDuration * 2;
+      var position = elapsed % cycle;
+      var inForward = position <= autoplayDuration;
+      var progress = inForward
+        ? position / autoplayDuration
+        : (position - autoplayDuration) / autoplayDuration;
+      var eased = easeInOutQuad(progress);
+      var percentage = inForward ? eased * 100 : (1 - eased) * 100;
       apply(percentage);
       raf = requestAnimationFrame(autoplayTick);
     }
@@ -907,9 +918,9 @@
     }
   }
 
-  function collectPreflightStatus(scope) {
+  function collectFilecheckStatus(scope) {
     if (!scope) return 'pending';
-    var steps = scope.querySelectorAll('.constructor-preflight-card .msl-step');
+    var steps = scope.querySelectorAll('.constructor-filecheck-card .msl-step');
     if (!steps.length) return 'pending';
     var hasFail = false;
     var hasWarn = false;
@@ -974,7 +985,7 @@
         setBadgeState(badge, 'pending', 0, '');
         return;
       }
-      var status = collectPreflightStatus(scope);
+      var status = collectFilecheckStatus(scope);
       if (status === 'pending') status = 'pending';
       setBadgeState(badge, status, count, previewUrl);
     }
@@ -1030,12 +1041,12 @@
       refreshBadgeFromInput();
     }
 
-    var preflightPanel = scope.querySelector('.constructor-preflight-card');
-    if (preflightPanel && typeof MutationObserver !== 'undefined') {
+    var filecheckPanel = scope.querySelector('.constructor-filecheck-card');
+    if (filecheckPanel && typeof MutationObserver !== 'undefined') {
       var mutationObserver = new MutationObserver(function () {
         refreshBadgeFromState();
       });
-      mutationObserver.observe(preflightPanel, {
+      mutationObserver.observe(filecheckPanel, {
         childList: true,
         subtree: true,
         attributes: true,
@@ -1100,10 +1111,10 @@
 /* --- multi-step-loader.js --- */
 /**
  * Multi-step Loader
- * - Uses real backend preflight when data-preflight-url is provided
+ * - Uses real backend file check when data-filecheck-url is provided
  * - No synthetic completion timers
  * - Shared between order and constructor flows
- */
+*/
 (function () {
   'use strict';
   var DTF = (window.DTF = window.DTF || {});
@@ -1136,12 +1147,12 @@
   };
 
   var UI_TEXT = {
-    preflight_running: {
+    filecheck_running: {
       uk: 'Перевірка файлу виконується...',
       ru: 'Проверка файла выполняется...',
       en: 'File check is running...',
     },
-    preflight_failed: {
+    filecheck_failed: {
       uk: 'Перевірка файлу не виконана. Спробуйте ще раз.',
       ru: 'Проверка файла не выполнена. Попробуйте ещё раз.',
       en: 'File check failed. Please try again.',
@@ -1258,7 +1269,7 @@
       {
         key: 'format_signature',
         status: 'loading',
-        message: uiText('preflight_running'),
+        message: uiText('filecheck_running'),
       },
       {
         key: 'dpi',
@@ -1292,8 +1303,8 @@
     if (!host) return null;
     var reducedMotion = !!(ctx && ctx.reducedMotion);
     var input = host.querySelector('input[type="file"]');
-    var loaderContainer = host.querySelector('.msl-container[data-preflight-loader], .msl-container');
-    var preflightUrl = host.getAttribute('data-preflight-url') || '';
+    var loaderContainer = host.querySelector('.msl-container[data-filecheck-loader], .msl-container');
+    var filecheckUrl = host.getAttribute('data-filecheck-url') || '';
     var listeners = [];
     var aborter = null;
 
@@ -1310,8 +1321,8 @@
       setUploadStep(host, deriveStepProgress(loaderContainer));
     }
 
-    function requestPreflight(file) {
-      if (!preflightUrl || !file || !loaderContainer) return;
+    function requestFilecheck(file) {
+      if (!filecheckUrl || !file || !loaderContainer) return;
       if (aborter) aborter.abort();
       aborter = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       renderLoadingState(loaderContainer);
@@ -1319,7 +1330,7 @@
       body.append('file', file);
       body.append('csrfmiddlewaretoken', getCsrfToken(host));
 
-      fetch(preflightUrl, {
+      fetch(filecheckUrl, {
         method: 'POST',
         body: body,
         credentials: 'same-origin',
@@ -1331,17 +1342,17 @@
       })
         .then(function (response) {
           if (!response.ok) {
-            throw new Error('Preflight request failed');
+            throw new Error('File check request failed');
           }
           return response.json();
         })
         .then(function (payload) {
           if (!payload || !payload.ok || !payload.report) {
-            throw new Error('Invalid preflight payload');
+            throw new Error('Invalid file check payload');
           }
           var stepItems = payload.report.step_items || [];
           if (!stepItems.length) {
-            throw new Error('No preflight steps returned');
+            throw new Error('No file check steps returned');
           }
           renderSteps(loaderContainer, stepItems, { animated: !reducedMotion });
           setUploadStep(host, deriveStepProgress(loaderContainer));
@@ -1352,7 +1363,7 @@
             {
               key: 'summary',
               status: 'fail',
-              message: uiText('preflight_failed'),
+              message: uiText('filecheck_failed'),
             },
           ], { animated: false });
           setUploadStep(host, 2);
@@ -1369,11 +1380,11 @@
           return;
         }
         setUploadStep(host, 2);
-        requestPreflight(input.files[0]);
+        requestFilecheck(input.files[0]);
       });
     }
 
-    on(host, 'dtf:preflight-ready', function (event) {
+    on(host, 'dtf:filecheck-ready', function (event) {
       var detail = event && event.detail ? event.detail : {};
       var steps = detail.stepItems || [];
       if (!steps.length || !loaderContainer) return;
@@ -1785,7 +1796,7 @@
 /* --- effect.tooltip-card.js --- */
 /**
  * Tooltip Card — rich tooltip that follows mouse pointer
- * For preflight terms (DPI, safe margin, tiny lines)
+ * For file check terms (DPI, safe margin, tiny lines)
  * Touch support, viewport boundary detection
  * Registered via DTF.registerEffect
  */
@@ -1921,7 +1932,7 @@
 /* --- effect.text-generate.js --- */
 /**
  * Text Generate Effect — word-by-word fade-in
- * For preflight summary recommendation text
+ * For file check summary recommendation text
  * One-shot on viewport entry
  * Registered via DTF.registerEffect
  */
