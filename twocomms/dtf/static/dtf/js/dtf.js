@@ -464,6 +464,18 @@
         host.addEventListener('click', () => rerun(icon, 620), { passive: true });
       }
 
+      if (icon.classList.contains('dtf-icon-bulb-home')) {
+        const desktopLoop = window.matchMedia('(min-width: 961px) and (hover: hover) and (pointer: fine)').matches;
+        if (desktopLoop) {
+          const pulse = () => {
+            if (!document.hidden) rerun(icon, 260);
+            const next = 7000 + Math.round(Math.random() * 2000);
+            window.setTimeout(pulse, next);
+          };
+          window.setTimeout(pulse, 900);
+        }
+      }
+
     });
 
     if ('IntersectionObserver' in window) {
