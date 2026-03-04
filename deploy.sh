@@ -14,11 +14,17 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
+if [ -z "${TWC_SSH_PASS}" ]; then
+    echo "❌ Ошибка: установите переменную окружения TWC_SSH_PASS"
+    echo "Пример: export TWC_SSH_PASS='your_ssh_password'"
+    exit 1
+fi
+
 COMMIT_MESSAGE="$1"
 SERVER_USER="qlknpodo"
 SERVER_HOST="195.191.24.169"
 SERVER_PATH="/home/qlknpodo/TWC/TwoComms_Site/twocomms"
-SERVER_PASSWORD="[REDACTED_SSH_PASSWORD]"
+SERVER_PASSWORD="${TWC_SSH_PASS}"
 
 echo "📝 Коммит: $COMMIT_MESSAGE"
 

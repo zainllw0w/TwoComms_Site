@@ -30,7 +30,7 @@
 #### Шаг 1: Войти в cPanel
 1. Открыть https://twocomms.shop:2083 (или через IP)
 2. Логин: `qlknpodo`
-3. Пароль: `[REDACTED_SSH_PASSWORD]`
+3. Пароль: `${TWC_SSH_PASS}`
 
 #### Шаг 2: Найти "Setup Python App"
 Искать в разделах:

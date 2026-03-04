@@ -48,7 +48,7 @@
 ### Или через SSH (если нужно):
 
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh qlknpodo@195.191.24.169 "bash -lc 'crontab -l | sed \"s|*/15|*/5|g\" | crontab -'"
+sshpass -p '${TWC_SSH_PASS}' ssh qlknpodo@195.191.24.169 "bash -lc 'crontab -l | sed \"s|*/15|*/5|g\" | crontab -'"
 ```
 
 Но **проще через cPanel** - там видно всё в интерфейсе!

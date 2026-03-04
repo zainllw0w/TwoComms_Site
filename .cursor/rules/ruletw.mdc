@@ -50,11 +50,11 @@ alwaysApply: true
 
 ## SSH Deploy Command
 # Команда для автоматического деплоя (обновления) сайта на сервере:
-Deploy_Command: "sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 \"bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && git pull'\""
+Deploy_Command: "sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 \"bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && git pull'\""
 
 ## SSH Connection (General)
 # Для просмотра логов, БД или проверки файлов используй:
-SSH_Connection_String: "sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169"
+SSH_Connection_String: "sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169"
 
 ## Server Paths
 Remote_Project_Path: "/home/qlknpodo/TWC/TwoComms_Site/twocomms"

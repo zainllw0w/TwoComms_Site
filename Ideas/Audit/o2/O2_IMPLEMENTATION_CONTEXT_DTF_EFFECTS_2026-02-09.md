@@ -266,7 +266,7 @@
 ## 13) Deploy protocol (DTF)
 Базовый SSH-вход:
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && git pull'"
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && git pull'"
 ```
 
 Рекомендуемый deploy-run (см. `specs/dtf-codex/DEPLOY.md`):

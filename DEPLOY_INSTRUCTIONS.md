@@ -61,7 +61,7 @@ git push origin main
 
 ```bash
 # SSH into server, pull changes, run migrations, restart
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
   source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && \
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && \
   git pull && \
@@ -88,10 +88,10 @@ sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@19
 #### Check Server Logs
 ```bash
 # View recent logs
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "tail -n 100 /home/qlknpodo/TWC/TwoComms_Site/twocomms/stderr.log"
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "tail -n 100 /home/qlknpodo/TWC/TwoComms_Site/twocomms/stderr.log"
 
 # Watch live logs (Ctrl+C to stop)
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "tail -f /home/qlknpodo/TWC/TwoComms_Site/twocomms/stderr.log"
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "tail -f /home/qlknpodo/TWC/TwoComms_Site/twocomms/stderr.log"
 ```
 
 #### Test Key Endpoints
@@ -120,7 +120,7 @@ curl -I https://twocomms.shop/api/colors/
 
 ```bash
 # SSH into server and check database
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
   source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && \
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && \
   python manage.py dbshell \
@@ -256,7 +256,7 @@ If something goes wrong, here's how to rollback:
 
 ### Step 1: Rollback Code
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && \
   git log --oneline -5 && \
   git reset --hard HEAD~1 && \
@@ -266,7 +266,7 @@ sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@19
 
 ### Step 2: Rollback Migration (if needed)
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
   source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && \
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && \
   python manage.py migrate accounts <previous_migration_number> \

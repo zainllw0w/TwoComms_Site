@@ -7,10 +7,16 @@ set -e  # Exit on error
 echo "🚀 Starting deployment of audit fixes..."
 echo ""
 
+if [ -z "${TWC_SSH_PASS}" ]; then
+    echo "❌ Error: set TWC_SSH_PASS before running this script"
+    echo "Example: export TWC_SSH_PASS='your_ssh_password'"
+    exit 1
+fi
+
 # Server credentials
 SERVER_USER="qlknpodo"
 SERVER_HOST="195.191.24.169"
-SERVER_PASSWORD="[REDACTED_SSH_PASSWORD]"
+SERVER_PASSWORD="${TWC_SSH_PASS}"
 PROJECT_PATH="/home/qlknpodo/TWC/TwoComms_Site/twocomms"
 VENV_PATH="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13"
 
@@ -87,4 +93,3 @@ echo "  2. Test the site: https://twocomms.shop"
 echo "  3. Monitor performance and errors"
 echo ""
 echo "⚠️  Important: Make sure to set REDIS_PASSWORD in environment variables if using Redis with password"
-

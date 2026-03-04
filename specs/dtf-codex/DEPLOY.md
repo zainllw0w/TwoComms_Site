@@ -20,7 +20,7 @@ export TWC_SSH_PASS='***'
 
 ## Canonical SSH Entry
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
   source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms &&
   git status
@@ -29,7 +29,7 @@ sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@19
 
 ## Server Deploy Command
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
   source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms &&
   git fetch --all --prune &&
@@ -59,7 +59,7 @@ curl -i https://twocomms.shop/sitemap.xml
 
 ## Rollback
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
   source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms &&
   git log --oneline -n 5 &&

@@ -5,7 +5,7 @@
 ```bash
 # 1. Подключиться к серверу
 ssh qlknpodo@195.191.24.169
-# Пароль: [REDACTED_SSH_PASSWORD]
+# Пароль: ${TWC_SSH_PASS}
 
 # 2. Активировать окружение и перейти в проект
 source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate

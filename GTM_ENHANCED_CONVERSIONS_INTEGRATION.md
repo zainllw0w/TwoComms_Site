@@ -257,7 +257,7 @@ GTM Purchase event sent: {event: "purchase", ecommerce: {...}, user_data: {...}}
 
 ```bash
 # Подключитесь по SSH
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169
 
 # Перейдите в директорию проекта
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms

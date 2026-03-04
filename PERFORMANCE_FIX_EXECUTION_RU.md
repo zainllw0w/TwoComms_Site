@@ -28,5 +28,5 @@
 ## Следующие шаги для продакшена
 
 1) Запустить Celery worker и прогнать `python manage.py optimize_images` на сервере.  
-2) Деплой на сервер: после пуша в git выполнить предоставленную команду `sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && git pull'"`.  
+2) Деплой на сервер: после пуша в git выполнить предоставленную команду `sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && git pull'"`.  
 3) Прогнать быстрый регрессионный чек: каталог, карточка товара, корзина + публичные API (`/api/product/<id>`, `/api/search_suggestions`).

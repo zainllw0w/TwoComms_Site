@@ -88,7 +88,7 @@
    ```
 2. На сервере подтянуть обновления (команда из ТЗ):
    ```bash
-   sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 \
+   sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 \
      "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && \
       cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && git pull'"
    ```

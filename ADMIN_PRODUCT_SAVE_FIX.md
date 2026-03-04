@@ -176,7 +176,7 @@ If you need to deploy to production server:
 
 ```bash
 # SSH into production
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169
 
 # Navigate to project
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms

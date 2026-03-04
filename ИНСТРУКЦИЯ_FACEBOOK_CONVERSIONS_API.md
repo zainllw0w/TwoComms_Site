@@ -117,7 +117,7 @@ FACEBOOK_CONVERSIONS_API_TOKEN=<FACEBOOK_CONVERSIONS_API_TOKEN>
 
 Подключитесь к серверу:
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169
 ```
 
 Откройте `.env`:

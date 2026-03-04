@@ -109,7 +109,7 @@ git push origin main
 
 ```bash
 # Подключение к серверу
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh qlknpodo@195.191.24.169
+sshpass -p '${TWC_SSH_PASS}' ssh qlknpodo@195.191.24.169
 
 # Активация виртуального окружения и git pull
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms

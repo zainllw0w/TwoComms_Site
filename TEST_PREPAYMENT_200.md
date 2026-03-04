@@ -74,7 +74,7 @@ monobank_logger.info(f'Auth user: pay_type from body={body.get("pay_type")}, fro
 
 ```bash
 # Подключитесь к серверу
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh qlknpodo@195.191.24.169
+sshpass -p '${TWC_SSH_PASS}' ssh qlknpodo@195.191.24.169
 
 # Смотрите логи в реальном времени
 tail -f ~/logs/django.log | grep -E "monobank_create_invoice|pay_type|Payment amount"

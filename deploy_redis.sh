@@ -18,8 +18,13 @@ if [ -z "${REDIS_PASSWORD}" ]; then
 fi
 REDIS_PASSWORD_ESCAPED=$(printf '%q' "${REDIS_PASSWORD}")
 
+if [ -z "${TWC_SSH_PASS}" ]; then
+    echo -e "${RED}Ошибка: установите переменную окружения TWC_SSH_PASS перед запуском${NC}"
+    exit 1
+fi
+
 # SSH параметры
-SSH_PASSWORD='[REDACTED_SSH_PASSWORD]'
+SSH_PASSWORD="${TWC_SSH_PASS}"
 SSH_USER='qlknpodo'
 SSH_HOST='195.191.24.169'
 PROJECT_PATH='/home/qlknpodo/TWC/TwoComms_Site/twocomms'

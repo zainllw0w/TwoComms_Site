@@ -292,7 +292,7 @@ python manage.py check
 ### Step 2: Deploy to Production Server
 ```bash
 # SSH into server and pull changes
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
   source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && \
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && \
   git pull && \
@@ -306,7 +306,7 @@ sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@19
 ### Step 3: Verification
 ```bash
 # Check server logs
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "tail -f /home/qlknpodo/TWC/TwoComms_Site/twocomms/stderr.log"
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "tail -f /home/qlknpodo/TWC/TwoComms_Site/twocomms/stderr.log"
 
 # Test key endpoints:
 curl https://twocomms.shop/

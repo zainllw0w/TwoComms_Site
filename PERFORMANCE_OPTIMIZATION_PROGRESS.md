@@ -110,7 +110,7 @@
 ### Вариант 1: Полный деплой
 ```bash
 # Подключение и pull
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
 source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 git fetch origin perf/pagespeed-mobile-priority
@@ -121,14 +121,14 @@ python manage.py compress --force
 '"
 
 # Очистка кэша (опционально)
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
 source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 python manage.py shell -c \"from django.core.cache import cache; cache.clear()\"
 '"
 
 # Перезапуск (touch wsgi)
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
 touch /home/qlknpodo/TWC/TwoComms_Site/twocomms/twocomms/wsgi.py
 '"
 ```

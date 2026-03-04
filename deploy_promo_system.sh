@@ -5,8 +5,14 @@
 
 echo "🚀 Deploying new promo codes system to server..."
 
+if [ -z "${TWC_SSH_PASS}" ]; then
+    echo "❌ Error: set TWC_SSH_PASS before running this script"
+    echo "Example: export TWC_SSH_PASS='your_ssh_password'"
+    exit 1
+fi
+
 # SSH credentials from user rules
-SSH_PASS='[REDACTED_SSH_PASSWORD]'
+SSH_PASS="${TWC_SSH_PASS}"
 SSH_USER='qlknpodo'
 SSH_HOST='195.191.24.169'
 PROJECT_PATH='/home/qlknpodo/TWC/TwoComms_Site/twocomms'
@@ -55,4 +61,3 @@ echo "  1. Test promo code application at: https://twocomms.shop/cart/"
 echo "  2. Create promo groups at: https://twocomms.shop/admin-panel/promo-groups/"
 echo "  3. Manage promo codes at: https://twocomms.shop/admin-panel/promocodes/"
 echo ""
-

@@ -19,7 +19,7 @@
 Подключитесь к серверу и запустите скрипт:
 
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && bash -s'" < setup_nova_poshta_cron.sh
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && bash -s'" < setup_nova_poshta_cron.sh
 ```
 
 Или если уже на сервере:
@@ -35,7 +35,7 @@ bash setup_nova_poshta_cron.sh
 Проверьте что cron настроен:
 
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "crontab -l | grep update_tracking_statuses"
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "crontab -l | grep update_tracking_statuses"
 ```
 
 Должна быть строка с `*/5 * * * *`.
@@ -67,19 +67,19 @@ sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@19
 ### Просмотр логов:
 
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "tail -50 /home/qlknpodo/TWC/TwoComms_Site/twocomms/logs/nova_poshta_cron.log"
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "tail -50 /home/qlknpodo/TWC/TwoComms_Site/twocomms/logs/nova_poshta_cron.log"
 ```
 
 ### Ручной запуск проверки:
 
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && python manage.py update_tracking_statuses'"
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && python manage.py update_tracking_statuses'"
 ```
 
 ### Проверка конкретного заказа:
 
 ```bash
-sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && python manage.py update_tracking_statuses --order-number TWC30102025N01'"
+sshpass -p '${TWC_SSH_PASS}' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && python manage.py update_tracking_statuses --order-number TWC30102025N01'"
 ```
 
 ---
