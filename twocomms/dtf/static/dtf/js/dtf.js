@@ -1333,82 +1333,46 @@
     const canAnimate = ambientTier > 0 && allowAmbientEffects();
     const tierKey = ambientTier >= 4 ? 4 : ambientTier >= 3 ? 3 : ambientTier >= 2 ? 2 : 1;
     const interactionRadiusByTier = {
-      4: 110,
-      3: 102,
-      2: 92,
-      1: 82,
+      4: 100,
+      3: 100,
+      2: 88,
+      1: 80,
     };
     const gridGapByTier = {
       4: 14,
-      3: 15,
-      2: 18,
-      1: 20,
+      3: 14,
+      2: 16,
+      1: 18,
     };
-    const alphaProfile = {
-      reference: {
-        baseMin: 0.16,
-        baseTone: 0.24,
-        motionInfluence: 0.1,
-        motionDisplacement: 0.22,
-        motionGlow: 0.2,
-        min: 0.12,
-        max: 0.94,
-      },
-      balanced: {
-        baseMin: 0.11,
-        baseTone: 0.16,
-        motionInfluence: 0.07,
-        motionDisplacement: 0.15,
-        motionGlow: 0.14,
-        min: 0.08,
-        max: 0.78,
-      },
+    const distortionStrengthByTier = {
+      4: 1.2,
+      3: 1.2,
+      2: 1.08,
+      1: 0.96,
     };
-    const bandProfile = {
-      reference: {
-        rowBase: 0.82,
-        rowAmplitude: 0.18,
-        rowFrequency: 0.55,
-        rowPhase: 0.4,
-        toneMin: 0.08,
-        toneMax: 1,
-      },
-      balanced: {
-        rowBase: 0.87,
-        rowAmplitude: 0.13,
-        rowFrequency: 0.52,
-        rowPhase: 0.36,
-        toneMin: 0.1,
-        toneMax: 1,
-      },
+    const returnSpeedByTier = {
+      4: 0.06,
+      3: 0.06,
+      2: 0.055,
+      1: 0.05,
     };
-    const colorProfileBlue = {
-      reference: {
-        r: { base: 20, tone: 30, influence: 16, glow: 38, min: 14, max: 96 },
-        g: { base: 142, tone: 78, influence: 28, glow: 50, min: 104, max: 235 },
-        b: { base: 228, tone: 34, influence: 24, glow: 28, min: 198, max: 255 },
-      },
-      balanced: {
-        r: { base: 18, tone: 18, influence: 12, glow: 26, min: 12, max: 76 },
-        g: { base: 122, tone: 56, influence: 20, glow: 34, min: 90, max: 210 },
-        b: { base: 214, tone: 26, influence: 18, glow: 20, min: 184, max: 246 },
-      },
+    const breathingSpeedByTier = {
+      4: 1,
+      3: 1,
+      2: 0.92,
+      1: 0.84,
     };
     const interactionRadius = interactionRadiusByTier[tierKey];
     const quality = {
-      maxDpr: ambientTier >= 4 ? 1.42 : ambientTier >= 3 ? 1.3 : 1.1,
+      maxDpr: ambientTier >= 3 ? 2 : ambientTier >= 2 ? 1.5 : 1.2,
       baseGap: gridGapByTier[tierKey],
-      maxDots: ambientTier >= 4 ? 6800 : ambientTier >= 3 ? 4600 : 2600,
-      frameBudget: ambientTier >= 4 ? 16 : ambientTier >= 3 ? 18 : 28,
+      maxDots: ambientTier >= 4 ? 9800 : ambientTier >= 3 ? 9000 : ambientTier >= 2 ? 6200 : 3600,
+      frameBudget: ambientTier >= 3 ? 0 : ambientTier >= 2 ? 18 : 26,
     };
-    const movementThreshold = tierKey >= 3 ? 0.5 : 0.34;
     const dotPalette = (layer.dataset.dotPalette || 'blue').toLowerCase();
-    const dotBrightness = (layer.dataset.dotBrightness || 'reference').toLowerCase();
-    const brightnessMode = dotBrightness === 'balanced' ? 'balanced' : 'reference';
-    const activeAlphaProfile = alphaProfile[brightnessMode];
-    const activeBandProfile = bandProfile[brightnessMode];
-    const activeBlueProfile = colorProfileBlue[brightnessMode];
     const useBluePalette = dotPalette !== 'amber';
+    const dotColor = useBluePalette ? 'oklch(0.5 0.134 242.749)' : 'oklch(0.72 0.19 55)';
+    const glowColor = dotColor;
     let canvasReady = false;
     let canvasReadyHandle = null;
 
@@ -1424,7 +1388,7 @@
 
     const setStatic = () => {
       layer.classList.add('is-static');
-      layer.style.setProperty('--dot-glow', '0.4');
+      layer.style.setProperty('--dot-glow', '0');
       layer.style.setProperty('--dot-shift-x', '0px');
       layer.style.setProperty('--dot-shift-y', '0px');
       layer.style.setProperty('--dot-arc-x', '0px');
@@ -1440,25 +1404,13 @@
 
     const orbs = Array.from(layer.querySelectorAll('[data-dot-orb]')).map((orb) => ({
       el: orb,
-      depth: parseFloat(orb.dataset.depth || '0.2') || 0.2,
     }));
-    const initialPointer = {
-      x: (window.innerWidth || 1) * 0.5,
-      y: (window.innerHeight || 1) * 0.42,
-    };
     const state = {
-      x: 0,
-      y: 0,
-      tx: 0,
-      ty: 0,
-      active: false,
-      pointerInside: false,
-      pointerX: initialPointer.x,
-      pointerY: initialPointer.y,
-      pointerDx: 0,
-      pointerDy: 0,
+      pointer: { x: -1000, y: -1000 },
+      prevPointer: { x: -1000, y: -1000 },
+      pointerVelocity: { x: 0, y: 0 },
+      pointerReady: false,
       frameScale: 1,
-      lastMoveAt: 0,
     };
     let frame = null;
     let width = 0;
@@ -1466,6 +1418,7 @@
     let dpr = 1;
     let lastFrameTime = 0;
     const dots = [];
+    let resizeObserver = null;
 
     const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
     const schedule = () => {
@@ -1473,195 +1426,151 @@
       frame = window.requestAnimationFrame(step);
     };
 
-    const getNeutralPointer = () => ({
-      x: (window.innerWidth || width || 1) * 0.5,
-      y: (window.innerHeight || height || 1) * 0.42,
-    });
-
-    const setNeutralPointer = (snap = false) => {
-      const neutral = getNeutralPointer();
-      state.pointerX = neutral.x;
-      state.pointerY = neutral.y;
-      state.pointerDx = 0;
-      state.pointerDy = 0;
-      if (snap) {
-        state.pointerX = neutral.x;
-        state.pointerY = neutral.y;
-      }
+    const resetPointer = () => {
+      state.pointer.x = -1000;
+      state.pointer.y = -1000;
+      state.prevPointer.x = -1000;
+      state.prevPointer.y = -1000;
+      state.pointerVelocity.x = 0;
+      state.pointerVelocity.y = 0;
+      state.pointerReady = false;
     };
 
     const resizeCanvas = () => {
       if (!ctx || !canvas) return;
-      const rect = canvas.getBoundingClientRect();
+      const rect = layer.getBoundingClientRect();
       width = Math.max(480, Math.round(rect.width || window.innerWidth || 0));
       height = Math.max(280, Math.round(rect.height || window.innerHeight || 0));
-      dpr = Math.min(window.devicePixelRatio || 1, quality.maxDpr);
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
+      dpr = Math.min(Math.max(1, window.devicePixelRatio || 1), quality.maxDpr);
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${Math.floor(width)}px`;
+      canvas.style.height = `${Math.floor(height)}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       dots.length = 0;
       let spacing = quality.baseGap;
-      const estimatedCount = Math.ceil(width / spacing) * Math.ceil(height / spacing);
+      const estimatedCount = (Math.ceil(width / spacing) + 2) * (Math.ceil(height / spacing) + 2);
       if (estimatedCount > quality.maxDots) {
         spacing = Math.max(spacing, Math.ceil(spacing * Math.sqrt(estimatedCount / quality.maxDots)));
       }
+
       const offsetX = (width % spacing) * 0.5;
       const offsetY = (height % spacing) * 0.5;
-      for (let j = 0, y = offsetY; y <= height; y += spacing, j += 1) {
-        for (let i = 0, x = offsetX; x <= width; x += spacing, i += 1) {
-          const brightnessSeed = clamp(
+      const columns = Math.ceil(width / spacing) + 2;
+      const rows = Math.ceil(height / spacing) + 2;
+      for (let i = 0; i < columns; i += 1) {
+        for (let j = 0; j < rows; j += 1) {
+          const x = i * spacing + offsetX;
+          const y = j * spacing + offsetY;
+          const brightness = clamp(
             0.3
-              + 0.3 * Math.sin(0.3 * i + 0.2 * j)
-              + 0.2 * Math.sin(0.7 * i - 0.5 * j)
-              + 0.2 * Math.sin((i + j) * 0.4)
-              + 0.3 * Math.random(),
+              + (0.3 * Math.sin(0.3 * i + 0.2 * j)
+                + 0.2 * Math.sin(0.7 * i - 0.5 * j)
+                + 0.2 * Math.sin((i + j) * 0.4)
+                + 0.3 * Math.random()),
             0.1,
             1
           );
-          const rowBand = activeBandProfile.rowBase
-            + activeBandProfile.rowAmplitude * Math.sin(j * activeBandProfile.rowFrequency + activeBandProfile.rowPhase);
-          const tone = clamp(brightnessSeed * rowBand, activeBandProfile.toneMin, activeBandProfile.toneMax);
+
           dots.push({
-            gridX: x,
-            gridY: y,
             x,
             y,
-            gridI: i,
-            gridJ: j,
-            brightnessSeed,
-            rowBand,
-            tone,
+            baseX: x,
+            baseY: y,
             vx: 0,
             vy: 0,
-            baseSize: 0.9 + Math.random() * 0.2,
+            brightness,
             phase: Math.random() * Math.PI * 2,
-            glowUntil: 0,
+            breathingSpeed: 0.5 + 0.5 * Math.random(),
+            glowIntensity: 0,
+            glowTarget: 0,
+            glowSpeed: 0.002 + 0.003 * Math.random(),
+            nextGlowTime: 3 * Math.random(),
           });
         }
-      }
-
-      if (!state.pointerInside) {
-        setNeutralPointer(true);
-      } else {
-        const maxW = Math.max(window.innerWidth || width || 1, 1);
-        const maxH = Math.max(window.innerHeight || height || 1, 1);
-        state.pointerX = clamp(state.pointerX, 0, maxW);
-        state.pointerY = clamp(state.pointerY, 0, maxH);
       }
     };
 
     const renderCanvas = (time = 0) => {
       if (!ctx || !width || !height) return;
       ctx.clearRect(0, 0, width, height);
-      const viewW = Math.max(window.innerWidth || width || 1, 1);
-      const viewH = Math.max(window.innerHeight || height || 1, 1);
-      const px = clamp((state.pointerX / viewW) * width, 0, width);
-      const py = clamp((state.pointerY / viewH) * height, 0, height);
-      const mouseSpeed = Math.hypot(state.pointerDx, state.pointerDy);
-      const radius = interactionRadius;
-      const breathingSpeed = ambientTier <= 2 ? 0.0011 : 0.00155;
-      const glowChance = ambientTier <= 2 ? 0.000025 : 0.00005;
-      const spring = ambientTier >= 4 ? 0.02 : ambientTier >= 3 ? 0.019 : 0.017;
-      const returnSpeed = ambientTier >= 4 ? 0.06 : ambientTier >= 3 ? 0.058 : 0.052;
-      const friction = ambientTier >= 4 ? 0.92 : ambientTier >= 3 ? 0.915 : 0.9;
-      const distortionStrength = ambientTier >= 4 ? 1.2 : ambientTier >= 3 ? 1.12 : 1;
-      const staticField = ambientTier >= 4 ? 0.15 : ambientTier >= 3 ? 0.14 : 0.12;
-      const isMoving = mouseSpeed > movementThreshold;
+      const motionTime = time * 0.001 * breathingSpeedByTier[tierKey];
+      const glowTime = time * 0.001;
+      const pointerVelocity = Math.hypot(state.pointerVelocity.x, state.pointerVelocity.y);
+      const distortionStrength = distortionStrengthByTier[tierKey];
+      const returnSpeed = returnSpeedByTier[tierKey];
       const frameScale = state.frameScale || 1;
-      const maxDisp = radius * 1.08;
 
       for (let i = 0; i < dots.length; i += 1) {
         const dot = dots[i];
-        const dx = dot.x - px;
-        const dy = dot.y - py;
-        const dist = Math.max(0.001, Math.hypot(dx, dy));
-        let influence = 0;
-
-        if (state.pointerInside && dist < radius) {
-          influence = 1 - dist / radius;
-          const nx = dx / dist;
-          const ny = dy / dist;
-
-          dot.vx += nx * (influence * staticField);
-          dot.vy += ny * (influence * staticField);
-
-          if (isMoving) {
-            const dynamicForce = influence * influence * distortionStrength;
-            dot.vx += nx * dynamicForce;
-            dot.vy += ny * dynamicForce;
+        if (glowTime >= dot.nextGlowTime) {
+          if (dot.glowTarget === 0) {
+            dot.glowTarget = 0.6 + 0.4 * Math.random();
+            dot.glowSpeed = 0.001 + 0.002 * Math.random();
+          } else {
+            dot.glowTarget = 0;
+            dot.glowSpeed = 0.0005 + 0.001 * Math.random();
+            dot.nextGlowTime = glowTime + 1 + 3 * Math.random();
           }
+        }
+
+        const glowDelta = dot.glowTarget - dot.glowIntensity;
+        dot.glowIntensity += glowDelta * dot.glowSpeed * frameScale * 60;
+        if (dot.glowTarget > 0 && Math.abs(glowDelta) < 0.05) {
+          dot.nextGlowTime = glowTime + 2 + 3 * Math.random();
+        }
+
+        const dx = state.pointer.x - dot.baseX;
+        const dy = state.pointer.y - dot.baseY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < interactionRadius && pointerVelocity > 0.5) {
+          const influence = 1 - dist / interactionRadius;
+          const force = influence * influence * distortionStrength;
+          dot.vx += state.pointerVelocity.x * force * 0.3;
+          dot.vy += state.pointerVelocity.y * force * 0.3;
         }
 
         dot.x += dot.vx * frameScale;
         dot.y += dot.vy * frameScale;
-        dot.x += (dot.gridX - dot.x) * returnSpeed * frameScale;
-        dot.y += (dot.gridY - dot.y) * returnSpeed * frameScale;
+        dot.x += (dot.baseX - dot.x) * returnSpeed * frameScale;
+        dot.y += (dot.baseY - dot.y) * returnSpeed * frameScale;
+        dot.vx *= 0.92;
+        dot.vy *= 0.92;
+        dot.vx += (dot.baseX - dot.x) * 0.02 * frameScale;
+        dot.vy += (dot.baseY - dot.y) * 0.02 * frameScale;
 
-        dot.vx *= friction;
-        dot.vy *= friction;
-        dot.vx += (dot.gridX - dot.x) * spring * frameScale;
-        dot.vy += (dot.gridY - dot.y) * spring * frameScale;
+        const breathe = 0.15 * Math.sin(motionTime * dot.breathingSpeed + dot.phase);
+        const baseAlpha = clamp(dot.brightness + breathe, 0.05, 1);
+        const displacementAlpha = Math.min(
+          0.5,
+          0.05 * Math.hypot(dot.x - dot.baseX, dot.y - dot.baseY)
+        );
+        const alpha = Math.min(1, baseAlpha + displacementAlpha + 0.7 * dot.glowIntensity);
+        const isGlowing = dot.glowIntensity > 0.1;
 
-        const dispX = dot.x - dot.gridX;
-        const dispY = dot.y - dot.gridY;
-        const displacement = Math.hypot(dispX, dispY);
-        if (displacement > maxDisp) {
-          const scale = maxDisp / displacement;
-          dot.x = dot.gridX + dispX * scale;
-          dot.y = dot.gridY + dispY * scale;
-          dot.vx *= 0.54;
-          dot.vy *= 0.54;
-        }
-
-        if (Math.random() < glowChance) {
-          dot.glowUntil = time + 280 + Math.random() * 260;
-        }
-        const glowBoost = time < dot.glowUntil ? 0.28 : 0;
-        const breathe = 1 + Math.sin(time * breathingSpeed + dot.phase) * 0.15;
-        const size = dot.baseSize * breathe;
-        const displacementBoost = clamp(Math.hypot(dot.x - dot.gridX, dot.y - dot.gridY) * 0.025, 0, 0.24);
-        if (useBluePalette) {
-          const red = clamp(
-            activeBlueProfile.r.base
-              + dot.tone * activeBlueProfile.r.tone
-              + influence * activeBlueProfile.r.influence
-              + glowBoost * activeBlueProfile.r.glow,
-            activeBlueProfile.r.min,
-            activeBlueProfile.r.max
-          );
-          const green = clamp(
-            activeBlueProfile.g.base
-              + dot.tone * activeBlueProfile.g.tone
-              + influence * activeBlueProfile.g.influence
-              + glowBoost * activeBlueProfile.g.glow,
-            activeBlueProfile.g.min,
-            activeBlueProfile.g.max
-          );
-          const blue = clamp(
-            activeBlueProfile.b.base
-              + dot.tone * activeBlueProfile.b.tone
-              + influence * activeBlueProfile.b.influence
-              + glowBoost * activeBlueProfile.b.glow,
-            activeBlueProfile.b.min,
-            activeBlueProfile.b.max
-          );
-          const baseAlpha = activeAlphaProfile.baseMin + dot.tone * activeAlphaProfile.baseTone;
-          const motionAlpha = influence * activeAlphaProfile.motionInfluence
-            + displacementBoost * activeAlphaProfile.motionDisplacement
-            + glowBoost * activeAlphaProfile.motionGlow;
-          const alpha = clamp(baseAlpha + motionAlpha, activeAlphaProfile.min, activeAlphaProfile.max);
-          ctx.fillStyle = `rgba(${Math.round(red)}, ${Math.round(green)}, ${Math.round(blue)}, ${alpha.toFixed(3)})`;
+        if (alpha > 0.4 || isGlowing) {
+          const glowFactor = Math.max((alpha - 0.4) / 0.6, dot.glowIntensity);
+          ctx.shadowColor = glowColor;
+          ctx.shadowBlur = 10 + 20 * glowFactor;
         } else {
-          const green = clamp(136 + dot.tone * 28 + influence * 26 + displacementBoost * 24 + glowBoost * 80, 118, 242);
-          const blue = clamp(26 + dot.tone * 16 + influence * 14 + displacementBoost * 12 + glowBoost * 44, 18, 94);
-          const alpha = clamp(0.14 + dot.tone * 0.16 + glowBoost * 0.4 + influence * 0.06 + displacementBoost * 0.18, 0.1, 0.82);
-          ctx.fillStyle = `rgba(255, ${Math.round(green)}, ${Math.round(blue)}, ${alpha.toFixed(3)})`;
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
         }
+
+        ctx.fillStyle = dotColor;
+        ctx.globalAlpha = alpha;
         ctx.beginPath();
-        ctx.arc(dot.x, dot.y, size, 0, Math.PI * 2);
+        ctx.arc(dot.x, dot.y, 1, 0, Math.PI * 2);
         ctx.fill();
       }
+
+      state.pointerVelocity.x *= 0.9;
+      state.pointerVelocity.y *= 0.9;
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
       if (!canvasReady) markCanvasReady();
     };
 
@@ -1675,75 +1584,57 @@
       }
       lastFrameTime = time;
       state.frameScale = clamp(elapsed / 16.67, 0.72, 1.58);
-      state.active = state.pointerInside && time - state.lastMoveAt < 130;
-      if (!state.active) {
-        state.tx *= 0.9;
-        state.ty *= 0.9;
-      }
+      layer.style.setProperty('--dot-pointer-x', '50%');
+      layer.style.setProperty('--dot-pointer-y', '42%');
+      layer.style.setProperty('--dot-shift-x', '0px');
+      layer.style.setProperty('--dot-shift-y', '0px');
+      layer.style.setProperty('--dot-arc-x', '0px');
+      layer.style.setProperty('--dot-arc-y', '0px');
+      layer.style.setProperty('--dot-glow', '0');
 
-      const follow = state.active ? 0.2 : 0.11;
-      state.x += (state.tx - state.x) * follow;
-      state.y += (state.ty - state.y) * follow;
-
-      const moving = Math.hypot(state.pointerDx, state.pointerDy) > movementThreshold;
-
-      const shiftX = state.x * 18;
-      const shiftY = state.y * 13;
-      const arcX = state.x * -12;
-      const arcY = state.y * -8;
-
-      layer.style.setProperty('--dot-pointer-x', `${(50 + state.x * 18).toFixed(2)}%`);
-      layer.style.setProperty('--dot-pointer-y', `${(42 + state.y * 15).toFixed(2)}%`);
-      layer.style.setProperty('--dot-shift-x', `${shiftX.toFixed(2)}px`);
-      layer.style.setProperty('--dot-shift-y', `${shiftY.toFixed(2)}px`);
-      layer.style.setProperty('--dot-arc-x', `${arcX.toFixed(2)}px`);
-      layer.style.setProperty('--dot-arc-y', `${arcY.toFixed(2)}px`);
-      layer.style.setProperty('--dot-glow', moving ? '0.44' : '0.36');
-
-      orbs.forEach(({ el, depth }) => {
-        el.style.setProperty('--orb-x', `${(shiftX * (0.78 + depth)).toFixed(2)}px`);
-        el.style.setProperty('--orb-y', `${(shiftY * (0.68 + depth)).toFixed(2)}px`);
+      orbs.forEach(({ el }) => {
+        el.style.setProperty('--orb-x', '0px');
+        el.style.setProperty('--orb-y', '0px');
       });
 
       renderCanvas(time);
-      state.pointerDx *= state.pointerInside ? 0.9 : 0.76;
-      state.pointerDy *= state.pointerInside ? 0.9 : 0.76;
       schedule();
     };
 
     const updateTarget = (event) => {
-      const viewW = Math.max(window.innerWidth || 1, 1);
-      const viewH = Math.max(window.innerHeight || 1, 1);
-      const relX = (event.clientX / viewW) * 2 - 1;
-      const relY = (event.clientY / viewH) * 2 - 1;
-      const shapedX = Math.sign(relX) * Math.pow(Math.abs(relX), 0.86);
-      const shapedY = Math.sign(relY) * Math.pow(Math.abs(relY), 0.88);
-      state.tx = clamp(shapedX, -1, 1);
-      state.ty = clamp(shapedY, -1, 1);
-      if (state.pointerInside) {
-        state.pointerDx = event.clientX - state.pointerX;
-        state.pointerDy = event.clientY - state.pointerY;
-      } else {
-        state.pointerDx = 0;
-        state.pointerDy = 0;
+      const rect = layer.getBoundingClientRect();
+      const nextX = event.clientX - rect.left;
+      const nextY = event.clientY - rect.top;
+      const inside = nextX >= 0 && nextX <= rect.width && nextY >= 0 && nextY <= rect.height;
+
+      if (!inside) {
+        resetPointer();
+        schedule();
+        return;
       }
-      state.pointerX = event.clientX;
-      state.pointerY = event.clientY;
-      state.pointerInside = true;
-      state.active = true;
-      state.lastMoveAt = performance.now();
+
+      if (!state.pointerReady || state.pointer.x < 0) {
+        state.pointer.x = nextX;
+        state.pointer.y = nextY;
+        state.prevPointer.x = nextX;
+        state.prevPointer.y = nextY;
+        state.pointerVelocity.x = 0;
+        state.pointerVelocity.y = 0;
+        state.pointerReady = true;
+      } else {
+        state.prevPointer.x = state.pointer.x;
+        state.prevPointer.y = state.pointer.y;
+        state.pointer.x = nextX;
+        state.pointer.y = nextY;
+        state.pointerVelocity.x = state.pointer.x - state.prevPointer.x;
+        state.pointerVelocity.y = state.pointer.y - state.prevPointer.y;
+      }
+
       schedule();
     };
 
     const resetTarget = () => {
-      state.pointerInside = false;
-      state.active = false;
-      state.tx = 0;
-      state.ty = 0;
-      state.lastMoveAt = 0;
-      state.pointerDx = 0;
-      state.pointerDy = 0;
-      setNeutralPointer(false);
+      resetPointer();
       schedule();
     };
 
@@ -1753,29 +1644,40 @@
         resizeCanvas();
         renderCanvas(0);
         canvasReadyHandle = window.requestAnimationFrame(() => markCanvasReady());
-        window.addEventListener('resize', () => {
+        const handleResize = () => {
           resizeCanvas();
           renderCanvas(0);
-        }, { passive: true });
+          schedule();
+        };
+
+        if ('ResizeObserver' in window) {
+          resizeObserver = new ResizeObserver(handleResize);
+          resizeObserver.observe(layer);
+        }
+        window.addEventListener('resize', handleResize, { passive: true });
       }
 
       if (canAnimate) {
-        window.addEventListener('pointermove', updateTarget, { passive: true });
-        window.addEventListener('pointerdown', updateTarget, { passive: true });
-        window.addEventListener('pointerleave', resetTarget);
+        window.addEventListener('mousemove', updateTarget, { passive: true });
+        window.addEventListener('mouseleave', resetTarget);
         window.addEventListener('blur', resetTarget);
         document.addEventListener('visibilitychange', () => {
           if (document.hidden) {
-            state.pointerInside = false;
-            state.active = false;
-            state.tx = 0;
-            state.ty = 0;
-            state.lastMoveAt = 0;
-            state.pointerDx = 0;
-            state.pointerDy = 0;
+            resetPointer();
             return;
           }
-          setNeutralPointer(false);
+          lastFrameTime = 0;
+          resetPointer();
+          for (let i = 0; i < dots.length; i += 1) {
+            const dot = dots[i];
+            dot.vx = 0;
+            dot.vy = 0;
+            dot.x = dot.baseX;
+            dot.y = dot.baseY;
+            dot.glowIntensity = 0;
+            dot.glowTarget = 0;
+            dot.nextGlowTime = 2 * Math.random();
+          }
           schedule();
         });
         schedule();

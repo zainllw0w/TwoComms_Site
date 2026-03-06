@@ -56,7 +56,7 @@
       --dot-shift-y: 0px;
       --dot-arc-x: 0px;
       --dot-arc-y: 0px;
-      --dot-glow: 0.4;
+      --dot-glow: 0;
     }
     body[data-page="home"] .home-dot-distortion {
       display: block;
@@ -70,9 +70,8 @@
       content: "";
       position: absolute;
       inset: 0;
-      background:
-        radial-gradient(120% 90% at 52% 76%, rgba(6, 7, 9, 0.12), rgba(5, 5, 7, 0.62) 74%, rgba(5, 5, 7, 0.76) 100%);
-      opacity: var(--dot-glow);
+      background: none;
+      opacity: 0;
     }
     .home-dot-distortion .dot-distortion-canvas {
       position: absolute;
@@ -120,7 +119,7 @@
     <link rel="stylesheet" href="{% static 'dtf/css/fonts-local.css' %}?v=20260228b">
   </noscript>
   <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}?v=20260228b">
-  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260304a">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}?v=20260306b">
   <link rel="stylesheet" href="{% static 'dtf/css/components/icons.css' %}?v=20260304a">
   <link rel="stylesheet" href="{% static 'dtf/css/components/animations.css' %}?v=20260304a">
   {% if dtf_load_effects %}
@@ -133,7 +132,7 @@
       <link rel="stylesheet" href="{% static 'dtf/css/components/effects-bundle.css' %}?v=20260304a">
     </noscript>
   {% endif %}
-  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.js' %}?v=20260304a">
+  <link rel="preload" as="script" href="{% static 'dtf/js/dtf.js' %}?v=20260306b">
   {% block extra_head %}{% endblock %}
 </head>
 <body data-page="{% block page_id %}{% endblock %}">
@@ -531,7 +530,7 @@
   </div>
 
   {{ feature_flags|json_script:"dtf-feature-flags" }}
-  <script src="{% static 'dtf/js/dtf.js' %}?v=20260304a" defer></script>
+  <script src="{% static 'dtf/js/dtf.js' %}?v=20260306b" defer></script>
   {% if dtf_load_htmx %}
     <script src="{% static 'dtf/js/vendor/htmx.min.js' %}?v=20260228b" defer></script>
   {% endif %}

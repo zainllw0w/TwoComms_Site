@@ -220,7 +220,7 @@ body[data-page="home"][data-legacy-ink="on"] .ink-droplets {
   --dot-shift-y: 0px;
   --dot-arc-x: 0px;
   --dot-arc-y: 0px;
-  --dot-glow: 0.4;
+  --dot-glow: 0;
 }
 
 body[data-page="home"] .home-dot-distortion {
@@ -1391,8 +1391,8 @@ body[data-page="home"] section.section > .dtf-container {
   height: 100%;
   border-radius: 0;
   opacity: 0;
-  mix-blend-mode: screen;
-  filter: saturate(1.10) contrast(1.12);
+  mix-blend-mode: normal;
+  filter: none;
   pointer-events: none;
   transition: opacity 180ms ease;
 }
@@ -1403,7 +1403,7 @@ body[data-page="home"] section.section > .dtf-container {
 }
 
 .home-dot-distortion.has-canvas.is-canvas-ready .dot-distortion-canvas {
-  opacity: 0.98;
+  opacity: 1;
 }
 
 .home-dot-distortion.has-canvas.is-canvas-ready .dot-field,
@@ -1431,29 +1431,24 @@ body[data-page="home"] section.section > .dtf-container {
 }
 
 .home-dot-distortion.is-static::before {
-  background:
-    radial-gradient(120% 90% at 52% 74%, rgba(6, 7, 9, 0.28), rgba(5, 5, 7, 0.82) 74%, rgba(5, 5, 7, 0.92) 100%);
-  opacity: 0.62;
+  background: none;
+  opacity: 0;
 }
 
 .home-dot-distortion::before {
   content: "";
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(120% 90% at 52% 76%, rgba(6, 7, 9, 0.12), rgba(5, 5, 7, 0.62) 72%, rgba(5, 5, 7, 0.76) 100%);
-  opacity: var(--dot-glow);
-  transition: opacity 200ms ease;
+  background: none;
+  opacity: 0;
+  transition: none;
 }
 
 .home-dot-distortion::after {
   content: "";
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(36% 28% at 12% 18%, rgba(94, 138, 255, 0.1), transparent 74%),
-    radial-gradient(30% 27% at 84% 26%, rgba(154, 189, 255, 0.08), transparent 76%);
-  opacity: 0.72;
+  display: none;
 }
 
 .home-dot-distortion .dot-field {
