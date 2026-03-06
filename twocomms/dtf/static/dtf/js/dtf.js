@@ -1583,7 +1583,7 @@
         return;
       }
       lastFrameTime = time;
-      state.frameScale = clamp(elapsed / 16.67, 0.72, 1.58);
+      state.frameScale = Math.min(elapsed / 16.67, 1.5);
       layer.style.setProperty('--dot-pointer-x', '50%');
       layer.style.setProperty('--dot-pointer-y', '42%');
       layer.style.setProperty('--dot-shift-x', '0px');
@@ -1659,7 +1659,6 @@
 
       if (canAnimate) {
         window.addEventListener('mousemove', updateTarget, { passive: true });
-        window.addEventListener('mouseleave', resetTarget);
         window.addEventListener('blur', resetTarget);
         document.addEventListener('visibilitychange', () => {
           if (document.hidden) {
