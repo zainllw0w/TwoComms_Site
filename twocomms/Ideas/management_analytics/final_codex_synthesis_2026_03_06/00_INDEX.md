@@ -46,6 +46,7 @@
 12. `12_CALIBRATION_DEFAULTS_AND_PRESETS.md`
 13. `13_CROSS_SYSTEM_GUARDRAILS.md`
 14. `14_OPUS_SECOND_PASS_DECISION_LOG.md`
+15. `15_ADMIN_ECONOMICS_AND_EARNED_DAY.md`
 
 ## Карта файлов
 - `01_MASTER_SYNTHESIS.md` — единый отбор лучших идей всех агентов.
@@ -62,6 +63,7 @@
 - `12_CALIBRATION_DEFAULTS_AND_PRESETS.md` — единый источник стартовых чисел, пресетов и thresholds.
 - `13_CROSS_SYSTEM_GUARDRAILS.md` — audit/security/backup/performance/i18n guardrails.
 - `14_OPUS_SECOND_PASS_DECISION_LOG.md` — детальный decision log по второму раунду Opus: что принято, что ограничено, что переведено в shadow layer и что отвергнуто.
+- `15_ADMIN_ECONOMICS_AND_EARNED_DAY.md` — admin-only economics analytics, score-to-money validation, payback logic и production-safe версия системы `Earned Day`.
 
 ## Ground truth по текущему коду
 Текущий проект уже даёт основу, на которую можно опираться:

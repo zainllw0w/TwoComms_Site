@@ -146,7 +146,9 @@ Opus был прав: первой версии roadmap не хватало dura
 - payroll preview,
 - gross/net display,
 - dispute workflow,
-- portfolio health impact.
+- portfolio health impact,
+- admin economics dashboard,
+- earned-day ledger.
 
 ### Ограничение
 Жёсткие меры включать только после:
@@ -154,6 +156,12 @@ Opus был прав: первой версии roadmap не хватало dura
 - manager onboarding,
 - written rules,
 - admin workflow rehearsal.
+
+Дополнительно:
+- `Earned Day` в monetary mode не включать как default,
+- raw daily salary withholding не включать без отдельного policy/legal review,
+- сначала запускать ledger + coaching + override flow,
+- и только потом решать, нужен ли discipline reserve.
 
 ## 9. Phase 6: telephony and QA
 
@@ -244,3 +252,6 @@ Audit/security/backup/performance rules:
 
 Decision log по второму проходу Opus:
 - `14_OPUS_SECOND_PASS_DECISION_LOG.md`
+
+Admin economics and safe earned-day model:
+- `15_ADMIN_ECONOMICS_AND_EARNED_DAY.md`

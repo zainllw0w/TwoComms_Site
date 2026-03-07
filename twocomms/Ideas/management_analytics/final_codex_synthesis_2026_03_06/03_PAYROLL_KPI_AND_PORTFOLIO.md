@@ -21,7 +21,9 @@
 - уточнил portfolio cadence для fashion wholesale,
 - отделил commission truth от noise-heavy аналитики,
 - добавил правила для reactivation success и chronic decline review,
-- добавил production-safe multi-touch policy для спорных кейсов.
+- добавил production-safe multi-touch policy для спорных кейсов,
+- добавил safe variant для `Earned Day`,
+- связал payroll view с admin economics, не превращая это в manager-facing санкционную панель.
 
 ## 3. Dual probation
 
@@ -156,6 +158,25 @@
 - влиять на accelerator eligibility,
 - но не переписывать verified commission truth.
 
+### 8.5 Earned Day safe variant
+Идею `Earned Day` принимаю только в production-safe форме.
+
+По умолчанию:
+- система ведёт `earned day ledger`,
+- считает `Daily Minimum Threshold`,
+- показывает earned/missed/recovered/excused days,
+- использует это для coaching и admin review.
+
+По умолчанию НЕ делаем:
+- автоматическое списание полной дневной base salary,
+- необратимую потерю дня,
+- скрытую штрафную логику без review.
+
+Если бизнес позже захочет monetary linkage:
+- использовать только `discipline reserve` или отдельный `earned-day bonus pool`,
+- а не прямое ежедневное урезание contractual base,
+- и только после policy/legal review и прозрачных правил.
+
 ## 9. Gross / Net preview
 
 В salary simulator нужно показывать не только начислено, но и:
@@ -167,6 +188,20 @@
 - gross/net не влияет на MOSAIC,
 - это отдельный payroll UI layer,
 - режим зависит от формы сотрудничества и хранится в профиле менеджера.
+
+### 9.1 Admin economics attachment
+Для admin view payroll screen должен дополнительно уметь показывать:
+- attributed revenue,
+- commission cost,
+- fixed manager cost,
+- payback day,
+- contribution proxy,
+- прогноз на конец месяца.
+
+Но эти метрики:
+- не показываются менеджеру в сыром виде по умолчанию,
+- не превращаются автоматически в санкцию,
+- используются как управленческий economic layer.
 
 ## 10. Commission dispute workflow
 

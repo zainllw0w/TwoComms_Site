@@ -53,6 +53,8 @@
 - weekly hard KPI,
 - monthly compliance check,
 - payroll preview,
+- earned-day ledger,
+- discipline reserve hooks,
 - accelerator logic,
 - penalty governance.
 
@@ -110,6 +112,7 @@
 - duplicate queue,
 - KPI breach queue,
 - payroll risk,
+- admin economics dashboard,
 - QA lab,
 - team analytics,
 - power-user shortcuts,

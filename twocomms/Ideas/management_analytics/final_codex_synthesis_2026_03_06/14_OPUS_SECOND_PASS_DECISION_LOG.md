@@ -242,7 +242,67 @@
 - это очень полезно для реальной работы менеджера,
 - но это UI/data integration work, а не formula work.
 
-## 7. Отклонено или жёстко ограничено
+## 7. Что принято из Opus 4.8
+
+### 7.1 Admin Economics Dashboard
+Статус:
+- `принято`
+
+Почему:
+- это чистый admin-only BI layer,
+- он усиливает кадровые и управленческие решения,
+- не ломает score и не лезет в manager-facing pressure by default.
+
+Что включено:
+- cost model,
+- attributed revenue,
+- contribution proxy,
+- break-even,
+- payback speed,
+- forecast scenarios.
+
+### 7.2 Score-to-revenue validation and confidence
+Статус:
+- `принято`
+
+Почему:
+- сам MOSAIC должен проверяться на связь с revenue,
+- admin должен знать, насколько вообще можно верить score.
+
+### 7.3 Score-to-money map
+Статус:
+- `принято с ограничениями`
+
+Почему:
+- идея очень полезная,
+- но только после достаточной истории и только с confidence label.
+
+### 7.4 Persistence and processing metrics
+Статус:
+- `принято как admin-only`
+
+Почему:
+- дают ценную экономическую и операционную картину,
+- но не должны превращаться в ещё одну payroll-ось.
+
+### 7.5 Earned Day
+Статус:
+- `принято только в safe variant`
+
+Что принято:
+- earned-day ledger,
+- DMT,
+- recovery,
+- excused days,
+- admin override,
+- progressive escalation.
+
+Что не принято как default:
+- прямое ежедневное урезание полной base salary,
+- необратимая потеря дня,
+- агрессивная санкционная механика без policy/legal layer.
+
+## 8. Отклонено или жёстко ограничено
 
 ### 7.1 Direct efficiency modifier on Result
 Статус:
@@ -306,7 +366,7 @@
 - слишком легко скатиться в манипулятивную UX-механику,
 - не повышает explainability.
 
-## 8. Главный вывод
+## 9. Главный вывод
 
 Opus был прав не в том, что “нужно включить всё”.
 Opus был прав в другом:
@@ -314,6 +374,7 @@ Opus был прав в другом:
 - защиты от малых выборок,
 - integrity-layer,
 - admin-only early-warning signals,
+- admin economics and score validation,
 - и более аккуратного разделения между truth и diagnostics.
 
 Итоговая архитектура после второго прохода стала сильнее по 4 направлениям:
