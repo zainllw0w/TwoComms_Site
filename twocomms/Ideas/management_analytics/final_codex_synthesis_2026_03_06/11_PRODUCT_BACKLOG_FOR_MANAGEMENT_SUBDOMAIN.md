@@ -121,6 +121,31 @@
 - DTF виден,
 - но не ломает wholesale management logic.
 
+### Module J: Calibration and Preset Layer
+Содержит:
+- operating modes,
+- thresholds,
+- source baselines,
+- gate presets,
+- telephony maturity presets,
+- optional comparative-engine switch.
+
+Готово, когда:
+- все числа хранятся централизованно,
+- изменение presets не требует охоты по разным документам и таблицам.
+
+### Module K: Cross-System Guardrails
+Содержит:
+- audit log,
+- notification preferences,
+- security rules,
+- backup/disaster recovery,
+- performance budgets,
+- i18n readiness.
+
+Готово, когда:
+- риск вокруг payroll, dedupe, merge и QA закрыт не только логикой, но и системными гарантиями.
+
 ## 3. API and service backlog
 
 Нужны сервисы:

@@ -43,6 +43,8 @@
 9. `09_RESEARCH_QUESTIONS_FOR_DEEP_AGENT.md`
 10. `10_SOURCE_MAP_AND_EXTERNAL_BEST_PRACTICES.md`
 11. `11_PRODUCT_BACKLOG_FOR_MANAGEMENT_SUBDOMAIN.md`
+12. `12_CALIBRATION_DEFAULTS_AND_PRESETS.md`
+13. `13_CROSS_SYSTEM_GUARDRAILS.md`
 
 ## Карта файлов
 - `01_MASTER_SYNTHESIS.md` — единый отбор лучших идей всех агентов.
@@ -56,6 +58,8 @@
 - `09_RESEARCH_QUESTIONS_FOR_DEEP_AGENT.md` — 5 вопросов для следующего deep-research агента.
 - `10_SOURCE_MAP_AND_EXTERNAL_BEST_PRACTICES.md` — источник решений и внешние best practices.
 - `11_PRODUCT_BACKLOG_FOR_MANAGEMENT_SUBDOMAIN.md` — модульный backlog для прямой разработки.
+- `12_CALIBRATION_DEFAULTS_AND_PRESETS.md` — единый источник стартовых чисел, пресетов и thresholds.
+- `13_CROSS_SYSTEM_GUARDRAILS.md` — audit/security/backup/performance/i18n guardrails.
 
 ## Ground truth по текущему коду
 Текущий проект уже даёт основу, на которую можно опираться:

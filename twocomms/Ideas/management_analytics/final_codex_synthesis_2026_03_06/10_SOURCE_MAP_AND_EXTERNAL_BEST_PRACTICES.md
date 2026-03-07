@@ -153,3 +153,24 @@
 Они сделали две вещи:
 - подтвердили, какие решения стоит оставить,
 - подсветили, где красивые идеи надо приземлить в безопасный operating model.
+
+## 11. Academic anchors used for decision quality
+
+Ниже не “абсолютная истина”, а исследовательские опоры, которые полезны для проверки логики решений:
+- `Kahneman & Tversky, 1979` — loss aversion,
+- `Yerkes-Dodson, 1908` — excessive stress hurts performance,
+- `Locke & Latham, 2002` — specific goals improve results,
+- `Csikszentmihalyi, 1990` — immediate feedback supports flow,
+- `Hamari et al., 2014` — gamification can improve engagement,
+- `Thaler, 1980` — endowment effect,
+- `Reichheld / Bain, 2003` — retention and profit relationship,
+- `Ribeiro et al., 2016` — explainability improves trust,
+- `Deming, 1982` — punitive quality regimes corrupt reporting.
+
+Как это использовано:
+- loss aversion → portfolio health and orphan logic,
+- goal setting → presets and KPI numbers,
+- flow → micro-feedback layer,
+- gamification → seasonal ladder and safe UI rewards,
+- explainability → mandatory score breakdown,
+- anti-punitive quality stance → QA affects coaching and trust, not instant blind punishment.

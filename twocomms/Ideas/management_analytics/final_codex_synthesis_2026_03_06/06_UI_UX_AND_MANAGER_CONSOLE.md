@@ -2,64 +2,91 @@
 
 ## 1. Принцип
 
-Интерфейс management subdomain не должен быть “красивой статистикой”.
+Management UI не должен быть “красивой статистикой”.
 Он должен:
 - показывать следующее лучшее действие,
 - удерживать внимание на деньгах, клиентах и рисках,
 - уменьшать трение,
 - делать систему объяснимой,
-- не превращать работу в токсичную игру.
+- быть usable и на desktop, и на телефоне.
 
-## 2. Manager console
+## 2. Что изменено после Opus-аудита
 
-### 2.1 Верхний ряд
+После аудита я добавил:
+- mobile-first manager worklist spec,
+- accessibility and states,
+- progressive onboarding,
+- real-time updates как optional later phase,
+- более конкретный UI contract для admin and QA.
+
+## 3. Manager console
+
+### 3.1 Верхний ряд
 - `MOSAIC score today`
 - `week KPI progress`
 - `portfolio health`
 - `current earnings`
 - `callbacks due today`
 
-### 2.2 Главный центральный блок
-`Today Action Stack`
+### 3.2 Today Action Stack
+Сортировка теперь должна учитывать не только просрочку, но и value-priority.
 
-Порядок:
-1. просроченные callback,
-2. клиенты в `Risk/Rescue`,
+В верхних позициях:
+1. overdue high-value callbacks,
+2. rescue portfolio clients,
 3. warm leads without next action,
-4. duplicate resolutions,
-5. calls to review after QA.
+4. duplicate/ownership resolutions,
+5. calls flagged for QA follow-up.
 
-### 2.3 Portfolio block
-Берём идею `Tamagotchi`, но убираем клоунаду.
-
-Вместо дешёвой геймификации делаем:
-- живые карточки клиентов,
+### 3.3 Portfolio block
+Идею `Tamagotchi` сохраняем, но в production-safe форме:
+- живые клиентские карточки,
 - цвет здоровья,
 - маркер упущенных денег,
-- trigger “лучший следующий шаг”.
+- один ясный next step.
 
-### 2.4 Salary simulator
-Идею сохраняем.
+### 3.4 Salary simulator
+Сохраняем и усиливаем:
+- new paid order impact,
+- repeat order impact,
+- reactivation impact,
+- gross/net preview,
+- what unlocks accelerator.
 
-Менеджер может увидеть:
-- если вернуть 2 риск-клиента,
-- если получить 1 новый first order,
-- если закрыть 1 repeat на такую-то сумму,
-- как изменится итог месяца.
-
-Это одна из самых сильных идей Gemini и её обязательно нужно внедрить.
-
-### 2.5 Heatmap and Golden Hour
-На одной странице:
+### 3.5 Heatmap and Golden Hour
+На manager screen:
 - monthly heatmap,
-- personal top hours,
-- 7-day trend,
+- top hours,
+- trend,
 - reason-quality trend,
-- callback SLA trend.
+- callback SLA trend,
+- micro-feedback stream.
 
-## 3. Admin console
+## 4. Mobile-first manager spec
 
-### 3.1 Верхний ряд
+Менеджерская работа часто идёт с телефона, поэтому mobile spec нельзя оставлять как “потом”.
+
+### 4.1 Обязательные mobile требования
+- bottom navigation,
+- one-thumb action buttons,
+- callback done/reschedule gestures,
+- compact action stack,
+- fast add/log flow,
+- push-ready notification surface.
+
+### 4.2 Что должно работать first-class на mobile
+- today action stack,
+- callback handling,
+- quick call logging,
+- portfolio rescue actions,
+- no-touch report confirm,
+- earnings snapshot.
+
+PWA можно рассматривать как Phase-2 enhancement, но mobile-first worklist обязателен сразу.
+
+## 5. Admin console
+
+### 5.1 Верхний ряд
 - team score snapshot,
 - no-report count,
 - QA risk count,
@@ -67,16 +94,15 @@
 - payroll risk count,
 - portfolio churn risk.
 
-### 3.2 Control center
-Нужны 5 колонок:
+### 5.2 Control center
+Нужны отдельные очереди:
 - `Coaching Needed`
 - `QA Reviews`
 - `Duplicate/Ownership Reviews`
 - `KPI Breach`
 - `Rescue/Reassign Candidates`
 
-### 3.3 Team analytics
-Отдельные вкладки:
+### 5.3 Team analytics
 - team heatmap,
 - source mix performance,
 - conversion funnel,
@@ -84,84 +110,86 @@
 - payback and ROI,
 - telephony quality.
 
-## 4. QA / Supervisor console
+## 6. QA / Supervisor console
 
-Отдельный режим, а не просто модалка у админа.
+Это отдельный режим, а не вкладка “где-то у админа”.
 
 Нужны:
 - live queue,
 - recording player,
 - scorecard panel,
 - calibration mode,
-- coaching notes,
 - disagreement flag,
-- outcome mismatch flag.
+- outcome mismatch flag,
+- coaching note and follow-up task.
 
-## 5. Что из Gemini берём, но ослабляем
+## 7. Progressive onboarding
+
+Система сложная. Новый менеджер не должен видеть сразу всё.
+
+### 7.1 Режим раскрытия
+- Day `1-3`: Action Stack + basic score + callback queue.
+- Day `4-7`: + portfolio block + salary simulator.
+- Day `8-14`: + heatmap + trend cards.
+- Day `15+`: + achievements, seasonal ladder, deeper analytics.
+
+Это уменьшает перегрузку и ускоряет adoption.
+
+## 8. States and reliability
+
+UI обязан описывать не только happy path.
+
+Нужны states:
+- loading,
+- empty,
+- partial data,
+- error,
+- offline/retrying.
+
+Manager и admin не должны видеть blank blocks без объяснения.
+
+## 9. Accessibility and theme readiness
+
+Нужны:
+- contrast-safe colors,
+- icon + color, а не только red/green,
+- touch targets `>= 44x44`,
+- keyboard navigation for admin,
+- screen-reader-safe labels,
+- light/dark/system readiness.
+
+Это не “украшение”, а часть рабочего качества интерфейса.
+
+## 10. Real-time updates
+
+Real-time updates нужны, но не в первой фазе.
+
+Финальное решение:
+- real-time leaderboard and queue nudges only after score engine stabilized,
+- transport = SSE or WebSocket only if monitoring shows real need,
+- initial product can live on frequent targeted refresh without premature infra complexity.
+
+## 11. Что из Gemini берём, но ослабляем
 
 ### Берём
-- `Tamagotchi/portfolio health`,
-- `salary simulator`,
-- `golden hour`,
-- `no-touch report`,
-- `shadow rival`.
+- portfolio health metaphor,
+- salary simulator,
+- golden hour,
+- no-touch report,
+- shadow rival.
 
 ### Не берём в сыром виде
 - `Shark Pool`,
 - `Doomsday Screen`,
-- публичное унижение,
-- агрессивные тексты про выживание и слабых.
+- public shame,
+- survivalist copy.
 
-## 6. No-touch report
+## 12. What must never be lost
 
-Это сильная практическая идея.
-
-В конце дня менеджер не должен писать сочинение.
-Система сама собирает draft:
-- звонки,
-- verified progress,
-- новые подключения,
-- repeat reactivation,
-- риски на завтра,
-- краткий self-comment.
-
-Менеджер:
-- подтверждает,
-- дописывает 1-2 строчки,
-- отправляет.
-
-Это поднимет report compliance сильнее, чем любые угрозы.
-
-## 7. Shadow rival
-
-Идею оставляем только в мягкой форме:
-- без публичного shame,
-- без токсичного текста,
-- только локальное сравнение рядом с личным прогрессом.
-
-Формулировка должна быть:
-- “ещё 2 качественных действия и вы подниметесь на 1 позицию”,
-а не
-- “обгони Игоря, иначе ты слабый”.
-
-## 8. Дизайн-язык
-
-Нужна эстетика `операционный центр`, а не просто таблица.
-
-Основные принципы:
-- высокий signal density,
-- крупные actionable cards,
-- спокойная цветовая система,
-- минимальное количество декоративного шума,
-- сильный hover/explainability слой,
-- один primary CTA на блок.
-
-## 9. Что нельзя терять в UI
-
-- explainability score,
+- explainability,
 - clear next actions,
 - portfolio visibility,
 - supervisor visibility,
-- separation of manager/admin/private financial details,
-- mobile-usable worklists для менеджера,
+- separation of manager/admin/private finance,
+- mobile-usable manager worklists,
 - desktop-optimized admin and QA views.

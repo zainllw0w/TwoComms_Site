@@ -2,64 +2,93 @@
 
 ## 1. Финансовое ядро
 
-Сохраняем сильнейшую бизнес-идею из всех документов:
-- `ставка: 15 000 грн`,
+Сохраняем сильнейшую бизнес-идею из всего корпуса документов:
+- `15 000 грн` базовой ставки,
 - `2.5%` за первый оплаченный заказ,
-- `5.0%` за повторные оплаченные заказы.
+- `5.0%` за повторный оплаченный заказ.
 
-Это напрямую переводит менеджера из режима `охотник` в режим `владелец портфеля`.
+Это остаётся сердцем TwoComms-модели.
 
-## 2. Что меняем относительно старых версий
+## 2. Что изменено после Opus-аудита
 
-Старое жёсткое `5+3` слишком короткое как единственный критерий в B2B.
+После аудита я:
+- зафиксировал числовые KPI defaults,
+- зафиксировал `Stage B = 14 рабочих дней`,
+- формализовал accelerator,
+- определил `meaningful contact`,
+- добавил dispute workflow,
+- добавил gross/net preview,
+- уточнил portfolio cadence для fashion wholesale.
 
-Но пользовательский запрос на быстрый тест сохраняем через двухконтурный отбор.
+## 3. Dual probation
 
-### 2.1 Stage A: быстрый screen
+### 3.1 Stage A
 `5 рабочих дней`
 
-Проверяем:
-- дисциплину,
-- качество ввода данных,
-- follow-up behaviour,
-- скорость освоения CRM,
-- отсутствие фейка и абуза,
-- минимум один адекватный progressing lead.
+Цель:
+- понять, способен ли человек работать дисциплинированно,
+- не абузит ли CRM,
+- умеет ли корректно вести follow-up,
+- способен ли создавать осмысленный progressing pipeline.
 
-### 2.2 Stage B: реальный ramp
-`10-14 рабочих дней`
+### 3.2 Stage B
+`14 рабочих дней`
 
-Проверяем:
-- реальный pipeline,
-- source fairness,
-- качество разговоров,
-- первые verified коммерческие шаги,
-- возможность получить первую оплату без искусственного давления.
+Фиксирую жёстко, без размытых `10-14`.
 
-Итог:
-- пользовательский быстрый фильтр не теряется,
-- B2B реальность не ломается.
+Цель:
+- увидеть реальный коммерческий ритм,
+- оценить fairness по источникам,
+- увидеть первые verified milestones,
+- дать шанс cold B2B циклу проявиться без искусственного давления.
 
-## 3. KPI stack
+## 4. KPI operating modes
 
-### 3.1 Daily soft KPI
-Нужен для ритма:
+Все numbers ниже — стартовые presets. Их изменение допускается только через admin preset layer и журнал изменений.
+
+| Mode | Daily meaningful contacts | Weekly new paid clients | Callback SLA | Report compliance | Duplicate abuse ceiling |
+|---|---:|---:|---:|---:|---:|
+| `TESTING` | `20` | `1` | `80%` | `85%` | `< 5%` |
+| `NORMAL` | `35` | `2` | `85%` | `90%` | `< 3%` |
+| `HARDCORE` | `50` | `3` | `90%` | `95%` | `< 2%` |
+
+Для TwoComms по умолчанию:
+- probation = `TESTING`,
+- стандартный рабочий режим = `NORMAL`,
+- `HARDCORE` включать только вручную, когда команда и рынок это оправдывают.
+
+## 5. Что такое meaningful contact
+
+Это больше не абстрактное понятие.
+
+`Meaningful contact` считается только если выполнено хотя бы одно:
+- answered call `>= 30 секунд`,
+- клиент ответил в мессенджере или email,
+- создана осмысленная `ShopCommunication`,
+- есть confirmed callback completion,
+- есть verified pipeline move,
+- есть оплата или invoice approval milestone.
+
+Простой miss, click или пустой status в это не входят.
+
+## 6. KPI stack
+
+### 6.1 Daily soft KPI
+- meaningful contacts,
 - callback SLA,
-- data hygiene,
-- report discipline,
+- data quality,
+- report compliance,
 - verified progress,
-- no duplicate abuse,
-- minimum meaningful workload.
+- low duplicate abuse,
+- отсутствие систематического regression.
 
-### 3.2 Weekly hard KPI
-Нужен для бизнеса:
-- новые подключения,
-- progressing opportunities,
-- repeat reactivation,
-- отсутствие просроченного клиентского хвоста.
+### 6.2 Weekly hard KPI
+- новые оплаченные подключения,
+- rescue/reactivation success,
+- pipeline continuity,
+- отсутствие критичного хвоста по callback и stale shops.
 
-### 3.3 Monthly operating KPI
-Нужен для денег и кадровых решений:
+### 6.3 Monthly operating KPI
 - revenue contribution,
 - repeat share,
 - portfolio health,
@@ -67,103 +96,149 @@
 - payback ratio,
 - incident-free discipline.
 
-## 4. Базовые требования менеджера
+## 7. Базовые требования менеджера
 
-Менеджер выполняет базовые требования месяца только если одновременно:
-- daily report compliance `>= 90%`,
+Менеджер считается выполняющим базовые требования месяца только если одновременно:
+- report compliance `>= 90%`,
 - callback on-time rate `>= 85%`,
 - duplicate abuse rate `< 3%`,
-- verified interaction share растёт или держится в норме,
-- нет критического admin-verified incident,
-- MOSAIC rolling score не находится в red zone длительно.
+- critical duplicate flags = `0`,
+- critical QA incidents = `0`,
+- rolling MOSAIC не находится длительно в red zone,
+- есть подтверждённый объём meaningful работы.
 
-Это лучше старых формулировок “просто много звонить”.
+## 8. Зарплатная модель
 
-## 5. Зарплатная модель
+### 8.1 Формула
+`monthly_total = base + first_order_commission + repeat_commission + repeat_accelerator - admin_verified_penalties`
 
-### 5.1 Формула
-`monthly_total = base + first_order_commission + repeat_commission + accelerator - admin_verified_penalties`
+### 8.2 Repeat accelerator
+Теперь фиксирую жёстко:
+- accelerator = `+0.5%` к repeat commission rate на следующий расчётный месяц.
 
-### 5.2 Accelerator
-Добавляю новый слой, которого не хватало у всех агентов.
+То есть:
+- стандартный repeat = `5.0%`,
+- accelerated repeat = `5.5%`.
 
-`accelerator` включается только если:
-- portfolio health высокий,
-- QA высокий,
-- repeat reactivation discipline высокий,
-- нет серьёзных жалоб.
+### 8.3 Условия accelerator
+Менеджер получает accelerator только если одновременно:
+- `portfolio_health >= 70`,
+- `qa_avg >= 80`,
+- `callback_sla >= 85%`,
+- `critical_complaints = 0`,
+- и выполнено одно из двух:
+- `repeat_share >= 30%`,
+- или `successful_reactivations >= 2` за месяц.
 
-Пример:
-- `+0.5%` к repeat commission на месяц,
-- или `flat bonus`,
-- или доступ к лучшим inbound/warm queues.
+## 9. Gross / Net preview
 
-Суть:
-- менеджеру выгодно не только продавать повторно,
-- но и поддерживать портфель качественно, а не токсично.
+В salary simulator нужно показывать не только начислено, но и:
+- gross,
+- expected deductions,
+- estimated net.
 
-## 6. Portfolio Health
+Важно:
+- gross/net не влияет на MOSAIC,
+- это отдельный payroll UI layer,
+- режим зависит от формы сотрудничества и хранится в профиле менеджера.
 
-Это обязательная метрика.
+## 10. Commission dispute workflow
 
-### 6.1 Статусы клиента
-- `Healthy` — активный, свежий заказ/касание.
-- `Watch` — давно не было meaningful контакта.
-- `Risk` — клиент остывает.
-- `Rescue` — нужен срочный перезапуск.
-- `Reassign Eligible` — портфель брошен и подлежит пересмотру.
+Это важное практическое усиление из Opus-аудита.
 
-### 6.2 Правило ownership
+### 10.1 Flow
+1. Менеджер нажимает `оспорить комиссию`.
+2. Выбирает reason.
+3. Спор идёт в admin review queue.
+4. Админ видит:
+- interaction log,
+- CP log,
+- call history,
+- invoice chain,
+- ownership history.
+5. Решение:
+- подтвердить,
+- отклонить,
+- split,
+- reassign.
+6. Всё логируется в audit trail.
+
+## 11. Portfolio health
+
+### 11.1 Базовые состояния
+- `Healthy`
+- `Watch`
+- `Risk`
+- `Rescue`
+- `Reassign Eligible`
+
+### 11.2 Fashion wholesale cadence
+Для TwoComms по умолчанию используем:
+
+| State | Days since meaningful contact |
+|---|---:|
+| `Healthy` | `0-21` |
+| `Watch` | `22-35` |
+| `Risk` | `36-45` |
+| `Rescue` | `46-60` |
+| `Reassign Eligible` | `61+` и/или repeated breaches |
+
+### 11.3 Seasonal buyer modifier
+Для сезонных клиентов применяем modifier, а не тупой единый cutoff.
+
+Например:
+- зимняя сезонная база не должна автоматически считаться `Risk` только потому, что летом у неё нет движения.
+
+## 12. Ownership policy
+
 Автоматическую кражу базы не включаем.
 
 Финальное правило:
-- клиент переходит в `Reassign Eligible` только после срока без meaningful контакта,
-- в системе есть журнал причин,
-- перевод ownership фиксируется,
-- при споре решает админ.
+- reassign возможен только по сроку + сигналам neglect,
+- ownership change логируется,
+- спор уходит админу,
+- rollback возможен в установленное окно.
 
-### 6.3 Рекомендованное окно
-- `0-14 дней` — Healthy,
-- `15-27 дней` — Watch,
-- `28-41 дней` — Risk,
-- `42+ дней` — Rescue,
-- `45+ дней` без нормального касания или с repeated breaches — Reassign Eligible.
+## 13. Consequence ladder
 
-## 7. Consequence ladder
-
-Жёсткое мгновенное снятие ставки оставляем только как крайний случай.
-
-### 7.1 Нормальная лестница
-1. Первая серьёзная KPI-просадка — coaching plan.
+### 13.1 Нормальная лестница
+1. Первая KPI-просадка — coaching plan.
 2. Вторая подряд — supervised review.
 3. Третья подряд — решение по роли, ставке, очереди лидов или условиям работы.
 
-### 7.2 Когда возможен более жёсткий режим
+### 13.2 Жёсткие меры
 Только если есть:
 - доказанный обман,
 - тяжёлые клиентские жалобы,
-- систематический саботаж,
-- повторная манипуляция системой после предупреждения.
+- повторная манипуляция системой,
+- систематический саботаж после предупреждения.
 
-## 8. Что менеджер должен видеть
+Это оставляет систему строгой, но не токсичной.
 
-В интерфейсе зарплаты нужны 4 вещи:
-- `уже заработано`,
-- `что заморожено`,
-- `что можно добрать до конца месяца`,
-- `какие действия поднимут доход быстрее всего`.
+## 14. Что видит менеджер
 
-Именно здесь идея Gemini про `salary simulator` становится действительно сильной.
+В зарплатной части UI менеджер должен видеть:
+- начислено,
+- заморожено,
+- что спорное,
+- что можно добрать до конца месяца,
+- сколько даст reactivation/new paid order/repeat order.
 
-## 9. Что должен видеть админ
+Именно здесь идея `salary simulator` превращается из красивой фичи в реальный управленческий рычаг.
+
+## 15. Что видит админ
 
 Админ видит:
 - base vs commission vs penalty,
 - repeat share,
 - payback,
 - portfolio risk,
-- кто тащит новых клиентов,
-- кто удерживает базу,
-- кто формально активен, но экономически слаб.
+- disputed commissions,
+- кто силён в new business,
+- кто силён в retention,
+- кто делает вид, что работает.
 
-Это превращает зарплатную систему из бухгалтерии в управленческий инструмент.
+## 16. Где лежат presets
+
+Стартовые режимы, modifiers и другие конкретные числа сведены в:
+- `12_CALIBRATION_DEFAULTS_AND_PRESETS.md`

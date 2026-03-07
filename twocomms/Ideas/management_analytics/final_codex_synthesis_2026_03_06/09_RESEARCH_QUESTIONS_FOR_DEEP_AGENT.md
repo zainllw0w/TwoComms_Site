@@ -1,89 +1,96 @@
 # 5 Questions for a Deep Research Agent
 
-## Формат ответа, который нужен от следующего агента
+## Формат ответа
 
-По каждому вопросу агент обязан дать:
-- конкретные выводы,
-- 5-10 качественных источников,
-- что применимо прямо сейчас,
-- что рискованно,
-- benchmark ranges,
-- как это внедрить в CRM TwoComms без enterprise-overkill.
+По каждому вопросу агент обязан вернуть:
+- короткий executive summary,
+- 5-10 сильных источников,
+- benchmark numbers,
+- what to implement now,
+- what to defer,
+- what is risky or overengineered for TwoComms,
+- final recommendation in plain language.
 
-## 1. Какой KPI-микс лучше всего работает для small-team B2B wholesale outbound sales
-
-Нужно исследовать:
-- какие KPI реально коррелируют с paid conversion в small outbound teams,
-- как балансировать `cold outreach`, `follow-up discipline`, `repeat revenue`, `portfolio retention` и `call quality`,
-- какие daily и weekly нормы считаются реалистичными для B2B wholesales, а какие создают fake activity,
-- как отделять KPI for coaching от KPI for compensation.
-
-Нужен вывод в формате:
-- recommended KPI stack,
-- safe thresholds,
-- dangerous thresholds,
-- short-term vs long-term KPI layers.
-
-## 2. Какая модель call QA и supervisor calibration лучше всего предсказывает рост конверсии
+## 1. Какие конкретные KPI thresholds и режимы лучше всего подходят small-team B2B fashion wholesale sales
 
 Нужно исследовать:
-- scorecards в call centers и B2B sales teams,
-- как часто делать calibration,
-- сколько критериев должно быть в rubric,
-- как связать manual QA score с compensation и coaching, не вызвав токсичность,
-- какие supervisor features действительно полезны: `monitor`, `whisper`, `barge`, live assist, transcript review.
+- realistic daily meaningful workload,
+- weekly new paid target,
+- callback SLA norms,
+- report compliance norms,
+- duplicate abuse thresholds,
+- seasonality modifiers for fashion wholesale,
+- difference between onboarding mode and steady-state mode.
 
-Нужен вывод в формате:
-- final QA rubric recommendation,
+Нужно получить:
+- `TESTING / NORMAL / HARDCORE` presets,
+- monthly and weekly ranges,
+- what thresholds are too harsh and create fake activity,
+- what thresholds are too soft and hide underperformance.
+
+## 2. Какой comparative rating engine лучше для TwoComms: Seasonal Ladder, Glicko-2, hybrid ladder, или другой вариант
+
+Нужно исследовать:
+- what works for small teams `3-7 managers`,
+- how to handle absence, comeback after a bad week, close scores, and cold streaks,
+- whether gaming-style rating improves motivation or adds noise,
+- how to combine day score, micro-feedback and long-term rating.
+
+Нужно получить:
+- recommended default comparative mode,
+- recommended advanced mode,
+- when to switch from simple ladder to Glicko-like engine,
+- concrete formulas or pseudo-formulas with tradeoffs.
+
+## 3. Какая модель call QA и calibration действительно улучшает продажи, а не превращается в субъективный контроль
+
+Нужно исследовать:
+- best QA scorecards for outbound B2B sales,
+- what weights work,
+- how often to calibrate,
+- how to measure inter-rater reliability,
+- how QA should affect coaching, trust and payroll,
+- what supervisor features are must-have vs optional.
+
+Нужно получить:
+- final QA rubric,
 - calibration cadence,
+- kappa or equivalent reliability thresholds,
 - QA-to-coaching policy,
-- QA-to-payroll policy.
+- QA-to-compensation limits.
 
-## 3. Какие identity-resolution и duplicate-management паттерны лучше всего подходят CRM с телефонией, lead parsing и ручным вводом
-
-Нужно исследовать:
-- best practices dedupe for phone/email/store-name systems,
-- multi-signal identity graphs,
-- ownership conflicts,
-- “create new vs append existing” flows,
-- how to reduce duplicate false positives without missing real duplicates.
-
-Нужен вывод в формате:
-- exact rules,
-- fuzzy rules,
-- review queue design,
-- anti-abuse safeguards,
-- migration approach for existing dirty data.
-
-## 4. Какой reminder and escalation cadence максимизирует callback completion и не создаёт alert fatigue
+## 4. Какие dedupe, merge и migration patterns лучше всего подходят для CRM с lead parsing, batch import и телефонией
 
 Нужно исследовать:
-- reminder timing,
-- queue-based action design,
-- escalation ladders,
-- digests vs instant notifications,
-- no-report policies,
-- how top CRMs and contact centers handle overdue next steps.
+- exact matching rules,
+- fuzzy matching algorithms,
+- conflict resolution rules,
+- batch import preview workflows,
+- merge and rollback policies,
+- migration strategies for dirty historical data.
 
-Нужен вывод в формате:
-- manager ladder,
-- admin ladder,
-- max safe notification volume,
-- recommended channels and time windows,
-- what should be immediate vs batched.
+Нужно получить:
+- exact thresholds,
+- fuzzy thresholds,
+- merge strategy,
+- rollback window,
+- migration checklist and sequencing.
 
-## 5. Какую IP-telephony and call analytics architecture лучше выбрать для TwoComms
+## 5. Какую telephony architecture и reminder/coaching architecture лучше выбрать именно для TwoComms
 
 Нужно исследовать:
-- какие провайдеры реально подходят по API/webhooks/recordings/supervisor functions,
-- что из Украины и what global alternatives matter,
-- где достаточно softphone and recordings, а где нужен full contact-center stack,
-- как связать telephony с CRM, QA, score, duplicate detection и portfolio ownership,
-- какой phased rollout минимизирует риски.
+- provider shortlist for Ukraine and comparable markets,
+- webhook maturity,
+- supervisor features,
+- recording retention economics,
+- reminder cadence that avoids alert fatigue,
+- mobile manager workflow,
+- whether push/in-app/Telegram split should change after telephony rollout.
 
-Нужен вывод в формате:
+Нужно получить:
 - provider shortlist,
-- must-have feature checklist,
+- cost bands,
 - rollout phases,
-- estimated cost bands,
-- biggest technical and process risks.
+- recording retention recommendation,
+- manager/admin reminder ladder,
+- final recommendation with biggest risks.

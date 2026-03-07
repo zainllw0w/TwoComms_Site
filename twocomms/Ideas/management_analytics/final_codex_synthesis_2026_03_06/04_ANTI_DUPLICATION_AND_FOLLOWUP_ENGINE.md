@@ -2,62 +2,33 @@
 
 ## 1. Цель
 
-У текущего проекта уже есть:
-- нормализация телефонов,
-- `phone_normalized`,
+У проекта уже есть:
+- phone normalization,
 - `ClientFollowUp`,
 - `ReminderSent`,
 - `ManagementLead`,
 - `ShopPhone`,
 - `CommercialOfferEmailLog`.
 
-Но нет единого `identity engine`, который предотвращает:
-- создание дублей,
-- cross-manager collisions,
-- повторную продажу одного и того же клиента как нового,
-- искусственное раздувание score,
-- пропажу клиента между `Lead`, `Client`, `Shop`, `TelephonyCall`.
+Но нет единого identity layer, который удерживает:
+- exact duplicates,
+- likely duplicates,
+- cross-manager conflicts,
+- batch import collisions,
+- merge/rollback rules,
+- priority order inside Action Stack.
 
-## 2. Финальная модель дублей
+## 2. Identity model
 
-### 2.1 Уровни совпадения
-
-#### Exact duplicate
-Совпадают:
-- `phone_normalized`,
-- или email,
-- или provider telephony external mapping,
-- или `google_place_id`.
-
-#### Likely duplicate
-Совпадает комбинация:
-- имя магазина,
-- город,
-- часть телефона,
-- сайт/instagram,
-- owner/contact name,
-- телеметрия звонков.
-
-#### Conflict duplicate
-Есть спор:
-- один номер, разные магазины,
-- один магазин, разные номера,
-- один клиент уже закреплён, но есть новые факты,
-- ownership спорный.
-
-## 3. Identity graph
-
-Нужно добавить отдельный слой, а не надеяться только на `Client.phone_normalized`.
-
-### 3.1 Новые сущности
+### 2.1 Базовые сущности
 - `ClientIdentityKey`
 - `ClientInteractionAttempt`
 - `DuplicateReview`
 - `OwnershipTransferLog`
 - `FollowUpEscalationLog`
 
-### 3.2 ClientIdentityKey
-Содержит тип и значение ключа:
+### 2.2 Identity keys
+Храним ключи типов:
 - phone,
 - email,
 - shop_name_normalized,
@@ -65,41 +36,113 @@
 - messenger_handle,
 - telephony_external_party_id.
 
-Это позволит:
-- привязать телефонию,
-- связать Shop и Client,
-- находить исторические дубли,
-- строить audit trail при смене владельца.
+## 3. Duplicate levels
 
-## 4. Create-or-append flow
+### 3.1 Exact
+Совпадает:
+- normalized phone,
+- или email,
+- или telephony external party id,
+- или `google_place_id`.
 
-При создании клиента система обязана:
-1. Проверить `exact`.
-2. Проверить `likely`.
-3. Показать менеджеру модалку.
-4. Дать три действия:
+### 3.2 Likely
+Совпадает composite similarity:
+- shop name,
+- city,
+- partial phone,
+- owner/contact name,
+- site or Instagram,
+- historical telephony overlap.
+
+### 3.3 Suggestion
+Сходство заметное, но не достаточное для auto-review priority.
+
+### 3.4 Conflict
+Есть ownership conflict или business contradiction.
+
+## 4. Fuzzy matching algorithm
+
+Вот этого действительно не хватало в первой версии пакета.
+
+### 4.1 Preferred algorithm
+Если БД = PostgreSQL, используем composite scoring:
+
+`similarity = 0.40 * shop_name_similarity + 0.30 * phone_similarity + 0.20 * city_match + 0.10 * owner_similarity`
+
+### 4.2 Thresholds
+- `>= 0.95` = exact / auto-block
+- `>= 0.70` = likely / review queue
+- `>= 0.50` = suggestion / show in UI
+- `< 0.50` = ignore
+
+### 4.3 Fallback
+Если `pg_trgm` или fuzzy DB tooling недоступны:
+- используем normalized exact keys,
+- prefix/substring phone checks,
+- normalized shop name matching на стороне app service,
+- manual review for borderline cases.
+
+## 5. Create-or-append flow
+
+Перед созданием клиента система обязана:
+1. Проверить exact.
+2. Проверить likely.
+3. Показать модалку.
+4. Дать действия:
 - `open existing`,
 - `append interaction`,
-- `create branch record with reason`.
+- `request ownership review`,
+- `create branch with reason`.
 
-`create anyway` разрешается только если:
-- есть причина,
-- лог пишется,
-- score credit ограничен,
-- duplicate review попадает админу.
+`create branch with reason`:
+- логируется,
+- снижает trust при злоупотреблении,
+- идёт в review queue,
+- не даёт full new-contact credit.
 
-## 5. Scoring rules for duplicates
+## 6. Merge strategy
 
-- exact duplicate не может давать full credit как новый cold contact,
-- appended interaction может давать только process/follow-up credit,
-- override duplicate добавляет anomaly signal,
-- repeated override снижает trust.
+Теперь фиксирую merge policy, которой не хватало.
 
-## 6. Follow-up ladder
+### 6.1 Rules
+- primary = `most recent active canonical record`,
+- secondary = `merged duplicate`,
+- interactions = union to primary,
+- follow-ups = consolidate, оставляем не более `1` активного follow-up на один смысловой next step,
+- invoices and commercial records remap to primary,
+- ownership history сохраняется,
+- audit event обязателен.
 
-Это финальная замена шумным blind scans.
+### 6.2 Rollback
+Merge rollback допускается в окно `72 часа`, пока не возникло необратимых downstream действий.
 
-### 6.1 Лестница для клиента
+## 7. Batch import dedupe
+
+### 7.1 Pipeline
+1. Parse import file.
+2. Remove internal batch duplicates.
+3. Cross-check against DB.
+4. Show preview:
+- new,
+- likely duplicates,
+- exact duplicates,
+- conflict rows.
+5. Import only approved clean subset.
+
+### 7.2 Why it matters
+Если этот слой не сделать, batch import будет мгновенно ломать всю identity-модель.
+
+## 8. Duplicate scoring rules
+
+- exact duplicate = no new-contact credit,
+- append interaction = process/follow-up credit only,
+- branch override = anomaly signal,
+- repeated override = trust reduction,
+- merge-confirmed fraud case = admin-reviewed penalty.
+
+## 9. Follow-up ladder
+
+### 9.1 Для клиента
 1. `scheduled`
 2. `T-15m reminder`
 3. `due`
@@ -108,72 +151,64 @@
 6. `day-2 escalation`
 7. `day-3 admin review`
 
-### 6.2 Лестница для магазина
+### 9.2 Для магазина
 1. `healthy cadence`
 2. `watch`
 3. `risk`
 4. `rescue`
 5. `reassign eligible`
 
-### 6.3 Правило тестового магазина
-Для тестовой ростовки cadence плотнее:
-- early reminder,
-- end-of-test decision,
-- follow-up plan required.
+## 10. Smart Action Stack prioritization
 
-## 7. Reminder design
+Opus прав: эскалация времени без приоритета по ценности недостаточна.
 
-### 7.1 Каналы
+### 10.1 Priority score
+`priority = 0.35 * pipeline_value + 0.30 * portfolio_urgency + 0.20 * response_probability + 0.15 * overdue_urgency`
+
+Это нужно для сортировки `Today Action Stack`.
+
+### 10.2 Why
+Клиент на `200k` с высоким шансом ответа и уже тёплой историей должен идти выше, чем слабый холодный хвост только потому, что он старее на пару часов.
+
+## 11. Reminder design
+
+### 11.1 Channels
 - in-app,
 - Telegram,
 - admin digest,
-- QA queue if telephony enabled.
+- QA queue,
+- optional mobile push later.
 
-### 7.2 Dedupe key
-Используем ключ в стиле Codex:
+### 11.2 Dedupe key
 `{channel}:{target}:{event_type}:{time_bucket}`
 
-### 7.3 Низкошумный принцип
-Не слать 20 похожих пушей подряд.
+### 11.3 Low-noise principle
+- похожие напоминания агрегируются,
+- high value tasks поднимаются выше,
+- admin sees summary, not spam,
+- action buttons are inline.
 
-Система должна:
-- объединять похожие просрочки,
-- показывать top priority first,
-- выносить summary админу,
-- сохранять action buttons рядом с напоминанием.
+## 12. Technical rules
 
-## 8. Техническая реализация на Django
+### 12.1 DB layer
+- `UniqueConstraint` на exact identity keys,
+- partial constraints where needed,
+- indexes for phone/date/status lookups,
+- JSON snapshots only for breakdowns,
+- all overrides go to audit log.
 
-### 8.1 Что стоит сделать на уровне БД
-На базе официальных возможностей Django:
-- `UniqueConstraint` для точных identity keys,
-- условные constraints для активных записей,
-- отдельные индексы под phone/date/status lookups,
-- `JSONField` для breakdown и snapshot метаданных,
-- лог manual override с actor/reason/timestamp.
+### 12.2 Celery layer
+- one active beat,
+- overlap-sensitive jobs under lock,
+- idempotent reminder jobs,
+- rerun must not duplicate notifications.
 
-Это соответствует официальной модели Django constraints и partial uniqueness.
+## 13. Data migration note
 
-### 8.2 Celery правила
-Для reminder jobs:
-- один активный beat scheduler,
-- overlap-sensitive jobs под lock,
-- job обязана быть idempotent,
-- повторный запуск не должен дублировать уведомления.
+Identity engine без migration plan бессмысленен.
 
-## 9. Что получает админ
+План backfill и cleanup вынесен в:
+- `07_IMPLEMENTATION_ROADMAP.md`
 
-Админ получает три очереди:
-- `duplicate review queue`,
-- `ownership review queue`,
-- `callback breach queue`.
-
-Это намного сильнее, чем просто “увидеть статистику дублей”.
-
-## 10. Что получает менеджер
-
-Менеджер получает:
-- безопасное предупреждение о дубле до сохранения,
-- быстрый выбор следующего действия,
-- понятный follow-up timer,
-- работу без страха, что система случайно спишет клиента или создаст хаос.
+Cross-cutting audit and safety rules вынесены в:
+- `13_CROSS_SYSTEM_GUARDRAILS.md`

@@ -2,82 +2,79 @@
 
 ## 1. Обязательное требование пользователя
 
-IP-телефония должна поддерживать:
+IP-телефония должна давать:
 - запись разговоров,
 - прослушку администратором,
-- выставление баллов администратором,
-- статистику по звонкам,
-- контроль качества обработки,
-- дальнейший coaching.
+- ручную QA-оценку администратором,
+- статистику звонков,
+- контроль качества,
+- coaching and dispute evidence.
 
-Значит телефония в TwoComms не просто канал связи.
-Она должна стать ещё одним verified data source для CRM.
+То есть телефония в TwoComms не “ещё один канал”.
+Она должна стать verified source of truth.
 
-## 2. Финальная архитектурная цель
+## 2. Что изменено после Opus-аудита
 
-Нужны четыре слоя:
-- `Call events`,
-- `Call recordings and metadata`,
-- `Supervisor actions`,
-- `QA scoring and coaching`.
+После аудита я добавил:
+- provider matrix под украинский рынок,
+- recording retention policy,
+- inter-rater reliability thresholds,
+- конкретные short-call rules,
+- зрелый supervisor contour без premature AI overkill.
 
-## 3. Режимы rollout
+## 3. Rollout phases
 
 ### 3.1 Phase 0: manual fallback
-До полноценной телефонии:
-- ручные call outcomes разрешены,
-- trust ceiling ограничен,
-- quality score строится с поправкой на self-reported nature.
+- manual call outcomes allowed,
+- trust ceiling limited,
+- no punitive QA without strong evidence.
 
 ### 3.2 Phase 1: soft launch
-- click-to-call из CRM,
-- входящие/исходящие события через webhook,
-- запись разговоров,
+- click-to-call,
+- webhook ingest,
+- recordings,
 - post-call modal,
-- связка звонка с `Client`/`Lead`,
-- админ видит playback и metadata.
+- call-to-client linking,
+- admin playback.
 
 ### 3.3 Phase 2: supervisor mode
-- live monitor,
+- monitor,
 - whisper,
 - barge,
-- queue statistics,
-- scorecards,
-- calibration sessions.
+- QA scorecards,
+- calibration sessions,
+- disagreement tracking.
 
 ### 3.4 Phase 3: AI assist
-Только после стабилизации ядра:
+Только после стабильного capture quality:
 - transcription,
-- keyword spotting,
-- silence ratio,
 - talk/listen balance,
-- objection hints,
+- silence ratio,
+- keyword spotting,
+- coaching hints,
 - auto-summary.
 
-AI не должен идти раньше стабильной записи и webhook hygiene.
+## 4. Provider matrix for Ukraine
 
-## 4. Что брать у агентов
+Точные коммерческие условия надо перепроверять перед контрактом.
+Ниже не прайс-лист, а decision matrix.
 
-### Из Gemini
-- phased adoption,
-- post-call forced outcome,
-- short-call routing,
-- incentive для перехода на verified channel.
+| Provider | Webhooks | Recording API | Supervisor features | Browser softphone | CRM fit | Cost band | Decision note |
+|---|---|---|---|---|---|---|---|
+| `Binotel` | strong | strong | strong | yes | strong | medium/high | safest business fit if supervisor tooling confirmed |
+| `Ringostat` | strong | strong | medium | yes | strong | medium/high | best analytics orientation |
+| `UniTalk` | medium/strong | strong | verify manually | yes | medium | medium | good if supervisor features pass verification |
+| `Zadarma` | medium | medium | weak | yes | medium/weak | low | budget fallback, not ideal for QA-heavy mode |
 
-### Из Codex
-- graceful degradation,
-- rollout safety,
-- trust-aware scoring,
-- admin-only disciplinary consequences.
+### Recommended selection rule
+- если нужен быстрый production-safe supervisor contour, сначала проверять `Binotel`,
+- если критична аналитика и marketing/call intelligence, смотреть `Ringostat`,
+- `UniTalk` брать только после ручной проверки supervisor and webhook maturity,
+- `Zadarma` рассматривать только как budget fallback.
 
-### Из Opus
-- data model,
-- provider comparison,
-- реалистичное место телефонии внутри общей CRM.
+## 5. QA contour
 
-## 5. Рекомендованный call QA контур
-
-### 5.1 Новые сущности
+### 5.1 Core entities
 - `TelephonyCall`
 - `TelephonyCallRecording`
 - `TelephonyCallQAReview`
@@ -86,10 +83,9 @@ AI не должен идти раньше стабильной записи и 
 - `TelephonyProviderSyncLog`
 
 ### 5.2 QA scorecard
-Админ/супервайзер оценивает звонок по рубрике:
 
-| Блок | Вес |
-|---|---|
+| Block | Weight |
+|---|---:|
 | Greeting and opening | `10` |
 | Need discovery | `20` |
 | Offer fit and clarity | `15` |
@@ -98,76 +94,75 @@ AI не должен идти раньше стабильной записи и 
 | Outcome accuracy in CRM | `10` |
 | Brand tone and professionalism | `15` |
 
-Итог:
-- `qa_score_call = 0..100`,
-- менеджер видит coaching summary,
-- админ видит raw sub-scores.
-
 ### 5.3 QA impact
-`qa_score` не должен сносить зарплату сам по себе.
+QA:
+- влияет на trust,
+- открывает coaching tasks,
+- влияет на accelerator eligibility,
+- влияет на admin score,
+- но не должен сам по себе instantly сносить зарплату.
 
-Он влияет на:
-- trust,
-- coaching queue,
-- accelerator eligibility,
-- portfolio bonus eligibility,
-- admin score.
+## 6. Calibration and reliability
 
-## 6. Calibration
+### 6.1 Cadence
+- `1` calibration session weekly,
+- `5` shared calls minimum,
+- explicit rubric review,
+- discrepancy notes.
 
-Одна из самых важных недостающих тем в исходных документах.
+### 6.2 Inter-rater reliability
+Используем базовые thresholds:
+- `kappa >= 0.80` = QA reliable,
+- `0.60 <= kappa < 0.80` = coaching-only zone,
+- `kappa < 0.60` = stop score-sensitive QA usage until recalibration.
 
-### 6.1 Правило
-Если два супервайзера оценивают один звонок по-разному, система должна не спорить, а калиброваться.
+Это сильно уменьшает человеческий фактор и “рандомную строгость” разных админов.
 
-### 6.2 Минимальный ритм
-- `1` недельная calibration session,
-- `5` общих звонков на сессию,
-- variance threshold,
-- фиксация rubric updates.
+## 7. Recording retention
 
-Без calibration QA превращается в субъективную лотерею.
+### 7.1 Policy
+- active storage = `90 дней`,
+- archive = `12 месяцев`,
+- legal hold = until dispute resolved,
+- delete after retention window if no legal/business hold.
 
-## 7. Правила short-call and outcome integrity
+### 7.2 Why
+- хватает для QA, disputes and coaching,
+- не раздувает storage бесконтрольно,
+- оставляет доказательную базу для конфликтов по commission and ownership.
 
-Сильную идею Gemini оставляем.
+## 8. Short-call and outcome integrity
 
-Если звонок:
-- слишком короткий,
-- не был отвечен,
-- завершился до meaningful contact,
-
-то система не даёт выбрать outcome уровня:
-- `not_interested`,
-- `thinking`,
-- `offer sent`,
-- `order`.
-
-Разрешённые исходы:
+### 8.1 Rules
+- `< 15 сек` нельзя ставить `not_interested`, `thinking`, `order`, `offer sent`,
+- `< 30 сек` допускает только weak outcomes unless recording proves meaningful exchange,
+- allowed weak outcomes:
 - `missed`,
 - `busy`,
 - `voicemail`,
 - `secretary`,
 - `wrong_number`.
 
-## 8. Supervisor actions
+### 8.2 Meaningful contact
+Для телефонии meaningful contact = answered call `>= 30 секунд` или QA-validated shorter meaningful exchange.
 
-Нужны три live режима, если провайдер их поддерживает:
+## 9. Supervisor actions
+
+Нужны режимы:
 - `monitor`,
 - `whisper`,
 - `barge`.
 
 Каждое действие логируется:
-- кто включил,
+- кто,
 - когда,
 - на каком звонке,
 - с какой целью,
 - был ли coaching outcome.
 
-## 9. Статистика по звонкам
+## 10. Manager and admin statistics
 
-### 9.1 Менеджер
-Видит:
+### 10.1 Manager
 - total calls,
 - answered,
 - talk time,
@@ -176,33 +171,19 @@ AI не должен идти раньше стабильной записи и 
 - QA trend,
 - top hours.
 
-### 9.2 Админ
-Видит:
+### 10.2 Admin
 - queue load,
-- missed vs answered,
-- quality variance by manager,
+- answered vs missed,
+- quality variance,
 - conversion by call type,
-- silent or suspicious patterns,
-- call-to-outcome mismatch.
+- call-to-outcome mismatch,
+- suspicious short-call patterns,
+- calibration reliability.
 
-## 10. Provider selection principle
+## 11. What not to do
 
-Итоговый выбор провайдера должен идти не только по цене.
-
-Фильтр обязательных возможностей:
-- webhook events,
-- call recording API,
-- call control API,
-- supervisor functions,
-- browser softphone or stable app,
-- stable number mapping to manager,
-- recording retention,
-- exportability.
-
-Если дешёвый провайдер не даёт supervisor mode и стабильные webhooks, он не решит задачу пользователя.
-
-## 11. Финальный тезис
-
-Телефония должна стать вторым позвоночником системы после CRM.
-Первый позвоночник — данные о клиентах.
-Второй — фактическая правда о коммуникации.
+- не строить punitive QA before calibration,
+- не включать AI transcription as first milestone,
+- не выбирать провайдера только по цене,
+- не смешивать raw call activity with trusted sales outcomes,
+- не считать telephony rollout complete без dispute evidence and playback tooling.

@@ -1,132 +1,123 @@
-# Why Codex Is Still the Best Base Layer
+# Design Decision Log: Why This Final Architecture Uses Codex as the Base Skeleton
 
-## 1. Главный тезис
+## 1. Почему файл переписан
 
-Если выбирать не “у кого ярче идеи”, а “с какой базы реально идти в имплементацию”, то `Codex` объективно сильнее `Gemini` и `Opus`.
+Opus справедливо указал, что прежняя версия этого файла выглядела слишком self-promotional.
 
-Не потому, что у него были лучшие все идеи.
-А потому, что именно у него был лучший `implementation backbone`.
+Этот файл остаётся в пакете, потому что пользователь прямо просил отдельную критику о том, чем `Codex` лучше двух других агентов.
 
-## 2. Почему Codex сильнее Gemini
+Но теперь он оформлен как нейтральный decision log, а не как самореклама.
 
-### 2.1 Implementation readiness
-Gemini дал много сильных концептов, но слаб в:
-- data contracts,
-- API boundaries,
-- acceptance tests,
-- rollout safety,
-- rollback logic,
-- migration thinking.
+## 2. Core decision
 
-Codex дал всё это.
-
-### 2.2 Production safety
-Gemini несколько раз уходил в идеи, которые опасны для реальной команды:
-- auto `Shark Pool`,
-- `Doomsday Screen`,
-- бесконечный MMR,
-- агрессивный survival framing.
-
-Codex почти везде выбирал более безопасный operating model.
-
-### 2.3 Role separation
-Codex лучше всех разделил:
-- manager view,
-- admin view,
-- what is motivational,
-- what is supervisory,
-- what is financial,
-- what is disciplinary.
-
-Gemini здесь часто смешивал мотивацию, наказание и геймификацию в один слой.
-
-### 2.4 Multi-DB and DTF awareness
-Codex лучше учёл:
-- read-only bridge,
-- no cross-DB FK,
-- access matrix,
-- phased integration.
-
-Это сильно важнее, чем кажется, потому что именно тут обычно ломаются “красивые” идеи на живом проекте.
-
-### 2.5 Auditability
-Codex сильнее в:
-- trust tiers,
-- manual override logging,
-- incident verification,
-- explainability,
-- anti-abuse by design.
-
-Gemini чаще предлагал красивые эффекты до того, как фиксировал контрольные механизмы.
-
-## 3. Почему Codex сильнее Opus
-
-### 3.1 Decision governance
-Opus силён в содержании, но слабее в lock-решениях.
-
-Codex лучше зафиксировал:
-- A/B/C branches,
-- locked defaults,
-- governance for future changes.
-
-Это снижает хаос на этапе реальной разработки.
-
-### 3.2 Acceptance matrix
-Opus много дал в продуктовой логике, но Codex сильнее подготовил систему к проверке.
-
-Acceptance criteria и тестовый каркас у Codex объективно лучше.
-
-### 3.3 Rollout strategy
-Opus слабее проработал:
-- shadow mode,
+Базовым skeleton для финальной архитектуры выбран `Codex`, потому что именно он лучше всего решал production problems:
+- contracts,
+- rollout,
 - feature flags,
-- rollback criteria,
-- staged enablement.
+- testing,
+- multi-DB awareness,
+- role separation,
+- risk control.
 
-Codex это сделал хорошо.
+## 3. Почему не Gemini как base skeleton
 
-### 3.4 Admin/product separation
-Opus лучше прорабатывал смысл score и B2B fit, но хуже разделял операционные роли и контрольные представления.
-
-Codex здесь аккуратнее.
-
-### 3.5 Contract thinking
-Codex лучше упаковал:
-- data model,
-- endpoint logic,
-- permissions,
-- risk register,
-- deploy brief.
-
-Это и делает его лучшей базой для команды разработки.
-
-## 4. Где Codex не победил
-
-Чтобы критика была честной:
-- EV fairness по типу базы у Gemini лучше.
-- retention psychology и salary simulator у Gemini лучше.
-- B2B cold calibration и heatmap from user request у Opus лучше.
-- reminder cadence и workflow realism местами у Opus лучше.
-
-Но это не отменяет основного вывода:
-
-`Codex = лучший каркас`
-
-`Gemini = лучший мотивационный и retention-слой`
-
-`Opus = лучший бизнес-контекст и anti-gaming калибровщик`
-
-## 5. Итоговый вердикт
-
-Если бы пришлось брать одну базу без гибрида, я бы взял `Codex` и поверх него добавил:
+`Gemini` дал сильнейшие идеи по:
+- retention psychology,
 - EV fairness,
-- portfolio health,
-- safer version of Tamagotchi and salary simulator,
-- B2B gate recalibration,
-- heatmap,
-- better reminder ladder.
+- portfolio motivation,
+- salary simulator,
+- UX-energy.
 
-Именно поэтому новая финальная папка строится на логике:
-- `Codex skeleton`,
-- `Opus calibration`,
-- `Gemini behavioral layer`.
+Но как base skeleton он слабее из-за:
+- низкой implementation readiness,
+- слабой formalization of models/APIs,
+- высокой доли risky mechanics,
+- склонности смешивать motivation and punishment.
+
+Итог:
+- Gemini нельзя брать как основу,
+- но его behavioural layer критически важен поверх финального каркаса.
+
+## 4. Почему не Opus как base skeleton
+
+`Opus/HES` дал сильную бизнес-калибровку:
+- heatmap,
+- B2B realism,
+- callback discipline,
+- anti-gaming logic,
+- cold-cycle fit.
+
+Но как base skeleton он слабее `Codex` в:
+- locked decisions,
+- acceptance criteria,
+- rollout safety,
+- deploy and rollback thinking,
+- contract completeness.
+
+Итог:
+- Opus сильнее как calibrator and risk critic,
+- Codex сильнее как implementation frame.
+
+## 5. Что в итоге выбрано у Codex
+
+- role separation,
+- trust tiers,
+- decision governance,
+- gate thinking,
+- acceptance matrix mindset,
+- rollout sequencing,
+- DTF read-only logic,
+- anti-abuse contract thinking.
+
+## 6. Что поверх него добавлено из Opus
+
+- B2B cold-cycle realism,
+- verified-progress gate `78`,
+- stronger follow-up ladder,
+- practical calibration pressure,
+- safer criticism of noisy alerts,
+- migration and fuzzy dedupe concerns,
+- QA reliability and IRR focus.
+
+## 7. Что поверх него добавлено из Gemini
+
+- EV/source fairness spirit,
+- 2.5% / 5% retention-first logic,
+- portfolio health UX,
+- salary simulator,
+- no-touch report,
+- micro-feedback,
+- golden hour layer.
+
+## 8. Что намеренно не принято
+
+### Из Gemini
+- automatic `Shark Pool`,
+- `Doomsday Screen`,
+- uncontrolled infinite MMR,
+- overly aggressive survival framing.
+
+### Из Opus
+- перенос сложных advanced metrics в core without data maturity,
+- попытка слишком рано тащить telephony-dependent intelligence в основную формулу.
+
+### Из старого Codex
+- слишком абстрактные thresholds,
+- недостаточная B2B calibration,
+- избыточная уверенность в некоторых defaults без numbers.
+
+## 9. Итоговая decision formula
+
+Финальная архитектура строится так:
+- `Codex skeleton`
+- `Opus calibration`
+- `Gemini behavioral layer`
+- `new guardrails and presets after Opus audit`
+
+Это не компромисс ради компромисса.
+Это наиболее реалистичный путь получить систему, которая:
+- объяснима,
+- внедряема,
+- устойчива к абузу,
+- мотивирует,
+- и не ломается от человеческого фактора.
