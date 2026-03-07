@@ -13,6 +13,7 @@
 - `AdminDailyScoreSnapshot`,
 - `PortfolioHealthSnapshot`,
 - `SeasonalLadderSnapshot`,
+- shadow signals snapshot,
 - explainability payload,
 - heatmap payload.
 
@@ -79,6 +80,8 @@
 - recordings,
 - QA reviews,
 - calibration,
+- call competency profile,
+- script-vs-improvisation analytics,
 - supervisor actions.
 
 Готово, когда:
@@ -93,7 +96,10 @@
 - portfolio health block,
 - heatmap,
 - golden hour,
-- no-touch report.
+- no-touch report,
+- advisory cards,
+- client communication timeline,
+- anonymous benchmark cards.
 
 Готово, когда:
 - менеджер с домашней страницы понимает, что делать сейчас, не открывая 10 страниц.
@@ -105,7 +111,10 @@
 - KPI breach queue,
 - payroll risk,
 - QA lab,
-- team analytics.
+- team analytics,
+- power-user shortcuts,
+- evidence drawers,
+- territory-balance alerts.
 
 Готово, когда:
 - админ управляет командой через очереди действий, а не через поиск по страницам.
@@ -151,6 +160,7 @@
 Нужны сервисы:
 - duplicate check service,
 - score calculation service,
+- score shadow comparison service,
 - portfolio health service,
 - reminder scheduler service,
 - telephony ingest service,
@@ -162,6 +172,7 @@
 - interaction append,
 - callback resolve/reschedule,
 - score explain,
+- score shadow compare,
 - portfolio action,
 - QA review save,
 - payroll preview,
@@ -174,6 +185,7 @@
 - duplicate modal,
 - callback drawer,
 - portfolio board,
+- client communication timeline,
 - salary simulator modal,
 - admin action center,
 - QA recording review screen,

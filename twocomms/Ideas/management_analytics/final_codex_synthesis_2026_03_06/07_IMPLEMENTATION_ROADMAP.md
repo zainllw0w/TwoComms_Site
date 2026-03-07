@@ -41,6 +41,12 @@ Opus был прав: первой версии roadmap не хватало dura
 - role visibility,
 - presets file as single numeric source of truth.
 
+Дополнительно зафиксировать:
+- какие сигналы authoritative,
+- какие bounded,
+- какие shadow/admin-only,
+- какие backlog-only.
+
 Выход:
 - пакет становится canonical spec.
 
@@ -87,7 +93,8 @@ Opus был прав: первой версии roadmap не хватало dura
 - source fairness,
 - trust,
 - micro-feedback stream,
-- comparative seasonal ladder.
+- comparative seasonal ladder,
+- shadow metrics: velocity, churn risk, funnel integrity, report integrity, workload consistency.
 
 ### Что НЕ делаем
 - не меняем зарплату автоматически,
@@ -102,7 +109,16 @@ Opus был прав: первой версии roadmap не хватало dura
 - ложные провалы,
 - cold B2B fairness,
 - anomaly behaviour,
-- admin trust in explanation.
+- admin trust in explanation,
+- нет ли double-counting между `Result`, `SourceFairness` и shadow signals.
+
+### Formula change governance
+Ни один новый modifier не включать напрямую в production, пока он не прошёл:
+1. shadow calculation,
+2. explanation review,
+3. false-positive review,
+4. preset log update,
+5. rollback plan.
 
 ## 7. Phase 4: dashboards and UX
 
@@ -165,6 +181,12 @@ Opus был прав: первой версии roadmap не хватало dura
 - low-quality pattern detection,
 - top-hour recommendations.
 
+Сюда же входят:
+- competency-profile hints,
+- response latency coaching,
+- conversion-efficiency hints,
+- timeline-based rescue recommendations.
+
 ## 11. Phase 8: DTF bridge
 
 DTF:
@@ -219,3 +241,6 @@ Numeric presets:
 
 Audit/security/backup/performance rules:
 - `13_CROSS_SYSTEM_GUARDRAILS.md`
+
+Decision log по второму проходу Opus:
+- `14_OPUS_SECOND_PASS_DECISION_LOG.md`

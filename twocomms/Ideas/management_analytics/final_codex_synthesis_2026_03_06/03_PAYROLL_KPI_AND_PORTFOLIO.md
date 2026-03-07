@@ -18,7 +18,10 @@
 - определил `meaningful contact`,
 - добавил dispute workflow,
 - добавил gross/net preview,
-- уточнил portfolio cadence для fashion wholesale.
+- уточнил portfolio cadence для fashion wholesale,
+- отделил commission truth от noise-heavy аналитики,
+- добавил правила для reactivation success и chronic decline review,
+- добавил production-safe multi-touch policy для спорных кейсов.
 
 ## 3. Dual probation
 
@@ -130,6 +133,29 @@
 - `repeat_share >= 30%`,
 - или `successful_reactivations >= 2` за месяц.
 
+### 8.4 Commission truth hierarchy
+Чтобы человеческий фактор, модные метрики и поздние telemetry-слои не ломали деньги, фиксирую иерархию:
+
+Комиссия напрямую строится из:
+- verified paid orders,
+- approved ownership,
+- approved attribution,
+- approved dispute outcomes.
+
+Комиссия не должна напрямую пересчитываться из:
+- `velocity`,
+- `workload consistency`,
+- `anonymous peer position`,
+- `competency profile`,
+- `achievement systems`,
+- сырых субъективных QA-впечатлений без calibration reliability.
+
+Такие сигналы могут:
+- открывать coaching,
+- влиять на trust в ограниченном диапазоне,
+- влиять на accelerator eligibility,
+- но не переписывать verified commission truth.
+
 ## 9. Gross / Net preview
 
 В salary simulator нужно показывать не только начислено, но и:
@@ -163,6 +189,20 @@
 - reassign.
 6. Всё логируется в audit trail.
 
+### 10.2 Optional weighted attribution for complex disputes
+По умолчанию TwoComms живёт в модели `closer gets primary credit`.
+
+Но для редких сложных кейсов, где было реальное multi-touch ведение, допускается admin-approved split:
+- `60%` closer,
+- `25%` opener,
+- `15%` nurture touches split proportionally.
+
+Guardrails:
+- no split без evidence trail,
+- first-touch credit сгорает после `90` дней без meaningful continuation,
+- A→B→A ownership gaming идёт в abuse review,
+- split attribution не должен становиться default mode для всех сделок.
+
 ## 11. Portfolio health
 
 ### 11.1 Базовые состояния
@@ -189,6 +229,22 @@
 Например:
 - зимняя сезонная база не должна автоматически считаться `Risk` только потому, что летом у неё нет движения.
 
+### 11.4 Reactivation Success Rate
+Повторно активированный клиент должен быть не абстрактной “хорошей работой”, а измеряемой частью портфеля.
+
+Финальное определение:
+
+`RSR = rescued_to_healthy / max(1, eligible_risk_and_rescue_clients_touched)`
+
+Где:
+- `rescued_to_healthy` = клиенты, вернувшиеся из `Risk/Rescue` в `Healthy`,
+- `eligible_risk_and_rescue_clients_touched` = рисковые клиенты, по которым были meaningful rescue actions.
+
+`RSR` не переписывает commission truth, но влияет на:
+- `portfolio_bonus`,
+- accelerator eligibility,
+- admin assessment of retention strength.
+
 ## 12. Ownership policy
 
 Автоматическую кражу базы не включаем.
@@ -214,6 +270,20 @@
 - систематический саботаж после предупреждения.
 
 Это оставляет систему строгой, но не токсичной.
+
+### 13.3 Chronic decline trigger
+Сценарий пользователя про “неделя без результата, вторая неделя без результата” нужно фиксировать явно.
+
+Финальное правило:
+- если `Result` rolling trend отрицательный `>= 14` дней,
+- и verified closes / milestones не компенсируют спад,
+- менеджер попадает в `coaching review`.
+
+Если спад держится `>= 21` дня:
+- кейс идёт в supervised review,
+- но автоматическая денежная санкция не применяется без human review.
+
+Это даёт раннее вмешательство без сырого auto-punishment.
 
 ## 14. Что видит менеджер
 

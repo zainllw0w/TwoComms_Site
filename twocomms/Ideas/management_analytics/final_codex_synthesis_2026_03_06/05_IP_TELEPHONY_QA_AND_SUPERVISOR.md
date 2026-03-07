@@ -20,7 +20,9 @@ IP-телефония должна давать:
 - recording retention policy,
 - inter-rater reliability thresholds,
 - конкретные short-call rules,
-- зрелый supervisor contour без premature AI overkill.
+- зрелый supervisor contour без premature AI overkill,
+- coaching-safe competency profile вместо сырого "DNA payroll",
+- script-vs-improvisation analytics как будущий quality insight, а не как штраф.
 
 ## 3. Rollout phases
 
@@ -102,6 +104,42 @@ QA:
 - влияет на admin score,
 - но не должен сам по себе instantly сносить зарплату.
 
+### 5.4 Call competency profile
+Идею “портрета менеджера” я принимаю, но перевожу её в production-safe формат.
+
+Используем не `DNA`, а `Call Competency Profile`.
+
+Он нужен для:
+- coaching,
+- quality review,
+- learning path,
+- supervisor explanation,
+- script evolution.
+
+Он не нужен для:
+- прямого payroll truth,
+- мгновенных санкций,
+- публичной стигматизации.
+
+Стартовые измерения:
+- opening quality,
+- discovery depth,
+- offer clarity,
+- objection handling,
+- next-step commitment,
+- listening balance,
+- brand tone and professionalism,
+- empathy / rapport.
+
+### 5.5 Script vs improvisation analytics
+Поздний, но полезный слой:
+- supervisor помечает `script-followed` или `meaningful-deviation`,
+- система сравнивает outcome quality у этих двух режимов,
+- если deviation системно лучше, это повод улучшить script,
+- если script лучше, это повод усиливать discipline.
+
+Это аналитика для развития команды, а не штрафной слой.
+
 ## 6. Calibration and reliability
 
 ### 6.1 Cadence
@@ -117,6 +155,14 @@ QA:
 - `kappa < 0.60` = stop score-sensitive QA usage until recalibration.
 
 Это сильно уменьшает человеческий фактор и “рандомную строгость” разных админов.
+
+### 6.3 Human-factor limits
+Чтобы QA не превратился в субъективную власть администратора:
+- no score-sensitive QA use below reliable calibration,
+- no payroll-sensitive use on tiny sample,
+- one harsh review never changes money by itself,
+- every score-sensitive QA action must have recording and rubric evidence,
+- disagreement patterns between reviewers must be visible in supervisor analytics.
 
 ## 7. Recording retention
 
@@ -178,7 +224,9 @@ QA:
 - conversion by call type,
 - call-to-outcome mismatch,
 - suspicious short-call patterns,
-- calibration reliability.
+- calibration reliability,
+- competency-profile distribution,
+- script-vs-improvisation comparison where enough data exists.
 
 ## 11. What not to do
 
@@ -186,4 +234,6 @@ QA:
 - не включать AI transcription as first milestone,
 - не выбирать провайдера только по цене,
 - не смешивать raw call activity with trusted sales outcomes,
-- не считать telephony rollout complete без dispute evidence and playback tooling.
+- не считать telephony rollout complete без dispute evidence and playback tooling,
+- не превращать competency profile в прямой зарплатный multiplier,
+- не делать AI-derived personality claims без very high evidence.

@@ -2,9 +2,10 @@
 
 ## 1. Зачем этот файл
 
-После Opus-аудита стало ясно, что архитектура без числового центра быстро превращается в набор красивых идей.
+После двух проходов Opus стало ясно:
+без единого числового центра система быстро превращается в красивый, но противоречивый набор идей.
 
-Этот файл — единственный canonical источник стартовых defaults.
+Этот файл — canonical source для стартовых defaults.
 
 ## 2. Operating modes
 
@@ -30,13 +31,53 @@ Default for TwoComms:
 
 ## 4. Recalibration policy
 
+### 4.1 Hard production policy
 - cadence = `quarterly`,
 - data source = verified outcomes only,
 - min sample size required,
-- max move per cycle = `±25%`,
-- no recalibration on low confidence sample.
+- max move per quarter = `±25%`,
+- no recalibration on low-confidence sample.
 
-## 5. Gate defaults
+### 4.2 Bayesian shadow policy
+- window = rolling `90d`,
+- review cadence = weekly shadow estimate,
+- min source attempts for soft movement = `60`,
+- persistence requirement = `3` consecutive weekly deviations,
+- max soft move per month = `±10%`,
+- quarterly hard cap still wins.
+
+## 5. Rolling aggregation defaults
+
+- rolling window = `28 календарных дней`,
+- aggregation = `EWMA`,
+- `lambda = 0.033`,
+- half-life `≈ 21 дней`.
+
+Применять для:
+- rolling MOSAIC,
+- rolling axis trends,
+- velocity,
+- multi-day coaching summaries.
+
+## 6. Low-sample protection defaults
+
+Для `SourceFairness`:
+- `attempts < 5` = neutral band + excluded from hard comparison,
+- `5 <= attempts < 12` = confidence-blended,
+- `attempts >= 12` = full effect allowed.
+
+Confidence:
+
+`confidence = min(1, attempts / 12)`
+
+`sf_effective = 50 * (1 - confidence) + sf_raw * confidence`
+
+Wilson-style interval использовать для:
+- admin conclusions,
+- comparison labels,
+- insufficient-evidence warnings.
+
+## 7. Gate defaults
 
 | Gate tier | Cap | Condition |
 |---|---:|---|
@@ -45,7 +86,27 @@ Default for TwoComms:
 | `self_reported_only` | `60` | only weak evidence |
 | `breach_and_stale` | `45` | `3+` business days without verified progress + callback breaches |
 
-## 6. Trust anomaly thresholds
+## 8. Discipline floor dampener
+
+Operational axes:
+- `Process`
+- `FollowUp`
+- `DataQuality`
+- `VerifiedCommunication`, only if maturity `>= soft_launch`
+
+Defaults:
+- critical floor = `20`,
+- rolling basis = `10 business days`,
+- penalty per axis below floor = `-5%`,
+- max total dampening = `-15%`.
+
+Do not apply:
+- first `10` working days,
+- approved leave,
+- infrastructure incident,
+- `manual_only` mode for `VerifiedCommunication`.
+
+## 9. Trust anomaly thresholds
 
 | Signal | Caution | Critical |
 |---|---:|---:|
@@ -57,7 +118,21 @@ Default for TwoComms:
 For same reason share:
 - apply only when `n >= 10`.
 
-## 7. Verified communication maturity
+## 10. Report integrity thresholds
+
+Only evaluate on:
+- resolved cases,
+- enough sample,
+- evidence-backed status chains.
+
+Defaults:
+- min resolved sample = `20`,
+- `>= 0.85` = strong integrity,
+- `0.70..0.84` = neutral/good,
+- `0.55..0.69` = caution,
+- `< 0.55` = critical review.
+
+## 11. Verified communication maturity
 
 | Telephony maturity | Axis cap | Notes |
 |---|---:|---|
@@ -65,7 +140,24 @@ For same reason share:
 | `soft_launch` | `80` | partial telephony evidence available |
 | `supervised` | `100` | full verified comm logic active |
 
-## 8. Portfolio bonus defaults
+## 12. Response latency defaults
+
+Apply to:
+- `hot_inbound`,
+- `warm_reactivation`,
+- promised callbacks,
+- admin-approved urgent follow-ups.
+
+| Response latency | Interpretation |
+|---|---|
+| `< 5 минут` | excellent |
+| `< 15 минут` | strong |
+| `< 1 часа` | acceptable |
+| `1-4 часа` | weak |
+| `> 4 часов` | risk |
+| `> 24 часов` | critical |
+
+## 13. Portfolio bonus defaults
 
 Eligibility:
 - `portfolio_health >= 70`,
@@ -77,7 +169,7 @@ Eligibility:
 Bonus:
 - `+0.5%` to repeat commission rate.
 
-## 9. Fashion wholesale portfolio cadence
+## 14. Fashion wholesale portfolio cadence
 
 | State | Days since meaningful contact |
 |---|---:|
@@ -87,7 +179,16 @@ Bonus:
 | `Rescue` | `46-60` |
 | `Reassign Eligible` | `61+` |
 
-## 10. Micro-feedback defaults
+## 15. Long-cycle persistence defaults
+
+For bounded persistence credit:
+- minimum pipeline age = `21 дней`,
+- minimum meaningful interactions = `3`,
+- interactions must be spaced over the cycle,
+- cap = `10` milestone points,
+- disable on duplicate-tainted or ownership-conflicted cases.
+
+## 16. Micro-feedback defaults
 
 Visible manager stream:
 - `+0.5` exact callback,
@@ -103,7 +204,7 @@ Rules:
 - evidence required,
 - overnight bounded influence only.
 
-## 11. Comparative engine modes
+## 17. Comparative engine modes
 
 ### Default
 `Seasonal Ladder`

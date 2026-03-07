@@ -93,10 +93,29 @@ Before rollout, fix budgets:
 - no business-critical copy hard-coded inside logic,
 - explainability and coaching text should be translatable.
 
-## 8. What this file protects against
+## 8. Formula governance
+
+После второго прохода Opus стало ясно, что риск не только в “плохих формулах”, но и в хаотичном добавлении новых умных сигналов.
+
+Обязательные правила:
+- no production formula change without shadow period,
+- no new payroll-sensitive modifier without bounded impact and written rationale,
+- every preset change goes to audit log,
+- every new trust signal must declare sample floor and abuse risks,
+- shadow/admin-only signals не переводятся в authoritative layer без отдельного decision log.
+
+Минимальный safe path:
+1. добавить signal в shadow,
+2. проверить explanation quality,
+3. проверить false positives,
+4. сравнить с business truth,
+5. только потом решать о production use.
+
+## 9. What this file protects against
 
 - “мы забыли залогировать merge”,
 - “push-уведомления сыпятся ночью”,
 - “все медленно после нового dedupe”,
 - “после миграции нечего откатить”,
-- “QA спор невозможно восстановить по истории”.
+- “QA спор невозможно восстановить по истории”,
+- “в score напихали 12 новых modifiers без контроля и его уже никто не понимает”.

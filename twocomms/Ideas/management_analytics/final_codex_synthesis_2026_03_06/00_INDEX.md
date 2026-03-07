@@ -45,6 +45,7 @@
 11. `11_PRODUCT_BACKLOG_FOR_MANAGEMENT_SUBDOMAIN.md`
 12. `12_CALIBRATION_DEFAULTS_AND_PRESETS.md`
 13. `13_CROSS_SYSTEM_GUARDRAILS.md`
+14. `14_OPUS_SECOND_PASS_DECISION_LOG.md`
 
 ## Карта файлов
 - `01_MASTER_SYNTHESIS.md` — единый отбор лучших идей всех агентов.
@@ -60,6 +61,7 @@
 - `11_PRODUCT_BACKLOG_FOR_MANAGEMENT_SUBDOMAIN.md` — модульный backlog для прямой разработки.
 - `12_CALIBRATION_DEFAULTS_AND_PRESETS.md` — единый источник стартовых чисел, пресетов и thresholds.
 - `13_CROSS_SYSTEM_GUARDRAILS.md` — audit/security/backup/performance/i18n guardrails.
+- `14_OPUS_SECOND_PASS_DECISION_LOG.md` — детальный decision log по второму раунду Opus: что принято, что ограничено, что переведено в shadow layer и что отвергнуто.
 
 ## Ground truth по текущему коду
 Текущий проект уже даёт основу, на которую можно опираться:

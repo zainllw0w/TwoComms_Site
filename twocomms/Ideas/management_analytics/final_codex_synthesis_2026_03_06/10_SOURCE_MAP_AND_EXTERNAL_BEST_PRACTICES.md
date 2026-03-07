@@ -157,6 +157,10 @@
 ## 11. Academic anchors used for decision quality
 
 Ниже не “абсолютная истина”, а исследовательские опоры, которые полезны для проверки логики решений:
+- `Brown, 1956` — exponential smoothing,
+- `Wilson, 1927` — confidence interval for small samples,
+- `Bernardo & Smith, 2000` — Bayesian updating,
+- `Bullen, 2003` — bounded treatment of unbalanced composite dimensions,
 - `Kahneman & Tversky, 1979` — loss aversion,
 - `Yerkes-Dodson, 1908` — excessive stress hurts performance,
 - `Locke & Latham, 2002` — specific goals improve results,
@@ -168,6 +172,9 @@
 - `Deming, 1982` — punitive quality regimes corrupt reporting.
 
 Как это использовано:
+- exponential smoothing → EWMA for rolling MOSAIC and trend analytics,
+- Wilson + Bayesian ideas → low-sample protection and shadow recalibration for `SourceFairness`,
+- bounded composite logic → discipline floor dampener instead of raw over-penalization,
 - loss aversion → portfolio health and orphan logic,
 - goal setting → presets and KPI numbers,
 - flow → micro-feedback layer,
