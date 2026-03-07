@@ -1,131 +1,138 @@
-# Deep Research Brief for TwoComms Management Subdomain
+# Бриф для Deep Research по TwoComms Management
 
-## 1. Purpose of this file
+## 1. Назначение этого файла
 
-This file is the briefing document for another AI agent that will perform deep research.
+Этот файл предназначен для другого ИИ-агента, который будет проводить глубокое исследование по интернету, статьям, документации, CRM-практикам, call QA, sales operations и похожим системам.
 
-Its job is not to produce a generic CRM report.
-Its job is to research improvements for the **actual TwoComms management project** and to evaluate ideas in the context of the existing planned architecture in this folder.
+Его задача не в том, чтобы написать абстрактный обзор по CRM.
+Его задача в том, чтобы исследовать **улучшения именно для проекта TwoComms Management** и вернуть выводы в контексте уже подготовленной архитектуры, формул и планируемых систем из этого пакета.
 
-The agent must understand:
-- what kind of business this is,
-- what management system is being planned,
-- what metrics and formulas already exist,
-- which ideas are already accepted,
-- which areas still require external evidence,
-- and what kind of recommendations would be useless or harmful for this project.
+Ответ от deep-research агента должен быть **полностью на русском языке**.
 
-## 2. Project snapshot
+## 2. Что это за проект
 
-`TwoComms Management` is a management subdomain for a **small B2B wholesale sales team**.
+`TwoComms Management` это management subdomain для **небольшой B2B wholesale-команды**.
 
-The context is not crypto, not a trading platform, not a support desk, not a generic enterprise call center, and not consumer ecommerce.
+Это не:
+- криптобиржа,
+- трейдинг-платформа,
+- retail support desk,
+- массовый B2C колл-центр,
+- и не generic enterprise CRM на сотни операторов.
 
-The closest context is:
-- small-team outbound and semi-warm B2B sales,
-- fashion wholesale and shop onboarding,
-- lead parsing and lead import from different sources,
-- repeat orders and client portfolio management,
-- callback discipline,
-- manager KPI and payroll,
+Это ближе всего к следующему контексту:
+- small-team outbound и semi-warm B2B sales,
+- fashion wholesale и подключение магазинов,
+- работа с холодными, тёплыми и горячими источниками,
+- повторные заказы и удержание клиентского портфеля,
+- перезвоны и follow-up дисциплина,
+- KPI и зарплата менеджеров,
+- контроль качества работы,
 - admin supervision,
-- explainable statistics,
-- and later IP telephony with call QA.
+- explainable analytics,
+- поэтапное внедрение IP-телефонии с прослушкой и оценкой звонков.
 
-The target outcome is not just "more activity".
-The target outcome is:
-- higher conversion quality,
-- higher repeat revenue,
-- better callback discipline,
-- lower duplicate leakage,
-- less fake reporting,
-- fairer manager evaluation,
-- stronger admin visibility,
-- and clearer payroll logic.
+Ключевая цель проекта:
+- повысить реальную продуктивность менеджеров,
+- повысить качество конверсии,
+- улучшить повторные продажи,
+- уменьшить дубли,
+- уменьшить пустую активность,
+- сделать отчётность прозрачной,
+- сделать зарплату и KPI понятными,
+- внедрить evidence-based советы и админский контроль без токсичности.
 
-## 3. Operating model of the business
+## 3. Операционная модель бизнеса
 
-The deep-research agent must reason in the following operating model:
+Deep-research агент должен мыслить в следующей модели:
 
-1. Managers work with shops and leads, not with anonymous retail consumers.
-2. Lead sources differ a lot in difficulty:
-- cold XML / parser lists,
-- parsed cold lead streams,
-- manually found leads,
-- warm reactivations,
-- hot inbound demand.
-3. A manager can generate:
-- first paid order,
-- repeat paid order,
-- callbacks,
-- notes,
-- disqualification reasons,
-- follow-up chains,
-- portfolio recovery,
-- and later telephony events.
-4. The system must separate:
+1. Менеджеры работают с магазинами и лидами, а не с анонимными розничными пользователями.
+2. Источники лидов сильно отличаются по сложности:
+- `cold_xml`,
+- `parser_cold`,
+- `manual_hunt`,
+- `warm_reactivation`,
+- `hot_inbound`.
+3. Менеджер может создавать разные типы результата:
+- первый оплаченный заказ,
+- повторный оплаченный заказ,
+- корректный follow-up,
+- перезвон,
+- качественную заметку,
+- корректную причину отказа,
+- восстановление клиента из риска,
+- и позже подтверждённые telephony-события.
+4. Система должна различать:
 - verified business outcomes,
-- manager-reported activity,
+- self-reported activity,
 - admin-reviewed quality,
-- and noisy signals that should not dominate payroll.
-5. The current and planned team size is closer to `3-7 managers` than to `50+`.
-6. Seasonality matters because fashion wholesale has uneven demand and collection cycles.
-7. The system must support both:
-- new-business acquisition,
-- and retention / repeat ordering from the portfolio.
+- и шумные сигналы, которые нельзя делать основной правдой для зарплаты.
+5. Текущий и планируемый размер команды ближе к `3-7 менеджерам`, а не к крупному call-center масштабу.
+6. В нише есть сезонность, коллекции, просадки и волны спроса.
+7. Система должна поддерживать одновременно:
+- `new business`,
+- `portfolio retention`,
+- `repeat orders`,
+- `execution discipline`,
+- и `call quality`.
 
-## 4. What is being built
+## 4. Что именно строится
 
-The final architecture in this folder is not a greenfield CRM fantasy.
-It is a practical management operating system with these planned layers:
+Финальная система в этом пакете это не новая CRM с нуля, а развитие уже существующего management-контура.
+
+Планируемые слои:
 
 1. `MOSAIC score`
-- a fair daily efficiency system,
-- source-aware,
-- anti-abuse aware,
-- not purely activity-based.
+- справедливый score эффективности,
+- с учётом сложности базы,
+- с защитой от фейковой активности,
+- с разделением verified и self-reported сигналов.
 
-2. `Payroll and KPI engine`
-- salary support,
-- KPI compliance,
-- dual probation,
-- portfolio bonus,
-- repeat-order incentives.
+2. `KPI и payroll engine`
+- KPI режимы,
+- probation,
+- зарплатная логика,
+- процент с первого и повторного заказа,
+- проверка базовых требований,
+- оценка здоровья портфеля.
 
-3. `Anti-duplication and follow-up engine`
-- exact and fuzzy duplicate detection,
+3. `Anti-duplication и follow-up engine`
+- exact/fuzzy dedupe,
 - merge rules,
-- batch import safety,
+- import preview,
 - reminder ladder,
-- overdue control.
+- overdue escalation,
+- callback discipline.
 
-4. `Telephony and QA contour`
-- phased IP telephony rollout,
-- recordings,
-- supervisor listening,
-- admin scores,
-- reliability calibration,
-- call statistics.
+4. `IP telephony и QA contour`
+- записи звонков,
+- прослушка админом,
+- ручная оценка звонка,
+- калибровка оценщиков,
+- supervisor statistics,
+- ограничения влияния субъективного фактора.
 
-5. `Manager/Admin UI`
-- action-first manager console,
+5. `Manager/Admin интерфейсы`
+- action-first worklist,
+- explainable score,
 - admin queues,
-- explainable score breakdown,
-- mobile-first worklist.
+- mobile-first сценарии,
+- low-noise reminders,
+- осмысленные дашборды.
 
-6. `Implementation roadmap and guardrails`
+6. `Implementation roadmap и guardrails`
 - staged rollout,
-- audit logging,
+- audit log,
 - security,
 - backup,
-- performance budgets.
+- performance budgets,
+- защита от ошибок миграции и злоупотреблений.
 
-## 4.1 Existing domain objects and signals the agent should assume are real
+## 4.1 Что уже существует в проекте
 
-The current project already has management-related entities and signals.
-The research should assume evolution of an existing system, not invention from zero.
+Исследование должно исходить из того, что проект уже имеет реальные сущности и сигналы, а не стартует с нуля.
 
-Known domain objects and event types include:
+Известные доменные объекты и события:
 - `Client`
 - `ManagementLead`
 - `ClientFollowUp`
@@ -137,177 +144,178 @@ Known domain objects and event types include:
 - `ManagerPayoutRequest`
 - `ReminderSent`
 
-This matters because recommendations should fit a model where:
-- lead, shop, follow-up and communication data already exist,
-- reminders already exist in some form,
-- commissions and payout requests already exist,
-- and analytics should be layered on top of those realities.
+Это означает, что рекомендации должны быть совместимы с системой, где:
+- лиды, магазины, follow-up и коммуникации уже существуют,
+- reminders уже частично существуют,
+- комиссии и payout requests уже существуют,
+- аналитика должна наслаиваться на текущую модель, а не переписывать всё как будто ничего нет.
 
-## 5. Fixed assumptions and non-negotiable principles
+## 5. Неподвижные принципы и инварианты
 
-The deep-research agent may challenge thresholds and formulas, but it must respect the following core principles unless it presents strong evidence to replace them.
+Deep-research агент может спорить с цифрами и thresholds, но не должен ломать эти принципы без очень сильной аргументации.
 
-### 5.1 Business truth hierarchy
+### 5.1 Иерархия истины
 
-- Verified outcomes are more important than self-reported activity.
-- A manager should not get a high score from volume alone.
-- A manager should not be punished by source difficulty without normalization.
+- Verified outcomes важнее, чем self-reported activity.
+- Менеджер не должен получать высокий score только за объём действий.
+- Сложность источника не должна автоматически ломать справедливость оценки.
 
-### 5.2 Compensation truth
+### 5.2 Финансовое ядро
 
-- `2.5%` first order / `5%` repeat order remains the financial core unless there is a very strong reason to propose a better structure.
-- Payroll logic must stay explainable to both admin and manager.
+- `2.5%` за первый заказ и `5%` за повторный заказ это текущая финансовая основа.
+- Если предлагать замену, то только с очень сильным бизнес-обоснованием.
+- Зарплатная логика должна оставаться объяснимой и для админа, и для менеджера.
 
-### 5.3 Hard verified signal
+### 5.3 Жёсткий verified-сигнал
 
-- `shop added = already paid` is treated as a hard verified business event.
+- `магазин добавлен = уже оплатил` считается сильным подтверждённым бизнес-событием.
 
-### 5.4 Behavioral principle
+### 5.4 Поведенческий принцип
 
-- The system must improve real selling discipline, not generate fake activity.
-- It must reduce spam, duplicate work, empty reminders, and performative KPI chasing.
+- Система должна усиливать реальную дисциплину продаж, а не создавать фиктивную активность.
+- Нельзя строить механику, которая заставляет менеджеров спамить, кликать ради score или подгонять отчёты.
 
-### 5.5 Organizational principle
+### 5.5 Организационный принцип
 
-- `manager view` and `admin view` must stay separated.
-- Public humiliation mechanics are not acceptable.
-- A fully public aggressive leaderboard is not the default.
+- `manager view` и `admin view` должны оставаться разделёнными.
+- Унижающие публичные рейтинги не являются дефолтной моделью.
+- Субъективное мнение администратора не должно напрямую ломать зарплату без ограничений и проверки.
 
-### 5.6 Technical principle
+### 5.6 Технический принцип
 
-- Recommendations should fit a Django + Celery + Redis style management stack.
-- The system should be realistic for phased rollout, not dependent on a perfect data warehouse from day one.
+- Рекомендации должны быть реалистичны для Django + Celery + Redis подобного management-стека.
+- Нельзя строить предложения, которым нужен идеальный data warehouse и идеальная чистота данных с первого дня.
 
-### 5.7 Product boundary principle
+### 5.7 Граница продукта
 
-- Management analytics for wholesale managers should not be mixed into unrelated product areas.
-- `DTF` and other domains should not be collapsed into the same core performance truth for this management system.
+- Management analytics для wholesale-менеджеров не должны смешиваться с чужими продуктовыми контурами.
+- `DTF` и другие домены нельзя складывать в одну общую performance truth для этой management-системы.
 
-## 6. Current baseline numbers that research should validate, tune, or replace
+## 6. Стартовые числа, которые нужно проверить, подтвердить, скорректировать или заменить
 
-These are the current starting numbers in the final package.
-The deep-research agent must not blindly accept them.
-It should evaluate whether they are strong, weak, or should be adjusted for small-team B2B wholesale.
+Ниже не "истина", а текущие стартовые параметры из финального пакета.
+Deep-research агент должен оценить, насколько они адекватны именно для small-team B2B fashion wholesale.
 
-### 6.1 Current daily score architecture
+### 6.1 Текущая базовая формула дневного score
 
-Current authoritative score formula:
+Текущая authoritative-формула:
 
 `0.40 Result + 0.15 SourceFairness + 0.15 Process + 0.10 FollowUp + 0.10 DataQuality + 0.10 VerifiedCommunication`
 
-### 6.2 Current source fairness baselines
+### 6.2 Текущие baseline по сложности источников
 
-Starting baselines:
+Стартовые ориентиры:
 - `cold_xml = 1.5%`
 - `parser_cold = 3%`
 - `manual_hunt = 6%`
 - `warm_reactivation = 18%`
 - `hot_inbound = 30%`
 
-Recalibration policy:
+Текущая политика пересмотра:
 - quarterly review,
 - bounded adjustment,
-- default cap `+/-25%` per recalibration cycle.
+- cap по умолчанию `+/-25%` за цикл пересмотра.
 
-### 6.3 Current gate defaults
+### 6.3 Текущие gate thresholds
 
-Current start thresholds:
-- `100` if paid order exists,
-- `78` if strong pipeline proof exists,
-- `60` if verified communication and disciplined execution exist,
-- `45` after `3+` business days if only lower-grade progress exists.
+Стартовые ориентиры:
+- `100` если есть paid order,
+- `78` если есть strong pipeline proof,
+- `60` если есть verified communication и дисциплина выполнения,
+- `45` если спустя `3+` рабочих дня есть только lower-grade progress.
 
-### 6.4 Current KPI presets
-
-Current operating presets:
+### 6.4 Текущие KPI-режимы
 
 `TESTING`
-- `20` daily meaningful contacts,
-- `1` new paid per week,
+- `20` meaningful contacts в день,
+- `1` новый оплаченный заказ в неделю,
 - `80%` callback SLA,
 - `85%` report compliance,
 - duplicate abuse `<5%`
 
 `NORMAL`
-- `35` daily meaningful contacts,
-- `2` new paid per week,
+- `35` meaningful contacts в день,
+- `2` новых оплаченных заказа в неделю,
 - `85%` callback SLA,
 - `90%` report compliance,
 - duplicate abuse `<3%`
 
 `HARDCORE`
-- `50` daily meaningful contacts,
-- `3` new paid per week,
+- `50` meaningful contacts в день,
+- `3` новых оплаченных заказа в неделю,
 - `90%` callback SLA,
 - `95%` report compliance,
 - duplicate abuse `<2%`
 
-### 6.5 Current telephony maturity caps
+### 6.5 Текущие maturity caps для коммуникации
 
-Current `VerifiedCommunication` maturity cap:
+`VerifiedCommunication` сейчас ограничен так:
 - `manual_only = 60`
 - `soft_launch = 80`
 - `supervised = 100`
 
-### 6.6 Current portfolio cadence
+### 6.6 Текущая логика по здоровью портфеля
 
-Current client portfolio timing:
-- `Healthy = 0-21 days`
-- `Watch = 22-35 days`
-- `Risk = 36-45 days`
-- `Rescue = 46-60 days`
-- `Reassign Eligible = 61+ days`
+Стартовые интервалы:
+- `Healthy = 0-21 дней`
+- `Watch = 22-35 дней`
+- `Risk = 36-45 дней`
+- `Rescue = 46-60 дней`
+- `Reassign Eligible = 61+ дней`
 
-### 6.7 Current micro-feedback philosophy
+### 6.7 Текущая философия micro-feedback
 
-Micro-feedback is allowed only as a bounded secondary layer.
-It must never become the main payroll truth.
+Micro-feedback допустим только как ограниченный вторичный слой.
+Он не должен становиться главной правдой для payroll или KPI.
 
-## 7. Scope guardrails for the research
+## 7. Ограничения области исследования
 
-The deep-research agent must search for evidence in contexts similar to this project.
+### 7.1 Что исследовать в первую очередь
 
-### 7.1 In-scope source patterns
-
-Prioritize:
+Искать похожие практики и доказательства в контексте:
 - B2B sales operations,
-- small-team CRM operations,
-- outbound sales QA,
+- small-team CRM,
+- outbound/semi-warm sales,
 - callback management,
 - telephony supervision,
-- duplicate management in CRM,
-- incentive design for repeat business,
-- explainable performance scoring,
-- benchmarking from CRM, call QA and sales operations products,
-- and relevant academic work on motivation, measurement reliability, performance management and alert fatigue.
+- duplicate management,
+- repeat-order мотивации,
+- explainable score systems,
+- call QA,
+- motivation design,
+- measurement reliability,
+- performance management,
+- alert fatigue,
+- admin oversight without abuse.
 
-### 7.2 Out-of-scope patterns
+### 7.2 Что не брать как основную опору
 
-Avoid using unrelated benchmarks from:
-- crypto exchanges,
-- retail trading desks,
-- generic support-only call centers,
-- mass-volume B2C telesales,
-- gig-platform ranking systems,
-- or high-scale enterprise environments that assume huge teams and massive process overhead.
+Не делать главной базой:
+- криптобиржи,
+- retail trading,
+- support-only колл-центры,
+- массовый B2C telesales,
+- gig-platform rating systems,
+- huge enterprise процессы, рассчитанные на сотни людей и отдельные департаменты аналитики.
 
-### 7.3 Wrong-answer patterns
+### 7.3 Какие ответы будут считаться плохими
 
-Recommendations are weak if they:
-- optimize raw activity instead of revenue quality,
-- ignore source difficulty,
-- let subjective admin opinion dominate payroll,
-- rely on perfect data quality from day one,
-- require unrealistic implementation effort for a phased rollout,
-- or create shame-driven competition instead of disciplined execution.
+Плохой ответ это тот, который:
+- оптимизирует raw activity вместо качества и revenue,
+- игнорирует сложность источника,
+- слишком усиливает субъективный человеческий фактор,
+- требует нереалистичного внедрения,
+- не привязан к уже существующим файлам и формулам,
+- или предлагает красивую теорию, которая развалится в маленькой команде.
 
-## 8. Mandatory context pack
+## 8. Обязательный context pack для исследования
 
-The deep-research agent should use the uploaded final synthesis documents as its primary context pack inside the ChatGPT project.
-Assume the files are available by **file name**, not by filesystem path.
-When making recommendations, explicitly cite the exact file name that informed the conclusion.
+Эти файлы будут загружены в ChatGPT Project.
+Исходи из того, что ты можешь искать их **по имени файла**, а не по пути.
 
-Recommended reading order:
+При анализе и рекомендациях нужно **ссылаться на точные имена файлов**.
+
+Рекомендуемый порядок чтения:
 
 1. `00_INDEX.md`
 2. `01_MASTER_SYNTHESIS.md`
@@ -322,259 +330,277 @@ Recommended reading order:
 11. `12_CALIBRATION_DEFAULTS_AND_PRESETS.md`
 12. `13_CROSS_SYSTEM_GUARDRAILS.md`
 
-Quick meaning of each file:
+Краткая роль каждого файла:
 
 - `00_INDEX.md`
-  - entry point and reading order.
+  - точка входа и порядок чтения.
 - `01_MASTER_SYNTHESIS.md`
-  - why the final architecture looks the way it does.
+  - почему финальная архитектура выбрана именно такой.
 - `02_MOSAIC_SCORE_SYSTEM.md`
-  - score layers, formulas, gates, trust and comparative logic.
+  - score layers, formula, gate logic, trust, explainability.
 - `03_PAYROLL_KPI_AND_PORTFOLIO.md`
-  - KPI, salary logic, meaningful contact, probation, portfolio ownership.
+  - KPI, payroll, probation, meaningful contact, portfolio rules.
 - `04_ANTI_DUPLICATION_AND_FOLLOWUP_ENGINE.md`
-  - dedupe logic, merge rules, callback ladder, reminder model.
+  - dedupe, merge, callback ladder, reminder logic.
 - `05_IP_TELEPHONY_QA_AND_SUPERVISOR.md`
-  - telephony rollout, provider thinking, QA, calibration, retention.
+  - telephony rollout, QA, calibration, supervisor actions.
 - `06_UI_UX_AND_MANAGER_CONSOLE.md`
-  - worklist logic, manager/admin UX, mobile-first constraints.
+  - manager/admin UX и mobile-first сценарии.
 - `07_IMPLEMENTATION_ROADMAP.md`
-  - rollout sequencing and practical implementation phases.
+  - фазы внедрения и practical rollout.
 - `10_SOURCE_MAP_AND_EXTERNAL_BEST_PRACTICES.md`
-  - already collected external anchor sources.
+  - уже собранные внешние опоры и источники.
 - `11_PRODUCT_BACKLOG_FOR_MANAGEMENT_SUBDOMAIN.md`
-  - module-oriented backlog for implementation.
+  - модульный backlog для внедрения.
 - `12_CALIBRATION_DEFAULTS_AND_PRESETS.md`
-  - all current baseline numbers in one place.
+  - единое место со стартовыми цифрами и thresholds.
 - `13_CROSS_SYSTEM_GUARDRAILS.md`
-  - audit, security, backup, performance, and system-wide protections.
+  - audit/security/backup/performance guardrails.
 
-If the files are uploaded into a ChatGPT project, the agent should:
-- search by exact file name,
-- quote or reference file names directly,
-- and avoid depending on local paths or repository structure.
+## 9. Как deep-research агент должен использовать контекст файлов
 
-## 9. How the agent must use the file context
+Нельзя отвечать на вопросы абстрактно.
+Нужно сопоставлять внешние данные с текущей архитектурой и для каждого важного вывода писать один из вариантов:
 
-The agent should not just answer the 5 questions abstractly.
-It must compare external evidence with the current proposed architecture and say one of the following for each important point:
+- `оставить как есть`,
+- `поднять`,
+- `снизить`,
+- `заменить`,
+- `отложить на следующую фазу`.
 
-- `keep as is`,
-- `tune upward`,
-- `tune downward`,
-- `replace`,
-- `defer to later phase`.
+Если предлагается изменение, нужно обязательно указать:
+- что именно меняется,
+- в каком файле это затрагивается,
+- почему текущая версия слабая или рискованная,
+- и какая замена лучше.
 
-If the agent recommends change, it must specify:
-- what exact part of the current package changes,
-- which file it affects,
-- why the existing assumption is weak,
-- and what better replacement looks like.
-
-Whenever possible, the agent should point to the relevant file by name.
-Use file names exactly as uploaded, for example:
+Ссылаться нужно по имени файла, например:
 - `02_MOSAIC_SCORE_SYSTEM.md`
 - `03_PAYROLL_KPI_AND_PORTFOLIO.md`
 - `12_CALIBRATION_DEFAULTS_AND_PRESETS.md`
 
-## 10. Required output format
+## 10. Формат ответа, который должен вернуть deep-research агент
 
-The research result should be structured like this:
+Ответ должен быть **полностью на русском языке**.
 
 ### 10.1 Executive synthesis
 
-The agent must begin with:
-- the top 10 practical findings for TwoComms,
-- the 5 highest-impact changes worth making first,
-- the 5 ideas that should be rejected or delayed,
-- and the 3 biggest implementation risks.
+В начале ответа обязательно дать:
+- 10 главных выводов для TwoComms,
+- 5 самых ценных изменений, которые стоит внедрять раньше всего,
+- 5 идей, которые лучше отклонить или отложить,
+- 3 самых опасных риска внедрения.
 
-### 10.2 Per-question response structure
+### 10.2 Формат по каждому вопросу
 
-For each research question, the agent must provide:
-- a short executive summary,
-- relevant benchmarks and ranges,
-- 5-10 strong sources,
-- what to implement now,
-- what to defer,
-- what is risky or overengineered for TwoComms,
-- and a final plain-language recommendation.
+По каждому вопросу обязательно вернуть:
+- короткий executive summary,
+- benchmark numbers или диапазоны,
+- 5-10 сильных источников,
+- что внедрять сейчас,
+- что отложить,
+- что выглядит рискованным или overengineered,
+- финальную рекомендацию простым языком,
+- и блок `что менять в каких файлах`.
 
-### 10.3 Required style of recommendations
+### 10.3 Стиль рекомендаций
 
-Recommendations must be:
-- concrete,
-- numerically specific where possible,
-- contextual to a small B2B fashion wholesale sales team,
-- realistic for staged rollout,
-- and explainable to both admin and manager.
+Рекомендации должны быть:
+- конкретными,
+- по возможности численно определёнными,
+- реалистичными для phased rollout,
+- привязанными к маленькой B2B wholesale-команде,
+- и объяснимыми для менеджера и админа.
 
-## 11. Five research questions
+## 11. Приоритетность исследования
 
-## 11.1 KPI thresholds and operating modes for small-team B2B fashion wholesale sales
+Не все вопросы одинаково важны.
+Приоритет исследования должен быть таким:
 
-Research in the context of:
-- cold and warm lead mixes,
-- small teams `3-7 managers`,
-- seasonality,
-- first-order vs repeat-order economics,
-- and the risk of fake activity caused by badly chosen quotas.
+1. `KPI / payroll / source of truth`
+2. `Explainable advice / next-best-action / coaching engine`
+3. `Call QA / calibration / supervisor control`
+4. `Dedupe / merge / migration safety`
+5. `Telephony / reminders / notification architecture`
 
-Validate or challenge:
-- the current `TESTING / NORMAL / HARDCORE` presets,
-- the current concept of `meaningful contact`,
-- weekly and monthly planning ranges,
-- callback SLA expectations,
-- report compliance expectations,
-- and duplicate-abuse tolerance.
+Если какие-то выводы по более поздним вопросам влияют на более ранние, это нужно явно отметить.
 
-The answer should produce:
-- recommended daily, weekly and monthly KPI ranges,
-- mode-switch rules,
+## 12. Пять исследовательских вопросов
+
+## 12.1 Какие KPI, probation-правила и payroll guardrails лучше всего подходят small-team B2B fashion wholesale sales
+
+Нужно исследовать в контексте:
+- холодных и тёплых лидов,
+- маленькой команды `3-7 менеджеров`,
+- сезонности,
+- первого и повторного заказа,
+- риска фиктивной активности из-за неудачных квот.
+
+Нужно проверить или оспорить:
+- текущие `TESTING / NORMAL / HARDCORE` режимы,
+- текущие требования к `meaningful contact`,
+- weekly/monthly ranges,
+- callback SLA,
+- report compliance,
+- duplicate abuse thresholds,
+- dual probation,
+- и то, как KPI должны влиять на зарплату и последствия.
+
+Нужно получить:
+- рекомендуемые daily/weekly/monthly ranges,
+- rules для переключения режимов,
 - seasonality modifiers,
-- thresholds that are too harsh,
-- thresholds that are too soft,
-- and a final recommendation for the starting production presets.
+- что слишком жёстко,
+- что слишком мягко,
+- как лучше разделить `base requirements`, `KPI`, `payroll truth`, `discipline`,
+- и финальную рекомендацию для production presets.
 
-Primary context files:
+Основные файлы контекста:
 - `03_PAYROLL_KPI_AND_PORTFOLIO.md`
 - `12_CALIBRATION_DEFAULTS_AND_PRESETS.md`
 - `01_MASTER_SYNTHESIS.md`
 
-## 11.2 Comparative rating engine for TwoComms
+## 12.2 Как построить explainable систему советов, next-best-action и coaching на статистике, а не на шуме
 
-Research which comparative system best fits:
-- a small team,
-- uneven source difficulty,
-- absences and return after absence,
-- small sample sizes,
-- and the need for motivation without noise.
+Этот вопрос важнее, чем отдельное исследование игрового рейтинга.
 
-Compare:
-- no public rating,
-- private seasonal ladder,
-- hybrid ladder,
-- Glicko-2 style systems,
-- and any stronger alternative for a small sales team.
+Нужно исследовать:
+- как строить персональные советы менеджеру на основе статистики,
+- как выделять следующий лучший шаг по лиду или портфелю,
+- как связывать советы с проблемой, а не с абстрактной мотивацией,
+- какие сигналы реально полезны для coaching,
+- как не превратить систему советов в спам,
+- нужен ли вообще comparative layer,
+- и если нужен, то в каком ограниченном виде.
 
-The answer should produce:
-- the recommended default comparative mode,
-- the recommended advanced mode,
-- switch criteria for when a more complex rating system becomes justified,
-- formula or pseudo-formula candidates,
-- and rules for combining daily score, micro-feedback and long-term standing.
+Нужно проверить или оспорить:
+- идею explainable hints,
+- роль micro-feedback,
+- роль shadow rival / private ladder / comparative layer,
+- сочетание `daily score + portfolio state + follow-up discipline + QA`,
+- и правила, при которых совет должен быть жёстким, мягким или вообще не показываться.
 
-Primary context files:
+Нужно получить:
+- архитектуру explainable advice engine,
+- список top recommendation types,
+- приоритеты сигналов,
+- anti-noise rules,
+- anti-fatigue rules,
+- логику evidence-based coaching,
+- и вывод, нужен ли comparative rating как отдельный слой сейчас, позже или вообще не нужен.
+
+Основные файлы контекста:
 - `02_MOSAIC_SCORE_SYSTEM.md`
-- `12_CALIBRATION_DEFAULTS_AND_PRESETS.md`
+- `03_PAYROLL_KPI_AND_PORTFOLIO.md`
+- `04_ANTI_DUPLICATION_AND_FOLLOWUP_ENGINE.md`
 - `06_UI_UX_AND_MANAGER_CONSOLE.md`
 
-## 11.3 Call QA and calibration model that improves sales without becoming subjective surveillance
+## 12.3 Какая модель call QA и calibration действительно улучшает продажи, а не превращается в субъективный контроль
 
-Research in the context of:
-- outbound or semi-warm B2B selling,
+Нужно исследовать в контексте:
+- outbound и semi-warm B2B selling,
 - small-team supervisor review,
-- explainable QA scoring,
-- and payroll-safe boundaries.
+- explainable QA scorecard,
+- и payroll-safe ограничений.
 
-Validate or challenge:
-- how QA should affect coaching,
-- how QA should affect trust,
-- how QA should affect compensation,
-- calibration frequency,
-- reliability thresholds such as kappa or equivalent,
-- and what supervisor tools are must-have vs optional.
-
-The answer should produce:
-- a practical QA rubric,
-- scorecard categories and weights,
-- calibration cadence,
+Нужно проверить или оспорить:
+- как QA должен влиять на coaching,
+- как QA должен влиять на trust,
+- как QA должен влиять на зарплату,
+- частоту calibration,
 - reliability thresholds,
+- must-have и optional supervisor features.
+
+Нужно получить:
+- practical QA rubric,
+- scorecard categories и weights,
+- cadence для калибровки,
+- kappa или equivalent thresholds,
 - QA-to-coaching policy,
 - QA-to-compensation limits,
-- and short-call handling rules.
+- правила обработки short calls,
+- и границы субъективного влияния администратора.
 
-Primary context files:
+Основные файлы контекста:
 - `05_IP_TELEPHONY_QA_AND_SUPERVISOR.md`
 - `13_CROSS_SYSTEM_GUARDRAILS.md`
 - `07_IMPLEMENTATION_ROADMAP.md`
 
-## 11.4 Dedupe, merge and migration patterns for a CRM with lead parsing, batch import and telephony
+## 12.4 Какие dedupe, merge и migration patterns лучше всего подходят для CRM с lead parsing, batch import и будущей телефонией
 
-Research in the context of:
-- dirty historical data,
-- partial identifiers,
-- multiple lead origins,
-- future telephony integration,
-- and the need to avoid accidental merges.
+Нужно исследовать в контексте:
+- грязных исторических данных,
+- неполных идентификаторов,
+- разных источников лида,
+- будущих telephony-сигналов,
+- и риска случайных merge-ошибок.
 
-Validate or challenge:
+Нужно проверить или оспорить:
 - exact matching rules,
 - fuzzy thresholds,
-- conflict resolution logic,
+- conflict resolution,
 - batch import preview,
-- merge rollback windows,
-- and migration sequencing.
+- rollback window,
+- migration sequencing,
+- operator review workflow.
 
-The answer should produce:
-- recommended exact rules,
-- recommended fuzzy thresholds,
+Нужно получить:
+- рекомендуемые exact rules,
+- рекомендуемые fuzzy thresholds,
 - merge decision rules,
 - rollback windows,
 - migration checklist,
-- operator review workflow,
-- and safe defaults for v1 rollout.
+- safe defaults для v1,
+- и анти-ошибочные guardrails.
 
-Primary context files:
+Основные файлы контекста:
 - `04_ANTI_DUPLICATION_AND_FOLLOWUP_ENGINE.md`
 - `07_IMPLEMENTATION_ROADMAP.md`
 - `13_CROSS_SYSTEM_GUARDRAILS.md`
 
-## 11.5 Telephony architecture and reminder/coaching architecture for TwoComms
+## 12.5 Какую telephony, reminder и notification architecture лучше выбрать именно для TwoComms
 
-Research in the context of:
-- Ukraine and comparable markets,
-- supervisor listening and scoring,
+Нужно исследовать в контексте:
+- Украины и сопоставимых рынков,
+- supervisor listening,
 - webhook maturity,
 - recording economics,
 - mobile admin workflow,
 - alert fatigue,
-- and staged adoption.
+- staged adoption.
 
-Validate or challenge:
+Нужно проверить или оспорить:
 - provider shortlist,
 - provider comparison logic,
-- recording retention periods,
+- recording retention,
 - reminder ladder timing,
-- notification channel split,
-- and the order in which telephony should affect score and admin workflows.
+- notification channels,
+- момент, когда telephony должна начинать влиять на score, coaching и admin actions.
 
-The answer should produce:
-- a provider shortlist,
-- pricing bands if available,
+Нужно получить:
+- shortlist провайдеров,
+- cost bands если их реально можно собрать,
 - rollout phases,
 - recording retention recommendation,
-- reminder architecture,
-- manager/admin notification policy,
-- and the biggest operational risks.
+- manager/admin reminder ladder,
+- notification policy,
+- и главные операционные риски.
 
-Primary context files:
+Основные файлы контекста:
 - `05_IP_TELEPHONY_QA_AND_SUPERVISOR.md`
 - `04_ANTI_DUPLICATION_AND_FOLLOWUP_ENGINE.md`
 - `06_UI_UX_AND_MANAGER_CONSOLE.md`
 
-## 12. Final instruction to the deep-research agent
+## 13. Финальная инструкция deep-research агенту
 
-Research for the project that is actually being built here.
-Do not answer as if this were a generic CRM article.
-Do not optimize for vanity metrics.
-Do not recommend systems that are elegant in theory but fragile in a small real sales team.
+Исследуй не "рынок CRM вообще", а конкретный проект, который реально строится здесь.
 
-The best answer is the one that:
-- improves manager productivity,
-- improves reporting quality,
-- improves repeat revenue and callback discipline,
-- reduces duplicates and noisy reminders,
-- keeps payroll fair,
-- limits subjective human-factor damage,
-- and stays implementable inside the staged TwoComms management roadmap.
+Лучший ответ это тот, который:
+- повышает продуктивность менеджеров,
+- улучшает качество отчётности,
+- повышает repeat revenue,
+- усиливает follow-up дисциплину,
+- уменьшает дубли и пустые напоминания,
+- делает payroll справедливее,
+- ограничивает вред субъективного человеческого фактора,
+- и остаётся внедряемым в staged roadmap TwoComms Management.
