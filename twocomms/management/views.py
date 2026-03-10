@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from datetime import datetime, timedelta
 import json
+import logging
 import re
 import time
 from pathlib import Path
@@ -69,6 +70,7 @@ from .invoice_service import (
 from .lead_services import calc_client_points, get_user_lead_bonus_points
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
+logger = logging.getLogger(__name__)
 
 
 class ContractPayloadError(Exception):
@@ -3699,76 +3701,81 @@ def invoices_generate_api(request):
             company_data=company_data,
             order_items=order_items,
         )
+
+        normalized_company = normalized_payload["company_data"]
+        normalized_items = normalized_payload["items"]
+        pricing = normalized_payload["pricing"]
+        totals = normalized_payload["totals"]
+        serialized_payload = serialize_management_invoice_payload(normalized_payload)
+
+        now = timezone.localtime(timezone.now())
+        timestamp = now.strftime('%Y%m%d-%H%M%S')
+        nonce = secrets.token_hex(2).upper()
+        invoice_number = f"МЕН-{timestamp}-{nonce}"
+
+        company_name = normalized_company["companyName"]
+        safe_company = (company_name or 'Company').strip()
+        safe_company = re.sub(r'[\\\\/:*?"<>|]+', '_', safe_company)
+        safe_company = re.sub(r'\\s+', ' ', safe_company).strip().strip('._-')
+        safe_company = (safe_company[:80] or 'Company').strip()
+        beautiful_date = now.strftime('%d.%m.%Y_%H-%M')
+        file_name = f"{safe_company}_накладнаОПТ_{beautiful_date}.xlsx"
+        wb = build_management_invoice_workbook(
+            company_data=normalized_company,
+            normalized_items=normalized_items,
+            pricing=pricing,
+            totals=totals,
+            invoice_number=invoice_number,
+            created_at_label=now.strftime("%d.%m.%Y о %H:%M"),
+        )
+
+        invoice = WholesaleInvoice.objects.create(
+            invoice_number=invoice_number,
+            company_name=company_name,
+            company_number=normalized_company["companyNumber"],
+            contact_phone=normalized_company["contactPhone"],
+            delivery_address=normalized_company["deliveryAddress"],
+            store_link=normalized_company["storeLink"],
+            total_tshirts=totals["total_tshirts"],
+            total_hoodies=totals["total_hoodies"],
+            total_amount=totals["total_amount"],
+            status='draft',
+            created_by=request.user,
+            review_status='draft',
+            order_details=serialized_payload,
+        )
+
+        user_folder = f"invoices/management/user_{request.user.id}"
+        invoice_dir = os.path.join(settings.MEDIA_ROOT, user_folder)
+        os.makedirs(invoice_dir, exist_ok=True)
+        file_path = os.path.join(invoice_dir, file_name)
+        wb.save(file_path)
+
+        invoice.file_path = file_path
+        invoice.save(update_fields=['file_path'])
+
+        return JsonResponse({
+            'ok': True,
+            'invoice': {
+                'id': invoice.id,
+                'invoice_number': invoice.invoice_number,
+                'company_name': invoice.company_name,
+                'total_amount': float(invoice.total_amount),
+                'total_tshirts': invoice.total_tshirts,
+                'total_hoodies': invoice.total_hoodies,
+                'created_at': timezone.localtime(invoice.created_at).strftime('%d.%m.%Y %H:%M'),
+                'review_status': invoice.review_status,
+                'review_status_display': invoice.get_review_status_display(),
+                'payment_status': invoice.payment_status,
+                'payment_url': invoice.payment_url,
+                'download_filename': file_name,
+            }
+        })
     except InvoicePayloadError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
-
-    normalized_company = normalized_payload["company_data"]
-    normalized_items = normalized_payload["items"]
-    totals = normalized_payload["totals"]
-    serialized_payload = serialize_management_invoice_payload(normalized_payload)
-
-    now = timezone.localtime(timezone.now())
-    timestamp = now.strftime('%Y%m%d-%H%M%S')
-    nonce = secrets.token_hex(2).upper()
-    invoice_number = f"МЕН-{timestamp}-{nonce}"
-
-    company_name = normalized_company["companyName"]
-    safe_company = (company_name or 'Company').strip()
-    safe_company = re.sub(r'[\\\\/:*?"<>|]+', '_', safe_company)
-    safe_company = re.sub(r'\\s+', ' ', safe_company).strip().strip('._-')
-    safe_company = (safe_company[:80] or 'Company').strip()
-    beautiful_date = now.strftime('%d.%m.%Y_%H-%M')
-    file_name = f"{safe_company}_накладнаОПТ_{beautiful_date}.xlsx"
-    wb = build_management_invoice_workbook(
-        company_data=normalized_company,
-        normalized_items=normalized_items,
-        totals=totals,
-        invoice_number=invoice_number,
-        created_at_label=now.strftime("%d.%m.%Y о %H:%M"),
-    )
-
-    invoice = WholesaleInvoice.objects.create(
-        invoice_number=invoice_number,
-        company_name=company_name,
-        company_number=normalized_company["companyNumber"],
-        contact_phone=normalized_company["contactPhone"],
-        delivery_address=normalized_company["deliveryAddress"],
-        store_link=normalized_company["storeLink"],
-        total_tshirts=totals["total_tshirts"],
-        total_hoodies=totals["total_hoodies"],
-        total_amount=totals["total_amount"],
-        status='draft',
-        created_by=request.user,
-        review_status='draft',
-        order_details=serialized_payload,
-    )
-
-    user_folder = f"invoices/management/user_{request.user.id}"
-    invoice_dir = os.path.join(settings.MEDIA_ROOT, user_folder)
-    os.makedirs(invoice_dir, exist_ok=True)
-    file_path = os.path.join(invoice_dir, file_name)
-    wb.save(file_path)
-
-    invoice.file_path = file_path
-    invoice.save(update_fields=['file_path'])
-
-    return JsonResponse({
-        'ok': True,
-        'invoice': {
-            'id': invoice.id,
-            'invoice_number': invoice.invoice_number,
-            'company_name': invoice.company_name,
-            'total_amount': float(invoice.total_amount),
-            'total_tshirts': invoice.total_tshirts,
-            'total_hoodies': invoice.total_hoodies,
-            'created_at': timezone.localtime(invoice.created_at).strftime('%d.%m.%Y %H:%M'),
-            'review_status': invoice.review_status,
-            'review_status_display': invoice.get_review_status_display(),
-            'payment_status': invoice.payment_status,
-            'payment_url': invoice.payment_url,
-            'download_filename': file_name,
-        }
-    })
+    except Exception:
+        logger.exception("Failed to generate management invoice")
+        return JsonResponse({'ok': False, 'error': 'Помилка при створенні накладної. Оновіть сторінку і спробуйте ще раз.'}, status=500)
 
 
 @login_required(login_url='management_login')

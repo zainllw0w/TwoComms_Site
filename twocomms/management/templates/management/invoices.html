@@ -2178,6 +2178,11 @@
         color: #10b981;
     }
 
+    .progress-info .manual-policy {
+        color: #fbbf24;
+        font-weight: 600;
+    }
+
     /* Discount Scales */
     .discount-scales {
         display: flex;
@@ -2189,6 +2194,12 @@
         display: flex;
         flex-direction: column;
         gap: 6px;
+        transition: opacity 0.25s ease, filter 0.25s ease;
+    }
+
+    .scale-container.is-disabled {
+        opacity: 0.45;
+        filter: saturate(0.6);
     }
 
     .scale-label {
@@ -3363,6 +3374,14 @@
         return include2xlInRun ? 5 : 4;
     }
 
+    function hasManualPriceItems(items = orderItems) {
+        return items.some(item => (item.pricingMode || 'auto') === 'manual' && parsePositivePrice(item.manualPrice) !== null);
+    }
+
+    function areTierDiscountsEnabled(currentPricingMode = null) {
+        return !(hasManualPriceItems() || currentPricingMode === 'manual');
+    }
+
     function getSelectedOrderQuantity() {
         const sizeValue = document.getElementById('productSize')?.value || '';
         const quantityInput = document.getElementById('quantity');
@@ -3445,9 +3464,9 @@
         return item.product.type === 'tshirt' ? tshirtQuantity : hoodieQuantity;
     }
 
-    function recomputeOrderItem(item, tshirtQuantity, hoodieQuantity) {
+    function recomputeOrderItem(item, tshirtQuantity, hoodieQuantity, discountsEnabled) {
         const itemQuantity = getPriceTierQuantityForItem(item, tshirtQuantity, hoodieQuantity);
-        const basePrice = getWholesalePrice(item.product.type, itemQuantity);
+        const basePrice = getWholesalePrice(item.product.type, itemQuantity, { discountsEnabled });
         const manualPrice = parsePositivePrice(item.manualPrice);
         const pricingMode = item.pricingMode === 'manual' && manualPrice !== null ? 'manual' : 'auto';
         const runMultiplier = parsePositiveInteger(item.runMultiplier, inferRunMultiplierFromSizeValue(item.size));
@@ -3458,6 +3477,7 @@
         item.runMultiplier = runMultiplier;
         item.include2xlInRun = include2xlInRun;
         item.size = buildSizeLabel(item.size, runMultiplier, include2xlInRun);
+        item.discountsEnabled = discountsEnabled;
         item.basePrice = basePrice;
         item.price = getEffectiveItemPrice(basePrice, pricingMode, manualPrice);
         item.total = Math.round(item.price * item.quantity * 100) / 100;
@@ -3490,7 +3510,9 @@
                 : `Авто ${formatMoney(orderItem.price)}`;
             const baseLabel = orderItem.pricingMode === 'manual'
                 ? `<span class="order-item-badge base">База ${formatMoney(orderItem.basePrice)}</span>`
-                : '';
+                : !orderItem.discountsEnabled
+                    ? `<span class="order-item-badge base">Без знижки ${formatMoney(orderItem.basePrice)}</span>`
+                    : '';
             badgesEl.innerHTML = `
                 <span class="order-item-badge ${orderItem.pricingMode === 'manual' ? 'manual' : 'auto'}">${modeLabel}</span>
                 ${baseLabel}
@@ -3677,7 +3699,13 @@
                     body: JSON.stringify(invoiceData)
                 });
 
-                const result = await response.json();
+                const rawResponse = await response.text();
+                let result = null;
+                try {
+                    result = rawResponse ? JSON.parse(rawResponse) : {};
+                } catch (parseError) {
+                    result = { ok: false, error: rawResponse || 'Сервер повернув некоректну відповідь' };
+                }
 
                 if (result.ok && result.invoice) {
                     // Clear order and localStorage
@@ -3692,7 +3720,7 @@
                 }
             } catch (error) {
                 console.error('Error generating invoice:', error);
-                showNotification('Помилка при створенні накладної', 'error');
+                showNotification(error.message || 'Помилка при створенні накладної', 'error');
             } finally {
                 // Reset button
                 generateInvoiceBtn.disabled = false;
@@ -4045,8 +4073,12 @@
             .reduce((total, item) => total + item.quantity, 0);
     }
 
-    function getWholesalePrice(productType, quantity) {
+    function getWholesalePrice(productType, quantity, { discountsEnabled = true } = {}) {
         const prices = productType === 'tshirt' ? tshirtPrices.wholesale : hoodiePrices.wholesale;
+
+        if (!discountsEnabled) {
+            return prices[0];
+        }
 
         if (quantity >= 100) return prices[4];
         if (quantity >= 64) return prices[3];
@@ -4072,13 +4104,14 @@
         const manualPrice = parsePositivePrice(manualPriceInput ? manualPriceInput.value : '');
         const quantity = getSelectedOrderQuantity();
         const isFullRun = sizeValue === 'all';
+        const discountsEnabled = areTierDiscountsEnabled(pricingMode);
         const include2xlInRun = shouldInclude2xlInRun();
         const runMultiplier = getRunMultiplier();
         const runLabel = buildRunSizeLabel(runMultiplier, include2xlInRun);
 
         const currentTotalQuantity = getTotalQuantityForProductType(currentProduct.type);
         const newTotalQuantity = currentTotalQuantity + quantity;
-        const basePrice = getWholesalePrice(currentProduct.type, newTotalQuantity);
+        const basePrice = getWholesalePrice(currentProduct.type, newTotalQuantity, { discountsEnabled });
         const effectivePrice = getEffectiveItemPrice(basePrice, pricingMode, manualPrice);
         const total = Math.round(effectivePrice * quantity * 100) / 100;
 
@@ -4097,10 +4130,10 @@
         if (pricePreview) {
             if (pricingMode === 'manual') {
                 pricePreview.innerHTML = manualPrice === null
-                    ? `Автоціна для поточного tier: <strong>${formatMoney(basePrice)}</strong> за 1 шт. Вкажіть свою ціну, щоб додати позицію.`
-                    : `Автоціна для поточного tier: <strong>${formatMoney(basePrice)}</strong> за 1 шт.${isFullRun ? `<br>Комплект: <strong>${runLabel}</strong> = ${quantity} шт.` : ''}<br>Ручна ціна: <strong>${formatMoney(manualPrice)}</strong> за 1 шт. • Разом: <strong>${formatMoney(total)}</strong>`;
+                    ? `${discountsEnabled ? 'Автоціна для поточного tier' : 'Базова автоціна без знижок'}: <strong>${formatMoney(basePrice)}</strong> за 1 шт. Вкажіть свою ціну, щоб додати позицію.`
+                    : `${discountsEnabled ? 'Автоціна для поточного tier' : 'Базова автоціна без знижок'}: <strong>${formatMoney(basePrice)}</strong> за 1 шт.${isFullRun ? `<br>Комплект: <strong>${runLabel}</strong> = ${quantity} шт.` : ''}<br>Ручна ціна: <strong>${formatMoney(manualPrice)}</strong> за 1 шт. • Разом: <strong>${formatMoney(total)}</strong><br><span style="color: rgba(255,255,255,0.72);">Після додавання ручної ціни оптові tier-знижки не застосовуються до всього замовлення.</span>`;
             } else {
-                pricePreview.innerHTML = `Автоціна для ${newTotalQuantity} шт. цього типу: <strong>${formatMoney(basePrice)}</strong> за 1 шт.${isFullRun ? `<br>Комплект: <strong>${runLabel}</strong> = ${quantity} шт.` : ''}<br>Разом: <strong>${formatMoney(total)}</strong>`;
+                pricePreview.innerHTML = `${discountsEnabled ? `Автоціна для ${newTotalQuantity} шт. цього типу` : 'Базова автоціна без знижок'}: <strong>${formatMoney(basePrice)}</strong> за 1 шт.${isFullRun ? `<br>Комплект: <strong>${runLabel}</strong> = ${quantity} шт.` : ''}${discountsEnabled ? '' : '<br><span style="color: rgba(255,255,255,0.72);">У замовленні є ручна ціна, тому tier-знижки вимкнені.</span>'}<br>Разом: <strong>${formatMoney(total)}</strong>`;
             }
         }
     }
@@ -4122,6 +4155,7 @@
         const include2xlInRun = isFullRun ? shouldInclude2xlInRun() : false;
         const quantity = getSelectedOrderQuantity();
         const pricingMode = getCurrentPricingMode();
+        const discountsEnabled = areTierDiscountsEnabled(pricingMode);
         const manualPrice = parsePositivePrice(manualPriceInput ? manualPriceInput.value : '');
         const extraDescription = cleanText(extraDescriptionInput ? extraDescriptionInput.value : '');
 
@@ -4137,7 +4171,7 @@
 
         const currentTotalQuantity = getTotalQuantityForProductType(currentProduct.type);
         const newTotalQuantity = currentTotalQuantity + quantity;
-        const basePrice = getWholesalePrice(currentProduct.type, newTotalQuantity);
+        const basePrice = getWholesalePrice(currentProduct.type, newTotalQuantity, { discountsEnabled });
         const effectivePricingMode = pricingMode === 'manual' && manualPrice !== null ? 'manual' : 'auto';
         const effectivePrice = getEffectiveItemPrice(basePrice, effectivePricingMode, manualPrice);
 
@@ -4166,6 +4200,7 @@
             existingItem.extraDescription = extraDescription;
             existingItem.runMultiplier = runMultiplier;
             existingItem.include2xlInRun = include2xlInRun;
+            existingItem.discountsEnabled = discountsEnabled;
             existingItem.displayTitle = buildDisplayTitle(existingItem.product.title, extraDescription);
             showNotification('Кількість товару оновлено', 'success');
         } else {
@@ -4181,6 +4216,7 @@
                 quantity,
                 runMultiplier,
                 include2xlInRun,
+                discountsEnabled,
                 pricingMode: effectivePricingMode,
                 manualPrice: effectivePricingMode === 'manual' ? manualPrice : null,
                 extraDescription,
@@ -4321,7 +4357,7 @@
             .filter(item => item.product.type === 'hoodie')
             .reduce((sum, item) => sum + item.quantity, 0);
 
-        updateOrderItemPrices(tshirtQuantity, hoodieQuantity);
+        const discountsEnabled = updateOrderItemPrices(tshirtQuantity, hoodieQuantity);
 
         const totalSum = orderItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
         totalSumSpan.textContent = totalSum === 0 ? '0₴' : formatMoney(totalSum);
@@ -4341,17 +4377,24 @@
         if (orderItems.length === 0) {
             progressInfo = '<div style="color: rgba(255, 255, 255, 0.5); font-style: italic;">Додайте товари до накладної</div>';
         } else {
+            const manualItemsCount = orderItems.filter(item => (item.pricingMode || 'auto') === 'manual').length;
+            if (manualItemsCount > 0) {
+                progressInfo += `<div class="manual-policy">У замовленні є ${manualItemsCount} позиція(й) з ручною ціною. Оптові tier-знижки вимкнені, авто-позиції рахуються без знижки.</div>`;
+            }
+
             // T-shirt progress
             if (tshirtQuantity > 0) {
-                if (tshirtQuantity < 8) {
+                if (discountsEnabled && tshirtQuantity < 8) {
                     const needed = 8 - tshirtQuantity;
                     progressInfo += `<div class="warning">Опт недоступний: додайте ще ${needed} футболок (мін. 8 шт.)</div>`;
-                } else {
+                } else if (discountsEnabled) {
                     progressInfo += `<div class="success">Футболки: ${tshirtQuantity} шт. (оптова ціна)</div>`;
+                } else {
+                    progressInfo += `<div>Футболки: ${tshirtQuantity} шт. • автоціна без знижки ${formatMoney(tshirtPrices.wholesale[0])}</div>`;
                 }
 
                 // Next discount level
-                const nextLevel = getNextDiscountLevel(tshirtQuantity, 'tshirt');
+                const nextLevel = discountsEnabled ? getNextDiscountLevel(tshirtQuantity, 'tshirt') : null;
                 if (nextLevel) {
                     progressInfo += `<div>До наступної скидки потрібно ще ${nextLevel.needed} футболок (${nextLevel.price}₴)</div>`;
                 }
@@ -4359,30 +4402,27 @@
 
             // Hoodie progress
             if (hoodieQuantity > 0) {
-                if (hoodieQuantity < 8) {
+                if (discountsEnabled && hoodieQuantity < 8) {
                     const needed = 8 - hoodieQuantity;
                     progressInfo += `<div class="warning">Опт недоступний: додайте ще ${needed} худі (мін. 8 шт.)</div>`;
-                } else {
+                } else if (discountsEnabled) {
                     progressInfo += `<div class="success">Худі: ${hoodieQuantity} шт. (оптова ціна)</div>`;
+                } else {
+                    progressInfo += `<div>Худі: ${hoodieQuantity} шт. • автоціна без знижки ${formatMoney(hoodiePrices.wholesale[0])}</div>`;
                 }
 
                 // Next discount level
-                const nextLevel = getNextDiscountLevel(hoodieQuantity, 'hoodie');
+                const nextLevel = discountsEnabled ? getNextDiscountLevel(hoodieQuantity, 'hoodie') : null;
                 if (nextLevel) {
                     progressInfo += `<div>До наступної скидки потрібно ще ${nextLevel.needed} худі (${nextLevel.price}₴)</div>`;
                 }
-            }
-
-            const manualItemsCount = orderItems.filter(item => (item.pricingMode || 'auto') === 'manual').length;
-            if (manualItemsCount > 0) {
-                progressInfo += `<div>Позицій із ручною ціною: ${manualItemsCount}</div>`;
             }
         }
 
         progressInfoDiv.innerHTML = progressInfo;
 
         // Update discount scales
-        updateDiscountScales(tshirtQuantity, hoodieQuantity);
+        updateDiscountScales(tshirtQuantity, hoodieQuantity, discountsEnabled);
     }
 
     function getNextDiscountLevel(currentQuantity, type) {
@@ -4403,24 +4443,31 @@
         return null; // Already at maximum discount
     }
 
-    function updateDiscountScales(tshirtQuantity, hoodieQuantity) {
-        updateScale('tshirtScale', tshirtQuantity);
-        updateScale('hoodieScale', hoodieQuantity);
+    function updateDiscountScales(tshirtQuantity, hoodieQuantity, discountsEnabled) {
+        updateScale('tshirtScale', tshirtQuantity, discountsEnabled);
+        updateScale('hoodieScale', hoodieQuantity, discountsEnabled);
     }
 
     function updateOrderItemPrices(tshirtQuantity, hoodieQuantity) {
+        const discountsEnabled = !hasManualPriceItems();
         orderItems.forEach(item => {
-            recomputeOrderItem(item, tshirtQuantity, hoodieQuantity);
+            recomputeOrderItem(item, tshirtQuantity, hoodieQuantity, discountsEnabled);
             renderOrderItemState(item);
         });
+        return discountsEnabled;
     }
 
-    function updateScale(scaleId, quantity) {
+    function updateScale(scaleId, quantity, discountsEnabled) {
         const scale = document.getElementById(scaleId);
         if (!scale) return;
 
+        const container = scale.closest('.scale-container');
         const segments = scale.querySelectorAll('.scale-segment');
         const priceItems = scale.parentElement.querySelectorAll('.price-item');
+
+        if (container) {
+            container.classList.toggle('is-disabled', !discountsEnabled);
+        }
 
         segments.forEach((segment, index) => {
             // Reset all classes and styles
@@ -4437,6 +4484,15 @@
                 priceItems[index].style.color = '';
                 priceItems[index].style.textShadow = '';
             }
+
+            segment.style.backgroundColor = '';
+        });
+
+        if (!discountsEnabled) {
+            return;
+        }
+
+        segments.forEach((segment, index) => {
 
             const range = segment.dataset.range;
             const [min, max] = parseRange(range);

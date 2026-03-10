@@ -67,6 +67,49 @@ class InvoiceItemNormalizationTests(TestCase):
         self.assertEqual(normalized["items"][2]["base_unit_price"], Decimal("1300.00"))
         self.assertEqual(normalized["items"][2]["line_total"], Decimal("10400.00"))
         self.assertEqual(normalized["totals"]["total_amount"], Decimal("14860.00"))
+        self.assertTrue(normalized["pricing"]["has_manual_prices"])
+        self.assertEqual(normalized["pricing"]["policy"], "custom_manual")
+        self.assertEqual(normalized["items"][0]["base_unit_price"], Decimal("540.00"))
+        self.assertEqual(normalized["items"][2]["base_unit_price"], Decimal("1300.00"))
+
+    def test_manual_price_disables_tier_discount_recalculation_for_auto_items(self):
+        from management.invoice_service import normalize_management_invoice_payload
+
+        company_data = {
+            "companyName": "ТОВ Тест",
+            "contactPhone": "+380000000000",
+            "deliveryAddress": "Київ, вул. Тестова, 1",
+        }
+        order_items = [
+            {
+                "product": {"id": "1", "type": "tshirt", "title": "Футболка 1"},
+                "size": "M",
+                "color": "Чорний",
+                "quantity": 20,
+                "pricing_mode": "auto",
+            },
+            {
+                "product": {"id": "2", "type": "tshirt", "title": "Футболка 2"},
+                "size": "L",
+                "color": "Білий",
+                "quantity": 1,
+                "pricing_mode": "manual",
+                "manual_price": "610",
+            },
+        ]
+
+        normalized = normalize_management_invoice_payload(
+            company_data=company_data,
+            order_items=order_items,
+        )
+
+        self.assertTrue(normalized["pricing"]["has_manual_prices"])
+        self.assertFalse(normalized["pricing"]["discounts_enabled"])
+        self.assertEqual(normalized["items"][0]["base_unit_price"], Decimal("540.00"))
+        self.assertEqual(normalized["items"][0]["unit_price"], Decimal("540.00"))
+        self.assertEqual(normalized["items"][0]["line_total"], Decimal("10800.00"))
+        self.assertEqual(normalized["items"][1]["unit_price"], Decimal("610.00"))
+        self.assertEqual(normalized["totals"]["total_amount"], Decimal("11410.00"))
 
     def test_normalize_invoice_items_expands_full_size_run_multiplier(self):
         from management.invoice_service import normalize_management_invoice_payload
@@ -171,6 +214,8 @@ class ManagementInvoiceApiTests(TestCase):
                 self.assertEqual(invoice.total_tshirts, 8)
                 self.assertEqual(invoice.total_hoodies, 0)
                 self.assertEqual(invoice.total_amount, Decimal("4460.00"))
+                self.assertEqual(invoice.order_details["pricing"]["policy"], "custom_manual")
+                self.assertFalse(invoice.order_details["pricing"]["discounts_enabled"])
 
                 saved_items = invoice.order_details["order_items"]
                 self.assertEqual(saved_items[0]["display_title"], "Футболка 1 [з кашкорсе]")
@@ -190,6 +235,7 @@ class ManagementInvoiceApiTests(TestCase):
                 self.assertTrue(ws["B11"].alignment.wrapText)
                 self.assertEqual(ws["F11"].value, 540)
                 self.assertEqual(ws["G12"].value, 1220)
+                self.assertIn("Ручна ціна", str(ws["A8"].value))
                 self.assertIn("₴", ws["F11"].number_format)
                 self.assertEqual(ws["B6"].hyperlink.target, "https://example.com/store")
 
@@ -240,6 +286,27 @@ class ManagementInvoiceApiTests(TestCase):
                 ws = wb.active
                 self.assertEqual(ws["C11"].value, "Всі ростовки (S-2XL) ×2")
                 self.assertEqual(ws["E11"].value, 10)
+
+    def test_generate_invoice_returns_validation_error_for_malformed_order_item(self):
+        payload = {
+            "companyData": {
+                "companyName": "ТОВ Тест",
+                "contactPhone": "+380000000000",
+                "deliveryAddress": "Київ, вул. Тестова, 1",
+            },
+            "orderItems": ["broken-item"],
+        }
+
+        response = self.client_http.post(
+            reverse("management_invoices_generate_api"),
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_HOST="management.twocomms.shop",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()["ok"])
 
 
 class InvoiceSummaryTests(TestCase):
