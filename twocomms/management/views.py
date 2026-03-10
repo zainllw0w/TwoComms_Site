@@ -59,6 +59,13 @@ from .email_templates.twocomms_cp import (
 )
 
 from .constants import LEAD_BASE_PROCESSING_PENALTY, POINTS, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
+from .invoice_service import (
+    InvoicePayloadError,
+    build_management_invoice_workbook,
+    get_management_wholesale_price_context,
+    normalize_management_invoice_payload,
+    serialize_management_invoice_payload,
+)
 from .lead_services import calc_client_points, get_user_lead_bonus_points
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
@@ -2673,16 +2680,9 @@ def _get_wholesale_products_for_invoice():
 
 
 def _get_wholesale_price_context():
-    tshirt_prices = {
-        'drop': 570,
-        'wholesale': [540, 520, 500, 490, 480],
-        'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
-    }
-    hoodie_prices = {
-        'drop': 1350,
-        'wholesale': [1300, 1250, 1200, 1175, 1150],
-        'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
-    }
+    price_context = get_management_wholesale_price_context()
+    tshirt_prices = price_context["tshirt"]
+    hoodie_prices = price_context["hoodie"]
     return tshirt_prices, hoodie_prices
 
 
@@ -3684,15 +3684,6 @@ def invoices_generate_api(request):
     if not user_is_management(request.user):
         return JsonResponse({'ok': False}, status=403)
 
-    import json
-    import os
-    import pytz
-    import secrets
-    import re
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-    from openpyxl.utils import get_column_letter
-    from django.conf import settings
     from orders.models import WholesaleInvoice
 
     try:
@@ -3703,223 +3694,53 @@ def invoices_generate_api(request):
     company_data = payload.get('companyData') or {}
     order_items = payload.get('orderItems') or []
 
-    company_name = (company_data.get('companyName') or '').strip()
-    contact_phone = (company_data.get('contactPhone') or '').strip()
-    delivery_address = (company_data.get('deliveryAddress') or '').strip()
-    if not company_name or not contact_phone or not delivery_address:
-        return JsonResponse({'ok': False, 'error': 'Заповніть: назву компанії, телефон та адресу доставки'}, status=400)
+    try:
+        normalized_payload = normalize_management_invoice_payload(
+            company_data=company_data,
+            order_items=order_items,
+        )
+    except InvoicePayloadError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
 
-    if not order_items:
-        return JsonResponse({'ok': False, 'error': 'Немає товарів для накладної'}, status=400)
+    normalized_company = normalized_payload["company_data"]
+    normalized_items = normalized_payload["items"]
+    totals = normalized_payload["totals"]
+    serialized_payload = serialize_management_invoice_payload(normalized_payload)
 
-    kiev_tz = pytz.timezone('Europe/Kiev')
-    now = timezone.now().astimezone(kiev_tz)
+    now = timezone.localtime(timezone.now())
     timestamp = now.strftime('%Y%m%d-%H%M%S')
     nonce = secrets.token_hex(2).upper()
     invoice_number = f"МЕН-{timestamp}-{nonce}"
 
+    company_name = normalized_company["companyName"]
     safe_company = (company_name or 'Company').strip()
     safe_company = re.sub(r'[\\\\/:*?"<>|]+', '_', safe_company)
     safe_company = re.sub(r'\\s+', ' ', safe_company).strip().strip('._-')
     safe_company = (safe_company[:80] or 'Company').strip()
     beautiful_date = now.strftime('%d.%m.%Y_%H-%M')
     file_name = f"{safe_company}_накладнаОПТ_{beautiful_date}.xlsx"
-
-    total_tshirts = 0
-    total_hoodies = 0
-    total_amount = 0
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Оптова накладна"
-
-    header_font = Font(name='Arial', size=14, bold=True, color='FFFFFF')
-    title_font = Font(name='Arial', size=12, bold=True)
-    normal_font = Font(name='Arial', size=10)
-    company_font = Font(name='Arial', size=11, bold=True, color='366092')
-
-    header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
-    light_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
-    company_fill = PatternFill(start_color='E8F4FD', end_color='E8F4FD', fill_type='solid')
-
-    thin_border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
+    wb = build_management_invoice_workbook(
+        company_data=normalized_company,
+        normalized_items=normalized_items,
+        totals=totals,
+        invoice_number=invoice_number,
+        created_at_label=now.strftime("%d.%m.%Y о %H:%M"),
     )
-
-    center_alignment = Alignment(horizontal='center', vertical='center')
-    left_alignment = Alignment(horizontal='left', vertical='center')
-    right_alignment = Alignment(horizontal='right', vertical='center')
-
-    ws.merge_cells('A1:G1')
-    ws['A1'] = 'ОПТОВА НАКЛАДНА'
-    ws['A1'].font = Font(name='Arial', size=16, bold=True, color='366092')
-    ws['A1'].alignment = center_alignment
-    ws['A1'].fill = company_fill
-
-    row = 3
-    ws[f'A{row}'] = 'Інформація про замовника:'
-    ws[f'A{row}'].font = title_font
-
-    row += 1
-    ws[f'A{row}'] = 'Назва компанії/ФОП/ПІБ:'
-    ws[f'A{row}'].font = normal_font
-    ws[f'B{row}'] = company_name
-    ws[f'B{row}'].font = company_font
-    ws[f'B{row}'].fill = company_fill
-
-    if (company_data.get('companyNumber') or '').strip():
-        row += 1
-        ws[f'A{row}'] = 'Номер компанії/ЄДРПОУ/ІПН:'
-        ws[f'A{row}'].font = normal_font
-        ws[f'B{row}'] = (company_data.get('companyNumber') or '').strip()
-        ws[f'B{row}'].font = normal_font
-
-    row += 1
-    ws[f'A{row}'] = 'Номер телефону:'
-    ws[f'A{row}'].font = normal_font
-    ws[f'B{row}'] = contact_phone
-    ws[f'B{row}'].font = normal_font
-
-    row += 1
-    ws[f'A{row}'] = 'Адреса доставки:'
-    ws[f'A{row}'].font = normal_font
-    ws[f'B{row}'] = delivery_address
-    ws[f'B{row}'].font = normal_font
-
-    store_link = (company_data.get('storeLink') or '').strip()
-    if store_link:
-        row += 1
-        ws[f'A{row}'] = 'Посилання на магазин:'
-        ws[f'A{row}'].font = normal_font
-        ws[f'B{row}'] = store_link
-        ws[f'B{row}'].font = normal_font
-
-    row += 2
-    ws[f'A{row}'] = f'Номер накладної: {invoice_number}'
-    ws[f'A{row}'].font = title_font
-
-    row += 1
-    ws[f'A{row}'] = f'Дата створення: {now.strftime("%d.%m.%Y о %H:%M")}'
-    ws[f'A{row}'].font = normal_font
-
-    row += 2
-    headers = ['№', 'Назва товару', 'Розмір', 'Колір', 'Кількість', 'Ціна за од.', 'Сума']
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=row, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = center_alignment
-        cell.border = thin_border
-
-    item_number = 1
-    row += 1
-    for item in order_items:
-        product = item.get('product', {}) or {}
-        quantity = int(item.get('quantity', 0) or 0)
-        price = float(item.get('price', 0) or 0)
-        total = float(item.get('total', 0) or 0)
-
-        if product.get('type') == 'tshirt':
-            total_tshirts += quantity
-        elif product.get('type') == 'hoodie':
-            total_hoodies += quantity
-        total_amount += total
-
-        ws.cell(row=row, column=1, value=item_number).font = normal_font
-        ws.cell(row=row, column=1).alignment = center_alignment
-        ws.cell(row=row, column=1).border = thin_border
-
-        ws.cell(row=row, column=2, value=product.get('title', '')).font = normal_font
-        ws.cell(row=row, column=2).alignment = left_alignment
-        ws.cell(row=row, column=2).border = thin_border
-
-        ws.cell(row=row, column=3, value=item.get('size', '')).font = normal_font
-        ws.cell(row=row, column=3).alignment = center_alignment
-        ws.cell(row=row, column=3).border = thin_border
-
-        ws.cell(row=row, column=4, value=item.get('color', '')).font = normal_font
-        ws.cell(row=row, column=4).alignment = center_alignment
-        ws.cell(row=row, column=4).border = thin_border
-
-        ws.cell(row=row, column=5, value=quantity).font = normal_font
-        ws.cell(row=row, column=5).alignment = center_alignment
-        ws.cell(row=row, column=5).border = thin_border
-
-        ws.cell(row=row, column=6, value=f"{price}₴").font = normal_font
-        ws.cell(row=row, column=6).alignment = center_alignment
-        ws.cell(row=row, column=6).border = thin_border
-
-        ws.cell(row=row, column=7, value=f"{total}₴").font = normal_font
-        ws.cell(row=row, column=7).alignment = center_alignment
-        ws.cell(row=row, column=7).border = thin_border
-
-        if item_number % 2 == 0:
-            for col in range(1, 8):
-                ws.cell(row=row, column=col).fill = light_fill
-
-        item_number += 1
-        row += 1
-
-    row += 1
-    ws.merge_cells(f'A{row}:F{row}')
-    ws[f'A{row}'] = 'РАЗОМ:'
-    ws[f'A{row}'].font = title_font
-    ws[f'A{row}'].alignment = right_alignment
-    ws[f'A{row}'].border = thin_border
-    ws[f'A{row}'].fill = company_fill
-
-    ws[f'G{row}'] = f"{total_amount}₴"
-    ws[f'G{row}'].font = title_font
-    ws[f'G{row}'].alignment = center_alignment
-    ws[f'G{row}'].border = thin_border
-    ws[f'G{row}'].fill = company_fill
-
-    row += 2
-    ws[f'A{row}'] = 'Статистика замовлення:'
-    ws[f'A{row}'].font = title_font
-
-    row += 1
-    ws[f'A{row}'] = f'Футболки: {total_tshirts} шт.'
-    ws[f'A{row}'].font = normal_font
-
-    row += 1
-    ws[f'A{row}'] = f'Худі: {total_hoodies} шт.'
-    ws[f'A{row}'].font = normal_font
-
-    row += 1
-    ws[f'A{row}'] = f'Загальна сума: {total_amount}₴'
-    ws[f'A{row}'].font = title_font
-
-    for column in ws.columns:
-        max_length = 0
-        column_letter = get_column_letter(column[0].column)
-        for cell in column:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except Exception:
-                pass
-        adjusted_width = max(max_length + 2, 12)
-        adjusted_width = min(adjusted_width, 50)
-        ws.column_dimensions[column_letter].width = adjusted_width
 
     invoice = WholesaleInvoice.objects.create(
         invoice_number=invoice_number,
         company_name=company_name,
-        company_number=(company_data.get('companyNumber') or '').strip(),
-        contact_phone=contact_phone,
-        delivery_address=delivery_address,
-        store_link=store_link,
-        total_tshirts=total_tshirts,
-        total_hoodies=total_hoodies,
-        total_amount=total_amount,
+        company_number=normalized_company["companyNumber"],
+        contact_phone=normalized_company["contactPhone"],
+        delivery_address=normalized_company["deliveryAddress"],
+        store_link=normalized_company["storeLink"],
+        total_tshirts=totals["total_tshirts"],
+        total_hoodies=totals["total_hoodies"],
+        total_amount=totals["total_amount"],
         status='draft',
         created_by=request.user,
         review_status='draft',
-        order_details={'company_data': company_data, 'order_items': order_items},
+        order_details=serialized_payload,
     )
 
     user_folder = f"invoices/management/user_{request.user.id}"

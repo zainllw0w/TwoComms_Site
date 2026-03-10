@@ -1638,6 +1638,65 @@
         background: rgba(20, 22, 27, 0.8);
     }
 
+    .form-helper {
+        margin-top: 6px;
+        font-size: 0.72rem;
+        line-height: 1.4;
+        color: rgba(255, 255, 255, 0.58);
+    }
+
+    .pricing-mode-switch {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .pricing-mode-btn {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        padding: 10px 12px;
+        background: rgba(20, 22, 27, 0.58);
+        color: rgba(255, 255, 255, 0.82);
+        font-size: 0.86rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.25s ease;
+    }
+
+    .pricing-mode-btn:hover {
+        border-color: rgba(139, 92, 246, 0.35);
+        transform: translateY(-1px);
+    }
+
+    .pricing-mode-btn.is-active {
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.26), rgba(59, 130, 246, 0.2));
+        border-color: rgba(139, 92, 246, 0.55);
+        color: #fff;
+        box-shadow: 0 8px 18px rgba(139, 92, 246, 0.18);
+    }
+
+    .pricing-mode-help {
+        margin-top: 8px;
+        font-size: 0.74rem;
+        line-height: 1.45;
+        color: rgba(255, 255, 255, 0.62);
+    }
+
+    .price-preview {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(139, 92, 246, 0.22);
+        background: rgba(139, 92, 246, 0.08);
+        color: rgba(255, 255, 255, 0.88);
+        font-size: 0.8rem;
+        line-height: 1.4;
+    }
+
+    .price-preview strong {
+        color: #fff;
+    }
+
     .add-to-order-btn {
         width: 100%;
         background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
@@ -1732,7 +1791,7 @@
         border-left: 3px solid #8b5cf6;
         position: relative;
         transition: all 0.3s ease;
-        height: 75px;
+        min-height: 86px;
         display: flex;
         align-items: center;
     }
@@ -1775,27 +1834,63 @@
         justify-content: center;
         gap: 3px;
         min-width: 0;
-        height: 50px;
+        min-height: 58px;
     }
 
     .order-item-title {
         font-weight: 600;
         color: var(--tc-text);
-        font-size: 0.6rem;
+        font-size: 0.72rem;
         line-height: 1.1;
         display: -webkit-box;
-        -webkit-line-clamp: 1;
-        line-clamp: 1;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    .order-item-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    .order-item-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 7px;
+        border-radius: 999px;
+        font-size: 0.52rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+    }
+
+    .order-item-badge.auto {
+        background: rgba(59, 130, 246, 0.16);
+        color: #93c5fd;
+        border: 1px solid rgba(59, 130, 246, 0.26);
+    }
+
+    .order-item-badge.manual {
+        background: rgba(245, 158, 11, 0.16);
+        color: #fcd34d;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .order-item-badge.base {
+        background: rgba(168, 85, 247, 0.14);
+        color: #d8b4fe;
+        border: 1px solid rgba(168, 85, 247, 0.24);
     }
 
     .order-item-specs-row {
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 0.5rem;
+        font-size: 0.56rem;
         color: rgba(255, 255, 255, 0.6);
         flex-wrap: wrap;
     }
@@ -1818,7 +1913,7 @@
         background: rgba(139, 92, 246, 0.2);
         padding: 2px 6px;
         border-radius: 4px;
-        font-size: 0.5rem;
+        font-size: 0.56rem;
         white-space: nowrap;
         margin: 1px 0;
     }
@@ -1827,7 +1922,7 @@
         background: rgba(16, 185, 129, 0.2);
         padding: 2px 6px;
         border-radius: 4px;
-        font-size: 0.5rem;
+        font-size: 0.56rem;
         white-space: nowrap;
         margin: 1px 0;
     }
@@ -1837,7 +1932,7 @@
         flex-direction: column;
         align-items: flex-end;
         gap: 4px;
-        height: 55px;
+        min-height: 58px;
         justify-content: space-between;
     }
 
@@ -1869,11 +1964,11 @@
     }
 
     .order-item-cost {
-        font-size: 0.55rem;
+        font-size: 0.6rem;
         color: #ef4444;
         font-weight: 600;
         background: rgba(239, 68, 68, 0.1);
-        padding: 1px 2px;
+        padding: 2px 5px;
         border-radius: 2px;
         border: 1px solid rgba(239, 68, 68, 0.2);
         white-space: nowrap;
@@ -1882,11 +1977,11 @@
     }
 
     .order-item-selling {
-        font-size: 0.55rem;
+        font-size: 0.62rem;
         color: #10b981;
         font-weight: 600;
         background: rgba(16, 185, 129, 0.1);
-        padding: 1px 2px;
+        padding: 2px 5px;
         border-radius: 2px;
         border: 1px solid rgba(16, 185, 129, 0.2);
         white-space: nowrap;
@@ -2895,6 +2990,31 @@
                         <input type="number" class="form-input" id="quantity" min="1" value="1">
                     </div>
 
+                    <div class="form-group">
+                        <label class="form-label">Ціна</label>
+                        <div class="pricing-mode-switch">
+                            <button type="button" class="pricing-mode-btn is-active" data-pricing-mode="auto">Авто</button>
+                            <button type="button" class="pricing-mode-btn" data-pricing-mode="manual">Вручну</button>
+                        </div>
+                        <input type="hidden" id="pricingMode" value="auto">
+                        <div class="pricing-mode-help" id="pricingModeHelp">Ціна рахується автоматично від загальної кількості футболок або худі в накладній.</div>
+                    </div>
+
+                    <div class="form-group" id="manualPriceGroup" style="display: none;">
+                        <label class="form-label">Ручна ціна за 1 шт.</label>
+                        <input type="number" class="form-input" id="manualPrice" min="0" step="0.01" placeholder="Наприклад, 610">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Додатково</label>
+                        <input type="text" class="form-input" id="extraDescription" maxlength="120" placeholder="Наприклад, с кашкорсе">
+                        <div class="form-helper">Якщо поле заповнене, текст буде додано до назви товару в Excel у квадратних дужках.</div>
+                    </div>
+
+                    <div class="price-preview" id="pricePreview">
+                        Ціна з'явиться після вибору параметрів товару.
+                    </div>
+
                     <button class="add-to-order-btn" id="addToOrderBtn">Додати в накладну</button>
                 </div>
 
@@ -3063,6 +3183,144 @@
     let orderItems = [];
     const tshirtPrices = JSON.parse(document.getElementById('tshirt-prices-data').textContent);
     const hoodiePrices = JSON.parse(document.getElementById('hoodie-prices-data').textContent);
+
+    function formatMoney(value) {
+        const amount = Number(value || 0);
+        if (!Number.isFinite(amount)) {
+            return '0₴';
+        }
+        const text = Number.isInteger(amount) ? String(amount) : amount.toFixed(2).replace(/\.00$/, '');
+        return `${text}₴`;
+    }
+
+    function cleanText(value) {
+        return String(value || '').trim().replace(/\s+/g, ' ');
+    }
+
+    function buildDisplayTitle(title, extraDescription) {
+        const extra = cleanText(extraDescription);
+        return extra ? `${title} [${extra}]` : title;
+    }
+
+    function parsePositivePrice(value) {
+        const normalized = String(value ?? '').replace(',', '.').trim();
+        if (!normalized) {
+            return null;
+        }
+        const parsed = Number(normalized);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+            return null;
+        }
+        return Math.round(parsed * 100) / 100;
+    }
+
+    function getCurrentPricingMode() {
+        const input = document.getElementById('pricingMode');
+        return input && input.value === 'manual' ? 'manual' : 'auto';
+    }
+
+    function setPricingMode(mode) {
+        const resolvedMode = mode === 'manual' ? 'manual' : 'auto';
+        const pricingModeInput = document.getElementById('pricingMode');
+        const manualPriceGroup = document.getElementById('manualPriceGroup');
+        const help = document.getElementById('pricingModeHelp');
+        const buttons = document.querySelectorAll('[data-pricing-mode]');
+
+        if (pricingModeInput) {
+            pricingModeInput.value = resolvedMode;
+        }
+        if (manualPriceGroup) {
+            manualPriceGroup.style.display = resolvedMode === 'manual' ? 'block' : 'none';
+        }
+        if (help) {
+            help.textContent = resolvedMode === 'manual'
+                ? 'Вкажіть власну ціну за одиницю. Вона не буде перерахована автоматично при зміні tier-кількості.'
+                : 'Ціна рахується автоматично від загальної кількості футболок або худі в накладній.';
+        }
+        buttons.forEach(button => {
+            button.classList.toggle('is-active', button.dataset.pricingMode === resolvedMode);
+        });
+
+        updatePriceDisplay();
+    }
+
+    function getEffectiveItemPrice(basePrice, pricingMode, manualPrice) {
+        if (pricingMode === 'manual' && manualPrice !== null) {
+            return manualPrice;
+        }
+        return basePrice;
+    }
+
+    function getPriceTierQuantityForItem(item, tshirtQuantity, hoodieQuantity) {
+        return item.product.type === 'tshirt' ? tshirtQuantity : hoodieQuantity;
+    }
+
+    function recomputeOrderItem(item, tshirtQuantity, hoodieQuantity) {
+        const itemQuantity = getPriceTierQuantityForItem(item, tshirtQuantity, hoodieQuantity);
+        const basePrice = getWholesalePrice(item.product.type, itemQuantity);
+        const manualPrice = parsePositivePrice(item.manualPrice);
+        const pricingMode = item.pricingMode === 'manual' && manualPrice !== null ? 'manual' : 'auto';
+
+        item.pricingMode = pricingMode;
+        item.manualPrice = pricingMode === 'manual' ? manualPrice : null;
+        item.basePrice = basePrice;
+        item.price = getEffectiveItemPrice(basePrice, pricingMode, manualPrice);
+        item.total = Math.round(item.price * item.quantity * 100) / 100;
+        item.extraDescription = cleanText(item.extraDescription);
+        item.displayTitle = buildDisplayTitle(item.product.title, item.extraDescription);
+    }
+
+    function renderOrderItemState(orderItem) {
+        const itemElement = document.querySelector(`[data-item-id="${orderItem.id}"]`);
+        if (!itemElement) {
+            return;
+        }
+
+        const dotColor = orderItem.colorHex || '#000000';
+        const titleEl = itemElement.querySelector('.order-item-title');
+        const badgesEl = itemElement.querySelector('.order-item-badges');
+        const colorTextEl = itemElement.querySelector('.order-item-color-text');
+        const colorDotEl = itemElement.querySelector('.order-item-color-dot');
+        const sizeEl = itemElement.querySelector('.order-item-size');
+        const quantityEl = itemElement.querySelector('.order-item-quantity');
+        const costEl = itemElement.querySelector('.order-item-cost');
+        const totalEl = itemElement.querySelector('.order-item-selling');
+
+        if (titleEl) {
+            titleEl.textContent = orderItem.displayTitle || orderItem.product.title;
+        }
+        if (badgesEl) {
+            const modeLabel = orderItem.pricingMode === 'manual'
+                ? `Вручну ${formatMoney(orderItem.price)}`
+                : `Авто ${formatMoney(orderItem.price)}`;
+            const baseLabel = orderItem.pricingMode === 'manual'
+                ? `<span class="order-item-badge base">База ${formatMoney(orderItem.basePrice)}</span>`
+                : '';
+            badgesEl.innerHTML = `
+                <span class="order-item-badge ${orderItem.pricingMode === 'manual' ? 'manual' : 'auto'}">${modeLabel}</span>
+                ${baseLabel}
+            `;
+        }
+        if (colorTextEl) {
+            colorTextEl.textContent = orderItem.color;
+        }
+        if (colorDotEl) {
+            colorDotEl.style.backgroundColor = dotColor;
+            colorDotEl.dataset.color = dotColor;
+        }
+        if (sizeEl) {
+            sizeEl.textContent = orderItem.size;
+        }
+        if (quantityEl) {
+            quantityEl.textContent = `${orderItem.quantity} шт.`;
+        }
+        if (costEl) {
+            costEl.textContent = `${orderItem.pricingMode === 'manual' ? 'Ручна' : 'Авто'} ${formatMoney(orderItem.price)}`;
+        }
+        if (totalEl) {
+            totalEl.textContent = `Разом ${formatMoney(orderItem.total)}`;
+        }
+    }
 
     // Initialize color dots with proper colors
     function initializeColorDots() {
@@ -3432,6 +3690,11 @@
     // Order form functionality
     function initializeOrderForm() {
         const addToOrderBtn = document.getElementById('addToOrderBtn');
+        const sizeSelect = document.getElementById('productSize');
+        const quantityInput = document.getElementById('quantity');
+        const manualPriceInput = document.getElementById('manualPrice');
+        const extraDescriptionInput = document.getElementById('extraDescription');
+        const pricingButtons = document.querySelectorAll('[data-pricing-mode]');
 
         if (addToOrderBtn) {
             addToOrderBtn.addEventListener('click', function () {
@@ -3439,29 +3702,51 @@
             });
         }
 
-        // Handle size change
-        const sizeSelect = document.getElementById('productSize');
-        sizeSelect.addEventListener('change', function () {
-            const quantityInput = document.getElementById('quantity');
-            if (this.value === 'all') {
-                quantityInput.value = '4';
-                quantityInput.disabled = true;
-                quantityInput.style.opacity = '0.6';
-            } else {
-                quantityInput.disabled = false;
-                quantityInput.style.opacity = '1';
-                if (quantityInput.value === '4') {
-                    quantityInput.value = '1';
-                }
-            }
-            updatePriceDisplay();
+        pricingButtons.forEach(button => {
+            button.addEventListener('click', function () {
+                setPricingMode(this.dataset.pricingMode);
+            });
         });
 
-        // Handle quantity change
-        const quantityInput = document.getElementById('quantity');
-        quantityInput.addEventListener('input', function () {
-            updatePriceDisplay();
-        });
+        if (sizeSelect) {
+            sizeSelect.addEventListener('change', function () {
+                if (!quantityInput) {
+                    return;
+                }
+                if (this.value === 'all') {
+                    quantityInput.value = '4';
+                    quantityInput.disabled = true;
+                    quantityInput.style.opacity = '0.6';
+                } else {
+                    quantityInput.disabled = false;
+                    quantityInput.style.opacity = '1';
+                    if (quantityInput.value === '4') {
+                        quantityInput.value = '1';
+                    }
+                }
+                updatePriceDisplay();
+            });
+        }
+
+        if (quantityInput) {
+            quantityInput.addEventListener('input', function () {
+                updatePriceDisplay();
+            });
+        }
+
+        if (manualPriceInput) {
+            manualPriceInput.addEventListener('input', function () {
+                updatePriceDisplay();
+            });
+        }
+
+        if (extraDescriptionInput) {
+            extraDescriptionInput.addEventListener('input', function () {
+                updatePriceDisplay();
+            });
+        }
+
+        setPricingMode('auto');
     }
 
     function showOrderForm() {
@@ -3477,14 +3762,11 @@
                 dropZone.style.display = 'none';
             }
 
-            // Populate form with product data
             const colorSelect = document.getElementById('productColor');
-
             if (colorSelect) {
                 colorSelect.innerHTML = '';
 
                 if (currentProduct.type === 'tshirt' && currentProduct.color_variants && currentProduct.color_variants.length > 0) {
-                    // Add available colors for t-shirts
                     currentProduct.color_variants.forEach((colorVariant, index) => {
                         const option = document.createElement('option');
                         option.value = colorVariant.name;
@@ -3495,24 +3777,31 @@
                         colorSelect.appendChild(option);
                     });
                 } else {
-                    // Default to black if no colors available
                     colorSelect.innerHTML = '<option value="Чорний" data-color-hex="#000000" data-color-image="">Чорний</option>';
                 }
             }
 
-            // Set default values
             const sizeSelect = document.getElementById('productSize');
-            const quantityInput = document.getElementById('quantity');
             const selectedColorImage = document.getElementById('selectedColorImage');
+            const manualPriceInput = document.getElementById('manualPrice');
+            const extraDescriptionInput = document.getElementById('extraDescription');
 
             if (sizeSelect) sizeSelect.value = '';
+            const quantityInput = document.getElementById('quantity');
+
             if (quantityInput) {
                 quantityInput.value = '1';
                 quantityInput.disabled = false;
                 quantityInput.style.opacity = '1';
             }
+            if (manualPriceInput) {
+                manualPriceInput.value = '';
+            }
+            if (extraDescriptionInput) {
+                extraDescriptionInput.value = '';
+            }
+            setPricingMode('auto');
 
-            // Set initial color image
             if (colorSelect && selectedColorImage) {
                 const selectedOption = colorSelect.options[colorSelect.selectedIndex];
                 if (selectedOption && selectedOption.dataset.colorImage) {
@@ -3520,22 +3809,18 @@
                 }
             }
 
-            // Add color change handler
             if (colorSelect) {
-                colorSelect.addEventListener('change', function () {
+                colorSelect.onchange = function () {
                     const selectedOption = this.options[this.selectedIndex];
                     const colorImage = selectedOption ? selectedOption.dataset.colorImage : '';
-
-                    // Store selected color image in hidden field
                     if (selectedColorImage) {
                         selectedColorImage.value = colorImage;
                     }
-
-                    // Update currentProduct for later use
                     if (currentProduct) {
                         currentProduct.image = colorImage || currentProduct.main_image;
                     }
-                });
+                    updatePriceDisplay();
+                };
             }
 
             updatePriceDisplay();
@@ -3568,20 +3853,38 @@
         }
 
         const quantityInput = document.getElementById('quantity');
+        const manualPriceInput = document.getElementById('manualPrice');
+        const pricePreview = document.getElementById('pricePreview');
+        const pricingMode = getCurrentPricingMode();
+        const manualPrice = parsePositivePrice(manualPriceInput ? manualPriceInput.value : '');
         const quantity = parseInt(quantityInput ? quantityInput.value : '1') || 1;
 
-        // Calculate total quantity for this product type after adding this item
         const currentTotalQuantity = getTotalQuantityForProductType(currentProduct.type);
         const newTotalQuantity = currentTotalQuantity + quantity;
-
-        // Calculate price based on total quantity for this product type
-        const price = getWholesalePrice(currentProduct.type, newTotalQuantity);
-        const total = price * quantity;
+        const basePrice = getWholesalePrice(currentProduct.type, newTotalQuantity);
+        const effectivePrice = getEffectiveItemPrice(basePrice, pricingMode, manualPrice);
+        const total = Math.round(effectivePrice * quantity * 100) / 100;
 
         const addBtn = document.getElementById('addToOrderBtn');
 
         if (addBtn) {
-            addBtn.textContent = `Додати ${quantity} шт. (${total}₴)`;
+            if (pricingMode === 'manual' && manualPrice === null) {
+                addBtn.disabled = true;
+                addBtn.textContent = 'Вкажіть ручну ціну';
+            } else {
+                addBtn.disabled = false;
+                addBtn.textContent = `Додати ${quantity} шт. (${formatMoney(total)})`;
+            }
+        }
+
+        if (pricePreview) {
+            if (pricingMode === 'manual') {
+                pricePreview.innerHTML = manualPrice === null
+                    ? `Автоціна для поточного tier: <strong>${formatMoney(basePrice)}</strong> за 1 шт. Вкажіть свою ціну, щоб додати позицію.`
+                    : `Автоціна для поточного tier: <strong>${formatMoney(basePrice)}</strong> за 1 шт.<br>Ручна ціна: <strong>${formatMoney(manualPrice)}</strong> за 1 шт. • Разом: <strong>${formatMoney(total)}</strong>`;
+            } else {
+                pricePreview.innerHTML = `Автоціна для ${newTotalQuantity} шт. цього типу: <strong>${formatMoney(basePrice)}</strong> за 1 шт.<br>Разом: <strong>${formatMoney(total)}</strong>`;
+            }
         }
     }
 
@@ -3593,78 +3896,82 @@
         const sizeSelect = document.getElementById('productSize');
         const colorSelectElement = document.getElementById('productColor');
         const quantityInput = document.getElementById('quantity');
+        const manualPriceInput = document.getElementById('manualPrice');
+        const extraDescriptionInput = document.getElementById('extraDescription');
 
         const size = sizeSelect ? sizeSelect.value : '';
-        const color = colorSelectElement ? colorSelectElement.value : '';
         const quantity = parseInt(quantityInput ? quantityInput.value : '1') || 1;
+        const pricingMode = getCurrentPricingMode();
+        const manualPrice = parsePositivePrice(manualPriceInput ? manualPriceInput.value : '');
+        const extraDescription = cleanText(extraDescriptionInput ? extraDescriptionInput.value : '');
 
         if (!size) {
             showNotification('Оберіть розмір', 'error');
             return;
         }
 
-        // Calculate total quantity for this product type after adding this item
+        if (pricingMode === 'manual' && manualPrice === null) {
+            showNotification('Вкажіть коректну ручну ціну', 'error');
+            return;
+        }
+
         const currentTotalQuantity = getTotalQuantityForProductType(currentProduct.type);
         const newTotalQuantity = currentTotalQuantity + quantity;
+        const basePrice = getWholesalePrice(currentProduct.type, newTotalQuantity);
+        const effectivePricingMode = pricingMode === 'manual' && manualPrice !== null ? 'manual' : 'auto';
+        const effectivePrice = getEffectiveItemPrice(basePrice, effectivePricingMode, manualPrice);
 
-        // Calculate price based on total quantity for this product type
-        const price = getWholesalePrice(currentProduct.type, newTotalQuantity);
-
-        // Get color name and image from select option
         const colorSelectForImage = document.getElementById('productColor');
         const selectedOption = colorSelectForImage.options[colorSelectForImage.selectedIndex];
         const colorName = selectedOption ? selectedOption.textContent : 'Чорний';
         const colorHex = selectedOption ? (selectedOption.dataset.colorHex || '#000000') : '#000000';
         const colorImage = selectedOption ? selectedOption.dataset.colorImage : currentProduct.main_image;
+        const normalizedSize = size === 'all' ? 'Всі ростовки (S-XL)' : size;
 
-        // Check if we already have this exact item (same product, size, color)
         const existingItemIndex = orderItems.findIndex(item =>
             item.product.id === currentProduct.id &&
-            item.size === (size === 'all' ? 'Всі ростовки (S-XL)' : size) &&
-            item.color === colorName
+            item.size === normalizedSize &&
+            item.color === colorName &&
+            cleanText(item.extraDescription) === extraDescription &&
+            (item.pricingMode || 'auto') === effectivePricingMode &&
+            (effectivePricingMode !== 'manual' || parsePositivePrice(item.manualPrice) === manualPrice)
         );
 
         if (existingItemIndex !== -1) {
-            // Update existing item quantity
             const existingItem = orderItems[existingItemIndex];
             existingItem.quantity += quantity;
-            existingItem.total = existingItem.price * existingItem.quantity;
-
-            // Update UI
-            const itemElement = document.querySelector(`[data-item-id="${existingItem.id}"]`);
-            if (itemElement) {
-                const quantityElement = itemElement.querySelector('.order-item-quantity');
-                const totalElement = itemElement.querySelector('.order-item-selling');
-                if (quantityElement) quantityElement.textContent = `${existingItem.quantity} шт.`;
-                if (totalElement) totalElement.textContent = `${existingItem.total}₴`;
-            }
-
+            existingItem.basePrice = basePrice;
+            existingItem.manualPrice = effectivePricingMode === 'manual' ? manualPrice : null;
+            existingItem.pricingMode = effectivePricingMode;
+            existingItem.extraDescription = extraDescription;
+            existingItem.displayTitle = buildDisplayTitle(existingItem.product.title, extraDescription);
             showNotification('Кількість товару оновлено', 'success');
         } else {
-            // Create new order item
             const orderItem = {
                 id: Date.now(),
                 product: {
                     ...currentProduct,
-                    image: colorImage // Use color-specific image
+                    image: colorImage
                 },
-                size: size === 'all' ? 'Всі ростовки (S-XL)' : size,
+                size: normalizedSize,
                 color: colorName,
-                colorHex: colorHex,
-                quantity: quantity,
-                price: price,
-                total: price * quantity
+                colorHex,
+                quantity,
+                pricingMode: effectivePricingMode,
+                manualPrice: effectivePricingMode === 'manual' ? manualPrice : null,
+                extraDescription,
+                displayTitle: buildDisplayTitle(currentProduct.title, extraDescription),
+                basePrice,
+                price: effectivePrice,
+                total: Math.round(effectivePrice * quantity * 100) / 100
             };
 
             orderItems.push(orderItem);
             addOrderItemToUI(orderItem);
         }
 
-        // Update statistics
         updateOrderStatistics();
-        saveOrderData(); // Save to localStorage
-
-        // Hide form after adding item
+        saveOrderData();
         hideOrderForm();
 
         showNotification('Товар додано до накладної', 'success');
@@ -3692,17 +3999,18 @@
             </div>
             
             <div class="order-item-info">
-                <div class="order-item-title">${orderItem.product.title}</div>
+                <div class="order-item-title"></div>
+                <div class="order-item-badges"></div>
                 
                 <div class="order-item-specs-row">
                     <div class="order-item-color-section">
-                        <span class="order-item-color-text">${orderItem.color}</span>
+                        <span class="order-item-color-text"></span>
                         <span class="order-item-color-dot" data-color="${dotColor}" style="background-color: ${dotColor}; width: 8px; height: 8px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255, 255, 255, 0.2);"></span>
                     </div>
                     
-                    <div class="order-item-size">${orderItem.size}</div>
+                    <div class="order-item-size"></div>
                     
-                    <div class="order-item-quantity">${orderItem.quantity} шт.</div>
+                    <div class="order-item-quantity"></div>
                 </div>
             </div>
             
@@ -3714,14 +4022,15 @@
                 </button>
                 
                 <div class="order-item-prices">
-                    <div class="order-item-cost">${orderItem.price}₴</div>
-                    <div class="order-item-selling">${orderItem.total}₴</div>
+                    <div class="order-item-cost"></div>
+                    <div class="order-item-selling"></div>
                 </div>
             </div>
         </div>
     `;
 
         orderItemsContainer.appendChild(orderItemElement);
+        renderOrderItemState(orderItem);
     }
 
     function removeOrderItem(itemId) {
@@ -3746,6 +4055,20 @@
         orderForm.style.display = 'none';
         dropZone.style.display = 'block';
 
+        const manualPriceInput = document.getElementById('manualPrice');
+        const extraDescriptionInput = document.getElementById('extraDescription');
+        const pricePreview = document.getElementById('pricePreview');
+
+        if (manualPriceInput) {
+            manualPriceInput.value = '';
+        }
+        if (extraDescriptionInput) {
+            extraDescriptionInput.value = '';
+        }
+        if (pricePreview) {
+            pricePreview.textContent = "Ціна з'явиться після вибору параметрів товару.";
+        }
+
         currentProduct = null;
     }
 
@@ -3757,9 +4080,6 @@
         // Statistics always visible
         statisticsDiv.style.display = 'block';
 
-        // Calculate total sum
-        const totalSum = orderItems.reduce((sum, item) => sum + item.total, 0);
-
         // Check if we have wholesale quantities
         const tshirtQuantity = orderItems
             .filter(item => item.product.type === 'tshirt')
@@ -3768,15 +4088,10 @@
             .filter(item => item.product.type === 'hoodie')
             .reduce((sum, item) => sum + item.quantity, 0);
 
-        if (tshirtQuantity > 0 && tshirtQuantity < 8) {
-            totalSumSpan.textContent = 'Не опт';
-        } else if (hoodieQuantity > 0 && hoodieQuantity < 8) {
-            totalSumSpan.textContent = 'Не опт';
-        } else if (totalSum === 0) {
-            totalSumSpan.textContent = '0₴';
-        } else {
-            totalSumSpan.textContent = `${totalSum}₴`;
-        }
+        updateOrderItemPrices(tshirtQuantity, hoodieQuantity);
+
+        const totalSum = orderItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+        totalSumSpan.textContent = totalSum === 0 ? '0₴' : formatMoney(totalSum);
 
         // Add highlight animation to total sum
         const totalSumDiv = totalSumSpan.closest('.total-sum');
@@ -3824,15 +4139,17 @@
                     progressInfo += `<div>До наступної скидки потрібно ще ${nextLevel.needed} худі (${nextLevel.price}₴)</div>`;
                 }
             }
+
+            const manualItemsCount = orderItems.filter(item => (item.pricingMode || 'auto') === 'manual').length;
+            if (manualItemsCount > 0) {
+                progressInfo += `<div>Позицій із ручною ціною: ${manualItemsCount}</div>`;
+            }
         }
 
         progressInfoDiv.innerHTML = progressInfo;
 
         // Update discount scales
         updateDiscountScales(tshirtQuantity, hoodieQuantity);
-
-        // Update prices in existing order items
-        updateOrderItemPrices(tshirtQuantity, hoodieQuantity);
     }
 
     function getNextDiscountLevel(currentQuantity, type) {
@@ -3859,28 +4176,9 @@
     }
 
     function updateOrderItemPrices(tshirtQuantity, hoodieQuantity) {
-        // Update prices for all existing order items based on current total quantities
         orderItems.forEach(item => {
-            const newPrice = getWholesalePrice(item.product.type,
-                item.product.type === 'tshirt' ? tshirtQuantity : hoodieQuantity);
-
-            // Update the item's price and total
-            item.price = newPrice;
-            item.total = newPrice * item.quantity;
-
-            // Update the UI element
-            const itemElement = document.querySelector(`[data-item-id="${item.id}"]`);
-            if (itemElement) {
-                const costElement = itemElement.querySelector('.order-item-cost');
-                const sellingElement = itemElement.querySelector('.order-item-selling');
-
-                if (costElement) {
-                    costElement.textContent = `${newPrice}₴`;
-                }
-                if (sellingElement) {
-                    sellingElement.textContent = `${item.total}₴`;
-                }
-            }
+            recomputeOrderItem(item, tshirtQuantity, hoodieQuantity);
+            renderOrderItemState(item);
         });
     }
 
