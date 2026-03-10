@@ -35,6 +35,12 @@ def get_management_wholesale_price_context() -> dict[str, dict[str, Any]]:
     return deepcopy(_WHOLESALE_PRICE_CONTEXT)
 
 
+def _require_mapping(value: Any, error_message: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise InvoicePayloadError(error_message)
+    return value
+
+
 def _quantize_money(value: Decimal) -> Decimal:
     return value.quantize(_TWOPLACES, rounding=ROUND_HALF_UP)
 
@@ -145,6 +151,10 @@ def _wholesale_price_for_quantity(product_type: str, quantity: int) -> Decimal:
     return Decimal(str(prices[0]))
 
 
+def _entry_wholesale_price(product_type: str) -> Decimal:
+    return Decimal(str(_WHOLESALE_PRICE_CONTEXT[product_type]["wholesale"][0]))
+
+
 def _compose_display_title(title: str, extra_description: str) -> str:
     if not extra_description:
         return title
@@ -152,6 +162,10 @@ def _compose_display_title(title: str, extra_description: str) -> str:
 
 
 def normalize_management_invoice_payload(*, company_data: dict[str, Any], order_items: list[dict[str, Any]]) -> dict[str, Any]:
+    company_data = _require_mapping(company_data or {}, "Некоректні дані компанії")
+    if not isinstance(order_items, list):
+        raise InvoicePayloadError("Некоректний список товарів для накладної")
+
     normalized_company = {
         "companyName": _clean_text(company_data.get("companyName")),
         "companyNumber": _clean_text(company_data.get("companyNumber")),
@@ -174,32 +188,38 @@ def normalize_management_invoice_payload(*, company_data: dict[str, Any], order_
 
     prepared_items: list[dict[str, Any]] = []
     totals_by_type = {"tshirt": 0, "hoodie": 0}
+    has_manual_prices = False
 
-    for raw_item in order_items:
-        product = (raw_item or {}).get("product") or {}
+    for index, raw_item in enumerate(order_items, start=1):
+        raw_item = _require_mapping(raw_item, f"Некоректні дані товару в позиції {index}")
+        product = _require_mapping(raw_item.get("product") or {}, f"Некоректні дані товару в позиції {index}")
         raw_title = _clean_text(product.get("title"))
         if not raw_title:
             raise InvoicePayloadError("У позиції відсутня назва товару")
 
         product_type = _guess_product_type(product.get("type"), raw_title)
-        run_multiplier = _parse_run_multiplier((raw_item or {}).get("run_multiplier") or (raw_item or {}).get("runMultiplier"))
-        include_2xl = _parse_bool((raw_item or {}).get("include_2xl") or (raw_item or {}).get("include2xlInRun"))
+        run_multiplier = _parse_run_multiplier(raw_item.get("run_multiplier") or raw_item.get("runMultiplier"))
+        include_2xl = _parse_bool(raw_item.get("include_2xl") or raw_item.get("include2xlInRun"))
         size_label, is_full_size_run, run_multiplier, include_2xl = _normalize_size_label(
-            (raw_item or {}).get("size"),
+            raw_item.get("size"),
             run_multiplier,
             include_2xl,
         )
-        quantity = _parse_quantity((raw_item or {}).get("quantity"))
+        quantity = _parse_quantity(raw_item.get("quantity"))
         if is_full_size_run:
             quantity = (_FULL_SIZE_RUN_BASE_QUANTITY + (1 if include_2xl else 0)) * run_multiplier
         totals_by_type[product_type] += quantity
 
-        pricing_mode = _clean_text((raw_item or {}).get("pricing_mode") or (raw_item or {}).get("pricingMode")).lower()
+        pricing_mode = _clean_text(raw_item.get("pricing_mode") or raw_item.get("pricingMode")).lower()
         pricing_mode = "manual" if pricing_mode == "manual" else "auto"
 
-        manual_price = _parse_money((raw_item or {}).get("manual_price") or (raw_item or {}).get("manualPrice"))
+        manual_price = _parse_money(raw_item.get("manual_price") or raw_item.get("manualPrice"))
+        if pricing_mode == "manual":
+            if manual_price is None or manual_price <= 0:
+                raise InvoicePayloadError("Вкажіть коректну ручну ціну для всіх ручних позицій")
+            has_manual_prices = True
         extra_description = _clean_text(
-            (raw_item or {}).get("extra_description") or (raw_item or {}).get("extraDescription")
+            raw_item.get("extra_description") or raw_item.get("extraDescription")
         )
 
         prepared_items.append(
@@ -223,10 +243,14 @@ def normalize_management_invoice_payload(*, company_data: dict[str, Any], order_
 
     normalized_items: list[dict[str, Any]] = []
     total_amount = Decimal("0.00")
+    discounts_enabled = not has_manual_prices
 
     for item in prepared_items:
         product_type = item["product"]["type"]
-        base_unit_price = _quantize_money(_wholesale_price_for_quantity(product_type, totals_by_type[product_type]))
+        if discounts_enabled:
+            base_unit_price = _quantize_money(_wholesale_price_for_quantity(product_type, totals_by_type[product_type]))
+        else:
+            base_unit_price = _quantize_money(_entry_wholesale_price(product_type))
         use_manual_price = item["pricing_mode"] == "manual" and item["manual_price"] is not None and item["manual_price"] > 0
         unit_price = _quantize_money(item["manual_price"] if use_manual_price else base_unit_price)
         line_total = _quantize_money(unit_price * Decimal(item["quantity"]))
@@ -256,6 +280,16 @@ def normalize_management_invoice_payload(*, company_data: dict[str, Any], order_
     return {
         "company_data": normalized_company,
         "items": normalized_items,
+        "pricing": {
+            "policy": "custom_manual" if has_manual_prices else "tier_wholesale",
+            "has_manual_prices": has_manual_prices,
+            "discounts_enabled": discounts_enabled,
+            "note": (
+                "Ручна ціна присутня в замовленні: автоматичні знижки за кількість вимкнені."
+                if has_manual_prices
+                else "Автоматичні оптові tier-знижки застосовані за загальною кількістю."
+            ),
+        },
         "totals": {
             "total_tshirts": totals_by_type["tshirt"],
             "total_hoodies": totals_by_type["hoodie"],
@@ -291,9 +325,16 @@ def serialize_management_invoice_payload(normalized_payload: dict[str, Any]) -> 
         )
 
     totals = normalized_payload["totals"]
+    pricing = normalized_payload.get("pricing") or {}
     return {
         "company_data": dict(normalized_payload["company_data"]),
         "order_items": serialized_items,
+        "pricing": {
+            "policy": pricing.get("policy") or "tier_wholesale",
+            "has_manual_prices": bool(pricing.get("has_manual_prices")),
+            "discounts_enabled": bool(pricing.get("discounts_enabled", True)),
+            "note": pricing.get("note") or "",
+        },
         "totals": {
             "total_tshirts": totals["total_tshirts"],
             "total_hoodies": totals["total_hoodies"],
@@ -306,6 +347,7 @@ def build_management_invoice_workbook(
     *,
     company_data: dict[str, Any],
     normalized_items: list[dict[str, Any]],
+    pricing: dict[str, Any],
     totals: dict[str, Any],
     invoice_number: str,
     created_at_label: str,
@@ -393,6 +435,13 @@ def build_management_invoice_workbook(
             value_cell.fill = summary_fill
         for col in ("G",):
             ws[f"{col}{row_index}"].border = border
+
+    ws.merge_cells("A8:G8")
+    ws["A8"] = pricing.get("note") or "Автоматичні оптові tier-знижки застосовані за загальною кількістю."
+    ws["A8"].font = emphasis_font
+    ws["A8"].fill = link_fill if pricing.get("has_manual_prices") else section_fill
+    ws["A8"].alignment = left
+    ws["A8"].border = border
 
     ws.merge_cells("A9:G9")
     ws["A9"] = "Позиції накладної"
