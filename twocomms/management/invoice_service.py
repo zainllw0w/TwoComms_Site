@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+import re
 from typing import Any
 
 from openpyxl import Workbook
@@ -10,6 +11,7 @@ from openpyxl.utils import get_column_letter
 
 
 _TWOPLACES = Decimal("0.01")
+_FULL_SIZE_RUN_BASE_QUANTITY = 4
 
 _WHOLESALE_PRICE_CONTEXT = {
     "tshirt": {
@@ -77,6 +79,46 @@ def _parse_quantity(value: Any) -> int:
     return quantity
 
 
+def _parse_run_multiplier(value: Any) -> int:
+    if value in (None, ""):
+        return 1
+    try:
+        multiplier = int(value)
+    except (TypeError, ValueError):
+        raise InvoicePayloadError("Некоректний множник ростовки") from None
+    if multiplier <= 0:
+        raise InvoicePayloadError("Множник ростовки повинен бути більшим за нуль")
+    return multiplier
+
+
+def _parse_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _normalize_size_label(raw_size: Any, run_multiplier: int, include_2xl: bool) -> tuple[str, bool, int, bool]:
+    cleaned_size = _clean_text(raw_size)
+    normalized_size = cleaned_size.lower().replace("×", "x")
+    is_full_size_run = normalized_size == "all" or ("s-xl" in normalized_size and "ростов" in normalized_size)
+    if "s-2xl" in normalized_size and "ростов" in normalized_size:
+        is_full_size_run = True
+        include_2xl = True
+
+    if not is_full_size_run:
+        return cleaned_size, False, 1, False
+
+    if run_multiplier == 1:
+        multiplier_match = re.search(r"[x×]\s*(\d+)", normalized_size)
+        if multiplier_match:
+            run_multiplier = _parse_run_multiplier(multiplier_match.group(1))
+
+    label = "Всі ростовки (S-2XL)" if include_2xl else "Всі ростовки (S-XL)"
+    if run_multiplier > 1:
+        label = f"{label} ×{run_multiplier}"
+    return label, True, run_multiplier, include_2xl
+
+
 def _guess_product_type(product_type: str, title: str) -> str:
     cleaned_type = _clean_text(product_type).lower()
     if cleaned_type in {"tshirt", "hoodie"}:
@@ -140,7 +182,16 @@ def normalize_management_invoice_payload(*, company_data: dict[str, Any], order_
             raise InvoicePayloadError("У позиції відсутня назва товару")
 
         product_type = _guess_product_type(product.get("type"), raw_title)
+        run_multiplier = _parse_run_multiplier((raw_item or {}).get("run_multiplier") or (raw_item or {}).get("runMultiplier"))
+        include_2xl = _parse_bool((raw_item or {}).get("include_2xl") or (raw_item or {}).get("include2xlInRun"))
+        size_label, is_full_size_run, run_multiplier, include_2xl = _normalize_size_label(
+            (raw_item or {}).get("size"),
+            run_multiplier,
+            include_2xl,
+        )
         quantity = _parse_quantity((raw_item or {}).get("quantity"))
+        if is_full_size_run:
+            quantity = (_FULL_SIZE_RUN_BASE_QUANTITY + (1 if include_2xl else 0)) * run_multiplier
         totals_by_type[product_type] += quantity
 
         pricing_mode = _clean_text((raw_item or {}).get("pricing_mode") or (raw_item or {}).get("pricingMode")).lower()
@@ -159,9 +210,11 @@ def normalize_management_invoice_payload(*, company_data: dict[str, Any], order_
                     "title": raw_title,
                     "image": product.get("image") or product.get("main_image") or "",
                 },
-                "size": _clean_text((raw_item or {}).get("size")),
+                "size": size_label,
                 "color": _clean_text((raw_item or {}).get("color")) or "Чорний",
                 "quantity": quantity,
+                "run_multiplier": run_multiplier,
+                "include_2xl": include_2xl,
                 "pricing_mode": pricing_mode,
                 "manual_price": manual_price,
                 "extra_description": extra_description,
@@ -185,6 +238,8 @@ def normalize_management_invoice_payload(*, company_data: dict[str, Any], order_
                 "size": item["size"],
                 "color": item["color"],
                 "quantity": item["quantity"],
+                "run_multiplier": item["run_multiplier"],
+                "include_2xl": item["include_2xl"],
                 "pricing_mode": "manual" if use_manual_price else "auto",
                 "extra_description": item["extra_description"],
                 "display_title": display_title,
@@ -221,6 +276,8 @@ def serialize_management_invoice_payload(normalized_payload: dict[str, Any]) -> 
                 "size": item["size"],
                 "color": item["color"],
                 "quantity": item["quantity"],
+                "run_multiplier": item.get("run_multiplier", 1),
+                "include_2xl": item.get("include_2xl", False),
                 "pricing_mode": item["pricing_mode"],
                 "extra_description": item["extra_description"],
                 "display_title": item["display_title"],

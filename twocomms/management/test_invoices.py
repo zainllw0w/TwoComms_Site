@@ -68,6 +68,36 @@ class InvoiceItemNormalizationTests(TestCase):
         self.assertEqual(normalized["items"][2]["line_total"], Decimal("10400.00"))
         self.assertEqual(normalized["totals"]["total_amount"], Decimal("14860.00"))
 
+    def test_normalize_invoice_items_expands_full_size_run_multiplier(self):
+        from management.invoice_service import normalize_management_invoice_payload
+
+        company_data = {
+            "companyName": "ТОВ Тест",
+            "contactPhone": "+380000000000",
+            "deliveryAddress": "Київ, вул. Тестова, 1",
+        }
+        order_items = [
+            {
+                "product": {"id": "1", "type": "tshirt", "title": "Футболка 1"},
+                "size": "all",
+                "run_multiplier": 3,
+                "quantity": 4,
+                "pricing_mode": "auto",
+            },
+        ]
+
+        normalized = normalize_management_invoice_payload(
+            company_data=company_data,
+            order_items=order_items,
+        )
+
+        self.assertEqual(normalized["totals"]["total_tshirts"], 12)
+        self.assertEqual(normalized["items"][0]["size"], "Всі ростовки (S-XL) ×3")
+        self.assertEqual(normalized["items"][0]["run_multiplier"], 3)
+        self.assertEqual(normalized["items"][0]["quantity"], 12)
+        self.assertEqual(normalized["items"][0]["base_unit_price"], Decimal("540.00"))
+        self.assertEqual(normalized["items"][0]["line_total"], Decimal("6480.00"))
+
 
 @override_settings(
     ROOT_URLCONF="twocomms.urls_management",
@@ -90,6 +120,9 @@ class ManagementInvoiceApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Сформувати накладну")
         self.assertContains(response, "Ручна ціна за 1 шт.")
+        self.assertContains(response, "Множник ростовки")
+        self.assertContains(response, "Включити 2XL у ростовку")
+        self.assertContains(response, '<option value="2XL">2XL</option>', html=True)
 
     def test_generate_invoice_uses_normalized_rows_and_writes_excel(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -159,6 +192,54 @@ class ManagementInvoiceApiTests(TestCase):
                 self.assertEqual(ws["G12"].value, 1220)
                 self.assertIn("₴", ws["F11"].number_format)
                 self.assertEqual(ws["B6"].hyperlink.target, "https://example.com/store")
+
+    def test_generate_invoice_serializes_full_size_run_multiplier(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with override_settings(MEDIA_ROOT=tmpdir):
+                payload = {
+                    "companyData": {
+                        "companyName": "ТОВ Тест",
+                        "companyNumber": "12345678",
+                        "contactPhone": "+380000000000",
+                        "deliveryAddress": "Київ, вул. Тестова, 1",
+                    },
+                    "orderItems": [
+                        {
+                            "product": {"id": "1", "type": "tshirt", "title": "Футболка 1"},
+                            "size": "all",
+                            "runMultiplier": 2,
+                            "include2xlInRun": True,
+                            "quantity": 4,
+                            "pricing_mode": "auto",
+                        },
+                    ],
+                }
+
+                response = self.client_http.post(
+                    reverse("management_invoices_generate_api"),
+                    data=json.dumps(payload),
+                    content_type="application/json",
+                    HTTP_HOST="management.twocomms.shop",
+                    secure=True,
+                )
+
+                self.assertEqual(response.status_code, 200)
+                data = response.json()
+                self.assertTrue(data["ok"])
+
+                invoice = WholesaleInvoice.objects.get(id=data["invoice"]["id"])
+                self.assertEqual(invoice.total_tshirts, 10)
+
+                saved_item = invoice.order_details["order_items"][0]
+                self.assertEqual(saved_item["size"], "Всі ростовки (S-2XL) ×2")
+                self.assertEqual(saved_item["run_multiplier"], 2)
+                self.assertTrue(saved_item["include_2xl"])
+                self.assertEqual(saved_item["quantity"], 10)
+
+                wb = load_workbook(Path(invoice.file_path))
+                ws = wb.active
+                self.assertEqual(ws["C11"].value, "Всі ростовки (S-2XL) ×2")
+                self.assertEqual(ws["E11"].value, 10)
 
 
 class InvoiceSummaryTests(TestCase):
