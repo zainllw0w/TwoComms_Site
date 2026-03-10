@@ -1292,6 +1292,7 @@
     .management-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
         gap: clamp(18px, 2.4vw, 40px);
         margin-bottom: 30px;
         max-width: none;
@@ -1315,6 +1316,12 @@
         overflow: hidden;
         display: flex;
         flex-direction: column;
+    }
+
+    .management-column.order-column {
+        height: auto;
+        min-height: clamp(640px, 72vh, 860px);
+        overflow: visible;
     }
 
     .management-column::before {
@@ -1638,6 +1645,57 @@
         background: rgba(20, 22, 27, 0.8);
     }
 
+    .size-config-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1.7fr) minmax(130px, 0.9fr);
+        gap: 12px;
+        align-items: end;
+    }
+
+    .run-multiplier-group[hidden],
+    .run-include-2xl[hidden] {
+        display: none !important;
+    }
+
+    .run-toggle-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(20, 22, 27, 0.52);
+        cursor: pointer;
+        transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
+    }
+
+    .run-toggle-card:hover {
+        border-color: rgba(139, 92, 246, 0.32);
+        background: rgba(20, 22, 27, 0.64);
+        transform: translateY(-1px);
+    }
+
+    .run-toggle-card input {
+        margin-top: 3px;
+        accent-color: #8b5cf6;
+    }
+
+    .run-toggle-title {
+        display: block;
+        font-size: 0.86rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.92);
+        line-height: 1.35;
+    }
+
+    .run-toggle-description {
+        display: block;
+        margin-top: 2px;
+        font-size: 0.72rem;
+        line-height: 1.45;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
     .form-helper {
         margin-top: 6px;
         font-size: 0.72rem;
@@ -1752,10 +1810,11 @@
 
     /* Order Items Scroll Container */
     .order-items-scroll-container {
-        flex: 1;
+        flex: 0 1 auto;
         overflow-y: auto;
         padding-right: 8px;
         margin-right: -8px;
+        max-height: clamp(180px, 28vh, 360px);
         min-height: 0;
     }
 
@@ -2481,6 +2540,10 @@
     }
 
     @media (max-width: 768px) {
+        .size-config-row {
+            grid-template-columns: 1fr;
+        }
+
         .invoice-item {
             flex-direction: column;
             align-items: stretch;
@@ -2963,16 +3026,45 @@
                 <!-- Форма добавления товара -->
                 <div class="order-form" id="orderForm" style="display: none;">
 
-                    <div class="form-group">
-                        <label class="form-label">Розмір</label>
-                        <select class="form-select" id="productSize" required>
-                            <option value="">Оберіть розмір</option>
-                            <option value="all">Всі ростовки (S-XL)</option>
-                            <option value="S">S</option>
-                            <option value="M">M</option>
-                            <option value="L">L</option>
-                            <option value="XL">XL</option>
-                        </select>
+                    <div class="size-config-row">
+                        <div class="form-group">
+                            <label class="form-label">Розмір</label>
+                            <select class="form-select" id="productSize" required>
+                                <option value="">Оберіть розмір</option>
+                                <option value="all">Всі ростовки (S-XL)</option>
+                                <option value="S">S</option>
+                                <option value="M">M</option>
+                                <option value="L">L</option>
+                                <option value="XL">XL</option>
+                                <option value="2XL">2XL</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group run-multiplier-group" id="runMultiplierGroup" hidden>
+                            <label class="form-label">Множник ростовки</label>
+                            <select class="form-select" id="runMultiplier">
+                                <option value="1" selected>x1</option>
+                                <option value="2">x2</option>
+                                <option value="3">x3</option>
+                                <option value="4">x4</option>
+                                <option value="5">x5</option>
+                                <option value="6">x6</option>
+                                <option value="7">x7</option>
+                                <option value="8">x8</option>
+                                <option value="9">x9</option>
+                                <option value="10">x10</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group run-include-2xl" id="include2xlGroup" hidden>
+                        <label class="run-toggle-card" for="include2xlInRun">
+                            <input type="checkbox" id="include2xlInRun">
+                            <span>
+                                <span class="run-toggle-title">Включити 2XL у ростовку</span>
+                                <span class="run-toggle-description">За замовчуванням ростовка рахується як S-XL. Увімкніть, якщо потрібен комплект S-2XL.</span>
+                            </span>
+                        </label>
                     </div>
 
                     <div class="form-group">
@@ -3214,6 +3306,104 @@
         return Math.round(parsed * 100) / 100;
     }
 
+    function parsePositiveInteger(value, fallback = 1) {
+        const parsed = parseInt(String(value ?? '').trim(), 10);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+            return fallback;
+        }
+        return parsed;
+    }
+
+    function normalizeBoolean(value) {
+        if (typeof value === 'boolean') {
+            return value;
+        }
+        const normalized = String(value ?? '').trim().toLowerCase();
+        return ['1', 'true', 'yes', 'on'].includes(normalized);
+    }
+
+    function isFullSizeRunValue(value) {
+        const normalized = cleanText(value).toLowerCase().replace(/×/g, 'x');
+        return normalized === 'all'
+            || (normalized.includes('ростов') && normalized.includes('s-xl'))
+            || (normalized.includes('ростов') && normalized.includes('s-2xl'));
+    }
+
+    function sizeRunIncludes2xl(value) {
+        const normalized = cleanText(value).toLowerCase();
+        return normalized.includes('s-2xl') || (normalized.includes('2xl') && normalized.includes('ростов'));
+    }
+
+    function inferRunMultiplierFromSizeValue(value) {
+        const normalized = cleanText(value).toLowerCase().replace(/×/g, 'x');
+        const match = normalized.match(/x\s*(\d+)/);
+        return match ? parsePositiveInteger(match[1], 1) : 1;
+    }
+
+    function buildRunSizeLabel(runMultiplier = 1, include2xlInRun = false) {
+        const baseLabel = include2xlInRun ? 'Всі ростовки (S-2XL)' : 'Всі ростовки (S-XL)';
+        return runMultiplier > 1 ? `${baseLabel} ×${runMultiplier}` : baseLabel;
+    }
+
+    function buildSizeLabel(sizeValue, runMultiplier = 1, include2xlInRun = false) {
+        return isFullSizeRunValue(sizeValue)
+            ? buildRunSizeLabel(runMultiplier, include2xlInRun)
+            : sizeValue;
+    }
+
+    function getRunMultiplier() {
+        return parsePositiveInteger(document.getElementById('runMultiplier')?.value, 1);
+    }
+
+    function shouldInclude2xlInRun() {
+        return normalizeBoolean(document.getElementById('include2xlInRun')?.checked);
+    }
+
+    function getRunBaseQuantity(include2xlInRun = false) {
+        return include2xlInRun ? 5 : 4;
+    }
+
+    function getSelectedOrderQuantity() {
+        const sizeValue = document.getElementById('productSize')?.value || '';
+        const quantityInput = document.getElementById('quantity');
+
+        if (sizeValue === 'all') {
+            return getRunBaseQuantity(shouldInclude2xlInRun()) * getRunMultiplier();
+        }
+
+        return parsePositiveInteger(quantityInput ? quantityInput.value : '1', 1);
+    }
+
+    function syncSizeConfigurationControls() {
+        const sizeSelect = document.getElementById('productSize');
+        const quantityInput = document.getElementById('quantity');
+        const runMultiplierGroup = document.getElementById('runMultiplierGroup');
+        const include2xlGroup = document.getElementById('include2xlGroup');
+        const isFullRun = sizeSelect && sizeSelect.value === 'all';
+
+        if (runMultiplierGroup) {
+            runMultiplierGroup.hidden = !isFullRun;
+        }
+        if (include2xlGroup) {
+            include2xlGroup.hidden = !isFullRun;
+        }
+        if (!quantityInput) {
+            return;
+        }
+
+        if (isFullRun) {
+            quantityInput.value = String(getSelectedOrderQuantity());
+            quantityInput.disabled = true;
+            quantityInput.style.opacity = '0.6';
+        } else {
+            quantityInput.disabled = false;
+            quantityInput.style.opacity = '1';
+            if (sizeSelect && sizeSelect.value) {
+                quantityInput.value = '1';
+            }
+        }
+    }
+
     function getCurrentPricingMode() {
         const input = document.getElementById('pricingMode');
         return input && input.value === 'manual' ? 'manual' : 'auto';
@@ -3260,9 +3450,14 @@
         const basePrice = getWholesalePrice(item.product.type, itemQuantity);
         const manualPrice = parsePositivePrice(item.manualPrice);
         const pricingMode = item.pricingMode === 'manual' && manualPrice !== null ? 'manual' : 'auto';
+        const runMultiplier = parsePositiveInteger(item.runMultiplier, inferRunMultiplierFromSizeValue(item.size));
+        const include2xlInRun = normalizeBoolean(item.include2xlInRun) || sizeRunIncludes2xl(item.size);
 
         item.pricingMode = pricingMode;
         item.manualPrice = pricingMode === 'manual' ? manualPrice : null;
+        item.runMultiplier = runMultiplier;
+        item.include2xlInRun = include2xlInRun;
+        item.size = buildSizeLabel(item.size, runMultiplier, include2xlInRun);
         item.basePrice = basePrice;
         item.price = getEffectiveItemPrice(basePrice, pricingMode, manualPrice);
         item.total = Math.round(item.price * item.quantity * 100) / 100;
@@ -3309,7 +3504,11 @@
             colorDotEl.dataset.color = dotColor;
         }
         if (sizeEl) {
-            sizeEl.textContent = orderItem.size;
+            sizeEl.textContent = buildSizeLabel(
+                orderItem.size,
+                parsePositiveInteger(orderItem.runMultiplier, inferRunMultiplierFromSizeValue(orderItem.size)),
+                normalizeBoolean(orderItem.include2xlInRun) || sizeRunIncludes2xl(orderItem.size)
+            );
         }
         if (quantityEl) {
             quantityEl.textContent = `${orderItem.quantity} шт.`;
@@ -3692,6 +3891,8 @@
         const addToOrderBtn = document.getElementById('addToOrderBtn');
         const sizeSelect = document.getElementById('productSize');
         const quantityInput = document.getElementById('quantity');
+        const runMultiplierSelect = document.getElementById('runMultiplier');
+        const include2xlCheckbox = document.getElementById('include2xlInRun');
         const manualPriceInput = document.getElementById('manualPrice');
         const extraDescriptionInput = document.getElementById('extraDescription');
         const pricingButtons = document.querySelectorAll('[data-pricing-mode]');
@@ -3710,26 +3911,27 @@
 
         if (sizeSelect) {
             sizeSelect.addEventListener('change', function () {
-                if (!quantityInput) {
-                    return;
-                }
-                if (this.value === 'all') {
-                    quantityInput.value = '4';
-                    quantityInput.disabled = true;
-                    quantityInput.style.opacity = '0.6';
-                } else {
-                    quantityInput.disabled = false;
-                    quantityInput.style.opacity = '1';
-                    if (quantityInput.value === '4') {
-                        quantityInput.value = '1';
-                    }
-                }
+                syncSizeConfigurationControls();
                 updatePriceDisplay();
             });
         }
 
         if (quantityInput) {
             quantityInput.addEventListener('input', function () {
+                updatePriceDisplay();
+            });
+        }
+
+        if (runMultiplierSelect) {
+            runMultiplierSelect.addEventListener('change', function () {
+                syncSizeConfigurationControls();
+                updatePriceDisplay();
+            });
+        }
+
+        if (include2xlCheckbox) {
+            include2xlCheckbox.addEventListener('change', function () {
+                syncSizeConfigurationControls();
                 updatePriceDisplay();
             });
         }
@@ -3746,6 +3948,7 @@
             });
         }
 
+        syncSizeConfigurationControls();
         setPricingMode('auto');
     }
 
@@ -3785,6 +3988,8 @@
             const selectedColorImage = document.getElementById('selectedColorImage');
             const manualPriceInput = document.getElementById('manualPrice');
             const extraDescriptionInput = document.getElementById('extraDescription');
+            const runMultiplierSelect = document.getElementById('runMultiplier');
+            const include2xlCheckbox = document.getElementById('include2xlInRun');
 
             if (sizeSelect) sizeSelect.value = '';
             const quantityInput = document.getElementById('quantity');
@@ -3800,6 +4005,13 @@
             if (extraDescriptionInput) {
                 extraDescriptionInput.value = '';
             }
+            if (runMultiplierSelect) {
+                runMultiplierSelect.value = '1';
+            }
+            if (include2xlCheckbox) {
+                include2xlCheckbox.checked = false;
+            }
+            syncSizeConfigurationControls();
             setPricingMode('auto');
 
             if (colorSelect && selectedColorImage) {
@@ -3852,12 +4064,17 @@
             return;
         }
 
+        const sizeValue = document.getElementById('productSize')?.value || '';
         const quantityInput = document.getElementById('quantity');
         const manualPriceInput = document.getElementById('manualPrice');
         const pricePreview = document.getElementById('pricePreview');
         const pricingMode = getCurrentPricingMode();
         const manualPrice = parsePositivePrice(manualPriceInput ? manualPriceInput.value : '');
-        const quantity = parseInt(quantityInput ? quantityInput.value : '1') || 1;
+        const quantity = getSelectedOrderQuantity();
+        const isFullRun = sizeValue === 'all';
+        const include2xlInRun = shouldInclude2xlInRun();
+        const runMultiplier = getRunMultiplier();
+        const runLabel = buildRunSizeLabel(runMultiplier, include2xlInRun);
 
         const currentTotalQuantity = getTotalQuantityForProductType(currentProduct.type);
         const newTotalQuantity = currentTotalQuantity + quantity;
@@ -3881,9 +4098,9 @@
             if (pricingMode === 'manual') {
                 pricePreview.innerHTML = manualPrice === null
                     ? `Автоціна для поточного tier: <strong>${formatMoney(basePrice)}</strong> за 1 шт. Вкажіть свою ціну, щоб додати позицію.`
-                    : `Автоціна для поточного tier: <strong>${formatMoney(basePrice)}</strong> за 1 шт.<br>Ручна ціна: <strong>${formatMoney(manualPrice)}</strong> за 1 шт. • Разом: <strong>${formatMoney(total)}</strong>`;
+                    : `Автоціна для поточного tier: <strong>${formatMoney(basePrice)}</strong> за 1 шт.${isFullRun ? `<br>Комплект: <strong>${runLabel}</strong> = ${quantity} шт.` : ''}<br>Ручна ціна: <strong>${formatMoney(manualPrice)}</strong> за 1 шт. • Разом: <strong>${formatMoney(total)}</strong>`;
             } else {
-                pricePreview.innerHTML = `Автоціна для ${newTotalQuantity} шт. цього типу: <strong>${formatMoney(basePrice)}</strong> за 1 шт.<br>Разом: <strong>${formatMoney(total)}</strong>`;
+                pricePreview.innerHTML = `Автоціна для ${newTotalQuantity} шт. цього типу: <strong>${formatMoney(basePrice)}</strong> за 1 шт.${isFullRun ? `<br>Комплект: <strong>${runLabel}</strong> = ${quantity} шт.` : ''}<br>Разом: <strong>${formatMoney(total)}</strong>`;
             }
         }
     }
@@ -3900,7 +4117,10 @@
         const extraDescriptionInput = document.getElementById('extraDescription');
 
         const size = sizeSelect ? sizeSelect.value : '';
-        const quantity = parseInt(quantityInput ? quantityInput.value : '1') || 1;
+        const isFullRun = size === 'all';
+        const runMultiplier = isFullRun ? getRunMultiplier() : 1;
+        const include2xlInRun = isFullRun ? shouldInclude2xlInRun() : false;
+        const quantity = getSelectedOrderQuantity();
         const pricingMode = getCurrentPricingMode();
         const manualPrice = parsePositivePrice(manualPriceInput ? manualPriceInput.value : '');
         const extraDescription = cleanText(extraDescriptionInput ? extraDescriptionInput.value : '');
@@ -3926,7 +4146,7 @@
         const colorName = selectedOption ? selectedOption.textContent : 'Чорний';
         const colorHex = selectedOption ? (selectedOption.dataset.colorHex || '#000000') : '#000000';
         const colorImage = selectedOption ? selectedOption.dataset.colorImage : currentProduct.main_image;
-        const normalizedSize = size === 'all' ? 'Всі ростовки (S-XL)' : size;
+        const normalizedSize = buildSizeLabel(size, runMultiplier, include2xlInRun);
 
         const existingItemIndex = orderItems.findIndex(item =>
             item.product.id === currentProduct.id &&
@@ -3944,6 +4164,8 @@
             existingItem.manualPrice = effectivePricingMode === 'manual' ? manualPrice : null;
             existingItem.pricingMode = effectivePricingMode;
             existingItem.extraDescription = extraDescription;
+            existingItem.runMultiplier = runMultiplier;
+            existingItem.include2xlInRun = include2xlInRun;
             existingItem.displayTitle = buildDisplayTitle(existingItem.product.title, extraDescription);
             showNotification('Кількість товару оновлено', 'success');
         } else {
@@ -3957,6 +4179,8 @@
                 color: colorName,
                 colorHex,
                 quantity,
+                runMultiplier,
+                include2xlInRun,
                 pricingMode: effectivePricingMode,
                 manualPrice: effectivePricingMode === 'manual' ? manualPrice : null,
                 extraDescription,
@@ -4051,6 +4275,8 @@
     function hideOrderForm() {
         const orderForm = document.getElementById('orderForm');
         const dropZone = document.getElementById('orderDropZone');
+        const runMultiplierSelect = document.getElementById('runMultiplier');
+        const include2xlCheckbox = document.getElementById('include2xlInRun');
 
         orderForm.style.display = 'none';
         dropZone.style.display = 'block';
@@ -4065,6 +4291,13 @@
         if (extraDescriptionInput) {
             extraDescriptionInput.value = '';
         }
+        if (runMultiplierSelect) {
+            runMultiplierSelect.value = '1';
+        }
+        if (include2xlCheckbox) {
+            include2xlCheckbox.checked = false;
+        }
+        syncSizeConfigurationControls();
         if (pricePreview) {
             pricePreview.textContent = "Ціна з'явиться після вибору параметрів товару.";
         }
