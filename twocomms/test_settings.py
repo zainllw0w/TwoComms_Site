@@ -6,6 +6,8 @@ Django Test Settings для запуска тестов с SQLite вместо M
     coverage run --source=storefront manage.py test --settings=test_settings
 """
 
+from twocomms.settings import *  # noqa: F401,F403
+
 import os
 
 # Устанавливаем тестовый SECRET_KEY перед импортом settings

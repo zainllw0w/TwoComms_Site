@@ -70,12 +70,21 @@ def _invoice_summary_from_wholesale_invoice(inv: WholesaleInvoice) -> dict[str, 
 
     for raw in raw_items:
         product = (raw or {}).get("product", {}) or {}
-        title = str(product.get("title") or "").strip() or "—"
+        title = (
+            str((raw or {}).get("display_title") or "").strip()
+            or str((raw or {}).get("title") or "").strip()
+            or str(product.get("title") or "").strip()
+            or "—"
+        )
         size = str((raw or {}).get("size") or "").strip()
         color = str((raw or {}).get("color") or "").strip()
         qty = _int_or_zero((raw or {}).get("quantity"))
-        price = _decimal_or_none((raw or {}).get("price")) or Decimal("0")
-        line_total = _decimal_or_none((raw or {}).get("total"))
+        price = (
+            _decimal_or_none((raw or {}).get("unit_price"))
+            or _decimal_or_none((raw or {}).get("price"))
+            or Decimal("0")
+        )
+        line_total = _decimal_or_none((raw or {}).get("line_total")) or _decimal_or_none((raw or {}).get("total"))
         if line_total is None:
             line_total = (price * Decimal(qty)) if qty else Decimal("0")
 
