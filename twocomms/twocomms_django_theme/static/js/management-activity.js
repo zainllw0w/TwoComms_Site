@@ -3,12 +3,42 @@
   if (!pulseUrl) return;
 
   const getCookie = (name) => {
-    const parts = (`; ${document.cookie || ''}`).split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
+    if (!document.cookie) return '';
+    const cookies = document.cookie.split(';');
+    for (const rawCookie of cookies) {
+      const cookie = rawCookie.trim();
+      if (cookie.substring(0, name.length + 1) === `${name}=`) {
+        return decodeURIComponent(cookie.substring(name.length + 1));
+      }
+    }
     return '';
   };
 
-  const csrfToken = () => getCookie('csrftoken');
+  const isValidCsrfToken = (token) => /^[A-Za-z0-9]{32}$|^[A-Za-z0-9]{64}$/.test(token || '');
+  const readDomCsrfToken = () => {
+    const meta = document.querySelector?.('meta[name="csrf-token"]');
+    if (meta?.getAttribute) {
+      const token = meta.getAttribute('content') || '';
+      if (isValidCsrfToken(token)) return token;
+    }
+
+    const input = document.querySelector?.('[name="csrfmiddlewaretoken"]');
+    if (input && 'value' in input && isValidCsrfToken(input.value)) {
+      return input.value;
+    }
+
+    return '';
+  };
+
+  const resolveCsrfToken = () => {
+    const domToken = readDomCsrfToken();
+    if (domToken) return domToken;
+
+    const cookieToken = getCookie('csrftoken');
+    if (isValidCsrfToken(cookieToken)) return cookieToken;
+
+    return '';
+  };
 
   const IDLE_MS = 90_000; // idle threshold: allows short "reading" periods without clicks
   const TICK_MS = 15_000;
@@ -52,6 +82,8 @@
     const active = isVisible && isFocused && (now - lastInteraction) < IDLE_MS;
     if (!active || deltaSec <= 0) return;
     if (inFlight) return;
+    const token = resolveCsrfToken();
+    if (!token) return;
     inFlight = true;
 
     try {
@@ -60,7 +92,7 @@
         credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken(),
+          'X-CSRFToken': token,
           'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify({ active_seconds: deltaSec }),
@@ -79,4 +111,3 @@
     setInterval(tick, TICK_MS);
   }, jitter);
 })();
-
