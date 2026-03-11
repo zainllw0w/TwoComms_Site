@@ -356,101 +356,111 @@ def build_management_invoice_workbook(
     ws = wb.active
     ws.title = "Оптова накладна"
 
-    title_fill = PatternFill("solid", fgColor="1F4E78")
-    section_fill = PatternFill("solid", fgColor="DDEBF7")
-    header_fill = PatternFill("solid", fgColor="2F75B5")
-    zebra_fill = PatternFill("solid", fgColor="F7FBFF")
-    summary_fill = PatternFill("solid", fgColor="E2F0D9")
-    link_fill = PatternFill("solid", fgColor="FFF2CC")
-    thin = Side(style="thin", color="D0D7DE")
+    title_fill = PatternFill("solid", fgColor="E8F4FD")
+    section_fill = PatternFill("solid", fgColor="F5F9FF")
+    company_fill = PatternFill("solid", fgColor="DCEEFF")
+    header_fill = PatternFill("solid", fgColor="366092")
+    zebra_fill = PatternFill("solid", fgColor="F8FBFE")
+    auto_note_fill = PatternFill("solid", fgColor="EAF7EE")
+    manual_note_fill = PatternFill("solid", fgColor="FFF1DE")
+    summary_fill = PatternFill("solid", fgColor="E8F4FD")
+    link_fill = PatternFill("solid", fgColor="EEF7FF")
+    thin = Side(style="thin", color="C9D2DE")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    title_font = Font(name="Arial", size=16, bold=True, color="FFFFFF")
-    section_font = Font(name="Arial", size=11, bold=True, color="1F1F1F")
+    title_font = Font(name="Arial", size=16, bold=True, color="366092")
+    section_font = Font(name="Arial", size=11, bold=True, color="244061")
     header_font = Font(name="Arial", size=10, bold=True, color="FFFFFF")
     body_font = Font(name="Arial", size=10, color="1F1F1F")
     emphasis_font = Font(name="Arial", size=10, bold=True, color="1F1F1F")
+    company_font = Font(name="Arial", size=11, bold=True, color="366092")
     link_font = Font(name="Arial", size=10, underline="single", color="0563C1")
 
-    center = Alignment(horizontal="center", vertical="center")
+    center = Alignment(horizontal="center", vertical="center", wrapText=True)
     left = Alignment(horizontal="left", vertical="center", wrapText=True)
-    right = Alignment(horizontal="right", vertical="center")
+    right = Alignment(horizontal="right", vertical="center", wrapText=True)
 
-    ws.merge_cells("A1:G1")
-    ws["A1"] = "ОПТОВА НАКЛАДНА"
-    ws["A1"].font = title_font
-    ws["A1"].fill = title_fill
-    ws["A1"].alignment = center
-    ws["A1"].border = border
+    def _style_row(row_index: int, start_column: int = 1, end_column: int = 7, *, fill=None, font=None, alignment=None):
+        for column in range(start_column, end_column + 1):
+            cell = ws.cell(row=row_index, column=column)
+            cell.border = border
+            if fill is not None:
+                cell.fill = fill
+            if font is not None:
+                cell.font = font
+            if alignment is not None:
+                cell.alignment = alignment
+
+    def _merge_row(row_index: int, start_column: int, end_column: int, value, *, fill=None, font=None, alignment=None):
+        start_letter = get_column_letter(start_column)
+        end_letter = get_column_letter(end_column)
+        ws.merge_cells(f"{start_letter}{row_index}:{end_letter}{row_index}")
+        cell = ws.cell(row=row_index, column=start_column, value=value)
+        if fill is not None:
+            cell.fill = fill
+        if font is not None:
+            cell.font = font
+        if alignment is not None:
+            cell.alignment = alignment
+        _style_row(row_index, start_column, end_column, fill=fill, font=font, alignment=alignment)
+        return cell
+
+    _merge_row(1, 1, 7, "ОПТОВА НАКЛАДНА", fill=title_fill, font=title_font, alignment=center)
     ws.row_dimensions[1].height = 26
 
-    info_rows = [
-        (3, "Назва компанії/ФОП/ПІБ", company_data.get("companyName") or "—"),
-        (4, "Номер компанії/ЄДРПОУ/ІПН", company_data.get("companyNumber") or "—"),
-        (5, "Номер телефону", company_data.get("contactPhone") or "—"),
-        (6, "Посилання на магазин", company_data.get("storeLink") or "—"),
-        (7, "Адреса доставки", company_data.get("deliveryAddress") or "—"),
-    ]
-    for row_index, label, value in info_rows:
-        ws[f"A{row_index}"] = label
-        ws[f"A{row_index}"].font = section_font
-        ws[f"A{row_index}"].fill = section_fill
-        ws[f"A{row_index}"].alignment = left
-        ws[f"A{row_index}"].border = border
+    row = 3
+    _merge_row(row, 1, 7, "Інформація про замовника", fill=section_fill, font=section_font, alignment=left)
 
-        ws.merge_cells(f"B{row_index}:D{row_index}")
-        value_cell = ws[f"B{row_index}"]
+    info_rows = [
+        ("Назва компанії/ФОП/ПІБ", company_data.get("companyName") or "—", company_fill, company_font),
+        ("Номер компанії/ЄДРПОУ/ІПН", company_data.get("companyNumber") or "—", None, body_font),
+        ("Номер телефону", company_data.get("contactPhone") or "—", None, body_font),
+        ("Адреса доставки", company_data.get("deliveryAddress") or "—", None, body_font),
+    ]
+    store_link = company_data.get("storeLink") or "—"
+    if store_link not in {"", "—"}:
+        info_rows.append(("Посилання на магазин", store_link, link_fill, link_font))
+
+    for label, value, value_fill, value_font in info_rows:
+        row += 1
+        ws[f"A{row}"] = label
+        ws[f"A{row}"].font = body_font
+        ws[f"A{row}"].alignment = left
+        ws[f"A{row}"].border = border
+        ws[f"A{row}"].fill = section_fill
+
+        ws.merge_cells(f"B{row}:G{row}")
+        value_cell = ws[f"B{row}"]
         value_cell.value = value
-        value_cell.font = link_font if row_index == 6 and value not in {"", "—"} else body_font
+        value_cell.font = value_font
         value_cell.alignment = left
         value_cell.border = border
-        value_cell.fill = link_fill if row_index == 6 else PatternFill(fill_type=None)
-        if row_index == 6 and value not in {"", "—"}:
+        if value_fill is not None:
+            value_cell.fill = value_fill
+        _style_row(row, 2, 7, fill=value_fill, font=value_font, alignment=left)
+        if label == "Посилання на магазин" and value not in {"", "—"}:
             value_cell.hyperlink = value
-        for col in ("C", "D"):
-            ws[f"{col}{row_index}"].border = border
+        estimated_lines = max(1, len(str(value)) // 58 + 1)
+        ws.row_dimensions[row].height = max(22, estimated_lines * 16)
 
-    side_meta = [
-        (3, "Номер накладної", invoice_number),
-        (4, "Дата створення", created_at_label),
-        (5, "Футболки", totals["total_tshirts"]),
-        (6, "Худі", totals["total_hoodies"]),
-        (7, "Загальна сума", totals["total_amount"]),
-    ]
-    for row_index, label, value in side_meta:
-        ws[f"E{row_index}"] = label
-        ws[f"E{row_index}"].font = section_font
-        ws[f"E{row_index}"].fill = section_fill
-        ws[f"E{row_index}"].alignment = left
-        ws[f"E{row_index}"].border = border
+    row += 2
+    _merge_row(row, 1, 7, f"Номер накладної: {invoice_number}", fill=company_fill, font=section_font, alignment=left)
+    ws.row_dimensions[row].height = 24
 
-        ws.merge_cells(f"F{row_index}:G{row_index}")
-        value_cell = ws[f"F{row_index}"]
-        value_cell.value = value
-        value_cell.font = emphasis_font
-        value_cell.alignment = right if row_index == 7 else left
-        value_cell.border = border
-        if row_index == 7:
-            value_cell.number_format = '#,##0.00 "₴"'
-            value_cell.fill = summary_fill
-        for col in ("G",):
-            ws[f"{col}{row_index}"].border = border
+    row += 1
+    _merge_row(row, 1, 7, f"Дата створення: {created_at_label}", fill=section_fill, font=body_font, alignment=left)
+    ws.row_dimensions[row].height = 22
 
-    ws.merge_cells("A8:G8")
-    ws["A8"] = pricing.get("note") or "Автоматичні оптові tier-знижки застосовані за загальною кількістю."
-    ws["A8"].font = emphasis_font
-    ws["A8"].fill = link_fill if pricing.get("has_manual_prices") else section_fill
-    ws["A8"].alignment = left
-    ws["A8"].border = border
+    row += 2
+    pricing_note = pricing.get("note") or "Автоматичні оптові tier-знижки застосовані за загальною кількістю."
+    pricing_fill = manual_note_fill if pricing.get("has_manual_prices") else auto_note_fill
+    _merge_row(row, 1, 7, pricing_note, fill=pricing_fill, font=emphasis_font, alignment=left)
+    ws.row_dimensions[row].height = max(24, (len(pricing_note) // 72 + 1) * 17)
 
-    ws.merge_cells("A9:G9")
-    ws["A9"] = "Позиції накладної"
-    ws["A9"].font = section_font
-    ws["A9"].fill = section_fill
-    ws["A9"].alignment = left
-    ws["A9"].border = border
+    row += 2
+    _merge_row(row, 1, 7, "Позиції накладної", fill=section_fill, font=section_font, alignment=left)
 
-    header_row = 10
+    header_row = row + 1
     headers = ["№", "Назва товару", "Розмір", "Колір", "Кількість", "Ціна за од.", "Сума"]
     for column, header in enumerate(headers, start=1):
         cell = ws.cell(row=header_row, column=column, value=header)
@@ -469,55 +479,92 @@ def build_management_invoice_workbook(
         ws.cell(row=current_row, column=6, value=float(item["unit_price"]))
         ws.cell(row=current_row, column=7, value=float(item["line_total"]))
 
+        row_fill = manual_note_fill if item.get("pricing_mode") == "manual" else (zebra_fill if index % 2 == 0 else None)
         for column in range(1, 8):
             cell = ws.cell(row=current_row, column=column)
             cell.font = body_font
             cell.border = border
-            if column in {1, 5}:
+            if column in {1, 3, 4, 5}:
                 cell.alignment = center
             elif column in {6, 7}:
                 cell.alignment = right
                 cell.number_format = '#,##0.00 "₴"'
             else:
                 cell.alignment = left
-            if index % 2 == 0:
-                cell.fill = zebra_fill
+            if row_fill is not None:
+                cell.fill = row_fill
 
-        estimated_lines = max(1, len(str(item["display_title"])) // 34 + 1)
-        ws.row_dimensions[current_row].height = max(22, estimated_lines * 16)
+        estimated_lines = max(
+            1,
+            len(str(item["display_title"])) // 34 + 1,
+            len(str(item["size"])) // 20 + 1,
+        )
+        ws.row_dimensions[current_row].height = max(24, estimated_lines * 16)
         current_row += 1
 
     summary_row = current_row
     ws.merge_cells(f"A{summary_row}:F{summary_row}")
-    ws[f"A{summary_row}"] = "Разом"
-    ws[f"A{summary_row}"].font = emphasis_font
+    ws[f"A{summary_row}"] = "РАЗОМ:"
+    ws[f"A{summary_row}"].font = section_font
     ws[f"A{summary_row}"].fill = summary_fill
     ws[f"A{summary_row}"].alignment = right
     ws[f"A{summary_row}"].border = border
+    _style_row(summary_row, 1, 6, fill=summary_fill, font=section_font, alignment=right)
     ws[f"G{summary_row}"] = float(totals["total_amount"])
-    ws[f"G{summary_row}"].font = emphasis_font
+    ws[f"G{summary_row}"].font = section_font
     ws[f"G{summary_row}"].fill = summary_fill
     ws[f"G{summary_row}"].alignment = right
     ws[f"G{summary_row}"].border = border
     ws[f"G{summary_row}"].number_format = '#,##0.00 "₴"'
+    ws.row_dimensions[summary_row].height = 26
 
-    ws.freeze_panes = "A10"
-    ws.auto_filter.ref = f"A10:G{summary_row - 1}"
+    stats_row = summary_row + 2
+    _merge_row(stats_row, 1, 7, "Статистика замовлення", fill=section_fill, font=section_font, alignment=left)
+
+    stats = [
+        ("Футболки", f'{totals["total_tshirts"]} шт.'),
+        ("Худі", f'{totals["total_hoodies"]} шт.'),
+        ("Режим розрахунку", "Ручні ціни без оптового перерахунку" if pricing.get("has_manual_prices") else "Автоматичні tier-знижки"),
+        ("Загальна сума", float(totals["total_amount"])),
+    ]
+    for offset, (label, value) in enumerate(stats, start=1):
+        row_index = stats_row + offset
+        ws[f"A{row_index}"] = label
+        ws[f"A{row_index}"].font = body_font
+        ws[f"A{row_index}"].alignment = left
+        ws[f"A{row_index}"].border = border
+        ws[f"A{row_index}"].fill = section_fill
+
+        ws.merge_cells(f"B{row_index}:G{row_index}")
+        value_cell = ws[f"B{row_index}"]
+        value_cell.value = value
+        value_font = emphasis_font if label == "Загальна сума" else body_font
+        value_alignment = right if label == "Загальна сума" else left
+        value_cell.font = value_font
+        value_cell.alignment = value_alignment
+        value_cell.border = border
+        value_fill = summary_fill if label == "Загальна сума" else (pricing_fill if label == "Режим розрахунку" else None)
+        if value_fill is not None:
+            value_cell.fill = value_fill
+        _style_row(row_index, 2, 7, fill=value_fill, font=value_font, alignment=value_alignment)
+        if label == "Загальна сума":
+            value_cell.number_format = '#,##0.00 "₴"'
+        ws.row_dimensions[row_index].height = 22
+
+    ws.freeze_panes = f"A{header_row + 1}"
+    ws.auto_filter.ref = f"A{header_row}:G{summary_row - 1}"
     ws.sheet_view.showGridLines = False
     ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
 
     ws.column_dimensions["A"].width = 6
-    ws.column_dimensions["B"].width = 40
-    ws.column_dimensions["C"].width = 18
+    ws.column_dimensions["B"].width = 42
+    ws.column_dimensions["C"].width = 22
     ws.column_dimensions["D"].width = 18
     ws.column_dimensions["E"].width = 12
     ws.column_dimensions["F"].width = 14
     ws.column_dimensions["G"].width = 16
-
-    for row_index in range(3, 8):
-        ws.row_dimensions[row_index].height = 24 if row_index != 7 else 36
 
     for column in range(1, 8):
         letter = get_column_letter(column)
