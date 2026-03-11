@@ -1,7 +1,9 @@
 import json
+import os
 import tempfile
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import Client as DjangoClient
@@ -11,6 +13,14 @@ from openpyxl import load_workbook
 
 from management.shop_views import _invoice_summary_from_wholesale_invoice
 from orders.models import WholesaleInvoice
+
+
+def _find_row_by_value(ws, value):
+    for row in ws.iter_rows():
+        for cell in row:
+            if cell.value == value:
+                return cell.row
+    return None
 
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
@@ -228,16 +238,22 @@ class ManagementInvoiceApiTests(TestCase):
 
                 wb = load_workbook(workbook_path)
                 ws = wb.active
+                header_row = _find_row_by_value(ws, "Назва товару")
+                self.assertIsNotNone(header_row)
+                first_item_row = header_row + 1
+                second_item_row = header_row + 2
+                policy_row = _find_row_by_value(ws, "Ручна ціна присутня в замовленні: автоматичні знижки за кількість вимкнені.")
+                link_row = _find_row_by_value(ws, "Посилання на магазин")
 
-                self.assertEqual(ws.freeze_panes, "A10")
-                self.assertEqual(ws["B10"].value, "Назва товару")
-                self.assertEqual(ws["B11"].value, "Футболка 1 [з кашкорсе]")
-                self.assertTrue(ws["B11"].alignment.wrapText)
-                self.assertEqual(ws["F11"].value, 540)
-                self.assertEqual(ws["G12"].value, 1220)
-                self.assertIn("Ручна ціна", str(ws["A8"].value))
-                self.assertIn("₴", ws["F11"].number_format)
-                self.assertEqual(ws["B6"].hyperlink.target, "https://example.com/store")
+                self.assertEqual(ws.freeze_panes, f"A{first_item_row}")
+                self.assertEqual(ws.cell(row=first_item_row, column=2).value, "Футболка 1 [з кашкорсе]")
+                self.assertTrue(ws.cell(row=first_item_row, column=2).alignment.wrapText)
+                self.assertEqual(ws.cell(row=first_item_row, column=6).value, 540)
+                self.assertEqual(ws.cell(row=second_item_row, column=7).value, 1220)
+                self.assertIsNotNone(policy_row)
+                self.assertIn("₴", ws.cell(row=first_item_row, column=6).number_format)
+                self.assertIsNotNone(link_row)
+                self.assertEqual(ws[f"B{link_row}"].hyperlink.target, "https://example.com/store")
 
     def test_generate_invoice_serializes_full_size_run_multiplier(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -284,8 +300,10 @@ class ManagementInvoiceApiTests(TestCase):
 
                 wb = load_workbook(Path(invoice.file_path))
                 ws = wb.active
-                self.assertEqual(ws["C11"].value, "Всі ростовки (S-2XL) ×2")
-                self.assertEqual(ws["E11"].value, 10)
+                item_row = _find_row_by_value(ws, "Футболка 1")
+                self.assertIsNotNone(item_row)
+                self.assertEqual(ws.cell(row=item_row, column=3).value, "Всі ростовки (S-2XL) ×2")
+                self.assertEqual(ws.cell(row=item_row, column=5).value, 10)
 
     def test_generate_invoice_returns_validation_error_for_malformed_order_item(self):
         payload = {
@@ -307,6 +325,90 @@ class ManagementInvoiceApiTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertFalse(response.json()["ok"])
+
+    @patch.dict(os.environ, {"MANAGEMENT_TG_ADMIN_CHAT_ID": "111,222", "MANAGEMENT_TG_BOT_TOKEN": "bot-token"}, clear=False)
+    @patch("management.views._tg_send_message")
+    def test_submit_invoice_for_review_sends_to_all_admin_chats(self, send_message_mock):
+        send_message_mock.side_effect = [
+            {"message_id": 501},
+            {"message_id": 777},
+        ]
+        invoice = WholesaleInvoice.objects.create(
+            invoice_number="INV-MULTI-1",
+            company_name="ТОВ Тест",
+            company_number="123",
+            contact_phone="+380000000000",
+            delivery_address="Київ, вул. Тестова, 1",
+            store_link="",
+            total_tshirts=2,
+            total_hoodies=0,
+            total_amount=Decimal("1080.00"),
+            status="draft",
+            created_by=self.user,
+            review_status="draft",
+            order_details={"company_data": {"companyName": "ТОВ Тест"}, "order_items": []},
+        )
+
+        response = self.client_http.post(
+            reverse("management_invoices_submit_for_review_api", args=[invoice.id]),
+            HTTP_HOST="management.twocomms.shop",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        invoice.refresh_from_db()
+        self.assertEqual(send_message_mock.call_count, 2)
+        self.assertEqual(send_message_mock.call_args_list[0].args[1], 111)
+        self.assertEqual(send_message_mock.call_args_list[1].args[1], 222)
+        self.assertEqual(invoice.admin_tg_chat_id, 111)
+        self.assertEqual(invoice.admin_tg_message_id, 501)
+        self.assertEqual(
+            invoice.order_details["admin_tg_messages"],
+            [
+                {"chat_id": 111, "message_id": 501},
+                {"chat_id": 222, "message_id": 777},
+            ],
+        )
+
+    @patch.dict(os.environ, {"MANAGEMENT_TG_BOT_TOKEN": "bot-token"}, clear=False)
+    @patch("management.views._tg_edit_message")
+    @patch("management.views._tg_edit_caption")
+    def test_update_invoice_status_syncs_all_admin_messages(self, edit_caption_mock, edit_message_mock):
+        edit_caption_mock.return_value = {"message_id": 1}
+        invoice = WholesaleInvoice.objects.create(
+            invoice_number="INV-MULTI-2",
+            company_name="ТОВ Тест",
+            company_number="123",
+            contact_phone="+380000000000",
+            delivery_address="Київ, вул. Тестова, 1",
+            store_link="",
+            total_tshirts=2,
+            total_hoodies=0,
+            total_amount=Decimal("1080.00"),
+            status="pending",
+            created_by=self.user,
+            review_status="approved",
+            is_approved=True,
+            admin_tg_chat_id=111,
+            admin_tg_message_id=501,
+            order_details={
+                "company_data": {"companyName": "ТОВ Тест"},
+                "order_items": [],
+                "admin_tg_messages": [
+                    {"chat_id": 111, "message_id": 501},
+                    {"chat_id": 222, "message_id": 777},
+                ],
+            },
+        )
+
+        from management.views import _try_update_admin_invoice_message
+
+        _try_update_admin_invoice_message(invoice, final=True)
+
+        self.assertEqual(edit_caption_mock.call_count, 2)
+        seen_pairs = {(call.args[1], call.args[2]) for call in edit_caption_mock.call_args_list}
+        self.assertEqual(seen_pairs, {(111, 501), (222, 777)})
+        self.assertEqual(edit_message_mock.call_count, 0)
 
 
 class InvoiceSummaryTests(TestCase):
