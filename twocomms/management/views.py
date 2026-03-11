@@ -1794,8 +1794,105 @@ def _notify_manager_invoice(invoice, *, title, body_lines):
     _tg_send_message(bot_token, chat_id, text, parse_mode='HTML')
 
 
+def _normalize_invoice_admin_message_ref(chat_id, message_id):
+    try:
+        normalized_chat_id = int(chat_id)
+        normalized_message_id = int(message_id)
+    except (TypeError, ValueError):
+        return None
+    if not normalized_chat_id or not normalized_message_id:
+        return None
+    return {
+        "chat_id": normalized_chat_id,
+        "message_id": normalized_message_id,
+    }
+
+
+def _get_invoice_admin_message_refs(invoice):
+    refs = []
+    seen = set()
+
+    primary_ref = _normalize_invoice_admin_message_ref(
+        getattr(invoice, "admin_tg_chat_id", None),
+        getattr(invoice, "admin_tg_message_id", None),
+    )
+    if primary_ref:
+        refs.append(primary_ref)
+        seen.add((primary_ref["chat_id"], primary_ref["message_id"]))
+
+    order_details = invoice.order_details if isinstance(invoice.order_details, dict) else {}
+    raw_refs = order_details.get("admin_tg_messages") or []
+    if isinstance(raw_refs, list):
+        for raw_ref in raw_refs:
+            if not isinstance(raw_ref, dict):
+                continue
+            normalized_ref = _normalize_invoice_admin_message_ref(
+                raw_ref.get("chat_id"),
+                raw_ref.get("message_id"),
+            )
+            if not normalized_ref:
+                continue
+            ref_key = (normalized_ref["chat_id"], normalized_ref["message_id"])
+            if ref_key in seen:
+                continue
+            refs.append(normalized_ref)
+            seen.add(ref_key)
+
+    return refs
+
+
+def _save_invoice_admin_message_refs(invoice, refs):
+    normalized_refs = []
+    seen = set()
+    for ref in refs:
+        normalized_ref = None
+        if isinstance(ref, dict):
+            normalized_ref = _normalize_invoice_admin_message_ref(
+                ref.get("chat_id"),
+                ref.get("message_id"),
+            )
+        elif isinstance(ref, (list, tuple)) and len(ref) >= 2:
+            normalized_ref = _normalize_invoice_admin_message_ref(ref[0], ref[1])
+        if not normalized_ref:
+            continue
+        ref_key = (normalized_ref["chat_id"], normalized_ref["message_id"])
+        if ref_key in seen:
+            continue
+        normalized_refs.append(normalized_ref)
+        seen.add(ref_key)
+
+    order_details = dict(invoice.order_details) if isinstance(invoice.order_details, dict) else {}
+    if normalized_refs:
+        order_details["admin_tg_messages"] = normalized_refs
+        invoice.admin_tg_chat_id = normalized_refs[0]["chat_id"]
+        invoice.admin_tg_message_id = normalized_refs[0]["message_id"]
+    else:
+        order_details.pop("admin_tg_messages", None)
+        invoice.admin_tg_chat_id = None
+        invoice.admin_tg_message_id = None
+
+    invoice.order_details = order_details
+    invoice.save(update_fields=["order_details", "admin_tg_chat_id", "admin_tg_message_id"])
+    return normalized_refs
+
+
+def _remember_invoice_admin_message_ref(invoice, chat_id, message_id):
+    normalized_ref = _normalize_invoice_admin_message_ref(chat_id, message_id)
+    if not normalized_ref:
+        return None
+
+    existing_refs = _get_invoice_admin_message_refs(invoice)
+    ref_key = (normalized_ref["chat_id"], normalized_ref["message_id"])
+    existing_keys = {(ref["chat_id"], ref["message_id"]) for ref in existing_refs}
+    if ref_key not in existing_keys:
+        existing_refs.append(normalized_ref)
+
+    return _save_invoice_admin_message_refs(invoice, existing_refs)
+
+
 def _try_update_admin_invoice_message(invoice, *, bot_token=None, final=False):
-    if not invoice.admin_tg_chat_id or not invoice.admin_tg_message_id:
+    refs = _get_invoice_admin_message_refs(invoice)
+    if not refs:
         return
     token = bot_token or (os.environ.get("MANAGEMENT_TG_BOT_TOKEN") or os.environ.get("MANAGER_TG_BOT_TOKEN"))
     if not token:
@@ -1813,19 +1910,46 @@ def _try_update_admin_invoice_message(invoice, *, bot_token=None, final=False):
 
     text = _format_admin_invoice_message(invoice, status_line=status_line, include_links=True, include_excel_link=False)
     reply_markup = {'inline_keyboard': []} if final else None
-    updated = _tg_edit_caption(token, invoice.admin_tg_chat_id, invoice.admin_tg_message_id, text, reply_markup=reply_markup, parse_mode='HTML')
-    if not updated:
-        fallback_text = _format_admin_invoice_message(invoice, status_line=status_line, include_links=True, include_excel_link=True)
-        _tg_edit_message(token, invoice.admin_tg_chat_id, invoice.admin_tg_message_id, fallback_text, reply_markup=reply_markup, parse_mode='HTML')
+    fallback_text = _format_admin_invoice_message(invoice, status_line=status_line, include_links=True, include_excel_link=True)
+    for ref in refs:
+        updated = _tg_edit_caption(
+            token,
+            ref["chat_id"],
+            ref["message_id"],
+            text,
+            reply_markup=reply_markup,
+            parse_mode='HTML',
+        )
+        if not updated:
+            _tg_edit_message(
+                token,
+                ref["chat_id"],
+                ref["message_id"],
+                fallback_text,
+                reply_markup=reply_markup,
+                parse_mode='HTML',
+            )
 
 
 def _send_invoice_review_request_to_admin(invoice, *, request=None):
-    token, chat_id = _get_management_admin_bot_config()
-    if not token or not chat_id:
+    token = os.environ.get("MANAGEMENT_TG_BOT_TOKEN") or os.environ.get("MANAGER_TG_BOT_TOKEN")
+    raw_chat_ids = _get_management_admin_chat_ids()
+    if not token or not raw_chat_ids:
         return
-    try:
-        chat_id_int = int(chat_id)
-    except Exception:
+
+    chat_ids = []
+    seen_chat_ids = set()
+    for raw_chat_id in raw_chat_ids:
+        try:
+            chat_id_int = int(raw_chat_id)
+        except (TypeError, ValueError):
+            continue
+        if chat_id_int in seen_chat_ids:
+            continue
+        chat_ids.append(chat_id_int)
+        seen_chat_ids.add(chat_id_int)
+
+    if not chat_ids:
         return
 
     caption = _format_admin_invoice_message(invoice, status_line="Оберіть дію нижче ⬇️", include_links=True, include_excel_link=False)
@@ -1835,27 +1959,31 @@ def _send_invoice_review_request_to_admin(invoice, *, request=None):
             {'text': '❌ Відхилити', 'callback_data': f'inv:reject:{invoice.id}'},
         ]]
     }
-    sent = None
-    try:
-        if invoice.file_path and os.path.exists(invoice.file_path):
-            sent = _tg_send_document(
-                token,
-                chat_id_int,
-                file_path=invoice.file_path,
-                filename=os.path.basename(invoice.file_path),
-                caption=caption,
-                reply_markup=keyboard,
-                parse_mode='HTML',
-            )
-    except Exception:
+    fallback_text = _format_admin_invoice_message(invoice, status_line="Оберіть дію нижче ⬇️", include_links=True, include_excel_link=True)
+    sent_refs = []
+
+    for chat_id_int in chat_ids:
         sent = None
-    if not sent:
-        fallback_text = _format_admin_invoice_message(invoice, status_line="Оберіть дію нижче ⬇️", include_links=True, include_excel_link=True)
-        sent = _tg_send_message(token, chat_id_int, fallback_text, reply_markup=keyboard, parse_mode='HTML')
-    if sent and sent.get('message_id'):
-        invoice.admin_tg_chat_id = chat_id_int
-        invoice.admin_tg_message_id = sent.get('message_id')
-        invoice.save(update_fields=['admin_tg_chat_id', 'admin_tg_message_id'])
+        try:
+            if invoice.file_path and os.path.exists(invoice.file_path):
+                sent = _tg_send_document(
+                    token,
+                    chat_id_int,
+                    file_path=invoice.file_path,
+                    filename=os.path.basename(invoice.file_path),
+                    caption=caption,
+                    reply_markup=keyboard,
+                    parse_mode='HTML',
+                )
+        except Exception:
+            sent = None
+        if not sent:
+            sent = _tg_send_message(token, chat_id_int, fallback_text, reply_markup=keyboard, parse_mode='HTML')
+        if sent and sent.get('message_id'):
+            sent_refs.append((chat_id_int, sent.get('message_id')))
+
+    if sent_refs:
+        _save_invoice_admin_message_refs(invoice, sent_refs)
 
 
 def _format_admin_contract_message(contract, *, status_line=None, include_links=True):
@@ -2428,11 +2556,9 @@ def management_bot_webhook(request, token):
             _tg_answer_callback(bot_token, cb_id, "Накладна не знайдена")
             return JsonResponse({'ok': True})
 
-        # Persist message reference for later sync (site actions)
-        if chat_id and message_id and (not invoice.admin_tg_chat_id or not invoice.admin_tg_message_id):
-            invoice.admin_tg_chat_id = chat_id
-            invoice.admin_tg_message_id = message_id
-            invoice.save(update_fields=['admin_tg_chat_id', 'admin_tg_message_id'])
+        # Persist every admin message reference so status sync updates all copies.
+        if chat_id and message_id:
+            _remember_invoice_admin_message_ref(invoice, chat_id, message_id)
 
         if invoice.review_status != 'pending':
             _tg_answer_callback(bot_token, cb_id, "Вже оброблено")
