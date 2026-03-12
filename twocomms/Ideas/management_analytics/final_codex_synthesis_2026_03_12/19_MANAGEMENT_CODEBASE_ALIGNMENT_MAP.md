@@ -11,11 +11,14 @@
 
 | Файл / сущность | Что уже есть | Что вероятно добавится |
 |---|---|---|
-| `Client` | owner, phone normalization, current CRM data | `is_test`, optional portfolio/support fields, snooze hooks |
+| `Client` | owner, phone normalization, `next_call_at`, current CRM data | `is_test`, `expected_next_order`, optional `normalized_name_hash`, snooze hooks |
 | `ManagementLead` | pre-conversion lead layer | dedupe warnings, better source normalization |
+| `LeadParsingJob` / `LeadParsingResult` | parsing batches and moderation trail | dry-run preview, duplicate counters, safer import confirm flow |
 | `ClientFollowUp` | current follow-up status machine | capacity-aware logic, overload interpretation |
 | `Report` | discipline/reporting layer | stronger tie to day-status / earned day |
 | `ManagementDailyActivity` | activity tracking | better use for shadow analytics |
+| `ReminderSent` / `ReminderRead` | reminder dedupe/read state | richer reminder-key strategy and alert hygiene |
+| future `ForceMajeureEvent` / `ScoreAuditLog` | system-wide exception and formula audit layers | exemption windows, formula-change traceability |
 | `ManagerCommissionAccrual` | payout truth | richer decomposition / freeze metadata |
 | `ManagerPayoutRequest` | payout workflow | clearer admin economics linkage |
 
@@ -48,6 +51,9 @@
 ### 2.5 Commands
 Текущее наличие `management/commands/` означает, что команда уже архитектурно готова к cron-driven jobs.
 
+Уже есть:
+- `notify_test_shops.py` — полезный якорь, показывающий что cron/command pattern в проекте не является чужеродным.
+
 Вероятные новые команды:
 - `compute_nightly_scores`
 - `send_management_reminders`
@@ -69,7 +75,8 @@
 ### 3.3 Dedupe / reminders
 - primary home: `Client`, `ManagementLead`, `ClientFollowUp`
 - service/helpers: duplicate detection + reminder scheduling
-- surfaces: lead/parsing flows, reminder feed, admin review queue
+- surfaces: `lead_views.py`, `parsing_views.py`, reminder feed, admin review queue
+- import-safety layer: `LeadParsingJob` / `LeadParsingResult` for dry-run preview and moderation-safe confirm
 
 ### 3.4 Telephony / QA
 - primary home: new models + webhook handlers

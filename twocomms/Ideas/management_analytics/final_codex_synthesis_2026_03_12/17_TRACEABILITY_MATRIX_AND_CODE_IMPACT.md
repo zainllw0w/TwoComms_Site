@@ -17,18 +17,24 @@
 | Gate levels `100/78/60/45` | `COMPREHENSIVE_REPORT` §36.3 | `02`, `12` | score composer, admin explainability |
 | Final dampener | `COMPREHENSIVE_REPORT` §36.3 | `02`, `12` | `stats_service.py` |
 | Soft Floor Cap | `COMPREHENSIVE_REPORT` §37.3; integration plan §1.5 | `03`, `12`, `15` | payout math in `views.py` / models |
+| Repeat vs reactivation `180-day` split | `COMPREHENSIVE_REPORT` §34.6.D6 | `03`, `12`, `07`, `11` | payout math, client history logic |
 | Portfolio thresholds `35/55/75` | `COMPREHENSIVE_REPORT` §35.10; integration plan §11.3 | `03`, `12` | `Client`, stats payload |
 | `is_test` guard | `COMPREHENSIVE_REPORT` §30.2, §34.4 | `03`, `07`, `11`, `19` | `Client`, stats queries |
 | Dedupe without `pg_trgm` | `COMPREHENSIVE_REPORT` §30.5, §33.6, §36.2; integration plan §2.3 | `04`, `07`, `11`, `13` | `lead_views.py`, `parsing_views.py`, `views.py` |
+| Batch Import Dry-Run | `COMPREHENSIVE_REPORT` §34.5.D5; integration plan §7.1 | `04`, `07`, `11`, `19` | `LeadParsingJob`, `LeadParsingResult`, parsing views |
+| Merge rollback / master-record rule | `COMPREHENSIVE_REPORT` improvements §14-§18 | `04`, `11`, `13`, `19` | duplicate dispute model / merge audit layer |
 | `MAX_FOLLOWUPS_PER_DAY` | `COMPREHENSIVE_REPORT` §36.9 | `04`, `12`, `14` | `ClientFollowUp`, reminder logic |
 | FileBasedCache rate limiting | `COMPREHENSIVE_REPORT` §33.9; Django docs via Context7 | `04`, `07`, `10`, `13` | `settings.py`, service/helper layer |
 | `CallRecord` prep | `COMPREHENSIVE_REPORT` §30.3, §37.7 | `05`, `07`, `11`, `19` | `models.py`, webhook views |
 | QA maturity gating | `COMPREHENSIVE_REPORT` §5, §37.2 | `05`, `14` | future QA models and views |
 | Radar chart | `COMPREHENSIVE_REPORT` §31 | `06`, `11`, `19` | `stats.html`, JS/CSS |
+| Rescue top-5 / `Expected LTV Loss` | `COMPREHENSIVE_REPORT` §37.5 | `06`, `07`, `11` | stats payload + manager UI |
 | Salary simulator / what-if | `COMPREHENSIVE_REPORT` §6.3, §21.4 | `03`, `06`, `11` | stats/admin templates |
-| Rescue top-5 / SPIFF | `COMPREHENSIVE_REPORT` §37.5 | `06`, `11` | stats payload + manager UI |
+| Shadow hold-harmless | `COMPREHENSIVE_REPORT` §14, rollout notes | `03`, `06`, `07` | salary simulator + shadow rollout |
+| Score confidence labels | `COMPREHENSIVE_REPORT` improvement 20 | `06`, `12`, `15` | snapshots, admin views |
+| Validation protocol | `COMPREHENSIVE_REPORT` §13, §33, §36 | `07`, `12`, `15` | commands, admin analytics |
 | Day status / Earned Day | `COMPREHENSIVE_REPORT` §33.4, §34.4, §36.5 | `03`, `12`, `15` | models, payout/admin logic |
-| Force Majeure / Red Card | `COMPREHENSIVE_REPORT` §37.6, §37.2 | `03`, `13`, `15` | admin controls, status models |
+| Force Majeure / Red Card | `COMPREHENSIVE_REPORT` §37.6, §37.2 | `03`, `07`, `11`, `13`, `15`, `19` | admin controls, status models, exemption event layer |
 | Nightly snapshots | `COMPREHENSIVE_REPORT` §37.7 | `07`, `11`, `15`, `19` | commands + models |
 
 ## 3. Ничего не потерять: правило использования
