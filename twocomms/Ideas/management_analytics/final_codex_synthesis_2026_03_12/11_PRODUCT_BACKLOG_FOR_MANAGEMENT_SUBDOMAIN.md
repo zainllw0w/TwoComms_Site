@@ -32,6 +32,8 @@
 - duplicate warning flow
 - review queue
 - append-first behavior
+- batch import dry-run
+- merge audit / rollback
 - ownership-safe dedupe
 
 Статус: `HIGH PRIORITY`
@@ -62,6 +64,7 @@
 ### Module D: Payroll and KPI Core
 Состав:
 - KPI modes
+- repeat/reactivation split
 - repeat soft-floor
 - payout decomposition
 - phase-aware DMT
@@ -112,6 +115,7 @@
 - shadow MOSAIC card
 - salary simulator
 - rescue top-5
+- hold-harmless shadow badge
 - portfolio status block
 
 Статус: `HIGH PRIORITY`
@@ -126,6 +130,7 @@
 - freeze/review controls
 - readiness badges
 - admin economics
+- score confidence labels
 - payout/admin risk views
 
 Статус: `HIGH PRIORITY`
@@ -181,9 +186,13 @@
 ### 3.1 New or extended models
 - `Client.is_test`
 - `Client.expected_next_order` or equivalent field
+- `Client.normalized_name_hash` or equivalent exact-precheck helper
 - `ClientSnoozeStatus`
 - `ManagerDayStatus` or equivalent ledger model
+- `ForceMajeureEvent`
 - `NightlyScoreSnapshot`
+- `ScoreAuditLog`
+- `MergeAuditLog` or equivalent rollback-safe merge snapshot
 - `CallRecord`
 - `TelephonyWebhookLog`
 - `CallQAReview`
@@ -192,9 +201,13 @@
 ### 3.2 Existing models to reuse
 - `Client`
 - `ManagementLead`
+- `LeadParsingJob`
+- `LeadParsingResult`
 - `ClientFollowUp`
 - `Report`
 - `ManagementDailyActivity`
+- `ReminderSent`
+- `ReminderRead`
 - `ManagerCommissionAccrual`
 - `ManagerPayoutRequest`
 
@@ -203,11 +216,14 @@
 - shadow `compute_mosaic`
 - `compute_trust_production`
 - `compute_trust_diagnostic`
+- `compute_score_confidence`
 - `compute_followup_state`
 - `find_duplicates_safe`
+- `preview_batch_import`
 - `check_rate_limit`
 - `compute_portfolio_health`
 - `compute_reactivation_priority`
+- `classify_repeat_vs_reactivation`
 - `build_radar_payload`
 - `build_salary_simulation_payload`
 
@@ -234,6 +250,7 @@
 - duplicate review queue
 - payout decomposition
 - admin economics panel
+- score confidence labels
 - telephony / QA review queue
 
 ## 7. Dependency order

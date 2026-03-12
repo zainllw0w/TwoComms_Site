@@ -33,6 +33,7 @@
 - `phone_normalized`
 - `phone_last7`
 - normalized `shop_name`
+- optional `normalized_name_hash` for exact pre-check before fuzzy layer
 - normalized owner/full name if available
 - source link / source external id when it exists
 
@@ -113,6 +114,15 @@ def find_duplicates_safe(new_name: str, new_phone_normalized: str, candidates: l
 - auto-merge на fuzzy match alone;
 - перенос ownership без review.
 
+### 5.4 Batch Import Dry-Run
+Любой массовый импорт лидов должен поддерживать preview-before-write:
+1. разобрать batch без записи в боевую таблицу;
+2. показать counts: `exact duplicates`, `review duplicates`, `clean creates`;
+3. подсветить ownership-sensitive конфликты;
+4. разрешить фактическую запись только после явного confirm.
+
+Это особенно важно для текущих `LeadParsingJob` / `LeadParsingResult`, потому что parsing layer уже существует и не должен превращаться в blind-create conveyor.
+
 ## 6. Ownership и race conditions
 
 ### 6.1 Основное правило
@@ -126,6 +136,15 @@ Ownership спорного клиента не должен менятьcя не
 
 ### 6.3 Future-ready lock
 При будущей кодовой реализации спорных ownership transitions рекомендуется использовать `select_for_update` / transactional lock для узких критичных путей.
+
+### 6.4 Merge rollback и master-record rule
+Если merge всё же выполняется, authoritative правила такие:
+- merge всегда пишет `MergeAuditLog` или эквивалентный JSON snapshot;
+- окно rollback по умолчанию `14 дней`;
+- master record выбирается в порядке приоритета:
+  1. карточка с verified order truth;
+  2. карточка с более свежим verified contact trail;
+  3. карточка с большей полнотой критичных полей.
 
 ## 7. Follow-Up ladder
 
@@ -196,6 +215,8 @@ def compute_followup_state(due_today: int, completed_today: int, total_overdue: 
 - rescue candidates;
 - reactivation priority.
 
+Если `expected_next_order` явно стоит в будущем или клиент находится в approved snooze, rescue escalation не должна подниматься до окончания этого окна.
+
 ### 8.2 Что пока не активируем в деньги
 Сложные churn-модели и сезонные корректировки остаются shadow/admin-only, пока:
 - мало исторических заказов;
@@ -207,6 +228,8 @@ def compute_followup_state(due_today: int, completed_today: int, total_overdue: 
 - follow-up timers могут быть заморожены;
 - churn-risk не должен ложно взлетать;
 - snooze обязателен с reason, range и review rules.
+- после `14` дней требуется admin approval;
+- суммарно `>30` дней в год без отдельного review не допускается.
 
 ## 9. Reminders и low-noise delivery
 

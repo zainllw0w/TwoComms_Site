@@ -70,9 +70,12 @@ Guardrails существуют, чтобы:
 ### 6.1 FileBasedCache recovery
 Если `FileBasedCache` повреждён или раздулся:
 - иметь отдельную cache directory;
+- иметь явные `MAX_ENTRIES` / `CULL_FREQUENCY` limits на уровне settings;
 - иметь documented clean-up procedure;
 - логировать cache-related failures;
 - не терять verified financial truth из-за очистки кэша.
+
+`FileBasedCache` допустим для rate limiting, ephemeral reminder locks и lightweight broker-substitutes. Он не должен использоваться как хранилище финансовой истины, snapshots или единственный audit source.
 
 ### 6.2 Cron health
 Каждая команда должна иметь:
@@ -96,11 +99,19 @@ Nightly snapshot layer обязана:
 - экстремальная внешняя ситуация;
 - день, когда система не имеет права оценивать performance как обычно.
 
+Каноническая модель:
+- `ForceMajeureEvent` — это системное событие с окном действия, reason и initiator;
+- day-ledger уже отражает event в виде `TECH_FAILURE` или `FORCE_MAJEURE` на affected dates;
+- event является source of truth, а day-status — производным operational marker.
+
 ### 8.2 Что делает
 - ставит affected period в special status;
 - отключает punitive checks for that window;
 - замораживает trust and DMT degradation;
 - требует явного reason and initiator.
+- по умолчанию действует `24 часа`, затем требует extend/cancel action;
+- отключает batch-logging penalties и KPI/DMT auto-fail за этот период;
+- не уничтожает existing verified payouts, а только останавливает новые punitive derivations.
 
 ## 9. Red Card / freeze protocol
 
