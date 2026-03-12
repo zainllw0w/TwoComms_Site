@@ -27,6 +27,7 @@
 15. `18_PACKAGE_CHANGELOG_2026_03_12.md`
 16. `19_MANAGEMENT_CODEBASE_ALIGNMENT_MAP.md`
 17. `20_SECOND_PASS_AUDIT_2026_03_12.md`
+18. `21_THIRD_PASS_AUDIT_2026_03_12.md`
 
 ## Что остаётся reference-слоем
 Следующие файлы намеренно сохранены для полноты контекста, но не должны перевешивать authoritative docs:
@@ -41,15 +42,19 @@
 Финальная north-star модель:
 - `MOSAIC` остаётся ядром score-логики;
 - `EWR` становится финальной реализацией оси `Result`;
+- rescue/risk логика получает явный `Weibull` churn с logistic fallback для `<5` заказов и planned-gap guard;
 - KPI и зарплата сохраняют `2.5% new / 5% repeat` как бизнес-инвариант, но получают мягкие и phase-aware guardrails;
+- `Top-5 rescue` фиксируется через `Expected LTV Loss` + scaled `SPIFF (500-2000 грн)` + capacity guard `max 3/day`;
 - dedupe, follow-up, telephony и admin economics описываются только в том виде, в котором их реально можно внедрить на текущем стеке.
 
 ## Ключевые дельты против 2026-03-06
 - Вместо `Celery + Redis` фиксируется `Django management commands + cron + FileBasedCache`.
 - Вместо `pg_trgm + city blocking` фиксируется `SequenceMatcher + phone_last7 + normalized name blocking`.
 - Вместо старого `Result` фиксируется `EWR`.
+- Portfolio rescue больше не опирается на неявный churn: фиксируется `Weibull + logistic fallback + k-cap guard`.
 - Вместо неявного наказания за DORMANT-компоненты вводится `Component Readiness Registry`.
 - Вместо cliff-пенальти по повторной комиссии вводится `Soft Floor Cap`.
+- Вместо плоского rescue bonus фиксируется scaled `SPIFF` с floor/cap и ограничением rescue-load.
 - Вместо общего "возможно потом" появляется явная связь с текущими файлами `management/models.py`, `stats_service.py`, `stats_views.py`, `views.py`, `templates/management/*.html`.
 
 ## Порядок чтения
@@ -68,11 +73,12 @@
 13. `14_OPUS_SECOND_PASS_DECISION_LOG.md`
 14. `15_ADMIN_ECONOMICS_AND_EARNED_DAY.md`
 15. `18_PACKAGE_CHANGELOG_2026_03_12.md`
+16. `21_THIRD_PASS_AUDIT_2026_03_12.md`
 
 ## Карта файлов
 - `01_MASTER_SYNTHESIS.md` — единое описание того, что сохраняем, что меняем и почему.
-- `02_MOSAIC_SCORE_SYSTEM.md` — финальная score-архитектура, готовая к shadow-mode реализации.
-- `03_PAYROLL_KPI_AND_PORTFOLIO.md` — зарплатная логика, KPI, portfolio health, ownership и Snooze/Force-Majeure rules.
+- `02_MOSAIC_SCORE_SYSTEM.md` — финальная score-архитектура, `EWR`, diagnostic `Wilson`, `Weibull` churn и shadow-mode guards.
+- `03_PAYROLL_KPI_AND_PORTFOLIO.md` — зарплатная логика, KPI, portfolio health, rescue economics, ownership и Snooze/Force-Majeure rules.
 - `04_ANTI_DUPLICATION_AND_FOLLOWUP_ENGINE.md` — dedupe, follow-up, rate limiting, ownership guards и reminder engine.
 - `05_IP_TELEPHONY_QA_AND_SUPERVISOR.md` — telephony roadmap, QA contour, maturity gating и manual Phase 0.
 - `06_UI_UX_AND_MANAGER_CONSOLE.md` — manager/admin UX, Radar, rescue surfaces, salary simulator и recovery-first copy.
@@ -87,6 +93,7 @@
 - `18_PACKAGE_CHANGELOG_2026_03_12.md` — что именно изменилось относительно версии 2026-03-06.
 - `19_MANAGEMENT_CODEBASE_ALIGNMENT_MAP.md` — срез текущей кодовой базы management и ожидаемых точек будущего внедрения.
 - `20_SECOND_PASS_AUDIT_2026_03_12.md` — второй аудит пакета: что было найдено как недоинтегрированное и как это было дозакрыто.
+- `21_THIRD_PASS_AUDIT_2026_03_12.md` — третий аудит пакета: финальная проверка против `§37.1/§37.5` и скрытых semantic losses.
 
 ## Ground Truth по текущему коду
 Реальный `management` уже даёт достаточный фундамент:

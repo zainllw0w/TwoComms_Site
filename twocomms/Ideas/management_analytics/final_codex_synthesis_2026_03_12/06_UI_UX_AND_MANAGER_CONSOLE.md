@@ -70,9 +70,19 @@ Hero-блок менеджера должен объединять:
 - не более `5` карточек одновременно, чтобы не превращать экран в "лес умирающих деревьев".
 
 Рабочая формула:
-`Expected LTV Loss = avg_order_value × expected_orders_per_year × P(churn)`
+`Expected LTV Loss = avg_order_value × expected_orders_per_year × P(churn_weibull)`
+
+`P(churn_weibull)` обязан:
+- использовать logistic fallback при `<5` заказах;
+- уважать `expected_next_order` / planned gap;
+- не маскироваться под generic "risk score" без объяснения модели.
 
 Если точный LTV ещё недоступен, допускается fallback через `pipeline_value + churn_risk`, но UI обязан пометить это как interim logic.
+
+Виджет также обязан показывать:
+- potential scaled `SPIFF` за verified rescue (`500-2000 грн`);
+- cap на новый rescue-load: не более `3` rescue-клиентов/day из pool без admin override;
+- `DQ grace` / report-integrity предупреждение, если менеджера нельзя безопасно перегружать rescue-задачами в этот день.
 
 ### 4.4 Portfolio block
 Отдельный блок портфеля обязан показывать:
@@ -138,6 +148,15 @@ Radar добавляется как новый блок рядом или сра
 
 Спираль:
 - остаётся текущим activity/KPD summary.
+
+### 5.5 Explainable waterfall
+Каждая score-sensitive цифра должна быть кликабельной и раскрываться в waterfall / decomposition view.
+
+Минимум:
+- base score / payout before modifiers;
+- влияние trust, gate, dampener и portfolio/rescue logic;
+- short text explanation для каждого шага;
+- отдельная shadow label, если расчёт ещё не production-final.
 
 Radar:
 - показывает более структурированный профиль по измерениям.

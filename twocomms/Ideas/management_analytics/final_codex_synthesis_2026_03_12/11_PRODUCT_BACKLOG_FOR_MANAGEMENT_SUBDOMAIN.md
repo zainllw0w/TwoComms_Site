@@ -15,6 +15,8 @@
 ### Module A: Analytics Core
 Состав:
 - `EWR`
+- shadow `Weibull` churn
+- admin/shadow `Wilson` diagnostic
 - shadow `MOSAIC`
 - readiness registry
 - nightly snapshots
@@ -66,6 +68,7 @@
 - KPI modes
 - repeat/reactivation split
 - repeat soft-floor
+- rescue `SPIFF`
 - payout decomposition
 - phase-aware DMT
 - earned-day ledger
@@ -84,6 +87,7 @@
 - reactivation priority
 - snooze
 - expected next order
+- planned-gap guard
 - rescue queue
 
 Статус: `HIGH PRIORITY`
@@ -115,6 +119,8 @@
 - shadow MOSAIC card
 - salary simulator
 - rescue top-5
+- scaled `SPIFF` cue
+- rescue-load cap / `DQ grace` messaging
 - hold-harmless shadow badge
 - portfolio status block
 
@@ -213,6 +219,8 @@
 
 ## 4. Service backlog
 - `compute_ewr`
+- `compute_conversion_kpi_wilson`
+- `compute_churn_weibull`
 - shadow `compute_mosaic`
 - `compute_trust_production`
 - `compute_trust_diagnostic`
@@ -223,6 +231,8 @@
 - `check_rate_limit`
 - `compute_portfolio_health`
 - `compute_reactivation_priority`
+- `build_rescue_top5`
+- `compute_rescue_spiff`
 - `classify_repeat_vs_reactivation`
 - `build_radar_payload`
 - `build_salary_simulation_payload`
@@ -241,6 +251,8 @@
 - shadow score decomposition
 - salary simulator
 - top-5 rescue
+- scaled `SPIFF` hint
+- rescue-load cap / `DQ grace` state
 - portfolio health summary
 - earned day explanation
 
