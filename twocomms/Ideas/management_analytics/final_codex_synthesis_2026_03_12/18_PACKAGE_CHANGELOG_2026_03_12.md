@@ -43,6 +43,7 @@
 - `19_MANAGEMENT_CODEBASE_ALIGNMENT_MAP.md`
 - `20_SECOND_PASS_AUDIT_2026_03_12.md`
 - `21_THIRD_PASS_AUDIT_2026_03_12.md`
+- `22_LEGACY_FINAL_CODEX_REGRESSION_AUDIT_2026_03_13.md`
 
 ## Ключевые смысловые дельты
 
@@ -113,6 +114,14 @@
 - anti-gaming rate limit смягчён до production-safe semantics: action записывается в CRM, но перестаёт приносить score-credit;
 - shadow rollout теперь удерживает явные DICE guardrails и waterfall explainability contract;
 - traceability, backlog и codebase alignment обновлены так, чтобы эти элементы больше не выпадали между docs и будущим implementation planning.
+
+## Дополнительный hardening после legacy-regression pass
+- старый Final Codex пакет и git-history были повторно сверены на предмет file-loss и idea-loss, а результат зафиксирован в `22_LEGACY_FINAL_CODEX_REGRESSION_AUDIT_2026_03_13.md`;
+- в authoritative слой возвращены `commission dispute workflow` и optional weighted attribution как admin-approved exception;
+- восстановлены explicit mobile-first manager requirements и `client communication timeline`;
+- telephony/QA слой снова фиксирует `Call Competency Profile`, QA reliability thresholds, retention policy и supervisor actions;
+- admin economics снова включает cost model, contribution proxy, break-even / payback / forecast logic;
+- roadmap/backlog/alignment-map снова содержат optional `DTF read-only bridge` как отдельный, не смешиваемый с wholesale truth extension.
 
 ## Как использовать этот changelog
 - Если нужно быстро понять, что изменилось глобально, читай этот файл.
