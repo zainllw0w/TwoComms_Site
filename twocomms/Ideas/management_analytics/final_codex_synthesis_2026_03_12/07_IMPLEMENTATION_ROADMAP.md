@@ -61,9 +61,11 @@
 
 ### 6.1 Сделать
 - добавить `is_test` на `Client`;
-- добавить или подготовить `DayStatus` / day-ledger layer;
+- добавить или подготовить `DayStatus` / day-ledger layer с раздельными `WORKING / WEEKEND / HOLIDAY / VACATION / SICK / TECH_FAILURE / FORCE_MAJEURE`;
+- добавить `ForceMajeureEvent` как отдельную системную сущность, которая накладывает exemption window на day-ledger;
 - подготовить `Client Snooze`;
 - подготовить `NightlyScoreSnapshot`;
+- подготовить `ScoreAuditLog` / formula-change audit layer;
 - нормализовать source strategy или минимум централизовать mapping;
 - заложить `expected_next_order` / portfolio-support fields where justified.
 
@@ -85,6 +87,8 @@
 - `MAX_FOLLOWUPS_PER_DAY`;
 - reminder dedupe keys;
 - FileBasedCache rate limiting;
+- batch import dry-run preview;
+- merge audit / rollback window;
 - follow-up overload and overdue logic.
 
 ### 7.2 Code anchors
@@ -125,7 +129,9 @@
 - Radar;
 - shadow MOSAIC decomposition;
 - salary simulator;
-- rescue top-5;
+- rescue top-5 by `Expected LTV Loss`;
+- score confidence labels;
+- hold-harmless indicator in shadow simulator;
 - readiness badges;
 - admin review and freeze surfaces.
 
@@ -143,6 +149,7 @@
 
 ### 10.1 Сделать
 - soft-floor logic для repeat commission;
+- `repeat` vs `reactivation` split with `180-day` cutoff;
 - phase-aware DMT;
 - Earned Day ledger;
 - weekend / excused / tech failure handling;
@@ -201,6 +208,9 @@
 
 ### 13.2 Что разрешено в этой фазе
 - validation suite;
+- Bootstrap + realistic `CV-R²` monitoring with confidence intervals;
+- Ridge-based weight recalibration with bounded blend, not hard replacement;
+- sensitivity protocol via Dirichlet jitter + rank-stability check;
 - source baseline recalibration;
 - anti-gaming activation;
 - seasonality reconsideration;
@@ -209,6 +219,7 @@
 ## 14. Shadow mode правила
 - минимальная длительность shadow mode: `6-8 недель` для score-sensitive логики;
 - в течение shadow mode admin обязан видеть расхождения `KPD vs MOSAIC`;
+- в salary simulator shadow mode должен быть `hold harmless`: если новая система дала бы менеджеру больше, разница видна и может выплачиваться как отдельный bonus delta;
 - до окончания shadow mode нельзя использовать MOSAIC как единственную payroll-истину.
 
 ## 15. Rollback и freeze criteria

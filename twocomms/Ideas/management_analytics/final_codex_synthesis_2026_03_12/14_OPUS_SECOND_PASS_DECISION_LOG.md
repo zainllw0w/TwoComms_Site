@@ -24,6 +24,8 @@
 | `SourceFairness` confidence guards | accepted | защищает от low-sample noise |
 | phase-aware DMT | accepted | без телефонии нельзя требовать telephony metrics |
 | default portfolio thresholds `35/55/75` | accepted | безопаснее старых порогов |
+| `ForceMajeureEvent` as source of truth | accepted | системное exemption-событие безопаснее, чем разрозненные ручные day-status overrides |
+| `EWMA_LAMBDA_FLOOR = 0.05` | accepted | предотвращает freeze и соответствует hardened report лучше, чем старый draft `0.015` |
 
 ## 3. Принято частично
 
@@ -70,6 +72,7 @@
 - old portfolio thresholds vs safer thresholds -> final authoritative = `35/55/75` default
 - aggressive trust / QA coupling vs current reality -> final authoritative = bounded production trust + diagnostic trust
 - old follow-up logic without capacity guard -> final authoritative = follow-up ladder with `MAX_FOLLOWUPS_PER_DAY`
+- conflicting EWMA lambda drafts `0.015` vs `0.05` -> final authoritative = `0.05`
 
 ## 8. Как читать этот лог
 - если идея находится в `accepted`, она должна считаться частью будущего implementation plan;

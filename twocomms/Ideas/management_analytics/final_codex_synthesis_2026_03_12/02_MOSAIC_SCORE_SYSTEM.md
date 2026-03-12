@@ -142,7 +142,12 @@ manager_score_day =
   apply_onboarding_floor(score_after_dampener, days_active)
 ```
 
-### 6.3 Что нельзя нарушать
+### 6.3 Что означают slices
+- `verified_slice` — та часть результата и evidence, которая уже имеет paid/admin-confirmed/externally-confirmed truth и не должна резко гулять из-за качества CRM-записи;
+- `evidence_sensitive_slice` — CRM/self-reported часть результата плюс `SourceFairness`, `Process`, `FollowUp`, `DataQuality` и другие сигналы, чья надёжность зависит от дисциплины данных;
+- пока `VerifiedCommunication` находится в `DORMANT`, она не попадает ни в один production slice.
+
+### 6.4 Что нельзя нарушать
 - `Result` должен оставаться доминирующей осью.
 - `trust` не может обнулять уже верифицированный outcome.
 - `portfolio_bonus` не может обходить дисциплинарный слой.
@@ -172,7 +177,7 @@ def compute_ewr(
     elif orders > 0:
         outcome = 2.0
     else:
-        outcome = 0.0
+        outcome = 0.5  # Low-sample window without order should be neutral, not punitive-zero.
 
     target_contacts = 80  # Нижняя ожидаемая недельная база для 2 orders/week при current conversion.
     effort = min(1.0, contacts_processed / max(1, target_contacts))
@@ -187,8 +192,29 @@ def compute_ewr(
 - считать по rolling window, а не по single-day volatility;
 - effort не должен награждать пустую активность;
 - lucky small-sample days не должны автоматически давать max result;
+- если `expected_orders < 1` и заказа нет, outcome остаётся нейтральным half-step, а не превращается в карающий ноль;
 - revenue нормализуется мягко, чтобы единичный крупный order не ломал score.
 - `target_contacts = 80/week` используется как статистический baseline для Result normalization, а не как universal stretch-target для операционного режима менеджера.
+
+### 7.4 EWMA decay guard
+Чтобы менеджер не "ехал на прошлых заслугах", rolling Result обязан иметь decay guard:
+
+```python
+def compute_result_with_decay_guard(rolling_values: list[float], half_life: int = 21) -> float:
+    ewma_val = compute_smoothed_safe(rolling_values, half_life=half_life)
+
+    if len(rolling_values) >= 7 and ewma_val > 0:
+        recent_avg = sum(rolling_values[-7:]) / 7
+        if recent_avg / ewma_val < 0.30:
+            accelerated = compute_smoothed_safe(rolling_values, half_life=10)
+            return round((ewma_val + accelerated) / 2, 4)
+
+    return round(ewma_val, 4)
+```
+
+Это правило остаётся production-safe, потому что:
+- не делает score дёрганым на коротком окне;
+- но и не позволяет долго жить на старом высоком результате при резком свежем проседании.
 
 ## 8. SourceFairness v2
 

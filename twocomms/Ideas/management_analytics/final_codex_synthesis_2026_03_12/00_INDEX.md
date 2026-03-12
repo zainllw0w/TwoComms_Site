@@ -26,6 +26,7 @@
 14. `17_TRACEABILITY_MATRIX_AND_CODE_IMPACT.md`
 15. `18_PACKAGE_CHANGELOG_2026_03_12.md`
 16. `19_MANAGEMENT_CODEBASE_ALIGNMENT_MAP.md`
+17. `20_SECOND_PASS_AUDIT_2026_03_12.md`
 
 ## Что остаётся reference-слоем
 Следующие файлы намеренно сохранены для полноты контекста, но не должны перевешивать authoritative docs:
@@ -85,6 +86,7 @@
 - `17_TRACEABILITY_MATRIX_AND_CODE_IMPACT.md` — полный traceability от идей и report-sections к файлам пакета и будущим кодовым точкам.
 - `18_PACKAGE_CHANGELOG_2026_03_12.md` — что именно изменилось относительно версии 2026-03-06.
 - `19_MANAGEMENT_CODEBASE_ALIGNMENT_MAP.md` — срез текущей кодовой базы management и ожидаемых точек будущего внедрения.
+- `20_SECOND_PASS_AUDIT_2026_03_12.md` — второй аудит пакета: что было найдено как недоинтегрированное и как это было дозакрыто.
 
 ## Ground Truth по текущему коду
 Реальный `management` уже даёт достаточный фундамент:

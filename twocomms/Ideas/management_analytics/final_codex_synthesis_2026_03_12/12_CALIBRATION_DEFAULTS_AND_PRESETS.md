@@ -21,6 +21,8 @@
 |---|---:|---|
 | `NEW_ORDER_RATE` | `2.5%` | бизнес-инвариант |
 | `REPEAT_ORDER_RATE` | `5.0%` | бизнес-инвариант |
+| `REACTIVATION_RATE` | `3.5%` | reactivation after long dormancy |
+| `REPEAT_ACTIVE_CUTOFF_DAYS` | `180` | граница между active repeat и reactivation |
 | `CONVERSION_BASELINE` | `0.0248` | ориентир из текущих данных |
 | `TARGET_WEEKLY_REVENUE` | `50_000` грн | базовый target для `EWR` |
 | `TARGET_CONTACTS_WEEK` | `80` | статистический baseline для `EWR`, не равен stretch-target из operating modes |
@@ -127,11 +129,13 @@
 ### 12.1 Phase 0
 - `DMT_MIN_CRM_CONTACTS = 5`
 - `DMT_MIN_CRM_UPDATES = 1`
+- `OMNI_TOUCH_WINDOW_MINUTES = 30`
 
 ### 12.2 Phase 1+
 - Phase 0 rules остаются;
 - `DMT_MIN_MEANINGFUL_CALLS = 2`
 - `MEANINGFUL_CALL_SECONDS = 30`
+- `OMNI_TOUCH_CALL_PROXY_SECONDS = 5`
 
 ## 13. Onboarding defaults
 
@@ -169,6 +173,17 @@
 | `SOFT_FLOOR_RATE_SHORTFALL_1` | `4.5%` |
 | `SOFT_FLOOR_RATE_SHORTFALL_2PLUS` | `3.5%` |
 
+### 15.1 Accelerator defaults
+
+| Константа | Значение |
+|---|---:|
+| `ACCELERATOR_MIN_HEALTH` | `70` |
+| `ACCELERATOR_MIN_CALLBACK_SLA` | `85%` |
+| `ACCELERATOR_MIN_REPEAT_SHARE` | `30%` |
+| `ACCELERATOR_MIN_REACTIVATIONS` | `2` |
+| `ACCELERATOR_MIN_QA_AVG` | `80` |
+| `ACCELERATOR_MIN_REPORT_INTEGRITY_PHASE0` | `0.70` |
+
 ## 16. Statistical guards
 
 | Константа | Значение |
@@ -176,9 +191,16 @@
 | `MIN_OBSERVATIONS_GAMING` | `20` |
 | `MIN_DAYS_FOR_EWMA` | `42` |
 | `EWMA_HALF_LIFE_DAYS` | `21` |
+| `EWMA_ACCELERATED_HALF_LIFE_DAYS` | `10` |
+| `EWMA_DECAY_GUARD_RATIO` | `0.30` |
 | `EWMA_LAMBDA_FLOOR` | `0.05` |
 | `MIN_MANAGERS_FOR_VALIDATION` | `3` |
 | `MIN_DAYS_FOR_VALIDATION` | `60` |
+| `VALIDATION_CV_R2_LOW` | `0.05` |
+| `VALIDATION_CV_R2_STRONG` | `0.15` |
+| `VALIDATION_CV_R2_VERY_STRONG` | `0.25` |
+| `DIRICHLET_ALPHA` | `200` |
+| `KENDALL_TAU_MIN` | `0.80` |
 
 ## 17. Seasonality defaults
 Seasonality stays `DORMANT` by default.
@@ -190,9 +212,16 @@ Seasonality stays `DORMANT` by default.
 ## 18. Day status defaults
 - `WORKING`
 - `WEEKEND`
+- `HOLIDAY`
+- `VACATION`
+- `SICK`
 - `EXCUSED`
 - `TECH_FAILURE`
 - `FORCE_MAJEURE`
+
+Примечание:
+- onboarding protection задаётся отдельным набором констант и не должна подменять day-status enum;
+- `TECH_FAILURE` и `FORCE_MAJEURE` блокируют punitive checks, но не уничтожают verified truth.
 
 ## 19. Freeze / review defaults
 
@@ -201,6 +230,11 @@ Seasonality stays `DORMANT` by default.
 | `MAX_APPEALS_PER_WEEK_FOR_SCORING` | `3` |
 | `DATA_INTEGRITY_APPEALS_LIMIT` | unlimited with review |
 | `RED_CARD_DEFAULT` | freeze, not automatic trust drop |
+| `SNOOZE_MAX_DAYS_PER_YEAR` | `30` |
+| `SNOOZE_ADMIN_APPROVAL_AFTER_DAYS` | `14` |
+| `FORCE_MAJEURE_DEFAULT_HOURS` | `24` |
+| `SCORE_CONFIDENCE_MEDIUM_MIN` | `0.50` |
+| `SCORE_CONFIDENCE_HIGH_MIN` | `0.80` |
 
 ## 20. Execution defaults
 

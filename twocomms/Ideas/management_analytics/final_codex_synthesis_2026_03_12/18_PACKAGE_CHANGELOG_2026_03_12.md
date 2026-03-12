@@ -41,6 +41,7 @@
 - `17_TRACEABILITY_MATRIX_AND_CODE_IMPACT.md`
 - `18_PACKAGE_CHANGELOG_2026_03_12.md`
 - `19_MANAGEMENT_CODEBASE_ALIGNMENT_MAP.md`
+- `20_SECOND_PASS_AUDIT_2026_03_12.md`
 
 ## Ключевые смысловые дельты
 
@@ -95,6 +96,14 @@
 - у каждой крупной идеи есть своё место в пакете
 - есть matrix: `источник -> authoritative doc -> code impact`
 - следующий этап можно переводить в полноценный implementation plan без повторного сбора контекста
+
+## Дополнительный hardening после второго аудита
+- добавлен `repeat vs reactivation` split с `180-day` cutoff;
+- formalized `Omni-Touch` for Phase 0 и accelerator thresholds;
+- зафиксированы `Batch Import Dry-Run`, merge rollback window и master-record rule;
+- Radar выровнен по authoritative MOSAIC axes, а не по альтернативному coaching-profile набору;
+- добавлены confidence labels, hold-harmless shadow rule и более точный validation protocol;
+- расширены guardrails вокруг `Force Majeure`, `FileBasedCache` и day-status semantics.
 
 ## Как использовать этот changelog
 - Если нужно быстро понять, что изменилось глобально, читай этот файл.
