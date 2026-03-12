@@ -66,8 +66,15 @@ Admin dashboard должен отдельно показывать:
 Основание прогноза:
 - current month pace;
 - recent trend;
-- current weighted pipeline;
+- current weighted pipeline через stage-weight model;
 - confidence level of the projection.
+
+### 2.7 Optional workload consistency diagnostic
+Если команда позже захочет добавить `workload consistency` / `active tab time`, это допустимо только как:
+- explicit admin-only metric;
+- disclosed diagnostic layer;
+- coaching / workload signal, а не payroll truth;
+- privacy-reviewed feature without silent surveillance semantics.
 
 ## 3. Score-to-money validation
 
@@ -230,6 +237,15 @@ Appeals делятся на:
 
 Data-integrity appeals не должны быть ограничены так же жёстко, как обычные performance appeals.
 
+### 9.4 Appeal record
+Каждый appeal должен хранить:
+- affected period / entity;
+- appeal type;
+- manager reason;
+- linked evidence;
+- admin resolution;
+- resolved_at / resolved_by.
+
 ## 10. Admin-only economics insights
 
 ### 10.1 Что полезно видеть
@@ -239,6 +255,8 @@ Data-integrity appeals не должны быть ограничены так ж
 - где повторная комиссия завязана на unhealthy portfolio concentration.
 - кто застрял ниже break-even despite nominal activity;
 - где прогноз payback уходит вправо из-за weak follow-up discipline.
+- где weighted pipeline выглядит сильным, но фактическая конверсия не подтверждает optimism;
+- где optional workload consistency diagnostic показывает перегрузку или неравномерный ритм работы.
 
 ### 10.2 Что нельзя делать
 - нельзя интерпретировать admin-only correlation как instant production policy;

@@ -142,6 +142,12 @@ Nightly snapshot layer обязана:
 - limit expensive loops in stats payload;
 - no expensive fuzzy dedupe on full table scan without blocking.
 
+Target budgets:
+- API latency (`p95`) `< 200ms`;
+- dashboard load `< 2s`;
+- nightly jobs `< 30 min`;
+- duplicate check `< 500ms`.
+
 ### 11.2 Query-sensitive areas
 - `stats_service.py`
 - large admin pages

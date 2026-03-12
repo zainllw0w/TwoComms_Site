@@ -11,12 +11,14 @@
 | Тема | Ключевые источники | Куда встроено в пакете | Будущие кодовые зоны |
 |---|---|---|---|
 | Shared-hosting stack | `COMPREHENSIVE_REPORT` §28, §36.2; integration plan §2 | `00`, `07`, `10`, `13` | `settings.py`, `management/commands/` |
+| Performance budgets | `COMPREHENSIVE_REPORT` §14.3 | `13`, `23` | stats/admin latency, duplicate queue, nightly commands |
 | `EWR` / new Result | `COMPREHENSIVE_REPORT` §35.3, §36.6; integration plan §1.6 | `02`, `12` | `stats_service.py`, snapshots |
 | `Wilson` diagnostic KPI | `COMPREHENSIVE_REPORT` §35.4; integration plan control links | `02`, `12`, `15`, `11` | `stats_service.py`, nightly snapshots, admin analytics |
 | MOSAIC weights `40/10/20/10/10/10` | `COMPREHENSIVE_REPORT` §35.7; integration plan §1.1 | `02`, `12`, `14` | score composer in `stats_service.py` |
 | Production / diagnostic trust | `COMPREHENSIVE_REPORT` §19.1, §33.3, §37.2 | `02`, `12`, `14` | `stats_service.py`, admin analytics |
 | Gate levels `100/78/60/45` | `COMPREHENSIVE_REPORT` §36.3 | `02`, `12` | score composer, admin explainability |
 | Final dampener | `COMPREHENSIVE_REPORT` §36.3 | `02`, `12` | `stats_service.py` |
+| Onboarding floor decay | integration plan §3.4; report-safe rollout logic | `02`, `07`, `12` | score composer, defaults registry, manager score snapshots |
 | Soft Floor Cap | `COMPREHENSIVE_REPORT` §37.3; integration plan §1.5 | `03`, `12`, `15` | payout math in `views.py` / models |
 | Repeat vs reactivation `180-day` split | `COMPREHENSIVE_REPORT` §34.6.D6 | `03`, `12`, `07`, `11` | payout math, client history logic |
 | Commission dispute workflow | baseline package `03` / `11`; historical payroll carry-forward | `03`, `07`, `11` | payout review flow, accrual disputes, admin queue |
@@ -34,6 +36,7 @@
 | Call Competency Profile | legacy telephony package `05`; historical carry-forward | `05`, `07`, `11` | QA review payloads, supervisor/admin surfaces |
 | QA reliability thresholds / recording retention | legacy telephony package `05`; audit hardening | `05`, `07`, `11` | QA calibration flow, retention metadata, supervisor audit logs |
 | Radar chart | `COMPREHENSIVE_REPORT` §31 | `06`, `11`, `19` | `stats.html`, JS/CSS |
+| Correctability / appeal affordance | `COMPREHENSIVE_REPORT` §7.5, §12.3 | `06`, `07`, `11`, `15`, `19` | manager/admin review UI, appeal model, evidence drawer |
 | Client communication timeline | legacy UI package `06`; historical carry-forward | `06`, `07`, `11`, `19` | `stats.html`, client detail payloads, interaction timeline builder |
 | Mobile-first manager shell | legacy UI package `06`; historical carry-forward | `06`, `07`, `11`, `19` | `base.html`, `stats.html`, mobile-safe JS flows |
 | Clickable waterfall / explainable score card | `COMPREHENSIVE_REPORT` §12.3 | `06`, `07`, `15` | `stats.html`, admin panels, simulator surfaces |
@@ -42,8 +45,11 @@
 | Salary simulator / what-if | `COMPREHENSIVE_REPORT` §6.3, §21.4 | `03`, `06`, `11` | stats/admin templates |
 | Shadow hold-harmless | `COMPREHENSIVE_REPORT` §14, rollout notes | `03`, `06`, `07` | salary simulator + shadow rollout |
 | Score confidence labels | `COMPREHENSIVE_REPORT` improvement 20 | `06`, `12`, `15` | snapshots, admin views |
+| Report integrity agreement bands | `COMPREHENSIVE_REPORT` §8.4 | `12`, `15`, `23` | trust diagnostics, accelerator fallback, admin review semantics |
 | Validation protocol | `COMPREHENSIVE_REPORT` §13, §33, §36 | `07`, `12`, `15` | commands, admin analytics |
 | Break-even / payback / forecast admin economics | legacy admin economics package `15`; historical carry-forward | `06`, `11`, `15`, `19` | admin analytics payloads, payout/admin surfaces |
+| Pipeline stage weights for forecast | integration plan §14.4, §10.25 | `12`, `15`, `11`, `23` | forecast payloads, admin economics |
+| Optional workload consistency diagnostic | `COMPREHENSIVE_REPORT` §25.4 | `07`, `11`, `15`, `19`, `23` | admin-only JS instrumentation, coaching diagnostics |
 | Day status / Earned Day | `COMPREHENSIVE_REPORT` §33.4, §34.4, §36.5 | `03`, `12`, `15` | models, payout/admin logic |
 | Force Majeure / Red Card | `COMPREHENSIVE_REPORT` §37.6, §37.2 | `03`, `07`, `11`, `13`, `15`, `19` | admin controls, status models, exemption event layer |
 | Nightly snapshots | `COMPREHENSIVE_REPORT` §37.7 | `07`, `11`, `15`, `19` | commands + models |
