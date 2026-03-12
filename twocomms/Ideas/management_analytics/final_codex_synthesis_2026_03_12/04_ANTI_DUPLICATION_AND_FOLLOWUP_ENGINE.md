@@ -259,21 +259,39 @@ Rate limiting строится через `FileBasedCache`, а не через R
 ```python
 from django.core.cache import caches
 
-def check_rate_limit(user_id: int, action: str, *, max_per_hour: int = 20) -> tuple[bool, str | None]:
+def check_rate_limit(
+    user_id: int,
+    action: str,
+    *,
+    max_per_hour: int = 20,
+) -> tuple[bool, bool, str | None]:
     cache = caches["default"]
     key = f"rate:{user_id}:{action}"
     current = cache.get(key, 0)
     if current >= max_per_hour:
-        return False, "hourly limit reached"
+        return True, False, "hourly score cap reached"
     cache.set(key, current + 1, timeout=3600)
-    return True, None
+    return True, True, None
 ```
+
+Смысл return values:
+- первое значение = можно ли записать действие в CRM / audit trail;
+- второе значение = даёт ли действие points / score-credit;
+- при лимите action не теряется, но перестаёт приносить score benefit.
 
 ### 10.3 Что лимитируем
 - mass reminder send;
 - repeated duplicate resolution actions;
 - repeated ownership claim actions;
 - future telephony webhook or sync retries if needed.
+
+### 10.4 Alert -> Review -> Sanction
+Anti-abuse слой не должен превращать single noisy event в автоматический штраф.
+
+Нормативно:
+- первый сигнал или low-sample case -> admin alert only;
+- при rate-limit overflow action всё ещё пишется в CRM;
+- automatic score / trust impact допустим только после повторяемого critical pattern и достаточного `N`.
 
 ## 11. Reminder engine execution model
 Фоновый execution layer должен быть совместим с текущим хостингом:

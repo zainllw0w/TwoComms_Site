@@ -12,12 +12,14 @@
 |---|---|---|---|
 | Shared-hosting stack | `COMPREHENSIVE_REPORT` §28, §36.2; integration plan §2 | `00`, `07`, `10`, `13` | `settings.py`, `management/commands/` |
 | `EWR` / new Result | `COMPREHENSIVE_REPORT` §35.3, §36.6; integration plan §1.6 | `02`, `12` | `stats_service.py`, snapshots |
+| `Wilson` diagnostic KPI | `COMPREHENSIVE_REPORT` §35.4; integration plan control links | `02`, `12`, `15`, `11` | `stats_service.py`, nightly snapshots, admin analytics |
 | MOSAIC weights `40/10/20/10/10/10` | `COMPREHENSIVE_REPORT` §35.7; integration plan §1.1 | `02`, `12`, `14` | score composer in `stats_service.py` |
 | Production / diagnostic trust | `COMPREHENSIVE_REPORT` §19.1, §33.3, §37.2 | `02`, `12`, `14` | `stats_service.py`, admin analytics |
 | Gate levels `100/78/60/45` | `COMPREHENSIVE_REPORT` §36.3 | `02`, `12` | score composer, admin explainability |
 | Final dampener | `COMPREHENSIVE_REPORT` §36.3 | `02`, `12` | `stats_service.py` |
 | Soft Floor Cap | `COMPREHENSIVE_REPORT` §37.3; integration plan §1.5 | `03`, `12`, `15` | payout math in `views.py` / models |
 | Repeat vs reactivation `180-day` split | `COMPREHENSIVE_REPORT` §34.6.D6 | `03`, `12`, `07`, `11` | payout math, client history logic |
+| `Weibull` churn + logistic fallback + `k` cap | `COMPREHENSIVE_REPORT` §37.1; integration plan §1.3, §12.10 | `02`, `03`, `07`, `11`, `12`, `19` | `stats_service.py`, snapshots, portfolio payload |
 | Portfolio thresholds `35/55/75` | `COMPREHENSIVE_REPORT` §35.10; integration plan §11.3 | `03`, `12` | `Client`, stats payload |
 | `is_test` guard | `COMPREHENSIVE_REPORT` §30.2, §34.4 | `03`, `07`, `11`, `19` | `Client`, stats queries |
 | Dedupe without `pg_trgm` | `COMPREHENSIVE_REPORT` §30.5, §33.6, §36.2; integration plan §2.3 | `04`, `07`, `11`, `13` | `lead_views.py`, `parsing_views.py`, `views.py` |
@@ -28,7 +30,9 @@
 | `CallRecord` prep | `COMPREHENSIVE_REPORT` §30.3, §37.7 | `05`, `07`, `11`, `19` | `models.py`, webhook views |
 | QA maturity gating | `COMPREHENSIVE_REPORT` §5, §37.2 | `05`, `14` | future QA models and views |
 | Radar chart | `COMPREHENSIVE_REPORT` §31 | `06`, `11`, `19` | `stats.html`, JS/CSS |
-| Rescue top-5 / `Expected LTV Loss` | `COMPREHENSIVE_REPORT` §37.5 | `06`, `07`, `11` | stats payload + manager UI |
+| Clickable waterfall / explainable score card | `COMPREHENSIVE_REPORT` §12.3 | `06`, `07`, `15` | `stats.html`, admin panels, simulator surfaces |
+| Rescue top-5 / `Expected LTV Loss` | `COMPREHENSIVE_REPORT` §37.5 | `03`, `06`, `07`, `11`, `12` | stats payload + manager UI |
+| Rescue `SPIFF` + `max 3/day` capacity guard | `COMPREHENSIVE_REPORT` §37.5; integration plan §3.6 | `03`, `06`, `07`, `11`, `12` | payout attribution, rescue widget, admin payout review |
 | Salary simulator / what-if | `COMPREHENSIVE_REPORT` §6.3, §21.4 | `03`, `06`, `11` | stats/admin templates |
 | Shadow hold-harmless | `COMPREHENSIVE_REPORT` §14, rollout notes | `03`, `06`, `07` | salary simulator + shadow rollout |
 | Score confidence labels | `COMPREHENSIVE_REPORT` improvement 20 | `06`, `12`, `15` | snapshots, admin views |
@@ -36,6 +40,7 @@
 | Day status / Earned Day | `COMPREHENSIVE_REPORT` §33.4, §34.4, §36.5 | `03`, `12`, `15` | models, payout/admin logic |
 | Force Majeure / Red Card | `COMPREHENSIVE_REPORT` §37.6, §37.2 | `03`, `07`, `11`, `13`, `15`, `19` | admin controls, status models, exemption event layer |
 | Nightly snapshots | `COMPREHENSIVE_REPORT` §37.7 | `07`, `11`, `15`, `19` | commands + models |
+| DICE rollout guardrails | `COMPREHENSIVE_REPORT` §12.1 | `06`, `07`, `21` | rollout reviews, simulator enablement, change-management checklists |
 
 ## 3. Ничего не потерять: правило использования
 - если идея есть в большом отчёте, но не попала в эту таблицу, она либо сознательно отклонена, либо ещё не привязана к authoritative docs;
