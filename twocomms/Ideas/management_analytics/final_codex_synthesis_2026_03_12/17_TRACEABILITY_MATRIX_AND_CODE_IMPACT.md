@@ -19,6 +19,8 @@
 | Final dampener | `COMPREHENSIVE_REPORT` §36.3 | `02`, `12` | `stats_service.py` |
 | Soft Floor Cap | `COMPREHENSIVE_REPORT` §37.3; integration plan §1.5 | `03`, `12`, `15` | payout math in `views.py` / models |
 | Repeat vs reactivation `180-day` split | `COMPREHENSIVE_REPORT` §34.6.D6 | `03`, `12`, `07`, `11` | payout math, client history logic |
+| Commission dispute workflow | baseline package `03` / `11`; historical payroll carry-forward | `03`, `07`, `11` | payout review flow, accrual disputes, admin queue |
+| Optional weighted attribution for complex disputes | baseline package `03`; historical payroll carry-forward | `03`, `07` | admin-only exception flow, evidence-backed payout adjustment |
 | `Weibull` churn + logistic fallback + `k` cap | `COMPREHENSIVE_REPORT` §37.1; integration plan §1.3, §12.10 | `02`, `03`, `07`, `11`, `12`, `19` | `stats_service.py`, snapshots, portfolio payload |
 | Portfolio thresholds `35/55/75` | `COMPREHENSIVE_REPORT` §35.10; integration plan §11.3 | `03`, `12` | `Client`, stats payload |
 | `is_test` guard | `COMPREHENSIVE_REPORT` §30.2, §34.4 | `03`, `07`, `11`, `19` | `Client`, stats queries |
@@ -29,7 +31,11 @@
 | FileBasedCache rate limiting | `COMPREHENSIVE_REPORT` §33.9; Django docs via Context7 | `04`, `07`, `10`, `13` | `settings.py`, service/helper layer |
 | `CallRecord` prep | `COMPREHENSIVE_REPORT` §30.3, §37.7 | `05`, `07`, `11`, `19` | `models.py`, webhook views |
 | QA maturity gating | `COMPREHENSIVE_REPORT` §5, §37.2 | `05`, `14` | future QA models and views |
+| Call Competency Profile | legacy telephony package `05`; historical carry-forward | `05`, `07`, `11` | QA review payloads, supervisor/admin surfaces |
+| QA reliability thresholds / recording retention | legacy telephony package `05`; audit hardening | `05`, `07`, `11` | QA calibration flow, retention metadata, supervisor audit logs |
 | Radar chart | `COMPREHENSIVE_REPORT` §31 | `06`, `11`, `19` | `stats.html`, JS/CSS |
+| Client communication timeline | legacy UI package `06`; historical carry-forward | `06`, `07`, `11`, `19` | `stats.html`, client detail payloads, interaction timeline builder |
+| Mobile-first manager shell | legacy UI package `06`; historical carry-forward | `06`, `07`, `11`, `19` | `base.html`, `stats.html`, mobile-safe JS flows |
 | Clickable waterfall / explainable score card | `COMPREHENSIVE_REPORT` §12.3 | `06`, `07`, `15` | `stats.html`, admin panels, simulator surfaces |
 | Rescue top-5 / `Expected LTV Loss` | `COMPREHENSIVE_REPORT` §37.5 | `03`, `06`, `07`, `11`, `12` | stats payload + manager UI |
 | Rescue `SPIFF` + `max 3/day` capacity guard | `COMPREHENSIVE_REPORT` §37.5; integration plan §3.6 | `03`, `06`, `07`, `11`, `12` | payout attribution, rescue widget, admin payout review |
@@ -37,10 +43,12 @@
 | Shadow hold-harmless | `COMPREHENSIVE_REPORT` §14, rollout notes | `03`, `06`, `07` | salary simulator + shadow rollout |
 | Score confidence labels | `COMPREHENSIVE_REPORT` improvement 20 | `06`, `12`, `15` | snapshots, admin views |
 | Validation protocol | `COMPREHENSIVE_REPORT` §13, §33, §36 | `07`, `12`, `15` | commands, admin analytics |
+| Break-even / payback / forecast admin economics | legacy admin economics package `15`; historical carry-forward | `06`, `11`, `15`, `19` | admin analytics payloads, payout/admin surfaces |
 | Day status / Earned Day | `COMPREHENSIVE_REPORT` §33.4, §34.4, §36.5 | `03`, `12`, `15` | models, payout/admin logic |
 | Force Majeure / Red Card | `COMPREHENSIVE_REPORT` §37.6, §37.2 | `03`, `07`, `11`, `13`, `15`, `19` | admin controls, status models, exemption event layer |
 | Nightly snapshots | `COMPREHENSIVE_REPORT` §37.7 | `07`, `11`, `15`, `19` | commands + models |
 | DICE rollout guardrails | `COMPREHENSIVE_REPORT` §12.1 | `06`, `07`, `21` | rollout reviews, simulator enablement, change-management checklists |
+| Optional DTF read-only bridge | legacy package `07` / `11`; historical carry-forward | `07`, `11`, `19`, `22` | optional `dtf` adapter, separate read-only cards/routes |
 
 ## 3. Ничего не потерять: правило использования
 - если идея есть в большом отчёте, но не попала в эту таблицу, она либо сознательно отклонена, либо ещё не привязана к authoritative docs;

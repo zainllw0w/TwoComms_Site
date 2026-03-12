@@ -250,6 +250,32 @@ Rescue queue не должна превращаться в отдельный ov
 - если у менеджера активен `Data Quality grace` или unresolved report-integrity issue, rescue-pool не должен агрессивно догружать новые задачи;
 - rescue attribution должна иметь audit trail, иначе `SPIFF` не начисляется.
 
+### 8.5 Commission dispute workflow
+Для спорных commission-кейсов authoritative пакет сохраняет explicit admin-review flow, чтобы complex ownership/assist cases не разруливались устно.
+
+Базовый контур:
+1. manager создаёт dispute по accrual / commission item;
+2. выбирает reason и прикладывает available evidence;
+3. кейс попадает в admin review queue;
+4. admin видит interaction log, CP/email trail, call history, invoice chain и ownership history;
+5. решение фиксируется как `confirm / reject / split / reassign`;
+6. всё сохраняется в audit trail.
+
+### 8.6 Optional weighted attribution for complex disputes
+По умолчанию TwoComms живёт в модели `closer gets primary credit`.
+
+Но для редких реально multi-touch кейсов допускается exceptional split:
+- `60%` closer;
+- `25%` opener;
+- `15%` nurture/support touches proportionally.
+
+Guardrails:
+- split возможен только как admin-approved exception;
+- no split without evidence trail;
+- first-touch credit сгорает после `90` дней без meaningful continuation;
+- `A -> B -> A` ownership gaming уходит в abuse review;
+- split attribution не должен превращаться в default mode для обычных сделок.
+
 ## 9. Earned Day и DMT
 
 ### 9.1 Зачем это нужно
@@ -310,6 +336,7 @@ Phase 1+, с телефонией:
 - potential `rescue SPIFF` по каждому rescue-case, если он попал в verified queue;
 - expected payout window;
 - salary simulator / what-if;
+- gross/net preview там, где payroll math уже поддерживает такой режим без misleading precision;
 - shadow-mode `hold harmless` delta, если новая логика дала бы менеджеру больше, чем текущая;
 - KPI status by `new` and `total`;
 - portfolio health distribution;

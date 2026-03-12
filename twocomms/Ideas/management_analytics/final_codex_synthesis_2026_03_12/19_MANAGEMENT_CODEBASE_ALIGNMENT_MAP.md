@@ -38,14 +38,15 @@
 | `lead_views.py` | lead create/detail/process | duplicate warnings and review-safe conversion |
 | `parsing_views.py` | parsing dashboard and moderation | pre-conversion dedupe and source quality surfaces |
 | `urls.py` | current management routes | telephony webhook / review routes if needed |
+| optional `dtf/*` routes | separate adjacent DTF context | read-only bridge / summary exposure without metric mixing |
 
 ### 2.4 Templates
 
 | Файл | Что уже есть | Что вероятно добавится |
 |---|---|---|
-| `templates/management/stats.html` | hero, spiral, KPI cards, follow-ups, advice | Radar, shadow decomposition, rescue/top-5, scaled `SPIFF` cue, salary simulator |
-| `templates/management/admin.html` | admin overview and payout blocks | readiness registry, duplicate review, freeze/review controls, admin economics |
-| `templates/management/base.html` | shell and layout | new navigation/state badges if needed |
+| `templates/management/stats.html` | hero, spiral, KPI cards, follow-ups, advice | Radar, shadow decomposition, rescue/top-5, scaled `SPIFF` cue, salary simulator, client timeline |
+| `templates/management/admin.html` | admin overview and payout blocks | readiness registry, duplicate review, freeze/review controls, admin economics, break-even/payback views |
+| `templates/management/base.html` | shell and layout | new navigation/state badges, mobile-safe action shell if needed |
 | `templates/management/payouts.html` | payout views | clearer accrual decomposition |
 
 ### 2.5 Commands
@@ -59,6 +60,7 @@
 - `send_management_reminders`
 - `check_duplicate_queue`
 - `process_telephony_webhooks`
+- optional `reconcile_dtf_read_only`
 
 `compute_nightly_scores` должен быть точкой, где тяжёлые `Weibull` / `Wilson` вычисления складываются в snapshot, а дневной UI читает уже готовый результат.
 
@@ -85,11 +87,17 @@
 - support services: processing commands
 - surfaces: future supervisor/admin queue
 
+### 3.5 Optional DTF read-only bridge
+- primary home: adapter into existing `dtf` context, not into wholesale score engine;
+- support services: summary/read-only payload builder;
+- surfaces: separate tab/cards with explicit non-mixing label.
+
 ## 4. Known codebase constraints
 - `views.py` already carries a lot of responsibility, so future planning should avoid making it an even larger god file;
 - stats payload construction is already non-trivial, so new analytics should be added carefully, ideally through dedicated helpers;
 - current manager UI is still `KPD`-shaped, so `MOSAIC/EWR` insertion needs payload versioning / compatibility bridge instead of abrupt contract swap;
 - telephony should be treated as a new ingress/reconciliation subsystem, not as a tiny extension of current management routes;
+- any DTF visibility should remain adjacent and read-only, because mixing those metrics into wholesale truth would create fake comparability;
 - manager/admin templates already contain meaningful UI structure, so replacement should be incremental.
 
 ## 5. Safe insertion strategy
