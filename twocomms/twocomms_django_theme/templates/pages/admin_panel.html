@@ -2430,7 +2430,17 @@ async function toggleInvoicePayment(e,id,status){ e.preventDefault(); const res 
         }
       }
       
-      function getCookie(name){const v=`; ${document.cookie}`.split(`; ${name}=`);if(v.length===2) return v.pop().split(';').shift();}
+      function getCookie(name) {
+        if (!document.cookie) return '';
+        const cookies = document.cookie.split(';');
+        for (const rawCookie of cookies) {
+          const cookie = rawCookie.trim();
+          if (cookie.substring(0, name.length + 1) === `${name}=`) {
+            return decodeURIComponent(cookie.substring(name.length + 1));
+          }
+        }
+        return '';
+      }
       
       // Event delegation для кнопок с data-action
       document.addEventListener('DOMContentLoaded', function() {

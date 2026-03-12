@@ -717,8 +717,15 @@ async function updateInvoiceStatusInline(id, status) {
 }
 
 function getCookie(name) {
-  const v = `; ${document.cookie}`.split(`; ${name}=`);
-  if (v.length === 2) return v.pop().split(';').shift();
+  if (!document.cookie) return '';
+  const cookies = document.cookie.split(';');
+  for (const rawCookie of cookies) {
+    const cookie = rawCookie.trim();
+    if (cookie.substring(0, name.length + 1) === `${name}=`) {
+      return decodeURIComponent(cookie.substring(name.length + 1));
+    }
+  }
+  return '';
 }
 
 // Обновление статуса заказа ДРОПШИПА
@@ -917,4 +924,3 @@ async function updatePayoutStatus(payoutId) {
   }
 }
 </script>
-

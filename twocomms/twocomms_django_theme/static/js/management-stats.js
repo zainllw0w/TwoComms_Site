@@ -13,12 +13,42 @@
   const dismissUrl = page?.dataset?.dismissUrl || '';
 
   const getCookie = (name) => {
-    const parts = (`; ${document.cookie || ''}`).split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
+    if (!document.cookie) return '';
+    const cookies = document.cookie.split(';');
+    for (const rawCookie of cookies) {
+      const cookie = rawCookie.trim();
+      if (cookie.substring(0, name.length + 1) === `${name}=`) {
+        return decodeURIComponent(cookie.substring(name.length + 1));
+      }
+    }
     return '';
   };
 
-  const csrfToken = () => getCookie('csrftoken');
+  const isValidCsrfToken = (token) => /^[A-Za-z0-9]{32}$|^[A-Za-z0-9]{64}$/.test(token || '');
+  const readDomCsrfToken = () => {
+    const meta = document.querySelector?.('meta[name="csrf-token"]');
+    if (meta?.getAttribute) {
+      const token = meta.getAttribute('content') || '';
+      if (isValidCsrfToken(token)) return token;
+    }
+
+    const input = document.querySelector?.('[name="csrfmiddlewaretoken"]');
+    if (input && 'value' in input && isValidCsrfToken(input.value)) {
+      return input.value;
+    }
+
+    return '';
+  };
+
+  const csrfToken = () => {
+    const domToken = readDomCsrfToken();
+    if (domToken) return domToken;
+
+    const cookieToken = getCookie('csrftoken');
+    if (isValidCsrfToken(cookieToken)) return cookieToken;
+
+    return '';
+  };
 
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -262,13 +292,15 @@
 
   const dismissAdvice = async (key, expiresAt) => {
     if (!dismissUrl) return;
+    const token = csrfToken();
+    if (!token) return;
     try {
       await fetch(dismissUrl, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken(),
+          'X-CSRFToken': token,
           'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify({ key, expires_at: expiresAt || null }),
