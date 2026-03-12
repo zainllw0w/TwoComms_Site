@@ -19,6 +19,8 @@
 | `ManagementDailyActivity` | activity tracking | better use for shadow analytics |
 | `ReminderSent` / `ReminderRead` | reminder dedupe/read state | richer reminder-key strategy and alert hygiene |
 | future `ForceMajeureEvent` / `ScoreAuditLog` | system-wide exception and formula audit layers | exemption windows, formula-change traceability |
+| future `OwnershipChangeLog` | ownership/dispute trail | who changed owner, when, why, from which queue/review |
+| future `ScoreAppeal` | structured review of scoring / payout / data-integrity disputes | reason, evidence, resolution trail |
 | `ManagerCommissionAccrual` | payout truth | richer decomposition / freeze metadata |
 | `ManagerPayoutRequest` | payout workflow | clearer admin economics linkage |
 
@@ -33,8 +35,8 @@
 
 | Файл | Что уже есть | Что вероятно добавится |
 |---|---|---|
-| `stats_views.py` | stats, admin stats, advice dismiss | shadow score payloads, readiness widgets |
-| `views.py` | manager/admin, reports, reminders, payouts, invoices, contracts | admin freeze/review actions, richer payout/admin economics |
+| `stats_views.py` | stats, admin stats, advice dismiss | shadow score payloads, readiness widgets, appeal CTA payloads |
+| `views.py` | manager/admin, reports, reminders, payouts, invoices, contracts | admin freeze/review actions, richer payout/admin economics, appeal submit/review endpoints |
 | `lead_views.py` | lead create/detail/process | duplicate warnings and review-safe conversion |
 | `parsing_views.py` | parsing dashboard and moderation | pre-conversion dedupe and source quality surfaces |
 | `urls.py` | current management routes | telephony webhook / review routes if needed |
@@ -44,9 +46,9 @@
 
 | Файл | Что уже есть | Что вероятно добавится |
 |---|---|---|
-| `templates/management/stats.html` | hero, spiral, KPI cards, follow-ups, advice | Radar, shadow decomposition, rescue/top-5, scaled `SPIFF` cue, salary simulator, client timeline |
-| `templates/management/admin.html` | admin overview and payout blocks | readiness registry, duplicate review, freeze/review controls, admin economics, break-even/payback views |
-| `templates/management/base.html` | shell and layout | new navigation/state badges, mobile-safe action shell if needed |
+| `templates/management/stats.html` | hero, spiral, KPI cards, follow-ups, advice | Radar, shadow decomposition, rescue/top-5, scaled `SPIFF` cue, salary simulator, client timeline, appeal CTA |
+| `templates/management/admin.html` | admin overview and payout blocks | readiness registry, duplicate review, freeze/review controls, admin economics, break-even/payback views, appeal queue |
+| `templates/management/base.html` | shell and layout | new navigation/state badges, mobile-safe action shell, optional disclosed visibility instrumentation if ever enabled |
 | `templates/management/payouts.html` | payout views | clearer accrual decomposition |
 
 ### 2.5 Commands
@@ -73,8 +75,8 @@
 
 ### 3.2 Payroll / Earned Day
 - primary home: payout models and `views.py`
-- support models: day ledger / review statuses
-- surfaces: `payouts.html`, admin payout blocks
+- support models: day ledger / review statuses / appeals
+- surfaces: `payouts.html`, admin payout blocks, appeal review UI
 
 ### 3.3 Dedupe / reminders
 - primary home: `Client`, `ManagementLead`, `ClientFollowUp`

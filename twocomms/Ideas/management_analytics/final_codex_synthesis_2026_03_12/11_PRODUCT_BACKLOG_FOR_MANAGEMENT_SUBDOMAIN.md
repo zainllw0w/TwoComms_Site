@@ -132,6 +132,7 @@
 - no-touch report confirm
 - earnings snapshot
 - golden-hour / heatmap cues
+- appeal CTA for score-sensitive / payout-sensitive states
 
 Статус: `HIGH PRIORITY`
 
@@ -146,9 +147,12 @@
 - readiness badges
 - admin economics
 - break-even / payback / forecast views
+- pipeline forecast with stage weights
 - score confidence labels
 - payout/admin risk views
 - team heatmap
+- score / payout appeal review queue
+- optional workload consistency diagnostic (admin-only, disclosed)
 
 Статус: `HIGH PRIORITY`
 
@@ -220,10 +224,12 @@
 - `Client.normalized_name_hash` or equivalent exact-precheck helper
 - `ClientSnoozeStatus`
 - `ManagerDayStatus` or equivalent ledger model
+- `ScoreAppeal` or equivalent appeal/audit model
 - `ForceMajeureEvent`
 - `NightlyScoreSnapshot`
 - `ScoreAuditLog`
 - `MergeAuditLog` or equivalent rollback-safe merge snapshot
+- `OwnershipChangeLog` or equivalent ownership trail model
 - `CallRecord`
 - `TelephonyWebhookLog`
 - `CallQAReview`
@@ -264,6 +270,8 @@
 - `build_salary_simulation_payload`
 - `build_client_timeline_payload`
 - `build_admin_economics_payload`
+- `build_pipeline_forecast_payload`
+- optional `compute_workload_consistency_payload`
 - optional `build_dtf_read_only_payload`
 
 ## 5. Command backlog
@@ -287,6 +295,7 @@
 - client communication timeline
 - no-touch report confirm
 - mobile action sheet / bottom-nav-safe flows
+- appeal action from score / payout consequence surfaces
 
 ### 6.2 Admin UI
 - readiness registry surface
@@ -298,6 +307,8 @@
 - telephony / QA review queue
 - break-even / payback / forecast cards
 - team heatmap
+- score / payout appeal review queue
+- optional workload consistency card
 - optional DTF read-only dashboard
 
 ## 7. Dependency order

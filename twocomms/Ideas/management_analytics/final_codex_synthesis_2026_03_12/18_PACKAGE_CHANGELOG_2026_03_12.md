@@ -44,6 +44,7 @@
 - `20_SECOND_PASS_AUDIT_2026_03_12.md`
 - `21_THIRD_PASS_AUDIT_2026_03_12.md`
 - `22_LEGACY_FINAL_CODEX_REGRESSION_AUDIT_2026_03_13.md`
+- `23_FINAL_SOURCE_ALIGNMENT_AUDIT_2026_03_13.md`
 
 ## Ключевые смысловые дельты
 
@@ -122,6 +123,13 @@
 - telephony/QA слой снова фиксирует `Call Competency Profile`, QA reliability thresholds, retention policy и supervisor actions;
 - admin economics снова включает cost model, contribution proxy, break-even / payback / forecast logic;
 - roadmap/backlog/alignment-map снова содержат optional `DTF read-only bridge` как отдельный, не смешиваемый с wholesale truth extension.
+
+## Финальный hardening после source-alignment pass
+- authoritative пакет напрямую сверен с `COMPREHENSIVE_REPORT_2026-03-12` и `INTEGRATION_PLAN_FOR_CODEX_SYNTHESIS`, а итог зафиксирован в `23_FINAL_SOURCE_ALIGNMENT_AUDIT_2026_03_13.md`;
+- explainability усилена correctability-слоем: appeal affordance теперь выражен как отдельный manager/admin contract, а не только как абстрактное право на спор;
+- onboarding protection теперь зафиксирован не только как наличие floor, но и как явный decay contour `14 + 14` дней;
+- `report_integrity` получил explicit agreement-style bands для Phase 0 / low-QA maturity contexts;
+- forecast layer усилен stage-weight defaults для weighted pipeline, а admin-only workload consistency зафиксирован как optional, disclosed и вне payroll truth.
 
 ## Как использовать этот changelog
 - Если нужно быстро понять, что изменилось глобально, читай этот файл.

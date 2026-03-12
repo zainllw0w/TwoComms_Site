@@ -101,6 +101,16 @@
 | `TRUST_DUPLICATE_ABUSE_WEIGHT` | `-0.05` |
 | `TRUST_ANOMALY_WEIGHT` | `-0.05` |
 
+### 9.1 Report integrity interpretation
+Phase 0 / low-QA maturity contexts должны интерпретировать `report_integrity` не как магический скор, а как agreement-style signal.
+
+| Band | Диапазон |
+|---|---:|
+| `STRONG` | `>= 0.85` |
+| `ACCEPTABLE` | `0.70-0.84` |
+| `CAUTION` | `0.55-0.69` |
+| `INVESTIGATE` | `< 0.55` |
+
 ## 10. Dampener defaults
 
 | Константа | Значение |
@@ -144,6 +154,11 @@
 | `ONBOARDING_DAYS_FULL_PROTECTION` | `14` |
 | `ONBOARDING_DECAY_DAYS` | `14` |
 | `ONBOARDING_FLOOR_SCORE` | `40` |
+
+Правило:
+- Day `1-14` -> floor = `40`;
+- Day `15-28` -> linear decay `40 -> 0`;
+- Day `29+` -> floor = `0`.
 
 ## 14. Portfolio defaults
 
@@ -203,6 +218,17 @@
 | `ACCELERATOR_MIN_REACTIVATIONS` | `2` |
 | `ACCELERATOR_MIN_QA_AVG` | `80` |
 | `ACCELERATOR_MIN_REPORT_INTEGRITY_PHASE0` | `0.70` |
+
+### 15.3 Forecast / pipeline defaults
+
+| Константа | Значение |
+|---|---:|
+| `PIPELINE_STAGE_WEIGHT_COLD` | `0.15` |
+| `PIPELINE_STAGE_WEIGHT_INTEREST` | `0.35` |
+| `PIPELINE_STAGE_WEIGHT_CP_SENT` | `0.60` |
+| `PIPELINE_STAGE_WEIGHT_NEGOTIATION` | `0.80` |
+| `PIPELINE_STAGE_WEIGHT_INVOICE` | `1.00` |
+| `PIPELINE_REACTIVATION_MULTIPLIER` | `0.70` |
 
 ## 16. Statistical guards
 

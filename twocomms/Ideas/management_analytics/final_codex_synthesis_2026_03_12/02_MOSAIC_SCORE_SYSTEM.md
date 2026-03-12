@@ -153,6 +153,19 @@ manager_score_day =
 - `portfolio_bonus` не может обходить дисциплинарный слой.
 - `gate` отвечает за уровень подтверждённости, а не подменяет trust и dampener.
 
+### 6.5 Onboarding floor semantics
+`apply_onboarding_floor()` не должен быть чёрным ящиком.
+
+Нормативная semantics:
+- Day `1-14` -> действует full onboarding floor;
+- Day `15-28` -> floor линейно затухает к нулю;
+- Day `29+` -> manager живёт в обычном режиме без onboarding protection.
+
+Этот слой нужен для safe ramp-up нового менеджера:
+- он не должен маскировать weak data quality как высокий score;
+- он не должен жить бесконечно;
+- он не должен подменять `WEEKEND / VACATION / SICK / EXCUSED` day-status logic.
+
 ## 7. Result axis = EWR
 
 ### 7.1 Почему старая логика недостаточна
