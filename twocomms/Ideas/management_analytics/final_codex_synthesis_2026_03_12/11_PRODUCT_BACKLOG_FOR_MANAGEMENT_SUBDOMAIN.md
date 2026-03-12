@@ -104,6 +104,10 @@
 - provider adapter
 - QA review queue
 - supervisor analytics
+- supervisor action log
+- recording retention / legal hold policy
+- call competency profile
+- QA reliability thresholds
 
 Статус: `MEDIUM PRIORITY`
 
@@ -123,6 +127,11 @@
 - rescue-load cap / `DQ grace` messaging
 - hold-harmless shadow badge
 - portfolio status block
+- client communication timeline
+- mobile-first action shell
+- no-touch report confirm
+- earnings snapshot
+- golden-hour / heatmap cues
 
 Статус: `HIGH PRIORITY`
 
@@ -136,8 +145,10 @@
 - freeze/review controls
 - readiness badges
 - admin economics
+- break-even / payback / forecast views
 - score confidence labels
 - payout/admin risk views
+- team heatmap
 
 Статус: `HIGH PRIORITY`
 
@@ -187,6 +198,20 @@
 - admin controls
 - audit trail
 
+### Module L: Optional DTF Read-Only Bridge
+Состав:
+- separate summary cards
+- read-only health metrics
+- status drilldown
+- no metric mixing with wholesale score
+- optional tab / route into existing `dtf` context
+
+Статус: `LOW PRIORITY`
+
+Кодовые зоны:
+- `management/templates/management/*`
+- optional `twocomms/dtf/*`
+
 ## 3. Model backlog
 
 ### 3.1 New or extended models
@@ -202,6 +227,7 @@
 - `CallRecord`
 - `TelephonyWebhookLog`
 - `CallQAReview`
+- `TelephonySupervisorActionLog` or equivalent
 - lightweight duplicate dispute / audit record if existing audit trail is insufficient
 
 ### 3.2 Existing models to reuse
@@ -236,6 +262,9 @@
 - `classify_repeat_vs_reactivation`
 - `build_radar_payload`
 - `build_salary_simulation_payload`
+- `build_client_timeline_payload`
+- `build_admin_economics_payload`
+- optional `build_dtf_read_only_payload`
 
 ## 5. Command backlog
 - `compute_nightly_scores`
@@ -255,6 +284,9 @@
 - rescue-load cap / `DQ grace` state
 - portfolio health summary
 - earned day explanation
+- client communication timeline
+- no-touch report confirm
+- mobile action sheet / bottom-nav-safe flows
 
 ### 6.2 Admin UI
 - readiness registry surface
@@ -264,6 +296,9 @@
 - admin economics panel
 - score confidence labels
 - telephony / QA review queue
+- break-even / payback / forecast cards
+- team heatmap
+- optional DTF read-only dashboard
 
 ## 7. Dependency order
 1. safety fields and status layers
@@ -274,6 +309,7 @@
 6. telephony prep
 7. telephony and QA soft launch
 8. validation and calibration
+9. optional DTF read-only bridge
 
 ## 8. What counts as implementation error
 - реализовать high-risk formulas без phase guards;

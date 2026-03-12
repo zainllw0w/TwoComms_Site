@@ -41,6 +41,7 @@
 | `6` | Telephony preparation | 3-5 дней |
 | `7` | Telephony + QA soft launch | 5-8 дней |
 | `8` | Validation / calibration / expansion | после накопления данных |
+| `9` | Optional DTF read-only bridge | 2-4 дня |
 
 Оценка дана для focus-mode single developer без крупных внешних blockers.
 
@@ -138,6 +139,8 @@
 - rescue top-5 by `Expected LTV Loss`;
 - scaled `SPIFF` cue (`500-2000 грн`) в rescue surfaces;
 - capacity guard `max 3 rescue-leads/day` + `DQ grace`;
+- client communication timeline;
+- explicit mobile-first action shell for manager-critical flows;
 - score confidence labels;
 - hold-harmless indicator in shadow simulator;
 - readiness badges;
@@ -151,6 +154,7 @@
 ### 9.3 Acceptance
 - manager видит action-first surfaces;
 - admin видит control-center surfaces;
+- mobile usage no longer degrades callback/report discipline;
 - rescue UI остаётся low-noise и не создаёт second overload queue;
 - shadow labels понятны и не masquerade as final payroll truth.
 
@@ -160,10 +164,13 @@
 - soft-floor logic для repeat commission;
 - `repeat` vs `reactivation` split with `180-day` cutoff;
 - verified rescue attribution and scaled `SPIFF` payout flow;
+- commission dispute workflow;
+- optional weighted attribution only as admin-approved exception;
 - phase-aware DMT;
 - Earned Day ledger;
 - weekend / excused / tech failure handling;
-- payout decomposition improvements.
+- payout decomposition improvements;
+- gross/net preview only where underlying payroll math supports it without fake precision.
 
 ### 10.2 Code anchors
 - `management/models.py`
@@ -198,6 +205,10 @@
 - provider webhook activation;
 - mapping call -> client;
 - QA review queue;
+- recording retention / legal hold policy;
+- supervisor action log (`monitor / whisper / barge`);
+- Call Competency Profile surface;
+- QA reliability thresholds and calibration tracking;
 - diagnostic trust and supervisor surfaces.
 
 ### 12.2 Ограничение
@@ -206,6 +217,7 @@
 ### 12.3 Acceptance
 - data is visible and useful;
 - QA is calibrated enough for coaching;
+- supervisor actions and recordings are audit-safe;
 - `VerifiedCommunication` can move from `DORMANT` to `SHADOW`, and only then later to `ACTIVE`.
 
 ## 13. Phase 8: Validation and calibration
@@ -226,7 +238,28 @@
 - seasonality reconsideration;
 - wider MOSAIC participation in production decisions.
 
-## 14. Shadow mode правила
+## 14. Phase 9: Optional DTF read-only bridge
+
+### 14.1 Когда имеет смысл
+Только после стабилизации wholesale-core phases.
+
+DTF bridge не должен:
+- блокировать core management rollout;
+- смешивать DTF metrics в wholesale payroll/score truth;
+- превращаться в скрытую cross-domain dependency первой фазы.
+
+### 14.2 Что сделать
+- отдельная DTF read-only вкладка или cards;
+- read-only health metrics and status drilldown;
+- separate adapter to `dtf` context without metric mixing;
+- explicit label that this is adjacent visibility, not wholesale manager score input.
+
+### 14.3 Acceptance
+- DTF visible where useful;
+- wholesale logic not polluted by DTF numbers;
+- integration remains optional and reversible.
+
+## 15. Shadow mode правила
 - минимальная длительность shadow mode: `6-8 недель` для score-sensitive логики;
 - в течение shadow mode admin обязан видеть расхождения `KPD vs MOSAIC`;
 - в salary simulator shadow mode должен быть `hold harmless`: если новая система дала бы менеджеру больше, разница видна и может выплачиваться как отдельный bonus delta;
@@ -234,31 +267,32 @@
 - суммарная дополнительная нагрузка на менеджера от нового контура не должна превышать `+10%`, иначе rollout считается UX/process regression;
 - до окончания shadow mode нельзя использовать MOSAIC как единственную payroll-истину.
 
-## 15. Rollback и freeze criteria
+## 16. Rollback и freeze criteria
 
-### 15.1 Rollback triggers
+### 16.1 Rollback triggers
 - snapshots inconsistent;
 - huge unexplained divergence between KPD and shadow MOSAIC;
 - payout math unclear;
 - reminder storm or duplicate chaos;
 - telephony ingestion corrupts main flows.
 
-### 15.2 Что делать при rollback
+### 16.2 Что делать при rollback
 - переводить новый компонент в `SHADOW` или `DORMANT`;
 - сохранять данные и audit trail;
 - не откатывать вслепую verified financial truth.
 
-## 16. Success metrics по фазам
+## 17. Success metrics по фазам
 - Phase 1: test and non-test data cleanly separated.
 - Phase 2: duplicate creation rate drops, reminder noise stays controlled.
 - Phase 3: shadow score is reproducible and explainable.
 - Phase 4: manager/admin can use new surfaces without workflow regression.
 - Phase 5: payout logic remains stable and understandable.
 - Phase 6-7: telephony starts adding evidence, not instability.
+- Phase 9: DTF visibility arrives without metric contamination.
 
-## 17. Приземление в текущий код
+## 18. Приземление в текущий код
 
-### 17.1 Основные зоны
+### 18.1 Основные зоны
 - `management/models.py`
 - `management/stats_service.py`
 - `management/stats_views.py`
@@ -266,9 +300,11 @@
 - `management/urls.py`
 - `management/templates/management/*.html`
 - `management/management/commands/`
+- optional `twocomms/dtf/*` read-only bridge points
 
-### 17.2 Что roadmap explicitly запрещает
+### 18.2 Что roadmap explicitly запрещает
 - запрещает first-phase dependency на Celery/Redis;
 - запрещает запускать validation раньше времени;
 - запрещает включать DORMANT-компоненты как источник production punishment;
-- запрещает смешивать shadow analytics и payroll truth без отдельного gate.
+- запрещает смешивать shadow analytics и payroll truth без отдельного gate;
+- запрещает смешивать DTF и wholesale score в одну money-sensitive truth table.

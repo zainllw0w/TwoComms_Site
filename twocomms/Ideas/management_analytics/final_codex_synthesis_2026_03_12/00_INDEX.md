@@ -28,6 +28,7 @@
 16. `19_MANAGEMENT_CODEBASE_ALIGNMENT_MAP.md`
 17. `20_SECOND_PASS_AUDIT_2026_03_12.md`
 18. `21_THIRD_PASS_AUDIT_2026_03_12.md`
+19. `22_LEGACY_FINAL_CODEX_REGRESSION_AUDIT_2026_03_13.md`
 
 ## Что остаётся reference-слоем
 Следующие файлы намеренно сохранены для полноты контекста, но не должны перевешивать authoritative docs:
@@ -74,6 +75,7 @@
 14. `15_ADMIN_ECONOMICS_AND_EARNED_DAY.md`
 15. `18_PACKAGE_CHANGELOG_2026_03_12.md`
 16. `21_THIRD_PASS_AUDIT_2026_03_12.md`
+17. `22_LEGACY_FINAL_CODEX_REGRESSION_AUDIT_2026_03_13.md`
 
 ## Карта файлов
 - `01_MASTER_SYNTHESIS.md` — единое описание того, что сохраняем, что меняем и почему.
@@ -94,6 +96,7 @@
 - `19_MANAGEMENT_CODEBASE_ALIGNMENT_MAP.md` — срез текущей кодовой базы management и ожидаемых точек будущего внедрения.
 - `20_SECOND_PASS_AUDIT_2026_03_12.md` — второй аудит пакета: что было найдено как недоинтегрированное и как это было дозакрыто.
 - `21_THIRD_PASS_AUDIT_2026_03_12.md` — третий аудит пакета: финальная проверка против `§37.1/§37.5` и скрытых semantic losses.
+- `22_LEGACY_FINAL_CODEX_REGRESSION_AUDIT_2026_03_13.md` — обратная сверка с baseline-папкой и git-history, чтобы убедиться, что при переписывании пакета не потерялись legacy-идеи, которые не были сознательно заменены лучшими решениями.
 
 ## Ground Truth по текущему коду
 Реальный `management` уже даёт достаточный фундамент:
