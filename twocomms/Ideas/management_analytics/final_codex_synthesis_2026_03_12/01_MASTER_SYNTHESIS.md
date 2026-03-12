@@ -35,6 +35,7 @@
 Финальные принципы:
 - `MOSAIC` остаётся общей рамкой;
 - `Result` реализуется через `EWR`, а не через плоское "orders / expected";
+- shadow/admin churn для portfolio и rescue считается через `Weibull`, а не через линейную панику, с logistic fallback при низкой истории;
 - `Trust` разделяется на `production` и `diagnostic`;
 - DORMANT-компоненты не штрафуют менеджера;
 - gates, dampener, onboarding, weekends, excused days и single-manager mode задаются явно, а не имплицитно.
@@ -60,6 +61,7 @@ UI перестаёт быть просто витриной красивых и
 Финальная UX-концепция:
 - сохранить сильное текущее ядро `stats.html` и `admin.html`;
 - поверх него добавить `Radar`, `Salary Simulator`, `Top-5 rescue`, `Golden Hour`, explainable advice и admin control center;
+- rescue-widget ограничивается `Top-5`, показывает scaled `SPIFF` и не должен перегружать менеджера более чем `3` rescue-leads/day;
 - любые copy-штрафы переводятся в recovery-first framing;
 - manager должен видеть action surfaces, а не просто историю своих провалов.
 
@@ -72,6 +74,7 @@ UI перестаёт быть просто витриной красивых и
 | MOSAIC weights | `40 / 10 / 20 / 10 / 10 / 10` с phase-aware redistribution |
 | Trust | `production` clamp `[0.85, 1.05]` + `diagnostic` 90-day trend |
 | Payroll safety | `Soft Floor Cap`, а не cliff |
+| Portfolio churn | `Weibull + logistic fallback + planned-gap guard` |
 | Follow-up discipline | neutral при `0 due`, `MAX_FOLLOWUPS_PER_DAY`, ladder escalation |
 | Dedup | `SequenceMatcher`, `phone_last7`, review queues |
 | Change management | `Component Readiness Registry` + `Shadow Mode` |
@@ -86,7 +89,7 @@ UI перестаёт быть просто витриной красивых и
 | Bayesian / Beta logic | diagnostic trend | не используем как production multiplier при текущем N |
 | Omni-touch | Phase 0 proxy через CRM + messenger/email | не делаем главным источником commission-truth |
 | Seasonality | архитектуру и поля | не активируем до накопления реальных 12+ месяцев данных |
-| Top-5 gamification | rescue focus, SPIFF, micro-feedback | без humiliating leaderboard и без punitive UI |
+| Top-5 gamification | rescue focus, scaled `SPIFF (500-2000 грн)`, micro-feedback | без humiliating leaderboard, без punitive UI и без перегруза rescue-pool |
 
 ## 6. Что сознательно отклоняем
 - любую архитектуру, где отсутствие компонента автоматически снижает score;

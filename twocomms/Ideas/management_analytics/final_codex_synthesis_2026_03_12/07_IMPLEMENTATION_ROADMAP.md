@@ -107,6 +107,8 @@
 
 ### 8.1 Сделать
 - реализовать `EWR`;
+- реализовать shadow `Weibull` churn + logistic fallback + planned-gap guard;
+- добавить admin/shadow `Wilson` conversion diagnostic;
 - собрать new axis payloads;
 - ввести `Component Readiness Registry`;
 - считать shadow MOSAIC рядом с текущим KPD;
@@ -118,9 +120,13 @@
 - `python manage.py send_management_reminders`
 - `python manage.py check_duplicate_queue`
 
+Нормативная cadence для snapshot-команды:
+- nightly cron target = `0 2 * * *` по server time, если инфраструктура не потребует другого окна.
+
 ### 8.3 Acceptance
 - текущий production UI не сломан;
 - admin может сравнить current KPD и shadow MOSAIC;
+- heavy diagnostics (`Weibull`, `Wilson`) считаются повторяемо и explainably;
 - snapshots сохраняются повторяемо и объяснимо.
 
 ## 9. Phase 4: Manager/Admin UX surfaces
@@ -130,6 +136,8 @@
 - shadow MOSAIC decomposition;
 - salary simulator;
 - rescue top-5 by `Expected LTV Loss`;
+- scaled `SPIFF` cue (`500-2000 грн`) в rescue surfaces;
+- capacity guard `max 3 rescue-leads/day` + `DQ grace`;
 - score confidence labels;
 - hold-harmless indicator in shadow simulator;
 - readiness badges;
@@ -143,6 +151,7 @@
 ### 9.3 Acceptance
 - manager видит action-first surfaces;
 - admin видит control-center surfaces;
+- rescue UI остаётся low-noise и не создаёт second overload queue;
 - shadow labels понятны и не masquerade as final payroll truth.
 
 ## 10. Phase 5: Payroll-safe rollout and Earned Day
@@ -150,6 +159,7 @@
 ### 10.1 Сделать
 - soft-floor logic для repeat commission;
 - `repeat` vs `reactivation` split with `180-day` cutoff;
+- verified rescue attribution and scaled `SPIFF` payout flow;
 - phase-aware DMT;
 - Earned Day ledger;
 - weekend / excused / tech failure handling;
@@ -220,6 +230,8 @@
 - минимальная длительность shadow mode: `6-8 недель` для score-sensitive логики;
 - в течение shadow mode admin обязан видеть расхождения `KPD vs MOSAIC`;
 - в salary simulator shadow mode должен быть `hold harmless`: если новая система дала бы менеджеру больше, разница видна и может выплачиваться как отдельный bonus delta;
+- bi-weekly DICE checkpoint обязателен для review rollout-состояния;
+- суммарная дополнительная нагрузка на менеджера от нового контура не должна превышать `+10%`, иначе rollout считается UX/process regression;
 - до окончания shadow mode нельзя использовать MOSAIC как единственную payroll-истину.
 
 ## 15. Rollback и freeze criteria

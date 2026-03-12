@@ -165,6 +165,17 @@
 | `MIN_HEALTH_DAYS_FLOOR_WATCH` | `14` |
 | `MIN_HEALTH_DAYS_FLOOR_RISK` | `21` |
 
+### 14.3 Churn / rescue defaults
+
+| Константа | Значение |
+|---|---:|
+| `CHURN_WEIBULL_MIN_ORDERS` | `5` |
+| `CHURN_LOGISTIC_FALLBACK_K` | `3.0` |
+| `CHURN_LAMBDA_STD_FACTOR` | `0.5` |
+| `CHURN_K_MIN` | `1.0` |
+| `CHURN_K_CAP` | `10.0` |
+| `CHURN_PLANNED_GAP_SCORE` | `0.05` |
+
 ## 15. Payroll safety defaults
 
 | Константа | Значение |
@@ -173,7 +184,16 @@
 | `SOFT_FLOOR_RATE_SHORTFALL_1` | `4.5%` |
 | `SOFT_FLOOR_RATE_SHORTFALL_2PLUS` | `3.5%` |
 
-### 15.1 Accelerator defaults
+### 15.1 Rescue SPIFF defaults
+
+| Константа | Значение |
+|---|---:|
+| `RESCUE_SPIFF_FLOOR` | `500` грн |
+| `RESCUE_SPIFF_RATE` | `1.0%` |
+| `RESCUE_SPIFF_CAP` | `2_000` грн |
+| `RESCUE_POOL_MAX_PER_DAY` | `3` |
+
+### 15.2 Accelerator defaults
 
 | Константа | Значение |
 |---|---:|
@@ -194,6 +214,7 @@
 | `EWMA_ACCELERATED_HALF_LIFE_DAYS` | `10` |
 | `EWMA_DECAY_GUARD_RATIO` | `0.30` |
 | `EWMA_LAMBDA_FLOOR` | `0.05` |
+| `WILSON_Z_90` | `1.645` |
 | `MIN_MANAGERS_FOR_VALIDATION` | `3` |
 | `MIN_DAYS_FOR_VALIDATION` | `60` |
 | `VALIDATION_CV_R2_LOW` | `0.05` |

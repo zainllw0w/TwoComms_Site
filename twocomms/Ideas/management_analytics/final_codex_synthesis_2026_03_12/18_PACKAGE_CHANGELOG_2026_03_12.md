@@ -42,6 +42,7 @@
 - `18_PACKAGE_CHANGELOG_2026_03_12.md`
 - `19_MANAGEMENT_CODEBASE_ALIGNMENT_MAP.md`
 - `20_SECOND_PASS_AUDIT_2026_03_12.md`
+- `21_THIRD_PASS_AUDIT_2026_03_12.md`
 
 ## Ключевые смысловые дельты
 
@@ -104,6 +105,14 @@
 - Radar выровнен по authoritative MOSAIC axes, а не по альтернативному coaching-profile набору;
 - добавлены confidence labels, hold-harmless shadow rule и более точный validation protocol;
 - расширены guardrails вокруг `Force Majeure`, `FileBasedCache` и day-status semantics.
+
+## Дополнительный hardening после третьего аудита
+- authoritative docs теперь явно фиксируют `Weibull` churn как primary rescue/portfolio model с logistic fallback для `<5` заказов, planned-gap guard и `k`-cap;
+- возвращён `Wilson` conversion diagnostic как admin/shadow metric, чтобы не терять conservative small-sample validation рядом с `EWR`;
+- `Top-5 rescue` больше не держится на неявном `P(churn)`: добавлены scaled `SPIFF (500-2000 грн)` и guard `max 3 rescue-leads/day + DQ grace`;
+- anti-gaming rate limit смягчён до production-safe semantics: action записывается в CRM, но перестаёт приносить score-credit;
+- shadow rollout теперь удерживает явные DICE guardrails и waterfall explainability contract;
+- traceability, backlog и codebase alignment обновлены так, чтобы эти элементы больше не выпадали между docs и будущим implementation planning.
 
 ## Как использовать этот changelog
 - Если нужно быстро понять, что изменилось глобально, читай этот файл.

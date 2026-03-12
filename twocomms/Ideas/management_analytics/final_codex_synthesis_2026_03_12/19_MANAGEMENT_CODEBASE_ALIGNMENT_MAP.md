@@ -26,7 +26,7 @@
 
 | Файл | Что уже есть | Что вероятно добавится |
 |---|---|---|
-| `stats_service.py` | KPD, advice, source smoothing, follow-up stats | EWR, shadow MOSAIC, trust, radar payload, snapshot payload |
+| `stats_service.py` | KPD, advice, source smoothing, follow-up stats | `EWR`, shadow MOSAIC, `Weibull` churn, `Wilson` diagnostic, rescue ranking payload, snapshot payload |
 | `lead_services.py` | lead/points helpers | source cleanup, dedupe support, website copy from leads |
 
 ### 2.3 Views and endpoints
@@ -43,7 +43,7 @@
 
 | Файл | Что уже есть | Что вероятно добавится |
 |---|---|---|
-| `templates/management/stats.html` | hero, spiral, KPI cards, follow-ups, advice | Radar, shadow decomposition, rescue/top-5, salary simulator |
+| `templates/management/stats.html` | hero, spiral, KPI cards, follow-ups, advice | Radar, shadow decomposition, rescue/top-5, scaled `SPIFF` cue, salary simulator |
 | `templates/management/admin.html` | admin overview and payout blocks | readiness registry, duplicate review, freeze/review controls, admin economics |
 | `templates/management/base.html` | shell and layout | new navigation/state badges if needed |
 | `templates/management/payouts.html` | payout views | clearer accrual decomposition |
@@ -59,6 +59,8 @@
 - `send_management_reminders`
 - `check_duplicate_queue`
 - `process_telephony_webhooks`
+
+`compute_nightly_scores` должен быть точкой, где тяжёлые `Weibull` / `Wilson` вычисления складываются в snapshot, а дневной UI читает уже готовый результат.
 
 ## 3. Where each big subsystem lands
 
@@ -86,6 +88,8 @@
 ## 4. Known codebase constraints
 - `views.py` already carries a lot of responsibility, so future planning should avoid making it an even larger god file;
 - stats payload construction is already non-trivial, so new analytics should be added carefully, ideally through dedicated helpers;
+- current manager UI is still `KPD`-shaped, so `MOSAIC/EWR` insertion needs payload versioning / compatibility bridge instead of abrupt contract swap;
+- telephony should be treated as a new ingress/reconciliation subsystem, not as a tiny extension of current management routes;
 - manager/admin templates already contain meaningful UI structure, so replacement should be incremental.
 
 ## 5. Safe insertion strategy

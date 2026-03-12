@@ -216,6 +216,33 @@ def compute_result_with_decay_guard(rolling_values: list[float], half_life: int 
 - не делает score дёрганым на коротком окне;
 - но и не позволяет долго жить на старом высоком результате при резком свежем проседании.
 
+### 7.5 Wilson conversion diagnostic
+`EWR` остаётся основным Result-signal. Но admin/shadow слой должен хранить более консервативный conversion diagnostic, чтобы не переоценивать lucky small samples.
+
+```python
+def compute_conversion_kpi_wilson(
+    orders: int,
+    total_contacts: int,
+    *,
+    baseline_conversion: float = 0.0248,
+    z: float = 1.645,
+) -> float:
+    n = max(1, total_contacts)
+    p_hat = orders / n
+
+    denominator = 1 + z**2 / n
+    center = p_hat + z**2 / (2 * n)
+    spread = z * math.sqrt(p_hat * (1 - p_hat) / n + z**2 / (4 * n**2))
+
+    wilson_lower = max(0.0, (center - spread) / denominator)
+    return round(min(2.0, wilson_lower / max(0.001, baseline_conversion)), 4)
+```
+
+Правила:
+- это admin-only / validation metric, а не замена `EWR`;
+- он хранится в nightly snapshots рядом с `EWR`, чтобы ловить cases of luck and overconfidence;
+- payroll-safe Result по-прежнему опирается на `EWR`, пока validation не докажет иное.
+
 ## 8. SourceFairness v2
 
 ### 8.1 Назначение
@@ -359,6 +386,14 @@ def compute_trust_production(
 - может использовать Beta/ratio-style trend;
 - не влияет на деньги напрямую.
 
+### 13.3 Alert -> review -> sanction
+Production trust не должен автоматически реагировать на одиночный noisy signal.
+
+Правила интерпретации:
+- single duplicate/anomaly signal -> admin alert, но не automatic trust drop;
+- `duplicate_abuse` и `anomaly_penalty` разрешено превращать в production impact только при critical repeat pattern и достаточном `N`;
+- до этого такие события живут в `trust_diagnostic` / review queue, а не в punitive autopilot.
+
 ## 14. Gate model
 
 ### 14.1 Финальные уровни current phase
@@ -416,6 +451,41 @@ def compute_dampener_final(process_val: float, followup_val: float, dq_val: floa
 - `MIN_DAYS_FOR_EWMA = 42`;
 - `MIN_ORDERS_INDIVIDUAL = 5`;
 - seasonality stays `DORMANT` until real calibration.
+
+### 16.5 Portfolio churn signal for shadow/admin
+Для portfolio-risk, rescue ranking и retention analytics authoritative пакет фиксирует явную churn-модель, чтобы `P(churn)` не оставался неявной заглушкой.
+
+```python
+def compute_churn_weibull(
+    days_since_last_order: int,
+    avg_interval: float,
+    std_interval: float,
+    order_count: int,
+    *,
+    expected_next_order: int | None = None,
+) -> float:
+    if expected_next_order is not None and days_since_last_order < expected_next_order:
+        return 0.05  # planned gap, not real churn
+
+    if order_count < 5:
+        if avg_interval <= 0:
+            return 0.5
+        k_logistic = 3.0
+        logistic = 1 / (1 + math.exp(-k_logistic * (days_since_last_order - avg_interval) / avg_interval))
+        return round(min(1.0, max(0.0, logistic)), 4)
+
+    lambda_param = avg_interval + 0.5 * max(1.0, std_interval)
+    k_param = min(10.0, max(1.0, avg_interval / max(1.0, std_interval)))
+    churn = 1 - math.exp(-pow(days_since_last_order / max(1.0, lambda_param), k_param))
+    return round(min(1.0, max(0.0, churn)), 4)
+```
+
+Инварианты:
+- `Weibull` — primary churn model для клиентов с `>=5` заказами;
+- при `<5` заказах действует logistic fallback, а не fake precision;
+- `expected_next_order` / planned gap обязаны снижать churn до near-neutral state;
+- `k` капируется на `10.0`, чтобы не получить overflow и ложную математическую "уверенность";
+- этот signal разрешён для `portfolio_bonus`, `Expected LTV Loss`, rescue/admin surfaces и nightly validation, но не как прямой punitive payroll trigger до отдельной validation phase.
 
 ## 17. Shadow rollout
 - manager UI может видеть decomposition, Radar preview и recovery hints;
