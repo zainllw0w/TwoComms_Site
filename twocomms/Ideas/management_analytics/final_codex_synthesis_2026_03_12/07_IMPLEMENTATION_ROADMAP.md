@@ -64,6 +64,7 @@
 - добавить `is_test` на `Client`;
 - добавить или подготовить `DayStatus` / day-ledger layer с раздельными `WORKING / WEEKEND / HOLIDAY / VACATION / SICK / TECH_FAILURE / FORCE_MAJEURE`;
 - добавить `ForceMajeureEvent` как отдельную системную сущность, которая накладывает exemption window на day-ledger;
+- добавить `ScoreAppeal` / appeal-log layer для scoring, payout и data-integrity disputes;
 - подготовить `Client Snooze`;
 - подготовить `NightlyScoreSnapshot`;
 - подготовить `ScoreAuditLog` / formula-change audit layer;
@@ -85,6 +86,7 @@
 ### 7.1 Сделать
 - fuzzy duplicate warnings;
 - review queue / dispute-friendly flow;
+- ownership change audit log;
 - `MAX_FOLLOWUPS_PER_DAY`;
 - reminder dedupe keys;
 - FileBasedCache rate limiting;
@@ -110,6 +112,7 @@
 - реализовать `EWR`;
 - реализовать shadow `Weibull` churn + logistic fallback + planned-gap guard;
 - добавить admin/shadow `Wilson` conversion diagnostic;
+- зафиксировать onboarding floor decay semantics в score computation и defaults registry;
 - собрать new axis payloads;
 - ввести `Component Readiness Registry`;
 - считать shadow MOSAIC рядом с текущим KPD;
@@ -141,6 +144,7 @@
 - capacity guard `max 3 rescue-leads/day` + `DQ grace`;
 - client communication timeline;
 - explicit mobile-first action shell for manager-critical flows;
+- appeal CTA near score-sensitive and payout-sensitive surfaces;
 - score confidence labels;
 - hold-harmless indicator in shadow simulator;
 - readiness badges;
@@ -168,6 +172,7 @@
 - optional weighted attribution only as admin-approved exception;
 - phase-aware DMT;
 - Earned Day ledger;
+- scoring / payout / data-integrity appeal workflow;
 - weekend / excused / tech failure handling;
 - payout decomposition improvements;
 - gross/net preview only where underlying payroll math supports it without fake precision.
@@ -236,6 +241,7 @@
 - source baseline recalibration;
 - anti-gaming activation;
 - seasonality reconsideration;
+- optional admin-only workload consistency diagnostics, if explicitly disclosed and kept out of payroll truth;
 - wider MOSAIC participation in production decisions.
 
 ## 14. Phase 9: Optional DTF read-only bridge

@@ -175,6 +175,19 @@ Radar:
 
 Обе поверхности могут сосуществовать в переходном периоде.
 
+### 5.6 Correctability / appeal affordance
+Explainability без correctability остаётся половиной решения.
+
+Manager-facing правило:
+- рядом с score-sensitive decline, payout-sensitive adjustment или QA-sensitive review должен быть явный `Appeal / Оспорить`;
+- appeal CTA не показывается для purely informative cards без consequence layer;
+- лимит по scoring appeals живёт через weekly guard, но valid appeal возвращает слот обратно.
+
+Admin-facing правило:
+- appeal должен открывать evidence-first review drawer, а не свободный текстовый хаос;
+- результат фиксируется как `confirm / adjust / reject`;
+- appeal history остаётся видимой в audit trail и не исчезает после resolution.
+
 ## 6. Advice surfaces
 
 ### 6.1 Recovery-first copy

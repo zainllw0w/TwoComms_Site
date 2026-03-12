@@ -29,6 +29,7 @@
 17. `20_SECOND_PASS_AUDIT_2026_03_12.md`
 18. `21_THIRD_PASS_AUDIT_2026_03_12.md`
 19. `22_LEGACY_FINAL_CODEX_REGRESSION_AUDIT_2026_03_13.md`
+20. `23_FINAL_SOURCE_ALIGNMENT_AUDIT_2026_03_13.md`
 
 ## Что остаётся reference-слоем
 Следующие файлы намеренно сохранены для полноты контекста, но не должны перевешивать authoritative docs:
@@ -76,6 +77,7 @@
 15. `18_PACKAGE_CHANGELOG_2026_03_12.md`
 16. `21_THIRD_PASS_AUDIT_2026_03_12.md`
 17. `22_LEGACY_FINAL_CODEX_REGRESSION_AUDIT_2026_03_13.md`
+18. `23_FINAL_SOURCE_ALIGNMENT_AUDIT_2026_03_13.md`
 
 ## Карта файлов
 - `01_MASTER_SYNTHESIS.md` — единое описание того, что сохраняем, что меняем и почему.
@@ -97,6 +99,7 @@
 - `20_SECOND_PASS_AUDIT_2026_03_12.md` — второй аудит пакета: что было найдено как недоинтегрированное и как это было дозакрыто.
 - `21_THIRD_PASS_AUDIT_2026_03_12.md` — третий аудит пакета: финальная проверка против `§37.1/§37.5` и скрытых semantic losses.
 - `22_LEGACY_FINAL_CODEX_REGRESSION_AUDIT_2026_03_13.md` — обратная сверка с baseline-папкой и git-history, чтобы убедиться, что при переписывании пакета не потерялись legacy-идеи, которые не были сознательно заменены лучшими решениями.
+- `23_FINAL_SOURCE_ALIGNMENT_AUDIT_2026_03_13.md` — финальная сверка уже не с legacy-пакетом, а с верхними source-of-truth документами `COMPREHENSIVE_REPORT_2026-03-12` и `INTEGRATION_PLAN_FOR_CODEX_SYNTHESIS`, включая последние точечные усиления authoritative слоя.
 
 ## Ground Truth по текущему коду
 Реальный `management` уже даёт достаточный фундамент:
