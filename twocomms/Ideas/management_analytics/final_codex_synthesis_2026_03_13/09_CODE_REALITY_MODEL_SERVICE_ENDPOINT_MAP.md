@@ -103,6 +103,15 @@ Canonical implication:
 - CP send/failure and communication evidence can feed process/proxy communication logic;
 - no need to invent a fresh communication log from zero.
 
+### Existing advice infrastructure
+
+Already present through current advice generation and dismissal mechanics.
+
+Canonical implication:
+- extend `generate_advice()` semantics instead of creating a parallel tips engine;
+- reuse `ManagementStatsAdviceDismissal` for cooldown/dismiss logic;
+- preserve existing advice families like source comparison, shop health and follow-up discipline as the base layer, then add MOSAIC-aware cards on top.
+
 ## Existing Risks And Gotchas
 
 1. `points_override` exists and can create transition inconsistency if ignored.
@@ -110,6 +119,7 @@ Canonical implication:
 3. `normalize_phone()` is limited in scope; treat it as current implementation reality.
 4. current stats payload uses cache with a short TTL, so snapshot-vs-live semantics must be explicit.
 5. `WholesaleInvoice` integrations already exist and may fail soft if dependency unavailable.
+6. existing advice and dismissal logic can be accidentally duplicated if the implementation file treats tips as a new subsystem.
 
 ## Endpoint And Template Landing
 

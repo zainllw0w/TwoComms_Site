@@ -42,6 +42,7 @@ That created three recurring risks:
 ### 4. Implementation hardening
 
 - added testing strategy;
+- restored single-source defaults registry convenience;
 - added migration/governance/job contract;
 - added implementation blueprint;
 - added dedicated handoff brief.

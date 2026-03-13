@@ -27,7 +27,7 @@
 | `final_codex_synthesis_2026_03_12/09_RESEARCH_QUESTIONS_FOR_DEEP_AGENT.md` | `reference only` | `16`, `17` | research brief, not direct spec |
 | `final_codex_synthesis_2026_03_12/10_SOURCE_MAP_AND_EXTERNAL_BEST_PRACTICES.md` | `partially absorbed` | `00`, `02`, `17` | source hierarchy preserved, external patterns not copied verbatim |
 | `final_codex_synthesis_2026_03_12/11_PRODUCT_BACKLOG_FOR_MANAGEMENT_SUBDOMAIN.md` | `fully absorbed` | `09`, `10`, `13`, `14`, `16` | module backlog and code landing |
-| `final_codex_synthesis_2026_03_12/12_CALIBRATION_DEFAULTS_AND_PRESETS.md` | `fully absorbed` | `03`, `04`, `08`, `10`, `13`, `16` | defaults and thresholds normalized into contracts |
+| `final_codex_synthesis_2026_03_12/12_CALIBRATION_DEFAULTS_AND_PRESETS.md` | `fully absorbed` | `03`, `03A`, `04`, `08`, `10`, `13`, `16` | defaults and thresholds normalized into contracts and single-source registry |
 | `final_codex_synthesis_2026_03_12/13_CROSS_SYSTEM_GUARDRAILS.md` | `fully absorbed` | `02`, `10`, `11`, `12`, `13` | incidents, stale policy, governance rules |
 | `final_codex_synthesis_2026_03_12/14_OPUS_SECOND_PASS_DECISION_LOG.md` | `partially absorbed` | `16`, `17` | decision history preserved as distilled outcomes |
 | `final_codex_synthesis_2026_03_12/15_ADMIN_ECONOMICS_AND_EARNED_DAY.md` | `fully absorbed` | `04`, `07`, `08`, `13`, `16` | admin economics, earned day, validation |
@@ -56,7 +56,7 @@
 | `reports/i1/antigravity_mosaic_improvements_analysis.md` | `partially absorbed` | `01`, `17` | impact framing and top-value summary |
 | `reports/i1/gemini_2.5_pro_deep_analysis_report.md` | `partially absorbed` | `03`, `04`, `05`, `06`, `08`, `16`, `17` | formula/fairness interpretation layer |
 | `reports/i1/gemini_2.5_pro_implementation_architecture_diagrams.md` | `partially absorbed` | `02`, `09`, `13`, `14` | architectural and dependency insights translated to text |
-| `reports/i1/gemini_2.5_pro_implementation_helper.md` | `fully absorbed` | `03`, `09`, `10`, `12`, `13`, `14`, `16` | code map, formulas, gotchas, test and migration guidance |
+| `reports/i1/gemini_2.5_pro_implementation_helper.md` | `fully absorbed` | `03`, `03A`, `09`, `10`, `12`, `13`, `14`, `16` | code map, formulas, gotchas, defaults, test and migration guidance |
 | `reports/i1/gemini_2.5_pro_implementation_readiness_audit.md` | `fully absorbed` | `10`, `12`, `13`, `14`, `16` | blockers, contracts, testing, migration, ops safety |
 | `reports/i1/gemini_2.5_pro_code_reality_cross_audit.md` | `fully absorbed` | `01`, `03`, `04`, `07`, `09`, `13`, `14`, `16`, `17` | existing systems and no-duplication constraints |
 

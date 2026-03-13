@@ -9,14 +9,16 @@ This brief is for the next agent that will generate the single implementation fi
 1. `00_INDEX_AND_AUTHORITY_MANIFEST.md`
 2. `01_EXECUTIVE_CANONICAL_SYNTHESIS.md`
 3. `02_SYSTEM_ARCHITECTURE_AND_INVARIANTS.md`
-4. `03`-`08` thematic files
-5. `09_CODE_REALITY_MODEL_SERVICE_ENDPOINT_MAP.md`
-6. `10_GOVERNANCE_DATA_MODEL_JOBS_ROLLOUT.md`
-7. `11_EDGE_CASES_FAILURE_MODES_AND_SCENARIOS.md`
-8. `12_TEST_STRATEGY_VALIDATION_ACCEPTANCE.md`
-9. `13_IMPLEMENTATION_BLUEPRINT_AND_DEPENDENCY_ORDER.md`
-10. `15_TRACEABILITY_MATRIX_AND_SOURCE_COVERAGE.md`
-11. `16_DECISION_LOG_REJECTED_IDEAS_AND_BACKLOG.md`
+4. `03_SCORE_MOSAIC_EWR_CONFIDENCE.md`
+5. `03A_CANONICAL_DEFAULTS_REGISTRY.md`
+6. `04`-`08` thematic files
+7. `09_CODE_REALITY_MODEL_SERVICE_ENDPOINT_MAP.md`
+8. `10_GOVERNANCE_DATA_MODEL_JOBS_ROLLOUT.md`
+9. `11_EDGE_CASES_FAILURE_MODES_AND_SCENARIOS.md`
+10. `12_TEST_STRATEGY_VALIDATION_ACCEPTANCE.md`
+11. `13_IMPLEMENTATION_BLUEPRINT_AND_DEPENDENCY_ORDER.md`
+12. `15_TRACEABILITY_MATRIX_AND_SOURCE_COVERAGE.md`
+13. `16_DECISION_LOG_REJECTED_IDEAS_AND_BACKLOG.md`
 
 ## Required Mindset
 
@@ -48,7 +50,8 @@ The implementation file should contain:
 5. Telegram admin patterns already exist.
 6. `points_override` exists and needs transition semantics.
 7. `xml_connected` drift must be resolved deliberately.
-8. `views.py` and `stats_service.py` are already large and need decomposition planning.
+8. current advice generator and dismissal flow already exist and must be extended, not rebuilt.
+9. `views.py` and `stats_service.py` are already large and need decomposition planning.
 
 ## Mandatory Separation Rules
 

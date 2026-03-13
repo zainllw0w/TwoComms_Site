@@ -127,8 +127,20 @@ def compute_repeat_commission(
 - planned gap and snooze;
 - churn probability where history is sufficient;
 - shop health and stale shop signals;
+- overdue test-shop signals;
+- test-to-full conversion as retained relationship evidence;
 - successful reactivation trail;
 - rescue actionability and load state.
+
+### Shop lifecycle carryover contract
+
+The existing shop subsystem must not disappear during implementation.
+
+Required treatment:
+- `stale_shops_count` and overdue test signals are `authoritative` portfolio-health inputs;
+- `tests_converted_total` is mandatory retained business evidence and must survive the transition;
+- `test-to-full conversion` may be used as `shadow/admin-only` result/process carryover until validated for broader score consequence;
+- live portfolio ownership must use `Shop.managed_by`, not `Shop.created_by`.
 
 ### Planned gap / snooze contract
 
@@ -229,6 +241,7 @@ Gap categories must be split:
 - add `ManagerDayStatus` or equivalent ledger;
 - add `ScoreAppeal` or aligned workflow model;
 - extend existing payout/admin views instead of parallel rewrite;
+- preserve shop-health/test-conversion computation path instead of replacing it with generic retention placeholders;
 - connect portfolio, rescue and payout logic through snapshots and explicit trails.
 
 ## Implementation Mistakes To Avoid

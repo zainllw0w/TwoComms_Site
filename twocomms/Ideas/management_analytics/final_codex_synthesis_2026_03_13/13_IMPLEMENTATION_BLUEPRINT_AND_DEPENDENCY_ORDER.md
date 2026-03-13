@@ -51,6 +51,7 @@ This file is the strict build order for the future implementation file. It is no
 - shadow MOSAIC only;
 - KPD still active;
 - snapshots and confidence visible to admin;
+- existing advice engine extended, not replaced;
 - no payroll switch.
 
 ## Code Landing Sequence
@@ -73,7 +74,7 @@ This file is the strict build order for the future implementation file. It is no
 5. `snapshot_service`
 6. `payroll_service`
 7. `forecast_service`
-8. `advice_service`
+8. `advice_service` or advice-layer extraction from existing generator with backward-compatible dismissal hooks
 
 ### Views and templates after payload stability
 
