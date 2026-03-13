@@ -52,6 +52,9 @@ The implementation file should contain:
 7. `xml_connected` drift must be resolved deliberately.
 8. current advice generator and dismissal flow already exist and must be extended, not rebuilt.
 9. `views.py` and `stats_service.py` are already large and need decomposition planning.
+10. churn contract is explicit: `Weibull` primary, logistic fallback under low orders, planned-gap neutrality and `k` cap.
+11. anti-gaming score caps must preserve CRM/audit trail.
+12. rollout must keep bi-weekly DICE checkpoints and `+10%` manager-overhead ceiling.
 
 ## Mandatory Separation Rules
 

@@ -100,6 +100,7 @@ Card must show:
 - `value at risk`;
 - `time urgency`;
 - confidence;
+- churn basis (`Weibull` / logistic / interim);
 - planned gap or snooze if present;
 - potential SPIFF if applicable.
 

@@ -196,6 +196,11 @@ Use per-action budgets, not one generic limiter:
 
 Admin review actions have elevated or exempt budgets.
 
+Budget exhaustion semantics:
+- operationally valid action should still persist to CRM/audit trail when possible;
+- exhausted budget removes score-credit or anti-gaming benefit first, not the operational trace itself;
+- no silent hard-block that makes real work disappear from review history.
+
 ## Existing Production Realities To Preserve
 
 - `Client.phone_normalized` already exists;
@@ -217,4 +222,5 @@ Admin review actions have elevated or exempt budgets.
 - exact-phone auto-block for known shared switchboards;
 - turning imported backlog into immediate manager debt;
 - punishing on one-day heuristic noise;
+- hard-blocking operational action because score cap was hit;
 - ignoring multiple ownership patterns already present in code.

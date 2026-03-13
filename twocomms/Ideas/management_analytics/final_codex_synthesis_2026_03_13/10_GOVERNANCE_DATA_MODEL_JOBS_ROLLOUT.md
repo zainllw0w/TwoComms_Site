@@ -111,6 +111,12 @@ When score-visible semantics change:
 - manager sees short human-readable notice;
 - validation window resets if the score meaning changed materially.
 
+### Operational rollout guardrails
+
+- bi-weekly DICE checkpoint is mandatory during shadow rollout and activation review;
+- total manager-facing process overhead from the new contour must stay within `+10%`, or rollout is treated as UX/process regression;
+- if overhead or confusion exceeds the guardrail, hold activation and simplify before expanding scope.
+
 ## Code Structure Hardening
 
 ### Decomposition rules

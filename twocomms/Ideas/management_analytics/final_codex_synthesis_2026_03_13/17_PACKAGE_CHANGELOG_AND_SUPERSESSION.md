@@ -36,6 +36,7 @@ That created three recurring risks:
 
 - added `capacity_factor` and reintegration logic;
 - made `score_confidence` a shared contract;
+- restored explicit churn contract details instead of leaving them split between defaults/tests/code map;
 - added shared-phone and import burst protections;
 - strengthened tiny-team benchmark and stale/freshness semantics.
 
@@ -43,6 +44,7 @@ That created three recurring risks:
 
 - added testing strategy;
 - restored single-source defaults registry convenience;
+- restored rollout DICE / overhead guardrails and soft score-cap semantics;
 - added migration/governance/job contract;
 - added implementation blueprint;
 - added dedicated handoff brief.

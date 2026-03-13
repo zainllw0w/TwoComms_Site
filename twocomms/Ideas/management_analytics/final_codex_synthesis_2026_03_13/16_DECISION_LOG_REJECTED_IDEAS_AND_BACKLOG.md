@@ -9,14 +9,17 @@
 - capacity-aware KPI and reintegration;
 - soft-floor instead of cliff penalties;
 - repeat vs reactivation split;
+- explicit `Weibull` churn contract with logistic fallback, planned-gap neutrality and `k` cap;
 - shared-phone registry and normalization pipeline;
 - import burst grace;
+- soft score-cap anti-gaming that preserves operational audit trail;
 - telephony health snapshot and reconciliation statuses;
 - QA rubric versioning and calibration gating;
 - freshness and `why changed today`;
 - admin economics routed by confidence;
 - versioned snapshots and command run logs;
-- appeal and correctability surfaces.
+- appeal and correctability surfaces;
+- rollout DICE checkpoint and `+10%` manager-overhead guard.
 
 ## Accepted Partially
 

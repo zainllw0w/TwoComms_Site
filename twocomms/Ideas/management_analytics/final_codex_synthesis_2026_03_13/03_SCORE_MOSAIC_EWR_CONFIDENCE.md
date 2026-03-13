@@ -114,6 +114,41 @@ def compute_ewr(
 | `Wilson` conversion diagnostic | `shadow/admin-only` | conservative small-sample reading |
 | `ewr_v1_vs_v2_delta` | `shadow/admin-only` | validation only |
 
+## Churn Contract For Portfolio And Admin Surfaces
+
+Churn is a portfolio/rescue/admin signal first. It must remain explicit enough that rescue ranking and `Expected LTV Loss` do not drift into hand-wavy proxy math.
+
+```python
+def compute_churn_weibull(
+    days_since_last_order: int,
+    avg_interval: float,
+    std_interval: float,
+    order_count: int,
+    *,
+    expected_next_order: int | None = None,
+) -> float:
+    if expected_next_order is not None and days_since_last_order < expected_next_order:
+        return 0.05
+
+    if order_count < 5:
+        if avg_interval <= 0:
+            return 0.5
+        logistic = 1 / (1 + math.exp(-3.0 * (days_since_last_order - avg_interval) / avg_interval))
+        return round(min(1.0, max(0.0, logistic)), 4)
+
+    lambda_param = avg_interval + 0.5 * max(1.0, std_interval)
+    k_param = min(10.0, max(1.0, avg_interval / max(1.0, std_interval)))
+    churn = 1 - math.exp(-pow(days_since_last_order / max(1.0, lambda_param), k_param))
+    return round(min(1.0, max(0.0, churn)), 4)
+```
+
+Mandatory rules:
+- `Weibull` is the primary churn model when `order_count >= 5`;
+- if `order_count < 5`, use logistic fallback instead of fake precision;
+- `expected_next_order` / planned-gap state must return near-neutral churn instead of false panic;
+- `k` must stay capped at `10.0` to avoid overflow and false mathematical certainty;
+- churn may drive portfolio health, rescue ranking, `Expected LTV Loss` and admin diagnostics, but not direct punitive payroll truth before separate validation.
+
 ## SourceFairness Contract
 
 ### Production-safe rules

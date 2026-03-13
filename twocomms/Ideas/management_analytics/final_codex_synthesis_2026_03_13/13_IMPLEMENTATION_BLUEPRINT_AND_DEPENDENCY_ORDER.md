@@ -50,6 +50,7 @@ This file is the strict build order for the future implementation file. It is no
 
 - shadow MOSAIC only;
 - KPD still active;
+- `Weibull` / logistic / planned-gap / `k`-cap churn semantics stay explicit;
 - snapshots and confidence visible to admin;
 - existing advice engine extended, not replaced;
 - no payroll switch.
@@ -136,6 +137,12 @@ All commands need:
 
 - provider outage cannot become manager fault;
 - QA remains coaching-first until reliable.
+
+### Phase 8
+
+- bi-weekly DICE checkpoint exists for the whole shadow/activation period;
+- added manager effort stays within `+10%`;
+- activation only proceeds if new surfaces reduce ambiguity without adding process drag.
 
 ## Build Order Inside The Future Implementation File
 

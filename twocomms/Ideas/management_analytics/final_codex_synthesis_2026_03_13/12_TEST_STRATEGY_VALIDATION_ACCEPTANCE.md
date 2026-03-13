@@ -61,6 +61,12 @@ This is mandatory for:
 - rescue SPIFF;
 - churn portfolio aggregation.
 
+`test_churn_weibull.py` must explicitly cover:
+- `Weibull` primary path;
+- `<5 orders` logistic fallback;
+- `expected_next_order` / planned-gap near-neutral return;
+- `k` cap stability at extreme variance.
+
 ## Scenario Regression Suite
 
 Minimum regression scenarios:
@@ -83,6 +89,10 @@ Before production activation of MOSAIC or materially changed score logic:
 - no unexplained divergence over accepted threshold;
 - fresh validation window after any major formula semantics change;
 - admin approval logged.
+
+Rollout evidence must also include:
+- bi-weekly DICE checkpoint notes during shadow rollout;
+- manager-overhead delta estimate and observed check, capped at `+10%`.
 
 ## Required Validation Metrics
 
