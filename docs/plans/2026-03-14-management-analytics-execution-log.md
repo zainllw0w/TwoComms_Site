@@ -119,6 +119,7 @@
   - updated `management/services/advice.py` to render translated incident/confidence values and switched the visible KPD label to `Перехідний КПД`;
   - updated the shadow showcase/decomposition templates so the manager-facing label no longer mixes English into the primary cards;
   - localized remaining static wording such as the stale shop advice text in `stats_service.py`;
+  - bumped the `get_stats_payload()` cache namespace to `mgmt:stats:v6` so production would stop serving pre-fix mixed-language payloads after deploy;
   - kept MOSAIC/KPD formulas, trust bands, snapshot selection, and rescue ranking logic unchanged.
 - Canonical source check for this pass:
   - re-read the March 13 authority set around `03_SCORE_MOSAIC_EWR_CONFIDENCE.md`, `07_MANAGER_ADMIN_UX_EXPLAINABILITY.md`, `08_ADMIN_ECONOMICS_FORECAST_DECISION_SAFETY.md`, `10_GOVERNANCE_DATA_MODEL_JOBS_ROLLOUT.md`, and `18_IMPLEMENTATION_MASTER_FILE.md`;

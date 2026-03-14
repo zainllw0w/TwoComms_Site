@@ -1050,7 +1050,7 @@ def get_stats_payload(*, user, range_current: StatsRange, include_shadow: bool =
         _ensure_shadow_snapshots_for_range(user=user, range_current=range_current)
         _ensure_shadow_snapshots_for_range(user=user, range_current=prev_r)
 
-    cache_key = f"mgmt:stats:v5:{user.id}:{range_current.start_date}:{range_current.end_date}:{int(include_shadow)}"
+    cache_key = f"mgmt:stats:v6:{user.id}:{range_current.start_date}:{range_current.end_date}:{int(include_shadow)}"
     cached = cache.get(cache_key)
     if isinstance(cached, dict):
         return cached
