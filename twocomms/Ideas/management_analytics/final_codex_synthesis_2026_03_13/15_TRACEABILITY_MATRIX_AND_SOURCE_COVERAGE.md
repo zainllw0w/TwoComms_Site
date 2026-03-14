@@ -11,6 +11,11 @@
 - `reference only`
 - `superseded`
 
+Interpretation note:
+- `fully absorbed` means the contractual meaning is safely migrated into the canonical package;
+- it does not require every source pseudocode block or helper snippet to be copied verbatim into the same thematic file;
+- exact execution defaults may be normalized into thematic canonical docs or into `18_IMPLEMENTATION_MASTER_FILE.md` instead of being duplicated word-for-word from older reports.
+
 ## Matrix
 
 | Source file | Status | Absorbed into canonical files | Notes |

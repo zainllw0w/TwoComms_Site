@@ -185,6 +185,13 @@ Required rules:
 - cross-owner duplicate cluster visibility;
 - self-selected warm source bias.
 
+### Execution-default review triggers
+
+These defaults are safe starting points for implementation and may later be tuned through versioned config:
+- callback cycling enters review-candidate state when the same client is rescheduled `>=3` times in `7` days with no new verified evidence;
+- batch logging enters review-candidate state only when share `>=0.80`, `n_entries >= 10`, meaningful progress is effectively zero, and the pattern repeats across multiple days;
+- same-reason diagnostics must store both `top_reason_share` and `reason_entropy`; this pair is review-oriented context and must not become an auto-punitive trigger by itself.
+
 ### Rate limiting
 
 Use per-action budgets, not one generic limiter:

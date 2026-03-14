@@ -16,7 +16,7 @@ This is the execution-facing document for the future implementation agent. It re
 
 Use this file in this order:
 
-1. Read sections `1-4.9` to load authority, code reality, explicit decisions, incident rules and the workstream source map.
+1. Read sections `1-4.10` to load authority, code reality, explicit decisions, incident rules, stale-source barriers and the workstream source map.
 2. Read section `5` before touching migrations or creating new modules.
 3. Execute phases in section `9` strictly in order.
 4. Use section `10` as the minimum verification contract before every phase close-out.
@@ -235,6 +235,27 @@ Decision:
 Reason:
 - another agent may execute this plan after unrelated migrations land;
 - the implementation file must describe order, not encourage broken hard-coded numbering assumptions.
+
+### 4.10 Stale-source precedence barrier
+
+Decision:
+- treat helper/audit files as review inputs, not as authority, unless this file explicitly adopts a detail from them;
+- if `reports/i1/*`, old synthesis folders, or `CODEX_FIX_GUIDE.md` conflict with the canonical package, the canonical package wins;
+- if the canonical package itself contains both thematic contracts and this execution master file, thematic contracts define the business rule and this file defines the implementation-facing decision.
+
+When conflicts appear, these anchors win immediately:
+
+| Topic | Authoritative winner |
+|---|---|
+| MOSAIC weights | `Result 0.40`, `SourceFairness 0.10`, `Process 0.20`, `FollowUp 0.10`, `DataQuality 0.10`, `VerifiedCommunication 0.10` from `03` and `03A` |
+| Production EWR | `outcome + effort + revenue_progress` formula from `03`, not older helper variants using `source_quality` wording |
+| `score_confidence` reading bands | `HIGH >= 0.80`, `MEDIUM 0.50-0.79`, `LOW < 0.50` from `03` |
+| Onboarding constants | `14` full-protection days, `14` decay days, `40` floor from `03A` |
+| Manager benchmark suppression | no manager-facing peer benchmark below `N < 5` from `07` and `03A` |
+
+Rule:
+- do not lift numeric examples from helper or audit docs into code if they contradict the formulas and defaults above;
+- use helper/audit docs to discover missing nuance, then resolve it here or in the thematic canonical files before implementation.
 
 ## 5. Final Target File-System Map
 
@@ -603,7 +624,97 @@ Do not ship them earlier than the non-telephony phases unless you need the migra
 
 ## 7. Service and API Contracts
 
-### 7.1 Service split
+### 7.1 Authoritative math anchors
+
+These are copied inline because they are already canonical elsewhere and the implementation agent should not need to jump between files for core math or key ambiguity barriers.
+
+Authoritative MOSAIC weights:
+
+| Axis | Weight |
+|---|---:|
+| `Result` | `0.40` |
+| `SourceFairness` | `0.10` |
+| `Process` | `0.20` |
+| `FollowUp` | `0.10` |
+| `DataQuality` | `0.10` |
+| `VerifiedCommunication` | `0.10` |
+
+Authoritative production `EWR`:
+
+```python
+def compute_ewr(
+    orders: int,
+    contacts_processed: int,
+    revenue: float,
+    *,
+    conversion_baseline: float = 0.0248,
+    target_weekly_revenue: float = 50_000,
+    target_contacts: int = 80,
+) -> float:
+    expected_orders = contacts_processed * conversion_baseline
+
+    if expected_orders >= 1:
+        outcome = min(2.0, orders / expected_orders)
+    elif orders > 0:
+        outcome = 2.0
+    else:
+        outcome = 0.5
+
+    normalized_outcome = min(1.0, outcome / 2.0)
+    effort = min(1.0, contacts_processed / max(1, target_contacts))
+    revenue_progress = min(1.0, revenue / max(1, target_weekly_revenue))
+
+    return round(min(1.0, 0.40 * normalized_outcome + 0.35 * effort + 0.25 * revenue_progress), 4)
+```
+
+Authoritative `score_confidence`:
+
+```python
+def compute_score_confidence(
+    verified_coverage: float,
+    sample_sufficiency: float,
+    stability: float,
+    recency: float,
+) -> float:
+    score = (
+        0.35 * verified_coverage
+        + 0.25 * sample_sufficiency
+        + 0.20 * stability
+        + 0.20 * recency
+    )
+    return round(max(0.0, min(1.0, score)), 4)
+```
+
+Adopted onboarding-floor interpretation for execution:
+
+```python
+def compute_onboarding_floor_score(tenure_days: int) -> float:
+    if tenure_days <= 14:
+        return 40.0
+    if tenure_days >= 28:
+        return 0.0
+    return round(40.0 * (1.0 - ((tenure_days - 14) / 14.0)), 2)
+```
+
+Adopted working-factor and Phase-0 DMT defaults for execution:
+
+```python
+def compute_working_factor(capacity_factors: list[float], nominal_workdays: int = 5) -> float:
+    usable = sum(max(0.0, min(1.0, x)) for x in capacity_factors)
+    return round(usable / max(1, nominal_workdays), 4)
+
+
+def effective_phase0_dmt(capacity_factor: float) -> tuple[int, int]:
+    effective_dmt_contacts = max(1, math.ceil(5 * capacity_factor))
+    effective_dmt_updates = 1 if capacity_factor >= 0.5 else 0
+    return effective_dmt_contacts, effective_dmt_updates
+```
+
+Shadow/admin-only rule:
+- `EWR-v2`, `Wilson`, `churn_confidence` and similar report-derived helpers may be implemented only as explicitly versioned shadow/admin-only diagnostics;
+- do not let a helper or audit document silently override the production anchors above.
+
+### 7.2 Service split
 
 Implement these as pure or near-pure services wherever possible:
 
@@ -622,14 +733,14 @@ Implement these as pure or near-pure services wherever possible:
 | `appeals.py` | submit, SLA, resolve, recalc hooks | connects payouts and score evidence drawers |
 | `telephony.py` | provider adapters, reconciliation, health aggregation, QA helpers | later-phase only |
 
-### 7.2 Do not let `stats_service.py` continue to grow
+### 7.3 Do not let `stats_service.py` continue to grow
 
 Implementation rule:
 - keep `compute_kpd()` in `twocomms/management/stats_service.py:182-251` intact for legacy parity;
 - keep `get_stats_payload()` alive as the current public entry point at first;
 - gradually turn `get_stats_payload()` into a thin orchestrator that calls new snapshot/advice helpers instead of hosting all new logic inline.
 
-### 7.3 New view modules and endpoints
+### 7.4 New view modules and endpoints
 
 Do not add new appeals/economics/readiness endpoints to the already large `views.py` unless the action is directly coupled to an existing payout/contract flow.
 
@@ -658,7 +769,65 @@ In `twocomms/management/telephony_views.py` later:
 - reconciliation review queue
 - QA review actions
 
-### 7.4 Snapshot-backed range behavior
+Minimum response shapes:
+
+For `GET stats/score/explain/`:
+
+```json
+{
+  "manager_id": 5,
+  "period": "2026-W11",
+  "formula_version": "1.0",
+  "defaults_version": "1.0",
+  "readiness_state": "SHADOW",
+  "base_mosaic": 0.62,
+  "final_mosaic": 0.60,
+  "score_confidence": {"value": 0.58, "band": "MEDIUM"},
+  "gate": {"level": "CRM-timestamped", "value": 60},
+  "axes": {
+    "Result": {"value": 0.65, "weight": 0.444, "status": "ACTIVE"},
+    "VerifiedCommunication": {"value": null, "weight": 0.0, "status": "DORMANT"}
+  },
+  "freshness": {"seconds": 3600, "stale": false},
+  "top_drivers": ["followup_recovery", "verified_progress"]
+}
+```
+
+For `POST appeals/api/submit/`:
+
+```json
+{
+  "id": 42,
+  "status": "pending",
+  "appeal_type": "score",
+  "sla_deadline": "2026-03-16T18:00:00Z"
+}
+```
+
+For `GET admin-panel/economics/`:
+
+```json
+{
+  "managers": [
+    {
+      "id": 5,
+      "cost_total": 30000,
+      "contribution_proxy": 125000,
+      "concentration_top3": 0.45,
+      "rescue_roi": 3.2
+    }
+  ],
+  "forecast": {
+    "optimistic": 280000,
+    "base": 210000,
+    "pessimistic": 155000,
+    "confidence": "MEDIUM",
+    "drivers": ["pipeline_aging", "verified_coverage"]
+  }
+}
+```
+
+### 7.5 Snapshot-backed range behavior
 
 Implement this exact reading order for manager/admin stats pages:
 
@@ -669,7 +838,7 @@ Implement this exact reading order for manager/admin stats pages:
    - keep legacy live sections visible;
    - never recompute the full heavy shadow pipeline inline just to fake freshness.
 
-### 7.5 Minimum snapshot payload contract
+### 7.6 Minimum snapshot payload contract
 
 `NightlyScoreSnapshot.payload` must stay compact but deterministic. At minimum it should contain these top-level keys once the relevant phase lands:
 
@@ -729,7 +898,7 @@ Rules:
 - keep manager-safe and admin-only details separable inside the payload;
 - any payload shape change must bump `payload_version` and trigger a validation reset when semantics changed materially.
 
-### 7.6 Health and incident contract
+### 7.7 Health and incident contract
 
 Admin health/readiness widgets must compute their state from deterministic sources, not ad hoc template logic.
 
@@ -746,7 +915,7 @@ Required behavior:
 - any active incident that suppresses punitive interpretation must also suppress it in service code, not only in copy;
 - manager-facing pages may show softer wording, but the underlying state must remain exact.
 
-### 7.7 Preserve / Extend / Replace / Retire map
+### 7.8 Preserve / Extend / Replace / Retire map
 
 Use this table to avoid vague refactors.
 
@@ -765,7 +934,7 @@ Use this table to avoid vague refactors.
 | monolithic template blocks in `stats.html` / `admin.html` | `SPLIT` | use includes, not page rewrites |
 | legacy-only assumptions after activation | `RETIRE LATER` | only after shadow validation and explicit readiness switch |
 
-### 7.8 Advice merge rule
+### 7.9 Advice merge rule
 
 Use the existing advice engine as the base layer.
 
@@ -802,6 +971,28 @@ These are implementation guardrails derived from official Django docs and repo r
 - every command must record a `CommandRunLog`;
 - every command must have a deterministic exit state on partial failure;
 - operator-visible output goes through `self.stdout.write`.
+
+### 8.4 Data backfill playbook
+
+Backfills must be explicit and phase-bounded. Do not improvise them inside unrelated commands.
+
+Phase-1 backfills:
+- seed `ManagementStatsConfig` version/default fields;
+- seed `ComponentReadiness` rows;
+- do not create fake historical score snapshots just to populate tables.
+
+Phase-2 backfills:
+- backfill `phone_last7` and normalized-name helpers for existing `Client` and `ManagementLead` rows;
+- do not backfill a duplicated `Client.is_test` field because that field is explicitly rejected in section `4.2`.
+
+Phase-3 backfills:
+- default policy is forward-only snapshot collection from rollout date;
+- if historical backfill is later desired, do it through a separate admin command with explicit scope and performance review;
+- do not insert placeholder all-null/low-confidence snapshots merely to fill calendar continuity.
+
+Phase-5 backfills:
+- backfill `ManagerCommissionAccrual.accrual_type` and freeze metadata only where it is deterministically derivable from verified invoice/payout context;
+- if deterministic derivation is impossible, mark the record for manual review rather than guessing.
 
 ## 9. Phase-By-Phase Execution Plan
 
@@ -1236,6 +1427,48 @@ Every golden case must store:
 - the expected output
 - tolerance if floating point
 - the formula version it belongs to
+
+Seed golden cases that are already fixed by the current canonical formulas:
+
+EWR:
+
+| orders | contacts | revenue | Expected EWR | Formula version |
+|---:|---:|---:|---:|---|
+| `3` | `120` | `40000` | `0.7516` | `v1` |
+| `0` | `5` | `0` | `0.1219` | `v1` |
+| `1` | `80` | `50000` | `0.7008` | `v1` |
+
+`score_confidence`:
+
+| verified_cov | sample_suf | stability | recency | Expected | Band |
+|---:|---:|---:|---:|---:|---|
+| `0.90` | `0.70` | `0.60` | `0.80` | `0.7700` | `MEDIUM` |
+| `0.30` | `0.20` | `0.40` | `0.60` | `0.3550` | `LOW` |
+| `0.60` | `0.50` | `0.55` | `0.70` | `0.5850` | `MEDIUM` |
+
+Working factor:
+
+| capacity_factors | Expected |
+|---|---:|
+| `[1.0, 1.0, 0.0, 1.0, 0.5]` | `0.7000` |
+| `[0.0, 0.0, 0.0, 0.0, 0.0]` | `0.0000` |
+| `[1.0, 1.0, 1.0, 1.0, 1.0]` | `1.0000` |
+
+Onboarding floor score:
+
+| tenure_days | Expected floor |
+|---:|---:|
+| `7` | `40.0` |
+| `21` | `20.0` |
+| `28` | `0.0` |
+
+Commission examples:
+
+| revenue | class | rate | Expected |
+|---:|---|---:|---:|
+| `100000` | `new` | `2.5%` | `2500` |
+| `100000` | `repeat` | `5.0%` | `5000` |
+| `100000` | `reactivation` | `3.5%` | `3500` |
 
 ### 10.3 Phase close-out gates
 
