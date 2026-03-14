@@ -86,6 +86,9 @@ class Client(models.Model):
     source = models.CharField(_("Джерело контакту"), max_length=255, blank=True)
     call_result = models.CharField(_("Підсумок розмови"), max_length=50, choices=CallResult.choices, default=CallResult.NO_ANSWER)
     points_override = models.PositiveIntegerField(_("Кастомні бали"), null=True, blank=True)
+    call_result_reason_code = models.CharField(_("Код причини підсумку"), max_length=64, blank=True, db_index=True)
+    call_result_reason_note = models.TextField(_("Уточнення причини"), blank=True)
+    call_result_context = models.JSONField(_("Контекст підсумку"), default=dict, blank=True)
     call_result_details = models.TextField(_("Деталі підсумку"), blank=True, help_text="Якщо вибрано 'Інше'")
     next_call_at = models.DateTimeField(_("Наступний дзвінок"), null=True, blank=True)
     owner = models.ForeignKey(

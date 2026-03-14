@@ -33,12 +33,18 @@ def compute_gate_level(*, paid_orders: int, approved_orders: int, crm_events: in
     return "Self-reported only", EVIDENCE_GATE_SCORES["Self-reported only"]
 
 
-def compute_production_trust(*, duplicate_backlog: int, overdue_followups: int, telephony_healthy: bool) -> Decimal:
+def compute_production_trust(
+    *,
+    duplicate_backlog: int,
+    overdue_followups: int,
+    telephony_healthy: bool,
+    reason_quality: Decimal | float = Decimal("1.00"),
+) -> Decimal:
     report_integrity = Decimal("1.00") if overdue_followups == 0 else max(
         Decimal("0.00"),
         Decimal("1.00") - (Decimal(str(min(10, overdue_followups))) / Decimal("10")),
     )
-    reason_quality = Decimal("0.50") if overdue_followups <= 2 else Decimal("0.20")
+    reason_quality_value = max(Decimal("0.00"), min(Decimal("1.00"), _to_decimal(reason_quality)))
     duplicate_abuse = min(Decimal("1.00"), _to_decimal(duplicate_backlog) / Decimal("5"))
     anomaly = max(
         duplicate_abuse,
@@ -48,7 +54,7 @@ def compute_production_trust(*, duplicate_backlog: int, overdue_followups: int, 
     trust = (
         Decimal("0.97")
         + Decimal("0.04") * report_integrity
-        + Decimal("0.02") * reason_quality
+        + Decimal("0.02") * reason_quality_value
         - Decimal("0.05") * duplicate_abuse
         - Decimal("0.05") * anomaly
     )

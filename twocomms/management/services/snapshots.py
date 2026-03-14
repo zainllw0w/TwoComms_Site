@@ -129,9 +129,16 @@ def _compute_data_quality_axis(summary: dict[str, Any]) -> Decimal:
     pipeline = summary.get("pipeline") or {}
     reports = summary.get("reports") or {}
     missing_plan_ratio = Decimal(str((pipeline.get("followup_plan_missing") or 0) / max(1, processed or 1)))
+    reason_quality = _clamp01(Decimal(str(pipeline.get("reason_quality") or 1)))
+    reason_penalty = Decimal("1.0") - reason_quality
     required = max(0, int(reports.get("required") or 0))
     missing_reports_ratio = Decimal(str((reports.get("missing") or 0) / max(1, required or 1))) if required else Decimal("0")
-    return _clamp01(Decimal("1.0") - (missing_plan_ratio * Decimal("0.7")) - (missing_reports_ratio * Decimal("0.3")))
+    return _clamp01(
+        Decimal("1.0")
+        - (missing_plan_ratio * Decimal("0.55"))
+        - (missing_reports_ratio * Decimal("0.25"))
+        - (reason_penalty * Decimal("0.20"))
+    )
 
 
 def _compute_verified_communication_axis(summary: dict[str, Any], readiness: dict[str, str]) -> Decimal:
@@ -316,6 +323,7 @@ def build_shadow_score_payload(*, owner, snapshot_date: date) -> dict[str, Any]:
         duplicate_backlog=duplicate_backlog,
         overdue_followups=int((summary.get("followups") or {}).get("missed_effective") or 0),
         telephony_healthy=telephony_health["status"] == "healthy",
+        reason_quality=summary.get("pipeline", {}).get("reason_quality") or 1,
     )
     dampener_value = compute_dampener(axes=axes, readiness=readiness)
     onboarding_floor = compute_onboarding_floor_score(_manager_tenure_days(owner, snapshot_date))
@@ -469,6 +477,7 @@ def build_shadow_score_payload(*, owner, snapshot_date: date) -> dict[str, Any]:
                 "gate_level": gate_level,
                 "gate_score": gate_score,
                 "trust_multiplier": str(trust_multiplier),
+                "reason_quality": str(_to_decimal(summary.get("pipeline", {}).get("reason_quality") or 1).quantize(FOUR_PLACES, rounding=ROUND_HALF_UP)),
                 "dampener_value": str(dampener_value),
                 "confidence_band": score_confidence_band,
                 "pipeline": {key: str(value) for key, value in score_pipeline.items()},

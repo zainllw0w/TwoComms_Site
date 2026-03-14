@@ -9,32 +9,16 @@ from django.views.decorators.http import require_GET, require_POST
 from .constants import LEAD_BASE_PROCESSING_PENALTY, POINTS, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 from .models import Client, ManagementLead, normalize_phone
 from .services.dedupe import DedupeZone, build_duplicate_conflict_payload, evaluate_duplicate_zone
+from .services.outcomes import format_source_display, next_call_at_from_request, normalize_result_capture
 from .views import _sync_client_followup, get_user_stats, user_is_management
 
 
 def _source_display(source: str, source_link: str, source_other: str) -> str:
-    return {
-        "instagram": "Instagram",
-        "prom_ua": "Prom.ua",
-        "google_maps": "Google Карти",
-        "forums": f"Сайти/Форуми: {source_link}" if source_link else "Сайти/Форуми",
-        "other": source_other or "Інше",
-    }.get(source, source or "")
+    return format_source_display(source, source_link, source_other)
 
 
 def _next_call_at_from_request(data) -> datetime | None:
-    next_call_type = data.get("next_call_type", "scheduled")
-    if next_call_type == "no_follow":
-        return None
-    next_call_date = (data.get("next_call_date") or "").strip()
-    next_call_time = (data.get("next_call_time") or "").strip()
-    if not next_call_date or not next_call_time:
-        return None
-    try:
-        naive = datetime.strptime(f"{next_call_date} {next_call_time}", "%Y-%m-%d %H:%M")
-        return timezone.make_aware(naive, timezone.get_current_timezone())
-    except ValueError:
-        return None
+    return next_call_at_from_request(data)
 
 
 def _lead_payload(lead: ManagementLead) -> dict:
@@ -176,6 +160,10 @@ def lead_process_api(request, lead_id: int):
     source_other = (data.get("source_other") or "").strip()
     call_result = (data.get("call_result") or Client.CallResult.THINKING).strip()
     call_result_other = (data.get("call_result_other") or "").strip()
+    call_result_reason_code = (data.get("call_result_reason_code") or "").strip()
+    call_result_reason_note = (data.get("call_result_reason_note") or "").strip()
+    call_result_contact_attempts = (data.get("call_result_contact_attempts") or "").strip()
+    call_result_contact_channel = (data.get("call_result_contact_channel") or "").strip()
     next_call_at = _next_call_at_from_request(data)
 
     if not shop_name or not phone:
@@ -183,12 +171,20 @@ def lead_process_api(request, lead_id: int):
 
     role_value = role if role in Client.Role.values else Client.Role.OTHER
     call_value = call_result if call_result in Client.CallResult.values else Client.CallResult.THINKING
-    details_parts = []
-    if role_value == Client.Role.OTHER and role_custom:
-        details_parts.append(f"Роль: {role_custom}")
-    if call_value == Client.CallResult.OTHER and call_result_other:
-        details_parts.append(f"Інше: {call_result_other}")
-    details = "\n".join(details_parts)
+    result_capture = normalize_result_capture(
+        call_result=call_value,
+        role=role_value,
+        role_custom=role_custom,
+        call_result_other=call_result_other,
+        reason_code=call_result_reason_code,
+        reason_note=call_result_reason_note,
+        contact_attempts=call_result_contact_attempts,
+        contact_channel=call_result_contact_channel,
+    )
+    if result_capture["errors"]:
+        return JsonResponse({"success": False, "error": result_capture["errors"][0]}, status=400)
+
+    details = result_capture["details"]
     source_display = _source_display(source, source_link, source_other)
 
     with transaction.atomic():
@@ -243,6 +239,9 @@ def lead_process_api(request, lead_id: int):
             role=role_value,
             source=source_display or lead.source or "База лідів",
             call_result=call_value,
+            call_result_reason_code=result_capture["reason_code"],
+            call_result_reason_note=result_capture["reason_note"],
+            call_result_context=result_capture["context"],
             call_result_details=details,
             next_call_at=next_call_at,
             owner=request.user,
@@ -274,6 +273,10 @@ def lead_process_api(request, lead_id: int):
             "source": client.source,
             "call_result": client.call_result,
             "call_result_display": client.get_call_result_display(),
+            "call_result_reason_code": client.call_result_reason_code,
+            "call_result_reason_note": client.call_result_reason_note,
+            "call_result_contact_attempts": (client.call_result_context or {}).get("attempts", ""),
+            "call_result_contact_channel": (client.call_result_context or {}).get("contact_channel", ""),
             "call_result_details": client.call_result_details,
             "next_call": timezone.localtime(client.next_call_at).strftime("%d.%m.%Y %H:%M") if client.next_call_at else "–",
         },

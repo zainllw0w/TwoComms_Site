@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.utils.html import escape
@@ -45,6 +46,7 @@ from .models import (
     ReminderSent,
     Report,
     Shop,
+    normalize_phone,
 )
 from accounts.models import UserProfile
 from django.views.decorators.csrf import csrf_exempt
@@ -69,8 +71,10 @@ from .invoice_service import (
 )
 from .lead_services import calc_client_points, get_user_lead_bonus_points
 from .services.dtf_bridge import build_dtf_bridge_payload
+from .services.dedupe import DedupeZone, build_duplicate_conflict_payload, evaluate_duplicate_zone
 from .services.forecast import build_admin_economics_summary, build_salary_simulator
 from .services.followups import build_reminder_digest
+from .services.outcomes import format_source_display, get_outcome_reason_schema, normalize_result_capture
 from .services.roster import management_role_label, manager_roster_queryset
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
@@ -378,6 +382,7 @@ def home(request):
     if not user_is_management(request.user):
         return redirect('management_login')
     if request.method == 'POST':
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
         data = request.POST
         client_id = data.get('client_id')
         shop_name = data.get('shop_name', '').strip()
@@ -391,24 +396,32 @@ def home(request):
         source_other = data.get('source_other', '').strip()
         call_result = data.get('call_result', Client.CallResult.THINKING)
         call_result_other = data.get('call_result_other', '').strip()
+        call_result_reason_code = data.get('call_result_reason_code', '').strip()
+        call_result_reason_note = data.get('call_result_reason_note', '').strip()
+        call_result_contact_attempts = data.get('call_result_contact_attempts', '').strip()
+        call_result_contact_channel = data.get('call_result_contact_channel', '').strip()
         next_call_type = data.get('next_call_type', 'scheduled')
         next_call_date = data.get('next_call_date', '').strip()
         next_call_time = data.get('next_call_time', '').strip()
         today = timezone.localdate()
 
-        source_display = {
-            'instagram': 'Instagram',
-            'prom_ua': 'Prom.ua',
-            'google_maps': 'Google Карти',
-            'forums': f"Сайти/Форуми: {source_link}" if source_link else 'Сайти/Форуми',
-            'other': source_other or 'Інше',
-        }.get(source, source or '')
-
-        call_result_details_parts = []
-        if role == Client.Role.OTHER and role_custom:
-            call_result_details_parts.append(f"Роль: {role_custom}")
-        if call_result == Client.CallResult.OTHER and call_result_other:
-            call_result_details_parts.append(f"Інше: {call_result_other}")
+        source_display = format_source_display(source, source_link, source_other)
+        result_capture = normalize_result_capture(
+            call_result=call_result,
+            role=role,
+            role_custom=role_custom,
+            call_result_other=call_result_other,
+            reason_code=call_result_reason_code,
+            reason_note=call_result_reason_note,
+            contact_attempts=call_result_contact_attempts,
+            contact_channel=call_result_contact_channel,
+        )
+        if result_capture['errors']:
+            error_text = result_capture['errors'][0]
+            if is_ajax:
+                return JsonResponse({'success': False, 'error': error_text}, status=400)
+            messages.error(request, error_text)
+            return redirect('management_home')
 
         next_call_at = None
         if next_call_type == 'scheduled' and next_call_date and next_call_time:
@@ -424,43 +437,97 @@ def home(request):
             full_name = 'ПІБ не вказано'
 
         if shop_name and phone:
-            details = "\n".join(call_result_details_parts)
+            phone_normalized = normalize_phone(phone)
+            if not phone_normalized:
+                error_text = 'Не вдалося розпізнати номер телефону.'
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': error_text}, status=400)
+                messages.error(request, error_text)
+                return redirect('management_home')
+
+            existing_client = None
+            exclude_client_ids = []
             if client_id:
                 try:
-                    client = Client.objects.get(id=client_id)
-                    if request.user.is_staff or client.owner == request.user:
-                        prev_next_call_at = client.next_call_at
-                        client.shop_name = shop_name
-                        client.phone = phone
-                        client.website_url = website_url
-                        client.full_name = full_name
-                        client.role = role
-                        client.source = source_display
-                        client.call_result = call_result
-                        client.call_result_details = details
-                        client.next_call_at = next_call_at
-                        client.owner = client.owner or request.user
-                        if client.points_override is not None:
-                            client.points_override = max(0, int(POINTS.get(call_result, 0)) - LEAD_BASE_PROCESSING_PENALTY)
-                        client.save()
-                        _sync_client_followup(client, prev_next_call_at, client.next_call_at, timezone.now())
+                    existing_client = Client.objects.get(id=client_id)
+                    if not (request.user.is_staff or existing_client.owner == request.user):
+                        error_text = 'Ви не можете редагувати цього клієнта.'
+                        if is_ajax:
+                            return JsonResponse({'success': False, 'error': error_text}, status=403)
+                        messages.error(request, error_text)
+                        return redirect('management_home')
+                    exclude_client_ids = [existing_client.id]
                 except Client.DoesNotExist:
-                    pass
+                    existing_client = None
+
+            duplicate_decision = evaluate_duplicate_zone(
+                shop_name=shop_name,
+                phone=phone_normalized,
+                website_url=website_url,
+                owner=request.user,
+                exclude_client_ids=exclude_client_ids,
+            )
+            if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW}:
+                payload = build_duplicate_conflict_payload(
+                    owner=request.user,
+                    decision=duplicate_decision,
+                    shop_name=shop_name,
+                    phone=phone_normalized,
+                    payload={
+                        'client_id': existing_client.id if existing_client else None,
+                        'shop_name': shop_name,
+                        'full_name': full_name,
+                        'website_url': website_url,
+                        'role': role,
+                        'source': source_display,
+                        'call_result': call_result,
+                    },
+                    auto_block_error='Такий клієнт вже є у базі.',
+                    review_error='Потрібна перевірка на дубль перед збереженням клієнта.',
+                )
+                if is_ajax:
+                    return JsonResponse(payload, status=409)
+                messages.error(request, payload['error'])
+                return redirect('management_home')
+
+            details = result_capture['details']
+            if existing_client:
+                prev_next_call_at = existing_client.next_call_at
+                existing_client.shop_name = shop_name
+                existing_client.phone = phone_normalized
+                existing_client.website_url = website_url
+                existing_client.full_name = full_name
+                existing_client.role = role
+                existing_client.source = source_display
+                existing_client.call_result = call_result
+                existing_client.call_result_reason_code = result_capture['reason_code']
+                existing_client.call_result_reason_note = result_capture['reason_note']
+                existing_client.call_result_context = result_capture['context']
+                existing_client.call_result_details = details
+                existing_client.next_call_at = next_call_at
+                existing_client.owner = existing_client.owner or request.user
+                if existing_client.points_override is not None:
+                    existing_client.points_override = max(0, int(POINTS.get(call_result, 0)) - LEAD_BASE_PROCESSING_PENALTY)
+                existing_client.save()
+                _sync_client_followup(existing_client, prev_next_call_at, existing_client.next_call_at, timezone.now())
             else:
                 client = Client.objects.create(
                     shop_name=shop_name,
-                    phone=phone,
+                    phone=phone_normalized,
                     website_url=website_url,
                     full_name=full_name,
                     role=role,
                     source=source_display,
                     call_result=call_result,
+                    call_result_reason_code=result_capture['reason_code'],
+                    call_result_reason_note=result_capture['reason_note'],
+                    call_result_context=result_capture['context'],
                     call_result_details=details,
                     next_call_at=next_call_at,
                     owner=request.user,
                 )
                 _sync_client_followup(client, None, client.next_call_at, timezone.now())
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        if is_ajax:
             # Сформируем актуальные данные после операции
             stats = get_user_stats(request.user)
             user_points_today = stats['points_today']
@@ -483,6 +550,10 @@ def home(request):
                     'source': latest.source,
                     'call_result': latest.call_result,
                     'call_result_display': latest.get_call_result_display(),
+                    'call_result_reason_code': latest.call_result_reason_code,
+                    'call_result_reason_note': latest.call_result_reason_note,
+                    'call_result_contact_attempts': (latest.call_result_context or {}).get('attempts', ''),
+                    'call_result_contact_channel': (latest.call_result_context or {}).get('contact_channel', ''),
                     'call_result_details': latest.call_result_details,
                     'next_call': timezone.localtime(latest.next_call_at).strftime('%d.%m.%Y %H:%M') if latest.next_call_at else '–',
                     'created_date_label': 'Сьогодні' if timezone.localtime(latest.created_at).date() == today else timezone.localtime(latest.created_at).strftime('%d.%m.%Y'),
@@ -549,6 +620,7 @@ def home(request):
         'has_report_today': report_sent_today,
         'reminders': reminders,
         'manager_bot_username': bot_username,
+        'outcome_reason_schema_json': json.dumps(get_outcome_reason_schema(), ensure_ascii=False),
     })
 
 

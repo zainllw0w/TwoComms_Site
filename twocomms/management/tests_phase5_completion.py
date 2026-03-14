@@ -196,7 +196,7 @@ class SnapshotAggregationExplainabilityTests(TestCase):
         self.assertEqual(shadow["aggregation"]["available_days"], 2)
         self.assertEqual(shadow["aggregation"]["missing_days"], ["2026-03-11"])
         self.assertEqual(shadow["mosaic_score"], 75.0)
-        self.assertEqual(shadow["state_label"], "PARTIAL")
+        self.assertEqual(shadow["state_label"], "ЧАСТКОВО")
 
     def test_shadow_explain_and_rescue_endpoints_return_contract_payloads(self):
         target_date = date(2026, 3, 10)

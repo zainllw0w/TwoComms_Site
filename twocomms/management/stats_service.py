@@ -35,6 +35,7 @@ from .services.advice import build_action_stack, build_why_changed_today
 from .services.appeals import summarize_appeals
 from .services.config_versions import get_management_config
 from .services.forecast import build_forecast_band, build_salary_simulator
+from .services.outcomes import RESULTS_REQUIRING_REASON, summarize_reason_quality
 from .services.telephony import build_telephony_health_summary
 from .services.trust import classify_confidence_band
 from .services.ui_labels import (
@@ -995,6 +996,20 @@ def get_stats_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
     )
     call_result_label = {k: str(v) for k, v in Client.CallResult.choices}
     role_label = {k: str(v) for k, v in Client.Role.choices}
+    reason_capture = summarize_reason_quality(
+        list(
+            clients_qs.filter(call_result__in=RESULTS_REQUIRING_REASON).values(
+                "call_result",
+                "call_result_reason_code",
+                "call_result_reason_note",
+                "call_result_context",
+            )
+        )
+    )
+    reason_breakdown_map = {
+        item["call_result"]: item["items"][:4]
+        for item in reason_capture["breakdown"]
+    }
 
     segments = []
     for row in call_result_counts:
@@ -1014,26 +1029,27 @@ def get_stats_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
 
     # Optional subtypes (only when details exist) — limited to avoid UI spam.
     seg_map = {s.get("code"): s for s in segments if s.get("code")}
-    for code in ("other", "not_interested", "expensive"):
+    for code in ("other", "not_interested", "expensive", "no_answer", "invalid_number"):
         if code not in seg_map:
             continue
-        rows = (
-            clients_qs.filter(call_result=code)
-            .exclude(call_result_details__isnull=True)
-            .exclude(call_result_details__exact="")
-            .values("call_result_details")
-            .annotate(count=Count("id"))
-            .order_by("-count")[:4]
-        )
-        sub = []
-        for rrow in rows:
-            raw = str(rrow.get("call_result_details") or "").strip()
-            if not raw:
-                continue
-            label = raw.splitlines()[0].strip()
-            if len(label) > 72:
-                label = label[:72].rstrip() + "…"
-            sub.append({"label": label, "count": int(rrow.get("count") or 0)})
+        sub = list(reason_breakdown_map.get(code) or [])
+        if not sub:
+            rows = (
+                clients_qs.filter(call_result=code)
+                .exclude(call_result_details__isnull=True)
+                .exclude(call_result_details__exact="")
+                .values("call_result_details")
+                .annotate(count=Count("id"))
+                .order_by("-count")[:4]
+            )
+            for rrow in rows:
+                raw = str(rrow.get("call_result_details") or "").strip()
+                if not raw:
+                    continue
+                label = raw.splitlines()[0].strip()
+                if len(label) > 72:
+                    label = label[:72].rstrip() + "…"
+                sub.append({"label": label, "count": int(rrow.get("count") or 0)})
         if sub:
             seg_map[code]["subtypes"] = sub
 
@@ -1515,6 +1531,12 @@ def get_stats_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
                 "followup_plan_missing": followup_plan_missing,
                 "followup_plan_missing_by": followup_plan_missing_by,
                 "followup_plan_missing_examples": followup_plan_missing_examples,
+                "negative_outcomes_total": reason_capture["required_total"],
+                "required_reason_missing": reason_capture["missing_reason"],
+                "reason_detail_missing": reason_capture["missing_detail"],
+                "reason_quality": reason_capture["reason_quality"],
+                "reason_breakdown": reason_capture["breakdown"],
+                "reason_issue_examples": reason_capture["issue_examples"],
             },
             "reports": {
                 "required": report_days_required,
