@@ -281,7 +281,7 @@ def build_shadow_score_payload(*, owner, snapshot_date: date) -> dict[str, Any]:
     cfg = ManagementStatsConfig.objects.filter(pk=1).first()
     versioned = get_management_config(cfg)
     stats_range = build_daily_stats_range(snapshot_date)
-    stats_payload = get_stats_payload(user=owner, range_current=stats_range)
+    stats_payload = get_stats_payload(user=owner, range_current=stats_range, include_shadow=False)
     summary = stats_payload.get("summary") or {}
     sources = stats_payload.get("sources") or []
     readiness = get_component_readiness_map()
@@ -301,7 +301,11 @@ def build_shadow_score_payload(*, owner, snapshot_date: date) -> dict[str, Any]:
     }
     base_mosaic = compute_mosaic(axes=axes, readiness=readiness)
 
-    freshness_seconds = max(0, int((timezone.now() - stats_range.end).total_seconds()))
+    today = timezone.localdate()
+    if snapshot_date < today:
+        freshness_seconds = 0
+    else:
+        freshness_seconds = max(0, int((timezone.now() - stats_range.end).total_seconds()))
     confidence_inputs = _compute_confidence_inputs(
         owner=owner,
         snapshot_date=snapshot_date,

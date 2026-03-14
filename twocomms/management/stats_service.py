@@ -70,6 +70,9 @@ FOLLOWUP_PLAN_CALL_RESULTS = {
     Client.CallResult.WAITING_PREPAYMENT,
 }
 
+SHADOW_ON_DEMAND_MIN_CLIENTS = 20
+SHADOW_ON_DEMAND_MAX_DAYS = 366
+
 
 def _start_of_local_day(d: date) -> datetime:
     tz = timezone.get_current_timezone()
@@ -962,11 +965,68 @@ def _success_weight_for_call_result(code: str) -> float:
     }.get(code, 0.0)
 
 
-def get_stats_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
+def _shadow_backfill_dates(*, user, range_current: StatsRange) -> list[date]:
+    if range_current.days <= 0 or range_current.days > SHADOW_ON_DEMAND_MAX_DAYS:
+        return []
+
+    profile = getattr(user, "userprofile", None)
+    is_management_subject = bool(
+        getattr(profile, "is_manager", False) or user.is_staff or user.is_superuser
+    )
+    has_shadow_history = NightlyScoreSnapshot.objects.filter(owner=user).exists()
+    total_processed = Client.objects.filter(owner=user).count()
+    has_management_history = (
+        has_shadow_history
+        or total_processed >= SHADOW_ON_DEMAND_MIN_CLIENTS
+        or ManagementDailyActivity.objects.filter(user=user).exists()
+        or Report.objects.filter(owner=user).exists()
+    )
+    if not is_management_subject and not has_management_history:
+        return []
+
+    today = timezone.localdate()
+    existing = {
+        item.snapshot_date: item
+        for item in NightlyScoreSnapshot.objects.filter(
+            owner=user,
+            snapshot_date__gte=range_current.start_date,
+            snapshot_date__lte=range_current.end_date,
+        )
+    }
+
+    refresh_dates: list[date] = []
+    for offset in range(range_current.days):
+        snapshot_date = range_current.start_date + timedelta(days=offset)
+        snapshot = existing.get(snapshot_date)
+        if snapshot is None:
+            refresh_dates.append(snapshot_date)
+            continue
+        if snapshot_date < today and int(snapshot.freshness_seconds or 0) > 172800:
+            refresh_dates.append(snapshot_date)
+    return refresh_dates
+
+
+def _ensure_shadow_snapshots_for_range(*, user, range_current: StatsRange) -> None:
+    refresh_dates = _shadow_backfill_dates(user=user, range_current=range_current)
+    if not refresh_dates:
+        return
+
+    from .services.snapshots import persist_nightly_snapshot
+
+    for snapshot_date in refresh_dates:
+        persist_nightly_snapshot(owner=user, snapshot_date=snapshot_date)
+
+
+def get_stats_payload(*, user, range_current: StatsRange, include_shadow: bool = True) -> dict[str, Any]:
     cfg = _get_or_build_config()
     tz = timezone.get_current_timezone()
+    prev_r = previous_range(range_current)
 
-    cache_key = f"mgmt:stats:v4:{user.id}:{range_current.start_date}:{range_current.end_date}"
+    if include_shadow:
+        _ensure_shadow_snapshots_for_range(user=user, range_current=range_current)
+        _ensure_shadow_snapshots_for_range(user=user, range_current=prev_r)
+
+    cache_key = f"mgmt:stats:v5:{user.id}:{range_current.start_date}:{range_current.end_date}:{int(include_shadow)}"
     cached = cache.get(cache_key)
     if isinstance(cached, dict):
         return cached
@@ -1451,7 +1511,6 @@ def get_stats_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
     kpd = compute_kpd(metrics_now, cfg)
 
     # Prev period for advice & kpd mini insight
-    prev_r = previous_range(range_current)
     metrics_prev = _build_metrics_for_prev(user=user, r=prev_r, cfg=cfg)
     kpd_prev = compute_kpd(metrics_prev, cfg)
     kpd_delta = round(float(kpd.get("value") or 0) - float(kpd_prev.get("value") or 0), 2)
@@ -1583,12 +1642,16 @@ def get_stats_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
         "sources": sources[:12],
         "series": series,
         "advice": advice,
-        "shadow_score": _shadow_score_payload(user=user, range_current=range_current),
+        "shadow_score": _shadow_score_payload(user=user, range_current=range_current) if include_shadow else {},
         "meta": {
             "report_deadline_hour": deadline_hour,
             "report_late_grace_minutes": grace,
         },
     }
+
+    if not include_shadow:
+        cache.set(cache_key, payload, 60)
+        return payload
 
     shadow_score = payload["shadow_score"]
     previous_shadow = _shadow_score_payload(user=user, range_current=prev_r)

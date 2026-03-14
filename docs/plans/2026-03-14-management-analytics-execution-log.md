@@ -78,3 +78,31 @@
 1. Commit, push, and deploy the second-pass gap closure to the MySQL hosting environment.
 2. Run post-deploy verification for manual client save/edit, lead conversion, stats/admin/payouts, and excluded-manager visibility on the live management subdomain.
 3. Finish phase-8 validation plumbing and explicit activation controls in UI/admin workflows.
+
+## 2026-03-15 Hotfix Pass: Home JS + Historical MOSAIC Visibility
+
+- Reproduced the live `home` regression in the authenticated browser and isolated two separate client-side failures:
+  - a stray broken JavaScript tail in `management/templates/management/base.html` that prevented all later page scripts from executing;
+  - invalid JSON embedding for `data-outcome-reason-schema` in `management/templates/management/home.html`, which caused `JSON.parse()` to fail before modal handlers and countdown bootstrapped.
+- Fixed the home page boot path by removing the broken base-template fragment and switching the embedded outcome schema from JS-escaped text to HTML-escaped JSON so the client modal can initialize safely again.
+- Audited the historical shadow-score path and found a logic bug: old snapshots were permanently marked `STALE` because `freshness_seconds` was computed from `now - day_end`, which punishes any historical day forever.
+- Corrected snapshot freshness semantics in `management/services/snapshots.py` so historical daily snapshots are treated as fresh once persisted, while current-day snapshots still retain freshness timing.
+- Added on-demand shadow snapshot repair in `management/stats_service.py` for management subjects with meaningful history, including excluded managers and long-lived users with `>= 20` processed clients.
+- Updated `compute_nightly_scores` to use the management roster service so excluded managers with real management history keep receiving future nightly snapshots instead of silently dropping out of MOSAIC coverage.
+- Shifted the manager-facing copy so MOSAIC is presented as the primary rating surface and `КПД` is explicitly labeled `Legacy КПД` in the shadow showcase/decomposition surfaces.
+
+### Verification Evidence For This Hotfix Pass
+
+- Red tests first:
+  - `SECRET_KEY=test-secret python3 manage.py test management.tests_phase3_snapshots.ComputeNightlyScoresCommandTests management.tests_phase5_completion.HomePageScriptRegressionTests management.tests_phase5_completion.SnapshotAggregationExplainabilityTests.test_excluded_manager_with_real_history_gets_historical_shadow_backfill --settings=test_settings`
+  - initial failures confirmed:
+    - invalid embedded JSON on `home`;
+    - excluded managers omitted from nightly snapshots;
+    - no historical shadow backfill for excluded managers.
+- Green after implementation:
+  - same focused command above passed with `4` tests green.
+  - `SECRET_KEY=test-secret python3 manage.py test management.tests_phase3_snapshots management.tests_phase4_analytics management.tests_phase5_completion --settings=test_settings` passed with `28` tests green.
+  - `SECRET_KEY=test-secret python3 manage.py check --settings=test_settings` passed.
+  - `SECRET_KEY=test-secret python3 manage.py makemigrations --check --dry-run --settings=test_settings` reported no changes.
+  - `python3 -m py_compile management/stats_service.py management/services/snapshots.py management/management/commands/compute_nightly_scores.py` passed.
+  - `git diff --check` passed.
