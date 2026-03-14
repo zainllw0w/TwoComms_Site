@@ -1,4 +1,12 @@
-from datetime import date, datetime, time
+import html
+import json
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -122,7 +130,7 @@ class SnapshotAggregationExplainabilityTests(TestCase):
         self.assertIn("ops", snapshot.payload)
         self.assertIn("advice_context", snapshot.payload)
 
-    def test_shadow_payload_aggregates_multiple_daily_snapshots_and_marks_partial_ranges(self):
+    def test_shadow_payload_auto_heals_missing_daily_snapshot_gaps_for_stats_ranges(self):
         first = date(2026, 3, 10)
         third = date(2026, 3, 12)
         NightlyScoreSnapshot.objects.create(
@@ -191,12 +199,11 @@ class SnapshotAggregationExplainabilityTests(TestCase):
         shadow = payload["shadow_score"]
 
         self.assertTrue(shadow["flags"]["has_snapshot"])
-        self.assertTrue(shadow["flags"]["is_partial"])
+        self.assertFalse(shadow["flags"]["is_partial"])
         self.assertEqual(shadow["aggregation"]["expected_days"], 3)
-        self.assertEqual(shadow["aggregation"]["available_days"], 2)
-        self.assertEqual(shadow["aggregation"]["missing_days"], ["2026-03-11"])
-        self.assertEqual(shadow["mosaic_score"], 75.0)
-        self.assertEqual(shadow["state_label"], "ЧАСТКОВО")
+        self.assertEqual(shadow["aggregation"]["available_days"], 3)
+        self.assertEqual(shadow["aggregation"]["missing_days"], [])
+        self.assertIsNotNone(shadow["mosaic_score"])
 
     def test_shadow_explain_and_rescue_endpoints_return_contract_payloads(self):
         target_date = date(2026, 3, 10)
@@ -213,6 +220,100 @@ class SnapshotAggregationExplainabilityTests(TestCase):
         self.assertIn("base_mosaic", explain_response.json())
         self.assertIn("axes", explain_response.json())
         self.assertIn("items", rescue_response.json())
+
+    def test_excluded_manager_with_real_history_gets_historical_shadow_backfill(self):
+        excluded = get_user_model().objects.create_user(username="polina_shadow", password="x")
+        excluded.userprofile.is_manager = False
+        excluded.userprofile.save(update_fields=["is_manager"])
+
+        start_date = date(2026, 3, 10)
+        for day_offset in range(3):
+            target_date = start_date + timedelta(days=day_offset)
+            created_at = timezone.make_aware(datetime.combine(target_date, time(hour=11, minute=day_offset)))
+            for idx in range(7):
+                client = Client.objects.create(
+                    shop_name=f"Polina Shop {day_offset}-{idx}",
+                    phone=f"+3806722{day_offset}{idx:03d}",
+                    full_name="Owner",
+                    owner=excluded,
+                    call_result=Client.CallResult.THINKING,
+                    points_override=140,
+                    source="Instagram",
+                )
+                Client.objects.filter(pk=client.pk).update(created_at=created_at + timedelta(minutes=idx))
+            ManagementDailyActivity.objects.create(
+                user=excluded,
+                date=target_date,
+                active_seconds=4_200,
+                last_seen_at=created_at,
+            )
+
+        range_current = build_daily_stats_range(start_date)
+        range_current = range_current.__class__(
+            period="range",
+            start=range_current.start,
+            end=timezone.make_aware(datetime.combine(start_date + timedelta(days=2), time.min)) + timezone.timedelta(days=1),
+            start_date=start_date,
+            end_date=start_date + timedelta(days=2),
+            label="10.03 — 12.03",
+        )
+
+        self.assertFalse(NightlyScoreSnapshot.objects.filter(owner=excluded).exists())
+
+        payload = get_stats_payload(user=excluded, range_current=range_current)
+        shadow = payload["shadow_score"]
+
+        covered_dates = list(
+            NightlyScoreSnapshot.objects.filter(
+                owner=excluded,
+                snapshot_date__gte=start_date,
+                snapshot_date__lte=start_date + timedelta(days=2),
+            ).values_list("snapshot_date", flat=True)
+        )
+        self.assertEqual(len(covered_dates), 3)
+        self.assertTrue(shadow["flags"]["has_snapshot"])
+        self.assertFalse(shadow["flags"]["is_stale"])
+        self.assertFalse(shadow["flags"]["is_partial"])
+        self.assertIsNotNone(shadow["mosaic_score"])
+        self.assertEqual(shadow["aggregation"]["available_days"], 3)
+
+
+@override_settings(ROOT_URLCONF="twocomms.urls_management")
+class HomePageScriptRegressionTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = get_user_model().objects.create_user(username="home_regression_mgr", password="x", is_staff=True)
+        self.client.force_login(self.user)
+        call_command("seed_management_defaults")
+
+    def test_home_page_has_parseable_reason_schema_and_valid_inline_scripts(self):
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+
+        schema_match = re.search(r'data-outcome-reason-schema="([^"]+)"', content)
+        self.assertIsNotNone(schema_match)
+        parsed_schema = json.loads(html.unescape(schema_match.group(1)))
+        self.assertIn("not_interested", parsed_schema)
+        self.assertIn("no_answer", parsed_schema)
+
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is required for inline script syntax validation")
+
+        scripts = [script.strip() for script in re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", content, flags=re.S | re.I) if script.strip()]
+        self.assertGreater(len(scripts), 0)
+
+        for script in scripts:
+            with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as handle:
+                handle.write(script)
+                temp_path = handle.name
+            try:
+                result = subprocess.run([node, "--check", temp_path], capture_output=True, text=True)
+            finally:
+                os.unlink(temp_path)
+            self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
 
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")

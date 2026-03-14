@@ -3,7 +3,7 @@
     <div>
       <div class="shadow-score-kicker">Тіньова аналітика</div>
       <div class="shadow-score-title">MOSAIC-центр керування</div>
-      <div class="muted">Поточний КПД лишається основним, поки тіньова модель пояснює темп, відновлення та якість доказів.</div>
+      <div class="muted">MOSAIC є головним рейтинговим зрізом менеджера. КПД лишається legacy-операційним індикатором переходу, щоб не втратити динаміку дня.</div>
     </div>
     <div class="shadow-score-chips">
       <span class="shadow-chip state-{{ stats_payload.shadow_score.state }}">{{ stats_payload.shadow_score.state_label }}</span>
@@ -22,7 +22,7 @@
   {% if stats_payload.shadow_score.flags.has_snapshot %}
     <div class="shadow-score-grid shadow-score-grid--showcase">
       <div class="shadow-metric-card shadow-metric-card--hero">
-        <div class="shadow-metric-label">Тіньовий MOSAIC</div>
+        <div class="shadow-metric-label">MOSAIC-рейтинг</div>
         <div class="shadow-metric-value">{{ stats_payload.shadow_score.mosaic_score|floatformat:2 }}</div>
         <div class="shadow-metric-sub muted">
           {% if stats_payload.shadow_score.delta_vs_prev != None %}
@@ -76,7 +76,7 @@
           <button type="button" class="btn-ghost small" data-shadow-open="decomposition">Відкрити розклад</button>
         </div>
         <div class="shadow-kv-grid">
-          <div><span class="muted">Поточний КПД</span><b>{{ stats_payload.summary.kpd.value|floatformat:2 }}</b></div>
+          <div><span class="muted">Legacy КПД</span><b>{{ stats_payload.summary.kpd.value|floatformat:2 }}</b></div>
           <div><span class="muted">Базовий MOSAIC</span><b>{{ stats_payload.shadow_score.base_mosaic|floatformat:2 }}</b></div>
           <div><span class="muted">Рівень доказів</span><b>{{ stats_payload.shadow_score.gate_level_label }}</b></div>
           <div><span class="muted">Стримування</span><b>{{ stats_payload.shadow_score.dampener_value|floatformat:2 }}</b></div>

@@ -1,11 +1,10 @@
 from datetime import date, timedelta
 
-from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
-from django.db.models import Q
 from django.utils import timezone
 
 from management.models import CommandRunLog
+from management.services.roster import management_subjects_queryset
 from management.services.snapshots import persist_nightly_snapshot
 
 
@@ -44,10 +43,7 @@ class Command(BaseCommand):
             },
         )
 
-        user_model = get_user_model()
-        queryset = user_model.objects.filter(
-            Q(is_staff=True) | Q(is_superuser=True) | Q(userprofile__is_manager=True)
-        ).distinct().order_by("id")
+        queryset = management_subjects_queryset().order_by("id")
         if user_id:
             queryset = queryset.filter(id=user_id)
 

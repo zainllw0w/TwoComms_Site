@@ -6,7 +6,7 @@
      data-lead-detail-url-template="{% url 'management_lead_detail_api' 0 %}"
      data-lead-process-url-template="{% url 'management_lead_process_api' 0 %}"
      data-client-delete-url-template="{% url 'management_delete_client' 0 %}"
-     data-outcome-reason-schema="{{ outcome_reason_schema_json|escapejs }}">
+     data-outcome-reason-schema="{{ outcome_reason_schema_json|escape }}">
 </div>
 
 <div class="clients-panel">

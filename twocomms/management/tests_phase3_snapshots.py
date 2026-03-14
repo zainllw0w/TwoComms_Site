@@ -160,6 +160,29 @@ class ComputeNightlyScoresCommandTests(TestCase):
         self.assertEqual(run_log.rows_processed, 1)
         self.assertEqual(run_log.meta["snapshot_date"], target_date.isoformat())
 
+    def test_command_includes_excluded_manager_with_management_history(self):
+        target_date = date(2026, 3, 11)
+        excluded = get_user_model().objects.create_user(username="former_shadow_mgr", password="x")
+        excluded.userprofile.is_manager = False
+        excluded.userprofile.save(update_fields=["is_manager"])
+
+        created_at = timezone.make_aware(datetime.combine(target_date, time(hour=10, minute=0)))
+        client = Client.objects.create(
+            shop_name="Former Manager Shop",
+            phone="+380671112299",
+            full_name="Owner",
+            owner=excluded,
+            call_result=Client.CallResult.THINKING,
+            points_override=120,
+            source="Instagram",
+        )
+        Client.objects.filter(pk=client.pk).update(created_at=created_at)
+        ManagementDailyActivity.objects.create(user=excluded, date=target_date, active_seconds=2_400, last_seen_at=created_at)
+
+        call_command("compute_nightly_scores", date=target_date.isoformat())
+
+        self.assertTrue(NightlyScoreSnapshot.objects.filter(owner=excluded, snapshot_date=target_date).exists())
+
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
 class StatsShadowUiTests(TestCase):
