@@ -302,9 +302,9 @@ def _build_recent_timeline(*, user, range_current: StatsRange, limit: int = 12) 
             {
                 "kind": "email",
                 "when": timezone.localtime(row.created_at),
-                "title": row.recipient_name or row.recipient_email or "Commercial offer email",
-                "detail": row.subject or "Commercial offer sent",
-                "badge": "CP email",
+                "title": row.recipient_name or row.recipient_email or "Комерційна пропозиція",
+                "detail": row.subject or "КП надіслано",
+                "badge": "КП email",
             }
         )
 
@@ -317,9 +317,9 @@ def _build_recent_timeline(*, user, range_current: StatsRange, limit: int = 12) 
             {
                 "kind": "shop_comm",
                 "when": timezone.localtime(row.created_at),
-                "title": getattr(row.shop, "name", "") or "Shop communication",
-                "detail": row.note or row.contact_person or "Communication logged",
-                "badge": "Note",
+                "title": getattr(row.shop, "name", "") or "Комунікація по магазину",
+                "detail": row.note or row.contact_person or "Комунікацію зафіксовано",
+                "badge": "Нотатка",
             }
         )
 
@@ -336,9 +336,9 @@ def _build_recent_timeline(*, user, range_current: StatsRange, limit: int = 12) 
             {
                 "kind": "followup",
                 "when": timezone.localtime(event_dt),
-                "title": getattr(row.client, "shop_name", "") or "Follow-up",
+                "title": getattr(row.client, "shop_name", "") or "Передзвон",
                 "detail": row.get_status_display(),
-                "badge": "Follow-up",
+                "badge": "Передзвон",
             }
         )
 
@@ -351,9 +351,9 @@ def _build_recent_timeline(*, user, range_current: StatsRange, limit: int = 12) 
             {
                 "kind": "call",
                 "when": timezone.localtime(event_dt),
-                "title": row.phone or "Call record",
+                "title": row.phone or "Дзвінок",
                 "detail": f"{row.duration_seconds}s • {row.direction}",
-                "badge": "Call",
+                "badge": "Дзвінок",
             }
         )
 
@@ -365,9 +365,9 @@ def _build_recent_timeline(*, user, range_current: StatsRange, limit: int = 12) 
             {
                 "kind": "invoice",
                 "when": timezone.localtime(row.created_at),
-                "title": f"Invoice #{row.invoice_number}",
+                "title": f"Накладна #{row.invoice_number}",
                 "detail": f"{row.total_amount} грн • {row.payment_status}",
-                "badge": "Invoice",
+                "badge": "Накладна",
             }
         )
 
@@ -379,9 +379,9 @@ def _build_recent_timeline(*, user, range_current: StatsRange, limit: int = 12) 
             {
                 "kind": "ownership",
                 "when": timezone.localtime(row.created_at),
-                "title": f"Ownership change #{row.entity_id}",
+                "title": f"Зміна відповідального #{row.entity_id}",
                 "detail": row.reason or row.entity_type,
-                "badge": "Ownership",
+                "badge": "Передача",
             }
         )
 

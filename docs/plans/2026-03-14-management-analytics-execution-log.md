@@ -90,6 +90,7 @@
 - Added on-demand shadow snapshot repair in `management/stats_service.py` for management subjects with meaningful history, including excluded managers and long-lived users with `>= 20` processed clients.
 - Updated `compute_nightly_scores` to use the management roster service so excluded managers with real management history keep receiving future nightly snapshots instead of silently dropping out of MOSAIC coverage.
 - Shifted the manager-facing copy so MOSAIC is presented as the primary rating surface and `КПД` is explicitly labeled `Legacy КПД` in the shadow showcase/decomposition surfaces.
+- Cleaned the most visible remaining English strings in manager/admin shadow surfaces (`Інциденти`, `Довіра`, rescue urgency labels, timeline badges, action-stack labels) so live stats/admin screens stay meaningfully Ukrainian after the hotfix.
 
 ### Verification Evidence For This Hotfix Pass
 

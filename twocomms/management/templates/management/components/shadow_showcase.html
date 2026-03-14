@@ -210,11 +210,11 @@
             <div class="shadow-rescue-item">
               <div>
                 <div class="shadow-action-title">{{ item.name }}</div>
-                <div class="muted">{{ item.urgency }} • {{ item.churn_basis }}{% if item.planned_gap %} • {{ item.planned_gap }}{% endif %}</div>
+                <div class="muted">{{ item.urgency }} • {{ item.churn_basis_label|default:item.churn_basis }}{% if item.planned_gap %} • {{ item.planned_gap }}{% endif %}</div>
               </div>
               <div class="shadow-rescue-metrics">
                 <span>{{ item.value_at_risk }}</span>
-                <span class="shadow-action-badge">{{ item.confidence_badge }}</span>
+                <span class="shadow-action-badge">{{ item.confidence_badge_label|default:item.confidence_badge }}</span>
               </div>
             </div>
           {% empty %}
