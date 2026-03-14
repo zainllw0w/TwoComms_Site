@@ -46,6 +46,8 @@ DEFAULT_COMPONENTS = (
     "data_quality",
     "verified_communication",
 )
+CONFIDENCE_BADGE_LABELS = {"LOW": "Низька", "MEDIUM": "Середня", "HIGH": "Висока"}
+CHURN_BASIS_LABELS = {"logistic": "логістична модель", "interim": "тимчасовий зріз", "weibull": "модель Вейбулла"}
 
 
 def _to_decimal(value, default: str = "0") -> Decimal:
@@ -228,11 +230,13 @@ def _portfolio_health(summary: dict[str, Any]) -> tuple[str, list[dict[str, Any]
         rescue_cases.append(
             {
                 "id": row.get("id"),
-                "name": row.get("name") or "Test shop",
+                "name": row.get("name") or "Тестовий магазин",
                 "value_at_risk": value_at_risk,
-                "urgency": f"{overdue_days}d overdue",
+                "urgency": f"{overdue_days} дн прострочення",
                 "confidence_badge": "MEDIUM",
+                "confidence_badge_label": CONFIDENCE_BADGE_LABELS["MEDIUM"],
                 "churn_basis": "logistic",
+                "churn_basis_label": CHURN_BASIS_LABELS["logistic"],
                 "potential_spiff": float(compute_rescue_spiff(value_at_risk)),
                 "planned_gap": row.get("next_contact_label") or "",
             }
@@ -243,11 +247,13 @@ def _portfolio_health(summary: dict[str, Any]) -> tuple[str, list[dict[str, Any]
         rescue_cases.append(
             {
                 "id": row.get("id"),
-                "name": row.get("name") or "Stale shop",
+                "name": row.get("name") or "Магазин без контакту",
                 "value_at_risk": value_at_risk,
-                "urgency": f"{days_since}d stale",
+                "urgency": f"{days_since} дн без контакту",
                 "confidence_badge": "LOW" if days_since < 14 else "MEDIUM",
+                "confidence_badge_label": CONFIDENCE_BADGE_LABELS["LOW" if days_since < 14 else "MEDIUM"],
                 "churn_basis": "interim",
+                "churn_basis_label": CHURN_BASIS_LABELS["interim"],
                 "potential_spiff": float(compute_rescue_spiff(value_at_risk)),
                 "planned_gap": row.get("next_contact_label") or "",
             }
