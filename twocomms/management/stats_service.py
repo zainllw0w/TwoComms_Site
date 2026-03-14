@@ -39,8 +39,12 @@ from .services.outcomes import RESULTS_REQUIRING_REASON, summarize_reason_qualit
 from .services.telephony import build_telephony_health_summary
 from .services.trust import classify_confidence_band
 from .services.ui_labels import (
+    normalize_shadow_phrase,
+    normalize_shadow_urgency,
+    translate_churn_basis,
     translate_confidence_band,
     translate_gate_level,
+    translate_incident_key,
     translate_readiness_key,
     translate_readiness_state,
     translate_surface_state,
@@ -221,6 +225,22 @@ def _average_decimal(values: list[Decimal], default: str = "0") -> Decimal:
     return (sum(values, Decimal("0")) / Decimal(str(len(values)))).quantize(Decimal("0.01"))
 
 
+def _normalize_rescue_item(item: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(item or {})
+    confidence_code = str(normalized.get("confidence_badge") or "").upper()
+    confidence_label = str(normalized.get("confidence_badge_label") or "").strip()
+    if not confidence_label or confidence_label.upper() == confidence_code:
+        normalized["confidence_badge_label"] = translate_confidence_band(confidence_code or confidence_label)
+
+    normalized["urgency"] = normalize_shadow_urgency(normalized.get("urgency"))
+
+    churn_basis = str(normalized.get("churn_basis") or "").strip()
+    churn_label = str(normalized.get("churn_basis_label") or "").strip()
+    if not churn_label or churn_label.lower() == churn_basis.lower():
+        normalized["churn_basis_label"] = translate_churn_basis(churn_basis or churn_label)
+    return normalized
+
+
 def _aggregate_rescue_items(snapshots: list[NightlyScoreSnapshot]) -> list[dict[str, Any]]:
     by_name: dict[str, dict[str, Any]] = {}
     for snapshot in snapshots:
@@ -234,9 +254,10 @@ def _aggregate_rescue_items(snapshots: list[NightlyScoreSnapshot]) -> list[dict[
             name = str(item.get("name") or item.get("title") or "").strip()
             if not name:
                 continue
+            normalized_item = _normalize_rescue_item(item)
             current = by_name.get(name)
-            if current is None or float(item.get("value_at_risk") or 0) > float(current.get("value_at_risk") or 0):
-                by_name[name] = item
+            if current is None or float(normalized_item.get("value_at_risk") or 0) > float(current.get("value_at_risk") or 0):
+                by_name[name] = normalized_item
     return sorted(by_name.values(), key=lambda item: float(item.get("value_at_risk") or 0), reverse=True)[:5]
 
 
@@ -430,6 +451,7 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
             "confidence_band": "LOW",
             "confidence_band_label": translate_confidence_band("LOW"),
             "incident_keys": ["SNAPSHOT_STALE"],
+            "incident_labels": [translate_incident_key("SNAPSHOT_STALE")],
             "portfolio_health_state": "Unknown",
             "rescue_top5": [],
             "must_do_today": [],
@@ -495,10 +517,11 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
             for incident in ((_nested_get(item.payload or {}, "ops", "incident_keys") or item.payload.get("incidents") or []))
         }
     )
+    incident_labels = [translate_incident_key(incident) for incident in incidents]
     rescue_top5 = _aggregate_rescue_items(snapshots)
     appeals_summary = summarize_appeals(snapshot)
     surface_state = "PARTIAL" if is_partial else ("STALE" if is_stale else rollout_state.upper())
-    top_drivers = _nested_get(latest_payload, "advice_context", "top_drivers", default=[]) or []
+    top_drivers = [normalize_shadow_phrase(item) for item in (_nested_get(latest_payload, "advice_context", "top_drivers", default=[]) or [])]
 
     payload = {
         "snapshot_id": snapshot.id,
@@ -523,8 +546,9 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
             trust_block.get("confidence_band") or classify_confidence_band(score_confidence)
         ),
         "incident_keys": incidents,
+        "incident_labels": incident_labels,
         "portfolio_health_state": portfolio.get("portfolio_health_state") or portfolio.get("health_state") or "Watch",
-        "rescue_top5": rescue_top5 or portfolio.get("rescue_top5") or [],
+        "rescue_top5": rescue_top5 or [_normalize_rescue_item(item) for item in (portfolio.get("rescue_top5") or [])],
         "readiness": readiness,
         "readiness_items": [
             {
@@ -864,7 +888,7 @@ def generate_advice(
                 "key": f"shops_stale:{range_current.end_date}",
                 "tone": "neutral",
                 "title": "Є магазини без контакту давно",
-                "text": "Є магазини, з якими давно не було комунікації. Можливо, варто зробити короткий follow-up (продажі/потреби/товар).",
+                "text": "Є магазини, з якими давно не було комунікації. Можливо, варто зробити короткий повторний контакт (продажі/потреби/товар).",
                 "evidence": f"Без контакту давно: {stale_shops} магазин(и)",
                 "assumption": True,
                 "expires_at": (timezone.localtime().replace(hour=23, minute=59, second=59, microsecond=0) + timedelta(days=2)).isoformat(),

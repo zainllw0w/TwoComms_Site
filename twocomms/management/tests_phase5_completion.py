@@ -204,6 +204,16 @@ class SnapshotAggregationExplainabilityTests(TestCase):
         self.assertEqual(shadow["aggregation"]["available_days"], 3)
         self.assertEqual(shadow["aggregation"]["missing_days"], [])
         self.assertIsNotNone(shadow["mosaic_score"])
+        self.assertIn("Черга дублів", shadow["incident_labels"])
+        self.assertEqual(shadow["top_drivers"], ["оплачені замовлення"])
+        self.assertEqual(shadow["rescue_top5"][0]["urgency"], "72 год")
+        self.assertEqual(shadow["rescue_top5"][0]["confidence_badge_label"], "Середня")
+        self.assertEqual(shadow["rescue_top5"][0]["churn_basis_label"], "модель Вейбулла")
+        incidents_item = next(item for item in shadow["why_changed_today"] if item["label"] == "Інциденти")
+        self.assertIn("Черга дублів", incidents_item["value"])
+        confidence_item = next(item for item in shadow["why_changed_today"] if item["label"] == "Довіра")
+        self.assertEqual(confidence_item["value"], shadow["confidence_band_label"])
+        self.assertEqual(shadow["best_opportunities"][0]["detail"], "Ризик: 4200 грн • 72 год")
 
     def test_shadow_explain_and_rescue_endpoints_return_contract_payloads(self):
         target_date = date(2026, 3, 10)
