@@ -1,6 +1,10 @@
 {% extends "management/base.html" %}
 {% load static %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/management-stats.css' %}">
+{% endblock %}
+
 {% block content %}
 <section class="admin-panel">
     <div class="panel-header">
@@ -665,6 +669,39 @@
     {{ shops_payload|json_script:"shops-data" }}
     {{ test_products|json_script:"test-products-data" }}
     {% else %}
+    <div class="admin-analytics-grid">
+        <section class="admin-analytics-card">
+            <div class="shadow-explain-title">Readiness & incidents</div>
+            <div class="admin-analytics-kpis">
+                <div><span class="muted">Managers</span><b>{{ admin_analytics.manager_count|default:0 }}</b></div>
+                <div><span class="muted">Stale</span><b>{{ admin_analytics.stale_count|default:0 }}</b></div>
+                <div><span class="muted">Open appeals</span><b>{{ admin_analytics.open_appeals|default:0 }}</b></div>
+            </div>
+        </section>
+        <section class="admin-analytics-card">
+            <div class="shadow-explain-title">Forecast bands</div>
+            <div class="admin-analytics-kpis">
+                <div><span class="muted">Duplicate queue</span><b>{{ admin_analytics.duplicate_queue|default:0 }}</b></div>
+                <div><span class="muted">Managers with stale snapshots</span><b>{{ admin_analytics.stale_count|default:0 }}</b></div>
+                <div><span class="muted">Telephony</span><b>{{ admin_analytics.telephony_status|upper }}</b></div>
+                <div><span class="muted">DTF bridge</span><b>{{ admin_analytics.dtf_status|upper }}</b></div>
+            </div>
+        </section>
+        <section class="admin-analytics-card">
+            <div class="shadow-explain-title">Duplicate queue</div>
+            <div class="admin-analytics-mini-list">
+                {% for row in admin_analytics.rows|slice:":4" %}
+                    <div class="admin-analytics-mini-row">
+                        <span>{{ row.name }}</span>
+                        <strong>{{ row.duplicate_reviews }}</strong>
+                    </div>
+                {% empty %}
+                    <div class="muted">Черга дублікатів порожня.</div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+
     <div class="table-shell">
         <table class="nexus-table">
             <thead>
@@ -675,6 +712,7 @@
                     <th>Всього (клієнти)</th>
                     <th>Бали сьогодні</th>
                     <th>Бали всього</th>
+                    <th>Payback</th>
                     <th>Онлайн</th>
                     <th>Останній вхід</th>
                     <th>Огляд</th>
@@ -689,6 +727,13 @@
                     <td>{{ u.total }}</td>
                     <td>{{ u.points_today }}</td>
                     <td>{{ u.points_total }}</td>
+                    <td>
+                        {% for econ in admin_analytics.rows %}
+                            {% if econ.id == u.id %}
+                                {{ econ.payback|floatformat:2 }}x
+                            {% endif %}
+                        {% endfor %}
+                    </td>
                     <td>
                         {% if u.online %}
                             <span class="status-dot online">●</span> Онлайн

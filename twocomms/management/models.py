@@ -936,6 +936,9 @@ class ClientFollowUp(models.Model):
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN, db_index=True)
     closed_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Закрито"))
+    grace_until = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name=_("Пільгове вікно до"))
+    last_notified_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name=_("Останнє нагадування"))
+    escalation_level = models.PositiveSmallIntegerField(default=0, db_index=True, verbose_name=_("Рівень ескалації"))
     closed_by_report = models.ForeignKey(
         Report,
         on_delete=models.SET_NULL,
@@ -992,12 +995,20 @@ class ManagementStatsConfig(models.Model):
     kpd_weights = models.JSONField(default=dict, blank=True, verbose_name=_("Ваги КПД"))
     advice_thresholds = models.JSONField(default=dict, blank=True, verbose_name=_("Пороги порад"))
     formula_version = models.CharField(max_length=64, default="mosaic-v1", verbose_name=_("Версія формули"))
+    legacy_kpd_formula_version = models.CharField(max_length=64, default="kpd-v1", verbose_name=_("Версія legacy КПД"))
+    shadow_mosaic_formula_version = models.CharField(max_length=64, default="mosaic-v1", verbose_name=_("Версія shadow MOSAIC"))
     defaults_version = models.CharField(max_length=64, default="2026-03-13", verbose_name=_("Версія дефолтів"))
     snapshot_schema_version = models.CharField(max_length=32, default="v1", verbose_name=_("Версія snapshot-схеми"))
     payload_version = models.CharField(max_length=32, default="v1", verbose_name=_("Версія payload"))
     rollout_state = models.CharField(max_length=32, default="shadow", verbose_name=_("Стан rollout"))
     feature_flags = models.JSONField(default=dict, blank=True, verbose_name=_("Feature flags"))
     formula_defaults = models.JSONField(default=dict, blank=True, verbose_name=_("Дефолти формул"))
+    mosaic_config = models.JSONField(default=dict, blank=True, verbose_name=_("Конфіг MOSAIC"))
+    payroll_config = models.JSONField(default=dict, blank=True, verbose_name=_("Конфіг payroll"))
+    forecast_config = models.JSONField(default=dict, blank=True, verbose_name=_("Конфіг forecast"))
+    telephony_config = models.JSONField(default=dict, blank=True, verbose_name=_("Конфіг телфонії"))
+    ui_config = models.JSONField(default=dict, blank=True, verbose_name=_("UI конфіг"))
+    validation_state = models.JSONField(default=dict, blank=True, verbose_name=_("Стан валідації"))
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -1189,6 +1200,11 @@ class NightlyScoreSnapshot(models.Model):
 
 
 class ScoreAppeal(models.Model):
+    class AppealType(models.TextChoices):
+        SCORE = "score", _("Score")
+        FREEZE = "freeze", _("Freeze")
+        OWNERSHIP = "ownership", _("Ownership")
+
     class Status(models.TextChoices):
         OPEN = "open", _("Відкрито")
         APPROVED = "approved", _("Підтверджено")
@@ -1206,11 +1222,25 @@ class ScoreAppeal(models.Model):
         related_name="appeals",
         verbose_name=_("Snapshot"),
     )
+    appeal_type = models.CharField(max_length=20, choices=AppealType.choices, default=AppealType.SCORE, db_index=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN, db_index=True)
+    reason_code = models.CharField(max_length=64, blank=True, verbose_name=_("Код причини"))
     reason = models.TextField(verbose_name=_("Причина"))
+    manager_note = models.TextField(blank=True, verbose_name=_("Нотатка менеджера"))
     evidence = models.JSONField(default=dict, blank=True, verbose_name=_("Докази"))
+    evidence_payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload доказів"))
     resolution_note = models.TextField(blank=True, verbose_name=_("Рішення"))
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resolved_management_score_appeals",
+        verbose_name=_("Розглянув"),
+    )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    opened_at = models.DateTimeField(default=timezone.now, db_index=True)
+    due_at = models.DateTimeField(null=True, blank=True, db_index=True)
     resolved_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
@@ -1232,6 +1262,13 @@ class ScoreAppeal(models.Model):
 
 
 class ManagerCommissionAccrual(models.Model):
+    class AccrualType(models.TextChoices):
+        NEW = "new", _("Новий")
+        REPEAT = "repeat", _("Повторний")
+        REACTIVATION = "reactivation", _("Реактивація")
+        RESCUE_SPIFF = "rescue_spiff", _("Rescue SPIFF")
+        MANUAL = "manual", _("Ручне")
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -1246,11 +1283,24 @@ class ManagerCommissionAccrual(models.Model):
         related_name='management_commission_accrual',
         verbose_name=_('Накладна'),
     )
+    source_snapshot = models.ForeignKey(
+        NightlyScoreSnapshot,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="commission_accruals",
+        verbose_name=_("Source snapshot"),
+    )
 
+    accrual_type = models.CharField(max_length=20, choices=AccrualType.choices, default=AccrualType.MANUAL, db_index=True)
     base_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_('База (грн)'))
     percent = models.DecimalField(max_digits=6, decimal_places=2, default=0, verbose_name=_('Відсоток'))
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_('Нараховано (грн)'))
     note = models.CharField(max_length=255, blank=True, verbose_name=_('Пояснення'))
+    freeze_reason_code = models.CharField(max_length=64, blank=True, verbose_name=_("Код причини заморозки"))
+    freeze_reason_text = models.TextField(blank=True, verbose_name=_("Причина заморозки"))
+    working_factor_applied = models.DecimalField(max_digits=5, decimal_places=4, default=1, verbose_name=_("Working factor"))
+    evidence_payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload доказів"))
 
     frozen_until = models.DateTimeField(db_index=True, verbose_name=_('Заморожено до'))
     created_at = models.DateTimeField(auto_now_add=True)

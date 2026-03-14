@@ -10,7 +10,8 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .models import ManagementDailyActivity, ManagementStatsAdviceDismissal, NightlyScoreSnapshot, ScoreAppeal, SupervisorActionLog
+from .models import ManagementDailyActivity, ManagementStatsAdviceDismissal, NightlyScoreSnapshot, ScoreAppeal
+from .services.appeals import create_score_appeal, resolve_score_appeal
 from .stats_service import parse_stats_range, get_stats_payload
 from .views import (
     get_manager_bot_username,
@@ -246,19 +247,22 @@ def score_appeal_create(request):
 
     appeal = (
         ScoreAppeal.objects.filter(owner=request.user, snapshot=snapshot, status=ScoreAppeal.Status.OPEN)
-        .order_by("-created_at")
+        .order_by("-opened_at", "-created_at")
         .first()
     )
     if appeal:
+        evidence_payload = {"note": evidence_note} if evidence_note else {}
         appeal.reason = reason
-        appeal.evidence = {"note": evidence_note} if evidence_note else {}
-        appeal.save(update_fields=["reason", "evidence"])
+        appeal.manager_note = reason
+        appeal.evidence = evidence_payload
+        appeal.evidence_payload = evidence_payload
+        appeal.save(update_fields=["reason", "manager_note", "evidence", "evidence_payload"])
     else:
-        appeal = ScoreAppeal.objects.create(
+        appeal = create_score_appeal(
             owner=request.user,
             snapshot=snapshot,
             reason=reason,
-            evidence={"note": evidence_note} if evidence_note else {},
+            evidence_payload={"note": evidence_note} if evidence_note else {},
         )
 
     return JsonResponse(
@@ -289,16 +293,11 @@ def score_appeal_resolve(request, appeal_id: int):
     if not appeal:
         return JsonResponse({"success": False, "error": "Апеляцію не знайдено."}, status=404)
 
-    appeal.mark_resolved(status=status, resolution_note=resolution_note)
-    SupervisorActionLog.objects.create(
-        manager=appeal.owner,
-        actor=request.user,
-        action_type=SupervisorActionLog.ActionType.APPEAL_RESOLUTION,
-        payload={
-            "appeal_id": appeal.id,
-            "snapshot_id": appeal.snapshot_id,
-            "status": status,
-        },
+    resolve_score_appeal(
+        appeal=appeal,
+        status=status,
+        resolution_note=resolution_note,
+        resolved_by=request.user,
     )
     return JsonResponse(
         {
