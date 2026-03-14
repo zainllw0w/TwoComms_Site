@@ -5,7 +5,8 @@
      data-lead-create-url="{% url 'management_lead_create_api' %}"
      data-lead-detail-url-template="{% url 'management_lead_detail_api' 0 %}"
      data-lead-process-url-template="{% url 'management_lead_process_api' 0 %}"
-     data-client-delete-url-template="{% url 'management_delete_client' 0 %}">
+     data-client-delete-url-template="{% url 'management_delete_client' 0 %}"
+     data-outcome-reason-schema="{{ outcome_reason_schema_json|escapejs }}">
 </div>
 
 <div class="clients-panel">
@@ -71,6 +72,10 @@
                                 data-role="{{ client.role }}"
                                 data-source="{{ client.source|escape }}"
                                 data-call-result="{{ client.call_result }}"
+                                data-call-result-reason-code="{{ client.call_result_reason_code|escape }}"
+                                data-call-result-reason-note="{{ client.call_result_reason_note|escape }}"
+                                data-call-result-contact-attempts="{{ client.call_result_context.attempts|default:'' }}"
+                                data-call-result-contact-channel="{{ client.call_result_context.contact_channel|default:'' }}"
                                 data-call-details="{{ client.call_result_details|escape }}"
                                 data-next-call-date="{{ client.next_call_at|date:'Y-m-d' }}"
                                 data-next-call-time="{{ client.next_call_at|date:'H:i' }}">
@@ -252,6 +257,28 @@
                     </select>
                     <textarea id="call_result_other" name="call_result_other" class="field-conditional" placeholder="Що саме інше?"></textarea>
                 </div>
+                <div class="field field-span-2 field-conditional reason-capture" id="call_result_reason_block">
+                    <label for="call_result_reason_code">Причина результату</label>
+                    <select id="call_result_reason_code" name="call_result_reason_code"></select>
+                    <div class="field-hint" id="call_result_reason_hint">Оберіть причину, щоб система коректно рахувала якість даних.</div>
+                    <textarea id="call_result_reason_note" name="call_result_reason_note" placeholder="Уточнення по розмові"></textarea>
+                    <div class="reason-context-grid">
+                        <div class="field field-conditional" id="call_result_contact_attempts_wrap">
+                            <label for="call_result_contact_attempts">Кількість спроб</label>
+                            <input type="number" id="call_result_contact_attempts" name="call_result_contact_attempts" min="1" max="20" placeholder="Наприклад: 3">
+                        </div>
+                        <div class="field field-conditional" id="call_result_contact_channel_wrap">
+                            <label for="call_result_contact_channel">Основний канал</label>
+                            <select id="call_result_contact_channel" name="call_result_contact_channel">
+                                <option value="">Оберіть канал</option>
+                                <option value="phone">Телефон</option>
+                                <option value="messenger">Месенджер</option>
+                                <option value="email">E-mail</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="field field-span-2 duplicate-review-surface" id="client_duplicate_notice" hidden></div>
                 <div class="field field-span-2">
                     <label>Наступний дзвінок</label>
                     <div class="next-call-options">
@@ -423,6 +450,28 @@
                     </select>
                     <textarea id="process_call_result_other" name="call_result_other" class="field-conditional" placeholder="Що саме інше?"></textarea>
                 </div>
+                <div class="field field-span-2 field-conditional reason-capture" id="process_call_result_reason_block">
+                    <label for="process_call_result_reason_code">Причина результату</label>
+                    <select id="process_call_result_reason_code" name="call_result_reason_code"></select>
+                    <div class="field-hint" id="process_call_result_reason_hint">Заповніть причину, щоб зберегти коректну історію та якість даних.</div>
+                    <textarea id="process_call_result_reason_note" name="call_result_reason_note" placeholder="Уточнення по розмові"></textarea>
+                    <div class="reason-context-grid">
+                        <div class="field field-conditional" id="process_call_result_contact_attempts_wrap">
+                            <label for="process_call_result_contact_attempts">Кількість спроб</label>
+                            <input type="number" id="process_call_result_contact_attempts" name="call_result_contact_attempts" min="1" max="20" placeholder="Наприклад: 3">
+                        </div>
+                        <div class="field field-conditional" id="process_call_result_contact_channel_wrap">
+                            <label for="process_call_result_contact_channel">Основний канал</label>
+                            <select id="process_call_result_contact_channel" name="call_result_contact_channel">
+                                <option value="">Оберіть канал</option>
+                                <option value="phone">Телефон</option>
+                                <option value="messenger">Месенджер</option>
+                                <option value="email">E-mail</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="field field-span-2 duplicate-review-surface" id="process_duplicate_notice" hidden></div>
                 <div class="field field-span-2">
                     <label>Наступний дзвінок</label>
                     <div class="next-call-options">
@@ -509,6 +558,7 @@ function initManagementHomePage() {
         if (target) target.classList.add('home-pane-active');
     });
 
+    const outcomeReasonSchema = JSON.parse(endpoints.dataset.outcomeReasonSchema || '{}');
     const roleSelect = document.getElementById('role');
     const roleCustom = document.getElementById('role_custom');
     const sourceSelect = document.getElementById('source');
@@ -516,6 +566,15 @@ function initManagementHomePage() {
     const sourceOther = document.getElementById('source_other');
     const callResultSelect = document.getElementById('call_result');
     const callResultOther = document.getElementById('call_result_other');
+    const callResultReasonBlock = document.getElementById('call_result_reason_block');
+    const callResultReasonCode = document.getElementById('call_result_reason_code');
+    const callResultReasonHint = document.getElementById('call_result_reason_hint');
+    const callResultReasonNote = document.getElementById('call_result_reason_note');
+    const callResultContactAttemptsWrap = document.getElementById('call_result_contact_attempts_wrap');
+    const callResultContactAttempts = document.getElementById('call_result_contact_attempts');
+    const callResultContactChannelWrap = document.getElementById('call_result_contact_channel_wrap');
+    const callResultContactChannel = document.getElementById('call_result_contact_channel');
+    const clientDuplicateNotice = document.getElementById('client_duplicate_notice');
     const nextCallRadios = document.querySelectorAll('#client-form input[name="next_call_type"]');
     const nextCallWrap = document.getElementById('next_call_datetime');
     const nextCallDate = document.getElementById('next_call_date');
@@ -538,6 +597,15 @@ function initManagementHomePage() {
     const processSourceOther = document.getElementById('process_source_other');
     const processCallResult = document.getElementById('process_call_result');
     const processCallResultOther = document.getElementById('process_call_result_other');
+    const processCallResultReasonBlock = document.getElementById('process_call_result_reason_block');
+    const processCallResultReasonCode = document.getElementById('process_call_result_reason_code');
+    const processCallResultReasonHint = document.getElementById('process_call_result_reason_hint');
+    const processCallResultReasonNote = document.getElementById('process_call_result_reason_note');
+    const processCallResultContactAttemptsWrap = document.getElementById('process_call_result_contact_attempts_wrap');
+    const processCallResultContactAttempts = document.getElementById('process_call_result_contact_attempts');
+    const processCallResultContactChannelWrap = document.getElementById('process_call_result_contact_channel_wrap');
+    const processCallResultContactChannel = document.getElementById('process_call_result_contact_channel');
+    const processDuplicateNotice = document.getElementById('process_duplicate_notice');
     const processNextCallRadios = document.querySelectorAll('#lead-process-form input[name="next_call_type"]');
     const processNextCallWrap = document.getElementById('process_next_call_datetime');
     const processNextCallDate = document.getElementById('process_next_call_date');
@@ -549,6 +617,81 @@ function initManagementHomePage() {
         const show = select.value === showValue;
         target.style.display = show ? 'block' : 'none';
         if (!show) target.value = '';
+    };
+
+    const clearDuplicateNotice = (node) => {
+        if (!node) return;
+        node.hidden = true;
+        node.innerHTML = '';
+    };
+
+    const renderDuplicateNotice = (node, payload) => {
+        if (!node || !payload) return;
+        const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+        const items = candidates.slice(0, 3).map((candidate) => `
+            <li>
+                <strong>${candidate.shop_name || 'Без назви'}</strong>
+                <span>${candidate.kind === 'client' ? 'Клієнт' : 'Лід'}</span>
+                <span>${candidate.phone || '—'}</span>
+                <span>Score: ${candidate.score ?? '—'}</span>
+            </li>
+        `).join('');
+        node.hidden = false;
+        node.innerHTML = `
+            <div class="duplicate-review-header">
+                <div>
+                    <div class="duplicate-review-eyebrow">${payload.zone === 'review' ? 'Потрібна перевірка' : 'Знайдено дубль'}</div>
+                    <strong>${payload.error || 'Знайдено схожий запис'}</strong>
+                </div>
+                ${payload.duplicate_review_id ? `<span class="duplicate-review-badge">Review #${payload.duplicate_review_id}</span>` : ''}
+            </div>
+            ${items ? `<ul class="duplicate-review-list">${items}</ul>` : ''}
+        `;
+    };
+
+    const syncReasonCapture = ({
+        resultSelect,
+        block,
+        reasonSelect,
+        hintNode,
+        noteInput,
+        attemptsWrap,
+        attemptsInput,
+        channelWrap,
+        channelInput,
+    }) => {
+        if (!resultSelect || !block || !reasonSelect || !noteInput) return;
+        const config = outcomeReasonSchema[resultSelect.value];
+        if (!config) {
+            block.style.display = 'none';
+            reasonSelect.innerHTML = '';
+            reasonSelect.value = '';
+            noteInput.value = '';
+            attemptsWrap.style.display = 'none';
+            attemptsInput.value = '';
+            channelWrap.style.display = 'none';
+            channelInput.value = '';
+            return;
+        }
+
+        block.style.display = 'flex';
+        const options = [{ code: '', label: 'Оберіть причину' }, ...(config.options || [])];
+        const selectedValue = reasonSelect.dataset.prefill || reasonSelect.value;
+        reasonSelect.innerHTML = options.map((option) => `<option value="${option.code}">${option.label}</option>`).join('');
+        if (options.some((option) => option.code === selectedValue)) {
+            reasonSelect.value = selectedValue;
+        } else if ((config.options || []).length === 1) {
+            reasonSelect.value = config.options[0].code;
+        } else {
+            reasonSelect.value = '';
+        }
+        reasonSelect.dataset.prefill = '';
+        hintNode.textContent = config.hint || 'Оберіть причину, щоб зберегти якісну історію обробки.';
+        noteInput.placeholder = config.note_placeholder || 'Коротке уточнення';
+        attemptsWrap.style.display = config.requires_attempts ? 'flex' : 'none';
+        if (!config.requires_attempts) attemptsInput.value = '';
+        channelWrap.style.display = config.requires_channel ? 'flex' : 'none';
+        if (!config.requires_channel) channelInput.value = '';
     };
 
     const toggleNextCall = (radios, wrap, dateInput, timeInput) => {
@@ -578,16 +721,29 @@ function initManagementHomePage() {
     const resetClientForm = () => {
         clientForm.reset();
         clientIdInput.value = '';
+        clearDuplicateNotice(clientDuplicateNotice);
         setDefaultDateTime(nextCallDate, nextCallTime);
         clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked = true;
         toggleConditional(roleSelect, roleCustom, 'other');
         toggleConditional(sourceSelect, sourceLink, 'forums');
         toggleConditional(sourceSelect, sourceOther, 'other');
         toggleConditional(callResultSelect, callResultOther, 'other');
+        syncReasonCapture({
+            resultSelect: callResultSelect,
+            block: callResultReasonBlock,
+            reasonSelect: callResultReasonCode,
+            hintNode: callResultReasonHint,
+            noteInput: callResultReasonNote,
+            attemptsWrap: callResultContactAttemptsWrap,
+            attemptsInput: callResultContactAttempts,
+            channelWrap: callResultContactChannelWrap,
+            channelInput: callResultContactChannel,
+        });
         toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime);
     };
 
     const fillClientFormForEdit = (row) => {
+        clearDuplicateNotice(clientDuplicateNotice);
         clientIdInput.value = row.dataset.clientId || '';
         document.getElementById('shop_name').value = row.dataset.shop || '';
         document.getElementById('phone').value = row.dataset.phone || '';
@@ -602,8 +758,12 @@ function initManagementHomePage() {
         sourceOther.value = mapped.other;
 
         callResultSelect.value = row.dataset.callResult || 'thinking';
+        callResultReasonCode.dataset.prefill = row.dataset.callResultReasonCode || '';
+        callResultReasonNote.value = row.dataset.callResultReasonNote || '';
+        callResultContactAttempts.value = row.dataset.callResultContactAttempts || '';
+        callResultContactChannel.value = row.dataset.callResultContactChannel || '';
         callResultOther.value = callResultSelect.value === 'other'
-            ? (row.dataset.callDetails || '').replace('Інше: ', '').trim()
+            ? (row.dataset.callResultReasonNote || row.dataset.callDetails || '').replace('Інше: ', '').trim()
             : '';
 
         if (row.dataset.nextCallDate && row.dataset.nextCallTime) {
@@ -620,6 +780,17 @@ function initManagementHomePage() {
         toggleConditional(sourceSelect, sourceLink, 'forums');
         toggleConditional(sourceSelect, sourceOther, 'other');
         toggleConditional(callResultSelect, callResultOther, 'other');
+        syncReasonCapture({
+            resultSelect: callResultSelect,
+            block: callResultReasonBlock,
+            reasonSelect: callResultReasonCode,
+            hintNode: callResultReasonHint,
+            noteInput: callResultReasonNote,
+            attemptsWrap: callResultContactAttemptsWrap,
+            attemptsInput: callResultContactAttempts,
+            channelWrap: callResultContactChannelWrap,
+            channelInput: callResultContactChannel,
+        });
         toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime);
     };
 
@@ -654,6 +825,10 @@ function initManagementHomePage() {
                     data-role="${client.role}"
                     data-source="${client.source}"
                     data-call-result="${client.call_result}"
+                    data-call-result-reason-code="${client.call_result_reason_code || ''}"
+                    data-call-result-reason-note="${client.call_result_reason_note || ''}"
+                    data-call-result-contact-attempts="${client.call_result_contact_attempts || ''}"
+                    data-call-result-contact-channel="${client.call_result_contact_channel || ''}"
                     data-call-details="${client.call_result_details || ''}"
                     data-next-call-date=""
                     data-next-call-time="">
@@ -760,7 +935,20 @@ function initManagementHomePage() {
         toggleConditional(sourceSelect, sourceLink, 'forums');
         toggleConditional(sourceSelect, sourceOther, 'other');
     });
-    callResultSelect?.addEventListener('change', () => toggleConditional(callResultSelect, callResultOther, 'other'));
+    callResultSelect?.addEventListener('change', () => {
+        toggleConditional(callResultSelect, callResultOther, 'other');
+        syncReasonCapture({
+            resultSelect: callResultSelect,
+            block: callResultReasonBlock,
+            reasonSelect: callResultReasonCode,
+            hintNode: callResultReasonHint,
+            noteInput: callResultReasonNote,
+            attemptsWrap: callResultContactAttemptsWrap,
+            attemptsInput: callResultContactAttempts,
+            channelWrap: callResultContactChannelWrap,
+            channelInput: callResultContactChannel,
+        });
+    });
     nextCallRadios.forEach((radio) => radio.addEventListener('change', () => toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime)));
 
     leadSourceSelect?.addEventListener('change', () => {
@@ -773,12 +961,37 @@ function initManagementHomePage() {
         toggleConditional(processSource, processSourceLink, 'forums');
         toggleConditional(processSource, processSourceOther, 'other');
     });
-    processCallResult?.addEventListener('change', () => toggleConditional(processCallResult, processCallResultOther, 'other'));
+    processCallResult?.addEventListener('change', () => {
+        toggleConditional(processCallResult, processCallResultOther, 'other');
+        syncReasonCapture({
+            resultSelect: processCallResult,
+            block: processCallResultReasonBlock,
+            reasonSelect: processCallResultReasonCode,
+            hintNode: processCallResultReasonHint,
+            noteInput: processCallResultReasonNote,
+            attemptsWrap: processCallResultContactAttemptsWrap,
+            attemptsInput: processCallResultContactAttempts,
+            channelWrap: processCallResultContactChannelWrap,
+            channelInput: processCallResultContactChannel,
+        });
+    });
     processNextCallRadios.forEach((radio) => radio.addEventListener('change', () => toggleNextCall(processNextCallRadios, processNextCallWrap, processNextCallDate, processNextCallTime)));
 
     resetClientForm();
     leadForm.reset();
     setDefaultDateTime(processNextCallDate, processNextCallTime);
+    clearDuplicateNotice(processDuplicateNotice);
+    syncReasonCapture({
+        resultSelect: processCallResult,
+        block: processCallResultReasonBlock,
+        reasonSelect: processCallResultReasonCode,
+        hintNode: processCallResultReasonHint,
+        noteInput: processCallResultReasonNote,
+        attemptsWrap: processCallResultContactAttemptsWrap,
+        attemptsInput: processCallResultContactAttempts,
+        channelWrap: processCallResultContactChannelWrap,
+        channelInput: processCallResultContactChannel,
+    });
     toggleNextCall(processNextCallRadios, processNextCallWrap, processNextCallDate, processNextCallTime);
 
     document.addEventListener('click', async (e) => {
@@ -815,12 +1028,28 @@ function initManagementHomePage() {
                 processRoleCustom.value = '';
                 processCallResult.value = 'thinking';
                 processCallResultOther.value = '';
+                processCallResultReasonCode.value = '';
+                processCallResultReasonNote.value = '';
+                processCallResultContactAttempts.value = '';
+                processCallResultContactChannel.value = '';
+                clearDuplicateNotice(processDuplicateNotice);
                 processForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked = true;
                 setDefaultDateTime(processNextCallDate, processNextCallTime);
                 toggleConditional(processRole, processRoleCustom, 'other');
                 toggleConditional(processSource, processSourceLink, 'forums');
                 toggleConditional(processSource, processSourceOther, 'other');
                 toggleConditional(processCallResult, processCallResultOther, 'other');
+                syncReasonCapture({
+                    resultSelect: processCallResult,
+                    block: processCallResultReasonBlock,
+                    reasonSelect: processCallResultReasonCode,
+                    hintNode: processCallResultReasonHint,
+                    noteInput: processCallResultReasonNote,
+                    attemptsWrap: processCallResultContactAttemptsWrap,
+                    attemptsInput: processCallResultContactAttempts,
+                    channelWrap: processCallResultContactChannelWrap,
+                    channelInput: processCallResultContactChannel,
+                });
                 toggleNextCall(processNextCallRadios, processNextCallWrap, processNextCallDate, processNextCallTime);
                 openModal(processModal);
             } catch (err) {
@@ -832,6 +1061,7 @@ function initManagementHomePage() {
     clientForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(clientForm);
+        clearDuplicateNotice(clientDuplicateNotice);
         try {
             const res = await fetch("", {
                 method: "POST",
@@ -839,12 +1069,18 @@ function initManagementHomePage() {
                 headers: {'X-Requested-With': 'XMLHttpRequest'},
             });
             const data = await res.json();
-            if (!data.success) throw new Error(data.error || 'Помилка збереження');
+            if (!res.ok || !data.success) {
+                if (data.zone) {
+                    renderDuplicateNotice(clientDuplicateNotice, data);
+                    return;
+                }
+                throw new Error(data.error || 'Помилка збереження');
+            }
             updateStats(data);
             if (data.latest) prependClientToToday(data.latest, formData.get('csrfmiddlewaretoken') || '');
             closeModal(clientModal);
         } catch (err) {
-            clientForm.submit();
+            alert(err.message || 'Помилка збереження');
         }
     });
 
@@ -873,6 +1109,7 @@ function initManagementHomePage() {
         if (!leadId) return;
         const processUrl = leadProcessTpl.replace('/0/', `/${leadId}/`);
         const formData = new FormData(processForm);
+        clearDuplicateNotice(processDuplicateNotice);
         try {
             const res = await fetch(processUrl, {
                 method: 'POST',
@@ -880,7 +1117,13 @@ function initManagementHomePage() {
                 body: formData,
             });
             const data = await res.json();
-            if (!data.success) throw new Error(data.error || 'Помилка обробки ліда');
+            if (!res.ok || !data.success) {
+                if (data.zone) {
+                    renderDuplicateNotice(processDuplicateNotice, data);
+                    return;
+                }
+                throw new Error(data.error || 'Помилка обробки ліда');
+            }
             const row = document.querySelector(`#lead-base-table tr[data-lead-id="${leadId}"]`);
             if (row) row.remove();
             updateStats(data);

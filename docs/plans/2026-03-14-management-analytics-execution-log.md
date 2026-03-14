@@ -38,6 +38,10 @@
 - Manager/admin UI was refactored into component includes under `templates/management/components/` for radar, timeline, DTF/admin control center, decomposition drawer, and appeal drawer.
 - Shadow UI now exposes previous-period comparison, pace state, evidence-first decomposition, in-page appeal submission, and a unified client communication timeline.
 - Admin analytics now expose queue presets, forecast confidence/bands, cohort retention proxy, and at-risk manager ranking.
+- A second-pass audit against the March 13 master file and March 12 supporting synthesis confirmed a real gap in the manual home client flow and weak-outcome reason capture.
+- Manual home create/update now uses the same shared dedupe contract as leads and parser moderation, with inline duplicate review surfacing instead of silent fallback.
+- Weak/negative client outcomes now use structured reason capture (`reason_code`, `reason_note`, contextual extras) and those signals now feed `DataQuality` and bounded shadow trust.
+- Stats/admin localization is preserved in Ukrainian, including partial-range state labels and roster visibility for excluded former managers.
 
 ## Verification Evidence
 
@@ -47,6 +51,12 @@
 - `python3 -m compileall management` completed successfully.
 - `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py check --settings=test_settings` completed successfully.
 - `git diff --check` reports no whitespace or patch-shape problems.
+- Local second-pass regression after the gap closure:
+  - `DEBUG=1 SECRET_KEY=test-secret python3 manage.py test management.tests_phase2_dedupe management.tests_phase3_snapshots --settings=test_settings -v 2`
+  - `DEBUG=1 SECRET_KEY=test-secret python3 manage.py test management.tests_phase4_analytics management.tests_phase5_completion --settings=test_settings -v 2`
+  - `DEBUG=1 SECRET_KEY=test-secret python3 manage.py makemigrations --check --dry-run management`
+  - `DEBUG=1 SECRET_KEY=test-secret python3 manage.py check --settings=test_settings`
+- Gap audit document written to `docs/plans/2026-03-15-management-analytics-gap-audit.md`.
 
 ## Implemented Slice
 
@@ -59,9 +69,12 @@
 - Surfaced shadow score data in stats/admin payload and UI with `Why changed today`, `Must do today`, `Best opportunities`, `Rescue top-5`, `Salary simulator`, admin readiness/incidents, and forecast widgets.
 - Added radar preview, decomposition drawer, appeal drawer, pace-state rail, unified client communication timeline, and richer admin control center cards while preserving existing routes and live KPD.
 - Added reminder digesting/overload accounting and new management commands: `send_management_reminders` and `check_duplicate_queue`.
+- Added structured client outcome capture through `management.services.outcomes` and migration `0024_client_call_result_reason_fields.py`.
+- Upgraded manager home modals with dynamic reason taxonomy, contextual fields for weak outcomes, and an inline duplicate review surface.
+- Wired `reason_quality` into stats summary, snapshot payloads, `DataQuality`, and bounded production trust, while keeping legacy KPD/payroll truth unchanged.
 
 ## Next Slice
 
-1. Finish phase-8 validation plumbing and explicit activation controls in UI/admin workflows.
-2. Decide the safest server exposure path: separate Passenger preview checkout if publicly routable, otherwise controlled branch deploy on the live management checkout with rollback-ready git state.
-3. After deploy, run smoke verification for management stats/admin/payouts/parsing plus non-regression checks on the main site and DTF subdomain.
+1. Commit, push, and deploy the second-pass gap closure to the MySQL hosting environment.
+2. Run post-deploy verification for manual client save/edit, lead conversion, stats/admin/payouts, and excluded-manager visibility on the live management subdomain.
+3. Finish phase-8 validation plumbing and explicit activation controls in UI/admin workflows.

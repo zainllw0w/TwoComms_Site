@@ -199,6 +199,34 @@ class LeadProcessDedupeApiTests(TestCase):
         lead.refresh_from_db()
         self.assertEqual(lead.status, ManagementLead.Status.CONVERTED)
 
+    def test_lead_process_persists_structured_negative_outcome_reason(self):
+        lead = ManagementLead.objects.create(
+            shop_name="Target Shop",
+            phone="+380501234567",
+            full_name="Owner",
+            status=ManagementLead.Status.BASE,
+            added_by=self.user,
+        )
+
+        response = self.client.post(
+            f"/leads/api/{lead.id}/process/",
+            {
+                **self._base_payload(),
+                "call_result": Client.CallResult.NO_ANSWER,
+                "call_result_reason_code": "busy",
+                "call_result_contact_attempts": "3",
+                "call_result_contact_channel": "phone",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        created = Client.objects.get(shop_name="Target Shop", owner=self.user)
+        self.assertEqual(created.call_result_reason_code, "busy")
+        self.assertEqual(created.call_result_context["attempts"], 3)
+        self.assertEqual(created.call_result_context["contact_channel"], "phone")
+        self.assertIn("Спроб: 3", created.call_result_details)
+
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
 class ParsingModerationDedupeApiTests(TestCase):
@@ -274,3 +302,71 @@ class ParsingModerationDedupeApiTests(TestCase):
         self.assertEqual(payload["zone"], DedupeZone.REVIEW)
         self.assertTrue(payload["duplicate_review_id"])
         self.assertEqual(DuplicateReview.objects.count(), 1)
+
+
+@override_settings(ROOT_URLCONF="twocomms.urls_management")
+class HomeClientDedupeAndReasonTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="home_mgr", password="x", is_staff=True)
+        self.client.force_login(self.user)
+
+    def test_home_create_returns_structured_duplicate_conflict(self):
+        existing = Client.objects.create(
+            shop_name="Alpha Store",
+            phone="+380671112233",
+            full_name="Owner",
+            owner=self.user,
+        )
+
+        response = self.client.post(
+            "/",
+            {
+                "shop_name": "Alpha Store",
+                "phone": "+380671112233",
+                "full_name": "Owner",
+                "role": Client.Role.MANAGER,
+                "call_result": Client.CallResult.THINKING,
+                "next_call_type": "no_follow",
+            },
+            secure=True,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        payload = response.json()
+        self.assertEqual(payload["zone"], DedupeZone.AUTO_BLOCK)
+        self.assertEqual(payload["candidates"][0]["id"], existing.id)
+        self.assertEqual(Client.objects.count(), 1)
+
+    def test_home_create_stores_structured_not_interested_reason(self):
+        response = self.client.post(
+            "/",
+            {
+                "shop_name": "Reason Shop",
+                "phone": "+380671112244",
+                "full_name": "Owner",
+                "role": Client.Role.MANAGER,
+                "source": "instagram",
+                "call_result": Client.CallResult.NOT_INTERESTED,
+                "call_result_reason_code": "current_supplier",
+                "call_result_reason_note": "Працюють по діючому договору до кінця сезону",
+                "next_call_type": "no_follow",
+            },
+            secure=True,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        created = Client.objects.get(shop_name="Reason Shop", owner=self.user)
+        self.assertEqual(created.call_result_reason_code, "current_supplier")
+        self.assertEqual(created.call_result_reason_note, "Працюють по діючому договору до кінця сезону")
+        self.assertEqual(created.call_result_context["note"], "Працюють по діючому договору до кінця сезону")
+        self.assertIn("Причина:", created.call_result_details)
+
+    def test_home_page_renders_reason_capture_fields(self):
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Причина результату")
+        self.assertContains(response, "Кількість спроб")
+        self.assertContains(response, "Основний канал")

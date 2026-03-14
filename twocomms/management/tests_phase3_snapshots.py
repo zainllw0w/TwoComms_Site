@@ -104,6 +104,29 @@ class SnapshotServiceTests(TestCase):
         self.assertIn("mosaic_score", payload["shadow_score"])
         self.assertIn("score_confidence", payload["shadow_score"])
 
+    def test_missing_negative_outcome_reason_reduces_reason_quality_and_data_quality(self):
+        target_date = date(2026, 3, 10)
+        created_at = timezone.make_aware(datetime.combine(target_date, time(hour=16, minute=0)))
+        Client.objects.create(
+            shop_name="Weak Outcome Shop",
+            phone="+380671112255",
+            full_name="Owner",
+            owner=self.user,
+            call_result=Client.CallResult.NO_ANSWER,
+            source="Instagram",
+        )
+        Client.objects.filter(owner=self.user, shop_name="Weak Outcome Shop").update(created_at=created_at)
+        ManagementDailyActivity.objects.create(user=self.user, date=target_date, active_seconds=3_600, last_seen_at=created_at)
+
+        snapshot = persist_nightly_snapshot(owner=self.user, snapshot_date=target_date)
+
+        pipeline = snapshot.payload["summary"]["pipeline"]
+        self.assertEqual(pipeline["negative_outcomes_total"], 1)
+        self.assertEqual(pipeline["required_reason_missing"], 1)
+        self.assertLess(float(pipeline["reason_quality"]), 1.0)
+        self.assertLess(Decimal(snapshot.payload["axes"]["data_quality"]), Decimal("1.0"))
+        self.assertIn("reason_quality", snapshot.payload["trust"])
+
 
 class ComputeNightlyScoresCommandTests(TestCase):
     def setUp(self):
