@@ -116,3 +116,5 @@
 Следующий агент не должен строить implementation file по старым папкам напрямую. Старые папки читаются только через `15_TRACEABILITY_MATRIX_AND_SOURCE_COVERAGE.md` и только для проверки, что ничего не потеряно.
 
 Если начинается уже именно реализация, основной рабочий документ теперь `18_IMPLEMENTATION_MASTER_FILE.md`; остальные файлы этой папки используются как его authority-слой и детализация по темам.
+
+Secondary audit/helper files, even if they physically live in this folder, do not become authority unless they are added to the package map above. This includes files like `CODEX_FIX_GUIDE.md`: they may surface real gaps, but any conflict is resolved in favor of the canonical files listed in the reading order and then in favor of `18_IMPLEMENTATION_MASTER_FILE.md` for execution-facing decisions.

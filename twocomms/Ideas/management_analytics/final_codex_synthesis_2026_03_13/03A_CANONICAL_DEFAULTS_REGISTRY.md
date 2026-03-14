@@ -84,6 +84,9 @@ Unresolved drift:
 |---|---:|
 | `SF_NEAR_NEUTRAL_UNDER` | `20 attempts` |
 | `SF_FULL_CONFIDENCE_AT` | `100 attempts` |
+| `SCORE_CONFIDENCE_LOW_MAX` | `0.49` |
+| `SCORE_CONFIDENCE_MEDIUM_MIN` | `0.50` |
+| `SCORE_CONFIDENCE_HIGH_MIN` | `0.80` |
 | `MIN_OBSERVATIONS_GAMING` | `20` |
 | `MIN_DAYS_FOR_EWMA` | `42` |
 | `EWMA_HALF_LIFE_DAYS` | `21` |
@@ -91,6 +94,20 @@ Unresolved drift:
 | `EWMA_DECAY_GUARD_RATIO` | `0.30` |
 | `WILSON_Z_90` | `1.645` |
 | `MIN_DAYS_FOR_VALIDATION` | `60` |
+
+## Review And Benchmark Defaults
+
+| Constant | Value |
+|---|---:|
+| `PEER_BENCHMARK_MIN_N` | `5` |
+| `CALLBACK_CYCLING_MIN_RESCHEDULES_7D` | `3` |
+| `BATCH_LOGGING_SHARE_THRESHOLD` | `0.80` |
+| `BATCH_LOGGING_MIN_ENTRIES` | `10` |
+
+Notes:
+- `PEER_BENCHMARK_MIN_N` aligns with manager-facing anonymity rules from `07_MANAGER_ADMIN_UX_EXPLAINABILITY.md`;
+- callback and batch-logging values are review-trigger defaults, not auto-punitive thresholds;
+- `reason_entropy` and `top_reason_share` should be stored together as a pair, but exact pair-threshold tuning remains config/version driven rather than frozen here prematurely.
 
 ## Follow-Up And Reminder Defaults
 
@@ -122,6 +139,11 @@ Unresolved drift:
 | `REINTEGRATION_CAPACITY_STAGE_1` | `0.6` |
 | `REINTEGRATION_DAYS_STAGE_2` | `3` |
 | `REINTEGRATION_CAPACITY_STAGE_2` | `0.8` |
+
+Interpretation note:
+- onboarding floor protection is full for days `1-14`;
+- on days `15-28`, the onboarding floor decays linearly from `40` to `0`;
+- from day `29+`, onboarding protection no longer supplies a floor and normal score interpretation applies.
 
 ## Portfolio And Rescue Defaults
 
