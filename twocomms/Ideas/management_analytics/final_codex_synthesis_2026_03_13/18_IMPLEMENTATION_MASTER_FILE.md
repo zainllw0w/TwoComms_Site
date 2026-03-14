@@ -16,7 +16,7 @@ This is the execution-facing document for the future implementation agent. It re
 
 Use this file in this order:
 
-1. Read sections `1-4.7` to load authority, code reality, explicit decisions and the workstream source map.
+1. Read sections `1-4.9` to load authority, code reality, explicit decisions, incident rules and the workstream source map.
 2. Read section `5` before touching migrations or creating new modules.
 3. Execute phases in section `9` strictly in order.
 4. Use section `10` as the minimum verification contract before every phase close-out.
@@ -101,6 +101,18 @@ The future agent must anchor every change to the current codebase.
 | Legacy points and daily targets | `twocomms/management/constants.py:1-23` | `POINTS`, `LEAD_ADD_POINTS`, `LEAD_BASE_PROCESSING_PENALTY`, `TARGET_CLIENTS_DAY`, `TARGET_POINTS_DAY`, `REMINDER_WINDOW_MINUTES` | preserve legacy KPD parity during transition |
 | Cache and execution environment | `twocomms/twocomms/settings.py:592-698` | Redis-backed cache in prod, LocMem in debug, Celery settings present | new functionality must not require Redis/Celery to succeed; DB + cron remains the safe baseline |
 | Timezone and host | `twocomms/twocomms/settings.py:92-93`, `507-511` | `management.twocomms.shop`, `Europe/Kiev`, `USE_TZ=True` | all day-ledger, reminders and snapshots must use local-day semantics |
+
+### 3.5 Hidden cross-app couplings the future agent must respect
+
+The `management` app is not isolated. Several flows depend on lazy imports and external models. The implementation agent must not accidentally break these edges while refactoring analytics.
+
+| External app / surface | Existing anchors | Why it matters | Safe rule |
+|---|---|---|---|
+| `accounts.UserProfile` | `twocomms/management/views.py:49` | manager profile, Telegram binding and profile data already depend on it | do not duplicate profile state inside `management` |
+| `orders.WholesaleInvoice` | `twocomms/management/views.py:726`, `1063-1102`, `2553`, `3714-4011`, `5313`; `twocomms/management/stats_service.py:779`, `1238`; `twocomms/management/shop_views.py:18` | invoices, accruals, admin payout context, shop shipment docs and stats use wholesale invoice truth | analytics must read invoice truth, not invent a parallel revenue source |
+| `storefront.Product` / `Category` | `twocomms/management/views.py:1039`, `2780`, `3252`, `3403`, `4749`; `twocomms/management/shop_views.py:406` | CP email, contracts, invoices and shop flows already depend on storefront catalog entities | avoid import-cycle-heavy service placement; keep lazy import pattern where current code already uses it |
+| `storefront.views.monobank` helpers | `twocomms/management/views.py:4011-4012` | payment creation flow has external dependency already | do not entangle score/payroll services with payment transport helpers |
+| `twocomms_django_theme` static assets | `twocomms/twocomms_django_theme/static/js/management-stats.js:1-260`, `twocomms/twocomms_django_theme/static/css/management-stats.css:1-788` | management analytics UI is not isolated in a separate frontend package | new UI assets should follow current static loading conventions |
 
 ## 4. Explicit Decisions Resolved In This File
 
@@ -192,6 +204,37 @@ Use this table when a future implementation step needs both the canonical idea s
 | Governance, snapshots, jobs, rollout | `twocomms/Ideas/management_analytics/final_codex_synthesis_2026_03_13/10_GOVERNANCE_DATA_MODEL_JOBS_ROLLOUT.md:7-146`, `twocomms/Ideas/management_analytics/final_codex_synthesis_2026_03_13/13_IMPLEMENTATION_BLUEPRINT_AND_DEPENDENCY_ORDER.md:7-167` | `twocomms/management/management/commands/notify_test_shops.py:38-94`, `twocomms/twocomms/settings.py:592-698`, `twocomms/management/stats_views.py:25-222` | use command-run logging, readiness rows, daily snapshots, and staged rollout; do not hide stale states |
 | Edge cases and failure semantics | `twocomms/Ideas/management_analytics/final_codex_synthesis_2026_03_13/11_EDGE_CASES_FAILURE_MODES_AND_SCENARIOS.md:7-78` | `twocomms/management/views.py:254-350`, `twocomms/management/views.py:2246-2284`, `twocomms/management/stats_service.py:260-532` | make failure states explicit in DB/UI instead of burying them in advice text |
 | Tests, golden cases, activation metrics | `twocomms/Ideas/management_analytics/final_codex_synthesis_2026_03_13/12_TEST_STRATEGY_VALIDATION_ACCEPTANCE.md:7-140`, `twocomms/Ideas/management_analytics/final_codex_synthesis_2026_03_13/15_TRACEABILITY_MATRIX_AND_SOURCE_COVERAGE.md:14-66` | `twocomms/management/tests.py` and future `twocomms/management/tests/` package | migrate tests into package first, then grow coverage by workstream and phase gate |
+
+### 4.8 Incident persistence and health-source decision
+
+Decision:
+- do not create a standalone `OperationalIncident` model in Phase 1-5 unless real implementation pressure proves the derived approach unreadable;
+- instead derive active incidents deterministically from `CommandRunLog`, snapshot freshness, duplicate queue age, reminder backlog and later `TelephonyHealthSnapshot`;
+- expose those incidents through admin health payloads using stable incident keys.
+
+Required incident keys:
+- `SNAPSHOT_STALE`
+- `CACHE_PRESSURE`
+- `TELEPHONY_OUTAGE`
+- `REMINDER_STORM`
+- `DUPLICATE_QUEUE_BACKLOG`
+- `PAYOUT_REVIEW_BLOCK`
+
+Reason:
+- the canonical docs require incidents to be visible and behavior-driving, but they do not force a separate table;
+- derived incidents keep the foundation lean while still satisfying admin visibility and downstream safety routing;
+- if later implementation shows the derived approach is too opaque, Phase 6+ may introduce a dedicated persistence model with a forward migration.
+
+### 4.9 Migration numbering rule
+
+Decision:
+- treat migration numbers in this file as ordered placeholders relative to the current migration head, not as immutable literals;
+- preserve the sequence and dependency intent, but always inspect the real graph before generating files;
+- as of this audit the current local head is `0019_client_phone_normalized_client_points_override_and_more.py`.
+
+Reason:
+- another agent may execute this plan after unrelated migrations land;
+- the implementation file must describe order, not encourage broken hard-coded numbering assumptions.
 
 ## 5. Final Target File-System Map
 
@@ -574,7 +617,7 @@ Implement these as pure or near-pure services wherever possible:
 | `dedupe.py` | normalization, candidate prefilter, score zones, review case creation | no blind writes inside fuzzy search |
 | `followups.py` | ladder, overload redistribution, grace windows, digest bucketing | reuses `ReminderSent` / `ReminderRead` |
 | `payroll.py` | working-factor KPI, repeat/reactivation/rescue accruals, soft floor | must preserve verified money truth |
-| `forecast.py` | bands, cohort retention, concentration, rescue ROI | admin-only |
+| `forecast.py` | bands, cohort retention, concentration, aging penalty, rescue ROI | admin-only |
 | `advice.py` | merge legacy advice with MOSAIC-aware cards | reuse dismissal keys and TTL semantics |
 | `appeals.py` | submit, SLA, resolve, recalc hooks | connects payouts and score evidence drawers |
 | `telephony.py` | provider adapters, reconciliation, health aggregation, QA helpers | later-phase only |
@@ -626,7 +669,103 @@ Implement this exact reading order for manager/admin stats pages:
    - keep legacy live sections visible;
    - never recompute the full heavy shadow pipeline inline just to fake freshness.
 
-### 7.5 Advice merge rule
+### 7.5 Minimum snapshot payload contract
+
+`NightlyScoreSnapshot.payload` must stay compact but deterministic. At minimum it should contain these top-level keys once the relevant phase lands:
+
+- `versions`
+  - `formula_version`
+  - `defaults_version`
+  - `payload_version`
+  - `snapshot_schema_version`
+- `score`
+  - `legacy_kpd`
+  - `shadow_mosaic`
+  - `ewr`
+  - `score_confidence`
+  - `gate_level`
+  - `gate_value`
+  - `dampener_value`
+- `confidence`
+  - `verified_coverage`
+  - `sample_sufficiency`
+  - `stability`
+  - `recency`
+- `axes`
+  - `production_volume`
+  - `repeat_quality`
+  - `pipeline_discipline`
+  - `portfolio_health`
+  - `source_fairness_assignment`
+  - `source_fairness_self_selected`
+  - `trust_sensitive_slice`
+- `working_context`
+  - `day_status`
+  - `capacity_factor`
+  - `reintegration_flag`
+  - `working_day_factor`
+- `dmt_earned_day`
+  - `minimum_achieved`
+  - `target_pace_achieved`
+  - `recovery_needed`
+  - `meaningful_calls`
+  - `meaningful_call_seconds_threshold`
+  - `gap_category`
+- `portfolio`
+  - `portfolio_health_state`
+  - `rescue_candidates`
+  - `churn_basis`
+- `ops`
+  - `snapshot_freshness_seconds`
+  - `incident_keys`
+  - `stale_reason`
+- `advice_context`
+  - `top_drivers`
+  - `top_recovery_actions`
+  - `explainability_tokens`
+
+Rules:
+- do not dump raw event history into snapshot payloads;
+- keep manager-safe and admin-only details separable inside the payload;
+- any payload shape change must bump `payload_version` and trigger a validation reset when semantics changed materially.
+
+### 7.6 Health and incident contract
+
+Admin health/readiness widgets must compute their state from deterministic sources, not ad hoc template logic.
+
+Required incident derivation sources:
+- `SNAPSHOT_STALE` from latest expected `NightlyScoreSnapshot` freshness window;
+- `CACHE_PRESSURE` from repeated cache misses/timeouts or fallback-to-live recomputation behavior if implemented;
+- `TELEPHONY_OUTAGE` from `TelephonyHealthSnapshot` once telephony exists;
+- `REMINDER_STORM` from reminder volume/backlog thresholds;
+- `DUPLICATE_QUEUE_BACKLOG` from aged unresolved `DuplicateReviewCase` queue;
+- `PAYOUT_REVIEW_BLOCK` from payout queue age/freeze backlog thresholds.
+
+Required behavior:
+- incident keys must be visible in admin;
+- any active incident that suppresses punitive interpretation must also suppress it in service code, not only in copy;
+- manager-facing pages may show softer wording, but the underlying state must remain exact.
+
+### 7.7 Preserve / Extend / Replace / Retire map
+
+Use this table to avoid vague refactors.
+
+| Current runtime element | Action | Rule |
+|---|---|---|
+| `compute_kpd()` in `stats_service.py` | `PRESERVE` | keep for transition parity |
+| `get_stats_payload()` in `stats_service.py` | `EXTEND -> ORCHESTRATE` | progressively thin it out and move heavy logic to services |
+| `generate_advice()` and dismissal flow | `EXTEND` | keep keys/TTL semantics; add MOSAIC-aware cards on top |
+| `ManagementStatsConfig` | `EXTEND` | canonical runtime config owner, never bypass with markdown/runtime constants |
+| `ManagementDailyActivity` | `PRESERVE` | current activity truth remains input; do not orphan it |
+| `ClientFollowUp` | `EXTEND` | ladder/grace/escalation live here, not in a replacement model |
+| `Shop` subsystem | `PRESERVE + EXTEND` | portfolio logic must read it directly |
+| payout request + accrual flows | `PRESERVE + EXTEND` | evidence/freeze/appeal enrichment only |
+| contract and invoice Telegram review flows | `PRESERVE` | do not re-invent approval transport |
+| monolithic `views.py` additions | `LIMIT / SPLIT` | new analytics endpoints go to focused modules |
+| monolithic template blocks in `stats.html` / `admin.html` | `SPLIT` | use includes, not page rewrites |
+| legacy-only assumptions after activation | `RETIRE LATER` | only after shadow validation and explicit readiness switch |
+
+### 7.8 Advice merge rule
 
 Use the existing advice engine as the base layer.
 
@@ -648,6 +787,7 @@ These are implementation guardrails derived from official Django docs and repo r
 - use reversible `RunPython` for backfills where possible;
 - inside data migrations use historical models, not direct runtime model imports;
 - review generated SQL for risky migrations with `python3 twocomms/manage.py sqlmigrate management <migration_number>`.
+- before generating a migration, inspect the real current head (`0019` at the time this file was audited) and adapt numbering accordingly.
 
 ### 8.2 Test discipline
 
@@ -682,7 +822,9 @@ These are implementation guardrails derived from official Django docs and repo r
 2. Confirm the current branch that is intended to be deployed.
 3. Record the currently deployed commit or branch before changing runtime code.
 4. Create the new `services/` and `tests/` package plan before moving logic.
-5. Freeze the resolved decisions in section `4`; do not silently reopen them while coding.
+5. Record the current migration head and current `management/urls.py` surface before introducing new files and routes.
+6. Record the cross-app coupling points listed in section `3.5` so later service extraction does not sever them.
+7. Freeze the resolved decisions in section `4`; do not silently reopen them while coding.
 
 **Verification commands:**
 ```bash
@@ -694,7 +836,7 @@ print(django.get_version())
 PY
 ```
 
-**Exit condition:** no open ambiguity remains around `xml_connected`, `Client.is_test`, appeal shape, snapshot granularity, or phone normalization scope.
+**Exit condition:** no open ambiguity remains around `xml_connected`, `Client.is_test`, appeal shape, snapshot granularity, phone normalization scope, incident derivation source, or migration sequence intent.
 
 ### Phase 1: Foundation, Versions, Readiness, Day Ledger
 
@@ -727,9 +869,10 @@ PY
 4. Create `NightlyScoreSnapshot`.
 5. Create `CommandRunLog`.
 6. Create `ManagerDayStatus`.
-7. Register new models in Django admin for inspection and emergency edits.
-8. Implement `seed_management_defaults` so the database receives the canonical defaults without runtime markdown parsing.
-9. Seed readiness states and config versions as part of the post-migrate or one-shot seed workflow.
+7. Define the derived admin-health incident contract early so the future widget has exact inputs and keys.
+8. Register new models in Django admin for inspection and emergency edits.
+9. Implement `seed_management_defaults` so the database receives the canonical defaults without runtime markdown parsing.
+10. Seed readiness states and config versions as part of the post-migrate or one-shot seed workflow.
 
 **Do not do in Phase 1:**
 - do not compute MOSAIC yet;
@@ -790,6 +933,7 @@ python3 twocomms/manage.py check
 7. Implement overload handling with `MAX_FOLLOWUPS_PER_DAY = 25`.
 8. Build `send_management_reminders` using existing Telegram and `ReminderSent` patterns.
 9. Build `check_duplicate_queue` for background review surfacing.
+10. Ensure anti-gaming suppression removes score credit only, never the CRM/audit trace.
 
 **Critical rules:**
 - imported backlog gets `24-48h` grace and its own label;
@@ -842,8 +986,9 @@ python3 twocomms/manage.py check
    - per-manager daily run
    - idempotent upsert by `(manager, snapshot_date, formula_version, defaults_version)`
    - `CommandRunLog` creation
-8. Update `get_stats_payload()` so legacy KPD remains live while shadow blocks come from snapshots.
-9. Extend the advice system by merging legacy cards with MOSAIC-aware cards, not by replacing the current generator wholesale.
+8. Encode `assignment_fairness` and `self_selected_mix` as separate values with authoritative vs shadow semantics preserved.
+9. Update `get_stats_payload()` so legacy KPD remains live while shadow blocks come from snapshots.
+10. Extend the advice system by merging legacy cards with MOSAIC-aware cards, not by replacing the current generator wholesale.
 
 **Critical rules:**
 - `points_override` stays legacy-only unless there is a separately designed MOSAIC mapping;
@@ -896,8 +1041,9 @@ python3 twocomms/manage.py check
 5. Add rescue top-5 block with value-at-risk, urgency, confidence and churn basis.
 6. Add salary simulator with current truth vs shadow candidate and freeze items.
 7. Add manager action stack: overdue follow-ups, best opportunities, blockers.
-8. Extend admin UI with readiness/health/economics widgets and queue presets.
-9. Add new lightweight JSON endpoints for explanation/radar/rescue if the page needs progressive enhancement.
+8. Extend admin UI with readiness/health/economics widgets, queue presets and confidence-aware aging-penalized forecast surfaces.
+9. Add manager/admin no-surprise copy when versioned score semantics changed materially.
+10. Add new lightweight JSON endpoints for explanation/radar/rescue if the page needs progressive enhancement.
 
 **Critical rules:**
 - every shadow value needs a shadow label;
@@ -957,7 +1103,8 @@ Manual smoke:
 6. Implement soft-floor logic with working-factor-aware thresholding.
 7. Add `ScoreAppeal`.
 8. Add manager appeal CTA and admin appeal queue/SLA tracking.
-9. Extend existing payout/admin payloads with evidence drawer data instead of replacing the payout workflow.
+9. Extend earned-day logic so `Minimum achieved`, `Target pace achieved` and `Recovery needed` are separately visible.
+10. Extend existing payout/admin payloads with evidence drawer data instead of replacing the payout workflow.
 
 **Critical rules:**
 - MOSAIC remains non-payroll-final unless explicit activation later says otherwise;
@@ -1008,6 +1155,7 @@ python3 twocomms/manage.py check
 3. Add QA sampling, rubric versioning and calibration cycle storage.
 4. Add supervisor action log and evidence drawer support.
 5. Keep AI assist draft-only.
+6. Apply the meaningful-call threshold (`>30s`, minimum count per defaults) only after readiness and health conditions allow it.
 
 **Critical rules:**
 - QA is coaching-first until reliability proves otherwise;
@@ -1113,6 +1261,21 @@ Required metrics:
 Interpretation rule:
 - correlation alone is insufficient;
 - if rankings are unstable or confidence remains low, extend shadow mode.
+
+### 10.5 Phase artifacts the future agent must leave behind
+
+Each phase should leave explicit evidence so the next agent or reviewer does not need to infer what happened.
+
+| Phase | Minimum artifacts |
+|---|---|
+| 0 | short preflight note with current branch, deployed branch, migration head, and no-reopen decision list |
+| 1 | migration list, seed command output, admin model registrations, config/readiness dump |
+| 2 | duplicate-zone examples, follow-up ladder examples, reminder command dry-run or sample output |
+| 3 | golden cases, one example snapshot payload, snapshot idempotency evidence, stale-case evidence |
+| 4 | screenshots or HTML proof of manager/admin surfaces, shadow/stale/no-surprise badge evidence |
+| 5 | appeal flow sample, freeze reason sample, earned-day example with gap-category split |
+| 6-7 | telephony health sample, reconciliation status examples, QA reliability evidence |
+| 8 | DICE log, overhead estimate, activation/hold recommendation with rationale |
 
 ## 11. Deploy, Rollback and Post-Deploy Verification
 
