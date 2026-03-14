@@ -114,6 +114,44 @@ The `management` app is not isolated. Several flows depend on lazy imports and e
 | `storefront.views.monobank` helpers | `twocomms/management/views.py:4011-4012` | payment creation flow has external dependency already | do not entangle score/payroll services with payment transport helpers |
 | `twocomms_django_theme` static assets | `twocomms/twocomms_django_theme/static/js/management-stats.js:1-260`, `twocomms/twocomms_django_theme/static/css/management-stats.css:1-788` | management analytics UI is not isolated in a separate frontend package | new UI assets should follow current static loading conventions |
 
+### 3.6 Runtime surface inventory the future agent must not mentally flatten
+
+The current `management` app is already split by runtime surface, even if some code is still monolithic. Future implementation should preserve this separation instead of treating everything as one generic CRUD area.
+
+| URL family / surface | Current runtime owner | Existing anchors | Future rule |
+|---|---|---|---|
+| `/`, `/reports/`, `/reminders/`, `/profile/`, `/tg-manager/webhook/` | `twocomms/management/views.py` | `home:463`, `reports:1245`, `send_report:1318`, `reminder_read:1352`, `reminder_feed:1369` | keep operational CRM/report/reminder shell in `views.py`; do not move this during analytics phases unless wrappers preserve current routes |
+| `/admin-panel/` plus current admin payout/invoice actions | `twocomms/management/views.py` | `admin_overview:657`, admin payout APIs `5623-5852` | current admin operations stay here; new readiness/health/economics surfaces go to `admin_analytics_views.py` |
+| `/invoices/*` | `twocomms/management/views.py` | `invoices:3710`, invoice APIs `3770-4076` | do not split invoice generation/payment/review in the analytics phases |
+| `/contracts/*` | `twocomms/management/views.py` | `contracts:3399`, contract APIs `3514-3697` | preserve contract generation/review transport; analytics may read outputs but should not own this flow |
+| `/commercial-offer/email/*` | `twocomms/management/views.py` | `commercial_offer_email:4333`, APIs `4622-5230` | preserve CP email stack intact; reuse it as evidence/process context only |
+| `/shops/*` | `twocomms/management/shop_views.py` | `shops:277`, APIs `433-937` | shop workflow remains its own surface; portfolio logic reads it, not replaces it |
+| `/stats/*`, `/activity/pulse/`, advice dismiss | `twocomms/management/stats_views.py` | `stats:26`, `stats_admin_list:63`, `stats_admin_user:121`, `activity_pulse:165`, `advice_dismiss:197` | new manager/admin analytics JSON endpoints should prefer this module first |
+| `/payouts/*` manager request flow | `twocomms/management/views.py` | `payouts:5302`, `payouts_request_api:5442` | keep current manager payout flow; score appeals are adjacent, not a replacement |
+| `/leads/api/*` | `twocomms/management/lead_views.py` | `77-234` | preserve as the manual lead API surface |
+| `/parsing/*` | `twocomms/management/parsing_views.py` | `127-372` | preserve as the parser/operator surface |
+
+Rule:
+- a future extraction should move logic behind stable route owners, not churn route owners casually;
+- if a runtime family keeps its current module, document why before moving anything else around it;
+- if a new endpoint belongs to analytics only, place it outside `views.py` unless it must share an existing operational transaction boundary.
+
+### 3.7 Authoritative ownership and truth map
+
+Many future bugs will come from reading the wrong owner, wrong source of money truth, or wrong lifecycle field. This table is the authoritative shortcut.
+
+| Domain truth | Current anchors | Correct interpretation | Common wrong move to avoid |
+|---|---|---|---|
+| Client operational owner | `twocomms/management/models.py:58-64` | `Client.owner` is the CRM manager truth for client pipeline, follow-up accountability and manager-facing client counts | do not infer client owner from `Report`, `Shop.created_by`, or ad hoc latest activity |
+| Lead provenance vs execution | `twocomms/management/models.py:117-147` | `ManagementLead.added_by` is provenance, `moderated_by` is moderation actor, `processed_by` is who converted/worked it, `converted_client` is the no-duplicate bridge | do not compress these roles into one generic owner field |
+| Shop operational portfolio owner | `twocomms/management/models.py:626-643` | `Shop.managed_by` is the live portfolio owner; `created_by` is provenance only | do not rank or penalize by `Shop.created_by` when `managed_by` exists |
+| Shop test/full truth | `twocomms/management/models.py:643-669` | `Shop.shop_type` plus test-specific fields define the test lifecycle | do not reintroduce duplicated client-level test truth |
+| Shipment revenue evidence link | `twocomms/management/models.py:716-735` | `ShopShipment.wholesale_invoice` is the authoritative bridge to invoice truth when present; uploaded invoice files are supporting evidence only | do not treat uploaded files as stronger truth than linked `WholesaleInvoice` |
+| Follow-up operational trigger | `twocomms/management/models.py:57-58`, `867-915`; `twocomms/management/views.py:179-224` | `Client.next_call_at` is the live CRM field; `ClientFollowUp` is the structured reminder/audit mirror that must remain synchronized | do not update one without the other once the sync service is introduced |
+| Commission accrual uniqueness | `twocomms/management/models.py:959-994`; `twocomms/orders/signals.py:96-157` | `ManagerCommissionAccrual.invoice` is a `OneToOne` uniqueness guard and the current live accrual creation path comes from `orders.signals` when invoice payment flips to `paid` | do not create parallel accrual rows for the same invoice from analytics code |
+| Payout workflow truth | `twocomms/management/models.py:996-1071`; `twocomms/management/views.py:5302-5852` | payout request statuses and rejection reason flow are already production truth | do not bypass them with a new simplified payout state machine |
+| Contract review truth | `twocomms/management/models.py:1087-1159`; `twocomms/management/views.py:3399-3697` | `ManagementContract` + review fields are the existing document-review truth | do not create analytics-only contract status shadows |
+
 ## 4. Explicit Decisions Resolved In This File
 
 These items were left unresolved in the canonical package. This document resolves them so the future agent does not stall.
@@ -384,6 +422,39 @@ Target test package:
 - `twocomms/management/tests/test_appeals.py`
 - `twocomms/management/tests/test_admin_analytics.py`
 - `twocomms/management/tests/test_telephony.py`
+
+### 5.5 Safe extraction and target-owner map
+
+This is the practical anti-chaos map for the future agent.
+
+| Current runtime artifact | Target owner after implementation | Extraction rule |
+|---|---|---|
+| `stats_service.compute_kpd()` | stays in `stats_service.py` | preserve as legacy parity helper until an explicit retirement phase exists |
+| `stats_service.get_stats_payload()` | thin orchestrator calling `services/snapshots.py`, `services/advice.py`, `services/score.py` | extract heavy score logic outward, but keep the public payload entry stable first |
+| `views.py` home/follow-up client mutation path | `views.py` calling `services/dedupe.py` and `services/followups.py` | do not move page ownership first; move decisions/side effects behind services |
+| `lead_views.py` create/process flows | `lead_views.py` calling `services/dedupe.py` | manual lead API keeps owning HTTP surface |
+| `parsing_views.py` moderation actions | `parsing_views.py` calling `services/dedupe.py` | parser/operator flow remains isolated |
+| admin analytics add-ons | `admin_analytics_views.py` | do not keep appending new readiness/economics JSON endpoints into `views.py` |
+| score explanation and shadow compare endpoints | `stats_views.py` | keep manager/admin analytics read surfaces near existing stats routes |
+| score appeal HTTP surface | `appeal_views.py` | do not hide score appeals inside payout endpoints |
+| payout request processing | existing `views.py` + new `services/payroll.py`/`services/appeals.py` helpers | payout flow stays where it is; enrich it underneath |
+| invoice/contract/CP email flows | existing `views.py` helpers/services | leave route/module ownership intact unless a dedicated document subsystem refactor is explicitly scoped |
+
+### 5.6 No-delete-before-replacement and cleanup triggers
+
+The future agent should assume deletion is dangerous until explicit replacement proof exists.
+
+| Artifact or behavior | Do not delete because | Removal allowed only when |
+|---|---|---|
+| `_sync_client_followup()` path in `twocomms/management/views.py:179-224` | it is the current bridge between `Client.next_call_at` and `ClientFollowUp` | all client-mutation surfaces call one shared follow-up sync service and tests prove parity |
+| `compute_kpd()` and legacy KPD blocks | manager pages still rely on them during shadow rollout | explicit cutover/retirement decision exists and historical parity evidence is recorded |
+| current payout/admin payout APIs in `views.py:5442-5912` | they are live payroll-adjacent production flows | replacement endpoints and Telegram/admin side effects are fully covered and deployed |
+| invoice creation/review/payment endpoints in `views.py:3710-4076` | they are tied to wholesale invoice truth and payment helpers | a separate invoice subsystem refactor is intentionally in scope, which this plan does not require |
+| contract generation/review endpoints in `views.py:3399-3697` | they are live operational document flows | parity replacements exist with the same review semantics |
+| CP email endpoints in `views.py:4333-5230` | they are active manager tooling and evidence source | same route coverage and send/retry/log semantics exist elsewhere |
+| `orders.signals.award_manager_commission_for_paid_wholesale_invoice()` | it is the current automatic accrual entry path | a replacement accrual creation path is fully wired, de-duplicated and verified against paid invoice transitions |
+| `twocomms/management/tests.py` | deleting it too early can drop existing coverage during migration | tests are migrated into `management/tests/`, discovery is verified, and `tests.py` is intentionally removed/retired |
+| legacy stats JS/CSS loaded by current templates | current stats/admin pages still expect them | templates stop referencing them and the replacement assets pass smoke checks |
 
 ## 6. Target Data Model Plan
 
@@ -994,6 +1065,21 @@ Phase-5 backfills:
 - backfill `ManagerCommissionAccrual.accrual_type` and freeze metadata only where it is deterministically derivable from verified invoice/payout context;
 - if deterministic derivation is impossible, mark the record for manual review rather than guessing.
 
+### 8.5 Extraction risk register and bug traps
+
+These are the most likely implementation mistakes during the transition.
+
+| Risk | Existing anchors | Failure mode | Required guardrail |
+|---|---|---|---|
+| `Client.next_call_at` and `ClientFollowUp` drift apart | `twocomms/management/models.py:57-58`, `867-915`; `twocomms/management/views.py:179-224` | reminders, overdue counts and callback ladders become inconsistent | centralize sync logic in one service and force all mutation surfaces through it |
+| wrong portfolio owner is used | `twocomms/management/models.py:626-643`; `twocomms/management/shop_views.py:277-937` | portfolio health, rescue queue and manager accountability attach to the wrong person | portfolio analytics must prefer `Shop.managed_by`; use `created_by` only as provenance/debug context |
+| invoice revenue and shop state are treated as separate competing truths | `twocomms/management/models.py:716-735`; `twocomms/management/views.py:3710-4076`; `twocomms/orders/signals.py:96-157` | double counting, contradictory payout evidence, broken rescue metrics | financial truth comes from `WholesaleInvoice` and linked accruals first; shop evidence is contextual |
+| duplicate accrual creation | `twocomms/orders/signals.py:118-157`; `twocomms/management/models.py:966` | the same paid invoice generates multiple manager accruals | preserve the `OneToOne` invoice guard and test re-save / repeated payment transitions |
+| parser/manual/home duplicate logic diverges | `twocomms/management/views.py:463-638`; `twocomms/management/lead_views.py:77-234`; `twocomms/management/parsing_views.py:311-372` | some entrypoints auto-block while others silently create duplicates | all identity decisions should use shared `services/dedupe.py` helpers with route-specific policy wrappers only where truly needed |
+| tests disappear or become partially undiscovered | `twocomms/management/tests.py` | false confidence during refactor | migrate tests package first, verify discovery explicitly, then retire the file |
+| template shell state is broken by analytics UI additions | `twocomms/management/templates/management/base.html:36-236`; `stats.html:9-527`; `admin.html:1-260` | reminders/profile/nav or page JS stop working even if new analytics widgets look fine | preserve existing shell blocks and data attrs; extend with includes rather than rewrite root structures |
+| deploy pulls the wrong branch on server | deployed checkout can differ from local assumption | code lands on the wrong runtime branch despite successful `git pull` | verify server branch and head before and after pull; default expected production branch is `main` unless explicitly recorded otherwise |
+
 ## 9. Phase-By-Phase Execution Plan
 
 ### Phase 0: Contract Freeze and Preflight
@@ -1015,7 +1101,8 @@ Phase-5 backfills:
 4. Create the new `services/` and `tests/` package plan before moving logic.
 5. Record the current migration head and current `management/urls.py` surface before introducing new files and routes.
 6. Record the cross-app coupling points listed in section `3.5` so later service extraction does not sever them.
-7. Freeze the resolved decisions in section `4`; do not silently reopen them while coding.
+7. Record the runtime surface inventory and ownership truths from sections `3.6` and `3.7` before extracting logic.
+8. Freeze the resolved decisions in section `4`; do not silently reopen them while coding.
 
 **Verification commands:**
 ```bash
@@ -1549,17 +1636,26 @@ Canonical server path from the current project instructions:
 
 ```bash
 sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
+EXPECTED_BRANCH=main &&
 source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms &&
-git pull &&
+echo BEFORE_BRANCH=\$(git branch --show-current) &&
+echo BEFORE_HEAD=\$(git rev-parse --short HEAD) &&
+git fetch origin &&
+git checkout \"\$EXPECTED_BRANCH\" &&
+git pull origin \"\$EXPECTED_BRANCH\" &&
 python manage.py migrate &&
 python manage.py collectstatic --noinput &&
 python manage.py compress --force &&
-touch tmp/restart.txt
+touch tmp/restart.txt &&
+echo AFTER_BRANCH=\$(git branch --show-current) &&
+echo AFTER_HEAD=\$(git rev-parse --short HEAD)
 '"
 ```
 
 Rule:
+- verify the server branch before pull; do not assume the remote checkout is already on the intended production branch;
+- default expected production branch is `main` unless the phase artifact explicitly records another target;
 - keep `collectstatic` / `compress` in deploys that touch templates or static assets;
 - keep `migrate` in deploys that touch models;
 - if the phase is docs-only, these runtime steps may be skipped, but implementation phases should assume they are needed.
