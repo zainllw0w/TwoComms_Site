@@ -17,6 +17,8 @@
                     Виплати
                 {% elif admin_tab == 'shops' %}
                     Магазини
+                {% elif admin_tab == 'dtf' %}
+                    DTF Bridge
                 {% else %}
                     Менеджери та прогрес
                 {% endif %}
@@ -26,6 +28,7 @@
                 <a href="?tab=invoices" class="btn-ghost small{% if admin_tab == 'invoices' %} active{% endif %}">Накладні</a>
                 <a href="?tab=payouts" class="btn-ghost small{% if admin_tab == 'payouts' %} active{% endif %}">Виплати</a>
                 <a href="?tab=shops" class="btn-ghost small{% if admin_tab == 'shops' %} active{% endif %}">Магазини</a>
+                <a href="?tab=dtf" class="btn-ghost small{% if admin_tab == 'dtf' %} active{% endif %}">DTF Bridge</a>
                 <a href="{% url 'management_stats_admin' %}" class="btn-ghost small">Статистика менеджерів</a>
             </div>
         </div>
@@ -668,39 +671,10 @@
 
     {{ shops_payload|json_script:"shops-data" }}
     {{ test_products|json_script:"test-products-data" }}
+    {% elif admin_tab == 'dtf' %}
+    {% include "management/components/dtf_bridge_cards.html" %}
     {% else %}
-    <div class="admin-analytics-grid">
-        <section class="admin-analytics-card">
-            <div class="shadow-explain-title">Readiness & incidents</div>
-            <div class="admin-analytics-kpis">
-                <div><span class="muted">Managers</span><b>{{ admin_analytics.manager_count|default:0 }}</b></div>
-                <div><span class="muted">Stale</span><b>{{ admin_analytics.stale_count|default:0 }}</b></div>
-                <div><span class="muted">Open appeals</span><b>{{ admin_analytics.open_appeals|default:0 }}</b></div>
-            </div>
-        </section>
-        <section class="admin-analytics-card">
-            <div class="shadow-explain-title">Forecast bands</div>
-            <div class="admin-analytics-kpis">
-                <div><span class="muted">Duplicate queue</span><b>{{ admin_analytics.duplicate_queue|default:0 }}</b></div>
-                <div><span class="muted">Managers with stale snapshots</span><b>{{ admin_analytics.stale_count|default:0 }}</b></div>
-                <div><span class="muted">Telephony</span><b>{{ admin_analytics.telephony_status|upper }}</b></div>
-                <div><span class="muted">DTF bridge</span><b>{{ admin_analytics.dtf_status|upper }}</b></div>
-            </div>
-        </section>
-        <section class="admin-analytics-card">
-            <div class="shadow-explain-title">Duplicate queue</div>
-            <div class="admin-analytics-mini-list">
-                {% for row in admin_analytics.rows|slice:":4" %}
-                    <div class="admin-analytics-mini-row">
-                        <span>{{ row.name }}</span>
-                        <strong>{{ row.duplicate_reviews }}</strong>
-                    </div>
-                {% empty %}
-                    <div class="muted">Черга дублікатів порожня.</div>
-                {% endfor %}
-            </div>
-        </section>
-    </div>
+    {% include "management/components/admin_control_center.html" %}
 
     <div class="table-shell">
         <table class="nexus-table">

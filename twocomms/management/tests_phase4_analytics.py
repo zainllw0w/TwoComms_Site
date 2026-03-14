@@ -199,6 +199,10 @@ class AnalyticsUiRegressionTests(TestCase):
         self.assertContains(response, "Best opportunities")
         self.assertContains(response, "Rescue top-5")
         self.assertContains(response, "Salary simulator")
+        self.assertContains(response, "Radar preview")
+        self.assertContains(response, "Client communication timeline")
+        self.assertContains(response, "Open decomposition")
+        self.assertContains(response, "Appeal / Оспорить")
 
     def test_admin_panel_renders_readiness_incidents_and_forecast_widgets(self):
         response = self.client.get("/admin-panel/?tab=managers", secure=True)
@@ -207,3 +211,6 @@ class AnalyticsUiRegressionTests(TestCase):
         self.assertContains(response, "Readiness & incidents")
         self.assertContains(response, "Forecast bands")
         self.assertContains(response, "Duplicate queue")
+        self.assertContains(response, "Queue presets")
+        self.assertContains(response, "Forecast confidence")
+        self.assertContains(response, "At-risk managers")

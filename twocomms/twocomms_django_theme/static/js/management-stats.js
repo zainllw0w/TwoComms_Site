@@ -290,6 +290,157 @@
     });
   };
 
+  const prettyAxisLabel = (key) =>
+    String(key || '')
+      .replaceAll('_', ' ')
+      .replace(/\b\w/g, (m) => m.toUpperCase());
+
+  const renderShadowRadar = () => {
+    const mount = document.getElementById('shadow-radar');
+    if (!mount) return;
+    const currentAxes = Object.entries(data?.shadow_score?.explain?.axes || {});
+    const previousAxes = data?.shadow_score?.previous_period?.explain?.axes || {};
+    if (!currentAxes.length) {
+      mount.innerHTML = `<div class="muted">Radar data is not ready yet.</div>`;
+      return;
+    }
+
+    const w = 360;
+    const h = 260;
+    const cx = 180;
+    const cy = 130;
+    const radius = 92;
+    const levels = [0.25, 0.5, 0.75, 1];
+    const total = currentAxes.length;
+
+    const pointFor = (idx, ratio, multiplier = 1) => {
+      const angle = -Math.PI / 2 + (idx / total) * Math.PI * 2;
+      const r = radius * clamp(Number(ratio || 0), 0, 1) * multiplier;
+      return {
+        x: cx + Math.cos(angle) * r,
+        y: cy + Math.sin(angle) * r,
+      };
+    };
+
+    const polygonForLevel = (ratio) =>
+      currentAxes
+        .map((_, idx) => {
+          const pt = pointFor(idx, ratio);
+          return `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`;
+        })
+        .join(' ');
+
+    const currentPoints = currentAxes
+      .map(([key, axis], idx) => {
+        const pt = pointFor(idx, axis?.value || 0);
+        return { ...pt, key, value: Number(axis?.value || 0) };
+      });
+
+    const previousPoints = currentAxes
+      .map(([key], idx) => {
+        const prevAxis = previousAxes?.[key] || {};
+        const pt = pointFor(idx, prevAxis?.value || 0);
+        return { ...pt, key, value: Number(prevAxis?.value || 0) };
+      })
+      .filter((pt) => pt.value > 0);
+
+    const labels = currentAxes
+      .map(([key], idx) => {
+        const pt = pointFor(idx, 1, 1.18);
+        const anchor = pt.x < cx - 10 ? 'end' : pt.x > cx + 10 ? 'start' : 'middle';
+        return `<text x="${pt.x.toFixed(1)}" y="${pt.y.toFixed(1)}" fill="rgba(255,255,255,0.72)" font-size="11" text-anchor="${anchor}">${prettyAxisLabel(key)}</text>`;
+      })
+      .join('');
+
+    const axesLines = currentAxes
+      .map((_, idx) => {
+        const pt = pointFor(idx, 1);
+        return `<line class="shadow-radar-axis" x1="${cx}" y1="${cy}" x2="${pt.x.toFixed(1)}" y2="${pt.y.toFixed(1)}"></line>`;
+      })
+      .join('');
+
+    mount.innerHTML = `
+      <svg viewBox="0 0 ${w} ${h}" class="shadow-radar-svg" aria-label="Shadow radar preview" role="img">
+        ${levels.map((level) => `<polygon class="shadow-radar-grid" points="${polygonForLevel(level)}"></polygon>`).join('')}
+        ${axesLines}
+        ${
+          previousPoints.length
+            ? `<polygon class="shadow-radar-shape is-previous" points="${previousPoints
+                .map((pt) => `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`)
+                .join(' ')}"></polygon>`
+            : ''
+        }
+        <polygon class="shadow-radar-shape" points="${currentPoints
+          .map((pt) => `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`)
+          .join(' ')}"></polygon>
+        ${currentPoints
+          .map((pt) => `<circle class="shadow-radar-point" cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="4.5"></circle>`)
+          .join('')}
+        ${previousPoints
+          .map((pt) => `<circle class="shadow-radar-point is-previous" cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="3.5"></circle>`)
+          .join('')}
+        ${labels}
+      </svg>
+    `;
+  };
+
+  const setShadowDrawerState = (open) => {
+    document.body.classList.toggle('shadow-drawer-open', Boolean(open));
+  };
+
+  const closeShadowDrawers = () => {
+    document.querySelectorAll('.shadow-drawer').forEach((node) => {
+      node.hidden = true;
+    });
+    setShadowDrawerState(false);
+  };
+
+  const openShadowDrawer = (kind) => {
+    const map = {
+      decomposition: document.getElementById('shadow-decomposition-drawer'),
+      appeal: document.getElementById('shadow-appeal-drawer'),
+    };
+    closeShadowDrawers();
+    if (map[kind]) {
+      map[kind].hidden = false;
+      setShadowDrawerState(true);
+    }
+  };
+
+  const submitShadowAppeal = async (form) => {
+    const statusEl = document.getElementById('shadow-appeal-status');
+    const token = csrfToken();
+    if (!token) {
+      if (statusEl) statusEl.textContent = 'CSRF token is unavailable.';
+      return;
+    }
+    const payload = new URLSearchParams(new FormData(form));
+    if (statusEl) statusEl.textContent = 'Submitting appeal...';
+    try {
+      const res = await fetch(form.dataset.url || '', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'X-CSRFToken': token,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: payload.toString(),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result?.success) {
+        throw new Error(result?.error || 'Failed to submit appeal.');
+      }
+      if (statusEl) statusEl.textContent = `Appeal #${result.appeal?.id || ''} submitted.`;
+      form.reset();
+      setTimeout(() => {
+        closeShadowDrawers();
+      }, 900);
+    } catch (err) {
+      if (statusEl) statusEl.textContent = err?.message || 'Failed to submit appeal.';
+    }
+  };
+
   const dismissAdvice = async (key, expiresAt) => {
     if (!dismissUrl) return;
     const token = csrfToken();
@@ -331,6 +482,17 @@
       return;
     }
 
+    const shadowOpenBtn = e.target.closest?.('[data-shadow-open]');
+    if (shadowOpenBtn) {
+      openShadowDrawer(shadowOpenBtn.dataset.shadowOpen || '');
+      return;
+    }
+
+    if (e.target.closest?.('[data-shadow-close]')) {
+      closeShadowDrawers();
+      return;
+    }
+
     const actionBtn = e.target.closest?.('[data-action]');
     if (actionBtn) {
       const action = actionBtn.dataset.action;
@@ -338,12 +500,25 @@
     }
   });
 
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeShadowDrawers();
+  });
+
   // Kickoff
   renderSpiral();
   renderGauge();
+  renderShadowRadar();
   renderSparkline('chart-points', 'points', '#ff7e29');
   renderSparkline('chart-kpd', 'kpd', '#6f95ff');
   renderSparkline('chart-active', 'active_seconds', '#10b981');
   renderSources();
   renderReportTimeline();
+
+  const appealForm = document.getElementById('shadow-appeal-form');
+  if (appealForm) {
+    appealForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      submitShadowAppeal(appealForm);
+    });
+  }
 })();

@@ -1,0 +1,31 @@
+<section class="shadow-explain-card shadow-radar-card">
+  <div class="shadow-card-head">
+    <div>
+      <div class="shadow-explain-title">Radar preview</div>
+      <div class="muted">Current shadow profile{% if stats_payload.shadow_score.previous_period.mosaic_score != None %} vs {{ stats_payload.shadow_score.previous_period.label|default:"previous period" }}{% endif %}.</div>
+    </div>
+    <span class="shadow-chip state-{{ stats_payload.shadow_score.state }}">{{ stats_payload.shadow_score.state_label }}</span>
+  </div>
+
+  <div class="shadow-radar-shell">
+    <div class="shadow-radar-glow" aria-hidden="true"></div>
+    <div class="shadow-radar-canvas" id="shadow-radar"></div>
+  </div>
+
+  <div class="shadow-radar-legend">
+    {% for axis_key, axis in stats_payload.shadow_score.explain.axes.items %}
+      <div class="shadow-radar-row">
+        <div class="shadow-radar-row__main">
+          <span class="shadow-radar-dot"></span>
+          <span>{{ axis_key|cut:"_"|title }}</span>
+        </div>
+        <div class="shadow-radar-row__meta">
+          <span>{{ axis.value|floatformat:2 }}</span>
+          <span class="shadow-readiness-pill state-{{ axis.status|lower }}">{{ axis.status }}</span>
+        </div>
+      </div>
+    {% empty %}
+      <div class="muted">Radar will appear after the first canonical snapshot.</div>
+    {% endfor %}
+  </div>
+</section>

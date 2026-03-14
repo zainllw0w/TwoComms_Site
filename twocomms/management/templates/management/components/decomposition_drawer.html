@@ -1,0 +1,64 @@
+<div class="shadow-drawer" id="shadow-decomposition-drawer" hidden>
+  <div class="shadow-drawer__backdrop" data-shadow-close></div>
+  <aside class="shadow-drawer__panel">
+    <div class="shadow-drawer__head">
+      <div>
+        <div class="shadow-explain-title">Waterfall / decomposition</div>
+        <div class="muted">Readable breakdown of the shadow score. Shadow-only, not payroll truth.</div>
+      </div>
+      <button type="button" class="icon-btn ghost" data-shadow-close aria-label="Close">×</button>
+    </div>
+
+    <div class="shadow-drawer__grid">
+      <div class="shadow-drawer-metric">
+        <span class="muted">Legacy KPD</span>
+        <strong>{{ stats_payload.summary.kpd.value|floatformat:2 }}</strong>
+      </div>
+      <div class="shadow-drawer-metric">
+        <span class="muted">Base MOSAIC</span>
+        <strong>{{ stats_payload.shadow_score.base_mosaic|floatformat:2 }}</strong>
+      </div>
+      <div class="shadow-drawer-metric">
+        <span class="muted">Gate</span>
+        <strong>{{ stats_payload.shadow_score.gate_level }} / {{ stats_payload.shadow_score.gate_score }}</strong>
+      </div>
+      <div class="shadow-drawer-metric">
+        <span class="muted">Trust</span>
+        <strong>{{ stats_payload.shadow_score.trust_multiplier|floatformat:2 }}</strong>
+      </div>
+      <div class="shadow-drawer-metric">
+        <span class="muted">Dampener</span>
+        <strong>{{ stats_payload.shadow_score.dampener_value|floatformat:2 }}</strong>
+      </div>
+      <div class="shadow-drawer-metric">
+        <span class="muted">Final MOSAIC</span>
+        <strong>{{ stats_payload.shadow_score.mosaic_score|floatformat:2 }}</strong>
+      </div>
+      <div class="shadow-drawer-metric">
+        <span class="muted">Confidence</span>
+        <strong>{{ stats_payload.shadow_score.confidence_band }} / {{ stats_payload.shadow_score.score_confidence|floatformat:2 }}</strong>
+      </div>
+      <div class="shadow-drawer-metric">
+        <span class="muted">Freshness</span>
+        <strong>{{ stats_payload.shadow_score.freshness_seconds|default:0 }}s</strong>
+      </div>
+    </div>
+
+    <div class="shadow-drawer-axes">
+      {% for axis_key, axis in stats_payload.shadow_score.explain.axes.items %}
+        <div class="shadow-drawer-axis">
+          <div>
+            <div class="shadow-action-title">{{ axis_key|cut:"_"|title }}</div>
+            <div class="muted">Weight {{ axis.weight|floatformat:2 }}</div>
+          </div>
+          <div class="shadow-drawer-axis__meta">
+            <strong>{{ axis.value|floatformat:2 }}</strong>
+            <span class="shadow-readiness-pill state-{{ axis.status|lower }}">{{ axis.status }}</span>
+          </div>
+        </div>
+      {% empty %}
+        <div class="muted">No axis decomposition yet.</div>
+      {% endfor %}
+    </div>
+  </aside>
+</div>
