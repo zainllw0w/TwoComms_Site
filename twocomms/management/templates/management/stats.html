@@ -91,6 +91,57 @@
 
         <div class="spiral-legend" id="spiral-legend"></div>
 
+        <div class="shadow-score-panel">
+          <div class="shadow-score-head">
+            <div>
+              <div class="shadow-score-kicker">Shadow analytics</div>
+              <div class="shadow-score-title">MOSAIC</div>
+            </div>
+            <div class="shadow-score-chips">
+              <span class="shadow-chip state-{{ stats_payload.shadow_score.state }}">{{ stats_payload.shadow_score.state_label }}</span>
+              {% if stats_payload.shadow_score.flags.is_stale %}
+                <span class="shadow-chip state-stale">STALE</span>
+              {% endif %}
+              {% if stats_payload.shadow_score.flags.is_low_confidence %}
+                <span class="shadow-chip state-low">LOW CONFIDENCE</span>
+              {% endif %}
+            </div>
+          </div>
+
+          {% if stats_payload.shadow_score.flags.has_snapshot %}
+            <div class="shadow-score-grid">
+              <div class="shadow-metric-card">
+                <div class="shadow-metric-label">MOSAIC</div>
+                <div class="shadow-metric-value">{{ stats_payload.shadow_score.mosaic_score|floatformat:2 }}</div>
+                <div class="shadow-metric-sub muted">Snapshot: {{ stats_payload.shadow_score.snapshot_date }}</div>
+              </div>
+              <div class="shadow-metric-card">
+                <div class="shadow-metric-label">Confidence</div>
+                <div class="shadow-metric-value">{{ stats_payload.shadow_score.score_confidence|floatformat:2 }}</div>
+                <div class="shadow-metric-sub muted">Shadow-only indicator</div>
+              </div>
+              <div class="shadow-metric-card">
+                <div class="shadow-metric-label">Working Day</div>
+                <div class="shadow-metric-value">{{ stats_payload.shadow_score.working_day_factor|floatformat:2 }}</div>
+                <div class="shadow-metric-sub muted">Коефіцієнт доступності</div>
+              </div>
+            </div>
+
+            <div class="shadow-readiness-row">
+              {% for key, state in stats_payload.shadow_score.readiness.items %}
+                <span class="shadow-readiness-pill state-{{ state }}">{{ key }} · {{ state|upper }}</span>
+              {% endfor %}
+            </div>
+            <div class="shadow-appeal-meta muted">
+              Апеляції: {{ stats_payload.shadow_score.appeals.open }}/{{ stats_payload.shadow_score.appeals.total }} відкрито
+            </div>
+          {% else %}
+            <div class="shadow-empty muted">
+              Shadow snapshot ще не побудований для цього періоду.
+            </div>
+          {% endif %}
+        </div>
+
         <details class="kpd-details">
           <summary>Розшифрування КПД (як рахується)</summary>
           <div class="kpd-detail-grid">

@@ -1,6 +1,9 @@
 import re
+from decimal import Decimal
+from unicodedata import normalize as unicode_normalize
 
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 
@@ -18,6 +21,30 @@ def normalize_phone(raw_phone: str) -> str:
     if raw_phone and str(raw_phone).strip().startswith("+"):
         return f"+{digits}"
     return digits
+
+
+LEGAL_ENTITY_TOKENS = {
+    "тов",
+    "тзов",
+    "фоп",
+    "llc",
+    "ltd",
+    "inc",
+    "corp",
+    "company",
+}
+
+
+def build_phone_last7(raw_phone: str) -> str:
+    digits = re.sub(r"\D+", "", raw_phone or "")
+    return digits[-7:] if len(digits) >= 7 else digits
+
+
+def normalize_name_for_match(raw_value: str) -> str:
+    value = unicode_normalize("NFKC", str(raw_value or "")).lower().strip()
+    value = re.sub(r"[^\w\s]", " ", value)
+    tokens = [token for token in value.split() if token and token not in LEGAL_ENTITY_TOKENS]
+    return " ".join(tokens)
 
 
 class Client(models.Model):
@@ -47,6 +74,12 @@ class Client(models.Model):
     shop_name = models.CharField(_("Назва магазину / Instagram"), max_length=255)
     phone = models.CharField(_("Номер телефону"), max_length=50)
     phone_normalized = models.CharField(_("Нормалізований номер"), max_length=50, blank=True, db_index=True)
+    phone_last7 = models.CharField(_("Останні 7 цифр"), max_length=7, blank=True, db_index=True)
+    normalized_name_display = models.CharField(_("Нормалізоване ім'я"), max_length=255, blank=True)
+    normalized_name_match_key = models.CharField(_("Ключ збігу імені"), max_length=255, blank=True, db_index=True)
+    is_shared_phone = models.BooleanField(_("Спільний номер"), default=False)
+    phone_group_id = models.CharField(_("ID групи номера"), max_length=64, blank=True)
+    shared_phone_reason = models.CharField(_("Причина спільного номера"), max_length=255, blank=True)
     website_url = models.CharField(_("Сайт"), max_length=500, blank=True)
     full_name = models.CharField(_("ПІБ"), max_length=255)
     role = models.CharField(_("Статус"), max_length=50, choices=Role.choices, default=Role.MANAGER)
@@ -73,6 +106,9 @@ class Client(models.Model):
 
     def save(self, *args, **kwargs):
         self.phone_normalized = normalize_phone(self.phone)
+        self.phone_last7 = build_phone_last7(self.phone_normalized or self.phone)
+        self.normalized_name_display = normalize_name_for_match(self.shop_name)
+        self.normalized_name_match_key = self.normalized_name_display
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -98,6 +134,12 @@ class ManagementLead(models.Model):
     shop_name = models.CharField(_("Назва магазину"), max_length=255)
     phone = models.CharField(_("Номер телефону"), max_length=50)
     phone_normalized = models.CharField(_("Нормалізований номер"), max_length=50, blank=True, db_index=True)
+    phone_last7 = models.CharField(_("Останні 7 цифр"), max_length=7, blank=True, db_index=True)
+    normalized_name_display = models.CharField(_("Нормалізоване ім'я"), max_length=255, blank=True)
+    normalized_name_match_key = models.CharField(_("Ключ збігу імені"), max_length=255, blank=True, db_index=True)
+    is_shared_phone = models.BooleanField(_("Спільний номер"), default=False)
+    phone_group_id = models.CharField(_("ID групи номера"), max_length=64, blank=True)
+    shared_phone_reason = models.CharField(_("Причина спільного номера"), max_length=255, blank=True)
     full_name = models.CharField(_("ПІБ"), max_length=255, blank=True)
     role = models.CharField(_("Статус людини"), max_length=50, choices=Client.Role.choices, default=Client.Role.OTHER)
     source = models.CharField(_("Де взяли контакт"), max_length=255, blank=True)
@@ -170,6 +212,9 @@ class ManagementLead(models.Model):
 
     def save(self, *args, **kwargs):
         self.phone_normalized = normalize_phone(self.phone)
+        self.phone_last7 = build_phone_last7(self.phone_normalized or self.phone)
+        self.normalized_name_display = normalize_name_for_match(self.shop_name)
+        self.normalized_name_match_key = self.normalized_name_display
         super().save(*args, **kwargs)
 
     @property
@@ -946,6 +991,13 @@ class ManagementStatsConfig(models.Model):
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     kpd_weights = models.JSONField(default=dict, blank=True, verbose_name=_("Ваги КПД"))
     advice_thresholds = models.JSONField(default=dict, blank=True, verbose_name=_("Пороги порад"))
+    formula_version = models.CharField(max_length=64, default="mosaic-v1", verbose_name=_("Версія формули"))
+    defaults_version = models.CharField(max_length=64, default="2026-03-13", verbose_name=_("Версія дефолтів"))
+    snapshot_schema_version = models.CharField(max_length=32, default="v1", verbose_name=_("Версія snapshot-схеми"))
+    payload_version = models.CharField(max_length=32, default="v1", verbose_name=_("Версія payload"))
+    rollout_state = models.CharField(max_length=32, default="shadow", verbose_name=_("Стан rollout"))
+    feature_flags = models.JSONField(default=dict, blank=True, verbose_name=_("Feature flags"))
+    formula_defaults = models.JSONField(default=dict, blank=True, verbose_name=_("Дефолти формул"))
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -954,6 +1006,229 @@ class ManagementStatsConfig(models.Model):
 
     def __str__(self):
         return "ManagementStatsConfig"
+
+
+class ComponentReadiness(models.Model):
+    class Status(models.TextChoices):
+        ACTIVE = "active", _("Активно")
+        SHADOW = "shadow", _("Тіньовий режим")
+        DORMANT = "dormant", _("Неактивно")
+
+    component = models.CharField(max_length=64, unique=True, verbose_name=_("Компонент"))
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SHADOW, db_index=True)
+    notes = models.TextField(blank=True, verbose_name=_("Нотатки"))
+    meta = models.JSONField(default=dict, blank=True, verbose_name=_("Мета"))
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Готовність компонента")
+        verbose_name_plural = _("Готовність компонентів")
+        ordering = ["component"]
+
+    def __str__(self):
+        return f"{self.component}: {self.status}"
+
+
+class DuplicateReview(models.Model):
+    class Status(models.TextChoices):
+        OPEN = "open", _("Відкрито")
+        RESOLVED = "resolved", _("Закрито")
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_duplicate_reviews",
+        verbose_name=_("Ініціатор"),
+    )
+    zone = models.CharField(max_length=20, db_index=True, verbose_name=_("Зона"))
+    incoming_shop_name = models.CharField(max_length=255, verbose_name=_("Вхідна назва"))
+    incoming_phone = models.CharField(max_length=50, verbose_name=_("Вхідний номер"))
+    incoming_payload = models.JSONField(default=dict, blank=True, verbose_name=_("Вхідні дані"))
+    candidate_summary = models.JSONField(default=list, blank=True, verbose_name=_("Кандидати"))
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    resolved_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Перевірка дубля")
+        verbose_name_plural = _("Перевірки дублів")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.incoming_shop_name} [{self.zone}]"
+
+
+class CommandRunLog(models.Model):
+    class Status(models.TextChoices):
+        RUNNING = "running", _("Виконується")
+        SUCCESS = "success", _("Успішно")
+        FAILED = "failed", _("Помилка")
+        PARTIAL = "partial", _("Частково")
+
+    command_name = models.CharField(max_length=128, db_index=True, verbose_name=_("Команда"))
+    run_key = models.CharField(max_length=128, unique=True, verbose_name=_("Ключ запуску"))
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.RUNNING, db_index=True)
+    rows_processed = models.PositiveIntegerField(default=0, verbose_name=_("Оброблено рядків"))
+    warnings_count = models.PositiveIntegerField(default=0, verbose_name=_("Попереджень"))
+    error_excerpt = models.TextField(blank=True, verbose_name=_("Короткий текст помилки"))
+    meta = models.JSONField(default=dict, blank=True, verbose_name=_("Мета"))
+    started_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    finished_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Лог запуску команди")
+        verbose_name_plural = _("Логи запуску команд")
+        ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["command_name", "-started_at"], name="mgmt_cmd_name_dt"),
+            models.Index(fields=["status", "-started_at"], name="mgmt_cmd_status_dt"),
+        ]
+
+    def mark_finished(self, *, status: str, rows_processed: int = 0, warnings_count: int = 0, error_excerpt: str = ""):
+        self.status = status
+        self.rows_processed = max(0, int(rows_processed or 0))
+        self.warnings_count = max(0, int(warnings_count or 0))
+        self.error_excerpt = (error_excerpt or "").strip()
+        self.finished_at = timezone.now()
+        self.save(update_fields=["status", "rows_processed", "warnings_count", "error_excerpt", "finished_at"])
+
+    def __str__(self):
+        return f"{self.command_name} [{self.status}]"
+
+
+class ManagerDayStatus(models.Model):
+    class Status(models.TextChoices):
+        WORKING = "working", _("Робочий день")
+        WEEKEND = "weekend", _("Вихідний")
+        HOLIDAY = "holiday", _("Свято")
+        VACATION = "vacation", _("Відпустка")
+        SICK = "sick", _("Лікарняний")
+        EXCUSED = "excused", _("Погоджена відсутність")
+        TECH_FAILURE = "tech_failure", _("Технічний збій")
+        FORCE_MAJEURE = "force_majeure", _("Форс-мажор")
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_day_statuses",
+        verbose_name=_("Менеджер"),
+    )
+    day = models.DateField(db_index=True, verbose_name=_("День"))
+    status = models.CharField(max_length=32, choices=Status.choices, default=Status.WORKING, db_index=True)
+    capacity_factor = models.DecimalField(max_digits=4, decimal_places=2, default=Decimal("1.00"), verbose_name=_("Фактор доступності"))
+    source_reason = models.CharField(max_length=255, blank=True, verbose_name=_("Причина / джерело"))
+    reintegration_flag = models.BooleanField(default=False, verbose_name=_("Період повернення"))
+    meta = models.JSONField(default=dict, blank=True, verbose_name=_("Мета"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Статус дня менеджера")
+        verbose_name_plural = _("Статуси днів менеджера")
+        ordering = ["-day"]
+        constraints = [
+            models.UniqueConstraint(fields=["owner", "day"], name="mgmt_day_owner_unique"),
+        ]
+        indexes = [
+            models.Index(fields=["owner", "-day"], name="mgmt_day_owner_dt"),
+            models.Index(fields=["status", "-day"], name="mgmt_day_status_dt"),
+        ]
+
+    def save(self, *args, **kwargs):
+        value = Decimal(self.capacity_factor or 0)
+        value = max(Decimal("0.00"), min(Decimal("1.00"), value))
+        self.capacity_factor = value
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.owner_id}:{self.day} {self.status}"
+
+
+class NightlyScoreSnapshot(models.Model):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_score_snapshots",
+        verbose_name=_("Менеджер"),
+    )
+    snapshot_date = models.DateField(db_index=True, verbose_name=_("Локальна дата"))
+    formula_version = models.CharField(max_length=64, verbose_name=_("Версія формули"))
+    defaults_version = models.CharField(max_length=64, verbose_name=_("Версія дефолтів"))
+    snapshot_schema_version = models.CharField(max_length=32, verbose_name=_("Версія snapshot-схеми"))
+    payload_version = models.CharField(max_length=32, verbose_name=_("Версія payload"))
+    kpd_value = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), verbose_name=_("KPD"))
+    mosaic_score = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), verbose_name=_("MOSAIC"))
+    score_confidence = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.00"), verbose_name=_("Рівень довіри"))
+    working_day_factor = models.DecimalField(max_digits=4, decimal_places=2, default=Decimal("1.00"), verbose_name=_("Фактор робочого дня"))
+    freshness_seconds = models.PositiveIntegerField(default=0, verbose_name=_("Freshness, сек"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    job_run = models.ForeignKey(
+        CommandRunLog,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="snapshots",
+        verbose_name=_("Лог запуску"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Нічний snapshot score")
+        verbose_name_plural = _("Нічні snapshot-и score")
+        ordering = ["-snapshot_date", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["owner", "snapshot_date"], name="mgmt_snapshot_owner_day_unique"),
+        ]
+        indexes = [
+            models.Index(fields=["owner", "-snapshot_date"], name="mgmt_snapshot_owner_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.owner_id}:{self.snapshot_date} {self.mosaic_score}"
+
+
+class ScoreAppeal(models.Model):
+    class Status(models.TextChoices):
+        OPEN = "open", _("Відкрито")
+        APPROVED = "approved", _("Підтверджено")
+        REJECTED = "rejected", _("Відхилено")
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_score_appeals",
+        verbose_name=_("Менеджер"),
+    )
+    snapshot = models.ForeignKey(
+        NightlyScoreSnapshot,
+        on_delete=models.CASCADE,
+        related_name="appeals",
+        verbose_name=_("Snapshot"),
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN, db_index=True)
+    reason = models.TextField(verbose_name=_("Причина"))
+    evidence = models.JSONField(default=dict, blank=True, verbose_name=_("Докази"))
+    resolution_note = models.TextField(blank=True, verbose_name=_("Рішення"))
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    resolved_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Оскарження score")
+        verbose_name_plural = _("Оскарження score")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["owner", "status", "-created_at"], name="mgmt_appeal_owner_st"),
+        ]
+
+    def mark_resolved(self, status: str, resolution_note: str):
+        self.status = status
+        self.resolution_note = (resolution_note or "").strip()
+        self.resolved_at = timezone.now()
+        self.save(update_fields=["status", "resolution_note", "resolved_at"])
+
+    def __str__(self):
+        return f"{self.owner_id}:{self.status}"
 
 
 class ManagerCommissionAccrual(models.Model):
@@ -1157,3 +1432,254 @@ class ContractRejectionReasonRequest(models.Model):
 
     def __str__(self):
         return f"{self.contract_id} ({'active' if self.is_active else 'closed'})"
+
+
+class OwnershipChangeLog(models.Model):
+    class EntityType(models.TextChoices):
+        CLIENT = "client", _("Клієнт")
+        LEAD = "lead", _("Лід")
+        SHOP = "shop", _("Магазин")
+
+    entity_type = models.CharField(max_length=20, choices=EntityType.choices, db_index=True, verbose_name=_("Тип сутності"))
+    entity_id = models.PositiveIntegerField(db_index=True, verbose_name=_("ID сутності"))
+    previous_owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="management_previous_ownership_changes",
+        verbose_name=_("Попередній owner"),
+    )
+    new_owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="management_new_ownership_changes",
+        verbose_name=_("Новий owner"),
+    )
+    reason = models.CharField(max_length=255, blank=True, verbose_name=_("Причина"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Лог зміни ownership")
+        verbose_name_plural = _("Логи зміни ownership")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["entity_type", "entity_id", "-created_at"], name="mgmt_ownerchange_ent"),
+        ]
+
+    def __str__(self):
+        return f"{self.entity_type}:{self.entity_id}"
+
+
+class TelephonyWebhookLog(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Очікує")
+        PROCESSED = "processed", _("Оброблено")
+        FAILED = "failed", _("Помилка")
+        IGNORED = "ignored", _("Пропущено")
+
+    provider = models.CharField(max_length=64, db_index=True, verbose_name=_("Провайдер"))
+    external_event_id = models.CharField(max_length=255, verbose_name=_("Зовнішній event ID"))
+    event_type = models.CharField(max_length=128, blank=True, verbose_name=_("Тип події"))
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    error_excerpt = models.TextField(blank=True, verbose_name=_("Помилка"))
+    received_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    processed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Webhook IP-телефонії")
+        verbose_name_plural = _("Webhook-и IP-телефонії")
+        ordering = ["-received_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["provider", "external_event_id"], name="mgmt_tel_event_unique"),
+        ]
+        indexes = [
+            models.Index(fields=["provider", "status", "-received_at"], name="mgmt_tel_provider_st"),
+        ]
+
+    def __str__(self):
+        return f"{self.provider}:{self.external_event_id}"
+
+
+class CallRecord(models.Model):
+    class Direction(models.TextChoices):
+        INBOUND = "inbound", _("Вхідний")
+        OUTBOUND = "outbound", _("Вихідний")
+        UNKNOWN = "unknown", _("Невідомо")
+
+    class QaStatus(models.TextChoices):
+        PENDING = "pending", _("Очікує QA")
+        REVIEWED = "reviewed", _("Перевірено")
+        EXEMPT = "exempt", _("Без QA")
+
+    provider = models.CharField(max_length=64, db_index=True, verbose_name=_("Провайдер"))
+    external_call_id = models.CharField(max_length=255, verbose_name=_("Зовнішній call ID"))
+    manager = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="management_call_records",
+        verbose_name=_("Менеджер"),
+    )
+    matched_client = models.ForeignKey(
+        Client,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="call_records",
+        verbose_name=_("Матчений клієнт"),
+    )
+    phone = models.CharField(max_length=64, blank=True, verbose_name=_("Телефон"))
+    direction = models.CharField(max_length=20, choices=Direction.choices, default=Direction.UNKNOWN, db_index=True)
+    started_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.PositiveIntegerField(default=0, verbose_name=_("Тривалість, сек"))
+    recording_url = models.URLField(blank=True, verbose_name=_("Recording URL"))
+    transcript_excerpt = models.TextField(blank=True, verbose_name=_("Уривок транскрипту"))
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.PENDING, db_index=True)
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Запис дзвінка")
+        verbose_name_plural = _("Записи дзвінків")
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["provider", "external_call_id"], name="mgmt_call_provider_ext_unique"),
+        ]
+        indexes = [
+            models.Index(fields=["manager", "-created_at"], name="mgmt_call_mgr_dt"),
+            models.Index(fields=["qa_status", "-created_at"], name="mgmt_call_qa_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.provider}:{self.external_call_id}"
+
+
+class TelephonyHealthSnapshot(models.Model):
+    class Status(models.TextChoices):
+        HEALTHY = "healthy", _("Здорово")
+        DEGRADED = "degraded", _("Деградація")
+        OUTAGE = "outage", _("Недоступно")
+
+    provider = models.CharField(max_length=64, db_index=True, verbose_name=_("Провайдер"))
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DEGRADED, db_index=True)
+    total_events = models.PositiveIntegerField(default=0, verbose_name=_("Усього подій"))
+    unmatched_calls = models.PositiveIntegerField(default=0, verbose_name=_("Не змечені дзвінки"))
+    backlog_count = models.PositiveIntegerField(default=0, verbose_name=_("Backlog"))
+    meta = models.JSONField(default=dict, blank=True, verbose_name=_("Meta"))
+    snapshot_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Health snapshot IP-телефонії")
+        verbose_name_plural = _("Health snapshot-и IP-телефонії")
+        ordering = ["-snapshot_at"]
+        indexes = [
+            models.Index(fields=["provider", "-snapshot_at"], name="mgmt_tel_health_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.provider}:{self.status}"
+
+
+class CallQAReview(models.Model):
+    class Verdict(models.TextChoices):
+        PASS = "pass", _("ОК")
+        COACHING = "coaching", _("Потрібен коучинг")
+        FAIL = "fail", _("Провал")
+
+    call_record = models.ForeignKey(CallRecord, on_delete=models.CASCADE, related_name="qa_reviews", verbose_name=_("Дзвінок"))
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="call_qa_reviews",
+        verbose_name=_("Перевірив"),
+    )
+    score = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.00"), verbose_name=_("QA score"))
+    verdict = models.CharField(max_length=20, choices=Verdict.choices, default=Verdict.PASS, db_index=True)
+    notes = models.TextField(blank=True, verbose_name=_("Нотатки"))
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("QA review дзвінка")
+        verbose_name_plural = _("QA reviews дзвінків")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.call_record_id}:{self.verdict}"
+
+
+class SupervisorActionLog(models.Model):
+    class ActionType(models.TextChoices):
+        COACHING = "coaching", _("Коучинг")
+        ESCALATION = "escalation", _("Ескалація")
+        FREEZE_OVERRIDE = "freeze_override", _("Override freeze")
+        APPEAL_RESOLUTION = "appeal_resolution", _("Рішення по апеляції")
+
+    manager = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="supervisor_actions",
+        verbose_name=_("Менеджер"),
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="performed_supervisor_actions",
+        verbose_name=_("Хто виконав"),
+    )
+    action_type = models.CharField(max_length=32, choices=ActionType.choices, db_index=True)
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Лог дії супервайзера")
+        verbose_name_plural = _("Логи дій супервайзера")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["action_type", "-created_at"], name="mgmt_supervisor_act"),
+        ]
+
+    def __str__(self):
+        return f"{self.action_type}:{self.manager_id}"
+
+
+class DtfBridgeSnapshot(models.Model):
+    class Status(models.TextChoices):
+        FRESH = "fresh", _("Актуально")
+        DEGRADED = "degraded", _("Деградація")
+        STALE = "stale", _("Застаріло")
+
+    source_key = models.CharField(max_length=64, db_index=True, verbose_name=_("Ключ джерела"))
+    snapshot_date = models.DateField(db_index=True, verbose_name=_("Дата snapshot"))
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DEGRADED, db_index=True)
+    freshness_seconds = models.PositiveIntegerField(default=0, verbose_name=_("Freshness, сек"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("DTF bridge snapshot")
+        verbose_name_plural = _("DTF bridge snapshots")
+        ordering = ["-snapshot_date", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["source_key", "snapshot_date"], name="mgmt_dtf_source_day_unique"),
+        ]
+        indexes = [
+            models.Index(fields=["source_key", "-snapshot_date"], name="mgmt_dtf_source_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.source_key}:{self.snapshot_date}"

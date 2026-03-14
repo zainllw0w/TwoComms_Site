@@ -1,6 +1,5 @@
 from django.contrib.auth.decorators import login_required
 from django.db import models, transaction
-from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -14,6 +13,7 @@ from .parser_service import (
     parser_global_counters,
     parser_run_step,
 )
+from .services.dedupe import DedupeZone, build_duplicate_conflict_payload, evaluate_duplicate_zone
 from .views import get_manager_bot_username, get_reminders, get_user_stats
 
 
@@ -343,14 +343,34 @@ def lead_moderation_action_api(request, lead_id: int):
             return JsonResponse({"success": False, "error": "Некоректний номер телефону."}, status=400)
         lead.phone = phone_normalized
 
-        duplicate_q = Q(phone_normalized=phone_normalized)
-        if lead.google_place_id:
-            duplicate_q |= Q(google_place_id=lead.google_place_id)
-        duplicate_qs = ManagementLead.objects.filter(duplicate_q).exclude(id=lead.id)
-        if duplicate_qs.exclude(status=ManagementLead.Status.REJECTED).exists():
-            return JsonResponse({"success": False, "error": "Такий лід вже є у базі або модерації."}, status=409)
-        if Client.objects.filter(phone_normalized=phone_normalized).exists():
-            return JsonResponse({"success": False, "error": "Клієнт з таким номером вже існує."}, status=409)
+        duplicate_decision = evaluate_duplicate_zone(
+            shop_name=lead.shop_name,
+            phone=phone_normalized,
+            website_url=lead.website_url,
+            owner=lead.added_by or request.user,
+            exclude_lead_ids=[lead.id],
+        )
+        if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW}:
+            return JsonResponse(
+                build_duplicate_conflict_payload(
+                    owner=request.user,
+                    decision=duplicate_decision,
+                    shop_name=lead.shop_name,
+                    phone=phone_normalized,
+                    payload={
+                        "lead_id": lead.id,
+                        "action": action,
+                        "shop_name": lead.shop_name,
+                        "full_name": lead.full_name,
+                        "website_url": lead.website_url,
+                        "city": lead.city,
+                        "source": lead.source,
+                    },
+                    auto_block_error="Такий лід або клієнт вже є у базі.",
+                    review_error="Потрібна перевірка на дубль перед модерацією.",
+                ),
+                status=409,
+            )
 
         if action == "approve":
             lead.status = ManagementLead.Status.BASE

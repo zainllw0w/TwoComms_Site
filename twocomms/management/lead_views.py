@@ -8,6 +8,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .constants import LEAD_BASE_PROCESSING_PENALTY, POINTS, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 from .models import Client, ManagementLead, normalize_phone
+from .services.dedupe import DedupeZone, build_duplicate_conflict_payload, evaluate_duplicate_zone
 from .views import _sync_client_followup, get_user_stats, user_is_management
 
 
@@ -98,11 +99,30 @@ def lead_create_api(request):
     if not phone_normalized:
         return JsonResponse({"success": False, "error": "Не вдалося розпізнати номер телефону."}, status=400)
 
-    has_duplicate = Client.objects.filter(phone_normalized=phone_normalized).exists() or ManagementLead.objects.filter(
-        phone_normalized=phone_normalized
-    ).exists()
-    if has_duplicate:
-        return JsonResponse({"success": False, "error": "Такий номер вже є у базі."}, status=409)
+    duplicate_decision = evaluate_duplicate_zone(
+        shop_name=shop_name,
+        phone=phone_normalized,
+        website_url=website_url,
+        owner=request.user,
+    )
+    if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW}:
+        return JsonResponse(
+            build_duplicate_conflict_payload(
+                owner=request.user,
+                decision=duplicate_decision,
+                shop_name=shop_name,
+                phone=phone_normalized,
+                payload={
+                    "shop_name": shop_name,
+                    "full_name": full_name,
+                    "website_url": website_url,
+                    "city": city,
+                },
+                auto_block_error="Такий номер вже є у базі.",
+                review_error="Потрібна перевірка на дубль.",
+            ),
+            status=409,
+        )
 
     lead = ManagementLead.objects.create(
         shop_name=shop_name,
@@ -183,6 +203,35 @@ def lead_process_api(request, lead_id: int):
         phone_normalized = normalize_phone(phone)
         if not phone_normalized:
             return JsonResponse({"success": False, "error": "Не вдалося розпізнати номер телефону."}, status=400)
+
+        duplicate_decision = evaluate_duplicate_zone(
+            shop_name=shop_name,
+            phone=phone_normalized,
+            website_url=website_url,
+            owner=request.user,
+            exclude_lead_ids=[lead.id],
+        )
+        if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW}:
+            return JsonResponse(
+                build_duplicate_conflict_payload(
+                    owner=request.user,
+                    decision=duplicate_decision,
+                    shop_name=shop_name,
+                    phone=phone_normalized,
+                    payload={
+                        "lead_id": lead.id,
+                        "shop_name": shop_name,
+                        "full_name": full_name,
+                        "website_url": website_url,
+                        "role": role_value,
+                        "source": source_display or lead.source or "База лідів",
+                        "call_result": call_value,
+                    },
+                    auto_block_error="Такий номер вже є у базі.",
+                    review_error="Потрібна перевірка на дубль перед конвертацією ліда.",
+                ),
+                status=409,
+            )
 
         base_points = int(POINTS.get(call_value, 0))
         adjusted_points = max(0, base_points - LEAD_BASE_PROCESSING_PENALTY)
