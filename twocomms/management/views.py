@@ -71,6 +71,7 @@ from .lead_services import calc_client_points, get_user_lead_bonus_points
 from .services.dtf_bridge import build_dtf_bridge_payload
 from .services.forecast import build_admin_economics_summary, build_salary_simulator
 from .services.followups import build_reminder_digest
+from .services.roster import management_role_label, manager_roster_queryset
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
 logger = logging.getLogger(__name__)
@@ -575,12 +576,9 @@ def admin_overview(request):
     if tab not in ('managers', 'invoices', 'shops', 'payouts', 'dtf'):
         tab = 'managers'
 
-    User = get_user_model()
     today_start, today_end = get_today_range()
     admin_user_data = []
-    users = User.objects.filter(is_active=True).filter(
-        Q(is_staff=True) | Q(userprofile__is_manager=True)
-    ).annotate(
+    users = manager_roster_queryset(include_staff=True).annotate(
         total_clients=Count('management_clients', distinct=True),
         today_clients=Count('management_clients', filter=Q(management_clients__created_at__gte=today_start), distinct=True),
     ).distinct()
@@ -606,7 +604,7 @@ def admin_overview(request):
             admin_user_data.append({
                 'id': u.id,
                 'name': u.get_full_name() or u.username,
-                'role': 'Адмін' if u.is_staff else 'Менеджер',
+                'role': management_role_label(u),
                 'today': u.today_clients,
                 'total': u.total_clients,
                 'points_today': points_stats['points_today'],
@@ -663,10 +661,7 @@ def admin_overview(request):
         zero = Decimal('0')
         now = timezone.now()
 
-        payout_users = User.objects.filter(
-            is_active=True,
-            userprofile__is_manager=True,
-        ).select_related('userprofile').order_by('id')
+        payout_users = manager_roster_queryset(include_staff=False).order_by('id')
 
         accr_rows = ManagerCommissionAccrual.objects.filter(owner__in=payout_users).values('owner_id').annotate(
             total=Coalesce(Sum('amount'), zero, output_field=money_field),

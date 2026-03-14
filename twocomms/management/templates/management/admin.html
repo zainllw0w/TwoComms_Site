@@ -18,7 +18,7 @@
                 {% elif admin_tab == 'shops' %}
                     Магазини
                 {% elif admin_tab == 'dtf' %}
-                    DTF Bridge
+                    DTF-міст
                 {% else %}
                     Менеджери та прогрес
                 {% endif %}
@@ -28,7 +28,7 @@
                 <a href="?tab=invoices" class="btn-ghost small{% if admin_tab == 'invoices' %} active{% endif %}">Накладні</a>
                 <a href="?tab=payouts" class="btn-ghost small{% if admin_tab == 'payouts' %} active{% endif %}">Виплати</a>
                 <a href="?tab=shops" class="btn-ghost small{% if admin_tab == 'shops' %} active{% endif %}">Магазини</a>
-                <a href="?tab=dtf" class="btn-ghost small{% if admin_tab == 'dtf' %} active{% endif %}">DTF Bridge</a>
+                <a href="?tab=dtf" class="btn-ghost small{% if admin_tab == 'dtf' %} active{% endif %}">DTF-міст</a>
                 <a href="{% url 'management_stats_admin' %}" class="btn-ghost small">Статистика менеджерів</a>
             </div>
         </div>
@@ -43,7 +43,7 @@
                     <th>Компанія</th>
                     <th>Сума</th>
                     <th>Створено</th>
-                    <th>Excel</th>
+                    <th>Файл</th>
                     <th>Дії</th>
                 </tr>
             </thead>
@@ -686,7 +686,7 @@
                     <th>Всього (клієнти)</th>
                     <th>Бали сьогодні</th>
                     <th>Бали всього</th>
-                    <th>Payback</th>
+                    <th>Окупність</th>
                     <th>Онлайн</th>
                     <th>Останній вхід</th>
                     <th>Огляд</th>

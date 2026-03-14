@@ -70,7 +70,7 @@
                 <div class="payout-note__text">У профілі вказана картка {{ card_mask }}, на неї будуть зараховуватися виплати. Якщо хочете змінити — змініть до запиту.</div>
             </div>
             <div class="payout-note">
-                <div class="payout-note__title">Shadow hold-harmless</div>
+                <div class="payout-note__title">Тіньовий захист</div>
                 <div class="payout-note__text">{{ salary_simulator.freeze_line }}</div>
             </div>
         </aside>
@@ -113,29 +113,29 @@
         </div>
     </section>
 
-    <section class="payouts-stats" aria-label="Shadow salary simulator">
+    <section class="payouts-stats" aria-label="Тіньовий симулятор винагороди">
         <div class="panel-subhead">
             <div>
-                <p class="eyebrow">Shadow analytics</p>
-                <h3>Salary simulator</h3>
+                <p class="eyebrow">Тіньова аналітика</p>
+                <h3>Симулятор винагороди</h3>
             </div>
         </div>
         <div class="payouts-stats__grid">
             <div class="stat-card">
-                <div class="stat-card__label">Current truth</div>
+                <div class="stat-card__label">Поточна база</div>
                 <div class="stat-card__value">{{ salary_simulator.current_truth|floatformat:2 }} грн</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card__label">Shadow candidate</div>
+                <div class="stat-card__label">Тіньовий сценарій</div>
                 <div class="stat-card__value">{{ salary_simulator.shadow_candidate|floatformat:2 }} грн</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card__label">Shadow hold-harmless delta</div>
+                <div class="stat-card__label">Різниця під захистом</div>
                 <div class="stat-card__value">{{ salary_simulator.shadow_hold_harmless_delta|floatformat:2 }} грн</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card__label">Confidence</div>
-                <div class="stat-card__value">{{ salary_simulator.confidence_band }}</div>
+                <div class="stat-card__label">Довіра</div>
+                <div class="stat-card__value">{{ salary_simulator.confidence_band_label }}</div>
             </div>
         </div>
     </section>
@@ -143,7 +143,7 @@
     <section class="payouts-history" aria-label="Заморожені нарахування">
         <div class="panel-subhead">
             <div>
-                <p class="eyebrow">Freeze review</p>
+                <p class="eyebrow">Огляд заморозок</p>
                 <h3>Причини заморозки</h3>
             </div>
         </div>

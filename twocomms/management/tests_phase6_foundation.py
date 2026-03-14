@@ -4,8 +4,10 @@ from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
+from django.utils import timezone
 
 from management.models import CommandRunLog
+from management.services.telephony import build_telephony_health_summary
 
 
 class TelephonyFoundationModelTests(TestCase):
@@ -55,6 +57,23 @@ class TelephonyFoundationModelTests(TestCase):
         self.assertEqual(qa_review.verdict, "pass")
         self.assertEqual(supervisor_action.action_type, "coaching")
         self.assertEqual(dtf_snapshot.status, "degraded")
+
+    def test_telephony_health_summary_uses_snapshot_age_when_field_is_missing(self):
+        health_model = apps.get_model("management", "TelephonyHealthSnapshot")
+        snapshot = health_model.objects.create(
+            provider="test_provider",
+            status="healthy",
+            total_events=4,
+            backlog_count=1,
+        )
+        stale_at = timezone.now() - timezone.timedelta(minutes=15)
+        health_model.objects.filter(pk=snapshot.pk).update(snapshot_at=stale_at)
+
+        summary = build_telephony_health_summary(owner=self.user)
+
+        self.assertEqual(summary["status"], "healthy")
+        self.assertEqual(summary["backlog_count"], 1)
+        self.assertGreaterEqual(summary["freshness_seconds"], 14 * 60)
 
 
 class TelephonyFoundationCommandTests(TestCase):

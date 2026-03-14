@@ -229,14 +229,36 @@ class AdminAndPayoutSurfaceTests(TestCase):
             snapshot_date=date(2026, 3, 14),
             status=DtfBridgeSnapshot.Status.DEGRADED,
             freshness_seconds=3600,
-            payload={"reason": "dtf_bridge_not_configured", "items": [{"title": "No live feed yet", "value": "fallback"}], "links": [{"title": "Open DTF", "url": "https://dtf.twocomms.shop/"}]},
+            payload={"reason": "dtf_bridge_not_configured", "items": [{"title": "Живий потік", "value": "fallback"}], "links": [{"title": "Відкрити DTF", "url": "https://dtf.twocomms.shop/"}]},
         )
 
         response = self.client.get("/admin-panel/?tab=dtf", secure=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "DTF Bridge")
-        self.assertContains(response, "No live feed yet")
+        self.assertContains(response, "DTF-міст")
+        self.assertContains(response, "Живий потік")
+
+    def test_admin_surfaces_keep_excluded_manager_history_visible(self):
+        excluded = get_user_model().objects.create_user(username="excluded_mgr", password="x")
+        excluded.userprofile.is_manager = False
+        excluded.userprofile.save(update_fields=["is_manager"])
+        ManagementDailyActivity.objects.create(
+            user=excluded,
+            date=date(2026, 3, 14),
+            active_seconds=600,
+        )
+
+        stats_response = self.client.get("/stats/admin/", secure=True)
+        admin_response = self.client.get("/admin-panel/?tab=managers", secure=True)
+        detail_response = self.client.get(f"/stats/admin/{excluded.id}/?period=today", secure=True)
+
+        self.assertEqual(stats_response.status_code, 200)
+        self.assertEqual(admin_response.status_code, 200)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(stats_response, "excluded_mgr")
+        self.assertContains(stats_response, "Виключений менеджер")
+        self.assertContains(admin_response, "excluded_mgr")
+        self.assertContains(admin_response, "Виключений менеджер")
 
     def test_payouts_page_renders_freeze_reasons_and_shadow_hold_harmless(self):
         snapshot = NightlyScoreSnapshot.objects.create(
@@ -284,4 +306,19 @@ class AdminAndPayoutSurfaceTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Очікуємо завершення вікна повернення")
-        self.assertContains(response, "Shadow hold-harmless")
+        self.assertContains(response, "Тіньовий захист")
+
+    def test_payouts_tab_keeps_excluded_manager_with_history_visible(self):
+        excluded = get_user_model().objects.create_user(username="former_payout_mgr", password="x")
+        excluded.userprofile.is_manager = False
+        excluded.userprofile.save(update_fields=["is_manager"])
+        ManagementDailyActivity.objects.create(
+            user=excluded,
+            date=date(2026, 3, 14),
+            active_seconds=900,
+        )
+
+        response = self.client.get("/admin-panel/?tab=payouts", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "former_payout_mgr")
