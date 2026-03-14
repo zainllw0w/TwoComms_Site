@@ -1,7 +1,26 @@
 from __future__ import annotations
 
+from django.utils import timezone
+
 from management.models import CallRecord, TelephonyHealthSnapshot
 from management.services.config_versions import get_management_config
+from management.services.ui_labels import translate_telephony_status
+
+
+def _resolve_freshness_seconds(latest: TelephonyHealthSnapshot | None) -> int:
+    if not latest:
+        return 0
+    meta = latest.meta or {}
+    meta_freshness = meta.get("freshness_seconds")
+    if meta_freshness not in (None, ""):
+        try:
+            return max(0, int(meta_freshness))
+        except (TypeError, ValueError):
+            pass
+    snapshot_at = getattr(latest, "snapshot_at", None)
+    if not snapshot_at:
+        return 0
+    return max(0, int((timezone.now() - snapshot_at).total_seconds()))
 
 
 def build_telephony_health_summary(*, owner=None) -> dict:
@@ -40,8 +59,9 @@ def build_telephony_health_summary(*, owner=None) -> dict:
         incident_keys.append("TELEPHONY_BACKLOG")
     return {
         "status": provider_status,
+        "status_label": translate_telephony_status(provider_status),
         "provider": latest.provider if latest else "aggregate",
-        "freshness_seconds": int(latest.freshness_seconds or 0) if latest else 0,
+        "freshness_seconds": _resolve_freshness_seconds(latest),
         "backlog_count": int(latest.backlog_count or 0) if latest else 0,
         "unmatched_ratio": unmatched_ratio,
         "missing_recording_ratio": missing_recording_ratio,

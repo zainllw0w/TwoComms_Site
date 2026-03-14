@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
-from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from management.models import (
@@ -15,6 +14,14 @@ from management.models import (
 )
 from management.services.config_versions import get_management_config
 from management.services.dtf_bridge import build_dtf_bridge_payload
+from management.services.roster import management_role_label, manager_roster_queryset
+from management.services.ui_labels import (
+    translate_confidence_band,
+    translate_driver,
+    translate_dtf_status,
+    translate_payback_risk,
+    translate_telephony_status,
+)
 from orders.models import WholesaleInvoice
 
 
@@ -49,19 +56,20 @@ def build_salary_simulator(*, user, summary: dict, shadow_score: dict) -> dict:
         "shadow_candidate": float(_quantize(shadow_candidate)),
         "shadow_hold_harmless_delta": float(_quantize(delta)),
         "confidence_band": shadow_score.get("confidence_band") or "LOW",
+        "confidence_band_label": translate_confidence_band(shadow_score.get("confidence_band") or "LOW"),
         "freshness_seconds": int(shadow_score.get("freshness_seconds") or 0),
         "freeze_items": [
             {
                 "amount": float(_quantize(_to_decimal(item.amount))),
                 "until": timezone.localtime(item.frozen_until).strftime("%d.%m.%Y") if item.frozen_until else "—",
-                "reason": item.freeze_reason_text or item.note or "Manual freeze",
+                "reason": item.freeze_reason_text or item.note or "Ручне замороження",
             }
             for item in open_frozen_qs[:5]
         ],
         "freeze_line": (
-            f"Shadow hold-harmless until activation. Frozen now: {float(_quantize(frozen_total))} грн."
+            f"Тіньовий захист діє до активації. Зараз заморожено: {float(_quantize(frozen_total))} грн."
             if frozen_total > 0
-            else "Shadow hold-harmless until activation."
+            else "Тіньовий захист діє до активації."
         ),
     }
 
@@ -99,8 +107,9 @@ def build_forecast_band(*, summary: dict, shadow_score: dict, config: dict | Non
         "optimistic": float(_quantize(optimistic)),
         "base": float(_quantize(base)),
         "pessimistic": float(_quantize(max(Decimal("0"), pessimistic))),
-        "confidence_note": f"Confidence {shadow_score.get('confidence_band') or 'LOW'}",
+        "confidence_note": f"Довіра: {translate_confidence_band(shadow_score.get('confidence_band') or 'LOW')}",
         "drivers": drivers,
+        "driver_labels": [translate_driver(item) for item in drivers],
     }
 
 
@@ -121,15 +130,9 @@ def _manager_retention_proxy(manager) -> dict:
 
 
 def build_admin_economics_summary() -> dict:
-    User = get_user_model()
     cfg = get_management_config()
     appeal_sla_hours = int((((cfg.get("payroll_config") or {}).get("appeal_sla_hours") or {}).get("score") or 48))
-    managers = (
-        User.objects.filter(is_active=True)
-        .filter(userprofile__is_manager=True)
-        .select_related("userprofile")
-        .order_by("username")
-    )
+    managers = manager_roster_queryset(include_staff=False)
     rows = []
     stale_count = 0
     low_confidence_count = 0
@@ -203,12 +206,14 @@ def build_admin_economics_summary() -> dict:
             {
                 "id": manager.id,
                 "name": manager.get_full_name() or manager.username,
+                "role": management_role_label(manager),
                 "confidence": float(score_confidence),
                 "contribution": float(_quantize(contribution)),
                 "cost": float(_quantize(cost)),
                 "break_even": float(_quantize(cost)),
                 "payback": float(_quantize(payback)),
                 "payback_risk": payback_risk,
+                "payback_risk_label": translate_payback_risk(payback_risk),
                 "concentration_top3": float(_quantize(concentration_top3)),
                 "rescue_roi": float(_quantize(rescue_roi)),
                 "forecast_band": forecast_band,
@@ -260,22 +265,26 @@ def build_admin_economics_summary() -> dict:
         "open_appeals": open_appeals_qs.count(),
         "duplicate_queue": DuplicateReview.objects.filter(status=DuplicateReview.Status.OPEN).count(),
         "telephony_status": telephony_status,
+        "telephony_status_label": translate_telephony_status(telephony_status),
         "dtf_status": dtf_payload["status"],
+        "dtf_status_label": translate_dtf_status(dtf_payload["status"]),
         "dtf": dtf_payload,
         "queue_presets": [
-            {"key": "duplicate_review", "label": "Duplicate queue", "count": DuplicateReview.objects.filter(status=DuplicateReview.Status.OPEN).count(), "tone": "warn"},
-            {"key": "payout_freeze", "label": "Payout freeze", "count": frozen_queue, "tone": "watch"},
-            {"key": "appeals_sla", "label": "Appeals nearing SLA", "count": appeals_nearing_sla, "tone": "bad" if appeals_nearing_sla else "ok"},
-            {"key": "low_confidence", "label": "Low-confidence managers", "count": low_confidence_count, "tone": "warn" if low_confidence_count else "ok"},
-            {"key": "follow_up_overload", "label": "Follow-up overload", "count": follow_up_overload, "tone": "warn" if follow_up_overload else "ok"},
-            {"key": "telephony_mismatch", "label": "Telephony mismatch", "count": telephony_mismatch, "tone": "bad" if telephony_mismatch else "ok"},
+            {"key": "duplicate_review", "label": "Черга дублів", "count": DuplicateReview.objects.filter(status=DuplicateReview.Status.OPEN).count(), "tone": "warn"},
+            {"key": "payout_freeze", "label": "Заморожені виплати", "count": frozen_queue, "tone": "watch"},
+            {"key": "appeals_sla", "label": "Апеляції біля SLA", "count": appeals_nearing_sla, "tone": "bad" if appeals_nearing_sla else "ok"},
+            {"key": "low_confidence", "label": "Менеджери з низькою довірою", "count": low_confidence_count, "tone": "warn" if low_confidence_count else "ok"},
+            {"key": "follow_up_overload", "label": "Перевантаження передзвонів", "count": follow_up_overload, "tone": "warn" if follow_up_overload else "ok"},
+            {"key": "telephony_mismatch", "label": "Розбіжності телефонії", "count": telephony_mismatch, "tone": "bad" if telephony_mismatch else "ok"},
         ],
         "forecast": {
             "optimistic": float(_quantize(total_optimistic)),
             "base": float(_quantize(total_base)),
             "pessimistic": float(_quantize(total_pessimistic)),
             "confidence": forecast_confidence,
+            "confidence_label": translate_confidence_band(forecast_confidence),
             "drivers": forecast_drivers,
+            "driver_labels": [translate_driver(item) for item in forecast_drivers],
         },
         "cohorts": cohort_counts,
         "rows": rows,

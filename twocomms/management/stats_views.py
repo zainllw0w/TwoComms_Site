@@ -2,7 +2,6 @@ import json
 
 from datetime import datetime, timedelta
 
-from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.db.models import F, Q
 from django.http import JsonResponse
@@ -12,6 +11,7 @@ from django.views.decorators.http import require_POST
 
 from .models import ManagementDailyActivity, ManagementStatsAdviceDismissal, NightlyScoreSnapshot, ScoreAppeal
 from .services.appeals import create_score_appeal, resolve_score_appeal
+from .services.roster import management_role_label, management_subjects_queryset
 from .stats_service import parse_stats_range, get_stats_payload
 from .views import (
     get_manager_bot_username,
@@ -31,8 +31,7 @@ def _resolve_stats_target(request):
             user_id = int(user_id_raw)
         except (TypeError, ValueError):
             return None
-        User = get_user_model()
-        target = User.objects.filter(id=user_id, is_active=True).first()
+        target = management_subjects_queryset().filter(id=user_id).first()
     return target
 
 
@@ -112,13 +111,7 @@ def stats_admin_list(request):
     if not request.user.is_staff:
         return redirect("management_home")
 
-    User = get_user_model()
-    users = (
-        User.objects.filter(is_active=True)
-        .filter(Q(is_staff=True) | Q(userprofile__is_manager=True))
-        .distinct()
-        .order_by("username")
-    )
+    users = management_subjects_queryset()
 
     rows = []
     for u in users:
@@ -132,7 +125,7 @@ def stats_admin_list(request):
             {
                 "id": u.id,
                 "name": u.get_full_name() or u.username,
-                "role": "Адмін" if u.is_staff else "Менеджер",
+                "role": management_role_label(u),
                 "online": online,
                 "last_login": last_login_local.strftime("%d.%m.%Y %H:%M") if last_login_local else "Немає даних",
                 "first_seen": u.date_joined.strftime("%d.%m.%Y") if getattr(u, "date_joined", None) else "",
@@ -170,8 +163,7 @@ def stats_admin_user(request, user_id: int):
     if not request.user.is_staff:
         return redirect("management_home")
 
-    User = get_user_model()
-    target = User.objects.filter(id=user_id, is_active=True).first()
+    target = management_subjects_queryset().filter(id=user_id).first()
     if not target:
         return redirect("management_stats_admin")
 

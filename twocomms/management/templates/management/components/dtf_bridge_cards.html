@@ -2,43 +2,43 @@
   <section class="admin-analytics-card admin-analytics-card--hero">
     <div class="shadow-card-head">
       <div>
-        <div class="shadow-explain-title">DTF Bridge</div>
-        <div class="muted">Read-only operational bridge with freshness, degraded fallback and direct deep-links.</div>
+        <div class="shadow-explain-title">DTF-міст</div>
+        <div class="muted">Операційний режим лише для читання з контролем актуальності, деградованим fallback і прямими переходами.</div>
       </div>
-      <span class="shadow-chip state-{{ dtf_bridge.status }}">{{ dtf_bridge.status|upper }}</span>
+      <span class="shadow-chip state-{{ dtf_bridge.status }}">{{ dtf_bridge.status_label }}</span>
     </div>
     <div class="admin-analytics-kpis">
-      <div><span class="muted">Status</span><b>{{ dtf_bridge.status|upper }}</b></div>
-      <div><span class="muted">Snapshot</span><b>{{ dtf_bridge.snapshot_date|default:"—" }}</b></div>
-      <div><span class="muted">Freshness</span><b>{{ dtf_bridge.freshness_seconds|default:0 }}s</b></div>
-      <div><span class="muted">Reason</span><b>{{ dtf_bridge.reason|default:"—" }}</b></div>
+      <div><span class="muted">Статус</span><b>{{ dtf_bridge.status_label }}</b></div>
+      <div><span class="muted">Зріз</span><b>{{ dtf_bridge.snapshot_date|default:"—" }}</b></div>
+      <div><span class="muted">Актуальність</span><b>{{ dtf_bridge.freshness_seconds|default:0 }} сек</b></div>
+      <div><span class="muted">Причина</span><b>{{ dtf_bridge.reason|default:"—" }}</b></div>
     </div>
   </section>
 
   <section class="admin-analytics-card">
-    <div class="shadow-explain-title">Payload items</div>
+    <div class="shadow-explain-title">Елементи payload</div>
     <div class="admin-analytics-mini-list">
       {% for item in dtf_bridge.items %}
         <div class="admin-analytics-mini-row">
-          <span>{{ item.title|default:"Item" }}</span>
+          <span>{{ item.title|default:"Елемент" }}</span>
           <strong>{{ item.value|default:"—" }}</strong>
         </div>
       {% empty %}
-        <div class="muted">No live feed yet. Showing degraded fallback for safe preview.</div>
+        <div class="muted">Живого потоку ще немає. Показано безпечний деградований резервний режим.</div>
       {% endfor %}
     </div>
   </section>
 
   <section class="admin-analytics-card">
-    <div class="shadow-explain-title">Links</div>
+    <div class="shadow-explain-title">Посилання</div>
     <div class="admin-analytics-mini-list">
       {% for link in dtf_bridge.links %}
         <div class="admin-analytics-mini-row">
-          <span>{{ link.title|default:"Open" }}</span>
-          <a class="btn-ghost small" href="{{ link.url }}" target="_blank" rel="noopener">Open</a>
+          <span>{{ link.title|default:"Відкрити" }}</span>
+          <a class="btn-ghost small" href="{{ link.url }}" target="_blank" rel="noopener">Відкрити</a>
         </div>
       {% empty %}
-        <div class="muted">No deep-link is configured yet.</div>
+        <div class="muted">Пряме посилання ще не налаштоване.</div>
       {% endfor %}
     </div>
   </section>

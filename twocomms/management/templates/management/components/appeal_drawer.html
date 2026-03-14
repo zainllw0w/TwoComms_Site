@@ -3,31 +3,31 @@
   <aside class="shadow-drawer__panel">
     <div class="shadow-drawer__head">
       <div>
-        <div class="shadow-explain-title">Appeal / Оспорить</div>
-        <div class="muted">Evidence-first score review. This does not replace the payout request flow.</div>
+        <div class="shadow-explain-title">Апеляція оцінки</div>
+        <div class="muted">Перевірка оцінки від доказів. Це не замінює потік запиту на виплату.</div>
       </div>
-      <button type="button" class="icon-btn ghost" data-shadow-close aria-label="Close">×</button>
+      <button type="button" class="icon-btn ghost" data-shadow-close aria-label="Закрити">×</button>
     </div>
 
     {% if stats_payload.shadow_score.snapshot_id %}
       <form class="shadow-appeal-form" id="shadow-appeal-form" data-url="{% url 'management_stats_appeal_create' %}">
         <input type="hidden" name="snapshot_id" value="{{ stats_payload.shadow_score.snapshot_id }}">
         <label class="field">
-          <span class="field-label">Reason</span>
-          <textarea name="reason" rows="4" placeholder="What looks wrong in the score, freeze context or evidence chain?" required></textarea>
+          <span class="field-label">Причина</span>
+          <textarea name="reason" rows="4" placeholder="Що саме виглядає некоректно в оцінці, заморозці або ланцюжку доказів?" required></textarea>
         </label>
         <label class="field">
-          <span class="field-label">Evidence note</span>
-          <textarea name="evidence_note" rows="4" placeholder="Add invoice IDs, timeline notes, follow-up context, telephony caveats or admin references."></textarea>
+          <span class="field-label">Нотатка з доказами</span>
+          <textarea name="evidence_note" rows="4" placeholder="Додайте ID накладних, нотатки по таймлайну, контекст передзвону, особливості телефонії або посилання на перевірки адміна."></textarea>
         </label>
         <div class="shadow-appeal-form__actions">
-          <button type="submit" class="btn-primary small">Submit appeal</button>
-          <button type="button" class="btn-ghost small" data-shadow-close>Cancel</button>
+          <button type="submit" class="btn-primary small">Надіслати апеляцію</button>
+          <button type="button" class="btn-ghost small" data-shadow-close>Скасувати</button>
         </div>
         <div class="shadow-appeal-status muted" id="shadow-appeal-status" role="status" aria-live="polite"></div>
       </form>
     {% else %}
-      <div class="muted">Appeal becomes available after the first snapshot is created for the selected period.</div>
+      <div class="muted">Апеляція стане доступною після побудови першого знімка за вибраний період.</div>
     {% endif %}
   </aside>
 </div>

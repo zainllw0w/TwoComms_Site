@@ -37,6 +37,13 @@ from .services.config_versions import get_management_config
 from .services.forecast import build_forecast_band, build_salary_simulator
 from .services.telephony import build_telephony_health_summary
 from .services.trust import classify_confidence_band
+from .services.ui_labels import (
+    translate_confidence_band,
+    translate_gate_level,
+    translate_readiness_key,
+    translate_readiness_state,
+    translate_surface_state,
+)
 
 
 @dataclass(frozen=True)
@@ -243,9 +250,11 @@ def _build_shadow_explain_payload(
     explain_axes = {}
     for key, value in axes.items():
         explain_axes[key] = {
+            "key_label": translate_readiness_key(key),
             "value": float(Decimal(str(value))),
             "weight": float(weight_config.get(key, 0)),
             "status": str(readiness.get(key) or "shadow").upper(),
+            "status_label": translate_readiness_state(readiness.get(key) or "shadow"),
         }
     explainability_tokens = _nested_get(latest_payload, "advice_context", "explainability_tokens", default=[]) or []
     return {
@@ -254,14 +263,17 @@ def _build_shadow_explain_payload(
         "formula_version": (cfg.shadow_mosaic_formula_version if cfg else None) or "mosaic-v1",
         "defaults_version": (cfg.defaults_version if cfg else None) or "2026-03-13",
         "readiness_state": score_payload["surface_state"],
+        "readiness_state_label": translate_surface_state(score_payload["surface_state"]),
         "base_mosaic": float(score_payload.get("base_mosaic") or 0),
         "final_mosaic": float(score_payload.get("mosaic_score") or 0),
         "score_confidence": {
             "value": float(score_payload.get("score_confidence") or 0),
             "band": score_payload.get("confidence_band") or "LOW",
+            "band_label": translate_confidence_band(score_payload.get("confidence_band") or "LOW"),
         },
         "gate": {
             "level": score_payload.get("gate_level") or "Self-reported only",
+            "level_label": translate_gate_level(score_payload.get("gate_level") or "Self-reported only"),
             "value": int(score_payload.get("gate_score") or 45),
         },
         "axes": explain_axes,
@@ -397,7 +409,7 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
         return {
             "snapshot_id": None,
             "state": rollout_state,
-            "state_label": rollout_state.upper(),
+            "state_label": translate_surface_state(rollout_state),
             "surface_state": "STALE",
             "snapshot_date": "",
             "mosaic_score": None,
@@ -408,9 +420,11 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
             "kpd_value": None,
             "ewr": None,
             "gate_level": "Self-reported only",
+            "gate_level_label": translate_gate_level("Self-reported only"),
             "gate_score": 45,
             "dampener_value": 1.0,
             "confidence_band": "LOW",
+            "confidence_band_label": translate_confidence_band("LOW"),
             "incident_keys": ["SNAPSHOT_STALE"],
             "portfolio_health_state": "Unknown",
             "rescue_top5": [],
@@ -419,6 +433,7 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
             "why_changed_today": [],
             "salary_simulator": {},
             "readiness": {},
+            "readiness_items": [],
             "aggregation": {
                 "expected_days": range_current.days,
                 "available_days": 0,
@@ -433,7 +448,7 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
             },
             "appeals": {"total": 0, "open": 0, "latest_status": "", "nearest_due_at": ""},
             "pace_state": "recovery",
-            "pace_label": "Recovery needed",
+            "pace_label": "Потрібне відновлення",
             "rollout_state": rollout_state,
             "feature_flags": feature_flags,
             "previous_period": {},
@@ -484,7 +499,7 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
     payload = {
         "snapshot_id": snapshot.id,
         "state": rollout_state,
-        "state_label": surface_state,
+        "state_label": translate_surface_state(surface_state),
         "surface_state": surface_state,
         "snapshot_date": snapshot.snapshot_date.isoformat(),
         "mosaic_score": float(mosaic_score),
@@ -495,14 +510,27 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
         "kpd_value": kpd_value,
         "ewr": float(result_block.get("ewr") or 0),
         "gate_level": trust_block.get("gate_level") or "Self-reported only",
+        "gate_level_label": translate_gate_level(trust_block.get("gate_level") or "Self-reported only"),
         "gate_score": int(trust_block.get("gate_score") or 45),
         "dampener_value": float(trust_block.get("dampener_value") or 1),
         "trust_multiplier": float(trust_block.get("trust_multiplier") or 1),
         "confidence_band": trust_block.get("confidence_band") or classify_confidence_band(score_confidence),
+        "confidence_band_label": translate_confidence_band(
+            trust_block.get("confidence_band") or classify_confidence_band(score_confidence)
+        ),
         "incident_keys": incidents,
         "portfolio_health_state": portfolio.get("portfolio_health_state") or portfolio.get("health_state") or "Watch",
         "rescue_top5": rescue_top5 or portfolio.get("rescue_top5") or [],
         "readiness": readiness,
+        "readiness_items": [
+            {
+                "key": key,
+                "key_label": translate_readiness_key(key),
+                "state": state,
+                "state_label": translate_readiness_state(state),
+            }
+            for key, state in readiness.items()
+        ],
         "aggregation": {
             "expected_days": expected_days,
             "available_days": available_days,
@@ -524,13 +552,13 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
     earned_day = payload.get("dmt_earned_day") or {}
     if earned_day.get("target_pace_achieved"):
         payload["pace_state"] = "target"
-        payload["pace_label"] = "Target pace healthy"
+        payload["pace_label"] = "Цільовий темп виконано"
     elif earned_day.get("minimum_achieved"):
         payload["pace_state"] = "minimum"
-        payload["pace_label"] = "Minimum day achieved"
+        payload["pace_label"] = "Мінімум дня виконано"
     else:
         payload["pace_state"] = "recovery"
-        payload["pace_label"] = "Recovery needed"
+        payload["pace_label"] = "Потрібне відновлення"
     payload["explain"] = _build_shadow_explain_payload(
         user=user,
         range_current=range_current,

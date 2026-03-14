@@ -3,44 +3,44 @@
   <aside class="shadow-drawer__panel">
     <div class="shadow-drawer__head">
       <div>
-        <div class="shadow-explain-title">Waterfall / decomposition</div>
-        <div class="muted">Readable breakdown of the shadow score. Shadow-only, not payroll truth.</div>
+        <div class="shadow-explain-title">Водоспад / розклад</div>
+        <div class="muted">Зрозумілий розклад тіньової оцінки. Лише тіньовий контур, не база для виплат.</div>
       </div>
-      <button type="button" class="icon-btn ghost" data-shadow-close aria-label="Close">×</button>
+      <button type="button" class="icon-btn ghost" data-shadow-close aria-label="Закрити">×</button>
     </div>
 
     <div class="shadow-drawer__grid">
       <div class="shadow-drawer-metric">
-        <span class="muted">Legacy KPD</span>
+        <span class="muted">Поточний КПД</span>
         <strong>{{ stats_payload.summary.kpd.value|floatformat:2 }}</strong>
       </div>
       <div class="shadow-drawer-metric">
-        <span class="muted">Base MOSAIC</span>
+        <span class="muted">Базовий MOSAIC</span>
         <strong>{{ stats_payload.shadow_score.base_mosaic|floatformat:2 }}</strong>
       </div>
       <div class="shadow-drawer-metric">
-        <span class="muted">Gate</span>
-        <strong>{{ stats_payload.shadow_score.gate_level }} / {{ stats_payload.shadow_score.gate_score }}</strong>
+        <span class="muted">Рівень доказів</span>
+        <strong>{{ stats_payload.shadow_score.gate_level_label }} / {{ stats_payload.shadow_score.gate_score }}</strong>
       </div>
       <div class="shadow-drawer-metric">
-        <span class="muted">Trust</span>
+        <span class="muted">Довіра</span>
         <strong>{{ stats_payload.shadow_score.trust_multiplier|floatformat:2 }}</strong>
       </div>
       <div class="shadow-drawer-metric">
-        <span class="muted">Dampener</span>
+        <span class="muted">Стримування</span>
         <strong>{{ stats_payload.shadow_score.dampener_value|floatformat:2 }}</strong>
       </div>
       <div class="shadow-drawer-metric">
-        <span class="muted">Final MOSAIC</span>
+        <span class="muted">Фінальний MOSAIC</span>
         <strong>{{ stats_payload.shadow_score.mosaic_score|floatformat:2 }}</strong>
       </div>
       <div class="shadow-drawer-metric">
-        <span class="muted">Confidence</span>
-        <strong>{{ stats_payload.shadow_score.confidence_band }} / {{ stats_payload.shadow_score.score_confidence|floatformat:2 }}</strong>
+        <span class="muted">Довіра</span>
+        <strong>{{ stats_payload.shadow_score.confidence_band_label }} / {{ stats_payload.shadow_score.score_confidence|floatformat:2 }}</strong>
       </div>
       <div class="shadow-drawer-metric">
-        <span class="muted">Freshness</span>
-        <strong>{{ stats_payload.shadow_score.freshness_seconds|default:0 }}s</strong>
+        <span class="muted">Актуальність</span>
+        <strong>{{ stats_payload.shadow_score.freshness_seconds|default:0 }} сек</strong>
       </div>
     </div>
 
@@ -48,16 +48,16 @@
       {% for axis_key, axis in stats_payload.shadow_score.explain.axes.items %}
         <div class="shadow-drawer-axis">
           <div>
-            <div class="shadow-action-title">{{ axis_key|cut:"_"|title }}</div>
-            <div class="muted">Weight {{ axis.weight|floatformat:2 }}</div>
+            <div class="shadow-action-title">{{ axis.key_label|default:axis_key|cut:"_"|title }}</div>
+            <div class="muted">Вага {{ axis.weight|floatformat:2 }}</div>
           </div>
           <div class="shadow-drawer-axis__meta">
             <strong>{{ axis.value|floatformat:2 }}</strong>
-            <span class="shadow-readiness-pill state-{{ axis.status|lower }}">{{ axis.status }}</span>
+            <span class="shadow-readiness-pill state-{{ axis.status|lower }}">{{ axis.status_label|default:axis.status }}</span>
           </div>
         </div>
       {% empty %}
-        <div class="muted">No axis decomposition yet.</div>
+        <div class="muted">Розкладу по осях ще немає.</div>
       {% endfor %}
     </div>
   </aside>

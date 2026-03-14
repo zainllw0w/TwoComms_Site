@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from management.models import DtfBridgeSnapshot
+from management.services.ui_labels import translate_dtf_status
 
 
 def build_dtf_bridge_payload(*, source_key: str = "default") -> dict:
@@ -13,6 +14,7 @@ def build_dtf_bridge_payload(*, source_key: str = "default") -> dict:
         return {
             "source_key": source_key,
             "status": DtfBridgeSnapshot.Status.DEGRADED,
+            "status_label": translate_dtf_status(DtfBridgeSnapshot.Status.DEGRADED),
             "freshness_seconds": 0,
             "snapshot_date": "",
             "reason": "dtf_bridge_not_configured",
@@ -24,6 +26,7 @@ def build_dtf_bridge_payload(*, source_key: str = "default") -> dict:
     return {
         "source_key": source_key,
         "status": snapshot.status,
+        "status_label": translate_dtf_status(snapshot.status),
         "freshness_seconds": int(snapshot.freshness_seconds or 0),
         "snapshot_date": snapshot.snapshot_date.isoformat(),
         "reason": payload.get("reason") or "",
