@@ -20,7 +20,9 @@ from .models import (
     ManagementDailyActivity,
     ManagementStatsAdviceDismissal,
     ManagementStatsConfig,
+    NightlyScoreSnapshot,
     Report,
+    ScoreAppeal,
     Shop,
     ShopCommunication,
     ShopInventoryMovement,
@@ -167,6 +169,69 @@ def _get_or_build_config() -> dict[str, Any]:
     }
     cache.set(cache_key, merged, 600)
     return merged
+
+
+def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
+    snapshot = (
+        NightlyScoreSnapshot.objects.filter(owner=user, snapshot_date__lte=range_current.end_date)
+        .order_by("-snapshot_date")
+        .first()
+    )
+    cfg = ManagementStatsConfig.objects.filter(pk=1).first()
+    rollout_state = (cfg.rollout_state if cfg else "shadow") or "shadow"
+    feature_flags = cfg.feature_flags if cfg else {}
+
+    if not snapshot:
+        return {
+            "state": rollout_state,
+            "state_label": rollout_state.upper(),
+            "snapshot_date": "",
+            "mosaic_score": None,
+            "score_confidence": None,
+            "working_day_factor": None,
+            "freshness_seconds": None,
+            "kpd_value": None,
+            "readiness": {},
+            "flags": {
+                "is_stale": True,
+                "is_low_confidence": False,
+                "has_snapshot": False,
+            },
+            "appeals": {"total": 0, "open": 0, "latest_status": ""},
+            "rollout_state": rollout_state,
+            "feature_flags": feature_flags,
+        }
+
+    score_confidence = float(snapshot.score_confidence or 0)
+    is_stale = snapshot.snapshot_date < range_current.end_date or int(snapshot.freshness_seconds or 0) > 172800
+    is_low_confidence = score_confidence < 0.65
+    readiness = (snapshot.payload or {}).get("readiness") or {}
+    appeals_qs = ScoreAppeal.objects.filter(snapshot=snapshot)
+    latest_appeal = appeals_qs.order_by("-created_at").first()
+
+    return {
+        "state": rollout_state,
+        "state_label": rollout_state.upper(),
+        "snapshot_date": snapshot.snapshot_date.isoformat(),
+        "mosaic_score": float(snapshot.mosaic_score or 0),
+        "score_confidence": score_confidence,
+        "working_day_factor": float(snapshot.working_day_factor or 0),
+        "freshness_seconds": int(snapshot.freshness_seconds or 0),
+        "kpd_value": float(snapshot.kpd_value or 0),
+        "readiness": readiness,
+        "flags": {
+            "is_stale": is_stale,
+            "is_low_confidence": is_low_confidence,
+            "has_snapshot": True,
+        },
+        "appeals": {
+            "total": appeals_qs.count(),
+            "open": appeals_qs.filter(status=ScoreAppeal.Status.OPEN).count(),
+            "latest_status": latest_appeal.status if latest_appeal else "",
+        },
+        "rollout_state": rollout_state,
+        "feature_flags": feature_flags,
+    }
 
 
 def _compute_report_status(report_dt_local: datetime, *, deadline_hour: int, grace_minutes: int) -> str:
@@ -565,7 +630,7 @@ def get_stats_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
     cfg = _get_or_build_config()
     tz = timezone.get_current_timezone()
 
-    cache_key = f"mgmt:stats:v3:{user.id}:{range_current.start_date}:{range_current.end_date}"
+    cache_key = f"mgmt:stats:v4:{user.id}:{range_current.start_date}:{range_current.end_date}"
     cached = cache.get(cache_key)
     if isinstance(cached, dict):
         return cached
@@ -1161,6 +1226,7 @@ def get_stats_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
         "sources": sources[:12],
         "series": series,
         "advice": advice,
+        "shadow_score": _shadow_score_payload(user=user, range_current=range_current),
         "meta": {
             "report_deadline_hour": deadline_hour,
             "report_late_grace_minutes": grace,

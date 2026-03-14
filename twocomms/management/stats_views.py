@@ -10,7 +10,7 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .models import ManagementDailyActivity, ManagementStatsAdviceDismissal
+from .models import ManagementDailyActivity, ManagementStatsAdviceDismissal, NightlyScoreSnapshot, ScoreAppeal, SupervisorActionLog
 from .stats_service import parse_stats_range, get_stats_payload
 from .views import (
     get_manager_bot_username,
@@ -220,3 +220,93 @@ def advice_dismiss(request):
     obj.expires_at = expires_at
     obj.save(update_fields=["expires_at"])
     return JsonResponse({"ok": True})
+
+
+@login_required(login_url="management_login")
+@require_POST
+def score_appeal_create(request):
+    if not user_is_management(request.user):
+        return JsonResponse({"success": False, "error": "Доступ заборонено."}, status=403)
+
+    snapshot_id_raw = str(request.POST.get("snapshot_id") or "").strip()
+    reason = (request.POST.get("reason") or "").strip()
+    evidence_note = (request.POST.get("evidence_note") or "").strip()
+
+    try:
+        snapshot_id = int(snapshot_id_raw)
+    except (TypeError, ValueError):
+        return JsonResponse({"success": False, "error": "Некоректний snapshot."}, status=400)
+
+    if not reason:
+        return JsonResponse({"success": False, "error": "Опишіть причину апеляції."}, status=400)
+
+    snapshot = NightlyScoreSnapshot.objects.filter(id=snapshot_id, owner=request.user).first()
+    if not snapshot:
+        return JsonResponse({"success": False, "error": "Snapshot не знайдено."}, status=404)
+
+    appeal = (
+        ScoreAppeal.objects.filter(owner=request.user, snapshot=snapshot, status=ScoreAppeal.Status.OPEN)
+        .order_by("-created_at")
+        .first()
+    )
+    if appeal:
+        appeal.reason = reason
+        appeal.evidence = {"note": evidence_note} if evidence_note else {}
+        appeal.save(update_fields=["reason", "evidence"])
+    else:
+        appeal = ScoreAppeal.objects.create(
+            owner=request.user,
+            snapshot=snapshot,
+            reason=reason,
+            evidence={"note": evidence_note} if evidence_note else {},
+        )
+
+    return JsonResponse(
+        {
+            "success": True,
+            "appeal": {
+                "id": appeal.id,
+                "status": appeal.status,
+                "snapshot_id": snapshot.id,
+                "snapshot_date": snapshot.snapshot_date.isoformat(),
+            },
+        }
+    )
+
+
+@login_required(login_url="management_login")
+@require_POST
+def score_appeal_resolve(request, appeal_id: int):
+    if not request.user.is_staff:
+        return JsonResponse({"success": False, "error": "Доступ лише для адміністраторів."}, status=403)
+
+    status = (request.POST.get("status") or "").strip()
+    resolution_note = (request.POST.get("resolution_note") or "").strip()
+    if status not in {ScoreAppeal.Status.APPROVED, ScoreAppeal.Status.REJECTED}:
+        return JsonResponse({"success": False, "error": "Некоректний статус рішення."}, status=400)
+
+    appeal = ScoreAppeal.objects.select_related("owner", "snapshot").filter(id=appeal_id).first()
+    if not appeal:
+        return JsonResponse({"success": False, "error": "Апеляцію не знайдено."}, status=404)
+
+    appeal.mark_resolved(status=status, resolution_note=resolution_note)
+    SupervisorActionLog.objects.create(
+        manager=appeal.owner,
+        actor=request.user,
+        action_type=SupervisorActionLog.ActionType.APPEAL_RESOLUTION,
+        payload={
+            "appeal_id": appeal.id,
+            "snapshot_id": appeal.snapshot_id,
+            "status": status,
+        },
+    )
+    return JsonResponse(
+        {
+            "success": True,
+            "appeal": {
+                "id": appeal.id,
+                "status": appeal.status,
+                "resolved_at": timezone.localtime(appeal.resolved_at).isoformat() if appeal.resolved_at else "",
+            },
+        }
+    )
