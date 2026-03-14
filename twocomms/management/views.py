@@ -68,7 +68,8 @@ from .invoice_service import (
     serialize_management_invoice_payload,
 )
 from .lead_services import calc_client_points, get_user_lead_bonus_points
-from .services.forecast import build_admin_economics_summary
+from .services.dtf_bridge import build_dtf_bridge_payload
+from .services.forecast import build_admin_economics_summary, build_salary_simulator
 from .services.followups import build_reminder_digest
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
@@ -571,7 +572,7 @@ def admin_overview(request):
         return redirect('management_home')
 
     tab = (request.GET.get('tab') or 'managers').strip().lower()
-    if tab not in ('managers', 'invoices', 'shops', 'payouts'):
+    if tab not in ('managers', 'invoices', 'shops', 'payouts', 'dtf'):
         tab = 'managers'
 
     User = get_user_model()
@@ -636,6 +637,9 @@ def admin_overview(request):
 
     if tab == 'managers':
         ctx['admin_analytics'] = build_admin_economics_summary()
+
+    if tab == 'dtf':
+        ctx['dtf_bridge'] = build_dtf_bridge_payload()
 
     if tab == 'invoices':
         from orders.models import WholesaleInvoice
@@ -5226,7 +5230,7 @@ def payouts(request):
     from django.db.models.functions import Coalesce
 
     from orders.models import WholesaleInvoice
-    from management.models import ManagerCommissionAccrual, ManagerPayoutRequest
+    from management.models import ManagerCommissionAccrual, ManagerPayoutRequest, NightlyScoreSnapshot
 
     def mask_card(raw):
         s = (raw or '').strip()
@@ -5272,8 +5276,15 @@ def payouts(request):
         status__in=[ManagerPayoutRequest.Status.PROCESSING, ManagerPayoutRequest.Status.APPROVED],
     ).order_by('-created_at').first()
 
+    latest_snapshot = NightlyScoreSnapshot.objects.filter(owner=request.user).order_by('-snapshot_date').first()
+
     history = list(
         ManagerPayoutRequest.objects.filter(owner=request.user).order_by('-created_at')[:50]
+    )
+    frozen_items = list(
+        accruals_qs.filter(frozen_until__gt=now)
+        .order_by('frozen_until')
+        .values('amount', 'freeze_reason_text', 'note', 'frozen_until', 'freeze_reason_code')[:10]
     )
 
     deals_count = WholesaleInvoice.objects.filter(created_by=request.user, payment_status='paid').count()
@@ -5318,6 +5329,25 @@ def payouts(request):
     progress_points_pct = min(100, int(stats['points_today'] / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
     bot_username = get_manager_bot_username()
     reminders = get_reminders(request.user, stats=stats, report_sent=report_sent_today)
+    salary_simulator = build_salary_simulator(
+        user=request.user,
+        summary={
+            'invoices': {
+                'amount': str(
+                    WholesaleInvoice.objects.filter(created_by=request.user, payment_status='paid')
+                    .aggregate(total=models.Sum('total_amount'))
+                    .get('total')
+                    or 0
+                ),
+                'paid': deals_count,
+            }
+        },
+        shadow_score={
+            'mosaic_score': float(latest_snapshot.mosaic_score or 0) if latest_snapshot else 0,
+            'confidence_band': ((latest_snapshot.payload or {}).get('trust') or {}).get('confidence_band', 'LOW') if latest_snapshot else 'LOW',
+            'freshness_seconds': int(latest_snapshot.freshness_seconds or 0) if latest_snapshot else 0,
+        },
+    )
 
     return render(
         request,
@@ -5329,6 +5359,7 @@ def payouts(request):
             'reserved_amount': reserved_amount,
             'active_request': active_request,
             'history': history,
+            'frozen_items': frozen_items,
             'position': position or '—',
             'days_worked': days_worked,
             'deals_count': deals_count,
@@ -5348,6 +5379,7 @@ def payouts(request):
             'has_report_today': report_sent_today,
             'reminders': reminders,
             'manager_bot_username': bot_username,
+            'salary_simulator': salary_simulator,
         }
     )
 

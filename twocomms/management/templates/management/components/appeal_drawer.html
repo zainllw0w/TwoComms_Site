@@ -1,0 +1,33 @@
+<div class="shadow-drawer" id="shadow-appeal-drawer" hidden>
+  <div class="shadow-drawer__backdrop" data-shadow-close></div>
+  <aside class="shadow-drawer__panel">
+    <div class="shadow-drawer__head">
+      <div>
+        <div class="shadow-explain-title">Appeal / Оспорить</div>
+        <div class="muted">Evidence-first score review. This does not replace the payout request flow.</div>
+      </div>
+      <button type="button" class="icon-btn ghost" data-shadow-close aria-label="Close">×</button>
+    </div>
+
+    {% if stats_payload.shadow_score.snapshot_id %}
+      <form class="shadow-appeal-form" id="shadow-appeal-form" data-url="{% url 'management_stats_appeal_create' %}">
+        <input type="hidden" name="snapshot_id" value="{{ stats_payload.shadow_score.snapshot_id }}">
+        <label class="field">
+          <span class="field-label">Reason</span>
+          <textarea name="reason" rows="4" placeholder="What looks wrong in the score, freeze context or evidence chain?" required></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">Evidence note</span>
+          <textarea name="evidence_note" rows="4" placeholder="Add invoice IDs, timeline notes, follow-up context, telephony caveats or admin references."></textarea>
+        </label>
+        <div class="shadow-appeal-form__actions">
+          <button type="submit" class="btn-primary small">Submit appeal</button>
+          <button type="button" class="btn-ghost small" data-shadow-close>Cancel</button>
+        </div>
+        <div class="shadow-appeal-status muted" id="shadow-appeal-status" role="status" aria-live="polite"></div>
+      </form>
+    {% else %}
+      <div class="muted">Appeal becomes available after the first snapshot is created for the selected period.</div>
+    {% endif %}
+  </aside>
+</div>

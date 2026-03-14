@@ -1,0 +1,90 @@
+<div class="admin-command-board">
+  <section class="admin-analytics-card admin-analytics-card--hero">
+    <div class="shadow-card-head">
+      <div>
+        <div class="shadow-explain-title">Readiness & incidents</div>
+        <div class="muted">Evidence-first summary of stale states, appeals and shadow operational health.</div>
+      </div>
+      <span class="shadow-chip state-shadow">ADMIN ONLY</span>
+    </div>
+    <div class="admin-analytics-kpis">
+      <div><span class="muted">Managers</span><b>{{ admin_analytics.manager_count|default:0 }}</b></div>
+      <div><span class="muted">Stale</span><b>{{ admin_analytics.stale_count|default:0 }}</b></div>
+      <div><span class="muted">Low confidence</span><b>{{ admin_analytics.low_confidence_count|default:0 }}</b></div>
+      <div><span class="muted">Open appeals</span><b>{{ admin_analytics.open_appeals|default:0 }}</b></div>
+      <div><span class="muted">Telephony</span><b>{{ admin_analytics.telephony_status|upper }}</b></div>
+      <div><span class="muted">DTF bridge</span><b>{{ admin_analytics.dtf_status|upper }}</b></div>
+    </div>
+  </section>
+
+  <section class="admin-analytics-card">
+    <div class="shadow-card-head">
+      <div>
+        <div class="shadow-explain-title">Queue presets</div>
+        <div class="muted">Fast triage buckets for duplicates, freezes, appeals, overload and telephony mismatch.</div>
+      </div>
+    </div>
+    <div class="admin-queue-grid">
+      {% for item in admin_analytics.queue_presets %}
+        <div class="admin-queue-pill tone-{{ item.tone }}">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.count }}</strong>
+        </div>
+      {% empty %}
+        <div class="muted">Queues are clear.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="admin-analytics-card">
+    <div class="shadow-card-head">
+      <div>
+        <div class="shadow-explain-title">Forecast bands</div>
+        <div class="muted">Forecast confidence and projected revenue band with explicit drivers.</div>
+      </div>
+      <span class="shadow-chip state-shadow">{{ admin_analytics.forecast.confidence }}</span>
+    </div>
+    <div class="admin-analytics-kpis">
+      <div><span class="muted">Optimistic</span><b>{{ admin_analytics.forecast.optimistic|floatformat:2 }}</b></div>
+      <div><span class="muted">Base</span><b>{{ admin_analytics.forecast.base|floatformat:2 }}</b></div>
+      <div><span class="muted">Pessimistic</span><b>{{ admin_analytics.forecast.pessimistic|floatformat:2 }}</b></div>
+      <div><span class="muted">Drivers</span><b>{{ admin_analytics.forecast.drivers|join:", " }}</b></div>
+    </div>
+  </section>
+
+  <section class="admin-analytics-card">
+    <div class="shadow-card-head">
+      <div>
+        <div class="shadow-explain-title">At-risk managers</div>
+        <div class="muted">Compare payback risk, confidence drift, duplicate load and open appeals.</div>
+      </div>
+    </div>
+    <div class="admin-analytics-mini-list">
+      {% for row in admin_analytics.top_risk_managers %}
+        <div class="admin-analytics-mini-row">
+          <div>
+            <div class="shadow-action-title">{{ row.name }}</div>
+            <div class="muted">{{ row.payback_risk|title }} • conf {{ row.confidence|floatformat:2 }} • dup {{ row.duplicate_reviews }}</div>
+          </div>
+          <strong>{{ row.payback|floatformat:2 }}x</strong>
+        </div>
+      {% empty %}
+        <div class="muted">No risk rows yet.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="admin-analytics-card">
+    <div class="shadow-card-head">
+      <div>
+        <div class="shadow-explain-title">Cohort retention proxy</div>
+        <div class="muted">Early retention pulse for admin economics and staffing decisions.</div>
+      </div>
+    </div>
+    <div class="admin-analytics-kpis">
+      {% for key, value in admin_analytics.cohorts.items %}
+        <div><span class="muted">{{ key }}</span><b>{{ value|default:0 }}</b></div>
+      {% endfor %}
+    </div>
+  </section>
+</div>

@@ -1,0 +1,249 @@
+<div class="shadow-score-panel shadow-score-showcase">
+  <div class="shadow-score-head">
+    <div>
+      <div class="shadow-score-kicker">Shadow analytics</div>
+      <div class="shadow-score-title">MOSAIC command center</div>
+      <div class="muted">Current KPD stays live while the shadow model explains recovery, pace and evidence quality.</div>
+    </div>
+    <div class="shadow-score-chips">
+      <span class="shadow-chip state-{{ stats_payload.shadow_score.state }}">{{ stats_payload.shadow_score.state_label }}</span>
+      {% if stats_payload.shadow_score.flags.is_stale %}
+        <span class="shadow-chip state-stale">STALE</span>
+      {% endif %}
+      {% if stats_payload.shadow_score.flags.is_low_confidence %}
+        <span class="shadow-chip state-low">LOW CONFIDENCE</span>
+      {% endif %}
+      {% if stats_payload.shadow_score.flags.is_partial %}
+        <span class="shadow-chip state-dormant">PARTIAL</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if stats_payload.shadow_score.flags.has_snapshot %}
+    <div class="shadow-score-grid shadow-score-grid--showcase">
+      <div class="shadow-metric-card shadow-metric-card--hero">
+        <div class="shadow-metric-label">Shadow MOSAIC</div>
+        <div class="shadow-metric-value">{{ stats_payload.shadow_score.mosaic_score|floatformat:2 }}</div>
+        <div class="shadow-metric-sub muted">
+          {% if stats_payload.shadow_score.delta_vs_prev != None %}
+            {% if stats_payload.shadow_score.delta_vs_prev > 0 %}+{% endif %}{{ stats_payload.shadow_score.delta_vs_prev|floatformat:2 }} vs {{ stats_payload.shadow_score.previous_period.label|default:"previous period" }}
+          {% else %}
+            Snapshot: {{ stats_payload.shadow_score.snapshot_date }}
+          {% endif %}
+        </div>
+      </div>
+      <div class="shadow-metric-card">
+        <div class="shadow-metric-label">Confidence</div>
+        <div class="shadow-metric-value">{{ stats_payload.shadow_score.score_confidence|floatformat:2 }}</div>
+        <div class="shadow-metric-sub muted">{{ stats_payload.shadow_score.confidence_band }}</div>
+      </div>
+      <div class="shadow-metric-card">
+        <div class="shadow-metric-label">Pace state</div>
+        <div class="shadow-metric-value">{{ stats_payload.shadow_score.pace_label }}</div>
+        <div class="shadow-metric-sub muted">Meaningful calls: {{ stats_payload.shadow_score.dmt_earned_day.meaningful_calls|default:0 }}</div>
+      </div>
+      <div class="shadow-metric-card">
+        <div class="shadow-metric-label">Freshness / coverage</div>
+        <div class="shadow-metric-value">{{ stats_payload.shadow_score.aggregation.available_days }}/{{ stats_payload.shadow_score.aggregation.expected_days }}</div>
+        <div class="shadow-metric-sub muted">{{ stats_payload.shadow_score.freshness_seconds|default:0 }}s freshness</div>
+      </div>
+    </div>
+
+    <div class="shadow-pace-strip">
+      <div class="shadow-pace-step {% if stats_payload.shadow_score.dmt_earned_day.minimum_achieved %}is-on{% endif %}">
+        <span class="shadow-pace-step__label">Minimum day achieved</span>
+        <span class="shadow-pace-step__state">{% if stats_payload.shadow_score.dmt_earned_day.minimum_achieved %}ON{% else %}OFF{% endif %}</span>
+      </div>
+      <div class="shadow-pace-step {% if stats_payload.shadow_score.dmt_earned_day.target_pace_achieved %}is-on{% endif %}">
+        <span class="shadow-pace-step__label">Target pace healthy</span>
+        <span class="shadow-pace-step__state">{% if stats_payload.shadow_score.dmt_earned_day.target_pace_achieved %}ON{% else %}OFF{% endif %}</span>
+      </div>
+      <div class="shadow-pace-step {% if stats_payload.shadow_score.dmt_earned_day.recovery_needed %}is-alert{% endif %}">
+        <span class="shadow-pace-step__label">Recovery needed</span>
+        <span class="shadow-pace-step__state">{% if stats_payload.shadow_score.dmt_earned_day.recovery_needed %}YES{% else %}NO{% endif %}</span>
+      </div>
+    </div>
+
+    <div class="shadow-showcase-grid">
+      {% include "management/components/radar_chart.html" %}
+
+      <section class="shadow-explain-card shadow-waterfall-card">
+        <div class="shadow-card-head">
+          <div>
+            <div class="shadow-explain-title">Why changed today</div>
+            <div class="muted">Concrete drivers, shadow-only labels and a readable path to decomposition.</div>
+          </div>
+          <button type="button" class="btn-ghost small" data-shadow-open="decomposition">Open decomposition</button>
+        </div>
+        <div class="shadow-kv-grid">
+          <div><span class="muted">Legacy KPD</span><b>{{ stats_payload.summary.kpd.value|floatformat:2 }}</b></div>
+          <div><span class="muted">Base MOSAIC</span><b>{{ stats_payload.shadow_score.base_mosaic|floatformat:2 }}</b></div>
+          <div><span class="muted">Gate</span><b>{{ stats_payload.shadow_score.gate_level }}</b></div>
+          <div><span class="muted">Dampener</span><b>{{ stats_payload.shadow_score.dampener_value|floatformat:2 }}</b></div>
+        </div>
+        <div class="shadow-driver-list">
+          {% for item in stats_payload.shadow_score.why_changed_today %}
+            <div class="shadow-driver tone-{{ item.tone }}">
+              <div>
+                <div class="shadow-driver-head">
+                  <span>{{ item.label }}</span>
+                  <strong>{{ item.value }}</strong>
+                </div>
+                <div class="muted">{{ item.detail }}</div>
+              </div>
+            </div>
+          {% empty %}
+            <div class="muted">Changes are minor for the selected period.</div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <div class="shadow-micro-grid">
+      <section class="shadow-explain-card">
+        <div class="shadow-card-head">
+          <div>
+            <div class="shadow-explain-title">Salary simulator</div>
+            <div class="muted">Current truth vs shadow candidate with hold-harmless protection.</div>
+          </div>
+          <span class="shadow-chip state-shadow">NO PAYROLL CUTOVER</span>
+        </div>
+        <div class="shadow-kv-grid">
+          <div><span class="muted">Current truth</span><b>{{ stats_payload.shadow_score.salary_simulator.current_truth|floatformat:2 }}</b></div>
+          <div><span class="muted">Shadow candidate</span><b>{{ stats_payload.shadow_score.salary_simulator.shadow_candidate|floatformat:2 }}</b></div>
+          <div><span class="muted">Delta</span><b>{{ stats_payload.shadow_score.salary_simulator.shadow_hold_harmless_delta|floatformat:2 }}</b></div>
+          <div><span class="muted">Confidence</span><b>{{ stats_payload.shadow_score.salary_simulator.confidence_band }}</b></div>
+        </div>
+        <div class="muted">{{ stats_payload.shadow_score.salary_simulator.freeze_line }}</div>
+      </section>
+
+      <section class="shadow-explain-card">
+        <div class="shadow-card-head">
+          <div>
+            <div class="shadow-explain-title">Telephony / evidence</div>
+            <div class="muted">Coaching-first, outage-safe and never punitive before maturity.</div>
+          </div>
+          <span class="shadow-chip state-{{ stats_payload.shadow_score.telephony_health.status }}">{{ stats_payload.shadow_score.telephony_health.status|upper }}</span>
+        </div>
+        <div class="shadow-kv-grid">
+          <div><span class="muted">Meaningful calls</span><b>{{ stats_payload.shadow_score.telephony_health.meaningful_calls|default:0 }}</b></div>
+          <div><span class="muted">Backlog</span><b>{{ stats_payload.shadow_score.telephony_health.backlog_count|default:0 }}</b></div>
+          <div><span class="muted">Unmatched</span><b>{{ stats_payload.shadow_score.telephony_health.unmatched_ratio|default:0|floatformat:2 }}</b></div>
+          <div><span class="muted">Missing recording</span><b>{{ stats_payload.shadow_score.telephony_health.missing_recording_ratio|default:0|floatformat:2 }}</b></div>
+        </div>
+      </section>
+
+      <section class="shadow-explain-card">
+        <div class="shadow-card-head">
+          <div>
+            <div class="shadow-explain-title">Freeze / appeals</div>
+            <div class="muted">Correctability stays explicit anywhere the score might influence review or freeze context.</div>
+          </div>
+          <button type="button" class="btn-primary small" data-shadow-open="appeal">Appeal / Оспорить</button>
+        </div>
+        <div class="shadow-kv-grid">
+          <div><span class="muted">Open appeals</span><b>{{ stats_payload.shadow_score.appeals.open }}</b></div>
+          <div><span class="muted">Total appeals</span><b>{{ stats_payload.shadow_score.appeals.total }}</b></div>
+          <div><span class="muted">Latest</span><b>{{ stats_payload.shadow_score.appeals.latest_status|default:"—" }}</b></div>
+          <div><span class="muted">Due by</span><b>{{ stats_payload.shadow_score.appeals.nearest_due_at|default:"—" }}</b></div>
+        </div>
+      </section>
+
+      <section class="shadow-explain-card">
+        <div class="shadow-card-head">
+          <div>
+            <div class="shadow-explain-title">Readiness map</div>
+            <div class="muted">Freshness and confidence come from snapshots, not frontend guesses.</div>
+          </div>
+        </div>
+        <div class="shadow-readiness-row">
+          {% for key, state in stats_payload.shadow_score.readiness.items %}
+            <span class="shadow-readiness-pill state-{{ state }}">{{ key }} · {{ state|upper }}</span>
+          {% empty %}
+            <span class="muted">Readiness not seeded yet.</span>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <div class="shadow-actions-grid">
+      <section class="shadow-action-card">
+        <div class="shadow-explain-title">Must do today</div>
+        {% for item in stats_payload.shadow_score.must_do_today %}
+          <div class="shadow-action-row">
+            <div>
+              <div class="shadow-action-title">{{ item.title }}</div>
+              <div class="muted">{{ item.detail }}</div>
+            </div>
+            <span class="shadow-action-badge">{{ item.badge }}</span>
+          </div>
+        {% empty %}
+          <div class="muted">No critical actions right now.</div>
+        {% endfor %}
+      </section>
+      <section class="shadow-action-card">
+        <div class="shadow-explain-title">Best opportunities</div>
+        {% for item in stats_payload.shadow_score.best_opportunities %}
+          <div class="shadow-action-row">
+            <div>
+              <div class="shadow-action-title">{{ item.title }}</div>
+              <div class="muted">{{ item.detail }}</div>
+            </div>
+            <span class="shadow-action-badge">{{ item.badge }}</span>
+          </div>
+        {% empty %}
+          <div class="muted">Opportunity stack will appear once snapshots stabilize.</div>
+        {% endfor %}
+      </section>
+    </div>
+
+    <div class="shadow-lower-grid">
+      <section class="shadow-rescue-card">
+        <div class="shadow-card-head">
+          <div>
+            <div class="shadow-explain-title">Rescue top-5</div>
+            <div class="muted">Value at risk, urgency, confidence and churn basis.</div>
+          </div>
+        </div>
+        <div class="shadow-rescue-list">
+          {% for item in stats_payload.shadow_score.rescue_top5 %}
+            <div class="shadow-rescue-item">
+              <div>
+                <div class="shadow-action-title">{{ item.name }}</div>
+                <div class="muted">{{ item.urgency }} • {{ item.churn_basis }}{% if item.planned_gap %} • {{ item.planned_gap }}{% endif %}</div>
+              </div>
+              <div class="shadow-rescue-metrics">
+                <span>{{ item.value_at_risk }}</span>
+                <span class="shadow-action-badge">{{ item.confidence_badge }}</span>
+              </div>
+            </div>
+          {% empty %}
+            <div class="muted">Rescue list is empty for the selected window.</div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="shadow-forecast-band">
+        <div class="shadow-card-head">
+          <div>
+            <div class="shadow-explain-title">Forecast bands</div>
+            <div class="muted">Admin-safe revenue banding with confidence-aware drivers.</div>
+          </div>
+          <span class="shadow-chip state-shadow">{{ stats_payload.shadow_score.forecast_band.confidence_note }}</span>
+        </div>
+        <div class="shadow-kv-grid">
+          <div><span class="muted">Optimistic</span><b>{{ stats_payload.shadow_score.forecast_band.optimistic|floatformat:2 }}</b></div>
+          <div><span class="muted">Base</span><b>{{ stats_payload.shadow_score.forecast_band.base|floatformat:2 }}</b></div>
+          <div><span class="muted">Pessimistic</span><b>{{ stats_payload.shadow_score.forecast_band.pessimistic|floatformat:2 }}</b></div>
+          <div><span class="muted">Drivers</span><b>{{ stats_payload.shadow_score.forecast_band.drivers|join:", " }}</b></div>
+        </div>
+      </section>
+    </div>
+
+    {% include "management/components/client_timeline.html" %}
+  {% else %}
+    <div class="shadow-empty muted">
+      Shadow snapshot has not been built for this period yet.
+    </div>
+  {% endif %}
+</div>

@@ -34,19 +34,26 @@ def compute_gate_level(*, paid_orders: int, approved_orders: int, crm_events: in
 
 
 def compute_production_trust(*, duplicate_backlog: int, overdue_followups: int, telephony_healthy: bool) -> Decimal:
-    trust = Decimal("1.00")
-    if duplicate_backlog >= 5:
-        trust -= Decimal("0.05")
-    elif duplicate_backlog == 0:
-        trust += Decimal("0.02")
+    report_integrity = Decimal("1.00") if overdue_followups == 0 else max(
+        Decimal("0.00"),
+        Decimal("1.00") - (Decimal(str(min(10, overdue_followups))) / Decimal("10")),
+    )
+    reason_quality = Decimal("0.50") if overdue_followups <= 2 else Decimal("0.20")
+    duplicate_abuse = min(Decimal("1.00"), _to_decimal(duplicate_backlog) / Decimal("5"))
+    anomaly = max(
+        duplicate_abuse,
+        min(Decimal("1.00"), _to_decimal(overdue_followups) / Decimal("10")),
+    )
 
-    if overdue_followups >= 10:
-        trust -= Decimal("0.05")
-    elif overdue_followups == 0:
-        trust += Decimal("0.01")
-
+    trust = (
+        Decimal("0.97")
+        + Decimal("0.04") * report_integrity
+        + Decimal("0.02") * reason_quality
+        - Decimal("0.05") * duplicate_abuse
+        - Decimal("0.05") * anomaly
+    )
     if not telephony_healthy:
-        trust += Decimal("0.00")
+        trust = max(Decimal("0.85"), trust)
     trust = max(Decimal("0.85"), min(Decimal("1.05"), trust))
     return trust.quantize(FOUR_PLACES, rounding=ROUND_HALF_UP)
 

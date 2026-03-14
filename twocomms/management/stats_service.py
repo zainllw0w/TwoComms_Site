@@ -4,6 +4,7 @@ import hashlib
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from django.core.cache import cache
@@ -14,6 +15,7 @@ from django.utils.dateparse import parse_date
 
 from .constants import POINTS
 from .models import (
+    CallRecord,
     Client,
     ClientFollowUp,
     CommercialOfferEmailLog,
@@ -21,6 +23,7 @@ from .models import (
     ManagementStatsAdviceDismissal,
     ManagementStatsConfig,
     NightlyScoreSnapshot,
+    OwnershipChangeLog,
     Report,
     ScoreAppeal,
     Shop,
@@ -179,22 +182,226 @@ def _get_or_build_config() -> dict[str, Any]:
     return merged
 
 
+def _nested_get(payload: dict[str, Any], *path: str, default=None):
+    node = payload
+    for key in path:
+        if not isinstance(node, dict):
+            return default
+        node = node.get(key)
+        if node is None:
+            return default
+    return node
+
+
+def _snapshot_decimal(snapshot_payload: dict[str, Any], *paths: tuple[str, ...], default: str = "0") -> Decimal:
+    for path in paths:
+        value = _nested_get(snapshot_payload, *path)
+        if value not in (None, ""):
+            try:
+                return Decimal(str(value))
+            except Exception:
+                continue
+    return Decimal(default)
+
+
+def _average_decimal(values: list[Decimal], default: str = "0") -> Decimal:
+    if not values:
+        return Decimal(default)
+    return (sum(values, Decimal("0")) / Decimal(str(len(values)))).quantize(Decimal("0.01"))
+
+
+def _aggregate_rescue_items(snapshots: list[NightlyScoreSnapshot]) -> list[dict[str, Any]]:
+    by_name: dict[str, dict[str, Any]] = {}
+    for snapshot in snapshots:
+        payload = snapshot.payload or {}
+        rescue_items = (
+            _nested_get(payload, "portfolio", "rescue_top5")
+            or _nested_get(payload, "portfolio_legacy", "rescue_top5")
+            or []
+        )
+        for item in rescue_items:
+            name = str(item.get("name") or item.get("title") or "").strip()
+            if not name:
+                continue
+            current = by_name.get(name)
+            if current is None or float(item.get("value_at_risk") or 0) > float(current.get("value_at_risk") or 0):
+                by_name[name] = item
+    return sorted(by_name.values(), key=lambda item: float(item.get("value_at_risk") or 0), reverse=True)[:5]
+
+
+def _build_shadow_explain_payload(
+    *,
+    user,
+    range_current: StatsRange,
+    cfg: ManagementStatsConfig | None,
+    score_payload: dict[str, Any],
+    latest_payload: dict[str, Any],
+) -> dict[str, Any]:
+    readiness = latest_payload.get("readiness") or {}
+    axes = latest_payload.get("axes") or {}
+    weight_config = ((_get_or_build_config().get("mosaic_config") or {}).get("weights") or {})
+    explain_axes = {}
+    for key, value in axes.items():
+        explain_axes[key] = {
+            "value": float(Decimal(str(value))),
+            "weight": float(weight_config.get(key, 0)),
+            "status": str(readiness.get(key) or "shadow").upper(),
+        }
+    explainability_tokens = _nested_get(latest_payload, "advice_context", "explainability_tokens", default=[]) or []
+    return {
+        "manager_id": user.id,
+        "period": range_current.period,
+        "formula_version": (cfg.shadow_mosaic_formula_version if cfg else None) or "mosaic-v1",
+        "defaults_version": (cfg.defaults_version if cfg else None) or "2026-03-13",
+        "readiness_state": score_payload["surface_state"],
+        "base_mosaic": float(score_payload.get("base_mosaic") or 0),
+        "final_mosaic": float(score_payload.get("mosaic_score") or 0),
+        "score_confidence": {
+            "value": float(score_payload.get("score_confidence") or 0),
+            "band": score_payload.get("confidence_band") or "LOW",
+        },
+        "gate": {
+            "level": score_payload.get("gate_level") or "Self-reported only",
+            "value": int(score_payload.get("gate_score") or 45),
+        },
+        "axes": explain_axes,
+        "freshness": {
+            "seconds": int(score_payload.get("freshness_seconds") or 0),
+            "stale": bool(score_payload["flags"]["is_stale"]),
+        },
+        "top_drivers": explainability_tokens or (score_payload.get("top_drivers") or []),
+    }
+
+
+def _build_recent_timeline(*, user, range_current: StatsRange, limit: int = 12) -> list[dict[str, Any]]:
+    from orders.models import WholesaleInvoice
+
+    events: list[dict[str, Any]] = []
+
+    for row in (
+        CommercialOfferEmailLog.objects.filter(owner=user, created_at__gte=range_current.start, created_at__lt=range_current.end)
+        .order_by("-created_at")[: limit]
+    ):
+        events.append(
+            {
+                "kind": "email",
+                "when": timezone.localtime(row.created_at),
+                "title": row.recipient_name or row.recipient_email or "Commercial offer email",
+                "detail": row.subject or "Commercial offer sent",
+                "badge": "CP email",
+            }
+        )
+
+    for row in (
+        ShopCommunication.objects.filter(created_by=user, created_at__gte=range_current.start, created_at__lt=range_current.end)
+        .select_related("shop")
+        .order_by("-created_at")[: limit]
+    ):
+        events.append(
+            {
+                "kind": "shop_comm",
+                "when": timezone.localtime(row.created_at),
+                "title": getattr(row.shop, "name", "") or "Shop communication",
+                "detail": row.note or row.contact_person or "Communication logged",
+                "badge": "Note",
+            }
+        )
+
+    for row in (
+        ClientFollowUp.objects.filter(owner=user)
+        .filter(Q(scheduled_at__gte=range_current.start, scheduled_at__lt=range_current.end) | Q(closed_at__gte=range_current.start, closed_at__lt=range_current.end))
+        .select_related("client")
+        .order_by("-scheduled_at", "-closed_at")[: limit]
+    ):
+        event_dt = row.closed_at or row.scheduled_at or row.due_at
+        if not event_dt:
+            continue
+        events.append(
+            {
+                "kind": "followup",
+                "when": timezone.localtime(event_dt),
+                "title": getattr(row.client, "shop_name", "") or "Follow-up",
+                "detail": row.get_status_display(),
+                "badge": "Follow-up",
+            }
+        )
+
+    for row in (
+        CallRecord.objects.filter(manager=user, created_at__gte=range_current.start, created_at__lt=range_current.end)
+        .order_by("-created_at")[: limit]
+    ):
+        event_dt = row.started_at or row.created_at
+        events.append(
+            {
+                "kind": "call",
+                "when": timezone.localtime(event_dt),
+                "title": row.phone or "Call record",
+                "detail": f"{row.duration_seconds}s • {row.direction}",
+                "badge": "Call",
+            }
+        )
+
+    for row in (
+        WholesaleInvoice.objects.filter(created_by=user, created_at__gte=range_current.start, created_at__lt=range_current.end)
+        .order_by("-created_at")[: limit]
+    ):
+        events.append(
+            {
+                "kind": "invoice",
+                "when": timezone.localtime(row.created_at),
+                "title": f"Invoice #{row.invoice_number}",
+                "detail": f"{row.total_amount} грн • {row.payment_status}",
+                "badge": "Invoice",
+            }
+        )
+
+    for row in (
+        OwnershipChangeLog.objects.filter(Q(previous_owner=user) | Q(new_owner=user), created_at__gte=range_current.start, created_at__lt=range_current.end)
+        .order_by("-created_at")[: limit]
+    ):
+        events.append(
+            {
+                "kind": "ownership",
+                "when": timezone.localtime(row.created_at),
+                "title": f"Ownership change #{row.entity_id}",
+                "detail": row.reason or row.entity_type,
+                "badge": "Ownership",
+            }
+        )
+
+    events.sort(key=lambda item: item["when"], reverse=True)
+    timeline = []
+    for item in events[:limit]:
+        timeline.append(
+            {
+                **item,
+                "when_label": item["when"].strftime("%d.%m %H:%M"),
+            }
+        )
+    return timeline
+
+
 def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
-    snapshot = (
-        NightlyScoreSnapshot.objects.filter(owner=user, snapshot_date__lte=range_current.end_date)
-        .order_by("-snapshot_date")
-        .first()
+    snapshots = list(
+        NightlyScoreSnapshot.objects.filter(
+            owner=user,
+            snapshot_date__gte=range_current.start_date,
+            snapshot_date__lte=range_current.end_date,
+        ).order_by("snapshot_date")
     )
     cfg = ManagementStatsConfig.objects.filter(pk=1).first()
     rollout_state = (cfg.rollout_state if cfg else "shadow") or "shadow"
     feature_flags = cfg.feature_flags if cfg else {}
 
-    if not snapshot:
+    if not snapshots:
         return {
+            "snapshot_id": None,
             "state": rollout_state,
             "state_label": rollout_state.upper(),
+            "surface_state": "STALE",
             "snapshot_date": "",
             "mosaic_score": None,
+            "base_mosaic": None,
             "score_confidence": None,
             "working_day_factor": None,
             "freshness_seconds": None,
@@ -212,36 +419,80 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
             "why_changed_today": [],
             "salary_simulator": {},
             "readiness": {},
+            "aggregation": {
+                "expected_days": range_current.days,
+                "available_days": 0,
+                "missing_days": [],
+            },
+            "explain": {},
             "flags": {
                 "is_stale": True,
                 "is_low_confidence": False,
+                "is_partial": False,
                 "has_snapshot": False,
             },
             "appeals": {"total": 0, "open": 0, "latest_status": "", "nearest_due_at": ""},
+            "pace_state": "recovery",
+            "pace_label": "Recovery needed",
             "rollout_state": rollout_state,
             "feature_flags": feature_flags,
+            "previous_period": {},
+            "delta_vs_prev": None,
         }
 
+    snapshot = snapshots[-1]
     snapshot_payload = snapshot.payload or {}
-    score_confidence = float(snapshot.score_confidence or 0)
+    latest_payload = snapshot_payload
+    expected_days = range_current.days
+    available_days = len(snapshots)
+    available_dates = {item.snapshot_date for item in snapshots}
+    missing_days = [
+        (range_current.start_date + timedelta(days=offset)).isoformat()
+        for offset in range(expected_days)
+        if (range_current.start_date + timedelta(days=offset)) not in available_dates
+    ]
+    is_partial = bool(missing_days)
     is_stale = snapshot.snapshot_date < range_current.end_date or int(snapshot.freshness_seconds or 0) > 172800
+    mosaic_score = _average_decimal([Decimal(str(item.mosaic_score or 0)) for item in snapshots])
+    base_mosaic = _average_decimal(
+        [
+            _snapshot_decimal(item.payload or {}, ("score", "base_mosaic"), default=str(item.mosaic_score or 0))
+            for item in snapshots
+        ]
+    )
+    score_confidence = float(_average_decimal([Decimal(str(item.score_confidence or 0)) for item in snapshots]))
+    working_day_factor = float(_average_decimal([Decimal(str(item.working_day_factor or 0)) for item in snapshots]))
+    freshness_seconds = max(int(item.freshness_seconds or 0) for item in snapshots)
+    kpd_value = float(_average_decimal([Decimal(str(item.kpd_value or 0)) for item in snapshots]))
     is_low_confidence = score_confidence < 0.65
-    readiness = snapshot_payload.get("readiness") or {}
-    result_block = snapshot_payload.get("result") or {}
-    trust_block = snapshot_payload.get("trust") or {}
-    portfolio = snapshot_payload.get("portfolio") or {}
-    incidents = snapshot_payload.get("incidents") or []
+    readiness = latest_payload.get("readiness") or {}
+    result_block = latest_payload.get("result") or {}
+    trust_block = latest_payload.get("trust") or {}
+    portfolio = _nested_get(latest_payload, "portfolio", default={}) or {}
+    incidents = sorted(
+        {
+            incident
+            for item in snapshots
+            for incident in ((_nested_get(item.payload or {}, "ops", "incident_keys") or item.payload.get("incidents") or []))
+        }
+    )
+    rescue_top5 = _aggregate_rescue_items(snapshots)
     appeals_summary = summarize_appeals(snapshot)
+    surface_state = "PARTIAL" if is_partial else ("STALE" if is_stale else rollout_state.upper())
+    top_drivers = _nested_get(latest_payload, "advice_context", "top_drivers", default=[]) or []
 
-    return {
+    payload = {
+        "snapshot_id": snapshot.id,
         "state": rollout_state,
-        "state_label": rollout_state.upper(),
+        "state_label": surface_state,
+        "surface_state": surface_state,
         "snapshot_date": snapshot.snapshot_date.isoformat(),
-        "mosaic_score": float(snapshot.mosaic_score or 0),
+        "mosaic_score": float(mosaic_score),
+        "base_mosaic": float(base_mosaic),
         "score_confidence": score_confidence,
-        "working_day_factor": float(snapshot.working_day_factor or 0),
-        "freshness_seconds": int(snapshot.freshness_seconds or 0),
-        "kpd_value": float(snapshot.kpd_value or 0),
+        "working_day_factor": working_day_factor,
+        "freshness_seconds": freshness_seconds,
+        "kpd_value": kpd_value,
         "ewr": float(result_block.get("ewr") or 0),
         "gate_level": trust_block.get("gate_level") or "Self-reported only",
         "gate_score": int(trust_block.get("gate_score") or 45),
@@ -249,18 +500,45 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
         "trust_multiplier": float(trust_block.get("trust_multiplier") or 1),
         "confidence_band": trust_block.get("confidence_band") or classify_confidence_band(score_confidence),
         "incident_keys": incidents,
-        "portfolio_health_state": portfolio.get("health_state") or "Watch",
-        "rescue_top5": portfolio.get("rescue_top5") or [],
+        "portfolio_health_state": portfolio.get("portfolio_health_state") or portfolio.get("health_state") or "Watch",
+        "rescue_top5": rescue_top5 or portfolio.get("rescue_top5") or [],
         "readiness": readiness,
+        "aggregation": {
+            "expected_days": expected_days,
+            "available_days": available_days,
+            "missing_days": missing_days,
+        },
+        "dmt_earned_day": _nested_get(latest_payload, "dmt_earned_day", default={}) or {},
+        "telephony_health": _nested_get(latest_payload, "telephony_health", default={}) or {},
+        "top_drivers": top_drivers,
         "flags": {
             "is_stale": is_stale,
             "is_low_confidence": is_low_confidence,
+            "is_partial": is_partial,
             "has_snapshot": True,
         },
         "appeals": appeals_summary,
         "rollout_state": rollout_state,
         "feature_flags": feature_flags,
     }
+    earned_day = payload.get("dmt_earned_day") or {}
+    if earned_day.get("target_pace_achieved"):
+        payload["pace_state"] = "target"
+        payload["pace_label"] = "Target pace healthy"
+    elif earned_day.get("minimum_achieved"):
+        payload["pace_state"] = "minimum"
+        payload["pace_label"] = "Minimum day achieved"
+    else:
+        payload["pace_state"] = "recovery"
+        payload["pace_label"] = "Recovery needed"
+    payload["explain"] = _build_shadow_explain_payload(
+        user=user,
+        range_current=range_current,
+        cfg=cfg,
+        score_payload=payload,
+        latest_payload=latest_payload,
+    )
+    return payload
 
 
 def _compute_report_status(report_dt_local: datetime, *, deadline_hour: int, grace_minutes: int) -> str:
@@ -1263,6 +1541,21 @@ def get_stats_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
     }
 
     shadow_score = payload["shadow_score"]
+    previous_shadow = _shadow_score_payload(user=user, range_current=prev_r)
+    prev_mosaic = previous_shadow.get("mosaic_score")
+    curr_mosaic = shadow_score.get("mosaic_score")
+    delta_vs_prev = None
+    if prev_mosaic is not None and curr_mosaic is not None:
+        delta_vs_prev = round(float(curr_mosaic) - float(prev_mosaic), 2)
+    shadow_score["previous_period"] = {
+        "label": prev_r.label,
+        "snapshot_date": previous_shadow.get("snapshot_date"),
+        "mosaic_score": prev_mosaic,
+        "state_label": previous_shadow.get("state_label"),
+        "explain": previous_shadow.get("explain") or {},
+        "flags": previous_shadow.get("flags") or {},
+    }
+    shadow_score["delta_vs_prev"] = delta_vs_prev
     shadow_score["telephony_health"] = build_telephony_health_summary(owner=user)
     shadow_score["salary_simulator"] = build_salary_simulator(
         user=user,
@@ -1278,6 +1571,7 @@ def get_stats_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
         summary=payload["summary"],
         shadow_score=shadow_score,
     )
+    shadow_score["timeline"] = _build_recent_timeline(user=user, range_current=range_current)
     shadow_score.update(
         build_action_stack(
             summary=payload["summary"],

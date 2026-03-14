@@ -34,13 +34,19 @@
 - Canonical config/version registries are now centralized in `management.services.config_versions` instead of drifting across commands/services.
 - Reminder logic is upgraded to digest/overload semantics via `management.services.followups` and the new `send_management_reminders` / `check_duplicate_queue` commands.
 - Shadow payload now carries gate, trust, dampener, incident, portfolio, rescue, simulator, and forecast context so UI and admin logic read from one canonical contract.
+- Range-based shadow views now aggregate canonical daily snapshots instead of falling back to a latest-snapshot-only read.
+- Manager/admin UI was refactored into component includes under `templates/management/components/` for radar, timeline, DTF/admin control center, decomposition drawer, and appeal drawer.
+- Shadow UI now exposes previous-period comparison, pace state, evidence-first decomposition, in-page appeal submission, and a unified client communication timeline.
+- Admin analytics now expose queue presets, forecast confidence/bands, cohort retention proxy, and at-risk manager ranking.
 
 ## Verification Evidence
 
 - Baseline Django tests from production SHA: `11` tests passed in `management.tests`.
-- Current implementation verification: `50` Django tests passed across `management.tests`, `tests_phase1`, `tests_phase2_dedupe`, `tests_phase3_services`, `tests_phase3_snapshots`, `tests_phase4_analytics`, and `tests_phase6_foundation`.
-- `python manage.py makemigrations management --check --dry-run` reports no pending model changes.
-- Pending migration generated: `management/migrations/0023_clientfollowup_escalation_level_and_more.py`.
+- Current implementation verification: `59` Django tests passed across `management.tests`, `tests_phase1`, `tests_phase2_dedupe`, `tests_phase3_services`, `tests_phase3_snapshots`, `tests_phase4_analytics`, `tests_phase5_completion`, and `tests_phase6_foundation`.
+- `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production DB_ENGINE=sqlite python3 manage.py makemigrations management --check --dry-run` reports no pending model changes.
+- `python3 -m compileall management` completed successfully.
+- `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py check --settings=test_settings` completed successfully.
+- `git diff --check` reports no whitespace or patch-shape problems.
 
 ## Implemented Slice
 
@@ -51,6 +57,7 @@
 - Added canonical service modules: `config_versions`, `trust`, `followups`, `forecast`, `advice`, `appeals`, and `telephony`.
 - Extended phase-5/phase-2 models with follow-up ladder fields, payout evidence/freeze fields, and richer score appeal metadata.
 - Surfaced shadow score data in stats/admin payload and UI with `Why changed today`, `Must do today`, `Best opportunities`, `Rescue top-5`, `Salary simulator`, admin readiness/incidents, and forecast widgets.
+- Added radar preview, decomposition drawer, appeal drawer, pace-state rail, unified client communication timeline, and richer admin control center cards while preserving existing routes and live KPD.
 - Added reminder digesting/overload accounting and new management commands: `send_management_reminders` and `check_duplicate_queue`.
 
 ## Next Slice

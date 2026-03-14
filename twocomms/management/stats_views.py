@@ -23,6 +23,19 @@ from .views import (
 from .constants import TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 
 
+def _resolve_stats_target(request):
+    target = request.user
+    user_id_raw = str(request.GET.get("user_id") or "").strip()
+    if user_id_raw and request.user.is_staff:
+        try:
+            user_id = int(user_id_raw)
+        except (TypeError, ValueError):
+            return None
+        User = get_user_model()
+        target = User.objects.filter(id=user_id, is_active=True).first()
+    return target
+
+
 @login_required(login_url="management_login")
 def stats(request):
     if not user_is_management(request.user):
@@ -57,6 +70,40 @@ def stats(request):
             "reminders": reminders,
             "manager_bot_username": get_manager_bot_username(),
         },
+    )
+
+
+@login_required(login_url="management_login")
+def shadow_score_json(request):
+    target = _resolve_stats_target(request)
+    if not target or (target != request.user and not request.user.is_staff):
+        return JsonResponse({"success": False, "error": "Доступ заборонено."}, status=403)
+    payload = get_stats_payload(user=target, range_current=parse_stats_range(request.GET))
+    return JsonResponse(payload.get("shadow_score") or {}, safe=True)
+
+
+@login_required(login_url="management_login")
+def score_explain_json(request):
+    target = _resolve_stats_target(request)
+    if not target or (target != request.user and not request.user.is_staff):
+        return JsonResponse({"success": False, "error": "Доступ заборонено."}, status=403)
+    payload = get_stats_payload(user=target, range_current=parse_stats_range(request.GET))
+    return JsonResponse((payload.get("shadow_score") or {}).get("explain") or {}, safe=True)
+
+
+@login_required(login_url="management_login")
+def rescue_top_json(request):
+    target = _resolve_stats_target(request)
+    if not target or (target != request.user and not request.user.is_staff):
+        return JsonResponse({"success": False, "error": "Доступ заборонено."}, status=403)
+    payload = get_stats_payload(user=target, range_current=parse_stats_range(request.GET))
+    shadow_score = payload.get("shadow_score") or {}
+    return JsonResponse(
+        {
+            "items": shadow_score.get("rescue_top5") or [],
+            "portfolio_health_state": shadow_score.get("portfolio_health_state") or "Unknown",
+            "confidence_band": shadow_score.get("confidence_band") or "LOW",
+        }
     )
 
 

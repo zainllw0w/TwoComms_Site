@@ -69,6 +69,10 @@
                 <div class="payout-note__title">Картка</div>
                 <div class="payout-note__text">У профілі вказана картка {{ card_mask }}, на неї будуть зараховуватися виплати. Якщо хочете змінити — змініть до запиту.</div>
             </div>
+            <div class="payout-note">
+                <div class="payout-note__title">Shadow hold-harmless</div>
+                <div class="payout-note__text">{{ salary_simulator.freeze_line }}</div>
+            </div>
         </aside>
     </div>
 
@@ -106,6 +110,66 @@
                 <div class="stat-card__label">Всього отримано виплат</div>
                 <div class="stat-card__value">{{ total_received|floatformat:2 }} грн</div>
             </div>
+        </div>
+    </section>
+
+    <section class="payouts-stats" aria-label="Shadow salary simulator">
+        <div class="panel-subhead">
+            <div>
+                <p class="eyebrow">Shadow analytics</p>
+                <h3>Salary simulator</h3>
+            </div>
+        </div>
+        <div class="payouts-stats__grid">
+            <div class="stat-card">
+                <div class="stat-card__label">Current truth</div>
+                <div class="stat-card__value">{{ salary_simulator.current_truth|floatformat:2 }} грн</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card__label">Shadow candidate</div>
+                <div class="stat-card__value">{{ salary_simulator.shadow_candidate|floatformat:2 }} грн</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card__label">Shadow hold-harmless delta</div>
+                <div class="stat-card__value">{{ salary_simulator.shadow_hold_harmless_delta|floatformat:2 }} грн</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card__label">Confidence</div>
+                <div class="stat-card__value">{{ salary_simulator.confidence_band }}</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="payouts-history" aria-label="Заморожені нарахування">
+        <div class="panel-subhead">
+            <div>
+                <p class="eyebrow">Freeze review</p>
+                <h3>Причини заморозки</h3>
+            </div>
+        </div>
+        <div class="table-shell">
+            <table class="nexus-table">
+                <thead>
+                    <tr>
+                        <th>Сума</th>
+                        <th>До дати</th>
+                        <th>Причина</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in frozen_items %}
+                    <tr>
+                        <td>{{ item.amount|floatformat:2 }} грн</td>
+                        <td>{% if item.frozen_until %}{{ item.frozen_until|date:"d.m.Y H:i" }}{% else %}—{% endif %}</td>
+                        <td>{{ item.freeze_reason_text|default:item.note|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="table-empty">Активних заморозок немає.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </section>
 

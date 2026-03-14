@@ -1,0 +1,27 @@
+<section class="shadow-timeline-card">
+  <div class="shadow-card-head">
+    <div>
+      <div class="shadow-explain-title">Client communication timeline</div>
+      <div class="muted">Calls, CP emails, notes, follow-ups, invoices, ownership changes and dispute evidence in one strip.</div>
+    </div>
+    <span class="shadow-chip state-shadow">SHADOW READOUT</span>
+  </div>
+
+  <div class="shadow-timeline-list">
+    {% for item in stats_payload.shadow_score.timeline %}
+      <article class="shadow-timeline-item kind-{{ item.kind }}">
+        <div class="shadow-timeline-item__rail"></div>
+        <div class="shadow-timeline-item__body">
+          <div class="shadow-timeline-item__top">
+            <span class="shadow-action-title">{{ item.title }}</span>
+            <span class="shadow-timeline-badge">{{ item.badge }}</span>
+          </div>
+          <div class="shadow-timeline-item__detail">{{ item.detail }}</div>
+          <div class="shadow-timeline-item__time muted">{{ item.when_label }}</div>
+        </div>
+      </article>
+    {% empty %}
+      <div class="muted">No communication evidence in this period yet.</div>
+    {% endfor %}
+  </div>
+</section>
