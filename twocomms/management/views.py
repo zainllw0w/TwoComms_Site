@@ -68,6 +68,8 @@ from .invoice_service import (
     serialize_management_invoice_payload,
 )
 from .lead_services import calc_client_points, get_user_lead_bonus_points
+from .services.forecast import build_admin_economics_summary
+from .services.followups import build_reminder_digest
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
 logger = logging.getLogger(__name__)
@@ -253,99 +255,9 @@ def _time_label(dt_local, now):
 
 def get_reminders(user, stats=None, report_sent=False):
     """Return upcoming/due follow-ups + report reminder."""
+    digest = build_reminder_digest(user, stats=stats, report_sent=report_sent)
+    reminders = digest["reminders"]
     now = timezone.localtime(timezone.now())
-    read_keys = set(ReminderRead.objects.filter(user=user).values_list('key', flat=True))
-    qs = Client.objects.filter(
-        owner=user,
-        next_call_at__isnull=False
-    ).select_related('owner').order_by('-next_call_at')
-    reminders = []
-    for c in qs:
-        dt_local = timezone.localtime(c.next_call_at)
-        status = 'due' if dt_local <= now else 'soon'
-        status_key = 'due' if status == 'due' else 'soon'
-        eta_raw = max(0, int((dt_local - now).total_seconds()))
-        # Пропускаємо майбутні дзвінки, якщо більше ніж 5 хв
-        if status == 'soon' and eta_raw > 300:
-            continue
-        is_timer = status == 'soon' and eta_raw > 0
-        reminder = {
-            'shop': c.shop_name,
-            'name': c.full_name,
-            'phone': c.phone,
-            'when': dt_local.strftime('%d.%m %H:%M'),
-            'time_label': _time_label(dt_local, now),
-            'status': status,
-            'kind': 'call',
-            'dt': dt_local,
-            'dt_iso': dt_local.isoformat(),
-            'eta_seconds': eta_raw,
-            'key': f"call-{c.id}-{int(dt_local.timestamp())}-{status_key}",
-            'is_timer': is_timer,
-        }
-        # Таймерные (soon) всегда считаем непрочитанными, чтобы не блекли
-        reminder['read'] = False if status == 'soon' else reminder['key'] in read_keys
-        # "soon" таймер и due показываем всегда, read влияет только на прозрачность у due
-        reminders.append(reminder)
-
-    # Нагадування по магазинах (наступний контакт)
-    shop_qs = Shop.objects.filter(
-        created_by=user,
-        next_contact_at__isnull=False,
-    ).prefetch_related("phones").order_by("-next_contact_at")
-    for s in shop_qs:
-        dt_local = timezone.localtime(s.next_contact_at)
-        status = 'due' if dt_local <= now else 'soon'
-        status_key = 'due' if status == 'due' else 'soon'
-        eta_raw = max(0, int((dt_local - now).total_seconds()))
-        if status == 'soon' and eta_raw > 300:
-            continue
-        is_timer = status == 'soon' and eta_raw > 0
-        phone = ""
-        try:
-            primary = next((p for p in s.phones.all() if getattr(p, "is_primary", False)), None)
-            if primary:
-                phone = getattr(primary, "phone", "") or ""
-            elif s.phones.all():
-                phone = getattr(s.phones.all()[0], "phone", "") or ""
-        except Exception:
-            phone = ""
-        reminder = {
-            'shop': s.name,
-            'name': s.owner_full_name or '',
-            'phone': phone,
-            'when': dt_local.strftime('%d.%m %H:%M'),
-            'time_label': _time_label(dt_local, now),
-            'status': status,
-            'kind': 'shop',
-            'dt': dt_local,
-            'dt_iso': dt_local.isoformat(),
-            'eta_seconds': eta_raw,
-            'key': f"shop-{s.id}-{int(dt_local.timestamp())}-{status_key}",
-            'is_timer': is_timer,
-        }
-        reminder['read'] = False if status == 'soon' else reminder['key'] in read_keys
-        reminders.append(reminder)
-    # Додаємо нагадування про звіт після 19:00 у будні, якщо є клієнти і звіт не відправлений
-    weekday = now.weekday()  # 0 Mon ... 6 Sun
-    if stats and stats.get('processed_today', 0) > 0 and not report_sent and weekday < 5 and now.hour >= 19:
-        dt_local = now
-        reminder = {
-            'shop': 'Звітність',
-            'name': '',
-            'phone': '',
-            'when': dt_local.strftime('%d.%m %H:%M'),
-            'time_label': "щойно",
-            'status': 'report',
-            'kind': 'report',
-            'title': 'Потрібно відправити звіт',
-            'dt': dt_local,
-            'dt_iso': dt_local.isoformat(),
-            'eta_seconds': 0,
-            'key': f"report-{dt_local.strftime('%Y%m%d')}",
-        }
-        reminder['read'] = reminder['key'] in read_keys
-        reminders.append(reminder)
     reminders.sort(key=lambda x: x.get('dt', now), reverse=True)
     return reminders
 
@@ -721,6 +633,9 @@ def admin_overview(request):
         'reminders': reminders,
         'manager_bot_username': bot_username,
     }
+
+    if tab == 'managers':
+        ctx['admin_analytics'] = build_admin_economics_summary()
 
     if tab == 'invoices':
         from orders.models import WholesaleInvoice

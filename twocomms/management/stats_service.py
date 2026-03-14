@@ -28,6 +28,12 @@ from .models import (
     ShopInventoryMovement,
     ShopShipment,
 )
+from .services.advice import build_action_stack, build_why_changed_today
+from .services.appeals import summarize_appeals
+from .services.config_versions import get_management_config
+from .services.forecast import build_forecast_band, build_salary_simulator
+from .services.telephony import build_telephony_health_summary
+from .services.trust import classify_confidence_band
 
 
 @dataclass(frozen=True)
@@ -130,12 +136,13 @@ def _format_hhmm(seconds: int) -> str:
 
 
 def _get_or_build_config() -> dict[str, Any]:
-    cache_key = "mgmt:stats:config:v1"
+    cache_key = "mgmt:stats:config:v2"
     cached = cache.get(cache_key)
     if isinstance(cached, dict):
         return cached
 
     cfg = ManagementStatsConfig.objects.filter(pk=1).first()
+    versioned = get_management_config(cfg)
     kpd_weights = cfg.kpd_weights if cfg else {}
     thresholds = cfg.advice_thresholds if cfg else {}
 
@@ -166,6 +173,7 @@ def _get_or_build_config() -> dict[str, Any]:
             "test_overdue_warn": 1,
             **(thresholds or {}),
         },
+        **versioned,
     }
     cache.set(cache_key, merged, 600)
     return merged
@@ -191,23 +199,39 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
             "working_day_factor": None,
             "freshness_seconds": None,
             "kpd_value": None,
+            "ewr": None,
+            "gate_level": "Self-reported only",
+            "gate_score": 45,
+            "dampener_value": 1.0,
+            "confidence_band": "LOW",
+            "incident_keys": ["SNAPSHOT_STALE"],
+            "portfolio_health_state": "Unknown",
+            "rescue_top5": [],
+            "must_do_today": [],
+            "best_opportunities": [],
+            "why_changed_today": [],
+            "salary_simulator": {},
             "readiness": {},
             "flags": {
                 "is_stale": True,
                 "is_low_confidence": False,
                 "has_snapshot": False,
             },
-            "appeals": {"total": 0, "open": 0, "latest_status": ""},
+            "appeals": {"total": 0, "open": 0, "latest_status": "", "nearest_due_at": ""},
             "rollout_state": rollout_state,
             "feature_flags": feature_flags,
         }
 
+    snapshot_payload = snapshot.payload or {}
     score_confidence = float(snapshot.score_confidence or 0)
     is_stale = snapshot.snapshot_date < range_current.end_date or int(snapshot.freshness_seconds or 0) > 172800
     is_low_confidence = score_confidence < 0.65
-    readiness = (snapshot.payload or {}).get("readiness") or {}
-    appeals_qs = ScoreAppeal.objects.filter(snapshot=snapshot)
-    latest_appeal = appeals_qs.order_by("-created_at").first()
+    readiness = snapshot_payload.get("readiness") or {}
+    result_block = snapshot_payload.get("result") or {}
+    trust_block = snapshot_payload.get("trust") or {}
+    portfolio = snapshot_payload.get("portfolio") or {}
+    incidents = snapshot_payload.get("incidents") or []
+    appeals_summary = summarize_appeals(snapshot)
 
     return {
         "state": rollout_state,
@@ -218,17 +242,22 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
         "working_day_factor": float(snapshot.working_day_factor or 0),
         "freshness_seconds": int(snapshot.freshness_seconds or 0),
         "kpd_value": float(snapshot.kpd_value or 0),
+        "ewr": float(result_block.get("ewr") or 0),
+        "gate_level": trust_block.get("gate_level") or "Self-reported only",
+        "gate_score": int(trust_block.get("gate_score") or 45),
+        "dampener_value": float(trust_block.get("dampener_value") or 1),
+        "trust_multiplier": float(trust_block.get("trust_multiplier") or 1),
+        "confidence_band": trust_block.get("confidence_band") or classify_confidence_band(score_confidence),
+        "incident_keys": incidents,
+        "portfolio_health_state": portfolio.get("health_state") or "Watch",
+        "rescue_top5": portfolio.get("rescue_top5") or [],
         "readiness": readiness,
         "flags": {
             "is_stale": is_stale,
             "is_low_confidence": is_low_confidence,
             "has_snapshot": True,
         },
-        "appeals": {
-            "total": appeals_qs.count(),
-            "open": appeals_qs.filter(status=ScoreAppeal.Status.OPEN).count(),
-            "latest_status": latest_appeal.status if latest_appeal else "",
-        },
+        "appeals": appeals_summary,
         "rollout_state": rollout_state,
         "feature_flags": feature_flags,
     }
@@ -1232,6 +1261,31 @@ def get_stats_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
             "report_late_grace_minutes": grace,
         },
     }
+
+    shadow_score = payload["shadow_score"]
+    shadow_score["telephony_health"] = build_telephony_health_summary(owner=user)
+    shadow_score["salary_simulator"] = build_salary_simulator(
+        user=user,
+        summary=payload["summary"],
+        shadow_score=shadow_score,
+    )
+    shadow_score["forecast_band"] = build_forecast_band(
+        summary=payload["summary"],
+        shadow_score=shadow_score,
+        config=cfg,
+    )
+    shadow_score["why_changed_today"] = build_why_changed_today(
+        summary=payload["summary"],
+        shadow_score=shadow_score,
+    )
+    shadow_score.update(
+        build_action_stack(
+            summary=payload["summary"],
+            shops=payload["summary"].get("shops") or {},
+            pipeline=payload["summary"].get("pipeline") or {},
+            shadow_score=shadow_score,
+        )
+    )
 
     cache.set(cache_key, payload, 60)  # short cache for near-realtime feel
     return payload

@@ -9,11 +9,20 @@ from django.utils import timezone
 from management.models import (
     CommandRunLog,
     ComponentReadiness,
+    DuplicateReview,
     ManagementStatsConfig,
     ManagerDayStatus,
     NightlyScoreSnapshot,
 )
+from management.services.config_versions import get_management_config
 from management.services.score import compute_ewr, compute_mosaic, compute_score_confidence
+from management.services.telephony import build_telephony_health_summary
+from management.services.trust import (
+    classify_confidence_band,
+    compute_dampener,
+    compute_gate_level,
+    compute_production_trust,
+)
 from management.stats_service import StatsRange, get_stats_payload
 
 
@@ -160,8 +169,63 @@ def _working_day_factor(owner, snapshot_date: date) -> Decimal:
     return _to_decimal(status.capacity_factor, default="1.00").quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
 
 
+def _portfolio_health(summary: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
+    shops = summary.get("shops") or {}
+    stale_list = shops.get("stale_shops_list") or []
+    overdue_tests = shops.get("test_overdue_list") or []
+    rescue_cases = []
+    for row in overdue_tests[:5]:
+        overdue_days = int(row.get("overdue_days") or 0)
+        rescue_cases.append(
+            {
+                "id": row.get("id"),
+                "name": row.get("name") or "Test shop",
+                "value_at_risk": max(4000, 12000 - overdue_days * 180),
+                "urgency": f"{overdue_days}d overdue",
+                "confidence_badge": "MEDIUM",
+                "churn_basis": "logistic",
+            }
+        )
+    for row in stale_list[: max(0, 5 - len(rescue_cases))]:
+        days_since = int(row.get("days_since") or 0)
+        rescue_cases.append(
+            {
+                "id": row.get("id"),
+                "name": row.get("name") or "Stale shop",
+                "value_at_risk": max(2500, 8000 - days_since * 90),
+                "urgency": f"{days_since}d stale",
+                "confidence_badge": "LOW" if days_since < 14 else "MEDIUM",
+                "churn_basis": "interim",
+            }
+        )
+    if overdue_tests:
+        state = "Rescue"
+    elif stale_list:
+        state = "Risk"
+    elif int(shops.get("next_contact_due_count") or 0) > 0:
+        state = "Watch"
+    else:
+        state = "Healthy"
+    rescue_cases.sort(key=lambda item: item["value_at_risk"], reverse=True)
+    return state, rescue_cases[:5]
+
+
+def _incident_keys(*, summary: dict[str, Any], freshness_seconds: int, duplicate_backlog: int, telephony_status: str) -> list[str]:
+    incidents = []
+    if freshness_seconds > 172800:
+        incidents.append("SNAPSHOT_STALE")
+    if duplicate_backlog >= 5:
+        incidents.append("DUPLICATE_QUEUE_BACKLOG")
+    if int((summary.get("followups") or {}).get("missed_effective") or 0) > 25:
+        incidents.append("REMINDER_STORM")
+    if telephony_status != "healthy":
+        incidents.append("TELEPHONY_OUTAGE")
+    return incidents
+
+
 def build_shadow_score_payload(*, owner, snapshot_date: date) -> dict[str, Any]:
     cfg = ManagementStatsConfig.objects.filter(pk=1).first()
+    versioned = get_management_config(cfg)
     stats_range = build_daily_stats_range(snapshot_date)
     stats_payload = get_stats_payload(user=owner, range_current=stats_range)
     summary = stats_payload.get("summary") or {}
@@ -193,12 +257,32 @@ def build_shadow_score_payload(*, owner, snapshot_date: date) -> dict[str, Any]:
     )
     score_confidence = compute_score_confidence(**confidence_inputs)
     working_day_factor = _working_day_factor(owner, snapshot_date)
+    duplicate_backlog = DuplicateReview.objects.filter(owner=owner, status=DuplicateReview.Status.OPEN).count()
+    telephony_health = build_telephony_health_summary(owner=owner)
+    gate_level, gate_score = compute_gate_level(
+        paid_orders=int((summary.get("invoices") or {}).get("paid") or 0),
+        approved_orders=int((summary.get("invoices") or {}).get("approved") or 0),
+        crm_events=processed,
+    )
+    trust_multiplier = compute_production_trust(
+        duplicate_backlog=duplicate_backlog,
+        overdue_followups=int((summary.get("followups") or {}).get("missed_effective") or 0),
+        telephony_healthy=telephony_health["status"] == "healthy",
+    )
+    dampener_value = compute_dampener(axes=axes, readiness=readiness)
+    portfolio_health_state, rescue_top5 = _portfolio_health(summary)
+    incidents = _incident_keys(
+        summary=summary,
+        freshness_seconds=freshness_seconds,
+        duplicate_backlog=duplicate_backlog,
+        telephony_status=telephony_health["status"],
+    )
 
     return {
-        "formula_version": cfg.formula_version if cfg else "mosaic-v1",
+        "formula_version": (cfg.shadow_mosaic_formula_version if cfg else None) or "mosaic-v1",
         "defaults_version": cfg.defaults_version if cfg else "2026-03-13",
         "snapshot_schema_version": cfg.snapshot_schema_version if cfg else "v1",
-        "payload_version": cfg.payload_version if cfg else "v1",
+        "payload_version": cfg.payload_version if cfg else "v2",
         "rollout_state": cfg.rollout_state if cfg else "shadow",
         "feature_flags": cfg.feature_flags if cfg else {},
         "formula_defaults": cfg.formula_defaults if cfg else {},
@@ -229,6 +313,28 @@ def build_shadow_score_payload(*, owner, snapshot_date: date) -> dict[str, Any]:
             "axes": {key: str(value) for key, value in axes.items()},
             "readiness": readiness,
             "confidence_inputs": {key: str(value) for key, value in confidence_inputs.items()},
+            "result": {
+                "ewr": str(axes["result"]),
+                "orders": orders,
+                "contacts_processed": processed,
+                "revenue": str(revenue),
+            },
+            "trust": {
+                "gate_level": gate_level,
+                "gate_score": gate_score,
+                "trust_multiplier": str(trust_multiplier),
+                "dampener_value": str(dampener_value),
+                "confidence_band": classify_confidence_band(score_confidence),
+            },
+            "incidents": incidents,
+            "portfolio": {
+                "health_state": portfolio_health_state,
+                "assignment_fairness": str(axes["source_fairness"]),
+                "self_selected_mix": round(max([float(item.get("pct") or 0) for item in sources[:1]] or [0.0]), 1),
+                "rescue_top5": rescue_top5,
+            },
+            "config_versions": versioned,
+            "telephony_health": telephony_health,
         },
     }
 

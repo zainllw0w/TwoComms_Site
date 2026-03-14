@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -64,8 +64,11 @@ class FollowUpTests(TestCase):
         User = get_user_model()
         self.user = User.objects.create_user(username="mgr", password="x")
 
+    def _stable_now(self):
+        return timezone.make_aware(datetime.combine(timezone.localdate(), time(hour=10, minute=0)))
+
     def test_followup_created_and_closed(self):
-        now = timezone.now()
+        now = self._stable_now()
         due = now + timedelta(hours=2)
         client = Client.objects.create(
             shop_name="S",
@@ -89,7 +92,7 @@ class FollowUpTests(TestCase):
         self.assertEqual(fu.status, ClientFollowUp.Status.CANCELLED)
 
     def test_followup_reschedule_vs_done(self):
-        now = timezone.now()
+        now = self._stable_now()
         due = now + timedelta(hours=5)
         client = Client.objects.create(
             shop_name="S",
@@ -117,7 +120,7 @@ class FollowUpTests(TestCase):
 
         # Move after original due -> done
         open_fu = ClientFollowUp.objects.filter(client=client, owner=self.user, status=ClientFollowUp.Status.OPEN).first()
-        later = timezone.now() + timedelta(hours=10)
+        later = self._stable_now() + timedelta(hours=10)
         prev2 = client.next_call_at
         client.next_call_at = later
         client.save(update_fields=["next_call_at"])
@@ -126,7 +129,7 @@ class FollowUpTests(TestCase):
         self.assertIn(open_fu.status, {ClientFollowUp.Status.DONE, ClientFollowUp.Status.RESCHEDULED})
 
     def test_followups_marked_missed_on_report(self):
-        now = timezone.now()
+        now = self._stable_now()
         due = now + timedelta(hours=1)
         client = Client.objects.create(
             shop_name="S",
