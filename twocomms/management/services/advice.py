@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from management.services.ui_labels import translate_confidence_band, translate_incident_key
+
 
 def build_why_changed_today(*, summary: dict, shadow_score: dict) -> list[dict]:
     items = []
@@ -8,17 +10,18 @@ def build_why_changed_today(*, summary: dict, shadow_score: dict) -> list[dict]:
         items.append(
             {
                 "tone": "positive" if kpd_delta > 0 else "negative",
-                "label": "Legacy КПД",
+                "label": "Перехідний КПД",
                 "value": f"{kpd_delta:+.2f}",
                 "detail": summary.get("kpd_insight") or "Порівняно з попереднім періодом.",
             }
         )
-    if shadow_score.get("incident_keys"):
+    incident_labels = shadow_score.get("incident_labels") or [translate_incident_key(item) for item in (shadow_score.get("incident_keys") or [])]
+    if incident_labels:
         items.append(
             {
                 "tone": "negative",
                 "label": "Інциденти",
-                "value": ", ".join(shadow_score.get("incident_keys")[:3]),
+                "value": ", ".join(incident_labels[:3]),
                 "detail": "Операційні інциденти знижують довіру та визначеність пріоритетів.",
             }
         )
@@ -27,7 +30,7 @@ def build_why_changed_today(*, summary: dict, shadow_score: dict) -> list[dict]:
             {
                 "tone": "neutral",
                 "label": "Довіра",
-                "value": shadow_score["confidence_band"],
+                "value": shadow_score.get("confidence_band_label") or translate_confidence_band(shadow_score["confidence_band"]),
                 "detail": "Тіньова інтерпретація обмежується свіжістю знімка та підтвердженим покриттям.",
             }
         )

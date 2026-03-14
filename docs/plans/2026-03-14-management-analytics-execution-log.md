@@ -107,3 +107,32 @@
   - `SECRET_KEY=test-secret python3 manage.py makemigrations --check --dry-run --settings=test_settings` reported no changes.
   - `python3 -m py_compile management/stats_service.py management/services/snapshots.py management/management/commands/compute_nightly_scores.py` passed.
   - `git diff --check` passed.
+
+## 2026-03-15 Localization And Historical Snapshot Readability Pass
+
+- Reproduced the remaining live mixed-language issue specifically on Polina's long-range admin stats page after the home/modal hotfix was already green.
+- Root cause split into two layers:
+  - fresh UI copy still had a few English carryovers (`Legacy КПД`, mixed helper text);
+  - historical snapshot payloads preserved old human-facing values (`LOW`, `MEDIUM`, `REMINDER_STORM`, `82d overdue`, `82d stale`, `logistic`) that were being rendered verbatim on aggregated ranges.
+- Fixed the problem without touching formulas or payroll semantics:
+  - added read-time normalization in `management/services/ui_labels.py` and `management/stats_service.py` for confidence labels, incident labels, rescue urgency, churn basis labels, and legacy English advisory phrases;
+  - updated `management/services/advice.py` to render translated incident/confidence values and switched the visible KPD label to `Перехідний КПД`;
+  - updated the shadow showcase/decomposition templates so the manager-facing label no longer mixes English into the primary cards;
+  - localized remaining static wording such as the stale shop advice text in `stats_service.py`;
+  - kept MOSAIC/KPD formulas, trust bands, snapshot selection, and rescue ranking logic unchanged.
+- Canonical source check for this pass:
+  - re-read the March 13 authority set around `03_SCORE_MOSAIC_EWR_CONFIDENCE.md`, `07_MANAGER_ADMIN_UX_EXPLAINABILITY.md`, `08_ADMIN_ECONOMICS_FORECAST_DECISION_SAFETY.md`, `10_GOVERNANCE_DATA_MODEL_JOBS_ROLLOUT.md`, and `18_IMPLEMENTATION_MASTER_FILE.md`;
+  - confirmed this pass is presentation/readability-only and remains aligned with the canonical requirements that:
+    - KPD coexists with shadow MOSAIC during transition;
+    - confidence/freshness stay explicit;
+    - rescue cards stay evidence-first and snapshot-driven;
+    - historical ranges come from daily snapshots rather than ad hoc recomputation.
+
+### Verification Evidence For This Localization Pass
+
+- `SECRET_KEY=test-secret python3 manage.py test management.tests_phase3_snapshots management.tests_phase4_analytics management.tests_phase5_completion --settings=test_settings` passed with `28` tests green.
+- `SECRET_KEY=test-secret python3 manage.py test management.tests_phase5_completion.SnapshotAggregationExplainabilityTests.test_shadow_payload_auto_heals_missing_daily_snapshot_gaps_for_stats_ranges management.tests_phase5_completion.HomePageScriptRegressionTests.test_home_page_has_parseable_reason_schema_and_valid_inline_scripts management.tests_phase5_completion.SnapshotAggregationExplainabilityTests.test_excluded_manager_with_real_history_gets_historical_shadow_backfill management.tests_phase3_snapshots.ComputeNightlyScoresCommandTests.test_command_includes_excluded_manager_with_management_history --settings=test_settings` passed.
+- `SECRET_KEY=test-secret python3 manage.py check --settings=test_settings` passed.
+- `SECRET_KEY=test-secret python3 manage.py makemigrations --check --dry-run --settings=test_settings` reported no changes.
+- `python3 -m py_compile management/services/ui_labels.py management/services/advice.py management/services/snapshots.py management/stats_service.py management/stats_views.py` passed.
+- `git diff --check` passed.

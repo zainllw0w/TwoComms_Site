@@ -373,11 +373,11 @@ def build_shadow_score_payload(*, owner, snapshot_date: date) -> dict[str, Any]:
     ]
     top_recovery_actions = []
     if rescue_top5:
-        top_recovery_actions.append("Review rescue top-5 before end of day")
+        top_recovery_actions.append("Перегляньте топ-5 на порятунок до завершення дня")
     if int((summary.get("followups") or {}).get("missed_effective") or 0) > 0:
-        top_recovery_actions.append("Close overdue follow-ups to reduce discipline drag")
+        top_recovery_actions.append("Закрийте прострочені передзвони, щоб зменшити дисциплінарне просідання")
     if earned_day["recovery_needed"]:
-        top_recovery_actions.append("Recover minimum-vs-pace gap before report cutoff")
+        top_recovery_actions.append("Закрийте розрив між мінімумом і темпом до дедлайну звіту")
 
     payload_version = (cfg.payload_version if cfg else None) or versioned["formula_defaults"]["payload_version"]
     snapshot_schema_version = (cfg.snapshot_schema_version if cfg else None) or versioned["formula_defaults"]["snapshot_schema_version"]
