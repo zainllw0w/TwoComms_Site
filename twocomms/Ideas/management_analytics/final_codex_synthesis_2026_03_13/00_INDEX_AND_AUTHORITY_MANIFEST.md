@@ -69,6 +69,7 @@
 13. `15_TRACEABILITY_MATRIX_AND_SOURCE_COVERAGE.md`
 14. `16_DECISION_LOG_REJECTED_IDEAS_AND_BACKLOG.md`
 15. `17_PACKAGE_CHANGELOG_AND_SUPERSESSION.md`
+16. `18_IMPLEMENTATION_MASTER_FILE.md`
 
 ## Package Map
 
@@ -92,6 +93,7 @@
 | `15_TRACEABILITY_MATRIX_AND_SOURCE_COVERAGE.md` | anti-loss matrix across all source docs |
 | `16_DECISION_LOG_REJECTED_IDEAS_AND_BACKLOG.md` | accepted, partial, rejected, later-phase ideas |
 | `17_PACKAGE_CHANGELOG_AND_SUPERSESSION.md` | what changed and why this package supersedes the old one |
+| `18_IMPLEMENTATION_MASTER_FILE.md` | canonical execution handoff for the implementation agent |
 
 ## Ground Truth About Current Code
 
@@ -112,3 +114,5 @@
 ## Usage Rule
 
 Следующий агент не должен строить implementation file по старым папкам напрямую. Старые папки читаются только через `15_TRACEABILITY_MATRIX_AND_SOURCE_COVERAGE.md` и только для проверки, что ничего не потеряно.
+
+Если начинается уже именно реализация, основной рабочий документ теперь `18_IMPLEMENTATION_MASTER_FILE.md`; остальные файлы этой папки используются как его authority-слой и детализация по темам.
