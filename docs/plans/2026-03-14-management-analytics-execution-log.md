@@ -37,6 +37,7 @@
 - Baseline Django tests from production SHA: `11` tests passed in `management.tests`.
 - Current implementation verification: `44` Django tests passed across `management.tests`, `tests_phase1`, `tests_phase2_dedupe`, `tests_phase3_services`, `tests_phase3_snapshots`, and `tests_phase6_foundation`.
 - `python manage.py makemigrations management --check --dry-run` reports no pending model changes.
+- Branch pushed to GitHub: `codex/management-canonical-analytics-full` at commit `157a50a0dbe6095a0365cd6ab27b5d7c929608b0`.
 
 ## Implemented Slice
 
@@ -50,4 +51,4 @@
 
 1. Extend manager/admin UX around appeals, admin economics, and compare views on top of the new `shadow_score` payload.
 2. Implement follow-up overload redistribution, quiet hours/digesting, and backlog grace as a dedicated safe subsystem.
-3. Add validation-gate plumbing and preview/server deployment verification for the feature branch.
+3. Add validation-gate plumbing and preview/server deployment verification for the feature branch; server inspection confirmed production checkout is `/home/qlknpodo/TWC/TwoComms_Site` with Django app root in `twocomms/`.
