@@ -6,6 +6,11 @@
      data-lead-detail-url-template="{% url 'management_lead_detail_api' 0 %}"
      data-lead-process-url-template="{% url 'management_lead_process_api' 0 %}"
      data-client-delete-url-template="{% url 'management_delete_client' 0 %}"
+     data-duplicate-preview-url="{% url 'management_client_dedupe_preview' %}"
+     data-duplicate_preview_url="{% url 'management_client_dedupe_preview' %}"
+     data-manager-bot-username="{{ manager_bot_username }}"
+     data-has-manager-telegram-binding="{{ has_manager_telegram_binding|yesno:'true,false' }}"
+     data-client-entry-form="{{ client_entry_form_payload_json|escape }}"
      data-outcome-reason-schema="{{ outcome_reason_schema_json|escape }}">
 </div>
 
@@ -77,6 +82,13 @@
                                 data-call-result-contact-attempts="{{ client.call_result_context.attempts|default:'' }}"
                                 data-call-result-contact-channel="{{ client.call_result_context.contact_channel|default:'' }}"
                                 data-call-details="{{ client.call_result_details|escape }}"
+                                data-cp-log-id="{{ client.call_result_context.cp_log_id|default:'' }}"
+                                data-messenger-type="{{ client.call_result_context.messenger_type|default:'' }}"
+                                data-messenger-target-mode="{{ client.call_result_context.messenger_target_mode|default:'' }}"
+                                data-messenger-target-value="{{ client.call_result_context.messenger_target_value|default:'' }}"
+                                data-xml-platform="{{ client.call_result_context.xml_platform|default:'' }}"
+                                data-xml-resource-url="{{ client.call_result_context.xml_resource_url|default:'' }}"
+                                data-linked-shop-id="{{ client.call_result_context.linked_shop_id|default:'' }}"
                                 data-next-call-date="{{ client.next_call_at|date:'Y-m-d' }}"
                                 data-next-call-time="{{ client.next_call_at|date:'H:i' }}">
                                 <td>{{ client.shop_name }}</td>
@@ -196,112 +208,226 @@
         </div>
         <form id="client-form" method="post" class="modal-body">
             {% csrf_token %}
-            <div class="field-grid">
-                <input type="hidden" name="client_id" id="client_id" value="">
-                <div class="field">
-                    <label for="shop_name">Магазин / Instagram</label>
-                    <input type="text" id="shop_name" name="shop_name" placeholder="@shop або назва" required>
-                </div>
-                <div class="field">
-                    <label for="phone">Номер телефону</label>
-                    <input type="tel" id="phone" name="phone" placeholder="+380..." required>
-                </div>
-                <div class="field">
-                    <label for="website_url">Сайт (необов'язково)</label>
-                    <input type="url" id="website_url" name="website_url" placeholder="https://example.com">
-                </div>
-                <div class="field">
-                    <label for="full_name">ПІБ (необовʼязково)</label>
-                    <input type="text" id="full_name" name="full_name" placeholder="ПІБ (необовʼязково)">
-                </div>
-                <div class="field">
-                    <label for="role">Статус людини</label>
-                    <select id="role" name="role">
-                        <option value="owner">Власник</option>
-                        <option value="supervisor">Управляючий</option>
-                        <option value="manager">Менеджер</option>
-                        <option value="realizer">Реалізатор</option>
-                        <option value="other">Інше</option>
-                    </select>
-                    <input type="text" id="role_custom" name="role_custom" class="field-conditional" placeholder="Кого саме?" />
-                </div>
-                <div class="field">
-                    <label for="source">Де взяли контакт</label>
-                    <select id="source" name="source">
-                        <option value="instagram">Instagram</option>
-                        <option value="prom_ua">Prom.ua</option>
-                        <option value="google_maps">Google Карти</option>
-                        <option value="forums">Сайти / форуми</option>
-                        <option value="other">Інше</option>
-                    </select>
-                    <input type="url" id="source_link" name="source_link" class="field-conditional" placeholder="Вкажіть лінк" />
-                    <input type="text" id="source_other" name="source_other" class="field-conditional" placeholder="Що саме?" />
-                </div>
-                <div class="field">
-                    <label for="call_result">Підсумок розмови</label>
-                    <select id="call_result" name="call_result">
-                        <option value="order">Оформив замовлення</option>
-                        <option value="sent_email">Відправили КП на e-mail</option>
-                        <option value="sent_messenger">Відправили КП у месенджери</option>
-                        <option value="wrote_ig">Написали в Instagram</option>
-                        <option value="no_answer">Не відповідає</option>
-                        <option value="not_interested">Не цікавить</option>
-                        <option value="invalid_number">Номер недоступний</option>
-                        <option value="xml_connected">Підключив XML</option>
-                        <option value="thinking">Подумає</option>
-                        <option value="expensive">Дорого</option>
-                        <option value="waiting_payment">Очікується оплата</option>
-                        <option value="waiting_prepayment">Очікується передоплата</option>
-                        <option value="test_batch">Замовив тестову партію</option>
-                        <option value="other">Інше</option>
-                    </select>
-                    <textarea id="call_result_other" name="call_result_other" class="field-conditional" placeholder="Що саме інше?"></textarea>
-                </div>
-                <div class="field field-span-2 field-conditional reason-capture" id="call_result_reason_block">
-                    <label for="call_result_reason_code">Причина результату</label>
-                    <select id="call_result_reason_code" name="call_result_reason_code"></select>
-                    <div class="field-hint" id="call_result_reason_hint">Оберіть причину, щоб система коректно рахувала якість даних.</div>
-                    <textarea id="call_result_reason_note" name="call_result_reason_note" placeholder="Уточнення по розмові"></textarea>
-                    <div class="reason-context-grid">
-                        <div class="field field-conditional" id="call_result_contact_attempts_wrap">
-                            <label for="call_result_contact_attempts">Кількість спроб</label>
-                            <input type="number" id="call_result_contact_attempts" name="call_result_contact_attempts" min="1" max="20" placeholder="Наприклад: 3">
-                        </div>
-                        <div class="field field-conditional" id="call_result_contact_channel_wrap">
-                            <label for="call_result_contact_channel">Основний канал</label>
-                            <select id="call_result_contact_channel" name="call_result_contact_channel">
-                                <option value="">Оберіть канал</option>
-                                <option value="phone">Телефон</option>
-                                <option value="messenger">Месенджер</option>
-                                <option value="email">E-mail</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="field field-span-2 duplicate-review-surface" id="client_duplicate_notice" hidden></div>
-                <div class="field field-span-2">
-                    <label>Наступний дзвінок</label>
-                    <div class="next-call-options">
-                        <label class="pill-radio">
-                            <input type="radio" name="next_call_type" value="scheduled" checked>
-                            <span>Дата та час</span>
-                        </label>
-                        <label class="pill-radio">
-                            <input type="radio" name="next_call_type" value="no_follow">
-                            <span>Неконверcійний клієнт</span>
-                        </label>
-                    </div>
-                    <div class="next-call-datetime" id="next_call_datetime">
-                        <input type="date" id="next_call_date" name="next_call_date">
-                        <input type="time" id="next_call_time" name="next_call_time">
-                    </div>
-                </div>
+            <input type="hidden" name="client_id" id="client_id" value="">
+            <input type="hidden" name="duplicate_override_reason" id="duplicate_override_reason" value="">
+
+            <div class="entry-info-banner">
+                Якісно заповнені дані допомагають дедуплікації, нагадуванням і тіньовому MOSAIC-рейтингуванню без перекосів.
             </div>
+
+            <section class="entry-section">
+                <div class="entry-section-heading">
+                    <div>
+                        <p class="entry-section-kicker">Контакт</p>
+                        <h4>Базові дані контакту</h4>
+                    </div>
+                    <p class="entry-section-copy">Система одразу перевіряє телефон, сайт і назву на можливі дублікати.</p>
+                </div>
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="shop_name">Магазин / Instagram</label>
+                        <input type="text" id="shop_name" name="shop_name" placeholder="@shop або назва" required>
+                    </div>
+                    <div class="field">
+                        <label for="phone">Номер телефону</label>
+                        <input type="tel" id="phone" name="phone" placeholder="+380..." required>
+                    </div>
+                    <div class="field">
+                        <label for="website_url">Сайт (необов'язково)</label>
+                        <input type="url" id="website_url" name="website_url" placeholder="https://example.com">
+                    </div>
+                    <div class="field">
+                        <label for="full_name">ПІБ (необовʼязково)</label>
+                        <input type="text" id="full_name" name="full_name" placeholder="ПІБ або контактна особа">
+                    </div>
+                    <div class="field">
+                        <label for="role">Статус людини</label>
+                        <select id="role" name="role">
+                            <option value="owner">Власник</option>
+                            <option value="supervisor">Управляючий</option>
+                            <option value="manager">Менеджер</option>
+                            <option value="realizer">Реалізатор</option>
+                            <option value="other">Інше</option>
+                        </select>
+                        <input type="text" id="role_custom" name="role_custom" class="field-conditional" placeholder="Кого саме?" />
+                    </div>
+                    <div class="field">
+                        <label for="source">Де взяли контакт</label>
+                        <select id="source" name="source">
+                            <option value="instagram">Instagram</option>
+                            <option value="prom_ua">Prom.ua</option>
+                            <option value="google_maps">Google Карти</option>
+                            <option value="forums">Сайти / форуми</option>
+                            <option value="other">Інше</option>
+                        </select>
+                        <input type="url" id="source_link" name="source_link" class="field-conditional" placeholder="Вкажіть лінк" />
+                        <input type="text" id="source_other" name="source_other" class="field-conditional" placeholder="Що саме?" />
+                    </div>
+                </div>
+            </section>
+
+            <section class="entry-section">
+                <div class="entry-section-heading">
+                    <div>
+                        <p class="entry-section-kicker">Підсумок і доказ</p>
+                        <h4>Результат обробки контакту</h4>
+                    </div>
+                    <p class="entry-section-copy">Для конверсійних результатів потрібно прив'язати доказ: КП, месенджер, XML або магазин.</p>
+                </div>
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="call_result">Підсумок розмови</label>
+                        <select id="call_result" name="call_result">
+                            <option value="order">Оформив замовлення</option>
+                            <option value="sent_email">Відправили КП на e-mail</option>
+                            <option value="sent_messenger">Відправили КП у месенджери</option>
+                            <option value="wrote_ig">Написали в Instagram</option>
+                            <option value="no_answer">Не відповідає</option>
+                            <option value="not_interested">Не цікавить</option>
+                            <option value="invalid_number">Номер недоступний</option>
+                            <option value="xml_connected">Підключив XML</option>
+                            <option value="thinking">Подумає</option>
+                            <option value="expensive">Дорого</option>
+                            <option value="waiting_payment">Очікується оплата</option>
+                            <option value="waiting_prepayment">Очікується передоплата</option>
+                            <option value="test_batch">Замовив тестову партію</option>
+                            <option value="other">Інше</option>
+                        </select>
+                        <textarea id="call_result_other" name="call_result_other" class="field-conditional" placeholder="Що саме інше?"></textarea>
+                    </div>
+                    <div class="field field-span-2 field-conditional reason-capture" id="call_result_reason_block">
+                        <label for="call_result_reason_code">Причина результату</label>
+                        <select id="call_result_reason_code" name="call_result_reason_code"></select>
+                        <div class="field-hint" id="call_result_reason_hint">Оберіть причину, щоб система коректно рахувала якість даних.</div>
+                        <textarea id="call_result_reason_note" name="call_result_reason_note" placeholder="Уточнення по розмові"></textarea>
+                        <div class="reason-context-grid">
+                            <div class="field field-conditional" id="call_result_contact_attempts_wrap">
+                                <label for="call_result_contact_attempts">Кількість спроб</label>
+                                <input type="number" id="call_result_contact_attempts" name="call_result_contact_attempts" min="1" max="20" placeholder="Наприклад: 3">
+                            </div>
+                            <div class="field field-conditional" id="call_result_contact_channel_wrap">
+                                <label for="call_result_contact_channel">Основний канал</label>
+                                <select id="call_result_contact_channel" name="call_result_contact_channel">
+                                    <option value="">Оберіть канал</option>
+                                    <option value="phone">Телефон</option>
+                                    <option value="messenger">Месенджер</option>
+                                    <option value="email">E-mail</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field field-span-2 evidence-card field-conditional" id="cp_log_block">
+                        <label for="cp_log_id">На який лист відправили КП</label>
+                        <select id="cp_log_id" name="cp_log_id">
+                            <option value="">Оберіть відправлений лист</option>
+                        </select>
+                        <div class="field-hint">Обов'язково оберіть лист із уже відправлених КП, щоб результат був доказовим.</div>
+                    </div>
+
+                    <div class="field field-span-2 evidence-card field-conditional" id="messenger_block">
+                        <div class="messenger-grid">
+                            <div class="field">
+                                <label for="messenger_type">Який месенджер</label>
+                                <select id="messenger_type" name="messenger_type">
+                                    <option value="">Оберіть месенджер</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="messenger_target_value">Логін або номер</label>
+                                <input type="text" id="messenger_target_value" name="messenger_target_value" placeholder="@login або номер">
+                            </div>
+                        </div>
+                        <label class="field-inline-check">
+                            <input type="checkbox" id="messenger_use_phone" name="messenger_use_phone" value="1">
+                            <span>Використати верхній номер телефону</span>
+                        </label>
+                        <input type="hidden" id="messenger_target_mode" name="messenger_target_mode" value="manual">
+                    </div>
+
+                    <div class="field field-span-2 evidence-card field-conditional" id="xml_block">
+                        <div class="reason-context-grid">
+                            <div class="field">
+                                <label for="xml_platform">Де саме підключили XML</label>
+                                <select id="xml_platform" name="xml_platform">
+                                    <option value="">Оберіть ресурс</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="xml_resource_url">Посилання на підключений ресурс</label>
+                                <input type="url" id="xml_resource_url" name="xml_resource_url" placeholder="https://prom.ua/...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field field-span-2 evidence-card field-conditional" id="linked_shop_block">
+                        <label for="linked_shop_id" id="linked_shop_label">Оберіть пов'язаний магазин</label>
+                        <select id="linked_shop_id" name="linked_shop_id">
+                            <option value="">Оберіть магазин</option>
+                        </select>
+                        <div class="linked-shop-summary" id="linked_shop_summary">Виберіть магазин, щоб підтягнути коротку сводку по ТТН та сумі.</div>
+                    </div>
+
+                    <div class="field field-span-2 duplicate-review-surface" id="client_duplicate_notice" hidden></div>
+                </div>
+            </section>
+
+            <section class="entry-section">
+                <div class="entry-section-heading">
+                    <div>
+                        <p class="entry-section-kicker">Наступний крок</p>
+                        <h4>Follow-up і нагадування</h4>
+                    </div>
+                    <p class="entry-section-copy">Оберіть, коли краще нагадати про наступний контакт.</p>
+                </div>
+                <div class="field-grid">
+                    <div class="field field-span-2">
+                        <label>Наступний дзвінок</label>
+                        <div class="field-hint next-call-helper">Оберіть, коли краще нагадати про наступний контакт.</div>
+                        <div class="next-call-options">
+                            <label class="pill-radio">
+                                <input type="radio" name="next_call_type" value="scheduled" checked>
+                                <span>Запланувати час</span>
+                            </label>
+                            <label class="pill-radio">
+                                <input type="radio" name="next_call_type" value="no_follow">
+                                <span>Неконверсійний клієнт</span>
+                            </label>
+                        </div>
+                        <div class="next-call-datetime" id="next_call_datetime">
+                            <input type="date" id="next_call_date" name="next_call_date">
+                            <input type="time" id="next_call_time" name="next_call_time">
+                        </div>
+                        <div class="tg-followup-cta" id="telegram_followup_cta" hidden>
+                            <strong>Підключіть Telegram-бота.</strong>
+                            Бот нагадує про передзвони завчасно і допомагає не губити follow-up.
+                            {% if manager_bot_username %}
+                                <a href="https://t.me/{{ manager_bot_username }}" target="_blank" rel="noopener noreferrer">Відкрити бота</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </section>
             <div class="modal-footer">
                 <button type="button" class="btn-ghost modal-close">Відмінити</button>
                 <button type="submit" class="btn-primary">Зберегти</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div id="client-duplicate-summary-modal" class="modal-overlay modal-overlay-secondary">
+    <div class="modal-card duplicate-summary-card">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">Перевірка збігу</p>
+                <h3>Схожі контакти в базі</h3>
+            </div>
+            <button type="button" class="modal-close" aria-label="Закрити">×</button>
+        </div>
+        <div class="modal-body">
+            <div id="client_duplicate_summary_content" class="duplicate-summary-content"></div>
+        </div>
     </div>
 </div>
 
@@ -390,6 +516,10 @@
         <form id="lead-process-form" class="modal-body">
             {% csrf_token %}
             <input type="hidden" id="process_lead_id" name="lead_id">
+            <input type="hidden" name="duplicate_override_reason" id="process_duplicate_override_reason" value="">
+            <div class="entry-info-banner compact">
+                Лід обробляється тим самим контрактом дедуплікації й доказів, що і ручне додавання клієнта.
+            </div>
             <div class="field-grid">
                 <div class="field">
                     <label for="process_shop_name">Магазин / Instagram</label>
@@ -471,17 +601,64 @@
                         </div>
                     </div>
                 </div>
+                <div class="field field-span-2 evidence-card field-conditional" id="process_cp_log_block">
+                    <label for="process_cp_log_id">На який лист відправили КП</label>
+                    <select id="process_cp_log_id" name="cp_log_id">
+                        <option value="">Оберіть відправлений лист</option>
+                    </select>
+                </div>
+                <div class="field field-span-2 evidence-card field-conditional" id="process_messenger_block">
+                    <div class="messenger-grid">
+                        <div class="field">
+                            <label for="process_messenger_type">Який месенджер</label>
+                            <select id="process_messenger_type" name="messenger_type">
+                                <option value="">Оберіть месенджер</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="process_messenger_target_value">Логін або номер</label>
+                            <input type="text" id="process_messenger_target_value" name="messenger_target_value" placeholder="@login або номер">
+                        </div>
+                    </div>
+                    <label class="field-inline-check">
+                        <input type="checkbox" id="process_messenger_use_phone" name="messenger_use_phone" value="1">
+                        <span>Використати верхній номер телефону</span>
+                    </label>
+                    <input type="hidden" id="process_messenger_target_mode" name="messenger_target_mode" value="manual">
+                </div>
+                <div class="field field-span-2 evidence-card field-conditional" id="process_xml_block">
+                    <div class="reason-context-grid">
+                        <div class="field">
+                            <label for="process_xml_platform">Де саме підключили XML</label>
+                            <select id="process_xml_platform" name="xml_platform">
+                                <option value="">Оберіть ресурс</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="process_xml_resource_url">Посилання на підключений ресурс</label>
+                            <input type="url" id="process_xml_resource_url" name="xml_resource_url" placeholder="https://prom.ua/...">
+                        </div>
+                    </div>
+                </div>
+                <div class="field field-span-2 evidence-card field-conditional" id="process_linked_shop_block">
+                    <label for="process_linked_shop_id" id="process_linked_shop_label">Оберіть пов'язаний магазин</label>
+                    <select id="process_linked_shop_id" name="linked_shop_id">
+                        <option value="">Оберіть магазин</option>
+                    </select>
+                    <div class="linked-shop-summary" id="process_linked_shop_summary">Виберіть магазин, щоб підтягнути коротку сводку по ТТН та сумі.</div>
+                </div>
                 <div class="field field-span-2 duplicate-review-surface" id="process_duplicate_notice" hidden></div>
                 <div class="field field-span-2">
                     <label>Наступний дзвінок</label>
+                    <div class="field-hint next-call-helper">Оберіть, коли краще нагадати про наступний контакт.</div>
                     <div class="next-call-options">
                         <label class="pill-radio">
                             <input type="radio" name="next_call_type" value="scheduled" checked>
-                            <span>Дата та час</span>
+                            <span>Запланувати час</span>
                         </label>
                         <label class="pill-radio">
                             <input type="radio" name="next_call_type" value="no_follow">
-                            <span>Неконверcійний клієнт</span>
+                            <span>Неконверсійний клієнт</span>
                         </label>
                     </div>
                     <div class="next-call-datetime" id="process_next_call_datetime">
@@ -512,6 +689,10 @@ function initManagementHomePage() {
     const leadDetailTpl = endpoints.dataset.leadDetailUrlTemplate;
     const leadProcessTpl = endpoints.dataset.leadProcessUrlTemplate;
     const clientDeleteTpl = endpoints.dataset.clientDeleteUrlTemplate;
+    const duplicatePreviewUrl = endpoints.dataset.duplicatePreviewUrl || endpoints.dataset.duplicate_preview_url || '';
+    const managerBotUsername = endpoints.dataset.managerBotUsername || '';
+    const hasManagerTelegramBinding = endpoints.dataset.hasManagerTelegramBinding === 'true';
+    const clientEntryFormPayload = JSON.parse(endpoints.dataset.clientEntryForm || '{}');
 
     const clientModal = document.getElementById('client-modal');
     const leadModal = document.getElementById('lead-modal');
@@ -564,6 +745,7 @@ function initManagementHomePage() {
     const sourceSelect = document.getElementById('source');
     const sourceLink = document.getElementById('source_link');
     const sourceOther = document.getElementById('source_other');
+    const phoneInput = document.getElementById('phone');
     const callResultSelect = document.getElementById('call_result');
     const callResultOther = document.getElementById('call_result_other');
     const callResultReasonBlock = document.getElementById('call_result_reason_block');
@@ -575,6 +757,24 @@ function initManagementHomePage() {
     const callResultContactChannelWrap = document.getElementById('call_result_contact_channel_wrap');
     const callResultContactChannel = document.getElementById('call_result_contact_channel');
     const clientDuplicateNotice = document.getElementById('client_duplicate_notice');
+    const duplicateOverrideReason = document.getElementById('duplicate_override_reason');
+    const clientDuplicateSummaryModal = document.getElementById('client-duplicate-summary-modal');
+    const clientDuplicateSummaryContent = document.getElementById('client_duplicate_summary_content');
+    const cpLogBlock = document.getElementById('cp_log_block');
+    const cpLogSelect = document.getElementById('cp_log_id');
+    const messengerBlock = document.getElementById('messenger_block');
+    const messengerType = document.getElementById('messenger_type');
+    const messengerTargetMode = document.getElementById('messenger_target_mode');
+    const messengerTargetValue = document.getElementById('messenger_target_value');
+    const messengerUsePhone = document.getElementById('messenger_use_phone');
+    const xmlBlock = document.getElementById('xml_block');
+    const xmlPlatform = document.getElementById('xml_platform');
+    const xmlResourceUrl = document.getElementById('xml_resource_url');
+    const linkedShopBlock = document.getElementById('linked_shop_block');
+    const linkedShopLabel = document.getElementById('linked_shop_label');
+    const linkedShopSelect = document.getElementById('linked_shop_id');
+    const linkedShopSummary = document.getElementById('linked_shop_summary');
+    const telegramFollowupCta = document.getElementById('telegram_followup_cta');
     const nextCallRadios = document.querySelectorAll('#client-form input[name="next_call_type"]');
     const nextCallWrap = document.getElementById('next_call_datetime');
     const nextCallDate = document.getElementById('next_call_date');
@@ -590,6 +790,7 @@ function initManagementHomePage() {
     const leadForm = document.getElementById('lead-form');
 
     const processLeadIdInput = document.getElementById('process_lead_id');
+    const processPhone = document.getElementById('process_phone');
     const processRole = document.getElementById('process_role');
     const processRoleCustom = document.getElementById('process_role_custom');
     const processSource = document.getElementById('process_source');
@@ -606,6 +807,21 @@ function initManagementHomePage() {
     const processCallResultContactChannelWrap = document.getElementById('process_call_result_contact_channel_wrap');
     const processCallResultContactChannel = document.getElementById('process_call_result_contact_channel');
     const processDuplicateNotice = document.getElementById('process_duplicate_notice');
+    const processDuplicateOverrideReason = document.getElementById('process_duplicate_override_reason');
+    const processCpLogBlock = document.getElementById('process_cp_log_block');
+    const processCpLogSelect = document.getElementById('process_cp_log_id');
+    const processMessengerBlock = document.getElementById('process_messenger_block');
+    const processMessengerType = document.getElementById('process_messenger_type');
+    const processMessengerTargetMode = document.getElementById('process_messenger_target_mode');
+    const processMessengerTargetValue = document.getElementById('process_messenger_target_value');
+    const processMessengerUsePhone = document.getElementById('process_messenger_use_phone');
+    const processXmlBlock = document.getElementById('process_xml_block');
+    const processXmlPlatform = document.getElementById('process_xml_platform');
+    const processXmlResourceUrl = document.getElementById('process_xml_resource_url');
+    const processLinkedShopBlock = document.getElementById('process_linked_shop_block');
+    const processLinkedShopLabel = document.getElementById('process_linked_shop_label');
+    const processLinkedShopSelect = document.getElementById('process_linked_shop_id');
+    const processLinkedShopSummary = document.getElementById('process_linked_shop_summary');
     const processNextCallRadios = document.querySelectorAll('#lead-process-form input[name="next_call_type"]');
     const processNextCallWrap = document.getElementById('process_next_call_datetime');
     const processNextCallDate = document.getElementById('process_next_call_date');
@@ -619,34 +835,238 @@ function initManagementHomePage() {
         if (!show) target.value = '';
     };
 
+    const setNodeVisible = (node, visible, display = 'flex') => {
+        if (!node) return;
+        node.hidden = !visible;
+        node.style.display = visible ? display : 'none';
+    };
+
+    const fillSelectOptions = (select, items, placeholder, valueKey = 'id', labelKey = 'label') => {
+        if (!select) return;
+        const current = select.dataset.prefill || select.value;
+        const options = [`<option value="">${placeholder}</option>`].concat(
+            (items || []).map((item) => `<option value="${item[valueKey]}">${item[labelKey]}</option>`)
+        );
+        select.innerHTML = options.join('');
+        if (current && Array.from(select.options).some((opt) => opt.value === current)) {
+            select.value = current;
+        }
+        select.dataset.prefill = '';
+    };
+
+    const buildShopSummaryText = (item) => {
+        if (!item) {
+            return 'Виберіть магазин, щоб підтягнути коротку сводку по ТТН та сумі.';
+        }
+        const parts = [item.shop_type_display || ''];
+        if (item.latest_ttn) parts.push(`ТТН: ${item.latest_ttn}`);
+        if (item.latest_invoice_total_amount) parts.push(`Сума: ${item.latest_invoice_total_amount} грн`);
+        if (item.website_url) parts.push(item.website_url);
+        return parts.filter(Boolean).join(' · ');
+    };
+
+    const renderDuplicateSummary = (payload) => {
+        if (!clientDuplicateSummaryContent) return;
+        const candidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
+        if (!candidates.length) {
+            clientDuplicateSummaryContent.innerHTML = '<div class="table-empty">Схожих записів не знайдено.</div>';
+            return;
+        }
+        clientDuplicateSummaryContent.innerHTML = candidates.map((candidate) => `
+            <article class="duplicate-summary-item">
+                <header>
+                    <div>
+                        <div class="duplicate-review-eyebrow">${candidate.kind === 'client' ? 'Клієнт' : 'Лід'}</div>
+                        <h4>${candidate.shop_name || 'Без назви'}</h4>
+                    </div>
+                    <div class="duplicate-score-chip">Score ${candidate.score ?? '—'}</div>
+                </header>
+                <dl class="duplicate-summary-grid">
+                    <div><dt>Менеджер</dt><dd>${candidate.owner_display || '—'}</dd></div>
+                    <div><dt>Створено</dt><dd>${candidate.created_at_display || '—'}</dd></div>
+                    <div><dt>Останній контакт</dt><dd>${candidate.last_contact_display || '—'}</dd></div>
+                    <div><dt>Підсумок</dt><dd>${candidate.last_result_display || '—'}</dd></div>
+                    <div><dt>Вердикт</dt><dd>${candidate.verdict_display || '—'}</dd></div>
+                    <div><dt>Наступний крок</dt><dd>${candidate.next_call_display || '—'}</dd></div>
+                    <div><dt>Телефон</dt><dd>${candidate.phone || '—'}</dd></div>
+                    <div><dt>Сайт</dt><dd>${candidate.website_url || '—'}</dd></div>
+                </dl>
+            </article>
+        `).join('');
+    };
+
     const clearDuplicateNotice = (node) => {
         if (!node) return;
         node.hidden = true;
+        node.style.display = 'none';
         node.innerHTML = '';
     };
 
-    const renderDuplicateNotice = (node, payload) => {
+    const renderDuplicateNotice = (node, payload, formConfig) => {
         if (!node || !payload) return;
         const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
         const items = candidates.slice(0, 3).map((candidate) => `
             <li>
                 <strong>${candidate.shop_name || 'Без назви'}</strong>
                 <span>${candidate.kind === 'client' ? 'Клієнт' : 'Лід'}</span>
-                <span>${candidate.phone || '—'}</span>
-                <span>Score: ${candidate.score ?? '—'}</span>
+                <span>${candidate.owner_display || '—'}</span>
+                <span>${candidate.last_result_display || '—'}</span>
             </li>
         `).join('');
-        node.hidden = false;
+        const needsOverride = payload.zone === 'auto_block' || payload.zone === 'review';
+        setNodeVisible(node, true, 'flex');
         node.innerHTML = `
             <div class="duplicate-review-header">
                 <div>
-                    <div class="duplicate-review-eyebrow">${payload.zone === 'review' ? 'Потрібна перевірка' : 'Знайдено дубль'}</div>
-                    <strong>${payload.error || 'Знайдено схожий запис'}</strong>
+                    <div class="duplicate-review-eyebrow">${payload.zone === 'suggestion' ? 'Можливий збіг' : 'Потрібна перевірка'}</div>
+                    <strong>${payload.error || 'Такий контакт уже зустрічався в базі'}</strong>
+                    <div class="field-hint">Перегляньте коротку історію збігу перед збереженням.</div>
                 </div>
-                ${payload.duplicate_review_id ? `<span class="duplicate-review-badge">Review #${payload.duplicate_review_id}</span>` : ''}
+                <div class="duplicate-review-actions">
+                    <button type="button" class="btn-ghost btn-small duplicate-summary-open">Переглянути</button>
+                    ${payload.duplicate_review_id ? `<span class="duplicate-review-badge">Review #${payload.duplicate_review_id}</span>` : ''}
+                </div>
             </div>
             ${items ? `<ul class="duplicate-review-list">${items}</ul>` : ''}
+            ${needsOverride ? `
+                <div class="duplicate-override-box">
+                    <label for="${formConfig.overrideField.id}_inline">Чому все одно потрібно зберегти цей контакт</label>
+                    <textarea id="${formConfig.overrideField.id}_inline" class="duplicate-override-text" placeholder="Коротко опишіть, чому це не помилковий дубль."></textarea>
+                    <div class="duplicate-override-actions">
+                        <button type="button" class="btn-primary btn-small duplicate-override-submit">Підтвердити та зберегти</button>
+                    </div>
+                </div>
+            ` : ''}
         `;
+        node.querySelector('.duplicate-summary-open')?.addEventListener('click', () => {
+            renderDuplicateSummary(payload);
+            openModal(clientDuplicateSummaryModal);
+        });
+        if (needsOverride) {
+            node.querySelector('.duplicate-override-submit')?.addEventListener('click', () => {
+                const reason = node.querySelector('.duplicate-override-text')?.value?.trim() || '';
+                if (!reason) {
+                    alert('Для override потрібно коротко пояснити причину.');
+                    return;
+                }
+                formConfig.overrideField.value = reason;
+                formConfig.form.requestSubmit();
+            });
+        }
+    };
+
+    const syncEvidenceFields = ({
+        resultSelect,
+        cpBlock,
+        cpSelect,
+        messengerBlockNode,
+        messengerTypeSelect,
+        messengerTargetModeInput,
+        messengerTargetValueInput,
+        messengerUsePhoneInput,
+        xmlBlockNode,
+        xmlPlatformSelect,
+        xmlResourceInput,
+        linkedShopBlockNode,
+        linkedShopLabelNode,
+        linkedShopSelectNode,
+        linkedShopSummaryNode,
+    }) => {
+        if (!resultSelect) return;
+        const value = resultSelect.value;
+        setNodeVisible(cpBlock, value === 'sent_email');
+        setNodeVisible(messengerBlockNode, value === 'sent_messenger');
+        setNodeVisible(xmlBlockNode, value === 'xml_connected');
+        setNodeVisible(linkedShopBlockNode, value === 'order' || value === 'test_batch');
+
+        if (cpSelect && value !== 'sent_email') cpSelect.value = '';
+        if (messengerBlockNode && value !== 'sent_messenger') {
+            messengerTypeSelect.value = '';
+            messengerTargetValueInput.value = '';
+            messengerUsePhoneInput.checked = false;
+            messengerTargetModeInput.value = 'manual';
+        }
+        if (xmlBlockNode && value !== 'xml_connected') {
+            xmlPlatformSelect.value = '';
+            xmlResourceInput.value = '';
+        }
+        if (linkedShopBlockNode) {
+            if (value === 'order') {
+                linkedShopLabelNode.textContent = 'Оберіть магазин для оформленого замовлення';
+                fillSelectOptions(linkedShopSelectNode, clientEntryFormPayload.full_shops || [], 'Оберіть повний магазин');
+            } else if (value === 'test_batch') {
+                linkedShopLabelNode.textContent = 'Оберіть тестовий магазин';
+                fillSelectOptions(linkedShopSelectNode, clientEntryFormPayload.test_shops || [], 'Оберіть тестовий магазин');
+            } else {
+                linkedShopSelectNode.innerHTML = '<option value="">Оберіть магазин</option>';
+                linkedShopSummaryNode.textContent = buildShopSummaryText(null);
+            }
+        }
+    };
+
+    const syncMessengerTargetMode = ({ usePhoneInput, targetModeInput, targetValueInput, phoneInput }) => {
+        if (!usePhoneInput || !targetModeInput || !targetValueInput) return;
+        const usesPhone = !!usePhoneInput.checked;
+        targetModeInput.value = usesPhone ? 'phone' : 'manual';
+        targetValueInput.disabled = usesPhone;
+        if (usesPhone) {
+            targetValueInput.value = phoneInput?.value || '';
+        } else if (targetValueInput.dataset.autoPhone === '1') {
+            targetValueInput.value = '';
+        }
+        targetValueInput.dataset.autoPhone = usesPhone ? '1' : '';
+    };
+
+    const syncLinkedShopSummary = (select, summaryNode, items) => {
+        if (!summaryNode) return;
+        const item = (items || []).find((entry) => String(entry.id) === String(select?.value || ''));
+        summaryNode.textContent = buildShopSummaryText(item);
+    };
+
+    const bindRealtimeDuplicatePreview = ({ form, shopInput, phoneInput, websiteInput, noticeNode, overrideField, excludeField, leadIdInput }) => {
+        if (!duplicatePreviewUrl || !form || !shopInput || !phoneInput || !websiteInput || !noticeNode) return;
+        let timer = null;
+
+        const runPreview = async () => {
+            const params = new URLSearchParams({
+                shop_name: shopInput.value.trim(),
+                phone: phoneInput.value.trim(),
+                website_url: websiteInput.value.trim(),
+            });
+            const excludeValue = excludeField?.value?.trim() || '';
+            if (excludeValue) params.set('client_id', excludeValue);
+            const leadValue = leadIdInput?.value?.trim() || '';
+            if (leadValue) params.set('lead_id', leadValue);
+
+            if (![...params.values()].some(Boolean)) {
+                clearDuplicateNotice(noticeNode);
+                return;
+            }
+
+            try {
+                const res = await fetch(`${duplicatePreviewUrl}?${params.toString()}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const data = await res.json();
+                if (!data.success || !data.has_warning) {
+                    if (!overrideField.value) clearDuplicateNotice(noticeNode);
+                    return;
+                }
+                if (!overrideField.value) {
+                    renderDuplicateNotice(noticeNode, data, { form, overrideField });
+                }
+            } catch (err) {
+                // fail-soft preview: do not block the form
+            }
+        };
+
+        const schedule = () => {
+            if (timer) clearTimeout(timer);
+            overrideField.value = '';
+            timer = setTimeout(runPreview, 280);
+        };
+
+        [shopInput, phoneInput, websiteInput].forEach((node) => node?.addEventListener('input', schedule));
     };
 
     const syncReasonCapture = ({
@@ -721,9 +1141,15 @@ function initManagementHomePage() {
     const resetClientForm = () => {
         clientForm.reset();
         clientIdInput.value = '';
+        duplicateOverrideReason.value = '';
         clearDuplicateNotice(clientDuplicateNotice);
         setDefaultDateTime(nextCallDate, nextCallTime);
         clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked = true;
+        fillSelectOptions(cpLogSelect, clientEntryFormPayload.cp_logs || [], 'Оберіть відправлений лист');
+        fillSelectOptions(messengerType, clientEntryFormPayload.messenger_types || [], 'Оберіть месенджер', 'value', 'label');
+        fillSelectOptions(xmlPlatform, clientEntryFormPayload.xml_platforms || [], 'Оберіть ресурс', 'value', 'label');
+        linkedShopSelect.innerHTML = '<option value="">Оберіть магазин</option>';
+        linkedShopSummary.textContent = buildShopSummaryText(null);
         toggleConditional(roleSelect, roleCustom, 'other');
         toggleConditional(sourceSelect, sourceLink, 'forums');
         toggleConditional(sourceSelect, sourceOther, 'other');
@@ -739,7 +1165,31 @@ function initManagementHomePage() {
             channelWrap: callResultContactChannelWrap,
             channelInput: callResultContactChannel,
         });
+        syncEvidenceFields({
+            resultSelect: callResultSelect,
+            cpBlock: cpLogBlock,
+            cpSelect: cpLogSelect,
+            messengerBlockNode: messengerBlock,
+            messengerTypeSelect: messengerType,
+            messengerTargetModeInput: messengerTargetMode,
+            messengerTargetValueInput: messengerTargetValue,
+            messengerUsePhoneInput: messengerUsePhone,
+            xmlBlockNode: xmlBlock,
+            xmlPlatformSelect: xmlPlatform,
+            xmlResourceInput: xmlResourceUrl,
+            linkedShopBlockNode: linkedShopBlock,
+            linkedShopLabelNode: linkedShopLabel,
+            linkedShopSelectNode: linkedShopSelect,
+            linkedShopSummaryNode: linkedShopSummary,
+        });
+        syncMessengerTargetMode({
+            usePhoneInput: messengerUsePhone,
+            targetModeInput: messengerTargetMode,
+            targetValueInput: messengerTargetValue,
+            phoneInput,
+        });
         toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime);
+        setNodeVisible(telegramFollowupCta, !hasManagerTelegramBinding && clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked, 'block');
     };
 
     const fillClientFormForEdit = (row) => {
@@ -765,6 +1215,15 @@ function initManagementHomePage() {
         callResultOther.value = callResultSelect.value === 'other'
             ? (row.dataset.callResultReasonNote || row.dataset.callDetails || '').replace('Інше: ', '').trim()
             : '';
+        duplicateOverrideReason.value = '';
+        cpLogSelect.dataset.prefill = row.dataset.cpLogId || '';
+        messengerType.dataset.prefill = row.dataset.messengerType || '';
+        messengerTargetMode.value = row.dataset.messengerTargetMode || 'manual';
+        messengerTargetValue.value = row.dataset.messengerTargetValue || '';
+        messengerUsePhone.checked = messengerTargetMode.value === 'phone';
+        xmlPlatform.dataset.prefill = row.dataset.xmlPlatform || '';
+        xmlResourceUrl.value = row.dataset.xmlResourceUrl || '';
+        linkedShopSelect.dataset.prefill = row.dataset.linkedShopId || '';
 
         if (row.dataset.nextCallDate && row.dataset.nextCallTime) {
             clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked = true;
@@ -791,7 +1250,36 @@ function initManagementHomePage() {
             channelWrap: callResultContactChannelWrap,
             channelInput: callResultContactChannel,
         });
+        syncEvidenceFields({
+            resultSelect: callResultSelect,
+            cpBlock: cpLogBlock,
+            cpSelect: cpLogSelect,
+            messengerBlockNode: messengerBlock,
+            messengerTypeSelect: messengerType,
+            messengerTargetModeInput: messengerTargetMode,
+            messengerTargetValueInput: messengerTargetValue,
+            messengerUsePhoneInput: messengerUsePhone,
+            xmlBlockNode: xmlBlock,
+            xmlPlatformSelect: xmlPlatform,
+            xmlResourceInput: xmlResourceUrl,
+            linkedShopBlockNode: linkedShopBlock,
+            linkedShopLabelNode: linkedShopLabel,
+            linkedShopSelectNode: linkedShopSelect,
+            linkedShopSummaryNode: linkedShopSummary,
+        });
+        syncMessengerTargetMode({
+            usePhoneInput: messengerUsePhone,
+            targetModeInput: messengerTargetMode,
+            targetValueInput: messengerTargetValue,
+            phoneInput,
+        });
+        syncLinkedShopSummary(
+            linkedShopSelect,
+            linkedShopSummary,
+            callResultSelect.value === 'test_batch' ? (clientEntryFormPayload.test_shops || []) : (clientEntryFormPayload.full_shops || []),
+        );
         toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime);
+        setNodeVisible(telegramFollowupCta, !hasManagerTelegramBinding && clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked, 'block');
     };
 
     const updateStats = (data) => {
@@ -830,8 +1318,15 @@ function initManagementHomePage() {
                     data-call-result-contact-attempts="${client.call_result_contact_attempts || ''}"
                     data-call-result-contact-channel="${client.call_result_contact_channel || ''}"
                     data-call-details="${client.call_result_details || ''}"
-                    data-next-call-date=""
-                    data-next-call-time="">
+                    data-cp-log-id="${client.cp_log_id || ''}"
+                    data-messenger-type="${client.messenger_type || ''}"
+                    data-messenger-target-mode="${client.messenger_target_mode || ''}"
+                    data-messenger-target-value="${client.messenger_target_value || ''}"
+                    data-xml-platform="${client.xml_platform || ''}"
+                    data-xml-resource-url="${client.xml_resource_url || ''}"
+                    data-linked-shop-id="${client.linked_shop_id || ''}"
+                    data-next-call-date="${client.next_call_date || ''}"
+                    data-next-call-time="${client.next_call_time || ''}">
                     <td>${client.shop}</td>
                     <td>${client.phone}</td>
                     <td>${websiteCell}</td>
@@ -948,8 +1443,45 @@ function initManagementHomePage() {
             channelWrap: callResultContactChannelWrap,
             channelInput: callResultContactChannel,
         });
+        syncEvidenceFields({
+            resultSelect: callResultSelect,
+            cpBlock: cpLogBlock,
+            cpSelect: cpLogSelect,
+            messengerBlockNode: messengerBlock,
+            messengerTypeSelect: messengerType,
+            messengerTargetModeInput: messengerTargetMode,
+            messengerTargetValueInput: messengerTargetValue,
+            messengerUsePhoneInput: messengerUsePhone,
+            xmlBlockNode: xmlBlock,
+            xmlPlatformSelect: xmlPlatform,
+            xmlResourceInput: xmlResourceUrl,
+            linkedShopBlockNode: linkedShopBlock,
+            linkedShopLabelNode: linkedShopLabel,
+            linkedShopSelectNode: linkedShopSelect,
+            linkedShopSummaryNode: linkedShopSummary,
+        });
     });
-    nextCallRadios.forEach((radio) => radio.addEventListener('change', () => toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime)));
+    nextCallRadios.forEach((radio) => radio.addEventListener('change', () => {
+        toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime);
+        setNodeVisible(telegramFollowupCta, !hasManagerTelegramBinding && clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked, 'block');
+    }));
+    messengerUsePhone?.addEventListener('change', () => syncMessengerTargetMode({
+        usePhoneInput: messengerUsePhone,
+        targetModeInput: messengerTargetMode,
+        targetValueInput: messengerTargetValue,
+        phoneInput,
+    }));
+    phoneInput?.addEventListener('input', () => syncMessengerTargetMode({
+        usePhoneInput: messengerUsePhone,
+        targetModeInput: messengerTargetMode,
+        targetValueInput: messengerTargetValue,
+        phoneInput,
+    }));
+    linkedShopSelect?.addEventListener('change', () => syncLinkedShopSummary(
+        linkedShopSelect,
+        linkedShopSummary,
+        callResultSelect.value === 'test_batch' ? (clientEntryFormPayload.test_shops || []) : (clientEntryFormPayload.full_shops || []),
+    ));
 
     leadSourceSelect?.addEventListener('change', () => {
         toggleConditional(leadSourceSelect, leadSourceLink, 'forums');
@@ -974,13 +1506,50 @@ function initManagementHomePage() {
             channelWrap: processCallResultContactChannelWrap,
             channelInput: processCallResultContactChannel,
         });
+        syncEvidenceFields({
+            resultSelect: processCallResult,
+            cpBlock: processCpLogBlock,
+            cpSelect: processCpLogSelect,
+            messengerBlockNode: processMessengerBlock,
+            messengerTypeSelect: processMessengerType,
+            messengerTargetModeInput: processMessengerTargetMode,
+            messengerTargetValueInput: processMessengerTargetValue,
+            messengerUsePhoneInput: processMessengerUsePhone,
+            xmlBlockNode: processXmlBlock,
+            xmlPlatformSelect: processXmlPlatform,
+            xmlResourceInput: processXmlResourceUrl,
+            linkedShopBlockNode: processLinkedShopBlock,
+            linkedShopLabelNode: processLinkedShopLabel,
+            linkedShopSelectNode: processLinkedShopSelect,
+            linkedShopSummaryNode: processLinkedShopSummary,
+        });
     });
     processNextCallRadios.forEach((radio) => radio.addEventListener('change', () => toggleNextCall(processNextCallRadios, processNextCallWrap, processNextCallDate, processNextCallTime)));
+    processMessengerUsePhone?.addEventListener('change', () => syncMessengerTargetMode({
+        usePhoneInput: processMessengerUsePhone,
+        targetModeInput: processMessengerTargetMode,
+        targetValueInput: processMessengerTargetValue,
+        phoneInput: processPhone,
+    }));
+    processPhone?.addEventListener('input', () => syncMessengerTargetMode({
+        usePhoneInput: processMessengerUsePhone,
+        targetModeInput: processMessengerTargetMode,
+        targetValueInput: processMessengerTargetValue,
+        phoneInput: processPhone,
+    }));
+    processLinkedShopSelect?.addEventListener('change', () => syncLinkedShopSummary(
+        processLinkedShopSelect,
+        processLinkedShopSummary,
+        processCallResult.value === 'test_batch' ? (clientEntryFormPayload.test_shops || []) : (clientEntryFormPayload.full_shops || []),
+    ));
 
     resetClientForm();
     leadForm.reset();
     setDefaultDateTime(processNextCallDate, processNextCallTime);
     clearDuplicateNotice(processDuplicateNotice);
+    fillSelectOptions(processCpLogSelect, clientEntryFormPayload.cp_logs || [], 'Оберіть відправлений лист');
+    fillSelectOptions(processMessengerType, clientEntryFormPayload.messenger_types || [], 'Оберіть месенджер', 'value', 'label');
+    fillSelectOptions(processXmlPlatform, clientEntryFormPayload.xml_platforms || [], 'Оберіть ресурс', 'value', 'label');
     syncReasonCapture({
         resultSelect: processCallResult,
         block: processCallResultReasonBlock,
@@ -992,7 +1561,48 @@ function initManagementHomePage() {
         channelWrap: processCallResultContactChannelWrap,
         channelInput: processCallResultContactChannel,
     });
+    syncEvidenceFields({
+        resultSelect: processCallResult,
+        cpBlock: processCpLogBlock,
+        cpSelect: processCpLogSelect,
+        messengerBlockNode: processMessengerBlock,
+        messengerTypeSelect: processMessengerType,
+        messengerTargetModeInput: processMessengerTargetMode,
+        messengerTargetValueInput: processMessengerTargetValue,
+        messengerUsePhoneInput: processMessengerUsePhone,
+        xmlBlockNode: processXmlBlock,
+        xmlPlatformSelect: processXmlPlatform,
+        xmlResourceInput: processXmlResourceUrl,
+        linkedShopBlockNode: processLinkedShopBlock,
+        linkedShopLabelNode: processLinkedShopLabel,
+        linkedShopSelectNode: processLinkedShopSelect,
+        linkedShopSummaryNode: processLinkedShopSummary,
+    });
+    syncMessengerTargetMode({
+        usePhoneInput: processMessengerUsePhone,
+        targetModeInput: processMessengerTargetMode,
+        targetValueInput: processMessengerTargetValue,
+        phoneInput: processPhone,
+    });
     toggleNextCall(processNextCallRadios, processNextCallWrap, processNextCallDate, processNextCallTime);
+    bindRealtimeDuplicatePreview({
+        form: clientForm,
+        shopInput: document.getElementById('shop_name'),
+        phoneInput: document.getElementById('phone'),
+        websiteInput: document.getElementById('website_url'),
+        noticeNode: clientDuplicateNotice,
+        overrideField: duplicateOverrideReason,
+        excludeField: clientIdInput,
+    });
+    bindRealtimeDuplicatePreview({
+        form: processForm,
+        shopInput: document.getElementById('process_shop_name'),
+        phoneInput: document.getElementById('process_phone'),
+        websiteInput: document.getElementById('process_website_url'),
+        noticeNode: processDuplicateNotice,
+        overrideField: processDuplicateOverrideReason,
+        leadIdInput: processLeadIdInput,
+    });
 
     document.addEventListener('click', async (e) => {
         const editBtn = e.target.closest('.edit-client');
@@ -1032,6 +1642,12 @@ function initManagementHomePage() {
                 processCallResultReasonNote.value = '';
                 processCallResultContactAttempts.value = '';
                 processCallResultContactChannel.value = '';
+                processDuplicateOverrideReason.value = '';
+                fillSelectOptions(processCpLogSelect, clientEntryFormPayload.cp_logs || [], 'Оберіть відправлений лист');
+                fillSelectOptions(processMessengerType, clientEntryFormPayload.messenger_types || [], 'Оберіть месенджер', 'value', 'label');
+                fillSelectOptions(processXmlPlatform, clientEntryFormPayload.xml_platforms || [], 'Оберіть ресурс', 'value', 'label');
+                processLinkedShopSelect.innerHTML = '<option value="">Оберіть магазин</option>';
+                processLinkedShopSummary.textContent = buildShopSummaryText(null);
                 clearDuplicateNotice(processDuplicateNotice);
                 processForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked = true;
                 setDefaultDateTime(processNextCallDate, processNextCallTime);
@@ -1049,6 +1665,29 @@ function initManagementHomePage() {
                     attemptsInput: processCallResultContactAttempts,
                     channelWrap: processCallResultContactChannelWrap,
                     channelInput: processCallResultContactChannel,
+                });
+                syncEvidenceFields({
+                    resultSelect: processCallResult,
+                    cpBlock: processCpLogBlock,
+                    cpSelect: processCpLogSelect,
+                    messengerBlockNode: processMessengerBlock,
+                    messengerTypeSelect: processMessengerType,
+                    messengerTargetModeInput: processMessengerTargetMode,
+                    messengerTargetValueInput: processMessengerTargetValue,
+                    messengerUsePhoneInput: processMessengerUsePhone,
+                    xmlBlockNode: processXmlBlock,
+                    xmlPlatformSelect: processXmlPlatform,
+                    xmlResourceInput: processXmlResourceUrl,
+                    linkedShopBlockNode: processLinkedShopBlock,
+                    linkedShopLabelNode: processLinkedShopLabel,
+                    linkedShopSelectNode: processLinkedShopSelect,
+                    linkedShopSummaryNode: processLinkedShopSummary,
+                });
+                syncMessengerTargetMode({
+                    usePhoneInput: processMessengerUsePhone,
+                    targetModeInput: processMessengerTargetMode,
+                    targetValueInput: processMessengerTargetValue,
+                    phoneInput: processPhone,
                 });
                 toggleNextCall(processNextCallRadios, processNextCallWrap, processNextCallDate, processNextCallTime);
                 openModal(processModal);
@@ -1071,11 +1710,12 @@ function initManagementHomePage() {
             const data = await res.json();
             if (!res.ok || !data.success) {
                 if (data.zone) {
-                    renderDuplicateNotice(clientDuplicateNotice, data);
+                    renderDuplicateNotice(clientDuplicateNotice, data, { form: clientForm, overrideField: duplicateOverrideReason });
                     return;
                 }
                 throw new Error(data.error || 'Помилка збереження');
             }
+            duplicateOverrideReason.value = '';
             updateStats(data);
             if (data.latest) prependClientToToday(data.latest, formData.get('csrfmiddlewaretoken') || '');
             closeModal(clientModal);
@@ -1119,11 +1759,12 @@ function initManagementHomePage() {
             const data = await res.json();
             if (!res.ok || !data.success) {
                 if (data.zone) {
-                    renderDuplicateNotice(processDuplicateNotice, data);
+                    renderDuplicateNotice(processDuplicateNotice, data, { form: processForm, overrideField: processDuplicateOverrideReason });
                     return;
                 }
                 throw new Error(data.error || 'Помилка обробки ліда');
             }
+            processDuplicateOverrideReason.value = '';
             const row = document.querySelector(`#lead-base-table tr[data-lead-id="${leadId}"]`);
             if (row) row.remove();
             updateStats(data);

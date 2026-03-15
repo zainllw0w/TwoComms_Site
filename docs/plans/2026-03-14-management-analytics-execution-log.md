@@ -137,3 +137,30 @@
 - `SECRET_KEY=test-secret python3 manage.py makemigrations --check --dry-run --settings=test_settings` reported no changes.
 - `python3 -m py_compile management/services/ui_labels.py management/services/advice.py management/services/snapshots.py management/stats_service.py management/stats_views.py` passed.
 - `git diff --check` passed.
+
+## 2026-03-15 Client Entry Modal + Realtime Dedupe Pass
+
+- Reworked the manual client-entry workflow around one shared evidence contract instead of free-form `details` text.
+- Added `ClientInteractionAttempt` and `ClientCPLink`, plus `DuplicateReview.resolved_by` / `resolution_note`, so overrides and proof-bearing outcomes are auditable without changing live KPD/MOSAIC formulas.
+- Added a dedicated realtime endpoint `clients/dedupe-preview/` backed by the existing weighted dedupe service, with no side effects during typing.
+- Upgraded phone normalization for Ukrainian variants so `+380`, `380`, `80`, `0XXXXXXXXX`, `9-digit`, brackets, spaces, and dashes converge to one canonical format.
+- Tightened dedupe safety by demoting `last7`-only phone matches to a weaker signal; exact E.164 phone remains the only aggressive auto-block trigger.
+- Added enriched duplicate candidate payloads for both clients and leads: owner, created-at, last-contact, last result, verdict, next-step, phone, and website.
+- Implemented explicit override-with-reason on submit for `AUTO_BLOCK` and `REVIEW`, with resolved duplicate review logging instead of silent bypass.
+- Added hard validation for proof-bearing outcomes:
+  - `sent_email` requires a sent `CommercialOfferEmailLog`;
+  - `sent_messenger` requires messenger type plus target or phone binding;
+  - `xml_connected` requires platform plus resource URL;
+  - `order` / `test_batch` require an owned `Shop` of the matching type.
+- Rebuilt the add-client modal into `Контакт` / `Підсумок і доказ` / `Наступний крок` sections, added an info banner, better helper copy, Telegram bot CTA, linked-shop summary, realtime amber duplicate alert, and a stacked duplicate-summary modal.
+- Mirrored the same validation/evidence controls into the lead-processing modal so manual entry and lead conversion no longer drift apart.
+
+### Verification Evidence For Client Entry Pass
+
+- `SECRET_KEY=test-secret DEBUG=1 python3 manage.py test management.tests_phase6_client_entry --settings=test_settings -v 2` passed with `12` tests green.
+- `SECRET_KEY=test-secret DEBUG=1 python3 manage.py test management.tests_phase2_dedupe management.tests_phase3_snapshots management.tests_phase4_analytics management.tests_phase5_completion management.tests_phase6_client_entry --settings=test_settings -v 2` passed with `53` tests green.
+- `python3 -m py_compile management/views.py management/lead_views.py management/services/client_entry.py management/services/dedupe.py` passed.
+- `SECRET_KEY=test-secret python3 manage.py check --settings=test_settings` passed.
+- `SECRET_KEY=test-secret python3 manage.py makemigrations management` generated `management/migrations/0025_duplicatereview_resolution_note_and_more.py`.
+- `SECRET_KEY=test-secret python3 manage.py makemigrations --check --dry-run management` reported no pending changes after the migration was created.
+- `git diff --check` passed.

@@ -12,6 +12,7 @@ urlpatterns = [
         redirect_authenticated_user=True
     ), name='management_login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='management_login'), name='management_logout'),
+    path('clients/dedupe-preview/', views.client_dedupe_preview, name='management_client_dedupe_preview'),
     path('clients/<int:client_id>/delete/', views.delete_client, name='management_delete_client'),
     path('admin-panel/', views.admin_overview, name='management_admin'),
     path('admin-panel/user/<int:user_id>/clients/', views.admin_user_clients, name='management_admin_user_clients'),

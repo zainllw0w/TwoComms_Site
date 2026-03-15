@@ -14,6 +14,8 @@ def normalize_phone(raw_phone: str) -> str:
         return ""
     if digits.startswith("380") and len(digits) == 12:
         return f"+{digits}"
+    if digits.startswith("80") and len(digits) == 11:
+        return f"+3{digits}"
     if digits.startswith("0") and len(digits) == 10:
         return f"+38{digits}"
     if len(digits) == 9:
@@ -1062,6 +1064,15 @@ class DuplicateReview(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     resolved_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_duplicate_reviews_resolved",
+        verbose_name=_("Закрив"),
+    )
+    resolution_note = models.TextField(blank=True, verbose_name=_("Нотатка по рішенню"))
 
     class Meta:
         verbose_name = _("Перевірка дубля")
@@ -1070,6 +1081,127 @@ class DuplicateReview(models.Model):
 
     def __str__(self):
         return f"{self.incoming_shop_name} [{self.zone}]"
+
+
+class ClientInteractionAttempt(models.Model):
+    class VerificationLevel(models.TextChoices):
+        SELF_REPORTED = "self_reported", _("Самозвіт")
+        LINKED_EVIDENCE = "linked_evidence", _("Підтверджено доказом")
+        OVERRIDE = "override", _("З override перевіркою")
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="interaction_attempts",
+        verbose_name=_("Клієнт"),
+    )
+    manager = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_client_interactions",
+        verbose_name=_("Менеджер"),
+    )
+    result = models.CharField(_("Підсумок"), max_length=50, choices=Client.CallResult.choices, db_index=True)
+    reason_code = models.CharField(_("Код причини"), max_length=64, blank=True, db_index=True)
+    reason_note = models.TextField(_("Коментар причини"), blank=True)
+    context = models.JSONField(_("Контекст"), default=dict, blank=True)
+    details = models.TextField(_("Деталі"), blank=True)
+    next_call_at = models.DateTimeField(_("Наступний дзвінок"), null=True, blank=True)
+    verification_level = models.CharField(
+        _("Рівень верифікації"),
+        max_length=32,
+        choices=VerificationLevel.choices,
+        default=VerificationLevel.SELF_REPORTED,
+        db_index=True,
+    )
+    linked_shop = models.ForeignKey(
+        "management.Shop",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="client_interaction_attempts",
+        verbose_name=_("Пов'язаний магазин"),
+    )
+    cp_log = models.ForeignKey(
+        "management.CommercialOfferEmailLog",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="client_interaction_attempts",
+        verbose_name=_("Лог КП"),
+    )
+    duplicate_review = models.ForeignKey(
+        "management.DuplicateReview",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="interaction_attempts",
+        verbose_name=_("Перевірка дубля"),
+    )
+    duplicate_override_reason = models.TextField(_("Причина override"), blank=True)
+    messenger_type = models.CharField(_("Месенджер"), max_length=32, blank=True)
+    messenger_target_mode = models.CharField(_("Режим цілі месенджера"), max_length=32, blank=True)
+    messenger_target_value = models.CharField(_("Ціль месенджера"), max_length=255, blank=True)
+    xml_platform = models.CharField(_("XML платформа"), max_length=32, blank=True)
+    xml_resource_url = models.CharField(_("XML ресурс"), max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Спроба взаємодії з клієнтом")
+        verbose_name_plural = _("Спроби взаємодії з клієнтами")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["manager", "-created_at"], name="mgmt_client_attempt_mgr_dt"),
+            models.Index(fields=["client", "-created_at"], name="mgmt_client_attempt_cli_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.client_id}: {self.result}"
+
+
+class ClientCPLink(models.Model):
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="cp_links",
+        verbose_name=_("Клієнт"),
+    )
+    cp_log = models.ForeignKey(
+        "management.CommercialOfferEmailLog",
+        on_delete=models.CASCADE,
+        related_name="client_links",
+        verbose_name=_("Лог КП"),
+    )
+    linked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_client_cp_links",
+        verbose_name=_("Прив'язав"),
+    )
+    interaction = models.ForeignKey(
+        "management.ClientInteractionAttempt",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cp_links",
+        verbose_name=_("Спроба взаємодії"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Зв'язок клієнта з КП")
+        verbose_name_plural = _("Зв'язки клієнтів з КП")
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["client", "cp_log"], name="mgmt_client_cp_unique"),
+        ]
+
+    def __str__(self):
+        return f"{self.client_id} -> {self.cp_log_id}"
 
 
 class CommandRunLog(models.Model):
