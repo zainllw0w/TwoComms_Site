@@ -8,7 +8,13 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .constants import LEAD_BASE_PROCESSING_PENALTY, POINTS, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 from .models import Client, ManagementLead, normalize_phone
-from .services.dedupe import DedupeZone, build_duplicate_conflict_payload, evaluate_duplicate_zone
+from .services.client_entry import merge_result_capture_with_evidence, record_client_interaction, validate_client_entry_evidence
+from .services.dedupe import (
+    DedupeZone,
+    build_duplicate_conflict_payload,
+    evaluate_duplicate_zone,
+    resolve_duplicate_review_override,
+)
 from .services.outcomes import format_source_display, next_call_at_from_request, normalize_result_capture
 from .views import _sync_client_followup, get_user_stats, user_is_management
 
@@ -200,6 +206,19 @@ def lead_process_api(request, lead_id: int):
         if not phone_normalized:
             return JsonResponse({"success": False, "error": "Не вдалося розпізнати номер телефону."}, status=400)
 
+        evidence = validate_client_entry_evidence(
+            data=data,
+            owner=request.user,
+            phone_normalized=phone_normalized,
+            call_result=call_value,
+            result_capture=result_capture,
+        )
+        if evidence["errors"]:
+            return JsonResponse({"success": False, "error": evidence["errors"][0]}, status=400)
+        result_context, details = merge_result_capture_with_evidence(result_capture, evidence)
+        result_capture["context"] = result_context
+        result_capture["details"] = details
+
         duplicate_decision = evaluate_duplicate_zone(
             shop_name=shop_name,
             phone=phone_normalized,
@@ -207,27 +226,40 @@ def lead_process_api(request, lead_id: int):
             owner=request.user,
             exclude_lead_ids=[lead.id],
         )
-        if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW}:
+        duplicate_payload = {
+            "lead_id": lead.id,
+            "shop_name": shop_name,
+            "full_name": full_name,
+            "website_url": website_url,
+            "role": role_value,
+            "source": source_display or lead.source or "База лідів",
+            "call_result": call_value,
+            "context": result_context,
+        }
+        duplicate_review = None
+        if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW} and not evidence["duplicate_override_reason"]:
             return JsonResponse(
                 build_duplicate_conflict_payload(
                     owner=request.user,
                     decision=duplicate_decision,
                     shop_name=shop_name,
                     phone=phone_normalized,
-                    payload={
-                        "lead_id": lead.id,
-                        "shop_name": shop_name,
-                        "full_name": full_name,
-                        "website_url": website_url,
-                        "role": role_value,
-                        "source": source_display or lead.source or "База лідів",
-                        "call_result": call_value,
-                    },
+                    payload=duplicate_payload,
                     auto_block_error="Такий номер вже є у базі.",
                     review_error="Потрібна перевірка на дубль перед конвертацією ліда.",
                 ),
                 status=409,
             )
+        if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW}:
+            duplicate_review = resolve_duplicate_review_override(
+                owner=request.user,
+                decision=duplicate_decision,
+                shop_name=shop_name,
+                phone=phone_normalized,
+                payload=duplicate_payload,
+                override_reason=evidence["duplicate_override_reason"],
+            )
+            result_context["duplicate_override_reason"] = evidence["duplicate_override_reason"]
 
         base_points = int(POINTS.get(call_value, 0))
         adjusted_points = max(0, base_points - LEAD_BASE_PROCESSING_PENALTY)
@@ -241,13 +273,22 @@ def lead_process_api(request, lead_id: int):
             call_result=call_value,
             call_result_reason_code=result_capture["reason_code"],
             call_result_reason_note=result_capture["reason_note"],
-            call_result_context=result_capture["context"],
+            call_result_context=result_context,
             call_result_details=details,
             next_call_at=next_call_at,
             owner=request.user,
             points_override=adjusted_points,
         )
         _sync_client_followup(client, None, client.next_call_at, timezone.now())
+        record_client_interaction(
+            client=client,
+            manager=request.user,
+            result_capture=result_capture,
+            call_result=call_value,
+            next_call_at=next_call_at,
+            evidence=evidence,
+            duplicate_review=duplicate_review,
+        )
 
         lead.status = ManagementLead.Status.CONVERTED
         lead.processed_by = request.user
@@ -278,6 +319,15 @@ def lead_process_api(request, lead_id: int):
             "call_result_contact_attempts": (client.call_result_context or {}).get("attempts", ""),
             "call_result_contact_channel": (client.call_result_context or {}).get("contact_channel", ""),
             "call_result_details": client.call_result_details,
+            "cp_log_id": (client.call_result_context or {}).get("cp_log_id", ""),
+            "messenger_type": (client.call_result_context or {}).get("messenger_type", ""),
+            "messenger_target_mode": (client.call_result_context or {}).get("messenger_target_mode", ""),
+            "messenger_target_value": (client.call_result_context or {}).get("messenger_target_value", ""),
+            "xml_platform": (client.call_result_context or {}).get("xml_platform", ""),
+            "xml_resource_url": (client.call_result_context or {}).get("xml_resource_url", ""),
+            "linked_shop_id": (client.call_result_context or {}).get("linked_shop_id", ""),
+            "next_call_date": timezone.localtime(client.next_call_at).strftime("%Y-%m-%d") if client.next_call_at else "",
+            "next_call_time": timezone.localtime(client.next_call_at).strftime("%H:%M") if client.next_call_at else "",
             "next_call": timezone.localtime(client.next_call_at).strftime("%d.%m.%Y %H:%M") if client.next_call_at else "–",
         },
         "lead_id": lead_id,

@@ -22,7 +22,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.core.validators import validate_email
 from django.template.loader import render_to_string
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 import requests
 from io import BytesIO
@@ -71,7 +71,19 @@ from .invoice_service import (
 )
 from .lead_services import calc_client_points, get_user_lead_bonus_points
 from .services.dtf_bridge import build_dtf_bridge_payload
-from .services.dedupe import DedupeZone, build_duplicate_conflict_payload, evaluate_duplicate_zone
+from .services.client_entry import (
+    build_client_entry_form_payload,
+    merge_result_capture_with_evidence,
+    record_client_interaction,
+    validate_client_entry_evidence,
+)
+from .services.dedupe import (
+    DedupeZone,
+    build_duplicate_conflict_payload,
+    build_duplicate_preview_payload,
+    evaluate_duplicate_zone,
+    resolve_duplicate_review_override,
+)
 from .services.forecast import build_admin_economics_summary, build_salary_simulator
 from .services.followups import build_reminder_digest
 from .services.outcomes import format_source_display, get_outcome_reason_schema, normalize_result_capture
@@ -285,6 +297,40 @@ def get_user_stats(user):
     }
 
 
+def _serialize_client_for_home(client: Client, today) -> dict:
+    context = client.call_result_context or {}
+    created_local = timezone.localtime(client.created_at)
+    return {
+        'id': client.id,
+        'shop': client.shop_name,
+        'phone': client.phone,
+        'website_url': client.website_url,
+        'full_name': client.full_name,
+        'role': client.role,
+        'role_display': client.get_role_display(),
+        'source': client.source,
+        'call_result': client.call_result,
+        'call_result_display': client.get_call_result_display(),
+        'call_result_reason_code': client.call_result_reason_code,
+        'call_result_reason_note': client.call_result_reason_note,
+        'call_result_contact_attempts': context.get('attempts', ''),
+        'call_result_contact_channel': context.get('contact_channel', ''),
+        'call_result_details': client.call_result_details,
+        'cp_log_id': context.get('cp_log_id', ''),
+        'messenger_type': context.get('messenger_type', ''),
+        'messenger_target_mode': context.get('messenger_target_mode', ''),
+        'messenger_target_value': context.get('messenger_target_value', ''),
+        'xml_platform': context.get('xml_platform', ''),
+        'xml_resource_url': context.get('xml_resource_url', ''),
+        'linked_shop_id': context.get('linked_shop_id', ''),
+        'duplicate_override_reason': context.get('duplicate_override_reason', ''),
+        'next_call_date': timezone.localtime(client.next_call_at).strftime('%Y-%m-%d') if client.next_call_at else '',
+        'next_call_time': timezone.localtime(client.next_call_at).strftime('%H:%M') if client.next_call_at else '',
+        'next_call': timezone.localtime(client.next_call_at).strftime('%d.%m.%Y %H:%M') if client.next_call_at else '–',
+        'created_date_label': 'Сьогодні' if created_local.date() == today else created_local.strftime('%d.%m.%Y'),
+    }
+
+
 def build_report_excel(user, stats, clients):
     import openpyxl
     from openpyxl.styles import Font, Alignment, PatternFill
@@ -378,6 +424,31 @@ def send_telegram_report(user, stats, clients, file_bytes, filename):
 
 
 @login_required(login_url='management_login')
+@require_GET
+def client_dedupe_preview(request):
+    if not user_is_management(request.user):
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено.'}, status=403)
+
+    shop_name = (request.GET.get('shop_name') or '').strip()
+    phone = (request.GET.get('phone') or '').strip()
+    website_url = (request.GET.get('website_url') or '').strip()
+    client_id = (request.GET.get('client_id') or '').strip()
+    lead_id = (request.GET.get('lead_id') or '').strip()
+
+    exclude_client_ids = [int(client_id)] if client_id.isdigit() else []
+    exclude_lead_ids = [int(lead_id)] if lead_id.isdigit() else []
+    decision = evaluate_duplicate_zone(
+        shop_name=shop_name,
+        phone=phone,
+        website_url=website_url,
+        owner=request.user,
+        exclude_client_ids=exclude_client_ids,
+        exclude_lead_ids=exclude_lead_ids,
+    )
+    return JsonResponse(build_duplicate_preview_payload(decision=decision))
+
+
+@login_required(login_url='management_login')
 def home(request):
     if not user_is_management(request.user):
         return redirect('management_login')
@@ -420,8 +491,8 @@ def home(request):
             error_text = result_capture['errors'][0]
             if is_ajax:
                 return JsonResponse({'success': False, 'error': error_text}, status=400)
-            messages.error(request, error_text)
-            return redirect('management_home')
+                messages.error(request, error_text)
+                return redirect('management_home')
 
         next_call_at = None
         if next_call_type == 'scheduled' and next_call_date and next_call_time:
@@ -460,6 +531,23 @@ def home(request):
                 except Client.DoesNotExist:
                     existing_client = None
 
+            evidence = validate_client_entry_evidence(
+                data=data,
+                owner=request.user,
+                phone_normalized=phone_normalized,
+                call_result=call_result,
+                result_capture=result_capture,
+            )
+            if evidence['errors']:
+                error_text = evidence['errors'][0]
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': error_text}, status=400)
+                messages.error(request, error_text)
+                return redirect('management_home')
+            result_context, result_details = merge_result_capture_with_evidence(result_capture, evidence)
+            result_capture['context'] = result_context
+            result_capture['details'] = result_details
+
             duplicate_decision = evaluate_duplicate_zone(
                 shop_name=shop_name,
                 phone=phone_normalized,
@@ -467,21 +555,24 @@ def home(request):
                 owner=request.user,
                 exclude_client_ids=exclude_client_ids,
             )
-            if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW}:
+            duplicate_review = None
+            duplicate_payload = {
+                'client_id': existing_client.id if existing_client else None,
+                'shop_name': shop_name,
+                'full_name': full_name,
+                'website_url': website_url,
+                'role': role,
+                'source': source_display,
+                'call_result': call_result,
+                'context': result_context,
+            }
+            if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW} and not evidence['duplicate_override_reason']:
                 payload = build_duplicate_conflict_payload(
                     owner=request.user,
                     decision=duplicate_decision,
                     shop_name=shop_name,
                     phone=phone_normalized,
-                    payload={
-                        'client_id': existing_client.id if existing_client else None,
-                        'shop_name': shop_name,
-                        'full_name': full_name,
-                        'website_url': website_url,
-                        'role': role,
-                        'source': source_display,
-                        'call_result': call_result,
-                    },
+                    payload=duplicate_payload,
                     auto_block_error='Такий клієнт вже є у базі.',
                     review_error='Потрібна перевірка на дубль перед збереженням клієнта.',
                 )
@@ -489,8 +580,17 @@ def home(request):
                     return JsonResponse(payload, status=409)
                 messages.error(request, payload['error'])
                 return redirect('management_home')
+            if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW}:
+                duplicate_review = resolve_duplicate_review_override(
+                    owner=request.user,
+                    decision=duplicate_decision,
+                    shop_name=shop_name,
+                    phone=phone_normalized,
+                    payload=duplicate_payload,
+                    override_reason=evidence['duplicate_override_reason'],
+                )
+                result_context['duplicate_override_reason'] = evidence['duplicate_override_reason']
 
-            details = result_capture['details']
             if existing_client:
                 prev_next_call_at = existing_client.next_call_at
                 existing_client.shop_name = shop_name
@@ -502,16 +602,17 @@ def home(request):
                 existing_client.call_result = call_result
                 existing_client.call_result_reason_code = result_capture['reason_code']
                 existing_client.call_result_reason_note = result_capture['reason_note']
-                existing_client.call_result_context = result_capture['context']
-                existing_client.call_result_details = details
+                existing_client.call_result_context = result_context
+                existing_client.call_result_details = result_details
                 existing_client.next_call_at = next_call_at
                 existing_client.owner = existing_client.owner or request.user
                 if existing_client.points_override is not None:
                     existing_client.points_override = max(0, int(POINTS.get(call_result, 0)) - LEAD_BASE_PROCESSING_PENALTY)
                 existing_client.save()
                 _sync_client_followup(existing_client, prev_next_call_at, existing_client.next_call_at, timezone.now())
+                saved_client = existing_client
             else:
-                client = Client.objects.create(
+                saved_client = Client.objects.create(
                     shop_name=shop_name,
                     phone=phone_normalized,
                     website_url=website_url,
@@ -521,12 +622,22 @@ def home(request):
                     call_result=call_result,
                     call_result_reason_code=result_capture['reason_code'],
                     call_result_reason_note=result_capture['reason_note'],
-                    call_result_context=result_capture['context'],
-                    call_result_details=details,
+                    call_result_context=result_context,
+                    call_result_details=result_details,
                     next_call_at=next_call_at,
                     owner=request.user,
                 )
-                _sync_client_followup(client, None, client.next_call_at, timezone.now())
+                _sync_client_followup(saved_client, None, saved_client.next_call_at, timezone.now())
+
+            record_client_interaction(
+                client=saved_client,
+                manager=request.user,
+                result_capture=result_capture,
+                call_result=call_result,
+                next_call_at=next_call_at,
+                evidence=evidence,
+                duplicate_review=duplicate_review,
+            )
         if is_ajax:
             # Сформируем актуальные данные после операции
             stats = get_user_stats(request.user)
@@ -536,28 +647,7 @@ def home(request):
             progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
             progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
 
-            latest = Client.objects.filter(owner=request.user).order_by('-created_at').first()
-            latest_data = None
-            if latest:
-                latest_data = {
-                    'id': latest.id,
-                    'shop': latest.shop_name,
-                    'phone': latest.phone,
-                    'website_url': latest.website_url,
-                    'full_name': latest.full_name,
-                    'role': latest.role,
-                    'role_display': latest.get_role_display(),
-                    'source': latest.source,
-                    'call_result': latest.call_result,
-                    'call_result_display': latest.get_call_result_display(),
-                    'call_result_reason_code': latest.call_result_reason_code,
-                    'call_result_reason_note': latest.call_result_reason_note,
-                    'call_result_contact_attempts': (latest.call_result_context or {}).get('attempts', ''),
-                    'call_result_contact_channel': (latest.call_result_context or {}).get('contact_channel', ''),
-                    'call_result_details': latest.call_result_details,
-                    'next_call': timezone.localtime(latest.next_call_at).strftime('%d.%m.%Y %H:%M') if latest.next_call_at else '–',
-                    'created_date_label': 'Сьогодні' if timezone.localtime(latest.created_at).date() == today else timezone.localtime(latest.created_at).strftime('%d.%m.%Y'),
-                }
+            latest_data = _serialize_client_for_home(saved_client, today) if shop_name and phone else None
 
             return JsonResponse({
                 'success': True,
@@ -607,6 +697,11 @@ def home(request):
     progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
 
     bot_username = get_manager_bot_username()
+    form_payload = build_client_entry_form_payload(request.user)
+    try:
+        has_manager_telegram_binding = bool(request.user.userprofile.tg_manager_chat_id)
+    except Exception:
+        has_manager_telegram_binding = False
     return render(request, 'management/home.html', {
         'grouped_clients': grouped_clients,
         'base_leads': base_leads,
@@ -620,6 +715,9 @@ def home(request):
         'has_report_today': report_sent_today,
         'reminders': reminders,
         'manager_bot_username': bot_username,
+        'has_manager_telegram_binding': has_manager_telegram_binding,
+        'client_entry_form_payload': form_payload,
+        'client_entry_form_payload_json': json.dumps(form_payload, ensure_ascii=False),
         'outcome_reason_schema_json': json.dumps(get_outcome_reason_schema(), ensure_ascii=False),
     })
 
