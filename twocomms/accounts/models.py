@@ -29,6 +29,13 @@ class UserProfile(models.Model):
     tg_manager_username = models.CharField(max_length=255, blank=True, verbose_name='Telegram Management Username')
     tg_manager_bind_code = models.CharField(max_length=64, blank=True, verbose_name='Код привʼязки менеджмент-бота')
     tg_manager_bind_expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Діє до')
+    tg_manager_alert_15m = models.BooleanField(default=True, verbose_name='Нагадування за 15 хв')
+    tg_manager_alert_5m = models.BooleanField(default=True, verbose_name='Нагадування за 5 хв')
+    tg_manager_alert_due_now = models.BooleanField(default=True, verbose_name='Нагадування в момент дзвінка')
+    tg_manager_alert_missed_callback = models.BooleanField(default=True, verbose_name='Алерт про пропущений передзвін')
+    tg_manager_alert_report_late = models.BooleanField(default=True, verbose_name='Нагадування про прострочений звіт')
+    tg_manager_daily_advice_enabled = models.BooleanField(default=True, verbose_name='Щоденні поради в Telegram')
+    tg_manager_critical_advice_enabled = models.BooleanField(default=True, verbose_name='Критичні поради в Telegram')
     is_manager = models.BooleanField(default=False, verbose_name='Менеджер (доступ до Management)')
 
     # Налаштування менеджера (виплати)

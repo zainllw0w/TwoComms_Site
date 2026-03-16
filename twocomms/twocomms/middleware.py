@@ -22,6 +22,9 @@ class ForceHTTPSMiddleware(MiddlewareMixin):
         if settings.DEBUG:
             return None
 
+        if request.path.startswith('/tg-manager/webhook/'):
+            return None
+
         # Проверяем, что запрос идет по HTTP
         if not request.is_secure():
             try:

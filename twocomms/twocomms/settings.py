@@ -185,6 +185,7 @@ TEMPLATES = [
                 'storefront.context_processors.analytics_settings',
                 'social_django.context_processors.backends',
                 'social_django.context_processors.login_redirect',
+                'management.context_processors.management_shell_context',
             ],
         },
     },
@@ -853,7 +854,7 @@ if not DEBUG:
     SECURE_HSTS_PRELOAD = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
-    SECURE_REDIRECT_EXEMPT = []  # Принудительный редирект для всех URL
+    SECURE_REDIRECT_EXEMPT = [r'^tg-manager/webhook/']  # Telegram webhook may arrive without Django seeing HTTPS correctly
     # SESSION_COOKIE_SECURE и CSRF_COOKIE_SECURE настроены выше и ниже адаптивно (not DEBUG)
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
