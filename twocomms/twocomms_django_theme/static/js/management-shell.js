@@ -19,6 +19,20 @@
   cache.set(currentUrl, initialRoot);
   titleCache.set(currentUrl, document.title || '');
 
+  const isStackedShell = () => (window.innerWidth || document.documentElement.clientWidth || 0) <= 1080;
+  const getActiveScrollTop = () => (
+    isStackedShell()
+      ? (window.scrollY || document.documentElement.scrollTop || 0)
+      : (contentArea.scrollTop || 0)
+  );
+  const setActiveScrollTop = (value) => {
+    if (isStackedShell()) {
+      window.scrollTo(0, typeof value === 'number' ? value : 0);
+      return;
+    }
+    contentArea.scrollTop = typeof value === 'number' ? value : 0;
+  };
+
   const setActiveNav = (targetUrl) => {
     const targetPath = targetUrl.pathname;
     navMenu.querySelectorAll('a.nav-item').forEach((a) => {
@@ -38,6 +52,9 @@
   const syncShellResponsiveState = () => {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const stackedShell = isStackedShell();
+
+    document.body.dataset.shellLayout = stackedShell ? 'stacked' : 'rail';
 
     let rowMode = 'table';
     if (viewportWidth < 1180) rowMode = 'card';
@@ -46,12 +63,18 @@
 
     if (!sidebarRail) return;
 
+    if (stackedShell) {
+      sidebarRail.dataset.railTier = 'stacked';
+      sidebarRail.dataset.railProgress = 'deep';
+      return;
+    }
+
     let railTier = 'expanded';
     if (viewportWidth < 1280 || viewportHeight < 780) railTier = 'collapsed';
     else if (viewportWidth < 1440 || viewportHeight < 900) railTier = 'compact';
     sidebarRail.dataset.railTier = railTier;
 
-    const scrollTop = contentArea.scrollTop || 0;
+    const scrollTop = getActiveScrollTop();
     let railProgress = 'top';
     if (scrollTop > 320) railProgress = 'deep';
     else if (scrollTop > 72) railProgress = 'mid';
@@ -113,7 +136,7 @@
 
   const swapToRoot = (nextUrlKey, nextRoot, nextTitle, pushHistory) => {
     // Save scroll for current tab
-    scrollCache.set(currentUrl, contentArea.scrollTop || 0);
+    scrollCache.set(currentUrl, getActiveScrollTop());
 
     // Detach current root
     const currentRoot = cache.get(currentUrl);
@@ -131,7 +154,7 @@
 
     // Restore scroll
     const prevScroll = scrollCache.get(nextUrlKey);
-    contentArea.scrollTop = typeof prevScroll === 'number' ? prevScroll : 0;
+    setActiveScrollTop(prevScroll);
 
     setActiveNav(new URL(nextUrlKey, window.location.origin));
     scheduleShellResponsiveState();
@@ -209,6 +232,7 @@
   });
 
   contentArea.addEventListener('scroll', scheduleShellResponsiveState, { passive: true });
+  window.addEventListener('scroll', scheduleShellResponsiveState, { passive: true });
   window.addEventListener('resize', scheduleShellResponsiveState);
   scheduleShellResponsiveState();
 })();
