@@ -7,15 +7,59 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 
+try:
+    import phonenumbers
+    from phonenumbers import PhoneNumberFormat
+except Exception:  # pragma: no cover - optional runtime dependency until installed everywhere
+    phonenumbers = None
+    PhoneNumberFormat = None
+
+
+def _ua_phone_candidates(raw_phone: str) -> list[str]:
+    raw = str(raw_phone or "").strip()
+    digits = re.sub(r"\D+", "", raw)
+    if not digits:
+        return []
+
+    candidates: list[str] = []
+    for value in (
+        raw,
+        f"+{digits}" if raw.startswith("+") else "",
+        f"+{digits}" if digits.startswith("380") and len(digits) == 12 else "",
+        digits if digits.startswith("0") and len(digits) == 10 else "",
+        f"0{digits}" if len(digits) == 9 else "",
+        f"0{digits[1:]}" if digits.startswith("80") and len(digits) == 11 else "",
+    ):
+        value = (value or "").strip()
+        if value and value not in candidates:
+            candidates.append(value)
+    return candidates
+
 
 def normalize_phone(raw_phone: str) -> str:
     digits = re.sub(r"\D+", "", raw_phone or "")
     if not digits:
         return ""
+
+    if phonenumbers is not None:
+        for candidate in _ua_phone_candidates(raw_phone):
+            try:
+                parsed = phonenumbers.parse(candidate, "UA")
+            except Exception:
+                continue
+            if not phonenumbers.is_possible_number(parsed):
+                continue
+            if not phonenumbers.is_valid_number(parsed):
+                continue
+            try:
+                return phonenumbers.format_number(parsed, PhoneNumberFormat.E164)
+            except Exception:
+                continue
+
     if digits.startswith("380") and len(digits) == 12:
         return f"+{digits}"
     if digits.startswith("80") and len(digits) == 11:
-        return f"+3{digits}"
+        return f"+38{digits[1:]}"
     if digits.startswith("0") and len(digits) == 10:
         return f"+38{digits}"
     if len(digits) == 9:
@@ -38,7 +82,8 @@ LEGAL_ENTITY_TOKENS = {
 
 
 def build_phone_last7(raw_phone: str) -> str:
-    digits = re.sub(r"\D+", "", raw_phone or "")
+    normalized = normalize_phone(raw_phone)
+    digits = re.sub(r"\D+", "", normalized or raw_phone or "")
     return digits[-7:] if len(digits) >= 7 else digits
 
 

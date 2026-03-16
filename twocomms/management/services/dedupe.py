@@ -29,6 +29,12 @@ class DedupeDecision:
 
 
 PARTIAL_PHONE_MATCH_SCORE = 0.2
+MATCH_SIGNAL_LABELS = {
+    "phone": "Телефон",
+    "phone_partial": "Схожий номер",
+    "website": "Сайт",
+    "name": "Назва",
+}
 
 
 def _candidate_score(*, name_match_score: float, phone_match_score: float, owner_match_score: float, source_link_score: float) -> float:
@@ -63,7 +69,41 @@ def _format_dt(dt_value) -> str:
         return "—"
 
 
-def _client_candidate_payload(client: Client, *, score: float, exact_phone: bool, is_shared_phone: bool) -> dict:
+def _build_match_signals(*, exact_phone: bool, partial_phone: bool, exact_website: bool, exact_name: bool) -> list[str]:
+    signals: list[str] = []
+    if exact_phone:
+        signals.append("phone")
+    elif partial_phone and (exact_website or exact_name):
+        signals.append("phone_partial")
+    if exact_website:
+        signals.append("website")
+    if exact_name:
+        signals.append("name")
+    return signals
+
+
+def _signal_summary(matched_on: list[str]) -> str:
+    if not matched_on:
+        return ""
+    return " · ".join(MATCH_SIGNAL_LABELS.get(item, item) for item in matched_on)
+
+
+def _client_candidate_payload(
+    client: Client,
+    *,
+    score: float,
+    exact_phone: bool,
+    partial_phone: bool,
+    exact_website: bool,
+    exact_name: bool,
+    is_shared_phone: bool,
+) -> dict:
+    matched_on = _build_match_signals(
+        exact_phone=exact_phone,
+        partial_phone=partial_phone,
+        exact_website=exact_website,
+        exact_name=exact_name,
+    )
     return {
         "kind": "client",
         "id": client.id,
@@ -73,16 +113,36 @@ def _client_candidate_payload(client: Client, *, score: float, exact_phone: bool
         "score": round(score, 4),
         "is_shared_phone": bool(is_shared_phone),
         "exact_phone": bool(exact_phone),
+        "exact_name": bool(exact_name),
+        "exact_website": bool(exact_website),
+        "matched_on": matched_on,
+        "signal_summary": _signal_summary(matched_on),
         "owner_display": candidate_owner_display(client.owner),
         "created_at_display": _format_dt(client.created_at),
         "last_contact_display": _format_dt(client.updated_at or client.created_at),
+        "freshness_display": _format_dt(client.updated_at or client.created_at),
         "last_result_display": client.get_call_result_display(),
         "verdict_display": client.call_result_details or client.get_call_result_display(),
         "next_call_display": _format_dt(client.next_call_at),
     }
 
 
-def _lead_candidate_payload(lead: ManagementLead, *, score: float, exact_phone: bool, is_shared_phone: bool) -> dict:
+def _lead_candidate_payload(
+    lead: ManagementLead,
+    *,
+    score: float,
+    exact_phone: bool,
+    partial_phone: bool,
+    exact_website: bool,
+    exact_name: bool,
+    is_shared_phone: bool,
+) -> dict:
+    matched_on = _build_match_signals(
+        exact_phone=exact_phone,
+        partial_phone=partial_phone,
+        exact_website=exact_website,
+        exact_name=exact_name,
+    )
     return {
         "kind": "lead",
         "id": lead.id,
@@ -92,9 +152,14 @@ def _lead_candidate_payload(lead: ManagementLead, *, score: float, exact_phone: 
         "score": round(score, 4),
         "is_shared_phone": bool(is_shared_phone),
         "exact_phone": bool(exact_phone),
+        "exact_name": bool(exact_name),
+        "exact_website": bool(exact_website),
+        "matched_on": matched_on,
+        "signal_summary": _signal_summary(matched_on),
         "owner_display": candidate_owner_display(lead.added_by),
         "created_at_display": _format_dt(lead.created_at),
         "last_contact_display": _format_dt(lead.updated_at or lead.created_at),
+        "freshness_display": _format_dt(lead.updated_at or lead.created_at),
         "last_result_display": lead.get_status_display(),
         "verdict_display": lead.rejection_reason or lead.comments or lead.get_status_display(),
         "next_call_display": "—",
@@ -119,27 +184,41 @@ def _collect_candidates(
     exclude_lead_ids = exclude_lead_ids or []
 
     for client in Client.objects.exclude(id__in=exclude_client_ids).select_related("owner"):
-        name_score = 1.0 if client.normalized_name_match_key and client.normalized_name_match_key == name_key else 0.0
-        phone_score = (
-            1.0
-            if client.phone_normalized and client.phone_normalized == phone_normalized
-            else PARTIAL_PHONE_MATCH_SCORE if client.phone_last7 and client.phone_last7 == phone_last7 else 0.0
+        exact_name = bool(name_key and client.normalized_name_match_key and client.normalized_name_match_key == name_key)
+        exact_phone = bool(client.phone_normalized and client.phone_normalized == phone_normalized)
+        partial_phone = bool(
+            not exact_phone
+            and phone_last7
+            and client.phone_last7
+            and client.phone_last7 == phone_last7
         )
+        exact_website = bool(website_key and normalize_website_for_match(client.website_url) == website_key)
+        name_score = 1.0 if exact_name else 0.0
+        phone_score = 1.0 if exact_phone else PARTIAL_PHONE_MATCH_SCORE if partial_phone else 0.0
         owner_score = 1.0 if owner and client.owner_id == getattr(owner, "id", None) else 0.0
-        source_score = 1.0 if website_key and normalize_website_for_match(client.website_url) == website_key else 0.0
+        source_score = 1.0 if exact_website else 0.0
         score = _candidate_score(
             name_match_score=name_score,
             phone_match_score=phone_score,
             owner_match_score=owner_score,
             source_link_score=source_score,
         )
-        if score <= 0:
+        matched_on = _build_match_signals(
+            exact_phone=exact_phone,
+            partial_phone=partial_phone,
+            exact_website=exact_website,
+            exact_name=exact_name,
+        )
+        if score <= 0 or not matched_on:
             continue
         candidates.append(_client_candidate_payload(
             client,
             score=score,
+            partial_phone=partial_phone,
+            exact_website=exact_website,
+            exact_name=exact_name,
             is_shared_phone=bool(client.is_shared_phone),
-            exact_phone=bool(client.phone_normalized and client.phone_normalized == phone_normalized),
+            exact_phone=exact_phone,
         ))
 
     for lead in (
@@ -147,30 +226,51 @@ def _collect_candidates(
         .exclude(id__in=exclude_lead_ids)
         .select_related("added_by")
     ):
-        name_score = 1.0 if lead.normalized_name_match_key and lead.normalized_name_match_key == name_key else 0.0
-        phone_score = (
-            1.0
-            if lead.phone_normalized and lead.phone_normalized == phone_normalized
-            else PARTIAL_PHONE_MATCH_SCORE if lead.phone_last7 and lead.phone_last7 == phone_last7 else 0.0
+        exact_name = bool(name_key and lead.normalized_name_match_key and lead.normalized_name_match_key == name_key)
+        exact_phone = bool(lead.phone_normalized and lead.phone_normalized == phone_normalized)
+        partial_phone = bool(
+            not exact_phone
+            and phone_last7
+            and lead.phone_last7
+            and lead.phone_last7 == phone_last7
         )
+        exact_website = bool(website_key and normalize_website_for_match(lead.website_url) == website_key)
+        name_score = 1.0 if exact_name else 0.0
+        phone_score = 1.0 if exact_phone else PARTIAL_PHONE_MATCH_SCORE if partial_phone else 0.0
         owner_score = 1.0 if owner and lead.added_by_id == getattr(owner, "id", None) else 0.0
-        source_score = 1.0 if website_key and normalize_website_for_match(lead.website_url) == website_key else 0.0
+        source_score = 1.0 if exact_website else 0.0
         score = _candidate_score(
             name_match_score=name_score,
             phone_match_score=phone_score,
             owner_match_score=owner_score,
             source_link_score=source_score,
         )
-        if score <= 0:
+        matched_on = _build_match_signals(
+            exact_phone=exact_phone,
+            partial_phone=partial_phone,
+            exact_website=exact_website,
+            exact_name=exact_name,
+        )
+        if score <= 0 or not matched_on:
             continue
         candidates.append(_lead_candidate_payload(
             lead,
             score=score,
+            partial_phone=partial_phone,
+            exact_website=exact_website,
+            exact_name=exact_name,
             is_shared_phone=bool(lead.is_shared_phone),
-            exact_phone=bool(lead.phone_normalized and lead.phone_normalized == phone_normalized),
+            exact_phone=exact_phone,
         ))
 
-    candidates.sort(key=lambda item: (item["exact_phone"], item["score"]), reverse=True)
+    candidates.sort(
+        key=lambda item: (
+            item["exact_phone"],
+            item.get("exact_website", False) and item.get("exact_name", False),
+            item["score"],
+        ),
+        reverse=True,
+    )
     return candidates
 
 
@@ -197,9 +297,7 @@ def evaluate_duplicate_zone(
     strongest = candidates[0]
     if strongest["exact_phone"]:
         zone = DedupeZone.REVIEW if strongest["is_shared_phone"] else DedupeZone.AUTO_BLOCK
-    elif strongest["score"] >= 0.75:
-        zone = DedupeZone.REVIEW
-    elif strongest["score"] >= 0.45:
+    elif strongest.get("exact_name") or strongest.get("exact_website"):
         zone = DedupeZone.SUGGESTION
     else:
         zone = DedupeZone.CLEAR
@@ -275,9 +373,12 @@ def build_duplicate_conflict_payload(
 
 
 def build_duplicate_preview_payload(*, decision: DedupeDecision) -> dict:
+    strongest = decision.candidates[0] if decision.candidates else {}
     return {
         "success": True,
         "zone": decision.zone,
         "has_warning": decision.zone != DedupeZone.CLEAR,
         "candidates": decision.candidates,
+        "signal_summary": strongest.get("signal_summary", ""),
+        "matched_on": strongest.get("matched_on", []),
     }

@@ -32,7 +32,7 @@ def management_subjects_queryset():
 
 def management_role_label(user) -> str:
     if user.is_staff and not getattr(getattr(user, "userprofile", None), "is_manager", False):
-        return "Адмін"
+        return "Адміністратор"
     if getattr(getattr(user, "userprofile", None), "is_manager", False):
         return "Менеджер"
     if getattr(user, "has_report_history", False) or getattr(user, "has_activity_history", False):

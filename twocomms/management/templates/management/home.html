@@ -38,7 +38,12 @@
                 </button>
             </form>
             <button class="btn-primary open-add-client">+ Додати клієнта</button>
-            <button class="btn-ghost open-add-lead">+ Додати лід</button>
+            <div class="panel-action-group">
+                <button class="btn-ghost open-add-lead">+ Додати лід</button>
+                <button type="button" class="icon-btn ghost help-tooltip-trigger" aria-label="Пояснення для бази лідів" title="Додає контакт у базу для подальшої роботи. Це не замінює саму обробку клієнта і не фіксує результат дзвінка.">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 15.2a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4zm1.55-4.96-.58.4c-.52.36-.8.72-.8 1.36v.38h-2v-.47c0-1.11.46-1.9 1.33-2.48l.8-.54c.47-.32.75-.69.75-1.22 0-.85-.7-1.43-1.73-1.43-1.05 0-1.78.57-1.92 1.56H7.43c.18-2.1 1.87-3.37 4.05-3.37 2.34 0 3.95 1.33 3.95 3.29 0 1.1-.55 1.95-1.88 2.87z"/></svg>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -69,8 +74,14 @@
                         </thead>
                         <tbody>
                             {% for client in items %}
-                            <tr data-client-id="{{ client.id }}"
-                                data-shop="{{ client.shop_name|escape }}"
+                            <tr class="{% if client.callback_pending %}callback-ghost-row{% endif %}"
+                                data-client-id="{{ client.id }}"
+                                data-client-mode="{{ client.client_mode }}"
+                                data-callback-attempts="{{ client.callback_attempts }}"
+                                data-callback-review-candidate="{{ client.callback_review_candidate|yesno:'true,false' }}"
+                                data-last-interaction-summary="{{ client.last_interaction_summary|escape }}"
+                                data-last-interaction-at="{{ client.last_interaction_at|escape }}"
+                                data-shop="{{ client.shop|escape }}"
                                 data-phone="{{ client.phone|escape }}"
                                 data-website-url="{{ client.website_url|escape }}"
                                 data-full-name="{{ client.full_name|escape }}"
@@ -79,19 +90,19 @@
                                 data-call-result="{{ client.call_result }}"
                                 data-call-result-reason-code="{{ client.call_result_reason_code|escape }}"
                                 data-call-result-reason-note="{{ client.call_result_reason_note|escape }}"
-                                data-call-result-contact-attempts="{{ client.call_result_context.attempts|default:'' }}"
-                                data-call-result-contact-channel="{{ client.call_result_context.contact_channel|default:'' }}"
+                                data-call-result-contact-attempts="{{ client.call_result_contact_attempts|default:'' }}"
+                                data-call-result-contact-channel="{{ client.call_result_contact_channel|default:'' }}"
                                 data-call-details="{{ client.call_result_details|escape }}"
-                                data-cp-log-id="{{ client.call_result_context.cp_log_id|default:'' }}"
-                                data-messenger-type="{{ client.call_result_context.messenger_type|default:'' }}"
-                                data-messenger-target-mode="{{ client.call_result_context.messenger_target_mode|default:'' }}"
-                                data-messenger-target-value="{{ client.call_result_context.messenger_target_value|default:'' }}"
-                                data-xml-platform="{{ client.call_result_context.xml_platform|default:'' }}"
-                                data-xml-resource-url="{{ client.call_result_context.xml_resource_url|default:'' }}"
-                                data-linked-shop-id="{{ client.call_result_context.linked_shop_id|default:'' }}"
-                                data-next-call-date="{{ client.next_call_at|date:'Y-m-d' }}"
-                                data-next-call-time="{{ client.next_call_at|date:'H:i' }}">
-                                <td>{{ client.shop_name }}</td>
+                                data-cp-log-id="{{ client.cp_log_id|default:'' }}"
+                                data-messenger-type="{{ client.messenger_type|default:'' }}"
+                                data-messenger-target-mode="{{ client.messenger_target_mode|default:'' }}"
+                                data-messenger-target-value="{{ client.messenger_target_value|default:'' }}"
+                                data-xml-platform="{{ client.xml_platform|default:'' }}"
+                                data-xml-resource-url="{{ client.xml_resource_url|default:'' }}"
+                                data-linked-shop-id="{{ client.linked_shop_id|default:'' }}"
+                                data-next-call-date="{{ client.next_call_date|default:'' }}"
+                                data-next-call-time="{{ client.next_call_time|default:'' }}">
+                                <td>{{ client.shop }}</td>
                                 <td>{{ client.phone }}</td>
                                 <td>
                                     {% if client.website_url %}
@@ -101,20 +112,28 @@
                                     {% endif %}
                                 </td>
                                 <td>{{ client.full_name }}</td>
-                                <td><span class="status-badge role-{{ client.role }}">{{ client.get_role_display }}</span></td>
+                                <td><span class="status-badge role-{{ client.role }}">{{ client.role_display }}</span></td>
                                 <td>{{ client.source }}</td>
                                 <td>
-                                    <span class="result-badge result-{{ client.call_result }}">{{ client.get_call_result_display }}</span>
+                                    <span class="result-badge result-{{ client.call_result }}">{{ client.call_result_display }}</span>
                                     {% if client.call_result_details %}<span class="muted-detail">• {{ client.call_result_details }}</span>{% endif %}
                                 </td>
                                 <td>
-                                    {% if client.next_call_at %}
-                                        {{ client.next_call_at|date:"d.m.Y H:i" }}
+                                    {% if client.next_call_date %}
+                                        <div class="callback-next-call">
+                                            <span>{{ client.next_call }}</span>
+                                            {% if client.callback_pending %}
+                                            <small>Очікує передзвону</small>
+                                            {% endif %}
+                                        </div>
                                     {% else %}
                                         –
                                     {% endif %}
                                 </td>
                                 <td class="actions-cell">
+                                    {% if client.callback_pending %}
+                                    <button type="button" class="btn-ghost btn-small callback-client" aria-label="Передзвонити">Передзвонити</button>
+                                    {% endif %}
                                     <button type="button" class="icon-btn edit-client" aria-label="Редагувати">
                                         <svg viewBox="0 0 24 24" aria-hidden="true">
                                             <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
@@ -221,7 +240,9 @@
                         <p class="entry-section-kicker">Контакт</p>
                         <h4>Базові дані контакту</h4>
                     </div>
-                    <p class="entry-section-copy">Система одразу перевіряє телефон, сайт і назву на можливі дублікати.</p>
+                    <div class="entry-section-help">
+                        <span class="helper-chip" title="Під час введення система одразу перевіряє телефон, сайт і назву на можливі збіги.">Дедуплікація в реальному часі</span>
+                    </div>
                 </div>
                 <div class="field-grid">
                     <div class="field">
@@ -236,6 +257,7 @@
                         <label for="website_url">Сайт (необов'язково)</label>
                         <input type="url" id="website_url" name="website_url" placeholder="https://example.com">
                     </div>
+                    <div class="field field-span-2 duplicate-review-surface duplicate-review-surface--inline" id="client_duplicate_notice" hidden></div>
                     <div class="field">
                         <label for="full_name">ПІБ (необовʼязково)</label>
                         <input type="text" id="full_name" name="full_name" placeholder="ПІБ або контактна особа">
@@ -272,7 +294,9 @@
                         <p class="entry-section-kicker">Підсумок і доказ</p>
                         <h4>Результат обробки контакту</h4>
                     </div>
-                    <p class="entry-section-copy">Для конверсійних результатів потрібно прив'язати доказ: КП, месенджер, XML або магазин.</p>
+                    <div class="entry-section-help">
+                        <span class="helper-chip" title="Для конверсійних результатів потрібно прив'язати доказ: КП, месенджер, XML або магазин.">Доказовий результат</span>
+                    </div>
                 </div>
                 <div class="field-grid">
                     <div class="field">
@@ -367,8 +391,6 @@
                         </select>
                         <div class="linked-shop-summary" id="linked_shop_summary">Виберіть магазин, щоб підтягнути коротку сводку по ТТН та сумі.</div>
                     </div>
-
-                    <div class="field field-span-2 duplicate-review-surface" id="client_duplicate_notice" hidden></div>
                 </div>
             </section>
 
@@ -378,7 +400,14 @@
                         <p class="entry-section-kicker">Наступний крок</p>
                         <h4>Follow-up і нагадування</h4>
                     </div>
-                    <p class="entry-section-copy">Оберіть, коли краще нагадати про наступний контакт.</p>
+                    <div class="entry-section-help">
+                        <span class="helper-chip" title="Своєчасний передзвон підтримує дисципліну портфеля, а Telegram-бот нагадає завчасно і в потрібну хвилину.">Follow-up без втрат</span>
+                    </div>
+                </div>
+                <div class="callback-context-card" id="client_callback_context" hidden>
+                    <div class="callback-context-card__eyebrow">Режим передзвону</div>
+                    <div class="callback-context-card__title">Цей контакт уже був доданий. Ви продовжуєте попередню обробку, а не створюєте новий запис.</div>
+                    <div class="callback-context-card__meta" id="client_callback_context_meta"></div>
                 </div>
                 <div class="field-grid">
                     <div class="field field-span-2">
@@ -400,7 +429,7 @@
                         </div>
                         <div class="tg-followup-cta" id="telegram_followup_cta" hidden>
                             <strong>Підключіть Telegram-бота.</strong>
-                            Бот нагадує про передзвони завчасно і допомагає не губити follow-up.
+                            Бот нагадає про передзвони заздалегідь і в момент контакту, щоб менеджер не губив активні домовленості.
                             {% if manager_bot_username %}
                                 <a href="https://t.me/{{ manager_bot_username }}" target="_blank" rel="noopener noreferrer">Відкрити бота</a>
                             {% endif %}
@@ -709,10 +738,12 @@ function initManagementHomePage() {
     };
 
     const openModal = (modal) => {
+        if (!modal) return;
         modal.classList.add('show');
         body.classList.add('modal-open');
     };
     const closeModal = (modal) => {
+        if (!modal) return;
         modal.classList.remove('show');
         if (!document.querySelector('.modal-overlay.show')) {
             body.classList.remove('modal-open');
@@ -726,6 +757,11 @@ function initManagementHomePage() {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeModal(modal);
         });
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const topModal = Array.from(document.querySelectorAll('.modal-overlay.show')).pop();
+        if (topModal) closeModal(topModal);
     });
 
     document.getElementById('home-mode-tabs')?.addEventListener('click', (e) => {
@@ -745,7 +781,10 @@ function initManagementHomePage() {
     const sourceSelect = document.getElementById('source');
     const sourceLink = document.getElementById('source_link');
     const sourceOther = document.getElementById('source_other');
+    const shopInput = document.getElementById('shop_name');
     const phoneInput = document.getElementById('phone');
+    const websiteInput = document.getElementById('website_url');
+    const fullNameInput = document.getElementById('full_name');
     const callResultSelect = document.getElementById('call_result');
     const callResultOther = document.getElementById('call_result_other');
     const callResultReasonBlock = document.getElementById('call_result_reason_block');
@@ -783,6 +822,8 @@ function initManagementHomePage() {
     const clientForm = document.getElementById('client-form');
     const modalTitle = clientModal.querySelector('.modal-header h3');
     const modalSubmit = clientModal.querySelector('.modal-footer .btn-primary');
+    const clientCallbackContext = document.getElementById('client_callback_context');
+    const clientCallbackContextMeta = document.getElementById('client_callback_context_meta');
 
     const leadSourceSelect = document.getElementById('lead_source');
     const leadSourceLink = document.getElementById('lead_source_link');
@@ -878,16 +919,19 @@ function initManagementHomePage() {
                     <div>
                         <div class="duplicate-review-eyebrow">${candidate.kind === 'client' ? 'Клієнт' : 'Лід'}</div>
                         <h4>${candidate.shop_name || 'Без назви'}</h4>
+                        <div class="duplicate-summary-sub">${candidate.signal_summary || payload.signal_summary || 'Перевірте деталі збігу перед збереженням.'}</div>
                     </div>
                     <div class="duplicate-score-chip">Score ${candidate.score ?? '—'}</div>
                 </header>
                 <dl class="duplicate-summary-grid">
+                    <div><dt>Збіг знайдено по</dt><dd>${(candidate.matched_on || []).join(' · ') || (payload.matched_on || []).join(' · ') || '—'}</dd></div>
                     <div><dt>Менеджер</dt><dd>${candidate.owner_display || '—'}</dd></div>
                     <div><dt>Створено</dt><dd>${candidate.created_at_display || '—'}</dd></div>
                     <div><dt>Останній контакт</dt><dd>${candidate.last_contact_display || '—'}</dd></div>
                     <div><dt>Підсумок</dt><dd>${candidate.last_result_display || '—'}</dd></div>
                     <div><dt>Вердикт</dt><dd>${candidate.verdict_display || '—'}</dd></div>
                     <div><dt>Наступний крок</dt><dd>${candidate.next_call_display || '—'}</dd></div>
+                    <div><dt>Свіжість</dt><dd>${candidate.freshness_display || '—'}</dd></div>
                     <div><dt>Телефон</dt><dd>${candidate.phone || '—'}</dd></div>
                     <div><dt>Сайт</dt><dd>${candidate.website_url || '—'}</dd></div>
                 </dl>
@@ -908,7 +952,7 @@ function initManagementHomePage() {
         const items = candidates.slice(0, 3).map((candidate) => `
             <li>
                 <strong>${candidate.shop_name || 'Без назви'}</strong>
-                <span>${candidate.kind === 'client' ? 'Клієнт' : 'Лід'}</span>
+                <span>${(candidate.matched_on || []).join(' · ') || 'збіг'}</span>
                 <span>${candidate.owner_display || '—'}</span>
                 <span>${candidate.last_result_display || '—'}</span>
             </li>
@@ -920,7 +964,7 @@ function initManagementHomePage() {
                 <div>
                     <div class="duplicate-review-eyebrow">${payload.zone === 'suggestion' ? 'Можливий збіг' : 'Потрібна перевірка'}</div>
                     <strong>${payload.error || 'Такий контакт уже зустрічався в базі'}</strong>
-                    <div class="field-hint">Перегляньте коротку історію збігу перед збереженням.</div>
+                    <div class="field-hint">${payload.signal_summary || 'Перегляньте коротку історію збігу перед збереженням.'}</div>
                 </div>
                 <div class="duplicate-review-actions">
                     <button type="button" class="btn-ghost btn-small duplicate-summary-open">Переглянути</button>
@@ -1138,6 +1182,33 @@ function initManagementHomePage() {
         return { val: 'other', link: '', other: sourceText || '' };
     };
 
+    const setClientIdentityLocked = (locked) => {
+        [shopInput, phoneInput, websiteInput, fullNameInput].forEach((field) => {
+            if (!field) return;
+            field.readOnly = !!locked;
+            field.classList.toggle('is-readonly', !!locked);
+        });
+    };
+
+    const setClientModeContext = ({ mode = 'client', callbackAttempts = 0, callbackReviewCandidate = false, lastSummary = '', lastAt = '' } = {}) => {
+        const isCallback = mode === 'callback';
+        setNodeVisible(clientCallbackContext, isCallback, 'grid');
+        setClientIdentityLocked(isCallback);
+        clientForm.dataset.clientMode = mode;
+        if (!isCallback) {
+            if (clientCallbackContextMeta) clientCallbackContextMeta.textContent = '';
+            return;
+        }
+        const parts = [];
+        if (callbackAttempts) parts.push(`Спроб передзвону за 7 днів: ${callbackAttempts}`);
+        if (lastAt) parts.push(`Остання дія: ${lastAt}`);
+        if (lastSummary) parts.push(lastSummary);
+        if (callbackReviewCandidate) parts.push('Потрібно уважно перевірити, чи не затягнувся цикл follow-up.');
+        if (clientCallbackContextMeta) {
+            clientCallbackContextMeta.textContent = parts.filter(Boolean).join(' · ');
+        }
+    };
+
     const resetClientForm = () => {
         clientForm.reset();
         clientIdInput.value = '';
@@ -1190,15 +1261,16 @@ function initManagementHomePage() {
         });
         toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime);
         setNodeVisible(telegramFollowupCta, !hasManagerTelegramBinding && clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked, 'block');
+        setClientModeContext();
     };
 
-    const fillClientFormForEdit = (row) => {
+    const fillClientFormForEdit = (row, { forceMode } = {}) => {
         clearDuplicateNotice(clientDuplicateNotice);
         clientIdInput.value = row.dataset.clientId || '';
-        document.getElementById('shop_name').value = row.dataset.shop || '';
-        document.getElementById('phone').value = row.dataset.phone || '';
-        document.getElementById('website_url').value = row.dataset.websiteUrl || '';
-        document.getElementById('full_name').value = row.dataset.fullName || '';
+        shopInput.value = row.dataset.shop || '';
+        phoneInput.value = row.dataset.phone || '';
+        websiteInput.value = row.dataset.websiteUrl || '';
+        fullNameInput.value = row.dataset.fullName || '';
         roleSelect.value = row.dataset.role || 'manager';
         roleCustom.value = roleSelect.value === 'other' ? (row.dataset.callDetails || '').replace('Роль: ', '') : '';
 
@@ -1280,6 +1352,13 @@ function initManagementHomePage() {
         );
         toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime);
         setNodeVisible(telegramFollowupCta, !hasManagerTelegramBinding && clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked, 'block');
+        setClientModeContext({
+            mode: forceMode || row.dataset.clientMode || 'client',
+            callbackAttempts: parseInt(row.dataset.callbackAttempts || '0', 10) || 0,
+            callbackReviewCandidate: row.dataset.callbackReviewCandidate === 'true',
+            lastSummary: row.dataset.lastInteractionSummary || '',
+            lastAt: row.dataset.lastInteractionAt || '',
+        });
     };
 
     const updateStats = (data) => {
@@ -1305,7 +1384,13 @@ function initManagementHomePage() {
         const websiteCell = client.website_url
             ? `<a href="${client.website_url}" target="_blank" rel="noopener noreferrer">${client.website_url}</a>`
             : '—';
-        return `<tr data-client-id="${client.id}"
+        return `<tr class="${client.callback_pending ? 'callback-ghost-row' : ''}"
+                    data-client-id="${client.id}"
+                    data-client-mode="${client.client_mode || (client.callback_pending ? 'callback' : 'client')}"
+                    data-callback-attempts="${client.callback_attempts || 0}"
+                    data-callback-review-candidate="${client.callback_review_candidate ? 'true' : 'false'}"
+                    data-last-interaction-summary="${client.last_interaction_summary || ''}"
+                    data-last-interaction-at="${client.last_interaction_at || ''}"
                     data-shop="${client.shop}"
                     data-phone="${client.phone}"
                     data-website-url="${client.website_url || ''}"
@@ -1334,8 +1419,9 @@ function initManagementHomePage() {
                     <td><span class="status-badge role-${client.role}">${client.role_display}</span></td>
                     <td>${client.source}</td>
                     <td><span class="result-badge result-${client.call_result}">${client.call_result_display}</span>${client.call_result_details ? `<span class="muted-detail">• ${client.call_result_details}</span>` : ''}</td>
-                    <td>${client.next_call || '–'}</td>
+                    <td>${client.next_call ? `<div class="callback-next-call"><span>${client.next_call}</span>${client.callback_pending ? '<small>Очікує передзвону</small>' : ''}</div>` : '–'}</td>
                     <td class="actions-cell">
+                        ${client.callback_pending ? `<button type="button" class="btn-ghost btn-small callback-client" aria-label="Передзвонити">Передзвонити</button>` : ''}
                         <button type="button" class="icon-btn edit-client" aria-label="Редагувати">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"></path></svg>
                         </button>
@@ -1349,7 +1435,12 @@ function initManagementHomePage() {
                 </tr>`;
     };
 
-    const prependClientToToday = (client, csrfToken) => {
+    const upsertClientInTable = (client, csrfToken) => {
+        const existingRow = document.querySelector(`tr[data-client-id="${client.id}"]`);
+        if (existingRow) {
+            existingRow.outerHTML = buildClientRowHtml(client, csrfToken);
+            return;
+        }
         let todayGroup = Array.from(document.querySelectorAll('.date-group .date-chip')).find((chip) => chip.textContent.trim() === 'Сьогодні');
         if (!todayGroup) {
             const processingPane = document.getElementById('processing-pane');
@@ -1615,6 +1706,16 @@ function initManagementHomePage() {
             openModal(clientModal);
             return;
         }
+        const callbackBtn = e.target.closest('.callback-client');
+        if (callbackBtn) {
+            const row = callbackBtn.closest('tr');
+            if (!row) return;
+            fillClientFormForEdit(row, { forceMode: 'callback' });
+            modalTitle.textContent = 'Передзвонити клієнту';
+            modalSubmit.textContent = 'Зберегти підсумок передзвону';
+            openModal(clientModal);
+            return;
+        }
         const processBtn = e.target.closest('.process-lead');
         if (processBtn) {
             const leadId = processBtn.dataset.leadId || processBtn.closest('tr')?.dataset.leadId;
@@ -1717,7 +1818,7 @@ function initManagementHomePage() {
             }
             duplicateOverrideReason.value = '';
             updateStats(data);
-            if (data.latest) prependClientToToday(data.latest, formData.get('csrfmiddlewaretoken') || '');
+            if (data.latest) upsertClientInTable(data.latest, formData.get('csrfmiddlewaretoken') || '');
             closeModal(clientModal);
         } catch (err) {
             alert(err.message || 'Помилка збереження');
@@ -1768,7 +1869,7 @@ function initManagementHomePage() {
             const row = document.querySelector(`#lead-base-table tr[data-lead-id="${leadId}"]`);
             if (row) row.remove();
             updateStats(data);
-            if (data.client) prependClientToToday(data.client, formData.get('csrfmiddlewaretoken') || '');
+            if (data.client) upsertClientInTable(data.client, formData.get('csrfmiddlewaretoken') || '');
             closeModal(processModal);
         } catch (err) {
             alert(err.message || 'Помилка обробки ліда');

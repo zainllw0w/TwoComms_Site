@@ -164,3 +164,47 @@
 - `SECRET_KEY=test-secret python3 manage.py makemigrations management` generated `management/migrations/0025_duplicatereview_resolution_note_and_more.py`.
 - `SECRET_KEY=test-secret python3 manage.py makemigrations --check --dry-run management` reported no pending changes after the migration was created.
 - `git diff --check` passed.
+
+## 2026-03-16 Dedupe Correctness + Callback UX + Bot Refresh Pass
+
+- Tightened realtime dedupe so user-facing preview no longer leaks owner-only or weak `last7` candidates. Exact E.164 phone remains the only aggressive blocking signal; website/name now stay soft suggestions without forcing override.
+- Upgraded Ukrainian phone normalization to prefer `phonenumbers` (`+380`, `380`, `80`, `0XXXXXXXXX`, punctuation, spaces, brackets) while keeping the existing manual fallback for draft input and environments where the package is absent.
+- Fixed the Telegram manager-bot bind flow around Telegram-safe deep links:
+  - replaced the invalid long `TimestampSigner` payload with a compact signed token compatible with Telegram `start` payload limits;
+  - added one-tap `tg://` + `https://t.me/...` links in the profile response;
+  - kept the short manual fallback code for degraded cases;
+  - added a bot reset endpoint and reset action in the profile UI;
+  - updated the webhook to accept both the signed deep-link token and the legacy raw code.
+- Added Telegram preference fields to `UserProfile` for `15m`, `5m`, `due-now`, `missed callback`, `late report`, `daily advice`, and `critical advice`, and wired them into the manager bot notification path.
+- Refactored client follow-up synchronization into `management/services/followup_sync.py` so `Client.next_call_at` and `ClientFollowUp` keep one contract across manual entry, edits, and callback cycles.
+- Extended the home shell to treat scheduled callbacks as a first-class workflow:
+  - serialized callback metadata per client;
+  - rendered callback rows as translucent `ghost` rows in the same processing table;
+  - added `Передзвонити` action that reuses the same modal in callback mode;
+  - locked the main identity fields in callback mode and surfaced previous interaction context inline.
+- Rebuilt the sidebar/profile shell around the new management contract:
+  - real role label (`Менеджер` / `Адміністратор`) instead of hardcoded `Manager`;
+  - improved daily norm block while keeping the semi-circular gauge;
+  - added MOSAIC mini-surface and direct stats shortcut;
+  - reworked the profile bot block and added manager-bot preference toggles.
+- Upgraded manager/admin report packaging:
+  - workbook now includes `Overview`, `Clients`, `Callbacks`, `Duplicate Queue`, `Shadow Score Context`, and `Advice & Risk Notes`;
+  - Telegram report caption now includes shadow context, callback discipline, duplicate queue state, and key advice instead of only legacy daily totals.
+- Added/updated regression coverage for:
+  - false-positive suppression in realtime dedupe preview;
+  - shell role rendering and callback-row presence;
+  - deep-link bind response payload;
+  - signed webhook bind success;
+  - workbook sheet structure plus safe serialization of `shadow.why_changed_today` into Excel insights.
+
+### Verification Evidence For 2026-03-16 Pass
+
+- `SECRET_KEY=test-secret python3 manage.py test management.tests_phase2_dedupe management.tests_phase7_shell_bot --settings=test_settings` passed with `19` tests green.
+- `SECRET_KEY=test-secret python3 manage.py test management.tests management.tests_phase2_dedupe management.tests_phase6_client_entry management.tests_phase7_shell_bot --settings=test_settings` passed with `42` tests green.
+- `SECRET_KEY=test-secret python3 manage.py test management.tests_phase7_shell_bot --settings=test_settings` passed with `5` tests green, including the workbook regression.
+- `SECRET_KEY=test-secret python3 manage.py test management.tests management.tests_phase1 management.tests_phase2_dedupe management.tests_phase3_services management.tests_phase3_snapshots management.tests_phase4_analytics management.tests_phase5_completion management.tests_phase6_client_entry management.tests_phase6_foundation management.tests_phase7_shell_bot --settings=test_settings` passed with `89` tests green.
+- `SECRET_KEY=test-secret python3 manage.py check --settings=test_settings` passed.
+- `SECRET_KEY=test-secret python3 manage.py makemigrations --check --dry-run --settings=test_settings` reported no changes.
+- `python3 -m py_compile management/views.py management/services/dedupe.py management/context_processors.py accounts/models.py twocomms/middleware.py` passed.
+- `python3 -m pip install phonenumbers==9.0.12` completed successfully in the local environment for real UA phone parsing.
+- `git diff --check` passed.

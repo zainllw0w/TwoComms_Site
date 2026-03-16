@@ -5,6 +5,7 @@ import logging
 import re
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 from django.conf import settings
 from django.contrib import messages
@@ -14,8 +15,9 @@ from django.utils.html import escape
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import JsonResponse, FileResponse, HttpResponse
+from django.core import signing
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.mail import EmailMultiAlternatives
@@ -35,13 +37,16 @@ from .forms import CommercialOfferEmailForm
 from .models import (
     Client,
     ClientFollowUp,
+    ClientInteractionAttempt,
     CommercialOfferEmailLog,
     CommercialOfferEmailSettings,
     ContractSequence,
     ContractRejectionReasonRequest,
+    DuplicateReview,
     InvoiceRejectionReasonRequest,
     ManagementContract,
     ManagementLead,
+    NightlyScoreSnapshot,
     ReminderRead,
     ReminderSent,
     Report,
@@ -86,6 +91,7 @@ from .services.dedupe import (
 )
 from .services.forecast import build_admin_economics_summary, build_salary_simulator
 from .services.followups import build_reminder_digest
+from .services.followup_sync import local_followup_date, sync_client_followup
 from .services.outcomes import format_source_display, get_outcome_reason_schema, normalize_result_capture
 from .services.roster import management_role_label, manager_roster_queryset
 
@@ -173,6 +179,30 @@ def get_manager_bot_username():
     return ""
 
 
+def _build_manager_start_payload(user_id: int, code: str) -> str:
+    value = f"{int(user_id)}-{code}"
+    return signing.Signer(salt="management.bot.bind").sign(value)
+
+
+def _resolve_profile_from_start_payload(payload: str):
+    token = (payload or "").strip()
+    if not token:
+        return None
+    try:
+        value = signing.Signer(salt="management.bot.bind").unsign(token)
+        user_id_raw, code = value.split("-", 1)
+        user_id = int(user_id_raw)
+    except (signing.BadSignature, ValueError):
+        return None
+
+    now = timezone.now()
+    return UserProfile.objects.filter(
+        user_id=user_id,
+        tg_manager_bind_code=code,
+        tg_manager_bind_expires_at__gte=now,
+    ).first()
+
+
 def get_today_range():
     """Localized start/end of current day for consistent filters."""
     now = timezone.localtime(timezone.now())
@@ -187,47 +217,11 @@ def has_report_today(user):
 
 
 def _local_date_from_dt(dt_value):
-    try:
-        return timezone.localtime(dt_value).date()
-    except Exception:
-        try:
-            return timezone.localdate(dt_value)
-        except Exception:
-            return timezone.localdate()
+    return local_followup_date(dt_value)
 
 
 def _sync_client_followup(client: Client, prev_next_call_at, new_next_call_at, now_dt):
-    """
-    Keep ClientFollowUp in sync with Client.next_call_at.
-    - Creates a follow-up when next_call_at is set.
-    - Closes open follow-ups when next_call_at changes/clears.
-    """
-    owner = client.owner
-    if not owner:
-        return
-
-    if prev_next_call_at:
-        if not new_next_call_at:
-            ClientFollowUp.objects.filter(client=client, owner=owner, status=ClientFollowUp.Status.OPEN).update(
-                status=ClientFollowUp.Status.CANCELLED,
-                closed_at=now_dt,
-            )
-        elif new_next_call_at != prev_next_call_at:
-            status = ClientFollowUp.Status.RESCHEDULED if now_dt < prev_next_call_at else ClientFollowUp.Status.DONE
-            ClientFollowUp.objects.filter(client=client, owner=owner, status=ClientFollowUp.Status.OPEN).update(
-                status=status,
-                closed_at=now_dt,
-            )
-
-    if new_next_call_at and (not prev_next_call_at or new_next_call_at != prev_next_call_at):
-        ClientFollowUp.objects.create(
-            client=client,
-            owner=owner,
-            due_at=new_next_call_at,
-            due_date=_local_date_from_dt(new_next_call_at),
-            status=ClientFollowUp.Status.OPEN,
-            meta={"source": "client.next_call_at"},
-        )
+    return sync_client_followup(client, prev_next_call_at, new_next_call_at, now_dt)
 
 
 def _close_followups_for_report(report: Report):
@@ -298,8 +292,37 @@ def get_user_stats(user):
 
 
 def _serialize_client_for_home(client: Client, today) -> dict:
+    def home_dt_label(dt_value):
+        if not dt_value:
+            return "—"
+        try:
+            return timezone.localtime(dt_value).strftime('%d.%m.%Y %H:%M')
+        except Exception:
+            return "—"
+
     context = client.call_result_context or {}
     created_local = timezone.localtime(client.created_at)
+    attempts = list(getattr(client, "prefetched_interaction_attempts", []) or client.interaction_attempts.order_by("-created_at")[:4])
+    open_followups = list(
+        getattr(client, "prefetched_open_followups", [])
+        or client.followups.filter(status=ClientFollowUp.Status.OPEN).order_by("-due_at")[:1]
+    )
+    latest_attempt = attempts[0] if attempts else None
+    followup_meta = (open_followups[0].meta or {}) if open_followups else {}
+    recent_cutoff = timezone.now() - timedelta(days=7)
+    callback_attempts = followup_meta.get("recent_callback_attempts")
+    if callback_attempts is None:
+        callback_attempts = sum(
+            1
+            for item in attempts
+            if item.next_call_at and item.created_at >= recent_cutoff
+        )
+    callback_pending = bool(client.next_call_at)
+    callback_summary = (
+        (latest_attempt.details or latest_attempt.reason_note).strip()
+        if latest_attempt and (latest_attempt.details or latest_attempt.reason_note)
+        else (client.call_result_details or client.get_call_result_display())
+    )
     return {
         'id': client.id,
         'shop': client.shop_name,
@@ -328,6 +351,42 @@ def _serialize_client_for_home(client: Client, today) -> dict:
         'next_call_time': timezone.localtime(client.next_call_at).strftime('%H:%M') if client.next_call_at else '',
         'next_call': timezone.localtime(client.next_call_at).strftime('%d.%m.%Y %H:%M') if client.next_call_at else '–',
         'created_date_label': 'Сьогодні' if created_local.date() == today else created_local.strftime('%d.%m.%Y'),
+        'callback_pending': callback_pending,
+        'client_mode': 'callback' if callback_pending else 'client',
+        'callback_attempts': callback_attempts,
+        'callback_review_candidate': bool(followup_meta.get("callback_review_candidate")),
+        'last_interaction_summary': callback_summary,
+        'last_interaction_at': home_dt_label(latest_attempt.created_at) if latest_attempt else home_dt_label(client.updated_at or client.created_at),
+    }
+
+
+def _build_report_analytics(user):
+    from .stats_service import get_stats_payload, parse_stats_range
+
+    payload = get_stats_payload(
+        user=user,
+        range_current=parse_stats_range({"period": "today"}),
+        include_shadow=True,
+    )
+    summary = payload.get("summary") or {}
+    shadow = payload.get("shadow_score") or {}
+    advice = payload.get("advice") or []
+    duplicate_reviews = list(
+        DuplicateReview.objects.filter(owner=user, status=DuplicateReview.Status.OPEN)
+        .order_by("-created_at")[:20]
+    )
+    open_followups = list(
+        ClientFollowUp.objects.filter(owner=user, status=ClientFollowUp.Status.OPEN)
+        .select_related("client")
+        .order_by("due_at", "id")[:40]
+    )
+    return {
+        "payload": payload,
+        "summary": summary,
+        "shadow": shadow,
+        "advice": advice,
+        "duplicate_reviews": duplicate_reviews,
+        "open_followups": open_followups,
     }
 
 
@@ -336,43 +395,85 @@ def build_report_excel(user, stats, clients):
     from openpyxl.styles import Font, Alignment, PatternFill
     from openpyxl.utils import get_column_letter
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Звіт"
+    def _shadow_why_changed_text(value):
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            lines = []
+            for item in value:
+                if isinstance(item, dict):
+                    label = item.get("label") or "Фактор"
+                    tone = item.get("value_label") or item.get("delta_label") or item.get("value") or ""
+                    detail = item.get("detail") or item.get("text") or ""
+                    line = f"{label}: {tone}".strip(": ")
+                    if detail:
+                        line = f"{line} — {detail}" if line else detail
+                    lines.append(line)
+                elif item:
+                    lines.append(str(item))
+            return "\n".join(line for line in lines if line)
+        return ""
 
+    analytics = _build_report_analytics(user)
+    summary = analytics["summary"]
+    shadow = analytics["shadow"]
+    advice = analytics["advice"]
+    duplicate_reviews = analytics["duplicate_reviews"]
+    open_followups = analytics["open_followups"]
+
+    wb = openpyxl.Workbook()
     title_font = Font(size=14, bold=True)
     header_font = Font(size=12, bold=True)
+    section_fill = PatternFill(start_color="1f2937", end_color="1f2937", fill_type="solid")
 
-    ws["A1"] = "Звіт менеджера"
-    ws["A1"].font = title_font
-    ws.merge_cells("A1:D1")
+    overview = wb.active
+    overview.title = "Overview"
+    overview["A1"] = "Звіт менеджера"
+    overview["A1"].font = title_font
+    overview.merge_cells("A1:D1")
 
-    ws["A2"] = "Менеджер"
-    ws["B2"] = user.get_full_name() or user.username
-    ws["A3"] = "Дата"
-    ws["B3"] = timezone.localtime().strftime("%d.%m.%Y %H:%M")
-    ws["A4"] = "Бали за сьогодні"
-    ws["B4"] = stats['points_today']
-    ws["A5"] = "Оброблено за сьогодні"
-    ws["B5"] = stats['processed_today']
-    ws["A6"] = "Бали всього"
-    ws["B6"] = stats['points_total']
-    ws["A7"] = "Оброблено всього"
-    ws["B7"] = stats['processed_total']
+    overview_rows = [
+        ("Менеджер", user.get_full_name() or user.username),
+        ("Дата", timezone.localtime().strftime("%d.%m.%Y %H:%M")),
+        ("Бали за сьогодні", stats["points_today"]),
+        ("Оброблено за сьогодні", stats["processed_today"]),
+        ("КПД", summary.get("kpd", {}).get("value", "—")),
+        ("MOSAIC", shadow.get("mosaic_score") if shadow.get("mosaic_score") is not None else "—"),
+        ("Shadow state", shadow.get("state_label") or "—"),
+        ("Confidence", shadow.get("confidence_band_label") or "—"),
+        ("Відкриті передзвони", summary.get("followups", {}).get("open", 0)),
+        ("Пропущені передзвони", summary.get("followups", {}).get("missed_effective", 0)),
+        ("Черга дедуплікації", len(duplicate_reviews)),
+    ]
+    for idx, (label, value) in enumerate(overview_rows, start=2):
+        overview[f"A{idx}"] = label
+        overview[f"B{idx}"] = value
+    overview["D2"] = "Ключові інсайти"
+    overview["D2"].font = header_font
+    overview["D2"].fill = section_fill
+    insight_lines = [
+        summary.get("kpd_insight") or "KPD стабільний.",
+        _shadow_why_changed_text(shadow.get("why_changed_today")) or "Shadow explainability поки без різких змін.",
+    ]
+    if advice:
+        insight_lines.extend([f"• {item.get('title')}: {item.get('text')}" for item in advice[:3]])
+    overview["D3"] = "\n".join(line for line in insight_lines if line)
+    overview["D3"].alignment = Alignment(wrap_text=True, vertical="top")
+    overview.column_dimensions["A"].width = 24
+    overview.column_dimensions["B"].width = 18
+    overview.column_dimensions["D"].width = 60
 
-    ws.append([])
-    ws.append([
+    clients_ws = wb.create_sheet("Clients")
+    clients_ws.append([
         "Магазин / Insta", "Телефон", "ПІБ", "Статус",
-        "Джерело", "Підсумок", "Деталі", "Наступний дзвінок", "Створено"
+        "Джерело", "Підсумок", "Деталі", "Наступний дзвінок", "Створено", "Режим"
     ])
-    header_row = ws.max_row
-    for col in range(1, 10):
-        ws.cell(row=header_row, column=col).font = header_font
-        ws.cell(row=header_row, column=col).fill = PatternFill(start_color="1f2937", end_color="1f2937", fill_type="solid")
-        ws.cell(row=header_row, column=col).alignment = Alignment(horizontal="center")
-
+    for col in range(1, 11):
+        clients_ws.cell(row=1, column=col).font = header_font
+        clients_ws.cell(row=1, column=col).fill = section_fill
+        clients_ws.cell(row=1, column=col).alignment = Alignment(horizontal="center")
     for c in clients:
-        ws.append([
+        clients_ws.append([
             c.shop_name,
             c.phone,
             c.full_name,
@@ -382,11 +483,87 @@ def build_report_excel(user, stats, clients):
             c.call_result_details,
             timezone.localtime(c.next_call_at).strftime("%d.%m.%Y %H:%M") if c.next_call_at else "–",
             timezone.localtime(c.created_at).strftime("%d.%m.%Y %H:%M"),
+            "Передзвон" if c.next_call_at else "Завершено",
         ])
+    for idx, width in enumerate([22, 16, 22, 12, 16, 20, 26, 18, 18, 14], start=1):
+        clients_ws.column_dimensions[get_column_letter(idx)].width = width
 
-    widths = [22, 16, 22, 12, 16, 20, 24, 18, 18]
-    for i, w in enumerate(widths, start=1):
-        ws.column_dimensions[get_column_letter(i)].width = w
+    callbacks_ws = wb.create_sheet("Callbacks")
+    callbacks_ws.append(["Клієнт", "Телефон", "Коли", "Статус", "Ladder", "Коментар"])
+    for col in range(1, 7):
+        callbacks_ws.cell(row=1, column=col).font = header_font
+        callbacks_ws.cell(row=1, column=col).fill = section_fill
+        callbacks_ws.cell(row=1, column=col).alignment = Alignment(horizontal="center")
+    if open_followups:
+        for followup in open_followups:
+            callbacks_ws.append([
+                getattr(followup.client, "shop_name", "—"),
+                getattr(followup.client, "phone", "—"),
+                timezone.localtime(followup.due_at).strftime("%d.%m.%Y %H:%M"),
+                followup.get_status_display(),
+                (followup.meta or {}).get("ladder") or "—",
+                (followup.meta or {}).get("note") or "",
+            ])
+    else:
+        callbacks_ws.append(["—", "—", "—", "Немає відкритих передзвонів", "—", "—"])
+
+    dup_ws = wb.create_sheet("Duplicate Queue")
+    dup_ws.append(["Review", "Телефон", "Назва", "Статус", "Створено", "Причина override"])
+    for col in range(1, 7):
+        dup_ws.cell(row=1, column=col).font = header_font
+        dup_ws.cell(row=1, column=col).fill = section_fill
+        dup_ws.cell(row=1, column=col).alignment = Alignment(horizontal="center")
+    if duplicate_reviews:
+        for review in duplicate_reviews:
+            dup_ws.append([
+                review.id,
+                review.phone,
+                review.shop_name,
+                review.get_status_display(),
+                timezone.localtime(review.created_at).strftime("%d.%m.%Y %H:%M"),
+                review.resolution_note or "",
+            ])
+    else:
+        dup_ws.append(["—", "—", "—", "Черга пуста", "—", "—"])
+
+    shadow_ws = wb.create_sheet("Shadow Score Context")
+    shadow_ws.append(["Поле", "Значення"])
+    shadow_ws["A1"].font = header_font
+    shadow_ws["B1"].font = header_font
+    shadow_ws["A1"].fill = section_fill
+    shadow_ws["B1"].fill = section_fill
+    shadow_rows = [
+        ("MOSAIC", shadow.get("mosaic_score") if shadow.get("mosaic_score") is not None else "—"),
+        ("State", shadow.get("state_label") or "—"),
+        ("Confidence", shadow.get("confidence_band_label") or "—"),
+        ("Пояснення", shadow.get("explain_summary") or shadow.get("summary") or "—"),
+        ("Telephony", (shadow.get("telephony_health") or {}).get("summary_label") or "—"),
+        ("Forecast", (shadow.get("forecast_band") or {}).get("label") or "—"),
+    ]
+    for row_idx, (label, value) in enumerate(shadow_rows, start=2):
+        shadow_ws[f"A{row_idx}"] = label
+        shadow_ws[f"B{row_idx}"] = value
+    shadow_ws.column_dimensions["A"].width = 22
+    shadow_ws.column_dimensions["B"].width = 60
+
+    advice_ws = wb.create_sheet("Advice & Risk Notes")
+    advice_ws.append(["Tone", "Title", "Text", "Evidence"])
+    for col in range(1, 5):
+        advice_ws.cell(row=1, column=col).font = header_font
+        advice_ws.cell(row=1, column=col).fill = section_fill
+        advice_ws.cell(row=1, column=col).alignment = Alignment(horizontal="center")
+    if advice:
+        for item in advice[:20]:
+            advice_ws.append([
+                item.get("tone") or "",
+                item.get("title") or "",
+                item.get("text") or "",
+                item.get("evidence") or "",
+            ])
+    else:
+        advice_ws.append(["info", "Без активних рекомендацій", "Поточний день без критичних advisory-сигналів.", "—"])
+    for idx, width in enumerate([12, 28, 58, 46], start=1):
+        advice_ws.column_dimensions[get_column_letter(idx)].width = width
 
     bio = BytesIO()
     wb.save(bio)
@@ -399,14 +576,28 @@ def send_telegram_report(user, stats, clients, file_bytes, filename):
     chat_ids = _get_management_admin_chat_ids()
     if not token or not chat_ids:
         return
-    text = (
-        f"Звіт менеджера\n"
-        f"👤 {user.get_full_name() or user.username}\n"
-        f"📅 {timezone.localtime().strftime('%d.%m.%Y %H:%M')}\n"
-        f"Бали за сьогодні: {stats['points_today']}\n"
-        f"Оброблено за сьогодні: {stats['processed_today']}\n"
-        f"Клієнтів всього: {stats['processed_total']}"
-    )
+    analytics = _build_report_analytics(user)
+    summary = analytics["summary"]
+    shadow = analytics["shadow"]
+    advice = analytics["advice"]
+    duplicate_reviews = analytics["duplicate_reviews"]
+    text_lines = [
+        "📊 <b>Звіт менеджера</b>",
+        f"👤 <b>{escape(user.get_full_name() or user.username)}</b>",
+        f"📅 {timezone.localtime().strftime('%d.%m.%Y %H:%M')}",
+        f"• Балів сьогодні: <b>{stats['points_today']}</b>",
+        f"• Оброблено: <b>{stats['processed_today']}</b>",
+        f"• КПД: <b>{escape(str(summary.get('kpd', {}).get('value', '—')))}</b>",
+        f"• MOSAIC: <b>{escape(str(shadow.get('mosaic_score') if shadow.get('mosaic_score') is not None else '—'))}</b> · {escape(shadow.get('state_label') or '—')}",
+        f"• Передзвони: <b>{summary.get('followups', {}).get('open', 0)}</b> відкрито / {summary.get('followups', {}).get('missed_effective', 0)} проблемних",
+        f"• Черга дедуплікації: <b>{len(duplicate_reviews)}</b>",
+    ]
+    if advice:
+        text_lines.append("")
+        text_lines.append("🧭 <b>Ключові сигнали</b>")
+        for item in advice[:3]:
+            text_lines.append(f"• <b>{escape(item.get('title') or 'Порада')}</b>: {escape(item.get('text') or '')}")
+    text = "\n".join(text_lines)
     url = f"https://api.telegram.org/bot{token}/sendDocument"
     files = {
         'document': (filename, file_bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -662,7 +853,22 @@ def home(request):
             })
         return redirect('management_home')
 
-    base_qs = Client.objects.select_related('owner').order_by('-created_at')
+    base_qs = (
+        Client.objects.select_related('owner')
+        .prefetch_related(
+            Prefetch(
+                'interaction_attempts',
+                queryset=ClientInteractionAttempt.objects.order_by('-created_at'),
+                to_attr='prefetched_interaction_attempts',
+            ),
+            Prefetch(
+                'followups',
+                queryset=ClientFollowUp.objects.filter(status=ClientFollowUp.Status.OPEN).order_by('-due_at'),
+                to_attr='prefetched_open_followups',
+            ),
+        )
+        .order_by('-created_at')
+    )
     # У основній панелі всі бачать тільки свої записи
     clients_qs = base_qs.filter(owner=request.user)
     clients = clients_qs
@@ -681,7 +887,7 @@ def home(request):
         else:
             label = local_date.strftime('%d.%m.%Y')
 
-        grouped.setdefault(label, []).append(client)
+        grouped.setdefault(label, []).append(_serialize_client_for_home(client, today))
 
     grouped_clients = list(grouped.items())
     base_leads = ManagementLead.objects.filter(status=ManagementLead.Status.BASE).select_related('added_by').order_by('-created_at')[:400]
@@ -1457,6 +1663,7 @@ def reminder_feed(request):
     report_sent = has_report_today(request.user)
     reminders = get_reminders(request.user, stats=stats, report_sent=report_sent)
     _send_manager_bot_notifications(request.user, reminders)
+    _send_manager_daily_advice(request.user)
     serialized = []
     for r in reminders:
         eta = int(r.get('eta_seconds', 0) or 0)
@@ -1593,6 +1800,17 @@ def profile_update(request):
         except ValueError as exc:
             errors['viber'] = str(exc)
 
+    for field_name in (
+        'tg_manager_alert_15m',
+        'tg_manager_alert_5m',
+        'tg_manager_alert_due_now',
+        'tg_manager_alert_missed_callback',
+        'tg_manager_alert_report_late',
+        'tg_manager_daily_advice_enabled',
+        'tg_manager_critical_advice_enabled',
+    ):
+        setattr(profile, field_name, bool(request.POST.get(field_name)))
+
     day_raw = (request.POST.get('birth_day') or '').strip()
     month_raw = (request.POST.get('birth_month') or '').strip()
     year_raw = (request.POST.get('birth_year') or '').strip()
@@ -1659,12 +1877,33 @@ def profile_bind_code(request):
     profile.tg_manager_bind_expires_at = expires_at
     profile.save()
     bot_username = get_manager_bot_username()
+    start_payload = _build_manager_start_payload(request.user.id, code)
+    deep_link_url = f"https://t.me/{bot_username}?start={quote(start_payload)}" if bot_username else ""
+    tg_app_url = f"tg://resolve?domain={quote(bot_username)}&start={quote(start_payload)}" if bot_username else ""
     return JsonResponse({
         'ok': True,
         'code': code,
+        'fallback_code': code,
         'expires': expires_at.strftime('%d.%m.%Y %H:%M'),
         'bot_username': bot_username,
+        'start_payload': start_payload,
+        'deep_link_url': deep_link_url,
+        'tg_app_url': tg_app_url,
     })
+
+
+@login_required(login_url='management_login')
+@require_POST
+def profile_reset_manager_bot(request):
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False}, status=403)
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    profile.tg_manager_chat_id = None
+    profile.tg_manager_username = ''
+    profile.tg_manager_bind_code = ''
+    profile.tg_manager_bind_expires_at = None
+    profile.save(update_fields=['tg_manager_chat_id', 'tg_manager_username', 'tg_manager_bind_code', 'tg_manager_bind_expires_at'])
+    return JsonResponse({'ok': True})
 
 
 def _send_telegram_message(bot_token, chat_id, text):
@@ -2342,27 +2581,91 @@ def _send_manager_bot_notifications(user, reminders):
     for r in reminders:
         eta = int(r.get('eta_seconds') or 0)
         status = r.get('status')
+        ladder = r.get("ladder") or ""
         if eta == 0 and status not in ('due', 'report'):
             continue
-        if eta > 300:
+        if eta > 900:
             continue
         key = r.get('key')
         if not key:
             continue
         if ReminderSent.objects.filter(key=key, chat_id=chat_id).exists():
             continue
+        if status == "report" and not profile.tg_manager_alert_report_late:
+            continue
+        if status == "soon" and eta > 300 and not profile.tg_manager_alert_15m:
+            continue
+        if status == "soon" and 0 < eta <= 300 and not profile.tg_manager_alert_5m:
+            continue
+        if status == "due" and ladder == "due_now" and not profile.tg_manager_alert_due_now:
+            continue
+        if status == "due" and ladder not in {"due_now", ""} and not profile.tg_manager_alert_missed_callback:
+            continue
+
         when = 'зараз' if eta == 0 else (f"через {eta//60} хв {eta % 60:02d} с" if eta >= 60 else f"через {eta} с")
         kind = r.get('kind')
         contact_label = "Контакт" if kind == 'shop' else "Клієнт"
-        text = (
-            "Нагадування\n"
-            f"Магазин: {r.get('shop', '')}\n"
-            f"{contact_label}: {r.get('name', '')}\n"
-            f"Телефон: {r.get('phone', '')}\n"
-            f"Коли: {when}\n"
-        )
-        _send_telegram_message(bot_token, chat_id, text)
+        header = "Нагадування про передзвон"
+        if status == "report":
+            header = "Нагадування про звіт"
+        elif status == "due" and ladder not in {"due_now", ""}:
+            header = "Пропущений передзвон"
+        text_lines = [
+            f"⏰ <b>{escape(header)}</b>",
+            f"<b>Магазин:</b> {escape(r.get('shop', '') or '—')}",
+        ]
+        if r.get("name"):
+            text_lines.append(f"<b>{contact_label}:</b> {escape(r.get('name', '') or '—')}")
+        if r.get("phone"):
+            text_lines.append(f"<b>Телефон:</b> {escape(r.get('phone', '') or '—')}")
+        text_lines.append(f"<b>Коли:</b> {escape(when)}")
+        if r.get("title"):
+            text_lines.append(f"<b>Фокус:</b> {escape(r.get('title'))}")
+        text = "\n".join(text_lines)
+        _tg_send_message(bot_token, chat_id, text, parse_mode='HTML')
         ReminderSent.objects.create(key=key, chat_id=chat_id)
+
+
+def _send_manager_daily_advice(user):
+    try:
+        profile = user.userprofile
+    except UserProfile.DoesNotExist:
+        return
+    chat_id = profile.tg_manager_chat_id
+    bot_token = os.environ.get("MANAGER_TG_BOT_TOKEN") or os.environ.get("MANAGEMENT_TG_BOT_TOKEN")
+    if not chat_id or not bot_token:
+        return
+
+    from .stats_service import get_stats_payload, parse_stats_range
+
+    payload = get_stats_payload(
+        user=user,
+        range_current=parse_stats_range({"period": "today"}),
+        include_shadow=True,
+    )
+    advice_items = payload.get("advice") or []
+    if not advice_items:
+        return
+
+    critical_items = [item for item in advice_items if item.get("tone") in {"bad", "warn"}]
+    should_send_daily = profile.tg_manager_daily_advice_enabled
+    should_send_critical = profile.tg_manager_critical_advice_enabled and bool(critical_items)
+    if not should_send_daily and not should_send_critical:
+        return
+
+    today_key = timezone.localdate().strftime("%Y%m%d")
+    key = f"mgmt-advice-{user.id}-{today_key}"
+    if ReminderSent.objects.filter(key=key, chat_id=chat_id).exists():
+        return
+
+    chosen = critical_items[:2] if should_send_critical and not should_send_daily else advice_items[:3]
+    lines = ["💡 <b>Фокус дня</b>"]
+    for item in chosen:
+        lines.append(f"• <b>{escape(item.get('title') or 'Порада')}</b>: {escape(item.get('text') or '')}")
+        if item.get("evidence"):
+            lines.append(f"  <i>{escape(item.get('evidence'))}</i>")
+    _tg_send_message(bot_token, chat_id, "\n".join(lines), parse_mode="HTML")
+    ReminderSent.objects.create(key=key, chat_id=chat_id)
 
 
 @csrf_exempt
@@ -2836,15 +3139,17 @@ def management_bot_webhook(request, token):
                 return JsonResponse({'ok': True})
     # Manager bot binding
     if text.startswith('/start'):
-        code = ''
+        start_payload = ''
         if ' ' in text:
-            code = text.split(' ', 1)[1].strip()
+            start_payload = text.split(' ', 1)[1].strip()
         now = timezone.now()
-        if code:
-            profile = UserProfile.objects.filter(
-                tg_manager_bind_code=code,
-                tg_manager_bind_expires_at__gte=now
-            ).first()
+        if start_payload:
+            profile = _resolve_profile_from_start_payload(start_payload)
+            if profile is None:
+                profile = UserProfile.objects.filter(
+                    tg_manager_bind_code=start_payload,
+                    tg_manager_bind_expires_at__gte=now
+                ).first()
             if profile:
                 profile.tg_manager_chat_id = chat_id
                 profile.tg_manager_username = username

@@ -46,6 +46,24 @@ class DedupeServiceTests(TestCase):
 
         self.assertEqual(decision.zone, DedupeZone.REVIEW)
 
+    def test_partial_phone_plus_owner_only_does_not_raise_user_warning(self):
+        Client.objects.create(
+            shop_name="Local Store",
+            phone="+380671112233",
+            full_name="Owner",
+            owner=self.user,
+        )
+
+        decision = evaluate_duplicate_zone(
+            shop_name="",
+            phone="+380501112233",
+            website_url="",
+            owner=self.user,
+        )
+
+        self.assertEqual(decision.zone, DedupeZone.CLEAR)
+        self.assertEqual(decision.candidates, [])
+
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
 class LeadCreateDedupeApiTests(TestCase):
@@ -100,6 +118,38 @@ class LeadCreateDedupeApiTests(TestCase):
         payload = response.json()
         self.assertEqual(payload["zone"], DedupeZone.REVIEW)
         self.assertTrue(payload["duplicate_review_id"])
+
+    def test_preview_payload_excludes_owner_only_noise_candidates(self):
+        exact_owner = get_user_model().objects.create_user(username="exact_owner", password="x")
+        exact = Client.objects.create(
+            shop_name="Tak Shop",
+            phone="+380731808305",
+            full_name="Owner",
+            owner=exact_owner,
+        )
+        Client.objects.create(
+            shop_name="Noise Shop",
+            phone="+380501234567",
+            full_name="Noise",
+            owner=self.user,
+        )
+
+        response = self.client.get(
+            "/clients/dedupe-preview/",
+            {
+                "shop_name": "",
+                "phone": "0 (73) 180-83-05",
+                "website_url": "",
+            },
+            secure=True,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["zone"], DedupeZone.AUTO_BLOCK)
+        self.assertEqual([item["id"] for item in payload["candidates"]], [exact.id])
+        self.assertEqual(payload["candidates"][0]["matched_on"], ["phone"])
 
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")

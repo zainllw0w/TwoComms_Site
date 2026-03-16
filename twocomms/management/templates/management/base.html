@@ -144,40 +144,69 @@
                         </a>
                     </div>
                 </div>
-                <div class="user-role">Manager</div>
+                <div class="user-role">{{ management_shell_role_label|default:"Менеджер" }}</div>
             </div>
 
-            <div class="daily-stats">
-                <div class="gauge">
-                    <div class="gauge-label-top">Денна норма</div>
-                    <div class="gauge-arc">
-                        <svg viewBox="0 0 200 140" class="gauge-svg">
-                            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#262626" stroke-width="6" stroke-linecap="round"></path>
-                            <path
-                                id="gauge-arc-fill"
-                                d="M 20 100 A 80 80 0 0 1 180 100"
-                                fill="none"
-                                stroke="#f97316"
-                                stroke-width="6"
-                                stroke-linecap="round"
-                                class="arc-active"
-                                data-progress="{{ progress_points_pct|default:0 }}"
-                                style="stroke-dasharray: 251.3; stroke-dashoffset: 251.3;">
-                            </path>
-                            <line x1="20" y1="100" x2="20" y2="108" stroke="#404040" stroke-width="2"></line>
-                            <line x1="180" y1="100" x2="180" y2="108" stroke="#404040" stroke-width="2"></line>
-                        </svg>
-                        <div class="gauge-center">
-                            <div class="gauge-caption">Балів</div>
-                            <div class="gauge-value" id="gauge-points-value">{{ user_points_today|default:0 }}</div>
+            <div class="daily-stats daily-stats--{{ management_shell_daily_zone|default:'warning' }}">
+                <div class="daily-stats-head">
+                    <div>
+                        <div class="gauge-label-top">Денна норма</div>
+                        <div class="daily-stats-sub">KPD залишається live, MOSAIC показує тіньовий темп і якість сигналів.</div>
+                    </div>
+                    {% if management_shell_stats_url %}
+                    <a href="{{ management_shell_stats_url }}" class="btn-ghost small status-shortcut">Статистика</a>
+                    {% endif %}
+                </div>
+                <div class="daily-stats-shell">
+                    <div class="gauge">
+                        <div class="gauge-arc">
+                            <svg viewBox="0 0 200 140" class="gauge-svg">
+                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#262626" stroke-width="6" stroke-linecap="round"></path>
+                                <path
+                                    id="gauge-arc-fill"
+                                    d="M 20 100 A 80 80 0 0 1 180 100"
+                                    fill="none"
+                                    stroke="#f97316"
+                                    stroke-width="6"
+                                    stroke-linecap="round"
+                                    class="arc-active"
+                                    data-progress="{{ progress_points_pct|default:0 }}"
+                                    style="stroke-dasharray: 251.3; stroke-dashoffset: 251.3;">
+                                </path>
+                                <line x1="20" y1="100" x2="20" y2="108" stroke="#404040" stroke-width="2"></line>
+                                <line x1="180" y1="100" x2="180" y2="108" stroke="#404040" stroke-width="2"></line>
+                            </svg>
+                            <div class="gauge-center">
+                                <div class="gauge-caption">Балів</div>
+                                <div class="gauge-value" id="gauge-points-value">{{ user_points_today|default:0 }}</div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="gauge-meta">
-                    <div class="progress-track mt-1">
-                        <div class="progress-fill" id="clients-bar" style="width: {{ progress_clients_pct|default:0 }}%;"></div>
+                    <div class="daily-stats-metrics">
+                        <div class="daily-metric-card">
+                            <div class="daily-metric-label">Оброблено сьогодні</div>
+                            <div class="daily-metric-value" id="clients-legend">{{ processed_today|default:0 }} / {{ target_clients|default:20 }}</div>
+                            <div class="progress-track mt-1">
+                                <div class="progress-fill" id="clients-bar" style="width: {{ progress_clients_pct|default:0 }}%;"></div>
+                            </div>
+                        </div>
+                        <div class="daily-metric-card daily-metric-card--shadow {% if management_shell_mosaic_ready %}is-ready{% else %}is-muted{% endif %}">
+                            <div class="daily-metric-label">MOSAIC</div>
+                            <div class="daily-metric-value">{{ management_shell_mosaic_label|default:"Накопичуємо дані" }}</div>
+                            <div class="daily-metric-meta">
+                                {% if management_shell_mosaic_ready %}
+                                Тіньовий індикатор якості й темпу.
+                                {% else %}
+                                Потрібно щонайменше 20 обробок для стабільного показу.
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="daily-metric-card daily-metric-card--quiet">
+                            <div class="daily-metric-label">Всього в роботі</div>
+                            <div class="daily-metric-value">{{ management_shell_processed_total|default:0 }}</div>
+                            <div class="daily-metric-meta">Усі оброблені клієнти цього користувача.</div>
+                        </div>
                     </div>
-                    <div class="progress-legend" id="clients-legend">Оброблено: {{ processed_today|default:0 }} / {{ target_clients|default:20 }}</div>
                 </div>
             </div>
 
@@ -258,13 +287,19 @@
                 <div class="profile-readonly" aria-label="Дані менеджера">
                     <div class="profile-readonly__item">
                         <div class="profile-readonly__label">Статус / посада</div>
-                        <div class="profile-readonly__value">{{ request.user.userprofile.manager_position|default:"—" }}</div>
+                        <div class="profile-readonly__value">{{ management_shell_role_label|default:request.user.userprofile.manager_position|default:"—" }}</div>
                     </div>
                     <div class="profile-readonly__item">
                         <div class="profile-readonly__label">Умови</div>
                         <div class="profile-readonly__value">{{ request.user.userprofile.manager_base_salary_uah|default:0 }} грн • {{ request.user.userprofile.manager_commission_percent|default:0 }}%</div>
                     </div>
                 </div>
+
+                {% if management_shell_stats_url %}
+                <div class="profile-toolbar">
+                    <a href="{{ management_shell_stats_url }}" class="btn-ghost small status-shortcut">Відкрити статистику</a>
+                </div>
+                {% endif %}
 
                 <div class="profile-section">
                     <div class="profile-section__title">Контакти</div>
@@ -359,12 +394,20 @@
                     <div class="bot-block-head">
                         <div>
                             <p class="eyebrow">Telegram Management</p>
-                            <h4>Привʼяжіть менеджмент-бота</h4>
+                            <h4>Підключення менеджмент-бота</h4>
                         </div>
-                        <button type="button" class="btn-primary" id="bind-code-btn">Привʼязати бота</button>
+                        <div class="bot-block-actions">
+                            <button type="button" class="btn-primary" id="bind-code-btn">{% if request.user.userprofile.tg_manager_chat_id %}Перепідключити{% else %}Підключити{% endif %}</button>
+                            {% if manager_bot_username %}
+                            <a href="https://t.me/{{ manager_bot_username }}" target="_blank" rel="noopener noreferrer" class="btn-ghost" id="open-manager-bot-link">Відкрити бота</a>
+                            {% endif %}
+                            {% if request.user.userprofile.tg_manager_chat_id %}
+                            <button type="button" class="btn-ghost" id="reset-manager-bot-btn">Скинути привʼязку</button>
+                            {% endif %}
+                        </div>
                     </div>
                     <p class="bot-desc">
-                        Після привʼязки менеджмент-бот надсилатиме нагадування про дзвінки, важливі події та звіти. Це дозволяє не пропустити клієнтів і швидко реагувати на завдання. Натисніть кнопку, відкриється Telegram із готовою командою /start — підтвердіть запуск, і бот буде привʼязаний.
+                        Після підключення бот надсилатиме нагадування про передзвони, важливі події та звіти. Основний сценарій тепер працює через one-tap відкриття Telegram; резервний код залишається на випадок, якщо додаток не відкрився.
                     </p>
                     <div class="bot-status" id="bind-status">
                         {% if request.user.userprofile.tg_manager_chat_id %}
@@ -374,10 +417,86 @@
                         {% endif %}
                     </div>
                     <div class="bind-code-box" id="bind-code-box" style="display:none;">
-                        <div class="bind-code-title">Код привʼязки</div>
+                        <div class="bind-code-title">Резервний код</div>
                         <div class="bind-code-value" id="bind-code-value"></div>
                         <div class="bind-code-exp" id="bind-code-exp"></div>
-                        <div class="bind-instruction">Надішліть боту /start код у Telegram, щоб завершити привʼязку.</div>
+                        <div class="bind-instruction">Якщо бот не відкрився автоматично, надішліть йому <code>/start код</code> вручну.</div>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <div class="profile-section__title">Налаштування бота</div>
+                    <div class="field-grid bot-preferences-grid">
+                        <label class="preference-toggle">
+                            <span>
+                                <strong>Нагадування за 15 хв</strong>
+                                <small>Ранній heads-up для планування дзвінків.</small>
+                            </span>
+                            <span class="toggle-switch">
+                                <input type="checkbox" name="tg_manager_alert_15m" {% if request.user.userprofile.tg_manager_alert_15m %}checked{% endif %}>
+                                <span class="toggle-ui" aria-hidden="true"></span>
+                            </span>
+                        </label>
+                        <label class="preference-toggle">
+                            <span>
+                                <strong>Нагадування за 5 хв</strong>
+                                <small>Коротке нагадування перед самим контактом.</small>
+                            </span>
+                            <span class="toggle-switch">
+                                <input type="checkbox" name="tg_manager_alert_5m" {% if request.user.userprofile.tg_manager_alert_5m %}checked{% endif %}>
+                                <span class="toggle-ui" aria-hidden="true"></span>
+                            </span>
+                        </label>
+                        <label class="preference-toggle">
+                            <span>
+                                <strong>Час дзвонити зараз</strong>
+                                <small>Окремий alert у момент, коли контакт уже настав.</small>
+                            </span>
+                            <span class="toggle-switch">
+                                <input type="checkbox" name="tg_manager_alert_due_now" {% if request.user.userprofile.tg_manager_alert_due_now %}checked{% endif %}>
+                                <span class="toggle-ui" aria-hidden="true"></span>
+                            </span>
+                        </label>
+                        <label class="preference-toggle">
+                            <span>
+                                <strong>Пропущені передзвони</strong>
+                                <small>Сигнал, якщо callback уже пішов у overdue.</small>
+                            </span>
+                            <span class="toggle-switch">
+                                <input type="checkbox" name="tg_manager_alert_missed_callback" {% if request.user.userprofile.tg_manager_alert_missed_callback %}checked{% endif %}>
+                                <span class="toggle-ui" aria-hidden="true"></span>
+                            </span>
+                        </label>
+                        <label class="preference-toggle">
+                            <span>
+                                <strong>Забули відправити звіт</strong>
+                                <small>Нагадування після дедлайну у робочі дні.</small>
+                            </span>
+                            <span class="toggle-switch">
+                                <input type="checkbox" name="tg_manager_alert_report_late" {% if request.user.userprofile.tg_manager_alert_report_late %}checked{% endif %}>
+                                <span class="toggle-ui" aria-hidden="true"></span>
+                            </span>
+                        </label>
+                        <label class="preference-toggle">
+                            <span>
+                                <strong>Щоденні поради</strong>
+                                <small>Короткі рекомендації за вашим темпом, follow-up і якістю заповнення.</small>
+                            </span>
+                            <span class="toggle-switch">
+                                <input type="checkbox" name="tg_manager_daily_advice_enabled" {% if request.user.userprofile.tg_manager_daily_advice_enabled %}checked{% endif %}>
+                                <span class="toggle-ui" aria-hidden="true"></span>
+                            </span>
+                        </label>
+                        <label class="preference-toggle">
+                            <span>
+                                <strong>Критичні поради</strong>
+                                <small>Сильні сигнали про пропуски та ризикові зони краще не вимикати.</small>
+                            </span>
+                            <span class="toggle-switch">
+                                <input type="checkbox" name="tg_manager_critical_advice_enabled" {% if request.user.userprofile.tg_manager_critical_advice_enabled %}checked{% endif %}>
+                                <span class="toggle-ui" aria-hidden="true"></span>
+                            </span>
+                        </label>
                     </div>
                 </div>
 
@@ -690,13 +809,25 @@
             profileModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', closeProfile));
             profileModal.addEventListener('click', (e) => { if (e.target === profileModal) closeProfile(); });
         }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && profileModal?.classList.contains('show')) {
+                closeProfile();
+            }
+        });
 
         const bindBtn = document.getElementById('bind-code-btn');
         const bindBox = document.getElementById('bind-code-box');
         const bindVal = document.getElementById('bind-code-value');
         const bindExp = document.getElementById('bind-code-exp');
+        const bindStatus = document.getElementById('bind-status');
+        const resetManagerBotBtn = document.getElementById('reset-manager-bot-btn');
         const csrf = (document.querySelector('#profile-form input[name=csrfmiddlewaretoken]') || {}).value;
         const botUsernameFromPage = "{{ manager_bot_username|default_if_none:'' }}";
+
+        const setBindStatus = (text, kind = 'offline') => {
+            if (!bindStatus) return;
+            bindStatus.innerHTML = `<span class="status-dot ${kind}">●</span> ${text}`;
+        };
 
         if (bindBtn) {
             bindBtn.addEventListener('click', () => {
@@ -710,20 +841,46 @@
                 .then(res => res.json())
                     .then(data => {
                         if (data.ok) {
-                            bindVal.textContent = data.code;
+                            bindVal.textContent = data.fallback_code || data.code || '—';
                             bindExp.textContent = `Діє до: ${data.expires}`;
                             bindBox.style.display = 'block';
+                            setBindStatus('Посилання сформовано. Підтвердьте запуск у Telegram.', 'offline');
                         const username = (data.bot_username || botUsernameFromPage || '').trim();
-                        const payload = (data.code || '').trim();
-                        if (!username || !payload) {
+                        const appLink = (data.tg_app_url || '').trim();
+                        const deepLink = (data.deep_link_url || '').trim();
+                        if (!username || (!appLink && !deepLink)) {
                             alert('Не вдалося сформувати посилання для бота. Перевірте налаштування і спробуйте ще раз.');
                             return;
                         }
-                        const appLink = `tg://resolve?domain=${encodeURIComponent(username)}&start=${encodeURIComponent(payload)}`;
-                        window.open(appLink, '_blank', 'noopener');
+                        const target = appLink || deepLink;
+                        window.open(target, '_blank', 'noopener');
                         }
                     })
                     .catch(() => {});
+            });
+        }
+
+        if (resetManagerBotBtn) {
+            resetManagerBotBtn.addEventListener('click', () => {
+                fetch("{% url 'management_profile_reset_manager_bot' %}", {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrf,
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.ok) {
+                        throw new Error('Не вдалося скинути привʼязку.');
+                    }
+                    bindBox.style.display = 'none';
+                    setBindStatus('Не привʼязано', 'offline');
+                    resetManagerBotBtn.remove();
+                })
+                .catch(() => {
+                    setProfileAlert('Не вдалося скинути привʼязку бота.', 'err');
+                });
             });
         }
 
