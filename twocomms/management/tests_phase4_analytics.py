@@ -70,6 +70,63 @@ class ReminderDigestTests(TestCase):
         self.assertGreaterEqual(digest["overload_count"], 5)
         self.assertEqual(len(digest["reminders"]), 25)
 
+    def test_reminder_digest_limits_followups_to_current_day_window(self):
+        now = timezone.localtime(timezone.now()).replace(second=0, microsecond=0)
+        today_due = now + timedelta(minutes=20)
+        tomorrow_due = today_due + timedelta(days=1)
+        stale_due = now - timedelta(days=2, minutes=15)
+
+        today_client = Client.objects.create(
+            shop_name="Today Reminder Shop",
+            phone="+380671119901",
+            full_name="Today Owner",
+            owner=self.user,
+            next_call_at=today_due,
+        )
+        tomorrow_client = Client.objects.create(
+            shop_name="Tomorrow Reminder Shop",
+            phone="+380671119902",
+            full_name="Tomorrow Owner",
+            owner=self.user,
+            next_call_at=tomorrow_due,
+        )
+        stale_client = Client.objects.create(
+            shop_name="Stale Reminder Shop",
+            phone="+380671119903",
+            full_name="Stale Owner",
+            owner=self.user,
+            next_call_at=stale_due,
+        )
+
+        ClientFollowUp.objects.create(
+            client=today_client,
+            owner=self.user,
+            due_at=today_due,
+            due_date=today_due.date(),
+            grace_until=today_due - timedelta(hours=1),
+        )
+        ClientFollowUp.objects.create(
+            client=tomorrow_client,
+            owner=self.user,
+            due_at=tomorrow_due,
+            due_date=tomorrow_due.date(),
+            grace_until=tomorrow_due - timedelta(hours=1),
+        )
+        ClientFollowUp.objects.create(
+            client=stale_client,
+            owner=self.user,
+            due_at=stale_due,
+            due_date=stale_due.date(),
+            grace_until=stale_due - timedelta(hours=1),
+        )
+
+        digest = build_reminder_digest(self.user, now=now, stats={"processed_today": 5}, report_sent=True)
+
+        reminder_shops = {item["shop"] for item in digest["reminders"] if item.get("kind") == "call"}
+        self.assertIn("Today Reminder Shop", reminder_shops)
+        self.assertNotIn("Tomorrow Reminder Shop", reminder_shops)
+        self.assertNotIn("Stale Reminder Shop", reminder_shops)
+
     def test_send_management_reminders_command_logs_and_updates_followups(self):
         now = timezone.localtime(timezone.now()).replace(second=0, microsecond=0)
         client = Client.objects.create(

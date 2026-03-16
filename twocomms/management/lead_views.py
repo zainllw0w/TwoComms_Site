@@ -170,6 +170,7 @@ def lead_process_api(request, lead_id: int):
     call_result_reason_note = (data.get("call_result_reason_note") or "").strip()
     call_result_contact_attempts = (data.get("call_result_contact_attempts") or "").strip()
     call_result_contact_channel = (data.get("call_result_contact_channel") or "").strip()
+    manager_note = (data.get("manager_note") or "").strip()
     next_call_at = _next_call_at_from_request(data)
 
     if not shop_name or not phone:
@@ -275,6 +276,7 @@ def lead_process_api(request, lead_id: int):
             call_result_reason_note=result_capture["reason_note"],
             call_result_context=result_context,
             call_result_details=details,
+            manager_note=manager_note,
             next_call_at=next_call_at,
             owner=request.user,
             points_override=adjusted_points,
@@ -326,6 +328,7 @@ def lead_process_api(request, lead_id: int):
             "xml_platform": (client.call_result_context or {}).get("xml_platform", ""),
             "xml_resource_url": (client.call_result_context or {}).get("xml_resource_url", ""),
             "linked_shop_id": (client.call_result_context or {}).get("linked_shop_id", ""),
+            "manager_note": client.manager_note,
             "next_call_date": timezone.localtime(client.next_call_at).strftime("%Y-%m-%d") if client.next_call_at else "",
             "next_call_time": timezone.localtime(client.next_call_at).strftime("%H:%M") if client.next_call_at else "",
             "next_call": timezone.localtime(client.next_call_at).strftime("%d.%m.%Y %H:%M") if client.next_call_at else "–",

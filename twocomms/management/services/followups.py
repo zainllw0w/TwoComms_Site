@@ -63,6 +63,7 @@ def _in_quiet_hours(now, ui_config: dict) -> bool:
 
 def build_reminder_digest(user, *, now=None, stats=None, report_sent=False) -> dict:
     now = timezone.localtime(now or timezone.now())
+    today = now.date()
     cfg = get_management_config()
     ui_config = cfg.get("ui_config") or {}
     max_followups = int(ui_config.get("max_followups_per_day", 25) or 25)
@@ -80,6 +81,8 @@ def build_reminder_digest(user, *, now=None, stats=None, report_sent=False) -> d
         if followup.grace_until and followup.grace_until > now:
             continue
         dt_local = timezone.localtime(followup.due_at)
+        if dt_local.date() != today:
+            continue
         ladder = _ladder_for_due(dt_local, now)
         eta_raw = max(0, int((dt_local - now).total_seconds()))
         status = "soon" if dt_local > now else "due"
@@ -108,6 +111,8 @@ def build_reminder_digest(user, *, now=None, stats=None, report_sent=False) -> d
     shop_qs = Shop.objects.filter(created_by=user, next_contact_at__isnull=False).prefetch_related("phones").order_by("next_contact_at")
     for shop in shop_qs:
         dt_local = timezone.localtime(shop.next_contact_at)
+        if dt_local.date() != today:
+            continue
         eta_raw = max(0, int((dt_local - now).total_seconds()))
         if eta_raw > 3600 and dt_local > now:
             continue
