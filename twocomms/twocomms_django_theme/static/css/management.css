@@ -5229,13 +5229,15 @@ button.shop-card {
 
 .user-profile__top {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) max-content;
+    grid-template-areas: "avatar identity actions";
     gap: 12px;
-    align-items: center;
+    align-items: start;
 }
 
 .user-avatar,
 .user-avatar-placeholder {
+    grid-area: avatar;
     width: 58px;
     height: 58px;
     box-shadow: 0 0 16px rgba(255, 126, 41, 0.24);
@@ -5255,11 +5257,17 @@ button.shop-card {
     min-width: 0;
 }
 
+.user-profile__identity {
+    grid-area: identity;
+    align-self: start;
+    padding-top: 2px;
+}
+
 .user-role {
     display: inline-flex;
-    align-items: center;
+    align-items: flex-start;
     width: fit-content;
-    max-width: min(100%, 11.5rem);
+    max-width: 100%;
     padding: 4px 10px;
     font-size: 0.7rem;
     letter-spacing: 0.13em;
@@ -5267,16 +5275,22 @@ button.shop-card {
 }
 
 .user-actions {
+    grid-area: actions;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 38px;
+    justify-content: end;
     align-self: start;
-    flex: 0 0 auto;
+    min-width: max-content;
     gap: 8px;
 }
 
 .user-role__text {
+    display: block;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
 }
 
 .status-shortcut--icon {
@@ -5336,10 +5350,10 @@ button.shop-card {
     position: sticky;
     bottom: 0;
     z-index: 2;
-    display: inline-flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
+    gap: 8px;
     margin-top: -18px;
     padding: 18px 12px 8px;
     border-radius: 0 0 20px 20px;
@@ -5355,7 +5369,21 @@ button.shop-card {
     transition: opacity 0.22s ease, transform 0.22s ease;
 }
 
-.sidebar-rail__scroll-cue svg {
+.sidebar-rail__mouse {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 22px;
+    color: rgba(219, 223, 231, 0.74);
+}
+
+.sidebar-rail__mouse svg {
+    width: 18px;
+    height: 22px;
+}
+
+.sidebar-rail__scroll-arrow {
     width: 14px;
     height: 14px;
     fill: currentColor;
@@ -5495,6 +5523,10 @@ button.shop-card {
     position: relative;
 }
 
+.daily-stats-head {
+    position: relative;
+}
+
 .info-dot {
     width: 24px;
     height: 24px;
@@ -5523,10 +5555,7 @@ button.shop-card {
 
 .help-popover {
     position: absolute;
-    top: calc(100% + 10px);
-    right: 0;
     z-index: 4;
-    width: min(300px, calc(100vw - 52px));
     display: grid;
     gap: 8px;
     padding: 12px 14px;
@@ -5537,6 +5566,26 @@ button.shop-card {
         rgba(11, 15, 22, 0.96);
     box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
     color: var(--text-primary);
+}
+
+.help-popover::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 18px;
+    width: 12px;
+    height: 12px;
+    border-top: 1px solid rgba(255, 179, 71, 0.22);
+    border-left: 1px solid rgba(255, 179, 71, 0.22);
+    background: rgba(14, 18, 26, 0.96);
+    transform: rotate(45deg);
+}
+
+.help-popover--daily {
+    top: calc(100% + 10px);
+    left: 0;
+    width: min(18rem, calc(100% - 2px));
+    max-width: calc(100vw - 48px);
 }
 
 .help-popover strong {
@@ -6026,8 +6075,8 @@ button.shop-card {
 
 .nexus-table th.col-actions,
 .actions-cell--callbacks {
-    width: 220px;
-    min-width: 220px;
+    width: 64px;
+    min-width: 64px;
 }
 
 .actions-cell--callbacks {
@@ -6036,38 +6085,41 @@ button.shop-card {
 }
 
 .action-rail {
+    position: relative;
     display: flex;
     justify-content: flex-end;
     width: 100%;
     overflow: visible;
 }
 
-.action-rail__dock {
+.action-rail__stack {
+    position: relative;
     display: grid;
-    grid-template-columns: minmax(118px, 1fr) auto;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    min-width: 0;
+    justify-items: end;
+    gap: 10px;
+    width: 48px;
+    min-width: 48px;
+    overflow: visible;
 }
 
-.action-rail__stack {
-    grid-column: 2;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-    width: 44px;
+.action-rail__stack--vertical {
+    align-items: start;
+}
+
+.action-rail__stack--has-callback {
+    padding-top: 58px;
 }
 
 .action-rail__callback {
-    grid-column: 1;
-    position: relative;
-    width: 100%;
-    min-width: 118px;
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 48px;
+    min-width: 48px;
     min-height: 48px;
-    padding: 0 12px 0 16px;
-    border-radius: 18px;
+    padding: 0 10px 0 16px;
+    margin-left: auto;
+    border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.10);
     background:
         radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 42%),
@@ -6075,11 +6127,12 @@ button.shop-card {
     color: var(--text-primary);
     display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    justify-content: flex-end;
+    gap: 12px;
     overflow: hidden;
     cursor: pointer;
     transition:
+        width 0.26s cubic-bezier(0.2, 0.75, 0.25, 1),
         transform 0.18s ease,
         box-shadow 0.18s ease,
         border-color 0.18s ease,
@@ -6100,7 +6153,8 @@ button.shop-card {
 
 @media (hover: hover) {
     .action-rail__callback:hover {
-        transform: translateY(-1px);
+        width: 176px;
+        transform: translateX(-2px);
         border-color: rgba(125, 211, 252, 0.26);
         box-shadow: 0 16px 28px rgba(6, 11, 18, 0.24);
         background:
@@ -6115,6 +6169,7 @@ button.shop-card {
 }
 
 .action-rail__callback:focus-visible {
+    width: 176px;
     border-color: rgba(125, 211, 252, 0.32);
     box-shadow: 0 0 0 2px rgba(125, 211, 252, 0.18);
 }
@@ -6144,12 +6199,21 @@ button.shop-card {
 }
 
 .action-rail__label {
+    position: absolute;
+    left: 16px;
+    right: 52px;
     max-width: none;
-    opacity: 1;
+    opacity: 0;
     white-space: nowrap;
-    transform: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transform: translateX(-6px);
     transition: color 0.18s ease, letter-spacing 0.18s ease;
-    position: relative;
+    transition:
+        opacity 0.18s ease,
+        transform 0.24s ease,
+        color 0.18s ease,
+        letter-spacing 0.18s ease;
     z-index: 1;
     font-size: 0.76rem;
     font-weight: 800;
@@ -6159,12 +6223,14 @@ button.shop-card {
 
 .action-rail__callback:hover .action-rail__label,
 .action-rail__callback:focus-visible .action-rail__label {
+    opacity: 1;
+    transform: translateX(0);
     letter-spacing: 0.12em;
 }
 
 .action-rail__callback:hover .action-rail__icon,
 .action-rail__callback:focus-visible .action-rail__icon {
-    transform: translateX(2px) scale(1.03);
+    transform: scale(1.03);
     background: rgba(125, 211, 252, 0.16);
 }
 
@@ -6259,14 +6325,14 @@ body[data-row-mode="card"] .nexus-table tbody td::before {
 }
 
 body[data-row-mode="card"] .nexus-table tbody td.actions-cell--callbacks {
-    grid-column: 1 / -1;
-    grid-row: auto;
-    align-self: stretch;
-    margin-top: 8px;
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    align-self: start;
+    margin-top: 0;
 }
 
 body[data-row-mode="card"] .actions-cell--callbacks .action-rail {
-    width: 100%;
+    width: auto;
 }
 
 body[data-row-mode="card"] .actions-cell--callbacks::before {
@@ -6275,19 +6341,10 @@ body[data-row-mode="card"] .actions-cell--callbacks::before {
 
 body[data-row-mode="card"] .actions-cell--callbacks .icon-btn,
 body[data-row-mode="card"] .actions-cell--callbacks .action-rail__callback {
-    align-self: auto;
+    align-self: flex-end;
 }
 
 body[data-row-mode="card"] .actions-cell--callbacks .btn-primary {
-    width: auto;
-}
-
-body[data-row-mode="card"] .actions-cell--callbacks .action-rail__dock {
-    grid-template-columns: minmax(0, 1fr) auto;
-}
-
-body[data-row-mode="card"] .actions-cell--callbacks .action-rail__stack {
-    flex-direction: row;
     width: auto;
 }
 
@@ -6307,6 +6364,24 @@ body[data-row-mode="card"] .actions-cell--callbacks .action-rail__stack {
 
     .daily-inline-chip {
         display: none;
+    }
+}
+
+@container management-rail (max-width: 332px) {
+    .user-profile__top {
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+            "avatar actions"
+            "identity identity";
+        row-gap: 10px;
+    }
+
+    .user-profile__identity {
+        padding-top: 0;
+    }
+
+    .user-role {
+        max-width: 100%;
     }
 }
 
@@ -6437,11 +6512,7 @@ body[data-row-mode="card"] .actions-cell--callbacks .action-rail__stack {
         margin-left: auto;
     }
 
-    body[data-row-mode="card"] .actions-cell--callbacks .action-rail__dock {
-        grid-template-columns: 1fr;
-    }
-
-    body[data-row-mode="card"] .actions-cell--callbacks .action-rail__stack {
-        justify-content: flex-end;
+    .sidebar-rail__scroll-cue {
+        grid-template-columns: auto 1fr auto;
     }
 }
