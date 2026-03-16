@@ -5,7 +5,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from django.conf import settings
 from django.contrib import messages
@@ -67,6 +67,7 @@ from .email_templates.twocomms_cp import (
 )
 
 from .constants import LEAD_BASE_PROCESSING_PENALTY, POINTS, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
+from .context_processors import build_management_shell_metrics
 from .invoice_service import (
     InvoicePayloadError,
     build_management_invoice_workbook,
@@ -97,6 +98,27 @@ from .services.roster import management_role_label, manager_roster_queryset
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
 logger = logging.getLogger(__name__)
+
+
+def _compact_text(value: str, limit: int = 72) -> str:
+    text = (value or "").strip()
+    if len(text) <= limit:
+        return text
+    return f"{text[: limit - 1].rstrip()}…"
+
+
+def _hostname_display(raw_url: str) -> str:
+    value = (raw_url or "").strip()
+    if not value:
+        return ""
+    try:
+        parsed = urlsplit(value if "://" in value else f"https://{value}")
+    except Exception:
+        return _compact_text(value, 28)
+    host = (parsed.netloc or parsed.path or "").lower().strip()
+    if host.startswith("www."):
+        host = host[4:]
+    return host or _compact_text(value, 28)
 
 
 class ContractPayloadError(Exception):
@@ -350,11 +372,15 @@ def _serialize_client_for_home(client: Client, today) -> dict:
         })
     current_phase = phase_items[-1] if phase_items else None
     phase_history = phase_items[:-1] if len(phase_items) > 1 else []
+    hostname_display = _hostname_display(client.website_url)
+    manager_note = (client.manager_note or "").strip()
+    callback_visual_state = callback_state if callback_state != "none" else "normal"
     return {
         'id': client.id,
         'shop': client.shop_name,
         'phone': client.phone,
         'website_url': client.website_url,
+        'hostname_display': hostname_display,
         'full_name': client.full_name,
         'role': client.role,
         'role_display': client.get_role_display(),
@@ -374,12 +400,15 @@ def _serialize_client_for_home(client: Client, today) -> dict:
         'xml_resource_url': context.get('xml_resource_url', ''),
         'linked_shop_id': context.get('linked_shop_id', ''),
         'duplicate_override_reason': context.get('duplicate_override_reason', ''),
-        'manager_note': client.manager_note or '',
+        'manager_note': manager_note,
+        'has_manager_note': bool(manager_note),
+        'manager_note_preview': _compact_text(manager_note, 96),
         'next_call_date': timezone.localtime(client.next_call_at).strftime('%Y-%m-%d') if client.next_call_at else '',
         'next_call_time': timezone.localtime(client.next_call_at).strftime('%H:%M') if client.next_call_at else '',
         'next_call': timezone.localtime(client.next_call_at).strftime('%d.%m.%Y %H:%M') if client.next_call_at else '–',
         'created_date_label': 'Сьогодні' if created_local.date() == today else created_local.strftime('%d.%m.%Y'),
         'callback_state': callback_state,
+        'callback_visual_state': callback_visual_state,
         'callback_status_label': callback_status_label,
         'callback_available': callback_available,
         'callback_pending': callback_pending,
@@ -390,6 +419,7 @@ def _serialize_client_for_home(client: Client, today) -> dict:
         'last_interaction_at': home_dt_label(latest_attempt.created_at) if latest_attempt else home_dt_label(client.updated_at or client.created_at),
         'current_phase_label': f"Фаза {current_phase['phase']}" if current_phase else 'Фаза 1',
         'current_phase_summary': current_phase['summary'] if current_phase else callback_summary,
+        'callback_phase_count': len(phase_items) or 1,
         'phase_history_json': json.dumps(phase_history, ensure_ascii=False),
     }
 
@@ -874,6 +904,7 @@ def home(request):
             processed_today = stats['processed_today']
             progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
             progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
+            shell_metrics = build_management_shell_metrics(request.user, getattr(request.user, "userprofile", None))
 
             latest_data = _serialize_client_for_home(saved_client, today) if shop_name and phone else None
 
@@ -887,6 +918,7 @@ def home(request):
                 'progress_clients_pct': progress_clients_pct,
                 'progress_points_pct': progress_points_pct,
                 'latest': latest_data,
+                'shell_secondary_counts': shell_metrics['management_shell_secondary_counts'],
             })
         return redirect('management_home')
 

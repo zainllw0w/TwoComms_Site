@@ -81,17 +81,21 @@
                                 data-client-id="{{ client.id }}"
                                 data-client-mode="{{ client.client_mode }}"
                                 data-callback-state="{{ client.callback_state }}"
+                                data-callback-visual-state="{{ client.callback_visual_state }}"
                                 data-callback-attempts="{{ client.callback_attempts }}"
                                 data-callback-review-candidate="{{ client.callback_review_candidate|yesno:'true,false' }}"
                                 data-last-interaction-summary="{{ client.last_interaction_summary|escape }}"
                                 data-last-interaction-at="{{ client.last_interaction_at|escape }}"
                                 data-current-phase-label="{{ client.current_phase_label|escape }}"
                                 data-current-phase-summary="{{ client.current_phase_summary|escape }}"
+                                data-callback-phase-count="{{ client.callback_phase_count }}"
                                 data-phase-history="{{ client.phase_history_json|urlencode }}"
                                 data-manager-note="{{ client.manager_note|urlencode }}"
+                                data-manager-note-preview="{{ client.manager_note_preview|escape }}"
                                 data-shop="{{ client.shop|escape }}"
                                 data-phone="{{ client.phone|escape }}"
                                 data-website-url="{{ client.website_url|escape }}"
+                                data-hostname-display="{{ client.hostname_display|escape }}"
                                 data-full-name="{{ client.full_name|escape }}"
                                 data-role="{{ client.role }}"
                                 data-source="{{ client.source|escape }}"
@@ -110,37 +114,56 @@
                                 data-linked-shop-id="{{ client.linked_shop_id|default:'' }}"
                                 data-next-call-date="{{ client.next_call_date|default:'' }}"
                                 data-next-call-time="{{ client.next_call_time|default:'' }}">
-                                <td>{{ client.shop }}</td>
-                                <td>{{ client.phone }}</td>
-                                <td>
+                                <td data-label="Магазин/Insta" class="cell-shop">
+                                    <div class="cell-primary">{{ client.shop }}</div>
+                                    {% if client.has_manager_note %}
+                                    <span class="row-note-chip" title="{{ client.manager_note_preview }}">Є нотатка</span>
+                                    {% endif %}
+                                </td>
+                                <td data-label="Телефон" class="cell-phone">{{ client.phone }}</td>
+                                <td data-label="Сайт" class="cell-website">
                                     {% if client.website_url %}
-                                        <a href="{{ client.website_url }}" target="_blank" rel="noopener noreferrer">{{ client.website_url|truncatechars:32 }}</a>
+                                        <a href="{{ client.website_url }}" target="_blank" rel="noopener noreferrer" class="site-link-chip" title="{{ client.website_url }}">
+                                            <span class="site-link-chip__icon" aria-hidden="true">↗</span>
+                                            <span class="site-link-chip__text">{{ client.hostname_display|default:"Сайт" }}</span>
+                                        </a>
                                     {% else %}
                                         —
                                     {% endif %}
                                 </td>
-                                <td>{{ client.full_name }}</td>
-                                <td><span class="status-badge role-{{ client.role }}">{{ client.role_display }}</span></td>
-                                <td>{{ client.source }}</td>
-                                <td>
-                                    <span class="result-badge result-{{ client.call_result }}">{{ client.call_result_display }}</span>
-                                    {% if client.call_result_details %}<span class="muted-detail">• {{ client.call_result_details }}</span>{% endif %}
+                                <td data-label="ПІБ" class="cell-name">{{ client.full_name }}</td>
+                                <td data-label="Статус" class="cell-status"><span class="status-badge role-{{ client.role }}">{{ client.role_display }}</span></td>
+                                <td data-label="Джерело" class="cell-source">{{ client.source }}</td>
+                                <td data-label="Результат" class="cell-result">
+                                    <div class="result-stack">
+                                        <span class="result-badge result-{{ client.call_result }}">{{ client.call_result_display }}</span>
+                                        {% if client.call_result_details %}<span class="muted-detail">{{ client.call_result_details }}</span>{% endif %}
+                                    </div>
                                 </td>
-                                <td>
+                                <td data-label="Наступний дзвінок" class="cell-next-call">
                                     {% if client.next_call_date %}
                                         <div class="callback-next-call">
                                             <span>{{ client.next_call }}</span>
                                             {% if client.callback_status_label %}
                                             <small class="callback-state callback-state--{{ client.callback_state }}">{{ client.callback_status_label }}</small>
                                             {% endif %}
+                                            {% if client.callback_available %}
+                                            <small class="phase-indicator">{{ client.current_phase_label }}</small>
+                                            {% endif %}
                                         </div>
                                     {% else %}
                                         –
                                     {% endif %}
                                 </td>
-                                <td class="actions-cell">
+                                <td data-label="Дія" class="actions-cell">
+                                    <div class="action-rail">
                                     {% if client.callback_available %}
-                                    <button type="button" class="btn-ghost btn-small callback-client" aria-label="Передзвонити">Передзвонити</button>
+                                    <button type="button" class="action-rail__button callback-client" aria-label="Передзвонити" title="Передзвонити">
+                                        <span class="action-rail__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.72 11.72 0 003.67.59 1 1 0 011 1V20a1 1 0 01-1 1C10.75 21 3 13.25 3 4a1 1 0 011-1h3.47a1 1 0 011 1 11.72 11.72 0 00.59 3.67 1 1 0 01-.24 1.01l-2.2 2.11z"/></svg>
+                                        </span>
+                                        <span class="action-rail__label">Передзвонити</span>
+                                    </button>
                                     {% endif %}
                                     <button type="button" class="icon-btn edit-client" aria-label="Редагувати">
                                         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -151,10 +174,11 @@
                                         {% csrf_token %}
                                         <button type="submit" class="icon-btn ghost danger" aria-label="Видалити" onclick="return confirm('Видалити клієнта?');">
                                             <svg viewBox="0 0 24 24" aria-hidden="true">
-                                                <path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"/>
-                                            </svg>
-                                        </button>
+                                            <path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"/>
+                                        </svg>
+                                    </button>
                                     </form>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -195,20 +219,23 @@
                         data-city="{{ lead.city|escape }}"
                         data-comments="{{ lead.comments|escape }}"
                         data-details="{{ lead.details|escape }}">
-                        <td>{{ lead.shop_name }}</td>
-                        <td>{{ lead.phone }}</td>
-                        <td>
+                        <td data-label="Магазин">{{ lead.shop_name }}</td>
+                        <td data-label="Телефон">{{ lead.phone }}</td>
+                        <td data-label="Сайт">
                             {% if lead.website_url %}
-                                <a href="{{ lead.website_url }}" target="_blank" rel="noopener noreferrer">{{ lead.website_url|truncatechars:30 }}</a>
+                                <a href="{{ lead.website_url }}" target="_blank" rel="noopener noreferrer" class="site-link-chip" title="{{ lead.website_url }}">
+                                    <span class="site-link-chip__icon" aria-hidden="true">↗</span>
+                                    <span class="site-link-chip__text">{{ lead.website_url|cut:"https://"|cut:"http://"|truncatechars:24 }}</span>
+                                </a>
                             {% else %}
                                 —
                             {% endif %}
                         </td>
-                        <td>{{ lead.city|default:"—" }}</td>
-                        <td><span class="status-badge role-{{ lead.role }}">{{ lead.get_role_display }}</span></td>
-                        <td>{{ lead.added_by_display }}</td>
-                        <td>{{ lead.comments|default:"—"|truncatechars:80 }}</td>
-                        <td class="actions-cell">
+                        <td data-label="Місто">{{ lead.city|default:"—" }}</td>
+                        <td data-label="Статус"><span class="status-badge role-{{ lead.role }}">{{ lead.get_role_display }}</span></td>
+                        <td data-label="Додав">{{ lead.added_by_display }}</td>
+                        <td data-label="Коментарі">{{ lead.comments|default:"—"|truncatechars:80 }}</td>
+                        <td data-label="Дія" class="actions-cell">
                             <button type="button" class="btn-primary btn-process-lead process-lead" data-lead-id="{{ lead.id }}">Обробити</button>
                         </td>
                     </tr>
@@ -237,6 +264,11 @@
             {% csrf_token %}
             <input type="hidden" name="client_id" id="client_id" value="">
             <input type="hidden" name="duplicate_override_reason" id="duplicate_override_reason" value="">
+            <div class="modal-section-progress" aria-hidden="true">
+                <span class="modal-section-progress__item is-active">Контакт</span>
+                <span class="modal-section-progress__item">Підсумок і доказ</span>
+                <span class="modal-section-progress__item">Наступний крок</span>
+            </div>
 
             <div class="entry-info-banner">
                 Якісно заповнені дані допомагають дедуплікації, нагадуванням і тіньовому MOSAIC-рейтингуванню без перекосів.
@@ -400,10 +432,10 @@
                         <div class="linked-shop-summary" id="linked_shop_summary">Виберіть магазин, щоб підтягнути коротку сводку по ТТН та сумі.</div>
                     </div>
 
-                    <div class="field field-span-2">
+                    <div class="field field-span-full">
                         <label for="manager_note">Нотатка менеджера</label>
                         <textarea id="manager_note" name="manager_note" placeholder="Наприклад: краще телефонувати після 20:00, просить писати у Telegram, поводиться різко тощо."></textarea>
-                        <div class="field-hint">Ця нотатка зберігається для майбутніх передзвонів і видима адміністратору.</div>
+                        <div class="field-hint field-hint--single-line">Ця нотатка зберігається для майбутніх передзвонів і видима адміністратору.</div>
                     </div>
                 </div>
             </section>
@@ -457,6 +489,7 @@
                 </div>
             </section>
             <div class="modal-footer">
+                <div class="modal-footer-summary" id="client_modal_footer_summary" hidden></div>
                 <button type="button" class="btn-ghost modal-close">Відмінити</button>
                 <button type="submit" class="btn-primary">Зберегти</button>
             </div>
@@ -696,10 +729,10 @@
                     <div class="linked-shop-summary" id="process_linked_shop_summary">Виберіть магазин, щоб підтягнути коротку сводку по ТТН та сумі.</div>
                 </div>
                 <div class="field field-span-full duplicate-review-surface duplicate-review-surface--inline" id="process_duplicate_notice" hidden></div>
-                <div class="field field-span-2">
+                <div class="field field-span-full">
                     <label for="process_manager_note">Нотатка менеджера</label>
                     <textarea id="process_manager_note" name="manager_note" placeholder="Наприклад: просить говорити після 20:00, хоче лише Telegram, поводиться різко тощо."></textarea>
-                    <div class="field-hint">Нотатка збережеться для майбутніх передзвонів і буде доступна адміністратору.</div>
+                    <div class="field-hint field-hint--single-line">Нотатка збережеться для майбутніх передзвонів і буде доступна адміністратору.</div>
                 </div>
                 <div class="field field-span-2">
                     <label>Наступний дзвінок</label>
@@ -853,6 +886,7 @@ function initManagementHomePage() {
     const clientCallbackHistory = document.getElementById('client_callback_history');
     const clientCallbackHistorySummary = document.getElementById('client_callback_history_summary');
     const clientCallbackHistoryList = document.getElementById('client_callback_history_list');
+    const clientModalFooterSummary = document.getElementById('client_modal_footer_summary');
 
     const leadSourceSelect = document.getElementById('lead_source');
     const leadSourceLink = document.getElementById('lead_source_link');
@@ -921,6 +955,19 @@ function initManagementHomePage() {
         }
     };
 
+    const escapeHtml = (value) => String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const compactText = (value, limit = 72) => {
+        const text = String(value || '').trim();
+        if (text.length <= limit) return text;
+        return `${text.slice(0, limit - 1).trimEnd()}…`;
+    };
+
     const fillSelectOptions = (select, items, placeholder, valueKey = 'id', labelKey = 'label') => {
         if (!select) return;
         const current = select.dataset.prefill || select.value;
@@ -957,22 +1004,22 @@ function initManagementHomePage() {
                 <header>
                     <div>
                         <div class="duplicate-review-eyebrow">${candidate.kind === 'client' ? 'Клієнт' : 'Лід'}</div>
-                        <h4>${candidate.shop_name || 'Без назви'}</h4>
-                        <div class="duplicate-summary-sub">${candidate.signal_summary || payload.signal_summary || 'Перевірте деталі збігу перед збереженням.'}</div>
+                        <h4>${escapeHtml(candidate.shop_name || 'Без назви')}</h4>
+                        <div class="duplicate-summary-sub">${escapeHtml(candidate.signal_summary || payload.signal_summary || 'Перевірте деталі збігу перед збереженням.')}</div>
                     </div>
-                    <div class="duplicate-score-chip">Score ${candidate.score ?? '—'}</div>
+                    <div class="duplicate-score-chip">Score ${escapeHtml(candidate.score ?? '—')}</div>
                 </header>
                 <dl class="duplicate-summary-grid">
-                    <div><dt>Збіг знайдено по</dt><dd>${(candidate.matched_on || []).join(' · ') || (payload.matched_on || []).join(' · ') || '—'}</dd></div>
-                    <div><dt>Менеджер</dt><dd>${candidate.owner_display || '—'}</dd></div>
-                    <div><dt>Створено</dt><dd>${candidate.created_at_display || '—'}</dd></div>
-                    <div><dt>Останній контакт</dt><dd>${candidate.last_contact_display || '—'}</dd></div>
-                    <div><dt>Підсумок</dt><dd>${candidate.last_result_display || '—'}</dd></div>
-                    <div><dt>Вердикт</dt><dd>${candidate.verdict_display || '—'}</dd></div>
-                    <div><dt>Наступний крок</dt><dd>${candidate.next_call_display || '—'}</dd></div>
-                    <div><dt>Свіжість</dt><dd>${candidate.freshness_display || '—'}</dd></div>
-                    <div><dt>Телефон</dt><dd>${candidate.phone || '—'}</dd></div>
-                    <div><dt>Сайт</dt><dd>${candidate.website_url || '—'}</dd></div>
+                    <div><dt>Збіг знайдено по</dt><dd>${escapeHtml((candidate.matched_on || []).join(' · ') || (payload.matched_on || []).join(' · ') || '—')}</dd></div>
+                    <div><dt>Менеджер</dt><dd>${escapeHtml(candidate.owner_display || '—')}</dd></div>
+                    <div><dt>Створено</dt><dd>${escapeHtml(candidate.created_at_display || '—')}</dd></div>
+                    <div><dt>Останній контакт</dt><dd>${escapeHtml(candidate.last_contact_display || '—')}</dd></div>
+                    <div><dt>Підсумок</dt><dd>${escapeHtml(candidate.last_result_display || '—')}</dd></div>
+                    <div><dt>Вердикт</dt><dd>${escapeHtml(candidate.verdict_display || '—')}</dd></div>
+                    <div><dt>Наступний крок</dt><dd>${escapeHtml(candidate.next_call_display || '—')}</dd></div>
+                    <div><dt>Свіжість</dt><dd>${escapeHtml(candidate.freshness_display || '—')}</dd></div>
+                    <div><dt>Телефон</dt><dd>${escapeHtml(candidate.phone || '—')}</dd></div>
+                    <div><dt>Сайт</dt><dd>${escapeHtml(candidate.website_url || '—')}</dd></div>
                 </dl>
             </article>
         `).join('');
@@ -980,9 +1027,27 @@ function initManagementHomePage() {
 
     const clearDuplicateNotice = (node) => {
         if (!node) return;
+        delete node.dataset.zone;
+        delete node.dataset.requiresOverride;
         node.hidden = true;
         node.style.display = 'none';
         node.innerHTML = '';
+        if (node === clientDuplicateNotice) {
+            syncClientFooterSummary();
+        }
+    };
+
+    const syncClientFooterSummary = () => {
+        if (!clientModalFooterSummary) return;
+        let summary = '';
+        if (clientDuplicateNotice && !clientDuplicateNotice.hidden && clientDuplicateNotice.dataset.requiresOverride === 'true') {
+            summary = 'Потрібне обґрунтування дубля перед збереженням';
+        } else if (clientForm?.dataset?.clientMode === 'callback') {
+            const phaseLabel = clientCallbackContextMeta?.textContent?.split(' · ')[0] || 'Передзвін';
+            summary = `Передзвін: ${phaseLabel}`;
+        }
+        clientModalFooterSummary.textContent = summary;
+        setNodeVisible(clientModalFooterSummary, !!summary, 'block');
     };
 
     const renderDuplicateNotice = (node, payload, formConfig) => {
@@ -990,20 +1055,22 @@ function initManagementHomePage() {
         const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
         const items = candidates.slice(0, 3).map((candidate) => `
             <li>
-                <strong>${candidate.shop_name || 'Без назви'}</strong>
-                <span>${(candidate.matched_on || []).join(' · ') || 'збіг'}</span>
-                <span>${candidate.owner_display || '—'}</span>
-                <span>${candidate.last_result_display || '—'}</span>
+                <strong>${escapeHtml(candidate.shop_name || 'Без назви')}</strong>
+                <span class="duplicate-mini-chip">${escapeHtml((candidate.matched_on || []).join(' · ') || 'збіг')}</span>
+                <span class="duplicate-mini-chip">${escapeHtml(candidate.owner_display || '—')}</span>
+                <span class="duplicate-mini-chip">${escapeHtml(candidate.last_result_display || '—')}</span>
             </li>
         `).join('');
         const needsOverride = payload.zone === 'auto_block' || payload.zone === 'review';
+        node.dataset.zone = payload.zone || '';
+        node.dataset.requiresOverride = needsOverride ? 'true' : 'false';
         setNodeVisible(node, true, 'block');
         node.innerHTML = `
             <div class="duplicate-review-header">
                 <div>
                     <div class="duplicate-review-eyebrow">${payload.zone === 'suggestion' ? 'Можливий збіг' : 'Потрібна перевірка'}</div>
-                    <strong>${payload.error || 'Такий контакт уже зустрічався в базі'}</strong>
-                    <div class="field-hint">${payload.signal_summary || 'Перегляньте коротку історію збігу перед збереженням.'}</div>
+                    <strong>${escapeHtml(payload.error || 'Такий контакт уже зустрічався в базі')}</strong>
+                    <div class="field-hint">${escapeHtml(payload.signal_summary || 'Перегляньте коротку історію збігу перед збереженням.')}</div>
                 </div>
                 <div class="duplicate-review-actions">
                     <button type="button" class="btn-ghost btn-small duplicate-summary-open">Переглянути</button>
@@ -1021,6 +1088,7 @@ function initManagementHomePage() {
                 </div>
             ` : ''}
         `;
+        syncClientFooterSummary();
         node.querySelector('.duplicate-summary-open')?.addEventListener('click', () => {
             renderDuplicateSummary(payload);
             openModal(clientDuplicateSummaryModal);
@@ -1250,6 +1318,7 @@ function initManagementHomePage() {
             setNodeVisible(clientCallbackNote, false, 'block');
             setNodeVisible(clientCallbackHistory, false, 'block');
             if (clientCallbackHistoryList) clientCallbackHistoryList.innerHTML = '';
+            syncClientFooterSummary();
             return;
         }
         const parts = [];
@@ -1286,6 +1355,7 @@ function initManagementHomePage() {
                 setNodeVisible(clientCallbackHistory, false, 'block');
             }
         }
+        syncClientFooterSummary();
     };
 
     const resetClientForm = () => {
@@ -1447,6 +1517,23 @@ function initManagementHomePage() {
         });
     };
 
+    const renderRailPeekChips = (counts = {}) => {
+        const railPeekList = document.querySelector('.rail-peek-list');
+        if (!railPeekList) return;
+        const chips = [];
+        if (counts.today_callbacks) {
+            chips.push(`<span class="rail-peek-chip rail-peek-chip--today">Передзвони сьогодні <strong>${counts.today_callbacks}</strong></span>`);
+        }
+        if (counts.missed_callbacks) {
+            chips.push(`<span class="rail-peek-chip rail-peek-chip--missed">Пропущено <strong>${counts.missed_callbacks}</strong></span>`);
+        }
+        if (counts.duplicate_reviews) {
+            chips.push(`<span class="rail-peek-chip rail-peek-chip--review">Потрібна перевірка <strong>${counts.duplicate_reviews}</strong></span>`);
+        }
+        railPeekList.innerHTML = chips.join('');
+        setNodeVisible(railPeekList, chips.length > 0, 'flex');
+    };
+
     const updateStats = (data) => {
         const pointsValEl = document.getElementById('gauge-points-value');
         const arcFill = document.getElementById('gauge-arc-fill');
@@ -1472,32 +1559,40 @@ function initManagementHomePage() {
                 segment.classList.toggle('is-active', segment.dataset.zone === zone);
             });
         }
+        if (data.shell_secondary_counts) {
+            renderRailPeekChips(data.shell_secondary_counts);
+        }
     };
 
     const buildClientRowHtml = (client, csrfToken) => {
         const deleteUrl = clientDeleteTpl.replace('/0/', `/${client.id}/`);
         const websiteCell = client.website_url
-            ? `<a href="${client.website_url}" target="_blank" rel="noopener noreferrer">${client.website_url}</a>`
+            ? `<a href="${escapeHtml(client.website_url)}" target="_blank" rel="noopener noreferrer" class="site-link-chip" title="${escapeHtml(client.website_url)}"><span class="site-link-chip__icon" aria-hidden="true">↗</span><span class="site-link-chip__text">${escapeHtml(client.hostname_display || client.website_url)}</span></a>`
             : '—';
         const rowStateClass = client.callback_pending ? 'callback-ghost-row' : (client.callback_state === 'missed' ? 'callback-missed-row' : '');
         const callbackStatus = client.callback_status_label
             ? `<small class="callback-state callback-state--${client.callback_state || 'none'}">${client.callback_status_label}</small>`
             : '';
+        const noteChip = client.has_manager_note ? `<span class="row-note-chip" title="${escapeHtml(client.manager_note_preview || client.manager_note || '')}">Є нотатка</span>` : '';
         return `<tr class="${rowStateClass}"
                     data-client-id="${client.id}"
                     data-client-mode="${client.client_mode || (client.callback_available ? 'callback' : 'client')}"
                     data-callback-state="${client.callback_state || 'none'}"
+                    data-callback-visual-state="${client.callback_visual_state || 'normal'}"
                     data-callback-attempts="${client.callback_attempts || 0}"
                     data-callback-review-candidate="${client.callback_review_candidate ? 'true' : 'false'}"
                     data-last-interaction-summary="${client.last_interaction_summary || ''}"
                     data-last-interaction-at="${client.last_interaction_at || ''}"
                     data-current-phase-label="${client.current_phase_label || ''}"
                     data-current-phase-summary="${client.current_phase_summary || ''}"
+                    data-callback-phase-count="${client.callback_phase_count || 1}"
                     data-phase-history="${encodeURIComponent(client.phase_history_json || '[]')}"
                     data-manager-note="${encodeURIComponent(client.manager_note || '')}"
+                    data-manager-note-preview="${escapeHtml(client.manager_note_preview || '')}"
                     data-shop="${client.shop}"
                     data-phone="${client.phone}"
                     data-website-url="${client.website_url || ''}"
+                    data-hostname-display="${escapeHtml(client.hostname_display || '')}"
                     data-full-name="${client.full_name}"
                     data-role="${client.role}"
                     data-source="${client.source}"
@@ -1516,16 +1611,17 @@ function initManagementHomePage() {
                     data-linked-shop-id="${client.linked_shop_id || ''}"
                     data-next-call-date="${client.next_call_date || ''}"
                     data-next-call-time="${client.next_call_time || ''}">
-                    <td>${client.shop}</td>
-                    <td>${client.phone}</td>
-                    <td>${websiteCell}</td>
-                    <td>${client.full_name}</td>
-                    <td><span class="status-badge role-${client.role}">${client.role_display}</span></td>
-                    <td>${client.source}</td>
-                    <td><span class="result-badge result-${client.call_result}">${client.call_result_display}</span>${client.call_result_details ? `<span class="muted-detail">• ${client.call_result_details}</span>` : ''}</td>
-                    <td>${client.next_call ? `<div class="callback-next-call"><span>${client.next_call}</span>${callbackStatus}</div>` : '–'}</td>
-                    <td class="actions-cell">
-                        ${client.callback_available ? `<button type="button" class="btn-ghost btn-small callback-client" aria-label="Передзвонити">Передзвонити</button>` : ''}
+                    <td data-label="Магазин/Insta" class="cell-shop"><div class="cell-primary">${escapeHtml(client.shop)}</div>${noteChip}</td>
+                    <td data-label="Телефон" class="cell-phone">${escapeHtml(client.phone)}</td>
+                    <td data-label="Сайт" class="cell-website">${websiteCell}</td>
+                    <td data-label="ПІБ" class="cell-name">${escapeHtml(client.full_name || '—')}</td>
+                    <td data-label="Статус" class="cell-status"><span class="status-badge role-${client.role}">${escapeHtml(client.role_display)}</span></td>
+                    <td data-label="Джерело" class="cell-source">${escapeHtml(client.source || '—')}</td>
+                    <td data-label="Результат" class="cell-result"><div class="result-stack"><span class="result-badge result-${client.call_result}">${escapeHtml(client.call_result_display)}</span>${client.call_result_details ? `<span class="muted-detail">${escapeHtml(client.call_result_details)}</span>` : ''}</div></td>
+                    <td data-label="Наступний дзвінок" class="cell-next-call">${client.next_call ? `<div class="callback-next-call"><span>${escapeHtml(client.next_call)}</span>${callbackStatus}${client.callback_available ? `<small class="phase-indicator">${escapeHtml(client.current_phase_label || 'Фаза 1')}</small>` : ''}</div>` : '–'}</td>
+                    <td data-label="Дія" class="actions-cell">
+                        <div class="action-rail">
+                        ${client.callback_available ? `<button type="button" class="action-rail__button callback-client" aria-label="Передзвонити" title="Передзвонити"><span class="action-rail__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.72 11.72 0 003.67.59 1 1 0 011 1V20a1 1 0 01-1 1C10.75 21 3 13.25 3 4a1 1 0 011-1h3.47a1 1 0 011 1 11.72 11.72 0 00.59 3.67 1 1 0 01-.24 1.01l-2.2 2.11z"></path></svg></span><span class="action-rail__label">Передзвонити</span></button>` : ''}
                         <button type="button" class="icon-btn edit-client" aria-label="Редагувати">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"></path></svg>
                         </button>
@@ -1535,6 +1631,7 @@ function initManagementHomePage() {
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"></path></svg>
                             </button>
                         </form>
+                        </div>
                     </td>
                 </tr>`;
     };

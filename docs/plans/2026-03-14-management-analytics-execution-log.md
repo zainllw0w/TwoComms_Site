@@ -249,3 +249,46 @@
 - `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py check --settings=test_settings` passed.
 - `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py makemigrations --check --dry-run --settings=test_settings` reported no pending changes.
 - `git diff --check` passed before commit/deploy preparation.
+
+## 2026-03-16 Scroll-Reactive Rail + Responsive Client Rows Pass
+
+- Reworked the left management shell from a long scrolling sidebar into a sticky `sidebar-rail` with explicit UI state:
+  - profile remains above the menu and now carries the compact MOSAIC surface;
+  - the navigation cassette stays fully visible as the primary anchor;
+  - secondary insight surfaces (`rail-peek` chips and the quiet `Всього в роботі` card) now reveal progressively from `top -> mid -> deep` scroll states.
+- Tightened the daily norm shell around the correct tempo zones `0–19`, `20–49`, `50+`:
+  - the explanatory copy moved into an info-trigger tooltip;
+  - the main card now emphasizes the centered processed count and segmented progress bar;
+  - the callback chip and supporting microcopy were reduced so the card fits laptop heights more cleanly.
+- Added compact shell metrics to the shared management context and AJAX payloads:
+  - today callbacks;
+  - missed callbacks;
+  - duplicate review count;
+  - MOSAIC label + readiness meta for the profile shell.
+- Extended the home/client payload with UI-safe display hints instead of raw wide content:
+  - `callback_visual_state`;
+  - `callback_phase_count`;
+  - `has_manager_note`;
+  - `manager_note_preview`;
+  - `hostname_display`.
+- Reworked the add-client and process-client modal layout contract:
+  - viewport-safe widths for wide desktop, laptop, and narrower sheets;
+  - section progress pills for `Контакт / Підсумок і доказ / Наступний крок`;
+  - duplicate warning as a symmetrical full-width surface in the contact section;
+  - duplicate summary modal constrained to an internal-scroll sheet;
+  - full-width manager note field with a single-line desktop hint.
+- Reworked client rows for hybrid desktop behavior:
+  - `table` mode on wide desktop;
+  - `condensed` table on laptop widths;
+  - `card` row mode below the defined threshold;
+  - website display now uses compact hostname/link chips;
+  - callback action became a reserved-width action rail so `Передзвонити` can expand without shifting the row.
+
+### Verification Evidence For Scroll-Reactive Rail + Responsive Client Rows Pass
+
+- `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py test management.tests_phase7_shell_bot.HomeShellRenderTests.test_home_renders_updated_daily_zones_and_secondary_shell_chips management.tests_phase6_client_entry.HomePageModalMarkupTests.test_home_page_exposes_compact_client_payload_hints_for_hybrid_rows --settings=test_settings` passed with `2` tests green.
+- `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py test management --settings=test_settings` passed with `104` tests green.
+- `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py check --settings=test_settings` passed.
+- `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py makemigrations --check --dry-run --settings=test_settings` reported no pending changes.
+- `python3 -m py_compile management/views.py management/lead_views.py management/context_processors.py` passed.
+- `git diff --check` passed before commit/deploy preparation.

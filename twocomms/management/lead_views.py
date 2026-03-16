@@ -8,6 +8,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .constants import LEAD_BASE_PROCESSING_PENALTY, POINTS, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 from .models import Client, ManagementLead, normalize_phone
+from .context_processors import build_management_shell_metrics
 from .services.client_entry import merge_result_capture_with_evidence, record_client_interaction, validate_client_entry_evidence
 from .services.dedupe import (
     DedupeZone,
@@ -52,6 +53,7 @@ def _stats_payload(user) -> dict:
     user_points_today = stats["points_today"]
     progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
+    shell_metrics = build_management_shell_metrics(user, getattr(user, "userprofile", None))
     return {
         "user_points_today": user_points_today,
         "user_points_total": stats["points_total"],
@@ -60,6 +62,7 @@ def _stats_payload(user) -> dict:
         "target_points": TARGET_POINTS_DAY,
         "progress_clients_pct": progress_clients_pct,
         "progress_points_pct": progress_points_pct,
+        "shell_secondary_counts": shell_metrics["management_shell_secondary_counts"],
     }
 
 

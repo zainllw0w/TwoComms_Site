@@ -327,3 +327,31 @@ class HomePageModalMarkupTests(TestCase):
         self.assertContains(response, "Якісно заповнені дані допомагають")
         self.assertContains(response, "Оберіть, коли краще нагадати про наступний контакт")
         self.assertContains(response, "duplicate_preview_url")
+
+    def test_home_page_exposes_compact_client_payload_hints_for_hybrid_rows(self):
+        client = Client.objects.create(
+            shop_name="Compact Shop",
+            phone="+380671110099",
+            website_url="https://shop.example.com/catalog/super-long-path",
+            full_name="Compact Owner",
+            owner=self.user,
+            call_result=Client.CallResult.ORDER,
+            manager_note="Краще писати після 19:00.",
+        )
+        client.next_call_at = None
+        client.save(update_fields=["next_call_at"])
+
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        grouped = response.context["grouped_clients"]
+        flat = {
+            item["shop"]: item
+            for _, items in grouped
+            for item in items
+        }
+        payload = flat["Compact Shop"]
+        self.assertEqual(payload["callback_visual_state"], "normal")
+        self.assertTrue(payload["has_manager_note"])
+        self.assertIn("19:00", payload["manager_note_preview"])
+        self.assertEqual(payload["hostname_display"], "shop.example.com")

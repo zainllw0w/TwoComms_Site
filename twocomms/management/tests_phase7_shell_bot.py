@@ -94,6 +94,37 @@ class HomeShellRenderTests(TestCase):
         self.assertEqual(flat["Missed Shop"][1]["callback_state"], "missed")
         self.assertFalse(flat["Missed Shop"][1]["callback_pending"])
 
+    def test_home_renders_updated_daily_zones_and_secondary_shell_chips(self):
+        user = get_user_model().objects.create_user(username="shell_metrics", password="x", is_staff=True)
+        self.client.force_login(user)
+        due_today = timezone.now().replace(hour=17, minute=15, second=0, microsecond=0)
+        missed_at = timezone.now() - timedelta(days=1, hours=1)
+        Client.objects.create(
+            shop_name="Due Today Shop",
+            phone="+380671000111",
+            full_name="Due",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=due_today,
+        )
+        Client.objects.create(
+            shop_name="Missed Shop",
+            phone="+380671000112",
+            full_name="Missed",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=missed_at,
+        )
+
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "0–19")
+        self.assertContains(response, "20–49")
+        self.assertContains(response, "50+")
+        self.assertContains(response, "Передзвони сьогодні")
+        self.assertContains(response, "Пропущено")
+
 
 @override_settings(
     ROOT_URLCONF="twocomms.urls_management",
