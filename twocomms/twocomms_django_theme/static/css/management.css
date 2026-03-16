@@ -5145,6 +5145,10 @@ button.shop-card {
     font-size: 0.8rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    max-width: min(100%, 18rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Final shell and home UX overrides */
@@ -5192,6 +5196,10 @@ button.shop-card {
     margin-right: -4px;
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.sidebar-rail__scroll[data-scroll-cue="visible"] {
+    scroll-padding-bottom: 56px;
 }
 
 .sidebar-rail__scroll::-webkit-scrollbar {
@@ -5242,20 +5250,33 @@ button.shop-card {
 }
 
 .user-name-group {
+    display: grid;
+    gap: 6px;
     min-width: 0;
 }
 
 .user-role {
-    margin-top: 4px;
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    max-width: min(100%, 11.5rem);
     padding: 4px 10px;
     font-size: 0.7rem;
     letter-spacing: 0.13em;
-    max-width: fit-content;
+    min-width: 0;
 }
 
 .user-actions {
     align-self: start;
+    flex: 0 0 auto;
     gap: 8px;
+}
+
+.user-role__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .status-shortcut--icon {
@@ -5309,6 +5330,40 @@ button.shop-card {
     color: var(--text-secondary);
     font-size: 0.8rem;
     line-height: 1.35;
+}
+
+.sidebar-rail__scroll-cue {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: -18px;
+    padding: 18px 12px 8px;
+    border-radius: 0 0 20px 20px;
+    background: linear-gradient(180deg, rgba(10, 14, 22, 0), rgba(10, 14, 22, 0.92) 48%, rgba(10, 14, 22, 0.98));
+    color: rgba(232, 233, 236, 0.72);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.sidebar-rail__scroll-cue svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+}
+
+.sidebar-rail__scroll[data-scroll-cue="visible"] .sidebar-rail__scroll-cue {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .nav-menu--primary {
@@ -5437,6 +5492,7 @@ button.shop-card {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    position: relative;
 }
 
 .info-dot {
@@ -5454,6 +5510,45 @@ button.shop-card {
     font-weight: 900;
     line-height: 1;
     cursor: help;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.info-dot:hover,
+.info-dot[aria-expanded="true"] {
+    transform: translateY(-1px);
+    border-color: rgba(255, 179, 71, 0.34);
+    background: rgba(255, 179, 71, 0.14);
+    color: rgba(255, 229, 191, 0.96);
+}
+
+.help-popover {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 4;
+    width: min(300px, calc(100vw - 52px));
+    display: grid;
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 179, 71, 0.22);
+    background:
+        radial-gradient(circle at top right, rgba(255, 179, 71, 0.12), transparent 48%),
+        rgba(11, 15, 22, 0.96);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
+    color: var(--text-primary);
+}
+
+.help-popover strong {
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.help-popover span {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.45;
 }
 
 .daily-stats-shell {
@@ -5462,6 +5557,88 @@ button.shop-card {
 
 .gauge {
     margin-bottom: 4px;
+}
+
+.daily-disclosure {
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+}
+
+.daily-disclosure__summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    list-style: none;
+    transition: background 0.18s ease;
+}
+
+.daily-disclosure__summary::-webkit-details-marker {
+    display: none;
+}
+
+.daily-disclosure__summary:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.daily-disclosure__copy {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.daily-disclosure__eyebrow {
+    color: var(--muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.daily-disclosure__title {
+    color: var(--text-primary);
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+.daily-disclosure__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.daily-disclosure__icon {
+    display: inline-flex;
+    width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.daily-disclosure__icon svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+.daily-disclosure[open] .daily-disclosure__icon {
+    transform: rotate(180deg);
+    background: rgba(255, 179, 71, 0.14);
+    border-color: rgba(255, 179, 71, 0.28);
+}
+
+.daily-disclosure__content {
+    padding: 0 14px 14px;
 }
 
 .gauge-arc {
@@ -5847,25 +6024,35 @@ button.shop-card {
     text-transform: uppercase;
 }
 
+.nexus-table th.col-actions,
 .actions-cell--callbacks {
-    width: 138px;
-    min-width: 138px;
+    width: 220px;
+    min-width: 220px;
+}
+
+.actions-cell--callbacks {
     vertical-align: top;
     overflow: visible;
 }
 
 .action-rail {
-    position: relative;
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
+    justify-content: flex-end;
     width: 100%;
-    margin-left: auto;
     overflow: visible;
+}
+
+.action-rail__dock {
+    display: grid;
+    grid-template-columns: minmax(118px, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
 }
 
 .action-rail__stack {
+    grid-column: 2;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -5873,70 +6060,67 @@ button.shop-card {
     width: 44px;
 }
 
-.action-rail__utility {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-}
-
 .action-rail__callback {
+    grid-column: 1;
     position: relative;
-    width: 138px;
-    height: 46px;
-    padding: 0 14px;
-    border-radius: 16px;
-    border: 0;
-    background: transparent;
+    width: 100%;
+    min-width: 118px;
+    min-height: 48px;
+    padding: 0 12px 0 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background:
+        radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 42%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.04));
     color: var(--text-primary);
     display: inline-flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: space-between;
     gap: 10px;
-    overflow: visible;
+    overflow: hidden;
     cursor: pointer;
     transition:
         transform 0.18s ease,
-        box-shadow 0.18s ease;
+        box-shadow 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease;
 }
 
 .action-rail__callback::before {
     content: "";
     position: absolute;
-    inset: 0 0 0 auto;
-    width: 44px;
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.16);
+    inset: 1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(125, 211, 252, 0.10), rgba(255, 255, 255, 0.02));
+    opacity: 0;
     transition:
-        width 0.22s ease,
-        background 0.18s ease,
-        border-color 0.18s ease,
-        box-shadow 0.18s ease;
+        opacity 0.18s ease,
+        transform 0.22s ease;
 }
 
 @media (hover: hover) {
     .action-rail__callback:hover {
-        transform: translateX(-2px);
+        transform: translateY(-1px);
+        border-color: rgba(125, 211, 252, 0.26);
+        box-shadow: 0 16px 28px rgba(6, 11, 18, 0.24);
+        background:
+            radial-gradient(circle at top left, rgba(125, 211, 252, 0.16), transparent 44%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.05));
     }
 
     .action-rail__callback:hover::before {
-        width: 138px;
-        background: rgba(255, 255, 255, 0.08);
-        border-color: rgba(255, 255, 255, 0.14);
-        box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+        opacity: 1;
+        transform: scale(1.02);
     }
 }
 
 .action-rail__callback:focus-visible {
-    box-shadow: none;
+    border-color: rgba(125, 211, 252, 0.32);
+    box-shadow: 0 0 0 2px rgba(125, 211, 252, 0.18);
 }
 
 .action-rail__callback:focus-visible::before {
-    width: 138px;
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.14);
-    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+    opacity: 1;
 }
 
 .action-rail__icon {
@@ -5946,6 +6130,11 @@ button.shop-card {
     flex: 0 0 auto;
     position: relative;
     z-index: 1;
+    width: 32px;
+    height: 32px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    transition: transform 0.18s ease, background 0.18s ease;
 }
 
 .action-rail__icon svg {
@@ -5955,20 +6144,34 @@ button.shop-card {
 }
 
 .action-rail__label {
-    max-width: 72px;
-    opacity: 0;
+    max-width: none;
+    opacity: 1;
     white-space: nowrap;
-    transform: translateX(10px);
-    transform-origin: right center;
-    transition: opacity 0.16s ease, transform 0.22s ease;
+    transform: none;
+    transition: color 0.18s ease, letter-spacing 0.18s ease;
     position: relative;
     z-index: 1;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
 }
 
 .action-rail__callback:hover .action-rail__label,
 .action-rail__callback:focus-visible .action-rail__label {
-    opacity: 1;
-    transform: translateX(0);
+    letter-spacing: 0.12em;
+}
+
+.action-rail__callback:hover .action-rail__icon,
+.action-rail__callback:focus-visible .action-rail__icon {
+    transform: translateX(2px) scale(1.03);
+    background: rgba(125, 211, 252, 0.16);
+}
+
+.action-rail__utility {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
 }
 
 .callback-ghost-row td {
@@ -6056,9 +6259,10 @@ body[data-row-mode="card"] .nexus-table tbody td::before {
 }
 
 body[data-row-mode="card"] .nexus-table tbody td.actions-cell--callbacks {
-    grid-column: 2;
-    grid-row: 1 / span 4;
-    align-self: start;
+    grid-column: 1 / -1;
+    grid-row: auto;
+    align-self: stretch;
+    margin-top: 8px;
 }
 
 body[data-row-mode="card"] .actions-cell--callbacks .action-rail {
@@ -6071,10 +6275,19 @@ body[data-row-mode="card"] .actions-cell--callbacks::before {
 
 body[data-row-mode="card"] .actions-cell--callbacks .icon-btn,
 body[data-row-mode="card"] .actions-cell--callbacks .action-rail__callback {
-    align-self: flex-end;
+    align-self: auto;
 }
 
 body[data-row-mode="card"] .actions-cell--callbacks .btn-primary {
+    width: auto;
+}
+
+body[data-row-mode="card"] .actions-cell--callbacks .action-rail__dock {
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+body[data-row-mode="card"] .actions-cell--callbacks .action-rail__stack {
+    flex-direction: row;
     width: auto;
 }
 
@@ -6194,6 +6407,10 @@ body[data-row-mode="card"] .actions-cell--callbacks .btn-primary {
         padding-right: 0;
     }
 
+    .sidebar-rail__scroll-cue {
+        display: none;
+    }
+
     #sidebar-rail[data-rail-tier="stacked"] .rail-peek-list,
     #sidebar-rail[data-rail-tier="stacked"] .rail-reveal--deep {
         max-height: none;
@@ -6218,5 +6435,13 @@ body[data-row-mode="card"] .actions-cell--callbacks .btn-primary {
 
     .header-actions {
         margin-left: auto;
+    }
+
+    body[data-row-mode="card"] .actions-cell--callbacks .action-rail__dock {
+        grid-template-columns: 1fr;
+    }
+
+    body[data-row-mode="card"] .actions-cell--callbacks .action-rail__stack {
+        justify-content: flex-end;
     }
 }

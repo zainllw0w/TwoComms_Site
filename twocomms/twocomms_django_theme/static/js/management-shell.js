@@ -5,6 +5,7 @@
   const contentArea = document.querySelector('.content-area');
   const navMenu = document.querySelector('.nav-menu');
   const sidebarRail = document.getElementById('sidebar-rail');
+  const sidebarScroll = document.getElementById('sidebar-rail-scroll');
   const globalHeader = document.querySelector('.global-header');
   if (!contentArea || !navMenu) return;
 
@@ -50,6 +51,24 @@
 
   const loadedSrc = new Set(Array.from(document.scripts).map((s) => s.src).filter(Boolean));
 
+  const syncSidebarScrollCue = () => {
+    if (!sidebarScroll) return;
+
+    if (isStackedShell()) {
+      sidebarScroll.dataset.scrollCue = 'hidden';
+      return;
+    }
+
+    const overflow = sidebarScroll.scrollHeight - sidebarScroll.clientHeight;
+    if (overflow <= 18) {
+      sidebarScroll.dataset.scrollCue = 'hidden';
+      return;
+    }
+
+    const remaining = overflow - sidebarScroll.scrollTop;
+    sidebarScroll.dataset.scrollCue = remaining > 18 ? 'visible' : 'hidden';
+  };
+
   const syncShellResponsiveState = () => {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
@@ -71,6 +90,7 @@
     if (stackedShell) {
       sidebarRail.dataset.railTier = 'stacked';
       sidebarRail.dataset.railProgress = 'deep';
+      syncSidebarScrollCue();
       return;
     }
 
@@ -84,6 +104,7 @@
     if (scrollTop > 320) railProgress = 'deep';
     else if (scrollTop > 72) railProgress = 'mid';
     sidebarRail.dataset.railProgress = railProgress;
+    syncSidebarScrollCue();
   };
 
   let syncFrame = null;
@@ -239,5 +260,8 @@
   contentArea.addEventListener('scroll', scheduleShellResponsiveState, { passive: true });
   window.addEventListener('scroll', scheduleShellResponsiveState, { passive: true });
   window.addEventListener('resize', scheduleShellResponsiveState);
+  if (sidebarScroll) {
+    sidebarScroll.addEventListener('scroll', syncSidebarScrollCue, { passive: true });
+  }
   scheduleShellResponsiveState();
 })();

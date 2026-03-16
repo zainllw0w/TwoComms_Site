@@ -124,6 +124,9 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(response, "50+")
         self.assertContains(response, "Передзвони сьогодні")
         self.assertContains(response, "Пропущено")
+        self.assertContains(response, 'data-help-target="daily-stats-help"')
+        self.assertContains(response, 'id="daily-stats-help"')
+        self.assertContains(response, "daily-disclosure")
 
     def test_home_renders_scroll_region_and_compact_action_stack_contract(self):
         user = get_user_model().objects.create_user(username="shell_layout", password="x", is_staff=True)
@@ -141,6 +144,9 @@ class HomeShellRenderTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="sidebar-rail-scroll"')
+        self.assertContains(response, "sidebar-rail__scroll-cue")
+        self.assertContains(response, "user-role__text")
+        self.assertContains(response, "action-rail__dock")
         self.assertContains(response, "action-rail__stack")
         self.assertContains(response, "action-rail__callback")
         self.assertContains(response, "action-rail__utility")
