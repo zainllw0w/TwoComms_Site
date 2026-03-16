@@ -292,3 +292,16 @@
 - `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py makemigrations --check --dry-run --settings=test_settings` reported no pending changes.
 - `python3 -m py_compile management/views.py management/lead_views.py management/context_processors.py` passed.
 - `git diff --check` passed before commit/deploy preparation.
+
+### Post-Deploy Hotfix
+
+- Live browser verification on the deployed management UI exposed one extra viewport bug in duplicate override mode: the inline `Підтвердити та зберегти` control could slide under the sticky modal footer when the dedupe block expanded.
+- Fixed the overlap by increasing bottom breathing room inside the client/process modal body instead of changing the duplicate-flow logic.
+
+### Verification Evidence For Post-Deploy Hotfix
+
+- `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py test management.tests_phase6_client_entry.HomePageModalMarkupTests.test_home_page_exposes_compact_client_payload_hints_for_hybrid_rows --settings=test_settings` passed with `1` test green.
+- `git diff --check` passed before the hotfix commit.
+- Branch was pushed again at commit `7e72df0f`.
+- Hosting checkout was fast-forwarded to `7e72df0f`, `collectstatic --noinput` completed, and Passenger was restarted via `/home/qlknpodo/TWC/TwoComms_Site/twocomms/tmp/restart.txt`.
+- Live browser verification was rerun after reload on `management.twocomms.shop`.
