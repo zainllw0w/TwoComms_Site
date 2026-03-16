@@ -1,8 +1,11 @@
+from datetime import timedelta
+
 from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
-from management.models import Client, CommercialOfferEmailLog, DuplicateReview, Shop, normalize_phone
+from management.models import Client, ClientInteractionAttempt, CommercialOfferEmailLog, DuplicateReview, Shop, normalize_phone
 
 
 class UaPhoneNormalizationTests(TestCase):
@@ -355,3 +358,47 @@ class HomePageModalMarkupTests(TestCase):
         self.assertTrue(payload["has_manager_note"])
         self.assertIn("19:00", payload["manager_note_preview"])
         self.assertEqual(payload["hostname_display"], "shop.example.com")
+
+    def test_home_page_renders_callback_phase_contract_with_phase_comment(self):
+        client = Client.objects.create(
+            shop_name="Phase Shop",
+            phone="+380671110188",
+            full_name="Phase Owner",
+            owner=self.user,
+            call_result=Client.CallResult.THINKING,
+            manager_note="Загальна нотатка по клієнту.",
+            next_call_at=timezone.now() + timedelta(hours=2),
+        )
+        first_attempt = ClientInteractionAttempt.objects.create(
+            client=client,
+            manager=self.user,
+            result=Client.CallResult.THINKING,
+            reason_note="Попросив передзвонити після 18:00.",
+            details="Фаза 1: сказав передзвонити після 18:00.",
+            next_call_at=timezone.now() + timedelta(hours=1),
+        )
+        ClientInteractionAttempt.objects.create(
+            client=client,
+            manager=self.user,
+            result=Client.CallResult.THINKING,
+            reason_note="Скаже після погодження з партнером.",
+            details="Фаза 2: уточнює рішення з партнером.",
+            next_call_at=timezone.now() + timedelta(hours=2),
+        )
+
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="client_callback_current_phase"')
+        self.assertContains(response, 'id="phase_comment"')
+        self.assertContains(response, 'id="client_callback_previous_summary"')
+        grouped = response.context["grouped_clients"]
+        flat = {
+            item["shop"]: item
+            for _, items in grouped
+            for item in items
+        }
+        payload = flat["Phase Shop"]
+        self.assertEqual(payload["current_phase_label"], "Фаза 2")
+        self.assertIn("погодження", payload["current_phase_summary"])
+        self.assertIn("після 18:00", payload["phase_history_json"])

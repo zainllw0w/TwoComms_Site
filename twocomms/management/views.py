@@ -363,11 +363,14 @@ def _serialize_client_for_home(client: Client, today) -> dict:
     )
     phase_items = []
     for index, item in enumerate(reversed(attempts), start=1):
+        phase_context = item.context or {}
+        phase_comment = str(phase_context.get("phase_comment") or "").strip()
         phase_items.append({
             'phase': index,
             'created_at': home_dt_label(item.created_at),
             'result': item.get_result_display(),
-            'summary': (item.details or item.reason_note or item.get_result_display() or '').strip(),
+            'summary': (phase_comment or item.reason_note or item.details or item.get_result_display() or '').strip(),
+            'phase_comment': phase_comment,
             'next_call': home_dt_label(item.next_call_at) if item.next_call_at else '—',
         })
     current_phase = phase_items[-1] if phase_items else None
@@ -418,6 +421,7 @@ def _serialize_client_for_home(client: Client, today) -> dict:
         'last_interaction_summary': callback_summary,
         'last_interaction_at': home_dt_label(latest_attempt.created_at) if latest_attempt else home_dt_label(client.updated_at or client.created_at),
         'current_phase_label': f"Фаза {current_phase['phase']}" if current_phase else 'Фаза 1',
+        'next_phase_label': f"Фаза {len(phase_items) + 1}" if callback_available else (f"Фаза {current_phase['phase']}" if current_phase else 'Фаза 1'),
         'current_phase_summary': current_phase['summary'] if current_phase else callback_summary,
         'callback_phase_count': len(phase_items) or 1,
         'phase_history_json': json.dumps(phase_history, ensure_ascii=False),
@@ -727,6 +731,7 @@ def home(request):
         call_result_contact_attempts = data.get('call_result_contact_attempts', '').strip()
         call_result_contact_channel = data.get('call_result_contact_channel', '').strip()
         manager_note = data.get('manager_note', '').strip()
+        phase_comment = data.get('phase_comment', '').strip()
         next_call_type = data.get('next_call_type', 'scheduled')
         next_call_date = data.get('next_call_date', '').strip()
         next_call_time = data.get('next_call_time', '').strip()
@@ -801,6 +806,11 @@ def home(request):
                 messages.error(request, error_text)
                 return redirect('management_home')
             result_context, result_details = merge_result_capture_with_evidence(result_capture, evidence)
+            if phase_comment:
+                result_context['phase_comment'] = phase_comment
+                result_details_parts = [part for part in str(result_details or '').splitlines() if part.strip()]
+                result_details_parts.append(f"Коментар фази: {phase_comment}")
+                result_details = "\n".join(dict.fromkeys(result_details_parts))
             result_capture['context'] = result_context
             result_capture['details'] = result_details
 

@@ -125,6 +125,26 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(response, "Передзвони сьогодні")
         self.assertContains(response, "Пропущено")
 
+    def test_home_renders_scroll_region_and_compact_action_stack_contract(self):
+        user = get_user_model().objects.create_user(username="shell_layout", password="x", is_staff=True)
+        self.client.force_login(user)
+        Client.objects.create(
+            shop_name="Action Shop",
+            phone="+380671110113",
+            full_name="Owner",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=timezone.now() + timedelta(hours=1),
+        )
+
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="sidebar-rail-scroll"')
+        self.assertContains(response, "action-rail__stack")
+        self.assertContains(response, "action-rail__callback")
+        self.assertContains(response, "action-rail__utility")
+
 
 @override_settings(
     ROOT_URLCONF="twocomms.urls_management",
