@@ -126,6 +126,7 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(response, "Пропущено")
         self.assertContains(response, 'data-help-target="daily-stats-help"')
         self.assertContains(response, 'id="daily-stats-help"')
+        self.assertContains(response, "help-popover--daily")
         self.assertContains(response, "daily-disclosure")
 
     def test_home_renders_scroll_region_and_compact_action_stack_contract(self):
@@ -145,8 +146,10 @@ class HomeShellRenderTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="sidebar-rail-scroll"')
         self.assertContains(response, "sidebar-rail__scroll-cue")
+        self.assertContains(response, "sidebar-rail__mouse")
+        self.assertContains(response, "user-profile__identity")
         self.assertContains(response, "user-role__text")
-        self.assertContains(response, "action-rail__dock")
+        self.assertContains(response, "action-rail__stack--vertical")
         self.assertContains(response, "action-rail__stack")
         self.assertContains(response, "action-rail__callback")
         self.assertContains(response, "action-rail__utility")
