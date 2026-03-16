@@ -5488,6 +5488,11 @@ button.shop-card {
     max-height: min(90dvh, 920px);
 }
 
+#client-modal .modal-body,
+#process-modal .modal-body {
+    padding-bottom: 92px;
+}
+
 #lead-modal .modal-card {
     width: min(980px, calc(100vw - 72px));
     max-width: 980px;
