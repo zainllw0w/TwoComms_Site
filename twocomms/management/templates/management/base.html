@@ -133,7 +133,7 @@
                         {% endif %}
                         <div class="user-name-group">
                             <div class="user-name" title="{{ request.user.get_full_name|default:request.user.username }}">{{ request.user.get_full_name|default:request.user.username }}</div>
-                            <div class="user-role">{{ management_shell_role_label|default:"Менеджер" }}</div>
+                            <div class="user-role"><span class="user-role__text">{{ management_shell_role_label|default:"Менеджер" }}</span></div>
                         </div>
                         <div class="user-actions">
                             {% if management_shell_stats_url %}
@@ -220,7 +220,11 @@
                             <div class="daily-stats-head">
                                 <div class="daily-stats-headline">
                                     <div class="gauge-label-top">Денна норма</div>
-                                    <button type="button" class="info-dot" title="Ціль дня — 50+ обробок. Зони 0–19, 20–49 і 50+ допомагають швидко бачити темп без перевантаження." aria-label="Пояснення про денну норму">!</button>
+                                    <button type="button" class="info-dot" data-help-target="daily-stats-help" aria-controls="daily-stats-help" aria-expanded="false" aria-label="Пояснення про денну норму">!</button>
+                                    <div class="help-popover" id="daily-stats-help" role="tooltip" hidden>
+                                        <strong>Як читати денну норму</strong>
+                                        <span>50+ обробок — цільовий темп дня. Зони 0–19, 20–49 і 50+ допомагають швидко оцінити ритм без зайвих деталей.</span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="daily-stats-shell">
@@ -267,14 +271,34 @@
                                         </div>
                                         <div class="daily-metric-meta">50+ — цільовий темп дня. 20 — нижня межа стабільного потоку.</div>
                                     </div>
-                                    <div class="daily-metric-card daily-metric-card--quiet rail-reveal rail-reveal--deep">
-                                        <div class="daily-metric-label">Всього в роботі</div>
-                                        <div class="daily-metric-value">{{ management_shell_processed_total|default:0 }}</div>
-                                        <div class="daily-metric-meta">Усі оброблені клієнти цього користувача.</div>
-                                    </div>
+                                    <details class="daily-disclosure">
+                                        <summary class="daily-disclosure__summary">
+                                            <span class="daily-disclosure__copy">
+                                                <span class="daily-disclosure__eyebrow">Ще 1 показник</span>
+                                                <span class="daily-disclosure__title">Всього в роботі</span>
+                                            </span>
+                                            <span class="daily-disclosure__meta">
+                                                <strong>{{ management_shell_processed_total|default:0 }}</strong>
+                                                <span class="daily-disclosure__icon" aria-hidden="true">
+                                                    <svg viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+                                                </span>
+                                            </span>
+                                        </summary>
+                                        <div class="daily-disclosure__content">
+                                            <div class="daily-metric-card daily-metric-card--quiet">
+                                                <div class="daily-metric-label">Всього в роботі</div>
+                                                <div class="daily-metric-value">{{ management_shell_processed_total|default:0 }}</div>
+                                                <div class="daily-metric-meta">Усі оброблені клієнти цього користувача.</div>
+                                            </div>
+                                        </div>
+                                    </details>
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    <div class="sidebar-rail__scroll-cue" id="sidebar-rail-scroll-cue" aria-hidden="true">
+                        <span>Ще показники нижче</span>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16.5 5.5 10l1.4-1.4L12 13.7l5.1-5.1 1.4 1.4z"/></svg>
                     </div>
                 </div>
             </div>
@@ -835,6 +859,32 @@
         };
         setInterval(pollFeed, 10000);
 
+        const helpButtons = Array.from(document.querySelectorAll('.info-dot[data-help-target]'));
+        const closeHelpPopovers = (exceptButton = null) => {
+            helpButtons.forEach((btn) => {
+                const target = document.getElementById(btn.dataset.helpTarget || '');
+                const isOpen = btn === exceptButton;
+                btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                if (target) target.hidden = !isOpen;
+            });
+        };
+
+        helpButtons.forEach((btn) => {
+            const target = document.getElementById(btn.dataset.helpTarget || '');
+            if (!target) return;
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const shouldOpen = btn.getAttribute('aria-expanded') !== 'true';
+                closeHelpPopovers(shouldOpen ? btn : null);
+            });
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.daily-stats-headline')) {
+                closeHelpPopovers();
+            }
+        });
+
         // Profile modal logic
         const profileModal = document.getElementById('profile-modal');
         const openProfile = () => {
@@ -851,6 +901,9 @@
             profileModal.addEventListener('click', (e) => { if (e.target === profileModal) closeProfile(); });
         }
         document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeHelpPopovers();
+            }
             if (e.key === 'Escape' && profileModal?.classList.contains('show')) {
                 closeProfile();
             }

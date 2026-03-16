@@ -158,28 +158,30 @@
                                 </td>
                                 <td data-label="Дія" class="actions-cell actions-cell--callbacks">
                                     <div class="action-rail">
-                                        {% if client.callback_available %}
-                                        <button type="button" class="action-rail__callback callback-client" aria-label="Передзвонити" title="Передзвонити">
-                                            <span class="action-rail__icon" aria-hidden="true">
-                                                <svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.72 11.72 0 003.67.59 1 1 0 011 1V20a1 1 0 01-1 1C10.75 21 3 13.25 3 4a1 1 0 011-1h3.47a1 1 0 011 1 11.72 11.72 0 00.59 3.67 1 1 0 01-.24 1.01l-2.2 2.11z"/></svg>
-                                            </span>
-                                            <span class="action-rail__label">Передзвонити</span>
-                                        </button>
-                                        {% endif %}
-                                        <div class="action-rail__stack">
-                                            <button type="button" class="icon-btn action-rail__utility edit-client" aria-label="Редагувати">
-                                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                                    <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
-                                                </svg>
+                                        <div class="action-rail__dock">
+                                            {% if client.callback_available %}
+                                            <button type="button" class="action-rail__callback callback-client" aria-label="Передзвонити" title="Передзвонити">
+                                                <span class="action-rail__label">Передзвонити</span>
+                                                <span class="action-rail__icon" aria-hidden="true">
+                                                    <svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.72 11.72 0 003.67.59 1 1 0 011 1V20a1 1 0 01-1 1C10.75 21 3 13.25 3 4a1 1 0 011-1h3.47a1 1 0 011 1 11.72 11.72 0 00.59 3.67 1 1 0 01-.24 1.01l-2.2 2.11z"/></svg>
+                                                </span>
                                             </button>
-                                            <form method="post" action="{% url 'management_delete_client' client.id %}" class="inline-form delete-client-form">
-                                                {% csrf_token %}
-                                                <button type="submit" class="icon-btn ghost danger action-rail__utility" aria-label="Видалити" onclick="return confirm('Видалити клієнта?');">
+                                            {% endif %}
+                                            <div class="action-rail__stack">
+                                                <button type="button" class="icon-btn action-rail__utility edit-client" aria-label="Редагувати">
                                                     <svg viewBox="0 0 24 24" aria-hidden="true">
-                                                        <path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"/>
+                                                        <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
                                                     </svg>
                                                 </button>
-                                            </form>
+                                                <form method="post" action="{% url 'management_delete_client' client.id %}" class="inline-form delete-client-form">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="icon-btn ghost danger action-rail__utility" aria-label="Видалити" onclick="return confirm('Видалити клієнта?');">
+                                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                            <path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"/>
+                                                        </svg>
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </div>
                                     </div>
                                 </td>
@@ -1690,7 +1692,8 @@ function initManagementHomePage() {
                     <td data-label="Наступний дзвінок" class="cell-next-call">${client.next_call ? `<div class="callback-next-call"><span>${escapeHtml(client.next_call)}</span>${callbackStatus}${client.callback_available ? `<small class="phase-indicator">${escapeHtml(client.next_phase_label || 'Фаза 2')}</small>` : ''}</div>` : '–'}</td>
                     <td data-label="Дія" class="actions-cell actions-cell--callbacks">
                         <div class="action-rail">
-                        ${client.callback_available ? `<button type="button" class="action-rail__callback callback-client" aria-label="Передзвонити" title="Передзвонити"><span class="action-rail__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.72 11.72 0 003.67.59 1 1 0 011 1V20a1 1 0 01-1 1C10.75 21 3 13.25 3 4a1 1 0 011-1h3.47a1 1 0 011 1 11.72 11.72 0 00.59 3.67 1 1 0 01-.24 1.01l-2.2 2.11z"></path></svg></span><span class="action-rail__label">Передзвонити</span></button>` : ''}
+                        <div class="action-rail__dock">
+                        ${client.callback_available ? `<button type="button" class="action-rail__callback callback-client" aria-label="Передзвонити" title="Передзвонити"><span class="action-rail__label">Передзвонити</span><span class="action-rail__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.72 11.72 0 003.67.59 1 1 0 011 1V20a1 1 0 01-1 1C10.75 21 3 13.25 3 4a1 1 0 011-1h3.47a1 1 0 011 1 11.72 11.72 0 00.59 3.67 1 1 0 01-.24 1.01l-2.2 2.11z"></path></svg></span></button>` : ''}
                         <div class="action-rail__stack">
                             <button type="button" class="icon-btn action-rail__utility edit-client" aria-label="Редагувати">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"></path></svg>
@@ -1701,6 +1704,7 @@ function initManagementHomePage() {
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"></path></svg>
                                 </button>
                             </form>
+                        </div>
                         </div>
                         </div>
                     </td>
