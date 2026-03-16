@@ -4,6 +4,7 @@
 
   const contentArea = document.querySelector('.content-area');
   const navMenu = document.querySelector('.nav-menu');
+  const sidebarRail = document.getElementById('sidebar-rail');
   if (!contentArea || !navMenu) return;
 
   const getUrlKey = (u) => `${u.pathname}${u.search || ''}`;
@@ -33,6 +34,38 @@
   };
 
   const loadedSrc = new Set(Array.from(document.scripts).map((s) => s.src).filter(Boolean));
+
+  const syncShellResponsiveState = () => {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+
+    let rowMode = 'table';
+    if (viewportWidth < 1180) rowMode = 'card';
+    else if (viewportWidth < 1400) rowMode = 'condensed';
+    document.body.dataset.rowMode = rowMode;
+
+    if (!sidebarRail) return;
+
+    let railTier = 'expanded';
+    if (viewportWidth < 1280 || viewportHeight < 780) railTier = 'collapsed';
+    else if (viewportWidth < 1440 || viewportHeight < 900) railTier = 'compact';
+    sidebarRail.dataset.railTier = railTier;
+
+    const scrollTop = contentArea.scrollTop || 0;
+    let railProgress = 'top';
+    if (scrollTop > 320) railProgress = 'deep';
+    else if (scrollTop > 72) railProgress = 'mid';
+    sidebarRail.dataset.railProgress = railProgress;
+  };
+
+  let syncFrame = null;
+  const scheduleShellResponsiveState = () => {
+    if (syncFrame !== null) return;
+    syncFrame = window.requestAnimationFrame(() => {
+      syncFrame = null;
+      syncShellResponsiveState();
+    });
+  };
 
   const execScriptsIn = async (rootEl) => {
     const jsBox = rootEl.querySelector('#mgmt-page-js');
@@ -101,6 +134,7 @@
     contentArea.scrollTop = typeof prevScroll === 'number' ? prevScroll : 0;
 
     setActiveNav(new URL(nextUrlKey, window.location.origin));
+    scheduleShellResponsiveState();
   };
 
   const fetchAndBuild = async (targetUrl) => {
@@ -156,6 +190,7 @@
     // Restore opacity
     const newCurrentRoot = cache.get(currentUrl);
     if (newCurrentRoot) newCurrentRoot.style.opacity = '';
+    scheduleShellResponsiveState();
   };
 
   navMenu.addEventListener('click', (e) => {
@@ -172,4 +207,8 @@
     if (urlKey === currentUrl) return;
     navigate(urlKey, false);
   });
+
+  contentArea.addEventListener('scroll', scheduleShellResponsiveState, { passive: true });
+  window.addEventListener('resize', scheduleShellResponsiveState);
+  scheduleShellResponsiveState();
 })();
