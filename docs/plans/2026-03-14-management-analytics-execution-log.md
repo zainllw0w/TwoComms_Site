@@ -208,3 +208,12 @@
 - `python3 -m py_compile management/views.py management/services/dedupe.py management/context_processors.py accounts/models.py twocomms/middleware.py` passed.
 - `python3 -m pip install phonenumbers==9.0.12` completed successfully in the local environment for real UA phone parsing.
 - `git diff --check` passed.
+- Pushed branch `codex/management-canonical-analytics-full` at commit `d46c9db4`.
+- Deployed commit `d46c9db4` to the hosting checkout, installed `phonenumbers==9.0.12`, applied `accounts.0019`, ran `seed_management_defaults`, `compute_nightly_scores --date 2026-03-16`, `check`, `collectstatic`, and `compress --force`.
+- Fixed the live reload issue by touching the correct Passenger restart file: `/home/qlknpodo/TWC/TwoComms_Site/twocomms/tmp/restart.txt`.
+- Live smoke after the correct Passenger restart confirmed:
+  - sidebar role now renders `Адміністратор`;
+  - the upgraded daily norm block with MOSAIC mini-surface is visible;
+  - the profile modal shows the new Telegram bot block and manager-bot preferences;
+  - the add-client modal shows the new sectioned workflow, lead-tooltip hint, and follow-up/bot CTA;
+  - `build_report_excel()` executes successfully on the server shell after the workbook serialization fix.
