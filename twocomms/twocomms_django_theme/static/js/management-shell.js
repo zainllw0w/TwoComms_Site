@@ -5,6 +5,7 @@
   const contentArea = document.querySelector('.content-area');
   const navMenu = document.querySelector('.nav-menu');
   const sidebarRail = document.getElementById('sidebar-rail');
+  const globalHeader = document.querySelector('.global-header');
   if (!contentArea || !navMenu) return;
 
   const getUrlKey = (u) => `${u.pathname}${u.search || ''}`;
@@ -55,6 +56,10 @@
     const stackedShell = isStackedShell();
 
     document.body.dataset.shellLayout = stackedShell ? 'stacked' : 'rail';
+    if (globalHeader) {
+      const headerHeight = Math.ceil(globalHeader.getBoundingClientRect().height || 0);
+      document.documentElement.style.setProperty('--shell-header-offset', `${headerHeight || 76}px`);
+    }
 
     let rowMode = 'table';
     if (viewportWidth < 1180) rowMode = 'card';

@@ -12,6 +12,7 @@
     --accent-strong: #ff7e29;
     --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.35);
     --header-height: 76px;
+    --shell-header-offset: var(--header-height);
     --radius-lg: 18px;
     --radius-md: 12px;
     --radius-sm: 10px;
@@ -460,7 +461,7 @@
     position: relative;
     z-index: 1;
     display: flex;
-    height: calc(100vh - var(--header-height));
+    height: calc(100vh - var(--shell-header-offset));
     overflow: hidden;
     min-height: 0;
 }
@@ -3086,7 +3087,7 @@ button.shop-card {
 
 .offer-preview {
     position: sticky;
-    top: calc(var(--header-height) + 22px);
+    top: calc(var(--shell-header-offset) + 22px);
     align-self: start;
 }
 
@@ -5176,7 +5177,7 @@ button.shop-card {
     display: flex;
     flex-direction: column;
     gap: 14px;
-    max-height: calc(100dvh - var(--header-height) - 36px);
+    max-height: calc(100dvh - var(--shell-header-offset) - 36px);
     min-width: 0;
     min-height: 0;
 }
@@ -6145,7 +6146,7 @@ body[data-row-mode="card"] .actions-cell--callbacks .btn-primary {
 
     .sidebar-rail {
         top: 12px;
-        max-height: calc(100dvh - var(--header-height) - 24px);
+        max-height: calc(100dvh - var(--shell-header-offset) - 24px);
     }
 
     .sidebar-rail__scroll {
@@ -6205,7 +6206,7 @@ body[data-row-mode="card"] .actions-cell--callbacks .btn-primary {
 
     .content-area {
         height: auto;
-        min-height: calc(100dvh - var(--header-height));
+        min-height: calc(100dvh - var(--shell-header-offset));
         overflow: visible;
     }
 }
