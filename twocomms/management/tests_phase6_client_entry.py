@@ -253,6 +253,25 @@ class HomeClientEntryValidationTests(TestCase):
             ).exists()
         )
 
+    def test_manager_note_is_persisted_on_client_entry(self):
+        response = self.client.post(
+            "/",
+            {
+                **self._base_payload(),
+                "call_result": Client.CallResult.THINKING,
+                "manager_note": "Краще телефонувати після 20:00 та дублювати в Telegram.",
+            },
+            secure=True,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        created = Client.objects.get(shop_name="Target Shop", owner=self.user)
+        self.assertEqual(
+            created.manager_note,
+            "Краще телефонувати після 20:00 та дублювати в Telegram.",
+        )
+
     def test_successful_order_and_test_batch_link_owned_shops(self):
         interaction_model = apps.get_model("management", "ClientInteractionAttempt")
 

@@ -121,96 +121,7 @@
         <!-- Left Sidebar -->
         {% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_contracts' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' or request.resolver_match.url_name == 'management_parsing' %}
         <aside class="sidebar">
-            <div class="user-profile">
-                {% if request.user.userprofile.avatar %}
-                <div class="user-avatar">
-                    <img src="{{ request.user.userprofile.avatar.url }}" alt="{{ request.user.get_full_name|default:request.user.username }}">
-                </div>
-                {% else %}
-                <div class="user-avatar-placeholder"></div>
-                {% endif %}
-                <div class="user-name-row">
-                    <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
-                    <div class="user-actions">
-                        <button type="button" class="icon-btn ghost open-profile-modal" aria-label="Редагувати профіль" title="Редагувати профіль">
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
-                            </svg>
-                        </button>
-                        <a href="{% url 'management_logout' %}" class="icon-btn ghost" aria-label="Вийти" title="Вийти">
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M16 13v-2H7V8l-5 4 5 4v-3h9zM19 3h-8v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/>
-                            </svg>
-                        </a>
-                    </div>
-                </div>
-                <div class="user-role">{{ management_shell_role_label|default:"Менеджер" }}</div>
-            </div>
-
-            <div class="daily-stats daily-stats--{{ management_shell_daily_zone|default:'warning' }}">
-                <div class="daily-stats-head">
-                    <div>
-                        <div class="gauge-label-top">Денна норма</div>
-                        <div class="daily-stats-sub">KPD залишається live, MOSAIC показує тіньовий темп і якість сигналів.</div>
-                    </div>
-                    {% if management_shell_stats_url %}
-                    <a href="{{ management_shell_stats_url }}" class="btn-ghost small status-shortcut">Статистика</a>
-                    {% endif %}
-                </div>
-                <div class="daily-stats-shell">
-                    <div class="gauge">
-                        <div class="gauge-arc">
-                            <svg viewBox="0 0 200 140" class="gauge-svg">
-                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#262626" stroke-width="6" stroke-linecap="round"></path>
-                                <path
-                                    id="gauge-arc-fill"
-                                    d="M 20 100 A 80 80 0 0 1 180 100"
-                                    fill="none"
-                                    stroke="#f97316"
-                                    stroke-width="6"
-                                    stroke-linecap="round"
-                                    class="arc-active"
-                                    data-progress="{{ progress_points_pct|default:0 }}"
-                                    style="stroke-dasharray: 251.3; stroke-dashoffset: 251.3;">
-                                </path>
-                                <line x1="20" y1="100" x2="20" y2="108" stroke="#404040" stroke-width="2"></line>
-                                <line x1="180" y1="100" x2="180" y2="108" stroke="#404040" stroke-width="2"></line>
-                            </svg>
-                            <div class="gauge-center">
-                                <div class="gauge-caption">Балів</div>
-                                <div class="gauge-value" id="gauge-points-value">{{ user_points_today|default:0 }}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="daily-stats-metrics">
-                        <div class="daily-metric-card">
-                            <div class="daily-metric-label">Оброблено сьогодні</div>
-                            <div class="daily-metric-value" id="clients-legend">{{ processed_today|default:0 }} / {{ target_clients|default:20 }}</div>
-                            <div class="progress-track mt-1">
-                                <div class="progress-fill" id="clients-bar" style="width: {{ progress_clients_pct|default:0 }}%;"></div>
-                            </div>
-                        </div>
-                        <div class="daily-metric-card daily-metric-card--shadow {% if management_shell_mosaic_ready %}is-ready{% else %}is-muted{% endif %}">
-                            <div class="daily-metric-label">MOSAIC</div>
-                            <div class="daily-metric-value">{{ management_shell_mosaic_label|default:"Накопичуємо дані" }}</div>
-                            <div class="daily-metric-meta">
-                                {% if management_shell_mosaic_ready %}
-                                Тіньовий індикатор якості й темпу.
-                                {% else %}
-                                Потрібно щонайменше 20 обробок для стабільного показу.
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="daily-metric-card daily-metric-card--quiet">
-                            <div class="daily-metric-label">Всього в роботі</div>
-                            <div class="daily-metric-value">{{ management_shell_processed_total|default:0 }}</div>
-                            <div class="daily-metric-meta">Усі оброблені клієнти цього користувача.</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <nav class="nav-menu">
+            <nav class="nav-menu nav-menu--primary">
                 <a href="{% url 'management_home' %}" class="nav-item{% if request.resolver_match.url_name == 'management_home' %} active{% endif %}">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4zm0 9h7v7H4v-7zm9-9h7v7h-7V4zm0 9h7v7h-7v-7z"/></svg>
@@ -250,6 +161,104 @@
                 </a>
                 {% endif %}
             </nav>
+
+            <div class="sidebar-stack">
+                <div class="user-profile user-profile--panel">
+                    {% if request.user.userprofile.avatar %}
+                    <div class="user-avatar">
+                        <img src="{{ request.user.userprofile.avatar.url }}" alt="{{ request.user.get_full_name|default:request.user.username }}">
+                    </div>
+                    {% else %}
+                    <div class="user-avatar-placeholder"></div>
+                    {% endif %}
+                    <div class="user-name-row">
+                        <div class="user-name-group">
+                            <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                            <div class="user-role">{{ management_shell_role_label|default:"Менеджер" }}</div>
+                        </div>
+                        <div class="user-actions">
+                            <button type="button" class="icon-btn ghost open-profile-modal" aria-label="Редагувати профіль" title="Редагувати профіль">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
+                                </svg>
+                            </button>
+                            <a href="{% url 'management_logout' %}" class="icon-btn ghost" aria-label="Вийти" title="Вийти">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M16 13v-2H7V8l-5 4 5 4v-3h9zM19 3h-8v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/>
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="profile-quick-actions">
+                        {% if management_shell_stats_url %}
+                        <a href="{{ management_shell_stats_url }}" class="btn-ghost small status-shortcut">Статистика</a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="daily-stats daily-stats--{{ management_shell_daily_zone|default:'warning' }}" id="daily-stats-card">
+                    <div class="daily-stats-head">
+                        <div>
+                            <div class="gauge-label-top">Денна норма</div>
+                            <div class="daily-stats-sub">Ціль дня — 50+ обробок. Зони 0–20, 20–50 і 50+ допомагають швидко бачити темп без перевантаження.</div>
+                        </div>
+                    </div>
+                    <div class="daily-stats-shell">
+                        <div class="gauge">
+                            <div class="gauge-arc">
+                                <svg viewBox="0 0 200 140" class="gauge-svg">
+                                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#262626" stroke-width="6" stroke-linecap="round"></path>
+                                    <path
+                                        id="gauge-arc-fill"
+                                        d="M 20 100 A 80 80 0 0 1 180 100"
+                                        fill="none"
+                                        stroke="#f97316"
+                                        stroke-width="6"
+                                        stroke-linecap="round"
+                                        class="arc-active"
+                                        data-progress="{{ progress_points_pct|default:0 }}"
+                                        style="stroke-dasharray: 251.3; stroke-dashoffset: 251.3;">
+                                    </path>
+                                    <line x1="20" y1="100" x2="20" y2="108" stroke="#404040" stroke-width="2"></line>
+                                    <line x1="180" y1="100" x2="180" y2="108" stroke="#404040" stroke-width="2"></line>
+                                </svg>
+                                <div class="gauge-center">
+                                    <div class="gauge-caption">Балів</div>
+                                    <div class="gauge-value" id="gauge-points-value">{{ user_points_today|default:0 }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="daily-stats-metrics">
+                            <div class="daily-metric-card daily-metric-card--count">
+                                <div class="daily-metric-label">Оброблено сьогодні</div>
+                                <div class="daily-metric-value" id="clients-legend">{{ management_shell_processed_today|default:processed_today|default:0 }}</div>
+                                <div class="daily-tier-rail">
+                                    <span class="daily-tier-segment {% if management_shell_daily_zone == 'danger' %}is-active{% endif %}" data-zone="danger">0–20</span>
+                                    <span class="daily-tier-segment {% if management_shell_daily_zone == 'warning' %}is-active{% endif %}" data-zone="warning">20–50</span>
+                                    <span class="daily-tier-segment {% if management_shell_daily_zone == 'success' %}is-active{% endif %}" data-zone="success">50+</span>
+                                </div>
+                                <div class="daily-metric-meta">50+ — цільовий темп дня. 20 — нижня межа стабільного потоку.</div>
+                            </div>
+                            <div class="daily-metric-card daily-metric-card--shadow {% if management_shell_mosaic_ready %}is-ready{% else %}is-muted{% endif %}">
+                                <div class="daily-metric-label">MOSAIC</div>
+                                <div class="daily-metric-value">{{ management_shell_mosaic_label|default:"Накопичуємо дані" }}</div>
+                                <div class="daily-metric-meta">
+                                    {% if management_shell_mosaic_ready %}
+                                    Тіньовий індикатор якості й темпу.
+                                    {% else %}
+                                    Потрібно щонайменше 20 обробок для стабільного показу.
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="daily-metric-card daily-metric-card--quiet">
+                                <div class="daily-metric-label">Всього в роботі</div>
+                                <div class="daily-metric-value">{{ management_shell_processed_total|default:0 }}</div>
+                                <div class="daily-metric-meta">Усі оброблені клієнти цього користувача.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </aside>
         {% endif %}
 
@@ -284,6 +293,20 @@
 
                 <div class="form-alert" id="profile-alert" role="status" aria-live="polite"></div>
 
+                <div class="profile-hero">
+                    <div class="profile-hero__main">
+                        <p class="eyebrow">Кабінет менеджменту</p>
+                        <h4>{{ request.user.get_full_name|default:request.user.username }}</h4>
+                        <div class="profile-hero__copy">Оновіть контакти, виплатні реквізити та Telegram-налаштування в одному місці, щоб нагадування, статистика й адміністрування працювали без втрат.</div>
+                    </div>
+                    <div class="profile-hero__meta">
+                        <span class="profile-hero__chip">{{ management_shell_role_label|default:"Менеджер" }}</span>
+                        {% if management_shell_stats_url %}
+                        <a href="{{ management_shell_stats_url }}" class="btn-ghost small status-shortcut">Статистика</a>
+                        {% endif %}
+                    </div>
+                </div>
+
                 <div class="profile-readonly" aria-label="Дані менеджера">
                     <div class="profile-readonly__item">
                         <div class="profile-readonly__label">Статус / посада</div>
@@ -294,12 +317,6 @@
                         <div class="profile-readonly__value">{{ request.user.userprofile.manager_base_salary_uah|default:0 }} грн • {{ request.user.userprofile.manager_commission_percent|default:0 }}%</div>
                     </div>
                 </div>
-
-                {% if management_shell_stats_url %}
-                <div class="profile-toolbar">
-                    <a href="{{ management_shell_stats_url }}" class="btn-ghost small status-shortcut">Відкрити статистику</a>
-                </div>
-                {% endif %}
 
                 <div class="profile-section">
                     <div class="profile-section__title">Контакти</div>

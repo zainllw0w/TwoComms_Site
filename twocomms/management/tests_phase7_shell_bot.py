@@ -49,6 +49,51 @@ class HomeShellRenderTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Менеджер")
 
+    def test_home_moves_due_today_callbacks_into_today_group_and_marks_missed_callbacks(self):
+        user = get_user_model().objects.create_user(username="callback_manager", password="x")
+        profile = UserProfile.objects.get(user=user)
+        profile.is_manager = True
+        profile.save(update_fields=["is_manager"])
+        self.client.force_login(user)
+
+        now = timezone.now()
+        due_today = now.replace(hour=18, minute=0, second=0, microsecond=0)
+        missed_at = now - timedelta(days=1, hours=2)
+
+        due_client = Client.objects.create(
+            shop_name="Due Today Shop",
+            phone="+380671000001",
+            full_name="Due Today",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=due_today,
+        )
+        missed_client = Client.objects.create(
+            shop_name="Missed Shop",
+            phone="+380671000002",
+            full_name="Missed",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=missed_at,
+        )
+        yesterday_created = now - timedelta(days=1)
+        Client.objects.filter(id__in=[due_client.id, missed_client.id]).update(created_at=yesterday_created)
+
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        grouped = response.context["grouped_clients"]
+        flat = {
+            item["shop"]: (label, item)
+            for label, items in grouped
+            for item in items
+        }
+        self.assertEqual(flat["Due Today Shop"][0], "Сьогодні")
+        self.assertEqual(flat["Due Today Shop"][1]["callback_state"], "today")
+        self.assertTrue(flat["Due Today Shop"][1]["callback_pending"])
+        self.assertEqual(flat["Missed Shop"][1]["callback_state"], "missed")
+        self.assertFalse(flat["Missed Shop"][1]["callback_pending"])
+
 
 @override_settings(
     ROOT_URLCONF="twocomms.urls_management",

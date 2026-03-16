@@ -217,3 +217,35 @@
   - the profile modal shows the new Telegram bot block and manager-bot preferences;
   - the add-client modal shows the new sectioned workflow, lead-tooltip hint, and follow-up/bot CTA;
   - `build_report_excel()` executes successfully on the server shell after the workbook serialization fix.
+
+## 2026-03-16 Callback Window + Sidebar/Profile Polish Pass
+
+- Limited reminder digest to the current local day window for management follow-ups and shop callbacks. Future and stale open follow-ups no longer flood the live “очікую передзвону” reminder surface; overdue callbacks remain visible in the processing table as missed rows with the same `Передзвонити` entrypoint.
+- Completed callback-day grouping in the home table:
+  - callbacks scheduled for today are forced into the `Сьогодні` bucket even when the client record itself is older;
+  - missed callbacks keep their history placement but now carry an explicit missed state badge and row styling.
+- Added persistent manager notes on `Client` with migration `management.0026_client_manager_note`:
+  - manual client entry stores the note;
+  - lead processing now also exposes and submits the same note field;
+  - callback mode surfaces the saved note inline for the next phase.
+- Extended callback mode UX with phase continuity:
+  - current phase summary remains visible in the callback context card;
+  - previous phases are available through a collapsible history block inside the same modal.
+- Refined add-client / lead-process duplicate surfaces:
+  - inline duplicate warning now renders as a full-width block inside the contact section instead of competing with neighboring inputs;
+  - duplicate summary modal was tightened to a smaller centered sheet with denser item layout and a safer viewport height.
+- Refined shell/profile polish:
+  - sidebar profile stays above the daily norm block;
+  - the small stats shortcut remains near the profile shell;
+  - daily norm copy and metric meta were tightened for a more compact card;
+  - profile edit modal now has a wider layout and a dedicated hero block for role + quick actions;
+  - long names are allowed to wrap cleanly instead of escaping the panel.
+- Added live daily-shell zone refresh after saves so the `0–20 / 20–50 / 50+` state updates immediately when processed counts change on the page.
+
+### Verification Evidence For Callback Window + Sidebar/Profile Polish Pass
+
+- `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py test management.tests_phase4_analytics.ReminderDigestTests.test_reminder_digest_limits_followups_to_current_day_window management.tests_phase7_shell_bot.HomeShellRenderTests.test_home_moves_due_today_callbacks_into_today_group_and_marks_missed_callbacks management.tests_phase6_client_entry.HomeClientEntryValidationTests.test_manager_note_is_persisted_on_client_entry --settings=test_settings` passed with `3` tests green.
+- `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py test management.tests_phase4_analytics management.tests_phase6_client_entry management.tests_phase7_shell_bot --settings=test_settings` passed with `26` tests green.
+- `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py check --settings=test_settings` passed.
+- `SECRET_KEY=test-secret-key-for-testing-only-do-not-use-in-production python3 manage.py makemigrations --check --dry-run --settings=test_settings` reported no pending changes.
+- `git diff --check` passed before commit/deploy preparation.

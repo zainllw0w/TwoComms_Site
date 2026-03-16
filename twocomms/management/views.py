@@ -317,12 +317,39 @@ def _serialize_client_for_home(client: Client, today) -> dict:
             for item in attempts
             if item.next_call_at and item.created_at >= recent_cutoff
         )
-    callback_pending = bool(client.next_call_at)
+    next_call_local = timezone.localtime(client.next_call_at) if client.next_call_at else None
+    callback_state = 'none'
+    callback_available = bool(client.next_call_at)
+    if next_call_local:
+        if next_call_local.date() == today:
+            callback_state = 'today'
+        elif next_call_local.date() < today:
+            callback_state = 'missed'
+        else:
+            callback_state = 'future'
+    callback_pending = callback_state == 'today'
+    callback_status_label = {
+        'today': 'Очікує сьогодні',
+        'missed': 'Передзвін пропущено',
+        'future': 'Заплановано далі',
+        'none': '',
+    }[callback_state]
     callback_summary = (
         (latest_attempt.details or latest_attempt.reason_note).strip()
         if latest_attempt and (latest_attempt.details or latest_attempt.reason_note)
         else (client.call_result_details or client.get_call_result_display())
     )
+    phase_items = []
+    for index, item in enumerate(reversed(attempts), start=1):
+        phase_items.append({
+            'phase': index,
+            'created_at': home_dt_label(item.created_at),
+            'result': item.get_result_display(),
+            'summary': (item.details or item.reason_note or item.get_result_display() or '').strip(),
+            'next_call': home_dt_label(item.next_call_at) if item.next_call_at else '—',
+        })
+    current_phase = phase_items[-1] if phase_items else None
+    phase_history = phase_items[:-1] if len(phase_items) > 1 else []
     return {
         'id': client.id,
         'shop': client.shop_name,
@@ -347,16 +374,23 @@ def _serialize_client_for_home(client: Client, today) -> dict:
         'xml_resource_url': context.get('xml_resource_url', ''),
         'linked_shop_id': context.get('linked_shop_id', ''),
         'duplicate_override_reason': context.get('duplicate_override_reason', ''),
+        'manager_note': client.manager_note or '',
         'next_call_date': timezone.localtime(client.next_call_at).strftime('%Y-%m-%d') if client.next_call_at else '',
         'next_call_time': timezone.localtime(client.next_call_at).strftime('%H:%M') if client.next_call_at else '',
         'next_call': timezone.localtime(client.next_call_at).strftime('%d.%m.%Y %H:%M') if client.next_call_at else '–',
         'created_date_label': 'Сьогодні' if created_local.date() == today else created_local.strftime('%d.%m.%Y'),
+        'callback_state': callback_state,
+        'callback_status_label': callback_status_label,
+        'callback_available': callback_available,
         'callback_pending': callback_pending,
-        'client_mode': 'callback' if callback_pending else 'client',
+        'client_mode': 'callback' if callback_available else 'client',
         'callback_attempts': callback_attempts,
         'callback_review_candidate': bool(followup_meta.get("callback_review_candidate")),
         'last_interaction_summary': callback_summary,
         'last_interaction_at': home_dt_label(latest_attempt.created_at) if latest_attempt else home_dt_label(client.updated_at or client.created_at),
+        'current_phase_label': f"Фаза {current_phase['phase']}" if current_phase else 'Фаза 1',
+        'current_phase_summary': current_phase['summary'] if current_phase else callback_summary,
+        'phase_history_json': json.dumps(phase_history, ensure_ascii=False),
     }
 
 
@@ -662,6 +696,7 @@ def home(request):
         call_result_reason_note = data.get('call_result_reason_note', '').strip()
         call_result_contact_attempts = data.get('call_result_contact_attempts', '').strip()
         call_result_contact_channel = data.get('call_result_contact_channel', '').strip()
+        manager_note = data.get('manager_note', '').strip()
         next_call_type = data.get('next_call_type', 'scheduled')
         next_call_date = data.get('next_call_date', '').strip()
         next_call_time = data.get('next_call_time', '').strip()
@@ -795,6 +830,7 @@ def home(request):
                 existing_client.call_result_reason_note = result_capture['reason_note']
                 existing_client.call_result_context = result_context
                 existing_client.call_result_details = result_details
+                existing_client.manager_note = manager_note
                 existing_client.next_call_at = next_call_at
                 existing_client.owner = existing_client.owner or request.user
                 if existing_client.points_override is not None:
@@ -815,6 +851,7 @@ def home(request):
                     call_result_reason_note=result_capture['reason_note'],
                     call_result_context=result_context,
                     call_result_details=result_details,
+                    manager_note=manager_note,
                     next_call_at=next_call_at,
                     owner=request.user,
                 )
@@ -879,15 +916,16 @@ def home(request):
     grouped = OrderedDict()
 
     for client in clients:
+        serialized = _serialize_client_for_home(client, today)
         local_date = timezone.localtime(client.created_at).date()
-        if local_date == today:
+        if serialized['callback_state'] == 'today' or local_date == today:
             label = 'Сьогодні'
         elif local_date == yesterday:
             label = 'Вчора'
         else:
             label = local_date.strftime('%d.%m.%Y')
 
-        grouped.setdefault(label, []).append(_serialize_client_for_home(client, today))
+        grouped.setdefault(label, []).append(serialized)
 
     grouped_clients = list(grouped.items())
     base_leads = ManagementLead.objects.filter(status=ManagementLead.Status.BASE).select_related('added_by').order_by('-created_at')[:400]

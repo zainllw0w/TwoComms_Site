@@ -42,6 +42,7 @@ def management_shell_context(request):
     return {
         "management_shell_role_label": management_role_label(user),
         "management_shell_daily_zone": daily_zone,
+        "management_shell_processed_today": processed_today,
         "management_shell_processed_total": processed_total,
         "management_shell_mosaic_label": mosaic_label,
         "management_shell_mosaic_ready": mosaic_ready,
