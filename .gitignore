@@ -148,6 +148,10 @@ staticfiles/
 *.swo
 *~
 
+# Serena local state
+.serena/cache/
+.serena/project.local.yml
+
 # OS generated files
 .DS_Store
 .DS_Store?
