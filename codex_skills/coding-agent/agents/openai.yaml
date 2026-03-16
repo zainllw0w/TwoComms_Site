@@ -1,0 +1,4 @@
+interface:
+  display_name: "Coding Agent Coordinator"
+  short_description: "Coordinate child coding agents via terminal sessions"
+  default_prompt: "Use $coding-agent to delegate this task to Codex CLI or another coding agent and monitor the session safely."

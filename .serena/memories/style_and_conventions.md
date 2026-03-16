@@ -1,0 +1,1 @@
+Tech stack: Python/Django 5.2 backend with PostgreSQL/MySQL support and optional Redis/Celery; frontend asset pipeline uses PostCSS/PurgeCSS/autoprefixer/cssnano. Follow existing repository patterns, keep changes pragmatic and minimal, and prefer the hosted environment as the primary runtime context because local server startup is discouraged in README.

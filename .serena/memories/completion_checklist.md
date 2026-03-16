@@ -1,0 +1,1 @@
+Before calling work complete, run the relevant targeted verification commands for the touched code, run `npm run build:css` when frontend stylesheet inputs changed, and validate hosted behavior after push/deploy when production-facing changes are involved. Do not hardcode secrets in the repository.
