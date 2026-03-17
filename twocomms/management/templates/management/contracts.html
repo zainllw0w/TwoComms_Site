@@ -664,6 +664,7 @@
     </div>
 </div>
 
+{{ contracts_history|json_script:"contracts-history-data" }}
 {{ prefill_payload|json_script:"contract-prefill" }}
 {% endblock %}
 
@@ -688,6 +689,7 @@
         const productTitle = document.getElementById('product-title');
         const productPrice = document.getElementById('product-price');
         const contractNumberField = document.getElementById('contract-number');
+        const initialContractsDataEl = document.getElementById('contracts-history-data');
         const qtyFields = {
             S: document.getElementById('qty-s'),
             M: document.getElementById('qty-m'),
@@ -695,6 +697,13 @@
             XL: document.getElementById('qty-xl'),
         };
         const prefill = JSON.parse(document.getElementById('contract-prefill').textContent || '{}');
+        const initialContracts = (() => {
+            try {
+                return JSON.parse(initialContractsDataEl?.textContent || '[]');
+            } catch (e) {
+                return [];
+            }
+        })();
 
         const dropHoodiePrice = {{ drop_hoodie_price|default:1350 }};
         const dropTeePrice = {{ drop_tee_price|default:570 }};
@@ -1015,6 +1024,18 @@
         }
     };
 
+    const hydrateInitialContracts = () => {
+        if (!contractsList) return;
+        contractCache.clear();
+        contractsList.innerHTML = '';
+        const contracts = Array.isArray(initialContracts) ? initialContracts : [];
+        if (!contracts.length) {
+            contractsList.innerHTML = '<div class="contracts-history-empty">Поки що немає сформованих договорів.</div>';
+            return;
+        }
+        contracts.forEach((contract) => renderContractItem(contract));
+    };
+
     const loadContractsFromServer = async (silent = true) => {
         if (!contractsList) return;
         try {
@@ -1133,11 +1154,11 @@
         }
     };
 
-    const schedulePreview = () => {
+    const schedulePreview = (delay = 600) => {
         if (previewTimeout) {
             clearTimeout(previewTimeout);
         }
-        previewTimeout = setTimeout(loadPreview, 600);
+        previewTimeout = setTimeout(loadPreview, delay);
     };
 
     const renderGeneratedDoc = async (downloadUrl, contractNumber) => {
@@ -1290,14 +1311,14 @@
     syncRecipient();
     updateDerived();
     bindEvents();
-    schedulePreview();
+    schedulePreview(1100);
     window.addEventListener('resize', scheduleFit);
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
             schedulePreview();
         }
     });
-    loadContractsFromServer(false);
+    hydrateInitialContracts();
     setInterval(() => loadContractsFromServer(true), 30000);
     }) ();
 </script>

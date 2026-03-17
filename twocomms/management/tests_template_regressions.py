@@ -6,6 +6,7 @@ from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.urls import resolve
 
 from management import context_processors as management_context_processors
+from management.forms import CommercialOfferEmailForm
 
 
 class _DummyUser:
@@ -92,3 +93,87 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
     def test_contracts_template_compiles(self):
         template = loader.get_template("management/contracts.html")
         self.assertIsNotNone(template)
+
+    def test_contracts_template_bootstraps_history_for_js_cache(self):
+        template = loader.get_template("management/contracts.html")
+        request = self._build_request("/contracts/")
+
+        with patch.object(management_context_processors, "management_shell_context", return_value={}):
+            html = template.render(
+                {
+                    "contract_date_display": "18 березня 2026",
+                    "contracts_history": [
+                        {
+                            "id": 17,
+                            "contract_number": "TC-17/2026",
+                            "contract_date": "18.03.2026",
+                            "created_at": "18.03.2026 14:20",
+                            "realizer_name": "Test Manager",
+                            "product_title": "Худі",
+                            "total_sum": 1350,
+                            "review_status": "draft",
+                            "review_reject_reason": "",
+                            "is_approved": False,
+                            "download_url": "/contracts/17/download/",
+                        }
+                    ],
+                    "drop_hoodie_price": 1350,
+                    "drop_tee_price": 570,
+                    "hoodie_products": [],
+                    "next_contract_number": "TC-18/2026",
+                    "prefill_payload": {},
+                    "tshirt_products": [],
+                },
+                request=request,
+            )
+
+        self.assertIn('id="contracts-history-data"', html)
+        self.assertIn('"contract_number": "TC-17/2026"', html)
+        self.assertIn("hydrateInitialContracts();", html)
+
+    def test_commercial_offer_template_uses_deferred_bootstrap_marker(self):
+        template = loader.get_template("management/commercial_offer_email.html")
+        request = self._build_request("/commercial-offer/email/")
+        form = CommercialOfferEmailForm(user=request.user)
+
+        with patch.object(management_context_processors, "management_shell_context", return_value={}):
+            html = template.render(
+                {
+                    "cp_tab": "email",
+                    "form": form,
+                    "gallery_edgy_json": "[]",
+                    "gallery_neutral_json": "[]",
+                    "logs": [],
+                    "messenger_context": {
+                        "links": {
+                            "catalog": "",
+                            "dropship": "",
+                            "general_tg": "",
+                            "wholesale": "",
+                        },
+                        "manager": {
+                            "name": "Template Admin",
+                            "phone": "",
+                            "telegram": "",
+                        },
+                        "pricing": {
+                            "dropFixed": {"hoodie": 1350, "tee": 570},
+                            "dropshipLoyaltyStep": 10,
+                            "maxDropDiscount": 120,
+                            "optTiers": {},
+                            "retailExamples": {"hoodie": 1912, "tee": 880},
+                        },
+                    },
+                    "preview_light_text": "Preview light",
+                    "preview_mode": "VISUAL",
+                    "preview_preheader": "Preview preheader",
+                    "preview_subject": "Preview subject",
+                    "preview_visual_html": "<p>Preview visual</p>",
+                    "send_error": "",
+                    "sent_success": False,
+                },
+                request=request,
+            )
+
+        self.assertIn("function scheduleCommercialBootstrapWarmups()", html)
+        self.assertIn("scheduleCommercialBootstrapWarmups();", html)

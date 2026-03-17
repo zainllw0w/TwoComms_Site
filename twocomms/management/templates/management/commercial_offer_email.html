@@ -1844,6 +1844,11 @@ function initManagementCommercialOfferEmailPage() {
         EDGY: 3,
     };
     const galleryResolveTimers = new Map();
+    const galleryResolvedCache = new Map();
+    let bootstrapWarmupsTimer = null;
+    let bootstrapWarmupsStarted = false;
+    let unitDefaultsRequestKey = '';
+    let unitDefaultsReloadTimer = null;
 
     function parseIntSafe(value) {
         const raw = String(value || '').replace(/\s+/g, '').trim();
@@ -2043,17 +2048,24 @@ function initManagementCommercialOfferEmailPage() {
         unitNote.textContent = text || '';
     }
 
+    function buildUnitDefaultsUrl() {
+        const params = new URLSearchParams();
+        if (pricingMode && pricingMode.value) params.set('pricing_mode', pricingMode.value);
+        if (optTier && optTier.value) params.set('opt_tier', optTier.value);
+        const dropTeeVal = parseIntSafe(dropTeePrice?.value);
+        const dropHoodieVal = parseIntSafe(dropHoodiePrice?.value);
+        if (dropTeeVal !== null) params.set('drop_tee_price', String(dropTeeVal));
+        if (dropHoodieVal !== null) params.set('drop_hoodie_price', String(dropHoodieVal));
+        return `{% url "management_commercial_offer_email_unit_defaults_api" %}?${params.toString()}`;
+    }
+
     async function loadUnitDefaults() {
         try {
-            const params = new URLSearchParams();
-            if (pricingMode && pricingMode.value) params.set('pricing_mode', pricingMode.value);
-            if (optTier && optTier.value) params.set('opt_tier', optTier.value);
-            const dropTeeVal = parseIntSafe(dropTeePrice?.value);
-            const dropHoodieVal = parseIntSafe(dropHoodiePrice?.value);
-            if (dropTeeVal !== null) params.set('drop_tee_price', String(dropTeeVal));
-            if (dropHoodieVal !== null) params.set('drop_hoodie_price', String(dropHoodieVal));
-
-            const url = `{% url "management_commercial_offer_email_unit_defaults_api" %}?${params.toString()}`;
+            const url = buildUnitDefaultsUrl();
+            if (unitDefaults && unitDefaultsRequestKey === url) {
+                syncUnitProfits();
+                return unitDefaults;
+            }
             const resp = await fetch(url, {
                 headers: { 'Accept': 'application/json' },
                 credentials: 'same-origin',
@@ -2061,6 +2073,7 @@ function initManagementCommercialOfferEmailPage() {
             if (!resp.ok) return;
             const data = await resp.json();
             if (!data || !data.ok || !data.defaults) return;
+            unitDefaultsRequestKey = url;
             unitDefaults = data.defaults;
             if (unitDefaults && unitDefaults.retail_source === 'fallback') {
                 setUnitNoteText('Застосовані fallback-ціни для роздробу (не вдалося підтягнути з сайту).');
@@ -2071,6 +2084,13 @@ function initManagementCommercialOfferEmailPage() {
         } catch (e) {
             // ignore
         }
+    }
+
+    function scheduleUnitDefaultsReload() {
+        if (unitDefaultsReloadTimer) clearTimeout(unitDefaultsReloadTimer);
+        unitDefaultsReloadTimer = setTimeout(() => {
+            loadUnitDefaults().finally(() => syncUnitProfits());
+        }, 220);
     }
 
     async function fillUnitDefaults() {
@@ -2132,7 +2152,8 @@ function initManagementCommercialOfferEmailPage() {
         return seg === 'EDGY' ? 'EDGY' : 'NEUTRAL';
     }
 
-    function renderGallery() {
+    function renderGallery(options = {}) {
+        const bootstrap = !!options.bootstrap;
         if (!galleryList) return;
         const seg = getActiveSegment();
         const slotsData = galleryState[seg] || [];
@@ -2185,6 +2206,10 @@ function initManagementCommercialOfferEmailPage() {
             });
         });
 
+        if (bootstrap) {
+            syncGalleryHidden();
+            return;
+        }
         scheduleGallerySync();
     }
 
@@ -2263,14 +2288,24 @@ function initManagementCommercialOfferEmailPage() {
     async function resolveProductUrl(url) {
         const clean = String(url || '').trim();
         if (!clean) return null;
-        const resp = await fetch(`{% url "management_commercial_offer_email_resolve_product_api" %}?url=${encodeURIComponent(clean)}`, {
-            headers: { 'Accept': 'application/json' },
-            credentials: 'same-origin',
+        if (galleryResolvedCache.has(clean)) {
+            return galleryResolvedCache.get(clean);
+        }
+        const request = (async () => {
+            const resp = await fetch(`{% url "management_commercial_offer_email_resolve_product_api" %}?url=${encodeURIComponent(clean)}`, {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin',
+            });
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            if (!data || !data.ok || !data.item) return null;
+            return data.item;
+        })().catch((error) => {
+            galleryResolvedCache.delete(clean);
+            throw error;
         });
-        if (!resp.ok) return null;
-        const data = await resp.json();
-        if (!data || !data.ok || !data.item) return null;
-        return data.item;
+        galleryResolvedCache.set(clean, request);
+        return request;
     }
 
     function resolveGallerySlots() {
@@ -2365,6 +2400,22 @@ function initManagementCommercialOfferEmailPage() {
     function scheduleDuplicateCheck() {
         if (checkTimer) clearTimeout(checkTimer);
         checkTimer = setTimeout(() => checkDuplicateEmail(recipientEmail.value), 350);
+    }
+
+    function runCommercialBootstrapWarmups() {
+        if (bootstrapWarmupsStarted || document.hidden) return;
+        bootstrapWarmupsStarted = true;
+        scheduleUnitDefaultsReload();
+        resolveGallerySlots();
+        if ((recipientEmail?.value || '').includes('@')) {
+            scheduleDuplicateCheck();
+        }
+    }
+
+    function scheduleCommercialBootstrapWarmups() {
+        if (bootstrapWarmupsStarted) return;
+        if (bootstrapWarmupsTimer) clearTimeout(bootstrapWarmupsTimer);
+        bootstrapWarmupsTimer = setTimeout(runCommercialBootstrapWarmups, 900);
     }
 
     function openConfirmModal() {
@@ -2717,15 +2768,15 @@ function initManagementCommercialOfferEmailPage() {
 	    if (ctaType) ctaType.addEventListener('change', syncCtaCustomUrl);
 	    if (pricingMode) pricingMode.addEventListener('change', () => {
 	        syncPricingUI();
-	        loadUnitDefaults().finally(() => syncUnitProfits());
+	        scheduleUnitDefaultsReload();
 	    });
 	    if (optTier) optTier.addEventListener('change', () => {
-	        loadUnitDefaults().finally(() => syncUnitProfits());
+	        scheduleUnitDefaultsReload();
 	    });
 	    [dropTeePrice, dropHoodiePrice].forEach((el) => {
 	        if (!el) return;
-	        el.addEventListener('input', () => loadUnitDefaults().finally(() => syncUnitProfits()));
-	        el.addEventListener('change', () => loadUnitDefaults().finally(() => syncUnitProfits()));
+	        el.addEventListener('input', scheduleUnitDefaultsReload);
+	        el.addEventListener('change', scheduleUnitDefaultsReload);
 	    });
 	    if (showManager) showManager.addEventListener('change', syncMessengerUI);
 	    messengerRows.forEach(({ toggle, input }) => {
@@ -2862,11 +2913,15 @@ function initManagementCommercialOfferEmailPage() {
 	    galleryState.EDGY = parseJsonGallery(galleryEdgy?.value);
 	    gallerySlots.NEUTRAL = Math.max(3, galleryState.NEUTRAL.length || 0);
 	    gallerySlots.EDGY = Math.max(3, galleryState.EDGY.length || 0);
-	    renderGallery();
+	    renderGallery({ bootstrap: true });
 	    renderVisualPreview(lastPreviewVisualHtml);
-	    loadUnitDefaults().finally(() => syncUnitProfits());
-	    schedulePreviewUpdate();
-	    scheduleDuplicateCheck();
+	    syncUnitProfits();
+	    scheduleCommercialBootstrapWarmups();
+	    document.addEventListener('visibilitychange', () => {
+	        if (!document.hidden) {
+	            scheduleCommercialBootstrapWarmups();
+	        }
+	    });
 }
 
 if (document.readyState === 'loading') {
