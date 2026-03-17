@@ -190,6 +190,7 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(response, "sidebar-nav-slot")
         self.assertContains(response, "sidebar-nav-panel")
         self.assertContains(response, "sidebar-collapse-toggle")
+        self.assertContains(response, "sidebar-collapse-toggle--cue")
         self.assertContains(response, "sidebar-collapsed-launcher")
         self.assertContains(response, "sidebar-collapsed-launcher__surface")
         self.assertContains(response, "sidebar-collapsed-launcher__arrow")
@@ -205,7 +206,7 @@ class HomeShellRenderTests(TestCase):
         self.assertNotContains(response, "sidebar-collapsed-launcher__card--back")
         self.assertRegex(
             html,
-            r'(?s)<div class="sidebar-nav-panel">.*?id="sidebar-primary-nav".*?id="sidebar-collapse-toggle"',
+            r'(?s)<nav class="nav-menu nav-menu--primary" id="sidebar-primary-nav">.*?id="sidebar-collapse-toggle".*?</nav>',
         )
         self.assertEqual(response.content.decode("utf-8").count(">Парсинг<"), 1)
 
