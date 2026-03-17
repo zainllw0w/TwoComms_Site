@@ -173,6 +173,7 @@ class HomeShellRenderTests(TestCase):
         response = self.client.get("/", secure=True)
 
         self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
         self.assertContains(response, 'id="sidebar-rail-scroll"')
         self.assertContains(response, "sidebar-rail__scroll-cue")
         self.assertContains(response, "sidebar-rail__mouse")
@@ -186,14 +187,26 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(response, "user-action user-action--edit user-action--icon-only")
         self.assertContains(response, "user-action user-action--logout user-action--icon-only")
         self.assertContains(response, "user-action__money-currency-icon")
+        self.assertContains(response, "sidebar-nav-slot")
+        self.assertContains(response, "sidebar-nav-panel")
         self.assertContains(response, "sidebar-collapse-toggle")
         self.assertContains(response, "sidebar-collapsed-launcher")
+        self.assertContains(response, "sidebar-collapsed-launcher__surface")
+        self.assertContains(response, "sidebar-collapsed-launcher__arrow")
+        self.assertContains(response, "sidebar-collapse-toggle__arrow--left")
+        self.assertContains(response, "sidebar-collapse-toggle__arrow--right")
         self.assertContains(response, "action-rail--overlay")
         self.assertContains(response, "action-rail__stack--vertical")
         self.assertContains(response, "action-rail__stack")
         self.assertContains(response, "action-rail__callback")
         self.assertContains(response, "action-rail__callback-text")
         self.assertContains(response, "action-rail__utility")
+        self.assertNotContains(response, "sidebar-collapsed-launcher__deck")
+        self.assertNotContains(response, "sidebar-collapsed-launcher__card--back")
+        self.assertRegex(
+            html,
+            r'(?s)<div class="sidebar-nav-panel">.*?id="sidebar-primary-nav".*?id="sidebar-collapse-toggle"',
+        )
         self.assertEqual(response.content.decode("utf-8").count(">Парсинг<"), 1)
 
     def test_home_uses_effective_callback_state_for_due_now_and_missed(self):
