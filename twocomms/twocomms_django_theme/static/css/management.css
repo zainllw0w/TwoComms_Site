@@ -5414,6 +5414,14 @@ button.shop-card {
     overflow: hidden;
 }
 
+.sidebar-nav-panel .nav-menu--primary {
+    gap: 0;
+}
+
+.sidebar-nav-panel .nav-menu--primary > .nav-item + .nav-item {
+    margin-top: 8px;
+}
+
 .user-profile__top {
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas: "avatar identity";
@@ -5685,12 +5693,13 @@ button.shop-card {
 
 .sidebar-collapse-toggle--cue {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 12px;
-    margin: -18px -12px -12px;
-    padding: 22px 18px 12px;
-    min-height: 58px;
+    align-self: stretch;
+    margin: -30px -12px -12px;
+    padding: 30px 18px 12px;
+    min-height: 72px;
     border-radius: 0 0 20px 20px;
     background: transparent;
     box-shadow: none;
@@ -5701,12 +5710,10 @@ button.shop-card {
 .sidebar-collapse-toggle--full-bleed::before {
     content: "";
     position: absolute;
-    inset: 0;
-    background:
-        linear-gradient(180deg, rgba(10, 14, 22, 0), rgba(10, 14, 22, 0.88) 54%, rgba(10, 14, 22, 0.98)),
-        linear-gradient(90deg, rgba(255, 91, 87, 0.08), rgba(255, 255, 255, 0) 26%, rgba(255, 91, 87, 0.08));
+    inset: -18px 0 0 0;
+    background: linear-gradient(180deg, rgba(10, 14, 22, 0), rgba(10, 14, 22, 0.9) 50%, rgba(10, 14, 22, 0.985));
     z-index: -1;
-    transition: opacity 0.18s ease, transform 0.18s ease;
+    transition: opacity 0.18s ease;
 }
 
 .sidebar-collapse-toggle--cue:hover,
@@ -5716,9 +5723,7 @@ button.shop-card {
 
 .sidebar-collapse-toggle--full-bleed:hover::before,
 .sidebar-collapse-toggle--full-bleed:focus-visible::before {
-    background:
-        linear-gradient(180deg, rgba(10, 14, 22, 0.04), rgba(10, 14, 22, 0.92) 52%, rgba(10, 14, 22, 1)),
-        linear-gradient(90deg, rgba(255, 91, 87, 0.12), rgba(255, 255, 255, 0) 24%, rgba(255, 91, 87, 0.12));
+    background: linear-gradient(180deg, rgba(10, 14, 22, 0.04), rgba(10, 14, 22, 0.94) 50%, rgba(10, 14, 22, 1));
 }
 
 .sidebar-collapse-toggle__arrow {
@@ -5741,6 +5746,14 @@ button.shop-card {
     stroke-width: 2;
 }
 
+.sidebar-collapse-toggle__arrow--left {
+    justify-self: start;
+}
+
+.sidebar-collapse-toggle__arrow--right {
+    justify-self: end;
+}
+
 .sidebar-collapse-toggle__label {
     font-size: 0.72rem;
     font-weight: 800;
@@ -5748,6 +5761,7 @@ button.shop-card {
     text-transform: uppercase;
     color: rgba(246, 248, 252, 0.92);
     text-align: center;
+    justify-self: center;
 }
 
 .sidebar-collapsed-launcher {
