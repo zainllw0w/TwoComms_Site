@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.core.exceptions import DisallowedHost
 from django.db.models import Prefetch
 from django.db.models import Q
 from django.urls import NoReverseMatch, reverse
@@ -9,6 +10,14 @@ from management.models import Client, ClientFollowUp, DuplicateReview, NightlySc
 from management.services.followup_state import get_effective_callback_state
 from management.services.payouts import get_manager_payout_summary
 from management.services.roster import management_role_label
+
+
+def _is_management_host(request):
+    try:
+        host = request.get_host().split(":")[0].lower()
+    except DisallowedHost:
+        return False
+    return host.startswith("management.")
 
 
 def build_management_shell_metrics(user, profile=None):
@@ -60,6 +69,10 @@ def build_management_shell_metrics(user, profile=None):
         duplicate_reviews_qs = duplicate_reviews_qs.filter(owner=user)
     duplicate_reviews = duplicate_reviews_qs.count()
     payout_summary = get_manager_payout_summary(user)
+    try:
+        payout_url = reverse("management_payouts")
+    except NoReverseMatch:
+        payout_url = ""
 
     return {
         "management_shell_daily_zone": daily_zone,
@@ -74,7 +87,7 @@ def build_management_shell_metrics(user, profile=None):
         "management_shell_duplicate_reviews": duplicate_reviews,
         "management_shell_payout_available": payout_summary["available"],
         "management_shell_has_active_payout_request": payout_summary["has_active_request"],
-        "management_shell_payout_url": reverse("management_payouts"),
+        "management_shell_payout_url": payout_url,
         "management_shell_secondary_counts": {
             "today_callbacks": today_callbacks,
             "urgent_callbacks": urgent_callbacks,
@@ -87,6 +100,8 @@ def build_management_shell_metrics(user, profile=None):
 def management_shell_context(request):
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
+        return {}
+    if not _is_management_host(request):
         return {}
 
     try:
