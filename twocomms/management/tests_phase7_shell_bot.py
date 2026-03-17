@@ -210,7 +210,7 @@ class HomeShellRenderTests(TestCase):
         self.assertNotContains(response, "sidebar-collapsed-launcher__card--back")
         self.assertRegex(
             html,
-            r'(?s)<nav class="nav-menu nav-menu--primary" id="sidebar-primary-nav">.*?id="sidebar-collapse-toggle".*?</nav>',
+            r'(?s)<nav class="nav-menu nav-menu--primary" id="sidebar-primary-nav">.*?</nav>\s*<button type="button" class="sidebar-collapse-toggle[^"]*" id="sidebar-collapse-toggle"',
         )
         self.assertEqual(response.content.decode("utf-8").count(">Парсинг<"), 1)
 
@@ -230,6 +230,15 @@ class HomeShellRenderTests(TestCase):
         self.assertIn("padding-bottom: 26px;", css)
         self.assertIn("padding: 12px 12px 6px;", css)
         self.assertIn("min-height: 52px;", css)
+
+    def test_management_css_uses_interactive_collapse_cue_hover_contract(self):
+        css = self.CSS_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("cursor: pointer;", css)
+        self.assertIn("@keyframes sidebar-collapse-arrow-drift", css)
+        self.assertIn(".sidebar-collapse-toggle--cue:hover .sidebar-collapse-toggle__label", css)
+        self.assertIn("text-shadow: 0 0 14px rgba(255, 91, 87, 0.18);", css)
+        self.assertIn("animation: sidebar-collapse-arrow-drift 1.35s ease-in-out infinite alternate;", css)
 
     def test_home_renders_collapse_cue_outside_nav_flow(self):
         user = get_user_model().objects.create_user(username="shell_cue_structure", password="x", is_staff=True)
