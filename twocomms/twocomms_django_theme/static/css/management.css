@@ -5472,9 +5472,11 @@ button.shop-card {
 }
 
 .user-actions-strip {
-    display: grid;
-    grid-template-columns: minmax(0, 1.65fr) repeat(3, minmax(0, 1fr));
-    gap: 8px;
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    flex-wrap: nowrap;
+    min-width: 0;
 }
 
 .user-action {
@@ -5534,9 +5536,11 @@ button.shop-card {
 }
 
 .user-action--money {
+    flex: 1 1 auto;
+    min-width: 0;
     justify-content: space-between;
-    padding: 4px;
-    gap: 8px;
+    padding: 3px;
+    gap: 6px;
     border-color: rgba(255, 179, 71, 0.2);
     background:
         radial-gradient(circle at top left, rgba(255, 179, 71, 0.18), transparent 44%),
@@ -5549,7 +5553,7 @@ button.shop-card {
     min-width: 0;
     display: grid;
     gap: 2px;
-    padding: 8px 12px;
+    padding: 7px 10px;
     border-radius: 12px;
     background:
         linear-gradient(180deg, rgba(17, 22, 33, 0.96), rgba(9, 13, 20, 0.98)),
@@ -5567,7 +5571,7 @@ button.shop-card {
 
 .user-action__money-amount {
     color: var(--text-primary);
-    font-size: 0.98rem;
+    font-size: 0.92rem;
     font-weight: 900;
     line-height: 1;
     white-space: nowrap;
@@ -5576,20 +5580,22 @@ button.shop-card {
 }
 
 .user-action__money-currency {
-    flex: 0 0 auto;
+    flex: 0 0 42px;
     align-self: stretch;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 48px;
-    padding: 0 12px;
+    min-width: 42px;
+    padding: 0;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.06);
     color: rgba(232, 233, 236, 0.9);
-    font-size: 0.76rem;
+}
+
+.user-action__money-currency-icon {
+    font-size: 1.06rem;
     font-weight: 900;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    line-height: 1;
 }
 
 .user-action--money.is-muted {
@@ -5605,6 +5611,24 @@ button.shop-card {
 .user-action--edit,
 .user-action--logout {
     padding-inline: 10px;
+}
+
+.user-action--icon-only {
+    flex: 0 0 40px;
+    width: 40px;
+    min-width: 40px;
+    padding: 0;
+    gap: 0;
+}
+
+.user-action--icon-only .user-action__icon {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 17px;
+}
+
+.user-action--icon-only .user-action__label {
+    display: none;
 }
 
 .sidebar-nav-shell {
@@ -6910,13 +6934,13 @@ body[data-row-mode="card"] .actions-cell--callbacks .action-rail__callback-text 
     }
 
     .user-actions-strip {
-        gap: 6px;
+        gap: 5px;
     }
 
     .user-action {
-        min-height: 38px;
+        min-height: 37px;
         border-radius: 14px;
-        padding-inline: 9px;
+        padding-inline: 8px;
     }
 
     .user-action__label,
@@ -6926,13 +6950,22 @@ body[data-row-mode="card"] .actions-cell--callbacks .action-rail__callback-text 
     }
 
     .user-action__money-caption {
-        font-size: 0.5rem;
+        font-size: 0.48rem;
     }
 
     .user-action__money-currency {
-        min-width: 42px;
-        padding-inline: 10px;
-        font-size: 0.68rem;
+        flex-basis: 38px;
+        min-width: 38px;
+    }
+
+    .user-action__money-currency-icon {
+        font-size: 0.96rem;
+    }
+
+    .user-action--icon-only {
+        flex-basis: 36px;
+        width: 36px;
+        min-width: 36px;
     }
 
     .daily-followups {
@@ -6968,21 +7001,35 @@ body[data-row-mode="card"] .actions-cell--callbacks .action-rail__callback-text 
     }
 
     .user-actions-strip {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .user-action--money {
-        grid-column: 1 / -1;
+        gap: 4px;
     }
 
     .user-action {
-        min-height: 40px;
-        padding-inline: 10px;
+        min-height: 36px;
+        padding-inline: 7px;
     }
 
-    .user-action__label {
-        font-size: 0.68rem;
-        letter-spacing: 0.06em;
+    .user-action__money-caption {
+        display: none;
+    }
+
+    .user-action__money-amount {
+        font-size: 0.84rem;
+    }
+
+    .user-action__money-currency {
+        flex-basis: 36px;
+        min-width: 36px;
+    }
+
+    .user-action__money-currency-icon {
+        font-size: 0.9rem;
+    }
+
+    .user-action--icon-only {
+        flex-basis: 34px;
+        width: 34px;
+        min-width: 34px;
     }
 
     .daily-followups {
