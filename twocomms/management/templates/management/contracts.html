@@ -696,9 +696,8 @@
         };
         const prefill = JSON.parse(document.getElementById('contract-prefill').textContent || '{}');
 
-        const dropHoodiePrice = {{ drop_hoodie_price|default: 1350
-    }};
-    const dropTeePrice = {{ drop_tee_price|default: 570 }};
+        const dropHoodiePrice = {{ drop_hoodie_price|default:1350 }};
+        const dropTeePrice = {{ drop_tee_price|default:570 }};
     const contractCache = new Map();
     let previewTimeout = null;
     let previewAbort = null;

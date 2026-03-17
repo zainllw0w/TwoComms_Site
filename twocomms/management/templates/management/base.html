@@ -295,7 +295,7 @@
                                         <div class="daily-metric-head">
                                             <div class="daily-metric-label">Оброблено сьогодні</div>
                                         </div>
-                                        <div class="daily-metric-value" id="clients-legend">{{ management_shell_processed_today|default:processed_today|default:0 }}</div>
+                                        <div class="daily-metric-value" id="clients-legend">{{ management_shell_processed_today|default:0 }}</div>
                                         <div class="progress-track progress-track--segmented" aria-hidden="true">
                                             <div class="progress-fill" id="clients-bar" style="width: {{ progress_clients_pct|default:0 }}%;"></div>
                                         </div>
