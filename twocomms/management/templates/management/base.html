@@ -901,6 +901,7 @@
 
         // polling feed to update without reload
         const pollFeed = () => {
+            if (document.hidden) return;
             fetch("{% url 'management_reminder_feed' %}", { headers: { "X-Requested-With": "XMLHttpRequest" } })
                 .then(res => res.json())
                 .then(data => {
@@ -911,6 +912,9 @@
                 .catch(() => {});
         };
         setInterval(pollFeed, 10000);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) pollFeed();
+        });
 
         const helpButtons = Array.from(document.querySelectorAll('.info-dot[data-help-target]'));
         const closeHelpPopovers = (exceptButton = null) => {

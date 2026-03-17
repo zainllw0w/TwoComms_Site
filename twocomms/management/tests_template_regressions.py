@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 from unittest.mock import patch
+from pathlib import Path
 
 from django.template import loader
 from django.test import RequestFactory, SimpleTestCase, override_settings
@@ -177,3 +178,41 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
 
         self.assertIn("function scheduleCommercialBootstrapWarmups()", html)
         self.assertIn("scheduleCommercialBootstrapWarmups();", html)
+
+    def test_management_shell_script_guards_against_stale_navigation(self):
+        script = Path("twocomms/twocomms_django_theme/static/js/management-shell.js").read_text()
+
+        self.assertIn("AbortController", script)
+        self.assertIn("navigationRequestId", script)
+        self.assertIn("requestId !== navigationRequestId", script)
+
+    def test_base_template_skips_reminder_poll_when_page_is_hidden(self):
+        template = loader.get_template("management/base.html")
+        request = self._build_request("/shops/")
+
+        with patch.object(management_context_processors, "management_shell_context", return_value={}):
+            html = template.render(
+                {
+                    "manager_bot_username": "",
+                    "management_shell_daily_zone": "warning",
+                    "management_shell_duplicate_reviews": 0,
+                    "management_shell_has_active_payout_request": False,
+                    "management_shell_mosaic_label": "Накопичуємо дані",
+                    "management_shell_mosaic_meta": "Потрібно щонайменше 20 обробок для стабільного показу.",
+                    "management_shell_mosaic_ready": False,
+                    "management_shell_payout_available": 0,
+                    "management_shell_payout_url": "/payouts/",
+                    "management_shell_processed_total": 0,
+                    "management_shell_role_label": "Адміністратор",
+                    "management_shell_stats_url": "/stats/admin/",
+                    "management_shell_today_callbacks": 0,
+                    "management_shell_urgent_callbacks": 0,
+                    "progress_clients_pct": 0,
+                    "progress_points_pct": 0,
+                    "reminders": [],
+                    "user_points_today": 0,
+                },
+                request=request,
+            )
+
+        self.assertIn("if (document.hidden) return;", html)

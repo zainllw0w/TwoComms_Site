@@ -41,6 +41,8 @@
   const titleCache = new Map();
   const scrollCache = new Map();
   let userCollapsed = readStoredCollapseState();
+  let navigationRequestId = 0;
+  let activeNavigationController = null;
 
   if (sidebarRail && sidebarNavSlot && sidebarNavPanel && sidebarCollapsedLauncher) {
     sidebarRail.dataset.sidebarReady = 'true';
@@ -188,12 +190,24 @@
     });
   };
 
-  const execScriptsIn = async (rootEl) => {
+  const isCurrentNavigation = (requestId, signal) => {
+    if (requestId !== navigationRequestId) return false;
+    return !(signal && signal.aborted);
+  };
+
+  const abortActiveNavigation = () => {
+    if (!activeNavigationController) return;
+    activeNavigationController.abort();
+    activeNavigationController = null;
+  };
+
+  const execScriptsIn = async (rootEl, shouldContinue = () => true) => {
     const jsBox = rootEl.querySelector('#mgmt-page-js');
     if (!jsBox) return;
 
     const scripts = Array.from(jsBox.querySelectorAll('script'));
     for (const s of scripts) {
+      if (!shouldContinue()) return;
       const type = (s.getAttribute('type') || '').toLowerCase();
       const src = s.getAttribute('src');
 
@@ -211,6 +225,10 @@
         if (loadedSrc.has(abs)) continue;
 
         await new Promise((resolve) => {
+          if (!shouldContinue()) {
+            resolve(false);
+            return;
+          }
           const ns = document.createElement('script');
           ns.src = abs;
           ns.async = false;
@@ -223,7 +241,7 @@
       }
 
       const code = (s.textContent || '').trim();
-      if (!code) continue;
+      if (!code || !shouldContinue()) continue;
       const ns = document.createElement('script');
       ns.type = 'text/javascript';
       ns.textContent = code;
@@ -258,11 +276,12 @@
     scheduleShellResponsiveState();
   };
 
-  const fetchAndBuild = async (targetUrl) => {
+  const fetchAndBuild = async (targetUrl, signal) => {
     const urlKey = getUrlKey(targetUrl);
-    const res = await fetch(urlKey, { credentials: 'same-origin' });
+    const res = await fetch(urlKey, { credentials: 'same-origin', signal });
     if (!res.ok) return null;
     const html = await res.text();
+    if (signal && signal.aborted) return null;
 
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const newRoot = doc.getElementById('mgmt-page-root');
@@ -283,10 +302,25 @@
     }
 
     const urlKey = getUrlKey(targetUrl);
-    if (urlKey === currentUrl) return;
+    if (urlKey === currentUrl) {
+      abortActiveNavigation();
+      navigationRequestId += 1;
+      const visibleRoot = cache.get(currentUrl);
+      if (visibleRoot) visibleRoot.style.opacity = '';
+      return;
+    }
+
+    abortActiveNavigation();
+    const requestId = ++navigationRequestId;
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const signal = controller ? controller.signal : null;
+    activeNavigationController = controller;
 
     if (cache.has(urlKey)) {
-      swapToRoot(urlKey, cache.get(urlKey), titleCache.get(urlKey) || '', pushHistory);
+      if (isCurrentNavigation(requestId, signal)) {
+        swapToRoot(urlKey, cache.get(urlKey), titleCache.get(urlKey) || '', pushHistory);
+      }
+      if (activeNavigationController === controller) activeNavigationController = null;
       return;
     }
 
@@ -294,9 +328,29 @@
     const currentRoot = cache.get(currentUrl);
     if (currentRoot) currentRoot.style.opacity = '0.6';
 
-    const built = await fetchAndBuild(targetUrl);
+    let built = null;
+    try {
+      built = await fetchAndBuild(targetUrl, signal);
+    } catch (e) {
+      if (signal && signal.aborted) return;
+      if (currentRoot) currentRoot.style.opacity = '';
+      window.location.href = urlKey;
+      return;
+    } finally {
+      if (activeNavigationController === controller && signal && signal.aborted) {
+        activeNavigationController = null;
+      }
+    }
+
+    if (!isCurrentNavigation(requestId, signal)) {
+      if (currentRoot) currentRoot.style.opacity = '';
+      return;
+    }
+
     if (!built) {
       if (currentRoot) currentRoot.style.opacity = '';
+      if (signal && signal.aborted) return;
+      if (activeNavigationController === controller) activeNavigationController = null;
       window.location.href = urlKey;
       return;
     }
@@ -305,13 +359,19 @@
     titleCache.set(built.urlKey, built.title || built.urlKey);
 
     // Attach first so scripts can find DOM
+    if (!isCurrentNavigation(requestId, signal)) {
+      if (currentRoot) currentRoot.style.opacity = '';
+      return;
+    }
     swapToRoot(built.urlKey, built.root, built.title, pushHistory);
-    await execScriptsIn(built.root);
+    await execScriptsIn(built.root, () => isCurrentNavigation(requestId, signal));
+    if (!isCurrentNavigation(requestId, signal)) return;
 
     // Restore opacity
     const newCurrentRoot = cache.get(currentUrl);
     if (newCurrentRoot) newCurrentRoot.style.opacity = '';
     scheduleShellResponsiveState();
+    if (activeNavigationController === controller) activeNavigationController = null;
   };
 
   navMenu.addEventListener('click', (e) => {
