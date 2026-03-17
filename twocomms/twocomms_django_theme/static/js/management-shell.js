@@ -5,6 +5,8 @@
   const contentArea = document.querySelector('.content-area');
   const navMenu = document.querySelector('.nav-menu');
   const sidebarRail = document.getElementById('sidebar-rail');
+  const sidebarNavSlot = document.getElementById('sidebar-nav-slot');
+  const sidebarNavPanel = document.querySelector('.sidebar-nav-panel');
   const sidebarScroll = document.getElementById('sidebar-rail-scroll');
   const sidebarCollapseToggle = document.getElementById('sidebar-collapse-toggle');
   const sidebarCollapsedLauncher = document.getElementById('sidebar-collapsed-launcher');
@@ -39,6 +41,10 @@
   const titleCache = new Map();
   const scrollCache = new Map();
   let userCollapsed = readStoredCollapseState();
+
+  if (sidebarRail && sidebarNavSlot && sidebarNavPanel && sidebarCollapsedLauncher) {
+    sidebarRail.dataset.sidebarReady = 'true';
+  }
 
   const initialRoot = document.getElementById('mgmt-page-root');
   if (!initialRoot) return;
@@ -111,6 +117,27 @@
     return collapsed;
   };
 
+  const measureNavLayerHeight = (node) => {
+    if (!node) return 0;
+    const rect = node.getBoundingClientRect();
+    return Math.ceil(rect.height || node.scrollHeight || node.offsetHeight || 0);
+  };
+
+  const syncSidebarNavSlotHeight = (stackedShell, collapsed) => {
+    if (!sidebarNavSlot) return;
+
+    if (stackedShell) {
+      sidebarNavSlot.style.removeProperty('height');
+      return;
+    }
+
+    const target = collapsed ? sidebarCollapsedLauncher : sidebarNavPanel;
+    const targetHeight = measureNavLayerHeight(target);
+    if (targetHeight > 0) {
+      sidebarNavSlot.style.height = `${targetHeight}px`;
+    }
+  };
+
   const syncShellResponsiveState = () => {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
@@ -129,7 +156,8 @@
 
     if (!sidebarRail) return;
 
-    syncSidebarCollapseState(stackedShell);
+    const collapsed = syncSidebarCollapseState(stackedShell);
+    syncSidebarNavSlotHeight(stackedShell, collapsed);
 
     if (stackedShell) {
       sidebarRail.dataset.railTier = 'stacked';
@@ -304,6 +332,7 @@
   contentArea.addEventListener('scroll', scheduleShellResponsiveState, { passive: true });
   window.addEventListener('scroll', scheduleShellResponsiveState, { passive: true });
   window.addEventListener('resize', scheduleShellResponsiveState);
+  window.addEventListener('load', scheduleShellResponsiveState);
   if (sidebarScroll) {
     sidebarScroll.addEventListener('scroll', syncSidebarScrollCue, { passive: true });
   }

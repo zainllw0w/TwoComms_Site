@@ -5632,26 +5632,44 @@ button.shop-card {
 }
 
 .sidebar-nav-shell {
+    min-width: 0;
+    position: relative;
+}
+
+.sidebar-nav-slot {
+    position: relative;
     display: grid;
     gap: 10px;
+}
+
+.sidebar-nav-panel {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at top right, rgba(255, 126, 41, 0.12), transparent 44%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.025)),
+        rgba(11, 15, 22, 0.84);
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-collapse-toggle,
+.sidebar-collapsed-launcher,
+.sidebar-nav-panel {
     position: relative;
+    width: 100%;
+    min-width: 0;
 }
 
 .sidebar-collapse-toggle,
 .sidebar-collapsed-launcher {
-    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 12px;
-    width: 100%;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 18px;
     color: var(--text-primary);
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03)),
-        rgba(11, 15, 22, 0.82);
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
-    transition: opacity 0.26s ease, transform 0.3s cubic-bezier(0.2, 0.75, 0.25, 1), box-shadow 0.18s ease, border-color 0.18s ease, max-height 0.28s ease, padding 0.28s ease, margin 0.28s ease;
+    transition: opacity 0.26s ease, transform 0.34s cubic-bezier(0.2, 0.75, 0.25, 1), box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
 }
 
 .sidebar-collapse-toggle:hover,
@@ -5663,90 +5681,87 @@ button.shop-card {
 }
 
 .sidebar-collapse-toggle {
+    align-self: center;
     justify-content: center;
-    min-height: 44px;
+    min-height: 38px;
+    width: auto;
+    max-width: 100%;
     padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.035);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-.sidebar-collapse-toggle__icon {
+.sidebar-collapse-toggle__arrow {
     display: inline-flex;
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     align-items: center;
     justify-content: center;
+    color: #ff5b57;
 }
 
-.sidebar-collapse-toggle__icon svg {
+.sidebar-collapse-toggle__arrow svg {
     width: 100%;
     height: 100%;
-    fill: currentColor;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
 }
 
 .sidebar-collapse-toggle__label {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 800;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
+    color: rgba(246, 248, 252, 0.92);
 }
 
 .sidebar-collapsed-launcher {
+    display: none;
     min-height: 62px;
     padding: 12px 14px;
     justify-content: flex-start;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at top left, rgba(255, 126, 41, 0.16), transparent 44%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.03)),
+        rgba(11, 15, 22, 0.84);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
 }
 
-.sidebar-collapsed-launcher__deck {
-    position: relative;
-    width: 50px;
-    height: 36px;
-    flex: 0 0 50px;
-}
-
-.sidebar-collapsed-launcher__card {
-    position: absolute;
-    inset: 0;
-    border-radius: 14px;
+.sidebar-collapsed-launcher__surface {
+    display: inline-flex;
+    width: 54px;
+    height: 54px;
+    flex: 0 0 54px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.14);
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04)),
-        rgba(17, 22, 33, 0.84);
+        rgba(17, 22, 33, 0.88);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.sidebar-collapsed-launcher__card--back {
-    transform: translate(-8px, 6px) rotate(-6deg);
-    opacity: 0.52;
-}
-
-.sidebar-collapsed-launcher__card--mid {
-    transform: translate(-3px, 3px) rotate(-3deg);
-    opacity: 0.74;
-}
-
-.sidebar-collapsed-launcher__card--front {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background:
-        radial-gradient(circle at top left, rgba(255, 179, 71, 0.22), transparent 48%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04)),
-        rgba(17, 22, 33, 0.9);
-}
-
-.sidebar-collapsed-launcher__card--front::before {
-    content: "";
+.sidebar-collapsed-launcher__icon {
     width: 18px;
     height: 2px;
     border-radius: 999px;
-    background: currentColor;
-    box-shadow: 0 -6px 0 currentColor, 0 6px 0 currentColor;
-    color: rgba(255, 245, 230, 0.92);
+    background: rgba(255, 245, 230, 0.92);
+    box-shadow: 0 -6px 0 rgba(255, 245, 230, 0.92), 0 6px 0 rgba(255, 245, 230, 0.92);
 }
 
 .sidebar-collapsed-launcher__copy {
     display: grid;
     gap: 2px;
     text-align: left;
+    min-width: 0;
 }
 
 .sidebar-collapsed-launcher__eyebrow {
@@ -5764,66 +5779,89 @@ button.shop-card {
     letter-spacing: 0.04em;
 }
 
-#sidebar-rail .nav-item,
-#sidebar-rail .sidebar-collapse-toggle,
-#sidebar-rail .sidebar-collapsed-launcher {
-    transition:
-        opacity 0.26s ease,
-        transform 0.3s cubic-bezier(0.2, 0.75, 0.25, 1),
-        box-shadow 0.18s ease,
-        border-color 0.18s ease,
-        max-height 0.32s ease,
-        padding 0.32s ease,
-        margin 0.32s ease,
-        border-width 0.18s ease;
+.sidebar-collapsed-launcher__arrow {
+    margin-left: auto;
+    display: inline-flex;
+    width: 16px;
+    height: 16px;
+    align-items: center;
+    justify-content: center;
+    color: #ff5b57;
 }
 
-#sidebar-rail[data-sidebar-collapsed="true"] .sidebar-collapsed-launcher {
+.sidebar-collapsed-launcher__arrow svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+}
+
+#sidebar-rail[data-sidebar-ready="true"] .sidebar-collapsed-launcher {
+    display: inline-flex;
+}
+
+#sidebar-rail .nav-item,
+#sidebar-rail .sidebar-collapse-toggle,
+#sidebar-rail .sidebar-collapsed-launcher,
+#sidebar-rail .sidebar-nav-panel,
+#sidebar-rail .sidebar-nav-slot {
+    transition:
+        height 0.36s cubic-bezier(0.2, 0.75, 0.25, 1),
+        opacity 0.26s ease,
+        transform 0.34s cubic-bezier(0.2, 0.75, 0.25, 1),
+        box-shadow 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease;
+}
+
+body[data-shell-layout="rail"] #sidebar-rail[data-sidebar-ready="true"] .sidebar-nav-slot {
+    overflow: hidden;
+}
+
+body[data-shell-layout="rail"] #sidebar-rail[data-sidebar-ready="true"] .sidebar-nav-slot > .sidebar-collapsed-launcher,
+body[data-shell-layout="rail"] #sidebar-rail[data-sidebar-ready="true"] .sidebar-nav-slot > .sidebar-nav-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+}
+
+body[data-shell-layout="rail"] #sidebar-rail[data-sidebar-ready="true"][data-sidebar-collapsed="true"] .sidebar-collapsed-launcher {
     opacity: 1;
-    transform: none;
-    max-height: 76px;
+    transform: translateY(0) scale(1);
     pointer-events: auto;
 }
 
-#sidebar-rail[data-sidebar-collapsed="false"] .sidebar-collapsed-launcher {
+body[data-shell-layout="rail"] #sidebar-rail[data-sidebar-ready="true"][data-sidebar-collapsed="true"] .sidebar-nav-panel {
     opacity: 0;
-    transform: translateY(-10px) scale(0.98);
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    border-width: 0;
-    overflow: hidden;
+    transform: translateY(22px) scale(0.985);
     pointer-events: none;
 }
 
-#sidebar-rail[data-sidebar-collapsed="true"] .sidebar-collapse-toggle {
+body[data-shell-layout="rail"] #sidebar-rail[data-sidebar-ready="true"][data-sidebar-collapsed="false"] .sidebar-collapsed-launcher {
     opacity: 0;
-    transform: translateY(-10px);
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    margin: 0;
-    border-width: 0;
-    overflow: hidden;
+    transform: translateY(-12px) scale(0.98);
     pointer-events: none;
+}
+
+body[data-shell-layout="rail"] #sidebar-rail[data-sidebar-ready="true"][data-sidebar-collapsed="false"] .sidebar-nav-panel {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
 }
 
 #sidebar-rail[data-sidebar-collapsed="true"] .nav-menu .nav-item {
-    max-height: 0;
     opacity: 0;
-    transform: translateY(-16px) scale(0.96);
-    padding-top: 0;
-    padding-bottom: 0;
-    margin: 0;
-    border-width: 0;
-    overflow: hidden;
+    transform: translateY(18px) scale(0.97);
     pointer-events: none;
 }
 
 #sidebar-rail[data-sidebar-collapsed="false"] .nav-menu .nav-item {
     opacity: 1;
     transform: none;
-    max-height: 72px;
     pointer-events: auto;
 }
 
@@ -5832,6 +5870,10 @@ button.shop-card {
 #sidebar-primary-nav .nav-item:nth-child(3) { transition-delay: 0.08s; }
 #sidebar-primary-nav .nav-item:nth-child(4) { transition-delay: 0.11s; }
 #sidebar-primary-nav .nav-item:nth-child(5) { transition-delay: 0.14s; }
+
+#sidebar-rail[data-sidebar-collapsed="true"] #sidebar-primary-nav .nav-item {
+    transition-delay: 0s;
+}
 
 .rail-peek-list:empty {
     display: none;
@@ -6271,6 +6313,8 @@ button.shop-card {
     .user-action,
     .sidebar-collapse-toggle,
     .sidebar-collapsed-launcher,
+    .sidebar-nav-panel,
+    .sidebar-nav-slot,
     #sidebar-rail .nav-item,
     .action-rail__callback,
     .action-rail__callback::before,
@@ -7126,6 +7170,24 @@ body[data-row-mode="card"] .actions-cell--callbacks .action-rail__callback-text 
         position: static;
         top: auto;
         max-height: none;
+    }
+
+    .sidebar-nav-slot {
+        height: auto !important;
+        overflow: visible;
+    }
+
+    .sidebar-nav-panel {
+        position: relative;
+        inset: auto;
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
+    }
+
+    .sidebar-collapsed-launcher {
+        position: relative;
+        inset: auto;
     }
 
     .sidebar-rail__scroll {

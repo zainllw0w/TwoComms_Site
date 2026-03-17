@@ -185,58 +185,66 @@
                 </div>
 
                 <div class="sidebar-nav-shell">
-                    <button type="button" class="sidebar-collapsed-launcher" id="sidebar-collapsed-launcher" aria-controls="sidebar-primary-nav" aria-expanded="false" title="Розгорнути меню">
-                        <span class="sidebar-collapsed-launcher__deck" aria-hidden="true">
-                            <span class="sidebar-collapsed-launcher__card sidebar-collapsed-launcher__card--back"></span>
-                            <span class="sidebar-collapsed-launcher__card sidebar-collapsed-launcher__card--mid"></span>
-                            <span class="sidebar-collapsed-launcher__card sidebar-collapsed-launcher__card--front"></span>
-                        </span>
-                        <span class="sidebar-collapsed-launcher__copy">
-                            <span class="sidebar-collapsed-launcher__eyebrow">Швидкий доступ</span>
-                            <span class="sidebar-collapsed-launcher__label">Меню</span>
-                        </span>
-                    </button>
+                    <div class="sidebar-nav-slot" id="sidebar-nav-slot">
+                        <button type="button" class="sidebar-collapsed-launcher" id="sidebar-collapsed-launcher" aria-controls="sidebar-primary-nav" aria-expanded="false" title="Розгорнути меню">
+                            <span class="sidebar-collapsed-launcher__surface" aria-hidden="true">
+                                <span class="sidebar-collapsed-launcher__icon"></span>
+                            </span>
+                            <span class="sidebar-collapsed-launcher__copy">
+                                <span class="sidebar-collapsed-launcher__eyebrow">Швидкий доступ</span>
+                                <span class="sidebar-collapsed-launcher__label">Меню</span>
+                            </span>
+                            <span class="sidebar-collapsed-launcher__arrow" aria-hidden="true">
+                                <svg viewBox="0 0 24 24"><path d="M6.75 9.75 12 15l5.25-5.25"/></svg>
+                            </span>
+                        </button>
 
-                    <nav class="nav-menu nav-menu--primary" id="sidebar-primary-nav">
-                        <a href="{% url 'management_home' %}" class="nav-item{% if request.resolver_match.url_name == 'management_home' %} active{% endif %}" data-nav-index="0">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4zm0 9h7v7H4v-7zm9-9h7v7h-7V4zm0 9h7v7h-7v-7z"/></svg>
-                            </span>
-                            <span>Панель</span>
-                        </a>
-                        <a href="{% url 'management_invoices' %}" class="nav-item{% if request.resolver_match.url_name == 'management_invoices' %} active{% endif %}" data-nav-index="1">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a1 1 0 011 1v14l-5-3-5 3-5-3-5 3V5a1 1 0 011-1z"/></svg>
-                            </span>
-                            <span>Сформувати накладну</span>
-                        </a>
-                        <a href="{% url 'management_commercial_offer_email' %}" class="nav-item{% if request.resolver_match.url_name == 'management_commercial_offer_email' %} active{% endif %}" data-nav-index="2">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zm8 7L4.8 7h14.4L12 12z"/></svg>
-                            </span>
-                            <span>Комерційні пропозиції</span>
-                        </a>
-                        <a href="{% url 'management_contracts' %}" class="nav-item{% if request.resolver_match.url_name == 'management_contracts' %} active{% endif %}" data-nav-index="3">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2zm8 1.5V7h3.5L14 3.5zM8 11h8v2H8v-2zm0 4h8v2H8v-2zm0-8h4v2H8V7z"/></svg>
-                            </span>
-                            <span>Сформувати договір</span>
-                        </a>
-                        <a href="{% url 'management_shops' %}" class="nav-item{% if request.resolver_match.url_name == 'management_shops' %} active{% endif %}" data-nav-index="4">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9l1-4h14l1 4v10a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1V9z"/></svg>
-                            </span>
-                            <span>Магазини</span>
-                        </a>
-                        {# Sidebar parsing entry intentionally removed: top navigation already exposes this route. #}
-                    </nav>
+                        <div class="sidebar-nav-panel">
+                            <nav class="nav-menu nav-menu--primary" id="sidebar-primary-nav">
+                                <a href="{% url 'management_home' %}" class="nav-item{% if request.resolver_match.url_name == 'management_home' %} active{% endif %}" data-nav-index="0">
+                                    <span class="nav-icon">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4zm0 9h7v7H4v-7zm9-9h7v7h-7V4zm0 9h7v7h-7v-7z"/></svg>
+                                    </span>
+                                    <span>Панель</span>
+                                </a>
+                                <a href="{% url 'management_invoices' %}" class="nav-item{% if request.resolver_match.url_name == 'management_invoices' %} active{% endif %}" data-nav-index="1">
+                                    <span class="nav-icon">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a1 1 0 011 1v14l-5-3-5 3-5-3-5 3V5a1 1 0 011-1z"/></svg>
+                                    </span>
+                                    <span>Сформувати накладну</span>
+                                </a>
+                                <a href="{% url 'management_commercial_offer_email' %}" class="nav-item{% if request.resolver_match.url_name == 'management_commercial_offer_email' %} active{% endif %}" data-nav-index="2">
+                                    <span class="nav-icon">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zm8 7L4.8 7h14.4L12 12z"/></svg>
+                                    </span>
+                                    <span>Комерційні пропозиції</span>
+                                </a>
+                                <a href="{% url 'management_contracts' %}" class="nav-item{% if request.resolver_match.url_name == 'management_contracts' %} active{% endif %}" data-nav-index="3">
+                                    <span class="nav-icon">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2zm8 1.5V7h3.5L14 3.5zM8 11h8v2H8v-2zm0 4h8v2H8v-2zm0-8h4v2H8V7z"/></svg>
+                                    </span>
+                                    <span>Сформувати договір</span>
+                                </a>
+                                <a href="{% url 'management_shops' %}" class="nav-item{% if request.resolver_match.url_name == 'management_shops' %} active{% endif %}" data-nav-index="4">
+                                    <span class="nav-icon">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9l1-4h14l1 4v10a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1V9z"/></svg>
+                                    </span>
+                                    <span>Магазини</span>
+                                </a>
+                                {# Sidebar parsing entry intentionally removed: top navigation already exposes this route. #}
+                            </nav>
 
-                    <button type="button" class="sidebar-collapse-toggle" id="sidebar-collapse-toggle" aria-controls="sidebar-primary-nav" aria-expanded="true" title="Згорнути меню">
-                        <span class="sidebar-collapse-toggle__icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-                        </span>
-                        <span class="sidebar-collapse-toggle__label">Згорнути меню</span>
-                    </button>
+                            <button type="button" class="sidebar-collapse-toggle" id="sidebar-collapse-toggle" aria-controls="sidebar-primary-nav" aria-expanded="true" title="Згорнути меню">
+                                <span class="sidebar-collapse-toggle__arrow sidebar-collapse-toggle__arrow--left" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24"><path d="M6.75 14.25 12 9l5.25 5.25"/></svg>
+                                </span>
+                                <span class="sidebar-collapse-toggle__label">Згорнути меню</span>
+                                <span class="sidebar-collapse-toggle__arrow sidebar-collapse-toggle__arrow--right" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24"><path d="M6.75 14.25 12 9l5.25 5.25"/></svg>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="sidebar-rail__scroll" id="sidebar-rail-scroll">
