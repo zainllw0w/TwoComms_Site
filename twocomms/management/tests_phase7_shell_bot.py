@@ -182,9 +182,10 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(response, "user-identity-line")
         self.assertContains(response, "user-actions-strip")
         self.assertContains(response, "user-action user-action--money")
-        self.assertContains(response, "user-action user-action--stats")
-        self.assertContains(response, "user-action user-action--edit")
-        self.assertContains(response, "user-action user-action--logout")
+        self.assertContains(response, "user-action user-action--stats user-action--icon-only")
+        self.assertContains(response, "user-action user-action--edit user-action--icon-only")
+        self.assertContains(response, "user-action user-action--logout user-action--icon-only")
+        self.assertContains(response, "user-action__money-currency-icon")
         self.assertContains(response, "sidebar-collapse-toggle")
         self.assertContains(response, "sidebar-collapsed-launcher")
         self.assertContains(response, "action-rail--overlay")
@@ -294,7 +295,8 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(home_response, 'href="/payouts/"')
         self.assertContains(home_response, 'data-money-available="950.00"')
         self.assertContains(home_response, "950.00")
-        self.assertContains(home_response, "грн")
+        self.assertContains(home_response, "user-action__money-currency-icon")
+        self.assertContains(home_response, "₴")
 
 
 @override_settings(

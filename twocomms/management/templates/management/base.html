@@ -151,27 +151,30 @@
                                 <span class="user-action__money-caption">Гроші</span>
                                 <span class="user-action__money-amount">{{ management_shell_payout_available|floatformat:'2u' }}</span>
                             </span>
-                            <span class="user-action__money-currency" aria-hidden="true">грн</span>
+                            <span class="user-action__money-currency">
+                                <span class="user-action__money-currency-icon" aria-hidden="true">₴</span>
+                                <span class="sr-only">Гривня</span>
+                            </span>
                         </a>
                         {% if management_shell_stats_url %}
-                        <a href="{{ management_shell_stats_url }}" class="user-action user-action--stats" aria-label="Статистика" title="Статистика">
+                        <a href="{{ management_shell_stats_url }}" class="user-action user-action--stats user-action--icon-only" aria-label="Статистика" title="Статистика">
                             <span class="user-action__icon" aria-hidden="true">
                                 <svg viewBox="0 0 24 24"><path d="M5 19h14v2H3V3h2v16zm3-2H6V9h2v8zm5 0h-2V5h2v12zm5 0h-2v-6h2v6z"/></svg>
                             </span>
-                            <span class="user-action__label">Статистика</span>
+                            <span class="user-action__label sr-only">Статистика</span>
                         </a>
                         {% endif %}
-                        <button type="button" class="user-action user-action--edit open-profile-modal" aria-label="Редагувати профіль" title="Редагувати профіль">
+                        <button type="button" class="user-action user-action--edit user-action--icon-only open-profile-modal" aria-label="Редагувати профіль" title="Редагувати профіль">
                             <span class="user-action__icon" aria-hidden="true">
                                 <svg viewBox="0 0 24 24"><path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/></svg>
                             </span>
-                            <span class="user-action__label">Редагувати</span>
+                            <span class="user-action__label sr-only">Редагувати</span>
                         </button>
-                        <a href="{% url 'management_logout' %}" class="user-action user-action--logout" aria-label="Вийти" title="Вийти">
+                        <a href="{% url 'management_logout' %}" class="user-action user-action--logout user-action--icon-only" aria-label="Вийти" title="Вийти">
                             <span class="user-action__icon" aria-hidden="true">
                                 <svg viewBox="0 0 24 24"><path d="M16 13v-2H7V8l-5 4 5 4v-3h9zM19 3h-8v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg>
                             </span>
-                            <span class="user-action__label">Вийти</span>
+                            <span class="user-action__label sr-only">Вийти</span>
                         </a>
                     </div>
                     <div class="profile-mosaic {% if management_shell_mosaic_ready %}is-ready{% else %}is-muted{% endif %}">
