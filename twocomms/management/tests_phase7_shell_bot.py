@@ -1,6 +1,7 @@
 import json
 from io import BytesIO
 from datetime import datetime, timedelta
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -8,7 +9,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from accounts.models import UserProfile
-from management.models import Client
+from management.models import Client, ClientFollowUp, ManagerCommissionAccrual, ManagerPayoutRequest
 from management.views import build_report_excel
 
 
@@ -97,8 +98,10 @@ class HomeShellRenderTests(TestCase):
     def test_home_renders_updated_daily_zones_and_secondary_shell_chips(self):
         user = get_user_model().objects.create_user(username="shell_metrics", password="x", is_staff=True)
         self.client.force_login(user)
-        due_today = timezone.now().replace(hour=17, minute=15, second=0, microsecond=0)
-        missed_at = timezone.now() - timedelta(days=1, hours=1)
+        now = timezone.localtime(timezone.now()).replace(second=0, microsecond=0)
+        due_today = now.replace(hour=17, minute=15)
+        due_now_at = now - timedelta(minutes=20)
+        missed_at = now - timedelta(hours=3)
         Client.objects.create(
             shop_name="Due Today Shop",
             phone="+380671000111",
@@ -107,13 +110,35 @@ class HomeShellRenderTests(TestCase):
             call_result=Client.CallResult.THINKING,
             next_call_at=due_today,
         )
-        Client.objects.create(
+        due_now_client = Client.objects.create(
+            shop_name="Due Now Shop",
+            phone="+380671000113",
+            full_name="Due Now",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=due_now_at,
+        )
+        missed_client = Client.objects.create(
             shop_name="Missed Shop",
             phone="+380671000112",
             full_name="Missed",
             owner=user,
             call_result=Client.CallResult.THINKING,
             next_call_at=missed_at,
+        )
+        ClientFollowUp.objects.create(
+            client=due_now_client,
+            owner=user,
+            due_at=due_now_at,
+            due_date=due_now_at.date(),
+            grace_until=now + timedelta(minutes=15),
+        )
+        ClientFollowUp.objects.create(
+            client=missed_client,
+            owner=user,
+            due_at=missed_at,
+            due_date=missed_at.date(),
+            grace_until=now - timedelta(minutes=5),
         )
 
         response = self.client.get("/", secure=True)
@@ -122,12 +147,16 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(response, "0–19")
         self.assertContains(response, "20–49")
         self.assertContains(response, "50+")
-        self.assertContains(response, "Передзвони сьогодні")
-        self.assertContains(response, "Пропущено")
+        self.assertContains(response, "daily-followups")
+        self.assertContains(response, "Сьогодні")
+        self.assertContains(response, "Термінові")
         self.assertContains(response, 'data-help-target="daily-stats-help"')
         self.assertContains(response, 'id="daily-stats-help"')
         self.assertContains(response, "help-popover--daily")
         self.assertContains(response, "daily-disclosure")
+        self.assertEqual(response.context["management_shell_today_callbacks"], 2)
+        self.assertEqual(response.context["management_shell_urgent_callbacks"], 1)
+        self.assertEqual(response.context["management_shell_missed_callbacks"], 1)
 
     def test_home_renders_scroll_region_and_compact_action_stack_contract(self):
         user = get_user_model().objects.create_user(username="shell_layout", password="x", is_staff=True)
@@ -150,18 +179,23 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(response, "user-profile__identity")
         self.assertContains(response, "user-profile__meta")
         self.assertContains(response, "user-role__text")
-        self.assertContains(response, "user-actions__item")
+        self.assertContains(response, "user-identity-line")
+        self.assertContains(response, "user-actions-strip")
+        self.assertContains(response, "user-action user-action--money")
+        self.assertContains(response, "user-action user-action--stats")
+        self.assertContains(response, "user-action user-action--edit")
+        self.assertContains(response, "user-action user-action--logout")
+        self.assertContains(response, "sidebar-collapse-toggle")
+        self.assertContains(response, "sidebar-collapsed-launcher")
         self.assertContains(response, "action-rail--overlay")
         self.assertContains(response, "action-rail__stack--vertical")
         self.assertContains(response, "action-rail__stack")
         self.assertContains(response, "action-rail__callback")
-        self.assertContains(response, "action-rail__callback-label")
+        self.assertContains(response, "action-rail__callback-text")
         self.assertContains(response, "action-rail__utility")
         self.assertEqual(response.content.decode("utf-8").count(">Парсинг<"), 1)
 
     def test_home_uses_effective_callback_state_for_due_now_and_missed(self):
-        from management.models import ClientFollowUp
-
         user = get_user_model().objects.create_user(username="callback_effective_mgr", password="x")
         profile = UserProfile.objects.get(user=user)
         profile.is_manager = True
@@ -216,7 +250,51 @@ class HomeShellRenderTests(TestCase):
         self.assertFalse(flat["Grace Window Shop"]["callback_pending"])
         self.assertEqual(flat["Expired Grace Shop"]["callback_state"], "missed")
         self.assertEqual(response.context["management_shell_today_callbacks"], 1)
+        self.assertEqual(response.context["management_shell_urgent_callbacks"], 1)
         self.assertEqual(response.context["management_shell_missed_callbacks"], 1)
+
+    def test_home_renders_money_action_from_same_summary_as_payout_page(self):
+        user = get_user_model().objects.create_user(username="shell_money_mgr", password="x", is_staff=True)
+        profile = UserProfile.objects.get(user=user)
+        profile.manager_position = "Старший менеджер з дуже довгою посадою"
+        profile.save(update_fields=["manager_position"])
+        self.client.force_login(user)
+
+        now = timezone.now()
+        ManagerCommissionAccrual.objects.create(
+            owner=user,
+            amount=Decimal("1500.00"),
+            frozen_until=now - timedelta(days=1),
+        )
+        ManagerCommissionAccrual.objects.create(
+            owner=user,
+            amount=Decimal("400.00"),
+            frozen_until=now + timedelta(days=10),
+        )
+        ManagerPayoutRequest.objects.create(
+            owner=user,
+            amount=Decimal("250.00"),
+            status=ManagerPayoutRequest.Status.APPROVED,
+        )
+        ManagerPayoutRequest.objects.create(
+            owner=user,
+            amount=Decimal("300.00"),
+            status=ManagerPayoutRequest.Status.PAID,
+            paid_at=now - timedelta(days=2),
+        )
+
+        home_response = self.client.get("/", secure=True)
+        payouts_response = self.client.get("/payouts/", secure=True)
+
+        self.assertEqual(home_response.status_code, 200)
+        self.assertEqual(payouts_response.status_code, 200)
+        self.assertEqual(home_response.context["management_shell_payout_available"], Decimal("950.00"))
+        self.assertTrue(home_response.context["management_shell_has_active_payout_request"])
+        self.assertEqual(home_response.context["management_shell_payout_available"], payouts_response.context["available"])
+        self.assertContains(home_response, 'href="/payouts/"')
+        self.assertContains(home_response, 'data-money-available="950.00"')
+        self.assertContains(home_response, "950.00")
+        self.assertContains(home_response, "грн")
 
 
 @override_settings(

@@ -121,7 +121,7 @@
         <!-- Left Sidebar -->
         {% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_contracts' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' or request.resolver_match.url_name == 'management_parsing' %}
         <aside class="sidebar">
-            <div class="sidebar-rail" id="sidebar-rail" data-rail-tier="expanded" data-rail-progress="top">
+            <div class="sidebar-rail" id="sidebar-rail" data-rail-tier="expanded" data-rail-progress="top" data-sidebar-collapsed="false">
                 <div class="user-profile user-profile--panel">
                     <div class="user-profile__top">
                         {% if request.user.userprofile.avatar %}
@@ -133,28 +133,46 @@
                         {% endif %}
                         <div class="user-profile__meta">
                             <div class="user-name-group user-profile__identity">
-                                <div class="user-name" title="{{ request.user.get_full_name|default:request.user.username }}">{{ request.user.get_full_name|default:request.user.username }}</div>
-                                <div class="user-role"><span class="user-role__text">{{ management_shell_role_label|default:"Менеджер" }}</span></div>
+                                <div class="user-identity-line">
+                                    <div class="user-name" title="{{ request.user.get_full_name|default:request.user.username }}">{{ request.user.get_full_name|default:request.user.username }}</div>
+                                    <div class="user-role"><span class="user-role__text">{{ management_shell_role_label|default:"Менеджер" }}</span></div>
+                                </div>
                             </div>
                         </div>
-                        <div class="user-actions">
-                            {% if management_shell_stats_url %}
-                            <a href="{{ management_shell_stats_url }}" class="icon-btn ghost status-shortcut status-shortcut--icon user-actions__item" aria-label="Статистика" title="Статистика">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14v2H3V3h2v16zm3-2H6V9h2v8zm5 0h-2V5h2v12zm5 0h-2v-6h2v6z"/></svg>
-                                <span class="sr-only">Статистика</span>
-                            </a>
-                            {% endif %}
-                            <button type="button" class="icon-btn ghost open-profile-modal user-actions__item" aria-label="Редагувати профіль" title="Редагувати профіль">
-                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
-                                </svg>
-                            </button>
-                            <a href="{% url 'management_logout' %}" class="icon-btn ghost user-actions__item" aria-label="Вийти" title="Вийти">
-                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M16 13v-2H7V8l-5 4 5 4v-3h9zM19 3h-8v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/>
-                                </svg>
-                            </a>
-                        </div>
+                    </div>
+                    <div class="user-actions-strip">
+                        <a
+                            href="{{ management_shell_payout_url|default:'#' }}"
+                            class="user-action user-action--money{% if not management_shell_payout_available or management_shell_payout_available <= 0 %} is-muted{% endif %}{% if management_shell_has_active_payout_request %} has-request{% endif %}"
+                            data-money-available="{{ management_shell_payout_available|floatformat:'2u' }}"
+                            aria-label="Гроші"
+                            title="Доступно до виведення">
+                            <span class="user-action__money-core">
+                                <span class="user-action__money-caption">Гроші</span>
+                                <span class="user-action__money-amount">{{ management_shell_payout_available|floatformat:'2u' }}</span>
+                            </span>
+                            <span class="user-action__money-currency" aria-hidden="true">грн</span>
+                        </a>
+                        {% if management_shell_stats_url %}
+                        <a href="{{ management_shell_stats_url }}" class="user-action user-action--stats" aria-label="Статистика" title="Статистика">
+                            <span class="user-action__icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24"><path d="M5 19h14v2H3V3h2v16zm3-2H6V9h2v8zm5 0h-2V5h2v12zm5 0h-2v-6h2v6z"/></svg>
+                            </span>
+                            <span class="user-action__label">Статистика</span>
+                        </a>
+                        {% endif %}
+                        <button type="button" class="user-action user-action--edit open-profile-modal" aria-label="Редагувати профіль" title="Редагувати профіль">
+                            <span class="user-action__icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24"><path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/></svg>
+                            </span>
+                            <span class="user-action__label">Редагувати</span>
+                        </button>
+                        <a href="{% url 'management_logout' %}" class="user-action user-action--logout" aria-label="Вийти" title="Вийти">
+                            <span class="user-action__icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24"><path d="M16 13v-2H7V8l-5 4 5 4v-3h9zM19 3h-8v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg>
+                            </span>
+                            <span class="user-action__label">Вийти</span>
+                        </a>
                     </div>
                     <div class="profile-mosaic {% if management_shell_mosaic_ready %}is-ready{% else %}is-muted{% endif %}">
                         <div class="profile-mosaic__eyebrow">MOSAIC</div>
@@ -163,49 +181,64 @@
                     </div>
                 </div>
 
-                <nav class="nav-menu nav-menu--primary">
-                    <a href="{% url 'management_home' %}" class="nav-item{% if request.resolver_match.url_name == 'management_home' %} active{% endif %}">
-                        <span class="nav-icon">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4zm0 9h7v7H4v-7zm9-9h7v7h-7V4zm0 9h7v7h-7v-7z"/></svg>
+                <div class="sidebar-nav-shell">
+                    <button type="button" class="sidebar-collapsed-launcher" id="sidebar-collapsed-launcher" aria-controls="sidebar-primary-nav" aria-expanded="false" title="Розгорнути меню">
+                        <span class="sidebar-collapsed-launcher__deck" aria-hidden="true">
+                            <span class="sidebar-collapsed-launcher__card sidebar-collapsed-launcher__card--back"></span>
+                            <span class="sidebar-collapsed-launcher__card sidebar-collapsed-launcher__card--mid"></span>
+                            <span class="sidebar-collapsed-launcher__card sidebar-collapsed-launcher__card--front"></span>
                         </span>
-                        <span>Панель</span>
-                    </a>
-                    <a href="{% url 'management_invoices' %}" class="nav-item{% if request.resolver_match.url_name == 'management_invoices' %} active{% endif %}">
-                        <span class="nav-icon">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a1 1 0 011 1v14l-5-3-5 3-5-3-5 3V5a1 1 0 011-1z"/></svg>
+                        <span class="sidebar-collapsed-launcher__copy">
+                            <span class="sidebar-collapsed-launcher__eyebrow">Швидкий доступ</span>
+                            <span class="sidebar-collapsed-launcher__label">Меню</span>
                         </span>
-                        <span>Сформувати накладну</span>
-                    </a>
-                    <a href="{% url 'management_commercial_offer_email' %}" class="nav-item{% if request.resolver_match.url_name == 'management_commercial_offer_email' %} active{% endif %}">
-                        <span class="nav-icon">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zm8 7L4.8 7h14.4L12 12z"/></svg>
+                    </button>
+
+                    <nav class="nav-menu nav-menu--primary" id="sidebar-primary-nav">
+                        <a href="{% url 'management_home' %}" class="nav-item{% if request.resolver_match.url_name == 'management_home' %} active{% endif %}" data-nav-index="0">
+                            <span class="nav-icon">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4zm0 9h7v7H4v-7zm9-9h7v7h-7V4zm0 9h7v7h-7v-7z"/></svg>
+                            </span>
+                            <span>Панель</span>
+                        </a>
+                        <a href="{% url 'management_invoices' %}" class="nav-item{% if request.resolver_match.url_name == 'management_invoices' %} active{% endif %}" data-nav-index="1">
+                            <span class="nav-icon">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a1 1 0 011 1v14l-5-3-5 3-5-3-5 3V5a1 1 0 011-1z"/></svg>
+                            </span>
+                            <span>Сформувати накладну</span>
+                        </a>
+                        <a href="{% url 'management_commercial_offer_email' %}" class="nav-item{% if request.resolver_match.url_name == 'management_commercial_offer_email' %} active{% endif %}" data-nav-index="2">
+                            <span class="nav-icon">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zm8 7L4.8 7h14.4L12 12z"/></svg>
+                            </span>
+                            <span>Комерційні пропозиції</span>
+                        </a>
+                        <a href="{% url 'management_contracts' %}" class="nav-item{% if request.resolver_match.url_name == 'management_contracts' %} active{% endif %}" data-nav-index="3">
+                            <span class="nav-icon">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2zm8 1.5V7h3.5L14 3.5zM8 11h8v2H8v-2zm0 4h8v2H8v-2zm0-8h4v2H8V7z"/></svg>
+                            </span>
+                            <span>Сформувати договір</span>
+                        </a>
+                        <a href="{% url 'management_shops' %}" class="nav-item{% if request.resolver_match.url_name == 'management_shops' %} active{% endif %}" data-nav-index="4">
+                            <span class="nav-icon">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9l1-4h14l1 4v10a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1V9z"/></svg>
+                            </span>
+                            <span>Магазини</span>
+                        </a>
+                        {# Sidebar parsing entry intentionally removed: top navigation already exposes this route. #}
+                    </nav>
+
+                    <button type="button" class="sidebar-collapse-toggle" id="sidebar-collapse-toggle" aria-controls="sidebar-primary-nav" aria-expanded="true" title="Згорнути меню">
+                        <span class="sidebar-collapse-toggle__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
                         </span>
-                        <span>Комерційні пропозиції</span>
-                    </a>
-                    <a href="{% url 'management_contracts' %}" class="nav-item{% if request.resolver_match.url_name == 'management_contracts' %} active{% endif %}">
-                        <span class="nav-icon">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2zm8 1.5V7h3.5L14 3.5zM8 11h8v2H8v-2zm0 4h8v2H8v-2zm0-8h4v2H8V7z"/></svg>
-                        </span>
-                        <span>Сформувати договір</span>
-                    </a>
-                    <a href="{% url 'management_shops' %}" class="nav-item{% if request.resolver_match.url_name == 'management_shops' %} active{% endif %}">
-                        <span class="nav-icon">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9l1-4h14l1 4v10a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1V9z"/></svg>
-                        </span>
-                        <span>Магазини</span>
-                    </a>
-                    {# Sidebar parsing entry intentionally removed: top navigation already exposes this route. #}
-                </nav>
+                        <span class="sidebar-collapse-toggle__label">Згорнути меню</span>
+                    </button>
+                </div>
 
                 <div class="sidebar-rail__scroll" id="sidebar-rail-scroll">
                     <div class="sidebar-insights">
                         <div class="rail-peek-list">
-                            {% if management_shell_today_callbacks %}
-                            <span class="rail-peek-chip rail-peek-chip--today">Передзвони сьогодні <strong>{{ management_shell_today_callbacks }}</strong></span>
-                            {% endif %}
-                            {% if management_shell_missed_callbacks %}
-                            <span class="rail-peek-chip rail-peek-chip--missed">Пропущено <strong>{{ management_shell_missed_callbacks }}</strong></span>
-                            {% endif %}
                             {% if management_shell_duplicate_reviews %}
                             <span class="rail-peek-chip rail-peek-chip--review">Потрібна перевірка <strong>{{ management_shell_duplicate_reviews }}</strong></span>
                             {% endif %}
@@ -251,9 +284,6 @@
                                     <div class="daily-metric-card daily-metric-card--count">
                                         <div class="daily-metric-head">
                                             <div class="daily-metric-label">Оброблено сьогодні</div>
-                                            {% if management_shell_today_callbacks %}
-                                            <span class="daily-inline-chip">Передзвони {{ management_shell_today_callbacks }}</span>
-                                            {% endif %}
                                         </div>
                                         <div class="daily-metric-value" id="clients-legend">{{ management_shell_processed_today|default:processed_today|default:0 }}</div>
                                         <div class="progress-track progress-track--segmented" aria-hidden="true">
@@ -265,6 +295,18 @@
                                             <span class="daily-tier-segment {% if management_shell_daily_zone == 'success' %}is-active{% endif %}" data-zone="success">50+</span>
                                         </div>
                                         <div class="daily-metric-meta">50+ — цільовий темп дня. 20 — нижня межа стабільного потоку.</div>
+                                    </div>
+                                    <div class="daily-followups" id="daily-followups" aria-label="Передзвони">
+                                        <div class="daily-followups__item daily-followups__item--today">
+                                            <span class="daily-followups__label">Сьогодні</span>
+                                            <strong class="daily-followups__value" id="daily-followups-today">{{ management_shell_today_callbacks|default:0 }}</strong>
+                                            <span class="daily-followups__hint">У графіку на сьогодні</span>
+                                        </div>
+                                        <div class="daily-followups__item daily-followups__item--urgent">
+                                            <span class="daily-followups__label">Термінові</span>
+                                            <strong class="daily-followups__value" id="daily-followups-urgent">{{ management_shell_urgent_callbacks|default:0 }}</strong>
+                                            <span class="daily-followups__hint">Вікно ще відкрите</span>
+                                        </div>
                                     </div>
                                     <details class="daily-disclosure">
                                         <summary class="daily-disclosure__summary">

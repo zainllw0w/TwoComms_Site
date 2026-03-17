@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from django.db.models import Prefetch
+from django.db.models import Q
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from management.models import Client, ClientFollowUp, DuplicateReview, NightlyScoreSnapshot
 from management.services.followup_state import get_effective_callback_state
+from management.services.payouts import get_manager_payout_summary
 from management.services.roster import management_role_label
 
 
@@ -26,7 +28,11 @@ def build_management_shell_metrics(user, profile=None):
     mosaic_label = f"{mosaic_score:.1f}" if mosaic_ready else "Накопичуємо дані"
     mosaic_meta = "Shadow-індикатор темпу та якості." if mosaic_ready else "Потрібно щонайменше 20 обробок для стабільного показу."
     callback_clients = (
-        Client.objects.filter(owner=user, next_call_at__isnull=False)
+        Client.objects.filter(
+            Q(owner=user),
+            Q(next_call_at__isnull=False) | Q(followups__status=ClientFollowUp.Status.OPEN),
+        )
+        .distinct()
         .prefetch_related(
             Prefetch(
                 "followups",
@@ -37,17 +43,23 @@ def build_management_shell_metrics(user, profile=None):
     )
     now = timezone.localtime(timezone.now())
     today_callbacks = 0
+    urgent_callbacks = 0
     missed_callbacks = 0
     for client in callback_clients:
         state = get_effective_callback_state(client=client, now_dt=now)
         if state.code == "missed":
             missed_callbacks += 1
+        elif state.code == "due_now":
+            urgent_callbacks += 1
+            if state.due_at and state.due_at.date() == today:
+                today_callbacks += 1
         elif state.code in {"scheduled", "due_now"} and state.due_at and state.due_at.date() == today:
             today_callbacks += 1
     duplicate_reviews_qs = DuplicateReview.objects.filter(status=DuplicateReview.Status.OPEN)
     if not (getattr(user, "is_staff", False) and not getattr(profile, "is_manager", False)):
         duplicate_reviews_qs = duplicate_reviews_qs.filter(owner=user)
     duplicate_reviews = duplicate_reviews_qs.count()
+    payout_summary = get_manager_payout_summary(user)
 
     return {
         "management_shell_daily_zone": daily_zone,
@@ -57,10 +69,15 @@ def build_management_shell_metrics(user, profile=None):
         "management_shell_mosaic_ready": mosaic_ready,
         "management_shell_mosaic_meta": mosaic_meta,
         "management_shell_today_callbacks": today_callbacks,
+        "management_shell_urgent_callbacks": urgent_callbacks,
         "management_shell_missed_callbacks": missed_callbacks,
         "management_shell_duplicate_reviews": duplicate_reviews,
+        "management_shell_payout_available": payout_summary["available"],
+        "management_shell_has_active_payout_request": payout_summary["has_active_request"],
+        "management_shell_payout_url": reverse("management_payouts"),
         "management_shell_secondary_counts": {
             "today_callbacks": today_callbacks,
+            "urgent_callbacks": urgent_callbacks,
             "missed_callbacks": missed_callbacks,
             "duplicate_reviews": duplicate_reviews,
         },

@@ -100,6 +100,7 @@ from .services.outcomes import (
     normalize_result_capture,
     parse_next_call_request,
 )
+from .services.payouts import get_manager_payout_summary
 from .services.roster import management_role_label, manager_roster_queryset
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
@@ -5777,11 +5778,8 @@ def payouts(request):
         return redirect('management_login')
 
     import re
-    from decimal import Decimal
 
     from django.db import models
-    from django.db.models import Sum
-    from django.db.models.functions import Coalesce
 
     from orders.models import WholesaleInvoice
     from management.models import ManagerCommissionAccrual, ManagerPayoutRequest, NightlyScoreSnapshot
@@ -5794,41 +5792,14 @@ def payouts(request):
         return '**** ' + digits[-4:]
 
     now = timezone.now()
-    zero = Decimal('0')
-    money_field = models.DecimalField(max_digits=12, decimal_places=2)
-
     accruals_qs = ManagerCommissionAccrual.objects.filter(owner=request.user)
-    total_accrued = accruals_qs.aggregate(
-        total=Coalesce(Sum('amount'), zero, output_field=money_field),
-    )['total'] or zero
-
-    frozen_amount = accruals_qs.filter(frozen_until__gt=now).aggregate(
-        total=Coalesce(Sum('amount'), zero, output_field=money_field),
-    )['total'] or zero
-
-    paid_total = ManagerPayoutRequest.objects.filter(
-        owner=request.user,
-        status=ManagerPayoutRequest.Status.PAID,
-    ).aggregate(
-        total=Coalesce(Sum('amount'), zero, output_field=money_field),
-    )['total'] or zero
-
-    reserved_amount = ManagerPayoutRequest.objects.filter(
-        owner=request.user,
-        status__in=[ManagerPayoutRequest.Status.PROCESSING, ManagerPayoutRequest.Status.APPROVED],
-    ).aggregate(
-        total=Coalesce(Sum('amount'), zero, output_field=money_field),
-    )['total'] or zero
-
-    balance = (total_accrued - paid_total)
-    available = balance - frozen_amount - reserved_amount
-    if available < 0:
-        available = zero
-
-    active_request = ManagerPayoutRequest.objects.filter(
-        owner=request.user,
-        status__in=[ManagerPayoutRequest.Status.PROCESSING, ManagerPayoutRequest.Status.APPROVED],
-    ).order_by('-created_at').first()
+    payout_summary = get_manager_payout_summary(request.user)
+    balance = payout_summary["balance"]
+    available = payout_summary["available"]
+    frozen_amount = payout_summary["frozen_amount"]
+    reserved_amount = payout_summary["reserved_amount"]
+    paid_total = payout_summary["paid_total"]
+    active_request = payout_summary["active_request"]
 
     latest_snapshot = NightlyScoreSnapshot.objects.filter(owner=request.user).order_by('-snapshot_date').first()
 

@@ -6,15 +6,39 @@
   const navMenu = document.querySelector('.nav-menu');
   const sidebarRail = document.getElementById('sidebar-rail');
   const sidebarScroll = document.getElementById('sidebar-rail-scroll');
+  const sidebarCollapseToggle = document.getElementById('sidebar-collapse-toggle');
+  const sidebarCollapsedLauncher = document.getElementById('sidebar-collapsed-launcher');
   const globalHeader = document.querySelector('.global-header');
   if (!contentArea || !navMenu) return;
 
   const getUrlKey = (u) => `${u.pathname}${u.search || ''}`;
+  const SIDEBAR_COLLAPSE_KEY = 'management_shell_sidebar_collapsed';
+
+  const readStoredCollapseState = () => {
+    try {
+      return window.localStorage?.getItem(SIDEBAR_COLLAPSE_KEY) === '1';
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const writeStoredCollapseState = (collapsed) => {
+    try {
+      if (collapsed) {
+        window.localStorage?.setItem(SIDEBAR_COLLAPSE_KEY, '1');
+      } else {
+        window.localStorage?.removeItem(SIDEBAR_COLLAPSE_KEY);
+      }
+    } catch (e) {
+      // ignore storage errors
+    }
+  };
 
   let currentUrl = getUrlKey(new URL(window.location.href));
   const cache = new Map();
   const titleCache = new Map();
   const scrollCache = new Map();
+  let userCollapsed = readStoredCollapseState();
 
   const initialRoot = document.getElementById('mgmt-page-root');
   if (!initialRoot) return;
@@ -69,6 +93,24 @@
     sidebarScroll.dataset.scrollCue = remaining > 18 ? 'visible' : 'hidden';
   };
 
+  const syncSidebarCollapseState = (stackedShell) => {
+    if (!sidebarRail) return false;
+
+    const collapsed = !stackedShell && userCollapsed;
+    sidebarRail.dataset.sidebarCollapsed = collapsed ? 'true' : 'false';
+    document.body.dataset.sidebarCollapsed = collapsed ? 'true' : 'false';
+
+    if (sidebarCollapseToggle) {
+      sidebarCollapseToggle.hidden = stackedShell;
+      sidebarCollapseToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+    if (sidebarCollapsedLauncher) {
+      sidebarCollapsedLauncher.hidden = stackedShell;
+      sidebarCollapsedLauncher.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+    return collapsed;
+  };
+
   const syncShellResponsiveState = () => {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
@@ -86,6 +128,8 @@
     document.body.dataset.rowMode = rowMode;
 
     if (!sidebarRail) return;
+
+    syncSidebarCollapseState(stackedShell);
 
     if (stackedShell) {
       sidebarRail.dataset.railTier = 'stacked';
@@ -262,6 +306,20 @@
   window.addEventListener('resize', scheduleShellResponsiveState);
   if (sidebarScroll) {
     sidebarScroll.addEventListener('scroll', syncSidebarScrollCue, { passive: true });
+  }
+  if (sidebarCollapseToggle) {
+    sidebarCollapseToggle.addEventListener('click', () => {
+      userCollapsed = true;
+      writeStoredCollapseState(true);
+      scheduleShellResponsiveState();
+    });
+  }
+  if (sidebarCollapsedLauncher) {
+    sidebarCollapsedLauncher.addEventListener('click', () => {
+      userCollapsed = false;
+      writeStoredCollapseState(false);
+      scheduleShellResponsiveState();
+    });
   }
   scheduleShellResponsiveState();
 })();
