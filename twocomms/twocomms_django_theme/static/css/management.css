@@ -5250,9 +5250,10 @@ button.shop-card {
 .user-name {
     font-size: 0.98rem;
     line-height: 1.08;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .user-name-group {
