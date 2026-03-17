@@ -5022,6 +5022,10 @@ button.shop-card {
     color: #fbbf24;
 }
 
+.callback-state--due_now {
+    color: #fbbf24;
+}
+
 .callback-state--missed {
     color: #fca5a5;
 }
@@ -5231,8 +5235,8 @@ button.shop-card {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) max-content;
     grid-template-areas: "avatar identity actions";
-    gap: 12px;
-    align-items: start;
+    gap: 12px 14px;
+    align-items: center;
 }
 
 .user-avatar,
@@ -5257,9 +5261,16 @@ button.shop-card {
     min-width: 0;
 }
 
-.user-profile__identity {
+.user-profile__meta {
     grid-area: identity;
-    align-self: start;
+    min-width: 0;
+    display: grid;
+    align-self: center;
+}
+
+.user-profile__identity {
+    grid-area: auto;
+    align-self: center;
     padding-top: 2px;
 }
 
@@ -5277,12 +5288,20 @@ button.shop-card {
 .user-actions {
     grid-area: actions;
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 38px;
+    grid-template-columns: repeat(3, 42px);
     justify-content: end;
     align-self: start;
-    min-width: max-content;
+    min-width: calc(42px * 3 + 16px);
     gap: 8px;
+}
+
+.user-actions__item,
+.status-shortcut--icon {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+    padding: 0;
 }
 
 .user-role__text {
@@ -5291,12 +5310,6 @@ button.shop-card {
     white-space: normal;
     overflow-wrap: anywhere;
     line-height: 1.25;
-}
-
-.status-shortcut--icon {
-    width: 38px;
-    height: 38px;
-    padding: 0;
 }
 
 .profile-mosaic {
@@ -6075,8 +6088,8 @@ button.shop-card {
 
 .nexus-table th.col-actions,
 .actions-cell--callbacks {
-    width: 64px;
-    min-width: 64px;
+    width: 104px;
+    min-width: 104px;
 }
 
 .actions-cell--callbacks {
@@ -6092,13 +6105,16 @@ button.shop-card {
     overflow: visible;
 }
 
+.action-rail--overlay {
+    isolation: isolate;
+}
+
 .action-rail__stack {
-    position: relative;
     display: grid;
     justify-items: end;
     gap: 10px;
-    width: 48px;
-    min-width: 48px;
+    width: 52px;
+    min-width: 52px;
     overflow: visible;
 }
 
@@ -6107,18 +6123,16 @@ button.shop-card {
 }
 
 .action-rail__stack--has-callback {
-    padding-top: 58px;
+    padding-top: 0;
 }
 
 .action-rail__callback {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 48px;
-    min-width: 48px;
-    min-height: 48px;
-    padding: 0 10px 0 16px;
-    margin-left: auto;
+    position: relative;
+    z-index: 3;
+    width: 52px;
+    min-width: 52px;
+    min-height: 52px;
+    padding: 0 14px 0 18px;
     border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.10);
     background:
@@ -6137,6 +6151,7 @@ button.shop-card {
         box-shadow 0.18s ease,
         border-color 0.18s ease,
         background 0.18s ease;
+    transform-origin: right center;
 }
 
 .action-rail__callback::before {
@@ -6153,8 +6168,8 @@ button.shop-card {
 
 @media (hover: hover) {
     .action-rail__callback:hover {
-        width: 176px;
-        transform: translateX(-2px);
+        width: 192px;
+        transform: translateX(-4px);
         border-color: rgba(125, 211, 252, 0.26);
         box-shadow: 0 16px 28px rgba(6, 11, 18, 0.24);
         background:
@@ -6169,7 +6184,7 @@ button.shop-card {
 }
 
 .action-rail__callback:focus-visible {
-    width: 176px;
+    width: 192px;
     border-color: rgba(125, 211, 252, 0.32);
     box-shadow: 0 0 0 2px rgba(125, 211, 252, 0.18);
 }
@@ -6219,6 +6234,10 @@ button.shop-card {
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+}
+
+.action-rail__callback-label {
+    z-index: 2;
 }
 
 .action-rail__callback:hover .action-rail__label,
@@ -6371,13 +6390,22 @@ body[data-row-mode="card"] .actions-cell--callbacks .btn-primary {
     .user-profile__top {
         grid-template-columns: auto minmax(0, 1fr);
         grid-template-areas:
-            "avatar actions"
-            "identity identity";
+            "avatar identity"
+            "actions actions";
         row-gap: 10px;
+        align-items: start;
+    }
+
+    .user-profile__meta {
+        align-self: start;
     }
 
     .user-profile__identity {
         padding-top: 0;
+    }
+
+    .user-actions {
+        justify-content: start;
     }
 
     .user-role {

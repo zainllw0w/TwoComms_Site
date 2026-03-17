@@ -187,6 +187,26 @@ class HomeClientEntryValidationTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("тест", response.json()["error"].lower())
 
+    def test_scheduled_callback_rejects_past_datetime(self):
+        now_local = timezone.localtime(timezone.now()).replace(second=0, microsecond=0)
+        past_local = now_local - timedelta(days=1)
+
+        response = self.client.post(
+            "/",
+            {
+                **self._base_payload(),
+                "call_result": Client.CallResult.THINKING,
+                "next_call_type": "scheduled",
+                "next_call_date": past_local.strftime("%Y-%m-%d"),
+                "next_call_time": past_local.strftime("%H:%M"),
+            },
+            secure=True,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("майбут", response.json()["error"].lower())
+
     def test_exact_duplicate_requires_explicit_override_reason(self):
         Client.objects.create(
             shop_name="Existing Shop",
@@ -402,3 +422,34 @@ class HomePageModalMarkupTests(TestCase):
         self.assertEqual(payload["current_phase_label"], "Фаза 2")
         self.assertIn("погодження", payload["current_phase_summary"])
         self.assertIn("після 18:00", payload["phase_history_json"])
+        self.assertTrue(payload["show_phase_badge"])
+
+    def test_home_page_hides_phase_badge_until_real_third_phase(self):
+        client = Client.objects.create(
+            shop_name="Early Phase Shop",
+            phone="+380671110189",
+            full_name="Early Owner",
+            owner=self.user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=timezone.now() + timedelta(hours=2),
+        )
+        ClientInteractionAttempt.objects.create(
+            client=client,
+            manager=self.user,
+            result=Client.CallResult.THINKING,
+            reason_note="Просив передзвонити трохи пізніше.",
+            details="Фаза 1: просив передзвонити пізніше.",
+            next_call_at=timezone.now() + timedelta(hours=2),
+        )
+
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        grouped = response.context["grouped_clients"]
+        flat = {
+            item["shop"]: item
+            for _, items in grouped
+            for item in items
+        }
+        payload = flat["Early Phase Shop"]
+        self.assertFalse(payload["show_phase_badge"])

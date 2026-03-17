@@ -92,8 +92,14 @@ from .services.dedupe import (
 )
 from .services.forecast import build_admin_economics_summary, build_salary_simulator
 from .services.followups import build_reminder_digest
+from .services.followup_state import get_effective_callback_state
 from .services.followup_sync import local_followup_date, sync_client_followup
-from .services.outcomes import format_source_display, get_outcome_reason_schema, normalize_result_capture
+from .services.outcomes import (
+    format_source_display,
+    get_outcome_reason_schema,
+    normalize_result_capture,
+    parse_next_call_request,
+)
 from .services.roster import management_role_label, manager_roster_queryset
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
@@ -339,19 +345,18 @@ def _serialize_client_for_home(client: Client, today) -> dict:
             for item in attempts
             if item.next_call_at and item.created_at >= recent_cutoff
         )
-    next_call_local = timezone.localtime(client.next_call_at) if client.next_call_at else None
+    effective_callback = get_effective_callback_state(client=client)
+    next_call_local = effective_callback.due_at or (timezone.localtime(client.next_call_at) if client.next_call_at else None)
     callback_state = 'none'
-    callback_available = bool(client.next_call_at)
-    if next_call_local:
-        if next_call_local.date() == today:
-            callback_state = 'today'
-        elif next_call_local.date() < today:
-            callback_state = 'missed'
-        else:
-            callback_state = 'future'
+    if effective_callback.code == 'scheduled':
+        callback_state = 'today' if next_call_local and next_call_local.date() == today else 'future'
+    elif effective_callback.code in {'due_now', 'missed'}:
+        callback_state = effective_callback.code
+    callback_available = callback_state != 'none'
     callback_pending = callback_state == 'today'
     callback_status_label = {
         'today': 'Очікує сьогодні',
+        'due_now': 'Вікно передзвону відкрите',
         'missed': 'Передзвін пропущено',
         'future': 'Заплановано далі',
         'none': '',
@@ -375,6 +380,7 @@ def _serialize_client_for_home(client: Client, today) -> dict:
         })
     current_phase = phase_items[-1] if phase_items else None
     phase_history = phase_items[:-1] if len(phase_items) > 1 else []
+    show_phase_badge = callback_available and len(phase_items) >= 2
     hostname_display = _hostname_display(client.website_url)
     manager_note = (client.manager_note or "").strip()
     callback_visual_state = callback_state if callback_state != "none" else "normal"
@@ -406,9 +412,9 @@ def _serialize_client_for_home(client: Client, today) -> dict:
         'manager_note': manager_note,
         'has_manager_note': bool(manager_note),
         'manager_note_preview': _compact_text(manager_note, 96),
-        'next_call_date': timezone.localtime(client.next_call_at).strftime('%Y-%m-%d') if client.next_call_at else '',
-        'next_call_time': timezone.localtime(client.next_call_at).strftime('%H:%M') if client.next_call_at else '',
-        'next_call': timezone.localtime(client.next_call_at).strftime('%d.%m.%Y %H:%M') if client.next_call_at else '–',
+        'next_call_date': next_call_local.strftime('%Y-%m-%d') if next_call_local else '',
+        'next_call_time': next_call_local.strftime('%H:%M') if next_call_local else '',
+        'next_call': next_call_local.strftime('%d.%m.%Y %H:%M') if next_call_local else '–',
         'created_date_label': 'Сьогодні' if created_local.date() == today else created_local.strftime('%d.%m.%Y'),
         'callback_state': callback_state,
         'callback_visual_state': callback_visual_state,
@@ -418,10 +424,11 @@ def _serialize_client_for_home(client: Client, today) -> dict:
         'client_mode': 'callback' if callback_available else 'client',
         'callback_attempts': callback_attempts,
         'callback_review_candidate': bool(followup_meta.get("callback_review_candidate")),
+        'show_phase_badge': show_phase_badge,
         'last_interaction_summary': callback_summary,
         'last_interaction_at': home_dt_label(latest_attempt.created_at) if latest_attempt else home_dt_label(client.updated_at or client.created_at),
         'current_phase_label': f"Фаза {current_phase['phase']}" if current_phase else 'Фаза 1',
-        'next_phase_label': f"Фаза {len(phase_items) + 1}" if callback_available else (f"Фаза {current_phase['phase']}" if current_phase else 'Фаза 1'),
+        'next_phase_label': f"Фаза {len(phase_items) + 1}" if show_phase_badge else '',
         'current_phase_summary': current_phase['summary'] if current_phase else callback_summary,
         'callback_phase_count': len(phase_items) or 1,
         'phase_history_json': json.dumps(phase_history, ensure_ascii=False),
@@ -755,15 +762,12 @@ def home(request):
                 messages.error(request, error_text)
                 return redirect('management_home')
 
-        next_call_at = None
-        if next_call_type == 'scheduled' and next_call_date and next_call_time:
-            try:
-                naive = datetime.strptime(f"{next_call_date} {next_call_time}", "%Y-%m-%d %H:%M")
-                next_call_at = timezone.make_aware(naive, timezone.get_current_timezone())
-            except ValueError:
-                next_call_at = None
-        elif next_call_type == 'no_follow':
-            next_call_at = None
+        next_call_at, next_call_error = parse_next_call_request(data, now_dt=timezone.now())
+        if next_call_error:
+            if is_ajax:
+                return JsonResponse({'success': False, 'error': next_call_error}, status=400)
+            messages.error(request, next_call_error)
+            return redirect('management_home')
 
         if not full_name:
             full_name = 'ПІБ не вказано'
@@ -960,7 +964,7 @@ def home(request):
     for client in clients:
         serialized = _serialize_client_for_home(client, today)
         local_date = timezone.localtime(client.created_at).date()
-        if serialized['callback_state'] == 'today' or local_date == today:
+        if serialized['callback_state'] in {'today', 'due_now'} or local_date == today:
             label = 'Сьогодні'
         elif local_date == yesterday:
             label = 'Вчора'

@@ -147,6 +147,39 @@ class FollowUpTests(TestCase):
         self.assertEqual(fu.status, ClientFollowUp.Status.MISSED)
         self.assertEqual(fu.closed_by_report_id, report.id)
 
+    def test_followup_grace_window_and_effective_state(self):
+        from management.services.followup_state import get_effective_callback_state
+
+        now = self._stable_now()
+        due = now - timedelta(minutes=30)
+        client = Client.objects.create(
+            shop_name="Grace Shop",
+            phone="+380000000001",
+            full_name="Owner",
+            owner=self.user,
+            next_call_at=due,
+        )
+        _sync_client_followup(client, None, client.next_call_at, now - timedelta(hours=1))
+
+        followup = ClientFollowUp.objects.get(client=client, owner=self.user)
+        self.assertEqual(followup.grace_until, due + timedelta(hours=2))
+
+        state = get_effective_callback_state(client=client, now_dt=now)
+        self.assertEqual(state.code, "due_now")
+
+        followup.grace_until = now - timedelta(minutes=1)
+        followup.save(update_fields=["grace_until"])
+        state = get_effective_callback_state(client=client, now_dt=now)
+        self.assertEqual(state.code, "missed")
+
+        prev_due = client.next_call_at
+        client.next_call_at = now + timedelta(days=1)
+        client.save(update_fields=["next_call_at"])
+        _sync_client_followup(client, prev_due, client.next_call_at, now + timedelta(minutes=5))
+
+        state = get_effective_callback_state(client=client, now_dt=now + timedelta(minutes=5))
+        self.assertEqual(state.code, "scheduled")
+
 
 class ParserServiceTests(TestCase):
     def setUp(self):

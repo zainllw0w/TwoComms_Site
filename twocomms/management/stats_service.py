@@ -1219,7 +1219,9 @@ def get_stats_payload(*, user, range_current: StatsRange, include_shadow: bool =
     fu_rescheduled = fu_qs.filter(status=ClientFollowUp.Status.RESCHEDULED).count()
     fu_cancelled = fu_qs.filter(status=ClientFollowUp.Status.CANCELLED).count()
     fu_open = fu_qs.filter(status=ClientFollowUp.Status.OPEN).count()
-    fu_overdue_open = fu_qs.filter(status=ClientFollowUp.Status.OPEN, due_date__lt=today_local).count()
+    fu_overdue_open = fu_qs.filter(status=ClientFollowUp.Status.OPEN).filter(
+        Q(grace_until__lt=timezone.now()) | Q(grace_until__isnull=True, due_at__lt=timezone.now())
+    ).count()
 
     missed_effective = fu_missed + fu_overdue_open
     missed_rate = _safe_pct(missed_effective, fu_total)
@@ -1227,7 +1229,11 @@ def get_stats_payload(*, user, range_current: StatsRange, include_shadow: bool =
     # Follow-ups: small "problem list" for on-demand details (missed + overdue open)
     fu_problem_list = []
     fu_problem_qs = (
-        fu_qs.filter(Q(status=ClientFollowUp.Status.MISSED) | Q(status=ClientFollowUp.Status.OPEN, due_date__lt=today_local))
+        fu_qs.filter(
+            Q(status=ClientFollowUp.Status.MISSED)
+            | Q(status=ClientFollowUp.Status.OPEN, grace_until__lt=timezone.now())
+            | Q(status=ClientFollowUp.Status.OPEN, grace_until__isnull=True, due_at__lt=timezone.now())
+        )
         .select_related("client")
         .order_by("due_at")
     )
@@ -1345,6 +1351,14 @@ def get_stats_payload(*, user, range_current: StatsRange, include_shadow: bool =
             continue
         bucket = fu_by_day.setdefault(d, {})
         bucket[st] = bucket.get(st, 0) + cnt
+    expired_open_by_day = {
+        row["due_date"]: int(row.get("count") or 0)
+        for row in fu_qs.filter(status=ClientFollowUp.Status.OPEN)
+        .filter(Q(grace_until__lt=timezone.now()) | Q(grace_until__isnull=True, due_at__lt=timezone.now()))
+        .values("due_date")
+        .annotate(count=Count("id"))
+        if row.get("due_date")
+    }
 
     # CP sent by day
     cp_by_day = {row["day"]: int(row["count"] or 0) for row in cp_qs.filter(status=CommercialOfferEmailLog.Status.SENT).annotate(day=TruncDate("created_at", tzinfo=tz)).values("day").annotate(count=Count("id"))}
@@ -1391,8 +1405,7 @@ def get_stats_payload(*, user, range_current: StatsRange, include_shadow: bool =
         fu_bucket = fu_by_day.get(d, {})
         fu_total_d = int(sum(fu_bucket.values()))
         fu_missed_d = int(fu_bucket.get(ClientFollowUp.Status.MISSED, 0))
-        fu_open_d = int(fu_bucket.get(ClientFollowUp.Status.OPEN, 0))
-        fu_overdue_open_d = fu_open_d if d < today_local else 0
+        fu_overdue_open_d = int(expired_open_by_day.get(d) or 0)
 
         metrics_day = {
             "processed": int(base.get("clients") or 0),
@@ -1732,7 +1745,9 @@ def _build_metrics_for_prev(*, user, r: StatsRange, cfg: dict[str, Any]) -> dict
     today_local = timezone.localdate()
     fu_total = fu_qs.count()
     fu_missed = fu_qs.filter(status=ClientFollowUp.Status.MISSED).count()
-    fu_overdue_open = fu_qs.filter(status=ClientFollowUp.Status.OPEN, due_date__lt=today_local).count()
+    fu_overdue_open = fu_qs.filter(status=ClientFollowUp.Status.OPEN).filter(
+        Q(grace_until__lt=timezone.now()) | Q(grace_until__isnull=True, due_at__lt=timezone.now())
+    ).count()
 
     # Reports required/late
     acfg = cfg.get("advice") or {}
