@@ -5416,7 +5416,7 @@ button.shop-card {
 
 .sidebar-nav-panel .nav-menu--primary {
     gap: 0;
-    padding-bottom: 42px;
+    padding-bottom: 26px;
 }
 
 .sidebar-nav-panel .nav-menu--primary > .nav-item + .nav-item {
@@ -5705,8 +5705,8 @@ button.shop-card {
     gap: 12px;
     align-self: stretch;
     margin: 0;
-    padding: 18px 12px 8px;
-    min-height: 60px;
+    padding: 12px 12px 6px;
+    min-height: 52px;
     border-radius: 0 0 20px 20px;
     background: transparent;
     box-shadow: none;

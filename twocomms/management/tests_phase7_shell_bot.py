@@ -1,5 +1,6 @@
 import json
 from io import BytesIO
+from pathlib import Path
 from datetime import datetime, timedelta
 from decimal import Decimal
 from unittest.mock import patch
@@ -18,6 +19,8 @@ from management.views import build_report_excel
     ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1", "management.twocomms.shop"],
 )
 class HomeShellRenderTests(TestCase):
+    CSS_PATH = Path(__file__).resolve().parents[1] / "twocomms_django_theme/static/css/management.css"
+
     def test_home_marks_staff_user_as_admin_and_renders_callback_row(self):
         user = get_user_model().objects.create_user(username="shell_admin", password="x", is_staff=True)
         self.client.force_login(user)
@@ -220,6 +223,13 @@ class HomeShellRenderTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "sidebar-collapse-toggle--cue")
         self.assertContains(response, "sidebar-collapse-toggle--full-bleed")
+
+    def test_management_css_uses_tighter_collapse_cue_gap_contract(self):
+        css = self.CSS_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("padding-bottom: 26px;", css)
+        self.assertIn("padding: 12px 12px 6px;", css)
+        self.assertIn("min-height: 52px;", css)
 
     def test_home_renders_collapse_cue_outside_nav_flow(self):
         user = get_user_model().objects.create_user(username="shell_cue_structure", password="x", is_staff=True)
