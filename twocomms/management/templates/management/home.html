@@ -84,6 +84,7 @@
                                 data-callback-visual-state="{{ client.callback_visual_state }}"
                                 data-callback-attempts="{{ client.callback_attempts }}"
                                 data-callback-review-candidate="{{ client.callback_review_candidate|yesno:'true,false' }}"
+                                data-show-phase-badge="{{ client.show_phase_badge|yesno:'true,false' }}"
                                 data-last-interaction-summary="{{ client.last_interaction_summary|escape }}"
                                 data-last-interaction-at="{{ client.last_interaction_at|escape }}"
                                 data-current-phase-label="{{ client.current_phase_label|escape }}"
@@ -148,7 +149,7 @@
                                             {% if client.callback_status_label %}
                                             <small class="callback-state callback-state--{{ client.callback_state }}">{{ client.callback_status_label }}</small>
                                             {% endif %}
-                                            {% if client.callback_available %}
+                                            {% if client.show_phase_badge %}
                                             <small class="phase-indicator">{{ client.next_phase_label }}</small>
                                             {% endif %}
                                         </div>
@@ -157,11 +158,11 @@
                                     {% endif %}
                                 </td>
                                 <td data-label="Дія" class="actions-cell actions-cell--callbacks">
-                                    <div class="action-rail">
+                                    <div class="action-rail action-rail--overlay">
                                         <div class="action-rail__stack action-rail__stack--vertical{% if client.callback_available %} action-rail__stack--has-callback{% endif %}">
                                             {% if client.callback_available %}
                                             <button type="button" class="action-rail__callback callback-client" aria-label="Передзвонити" title="Передзвонити">
-                                                <span class="action-rail__label">Передзвонити</span>
+                                                <span class="action-rail__label action-rail__callback-label">Передзвонити</span>
                                                 <span class="action-rail__icon" aria-hidden="true">
                                                     <svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.72 11.72 0 003.67.59 1 1 0 011 1V20a1 1 0 01-1 1C10.75 21 3 13.25 3 4a1 1 0 011-1h3.47a1 1 0 011 1 11.72 11.72 0 00.59 3.67 1 1 0 01-.24 1.01l-2.2 2.11z"/></svg>
                                                 </span>
@@ -801,11 +802,52 @@ function initManagementHomePage() {
     const reportSubmit = document.getElementById('report-submit');
     const reportForm = document.getElementById('report-form');
 
+    const padTimePart = (value) => String(value).padStart(2, '0');
+
+    const formatDateInputValue = (dt) => {
+        return `${dt.getFullYear()}-${padTimePart(dt.getMonth() + 1)}-${padTimePart(dt.getDate())}`;
+    };
+
+    const formatTimeInputValue = (dt) => {
+        return `${padTimePart(dt.getHours())}:${padTimePart(dt.getMinutes())}`;
+    };
+
+    const buildNextAllowedCallDate = () => {
+        const nextAllowed = new Date();
+        nextAllowed.setSeconds(0, 0);
+        nextAllowed.setMinutes(nextAllowed.getMinutes() + 30);
+        const minuteStep = 5;
+        const overflow = nextAllowed.getMinutes() % minuteStep;
+        if (overflow) {
+            nextAllowed.setMinutes(nextAllowed.getMinutes() + (minuteStep - overflow));
+        }
+        return nextAllowed;
+    };
+
+    const syncNextCallConstraints = (dateInput, timeInput, { preserveExisting = true } = {}) => {
+        if (!dateInput || !timeInput) return;
+        const minDt = buildNextAllowedCallDate();
+        const minDate = formatDateInputValue(minDt);
+        const minTime = formatTimeInputValue(minDt);
+        dateInput.min = minDate;
+        if (!preserveExisting || !dateInput.value) {
+            dateInput.value = minDate;
+        }
+        if (dateInput.value === minDate) {
+            timeInput.min = minTime;
+            if (!preserveExisting || !timeInput.value) {
+                timeInput.value = minTime;
+            }
+        } else {
+            timeInput.min = '';
+            if (!preserveExisting || !timeInput.value) {
+                timeInput.value = minTime;
+            }
+        }
+    };
+
     const setDefaultDateTime = (dateInput, timeInput) => {
-        const now = new Date();
-        now.setMinutes(now.getMinutes() + 30);
-        dateInput.value = now.toISOString().slice(0, 10);
-        timeInput.value = now.toTimeString().slice(0, 5);
+        syncNextCallConstraints(dateInput, timeInput, { preserveExisting: false });
     };
 
     const openModal = (modal) => {
@@ -1296,6 +1338,8 @@ function initManagementHomePage() {
             timeInput.value = '';
         } else if (!dateInput.value || !timeInput.value) {
             setDefaultDateTime(dateInput, timeInput);
+        } else {
+            syncNextCallConstraints(dateInput, timeInput);
         }
     };
 
@@ -1649,6 +1693,7 @@ function initManagementHomePage() {
                     data-callback-visual-state="${client.callback_visual_state || 'normal'}"
                     data-callback-attempts="${client.callback_attempts || 0}"
                     data-callback-review-candidate="${client.callback_review_candidate ? 'true' : 'false'}"
+                    data-show-phase-badge="${client.show_phase_badge ? 'true' : 'false'}"
                     data-last-interaction-summary="${client.last_interaction_summary || ''}"
                     data-last-interaction-at="${client.last_interaction_at || ''}"
                     data-current-phase-label="${client.current_phase_label || ''}"
@@ -1687,11 +1732,11 @@ function initManagementHomePage() {
                     <td data-label="Статус" class="cell-status"><span class="status-badge role-${client.role}">${escapeHtml(client.role_display)}</span></td>
                     <td data-label="Джерело" class="cell-source">${escapeHtml(client.source || '—')}</td>
                     <td data-label="Результат" class="cell-result"><div class="result-stack"><span class="result-badge result-${client.call_result}">${escapeHtml(client.call_result_display)}</span>${client.call_result_details ? `<span class="muted-detail">${escapeHtml(client.call_result_details)}</span>` : ''}</div></td>
-                    <td data-label="Наступний дзвінок" class="cell-next-call">${client.next_call ? `<div class="callback-next-call"><span>${escapeHtml(client.next_call)}</span>${callbackStatus}${client.callback_available ? `<small class="phase-indicator">${escapeHtml(client.next_phase_label || 'Фаза 2')}</small>` : ''}</div>` : '–'}</td>
+                    <td data-label="Наступний дзвінок" class="cell-next-call">${client.next_call ? `<div class="callback-next-call"><span>${escapeHtml(client.next_call)}</span>${callbackStatus}${client.show_phase_badge ? `<small class="phase-indicator">${escapeHtml(client.next_phase_label || '')}</small>` : ''}</div>` : '–'}</td>
                     <td data-label="Дія" class="actions-cell actions-cell--callbacks">
-                        <div class="action-rail">
+                        <div class="action-rail action-rail--overlay">
                         <div class="action-rail__stack action-rail__stack--vertical${client.callback_available ? ' action-rail__stack--has-callback' : ''}">
-                        ${client.callback_available ? `<button type="button" class="action-rail__callback callback-client" aria-label="Передзвонити" title="Передзвонити"><span class="action-rail__label">Передзвонити</span><span class="action-rail__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.72 11.72 0 003.67.59 1 1 0 011 1V20a1 1 0 01-1 1C10.75 21 3 13.25 3 4a1 1 0 011-1h3.47a1 1 0 011 1 11.72 11.72 0 00.59 3.67 1 1 0 01-.24 1.01l-2.2 2.11z"></path></svg></span></button>` : ''}
+                        ${client.callback_available ? `<button type="button" class="action-rail__callback callback-client" aria-label="Передзвонити" title="Передзвонити"><span class="action-rail__label action-rail__callback-label">Передзвонити</span><span class="action-rail__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.72 11.72 0 003.67.59 1 1 0 011 1V20a1 1 0 01-1 1C10.75 21 3 13.25 3 4a1 1 0 011-1h3.47a1 1 0 011 1 11.72 11.72 0 00.59 3.67 1 1 0 01-.24 1.01l-2.2 2.11z"></path></svg></span></button>` : ''}
                             <button type="button" class="icon-btn action-rail__utility edit-client" aria-label="Редагувати">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"></path></svg>
                             </button>
@@ -1828,6 +1873,7 @@ function initManagementHomePage() {
         toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime);
         setNodeVisible(telegramFollowupCta, !hasManagerTelegramBinding && clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked, 'block');
     }));
+    nextCallDate?.addEventListener('change', () => syncNextCallConstraints(nextCallDate, nextCallTime));
     messengerUsePhone?.addEventListener('change', () => syncMessengerTargetMode({
         usePhoneInput: messengerUsePhone,
         targetModeInput: messengerTargetMode,
@@ -1888,6 +1934,7 @@ function initManagementHomePage() {
         });
     });
     processNextCallRadios.forEach((radio) => radio.addEventListener('change', () => toggleNextCall(processNextCallRadios, processNextCallWrap, processNextCallDate, processNextCallTime)));
+    processNextCallDate?.addEventListener('change', () => syncNextCallConstraints(processNextCallDate, processNextCallTime));
     processMessengerUsePhone?.addEventListener('change', () => syncMessengerTargetMode({
         usePhoneInput: processMessengerUsePhone,
         targetModeInput: processMessengerTargetMode,

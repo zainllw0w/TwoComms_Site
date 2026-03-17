@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from django.db.models import Prefetch
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
-from management.models import Client, DuplicateReview, NightlyScoreSnapshot
+from management.models import Client, ClientFollowUp, DuplicateReview, NightlyScoreSnapshot
+from management.services.followup_state import get_effective_callback_state
 from management.services.roster import management_role_label
 
 
@@ -23,8 +25,25 @@ def build_management_shell_metrics(user, profile=None):
     mosaic_ready = processed_total >= 20 and mosaic_score is not None
     mosaic_label = f"{mosaic_score:.1f}" if mosaic_ready else "Накопичуємо дані"
     mosaic_meta = "Shadow-індикатор темпу та якості." if mosaic_ready else "Потрібно щонайменше 20 обробок для стабільного показу."
-    today_callbacks = Client.objects.filter(owner=user, next_call_at__date=today).count()
-    missed_callbacks = Client.objects.filter(owner=user, next_call_at__isnull=False, next_call_at__date__lt=today).count()
+    callback_clients = (
+        Client.objects.filter(owner=user, next_call_at__isnull=False)
+        .prefetch_related(
+            Prefetch(
+                "followups",
+                queryset=ClientFollowUp.objects.filter(status=ClientFollowUp.Status.OPEN).order_by("-due_at"),
+                to_attr="prefetched_open_followups",
+            )
+        )
+    )
+    now = timezone.localtime(timezone.now())
+    today_callbacks = 0
+    missed_callbacks = 0
+    for client in callback_clients:
+        state = get_effective_callback_state(client=client, now_dt=now)
+        if state.code == "missed":
+            missed_callbacks += 1
+        elif state.code in {"scheduled", "due_now"} and state.due_at and state.due_at.date() == today:
+            today_callbacks += 1
     duplicate_reviews_qs = DuplicateReview.objects.filter(status=DuplicateReview.Status.OPEN)
     if not (getattr(user, "is_staff", False) and not getattr(profile, "is_manager", False)):
         duplicate_reviews_qs = duplicate_reviews_qs.filter(owner=user)

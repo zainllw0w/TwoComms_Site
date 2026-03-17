@@ -152,6 +152,30 @@ class ReminderDigestTests(TestCase):
         self.assertEqual(run_log.status, CommandRunLog.Status.SUCCESS)
         self.assertGreaterEqual(run_log.rows_processed, 1)
 
+    def test_stats_payload_counts_same_day_expired_grace_as_missed_effective(self):
+        base_now = timezone.now().replace(second=0, microsecond=0)
+        now = timezone.localtime(base_now)
+        due_at = base_now - timedelta(hours=1)
+        client = Client.objects.create(
+            shop_name="Same Day Expired",
+            phone="+380671230123",
+            full_name="Owner",
+            owner=self.user,
+            next_call_at=due_at,
+        )
+        ClientFollowUp.objects.create(
+            client=client,
+            owner=self.user,
+            due_at=due_at,
+            due_date=timezone.localtime(due_at).date(),
+            grace_until=base_now - timedelta(minutes=10),
+        )
+
+        payload = get_stats_payload(user=self.user, range_current=build_daily_stats_range(now.date()))
+
+        self.assertEqual(payload["summary"]["followups"]["missed_effective"], 1)
+        self.assertEqual(payload["summary"]["followups"]["overdue_open"], 1)
+
 
 class RichShadowPayloadTests(TestCase):
     def setUp(self):

@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from management.models import Client, ClientFollowUp, DuplicateReview, ReminderRead, Shop
 from management.services.config_versions import get_management_config
+from management.services.followup_state import get_effective_callback_state
 
 
 def _time_label(dt_local, now):
@@ -78,14 +79,15 @@ def build_reminder_digest(user, *, now=None, stats=None, report_sent=False) -> d
     )
     due_followups = []
     for followup in followups:
-        if followup.grace_until and followup.grace_until > now:
-            continue
-        dt_local = timezone.localtime(followup.due_at)
+        client = followup.client
+        setattr(client, "prefetched_open_followups", [followup])
+        state = get_effective_callback_state(client=client, now_dt=now)
+        dt_local = state.due_at or timezone.localtime(followup.due_at)
         if dt_local.date() != today:
             continue
-        ladder = _ladder_for_due(dt_local, now)
+        ladder = state.code if state.code in {"due_now", "missed"} else _ladder_for_due(dt_local, now)
         eta_raw = max(0, int((dt_local - now).total_seconds()))
-        status = "soon" if dt_local > now else "due"
+        status = "soon" if state.code == "scheduled" and dt_local > now else "due"
         reminder = {
             "followup_id": followup.id,
             "client_id": followup.client_id,
@@ -105,7 +107,7 @@ def build_reminder_digest(user, *, now=None, stats=None, report_sent=False) -> d
         }
         reminder["read"] = False if status == "soon" else reminder["key"] in read_keys
         reminders.append(reminder)
-        if dt_local <= now:
+        if status == "due":
             due_followups.append(reminder)
 
     shop_qs = Shop.objects.filter(created_by=user, next_contact_at__isnull=False).prefetch_related("phones").order_by("next_contact_at")

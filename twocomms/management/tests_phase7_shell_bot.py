@@ -148,11 +148,75 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(response, "sidebar-rail__scroll-cue")
         self.assertContains(response, "sidebar-rail__mouse")
         self.assertContains(response, "user-profile__identity")
+        self.assertContains(response, "user-profile__meta")
         self.assertContains(response, "user-role__text")
+        self.assertContains(response, "user-actions__item")
+        self.assertContains(response, "action-rail--overlay")
         self.assertContains(response, "action-rail__stack--vertical")
         self.assertContains(response, "action-rail__stack")
         self.assertContains(response, "action-rail__callback")
+        self.assertContains(response, "action-rail__callback-label")
         self.assertContains(response, "action-rail__utility")
+        self.assertEqual(response.content.decode("utf-8").count(">Парсинг<"), 1)
+
+    def test_home_uses_effective_callback_state_for_due_now_and_missed(self):
+        from management.models import ClientFollowUp
+
+        user = get_user_model().objects.create_user(username="callback_effective_mgr", password="x")
+        profile = UserProfile.objects.get(user=user)
+        profile.is_manager = True
+        profile.save(update_fields=["is_manager"])
+        self.client.force_login(user)
+
+        now = timezone.localtime(timezone.now()).replace(second=0, microsecond=0)
+        due_now_at = now - timedelta(minutes=25)
+        missed_at = now - timedelta(hours=3)
+
+        due_client = Client.objects.create(
+            shop_name="Grace Window Shop",
+            phone="+380671009001",
+            full_name="Grace Owner",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=due_now_at,
+        )
+        missed_client = Client.objects.create(
+            shop_name="Expired Grace Shop",
+            phone="+380671009002",
+            full_name="Expired Owner",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=missed_at,
+        )
+        ClientFollowUp.objects.create(
+            client=due_client,
+            owner=user,
+            due_at=due_now_at,
+            due_date=due_now_at.date(),
+            grace_until=now + timedelta(minutes=20),
+        )
+        ClientFollowUp.objects.create(
+            client=missed_client,
+            owner=user,
+            due_at=missed_at,
+            due_date=missed_at.date(),
+            grace_until=now - timedelta(minutes=5),
+        )
+
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        grouped = response.context["grouped_clients"]
+        flat = {
+            item["shop"]: item
+            for _, items in grouped
+            for item in items
+        }
+        self.assertEqual(flat["Grace Window Shop"]["callback_state"], "due_now")
+        self.assertFalse(flat["Grace Window Shop"]["callback_pending"])
+        self.assertEqual(flat["Expired Grace Shop"]["callback_state"], "missed")
+        self.assertEqual(response.context["management_shell_today_callbacks"], 1)
+        self.assertEqual(response.context["management_shell_missed_callbacks"], 1)
 
 
 @override_settings(

@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.utils import timezone
 
 from management.models import Client, ClientFollowUp, ClientInteractionAttempt
+from management.services.followup_state import build_grace_until
 
 
 def local_followup_date(dt_value):
@@ -69,5 +70,6 @@ def sync_client_followup(client: Client, prev_next_call_at, new_next_call_at, no
             due_at=new_next_call_at,
             due_date=local_followup_date(new_next_call_at),
             status=ClientFollowUp.Status.OPEN,
+            grace_until=build_grace_until(new_next_call_at),
             meta=meta,
         )

@@ -16,7 +16,7 @@ from .services.dedupe import (
     evaluate_duplicate_zone,
     resolve_duplicate_review_override,
 )
-from .services.outcomes import format_source_display, next_call_at_from_request, normalize_result_capture
+from .services.outcomes import format_source_display, next_call_at_from_request, normalize_result_capture, parse_next_call_request
 from .views import _sync_client_followup, get_user_stats, user_is_management
 
 
@@ -174,7 +174,9 @@ def lead_process_api(request, lead_id: int):
     call_result_contact_attempts = (data.get("call_result_contact_attempts") or "").strip()
     call_result_contact_channel = (data.get("call_result_contact_channel") or "").strip()
     manager_note = (data.get("manager_note") or "").strip()
-    next_call_at = _next_call_at_from_request(data)
+    next_call_at, next_call_error = parse_next_call_request(data, now_dt=timezone.now())
+    if next_call_error:
+        return JsonResponse({"success": False, "error": next_call_error}, status=400)
 
     if not shop_name or not phone:
         return JsonResponse({"success": False, "error": "Вкажіть назву магазину та номер телефону."}, status=400)

@@ -113,18 +113,27 @@ def format_source_display(source: str, source_link: str, source_other: str) -> s
 
 
 def next_call_at_from_request(data) -> datetime | None:
+    next_call_at, _ = parse_next_call_request(data)
+    return next_call_at
+
+
+def parse_next_call_request(data, *, now_dt: datetime | None = None) -> tuple[datetime | None, str | None]:
     next_call_type = data.get("next_call_type", "scheduled")
     if next_call_type == "no_follow":
-        return None
+        return None, None
     next_call_date = (data.get("next_call_date") or "").strip()
     next_call_time = (data.get("next_call_time") or "").strip()
     if not next_call_date or not next_call_time:
-        return None
+        return None, None
     try:
         naive = datetime.strptime(f"{next_call_date} {next_call_time}", "%Y-%m-%d %H:%M")
-        return timezone.make_aware(naive, timezone.get_current_timezone())
+        next_call_at = timezone.make_aware(naive, timezone.get_current_timezone())
     except ValueError:
-        return None
+        return None, "Не вдалося розпізнати дату або час передзвону."
+    current_now = timezone.localtime(now_dt or timezone.now())
+    if timezone.localtime(next_call_at) <= current_now:
+        return None, "Передзвін потрібно планувати на майбутній час."
+    return next_call_at, None
 
 
 def reason_label_for(call_result: str, reason_code: str) -> str:
