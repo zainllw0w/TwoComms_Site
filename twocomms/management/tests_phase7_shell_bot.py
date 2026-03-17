@@ -221,6 +221,23 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(response, "sidebar-collapse-toggle--cue")
         self.assertContains(response, "sidebar-collapse-toggle--full-bleed")
 
+    def test_home_renders_collapse_cue_outside_nav_flow(self):
+        user = get_user_model().objects.create_user(username="shell_cue_structure", password="x", is_staff=True)
+        self.client.force_login(user)
+
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        self.assertRegex(
+            html,
+            r'(?s)<nav class="nav-menu nav-menu--primary" id="sidebar-primary-nav">.*?</nav>\s*<button type="button" class="sidebar-collapse-toggle[^"]*" id="sidebar-collapse-toggle"',
+        )
+        self.assertNotRegex(
+            html,
+            r'(?s)<nav class="nav-menu nav-menu--primary" id="sidebar-primary-nav">.*?id="sidebar-collapse-toggle".*?</nav>',
+        )
+
     def test_home_uses_effective_callback_state_for_due_now_and_missed(self):
         user = get_user_model().objects.create_user(username="callback_effective_mgr", password="x")
         profile = UserProfile.objects.get(user=user)
