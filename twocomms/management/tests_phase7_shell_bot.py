@@ -191,6 +191,7 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(response, "sidebar-nav-panel")
         self.assertContains(response, "sidebar-collapse-toggle")
         self.assertContains(response, "sidebar-collapse-toggle--cue")
+        self.assertContains(response, "sidebar-collapse-toggle--full-bleed")
         self.assertContains(response, "sidebar-collapsed-launcher")
         self.assertContains(response, "sidebar-collapsed-launcher__surface")
         self.assertContains(response, "sidebar-collapsed-launcher__arrow")
@@ -209,6 +210,16 @@ class HomeShellRenderTests(TestCase):
             r'(?s)<nav class="nav-menu nav-menu--primary" id="sidebar-primary-nav">.*?id="sidebar-collapse-toggle".*?</nav>',
         )
         self.assertEqual(response.content.decode("utf-8").count(">Парсинг<"), 1)
+
+    def test_home_renders_full_bleed_collapse_cue_modifier(self):
+        user = get_user_model().objects.create_user(username="shell_cue_modifier", password="x", is_staff=True)
+        self.client.force_login(user)
+
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "sidebar-collapse-toggle--cue")
+        self.assertContains(response, "sidebar-collapse-toggle--full-bleed")
 
     def test_home_uses_effective_callback_state_for_due_now_and_missed(self):
         user = get_user_model().objects.create_user(username="callback_effective_mgr", password="x")
