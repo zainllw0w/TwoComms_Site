@@ -20,9 +20,16 @@ from management.views import build_report_excel
 )
 class HomeShellRenderTests(TestCase):
     CSS_PATH = Path(__file__).resolve().parents[1] / "twocomms_django_theme/static/css/management.css"
+    MANAGEMENT_HOST = "management.twocomms.shop"
+
+    def get_home(self):
+        return self.client.get("/", secure=True, HTTP_HOST=self.MANAGEMENT_HOST)
 
     def test_home_marks_staff_user_as_admin_and_renders_callback_row(self):
         user = get_user_model().objects.create_user(username="shell_admin", password="x", is_staff=True)
+        profile = UserProfile.objects.get(user=user)
+        profile.is_manager = False
+        profile.save(update_fields=["is_manager"])
         self.client.force_login(user)
         next_call_at = timezone.make_aware(datetime(2026, 3, 16, 14, 30))
         Client.objects.create(
@@ -34,12 +41,12 @@ class HomeShellRenderTests(TestCase):
             next_call_at=next_call_at,
         )
 
-        response = self.client.get("/", secure=True)
+        response = self.get_home()
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Адміністратор")
         self.assertContains(response, "callback-ghost-row")
-        self.assertContains(response, "Передзвонити")
+        self.assertContains(response, "Наступна фаза")
 
     def test_home_marks_non_staff_manager_as_manager(self):
         user = get_user_model().objects.create_user(username="shell_manager", password="x")
@@ -48,7 +55,7 @@ class HomeShellRenderTests(TestCase):
         profile.save(update_fields=["is_manager"])
         self.client.force_login(user)
 
-        response = self.client.get("/", secure=True)
+        response = self.get_home()
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Менеджер")
@@ -83,7 +90,7 @@ class HomeShellRenderTests(TestCase):
         yesterday_created = now - timedelta(days=1)
         Client.objects.filter(id__in=[due_client.id, missed_client.id]).update(created_at=yesterday_created)
 
-        response = self.client.get("/", secure=True)
+        response = self.get_home()
 
         self.assertEqual(response.status_code, 200)
         grouped = response.context["grouped_clients"]
@@ -144,7 +151,7 @@ class HomeShellRenderTests(TestCase):
             grace_until=now - timedelta(minutes=5),
         )
 
-        response = self.client.get("/", secure=True)
+        response = self.get_home()
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "0–19")
@@ -173,7 +180,7 @@ class HomeShellRenderTests(TestCase):
             next_call_at=timezone.now() + timedelta(hours=1),
         )
 
-        response = self.client.get("/", secure=True)
+        response = self.get_home()
 
         self.assertEqual(response.status_code, 200)
         html = response.content.decode("utf-8")
@@ -218,7 +225,7 @@ class HomeShellRenderTests(TestCase):
         user = get_user_model().objects.create_user(username="shell_cue_modifier", password="x", is_staff=True)
         self.client.force_login(user)
 
-        response = self.client.get("/", secure=True)
+        response = self.get_home()
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "sidebar-collapse-toggle--cue")
@@ -244,7 +251,7 @@ class HomeShellRenderTests(TestCase):
         user = get_user_model().objects.create_user(username="shell_cue_structure", password="x", is_staff=True)
         self.client.force_login(user)
 
-        response = self.client.get("/", secure=True)
+        response = self.get_home()
 
         self.assertEqual(response.status_code, 200)
         html = response.content.decode("utf-8")
@@ -299,7 +306,7 @@ class HomeShellRenderTests(TestCase):
             grace_until=now - timedelta(minutes=5),
         )
 
-        response = self.client.get("/", secure=True)
+        response = self.get_home()
 
         self.assertEqual(response.status_code, 200)
         grouped = response.context["grouped_clients"]
@@ -345,7 +352,7 @@ class HomeShellRenderTests(TestCase):
             paid_at=now - timedelta(days=2),
         )
 
-        home_response = self.client.get("/", secure=True)
+        home_response = self.get_home()
         payouts_response = self.client.get("/payouts/", secure=True)
 
         self.assertEqual(home_response.status_code, 200)

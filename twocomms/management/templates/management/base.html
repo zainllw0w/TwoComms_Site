@@ -255,7 +255,7 @@
                         </div>
 
                         <div class="daily-stats daily-stats--{{ management_shell_daily_zone|default:'warning' }}" id="daily-stats-card">
-                            <div class="daily-stats-head">
+                            <div class="daily-stats-head" data-help-scope>
                                 <div class="daily-stats-headline">
                                     <div class="gauge-label-top">Денна норма</div>
                                     <button type="button" class="info-dot" data-help-target="daily-stats-help" aria-controls="daily-stats-help" aria-expanded="false" aria-label="Пояснення про денну норму">!</button>
@@ -916,9 +916,8 @@
             if (!document.hidden) pollFeed();
         });
 
-        const helpButtons = Array.from(document.querySelectorAll('.info-dot[data-help-target]'));
         const closeHelpPopovers = (exceptButton = null) => {
-            helpButtons.forEach((btn) => {
+            document.querySelectorAll('.info-dot[data-help-target]').forEach((btn) => {
                 const target = document.getElementById(btn.dataset.helpTarget || '');
                 const isOpen = btn === exceptButton;
                 btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
@@ -926,18 +925,17 @@
             });
         };
 
-        helpButtons.forEach((btn) => {
-            const target = document.getElementById(btn.dataset.helpTarget || '');
-            if (!target) return;
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const shouldOpen = btn.getAttribute('aria-expanded') !== 'true';
-                closeHelpPopovers(shouldOpen ? btn : null);
-            });
-        });
-
         document.addEventListener('click', (e) => {
-            if (!e.target.closest('.daily-stats-head')) {
+            const helpBtn = e.target.closest('.info-dot[data-help-target]');
+            if (helpBtn) {
+                e.stopPropagation();
+                const target = document.getElementById(helpBtn.dataset.helpTarget || '');
+                if (!target) return;
+                const shouldOpen = helpBtn.getAttribute('aria-expanded') !== 'true';
+                closeHelpPopovers(shouldOpen ? helpBtn : null);
+                return;
+            }
+            if (!e.target.closest('[data-help-scope]')) {
                 closeHelpPopovers();
             }
         });

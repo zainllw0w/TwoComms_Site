@@ -60,8 +60,19 @@
             {% for label, items in grouped_clients %}
             <div class="date-group">
                 <div class="date-chip">{{ label }}</div>
-                <div class="table-shell">
+                <div class="table-shell table-shell--client-list">
                     <table class="nexus-table">
+                        <colgroup>
+                            <col class="col-shop">
+                            <col class="col-phone">
+                            <col class="col-site">
+                            <col class="col-name">
+                            <col class="col-status">
+                            <col class="col-source">
+                            <col class="col-result">
+                            <col class="col-next-call">
+                            <col class="col-action">
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th>Магазин/Insta</th>
@@ -138,19 +149,40 @@
                                 <td data-label="Джерело" class="cell-source">{{ client.source }}</td>
                                 <td data-label="Результат" class="cell-result">
                                     <div class="result-stack">
-                                        <span class="result-badge result-{{ client.call_result }}">{{ client.call_result_display }}</span>
-                                        {% if client.call_result_details %}<span class="muted-detail">{{ client.call_result_details }}</span>{% endif %}
+                                        <div class="result-help-anchor"{% if client.call_result_details %} data-help-scope{% endif %}>
+                                            <div class="result-summary">
+                                                <span class="result-badge result-{{ client.call_result }}">{{ client.call_result_display }}</span>
+                                                {% if client.call_result_details %}
+                                                <button type="button"
+                                                        class="result-detail-trigger info-dot"
+                                                        data-help-target="client-result-help-{{ client.id }}"
+                                                        aria-controls="client-result-help-{{ client.id }}"
+                                                        aria-expanded="false"
+                                                        aria-label="Показати деталі результату">?</button>
+                                                {% endif %}
+                                            </div>
+                                            {% if client.call_result_details %}
+                                            <div class="help-popover help-popover--row-result" id="client-result-help-{{ client.id }}" role="tooltip" hidden>
+                                                <strong>Деталі результату</strong>
+                                                <span class="help-popover__body help-popover__body--multiline">{{ client.call_result_details }}</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                 </td>
                                 <td data-label="Наступний дзвінок" class="cell-next-call">
                                     {% if client.next_call_date %}
                                         <div class="callback-next-call">
-                                            <span>{{ client.next_call }}</span>
-                                            {% if client.callback_status_label %}
-                                            <small class="callback-state callback-state--{{ client.callback_state }}">{{ client.callback_status_label }}</small>
-                                            {% endif %}
-                                            {% if client.show_phase_badge %}
-                                            <small class="phase-indicator">{{ client.next_phase_label }}</small>
+                                            <span class="callback-next-call__time">{{ client.next_call }}</span>
+                                            {% if client.callback_status_label or client.show_phase_badge %}
+                                            <div class="callback-next-call__meta">
+                                                {% if client.callback_status_label %}
+                                                <small class="callback-state callback-state--{{ client.callback_state }}">{{ client.callback_status_label }}</small>
+                                                {% endif %}
+                                                {% if client.show_phase_badge %}
+                                                <small class="phase-indicator">{{ client.next_phase_label }}</small>
+                                                {% endif %}
+                                            </div>
                                             {% endif %}
                                         </div>
                                     {% else %}
@@ -161,26 +193,28 @@
                                     <div class="action-rail action-rail--overlay">
                                         <div class="action-rail__stack action-rail__stack--vertical{% if client.callback_available %} action-rail__stack--has-callback{% endif %}">
                                             {% if client.callback_available %}
-                                            <button type="button" class="action-rail__callback callback-client" aria-label="Передзвонити" title="Передзвонити">
-                                                <span class="action-rail__callback-text">Передзвонити</span>
+                                            <button type="button" class="action-rail__callback callback-client" aria-label="Наступна фаза" title="Наступна фаза">
+                                                <span class="action-rail__callback-text">Наступна фаза</span>
                                                 <span class="action-rail__icon" aria-hidden="true">
-                                                    <svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.72 11.72 0 003.67.59 1 1 0 011 1V20a1 1 0 01-1 1C10.75 21 3 13.25 3 4a1 1 0 011-1h3.47a1 1 0 011 1 11.72 11.72 0 00.59 3.67 1 1 0 01-.24 1.01l-2.2 2.11z"/></svg>
+                                                    <svg viewBox="0 0 24 24"><path d="M5 6h8v2H5V6zm0 5h8v2H5v-2zm0 5h8v2H5v-2zm10-8 5 4-5 4v-3h-2v-2h2V8z"/></svg>
                                                 </span>
                                             </button>
                                             {% endif %}
-                                            <button type="button" class="icon-btn action-rail__utility edit-client" aria-label="Редагувати">
-                                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                                    <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
-                                                </svg>
-                                            </button>
-                                            <form method="post" action="{% url 'management_delete_client' client.id %}" class="inline-form delete-client-form">
-                                                {% csrf_token %}
-                                                <button type="submit" class="icon-btn ghost danger action-rail__utility" aria-label="Видалити" onclick="return confirm('Видалити клієнта?');">
+                                            <div class="action-rail__utilities">
+                                                <button type="button" class="icon-btn action-rail__utility edit-client" aria-label="Редагувати">
                                                     <svg viewBox="0 0 24 24" aria-hidden="true">
-                                                        <path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"/>
+                                                        <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
                                                     </svg>
                                                 </button>
-                                            </form>
+                                                <form method="post" action="{% url 'management_delete_client' client.id %}" class="inline-form delete-client-form">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="icon-btn ghost danger action-rail__utility" aria-label="Видалити" onclick="return confirm('Видалити клієнта?');">
+                                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                            <path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"/>
+                                                        </svg>
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </div>
                                     </div>
                                 </td>
@@ -1032,6 +1066,46 @@ function initManagementHomePage() {
         return `${text.slice(0, limit - 1).trimEnd()}…`;
     };
 
+    const buildResultCellHtml = (client) => {
+        const detail = String(client.call_result_details || '').trim();
+        const helpId = `client-result-help-${client.id}`;
+        return `<div class="result-stack">
+            <div class="result-help-anchor"${detail ? ' data-help-scope' : ''}>
+                <div class="result-summary">
+                    <span class="result-badge result-${client.call_result}">${escapeHtml(client.call_result_display)}</span>
+                    ${detail ? `<button type="button" class="result-detail-trigger info-dot" data-help-target="${helpId}" aria-controls="${helpId}" aria-expanded="false" aria-label="Показати деталі результату">?</button>` : ''}
+                </div>
+                ${detail ? `<div class="help-popover help-popover--row-result" id="${helpId}" role="tooltip" hidden><strong>Деталі результату</strong><span class="help-popover__body help-popover__body--multiline">${escapeHtml(detail)}</span></div>` : ''}
+            </div>
+        </div>`;
+    };
+
+    const buildNextCallHtml = (client, callbackStatus) => {
+        if (!client.next_call || client.next_call === '–') return '–';
+        return `<div class="callback-next-call">
+            <span class="callback-next-call__time">${escapeHtml(client.next_call)}</span>
+            ${(callbackStatus || client.show_phase_badge) ? `<div class="callback-next-call__meta">${callbackStatus}${client.show_phase_badge ? `<small class="phase-indicator">${escapeHtml(client.next_phase_label || '')}</small>` : ''}</div>` : ''}
+        </div>`;
+    };
+
+    const buildCallbackActionHtml = (client, deleteUrl, csrfToken) => `
+        <div class="action-rail action-rail--overlay">
+            <div class="action-rail__stack action-rail__stack--vertical${client.callback_available ? ' action-rail__stack--has-callback' : ''}">
+                ${client.callback_available ? `<button type="button" class="action-rail__callback callback-client" aria-label="Наступна фаза" title="Наступна фаза"><span class="action-rail__callback-text">Наступна фаза</span><span class="action-rail__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 6h8v2H5V6zm0 5h8v2H5v-2zm0 5h8v2H5v-2zm10-8 5 4-5 4v-3h-2v-2h2V8z"></path></svg></span></button>` : ''}
+                <div class="action-rail__utilities">
+                    <button type="button" class="icon-btn action-rail__utility edit-client" aria-label="Редагувати">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"></path></svg>
+                    </button>
+                    <form method="post" action="${deleteUrl}" class="inline-form delete-client-form">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+                        <button type="submit" class="icon-btn ghost danger action-rail__utility" aria-label="Видалити" onclick="return confirm('Видалити клієнта?');">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"></path></svg>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>`;
+
     const fillSelectOptions = (select, items, placeholder, valueKey = 'id', labelKey = 'label') => {
         if (!select) return;
         const current = select.dataset.prefill || select.value;
@@ -1737,24 +1811,9 @@ function initManagementHomePage() {
                     <td data-label="ПІБ" class="cell-name">${escapeHtml(client.full_name || '—')}</td>
                     <td data-label="Статус" class="cell-status"><span class="status-badge role-${client.role}">${escapeHtml(client.role_display)}</span></td>
                     <td data-label="Джерело" class="cell-source">${escapeHtml(client.source || '—')}</td>
-                    <td data-label="Результат" class="cell-result"><div class="result-stack"><span class="result-badge result-${client.call_result}">${escapeHtml(client.call_result_display)}</span>${client.call_result_details ? `<span class="muted-detail">${escapeHtml(client.call_result_details)}</span>` : ''}</div></td>
-                    <td data-label="Наступний дзвінок" class="cell-next-call">${client.next_call ? `<div class="callback-next-call"><span>${escapeHtml(client.next_call)}</span>${callbackStatus}${client.show_phase_badge ? `<small class="phase-indicator">${escapeHtml(client.next_phase_label || '')}</small>` : ''}</div>` : '–'}</td>
-                    <td data-label="Дія" class="actions-cell actions-cell--callbacks">
-                        <div class="action-rail action-rail--overlay">
-                        <div class="action-rail__stack action-rail__stack--vertical${client.callback_available ? ' action-rail__stack--has-callback' : ''}">
-                        ${client.callback_available ? `<button type="button" class="action-rail__callback callback-client" aria-label="Передзвонити" title="Передзвонити"><span class="action-rail__callback-text">Передзвонити</span><span class="action-rail__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.72 11.72 0 003.67.59 1 1 0 011 1V20a1 1 0 01-1 1C10.75 21 3 13.25 3 4a1 1 0 011-1h3.47a1 1 0 011 1 11.72 11.72 0 00.59 3.67 1 1 0 01-.24 1.01l-2.2 2.11z"></path></svg></span></button>` : ''}
-                            <button type="button" class="icon-btn action-rail__utility edit-client" aria-label="Редагувати">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"></path></svg>
-                            </button>
-                            <form method="post" action="${deleteUrl}" class="inline-form delete-client-form">
-                                <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
-                                <button type="submit" class="icon-btn ghost danger action-rail__utility" aria-label="Видалити" onclick="return confirm('Видалити клієнта?');">
-                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"></path></svg>
-                                </button>
-                            </form>
-                        </div>
-                        </div>
-                    </td>
+                    <td data-label="Результат" class="cell-result">${buildResultCellHtml(client)}</td>
+                    <td data-label="Наступний дзвінок" class="cell-next-call">${buildNextCallHtml(client, callbackStatus)}</td>
+                    <td data-label="Дія" class="actions-cell actions-cell--callbacks">${buildCallbackActionHtml(client, deleteUrl, csrfToken)}</td>
                 </tr>`;
     };
 
