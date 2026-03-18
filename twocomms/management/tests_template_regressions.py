@@ -216,3 +216,10 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
             )
 
         self.assertIn("if (document.hidden) return;", html)
+
+    def test_base_template_uses_generic_help_popover_scope_instead_of_daily_stats_only(self):
+        html = Path("twocomms/management/templates/management/base.html").read_text()
+
+        self.assertIn("data-help-scope", html)
+        self.assertIn("closest('[data-help-scope]')", html)
+        self.assertNotIn("closest('.daily-stats-head')", html)

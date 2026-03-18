@@ -453,3 +453,38 @@ class HomePageModalMarkupTests(TestCase):
         }
         payload = flat["Early Phase Shop"]
         self.assertFalse(payload["show_phase_badge"])
+
+    def test_home_page_renders_result_help_trigger_instead_of_inline_details(self):
+        Client.objects.create(
+            shop_name="Popover Shop",
+            phone="+380671110199",
+            full_name="Popover Owner",
+            owner=self.user,
+            call_result=Client.CallResult.NO_ANSWER,
+            call_result_details="Причина: Голосова пошта\nУточнення: відповів бот",
+        )
+
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="result-detail-trigger info-dot"')
+        self.assertContains(response, 'data-help-target="client-result-help-')
+        self.assertContains(response, 'id="client-result-help-')
+        self.assertNotContains(response, 'class="muted-detail"')
+
+    def test_home_page_skips_result_help_trigger_without_details_and_uses_next_phase_cta(self):
+        Client.objects.create(
+            shop_name="Next Phase Shop",
+            phone="+380671110200",
+            full_name="Next Phase Owner",
+            owner=self.user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=timezone.now() + timedelta(hours=3),
+        )
+
+        response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Наступна фаза")
+        self.assertNotContains(response, "Передзвонити")
+        self.assertNotContains(response, 'data-help-target="client-result-help-')
