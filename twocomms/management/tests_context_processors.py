@@ -46,5 +46,5 @@ class ManagementShellContextTests(SimpleTestCase):
 
         mocked_build.assert_called_once_with(request.user, None)
         self.assertEqual(context["management_shell_role_label"], "Адміністратор")
-        self.assertEqual(context["management_shell_stats_url"], "/stats/admin/")
+        self.assertEqual(context["management_shell_stats_url"], "/stats/")
         self.assertEqual(context["management_shell_payout_url"], "/payouts/")

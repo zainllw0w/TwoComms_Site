@@ -113,7 +113,9 @@ def management_shell_context(request):
         return {}
 
     try:
-        stats_url = reverse("management_stats_admin" if user.is_staff and not getattr(profile, "is_manager", False) else "management_stats")
+        # The profile shortcut must always open the current user's own stats page,
+        # not the admin-wide manager list.
+        stats_url = reverse("management_stats")
     except NoReverseMatch:
         stats_url = ""
 
