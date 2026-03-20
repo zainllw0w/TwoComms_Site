@@ -627,8 +627,8 @@ def _serialize_client_for_home(client: Client, today, *, family_state: dict | No
         and not next_call_local
         and (followup_mode == "no_follow" or legacy_closed_followup)
     ):
-        next_call_closed_label = "Подальший контакт не потрібен"
-        next_call_closed_meta = "Неконверсійний клієнт"
+        next_call_closed_label = "Неконверсійний"
+        next_call_closed_meta = "Контакт закрито"
         allow_followup_reopen = True
     callback_attention_state = _build_callback_attention_state(
         due_local=next_call_local,

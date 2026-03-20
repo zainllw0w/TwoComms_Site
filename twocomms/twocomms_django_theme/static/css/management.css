@@ -7226,7 +7226,7 @@ body[data-row-mode="condensed"] .callback-next-call small {
 }
 
 .callback-next-call--closed {
-    gap: 5px;
+    gap: 7px;
 }
 
 .callback-next-call__time {
@@ -7247,10 +7247,6 @@ body[data-row-mode="condensed"] .callback-next-call small {
     justify-content: center;
 }
 
-.callback-next-call__meta--closed {
-    gap: 8px;
-}
-
 .callback-next-call small {
     margin-top: 0;
 }
@@ -7265,27 +7261,61 @@ body[data-row-mode="condensed"] .callback-next-call small {
     line-height: 1.1;
 }
 
-.callback-state--closed_non_conversion {
-    color: #fcd34d;
-    border-color: rgba(251, 191, 36, 0.16);
-    background: rgba(120, 53, 15, 0.22);
+.callback-next-call__closed-panel {
+    display: grid;
+    gap: 3px;
+    justify-items: center;
+    min-width: 148px;
+    padding: 10px 14px 9px;
+    border-radius: 18px;
+    border: 1px solid rgba(245, 158, 11, 0.11);
+    background:
+        radial-gradient(circle at top, rgba(245, 158, 11, 0.1), transparent 68%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(15, 23, 42, 0.16));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.callback-next-call__closed-panel::before {
+    content: "";
+    width: 28px;
+    height: 2px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.46);
+    margin-bottom: 1px;
+}
+
+.callback-next-call__closed-title {
+    font-size: 0.84rem;
+    line-height: 1.08;
+    font-weight: 700;
+    color: rgba(248, 198, 78, 0.96);
+}
+
+.callback-next-call__closed-note {
+    font-size: 0.61rem;
+    line-height: 1.15;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(203, 213, 225, 0.74);
 }
 
 .callback-next-call__reopen {
     padding: 0;
     border: 0;
     background: transparent;
-    color: #93c5fd;
-    font-size: 0.72rem;
-    line-height: 1.1;
-    letter-spacing: 0.02em;
+    color: rgba(191, 219, 254, 0.84);
+    font-size: 0.69rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.04em;
     cursor: pointer;
-    transition: color 0.18s ease, opacity 0.18s ease;
+    transition: color 0.18s ease, opacity 0.18s ease, transform 0.18s ease;
 }
 
 @media (hover: hover) {
     .callback-next-call__reopen:hover {
-        color: #bfdbfe;
+        color: #dbeafe;
+        transform: translateY(-1px);
     }
 }
 

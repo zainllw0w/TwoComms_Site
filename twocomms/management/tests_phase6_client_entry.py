@@ -328,8 +328,8 @@ class HomeClientEntryValidationTests(TestCase):
         self.assertEqual(created.next_call_at, None)
         self.assertEqual(created.call_result_context.get("followup_mode"), "no_follow")
         latest = response.json()["latest"]
-        self.assertEqual(latest["next_call_closed_label"], "Подальший контакт не потрібен")
-        self.assertEqual(latest["next_call_closed_meta"], "Неконверсійний клієнт")
+        self.assertEqual(latest["next_call_closed_label"], "Неконверсійний")
+        self.assertEqual(latest["next_call_closed_meta"], "Контакт закрито")
         self.assertTrue(latest["allow_followup_reopen"])
 
     def test_callback_continue_creates_new_today_phase_client_and_skips_duplicate_review(self):

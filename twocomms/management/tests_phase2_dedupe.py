@@ -300,8 +300,8 @@ class LeadProcessDedupeApiTests(TestCase):
         self.assertEqual(created.call_result_context.get("followup_mode"), "no_follow")
         self.assertIsNone(created.next_call_at)
         payload = response.json()["client"]
-        self.assertEqual(payload["next_call_closed_label"], "Подальший контакт не потрібен")
-        self.assertEqual(payload["next_call_closed_meta"], "Неконверсійний клієнт")
+        self.assertEqual(payload["next_call_closed_label"], "Неконверсійний")
+        self.assertEqual(payload["next_call_closed_meta"], "Контакт закрито")
         self.assertTrue(payload["allow_followup_reopen"])
 
 

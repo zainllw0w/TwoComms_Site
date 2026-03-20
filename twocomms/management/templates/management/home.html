@@ -205,15 +205,18 @@
                                         </div>
                                     {% elif client.next_call_closed_label %}
                                         <div class="callback-next-call callback-next-call--closed">
-                                            <span class="callback-next-call__time callback-next-call__time--quiet">{{ client.next_call_closed_label }}</span>
-                                            <div class="callback-next-call__meta callback-next-call__meta--closed">
+                                            <div class="callback-next-call__closed-panel">
+                                                <span class="callback-next-call__closed-title">{{ client.next_call_closed_label }}</span>
                                                 {% if client.next_call_closed_meta %}
-                                                <small class="callback-state callback-state--closed_non_conversion">{{ client.next_call_closed_meta }}</small>
-                                                {% endif %}
-                                                {% if client.allow_followup_reopen %}
-                                                <button type="button" class="callback-next-call__reopen reopen-followup-client">Повернути в роботу</button>
+                                                <small class="callback-next-call__closed-note">{{ client.next_call_closed_meta }}</small>
                                                 {% endif %}
                                             </div>
+                                            {% if client.allow_followup_reopen %}
+                                            <button type="button"
+                                                    class="callback-next-call__reopen reopen-followup-client"
+                                                    aria-label="Повернути в роботу"
+                                                    title="Повернути в роботу">Повернути</button>
+                                            {% endif %}
                                         </div>
                                     {% else %}
                                         –
@@ -1140,11 +1143,11 @@ function initManagementHomePage() {
     const buildNextCallHtml = (client, callbackStatus) => {
         if (client.next_call_closed_label) {
             return `<div class="callback-next-call callback-next-call--closed">
-                <span class="callback-next-call__time callback-next-call__time--quiet">${escapeHtml(client.next_call_closed_label)}</span>
-                <div class="callback-next-call__meta callback-next-call__meta--closed">
-                    ${client.next_call_closed_meta ? `<small class="callback-state callback-state--closed_non_conversion">${escapeHtml(client.next_call_closed_meta)}</small>` : ''}
-                    ${client.allow_followup_reopen ? '<button type="button" class="callback-next-call__reopen reopen-followup-client">Повернути в роботу</button>' : ''}
+                <div class="callback-next-call__closed-panel">
+                    <span class="callback-next-call__closed-title">${escapeHtml(client.next_call_closed_label)}</span>
+                    ${client.next_call_closed_meta ? `<small class="callback-next-call__closed-note">${escapeHtml(client.next_call_closed_meta)}</small>` : ''}
                 </div>
+                ${client.allow_followup_reopen ? '<button type="button" class="callback-next-call__reopen reopen-followup-client" aria-label="Повернути в роботу" title="Повернути в роботу">Повернути</button>' : ''}
             </div>`;
         }
         if (!client.next_call || client.next_call === '–') return '–';

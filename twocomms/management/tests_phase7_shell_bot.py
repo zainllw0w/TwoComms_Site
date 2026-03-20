@@ -344,12 +344,12 @@ class HomeShellRenderTests(TestCase):
             for item in rows
             if item["id"] == client.id and item.get("row_kind") == "client"
         )
-        self.assertEqual(payload["next_call_closed_label"], "Подальший контакт не потрібен")
-        self.assertEqual(payload["next_call_closed_meta"], "Неконверсійний клієнт")
+        self.assertEqual(payload["next_call_closed_label"], "Неконверсійний")
+        self.assertEqual(payload["next_call_closed_meta"], "Контакт закрито")
         self.assertTrue(payload["allow_followup_reopen"])
-        self.assertContains(response, "Подальший контакт не потрібен")
-        self.assertContains(response, "Неконверсійний клієнт")
-        self.assertContains(response, "Повернути в роботу")
+        self.assertContains(response, "Неконверсійний")
+        self.assertContains(response, "Контакт закрито")
+        self.assertContains(response, "Повернути")
 
     def test_home_renders_legacy_thinking_without_followup_as_closed_non_conversion(self):
         user = get_user_model().objects.create_user(username="legacy_closed_mgr", password="x")
@@ -379,11 +379,11 @@ class HomeShellRenderTests(TestCase):
             for item in rows
             if item["id"] == client.id and item.get("row_kind") == "client"
         )
-        self.assertEqual(payload["next_call_closed_label"], "Подальший контакт не потрібен")
-        self.assertEqual(payload["next_call_closed_meta"], "Неконверсійний клієнт")
+        self.assertEqual(payload["next_call_closed_label"], "Неконверсійний")
+        self.assertEqual(payload["next_call_closed_meta"], "Контакт закрито")
         self.assertTrue(payload["allow_followup_reopen"])
-        self.assertContains(response, "Подальший контакт не потрібен")
-        self.assertContains(response, "Неконверсійний клієнт")
+        self.assertContains(response, "Неконверсійний")
+        self.assertContains(response, "Контакт закрито")
 
     def test_home_keeps_plain_dash_for_thinking_without_followup_when_details_exist(self):
         user = get_user_model().objects.create_user(username="plain_thinking_mgr", password="x")
