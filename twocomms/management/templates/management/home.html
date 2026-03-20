@@ -210,13 +210,13 @@
                                                 {% if client.next_call_closed_meta %}
                                                 <small class="callback-next-call__closed-note">{{ client.next_call_closed_meta }}</small>
                                                 {% endif %}
+                                                {% if client.allow_followup_reopen %}
+                                                <button type="button"
+                                                        class="callback-next-call__reopen reopen-followup-client"
+                                                        aria-label="Повернути в роботу"
+                                                        title="Повернути в роботу">Повернути</button>
+                                                {% endif %}
                                             </div>
-                                            {% if client.allow_followup_reopen %}
-                                            <button type="button"
-                                                    class="callback-next-call__reopen reopen-followup-client"
-                                                    aria-label="Повернути в роботу"
-                                                    title="Повернути в роботу">Повернути</button>
-                                            {% endif %}
                                         </div>
                                     {% else %}
                                         –
@@ -1146,8 +1146,8 @@ function initManagementHomePage() {
                 <div class="callback-next-call__closed-panel">
                     <span class="callback-next-call__closed-title">${escapeHtml(client.next_call_closed_label)}</span>
                     ${client.next_call_closed_meta ? `<small class="callback-next-call__closed-note">${escapeHtml(client.next_call_closed_meta)}</small>` : ''}
+                    ${client.allow_followup_reopen ? '<button type="button" class="callback-next-call__reopen reopen-followup-client" aria-label="Повернути в роботу" title="Повернути в роботу">Повернути</button>' : ''}
                 </div>
-                ${client.allow_followup_reopen ? '<button type="button" class="callback-next-call__reopen reopen-followup-client" aria-label="Повернути в роботу" title="Повернути в роботу">Повернути</button>' : ''}
             </div>`;
         }
         if (!client.next_call || client.next_call === '–') return '–';
