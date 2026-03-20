@@ -12,6 +12,8 @@ from management.forms import CommercialOfferEmailForm
 
 class _DummyUser:
     def __init__(self):
+        self.id = 1
+        self.pk = 1
         self.is_authenticated = True
         self.is_staff = True
         self.username = "template_admin"
@@ -44,12 +46,17 @@ class _DummyUser:
     def get_full_name(self):
         return "Template Admin"
 
+    def __int__(self):
+        return int(self.id)
+
 
 @override_settings(
     ROOT_URLCONF="twocomms.urls_management",
     ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1", "management.twocomms.shop"],
 )
 class ManagementTemplateRegressionTests(SimpleTestCase):
+    databases = {"default"}
+
     def setUp(self):
         self.factory = RequestFactory()
 
