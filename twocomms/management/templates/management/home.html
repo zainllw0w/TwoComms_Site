@@ -203,6 +203,18 @@
                                             </div>
                                             {% endif %}
                                         </div>
+                                    {% elif client.next_call_closed_label %}
+                                        <div class="callback-next-call callback-next-call--closed">
+                                            <span class="callback-next-call__time callback-next-call__time--quiet">{{ client.next_call_closed_label }}</span>
+                                            <div class="callback-next-call__meta callback-next-call__meta--closed">
+                                                {% if client.next_call_closed_meta %}
+                                                <small class="callback-state callback-state--closed_non_conversion">{{ client.next_call_closed_meta }}</small>
+                                                {% endif %}
+                                                {% if client.allow_followup_reopen %}
+                                                <button type="button" class="callback-next-call__reopen reopen-followup-client">Повернути в роботу</button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
                                     {% else %}
                                         –
                                     {% endif %}
@@ -555,8 +567,8 @@
                             </label>
                         </div>
                         <div class="next-call-datetime" id="next_call_datetime">
-                            <input type="date" id="next_call_date" name="next_call_date">
-                            <input type="time" id="next_call_time" name="next_call_time">
+                            <input type="text" id="next_call_date" name="next_call_date" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="2026-03-25" aria-label="Дата передзвону">
+                            <input type="time" id="next_call_time" name="next_call_time" step="60" aria-label="Час передзвону">
                         </div>
                         <div class="tg-followup-cta" id="telegram_followup_cta" hidden>
                             <strong>Підключіть Telegram-бота.</strong>
@@ -828,8 +840,8 @@
                         </label>
                     </div>
                     <div class="next-call-datetime" id="process_next_call_datetime">
-                        <input type="date" id="process_next_call_date" name="next_call_date">
-                        <input type="time" id="process_next_call_time" name="next_call_time">
+                        <input type="text" id="process_next_call_date" name="next_call_date" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="2026-03-25" aria-label="Дата передзвону">
+                        <input type="time" id="process_next_call_time" name="next_call_time" step="60" aria-label="Час передзвону">
                     </div>
                 </div>
             </div>
@@ -880,12 +892,7 @@ function initManagementHomePage() {
     const buildNextAllowedCallDate = () => {
         const nextAllowed = new Date();
         nextAllowed.setSeconds(0, 0);
-        nextAllowed.setMinutes(nextAllowed.getMinutes() + 30);
-        const minuteStep = 5;
-        const overflow = nextAllowed.getMinutes() % minuteStep;
-        if (overflow) {
-            nextAllowed.setMinutes(nextAllowed.getMinutes() + (minuteStep - overflow));
-        }
+        nextAllowed.setMinutes(nextAllowed.getMinutes() + 1);
         return nextAllowed;
     };
 
@@ -1131,6 +1138,15 @@ function initManagementHomePage() {
     };
 
     const buildNextCallHtml = (client, callbackStatus) => {
+        if (client.next_call_closed_label) {
+            return `<div class="callback-next-call callback-next-call--closed">
+                <span class="callback-next-call__time callback-next-call__time--quiet">${escapeHtml(client.next_call_closed_label)}</span>
+                <div class="callback-next-call__meta callback-next-call__meta--closed">
+                    ${client.next_call_closed_meta ? `<small class="callback-state callback-state--closed_non_conversion">${escapeHtml(client.next_call_closed_meta)}</small>` : ''}
+                    ${client.allow_followup_reopen ? '<button type="button" class="callback-next-call__reopen reopen-followup-client">Повернути в роботу</button>' : ''}
+                </div>
+            </div>`;
+        }
         if (!client.next_call || client.next_call === '–') return '–';
         return `<div class="callback-next-call">
             <span class="callback-next-call__time">${escapeHtml(client.next_call)}</span>
@@ -1482,6 +1498,19 @@ function initManagementHomePage() {
         } else {
             syncNextCallConstraints(dateInput, timeInput);
         }
+    };
+
+    const primeScheduledFollowup = (radios, wrap, dateInput, timeInput) => {
+        const scheduledRadio = Array.from(radios).find((radio) => radio.value === 'scheduled');
+        if (scheduledRadio) {
+            scheduledRadio.checked = true;
+        }
+        if (!dateInput.value || !timeInput.value) {
+            setDefaultDateTime(dateInput, timeInput);
+        } else {
+            syncNextCallConstraints(dateInput, timeInput);
+        }
+        toggleNextCall(radios, wrap, dateInput, timeInput);
     };
 
     const mapSourceValue = (sourceText) => {
@@ -2240,6 +2269,18 @@ function initManagementHomePage() {
             modalTitle.textContent = `${row.dataset.nextPhaseLabel || 'Фаза 2'} передзвону`;
             modalSubmit.textContent = `Зберегти ${row.dataset.nextPhaseLabel || 'фазу передзвону'}`;
             openModal(clientModal);
+            return;
+        }
+        const reopenBtn = e.target.closest('.reopen-followup-client');
+        if (reopenBtn) {
+            const row = reopenBtn.closest('tr');
+            if (!row) return;
+            fillClientFormForEdit(row);
+            primeScheduledFollowup(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime);
+            modalTitle.textContent = 'Повернути клієнта в роботу';
+            modalSubmit.textContent = 'Зберегти follow-up';
+            openModal(clientModal);
+            nextCallDate?.focus();
             return;
         }
         const jumpBtn = e.target.closest('.phase-jump-client');

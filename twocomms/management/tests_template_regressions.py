@@ -230,3 +230,21 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
         self.assertIn("data-help-scope", html)
         self.assertIn("closest('[data-help-scope]')", html)
         self.assertNotIn("closest('.daily-stats-head')", html)
+
+    def test_home_template_uses_text_date_inputs_and_one_minute_followup_floor(self):
+        html = Path("twocomms/management/templates/management/home.html").read_text(encoding="utf-8")
+
+        self.assertIn('<input type="text" id="next_call_date" name="next_call_date"', html)
+        self.assertIn('<input type="text" id="process_next_call_date" name="next_call_date"', html)
+        self.assertIn('inputmode="numeric"', html)
+        self.assertIn("nextAllowed.setMinutes(nextAllowed.getMinutes() + 1);", html)
+        self.assertNotIn("nextAllowed.setMinutes(nextAllowed.getMinutes() + 30);", html)
+        self.assertNotIn("const minuteStep = 5;", html)
+
+    def test_management_css_centers_next_call_stack(self):
+        css = Path("twocomms/twocomms_django_theme/static/css/management.css").read_text(encoding="utf-8")
+
+        self.assertIn(".cell-next-call {", css)
+        self.assertIn("text-align: center;", css)
+        self.assertIn("justify-items: center;", css)
+        self.assertIn("justify-content: center;", css)
