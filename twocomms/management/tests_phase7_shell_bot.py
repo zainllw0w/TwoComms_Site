@@ -346,10 +346,12 @@ class HomeShellRenderTests(TestCase):
         )
         self.assertEqual(payload["next_call_closed_label"], "Неконверсійний")
         self.assertEqual(payload["next_call_closed_meta"], "закрито")
+        self.assertEqual(payload["callback_visual_state"], "closed_non_conversion")
         self.assertTrue(payload["allow_followup_reopen"])
         self.assertContains(response, "Неконверсійний")
         self.assertContains(response, "закрито")
         self.assertContains(response, "Повернути")
+        self.assertContains(response, "callback-closed-row")
 
     def test_home_renders_legacy_thinking_without_followup_as_closed_non_conversion(self):
         user = get_user_model().objects.create_user(username="legacy_closed_mgr", password="x")
@@ -381,9 +383,11 @@ class HomeShellRenderTests(TestCase):
         )
         self.assertEqual(payload["next_call_closed_label"], "Неконверсійний")
         self.assertEqual(payload["next_call_closed_meta"], "закрито")
+        self.assertEqual(payload["callback_visual_state"], "closed_non_conversion")
         self.assertTrue(payload["allow_followup_reopen"])
         self.assertContains(response, "Неконверсійний")
         self.assertContains(response, "закрито")
+        self.assertContains(response, "callback-closed-row")
 
     def test_home_keeps_plain_dash_for_thinking_without_followup_when_details_exist(self):
         user = get_user_model().objects.create_user(username="plain_thinking_mgr", password="x")
