@@ -581,7 +581,7 @@ def _serialize_client_for_home(client: Client, today, *, family_state: dict | No
             phase_action_state = 'none'
     elif not phase_state["phase_is_latest"]:
         phase_action_state = 'jump'
-    elif callback_available and not phase_state["latest_created_today"]:
+    elif callback_available:
         phase_action_state = 'create'
     show_phase_badge = callback_available and phase_number >= 2
     hostname_display = _hostname_display(client.website_url)
@@ -589,7 +589,7 @@ def _serialize_client_for_home(client: Client, today, *, family_state: dict | No
     callback_visual_state = callback_state if callback_state != "none" else "normal"
     if next_call_local and next_call_local.date() < today and callback_state == "missed":
         callback_visual_state = "needs_contact"
-        callback_status_label = "Потребує зв'язку"
+        callback_status_label = "Пропущений дзвінок"
     elif phase_state.get("has_today_projection"):
         callback_visual_state = "today_projection"
     callback_attention_state = _build_callback_attention_state(

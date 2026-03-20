@@ -55,7 +55,7 @@ class HomeShellRenderTests(TestCase):
         self.assertEqual(projection_payload["phase_action_state"], "create")
         self.assertTrue(projection_payload["callback_available"])
 
-    def test_home_renders_jump_cta_for_previous_phase_and_no_primary_cta_for_today_latest(self):
+    def test_home_renders_jump_cta_for_previous_phase_and_keeps_primary_cta_for_today_latest(self):
         user = get_user_model().objects.create_user(username="shell_phase_jump", password="x", is_staff=True)
         self.client.force_login(user)
         phase1 = Client.objects.create(
@@ -86,8 +86,9 @@ class HomeShellRenderTests(TestCase):
         items = [item for _, rows in grouped for item in rows if item["phone"] == phase1.phone]
         by_id = {item["id"]: item for item in items}
         self.assertEqual(by_id[phase1.id]["phase_action_state"], "jump")
-        self.assertEqual(by_id[phase2.id]["phase_action_state"], "none")
+        self.assertEqual(by_id[phase2.id]["phase_action_state"], "create")
         self.assertContains(response, "До активної фази")
+        self.assertContains(response, "Наступна фаза")
         self.assertContains(response, f'id="client-row-{phase1.id}"')
         self.assertContains(response, f'id="client-row-{phase2.id}"')
 
@@ -179,8 +180,50 @@ class HomeShellRenderTests(TestCase):
         self.assertTrue(due_source["has_today_projection"])
         self.assertEqual(due_source["phase_action_state"], "none")
         self.assertEqual(overdue_source["callback_attention_state"], "needs_contact")
-        self.assertEqual(overdue_source["callback_status_label"], "Потребує зв'язку")
+        self.assertEqual(overdue_source["callback_status_label"], "Пропущений дзвінок")
         self.assertEqual(overdue_source["phase_action_state"], "create")
+
+    def test_home_keeps_today_latest_cta_visible_and_marks_attention_soon(self):
+        user = get_user_model().objects.create_user(username="callback_today_latest_mgr", password="x")
+        profile = UserProfile.objects.get(user=user)
+        profile.is_manager = True
+        profile.save(update_fields=["is_manager"])
+        self.client.force_login(user)
+
+        tz = timezone.get_current_timezone()
+        now_local = timezone.make_aware(datetime(2026, 3, 20, 3, 5), tz)
+        due_at = timezone.make_aware(datetime(2026, 3, 20, 3, 30), tz)
+        client = Client.objects.create(
+            shop_name="Today Latest Shop",
+            phone="+380671009105",
+            full_name="Today Latest Owner",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=due_at,
+        )
+        ClientFollowUp.objects.create(
+            client=client,
+            owner=user,
+            due_at=due_at,
+            due_date=due_at.date(),
+            grace_until=due_at + timedelta(hours=2),
+        )
+
+        with patch("management.views.timezone.now", return_value=now_local), patch(
+            "management.views.timezone.localdate", return_value=now_local.date()
+        ), patch("management.services.followup_state.timezone.now", return_value=now_local):
+            response = self.get_home()
+
+        self.assertEqual(response.status_code, 200)
+        grouped = response.context["grouped_clients"]
+        payload = next(
+            item
+            for _, rows in grouped
+            for item in rows
+            if item["shop"] == "Today Latest Shop" and item.get("row_kind") == "client"
+        )
+        self.assertEqual(payload["phase_action_state"], "create")
+        self.assertEqual(payload["callback_attention_state"], "attention_soon")
 
     def test_home_renders_updated_daily_zones_and_secondary_shell_chips(self):
         user = get_user_model().objects.create_user(username="shell_metrics", password="x", is_staff=True)
