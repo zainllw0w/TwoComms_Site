@@ -17,7 +17,7 @@ from .services.dedupe import (
     resolve_duplicate_review_override,
 )
 from .services.outcomes import format_source_display, next_call_at_from_request, normalize_result_capture, parse_next_call_request
-from .views import _sync_client_followup, get_user_stats, user_is_management
+from .views import _serialize_client_for_home, _sync_client_followup, get_user_stats, user_is_management
 
 
 def _source_display(source: str, source_link: str, source_other: str) -> str:
@@ -174,6 +174,7 @@ def lead_process_api(request, lead_id: int):
     call_result_contact_attempts = (data.get("call_result_contact_attempts") or "").strip()
     call_result_contact_channel = (data.get("call_result_contact_channel") or "").strip()
     manager_note = (data.get("manager_note") or "").strip()
+    next_call_type = (data.get("next_call_type") or "scheduled").strip()
     next_call_at, next_call_error = parse_next_call_request(data, now_dt=timezone.now())
     if next_call_error:
         return JsonResponse({"success": False, "error": next_call_error}, status=400)
@@ -222,6 +223,10 @@ def lead_process_api(request, lead_id: int):
         if evidence["errors"]:
             return JsonResponse({"success": False, "error": evidence["errors"][0]}, status=400)
         result_context, details = merge_result_capture_with_evidence(result_capture, evidence)
+        if next_call_type == "no_follow":
+            result_context["followup_mode"] = "no_follow"
+        else:
+            result_context.pop("followup_mode", None)
         result_capture["context"] = result_context
         result_capture["details"] = details
 
@@ -310,34 +315,7 @@ def lead_process_api(request, lead_id: int):
 
     payload = {
         "success": True,
-        "client": {
-            "id": client.id,
-            "shop": client.shop_name,
-            "phone": client.phone,
-            "website_url": client.website_url,
-            "full_name": client.full_name,
-            "role": client.role,
-            "role_display": client.get_role_display(),
-            "source": client.source,
-            "call_result": client.call_result,
-            "call_result_display": client.get_call_result_display(),
-            "call_result_reason_code": client.call_result_reason_code,
-            "call_result_reason_note": client.call_result_reason_note,
-            "call_result_contact_attempts": (client.call_result_context or {}).get("attempts", ""),
-            "call_result_contact_channel": (client.call_result_context or {}).get("contact_channel", ""),
-            "call_result_details": client.call_result_details,
-            "cp_log_id": (client.call_result_context or {}).get("cp_log_id", ""),
-            "messenger_type": (client.call_result_context or {}).get("messenger_type", ""),
-            "messenger_target_mode": (client.call_result_context or {}).get("messenger_target_mode", ""),
-            "messenger_target_value": (client.call_result_context or {}).get("messenger_target_value", ""),
-            "xml_platform": (client.call_result_context or {}).get("xml_platform", ""),
-            "xml_resource_url": (client.call_result_context or {}).get("xml_resource_url", ""),
-            "linked_shop_id": (client.call_result_context or {}).get("linked_shop_id", ""),
-            "manager_note": client.manager_note,
-            "next_call_date": timezone.localtime(client.next_call_at).strftime("%Y-%m-%d") if client.next_call_at else "",
-            "next_call_time": timezone.localtime(client.next_call_at).strftime("%H:%M") if client.next_call_at else "",
-            "next_call": timezone.localtime(client.next_call_at).strftime("%d.%m.%Y %H:%M") if client.next_call_at else "–",
-        },
+        "client": _serialize_client_for_home(client, timezone.localdate()),
         "lead_id": lead_id,
     }
     payload.update(_stats_payload(request.user))

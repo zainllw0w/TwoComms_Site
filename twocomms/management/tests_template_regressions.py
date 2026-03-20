@@ -248,3 +248,9 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
         self.assertIn("text-align: center;", css)
         self.assertIn("justify-items: center;", css)
         self.assertIn("justify-content: center;", css)
+
+    def test_home_template_confirms_no_follow_selection_before_closing_followup(self):
+        html = Path("twocomms/management/templates/management/home.html").read_text(encoding="utf-8")
+
+        self.assertIn("confirmNoFollowSelection", html)
+        self.assertIn("Неконверсійний клієнт закриє follow-up для цієї картки.", html)
