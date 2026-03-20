@@ -89,7 +89,7 @@
                         <tbody>
                             {% for client in items %}
                             <tr id="{{ client.row_dom_id }}"
-                                class="{% if client.row_kind == 'followup_projection' %}callback-projection-row{% elif client.callback_visual_state == 'needs_contact' %}callback-missed-row{% elif client.callback_pending %}callback-ghost-row{% endif %}"
+                                class="{% if client.row_kind == 'followup_projection' %}callback-projection-row{% elif client.callback_visual_state == 'needs_contact' %}callback-missed-row{% elif client.callback_visual_state == 'closed_non_conversion' %}callback-closed-row{% elif client.callback_pending %}callback-ghost-row{% endif %}"
                                 data-row-kind="{{ client.row_kind|default:'client' }}"
                                 data-row-dom-id="{{ client.row_dom_id }}"
                                 data-client-id="{{ client.source_client_id|default:client.id }}"
@@ -1111,6 +1111,7 @@ function initManagementHomePage() {
     const buildRowStateClass = (client) => {
         if (client.row_kind === 'followup_projection') return 'callback-projection-row';
         if (client.callback_visual_state === 'needs_contact') return 'callback-missed-row';
+        if (client.callback_visual_state === 'closed_non_conversion') return 'callback-closed-row';
         return client.callback_pending ? 'callback-ghost-row' : '';
     };
 

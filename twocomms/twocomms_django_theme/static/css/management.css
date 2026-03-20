@@ -7186,6 +7186,44 @@ body[data-shell-layout="rail"] #sidebar-rail[data-sidebar-ready="true"][data-sid
     background: linear-gradient(180deg, rgba(239, 68, 68, 0.05), rgba(255, 255, 255, 0.012));
 }
 
+.callback-closed-row td {
+    background:
+        linear-gradient(180deg, rgba(9, 13, 20, 0.62), rgba(15, 23, 42, 0.38)),
+        rgba(8, 11, 18, 0.88);
+}
+
+.callback-closed-row .cell-primary,
+.callback-closed-row .cell-phone,
+.callback-closed-row .cell-name,
+.callback-closed-row .cell-source,
+.callback-closed-row .cell-website,
+.callback-closed-row .callback-next-call__time {
+    color: rgba(226, 232, 240, 0.78);
+}
+
+.callback-closed-row .status-badge,
+.callback-closed-row .result-badge {
+    filter: saturate(0.72) brightness(0.9);
+}
+
+.callback-closed-row .site-link-chip,
+.callback-closed-row .action-rail__utility {
+    opacity: 0.72;
+}
+
+.callback-closed-row .callback-next-call__closed-panel {
+    border-color: rgba(148, 163, 184, 0.1);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.22), rgba(15, 23, 42, 0.14));
+}
+
+.callback-closed-row .callback-next-call__closed-title {
+    color: rgba(226, 232, 240, 0.84);
+}
+
+.callback-closed-row .callback-next-call__closed-note {
+    color: rgba(148, 163, 184, 0.62);
+}
+
 .callback-missed-row .callback-state--missed,
 .callback-missed-row .callback-state--needs_contact {
     color: #fecaca;
