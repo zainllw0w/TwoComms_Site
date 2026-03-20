@@ -88,13 +88,20 @@
                         </thead>
                         <tbody>
                             {% for client in items %}
-                            <tr class="{% if client.callback_pending %}callback-ghost-row{% elif client.callback_state == 'missed' %}callback-missed-row{% endif %}"
-                                data-client-id="{{ client.id }}"
+                            <tr id="{{ client.row_dom_id }}"
+                                class="{% if client.row_kind == 'followup_projection' %}callback-projection-row{% elif client.callback_visual_state == 'needs_contact' %}callback-missed-row{% elif client.callback_pending %}callback-ghost-row{% endif %}"
+                                data-row-kind="{{ client.row_kind|default:'client' }}"
+                                data-row-dom-id="{{ client.row_dom_id }}"
+                                data-client-id="{{ client.source_client_id|default:client.id }}"
+                                data-source-client-id="{{ client.source_client_id|default:client.id }}"
+                                data-source-followup-id="{{ client.source_followup_id|default:'' }}"
                                 data-client-mode="{{ client.client_mode }}"
                                 data-callback-state="{{ client.callback_state }}"
                                 data-callback-visual-state="{{ client.callback_visual_state }}"
+                                data-callback-attention-state="{{ client.callback_attention_state|default:'normal' }}"
                                 data-callback-attempts="{{ client.callback_attempts }}"
                                 data-callback-review-candidate="{{ client.callback_review_candidate|yesno:'true,false' }}"
+                                data-has-today-projection="{{ client.has_today_projection|yesno:'true,false' }}"
                                 data-show-phase-badge="{{ client.show_phase_badge|yesno:'true,false' }}"
                                 data-last-interaction-summary="{{ client.last_interaction_summary|escape }}"
                                 data-last-interaction-at="{{ client.last_interaction_at|escape }}"
@@ -102,6 +109,11 @@
                                 data-next-phase-label="{{ client.next_phase_label|escape }}"
                                 data-current-phase-summary="{{ client.current_phase_summary|escape }}"
                                 data-callback-phase-count="{{ client.callback_phase_count }}"
+                                data-phase-action-state="{{ client.phase_action_state }}"
+                                data-phase-target-client-id="{{ client.phase_target_client_id }}"
+                                data-phase-is-latest="{{ client.phase_is_latest|yesno:'true,false' }}"
+                                data-phase-number="{{ client.phase_number }}"
+                                data-home-group-label="{{ client.home_group_label|escape }}"
                                 data-phase-history="{{ client.phase_history_json|urlencode }}"
                                 data-manager-note="{{ client.manager_note|urlencode }}"
                                 data-manager-note-preview="{{ client.manager_note_preview|escape }}"
@@ -129,6 +141,12 @@
                                 data-next-call-time="{{ client.next_call_time|default:'' }}">
                                 <td data-label="Магазин/Insta" class="cell-shop">
                                     <div class="cell-primary">{{ client.shop }}</div>
+                                    {% if client.row_kind == 'followup_projection' %}
+                                    <div class="row-support-stack">
+                                        <span class="row-note-chip row-note-chip--projection">Нагадування</span>
+                                        <span class="row-passive-note">Не зараховано в оброблені</span>
+                                    </div>
+                                    {% endif %}
                                     {% if client.has_manager_note %}
                                     <span class="row-note-chip" title="{{ client.manager_note_preview }}">Є нотатка</span>
                                     {% endif %}
@@ -177,7 +195,7 @@
                                             {% if client.callback_status_label or client.show_phase_badge %}
                                             <div class="callback-next-call__meta">
                                                 {% if client.callback_status_label %}
-                                                <small class="callback-state callback-state--{{ client.callback_state }}">{{ client.callback_status_label }}</small>
+                                                <small class="callback-state callback-state--{{ client.callback_visual_state|default:client.callback_state }}">{{ client.callback_status_label }}</small>
                                                 {% endif %}
                                                 {% if client.show_phase_badge %}
                                                 <small class="phase-indicator">{{ client.next_phase_label }}</small>
@@ -191,15 +209,26 @@
                                 </td>
                                 <td data-label="Дія" class="actions-cell actions-cell--callbacks">
                                     <div class="action-rail action-rail--overlay">
-                                        <div class="action-rail__stack action-rail__stack--vertical{% if client.callback_available %} action-rail__stack--has-callback{% endif %}">
-                                            {% if client.callback_available %}
-                                            <button type="button" class="action-rail__callback callback-client" aria-label="Наступна фаза" title="Наступна фаза">
+                                        <div class="action-rail__stack action-rail__stack--vertical{% if client.phase_action_state != 'none' %} action-rail__stack--has-callback{% endif %}">
+                                            {% if client.phase_action_state == 'create' %}
+                                            <button type="button" class="action-rail__callback callback-client{% if client.callback_attention_state == 'attention_soon' %} action-rail__callback--attention-soon{% elif client.callback_attention_state == 'priority_due' %} action-rail__callback--priority-due{% elif client.callback_attention_state == 'needs_contact' %} action-rail__callback--needs-contact{% endif %}" data-callback-attention-state="{{ client.callback_attention_state|default:'normal' }}" aria-label="Наступна фаза" title="Наступна фаза">
                                                 <span class="action-rail__callback-text">Наступна фаза</span>
                                                 <span class="action-rail__icon" aria-hidden="true">
                                                     <svg viewBox="0 0 24 24"><path d="M5 6h8v2H5V6zm0 5h8v2H5v-2zm0 5h8v2H5v-2zm10-8 5 4-5 4v-3h-2v-2h2V8z"/></svg>
                                                 </span>
                                             </button>
+                                            {% elif client.phase_action_state == 'jump' %}
+                                            <button type="button"
+                                                    class="action-rail__callback action-rail__callback--jump phase-jump-client"
+                                                    aria-label="Нова фаза вже розпочата. Перейти до актуальної картки клієнта."
+                                                    title="Нова фаза вже розпочата. Перейти до актуальної картки клієнта.">
+                                                <span class="action-rail__callback-text">До активної фази</span>
+                                                <span class="action-rail__icon" aria-hidden="true">
+                                                    <svg viewBox="0 0 24 24"><path d="M12 4a1 1 0 0 1 1 1v8.59l2.3-2.29 1.4 1.4-4.7 4.7-4.7-4.7 1.4-1.4L11 13.59V5a1 1 0 0 1 1-1Zm-7 14h14v2H5v-2Z"/></svg>
+                                                </span>
+                                            </button>
                                             {% endif %}
+                                            {% if client.row_kind != 'followup_projection' %}
                                             <div class="action-rail__utilities">
                                                 <button type="button" class="icon-btn action-rail__utility edit-client" aria-label="Редагувати">
                                                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -215,6 +244,7 @@
                                                     </button>
                                                 </form>
                                             </div>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </td>
@@ -301,6 +331,7 @@
         <form id="client-form" method="post" class="modal-body">
             {% csrf_token %}
             <input type="hidden" name="client_id" id="client_id" value="">
+            <input type="hidden" name="phase_action" id="phase_action" value="edit">
             <input type="hidden" name="duplicate_override_reason" id="duplicate_override_reason" value="">
             <div class="modal-section-progress" aria-hidden="true">
                 <span class="modal-section-progress__item is-active">Контакт</span>
@@ -971,6 +1002,7 @@ function initManagementHomePage() {
     const nextCallDate = document.getElementById('next_call_date');
     const nextCallTime = document.getElementById('next_call_time');
     const clientIdInput = document.getElementById('client_id');
+    const phaseActionInput = document.getElementById('phase_action');
     const clientForm = document.getElementById('client-form');
     const modalTitle = clientModal.querySelector('.modal-header h3');
     const modalSubmit = clientModal.querySelector('.modal-footer .btn-primary');
@@ -1066,9 +1098,27 @@ function initManagementHomePage() {
         return `${text.slice(0, limit - 1).trimEnd()}…`;
     };
 
+    const buildRowStateClass = (client) => {
+        if (client.row_kind === 'followup_projection') return 'callback-projection-row';
+        if (client.callback_visual_state === 'needs_contact') return 'callback-missed-row';
+        return client.callback_pending ? 'callback-ghost-row' : '';
+    };
+
+    const buildRowSupportHtml = (client) => {
+        const parts = [];
+        if (client.row_kind === 'followup_projection') {
+            parts.push('<div class="row-support-stack"><span class="row-note-chip row-note-chip--projection">Нагадування</span><span class="row-passive-note">Не зараховано в оброблені</span></div>');
+        }
+        if (client.has_manager_note) {
+            parts.push(`<span class="row-note-chip" title="${escapeHtml(client.manager_note_preview || client.manager_note || '')}">Є нотатка</span>`);
+        }
+        return parts.join('');
+    };
+
     const buildResultCellHtml = (client) => {
         const detail = String(client.call_result_details || '').trim();
-        const helpId = `client-result-help-${client.id}`;
+        const resultRowIdentity = client.row_dom_id || `client-row-${client.id}`;
+        const helpId = `client-result-help-${String(resultRowIdentity).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
         return `<div class="result-stack">
             <div class="result-help-anchor"${detail ? ' data-help-scope' : ''}>
                 <div class="result-summary">
@@ -1088,10 +1138,26 @@ function initManagementHomePage() {
         </div>`;
     };
 
+    const buildPhaseActionButtonHtml = (client) => {
+        const attentionModifier = {
+            attention_soon: ' action-rail__callback--attention-soon',
+            priority_due: ' action-rail__callback--priority-due',
+            needs_contact: ' action-rail__callback--needs-contact',
+        }[client.callback_attention_state] || '';
+        if (client.phase_action_state === 'create') {
+            return `<button type="button" class="action-rail__callback callback-client${attentionModifier}" data-callback-attention-state="${escapeHtml(client.callback_attention_state || 'normal')}" aria-label="Наступна фаза" title="Наступна фаза"><span class="action-rail__callback-text">Наступна фаза</span><span class="action-rail__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 6h8v2H5V6zm0 5h8v2H5v-2zm0 5h8v2H5v-2zm10-8 5 4-5 4v-3h-2v-2h2V8z"></path></svg></span></button>`;
+        }
+        if (client.phase_action_state === 'jump') {
+            return `<button type="button" class="action-rail__callback action-rail__callback--jump phase-jump-client" aria-label="Нова фаза вже розпочата. Перейти до актуальної картки клієнта." title="Нова фаза вже розпочата. Перейти до актуальної картки клієнта."><span class="action-rail__callback-text">До активної фази</span><span class="action-rail__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4a1 1 0 0 1 1 1v8.59l2.3-2.29 1.4 1.4-4.7 4.7-4.7-4.7 1.4-1.4L11 13.59V5a1 1 0 0 1 1-1Zm-7 14h14v2H5v-2Z"></path></svg></span></button>`;
+        }
+        return '';
+    };
+
     const buildCallbackActionHtml = (client, deleteUrl, csrfToken) => `
         <div class="action-rail action-rail--overlay">
-            <div class="action-rail__stack action-rail__stack--vertical${client.callback_available ? ' action-rail__stack--has-callback' : ''}">
-                ${client.callback_available ? `<button type="button" class="action-rail__callback callback-client" aria-label="Наступна фаза" title="Наступна фаза"><span class="action-rail__callback-text">Наступна фаза</span><span class="action-rail__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 6h8v2H5V6zm0 5h8v2H5v-2zm0 5h8v2H5v-2zm10-8 5 4-5 4v-3h-2v-2h2V8z"></path></svg></span></button>` : ''}
+            <div class="action-rail__stack action-rail__stack--vertical${client.phase_action_state !== 'none' ? ' action-rail__stack--has-callback' : ''}">
+                ${buildPhaseActionButtonHtml(client)}
+                ${client.row_kind === 'followup_projection' ? '' : `
                 <div class="action-rail__utilities">
                     <button type="button" class="icon-btn action-rail__utility edit-client" aria-label="Редагувати">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"></path></svg>
@@ -1103,6 +1169,7 @@ function initManagementHomePage() {
                         </button>
                     </form>
                 </div>
+                `}
             </div>
         </div>`;
 
@@ -1445,6 +1512,7 @@ function initManagementHomePage() {
         lastSummary = '',
         lastAt = '',
         managerNoteValue = '',
+        phaseNumber = 1,
         currentPhaseLabel = '',
         currentPhaseSummary = '',
         phaseHistory = [],
@@ -1475,7 +1543,7 @@ function initManagementHomePage() {
             syncClientFooterSummary();
             return;
         }
-        const nextPhaseNumber = Math.max(2, callbackAttempts + 1);
+        const nextPhaseNumber = Math.max(2, (parseInt(phaseNumber || '1', 10) || 1) + 1);
         if (clientCallbackPhaseTitle) {
             clientCallbackPhaseTitle.textContent = `Фаза ${nextPhaseNumber} передзвону`;
         }
@@ -1545,6 +1613,7 @@ function initManagementHomePage() {
     const resetClientForm = () => {
         clientForm.reset();
         clientIdInput.value = '';
+        if (phaseActionInput) phaseActionInput.value = 'edit';
         duplicateOverrideReason.value = '';
         clearDuplicateNotice(clientDuplicateNotice);
         setDefaultDateTime(nextCallDate, nextCallTime);
@@ -1602,6 +1671,7 @@ function initManagementHomePage() {
     const fillClientFormForEdit = (row, { forceMode } = {}) => {
         clearDuplicateNotice(clientDuplicateNotice);
         clientIdInput.value = row.dataset.clientId || '';
+        if (phaseActionInput) phaseActionInput.value = forceMode === 'callback' ? 'continue' : 'edit';
         shopInput.value = row.dataset.shop || '';
         phoneInput.value = row.dataset.phone || '';
         websiteInput.value = row.dataset.websiteUrl || '';
@@ -1697,6 +1767,7 @@ function initManagementHomePage() {
             lastSummary: row.dataset.lastInteractionSummary || '',
             lastAt: row.dataset.lastInteractionAt || '',
             managerNoteValue: decodeURIComponent(row.dataset.managerNote || ''),
+            phaseNumber: parseInt(row.dataset.phaseNumber || row.dataset.callbackPhaseCount || '1', 10) || 1,
             currentPhaseLabel: row.dataset.currentPhaseLabel || '',
             currentPhaseSummary: row.dataset.currentPhaseSummary || '',
             phaseHistory: parseJsonDataset(decodeURIComponent(row.dataset.phaseHistory || '[]'), []),
@@ -1757,55 +1828,68 @@ function initManagementHomePage() {
     };
 
     const buildClientRowHtml = (client, csrfToken) => {
-        const deleteUrl = clientDeleteTpl.replace('/0/', `/${client.id}/`);
+        const sourceClientId = client.source_client_id || client.id;
+        const deleteUrl = clientDeleteTpl.replace('/0/', `/${sourceClientId}/`);
         const websiteCell = client.website_url
             ? `<a href="${escapeHtml(client.website_url)}" target="_blank" rel="noopener noreferrer" class="site-link-chip" title="${escapeHtml(client.website_url)}"><span class="site-link-chip__icon" aria-hidden="true">↗</span><span class="site-link-chip__text">${escapeHtml(client.hostname_display || client.website_url)}</span></a>`
             : '—';
-        const rowStateClass = client.callback_pending ? 'callback-ghost-row' : (client.callback_state === 'missed' ? 'callback-missed-row' : '');
+        const rowDomId = client.row_dom_id || (client.row_kind === 'followup_projection' ? `client-reminder-${client.source_followup_id || `client-${sourceClientId}`}` : `client-row-${sourceClientId}`);
+        const rowStateClass = buildRowStateClass(client);
         const callbackStatus = client.callback_status_label
-            ? `<small class="callback-state callback-state--${client.callback_state || 'none'}">${client.callback_status_label}</small>`
+            ? `<small class="callback-state callback-state--${client.callback_visual_state || client.callback_state || 'none'}">${client.callback_status_label}</small>`
             : '';
-        const noteChip = client.has_manager_note ? `<span class="row-note-chip" title="${escapeHtml(client.manager_note_preview || client.manager_note || '')}">Є нотатка</span>` : '';
-        return `<tr class="${rowStateClass}"
-                    data-client-id="${client.id}"
-                    data-client-mode="${client.client_mode || (client.callback_available ? 'callback' : 'client')}"
-                    data-callback-state="${client.callback_state || 'none'}"
-                    data-callback-visual-state="${client.callback_visual_state || 'normal'}"
+        const supportHtml = buildRowSupportHtml(client);
+        return `<tr id="${escapeHtml(rowDomId)}" class="${rowStateClass}"
+                    data-row-kind="${escapeHtml(client.row_kind || 'client')}"
+                    data-row-dom-id="${escapeHtml(rowDomId)}"
+                    data-client-id="${sourceClientId}"
+                    data-source-client-id="${sourceClientId}"
+                    data-source-followup-id="${escapeHtml(client.source_followup_id || '')}"
+                    data-client-mode="${escapeHtml(client.client_mode || (client.phase_action_state === 'create' ? 'callback' : 'client'))}"
+                    data-callback-state="${escapeHtml(client.callback_state || 'none')}"
+                    data-callback-visual-state="${escapeHtml(client.callback_visual_state || 'normal')}"
+                    data-callback-attention-state="${escapeHtml(client.callback_attention_state || 'normal')}"
                     data-callback-attempts="${client.callback_attempts || 0}"
                     data-callback-review-candidate="${client.callback_review_candidate ? 'true' : 'false'}"
+                    data-has-today-projection="${client.has_today_projection ? 'true' : 'false'}"
                     data-show-phase-badge="${client.show_phase_badge ? 'true' : 'false'}"
-                    data-last-interaction-summary="${client.last_interaction_summary || ''}"
-                    data-last-interaction-at="${client.last_interaction_at || ''}"
-                    data-current-phase-label="${client.current_phase_label || ''}"
-                    data-next-phase-label="${client.next_phase_label || ''}"
-                    data-current-phase-summary="${client.current_phase_summary || ''}"
+                    data-last-interaction-summary="${escapeHtml(client.last_interaction_summary || '')}"
+                    data-last-interaction-at="${escapeHtml(client.last_interaction_at || '')}"
+                    data-current-phase-label="${escapeHtml(client.current_phase_label || '')}"
+                    data-next-phase-label="${escapeHtml(client.next_phase_label || '')}"
+                    data-current-phase-summary="${escapeHtml(client.current_phase_summary || '')}"
                     data-callback-phase-count="${client.callback_phase_count || 1}"
+                    data-phase-action-state="${escapeHtml(client.phase_action_state || 'none')}"
+                    data-phase-target-client-id="${client.phase_target_client_id || ''}"
+                    data-phase-is-latest="${client.phase_is_latest ? 'true' : 'false'}"
+                    data-phase-number="${client.phase_number || client.callback_phase_count || 1}"
+                    data-home-group-label="${escapeHtml(client.home_group_label || '')}"
                     data-phase-history="${encodeURIComponent(client.phase_history_json || '[]')}"
                     data-manager-note="${encodeURIComponent(client.manager_note || '')}"
                     data-manager-note-preview="${escapeHtml(client.manager_note_preview || '')}"
-                    data-shop="${client.shop}"
-                    data-phone="${client.phone}"
-                    data-website-url="${client.website_url || ''}"
+                    data-shop="${escapeHtml(client.shop)}"
+                    data-phone="${escapeHtml(client.phone)}"
+                    data-website-url="${escapeHtml(client.website_url || '')}"
                     data-hostname-display="${escapeHtml(client.hostname_display || '')}"
-                    data-full-name="${client.full_name}"
-                    data-role="${client.role}"
-                    data-source="${client.source}"
-                    data-call-result="${client.call_result}"
-                    data-call-result-reason-code="${client.call_result_reason_code || ''}"
-                    data-call-result-reason-note="${client.call_result_reason_note || ''}"
-                    data-call-result-contact-attempts="${client.call_result_contact_attempts || ''}"
-                    data-call-result-contact-channel="${client.call_result_contact_channel || ''}"
-                    data-call-details="${client.call_result_details || ''}"
-                    data-cp-log-id="${client.cp_log_id || ''}"
-                    data-messenger-type="${client.messenger_type || ''}"
-                    data-messenger-target-mode="${client.messenger_target_mode || ''}"
-                    data-messenger-target-value="${client.messenger_target_value || ''}"
-                    data-xml-platform="${client.xml_platform || ''}"
-                    data-xml-resource-url="${client.xml_resource_url || ''}"
-                    data-linked-shop-id="${client.linked_shop_id || ''}"
-                    data-next-call-date="${client.next_call_date || ''}"
-                    data-next-call-time="${client.next_call_time || ''}">
-                    <td data-label="Магазин/Insta" class="cell-shop"><div class="cell-primary">${escapeHtml(client.shop)}</div>${noteChip}</td>
+                    data-full-name="${escapeHtml(client.full_name)}"
+                    data-role="${escapeHtml(client.role)}"
+                    data-source="${escapeHtml(client.source)}"
+                    data-call-result="${escapeHtml(client.call_result)}"
+                    data-call-result-reason-code="${escapeHtml(client.call_result_reason_code || '')}"
+                    data-call-result-reason-note="${escapeHtml(client.call_result_reason_note || '')}"
+                    data-call-result-contact-attempts="${escapeHtml(client.call_result_contact_attempts || '')}"
+                    data-call-result-contact-channel="${escapeHtml(client.call_result_contact_channel || '')}"
+                    data-call-details="${escapeHtml(client.call_result_details || '')}"
+                    data-cp-log-id="${escapeHtml(client.cp_log_id || '')}"
+                    data-messenger-type="${escapeHtml(client.messenger_type || '')}"
+                    data-messenger-target-mode="${escapeHtml(client.messenger_target_mode || '')}"
+                    data-messenger-target-value="${escapeHtml(client.messenger_target_value || '')}"
+                    data-xml-platform="${escapeHtml(client.xml_platform || '')}"
+                    data-xml-resource-url="${escapeHtml(client.xml_resource_url || '')}"
+                    data-linked-shop-id="${escapeHtml(client.linked_shop_id || '')}"
+                    data-next-call-date="${escapeHtml(client.next_call_date || '')}"
+                    data-next-call-time="${escapeHtml(client.next_call_time || '')}">
+                    <td data-label="Магазин/Insta" class="cell-shop"><div class="cell-primary">${escapeHtml(client.shop)}</div>${supportHtml}</td>
                     <td data-label="Телефон" class="cell-phone">${escapeHtml(client.phone)}</td>
                     <td data-label="Сайт" class="cell-website">${websiteCell}</td>
                     <td data-label="ПІБ" class="cell-name">${escapeHtml(client.full_name || '—')}</td>
@@ -1817,36 +1901,93 @@ function initManagementHomePage() {
                 </tr>`;
     };
 
-    const upsertClientInTable = (client, csrfToken) => {
-        const existingRow = document.querySelector(`tr[data-client-id="${client.id}"]`);
-        if (existingRow) {
-            existingRow.outerHTML = buildClientRowHtml(client, csrfToken);
-            return;
-        }
-        let todayGroup = Array.from(document.querySelectorAll('.date-group .date-chip')).find((chip) => chip.textContent.trim() === 'Сьогодні');
-        if (!todayGroup) {
-            const processingPane = document.getElementById('processing-pane');
-            const shell = document.createElement('div');
-            shell.className = 'date-group';
-            shell.innerHTML = `
-                <div class="date-chip">Сьогодні</div>
-                <div class="table-shell">
-                    <table class="nexus-table">
-                        <thead>
-                            <tr>
-                                <th>Магазин/Insta</th><th>Телефон</th><th>Сайт</th><th>ПІБ</th><th>Статус</th><th>Джерело</th><th>Результат</th><th>Наступний дзвінок</th><th class="col-actions">Дія</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>`;
+    const buildClientGroupShellHtml = (label) => `
+        <div class="date-chip">${escapeHtml(label)}</div>
+        <div class="table-shell">
+            <table class="nexus-table">
+                <colgroup>
+                    <col class="col-shop">
+                    <col class="col-phone">
+                    <col class="col-website">
+                    <col class="col-name">
+                    <col class="col-status">
+                    <col class="col-source">
+                    <col class="col-result">
+                    <col class="col-next-call">
+                    <col class="col-action">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>Магазин/Insta</th><th>Телефон</th><th>Сайт</th><th>ПІБ</th><th>Статус</th><th>Джерело</th><th>Результат</th><th>Наступний дзвінок</th><th class="col-actions">Дія</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>`;
+
+    const ensureClientDateGroup = (label) => {
+        const existingChip = Array.from(document.querySelectorAll('.date-group .date-chip')).find((chip) => chip.textContent.trim() === label);
+        if (existingChip) return existingChip.closest('.date-group');
+        const processingPane = document.getElementById('processing-pane');
+        if (!processingPane) return null;
+        const shell = document.createElement('div');
+        shell.className = 'date-group';
+        shell.innerHTML = buildClientGroupShellHtml(label);
+        if (label === 'Сьогодні') {
             processingPane.prepend(shell);
-            todayGroup = shell.querySelector('.date-chip');
+        } else {
+            processingPane.append(shell);
         }
-        const tbody = todayGroup.parentElement.querySelector('tbody');
+        return shell;
+    };
+
+    const cleanupEmptyClientDateGroups = () => {
+        document.querySelectorAll('#processing-pane .date-group').forEach((group) => {
+            const tbody = group.querySelector('tbody');
+            if (tbody && !tbody.querySelector('tr')) {
+                group.remove();
+            }
+        });
+    };
+
+    const upsertClientInTable = (client, csrfToken) => {
+        const targetLabel = client.home_group_label || 'Сьогодні';
+        const rowDomId = client.row_dom_id || (client.row_kind === 'followup_projection' ? `client-reminder-${client.source_followup_id || `client-${client.source_client_id || client.id}`}` : `client-row-${client.source_client_id || client.id}`);
+        const existingRow = document.getElementById(rowDomId);
+        if (existingRow) {
+            const currentGroupLabel = existingRow.closest('.date-group')?.querySelector('.date-chip')?.textContent.trim() || '';
+            if (currentGroupLabel === targetLabel) {
+                existingRow.outerHTML = buildClientRowHtml(client, csrfToken);
+                return;
+            }
+            existingRow.remove();
+            cleanupEmptyClientDateGroups();
+        }
+        const targetGroup = ensureClientDateGroup(targetLabel);
+        const tbody = targetGroup?.querySelector('tbody');
         if (tbody) {
             tbody.insertAdjacentHTML('afterbegin', buildClientRowHtml(client, csrfToken));
         }
+    };
+
+    const removeProjectionRows = (projectionIds = []) => {
+        projectionIds.forEach((projectionId) => {
+            const row = document.getElementById(`client-reminder-${projectionId}`);
+            if (row) row.remove();
+        });
+        cleanupEmptyClientDateGroups();
+    };
+
+    const spotlightClientRow = (targetClientId) => {
+        if (!targetClientId) return;
+        const row = document.getElementById(`client-row-${targetClientId}`);
+        if (!row) return;
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        row.classList.remove('phase-row-spotlight');
+        window.requestAnimationFrame(() => {
+            row.classList.add('phase-row-spotlight');
+            window.setTimeout(() => row.classList.remove('phase-row-spotlight'), 2800);
+        });
     };
 
     const prependLeadToBase = (lead) => {
@@ -2101,6 +2242,13 @@ function initManagementHomePage() {
             openModal(clientModal);
             return;
         }
+        const jumpBtn = e.target.closest('.phase-jump-client');
+        if (jumpBtn) {
+            const row = jumpBtn.closest('tr');
+            if (!row) return;
+            spotlightClientRow(row.dataset.phaseTargetClientId || '');
+            return;
+        }
         const processBtn = e.target.closest('.process-lead');
         if (processBtn) {
             const leadId = processBtn.dataset.leadId || processBtn.closest('tr')?.dataset.leadId;
@@ -2204,8 +2352,19 @@ function initManagementHomePage() {
             }
             duplicateOverrideReason.value = '';
             updateStats(data);
-            if (data.latest) upsertClientInTable(data.latest, formData.get('csrfmiddlewaretoken') || '');
+            removeProjectionRows(Array.isArray(data.projection_remove_ids) ? data.projection_remove_ids : []);
+            if (Array.isArray(data.family_updates) && data.family_updates.length) {
+                data.family_updates.forEach((item) => upsertClientInTable(item, formData.get('csrfmiddlewaretoken') || ''));
+            } else if (data.latest) {
+                upsertClientInTable(data.latest, formData.get('csrfmiddlewaretoken') || '');
+            }
+            if (Array.isArray(data.projection_updates) && data.projection_updates.length) {
+                data.projection_updates.forEach((item) => upsertClientInTable(item, formData.get('csrfmiddlewaretoken') || ''));
+            }
             closeModal(clientModal);
+            if (formData.get('phase_action') === 'continue' && data.latest?.id) {
+                spotlightClientRow(String(data.latest.id));
+            }
         } catch (err) {
             alert(err.message || 'Помилка збереження');
         }

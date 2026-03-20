@@ -105,6 +105,20 @@ from .services.roster import management_role_label, manager_roster_queryset
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
 logger = logging.getLogger(__name__)
+PHASE_SHARED_FIELDS = (
+    "shop_name",
+    "phone",
+    "website_url",
+    "full_name",
+    "role",
+    "source",
+    "manager_note",
+)
+CALLBACK_ATTEMPT_EXCLUDED_RESULTS = {
+    Client.CallResult.ORDER,
+    Client.CallResult.TEST_BATCH,
+    Client.CallResult.XML_CONNECTED,
+}
 
 
 def _compact_text(value: str, limit: int = 72) -> str:
@@ -253,6 +267,188 @@ def _sync_client_followup(client: Client, prev_next_call_at, new_next_call_at, n
     return sync_client_followup(client, prev_next_call_at, new_next_call_at, now_dt)
 
 
+def _home_dt_label(dt_value):
+    if not dt_value:
+        return "—"
+    try:
+        return timezone.localtime(dt_value).strftime('%d.%m.%Y %H:%M')
+    except Exception:
+        return "—"
+
+
+def _phase_root_id(client: Client) -> int:
+    return client.phase_root_id or client.id
+
+
+def _phase_family_queryset(client: Client):
+    root_id = _phase_root_id(client)
+    return Client.objects.filter(Q(id=root_id) | Q(phase_root_id=root_id))
+
+
+def _phase_sort_key(client: Client):
+    created_at = client.created_at or timezone.now()
+    return (client.phase_number or 1, created_at, client.id)
+
+
+def _get_client_attempts(client: Client):
+    return list(getattr(client, "prefetched_interaction_attempts", []) or client.interaction_attempts.order_by("-created_at"))
+
+
+def _get_client_open_followups(client: Client):
+    return list(
+        getattr(client, "prefetched_open_followups", [])
+        or client.followups.filter(status=ClientFollowUp.Status.OPEN).order_by("-due_at")[:1]
+    )
+
+
+def _client_callback_summary(client: Client, attempts) -> str:
+    latest_attempt = attempts[0] if attempts else None
+    if latest_attempt and (latest_attempt.details or latest_attempt.reason_note):
+        return (latest_attempt.details or latest_attempt.reason_note).strip()
+    return client.call_result_details or client.get_call_result_display()
+
+
+def _projection_identity_suffix(*, followup_id: int | None, client_id: int) -> str:
+    return str(followup_id) if followup_id else f"client-{client_id}"
+
+
+def _build_callback_attention_state(*, due_local, today, now_local, callback_visual_state: str = "normal") -> str:
+    if callback_visual_state == "needs_contact":
+        return "needs_contact"
+    if not due_local or due_local.date() != today:
+        return "normal"
+    if due_local <= now_local:
+        return "priority_due"
+    if due_local - now_local <= timedelta(hours=1):
+        return "attention_soon"
+    return "scheduled_today"
+
+
+def _home_family_clients_queryset(owner, client_ids):
+    return (
+        Client.objects.select_related("owner")
+        .prefetch_related(
+            Prefetch(
+                "interaction_attempts",
+                queryset=ClientInteractionAttempt.objects.order_by("-created_at"),
+                to_attr="prefetched_interaction_attempts",
+            ),
+            Prefetch(
+                "followups",
+                queryset=ClientFollowUp.objects.filter(status=ClientFollowUp.Status.OPEN).order_by("-due_at"),
+                to_attr="prefetched_open_followups",
+            ),
+        )
+        .filter(owner=owner, id__in=client_ids)
+        .order_by("-created_at")
+    )
+
+
+def _build_phase_family_state_map(clients, today, *, now_dt=None) -> dict[int, dict]:
+    families: dict[int, list[Client]] = {}
+    for client in clients:
+        families.setdefault(_phase_root_id(client), []).append(client)
+
+    now_dt = now_dt or timezone.now()
+    recent_cutoff = now_dt - timedelta(days=7)
+    state_map: dict[int, dict] = {}
+    for family_root_id, family_clients in families.items():
+        ordered = sorted(family_clients, key=_phase_sort_key)
+        latest = ordered[-1]
+        latest_created_today = timezone.localtime(latest.created_at).date() == today if latest.created_at else False
+        latest_effective_callback = get_effective_callback_state(client=latest, now_dt=now_dt)
+        latest_open_followups = _get_client_open_followups(latest)
+        latest_open_followup = latest_open_followups[0] if latest_open_followups else None
+        latest_due_local = latest_effective_callback.due_at or (
+            timezone.localtime(latest.next_call_at) if latest.next_call_at else None
+        )
+        family_has_today_projection = bool(
+            not latest_created_today
+            and latest_due_local
+            and latest_due_local.date() == today
+        )
+        projection_identity = _projection_identity_suffix(
+            followup_id=latest_open_followup.id if latest_open_followup else latest_effective_callback.followup_id,
+            client_id=latest.id,
+        ) if family_has_today_projection else ""
+        phase_items = []
+        member_meta = {}
+        recent_callback_attempts = 0
+
+        for member in ordered:
+            attempts = _get_client_attempts(member)
+            latest_attempt = attempts[0] if attempts else None
+            summary = _client_callback_summary(member, attempts)
+            phase_context = latest_attempt.context if latest_attempt else {}
+            phase_items.append({
+                "phase": member.phase_number or 1,
+                "created_at": _home_dt_label(member.created_at),
+                "result": member.get_call_result_display(),
+                "summary": (summary or member.get_call_result_display() or "").strip(),
+                "phase_comment": str(phase_context.get("phase_comment") or "").strip(),
+                "next_call": _home_dt_label(member.next_call_at) if member.next_call_at else "—",
+            })
+            recent_callback_attempts += sum(
+                1
+                for item in attempts
+                if item.next_call_at
+                and item.created_at >= recent_cutoff
+                and item.result not in CALLBACK_ATTEMPT_EXCLUDED_RESULTS
+            )
+            member_meta[member.id] = {
+                "summary": summary,
+                "latest_attempt": latest_attempt,
+            }
+
+        for index, member in enumerate(ordered):
+            meta = member_meta[member.id]
+            latest_attempt = meta["latest_attempt"]
+            state_map[member.id] = {
+                "family_root_id": family_root_id,
+                "phase_number": member.phase_number or 1,
+                "phase_is_latest": member.id == latest.id,
+                "phase_target_client_id": latest.id if member.id != latest.id else None,
+                "latest_created_today": latest_created_today,
+                "family_has_today_projection": family_has_today_projection,
+                "has_today_projection": family_has_today_projection and member.id == latest.id,
+                "projection_identity": projection_identity if member.id == latest.id else "",
+                "projection_due_local": latest_due_local if member.id == latest.id else None,
+                "projection_followup_id": latest_open_followup.id if member.id == latest.id and latest_open_followup else None,
+                "phase_history": phase_items[:index],
+                "current_phase_summary": meta["summary"],
+                "last_interaction_at": _home_dt_label(latest_attempt.created_at) if latest_attempt else _home_dt_label(member.updated_at or member.created_at),
+                "family_recent_callback_attempts": recent_callback_attempts,
+                "callback_review_candidate": recent_callback_attempts >= 3,
+            }
+    return state_map
+
+
+def _sync_phase_family_shared_fields(anchor_client: Client):
+    shared_values = {field: getattr(anchor_client, field) for field in PHASE_SHARED_FIELDS}
+    for member in _phase_family_queryset(anchor_client).exclude(id=anchor_client.id):
+        changed = False
+        for field, value in shared_values.items():
+            if getattr(member, field) != value:
+                setattr(member, field, value)
+                changed = True
+        if changed:
+            member.save()
+
+
+def _build_home_group_label(serialized: dict, client: Client, today):
+    if serialized.get("row_kind") == "followup_projection":
+        return "Сьогодні"
+    local_date = timezone.localtime(client.created_at).date()
+    if serialized.get("has_today_projection"):
+        pass
+    elif serialized['callback_state'] in {'today', 'due_now'} or local_date == today:
+        return 'Сьогодні'
+    yesterday = today - timedelta(days=1)
+    if local_date == yesterday:
+        return 'Вчора'
+    return local_date.strftime('%d.%m.%Y')
+
+
 def _close_followups_for_report(report: Report):
     """Freeze today's follow-ups when daily report is sent."""
     report_day = _local_date_from_dt(report.created_at)
@@ -320,39 +516,50 @@ def get_user_stats(user):
     }
 
 
-def _serialize_client_for_home(client: Client, today) -> dict:
-    def home_dt_label(dt_value):
-        if not dt_value:
-            return "—"
-        try:
-            return timezone.localtime(dt_value).strftime('%d.%m.%Y %H:%M')
-        except Exception:
-            return "—"
-
+def _serialize_client_for_home(client: Client, today, *, family_state: dict | None = None, now_dt=None) -> dict:
     context = client.call_result_context or {}
     created_local = timezone.localtime(client.created_at)
-    attempts = list(getattr(client, "prefetched_interaction_attempts", []) or client.interaction_attempts.order_by("-created_at")[:4])
-    open_followups = list(
-        getattr(client, "prefetched_open_followups", [])
-        or client.followups.filter(status=ClientFollowUp.Status.OPEN).order_by("-due_at")[:1]
-    )
+    now_local = timezone.localtime(now_dt or timezone.now())
+    attempts = _get_client_attempts(client)
+    open_followups = _get_client_open_followups(client)
     latest_attempt = attempts[0] if attempts else None
     followup_meta = (open_followups[0].meta or {}) if open_followups else {}
-    recent_cutoff = timezone.now() - timedelta(days=7)
-    callback_attempts = followup_meta.get("recent_callback_attempts")
+    recent_cutoff = (now_dt or timezone.now()) - timedelta(days=7)
+    phase_state = family_state or {
+        "phase_number": client.phase_number or 1,
+        "phase_is_latest": True,
+        "phase_target_client_id": None,
+        "latest_created_today": created_local.date() == today,
+        "family_has_today_projection": False,
+        "has_today_projection": False,
+        "projection_identity": "",
+        "projection_due_local": None,
+        "projection_followup_id": open_followups[0].id if open_followups else None,
+        "phase_history": [],
+        "current_phase_summary": _client_callback_summary(client, attempts),
+        "last_interaction_at": _home_dt_label(latest_attempt.created_at) if latest_attempt else _home_dt_label(client.updated_at or client.created_at),
+        "family_recent_callback_attempts": 0,
+        "callback_review_candidate": False,
+    }
+    callback_attempts = phase_state["family_recent_callback_attempts"]
+    if not callback_attempts:
+        callback_attempts = followup_meta.get("recent_callback_attempts")
     if callback_attempts is None:
         callback_attempts = sum(
             1
             for item in attempts
             if item.next_call_at and item.created_at >= recent_cutoff
+            and item.result not in CALLBACK_ATTEMPT_EXCLUDED_RESULTS
         )
-    effective_callback = get_effective_callback_state(client=client)
-    next_call_local = effective_callback.due_at or (timezone.localtime(client.next_call_at) if client.next_call_at else None)
     callback_state = 'none'
-    if effective_callback.code == 'scheduled':
-        callback_state = 'today' if next_call_local and next_call_local.date() == today else 'future'
-    elif effective_callback.code in {'due_now', 'missed'}:
-        callback_state = effective_callback.code
+    next_call_local = None
+    if phase_state["phase_is_latest"]:
+        effective_callback = get_effective_callback_state(client=client, now_dt=now_dt)
+        next_call_local = effective_callback.due_at or (timezone.localtime(client.next_call_at) if client.next_call_at else None)
+        if effective_callback.code == 'scheduled':
+            callback_state = 'today' if next_call_local and next_call_local.date() == today else 'future'
+        elif effective_callback.code in {'due_now', 'missed'}:
+            callback_state = effective_callback.code
     callback_available = callback_state != 'none'
     callback_pending = callback_state == 'today'
     callback_status_label = {
@@ -362,31 +569,41 @@ def _serialize_client_for_home(client: Client, today) -> dict:
         'future': 'Заплановано далі',
         'none': '',
     }[callback_state]
-    callback_summary = (
-        (latest_attempt.details or latest_attempt.reason_note).strip()
-        if latest_attempt and (latest_attempt.details or latest_attempt.reason_note)
-        else (client.call_result_details or client.get_call_result_display())
-    )
-    phase_items = []
-    for index, item in enumerate(reversed(attempts), start=1):
-        phase_context = item.context or {}
-        phase_comment = str(phase_context.get("phase_comment") or "").strip()
-        phase_items.append({
-            'phase': index,
-            'created_at': home_dt_label(item.created_at),
-            'result': item.get_result_display(),
-            'summary': (phase_comment or item.reason_note or item.details or item.get_result_display() or '').strip(),
-            'phase_comment': phase_comment,
-            'next_call': home_dt_label(item.next_call_at) if item.next_call_at else '—',
-        })
-    current_phase = phase_items[-1] if phase_items else None
-    phase_history = phase_items[:-1] if len(phase_items) > 1 else []
-    show_phase_badge = callback_available and len(phase_items) >= 2
+    current_phase_summary = phase_state["current_phase_summary"] or _client_callback_summary(client, attempts)
+    phase_number = phase_state["phase_number"] or 1
+    phase_action_state = 'none'
+    if phase_state.get("family_has_today_projection"):
+        if phase_state.get("has_today_projection"):
+            callback_available = False
+            callback_pending = False
+            callback_status_label = "Нагадування на сьогодні відкрито"
+        if not phase_state["phase_is_latest"]:
+            phase_action_state = 'none'
+    elif not phase_state["phase_is_latest"]:
+        phase_action_state = 'jump'
+    elif callback_available and not phase_state["latest_created_today"]:
+        phase_action_state = 'create'
+    show_phase_badge = callback_available and phase_number >= 2
     hostname_display = _hostname_display(client.website_url)
     manager_note = (client.manager_note or "").strip()
     callback_visual_state = callback_state if callback_state != "none" else "normal"
+    if next_call_local and next_call_local.date() < today and callback_state == "missed":
+        callback_visual_state = "needs_contact"
+        callback_status_label = "Потребує зв'язку"
+    elif phase_state.get("has_today_projection"):
+        callback_visual_state = "today_projection"
+    callback_attention_state = _build_callback_attention_state(
+        due_local=next_call_local,
+        today=today,
+        now_local=now_local,
+        callback_visual_state=callback_visual_state,
+    ) if phase_action_state == "create" else ("needs_contact" if callback_visual_state == "needs_contact" else "normal")
     return {
         'id': client.id,
+        'row_kind': 'client',
+        'row_dom_id': f'client-row-{client.id}',
+        'source_client_id': client.id,
+        'source_followup_id': phase_state.get("projection_followup_id") or (open_followups[0].id if open_followups else ''),
         'shop': client.shop_name,
         'phone': client.phone,
         'website_url': client.website_url,
@@ -417,23 +634,100 @@ def _serialize_client_for_home(client: Client, today) -> dict:
         'next_call_time': next_call_local.strftime('%H:%M') if next_call_local else '',
         'next_call': next_call_local.strftime('%d.%m.%Y %H:%M') if next_call_local else '–',
         'created_date_label': 'Сьогодні' if created_local.date() == today else created_local.strftime('%d.%m.%Y'),
+        'home_group_label': '',
         'callback_state': callback_state,
         'callback_visual_state': callback_visual_state,
+        'callback_attention_state': callback_attention_state,
         'callback_status_label': callback_status_label,
         'callback_available': callback_available,
         'callback_pending': callback_pending,
-        'client_mode': 'callback' if callback_available else 'client',
+        'client_mode': 'callback' if phase_action_state == 'create' else 'client',
         'callback_attempts': callback_attempts,
-        'callback_review_candidate': bool(followup_meta.get("callback_review_candidate")),
+        'callback_review_candidate': phase_state["callback_review_candidate"] or bool(followup_meta.get("callback_review_candidate")),
         'show_phase_badge': show_phase_badge,
-        'last_interaction_summary': callback_summary,
-        'last_interaction_at': home_dt_label(latest_attempt.created_at) if latest_attempt else home_dt_label(client.updated_at or client.created_at),
-        'current_phase_label': f"Фаза {current_phase['phase']}" if current_phase else 'Фаза 1',
-        'next_phase_label': f"Фаза {len(phase_items) + 1}" if show_phase_badge else '',
-        'current_phase_summary': current_phase['summary'] if current_phase else callback_summary,
-        'callback_phase_count': len(phase_items) or 1,
-        'phase_history_json': json.dumps(phase_history, ensure_ascii=False),
+        'last_interaction_summary': current_phase_summary,
+        'last_interaction_at': phase_state["last_interaction_at"],
+        'current_phase_label': f"Фаза {phase_number}",
+        'next_phase_label': f"Фаза {phase_number + 1}" if phase_action_state == 'create' else '',
+        'current_phase_summary': current_phase_summary,
+        'callback_phase_count': phase_number,
+        'phase_history_json': json.dumps(phase_state["phase_history"], ensure_ascii=False),
+        'phase_action_state': phase_action_state,
+        'phase_target_client_id': phase_state["phase_target_client_id"] or '',
+        'phase_is_latest': phase_state["phase_is_latest"],
+        'phase_number': phase_number,
+        'has_today_projection': bool(phase_state.get("has_today_projection")),
     }
+
+
+def _serialize_followup_projection_for_home(client: Client, today, *, family_state: dict, now_dt=None) -> dict | None:
+    if not family_state.get("has_today_projection"):
+        return None
+
+    projection_phase_state = dict(family_state)
+    projection_phase_state["family_has_today_projection"] = False
+    projection_phase_state["has_today_projection"] = False
+    projection_base = _serialize_client_for_home(client, today, family_state=projection_phase_state, now_dt=now_dt)
+    projection_due_local = family_state.get("projection_due_local") or (
+        timezone.localtime(client.next_call_at) if client.next_call_at else None
+    )
+    if not projection_due_local:
+        return None
+
+    now_local = timezone.localtime(now_dt or timezone.now())
+    identity = family_state.get("projection_identity") or _projection_identity_suffix(
+        followup_id=family_state.get("projection_followup_id"),
+        client_id=client.id,
+    )
+    attention_state = _build_callback_attention_state(
+        due_local=projection_due_local,
+        today=today,
+        now_local=now_local,
+    )
+    status_label = "Очікує сьогодні"
+    if attention_state == "attention_soon":
+        status_label = "Скоро передзвін"
+    elif attention_state == "priority_due":
+        status_label = "Час передзвону настав"
+
+    projection_base.update({
+        "row_kind": "followup_projection",
+        "row_dom_id": f"client-reminder-{identity}",
+        "source_client_id": client.id,
+        "source_followup_id": family_state.get("projection_followup_id") or "",
+        "home_group_label": "Сьогодні",
+        "callback_state": "today",
+        "callback_visual_state": attention_state if attention_state != "scheduled_today" else "today",
+        "callback_attention_state": attention_state,
+        "callback_status_label": status_label,
+        "callback_available": True,
+        "callback_pending": False,
+        "client_mode": "callback",
+        "phase_action_state": "create",
+        "phase_target_client_id": "",
+        "has_today_projection": False,
+        "next_call_date": projection_due_local.strftime("%Y-%m-%d"),
+        "next_call_time": projection_due_local.strftime("%H:%M"),
+        "next_call": projection_due_local.strftime("%d.%m.%Y %H:%M"),
+    })
+    return projection_base
+
+
+def _build_followup_projection_rows(clients, today, *, family_state_map: dict[int, dict], now_dt=None) -> list[dict]:
+    families: dict[int, list[Client]] = {}
+    for client in clients:
+        families.setdefault(_phase_root_id(client), []).append(client)
+
+    projection_rows: list[dict] = []
+    for family_clients in families.values():
+        latest = sorted(family_clients, key=_phase_sort_key)[-1]
+        family_state = family_state_map.get(latest.id) or {}
+        projection_row = _serialize_followup_projection_for_home(latest, today, family_state=family_state, now_dt=now_dt)
+        if projection_row:
+            projection_rows.append(projection_row)
+
+    projection_rows.sort(key=lambda item: (item.get("next_call_date", ""), item.get("next_call_time", ""), item.get("row_dom_id", "")))
+    return projection_rows
 
 
 def _build_report_analytics(user):
@@ -744,6 +1038,7 @@ def home(request):
         next_call_date = data.get('next_call_date', '').strip()
         next_call_time = data.get('next_call_time', '').strip()
         today = timezone.localdate()
+        now_dt = timezone.now()
 
         source_display = format_source_display(source, source_link, source_other)
         result_capture = normalize_result_capture(
@@ -783,7 +1078,11 @@ def home(request):
                 return redirect('management_home')
 
             existing_client = None
+            family_client_ids = []
             exclude_client_ids = []
+            phase_action = (data.get('phase_action') or ('edit' if client_id else 'create')).strip().lower()
+            is_phase_continue = False
+            pre_projection_ids = set()
             if client_id:
                 try:
                     existing_client = Client.objects.get(id=client_id)
@@ -793,7 +1092,15 @@ def home(request):
                             return JsonResponse({'success': False, 'error': error_text}, status=403)
                         messages.error(request, error_text)
                         return redirect('management_home')
-                    exclude_client_ids = [existing_client.id]
+                    family_client_ids = list(_phase_family_queryset(existing_client).values_list('id', flat=True))
+                    exclude_client_ids = family_client_ids or [existing_client.id]
+                    is_phase_continue = phase_action == 'continue'
+                    pre_family_clients = list(_home_family_clients_queryset(request.user, family_client_ids))
+                    pre_family_state_map = _build_phase_family_state_map(pre_family_clients, today, now_dt=now_dt)
+                    pre_projection_ids = {
+                        item["row_dom_id"].replace("client-reminder-", "", 1)
+                        for item in _build_followup_projection_rows(pre_family_clients, today, family_state_map=pre_family_state_map, now_dt=now_dt)
+                    }
                 except Client.DoesNotExist:
                     existing_client = None
 
@@ -819,13 +1126,6 @@ def home(request):
             result_capture['context'] = result_context
             result_capture['details'] = result_details
 
-            duplicate_decision = evaluate_duplicate_zone(
-                shop_name=shop_name,
-                phone=phone_normalized,
-                website_url=website_url,
-                owner=request.user,
-                exclude_client_ids=exclude_client_ids,
-            )
             duplicate_review = None
             duplicate_payload = {
                 'client_id': existing_client.id if existing_client else None,
@@ -837,32 +1137,94 @@ def home(request):
                 'call_result': call_result,
                 'context': result_context,
             }
-            if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW} and not evidence['duplicate_override_reason']:
-                payload = build_duplicate_conflict_payload(
-                    owner=request.user,
-                    decision=duplicate_decision,
+            duplicate_decision = None
+            if not is_phase_continue:
+                duplicate_decision = evaluate_duplicate_zone(
                     shop_name=shop_name,
                     phone=phone_normalized,
-                    payload=duplicate_payload,
-                    auto_block_error='Такий клієнт вже є у базі.',
-                    review_error='Потрібна перевірка на дубль перед збереженням клієнта.',
-                )
-                if is_ajax:
-                    return JsonResponse(payload, status=409)
-                messages.error(request, payload['error'])
-                return redirect('management_home')
-            if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW}:
-                duplicate_review = resolve_duplicate_review_override(
+                    website_url=website_url,
                     owner=request.user,
-                    decision=duplicate_decision,
-                    shop_name=shop_name,
-                    phone=phone_normalized,
-                    payload=duplicate_payload,
-                    override_reason=evidence['duplicate_override_reason'],
+                    exclude_client_ids=exclude_client_ids,
                 )
-                result_context['duplicate_override_reason'] = evidence['duplicate_override_reason']
+                if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW} and not evidence['duplicate_override_reason']:
+                    payload = build_duplicate_conflict_payload(
+                        owner=request.user,
+                        decision=duplicate_decision,
+                        shop_name=shop_name,
+                        phone=phone_normalized,
+                        payload=duplicate_payload,
+                        auto_block_error='Такий клієнт вже є у базі.',
+                        review_error='Потрібна перевірка на дубль перед збереженням клієнта.',
+                    )
+                    if is_ajax:
+                        return JsonResponse(payload, status=409)
+                    messages.error(request, payload['error'])
+                    return redirect('management_home')
+                if duplicate_decision.zone in {DedupeZone.AUTO_BLOCK, DedupeZone.REVIEW}:
+                    duplicate_review = resolve_duplicate_review_override(
+                        owner=request.user,
+                        decision=duplicate_decision,
+                        shop_name=shop_name,
+                        phone=phone_normalized,
+                        payload=duplicate_payload,
+                        override_reason=evidence['duplicate_override_reason'],
+                    )
+                    result_context['duplicate_override_reason'] = evidence['duplicate_override_reason']
 
-            if existing_client:
+            if existing_client and is_phase_continue:
+                with transaction.atomic():
+                    family_clients = list(_phase_family_queryset(existing_client).select_for_update())
+                    latest_family_client = sorted(family_clients, key=_phase_sort_key)[-1]
+                    latest_created_today = timezone.localtime(latest_family_client.created_at).date() == today
+                    if latest_created_today:
+                        saved_client = latest_family_client
+                    else:
+                        prev_next_call_at = latest_family_client.next_call_at
+                        latest_family_client.shop_name = shop_name
+                        latest_family_client.phone = phone_normalized
+                        latest_family_client.website_url = website_url
+                        latest_family_client.full_name = full_name
+                        latest_family_client.role = role
+                        latest_family_client.source = source_display
+                        latest_family_client.manager_note = manager_note
+                        latest_family_client.next_call_at = None
+                        latest_family_client.save()
+                        _sync_client_followup(latest_family_client, prev_next_call_at, None, now_dt)
+
+                        phase_root = latest_family_client.phase_root or latest_family_client
+                        saved_client = Client.objects.create(
+                            shop_name=shop_name,
+                            phone=phone_normalized,
+                            website_url=website_url,
+                            full_name=full_name,
+                            role=role,
+                            source=source_display,
+                            call_result=call_result,
+                            call_result_reason_code=result_capture['reason_code'],
+                            call_result_reason_note=result_capture['reason_note'],
+                            call_result_context=result_context,
+                            call_result_details=result_details,
+                            manager_note=manager_note,
+                            next_call_at=next_call_at,
+                            owner=request.user,
+                            phase_root=phase_root,
+                            previous_phase=latest_family_client,
+                            phase_number=(latest_family_client.phase_number or 1) + 1,
+                        )
+                        _sync_client_followup(saved_client, None, saved_client.next_call_at, now_dt)
+                        _sync_phase_family_shared_fields(saved_client)
+                        record_client_interaction(
+                            client=saved_client,
+                            manager=request.user,
+                            result_capture=result_capture,
+                            call_result=call_result,
+                            next_call_at=next_call_at,
+                            evidence=evidence,
+                            duplicate_review=duplicate_review,
+                        )
+                if saved_client.id == existing_client.id:
+                    _sync_phase_family_shared_fields(saved_client)
+            elif existing_client:
                 prev_next_call_at = existing_client.next_call_at
                 existing_client.shop_name = shop_name
                 existing_client.phone = phone_normalized
@@ -881,8 +1243,18 @@ def home(request):
                 if existing_client.points_override is not None:
                     existing_client.points_override = max(0, int(POINTS.get(call_result, 0)) - LEAD_BASE_PROCESSING_PENALTY)
                 existing_client.save()
-                _sync_client_followup(existing_client, prev_next_call_at, existing_client.next_call_at, timezone.now())
+                _sync_phase_family_shared_fields(existing_client)
+                _sync_client_followup(existing_client, prev_next_call_at, existing_client.next_call_at, now_dt)
                 saved_client = existing_client
+                record_client_interaction(
+                    client=saved_client,
+                    manager=request.user,
+                    result_capture=result_capture,
+                    call_result=call_result,
+                    next_call_at=next_call_at,
+                    evidence=evidence,
+                    duplicate_review=duplicate_review,
+                )
             else:
                 saved_client = Client.objects.create(
                     shop_name=shop_name,
@@ -900,17 +1272,16 @@ def home(request):
                     next_call_at=next_call_at,
                     owner=request.user,
                 )
-                _sync_client_followup(saved_client, None, saved_client.next_call_at, timezone.now())
-
-            record_client_interaction(
-                client=saved_client,
-                manager=request.user,
-                result_capture=result_capture,
-                call_result=call_result,
-                next_call_at=next_call_at,
-                evidence=evidence,
-                duplicate_review=duplicate_review,
-            )
+                _sync_client_followup(saved_client, None, saved_client.next_call_at, now_dt)
+                record_client_interaction(
+                    client=saved_client,
+                    manager=request.user,
+                    result_capture=result_capture,
+                    call_result=call_result,
+                    next_call_at=next_call_at,
+                    evidence=evidence,
+                    duplicate_review=duplicate_review,
+                )
         if is_ajax:
             # Сформируем актуальные данные после операции
             stats = get_user_stats(request.user)
@@ -921,7 +1292,35 @@ def home(request):
             progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
             shell_metrics = build_management_shell_metrics(request.user, getattr(request.user, "userprofile", None))
 
-            latest_data = _serialize_client_for_home(saved_client, today) if shop_name and phone else None
+            latest_data = None
+            family_updates = []
+            projection_updates = []
+            projection_remove_ids = sorted(pre_projection_ids)
+            if shop_name and phone:
+                family_clients = list(
+                    _home_family_clients_queryset(
+                        request.user,
+                        _phase_family_queryset(saved_client).values_list('id', flat=True),
+                    )
+                )
+                family_state_map = _build_phase_family_state_map(family_clients, today, now_dt=now_dt)
+                family_updates = []
+                for member in family_clients:
+                    serialized = _serialize_client_for_home(member, today, family_state=family_state_map.get(member.id), now_dt=now_dt)
+                    serialized['home_group_label'] = _build_home_group_label(serialized, member, today)
+                    family_updates.append(serialized)
+                projection_updates = _build_followup_projection_rows(
+                    family_clients,
+                    today,
+                    family_state_map=family_state_map,
+                    now_dt=now_dt,
+                )
+                post_projection_ids = {
+                    item["row_dom_id"].replace("client-reminder-", "", 1)
+                    for item in projection_updates
+                }
+                projection_remove_ids = sorted(pre_projection_ids - post_projection_ids)
+                latest_data = next((item for item in family_updates if item['id'] == saved_client.id), None)
 
             return JsonResponse({
                 'success': True,
@@ -933,6 +1332,9 @@ def home(request):
                 'progress_clients_pct': progress_clients_pct,
                 'progress_points_pct': progress_points_pct,
                 'latest': latest_data,
+                'family_updates': family_updates,
+                'projection_updates': projection_updates,
+                'projection_remove_ids': projection_remove_ids,
                 'shell_secondary_counts': shell_metrics['management_shell_secondary_counts'],
             })
         return redirect('management_home')
@@ -954,24 +1356,21 @@ def home(request):
         .order_by('-created_at')
     )
     # У основній панелі всі бачать тільки свої записи
-    clients_qs = base_qs.filter(owner=request.user)
-    clients = clients_qs
+    clients = list(base_qs.filter(owner=request.user))
 
     today = timezone.localdate()
-    today_start, today_end = get_today_range()
     yesterday = today - timedelta(days=1)
     grouped = OrderedDict()
+    family_state_map = _build_phase_family_state_map(clients, today)
+    projection_rows = _build_followup_projection_rows(clients, today, family_state_map=family_state_map)
+
+    if projection_rows:
+        grouped['Сьогодні'] = list(projection_rows)
 
     for client in clients:
-        serialized = _serialize_client_for_home(client, today)
-        local_date = timezone.localtime(client.created_at).date()
-        if serialized['callback_state'] in {'today', 'due_now'} or local_date == today:
-            label = 'Сьогодні'
-        elif local_date == yesterday:
-            label = 'Вчора'
-        else:
-            label = local_date.strftime('%d.%m.%Y')
-
+        serialized = _serialize_client_for_home(client, today, family_state=family_state_map.get(client.id))
+        label = _build_home_group_label(serialized, client, today)
+        serialized['home_group_label'] = label
         grouped.setdefault(label, []).append(serialized)
 
     grouped_clients = list(grouped.items())

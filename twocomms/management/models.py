@@ -138,6 +138,23 @@ class Client(models.Model):
     call_result_context = models.JSONField(_("Контекст підсумку"), default=dict, blank=True)
     call_result_details = models.TextField(_("Деталі підсумку"), blank=True, help_text="Якщо вибрано 'Інше'")
     manager_note = models.TextField(_("Нотатка менеджера"), blank=True)
+    phase_root = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="phase_family_members",
+        verbose_name=_("Коренева фаза"),
+    )
+    previous_phase = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="next_phase_members",
+        verbose_name=_("Попередня фаза"),
+    )
+    phase_number = models.PositiveIntegerField(_("Номер фази"), default=1, db_index=True)
     next_call_at = models.DateTimeField(_("Наступний дзвінок"), null=True, blank=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
