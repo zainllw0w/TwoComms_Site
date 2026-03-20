@@ -78,6 +78,7 @@ from .invoice_service import (
 from .lead_services import calc_client_points, get_user_lead_bonus_points
 from .services.dtf_bridge import build_dtf_bridge_payload
 from .services.client_entry import (
+    NEGATIVE_RESULTS_REQUIRING_NOTE,
     build_client_entry_form_payload,
     merge_result_capture_with_evidence,
     record_client_interaction,
@@ -119,6 +120,7 @@ CALLBACK_ATTEMPT_EXCLUDED_RESULTS = {
     Client.CallResult.TEST_BATCH,
     Client.CallResult.XML_CONNECTED,
 }
+NON_CONVERSION_CALL_RESULTS = NEGATIVE_RESULTS_REQUIRING_NOTE | {Client.CallResult.NO_ANSWER}
 
 
 def _compact_text(value: str, limit: int = 72) -> str:
@@ -322,6 +324,27 @@ def _build_callback_attention_state(*, due_local, today, now_local, callback_vis
     if due_local - now_local <= timedelta(hours=1):
         return "attention_soon"
     return "scheduled_today"
+
+
+def _build_callback_status_label(*, callback_state: str, due_local, today, attention_state: str = "normal") -> str:
+    if callback_state == "none":
+        return ""
+    if callback_state == "missed":
+        return "Недоопрацьований клієнт"
+    if callback_state == "due_now":
+        return "Вікно передзвону відкрите"
+    if callback_state == "today":
+        return "Скоро передзвін" if attention_state == "attention_soon" else "Очікує сьогодні"
+    if callback_state == "future":
+        if not due_local:
+            return "Заплановано далі"
+        days_until = (due_local.date() - today).days
+        if days_until == 1:
+            return "Заплановано завтра"
+        if days_until == 2:
+            return "Заплановано післязавтра"
+        return "Заплановано далі"
+    return ""
 
 
 def _home_family_clients_queryset(owner, client_ids):
@@ -562,13 +585,6 @@ def _serialize_client_for_home(client: Client, today, *, family_state: dict | No
             callback_state = effective_callback.code
     callback_available = callback_state != 'none'
     callback_pending = callback_state == 'today'
-    callback_status_label = {
-        'today': 'Очікує сьогодні',
-        'due_now': 'Вікно передзвону відкрите',
-        'missed': 'Передзвін пропущено',
-        'future': 'Заплановано далі',
-        'none': '',
-    }[callback_state]
     current_phase_summary = phase_state["current_phase_summary"] or _client_callback_summary(client, attempts)
     phase_number = phase_state["phase_number"] or 1
     phase_action_state = 'none'
@@ -576,7 +592,6 @@ def _serialize_client_for_home(client: Client, today, *, family_state: dict | No
         if phase_state.get("has_today_projection"):
             callback_available = False
             callback_pending = False
-            callback_status_label = "Нагадування на сьогодні відкрито"
         if not phase_state["phase_is_latest"]:
             phase_action_state = 'none'
     elif not phase_state["phase_is_latest"]:
@@ -587,17 +602,38 @@ def _serialize_client_for_home(client: Client, today, *, family_state: dict | No
     hostname_display = _hostname_display(client.website_url)
     manager_note = (client.manager_note or "").strip()
     callback_visual_state = callback_state if callback_state != "none" else "normal"
+    next_call_closed_label = ""
+    next_call_closed_meta = ""
+    allow_followup_reopen = False
     if next_call_local and next_call_local.date() < today and callback_state == "missed":
         callback_visual_state = "needs_contact"
-        callback_status_label = "Пропущений дзвінок"
     elif phase_state.get("has_today_projection"):
         callback_visual_state = "today_projection"
+    elif (
+        phase_state["phase_is_latest"]
+        and callback_state == "none"
+        and not next_call_local
+        and client.call_result in NON_CONVERSION_CALL_RESULTS
+    ):
+        next_call_closed_label = "Подальший контакт не потрібен"
+        next_call_closed_meta = "Неконверсійний клієнт"
+        allow_followup_reopen = True
     callback_attention_state = _build_callback_attention_state(
         due_local=next_call_local,
         today=today,
         now_local=now_local,
         callback_visual_state=callback_visual_state,
     ) if phase_action_state == "create" else ("needs_contact" if callback_visual_state == "needs_contact" else "normal")
+    callback_status_label = (
+        "Нагадування на сьогодні відкрито"
+        if phase_state.get("has_today_projection")
+        else _build_callback_status_label(
+            callback_state=callback_state,
+            due_local=next_call_local,
+            today=today,
+            attention_state=callback_attention_state,
+        )
+    )
     return {
         'id': client.id,
         'row_kind': 'client',
@@ -633,6 +669,9 @@ def _serialize_client_for_home(client: Client, today, *, family_state: dict | No
         'next_call_date': next_call_local.strftime('%Y-%m-%d') if next_call_local else '',
         'next_call_time': next_call_local.strftime('%H:%M') if next_call_local else '',
         'next_call': next_call_local.strftime('%d.%m.%Y %H:%M') if next_call_local else '–',
+        'next_call_closed_label': next_call_closed_label,
+        'next_call_closed_meta': next_call_closed_meta,
+        'allow_followup_reopen': allow_followup_reopen,
         'created_date_label': 'Сьогодні' if created_local.date() == today else created_local.strftime('%d.%m.%Y'),
         'home_group_label': '',
         'callback_state': callback_state,
@@ -684,11 +723,13 @@ def _serialize_followup_projection_for_home(client: Client, today, *, family_sta
         today=today,
         now_local=now_local,
     )
-    status_label = "Очікує сьогодні"
-    if attention_state == "attention_soon":
-        status_label = "Скоро передзвін"
-    elif attention_state == "priority_due":
-        status_label = "Час передзвону настав"
+    projection_callback_state = "due_now" if attention_state == "priority_due" else "today"
+    status_label = _build_callback_status_label(
+        callback_state=projection_callback_state,
+        due_local=projection_due_local,
+        today=today,
+        attention_state=attention_state,
+    )
 
     projection_base.update({
         "row_kind": "followup_projection",
@@ -709,6 +750,9 @@ def _serialize_followup_projection_for_home(client: Client, today, *, family_sta
         "next_call_date": projection_due_local.strftime("%Y-%m-%d"),
         "next_call_time": projection_due_local.strftime("%H:%M"),
         "next_call": projection_due_local.strftime("%d.%m.%Y %H:%M"),
+        "next_call_closed_label": "",
+        "next_call_closed_meta": "",
+        "allow_followup_reopen": False,
     })
     return projection_base
 

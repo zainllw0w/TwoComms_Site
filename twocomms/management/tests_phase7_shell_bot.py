@@ -180,7 +180,7 @@ class HomeShellRenderTests(TestCase):
         self.assertTrue(due_source["has_today_projection"])
         self.assertEqual(due_source["phase_action_state"], "none")
         self.assertEqual(overdue_source["callback_attention_state"], "needs_contact")
-        self.assertEqual(overdue_source["callback_status_label"], "Пропущений дзвінок")
+        self.assertEqual(overdue_source["callback_status_label"], "Недоопрацьований клієнт")
         self.assertEqual(overdue_source["phase_action_state"], "create")
 
     def test_home_keeps_today_latest_cta_visible_and_marks_attention_soon(self):
@@ -224,6 +224,132 @@ class HomeShellRenderTests(TestCase):
         )
         self.assertEqual(payload["phase_action_state"], "create")
         self.assertEqual(payload["callback_attention_state"], "attention_soon")
+
+    def test_home_uses_contextual_callback_status_labels_for_schedule_windows(self):
+        user = get_user_model().objects.create_user(username="callback_label_mgr", password="x")
+        profile = UserProfile.objects.get(user=user)
+        profile.is_manager = True
+        profile.save(update_fields=["is_manager"])
+        self.client.force_login(user)
+
+        tz = timezone.get_current_timezone()
+        now_local = timezone.make_aware(datetime(2026, 3, 20, 11, 0), tz)
+        today_due = timezone.make_aware(datetime(2026, 3, 20, 16, 0), tz)
+        soon_due = timezone.make_aware(datetime(2026, 3, 20, 11, 40), tz)
+        due_now_at = timezone.make_aware(datetime(2026, 3, 20, 10, 15), tz)
+        tomorrow_due = timezone.make_aware(datetime(2026, 3, 21, 9, 0), tz)
+        day_after_due = timezone.make_aware(datetime(2026, 3, 22, 9, 0), tz)
+        later_due = timezone.make_aware(datetime(2026, 3, 24, 9, 0), tz)
+
+        Client.objects.create(
+            shop_name="Today Window Shop",
+            phone="+380671009107",
+            full_name="Today Window",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=today_due,
+        )
+        Client.objects.create(
+            shop_name="Soon Window Shop",
+            phone="+380671009108",
+            full_name="Soon Window",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=soon_due,
+        )
+        due_now_client = Client.objects.create(
+            shop_name="Due Now Window Shop",
+            phone="+380671009109",
+            full_name="Due Now Window",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=due_now_at,
+        )
+        Client.objects.create(
+            shop_name="Tomorrow Window Shop",
+            phone="+380671009110",
+            full_name="Tomorrow Window",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=tomorrow_due,
+        )
+        Client.objects.create(
+            shop_name="Day After Window Shop",
+            phone="+380671009111",
+            full_name="Day After Window",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=day_after_due,
+        )
+        Client.objects.create(
+            shop_name="Later Window Shop",
+            phone="+380671009112",
+            full_name="Later Window",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=later_due,
+        )
+        ClientFollowUp.objects.create(
+            client=due_now_client,
+            owner=user,
+            due_at=due_now_at,
+            due_date=due_now_at.date(),
+            grace_until=due_now_at + timedelta(hours=2),
+        )
+
+        with patch("management.views.timezone.now", return_value=now_local), patch(
+            "management.views.timezone.localdate", return_value=now_local.date()
+        ), patch("management.services.followup_state.timezone.now", return_value=now_local):
+            response = self.get_home()
+
+        self.assertEqual(response.status_code, 200)
+        grouped = response.context["grouped_clients"]
+        flat = {
+            item["shop"]: item
+            for _, rows in grouped
+            for item in rows
+            if item.get("row_kind") == "client"
+        }
+        self.assertEqual(flat["Today Window Shop"]["callback_status_label"], "Очікує сьогодні")
+        self.assertEqual(flat["Soon Window Shop"]["callback_status_label"], "Скоро передзвін")
+        self.assertEqual(flat["Due Now Window Shop"]["callback_status_label"], "Вікно передзвону відкрите")
+        self.assertEqual(flat["Tomorrow Window Shop"]["callback_status_label"], "Заплановано завтра")
+        self.assertEqual(flat["Day After Window Shop"]["callback_status_label"], "Заплановано післязавтра")
+        self.assertEqual(flat["Later Window Shop"]["callback_status_label"], "Заплановано далі")
+
+    def test_home_renders_non_conversion_closed_copy_with_reopen_action(self):
+        user = get_user_model().objects.create_user(username="closed_non_conversion_mgr", password="x")
+        profile = UserProfile.objects.get(user=user)
+        profile.is_manager = True
+        profile.save(update_fields=["is_manager"])
+        self.client.force_login(user)
+
+        client = Client.objects.create(
+            shop_name="Closed Negative Shop",
+            phone="+380671009106",
+            full_name="Closed Negative Owner",
+            owner=user,
+            call_result=Client.CallResult.NOT_INTERESTED,
+            call_result_reason_note="Працює з іншим постачальником.",
+            next_call_at=None,
+        )
+
+        response = self.get_home()
+
+        self.assertEqual(response.status_code, 200)
+        grouped = response.context["grouped_clients"]
+        payload = next(
+            item
+            for _, rows in grouped
+            for item in rows
+            if item["id"] == client.id and item.get("row_kind") == "client"
+        )
+        self.assertEqual(payload["next_call_closed_label"], "Подальший контакт не потрібен")
+        self.assertEqual(payload["next_call_closed_meta"], "Неконверсійний клієнт")
+        self.assertTrue(payload["allow_followup_reopen"])
+        self.assertContains(response, "Подальший контакт не потрібен")
+        self.assertContains(response, "Неконверсійний клієнт")
+        self.assertContains(response, "Повернути в роботу")
 
     def test_home_renders_updated_daily_zones_and_secondary_shell_chips(self):
         user = get_user_model().objects.create_user(username="shell_metrics", password="x", is_staff=True)
@@ -510,6 +636,8 @@ class HomeShellRenderTests(TestCase):
         )
         self.assertEqual(soon_projection["callback_attention_state"], "attention_soon")
         self.assertEqual(due_projection["callback_attention_state"], "priority_due")
+        self.assertEqual(soon_projection["callback_status_label"], "Скоро передзвін")
+        self.assertEqual(due_projection["callback_status_label"], "Вікно передзвону відкрите")
 
     def test_home_renders_money_action_from_same_summary_as_payout_page(self):
         user = get_user_model().objects.create_user(username="shell_money_mgr", password="x", is_staff=True)
