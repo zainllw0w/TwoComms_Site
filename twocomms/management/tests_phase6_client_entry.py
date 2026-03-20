@@ -1,4 +1,5 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
+from unittest.mock import patch
 
 from django.apps import apps
 from django.contrib.auth import get_user_model
@@ -682,7 +683,7 @@ class HomePageModalMarkupTests(TestCase):
         self.assertIn("після 18:00", payload["phase_history_json"])
         self.assertTrue(payload["show_phase_badge"])
 
-    def test_home_page_exposes_jump_cta_for_non_latest_phase_and_hides_primary_cta_for_today_latest(self):
+    def test_home_page_exposes_jump_cta_for_non_latest_phase_and_keeps_primary_cta_for_today_latest(self):
         phase1 = Client.objects.create(
             shop_name="Jump Phase Shop",
             phone="+380671110189",
@@ -715,12 +716,51 @@ class HomePageModalMarkupTests(TestCase):
         self.assertEqual(by_id[phase1.id]["phase_target_client_id"], phase2.id)
         self.assertFalse(by_id[phase1.id]["phase_is_latest"])
         self.assertFalse(by_id[phase1.id]["callback_available"])
-        self.assertEqual(by_id[phase2.id]["phase_action_state"], "none")
+        self.assertEqual(by_id[phase2.id]["phase_action_state"], "create")
         self.assertTrue(by_id[phase2.id]["phase_is_latest"])
         self.assertEqual(by_id[phase2.id]["phase_number"], 2)
         self.assertContains(response, "До активної фази")
+        self.assertContains(response, "Наступна фаза")
         self.assertContains(response, f'id="client-row-{phase1.id}"')
         self.assertContains(response, f'id="client-row-{phase2.id}"')
+
+    def test_home_page_keeps_today_latest_callback_cta_and_marks_attention_soon(self):
+        tz = timezone.get_current_timezone()
+        now_local = timezone.make_aware(datetime(2026, 3, 20, 3, 5), tz)
+        due_at = timezone.make_aware(datetime(2026, 3, 20, 3, 30), tz)
+
+        client = Client.objects.create(
+            shop_name="Today Attention Shop",
+            phone="+380671110211",
+            full_name="Today Owner",
+            owner=self.user,
+            call_result=Client.CallResult.THINKING,
+            next_call_at=due_at,
+        )
+        ClientFollowUp.objects.create(
+            client=client,
+            owner=self.user,
+            due_at=due_at,
+            due_date=due_at.date(),
+            grace_until=due_at + timedelta(hours=2),
+        )
+
+        with patch("management.views.timezone.now", return_value=now_local), patch(
+            "management.views.timezone.localdate", return_value=now_local.date()
+        ), patch("management.services.followup_state.timezone.now", return_value=now_local):
+            response = self.client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        grouped = response.context["grouped_clients"]
+        payload = next(
+            item
+            for _, rows in grouped
+            for item in rows
+            if item.get("row_kind") == "client" and item["id"] == client.id
+        )
+        self.assertEqual(payload["phase_action_state"], "create")
+        self.assertEqual(payload["callback_attention_state"], "attention_soon")
+        self.assertContains(response, "Наступна фаза")
 
     def test_home_page_renders_today_projection_row_and_keeps_source_row_passive(self):
         due_at = timezone.localtime(timezone.now()).replace(second=0, microsecond=0) + timedelta(hours=2)
