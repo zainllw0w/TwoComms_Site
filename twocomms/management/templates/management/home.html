@@ -1500,6 +1500,22 @@ function initManagementHomePage() {
         }
     };
 
+    const confirmNoFollowSelection = (radios, selectedRadio, wrap, dateInput, timeInput) => {
+        if (!selectedRadio || selectedRadio.value !== 'no_follow') return true;
+        const confirmed = window.confirm(
+            'Неконверсійний клієнт закриє follow-up для цієї картки. Підтвердити дію?',
+        );
+        if (confirmed) return true;
+        const scheduledRadio = Array.from(radios).find((radio) => radio.value === 'scheduled');
+        if (scheduledRadio) {
+            scheduledRadio.checked = true;
+        } else {
+            selectedRadio.checked = false;
+        }
+        toggleNextCall(radios, wrap, dateInput, timeInput);
+        return false;
+    };
+
     const primeScheduledFollowup = (radios, wrap, dateInput, timeInput) => {
         const scheduledRadio = Array.from(radios).find((radio) => radio.value === 'scheduled');
         if (scheduledRadio) {
@@ -2105,6 +2121,10 @@ function initManagementHomePage() {
         });
     });
     nextCallRadios.forEach((radio) => radio.addEventListener('change', () => {
+        if (!confirmNoFollowSelection(nextCallRadios, radio, nextCallWrap, nextCallDate, nextCallTime)) {
+            setNodeVisible(telegramFollowupCta, !hasManagerTelegramBinding && clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked, 'block');
+            return;
+        }
         toggleNextCall(nextCallRadios, nextCallWrap, nextCallDate, nextCallTime);
         setNodeVisible(telegramFollowupCta, !hasManagerTelegramBinding && clientForm.querySelector('input[name="next_call_type"][value="scheduled"]').checked, 'block');
     }));
@@ -2168,7 +2188,12 @@ function initManagementHomePage() {
             linkedShopSummaryNode: processLinkedShopSummary,
         });
     });
-    processNextCallRadios.forEach((radio) => radio.addEventListener('change', () => toggleNextCall(processNextCallRadios, processNextCallWrap, processNextCallDate, processNextCallTime)));
+    processNextCallRadios.forEach((radio) => radio.addEventListener('change', () => {
+        if (!confirmNoFollowSelection(processNextCallRadios, radio, processNextCallWrap, processNextCallDate, processNextCallTime)) {
+            return;
+        }
+        toggleNextCall(processNextCallRadios, processNextCallWrap, processNextCallDate, processNextCallTime);
+    }));
     processNextCallDate?.addEventListener('change', () => syncNextCallConstraints(processNextCallDate, processNextCallTime));
     processMessengerUsePhone?.addEventListener('change', () => syncMessengerTargetMode({
         usePhoneInput: processMessengerUsePhone,

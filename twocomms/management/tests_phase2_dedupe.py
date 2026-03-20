@@ -277,6 +277,33 @@ class LeadProcessDedupeApiTests(TestCase):
         self.assertEqual(created.call_result_context["contact_channel"], "phone")
         self.assertIn("Спроб: 3", created.call_result_details)
 
+    def test_lead_process_persists_no_follow_mode_and_returns_closed_state_payload(self):
+        lead = ManagementLead.objects.create(
+            shop_name="Target Shop",
+            phone="+380501234567",
+            full_name="Owner",
+            status=ManagementLead.Status.BASE,
+            added_by=self.user,
+        )
+
+        response = self.client.post(
+            f"/leads/api/{lead.id}/process/",
+            {
+                **self._base_payload(),
+                "next_call_type": "no_follow",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        created = Client.objects.get(shop_name="Target Shop", owner=self.user)
+        self.assertEqual(created.call_result_context.get("followup_mode"), "no_follow")
+        self.assertIsNone(created.next_call_at)
+        payload = response.json()["client"]
+        self.assertEqual(payload["next_call_closed_label"], "Подальший контакт не потрібен")
+        self.assertEqual(payload["next_call_closed_meta"], "Неконверсійний клієнт")
+        self.assertTrue(payload["allow_followup_reopen"])
+
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
 class ParsingModerationDedupeApiTests(TestCase):

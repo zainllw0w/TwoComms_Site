@@ -601,6 +601,11 @@ def _serialize_client_for_home(client: Client, today, *, family_state: dict | No
     show_phase_badge = callback_available and phase_number >= 2
     hostname_display = _hostname_display(client.website_url)
     manager_note = (client.manager_note or "").strip()
+    followup_mode = (context.get("followup_mode") or "").strip()
+    legacy_closed_followup = (
+        not followup_mode
+        and client.call_result in NON_CONVERSION_CALL_RESULTS
+    )
     callback_visual_state = callback_state if callback_state != "none" else "normal"
     next_call_closed_label = ""
     next_call_closed_meta = ""
@@ -613,7 +618,7 @@ def _serialize_client_for_home(client: Client, today, *, family_state: dict | No
         phase_state["phase_is_latest"]
         and callback_state == "none"
         and not next_call_local
-        and client.call_result in NON_CONVERSION_CALL_RESULTS
+        and (followup_mode == "no_follow" or legacy_closed_followup)
     ):
         next_call_closed_label = "Подальший контакт не потрібен"
         next_call_closed_meta = "Неконверсійний клієнт"
@@ -1162,6 +1167,10 @@ def home(request):
                 messages.error(request, error_text)
                 return redirect('management_home')
             result_context, result_details = merge_result_capture_with_evidence(result_capture, evidence)
+            if next_call_type == 'no_follow':
+                result_context['followup_mode'] = 'no_follow'
+            else:
+                result_context.pop('followup_mode', None)
             if phase_comment:
                 result_context['phase_comment'] = phase_comment
                 result_details_parts = [part for part in str(result_details or '').splitlines() if part.strip()]

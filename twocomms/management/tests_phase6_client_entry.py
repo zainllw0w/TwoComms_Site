@@ -312,6 +312,26 @@ class HomeClientEntryValidationTests(TestCase):
             "Краще телефонувати після 20:00 та дублювати в Telegram.",
         )
 
+    def test_no_follow_selection_persists_closed_followup_mode_for_thinking_result(self):
+        response = self.client.post(
+            "/",
+            {
+                **self._base_payload(),
+                "call_result": Client.CallResult.THINKING,
+            },
+            secure=True,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        created = Client.objects.get(shop_name="Target Shop", owner=self.user)
+        self.assertEqual(created.next_call_at, None)
+        self.assertEqual(created.call_result_context.get("followup_mode"), "no_follow")
+        latest = response.json()["latest"]
+        self.assertEqual(latest["next_call_closed_label"], "Подальший контакт не потрібен")
+        self.assertEqual(latest["next_call_closed_meta"], "Неконверсійний клієнт")
+        self.assertTrue(latest["allow_followup_reopen"])
+
     def test_callback_continue_creates_new_today_phase_client_and_skips_duplicate_review(self):
         source = Client.objects.create(
             shop_name="Phase Source Shop",
