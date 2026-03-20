@@ -351,6 +351,72 @@ class HomeShellRenderTests(TestCase):
         self.assertContains(response, "Неконверсійний клієнт")
         self.assertContains(response, "Повернути в роботу")
 
+    def test_home_renders_legacy_thinking_without_followup_as_closed_non_conversion(self):
+        user = get_user_model().objects.create_user(username="legacy_closed_mgr", password="x")
+        profile = UserProfile.objects.get(user=user)
+        profile.is_manager = True
+        profile.save(update_fields=["is_manager"])
+        self.client.force_login(user)
+
+        client = Client.objects.create(
+            shop_name="Legacy Closed Shop",
+            phone="+380671009107",
+            full_name="Legacy Closed Owner",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            call_result_context={},
+            call_result_details="",
+            next_call_at=None,
+        )
+
+        response = self.get_home()
+
+        self.assertEqual(response.status_code, 200)
+        grouped = response.context["grouped_clients"]
+        payload = next(
+            item
+            for _, rows in grouped
+            for item in rows
+            if item["id"] == client.id and item.get("row_kind") == "client"
+        )
+        self.assertEqual(payload["next_call_closed_label"], "Подальший контакт не потрібен")
+        self.assertEqual(payload["next_call_closed_meta"], "Неконверсійний клієнт")
+        self.assertTrue(payload["allow_followup_reopen"])
+        self.assertContains(response, "Подальший контакт не потрібен")
+        self.assertContains(response, "Неконверсійний клієнт")
+
+    def test_home_keeps_plain_dash_for_thinking_without_followup_when_details_exist(self):
+        user = get_user_model().objects.create_user(username="plain_thinking_mgr", password="x")
+        profile = UserProfile.objects.get(user=user)
+        profile.is_manager = True
+        profile.save(update_fields=["is_manager"])
+        self.client.force_login(user)
+
+        client = Client.objects.create(
+            shop_name="Plain Thinking Shop",
+            phone="+380671009108",
+            full_name="Plain Thinking Owner",
+            owner=user,
+            call_result=Client.CallResult.THINKING,
+            call_result_context={"attempts": 1},
+            call_result_details="Клієнт попросив паузу без закриття.",
+            next_call_at=None,
+        )
+
+        response = self.get_home()
+
+        self.assertEqual(response.status_code, 200)
+        grouped = response.context["grouped_clients"]
+        payload = next(
+            item
+            for _, rows in grouped
+            for item in rows
+            if item["id"] == client.id and item.get("row_kind") == "client"
+        )
+        self.assertEqual(payload["next_call_closed_label"], "")
+        self.assertEqual(payload["next_call_closed_meta"], "")
+        self.assertFalse(payload["allow_followup_reopen"])
+
     def test_home_renders_updated_daily_zones_and_secondary_shell_chips(self):
         user = get_user_model().objects.create_user(username="shell_metrics", password="x", is_staff=True)
         self.client.force_login(user)
