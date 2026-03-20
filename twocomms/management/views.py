@@ -604,7 +604,14 @@ def _serialize_client_for_home(client: Client, today, *, family_state: dict | No
     followup_mode = (context.get("followup_mode") or "").strip()
     legacy_closed_followup = (
         not followup_mode
-        and client.call_result in NON_CONVERSION_CALL_RESULTS
+        and (
+            client.call_result in NON_CONVERSION_CALL_RESULTS
+            or (
+                client.call_result == Client.CallResult.THINKING
+                and not context
+                and not (client.call_result_details or "").strip()
+            )
+        )
     )
     callback_visual_state = callback_state if callback_state != "none" else "normal"
     next_call_closed_label = ""
