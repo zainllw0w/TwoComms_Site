@@ -9,9 +9,12 @@ from .constants import TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 from .models import Client, LeadParsingJob, LeadParsingResult, ManagementLead, normalize_phone
 from .parser_service import (
     ParsingServiceError,
+    STEP_LOCK_STALE_AFTER,
+    current_parser_query,
     create_parsing_job,
     parser_global_counters,
     parser_run_step,
+    sanitize_requests_per_minute,
 )
 from .services.dedupe import DedupeZone, build_duplicate_conflict_payload, evaluate_duplicate_zone
 from .views import get_manager_bot_username, get_reminders, get_user_stats
@@ -71,6 +74,12 @@ def _lead_queue_payload(limit=150):
 def _job_payload(job: LeadParsingJob | None) -> dict | None:
     if not job:
         return None
+    now = timezone.now()
+    next_step_eta_seconds = 0
+    if job.next_step_not_before:
+        next_step_eta_seconds = max(0, int((job.next_step_not_before - now).total_seconds()))
+    elapsed_seconds = max(1.0, (now - job.started_at).total_seconds())
+    current_rpm = round((job.request_count * 60) / elapsed_seconds, 1)
     results_qs = LeadParsingResult.objects.filter(job=job).order_by("-created_at")[:80]
     results = [
         {
@@ -83,6 +92,7 @@ def _job_payload(job: LeadParsingJob | None) -> dict | None:
             "phone": item.phone,
             "website_url": item.website_url,
             "reason": item.reason,
+            "reason_code": item.reason_code,
             "created_at": timezone.localtime(item.created_at).strftime("%H:%M:%S"),
         }
         for item in results_qs
@@ -95,13 +105,29 @@ def _job_payload(job: LeadParsingJob | None) -> dict | None:
         "cities": job.cities,
         "request_limit": job.request_limit,
         "request_count": job.request_count,
+        "requests_per_minute": job.requests_per_minute,
+        "request_success_count": job.request_success_count,
+        "request_error_count": job.request_error_count,
         "current_keyword_index": job.current_keyword_index,
         "current_city_index": job.current_city_index,
         "current_query": job.current_query,
         "next_page_token": job.next_page_token,
+        "next_step_not_before": timezone.localtime(job.next_step_not_before).isoformat() if job.next_step_not_before else "",
+        "next_step_eta_seconds": next_step_eta_seconds,
+        "next_step_eta_ms": next_step_eta_seconds * 1000,
+        "current_rpm": current_rpm,
+        "is_step_in_progress": job.is_step_in_progress,
+        "last_step_started_at": timezone.localtime(job.last_step_started_at).strftime("%H:%M:%S") if job.last_step_started_at else "",
+        "last_step_finished_at": timezone.localtime(job.last_step_finished_at).strftime("%H:%M:%S") if job.last_step_finished_at else "",
+        "last_step_duration_ms": job.last_step_duration_ms,
+        "retry_state": job.retry_state or {},
         "total_found": job.total_found,
         "no_phone_skipped": job.no_phone_skipped,
         "duplicate_skipped": job.duplicate_skipped,
+        "duplicate_same_job_phone_skipped": job.duplicate_same_job_phone_skipped,
+        "duplicate_same_job_place_skipped": job.duplicate_same_job_place_skipped,
+        "duplicate_existing_client_skipped": job.duplicate_existing_client_skipped,
+        "duplicate_existing_lead_skipped": job.duplicate_existing_lead_skipped,
         "already_rejected_skipped": job.already_rejected_skipped,
         "added_to_moderation": job.added_to_moderation,
         "moved_to_bad": job.moved_to_bad,
@@ -177,15 +203,21 @@ def parser_start_api(request):
         request_limit = int((request.POST.get("request_limit") or "0").strip())
     except ValueError:
         request_limit = 0
+    requests_per_minute = sanitize_requests_per_minute(request.POST.get("requests_per_minute"))
     try:
         job = create_parsing_job(
             user=request.user,
             keywords_raw=(request.POST.get("keywords") or "").strip(),
             cities_raw=(request.POST.get("cities") or "").strip(),
             request_limit=request_limit,
+            requests_per_minute=requests_per_minute,
         )
     except ParsingServiceError as exc:
-        return JsonResponse({"success": False, "error": str(exc)}, status=400)
+        active_job = LeadParsingJob.objects.filter(status__in=[LeadParsingJob.Status.RUNNING, LeadParsingJob.Status.PAUSED]).order_by(
+            "-started_at"
+        ).first()
+        status_code = 409 if active_job and "активна сесія" in str(exc).lower() else 400
+        return JsonResponse({"success": False, "error": str(exc), "job": _job_payload(active_job)}, status=status_code)
 
     moderation, rejected = _lead_queue_payload()
     return JsonResponse(
@@ -209,11 +241,31 @@ def parser_step_api(request):
     if not job_id:
         return JsonResponse({"success": False, "error": "job_id обов'язковий."}, status=400)
 
+    should_run = False
     with transaction.atomic():
         try:
             job = LeadParsingJob.objects.select_for_update().get(id=job_id)
         except LeadParsingJob.DoesNotExist:
             return JsonResponse({"success": False, "error": "Сесію парсингу не знайдено."}, status=404)
+
+        now = timezone.now()
+        if job.is_step_in_progress and job.last_step_started_at and job.last_step_started_at <= now - STEP_LOCK_STALE_AFTER:
+            job.is_step_in_progress = False
+            job.retry_state = {}
+            job.save(update_fields=["is_step_in_progress", "retry_state", "updated_at"])
+
+        if (
+            job.status == LeadParsingJob.Status.RUNNING
+            and not job.is_step_in_progress
+            and not (job.next_step_not_before and now < job.next_step_not_before)
+        ):
+            job.is_step_in_progress = True
+            job.last_step_started_at = now
+            job.current_query = current_parser_query(job)
+            job.save(update_fields=["is_step_in_progress", "last_step_started_at", "current_query", "updated_at"])
+            should_run = True
+
+    if should_run:
         parser_run_step(job)
 
     moderation, rejected = _lead_queue_payload()
@@ -259,7 +311,8 @@ def parser_resume_api(request):
     if job.status in {LeadParsingJob.Status.PAUSED, LeadParsingJob.Status.FAILED}:
         job.status = LeadParsingJob.Status.RUNNING
         job.last_error = ""
-        job.save(update_fields=["status", "last_error", "updated_at"])
+        job.retry_state = {}
+        job.save(update_fields=["status", "last_error", "retry_state", "updated_at"])
     return JsonResponse({"success": True, "job": _job_payload(job)})
 
 
@@ -277,7 +330,9 @@ def parser_stop_api(request):
     if job.status in {LeadParsingJob.Status.RUNNING, LeadParsingJob.Status.PAUSED}:
         job.status = LeadParsingJob.Status.STOPPED
         job.finished_at = timezone.now()
-        job.save(update_fields=["status", "finished_at", "updated_at"])
+        job.next_step_not_before = None
+        job.retry_state = {}
+        job.save(update_fields=["status", "finished_at", "next_step_not_before", "retry_state", "updated_at"])
     return JsonResponse({"success": True, "job": _job_payload(job)})
 
 

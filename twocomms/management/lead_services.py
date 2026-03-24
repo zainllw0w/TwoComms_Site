@@ -16,8 +16,31 @@ def split_terms(raw_value: str) -> list[str]:
         return []
 
     if any(sep in raw for sep in ["\n", ",", ";"]):
-        chunks = re.split(r"[\n,;]+", raw)
-        return [chunk.strip() for chunk in chunks if chunk.strip()]
+        chunks: list[str] = []
+        current: list[str] = []
+        quote_char = ""
+
+        for char in raw:
+            if char in {'"', "'"}:
+                if quote_char == char:
+                    quote_char = ""
+                    continue
+                if not quote_char:
+                    quote_char = char
+                    continue
+            if char in {"\n", ",", ";"} and not quote_char:
+                chunk = "".join(current).strip()
+                if chunk:
+                    chunks.append(chunk)
+                current = []
+                continue
+            current.append(char)
+
+        tail = "".join(current).strip()
+        if tail:
+            chunks.append(tail)
+
+        return [chunk.strip().strip('"').strip("'").strip() for chunk in chunks if chunk.strip()]
 
     try:
         tokens = [token.strip() for token in shlex.split(raw) if token.strip()]

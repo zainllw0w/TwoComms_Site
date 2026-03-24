@@ -35,15 +35,19 @@
                 <div class="field field-span-2">
                     <label for="parser_keywords">Ключові слова</label>
                     <textarea id="parser_keywords" name="keywords" placeholder='Напр.: Военторг, "військове спорядження", Одяг'></textarea>
-                    <div class="offer-help">Розділяйте комою, новим рядком або лапками для фраз.</div>
+                    <div class="offer-help">Розділяйте комою, крапкою з комою або новим рядком. Фрази можна брати в лапки.</div>
                 </div>
                 <div class="field">
                     <label for="parser_cities">Міста</label>
-                    <textarea id="parser_cities" name="cities" placeholder="Харків, Київ, Дніпро"></textarea>
+                    <textarea id="parser_cities" name="cities" placeholder="Харків, Київ; Дніпро"></textarea>
                 </div>
                 <div class="field">
                     <label for="parser_request_limit">Ліміт запитів</label>
                     <input type="number" id="parser_request_limit" name="request_limit" min="1" value="50">
+                </div>
+                <div class="field">
+                    <label for="parser_requests_per_minute">Запитів за хвилину</label>
+                    <input type="number" id="parser_requests_per_minute" name="requests_per_minute" min="1" max="30" value="20">
                 </div>
                 <div class="cp-messenger-toolbar field-span-2">
                     <div class="cp-template-pills">
@@ -53,6 +57,9 @@
                         <button type="button" class="btn-ghost" id="parser-stop-btn">Стоп</button>
                     </div>
                     <div class="offer-help" id="parser-query-info">Запит: —</div>
+                </div>
+                <div class="field field-span-2">
+                    <div class="offer-help" id="parser-telemetry-info">Темп: —</div>
                 </div>
                 <div class="field field-span-2">
                     <div class="offer-help" id="parser-last-error" hidden></div>
@@ -65,8 +72,16 @@
             <div class="admin-metric"><div class="admin-metric__label">Запитів виконано</div><div class="admin-metric__value" id="cnt-request-count">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Додано в модерацію</div><div class="admin-metric__value" id="cnt-added-moderation">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Дублі</div><div class="admin-metric__value" id="cnt-duplicates">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Дубль: job phone</div><div class="admin-metric__value" id="cnt-dup-job-phone">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Дубль: job place</div><div class="admin-metric__value" id="cnt-dup-job-place">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Дубль: клієнти</div><div class="admin-metric__value" id="cnt-dup-existing-client">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Дубль: ліди</div><div class="admin-metric__value" id="cnt-dup-existing-lead">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Без телефону</div><div class="admin-metric__value" id="cnt-no-phone">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Вже відхилені</div><div class="admin-metric__value" id="cnt-rejected-skip">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Успішні API</div><div class="admin-metric__value" id="cnt-request-success">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Помилки API</div><div class="admin-metric__value" id="cnt-request-errors">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">RPM поточний</div><div class="admin-metric__value" id="cnt-current-rpm">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">RPM цільовий</div><div class="admin-metric__value" id="cnt-target-rpm">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">У базі (необроблені)</div><div class="admin-metric__value" id="cnt-base-unprocessed">{{ parser_counters.unprocessed|default:0 }}</div></div>
             <div class="admin-metric"><div class="admin-metric__label">У блок "не підходить"</div><div class="admin-metric__value" id="cnt-bad">{{ parser_counters.rejected|default:0 }}</div></div>
         </div>
@@ -201,6 +216,7 @@ function initParsingPage() {
     const parserForm = document.getElementById('parser-form');
     const statusChip = document.getElementById('parser-status-chip');
     const queryInfo = document.getElementById('parser-query-info');
+    const telemetryInfo = document.getElementById('parser-telemetry-info');
     const lastErrorInfo = document.getElementById('parser-last-error');
     const moderationTableBody = document.querySelector('#moderation-table tbody');
     const rejectedTableBody = document.querySelector('#rejected-table tbody');
@@ -226,6 +242,8 @@ function initParsingPage() {
     let counters = parseJsonScript('parser-initial-counters', {});
     let stepTimer = null;
     let pollTimer = null;
+    let isStepRequestInFlight = false;
+    let isStatusRequestInFlight = false;
 
     const getCsrfToken = () => (modalForm.querySelector('input[name="csrfmiddlewaretoken"]')?.value
         || parserForm.querySelector('input[name="csrfmiddlewaretoken"]')?.value
@@ -257,15 +275,31 @@ function initParsingPage() {
             setCounter('cnt-request-count', `${activeJob.request_count || 0}/${activeJob.request_limit || 0}`);
             setCounter('cnt-added-moderation', activeJob.added_to_moderation || 0);
             setCounter('cnt-duplicates', activeJob.duplicate_skipped || 0);
+            setCounter('cnt-dup-job-phone', activeJob.duplicate_same_job_phone_skipped || 0);
+            setCounter('cnt-dup-job-place', activeJob.duplicate_same_job_place_skipped || 0);
+            setCounter('cnt-dup-existing-client', activeJob.duplicate_existing_client_skipped || 0);
+            setCounter('cnt-dup-existing-lead', activeJob.duplicate_existing_lead_skipped || 0);
             setCounter('cnt-no-phone', activeJob.no_phone_skipped || 0);
             setCounter('cnt-rejected-skip', activeJob.already_rejected_skipped || 0);
+            setCounter('cnt-request-success', activeJob.request_success_count || 0);
+            setCounter('cnt-request-errors', activeJob.request_error_count || 0);
+            setCounter('cnt-current-rpm', activeJob.current_rpm || 0);
+            setCounter('cnt-target-rpm', activeJob.requests_per_minute || 0);
         } else {
             setCounter('cnt-total-found', 0);
             setCounter('cnt-request-count', 0);
             setCounter('cnt-added-moderation', 0);
             setCounter('cnt-duplicates', 0);
+            setCounter('cnt-dup-job-phone', 0);
+            setCounter('cnt-dup-job-place', 0);
+            setCounter('cnt-dup-existing-client', 0);
+            setCounter('cnt-dup-existing-lead', 0);
             setCounter('cnt-no-phone', 0);
             setCounter('cnt-rejected-skip', 0);
+            setCounter('cnt-request-success', 0);
+            setCounter('cnt-request-errors', 0);
+            setCounter('cnt-current-rpm', 0);
+            setCounter('cnt-target-rpm', 0);
         }
         setCounter('cnt-base-unprocessed', counters.unprocessed || 0);
         setCounter('cnt-bad', counters.rejected || 0);
@@ -276,6 +310,7 @@ function initParsingPage() {
             statusChip.textContent = 'Не запущено';
             statusChip.className = 'status-chip';
             queryInfo.textContent = 'Запит: —';
+            if (telemetryInfo) telemetryInfo.textContent = 'Темп: —';
             if (lastErrorInfo) {
                 lastErrorInfo.hidden = true;
                 lastErrorInfo.textContent = '';
@@ -285,6 +320,11 @@ function initParsingPage() {
         statusChip.textContent = activeJob.status_display || activeJob.status;
         statusChip.className = `status-chip status-${activeJob.status}`;
         queryInfo.textContent = `Запит: ${activeJob.current_query || '—'}`;
+        if (telemetryInfo) {
+            const nextEta = Number(activeJob.next_step_eta_seconds || 0);
+            const inFlight = activeJob.is_step_in_progress ? 'так' : 'ні';
+            telemetryInfo.textContent = `Темп: ${activeJob.current_rpm || 0}/${activeJob.requests_per_minute || 0} RPM · next: ${nextEta}s · in-flight: ${inFlight} · step: ${activeJob.last_step_duration_ms || 0}ms`;
+        }
         if (lastErrorInfo) {
             if (activeJob.last_error) {
                 lastErrorInfo.hidden = false;
@@ -405,30 +445,72 @@ function initParsingPage() {
 
         const payload = await res.json();
         if (!res.ok || !payload.success) {
-            throw new Error(payload.error || `Помилка запиту (${res.status})`);
+            const error = new Error(payload.error || `Помилка запиту (${res.status})`);
+            error.payload = payload;
+            error.status = res.status;
+            throw error;
         }
         return payload;
     };
 
     const runStep = async () => {
-        if (!activeJob || activeJob.status !== 'running') return;
+        if (!activeJob || activeJob.status !== 'running' || isStepRequestInFlight) return;
+        isStepRequestInFlight = true;
         try {
             const payload = await apiRequest(stepUrl, {job_id: activeJob.id});
             applyPayload(payload);
         } catch (err) {
             console.error(err);
+        } finally {
+            isStepRequestInFlight = false;
+            if (activeJob && activeJob.status === 'running') {
+                scheduleStep(activeJob.next_step_eta_ms || 0);
+            }
         }
     };
 
-    const updateLoopState = () => {
-        const shouldRun = activeJob && activeJob.status === 'running';
-        if (shouldRun && !stepTimer) {
-            stepTimer = setInterval(runStep, 1800);
-        }
-        if (!shouldRun && stepTimer) {
-            clearInterval(stepTimer);
+    const scheduleStep = (delayMs = 0) => {
+        if (stepTimer) {
+            clearTimeout(stepTimer);
             stepTimer = null;
         }
+        if (!activeJob || activeJob.status !== 'running') return;
+        const normalizedDelay = Math.max(250, Number(delayMs || activeJob.next_step_eta_ms || 0));
+        stepTimer = setTimeout(runStep, normalizedDelay);
+    };
+
+    const pollStatus = async () => {
+        if (isStatusRequestInFlight) return;
+        isStatusRequestInFlight = true;
+        try {
+            const query = activeJob ? `?job_id=${activeJob.id}` : '';
+            const payload = await apiRequest(`${statusUrl}${query}`, null, 'GET');
+            applyPayload(payload);
+        } catch (err) {
+            console.warn(err);
+        } finally {
+            isStatusRequestInFlight = false;
+            schedulePoll();
+        }
+    };
+
+    const schedulePoll = (delayMs = null) => {
+        if (pollTimer) {
+            clearTimeout(pollTimer);
+            pollTimer = null;
+        }
+        const normalizedDelay = Math.max(1500, Number(delayMs || (activeJob?.status === 'running' ? 3000 : 6000)));
+        pollTimer = setTimeout(pollStatus, normalizedDelay);
+    };
+
+    const updateLoopState = () => {
+        if (activeJob && activeJob.status === 'running') {
+            scheduleStep(activeJob.next_step_eta_ms || 0);
+        } else if (stepTimer) {
+            clearTimeout(stepTimer);
+            stepTimer = null;
+        }
+        schedulePoll();
     };
 
     parserForm.addEventListener('submit', async (e) => {
@@ -438,9 +520,12 @@ function initParsingPage() {
             const payload = await apiRequest(startUrl, formData);
             applyPayload(payload);
             if (payload.job && payload.job.status === 'running') {
-                await runStep();
+                scheduleStep(0);
             }
         } catch (err) {
+            if (err.payload) {
+                applyPayload(err.payload);
+            }
             alert(err.message || 'Не вдалося запустити парсер');
         }
     });
@@ -514,16 +599,6 @@ function initParsingPage() {
             }
         });
     });
-
-    pollTimer = setInterval(async () => {
-        try {
-            const query = activeJob ? `?job_id=${activeJob.id}` : '';
-            const payload = await apiRequest(`${statusUrl}${query}`, null, 'GET');
-            applyPayload(payload);
-        } catch (err) {
-            console.warn(err);
-        }
-    }, 6000);
 
     applyPayload({
         job: activeJob,
