@@ -2,13 +2,14 @@ from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import Client as DjangoClient
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from .models import Client, ClientFollowUp, LeadParsingJob, LeadParsingResult, ManagementLead, Report
-from .parser_service import _places_search_text, create_parsing_job, parse_cities, parser_run_step
+from .parser_service import _places_search_text, create_parsing_job, parse_cities, parse_keywords, parser_run_step
 from .stats_service import compute_kpd, parse_stats_range
 from .views import _close_followups_for_report, _sync_client_followup
 
@@ -191,6 +192,18 @@ class ParserServiceTests(TestCase):
         self.assertEqual(parse_cities("Нью Йорк"), ["Нью Йорк"])
         self.assertEqual(parse_cities("Харків, Київ"), ["Харків", "Київ"])
 
+    def test_parse_keywords_preserves_quoted_phrases_with_commas(self):
+        self.assertEqual(
+            parse_keywords('воєнторг, тактичний, "жіночий одяг, аксесуари"'),
+            ["воєнторг", "тактичний", "жіночий одяг, аксесуари"],
+        )
+
+    def test_parse_keywords_keeps_space_separated_terms_and_drops_quotes(self):
+        self.assertEqual(
+            parse_keywords('Военторг "військове спорядження" Одяг'),
+            ["Военторг", "військове спорядження", "Одяг"],
+        )
+
     def test_parser_records_no_phone_results(self):
         job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=3)
         fake_places = [
@@ -237,6 +250,175 @@ class ParserServiceTests(TestCase):
         headers = post_mock.call_args.kwargs["headers"]
         self.assertEqual(headers.get("Referer"), "https://management.twocomms.shop/")
         self.assertEqual(headers.get("Origin"), "https://management.twocomms.shop")
+
+    def test_parser_treats_same_job_page_repeat_as_technical_duplicate(self):
+        job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=3)
+        fake_place = {
+            "id": "repeat-place-1",
+            "displayName": {"text": "Повторюваний магазин"},
+            "internationalPhoneNumber": "+380671112233",
+            "formattedAddress": "Харків",
+        }
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            side_effect=[([fake_place], "next-token"), ([fake_place], "")],
+        ):
+            parser_run_step(job)
+            job.refresh_from_db()
+            job.next_step_not_before = timezone.now() - timedelta(seconds=1)
+            job.save(update_fields=["next_step_not_before"])
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.added_to_moderation, 1)
+        self.assertEqual(job.duplicate_skipped, 1)
+        self.assertEqual(job.duplicate_same_job_place_skipped, 1)
+        self.assertEqual(job.request_count, 2)
+
+    def test_parser_blocks_existing_client_by_exact_phone(self):
+        Client.objects.create(
+            shop_name="Існуючий клієнт",
+            phone="+380671112233",
+            full_name="Owner",
+            owner=self.user,
+        )
+        job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=3)
+        fake_place = {
+            "id": "client-dup-place",
+            "displayName": {"text": "Новий магазин"},
+            "internationalPhoneNumber": "+380671112233",
+            "formattedAddress": "Харків",
+        }
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            return_value=([fake_place], ""),
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.duplicate_existing_client_skipped, 1)
+        self.assertEqual(job.duplicate_skipped, 1)
+        self.assertFalse(ManagementLead.objects.filter(parser_job=job).exists())
+
+    def test_parser_does_not_treat_global_place_id_match_as_business_duplicate(self):
+        ManagementLead.objects.create(
+            shop_name="Старий лід",
+            phone="+380501112233",
+            full_name="Owner",
+            google_place_id="shared-place-id",
+            status=ManagementLead.Status.BASE,
+            added_by=self.user,
+        )
+        job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=3)
+        fake_place = {
+            "id": "shared-place-id",
+            "displayName": {"text": "Новий магазин"},
+            "internationalPhoneNumber": "+380671112233",
+            "formattedAddress": "Харків",
+        }
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            return_value=([fake_place], ""),
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.added_to_moderation, 1)
+        self.assertEqual(job.duplicate_skipped, 0)
+        self.assertTrue(ManagementLead.objects.filter(parser_job=job, phone="+380671112233").exists())
+
+    def test_parser_marks_rejected_history_by_exact_phone(self):
+        ManagementLead.objects.create(
+            shop_name="Відхилений лід",
+            phone="+380671112233",
+            full_name="Owner",
+            status=ManagementLead.Status.REJECTED,
+            added_by=self.user,
+        )
+        job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=3)
+        fake_place = {
+            "id": "rejected-dup-place",
+            "displayName": {"text": "Новий магазин"},
+            "internationalPhoneNumber": "+380671112233",
+            "formattedAddress": "Харків",
+        }
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            return_value=([fake_place], ""),
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.already_rejected_skipped, 1)
+        self.assertEqual(job.duplicate_skipped, 0)
+
+    def test_invalid_page_token_is_bounded_and_does_not_stick_forever(self):
+        from management.parser_service import ParsingServiceError
+
+        job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=5)
+        job.next_page_token = "bad-token"
+        job.save(update_fields=["next_page_token"])
+
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            side_effect=ParsingServiceError("Google Places API помилка (400): page token invalid"),
+        ):
+            parser_run_step(job)
+            job.refresh_from_db()
+            self.assertEqual(job.status, LeadParsingJob.Status.RUNNING)
+            self.assertEqual(job.request_count, 1)
+            self.assertTrue(job.next_page_token)
+
+            job.next_step_not_before = timezone.now() - timedelta(seconds=1)
+            job.save(update_fields=["next_step_not_before"])
+            parser_run_step(job)
+            job.refresh_from_db()
+            self.assertEqual(job.status, LeadParsingJob.Status.RUNNING)
+            self.assertEqual(job.request_count, 2)
+            self.assertTrue(job.next_page_token)
+
+            job.next_step_not_before = timezone.now() - timedelta(seconds=1)
+            job.save(update_fields=["next_step_not_before"])
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertNotEqual(job.status, LeadParsingJob.Status.RUNNING)
+        self.assertEqual(job.request_count, 3)
+        self.assertEqual(job.next_page_token, "")
+        self.assertFalse(job.is_step_in_progress)
+        self.assertTrue(LeadParsingResult.objects.filter(job=job, status=LeadParsingResult.ResultStatus.ERROR).exists())
+
+    def test_parser_counts_page_token_errors_as_requests(self):
+        job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=5)
+        job.next_page_token = "bad-token"
+        job.save(update_fields=["next_page_token"])
+
+        from management.parser_service import ParsingServiceError
+
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            side_effect=ParsingServiceError("Google Places API помилка (400): page token invalid"),
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.request_count, 1)
+        self.assertGreaterEqual(job.request_error_count, 1)
+
+    def test_unexpected_parser_exception_releases_lock_and_fails_job(self):
+        job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=5)
+
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            side_effect=RuntimeError("boom"),
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, LeadParsingJob.Status.FAILED)
+        self.assertFalse(job.is_step_in_progress)
+        self.assertEqual(job.request_count, 1)
+        self.assertIn("Непередбачена помилка парсингу", job.last_error)
 
 
 @override_settings(
@@ -291,6 +473,7 @@ class ParserApiTests(TestCase):
                 "keywords": "військторг",
                 "cities": "Харків",
                 "request_limit": "2",
+                "requests_per_minute": "20",
             },
         )
         self.assertEqual(start.status_code, 200)
@@ -315,3 +498,96 @@ class ParserApiTests(TestCase):
         stop = self._post("management_parser_stop_api", {"job_id": job_id})
         self.assertEqual(stop.status_code, 200)
         self.assertEqual(stop.json()["job"]["status"], LeadParsingJob.Status.STOPPED)
+
+    def test_start_rejects_second_active_job(self):
+        LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=LeadParsingJob.Status.RUNNING,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+        )
+        response = self._post(
+            "management_parser_start_api",
+            {
+                "keywords": "одяг",
+                "cities": "Київ",
+                "request_limit": "2",
+                "requests_per_minute": "20",
+            },
+        )
+        self.assertEqual(response.status_code, 409)
+        payload = response.json()
+        self.assertFalse(payload["success"])
+        self.assertIn("вже є активна", payload["error"].lower())
+
+    def test_step_api_does_not_run_second_step_while_first_is_in_progress(self):
+        job = LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=LeadParsingJob.Status.RUNNING,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+            is_step_in_progress=True,
+            last_step_started_at=timezone.now(),
+        )
+        with patch("management.parsing_views.parser_run_step") as step_mock:
+            response = self._post("management_parser_step_api", {"job_id": str(job.id)})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+        step_mock.assert_not_called()
+
+    def test_step_api_respects_next_step_not_before(self):
+        job = LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=LeadParsingJob.Status.RUNNING,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+            next_step_not_before=timezone.now() + timedelta(seconds=10),
+        )
+        with patch("management.parsing_views.parser_run_step") as step_mock:
+            response = self._post("management_parser_step_api", {"job_id": str(job.id)})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+        step_mock.assert_not_called()
+
+
+class ParserRecoveryDryRunCommandTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="recovery_admin", password="x", is_staff=True)
+
+    def test_command_reports_candidates_that_are_clear_by_exact_phone(self):
+        job = LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=LeadParsingJob.Status.COMPLETED,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+        )
+        LeadParsingResult.objects.create(
+            job=job,
+            status=LeadParsingResult.ResultStatus.DUPLICATE,
+            reason="Старий змішаний дубль",
+            reason_code="legacy_duplicate",
+            phone="+380671112233",
+            place_name="Пропущений магазин",
+            query="військторг Харків",
+        )
+
+        from io import StringIO
+
+        out = StringIO()
+        call_command("parser_recovery_dry_run", "--json", stdout=out)
+        payload = out.getvalue()
+        self.assertIn("Пропущений магазин", payload)
+        self.assertIn("+380671112233", payload)
