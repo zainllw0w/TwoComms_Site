@@ -591,3 +591,33 @@ class ParserRecoveryDryRunCommandTests(TestCase):
         payload = out.getvalue()
         self.assertIn("Пропущений магазин", payload)
         self.assertIn("+380671112233", payload)
+
+    def test_command_respects_scan_limit(self):
+        job = LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=LeadParsingJob.Status.COMPLETED,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+        )
+        for idx in range(3):
+            LeadParsingResult.objects.create(
+                job=job,
+                status=LeadParsingResult.ResultStatus.DUPLICATE,
+                reason="Старий змішаний дубль",
+                reason_code="legacy_duplicate",
+                phone=f"+38067111223{idx}",
+                place_name=f"Пропущений магазин {idx}",
+                query="військторг Харків",
+            )
+
+        from io import StringIO
+
+        out = StringIO()
+        call_command("parser_recovery_dry_run", "--json", "--scan-limit", "1", stdout=out)
+        payload = out.getvalue()
+        self.assertIn('"scan_limit": 1', payload)
+        self.assertIn('"scanned_count": 1', payload)
+        self.assertIn('"truncated": true', payload)
