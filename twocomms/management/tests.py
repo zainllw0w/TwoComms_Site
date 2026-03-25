@@ -2,6 +2,7 @@ from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import Client as DjangoClient
 from django.test import TestCase, override_settings
@@ -186,6 +187,7 @@ class ParserServiceTests(TestCase):
     def setUp(self):
         User = get_user_model()
         self.user = User.objects.create_user(username="admin_mgr", password="x", is_staff=True)
+        cache.clear()
 
     def test_parse_cities_keeps_single_city_phrase(self):
         self.assertEqual(parse_cities("Харків"), ["Харків"])
@@ -202,6 +204,12 @@ class ParserServiceTests(TestCase):
         self.assertEqual(
             parse_keywords('Военторг "військове спорядження" Одяг'),
             ["Военторг", "військове спорядження", "Одяг"],
+        )
+
+    def test_parse_keywords_dedupes_case_insensitive_values(self):
+        self.assertEqual(
+            parse_keywords('військторг, ВІЙСЬКТОРГ, "Тактичний одяг", "тактичний одяг"'),
+            ["військторг", "Тактичний одяг"],
         )
 
     def test_parser_records_no_phone_results(self):
@@ -227,6 +235,64 @@ class ParserServiceTests(TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result.status, LeadParsingResult.ResultStatus.NO_PHONE)
 
+    def test_parser_saves_no_phone_place_with_website_when_enabled(self):
+        job = create_parsing_job(
+            user=self.user,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            request_limit=3,
+            save_no_phone_leads=True,
+        )
+        fake_places = [
+            {
+                "id": "test-place-website-no-phone",
+                "displayName": {"text": "Магазин із сайтом"},
+                "formattedAddress": "Харків",
+                "websiteUri": "https://alpha.example.com",
+            }
+        ]
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            return_value=(fake_places, ""),
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.no_phone_skipped, 0)
+        self.assertEqual(job.saved_no_phone_to_moderation, 1)
+        lead = ManagementLead.objects.get(parser_job=job)
+        self.assertEqual(lead.status, ManagementLead.Status.MODERATION)
+        self.assertTrue(lead.requires_phone_completion)
+        self.assertEqual(lead.website_url, "https://alpha.example.com")
+        result = LeadParsingResult.objects.filter(job=job).first()
+        self.assertEqual(result.status, LeadParsingResult.ResultStatus.ADDED_NO_PHONE)
+
+    def test_parser_does_not_save_no_phone_place_without_website_even_when_enabled(self):
+        job = create_parsing_job(
+            user=self.user,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            request_limit=3,
+            save_no_phone_leads=True,
+        )
+        fake_places = [
+            {
+                "id": "test-place-no-phone-no-website",
+                "displayName": {"text": "Магазин без контактів"},
+                "formattedAddress": "Харків",
+            }
+        ]
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            return_value=(fake_places, ""),
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.no_phone_skipped, 1)
+        self.assertEqual(job.saved_no_phone_to_moderation, 0)
+        self.assertFalse(ManagementLead.objects.filter(parser_job=job).exists())
+
     def test_places_search_uses_configured_referer_headers(self):
         class DummyResponse:
             status_code = 200
@@ -250,6 +316,65 @@ class ParserServiceTests(TestCase):
         headers = post_mock.call_args.kwargs["headers"]
         self.assertEqual(headers.get("Referer"), "https://management.twocomms.shop/")
         self.assertEqual(headers.get("Origin"), "https://management.twocomms.shop")
+
+    def test_places_search_includes_region_and_type_filters(self):
+        class DummyResponse:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {"places": [], "nextPageToken": ""}
+
+        request_spec = {
+            "text_query": "військторг Харків",
+            "keyword": "військторг",
+            "city": "Харків",
+            "included_type": "clothing_store",
+            "strict_type_filtering": True,
+        }
+
+        with patch("management.parser_service.geocode_city_center", return_value=None), patch(
+            "management.parser_service.requests.post",
+            return_value=DummyResponse(),
+        ) as post_mock:
+            _places_search_text(
+                api_key="test-key",
+                text_query="військторг Харків",
+                city="Харків",
+                request_spec=request_spec,
+            )
+
+        kwargs = post_mock.call_args.kwargs
+        self.assertIn("places.types", kwargs["headers"]["X-Goog-FieldMask"])
+        self.assertEqual(kwargs["json"]["regionCode"], "UA")
+        self.assertEqual(kwargs["json"]["includedType"], "clothing_store")
+        self.assertTrue(kwargs["json"]["strictTypeFiltering"])
+
+    def test_geocode_city_center_uses_shared_django_cache(self):
+        class DummyResponse:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {
+                    "status": "OK",
+                    "results": [
+                        {
+                            "geometry": {
+                                "location": {"lat": 49.99, "lng": 36.23},
+                            }
+                        }
+                    ],
+                }
+
+        with patch("management.parser_service.requests.get", return_value=DummyResponse()) as get_mock:
+            from management.parser_service import geocode_city_center
+
+            first = geocode_city_center("Харків", "test-key")
+            second = geocode_city_center("Харків", "test-key")
+
+        self.assertEqual(first, second)
+        self.assertEqual(get_mock.call_count, 1)
 
     def test_parser_treats_same_job_page_repeat_as_technical_duplicate(self):
         job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=3)
@@ -300,6 +425,36 @@ class ParserServiceTests(TestCase):
         self.assertEqual(job.duplicate_skipped, 1)
         self.assertFalse(ManagementLead.objects.filter(parser_job=job).exists())
 
+    def test_history_lookback_zero_skips_existing_client_check(self):
+        Client.objects.create(
+            shop_name="Існуючий клієнт",
+            phone="+380671112233",
+            full_name="Owner",
+            owner=self.user,
+        )
+        job = create_parsing_job(
+            user=self.user,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            request_limit=3,
+            history_lookback_days=0,
+        )
+        fake_place = {
+            "id": "client-dup-place-allowed",
+            "displayName": {"text": "Новий магазин"},
+            "internationalPhoneNumber": "+380671112233",
+            "formattedAddress": "Харків",
+        }
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            return_value=([fake_place], ""),
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.added_to_moderation, 1)
+        self.assertEqual(job.duplicate_existing_client_skipped, 0)
+
     def test_parser_does_not_treat_global_place_id_match_as_business_duplicate(self):
         ManagementLead.objects.create(
             shop_name="Старий лід",
@@ -309,7 +464,13 @@ class ParserServiceTests(TestCase):
             status=ManagementLead.Status.BASE,
             added_by=self.user,
         )
-        job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=3)
+        job = create_parsing_job(
+            user=self.user,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            request_limit=3,
+            history_lookback_days=0,
+        )
         fake_place = {
             "id": "shared-place-id",
             "displayName": {"text": "Новий магазин"},
@@ -326,6 +487,33 @@ class ParserServiceTests(TestCase):
         self.assertEqual(job.added_to_moderation, 1)
         self.assertEqual(job.duplicate_skipped, 0)
         self.assertTrue(ManagementLead.objects.filter(parser_job=job, phone="+380671112233").exists())
+
+    def test_recent_history_place_is_suppressed_when_within_lookback(self):
+        existing = ManagementLead.objects.create(
+            shop_name="Старий лід",
+            phone="+380501112233",
+            full_name="Owner",
+            google_place_id="shared-place-id",
+            status=ManagementLead.Status.BASE,
+            added_by=self.user,
+        )
+        ManagementLead.objects.filter(id=existing.id).update(created_at=timezone.now())
+        job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=3)
+        fake_place = {
+            "id": "shared-place-id",
+            "displayName": {"text": "Новий магазин"},
+            "internationalPhoneNumber": "+380671112233",
+            "formattedAddress": "Харків",
+        }
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            return_value=([fake_place], ""),
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.recent_history_place_skipped, 1)
+        self.assertEqual(job.added_to_moderation, 0)
 
     def test_parser_marks_rejected_history_by_exact_phone(self):
         ManagementLead.objects.create(
@@ -351,6 +539,37 @@ class ParserServiceTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.already_rejected_skipped, 1)
         self.assertEqual(job.duplicate_skipped, 0)
+
+    def test_places_search_uses_location_restriction_when_viewport_available(self):
+        class DummyResponse:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {"places": [], "nextPageToken": ""}
+
+        viewport = {
+            "latitude": 49.99,
+            "longitude": 36.23,
+            "viewport": {
+                "low": {"latitude": 49.9, "longitude": 36.1},
+                "high": {"latitude": 50.1, "longitude": 36.4},
+            },
+        }
+
+        with patch("management.parser_service.geocode_city_center", return_value=viewport), patch(
+            "management.parser_service.requests.post",
+            return_value=DummyResponse(),
+        ) as post_mock:
+            _places_search_text(
+                api_key="test-key",
+                text_query="військторг Харків",
+                city="Харків",
+            )
+
+        body = post_mock.call_args.kwargs["json"]
+        self.assertIn("locationRestriction", body)
+        self.assertNotIn("locationBias", body)
 
     def test_invalid_page_token_is_bounded_and_does_not_stick_forever(self):
         from management.parser_service import ParsingServiceError
@@ -436,11 +655,11 @@ class ParserApiTests(TestCase):
         self.csrf = "a" * 32
         self.client_http.cookies["csrftoken"] = self.csrf
 
-    def _post(self, url_name, data):
+    def _post_path(self, path, data):
         payload = dict(data)
         payload.setdefault("csrfmiddlewaretoken", self.csrf)
         return self.client_http.post(
-            reverse(url_name),
+            path,
             payload,
             HTTP_X_CSRFTOKEN=self.csrf,
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
@@ -448,6 +667,9 @@ class ParserApiTests(TestCase):
             HTTP_REFERER="https://management.twocomms.shop/parsing/",
             secure=True,
         )
+
+    def _post(self, url_name, data, *args):
+        return self._post_path(reverse(url_name, args=args), data)
 
     def test_pause_endpoint_accepts_valid_csrf(self):
         job = LeadParsingJob.objects.create(
@@ -474,6 +696,10 @@ class ParserApiTests(TestCase):
                 "cities": "Харків",
                 "request_limit": "2",
                 "requests_per_minute": "20",
+                "history_lookback_days": "45",
+                "save_no_phone_leads": "on",
+                "included_type": "clothing_store",
+                "strict_type_filtering": "on",
             },
         )
         self.assertEqual(start.status_code, 200)
@@ -481,6 +707,11 @@ class ParserApiTests(TestCase):
         self.assertTrue(start_payload.get("success"))
         job_id = str(start_payload["job"]["id"])
         self.assertEqual(start_payload["job"]["status"], LeadParsingJob.Status.RUNNING)
+        job = LeadParsingJob.objects.get(id=job_id)
+        self.assertEqual(job.history_lookback_days, 45)
+        self.assertTrue(job.save_no_phone_leads)
+        self.assertEqual(job.included_type, "clothing_store")
+        self.assertTrue(job.strict_type_filtering)
 
         with patch("management.parsing_views.parser_run_step", side_effect=lambda j: j):
             step = self._post("management_parser_step_api", {"job_id": job_id})
@@ -523,6 +754,31 @@ class ParserApiTests(TestCase):
         self.assertFalse(payload["success"])
         self.assertIn("вже є активна", payload["error"].lower())
 
+    def test_start_rejects_when_paused_job_exists_and_returns_that_job(self):
+        paused_job = LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=LeadParsingJob.Status.PAUSED,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+        )
+        response = self._post(
+            "management_parser_start_api",
+            {
+                "keywords": "одяг",
+                "cities": "Київ",
+                "request_limit": "2",
+                "requests_per_minute": "10",
+                "history_lookback_days": "30",
+            },
+        )
+        self.assertEqual(response.status_code, 409)
+        payload = response.json()
+        self.assertEqual(payload["job"]["id"], paused_job.id)
+        self.assertEqual(payload["job"]["status"], LeadParsingJob.Status.PAUSED)
+
     def test_step_api_does_not_run_second_step_while_first_is_in_progress(self):
         job = LeadParsingJob.objects.create(
             created_by=self.user,
@@ -557,6 +813,183 @@ class ParserApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["success"])
         step_mock.assert_not_called()
+
+    def test_status_api_stops_stale_running_job(self):
+        stale_time = timezone.now() - timedelta(minutes=10)
+        job = LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=LeadParsingJob.Status.RUNNING,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+            heartbeat_at=stale_time,
+        )
+        response = self.client_http.get(
+            reverse("management_parser_status_api"),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_HOST="management.twocomms.shop",
+            HTTP_REFERER="https://management.twocomms.shop/parsing/",
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        job.refresh_from_db()
+        self.assertEqual(job.status, LeadParsingJob.Status.STOPPED)
+        self.assertEqual(job.stop_reason_code, "session_stale_stopped")
+
+    def test_status_api_keeps_recent_running_job_alive_within_extended_timeout(self):
+        fresh_time = timezone.now() - timedelta(minutes=4)
+        job = LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=LeadParsingJob.Status.RUNNING,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+            heartbeat_at=fresh_time,
+        )
+        response = self.client_http.get(
+            reverse("management_parser_status_api"),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_HOST="management.twocomms.shop",
+            HTTP_REFERER="https://management.twocomms.shop/parsing/",
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        job.refresh_from_db()
+        self.assertEqual(job.status, LeadParsingJob.Status.RUNNING)
+
+    def test_stop_api_defaults_to_user_stop(self):
+        job = LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=LeadParsingJob.Status.RUNNING,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+        )
+        response = self._post(
+            "management_parser_stop_api",
+            {"job_id": str(job.id)},
+        )
+        self.assertEqual(response.status_code, 200)
+        job.refresh_from_db()
+        self.assertEqual(job.status, LeadParsingJob.Status.STOPPED)
+        self.assertEqual(job.stop_reason_code, "user_stop")
+
+    def test_parsing_dashboard_script_no_longer_contains_unload_stop_hooks(self):
+        response = self.client_http.get(
+            reverse("management_parsing_dashboard"),
+            HTTP_HOST="management.twocomms.shop",
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertNotIn("sendUnloadStop", content)
+        self.assertNotIn("browser_unload_stop", content)
+        self.assertNotIn("pagehide", content)
+        self.assertNotIn("visibilitychange", content)
+
+    def test_parsing_dashboard_script_uses_safe_render_helpers(self):
+        response = self.client_http.get(
+            reverse("management_parsing_dashboard"),
+            HTTP_HOST="management.twocomms.shop",
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("sanitizeExternalUrl", content)
+        self.assertIn("escapeHtml", content)
+        self.assertNotIn('<a href="${lead.website_url}"', content)
+
+    def test_moderation_save_allows_blank_phone_when_phone_completion_required(self):
+        lead = ManagementLead.objects.create(
+            shop_name="No Phone Lead",
+            phone="",
+            full_name="Owner",
+            website_url="https://alpha.example.com",
+            status=ManagementLead.Status.MODERATION,
+            lead_source=ManagementLead.LeadSource.PARSER,
+            requires_phone_completion=True,
+            added_by=self.user,
+        )
+
+        response = self._post(
+            "management_lead_moderation_action_api",
+            {
+                "action": "save",
+                "shop_name": "No Phone Lead",
+                "phone": "",
+                "website_url": "https://alpha.example.com",
+                "full_name": "Owner",
+            },
+            lead.id,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        lead.refresh_from_db()
+        self.assertTrue(lead.requires_phone_completion)
+        self.assertEqual(lead.status, ManagementLead.Status.MODERATION)
+
+    def test_moderation_save_clears_phone_completion_when_valid_phone_provided(self):
+        lead = ManagementLead.objects.create(
+            shop_name="No Phone Lead",
+            phone="",
+            full_name="Owner",
+            website_url="https://alpha.example.com",
+            status=ManagementLead.Status.MODERATION,
+            lead_source=ManagementLead.LeadSource.PARSER,
+            requires_phone_completion=True,
+            added_by=self.user,
+        )
+
+        response = self._post(
+            "management_lead_moderation_action_api",
+            {
+                "action": "save",
+                "shop_name": "No Phone Lead",
+                "phone": "0671112233",
+                "website_url": "https://alpha.example.com",
+                "full_name": "Owner",
+            },
+            lead.id,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        lead.refresh_from_db()
+        self.assertEqual(lead.phone, "+380671112233")
+        self.assertFalse(lead.requires_phone_completion)
+
+    def test_moderation_approve_rejects_blank_phone_when_phone_completion_required(self):
+        lead = ManagementLead.objects.create(
+            shop_name="No Phone Lead",
+            phone="",
+            full_name="Owner",
+            website_url="https://alpha.example.com",
+            status=ManagementLead.Status.MODERATION,
+            lead_source=ManagementLead.LeadSource.PARSER,
+            requires_phone_completion=True,
+            added_by=self.user,
+        )
+
+        response = self._post(
+            "management_lead_moderation_action_api",
+            {
+                "action": "approve",
+                "shop_name": "No Phone Lead",
+                "phone": "",
+                "website_url": "https://alpha.example.com",
+                "full_name": "Owner",
+            },
+            lead.id,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        lead.refresh_from_db()
+        self.assertEqual(lead.status, ManagementLead.Status.MODERATION)
 
 
 class ParserRecoveryDryRunCommandTests(TestCase):

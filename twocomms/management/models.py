@@ -1,6 +1,7 @@
 import re
 from decimal import Decimal
 from unicodedata import normalize as unicode_normalize
+from urllib.parse import urlsplit
 
 from django.db import models
 from django.utils import timezone
@@ -27,6 +28,7 @@ def _ua_phone_candidates(raw_phone: str) -> list[str]:
         f"+{digits}" if raw.startswith("+") else "",
         f"+{digits}" if digits.startswith("380") and len(digits) == 12 else "",
         digits if digits.startswith("0") and len(digits) == 10 else "",
+        f"0{digits[1:]}" if digits.startswith("8") and len(digits) == 10 else "",
         f"0{digits}" if len(digits) == 9 else "",
         f"0{digits[1:]}" if digits.startswith("80") and len(digits) == 11 else "",
     ):
@@ -94,6 +96,20 @@ def normalize_name_for_match(raw_value: str) -> str:
     return " ".join(tokens)
 
 
+def normalize_website_for_match(raw_url: str) -> str:
+    value = (raw_url or "").strip().lower()
+    if not value:
+        return ""
+    parsed = urlsplit(value if "://" in value else f"https://{value}")
+    host = (parsed.netloc or parsed.path).lower()
+    path = parsed.path if parsed.netloc else ""
+    path = re.sub(r"/+$", "", path or "")
+    if host.startswith("www."):
+        host = host[4:]
+    combined = f"{host}{path}"
+    return combined.strip("/")
+
+
 class Client(models.Model):
     class Role(models.TextChoices):
         SUPERVISOR = 'supervisor', _('Управляючий')
@@ -128,6 +144,7 @@ class Client(models.Model):
     phone_group_id = models.CharField(_("ID групи номера"), max_length=64, blank=True)
     shared_phone_reason = models.CharField(_("Причина спільного номера"), max_length=255, blank=True)
     website_url = models.CharField(_("Сайт"), max_length=500, blank=True)
+    website_match_key = models.CharField(_("Ключ збігу сайту"), max_length=500, blank=True, db_index=True)
     full_name = models.CharField(_("ПІБ"), max_length=255)
     role = models.CharField(_("Статус"), max_length=50, choices=Role.choices, default=Role.MANAGER)
     source = models.CharField(_("Джерело контакту"), max_length=255, blank=True)
@@ -177,6 +194,7 @@ class Client(models.Model):
         self.phone_last7 = build_phone_last7(self.phone_normalized or self.phone)
         self.normalized_name_display = normalize_name_for_match(self.shop_name)
         self.normalized_name_match_key = self.normalized_name_display
+        self.website_match_key = normalize_website_for_match(self.website_url)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -212,6 +230,7 @@ class ManagementLead(models.Model):
     role = models.CharField(_("Статус людини"), max_length=50, choices=Client.Role.choices, default=Client.Role.OTHER)
     source = models.CharField(_("Де взяли контакт"), max_length=255, blank=True)
     website_url = models.CharField(_("Сайт"), max_length=500, blank=True)
+    website_match_key = models.CharField(_("Ключ збігу сайту"), max_length=500, blank=True, db_index=True)
     city = models.CharField(_("Місто"), max_length=120, blank=True)
     parser_keyword = models.CharField(_("Ключове слово парсера"), max_length=255, blank=True)
     parser_query = models.CharField(_("Пошуковий запит"), max_length=500, blank=True)
@@ -223,6 +242,7 @@ class ManagementLead(models.Model):
     status = models.CharField(_("Статус"), max_length=20, choices=Status.choices, default=Status.BASE, db_index=True)
     lead_source = models.CharField(_("Джерело ліда"), max_length=20, choices=LeadSource.choices, default=LeadSource.MANUAL, db_index=True)
     niche_status = models.CharField(_("Нішевість"), max_length=20, choices=NicheStatus.choices, default=NicheStatus.MAYBE, db_index=True)
+    requires_phone_completion = models.BooleanField(_("Потрібно дозаповнити телефон"), default=False, db_index=True)
     rejection_reason = models.TextField(_("Причина відхилення"), blank=True)
     added_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -283,6 +303,7 @@ class ManagementLead(models.Model):
         self.phone_last7 = build_phone_last7(self.phone_normalized or self.phone)
         self.normalized_name_display = normalize_name_for_match(self.shop_name)
         self.normalized_name_match_key = self.normalized_name_display
+        self.website_match_key = normalize_website_for_match(self.website_url)
         super().save(*args, **kwargs)
 
     @property
@@ -320,7 +341,11 @@ class LeadParsingJob(models.Model):
     cities = models.JSONField(_("Міста"), default=list, blank=True)
     request_limit = models.PositiveIntegerField(_("Ліміт запитів"), default=100)
     request_count = models.PositiveIntegerField(_("Виконано запитів"), default=0)
-    requests_per_minute = models.PositiveIntegerField(_("Запитів за хвилину"), default=20)
+    requests_per_minute = models.PositiveIntegerField(_("Запитів за хвилину"), default=10)
+    history_lookback_days = models.PositiveIntegerField(_("Lookback по історії, днів"), default=30)
+    save_no_phone_leads = models.BooleanField(_("Зберігати ліди без телефону"), default=False)
+    included_type = models.CharField(_("Google Places type"), max_length=64, blank=True)
+    strict_type_filtering = models.BooleanField(_("Strict type filtering"), default=False)
     request_success_count = models.PositiveIntegerField(_("Успішних API запитів"), default=0)
     request_error_count = models.PositiveIntegerField(_("Помилок API"), default=0)
     current_keyword_index = models.PositiveIntegerField(default=0)
@@ -332,18 +357,24 @@ class LeadParsingJob(models.Model):
     duplicate_same_job_place_skipped = models.PositiveIntegerField(default=0)
     duplicate_existing_client_skipped = models.PositiveIntegerField(default=0)
     duplicate_existing_lead_skipped = models.PositiveIntegerField(default=0)
+    recent_history_phone_skipped = models.PositiveIntegerField(default=0)
+    recent_history_place_skipped = models.PositiveIntegerField(default=0)
+    saved_no_phone_to_moderation = models.PositiveIntegerField(default=0)
     added_to_moderation = models.PositiveIntegerField(default=0)
     moved_to_bad = models.PositiveIntegerField(default=0)
     already_rejected_skipped = models.PositiveIntegerField(default=0)
     current_query = models.CharField(max_length=500, blank=True)
-    next_page_token = models.CharField(max_length=255, blank=True)
+    current_request_spec = models.JSONField(default=dict, blank=True)
+    next_page_token = models.TextField(blank=True)
     next_step_not_before = models.DateTimeField(null=True, blank=True, db_index=True)
     retry_state = models.JSONField(default=dict, blank=True)
     is_step_in_progress = models.BooleanField(default=False, db_index=True)
     last_step_started_at = models.DateTimeField(null=True, blank=True)
     last_step_finished_at = models.DateTimeField(null=True, blank=True)
     last_step_duration_ms = models.PositiveIntegerField(default=0)
+    heartbeat_at = models.DateTimeField(null=True, blank=True, db_index=True)
     last_error = models.TextField(blank=True)
+    stop_reason_code = models.CharField(max_length=64, blank=True, db_index=True)
     started_at = models.DateTimeField(auto_now_add=True, db_index=True)
     finished_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -360,9 +391,30 @@ class LeadParsingJob(models.Model):
         return f"ParseJob#{self.id} ({self.status})"
 
 
+class LeadParsingRuntimeLock(models.Model):
+    singleton_key = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    active_job = models.ForeignKey(
+        LeadParsingJob,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name=_("Активна сесія"),
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Глобальний lock парсингу")
+        verbose_name_plural = _("Глобальні lock-и парсингу")
+
+    def __str__(self):
+        return f"ParserLock(active_job={self.active_job_id or 'none'})"
+
+
 class LeadParsingResult(models.Model):
     class ResultStatus(models.TextChoices):
         ADDED = "added", _("Додано до модерації")
+        ADDED_NO_PHONE = "added_no_phone", _("Додано до модерації без телефону")
         DUPLICATE = "duplicate", _("Дубль")
         NO_PHONE = "no_phone", _("Без телефону")
         REJECTED = "rejected", _("Раніше відхилено")

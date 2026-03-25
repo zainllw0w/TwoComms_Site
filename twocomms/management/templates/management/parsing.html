@@ -5,6 +5,7 @@
 {{ moderation_leads|json_script:"parser-initial-moderation" }}
 {{ rejected_leads|json_script:"parser-initial-rejected" }}
 {{ parser_counters|json_script:"parser-initial-counters" }}
+{{ parser_usage|json_script:"parser-initial-usage" }}
 
 <div id="parsing-endpoints"
      data-start-url="{% url 'management_parser_start_api' %}"
@@ -47,7 +48,36 @@
                 </div>
                 <div class="field">
                     <label for="parser_requests_per_minute">Запитів за хвилину</label>
-                    <input type="number" id="parser_requests_per_minute" name="requests_per_minute" min="1" max="30" value="20">
+                    <input type="number" id="parser_requests_per_minute" name="requests_per_minute" min="1" max="20" value="10">
+                    <div class="offer-help">Google не публікує універсальний safe RPM для Places. Тут діє консервативний ліміт застосунку: 10 RPM за замовчуванням, максимум 20 RPM.</div>
+                </div>
+                <div class="field">
+                    <label for="parser_history_lookback_days">Історія, днів</label>
+                    <input type="number" id="parser_history_lookback_days" name="history_lookback_days" min="0" max="3650" value="30">
+                    <div class="offer-help">`0` = не перевіряти стару базу. `N` = не повторювати те, що вже було знайдено за останні `N` днів.</div>
+                </div>
+                <div class="field">
+                    <label for="parser_included_type">Google Places type</label>
+                    <select id="parser_included_type" name="included_type">
+                        {% for value, label in places_included_type_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="offer-help">Один type-фільтр для звуження видачі Google Places.</div>
+                </div>
+                <div class="field">
+                    <label for="parser_strict_type_filtering">
+                        <input type="checkbox" id="parser_strict_type_filtering" name="strict_type_filtering">
+                        Strict type filtering
+                    </label>
+                    <div class="offer-help">Працює лише разом із вибраним type.</div>
+                </div>
+                <div class="field field-span-2">
+                    <label for="parser_save_no_phone_leads">
+                        <input type="checkbox" id="parser_save_no_phone_leads" name="save_no_phone_leads">
+                        Зберігати ліди без телефону, якщо є сайт
+                    </label>
+                    <div class="offer-help">Такі ліди одразу потрапляють у модерацію з вимогою дозаповнити номер.</div>
                 </div>
                 <div class="cp-messenger-toolbar field-span-2">
                     <div class="cp-template-pills">
@@ -64,7 +94,25 @@
                 <div class="field field-span-2">
                     <div class="offer-help" id="parser-last-error" hidden></div>
                 </div>
+                <div class="field field-span-2">
+                    <div class="offer-help" id="parser-session-warning" hidden></div>
+                </div>
             </form>
+        </div>
+
+        <div class="offer-card">
+            <h3 class="offer-title">Квоти та використання</h3>
+            <div class="admin-summary-grid">
+                <div class="admin-metric"><div class="admin-metric__label">SKU</div><div class="admin-metric__value" id="billing-sku">—</div></div>
+                <div class="admin-metric"><div class="admin-metric__label">Free calls / міс</div><div class="admin-metric__value" id="billing-free-cap">0</div></div>
+                <div class="admin-metric"><div class="admin-metric__label">Parser local 30d</div><div class="admin-metric__value" id="billing-local-30d">0</div></div>
+                <div class="admin-metric"><div class="admin-metric__label">Billing month</div><div class="admin-metric__value" id="billing-current-month">0</div></div>
+                <div class="admin-metric"><div class="admin-metric__label">Google project usage</div><div class="admin-metric__value" id="billing-google-project">not connected</div></div>
+                <div class="admin-metric"><div class="admin-metric__label">Provider</div><div class="admin-metric__value" id="billing-provider-status">—</div></div>
+            </div>
+            <div class="offer-help" id="billing-rpm-policy" style="margin-top: 12px;">
+                Places API (New) має quota per method / project. Універсального RPM-вказівника від Google немає, тому застосунок використовує консервативний app-side cap.
+            </div>
         </div>
 
         <div class="admin-summary-grid" id="parser-counters-grid">
@@ -76,7 +124,10 @@
             <div class="admin-metric"><div class="admin-metric__label">Дубль: job place</div><div class="admin-metric__value" id="cnt-dup-job-place">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Дубль: клієнти</div><div class="admin-metric__value" id="cnt-dup-existing-client">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Дубль: ліди</div><div class="admin-metric__value" id="cnt-dup-existing-lead">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Recent history: phone</div><div class="admin-metric__value" id="cnt-recent-history-phone">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Recent history: place</div><div class="admin-metric__value" id="cnt-recent-history-place">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Без телефону</div><div class="admin-metric__value" id="cnt-no-phone">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">No-phone -> модерація</div><div class="admin-metric__value" id="cnt-saved-no-phone">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Вже відхилені</div><div class="admin-metric__value" id="cnt-rejected-skip">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Успішні API</div><div class="admin-metric__value" id="cnt-request-success">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Помилки API</div><div class="admin-metric__value" id="cnt-request-errors">0</div></div>
@@ -160,8 +211,9 @@
             <input type="hidden" name="lead_id" id="moderation_lead_id">
             <div class="field-grid">
                 <div class="field"><label>Магазин</label><input type="text" name="shop_name" id="moderation_shop_name" required></div>
-                <div class="field"><label>Телефон</label><input type="tel" name="phone" id="moderation_phone" required></div>
+                <div class="field"><label>Телефон</label><input type="tel" name="phone" id="moderation_phone"></div>
                 <div class="field"><label>Сайт</label><input type="url" name="website_url" id="moderation_website_url"></div>
+                <div class="field field-span-2"><div class="offer-help" id="moderation-phone-requirement" hidden></div></div>
                 <div class="field"><label>ПІБ</label><input type="text" name="full_name" id="moderation_full_name"></div>
                 <div class="field">
                     <label>Статус людини</label>
@@ -240,14 +292,63 @@ function initParsingPage() {
     let moderation = parseJsonScript('parser-initial-moderation', []);
     let rejected = parseJsonScript('parser-initial-rejected', []);
     let counters = parseJsonScript('parser-initial-counters', {});
+    let usage = parseJsonScript('parser-initial-usage', {});
     let stepTimer = null;
     let pollTimer = null;
     let isStepRequestInFlight = false;
     let isStatusRequestInFlight = false;
 
+    const sessionWarning = document.getElementById('parser-session-warning');
+    const startBtn = document.getElementById('parser-start-btn');
+    const pauseBtn = document.getElementById('parser-pause-btn');
+    const resumeBtn = document.getElementById('parser-resume-btn');
+    const stopBtn = document.getElementById('parser-stop-btn');
+    const includedTypeField = document.getElementById('parser_included_type');
+    const strictTypeFilteringField = document.getElementById('parser_strict_type_filtering');
+    const saveNoPhoneField = document.getElementById('parser_save_no_phone_leads');
+    const moderationPhoneRequirement = document.getElementById('moderation-phone-requirement');
+
     const getCsrfToken = () => (modalForm.querySelector('input[name="csrfmiddlewaretoken"]')?.value
         || parserForm.querySelector('input[name="csrfmiddlewaretoken"]')?.value
         || '');
+
+    const escapeHtml = (value) => {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    };
+
+    const displayValue = (value, fallback = '—') => {
+        const normalized = value == null ? '' : String(value).trim();
+        return normalized || fallback;
+    };
+
+    const sanitizeExternalUrl = (value) => {
+        const normalized = String(value || '').trim();
+        if (!normalized || !/^https?:\/\//i.test(normalized)) return '';
+        try {
+            const url = new URL(normalized);
+            if (!['http:', 'https:'].includes(url.protocol)) return '';
+            return url.href;
+        } catch (err) {
+            return '';
+        }
+    };
+
+    const renderWebsiteCell = (value) => {
+        const normalized = String(value || '').trim();
+        if (!normalized) return '—';
+        const safeHref = sanitizeExternalUrl(normalized);
+        if (!safeHref) return escapeHtml(normalized);
+        return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${escapeHtml(normalized)}</a>`;
+    };
+
+    const syncTypeControls = () => {
+        if (!includedTypeField || !strictTypeFilteringField) return;
+        const hasType = Boolean(includedTypeField.value);
+        strictTypeFilteringField.disabled = !hasType;
+        if (!hasType) strictTypeFilteringField.checked = false;
+    };
 
     const openModal = () => {
         modal.classList.add('show');
@@ -279,7 +380,10 @@ function initParsingPage() {
             setCounter('cnt-dup-job-place', activeJob.duplicate_same_job_place_skipped || 0);
             setCounter('cnt-dup-existing-client', activeJob.duplicate_existing_client_skipped || 0);
             setCounter('cnt-dup-existing-lead', activeJob.duplicate_existing_lead_skipped || 0);
+            setCounter('cnt-recent-history-phone', activeJob.recent_history_phone_skipped || 0);
+            setCounter('cnt-recent-history-place', activeJob.recent_history_place_skipped || 0);
             setCounter('cnt-no-phone', activeJob.no_phone_skipped || 0);
+            setCounter('cnt-saved-no-phone', activeJob.saved_no_phone_to_moderation || 0);
             setCounter('cnt-rejected-skip', activeJob.already_rejected_skipped || 0);
             setCounter('cnt-request-success', activeJob.request_success_count || 0);
             setCounter('cnt-request-errors', activeJob.request_error_count || 0);
@@ -294,7 +398,10 @@ function initParsingPage() {
             setCounter('cnt-dup-job-place', 0);
             setCounter('cnt-dup-existing-client', 0);
             setCounter('cnt-dup-existing-lead', 0);
+            setCounter('cnt-recent-history-phone', 0);
+            setCounter('cnt-recent-history-place', 0);
             setCounter('cnt-no-phone', 0);
+            setCounter('cnt-saved-no-phone', 0);
             setCounter('cnt-rejected-skip', 0);
             setCounter('cnt-request-success', 0);
             setCounter('cnt-request-errors', 0);
@@ -303,6 +410,72 @@ function initParsingPage() {
         }
         setCounter('cnt-base-unprocessed', counters.unprocessed || 0);
         setCounter('cnt-bad', counters.rejected || 0);
+    };
+
+    const renderUsage = (payload) => {
+        usage = payload || usage || {};
+        setCounter('billing-sku', usage.sku || '—');
+        setCounter('billing-free-cap', usage.free_monthly_calls || 0);
+        setCounter('billing-local-30d', usage.local_30d_usage || 0);
+        setCounter('billing-current-month', usage.current_billing_month_usage || 0);
+        setCounter('billing-provider-status', usage.provider_status || '—');
+        setCounter('billing-google-project', usage.google_project_usage ?? 'not connected');
+    };
+
+    const warningMessageForReason = (reasonCode) => {
+        const map = {
+            session_stale_stopped: 'Попередню running-сесію зупинено як stale: heartbeat не оновлювався понад 5 хвилин.',
+            session_superseded: 'Попередню активну сесію було закрито під час server-side нормалізації стану.',
+        };
+        return map[reasonCode] || '';
+    };
+
+    const renderSessionWarning = () => {
+        if (!sessionWarning) return;
+        const message = warningMessageForReason(activeJob?.stop_reason_code || '');
+        if (message) {
+            sessionWarning.hidden = false;
+            sessionWarning.textContent = message;
+        } else {
+            sessionWarning.hidden = true;
+            sessionWarning.textContent = '';
+        }
+    };
+
+    const syncFormFromJob = () => {
+        if (!activeJob) return;
+        const keywordsField = document.getElementById('parser_keywords');
+        const citiesField = document.getElementById('parser_cities');
+        const requestLimitField = document.getElementById('parser_request_limit');
+        const rpmField = document.getElementById('parser_requests_per_minute');
+        const lookbackField = document.getElementById('parser_history_lookback_days');
+        if (keywordsField) keywordsField.value = (activeJob.keywords || []).join(', ');
+        if (citiesField) citiesField.value = (activeJob.cities || []).join(', ');
+        if (requestLimitField && activeJob.request_limit) requestLimitField.value = activeJob.request_limit;
+        if (rpmField && activeJob.requests_per_minute) rpmField.value = activeJob.requests_per_minute;
+        if (lookbackField && activeJob.history_lookback_days !== undefined) lookbackField.value = activeJob.history_lookback_days;
+        if (saveNoPhoneField) saveNoPhoneField.checked = Boolean(activeJob.save_no_phone_leads);
+        if (includedTypeField) includedTypeField.value = activeJob.included_type || '';
+        if (strictTypeFilteringField) strictTypeFilteringField.checked = Boolean(activeJob.included_type && activeJob.strict_type_filtering);
+        syncTypeControls();
+    };
+
+    const renderControls = () => {
+        const status = activeJob?.status || '';
+        const hasPaused = status === 'paused';
+        const hasRunning = status === 'running';
+        startBtn.disabled = hasRunning || hasPaused;
+        pauseBtn.disabled = !hasRunning;
+        resumeBtn.disabled = status !== 'paused' && status !== 'failed';
+        stopBtn.disabled = !activeJob || !['running', 'paused'].includes(status);
+    };
+
+    const shouldWarnOnUnload = () => Boolean(activeJob && activeJob.status === 'running');
+
+    const beforeUnloadHandler = (event) => {
+        if (!shouldWarnOnUnload()) return;
+        event.preventDefault();
+        event.returnValue = true;
     };
 
     const renderStatus = () => {
@@ -315,6 +488,8 @@ function initParsingPage() {
                 lastErrorInfo.hidden = true;
                 lastErrorInfo.textContent = '';
             }
+            renderSessionWarning();
+            renderControls();
             return;
         }
         statusChip.textContent = activeJob.status_display || activeJob.status;
@@ -323,7 +498,9 @@ function initParsingPage() {
         if (telemetryInfo) {
             const nextEta = Number(activeJob.next_step_eta_seconds || 0);
             const inFlight = activeJob.is_step_in_progress ? 'так' : 'ні';
-            telemetryInfo.textContent = `Темп: ${activeJob.current_rpm || 0}/${activeJob.requests_per_minute || 0} RPM · next: ${nextEta}s · in-flight: ${inFlight} · step: ${activeJob.last_step_duration_ms || 0}ms`;
+            const geoMode = activeJob.current_request_spec?.geo_mode || '—';
+            const includedType = activeJob.current_request_spec?.included_type || activeJob.included_type || '—';
+            telemetryInfo.textContent = `Темп: ${activeJob.current_rpm || 0}/${activeJob.requests_per_minute || 0} RPM · next: ${nextEta}s · in-flight: ${inFlight} · step: ${activeJob.last_step_duration_ms || 0}ms · lookback: ${activeJob.history_lookback_days || 0}d · geo: ${geoMode} · type: ${includedType}`;
         }
         if (lastErrorInfo) {
             if (activeJob.last_error) {
@@ -334,6 +511,8 @@ function initParsingPage() {
                 lastErrorInfo.textContent = '';
             }
         }
+        renderSessionWarning();
+        renderControls();
     };
 
     const renderModeration = (items) => {
@@ -342,16 +521,23 @@ function initParsingPage() {
             moderationTableBody.innerHTML = '<tr><td colspan="7" class="table-empty">Черга модерації порожня.</td></tr>';
             return;
         }
-        moderationTableBody.innerHTML = moderation.map((lead) => `
-            <tr>
-                <td>${lead.shop_name || '—'}</td>
-                <td>${lead.phone || '—'}</td>
-                <td>${lead.website_url ? `<a href="${lead.website_url}" target="_blank" rel="noopener noreferrer">${lead.website_url}</a>` : '—'}</td>
-                <td>${lead.city || '—'}</td>
-                <td>${lead.keyword || '—'}</td>
-                <td>${lead.niche_status_display || '—'}</td>
-                <td><button type="button" class="btn-primary open-moderation" data-lead-id="${lead.id}">Оглянути</button></td>
-            </tr>`).join('');
+        moderationTableBody.innerHTML = moderation.map((lead) => {
+            const leadId = Number(lead.id) || 0;
+            const shopCell = `${escapeHtml(displayValue(lead.shop_name))}${lead.requires_phone_completion ? '<div class="offer-help">Потрібно додати телефон</div>' : ''}`;
+            const phoneCell = lead.requires_phone_completion && !lead.phone
+                ? '<span class="status-chip status-paused">дозаповнити</span>'
+                : escapeHtml(displayValue(lead.phone));
+            return `
+                <tr>
+                    <td>${shopCell}</td>
+                    <td>${phoneCell}</td>
+                    <td>${renderWebsiteCell(lead.website_url)}</td>
+                    <td>${escapeHtml(displayValue(lead.city))}</td>
+                    <td>${escapeHtml(displayValue(lead.keyword))}</td>
+                    <td>${escapeHtml(displayValue(lead.niche_status_display))}</td>
+                    <td><button type="button" class="btn-primary open-moderation" data-lead-id="${leadId}">Оглянути</button></td>
+                </tr>`;
+        }).join('');
     };
 
     const renderRejected = (items) => {
@@ -362,11 +548,11 @@ function initParsingPage() {
         }
         rejectedTableBody.innerHTML = rejected.map((lead) => `
             <tr>
-                <td>${lead.shop_name || '—'}</td>
-                <td>${lead.phone || '—'}</td>
-                <td>${lead.city || '—'}</td>
-                <td>${lead.reason || '—'}</td>
-                <td>${lead.updated_at || lead.created_at || '—'}</td>
+                <td>${escapeHtml(displayValue(lead.shop_name))}</td>
+                <td>${escapeHtml(displayValue(lead.phone))}</td>
+                <td>${escapeHtml(displayValue(lead.city))}</td>
+                <td>${escapeHtml(displayValue(lead.reason))}</td>
+                <td>${escapeHtml(displayValue(lead.updated_at || lead.created_at))}</td>
             </tr>`).join('');
     };
 
@@ -378,13 +564,13 @@ function initParsingPage() {
         }
         resultsTableBody.innerHTML = results.map((row) => `
             <tr>
-                <td>${row.created_at || '—'}</td>
-                <td>${row.status_display || row.status}</td>
-                <td>${row.place_name || '—'}</td>
-                <td>${row.phone || '—'}</td>
-                <td>${row.keyword || '—'}</td>
-                <td>${row.city || '—'}</td>
-                <td>${row.reason || '—'}</td>
+                <td>${escapeHtml(displayValue(row.created_at))}</td>
+                <td>${escapeHtml(displayValue(row.status_display || row.status))}</td>
+                <td>${escapeHtml(displayValue(row.place_name))}</td>
+                <td>${escapeHtml(displayValue(row.phone))}</td>
+                <td>${escapeHtml(displayValue(row.keyword))}</td>
+                <td>${escapeHtml(displayValue(row.city))}</td>
+                <td>${escapeHtml(displayValue(row.reason))}</td>
             </tr>`).join('');
     };
 
@@ -392,10 +578,12 @@ function initParsingPage() {
         if (!payload) return;
         if (payload.job !== undefined) activeJob = payload.job;
         if (payload.counters) renderCounters(payload.counters);
+        if (payload.usage) renderUsage(payload.usage);
         if (payload.moderation) renderModeration(payload.moderation);
         if (payload.rejected) renderRejected(payload.rejected);
         renderStatus();
         renderResults(activeJob?.results || []);
+        syncFormFromJob();
         updateLoopState();
     };
 
@@ -579,6 +767,15 @@ function initParsingPage() {
         document.getElementById('moderation_comments').value = lead.comments || '';
         document.getElementById('moderation_details').value = lead.details || '';
         document.getElementById('moderation_rejection_reason').value = '';
+        if (moderationPhoneRequirement) {
+            if (lead.requires_phone_completion) {
+                moderationPhoneRequirement.hidden = false;
+                moderationPhoneRequirement.textContent = 'Лід збережено без телефону. Зберегти або відхилити можна без номера, але для підтвердження в базу потрібно вказати валідний телефон.';
+            } else {
+                moderationPhoneRequirement.hidden = true;
+                moderationPhoneRequirement.textContent = '';
+            }
+        }
         openModal();
     });
 
@@ -605,7 +802,12 @@ function initParsingPage() {
         moderation,
         rejected,
         counters,
+        usage,
     });
+
+    includedTypeField?.addEventListener('change', syncTypeControls);
+    syncTypeControls();
+    window.addEventListener('beforeunload', beforeUnloadHandler);
 }
 
 if (document.readyState === 'loading') {
