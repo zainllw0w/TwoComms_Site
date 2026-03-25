@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-import re
-from urllib.parse import urlsplit
 
+from django.db.models import Q
 from django.utils import timezone
 
 from management.models import (
@@ -11,6 +10,7 @@ from management.models import (
     build_phone_last7,
     normalize_name_for_match,
     normalize_phone,
+    normalize_website_for_match,
 )
 from .client_entry import candidate_owner_display
 
@@ -44,22 +44,6 @@ def _candidate_score(*, name_match_score: float, phone_match_score: float, owner
         + 0.10 * owner_match_score
         + 0.10 * source_link_score
     )
-
-
-def normalize_website_for_match(raw_url: str) -> str:
-    value = (raw_url or "").strip().lower()
-    if not value:
-        return ""
-    parsed = urlsplit(value if "://" in value else f"https://{value}")
-    host = (parsed.netloc or parsed.path).lower()
-    path = parsed.path if parsed.netloc else ""
-    path = re.sub(r"/+$", "", path or "")
-    if host.startswith("www."):
-        host = host[4:]
-    combined = f"{host}{path}"
-    return combined.strip("/")
-
-
 def _format_dt(dt_value) -> str:
     if not dt_value:
         return "—"
@@ -182,8 +166,26 @@ def _collect_candidates(
     candidates: list[dict] = []
     exclude_client_ids = exclude_client_ids or []
     exclude_lead_ids = exclude_lead_ids or []
+    candidate_filter = Q()
 
-    for client in Client.objects.exclude(id__in=exclude_client_ids).select_related("owner"):
+    if phone_normalized:
+        candidate_filter |= Q(phone_normalized=phone_normalized)
+    if phone_last7:
+        candidate_filter |= Q(phone_last7=phone_last7)
+    if name_key:
+        candidate_filter |= Q(normalized_name_match_key=name_key)
+    if website_key:
+        candidate_filter |= Q(website_match_key=website_key)
+
+    if not candidate_filter:
+        return []
+
+    client_qs = (
+        Client.objects.exclude(id__in=exclude_client_ids)
+        .filter(candidate_filter)
+        .select_related("owner")
+    )
+    for client in client_qs:
         exact_name = bool(name_key and client.normalized_name_match_key and client.normalized_name_match_key == name_key)
         exact_phone = bool(client.phone_normalized and client.phone_normalized == phone_normalized)
         partial_phone = bool(
@@ -192,7 +194,7 @@ def _collect_candidates(
             and client.phone_last7
             and client.phone_last7 == phone_last7
         )
-        exact_website = bool(website_key and normalize_website_for_match(client.website_url) == website_key)
+        exact_website = bool(website_key and client.website_match_key and client.website_match_key == website_key)
         name_score = 1.0 if exact_name else 0.0
         phone_score = 1.0 if exact_phone else PARTIAL_PHONE_MATCH_SCORE if partial_phone else 0.0
         owner_score = 1.0 if owner and client.owner_id == getattr(owner, "id", None) else 0.0
@@ -221,11 +223,13 @@ def _collect_candidates(
             exact_phone=exact_phone,
         ))
 
-    for lead in (
+    lead_qs = (
         ManagementLead.objects.exclude(status=ManagementLead.Status.REJECTED)
         .exclude(id__in=exclude_lead_ids)
+        .filter(candidate_filter)
         .select_related("added_by")
-    ):
+    )
+    for lead in lead_qs:
         exact_name = bool(name_key and lead.normalized_name_match_key and lead.normalized_name_match_key == name_key)
         exact_phone = bool(lead.phone_normalized and lead.phone_normalized == phone_normalized)
         partial_phone = bool(
@@ -234,7 +238,7 @@ def _collect_candidates(
             and lead.phone_last7
             and lead.phone_last7 == phone_last7
         )
-        exact_website = bool(website_key and normalize_website_for_match(lead.website_url) == website_key)
+        exact_website = bool(website_key and lead.website_match_key and lead.website_match_key == website_key)
         name_score = 1.0 if exact_name else 0.0
         phone_score = 1.0 if exact_phone else PARTIAL_PHONE_MATCH_SCORE if partial_phone else 0.0
         owner_score = 1.0 if owner and lead.added_by_id == getattr(owner, "id", None) else 0.0

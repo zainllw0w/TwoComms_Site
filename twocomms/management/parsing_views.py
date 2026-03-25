@@ -7,13 +7,18 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .constants import TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 from .models import Client, LeadParsingJob, LeadParsingResult, ManagementLead, normalize_phone
+from .parser_usage import parser_usage_snapshot
 from .parser_service import (
     ParsingServiceError,
-    STEP_LOCK_STALE_AFTER,
-    current_parser_query,
+    PLACES_INCLUDED_TYPE_CHOICES,
     create_parsing_job,
+    parser_dashboard_job,
     parser_global_counters,
+    parser_pause_job,
+    parser_resume_job,
     parser_run_step,
+    parser_stop_job,
+    sanitize_history_lookback_days,
     sanitize_requests_per_minute,
 )
 from .services.dedupe import DedupeZone, build_duplicate_conflict_payload, evaluate_duplicate_zone
@@ -46,6 +51,7 @@ def _lead_queue_payload(limit=150):
             "niche_status_display": lead.get_niche_status_display(),
             "lead_source": lead.lead_source,
             "lead_source_display": lead.get_lead_source_display(),
+            "requires_phone_completion": lead.requires_phone_completion,
             "created_at": timezone.localtime(lead.created_at).strftime("%d.%m.%Y %H:%M"),
         }
         for lead in ManagementLead.objects.filter(status=ManagementLead.Status.MODERATION)
@@ -106,17 +112,23 @@ def _job_payload(job: LeadParsingJob | None) -> dict | None:
         "request_limit": job.request_limit,
         "request_count": job.request_count,
         "requests_per_minute": job.requests_per_minute,
+        "history_lookback_days": job.history_lookback_days,
+        "save_no_phone_leads": job.save_no_phone_leads,
+        "included_type": job.included_type,
+        "strict_type_filtering": job.strict_type_filtering,
         "request_success_count": job.request_success_count,
         "request_error_count": job.request_error_count,
         "current_keyword_index": job.current_keyword_index,
         "current_city_index": job.current_city_index,
         "current_query": job.current_query,
+        "current_request_spec": job.current_request_spec or {},
         "next_page_token": job.next_page_token,
         "next_step_not_before": timezone.localtime(job.next_step_not_before).isoformat() if job.next_step_not_before else "",
         "next_step_eta_seconds": next_step_eta_seconds,
         "next_step_eta_ms": next_step_eta_seconds * 1000,
         "current_rpm": current_rpm,
         "is_step_in_progress": job.is_step_in_progress,
+        "heartbeat_at": timezone.localtime(job.heartbeat_at).strftime("%d.%m.%Y %H:%M:%S") if job.heartbeat_at else "",
         "last_step_started_at": timezone.localtime(job.last_step_started_at).strftime("%H:%M:%S") if job.last_step_started_at else "",
         "last_step_finished_at": timezone.localtime(job.last_step_finished_at).strftime("%H:%M:%S") if job.last_step_finished_at else "",
         "last_step_duration_ms": job.last_step_duration_ms,
@@ -128,10 +140,14 @@ def _job_payload(job: LeadParsingJob | None) -> dict | None:
         "duplicate_same_job_place_skipped": job.duplicate_same_job_place_skipped,
         "duplicate_existing_client_skipped": job.duplicate_existing_client_skipped,
         "duplicate_existing_lead_skipped": job.duplicate_existing_lead_skipped,
+        "recent_history_phone_skipped": job.recent_history_phone_skipped,
+        "recent_history_place_skipped": job.recent_history_place_skipped,
+        "saved_no_phone_to_moderation": job.saved_no_phone_to_moderation,
         "already_rejected_skipped": job.already_rejected_skipped,
         "added_to_moderation": job.added_to_moderation,
         "moved_to_bad": job.moved_to_bad,
         "last_error": job.last_error,
+        "stop_reason_code": job.stop_reason_code,
         "started_at": timezone.localtime(job.started_at).strftime("%d.%m.%Y %H:%M:%S"),
         "finished_at": timezone.localtime(job.finished_at).strftime("%d.%m.%Y %H:%M:%S") if job.finished_at else "",
         "results": results,
@@ -146,6 +162,19 @@ def _counters_payload():
         "converted": counters.converted,
         "rejected": counters.rejected,
         "unprocessed": counters.unprocessed,
+    }
+
+
+def _usage_payload():
+    usage = parser_usage_snapshot()
+    return {
+        "provider_status": usage.provider_status,
+        "sku": usage.sku,
+        "field_mask_version": usage.field_mask_version,
+        "free_monthly_calls": usage.free_monthly_calls,
+        "local_30d_usage": usage.local_30d_usage,
+        "current_billing_month_usage": usage.current_billing_month_usage,
+        "google_project_usage": usage.google_project_usage,
     }
 
 
@@ -167,9 +196,7 @@ def parsing_dashboard(request):
         },
         report_sent=False,
     )
-    active_job = LeadParsingJob.objects.filter(status__in=[LeadParsingJob.Status.RUNNING, LeadParsingJob.Status.PAUSED]).order_by(
-        "-started_at"
-    ).first()
+    active_job = parser_dashboard_job()
     moderation, rejected = _lead_queue_payload()
     return render(
         request,
@@ -189,6 +216,8 @@ def parsing_dashboard(request):
             "moderation_leads": moderation,
             "rejected_leads": rejected,
             "parser_counters": _counters_payload(),
+            "parser_usage": _usage_payload(),
+            "places_included_type_choices": PLACES_INCLUDED_TYPE_CHOICES,
         },
     )
 
@@ -204,6 +233,7 @@ def parser_start_api(request):
     except ValueError:
         request_limit = 0
     requests_per_minute = sanitize_requests_per_minute(request.POST.get("requests_per_minute"))
+    history_lookback_days = sanitize_history_lookback_days(request.POST.get("history_lookback_days"))
     try:
         job = create_parsing_job(
             user=request.user,
@@ -211,13 +241,23 @@ def parser_start_api(request):
             cities_raw=(request.POST.get("cities") or "").strip(),
             request_limit=request_limit,
             requests_per_minute=requests_per_minute,
+            history_lookback_days=history_lookback_days,
+            save_no_phone_leads=request.POST.get("save_no_phone_leads"),
+            included_type=request.POST.get("included_type"),
+            strict_type_filtering=request.POST.get("strict_type_filtering"),
         )
     except ParsingServiceError as exc:
-        active_job = LeadParsingJob.objects.filter(status__in=[LeadParsingJob.Status.RUNNING, LeadParsingJob.Status.PAUSED]).order_by(
-            "-started_at"
-        ).first()
-        status_code = 409 if active_job and "активна сесія" in str(exc).lower() else 400
-        return JsonResponse({"success": False, "error": str(exc), "job": _job_payload(active_job)}, status=status_code)
+        current_job = parser_dashboard_job()
+        status_code = 409 if current_job and current_job.status in {LeadParsingJob.Status.RUNNING, LeadParsingJob.Status.PAUSED} else 400
+        return JsonResponse(
+            {
+                "success": False,
+                "error": str(exc),
+                "job": _job_payload(current_job),
+                "usage": _usage_payload(),
+            },
+            status=status_code,
+        )
 
     moderation, rejected = _lead_queue_payload()
     return JsonResponse(
@@ -227,6 +267,7 @@ def parser_start_api(request):
             "counters": _counters_payload(),
             "moderation": moderation,
             "rejected": rejected,
+            "usage": _usage_payload(),
         }
     )
 
@@ -241,41 +282,46 @@ def parser_step_api(request):
     if not job_id:
         return JsonResponse({"success": False, "error": "job_id обов'язковий."}, status=400)
 
-    should_run = False
-    with transaction.atomic():
-        try:
-            job = LeadParsingJob.objects.select_for_update().get(id=job_id)
-        except LeadParsingJob.DoesNotExist:
-            return JsonResponse({"success": False, "error": "Сесію парсингу не знайдено."}, status=404)
-
-        now = timezone.now()
-        if job.is_step_in_progress and job.last_step_started_at and job.last_step_started_at <= now - STEP_LOCK_STALE_AFTER:
-            job.is_step_in_progress = False
-            job.retry_state = {}
-            job.save(update_fields=["is_step_in_progress", "retry_state", "updated_at"])
-
-        if (
-            job.status == LeadParsingJob.Status.RUNNING
-            and not job.is_step_in_progress
-            and not (job.next_step_not_before and now < job.next_step_not_before)
-        ):
-            job.is_step_in_progress = True
-            job.last_step_started_at = now
-            job.current_query = current_parser_query(job)
-            job.save(update_fields=["is_step_in_progress", "last_step_started_at", "current_query", "updated_at"])
-            should_run = True
-
-    if should_run:
-        parser_run_step(job)
+    try:
+        job = LeadParsingJob.objects.get(id=job_id)
+    except LeadParsingJob.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Сесію парсингу не знайдено."}, status=404)
+    if job.status == LeadParsingJob.Status.RUNNING:
+        if job.is_step_in_progress:
+            moderation, rejected = _lead_queue_payload()
+            return JsonResponse(
+                {
+                    "success": True,
+                    "job": _job_payload(parser_dashboard_job(job_id=job_id)),
+                    "counters": _counters_payload(),
+                    "moderation": moderation,
+                    "rejected": rejected,
+                    "usage": _usage_payload(),
+                }
+            )
+        if job.next_step_not_before and timezone.now() < job.next_step_not_before:
+            moderation, rejected = _lead_queue_payload()
+            return JsonResponse(
+                {
+                    "success": True,
+                    "job": _job_payload(parser_dashboard_job(job_id=job_id)),
+                    "counters": _counters_payload(),
+                    "moderation": moderation,
+                    "rejected": rejected,
+                    "usage": _usage_payload(),
+                }
+            )
+    parser_run_step(job)
 
     moderation, rejected = _lead_queue_payload()
     return JsonResponse(
         {
             "success": True,
-            "job": _job_payload(LeadParsingJob.objects.get(id=job_id)),
+            "job": _job_payload(parser_dashboard_job(job_id=job_id)),
             "counters": _counters_payload(),
             "moderation": moderation,
             "rejected": rejected,
+            "usage": _usage_payload(),
         }
     )
 
@@ -288,13 +334,12 @@ def parser_pause_api(request):
         return blocked
     job_id = request.POST.get("job_id")
     try:
-        job = LeadParsingJob.objects.get(id=job_id)
+        job = parser_pause_job(job_id)
     except LeadParsingJob.DoesNotExist:
         return JsonResponse({"success": False, "error": "Сесію не знайдено."}, status=404)
-    if job.status == LeadParsingJob.Status.RUNNING:
-        job.status = LeadParsingJob.Status.PAUSED
-        job.save(update_fields=["status", "updated_at"])
-    return JsonResponse({"success": True, "job": _job_payload(job)})
+    except ParsingServiceError as exc:
+        return JsonResponse({"success": False, "error": str(exc), "job": _job_payload(parser_dashboard_job(job_id=job_id))}, status=409)
+    return JsonResponse({"success": True, "job": _job_payload(job), "usage": _usage_payload()})
 
 
 @login_required(login_url="management_login")
@@ -305,15 +350,12 @@ def parser_resume_api(request):
         return blocked
     job_id = request.POST.get("job_id")
     try:
-        job = LeadParsingJob.objects.get(id=job_id)
+        job = parser_resume_job(job_id)
     except LeadParsingJob.DoesNotExist:
         return JsonResponse({"success": False, "error": "Сесію не знайдено."}, status=404)
-    if job.status in {LeadParsingJob.Status.PAUSED, LeadParsingJob.Status.FAILED}:
-        job.status = LeadParsingJob.Status.RUNNING
-        job.last_error = ""
-        job.retry_state = {}
-        job.save(update_fields=["status", "last_error", "retry_state", "updated_at"])
-    return JsonResponse({"success": True, "job": _job_payload(job)})
+    except ParsingServiceError as exc:
+        return JsonResponse({"success": False, "error": str(exc), "job": _job_payload(parser_dashboard_job(job_id=job_id))}, status=409)
+    return JsonResponse({"success": True, "job": _job_payload(job), "usage": _usage_payload()})
 
 
 @login_required(login_url="management_login")
@@ -323,17 +365,12 @@ def parser_stop_api(request):
     if blocked:
         return blocked
     job_id = request.POST.get("job_id")
+    reason_code = (request.POST.get("reason_code") or "user_stop").strip() or "user_stop"
     try:
-        job = LeadParsingJob.objects.get(id=job_id)
+        job = parser_stop_job(job_id, reason_code=reason_code)
     except LeadParsingJob.DoesNotExist:
         return JsonResponse({"success": False, "error": "Сесію не знайдено."}, status=404)
-    if job.status in {LeadParsingJob.Status.RUNNING, LeadParsingJob.Status.PAUSED}:
-        job.status = LeadParsingJob.Status.STOPPED
-        job.finished_at = timezone.now()
-        job.next_step_not_before = None
-        job.retry_state = {}
-        job.save(update_fields=["status", "finished_at", "next_step_not_before", "retry_state", "updated_at"])
-    return JsonResponse({"success": True, "job": _job_payload(job)})
+    return JsonResponse({"success": True, "job": _job_payload(job), "usage": _usage_payload()})
 
 
 @login_required(login_url="management_login")
@@ -343,12 +380,7 @@ def parser_status_api(request):
     if blocked:
         return blocked
     job_id = request.GET.get("job_id")
-    if job_id:
-        job = LeadParsingJob.objects.filter(id=job_id).first()
-    else:
-        job = LeadParsingJob.objects.filter(status__in=[LeadParsingJob.Status.RUNNING, LeadParsingJob.Status.PAUSED]).order_by(
-            "-started_at"
-        ).first()
+    job = parser_dashboard_job(job_id=job_id)
     moderation, rejected = _lead_queue_payload()
     return JsonResponse(
         {
@@ -357,6 +389,7 @@ def parser_status_api(request):
             "counters": _counters_payload(),
             "moderation": moderation,
             "rejected": rejected,
+            "usage": _usage_payload(),
         }
     )
 
@@ -392,15 +425,26 @@ def lead_moderation_action_api(request, lead_id: int):
         if niche_value in ManagementLead.NicheStatus.values:
             lead.niche_status = niche_value
 
-        raw_phone = (request.POST.get("phone") or lead.phone).strip()
-        phone_normalized = normalize_phone(raw_phone)
-        if not phone_normalized:
+        raw_phone = (request.POST.get("phone") if "phone" in request.POST else lead.phone) or ""
+        raw_phone = raw_phone.strip()
+        phone_normalized = normalize_phone(raw_phone) if raw_phone else ""
+        blank_phone_allowed = lead.requires_phone_completion and action in {"save", "reject"} and not raw_phone
+        if phone_normalized:
+            lead.phone = phone_normalized
+            lead.requires_phone_completion = False
+        elif blank_phone_allowed:
+            lead.phone = ""
+        elif action == "approve" and lead.requires_phone_completion and not raw_phone:
+            return JsonResponse(
+                {"success": False, "error": "Для підтвердження в базу потрібно вказати коректний номер телефону."},
+                status=400,
+            )
+        else:
             return JsonResponse({"success": False, "error": "Некоректний номер телефону."}, status=400)
-        lead.phone = phone_normalized
 
         duplicate_decision = evaluate_duplicate_zone(
             shop_name=lead.shop_name,
-            phone=phone_normalized,
+            phone=lead.phone,
             website_url=lead.website_url,
             owner=lead.added_by or request.user,
             exclude_lead_ids=[lead.id],
@@ -418,6 +462,7 @@ def lead_moderation_action_api(request, lead_id: int):
                         "shop_name": lead.shop_name,
                         "full_name": lead.full_name,
                         "website_url": lead.website_url,
+                        "phone": lead.phone,
                         "city": lead.city,
                         "source": lead.source,
                     },

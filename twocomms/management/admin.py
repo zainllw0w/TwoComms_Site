@@ -10,6 +10,7 @@ from .models import (
     DuplicateReview,
     LeadParsingJob,
     LeadParsingResult,
+    LeadParsingRuntimeLock,
     ManagementDailyActivity,
     ManagementLead,
     ManagerDayStatus,
@@ -145,6 +146,7 @@ class ManagementLeadAdmin(admin.ModelAdmin):
     list_display = (
         "shop_name",
         "phone",
+        "requires_phone_completion",
         "status",
         "lead_source",
         "niche_status",
@@ -154,7 +156,7 @@ class ManagementLeadAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("status", "lead_source", "niche_status", "city")
-    search_fields = ("shop_name", "phone", "phone_normalized", "google_place_id")
+    search_fields = ("shop_name", "phone", "phone_normalized", "website_url", "website_match_key", "google_place_id")
 
 
 @admin.register(LeadParsingJob)
@@ -162,14 +164,21 @@ class LeadParsingJobAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "status",
+        "history_lookback_days",
+        "save_no_phone_leads",
+        "included_type",
         "request_limit",
         "request_count",
+        "saved_no_phone_to_moderation",
         "added_to_moderation",
         "duplicate_skipped",
+        "recent_history_phone_skipped",
+        "recent_history_place_skipped",
+        "stop_reason_code",
         "started_at",
         "finished_at",
     )
-    list_filter = ("status", "started_at")
+    list_filter = ("status", "started_at", "history_lookback_days")
     search_fields = ("id", "current_query")
 
 
@@ -178,3 +187,9 @@ class LeadParsingResultAdmin(admin.ModelAdmin):
     list_display = ("id", "job", "status", "place_name", "phone", "keyword", "city", "created_at")
     list_filter = ("status", "city", "keyword")
     search_fields = ("place_name", "phone", "place_id")
+
+
+@admin.register(LeadParsingRuntimeLock)
+class LeadParsingRuntimeLockAdmin(admin.ModelAdmin):
+    list_display = ("singleton_key", "active_job", "updated_at")
+    readonly_fields = ("singleton_key", "updated_at")

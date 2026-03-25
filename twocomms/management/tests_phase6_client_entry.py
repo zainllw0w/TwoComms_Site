@@ -24,6 +24,7 @@ class UaPhoneNormalizationTests(TestCase):
         self.assertEqual(normalize_phone("067-111-22-33"), "+380671112233")
         self.assertEqual(normalize_phone("67 111 22 33"), "+380671112233")
         self.assertEqual(normalize_phone("80671112233"), "+380671112233")
+        self.assertEqual(normalize_phone("8671112233"), "+380671112233")
 
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")

@@ -64,6 +64,26 @@ class DedupeServiceTests(TestCase):
         self.assertEqual(decision.zone, DedupeZone.CLEAR)
         self.assertEqual(decision.candidates, [])
 
+    def test_exact_website_match_without_phone_returns_suggestion(self):
+        existing = Client.objects.create(
+            shop_name="Alpha Store",
+            phone="+380671112233",
+            full_name="Owner",
+            owner=self.user,
+            website_url="https://alpha.example.com/shop/",
+        )
+
+        decision = evaluate_duplicate_zone(
+            shop_name="Another Name",
+            phone="",
+            website_url="https://alpha.example.com/shop",
+            owner=self.user,
+        )
+
+        self.assertEqual(decision.zone, DedupeZone.SUGGESTION)
+        self.assertEqual(decision.candidates[0]["kind"], "client")
+        self.assertEqual(decision.candidates[0]["id"], existing.id)
+
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
 class LeadCreateDedupeApiTests(TestCase):
