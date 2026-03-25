@@ -1,5 +1,378 @@
 {% extends "management/base.html" %}
 
+{% block extra_css %}
+<style>
+    .parsing-panel {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .parsing-panel::before {
+        content: "";
+        position: absolute;
+        inset: -12% auto auto -8%;
+        width: 420px;
+        height: 420px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(222, 148, 85, 0.2), rgba(222, 148, 85, 0));
+        pointer-events: none;
+        filter: blur(6px);
+    }
+
+    .parsing-panel::after {
+        content: "";
+        position: absolute;
+        inset: 8% -10% auto auto;
+        width: 360px;
+        height: 360px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(49, 122, 109, 0.18), rgba(49, 122, 109, 0));
+        pointer-events: none;
+    }
+
+    .parsing-hero {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+        gap: 24px;
+        margin-bottom: 24px;
+        padding: 28px;
+        border: 1px solid rgba(108, 92, 70, 0.16);
+        border-radius: 30px;
+        background:
+            linear-gradient(135deg, rgba(255, 248, 240, 0.94), rgba(255, 255, 255, 0.98)),
+            radial-gradient(circle at top left, rgba(227, 156, 95, 0.16), transparent 45%);
+        box-shadow: 0 28px 80px rgba(84, 57, 31, 0.12);
+        overflow: hidden;
+    }
+
+    .parsing-hero__main {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .parsing-hero__eyebrow {
+        margin: 0;
+        font-size: 0.78rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(115, 86, 57, 0.72);
+    }
+
+    .parsing-hero__title {
+        margin: 0;
+        max-width: 10ch;
+        font-size: clamp(2.15rem, 4vw, 3.6rem);
+        line-height: 0.96;
+        letter-spacing: -0.05em;
+        color: #332419;
+    }
+
+    .parsing-hero__lead {
+        margin: 0;
+        max-width: 56ch;
+        font-size: 1rem;
+        line-height: 1.7;
+        color: rgba(69, 53, 39, 0.82);
+    }
+
+    .parsing-hero__statusline {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .parsing-hero__statusline #parser-query-info {
+        margin: 0;
+        font-weight: 600;
+        color: rgba(255, 247, 239, 0.88);
+    }
+
+    .parsing-hero__meta {
+        display: grid;
+        gap: 10px;
+    }
+
+    .parsing-hero__meta .offer-help {
+        margin: 0;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.74);
+        border: 1px solid rgba(120, 98, 72, 0.12);
+        color: #5d4632;
+    }
+
+    .parsing-hero__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 4px;
+    }
+
+    .parsing-hero__actions .btn-primary,
+    .parsing-hero__actions .btn-ghost {
+        min-width: 132px;
+        justify-content: center;
+    }
+
+    .parsing-hero__rail {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        gap: 14px;
+        align-content: start;
+    }
+
+    .parsing-hero__rail-card {
+        padding: 18px;
+        border-radius: 22px;
+        background: rgba(35, 27, 19, 0.9);
+        color: #f8efe4;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .parsing-hero__rail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .parsing-hero__metric {
+        padding: 14px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .parsing-hero__metric-label {
+        display: block;
+        font-size: 0.76rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(248, 239, 228, 0.64);
+    }
+
+    .parsing-hero__metric-value {
+        display: block;
+        margin-top: 8px;
+        font-size: 1.7rem;
+        line-height: 1;
+        letter-spacing: -0.05em;
+        color: #fff9f2;
+    }
+
+    .parsing-hero__usage {
+        display: grid;
+        gap: 10px;
+        padding: 18px;
+        border-radius: 22px;
+        background: linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(247, 240, 231, 0.76));
+        border: 1px solid rgba(103, 83, 60, 0.14);
+    }
+
+    .parsing-hero__usage-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        font-size: 0.94rem;
+        color: #503d2d;
+    }
+
+    .parsing-hero__queue {
+        margin-top: 10px;
+    }
+
+    .parsing-hero .offer-help {
+        color: rgba(255, 242, 229, 0.74);
+    }
+
+    .parsing-hero__statusline .offer-help {
+        font-size: 0.96rem;
+        color: rgba(255, 247, 239, 0.88);
+    }
+
+    .parsing-card-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: end;
+        margin-bottom: 18px;
+    }
+
+    .parsing-card-header h3 {
+        margin: 4px 0 0;
+    }
+
+    .parsing-card-header p {
+        margin: 0;
+        max-width: 52ch;
+        color: rgba(88, 67, 48, 0.76);
+    }
+
+    .parsing-strategy-form {
+        display: grid;
+        gap: 18px;
+    }
+
+    .parsing-form-cluster {
+        padding: 18px;
+        border-radius: 22px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 245, 239, 0.9));
+        border: 1px solid rgba(113, 89, 64, 0.12);
+    }
+
+    .parsing-form-cluster__title {
+        margin: 0 0 14px;
+        font-size: 0.9rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(104, 80, 57, 0.7);
+    }
+
+    .parsing-types-panel {
+        display: grid;
+        gap: 14px;
+    }
+
+    .parsing-types-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .parsing-type-option {
+        display: grid;
+        grid-template-columns: auto auto 1fr;
+        gap: 12px;
+        align-items: center;
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(119, 95, 67, 0.14);
+        background: rgba(255, 255, 255, 0.92);
+        transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        cursor: pointer;
+    }
+
+    .parsing-type-option:hover {
+        transform: translateY(-1px);
+        border-color: rgba(211, 143, 84, 0.38);
+        box-shadow: 0 12px 30px rgba(132, 93, 54, 0.08);
+    }
+
+    .parsing-type-option.is-selected {
+        border-color: rgba(215, 136, 73, 0.42);
+        background: linear-gradient(180deg, rgba(255, 250, 245, 0.98), rgba(249, 236, 221, 0.94));
+        box-shadow: 0 18px 36px rgba(161, 109, 58, 0.12);
+    }
+
+    .parsing-type-option input {
+        margin: 0;
+    }
+
+    .parsing-type-option__order {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: rgba(223, 152, 90, 0.12);
+        color: rgba(123, 79, 39, 0.78);
+        font-size: 0.84rem;
+        font-weight: 700;
+    }
+
+    .parsing-type-option__label {
+        display: block;
+        font-weight: 700;
+        color: #35281c;
+    }
+
+    .parsing-type-option__meta {
+        display: block;
+        margin-top: 3px;
+        font-size: 0.82rem;
+        color: rgba(92, 71, 51, 0.72);
+    }
+
+    .parsing-type-queue {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .parsing-type-queue__chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(60, 130, 118, 0.1);
+        color: #2f5d55;
+        font-size: 0.88rem;
+        font-weight: 600;
+    }
+
+    .parsing-type-queue__chip.is-active {
+        background: rgba(215, 136, 73, 0.16);
+        color: #7c4a1d;
+        box-shadow: inset 0 0 0 1px rgba(215, 136, 73, 0.18);
+    }
+
+    .parsing-type-queue__chip-index {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        background: rgba(47, 93, 85, 0.14);
+        font-size: 0.76rem;
+    }
+
+    .parsing-type-queue__empty {
+        color: rgba(92, 71, 51, 0.72);
+        font-size: 0.9rem;
+    }
+
+    .parsing-type-queue--compact .parsing-type-queue__chip {
+        padding: 6px 10px;
+        font-size: 0.82rem;
+        background: rgba(255, 248, 240, 0.92);
+    }
+
+    .parsing-type-queue--compact .parsing-type-queue__empty {
+        color: rgba(248, 239, 228, 0.76);
+    }
+
+    @media (max-width: 1100px) {
+        .parsing-hero {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 780px) {
+        .parsing-hero,
+        .parsing-form-cluster {
+            padding: 18px;
+            border-radius: 22px;
+        }
+
+        .parsing-hero__rail-grid,
+        .parsing-types-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .parsing-hero__title {
+            max-width: none;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 {{ active_job_json|default:None|json_script:"parser-initial-job" }}
 {{ moderation_leads|json_script:"parser-initial-moderation" }}
@@ -23,79 +396,154 @@
             <p class="eyebrow">Google Maps API</p>
             <h2>Парсинг лідів</h2>
         </div>
-        <div class="panel-actions">
-            <span class="status-chip" id="parser-status-chip">—</span>
-        </div>
+        <div class="offer-help">Premium control center для запуску, відновлення та ревʼю парсингу.</div>
     </div>
+
+    <section class="parsing-hero">
+        <div class="parsing-hero__main">
+            <p class="parsing-hero__eyebrow">Google Maps Orchestration</p>
+            <h3 class="parsing-hero__title">Керуйте парсингом як операційним потоком</h3>
+            <p class="parsing-hero__lead">
+                Верхній блок тепер працює як control center: видно активний запит, чергу типів, темп,
+                ризики по квоті та ключові метрики без прокрутки до довгої форми.
+            </p>
+            <div class="parsing-hero__statusline">
+                <span class="status-chip" id="parser-status-chip-hero">—</span>
+                <div class="offer-help" id="parser-query-info">Запит: —</div>
+            </div>
+            <div class="parsing-hero__meta">
+                <div class="offer-help" id="parser-telemetry-info">Темп: —</div>
+                <div class="offer-help" id="parser-last-error" hidden></div>
+                <div class="offer-help" id="parser-session-warning" hidden></div>
+            </div>
+            <div class="parsing-hero__queue">
+                <div class="parsing-type-queue parsing-type-queue--compact" id="parser-selected-types-summary"></div>
+            </div>
+            <div class="parsing-hero__actions">
+                <button type="submit" form="parser-form" class="btn-primary" id="parser-start-btn">Старт</button>
+                <button type="button" class="btn-ghost" id="parser-pause-btn">Пауза</button>
+                <button type="button" class="btn-ghost" id="parser-resume-btn">Продовжити</button>
+                <button type="button" class="btn-ghost" id="parser-stop-btn">Стоп</button>
+            </div>
+        </div>
+        <aside class="parsing-hero__rail">
+            <div class="parsing-hero__rail-card">
+                <div class="parsing-hero__rail-grid">
+                    <div class="parsing-hero__metric">
+                        <span class="parsing-hero__metric-label">Знайдено</span>
+                        <span class="parsing-hero__metric-value" id="hero-total-found">0</span>
+                    </div>
+                    <div class="parsing-hero__metric">
+                        <span class="parsing-hero__metric-label">В модерацію</span>
+                        <span class="parsing-hero__metric-value" id="hero-added-moderation">0</span>
+                    </div>
+                    <div class="parsing-hero__metric">
+                        <span class="parsing-hero__metric-label">No-phone всі</span>
+                        <span class="parsing-hero__metric-value" id="hero-no-phone">0</span>
+                    </div>
+                    <div class="parsing-hero__metric">
+                        <span class="parsing-hero__metric-label">Поточний RPM</span>
+                        <span class="parsing-hero__metric-value" id="hero-current-rpm">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="parsing-hero__usage">
+                <div class="parsing-hero__usage-row">
+                    <span>SKU</span>
+                    <strong id="hero-billing-sku">—</strong>
+                </div>
+                <div class="parsing-hero__usage-row">
+                    <span>Поточний billing month</span>
+                    <strong id="hero-billing-current-month">0</strong>
+                </div>
+                <div class="parsing-hero__usage-row">
+                    <span>Google project usage</span>
+                    <strong id="hero-billing-google-project">not connected</strong>
+                </div>
+                <div class="parsing-hero__usage-row">
+                    <span>Provider</span>
+                    <strong id="hero-billing-provider-status">—</strong>
+                </div>
+            </div>
+        </aside>
+    </section>
 
     <div class="offer-grid offer-grid-single">
         <div class="offer-card">
-            <h3 class="offer-title">Налаштування парсингу</h3>
-            <form id="parser-form" class="field-grid">
+            <div class="parsing-card-header">
+                <div>
+                    <p class="eyebrow">Search Strategy</p>
+                    <h3 class="offer-title">Налаштування парсингу</h3>
+                </div>
+                <p>Побудуйте чергу пошуку: ключі, міста, темп і порядок `Google Places types`, які будуть відпрацьовані послідовно.</p>
+            </div>
+            <form id="parser-form" class="parsing-strategy-form">
                 {% csrf_token %}
-                <div class="field field-span-2">
-                    <label for="parser_keywords">Ключові слова</label>
-                    <textarea id="parser_keywords" name="keywords" placeholder='Напр.: Военторг, "військове спорядження", Одяг'></textarea>
-                    <div class="offer-help">Розділяйте комою, крапкою з комою або новим рядком. Фрази можна брати в лапки.</div>
-                </div>
-                <div class="field">
-                    <label for="parser_cities">Міста</label>
-                    <textarea id="parser_cities" name="cities" placeholder="Харків, Київ; Дніпро"></textarea>
-                </div>
-                <div class="field">
-                    <label for="parser_request_limit">Ліміт запитів</label>
-                    <input type="number" id="parser_request_limit" name="request_limit" min="1" value="50">
-                </div>
-                <div class="field">
-                    <label for="parser_requests_per_minute">Запитів за хвилину</label>
-                    <input type="number" id="parser_requests_per_minute" name="requests_per_minute" min="1" max="20" value="10">
-                    <div class="offer-help">Google не публікує універсальний safe RPM для Places. Тут діє консервативний ліміт застосунку: 10 RPM за замовчуванням, максимум 20 RPM.</div>
-                </div>
-                <div class="field">
-                    <label for="parser_history_lookback_days">Історія, днів</label>
-                    <input type="number" id="parser_history_lookback_days" name="history_lookback_days" min="0" max="3650" value="30">
-                    <div class="offer-help">`0` = не перевіряти стару базу. `N` = не повторювати те, що вже було знайдено за останні `N` днів.</div>
-                </div>
-                <div class="field">
-                    <label for="parser_included_type">Google Places type</label>
-                    <select id="parser_included_type" name="included_type">
-                        {% for value, label in places_included_type_choices %}
-                            <option value="{{ value }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                    <div class="offer-help">Один type-фільтр для звуження видачі Google Places.</div>
-                </div>
-                <div class="field">
-                    <label for="parser_strict_type_filtering">
-                        <input type="checkbox" id="parser_strict_type_filtering" name="strict_type_filtering">
-                        Strict type filtering
-                    </label>
-                    <div class="offer-help">Працює лише разом із вибраним type.</div>
-                </div>
-                <div class="field field-span-2">
-                    <label for="parser_save_no_phone_leads">
-                        <input type="checkbox" id="parser_save_no_phone_leads" name="save_no_phone_leads">
-                        Зберігати ліди без телефону, якщо є сайт
-                    </label>
-                    <div class="offer-help">Такі ліди одразу потрапляють у модерацію з вимогою дозаповнити номер.</div>
-                </div>
-                <div class="cp-messenger-toolbar field-span-2">
-                    <div class="cp-template-pills">
-                        <button type="submit" class="btn-primary" id="parser-start-btn">Старт</button>
-                        <button type="button" class="btn-ghost" id="parser-pause-btn">Пауза</button>
-                        <button type="button" class="btn-ghost" id="parser-resume-btn">Продовжити</button>
-                        <button type="button" class="btn-ghost" id="parser-stop-btn">Стоп</button>
+                <div class="parsing-form-cluster">
+                    <div class="parsing-form-cluster__title">Keywords & Cities</div>
+                    <div class="field-grid">
+                        <div class="field field-span-2">
+                            <label for="parser_keywords">Ключові слова</label>
+                            <textarea id="parser_keywords" name="keywords" placeholder='Напр.: Военторг, "військове спорядження", Одяг'></textarea>
+                            <div class="offer-help">Розділяйте комою, крапкою з комою або новим рядком. Фрази можна брати в лапки.</div>
+                        </div>
+                        <div class="field field-span-2">
+                            <label for="parser_cities">Міста</label>
+                            <textarea id="parser_cities" name="cities" placeholder="Харків, Київ; Дніпро"></textarea>
+                        </div>
                     </div>
-                    <div class="offer-help" id="parser-query-info">Запит: —</div>
                 </div>
-                <div class="field field-span-2">
-                    <div class="offer-help" id="parser-telemetry-info">Темп: —</div>
+
+                <div class="parsing-form-cluster">
+                    <div class="parsing-form-cluster__title">Runtime & Review</div>
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="parser_request_limit">Ліміт запитів</label>
+                            <input type="number" id="parser_request_limit" name="request_limit" min="1" value="50">
+                        </div>
+                        <div class="field">
+                            <label for="parser_requests_per_minute">Запитів за хвилину</label>
+                            <input type="number" id="parser_requests_per_minute" name="requests_per_minute" min="1" max="20" value="10">
+                            <div class="offer-help">Консервативний app-side cap: 10 RPM за замовчуванням, максимум 20 RPM.</div>
+                        </div>
+                        <div class="field">
+                            <label for="parser_history_lookback_days">Історія, днів</label>
+                            <input type="number" id="parser_history_lookback_days" name="history_lookback_days" min="0" max="3650" value="30">
+                            <div class="offer-help">`0` = без lookback, `N` = не повторювати знахідки за останні `N` днів.</div>
+                        </div>
+                        <div class="field">
+                            <label for="parser_strict_type_filtering">
+                                <input type="checkbox" id="parser_strict_type_filtering" name="strict_type_filtering">
+                                Strict type filtering
+                            </label>
+                            <div class="offer-help">Застосовується до всієї черги вибраних types.</div>
+                        </div>
+                        <div class="field field-span-2">
+                            <label for="parser_save_no_phone_leads">
+                                <input type="checkbox" id="parser_save_no_phone_leads" name="save_no_phone_leads">
+                                Зберігати ліди без телефону, якщо є сайт
+                            </label>
+                            <div class="offer-help">Такі ліди одразу потрапляють у модерацію з вимогою дозаповнити номер.</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="field field-span-2">
-                    <div class="offer-help" id="parser-last-error" hidden></div>
-                </div>
-                <div class="field field-span-2">
-                    <div class="offer-help" id="parser-session-warning" hidden></div>
+
+                <div class="parsing-form-cluster parsing-types-panel">
+                    <div class="parsing-form-cluster__title">Google Places Types Queue</div>
+                    <div class="offer-help">Вибрані types підуть у роботу по черзі для кожної комбінації `ключове слово + місто`.</div>
+                    <div class="parsing-types-grid">
+                        {% for value, label in places_included_type_choices %}
+                            <label class="parsing-type-option" for="parser_type_{{ value }}">
+                                <input type="checkbox" id="parser_type_{{ value }}" name="included_types" value="{{ value }}">
+                                <span class="parsing-type-option__order" data-type-order-value="{{ value }}">•</span>
+                                <span>
+                                    <span class="parsing-type-option__label">{{ label }}</span>
+                                    <span class="parsing-type-option__meta">{{ value }}</span>
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                    <div class="parsing-type-queue" id="parser-types-queue"></div>
                 </div>
             </form>
         </div>
@@ -266,7 +714,10 @@ function initParsingPage() {
     const leadActionTpl = endpoints.dataset.leadActionUrlTemplate;
 
     const parserForm = document.getElementById('parser-form');
-    const statusChip = document.getElementById('parser-status-chip');
+    const statusChips = [
+        document.getElementById('parser-status-chip-hero'),
+        document.getElementById('parser-status-chip'),
+    ].filter(Boolean);
     const queryInfo = document.getElementById('parser-query-info');
     const telemetryInfo = document.getElementById('parser-telemetry-info');
     const lastErrorInfo = document.getElementById('parser-last-error');
@@ -303,10 +754,20 @@ function initParsingPage() {
     const pauseBtn = document.getElementById('parser-pause-btn');
     const resumeBtn = document.getElementById('parser-resume-btn');
     const stopBtn = document.getElementById('parser-stop-btn');
-    const includedTypeField = document.getElementById('parser_included_type');
+    const typeCheckboxes = Array.from(document.querySelectorAll('input[name="included_types"]'));
     const strictTypeFilteringField = document.getElementById('parser_strict_type_filtering');
     const saveNoPhoneField = document.getElementById('parser_save_no_phone_leads');
     const moderationPhoneRequirement = document.getElementById('moderation-phone-requirement');
+    const typeQueueContainers = [
+        document.getElementById('parser-types-queue'),
+        document.getElementById('parser-selected-types-summary'),
+    ].filter(Boolean);
+    const typeLabels = Object.fromEntries(
+        typeCheckboxes.map((checkbox) => [
+            checkbox.value,
+            checkbox.closest('.parsing-type-option')?.querySelector('.parsing-type-option__label')?.textContent?.trim() || checkbox.value,
+        ]),
+    );
 
     const getCsrfToken = () => (modalForm.querySelector('input[name="csrfmiddlewaretoken"]')?.value
         || parserForm.querySelector('input[name="csrfmiddlewaretoken"]')?.value
@@ -343,11 +804,55 @@ function initParsingPage() {
         return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${escapeHtml(normalized)}</a>`;
     };
 
+    const selectedTypeValues = () => typeCheckboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
+
+    const activeTypeValue = () => {
+        const requestSpec = activeJob?.current_request_spec || {};
+        return String(requestSpec.included_type || activeJob?.included_type || '').trim();
+    };
+
+    const renderTypeQueue = (selectedValues, currentActiveType = '') => {
+        typeQueueContainers.forEach((container) => {
+            if (!container) return;
+            if (!selectedValues.length) {
+                const emptyMessage = container.id === 'parser-selected-types-summary'
+                    ? 'Types не вибрані: пошук іде без category-фільтра.'
+                    : 'Types не вибрані. У такому режимі Google Places працює без category-фільтра.';
+                container.innerHTML = `<span class="parsing-type-queue__empty">${escapeHtml(emptyMessage)}</span>`;
+                return;
+            }
+            container.innerHTML = selectedValues.map((value, index) => {
+                const isActive = currentActiveType && currentActiveType === value;
+                const label = typeLabels[value] || value;
+                return `
+                    <span class="parsing-type-queue__chip${isActive ? ' is-active' : ''}">
+                        <span class="parsing-type-queue__chip-index">${index + 1}</span>
+                        <span>${escapeHtml(label)}</span>
+                    </span>
+                `;
+            }).join('');
+        });
+    };
+
+    const updateTypeOrderBadges = (selectedValues) => {
+        const selectedMap = new Map(selectedValues.map((value, index) => [value, index + 1]));
+        typeCheckboxes.forEach((checkbox) => {
+            const option = checkbox.closest('.parsing-type-option');
+            const badge = option?.querySelector('[data-type-order-value]');
+            const order = selectedMap.get(checkbox.value);
+            if (option) option.classList.toggle('is-selected', Boolean(order));
+            if (badge) badge.textContent = order || '•';
+        });
+    };
+
     const syncTypeControls = () => {
-        if (!includedTypeField || !strictTypeFilteringField) return;
-        const hasType = Boolean(includedTypeField.value);
+        if (!strictTypeFilteringField) return;
+        const selectedValues = selectedTypeValues();
+        const hasType = selectedValues.length > 0;
         strictTypeFilteringField.disabled = !hasType;
         if (!hasType) strictTypeFilteringField.checked = false;
+        updateTypeOrderBadges(selectedValues);
+        renderTypeQueue(selectedValues, activeTypeValue());
     };
 
     const openModal = () => {
@@ -367,6 +872,13 @@ function initParsingPage() {
     const setCounter = (id, value) => {
         const el = document.getElementById(id);
         if (el) el.textContent = value ?? 0;
+    };
+
+    const setStatusChips = (text, status = '') => {
+        statusChips.forEach((chip) => {
+            chip.textContent = text;
+            chip.className = status ? `status-chip status-${status}` : 'status-chip';
+        });
     };
 
     const renderCounters = (payload) => {
@@ -389,6 +901,16 @@ function initParsingPage() {
             setCounter('cnt-request-errors', activeJob.request_error_count || 0);
             setCounter('cnt-current-rpm', activeJob.current_rpm || 0);
             setCounter('cnt-target-rpm', activeJob.requests_per_minute || 0);
+            setCounter('hero-total-found', activeJob.total_found || 0);
+            setCounter(
+                'hero-added-moderation',
+                (activeJob.added_to_moderation || 0) + (activeJob.saved_no_phone_to_moderation || 0),
+            );
+            setCounter(
+                'hero-no-phone',
+                (activeJob.no_phone_skipped || 0) + (activeJob.saved_no_phone_to_moderation || 0),
+            );
+            setCounter('hero-current-rpm', activeJob.current_rpm || 0);
         } else {
             setCounter('cnt-total-found', 0);
             setCounter('cnt-request-count', 0);
@@ -407,6 +929,10 @@ function initParsingPage() {
             setCounter('cnt-request-errors', 0);
             setCounter('cnt-current-rpm', 0);
             setCounter('cnt-target-rpm', 0);
+            setCounter('hero-total-found', 0);
+            setCounter('hero-added-moderation', 0);
+            setCounter('hero-no-phone', 0);
+            setCounter('hero-current-rpm', 0);
         }
         setCounter('cnt-base-unprocessed', counters.unprocessed || 0);
         setCounter('cnt-bad', counters.rejected || 0);
@@ -420,6 +946,10 @@ function initParsingPage() {
         setCounter('billing-current-month', usage.current_billing_month_usage || 0);
         setCounter('billing-provider-status', usage.provider_status || '—');
         setCounter('billing-google-project', usage.google_project_usage ?? 'not connected');
+        setCounter('hero-billing-sku', usage.sku || '—');
+        setCounter('hero-billing-current-month', usage.current_billing_month_usage || 0);
+        setCounter('hero-billing-provider-status', usage.provider_status || '—');
+        setCounter('hero-billing-google-project', usage.google_project_usage ?? 'not connected');
     };
 
     const warningMessageForReason = (reasonCode) => {
@@ -455,8 +985,13 @@ function initParsingPage() {
         if (rpmField && activeJob.requests_per_minute) rpmField.value = activeJob.requests_per_minute;
         if (lookbackField && activeJob.history_lookback_days !== undefined) lookbackField.value = activeJob.history_lookback_days;
         if (saveNoPhoneField) saveNoPhoneField.checked = Boolean(activeJob.save_no_phone_leads);
-        if (includedTypeField) includedTypeField.value = activeJob.included_type || '';
-        if (strictTypeFilteringField) strictTypeFilteringField.checked = Boolean(activeJob.included_type && activeJob.strict_type_filtering);
+        const selectedValues = activeJob.included_types?.length
+            ? activeJob.included_types
+            : (activeJob.included_type ? [activeJob.included_type] : []);
+        typeCheckboxes.forEach((checkbox) => {
+            checkbox.checked = selectedValues.includes(checkbox.value);
+        });
+        if (strictTypeFilteringField) strictTypeFilteringField.checked = Boolean(selectedValues.length && activeJob.strict_type_filtering);
         syncTypeControls();
     };
 
@@ -480,27 +1015,28 @@ function initParsingPage() {
 
     const renderStatus = () => {
         if (!activeJob) {
-            statusChip.textContent = 'Не запущено';
-            statusChip.className = 'status-chip';
+            setStatusChips('Не запущено');
             queryInfo.textContent = 'Запит: —';
             if (telemetryInfo) telemetryInfo.textContent = 'Темп: —';
             if (lastErrorInfo) {
                 lastErrorInfo.hidden = true;
                 lastErrorInfo.textContent = '';
             }
+            renderTypeQueue(selectedTypeValues(), '');
             renderSessionWarning();
             renderControls();
             return;
         }
-        statusChip.textContent = activeJob.status_display || activeJob.status;
-        statusChip.className = `status-chip status-${activeJob.status}`;
+        setStatusChips(activeJob.status_display || activeJob.status, activeJob.status);
         queryInfo.textContent = `Запит: ${activeJob.current_query || '—'}`;
         if (telemetryInfo) {
             const nextEta = Number(activeJob.next_step_eta_seconds || 0);
             const inFlight = activeJob.is_step_in_progress ? 'так' : 'ні';
             const geoMode = activeJob.current_request_spec?.geo_mode || '—';
-            const includedType = activeJob.current_request_spec?.included_type || activeJob.included_type || '—';
-            telemetryInfo.textContent = `Темп: ${activeJob.current_rpm || 0}/${activeJob.requests_per_minute || 0} RPM · next: ${nextEta}s · in-flight: ${inFlight} · step: ${activeJob.last_step_duration_ms || 0}ms · lookback: ${activeJob.history_lookback_days || 0}d · geo: ${geoMode} · type: ${includedType}`;
+            const includedTypeLabel = activeJob.current_request_spec?.included_type_label || activeJob.current_type_label || 'усі категорії';
+            const typeOrdinal = Number(activeJob.current_request_spec?.type_ordinal || 1);
+            const typesTotal = Number(activeJob.current_request_spec?.types_total || activeJob.included_types?.length || 1);
+            telemetryInfo.textContent = `Темп: ${activeJob.current_rpm || 0}/${activeJob.requests_per_minute || 0} RPM · next: ${nextEta}s · in-flight: ${inFlight} · step: ${activeJob.last_step_duration_ms || 0}ms · lookback: ${activeJob.history_lookback_days || 0}d · geo: ${geoMode} · type: ${includedTypeLabel} (${typeOrdinal}/${typesTotal})`;
         }
         if (lastErrorInfo) {
             if (activeJob.last_error) {
@@ -511,6 +1047,7 @@ function initParsingPage() {
                 lastErrorInfo.textContent = '';
             }
         }
+        renderTypeQueue(selectedTypeValues(), activeTypeValue());
         renderSessionWarning();
         renderControls();
     };
@@ -805,7 +1342,7 @@ function initParsingPage() {
         usage,
     });
 
-    includedTypeField?.addEventListener('change', syncTypeControls);
+    typeCheckboxes.forEach((checkbox) => checkbox.addEventListener('change', syncTypeControls));
     syncTypeControls();
     window.addEventListener('beforeunload', beforeUnloadHandler);
 }
