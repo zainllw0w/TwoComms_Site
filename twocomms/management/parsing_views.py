@@ -12,12 +12,14 @@ from .parser_service import (
     ParsingServiceError,
     PLACES_INCLUDED_TYPE_CHOICES,
     create_parsing_job,
+    parser_selected_included_types,
     parser_dashboard_job,
     parser_global_counters,
     parser_pause_job,
     parser_resume_job,
     parser_run_step,
     parser_stop_job,
+    places_included_type_label,
     sanitize_history_lookback_days,
     sanitize_requests_per_minute,
 )
@@ -115,6 +117,9 @@ def _job_payload(job: LeadParsingJob | None) -> dict | None:
         "history_lookback_days": job.history_lookback_days,
         "save_no_phone_leads": job.save_no_phone_leads,
         "included_type": job.included_type,
+        "included_types": parser_selected_included_types(job),
+        "current_type_index": job.current_type_index,
+        "current_type_label": places_included_type_label(job.included_type),
         "strict_type_filtering": job.strict_type_filtering,
         "request_success_count": job.request_success_count,
         "request_error_count": job.request_error_count,
@@ -217,7 +222,7 @@ def parsing_dashboard(request):
             "rejected_leads": rejected,
             "parser_counters": _counters_payload(),
             "parser_usage": _usage_payload(),
-            "places_included_type_choices": PLACES_INCLUDED_TYPE_CHOICES,
+            "places_included_type_choices": [item for item in PLACES_INCLUDED_TYPE_CHOICES if item[0]],
         },
     )
 
@@ -243,6 +248,7 @@ def parser_start_api(request):
             requests_per_minute=requests_per_minute,
             history_lookback_days=history_lookback_days,
             save_no_phone_leads=request.POST.get("save_no_phone_leads"),
+            included_types=request.POST.getlist("included_types"),
             included_type=request.POST.get("included_type"),
             strict_type_filtering=request.POST.get("strict_type_filtering"),
         )

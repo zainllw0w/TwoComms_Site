@@ -350,6 +350,51 @@ class ParserServiceTests(TestCase):
         self.assertEqual(kwargs["json"]["includedType"], "clothing_store")
         self.assertTrue(kwargs["json"]["strictTypeFiltering"])
 
+    def test_parser_runs_selected_types_sequentially_for_same_query(self):
+        job = create_parsing_job(
+            user=self.user,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            request_limit=3,
+            included_types=["clothing_store", "shoe_store"],
+            strict_type_filtering=True,
+        )
+        requested_types = []
+
+        def fake_places_search(*args, **kwargs):
+            request_spec = kwargs.get("request_spec") or {}
+            requested_types.append(request_spec.get("included_type"))
+            return [], ""
+
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            side_effect=fake_places_search,
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(requested_types, ["clothing_store"])
+        self.assertEqual(job.status, LeadParsingJob.Status.RUNNING)
+        self.assertEqual(job.request_count, 1)
+        self.assertEqual(job.current_type_index, 1)
+        self.assertEqual(job.included_type, "shoe_store")
+        self.assertEqual(job.current_query, "військторг Харків")
+
+        job.next_step_not_before = timezone.now() - timedelta(seconds=1)
+        job.save(update_fields=["next_step_not_before"])
+
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            side_effect=fake_places_search,
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(requested_types, ["clothing_store", "shoe_store"])
+        self.assertEqual(job.status, LeadParsingJob.Status.COMPLETED)
+        self.assertEqual(job.request_count, 2)
+        self.assertEqual(job.current_request_spec, {})
+
     def test_geocode_city_center_uses_shared_django_cache(self):
         class DummyResponse:
             status_code = 200
@@ -698,7 +743,7 @@ class ParserApiTests(TestCase):
                 "requests_per_minute": "20",
                 "history_lookback_days": "45",
                 "save_no_phone_leads": "on",
-                "included_type": "clothing_store",
+                "included_types": ["clothing_store", "shoe_store"],
                 "strict_type_filtering": "on",
             },
         )
@@ -710,7 +755,9 @@ class ParserApiTests(TestCase):
         job = LeadParsingJob.objects.get(id=job_id)
         self.assertEqual(job.history_lookback_days, 45)
         self.assertTrue(job.save_no_phone_leads)
+        self.assertEqual(job.included_types, ["clothing_store", "shoe_store"])
         self.assertEqual(job.included_type, "clothing_store")
+        self.assertEqual(job.current_type_index, 0)
         self.assertTrue(job.strict_type_filtering)
 
         with patch("management.parsing_views.parser_run_step", side_effect=lambda j: j):
@@ -904,6 +951,20 @@ class ParserApiTests(TestCase):
         self.assertIn("sanitizeExternalUrl", content)
         self.assertIn("escapeHtml", content)
         self.assertNotIn('<a href="${lead.website_url}"', content)
+
+    def test_parsing_dashboard_uses_multi_type_queue_controls(self):
+        response = self.client_http.get(
+            reverse("management_parsing_dashboard"),
+            HTTP_HOST="management.twocomms.shop",
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn('name="included_types"', content)
+        self.assertIn('id="parser-types-queue"', content)
+        self.assertIn('id="parser-selected-types-summary"', content)
+        self.assertIn("typeCheckboxes", content)
+        self.assertNotIn('id="parser_included_type"', content)
 
     def test_moderation_save_allows_blank_phone_when_phone_completion_required(self):
         lead = ManagementLead.objects.create(

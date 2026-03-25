@@ -71,6 +71,7 @@ PLACES_INCLUDED_TYPE_CHOICES = (
     ("discount_store", "Дисконт"),
 )
 ALLOWED_PLACES_INCLUDED_TYPES = {value for value, _label in PLACES_INCLUDED_TYPE_CHOICES if value}
+PLACES_INCLUDED_TYPE_LABELS = dict(PLACES_INCLUDED_TYPE_CHOICES)
 
 
 class ParsingServiceError(Exception):
@@ -165,6 +166,60 @@ def _coerce_flag(raw_value: Any) -> bool:
 def sanitize_places_included_type(raw_value: Any) -> str:
     value = str(raw_value or "").strip()
     return value if value in ALLOWED_PLACES_INCLUDED_TYPES else ""
+
+
+def sanitize_places_included_types(raw_values: Any) -> list[str]:
+    if raw_values is None:
+        return []
+    if isinstance(raw_values, str):
+        iterable = [raw_values]
+    elif isinstance(raw_values, (list, tuple, set)):
+        iterable = list(raw_values)
+    else:
+        iterable = [raw_values]
+
+    sanitized: list[str] = []
+    for value in iterable:
+        normalized = sanitize_places_included_type(value)
+        if normalized and normalized not in sanitized:
+            sanitized.append(normalized)
+    return sanitized
+
+
+def places_included_type_label(raw_value: Any) -> str:
+    normalized = sanitize_places_included_type(raw_value)
+    if not normalized:
+        return PLACES_INCLUDED_TYPE_LABELS.get("", "Без фільтра")
+    return PLACES_INCLUDED_TYPE_LABELS.get(normalized, normalized)
+
+
+def parser_selected_included_types(job: LeadParsingJob) -> list[str]:
+    selected = sanitize_places_included_types(job.included_types)
+    if selected:
+        return selected
+    single = sanitize_places_included_type(job.included_type)
+    return [single] if single else []
+
+
+def _request_type_sequence(job: LeadParsingJob) -> list[str]:
+    selected = parser_selected_included_types(job)
+    return selected or [""]
+
+
+def _normalize_job_type_state(job: LeadParsingJob):
+    selected = parser_selected_included_types(job)
+    sequence = selected or [""]
+    max_index = len(sequence) - 1
+    if int(job.current_type_index or 0) > max_index:
+        job.current_type_index = 0
+    active_type = sequence[int(job.current_type_index or 0)]
+    job.included_types = selected
+    job.included_type = active_type
+
+
+def _current_included_type(job: LeadParsingJob) -> str:
+    _normalize_job_type_state(job)
+    return str(job.included_type or "").strip()
 
 
 def _current_keyword(job: LeadParsingJob) -> str:
@@ -310,12 +365,15 @@ def _location_payload_from_context(city_context: dict[str, Any] | None) -> dict[
 
 
 def _build_request_spec(job: LeadParsingJob, api_key: str) -> dict[str, Any]:
+    _normalize_job_type_state(job)
     keyword = _current_keyword(job)
     city = _current_city(job)
     query = f"{keyword} {city}".strip()
     city_context = geocode_city_center(city, api_key)
     location_payload = _location_payload_from_context(city_context)
     geo_mode = str(location_payload.pop("geo_mode", "none"))
+    selected_types = parser_selected_included_types(job)
+    active_type = _current_included_type(job)
     spec = {
         "keyword": keyword,
         "city": city,
@@ -324,8 +382,13 @@ def _build_request_spec(job: LeadParsingJob, api_key: str) -> dict[str, Any]:
         "field_mask_version": CURRENT_FIELD_MASK_VERSION,
         "geo_mode": geo_mode,
         "region_code": "UA",
-        "included_type": sanitize_places_included_type(job.included_type),
-        "strict_type_filtering": bool(job.strict_type_filtering),
+        "included_type": active_type,
+        "included_type_label": places_included_type_label(active_type),
+        "included_types": selected_types,
+        "current_type_index": int(job.current_type_index or 0),
+        "type_ordinal": int(job.current_type_index or 0) + 1,
+        "types_total": len(selected_types) or 1,
+        "strict_type_filtering": bool(selected_types and job.strict_type_filtering),
     }
     if location_payload:
         spec["location_payload"] = location_payload
@@ -336,6 +399,7 @@ def _coerce_request_spec(job: LeadParsingJob, api_key: str) -> dict[str, Any]:
     keyword = _current_keyword(job)
     city = _current_city(job)
     current_spec = dict(job.current_request_spec or {})
+    _normalize_job_type_state(job)
     if (
         job.next_page_token
         and current_spec
@@ -347,8 +411,13 @@ def _coerce_request_spec(job: LeadParsingJob, api_key: str) -> dict[str, Any]:
         current_spec["field_mask_version"] = CURRENT_FIELD_MASK_VERSION
         current_spec.setdefault("geo_mode", "none")
         current_spec["region_code"] = "UA"
-        current_spec["included_type"] = sanitize_places_included_type(job.included_type)
-        current_spec["strict_type_filtering"] = bool(job.strict_type_filtering)
+        current_spec.setdefault("included_type", _current_included_type(job))
+        current_spec["included_type_label"] = places_included_type_label(current_spec.get("included_type"))
+        current_spec["included_types"] = parser_selected_included_types(job)
+        current_spec["current_type_index"] = int(job.current_type_index or 0)
+        current_spec["type_ordinal"] = int(job.current_type_index or 0) + 1
+        current_spec["types_total"] = len(parser_selected_included_types(job)) or 1
+        current_spec["strict_type_filtering"] = bool(parser_selected_included_types(job) and job.strict_type_filtering)
         return current_spec
     return _build_request_spec(job, api_key)
 
@@ -582,10 +651,17 @@ def _mark_seen(prepared: PreparedPlace, seen_job_phones: set[str], seen_job_plac
 def _advance_position(job: LeadParsingJob) -> bool:
     keywords = job.keywords or []
     cities = job.cities or []
+    type_sequence = _request_type_sequence(job)
     job.current_request_spec = {}
     job.next_page_token = ""
     if not keywords or not cities:
         return False
+    if job.current_type_index + 1 < len(type_sequence):
+        job.current_type_index += 1
+        job.included_type = type_sequence[job.current_type_index]
+        return True
+    job.current_type_index = 0
+    job.included_type = type_sequence[0] if type_sequence else ""
     if job.current_keyword_index + 1 < len(keywords):
         job.current_keyword_index += 1
         return True
@@ -1106,6 +1182,7 @@ def create_parsing_job(
     requests_per_minute: int | str | None = DEFAULT_REQUESTS_PER_MINUTE,
     history_lookback_days: int | str | None = DEFAULT_HISTORY_LOOKBACK_DAYS,
     save_no_phone_leads: bool | str | None = False,
+    included_types: list[str] | tuple[str, ...] | None = None,
     included_type: str | None = "",
     strict_type_filtering: bool | str | None = False,
 ) -> LeadParsingJob:
@@ -1119,7 +1196,12 @@ def create_parsing_job(
         raise ParsingServiceError("Ліміт запитів має бути >= 1.")
 
     now = timezone.now()
-    sanitized_included_type = sanitize_places_included_type(included_type)
+    sanitized_included_types = sanitize_places_included_types(included_types)
+    if not sanitized_included_types:
+        single_type = sanitize_places_included_type(included_type)
+        if single_type:
+            sanitized_included_types = [single_type]
+    active_included_type = sanitized_included_types[0] if sanitized_included_types else ""
     with transaction.atomic():
         lock = _runtime_lock_for_update()
         active_job = _normalize_active_jobs_locked(lock, now=now)
@@ -1137,8 +1219,10 @@ def create_parsing_job(
             requests_per_minute=sanitize_requests_per_minute(requests_per_minute),
             history_lookback_days=sanitize_history_lookback_days(history_lookback_days),
             save_no_phone_leads=_coerce_flag(save_no_phone_leads),
-            included_type=sanitized_included_type,
-            strict_type_filtering=bool(sanitized_included_type and _coerce_flag(strict_type_filtering)),
+            included_type=active_included_type,
+            included_types=sanitized_included_types,
+            current_type_index=0,
+            strict_type_filtering=bool(sanitized_included_types and _coerce_flag(strict_type_filtering)),
             current_query=f"{keywords[0]} {cities[0]}".strip(),
             heartbeat_at=now,
         )
