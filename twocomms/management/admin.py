@@ -9,6 +9,7 @@ from .models import (
     DtfBridgeSnapshot,
     DuplicateReview,
     LeadParsingJob,
+    LeadParsingQueryState,
     LeadParsingResult,
     LeadParsingRuntimeLock,
     ManagementDailyActivity,
@@ -168,9 +169,12 @@ class LeadParsingJobAdmin(admin.ModelAdmin):
         "save_no_phone_leads",
         "included_type",
         "request_limit",
+        "target_leads_limit",
         "request_count",
         "saved_no_phone_to_moderation",
         "added_to_moderation",
+        "queries_exhausted_normal",
+        "queries_exhausted_anomaly",
         "duplicate_skipped",
         "recent_history_phone_skipped",
         "recent_history_place_skipped",
@@ -187,6 +191,25 @@ class LeadParsingResultAdmin(admin.ModelAdmin):
     list_display = ("id", "job", "status", "place_name", "phone", "keyword", "city", "created_at")
     list_filter = ("status", "city", "keyword")
     search_fields = ("place_name", "phone", "place_id")
+
+
+@admin.register(LeadParsingQueryState)
+class LeadParsingQueryStateAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "job",
+        "status",
+        "keyword",
+        "city",
+        "included_type",
+        "pages_fetched",
+        "places_seen_count",
+        "places_added_count",
+        "exhausted_reason_code",
+        "updated_at",
+    )
+    list_filter = ("status", "included_type", "city")
+    search_fields = ("keyword", "city", "text_query", "exhausted_reason_code")
 
 
 @admin.register(LeadParsingRuntimeLock)

@@ -559,6 +559,14 @@
                     <span>Provider</span>
                     <strong id="hero-billing-provider-status">—</strong>
                 </div>
+                <div class="parsing-hero__usage-row">
+                    <span>Ціль по лідах</span>
+                    <strong id="hero-target-progress">0/0</strong>
+                </div>
+                <div class="parsing-hero__usage-row">
+                    <span>Вичерпано query</span>
+                    <strong id="hero-exhausted-queries">0</strong>
+                </div>
             </div>
         </aside>
     </section>
@@ -593,8 +601,14 @@
                     <div class="parsing-form-cluster__title">Runtime & Review</div>
                     <div class="field-grid">
                         <div class="field">
-                            <label for="parser_request_limit">Ліміт запитів</label>
+                            <label for="parser_target_leads_limit">Ціль по лідах</label>
+                            <input type="number" id="parser_target_leads_limit" name="target_leads_limit" min="0" max="5000" value="0">
+                            <div class="offer-help">`0` = без окремої цілі. Коли ціль задана, parser завершується після досягнення потрібної кількості доданих лідів.</div>
+                        </div>
+                        <div class="field">
+                            <label for="parser_request_limit">Ліміт API-запитів</label>
                             <input type="number" id="parser_request_limit" name="request_limit" min="1" value="50">
+                            <div class="offer-help">Технічний safety cap на звернення до Google Places, а не ціль по кількості лідів.</div>
                         </div>
                         <div class="field">
                             <label for="parser_requests_per_minute">Запитів за хвилину</label>
@@ -661,6 +675,7 @@
         <div class="admin-summary-grid" id="parser-counters-grid">
             <div class="admin-metric"><div class="admin-metric__label">Спарсено</div><div class="admin-metric__value" id="cnt-total-found">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Запитів виконано</div><div class="admin-metric__value" id="cnt-request-count">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Прогрес цілі</div><div class="admin-metric__value" id="cnt-target-leads-progress">0/0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Додано в модерацію</div><div class="admin-metric__value" id="cnt-added-moderation">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Дублі</div><div class="admin-metric__value" id="cnt-duplicates">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">Дубль: job phone</div><div class="admin-metric__value" id="cnt-dup-job-phone">0</div></div>
@@ -676,6 +691,8 @@
             <div class="admin-metric"><div class="admin-metric__label">Помилки API</div><div class="admin-metric__value" id="cnt-request-errors">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">RPM поточний</div><div class="admin-metric__value" id="cnt-current-rpm">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">RPM цільовий</div><div class="admin-metric__value" id="cnt-target-rpm">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Query вичерпано</div><div class="admin-metric__value" id="cnt-exhausted-normal">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Query аномалії</div><div class="admin-metric__value" id="cnt-exhausted-anomaly">0</div></div>
             <div class="admin-metric"><div class="admin-metric__label">У базі (необроблені)</div><div class="admin-metric__value" id="cnt-base-unprocessed">{{ parser_counters.unprocessed|default:0 }}</div></div>
             <div class="admin-metric"><div class="admin-metric__label">У блок "не підходить"</div><div class="admin-metric__value" id="cnt-bad">{{ parser_counters.rejected|default:0 }}</div></div>
         </div>
@@ -843,12 +860,14 @@ function initParsingPage() {
     let pollTimer = null;
     let isStepRequestInFlight = false;
     let isStatusRequestInFlight = false;
+    let hasAppliedInitialJobToForm = false;
 
     const sessionWarning = document.getElementById('parser-session-warning');
     const startBtn = document.getElementById('parser-start-btn');
     const pauseBtn = document.getElementById('parser-pause-btn');
     const resumeBtn = document.getElementById('parser-resume-btn');
     const stopBtn = document.getElementById('parser-stop-btn');
+    const targetLeadsLimitField = document.getElementById('parser_target_leads_limit');
     const typeCheckboxes = Array.from(document.querySelectorAll('input[name="included_types"]'));
     const strictTypeFilteringField = document.getElementById('parser_strict_type_filtering');
     const saveNoPhoneField = document.getElementById('parser_save_no_phone_leads');
@@ -981,6 +1000,7 @@ function initParsingPage() {
         if (activeJob) {
             setCounter('cnt-total-found', activeJob.total_found || 0);
             setCounter('cnt-request-count', `${activeJob.request_count || 0}/${activeJob.request_limit || 0}`);
+            setCounter('cnt-target-leads-progress', `${activeJob.effective_added_count || 0}/${activeJob.target_leads_limit || 0}`);
             setCounter('cnt-added-moderation', activeJob.added_to_moderation || 0);
             setCounter('cnt-duplicates', activeJob.duplicate_skipped || 0);
             setCounter('cnt-dup-job-phone', activeJob.duplicate_same_job_phone_skipped || 0);
@@ -996,6 +1016,8 @@ function initParsingPage() {
             setCounter('cnt-request-errors', activeJob.request_error_count || 0);
             setCounter('cnt-current-rpm', activeJob.current_rpm || 0);
             setCounter('cnt-target-rpm', activeJob.requests_per_minute || 0);
+            setCounter('cnt-exhausted-normal', activeJob.queries_exhausted_normal || 0);
+            setCounter('cnt-exhausted-anomaly', activeJob.queries_exhausted_anomaly || 0);
             setCounter('hero-total-found', activeJob.total_found || 0);
             setCounter(
                 'hero-added-moderation',
@@ -1006,9 +1028,12 @@ function initParsingPage() {
                 (activeJob.no_phone_skipped || 0) + (activeJob.saved_no_phone_to_moderation || 0),
             );
             setCounter('hero-current-rpm', activeJob.current_rpm || 0);
+            setCounter('hero-target-progress', `${activeJob.effective_added_count || 0}/${activeJob.target_leads_limit || 0}`);
+            setCounter('hero-exhausted-queries', (activeJob.queries_exhausted_normal || 0) + (activeJob.queries_exhausted_anomaly || 0));
         } else {
             setCounter('cnt-total-found', 0);
             setCounter('cnt-request-count', 0);
+            setCounter('cnt-target-leads-progress', '0/0');
             setCounter('cnt-added-moderation', 0);
             setCounter('cnt-duplicates', 0);
             setCounter('cnt-dup-job-phone', 0);
@@ -1024,10 +1049,14 @@ function initParsingPage() {
             setCounter('cnt-request-errors', 0);
             setCounter('cnt-current-rpm', 0);
             setCounter('cnt-target-rpm', 0);
+            setCounter('cnt-exhausted-normal', 0);
+            setCounter('cnt-exhausted-anomaly', 0);
             setCounter('hero-total-found', 0);
             setCounter('hero-added-moderation', 0);
             setCounter('hero-no-phone', 0);
             setCounter('hero-current-rpm', 0);
+            setCounter('hero-target-progress', '0/0');
+            setCounter('hero-exhausted-queries', 0);
         }
         setCounter('cnt-base-unprocessed', counters.unprocessed || 0);
         setCounter('cnt-bad', counters.rejected || 0);
@@ -1051,13 +1080,18 @@ function initParsingPage() {
         const map = {
             session_stale_stopped: 'Попередню running-сесію зупинено як stale: heartbeat не оновлювався понад 5 хвилин.',
             session_superseded: 'Попередню активну сесію було закрито під час server-side нормалізації стану.',
+            query_exhausted_repeated_page: 'Google Places повторив ту саму сторінку. Job зупинено, щоб не піти в цикл.',
+            query_exhausted_repeated_token: 'Google Places повторив той самий page token. Job зупинено, щоб не піти в цикл.',
+            query_exhausted_empty_page_loop: 'Google Places кілька разів віддав порожню сторінку з продовженням пагінації. Job зупинено.',
+            query_page_cap_exceeded: 'Google Places повернув підозріло довгу пагінацію для одного query. Job зупинено.',
+            target_leads_reached: 'Досягнуто цілі по лідах. Job завершено штатно.',
         };
         return map[reasonCode] || '';
     };
 
     const renderSessionWarning = () => {
         if (!sessionWarning) return;
-        const message = warningMessageForReason(activeJob?.stop_reason_code || '');
+        const message = warningMessageForReason(activeJob?.stop_reason_code || '') || activeJob?.last_notice || '';
         if (message) {
             sessionWarning.hidden = false;
             sessionWarning.textContent = message;
@@ -1074,6 +1108,7 @@ function initParsingPage() {
         const requestLimitField = document.getElementById('parser_request_limit');
         const rpmField = document.getElementById('parser_requests_per_minute');
         const lookbackField = document.getElementById('parser_history_lookback_days');
+        if (targetLeadsLimitField && activeJob.target_leads_limit !== undefined) targetLeadsLimitField.value = activeJob.target_leads_limit;
         if (keywordsField) keywordsField.value = (activeJob.keywords || []).join(', ');
         if (citiesField) citiesField.value = (activeJob.cities || []).join(', ');
         if (requestLimitField && activeJob.request_limit) requestLimitField.value = activeJob.request_limit;
@@ -1131,7 +1166,9 @@ function initParsingPage() {
             const includedTypeLabel = activeJob.current_request_spec?.included_type_label || activeJob.current_type_label || 'усі категорії';
             const typeOrdinal = Number(activeJob.current_request_spec?.type_ordinal || 1);
             const typesTotal = Number(activeJob.current_request_spec?.types_total || activeJob.included_types?.length || 1);
-            telemetryInfo.textContent = `Темп: ${activeJob.current_rpm || 0}/${activeJob.requests_per_minute || 0} RPM · next: ${nextEta}s · in-flight: ${inFlight} · step: ${activeJob.last_step_duration_ms || 0}ms · lookback: ${activeJob.history_lookback_days || 0}d · geo: ${geoMode} · type: ${includedTypeLabel} (${typeOrdinal}/${typesTotal})`;
+            const targetProgress = `${activeJob.effective_added_count || 0}/${activeJob.target_leads_limit || 0}`;
+            const queryState = activeJob.current_query_state?.status_display || '—';
+            telemetryInfo.textContent = `Темп: ${activeJob.current_rpm || 0}/${activeJob.requests_per_minute || 0} RPM · next: ${nextEta}s · in-flight: ${inFlight} · step: ${activeJob.last_step_duration_ms || 0}ms · leads: ${targetProgress} · lookback: ${activeJob.history_lookback_days || 0}d · geo: ${geoMode} · type: ${includedTypeLabel} (${typeOrdinal}/${typesTotal}) · query-state: ${queryState}`;
         }
         if (lastErrorInfo) {
             if (activeJob.last_error) {
@@ -1206,8 +1243,9 @@ function initParsingPage() {
             </tr>`).join('');
     };
 
-    const applyPayload = (payload) => {
+    const applyPayload = (payload, options = {}) => {
         if (!payload) return;
+        const syncForm = Boolean(options.syncForm);
         if (payload.job !== undefined) activeJob = payload.job;
         if (payload.counters) renderCounters(payload.counters);
         if (payload.usage) renderUsage(payload.usage);
@@ -1215,7 +1253,10 @@ function initParsingPage() {
         if (payload.rejected) renderRejected(payload.rejected);
         renderStatus();
         renderResults(activeJob?.results || []);
-        syncFormFromJob();
+        if (syncForm || !hasAppliedInitialJobToForm) {
+            syncFormFromJob();
+            hasAppliedInitialJobToForm = true;
+        }
         updateLoopState();
     };
 
@@ -1338,13 +1379,13 @@ function initParsingPage() {
         const formData = new FormData(parserForm);
         try {
             const payload = await apiRequest(startUrl, formData);
-            applyPayload(payload);
+            applyPayload(payload, { syncForm: false });
             if (payload.job && payload.job.status === 'running') {
                 scheduleStep(0);
             }
         } catch (err) {
             if (err.payload) {
-                applyPayload(err.payload);
+                applyPayload(err.payload, { syncForm: true });
             }
             alert(err.message || 'Не вдалося запустити парсер');
         }
@@ -1435,7 +1476,7 @@ function initParsingPage() {
         rejected,
         counters,
         usage,
-    });
+    }, { syncForm: true });
 
     typeCheckboxes.forEach((checkbox) => checkbox.addEventListener('change', syncTypeControls));
     syncTypeControls();

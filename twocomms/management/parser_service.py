@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
+import hashlib
 import os
 from typing import Any
 from urllib.parse import urlparse
@@ -15,6 +16,7 @@ from .lead_services import split_terms
 from .models import (
     Client,
     LeadParsingJob,
+    LeadParsingQueryState,
     LeadParsingResult,
     LeadParsingRuntimeLock,
     ManagementLead,
@@ -47,11 +49,15 @@ DEFAULT_REQUESTS_PER_MINUTE = 10
 MAX_REQUESTS_PER_MINUTE = 20
 DEFAULT_HISTORY_LOOKBACK_DAYS = 30
 MAX_HISTORY_LOOKBACK_DAYS = 3650
+MAX_TARGET_LEADS_LIMIT = 5000
 PAGE_TOKEN_RETRY_LIMIT = 2
 TRANSIENT_RETRY_LIMIT = 2
 PAGE_TOKEN_DELAY_SECONDS = 2
 STEP_LOCK_STALE_AFTER = timedelta(seconds=60)
 SESSION_STALE_AFTER = timedelta(minutes=5)
+QUERY_EMPTY_PAGE_LOOP_LIMIT = 2
+QUERY_PAGE_FINGERPRINT_LIMIT = 6
+QUERY_PAGE_HARD_CAP = 5
 RUNTIME_LOCK_KEY = 1
 ACTIVE_STATUSES = {LeadParsingJob.Status.RUNNING, LeadParsingJob.Status.PAUSED}
 FINAL_STATUSES = {
@@ -117,6 +123,15 @@ class DuplicateBatchState:
     recent_place_ids: set[str]
 
 
+@dataclass(slots=True)
+class QueryStateTransition:
+    status: str = LeadParsingQueryState.Status.ACTIVE
+    reason: str = ""
+    reason_code: str = ""
+    page_fingerprint: str = ""
+    token_hash: str = ""
+
+
 def _dedupe_case_insensitive(values: list[str]) -> list[str]:
     seen: set[str] = set()
     deduped: list[str] = []
@@ -154,6 +169,14 @@ def sanitize_history_lookback_days(raw_value: int | str | None) -> int:
     except (TypeError, ValueError):
         value = DEFAULT_HISTORY_LOOKBACK_DAYS
     return max(0, min(value, MAX_HISTORY_LOOKBACK_DAYS))
+
+
+def sanitize_target_leads_limit(raw_value: int | str | None) -> int:
+    try:
+        value = int(str(raw_value or "0").strip())
+    except (TypeError, ValueError):
+        value = 0
+    return max(0, min(value, MAX_TARGET_LEADS_LIMIT))
 
 
 def _coerce_flag(raw_value: Any) -> bool:
@@ -243,6 +266,104 @@ def current_parser_query(job: LeadParsingJob) -> str:
     keyword = _current_keyword(job)
     city = _current_city(job)
     return f"{keyword} {city}".strip()
+
+
+def effective_added_lead_count(job: LeadParsingJob) -> int:
+    return int(job.added_to_moderation or 0) + int(job.saved_no_phone_to_moderation or 0)
+
+
+def _request_identity(job: LeadParsingJob, request_spec: dict[str, Any] | None = None) -> dict[str, str]:
+    request_spec = dict(request_spec or {})
+    keyword = str(request_spec.get("keyword") or _current_keyword(job)).strip()
+    city = str(request_spec.get("city") or _current_city(job)).strip()
+    included_type = sanitize_places_included_type(request_spec.get("included_type") or _current_included_type(job))
+    text_query = str(request_spec.get("text_query") or f"{keyword} {city}".strip()).strip()
+    return {
+        "keyword": keyword,
+        "city": city,
+        "included_type": included_type,
+        "text_query": text_query,
+    }
+
+
+def _hash_token(raw_value: str) -> str:
+    value = str(raw_value or "").strip()
+    if not value:
+        return ""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _page_fingerprint(prepared_places: list[PreparedPlace], next_page_token: str) -> str:
+    items: list[str] = []
+    for prepared in prepared_places:
+        if prepared.place_id:
+            items.append(f"id:{prepared.place_id}")
+            continue
+        fallback = "|".join(
+            [
+                prepared.place_name.strip().casefold(),
+                (prepared.phone_normalized or prepared.raw_phone).strip(),
+                prepared.website_url.strip().casefold(),
+            ]
+        ).strip("|")
+        if fallback:
+            items.append(f"fallback:{fallback}")
+    items.sort()
+    # Fingerprint the actual page content, not the pagination token.
+    # Google may rotate nextPageToken while still looping over the same places.
+    raw = "||".join(items)
+    if not raw:
+        raw = f"empty::{bool(str(next_page_token or '').strip())}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _get_or_create_query_state(job: LeadParsingJob, request_spec: dict[str, Any] | None = None) -> LeadParsingQueryState:
+    identity = _request_identity(job, request_spec)
+    query_state, created = LeadParsingQueryState.objects.get_or_create(
+        job=job,
+        keyword=identity["keyword"],
+        city=identity["city"],
+        included_type=identity["included_type"],
+        defaults={"text_query": identity["text_query"]},
+    )
+    if created or query_state.text_query != identity["text_query"]:
+        query_state.text_query = identity["text_query"]
+        query_state.save(update_fields=["text_query", "updated_at"])
+    return query_state
+
+
+def parser_current_query_state_payload(job: LeadParsingJob | None) -> dict[str, Any] | None:
+    if not job:
+        return None
+    identity = _request_identity(job, job.current_request_spec or None)
+    if not identity["keyword"] and not identity["city"] and not identity["text_query"]:
+        return None
+    query_state = (
+        LeadParsingQueryState.objects.filter(
+            job=job,
+            keyword=identity["keyword"],
+            city=identity["city"],
+            included_type=identity["included_type"],
+        )
+        .order_by("-updated_at", "-id")
+        .first()
+    )
+    if not query_state:
+        return None
+    return {
+        "status": query_state.status,
+        "status_display": query_state.get_status_display(),
+        "keyword": query_state.keyword,
+        "city": query_state.city,
+        "included_type": query_state.included_type,
+        "text_query": query_state.text_query,
+        "pages_fetched": query_state.pages_fetched,
+        "api_requests_sent": query_state.api_requests_sent,
+        "places_seen_count": query_state.places_seen_count,
+        "places_added_count": query_state.places_added_count,
+        "exhausted_reason_code": query_state.exhausted_reason_code,
+        "exhausted_message": query_state.exhausted_message,
+    }
 
 
 def get_maps_api_key() -> str:
@@ -522,6 +643,104 @@ def _prepare_places(places: list[dict[str, Any]]) -> list[PreparedPlace]:
     return prepared
 
 
+def _analyze_query_transition(
+    query_state: LeadParsingQueryState,
+    prepared_places: list[PreparedPlace],
+    next_page_token: str,
+) -> QueryStateTransition:
+    next_pages_fetched = int(query_state.pages_fetched or 0) + 1
+    page_fingerprint = _page_fingerprint(prepared_places, next_page_token)
+    token_hash = _hash_token(next_page_token)
+    seen_fingerprints = list(query_state.seen_page_fingerprints or [])
+    next_empty_pages = int(query_state.consecutive_empty_pages or 0) + (1 if not prepared_places else 0)
+
+    if next_pages_fetched > QUERY_PAGE_HARD_CAP:
+        return QueryStateTransition(
+            status=LeadParsingQueryState.Status.ANOMALY,
+            reason="Google Places повернув підозріло довгу пагінацію для одного query; job зупинено як захист від циклу.",
+            reason_code="query_page_cap_exceeded",
+            page_fingerprint=page_fingerprint,
+            token_hash=token_hash,
+        )
+
+    if page_fingerprint and page_fingerprint in seen_fingerprints:
+        return QueryStateTransition(
+            status=LeadParsingQueryState.Status.ANOMALY,
+            reason="Google Places повторив ту саму сторінку для поточного query; job зупинено як захист від циклу.",
+            reason_code="query_exhausted_repeated_page",
+            page_fingerprint=page_fingerprint,
+            token_hash=token_hash,
+        )
+
+    if token_hash and query_state.last_next_page_token_hash and token_hash == query_state.last_next_page_token_hash:
+        return QueryStateTransition(
+            status=LeadParsingQueryState.Status.ANOMALY,
+            reason="Google Places повторив той самий page token без прогресу; job зупинено як захист від циклу.",
+            reason_code="query_exhausted_repeated_token",
+            page_fingerprint=page_fingerprint,
+            token_hash=token_hash,
+        )
+
+    if not prepared_places and next_page_token and next_empty_pages >= QUERY_EMPTY_PAGE_LOOP_LIMIT:
+        return QueryStateTransition(
+            status=LeadParsingQueryState.Status.ANOMALY,
+            reason="Google Places кілька разів повернув порожню сторінку з продовженням пагінації; job зупинено як захист від циклу.",
+            reason_code="query_exhausted_empty_page_loop",
+            page_fingerprint=page_fingerprint,
+            token_hash=token_hash,
+        )
+
+    if not next_page_token:
+        return QueryStateTransition(
+            status=LeadParsingQueryState.Status.EXHAUSTED,
+            reason="Результати за цим запитом закінчилися.",
+            reason_code="query_exhausted_no_more_results",
+            page_fingerprint=page_fingerprint,
+            token_hash=token_hash,
+        )
+
+    return QueryStateTransition(
+        status=LeadParsingQueryState.Status.ACTIVE,
+        page_fingerprint=page_fingerprint,
+        token_hash=token_hash,
+    )
+
+
+def _persist_query_state_progress(
+    *,
+    query_state: LeadParsingQueryState,
+    transition: QueryStateTransition,
+    prepared_places: list[PreparedPlace],
+    added_count: int,
+    step_finished_at,
+):
+    seen_fingerprints = list(query_state.seen_page_fingerprints or [])
+    if transition.page_fingerprint and transition.page_fingerprint not in seen_fingerprints:
+        seen_fingerprints.append(transition.page_fingerprint)
+        seen_fingerprints = seen_fingerprints[-QUERY_PAGE_FINGERPRINT_LIMIT:]
+
+    query_state.pages_fetched = int(query_state.pages_fetched or 0) + 1
+    query_state.api_requests_sent = int(query_state.api_requests_sent or 0) + 1
+    query_state.places_seen_count = int(query_state.places_seen_count or 0) + len(prepared_places)
+    query_state.places_added_count = int(query_state.places_added_count or 0) + added_count
+    query_state.consecutive_empty_pages = int(query_state.consecutive_empty_pages or 0) + (1 if not prepared_places else 0)
+    if prepared_places:
+        query_state.consecutive_empty_pages = 0
+    if transition.status == LeadParsingQueryState.Status.ANOMALY:
+        query_state.consecutive_repeated_pages = int(query_state.consecutive_repeated_pages or 0) + 1
+    else:
+        query_state.consecutive_repeated_pages = 0
+    query_state.last_next_page_token_hash = transition.token_hash
+    query_state.seen_page_fingerprints = seen_fingerprints
+    if prepared_places or added_count or transition.status != LeadParsingQueryState.Status.ACTIVE:
+        query_state.last_progress_at = step_finished_at
+    query_state.status = transition.status
+    if transition.status in {LeadParsingQueryState.Status.EXHAUSTED, LeadParsingQueryState.Status.ANOMALY}:
+        query_state.exhausted_reason_code = transition.reason_code
+        query_state.exhausted_message = transition.reason
+    query_state.save()
+
+
 def _recent_history_cutoff(job: LeadParsingJob):
     if int(job.history_lookback_days or 0) <= 0:
         return None
@@ -743,7 +962,7 @@ def _mark_job_stopped(job: LeadParsingJob, *, reason_code: str, finished_at):
 
 
 def _job_heartbeat_reference(job: LeadParsingJob):
-    return job.heartbeat_at or job.last_step_started_at or job.last_step_finished_at or job.updated_at or job.started_at
+    return job.heartbeat_at or job.last_step_started_at or job.last_step_finished_at or job.started_at
 
 
 def _job_is_stale(job: LeadParsingJob, now) -> bool:
@@ -850,6 +1069,42 @@ def _apply_duplicate_counters(job: LeadParsingJob, decision: ParserDuplicateDeci
         job.recent_history_place_skipped += 1
 
 
+def _apply_query_state_skip(
+    *,
+    job: LeadParsingJob,
+    request_spec: dict[str, Any],
+    query_state: LeadParsingQueryState,
+    step_started_at,
+    step_finished_at,
+) -> LeadParsingJob:
+    keyword = str(request_spec.get("keyword") or _current_keyword(job)).strip()
+    city = str(request_spec.get("city") or _current_city(job)).strip()
+    query = str(request_spec.get("text_query") or f"{keyword} {city}".strip()).strip()
+    reason_code = "query_exhausted_cached_skip"
+    if query_state.status == LeadParsingQueryState.Status.ANOMALY:
+        reason_code = "query_anomaly_cached_skip"
+    _create_result(
+        job=job,
+        keyword=keyword,
+        city=city,
+        query=query,
+        status=LeadParsingResult.ResultStatus.NOTICE,
+        reason=query_state.exhausted_message or "Запит уже був завершений раніше; повторний API виклик пропущено.",
+        reason_code=reason_code,
+        payload={"query_state_id": query_state.id, "query_state_status": query_state.status},
+    )
+    if job.status == LeadParsingJob.Status.RUNNING:
+        has_next = _advance_position(job)
+        if not has_next:
+            _finalize_job(job, LeadParsingJob.Status.COMPLETED, finished_at=step_finished_at)
+        else:
+            job.next_step_not_before = step_finished_at
+            job.current_query = current_parser_query(job)
+    _set_step_finish(job, started_at=step_started_at, finished_at=step_finished_at)
+    job.save()
+    return job
+
+
 def _apply_places_success(
     *,
     job: LeadParsingJob,
@@ -863,6 +1118,16 @@ def _apply_places_success(
     city = str(request_spec.get("city") or _current_city(job)).strip()
     query = str(request_spec.get("text_query") or f"{keyword} {city}".strip()).strip()
 
+    query_state, _ = LeadParsingQueryState.objects.select_for_update().get_or_create(
+        job=job,
+        keyword=keyword,
+        city=city,
+        included_type=sanitize_places_included_type(request_spec.get("included_type")),
+        defaults={"text_query": query},
+    )
+    if query_state.text_query != query:
+        query_state.text_query = query
+
     job.request_count += 1
     job.request_success_count += 1
     job.last_error = ""
@@ -871,9 +1136,40 @@ def _apply_places_success(
     job.current_query = query
 
     prepared_places = _prepare_places(places)
+    transition = _analyze_query_transition(query_state, prepared_places, next_page_token)
+    if transition.status == LeadParsingQueryState.Status.ANOMALY:
+        if query_state.status != LeadParsingQueryState.Status.ANOMALY:
+            job.queries_exhausted_anomaly += 1
+        _persist_query_state_progress(
+            query_state=query_state,
+            transition=transition,
+            prepared_places=prepared_places,
+            added_count=0,
+            step_finished_at=step_finished_at,
+        )
+        _create_result(
+            job=job,
+            keyword=keyword,
+            city=city,
+            query=query,
+            status=LeadParsingResult.ResultStatus.ERROR,
+            reason=transition.reason,
+            reason_code=transition.reason_code,
+            payload={
+                "query_state_id": query_state.id,
+                "pages_fetched": query_state.pages_fetched,
+                "next_page_token_present": bool(next_page_token),
+            },
+        )
+        _mark_job_stopped(job, reason_code=transition.reason_code or "worker_stalled", finished_at=step_finished_at)
+        _set_step_finish(job, started_at=step_started_at, finished_at=step_finished_at)
+        job.save()
+        return job
+
     batch = _build_duplicate_batch_state(job, prepared_places)
     seen_job_place_ids = set(batch.job_place_ids)
     seen_job_phones = set(batch.job_phones)
+    added_count = 0
 
     for prepared in prepared_places:
         job.total_found += 1
@@ -939,6 +1235,7 @@ def _apply_places_success(
                     maps_url=lead.google_maps_url,
                     payload=prepared.payload,
                 )
+                added_count += 1
             else:
                 job.no_phone_skipped += 1
                 _create_result(
@@ -997,16 +1294,57 @@ def _apply_places_success(
             maps_url=lead.google_maps_url,
             payload=prepared.payload,
         )
+        added_count += 1
         _mark_seen(prepared, seen_job_phones, seen_job_place_ids)
 
+    if transition.status == LeadParsingQueryState.Status.EXHAUSTED and query_state.status != LeadParsingQueryState.Status.EXHAUSTED:
+        job.queries_exhausted_normal += 1
+    _persist_query_state_progress(
+        query_state=query_state,
+        transition=transition,
+        prepared_places=prepared_places,
+        added_count=added_count,
+        step_finished_at=step_finished_at,
+    )
+
+    if transition.status == LeadParsingQueryState.Status.EXHAUSTED:
+        _create_result(
+            job=job,
+            keyword=keyword,
+            city=city,
+            query=query,
+            status=LeadParsingResult.ResultStatus.NOTICE,
+            reason=f"{query or 'Поточний запит'}: результати закінчилися.",
+            reason_code=transition.reason_code,
+            payload={"query_state_id": query_state.id, "included_type": query_state.included_type},
+        )
+
     if job.status in ACTIVE_STATUSES:
-        job.next_page_token = next_page_token or ""
-        if job.next_page_token:
+        if job.status == LeadParsingJob.Status.RUNNING and int(job.target_leads_limit or 0) > 0 and effective_added_lead_count(job) >= int(job.target_leads_limit or 0):
+            _create_result(
+                job=job,
+                keyword=keyword,
+                city=city,
+                query=query,
+                status=LeadParsingResult.ResultStatus.NOTICE,
+                reason=f"Досягнуто цілі по лідах: {effective_added_lead_count(job)}/{job.target_leads_limit}.",
+                reason_code="target_leads_reached",
+                payload={"effective_added_count": effective_added_lead_count(job), "target_leads_limit": job.target_leads_limit},
+            )
+            _finalize_job(
+                job,
+                LeadParsingJob.Status.COMPLETED,
+                finished_at=step_finished_at,
+                stop_reason_code="target_leads_reached",
+            )
+        elif job.status == LeadParsingJob.Status.RUNNING:
+            job.next_page_token = next_page_token or ""
+        if job.status == LeadParsingJob.Status.RUNNING and job.next_page_token:
             job.current_request_spec = {
                 **request_spec,
                 "page_index": int(request_spec.get("page_index") or 0) + 1,
             }
-        else:
+        elif job.status == LeadParsingJob.Status.RUNNING:
             has_next = _advance_position(job)
             if not has_next:
                 _finalize_job(job, LeadParsingJob.Status.COMPLETED, finished_at=step_finished_at)
@@ -1160,14 +1498,7 @@ def parser_dashboard_job(job_id: int | str | None = None) -> LeadParsingJob | No
         lock = _runtime_lock_for_update()
         active_job = _normalize_active_jobs_locked(lock, now=now)
         if job_id:
-            requested_job = LeadParsingJob.objects.filter(id=job_id).first()
-            if requested_job and requested_job.status == LeadParsingJob.Status.RUNNING:
-                requested_job.heartbeat_at = now
-                requested_job.save(update_fields=["heartbeat_at", "updated_at"])
-            return requested_job
-        if active_job and active_job.status == LeadParsingJob.Status.RUNNING:
-            active_job.heartbeat_at = now
-            active_job.save(update_fields=["heartbeat_at", "updated_at"])
+            return LeadParsingJob.objects.filter(id=job_id).first()
     if active_job:
         return active_job
     return LeadParsingJob.objects.order_by("-started_at", "-id").first()
@@ -1179,6 +1510,7 @@ def create_parsing_job(
     keywords_raw: str,
     cities_raw: str,
     request_limit: int,
+    target_leads_limit: int | str | None = 0,
     requests_per_minute: int | str | None = DEFAULT_REQUESTS_PER_MINUTE,
     history_lookback_days: int | str | None = DEFAULT_HISTORY_LOOKBACK_DAYS,
     save_no_phone_leads: bool | str | None = False,
@@ -1216,6 +1548,7 @@ def create_parsing_job(
             keywords=keywords,
             cities=cities,
             request_limit=min(request_limit, 5000),
+            target_leads_limit=sanitize_target_leads_limit(target_leads_limit),
             requests_per_minute=sanitize_requests_per_minute(requests_per_minute),
             history_lookback_days=sanitize_history_lookback_days(history_lookback_days),
             save_no_phone_leads=_coerce_flag(save_no_phone_leads),
@@ -1347,6 +1680,21 @@ def parser_run_step(job: LeadParsingJob) -> LeadParsingJob:
     try:
         api_key = get_maps_api_key()
         request_spec = _coerce_request_spec(job=locked_job, api_key=api_key)
+        query_state = _get_or_create_query_state(locked_job, request_spec)
+        if query_state.status in {LeadParsingQueryState.Status.EXHAUSTED, LeadParsingQueryState.Status.ANOMALY}:
+            with transaction.atomic():
+                lock = _runtime_lock_for_update()
+                locked_job = LeadParsingJob.objects.select_for_update().get(id=job.id)
+                locked_query_state = LeadParsingQueryState.objects.select_for_update().get(id=query_state.id)
+                updated_job = _apply_query_state_skip(
+                    job=locked_job,
+                    request_spec=request_spec,
+                    query_state=locked_query_state,
+                    step_started_at=locked_job.last_step_started_at or step_started_at,
+                    step_finished_at=timezone.now(),
+                )
+                _sync_runtime_lock(lock, updated_job if updated_job.status in ACTIVE_STATUSES else None)
+                return updated_job
         query = str(request_spec.get("text_query") or "").strip()
         city = str(request_spec.get("city") or _current_city(locked_job)).strip()
         next_page_token = locked_job.next_page_token or ""

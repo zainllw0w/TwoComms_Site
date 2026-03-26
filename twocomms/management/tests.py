@@ -9,7 +9,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Client, ClientFollowUp, LeadParsingJob, LeadParsingResult, ManagementLead, Report
+from .models import Client, ClientFollowUp, LeadParsingJob, LeadParsingQueryState, LeadParsingResult, ManagementLead, Report
 from .parser_service import _places_search_text, create_parsing_job, parse_cities, parse_keywords, parser_run_step
 from .stats_service import compute_kpd, parse_stats_range
 from .views import _close_followups_for_report, _sync_client_followup
@@ -395,6 +395,159 @@ class ParserServiceTests(TestCase):
         self.assertEqual(job.request_count, 2)
         self.assertEqual(job.current_request_spec, {})
 
+    def test_parser_marks_query_exhausted_and_moves_to_next_city(self):
+        job = create_parsing_job(
+            user=self.user,
+            keywords_raw="військторг",
+            cities_raw="Харків, Київ",
+            request_limit=5,
+        )
+        fake_place = {
+            "id": "kyiv-place-1",
+            "displayName": {"text": "Київський магазин"},
+            "internationalPhoneNumber": "+380671112233",
+            "formattedAddress": "Київ",
+        }
+
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            side_effect=[([], ""), ([fake_place], "")],
+        ):
+            parser_run_step(job)
+            job.refresh_from_db()
+            self.assertEqual(job.status, LeadParsingJob.Status.RUNNING)
+            self.assertEqual(job.queries_exhausted_normal, 1)
+            self.assertEqual(job.current_city_index, 1)
+            query_state = LeadParsingQueryState.objects.get(job=job, keyword="військторг", city="Харків", included_type="")
+            self.assertEqual(query_state.status, LeadParsingQueryState.Status.EXHAUSTED)
+            self.assertTrue(
+                LeadParsingResult.objects.filter(
+                    job=job,
+                    status=LeadParsingResult.ResultStatus.NOTICE,
+                    reason_code="query_exhausted_no_more_results",
+                ).exists()
+            )
+
+            job.next_step_not_before = timezone.now() - timedelta(seconds=1)
+            job.save(update_fields=["next_step_not_before"])
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.added_to_moderation, 1)
+        self.assertEqual(job.status, LeadParsingJob.Status.COMPLETED)
+
+    def test_parser_skips_previously_exhausted_query_without_new_api_call(self):
+        job = create_parsing_job(
+            user=self.user,
+            keywords_raw="військторг",
+            cities_raw="Харків, Київ",
+            request_limit=5,
+        )
+        LeadParsingQueryState.objects.create(
+            job=job,
+            keyword="військторг",
+            city="Харків",
+            included_type="",
+            text_query="військторг Харків",
+            status=LeadParsingQueryState.Status.EXHAUSTED,
+            exhausted_reason_code="query_exhausted_no_more_results",
+            exhausted_message="Харків уже було вичерпано раніше.",
+        )
+
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+        ) as places_mock:
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        places_mock.assert_not_called()
+        self.assertEqual(job.request_count, 0)
+        self.assertEqual(job.current_city_index, 1)
+        self.assertTrue(
+            LeadParsingResult.objects.filter(
+                job=job,
+                status=LeadParsingResult.ResultStatus.NOTICE,
+                reason_code="query_exhausted_cached_skip",
+            ).exists()
+        )
+
+    def test_parser_stops_on_repeated_google_page_for_same_query(self):
+        job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=10)
+        fake_place = {
+            "id": "loop-place-1",
+            "displayName": {"text": "Loop Store"},
+            "internationalPhoneNumber": "+380671112233",
+            "formattedAddress": "Харків",
+        }
+
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            side_effect=[([fake_place], "loop-token"), ([fake_place], "loop-token")],
+        ):
+            parser_run_step(job)
+            job.refresh_from_db()
+            job.next_step_not_before = timezone.now() - timedelta(seconds=1)
+            job.save(update_fields=["next_step_not_before"])
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, LeadParsingJob.Status.STOPPED)
+        self.assertEqual(job.stop_reason_code, "query_exhausted_repeated_page")
+        self.assertEqual(job.queries_exhausted_anomaly, 1)
+        query_state = LeadParsingQueryState.objects.get(job=job, keyword="військторг", city="Харків", included_type="")
+        self.assertEqual(query_state.status, LeadParsingQueryState.Status.ANOMALY)
+
+    def test_parser_stops_on_repeated_google_page_even_if_token_changes(self):
+        job = create_parsing_job(user=self.user, keywords_raw="військторг", cities_raw="Харків", request_limit=10)
+        fake_place = {
+            "id": "loop-place-1",
+            "displayName": {"text": "Loop Store"},
+            "internationalPhoneNumber": "+380671112233",
+            "formattedAddress": "Харків",
+        }
+
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            side_effect=[([fake_place], "loop-token-1"), ([fake_place], "loop-token-2")],
+        ):
+            parser_run_step(job)
+            job.refresh_from_db()
+            job.next_step_not_before = timezone.now() - timedelta(seconds=1)
+            job.save(update_fields=["next_step_not_before"])
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, LeadParsingJob.Status.STOPPED)
+        self.assertEqual(job.stop_reason_code, "query_exhausted_repeated_page")
+        self.assertEqual(job.queries_exhausted_anomaly, 1)
+
+    def test_parser_completes_when_target_leads_limit_reached(self):
+        job = create_parsing_job(
+            user=self.user,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            request_limit=10,
+            target_leads_limit=1,
+        )
+        fake_place = {
+            "id": "target-place-1",
+            "displayName": {"text": "Target Store"},
+            "internationalPhoneNumber": "+380671112233",
+            "formattedAddress": "Харків",
+        }
+
+        with patch("management.parser_service.get_maps_api_key", return_value="x"), patch(
+            "management.parser_service._places_search_text",
+            return_value=([fake_place], "next-token"),
+        ):
+            parser_run_step(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, LeadParsingJob.Status.COMPLETED)
+        self.assertEqual(job.stop_reason_code, "target_leads_reached")
+        self.assertEqual(job.target_leads_limit, 1)
+        self.assertEqual(job.added_to_moderation, 1)
+
     def test_geocode_city_center_uses_shared_django_cache(self):
         class DummyResponse:
             status_code = 200
@@ -740,6 +893,7 @@ class ParserApiTests(TestCase):
                 "keywords": "військторг",
                 "cities": "Харків",
                 "request_limit": "2",
+                "target_leads_limit": "7",
                 "requests_per_minute": "20",
                 "history_lookback_days": "45",
                 "save_no_phone_leads": "on",
@@ -759,6 +913,7 @@ class ParserApiTests(TestCase):
         self.assertEqual(job.included_type, "clothing_store")
         self.assertEqual(job.current_type_index, 0)
         self.assertTrue(job.strict_type_filtering)
+        self.assertEqual(job.target_leads_limit, 7)
 
         with patch("management.parsing_views.parser_run_step", side_effect=lambda j: j):
             step = self._post("management_parser_step_api", {"job_id": job_id})
@@ -907,6 +1062,29 @@ class ParserApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         job.refresh_from_db()
         self.assertEqual(job.status, LeadParsingJob.Status.RUNNING)
+
+    def test_status_api_does_not_refresh_running_heartbeat(self):
+        fresh_time = timezone.now() - timedelta(minutes=4)
+        job = LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=LeadParsingJob.Status.RUNNING,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+            heartbeat_at=fresh_time,
+        )
+        response = self.client_http.get(
+            reverse("management_parser_status_api"),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_HOST="management.twocomms.shop",
+            HTTP_REFERER="https://management.twocomms.shop/parsing/",
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        job.refresh_from_db()
+        self.assertEqual(job.heartbeat_at, fresh_time)
 
     def test_stop_api_defaults_to_user_stop(self):
         job = LeadParsingJob.objects.create(

@@ -12,6 +12,8 @@ from .parser_service import (
     ParsingServiceError,
     PLACES_INCLUDED_TYPE_CHOICES,
     create_parsing_job,
+    effective_added_lead_count,
+    parser_current_query_state_payload,
     parser_selected_included_types,
     parser_dashboard_job,
     parser_global_counters,
@@ -22,6 +24,7 @@ from .parser_service import (
     places_included_type_label,
     sanitize_history_lookback_days,
     sanitize_requests_per_minute,
+    sanitize_target_leads_limit,
 )
 from .services.dedupe import DedupeZone, build_duplicate_conflict_payload, evaluate_duplicate_zone
 from .views import get_manager_bot_username, get_reminders, get_user_stats
@@ -88,7 +91,7 @@ def _job_payload(job: LeadParsingJob | None) -> dict | None:
         next_step_eta_seconds = max(0, int((job.next_step_not_before - now).total_seconds()))
     elapsed_seconds = max(1.0, (now - job.started_at).total_seconds())
     current_rpm = round((job.request_count * 60) / elapsed_seconds, 1)
-    results_qs = LeadParsingResult.objects.filter(job=job).order_by("-created_at")[:80]
+    results_qs = list(LeadParsingResult.objects.filter(job=job).order_by("-created_at")[:80])
     results = [
         {
             "id": item.id,
@@ -105,6 +108,11 @@ def _job_payload(job: LeadParsingJob | None) -> dict | None:
         }
         for item in results_qs
     ]
+    last_notice = ""
+    for item in results_qs:
+        if item.status == LeadParsingResult.ResultStatus.NOTICE or item.reason_code.startswith("query_"):
+            last_notice = item.reason
+            break
     return {
         "id": job.id,
         "status": job.status,
@@ -112,6 +120,7 @@ def _job_payload(job: LeadParsingJob | None) -> dict | None:
         "keywords": job.keywords,
         "cities": job.cities,
         "request_limit": job.request_limit,
+        "target_leads_limit": job.target_leads_limit,
         "request_count": job.request_count,
         "requests_per_minute": job.requests_per_minute,
         "history_lookback_days": job.history_lookback_days,
@@ -121,12 +130,14 @@ def _job_payload(job: LeadParsingJob | None) -> dict | None:
         "current_type_index": job.current_type_index,
         "current_type_label": places_included_type_label(job.included_type),
         "strict_type_filtering": job.strict_type_filtering,
+        "effective_added_count": effective_added_lead_count(job),
         "request_success_count": job.request_success_count,
         "request_error_count": job.request_error_count,
         "current_keyword_index": job.current_keyword_index,
         "current_city_index": job.current_city_index,
         "current_query": job.current_query,
         "current_request_spec": job.current_request_spec or {},
+        "current_query_state": parser_current_query_state_payload(job),
         "next_page_token": job.next_page_token,
         "next_step_not_before": timezone.localtime(job.next_step_not_before).isoformat() if job.next_step_not_before else "",
         "next_step_eta_seconds": next_step_eta_seconds,
@@ -150,8 +161,11 @@ def _job_payload(job: LeadParsingJob | None) -> dict | None:
         "saved_no_phone_to_moderation": job.saved_no_phone_to_moderation,
         "already_rejected_skipped": job.already_rejected_skipped,
         "added_to_moderation": job.added_to_moderation,
+        "queries_exhausted_normal": job.queries_exhausted_normal,
+        "queries_exhausted_anomaly": job.queries_exhausted_anomaly,
         "moved_to_bad": job.moved_to_bad,
         "last_error": job.last_error,
+        "last_notice": last_notice,
         "stop_reason_code": job.stop_reason_code,
         "started_at": timezone.localtime(job.started_at).strftime("%d.%m.%Y %H:%M:%S"),
         "finished_at": timezone.localtime(job.finished_at).strftime("%d.%m.%Y %H:%M:%S") if job.finished_at else "",
@@ -237,6 +251,7 @@ def parser_start_api(request):
         request_limit = int((request.POST.get("request_limit") or "0").strip())
     except ValueError:
         request_limit = 0
+    target_leads_limit = sanitize_target_leads_limit(request.POST.get("target_leads_limit"))
     requests_per_minute = sanitize_requests_per_minute(request.POST.get("requests_per_minute"))
     history_lookback_days = sanitize_history_lookback_days(request.POST.get("history_lookback_days"))
     try:
@@ -245,6 +260,7 @@ def parser_start_api(request):
             keywords_raw=(request.POST.get("keywords") or "").strip(),
             cities_raw=(request.POST.get("cities") or "").strip(),
             request_limit=request_limit,
+            target_leads_limit=target_leads_limit,
             requests_per_minute=requests_per_minute,
             history_lookback_days=history_lookback_days,
             save_no_phone_leads=request.POST.get("save_no_phone_leads"),
