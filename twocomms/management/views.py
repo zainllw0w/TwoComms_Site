@@ -384,7 +384,10 @@ def _build_phase_family_state_map(clients, today, *, now_dt=None) -> dict[int, d
     for family_root_id, family_clients in families.items():
         ordered = sorted(family_clients, key=_phase_sort_key)
         latest = ordered[-1]
-        latest_created_today = timezone.localtime(latest.created_at).date() == today if latest.created_at else False
+        effective_created_at = latest.created_at
+        if effective_created_at and effective_created_at > now_dt:
+            effective_created_at = now_dt
+        latest_created_today = timezone.localtime(effective_created_at).date() == today if effective_created_at else False
         latest_effective_callback = get_effective_callback_state(client=latest, now_dt=now_dt)
         latest_open_followups = _get_client_open_followups(latest)
         latest_open_followup = latest_open_followups[0] if latest_open_followups else None

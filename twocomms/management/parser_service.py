@@ -154,7 +154,12 @@ def parse_keywords(raw_keywords: str) -> list[str]:
 
 
 def parse_cities(raw_cities: str) -> list[str]:
-    return _dedupe_case_insensitive(split_terms(raw_cities))
+    normalized = str(raw_cities or "").replace(";", ",").replace("\n", ",")
+    items = [
+        item.strip().strip('"').strip("'")
+        for item in normalized.split(",")
+    ]
+    return _dedupe_case_insensitive([item for item in items if item])
 
 
 def sanitize_requests_per_minute(raw_value: int | str | None) -> int:
@@ -166,8 +171,9 @@ def sanitize_requests_per_minute(raw_value: int | str | None) -> int:
 
 
 def sanitize_history_lookback_days(raw_value: int | str | None) -> int:
+    normalized = str(raw_value).strip() if raw_value is not None else ""
     try:
-        value = int(str(raw_value or DEFAULT_HISTORY_LOOKBACK_DAYS).strip())
+        value = int(normalized) if normalized else DEFAULT_HISTORY_LOOKBACK_DAYS
     except (TypeError, ValueError):
         value = DEFAULT_HISTORY_LOOKBACK_DAYS
     return max(0, min(value, MAX_HISTORY_LOOKBACK_DAYS))
@@ -674,7 +680,7 @@ def _analyze_query_transition(
             token_hash=token_hash,
         )
 
-    if page_fingerprint and page_fingerprint in seen_fingerprints:
+    if page_fingerprint and page_fingerprint in seen_fingerprints and bool(next_page_token):
         return QueryStateTransition(
             status=LeadParsingQueryState.Status.ANOMALY,
             reason="Google Places повторив ту саму сторінку для поточного query; job зупинено як захист від циклу.",
@@ -1318,7 +1324,7 @@ def _apply_places_success(
         step_finished_at=step_finished_at,
     )
 
-    if transition.status == LeadParsingQueryState.Status.EXHAUSTED:
+    if transition.status == LeadParsingQueryState.Status.EXHAUSTED and not prepared_places:
         _create_result(
             job=job,
             keyword=keyword,

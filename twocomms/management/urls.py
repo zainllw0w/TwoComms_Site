@@ -80,6 +80,7 @@ urlpatterns = [
     path('leads/api/<int:lead_id>/detail/', lead_views.lead_detail_api, name='management_lead_detail_api'),
     path('leads/api/<int:lead_id>/process/', lead_views.lead_process_api, name='management_lead_process_api'),
     path('parsing/', parsing_views.parsing_dashboard, name='management_parsing'),
+    path('parsing/', parsing_views.parsing_dashboard, name='management_parsing_dashboard'),
     path('parsing/api/start/', parsing_views.parser_start_api, name='management_parser_start_api'),
     path('parsing/api/step/', parsing_views.parser_step_api, name='management_parser_step_api'),
     path('parsing/api/pause/', parsing_views.parser_pause_api, name='management_parser_pause_api'),
