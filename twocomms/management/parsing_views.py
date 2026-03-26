@@ -198,6 +198,19 @@ def _usage_payload():
     }
 
 
+def _request_flag(request, name: str) -> bool:
+    raw_value = request.GET.get(name)
+    if raw_value is None:
+        raw_value = request.POST.get(name)
+    return str(raw_value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _maybe_attach_usage(payload: dict, *, include_usage: bool) -> dict:
+    if include_usage:
+        payload["usage"] = _usage_payload()
+    return payload
+
+
 @login_required(login_url="management_login")
 def parsing_dashboard(request):
     if not request.user.is_staff:
@@ -273,25 +286,29 @@ def parser_start_api(request):
         current_job = parser_dashboard_job()
         status_code = 409 if current_job and current_job.status in {LeadParsingJob.Status.RUNNING, LeadParsingJob.Status.PAUSED} else 400
         return JsonResponse(
-            {
-                "success": False,
-                "error": str(exc),
-                "job": _job_payload(current_job),
-                "usage": _usage_payload(),
-            },
+            _maybe_attach_usage(
+                {
+                    "success": False,
+                    "error": str(exc),
+                    "job": _job_payload(current_job),
+                },
+                include_usage=True,
+            ),
             status=status_code,
         )
 
     moderation, rejected = _lead_queue_payload()
     return JsonResponse(
-        {
-            "success": True,
-            "job": _job_payload(job),
-            "counters": _counters_payload(),
-            "moderation": moderation,
-            "rejected": rejected,
-            "usage": _usage_payload(),
-        }
+        _maybe_attach_usage(
+            {
+                "success": True,
+                "job": _job_payload(job),
+                "counters": _counters_payload(),
+                "moderation": moderation,
+                "rejected": rejected,
+            },
+            include_usage=True,
+        )
     )
 
 
@@ -309,6 +326,7 @@ def parser_step_api(request):
         job = LeadParsingJob.objects.get(id=job_id)
     except LeadParsingJob.DoesNotExist:
         return JsonResponse({"success": False, "error": "Сесію парсингу не знайдено."}, status=404)
+    include_usage = _request_flag(request, "include_usage")
     if job.status == LeadParsingJob.Status.RUNNING:
         now = timezone.now()
         if job.is_step_in_progress:
@@ -317,39 +335,45 @@ def parser_step_api(request):
             if not step_is_stale:
                 moderation, rejected = _lead_queue_payload()
                 return JsonResponse(
+                    _maybe_attach_usage(
+                        {
+                            "success": True,
+                            "job": _job_payload(parser_dashboard_job(job_id=job_id)),
+                            "counters": _counters_payload(),
+                            "moderation": moderation,
+                            "rejected": rejected,
+                        },
+                        include_usage=include_usage,
+                    )
+                )
+        if job.next_step_not_before and now < job.next_step_not_before:
+            moderation, rejected = _lead_queue_payload()
+            return JsonResponse(
+                _maybe_attach_usage(
                     {
                         "success": True,
                         "job": _job_payload(parser_dashboard_job(job_id=job_id)),
                         "counters": _counters_payload(),
                         "moderation": moderation,
                         "rejected": rejected,
-                        "usage": _usage_payload(),
-                    }
+                    },
+                    include_usage=include_usage,
                 )
-        if job.next_step_not_before and now < job.next_step_not_before:
-            moderation, rejected = _lead_queue_payload()
-            return JsonResponse(
-                {
-                    "success": True,
-                    "job": _job_payload(parser_dashboard_job(job_id=job_id)),
-                    "counters": _counters_payload(),
-                    "moderation": moderation,
-                    "rejected": rejected,
-                    "usage": _usage_payload(),
-                }
             )
     parser_run_step(job)
 
     moderation, rejected = _lead_queue_payload()
     return JsonResponse(
-        {
-            "success": True,
-            "job": _job_payload(parser_dashboard_job(job_id=job_id)),
-            "counters": _counters_payload(),
-            "moderation": moderation,
-            "rejected": rejected,
-            "usage": _usage_payload(),
-        }
+        _maybe_attach_usage(
+            {
+                "success": True,
+                "job": _job_payload(parser_dashboard_job(job_id=job_id)),
+                "counters": _counters_payload(),
+                "moderation": moderation,
+                "rejected": rejected,
+            },
+            include_usage=include_usage,
+        )
     )
 
 
@@ -366,7 +390,7 @@ def parser_pause_api(request):
         return JsonResponse({"success": False, "error": "Сесію не знайдено."}, status=404)
     except ParsingServiceError as exc:
         return JsonResponse({"success": False, "error": str(exc), "job": _job_payload(parser_dashboard_job(job_id=job_id))}, status=409)
-    return JsonResponse({"success": True, "job": _job_payload(job), "usage": _usage_payload()})
+    return JsonResponse(_maybe_attach_usage({"success": True, "job": _job_payload(job)}, include_usage=True))
 
 
 @login_required(login_url="management_login")
@@ -382,7 +406,7 @@ def parser_resume_api(request):
         return JsonResponse({"success": False, "error": "Сесію не знайдено."}, status=404)
     except ParsingServiceError as exc:
         return JsonResponse({"success": False, "error": str(exc), "job": _job_payload(parser_dashboard_job(job_id=job_id))}, status=409)
-    return JsonResponse({"success": True, "job": _job_payload(job), "usage": _usage_payload()})
+    return JsonResponse(_maybe_attach_usage({"success": True, "job": _job_payload(job)}, include_usage=True))
 
 
 @login_required(login_url="management_login")
@@ -397,7 +421,7 @@ def parser_stop_api(request):
         job = parser_stop_job(job_id, reason_code=reason_code)
     except LeadParsingJob.DoesNotExist:
         return JsonResponse({"success": False, "error": "Сесію не знайдено."}, status=404)
-    return JsonResponse({"success": True, "job": _job_payload(job), "usage": _usage_payload()})
+    return JsonResponse(_maybe_attach_usage({"success": True, "job": _job_payload(job)}, include_usage=True))
 
 
 @login_required(login_url="management_login")
@@ -406,18 +430,21 @@ def parser_status_api(request):
     blocked = _require_admin_json(request)
     if blocked:
         return blocked
+    include_usage = _request_flag(request, "include_usage")
     job_id = request.GET.get("job_id")
     job = parser_dashboard_job(job_id=job_id)
     moderation, rejected = _lead_queue_payload()
     return JsonResponse(
-        {
-            "success": True,
-            "job": _job_payload(job),
-            "counters": _counters_payload(),
-            "moderation": moderation,
-            "rejected": rejected,
-            "usage": _usage_payload(),
-        }
+        _maybe_attach_usage(
+            {
+                "success": True,
+                "job": _job_payload(job),
+                "counters": _counters_payload(),
+                "moderation": moderation,
+                "rejected": rejected,
+            },
+            include_usage=include_usage,
+        )
     )
 
 
