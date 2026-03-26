@@ -8,6 +8,11 @@ from django.utils.html import escape
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from .cache_utils import (
+    ACTIVE_WORKS_CACHE_KEY,
+    PUBLISHED_POSTS_CACHE_KEY,
+    invalidate_dtf_cache_keys,
+)
 from .utils import unique_slug_for_queryset
 
 try:
@@ -557,6 +562,12 @@ class KnowledgePost(models.Model):
             source = (self.excerpt or self.content_md or "").strip()
             self.seo_description = source[:220]
         super().save(*args, **kwargs)
+        invalidate_dtf_cache_keys(PUBLISHED_POSTS_CACHE_KEY)
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        invalidate_dtf_cache_keys(PUBLISHED_POSTS_CACHE_KEY)
+        return result
 
 
 class WorkCategory(models.TextChoices):
@@ -580,6 +591,15 @@ class DtfWork(models.Model):
 
     def __str__(self):
         return self.title or f"DTF Work #{self.pk}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        invalidate_dtf_cache_keys(ACTIVE_WORKS_CACHE_KEY)
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        invalidate_dtf_cache_keys(ACTIVE_WORKS_CACHE_KEY)
+        return result
 
 
 class SampleSize(models.TextChoices):

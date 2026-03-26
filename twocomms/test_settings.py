@@ -49,7 +49,11 @@ CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'LOCATION': 'twocomms-test-cache',
-    }
+    },
+    'fragments': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'twocomms-test-fragments-cache',
+    },
 }
 
 # Минимальное логирование

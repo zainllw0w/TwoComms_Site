@@ -4,6 +4,7 @@ import base64
 import xml.etree.ElementTree as ET
 
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from .forms import DtfHelpForm, DtfOrderForm
@@ -268,13 +269,11 @@ class DtfSubdomainIsolationTests(TestCase):
         html = response.content.decode("utf-8", "ignore")
         self.assertIn("hero-printhead-512.avif", html)
         self.assertIn("hero-printhead-768.avif", html)
-        self.assertIn("hero-printhead-1024.webp", html)
-        self.assertIn('fetchpriority="high"', html)
-        self.assertIn('width="1024"', html)
-        self.assertIn('height="1024"', html)
+        self.assertIn("hero-printhead-1024.avif", html)
+        self.assertIn("imagesrcset=", html)
+        self.assertIn('data-ui="dtf:home:hero"', html)
         self.assertIn('id="lens-modal"', html)
-        self.assertIn('class="hot-peel-mark"', html)
-        self.assertNotIn("hot-peel.gif", html)
+        self.assertIn('class="hero scan-hero"', html)
 
     def test_dtf_home_supports_en_language_switch(self):
         response = self.dtf_client.get("/?lang=en", secure=True)
@@ -320,6 +319,7 @@ class DtfPreflightEngineTests(TestCase):
 
 class DtfKnowledgeBaseTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = Client(HTTP_HOST="dtf.twocomms.shop")
         self.post = KnowledgePost.objects.create(
             title="DTF Test Knowledge Post",
@@ -334,8 +334,28 @@ class DtfKnowledgeBaseTests(TestCase):
         response = self.client.get("/blog/", secure=True)
         self.assertEqual(response.status_code, 200)
         html = response.content.decode("utf-8", "ignore")
-        self.assertIn("Knowledge Base", html)
+        self.assertIn("База знань", html)
         self.assertIn(self.post.title, html)
+
+    def test_blog_index_invalidates_cached_empty_state_after_post_create(self):
+        self.post.delete()
+
+        empty_response = self.client.get("/blog/", secure=True)
+        self.assertEqual(empty_response.status_code, 200)
+        self.assertIn("База знань готується", empty_response.content.decode("utf-8", "ignore"))
+
+        created_post = KnowledgePost.objects.create(
+            title="Fresh DTF Knowledge Post",
+            slug="fresh-dtf-knowledge-post",
+            excerpt="Post created after cache warmup.",
+            content_md="Fresh post body.",
+            pub_date=date.today(),
+            is_published=True,
+        )
+
+        response = self.client.get("/blog/", secure=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(created_post.title, response.content.decode("utf-8", "ignore"))
 
     def test_blog_post_renders_article_and_schema(self):
         response = self.client.get(f"/blog/{self.post.slug}/", secure=True)

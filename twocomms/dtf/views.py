@@ -10,7 +10,7 @@ from django.contrib.auth import logout
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.core.cache import cache, caches
+from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -65,6 +65,11 @@ from .preflight.engine import (
     analyze_upload,
     build_preview_assets,
     normalize_preflight_report,
+)
+from .cache_utils import (
+    ACTIVE_WORKS_CACHE_KEY,
+    PUBLISHED_POSTS_CACHE_KEY,
+    get_fragment_cache_backend,
 )
 from .utils import (
     activate_language_from_request,
@@ -258,15 +263,12 @@ def _build_custom_session_card(session: DtfBuilderSession) -> dict:
 
 
 def _get_fragment_cache():
-    try:
-        return caches["fragments"]
-    except Exception:
-        return cache
+    return get_fragment_cache_backend()
 
 
 def _get_published_posts():
     cache_backend = _get_fragment_cache()
-    cache_key = "dtf:published_posts:v1"
+    cache_key = PUBLISHED_POSTS_CACHE_KEY
     posts = cache_backend.get(cache_key)
     if posts is None:
         posts = list(
@@ -279,7 +281,7 @@ def _get_published_posts():
 
 def _get_active_works():
     cache_backend = _get_fragment_cache()
-    cache_key = "dtf:active_works:v1"
+    cache_key = ACTIVE_WORKS_CACHE_KEY
     works = cache_backend.get(cache_key)
     if works is None:
         works = list(
