@@ -66,7 +66,7 @@ from .email_templates.twocomms_cp import (
     DROP_FIXED_HOODIE_PRICE,
 )
 
-from .constants import LEAD_BASE_PROCESSING_PENALTY, POINTS, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
+from .constants import TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 from .context_processors import build_management_shell_metrics
 from .invoice_service import (
     InvoicePayloadError,
@@ -75,7 +75,7 @@ from .invoice_service import (
     normalize_management_invoice_payload,
     serialize_management_invoice_payload,
 )
-from .lead_services import calc_client_points, get_user_lead_bonus_points
+from .lead_services import calc_client_points, client_points_value
 from .services.dtf_bridge import build_dtf_bridge_payload
 from .services.client_entry import (
     NEGATIVE_RESULTS_REQUIRING_NOTE,
@@ -84,6 +84,7 @@ from .services.client_entry import (
     record_client_interaction,
     validate_client_entry_evidence,
 )
+from .services.visible_points import sync_client_visible_points
 from .services.dedupe import (
     DedupeZone,
     build_duplicate_conflict_payload,
@@ -531,9 +532,10 @@ def get_user_stats(user):
     base_qs = Client.objects.filter(owner=user)
     today_start, today_end = get_today_range()
     today_qs = base_qs.filter(created_at__gte=today_start, created_at__lt=today_end)
-    lead_bonus_today, lead_bonus_total = get_user_lead_bonus_points(user, today_start, today_end)
-    points_today = calc_points(today_qs) + lead_bonus_today
-    points_total = calc_points(base_qs) + lead_bonus_total
+    lead_bonus_today = 0
+    lead_bonus_total = 0
+    points_today = calc_points(today_qs)
+    points_total = calc_points(base_qs)
     return {
         'points_today': points_today,
         'points_total': points_total,
@@ -1237,6 +1239,7 @@ def home(request):
                     )
                     result_context['duplicate_override_reason'] = evidence['duplicate_override_reason']
 
+            interaction = None
             if existing_client and is_phase_continue:
                 with transaction.atomic():
                     family_clients = list(_phase_family_queryset(existing_client).select_for_update())
@@ -1312,8 +1315,6 @@ def home(request):
                 existing_client.manager_note = manager_note
                 existing_client.next_call_at = next_call_at
                 existing_client.owner = existing_client.owner or request.user
-                if existing_client.points_override is not None:
-                    existing_client.points_override = max(0, int(POINTS.get(call_result, 0)) - LEAD_BASE_PROCESSING_PENALTY)
                 existing_client.save()
                 saved_client = existing_client
                 _sync_phase_family_shared_fields(existing_client)
@@ -1366,6 +1367,7 @@ def home(request):
                     now_dt,
                     source_interaction=interaction,
                 )
+            sync_client_visible_points(saved_client, interaction=interaction)
         if is_ajax:
             # Сформируем актуальные данные после операции
             stats = get_user_stats(request.user)
@@ -2081,7 +2083,7 @@ def admin_user_clients(request, user_id):
             'result_code': c.call_result,
             'result': c.get_call_result_display(),
             'details': c.call_result_details or '',
-            'points': POINTS.get(c.call_result, 0),
+            'points': client_points_value(c),
             'next_call': next_call_label,
             'next_call_status': next_call_status,
             'created': created_local.strftime('%d.%m.%Y %H:%M'),

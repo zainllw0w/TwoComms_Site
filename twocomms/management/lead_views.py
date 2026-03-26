@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from .constants import LEAD_BASE_PROCESSING_PENALTY, POINTS, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
+from .constants import TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 from .models import Client, ManagementLead, normalize_phone
 from .context_processors import build_management_shell_metrics
 from .services.client_entry import merge_result_capture_with_evidence, record_client_interaction, validate_client_entry_evidence
@@ -17,6 +17,7 @@ from .services.dedupe import (
     resolve_duplicate_review_override,
 )
 from .services.outcomes import format_source_display, next_call_at_from_request, normalize_result_capture, parse_next_call_request
+from .services.visible_points import sync_client_visible_points
 from .views import _serialize_client_for_home, _sync_client_followup, get_user_stats, user_is_management
 
 
@@ -272,8 +273,6 @@ def lead_process_api(request, lead_id: int):
             )
             result_context["duplicate_override_reason"] = evidence["duplicate_override_reason"]
 
-        base_points = int(POINTS.get(call_value, 0))
-        adjusted_points = max(0, base_points - LEAD_BASE_PROCESSING_PENALTY)
         client = Client.objects.create(
             shop_name=shop_name,
             phone=phone_normalized,
@@ -289,7 +288,6 @@ def lead_process_api(request, lead_id: int):
             manager_note=manager_note,
             next_call_at=next_call_at,
             owner=request.user,
-            points_override=adjusted_points,
         )
         interaction = record_client_interaction(
             client=client,
@@ -318,6 +316,7 @@ def lead_process_api(request, lead_id: int):
         lead.role = role_value
         lead.source = source_display or lead.source
         lead.save()
+        sync_client_visible_points(client, interaction=interaction, source_lead=lead)
 
     payload = {
         "success": True,
