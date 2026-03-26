@@ -1,18 +1,32 @@
 from datetime import datetime, time, timedelta
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.management import call_command
-from django.test import Client as DjangoClient
+from django.test import RequestFactory
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Client, ClientFollowUp, LeadParsingJob, LeadParsingQueryState, LeadParsingResult, ManagementLead, Report
+from .models import (
+    Client,
+    ClientFollowUp,
+    ClientInteractionAttempt,
+    LeadParsingJob,
+    LeadParsingQueryState,
+    LeadParsingResult,
+    ManagementLead,
+    Report,
+)
 from .parser_service import _places_search_text, create_parsing_job, parse_cities, parse_keywords, parser_run_step
-from .stats_service import compute_kpd, parse_stats_range
-from .views import _close_followups_for_report, _sync_client_followup
+from .services.analytics_v7 import materialize_manager_day_fact
+from .services.client_entry import record_client_interaction
+from .services.snapshots import build_daily_stats_range, persist_nightly_snapshot
+from .stats_service import compute_kpd, get_stats_payload, parse_stats_range
+from .views import _close_followups_for_report, _sync_client_followup, send_report
+from .models import ClientStageEvent, FollowUpEvent, ManagerDayFact, ManagerDayStatus, ReasonSignal, VerifiedWorkEvent
 
 
 class StatsRangeTests(TestCase):
@@ -130,7 +144,7 @@ class FollowUpTests(TestCase):
         open_fu.refresh_from_db()
         self.assertIn(open_fu.status, {ClientFollowUp.Status.DONE, ClientFollowUp.Status.RESCHEDULED})
 
-    def test_followups_marked_missed_on_report(self):
+    def test_followups_remain_open_when_report_helper_runs(self):
         now = self._stable_now()
         due = now + timedelta(hours=1)
         client = Client.objects.create(
@@ -146,8 +160,38 @@ class FollowUpTests(TestCase):
         _close_followups_for_report(report)
 
         fu = ClientFollowUp.objects.get(client=client, owner=self.user)
-        self.assertEqual(fu.status, ClientFollowUp.Status.MISSED)
-        self.assertEqual(fu.closed_by_report_id, report.id)
+        self.assertEqual(fu.status, ClientFollowUp.Status.OPEN)
+        self.assertIsNone(fu.closed_by_report_id)
+
+    @override_settings(ROOT_URLCONF="twocomms.urls_management", SECURE_SSL_REDIRECT=False)
+    @patch("management.views.send_telegram_report")
+    @patch("management.views.build_report_excel", return_value=b"excel")
+    @patch("management.views.get_user_stats", return_value={"points_today": 0, "processed_today": 0})
+    def test_send_report_does_not_mutate_open_followups(self, _mock_stats, _mock_excel, _mock_telegram):
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_staff"])
+        request_factory = RequestFactory()
+
+        now = self._stable_now()
+        due = now + timedelta(hours=1)
+        client = Client.objects.create(
+            shop_name="S",
+            phone="+380000000000",
+            full_name="N",
+            owner=self.user,
+            next_call_at=due,
+        )
+        _sync_client_followup(client, None, client.next_call_at, now)
+
+        request = request_factory.post(reverse("management_send_report"))
+        request.user = self.user
+        response = send_report(request)
+
+        self.assertIn(response.status_code, {301, 302})
+        fu = ClientFollowUp.objects.get(client=client, owner=self.user)
+        self.assertEqual(fu.status, ClientFollowUp.Status.OPEN)
+        self.assertIsNone(fu.closed_by_report_id)
+        self.assertEqual(Report.objects.filter(owner=self.user).count(), 1)
 
     def test_followup_grace_window_and_effective_state(self):
         from management.services.followup_state import get_effective_callback_state
@@ -1293,3 +1337,194 @@ class ParserRecoveryDryRunCommandTests(TestCase):
         self.assertIn('"scan_limit": 1', payload)
         self.assertIn('"scanned_count": 1', payload)
         self.assertIn('"truncated": true', payload)
+
+
+class AnalyticsV7Tests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="analytics_mgr", password="x")
+
+    def _stable_now(self):
+        return timezone.make_aware(datetime.combine(timezone.localdate(), time(hour=11, minute=0)))
+
+    def test_record_client_interaction_creates_v7_reason_stage_and_verified_events(self):
+        client = Client.objects.create(
+            shop_name="Signal Shop",
+            phone="+380000000111",
+            full_name="Owner",
+            owner=self.user,
+            call_result=Client.CallResult.THINKING,
+        )
+
+        interaction = record_client_interaction(
+            client=client,
+            manager=self.user,
+            result_capture={
+                "reason_code": "thinking_need_callback",
+                "reason_note": "Чекає рішення власника",
+                "context": {"channel": "phone"},
+                "details": "Просив повернутися завтра",
+            },
+            call_result=Client.CallResult.THINKING,
+            next_call_at=None,
+            evidence={"verification_level": "linked_evidence"},
+        )
+
+        stage_event = ClientStageEvent.objects.get(interaction=interaction)
+        reason_signal = ReasonSignal.objects.get(interaction=interaction)
+        verified_event = VerifiedWorkEvent.objects.get(interaction=interaction)
+
+        self.assertEqual(stage_event.stage_code, "phase_1")
+        self.assertEqual(stage_event.result_code, Client.CallResult.THINKING)
+        self.assertEqual(reason_signal.reason_code, "thinking_need_callback")
+        self.assertEqual(reason_signal.quality_label, "rich")
+        self.assertEqual(
+            verified_event.verification_level,
+            ClientInteractionAttempt.VerificationLevel.LINKED_EVIDENCE,
+        )
+        self.assertEqual(verified_event.evidence_kind, "linked_evidence")
+
+    def test_followup_sync_records_v7_open_and_close_events(self):
+        now = self._stable_now()
+        due = now + timedelta(hours=2)
+        client = Client.objects.create(
+            shop_name="Promise Shop",
+            phone="+380000000112",
+            full_name="Owner",
+            owner=self.user,
+            next_call_at=due,
+            call_result=Client.CallResult.THINKING,
+        )
+        interaction = record_client_interaction(
+            client=client,
+            manager=self.user,
+            result_capture={
+                "reason_code": "thinking_need_callback",
+                "reason_note": "Просив подзвонити після обіду",
+                "context": {},
+                "details": "",
+            },
+            call_result=Client.CallResult.THINKING,
+            next_call_at=due,
+            evidence={"verification_level": "linked_evidence"},
+        )
+
+        _sync_client_followup(client, None, due, now, source_interaction=interaction)
+        first_followup = ClientFollowUp.objects.get(client=client, owner=self.user, status=ClientFollowUp.Status.OPEN)
+        self.assertEqual(first_followup.followup_kind, ClientFollowUp.Kind.PROMISE)
+        self.assertEqual(
+            FollowUpEvent.objects.filter(
+                followup=first_followup,
+                event_type=FollowUpEvent.EventType.OPENED,
+            ).count(),
+            1,
+        )
+
+        new_due = due + timedelta(days=1)
+        prev_due = client.next_call_at
+        client.next_call_at = new_due
+        client.save(update_fields=["next_call_at"])
+        _sync_client_followup(client, prev_due, new_due, now + timedelta(minutes=10), source_interaction=interaction)
+
+        closed_event = FollowUpEvent.objects.get(followup=first_followup, event_type=FollowUpEvent.EventType.CLOSED)
+        replacement = ClientFollowUp.objects.get(
+            client=client,
+            owner=self.user,
+            status=ClientFollowUp.Status.OPEN,
+            due_at=new_due,
+        )
+
+        self.assertEqual(closed_event.close_reason, "callback_rescheduled")
+        self.assertEqual(replacement.reschedule_count, 1)
+        self.assertEqual(FollowUpEvent.objects.filter(client=client).count(), 3)
+
+    def test_materialize_manager_day_fact_and_snapshot_embed_v7_payload(self):
+        now = self._stable_now()
+        day = timezone.localdate(now)
+        due = now + timedelta(hours=1)
+        client = Client.objects.create(
+            shop_name="Snapshot Shop",
+            phone="+380000000113",
+            full_name="Owner",
+            owner=self.user,
+            next_call_at=due,
+            call_result=Client.CallResult.THINKING,
+        )
+        interaction = record_client_interaction(
+            client=client,
+            manager=self.user,
+            result_capture={
+                "reason_code": "thinking_need_callback",
+                "reason_note": "Потрібен повторний контакт",
+                "context": {},
+                "details": "",
+            },
+            call_result=Client.CallResult.THINKING,
+            next_call_at=due,
+            evidence={"verification_level": "linked_evidence"},
+        )
+        _sync_client_followup(client, None, due, now, source_interaction=interaction)
+        ManagerDayStatus.objects.create(
+            owner=self.user,
+            day=day,
+            status=ManagerDayStatus.Status.TECH_FAILURE,
+            capacity_factor=Decimal("0.75"),
+            source_reason="Telephony degraded",
+        )
+
+        fact = materialize_manager_day_fact(owner=self.user, day=day)
+        snapshot = persist_nightly_snapshot(owner=self.user, snapshot_date=day)
+        stats_payload = get_stats_payload(user=self.user, range_current=build_daily_stats_range(day))
+
+        self.assertEqual(fact.day_status, ManagerDayStatus.Status.TECH_FAILURE)
+        self.assertEqual(fact.interactions_total, 1)
+        self.assertEqual(fact.reason_signals_total, 1)
+        self.assertEqual(fact.followups_opened, 1)
+        self.assertIn("v7", snapshot.payload)
+        self.assertEqual(snapshot.payload["v7"]["facts"]["interactions_total"], 1)
+        self.assertEqual(snapshot.payload["v7"]["facts"]["day_status"], ManagerDayStatus.Status.TECH_FAILURE)
+        self.assertEqual(stats_payload["shadow_score"]["v7"]["facts"]["interactions_total"], 1)
+
+    def test_backfill_command_is_idempotent_for_v7_events(self):
+        now = self._stable_now()
+        day = timezone.localdate(now)
+        due = now + timedelta(hours=1)
+        client = Client.objects.create(
+            shop_name="Backfill Shop",
+            phone="+380000000114",
+            full_name="Owner",
+            owner=self.user,
+            next_call_at=due,
+            call_result=Client.CallResult.THINKING,
+        )
+        interaction = record_client_interaction(
+            client=client,
+            manager=self.user,
+            result_capture={
+                "reason_code": "thinking_need_callback",
+                "reason_note": "Потрібен повторний контакт",
+                "context": {},
+                "details": "",
+            },
+            call_result=Client.CallResult.THINKING,
+            next_call_at=due,
+            evidence={"verification_level": "linked_evidence"},
+        )
+        _sync_client_followup(client, None, due, now, source_interaction=interaction)
+
+        for _ in range(2):
+            call_command(
+                "backfill_management_v7_analytics",
+                "--user-id",
+                str(self.user.id),
+                "--date-from",
+                day.isoformat(),
+                "--date-to",
+                day.isoformat(),
+            )
+
+        self.assertEqual(ClientStageEvent.objects.filter(interaction=interaction).count(), 1)
+        self.assertEqual(ReasonSignal.objects.filter(interaction=interaction).count(), 1)
+        self.assertEqual(VerifiedWorkEvent.objects.filter(interaction=interaction).count(), 1)
+        self.assertEqual(FollowUpEvent.objects.filter(client=client).count(), 1)
+        self.assertEqual(ManagerDayFact.objects.filter(owner=self.user, day=day).count(), 1)

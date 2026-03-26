@@ -728,8 +728,8 @@
 </section>
 
 {% if admin_tab == 'managers' %}
-<div id="admin-overview-modal" class="modal-overlay">
-    <div class="modal-card">
+<div id="admin-overview-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-overview-title" hidden>
+    <div class="modal-card" tabindex="-1">
         <div class="modal-header">
             <div>
                 <p class="eyebrow">Список клієнтів</p>
@@ -973,14 +973,24 @@ document.addEventListener('DOMContentLoaded', () => {
         arcFill.style.strokeDashoffset = arcLen * (1 - init / 100);
     }
 
+    let adminModalOpener = null;
     const adminCloseModal = () => {
         if (!adminModal) return;
         adminModal.classList.remove('show');
+        adminModal.hidden = true;
         body.classList.remove('modal-open');
+        if (adminModalOpener && typeof adminModalOpener.focus === 'function') {
+            adminModalOpener.focus();
+        }
     };
     if (adminModal) {
         adminModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', adminCloseModal));
         adminModal.addEventListener('click', (e) => { if (e.target === adminModal) adminCloseModal(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && adminModal.classList.contains('show')) {
+                adminCloseModal();
+            }
+        });
     }
     const clientsUrlTemplate = "{% url 'management_admin_user_clients' 0 %}";
     const state = {
@@ -1166,6 +1176,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const uid = parseInt(btn.dataset.userId, 10);
             const user = adminUsers.find(u => u.id === uid);
             if (!user) return;
+            adminModalOpener = btn;
             adminModalTitle.textContent = `Огляд: ${user.name}`;
             if (adminModalSubtitle) {
                 adminModalSubtitle.textContent = `${user.role} • Останній вхід: ${user.last_login}`;
@@ -1175,8 +1186,11 @@ document.addEventListener('DOMContentLoaded', () => {
             state.query = '';
             setChips(user);
             fetchPage(true);
+            adminModal.hidden = false;
             adminModal.classList.add('show');
             body.classList.add('modal-open');
+            const modalCard = adminModal.querySelector('.modal-card');
+            if (modalCard) modalCard.focus();
         });
     });
 });

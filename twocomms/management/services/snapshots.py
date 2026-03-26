@@ -515,6 +515,10 @@ def build_shadow_score_payload(*, owner, snapshot_date: date) -> dict[str, Any]:
 
 def persist_nightly_snapshot(*, owner, snapshot_date: date, job_run: CommandRunLog | None = None) -> NightlyScoreSnapshot:
     shadow_payload = build_shadow_score_payload(owner=owner, snapshot_date=snapshot_date)
+    from management.services.analytics_v7 import build_shadow_score_payload_v7
+
+    shadow_payload["payload"] = dict(shadow_payload["payload"] or {})
+    shadow_payload["payload"]["v7"] = build_shadow_score_payload_v7(owner=owner, snapshot_date=snapshot_date)
     snapshot, _ = NightlyScoreSnapshot.objects.update_or_create(
         owner=owner,
         snapshot_date=snapshot_date,

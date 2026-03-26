@@ -265,8 +265,14 @@ def _local_date_from_dt(dt_value):
     return local_followup_date(dt_value)
 
 
-def _sync_client_followup(client: Client, prev_next_call_at, new_next_call_at, now_dt):
-    return sync_client_followup(client, prev_next_call_at, new_next_call_at, now_dt)
+def _sync_client_followup(client: Client, prev_next_call_at, new_next_call_at, now_dt, *, source_interaction=None):
+    return sync_client_followup(
+        client,
+        prev_next_call_at,
+        new_next_call_at,
+        now_dt,
+        source_interaction=source_interaction,
+    )
 
 
 def _home_dt_label(dt_value):
@@ -473,17 +479,13 @@ def _build_home_group_label(serialized: dict, client: Client, today):
 
 
 def _close_followups_for_report(report: Report):
-    """Freeze today's follow-ups when daily report is sent."""
-    report_day = _local_date_from_dt(report.created_at)
-    ClientFollowUp.objects.filter(
-        owner=report.owner,
-        due_date=report_day,
-        status=ClientFollowUp.Status.OPEN,
-    ).update(
-        status=ClientFollowUp.Status.MISSED,
-        closed_at=report.created_at,
-        closed_by_report=report,
-    )
+    """
+    Reports are observational only and must not mutate the follow-up ledger.
+
+    The helper remains as an explicit seam for legacy call sites while the
+    follow-up truth is moved under dedicated follow-up/event workflows.
+    """
+    return 0
 
 
 def _time_label(dt_local, now):
@@ -1272,9 +1274,8 @@ def home(request):
                             previous_phase=latest_family_client,
                             phase_number=(latest_family_client.phase_number or 1) + 1,
                         )
-                        _sync_client_followup(saved_client, None, saved_client.next_call_at, now_dt)
                         _sync_phase_family_shared_fields(saved_client)
-                        record_client_interaction(
+                        interaction = record_client_interaction(
                             client=saved_client,
                             manager=request.user,
                             result_capture=result_capture,
@@ -1282,6 +1283,13 @@ def home(request):
                             next_call_at=next_call_at,
                             evidence=evidence,
                             duplicate_review=duplicate_review,
+                        )
+                        _sync_client_followup(
+                            saved_client,
+                            None,
+                            saved_client.next_call_at,
+                            now_dt,
+                            source_interaction=interaction,
                         )
                 if saved_client.id == existing_client.id:
                     _sync_phase_family_shared_fields(saved_client)
@@ -1304,10 +1312,9 @@ def home(request):
                 if existing_client.points_override is not None:
                     existing_client.points_override = max(0, int(POINTS.get(call_result, 0)) - LEAD_BASE_PROCESSING_PENALTY)
                 existing_client.save()
-                _sync_phase_family_shared_fields(existing_client)
-                _sync_client_followup(existing_client, prev_next_call_at, existing_client.next_call_at, now_dt)
                 saved_client = existing_client
-                record_client_interaction(
+                _sync_phase_family_shared_fields(existing_client)
+                interaction = record_client_interaction(
                     client=saved_client,
                     manager=request.user,
                     result_capture=result_capture,
@@ -1315,6 +1322,13 @@ def home(request):
                     next_call_at=next_call_at,
                     evidence=evidence,
                     duplicate_review=duplicate_review,
+                )
+                _sync_client_followup(
+                    existing_client,
+                    prev_next_call_at,
+                    existing_client.next_call_at,
+                    now_dt,
+                    source_interaction=interaction,
                 )
             else:
                 saved_client = Client.objects.create(
@@ -1333,8 +1347,7 @@ def home(request):
                     next_call_at=next_call_at,
                     owner=request.user,
                 )
-                _sync_client_followup(saved_client, None, saved_client.next_call_at, now_dt)
-                record_client_interaction(
+                interaction = record_client_interaction(
                     client=saved_client,
                     manager=request.user,
                     result_capture=result_capture,
@@ -1342,6 +1355,13 @@ def home(request):
                     next_call_at=next_call_at,
                     evidence=evidence,
                     duplicate_review=duplicate_review,
+                )
+                _sync_client_followup(
+                    saved_client,
+                    None,
+                    saved_client.next_call_at,
+                    now_dt,
+                    source_interaction=interaction,
                 )
         if is_ajax:
             # Сформируем актуальные данные после операции

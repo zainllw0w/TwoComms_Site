@@ -291,8 +291,7 @@ def lead_process_api(request, lead_id: int):
             owner=request.user,
             points_override=adjusted_points,
         )
-        _sync_client_followup(client, None, client.next_call_at, timezone.now())
-        record_client_interaction(
+        interaction = record_client_interaction(
             client=client,
             manager=request.user,
             result_capture=result_capture,
@@ -300,6 +299,13 @@ def lead_process_api(request, lead_id: int):
             next_call_at=next_call_at,
             evidence=evidence,
             duplicate_review=duplicate_review,
+        )
+        _sync_client_followup(
+            client,
+            None,
+            client.next_call_at,
+            timezone.now(),
+            source_interaction=interaction,
         )
 
         lead.status = ManagementLead.Status.CONVERTED
