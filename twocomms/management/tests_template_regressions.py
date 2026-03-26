@@ -200,6 +200,18 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
         self.assertIn("applyPayload(payload, { syncForm: false });", script)
         self.assertIn("applyPayload(err.payload, { syncForm: true });", script)
 
+    def test_parsing_dashboard_script_does_not_schedule_step_while_step_is_in_progress(self):
+        script = Path("twocomms/management/templates/management/parsing.html").read_text()
+
+        self.assertIn("const canScheduleStep = () => Boolean(activeJob && activeJob.status === 'running' && !activeJob.is_step_in_progress);", script)
+        self.assertIn("if (canScheduleStep()) {", script)
+
+    def test_parsing_dashboard_script_refreshes_usage_on_a_slower_cadence(self):
+        script = Path("twocomms/management/templates/management/parsing.html").read_text()
+
+        self.assertIn("const USAGE_REFRESH_INTERVAL_MS = 60000;", script)
+        self.assertIn("if (shouldRefreshUsage()) params.set('include_usage', '1');", script)
+
     def test_base_template_skips_reminder_poll_when_page_is_hidden(self):
         template = loader.get_template("management/base.html")
         request = self._build_request("/shops/")

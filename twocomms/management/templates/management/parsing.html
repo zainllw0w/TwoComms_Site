@@ -553,7 +553,7 @@
                 </div>
                 <div class="parsing-hero__usage-row">
                     <span>Google project usage</span>
-                    <strong id="hero-billing-google-project">not connected</strong>
+                    <strong id="hero-billing-google-project">—</strong>
                 </div>
                 <div class="parsing-hero__usage-row">
                     <span>Provider</span>
@@ -664,7 +664,7 @@
                 <div class="admin-metric"><div class="admin-metric__label">Free calls / міс</div><div class="admin-metric__value" id="billing-free-cap">0</div></div>
                 <div class="admin-metric"><div class="admin-metric__label">Parser local 30d</div><div class="admin-metric__value" id="billing-local-30d">0</div></div>
                 <div class="admin-metric"><div class="admin-metric__label">Billing month</div><div class="admin-metric__value" id="billing-current-month">0</div></div>
-                <div class="admin-metric"><div class="admin-metric__label">Google project usage</div><div class="admin-metric__value" id="billing-google-project">not connected</div></div>
+                <div class="admin-metric"><div class="admin-metric__label">Google project usage</div><div class="admin-metric__value" id="billing-google-project">—</div></div>
                 <div class="admin-metric"><div class="admin-metric__label">Provider</div><div class="admin-metric__value" id="billing-provider-status">—</div></div>
             </div>
             <div class="offer-help" id="billing-rpm-policy" style="margin-top: 12px;">
@@ -856,11 +856,13 @@ function initParsingPage() {
     let rejected = parseJsonScript('parser-initial-rejected', []);
     let counters = parseJsonScript('parser-initial-counters', {});
     let usage = parseJsonScript('parser-initial-usage', {});
+    const USAGE_REFRESH_INTERVAL_MS = 60000;
     let stepTimer = null;
     let pollTimer = null;
     let isStepRequestInFlight = false;
     let isStatusRequestInFlight = false;
     let hasAppliedInitialJobToForm = false;
+    let nextUsageRefreshAt = 0;
 
     const sessionWarning = document.getElementById('parser-session-warning');
     const startBtn = document.getElementById('parser-start-btn');
@@ -1064,16 +1066,17 @@ function initParsingPage() {
 
     const renderUsage = (payload) => {
         usage = payload || usage || {};
+        nextUsageRefreshAt = Date.now() + USAGE_REFRESH_INTERVAL_MS;
         setCounter('billing-sku', usage.sku || '—');
         setCounter('billing-free-cap', usage.free_monthly_calls || 0);
         setCounter('billing-local-30d', usage.local_30d_usage || 0);
         setCounter('billing-current-month', usage.current_billing_month_usage || 0);
         setCounter('billing-provider-status', usage.provider_status || '—');
-        setCounter('billing-google-project', usage.google_project_usage ?? 'not connected');
+        setCounter('billing-google-project', usage.google_project_usage ?? '—');
         setCounter('hero-billing-sku', usage.sku || '—');
         setCounter('hero-billing-current-month', usage.current_billing_month_usage || 0);
         setCounter('hero-billing-provider-status', usage.provider_status || '—');
-        setCounter('hero-billing-google-project', usage.google_project_usage ?? 'not connected');
+        setCounter('hero-billing-google-project', usage.google_project_usage ?? '—');
     };
 
     const warningMessageForReason = (reasonCode) => {
@@ -1243,6 +1246,9 @@ function initParsingPage() {
             </tr>`).join('');
     };
 
+    const canScheduleStep = () => Boolean(activeJob && activeJob.status === 'running' && !activeJob.is_step_in_progress);
+    const shouldRefreshUsage = () => !nextUsageRefreshAt || Date.now() >= nextUsageRefreshAt;
+
     const applyPayload = (payload, options = {}) => {
         if (!payload) return;
         const syncForm = Boolean(options.syncForm);
@@ -1324,7 +1330,7 @@ function initParsingPage() {
             console.error(err);
         } finally {
             isStepRequestInFlight = false;
-            if (activeJob && activeJob.status === 'running') {
+            if (canScheduleStep()) {
                 scheduleStep(activeJob.next_step_eta_ms || 0);
             }
         }
@@ -1335,7 +1341,7 @@ function initParsingPage() {
             clearTimeout(stepTimer);
             stepTimer = null;
         }
-        if (!activeJob || activeJob.status !== 'running') return;
+        if (!canScheduleStep()) return;
         const normalizedDelay = Math.max(250, Number(delayMs || activeJob.next_step_eta_ms || 0));
         stepTimer = setTimeout(runStep, normalizedDelay);
     };
@@ -1344,7 +1350,10 @@ function initParsingPage() {
         if (isStatusRequestInFlight) return;
         isStatusRequestInFlight = true;
         try {
-            const query = activeJob ? `?job_id=${activeJob.id}` : '';
+            const params = new URLSearchParams();
+            if (activeJob) params.set('job_id', activeJob.id);
+            if (shouldRefreshUsage()) params.set('include_usage', '1');
+            const query = params.toString() ? `?${params.toString()}` : '';
             const payload = await apiRequest(`${statusUrl}${query}`, null, 'GET');
             applyPayload(payload);
         } catch (err) {
@@ -1360,12 +1369,13 @@ function initParsingPage() {
             clearTimeout(pollTimer);
             pollTimer = null;
         }
-        const normalizedDelay = Math.max(1500, Number(delayMs || (activeJob?.status === 'running' ? 3000 : 6000)));
+        const runningDelay = activeJob?.is_step_in_progress ? 4000 : 3000;
+        const normalizedDelay = Math.max(1500, Number(delayMs || (activeJob?.status === 'running' ? runningDelay : 6000)));
         pollTimer = setTimeout(pollStatus, normalizedDelay);
     };
 
     const updateLoopState = () => {
-        if (activeJob && activeJob.status === 'running') {
+        if (canScheduleStep()) {
             scheduleStep(activeJob.next_step_eta_ms || 0);
         } else if (stepTimer) {
             clearTimeout(stepTimer);
