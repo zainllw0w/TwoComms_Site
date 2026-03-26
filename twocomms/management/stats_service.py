@@ -8,12 +8,11 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.cache import cache
-from django.db.models import Case, Count, F, IntegerField, Max, Q, Sum, Value, When
+from django.db.models import Count, F, Max, Q, Sum
 from django.db.models.functions import Abs, TruncDate
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
-from .constants import POINTS
 from .models import (
     CallRecord,
     Client,
@@ -49,6 +48,7 @@ from .services.ui_labels import (
     translate_readiness_state,
     translate_surface_state,
 )
+from .services.visible_points import visible_points_sum_expr
 
 
 @dataclass(frozen=True)
@@ -136,8 +136,7 @@ def previous_range(r: StatsRange) -> StatsRange:
 
 
 def _points_sum_expr() -> Sum:
-    whens = [When(call_result=k, then=Value(int(v))) for k, v in POINTS.items()]
-    return Sum(Case(*whens, default=Value(0), output_field=IntegerField()))
+    return visible_points_sum_expr()
 
 
 def _safe_pct(n: float, d: float) -> float:
@@ -167,7 +166,7 @@ def _get_or_build_config() -> dict[str, Any]:
     merged = {
         "kpd": {
             "active_norm_minutes": 240,
-            "points_norm": 180,
+            "points_norm": 85,
             "max_effort": 2.2,
             "max_quality": 1.6,
             "max_ops": 1.2,
@@ -618,7 +617,7 @@ def compute_kpd(metrics: dict[str, Any], config: dict[str, Any]) -> dict[str, An
 
     # Effort (0..~2.2)
     active_norm = float(kcfg.get("active_norm_minutes", 240) or 240)
-    points_norm = float(kcfg.get("points_norm", 180) or 180)
+    points_norm = float(kcfg.get("points_norm", 85) or 85)
     effort_active = 0.0 if active_minutes <= 0 else min(1.0, (active_minutes / max(1.0, active_norm)) ** 0.6)
     effort_points = 0.0 if points <= 0 else min(1.2, (points / max(1.0, points_norm)) ** 0.55 * 1.2)
     effort = min(float(kcfg.get("max_effort", 2.2) or 2.2), effort_active + effort_points)

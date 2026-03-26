@@ -1,13 +1,11 @@
-from datetime import timedelta
 import re
 import shlex
 from typing import Iterable
 
 from django.db.models import QuerySet
-from django.utils import timezone
 
-from .constants import LEAD_ADD_POINTS, POINTS
 from .models import Client, ManagementLead
+from .services.visible_points import client_visible_points_value
 
 
 def split_terms(raw_value: str) -> list[str]:
@@ -53,9 +51,7 @@ def split_terms(raw_value: str) -> list[str]:
 
 
 def client_points_value(client: Client) -> int:
-    if client.points_override is not None:
-        return int(client.points_override)
-    return int(POINTS.get(client.call_result, 0))
+    return client_visible_points_value(client)
 
 
 def calc_client_points(clients: Iterable[Client]) -> int:
@@ -63,18 +59,8 @@ def calc_client_points(clients: Iterable[Client]) -> int:
 
 
 def calc_lead_bonus_points(leads_qs: QuerySet[ManagementLead]) -> int:
-    return leads_qs.filter(lead_source=ManagementLead.LeadSource.MANUAL).count() * LEAD_ADD_POINTS
+    return 0
 
 
 def get_user_lead_bonus_points(user, day_start=None, day_end=None) -> tuple[int, int]:
-    base = ManagementLead.objects.filter(
-        added_by=user,
-        lead_source=ManagementLead.LeadSource.MANUAL,
-    )
-    total = base.count() * LEAD_ADD_POINTS
-    if day_start is None or day_end is None:
-        now = timezone.localtime(timezone.now())
-        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        day_end = day_start + timedelta(days=1)
-    today = base.filter(created_at__gte=day_start, created_at__lt=day_end).count() * LEAD_ADD_POINTS
-    return today, total
+    return 0, 0
