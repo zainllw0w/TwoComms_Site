@@ -912,9 +912,7 @@
                 .catch(() => {});
         };
         setInterval(pollFeed, 10000);
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) pollFeed();
-        });
+        window.addEventListener('focus', pollFeed, { passive: true });
 
         const closeHelpPopovers = (exceptButton = null) => {
             document.querySelectorAll('.info-dot[data-help-target]').forEach((btn) => {
