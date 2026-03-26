@@ -58,6 +58,8 @@ SESSION_STALE_AFTER = timedelta(minutes=5)
 QUERY_EMPTY_PAGE_LOOP_LIMIT = 2
 QUERY_PAGE_FINGERPRINT_LIMIT = 6
 QUERY_PAGE_HARD_CAP = 5
+MAX_RESULT_REASON_LENGTH = 255
+MAX_QUERY_EXHAUSTED_MESSAGE_LENGTH = 255
 RUNTIME_LOCK_KEY = 1
 ACTIVE_STATUSES = {LeadParsingJob.Status.RUNNING, LeadParsingJob.Status.PAUSED}
 FINAL_STATUSES = {
@@ -270,6 +272,15 @@ def current_parser_query(job: LeadParsingJob) -> str:
 
 def effective_added_lead_count(job: LeadParsingJob) -> int:
     return int(job.added_to_moderation or 0) + int(job.saved_no_phone_to_moderation or 0)
+
+
+def _fit_charfield(value: str, max_length: int) -> str:
+    text = str(value or "").strip()
+    if len(text) <= max_length:
+        return text
+    if max_length <= 3:
+        return text[:max_length]
+    return f"{text[: max_length - 3].rstrip()}..."
 
 
 def _request_identity(job: LeadParsingJob, request_spec: dict[str, Any] | None = None) -> dict[str, str]:
@@ -737,7 +748,7 @@ def _persist_query_state_progress(
     query_state.status = transition.status
     if transition.status in {LeadParsingQueryState.Status.EXHAUSTED, LeadParsingQueryState.Status.ANOMALY}:
         query_state.exhausted_reason_code = transition.reason_code
-        query_state.exhausted_message = transition.reason
+        query_state.exhausted_message = _fit_charfield(transition.reason, MAX_QUERY_EXHAUSTED_MESSAGE_LENGTH)
     query_state.save()
 
 
@@ -1040,7 +1051,7 @@ def _create_result(
         website_url=website_url,
         maps_url=maps_url,
         status=status,
-        reason=reason,
+        reason=_fit_charfield(reason, MAX_RESULT_REASON_LENGTH),
         reason_code=reason_code,
         payload=payload or {},
     )
