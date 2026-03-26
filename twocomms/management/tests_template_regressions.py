@@ -193,6 +193,13 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
         self.assertIn("navigationRequestId", script)
         self.assertIn("requestId !== navigationRequestId", script)
 
+    def test_parsing_dashboard_script_avoids_forced_form_resync_on_each_poll(self):
+        script = Path("twocomms/management/templates/management/parsing.html").read_text()
+
+        self.assertIn("hasAppliedInitialJobToForm", script)
+        self.assertIn("applyPayload(payload, { syncForm: false });", script)
+        self.assertIn("applyPayload(err.payload, { syncForm: true });", script)
+
     def test_base_template_skips_reminder_poll_when_page_is_hidden(self):
         template = loader.get_template("management/base.html")
         request = self._build_request("/shops/")

@@ -340,6 +340,7 @@ class LeadParsingJob(models.Model):
     keywords = models.JSONField(_("Ключові слова"), default=list, blank=True)
     cities = models.JSONField(_("Міста"), default=list, blank=True)
     request_limit = models.PositiveIntegerField(_("Ліміт запитів"), default=100)
+    target_leads_limit = models.PositiveIntegerField(_("Ціль по лідах"), default=0)
     request_count = models.PositiveIntegerField(_("Виконано запитів"), default=0)
     requests_per_minute = models.PositiveIntegerField(_("Запитів за хвилину"), default=10)
     history_lookback_days = models.PositiveIntegerField(_("Lookback по історії, днів"), default=30)
@@ -365,6 +366,8 @@ class LeadParsingJob(models.Model):
     added_to_moderation = models.PositiveIntegerField(default=0)
     moved_to_bad = models.PositiveIntegerField(default=0)
     already_rejected_skipped = models.PositiveIntegerField(default=0)
+    queries_exhausted_normal = models.PositiveIntegerField(default=0)
+    queries_exhausted_anomaly = models.PositiveIntegerField(default=0)
     current_query = models.CharField(max_length=500, blank=True)
     current_request_spec = models.JSONField(default=dict, blank=True)
     next_page_token = models.TextField(blank=True)
@@ -417,6 +420,7 @@ class LeadParsingResult(models.Model):
     class ResultStatus(models.TextChoices):
         ADDED = "added", _("Додано до модерації")
         ADDED_NO_PHONE = "added_no_phone", _("Додано до модерації без телефону")
+        NOTICE = "notice", _("Службове повідомлення")
         DUPLICATE = "duplicate", _("Дубль")
         NO_PHONE = "no_phone", _("Без телефону")
         REJECTED = "rejected", _("Раніше відхилено")
@@ -457,10 +461,61 @@ class LeadParsingResult(models.Model):
         indexes = [
             models.Index(fields=["job", "-created_at"], name="mgmt_parse_res_job_dt"),
             models.Index(fields=["status", "-created_at"], name="mgmt_parse_res_st_dt"),
+            models.Index(fields=["job", "place_id"], name="mgmt_parse_res_job_place"),
+            models.Index(fields=["job", "phone"], name="mgmt_parse_res_job_phone"),
         ]
 
     def __str__(self):
         return f"{self.job_id}:{self.status}:{self.place_name}"
+
+
+class LeadParsingQueryState(models.Model):
+    class Status(models.TextChoices):
+        ACTIVE = "active", _("Активний")
+        EXHAUSTED = "exhausted", _("Вичерпано")
+        ANOMALY = "anomaly", _("Аномалія")
+
+    job = models.ForeignKey(
+        LeadParsingJob,
+        on_delete=models.CASCADE,
+        related_name="query_states",
+        verbose_name=_("Сесія парсингу"),
+    )
+    keyword = models.CharField(max_length=255, blank=True, verbose_name=_("Ключове слово"))
+    city = models.CharField(max_length=120, blank=True, verbose_name=_("Місто"))
+    included_type = models.CharField(max_length=64, blank=True, verbose_name=_("Google Places type"))
+    text_query = models.CharField(max_length=500, blank=True, verbose_name=_("Текстовий запит"))
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE, db_index=True)
+    pages_fetched = models.PositiveIntegerField(default=0)
+    api_requests_sent = models.PositiveIntegerField(default=0)
+    places_seen_count = models.PositiveIntegerField(default=0)
+    places_added_count = models.PositiveIntegerField(default=0)
+    consecutive_empty_pages = models.PositiveIntegerField(default=0)
+    consecutive_repeated_pages = models.PositiveIntegerField(default=0)
+    last_next_page_token_hash = models.CharField(max_length=64, blank=True)
+    seen_page_fingerprints = models.JSONField(default=list, blank=True)
+    exhausted_reason_code = models.CharField(max_length=64, blank=True, db_index=True)
+    exhausted_message = models.CharField(max_length=255, blank=True)
+    last_progress_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Стан query парсингу")
+        verbose_name_plural = _("Стани query парсингу")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["job", "keyword", "city", "included_type"],
+                name="mgmt_parse_query_state_unique",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["job", "status"], name="mgmt_parse_qs_job_status"),
+            models.Index(fields=["job", "-updated_at"], name="mgmt_parse_qs_job_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.job_id}:{self.keyword}:{self.city}:{self.included_type or 'all'}:{self.status}"
 
 
 class Report(models.Model):
