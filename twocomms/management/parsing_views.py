@@ -11,6 +11,7 @@ from .parser_usage import parser_usage_snapshot
 from .parser_service import (
     ParsingServiceError,
     PLACES_INCLUDED_TYPE_CHOICES,
+    STEP_LOCK_STALE_AFTER,
     create_parsing_job,
     effective_added_lead_count,
     parser_current_query_state_payload,
@@ -309,19 +310,23 @@ def parser_step_api(request):
     except LeadParsingJob.DoesNotExist:
         return JsonResponse({"success": False, "error": "Сесію парсингу не знайдено."}, status=404)
     if job.status == LeadParsingJob.Status.RUNNING:
+        now = timezone.now()
         if job.is_step_in_progress:
-            moderation, rejected = _lead_queue_payload()
-            return JsonResponse(
-                {
-                    "success": True,
-                    "job": _job_payload(parser_dashboard_job(job_id=job_id)),
-                    "counters": _counters_payload(),
-                    "moderation": moderation,
-                    "rejected": rejected,
-                    "usage": _usage_payload(),
-                }
-            )
-        if job.next_step_not_before and timezone.now() < job.next_step_not_before:
+            step_started_at = job.last_step_started_at or job.heartbeat_at
+            step_is_stale = bool(step_started_at and step_started_at <= now - STEP_LOCK_STALE_AFTER)
+            if not step_is_stale:
+                moderation, rejected = _lead_queue_payload()
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "job": _job_payload(parser_dashboard_job(job_id=job_id)),
+                        "counters": _counters_payload(),
+                        "moderation": moderation,
+                        "rejected": rejected,
+                        "usage": _usage_payload(),
+                    }
+                )
+        if job.next_step_not_before and now < job.next_step_not_before:
             moderation, rejected = _lead_queue_payload()
             return JsonResponse(
                 {
