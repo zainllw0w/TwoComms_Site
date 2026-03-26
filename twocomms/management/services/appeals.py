@@ -5,11 +5,12 @@ from datetime import timedelta
 from django.utils import timezone
 
 from management.models import ScoreAppeal, SupervisorActionLog
+from management.services.analytics_v7 import sync_score_amendment_for_appeal
 
 
 def create_score_appeal(*, owner, snapshot, reason: str, evidence_payload: dict | None = None, reason_code: str = "", appeal_type: str = "score") -> ScoreAppeal:
     opened_at = timezone.now()
-    return ScoreAppeal.objects.create(
+    appeal = ScoreAppeal.objects.create(
         owner=owner,
         snapshot=snapshot,
         appeal_type=appeal_type,
@@ -21,12 +22,15 @@ def create_score_appeal(*, owner, snapshot, reason: str, evidence_payload: dict 
         opened_at=opened_at,
         due_at=opened_at + timedelta(hours=48),
     )
+    sync_score_amendment_for_appeal(appeal=appeal)
+    return appeal
 
 
 def resolve_score_appeal(*, appeal: ScoreAppeal, status: str, resolution_note: str, resolved_by=None) -> ScoreAppeal:
     appeal.mark_resolved(status, resolution_note)
     appeal.resolved_by = resolved_by
     appeal.save(update_fields=["resolved_by"])
+    sync_score_amendment_for_appeal(appeal=appeal, status=status, resolution_note=resolution_note)
     if resolved_by:
         SupervisorActionLog.objects.create(
             manager=appeal.owner,

@@ -11,6 +11,8 @@
 
   const page = document.getElementById('stats-page');
   const dismissUrl = page?.dataset?.dismissUrl || '';
+  const shadowUrl = page?.dataset?.shadowUrl || '';
+  let lastShadowOpener = null;
 
   const getCookie = (name) => {
     if (!document.cookie) return '';
@@ -295,6 +297,45 @@
       .replaceAll('_', ' ')
       .replace(/\b\w/g, (m) => m.toUpperCase());
 
+  const getVisibleShadowDrawer = () =>
+    Array.from(document.querySelectorAll('.shadow-drawer')).find((node) => !node.hidden) || null;
+
+  const getFocusableWithin = (root) =>
+    Array.from(
+      root?.querySelectorAll?.(
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ) || []
+    ).filter((node) => !node.hidden && node.offsetParent !== null);
+
+  const updateAppealSummary = (appeals) => {
+    const openEl = document.getElementById('shadow-appeals-open');
+    const totalEl = document.getElementById('shadow-appeals-total');
+    const latestEl = document.getElementById('shadow-appeals-latest');
+    const dueEl = document.getElementById('shadow-appeals-due');
+    if (openEl) openEl.textContent = String(appeals?.open ?? 0);
+    if (totalEl) totalEl.textContent = String(appeals?.total ?? 0);
+    if (latestEl) latestEl.textContent = appeals?.latest_status || '—';
+    if (dueEl) dueEl.textContent = appeals?.nearest_due_at || '—';
+  };
+
+  const refreshShadowSummary = async () => {
+    if (!shadowUrl) return;
+    const url = new URL(shadowUrl, window.location.origin);
+    const currentParams = new URLSearchParams(window.location.search || '');
+    currentParams.forEach((value, key) => {
+      if (!url.searchParams.has(key)) url.searchParams.set(key, value);
+    });
+    const res = await fetch(url.toString(), {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(payload?.error || 'Не вдалося оновити стан апеляцій.');
+    }
+    updateAppealSummary(payload?.appeals || {});
+  };
+
   const renderShadowRadar = () => {
     const mount = document.getElementById('shadow-radar');
     if (!mount) return;
@@ -391,19 +432,30 @@
   const closeShadowDrawers = () => {
     document.querySelectorAll('.shadow-drawer').forEach((node) => {
       node.hidden = true;
+      node.setAttribute('aria-hidden', 'true');
     });
     setShadowDrawerState(false);
+    if (lastShadowOpener && typeof lastShadowOpener.focus === 'function') {
+      lastShadowOpener.focus();
+    }
   };
 
-  const openShadowDrawer = (kind) => {
+  const openShadowDrawer = (kind, triggerEl = null) => {
     const map = {
       decomposition: document.getElementById('shadow-decomposition-drawer'),
       appeal: document.getElementById('shadow-appeal-drawer'),
     };
     closeShadowDrawers();
     if (map[kind]) {
+      lastShadowOpener = triggerEl || document.activeElement;
       map[kind].hidden = false;
+      map[kind].setAttribute('aria-hidden', 'false');
       setShadowDrawerState(true);
+      const panel = map[kind].querySelector('.shadow-drawer__panel');
+      if (panel) {
+        const focusable = getFocusableWithin(panel);
+        (focusable[0] || panel).focus();
+      }
     }
   };
 
@@ -411,11 +463,11 @@
     const statusEl = document.getElementById('shadow-appeal-status');
     const token = csrfToken();
     if (!token) {
-      if (statusEl) statusEl.textContent = 'CSRF token is unavailable.';
+      if (statusEl) statusEl.textContent = 'CSRF token недоступний.';
       return;
     }
     const payload = new URLSearchParams(new FormData(form));
-    if (statusEl) statusEl.textContent = 'Submitting appeal...';
+    if (statusEl) statusEl.textContent = 'Надсилання апеляції...';
     try {
       const res = await fetch(form.dataset.url || '', {
         method: 'POST',
@@ -429,15 +481,16 @@
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok || !result?.success) {
-        throw new Error(result?.error || 'Failed to submit appeal.');
+        throw new Error(result?.error || 'Не вдалося надіслати апеляцію.');
       }
-      if (statusEl) statusEl.textContent = `Appeal #${result.appeal?.id || ''} submitted.`;
+      await refreshShadowSummary();
+      if (statusEl) statusEl.textContent = `Апеляцію #${result.appeal?.id || ''} створено. Стан оновлено.`;
       form.reset();
       setTimeout(() => {
         closeShadowDrawers();
       }, 900);
     } catch (err) {
-      if (statusEl) statusEl.textContent = err?.message || 'Failed to submit appeal.';
+      if (statusEl) statusEl.textContent = err?.message || 'Не вдалося надіслати апеляцію.';
     }
   };
 
@@ -484,7 +537,7 @@
 
     const shadowOpenBtn = e.target.closest?.('[data-shadow-open]');
     if (shadowOpenBtn) {
-      openShadowDrawer(shadowOpenBtn.dataset.shadowOpen || '');
+      openShadowDrawer(shadowOpenBtn.dataset.shadowOpen || '', shadowOpenBtn);
       return;
     }
 
@@ -501,7 +554,25 @@
   });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeShadowDrawers();
+    if (e.key === 'Escape') {
+      closeShadowDrawers();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    const activeDrawer = getVisibleShadowDrawer();
+    if (!activeDrawer) return;
+    const panel = activeDrawer.querySelector('.shadow-drawer__panel');
+    const focusable = getFocusableWithin(panel);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
   });
 
   // Kickoff

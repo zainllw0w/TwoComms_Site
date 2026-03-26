@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import (
+    ClientStageEvent,
     CommandRunLog,
     ClientFollowUp,
     CallQAReview,
@@ -8,22 +9,41 @@ from .models import (
     ComponentReadiness,
     DtfBridgeSnapshot,
     DuplicateReview,
+    FollowUpEvent,
     LeadParsingJob,
     LeadParsingQueryState,
     LeadParsingResult,
     LeadParsingRuntimeLock,
     ManagementDailyActivity,
     ManagementLead,
+    ManagerDayFact,
     ManagerDayStatus,
     ManagementStatsAdviceDismissal,
     ManagementStatsConfig,
     NightlyScoreSnapshot,
     OwnershipChangeLog,
+    ReasonSignal,
     ScoreAppeal,
+    ScoreAmendment,
     SupervisorActionLog,
     TelephonyHealthSnapshot,
     TelephonyWebhookLog,
+    VerifiedWorkEvent,
+    WorkingCalendarAssignment,
+    WorkingCalendarException,
+    WorkingCalendarProfile,
 )
+
+
+class ReadOnlyAdminMixin:
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_readonly_fields(self, request, obj=None):
+        return [field.name for field in self.model._meta.fields]
 
 
 @admin.register(ManagementStatsConfig)
@@ -53,7 +73,7 @@ class ManagerDayStatusAdmin(admin.ModelAdmin):
 
 
 @admin.register(NightlyScoreSnapshot)
-class NightlyScoreSnapshotAdmin(admin.ModelAdmin):
+class NightlyScoreSnapshotAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
     list_display = ("owner", "snapshot_date", "mosaic_score", "score_confidence", "formula_version", "defaults_version")
     list_filter = ("formula_version", "defaults_version", "snapshot_date")
     search_fields = ("owner__username",)
@@ -115,7 +135,7 @@ class SupervisorActionLogAdmin(admin.ModelAdmin):
 
 
 @admin.register(DtfBridgeSnapshot)
-class DtfBridgeSnapshotAdmin(admin.ModelAdmin):
+class DtfBridgeSnapshotAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
     list_display = ("source_key", "snapshot_date", "status", "freshness_seconds", "updated_at")
     list_filter = ("source_key", "status")
     search_fields = ("source_key",)
@@ -129,10 +149,73 @@ class ManagementDailyActivityAdmin(admin.ModelAdmin):
 
 
 @admin.register(ClientFollowUp)
-class ClientFollowUpAdmin(admin.ModelAdmin):
-    list_display = ("owner", "client", "due_at", "status", "scheduled_at", "closed_at")
-    list_filter = ("status", "due_date")
+class ClientFollowUpAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
+    list_display = ("owner", "client", "due_at", "status", "followup_kind", "scheduled_at", "closed_at")
+    list_filter = ("status", "followup_kind", "due_date")
     search_fields = ("owner__username", "client__shop_name", "client__phone")
+
+
+@admin.register(FollowUpEvent)
+class FollowUpEventAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
+    list_display = ("owner", "followup", "event_type", "followup_kind", "occurred_at", "source")
+    list_filter = ("event_type", "followup_kind", "source")
+    search_fields = ("event_key", "owner__username", "client__shop_name", "client__phone")
+
+
+@admin.register(ClientStageEvent)
+class ClientStageEventAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
+    list_display = ("owner", "client", "stage_code", "phase_number", "result_code", "occurred_at")
+    list_filter = ("stage_code", "phase_number", "result_code")
+    search_fields = ("event_key", "owner__username", "client__shop_name", "client__phone")
+
+
+@admin.register(ReasonSignal)
+class ReasonSignalAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
+    list_display = ("owner", "client", "reason_code", "quality_label", "captured_at")
+    list_filter = ("quality_label", "reason_code")
+    search_fields = ("event_key", "owner__username", "client__shop_name", "client__phone")
+
+
+@admin.register(VerifiedWorkEvent)
+class VerifiedWorkEventAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
+    list_display = ("owner", "client", "verification_level", "evidence_kind", "verified_at")
+    list_filter = ("verification_level", "evidence_kind")
+    search_fields = ("event_key", "owner__username", "client__shop_name", "client__phone")
+
+
+@admin.register(ManagerDayFact)
+class ManagerDayFactAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
+    list_display = ("owner", "day", "fact_key", "day_status", "interactions_total", "followups_overdue", "materialized_at")
+    list_filter = ("fact_key", "day_status", "day")
+    search_fields = ("owner__username",)
+
+
+@admin.register(ScoreAmendment)
+class ScoreAmendmentAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
+    list_display = ("owner", "effective_date", "status", "delta_score", "updated_at")
+    list_filter = ("status", "effective_date")
+    search_fields = ("event_key", "owner__username", "reason")
+
+
+@admin.register(WorkingCalendarProfile)
+class WorkingCalendarProfileAdmin(admin.ModelAdmin):
+    list_display = ("name", "owner", "timezone_name", "is_active", "updated_at")
+    list_filter = ("is_active", "timezone_name")
+    search_fields = ("name", "owner__username")
+
+
+@admin.register(WorkingCalendarAssignment)
+class WorkingCalendarAssignmentAdmin(admin.ModelAdmin):
+    list_display = ("owner", "profile", "effective_from", "effective_to", "priority", "updated_at")
+    list_filter = ("effective_from", "effective_to")
+    search_fields = ("owner__username", "profile__name")
+
+
+@admin.register(WorkingCalendarException)
+class WorkingCalendarExceptionAdmin(admin.ModelAdmin):
+    list_display = ("profile", "owner", "day", "status", "capacity_factor", "updated_at")
+    list_filter = ("status", "day")
+    search_fields = ("profile__name", "owner__username", "source_reason")
 
 
 @admin.register(ManagementStatsAdviceDismissal)

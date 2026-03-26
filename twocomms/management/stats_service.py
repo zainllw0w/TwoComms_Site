@@ -522,6 +522,7 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
     appeals_summary = summarize_appeals(snapshot)
     surface_state = "PARTIAL" if is_partial else ("STALE" if is_stale else rollout_state.upper())
     top_drivers = [normalize_shadow_phrase(item) for item in (_nested_get(latest_payload, "advice_context", "top_drivers", default=[]) or [])]
+    v7_payload = latest_payload.get("v7") or {}
 
     payload = {
         "snapshot_id": snapshot.id,
@@ -576,6 +577,7 @@ def _shadow_score_payload(*, user, range_current: StatsRange) -> dict[str, Any]:
         "appeals": appeals_summary,
         "rollout_state": rollout_state,
         "feature_flags": feature_flags,
+        "v7": v7_payload,
     }
     earned_day = payload.get("dmt_earned_day") or {}
     if earned_day.get("target_pace_achieved"):

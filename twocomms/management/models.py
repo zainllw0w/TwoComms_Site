@@ -1101,6 +1101,12 @@ class ManagementDailyActivity(models.Model):
 
 
 class ClientFollowUp(models.Model):
+    class Kind(models.TextChoices):
+        CALLBACK = "callback", _("Передзвон")
+        PROMISE = "promise", _("Обіцянка / очікування")
+        NURTURE = "nurture", _("Догрів / продовження контакту")
+        OTHER = "other", _("Інше")
+
     class Status(models.TextChoices):
         OPEN = "open", _("Відкрито")
         DONE = "done", _("Виконано")
@@ -1126,10 +1132,23 @@ class ClientFollowUp(models.Model):
     due_date = models.DateField(db_index=True, verbose_name=_("Дата (локальна)"))
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN, db_index=True)
+    followup_kind = models.CharField(max_length=24, choices=Kind.choices, default=Kind.CALLBACK, db_index=True)
+    close_reason = models.CharField(max_length=64, blank=True, db_index=True, verbose_name=_("Причина закриття"))
+    completion_quality = models.CharField(max_length=32, blank=True, db_index=True, verbose_name=_("Якість виконання"))
     closed_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Закрито"))
     grace_until = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name=_("Пільгове вікно до"))
     last_notified_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name=_("Останнє нагадування"))
     escalation_level = models.PositiveSmallIntegerField(default=0, db_index=True, verbose_name=_("Рівень ескалації"))
+    reschedule_count = models.PositiveSmallIntegerField(default=0, verbose_name=_("Кількість переносів"))
+    priority_snapshot = models.JSONField(default=dict, blank=True, verbose_name=_("Знімок пріоритету"))
+    source_interaction = models.ForeignKey(
+        "management.ClientInteractionAttempt",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="spawned_followups",
+        verbose_name=_("Початкова взаємодія"),
+    )
     closed_by_report = models.ForeignKey(
         Report,
         on_delete=models.SET_NULL,
@@ -1471,6 +1490,9 @@ class ManagerDayStatus(models.Model):
         value = max(Decimal("0.00"), min(Decimal("1.00"), value))
         self.capacity_factor = value
         super().save(*args, **kwargs)
+        from management.services.analytics_v7 import sync_manager_day_status_fact
+
+        sync_manager_day_status_fact(self)
 
     def __str__(self):
         return f"{self.owner_id}:{self.day} {self.status}"
@@ -2054,3 +2076,385 @@ class DtfBridgeSnapshot(models.Model):
 
     def __str__(self):
         return f"{self.source_key}:{self.snapshot_date}"
+
+
+class WorkingCalendarProfile(models.Model):
+    name = models.CharField(max_length=120, verbose_name=_("Назва профілю"))
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_working_calendar_profiles",
+        null=True,
+        blank=True,
+        verbose_name=_("Менеджер"),
+    )
+    timezone_name = models.CharField(max_length=64, default="Europe/Kyiv", verbose_name=_("Таймзона"))
+    weekly_template = models.JSONField(default=dict, blank=True, verbose_name=_("Тижневий шаблон"))
+    capacity_template = models.JSONField(default=dict, blank=True, verbose_name=_("Шаблон доступності"))
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name=_("Активний"))
+    meta = models.JSONField(default=dict, blank=True, verbose_name=_("Мета"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Профіль робочого календаря")
+        verbose_name_plural = _("Профілі робочого календаря")
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return self.name
+
+
+class WorkingCalendarAssignment(models.Model):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_working_calendar_assignments",
+        verbose_name=_("Менеджер"),
+    )
+    profile = models.ForeignKey(
+        WorkingCalendarProfile,
+        on_delete=models.CASCADE,
+        related_name="assignments",
+        verbose_name=_("Профіль"),
+    )
+    effective_from = models.DateField(db_index=True, verbose_name=_("Діє з"))
+    effective_to = models.DateField(null=True, blank=True, db_index=True, verbose_name=_("Діє до"))
+    priority = models.PositiveSmallIntegerField(default=100, verbose_name=_("Пріоритет"))
+    meta = models.JSONField(default=dict, blank=True, verbose_name=_("Мета"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Призначення робочого календаря")
+        verbose_name_plural = _("Призначення робочих календарів")
+        ordering = ["owner_id", "-effective_from", "-priority"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "profile", "effective_from"],
+                name="mgmt_workcal_assign_unique",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.owner_id}:{self.profile_id}@{self.effective_from}"
+
+
+class WorkingCalendarException(models.Model):
+    profile = models.ForeignKey(
+        WorkingCalendarProfile,
+        on_delete=models.CASCADE,
+        related_name="exceptions",
+        verbose_name=_("Профіль"),
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_working_calendar_exceptions",
+        null=True,
+        blank=True,
+        verbose_name=_("Менеджер"),
+    )
+    day = models.DateField(db_index=True, verbose_name=_("День"))
+    status = models.CharField(max_length=32, choices=ManagerDayStatus.Status.choices, default=ManagerDayStatus.Status.WORKING, db_index=True)
+    capacity_factor = models.DecimalField(max_digits=4, decimal_places=2, default=Decimal("1.00"), verbose_name=_("Фактор доступності"))
+    source_reason = models.CharField(max_length=255, blank=True, verbose_name=_("Причина / джерело"))
+    meta = models.JSONField(default=dict, blank=True, verbose_name=_("Мета"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Виняток робочого календаря")
+        verbose_name_plural = _("Винятки робочого календаря")
+        ordering = ["-day", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["profile", "owner", "day"],
+                name="mgmt_workcal_exception_unique",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.profile_id}:{self.day}"
+
+
+class FollowUpEvent(models.Model):
+    class EventType(models.TextChoices):
+        OPENED = "opened", _("Відкрито")
+        CLOSED = "closed", _("Закрито")
+        NOTIFIED = "notified", _("Нагадування відправлено")
+        AMENDED = "amended", _("Скориговано")
+
+    event_key = models.CharField(max_length=128, unique=True, verbose_name=_("Ключ події"))
+    followup = models.ForeignKey(
+        ClientFollowUp,
+        on_delete=models.CASCADE,
+        related_name="events",
+        verbose_name=_("Follow-up"),
+    )
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="followup_events",
+        verbose_name=_("Клієнт"),
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_followup_events",
+        verbose_name=_("Менеджер"),
+    )
+    source_interaction = models.ForeignKey(
+        "management.ClientInteractionAttempt",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="followup_events",
+        verbose_name=_("Джерело взаємодії"),
+    )
+    event_type = models.CharField(max_length=24, choices=EventType.choices, db_index=True, verbose_name=_("Тип події"))
+    followup_kind = models.CharField(max_length=24, choices=ClientFollowUp.Kind.choices, default=ClientFollowUp.Kind.CALLBACK, db_index=True)
+    status_before = models.CharField(max_length=20, blank=True, verbose_name=_("Статус до"))
+    status_after = models.CharField(max_length=20, blank=True, verbose_name=_("Статус після"))
+    close_reason = models.CharField(max_length=64, blank=True, db_index=True, verbose_name=_("Причина закриття"))
+    completion_quality = models.CharField(max_length=32, blank=True, verbose_name=_("Якість виконання"))
+    due_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name=_("Due at"))
+    due_date = models.DateField(null=True, blank=True, db_index=True, verbose_name=_("Due date"))
+    occurred_at = models.DateTimeField(db_index=True, verbose_name=_("Коли"))
+    source = models.CharField(max_length=64, default="runtime", db_index=True, verbose_name=_("Джерело"))
+    priority_snapshot = models.JSONField(default=dict, blank=True, verbose_name=_("Знімок пріоритету"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Подія follow-up")
+        verbose_name_plural = _("Події follow-up")
+        ordering = ["-occurred_at", "-id"]
+        indexes = [
+            models.Index(fields=["owner", "due_date", "event_type"], name="mgmt_fuevent_owner_dt"),
+            models.Index(fields=["followup", "-occurred_at"], name="mgmt_fuevent_fu_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.followup_id}:{self.event_type}"
+
+
+class ClientStageEvent(models.Model):
+    event_key = models.CharField(max_length=128, unique=True, verbose_name=_("Ключ події"))
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="stage_events",
+        verbose_name=_("Клієнт"),
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_stage_events",
+        verbose_name=_("Менеджер"),
+    )
+    interaction = models.ForeignKey(
+        "management.ClientInteractionAttempt",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stage_events",
+        verbose_name=_("Взаємодія"),
+    )
+    stage_code = models.CharField(max_length=64, db_index=True, verbose_name=_("Код стадії"))
+    phase_number = models.PositiveIntegerField(default=1, db_index=True, verbose_name=_("Номер фази"))
+    result_code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name=_("Результат"))
+    occurred_at = models.DateTimeField(db_index=True, verbose_name=_("Коли"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Подія стадії клієнта")
+        verbose_name_plural = _("Події стадій клієнта")
+        ordering = ["-occurred_at", "-id"]
+        indexes = [
+            models.Index(fields=["owner", "stage_code", "-occurred_at"], name="mgmt_stage_owner_code"),
+            models.Index(fields=["client", "-occurred_at"], name="mgmt_stage_client_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.client_id}:{self.stage_code}"
+
+
+class ReasonSignal(models.Model):
+    event_key = models.CharField(max_length=128, unique=True, verbose_name=_("Ключ сигналу"))
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="reason_signals",
+        verbose_name=_("Клієнт"),
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_reason_signals",
+        verbose_name=_("Менеджер"),
+    )
+    interaction = models.ForeignKey(
+        "management.ClientInteractionAttempt",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reason_signals",
+        verbose_name=_("Взаємодія"),
+    )
+    result_code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name=_("Результат"))
+    reason_code = models.CharField(max_length=64, blank=True, db_index=True, verbose_name=_("Код причини"))
+    quality_label = models.CharField(max_length=32, blank=True, db_index=True, verbose_name=_("Якість сигналу"))
+    captured_at = models.DateTimeField(db_index=True, verbose_name=_("Коли"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Сигнал причини")
+        verbose_name_plural = _("Сигнали причин")
+        ordering = ["-captured_at", "-id"]
+        indexes = [
+            models.Index(fields=["owner", "reason_code", "-captured_at"], name="mgmt_reason_owner_code"),
+            models.Index(fields=["client", "-captured_at"], name="mgmt_reason_client_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.client_id}:{self.reason_code or 'n/a'}"
+
+
+class VerifiedWorkEvent(models.Model):
+    event_key = models.CharField(max_length=128, unique=True, verbose_name=_("Ключ верифікації"))
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="verified_work_events",
+        verbose_name=_("Клієнт"),
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_verified_work_events",
+        verbose_name=_("Менеджер"),
+    )
+    interaction = models.ForeignKey(
+        "management.ClientInteractionAttempt",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="verified_work_events",
+        verbose_name=_("Взаємодія"),
+    )
+    verification_level = models.CharField(max_length=32, choices=ClientInteractionAttempt.VerificationLevel.choices, db_index=True, verbose_name=_("Рівень верифікації"))
+    evidence_kind = models.CharField(max_length=64, blank=True, db_index=True, verbose_name=_("Тип доказу"))
+    verified_at = models.DateTimeField(db_index=True, verbose_name=_("Коли"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Подія підтвердженої роботи")
+        verbose_name_plural = _("Події підтвердженої роботи")
+        ordering = ["-verified_at", "-id"]
+        indexes = [
+            models.Index(fields=["owner", "verification_level", "-verified_at"], name="mgmt_vwork_owner_lvl"),
+            models.Index(fields=["client", "-verified_at"], name="mgmt_vwork_client_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.client_id}:{self.verification_level}"
+
+
+class ManagerDayFact(models.Model):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_day_facts",
+        verbose_name=_("Менеджер"),
+    )
+    day = models.DateField(db_index=True, verbose_name=_("День"))
+    fact_key = models.CharField(max_length=64, default="daily_shadow_v7", verbose_name=_("Ключ факту"))
+    schema_version = models.CharField(max_length=32, default="v7", verbose_name=_("Версія схеми"))
+    day_status = models.CharField(max_length=32, choices=ManagerDayStatus.Status.choices, default=ManagerDayStatus.Status.WORKING, db_index=True)
+    capacity_factor = models.DecimalField(max_digits=4, decimal_places=2, default=Decimal("1.00"), verbose_name=_("Фактор доступності"))
+    interactions_total = models.PositiveIntegerField(default=0, verbose_name=_("Всього взаємодій"))
+    verified_interactions = models.PositiveIntegerField(default=0, verbose_name=_("Верифіковані взаємодії"))
+    reason_signals_total = models.PositiveIntegerField(default=0, verbose_name=_("Сигнали причин"))
+    followups_opened = models.PositiveIntegerField(default=0, verbose_name=_("Відкриті follow-up"))
+    followups_closed = models.PositiveIntegerField(default=0, verbose_name=_("Закриті follow-up"))
+    followups_completed = models.PositiveIntegerField(default=0, verbose_name=_("Виконані follow-up"))
+    followups_overdue = models.PositiveIntegerField(default=0, verbose_name=_("Прострочені follow-up"))
+    open_promises = models.PositiveIntegerField(default=0, verbose_name=_("Відкриті promise"))
+    open_nurtures = models.PositiveIntegerField(default=0, verbose_name=_("Відкриті nurture"))
+    freshness_seconds = models.PositiveIntegerField(default=0, verbose_name=_("Freshness, сек"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    materialized_at = models.DateTimeField(auto_now=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Денний факт менеджера")
+        verbose_name_plural = _("Денні факти менеджера")
+        ordering = ["-day", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["owner", "day", "fact_key"], name="mgmt_day_fact_unique"),
+        ]
+        indexes = [
+            models.Index(fields=["owner", "-day"], name="mgmt_day_fact_owner_dt"),
+            models.Index(fields=["fact_key", "-day"], name="mgmt_day_fact_key_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.owner_id}:{self.day}:{self.fact_key}"
+
+
+class ScoreAmendment(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Очікує")
+        APPLIED = "applied", _("Застосовано")
+        REJECTED = "rejected", _("Відхилено")
+
+    event_key = models.CharField(max_length=128, unique=True, verbose_name=_("Ключ поправки"))
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_score_amendments",
+        verbose_name=_("Менеджер"),
+    )
+    effective_date = models.DateField(db_index=True, verbose_name=_("Дата дії"))
+    fact = models.ForeignKey(
+        ManagerDayFact,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="score_amendments",
+        verbose_name=_("Факт дня"),
+    )
+    appeal = models.ForeignKey(
+        ScoreAppeal,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="score_amendments",
+        verbose_name=_("Апеляція"),
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+    delta_score = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), verbose_name=_("Зміна score"))
+    reason = models.TextField(blank=True, verbose_name=_("Причина"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Поправка до score")
+        verbose_name_plural = _("Поправки до score")
+        ordering = ["-effective_date", "-id"]
+        indexes = [
+            models.Index(fields=["owner", "-effective_date"], name="mgmt_score_am_owner_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.owner_id}:{self.effective_date}:{self.delta_score}"

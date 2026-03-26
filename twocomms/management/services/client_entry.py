@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -13,6 +14,7 @@ from management.models import (
     DuplicateReview,
     Shop,
 )
+from management.services.analytics_v7 import record_interaction_analytics
 
 
 MESSENGER_TYPE_LABELS = {
@@ -240,39 +242,41 @@ def record_client_interaction(
     evidence: dict[str, Any],
     duplicate_review: DuplicateReview | None = None,
 ) -> ClientInteractionAttempt:
-    interaction = ClientInteractionAttempt.objects.create(
-        client=client,
-        manager=manager,
-        result=call_result,
-        reason_code=result_capture.get("reason_code") or "",
-        reason_note=result_capture.get("reason_note") or "",
-        context=result_capture.get("context") or {},
-        details=result_capture.get("details") or "",
-        next_call_at=next_call_at,
-        verification_level=evidence.get("verification_level") or ClientInteractionAttempt.VerificationLevel.SELF_REPORTED,
-        linked_shop=evidence.get("linked_shop"),
-        cp_log=evidence.get("cp_log"),
-        duplicate_review=duplicate_review,
-        duplicate_override_reason=evidence.get("duplicate_override_reason") or "",
-        messenger_type=evidence.get("messenger_type") or "",
-        messenger_target_mode=evidence.get("messenger_target_mode") or "",
-        messenger_target_value=evidence.get("messenger_target_value") or "",
-        xml_platform=evidence.get("xml_platform") or "",
-        xml_resource_url=evidence.get("xml_resource_url") or "",
-    )
-    if evidence.get("cp_log"):
-        cp_link, created = ClientCPLink.objects.get_or_create(
+    with transaction.atomic():
+        interaction = ClientInteractionAttempt.objects.create(
             client=client,
-            cp_log=evidence["cp_log"],
-            defaults={
-                "linked_by": manager,
-                "interaction": interaction,
-            },
+            manager=manager,
+            result=call_result,
+            reason_code=result_capture.get("reason_code") or "",
+            reason_note=result_capture.get("reason_note") or "",
+            context=result_capture.get("context") or {},
+            details=result_capture.get("details") or "",
+            next_call_at=next_call_at,
+            verification_level=evidence.get("verification_level") or ClientInteractionAttempt.VerificationLevel.SELF_REPORTED,
+            linked_shop=evidence.get("linked_shop"),
+            cp_log=evidence.get("cp_log"),
+            duplicate_review=duplicate_review,
+            duplicate_override_reason=evidence.get("duplicate_override_reason") or "",
+            messenger_type=evidence.get("messenger_type") or "",
+            messenger_target_mode=evidence.get("messenger_target_mode") or "",
+            messenger_target_value=evidence.get("messenger_target_value") or "",
+            xml_platform=evidence.get("xml_platform") or "",
+            xml_resource_url=evidence.get("xml_resource_url") or "",
         )
-        if not created and cp_link.interaction_id is None:
-            cp_link.interaction = interaction
-            cp_link.linked_by = cp_link.linked_by or manager
-            cp_link.save(update_fields=["interaction", "linked_by"])
+        if evidence.get("cp_log"):
+            cp_link, created = ClientCPLink.objects.get_or_create(
+                client=client,
+                cp_log=evidence["cp_log"],
+                defaults={
+                    "linked_by": manager,
+                    "interaction": interaction,
+                },
+            )
+            if not created and cp_link.interaction_id is None:
+                cp_link.interaction = interaction
+                cp_link.linked_by = cp_link.linked_by or manager
+                cp_link.save(update_fields=["interaction", "linked_by"])
+        record_interaction_analytics(interaction)
     return interaction
 
 

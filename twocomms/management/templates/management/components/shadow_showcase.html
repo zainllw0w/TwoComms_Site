@@ -141,11 +141,11 @@
           </div>
           <button type="button" class="btn-primary small" data-shadow-open="appeal">Подати апеляцію</button>
         </div>
-        <div class="shadow-kv-grid">
-          <div><span class="muted">Відкриті апеляції</span><b>{{ stats_payload.shadow_score.appeals.open }}</b></div>
-          <div><span class="muted">Усього апеляцій</span><b>{{ stats_payload.shadow_score.appeals.total }}</b></div>
-          <div><span class="muted">Остання</span><b>{{ stats_payload.shadow_score.appeals.latest_status|default:"—" }}</b></div>
-          <div><span class="muted">Дедлайн</span><b>{{ stats_payload.shadow_score.appeals.nearest_due_at|default:"—" }}</b></div>
+        <div class="shadow-kv-grid" id="shadow-appeal-summary" aria-live="polite">
+          <div><span class="muted">Відкриті апеляції</span><b id="shadow-appeals-open">{{ stats_payload.shadow_score.appeals.open }}</b></div>
+          <div><span class="muted">Усього апеляцій</span><b id="shadow-appeals-total">{{ stats_payload.shadow_score.appeals.total }}</b></div>
+          <div><span class="muted">Остання</span><b id="shadow-appeals-latest">{{ stats_payload.shadow_score.appeals.latest_status|default:"—" }}</b></div>
+          <div><span class="muted">Дедлайн</span><b id="shadow-appeals-due">{{ stats_payload.shadow_score.appeals.nearest_due_at|default:"—" }}</b></div>
         </div>
       </section>
 
