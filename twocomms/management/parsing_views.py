@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import models, transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -30,6 +31,9 @@ from .parser_service import (
 from .services.dedupe import DedupeZone, build_duplicate_conflict_payload, evaluate_duplicate_zone
 from .views import get_manager_bot_username, get_reminders, get_user_stats
 
+MODERATION_PAGE_SIZE_OPTIONS = (10, 25, 50, 100)
+DEFAULT_MODERATION_PAGE_SIZE = 25
+
 
 def _require_admin_json(request):
     if request.user.is_staff:
@@ -37,33 +41,139 @@ def _require_admin_json(request):
     return JsonResponse({"success": False, "error": "Доступ лише для адміністраторів."}, status=403)
 
 
-def _lead_queue_payload(limit=150):
-    moderation = [
-        {
-            "id": lead.id,
-            "shop_name": lead.shop_name,
-            "phone": lead.phone,
-            "full_name": lead.full_name,
-            "role": lead.role,
-            "role_display": lead.get_role_display(),
-            "source": lead.source,
-            "website_url": lead.website_url,
-            "city": lead.city,
-            "keyword": lead.parser_keyword,
-            "query": lead.parser_query,
-            "details": lead.details,
-            "comments": lead.comments,
-            "niche_status": lead.niche_status,
-            "niche_status_display": lead.get_niche_status_display(),
-            "lead_source": lead.lead_source,
-            "lead_source_display": lead.get_lead_source_display(),
-            "requires_phone_completion": lead.requires_phone_completion,
-            "created_at": timezone.localtime(lead.created_at).strftime("%d.%m.%Y %H:%M"),
-        }
-        for lead in ManagementLead.objects.filter(status=ManagementLead.Status.MODERATION)
+def _normalize_city_filter(raw_value) -> str:
+    return str(raw_value or "").strip()
+
+
+def _parse_positive_int(raw_value, default: int) -> int:
+    try:
+        parsed = int(str(raw_value or "").strip())
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def _sanitize_moderation_page_size(raw_value) -> int:
+    parsed = _parse_positive_int(raw_value, DEFAULT_MODERATION_PAGE_SIZE)
+    return parsed if parsed in MODERATION_PAGE_SIZE_OPTIONS else DEFAULT_MODERATION_PAGE_SIZE
+
+
+def _serialize_moderation_lead(lead: ManagementLead) -> dict:
+    return {
+        "id": lead.id,
+        "shop_name": lead.shop_name,
+        "phone": lead.phone,
+        "full_name": lead.full_name,
+        "role": lead.role,
+        "role_display": lead.get_role_display(),
+        "source": lead.source,
+        "website_url": lead.website_url,
+        "city": lead.city,
+        "keyword": lead.parser_keyword,
+        "query": lead.parser_query,
+        "details": lead.details,
+        "comments": lead.comments,
+        "niche_status": lead.niche_status,
+        "niche_status_display": lead.get_niche_status_display(),
+        "lead_source": lead.lead_source,
+        "lead_source_display": lead.get_lead_source_display(),
+        "requires_phone_completion": lead.requires_phone_completion,
+        "created_at": timezone.localtime(lead.created_at).strftime("%d.%m.%Y %H:%M"),
+    }
+
+
+def _moderation_queryset():
+    return (
+        ManagementLead.objects.filter(status=ManagementLead.Status.MODERATION)
         .select_related("added_by", "moderated_by")
-        .order_by("-created_at")[:limit]
-    ]
+        .order_by("-created_at")
+    )
+
+
+def _moderation_city_counts(base_qs) -> list[dict]:
+    counts = []
+    for row in base_qs.order_by().values("city").annotate(count=models.Count("id")):
+        city = row["city"] or ""
+        item = {
+            "city": city,
+            "count": row["count"],
+        }
+        if not city:
+            item["label"] = "Без міста"
+        counts.append(item)
+    counts.sort(key=lambda item: (item["city"] == "", -item["count"], item.get("label", item["city"]).lower()))
+    return counts
+
+
+def _paginate_queryset(queryset, *, page: int, page_size: int) -> dict:
+    paginator = Paginator(queryset, page_size)
+    if paginator.count == 0:
+        return {
+            "objects": [],
+            "page": 1,
+            "page_size": page_size,
+            "total_items": 0,
+            "total_pages": 0,
+            "start_index": 0,
+            "end_index": 0,
+        }
+    page_number = min(max(1, page), paginator.num_pages)
+    page_obj = paginator.page(page_number)
+    return {
+        "objects": list(page_obj.object_list),
+        "page": page_number,
+        "page_size": page_size,
+        "total_items": paginator.count,
+        "total_pages": paginator.num_pages,
+        "start_index": page_obj.start_index(),
+        "end_index": page_obj.end_index(),
+    }
+
+
+def _moderation_payload(*, page=1, page_size=DEFAULT_MODERATION_PAGE_SIZE, city="") -> dict:
+    city_filter = _normalize_city_filter(city)
+    normalized_page = _parse_positive_int(page, 1)
+    normalized_page_size = _sanitize_moderation_page_size(page_size)
+
+    base_qs = _moderation_queryset()
+    city_counts = _moderation_city_counts(base_qs)
+    filtered_qs = base_qs
+    if city_filter:
+        filtered_qs = filtered_qs.filter(city__iexact=city_filter)
+
+    total_items = base_qs.count()
+    filtered_items = filtered_qs.count()
+    requires_phone_completion = filtered_qs.filter(requires_phone_completion=True).count()
+    page_data = _paginate_queryset(filtered_qs, page=normalized_page, page_size=normalized_page_size)
+
+    return {
+        "items": [_serialize_moderation_lead(lead) for lead in page_data["objects"]],
+        "pagination": {
+            "page": page_data["page"],
+            "page_size": page_data["page_size"],
+            "total_items": page_data["total_items"],
+            "total_pages": page_data["total_pages"],
+            "start_index": page_data["start_index"],
+            "end_index": page_data["end_index"],
+        },
+        "filters": {
+            "city": city_filter,
+            "page_size": normalized_page_size,
+        },
+        "city_counts": city_counts,
+        "stats": {
+            "total_items": total_items,
+            "filtered_items": filtered_items,
+            "selected_city": city_filter,
+            "selected_city_total": filtered_items,
+            "requires_phone_completion": requires_phone_completion,
+        },
+    }
+
+
+def _lead_queue_payload(limit=DEFAULT_MODERATION_PAGE_SIZE):
+    moderation_state = _moderation_payload(page=1, page_size=limit)
+    moderation = moderation_state["items"]
     rejected = [
         {
             "id": lead.id,
@@ -231,6 +341,7 @@ def parsing_dashboard(request):
     )
     active_job = parser_dashboard_job()
     moderation, rejected = _lead_queue_payload()
+    moderation_state = _moderation_payload()
     return render(
         request,
         "management/parsing.html",
@@ -247,6 +358,7 @@ def parsing_dashboard(request):
             "active_job": active_job,
             "active_job_json": _job_payload(active_job),
             "moderation_leads": moderation,
+            "moderation_state_json": moderation_state,
             "rejected_leads": rejected,
             "parser_counters": _counters_payload(),
             "parser_usage": _usage_payload(),
@@ -446,6 +558,20 @@ def parser_status_api(request):
             include_usage=include_usage,
         )
     )
+
+
+@login_required(login_url="management_login")
+@require_GET
+def parser_moderation_api(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    payload = _moderation_payload(
+        page=request.GET.get("page"),
+        page_size=request.GET.get("page_size"),
+        city=request.GET.get("city"),
+    )
+    return JsonResponse({"success": True, **payload})
 
 
 @login_required(login_url="management_login")
