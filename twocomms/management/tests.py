@@ -1215,6 +1215,8 @@ class ParserApiTests(TestCase):
         self.assertIn('id="moderation-page-size"', content)
         self.assertIn('id="moderation-pagination"', content)
         self.assertIn('id="moderation-summary-total"', content)
+        self.assertIn('class="table-shell moderation-table-shell"', content)
+        self.assertIn('site-link-chip moderation-site__chip', content)
         self.assertIn('<details class="offer-card parsing-live-details" id="parser-live-details">', content)
         self.assertNotIn('<details class="offer-card parsing-live-details" id="parser-live-details" open>', content)
 

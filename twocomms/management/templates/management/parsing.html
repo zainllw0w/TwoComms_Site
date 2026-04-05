@@ -430,6 +430,7 @@
     .moderation-shell {
         display: grid;
         gap: 16px;
+        min-width: 0;
     }
 
     .moderation-toolbar {
@@ -445,6 +446,11 @@
         gap: 12px;
         flex-wrap: wrap;
         align-items: end;
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.025);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
     }
 
     .moderation-filters .field {
@@ -456,6 +462,11 @@
         display: grid;
         gap: 4px;
         text-align: right;
+        min-width: min(100%, 260px);
+        padding: 12px 14px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.025);
     }
 
     .moderation-pagination {
@@ -464,6 +475,8 @@
         gap: 12px;
         align-items: center;
         flex-wrap: wrap;
+        padding-top: 14px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .moderation-pagination__pages {
@@ -480,6 +493,212 @@
 
     .moderation-summary-grid {
         grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    }
+
+    .moderation-table-shell {
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    #moderation-table {
+        min-width: 1040px;
+        table-layout: fixed;
+    }
+
+    #moderation-table thead th,
+    #moderation-table tbody td {
+        vertical-align: top;
+    }
+
+    #moderation-table .cell-actions {
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    #moderation-table .cell-phone,
+    #moderation-table .cell-city,
+    #moderation-table .cell-niche {
+        white-space: nowrap;
+    }
+
+    .moderation-shop {
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .moderation-shop__name {
+        font-weight: 700;
+        line-height: 1.3;
+    }
+
+    .moderation-shop__secondary {
+        color: var(--text-secondary);
+        font-size: 0.82rem;
+        line-height: 1.45;
+    }
+
+    .moderation-shop__meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .moderation-inline-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 9px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-secondary);
+        font-size: 0.76rem;
+        line-height: 1;
+        letter-spacing: 0.03em;
+    }
+
+    .moderation-inline-chip--warning {
+        border-color: rgba(245, 158, 11, 0.34);
+        background: rgba(245, 158, 11, 0.12);
+        color: #ffd487;
+    }
+
+    .moderation-inline-chip--ghost {
+        color: var(--muted);
+    }
+
+    .moderation-phone {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .moderation-phone__value {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .moderation-phone__hint {
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.45;
+        white-space: normal;
+    }
+
+    .moderation-site {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .moderation-site__chip {
+        width: fit-content;
+        max-width: 100%;
+    }
+
+    .moderation-site__chip .site-link-chip__text {
+        max-width: 18ch;
+    }
+
+    .moderation-site__meta,
+    .moderation-site__plain {
+        display: block;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.4;
+    }
+
+    .moderation-city {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        color: var(--text-primary);
+    }
+
+    .moderation-keyword {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--text-secondary);
+    }
+
+    .moderation-niche-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 34px;
+        padding: 7px 11px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-secondary);
+        font-size: 0.82rem;
+        font-weight: 700;
+        line-height: 1;
+        text-align: center;
+    }
+
+    .moderation-niche-badge--niche {
+        border-color: rgba(16, 185, 129, 0.35);
+        background: rgba(16, 185, 129, 0.14);
+        color: #9af0cb;
+    }
+
+    .moderation-niche-badge--maybe {
+        border-color: rgba(245, 158, 11, 0.34);
+        background: rgba(245, 158, 11, 0.14);
+        color: #ffd487;
+    }
+
+    .moderation-niche-badge--non_niche {
+        border-color: rgba(239, 68, 68, 0.32);
+        background: rgba(239, 68, 68, 0.12);
+        color: #ffb1b1;
+    }
+
+    .moderation-action-btn {
+        min-width: 118px;
+        justify-content: center;
+    }
+
+    .parsing-panel details.offer-card {
+        overflow: hidden;
+    }
+
+    .parsing-panel details.offer-card > summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        cursor: pointer;
+        list-style: none;
+    }
+
+    .parsing-panel details.offer-card > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .parsing-panel details.offer-card > summary::after {
+        content: "›";
+        flex: 0 0 auto;
+        color: var(--muted);
+        font-size: 1.3rem;
+        line-height: 1;
+        transform: none;
+        transition: transform 0.18s ease, color 0.18s ease;
+    }
+
+    .parsing-panel details.offer-card[open] > summary::after {
+        color: var(--accent);
+        transform: rotate(90deg);
     }
 
     .parsing-live-details {
@@ -542,6 +761,15 @@
 
         .moderation-meta {
             text-align: left;
+        }
+
+        .moderation-toolbar,
+        .moderation-pagination {
+            align-items: stretch;
+        }
+
+        .moderation-meta {
+            min-width: 100%;
         }
     }
 </style>
@@ -790,8 +1018,17 @@
                     <span id="moderation-total-info">Всього в модерації: 0</span>
                 </div>
             </div>
-            <div class="table-shell">
+            <div class="table-shell moderation-table-shell">
                 <table class="nexus-table" id="moderation-table">
+                    <colgroup>
+                        <col style="width: 22%;">
+                        <col style="width: 14%;">
+                        <col style="width: 21%;">
+                        <col style="width: 12%;">
+                        <col style="width: 14%;">
+                        <col style="width: 11%;">
+                        <col style="width: 120px;">
+                    </colgroup>
                     <thead>
                     <tr>
                         <th>Магазин</th>
@@ -1059,6 +1296,13 @@ function initParsingPage() {
         return normalized || fallback;
     };
 
+    const truncateMiddle = (value, maxLength = 42) => {
+        const normalized = String(value || '').trim();
+        if (!normalized || normalized.length <= maxLength) return normalized;
+        const edgeLength = Math.max(6, Math.floor((maxLength - 1) / 2));
+        return `${normalized.slice(0, edgeLength)}…${normalized.slice(-edgeLength)}`;
+    };
+
     const sanitizeExternalUrl = (value) => {
         const normalized = String(value || '').trim();
         if (!normalized || !/^https?:\/\//i.test(normalized)) return '';
@@ -1075,8 +1319,27 @@ function initParsingPage() {
         const normalized = String(value || '').trim();
         if (!normalized) return '—';
         const safeHref = sanitizeExternalUrl(normalized);
-        if (!safeHref) return escapeHtml(normalized);
-        return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${escapeHtml(normalized)}</a>`;
+        if (!safeHref) {
+            return `<span class="moderation-site__plain" title="${escapeHtml(normalized)}">${escapeHtml(truncateMiddle(normalized, 38))}</span>`;
+        }
+        let hostname = 'Сайт';
+        let compactUrl = normalized.replace(/^https?:\/\//i, '');
+        try {
+            const parsedUrl = new URL(safeHref);
+            hostname = parsedUrl.hostname.replace(/^www\./i, '') || hostname;
+            compactUrl = `${parsedUrl.hostname.replace(/^www\./i, '')}${parsedUrl.pathname || ''}${parsedUrl.search || ''}`;
+        } catch (err) {
+            hostname = truncateMiddle(compactUrl, 24) || hostname;
+        }
+        return `
+            <div class="moderation-site">
+                <a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer" class="site-link-chip moderation-site__chip" title="${escapeHtml(normalized)}">
+                    <span class="site-link-chip__icon" aria-hidden="true">↗</span>
+                    <span class="site-link-chip__text">${escapeHtml(hostname)}</span>
+                </a>
+                <span class="moderation-site__meta" title="${escapeHtml(normalized)}">${escapeHtml(truncateMiddle(compactUrl, 34))}</span>
+            </div>
+        `;
     };
 
     const buildQueryUrl = (url, params) => {
@@ -1427,21 +1690,51 @@ function initParsingPage() {
             moderationTableBody.innerHTML = '<tr><td colspan="7" class="table-empty">Черга модерації порожня.</td></tr>';
             return;
         }
+
+        const renderNicheBadge = (lead) => {
+            const rawStatus = String(lead?.niche_status || '').trim();
+            const safeStatus = ['niche', 'maybe', 'non_niche'].includes(rawStatus) ? rawStatus : 'maybe';
+            const label = escapeHtml(displayValue(lead?.niche_status_display, 'Під питанням'));
+            return `<span class="moderation-niche-badge moderation-niche-badge--${safeStatus}">${label}</span>`;
+        };
+
         moderationTableBody.innerHTML = moderation.map((lead) => {
             const leadId = Number(lead.id) || 0;
-            const shopCell = `${escapeHtml(displayValue(lead.shop_name))}${lead.requires_phone_completion ? '<div class="offer-help">Потрібно додати телефон</div>' : ''}`;
+            const shopMeta = [];
+            if (lead.requires_phone_completion) {
+                shopMeta.push('<span class="moderation-inline-chip moderation-inline-chip--warning">Потрібен номер</span>');
+            }
+            if (lead.source) {
+                shopMeta.push(`<span class="moderation-inline-chip moderation-inline-chip--ghost">${escapeHtml(displayValue(lead.source))}</span>`);
+            }
+            const shopCell = `
+                <div class="moderation-shop">
+                    <div class="moderation-shop__name">${escapeHtml(displayValue(lead.shop_name))}</div>
+                    ${lead.full_name ? `<div class="moderation-shop__secondary">${escapeHtml(lead.full_name)}</div>` : ''}
+                    ${shopMeta.length ? `<div class="moderation-shop__meta">${shopMeta.join('')}</div>` : ''}
+                </div>
+            `;
             const phoneCell = lead.requires_phone_completion && !lead.phone
-                ? '<span class="status-chip status-paused">дозаповнити</span>'
-                : escapeHtml(displayValue(lead.phone));
+                ? `
+                    <div class="moderation-phone">
+                        <span class="status-chip status-paused">дозаповнити</span>
+                        <span class="moderation-phone__hint">Перед підтвердженням у базу потрібно вказати номер.</span>
+                    </div>
+                `
+                : `
+                    <div class="moderation-phone">
+                        <span class="moderation-phone__value">${escapeHtml(displayValue(lead.phone))}</span>
+                    </div>
+                `;
             return `
                 <tr>
-                    <td>${shopCell}</td>
-                    <td>${phoneCell}</td>
-                    <td>${renderWebsiteCell(lead.website_url)}</td>
-                    <td>${escapeHtml(displayValue(lead.city))}</td>
-                    <td>${escapeHtml(displayValue(lead.keyword))}</td>
-                    <td>${escapeHtml(displayValue(lead.niche_status_display))}</td>
-                    <td><button type="button" class="btn-primary open-moderation" data-lead-id="${leadId}">Оглянути</button></td>
+                    <td data-label="Магазин" class="cell-shop">${shopCell}</td>
+                    <td data-label="Телефон" class="cell-phone">${phoneCell}</td>
+                    <td data-label="Сайт" class="cell-site">${renderWebsiteCell(lead.website_url)}</td>
+                    <td data-label="Місто" class="cell-city"><span class="moderation-city">${escapeHtml(displayValue(lead.city))}</span></td>
+                    <td data-label="Ключ" class="cell-keyword"><span class="moderation-keyword" title="${escapeHtml(displayValue(lead.keyword))}">${escapeHtml(displayValue(lead.keyword))}</span></td>
+                    <td data-label="Нішевість" class="cell-niche">${renderNicheBadge(lead)}</td>
+                    <td data-label="Дія" class="cell-actions"><button type="button" class="btn-primary moderation-action-btn open-moderation" data-lead-id="${leadId}">Оглянути</button></td>
                 </tr>`;
         }).join('');
     };
