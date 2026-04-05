@@ -427,6 +427,80 @@
         line-height: 1.15;
     }
 
+    .moderation-shell {
+        display: grid;
+        gap: 16px;
+    }
+
+    .moderation-toolbar {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: end;
+        flex-wrap: wrap;
+    }
+
+    .moderation-filters {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: end;
+    }
+
+    .moderation-filters .field {
+        min-width: 180px;
+        margin: 0;
+    }
+
+    .moderation-meta {
+        display: grid;
+        gap: 4px;
+        text-align: right;
+    }
+
+    .moderation-pagination {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .moderation-pagination__pages {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .moderation-pagination__info {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .moderation-summary-grid {
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    }
+
+    .parsing-live-details {
+        overflow: hidden;
+    }
+
+    .parsing-live-details > summary {
+        cursor: pointer;
+        list-style: none;
+    }
+
+    .parsing-live-details > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .parsing-live-details__body {
+        display: grid;
+        gap: 16px;
+        margin-top: 16px;
+    }
+
     @media (max-width: 1100px) {
         .parsing-hero {
             grid-template-columns: 1fr;
@@ -465,6 +539,10 @@
             max-width: none;
             text-align: left;
         }
+
+        .moderation-meta {
+            text-align: left;
+        }
     }
 </style>
 {% endblock %}
@@ -472,6 +550,7 @@
 {% block content %}
 {{ active_job_json|default:None|json_script:"parser-initial-job" }}
 {{ moderation_leads|json_script:"parser-initial-moderation" }}
+{{ moderation_state_json|json_script:"parser-initial-moderation-state" }}
 {{ rejected_leads|json_script:"parser-initial-rejected" }}
 {{ parser_counters|json_script:"parser-initial-counters" }}
 {{ parser_usage|json_script:"parser-initial-usage" }}
@@ -483,6 +562,7 @@
      data-resume-url="{% url 'management_parser_resume_api' %}"
      data-stop-url="{% url 'management_parser_stop_api' %}"
      data-status-url="{% url 'management_parser_status_api' %}"
+     data-moderation-url="{% url 'management_parser_moderation_api' %}"
      data-lead-action-url-template="{% url 'management_lead_moderation_action_api' 0 %}">
 </div>
 
@@ -672,33 +752,44 @@
             </div>
         </div>
 
-        <div class="admin-summary-grid" id="parser-counters-grid">
-            <div class="admin-metric"><div class="admin-metric__label">Спарсено</div><div class="admin-metric__value" id="cnt-total-found">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Запитів виконано</div><div class="admin-metric__value" id="cnt-request-count">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Прогрес цілі</div><div class="admin-metric__value" id="cnt-target-leads-progress">0/0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Додано в модерацію</div><div class="admin-metric__value" id="cnt-added-moderation">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Дублі</div><div class="admin-metric__value" id="cnt-duplicates">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Дубль: job phone</div><div class="admin-metric__value" id="cnt-dup-job-phone">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Дубль: job place</div><div class="admin-metric__value" id="cnt-dup-job-place">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Дубль: клієнти</div><div class="admin-metric__value" id="cnt-dup-existing-client">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Дубль: ліди</div><div class="admin-metric__value" id="cnt-dup-existing-lead">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Recent history: phone</div><div class="admin-metric__value" id="cnt-recent-history-phone">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Recent history: place</div><div class="admin-metric__value" id="cnt-recent-history-place">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Без телефону</div><div class="admin-metric__value" id="cnt-no-phone">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">No-phone -> модерація</div><div class="admin-metric__value" id="cnt-saved-no-phone">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Вже відхилені</div><div class="admin-metric__value" id="cnt-rejected-skip">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Успішні API</div><div class="admin-metric__value" id="cnt-request-success">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Помилки API</div><div class="admin-metric__value" id="cnt-request-errors">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">RPM поточний</div><div class="admin-metric__value" id="cnt-current-rpm">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">RPM цільовий</div><div class="admin-metric__value" id="cnt-target-rpm">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Query вичерпано</div><div class="admin-metric__value" id="cnt-exhausted-normal">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">Query аномалії</div><div class="admin-metric__value" id="cnt-exhausted-anomaly">0</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">У базі (необроблені)</div><div class="admin-metric__value" id="cnt-base-unprocessed">{{ parser_counters.unprocessed|default:0 }}</div></div>
-            <div class="admin-metric"><div class="admin-metric__label">У блок "не підходить"</div><div class="admin-metric__value" id="cnt-bad">{{ parser_counters.rejected|default:0 }}</div></div>
-        </div>
-
-        <div class="offer-card">
-            <h3 class="offer-title">Модерація</h3>
+        <div class="offer-card moderation-shell">
+            <div class="parsing-card-header">
+                <div>
+                    <p class="eyebrow">Moderation Queue</p>
+                    <h3 class="offer-title">Модерація</h3>
+                </div>
+                <p>Повна черга лідів у модерації з окремою статистикою, фільтром по місту, вибором кількості на сторінці та доступом до всіх сторінок.</p>
+            </div>
+            <div class="admin-summary-grid moderation-summary-grid">
+                <div class="admin-metric"><div class="admin-metric__label">Всього у модерації</div><div class="admin-metric__value" id="moderation-summary-total">0</div></div>
+                <div class="admin-metric"><div class="admin-metric__label">Після фільтра</div><div class="admin-metric__value" id="moderation-summary-filtered">0</div></div>
+                <div class="admin-metric"><div class="admin-metric__label">Потрібно дозаповнити номер</div><div class="admin-metric__value" id="moderation-summary-phone">0</div></div>
+                <div class="admin-metric"><div class="admin-metric__label">Активне місто</div><div class="admin-metric__value" id="moderation-summary-city">Усі міста</div></div>
+            </div>
+            <div class="moderation-toolbar">
+                <div class="moderation-filters">
+                    <div class="field">
+                        <label for="moderation-city-filter">Місто</label>
+                        <select id="moderation-city-filter">
+                            <option value="">Усі міста</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="moderation-page-size">На сторінці</label>
+                        <select id="moderation-page-size">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn-ghost small" id="moderation-clear-city">Усі міста</button>
+                </div>
+                <div class="moderation-meta offer-help">
+                    <span id="moderation-range-info">Поки немає даних.</span>
+                    <span id="moderation-total-info">Всього в модерації: 0</span>
+                </div>
+            </div>
             <div class="table-shell">
                 <table class="nexus-table" id="moderation-table">
                     <thead>
@@ -715,6 +806,7 @@
                     <tbody></tbody>
                 </table>
             </div>
+            <div class="moderation-pagination" id="moderation-pagination"></div>
         </div>
 
         <details class="offer-card">
@@ -735,25 +827,51 @@
             </div>
         </details>
 
-        <div class="offer-card">
-            <h3 class="offer-title">Статистика поточного парсингу</h3>
-            <div class="table-shell">
-                <table class="nexus-table" id="parser-results-table">
-                    <thead>
-                    <tr>
-                        <th>Час</th>
-                        <th>Статус</th>
-                        <th>Магазин</th>
-                        <th>Телефон</th>
-                        <th>Ключ</th>
-                        <th>Місто</th>
-                        <th>Причина</th>
-                    </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
+        <details class="offer-card parsing-live-details" id="parser-live-details">
+            <summary class="offer-title">Статистика поточного парсингу</summary>
+            <div class="parsing-live-details__body">
+                <div class="admin-summary-grid" id="parser-counters-grid">
+                    <div class="admin-metric"><div class="admin-metric__label">Спарсено</div><div class="admin-metric__value" id="cnt-total-found">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Запитів виконано</div><div class="admin-metric__value" id="cnt-request-count">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Прогрес цілі</div><div class="admin-metric__value" id="cnt-target-leads-progress">0/0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Додано в модерацію</div><div class="admin-metric__value" id="cnt-added-moderation">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Дублі</div><div class="admin-metric__value" id="cnt-duplicates">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Дубль: job phone</div><div class="admin-metric__value" id="cnt-dup-job-phone">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Дубль: job place</div><div class="admin-metric__value" id="cnt-dup-job-place">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Дубль: клієнти</div><div class="admin-metric__value" id="cnt-dup-existing-client">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Дубль: ліди</div><div class="admin-metric__value" id="cnt-dup-existing-lead">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Recent history: phone</div><div class="admin-metric__value" id="cnt-recent-history-phone">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Recent history: place</div><div class="admin-metric__value" id="cnt-recent-history-place">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Без телефону</div><div class="admin-metric__value" id="cnt-no-phone">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">No-phone -> модерація</div><div class="admin-metric__value" id="cnt-saved-no-phone">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Вже відхилені</div><div class="admin-metric__value" id="cnt-rejected-skip">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Успішні API</div><div class="admin-metric__value" id="cnt-request-success">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Помилки API</div><div class="admin-metric__value" id="cnt-request-errors">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">RPM поточний</div><div class="admin-metric__value" id="cnt-current-rpm">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">RPM цільовий</div><div class="admin-metric__value" id="cnt-target-rpm">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Query вичерпано</div><div class="admin-metric__value" id="cnt-exhausted-normal">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">Query аномалії</div><div class="admin-metric__value" id="cnt-exhausted-anomaly">0</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">У базі (необроблені)</div><div class="admin-metric__value" id="cnt-base-unprocessed">{{ parser_counters.unprocessed|default:0 }}</div></div>
+                    <div class="admin-metric"><div class="admin-metric__label">У блок "не підходить"</div><div class="admin-metric__value" id="cnt-bad">{{ parser_counters.rejected|default:0 }}</div></div>
+                </div>
+                <div class="table-shell">
+                    <table class="nexus-table" id="parser-results-table">
+                        <thead>
+                        <tr>
+                            <th>Час</th>
+                            <th>Статус</th>
+                            <th>Магазин</th>
+                            <th>Телефон</th>
+                            <th>Ключ</th>
+                            <th>Місто</th>
+                            <th>Причина</th>
+                        </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
-        </div>
+        </details>
     </div>
 </div>
 
@@ -823,6 +941,7 @@ function initParsingPage() {
     const resumeUrl = endpoints.dataset.resumeUrl;
     const stopUrl = endpoints.dataset.stopUrl;
     const statusUrl = endpoints.dataset.statusUrl;
+    const moderationUrl = endpoints.dataset.moderationUrl;
     const leadActionTpl = endpoints.dataset.leadActionUrlTemplate;
 
     const parserForm = document.getElementById('parser-form');
@@ -834,6 +953,16 @@ function initParsingPage() {
     const telemetryInfo = document.getElementById('parser-telemetry-info');
     const lastErrorInfo = document.getElementById('parser-last-error');
     const moderationTableBody = document.querySelector('#moderation-table tbody');
+    const moderationCityFilter = document.getElementById('moderation-city-filter');
+    const moderationPageSize = document.getElementById('moderation-page-size');
+    const moderationClearCityBtn = document.getElementById('moderation-clear-city');
+    const moderationPagination = document.getElementById('moderation-pagination');
+    const moderationRangeInfo = document.getElementById('moderation-range-info');
+    const moderationTotalInfo = document.getElementById('moderation-total-info');
+    const moderationSummaryTotal = document.getElementById('moderation-summary-total');
+    const moderationSummaryFiltered = document.getElementById('moderation-summary-filtered');
+    const moderationSummaryPhone = document.getElementById('moderation-summary-phone');
+    const moderationSummaryCity = document.getElementById('moderation-summary-city');
     const rejectedTableBody = document.querySelector('#rejected-table tbody');
     const resultsTableBody = document.querySelector('#parser-results-table tbody');
     const modal = document.getElementById('lead-moderation-modal');
@@ -853,6 +982,7 @@ function initParsingPage() {
 
     let activeJob = parseJsonScript('parser-initial-job', null);
     let moderation = parseJsonScript('parser-initial-moderation', []);
+    let moderationState = parseJsonScript('parser-initial-moderation-state', null);
     let rejected = parseJsonScript('parser-initial-rejected', []);
     let counters = parseJsonScript('parser-initial-counters', {});
     let usage = parseJsonScript('parser-initial-usage', {});
@@ -861,8 +991,37 @@ function initParsingPage() {
     let pollTimer = null;
     let isStepRequestInFlight = false;
     let isStatusRequestInFlight = false;
+    let isModerationRequestInFlight = false;
     let hasAppliedInitialJobToForm = false;
     let nextUsageRefreshAt = 0;
+
+    if (!moderationState) {
+        const moderationCount = moderation.length;
+        moderationState = {
+            items: moderation,
+            pagination: {
+                page: 1,
+                page_size: 25,
+                total_items: moderationCount,
+                total_pages: moderationCount ? 1 : 0,
+                start_index: moderationCount ? 1 : 0,
+                end_index: moderationCount,
+            },
+            filters: {
+                city: '',
+                page_size: 25,
+            },
+            city_counts: [],
+            stats: {
+                total_items: moderationCount,
+                filtered_items: moderationCount,
+                selected_city: '',
+                selected_city_total: moderationCount,
+                requires_phone_completion: moderation.filter((lead) => lead.requires_phone_completion).length,
+            },
+        };
+    }
+    moderation = moderationState.items || moderation;
 
     const sessionWarning = document.getElementById('parser-session-warning');
     const startBtn = document.getElementById('parser-start-btn');
@@ -918,6 +1077,18 @@ function initParsingPage() {
         const safeHref = sanitizeExternalUrl(normalized);
         if (!safeHref) return escapeHtml(normalized);
         return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${escapeHtml(normalized)}</a>`;
+    };
+
+    const buildQueryUrl = (url, params) => {
+        const search = new URLSearchParams();
+        Object.entries(params || {}).forEach(([key, value]) => {
+            if (value == null) return;
+            const normalized = String(value).trim();
+            if (!normalized) return;
+            search.set(key, normalized);
+        });
+        const query = search.toString();
+        return query ? `${url}?${query}` : url;
     };
 
     const selectedTypeValues = () => typeCheckboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
@@ -1187,6 +1358,69 @@ function initParsingPage() {
         renderControls();
     };
 
+    const renderModerationSummary = (state) => {
+        const stats = state?.stats || {};
+        const selectedCity = stats.selected_city ? stats.selected_city : 'Усі міста';
+        setCounter('moderation-summary-total', stats.total_items || 0);
+        setCounter('moderation-summary-filtered', stats.filtered_items || 0);
+        setCounter('moderation-summary-phone', stats.requires_phone_completion || 0);
+        setCounter('moderation-summary-city', selectedCity);
+        if (moderationRangeInfo) {
+            const pagination = state?.pagination || {};
+            if (!pagination.total_items) {
+                moderationRangeInfo.textContent = 'Черга модерації порожня.';
+            } else {
+                moderationRangeInfo.textContent = `Показано ${pagination.start_index}-${pagination.end_index} з ${pagination.total_items}`;
+            }
+        }
+        if (moderationTotalInfo) {
+            moderationTotalInfo.textContent = `Всього в модерації: ${stats.total_items || 0}`;
+        }
+    };
+
+    const renderModerationFilters = (state) => {
+        if (!moderationCityFilter || !moderationPageSize) return;
+        const currentCity = state?.filters?.city || '';
+        const currentPageSize = String(state?.filters?.page_size || 25);
+        const cityCounts = Array.isArray(state?.city_counts) ? state.city_counts.filter((item) => item.city) : [];
+        const options = [
+            `<option value="">Усі міста (${state?.stats?.total_items || 0})</option>`,
+            ...cityCounts.map((item) => `<option value="${escapeHtml(item.city)}">${escapeHtml(item.label || item.city || 'Без міста')} (${item.count || 0})</option>`),
+        ];
+        moderationCityFilter.innerHTML = options.join('');
+        moderationCityFilter.value = currentCity;
+        moderationPageSize.value = currentPageSize;
+    };
+
+    const renderModerationPagination = (state) => {
+        if (!moderationPagination) return;
+        const pagination = state?.pagination || {};
+        const totalPages = Number(pagination.total_pages || 0);
+        const currentPage = Number(pagination.page || 1);
+        if (!totalPages) {
+            moderationPagination.innerHTML = '<div class="moderation-pagination__info">Сторінок поки немає.</div>';
+            return;
+        }
+
+        const pageButtons = [];
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(totalPages, currentPage + 2);
+        for (let page = startPage; page <= endPage; page += 1) {
+            pageButtons.push(
+                `<button type="button" class="${page === currentPage ? 'btn-primary' : 'btn-ghost'} small" data-page="${page}">${page}</button>`,
+            );
+        }
+
+        moderationPagination.innerHTML = `
+            <div class="moderation-pagination__info">Сторінка ${currentPage} з ${totalPages}</div>
+            <div class="moderation-pagination__pages">
+                <button type="button" class="btn-ghost small" data-page="${Math.max(1, currentPage - 1)}" ${currentPage <= 1 ? 'disabled' : ''}>← Назад</button>
+                ${pageButtons.join('')}
+                <button type="button" class="btn-ghost small" data-page="${Math.min(totalPages, currentPage + 1)}" ${currentPage >= totalPages ? 'disabled' : ''}>Далі →</button>
+            </div>
+        `;
+    };
+
     const renderModeration = (items) => {
         moderation = items || [];
         if (!moderation.length) {
@@ -1210,6 +1444,16 @@ function initParsingPage() {
                     <td><button type="button" class="btn-primary open-moderation" data-lead-id="${leadId}">Оглянути</button></td>
                 </tr>`;
         }).join('');
+    };
+
+    const applyModerationState = (state) => {
+        if (!state) return;
+        moderationState = state;
+        moderation = state.items || [];
+        renderModerationSummary(state);
+        renderModerationFilters(state);
+        renderModeration(moderation);
+        renderModerationPagination(state);
     };
 
     const renderRejected = (items) => {
@@ -1249,19 +1493,51 @@ function initParsingPage() {
     const canScheduleStep = () => Boolean(activeJob && activeJob.status === 'running' && !activeJob.is_step_in_progress);
     const shouldRefreshUsage = () => !nextUsageRefreshAt || Date.now() >= nextUsageRefreshAt;
 
+    const fetchModeration = async (overrides = {}) => {
+        if (isModerationRequestInFlight) return moderationState;
+        isModerationRequestInFlight = true;
+        try {
+            const nextFilters = {
+                city: overrides.city !== undefined ? overrides.city : (moderationState?.filters?.city || ''),
+                page_size: overrides.pageSize !== undefined ? overrides.pageSize : (moderationState?.filters?.page_size || 25),
+            };
+            const nextPage = overrides.page !== undefined ? overrides.page : (moderationState?.pagination?.page || 1);
+            const payload = await apiRequest(
+                buildQueryUrl(moderationUrl, {
+                    city: nextFilters.city,
+                    page_size: nextFilters.page_size,
+                    page: nextPage,
+                }),
+                null,
+                'GET',
+            );
+            applyModerationState(payload);
+            return payload;
+        } finally {
+            isModerationRequestInFlight = false;
+        }
+    };
+
     const applyPayload = (payload, options = {}) => {
         if (!payload) return;
         const syncForm = Boolean(options.syncForm);
+        const previousModerationTotal = moderationState?.stats?.total_items ?? null;
         if (payload.job !== undefined) activeJob = payload.job;
         if (payload.counters) renderCounters(payload.counters);
         if (payload.usage) renderUsage(payload.usage);
-        if (payload.moderation) renderModeration(payload.moderation);
         if (payload.rejected) renderRejected(payload.rejected);
         renderStatus();
         renderResults(activeJob?.results || []);
         if (syncForm || !hasAppliedInitialJobToForm) {
             syncFormFromJob();
             hasAppliedInitialJobToForm = true;
+        }
+        if (
+            payload.counters
+            && previousModerationTotal !== null
+            && Number(payload.counters.moderation || 0) !== Number(previousModerationTotal)
+        ) {
+            fetchModeration().catch((err) => console.warn(err));
         }
         updateLoopState();
     };
@@ -1431,6 +1707,48 @@ function initParsingPage() {
         }
     });
 
+    if (moderationCityFilter) {
+        moderationCityFilter.addEventListener('change', async (event) => {
+            try {
+                await fetchModeration({ city: event.target.value, page: 1 });
+            } catch (err) {
+                alert(err.message || 'Не вдалося відфільтрувати модерацію');
+            }
+        });
+    }
+
+    if (moderationPageSize) {
+        moderationPageSize.addEventListener('change', async (event) => {
+            try {
+                await fetchModeration({ pageSize: event.target.value, page: 1 });
+            } catch (err) {
+                alert(err.message || 'Не вдалося змінити кількість записів');
+            }
+        });
+    }
+
+    if (moderationClearCityBtn) {
+        moderationClearCityBtn.addEventListener('click', async () => {
+            try {
+                await fetchModeration({ city: '', page: 1 });
+            } catch (err) {
+                alert(err.message || 'Не вдалося скинути фільтр міста');
+            }
+        });
+    }
+
+    if (moderationPagination) {
+        moderationPagination.addEventListener('click', async (event) => {
+            const btn = event.target.closest('[data-page]');
+            if (!btn || btn.disabled) return;
+            try {
+                await fetchModeration({ page: btn.dataset.page });
+            } catch (err) {
+                alert(err.message || 'Не вдалося переключити сторінку');
+            }
+        });
+    }
+
     moderationTableBody.addEventListener('click', (e) => {
         const btn = e.target.closest('.open-moderation');
         if (!btn) return;
@@ -1474,6 +1792,12 @@ function initParsingPage() {
                 const payload = await apiRequest(actionUrl, formData);
                 applyPayload(payload);
                 closeModal();
+                try {
+                    await fetchModeration({ page: moderationState?.pagination?.page || 1 });
+                } catch (refreshErr) {
+                    console.warn(refreshErr);
+                    alert('Дію збережено, але не вдалося оновити чергу модерації.');
+                }
             } catch (err) {
                 alert(err.message || 'Не вдалося зберегти модерацію');
             }
@@ -1482,11 +1806,11 @@ function initParsingPage() {
 
     applyPayload({
         job: activeJob,
-        moderation,
         rejected,
         counters,
         usage,
     }, { syncForm: true });
+    applyModerationState(moderationState);
 
     typeCheckboxes.forEach((checkbox) => checkbox.addEventListener('change', syncTypeControls));
     syncTypeControls();

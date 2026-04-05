@@ -1,5 +1,6 @@
 from datetime import datetime, time, timedelta
 from decimal import Decimal
+from urllib.parse import urlencode
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -914,6 +915,18 @@ class ParserApiTests(TestCase):
     def _post(self, url_name, data, *args):
         return self._post_path(reverse(url_name, args=args), data)
 
+    def _get(self, url_name, params=None, *args):
+        url = reverse(url_name, args=args)
+        if params:
+            url = f"{url}?{urlencode(params, doseq=True)}"
+        return self.client_http.get(
+            url,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_HOST="management.twocomms.shop",
+            HTTP_REFERER="https://management.twocomms.shop/parsing/",
+            secure=True,
+        )
+
     def test_pause_endpoint_accepts_valid_csrf(self):
         job = LeadParsingJob.objects.create(
             created_by=self.user,
@@ -1188,6 +1201,204 @@ class ParserApiTests(TestCase):
         self.assertIn('id="parser-selected-types-summary"', content)
         self.assertIn("typeCheckboxes", content)
         self.assertNotIn('id="parser_included_type"', content)
+
+    def test_parsing_dashboard_renders_moderation_controls_and_collapsed_live_stats(self):
+        response = self.client_http.get(
+            reverse("management_parsing_dashboard"),
+            HTTP_HOST="management.twocomms.shop",
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn('data-moderation-url="', content)
+        self.assertIn('id="moderation-city-filter"', content)
+        self.assertIn('id="moderation-page-size"', content)
+        self.assertIn('id="moderation-pagination"', content)
+        self.assertIn('id="moderation-summary-total"', content)
+        self.assertIn('<details class="offer-card parsing-live-details" id="parser-live-details">', content)
+        self.assertNotIn('<details class="offer-card parsing-live-details" id="parser-live-details" open>', content)
+
+    def test_moderation_api_returns_paginated_full_queue(self):
+        for idx in range(160):
+            ManagementLead.objects.create(
+                shop_name=f"Shop {idx}",
+                phone=f"+380671110{idx:03d}",
+                full_name="Owner",
+                city="Київ" if idx % 2 == 0 else "Одеса",
+                status=ManagementLead.Status.MODERATION,
+                lead_source=ManagementLead.LeadSource.PARSER,
+                added_by=self.user,
+            )
+
+        response = self._get(
+            "management_parser_moderation_api",
+            {"page": 2, "page_size": 100},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["filters"]["city"], "")
+        self.assertEqual(payload["filters"]["page_size"], 100)
+        self.assertEqual(payload["pagination"]["page"], 2)
+        self.assertEqual(payload["pagination"]["page_size"], 100)
+        self.assertEqual(payload["pagination"]["total_items"], 160)
+        self.assertEqual(payload["pagination"]["total_pages"], 2)
+        self.assertEqual(len(payload["items"]), 60)
+        self.assertEqual(payload["stats"]["total_items"], 160)
+        self.assertEqual(payload["stats"]["filtered_items"], 160)
+
+    def test_moderation_api_filters_by_city_and_reports_city_counts(self):
+        kyiv_1 = ManagementLead.objects.create(
+            shop_name="Kyiv One",
+            phone="+380671110001",
+            full_name="Owner",
+            city="Київ",
+            status=ManagementLead.Status.MODERATION,
+            lead_source=ManagementLead.LeadSource.PARSER,
+            requires_phone_completion=True,
+            added_by=self.user,
+        )
+        kyiv_2 = ManagementLead.objects.create(
+            shop_name="Kyiv Two",
+            phone="+380671110002",
+            full_name="Owner",
+            city="Київ",
+            status=ManagementLead.Status.MODERATION,
+            lead_source=ManagementLead.LeadSource.PARSER,
+            added_by=self.user,
+        )
+        dnipro = ManagementLead.objects.create(
+            shop_name="Dnipro One",
+            phone="+380671110003",
+            full_name="Owner",
+            city="Дніпро",
+            status=ManagementLead.Status.MODERATION,
+            lead_source=ManagementLead.LeadSource.PARSER,
+            added_by=self.user,
+        )
+        blank = ManagementLead.objects.create(
+            shop_name="Unknown City",
+            phone="+380671110004",
+            full_name="Owner",
+            city="",
+            status=ManagementLead.Status.MODERATION,
+            lead_source=ManagementLead.LeadSource.PARSER,
+            added_by=self.user,
+        )
+
+        response = self._get(
+            "management_parser_moderation_api",
+            {"city": "Київ", "page_size": 10},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["pagination"]["total_items"], 2)
+        self.assertEqual(len(payload["items"]), 2)
+        self.assertEqual(payload["stats"]["total_items"], 4)
+        self.assertEqual(payload["stats"]["filtered_items"], 2)
+        self.assertEqual(payload["stats"]["selected_city_total"], 2)
+        self.assertEqual(payload["stats"]["requires_phone_completion"], 1)
+        self.assertEqual(
+            payload["city_counts"],
+            [
+                {"city": "Київ", "count": 2},
+                {"city": "Дніпро", "count": 1},
+                {"city": "", "label": "Без міста", "count": 1},
+            ],
+        )
+        returned_ids = {item["id"] for item in payload["items"]}
+        self.assertEqual(returned_ids, {kyiv_1.id, kyiv_2.id})
+        self.assertNotIn(dnipro.id, returned_ids)
+        self.assertNotIn(blank.id, returned_ids)
+
+    def test_moderation_api_totals_update_after_approve_and_reject(self):
+        approve_lead = ManagementLead.objects.create(
+            shop_name="Approve Me",
+            phone="+380671110011",
+            full_name="Owner",
+            city="Київ",
+            status=ManagementLead.Status.MODERATION,
+            lead_source=ManagementLead.LeadSource.PARSER,
+            added_by=self.user,
+        )
+        reject_lead = ManagementLead.objects.create(
+            shop_name="Reject Me",
+            phone="+380671110012",
+            full_name="Owner",
+            city="Київ",
+            status=ManagementLead.Status.MODERATION,
+            lead_source=ManagementLead.LeadSource.PARSER,
+            added_by=self.user,
+        )
+
+        baseline = self._get("management_parser_moderation_api")
+        self.assertEqual(baseline.json()["stats"]["total_items"], 2)
+
+        approve_response = self._post(
+            "management_lead_moderation_action_api",
+            {
+                "action": "approve",
+                "shop_name": approve_lead.shop_name,
+                "phone": approve_lead.phone,
+                "website_url": "",
+                "full_name": approve_lead.full_name,
+            },
+            approve_lead.id,
+        )
+        self.assertEqual(approve_response.status_code, 200)
+
+        reject_response = self._post(
+            "management_lead_moderation_action_api",
+            {
+                "action": "reject",
+                "shop_name": reject_lead.shop_name,
+                "phone": reject_lead.phone,
+                "website_url": "",
+                "full_name": reject_lead.full_name,
+                "rejection_reason": "Не підходить",
+            },
+            reject_lead.id,
+        )
+        self.assertEqual(reject_response.status_code, 200)
+
+        refreshed = self._get("management_parser_moderation_api")
+        self.assertEqual(refreshed.json()["stats"]["total_items"], 0)
+        self.assertEqual(refreshed.json()["pagination"]["total_items"], 0)
+
+    def test_moderation_save_keeps_item_visible_in_api(self):
+        lead = ManagementLead.objects.create(
+            shop_name="Keep Me",
+            phone="",
+            full_name="Owner",
+            website_url="https://alpha.example.com",
+            city="Львів",
+            status=ManagementLead.Status.MODERATION,
+            lead_source=ManagementLead.LeadSource.PARSER,
+            requires_phone_completion=True,
+            added_by=self.user,
+        )
+
+        save_response = self._post(
+            "management_lead_moderation_action_api",
+            {
+                "action": "save",
+                "shop_name": lead.shop_name,
+                "phone": "",
+                "website_url": lead.website_url,
+                "full_name": lead.full_name,
+                "city": lead.city,
+            },
+            lead.id,
+        )
+        self.assertEqual(save_response.status_code, 200)
+
+        refreshed = self._get("management_parser_moderation_api", {"city": "Львів"})
+        self.assertEqual(refreshed.json()["stats"]["total_items"], 1)
+        self.assertEqual(refreshed.json()["stats"]["filtered_items"], 1)
+        self.assertEqual(refreshed.json()["pagination"]["total_items"], 1)
+        self.assertEqual(refreshed.json()["items"][0]["id"], lead.id)
 
     def test_moderation_save_allows_blank_phone_when_phone_completion_required(self):
         lead = ManagementLead.objects.create(
