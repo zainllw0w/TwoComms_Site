@@ -10,7 +10,7 @@ SSH_PASS='trs5m4t1'
 SSH_USER='qlknpodo'
 SSH_HOST='195.191.24.169'
 PROJECT_PATH='/home/qlknpodo/TWC/TwoComms_Site/twocomms'
-VENV_PATH='/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate'
+VENV_PATH='/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate'
 
 echo "📦 Step 1: Git commit and push changes..."
 git add .
@@ -55,4 +55,3 @@ echo "  1. Test promo code application at: https://twocomms.shop/cart/"
 echo "  2. Create promo groups at: https://twocomms.shop/admin-panel/promo-groups/"
 echo "  3. Manage promo codes at: https://twocomms.shop/admin-panel/promocodes/"
 echo ""
-

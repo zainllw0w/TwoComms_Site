@@ -28,7 +28,7 @@ echo ""
 
 # Пути (настраиваются под ваш сервер)
 PROJECT_DIR="/home/qlknpodo/TWC/TwoComms_Site/twocomms"
-VENV_PYTHON="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python"
+VENV_PYTHON="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python"
 LOG_FILE="/home/qlknpodo/TWC/TwoComms_Site/twocomms/logs/nova_poshta_cron.log"
 
 # Создаем директорию для логов если её нет
@@ -157,7 +157,6 @@ echo "  3. Менять payment_status на 'paid' при получении"
 echo "  4. Отправлять Purchase событие в Facebook Conversions API"
 echo "  5. Отправлять уведомления в Telegram админу и пользователю"
 echo ""
-
 
 
 

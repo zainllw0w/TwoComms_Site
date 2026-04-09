@@ -12,7 +12,7 @@ SERVER_USER="qlknpodo"
 SERVER_HOST="195.191.24.169"
 SERVER_PASSWORD="trs5m4t1"
 PROJECT_PATH="/home/qlknpodo/TWC/TwoComms_Site/twocomms"
-VENV_PATH="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13"
+VENV_PATH="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14"
 
 echo "📦 Step 1: Pulling latest code from repository..."
 sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no "$SERVER_USER@$SERVER_HOST" << 'ENDSSH'
@@ -26,7 +26,7 @@ ENDSSH
 echo ""
 echo "📚 Step 2: Installing new dependencies (django-ratelimit)..."
 sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no "$SERVER_USER@$SERVER_HOST" << 'ENDSSH'
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 pip install -r requirements.txt
 echo "✅ Dependencies installed"
@@ -35,7 +35,7 @@ ENDSSH
 echo ""
 echo "🔄 Step 3: Running Django migrations (if any)..."
 sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no "$SERVER_USER@$SERVER_HOST" << 'ENDSSH'
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 python manage.py migrate --noinput
 echo "✅ Migrations completed"
@@ -44,7 +44,7 @@ ENDSSH
 echo ""
 echo "📦 Step 4: Collecting static files..."
 sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no "$SERVER_USER@$SERVER_HOST" << 'ENDSSH'
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 python manage.py collectstatic --noinput
 echo "✅ Static files collected"
@@ -61,7 +61,7 @@ ENDSSH
 echo ""
 echo "🧹 Step 6: Clearing Django cache..."
 sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no "$SERVER_USER@$SERVER_HOST" << 'ENDSSH'
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 python manage.py shell << 'PYTHON'
 from django.core.cache import cache
@@ -87,4 +87,3 @@ echo "  2. Test the site: https://twocomms.shop"
 echo "  3. Monitor performance and errors"
 echo ""
 echo "⚠️  Important: Make sure to set REDIS_PASSWORD in environment variables if using Redis with password"
-

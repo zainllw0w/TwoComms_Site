@@ -10,7 +10,7 @@ SSH_HOST="195.191.24.169"
 SSH_USER="qlknpodo"
 SSH_PASSWORD="trs5m4t1"
 PROJECT_PATH="/home/qlknpodo/TWC/TwoComms_Site/twocomms"
-VENV_PATH="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate"
+VENV_PATH="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate"
 
 # Функция для выполнения команд на сервере
 run_on_server() {
@@ -149,4 +149,3 @@ echo "  4. При необходимости откатиться к бэкап�
 echo ""
 echo "📁 Бэкап создан в: ${PROJECT_PATH}_backup_$(date +%Y%m%d_%H%M%S)"
 echo "📄 Отчеты сохранены в: $PROJECT_PATH/"
-

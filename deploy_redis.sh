@@ -23,7 +23,7 @@ SSH_PASSWORD='trs5m4t1'
 SSH_USER='qlknpodo'
 SSH_HOST='195.191.24.169'
 PROJECT_PATH='/home/qlknpodo/TWC/TwoComms_Site/twocomms'
-VENV_PATH='/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate'
+VENV_PATH='/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate'
 
 echo -e "${GREEN}=== Начало развертывания Redis ===${NC}"
 

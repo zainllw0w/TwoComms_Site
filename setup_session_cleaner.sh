@@ -28,7 +28,7 @@ NC='\033[0m' # No Color
 
 # Константы
 PROJECT_DIR="/home/qlknpodo/TWC/TwoComms_Site/twocomms"
-VENV_PYTHON="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python"
+VENV_PYTHON="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python"
 LOG_DIR="/home/qlknpodo/logs"
 LOG_FILE="$LOG_DIR/clearsessions.log"
 
@@ -97,7 +97,7 @@ if [[ "$RUN_TEST" == "y" ]]; then
     cd "$PROJECT_DIR"
     
     # Активировать virtualenv и запустить команду
-    source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+    source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
     python manage.py clearsessions
     
     if [ $? -eq 0 ]; then
@@ -127,4 +127,3 @@ echo "Для ручного запуска:"
 echo "  cd $PROJECT_DIR && $VENV_PYTHON manage.py clearsessions"
 echo ""
 echo -e "${GREEN}Готово! 🎉${NC}"
-

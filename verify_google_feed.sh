@@ -25,7 +25,7 @@ NC='\033[0m'
 # Путь к feed
 FEED_FILE="/home/qlknpodo/TWC/TwoComms_Site/twocomms/media/google-merchant-v3.xml"
 PROJECT_DIR="/home/qlknpodo/TWC/TwoComms_Site/twocomms"
-VENV_PYTHON="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python"
+VENV_PYTHON="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python"
 
 echo -e "${BLUE}=================================="
 echo -e "  ВЕРИФИКАЦИЯ GOOGLE MERCHANT FEED"
@@ -214,7 +214,6 @@ if [ "$PRODUCT_COUNT" -eq 0 ]; then
 fi
 
 echo -e "${GREEN}Готово! 🎉${NC}"
-
 
 
 

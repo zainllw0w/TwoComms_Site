@@ -43,7 +43,7 @@ else
     echo ""
     echo -e "${YELLOW}💡 Совет: Создайте CRON задачу командой:${NC}"
     echo ""
-    echo "(crontab -l 2>/dev/null; echo '# Django: обновление Google Merchant feed'; echo '0 4 * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/cron.log 2>&1') | crontab -"
+    echo "(crontab -l 2>/dev/null; echo '# Django: обновление Google Merchant feed'; echo '0 4 * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/cron.log 2>&1') | crontab -"
     echo ""
 fi
 echo ""
@@ -149,7 +149,7 @@ echo "Просмотр логов в реальном времени:"
 echo "  tail -f $CRON_LOG"
 echo ""
 echo "Ручной запуск обновления:"
-echo "  cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml"
+echo "  cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml"
 echo ""
 
 if [ "$CRON_EXISTS" -eq 0 ]; then
@@ -158,7 +158,6 @@ if [ "$CRON_EXISTS" -eq 0 ]; then
 fi
 
 echo -e "${GREEN}Готово! 🎉${NC}"
-
 
 
 

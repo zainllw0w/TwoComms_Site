@@ -29,7 +29,7 @@ NC='\033[0m' # No Color
 
 # Константы
 PROJECT_DIR="/home/qlknpodo/TWC/TwoComms_Site/twocomms"
-VENV_PYTHON="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python"
+VENV_PYTHON="/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python"
 CRON_LOG="/home/qlknpodo/TWC/TwoComms_Site/twocomms/cron.log"
 OUTPUT_FILE="twocomms/static/google_merchant_feed.xml"
 MEDIA_FILE="media/google-merchant-v3.xml"
@@ -153,7 +153,6 @@ echo "Для проверки cron логов:"
 echo "  tail -f $CRON_LOG"
 echo ""
 echo -e "${GREEN}Готово! 🎉${NC}"
-
 
 
 

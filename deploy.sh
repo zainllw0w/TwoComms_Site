@@ -41,7 +41,7 @@ sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${S
     git pull origin main
     
     echo "   📦 Активируем виртуальное окружение..."
-    source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+    source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
     
     echo "   📚 Собираем статические файлы..."
     python manage.py collectstatic --noinput
