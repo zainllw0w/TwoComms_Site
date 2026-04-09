@@ -485,6 +485,33 @@
       border-color: rgba(255, 205, 118, 0.26);
     }
 
+    .categories-grid-balanced {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      gap: clamp(0.9rem, 1.45vw, 1.15rem);
+    }
+
+    .categories-grid-balanced > .category-card-balanced {
+      flex: 1 1 clamp(15rem, 21vw, 18rem);
+      min-width: 0;
+      min-height: clamp(11.5rem, 15vw, 13.75rem);
+    }
+
+    .categories-grid-balanced > .category-card-custom {
+      flex: 1 1 100%;
+      width: 100%;
+    }
+
+    .categories-grid-balanced > .category-card-balanced .card-content-compact {
+      min-height: 100%;
+      justify-content: center;
+    }
+
+    .categories-grid-balanced > .category-card-balanced:hover {
+      transform: translateY(-5px) scale(1.03);
+    }
+
     .categories-header-unified .d-flex {
       gap: clamp(0.75rem, 1.4vw, 1.35rem);
     }
@@ -500,6 +527,10 @@
       display: block;
       width: 100%;
       padding: clamp(0.9rem, 1vw, 1rem);
+    }
+
+    .category-card-custom-panel {
+      width: 100%;
     }
 
     .category-card-custom-inner {
@@ -562,9 +593,9 @@
       align-items: center;
       justify-content: center;
       gap: 0.65rem;
-      flex: 0 1 clamp(18rem, 24vw, 24rem);
-      width: min(100%, clamp(18rem, 24vw, 24rem));
-      min-width: clamp(17rem, 22vw, 22rem);
+      flex: 0 1 clamp(20rem, 28vw, 28rem);
+      width: min(100%, clamp(20rem, 28vw, 28rem));
+      min-width: clamp(18rem, 24vw, 24rem);
       min-height: 56px;
       margin-left: auto;
       padding: 0.95rem clamp(1.25rem, 2vw, 1.8rem);
@@ -574,6 +605,13 @@
       font-weight: 700;
       white-space: nowrap;
       box-shadow: 0 16px 28px rgba(203, 135, 54, 0.22);
+      transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+    }
+
+    .category-card-custom:hover .category-card-custom-action {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 36px rgba(203, 135, 54, 0.28);
+      filter: saturate(1.04);
     }
 
     @media (max-width: 768px) {
@@ -609,6 +647,15 @@
         width: min(100%, 16rem);
       }
 
+      .categories-grid-balanced {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .categories-grid-balanced > .category-card-balanced {
+        min-height: 9.5rem;
+      }
+
       .category-card-custom-inner {
         align-items: stretch;
       }
@@ -623,6 +670,14 @@
     @media (max-width: 480px) {
       .categories-header-unified .categories-toggle-btn {
         width: 100%;
+      }
+
+      .categories-grid-balanced {
+        gap: 0.75rem;
+      }
+
+      .categories-grid-balanced > .category-card-balanced {
+        min-height: 8.85rem;
       }
 
       .category-card-custom-content {
@@ -888,10 +943,10 @@
 
     <!-- Контейнер категорий (без отдельного фона) -->
     <div class="categories-content-unified" id="categoriesContainer">
-      <div class="categories-grid-compact">
+      <div class="categories-grid-compact categories-grid-balanced">
         <!-- Категории товаров -->
         {% for c in categories %}
-        <a href="{% url 'catalog_by_cat' c.slug %}" class="category-card-compact" title="{{ c.name }}">
+        <a href="{% url 'catalog_by_cat' c.slug %}" class="category-card-compact category-card-balanced" title="{{ c.name }}">
           <div class="card-bg-dark">
             <div class="card-glow-dark"></div>
             <div class="card-ripple-dark"></div>
@@ -917,7 +972,7 @@
             <div class="card-ripple-dark"></div>
           </div>
           <div class="card-content-compact category-card-custom-content">
-            <div class="category-card-custom-inner">
+            <div class="category-card-custom-inner category-card-custom-panel">
               <div class="category-card-custom-copy">
                 <span class="category-card-custom-kicker">Свій принт</span>
                 <h3 class="category-card-custom-title">Замовити кастомний одяг</h3>

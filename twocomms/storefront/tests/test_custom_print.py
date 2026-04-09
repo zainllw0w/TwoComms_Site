@@ -62,11 +62,13 @@ class CustomPrintPageTests(TestCase):
         response = self._get(reverse("custom_print"), follow=True)
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Швидка заявка менеджеру")
         self.assertContains(response, "Що вам потрібно?")
         self.assertContains(response, "На чому друкуємо?")
         self.assertContains(response, "Де буде принт?")
         self.assertContains(response, "Як з вами зв’язатися?")
         self.assertContains(response, "Надіслати менеджеру")
+        self.assertContains(response, "Що буде далі після заявки")
         self.assertContains(response, "Конструктор скоро буде")
         self.assertContains(response, "Орієнтир: готова футболка з вашим принтом — від 700 грн")
         self.assertNotContains(response, "Custom Print Studio")
@@ -76,9 +78,10 @@ class CustomPrintPageTests(TestCase):
         response = self._get(reverse("home"), follow=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "categories-grid-compact")
+        self.assertContains(response, "categories-grid-balanced")
         self.assertContains(response, "Замовити кастомний одяг")
         self.assertContains(response, "Перейти до заявки")
+        self.assertContains(response, "category-card-custom-panel")
         self.assertContains(response, reverse("custom_print"))
         self.assertNotContains(response, "custom-print-home-cta")
 
