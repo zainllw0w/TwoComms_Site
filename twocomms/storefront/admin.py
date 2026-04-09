@@ -1,5 +1,14 @@
 from django.contrib import admin
-from .models import Category, Product, ProductImage, PrintProposal, SurveySession, UserPromoCode
+from .models import (
+    Category,
+    CustomPrintLead,
+    CustomPrintLeadAttachment,
+    PrintProposal,
+    Product,
+    ProductImage,
+    SurveySession,
+    UserPromoCode,
+)
 
 
 @admin.register(Category)
@@ -39,3 +48,25 @@ class UserPromoCodeAdmin(admin.ModelAdmin):
     list_display = ('user', 'promo_code', 'survey_key', 'expires_at', 'created_at')
     list_filter = ('survey_key',)
     search_fields = ('user__username', 'promo_code__code', 'survey_key')
+
+
+class CustomPrintLeadAttachmentInline(admin.TabularInline):
+    model = CustomPrintLeadAttachment
+    extra = 0
+
+
+@admin.register(CustomPrintLead)
+class CustomPrintLeadAdmin(admin.ModelAdmin):
+    list_display = (
+        'lead_number',
+        'name',
+        'service_kind',
+        'product_type',
+        'contact_channel',
+        'status',
+        'created_at',
+    )
+    list_filter = ('service_kind', 'product_type', 'contact_channel', 'status', 'client_kind')
+    search_fields = ('lead_number', 'name', 'contact_value', 'brand_name', 'brief')
+    readonly_fields = ('lead_number', 'created_at', 'updated_at')
+    inlines = [CustomPrintLeadAttachmentInline]

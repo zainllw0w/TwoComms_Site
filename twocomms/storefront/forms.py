@@ -1,12 +1,26 @@
 from django import forms
 from django.forms import inlineformset_factory
+import re
 
+from dtf.utils import (
+    ALLOWED_HELP_EXTS,
+    build_safe_upload_name,
+    get_limits,
+    normalize_phone,
+    validate_uploaded_file,
+)
 from productcolors.models import ProductColorVariant, ProductColorImage
 from storefront.services.catalog import ensure_color_identity
 
 from .models import (
     Product,
     Category,
+    CustomPrintClientKind,
+    CustomPrintContactChannel,
+    CustomPrintLead,
+    CustomPrintLeadAttachment,
+    CustomPrintProductType,
+    CustomPrintServiceKind,
     PrintProposal,
     Catalog,
     CatalogOption,
@@ -24,24 +38,159 @@ class MultiFileInput(forms.ClearableFileInput):
 
 
 class MultiFileField(forms.FileField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultiFileInput())
+        super().__init__(*args, **kwargs)
+
     def clean(self, data, initial=None):
+        single_file_clean = super().clean
+
         # Пустое значение — это ок для required=False
         if not data:
-            return None
+            if self.required:
+                return single_file_clean(data, initial)
+            return []
         # Если пришёл список/кортеж — валидируем каждый файл как обычный FileField
         if isinstance(data, (list, tuple)):
             cleaned = []
             errors = []
             for f in data:
                 try:
-                    cleaned.append(super().clean(f, initial))
+                    cleaned.append(single_file_clean(f, initial))
                 except forms.ValidationError as e:
                     errors.extend(e.error_list)
             if errors:
                 raise forms.ValidationError(errors)
             return cleaned
         # Одиночный файл (на случай, если браузер не поддерживает multiple)
-        return super().clean(data, initial)
+        return [single_file_clean(data, initial)]
+
+
+class CustomPrintLeadForm(forms.Form):
+    PLACEMENT_CHOICES = (
+        ("front", "Спереду"),
+        ("back", "На спині"),
+        ("sleeve", "На рукаві"),
+        ("custom", "Інший варіант"),
+    )
+
+    service_kind = forms.ChoiceField(choices=CustomPrintServiceKind.choices)
+    product_type = forms.ChoiceField(choices=CustomPrintProductType.choices)
+    placements = forms.MultipleChoiceField(choices=PLACEMENT_CHOICES)
+    placement_note = forms.CharField(required=False, max_length=255)
+    files = MultiFileField(required=False, widget=MultiFileInput(attrs={"multiple": True}))
+    quantity = forms.IntegerField(min_value=1)
+    sizes_note = forms.CharField(required=False, max_length=255)
+    client_kind = forms.ChoiceField(choices=CustomPrintClientKind.choices, required=False)
+    brand_name = forms.CharField(required=False, max_length=255)
+    name = forms.CharField(max_length=200)
+    contact_channel = forms.ChoiceField(choices=CustomPrintContactChannel.choices)
+    contact_value = forms.CharField(max_length=255)
+    brief = forms.CharField(required=False, widget=forms.Textarea)
+
+    def clean_contact_value(self):
+        value = (self.cleaned_data.get("contact_value") or "").strip()
+        channel = (self.cleaned_data.get("contact_channel") or "").strip()
+
+        if channel == CustomPrintContactChannel.PHONE:
+            if len(normalize_phone(value)) < 10:
+                raise forms.ValidationError("Введіть коректний номер телефону.")
+            return value
+
+        if channel == CustomPrintContactChannel.WHATSAPP:
+            if len(normalize_phone(value)) < 10:
+                raise forms.ValidationError("Введіть коректний номер для WhatsApp.")
+            return value
+
+        if channel == CustomPrintContactChannel.TELEGRAM:
+            if value.startswith("https://t.me/"):
+                return value
+            if value.startswith("@") and len(value) > 1:
+                return value
+            if re.fullmatch(r"[A-Za-z0-9_]{3,}", value):
+                return value
+            raise forms.ValidationError("Вкажіть Telegram у форматі @username або посилання.")
+
+        return value
+
+    def clean(self):
+        cleaned = super().clean()
+        service_kind = cleaned.get("service_kind")
+        placements = cleaned.get("placements") or []
+        placement_note = (cleaned.get("placement_note") or "").strip()
+        brief = (cleaned.get("brief") or "").strip()
+        client_kind = cleaned.get("client_kind") or CustomPrintClientKind.PERSONAL
+        files = cleaned.get("files")
+        if not files:
+            files = []
+        elif not isinstance(files, (list, tuple)):
+            files = [files]
+
+        if "custom" in placements and not placement_note:
+            self.add_error("placement_note", "Опишіть нестандартне розміщення принта.")
+
+        if client_kind == CustomPrintClientKind.BRAND and not (cleaned.get("brand_name") or "").strip():
+            self.add_error("brand_name", "Вкажіть назву бренду, команди або події.")
+
+        if service_kind == CustomPrintServiceKind.READY and not files:
+            self.add_error("files", "Додайте готовий файл для друку.")
+
+        if service_kind == CustomPrintServiceKind.ADJUST:
+            if not brief:
+                self.add_error("brief", "Опишіть, що саме потрібно змінити у файлі.")
+            if not files:
+                self.add_error("files", "Додайте файл, який потрібно підготувати.")
+
+        if service_kind == CustomPrintServiceKind.DESIGN and not brief:
+            self.add_error("brief", "Опишіть ідею, стиль або референси для дизайну.")
+
+        validated_files = []
+        limits = get_limits()
+        for uploaded_file in files:
+            try:
+                validate_uploaded_file(
+                    uploaded_file,
+                    allowed_exts=ALLOWED_HELP_EXTS,
+                    max_file_mb=limits["max_file_mb"],
+                    strict_magic=True,
+                )
+            except ValueError as exc:
+                code = str(exc)
+                if code == "unsupported_extension":
+                    self.add_error("files", "Непідтримуваний формат файлу.")
+                elif code == "file_too_large":
+                    self.add_error("files", f"Файл перевищує ліміт {limits['max_file_mb']} MB.")
+                else:
+                    self.add_error("files", "Один із файлів не пройшов перевірку безпеки.")
+                continue
+            uploaded_file.name = build_safe_upload_name("custom-print", uploaded_file.name)
+            validated_files.append(uploaded_file)
+
+        cleaned["client_kind"] = client_kind
+        cleaned["brief"] = brief
+        cleaned["placement_note"] = placement_note
+        self.cleaned_files = validated_files
+        return cleaned
+
+    def save(self) -> CustomPrintLead:
+        lead = CustomPrintLead.objects.create(
+            service_kind=self.cleaned_data["service_kind"],
+            product_type=self.cleaned_data["product_type"],
+            placements=self.cleaned_data["placements"],
+            placement_note=self.cleaned_data.get("placement_note", ""),
+            quantity=self.cleaned_data["quantity"],
+            sizes_note=self.cleaned_data.get("sizes_note", ""),
+            client_kind=self.cleaned_data.get("client_kind") or CustomPrintClientKind.PERSONAL,
+            brand_name=self.cleaned_data.get("brand_name", ""),
+            name=self.cleaned_data["name"],
+            contact_channel=self.cleaned_data["contact_channel"],
+            contact_value=self.cleaned_data["contact_value"],
+            brief=self.cleaned_data.get("brief", ""),
+            source="main_custom_print",
+        )
+        for uploaded_file in getattr(self, "cleaned_files", []):
+            CustomPrintLeadAttachment.objects.create(lead=lead, file=uploaded_file)
+        return lead
 
 
 class ProductForm(forms.ModelForm):
