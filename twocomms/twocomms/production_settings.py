@@ -1,28 +1,13 @@
-"""
-Production settings for TwoComms project on PythonAnywhere.
-"""
+"""Production settings for TwoComms on shared hosting."""
 
+import os
 from pathlib import Path
 from urllib.parse import urlparse
-import os
-try:
-    from dotenv import load_dotenv
-except Exception:
-    # Если python-dotenv не установлен в окружении — тихо пропускаем
-    def load_dotenv(*args, **kwargs):
-        return False
 
-# Загрузим переменные окружения из файла репозитория ДО импортирования базовых настроек.
-# Приоритет: DJANGO_ENV_FILE -> .env.production -> .env
 BASE_DIR = Path(__file__).resolve().parent.parent
-_explicit_env_file = os.environ.get('DJANGO_ENV_FILE')
-if _explicit_env_file:
-    load_dotenv(_explicit_env_file)
-else:
-    for candidate in (BASE_DIR / ".env.production", BASE_DIR / ".env"):
-        if candidate.exists():
-            load_dotenv(candidate)
-            break
+from .runtime import load_environment
+
+load_environment(BASE_DIR)
 
 from .settings import *
 
@@ -38,17 +23,12 @@ if os.environ.get('DISABLE_ANALYTICS', 'false').lower() in ('1', 'true', 'yes'):
 # Добавляем middleware для кеширования медиа файлов
 if "twocomms.media_cache_middleware.MediaCacheMiddleware" not in MIDDLEWARE:
     MIDDLEWARE.append("twocomms.media_cache_middleware.MediaCacheMiddleware")
-import pymysql
-
-# Настройка PyMySQL для работы с MySQL
-pymysql.install_as_MySQLdb()
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # В продакшене используйте переменную окружения
-import os
 SECRET_KEY = os.environ.get('SECRET_KEY', SECRET_KEY)
 
 # ALLOWED_HOSTS/CSRF_TRUSTED_ORIGINS читаем из переменных окружения
@@ -166,116 +146,6 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
 ]
 
 # Логирование наследуем из базовых настроек и используем ротацию файлов
-
-# База данных: выбираем по DB_ENGINE (mysql | postgresql), иначе SQLite как фолбэк
-DB_ENGINE = os.environ.get('DB_ENGINE', '').lower()
-if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
-    if DB_ENGINE.startswith('mysql'):
-        # Базовые опции подключения к MySQL
-        _options = {
-            'charset': 'utf8mb4',
-            'use_unicode': True,
-            'init_command': "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'",
-            'connect_timeout': int(os.environ.get('DB_CONNECT_TIMEOUT', '10')),
-            'read_timeout': int(os.environ.get('DB_READ_TIMEOUT', '30')),
-            'write_timeout': int(os.environ.get('DB_WRITE_TIMEOUT', '30')),
-        }
-
-        # Поддержка SSL через переменные окружения (опционально)
-        _ssl = {}
-        if os.environ.get('DB_SSL_CA'):
-            _ssl['ca'] = os.environ['DB_SSL_CA']
-        if os.environ.get('DB_SSL_CERT'):
-            _ssl['cert'] = os.environ['DB_SSL_CERT']
-        if os.environ.get('DB_SSL_KEY'):
-            _ssl['key'] = os.environ['DB_SSL_KEY']
-        if _ssl:
-            _options['ssl'] = _ssl
-
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.mysql',
-                'NAME': os.environ['DB_NAME'],
-                'USER': os.environ['DB_USER'],
-                'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-                'HOST': os.environ.get('DB_HOST', 'localhost'),
-                'PORT': os.environ.get('DB_PORT', '3306'),
-                'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '300')),
-                'CONN_HEALTH_CHECKS': True,
-                'OPTIONS': _options,
-            }
-        }
-        # Включаем строгий режим MariaDB/MySQL: задаём через отдельный параметр
-        _sql_mode = os.environ.get('DB_SQL_MODE')
-        if _sql_mode:
-            _options['sql_mode'] = _sql_mode
-        else:
-            _options['sql_mode'] = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ZERO_DATE,NO_ZERO_IN_DATE,NO_ENGINE_SUBSTITUTION'
-    else:
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql',
-                'NAME': os.environ['DB_NAME'],
-                'USER': os.environ['DB_USER'],
-                'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-                'HOST': os.environ.get('DB_HOST', 'localhost'),
-                'PORT': os.environ.get('DB_PORT', '5432'),
-                'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '300')),
-                'CONN_HEALTH_CHECKS': True,
-                'OPTIONS': {
-                    'sslmode': os.environ.get('DB_SSLMODE', 'require')
-                }
-            }
-        }
-
-DB_NAME_DTF = (os.environ.get('DB_NAME_DTF') or '').strip()
-if DB_NAME_DTF and 'default' in DATABASES:
-    DB_ENGINE_DTF = (os.environ.get('DB_ENGINE_DTF') or DB_ENGINE or '').lower()
-    DB_USER_DTF = os.environ.get('DB_USER_DTF', os.environ.get('DB_USER', ''))
-    DB_PASSWORD_DTF = os.environ.get('DB_PASSWORD_DTF', os.environ.get('DB_PASSWORD', ''))
-    DB_HOST_DTF = os.environ.get('DB_HOST_DTF', os.environ.get('DB_HOST', 'localhost'))
-    DB_PORT_DTF = os.environ.get('DB_PORT_DTF', os.environ.get('DB_PORT', ''))
-
-    if DB_ENGINE_DTF.startswith('mysql'):
-        dtf_options = {
-            'charset': 'utf8mb4',
-            'use_unicode': True,
-            'init_command': "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'",
-            'connect_timeout': int(os.environ.get('DB_CONNECT_TIMEOUT_DTF', os.environ.get('DB_CONNECT_TIMEOUT', '10'))),
-            'read_timeout': int(os.environ.get('DB_READ_TIMEOUT_DTF', os.environ.get('DB_READ_TIMEOUT', '30'))),
-            'write_timeout': int(os.environ.get('DB_WRITE_TIMEOUT_DTF', os.environ.get('DB_WRITE_TIMEOUT', '30'))),
-        }
-        _sql_mode_dtf = os.environ.get('DB_SQL_MODE_DTF') or os.environ.get('DB_SQL_MODE')
-        if _sql_mode_dtf:
-            dtf_options['sql_mode'] = _sql_mode_dtf
-        else:
-            dtf_options['sql_mode'] = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ZERO_DATE,NO_ZERO_IN_DATE,NO_ENGINE_SUBSTITUTION'
-        DATABASES['dtf'] = {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': DB_NAME_DTF,
-            'USER': DB_USER_DTF,
-            'PASSWORD': DB_PASSWORD_DTF,
-            'HOST': DB_HOST_DTF,
-            'PORT': DB_PORT_DTF or '3306',
-            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE_DTF', os.environ.get('DB_CONN_MAX_AGE', '300'))),
-            'CONN_HEALTH_CHECKS': True,
-            'OPTIONS': dtf_options,
-        }
-    else:
-        DATABASES['dtf'] = {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': DB_NAME_DTF,
-            'USER': DB_USER_DTF,
-            'PASSWORD': DB_PASSWORD_DTF,
-            'HOST': DB_HOST_DTF,
-            'PORT': DB_PORT_DTF or '5432',
-            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE_DTF', os.environ.get('DB_CONN_MAX_AGE', '300'))),
-            'CONN_HEALTH_CHECKS': True,
-            'OPTIONS': {
-                'sslmode': os.environ.get('DB_SSLMODE_DTF', os.environ.get('DB_SSLMODE', 'require'))
-            }
-        }
-    DATABASE_ROUTERS = ['twocomms.db_routers.DtfDatabaseRouter']
 
 # Настройки статических файлов для продакшена
 STATIC_URL = '/static/'
@@ -539,7 +409,7 @@ COMPRESS_CSS_HASHING_METHOD = 'content'
 COMPRESS_JS_HASHING_METHOD = 'content'
 COMPRESS_OFFLINE = ensure_compress_offline(COMPRESS_OFFLINE)
 
-# Настройки для правильной работы медиа-файлов на PythonAnywhere
+# Настройки для правильной работы медиа-файлов на shared hosting
 MEDIAFILES_DIRS = [
     BASE_DIR / 'media',
 ]
@@ -572,7 +442,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # HSTS
 SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMАINS = True
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # Куки

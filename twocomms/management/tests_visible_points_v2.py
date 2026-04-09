@@ -189,7 +189,7 @@ class VisiblePointsStatsConsistencyTests(TestCase):
         self.assertEqual(stats["lead_bonus_total"], 0)
 
     def test_get_user_stats_and_stats_payload_use_same_points_override_value(self):
-        target_date = date(2026, 3, 26)
+        target_date = timezone.localdate()
         created_at = timezone.make_aware(datetime.combine(target_date, time(hour=10, minute=30)))
         client = Client.objects.create(
             shop_name="Weighted Client",

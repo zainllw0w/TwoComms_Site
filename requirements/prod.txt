@@ -1,0 +1,4 @@
+-r base.txt
+
+# Django 6 + MySQL/MariaDB requires mysqlclient on production-like environments.
+mysqlclient==2.2.8

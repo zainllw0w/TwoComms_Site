@@ -22,6 +22,18 @@ DATABASES = {
     }
 }
 
+ALLOWED_HOSTS = [
+    'testserver',
+    'localhost',
+    '127.0.0.1',
+    'twocomms.shop',
+    'www.twocomms.shop',
+    'dtf.twocomms.shop',
+    'www.dtf.twocomms.shop',
+    'management.twocomms.shop',
+    'www.management.twocomms.shop',
+]
+
 # Отключаем миграции для ускорения тестов (не обязательно)
 
 
@@ -35,9 +47,17 @@ class DisableMigrations:
 
 MIGRATION_MODULES = DisableMigrations()
 
-# Отключаем DEBUG в тестах
-DEBUG = False
+# В тестах нужен обычный HTTP без продакшен-редиректов/рейткепов.
+DEBUG = True
 SECURE_SSL_REDIRECT = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+
+# Запускаем Celery синхронно, чтобы тесты не зависели от живого Redis broker/result backend.
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_BROKER_URL = 'memory://'
+CELERY_RESULT_BACKEND = 'cache+memory://'
 
 # Простой пароль хэшер для ускорения тестов
 PASSWORD_HASHERS = [

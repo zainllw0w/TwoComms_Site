@@ -24,6 +24,36 @@ def _build_absolute_url(path: str) -> str:
     return urljoin(SITE_BASE_URL, path.lstrip('/'))
 
 
+def _extract_openai_message_content(response) -> str:
+    """Read message content across OpenAI SDK response object shapes."""
+    choices = getattr(response, 'choices', None) or []
+    if not choices:
+        return ''
+
+    message = getattr(choices[0], 'message', None)
+    if message is None:
+        return ''
+
+    if isinstance(message, dict):
+        content = message.get('content', '')
+        return content if isinstance(content, str) else ''
+
+    content = getattr(message, 'content', '')
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict):
+                text = item.get('text')
+            else:
+                text = getattr(item, 'text', '')
+            if isinstance(text, str) and text:
+                parts.append(text)
+        return ''.join(parts)
+    return ''
+
+
 class SEOKeywordGenerator:
     """Генератор ключевых слов на основе анализа контента"""
 
@@ -162,7 +192,7 @@ class SEOKeywordGenerator:
                     {"role": "user", "content": prompt},
                 ],
             )
-            text = response.choices[0].message.get('content', '') if hasattr(response, 'choices') else ''
+            text = _extract_openai_message_content(response)
         except Exception:
             return []
         if not text:
@@ -230,7 +260,7 @@ class SEOKeywordGenerator:
                     {"role": "user", "content": prompt},
                 ],
             )
-            text = resp.choices[0].message.get('content', '') if hasattr(resp, 'choices') else ''
+            text = _extract_openai_message_content(resp)
         except Exception:
             return []
         if not text:
@@ -868,7 +898,7 @@ class SEOContentOptimizer:
                     {"role": "user", "content": prompt},
                 ],
             )
-            text = resp.choices[0].message.get('content', '') if hasattr(resp, 'choices') and resp.choices else ''
+            text = _extract_openai_message_content(resp)
             return text.strip() if text else ''
         except Exception:
             return ''
@@ -901,9 +931,7 @@ class SEOContentOptimizer:
                     {"role": "user", "content": prompt},
                 ],
             )
-            text = ''
-            if hasattr(resp, 'choices') and resp.choices:
-                text = resp.choices[0].message.get('content', '') if isinstance(resp.choices[0].message, dict) else ''
+            text = _extract_openai_message_content(resp)
             return text.strip() if text else ''
         except Exception:
             return ''
