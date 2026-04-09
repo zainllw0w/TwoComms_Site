@@ -87,6 +87,28 @@ class CustomPrintPageTests(TestCase):
         self.assertContains(response, reverse("custom_print"))
         self.assertNotContains(response, "custom-print-home-cta")
 
+    def test_home_page_uses_custom_survey_and_pagination_shells(self):
+        from storefront.models import Product
+
+        category = Category.objects.get(slug="tshirts")
+        for index in range(1, 10):
+            Product.objects.create(
+                title=f"Тестовий товар {index}",
+                slug=f"test-product-{index}",
+                category=category,
+                price=1000 + index,
+                status="published",
+            )
+
+        response = self._get(reverse("home"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "survey-reward-panel")
+        self.assertContains(response, "Отримай 200 грн")
+        self.assertContains(response, "pagination-shell")
+        self.assertContains(response, "pagination-rail")
+        self.assertContains(response, "Сторінка")
+
     @override_settings(MEDIA_ROOT=Path(tempfile.gettempdir()) / "twocomms-custom-print-tests")
     @patch("storefront.views.static_pages.notify_new_custom_print_lead")
     def test_custom_print_ready_submission_creates_lead_and_attachment(self, notify_mock):
