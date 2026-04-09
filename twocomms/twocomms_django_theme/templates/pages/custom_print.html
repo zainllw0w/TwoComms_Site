@@ -1,0 +1,1087 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Кастомний принт на вашому одязі — TwoComms{% endblock %}
+{% block description %}Кастомний принт на футболках, худі та лонгслівах від TwoComms. Підготуємо файл до друку або створимо дизайн під ваше ТЗ, а далі переведемо в DTF-конструктор.{% endblock %}
+{% block keywords %}кастомний принт, друк на футболках, друк на худі, друк на лонгслівах, дизайн принта, TwoComms, DTF{% endblock %}
+{% block og_type %}website{% endblock %}
+
+{% block extra_css %}
+  {{ block.super }}
+  <style>
+    .custom-print-page {
+      display: grid;
+      gap: clamp(1.25rem, 2vw, 2rem);
+      padding-bottom: 1rem;
+    }
+
+    .custom-print-shell {
+      position: relative;
+      overflow: hidden;
+      border-radius: 28px;
+      border: 1px solid rgba(255, 196, 112, 0.18);
+      background:
+        radial-gradient(circle at top left, rgba(255, 184, 92, 0.2), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(255, 140, 66, 0.18), transparent 35%),
+        linear-gradient(140deg, rgba(8, 8, 12, 0.96), rgba(16, 12, 6, 0.92) 55%, rgba(10, 10, 14, 0.96));
+      box-shadow:
+        0 28px 80px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .custom-print-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(115deg, rgba(255, 210, 140, 0.12), transparent 42%),
+        linear-gradient(300deg, rgba(255, 140, 66, 0.08), transparent 35%);
+      pointer-events: none;
+    }
+
+    .custom-print-hero {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+      gap: clamp(1.5rem, 3vw, 3rem);
+      align-items: stretch;
+      padding: clamp(1.5rem, 3vw, 3rem);
+      min-height: min(82svh, 760px);
+    }
+
+    .custom-print-copy {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 650px;
+      gap: 1rem;
+    }
+
+    .custom-print-kicker {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      gap: 0.5rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 196, 112, 0.28);
+      background: rgba(255, 196, 112, 0.08);
+      color: #ffd79c;
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .custom-print-kicker img {
+      width: 14px;
+      height: 14px;
+      opacity: 0.95;
+    }
+
+    .custom-print-title {
+      margin: 0;
+      font-size: clamp(2.3rem, 6vw, 4.9rem);
+      line-height: 0.94;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      color: #f6f1e8;
+      max-width: 9ch;
+    }
+
+    .custom-print-title-accent {
+      display: block;
+      background: linear-gradient(135deg, #ffd38c 0%, #ffb347 44%, #ff8c42 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .custom-print-lead {
+      margin: 0;
+      max-width: 58ch;
+      color: rgba(255, 244, 229, 0.82);
+      font-size: 1.05rem;
+      line-height: 1.65;
+    }
+
+    .custom-print-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      padding-top: 0.5rem;
+    }
+
+    .custom-print-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.7rem;
+      min-height: 52px;
+      padding: 0.9rem 1.35rem;
+      border-radius: 999px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+
+    .custom-print-btn:hover {
+      transform: translateY(-2px);
+      text-decoration: none;
+    }
+
+    .custom-print-btn-primary {
+      color: #1c1208;
+      background: linear-gradient(135deg, #ffd38c, #ffb347 55%, #ff8c42);
+      box-shadow: 0 16px 34px rgba(255, 140, 66, 0.28);
+    }
+
+    .custom-print-btn-secondary {
+      color: #f4ede3;
+      border: 1px solid rgba(255, 216, 156, 0.2);
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(12px);
+    }
+
+    .custom-print-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      padding-top: 0.25rem;
+    }
+
+    .custom-print-meta span {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.38rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: rgba(255, 244, 229, 0.72);
+      font-size: 0.82rem;
+    }
+
+    .custom-print-stage {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: stretch;
+      min-height: 100%;
+    }
+
+    .custom-print-stage-panel {
+      position: relative;
+      width: 100%;
+      border-radius: 26px;
+      border: 1px solid rgba(255, 216, 156, 0.12);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+        radial-gradient(circle at center, rgba(255, 184, 92, 0.15), transparent 55%);
+      backdrop-filter: blur(14px);
+      padding: 1.4rem;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 1.1rem;
+      overflow: hidden;
+    }
+
+    .custom-print-stage-panel::after {
+      content: "";
+      position: absolute;
+      inset: 12% 18%;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 176, 71, 0.22), transparent 70%);
+      filter: blur(20px);
+      pointer-events: none;
+    }
+
+    .custom-print-stage-head,
+    .custom-print-stage-footer {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+
+    .custom-print-stage-label {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(255, 196, 112, 0.12);
+      border: 1px solid rgba(255, 196, 112, 0.18);
+      color: #ffd79c;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .custom-print-stage-note {
+      margin: 0.55rem 0 0;
+      color: rgba(255, 244, 229, 0.65);
+      font-size: 0.88rem;
+      max-width: 24ch;
+    }
+
+    .custom-print-stage-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      align-items: center;
+      justify-items: center;
+      gap: 1rem;
+      text-align: center;
+      padding-block: 0.5rem;
+    }
+
+    .custom-print-stage-icon-wrap {
+      position: relative;
+      width: min(72%, 340px);
+      aspect-ratio: 1 / 1;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 196, 112, 0.16);
+      background:
+        radial-gradient(circle at center, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02) 62%, transparent 76%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 20px 50px rgba(0, 0, 0, 0.28);
+    }
+
+    .custom-print-stage-icon-wrap::before,
+    .custom-print-stage-icon-wrap::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 208, 140, 0.1);
+      inset: 8%;
+    }
+
+    .custom-print-stage-icon-wrap::after {
+      inset: 18%;
+      border-color: rgba(255, 140, 66, 0.14);
+    }
+
+    .custom-print-stage-icon {
+      width: min(55%, 200px);
+      max-height: 200px;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 40px rgba(255, 184, 92, 0.18));
+    }
+
+    .custom-print-stage-copy {
+      margin: 0;
+      max-width: 26ch;
+      color: rgba(255, 244, 229, 0.78);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .custom-print-stage-footer {
+      padding-top: 0.6rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      align-items: center;
+    }
+
+    .custom-print-stage-footer strong {
+      display: block;
+      font-size: 0.92rem;
+      color: #f8f1e8;
+      margin-bottom: 0.2rem;
+    }
+
+    .custom-print-stage-footer span {
+      color: rgba(255, 244, 229, 0.65);
+      font-size: 0.84rem;
+    }
+
+    .custom-print-selector-bar {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.85rem;
+      padding: 0 clamp(1.5rem, 3vw, 3rem) clamp(1.5rem, 3vw, 2rem);
+    }
+
+    .custom-print-picker {
+      position: relative;
+      padding: 1rem 1rem 1.05rem;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      color: #f6f1e8;
+      text-align: left;
+      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+      overflow: hidden;
+    }
+
+    .custom-print-picker::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 4px;
+      background: linear-gradient(180deg, #ffd38c, #ff8c42);
+      opacity: 0;
+      transition: opacity 180ms ease;
+    }
+
+    .custom-print-picker:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 196, 112, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .custom-print-picker[aria-pressed="true"] {
+      border-color: rgba(255, 196, 112, 0.3);
+      background: linear-gradient(145deg, rgba(255, 196, 112, 0.12), rgba(255, 255, 255, 0.04));
+      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.22);
+    }
+
+    .custom-print-picker[aria-pressed="true"]::before {
+      opacity: 1;
+    }
+
+    .custom-print-picker-visual {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .custom-print-picker-visual img {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+    }
+
+    .custom-print-picker-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 244, 229, 0.62);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .custom-print-picker-title {
+      margin: 0 0 0.35rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #f8f1e8;
+    }
+
+    .custom-print-picker-copy {
+      margin: 0;
+      color: rgba(255, 244, 229, 0.68);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .custom-print-section {
+      position: relative;
+      overflow: hidden;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: linear-gradient(180deg, rgba(10, 11, 15, 0.88), rgba(10, 10, 12, 0.74));
+      padding: clamp(1.25rem, 2vw, 2rem);
+    }
+
+    .custom-print-section-head {
+      display: grid;
+      gap: 0.45rem;
+      margin-bottom: 1.35rem;
+      max-width: 54rem;
+    }
+
+    .custom-print-section-kicker {
+      color: #ffcf84;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .custom-print-section h2 {
+      margin: 0;
+      font-size: clamp(1.5rem, 2.2vw, 2.2rem);
+      color: #f6f1e8;
+      letter-spacing: -0.03em;
+    }
+
+    .custom-print-section p {
+      margin: 0;
+      color: rgba(255, 244, 229, 0.72);
+      line-height: 1.65;
+    }
+
+    .custom-print-pricing {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .custom-print-price-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 20px;
+      padding: 1.1rem;
+      border: 1px solid rgba(255, 196, 112, 0.1);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+      min-height: 220px;
+    }
+
+    .custom-print-price-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -15% -40% auto;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 184, 92, 0.14), transparent 68%);
+      pointer-events: none;
+    }
+
+    .custom-print-price-top {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.1rem;
+    }
+
+    .custom-print-price-top img {
+      width: 20px;
+      height: 20px;
+    }
+
+    .custom-print-price-top span {
+      color: rgba(255, 244, 229, 0.64);
+      font-size: 0.76rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .custom-print-price-card h3 {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 0.4rem;
+      color: #f7f1e8;
+      font-size: 1.08rem;
+    }
+
+    .custom-print-price-value {
+      position: relative;
+      z-index: 1;
+      display: block;
+      font-size: 1.8rem;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: #ffd38c;
+      margin-bottom: 0.65rem;
+    }
+
+    .custom-print-price-meta {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 1rem;
+      color: rgba(255, 244, 229, 0.68);
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+
+    .custom-print-price-note {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 0.38rem 0.68rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(255, 244, 229, 0.74);
+      font-size: 0.78rem;
+    }
+
+    .custom-print-service-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .custom-print-service {
+      position: relative;
+      overflow: hidden;
+      border-radius: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      padding: 1.25rem;
+    }
+
+    .custom-print-service-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .custom-print-service-icon {
+      width: 22px;
+      height: 22px;
+      opacity: 0.92;
+    }
+
+    .custom-print-service-title {
+      margin: 0;
+      font-size: 1.15rem;
+      color: #f7f1e8;
+    }
+
+    .custom-print-service-price {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.4rem 0.7rem;
+      border-radius: 999px;
+      background: rgba(255, 196, 112, 0.1);
+      border: 1px solid rgba(255, 196, 112, 0.22);
+      color: #ffd79c;
+      font-size: 0.9rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .custom-print-service-copy {
+      margin: 0 0 1rem;
+      color: rgba(255, 244, 229, 0.75);
+      line-height: 1.6;
+    }
+
+    .custom-print-service details {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 0.9rem;
+    }
+
+    .custom-print-service summary {
+      cursor: pointer;
+      color: #f7f1e8;
+      font-weight: 600;
+      list-style: none;
+    }
+
+    .custom-print-service summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .custom-print-service ul {
+      margin: 0.8rem 0 0;
+      padding-left: 1rem;
+      color: rgba(255, 244, 229, 0.7);
+      line-height: 1.6;
+    }
+
+    .custom-print-service li + li {
+      margin-top: 0.35rem;
+    }
+
+    .custom-print-raster-note {
+      margin-top: 1rem;
+      padding: 0.95rem 1rem;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 196, 112, 0.1);
+      background: rgba(255, 196, 112, 0.06);
+      color: rgba(255, 244, 229, 0.78);
+      line-height: 1.65;
+    }
+
+    .custom-print-process {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .custom-print-step {
+      display: grid;
+      gap: 0.75rem;
+      padding: 1.1rem;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .custom-print-step-index {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #1d1207;
+      font-weight: 800;
+      background: linear-gradient(135deg, #ffd38c, #ff9e4a);
+    }
+
+    .custom-print-step h3 {
+      margin: 0;
+      font-size: 1.02rem;
+      color: #f7f1e8;
+    }
+
+    .custom-print-step p {
+      margin: 0;
+      color: rgba(255, 244, 229, 0.7);
+      line-height: 1.55;
+    }
+
+    .custom-print-final {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 1rem;
+      align-items: center;
+      padding: clamp(1.2rem, 2vw, 1.8rem);
+    }
+
+    .custom-print-final-copy {
+      max-width: 46rem;
+    }
+
+    .custom-print-final-copy h2 {
+      margin: 0 0 0.45rem;
+      font-size: clamp(1.4rem, 2.4vw, 2.1rem);
+      color: #f7f1e8;
+      letter-spacing: -0.03em;
+    }
+
+    .custom-print-final-copy p {
+      margin: 0;
+      color: rgba(255, 244, 229, 0.74);
+      line-height: 1.65;
+    }
+
+    .custom-print-final-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.8rem;
+    }
+
+    .custom-print-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.9rem 1.2rem;
+      min-height: 50px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 700;
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+
+    .custom-print-link:hover {
+      transform: translateY(-2px);
+      text-decoration: none;
+    }
+
+    .custom-print-link img {
+      width: 18px;
+      height: 18px;
+    }
+
+    .custom-print-link-primary {
+      color: #1c1208;
+      background: linear-gradient(135deg, #ffd38c, #ffb347 55%, #ff8c42);
+      box-shadow: 0 16px 34px rgba(255, 140, 66, 0.26);
+    }
+
+    .custom-print-link-secondary {
+      color: #f6f1e8;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    @media (max-width: 1024px) {
+      .custom-print-hero,
+      .custom-print-final {
+        grid-template-columns: 1fr;
+      }
+
+      .custom-print-title {
+        max-width: 11ch;
+      }
+
+      .custom-print-selector-bar,
+      .custom-print-pricing,
+      .custom-print-process {
+        grid-template-columns: 1fr;
+      }
+
+      .custom-print-service-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .custom-print-final-actions {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .custom-print-shell,
+      .custom-print-section {
+        border-radius: 22px;
+      }
+
+      .custom-print-hero {
+        padding: 1.2rem;
+        min-height: auto;
+      }
+
+      .custom-print-selector-bar {
+        padding: 0 1.2rem 1.2rem;
+        grid-template-columns: 1fr;
+      }
+
+      .custom-print-stage-panel {
+        padding: 1.15rem;
+      }
+
+      .custom-print-stage-head,
+      .custom-print-stage-footer {
+        flex-direction: column;
+      }
+
+      .custom-print-stage-icon-wrap {
+        width: min(78%, 300px);
+      }
+
+      .custom-print-btn,
+      .custom-print-link {
+        width: 100%;
+      }
+
+      .custom-print-actions,
+      .custom-print-final-actions {
+        flex-direction: column;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="custom-print-page">
+    <section class="custom-print-shell">
+      <div class="custom-print-hero">
+        <div class="custom-print-copy">
+          <span class="custom-print-kicker">
+            <img src="{% static 'dtf/svg/icon-palette.svg' %}" alt="" aria-hidden="true">
+            Custom Print Studio
+          </span>
+          <h1 class="custom-print-title">
+            Замов свій
+            <span class="custom-print-title-accent">принт без шуму</span>
+          </h1>
+          <p class="custom-print-lead">
+            Футболки, худі та лонгсліви під ваш файл або ідею. Спочатку обираєте виріб, далі швидко розумієте формат робіт і переходите в DTF-конструктор, коли готові до запуску.
+          </p>
+          <div class="custom-print-actions">
+            <a class="custom-print-btn custom-print-btn-primary" href="https://dtf.twocomms.shop/constructor/" target="_blank" rel="noopener noreferrer" data-dynamic-cta>
+              Відкрити конструктор для футболки
+            </a>
+            <a class="custom-print-btn custom-print-btn-secondary" href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer">
+              Написати в Telegram
+            </a>
+          </div>
+          <div class="custom-print-meta">
+            <span>Виріб під ваш файл або ТЗ</span>
+            <span>Пояснюємо формат робіт без зайвої бюрократії</span>
+            <span>DTF-плівка та готові вироби в одному сценарії</span>
+          </div>
+        </div>
+
+        <div class="custom-print-stage">
+          <div class="custom-print-stage-panel">
+            <div class="custom-print-stage-head">
+              <div>
+                <span class="custom-print-stage-label" data-stage-product>Футболка</span>
+                <p class="custom-print-stage-note" data-stage-note>Універсальна база для великих фронтальних та задніх принтів.</p>
+              </div>
+              <span class="custom-print-stage-label" data-stage-badge>Front / Back</span>
+            </div>
+
+            <div class="custom-print-stage-grid">
+              <div class="custom-print-stage-icon-wrap">
+                <img class="custom-print-stage-icon" src="{% static 'img/icons/tshirt.svg' %}" alt="Футболка" data-stage-icon>
+              </div>
+              <p class="custom-print-stage-copy" data-stage-copy>
+                Для капсул, івентів і персональних запусків, коли потрібен чистий силует і швидкий перехід у друк.
+              </p>
+            </div>
+
+            <div class="custom-print-stage-footer">
+              <div>
+                <strong>Рекомендовані позиції</strong>
+                <span data-stage-placements>Спереду / На спині</span>
+              </div>
+              <div>
+                <strong>Що далі</strong>
+                <span data-stage-flow>Обираєте виріб, далі переходите в конструктор DTF.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="custom-print-selector-bar" role="group" aria-label="Вибір виробу">
+        <button class="custom-print-picker" type="button" aria-pressed="true" data-product-picker data-product-key="tshirt" data-cta="Відкрити конструктор для футболки" data-label="Футболка" data-badge="Front / Back" data-note="Універсальна база для великих фронтальних та задніх принтів." data-copy="Для капсул, івентів і персональних запусків, коли потрібен чистий силует і швидкий перехід у друк." data-placements="Спереду / На спині" data-flow="Обираєте виріб, далі переходите в конструктор DTF." data-front-note="Від маленького лого до повноформатного фронту." data-back-note="Найсильніший формат для колекційних і брендованих запусків." data-sleeve-note="Рукав погоджується окремо, якщо макет невеликий." data-icon="{% static 'img/icons/tshirt.svg' %}">
+          <div class="custom-print-picker-visual">
+            <img src="{% static 'img/icons/tshirt.svg' %}" alt="Футболка">
+            <span class="custom-print-picker-tag">Base wear</span>
+          </div>
+          <h2 class="custom-print-picker-title">Футболка</h2>
+          <p class="custom-print-picker-copy">Коли потрібен чистий носій під перед, спину або невеликий брендований акцент.</p>
+        </button>
+
+        <button class="custom-print-picker" type="button" aria-pressed="false" data-product-picker data-product-key="hoodie" data-cta="Відкрити конструктор для худі" data-label="Худі" data-badge="Back / Sleeve" data-note="Більше площі для акцентного принта, особливо на спині та рукаві." data-copy="Підходить для щільніших речей, де дизайн має виглядати об’ємно та впевнено." data-placements="Спереду / На спині / На рукаві" data-flow="Найчастіше обирають спину або рукав, потім переносять макет у конструктор." data-front-note="Добре працює для малого лого або лівої частини грудей." data-back-note="Худі найкраще тримає великий центральний принт на спині." data-sleeve-note="Рукав на худі виглядає найсильніше й доступний у першій черзі." data-icon="{% static 'img/icons/hoodie.svg' %}">
+          <div class="custom-print-picker-visual">
+            <img src="{% static 'img/icons/hoodie.svg' %}" alt="Худі">
+            <span class="custom-print-picker-tag">Heavy fit</span>
+          </div>
+          <h2 class="custom-print-picker-title">Худі</h2>
+          <p class="custom-print-picker-copy">Для щільнішої речі з великим акцентом, глибшим контрастом і сценаріями на рукаві.</p>
+        </button>
+
+        <button class="custom-print-picker" type="button" aria-pressed="false" data-product-picker data-product-key="longsleeve" data-cta="Відкрити конструктор для лонгсліва" data-label="Лонгслів" data-badge="Sleeve / Front" data-note="Гарний сценарій для довгих рукавів, серійних написів і вертикального ритму." data-copy="Лонгслів добре працює з фронтом, спиною та рукавами, коли потрібен витягнутий силует." data-placements="Спереду / На спині / На рукаві" data-flow="Можна запускати лаконічні фронти або довгі рукавні композиції через DTF-конструктор." data-front-note="Сильний варіант для лаконічних написів і верхнього фронту." data-back-note="Задній принт працює краще у вертикальних композиціях." data-sleeve-note="Рукави лонгсліва часто стають головним носієм графіки." data-icon="{% static 'img/icons/longsleeve.svg' %}">
+          <div class="custom-print-picker-visual">
+            <img src="{% static 'img/icons/longsleeve.svg' %}" alt="Лонгслів">
+            <span class="custom-print-picker-tag">Long form</span>
+          </div>
+          <h2 class="custom-print-picker-title">Лонгслів</h2>
+          <p class="custom-print-picker-copy">Для довгого рукава, серійних написів, концепт-принтів і більш графічного ритму.</p>
+        </button>
+      </div>
+    </section>
+
+    <section class="custom-print-section">
+      <div class="custom-print-section-head">
+        <span class="custom-print-section-kicker">Розміщення принта</span>
+        <h2>Структура під ціни вже готова</h2>
+        <p>
+          Точні суми для нанесення на перед, спину та рукав підставимо окремо. Зараз блок зібраний так, щоб не ламати дизайн і не перевантажувати вас зайвими деталями до затвердження прайсу.
+        </p>
+      </div>
+
+      <div class="custom-print-pricing">
+        <article class="custom-print-price-card">
+          <div class="custom-print-price-top">
+            <span>Placement 01</span>
+            <img src="{% static 'dtf/svg/icon-calculator.svg' %}" alt="" aria-hidden="true">
+          </div>
+          <h3>Принт спереду</h3>
+          <span class="custom-print-price-value">уточнюється</span>
+          <p class="custom-print-price-meta">Базовий формат для логотипа, фронтальної композиції або компактного нагрудного акценту.</p>
+          <span class="custom-print-price-note" data-front-note>Від маленького лого до повноформатного фронту.</span>
+        </article>
+
+        <article class="custom-print-price-card">
+          <div class="custom-print-price-top">
+            <span>Placement 02</span>
+            <img src="{% static 'dtf/svg/icon-file.svg' %}" alt="" aria-hidden="true">
+          </div>
+          <h3>Принт на спині</h3>
+          <span class="custom-print-price-value">уточнюється</span>
+          <p class="custom-print-price-meta">Для великих центральних принтів, серійних дропів, командних запусків і сильного визуального жесту.</p>
+          <span class="custom-print-price-note" data-back-note>Найсильніший формат для колекційних і брендованих запусків.</span>
+        </article>
+
+        <article class="custom-print-price-card">
+          <div class="custom-print-price-top">
+            <span>Placement 03</span>
+            <img src="{% static 'dtf/svg/icon-upload.svg' %}" alt="" aria-hidden="true">
+          </div>
+          <h3>Принт на рукаві</h3>
+          <span class="custom-print-price-value">уточнюється</span>
+          <p class="custom-print-price-meta">Окремий сценарій для худі та лонгсліва, коли рукав повинен стати частиною композиції, а не другорядною деталлю.</p>
+          <span class="custom-print-price-note" data-sleeve-note>Рукав погоджується окремо, якщо макет невеликий.</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="custom-print-section">
+      <div class="custom-print-section-head">
+        <span class="custom-print-section-kicker">Послуги дизайнера</span>
+        <h2>Або допрацьовуємо файл, або збираємо дизайн з нуля</h2>
+        <p>
+          Нижче коротка логіка робіт. Це не окремий лабіринт з опцій, а два чіткі сценарії: ви вже маєте основу або хочете повністю новий візуал під своє ТЗ.
+        </p>
+      </div>
+
+      <div class="custom-print-service-grid">
+        <article class="custom-print-service">
+          <div class="custom-print-service-top">
+            <div>
+              <img class="custom-print-service-icon" src="{% static 'dtf/svg/icon-fix.svg' %}" alt="" aria-hidden="true">
+              <h3 class="custom-print-service-title">Підготовка готового принта до друку</h3>
+            </div>
+            <span class="custom-print-service-price">300 грн / 1 макет</span>
+          </div>
+          <p class="custom-print-service-copy">
+            Якщо зображення, логотип, напис або ескіз уже є, ми акуратно доводимо його до стану, придатного для друку на одязі.
+          </p>
+          <details>
+            <summary>Що входить</summary>
+            <ul>
+              <li>растрування зображення та базова підготовка файлу до друку;</li>
+              <li>легке редагування макета, чистка дрібних дефектів і шуму;</li>
+              <li>вирівнювання композиції та адаптація під нанесення на одяг;</li>
+              <li>незначна корекція тексту, відступів і розташування деталей.</li>
+            </ul>
+          </details>
+        </article>
+
+        <article class="custom-print-service">
+          <div class="custom-print-service-top">
+            <div>
+              <img class="custom-print-service-icon" src="{% static 'dtf/svg/icon-palette.svg' %}" alt="" aria-hidden="true">
+              <h3 class="custom-print-service-title">Унікальний принт під ваше ТЗ</h3>
+            </div>
+            <span class="custom-print-service-price">500 грн / 1 макет</span>
+          </div>
+          <p class="custom-print-service-copy">
+            Створюємо індивідуальний дизайн з нуля під ваш стиль, бренд, команду, подію або конкретну ідею. Дві безкоштовні правки вже включені.
+          </p>
+          <details>
+            <summary>Що входить</summary>
+            <ul>
+              <li>створення дизайну з нуля за вашим описом або референсами;</li>
+              <li>підбір композиції, стилістики та візуальної подачі під друк;</li>
+              <li>підготовка макета у форматі, придатному до виробництва;</li>
+              <li>2 безкоштовні правки після першої готової версії.</li>
+            </ul>
+          </details>
+        </article>
+      </div>
+
+      <div class="custom-print-raster-note">
+        <strong>Що таке растрування?</strong>
+        Це підготовка зображення до друку на тканині: ми переводимо або адаптуємо файл так, щоб дрібні деталі, контури та градієнти краще поводилися на реальному виробі, а не тільки виглядали нормально на екрані.
+      </div>
+    </section>
+
+    <section class="custom-print-section">
+      <div class="custom-print-section-head">
+        <span class="custom-print-section-kicker">Як це працює</span>
+        <h2>Один короткий сценарій замість довгого брифу</h2>
+        <p>Ця сторінка не замінює конструктор. Вона лише швидко проводить вас до правильного наступного кроку: або самостійний запуск, або консультація, або замовлення DTF-плівки.</p>
+      </div>
+
+      <div class="custom-print-process">
+        <article class="custom-print-step">
+          <div class="custom-print-step-index">1</div>
+          <h3>Оберіть носій</h3>
+          <p>Футболка, худі або лонгслів. Ми одразу підсвічуємо, які позиції нанесення працюють найкраще саме для цього формату.</p>
+        </article>
+
+        <article class="custom-print-step">
+          <div class="custom-print-step-index">2</div>
+          <h3>Зрозумійте формат робіт</h3>
+          <p>Де буде принт, чи готовий у вас файл, чи потрібно лише адаптувати зображення або зібрати повністю новий дизайн під задачу.</p>
+        </article>
+
+        <article class="custom-print-step">
+          <div class="custom-print-step-index">3</div>
+          <h3>Переходьте в потрібний канал</h3>
+          <p>Самостійно збираєте макет у DTF-конструкторі, пишете в Telegram для консультації або йдете одразу на DTF-сайт за плівкою для самостійного перенесення.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="custom-print-shell custom-print-final">
+      <div class="custom-print-final-copy">
+        <h2>Готові перейти далі?</h2>
+        <p>
+          Якщо файл уже підготовлений — ідіть у конструктор. Якщо потрібна жива розмова або уточнення по ТЗ — пишіть у Telegram. Якщо вам потрібна тільки DTF-плівка для самостійного перенесення, відкривайте DTF-сайт.
+        </p>
+      </div>
+
+      <div class="custom-print-final-actions">
+        <a class="custom-print-link custom-print-link-primary" href="https://dtf.twocomms.shop/constructor/" target="_blank" rel="noopener noreferrer">
+          <img src="{% static 'dtf/svg/icon-upload.svg' %}" alt="" aria-hidden="true">
+          Перейти в конструктор
+        </a>
+        <a class="custom-print-link custom-print-link-secondary" href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer">
+          <img src="{% static 'dtf/svg/icon-telegram.svg' %}" alt="" aria-hidden="true">
+          Написати в Telegram
+        </a>
+        <a class="custom-print-link custom-print-link-secondary" href="https://dtf.twocomms.shop/" target="_blank" rel="noopener noreferrer">
+          <img src="{% static 'dtf/svg/icon-file.svg' %}" alt="" aria-hidden="true">
+          Замовити DTF-плівку
+        </a>
+      </div>
+    </section>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const pickers = Array.from(document.querySelectorAll('[data-product-picker]'));
+      if (!pickers.length) return;
+
+      const stageProduct = document.querySelector('[data-stage-product]');
+      const stageBadge = document.querySelector('[data-stage-badge]');
+      const stageNote = document.querySelector('[data-stage-note]');
+      const stageCopy = document.querySelector('[data-stage-copy]');
+      const stagePlacements = document.querySelector('[data-stage-placements]');
+      const stageFlow = document.querySelector('[data-stage-flow]');
+      const stageIcon = document.querySelector('[data-stage-icon]');
+      const dynamicCta = document.querySelector('[data-dynamic-cta]');
+      const frontNote = document.querySelector('[data-front-note]');
+      const backNote = document.querySelector('[data-back-note]');
+      const sleeveNote = document.querySelector('[data-sleeve-note]');
+
+      function applyPicker(button) {
+        pickers.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+
+        if (stageProduct) stageProduct.textContent = button.dataset.label || '';
+        if (stageBadge) stageBadge.textContent = button.dataset.badge || '';
+        if (stageNote) stageNote.textContent = button.dataset.note || '';
+        if (stageCopy) stageCopy.textContent = button.dataset.copy || '';
+        if (stagePlacements) stagePlacements.textContent = button.dataset.placements || '';
+        if (stageFlow) stageFlow.textContent = button.dataset.flow || '';
+        if (frontNote) frontNote.textContent = button.dataset.frontNote || '';
+        if (backNote) backNote.textContent = button.dataset.backNote || '';
+        if (sleeveNote) sleeveNote.textContent = button.dataset.sleeveNote || '';
+
+        if (stageIcon) {
+          stageIcon.src = button.dataset.icon || '';
+          stageIcon.alt = button.dataset.label || '';
+        }
+
+        if (dynamicCta) {
+          dynamicCta.textContent = button.dataset.cta || dynamicCta.textContent;
+        }
+      }
+
+      pickers.forEach((button) => {
+        button.addEventListener('click', function () {
+          applyPicker(button);
+        });
+      });
+
+      const initial = pickers.find((item) => item.getAttribute('aria-pressed') === 'true') || pickers[0];
+      applyPicker(initial);
+    });
+  </script>
+{% endblock %}

@@ -500,6 +500,15 @@ def delivery(request):
     })
 
 
+def custom_print(request):
+    """
+    Лендинг кастомного принта на основном сайте.
+    """
+    return render(request, 'pages/custom_print.html', {
+        'page_title': 'Кастомний принт',
+    })
+
+
 def returns(request):
     """
     Страница "Возврат и обмен".

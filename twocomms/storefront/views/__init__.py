@@ -91,6 +91,7 @@ from .static_pages import (
     static_verification_file,
     about,
     contacts,
+    custom_print,
     delivery,
     returns,
     privacy_policy,
