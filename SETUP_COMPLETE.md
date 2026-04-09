@@ -15,7 +15,7 @@
 **Команда:**
 ```bash
 0 4,16 * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && \
-/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python \
+/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python \
 manage.py generate_google_merchant_feed \
 --output twocomms/static/google_merchant_feed.xml && \
 cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml

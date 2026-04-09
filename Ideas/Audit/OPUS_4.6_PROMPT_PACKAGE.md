@@ -19,7 +19,7 @@
 **Монетизация:** Продажа услуг печати, готовых принтов, sample kit
 
 **Технический стек:**
-- Backend: Django 5.x (Python 3.13)
+- Backend: Django 5.x (Python 3.14)
 - Frontend: Vanilla JavaScript (без React/Vue)
 - Стилизация: Custom CSS + CSS variables
 - Интерактивность: HTMX для partial page updates

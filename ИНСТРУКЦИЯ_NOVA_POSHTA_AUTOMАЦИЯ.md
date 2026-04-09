@@ -73,13 +73,13 @@ sshpass -p '***REMOVED_SSH_PASSWORD***' ssh -o StrictHostKeyChecking=no qlknpodo
 ### Ручной запуск проверки:
 
 ```bash
-sshpass -p '***REMOVED_SSH_PASSWORD***' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && python manage.py update_tracking_statuses'"
+sshpass -p '***REMOVED_SSH_PASSWORD***' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && python manage.py update_tracking_statuses'"
 ```
 
 ### Проверка конкретного заказа:
 
 ```bash
-sshpass -p '***REMOVED_SSH_PASSWORD***' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && python manage.py update_tracking_statuses --order-number TWC30102025N01'"
+sshpass -p '***REMOVED_SSH_PASSWORD***' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && python manage.py update_tracking_statuses --order-number TWC30102025N01'"
 ```
 
 ---

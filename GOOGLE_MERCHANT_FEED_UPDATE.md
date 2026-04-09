@@ -16,7 +16,7 @@
 Скопируйте и выполните эту команду в терминале:
 
 ```bash
-ssh qlknpodo@195.191.24.169 'cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml && echo "✓ Feed обновлен!" && ls -lh media/google-merchant-v3.xml && grep -c "<item>" media/google-merchant-v3.xml | xargs -I {} echo "✓ Товаров в feed: {}"'
+ssh qlknpodo@195.191.24.169 'cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml && echo "✓ Feed обновлен!" && ls -lh media/google-merchant-v3.xml && grep -c "<item>" media/google-merchant-v3.xml | xargs -I {} echo "✓ Товаров в feed: {}"'
 ```
 
 **Что делает эта команда:**
@@ -69,7 +69,7 @@ ssh qlknpodo@195.191.24.169 "crontab -l | grep -E '(generate_google_merchant_fee
 **Ожидаемый результат:**
 ```
 # Django: обновление Google Merchant feed (добавлено автоматически)
-0 4 * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/cron.log 2>&1
+0 4 * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/cron.log 2>&1
 ```
 
 ### Создать/обновить CRON задачу вручную
@@ -79,7 +79,7 @@ ssh qlknpodo@195.191.24.169 << 'ENDSSH'
 # Добавляем комментарий и задачу
 (crontab -l 2>/dev/null | grep -v "generate_google_merchant_feed" | grep -v "Django: обновление Google Merchant feed"; 
 echo "# Django: обновление Google Merchant feed (обновлено $(date +%Y-%m-%d))"; 
-echo "0 4 * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/cron.log 2>&1") | crontab -
+echo "0 4 * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/cron.log 2>&1") | crontab -
 echo "✓ CRON задача обновлена"
 crontab -l | grep "generate_google_merchant_feed"
 ENDSSH
@@ -152,7 +152,7 @@ ssh qlknpodo@195.191.24.169 "bash ~/verify_google_feed.sh"
 
 **Проверка 1: Убедитесь, что команда работает**
 ```bash
-ssh qlknpodo@195.191.24.169 'cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py generate_google_merchant_feed --dry-run'
+ssh qlknpodo@195.191.24.169 'cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py generate_google_merchant_feed --dry-run'
 ```
 
 **Проверка 2: Проверьте права доступа**
@@ -186,7 +186,7 @@ cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 echo "🔍 Проверка цен..."
 
 # Получить цену первого товара из БД
-/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py shell << 'PYEOF'
+/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py shell << 'PYEOF'
 from storefront.models import Product
 p = Product.objects.first()
 if p:
@@ -228,7 +228,7 @@ ssh qlknpodo@195.191.24.169 "grep -r 'media' /etc/nginx/ 2>/dev/null || grep -r 
 ssh qlknpodo@195.191.24.169 << 'ENDSSH'
 (crontab -l 2>/dev/null | grep -v "generate_google_merchant_feed" | grep -v "Django: обновление Google Merchant feed"; 
 echo "# Django: обновление Google Merchant feed (обновлено $(date +%Y-%m-%d))"; 
-echo "0 4,16 * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/cron.log 2>&1") | crontab -
+echo "0 4,16 * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/cron.log 2>&1") | crontab -
 echo "✓ CRON обновлен: теперь запускается в 4:00 и 16:00"
 ENDSSH
 ```
@@ -264,7 +264,7 @@ ssh qlknpodo@195.191.24.169 "crontab -e"
 
 ### Тестовый запуск команды
 ```bash
-ssh qlknpodo@195.191.24.169 'cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py generate_google_merchant_feed --dry-run'
+ssh qlknpodo@195.191.24.169 'cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py generate_google_merchant_feed --dry-run'
 ```
 
 ### Backup текущего feed
@@ -292,7 +292,7 @@ ssh qlknpodo@195.191.24.169 "cp /home/qlknpodo/TWC/TwoComms_Site/twocomms/media/
 
 | Действие | Команда |
 |----------|---------|
-| **Обновить feed сейчас** | `ssh qlknpodo@195.191.24.169 'cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml'` |
+| **Обновить feed сейчас** | `ssh qlknpodo@195.191.24.169 'cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml'` |
 | **Проверить CRON** | `ssh qlknpodo@195.191.24.169 "crontab -l \| grep merchant"` |
 | **Посмотреть логи** | `ssh qlknpodo@195.191.24.169 "tail -50 /home/qlknpodo/TWC/TwoComms_Site/twocomms/cron.log"` |
 | **Проверить feed** | `curl -I https://twocomms.shop/media/google-merchant-v3.xml` |

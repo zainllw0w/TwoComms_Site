@@ -116,7 +116,7 @@ echo -e "${GREEN}✅ Git статус проверен${NC}"
 # ============================================================================
 echo -e "${YELLOW}[4/15] Анализ Python окружения...${NC}"
 
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 
 cat > "$REPORT_DIR/04_python_env.txt" << EOF
 === PYTHON ВЕРСИЯ ===

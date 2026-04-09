@@ -16,7 +16,7 @@ echo ""
 # Удаляем старые задачи merchant feed и добавляем новую
 (crontab -l 2>/dev/null | grep -v "generate_google_merchant_feed" | grep -v "Django: обновление Google Merchant feed" | grep -v "Google Merchant feed"; 
 echo "# Django: обновление Google Merchant feed 2 раза в день (обновлено $(date +%Y-%m-%d\ %H:%M))"; 
-echo "0 4,16 * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/cron.log 2>&1") | crontab -
+echo "0 4,16 * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/cron.log 2>&1") | crontab -
 
 echo "✅ CRON задача обновлена!"
 echo ""

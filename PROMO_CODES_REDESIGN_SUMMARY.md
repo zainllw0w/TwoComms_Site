@@ -172,7 +172,7 @@ promo = PromoCode.objects.create(
 **Необходимо выполнить на сервере**:
 ```bash
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 python manage.py makemigrations storefront
 python manage.py migrate storefront
 ```

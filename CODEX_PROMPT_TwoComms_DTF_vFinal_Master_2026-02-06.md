@@ -23,7 +23,7 @@
 ---
 
 ## 1) Входные факты (STACK LOCK, менять нельзя без отдельного решения)
-1) **Backend:** Django (Passenger WSGI), Python 3.13 (в venv на сервере).  
+1) **Backend:** Django (Passenger WSGI), Python 3.14 (в venv на сервере).  
 2) **Frontend:** HTMX 1.9.12 + vanilla JS. HTMX используется минимально (1 место — estimate калькулятор).  
 3) **CSS:** vanilla + **tokens.css** (зрелая система семантических токенов). Tailwind отсутствует и не нужен.  
 4) **Static:** в коде есть WhiteNoise, но на хостинге LiteSpeed раздаёт статику напрямую.  
@@ -139,7 +139,7 @@
 
 ```bash
 sshpass -p "$TWC_SSH_PASS" ssh -o StrictHostKeyChecking=no USER@HOST "bash -lc '
-  source /home/USER/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
+  source /home/USER/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate &&
   cd /home/USER/TWC/TwoComms_Site/twocomms &&
   <YOUR_COMMAND_HERE>
 '"

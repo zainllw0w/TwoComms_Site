@@ -68,7 +68,7 @@ git checkout fix-audit-errors-f88J2
 git pull origin fix-audit-errors-f88J2
 
 # 4. Активируйте виртуальное окружение
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 
 # 5. Установите зависимости
 pip install -r requirements.txt
@@ -209,7 +209,7 @@ redis-cli ping
 ```bash
 ssh qlknpodo@195.191.24.169
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 python manage.py collectstatic --noinput --clear
 touch passenger_wsgi.py
 ```

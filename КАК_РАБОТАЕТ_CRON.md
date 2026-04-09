@@ -83,7 +83,7 @@ sshpass -p '***REMOVED_SSH_PASSWORD***' ssh qlknpodo@195.191.24.169 "bash -lc 'c
 
 **Команда:**
 ```bash
-cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py update_tracking_statuses >> /tmp/nova_poshta_update.log 2>&1
+cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py update_tracking_statuses >> /tmp/nova_poshta_update.log 2>&1
 ```
 
 ---

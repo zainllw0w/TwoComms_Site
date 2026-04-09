@@ -1,7 +1,7 @@
 # TwoComms DTF (dtf.twocomms.shop) — Полный список задач для CODEX + финальный вид сайта (Vision & Backlog)
 **Дата:** 2026-02-06 (Europe/Zaporozhye)  
 **Назначение:** этот документ = “единый источник правды” для CODEX: что должно быть на сайте, как это должно выглядеть, и что именно нужно сделать в коде/на сервере.  
-**Стек-лок:** Django (Passenger WSGI, Python 3.13) + HTMX (точечно) + vanilla JS + vanilla CSS + `tokens.css`. Стек не меняем.
+**Стек-лок:** Django (Passenger WSGI, Python 3.14) + HTMX (точечно) + vanilla JS + vanilla CSS + `tokens.css`. Стек не меняем.
 
 ---
 
@@ -23,7 +23,7 @@
 - Команда (шаблон, параметры — из вашей инфраструктуры):
   ```bash
   sshpass -p "$TWC_SSH_PASS" ssh -o StrictHostKeyChecking=no USER@HOST "bash -lc '
-    source /home/USER/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
+    source /home/USER/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate &&
     cd /home/USER/TWC/TwoComms_Site/twocomms &&
     <COMMAND>
   '"
