@@ -1369,6 +1369,53 @@ class ParserApiTests(TestCase):
         self.assertEqual(refreshed.json()["stats"]["total_items"], 0)
         self.assertEqual(refreshed.json()["pagination"]["total_items"], 0)
 
+    def test_moderation_quick_approve_accepts_action_only_payload(self):
+        lead = ManagementLead.objects.create(
+            shop_name="Quick Approve",
+            phone="+380671110019",
+            full_name="Owner",
+            city="Київ",
+            status=ManagementLead.Status.MODERATION,
+            lead_source=ManagementLead.LeadSource.PARSER,
+            added_by=self.user,
+        )
+
+        response = self._post(
+            "management_lead_moderation_action_api",
+            {"action": "approve"},
+            lead.id,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], ManagementLead.Status.BASE)
+        lead.refresh_from_db()
+        self.assertEqual(lead.status, ManagementLead.Status.BASE)
+        self.assertEqual(lead.moderated_by_id, self.user.id)
+
+    def test_moderation_quick_reject_accepts_action_only_payload(self):
+        lead = ManagementLead.objects.create(
+            shop_name="Quick Reject",
+            phone="+380671110020",
+            full_name="Owner",
+            city="Київ",
+            status=ManagementLead.Status.MODERATION,
+            lead_source=ManagementLead.LeadSource.PARSER,
+            added_by=self.user,
+        )
+
+        response = self._post(
+            "management_lead_moderation_action_api",
+            {"action": "reject"},
+            lead.id,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], ManagementLead.Status.REJECTED)
+        lead.refresh_from_db()
+        self.assertEqual(lead.status, ManagementLead.Status.REJECTED)
+        self.assertEqual(lead.rejection_reason, "Не відповідає вимогам")
+        self.assertEqual(lead.moderated_by_id, self.user.id)
+
     def test_moderation_save_keeps_item_visible_in_api(self):
         lead = ManagementLead.objects.create(
             shop_name="Keep Me",
