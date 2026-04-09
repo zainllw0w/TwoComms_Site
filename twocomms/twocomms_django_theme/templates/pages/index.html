@@ -485,20 +485,31 @@
       border-color: rgba(255, 205, 118, 0.26);
     }
 
+    .categories-header-unified .d-flex {
+      gap: clamp(0.75rem, 1.4vw, 1.35rem);
+    }
+
+    .categories-header-unified .categories-toggle-btn,
+    .categories-header-unified .catalog-link-compact {
+      min-width: clamp(10.5rem, 12vw, 13rem);
+      justify-content: center;
+      padding-inline: clamp(1rem, 1.8vw, 1.45rem);
+    }
+
     .category-card-custom-content {
       display: block;
       width: 100%;
-      padding: 1rem;
+      padding: clamp(0.9rem, 1vw, 1rem);
     }
 
     .category-card-custom-inner {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 1rem;
+      display: flex;
+      flex-wrap: wrap;
       align-items: center;
+      gap: clamp(1rem, 1.8vw, 1.5rem);
       width: 100%;
       min-height: 100%;
-      padding: 1.1rem 1.15rem;
+      padding: clamp(1.05rem, 1.5vw, 1.2rem) clamp(1.1rem, 1.8vw, 1.4rem);
       border-radius: 20px;
       border: 1px solid rgba(255, 214, 143, 0.14);
       background:
@@ -511,6 +522,8 @@
       display: grid;
       gap: 0.5rem;
       text-align: left;
+      flex: 1 1 28rem;
+      min-width: min(100%, 20rem);
     }
 
     .category-card-custom-kicker {
@@ -549,8 +562,12 @@
       align-items: center;
       justify-content: center;
       gap: 0.65rem;
-      min-height: 52px;
-      padding: 0.95rem 1.15rem;
+      flex: 0 1 clamp(18rem, 24vw, 24rem);
+      width: min(100%, clamp(18rem, 24vw, 24rem));
+      min-width: clamp(17rem, 22vw, 22rem);
+      min-height: 56px;
+      margin-left: auto;
+      padding: 0.95rem clamp(1.25rem, 2vw, 1.8rem);
       border-radius: 999px;
       color: #1c1208;
       background: linear-gradient(135deg, #f5ce7d, #e7b45f 55%, #cb8736);
@@ -588,13 +605,32 @@
         align-items: stretch;
       }
 
+      .categories-header-unified .categories-toggle-btn {
+        width: min(100%, 16rem);
+      }
+
       .category-card-custom-inner {
-        grid-template-columns: 1fr;
         align-items: stretch;
       }
 
       .category-card-custom-action {
         width: 100%;
+        min-width: 0;
+        margin-left: 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .categories-header-unified .categories-toggle-btn {
+        width: 100%;
+      }
+
+      .category-card-custom-content {
+        padding: 0.75rem;
+      }
+
+      .category-card-custom-inner {
+        padding: 1rem;
       }
     }
   </style>
