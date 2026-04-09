@@ -1,6 +1,6 @@
 from decimal import Decimal, ROUND_HALF_UP
 
-from django.db import models
+from django.db import IntegrityError, models, transaction
 from django.db.models import F
 from django.contrib.auth.models import User
 from django.conf import settings
@@ -176,6 +176,137 @@ class PrintProposal(models.Model):
         if self.awarded_points:
             base += f" (+{self.awarded_points} б.)"
         return base
+
+
+class CustomPrintLeadStatus(models.TextChoices):
+    NEW = "new", _("Нова")
+    IN_PROGRESS = "in_progress", _("В роботі")
+    CLOSED = "closed", _("Закрита")
+
+
+class CustomPrintServiceKind(models.TextChoices):
+    READY = "ready", _("Маю готовий файл")
+    ADJUST = "adjust", _("Потрібно допрацювати файл")
+    DESIGN = "design", _("Потрібен дизайн з нуля")
+
+
+class CustomPrintProductType(models.TextChoices):
+    TSHIRT = "tshirt", _("Футболка")
+    HOODIE = "hoodie", _("Худі")
+    LONGSLEEVE = "longsleeve", _("Лонгслів")
+
+
+class CustomPrintClientKind(models.TextChoices):
+    PERSONAL = "personal", _("Для себе")
+    BRAND = "brand", _("Для бренду / команди / події")
+
+
+class CustomPrintContactChannel(models.TextChoices):
+    TELEGRAM = "telegram", _("Telegram")
+    WHATSAPP = "whatsapp", _("WhatsApp")
+    PHONE = "phone", _("Телефон")
+
+
+class CustomPrintLead(models.Model):
+    lead_number = models.CharField(max_length=24, unique=True, blank=True, verbose_name="Номер заявки")
+    status = models.CharField(
+        max_length=20,
+        choices=CustomPrintLeadStatus.choices,
+        default=CustomPrintLeadStatus.NEW,
+        verbose_name="Статус",
+    )
+    service_kind = models.CharField(
+        max_length=20,
+        choices=CustomPrintServiceKind.choices,
+        verbose_name="Тип послуги",
+    )
+    product_type = models.CharField(
+        max_length=20,
+        choices=CustomPrintProductType.choices,
+        verbose_name="Тип виробу",
+    )
+    placements = models.JSONField(default=list, blank=True, verbose_name="Зони нанесення")
+    placement_note = models.CharField(max_length=255, blank=True, verbose_name="Нестандартне розміщення")
+    quantity = models.PositiveIntegerField(default=1, verbose_name="Кількість")
+    sizes_note = models.CharField(max_length=255, blank=True, verbose_name="Розміри")
+    client_kind = models.CharField(
+        max_length=20,
+        choices=CustomPrintClientKind.choices,
+        default=CustomPrintClientKind.PERSONAL,
+        verbose_name="Тип клієнта",
+    )
+    brand_name = models.CharField(max_length=255, blank=True, verbose_name="Бренд / команда")
+    name = models.CharField(max_length=200, verbose_name="Ім'я")
+    contact_channel = models.CharField(
+        max_length=20,
+        choices=CustomPrintContactChannel.choices,
+        default=CustomPrintContactChannel.TELEGRAM,
+        verbose_name="Канал зв'язку",
+    )
+    contact_value = models.CharField(max_length=255, verbose_name="Контакт")
+    brief = models.TextField(blank=True, verbose_name="Опис задачі")
+    source = models.CharField(max_length=50, default="main_custom_print", blank=True, verbose_name="Джерело")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+
+    class Meta:
+        verbose_name = "Заявка на кастомний принт"
+        verbose_name_plural = "Заявки на кастомний принт"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status"], name="idx_cprint_status"),
+            models.Index(fields=["service_kind"], name="idx_cprint_service"),
+            models.Index(fields=["created_at"], name="idx_cprint_created"),
+        ]
+
+    def __str__(self):
+        return f"{self.lead_number or 'Custom Print'} — {self.name}"
+
+    def save(self, *args, **kwargs):
+        attempts = 0
+        while True:
+            if not self.lead_number:
+                self.lead_number = self.generate_lead_number()
+            try:
+                with transaction.atomic():
+                    super().save(*args, **kwargs)
+                break
+            except IntegrityError:
+                attempts += 1
+                if attempts >= 5:
+                    raise
+                self.lead_number = ""
+
+    @staticmethod
+    def generate_lead_number():
+        today = timezone.localdate()
+        prefix = f"CP{today.strftime('%d%m%Y')}L"
+        counter = 0
+        for lead_number in CustomPrintLead.objects.filter(
+            lead_number__startswith=prefix
+        ).values_list("lead_number", flat=True):
+            suffix = str(lead_number).replace(prefix, "", 1)
+            if suffix.isdigit():
+                counter = max(counter, int(suffix))
+        return f"{prefix}{counter + 1:03d}"
+
+
+class CustomPrintLeadAttachment(models.Model):
+    lead = models.ForeignKey(
+        CustomPrintLead,
+        on_delete=models.CASCADE,
+        related_name="attachments",
+        verbose_name="Заявка",
+    )
+    file = models.FileField(upload_to="custom_print/leads/", verbose_name="Файл")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+
+    class Meta:
+        verbose_name = "Файл заявки на кастомний принт"
+        verbose_name_plural = "Файли заявок на кастомний принт"
+
+    def __str__(self):
+        return f"Attachment for {self.lead_id}"
 
 
 class ProductStatus(models.TextChoices):

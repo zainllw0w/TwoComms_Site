@@ -92,6 +92,7 @@ from .static_pages import (
     about,
     contacts,
     custom_print,
+    custom_print_lead,
     delivery,
     returns,
     privacy_policy,
