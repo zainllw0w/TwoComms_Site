@@ -11,9 +11,11 @@ Static Pages views - Статические страницы и служебны
 - Тестовая страница для аналитики
 """
 
-from django.http import HttpResponse, FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.conf import settings
 from django.shortcuts import render
+from django.db import transaction
+from django.views.decorators.http import require_POST
 from pathlib import Path
 import importlib.machinery
 import importlib.util
@@ -21,6 +23,8 @@ from django.utils.text import slugify
 from django.utils import timezone
 from urllib.parse import urljoin
 from storefront.models import Product, Category
+from storefront.forms import CustomPrintLeadForm
+from storefront.custom_print_notifications import notify_new_custom_print_lead
 from storefront.utils.analytics_helpers import FEED_DEFAULT_COLOR, normalize_feed_color
 import re
 import xml.etree.ElementTree as ET
@@ -507,6 +511,33 @@ def custom_print(request):
     return render(request, 'pages/custom_print.html', {
         'page_title': 'Кастомний принт',
     })
+
+
+@require_POST
+def custom_print_lead(request):
+    """
+    AJAX endpoint для новой лид-формы кастомного принта.
+    """
+    form = CustomPrintLeadForm(request.POST, request.FILES)
+    if not form.is_valid():
+        errors = {}
+        for field, field_errors in form.errors.get_json_data().items():
+            errors[field] = [error["message"] for error in field_errors]
+        return JsonResponse({"ok": False, "errors": errors}, status=400)
+
+    with transaction.atomic():
+        lead = form.save()
+        transaction.on_commit(
+            lambda: notify_new_custom_print_lead(lead),
+            robust=True,
+        )
+    return JsonResponse(
+        {
+            "ok": True,
+            "lead_number": lead.lead_number,
+            "message": "Дякуємо! Менеджер зв’яжеться з вами найближчим часом.",
+        }
+    )
 
 
 def returns(request):

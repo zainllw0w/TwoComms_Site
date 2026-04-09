@@ -471,119 +471,92 @@
       100% { transform: translateX(0); }
     }
 
-    .custom-print-home-cta {
-      position: relative;
+    .category-card-custom {
+      grid-column: 1 / -1;
+      min-height: 164px;
+      padding: 0;
+      border-color: rgba(255, 205, 118, 0.16);
+      background:
+        radial-gradient(circle at top left, rgba(255, 205, 118, 0.1), transparent 28%),
+        radial-gradient(circle at right center, rgba(255, 140, 66, 0.12), transparent 30%);
+    }
+
+    .category-card-custom:hover {
+      border-color: rgba(255, 205, 118, 0.26);
+    }
+
+    .category-card-custom-content {
+      display: block;
+      width: 100%;
+      padding: 1rem;
+    }
+
+    .category-card-custom-inner {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 1rem;
       align-items: center;
-      padding: 1.4rem 1.5rem;
-      border-radius: 22px;
-      overflow: hidden;
-      text-decoration: none;
-      color: inherit;
-      border: 1px solid rgba(255, 196, 112, 0.18);
+      width: 100%;
+      min-height: 100%;
+      padding: 1.1rem 1.15rem;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 214, 143, 0.14);
       background:
-        radial-gradient(circle at top left, rgba(255, 196, 112, 0.18), transparent 28%),
-        radial-gradient(circle at bottom right, rgba(255, 140, 66, 0.16), transparent 34%),
-        linear-gradient(135deg, rgba(12, 12, 18, 0.98), rgba(22, 16, 8, 0.96) 55%, rgba(12, 12, 18, 0.98));
-      box-shadow:
-        0 18px 50px rgba(0, 0, 0, 0.28),
-        0 8px 24px rgba(255, 140, 66, 0.08);
-      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        linear-gradient(135deg, rgba(255, 216, 154, 0.08), rgba(255, 255, 255, 0.025)),
+        rgba(11, 12, 17, 0.85);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
-    .custom-print-home-cta::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(115deg, rgba(255, 255, 255, 0.06), transparent 35%);
-      pointer-events: none;
-    }
-
-    .custom-print-home-cta:hover {
-      transform: translateY(-3px);
-      border-color: rgba(255, 196, 112, 0.28);
-      box-shadow:
-        0 24px 60px rgba(0, 0, 0, 0.34),
-        0 14px 30px rgba(255, 140, 66, 0.14);
-      text-decoration: none;
-      color: inherit;
-    }
-
-    .custom-print-home-copy,
-    .custom-print-home-action {
-      position: relative;
-      z-index: 1;
-    }
-
-    .custom-print-home-copy {
+    .category-card-custom-copy {
       display: grid;
-      gap: 0.55rem;
+      gap: 0.5rem;
+      text-align: left;
     }
 
-    .custom-print-home-kicker {
+    .category-card-custom-kicker {
       display: inline-flex;
       align-items: center;
       width: fit-content;
-      padding: 0.38rem 0.72rem;
+      padding: 0.36rem 0.68rem;
       border-radius: 999px;
-      background: rgba(255, 196, 112, 0.1);
-      border: 1px solid rgba(255, 196, 112, 0.18);
-      color: #ffd79c;
-      font-size: 0.76rem;
+      background: rgba(255, 216, 154, 0.08);
+      border: 1px solid rgba(255, 216, 154, 0.14);
+      color: #f3cf8a;
+      font-size: 0.74rem;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
-    .custom-print-home-title {
+    .category-card-custom-title {
       margin: 0;
-      font-size: clamp(1.35rem, 2.4vw, 2rem);
+      color: #f6f1e8;
+      font-size: clamp(1.3rem, 2vw, 1.85rem);
       line-height: 1;
       letter-spacing: -0.04em;
-      color: #f7f1e8;
     }
 
-    .custom-print-home-text {
+    .category-card-custom-text {
       margin: 0;
       max-width: 54ch;
-      color: rgba(255, 244, 229, 0.74);
-      line-height: 1.6;
-      font-size: 0.95rem;
+      color: rgba(246, 241, 232, 0.74);
+      line-height: 1.58;
+      font-size: 0.93rem;
     }
 
-    .custom-print-home-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      padding-top: 0.15rem;
-    }
-
-    .custom-print-home-pills span {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.38rem 0.68rem;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      color: rgba(255, 244, 229, 0.68);
-      font-size: 0.8rem;
-    }
-
-    .custom-print-home-action {
+    .category-card-custom-action {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 0.65rem;
-      min-height: 54px;
-      padding: 0.95rem 1.2rem;
+      min-height: 52px;
+      padding: 0.95rem 1.15rem;
       border-radius: 999px;
       color: #1c1208;
-      background: linear-gradient(135deg, #ffd38c, #ffb347 55%, #ff8c42);
+      background: linear-gradient(135deg, #f5ce7d, #e7b45f 55%, #cb8736);
       font-weight: 700;
-      box-shadow: 0 16px 30px rgba(255, 140, 66, 0.22);
       white-space: nowrap;
+      box-shadow: 0 16px 28px rgba(203, 135, 54, 0.22);
     }
 
     @media (max-width: 768px) {
@@ -615,12 +588,12 @@
         align-items: stretch;
       }
 
-      .custom-print-home-cta {
+      .category-card-custom-inner {
         grid-template-columns: 1fr;
-        padding: 1.1rem;
+        align-items: stretch;
       }
 
-      .custom-print-home-action {
+      .category-card-custom-action {
         width: 100%;
       }
     }
@@ -901,33 +874,35 @@
           </div>
         </a>
         {% endfor %}
+
+        <a href="{% url 'custom_print' %}" class="category-card-compact category-card-custom" title="Замовити кастомний одяг">
+          <div class="card-bg-dark">
+            <div class="card-glow-dark"></div>
+            <div class="card-ripple-dark"></div>
+          </div>
+          <div class="card-content-compact category-card-custom-content">
+            <div class="category-card-custom-inner">
+              <div class="category-card-custom-copy">
+                <span class="category-card-custom-kicker">Свій принт</span>
+                <h3 class="category-card-custom-title">Замовити кастомний одяг</h3>
+                <p class="category-card-custom-text">
+                  Футболка, худі або лонгслів з вашим дизайном, готовим файлом або ідеєю під роботу з менеджером.
+                </p>
+              </div>
+              <span class="category-card-custom-action">
+                Перейти до заявки
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                </svg>
+              </span>
+            </div>
+          </div>
+        </a>
       </div>
     </div>
   </div>
 </section>
 {% endcache %}
-<section class="mb-4 mb-md-5 reveal" aria-label="Кастомний принт">
-  <a href="{% url 'custom_print' %}" class="custom-print-home-cta">
-    <div class="custom-print-home-copy">
-      <span class="custom-print-home-kicker">Кастомний друк</span>
-      <h2 class="custom-print-home-title">Замовити свій принт</h2>
-      <p class="custom-print-home-text">
-        Підготуємо кастом для футболок, худі та лонгслівів і направимо в зручний конструктор без зайвого шуму.
-      </p>
-      <div class="custom-print-home-pills" aria-hidden="true">
-        <span>Футболки</span>
-        <span>Худі</span>
-        <span>Лонгсліви</span>
-      </div>
-    </div>
-    <span class="custom-print-home-action">
-      Перейти
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-      </svg>
-    </span>
-  </a>
-</section>
 <section class="mb-4 mb-md-5 reveal" id="new-products-section">
   <div class="d-flex justify-content-between align-items-end mb-3">
     <h2 class="h5 mb-0">Новинки</h2>
