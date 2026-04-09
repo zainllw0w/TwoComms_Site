@@ -74,13 +74,13 @@ https://ваш-домен/cpanel/cron/index.html
 В поле **"Команда"** (Command) вставьте следующую команду:
 
 ```bash
-cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py update_tracking_statuses >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/logs/nova_poshta_cron.log 2>&1
+cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py update_tracking_statuses >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/logs/nova_poshta_cron.log 2>&1
 ```
 
 **Или более короткий вариант** (если первый не работает):
 
 ```bash
-cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py update_tracking_statuses >> /tmp/nova_poshta.log 2>&1
+cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py update_tracking_statuses >> /tmp/nova_poshta.log 2>&1
 ```
 
 ---

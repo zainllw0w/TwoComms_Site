@@ -302,7 +302,7 @@ crontab -e
 
 Добавьте строку (проверка каждые 5 минут):
 ```bash
-*/5 * * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py update_tracking_statuses >> /var/log/twocomms/np_cron.log 2>&1
+*/5 * * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py update_tracking_statuses >> /var/log/twocomms/np_cron.log 2>&1
 ```
 
 Сохраните: `Ctrl+X` → `Y` → `Enter`

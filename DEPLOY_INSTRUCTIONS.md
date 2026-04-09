@@ -62,7 +62,7 @@ git push origin main
 ```bash
 # SSH into server, pull changes, run migrations, restart
 sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
-  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && \
+  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && \
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && \
   git pull && \
   python manage.py makemigrations accounts && \
@@ -73,7 +73,7 @@ sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "b
 ```
 
 **What this does:**
-1. Activates Python 3.13 virtual environment
+1. Activates Python 3.14 virtual environment
 2. Navigates to project directory
 3. Pulls latest code from git
 4. Creates migration for new UserProfile indexes
@@ -121,7 +121,7 @@ curl -I https://twocomms.shop/api/colors/
 ```bash
 # SSH into server and check database
 sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
-  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && \
+  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && \
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && \
   python manage.py dbshell \
 '"
@@ -267,7 +267,7 @@ sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "b
 ### Step 2: Rollback Migration (if needed)
 ```bash
 sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '\
-  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && \
+  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && \
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && \
   python manage.py migrate accounts <previous_migration_number> \
 '"

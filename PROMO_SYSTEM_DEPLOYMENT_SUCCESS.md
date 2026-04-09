@@ -222,7 +222,7 @@ path('admin-panel/promo-stats/', views.admin_promo_stats, name='admin_promo_stat
 ## 🔧 Технические детали
 
 ### Используемые технологии
-- Python 3.13
+- Python 3.14
 - Django 5.2.6
 - PostgreSQL
 - Bootstrap 5

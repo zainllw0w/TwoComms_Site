@@ -65,7 +65,7 @@ ls -la twocomms_django_theme/templates/partials/admin_dispatcher_section.html
 
 ```bash
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 
 # Проверяем статус миграций
 python manage.py showmigrations storefront | grep "0033"

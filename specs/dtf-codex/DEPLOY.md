@@ -21,7 +21,7 @@ export TWC_SSH_PASS='***'
 ## Canonical SSH Entry
 ```bash
 sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
-  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
+  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate &&
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms &&
   git status
 '"
@@ -30,7 +30,7 @@ sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "b
 ## Server Deploy Command
 ```bash
 sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
-  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
+  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate &&
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms &&
   git fetch --all --prune &&
   git checkout codex/codex-refactor-v1 &&
@@ -60,7 +60,7 @@ curl -i https://twocomms.shop/sitemap.xml
 ## Rollback
 ```bash
 sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
-  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
+  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate &&
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms &&
   git log --oneline -n 5 &&
   git checkout <last-known-good-commit-or-branch> &&

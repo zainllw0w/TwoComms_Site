@@ -7,7 +7,7 @@
 - `git pull` (ветка `main`). Убедиться, что хеш соответствует последнему коммиту.
 
 ## 2. Сборка/обновление статики (если менялись CSS/JS)
-- Активировать venv: `source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate`
+- Активировать venv: `source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate`
 - Собрать сжатые CSS (если менялись): `npm install` при смене зависимостей, затем `npm run build:css` (postcss/purgecss) — проверить, что `styles.purged.css` обновился.
 - Сборка статики Django (если требуется обновить хеши/manifest):
   - `python manage.py collectstatic --noinput`

@@ -22,7 +22,7 @@
 
 ## 1) Ground Truth of Current Stack (DO NOT FIGHT IT)
 ### Backend
-- Python 3.13 + Django 5.2.x (DTF subdomain app: `dtf/`).
+- Python 3.14 + Django 5.2.x (DTF subdomain app: `dtf/`).
 - Django REST Framework exists; Celery + Redis exist, but do not introduce background jobs unless required.
 
 ### Frontend
@@ -164,7 +164,7 @@ Use SSH to run server-side operations inside the project venv.
 **Canonical SSH entry (use sshpass as provided):**
 ```bash
 sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
-  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
+  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate &&
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms &&
   git status
 '"

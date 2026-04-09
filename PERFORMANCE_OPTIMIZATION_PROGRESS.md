@@ -111,7 +111,7 @@
 ```bash
 # Подключение и pull
 sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 git fetch origin perf/pagespeed-mobile-priority
 git checkout perf/pagespeed-mobile-priority
@@ -122,7 +122,7 @@ python manage.py compress --force
 
 # Очистка кэша (опционально)
 sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 python manage.py shell -c \"from django.core.cache import cache; cache.clear()\"
 '"
