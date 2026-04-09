@@ -78,7 +78,8 @@ class CustomPrintPageTests(TestCase):
         response = self._get(reverse("home"), follow=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "categories-grid-balanced")
+        self.assertContains(response, "categories-top-grid")
+        self.assertContains(response, "categories-cta-wrap")
         self.assertContains(response, "Замовити кастомний одяг")
         self.assertContains(response, "Перейти до заявки")
         self.assertContains(response, "category-card-custom-panel")

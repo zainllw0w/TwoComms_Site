@@ -472,7 +472,6 @@
     }
 
     .category-card-custom {
-      grid-column: 1 / -1;
       min-height: 164px;
       padding: 0;
       border-color: rgba(255, 205, 118, 0.16);
@@ -485,31 +484,34 @@
       border-color: rgba(255, 205, 118, 0.26);
     }
 
-    .categories-grid-balanced {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: stretch;
-      gap: clamp(0.9rem, 1.45vw, 1.15rem);
+    .categories-stack {
+      display: grid;
+      gap: clamp(1rem, 1.55vw, 1.2rem);
     }
 
-    .categories-grid-balanced > .category-card-balanced {
-      flex: 1 1 clamp(15rem, 21vw, 18rem);
+    .categories-top-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(clamp(12rem, 17vw, 16rem), 1fr));
+      gap: clamp(0.9rem, 1.45vw, 1.15rem);
+      align-items: stretch;
+    }
+
+    .categories-top-grid > .category-card-balanced {
       min-width: 0;
       min-height: clamp(11.5rem, 15vw, 13.75rem);
     }
 
-    .categories-grid-balanced > .category-card-custom {
-      flex: 1 1 100%;
-      width: 100%;
-    }
-
-    .categories-grid-balanced > .category-card-balanced .card-content-compact {
+    .categories-top-grid > .category-card-balanced .card-content-compact {
       min-height: 100%;
       justify-content: center;
     }
 
-    .categories-grid-balanced > .category-card-balanced:hover {
+    .categories-top-grid > .category-card-balanced:hover {
       transform: translateY(-5px) scale(1.03);
+    }
+
+    .categories-cta-wrap {
+      width: 100%;
     }
 
     .categories-header-unified .d-flex {
@@ -647,12 +649,11 @@
         width: min(100%, 16rem);
       }
 
-      .categories-grid-balanced {
-        display: grid;
+      .categories-top-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .categories-grid-balanced > .category-card-balanced {
+      .categories-top-grid > .category-card-balanced {
         min-height: 9.5rem;
       }
 
@@ -672,11 +673,15 @@
         width: 100%;
       }
 
-      .categories-grid-balanced {
+      .categories-stack {
         gap: 0.75rem;
       }
 
-      .categories-grid-balanced > .category-card-balanced {
+      .categories-top-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .categories-top-grid > .category-card-balanced {
         min-height: 8.85rem;
       }
 
@@ -943,52 +948,56 @@
 
     <!-- Контейнер категорий (без отдельного фона) -->
     <div class="categories-content-unified" id="categoriesContainer">
-      <div class="categories-grid-compact categories-grid-balanced">
-        <!-- Категории товаров -->
-        {% for c in categories %}
-        <a href="{% url 'catalog_by_cat' c.slug %}" class="category-card-compact category-card-balanced" title="{{ c.name }}">
-          <div class="card-bg-dark">
-            <div class="card-glow-dark"></div>
-            <div class="card-ripple-dark"></div>
-          </div>
-          <div class="card-content-compact">
-            <div class="card-icon-compact">
-              {% if c.icon %}
-                <img src="{{ c.icon.url }}" width="24" height="24" alt="{{ c.name }} категорія - TwoComms" loading="lazy" decoding="async">
-              {% else %}
-                <img src="{% static 'img/icons/default.svg' %}" width="24" height="24" alt="{{ c.name }} категорія - TwoComms" loading="lazy" decoding="async">
-              {% endif %}
+      <div class="categories-stack">
+        <div class="categories-top-grid">
+          <!-- Категории товаров -->
+          {% for c in categories %}
+          <a href="{% url 'catalog_by_cat' c.slug %}" class="category-card-compact category-card-balanced" title="{{ c.name }}">
+            <div class="card-bg-dark">
+              <div class="card-glow-dark"></div>
+              <div class="card-ripple-dark"></div>
             </div>
-            <div class="card-text-compact">
-              <span class="card-title-compact">{{ c.name }}</span>
-            </div>
-          </div>
-        </a>
-        {% endfor %}
-
-        <a href="{% url 'custom_print' %}" class="category-card-compact category-card-custom" title="Замовити кастомний одяг">
-          <div class="card-bg-dark">
-            <div class="card-glow-dark"></div>
-            <div class="card-ripple-dark"></div>
-          </div>
-          <div class="card-content-compact category-card-custom-content">
-            <div class="category-card-custom-inner category-card-custom-panel">
-              <div class="category-card-custom-copy">
-                <span class="category-card-custom-kicker">Свій принт</span>
-                <h3 class="category-card-custom-title">Замовити кастомний одяг</h3>
-                <p class="category-card-custom-text">
-                  Футболка, худі або лонгслів з вашим дизайном, готовим файлом або ідеєю під роботу з менеджером.
-                </p>
+            <div class="card-content-compact">
+              <div class="card-icon-compact">
+                {% if c.icon %}
+                  <img src="{{ c.icon.url }}" width="24" height="24" alt="{{ c.name }} категорія - TwoComms" loading="lazy" decoding="async">
+                {% else %}
+                  <img src="{% static 'img/icons/default.svg' %}" width="24" height="24" alt="{{ c.name }} категорія - TwoComms" loading="lazy" decoding="async">
+                {% endif %}
               </div>
-              <span class="category-card-custom-action">
-                Перейти до заявки
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                </svg>
-              </span>
+              <div class="card-text-compact">
+                <span class="card-title-compact">{{ c.name }}</span>
+              </div>
             </div>
-          </div>
-        </a>
+          </a>
+          {% endfor %}
+        </div>
+
+        <div class="categories-cta-wrap">
+          <a href="{% url 'custom_print' %}" class="category-card-compact category-card-custom" title="Замовити кастомний одяг">
+            <div class="card-bg-dark">
+              <div class="card-glow-dark"></div>
+              <div class="card-ripple-dark"></div>
+            </div>
+            <div class="card-content-compact category-card-custom-content">
+              <div class="category-card-custom-inner category-card-custom-panel">
+                <div class="category-card-custom-copy">
+                  <span class="category-card-custom-kicker">Свій принт</span>
+                  <h3 class="category-card-custom-title">Замовити кастомний одяг</h3>
+                  <p class="category-card-custom-text">
+                    Футболка, худі або лонгслів з вашим дизайном, готовим файлом або ідеєю під роботу з менеджером.
+                  </p>
+                </div>
+                <span class="category-card-custom-action">
+                  Перейти до заявки
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </a>
+        </div>
       </div>
     </div>
   </div>
