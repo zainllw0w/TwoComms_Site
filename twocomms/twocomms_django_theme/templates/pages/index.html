@@ -109,6 +109,59 @@
       font-size: 0.95rem;
     }
 
+    .survey-reward-panel {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.9rem;
+      align-items: center;
+      padding: 0.95rem 1rem;
+      border-radius: 18px;
+      background:
+        linear-gradient(135deg, rgba(255, 209, 140, 0.18), rgba(255, 140, 66, 0.1)),
+        rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 186, 97, 0.24);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .survey-reward-amount {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.25rem;
+      padding: 0.65rem 0.9rem;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #ffd18c, #ffb347 60%, #ff8c42);
+      color: #241407;
+      font-size: clamp(1.15rem, 2vw, 1.65rem);
+      font-weight: 800;
+      line-height: 1;
+      box-shadow: 0 14px 24px rgba(255, 140, 66, 0.2);
+    }
+
+    .survey-reward-amount span {
+      font-size: 0.78em;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .survey-reward-copy {
+      display: grid;
+      gap: 0.24rem;
+    }
+
+    .survey-reward-title {
+      margin: 0;
+      color: #fff4e3;
+      font-size: 0.98rem;
+      font-weight: 700;
+    }
+
+    .survey-reward-note {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
     .survey-points {
       display: grid;
       gap: 0.45rem;
@@ -140,8 +193,28 @@
 
     .survey-actions {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 0.75rem;
+      justify-content: space-between;
+      gap: 0.85rem;
+      margin-top: 0.1rem;
+    }
+
+    .survey-actions-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 0.82rem;
+    }
+
+    .survey-actions-meta::before {
+      content: '';
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 999px;
+      background: #ffbe61;
+      box-shadow: 0 0 12px rgba(255, 190, 97, 0.55);
     }
 
     .survey-cta {
@@ -150,6 +223,9 @@
       color: #1d130a;
       border: none;
       box-shadow: 0 8px 24px rgba(255, 140, 66, 0.35);
+      padding: 0.9rem 1.35rem;
+      border-radius: 14px;
+      font-weight: 700;
     }
 
     .survey-cta:hover {
@@ -620,6 +696,122 @@
       filter: saturate(1.04);
     }
 
+    .pagination-shell {
+      display: flex;
+      justify-content: center;
+      margin-top: 1rem;
+    }
+
+    .page-selector-shell {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.8rem;
+      padding: 0.7rem 1rem;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 18px 36px rgba(0, 0, 0, 0.2);
+    }
+
+    .page-selector-label,
+    .page-selector-total {
+      color: rgba(255, 255, 255, 0.62);
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .page-selector-chip {
+      min-width: 4.6rem;
+      border-radius: 12px;
+      border: 1px solid rgba(124, 58, 237, 0.22);
+      background:
+        linear-gradient(180deg, rgba(124, 58, 237, 0.12), rgba(20, 20, 30, 0.7)),
+        rgba(255, 255, 255, 0.04);
+      color: #efe9ff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .pagination-rail {
+      display: flex;
+      justify-content: center;
+      margin-top: 1rem;
+      overflow-x: auto;
+      padding-bottom: 0.25rem;
+      scrollbar-width: none;
+    }
+
+    .pagination-rail::-webkit-scrollbar {
+      display: none;
+    }
+
+    .pagination-premium {
+      flex-wrap: nowrap;
+      gap: 0;
+      padding: 0.25rem;
+      border-radius: 18px;
+      background: rgba(24, 27, 34, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.24);
+      backdrop-filter: blur(14px);
+      width: max-content;
+    }
+
+    .pagination-premium .page-item {
+      display: flex;
+    }
+
+    .pagination-premium .page-link {
+      min-width: 3.2rem;
+      height: 3rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.8rem 0.9rem;
+      border: none;
+      border-right: 1px solid rgba(255, 255, 255, 0.14);
+      background: transparent;
+      color: #7fb2ff;
+      font-size: 0.92rem;
+      font-weight: 700;
+      transition: background 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+    }
+
+    .pagination-premium .page-item:first-child .page-link {
+      min-width: 9.75rem;
+      border-top-left-radius: 14px;
+      border-bottom-left-radius: 14px;
+    }
+
+    .pagination-premium .page-item:last-child .page-link {
+      min-width: 9.75rem;
+      border-right: none;
+      border-top-right-radius: 14px;
+      border-bottom-right-radius: 14px;
+    }
+
+    .pagination-premium .page-link:hover {
+      background: rgba(47, 115, 255, 0.14);
+      color: #ddecff;
+      transform: translateY(-1px);
+    }
+
+    .pagination-premium .page-item.active .page-link {
+      background: linear-gradient(180deg, #2680ff, #1767ea);
+      color: #f4f8ff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 10px 24px rgba(23, 103, 234, 0.3);
+    }
+
+    .pagination-premium .page-item.disabled .page-link {
+      color: rgba(255, 255, 255, 0.32);
+      background: transparent;
+      pointer-events: none;
+      transform: none;
+      box-shadow: none;
+    }
+
     @media (max-width: 768px) {
       .survey-card {
         grid-template-columns: 1fr;
@@ -647,6 +839,22 @@
       .survey-actions-row {
         flex-direction: column;
         align-items: stretch;
+      }
+
+      .survey-reward-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .survey-reward-amount {
+        justify-self: start;
+      }
+
+      .survey-actions {
+        align-items: stretch;
+      }
+
+      .survey-actions-meta {
+        order: 2;
       }
 
       .categories-header-unified .categories-toggle-btn {
@@ -697,6 +905,17 @@
         width: 100%;
         min-width: 0;
         margin-left: 0;
+      }
+
+      .pagination-premium .page-link {
+        min-width: 2.8rem;
+        height: 2.8rem;
+        font-size: 0.84rem;
+      }
+
+      .pagination-premium .page-item:first-child .page-link,
+      .pagination-premium .page-item:last-child .page-link {
+        min-width: 8rem;
       }
     }
 
@@ -755,6 +974,66 @@
 
       .category-card-custom-inner {
         padding: 1rem;
+      }
+
+      .page-selector-shell {
+        gap: 0.65rem;
+        padding: 0.7rem 0.85rem;
+      }
+
+      .pagination-premium .page-link {
+        min-width: 2.55rem;
+        height: 2.65rem;
+        padding-inline: 0.75rem;
+      }
+
+      .pagination-premium .page-item:first-child .page-link,
+      .pagination-premium .page-item:last-child .page-link {
+        min-width: 7.2rem;
+      }
+    }
+
+    @media (min-width: 1400px) {
+      .categories-top-grid--exact {
+        gap: clamp(0.95rem, 1.1vw, 1.1rem);
+      }
+
+      .categories-top-grid--exact > .category-card-balanced {
+        min-height: clamp(9.25rem, 10vw, 10.4rem);
+      }
+
+      .categories-top-grid--exact .category-card-compact {
+        padding: 0.85rem;
+      }
+
+      .categories-top-grid--exact .card-content-compact {
+        gap: 0.65rem;
+      }
+
+      .categories-top-grid--exact .card-icon-compact {
+        width: 50px;
+        height: 50px;
+      }
+
+      .categories-top-grid--exact .card-icon-compact img {
+        width: 24px;
+        height: 24px;
+      }
+
+      .categories-top-grid--exact .card-title-compact {
+        font-size: 0.94rem;
+      }
+
+      .categories-header-unified .categories-toggle-btn,
+      .categories-header-unified .catalog-link-compact {
+        min-width: clamp(9.75rem, 10vw, 11.5rem);
+      }
+
+      .category-card-custom-action {
+        min-height: 50px;
+        width: min(100%, clamp(17rem, 20vw, 21rem));
+        min-width: clamp(17rem, 20vw, 21rem);
+        padding-block: 0.82rem;
       }
     }
   </style>
@@ -864,7 +1143,7 @@
               </svg>
               <span>{{ survey_ui_home.badge_uk|default:"Опитування" }}</span>
             </div>
-            <div class="featured-subtitle-compact">{{ survey_ui_home.title_uk|default:"Коротке опитування про TWOCOMMS" }}</div>
+            <div class="featured-subtitle-compact">Отримай {{ survey_reward.amount_uah|default:200 }} грн за кілька хвилин</div>
           </div>
           <div class="featured-accent-line"></div>
         </div>
@@ -903,17 +1182,25 @@
 
         <div class="featured-info-compact survey-info">
           <h3 class="featured-title-compact-text survey-title">
-            {{ survey_ui_home.title_uk|default:"Коротке опитування про TWOCOMMS" }}
+            Коротке опитування про TWOCOMMS
           </h3>
           <p class="survey-subtitle">
-            {{ survey_ui_home.subtitle_uk|default:"Відповідай на кілька коротких запитань (≈5 хв)." }}
+            Дай кілька коротких відповідей, а після завершення ми додамо промокод у профіль.
           </p>
+          <div class="survey-reward-panel">
+            <div class="survey-reward-amount">{{ survey_reward.amount_uah|default:200 }} <span>грн</span></div>
+            <div class="survey-reward-copy">
+              <p class="survey-reward-title">Отримай {{ survey_reward.amount_uah|default:200 }} грн знижки</p>
+              <p class="survey-reward-note">Промокод створиться після завершення опитування та з’явиться у вашому профілі.</p>
+            </div>
+          </div>
           <div class="survey-points">
-            <div class="survey-point">Промокод на {{ survey_reward.amount_uah|default:200 }} грн після завершення</div>
             <div class="survey-point">Можна продовжити пізніше</div>
-            <div class="survey-point">Без цифр прогресу</div>
+            <div class="survey-point">Одне питання за раз без довгої форми</div>
+            <div class="survey-point">Відповідь допоможе нам покращити магазин і продукти</div>
           </div>
           <div class="survey-actions">
+            <div class="survey-actions-meta">Займе близько 5 хвилин</div>
             <button
               type="button"
               class="featured-btn-compact survey-cta"
@@ -1121,29 +1408,29 @@
   {% endif %}
   
   {% if paginator.num_pages > 1 %}
-  <div class="text-center mt-3" id="page-selector-container">
-    <div class="d-flex justify-content-center align-items-center gap-3">
-      <span class="text-muted small">Сторінка:</span>
-      <select class="form-select form-select-sm" id="page-selector" style="width: auto;">
+  <div class="pagination-shell" id="page-selector-container">
+    <div class="page-selector-shell">
+      <span class="page-selector-label">Сторінка</span>
+      <select class="form-select form-select-sm page-selector-chip" id="page-selector" aria-label="Оберіть сторінку новинок">
         {% for num in paginator.page_range %}
           <option value="{{ num }}" {% if page_obj.number == num %}selected{% endif %}>{{ num }}</option>
         {% endfor %}
       </select>
-      <span class="text-muted small">з <span id="total-pages">{{ paginator.num_pages }}</span></span>
+      <span class="page-selector-total">з <span id="total-pages">{{ paginator.num_pages }}</span></span>
     </div>
   </div>
 
-  <nav aria-label="Навігація по новинках" class="mt-3" data-total-pages="{{ paginator.num_pages }}">
-    <ul class="pagination pagination-sm justify-content-center mb-0">
-      <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+  <nav aria-label="Навігація по новинках" class="pagination-rail" data-total-pages="{{ paginator.num_pages }}">
+    <ul class="pagination pagination-sm pagination-premium justify-content-center mb-0">
+      <li class="page-item page-item-nav {% if not page_obj.has_previous %}disabled{% endif %}">
         <a class="page-link" href="{% if page_obj.has_previous %}?page={{ page_obj.previous_page_number }}{% else %}#{% endif %}" rel="prev">Попередня</a>
       </li>
       {% for num in paginator.page_range %}
-        <li class="page-item {% if num == page_obj.number %}active{% endif %}">
+        <li class="page-item page-item-number {% if num == page_obj.number %}active{% endif %}">
           <a class="page-link" href="?page={{ num }}">{{ num }}</a>
         </li>
       {% endfor %}
-      <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+      <li class="page-item page-item-nav {% if not page_obj.has_next %}disabled{% endif %}">
         <a class="page-link" href="{% if page_obj.has_next %}?page={{ page_obj.next_page_number }}{% else %}#{% endif %}" rel="next">Наступна</a>
       </li>
     </ul>
