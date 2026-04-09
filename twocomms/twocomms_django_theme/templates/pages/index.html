@@ -496,6 +496,10 @@
       align-items: stretch;
     }
 
+    .categories-top-grid--exact {
+      grid-template-columns: repeat(var(--category-count), minmax(0, 1fr));
+    }
+
     .categories-top-grid > .category-card-balanced {
       min-width: 0;
       min-height: clamp(11.5rem, 15vw, 13.75rem);
@@ -649,12 +653,40 @@
         width: min(100%, 16rem);
       }
 
-      .categories-top-grid {
+      .categories-top-grid:not(.categories-top-grid--exact) {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .categories-top-grid > .category-card-balanced {
         min-height: 9.5rem;
+      }
+
+      .categories-top-grid--exact > .category-card-balanced {
+        min-height: 8.6rem;
+      }
+
+      .categories-top-grid--exact .category-card-compact {
+        padding: 0.7rem;
+        border-radius: 12px;
+      }
+
+      .categories-top-grid--exact .card-content-compact {
+        gap: 0.5rem;
+      }
+
+      .categories-top-grid--exact .card-icon-compact {
+        width: 36px;
+        height: 36px;
+      }
+
+      .categories-top-grid--exact .card-icon-compact img {
+        width: 18px;
+        height: 18px;
+      }
+
+      .categories-top-grid--exact .card-title-compact {
+        font-size: 0.72rem;
+        line-height: 1.18;
       }
 
       .category-card-custom-inner {
@@ -677,12 +709,44 @@
         gap: 0.75rem;
       }
 
-      .categories-top-grid {
+      .categories-top-grid:not(.categories-top-grid--exact) {
         grid-template-columns: 1fr;
       }
 
       .categories-top-grid > .category-card-balanced {
         min-height: 8.85rem;
+      }
+
+      .categories-top-grid--exact {
+        gap: 0.55rem;
+      }
+
+      .categories-top-grid--exact > .category-card-balanced {
+        min-height: 7.4rem;
+      }
+
+      .categories-top-grid--exact .category-card-compact {
+        padding: 0.55rem;
+        border-radius: 10px;
+      }
+
+      .categories-top-grid--exact .card-content-compact {
+        gap: 0.4rem;
+      }
+
+      .categories-top-grid--exact .card-icon-compact {
+        width: 32px;
+        height: 32px;
+      }
+
+      .categories-top-grid--exact .card-icon-compact img {
+        width: 16px;
+        height: 16px;
+      }
+
+      .categories-top-grid--exact .card-title-compact {
+        font-size: 0.66rem;
+        line-height: 1.14;
       }
 
       .category-card-custom-content {
@@ -949,7 +1013,7 @@
     <!-- Контейнер категорий (без отдельного фона) -->
     <div class="categories-content-unified" id="categoriesContainer">
       <div class="categories-stack">
-        <div class="categories-top-grid">
+        <div class="categories-top-grid{% if categories|length <= 3 %} categories-top-grid--exact{% endif %}" style="--category-count: {{ categories|length }};">
           <!-- Категории товаров -->
           {% for c in categories %}
           <a href="{% url 'catalog_by_cat' c.slug %}" class="category-card-compact category-card-balanced" title="{{ c.name }}">
