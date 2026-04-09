@@ -79,6 +79,7 @@ class CustomPrintPageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "categories-top-grid")
+        self.assertContains(response, "categories-top-grid--exact")
         self.assertContains(response, "categories-cta-wrap")
         self.assertContains(response, "Замовити кастомний одяг")
         self.assertContains(response, "Перейти до заявки")
