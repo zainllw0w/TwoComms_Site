@@ -212,6 +212,33 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
         self.assertIn("const USAGE_REFRESH_INTERVAL_MS = 60000;", script)
         self.assertIn("if (shouldRefreshUsage()) params.set('include_usage', '1');", script)
 
+    def test_parsing_dashboard_exposes_quick_moderation_action_buttons(self):
+        html = Path("twocomms/management/templates/management/parsing.html").read_text(encoding="utf-8")
+
+        self.assertIn("quick-approve-moderation", html)
+        self.assertIn("quick-reject-moderation", html)
+        self.assertIn("moderation-action-btn--icon", html)
+        self.assertIn('aria-label="Підтвердити"', html)
+        self.assertIn('aria-label="Не підходить"', html)
+        self.assertIn('data-icon="approve"', html)
+        self.assertIn('data-icon="reject"', html)
+        self.assertIn("submitModerationAction(", html)
+
+    def test_parsing_dashboard_exposes_compact_moderation_row_layout(self):
+        html = Path("twocomms/management/templates/management/parsing.html").read_text(encoding="utf-8")
+
+        self.assertIn("moderation-cell__primary", html)
+        self.assertIn("moderation-cell__secondary", html)
+        self.assertIn("moderation-actions__primary", html)
+        self.assertIn("moderation-actions__quick", html)
+        self.assertIn("moderation-shop__summary", html)
+        self.assertIn("moderation-site__primary", html)
+        self.assertIn("moderation-action-btn--icon", html)
+        self.assertIn('aria-label="Підтвердити"', html)
+        self.assertIn('aria-label="Не підходить"', html)
+        self.assertIn('data-icon=\"approve\"', html)
+        self.assertIn('data-icon=\"reject\"', html)
+
     def test_base_template_skips_reminder_poll_when_page_is_hidden(self):
         template = loader.get_template("management/base.html")
         request = self._build_request("/shops/")
