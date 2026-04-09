@@ -160,7 +160,7 @@ crontab -l | grep update_tracking_statuses
 
 Должна быть строка:
 ```
-*/5 * * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py update_tracking_statuses >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/logs/nova_poshta_cron.log 2>&1
+*/5 * * * * cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py update_tracking_statuses >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/logs/nova_poshta_cron.log 2>&1
 ```
 
 ### 2. Проверить последний запуск:
@@ -173,7 +173,7 @@ tail -20 /home/qlknpodo/TWC/TwoComms_Site/twocomms/logs/nova_poshta_cron.log
 
 ```bash
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 python manage.py update_tracking_statuses
 ```
 

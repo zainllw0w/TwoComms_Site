@@ -81,7 +81,7 @@ cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 git pull origin perf-pagespeed-mobile-priority-performance-fix-map
 
 # 2. Активировать виртуальное окружение
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 
 # 3. Очистка статики и перекомпиляция (ВАЖНО!)
 python manage.py collectstatic --noinput --clear

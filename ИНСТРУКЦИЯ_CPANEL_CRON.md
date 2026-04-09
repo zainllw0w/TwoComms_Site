@@ -48,13 +48,13 @@
 **Команда для выполнения:**
 
 ```bash
-cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py update_tracking_statuses >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/logs/nova_poshta_cron.log 2>&1
+cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py update_tracking_statuses >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/logs/nova_poshta_cron.log 2>&1
 ```
 
 Или более короткий вариант (если лог в другом месте):
 
 ```bash
-cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py update_tracking_statuses >> /tmp/nova_poshta_update.log 2>&1
+cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py update_tracking_statuses >> /tmp/nova_poshta_update.log 2>&1
 ```
 
 ---
@@ -86,7 +86,7 @@ cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/Tw
 5. В поле **"Команда"** вставьте:
 
 ```bash
-cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py update_tracking_statuses >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/logs/nova_poshta_cron.log 2>&1
+cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py update_tracking_statuses >> /home/qlknpodo/TWC/TwoComms_Site/twocomms/logs/nova_poshta_cron.log 2>&1
 ```
 
 6. Нажмите **"Добавить новую задачу Cron"** или **"Сохранить"**

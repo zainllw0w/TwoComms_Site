@@ -46,7 +46,7 @@
 2. На сервере выполнять тот же порядок (compress → collectstatic), иначе `ensure_compress_offline()` переведёт проект в on-the-fly режим.
 3. После `git pull` обязательно:
    ```bash
-   source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+   source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
    python manage.py compress --force
    python manage.py collectstatic --noinput
    ```

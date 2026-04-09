@@ -6,7 +6,7 @@
 
 **Architecture:** Keep `twocomms/management/` as the single runtime surface. Extend existing models and workflows where reality already exists, add only the minimum new structural models required for readiness, snapshots, run logging, day-ledger and appeals, move new analytics into dedicated service modules, and keep legacy KPD live until shadow MOSAIC is validated.
 
-**Tech Stack:** Python 3.13, Django 5.2.11, current `management` app, existing `orders` and `storefront` integrations, existing Telegram bot flows, Redis-backed cache in production but no new feature may require Redis/Celery to function, Django management commands + cron as the baseline execution model, SSH deploy on the hosted server.
+**Tech Stack:** Python 3.14, Django 5.2.11, current `management` app, existing `orders` and `storefront` integrations, existing Telegram bot flows, Redis-backed cache in production but no new feature may require Redis/Celery to function, Django management commands + cron as the baseline execution model, SSH deploy on the hosted server.
 
 ---
 
@@ -1637,7 +1637,7 @@ Canonical server path from the current project instructions:
 ```bash
 sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
 EXPECTED_BRANCH=main &&
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate &&
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms &&
 echo BEFORE_BRANCH=\$(git branch --show-current) &&
 echo BEFORE_HEAD=\$(git rev-parse --short HEAD) &&

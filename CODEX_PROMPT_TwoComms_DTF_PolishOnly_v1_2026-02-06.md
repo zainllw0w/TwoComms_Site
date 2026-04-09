@@ -20,7 +20,7 @@
 ---
 
 ## 1) Жёсткий стек-лок (НЕ МЕНЯТЬ)
-- **Backend:** Django (Passenger WSGI), Python 3.13  
+- **Backend:** Django (Passenger WSGI), Python 3.14  
 - **Frontend:** HTMX (точечно) + vanilla JS  
 - **CSS:** vanilla + `tokens.css` (tokens-first)  
 - **Static:** учитывать server-layer LiteSpeed (возможны overrides/docroot)  
@@ -80,7 +80,7 @@
 ### 4.2 SSH шаблон
 ```bash
 sshpass -p "$TWC_SSH_PASS" ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
-  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
+  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate &&
   cd /home/qlknpodo/TWC/TwoComms_Site/twocomms &&
   <COMMAND>
 '"

@@ -8,7 +8,7 @@ ssh qlknpodo@195.191.24.169
 # Пароль: trs5m4t1
 
 # 2. Активировать окружение и перейти в проект
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 
 # 3. Получить изменения
@@ -26,7 +26,7 @@ sudo systemctl status gunicorn
 ## 🔄 Форсировать обновление фида (1 команда)
 
 ```bash
-cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml && echo "✅ ГОТОВО!" && ls -lh media/google-merchant-v3.xml && grep -c "<item>" media/google-merchant-v3.xml | xargs -I {} echo "📦 Товаров: {}"
+cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python manage.py generate_google_merchant_feed --output twocomms/static/google_merchant_feed.xml && cp -f twocomms/static/google_merchant_feed.xml media/google-merchant-v3.xml && echo "✅ ГОТОВО!" && ls -lh media/google-merchant-v3.xml && grep -c "<item>" media/google-merchant-v3.xml | xargs -I {} echo "📦 Товаров: {}"
 ```
 
 ---
