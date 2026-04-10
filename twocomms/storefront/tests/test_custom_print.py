@@ -104,10 +104,11 @@ class CustomPrintPageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "survey-reward-panel")
-        self.assertContains(response, "Отримай 200 грн")
-        self.assertContains(response, "pagination-shell")
+        self.assertContains(response, "Промокод на 200 грн")
+        self.assertContains(response, "pagination-showcase")
         self.assertContains(response, "pagination-rail")
-        self.assertContains(response, "Сторінка")
+        self.assertNotContains(response, "page-selector-shell")
+        self.assertNotContains(response, "Сторінка")
 
     @override_settings(MEDIA_ROOT=Path(tempfile.gettempdir()) / "twocomms-custom-print-tests")
     @patch("storefront.views.static_pages.notify_new_custom_print_lead")

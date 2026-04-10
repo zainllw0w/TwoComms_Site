@@ -6,39 +6,50 @@ function parseNumber(value, fallback = 1) {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
-function populateSelector(pageSelector, totalPages, currentPage) {
-  if (!pageSelector) return;
-  pageSelector.innerHTML = '';
-  for (let i = 1; i <= totalPages; i += 1) {
-    const option = document.createElement('option');
-    option.value = String(i);
-    option.textContent = String(i);
-    if (i === currentPage) {
-      option.selected = true;
-    }
-    pageSelector.appendChild(option);
+function buildPageHref(basePath, page) {
+  const safeBasePath = basePath || window.location.pathname || '/';
+  if (page <= 1) {
+    return safeBasePath;
   }
+  return `${safeBasePath}?page=${page}`;
 }
 
 function updatePaginationNav(navElement, currentPage) {
   if (!navElement) return;
-  const items = navElement.querySelectorAll('.page-item');
-  items.forEach((item) => {
+  const totalPages = parseNumber(navElement.dataset.totalPages || currentPage, currentPage);
+  const basePath = navElement.dataset.basePath || window.location.pathname || '/';
+
+  navElement.dataset.currentPage = String(currentPage);
+
+  navElement.querySelectorAll('.page-item-number').forEach((item) => {
+    const targetPage = parseNumber(item.dataset.page, null);
+    if (!targetPage) return;
     const link = item.querySelector('.page-link');
-    if (!link) return;
-    const target = parseNumber(link.getAttribute('href')?.split('page=')[1], null);
-    if (target) {
-      item.classList.toggle('active', target === currentPage);
+    item.classList.toggle('active', targetPage === currentPage);
+    if (link) {
+      if (targetPage === currentPage) {
+        link.setAttribute('aria-current', 'page');
+      } else {
+        link.removeAttribute('aria-current');
+      }
     }
   });
-  const prev = navElement.querySelector('.page-item:first-child');
-  const next = navElement.querySelector('.page-item:last-child');
-  if (prev) {
-    prev.classList.toggle('disabled', currentPage <= 1);
+
+  const prevLink = navElement.querySelector('[data-page-nav="prev"]');
+  const nextLink = navElement.querySelector('[data-page-nav="next"]');
+  const prevItem = prevLink?.closest('.page-item');
+  const nextItem = nextLink?.closest('.page-item');
+
+  if (prevItem && prevLink) {
+    const disabled = currentPage <= 1;
+    prevItem.classList.toggle('disabled', disabled);
+    prevLink.setAttribute('href', disabled ? '#' : buildPageHref(basePath, currentPage - 1));
   }
-  if (next) {
-    const total = parseNumber(navElement.dataset.totalPages || currentPage, currentPage);
-    next.classList.toggle('disabled', currentPage >= total);
+
+  if (nextItem && nextLink) {
+    const disabled = currentPage >= totalPages;
+    nextItem.classList.toggle('disabled', disabled);
+    nextLink.setAttribute('href', disabled ? '#' : buildPageHref(basePath, currentPage + 1));
   }
 }
 
@@ -97,25 +108,22 @@ export function initHomepagePagination() {
     const productsContainer = document.getElementById('products-container');
     const loadMoreBtn = document.getElementById('load-more-btn');
     const loadMoreContainer = document.getElementById('load-more-container');
-    const pageSelector = document.getElementById('page-selector');
-    const totalPagesSpan = document.getElementById('total-pages');
     const paginationNav = document.querySelector('nav[aria-label="Навігація по новинках"]');
 
-    if (!productsContainer || !loadMoreBtn || !loadMoreContainer) {
+    if (!productsContainer) {
       return;
     }
 
     const getTotalPages = () => {
-      const dataValue = loadMoreContainer.dataset.totalPages || (totalPagesSpan ? totalPagesSpan.textContent : '1');
+      const dataValue = loadMoreContainer?.dataset.totalPages || paginationNav?.dataset.totalPages || '1';
       return parseNumber(dataValue, 1);
     };
 
-    const getCurrentPage = () => parseNumber(loadMoreContainer.dataset.currentPage || '1', 1);
+    const getCurrentPage = () => parseNumber(loadMoreContainer?.dataset.currentPage || paginationNav?.dataset.currentPage || '1', 1);
 
     const setTotalPages = (value) => {
-      loadMoreContainer.dataset.totalPages = String(value);
-      if (totalPagesSpan) {
-        totalPagesSpan.textContent = String(value);
+      if (loadMoreContainer) {
+        loadMoreContainer.dataset.totalPages = String(value);
       }
       if (paginationNav) {
         paginationNav.dataset.totalPages = String(value);
@@ -123,15 +131,20 @@ export function initHomepagePagination() {
     };
 
     const setCurrentPage = (value) => {
-      loadMoreContainer.dataset.currentPage = String(value);
-      if (pageSelector) {
-        pageSelector.value = String(value);
+      if (loadMoreContainer) {
+        loadMoreContainer.dataset.currentPage = String(value);
+      }
+      if (paginationNav) {
+        paginationNav.dataset.currentPage = String(value);
       }
       updatePaginationNav(paginationNav, value);
     };
 
     const updateLoadMoreState = (currentPage, totalPages) => {
       const hasMore = currentPage < totalPages;
+      if (!loadMoreBtn || !loadMoreContainer) {
+        return hasMore;
+      }
       if (hasMore) {
         loadMoreBtn.dataset.page = String(currentPage + 1);
         loadMoreBtn.disabled = false;
@@ -143,15 +156,20 @@ export function initHomepagePagination() {
       return hasMore;
     };
 
-    const syncSelector = () => {
+    const syncUI = () => {
       const totalPages = getTotalPages();
       const currentPage = getCurrentPage();
-      populateSelector(pageSelector, totalPages, currentPage);
+      if (paginationNav) {
+        paginationNav.dataset.totalPages = String(totalPages);
+        paginationNav.dataset.currentPage = String(currentPage);
+      }
+      updatePaginationNav(paginationNav, currentPage);
       updateLoadMoreState(currentPage, totalPages);
     };
 
     const loadPage = (pageNumber) => {
       const targetPage = parseNumber(pageNumber, getCurrentPage());
+      if (!loadMoreBtn || !loadMoreContainer) return;
       if (loadMoreBtn.disabled) return;
       const btnText = loadMoreBtn.querySelector('.btn-text');
       const btnSpinner = loadMoreBtn.querySelector('.btn-spinner');
@@ -170,7 +188,6 @@ export function initHomepagePagination() {
             const currentPage = parseNumber(data.current_page, targetPage);
             setTotalPages(totalPages);
             setCurrentPage(currentPage);
-            populateSelector(pageSelector, totalPages, currentPage);
             const hasMore = updateLoadMoreState(currentPage, totalPages);
             if (!hasMore && paginationNav) {
               updatePaginationNav(paginationNav, currentPage);
@@ -202,19 +219,14 @@ export function initHomepagePagination() {
         });
     };
 
-    loadMoreBtn.addEventListener('click', () => {
-      const nextPage = parseNumber(loadMoreBtn.dataset.page, getCurrentPage() + 1);
-      loadPage(nextPage);
-    });
-
-    if (pageSelector) {
-      pageSelector.addEventListener('change', () => {
-        const selectedPage = parseNumber(pageSelector.value, getCurrentPage());
-        loadPage(selectedPage);
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', () => {
+        const nextPage = parseNumber(loadMoreBtn.dataset.page, getCurrentPage() + 1);
+        loadPage(nextPage);
       });
     }
 
-    syncSelector();
+    syncUI();
     revealColorDots(productsContainer);
   };
 
