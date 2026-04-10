@@ -194,11 +194,23 @@ class CustomPrintProductType(models.TextChoices):
     TSHIRT = "tshirt", _("Футболка")
     HOODIE = "hoodie", _("Худі")
     LONGSLEEVE = "longsleeve", _("Лонгслів")
+    CUSTOMER_GARMENT = "customer_garment", _("Свій одяг")
 
 
 class CustomPrintClientKind(models.TextChoices):
     PERSONAL = "personal", _("Для себе")
     BRAND = "brand", _("Для бренду / команди / події")
+
+
+class CustomPrintBusinessKind(models.TextChoices):
+    BULK = "bulk", _("Оптова партія")
+    BRANDING = "branding", _("Брендування / мерч")
+
+
+class CustomPrintSizeMode(models.TextChoices):
+    SINGLE = "single", _("Один розмір")
+    MIXED = "mixed", _("Мікс")
+    MANAGER = "manager", _("Уточню з менеджером")
 
 
 class CustomPrintContactChannel(models.TextChoices):
@@ -235,7 +247,24 @@ class CustomPrintLead(models.Model):
         default=CustomPrintClientKind.PERSONAL,
         verbose_name="Тип клієнта",
     )
+    business_kind = models.CharField(
+        max_length=20,
+        choices=CustomPrintBusinessKind.choices,
+        blank=True,
+        default="",
+        verbose_name="B2B сценарій",
+    )
     brand_name = models.CharField(max_length=255, blank=True, verbose_name="Бренд / команда")
+    size_mode = models.CharField(
+        max_length=20,
+        choices=CustomPrintSizeMode.choices,
+        blank=True,
+        default="",
+        verbose_name="Режим розмірів",
+    )
+    garment_note = models.CharField(max_length=255, blank=True, default="", verbose_name="Опис виробу клієнта")
+    placement_specs_json = models.JSONField(default=list, blank=True, verbose_name="Специфікації зон нанесення")
+    pricing_snapshot_json = models.JSONField(default=dict, blank=True, verbose_name="Снапшот прорахунку")
     name = models.CharField(max_length=200, verbose_name="Ім'я")
     contact_channel = models.CharField(
         max_length=20,
@@ -277,6 +306,10 @@ class CustomPrintLead(models.Model):
                     raise
                 self.lead_number = ""
 
+    @property
+    def estimate_required(self):
+        return bool((self.pricing_snapshot_json or {}).get("estimate_required"))
+
     @staticmethod
     def generate_lead_number():
         today = timezone.localdate()
@@ -292,6 +325,10 @@ class CustomPrintLead(models.Model):
 
 
 class CustomPrintLeadAttachment(models.Model):
+    class AttachmentRole(models.TextChoices):
+        DESIGN = "design", _("Макет / дизайн")
+        REFERENCE = "reference", _("Референс")
+
     lead = models.ForeignKey(
         CustomPrintLead,
         on_delete=models.CASCADE,
@@ -299,6 +336,14 @@ class CustomPrintLeadAttachment(models.Model):
         verbose_name="Заявка",
     )
     file = models.FileField(upload_to="custom_print/leads/", verbose_name="Файл")
+    placement_zone = models.CharField(max_length=32, blank=True, verbose_name="Зона нанесення")
+    attachment_role = models.CharField(
+        max_length=20,
+        choices=AttachmentRole.choices,
+        default=AttachmentRole.DESIGN,
+        verbose_name="Роль файлу",
+    )
+    sort_order = models.PositiveIntegerField(default=0, verbose_name="Порядок")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
 
     class Meta:

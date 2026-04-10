@@ -22,6 +22,7 @@ from django.db.models import (
     DurationField,
     ExpressionWrapper,
     F,
+    Q,
     Sum,
     Prefetch,
 )
@@ -43,6 +44,11 @@ from ..models import (
     PromoCode,
     PromoCodeUsage,
     PrintProposal,
+    CustomPrintBusinessKind,
+    CustomPrintClientKind,
+    CustomPrintLead,
+    CustomPrintLeadStatus,
+    CustomPrintProductType,
     Catalog,
     SizeGrid,
     SiteSession,
@@ -448,6 +454,117 @@ def _build_print_proposals_context():
     }
 
 
+def _group_custom_print_attachments(lead):
+    zone_labels = {
+        "front": "На грудях / спереду",
+        "back": "На спині",
+        "sleeve": "На рукаві",
+        "custom": "Інше",
+        "unsorted": "Без прив'язки",
+    }
+    grouped = []
+    buckets = {}
+
+    for attachment in lead.attachments.all():
+        zone = attachment.placement_zone or "unsorted"
+        bucket = buckets.get(zone)
+        if bucket is None:
+            bucket = {
+                "zone": zone,
+                "label": zone_labels.get(zone, zone or "Без прив'язки"),
+                "items": [],
+            }
+            buckets[zone] = bucket
+            grouped.append(bucket)
+        bucket["items"].append(attachment)
+
+    return grouped
+
+
+def _build_custom_print_orders_context(request):
+    """Контекст для кастомних замовлень у staff-панелі."""
+    status_filter = (request.GET.get("custom_print_status") or "all").strip()
+    client_kind_filter = (request.GET.get("custom_print_client_kind") or "all").strip()
+    business_kind_filter = (request.GET.get("custom_print_business_kind") or "all").strip()
+    product_type_filter = (request.GET.get("custom_print_product_type") or "all").strip()
+    has_files_filter = (request.GET.get("custom_print_has_files") or "all").strip()
+    query = (request.GET.get("custom_print_q") or "").strip()
+    selected_lead_id = (request.GET.get("lead") or "").strip()
+
+    base_qs = CustomPrintLead.objects.prefetch_related("attachments").order_by("-created_at")
+    leads_qs = base_qs
+
+    if status_filter != "all":
+        leads_qs = leads_qs.filter(status=status_filter)
+    if client_kind_filter != "all":
+        leads_qs = leads_qs.filter(client_kind=client_kind_filter)
+    if business_kind_filter != "all":
+        if business_kind_filter == "empty":
+            leads_qs = leads_qs.filter(business_kind="")
+        else:
+            leads_qs = leads_qs.filter(business_kind=business_kind_filter)
+    if product_type_filter != "all":
+        leads_qs = leads_qs.filter(product_type=product_type_filter)
+    if has_files_filter == "yes":
+        leads_qs = leads_qs.filter(attachments__isnull=False).distinct()
+    elif has_files_filter == "no":
+        leads_qs = leads_qs.filter(attachments__isnull=True)
+    if query:
+        leads_qs = leads_qs.filter(
+            Q(lead_number__icontains=query)
+            | Q(name__icontains=query)
+            | Q(brand_name__icontains=query)
+            | Q(contact_value__icontains=query)
+            | Q(brief__icontains=query)
+        )
+
+    leads = list(leads_qs[:200])
+    selected_lead = None
+    if selected_lead_id:
+        try:
+            selected_lead_pk = int(selected_lead_id)
+        except (TypeError, ValueError):
+            selected_lead_pk = None
+        if selected_lead_pk is not None:
+            selected_lead = next((lead for lead in leads if lead.pk == selected_lead_pk), None)
+            if selected_lead is None:
+                selected_lead = base_qs.filter(pk=selected_lead_pk).first()
+    if selected_lead is None and leads:
+        selected_lead = leads[0]
+
+    selected_lead_groups = _group_custom_print_attachments(selected_lead) if selected_lead else []
+    previous_lead = None
+    next_lead = None
+    if selected_lead and selected_lead in leads:
+        selected_index = leads.index(selected_lead)
+        if selected_index > 0:
+            previous_lead = leads[selected_index - 1]
+        if selected_index + 1 < len(leads):
+            next_lead = leads[selected_index + 1]
+
+    return {
+        "custom_print_orders": leads,
+        "custom_print_total": base_qs.count(),
+        "custom_print_new_count": base_qs.filter(status=CustomPrintLeadStatus.NEW).count(),
+        "custom_print_in_progress_count": base_qs.filter(status=CustomPrintLeadStatus.IN_PROGRESS).count(),
+        "custom_print_closed_count": base_qs.filter(status=CustomPrintLeadStatus.CLOSED).count(),
+        "custom_print_status_filter": status_filter,
+        "custom_print_client_kind_filter": client_kind_filter,
+        "custom_print_business_kind_filter": business_kind_filter,
+        "custom_print_product_type_filter": product_type_filter,
+        "custom_print_has_files_filter": has_files_filter,
+        "custom_print_query": query,
+        "custom_print_selected_lead": selected_lead,
+        "custom_print_selected_lead_groups": selected_lead_groups,
+        "custom_print_previous_lead": previous_lead,
+        "custom_print_next_lead": next_lead,
+        "custom_print_statuses": CustomPrintLeadStatus.choices,
+        "custom_print_client_kinds": CustomPrintClientKind.choices,
+        "custom_print_business_kinds": CustomPrintBusinessKind.choices,
+        "custom_print_product_types": CustomPrintProductType.choices,
+    }
+
+
 def _build_collaboration_context():
     """Контекст для блоков співпраці (дропшипінг, опт)."""
     try:
@@ -574,6 +691,8 @@ def admin_panel(request):
         context.update(_build_offline_stores_context())
     elif section == 'print_proposals':
         context.update(_build_print_proposals_context())
+    elif section == 'custom_print_orders':
+        context.update(_build_custom_print_orders_context(request))
     elif section == 'orders':
         context.update(_build_orders_context(request))
     elif section == 'collaboration':
@@ -659,6 +778,26 @@ def admin_toggle_manager(request, user_id: int):
     profile.save(update_fields=['is_manager'])
 
     return JsonResponse({'success': True, 'is_manager': profile.is_manager})
+
+
+@staff_member_required
+def admin_custom_print_lead_status(request, lead_id: int):
+    """Оновлення статусу заявки кастомного принта з кастомної staff-панелі."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        status_value = payload.get('status')
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid payload'}, status=400)
+
+    if status_value not in CustomPrintLeadStatus.values:
+        return JsonResponse({'success': False, 'error': 'Invalid status'}, status=400)
+
+    lead = get_object_or_404(CustomPrintLead, pk=lead_id)
+    lead.status = status_value
+    lead.save(update_fields=['status', 'updated_at'])
+    return JsonResponse({'success': True, 'status': lead.status})
 
 
 @staff_member_required

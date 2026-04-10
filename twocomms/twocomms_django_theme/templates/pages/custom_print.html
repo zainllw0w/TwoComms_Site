@@ -2,913 +2,959 @@
 {% load static %}
 
 {% block title %}Кастомний одяг зі своїм принтом — TwoComms{% endblock %}
-{% block description %}Залиште заявку на кастомний принт для футболки, худі або лонгсліва. Допоможемо з готовим файлом, доопрацюванням або дизайном з нуля й зв’яжемося для прорахунку.{% endblock %}
-{% block keywords %}кастомний одяг, свій принт, друк на футболках, друк на худі, друк на лонгслівах, дизайн принта, TwoComms{% endblock %}
+{% block description %}Адаптивний конфігуратор кастомного друку для футболок, худі, лонгслівів і свого одягу. Оберіть сценарій, виріб, зони нанесення й одразу побачте попередній розрахунок або estimate.{% endblock %}
+{% block keywords %}кастомний одяг, кастомний принт, друк на худі, друк на футболках, лонгслів, свій одяг, мерч, брендований одяг{% endblock %}
 {% block og_type %}website{% endblock %}
 
 {% block extra_css %}
   {{ block.super }}
   <style>
-    .studio-page {
-      --studio-accent: #d6a44c;
-      --studio-accent-soft: #f3ca79;
-      --studio-accent-deep: #a8742a;
-      --studio-bg: #0d0d11;
-      --studio-surface: rgba(18, 19, 24, 0.92);
-      --studio-surface-strong: rgba(25, 24, 20, 0.96);
-      --studio-border: rgba(255, 214, 143, 0.14);
-      --studio-border-strong: rgba(255, 214, 143, 0.24);
-      --studio-text: #f6f1e8;
-      --studio-muted: rgba(246, 241, 232, 0.72);
-      --studio-subtle: rgba(246, 241, 232, 0.56);
+    .print-page {
+      --print-bg: #0c0d12;
+      --print-surface: rgba(16, 18, 24, 0.92);
+      --print-surface-strong: rgba(23, 25, 33, 0.98);
+      --print-border: rgba(255, 214, 138, 0.12);
+      --print-border-strong: rgba(255, 214, 138, 0.28);
+      --print-accent: #e2b25b;
+      --print-accent-soft: #f7d58f;
+      --print-accent-deep: #b97c2b;
+      --print-text: #f7f0e6;
+      --print-muted: rgba(247, 240, 230, 0.72);
+      --print-subtle: rgba(247, 240, 230, 0.56);
+      --print-success: #8ecfa0;
+      --print-danger: #ffb1a2;
       display: grid;
-      gap: 1.25rem;
-      padding-bottom: 1.2rem;
+      gap: 1.2rem;
+      padding-bottom: 7.5rem;
     }
 
-    .studio-shell {
+    .print-shell {
       position: relative;
       overflow: hidden;
-      border-radius: 32px;
-      border: 1px solid var(--studio-border);
+      border: 1px solid var(--print-border);
+      border-radius: 30px;
       background:
-        radial-gradient(circle at top right, rgba(214, 164, 76, 0.16), transparent 30%),
-        radial-gradient(circle at left center, rgba(255, 145, 77, 0.12), transparent 28%),
-        linear-gradient(180deg, rgba(8, 9, 12, 0.98), rgba(13, 13, 17, 0.98));
-      box-shadow:
-        0 32px 90px rgba(0, 0, 0, 0.42),
-        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        radial-gradient(circle at top right, rgba(226, 178, 91, 0.18), transparent 28%),
+        radial-gradient(circle at left center, rgba(255, 124, 67, 0.12), transparent 26%),
+        linear-gradient(180deg, rgba(8, 10, 15, 0.98), rgba(12, 13, 18, 0.98));
+      box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
     }
 
-    .studio-shell::before {
+    .print-shell::before {
       content: "";
       position: absolute;
       inset: 0;
+      pointer-events: none;
       background-image:
         linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-      background-size: 24px 24px;
-      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.35), transparent 75%);
-      pointer-events: none;
+      background-size: 22px 22px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.45), transparent 75%);
     }
 
-    .studio-layout {
+    .print-layout {
       position: relative;
       z-index: 1;
       display: grid;
-      gap: 1.4rem;
-      padding: clamp(1.2rem, 2vw, 1.8rem);
+      grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.7fr);
+      gap: 1.2rem;
+      padding: clamp(1rem, 2vw, 1.6rem);
+      align-items: start;
     }
 
-    .studio-intro {
+    .print-main {
       display: grid;
       gap: 1rem;
-      padding: clamp(0.4rem, 1vw, 0.8rem) clamp(0.2rem, 1vw, 0.4rem) 0;
     }
 
-    .studio-intro-rail {
-      display: flex;
-      flex-wrap: wrap;
+    .print-hero,
+    .print-section,
+    .print-summary,
+    .print-success {
+      border-radius: 26px;
+      border: 1px solid var(--print-border);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+        var(--print-surface);
+      backdrop-filter: blur(12px);
+    }
+
+    .print-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+      gap: 1rem;
+      padding: clamp(1.1rem, 2vw, 1.5rem);
+    }
+
+    .print-hero-copy {
+      display: grid;
+      gap: 0.95rem;
+      align-content: start;
+    }
+
+    .print-kicker {
+      display: inline-flex;
+      width: fit-content;
       align-items: center;
-      gap: 0.7rem;
+      gap: 0.55rem;
+      padding: 0.45rem 0.78rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 214, 138, 0.2);
+      background: rgba(255, 214, 138, 0.08);
+      color: var(--print-accent-soft);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
-    .studio-kicker {
+    .print-title {
+      margin: 0;
+      max-width: 10ch;
+      color: var(--print-text);
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      line-height: 0.96;
+      letter-spacing: -0.05em;
+    }
+
+    .print-title span {
+      display: block;
+      color: var(--print-accent-soft);
+    }
+
+    .print-lead {
+      margin: 0;
+      max-width: 60ch;
+      color: var(--print-muted);
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+
+    .print-pill-row,
+    .print-hook-row,
+    .print-quick-row,
+    .print-placements-grid,
+    .print-zone-grid,
+    .print-product-grid,
+    .print-service-grid,
+    .print-contact-grid,
+    .print-input-grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .print-pill-row {
+      grid-template-columns: repeat(3, minmax(0, max-content));
+      gap: 0.55rem;
+      align-items: start;
+      justify-content: start;
+    }
+
+    .print-pill {
       display: inline-flex;
       align-items: center;
-      width: fit-content;
-      gap: 0.55rem;
-      padding: 0.45rem 0.8rem;
+      padding: 0.4rem 0.72rem;
       border-radius: 999px;
-      border: 1px solid rgba(255, 216, 154, 0.2);
-      background: rgba(255, 216, 154, 0.08);
-      color: var(--studio-accent-soft);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--print-subtle);
+      font-size: 0.86rem;
+    }
+
+    .print-hero-side {
+      display: grid;
+      gap: 0.9rem;
+      align-content: start;
+      padding: 1rem;
+      border-radius: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background:
+        linear-gradient(145deg, rgba(226, 178, 91, 0.12), rgba(255, 145, 82, 0.05)),
+        rgba(17, 19, 26, 0.9);
+    }
+
+    .print-side-title {
+      margin: 0;
+      color: var(--print-text);
+      font-size: 1.05rem;
+    }
+
+    .print-side-copy,
+    .print-side-list {
+      margin: 0;
+      color: var(--print-muted);
+      line-height: 1.6;
+      font-size: 0.94rem;
+    }
+
+    .print-side-list {
+      display: grid;
+      gap: 0.5rem;
+      padding: 0;
+      list-style: none;
+    }
+
+    .print-side-list li {
+      display: flex;
+      gap: 0.6rem;
+    }
+
+    .print-side-list li::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      margin-top: 0.42rem;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #f6d48d, #d78d3d);
+      box-shadow: 0 0 0 4px rgba(226, 178, 91, 0.08);
+      flex: 0 0 auto;
+    }
+
+    .print-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 50px;
+      padding: 0.85rem 1rem;
+      border-radius: 999px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+    }
+
+    .print-link:hover {
+      transform: translateY(-2px);
+      text-decoration: none;
+    }
+
+    .print-link-primary {
+      color: #26160a;
+      background: linear-gradient(135deg, #f6d48d, #e5b35a 56%, #c67b30);
+      box-shadow: 0 16px 34px rgba(198, 123, 48, 0.22);
+    }
+
+    .print-section,
+    .print-summary,
+    .print-success {
+      padding: 1rem;
+    }
+
+    .print-section {
+      display: grid;
+      gap: 0.95rem;
+    }
+
+    .print-section-head {
+      display: grid;
+      gap: 0.3rem;
+    }
+
+    .print-section-kicker {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      padding: 0.34rem 0.62rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 214, 138, 0.15);
+      background: rgba(255, 214, 138, 0.05);
+      color: var(--print-accent-soft);
       font-size: 0.76rem;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
-    .studio-intro-badge {
-      display: inline-flex;
-      align-items: center;
-      width: fit-content;
-      padding: 0.42rem 0.78rem;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--studio-text);
-      font-size: 0.84rem;
-      font-weight: 600;
-    }
-
-    .studio-intro-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
-      gap: 1rem;
-      align-items: stretch;
-    }
-
-    .studio-headline {
-      display: grid;
-      gap: 0.85rem;
-      align-content: start;
-    }
-
-    .studio-title {
+    .print-section h2 {
       margin: 0;
-      font-size: clamp(2rem, 4vw, 3.4rem);
-      line-height: 0.96;
-      letter-spacing: -0.05em;
-      color: var(--studio-text);
-      max-width: 10.5ch;
+      color: var(--print-text);
+      font-size: 1.22rem;
     }
 
-    .studio-title span {
-      display: block;
-      color: var(--studio-accent-soft);
-    }
-
-    .studio-lead {
+    .print-section p {
       margin: 0;
-      max-width: 60ch;
-      color: var(--studio-muted);
-      font-size: 1rem;
-      line-height: 1.65;
-    }
-
-    .studio-lead strong {
-      color: var(--studio-text);
-      font-weight: 600;
-    }
-
-    .studio-intro-notes {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.55rem;
-    }
-
-    .studio-intro-notes span {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.38rem 0.72rem;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--studio-subtle);
-      font-size: 0.85rem;
-    }
-
-    .studio-contact-card {
-      display: grid;
-      gap: 1rem;
-      padding: 1.15rem;
-      border-radius: 24px;
-      border: 1px solid var(--studio-border);
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-        linear-gradient(135deg, rgba(214, 164, 76, 0.08), rgba(255, 144, 76, 0.06));
-      align-content: start;
-    }
-
-    .studio-contact-card-copy {
-      display: grid;
-      gap: 0.8rem;
-    }
-
-    .studio-card-title {
-      margin: 0;
-      font-size: 1.02rem;
-      color: var(--studio-text);
-    }
-
-    .studio-card-copy {
-      margin: 0;
-      color: var(--studio-muted);
-      line-height: 1.6;
-      font-size: 0.95rem;
-    }
-
-    .studio-link-primary,
-    .studio-link-secondary,
-    .studio-link-disabled,
-    .studio-submit {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.65rem;
-      min-height: 50px;
-      padding: 0.88rem 1.15rem;
-      border-radius: 999px;
-      font-weight: 700;
-      text-decoration: none;
-      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
-    }
-
-    .studio-link-primary:focus-visible,
-    .studio-link-secondary:focus-visible,
-    .studio-submit:focus-visible,
-    .studio-choice:focus-within .studio-choice-card,
-    .studio-chip-wrap:focus-within .studio-chip,
-    .studio-toggle-row:focus-within .studio-toggle,
-    .studio-input:focus-visible,
-    .studio-textarea:focus-visible,
-    .studio-file:focus-visible {
-      outline: 0;
-      box-shadow: 0 0 0 4px rgba(214, 164, 76, 0.12);
-    }
-
-    .studio-link-primary:hover,
-    .studio-link-secondary:hover,
-    .studio-submit:hover {
-      transform: translateY(-2px);
-      text-decoration: none;
-    }
-
-    .studio-link-primary,
-    .studio-submit {
-      color: #1d1307;
-      background: linear-gradient(135deg, #f4cc7b, #e5b35a 52%, #cb8736);
-      box-shadow: 0 16px 34px rgba(203, 135, 54, 0.22);
-      border: none;
-    }
-
-    .studio-link-secondary {
-      color: var(--studio-text);
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .studio-link-disabled {
-      color: rgba(246, 241, 232, 0.48);
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px dashed rgba(255, 255, 255, 0.1);
-      cursor: not-allowed;
-      pointer-events: none;
-    }
-
-    .studio-form-panel {
-      display: grid;
-      gap: 1rem;
-      padding: clamp(1.05rem, 1.6vw, 1.4rem);
-      border-radius: 28px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02));
-      backdrop-filter: blur(12px);
-    }
-
-    .studio-form {
-      display: grid;
-      gap: 1rem;
-    }
-
-    .studio-step {
-      display: grid;
-      gap: 0.85rem;
-      padding: 1rem;
-      border-radius: 24px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      background: var(--studio-surface);
-      transition: border-color 180ms ease, transform 180ms ease, background 180ms ease;
-    }
-
-    .studio-step:hover {
-      border-color: rgba(255, 214, 143, 0.1);
-      transform: translateY(-1px);
-    }
-
-    .studio-step-head {
-      display: grid;
-      gap: 0.28rem;
-    }
-
-    .studio-step-label {
-      color: var(--studio-accent-soft);
-      font-size: 0.78rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      font-weight: 700;
-      width: fit-content;
-      padding: 0.34rem 0.6rem;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 214, 143, 0.12);
-      background: rgba(255, 214, 143, 0.06);
-    }
-
-    .studio-step h2 {
-      margin: 0;
-      font-size: 1.15rem;
-      color: var(--studio-text);
-    }
-
-    .studio-step p {
-      margin: 0;
-      color: var(--studio-muted);
+      color: var(--print-muted);
       line-height: 1.6;
     }
 
-    .studio-option-grid {
+    .print-toggle-grid {
       display: grid;
-      gap: 0.8rem;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.7rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .studio-option-grid[data-layout="products"] {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .studio-radio,
-    .studio-checkbox,
-    .studio-toggle-input {
+    .print-radio,
+    .print-checkbox {
       position: absolute;
       opacity: 0;
       pointer-events: none;
     }
 
-    .studio-choice {
+    .print-choice {
       position: relative;
     }
 
-    .studio-choice-card {
+    .print-choice-card {
       display: grid;
       gap: 0.5rem;
-      position: relative;
       height: 100%;
-      min-height: 148px;
-      padding: 1rem 1rem 1rem 1.05rem;
+      min-height: 112px;
+      padding: 0.95rem 1rem;
       border-radius: 22px;
       border: 1px solid rgba(255, 255, 255, 0.08);
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
-        rgba(12, 13, 17, 0.92);
-      cursor: pointer;
+        rgba(12, 14, 20, 0.92);
       transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+      cursor: pointer;
     }
 
-    .studio-choice-card::after {
-      content: "";
-      position: absolute;
-      top: 0.95rem;
-      right: 0.95rem;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      border: 1.5px solid rgba(255, 255, 255, 0.18);
-      background: rgba(255, 255, 255, 0.03);
-      transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
-    }
-
-    .studio-choice-card:hover {
+    .print-choice-card:hover {
       transform: translateY(-2px);
-      border-color: rgba(255, 214, 143, 0.18);
+      border-color: rgba(255, 214, 138, 0.2);
     }
 
-    .studio-radio:checked + .studio-choice-card,
-    .studio-checkbox:checked + .studio-chip,
-    .studio-toggle-input:checked + .studio-toggle {
-      border-color: var(--studio-border-strong);
-      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.2);
-    }
-
-    .studio-radio:checked + .studio-choice-card {
+    .print-radio:checked + .print-choice-card,
+    .print-checkbox:checked + .print-choice-card {
+      border-color: var(--print-border-strong);
       background:
-        linear-gradient(180deg, rgba(214, 164, 76, 0.12), rgba(255, 150, 79, 0.04)),
-        rgba(19, 17, 13, 0.96);
+        linear-gradient(180deg, rgba(226, 178, 91, 0.14), rgba(255, 148, 84, 0.05)),
+        rgba(20, 18, 13, 0.96);
+      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.22);
       transform: translateY(-2px);
-      border-color: rgba(255, 214, 143, 0.22);
     }
 
-    .studio-radio:checked + .studio-choice-card::after {
-      border-color: rgba(255, 214, 143, 0.4);
-      background: radial-gradient(circle at center, #f4cc7b 0 48%, rgba(203, 135, 54, 0.98) 49% 100%);
-      box-shadow: 0 0 0 4px rgba(214, 164, 76, 0.08);
-      transform: scale(1.04);
-    }
-
-    .studio-radio:checked + .studio-choice-card .studio-choice-title,
-    .studio-radio:checked + .studio-choice-card .studio-product-title {
-      color: var(--studio-accent-soft);
-    }
-
-    .studio-choice-top {
+    .print-choice-title {
       display: flex;
-      align-items: center;
       justify-content: space-between;
       gap: 0.75rem;
+      color: var(--print-text);
+      font-size: 0.98rem;
+      font-weight: 700;
     }
 
-    .studio-choice-title {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--studio-text);
-    }
-
-    .studio-choice-price {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.25rem 0.55rem;
-      border-radius: 999px;
-      background: rgba(255, 214, 143, 0.08);
-      border: 1px solid rgba(255, 214, 143, 0.12);
-      color: var(--studio-accent-soft);
-      font-size: 0.76rem;
-      font-weight: 700;
+    .print-choice-title span:last-child {
+      color: var(--print-accent-soft);
       white-space: nowrap;
+      font-size: 0.82rem;
+      font-weight: 700;
     }
 
-    .studio-choice-text {
-      color: var(--studio-subtle);
+    .print-choice-copy {
+      color: var(--print-subtle);
       font-size: 0.9rem;
       line-height: 1.55;
     }
 
-    .studio-product-card {
-      align-content: start;
-      min-height: 176px;
+    .print-b2b-wrap {
+      display: grid;
+      gap: 0.8rem;
     }
 
-    .studio-product-figure {
-      width: 100%;
-      min-height: 88px;
+    .print-b2b-wrap[hidden],
+    .print-conditional[hidden],
+    .print-zones-empty[hidden] {
+      display: none !important;
+    }
+
+    .print-scale {
+      display: grid;
+      gap: 0.6rem;
+      padding: 0.9rem;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 214, 138, 0.1);
+      background: rgba(255, 214, 138, 0.05);
+    }
+
+    .print-scale strong {
+      color: var(--print-text);
+      font-size: 0.94rem;
+    }
+
+    .print-scale-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.6rem;
+    }
+
+    .print-scale-card {
+      display: grid;
+      gap: 0.18rem;
+      padding: 0.75rem;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(10, 12, 17, 0.42);
+      color: var(--print-muted);
+      font-size: 0.88rem;
+    }
+
+    .print-scale-card strong {
+      color: var(--print-accent-soft);
+      font-size: 0.92rem;
+    }
+
+    .print-product-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .print-product-card {
+      align-content: start;
+      min-height: 196px;
+    }
+
+    .print-product-card.is-own {
+      background:
+        linear-gradient(180deg, rgba(170, 135, 79, 0.16), rgba(87, 60, 34, 0.04)),
+        rgba(20, 18, 16, 0.96);
+    }
+
+    .print-product-icon {
       display: grid;
       place-items: center;
-      color: rgba(246, 241, 232, 0.74);
-      transition: transform 220ms ease, color 220ms ease, filter 220ms ease;
+      min-height: 98px;
+      padding: 0.2rem;
     }
 
-    .studio-product-figure svg {
+    .print-product-icon img {
       width: 104px;
       height: 104px;
-      overflow: visible;
+      object-fit: contain;
+      filter: saturate(0.96) brightness(0.95);
+      transition: transform 220ms ease, filter 220ms ease;
     }
 
-    .studio-radio:checked + .studio-product-card .studio-product-figure {
-      color: var(--studio-accent-soft);
-      transform: translateY(-4px) scale(1.03);
-      filter: drop-shadow(0 10px 18px rgba(214, 164, 76, 0.14));
-      animation: studioSelectedFloat 3.2s ease-in-out infinite;
+    .print-radio:checked + .print-product-card .print-product-icon img {
+      transform: translateY(-3px) scale(1.04);
+      filter: saturate(1.08) brightness(1.04) drop-shadow(0 10px 18px rgba(226, 178, 91, 0.16));
     }
 
-    @keyframes studioSelectedFloat {
-      0%,
-      100% {
-        transform: translateY(-4px) scale(1.03);
-      }
-
-      50% {
-        transform: translateY(-7px) scale(1.04);
-      }
-    }
-
-    .studio-product-title {
+    .print-product-title {
+      color: var(--print-text);
       font-size: 1rem;
       font-weight: 700;
-      color: var(--studio-text);
       text-align: center;
     }
 
-    .studio-product-copy {
+    .print-product-copy {
+      color: var(--print-subtle);
       text-align: center;
-      color: var(--studio-subtle);
       font-size: 0.88rem;
       line-height: 1.5;
     }
 
-    .studio-chip-row {
+    .print-product-price {
+      justify-self: center;
+      display: inline-flex;
+      align-items: center;
+      padding: 0.3rem 0.62rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 214, 138, 0.14);
+      background: rgba(255, 214, 138, 0.08);
+      color: var(--print-accent-soft);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .print-note {
+      padding: 0.9rem 1rem;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 214, 138, 0.1);
+      background: rgba(255, 214, 138, 0.05);
+      color: var(--print-muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .print-note strong {
+      color: var(--print-text);
+      font-weight: 700;
+    }
+
+    .print-placements-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .print-placement-card {
+      min-height: 128px;
+      align-content: start;
+    }
+
+    .print-placement-card small {
+      color: var(--print-accent-soft);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .print-zone-wrap {
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .print-zones-empty {
+      padding: 1rem;
+      border-radius: 18px;
+      border: 1px dashed rgba(255, 255, 255, 0.12);
+      color: var(--print-subtle);
+      text-align: center;
+      font-size: 0.92rem;
+    }
+
+    .print-zone-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .print-zone-card {
+      display: grid;
+      gap: 0.75rem;
+      padding: 0.95rem;
+      border-radius: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(10, 12, 17, 0.45);
+    }
+
+    .print-zone-head {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.65rem;
+      justify-content: space-between;
+      gap: 0.7rem;
+      align-items: center;
     }
 
-    .studio-chip-wrap {
-      position: relative;
+    .print-zone-title {
+      color: var(--print-text);
+      font-size: 0.98rem;
+      font-weight: 700;
     }
 
-    .studio-chip {
+    .print-zone-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.3rem 0.56rem;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .print-zone-badge.is-free {
+      background: rgba(142, 207, 160, 0.12);
+      color: #b8ebc5;
+      border: 1px solid rgba(142, 207, 160, 0.18);
+    }
+
+    .print-zone-badge.is-estimate {
+      background: rgba(226, 178, 91, 0.12);
+      color: var(--print-accent-soft);
+      border: 1px solid rgba(226, 178, 91, 0.18);
+    }
+
+    .print-zone-copy {
+      color: var(--print-subtle);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+
+    .print-input-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .print-field {
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .print-field--full {
+      grid-column: 1 / -1;
+    }
+
+    .print-label {
+      color: var(--print-text);
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+
+    .print-label span {
+      color: var(--print-subtle);
+      font-weight: 500;
+    }
+
+    .print-input,
+    .print-textarea,
+    .print-file,
+    .print-select {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(5, 7, 11, 0.55);
+      color: var(--print-text);
+      transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+    }
+
+    .print-input:focus,
+    .print-textarea:focus,
+    .print-file:focus,
+    .print-select:focus {
+      outline: none;
+      border-color: rgba(255, 214, 138, 0.28);
+      box-shadow: 0 0 0 4px rgba(226, 178, 91, 0.1);
+      background: rgba(8, 10, 15, 0.72);
+    }
+
+    .print-input::placeholder,
+    .print-textarea::placeholder {
+      color: rgba(247, 240, 230, 0.38);
+    }
+
+    .print-textarea {
+      min-height: 130px;
+      resize: vertical;
+    }
+
+    .print-hint {
+      color: var(--print-subtle);
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .print-hint strong {
+      color: var(--print-text);
+    }
+
+    .print-error {
+      min-height: 1.15rem;
+      color: var(--print-danger);
+      font-size: 0.82rem;
+    }
+
+    .print-service-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .print-quick-row {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .print-chip-button,
+    .print-status-button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       min-height: 46px;
-      padding: 0.72rem 1rem;
+      padding: 0.72rem 0.95rem;
       border-radius: 999px;
       border: 1px solid rgba(255, 255, 255, 0.1);
       background: rgba(255, 255, 255, 0.03);
-      color: var(--studio-text);
+      color: var(--print-text);
       font-weight: 600;
       cursor: pointer;
       transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
     }
 
-    .studio-chip::before {
-      content: "";
-      width: 9px;
-      height: 9px;
-      margin-right: 0.55rem;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.18);
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-      transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
-    }
-
-    .studio-chip:hover {
+    .print-chip-button:hover,
+    .print-status-button:hover {
       transform: translateY(-1px);
-      border-color: rgba(255, 214, 143, 0.18);
+      border-color: rgba(255, 214, 138, 0.18);
     }
 
-    .studio-checkbox:checked + .studio-chip {
-      background: rgba(214, 164, 76, 0.12);
-      color: var(--studio-accent-soft);
-      border-color: rgba(255, 214, 143, 0.24);
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.16);
+    .print-chip-button.is-active {
+      border-color: var(--print-border-strong);
+      background: rgba(226, 178, 91, 0.12);
+      color: var(--print-accent-soft);
     }
 
-    .studio-checkbox:checked + .studio-chip::before {
-      background: linear-gradient(135deg, #f4cc7b, #cb8736);
-      box-shadow: 0 0 0 4px rgba(214, 164, 76, 0.08);
-      transform: scale(1.08);
+    .print-form-status {
+      min-height: 1.2rem;
+      color: var(--print-danger);
+      font-size: 0.88rem;
     }
 
-    .studio-grid-two {
-      display: grid;
-      gap: 0.9rem;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .studio-field,
-    .studio-field-wide {
-      display: grid;
-      gap: 0.48rem;
-    }
-
-    .studio-field-wide {
-      grid-column: 1 / -1;
-    }
-
-    .studio-label {
-      color: var(--studio-text);
-      font-size: 0.92rem;
-      font-weight: 600;
-    }
-
-    .studio-label span {
-      color: var(--studio-subtle);
-      font-weight: 500;
-    }
-
-    .studio-input,
-    .studio-textarea,
-    .studio-file {
-      width: 100%;
-      border-radius: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      background: rgba(5, 7, 10, 0.48);
-      color: var(--studio-text);
-      padding: 0.85rem 1rem;
-      transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
-    }
-
-    .studio-input:focus,
-    .studio-textarea:focus,
-    .studio-file:focus {
-      outline: none;
-      border-color: rgba(255, 214, 143, 0.28);
-      box-shadow: 0 0 0 4px rgba(214, 164, 76, 0.08);
-      background: rgba(8, 10, 14, 0.72);
-    }
-
-    .studio-input::placeholder,
-    .studio-textarea::placeholder {
-      color: rgba(246, 241, 232, 0.38);
-    }
-
-    .studio-textarea {
-      min-height: 124px;
-      resize: vertical;
-    }
-
-    .studio-field-hint {
-      color: var(--studio-subtle);
-      font-size: 0.84rem;
-      line-height: 1.55;
-    }
-
-    .studio-field-hint strong {
-      color: var(--studio-text);
-    }
-
-    .studio-field-error {
-      min-height: 1.15rem;
-      color: #ffaea1;
-      font-size: 0.82rem;
-    }
-
-    .studio-field-error:not(:empty) {
-      margin-top: -0.1rem;
-    }
-
-    .studio-hidden {
-      display: none !important;
-    }
-
-    .studio-inline-note {
-      padding: 0.88rem 1rem;
-      border-radius: 18px;
-      border: 1px solid rgba(255, 214, 143, 0.1);
-      background: rgba(255, 214, 143, 0.05);
-      color: var(--studio-muted);
-      font-size: 0.9rem;
-      line-height: 1.6;
-    }
-
-    .studio-inline-note strong {
-      color: var(--studio-text);
-      font-weight: 600;
-    }
-
-    .studio-toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.9rem;
-      padding: 0.82rem 0.95rem;
-      border-radius: 18px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(255, 255, 255, 0.03);
-    }
-
-    .studio-toggle-copy {
-      display: grid;
-      gap: 0.18rem;
-    }
-
-    .studio-toggle-copy strong {
-      color: var(--studio-text);
-      font-size: 0.95rem;
-    }
-
-    .studio-toggle-copy span {
-      color: var(--studio-subtle);
-      font-size: 0.84rem;
-    }
-
-    .studio-toggle {
-      position: relative;
-      display: inline-flex;
-      width: 54px;
-      height: 32px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(255, 255, 255, 0.08);
-      cursor: pointer;
-      transition: border-color 180ms ease, background 180ms ease;
-    }
-
-    .studio-toggle::after {
-      content: "";
-      position: absolute;
-      top: 3px;
-      left: 4px;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: #f8f4eb;
-      transition: transform 180ms ease, background 180ms ease;
-    }
-
-    .studio-toggle-input:checked + .studio-toggle {
-      background: rgba(214, 164, 76, 0.18);
-    }
-
-    .studio-toggle-input:checked + .studio-toggle::after {
-      transform: translateX(20px);
-      background: linear-gradient(135deg, #f4cc7b, #cb8736);
-    }
-
-    .studio-submit-panel {
+    .print-summary {
+      position: sticky;
+      top: 1rem;
       display: grid;
       gap: 1rem;
-      padding: 1.05rem;
-      border-radius: 24px;
-      border: 1px solid rgba(255, 214, 143, 0.1);
-      background: linear-gradient(180deg, rgba(255, 214, 143, 0.06), rgba(255, 255, 255, 0.025));
     }
 
-    .studio-price-box {
+    .print-summary-top {
       display: grid;
       gap: 0.35rem;
-      padding: 1rem;
-      border-radius: 18px;
-      background: rgba(10, 10, 14, 0.42);
-      border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    .studio-price-title {
-      color: var(--studio-accent-soft);
+    .print-summary-kicker {
+      color: var(--print-accent-soft);
+      font-size: 0.76rem;
       font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
-    .studio-price-text {
-      color: var(--studio-muted);
-      line-height: 1.65;
-      font-size: 0.92rem;
-    }
-
-    .studio-submit-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.8rem;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .studio-submit {
-      min-width: min(100%, 270px);
-    }
-
-    .studio-submit[disabled] {
-      cursor: progress;
-      opacity: 0.78;
-      transform: none;
-    }
-
-    .studio-submit-note {
-      color: var(--studio-subtle);
-      font-size: 0.88rem;
-      line-height: 1.55;
-      max-width: 40ch;
-    }
-
-    .studio-secondary-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-
-    .studio-next-box {
-      display: grid;
-      gap: 0.75rem;
-      padding: 1rem;
-      border-radius: 18px;
-      background: rgba(10, 10, 14, 0.34);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-    }
-
-    .studio-next-title {
+    .print-summary-title {
       margin: 0;
-      color: var(--studio-text);
-      font-size: 1rem;
+      color: var(--print-text);
+      font-size: 1.22rem;
+    }
+
+    .print-summary-total {
+      color: var(--print-text);
+      font-size: clamp(1.9rem, 3vw, 2.5rem);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+    }
+
+    .print-summary-caption {
+      color: var(--print-muted);
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+
+    .print-summary-list {
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .print-summary-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      color: var(--print-muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .print-summary-item strong {
+      color: var(--print-text);
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .print-summary-box {
+      padding: 0.95rem;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(10, 12, 17, 0.45);
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .print-summary-box strong {
+      color: var(--print-text);
+    }
+
+    .print-summary-actions {
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .print-submit {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 52px;
+      padding: 0.92rem 1rem;
+      border: none;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #f6d48d, #e5b35a 56%, #c67b30);
+      color: #26160a;
+      font-size: 0.98rem;
+      font-weight: 800;
+      box-shadow: 0 16px 32px rgba(198, 123, 48, 0.22);
+      transition: transform 180ms ease, box-shadow 180ms ease;
+      cursor: pointer;
+    }
+
+    .print-submit:hover {
+      transform: translateY(-2px);
+    }
+
+    .print-submit[disabled] {
+      opacity: 0.8;
+      transform: none;
+      cursor: progress;
+    }
+
+    .print-summary-link {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 48px;
+      padding: 0.82rem 1rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--print-text);
+      text-decoration: none;
       font-weight: 700;
     }
 
-    .studio-next-list {
+    .print-summary-link:hover {
+      text-decoration: none;
+      border-color: rgba(255, 214, 138, 0.18);
+    }
+
+    .print-trust-list {
       display: grid;
       gap: 0.55rem;
+      padding: 0;
+      list-style: none;
+      margin: 0;
     }
 
-    .studio-next-item {
+    .print-trust-list li {
       display: flex;
-      align-items: flex-start;
-      gap: 0.65rem;
-      color: var(--studio-muted);
-      font-size: 0.92rem;
+      gap: 0.6rem;
+      color: var(--print-muted);
+      font-size: 0.9rem;
       line-height: 1.55;
     }
 
-    .studio-next-item::before {
+    .print-trust-list li::before {
       content: "";
-      width: 8px;
-      height: 8px;
-      margin-top: 0.34rem;
+      width: 7px;
+      height: 7px;
+      margin-top: 0.42rem;
       border-radius: 50%;
-      background: linear-gradient(135deg, #f4cc7b, #cb8736);
-      box-shadow: 0 0 0 4px rgba(214, 164, 76, 0.08);
+      background: linear-gradient(135deg, #f6d48d, #d78939);
+      box-shadow: 0 0 0 4px rgba(226, 178, 91, 0.08);
       flex: 0 0 auto;
     }
 
-    .studio-status {
-      min-height: 1.25rem;
-      color: #ffaea1;
-      font-size: 0.88rem;
-    }
-
-    .studio-success {
+    .print-success {
       display: grid;
-      gap: 1rem;
-      padding: 1.2rem;
-      border-radius: 26px;
-      border: 1px solid rgba(255, 214, 143, 0.16);
-      background:
-        radial-gradient(circle at top right, rgba(214, 164, 76, 0.12), transparent 34%),
-        rgba(15, 15, 20, 0.95);
+      gap: 0.95rem;
     }
 
-    .studio-success-title {
+    .print-success[hidden] {
+      display: none !important;
+    }
+
+    .print-success h2 {
       margin: 0;
-      color: var(--studio-text);
-      font-size: clamp(1.5rem, 3vw, 2rem);
+      color: var(--print-text);
+      font-size: clamp(1.6rem, 3vw, 2rem);
     }
 
-    .studio-success-copy {
-      margin: 0;
-      color: var(--studio-muted);
-      line-height: 1.65;
-    }
-
-    .studio-success-number {
+    .print-success-number {
       display: inline-flex;
-      align-items: center;
       width: fit-content;
-      padding: 0.6rem 0.95rem;
+      align-items: center;
+      padding: 0.55rem 0.9rem;
       border-radius: 999px;
-      border: 1px solid rgba(255, 214, 143, 0.14);
-      background: rgba(255, 214, 143, 0.06);
-      color: var(--studio-accent-soft);
+      border: 1px solid rgba(255, 214, 138, 0.16);
+      background: rgba(255, 214, 138, 0.07);
+      color: var(--print-accent-soft);
       font-weight: 700;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.03em;
     }
 
-    @media (max-width: 991px) {
-      .studio-intro-grid,
-      .studio-option-grid,
-      .studio-option-grid[data-layout="products"],
-      .studio-grid-two {
+    .print-mobile-bar {
+      position: fixed;
+      left: 0.8rem;
+      right: 0.8rem;
+      bottom: 0.8rem;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.85rem;
+      padding: 0.85rem 0.95rem;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 214, 138, 0.12);
+      background: rgba(12, 14, 20, 0.94);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.34);
+      backdrop-filter: blur(18px);
+    }
+
+    .print-mobile-total {
+      display: grid;
+      gap: 0.12rem;
+      min-width: 0;
+    }
+
+    .print-mobile-total strong {
+      color: var(--print-text);
+      font-size: 1rem;
+      line-height: 1.1;
+    }
+
+    .print-mobile-total span {
+      color: var(--print-subtle);
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+
+    .print-mobile-button {
+      min-width: 156px;
+      min-height: 48px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #f6d48d, #e5b35a 56%, #c67b30);
+      color: #26160a;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    @media (max-width: 1180px) {
+      .print-layout {
         grid-template-columns: 1fr;
       }
 
-      .studio-headline {
-        order: 0;
+      .print-summary {
+        position: static;
+      }
+    }
+
+    @media (max-width: 960px) {
+      .print-hero,
+      .print-toggle-grid,
+      .print-product-grid,
+      .print-service-grid,
+      .print-placements-grid,
+      .print-zone-grid,
+      .print-input-grid,
+      .print-contact-grid,
+      .print-scale-grid,
+      .print-quick-row {
+        grid-template-columns: 1fr;
       }
 
-      .studio-contact-card {
-        order: 1;
+      .print-pill-row {
+        grid-template-columns: 1fr;
       }
     }
 
     @media (max-width: 767px) {
-      .studio-shell {
-        border-radius: 24px;
+      .print-shell {
+        border-radius: 22px;
       }
 
-      .studio-layout {
-        padding: 1rem;
+      .print-layout {
+        padding: 0.9rem;
       }
 
-      .studio-step,
-      .studio-contact-card,
-      .studio-form-panel,
-      .studio-submit-panel {
-        border-radius: 20px;
+      .print-hero,
+      .print-section,
+      .print-summary,
+      .print-success {
+        border-radius: 22px;
       }
 
-      .studio-intro-rail {
-        gap: 0.55rem;
+      .print-mobile-bar {
+        display: flex;
       }
 
-      .studio-intro-badge,
-      .studio-kicker {
-        width: auto;
-        max-width: 100%;
-      }
-
-      .studio-submit-row {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .studio-submit {
-        width: 100%;
-      }
-
-      .studio-secondary-actions {
-        flex-direction: column;
-      }
-
-      .studio-link-primary,
-      .studio-link-secondary,
-      .studio-link-disabled {
-        width: 100%;
-      }
-
-      .studio-choice-card {
-        min-height: 132px;
-      }
-
-      .studio-choice-card::after {
-        top: 0.88rem;
-        right: 0.88rem;
+      .print-summary-actions {
+        display: none;
       }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .studio-choice-card,
-      .studio-chip,
-      .studio-link-primary,
-      .studio-link-secondary,
-      .studio-submit,
-      .studio-step,
-      .studio-product-figure {
-        animation: none !important;
+      .print-choice-card,
+      .print-link,
+      .print-submit,
+      .print-chip-button,
+      .print-status-button,
+      .print-product-icon img {
         transition: none !important;
       }
     }
@@ -916,354 +962,421 @@
 {% endblock %}
 
 {% block content %}
-  <section class="studio-page" aria-label="Кастомний принт">
-    <div class="studio-shell">
-      <div class="studio-layout">
-        <header class="studio-intro">
-          <div class="studio-intro-rail">
-            <span class="studio-kicker">Свій принт</span>
-            <span class="studio-intro-badge">Швидка заявка менеджеру</span>
-          </div>
-          <div class="studio-intro-grid">
-            <div class="studio-headline">
-              <h1 class="studio-title">Кастомний одяг <span>під вашу ідею</span></h1>
-              <p class="studio-lead">
-                Заповніть форму за кілька хвилин, а далі <strong>менеджер допоможе з форматом друку, прорахунком і деталями</strong>.
-                Тут важливо лише коротко показати, що саме ви хочете зробити.
+  <section class="print-page" aria-label="Кастомний принт">
+    <div class="print-shell">
+      <div class="print-layout">
+        <div class="print-main">
+          <section class="print-hero">
+            <div class="print-hero-copy">
+              <span class="print-kicker">Кастомний друк</span>
+              <h1 class="print-title">Кастомний одяг <span>без зайвих кроків</span></h1>
+              <p class="print-lead">
+                Одразу оберіть формат замовлення, виріб і зони нанесення. Ми покажемо чесний попередній розрахунок там,
+                де його можна дати одразу, а в складних кейсах переведемо заявку в зрозумілий estimate без фальшивої “точної” ціни.
               </p>
-              <div class="studio-intro-notes" aria-hidden="true">
-                <span>2 хвилини на заявку</span>
-                <span>Для себе або для бренду</span>
-                <span>Файл або ідея з нуля</span>
+              <div class="print-pill-row" aria-hidden="true">
+                <span class="print-pill">Для себе або для тиражу</span>
+                <span class="print-pill">1 стандартне нанесення включено</span>
+                <span class="print-pill">Точний прорахунок після макета там, де це потрібно</span>
               </div>
             </div>
-            <aside class="studio-contact-card">
-              <div class="studio-contact-card-copy">
-                <h2 class="studio-card-title">Хочете обговорити одразу?</h2>
-                <p class="studio-card-copy">
-                  Якщо потрібен тираж, брендований одяг або нестандартний макет, можна одразу перейти до діалогу з менеджером.
-                </p>
-              </div>
-              <a class="studio-link-primary" href="https://t.me/twocomms" target="_blank" rel="noopener">
-                Обговорити в Telegram
-              </a>
-              <p class="studio-card-copy">
-                Для великих замовлень, команд і мерчу менеджер окремо підкаже строки, тираж і оптимальний формат друку.
+            <aside class="print-hero-side">
+              <h2 class="print-side-title">Що менеджер уточнить після заявки</h2>
+              <p class="print-side-copy">
+                Якщо у вас нестандартна зона, друге нанесення або свій одяг, ми не ховаємо це в дрібний шрифт:
+                менеджер погодить мокап, строки, доставку і фінальний прорахунок у чаті.
               </p>
+              <ul class="print-side-list">
+                <li>Доставка Новою Поштою, строки та вартість підтверджує менеджер.</li>
+                <li>Зазвичай замовлення погоджуємо і запускаємо до 2 днів після мокапа.</li>
+                <li>Роботу починаємо після повної оплати та фінального підтвердження макета.</li>
+              </ul>
+              <a class="print-link print-link-primary" href="https://t.me/twocomms" target="_blank" rel="noopener">
+                Написати менеджеру одразу
+              </a>
             </aside>
-          </div>
-        </header>
+          </section>
 
-        <div class="studio-form-panel">
-          <form class="studio-form" id="customPrintLeadForm" action="{% url 'custom_print_lead' %}" method="post" enctype="multipart/form-data" novalidate>
+          <form id="customPrintLeadForm" action="{% url 'custom_print_lead' %}" method="post" enctype="multipart/form-data" novalidate>
             {% csrf_token %}
-            <input type="hidden" name="client_kind" id="id_client_kind" value="personal">
+            <input type="hidden" name="placement_specs_json" id="id_placement_specs_json">
+            <input type="hidden" name="pricing_snapshot_json" id="id_pricing_snapshot_json">
 
-            <section class="studio-step">
-              <div class="studio-step-head">
-                <span class="studio-step-label">Крок 1</span>
-                <h2>Що вам потрібно?</h2>
-                <p>Оберіть сценарій, щоб одразу зрозуміти, чи є готовий макет, чи потрібна допомога дизайнера.</p>
+            <section class="print-section">
+              <div class="print-section-head">
+                <span class="print-section-kicker">Крок 1</span>
+                <h2>Сценарій замовлення</h2>
+                <p>Починаємо з того, для кого замовлення. Це одразу змінює логіку форми, знижки та підказки.</p>
               </div>
 
-              <div class="studio-option-grid">
-                <label class="studio-choice">
-                  <input class="studio-radio" type="radio" name="service_kind" value="ready" checked data-brief-label="Коментар до заявки" data-brief-hint="Якщо є готовий файл, можна коротко описати побажання до друку або залишити поле порожнім." data-file-label="Додайте готовий файл" data-file-hint="Підійдуть PNG, JPG, PDF, PSD, AI, SVG та інші макети." />
-                  <span class="studio-choice-card">
-                    <span class="studio-choice-top">
-                      <span class="studio-choice-title">Маю готовий файл</span>
-                      <span class="studio-choice-price">Без доплати</span>
+              <div class="print-toggle-grid">
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="client_kind" value="personal" checked>
+                  <span class="print-choice-card">
+                    <span class="print-choice-title">Для себе <span>без B2B</span></span>
+                    <span class="print-choice-copy">Один або кілька виробів для особистого замовлення, подарунка чи власної ідеї.</span>
+                  </span>
+                </label>
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="client_kind" value="brand">
+                  <span class="print-choice-card">
+                    <span class="print-choice-title">Для тиражу, брендування та мерчу <span>знижки від 5 шт</span></span>
+                    <span class="print-choice-copy">Для бренду, бригади, магазину, команди, підрозділу або великого запуску мерчу.</span>
+                  </span>
+                </label>
+              </div>
+              <div class="print-error" data-error-for="client_kind"></div>
+
+              <div class="print-b2b-wrap print-conditional" id="b2bWrap" hidden>
+                <div class="print-toggle-grid">
+                  <label class="print-choice">
+                    <input class="print-radio" type="radio" name="business_kind" value="bulk">
+                    <span class="print-choice-card">
+                      <span class="print-choice-title">Оптова партія <span>знижка по кількості</span></span>
+                      <span class="print-choice-copy">Коли потрібен тираж без складного брендингу: одна модель, команда, подія, підрозділ або запуск партії.</span>
                     </span>
-                    <span class="studio-choice-text">Ви вже підготували макет і хочете швидко отримати прорахунок та зв’язок з менеджером.</span>
-                  </span>
-                </label>
-
-                <label class="studio-choice">
-                  <input class="studio-radio" type="radio" name="service_kind" value="adjust" data-brief-label="Що треба змінити?" data-brief-hint="Опишіть, що потрібно поправити: фон, контур, кольори, композицію, підготовку до друку." data-file-label="Додайте файл для доопрацювання" data-file-hint="Послуга дизайнера +300 грн. Сюди входить растрування фото, підчистка, підготовка та адаптація під друк." />
-                  <span class="studio-choice-card">
-                    <span class="studio-choice-top">
-                      <span class="studio-choice-title">Потрібно допрацювати файл</span>
-                      <span class="studio-choice-price">+300 грн</span>
+                  </label>
+                  <label class="print-choice">
+                    <input class="print-radio" type="radio" name="business_kind" value="branding">
+                    <span class="print-choice-card">
+                      <span class="print-choice-title">Брендування / мерч <span>для бренду або магазину</span></span>
+                      <span class="print-choice-copy">Для магазину, бренду, лінійки мерчу або брендованої форми з акцентом на візуальну подачу.</span>
                     </span>
-                    <span class="studio-choice-text">Якщо зображення треба підчистити, прибрати фон, адаптувати або підготувати до друку на тканині.</span>
-                  </span>
-                </label>
+                  </label>
+                </div>
+                <div class="print-error" data-error-for="business_kind"></div>
 
-                <label class="studio-choice">
-                  <input class="studio-radio" type="radio" name="service_kind" value="design" data-brief-label="Опишіть ідею / стиль / референси" data-brief-hint="Послуга дизайнера +500 грн. Ми створимо дизайн під ваше ТЗ, а у вартість входять 2 безкоштовні правки." data-file-label="Додайте референси, якщо є" data-file-hint="Файли тут необов’язкові. Можна додати картинки, приклади або залишити тільки текстовий опис." />
-                  <span class="studio-choice-card">
-                    <span class="studio-choice-top">
-                      <span class="studio-choice-title">Потрібен дизайн з нуля</span>
-                      <span class="studio-choice-price">+500 грн</span>
+                <div class="print-scale">
+                  <strong>Знижки для B2B-замовлень</strong>
+                  <div class="print-scale-grid">
+                    <div class="print-scale-card"><strong>1–4 шт — без знижки</strong><span>Пробний або стартовий тираж.</span></div>
+                    <div class="print-scale-card"><strong>5–24 шт — 5%</strong><span>Для невеликої партії або команди.</span></div>
+                    <div class="print-scale-card"><strong>25–74 шт — 10%</strong><span>Для стабільного тиражу або бренду.</span></div>
+                    <div class="print-scale-card"><strong>75+ шт — 15%</strong><span>Для масштабних запусків і форменого одягу.</span></div>
+                  </div>
+                </div>
+
+                <div class="print-field">
+                  <label class="print-label" for="id_brand_name" id="brandNameLabel">Назва бренду / команди / проєкту</label>
+                  <input class="print-input" type="text" id="id_brand_name" name="brand_name" placeholder="Наприклад: Team North, Void Unit, Store launch">
+                  <div class="print-error" data-error-for="brand_name"></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="print-section">
+              <div class="print-section-head">
+                <span class="print-section-kicker">Крок 2</span>
+                <h2>Оберіть виріб</h2>
+                <p>Базова ціна залежить від виробу. Для свого одягу ми одразу переводимо заявку в estimate і уточнюємо тканину та формат друку.</p>
+              </div>
+
+              <div class="print-product-grid">
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="product_type" value="tshirt" checked>
+                  <span class="print-choice-card print-product-card">
+                    <span class="print-product-icon">
+                      <img src="{% static 'img/icons/tshirt.svg' %}" alt="Іконка футболки">
                     </span>
-                    <span class="studio-choice-text">Для особистого дизайну під вашу ідею, бренд, подію або повністю нового візуального рішення.</span>
+                    <span class="print-product-title">Футболка</span>
+                    <span class="print-product-price">від 700 грн</span>
+                    <span class="print-product-copy">Швидкий старт для персонального принта або першого тиражу.</span>
                   </span>
                 </label>
-              </div>
-              <div class="studio-field-error" data-error-for="service_kind"></div>
-              <div class="studio-inline-note" id="serviceHint">
-                Якщо треба підготувати фото до друку, дизайнер зробить растрування та адаптацію макета, щоб дрібні деталі коректно перенеслись на тканину.
-              </div>
-            </section>
-
-            <section class="studio-step">
-              <div class="studio-step-head">
-                <span class="studio-step-label">Крок 2</span>
-                <h2>На чому друкуємо?</h2>
-                <p>Оберіть базовий виріб для попереднього прорахунку і правильного брифу менеджеру.</p>
-              </div>
-
-              <div class="studio-option-grid" data-layout="products">
-                <label class="studio-choice">
-                  <input class="studio-radio" type="radio" name="product_type" value="tshirt" checked data-product-copy="Легка база під великі принти, фронт або спину." />
-                  <span class="studio-choice-card studio-product-card">
-                    <span class="studio-product-figure" aria-hidden="true">
-                      <svg viewBox="0 0 120 120" fill="none">
-                        <path d="M38 25l9-10h26l9 10 13 6-7 16-8-4v58H40V43l-8 4-7-16 13-6z" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/>
-                        <path d="M47 16c2.5 6 7 9 13 9s10.5-3 13-9" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
-                        <path d="M48 54h24" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".35"/>
-                      </svg>
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="product_type" value="hoodie">
+                  <span class="print-choice-card print-product-card">
+                    <span class="print-product-icon">
+                      <img src="{% static 'img/icons/hoodie.svg' %}" alt="Іконка худі">
                     </span>
-                    <span class="studio-product-title">Футболка</span>
-                    <span class="studio-product-copy">Класичний варіант для одного акцентного принта або серії.</span>
+                    <span class="print-product-title">Худі</span>
+                    <span class="print-product-price">від 1600 грн</span>
+                    <span class="print-product-copy">Для щільнішої бази, великої спини, брендингу рукава та мерчу.</span>
                   </span>
                 </label>
-
-                <label class="studio-choice">
-                  <input class="studio-radio" type="radio" name="product_type" value="hoodie" data-product-copy="Підходить для великого принта, спини та рукавів." />
-                  <span class="studio-choice-card studio-product-card">
-                    <span class="studio-product-figure" aria-hidden="true">
-                      <svg viewBox="0 0 120 120" fill="none">
-                        <path d="M43 29c0-10 7-17 17-17s17 7 17 17v8l14 8-8 19-7-5v44H44V59l-7 5-8-19 14-8v-8z" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/>
-                        <path d="M47 31c0 8 5 14 13 14s13-6 13-14" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
-                        <path d="M52 58h16" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".35"/>
-                      </svg>
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="product_type" value="longsleeve">
+                  <span class="print-choice-card print-product-card">
+                    <span class="print-product-icon">
+                      <img src="{% static 'img/icons/longsleeve.svg' %}" alt="Іконка лонгсліва">
                     </span>
-                    <span class="studio-product-title">Худі</span>
-                    <span class="studio-product-copy">Більше площі для друку та більше варіантів розміщення.</span>
+                    <span class="print-product-title">Лонгслів</span>
+                    <span class="print-product-price">від 1400 грн</span>
+                    <span class="print-product-copy">Під вертикальні композиції, рукави та складніші fashion-рішення.</span>
                   </span>
                 </label>
-
-                <label class="studio-choice">
-                  <input class="studio-radio" type="radio" name="product_type" value="longsleeve" data-product-copy="Добре працює для фронту, спини та вертикальних рішень." />
-                  <span class="studio-choice-card studio-product-card">
-                    <span class="studio-product-figure" aria-hidden="true">
-                      <svg viewBox="0 0 120 120" fill="none">
-                        <path d="M39 23l8-9h26l8 9 16 10-8 17-11-7v60H42V43l-11 7-8-17 16-10z" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/>
-                        <path d="M48 15c2.5 5.5 6.5 9 12 9s9.5-3.5 12-9" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
-                        <path d="M48 61h24" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".35"/>
-                      </svg>
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="product_type" value="customer_garment">
+                  <span class="print-choice-card print-product-card print-product-card is-own">
+                    <span class="print-product-icon">
+                      <img src="{% static 'img/icons/own-garment.svg' %}" alt="Іконка свого одягу">
                     </span>
-                    <span class="studio-product-title">Лонгслів</span>
-                    <span class="studio-product-copy">Для довших композицій, рукавів і нестандартного акценту.</span>
+                    <span class="print-product-title">Свій одяг</span>
+                    <span class="print-product-price">ціна залежить від виробу</span>
+                    <span class="print-product-copy">Якщо потрібно нанести друк на вашу річ. Окремо погоджуємо тканину, ризики й логістику.</span>
                   </span>
                 </label>
               </div>
-              <div class="studio-field-error" data-error-for="product_type"></div>
-              <p class="studio-field-hint" id="productHint">Футболка добре підходить для великого фронтального принта або друку на спині.</p>
-            </section>
+              <div class="print-error" data-error-for="product_type"></div>
 
-            <section class="studio-step">
-              <div class="studio-step-head">
-                <span class="studio-step-label">Крок 3</span>
-                <h2>Де буде принт?</h2>
-                <p>Можна обрати кілька зон. Малий логотип або нестандартне розміщення уточнимо окремо.</p>
-              </div>
-
-              <div class="studio-chip-row">
-                <label class="studio-chip-wrap">
-                  <input class="studio-checkbox" type="checkbox" name="placements" value="front">
-                  <span class="studio-chip">Спереду</span>
-                </label>
-                <label class="studio-chip-wrap">
-                  <input class="studio-checkbox" type="checkbox" name="placements" value="back">
-                  <span class="studio-chip">На спині</span>
-                </label>
-                <label class="studio-chip-wrap">
-                  <input class="studio-checkbox" type="checkbox" name="placements" value="sleeve">
-                  <span class="studio-chip">На рукаві</span>
-                </label>
-                <label class="studio-chip-wrap">
-                  <input class="studio-checkbox" type="checkbox" name="placements" value="custom" id="placementCustom">
-                  <span class="studio-chip">Інший варіант</span>
-                </label>
-              </div>
-              <div class="studio-field-error" data-error-for="placements"></div>
-
-              <div class="studio-field-wide studio-hidden" id="placementNoteWrap">
-                <label class="studio-label" for="id_placement_note">Опишіть розміщення</label>
-                <input class="studio-input" type="text" id="id_placement_note" name="placement_note" placeholder="Наприклад: вертикально збоку, маленький логотип біля коміра, принт по рукаву">
-                <div class="studio-field-error" data-error-for="placement_note"></div>
+              <div class="print-field print-conditional" id="garmentNoteWrap" hidden>
+                <label class="print-label" for="id_garment_note">Опишіть свій виріб</label>
+                <input class="print-input" type="text" id="id_garment_note" name="garment_note" placeholder="Наприклад: своє темно-сіре худі без кишені, щільна тканина">
+                <div class="print-hint">Для свого одягу доставка виробу до нас і назад здійснюється за рахунок покупця.</div>
+                <div class="print-error" data-error-for="garment_note"></div>
               </div>
             </section>
 
-            <section class="studio-step">
-              <div class="studio-step-head">
-                <span class="studio-step-label">Крок 4</span>
-                <h2>Деталі макета</h2>
-                <p id="briefHint">
-                  Якщо файл уже є, просто додайте його. Якщо потрібне доопрацювання або дизайн з нуля, коротко опишіть задачу.
-                </p>
+            <section class="print-section">
+              <div class="print-section-head">
+                <span class="print-section-kicker">Крок 3</span>
+                <h2>Нанесення та макети</h2>
+                <p>Стандартно одна зона входить без доплати. За замовчуванням це спина, але її можна безкоштовно замінити на груди / перед.</p>
               </div>
 
-              <div class="studio-grid-two">
-                <div class="studio-field">
-                  <label class="studio-label" for="id_files" id="fileLabel">Додайте готовий файл</label>
-                  <input class="studio-file" type="file" id="id_files" name="files" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.tif,.tiff,.zip,.rar,.7z,.ai,.psd,.svg">
-                  <div class="studio-field-hint" id="fileHint">Підійдуть PNG, JPG, PDF, PSD, AI, SVG та інші макети.</div>
-                  <div class="studio-field-hint studio-hidden" id="fileCount"></div>
-                  <div class="studio-field-error" data-error-for="files"></div>
-                </div>
-
-                <div class="studio-field">
-                  <label class="studio-label" for="id_brief" id="briefLabel">Коментар до заявки <span>необов’язково</span></label>
-                  <textarea class="studio-textarea" id="id_brief" name="brief" placeholder="Коротко опишіть побажання або деталі для менеджера."></textarea>
-                  <div class="studio-field-hint" id="briefFieldHint">Якщо є готовий файл, можна коротко описати побажання до друку або залишити поле порожнім.</div>
-                  <div class="studio-field-error" data-error-for="brief"></div>
-                </div>
+              <div class="print-note">
+                <strong>1 стандартне нанесення включено.</strong> Якщо обрано тільки одну зону на спині або на грудях / спереду,
+                показуємо точний попередній розрахунок. Друге нанесення, рукав, інша зона або свій одяг переходять у формат estimate.
               </div>
 
-              <div class="studio-inline-note">
-                <strong>Растрування та підготовка до друку</strong> потрібні, коли фото або ілюстрацію треба
-                адаптувати під тканину: прибрати зайве, підчистити контури, зберегти читабельність деталей і
-                отримати стабільний результат на готовому виробі.
-              </div>
-            </section>
-
-            <section class="studio-step">
-              <div class="studio-step-head">
-                <span class="studio-step-label">Крок 5</span>
-                <h2>Параметри замовлення</h2>
-                <p>Заповніть тільки базові деталі. Точний прорахунок узгодимо вже після зв’язку.</p>
-              </div>
-
-              <div class="studio-grid-two">
-                <div class="studio-field">
-                  <label class="studio-label" for="id_quantity">Кількість</label>
-                  <input class="studio-input" type="number" min="1" step="1" id="id_quantity" name="quantity" value="1" placeholder="1">
-                  <div class="studio-field-error" data-error-for="quantity"></div>
-                </div>
-                <div class="studio-field">
-                  <label class="studio-label" for="id_sizes_note">Розміри</label>
-                  <input class="studio-input" type="text" id="id_sizes_note" name="sizes_note" placeholder="Наприклад: M x2, L x3">
-                  <div class="studio-field-error" data-error-for="sizes_note"></div>
-                </div>
-              </div>
-
-              <div class="studio-toggle-row">
-                <div class="studio-toggle-copy">
-                  <strong>Для бренду / команди / події</strong>
-                  <span>Увімкніть, якщо це мерч, форма, брендований тираж або групове замовлення.</span>
-                </div>
-                <label>
-                  <input class="studio-toggle-input" type="checkbox" id="brandToggle">
-                  <span class="studio-toggle" aria-hidden="true"></span>
-                </label>
-              </div>
-
-              <div class="studio-field-wide studio-hidden" id="brandFieldWrap">
-                <label class="studio-label" for="id_brand_name">Назва бренду / команди / події</label>
-                <input class="studio-input" type="text" id="id_brand_name" name="brand_name" placeholder="Наприклад: команда, подія, бренд або назва проєкту">
-                <div class="studio-field-error" data-error-for="brand_name"></div>
-              </div>
-            </section>
-
-            <section class="studio-step">
-              <div class="studio-step-head">
-                <span class="studio-step-label">Крок 6</span>
-                <h2>Як з вами зв’язатися?</h2>
-                <p>Залиште канал, де вам зручно отримати відповідь від менеджера.</p>
-              </div>
-
-              <div class="studio-option-grid">
-                <label class="studio-choice">
-                  <input class="studio-radio" type="radio" name="contact_channel" value="telegram" checked data-contact-label="Ваш Telegram" data-contact-placeholder="@username або https://t.me/username">
-                  <span class="studio-choice-card">
-                    <span class="studio-choice-title">Telegram</span>
-                    <span class="studio-choice-text">Найзручніше для швидкого уточнення деталей і макета.</span>
+              <div class="print-placements-grid">
+                <label class="print-choice">
+                  <input class="print-checkbox" type="checkbox" name="placements" value="front">
+                  <span class="print-choice-card print-placement-card">
+                    <small>Стандартно</small>
+                    <span class="print-choice-title">На грудях / спереду <span>без доплати, якщо одна зона</span></span>
+                    <span class="print-choice-copy">Заміна базової спини на фронт без додаткової вартості.</span>
                   </span>
                 </label>
-                <label class="studio-choice">
-                  <input class="studio-radio" type="radio" name="contact_channel" value="whatsapp" data-contact-label="Ваш WhatsApp" data-contact-placeholder="+380XXXXXXXXX">
-                  <span class="studio-choice-card">
-                    <span class="studio-choice-title">WhatsApp</span>
-                    <span class="studio-choice-text">Якщо вам зручніше спілкуватися в месенджері по номеру телефону.</span>
+                <label class="print-choice">
+                  <input class="print-checkbox" type="checkbox" name="placements" value="back" checked>
+                  <span class="print-choice-card print-placement-card">
+                    <small>Стандартно</small>
+                    <span class="print-choice-title">На спині <span>база за замовчуванням</span></span>
+                    <span class="print-choice-copy">Найпростіший і найпрозоріший сценарій для точного попереднього розрахунку.</span>
                   </span>
                 </label>
-                <label class="studio-choice">
-                  <input class="studio-radio" type="radio" name="contact_channel" value="phone" data-contact-label="Ваш номер телефону" data-contact-placeholder="+380XXXXXXXXX">
-                  <span class="studio-choice-card">
-                    <span class="studio-choice-title">Телефон</span>
-                    <span class="studio-choice-text">Менеджер передзвонить або зв’яжеться у зручний час.</span>
+                <label class="print-choice">
+                  <input class="print-checkbox" type="checkbox" name="placements" value="sleeve">
+                  <span class="print-choice-card print-placement-card">
+                    <small>Додатково</small>
+                    <span class="print-choice-title">На рукаві <span>estimate</span></span>
+                    <span class="print-choice-copy">Добре для логотипа, номера, тексту або брендованого акценту.</span>
+                  </span>
+                </label>
+                <label class="print-choice">
+                  <input class="print-checkbox" type="checkbox" name="placements" value="custom">
+                  <span class="print-choice-card print-placement-card">
+                    <small>Нестандартно</small>
+                    <span class="print-choice-title">Інше <span>погодження з менеджером</span></span>
+                    <span class="print-choice-copy">Боковий шов, капюшон, вертикальне рішення або комбіноване нанесення.</span>
                   </span>
                 </label>
               </div>
-              <div class="studio-field-error" data-error-for="contact_channel"></div>
+              <div class="print-error" data-error-for="placements"></div>
 
-              <div class="studio-grid-two">
-                <div class="studio-field">
-                  <label class="studio-label" for="id_name">Ім’я</label>
-                  <input class="studio-input" type="text" id="id_name" name="name" placeholder="Як до вас звертатися">
-                  <div class="studio-field-error" data-error-for="name"></div>
+              <div class="print-zone-wrap">
+                <div class="print-zones-empty" id="zonesEmptyState" hidden>Оберіть зону нанесення, і ми відкриємо для неї окремий слот макета.</div>
+                <div class="print-zone-grid" id="zoneSpecs"></div>
+              </div>
+              <div class="print-error" data-error-for="files"></div>
+              <div class="print-error" data-error-for="placement_note"></div>
+              <div class="print-error" data-error-for="placement_specs_json"></div>
+
+              <div class="print-service-grid">
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="service_kind" value="ready" checked>
+                  <span class="print-choice-card">
+                    <span class="print-choice-title">Маю готовий файл <span>+0 грн</span></span>
+                    <span class="print-choice-copy">Ви вже підготували макет і хочете швидко перейти до погодження друку та тиражу.</span>
+                  </span>
+                </label>
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="service_kind" value="adjust">
+                  <span class="print-choice-card">
+                    <span class="print-choice-title">Потрібно допрацювати файл <span>+300 грн</span></span>
+                    <span class="print-choice-copy">Підійде, якщо треба прибрати фон, підчистити контури, адаптувати під друк або раструвати зображення.</span>
+                  </span>
+                </label>
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="service_kind" value="design">
+                  <span class="print-choice-card">
+                    <span class="print-choice-title">Потрібен дизайн з нуля <span>+500 грн</span></span>
+                    <span class="print-choice-copy">Створимо візуал за вашим описом або референсами. Послуга дизайнера рахується один раз.</span>
+                  </span>
+                </label>
+              </div>
+              <div class="print-error" data-error-for="service_kind"></div>
+
+              <div class="print-field">
+                <label class="print-label" for="id_brief" id="briefLabel">Коментар до заявки <span>необов’язково</span></label>
+                <textarea class="print-textarea" id="id_brief" name="brief" placeholder="Коротко опишіть ідею, правки, стиль або нюанси по друку."></textarea>
+                <div class="print-hint" id="briefHint">Якщо файл уже готовий, це поле можна залишити порожнім або коротко описати побажання для менеджера.</div>
+                <div class="print-error" data-error-for="brief"></div>
+              </div>
+            </section>
+
+            <section class="print-section">
+              <div class="print-section-head">
+                <span class="print-section-kicker">Крок 4</span>
+                <h2>Тираж і розміри</h2>
+                <p>Менше зайвого вводу: оберіть швидкий пресет або введіть точну кількість вручну.</p>
+              </div>
+
+              <div class="print-quick-row" id="quantityQuickPicks">
+                <button class="print-chip-button is-active" type="button" data-quantity-pick="1">1</button>
+                <button class="print-chip-button" type="button" data-quantity-pick="5">5</button>
+                <button class="print-chip-button" type="button" data-quantity-pick="10">10</button>
+                <button class="print-chip-button" type="button" data-quantity-pick="25">25</button>
+                <button class="print-chip-button" type="button" data-quantity-pick="50">50</button>
+                <button class="print-chip-button" type="button" data-quantity-pick="75">75+</button>
+              </div>
+
+              <div class="print-input-grid">
+                <div class="print-field">
+                  <label class="print-label" for="id_quantity">Кількість</label>
+                  <input class="print-input" type="number" min="1" step="1" id="id_quantity" name="quantity" value="1">
+                  <div class="print-error" data-error-for="quantity"></div>
                 </div>
-                <div class="studio-field">
-                  <label class="studio-label" for="id_contact_value" id="contactValueLabel">Ваш Telegram</label>
-                  <input class="studio-input" type="text" id="id_contact_value" name="contact_value" placeholder="@username або https://t.me/username">
-                  <div class="studio-field-error" data-error-for="contact_value"></div>
+                <div class="print-field">
+                  <label class="print-label" for="id_sizes_note">Розміри</label>
+                  <input class="print-input" type="text" id="id_sizes_note" name="sizes_note" placeholder="Наприклад: M x1">
+                  <div class="print-error" data-error-for="sizes_note"></div>
+                </div>
+              </div>
+
+              <div class="print-toggle-grid">
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="size_mode" value="single" checked>
+                  <span class="print-choice-card">
+                    <span class="print-choice-title">Один розмір <span>найшвидше</span></span>
+                    <span class="print-choice-copy">Коли вся партія в одному розмірі або ви ще не міксуєте сітку.</span>
+                  </span>
+                </label>
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="size_mode" value="mixed">
+                  <span class="print-choice-card">
+                    <span class="print-choice-title">Мікс <span>кілька розмірів</span></span>
+                    <span class="print-choice-copy">Для кількох розмірів у партії. Просто впишіть розкладку коротко через кому.</span>
+                  </span>
+                </label>
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="size_mode" value="manager">
+                  <span class="print-choice-card">
+                    <span class="print-choice-title">Уточню з менеджером <span>без зайвих кліків</span></span>
+                    <span class="print-choice-copy">Підійде, якщо сітка ще не затверджена або потрібна консультація.</span>
+                  </span>
+                </label>
+              </div>
+              <div class="print-error" data-error-for="size_mode"></div>
+            </section>
+
+            <section class="print-section">
+              <div class="print-section-head">
+                <span class="print-section-kicker">Крок 5</span>
+                <h2>Контакти</h2>
+                <p>Обирайте канал, де вам зручно узгодити мокап, строки, доставку та оплату.</p>
+              </div>
+
+              <div class="print-contact-grid">
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="contact_channel" value="telegram" checked>
+                  <span class="print-choice-card">
+                    <span class="print-choice-title">Telegram <span>найшвидше</span></span>
+                    <span class="print-choice-copy">Підійде для мокапів, референсів і швидких уточнень у чаті.</span>
+                  </span>
+                </label>
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="contact_channel" value="whatsapp">
+                  <span class="print-choice-card">
+                    <span class="print-choice-title">WhatsApp <span>за номером</span></span>
+                    <span class="print-choice-copy">Зручно, якщо хочете листування прив’язане до телефону.</span>
+                  </span>
+                </label>
+                <label class="print-choice">
+                  <input class="print-radio" type="radio" name="contact_channel" value="phone">
+                  <span class="print-choice-card">
+                    <span class="print-choice-title">Телефон <span>дзвінок або месенджер</span></span>
+                    <span class="print-choice-copy">Якщо потрібен швидкий контакт без листування в Telegram.</span>
+                  </span>
+                </label>
+              </div>
+              <div class="print-error" data-error-for="contact_channel"></div>
+
+              <div class="print-input-grid">
+                <div class="print-field">
+                  <label class="print-label" for="id_name">Ім’я</label>
+                  <input class="print-input" type="text" id="id_name" name="name" placeholder="Як до вас звертатися">
+                  <div class="print-error" data-error-for="name"></div>
+                </div>
+                <div class="print-field">
+                  <label class="print-label" for="id_contact_value" id="contactLabel">Ваш Telegram</label>
+                  <input class="print-input" type="text" id="id_contact_value" name="contact_value" placeholder="@username або https://t.me/username">
+                  <div class="print-error" data-error-for="contact_value"></div>
                 </div>
               </div>
             </section>
 
-            <section class="studio-submit-panel">
-              <div class="studio-price-box">
-                <div class="studio-price-title">Орієнтир: готова футболка з вашим принтом — від 700 грн</div>
-                <div class="studio-price-text">
-                  Підсумкова вартість завжди рахується окремо. Вона залежить від виробу, зони нанесення,
-                  розміру принта, кількості, складності макета та того, чи потрібні послуги дизайнера.
-                </div>
-              </div>
-
-              <div class="studio-secondary-actions">
-                <a class="studio-link-secondary" href="https://dtf.twocomms.shop/" target="_blank" rel="noopener">Замовити DTF-плівку окремо</a>
-                <span class="studio-link-disabled" aria-disabled="true">Конструктор скоро буде</span>
-              </div>
-
-              <div class="studio-next-box">
-                <h3 class="studio-next-title">Що буде далі після заявки</h3>
-                <div class="studio-next-list">
-                  <div class="studio-next-item">Менеджер перегляне ваш опис, файл або референси.</div>
-                  <div class="studio-next-item">Підкаже оптимальний формат друку та поставить уточнюючі питання, якщо потрібно.</div>
-                  <div class="studio-next-item">Зробить попередній прорахунок за виробом, розміщенням і складністю макета.</div>
-                </div>
-              </div>
-
-              <div class="studio-submit-row">
-                <button class="studio-submit" type="submit" id="submitLeadButton">
-                  <span class="studio-submit-text">Надіслати менеджеру</span>
-                </button>
-                <div class="studio-submit-note">
-                  Якщо зручніше не чекати, можна одразу написати менеджеру в Telegram.
-                </div>
-              </div>
-              <div class="studio-status" id="formStatus" aria-live="polite"></div>
-            </section>
+            <div class="print-form-status" id="formStatus" aria-live="polite"></div>
           </form>
 
-          <section class="studio-success studio-hidden" id="successState" aria-live="polite">
-            <span class="studio-kicker">Заявку надіслано</span>
-            <h2 class="studio-success-title">Менеджер отримав ваш запит</h2>
-            <p class="studio-success-copy">
-              Дякуємо! Ми переглянемо деталі, підготуємо попередній прорахунок і зв’яжемося з вами найближчим часом.
+          <section class="print-success" id="successState" hidden aria-live="polite">
+            <span class="print-kicker">Заявку надіслано</span>
+            <h2>Менеджер уже отримав ваш запит</h2>
+            <p class="print-lead">
+              Далі погоджуємо мокап, строки й доставку. Якщо у вас свій одяг або кілька зон нанесення, менеджер окремо підтвердить точний прорахунок.
             </p>
-            <div class="studio-success-number">Номер заявки: <span id="successLeadNumber"></span></div>
-            <div class="studio-secondary-actions">
-              <a class="studio-link-primary" href="https://t.me/twocomms" target="_blank" rel="noopener">Написати в Telegram</a>
-              <a class="studio-link-secondary" href="https://dtf.twocomms.shop/" target="_blank" rel="noopener">Замовити DTF-плівку окремо</a>
-              <span class="studio-link-disabled" aria-disabled="true">Конструктор скоро буде</span>
+            <div class="print-success-number">Номер заявки: <span id="successLeadNumber"></span></div>
+            <div class="print-note">
+              <strong>Що далі:</strong> реквізити, фінальні строки та точну вартість надішле менеджер після погодження мокапа.
             </div>
+            <a class="print-link print-link-primary" href="https://t.me/twocomms" target="_blank" rel="noopener">
+              Написати в Telegram
+            </a>
           </section>
         </div>
+
+        <aside class="print-summary" aria-label="Підсумок заявки">
+          <div class="print-summary-top">
+            <span class="print-summary-kicker">Підсумок</span>
+            <h2 class="print-summary-title">Ваш конфігуратор</h2>
+            <div class="print-summary-total" id="summaryTotal">700 грн</div>
+            <div class="print-summary-caption" id="summaryCaption">Футболка, 1 шт, одна стандартна зона на спині.</div>
+          </div>
+
+          <div class="print-summary-list" id="summaryList"></div>
+
+          <div class="print-summary-box">
+            <strong>Доставка та оплата</strong>
+            <ul class="print-trust-list">
+              <li>Доставка Новою Поштою. Строки та точну вартість погоджуємо з менеджером у чаті.</li>
+              <li>Зазвичай це не більше 2 днів після затвердження мокапа та наявності всіх даних.</li>
+              <li>Для свого одягу доставка виробу до нас і назад здійснюється за рахунок покупця.</li>
+              <li>Роботу починаємо після повної оплати та затвердження мокапа. Реквізити надсилає менеджер.</li>
+            </ul>
+          </div>
+
+          <div class="print-summary-box">
+            <strong>Важливо</strong>
+            <div class="print-summary-caption">Точний прорахунок після макета там, де це потрібно: для свого одягу, другої зони, рукава або нестандартного розміщення.</div>
+          </div>
+
+          <div class="print-summary-actions">
+            <button class="print-submit" type="submit" form="customPrintLeadForm" id="submitLeadButton">
+              <span id="submitLeadButtonText">Надіслати менеджеру</span>
+            </button>
+            <a class="print-summary-link" href="https://t.me/twocomms" target="_blank" rel="noopener">Обговорити в Telegram</a>
+          </div>
+        </aside>
       </div>
+    </div>
+
+    <div class="print-mobile-bar" id="mobileBar">
+      <div class="print-mobile-total">
+        <strong id="mobileTotal">700 грн</strong>
+        <span id="mobileCaption">Одна стандартна зона включено</span>
+      </div>
+      <button class="print-mobile-button" type="submit" form="customPrintLeadForm" id="mobileSubmitButton">Надіслати менеджеру</button>
     </div>
   </section>
 {% endblock %}
@@ -1277,222 +1390,609 @@
         return;
       }
 
-      const serviceInputs = Array.from(form.querySelectorAll('input[name="service_kind"]'));
-      const productInputs = Array.from(form.querySelectorAll('input[name="product_type"]'));
-      const contactInputs = Array.from(form.querySelectorAll('input[name="contact_channel"]'));
-      const placementCustom = document.getElementById('placementCustom');
-      const placementNoteWrap = document.getElementById('placementNoteWrap');
-      const placementNoteInput = document.getElementById('id_placement_note');
-      const brandToggle = document.getElementById('brandToggle');
-      const brandKindInput = document.getElementById('id_client_kind');
-      const brandFieldWrap = document.getElementById('brandFieldWrap');
-      const brandField = document.getElementById('id_brand_name');
-      const briefField = document.getElementById('id_brief');
+      const PRODUCT_CONFIG = {
+        tshirt: {
+          label: 'Футболка',
+          price: 700,
+        },
+        hoodie: {
+          label: 'Худі',
+          price: 1600,
+        },
+        longsleeve: {
+          label: 'Лонгслів',
+          price: 1400,
+        },
+        customer_garment: {
+          label: 'Свій одяг',
+          price: null,
+        },
+      };
+
+      const SERVICE_CONFIG = {
+        ready: {
+          label: 'Маю готовий файл',
+          price: 0,
+          briefLabel: 'Коментар до заявки',
+          briefHint: 'Якщо файл готовий, це поле можна залишити порожнім або коротко описати деталі для менеджера.',
+          briefOptional: true,
+          fileLabel: 'Файл для друку',
+          fileHint: 'Завантажте окремий макет під кожну обрану зону, якщо макети відрізняються.',
+        },
+        adjust: {
+          label: 'Потрібно допрацювати файл',
+          price: 300,
+          briefLabel: 'Що потрібно змінити?',
+          briefHint: 'Опишіть, що саме треба поправити: фон, контур, кольори, композицію або підготовку під друк.',
+          briefOptional: false,
+          fileLabel: 'Файл для доопрацювання',
+          fileHint: 'Послуга дизайнера +300 грн рахується один раз за заявку.',
+        },
+        design: {
+          label: 'Потрібен дизайн з нуля',
+          price: 500,
+          briefLabel: 'Опишіть ідею / стиль / референси',
+          briefHint: 'Опишіть атмосферу, стиль, текст або додайте референси. Дизайнерська послуга +500 грн рахується один раз.',
+          briefOptional: false,
+          fileLabel: 'Референс для дизайну',
+          fileHint: 'Файли не обов’язкові, але можна додати приклади під кожну зону нанесення.',
+        },
+      };
+
+      const CONTACT_CONFIG = {
+        telegram: {
+          label: 'Ваш Telegram',
+          placeholder: '@username або https://t.me/username',
+        },
+        whatsapp: {
+          label: 'Ваш WhatsApp',
+          placeholder: '+380XXXXXXXXX',
+        },
+        phone: {
+          label: 'Ваш номер телефону',
+          placeholder: '+380XXXXXXXXX',
+        },
+      };
+
+      const SIZE_MODE_PLACEHOLDERS = {
+        single: 'Наприклад: M x3',
+        mixed: 'Наприклад: S x2, M x4, L x1',
+        manager: 'Можете залишити приблизно або написати: уточню з менеджером',
+      };
+
+      const ZONE_CONFIG = {
+        front: {
+          label: 'На грудях / спереду',
+          freeCopy: 'Без доплати, якщо це єдина стандартна зона.',
+          extraCopy: 'Якщо одночасно зі спиною або як частина складнішого макета, потрібен estimate.',
+        },
+        back: {
+          label: 'На спині',
+          freeCopy: 'Базова стандартна зона без доплати.',
+          extraCopy: 'Друга зона разом із грудьми або іншими нанесеннями переходить в estimate.',
+        },
+        sleeve: {
+          label: 'На рукаві',
+          freeCopy: 'Estimate',
+          extraCopy: 'Рукав завжди погоджуємо окремо за форматом та розміром.',
+        },
+        custom: {
+          label: 'Інше',
+          freeCopy: 'Estimate',
+          extraCopy: 'Нестандартне нанесення погоджуємо після мокапа.',
+        },
+      };
+
+      const zoneSpecsContainer = document.getElementById('zoneSpecs');
+      const zonesEmptyState = document.getElementById('zonesEmptyState');
+      const b2bWrap = document.getElementById('b2bWrap');
+      const garmentNoteWrap = document.getElementById('garmentNoteWrap');
+      const garmentNoteInput = document.getElementById('id_garment_note');
+      const brandNameInput = document.getElementById('id_brand_name');
+      const brandNameLabel = document.getElementById('brandNameLabel');
+      const quantityInput = document.getElementById('id_quantity');
+      const sizesNoteInput = document.getElementById('id_sizes_note');
+      const briefInput = document.getElementById('id_brief');
       const briefLabel = document.getElementById('briefLabel');
       const briefHint = document.getElementById('briefHint');
-      const briefFieldHint = document.getElementById('briefFieldHint');
-      const fileLabel = document.getElementById('fileLabel');
-      const fileHint = document.getElementById('fileHint');
-      const fileInput = document.getElementById('id_files');
-      const fileCount = document.getElementById('fileCount');
-      const contactValueLabel = document.getElementById('contactValueLabel');
+      const contactLabel = document.getElementById('contactLabel');
       const contactValueInput = document.getElementById('id_contact_value');
-      const productHint = document.getElementById('productHint');
-      const serviceHint = document.getElementById('serviceHint');
-      const submitButton = document.getElementById('submitLeadButton');
-      const submitText = submitButton ? submitButton.querySelector('.studio-submit-text') : null;
-      const statusBox = document.getElementById('formStatus');
+      const placementSpecsInput = document.getElementById('id_placement_specs_json');
+      const pricingSnapshotInput = document.getElementById('id_pricing_snapshot_json');
+      const summaryTotal = document.getElementById('summaryTotal');
+      const summaryCaption = document.getElementById('summaryCaption');
+      const summaryList = document.getElementById('summaryList');
+      const mobileTotal = document.getElementById('mobileTotal');
+      const mobileCaption = document.getElementById('mobileCaption');
+      const submitLeadButton = document.getElementById('submitLeadButton');
+      const submitLeadButtonText = document.getElementById('submitLeadButtonText');
+      const mobileSubmitButton = document.getElementById('mobileSubmitButton');
+      const mobileBar = document.getElementById('mobileBar');
+      const formStatus = document.getElementById('formStatus');
       const successState = document.getElementById('successState');
       const successLeadNumber = document.getElementById('successLeadNumber');
+      const csrfToken = form.querySelector('input[name="csrfmiddlewaretoken"]');
+      const quantityQuickPicks = Array.from(document.querySelectorAll('[data-quantity-pick]'));
 
-      const productCopy = {
-        tshirt: 'Футболка добре підходить для великого фронтального принта або друку на спині.',
-        hoodie: 'Худі дає більше простору для спини, рукавів і великих композицій.',
-        longsleeve: 'Лонгслів зручний для витягнутих композицій, рукавів і нестандартного вертикального розміщення.',
-      };
+      function formatMoney(value) {
+        if (value === null || value === undefined || Number.isNaN(Number(value))) {
+          return 'estimate';
+        }
+        return new Intl.NumberFormat('uk-UA').format(Number(value)) + ' грн';
+      }
 
-      const serviceCopy = {
-        ready: 'Якщо макет готовий, ми швидко прорахуємо замовлення і менеджер уточнить лише деталі друку.',
-        adjust: 'Доопрацювання +300 грн. Сюди входить підготовка фото, растрування, підчистка та адаптація до друку.',
-        design: 'Дизайн з нуля +500 грн. Створимо макет під ваше ТЗ, а у вартість входять 2 безкоштовні правки.',
-      };
+      function getCheckedValue(name) {
+        const checked = form.querySelector(`input[name="${name}"]:checked`);
+        return checked ? checked.value : '';
+      }
+
+      function getCheckedValues(name) {
+        return Array.from(form.querySelectorAll(`input[name="${name}"]:checked`)).map((input) => input.value);
+      }
+
+      function getServiceConfig() {
+        return SERVICE_CONFIG[getCheckedValue('service_kind')] || SERVICE_CONFIG.ready;
+      }
+
+      function getProductConfig() {
+        return PRODUCT_CONFIG[getCheckedValue('product_type')] || PRODUCT_CONFIG.tshirt;
+      }
+
+      function getQuantity() {
+        const value = parseInt(quantityInput.value || '1', 10);
+        return Number.isNaN(value) || value < 1 ? 1 : value;
+      }
+
+      function getDiscountPercent(quantity, clientKind) {
+        if (clientKind !== 'brand') {
+          return 0;
+        }
+        if (quantity >= 75) {
+          return 15;
+        }
+        if (quantity >= 25) {
+          return 10;
+        }
+        if (quantity >= 5) {
+          return 5;
+        }
+        return 0;
+      }
+
+      function isSingleFreePlacement(zones) {
+        return zones.length === 1 && (zones[0] === 'front' || zones[0] === 'back');
+      }
+
+      function getZoneCopy(zone, isFree) {
+        const config = ZONE_CONFIG[zone];
+        if (!config) {
+          return '';
+        }
+        return isFree ? config.freeCopy : config.extraCopy;
+      }
+
+      function getBusinessLabel() {
+        const businessKind = getCheckedValue('business_kind');
+        if (businessKind === 'branding') {
+          return 'Назва бренду / магазину / проєкту';
+        }
+        return 'Назва бренду / команди / підрозділу';
+      }
+
+      function syncScenario() {
+        const clientKind = getCheckedValue('client_kind');
+        const showB2B = clientKind === 'brand';
+        b2bWrap.hidden = !showB2B;
+        brandNameInput.disabled = !showB2B;
+
+        if (!showB2B) {
+          Array.from(form.querySelectorAll('input[name="business_kind"]')).forEach((input) => {
+            input.checked = false;
+          });
+          brandNameInput.value = '';
+        } else if (!getCheckedValue('business_kind')) {
+          const defaultBusinessKind = form.querySelector('input[name="business_kind"][value="bulk"]');
+          if (defaultBusinessKind) {
+            defaultBusinessKind.checked = true;
+          }
+        }
+
+        brandNameLabel.textContent = getBusinessLabel();
+      }
+
+      function syncProductSpecifics() {
+        const productType = getCheckedValue('product_type');
+        const isCustomerGarment = productType === 'customer_garment';
+        garmentNoteWrap.hidden = !isCustomerGarment;
+        garmentNoteInput.disabled = !isCustomerGarment;
+        if (!isCustomerGarment) {
+          garmentNoteInput.value = '';
+        }
+      }
+
+      function syncBrief() {
+        const serviceConfig = getServiceConfig();
+        briefLabel.innerHTML = serviceConfig.briefOptional
+          ? `${serviceConfig.briefLabel} <span>необов’язково</span>`
+          : serviceConfig.briefLabel;
+        briefHint.textContent = serviceConfig.briefHint;
+      }
+
+      function syncContact() {
+        const config = CONTACT_CONFIG[getCheckedValue('contact_channel')] || CONTACT_CONFIG.telegram;
+        contactLabel.textContent = config.label;
+        contactValueInput.placeholder = config.placeholder;
+      }
+
+      function syncSizeMode() {
+        const sizeMode = getCheckedValue('size_mode') || 'single';
+        sizesNoteInput.placeholder = SIZE_MODE_PLACEHOLDERS[sizeMode] || SIZE_MODE_PLACEHOLDERS.single;
+      }
+
+      function syncQuantityQuickPicks() {
+        const quantity = String(getQuantity());
+        quantityQuickPicks.forEach((button) => {
+          const pickValue = button.dataset.quantityPick || '';
+          button.classList.toggle('is-active', pickValue === quantity);
+        });
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function renderZoneSpecs() {
+        const selectedZones = getCheckedValues('placements');
+        const serviceConfig = getServiceConfig();
+        const freeSinglePlacement = isSingleFreePlacement(selectedZones);
+
+        if (!selectedZones.length) {
+          zoneSpecsContainer.innerHTML = '';
+          zonesEmptyState.hidden = false;
+          return;
+        }
+
+        zonesEmptyState.hidden = true;
+        zoneSpecsContainer.innerHTML = selectedZones.map((zone) => {
+          const isFree = freeSinglePlacement && (zone === 'front' || zone === 'back');
+          const isEstimate = !isFree;
+          const zoneConfig = ZONE_CONFIG[zone];
+          const showFormatFields = isEstimate;
+          const showCustomField = zone === 'custom';
+          const acceptedLabel = serviceConfig.fileLabel;
+          const hintText = zone === 'custom'
+            ? 'Опишіть точне місце нанесення і додайте референс, якщо він є.'
+            : serviceConfig.fileHint;
+
+          return `
+            <div class="print-zone-card" data-zone-spec="${zone}">
+              <div class="print-zone-head">
+                <div class="print-zone-title">${escapeHtml(zoneConfig.label)}</div>
+                <span class="print-zone-badge ${isFree ? 'is-free' : 'is-estimate'}">${isFree ? 'включено' : 'estimate / доплата'}</span>
+              </div>
+              <div class="print-zone-copy">${escapeHtml(getZoneCopy(zone, isFree))}</div>
+              ${showFormatFields ? `
+                <div class="print-input-grid">
+                  <div class="print-field">
+                    <label class="print-label">Формат</label>
+                    <select class="print-select" data-zone-format>
+                      <option value="small">Малий</option>
+                      <option value="standard" selected>Стандартний</option>
+                      <option value="large">Великий</option>
+                      <option value="custom">Нестандартний</option>
+                    </select>
+                  </div>
+                  <div class="print-field">
+                    <label class="print-label">Розмір / оцінка</label>
+                    <select class="print-select" data-zone-size>
+                      <option value="S">S / компактно</option>
+                      <option value="M" selected>M / середньо</option>
+                      <option value="L">L / великий</option>
+                      <option value="manager_review">Уточнити з менеджером</option>
+                    </select>
+                  </div>
+                </div>
+              ` : ''}
+              ${showCustomField ? `
+                <div class="print-field">
+                  <label class="print-label" for="id_placement_note">Опишіть нестандартне нанесення</label>
+                  <input class="print-input" type="text" id="id_placement_note" name="placement_note" placeholder="Наприклад: вертикально збоку, по капюшону, по шву">
+                </div>
+              ` : ''}
+              <div class="print-field">
+                <label class="print-label">${escapeHtml(acceptedLabel)} <span>${serviceConfig.price === 0 ? 'для цієї зони' : 'під цю зону'}</span></label>
+                <input class="print-file" type="file" name="files" data-zone-file="${zone}" accept=".pdf,.png,.jpg,.jpeg,.webp,.tif,.tiff,.zip,.rar,.7z,.ai,.psd,.svg">
+                <div class="print-hint">${escapeHtml(hintText)}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function getPlacementSpecs() {
+        const selectedZones = getCheckedValues('placements');
+        const serviceKind = getCheckedValue('service_kind');
+        const freeSinglePlacement = isSingleFreePlacement(selectedZones);
+        let fileIndex = 0;
+
+        return selectedZones.map((zone) => {
+          const zoneCard = zoneSpecsContainer.querySelector(`[data-zone-spec="${zone}"]`);
+          const zoneConfig = ZONE_CONFIG[zone];
+          const isFree = freeSinglePlacement && (zone === 'front' || zone === 'back');
+          const formatSelect = zoneCard ? zoneCard.querySelector('[data-zone-format]') : null;
+          const sizeSelect = zoneCard ? zoneCard.querySelector('[data-zone-size]') : null;
+          const fileInput = zoneCard ? zoneCard.querySelector('[data-zone-file]') : null;
+          const attachmentRole = serviceKind === 'design' ? 'reference' : 'design';
+          const spec = {
+            zone: zone,
+            label: zoneConfig.label,
+            variant: isFree ? 'standard' : 'estimate',
+            is_free: isFree,
+            format: isFree ? 'standard' : (formatSelect ? formatSelect.value : 'standard'),
+            size: isFree ? 'standard' : (sizeSelect ? sizeSelect.value : 'manager_review'),
+            attachment_role: attachmentRole,
+          };
+
+          if (fileInput && fileInput.files && fileInput.files.length) {
+            spec.file_index = fileIndex;
+            fileIndex += 1;
+          }
+
+          return spec;
+        });
+      }
+
+      function getPricingSnapshot() {
+        const clientKind = getCheckedValue('client_kind');
+        const quantity = getQuantity();
+        const selectedZones = getCheckedValues('placements');
+        const product = getProductConfig();
+        const service = getServiceConfig();
+        const discountPercent = getDiscountPercent(quantity, clientKind);
+        const baseSubtotal = product.price === null ? null : product.price * quantity;
+        const discountAmount = baseSubtotal === null ? 0 : Math.round((baseSubtotal * discountPercent) / 100);
+        const estimateRequired = product.price === null || !isSingleFreePlacement(selectedZones);
+        let estimateReason = '';
+
+        if (product.price === null) {
+          estimateReason = 'customer_garment';
+        } else if (!isSingleFreePlacement(selectedZones)) {
+          estimateReason = 'multi_zone';
+        }
+
+        return {
+          product_label: product.label,
+          base_price: product.price,
+          base_subtotal: baseSubtotal,
+          design_price: service.price,
+          discount_percent: discountPercent,
+          discount_amount: discountAmount,
+          final_total: estimateRequired || baseSubtotal === null ? null : (baseSubtotal - discountAmount + service.price),
+          estimate_required: estimateRequired,
+          estimate_reason: estimateReason,
+        };
+      }
+
+      function syncHiddenFields() {
+        placementSpecsInput.value = JSON.stringify(getPlacementSpecs());
+        pricingSnapshotInput.value = JSON.stringify(getPricingSnapshot());
+      }
+
+      function renderSummary() {
+        const clientKind = getCheckedValue('client_kind');
+        const product = getProductConfig();
+        const service = getServiceConfig();
+        const quantity = getQuantity();
+        const selectedZones = getCheckedValues('placements');
+        const pricing = getPricingSnapshot();
+        const sizeMode = getCheckedValue('size_mode');
+        const sizeModeLabelInput = form.querySelector(`input[name="size_mode"][value="${sizeMode}"]`);
+        const sizeModeLabel = sizeModeLabelInput ? sizeModeLabelInput.closest('.print-choice')?.querySelector('.print-choice-title')?.childNodes[0]?.textContent?.trim() : '';
+        const zoneLabels = selectedZones.map((zone) => ZONE_CONFIG[zone].label).join(', ') || '—';
+        const baseSubtotal = pricing.base_subtotal;
+        const summaryLines = [];
+
+        summaryLines.push({
+          label: 'Сценарій',
+          value: clientKind === 'brand' ? 'B2B / тираж' : 'Для себе',
+        });
+        summaryLines.push({
+          label: 'Виріб',
+          value: product.label,
+        });
+        summaryLines.push({
+          label: 'Кількість',
+          value: `${quantity} шт`,
+        });
+        summaryLines.push({
+          label: 'Нанесення',
+          value: zoneLabels,
+        });
+        summaryLines.push({
+          label: 'Режим розмірів',
+          value: sizeModeLabel || '—',
+        });
+        summaryLines.push({
+          label: 'Послуга дизайнера',
+          value: service.price ? `+${formatMoney(service.price)}` : 'не потрібна',
+        });
+
+        if (baseSubtotal !== null) {
+          summaryLines.push({
+            label: 'База виробів',
+            value: formatMoney(baseSubtotal),
+          });
+        } else {
+          summaryLines.push({
+            label: 'База виробів',
+            value: 'після уточнення виробу',
+          });
+        }
+
+        if (pricing.discount_percent) {
+          summaryLines.push({
+            label: 'Знижка по кількості',
+            value: `-${pricing.discount_percent}%`,
+          });
+        }
+
+        if (pricing.estimate_required) {
+          summaryTotal.textContent = 'Потрібен estimate';
+          summaryCaption.textContent = product.price === null
+            ? 'Свій одяг або нестандартні зони рахуємо після уточнення виробу та мокапа.'
+            : 'Для другої зони, рукава або нестандартного нанесення менеджер підтвердить точну ціну.';
+          mobileTotal.textContent = 'Estimate';
+          mobileCaption.textContent = 'Менеджер підтвердить точну ціну';
+        } else {
+          summaryTotal.textContent = formatMoney(pricing.final_total);
+          summaryCaption.textContent = `${product.label}, ${quantity} шт, одна стандартна зона.`;
+          mobileTotal.textContent = formatMoney(pricing.final_total);
+          mobileCaption.textContent = 'Одна стандартна зона включено';
+        }
+
+        summaryList.innerHTML = summaryLines.map((item) => (
+          `<div class="print-summary-item"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></div>`
+        )).join('');
+      }
 
       function clearErrors() {
         form.querySelectorAll('[data-error-for]').forEach((node) => {
           node.textContent = '';
         });
-        statusBox.textContent = '';
+        formStatus.textContent = '';
       }
 
       function applyErrors(errors) {
         clearErrors();
-        let firstErrorField = null;
+        let firstTarget = null;
 
         Object.entries(errors || {}).forEach(([field, messages]) => {
           const target = form.querySelector(`[data-error-for="${field}"]`);
+          const messageText = Array.isArray(messages) ? messages.join(' ') : String(messages);
           if (target) {
-            target.textContent = Array.isArray(messages) ? messages.join(' ') : String(messages);
-            if (!firstErrorField) {
-              firstErrorField = target;
+            target.textContent = messageText;
+            if (!firstTarget) {
+              firstTarget = target;
             }
-          } else if (field === '__all__') {
-            statusBox.textContent = Array.isArray(messages) ? messages.join(' ') : String(messages);
+            return;
+          }
+          if (field === '__all__') {
+            formStatus.textContent = messageText;
           }
         });
 
-        if (firstErrorField) {
-          firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (firstTarget) {
+          firstTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }
 
-      function getSelectedService() {
-        return serviceInputs.find((input) => input.checked);
+      function syncAll() {
+        syncScenario();
+        syncProductSpecifics();
+        syncBrief();
+        syncContact();
+        syncSizeMode();
+        syncQuantityQuickPicks();
+        renderZoneSpecs();
+        syncHiddenFields();
+        renderSummary();
       }
 
-      function getSelectedProduct() {
-        return productInputs.find((input) => input.checked);
-      }
+      Array.from(form.querySelectorAll('input[name="client_kind"]')).forEach((input) => {
+        input.addEventListener('change', syncAll);
+      });
+      Array.from(form.querySelectorAll('input[name="business_kind"]')).forEach((input) => {
+        input.addEventListener('change', syncAll);
+      });
+      Array.from(form.querySelectorAll('input[name="product_type"]')).forEach((input) => {
+        input.addEventListener('change', syncAll);
+      });
+      Array.from(form.querySelectorAll('input[name="placements"]')).forEach((input) => {
+        input.addEventListener('change', syncAll);
+      });
+      Array.from(form.querySelectorAll('input[name="service_kind"]')).forEach((input) => {
+        input.addEventListener('change', syncAll);
+      });
+      Array.from(form.querySelectorAll('input[name="contact_channel"]')).forEach((input) => {
+        input.addEventListener('change', syncAll);
+      });
+      Array.from(form.querySelectorAll('input[name="size_mode"]')).forEach((input) => {
+        input.addEventListener('change', syncAll);
+      });
 
-      function getSelectedContact() {
-        return contactInputs.find((input) => input.checked);
-      }
+      quantityInput.addEventListener('input', syncAll);
+      brandNameInput.addEventListener('input', renderSummary);
+      garmentNoteInput.addEventListener('input', syncHiddenFields);
+      briefInput.addEventListener('input', renderSummary);
+      sizesNoteInput.addEventListener('input', renderSummary);
 
-      function updateServiceUI() {
-        const selected = getSelectedService();
-        if (!selected) {
-          return;
-        }
+      quantityQuickPicks.forEach((button) => {
+        button.addEventListener('click', function () {
+          quantityInput.value = button.dataset.quantityPick || '1';
+          syncAll();
+        });
+      });
 
-        const labelText = selected.dataset.briefLabel || 'Коментар до заявки';
-        const hintText = selected.dataset.briefHint || '';
-        const fileLabelText = selected.dataset.fileLabel || 'Додайте файл';
-        const fileHintText = selected.dataset.fileHint || '';
-        const optional = selected.value === 'ready';
+      zoneSpecsContainer.addEventListener('change', function () {
+        syncHiddenFields();
+        renderSummary();
+      });
 
-        briefLabel.innerHTML = optional
-          ? `${labelText} <span>необов’язково</span>`
-          : labelText;
-        briefHint.textContent = hintText;
-        briefFieldHint.textContent = hintText;
-        fileLabel.textContent = fileLabelText;
-        fileHint.textContent = fileHintText;
-        serviceHint.textContent = serviceCopy[selected.value] || '';
-        briefField.placeholder = optional
-          ? 'Коротко опишіть побажання або деталі для менеджера.'
-          : 'Опишіть задачу максимально коротко і конкретно.';
-      }
-
-      function updateProductUI() {
-        const selected = getSelectedProduct();
-        if (!selected) {
-          return;
-        }
-        productHint.textContent = productCopy[selected.value] || '';
-      }
-
-      function updateContactUI() {
-        const selected = getSelectedContact();
-        if (!selected) {
-          return;
-        }
-
-        contactValueLabel.textContent = selected.dataset.contactLabel || 'Контакт для зв’язку';
-        contactValueInput.placeholder = selected.dataset.contactPlaceholder || '';
-      }
-
-      function updatePlacementUI() {
-        const active = placementCustom && placementCustom.checked;
-        placementNoteWrap.classList.toggle('studio-hidden', !active);
-        if (!active) {
-          placementNoteInput.value = '';
-        }
-      }
-
-      function updateBrandUI() {
-        const active = brandToggle && brandToggle.checked;
-        brandKindInput.value = active ? 'brand' : 'personal';
-        brandFieldWrap.classList.toggle('studio-hidden', !active);
-        if (!active) {
-          brandField.value = '';
-        }
-      }
-
-      function updateFilesUI() {
-        const count = fileInput.files ? fileInput.files.length : 0;
-        if (!count) {
-          fileCount.classList.add('studio-hidden');
-          fileCount.textContent = '';
-          return;
-        }
-
-        fileCount.classList.remove('studio-hidden');
-        fileCount.textContent = count === 1 ? 'Додано 1 файл.' : `Додано файлів: ${count}.`;
-      }
-
-      serviceInputs.forEach((input) => input.addEventListener('change', updateServiceUI));
-      productInputs.forEach((input) => input.addEventListener('change', updateProductUI));
-      contactInputs.forEach((input) => input.addEventListener('change', updateContactUI));
-      form.querySelectorAll('input[name="placements"]').forEach((input) => input.addEventListener('change', updatePlacementUI));
-      if (brandToggle) {
-        brandToggle.addEventListener('change', updateBrandUI);
-      }
-      if (fileInput) {
-        fileInput.addEventListener('change', updateFilesUI);
-      }
-
-      updateServiceUI();
-      updateProductUI();
-      updateContactUI();
-      updatePlacementUI();
-      updateBrandUI();
-      updateFilesUI();
+      syncAll();
 
       form.addEventListener('submit', async function (event) {
         event.preventDefault();
         clearErrors();
+        syncAll();
 
-        if (submitButton) {
-          submitButton.disabled = true;
-        }
-        if (submitText) {
-          submitText.textContent = 'Надсилаємо...';
+        if (!getCheckedValues('placements').length) {
+          applyErrors({ placements: ['Оберіть щонайменше одну зону нанесення.'] });
+          return;
         }
 
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        submitLeadButton.disabled = true;
+        mobileSubmitButton.disabled = true;
+        submitLeadButtonText.textContent = 'Надсилаємо...';
+        mobileSubmitButton.textContent = 'Надсилаємо...';
 
         try {
           const response = await fetch(form.action, {
             method: 'POST',
             body: new FormData(form),
             headers: {
-              'X-CSRFToken': csrfToken,
+              'X-CSRFToken': csrfToken ? csrfToken.value : '',
               'X-Requested-With': 'fetch',
             },
           });
 
           const payload = await response.json();
-
           if (!response.ok || !payload.ok) {
             applyErrors(payload.errors || {});
             if (!payload.errors) {
-              statusBox.textContent = 'Не вдалося надіслати заявку. Спробуйте ще раз.';
+              formStatus.textContent = 'Не вдалося надіслати заявку. Спробуйте ще раз.';
             }
             return;
           }
 
-          form.classList.add('studio-hidden');
+          form.hidden = true;
+          if (mobileBar) {
+            mobileBar.hidden = true;
+          }
           successLeadNumber.textContent = payload.lead_number || '—';
-          successState.classList.remove('studio-hidden');
+          successState.hidden = false;
           successState.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } catch (error) {
-          statusBox.textContent = 'Сталася помилка під час надсилання. Спробуйте ще раз або напишіть нам у Telegram.';
+          formStatus.textContent = 'Сталася помилка під час надсилання. Спробуйте ще раз або напишіть нам у Telegram.';
         } finally {
-          if (submitButton) {
-            submitButton.disabled = false;
-          }
-          if (submitText) {
-            submitText.textContent = 'Надіслати менеджеру';
-          }
+          submitLeadButton.disabled = false;
+          mobileSubmitButton.disabled = false;
+          submitLeadButtonText.textContent = 'Надіслати менеджеру';
+          mobileSubmitButton.textContent = 'Надіслати менеджеру';
         }
       });
     });

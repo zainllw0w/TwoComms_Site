@@ -80,6 +80,248 @@
     background: rgba(255,126,41,0.12);
     color: #ffb347;
   }
+
+  .custom-print-admin-shell {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .custom-print-toolbar {
+    display: grid;
+    gap: 0.9rem;
+    padding: 1rem 1.1rem;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .custom-print-toolbar-grid {
+    display: grid;
+    gap: 0.8rem;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .custom-print-filter,
+  .custom-print-search {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .custom-print-filter label,
+  .custom-print-search label {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.72);
+  }
+
+  .custom-print-filter select,
+  .custom-print-search input {
+    min-height: 44px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(9,10,16,0.78);
+    color: #f8fafc;
+    padding: 0 0.9rem;
+  }
+
+  .custom-print-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .custom-print-stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.7rem 0.95rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: #f8fafc;
+    font-weight: 700;
+  }
+
+  .custom-print-stat-chip small {
+    color: rgba(255,255,255,0.6);
+    font-weight: 600;
+  }
+
+  .custom-print-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.35fr);
+  }
+
+  .custom-print-list,
+  .custom-print-detail {
+    border-radius: 22px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    padding: 1rem;
+  }
+
+  .custom-print-list-stack {
+    display: grid;
+    gap: 0.75rem;
+    max-height: 72vh;
+    overflow: auto;
+  }
+
+  .custom-print-card {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(14,16,22,0.82);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .custom-print-card:hover,
+  .custom-print-card.is-active {
+    transform: translateY(-1px);
+    border-color: rgba(255,167,40,0.38);
+    box-shadow: 0 14px 34px rgba(0,0,0,0.26);
+  }
+
+  .custom-print-card-head,
+  .custom-print-detail-head,
+  .custom-print-detail-nav,
+  .custom-print-action-row,
+  .custom-print-status-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .custom-print-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.36rem 0.72rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+  }
+
+  .custom-print-pill.status-new { color: #ffd08a; border-color: rgba(255,172,74,0.42); }
+  .custom-print-pill.status-in_progress { color: #8fd5ff; border-color: rgba(93,187,255,0.42); }
+  .custom-print-pill.status-closed { color: #98f5c0; border-color: rgba(83,211,145,0.42); }
+  .custom-print-pill.tone-estimate { color: #ffc6c6; border-color: rgba(255,120,120,0.42); }
+  .custom-print-pill.tone-fixed { color: #9ef0d0; border-color: rgba(66,201,146,0.42); }
+
+  .custom-print-card-meta,
+  .custom-print-detail-meta,
+  .custom-print-attachment-list {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .custom-print-card-grid,
+  .custom-print-detail-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .custom-print-kv {
+    padding: 0.8rem 0.9rem;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .custom-print-kv small {
+    display: block;
+    margin-bottom: 0.32rem;
+    color: rgba(255,255,255,0.6);
+  }
+
+  .custom-print-kv strong,
+  .custom-print-card strong {
+    color: #f8fafc;
+  }
+
+  .custom-print-button,
+  .custom-print-button-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 42px;
+    padding: 0 0.95rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+    color: #f8fafc;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .custom-print-button.is-primary {
+    border-color: rgba(255,167,40,0.34);
+    background: linear-gradient(135deg, rgba(255,167,40,0.24), rgba(255,120,82,0.18));
+  }
+
+  .custom-print-button.is-active {
+    border-color: rgba(255,167,40,0.48);
+    color: #ffcf91;
+  }
+
+  .custom-print-empty {
+    padding: 1.5rem;
+    border-radius: 18px;
+    border: 1px dashed rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.72);
+    text-align: center;
+  }
+
+  .custom-print-attachment-group {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.9rem;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .custom-print-attachment-link {
+    color: #ffcf91;
+    word-break: break-word;
+    text-decoration: none;
+  }
+
+  .custom-print-note-box {
+    padding: 0.95rem 1rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.82);
+    line-height: 1.6;
+  }
+
+  @media (max-width: 1180px) {
+    .custom-print-toolbar-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .custom-print-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .custom-print-toolbar-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 {% endblock %}
 
@@ -137,6 +379,12 @@
             <path d="M19 15v4H5v-4H3v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4h-2zM11 8.414V20h2V8.414l3.293 3.293 1.414-1.414L12 4.586 6.293 10.293l1.414 1.414L11 8.414z"/>
           </svg>
           Запропоновані принти
+        </a>
+        <a href="?section=custom_print_orders" class="admin-nav-item {% if section == 'custom_print_orders' %}active{% endif %}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7 4h10l1 4h2v2h-1l-1 8H6L5 10H4V8h2l1-4zm1.2 4h7.6l-.5-2H8.7l-.5 2zM8 12v4h2v-4H8zm6 0v4h2v-4h-2z"/>
+          </svg>
+          Кастомні замовлення
         </a>
         <a href="?section=collaboration" class="admin-nav-item {% if section == 'collaboration' %}active{% endif %}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -1940,6 +2188,223 @@
         </div>
       </div>
 
+    {% elif section == 'custom_print_orders' %}
+      <div class="custom-print-admin-shell">
+        <div class="section-header">
+          <div class="section-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7 4h10l1 4h2v2h-1l-1 8H6L5 10H4V8h2l1-4zm1.2 4h7.6l-.5-2H8.7l-.5 2zM8 12v4h2v-4H8zm6 0v4h2v-4h-2z"/>
+            </svg>
+          </div>
+          <div class="section-title">Кастомні замовлення</div>
+          <div class="section-stats">
+            <div class="stat-badge">
+              <span>{{ custom_print_total|default:0 }}</span>
+            </div>
+          </div>
+        </div>
+
+        <form class="custom-print-toolbar" method="get" action="{% url 'admin_panel' %}">
+          <input type="hidden" name="section" value="custom_print_orders">
+          <div class="custom-print-chip-row">
+            <div class="custom-print-stat-chip"><small>Всього</small> {{ custom_print_total|default:0 }}</div>
+            <div class="custom-print-stat-chip"><small>Нові</small> {{ custom_print_new_count|default:0 }}</div>
+            <div class="custom-print-stat-chip"><small>У роботі</small> {{ custom_print_in_progress_count|default:0 }}</div>
+            <div class="custom-print-stat-chip"><small>Закриті</small> {{ custom_print_closed_count|default:0 }}</div>
+          </div>
+          <div class="custom-print-toolbar-grid">
+            <div class="custom-print-search">
+              <label for="custom_print_q">Пошук</label>
+              <input id="custom_print_q" type="text" name="custom_print_q" value="{{ custom_print_query }}" placeholder="Номер, ім'я, бренд, контакт">
+            </div>
+            <div class="custom-print-filter">
+              <label for="custom_print_status">Статус</label>
+              <select id="custom_print_status" name="custom_print_status">
+                <option value="all" {% if custom_print_status_filter == 'all' %}selected{% endif %}>Усі</option>
+                {% for value, label in custom_print_statuses %}
+                  <option value="{{ value }}" {% if custom_print_status_filter == value %}selected{% endif %}>{% if value == 'in_progress' %}У роботі{% else %}{{ label }}{% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="custom-print-filter">
+              <label for="custom_print_client_kind">Сценарій</label>
+              <select id="custom_print_client_kind" name="custom_print_client_kind">
+                <option value="all" {% if custom_print_client_kind_filter == 'all' %}selected{% endif %}>Усі</option>
+                {% for value, label in custom_print_client_kinds %}
+                  <option value="{{ value }}" {% if custom_print_client_kind_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="custom-print-filter">
+              <label for="custom_print_business_kind">B2B тип</label>
+              <select id="custom_print_business_kind" name="custom_print_business_kind">
+                <option value="all" {% if custom_print_business_kind_filter == 'all' %}selected{% endif %}>Усі</option>
+                <option value="empty" {% if custom_print_business_kind_filter == 'empty' %}selected{% endif %}>Без B2B</option>
+                {% for value, label in custom_print_business_kinds %}
+                  <option value="{{ value }}" {% if custom_print_business_kind_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="custom-print-filter">
+              <label for="custom_print_product_type">Виріб</label>
+              <select id="custom_print_product_type" name="custom_print_product_type">
+                <option value="all" {% if custom_print_product_type_filter == 'all' %}selected{% endif %}>Усі</option>
+                {% for value, label in custom_print_product_types %}
+                  <option value="{{ value }}" {% if custom_print_product_type_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="custom-print-filter">
+              <label for="custom_print_has_files">Файли</label>
+              <select id="custom_print_has_files" name="custom_print_has_files">
+                <option value="all" {% if custom_print_has_files_filter == 'all' %}selected{% endif %}>Усі</option>
+                <option value="yes" {% if custom_print_has_files_filter == 'yes' %}selected{% endif %}>Є файли</option>
+                <option value="no" {% if custom_print_has_files_filter == 'no' %}selected{% endif %}>Без файлів</option>
+              </select>
+            </div>
+          </div>
+          <div class="custom-print-action-row">
+            <button class="custom-print-button is-primary" type="submit">Оновити вибірку</button>
+            <a class="custom-print-button-link" href="?section=custom_print_orders">Скинути фільтри</a>
+          </div>
+        </form>
+
+        <div class="custom-print-grid">
+          <div class="custom-print-list">
+            <div class="subsection-header">
+              <h3>Список заявок</h3>
+            </div>
+            <div class="custom-print-list-stack">
+              {% for lead in custom_print_orders %}
+                <a class="custom-print-card {% if custom_print_selected_lead and custom_print_selected_lead.pk == lead.pk %}is-active{% endif %}" href="?section=custom_print_orders&lead={{ lead.pk }}">
+                  <div class="custom-print-card-head">
+                    <strong>{{ lead.lead_number }}</strong>
+                    <span class="custom-print-pill status-{{ lead.status }}">{% if lead.status == 'in_progress' %}У роботі{% else %}{{ lead.get_status_display }}{% endif %}</span>
+                  </div>
+                  <div class="custom-print-card-meta">
+                    <div><strong>{{ lead.name }}</strong>{% if lead.brand_name %} · {{ lead.brand_name }}{% endif %}</div>
+                    <div>{{ lead.get_product_type_display }} · {{ lead.quantity }} шт · {{ lead.created_at|date:"d.m.Y H:i" }}</div>
+                  </div>
+                  <div class="custom-print-card-grid">
+                    <div class="custom-print-kv">
+                      <small>Сценарій</small>
+                      <strong>{{ lead.get_client_kind_display }}</strong>
+                    </div>
+                    <div class="custom-print-kv">
+                      <small>Прорахунок</small>
+                      <strong>{% if lead.estimate_required %}Estimate{% else %}Фіксований{% endif %}</strong>
+                    </div>
+                    <div class="custom-print-kv">
+                      <small>Файли</small>
+                      <strong>{{ lead.attachments.count }}</strong>
+                    </div>
+                  </div>
+                </a>
+              {% empty %}
+                <div class="custom-print-empty">Заявок за поточними фільтрами не знайдено.</div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="custom-print-detail" data-custom-print-lead-detail>
+            {% if custom_print_selected_lead %}
+              <div class="custom-print-detail-head">
+                <div>
+                  <h3 style="margin:0;">{{ custom_print_selected_lead.lead_number }}</h3>
+                  <div style="margin-top:0.35rem;color:rgba(255,255,255,0.68);">{{ custom_print_selected_lead.created_at|date:"d.m.Y H:i" }}</div>
+                </div>
+                <div class="custom-print-detail-nav">
+                  {% if custom_print_previous_lead %}
+                    <a class="custom-print-button-link" href="?section=custom_print_orders&lead={{ custom_print_previous_lead.pk }}">Попередня</a>
+                  {% endif %}
+                  {% if custom_print_next_lead %}
+                    <a class="custom-print-button-link" href="?section=custom_print_orders&lead={{ custom_print_next_lead.pk }}">Наступна</a>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="custom-print-status-actions" style="margin-top:1rem;">
+                {% for value, label in custom_print_statuses %}
+                  <button
+                    class="custom-print-button {% if custom_print_selected_lead.status == value %}is-active{% endif %}"
+                    type="button"
+                    onclick="updateCustomPrintLeadStatus('{{ custom_print_selected_lead.pk }}', '{{ value }}')"
+                  >{% if value == 'in_progress' %}У роботі{% else %}{{ label }}{% endif %}</button>
+                {% endfor %}
+                <button class="custom-print-button is-primary" type="button" onclick="copyCustomPrintContact('{{ custom_print_selected_lead.contact_value|escapejs }}')">Скопіювати контакт</button>
+              </div>
+
+              <div class="custom-print-detail-grid" style="margin-top:1rem;">
+                <div class="custom-print-kv"><small>Сценарій</small><strong>{{ custom_print_selected_lead.get_client_kind_display }}</strong></div>
+                <div class="custom-print-kv"><small>B2B тип</small><strong>{{ custom_print_selected_lead.get_business_kind_display|default:"—" }}</strong></div>
+                <div class="custom-print-kv"><small>Виріб</small><strong>{{ custom_print_selected_lead.get_product_type_display }}</strong></div>
+                <div class="custom-print-kv"><small>Послуга</small><strong>{{ custom_print_selected_lead.get_service_kind_display }}</strong></div>
+                <div class="custom-print-kv"><small>Кількість</small><strong>{{ custom_print_selected_lead.quantity }}</strong></div>
+                <div class="custom-print-kv"><small>Режим розмірів</small><strong>{{ custom_print_selected_lead.get_size_mode_display|default:"—" }}</strong></div>
+                <div class="custom-print-kv"><small>Розміри</small><strong>{{ custom_print_selected_lead.sizes_note|default:"—" }}</strong></div>
+                <div class="custom-print-kv"><small>Контакт</small><strong>{{ custom_print_selected_lead.contact_value }}</strong></div>
+                <div class="custom-print-kv"><small>Статус ціни</small><strong>{% if custom_print_selected_lead.estimate_required %}Estimate{% else %}Фіксований{% endif %}</strong></div>
+              </div>
+
+              <div class="custom-print-note-box" style="margin-top:1rem;">
+                <strong>Зони нанесення:</strong>
+                {% if custom_print_selected_lead.placement_specs_json %}
+                  <ul style="margin:0.6rem 0 0;padding-left:1.15rem;">
+                    {% for spec in custom_print_selected_lead.placement_specs_json %}
+                      <li>{{ spec.label|default:spec.zone }}{% if spec.is_free %} · без доплати{% else %} · доплата / estimate{% endif %}</li>
+                    {% endfor %}
+                  </ul>
+                {% else %}
+                  {{ custom_print_selected_lead.placements|join:", " }}
+                {% endif %}
+                {% if custom_print_selected_lead.placement_note %}
+                  <div style="margin-top:0.7rem;"><strong>Примітка:</strong> {{ custom_print_selected_lead.placement_note }}</div>
+                {% endif %}
+              </div>
+
+              {% if custom_print_selected_lead.pricing_snapshot_json %}
+                <div class="custom-print-note-box" style="margin-top:1rem;">
+                  <strong>Pricing snapshot</strong>
+                  <pre style="margin:0.6rem 0 0;white-space:pre-wrap;word-break:break-word;">{{ custom_print_selected_lead.pricing_snapshot_json|pprint }}</pre>
+                </div>
+              {% endif %}
+
+              {% if custom_print_selected_lead.garment_note %}
+                <div class="custom-print-note-box" style="margin-top:1rem;">
+                  <strong>Опис свого виробу</strong>
+                  <div style="margin-top:0.45rem;">{{ custom_print_selected_lead.garment_note }}</div>
+                </div>
+              {% endif %}
+
+              <div class="custom-print-note-box" style="margin-top:1rem;">
+                <strong>Бриф</strong>
+                <div style="margin-top:0.45rem;">{{ custom_print_selected_lead.brief|default:"—" }}</div>
+              </div>
+
+              <div style="margin-top:1rem;">
+                <h4 style="margin:0 0 0.75rem;">Файли</h4>
+                <div class="custom-print-attachment-list">
+                  {% for group in custom_print_selected_lead_groups %}
+                    <div class="custom-print-attachment-group">
+                      <strong>{{ group.label }}</strong>
+                      {% for attachment in group.items %}
+                        <a class="custom-print-attachment-link" href="{{ attachment.file.url }}" target="_blank" rel="noopener">
+                          {{ attachment.file.name|cut:"custom_print/leads/" }}
+                        </a>
+                      {% endfor %}
+                    </div>
+                  {% empty %}
+                    <div class="custom-print-empty">Файли не завантажені.</div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% else %}
+              <div class="custom-print-empty">Оберіть заявку зі списку ліворуч, щоб переглянути деталі.</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
     {% elif section == 'print_proposals' %}
       <!-- Управление запропонованими принтами -->
       <div class="print-proposals-admin-section">
@@ -3499,6 +3964,35 @@ function awardPromocode(proposalId) {
 }
 
 const adminCsrf = (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '';
+
+async function updateCustomPrintLeadStatus(leadId, newStatus) {
+  try {
+    const response = await fetch(`/admin-panel/custom-print/${leadId}/status/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': adminCsrf,
+      },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.error || 'Не вдалося оновити статус');
+    }
+    window.location.reload();
+  } catch (error) {
+    showNotification(error.message || 'Не вдалося оновити статус', 'error');
+  }
+}
+
+async function copyCustomPrintContact(value) {
+  try {
+    await navigator.clipboard.writeText(value || '');
+    showNotification('Контакт скопійовано', 'success');
+  } catch (error) {
+    showNotification('Не вдалося скопіювати контакт', 'error');
+  }
+}
 
 function initManagerToggles() {
   document.querySelectorAll('.manager-toggle-btn').forEach(btn => {

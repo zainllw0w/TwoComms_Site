@@ -1,6 +1,7 @@
 """
 Telegram уведомления для заказов
 """
+import json
 import requests
 import os
 import re
@@ -45,7 +46,17 @@ class TelegramNotifier:
         """Проверяет, настроен ли бот"""
         return bool(self.bot_token and (self.chat_ids or self.admin_ids))
 
-    def send_message(self, message, parse_mode='HTML'):
+    def _resolve_targets(self, admin=True):
+        if admin:
+            return self.admin_ids or self.chat_ids
+        return self.chat_ids or self.admin_ids
+
+    def _post(self, method, *, data=None, files=None, timeout=10):
+        url = f"https://api.telegram.org/bot{self.bot_token}/{method}"
+        response = requests.post(url, data=data, files=files, timeout=timeout)
+        return response.status_code == 200
+
+    def send_message(self, message, parse_mode='HTML', reply_markup=None):
         """Отправляет сообщение в Telegram админу"""
         print(f"🔵 send_message to ADMIN called")
         print(f"🔵 bot_token: {'SET' if self.bot_token else 'NOT SET'}")
@@ -57,12 +68,12 @@ class TelegramNotifier:
             return False
 
         # Используем админ ID, если он доступен, иначе chat_id
-        target_ids = self.admin_ids or self.chat_ids
+        target_ids = self._resolve_targets(admin=True)
         print(f"🟡 Target admin IDs: {', '.join(target_ids) if target_ids else 'NOT SET'}")
         if not target_ids:
             return False
 
-        if self.async_enabled and send_telegram_notification_task:
+        if self.async_enabled and send_telegram_notification_task and reply_markup is None:
             print(f"🟢 Delegating to Celery task (chat_id={target_ids})")
             for target_id in target_ids:
                 send_telegram_notification_task.delay(message, chat_id=target_id, parse_mode=parse_mode)
@@ -78,14 +89,15 @@ class TelegramNotifier:
                         'text': message,
                         'parse_mode': parse_mode
                     }
+                    if reply_markup is not None:
+                        data['reply_markup'] = json.dumps(reply_markup, ensure_ascii=False)
                     print(f"🟢 Sending SYNC POST to Telegram API for admin (chat_id={target_id})")
-                    response = requests.post(url, data=data, timeout=10)
-                    success = success or response.status_code == 200
+                    success = self._post("sendMessage", data=data, timeout=10) or success
                 except Exception as e:
                     print(f"❌ Exception in send_message to admin (chat_id={target_id}): {e}")
             return success
 
-    def send_admin_message(self, message, parse_mode='HTML'):
+    def send_admin_message(self, message, parse_mode='HTML', reply_markup=None):
         """
         Псевдоним для send_message для единообразия API.
         Отправляет сообщение администратору.
@@ -97,18 +109,17 @@ class TelegramNotifier:
         Returns:
             bool: True если сообщение отправлено успешно
         """
-        return self.send_message(message, parse_mode)
+        return self.send_message(message, parse_mode, reply_markup=reply_markup)
 
     def send_admin_document(self, file_path, caption, filename=None, parse_mode='HTML'):
         """Отправляет документ админу в Telegram."""
         if not self.is_configured():
             return False
 
-        target_ids = self.admin_ids or self.chat_ids
+        target_ids = self._resolve_targets(admin=True)
         if not target_ids:
             return False
         try:
-            url = f"https://api.telegram.org/bot{self.bot_token}/sendDocument"
             success = False
             for target_id in target_ids:
                 with open(file_path, 'rb') as file_obj:
@@ -118,12 +129,80 @@ class TelegramNotifier:
                         'caption': caption,
                         'parse_mode': parse_mode
                     }
-                    response = requests.post(url, data=data, files=files, timeout=30)
-                    success = success or response.status_code == 200
+                    success = self._post("sendDocument", data=data, files=files, timeout=30) or success
             return success
         except Exception as e:
             print(f"Ошибка при отправке документа в Telegram: {e}")
             return False
+
+    def send_admin_photo(self, file_path, caption="", parse_mode='HTML'):
+        """Отправляет фото админу."""
+        if not self.is_configured():
+            return False
+
+        target_ids = self._resolve_targets(admin=True)
+        if not target_ids:
+            return False
+        try:
+            success = False
+            for target_id in target_ids:
+                with open(file_path, 'rb') as file_obj:
+                    files = {'photo': (Path(file_path).name, file_obj)}
+                    data = {
+                        'chat_id': target_id,
+                        'caption': caption,
+                        'parse_mode': parse_mode,
+                    }
+                    success = self._post("sendPhoto", data=data, files=files, timeout=30) or success
+            return success
+        except Exception as e:
+            print(f"Ошибка при отправке фото в Telegram: {e}")
+            return False
+
+    def send_admin_media_group(self, file_paths, captions=None, parse_mode='HTML'):
+        """Отправляет группу изображений админу через sendMediaGroup."""
+        if not self.is_configured():
+            return False
+
+        file_paths = [str(path) for path in (file_paths or []) if path]
+        if not file_paths:
+            return False
+
+        target_ids = self._resolve_targets(admin=True)
+        if not target_ids:
+            return False
+
+        captions = captions or []
+        success = False
+        for target_id in target_ids:
+            files = {}
+            media = []
+            handles = []
+            try:
+                for index, file_path in enumerate(file_paths):
+                    handle = open(file_path, 'rb')
+                    handles.append(handle)
+                    attach_name = f"file{index}"
+                    files[attach_name] = (Path(file_path).name, handle)
+                    item = {
+                        'type': 'photo',
+                        'media': f'attach://{attach_name}',
+                    }
+                    if index < len(captions) and captions[index]:
+                        item['caption'] = captions[index]
+                        item['parse_mode'] = parse_mode
+                    media.append(item)
+                data = {
+                    'chat_id': target_id,
+                    'media': json.dumps(media, ensure_ascii=False),
+                }
+                success = self._post("sendMediaGroup", data=data, files=files, timeout=45) or success
+            except Exception as e:
+                print(f"Ошибка при отправке media group в Telegram: {e}")
+            finally:
+                for handle in handles:
+                    handle.close()
+        return success
 
     def send_personal_message(self, telegram_id, message, parse_mode='HTML'):
         """Отправляет личное сообщение пользователю по telegram_id"""

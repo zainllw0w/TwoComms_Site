@@ -1,6 +1,8 @@
+import re
+import json
+
 from django import forms
 from django.forms import inlineformset_factory
-import re
 
 from dtf.utils import (
     ALLOWED_HELP_EXTS,
@@ -13,6 +15,7 @@ from productcolors.models import ProductColorVariant, ProductColorImage
 from storefront.services.catalog import ensure_color_identity
 
 from .models import (
+    CustomPrintBusinessKind,
     Product,
     Category,
     CustomPrintClientKind,
@@ -21,6 +24,7 @@ from .models import (
     CustomPrintLeadAttachment,
     CustomPrintProductType,
     CustomPrintServiceKind,
+    CustomPrintSizeMode,
     PrintProposal,
     Catalog,
     CatalogOption,
@@ -80,13 +84,34 @@ class CustomPrintLeadForm(forms.Form):
     placement_note = forms.CharField(required=False, max_length=255)
     files = MultiFileField(required=False, widget=MultiFileInput(attrs={"multiple": True}))
     quantity = forms.IntegerField(min_value=1)
+    size_mode = forms.ChoiceField(choices=CustomPrintSizeMode.choices, required=False)
     sizes_note = forms.CharField(required=False, max_length=255)
     client_kind = forms.ChoiceField(choices=CustomPrintClientKind.choices, required=False)
+    business_kind = forms.ChoiceField(choices=CustomPrintBusinessKind.choices, required=False)
     brand_name = forms.CharField(required=False, max_length=255)
+    garment_note = forms.CharField(required=False, max_length=255)
+    placement_specs_json = forms.CharField(required=False)
+    pricing_snapshot_json = forms.CharField(required=False)
     name = forms.CharField(max_length=200)
     contact_channel = forms.ChoiceField(choices=CustomPrintContactChannel.choices)
     contact_value = forms.CharField(max_length=255)
     brief = forms.CharField(required=False, widget=forms.Textarea)
+
+    @staticmethod
+    def _parse_json_field(raw_value, default, field_name):
+        if raw_value in (None, ""):
+            return default
+        if isinstance(raw_value, (list, dict)):
+            return raw_value
+        try:
+            parsed = json.loads(raw_value)
+        except (TypeError, ValueError):
+            raise forms.ValidationError("Некоректні дані форми.") from None
+        if default == [] and not isinstance(parsed, list):
+            raise forms.ValidationError("Некоректні дані форми.")
+        if default == {} and not isinstance(parsed, dict):
+            raise forms.ValidationError("Некоректні дані форми.")
+        return parsed
 
     def clean_contact_value(self):
         value = (self.cleaned_data.get("contact_value") or "").strip()
@@ -120,17 +145,53 @@ class CustomPrintLeadForm(forms.Form):
         placement_note = (cleaned.get("placement_note") or "").strip()
         brief = (cleaned.get("brief") or "").strip()
         client_kind = cleaned.get("client_kind") or CustomPrintClientKind.PERSONAL
+        business_kind = (cleaned.get("business_kind") or "").strip()
+        garment_note = (cleaned.get("garment_note") or "").strip()
         files = cleaned.get("files")
         if not files:
             files = []
         elif not isinstance(files, (list, tuple)):
             files = [files]
 
+        try:
+            placement_specs = self._parse_json_field(
+                cleaned.get("placement_specs_json"),
+                [],
+                "placement_specs_json",
+            )
+        except forms.ValidationError as exc:
+            self.add_error("placement_specs_json", exc)
+            placement_specs = []
+
+        try:
+            pricing_snapshot = self._parse_json_field(
+                cleaned.get("pricing_snapshot_json"),
+                {},
+                "pricing_snapshot_json",
+            )
+        except forms.ValidationError as exc:
+            self.add_error("pricing_snapshot_json", exc)
+            pricing_snapshot = {}
+
+        if not placement_specs and placements:
+            placement_specs = [
+                {
+                    "zone": zone,
+                    "label": dict(self.PLACEMENT_CHOICES).get(zone, zone),
+                    "file_index": index,
+                }
+                for index, zone in enumerate(placements)
+            ]
+
         if "custom" in placements and not placement_note:
             self.add_error("placement_note", "Опишіть нестандартне розміщення принта.")
 
         if client_kind == CustomPrintClientKind.BRAND and not (cleaned.get("brand_name") or "").strip():
             self.add_error("brand_name", "Вкажіть назву бренду, команди або події.")
+        if client_kind == CustomPrintClientKind.BRAND and not business_kind:
+            self.add_error("business_kind", "Оберіть тип B2B замовлення.")
+        if cleaned.get("product_type") == CustomPrintProductType.CUSTOMER_GARMENT and not garment_note:
+            self.add_error("garment_note", "Опишіть ваш виріб для попереднього прорахунку.")
 
         if service_kind == CustomPrintServiceKind.READY and not files:
             self.add_error("files", "Додайте готовий файл для друку.")
@@ -167,8 +228,12 @@ class CustomPrintLeadForm(forms.Form):
             validated_files.append(uploaded_file)
 
         cleaned["client_kind"] = client_kind
+        cleaned["business_kind"] = business_kind
         cleaned["brief"] = brief
+        cleaned["garment_note"] = garment_note
         cleaned["placement_note"] = placement_note
+        cleaned["placement_specs_json"] = placement_specs
+        cleaned["pricing_snapshot_json"] = pricing_snapshot
         self.cleaned_files = validated_files
         return cleaned
 
@@ -179,17 +244,44 @@ class CustomPrintLeadForm(forms.Form):
             placements=self.cleaned_data["placements"],
             placement_note=self.cleaned_data.get("placement_note", ""),
             quantity=self.cleaned_data["quantity"],
+            size_mode=self.cleaned_data.get("size_mode", ""),
             sizes_note=self.cleaned_data.get("sizes_note", ""),
             client_kind=self.cleaned_data.get("client_kind") or CustomPrintClientKind.PERSONAL,
+            business_kind=self.cleaned_data.get("business_kind", ""),
             brand_name=self.cleaned_data.get("brand_name", ""),
+            garment_note=self.cleaned_data.get("garment_note", ""),
+            placement_specs_json=self.cleaned_data.get("placement_specs_json") or [],
+            pricing_snapshot_json=self.cleaned_data.get("pricing_snapshot_json") or {},
             name=self.cleaned_data["name"],
             contact_channel=self.cleaned_data["contact_channel"],
             contact_value=self.cleaned_data["contact_value"],
             brief=self.cleaned_data.get("brief", ""),
             source="main_custom_print",
         )
-        for uploaded_file in getattr(self, "cleaned_files", []):
-            CustomPrintLeadAttachment.objects.create(lead=lead, file=uploaded_file)
+        placement_specs = self.cleaned_data.get("placement_specs_json") or []
+        file_spec_map = {}
+        for spec in placement_specs:
+            file_index = spec.get("file_index")
+            if file_index is None:
+                continue
+            try:
+                file_index = int(file_index)
+            except (TypeError, ValueError):
+                continue
+            file_spec_map.setdefault(file_index, spec)
+
+        for sort_order, uploaded_file in enumerate(getattr(self, "cleaned_files", [])):
+            matched_spec = file_spec_map.get(sort_order)
+            if matched_spec is None and sort_order < len(placement_specs):
+                matched_spec = placement_specs[sort_order]
+            CustomPrintLeadAttachment.objects.create(
+                lead=lead,
+                file=uploaded_file,
+                placement_zone=(matched_spec or {}).get("zone", ""),
+                attachment_role=(matched_spec or {}).get("attachment_role")
+                or CustomPrintLeadAttachment.AttachmentRole.DESIGN,
+                sort_order=sort_order,
+            )
         return lead
 
 
