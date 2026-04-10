@@ -31,164 +31,262 @@
   <style>
     .survey-card {
       display: grid;
-      grid-template-columns: minmax(180px, 220px) 1fr;
-      gap: 1.6rem;
+      grid-template-columns: minmax(220px, 260px) 1fr;
+      gap: 1.5rem;
       align-items: stretch;
     }
 
     .survey-signal {
       position: relative;
-      padding: 1.25rem;
-      border-radius: 20px;
-      background: linear-gradient(160deg, rgba(255, 209, 140, 0.22), rgba(255, 140, 66, 0.12));
-      border: 1px solid rgba(255, 140, 66, 0.35);
-      box-shadow: 0 14px 28px rgba(255, 140, 66, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-      display: flex;
-      flex-direction: column;
-      gap: 0.9rem;
-      min-height: 200px;
+      display: grid;
+      align-content: space-between;
+      gap: 1rem;
+      min-height: 220px;
+      padding: 1.2rem;
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at top right, rgba(255, 204, 122, 0.16), transparent 34%),
+        linear-gradient(160deg, rgba(255, 186, 97, 0.24), rgba(255, 140, 66, 0.12) 52%, rgba(10, 11, 17, 0.88));
+      border: 1px solid rgba(255, 174, 91, 0.28);
+      box-shadow: 0 18px 34px rgba(255, 140, 66, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.14);
       overflow: hidden;
+      isolation: isolate;
+    }
+
+    .survey-signal::before {
+      content: '';
+      position: absolute;
+      right: -32px;
+      bottom: -52px;
+      width: 184px;
+      height: 184px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 193, 92, 0.44), transparent 70%);
+      opacity: 0.78;
+      z-index: 0;
     }
 
     .survey-signal::after {
       content: '';
       position: absolute;
-      right: -30px;
-      bottom: -40px;
-      width: 140px;
-      height: 140px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(255, 193, 92, 0.4), transparent 70%);
-      opacity: 0.6;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 38%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .survey-signal-head {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 0.9rem;
+    }
+
+    .survey-signal-top {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
     }
 
     .survey-signal-ring {
-      width: 64px;
-      height: 64px;
+      width: 60px;
+      height: 60px;
       border-radius: 18px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       background: linear-gradient(135deg, #ffd18c, #ff8c42);
       color: #2a1508;
-      box-shadow: 0 10px 24px rgba(255, 140, 66, 0.35);
-      position: relative;
-      z-index: 1;
+      box-shadow: 0 12px 24px rgba(255, 140, 66, 0.34);
+      flex: 0 0 auto;
+    }
+
+    .survey-signal-copy {
+      display: grid;
+      gap: 0.3rem;
+    }
+
+    .survey-signal-kicker {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      padding: 0.25rem 0.58rem;
+      border-radius: 999px;
+      background: rgba(10, 10, 14, 0.38);
+      border: 1px solid rgba(255, 238, 220, 0.16);
+      color: rgba(255, 241, 221, 0.82);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .survey-signal-bonus {
+      margin: 0;
+      color: #fff4e2;
+      font-size: clamp(1.65rem, 2.8vw, 2.25rem);
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      line-height: 0.92;
+    }
+
+    .survey-signal-caption {
+      margin: 0;
+      max-width: 16rem;
+      color: rgba(255, 244, 227, 0.76);
+      font-size: 0.84rem;
+      line-height: 1.45;
     }
 
     .survey-signal-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 0.45rem;
       position: relative;
       z-index: 1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
     }
 
     .survey-signal-pill {
       display: inline-flex;
       align-items: center;
-      padding: 0.3rem 0.7rem;
+      padding: 0.36rem 0.72rem;
       border-radius: 999px;
       font-size: 0.75rem;
       font-weight: 600;
-      letter-spacing: 0.03em;
-      background: rgba(8, 8, 12, 0.35);
-      color: rgba(255, 255, 255, 0.92);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      letter-spacing: 0.02em;
+      background: rgba(8, 8, 12, 0.42);
+      color: rgba(255, 249, 239, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(10px);
     }
 
     .survey-info {
-      display: flex;
-      flex-direction: column;
-      gap: 0.65rem;
+      display: grid;
+      gap: 0.85rem;
+      align-content: start;
+    }
+
+    .survey-title {
+      margin: 0;
+      color: #f8f1e6;
+      font-size: clamp(1.45rem, 2vw, 2rem);
+      line-height: 1.04;
+      letter-spacing: -0.04em;
     }
 
     .survey-subtitle {
       margin: 0;
-      color: rgba(255, 255, 255, 0.88);
-      font-size: 0.95rem;
+      max-width: 58ch;
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 0.94rem;
+      line-height: 1.6;
     }
 
     .survey-reward-panel {
       display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 0.9rem;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 1rem;
       align-items: center;
-      padding: 0.95rem 1rem;
-      border-radius: 18px;
+      padding: 1rem 1.05rem;
+      border-radius: 22px;
       background:
-        linear-gradient(135deg, rgba(255, 209, 140, 0.18), rgba(255, 140, 66, 0.1)),
+        linear-gradient(135deg, rgba(255, 209, 140, 0.16), rgba(255, 140, 66, 0.1)),
         rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 186, 97, 0.24);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    }
-
-    .survey-reward-amount {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 0.25rem;
-      padding: 0.65rem 0.9rem;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #ffd18c, #ffb347 60%, #ff8c42);
-      color: #241407;
-      font-size: clamp(1.15rem, 2vw, 1.65rem);
-      font-weight: 800;
-      line-height: 1;
-      box-shadow: 0 14px 24px rgba(255, 140, 66, 0.2);
-    }
-
-    .survey-reward-amount span {
-      font-size: 0.78em;
-      font-weight: 700;
-      letter-spacing: 0.01em;
+      border: 1px solid rgba(255, 186, 97, 0.22);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 24px rgba(0, 0, 0, 0.16);
     }
 
     .survey-reward-copy {
       display: grid;
-      gap: 0.24rem;
+      gap: 0.28rem;
+    }
+
+    .survey-reward-kicker {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      padding: 0.26rem 0.62rem;
+      border-radius: 999px;
+      background: rgba(255, 186, 97, 0.1);
+      border: 1px solid rgba(255, 186, 97, 0.14);
+      color: #f4cf93;
+      font-size: 0.69rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .survey-reward-title {
       margin: 0;
-      color: #fff4e3;
-      font-size: 0.98rem;
+      color: #fff2df;
+      font-size: 1.02rem;
       font-weight: 700;
     }
 
     .survey-reward-note {
       margin: 0;
+      max-width: 34ch;
       color: rgba(255, 255, 255, 0.72);
-      font-size: 0.82rem;
-      line-height: 1.45;
+      font-size: 0.83rem;
+      line-height: 1.5;
+    }
+
+    .survey-reward-amount {
+      justify-self: end;
+      display: grid;
+      gap: 0.18rem;
+      padding: 0.82rem 1rem;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #ffd18c, #ffb347 58%, #ff8c42);
+      color: #241407;
+      font-size: clamp(1.3rem, 2vw, 1.95rem);
+      font-weight: 800;
+      line-height: 0.92;
+      letter-spacing: -0.05em;
+      text-align: right;
+      box-shadow: 0 14px 24px rgba(255, 140, 66, 0.22);
+    }
+
+    .survey-reward-amount span {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
     }
 
     .survey-points {
-      display: grid;
-      gap: 0.45rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
     }
 
     .survey-point {
-      position: relative;
-      padding-left: 1.2rem;
-      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.58rem 0.82rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      background: rgba(255, 255, 255, 0.04);
       color: rgba(255, 255, 255, 0.82);
+      font-size: 0.81rem;
+      line-height: 1.15;
     }
 
     .survey-point::before {
       content: '';
-      position: absolute;
-      left: 0;
-      top: 0.5rem;
-      width: 0.45rem;
-      height: 0.45rem;
+      width: 0.42rem;
+      height: 0.42rem;
       border-radius: 50%;
-      background: rgba(255, 183, 92, 0.95);
-      box-shadow: 0 0 10px rgba(255, 183, 92, 0.6);
+      background: linear-gradient(135deg, #ffd18c, #ff9f57);
+      box-shadow: 0 0 12px rgba(255, 183, 92, 0.45);
+      flex: 0 0 auto;
     }
 
     .survey-footnote {
-      font-size: 0.8rem;
-      color: rgba(255, 255, 255, 0.65);
+      font-size: 0.79rem;
+      color: rgba(255, 255, 255, 0.64);
+      line-height: 1.45;
     }
 
     .survey-actions {
@@ -197,40 +295,43 @@
       align-items: center;
       justify-content: space-between;
       gap: 0.85rem;
-      margin-top: 0.1rem;
     }
 
     .survey-actions-meta {
       display: inline-flex;
       align-items: center;
-      gap: 0.45rem;
-      color: rgba(255, 255, 255, 0.68);
-      font-size: 0.82rem;
+      gap: 0.48rem;
+      padding: 0.48rem 0.76rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.74);
+      font-size: 0.81rem;
     }
 
     .survey-actions-meta::before {
       content: '';
-      width: 0.45rem;
-      height: 0.45rem;
+      width: 0.5rem;
+      height: 0.5rem;
       border-radius: 999px;
       background: #ffbe61;
-      box-shadow: 0 0 12px rgba(255, 190, 97, 0.55);
+      box-shadow: 0 0 12px rgba(255, 190, 97, 0.5);
     }
 
     .survey-cta {
       gap: 0.5rem;
+      padding: 0.92rem 1.45rem;
+      border: none;
+      border-radius: 16px;
       background: linear-gradient(135deg, #ff8c42, #ffb347);
       color: #1d130a;
-      border: none;
-      box-shadow: 0 8px 24px rgba(255, 140, 66, 0.35);
-      padding: 0.9rem 1.35rem;
-      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(255, 140, 66, 0.28);
       font-weight: 700;
     }
 
     .survey-cta:hover {
       transform: translateY(-2px);
-      box-shadow: 0 10px 28px rgba(255, 140, 66, 0.4);
+      box-shadow: 0 12px 30px rgba(255, 140, 66, 0.36);
       color: #1d130a;
     }
 
@@ -696,50 +797,29 @@
       filter: saturate(1.04);
     }
 
-    .pagination-shell {
+    .pagination-showcase {
+      position: relative;
       display: flex;
       justify-content: center;
-      margin-top: 1rem;
+      margin-top: 1.1rem;
     }
 
-    .page-selector-shell {
-      display: inline-flex;
-      align-items: center;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 0.8rem;
-      padding: 0.7rem 1rem;
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.035);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 18px 36px rgba(0, 0, 0, 0.2);
-    }
-
-    .page-selector-label,
-    .page-selector-total {
-      color: rgba(255, 255, 255, 0.62);
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-    }
-
-    .page-selector-chip {
-      min-width: 4.6rem;
-      border-radius: 12px;
-      border: 1px solid rgba(124, 58, 237, 0.22);
-      background:
-        linear-gradient(180deg, rgba(124, 58, 237, 0.12), rgba(20, 20, 30, 0.7)),
-        rgba(255, 255, 255, 0.04);
-      color: #efe9ff;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    .pagination-showcase::before {
+      content: '';
+      position: absolute;
+      inset: auto 12% 0;
+      height: 56px;
+      background: radial-gradient(ellipse at center, rgba(255, 169, 74, 0.16), transparent 72%);
+      filter: blur(24px);
+      pointer-events: none;
     }
 
     .pagination-rail {
       display: flex;
       justify-content: center;
-      margin-top: 1rem;
+      width: 100%;
       overflow-x: auto;
-      padding-bottom: 0.25rem;
+      padding: 0.1rem 0 0.35rem;
       scrollbar-width: none;
     }
 
@@ -748,65 +828,109 @@
     }
 
     .pagination-premium {
+      position: relative;
+      align-items: center;
       flex-wrap: nowrap;
-      gap: 0;
-      padding: 0.25rem;
-      border-radius: 18px;
-      background: rgba(24, 27, 34, 0.88);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.24);
-      backdrop-filter: blur(14px);
+      gap: 0.45rem;
+      padding: 0.48rem;
+      border-radius: 24px;
+      background:
+        linear-gradient(180deg, rgba(31, 34, 43, 0.94), rgba(14, 16, 24, 0.96)),
+        rgba(24, 27, 34, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(18px);
       width: max-content;
+      isolation: isolate;
+    }
+
+    .pagination-premium::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(135deg, rgba(255, 196, 122, 0.12), transparent 42%, rgba(77, 124, 255, 0.08));
+      pointer-events: none;
+      opacity: 0.9;
     }
 
     .pagination-premium .page-item {
       display: flex;
+      position: relative;
     }
 
     .pagination-premium .page-link {
-      min-width: 3.2rem;
+      min-width: 3rem;
       height: 3rem;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0.8rem 0.9rem;
-      border: none;
-      border-right: 1px solid rgba(255, 255, 255, 0.14);
+      gap: 0.42rem;
+      padding: 0 0.95rem;
+      border-radius: 16px;
+      border: 1px solid transparent;
       background: transparent;
-      color: #7fb2ff;
+      color: rgba(233, 239, 253, 0.8);
       font-size: 0.92rem;
       font-weight: 700;
-      transition: background 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+      line-height: 1;
+      transition: background 180ms ease, color 180ms ease, transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
     }
 
-    .pagination-premium .page-item:first-child .page-link {
-      min-width: 9.75rem;
-      border-top-left-radius: 14px;
-      border-bottom-left-radius: 14px;
+    .pagination-premium .page-item-number .page-link {
+      min-width: 3rem;
+      padding-inline: 0;
     }
 
-    .pagination-premium .page-item:last-child .page-link {
-      min-width: 9.75rem;
-      border-right: none;
-      border-top-right-radius: 14px;
-      border-bottom-right-radius: 14px;
+    .pagination-premium .page-item-nav .page-link {
+      min-width: clamp(7.4rem, 12vw, 8.8rem);
+      padding-inline: 1rem;
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 236, 213, 0.9);
+    }
+
+    .page-link-icon {
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .page-link-label {
+      white-space: nowrap;
     }
 
     .pagination-premium .page-link:hover {
-      background: rgba(47, 115, 255, 0.14);
-      color: #ddecff;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #fff;
       transform: translateY(-1px);
     }
 
     .pagination-premium .page-item.active .page-link {
-      background: linear-gradient(180deg, #2680ff, #1767ea);
-      color: #f4f8ff;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 10px 24px rgba(23, 103, 234, 0.3);
+      background: linear-gradient(135deg, #ffd18c, #ffb347 55%, #ff8c42);
+      color: #201207;
+      border-color: rgba(255, 216, 164, 0.45);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26), 0 12px 28px rgba(255, 140, 66, 0.26);
+    }
+
+    .pagination-premium .page-item.active::after {
+      content: '';
+      position: absolute;
+      left: 18%;
+      right: 18%;
+      bottom: -0.42rem;
+      height: 0.34rem;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255, 209, 140, 0.9), rgba(255, 140, 66, 0.9));
+      filter: blur(8px);
+      opacity: 0.8;
+      pointer-events: none;
     }
 
     .pagination-premium .page-item.disabled .page-link {
       color: rgba(255, 255, 255, 0.32);
       background: transparent;
+      border-color: transparent;
       pointer-events: none;
       transform: none;
       box-shadow: none;
@@ -847,6 +971,7 @@
 
       .survey-reward-amount {
         justify-self: start;
+        text-align: left;
       }
 
       .survey-actions {
@@ -908,14 +1033,14 @@
       }
 
       .pagination-premium .page-link {
-        min-width: 2.8rem;
-        height: 2.8rem;
+        min-width: 2.85rem;
+        height: 2.85rem;
         font-size: 0.84rem;
       }
 
-      .pagination-premium .page-item:first-child .page-link,
-      .pagination-premium .page-item:last-child .page-link {
-        min-width: 8rem;
+      .pagination-premium .page-item-nav .page-link {
+        min-width: 7rem;
+        padding-inline: 0.9rem;
       }
     }
 
@@ -976,20 +1101,18 @@
         padding: 1rem;
       }
 
-      .page-selector-shell {
-        gap: 0.65rem;
-        padding: 0.7rem 0.85rem;
-      }
-
       .pagination-premium .page-link {
-        min-width: 2.55rem;
+        min-width: 2.6rem;
         height: 2.65rem;
         padding-inline: 0.75rem;
       }
 
-      .pagination-premium .page-item:first-child .page-link,
-      .pagination-premium .page-item:last-child .page-link {
-        min-width: 7.2rem;
+      .pagination-premium .page-item-nav .page-link {
+        min-width: 3rem;
+      }
+
+      .page-link-label {
+        display: none;
       }
     }
 
@@ -1168,36 +1291,49 @@
     <div class="featured-content-unified" id="featured-content">
       <div class="featured-card-compact survey-card">
         <div class="survey-signal">
-          <div class="survey-signal-ring">
-            <svg width="38" height="38" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.49 2 2 5.92 2 11c0 2.52 1.09 4.78 2.86 6.38L4 22l4.06-2.2c1.2.33 2.49.5 3.94.5 5.51 0 10-3.92 10-9S17.51 2 12 2zm.1 14.4c-.62 0-1.1-.48-1.1-1.08 0-.63.48-1.12 1.1-1.12.64 0 1.14.49 1.14 1.12 0 .6-.5 1.08-1.14 1.08zm2.1-6.33c-.36.45-.84.74-1.25 1.03-.39.27-.63.53-.63 1.07v.3h-1.4v-.42c0-.86.4-1.38.96-1.78.3-.22.65-.43.91-.74.22-.26.33-.54.33-.87 0-.7-.59-1.16-1.35-1.16-.77 0-1.3.45-1.43 1.2l-1.48-.3c.2-1.34 1.43-2.3 2.95-2.3 1.65 0 2.86 1 2.86 2.44 0 .62-.16 1.14-.47 1.53z"/>
-            </svg>
+          <div class="survey-signal-head">
+            <div class="survey-signal-top">
+              <div class="survey-signal-ring">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 2C6.49 2 2 5.92 2 11c0 2.52 1.09 4.78 2.86 6.38L4 22l4.06-2.2c1.2.33 2.49.5 3.94.5 5.51 0 10-3.92 10-9S17.51 2 12 2zm.1 14.4c-.62 0-1.1-.48-1.1-1.08 0-.63.48-1.12 1.1-1.12.64 0 1.14.49 1.14 1.12 0 .6-.5 1.08-1.14 1.08zm2.1-6.33c-.36.45-.84.74-1.25 1.03-.39.27-.63.53-.63 1.07v.3h-1.4v-.42c0-.86.4-1.38.96-1.78.3-.22.65-.43.91-.74.22-.26.33-.54.33-.87 0-.7-.59-1.16-1.35-1.16-.77 0-1.3.45-1.43 1.2l-1.48-.3c.2-1.34 1.43-2.3 2.95-2.3 1.65 0 2.86 1 2.86 2.44 0 .62-.16 1.14-.47 1.53z"/>
+                </svg>
+              </div>
+              <div class="survey-signal-copy">
+                <div class="survey-signal-kicker">Бонус після завершення</div>
+                <p class="survey-signal-bonus">-{{ survey_reward.amount_uah|default:200 }} грн</p>
+              </div>
+            </div>
+            <p class="survey-signal-caption">
+              Промокод створюємо автоматично після завершення опитування.
+            </p>
           </div>
+
           <div class="survey-signal-stack">
             <div class="survey-signal-pill">≈5 хв</div>
             <div class="survey-signal-pill">1 питання за раз</div>
-            <div class="survey-signal-pill">Автозбереження</div>
+            <div class="survey-signal-pill">Можна повернутись пізніше</div>
           </div>
         </div>
 
         <div class="featured-info-compact survey-info">
           <h3 class="featured-title-compact-text survey-title">
-            Коротке опитування про TWOCOMMS
+            Допоможи покращити TWOCOMMS
           </h3>
           <p class="survey-subtitle">
-            Дай кілька коротких відповідей, а після завершення ми додамо промокод у профіль.
+            Коротке опитування без довгої анкети: відповіді допоможуть нам зробити магазин і колекції кращими, а ти отримаєш зрозумілу вигоду одразу після завершення.
           </p>
           <div class="survey-reward-panel">
-            <div class="survey-reward-amount">{{ survey_reward.amount_uah|default:200 }} <span>грн</span></div>
             <div class="survey-reward-copy">
-              <p class="survey-reward-title">Отримай {{ survey_reward.amount_uah|default:200 }} грн знижки</p>
-              <p class="survey-reward-note">Промокод створиться після завершення опитування та з’явиться у вашому профілі.</p>
+              <span class="survey-reward-kicker">Що отримаєш</span>
+              <p class="survey-reward-title">Промокод на {{ survey_reward.amount_uah|default:200 }} грн</p>
+              <p class="survey-reward-note">Створимо його автоматично після завершення, і він одразу з’явиться у профілі.</p>
             </div>
+            <div class="survey-reward-amount">-{{ survey_reward.amount_uah|default:200 }} <span>грн знижки</span></div>
           </div>
           <div class="survey-points">
-            <div class="survey-point">Можна продовжити пізніше</div>
-            <div class="survey-point">Одне питання за раз без довгої форми</div>
-            <div class="survey-point">Відповідь допоможе нам покращити магазин і продукти</div>
+            <div class="survey-point">Без форми на одну сторінку</div>
+            <div class="survey-point">Прогрес збережеться</div>
+            <div class="survey-point">Лише для зареєстрованих користувачів</div>
           </div>
           <div class="survey-actions">
             <div class="survey-actions-meta">Займе близько 5 хвилин</div>
@@ -1218,7 +1354,7 @@
             </button>
           </div>
           <div class="survey-footnote">
-            {{ survey_ui_home.note_uk|default:"Доступно лише для зареєстрованих користувачів. Відповіді зберігаються — можна продовжити пізніше." }}
+            Після завершення промокод з’явиться у профілі в розділі «Промокоди».
           </div>
         </div>
       </div>
@@ -1408,33 +1544,45 @@
   {% endif %}
   
   {% if paginator.num_pages > 1 %}
-  <div class="pagination-shell" id="page-selector-container">
-    <div class="page-selector-shell">
-      <span class="page-selector-label">Сторінка</span>
-      <select class="form-select form-select-sm page-selector-chip" id="page-selector" aria-label="Оберіть сторінку новинок">
-        {% for num in paginator.page_range %}
-          <option value="{{ num }}" {% if page_obj.number == num %}selected{% endif %}>{{ num }}</option>
-        {% endfor %}
-      </select>
-      <span class="page-selector-total">з <span id="total-pages">{{ paginator.num_pages }}</span></span>
-    </div>
-  </div>
-
-  <nav aria-label="Навігація по новинках" class="pagination-rail" data-total-pages="{{ paginator.num_pages }}">
-    <ul class="pagination pagination-sm pagination-premium justify-content-center mb-0">
-      <li class="page-item page-item-nav {% if not page_obj.has_previous %}disabled{% endif %}">
-        <a class="page-link" href="{% if page_obj.has_previous %}?page={{ page_obj.previous_page_number }}{% else %}#{% endif %}" rel="prev">Попередня</a>
-      </li>
-      {% for num in paginator.page_range %}
-        <li class="page-item page-item-number {% if num == page_obj.number %}active{% endif %}">
-          <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+  <div class="pagination-showcase">
+    <nav
+      aria-label="Навігація по новинках"
+      class="pagination-rail"
+      data-total-pages="{{ paginator.num_pages }}"
+      data-current-page="{{ page_obj.number }}"
+      data-base-path="{{ request.path }}"
+    >
+      <ul class="pagination pagination-sm pagination-premium justify-content-center mb-0">
+        <li class="page-item page-item-nav {% if not page_obj.has_previous %}disabled{% endif %}">
+          <a
+            class="page-link"
+            data-page-nav="prev"
+            href="{% if page_obj.has_previous %}{% if page_obj.previous_page_number == 1 %}{{ request.path }}{% else %}?page={{ page_obj.previous_page_number }}{% endif %}{% else %}#{% endif %}"
+            rel="prev"
+          >
+            <span class="page-link-icon" aria-hidden="true">←</span>
+            <span class="page-link-label">Попередня</span>
+          </a>
         </li>
-      {% endfor %}
-      <li class="page-item page-item-nav {% if not page_obj.has_next %}disabled{% endif %}">
-        <a class="page-link" href="{% if page_obj.has_next %}?page={{ page_obj.next_page_number }}{% else %}#{% endif %}" rel="next">Наступна</a>
-      </li>
-    </ul>
-  </nav>
+        {% for num in paginator.page_range %}
+          <li class="page-item page-item-number {% if num == page_obj.number %}active{% endif %}" data-page="{{ num }}">
+            <a class="page-link" href="{% if num == 1 %}{{ request.path }}{% else %}?page={{ num }}{% endif %}" {% if num == page_obj.number %}aria-current="page"{% endif %}>{{ num }}</a>
+          </li>
+        {% endfor %}
+        <li class="page-item page-item-nav {% if not page_obj.has_next %}disabled{% endif %}">
+          <a
+            class="page-link"
+            data-page-nav="next"
+            href="{% if page_obj.has_next %}?page={{ page_obj.next_page_number }}{% else %}#{% endif %}"
+            rel="next"
+          >
+            <span class="page-link-label">Наступна</span>
+            <span class="page-link-icon" aria-hidden="true">→</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
   {% endif %}
 </section>
 
