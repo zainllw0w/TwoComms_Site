@@ -2339,11 +2339,17 @@
                 <div class="custom-print-kv"><small>B2B тип</small><strong>{{ custom_print_selected_lead.get_business_kind_display|default:"—" }}</strong></div>
                 <div class="custom-print-kv"><small>Виріб</small><strong>{{ custom_print_selected_lead.get_product_type_display }}</strong></div>
                 <div class="custom-print-kv"><small>Послуга</small><strong>{{ custom_print_selected_lead.get_service_kind_display }}</strong></div>
+                <div class="custom-print-kv"><small>Fit</small><strong>{{ custom_print_selected_lead.fit|default:"—" }}</strong></div>
+                <div class="custom-print-kv"><small>Fabric</small><strong>{{ custom_print_selected_lead.fabric|default:"—" }}</strong></div>
+                <div class="custom-print-kv"><small>Колір</small><strong>{{ custom_print_selected_lead.color_choice|default:"—" }}</strong></div>
                 <div class="custom-print-kv"><small>Кількість</small><strong>{{ custom_print_selected_lead.quantity }}</strong></div>
                 <div class="custom-print-kv"><small>Режим розмірів</small><strong>{{ custom_print_selected_lead.get_size_mode_display|default:"—" }}</strong></div>
                 <div class="custom-print-kv"><small>Розміри</small><strong>{{ custom_print_selected_lead.sizes_note|default:"—" }}</strong></div>
                 <div class="custom-print-kv"><small>Контакт</small><strong>{{ custom_print_selected_lead.contact_value }}</strong></div>
                 <div class="custom-print-kv"><small>Статус ціни</small><strong>{% if custom_print_selected_lead.estimate_required %}Estimate{% else %}Фіксований{% endif %}</strong></div>
+                <div class="custom-print-kv"><small>File triage</small><strong>{{ custom_print_selected_lead.file_triage_status|default:"—" }}</strong></div>
+                <div class="custom-print-kv"><small>Safe exit step</small><strong>{{ custom_print_selected_lead.exit_step|default:"—" }}</strong></div>
+                <div class="custom-print-kv"><small>Source</small><strong>{{ custom_print_selected_lead.source|default:"—" }}</strong></div>
               </div>
 
               <div class="custom-print-note-box" style="margin-top:1rem;">
@@ -2366,6 +2372,13 @@
                 <div class="custom-print-note-box" style="margin-top:1rem;">
                   <strong>Pricing snapshot</strong>
                   <pre style="margin:0.6rem 0 0;white-space:pre-wrap;word-break:break-word;">{{ custom_print_selected_lead.pricing_snapshot_json|pprint }}</pre>
+                </div>
+              {% endif %}
+
+              {% if custom_print_selected_lead.config_draft_json %}
+                <div class="custom-print-note-box" style="margin-top:1rem;">
+                  <strong>Configurator snapshot</strong>
+                  <pre style="margin:0.6rem 0 0;white-space:pre-wrap;word-break:break-word;">{{ custom_print_selected_lead.config_draft_json|pprint }}</pre>
                 </div>
               {% endif %}
 

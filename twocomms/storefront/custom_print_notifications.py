@@ -5,6 +5,15 @@ from html import escape
 from pathlib import Path
 
 from orders.telegram_notifications import TelegramNotifier
+from storefront.custom_print_config import (
+    FABRIC_LABELS,
+    FIT_LABELS,
+    PRODUCT_LABELS,
+    SERVICE_LABELS,
+    TELEGRAM_MANAGER_URL,
+    TRIAGE_LABELS,
+    ZONE_LABELS,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -80,6 +89,8 @@ def _pricing_text(lead) -> str:
 
 
 def _reply_markup(lead):
+    if lead is None:
+        return None
     return {
         "inline_keyboard": [
             [
@@ -129,6 +140,114 @@ def _build_message(lead) -> str:
         parts.insert(10, f"• <b>Бренд / команда:</b> {escape(lead.brand_name)}")
     if getattr(lead, "garment_note", ""):
         parts.insert(8, f"• <b>Опис виробу:</b> {escape(lead.garment_note)}")
+    if getattr(lead, "fit", ""):
+        parts.insert(8, f"• <b>Посадка:</b> {escape(FIT_LABELS.get(lead.fit, lead.fit))}")
+    if getattr(lead, "fabric", ""):
+        parts.insert(9, f"• <b>Тканина:</b> {escape(FABRIC_LABELS.get(lead.fabric, lead.fabric))}")
+    if getattr(lead, "color_choice", ""):
+        parts.insert(10, f"• <b>Колір:</b> {escape(lead.color_choice)}")
+    if getattr(lead, "file_triage_status", ""):
+        parts.insert(11, f"• <b>File triage:</b> {escape(lead.file_triage_status)}")
+    return "\n".join(parts)
+
+
+def _snapshot_mode_label(snapshot: dict) -> str:
+    return "Для команди / бренду" if (snapshot.get("mode") == "brand") else "Для себе"
+
+
+def _snapshot_product_label(snapshot: dict) -> str:
+    product = snapshot.get("product") or {}
+    product_type = product.get("type") or "hoodie"
+    base = PRODUCT_LABELS.get(product_type, product_type)
+    details = []
+    fit = (product.get("fit") or "").strip()
+    fabric = (product.get("fabric") or "").strip()
+    color = (product.get("color") or "").strip()
+    if fit:
+        details.append(FIT_LABELS.get(fit, fit))
+    if fabric:
+        details.append(FABRIC_LABELS.get(fabric, fabric))
+    if color:
+        details.append(color)
+    if not details:
+        return base
+    return f"{base} · {' / '.join(details)}"
+
+
+def _snapshot_placements_text(snapshot: dict) -> str:
+    print_payload = snapshot.get("print") or {}
+    zones = [ZONE_LABELS.get(zone, zone) for zone in (print_payload.get("zones") or [])]
+    add_ons = print_payload.get("add_ons") or []
+    parts = []
+    if zones:
+        parts.append(", ".join(zones))
+    placement_note = (print_payload.get("placement_note") or "").strip()
+    if placement_note:
+        parts.append(f"Примітка: {placement_note}")
+    if add_ons:
+        parts.append(f"Add-ons: {', '.join(add_ons)}")
+    return " | ".join(parts) or "—"
+
+
+def _snapshot_pricing_text(snapshot: dict) -> str:
+    pricing = snapshot.get("pricing") or {}
+    parts = []
+    if pricing.get("base_price") not in (None, ""):
+        parts.append(f"база {pricing['base_price']} грн")
+    if pricing.get("design_price") not in (None, "", 0):
+        parts.append(f"дизайн +{pricing['design_price']} грн")
+    if pricing.get("discount_percent") not in (None, "", 0):
+        parts.append(f"знижка {pricing['discount_percent']}%")
+    if pricing.get("estimate_required"):
+        parts.append("потрібен менеджерський прорахунок")
+    elif pricing.get("final_total") not in (None, ""):
+        parts.append(f"разом {pricing['final_total']} грн")
+    return ", ".join(parts) or "Уточнюється менеджером"
+
+
+def _snapshot_contact_text(snapshot: dict) -> tuple[str, str]:
+    contact = snapshot.get("contact") or {}
+    channel = (contact.get("channel") or "").strip()
+    channel_map = {
+        "telegram": "Telegram",
+        "whatsapp": "WhatsApp",
+        "phone": "Телефон",
+    }
+    return channel_map.get(channel, "Не вказано"), (contact.get("value") or "").strip() or "—"
+
+
+def _build_safe_exit_message(snapshot: dict, lead=None) -> str:
+    artwork = snapshot.get("artwork") or {}
+    order = snapshot.get("order") or {}
+    ui = snapshot.get("ui") or {}
+    channel_label, contact_value = _snapshot_contact_text(snapshot)
+
+    parts = [
+        "<b>Кастомний принт: safe exit</b>",
+        f"• <b>Режим:</b> {escape(_snapshot_mode_label(snapshot))}",
+        f"• <b>Виріб:</b> {escape(_snapshot_product_label(snapshot))}",
+        f"• <b>Послуга:</b> {escape(SERVICE_LABELS.get(artwork.get('service_kind'), artwork.get('service_kind') or '—'))}",
+        f"• <b>File triage:</b> {escape(TRIAGE_LABELS.get(artwork.get('triage_status'), artwork.get('triage_status') or 'needs-review'))}",
+        f"• <b>Зони:</b> {escape(_snapshot_placements_text(snapshot))}",
+        f"• <b>Кількість:</b> {escape(str(order.get('quantity') or '—'))}",
+        f"• <b>Розміри:</b> {escape(order.get('sizes_note') or '—')}",
+        f"• <b>Поточний крок:</b> {escape(ui.get('current_step') or '—')}",
+        f"• <b>Прорахунок:</b> {escape(_snapshot_pricing_text(snapshot))}",
+        f"• <b>Канал:</b> {escape(channel_label)}",
+        f"• <b>Контакт:</b> {escape(contact_value)}",
+    ]
+    contact_name = ((snapshot.get("contact") or {}).get("name") or "").strip()
+    if contact_name:
+        parts.append(f"• <b>Ім'я:</b> {escape(contact_name)}")
+    if (order.get("gift")):
+        parts.append("• <b>Подарунок:</b> так")
+    if lead is not None:
+        parts.insert(1, f"• <b>Номер:</b> <code>{escape(lead.lead_number)}</code>")
+        parts.append("")
+        parts.append(f'• <a href="{_build_admin_panel_link(lead)}">Відкрити в панелі</a>')
+    else:
+        parts.append("")
+        parts.append(f'• <a href="{TELEGRAM_MANAGER_URL}">Відкрити Telegram</a>')
     return "\n".join(parts)
 
 
@@ -165,4 +284,21 @@ def notify_new_custom_print_lead(lead) -> bool:
         )
     except Exception as exc:
         logger.warning("Custom print Telegram notify failed: %s", exc, exc_info=True)
+        return False
+
+
+def notify_custom_print_safe_exit(*, snapshot: dict, lead=None) -> bool:
+    try:
+        notifier = _build_notifier()
+        if not notifier.is_configured():
+            logger.warning("Custom print safe-exit notifier is not configured.")
+            return False
+
+        return notifier.send_admin_message(
+            _build_safe_exit_message(snapshot, lead=lead),
+            parse_mode="HTML",
+            reply_markup=_reply_markup(lead),
+        )
+    except Exception as exc:
+        logger.warning("Custom print safe-exit notify failed: %s", exc, exc_info=True)
         return False

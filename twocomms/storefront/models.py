@@ -262,9 +262,15 @@ class CustomPrintLead(models.Model):
         default="",
         verbose_name="Режим розмірів",
     )
+    fit = models.CharField(max_length=32, blank=True, default="", verbose_name="Посадка")
+    fabric = models.CharField(max_length=32, blank=True, default="", verbose_name="Тканина / рівень")
+    color_choice = models.CharField(max_length=64, blank=True, default="", verbose_name="Колір виробу")
     garment_note = models.CharField(max_length=255, blank=True, default="", verbose_name="Опис виробу клієнта")
+    file_triage_status = models.CharField(max_length=32, blank=True, default="", verbose_name="Статус triage файлу")
+    exit_step = models.CharField(max_length=32, blank=True, default="", verbose_name="Крок safe exit")
     placement_specs_json = models.JSONField(default=list, blank=True, verbose_name="Специфікації зон нанесення")
     pricing_snapshot_json = models.JSONField(default=dict, blank=True, verbose_name="Снапшот прорахунку")
+    config_draft_json = models.JSONField(default=dict, blank=True, verbose_name="Чернетка конфігуратора")
     name = models.CharField(max_length=200, verbose_name="Ім'я")
     contact_channel = models.CharField(
         max_length=20,

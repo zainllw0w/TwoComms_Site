@@ -158,6 +158,7 @@ urlpatterns = [
     path('add-print/', views.add_print, name='add_print'),
     path('custom-print/', views.custom_print, name='custom_print'),
     path('custom-print/lead/', views.custom_print_lead, name='custom_print_lead'),
+    path('custom-print/safe-exit/', views.custom_print_safe_exit, name='custom_print_safe_exit'),
     path('delivery/', views.delivery_view, name='delivery'),
     path('cooperation/', views.cooperation, name='cooperation'),
     path('about/', views.about, name='about'),

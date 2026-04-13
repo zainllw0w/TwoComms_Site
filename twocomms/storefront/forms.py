@@ -13,6 +13,7 @@ from dtf.utils import (
 )
 from productcolors.models import ProductColorVariant, ProductColorImage
 from storefront.services.catalog import ensure_color_identity
+from storefront.custom_print_config import normalize_custom_print_snapshot
 
 from .models import (
     CustomPrintBusinessKind,
@@ -90,8 +91,14 @@ class CustomPrintLeadForm(forms.Form):
     business_kind = forms.ChoiceField(choices=CustomPrintBusinessKind.choices, required=False)
     brand_name = forms.CharField(required=False, max_length=255)
     garment_note = forms.CharField(required=False, max_length=255)
+    fit = forms.CharField(required=False, max_length=32)
+    fabric = forms.CharField(required=False, max_length=32)
+    color_choice = forms.CharField(required=False, max_length=64)
+    file_triage_status = forms.CharField(required=False, max_length=32)
+    exit_step = forms.CharField(required=False, max_length=32)
     placement_specs_json = forms.CharField(required=False)
     pricing_snapshot_json = forms.CharField(required=False)
+    config_draft_json = forms.CharField(required=False)
     name = forms.CharField(max_length=200)
     contact_channel = forms.ChoiceField(choices=CustomPrintContactChannel.choices)
     contact_value = forms.CharField(max_length=255)
@@ -173,6 +180,17 @@ class CustomPrintLeadForm(forms.Form):
             self.add_error("pricing_snapshot_json", exc)
             pricing_snapshot = {}
 
+        try:
+            config_draft = self._parse_json_field(
+                cleaned.get("config_draft_json"),
+                {},
+                "config_draft_json",
+            )
+        except forms.ValidationError as exc:
+            self.add_error("config_draft_json", exc)
+            config_draft = {}
+        normalized_snapshot = normalize_custom_print_snapshot(config_draft) if config_draft else {}
+
         if not placement_specs and placements:
             placement_specs = [
                 {
@@ -189,7 +207,7 @@ class CustomPrintLeadForm(forms.Form):
         if client_kind == CustomPrintClientKind.BRAND and not (cleaned.get("brand_name") or "").strip():
             self.add_error("brand_name", "Вкажіть назву бренду, команди або події.")
         if client_kind == CustomPrintClientKind.BRAND and not business_kind:
-            self.add_error("business_kind", "Оберіть тип B2B замовлення.")
+            business_kind = CustomPrintBusinessKind.BRANDING
         if cleaned.get("product_type") == CustomPrintProductType.CUSTOMER_GARMENT and not garment_note:
             self.add_error("garment_note", "Опишіть ваш виріб для попереднього прорахунку.")
 
@@ -234,6 +252,24 @@ class CustomPrintLeadForm(forms.Form):
         cleaned["placement_note"] = placement_note
         cleaned["placement_specs_json"] = placement_specs
         cleaned["pricing_snapshot_json"] = pricing_snapshot
+        cleaned["config_draft_json"] = normalized_snapshot or config_draft or {}
+        cleaned["fit"] = (cleaned.get("fit") or (normalized_snapshot.get("product") or {}).get("fit") or "").strip()
+        cleaned["fabric"] = (cleaned.get("fabric") or (normalized_snapshot.get("product") or {}).get("fabric") or "").strip()
+        cleaned["color_choice"] = (
+            cleaned.get("color_choice")
+            or (normalized_snapshot.get("product") or {}).get("color")
+            or ""
+        ).strip()
+        cleaned["file_triage_status"] = (
+            cleaned.get("file_triage_status")
+            or (normalized_snapshot.get("artwork") or {}).get("triage_status")
+            or ""
+        ).strip()
+        cleaned["exit_step"] = (
+            cleaned.get("exit_step")
+            or (normalized_snapshot.get("ui") or {}).get("current_step")
+            or ""
+        ).strip()
         self.cleaned_files = validated_files
         return cleaned
 
@@ -249,9 +285,15 @@ class CustomPrintLeadForm(forms.Form):
             client_kind=self.cleaned_data.get("client_kind") or CustomPrintClientKind.PERSONAL,
             business_kind=self.cleaned_data.get("business_kind", ""),
             brand_name=self.cleaned_data.get("brand_name", ""),
+            fit=self.cleaned_data.get("fit", ""),
+            fabric=self.cleaned_data.get("fabric", ""),
+            color_choice=self.cleaned_data.get("color_choice", ""),
             garment_note=self.cleaned_data.get("garment_note", ""),
+            file_triage_status=self.cleaned_data.get("file_triage_status", ""),
+            exit_step=self.cleaned_data.get("exit_step", ""),
             placement_specs_json=self.cleaned_data.get("placement_specs_json") or [],
             pricing_snapshot_json=self.cleaned_data.get("pricing_snapshot_json") or {},
+            config_draft_json=self.cleaned_data.get("config_draft_json") or {},
             name=self.cleaned_data["name"],
             contact_channel=self.cleaned_data["contact_channel"],
             contact_value=self.cleaned_data["contact_value"],
