@@ -58,9 +58,12 @@
     },
   };
 
+  let previousStepIndex = 0;
+
   const form = document.getElementById("customPrintConfiguratorForm");
   const dom = {
-    buildStrip: document.querySelector(".cp-build-strip"),
+    progressBar: root.querySelector("[data-progress-bar]"),
+    progressFill: root.querySelector("[data-progress-fill]"),
     stepSections: Array.from(root.querySelectorAll("[data-step]")),
     heroDynamicLabel: root.querySelector("[data-hero-dynamic-label]"),
     heroDynamicCopy: root.querySelector("[data-hero-dynamic-copy]"),
@@ -126,6 +129,7 @@
 
   const draft = readDraft();
   const state = normalizeState(draft || defaultState);
+  previousStepIndex = stepOrder.indexOf(state.ui.current_step);
   syncInputsFromState();
   bindEvents();
   renderAll();
@@ -460,7 +464,7 @@
       });
     });
 
-    dom.buildStrip.addEventListener("click", (event) => {
+    dom.progressBar.addEventListener("click", (event) => {
       const button = event.target.closest("[data-step-link]");
       if (!button) {
         return;
@@ -723,32 +727,36 @@
   }
 
   function renderBuildStrip() {
-    const summary = {
-      quickstart: labelForValue(config.quick_start_modes, state.quick_start_mode),
-      mode: state.mode === "brand" ? "Для команди / бренду" : "Для себе",
-      product: getProductConfig(state.product.type).label || "Худі",
-      artwork: labelForValue(config.artwork_services, state.artwork.service_kind),
-      review: state.contact.value || "Контакт не вказано",
-    };
-
-    root.querySelectorAll("[data-step-summary]").forEach((node) => {
-      const step = node.dataset.stepSummary;
-      node.textContent = summary[step] || "—";
-    });
+    const currentIndex = stepOrder.indexOf(state.ui.current_step);
 
     root.querySelectorAll("[data-step-link]").forEach((button) => {
       const buttonStep = button.dataset.stepLink;
+      const buttonIndex = stepOrder.indexOf(buttonStep);
       button.classList.toggle("is-active", buttonStep === state.ui.current_step);
-      button.classList.toggle("is-done", stepOrder.indexOf(buttonStep) < stepOrder.indexOf(state.ui.current_step));
+      button.classList.toggle("is-done", buttonIndex < currentIndex);
     });
+
+    if (dom.progressFill) {
+      const totalSteps = stepOrder.length - 1;
+      const fillPercent = totalSteps > 0 ? (currentIndex / totalSteps) * 100 : 0;
+      dom.progressFill.style.width = fillPercent + "%";
+    }
   }
 
   function renderStepPanels() {
+    const currentIndex = stepOrder.indexOf(state.ui.current_step);
+    const direction = currentIndex >= previousStepIndex ? "forward" : "backward";
+
     dom.stepSections.forEach((section) => {
       const isCurrent = section.dataset.step === state.ui.current_step;
       section.hidden = !isCurrent;
-      section.classList.toggle("is-current", isCurrent);
+      section.classList.remove("is-current", "is-forward", "is-backward");
+      if (isCurrent) {
+        section.classList.add("is-current", "is-" + direction);
+      }
     });
+
+    previousStepIndex = currentIndex;
   }
 
   function renderStage() {
