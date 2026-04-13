@@ -16,15 +16,26 @@ from django.conf import settings
 from django.shortcuts import render
 from django.db import transaction
 from django.views.decorators.http import require_POST
+import json
 from pathlib import Path
 import importlib.machinery
 import importlib.util
 from django.utils.text import slugify
 from django.utils import timezone
 from urllib.parse import urljoin
-from storefront.models import Product, Category
+from django.urls import reverse
+from storefront.models import Category, CustomPrintLead, Product
 from storefront.forms import CustomPrintLeadForm
-from storefront.custom_print_notifications import notify_new_custom_print_lead
+from storefront.custom_print_config import (
+    TELEGRAM_MANAGER_URL,
+    build_custom_print_config,
+    build_placement_specs,
+    normalize_custom_print_snapshot,
+)
+from storefront.custom_print_notifications import (
+    notify_custom_print_safe_exit,
+    notify_new_custom_print_lead,
+)
 from storefront.utils.analytics_helpers import FEED_DEFAULT_COLOR, normalize_feed_color
 import re
 import xml.etree.ElementTree as ET
@@ -506,10 +517,15 @@ def delivery(request):
 
 def custom_print(request):
     """
-    Лендинг кастомного принта на основном сайте.
+    Guided DTF-only configurator на основном сайте.
     """
+    config = build_custom_print_config(
+        submit_url=request.build_absolute_uri(reverse("custom_print_lead")),
+        safe_exit_url=request.build_absolute_uri(reverse("custom_print_safe_exit")),
+    )
     return render(request, 'pages/custom_print.html', {
         'page_title': 'Кастомний принт',
+        'custom_print_config': config,
     })
 
 
@@ -536,6 +552,71 @@ def custom_print_lead(request):
             "ok": True,
             "lead_number": lead.lead_number,
             "message": "Дякуємо! Менеджер зв’яжеться з вами найближчим часом.",
+        }
+    )
+
+
+@require_POST
+def custom_print_safe_exit(request):
+    """
+    Safe exit with snapshot handoff to менеджеру.
+    """
+    try:
+        payload = json.loads((request.body or b"{}").decode("utf-8") or "{}")
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return JsonResponse({"ok": False, "error": "Некоректний safe-exit payload."}, status=400)
+
+    snapshot = normalize_custom_print_snapshot(payload if isinstance(payload, dict) else {})
+    contact = snapshot.get("contact") or {}
+    product = snapshot.get("product") or {}
+    artwork = snapshot.get("artwork") or {}
+    order = snapshot.get("order") or {}
+    print_payload = snapshot.get("print") or {}
+    notes = snapshot.get("notes") or {}
+
+    lead = None
+    can_persist_lead = all(
+        (
+            contact.get("channel"),
+            contact.get("name"),
+            contact.get("value"),
+        )
+    )
+
+    if can_persist_lead:
+        lead = CustomPrintLead.objects.create(
+            service_kind=artwork.get("service_kind") or "design",
+            product_type=product.get("type") or "hoodie",
+            placements=print_payload.get("zones") or [],
+            placement_note=print_payload.get("placement_note") or "",
+            quantity=order.get("quantity") or 1,
+            size_mode=order.get("size_mode") or "single",
+            sizes_note=order.get("sizes_note") or "",
+            client_kind=snapshot.get("mode") or "personal",
+            business_kind="",
+            brand_name=notes.get("brand_name") or "",
+            fit=product.get("fit") or "",
+            fabric=product.get("fabric") or "",
+            color_choice=product.get("color") or "",
+            garment_note=notes.get("garment_note") or "",
+            file_triage_status=artwork.get("triage_status") or "needs-review",
+            exit_step=(snapshot.get("ui") or {}).get("current_step") or "",
+            placement_specs_json=build_placement_specs(snapshot),
+            pricing_snapshot_json=snapshot.get("pricing") or {},
+            config_draft_json=snapshot,
+            name=contact.get("name") or "",
+            contact_channel=contact.get("channel") or "",
+            contact_value=contact.get("value") or "",
+            brief=notes.get("brief") or "",
+            source="custom_print_safe_exit",
+        )
+
+    notify_custom_print_safe_exit(lead=lead, snapshot=lead.config_draft_json if lead else snapshot)
+    return JsonResponse(
+        {
+            "ok": True,
+            "lead_number": getattr(lead, "lead_number", None),
+            "manager_url": TELEGRAM_MANAGER_URL,
         }
     )
 

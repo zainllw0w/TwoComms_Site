@@ -64,19 +64,31 @@ class CustomPrintPageTests(TestCase):
         response = self._get(reverse("custom_print"), follow=True)
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Почати з нуля")
+        self.assertContains(response, "У мене є файл")
+        self.assertContains(response, "Показати стартові стилі")
         self.assertContains(response, "Для себе")
-        self.assertContains(response, "Для тиражу, брендування та мерчу")
-        self.assertContains(response, "Оптова партія")
-        self.assertContains(response, "Брендування / мерч")
-        self.assertContains(response, "Свій одяг")
-        self.assertContains(response, "1–4 шт — без знижки")
-        self.assertContains(response, "1 стандартне нанесення включено")
-        self.assertContains(response, "Доставка Новою Поштою")
-        self.assertContains(response, "Надіслати менеджеру")
-        self.assertContains(response, "Точний прорахунок після макета там, де це потрібно")
-        self.assertContains(response, "від 700 грн")
-        self.assertNotContains(response, "Custom Print Studio")
+        self.assertContains(response, "Для команди / бренду")
+        self.assertContains(response, "Худі")
+        self.assertContains(response, "Regular")
+        self.assertContains(response, "Oversize")
+        self.assertContains(response, "Safe exit")
+        self.assertContains(response, "custom-print-configurator.css")
+        self.assertContains(response, "custom-print-configurator.js")
+        self.assertContains(response, "customPrintConfiguratorConfig")
+        self.assertNotContains(response, "DTG")
+        self.assertNotContains(response, "Шовкографія")
         self.assertNotContains(response, "/admin/storefront/customprintlead/")
+
+    def test_custom_print_page_embeds_structured_config_payload(self):
+        response = self._get(reverse("custom_print"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '"quick_start_modes"')
+        self.assertContains(response, '"starter_styles"')
+        self.assertContains(response, '"hoodie"')
+        self.assertContains(response, '"safe_exit_url"')
+        self.assertContains(response, '"telegram_manager_url"')
 
     def test_home_page_contains_inline_custom_print_tile_inside_categories_grid(self):
         response = self._get(reverse("home"), follow=True)
@@ -155,6 +167,56 @@ class CustomPrintPageTests(TestCase):
             "contact_channel": "telegram",
             "contact_value": "@olena_print",
             "brief": "",
+            "fit": "regular",
+            "fabric": "premium",
+            "color_choice": "black",
+            "file_triage_status": "print-ready",
+            "config_draft_json": json.dumps(
+                {
+                    "version": 2,
+                    "quick_start_mode": "have_file",
+                    "mode": "personal",
+                    "product": {
+                        "type": "tshirt",
+                        "fit": "regular",
+                        "fabric": "premium",
+                        "color": "black",
+                    },
+                    "print": {
+                        "zones": ["front"],
+                        "add_ons": [],
+                        "placement_note": "",
+                    },
+                    "artwork": {
+                        "service_kind": "ready",
+                        "triage_status": "print-ready",
+                        "files": [
+                            {
+                                "name": "design.png",
+                                "zone": "front",
+                                "status": "print-ready",
+                            }
+                        ],
+                    },
+                    "order": {
+                        "quantity": 2,
+                        "size_mode": "mixed",
+                        "sizes_note": "M x1, L x1",
+                        "gift": False,
+                    },
+                    "contact": {
+                        "channel": "telegram",
+                        "name": "Олена",
+                        "value": "@olena_print",
+                    },
+                    "pricing": {
+                        "base_price": 700,
+                        "final_total": 700,
+                        "estimate_required": False,
+                    },
+                    "ui": {"current_step": "review"},
+                }
+            ),
             "files": self._png_file(),
         }
 
@@ -182,8 +244,14 @@ class CustomPrintPageTests(TestCase):
         self.assertEqual(lead.contact_channel, "telegram")
         self.assertEqual(lead.contact_value, "@olena_print")
         self.assertEqual(lead.source, "main_custom_print")
+        self.assertEqual(lead.fit, "regular")
+        self.assertEqual(lead.fabric, "premium")
+        self.assertEqual(lead.color_choice, "black")
+        self.assertEqual(lead.file_triage_status, "print-ready")
         self.assertEqual(lead.pricing_snapshot_json["base_price"], 700)
         self.assertEqual(lead.placement_specs_json[0]["zone"], "front")
+        self.assertEqual(lead.config_draft_json["quick_start_mode"], "have_file")
+        self.assertEqual(lead.config_draft_json["artwork"]["triage_status"], "print-ready")
         attachment = CustomPrintLeadAttachment.objects.get(lead=lead)
         self.assertEqual(attachment.placement_zone, "front")
         self.assertEqual(attachment.attachment_role, "design")
@@ -436,6 +504,104 @@ class CustomPrintPageTests(TestCase):
             },
         )
 
+    @patch("storefront.views.static_pages.notify_custom_print_safe_exit")
+    def test_custom_print_safe_exit_with_contact_persists_snapshot_and_returns_manager_link(self, notify_mock):
+        from storefront.models import CustomPrintLead
+
+        snapshot = {
+            "version": 2,
+            "quick_start_mode": "start_blank",
+            "mode": "brand",
+            "product": {
+                "type": "hoodie",
+                "fit": "oversize",
+                "fabric": "premium",
+                "color": "graphite",
+            },
+            "print": {
+                "zones": ["back", "sleeve"],
+                "add_ons": ["grommets"],
+                "placement_note": "",
+            },
+            "artwork": {
+                "service_kind": "adjust",
+                "triage_status": "needs-work",
+                "files": [{"name": "logo.png", "zone": "back", "status": "needs-work"}],
+            },
+            "order": {
+                "quantity": 12,
+                "size_mode": "mixed",
+                "sizes_note": "M x6, L x6",
+                "gift": False,
+            },
+            "contact": {
+                "channel": "telegram",
+                "name": "Микита",
+                "value": "@void_unit",
+            },
+            "pricing": {
+                "base_price": 1850,
+                "final_total": None,
+                "estimate_required": True,
+            },
+            "ui": {"current_step": "artwork"},
+        }
+
+        response = self.client.post(
+            reverse("custom_print_safe_exit"),
+            data=json.dumps(snapshot),
+            content_type="application/json",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        lead = CustomPrintLead.objects.get()
+        self.assertEqual(lead.source, "custom_print_safe_exit")
+        self.assertEqual(lead.product_type, "hoodie")
+        self.assertEqual(lead.fit, "oversize")
+        self.assertEqual(lead.fabric, "premium")
+        self.assertEqual(lead.color_choice, "graphite")
+        self.assertEqual(lead.file_triage_status, "needs-work")
+        self.assertEqual(lead.exit_step, "artwork")
+        self.assertEqual(lead.config_draft_json["print"]["add_ons"], ["grommets"])
+        payload = json.loads(response.content)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["lead_number"], lead.lead_number)
+        self.assertIn("t.me", payload["manager_url"])
+        notify_mock.assert_called_once_with(lead=lead, snapshot=lead.config_draft_json)
+
+    @patch("storefront.views.static_pages.notify_custom_print_safe_exit")
+    def test_custom_print_safe_exit_without_contact_still_notifies(self, notify_mock):
+        from storefront.models import CustomPrintLead
+
+        response = self.client.post(
+            reverse("custom_print_safe_exit"),
+            data=json.dumps(
+                {
+                    "version": 2,
+                    "quick_start_mode": "starter_style",
+                    "mode": "personal",
+                    "product": {"type": "hoodie", "fit": "regular", "fabric": "standard", "color": "sand"},
+                    "print": {"zones": ["front"], "add_ons": [], "placement_note": ""},
+                    "artwork": {"service_kind": "design", "triage_status": "needs-review", "files": []},
+                    "order": {"quantity": 1, "size_mode": "single", "sizes_note": "M x1", "gift": True},
+                    "contact": {"channel": "", "name": "", "value": ""},
+                    "pricing": {"base_price": 1600, "final_total": None, "estimate_required": True},
+                    "ui": {"current_step": "review"},
+                }
+            ),
+            content_type="application/json",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(CustomPrintLead.objects.count(), 0)
+        payload = json.loads(response.content)
+        self.assertTrue(payload["ok"])
+        self.assertIsNone(payload["lead_number"])
+        self.assertIn("t.me", payload["manager_url"])
+        notify_mock.assert_called_once()
+
 
 @override_settings(COMPRESS_ENABLED=False, COMPRESS_OFFLINE=False)
 class CustomPrintAdminAndNotificationTests(TestCase):
@@ -548,3 +714,33 @@ class CustomPrintAdminAndNotificationTests(TestCase):
         )
         self.assertIn(link, message)
         self.assertNotIn("/admin/storefront/customprintlead/", message)
+
+    def test_custom_print_safe_exit_notification_uses_custom_admin_deeplink_when_lead_exists(self):
+        from storefront.custom_print_notifications import _build_safe_exit_message
+
+        lead = self._make_lead(
+            source="custom_print_safe_exit",
+            fit="oversize",
+            fabric="premium",
+            color_choice="graphite",
+            file_triage_status="needs-work",
+            exit_step="artwork",
+            config_draft_json={
+                "version": 2,
+                "quick_start_mode": "have_file",
+                "mode": "brand",
+                "product": {"type": "hoodie", "fit": "oversize", "fabric": "premium", "color": "graphite"},
+                "print": {"zones": ["back", "sleeve"], "add_ons": ["grommets"], "placement_note": ""},
+                "artwork": {"service_kind": "adjust", "triage_status": "needs-work", "files": []},
+                "order": {"quantity": 12, "size_mode": "mixed", "sizes_note": "M x6, L x6", "gift": False},
+                "contact": {"channel": "telegram", "name": "Микита", "value": "@void_unit"},
+                "pricing": {"base_price": 1850, "final_total": None, "estimate_required": True},
+                "ui": {"current_step": "artwork"},
+            },
+        )
+
+        message = _build_safe_exit_message(lead.config_draft_json, lead=lead)
+
+        self.assertIn("safe exit", message.lower())
+        self.assertIn(lead.lead_number, message)
+        self.assertIn(f"https://twocomms.shop/admin-panel/?section=custom_print_orders&lead={lead.pk}", message)
