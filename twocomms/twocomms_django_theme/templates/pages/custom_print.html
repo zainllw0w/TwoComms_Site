@@ -161,9 +161,9 @@
               {% endfor %}
             </div>
             <div class="cp-inline-fields" data-brand-fields hidden>
-              <label class="cp-field">
+              <label class="cp-field" for="cp-brand-name">
                 <span>Назва бренду / команди</span>
-                <input type="text" data-brand-name-input placeholder="Наприклад, Void Unit або внутрішня команда">
+                <input id="cp-brand-name" name="brand_name" type="text" data-brand-name-input placeholder="Наприклад, Void Unit або внутрішня команда">
               </label>
             </div>
           </section>
@@ -225,9 +225,9 @@
                   <span>У верхньому рядку залишаються тільки головні рішення, без дрібного шуму.</span>
                 </div>
               <div class="cp-mini-chip-row" data-zone-list></div>
-              <label class="cp-field" data-placement-note-wrap hidden>
+              <label class="cp-field" for="cp-placement-note" data-placement-note-wrap hidden>
                 <span>Примітка до нестандартної зони</span>
-                <textarea rows="3" data-placement-note-input placeholder="Наприклад: вертикальний друк по боковому шву або нестандартне розміщення на своєму виробі"></textarea>
+                <textarea id="cp-placement-note" name="placement_note" rows="3" data-placement-note-input placeholder="Наприклад: вертикальний друк по боковому шву або нестандартне розміщення на своєму виробі"></textarea>
               </label>
             </div>
 
@@ -263,16 +263,16 @@
             </div>
 
             <div class="cp-upload-panel">
-              <label class="cp-upload-field">
+              <label class="cp-upload-field" for="cp-artwork-files">
                 <span>Додайте файл або референси</span>
-                <input type="file" data-file-input multiple accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.ai,.eps,.psd,.cdr">
+                <input id="cp-artwork-files" name="artwork_files" type="file" data-file-input multiple accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.ai,.eps,.psd,.cdr">
               </label>
               <div class="cp-file-list" data-file-list>Файли ще не додані.</div>
             </div>
 
-            <label class="cp-field">
+            <label class="cp-field" for="cp-brief">
               <span>Бриф / задача</span>
-              <textarea rows="4" data-brief-input placeholder="Що потрібно зробити з файлом або який стиль / настрій ви хочете отримати"></textarea>
+              <textarea id="cp-brief" name="brief" rows="4" data-brief-input placeholder="Що потрібно зробити з файлом або який стиль / настрій ви хочете отримати"></textarea>
             </label>
 
             <div class="cp-step-actions">
@@ -290,13 +290,13 @@
             </div>
 
             <div class="cp-inline-fields cp-inline-fields--compact">
-              <label class="cp-field">
+              <label class="cp-field" for="cp-quantity">
                 <span>Кількість</span>
-                <input type="number" min="1" value="1" data-quantity-input>
+                <input id="cp-quantity" name="quantity" type="number" min="1" value="1" data-quantity-input>
               </label>
-              <label class="cp-field cp-field--toggle">
+              <label class="cp-field cp-field--toggle" for="cp-gift">
                 <span>Позначити як подарунок</span>
-                <input type="checkbox" data-gift-input>
+                <input id="cp-gift" name="gift" type="checkbox" data-gift-input>
               </label>
             </div>
 
@@ -308,14 +308,14 @@
               <div class="cp-mini-chip-row" data-size-mode-list></div>
             </div>
 
-            <label class="cp-field">
+            <label class="cp-field" for="cp-sizes-note">
               <span>Розміри / коментар</span>
-              <textarea rows="3" data-sizes-note-input placeholder="Наприклад: M x4, L x6 або «узгодимо після мокапу»"></textarea>
+              <textarea id="cp-sizes-note" name="sizes_note" rows="3" data-sizes-note-input placeholder="Наприклад: M x4, L x6 або «узгодимо після мокапу»"></textarea>
             </label>
 
-            <label class="cp-field" data-garment-note-wrap hidden>
+            <label class="cp-field" for="cp-garment-note" data-garment-note-wrap hidden>
               <span>Опис свого виробу</span>
-              <textarea rows="3" data-garment-note-input placeholder="Матеріал, колір, крій, стан виробу та все, що важливо для прорахунку"></textarea>
+              <textarea id="cp-garment-note" name="garment_note" rows="3" data-garment-note-input placeholder="Матеріал, колір, крій, стан виробу та все, що важливо для прорахунку"></textarea>
             </label>
 
             <div class="cp-step-actions">
@@ -335,13 +335,13 @@
             <div class="cp-review-box" data-review-box></div>
 
             <div class="cp-inline-fields">
-              <label class="cp-field">
+              <label class="cp-field" for="cp-contact-name">
                 <span>Ваше ім'я</span>
-                <input type="text" data-name-input placeholder="Ім'я для менеджера">
+                <input id="cp-contact-name" name="contact_name" type="text" data-name-input placeholder="Ім'я для менеджера">
               </label>
-              <label class="cp-field">
+              <label class="cp-field" for="cp-brand-shortcut">
                 <span>Бренд / серія (необов'язково)</span>
-                <input type="text" data-brand-shortcut-input placeholder="Коротка позначка для серії або бренду">
+                <input id="cp-brand-shortcut" name="brand_shortcut" type="text" data-brand-shortcut-input placeholder="Коротка позначка для серії або бренду">
               </label>
             </div>
 
@@ -353,9 +353,9 @@
               <div class="cp-mini-chip-row" data-contact-channel-list></div>
             </div>
 
-            <label class="cp-field">
+            <label class="cp-field" for="cp-contact-value">
               <span>Контакт</span>
-              <input type="text" data-contact-value-input placeholder="@username або +380...">
+              <input id="cp-contact-value" name="contact_value" type="text" data-contact-value-input placeholder="@username або +380...">
             </label>
 
             <div class="cp-status-box" data-status-box aria-live="polite">
