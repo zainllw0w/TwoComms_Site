@@ -21,13 +21,13 @@ PRODUCT_LABELS = {
 }
 
 FIT_LABELS = {
-    "regular": "Regular",
-    "oversize": "Oversize",
+    "regular": "Класичний",
+    "oversize": "Оверсайз",
 }
 
 FABRIC_LABELS = {
-    "standard": "Standard",
-    "premium": "Premium",
+    "standard": "База",
+    "premium": "Преміум",
 }
 
 SERVICE_LABELS = {
@@ -37,10 +37,10 @@ SERVICE_LABELS = {
 }
 
 TRIAGE_LABELS = {
-    "print-ready": "print-ready",
-    "needs-work": "needs-work",
-    "reference-only": "reference-only",
-    "needs-review": "needs-review",
+    "print-ready": "Готовий до друку",
+    "needs-work": "Потрібна підготовка",
+    "reference-only": "Лише референс",
+    "needs-review": "Потрібна перевірка",
 }
 
 QUICK_START_MODES = [
@@ -52,7 +52,7 @@ QUICK_START_MODES = [
     {
         "value": "have_file",
         "label": "У мене є файл",
-        "hint": "Фокус на перевірці макета, triage файлів і швидкому запуску в роботу.",
+        "hint": "Фокус на перевірці макета, оцінці файлів і швидкому запуску в роботу.",
     },
     {
         "value": "starter_style",
@@ -77,17 +77,17 @@ CLIENT_MODES = [
 STARTER_STYLES = [
     {
         "value": "minimal",
-        "label": "Minimal",
+        "label": "Мінімальний",
         "accent": "Чисті пропорції, один акцент, багато повітря.",
     },
     {
         "value": "bold",
-        "label": "Bold",
+        "label": "Сміливий",
         "accent": "Контрастні площини, великі композиції, більш помітний жест.",
     },
     {
         "value": "logo-first",
-        "label": "Logo-first",
+        "label": "Лого в центрі",
         "accent": "Логотип або короткий знак як центр всієї композиції.",
     },
 ]
@@ -113,17 +113,17 @@ ARTWORK_SERVICES = [
 TRIAGE_STATUSES = [
     {
         "value": "print-ready",
-        "label": "print-ready",
+        "label": "Готовий до друку",
         "hint": "Файл виглядає готовим до друку без додаткової підготовки.",
     },
     {
         "value": "needs-work",
-        "label": "needs-work",
+        "label": "Потрібна підготовка",
         "hint": "Потрібно підчистити, перевести у правильний формат або підготувати деталі.",
     },
     {
         "value": "reference-only",
-        "label": "reference-only",
+        "label": "Лише референс",
         "hint": "Це референс, на основі якого ще треба зібрати робочий макет.",
     },
 ]
@@ -164,29 +164,29 @@ CONTACT_CHANNELS = [
 PRODUCT_MATRIX = {
     "hoodie": {
         "label": "Худі",
-        "eyebrow": "hoodie-first",
-        "summary": "Найглибший сценарій: fit, тканина, колір, зони та add-ons.",
-        "hero_note": "Оптимальний шлях для DTF-замовлення з точним відчуттям виробу.",
+        "eyebrow": "Головний сценарій",
+        "summary": "Найглибший шлях: посадка, тканина, колір, зони і виробничі деталі.",
+        "hero_note": "Найзручніший старт, якщо хочете точно зібрати худі під свій принт.",
         "fits": [
-            {"value": "regular", "label": "Regular", "description": "Базова посадка для щоденного мерчу."},
-            {"value": "oversize", "label": "Oversize", "description": "Більш масивний силует з premium-відчуттям."},
+            {"value": "regular", "label": "Класичний", "description": "Базова посадка для щоденного мерчу."},
+            {"value": "oversize", "label": "Оверсайз", "description": "Більш масивний силует з відчуттям преміум-речі."},
         ],
         "fabrics": {
             "regular": [
-                {"value": "standard", "label": "Standard"},
-                {"value": "premium", "label": "Premium"},
+                {"value": "standard", "label": "База"},
+                {"value": "premium", "label": "Преміум"},
             ],
             "oversize": [
-                {"value": "premium", "label": "Premium"},
+                {"value": "premium", "label": "Преміум"},
             ],
         },
         "default_fit": "regular",
         "default_fabric": "premium",
         "colors": [
-            {"value": "black", "label": "Black", "hex": "#151515"},
-            {"value": "graphite", "label": "Graphite", "hex": "#3b3b3f"},
-            {"value": "sand", "label": "Sand", "hex": "#c8b28d"},
-            {"value": "bone", "label": "Bone", "hex": "#ebe3d6"},
+            {"value": "black", "label": "Чорний", "hex": "#151515"},
+            {"value": "graphite", "label": "Графіт", "hex": "#3b3b3f"},
+            {"value": "sand", "label": "Пісочний", "hex": "#c8b28d"},
+            {"value": "bone", "label": "Світлий", "hex": "#ebe3d6"},
         ],
         "default_color": "black",
         "zones": ["front", "back", "sleeve"],
@@ -194,7 +194,7 @@ PRODUCT_MATRIX = {
         "add_ons": [
             {"value": "inside_label", "label": "Внутрішня бірка"},
             {"value": "hem_tag", "label": "Нашивка на низ"},
-            {"value": "grommets", "label": "Додаткові люверси / деталі"},
+            {"value": "grommets", "label": "Додаткові деталі"},
         ],
         "pricing": {
             "base": 1600,
@@ -206,17 +206,17 @@ PRODUCT_MATRIX = {
     },
     "tshirt": {
         "label": "Футболка",
-        "eyebrow": "simplified",
-        "summary": "Легший шлях без важкої конфігурації посадки.",
-        "hero_note": "Швидкий збір варіанту з одним або кількома DTF-зонами.",
+        "eyebrow": "Швидкий старт",
+        "summary": "Легший шлях без зайвої конфігурації.",
+        "hero_note": "Швидкий варіант, якщо потрібен чистий старт з однією або двома зонами.",
         "fits": [],
         "fabrics": {},
         "default_fit": "",
         "default_fabric": "",
         "colors": [
-            {"value": "black", "label": "Black", "hex": "#151515"},
-            {"value": "white", "label": "White", "hex": "#f1ede6"},
-            {"value": "graphite", "label": "Graphite", "hex": "#4a4a52"},
+            {"value": "black", "label": "Чорний", "hex": "#151515"},
+            {"value": "white", "label": "Білий", "hex": "#f1ede6"},
+            {"value": "graphite", "label": "Графіт", "hex": "#4a4a52"},
         ],
         "default_color": "black",
         "zones": ["front", "back"],
@@ -232,17 +232,17 @@ PRODUCT_MATRIX = {
     },
     "longsleeve": {
         "label": "Лонгслів",
-        "eyebrow": "simplified",
-        "summary": "Сценарій між футболкою та худі з акцентом на довгий рукав.",
-        "hero_note": "Добрий варіант для фронту, спини або рукава без перевантаження формою.",
+        "eyebrow": "Швидкий старт",
+        "summary": "Помірно глибокий шлях між футболкою та худі.",
+        "hero_note": "Підійде, якщо потрібен чистий фронт, спина або акцент на рукаві.",
         "fits": [],
         "fabrics": {},
         "default_fit": "",
         "default_fabric": "",
         "colors": [
-            {"value": "black", "label": "Black", "hex": "#151515"},
-            {"value": "bone", "label": "Bone", "hex": "#e7ddcf"},
-            {"value": "olive", "label": "Olive", "hex": "#59604a"},
+            {"value": "black", "label": "Чорний", "hex": "#151515"},
+            {"value": "bone", "label": "Світлий", "hex": "#e7ddcf"},
+            {"value": "olive", "label": "Оливковий", "hex": "#59604a"},
         ],
         "default_color": "black",
         "zones": ["front", "back", "sleeve"],
@@ -258,7 +258,7 @@ PRODUCT_MATRIX = {
     },
     "customer_garment": {
         "label": "Свій одяг",
-        "eyebrow": "estimate path",
+        "eyebrow": "Через менеджера",
         "summary": "Менеджерський сценарій для вашого виробу з ручним прорахунком.",
         "hero_note": "Головне тут: опис виробу, зони і чітке формулювання задачі.",
         "fits": [],
@@ -450,7 +450,7 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
 
     pricing_payload = raw_snapshot.get("pricing") or {}
     notes_payload = raw_snapshot.get("notes") or {}
-    current_step = str(((raw_snapshot.get("ui") or {}).get("current_step") or "product")).strip() or "product"
+    current_step = str(((raw_snapshot.get("ui") or {}).get("current_step") or "quickstart")).strip() or "quickstart"
 
     return {
         "version": 2,
