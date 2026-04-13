@@ -1,3 +1,5 @@
+/* ── TwoComms Custom Print Configurator ── */
+
 .cp-page {
   --cp-bg: #09080a;
   --cp-surface: rgba(17, 16, 18, 0.9);
@@ -15,6 +17,8 @@
   --cp-success: #9cce8e;
   --cp-danger: #ef9a88;
   --cp-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
+  --cp-motion: 320ms;
+  --cp-ease: cubic-bezier(0.22, 0.68, 0, 1);
   position: relative;
   padding-bottom: 7rem;
   color: var(--cp-text);
@@ -24,6 +28,8 @@
   display: grid;
   gap: 1.3rem;
 }
+
+/* ── Shared card chrome ── */
 
 .cp-hero,
 .cp-card,
@@ -55,10 +61,12 @@
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 80%);
 }
 
+/* ── Hero ── */
+
 .cp-hero {
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
   gap: 1rem;
   padding: clamp(1.2rem, 2vw, 1.6rem);
 }
@@ -119,6 +127,8 @@
   align-items: center;
 }
 
+/* ── Shared button / link chrome ── */
+
 .cp-link,
 .cp-submit-button,
 .cp-secondary-button,
@@ -133,7 +143,8 @@
   border: 1px solid transparent;
   font-weight: 700;
   text-decoration: none;
-  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, color 180ms ease;
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, color 180ms ease, box-shadow 180ms ease;
 }
 
 .cp-link--primary,
@@ -159,6 +170,14 @@
 .cp-mobile-bar-action:hover {
   transform: translateY(-1px);
 }
+
+.cp-link--primary:hover,
+.cp-submit-button:hover,
+.cp-mobile-bar-action:hover {
+  box-shadow: 0 20px 44px rgba(215, 164, 80, 0.32);
+}
+
+/* ── Hero panel ── */
 
 .cp-hero-panel {
   display: grid;
@@ -212,63 +231,157 @@
   gap: 0.45rem;
 }
 
+/* ── Form root ── */
+
 .cp-configurator {
   display: grid;
   gap: 1rem;
 }
 
-.cp-build-strip {
+/* ── Progress bar (replaces build strip) ── */
+
+.cp-progress {
+  position: relative;
+  padding: 0 0.5rem;
+}
+
+.cp-progress-track {
+  position: absolute;
+  top: 13px;
+  left: calc(100% / 12);
+  right: calc(100% / 12);
+  height: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.cp-progress-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--cp-accent), var(--cp-accent-soft));
+  border-radius: 2px;
+  transition: width 400ms var(--cp-ease);
+}
+
+.cp-progress-steps {
   display: flex;
-  gap: 0.65rem;
-  overflow-x: auto;
-  padding-bottom: 0.1rem;
-  scrollbar-width: none;
+  justify-content: space-between;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.cp-build-strip::-webkit-scrollbar {
-  display: none;
+.cp-progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
 }
 
-.cp-build-chip {
-  display: grid;
-  flex: 0 0 168px;
-  gap: 0.2rem;
-  padding: 0.78rem 0.9rem;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(255, 255, 255, 0.025);
-  color: var(--cp-text);
-  text-align: left;
+.cp-progress-dot {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: var(--cp-bg);
+  transition: all var(--cp-motion) var(--cp-ease);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.cp-build-chip small {
+.cp-progress-dot::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: transparent;
+  transition: all var(--cp-motion) var(--cp-ease);
+}
+
+.cp-progress-label {
+  font-size: 0.72rem;
+  font-weight: 600;
   color: var(--cp-soft);
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.68rem;
+  white-space: nowrap;
+  transition: color var(--cp-motion) var(--cp-ease);
 }
 
-.cp-build-chip strong {
-  font-size: 0.92rem;
+/* Active step */
+.cp-progress-step.is-active .cp-progress-dot {
+  border-color: var(--cp-accent);
+  box-shadow: 0 0 0 4px rgba(215, 164, 80, 0.15), 0 0 16px rgba(215, 164, 80, 0.1);
 }
 
-.cp-build-chip.is-active,
-.cp-build-chip:hover {
-  border-color: var(--cp-border-strong);
-  background: rgba(242, 211, 155, 0.08);
+.cp-progress-step.is-active .cp-progress-dot::after {
+  background: var(--cp-accent);
 }
 
-.cp-build-chip.is-done:not(.is-active) {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.035);
+.cp-progress-step.is-active .cp-progress-label {
+  color: var(--cp-accent-soft);
 }
+
+/* Completed step */
+.cp-progress-step.is-done .cp-progress-dot {
+  border-color: var(--cp-accent);
+  background: var(--cp-accent);
+}
+
+.cp-progress-step.is-done .cp-progress-dot::after {
+  content: '';
+  width: 10px;
+  height: 6px;
+  border-radius: 0;
+  background: transparent;
+  border-left: 2px solid #141214;
+  border-bottom: 2px solid #141214;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+.cp-progress-step.is-done .cp-progress-label {
+  color: var(--cp-muted);
+}
+
+/* Hover on progress dot */
+.cp-progress-step:hover .cp-progress-dot {
+  border-color: var(--cp-accent-soft);
+  transform: scale(1.1);
+}
+
+.cp-progress-step:hover .cp-progress-label {
+  color: var(--cp-text);
+}
+
+/* ── Workbench (two-column layout) ── */
 
 .cp-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
   gap: 1.1rem;
   align-items: start;
 }
+
+/* Panel on left, stage on right */
+.cp-panel-column {
+  order: 1;
+}
+
+.cp-stage-card {
+  order: 2;
+}
+
+/* ── Cards ── */
 
 .cp-stage-card,
 .cp-card,
@@ -284,7 +397,10 @@
 .cp-panel-column {
   display: grid;
   gap: 1rem;
+  position: relative;
 }
+
+/* ── Step panel show/hide with animation ── */
 
 .cp-card--step {
   display: none;
@@ -292,7 +408,51 @@
 
 .cp-card--step.is-current {
   display: block;
+  animation: cpStepEnter var(--cp-motion) var(--cp-ease) both;
 }
+
+.cp-card--step.is-current.is-forward {
+  animation-name: cpStepForward;
+}
+
+.cp-card--step.is-current.is-backward {
+  animation-name: cpStepBackward;
+}
+
+@keyframes cpStepEnter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cpStepForward {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes cpStepBackward {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ── Card head ── */
 
 .cp-card-head {
   position: relative;
@@ -312,6 +472,8 @@
   letter-spacing: -0.04em;
 }
 
+/* ── Stage card internals ── */
+
 .cp-stage-view-switch {
   display: inline-flex;
   padding: 0.2rem;
@@ -328,6 +490,8 @@
   border: 0;
   background: transparent;
   color: var(--cp-muted);
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease;
 }
 
 .cp-stage-view-switch button.is-active,
@@ -339,7 +503,7 @@
 
 .cp-stage-frame {
   position: relative;
-  min-height: 520px;
+  min-height: 420px;
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -356,11 +520,14 @@
   border-radius: 999px;
   background: radial-gradient(circle, rgba(215, 164, 80, 0.2), rgba(215, 164, 80, 0) 70%);
   filter: blur(18px);
+  transition: opacity 300ms ease;
 }
+
+/* ── CSS garment preview ── */
 
 .cp-garment-shell {
   position: relative;
-  width: min(100%, 420px);
+  width: min(100%, 340px);
   aspect-ratio: 0.9;
   display: grid;
   place-items: center;
@@ -370,7 +537,7 @@
   position: relative;
   width: 74%;
   height: 72%;
-  transition: transform 220ms ease, filter 220ms ease;
+  transition: transform 280ms var(--cp-ease), filter 280ms var(--cp-ease);
   filter: drop-shadow(0 28px 42px rgba(0, 0, 0, 0.42));
 }
 
@@ -383,6 +550,7 @@
     var(--cp-garment-fill, linear-gradient(180deg, #49454e, #2d2b30));
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: background 350ms ease;
 }
 
 .cp-garment-body {
@@ -445,6 +613,8 @@
   display: none;
 }
 
+/* ── Zone layer ── */
+
 .cp-zone-layer {
   position: absolute;
   inset: 0;
@@ -464,17 +634,26 @@
   color: var(--cp-muted);
   font-size: 0.82rem;
   backdrop-filter: blur(14px);
+  cursor: pointer;
+  transition: all 220ms ease;
 }
 
 .cp-zone-pin.is-active {
-  border-color: var(--cp-border-strong);
-  background: rgba(215, 164, 80, 0.2);
+  border-color: var(--cp-accent);
+  background: rgba(215, 164, 80, 0.22);
   color: var(--cp-text);
+  box-shadow: 0 0 12px rgba(215, 164, 80, 0.18);
+}
+
+.cp-zone-pin:hover {
+  transform: translate(-50%, -50%) scale(1.06);
 }
 
 .cp-zone-pin[hidden] {
   display: none;
 }
+
+/* ── Stage meta ── */
 
 .cp-stage-meta {
   display: grid;
@@ -501,6 +680,8 @@
   font-size: 0.94rem;
 }
 
+/* ── Grids ── */
+
 .cp-option-grid,
 .cp-product-grid,
 .cp-inline-fields,
@@ -523,8 +704,11 @@
   grid-template-columns: minmax(160px, 220px) minmax(180px, 1fr);
 }
 
+/* ── Option & product cards ── */
+
 .cp-option-card,
 .cp-product-card {
+  position: relative;
   display: grid;
   gap: 0.4rem;
   padding: 0.92rem 0.96rem;
@@ -533,6 +717,15 @@
   background: rgba(255, 255, 255, 0.025);
   text-align: left;
   color: var(--cp-text);
+  cursor: pointer;
+  transition: border-color 220ms ease, background 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+}
+
+.cp-option-card:hover,
+.cp-product-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateY(-1px);
 }
 
 .cp-option-card small,
@@ -547,15 +740,53 @@
   line-height: 1.55;
 }
 
+/* Active state with checkmark */
 .cp-option-card.is-active,
 .cp-product-card.is-active {
-  border-color: var(--cp-border-strong);
-  background: linear-gradient(180deg, rgba(242, 211, 155, 0.1), rgba(255, 255, 255, 0.025));
+  border-color: var(--cp-accent);
+  background: linear-gradient(180deg, rgba(215, 164, 80, 0.1), rgba(215, 164, 80, 0.03));
+  box-shadow: 0 0 0 1px rgba(215, 164, 80, 0.2), 0 6px 20px rgba(215, 164, 80, 0.12);
+}
+
+.cp-option-card.is-active::after,
+.cp-product-card.is-active::after {
+  content: '\2713';
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--cp-accent);
+  color: #141214;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+  animation: cpCheckPop 280ms var(--cp-ease) both;
+}
+
+@keyframes cpCheckPop {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .cp-product-card strong {
   font-size: 1.03rem;
 }
+
+/* ── Config blocks ── */
 
 .cp-config-block,
 .cp-upload-panel,
@@ -570,12 +801,23 @@
   background: rgba(255, 255, 255, 0.022);
 }
 
+/* Visual section divider within product step */
+.cp-config-block + .cp-config-block {
+  margin-top: 0.35rem;
+}
+
+.cp-config-cluster + .cp-config-block {
+  margin-top: 0.35rem;
+}
+
 .cp-subhead,
 .cp-inline-note-copy {
   display: grid;
   gap: 0.22rem;
   margin-bottom: 0.8rem;
 }
+
+/* ── Mini chips & swatches ── */
 
 .cp-mini-chip-row,
 .cp-swatch-row {
@@ -595,12 +837,20 @@
   background: rgba(255, 255, 255, 0.03);
   color: var(--cp-muted);
   font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.cp-mini-chip:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--cp-text);
 }
 
 .cp-mini-chip.is-active {
-  border-color: var(--cp-border-strong);
-  background: rgba(242, 211, 155, 0.14);
+  border-color: var(--cp-accent);
+  background: rgba(215, 164, 80, 0.14);
   color: var(--cp-text);
+  box-shadow: 0 0 0 1px rgba(215, 164, 80, 0.12);
 }
 
 .cp-swatch {
@@ -613,20 +863,37 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
   color: var(--cp-muted);
+  cursor: pointer;
+  transition: all 200ms ease;
 }
 
-.cp-swatch.is-active {
-  border-color: var(--cp-border-strong);
-  background: rgba(242, 211, 155, 0.14);
+.cp-swatch:hover {
+  border-color: rgba(255, 255, 255, 0.18);
   color: var(--cp-text);
 }
 
-.cp-swatch-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+.cp-swatch.is-active {
+  border-color: var(--cp-accent);
+  background: rgba(215, 164, 80, 0.14);
+  color: var(--cp-text);
+  box-shadow: 0 0 0 1px rgba(215, 164, 80, 0.12);
 }
+
+.cp-swatch-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.cp-swatch.is-active .cp-swatch-dot {
+  transform: scale(1.15);
+  box-shadow: 0 0 8px rgba(215, 164, 80, 0.3);
+  border-color: var(--cp-accent-soft);
+}
+
+/* ── Form fields ── */
 
 .cp-field {
   display: grid;
@@ -647,6 +914,14 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(11, 10, 13, 0.7);
   color: var(--cp-text);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.cp-field input:focus,
+.cp-field textarea:focus {
+  outline: none;
+  border-color: var(--cp-accent);
+  box-shadow: 0 0 0 2px rgba(215, 164, 80, 0.12);
 }
 
 .cp-field textarea {
@@ -664,6 +939,8 @@
   padding: 0;
 }
 
+/* ── Upload ── */
+
 .cp-upload-field {
   display: grid;
   gap: 0.45rem;
@@ -675,6 +952,11 @@
   border: 1px dashed rgba(242, 211, 155, 0.36);
   background: rgba(17, 16, 20, 0.78);
   color: var(--cp-text);
+  transition: border-color 200ms ease;
+}
+
+.cp-upload-field input:hover {
+  border-color: var(--cp-accent);
 }
 
 .cp-file-list {
@@ -692,6 +974,8 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+/* ── Step actions ── */
+
 .cp-step-actions {
   display: flex;
   justify-content: space-between;
@@ -699,10 +983,16 @@
   margin-top: 1rem;
 }
 
+/* ── Review ── */
+
 .cp-review-box ul,
 .cp-capsule-breakdown ul {
   margin: 0;
   padding-left: 1.1rem;
+}
+
+.cp-status-box {
+  transition: background 220ms ease, border-color 220ms ease;
 }
 
 .cp-status-box.is-error {
@@ -716,6 +1006,8 @@
   background: rgba(36, 68, 34, 0.26);
   color: #d8f7cf;
 }
+
+/* ── Price capsule ── */
 
 .cp-capsule {
   display: grid;
@@ -747,6 +1039,8 @@
   background: rgba(255, 255, 255, 0.022);
 }
 
+/* ── Mobile bar ── */
+
 .cp-mobile-bar {
   position: fixed;
   left: 0.9rem;
@@ -756,16 +1050,22 @@
   display: none;
   gap: 0.7rem;
   grid-template-columns: minmax(0, 1fr) auto;
+  border-radius: 20px;
+  border: 1px solid var(--cp-border);
+  background: rgba(11, 10, 13, 0.92);
+  backdrop-filter: blur(20px);
+  padding: 0.35rem;
 }
 
 .cp-mobile-bar-toggle,
 .cp-mobile-bar-action {
-  min-height: 56px;
+  min-height: 52px;
 }
 
 .cp-mobile-bar-toggle {
   justify-content: flex-start;
   text-align: left;
+  border-radius: 16px;
 }
 
 .cp-mobile-bar-toggle span {
@@ -777,13 +1077,27 @@
   color: var(--cp-soft);
 }
 
+.cp-mobile-bar-action {
+  border-radius: 16px;
+}
+
+/* ── Responsive ── */
+
 @media (max-width: 1160px) {
   .cp-workbench {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .cp-stage-card {
+    order: 1;
+  }
+
+  .cp-panel-column {
+    order: 2;
+  }
+
   .cp-stage-frame {
-    min-height: 430px;
+    min-height: 360px;
   }
 
   .cp-stage-card {
@@ -798,7 +1112,10 @@
   }
 
   .cp-option-grid--three,
-  .cp-product-grid,
+  .cp-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .cp-option-grid--two,
   .cp-inline-fields,
   .cp-inline-fields--compact,
@@ -809,16 +1126,30 @@
   .cp-title {
     max-width: none;
   }
+
+  /* Compact progress for tablet */
+  .cp-progress-label {
+    font-size: 0.65rem;
+  }
 }
 
 @media (max-width: 720px) {
   .cp-page {
-    padding-bottom: 8.4rem;
+    padding-bottom: 6rem;
   }
 
+  /* Compact stage on mobile */
   .cp-stage-frame {
-    min-height: 360px;
+    min-height: 260px;
     padding: 0.6rem;
+  }
+
+  .cp-garment-shell {
+    width: min(100%, 240px);
+  }
+
+  .cp-stage-meta {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .cp-stage-toolbar {
@@ -826,16 +1157,37 @@
     align-items: stretch;
   }
 
+  /* Progress bar mobile */
+  .cp-progress {
+    padding: 0;
+  }
+
+  .cp-progress-dot {
+    width: 22px;
+    height: 22px;
+  }
+
+  .cp-progress-label {
+    font-size: 0.6rem;
+  }
+
+  /* Product grid 1 col on small phones */
+  .cp-option-grid--three,
+  .cp-product-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Floating capsule */
   .cp-capsule {
     position: fixed;
     left: 0.9rem;
     right: 0.9rem;
-    bottom: 5.6rem;
+    bottom: 5.2rem;
     z-index: 39;
     opacity: 0;
     pointer-events: none;
     transform: translateY(14px);
-    transition: opacity 180ms ease, transform 180ms ease;
+    transition: opacity 220ms ease, transform 220ms ease;
   }
 
   .cp-page[data-mobile-expanded="true"] .cp-capsule {
@@ -856,7 +1208,32 @@
   .cp-step-actions .cp-secondary-button {
     width: 100%;
   }
+
+  /* Card spacing mobile */
+  .cp-card,
+  .cp-stage-card {
+    padding: 0.9rem;
+    border-radius: 20px;
+  }
 }
+
+@media (max-width: 420px) {
+  .cp-progress-label {
+    font-size: 0.52rem;
+    letter-spacing: 0;
+  }
+
+  .cp-progress-dot {
+    width: 18px;
+    height: 18px;
+  }
+
+  .cp-hero {
+    padding: 1rem;
+  }
+}
+
+/* ── Reduced motion ── */
 
 @media (prefers-reduced-motion: reduce) {
   .cp-link,
@@ -866,7 +1243,24 @@
   .cp-mobile-bar-action,
   .cp-stage-view-switch button,
   .cp-capsule,
-  .cp-garment {
+  .cp-garment,
+  .cp-progress-dot,
+  .cp-progress-fill,
+  .cp-option-card,
+  .cp-product-card,
+  .cp-mini-chip,
+  .cp-swatch {
     transition: none !important;
+  }
+
+  .cp-card--step.is-current,
+  .cp-card--step.is-current.is-forward,
+  .cp-card--step.is-current.is-backward {
+    animation: none !important;
+  }
+
+  .cp-option-card.is-active::after,
+  .cp-product-card.is-active::after {
+    animation: none !important;
   }
 }

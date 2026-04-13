@@ -43,27 +43,16 @@
     </div>
 
     <form id="customPrintConfiguratorForm" class="cp-configurator" novalidate>
-      <nav class="cp-build-strip" aria-label="Ключові кроки">
-        <button type="button" class="cp-build-chip is-active" data-step-link="quickstart">
-          <small>Старт</small>
-          <strong data-step-summary="quickstart">Почати з нуля</strong>
-        </button>
-        <button type="button" class="cp-build-chip" data-step-link="mode">
-          <small>Формат</small>
-          <strong data-step-summary="mode">Для себе</strong>
-        </button>
-        <button type="button" class="cp-build-chip" data-step-link="product">
-          <small>Виріб</small>
-          <strong data-step-summary="product">Худі</strong>
-        </button>
-        <button type="button" class="cp-build-chip" data-step-link="artwork">
-          <small>Макет</small>
-          <strong data-step-summary="artwork">Потрібен дизайн</strong>
-        </button>
-        <button type="button" class="cp-build-chip" data-step-link="review">
-          <small>Фінал</small>
-          <strong data-step-summary="review">Контакт не вказано</strong>
-        </button>
+      <nav class="cp-progress" aria-label="Кроки конфігуратора" data-progress-bar>
+        <div class="cp-progress-track"><div class="cp-progress-fill" data-progress-fill></div></div>
+        <ol class="cp-progress-steps">
+          <li><button type="button" class="cp-progress-step is-active" data-step-link="quickstart"><span class="cp-progress-dot"></span><span class="cp-progress-label">Старт</span></button></li>
+          <li><button type="button" class="cp-progress-step" data-step-link="mode"><span class="cp-progress-dot"></span><span class="cp-progress-label">Формат</span></button></li>
+          <li><button type="button" class="cp-progress-step" data-step-link="product"><span class="cp-progress-dot"></span><span class="cp-progress-label">Виріб</span></button></li>
+          <li><button type="button" class="cp-progress-step" data-step-link="artwork"><span class="cp-progress-dot"></span><span class="cp-progress-label">Макет</span></button></li>
+          <li><button type="button" class="cp-progress-step" data-step-link="quantity"><span class="cp-progress-dot"></span><span class="cp-progress-label">Кількість</span></button></li>
+          <li><button type="button" class="cp-progress-step" data-step-link="review"><span class="cp-progress-dot"></span><span class="cp-progress-label">Контакт</span></button></li>
+        </ol>
       </nav>
 
       <div class="cp-workbench">
