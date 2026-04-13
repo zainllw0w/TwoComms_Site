@@ -16,6 +16,7 @@
 
   const storageKey = config.storage_key || "twocomms.custom_print.v2.draft";
   const defaultState = deepCopy(config.defaults || {});
+  const stepOrder = ["quickstart", "mode", "product", "artwork", "quantity", "review"];
   const stagePositions = {
     hoodie: {
       front: {
@@ -60,6 +61,7 @@
   const form = document.getElementById("customPrintConfiguratorForm");
   const dom = {
     buildStrip: document.querySelector(".cp-build-strip"),
+    stepSections: Array.from(root.querySelectorAll("[data-step]")),
     heroDynamicLabel: root.querySelector("[data-hero-dynamic-label]"),
     heroDynamicCopy: root.querySelector("[data-hero-dynamic-copy]"),
     quickStartList: root.querySelector("[data-quick-start-list]"),
@@ -115,6 +117,8 @@
     safeExitButtons: Array.from(root.querySelectorAll("[data-safe-exit-trigger]")),
     mobileSummaryToggleButtons: Array.from(root.querySelectorAll("[data-mobile-summary-toggle]")),
     submitShortcut: root.querySelector("[data-submit-shortcut]"),
+    stepNavButtons: Array.from(root.querySelectorAll("[data-step-nav]")),
+    startFlowButtons: Array.from(root.querySelectorAll("[data-start-flow]")),
   };
 
   let selectedFiles = [];
@@ -127,7 +131,7 @@
   renderAll();
 
   if (draft) {
-    showStatus("Локальну чернетку відновлено. Ви можете продовжити або одразу скористатися Safe exit.", "success");
+    showStatus("Локальну чернетку відновлено. Можна продовжити збір або передати її менеджеру.", "success");
   }
 
   function deepCopy(value) {
@@ -238,7 +242,8 @@
     base.notes.garment_note = ((draftState.notes || {}).garment_note || (base.notes || {}).garment_note || "").trim();
 
     base.ui = base.ui || {};
-    base.ui.current_step = ((draftState.ui || {}).current_step || base.ui.current_step || "product").trim();
+    const requestedStep = ((draftState.ui || {}).current_step || base.ui.current_step || "quickstart").trim();
+    base.ui.current_step = stepOrder.includes(requestedStep) ? requestedStep : "quickstart";
 
     stageView = inferStageView(base.print.zones[0] || "front");
     return base;
@@ -273,7 +278,7 @@
       if (value === "starter_style" && !state.starter_style) {
         state.starter_style = "minimal";
       }
-      setCurrentStep("quickstart");
+      setCurrentStep("mode");
       renderAll();
     });
 
@@ -285,7 +290,7 @@
 
     delegateChoice(dom.modeList, (value) => {
       state.mode = value;
-      setCurrentStep("mode");
+      setCurrentStep("product");
       renderAll();
     });
 
@@ -460,19 +465,25 @@
       if (!button) {
         return;
       }
-      const step = button.dataset.stepLink;
-      const target = document.getElementById(`cp-step-${step}`);
-      if (target) {
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
-        setCurrentStep(step);
-        renderBuildStrip();
-      }
+      focusStep(button.dataset.stepLink);
     });
 
-    root.querySelectorAll("[data-step]").forEach((section) => {
+    dom.stepSections.forEach((section) => {
       section.addEventListener("click", () => {
-        setCurrentStep(section.dataset.step || "product");
+        setCurrentStep(section.dataset.step || "quickstart");
         renderBuildStrip();
+      });
+    });
+
+    dom.stepNavButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        focusStep(button.dataset.stepNav);
+      });
+    });
+
+    dom.startFlowButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        focusStep("quickstart");
       });
     });
 
@@ -526,7 +537,7 @@
         showStatus(payload.message || "Заявку прийнято. Менеджер зв'яжеться найближчим часом.", "success");
         root.dataset.mobileExpanded = "false";
       } catch (error) {
-        showStatus("Мережевий збій під час відправки. Ви можете спробувати ще раз або скористатися Safe exit.", "error");
+        showStatus("Мережевий збій під час відправки. Ви можете спробувати ще раз або передати чернетку менеджеру.", "error");
       } finally {
         setBusy(false);
       }
@@ -542,6 +553,7 @@
     renderQuantity();
     renderReview();
     renderStage();
+    renderStepPanels();
     renderBuildStrip();
     renderPriceCapsule();
     syncInputsFromState();
@@ -551,7 +563,7 @@
   function renderQuickStart() {
     dom.quickStartList.innerHTML = (config.quick_start_modes || []).map((item) => (
       `<button type="button" class="cp-option-card ${state.quick_start_mode === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        <small>Quick start</small>
+        <small>Старт</small>
         <strong>${escapeHtml(item.label)}</strong>
         <span>${escapeHtml(item.hint)}</span>
       </button>`
@@ -572,7 +584,7 @@
   function renderModes() {
     dom.modeList.innerHTML = (config.modes || []).map((item) => (
       `<button type="button" class="cp-option-card ${state.mode === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        <small>Mode</small>
+        <small>Формат</small>
         <strong>${escapeHtml(item.label)}</strong>
         <span>${escapeHtml(item.hint || "")}</span>
       </button>`
@@ -635,7 +647,7 @@
   function renderArtwork() {
     dom.artworkServiceList.innerHTML = (config.artwork_services || []).map((item) => (
       `<button type="button" class="cp-option-card ${state.artwork.service_kind === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        <small>Artwork</small>
+        <small>Макет</small>
         <strong>${escapeHtml(item.label)}</strong>
         <span>${escapeHtml(item.hint || "")}</span>
       </button>`
@@ -653,16 +665,16 @@
     }
 
     const restoreNotice = state.artwork.files.length && !selectedFiles.length
-      ? `<div class="cp-file-item"><div><strong>Чернетку відновлено</strong><div>Назви файлів збережено, але самі файли потрібно вибрати повторно перед submit.</div></div></div>`
+      ? `<div class="cp-file-item"><div><strong>Чернетку відновлено</strong><div>Назви файлів збережено, але самі файли потрібно вибрати повторно перед відправкою.</div></div></div>`
       : "";
 
     dom.fileList.innerHTML = restoreNotice + state.artwork.files.map((file, index) => (
       `<div class="cp-file-item">
         <div>
           <strong>${escapeHtml(file.name || `file-${index + 1}`)}</strong>
-          <div>${escapeHtml((config.zone_labels || {})[file.zone] || file.zone || "front")} · ${escapeHtml(file.status || state.artwork.triage_status)}</div>
+          <div>${escapeHtml((config.zone_labels || {})[file.zone] || file.zone || "front")} · ${escapeHtml(labelForValue(config.triage_statuses, file.status || state.artwork.triage_status))}</div>
         </div>
-        <span>${escapeHtml(file.role || "design")}</span>
+        <span>${escapeHtml(labelForFileRole(file.role || "design"))}</span>
       </div>`
     )).join("");
   }
@@ -687,14 +699,14 @@
     const contactLabel = ((config.contact_channels || []).find((item) => item.value === state.contact.channel) || {}).label || "Не вказано";
     const lines = [
       `<ul>
-        <li><strong>Quick Start:</strong> ${escapeHtml(labelForValue(config.quick_start_modes, state.quick_start_mode))}</li>
-        <li><strong>Mode:</strong> ${escapeHtml(state.mode === "brand" ? "Для команди / бренду" : "Для себе")}</li>
+        <li><strong>Старт:</strong> ${escapeHtml(labelForValue(config.quick_start_modes, state.quick_start_mode))}</li>
+        <li><strong>Формат:</strong> ${escapeHtml(state.mode === "brand" ? "Для команди / бренду" : "Для себе")}</li>
         <li><strong>Виріб:</strong> ${escapeHtml(product.label || "Худі")}</li>
         <li><strong>Зони:</strong> ${escapeHtml(formatZones())}</li>
-        <li><strong>Artwork:</strong> ${escapeHtml(labelForValue(config.artwork_services, state.artwork.service_kind))} / ${escapeHtml(state.artwork.triage_status)}</li>
+        <li><strong>Макет:</strong> ${escapeHtml(labelForValue(config.artwork_services, state.artwork.service_kind))} / ${escapeHtml(labelForValue(config.triage_statuses, state.artwork.triage_status))}</li>
         <li><strong>Кількість:</strong> ${escapeHtml(String(state.order.quantity))}</li>
         <li><strong>Контакт:</strong> ${escapeHtml(contactLabel)}${state.contact.value ? ` — ${escapeHtml(state.contact.value)}` : ""}</li>
-        <li><strong>Статус ціни:</strong> ${pricing.estimate_required ? "Estimate" : `${formatPrice(pricing.final_total)} / шт`}</li>
+        <li><strong>Ціна зараз:</strong> ${pricing.estimate_required ? "Ціну уточнюємо" : `${formatPrice(pricing.final_total)} / шт`}</li>
       </ul>`,
     ];
 
@@ -725,7 +737,17 @@
     });
 
     root.querySelectorAll("[data-step-link]").forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.stepLink === state.ui.current_step);
+      const buttonStep = button.dataset.stepLink;
+      button.classList.toggle("is-active", buttonStep === state.ui.current_step);
+      button.classList.toggle("is-done", stepOrder.indexOf(buttonStep) < stepOrder.indexOf(state.ui.current_step));
+    });
+  }
+
+  function renderStepPanels() {
+    dom.stepSections.forEach((section) => {
+      const isCurrent = section.dataset.step === state.ui.current_step;
+      section.hidden = !isCurrent;
+      section.classList.toggle("is-current", isCurrent);
     });
   }
 
@@ -734,13 +756,13 @@
     const color = (product.colors || []).find((item) => item.value === state.product.color) || {};
     dom.garment.className = `cp-garment cp-garment--${state.product.type} cp-garment--${stageView}`;
     dom.garment.style.setProperty("--cp-garment-fill", color.hex || "#46424a");
-    dom.stageEyebrow.textContent = product.eyebrow || "product";
+    dom.stageEyebrow.textContent = product.eyebrow || "Виріб";
     dom.stageLabel.textContent = product.label || "Худі";
     dom.stageNote.textContent = product.hero_note || "";
     dom.stageZones.textContent = formatZones();
     dom.stageAddons.textContent = state.print.add_ons.length
-      ? `Add-ons: ${(state.print.add_ons || []).map((value) => labelForAddOn(value)).join(", ")}.`
-      : "Без додаткових add-ons.";
+      ? `Додаткові деталі: ${(state.print.add_ons || []).map((value) => labelForAddOn(value)).join(", ")}.`
+      : "Без додаткових деталей.";
 
     dom.stageViewButtons.forEach((button) => {
       button.classList.toggle("is-active", button.dataset.stageView === stageView);
@@ -782,17 +804,17 @@
   function renderPriceCapsule() {
     const pricing = computePricing();
     const product = getProductConfig(state.product.type);
-    let title = "Estimate уточнюється";
-    let priceMain = "Estimate";
+    let title = "Ціну уточнюємо";
+    let priceMain = "Прорахунок";
     let priceSub = "Один або кілька параметрів потребують ручного прорахунку.";
 
     if (!pricing.estimate_required && pricing.final_total !== null) {
       title = `Від ${formatPrice(pricing.final_total)} / шт`;
       priceMain = formatPrice(pricing.final_total);
-      priceSub = "Точний quick estimate для одного стандартного DTF-зонування.";
+      priceSub = "Попередня ціна для одного стандартного розміщення принта.";
     } else if (pricing.base_price !== null) {
       title = `База від ${formatPrice(pricing.base_price)}`;
-      priceMain = "Estimate";
+      priceMain = "Уточнюємо";
       priceSub = "Бачимо базу, але фінальний прорахунок потребує менеджерської валідації.";
     }
 
@@ -800,15 +822,15 @@
     dom.priceMain.textContent = priceMain;
     dom.priceSub.textContent = priceSub;
     dom.inlinePriceSummary.textContent = `${product.label}: ${title}`;
-    dom.mobilePrice.textContent = priceMain === "Estimate" ? title : `${priceMain} / шт`;
-    dom.mobilePriceNote.textContent = pricing.estimate_required ? "Відкрити capsule" : "Quick estimate готовий";
+    dom.mobilePrice.textContent = pricing.estimate_required ? title : `${priceMain} / шт`;
+    dom.mobilePriceNote.textContent = pricing.estimate_required ? "Відкрити деталі" : "Ціна вже порахована";
 
     const breakdown = [
       `<ul>
         <li><strong>База:</strong> ${pricing.base_price !== null ? escapeHtml(formatPrice(pricing.base_price)) : "менеджерський прорахунок"}</li>
-        <li><strong>Artwork:</strong> ${pricing.design_price ? escapeHtml(`+${formatPrice(pricing.design_price)}`) : "без доплати"}</li>
+        <li><strong>Макет:</strong> ${pricing.design_price ? escapeHtml(`+${formatPrice(pricing.design_price)}`) : "без доплати"}</li>
         <li><strong>Зони:</strong> ${escapeHtml(formatZones())}</li>
-        <li><strong>Add-ons:</strong> ${state.print.add_ons.length ? escapeHtml((state.print.add_ons || []).map((value) => labelForAddOn(value)).join(", ")) : "немає"}</li>
+        <li><strong>Деталі:</strong> ${state.print.add_ons.length ? escapeHtml((state.print.add_ons || []).map((value) => labelForAddOn(value)).join(", ")) : "немає"}</li>
         <li><strong>Кількість:</strong> ${escapeHtml(String(state.order.quantity))}</li>
       </ul>`,
     ];
@@ -817,7 +839,7 @@
       breakdown.push(`<div><strong>Знижка:</strong> ${escapeHtml(String(pricing.discount_percent))}%</div>`);
     }
     if (pricing.estimate_required && pricing.estimate_reason) {
-      breakdown.push(`<div><strong>Причина estimate:</strong> ${escapeHtml(pricing.estimate_reason)}</div>`);
+      breakdown.push(`<div><strong>Чому уточнюємо:</strong> ${escapeHtml(formatEstimateReason(pricing.estimate_reason))}</div>`);
     }
     dom.priceBreakdown.innerHTML = breakdown.join("");
   }
@@ -982,7 +1004,7 @@
 
   async function handleSafeExit() {
     const snapshot = buildSnapshot();
-    showStatus("Передаю safe exit менеджеру…", "success");
+      showStatus("Передаю чернетку менеджеру…", "success");
     setBusy(true);
 
     try {
@@ -998,18 +1020,18 @@
 
       const payload = await response.json();
       if (!response.ok || !payload.ok) {
-        showStatus("Не вдалося передати safe exit. Спробуйте ще раз або надішліть заявку повністю.", "error");
+        showStatus("Не вдалося передати чернетку менеджеру. Спробуйте ще раз або надішліть заявку повністю.", "error");
         return;
       }
 
       const leadLabel = payload.lead_number ? ` Чернетка зафіксована як ${payload.lead_number}.` : "";
-      showStatus(`Safe exit відправлено.${leadLabel} Відкриваю Telegram для прямого контакту.`, "success");
+      showStatus(`Чернетку передано менеджеру.${leadLabel} Відкриваю Telegram для прямого контакту.`, "success");
       window.setTimeout(() => {
         window.open(payload.manager_url || config.telegram_manager_url, "_blank", "noopener");
       }, 180);
       root.dataset.mobileExpanded = "false";
     } catch (error) {
-      showStatus("Не вдалося виконати safe exit через мережеву помилку.", "error");
+      showStatus("Не вдалося передати чернетку через мережеву помилку.", "error");
     } finally {
       setBusy(false);
     }
@@ -1093,9 +1115,28 @@
 
   function formatPrice(value) {
     if (value === null || value === undefined || Number.isNaN(Number(value))) {
-      return "Estimate";
+      return "Ціну уточнюємо";
     }
     return `${new Intl.NumberFormat("uk-UA").format(Number(value))} грн`;
+  }
+
+  function labelForFileRole(value) {
+    if (value === "reference") {
+      return "Референс";
+    }
+    return "Робочий файл";
+  }
+
+  function formatEstimateReason(reason) {
+    const labels = {
+      customer_garment: "свій виріб потребує окремого прорахунку",
+      custom_zone: "обрано нестандартну зону друку",
+      multi_zone: "обрано кілька зон друку",
+      design: "потрібна допомога з дизайном",
+      adjust: "файл потрібно допрацювати",
+      ready: "файл потрібно перевірити",
+    };
+    return labels[reason] || "потрібна ручна перевірка";
   }
 
   function toggleSelection(list, value, fallback) {
@@ -1134,7 +1175,19 @@
   }
 
   function setCurrentStep(step) {
-    state.ui.current_step = step;
+    state.ui.current_step = stepOrder.includes(step) ? step : "quickstart";
+  }
+
+  function focusStep(step) {
+    if (!stepOrder.includes(step)) {
+      return;
+    }
+    setCurrentStep(step);
+    renderAll();
+    const target = document.getElementById(`cp-step-${step}`);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }
 
   function delegateChoice(container, handler) {

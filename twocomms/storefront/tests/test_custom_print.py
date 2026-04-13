@@ -70,9 +70,9 @@ class CustomPrintPageTests(TestCase):
         self.assertContains(response, "Для себе")
         self.assertContains(response, "Для команди / бренду")
         self.assertContains(response, "Худі")
-        self.assertContains(response, "Regular")
-        self.assertContains(response, "Oversize")
-        self.assertContains(response, "Safe exit")
+        self.assertContains(response, "Класичний")
+        self.assertContains(response, "Оверсайз")
+        self.assertContains(response, "Передати менеджеру")
         self.assertContains(response, "custom-print-configurator.css")
         self.assertContains(response, "custom-print-configurator.js")
         self.assertContains(response, "customPrintConfiguratorConfig")
@@ -89,6 +89,7 @@ class CustomPrintPageTests(TestCase):
         self.assertContains(response, '"hoodie"')
         self.assertContains(response, '"safe_exit_url"')
         self.assertContains(response, '"telegram_manager_url"')
+        self.assertContains(response, '"current_step": "quickstart"')
 
     def test_home_page_contains_inline_custom_print_tile_inside_categories_grid(self):
         response = self._get(reverse("home"), follow=True)
