@@ -97,16 +97,22 @@ ARTWORK_SERVICES = [
         "value": "ready",
         "label": "Готовий файл",
         "hint": "Ви вже маєте макет і хочете перейти до друку максимально швидко.",
+        "price": 0,
+        "price_label": "Безкоштовно",
     },
     {
         "value": "adjust",
-        "label": "Потрібно допрацювати",
+        "label": "Допрацювати файл",
         "hint": "Є файл або референс, але потрібна чистка, адаптація чи підготовка.",
+        "price": 100,
+        "price_label": "+100 грн",
     },
     {
         "value": "design",
-        "label": "Потрібен дизайн",
-        "hint": "Є ідея, вайб або референси, а ми допоможемо зібрати макет з нуля.",
+        "label": "Дизайн з нуля",
+        "hint": "Є ідея, вайб або референси, а ми допоможемо зібрати макет.",
+        "price": 350,
+        "price_label": "+350 грн",
     },
 ]
 
@@ -192,16 +198,14 @@ PRODUCT_MATRIX = {
         "zones": ["front", "back", "sleeve"],
         "default_zones": ["front"],
         "add_ons": [
-            {"value": "inside_label", "label": "Внутрішня бірка"},
-            {"value": "hem_tag", "label": "Нашивка на низ"},
-            {"value": "grommets", "label": "Додаткові деталі"},
+            {"value": "grommets", "label": "Люверси з шнурками", "price": 150},
         ],
         "pricing": {
             "base": 1600,
             "premium_delta": 250,
             "oversize_delta": 200,
             "extra_zone_delta": 180,
-            "add_on_delta": 120,
+            "add_on_delta": 150,
         },
     },
     "tshirt": {

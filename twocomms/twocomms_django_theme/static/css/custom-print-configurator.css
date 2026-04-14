@@ -118,9 +118,7 @@
 }
 
 .cp-hero-actions,
-.cp-stage-help,
-.cp-capsule-actions,
-.cp-stage-toolbar {
+.cp-capsule-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
@@ -238,7 +236,7 @@
   gap: 1rem;
 }
 
-/* ── Progress bar (replaces build strip) ── */
+/* ── Progress bar ── */
 
 .cp-progress {
   position: relative;
@@ -318,7 +316,6 @@
   transition: color var(--cp-motion) var(--cp-ease);
 }
 
-/* Active step */
 .cp-progress-step.is-active .cp-progress-dot {
   border-color: var(--cp-accent);
   box-shadow: 0 0 0 4px rgba(215, 164, 80, 0.15), 0 0 16px rgba(215, 164, 80, 0.1);
@@ -332,7 +329,6 @@
   color: var(--cp-accent-soft);
 }
 
-/* Completed step */
 .cp-progress-step.is-done .cp-progress-dot {
   border-color: var(--cp-accent);
   background: var(--cp-accent);
@@ -353,7 +349,6 @@
   color: var(--cp-muted);
 }
 
-/* Hover on progress dot */
 .cp-progress-step:hover .cp-progress-dot {
   border-color: var(--cp-accent-soft);
   transform: scale(1.1);
@@ -370,15 +365,24 @@
   grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
   gap: 1.1rem;
   align-items: start;
+  transition: grid-template-columns 350ms var(--cp-ease);
 }
 
-/* Panel on left, stage on right */
 .cp-panel-column {
   order: 1;
 }
 
 .cp-stage-card {
   order: 2;
+}
+
+/* Stage hidden on early steps */
+.cp-page[data-stage-visible="false"] .cp-workbench {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cp-page[data-stage-visible="false"] .cp-stage-card {
+  display: none;
 }
 
 /* ── Cards ── */
@@ -420,36 +424,18 @@
 }
 
 @keyframes cpStepEnter {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes cpStepForward {
-  from {
-    opacity: 0;
-    transform: translateX(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes cpStepBackward {
-  from {
-    opacity: 0;
-    transform: translateX(-24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 /* ── Card head ── */
@@ -520,7 +506,6 @@
   border-radius: 999px;
   background: radial-gradient(circle, rgba(215, 164, 80, 0.2), rgba(215, 164, 80, 0) 70%);
   filter: blur(18px);
-  transition: opacity 300ms ease;
 }
 
 /* ── CSS garment preview ── */
@@ -565,15 +550,8 @@
   border-radius: 26px;
 }
 
-.cp-garment-sleeve--left {
-  left: 2%;
-  transform: rotate(24deg);
-}
-
-.cp-garment-sleeve--right {
-  right: 2%;
-  transform: rotate(-24deg);
-}
+.cp-garment-sleeve--left { left: 2%; transform: rotate(24deg); }
+.cp-garment-sleeve--right { right: 2%; transform: rotate(-24deg); }
 
 .cp-garment-hood {
   top: 0;
@@ -584,41 +562,17 @@
 }
 
 .cp-garment--tshirt .cp-garment-hood,
-.cp-garment--longsleeve .cp-garment-hood {
-  display: none;
-}
-
+.cp-garment--longsleeve .cp-garment-hood { display: none; }
 .cp-garment--tshirt .cp-garment-body,
-.cp-garment--longsleeve .cp-garment-body {
-  inset: 12% 20% 0;
-}
-
-.cp-garment--tshirt .cp-garment-sleeve {
-  top: 14%;
-  height: 24%;
-}
-
-.cp-garment--longsleeve .cp-garment-sleeve {
-  top: 18%;
-  height: 48%;
-}
-
-.cp-garment--customer_garment .cp-garment-body {
-  inset: 18% 18% 8%;
-  border-style: dashed;
-  border-radius: 30px;
-}
-
-.cp-garment--customer_garment .cp-garment-hood {
-  display: none;
-}
+.cp-garment--longsleeve .cp-garment-body { inset: 12% 20% 0; }
+.cp-garment--tshirt .cp-garment-sleeve { top: 14%; height: 24%; }
+.cp-garment--longsleeve .cp-garment-sleeve { top: 18%; height: 48%; }
+.cp-garment--customer_garment .cp-garment-body { inset: 18% 18% 8%; border-style: dashed; border-radius: 30px; }
+.cp-garment--customer_garment .cp-garment-hood { display: none; }
 
 /* ── Zone layer ── */
 
-.cp-zone-layer {
-  position: absolute;
-  inset: 0;
-}
+.cp-zone-layer { position: absolute; inset: 0; }
 
 .cp-zone-pin {
   position: absolute;
@@ -645,13 +599,8 @@
   box-shadow: 0 0 12px rgba(215, 164, 80, 0.18);
 }
 
-.cp-zone-pin:hover {
-  transform: translate(-50%, -50%) scale(1.06);
-}
-
-.cp-zone-pin[hidden] {
-  display: none;
-}
+.cp-zone-pin:hover { transform: translate(-50%, -50%) scale(1.06); }
+.cp-zone-pin[hidden] { display: none; }
 
 /* ── Stage meta ── */
 
@@ -671,13 +620,55 @@
   background: rgba(255, 255, 255, 0.025);
 }
 
+/* ── Stage toolbar ── */
+
 .cp-stage-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
   justify-content: space-between;
   margin-top: 0.95rem;
 }
 
+.cp-stage-help {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cp-stage-help a,
+.cp-stage-help button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--cp-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.cp-stage-help a:hover,
+.cp-stage-help button:hover {
+  border-color: var(--cp-accent);
+  color: var(--cp-text);
+  background: rgba(215, 164, 80, 0.06);
+}
+
 .cp-inline-price-summary {
-  font-size: 0.94rem;
+  font-size: 0.88rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(215, 164, 80, 0.08);
+  border: 1px solid rgba(215, 164, 80, 0.12);
+  color: var(--cp-accent-soft);
+  font-weight: 600;
 }
 
 /* ── Grids ── */
@@ -723,8 +714,8 @@
 
 .cp-option-card:hover,
 .cp-product-card:hover {
-  border-color: rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.045);
   transform: translateY(-1px);
 }
 
@@ -740,16 +731,17 @@
   line-height: 1.55;
 }
 
-/* Active state with checkmark */
+/* Active state with golden highlight */
 .cp-option-card.is-active,
 .cp-product-card.is-active {
   border-color: var(--cp-accent);
   background: linear-gradient(180deg, rgba(215, 164, 80, 0.1), rgba(215, 164, 80, 0.03));
-  box-shadow: 0 0 0 1px rgba(215, 164, 80, 0.2), 0 6px 20px rgba(215, 164, 80, 0.12);
+  box-shadow: 0 0 0 1px rgba(215, 164, 80, 0.15), 0 6px 20px rgba(215, 164, 80, 0.1);
 }
 
-.cp-option-card.is-active::after,
-.cp-product-card.is-active::after {
+/* Checkmark badge - only when .has-check class is present */
+.cp-option-card.is-active.has-check::after,
+.cp-product-card.is-active.has-check::after {
   content: '\2713';
   position: absolute;
   top: 0.65rem;
@@ -769,21 +761,36 @@
 }
 
 @keyframes cpCheckPop {
-  from {
-    transform: scale(0);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.2);
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
+  from { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .cp-product-card strong {
   font-size: 1.03rem;
+}
+
+/* ── Price badge on cards ── */
+
+.cp-price-badge {
+  display: inline-flex;
+  align-self: start;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin-top: 0.15rem;
+}
+
+.cp-price-badge--free {
+  background: rgba(156, 206, 142, 0.12);
+  color: var(--cp-success);
+}
+
+.cp-price-badge--paid {
+  background: rgba(215, 164, 80, 0.12);
+  color: var(--cp-accent-soft);
 }
 
 /* ── Config blocks ── */
@@ -801,11 +808,7 @@
   background: rgba(255, 255, 255, 0.022);
 }
 
-/* Visual section divider within product step */
-.cp-config-block + .cp-config-block {
-  margin-top: 0.35rem;
-}
-
+.cp-config-block + .cp-config-block,
 .cp-config-cluster + .cp-config-block {
   margin-top: 0.35rem;
 }
@@ -815,6 +818,85 @@
   display: grid;
   gap: 0.22rem;
   margin-bottom: 0.8rem;
+}
+
+/* ── Toggle switch (for add-ons) ── */
+
+.cp-toggle-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+  transition: all 260ms var(--cp-ease);
+  user-select: none;
+}
+
+.cp-toggle-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.cp-toggle-card.is-active {
+  border-color: var(--cp-accent);
+  background: rgba(215, 164, 80, 0.06);
+}
+
+.cp-toggle-switch {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+  transition: background 260ms var(--cp-ease);
+}
+
+.cp-toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--cp-muted);
+  transition: transform 260ms var(--cp-ease), background 260ms var(--cp-ease);
+}
+
+.cp-toggle-card.is-active .cp-toggle-switch {
+  background: var(--cp-accent);
+}
+
+.cp-toggle-card.is-active .cp-toggle-switch::after {
+  transform: translateX(20px);
+  background: #141214;
+}
+
+.cp-toggle-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.cp-toggle-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.cp-toggle-hint {
+  color: var(--cp-muted);
+  font-size: 0.82rem;
+  margin-top: 0.15rem;
+}
+
+.cp-toggle-price {
+  color: var(--cp-accent-soft);
+  font-weight: 700;
+  font-size: 0.92rem;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* ── Mini chips & swatches ── */
@@ -924,19 +1006,56 @@
   box-shadow: 0 0 0 2px rgba(215, 164, 80, 0.12);
 }
 
-.cp-field textarea {
-  min-height: 110px;
-  resize: vertical;
+.cp-field textarea { min-height: 110px; resize: vertical; }
+.cp-field--toggle { align-content: end; }
+.cp-field--toggle input { width: 22px; min-height: 22px; padding: 0; }
+
+/* ── Quantity step improvements ── */
+
+.cp-quantity-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-.cp-field--toggle {
-  align-content: end;
+.cp-qty-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--cp-text);
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 200ms ease;
+  flex-shrink: 0;
 }
 
-.cp-field--toggle input {
-  width: 22px;
-  min-height: 22px;
-  padding: 0;
+.cp-qty-btn:hover {
+  border-color: var(--cp-accent);
+  background: rgba(215, 164, 80, 0.08);
+}
+
+.cp-qty-input {
+  width: 64px;
+  min-height: 42px;
+  padding: 0.5rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(11, 10, 13, 0.7);
+  color: var(--cp-text);
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.cp-qty-input:focus {
+  outline: none;
+  border-color: var(--cp-accent);
 }
 
 /* ── Upload ── */
@@ -955,9 +1074,7 @@
   transition: border-color 200ms ease;
 }
 
-.cp-upload-field input:hover {
-  border-color: var(--cp-accent);
-}
+.cp-upload-field input:hover { border-color: var(--cp-accent); }
 
 .cp-file-list {
   display: grid;
@@ -1039,6 +1156,10 @@
   background: rgba(255, 255, 255, 0.022);
 }
 
+.cp-capsule-breakdown li {
+  padding: 0.15rem 0;
+}
+
 /* ── Mobile bar ── */
 
 .cp-mobile-bar {
@@ -1058,9 +1179,7 @@
 }
 
 .cp-mobile-bar-toggle,
-.cp-mobile-bar-action {
-  min-height: 52px;
-}
+.cp-mobile-bar-action { min-height: 52px; }
 
 .cp-mobile-bar-toggle {
   justify-content: flex-start;
@@ -1068,18 +1187,9 @@
   border-radius: 16px;
 }
 
-.cp-mobile-bar-toggle span {
-  display: block;
-  font-weight: 700;
-}
-
-.cp-mobile-bar-toggle small {
-  color: var(--cp-soft);
-}
-
-.cp-mobile-bar-action {
-  border-radius: 16px;
-}
+.cp-mobile-bar-toggle span { display: block; font-weight: 700; }
+.cp-mobile-bar-toggle small { color: var(--cp-soft); }
+.cp-mobile-bar-action { border-radius: 16px; }
 
 /* ── Responsive ── */
 
@@ -1088,17 +1198,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .cp-stage-card {
-    order: 1;
-  }
+  .cp-stage-card { order: 1; }
+  .cp-panel-column { order: 2; }
 
-  .cp-panel-column {
-    order: 2;
-  }
-
-  .cp-stage-frame {
-    min-height: 360px;
-  }
+  .cp-stage-frame { min-height: 360px; }
 
   .cp-stage-card {
     position: relative;
@@ -1123,61 +1226,27 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .cp-title {
-    max-width: none;
-  }
-
-  /* Compact progress for tablet */
-  .cp-progress-label {
-    font-size: 0.65rem;
-  }
+  .cp-title { max-width: none; }
+  .cp-progress-label { font-size: 0.65rem; }
 }
 
 @media (max-width: 720px) {
-  .cp-page {
-    padding-bottom: 6rem;
-  }
+  .cp-page { padding-bottom: 6rem; }
 
-  /* Compact stage on mobile */
-  .cp-stage-frame {
-    min-height: 260px;
-    padding: 0.6rem;
-  }
+  .cp-stage-frame { min-height: 260px; padding: 0.6rem; }
+  .cp-garment-shell { width: min(100%, 240px); }
+  .cp-stage-meta { grid-template-columns: minmax(0, 1fr); }
+  .cp-stage-toolbar { flex-direction: column; align-items: stretch; }
 
-  .cp-garment-shell {
-    width: min(100%, 240px);
-  }
+  .cp-progress { padding: 0; }
+  .cp-progress-dot { width: 22px; height: 22px; }
+  .cp-progress-label { font-size: 0.6rem; }
 
-  .cp-stage-meta {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .cp-stage-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  /* Progress bar mobile */
-  .cp-progress {
-    padding: 0;
-  }
-
-  .cp-progress-dot {
-    width: 22px;
-    height: 22px;
-  }
-
-  .cp-progress-label {
-    font-size: 0.6rem;
-  }
-
-  /* Product grid 1 col on small phones */
   .cp-option-grid--three,
   .cp-product-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  /* Floating capsule */
   .cp-capsule {
     position: fixed;
     left: 0.9rem;
@@ -1196,60 +1265,32 @@
     transform: translateY(0);
   }
 
-  .cp-mobile-bar {
-    display: grid;
-  }
+  .cp-mobile-bar { display: grid; }
 
-  .cp-step-actions {
-    flex-direction: column;
-  }
-
+  .cp-step-actions { flex-direction: column; }
   .cp-step-actions .cp-link,
-  .cp-step-actions .cp-secondary-button {
-    width: 100%;
-  }
+  .cp-step-actions .cp-secondary-button { width: 100%; }
 
-  /* Card spacing mobile */
   .cp-card,
-  .cp-stage-card {
-    padding: 0.9rem;
-    border-radius: 20px;
-  }
+  .cp-stage-card { padding: 0.9rem; border-radius: 20px; }
 }
 
 @media (max-width: 420px) {
-  .cp-progress-label {
-    font-size: 0.52rem;
-    letter-spacing: 0;
-  }
-
-  .cp-progress-dot {
-    width: 18px;
-    height: 18px;
-  }
-
-  .cp-hero {
-    padding: 1rem;
-  }
+  .cp-progress-label { font-size: 0.52rem; letter-spacing: 0; }
+  .cp-progress-dot { width: 18px; height: 18px; }
+  .cp-hero { padding: 1rem; }
 }
 
 /* ── Reduced motion ── */
 
 @media (prefers-reduced-motion: reduce) {
-  .cp-link,
-  .cp-submit-button,
-  .cp-secondary-button,
-  .cp-mobile-bar-toggle,
-  .cp-mobile-bar-action,
-  .cp-stage-view-switch button,
-  .cp-capsule,
-  .cp-garment,
-  .cp-progress-dot,
-  .cp-progress-fill,
-  .cp-option-card,
-  .cp-product-card,
-  .cp-mini-chip,
-  .cp-swatch {
+  .cp-link, .cp-submit-button, .cp-secondary-button,
+  .cp-mobile-bar-toggle, .cp-mobile-bar-action,
+  .cp-stage-view-switch button, .cp-capsule,
+  .cp-garment, .cp-progress-dot, .cp-progress-fill,
+  .cp-option-card, .cp-product-card,
+  .cp-mini-chip, .cp-swatch, .cp-toggle-switch,
+  .cp-toggle-card {
     transition: none !important;
   }
 
@@ -1259,8 +1300,8 @@
     animation: none !important;
   }
 
-  .cp-option-card.is-active::after,
-  .cp-product-card.is-active::after {
+  .cp-option-card.is-active.has-check::after,
+  .cp-product-card.is-active.has-check::after {
     animation: none !important;
   }
 }
