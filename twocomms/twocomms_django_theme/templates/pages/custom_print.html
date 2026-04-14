@@ -211,7 +211,7 @@
             <div class="cp-config-block">
                 <div class="cp-subhead">
                   <strong>Зони друку</strong>
-                  <span>У верхньому рядку залишаються тільки головні рішення, без дрібного шуму.</span>
+                  <span>Перша зона безкоштовна. Кожна додаткова зона +180 грн.</span>
                 </div>
               <div class="cp-mini-chip-row" data-zone-list></div>
               <label class="cp-field" for="cp-placement-note" data-placement-note-wrap hidden>
@@ -220,12 +220,14 @@
               </label>
             </div>
 
-            <div class="cp-config-block" data-addons-wrap>
+            <div data-addons-wrap>
+              <div class="cp-config-block">
                 <div class="cp-subhead">
                   <strong>Деталі виробу</strong>
-                  <span>Легкі виробничі доповнення, якщо вони потрібні вже на етапі заявки.</span>
+                  <span>Додаткові опції до вашого виробу.</span>
                 </div>
-              <div class="cp-mini-chip-row" data-addons-list></div>
+                <div data-addons-list></div>
+              </div>
             </div>
 
             <div class="cp-step-actions">
@@ -238,18 +240,10 @@
             <div class="cp-card-head">
               <div>
                 <span class="cp-card-eyebrow">4. Макет</span>
-                <h2>Макет, файл і перевірка</h2>
+                <h2>Ваш макет</h2>
               </div>
             </div>
             <div class="cp-option-grid cp-option-grid--three" data-artwork-service-list></div>
-
-            <div class="cp-config-block">
-              <div class="cp-subhead">
-                <strong>Оцінка файлу</strong>
-                <span>Не блокує заявку. Якщо є сумнів, ми просто передамо файл менеджеру на перевірку.</span>
-              </div>
-              <div class="cp-mini-chip-row" data-triage-list></div>
-            </div>
 
             <div class="cp-upload-panel">
               <label class="cp-upload-field" for="cp-artwork-files">
@@ -274,19 +268,20 @@
             <div class="cp-card-head">
               <div>
                 <span class="cp-card-eyebrow">5. Кількість</span>
-                <h2>Кількість, розміри й подарунок</h2>
+                <h2>Скільки виробів</h2>
               </div>
             </div>
 
-            <div class="cp-inline-fields cp-inline-fields--compact">
-              <label class="cp-field" for="cp-quantity">
-                <span>Кількість</span>
-                <input id="cp-quantity" name="quantity" type="number" min="1" value="1" data-quantity-input>
-              </label>
-              <label class="cp-field cp-field--toggle" for="cp-gift">
-                <span>Позначити як подарунок</span>
-                <input id="cp-gift" name="gift" type="checkbox" data-gift-input>
-              </label>
+            <div class="cp-config-block">
+              <div class="cp-subhead">
+                <strong>Кількість виробів</strong>
+                <span>Вкажіть скільки штук вам потрібно.</span>
+              </div>
+              <div class="cp-quantity-row">
+                <button type="button" class="cp-qty-btn" data-qty-minus>−</button>
+                <input id="cp-quantity" name="quantity" type="number" min="1" value="1" class="cp-qty-input" data-quantity-input>
+                <button type="button" class="cp-qty-btn" data-qty-plus>+</button>
+              </div>
             </div>
 
             <div class="cp-config-block">
@@ -306,6 +301,15 @@
               <span>Опис свого виробу</span>
               <textarea id="cp-garment-note" name="garment_note" rows="3" data-garment-note-input placeholder="Матеріал, колір, крій, стан виробу та все, що важливо для прорахунку"></textarea>
             </label>
+
+            <div class="cp-toggle-card" data-gift-toggle>
+              <div class="cp-toggle-switch"></div>
+              <div class="cp-toggle-body">
+                <div class="cp-toggle-label">Це подарунок</div>
+                <div class="cp-toggle-hint">Ми підготуємо виріб для подарункової упаковки</div>
+              </div>
+            </div>
+            <input type="hidden" name="gift" value="0" data-gift-input>
 
             <div class="cp-step-actions">
               <button type="button" class="cp-secondary-button" data-step-nav="artwork">Назад</button>

@@ -84,7 +84,6 @@
     addonsWrap: root.querySelector("[data-addons-wrap]"),
     addonsList: root.querySelector("[data-addons-list]"),
     artworkServiceList: root.querySelector("[data-artwork-service-list]"),
-    triageList: root.querySelector("[data-triage-list]"),
     fileInput: root.querySelector("[data-file-input]"),
     fileList: root.querySelector("[data-file-list]"),
     briefInput: root.querySelector("[data-brief-input]"),
@@ -122,10 +121,14 @@
     submitShortcut: root.querySelector("[data-submit-shortcut]"),
     stepNavButtons: Array.from(root.querySelectorAll("[data-step-nav]")),
     startFlowButtons: Array.from(root.querySelectorAll("[data-start-flow]")),
+    giftToggle: root.querySelector("[data-gift-toggle]"),
+    qtyMinus: root.querySelector("[data-qty-minus]"),
+    qtyPlus: root.querySelector("[data-qty-plus]"),
   };
 
   let selectedFiles = [];
   let stageView = "front";
+  let userHasInteracted = false;
 
   const draft = readDraft();
   const state = normalizeState(draft || defaultState);
@@ -135,6 +138,7 @@
   renderAll();
 
   if (draft) {
+    userHasInteracted = true;
     showStatus("Локальну чернетку відновлено. Можна продовжити збір або передати її менеджеру.", "success");
   }
 
@@ -274,6 +278,7 @@
 
   function bindEvents() {
     delegateChoice(dom.quickStartList, (value) => {
+      userHasInteracted = true;
       state.quick_start_mode = value;
       if (value === "have_file" && state.artwork.service_kind === "design") {
         state.artwork.service_kind = "ready";
@@ -363,12 +368,6 @@
       renderAll();
     });
 
-    delegateChoice(dom.triageList, (value) => {
-      state.artwork.triage_status = value;
-      setCurrentStep("artwork");
-      renderAll();
-    });
-
     delegateChoice(dom.sizeModeList, (value) => {
       state.order.size_mode = value;
       setCurrentStep("quantity");
@@ -419,11 +418,37 @@
       renderAll();
     });
 
-    dom.giftInput.addEventListener("change", () => {
-      state.order.gift = Boolean(dom.giftInput.checked);
-      setCurrentStep("quantity");
-      renderAll();
-    });
+    if (dom.giftToggle) {
+      dom.giftToggle.addEventListener("click", () => {
+        state.order.gift = !state.order.gift;
+        dom.giftToggle.classList.toggle("is-active", state.order.gift);
+        dom.giftInput.value = state.order.gift ? "1" : "0";
+        setCurrentStep("quantity");
+        persistDraft();
+      });
+    }
+
+    if (dom.qtyMinus) {
+      dom.qtyMinus.addEventListener("click", () => {
+        const current = positiveInt(dom.quantityInput.value, 1);
+        if (current > 1) {
+          state.order.quantity = current - 1;
+          dom.quantityInput.value = state.order.quantity;
+          setCurrentStep("quantity");
+          renderAll();
+        }
+      });
+    }
+
+    if (dom.qtyPlus) {
+      dom.qtyPlus.addEventListener("click", () => {
+        const current = positiveInt(dom.quantityInput.value, 1);
+        state.order.quantity = current + 1;
+        dom.quantityInput.value = state.order.quantity;
+        setCurrentStep("quantity");
+        renderAll();
+      });
+    }
 
     dom.sizesNoteInput.addEventListener("input", () => {
       state.order.sizes_note = dom.sizesNoteInput.value.trim();
@@ -557,6 +582,7 @@
     renderQuantity();
     renderReview();
     renderStage();
+    renderStageVisibility();
     renderStepPanels();
     renderBuildStrip();
     renderPriceCapsule();
@@ -564,14 +590,22 @@
     persistDraft();
   }
 
+  function renderStageVisibility() {
+    const currentIndex = stepOrder.indexOf(state.ui.current_step);
+    const productIndex = stepOrder.indexOf("product");
+    root.dataset.stageVisible = currentIndex >= productIndex ? "true" : "false";
+  }
+
   function renderQuickStart() {
-    dom.quickStartList.innerHTML = (config.quick_start_modes || []).map((item) => (
-      `<button type="button" class="cp-option-card ${state.quick_start_mode === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
+    const userPicked = state.ui.current_step !== "quickstart" || userHasInteracted;
+    dom.quickStartList.innerHTML = (config.quick_start_modes || []).map((item) => {
+      const active = state.quick_start_mode === item.value && userPicked;
+      return `<button type="button" class="cp-option-card ${active ? "is-active has-check" : ""}" data-choice-value="${escapeHtml(item.value)}">
         <small>Старт</small>
         <strong>${escapeHtml(item.label)}</strong>
         <span>${escapeHtml(item.hint)}</span>
-      </button>`
-    )).join("");
+      </button>`;
+    }).join("");
 
     dom.starterStyleWrap.hidden = state.quick_start_mode !== "starter_style";
     dom.starterStyleList.innerHTML = (config.starter_styles || []).map((item) => (
@@ -586,24 +620,26 @@
   }
 
   function renderModes() {
-    dom.modeList.innerHTML = (config.modes || []).map((item) => (
-      `<button type="button" class="cp-option-card ${state.mode === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
+    dom.modeList.innerHTML = (config.modes || []).map((item) => {
+      const active = state.mode === item.value;
+      return `<button type="button" class="cp-option-card ${active ? "is-active has-check" : ""}" data-choice-value="${escapeHtml(item.value)}">
         <small>Формат</small>
         <strong>${escapeHtml(item.label)}</strong>
         <span>${escapeHtml(item.hint || "")}</span>
-      </button>`
-    )).join("");
+      </button>`;
+    }).join("");
     dom.brandFields.hidden = state.mode !== "brand";
   }
 
   function renderProducts() {
-    dom.productList.innerHTML = Object.entries(config.products || {}).map(([value, product]) => (
-      `<button type="button" class="cp-product-card ${state.product.type === value ? "is-active" : ""}" data-choice-value="${escapeHtml(value)}">
+    dom.productList.innerHTML = Object.entries(config.products || {}).map(([value, product]) => {
+      const active = state.product.type === value;
+      return `<button type="button" class="cp-product-card ${active ? "is-active has-check" : ""}" data-choice-value="${escapeHtml(value)}">
         <small>${escapeHtml(product.eyebrow || "product")}</small>
         <strong>${escapeHtml(product.label)}</strong>
         <span>${escapeHtml(product.summary || "")}</span>
-      </button>`
-    )).join("");
+      </button>`;
+    }).join("");
   }
 
   function renderProductConfig() {
@@ -638,30 +674,33 @@
       </button>`
     )).join("");
 
-    dom.addonsList.innerHTML = (product.add_ons || []).map((item) => (
-      `<button type="button" class="cp-mini-chip ${state.print.add_ons.includes(item.value) ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        ${escapeHtml(item.label)}
-      </button>`
-    )).join("");
+    dom.addonsList.innerHTML = (product.add_ons || []).map((item) => {
+      const active = state.print.add_ons.includes(item.value);
+      const priceLabel = item.price ? `+${item.price} грн` : "";
+      return `<div class="cp-toggle-card ${active ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
+        <div class="cp-toggle-switch"></div>
+        <div class="cp-toggle-body">
+          <div class="cp-toggle-label">${escapeHtml(item.label)}</div>
+        </div>
+        ${priceLabel ? `<div class="cp-toggle-price">${escapeHtml(priceLabel)}</div>` : ""}
+      </div>`;
+    }).join("");
 
     const showPlacementNote = state.print.zones.includes("custom") || state.product.type === "customer_garment";
     dom.placementNoteWrap.hidden = !showPlacementNote;
   }
 
   function renderArtwork() {
-    dom.artworkServiceList.innerHTML = (config.artwork_services || []).map((item) => (
-      `<button type="button" class="cp-option-card ${state.artwork.service_kind === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
+    dom.artworkServiceList.innerHTML = (config.artwork_services || []).map((item) => {
+      const active = state.artwork.service_kind === item.value;
+      const priceClass = item.price ? "cp-price-badge--paid" : "cp-price-badge--free";
+      return `<button type="button" class="cp-option-card ${active ? "is-active has-check" : ""}" data-choice-value="${escapeHtml(item.value)}">
         <small>Макет</small>
         <strong>${escapeHtml(item.label)}</strong>
         <span>${escapeHtml(item.hint || "")}</span>
-      </button>`
-    )).join("");
-
-    dom.triageList.innerHTML = (config.triage_statuses || []).map((item) => (
-      `<button type="button" class="cp-mini-chip ${state.artwork.triage_status === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        ${escapeHtml(item.label)}
-      </button>`
-    )).join("");
+        <span class="cp-price-badge ${priceClass}">${escapeHtml(item.price_label || "")}</span>
+      </button>`;
+    }).join("");
 
     if (!state.artwork.files.length) {
       dom.fileList.textContent = "Файли ще не додані.";
@@ -817,37 +856,46 @@
     let priceSub = "Один або кілька параметрів потребують ручного прорахунку.";
 
     if (!pricing.estimate_required && pricing.final_total !== null) {
-      title = `Від ${formatPrice(pricing.final_total)} / шт`;
+      title = `${formatPrice(pricing.final_total)} / шт`;
       priceMain = formatPrice(pricing.final_total);
-      priceSub = "Попередня ціна для одного стандартного розміщення принта.";
+      priceSub = "Перша зона друку — безкоштовно. Кожна додаткова зона +180 грн.";
     } else if (pricing.base_price !== null) {
-      title = `База від ${formatPrice(pricing.base_price)}`;
-      priceMain = "Уточнюємо";
-      priceSub = "Бачимо базу, але фінальний прорахунок потребує менеджерської валідації.";
+      title = `Від ${formatPrice(pricing.base_price)}`;
+      priceMain = `від ${formatPrice(pricing.base_price)}`;
+      priceSub = "Точну ціну уточнить менеджер після перегляду заявки.";
     }
 
     dom.capsuleTitle.textContent = title;
     dom.priceMain.textContent = priceMain;
     dom.priceSub.textContent = priceSub;
-    dom.inlinePriceSummary.textContent = `${product.label}: ${title}`;
+    dom.inlinePriceSummary.textContent = title;
     dom.mobilePrice.textContent = pricing.estimate_required ? title : `${priceMain} / шт`;
-    dom.mobilePriceNote.textContent = pricing.estimate_required ? "Відкрити деталі" : "Ціна вже порахована";
+    dom.mobilePriceNote.textContent = pricing.estimate_required ? "Відкрити деталі" : "Попередня ціна";
+
+    const zoneCount = state.print.zones.length;
+    const zoneCostNote = zoneCount <= 1 ? "1 зона — безкоштовно" : `${zoneCount} зони (+${formatPrice((zoneCount - 1) * 180)} за додаткові)`;
+    const addonNote = state.print.add_ons.length
+      ? state.print.add_ons.map((value) => {
+        const addon = (getProductConfig(state.product.type).add_ons || []).find((a) => a.value === value);
+        return addon ? `${addon.label} (+${addon.price || 0} грн)` : value;
+      }).join(", ")
+      : "немає";
 
     const breakdown = [
       `<ul>
-        <li><strong>База:</strong> ${pricing.base_price !== null ? escapeHtml(formatPrice(pricing.base_price)) : "менеджерський прорахунок"}</li>
+        <li><strong>Виріб:</strong> ${pricing.base_price !== null ? escapeHtml(formatPrice(pricing.base_price)) : "прорахунок менеджера"}</li>
         <li><strong>Макет:</strong> ${pricing.design_price ? escapeHtml(`+${formatPrice(pricing.design_price)}`) : "без доплати"}</li>
-        <li><strong>Зони:</strong> ${escapeHtml(formatZones())}</li>
-        <li><strong>Деталі:</strong> ${state.print.add_ons.length ? escapeHtml((state.print.add_ons || []).map((value) => labelForAddOn(value)).join(", ")) : "немає"}</li>
-        <li><strong>Кількість:</strong> ${escapeHtml(String(state.order.quantity))}</li>
+        <li><strong>Зони:</strong> ${escapeHtml(zoneCostNote)}</li>
+        <li><strong>Деталі:</strong> ${escapeHtml(addonNote)}</li>
+        <li><strong>Кількість:</strong> ${escapeHtml(String(state.order.quantity))} шт</li>
       </ul>`,
     ];
 
     if (pricing.discount_percent) {
-      breakdown.push(`<div><strong>Знижка:</strong> ${escapeHtml(String(pricing.discount_percent))}%</div>`);
+      breakdown.push(`<div><strong>Знижка:</strong> −${escapeHtml(String(pricing.discount_percent))}%</div>`);
     }
     if (pricing.estimate_required && pricing.estimate_reason) {
-      breakdown.push(`<div><strong>Чому уточнюємо:</strong> ${escapeHtml(formatEstimateReason(pricing.estimate_reason))}</div>`);
+      breakdown.push(`<div><strong>Уточнення:</strong> ${escapeHtml(formatEstimateReason(pricing.estimate_reason))}</div>`);
     }
     dom.priceBreakdown.innerHTML = breakdown.join("");
   }
@@ -882,10 +930,10 @@
     }
 
     if (state.artwork.service_kind === "adjust") {
-      result.design_price = 300;
+      result.design_price = 100;
     }
     if (state.artwork.service_kind === "design") {
-      result.design_price = 500;
+      result.design_price = 350;
     }
 
     if (state.mode === "brand" && state.order.quantity >= 20) {
@@ -1093,7 +1141,10 @@
     dom.placementNoteInput.value = state.print.placement_note || "";
     dom.briefInput.value = state.notes.brief || "";
     dom.quantityInput.value = String(state.order.quantity || 1);
-    dom.giftInput.checked = Boolean(state.order.gift);
+    dom.giftInput.value = state.order.gift ? "1" : "0";
+    if (dom.giftToggle) {
+      dom.giftToggle.classList.toggle("is-active", state.order.gift);
+    }
     dom.sizesNoteInput.value = state.order.sizes_note || "";
     dom.garmentNoteInput.value = state.notes.garment_note || "";
     dom.nameInput.value = state.contact.name || "";
