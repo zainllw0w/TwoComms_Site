@@ -64,15 +64,14 @@ class CustomPrintPageTests(TestCase):
         response = self._get(reverse("custom_print"), follow=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Почати з нуля")
-        self.assertContains(response, "У мене є файл")
-        self.assertContains(response, "Показати стартові стилі")
+        self.assertContains(response, "Зберіть свій принт без анкети.")
+        self.assertContains(response, "Один активний крок")
+        self.assertContains(response, "Розпочати конфігурацію")
         self.assertContains(response, "Для себе")
         self.assertContains(response, "Для команди / бренду")
         self.assertContains(response, "Худі")
-        self.assertContains(response, "Класичний")
-        self.assertContains(response, "Оверсайз")
-        self.assertContains(response, "Передати менеджеру")
+        self.assertContains(response, "Цей кастом — для кого?")
+        self.assertContains(response, "customPrintConfiguratorForm")
         self.assertContains(response, "custom-print-configurator.css")
         self.assertContains(response, "custom-print-configurator.js")
         self.assertContains(response, "customPrintConfiguratorConfig")
@@ -89,7 +88,84 @@ class CustomPrintPageTests(TestCase):
         self.assertContains(response, '"hoodie"')
         self.assertContains(response, '"safe_exit_url"')
         self.assertContains(response, '"telegram_manager_url"')
-        self.assertContains(response, '"current_step": "quickstart"')
+        self.assertContains(response, '"progress_steps"')
+        self.assertContains(response, '"front_size_presets"')
+        self.assertContains(response, '"current_step": "mode"')
+
+    def test_custom_print_config_exposes_progress_steps_and_front_size_presets(self):
+        from storefront.custom_print_config import build_custom_print_config
+
+        config = build_custom_print_config(
+            submit_url="https://twocomms.shop/custom-print/lead/",
+            safe_exit_url="https://twocomms.shop/custom-print/safe-exit/",
+            add_to_cart_url="https://twocomms.shop/custom-print/add-to-cart/",
+        )
+
+        self.assertEqual(
+            [item["value"] for item in config["progress_steps"]],
+            ["mode", "product", "config", "zones", "artwork", "quantity", "gift", "contact"],
+        )
+        self.assertEqual(
+            [item["value"] for item in config["front_size_presets"]],
+            ["A6", "A5", "A4"],
+        )
+        self.assertEqual(config["front_size_default"], "A4")
+        self.assertEqual(config["products"]["hoodie"]["add_ons"][0]["price_delta"], 150)
+        self.assertEqual(config["artwork_services"][1]["price_delta"], 150)
+        self.assertEqual(config["artwork_services"][2]["price_delta"], 300)
+
+    def test_normalize_snapshot_preserves_front_size_preset_and_collapses_legacy_grommets(self):
+        from storefront.custom_print_config import normalize_custom_print_snapshot
+
+        normalized = normalize_custom_print_snapshot(
+            {
+                "product": {
+                    "type": "hoodie",
+                    "fit": "oversize",
+                    "fabric": "standard",
+                    "color": "graphite",
+                },
+                "print": {
+                    "zones": ["front", "back"],
+                    "add_ons": ["grommets"],
+                    "zone_options": {
+                        "front": {
+                            "size_preset": "A4",
+                        }
+                    },
+                },
+                "ui": {"current_step": "zones"},
+            }
+        )
+
+        self.assertEqual(normalized["product"]["fit"], "oversize")
+        self.assertEqual(normalized["product"]["fabric"], "premium")
+        self.assertEqual(normalized["print"]["add_ons"], ["lacing"])
+        self.assertEqual(
+            normalized["print"]["zone_options"]["front"]["size_preset"],
+            "A4",
+        )
+
+    def test_build_placement_specs_carries_front_size_preset(self):
+        from storefront.custom_print_config import build_placement_specs
+
+        specs = build_placement_specs(
+            {
+                "print": {
+                    "zones": ["front", "back"],
+                    "zone_options": {
+                        "front": {
+                            "size_preset": "A5",
+                        }
+                    },
+                }
+            }
+        )
+
+        self.assertEqual(specs[0]["zone"], "front")
+        self.assertEqual(specs[0]["size_preset"], "A5")
+        self.assertEqual(specs[1]["zone"], "back")
+        self.assertNotIn("size_preset", specs[1])
 
     def test_home_page_contains_inline_custom_print_tile_inside_categories_grid(self):
         response = self._get(reverse("home"), follow=True)

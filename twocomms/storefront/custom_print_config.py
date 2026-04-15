@@ -26,6 +26,29 @@ B2B_TIER = {
 
 SIZE_GRID = ["XS", "S", "M", "L", "XL", "2XL"]
 
+PROGRESS_STEPS = [
+    {"value": "mode", "label": "Формат"},
+    {"value": "product", "label": "Виріб"},
+    {"value": "config", "label": "Налаштування"},
+    {"value": "zones", "label": "Зони"},
+    {"value": "artwork", "label": "Макет"},
+    {"value": "quantity", "label": "Кількість"},
+    {"value": "gift", "label": "Подарунок"},
+    {"value": "contact", "label": "Контакт"},
+]
+
+FRONT_SIZE_PRESETS = [
+    {"value": "A6", "label": "A6", "stage_scale": 0.44},
+    {"value": "A5", "label": "A5", "stage_scale": 0.58},
+    {"value": "A4", "label": "A4", "stage_scale": 0.74},
+]
+FRONT_SIZE_DEFAULT = "A4"
+
+STAGE_META = {
+    "placeholder_title": "Виріб на сцені",
+    "placeholder_note": "Оберіть виріб, щоб побачити сцену, зони і масштаб принта.",
+}
+
 # ── Display labels (legacy + V2) ─────────────────────────────────────
 ZONE_LABELS = {
     "front": "Спереду",
@@ -127,16 +150,16 @@ ARTWORK_SERVICES = [
     {
         "value": "adjust",
         "label": "Потрібно допрацювати",
-        "price_delta": 300,
+        "price_delta": 150,
         "hint": "Є файл або референс, але потрібна чистка, адаптація чи підготовка.",
-        "badge": "+300 грн",
+        "badge": "+150 грн",
     },
     {
         "value": "design",
         "label": "Потрібен дизайн",
-        "price_delta": 500,
+        "price_delta": 300,
         "hint": "Є ідея, вайб або референси, а ми допоможемо зібрати макет з нуля.",
-        "badge": "+500 грн",
+        "badge": "+300 грн",
     },
 ]
 
@@ -217,9 +240,9 @@ PRODUCT_MATRIX = {
             {
                 "value": "lacing",
                 "label": "Люверси зі шнурками",
-                "price_delta": 300,
+                "price_delta": 150,
                 "icon": "lacing",
-                "badge": "+300 грн",
+                "badge": "+150 грн",
                 "hint": "Преміум-апгрейд: металеві люверси й унікальні шнурки замість стандартних.",
             },
         ],
@@ -352,26 +375,38 @@ def build_custom_print_config(*, submit_url: str, safe_exit_url: str, add_to_car
         "gift_service": deepcopy(GIFT_SERVICE),
         "b2b_tier": deepcopy(B2B_TIER),
         "size_grid": list(SIZE_GRID),
+        "progress_steps": deepcopy(PROGRESS_STEPS),
+        "front_size_presets": deepcopy(FRONT_SIZE_PRESETS),
+        "front_size_default": FRONT_SIZE_DEFAULT,
+        "stage_meta": deepcopy(STAGE_META),
         "defaults": normalize_custom_print_snapshot({}),
     }
 
 
 def build_placement_specs(snapshot: dict) -> list[dict]:
     zones = list((snapshot.get("print") or {}).get("zones") or [])
+    zone_options = (snapshot.get("print") or {}).get("zone_options") or {}
     specs = []
     for index, zone in enumerate(zones):
-        specs.append(
-            {
-                "zone": zone,
-                "label": ZONE_LABELS.get(zone, zone),
-                "variant": "standard" if index == 0 and zone in {"front", "back"} else "estimate",
-                "is_free": index == 0 and zone in {"front", "back"},
-                "format": "standard" if zone in {"front", "back"} else "custom",
-                "size": "standard" if zone in {"front", "back"} else "manager_review",
-                "file_index": index,
-                "attachment_role": "design",
-            }
-        )
+        spec = {
+            "zone": zone,
+            "label": ZONE_LABELS.get(zone, zone),
+            "variant": "standard" if index == 0 and zone in {"front", "back"} else "estimate",
+            "is_free": index == 0 and zone in {"front", "back"},
+            "format": "standard" if zone in {"front", "back"} else "custom",
+            "size": "standard" if zone in {"front", "back"} else "manager_review",
+            "file_index": index,
+            "attachment_role": "design",
+        }
+        options = zone_options.get(zone) if isinstance(zone_options, dict) else None
+        if isinstance(options, dict):
+            size_preset = str(options.get("size_preset") or "").upper()
+            if zone == "front" and size_preset in {item["value"] for item in FRONT_SIZE_PRESETS}:
+                spec["size_preset"] = size_preset
+            scene_preview = options.get("scene_preview")
+            if isinstance(scene_preview, dict) and scene_preview:
+                spec["scene_preview"] = deepcopy(scene_preview)
+        specs.append(spec)
     return specs
 
 
@@ -420,6 +455,27 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
     for zone in print_payload.get("zones") or []:
         if zone in available_zones and zone not in zones:
             zones.append(zone)
+
+    zone_options = {}
+    raw_zone_options = print_payload.get("zone_options") or {}
+    allowed_front_sizes = {item["value"] for item in FRONT_SIZE_PRESETS}
+    if isinstance(raw_zone_options, dict):
+        for zone, raw_options in raw_zone_options.items():
+            if zone not in available_zones or zone not in zones or not isinstance(raw_options, dict):
+                continue
+            normalized_options = {}
+            if zone == "front":
+                size_preset = str(raw_options.get("size_preset") or "").upper()
+                if size_preset not in allowed_front_sizes:
+                    size_preset = FRONT_SIZE_DEFAULT
+                normalized_options["size_preset"] = size_preset
+            scene_preview = raw_options.get("scene_preview")
+            if isinstance(scene_preview, dict) and scene_preview:
+                normalized_options["scene_preview"] = deepcopy(scene_preview)
+            if normalized_options:
+                zone_options[zone] = normalized_options
+    if "front" in zones and "front" not in zone_options:
+        zone_options["front"] = {"size_preset": FRONT_SIZE_DEFAULT}
 
     add_on_choices = {item["value"] for item in product_config.get("add_ons") or []}
     add_ons = []
@@ -521,6 +577,7 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
             "zones": zones,
             "add_ons": add_ons,
             "placement_note": str(print_payload.get("placement_note") or "").strip(),
+            "zone_options": zone_options,
         },
         "artwork": {
             "service_kind": service_kind,
