@@ -33,7 +33,7 @@
       <h1 class="cart-page-title">Кошик</h1>
       <p class="cart-page-subtitle">Ваші вибрані товари</p>
     </div>
-    {% if items %}
+    {% if has_any_items %}
     <button type="button" class="cart-clear-btn" onclick="cleanCart()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
         <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -75,11 +75,106 @@
   <div class="cart-page-content">
     <!-- Основная часть корзины -->
     <div class="cart-main-section">
-      {% if items %}
+      {% if has_any_items %}
         <div class="cart-items-background">
           <div class="cart-items-pattern"></div>
         </div>
         <div class="cart-items-container" id="cart-list" data-placeholder="{% static 'img/placeholder.jpg' %}">
+          {% if custom_items %}
+            {% for ci in custom_items %}
+              <div class="cart-item cart-item--custom" data-custom-key="{{ ci.key }}" data-lead-id="{{ ci.lead_id }}">
+                <div class="cart-item-sparks">
+                  <div class="cart-item-spark cart-item-spark-1"></div>
+                  <div class="cart-item-spark cart-item-spark-2"></div>
+                  <div class="cart-item-spark cart-item-spark-3"></div>
+                </div>
+
+                <div class="cart-item-image cart-item-image--custom" aria-hidden="true">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2l2.4 4.86 5.37.78-3.88 3.78.91 5.35L12 14.9l-4.8 2.52.91-5.35L4.23 8.3l5.37-.78L12 2z"/>
+                    <path d="M9 14h6"/>
+                  </svg>
+                </div>
+
+                <div class="cart-item-info">
+                  <div class="cart-item-custom-badge">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    Кастомний друк {% if ci.lead_number %}· №{{ ci.lead_number }}{% endif %}
+                  </div>
+                  <h3 class="cart-item-title">{{ ci.label }}</h3>
+                  <div class="cart-item-details">
+                    {% if ci.product_label %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">Виріб:</span>
+                      <span class="cart-item-value">{{ ci.product_label }}</span>
+                    </div>
+                    {% endif %}
+                    {% if ci.zones_display %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">Зони:</span>
+                      <span class="cart-item-value">{{ ci.zones_display }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">Кількість:</span>
+                      <span class="cart-item-value">{{ ci.quantity }}</span>
+                    </div>
+                    {% if ci.size_breakdown_display %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">Розміри:</span>
+                      <span class="cart-item-value">{{ ci.size_breakdown_display }}</span>
+                    </div>
+                    {% endif %}
+                    {% if ci.color %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">Колір:</span>
+                      <span class="cart-item-value">{{ ci.color }}</span>
+                    </div>
+                    {% endif %}
+                    {% if ci.fit %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">Крій:</span>
+                      <span class="cart-item-value">{{ ci.fit }}</span>
+                    </div>
+                    {% endif %}
+                    {% if ci.gift_enabled %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">🎁 Подарунок:</span>
+                      <span class="cart-item-value">{{ ci.gift_text|default:"Упаковка + промокод 10%" }}</span>
+                    </div>
+                    {% endif %}
+                    {% if ci.mode == 'brand' and ci.b2b_discount_per_unit %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">B2B знижка:</span>
+                      <span class="cart-item-value">-{{ ci.b2b_discount_per_unit }} грн/шт</span>
+                    </div>
+                    {% endif %}
+                  </div>
+                  <div class="cart-item-price">
+                    <span class="cart-item-price-label">Ціна:</span>
+                    <span class="cart-item-price-value">
+                      <span class="cart-item-price-current">{{ ci.unit_total|floatformat:2 }} грн / шт</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div class="cart-item-actions">
+                  <div class="cart-item-total">
+                    <span class="cart-item-total-label">Разом:</span>
+                    <span class="cart-item-total-value">{{ ci.final_total|floatformat:2 }} грн</span>
+                  </div>
+                  <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="{{ ci.key }}" data-lead-id="{{ ci.lead_id }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                    Видалити
+                  </button>
+                </div>
+              </div>
+            {% endfor %}
+          {% endif %}
           {% for it in items %}
             <div class="cart-item" data-cart-row data-key="{{ it.key }}" data-offer-id="{{ it.offer_id }}">
               <!-- Анимация искр для товара -->
@@ -458,12 +553,26 @@
             <span class="cart-summary-label" id="cart-items-label">Товари ({{ items_total_qty|default:cart_count }}):</span>
             <span class="cart-summary-value" id="cart-subtotal-value">{{ original_subtotal|floatformat:2 }} грн</span>
           </div>
-          
+
+          {% if custom_items %}
+          <div class="cart-summary-row cart-summary-custom" id="cart-custom-row">
+            <span class="cart-summary-label">
+              <div class="cart-discount-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2l2.4 4.86 5.37.78-3.88 3.78.91 5.35L12 14.9l-4.8 2.52.91-5.35L4.23 8.3l5.37-.78L12 2z"/>
+                </svg>
+                Кастомний друк ({{ custom_items_qty }}):
+              </div>
+            </span>
+            <span class="cart-summary-value">{{ custom_items_total|floatformat:2 }} грн</span>
+          </div>
+          {% endif %}
+
           <div class="cart-summary-row cart-summary-site-discount {% if site_discount_total <= 0 %}d-none{% endif %}" id="cart-site-discount-row">
             <span class="cart-summary-label">Знижка магазину</span>
             <span class="cart-summary-value" id="cart-site-discount-value">-{{ site_discount_total|floatformat:2 }} грн</span>
           </div>
-          
+
           <div class="cart-summary-row cart-summary-discount {% if discount <= 0 %}d-none{% endif %}" id="cart-discount-row">
             <span class="cart-summary-label">
               <div class="cart-discount-label">
@@ -475,13 +584,13 @@
             </span>
             <span class="cart-summary-value" id="cart-discount-value">-{{ discount|floatformat:2 }} грн</span>
           </div>
-          
+
           <div class="cart-summary-row cart-summary-total" id="pay-now-row">
             <span class="cart-summary-label" id="pay-now-label">До сплати:</span>
             <span class="cart-summary-value"
                   id="pay-now-amount"
-                  data-total="{{ total|floatformat:'2' }}"
-                  data-prepay="200">{% if pay_now_amount %}{{ pay_now_amount|floatformat:2 }} грн{% else %}{{ total|floatformat:2 }} грн{% endif %}</span>
+                  data-total="{{ combined_total|default:total|floatformat:'2' }}"
+                  data-prepay="200">{% if pay_now_amount %}{{ pay_now_amount|floatformat:2 }} грн{% else %}{{ combined_total|default:total|floatformat:2 }} грн{% endif %}</span>
           </div>
           <div class="cart-summary-row cart-summary-prepay d-none" id="prepay-remaining-row">
             <span class="cart-summary-label">Залишок при отриманні:</span>
@@ -1200,6 +1309,49 @@ body.contact-modal-open .cart-container::after {
   transform: none;
 }
 
+/* ── Custom Print cart items ─────────────────────────────── */
+.cart-item--custom {
+  border: 1px solid rgba(250, 204, 21, 0.28);
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.05), rgba(20, 22, 27, 0.9));
+  box-shadow: 0 6px 24px rgba(250, 204, 21, 0.08);
+}
+
+.cart-item-image--custom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fde68a;
+  background: radial-gradient(circle at 30% 30%, rgba(250, 204, 21, 0.3), rgba(15, 17, 22, 0.9) 70%);
+  border: 1px solid rgba(250, 204, 21, 0.3);
+}
+
+.cart-item-custom-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  color: #fde68a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.cart-item-custom-badge svg {
+  width: 12px;
+  height: 12px;
+  color: #fcd34d;
+}
+
+.cart-summary-custom .cart-summary-value {
+  color: #fde68a;
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
   .contact-modal-container {
     border-radius: 20px 20px 0 0;
@@ -1231,4 +1383,63 @@ body.contact-modal-open .cart-container::after {
 {% endblock %}
 
 {% block extra_js %}
+<script>
+(function() {
+  'use strict';
+
+  function getCookie(name) {
+    const value = '; ' + document.cookie;
+    const parts = value.split('; ' + name + '=');
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+  }
+
+  function removeCustomItem(btn) {
+    const key = btn.getAttribute('data-key') || '';
+    const leadId = btn.getAttribute('data-lead-id') || '';
+    if (!key && !leadId) return;
+
+    const row = btn.closest('.cart-item--custom');
+    if (row) row.style.opacity = '0.5';
+
+    const formData = new FormData();
+    if (key) formData.append('key', key);
+    if (leadId) formData.append('lead_id', leadId);
+
+    const csrf = getCookie('csrftoken') || (document.querySelector('input[name=csrfmiddlewaretoken]') || {}).value || '';
+
+    fetch('{% url "custom_print_remove" %}', {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin',
+      headers: {
+        'X-CSRFToken': csrf,
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+      .then(function(r) { return r.json().catch(function() { return null; }); })
+      .then(function(data) {
+        if (data && data.ok) {
+          window.location.reload();
+        } else if (row) {
+          row.style.opacity = '1';
+          const msg = (data && data.error) || 'Не вдалося видалити позицію.';
+          console.warn('[cart] custom remove failed:', msg);
+        }
+      })
+      .catch(function(err) {
+        if (row) row.style.opacity = '1';
+        console.error('[cart] custom remove error:', err);
+      });
+  }
+
+  document.addEventListener('click', function(evt) {
+    const btn = evt.target.closest('[data-custom-remove]');
+    if (!btn) return;
+    evt.preventDefault();
+    evt.stopPropagation();
+    removeCustomItem(btn);
+  }, true);
+})();
+</script>
 {% endblock %}

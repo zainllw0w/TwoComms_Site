@@ -5,7 +5,28 @@ from copy import deepcopy
 
 TELEGRAM_MANAGER_URL = "https://t.me/twocomms"
 CUSTOM_PRINT_DRAFT_STORAGE_KEY = "twocomms.custom_print.v2.draft"
+SESSION_CUSTOM_CART_KEY = "custom_print_cart"
 
+# ── V2 business constants ────────────────────────────────────────────
+GIFT_SERVICE = {
+    "value": "gift_pack",
+    "label": "Подарункова упаковка",
+    "price": 100,
+    "promo_code": "GIFT10",
+    "promo_discount_percent": 10,
+    "note": "Ми упакуємо замовлення в преміум-крафт, додамо листівку і заховаємо цінники.",
+    "bonus_note": "Бонус: разовий промокод -10% на наступну покупку в TwoComms.",
+}
+
+B2B_TIER = {
+    "unit_step": 5,
+    "discount_per_unit": 10,
+    "hint": "Кожні 5 одиниць — -10 грн/шт. Калькулятор оновлюється миттєво.",
+}
+
+SIZE_GRID = ["XS", "S", "M", "L", "XL", "2XL"]
+
+# ── Display labels (legacy + V2) ─────────────────────────────────────
 ZONE_LABELS = {
     "front": "Спереду",
     "back": "На спині",
@@ -43,6 +64,7 @@ TRIAGE_LABELS = {
     "needs-review": "Потрібна перевірка",
 }
 
+# Legacy (kept for back-compat with old drafts / admin filters).
 QUICK_START_MODES = [
     {
         "value": "start_blank",
@@ -66,11 +88,13 @@ CLIENT_MODES = [
         "value": "personal",
         "label": "Для себе",
         "hint": "Один виріб або невелика серія без зайвої бюрократії.",
+        "icon": "user",
     },
     {
         "value": "brand",
         "label": "Для команди / бренду",
-        "hint": "Мерч, бренд-комплекти та серії з передачею деталей менеджеру.",
+        "hint": "Опт від 5 шт. Живий калькулятор знижок.",
+        "icon": "brand",
     },
 ]
 
@@ -96,17 +120,23 @@ ARTWORK_SERVICES = [
     {
         "value": "ready",
         "label": "Готовий файл",
+        "price_delta": 0,
         "hint": "Ви вже маєте макет і хочете перейти до друку максимально швидко.",
+        "badge": "0 грн",
     },
     {
         "value": "adjust",
         "label": "Потрібно допрацювати",
+        "price_delta": 300,
         "hint": "Є файл або референс, але потрібна чистка, адаптація чи підготовка.",
+        "badge": "+300 грн",
     },
     {
         "value": "design",
         "label": "Потрібен дизайн",
+        "price_delta": 500,
         "hint": "Є ідея, вайб або референси, а ми допоможемо зібрати макет з нуля.",
+        "badge": "+500 грн",
     },
 ]
 
@@ -129,18 +159,9 @@ TRIAGE_STATUSES = [
 ]
 
 SIZE_MODES = [
-    {
-        "value": "single",
-        "label": "Один розмір",
-    },
-    {
-        "value": "mixed",
-        "label": "Мікс розмірів",
-    },
-    {
-        "value": "manager",
-        "label": "Уточню з менеджером",
-    },
+    {"value": "single", "label": "Один розмір"},
+    {"value": "mixed", "label": "Мікс розмірів"},
+    {"value": "manager", "label": "Уточню з менеджером"},
 ]
 
 CONTACT_CHANNELS = [
@@ -161,6 +182,7 @@ CONTACT_CHANNELS = [
     },
 ]
 
+# ── Product matrix ───────────────────────────────────────────────────
 PRODUCT_MATRIX = {
     "hoodie": {
         "label": "Худі",
@@ -190,18 +212,23 @@ PRODUCT_MATRIX = {
         ],
         "default_color": "black",
         "zones": ["front", "back", "sleeve"],
-        "default_zones": ["front"],
+        "default_zones": [],
         "add_ons": [
-            {"value": "inside_label", "label": "Внутрішня бірка"},
-            {"value": "hem_tag", "label": "Нашивка на низ"},
-            {"value": "grommets", "label": "Додаткові деталі"},
+            {
+                "value": "lacing",
+                "label": "Люверси зі шнурками",
+                "price_delta": 300,
+                "icon": "lacing",
+                "badge": "+300 грн",
+                "hint": "Преміум-апгрейд: металеві люверси й унікальні шнурки замість стандартних.",
+            },
         ],
         "pricing": {
             "base": 1600,
             "premium_delta": 250,
             "oversize_delta": 200,
             "extra_zone_delta": 180,
-            "add_on_delta": 120,
+            "add_on_delta": 0,  # V2: add-on prices are per-item via price_delta
         },
     },
     "tshirt": {
@@ -220,7 +247,7 @@ PRODUCT_MATRIX = {
         ],
         "default_color": "black",
         "zones": ["front", "back"],
-        "default_zones": ["front"],
+        "default_zones": [],
         "add_ons": [],
         "pricing": {
             "base": 700,
@@ -246,7 +273,7 @@ PRODUCT_MATRIX = {
         ],
         "default_color": "black",
         "zones": ["front", "back", "sleeve"],
-        "default_zones": ["front"],
+        "default_zones": [],
         "add_ons": [],
         "pricing": {
             "base": 900,
@@ -270,7 +297,7 @@ PRODUCT_MATRIX = {
         ],
         "default_color": "own",
         "zones": ["front", "back", "custom"],
-        "default_zones": ["custom"],
+        "default_zones": [],
         "add_ons": [],
         "pricing": {
             "base": None,
@@ -304,16 +331,17 @@ def _allowed_values(items):
     return {item["value"] for item in items}
 
 
-def build_custom_print_config(*, submit_url: str, safe_exit_url: str) -> dict:
+def build_custom_print_config(*, submit_url: str, safe_exit_url: str, add_to_cart_url: str = "") -> dict:
     return {
         "version": 2,
         "storage_key": CUSTOM_PRINT_DRAFT_STORAGE_KEY,
         "submit_url": submit_url,
         "safe_exit_url": safe_exit_url,
+        "add_to_cart_url": add_to_cart_url,
         "telegram_manager_url": TELEGRAM_MANAGER_URL,
-        "quick_start_modes": deepcopy(QUICK_START_MODES),
+        "quick_start_modes": deepcopy(QUICK_START_MODES),  # legacy
         "modes": deepcopy(CLIENT_MODES),
-        "starter_styles": deepcopy(STARTER_STYLES),
+        "starter_styles": deepcopy(STARTER_STYLES),  # legacy
         "artwork_services": deepcopy(ARTWORK_SERVICES),
         "triage_statuses": deepcopy(TRIAGE_STATUSES),
         "size_modes": deepcopy(SIZE_MODES),
@@ -321,6 +349,9 @@ def build_custom_print_config(*, submit_url: str, safe_exit_url: str) -> dict:
         "zone_labels": deepcopy(ZONE_LABELS),
         "product_labels": deepcopy(PRODUCT_LABELS),
         "products": deepcopy(PRODUCT_MATRIX),
+        "gift_service": deepcopy(GIFT_SERVICE),
+        "b2b_tier": deepcopy(B2B_TIER),
+        "size_grid": list(SIZE_GRID),
         "defaults": normalize_custom_print_snapshot({}),
     }
 
@@ -389,24 +420,21 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
     for zone in print_payload.get("zones") or []:
         if zone in available_zones and zone not in zones:
             zones.append(zone)
-    if not zones:
-        zones = list(product_config.get("default_zones") or ["front"])
 
     add_on_choices = {item["value"] for item in product_config.get("add_ons") or []}
     add_ons = []
-    for add_on in print_payload.get("add_ons") or []:
+    raw_add_ons = print_payload.get("add_ons") or []
+    for add_on in raw_add_ons:
+        # Legacy compat: old hoodie drafts with inside_label/hem_tag/grommets → collapse to lacing.
+        if product_type == "hoodie" and add_on in {"inside_label", "hem_tag", "grommets"}:
+            add_on = "lacing"
         if add_on in add_on_choices and add_on not in add_ons:
             add_ons.append(add_on)
 
     artwork_payload = raw_snapshot.get("artwork") or {}
     service_kind = (artwork_payload.get("service_kind") or "").strip()
     if service_kind not in SERVICE_LABELS:
-        if quick_start_mode == "have_file":
-            service_kind = "ready"
-        elif quick_start_mode == "starter_style":
-            service_kind = "design"
-        else:
-            service_kind = "design"
+        service_kind = ""
 
     files = []
     for index, item in enumerate(artwork_payload.get("files") or []):
@@ -414,7 +442,7 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
             continue
         zone = item.get("zone")
         if zone not in available_zones:
-            zone = zones[min(index, len(zones) - 1)]
+            zone = zones[min(index, len(zones) - 1)] if zones else ""
         status = (item.get("status") or "").strip()
         if status not in TRIAGE_LABELS:
             status = "needs-review"
@@ -443,6 +471,27 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
     if size_mode not in _allowed_values(SIZE_MODES):
         size_mode = "single"
 
+    raw_size_breakdown = order_payload.get("size_breakdown") or {}
+    if not isinstance(raw_size_breakdown, dict):
+        raw_size_breakdown = {}
+    size_breakdown = {}
+    for key in SIZE_GRID:
+        try:
+            qty = int(raw_size_breakdown.get(key, 0) or 0)
+        except (TypeError, ValueError):
+            qty = 0
+        if qty < 0:
+            qty = 0
+        size_breakdown[key] = qty
+
+    gift_payload = order_payload.get("gift")
+    if isinstance(gift_payload, dict):
+        gift_enabled = bool(gift_payload.get("enabled"))
+        gift_text = str(gift_payload.get("text") or "").strip()
+    else:
+        gift_enabled = bool(gift_payload)
+        gift_text = str(order_payload.get("gift_text") or "").strip()
+
     contact_payload = raw_snapshot.get("contact") or {}
     channel = (contact_payload.get("channel") or "").strip()
     if channel not in _allowed_values(CONTACT_CHANNELS):
@@ -450,10 +499,15 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
 
     pricing_payload = raw_snapshot.get("pricing") or {}
     notes_payload = raw_snapshot.get("notes") or {}
-    current_step = str(((raw_snapshot.get("ui") or {}).get("current_step") or "quickstart")).strip() or "quickstart"
+    current_step = str(((raw_snapshot.get("ui") or {}).get("current_step") or "mode")).strip() or "mode"
+
+    submission_type = (raw_snapshot.get("submission_type") or "lead").strip()
+    if submission_type not in {"lead", "cart", "safe_exit"}:
+        submission_type = "lead"
 
     return {
         "version": 2,
+        "submission_type": submission_type,
         "quick_start_mode": quick_start_mode,
         "mode": mode,
         "starter_style": str(raw_snapshot.get("starter_style") or "").strip(),
@@ -477,7 +531,9 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
             "quantity": _coerce_int(order_payload.get("quantity"), 1),
             "size_mode": size_mode,
             "sizes_note": str(order_payload.get("sizes_note") or "").strip(),
-            "gift": bool(order_payload.get("gift")),
+            "size_breakdown": size_breakdown,
+            "gift": gift_enabled,
+            "gift_text": gift_text,
         },
         "contact": {
             "channel": channel,
@@ -487,8 +543,12 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
         "pricing": {
             "base_price": _coerce_price(pricing_payload.get("base_price")),
             "design_price": _coerce_price(pricing_payload.get("design_price")),
+            "addons_price": _coerce_price(pricing_payload.get("addons_price")),
+            "gift_price": _coerce_price(pricing_payload.get("gift_price")),
             "discount_percent": _coerce_price(pricing_payload.get("discount_percent")),
             "discount_amount": _coerce_price(pricing_payload.get("discount_amount")),
+            "b2b_discount_per_unit": _coerce_price(pricing_payload.get("b2b_discount_per_unit")),
+            "unit_total": _coerce_price(pricing_payload.get("unit_total")),
             "final_total": _coerce_price(pricing_payload.get("final_total")),
             "estimate_required": bool(pricing_payload.get("estimate_required")),
             "estimate_reason": str(pricing_payload.get("estimate_reason") or "").strip(),
@@ -502,3 +562,11 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
             "current_step": current_step,
         },
     }
+
+
+def compute_cart_label(snapshot: dict) -> str:
+    product_type = ((snapshot.get("product") or {}).get("type") or "hoodie").strip()
+    label = PRODUCT_LABELS.get(product_type, product_type or "Кастом")
+    zones = [ZONE_LABELS.get(z, z) for z in ((snapshot.get("print") or {}).get("zones") or [])]
+    suffix = f" · {', '.join(zones)}" if zones else ""
+    return f"Кастом · {label}{suffix}"

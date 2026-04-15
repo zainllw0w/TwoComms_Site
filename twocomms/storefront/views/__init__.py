@@ -92,7 +92,9 @@ from .static_pages import (
     about,
     contacts,
     custom_print,
+    custom_print_add_to_cart,
     custom_print_lead,
+    custom_print_remove,
     custom_print_safe_exit,
     delivery,
     returns,
@@ -354,7 +356,8 @@ __all__ = [
     # Static Pages
     'robots_txt', 'static_sitemap', 'google_merchant_feed',
     'static_verification_file', 'about', 'contacts', 'custom_print', 'custom_print_lead',
-    'custom_print_safe_exit', 'delivery', 'returns',
+    'custom_print_safe_exit', 'custom_print_add_to_cart', 'custom_print_remove',
+    'delivery', 'returns',
     'privacy_policy', 'terms_of_service', 'test_analytics_events',
     'prom_feed_xml', 'uaprom_products_feed',
 
