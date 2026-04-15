@@ -1,1223 +1,1432 @@
+/* TwoComms Custom Print Configurator V2 — Waterfall + Stage Receipt
+ * - Жодного автовибору. Початковий стан = nulls / [].
+ * - Vertical waterfall: завершені кроки згортаються у summary-рядки.
+ * - Stage Receipt: прорахунок живе всередині картки виробу.
+ * - Per-zone uploads: окрема dropzone для кожної обраної зони.
+ * - Smart sizing: qty=1 → chip-row, qty>1 → matrix з валідацією суми.
+ * - Gift як платний сервіс +100 грн з полем побажання та промокодом.
+ * - B2B живий калькулятор: кожні 5 шт = -10 грн/шт.
+ * - Dual final: «Додати в кошик» (сесійний кошик) і «Надіслати менеджеру» (Telegram).
+ */
 (function () {
   const root = document.querySelector("[data-custom-print-root]");
   const configNode = document.getElementById("customPrintConfiguratorConfig");
+  if (!root || !configNode) return;
 
-  if (!root || !configNode) {
-    return;
-  }
-
-  let config;
+  let CONFIG;
   try {
-    config = JSON.parse(configNode.textContent || "{}");
+    CONFIG = JSON.parse(configNode.textContent || "{}");
   } catch (error) {
-    console.error("Custom print config parse failed", error);
+    console.error("[custom-print v2] config parse failed", error);
     return;
   }
 
-  const storageKey = config.storage_key || "twocomms.custom_print.v2.draft";
-  const defaultState = deepCopy(config.defaults || {});
-  const stepOrder = ["quickstart", "mode", "product", "artwork", "quantity", "review"];
-  const stagePositions = {
+  const STORAGE_KEY = CONFIG.storage_key || "twocomms.custom_print.v2.draft";
+  const STEPS = ["mode", "product", "config", "zones", "artwork", "quantity", "gift", "contact"];
+  const STAGE_VISIBLE_AFTER = new Set(["product", "config", "zones", "artwork", "quantity", "gift", "contact"]);
+
+  const STAGE_POSITIONS = {
     hoodie: {
-      front: {
-        front: { top: "44%", left: "50%" },
-        sleeve: { top: "42%", left: "73%" },
-      },
-      back: {
-        back: { top: "44%", left: "50%" },
-        sleeve: { top: "42%", left: "28%" },
-      },
+      front: { front: { top: "44%", left: "50%" }, sleeve: { top: "42%", left: "73%" } },
+      back: { back: { top: "44%", left: "50%" }, sleeve: { top: "42%", left: "28%" } },
     },
     tshirt: {
-      front: {
-        front: { top: "42%", left: "50%" },
-      },
-      back: {
-        back: { top: "42%", left: "50%" },
-      },
+      front: { front: { top: "42%", left: "50%" } },
+      back: { back: { top: "42%", left: "50%" } },
     },
     longsleeve: {
-      front: {
-        front: { top: "43%", left: "50%" },
-        sleeve: { top: "42%", left: "75%" },
-      },
-      back: {
-        back: { top: "43%", left: "50%" },
-        sleeve: { top: "42%", left: "25%" },
-      },
+      front: { front: { top: "43%", left: "50%" }, sleeve: { top: "44%", left: "78%" } },
+      back: { back: { top: "43%", left: "50%" }, sleeve: { top: "44%", left: "22%" } },
     },
     customer_garment: {
-      front: {
-        front: { top: "44%", left: "50%" },
-        custom: { top: "62%", left: "50%" },
-      },
-      back: {
-        back: { top: "44%", left: "50%" },
-        custom: { top: "62%", left: "50%" },
-      },
+      front: { front: { top: "44%", left: "50%" }, custom: { top: "62%", left: "32%" } },
+      back: { back: { top: "44%", left: "50%" }, custom: { top: "62%", left: "68%" } },
     },
   };
 
-  const form = document.getElementById("customPrintConfiguratorForm");
+  const STATE = createState();
+  const filesByZone = new Map(); // zone -> File[]
+
+  // ── DOM refs ────────────────────────────────────────────────
   const dom = {
-    buildStrip: document.querySelector(".cp-build-strip"),
-    stepSections: Array.from(root.querySelectorAll("[data-step]")),
-    heroDynamicLabel: root.querySelector("[data-hero-dynamic-label]"),
-    heroDynamicCopy: root.querySelector("[data-hero-dynamic-copy]"),
-    quickStartList: root.querySelector("[data-quick-start-list]"),
-    starterStyleWrap: root.querySelector("[data-starter-style-wrap]"),
-    starterStyleList: root.querySelector("[data-starter-style-list]"),
+    form: root.querySelector("#customPrintConfiguratorForm"),
+    waterfall: root.querySelector("[data-waterfall]"),
+    stageCard: root.querySelector("[data-stage-card]"),
+    stageEyebrow: root.querySelector("[data-stage-eyebrow]"),
+    stageTitleSecondary: root.querySelector("[data-stage-title-secondary]"),
+    stageNote: root.querySelector("[data-stage-note]"),
+    stageZones: root.querySelector("[data-stage-zones]"),
+    stageAddons: root.querySelector("[data-stage-addons]"),
+    stageLabel: root.querySelector("[data-stage-label]"),
+    stageViewSwitch: root.querySelectorAll("[data-stage-view]"),
+    garment: root.querySelector("[data-garment]"),
+    garmentHood: root.querySelector("[data-garment-hood]"),
+    zoneLayer: root.querySelector("[data-zone-layer]"),
+    receiptTotal: root.querySelector("[data-receipt-total]"),
+    receiptList: root.querySelector("[data-receipt-list]"),
+    receiptMode: root.querySelector("[data-receipt-mode]"),
+    receiptHint: root.querySelector("[data-receipt-hint]"),
     modeList: root.querySelector("[data-mode-list]"),
-    brandFields: root.querySelector("[data-brand-fields]"),
-    brandNameInput: root.querySelector("[data-brand-name-input]"),
     productList: root.querySelector("[data-product-list]"),
-    hoodieConfig: root.querySelector("[data-hoodie-config]"),
     fitList: root.querySelector("[data-fit-list]"),
     fabricList: root.querySelector("[data-fabric-list]"),
+    fitBlock: root.querySelector("[data-fit-block]"),
+    fabricBlock: root.querySelector("[data-fabric-block]"),
     colorList: root.querySelector("[data-color-list]"),
     zoneList: root.querySelector("[data-zone-list]"),
     placementNoteWrap: root.querySelector("[data-placement-note-wrap]"),
     placementNoteInput: root.querySelector("[data-placement-note-input]"),
-    addonsWrap: root.querySelector("[data-addons-wrap]"),
     addonsList: root.querySelector("[data-addons-list]"),
-    artworkServiceList: root.querySelector("[data-artwork-service-list]"),
-    triageList: root.querySelector("[data-triage-list]"),
-    fileInput: root.querySelector("[data-file-input]"),
-    fileList: root.querySelector("[data-file-list]"),
+    addonsWrap: root.querySelector("[data-addons-wrap]"),
+    artworkList: root.querySelector("[data-artwork-service-list]"),
+    dropzoneGrid: root.querySelector("[data-dropzone-grid]"),
+    dropzoneEmpty: root.querySelector("[data-dropzone-empty]"),
     briefInput: root.querySelector("[data-brief-input]"),
-    quantityInput: root.querySelector("[data-quantity-input]"),
-    giftInput: root.querySelector("[data-gift-input]"),
-    sizeModeList: root.querySelector("[data-size-mode-list]"),
+    qtyInput: root.querySelector("[data-quantity-input]"),
+    qtyHint: root.querySelector("[data-quantity-hint]"),
+    qtySteps: root.querySelectorAll("[data-qty-step]"),
+    sizeBlock: root.querySelector("[data-size-block]"),
+    sizeGrid: root.querySelector("[data-size-grid]"),
+    sizeMatrix: root.querySelector("[data-size-matrix]"),
+    sizeWarning: root.querySelector("[data-size-warning]"),
+    sizeHint: root.querySelector("[data-size-hint]"),
+    sizeManagerBtn: root.querySelector("[data-size-manager]"),
+    sizesNoteWrap: root.querySelector("[data-sizes-note-wrap]"),
     sizesNoteInput: root.querySelector("[data-sizes-note-input]"),
     garmentNoteWrap: root.querySelector("[data-garment-note-wrap]"),
     garmentNoteInput: root.querySelector("[data-garment-note-input]"),
-    reviewBox: root.querySelector("[data-review-box]"),
-    nameInput: root.querySelector("[data-name-input]"),
-    brandShortcutInput: root.querySelector("[data-brand-shortcut-input]"),
+    b2bMeta: root.querySelector("[data-b2b-meta]"),
+    b2bDiscount: root.querySelector("[data-b2b-discount]"),
+    giftToggle: root.querySelector("[data-gift-toggle]"),
+    giftTextWrap: root.querySelector("[data-gift-text-wrap]"),
+    giftTextInput: root.querySelector("[data-gift-text-input]"),
     contactChannelList: root.querySelector("[data-contact-channel-list]"),
+    nameInput: root.querySelector("[data-name-input]"),
     contactValueInput: root.querySelector("[data-contact-value-input]"),
+    brandFields: root.querySelector("[data-brand-fields]"),
+    brandNameInput: root.querySelector("[data-brand-name-input]"),
     statusBox: root.querySelector("[data-status-box]"),
-    garment: root.querySelector("[data-garment]"),
-    zoneLayer: root.querySelector("[data-zone-layer]"),
-    stageEyebrow: root.querySelector("[data-stage-eyebrow]"),
-    stageLabel: root.querySelector("[data-stage-label]"),
-    stageNote: root.querySelector("[data-stage-note]"),
-    stageZones: root.querySelector("[data-stage-zones]"),
-    stageAddons: root.querySelector("[data-stage-addons]"),
-    stageViewButtons: Array.from(root.querySelectorAll("[data-stage-view]")),
-    inlinePriceSummary: root.querySelector("[data-inline-price-summary]"),
-    priceCapsule: root.querySelector("[data-price-capsule]"),
-    capsuleTitle: root.querySelector("[data-capsule-title]"),
-    priceMain: root.querySelector("[data-price-main]"),
-    priceSub: root.querySelector("[data-price-sub]"),
-    priceBreakdown: root.querySelector("[data-price-breakdown]"),
-    mobileBar: root.querySelector("[data-mobile-bar]"),
-    mobilePrice: root.querySelector("[data-mobile-price]"),
-    mobilePriceNote: root.querySelector("[data-mobile-price-note]"),
-    safeExitButtons: Array.from(root.querySelectorAll("[data-safe-exit-trigger]")),
-    mobileSummaryToggleButtons: Array.from(root.querySelectorAll("[data-mobile-summary-toggle]")),
-    submitShortcut: root.querySelector("[data-submit-shortcut]"),
-    stepNavButtons: Array.from(root.querySelectorAll("[data-step-nav]")),
-    startFlowButtons: Array.from(root.querySelectorAll("[data-start-flow]")),
+    addToCartBtn: root.querySelector("[data-action-add-to-cart]"),
+    submitLeadBtn: root.querySelector("[data-action-submit-lead]"),
+    safeExitBtn: root.querySelector("[data-safe-exit-trigger]"),
+    startFlow: root.querySelector("[data-start-flow]"),
+    cartActionHint: root.querySelector("[data-cart-action-hint]"),
+    leadActionHint: root.querySelector("[data-lead-action-hint]"),
+    stepEditButtons: root.querySelectorAll("[data-step-edit]"),
+    stepBackButtons: root.querySelectorAll("[data-step-back]"),
+    stepNextButtons: root.querySelectorAll("[data-step-next]"),
+    stepSkipButtons: root.querySelectorAll("[data-step-skip]"),
   };
 
-  let selectedFiles = [];
-  let stageView = "front";
+  init();
 
-  const draft = readDraft();
-  const state = normalizeState(draft || defaultState);
-  syncInputsFromState();
-  bindEvents();
-  renderAll();
-
-  if (draft) {
-    showStatus("Локальну чернетку відновлено. Можна продовжити збір або передати її менеджеру.", "success");
+  // ────────────────────────────────────────────────────────────
+  function createState() {
+    return {
+      mode: null, // "personal" | "brand"
+      product: {
+        type: null, // "hoodie" | "tshirt" | "longsleeve" | "customer_garment"
+        fit: null,
+        fabric: null,
+        color: null,
+      },
+      print: {
+        zones: [],
+        add_ons: [],
+        placement_note: "",
+      },
+      artwork: {
+        service_kind: null,
+        triage_status: null,
+      },
+      order: {
+        quantity: 0,
+        size_mode: "single",
+        sizes_note: "",
+        size_breakdown: {},
+        gift_enabled: false,
+        gift_text: "",
+      },
+      notes: {
+        brand_name: "",
+        brief: "",
+        garment_note: "",
+      },
+      contact: {
+        channel: null,
+        name: "",
+        value: "",
+      },
+      ui: {
+        current_step: "mode",
+        done_steps: new Set(),
+        stage_view: "front",
+      },
+    };
   }
 
-  function deepCopy(value) {
-    return JSON.parse(JSON.stringify(value));
+  function init() {
+    renderModeChips();
+    renderProductCards();
+    renderArtworkCardModifiers();
+    renderContactChannelChips();
+    renderZoneChipsForCurrent();
+    renderAddons();
+    renderColorChips();
+    renderFitChips();
+    renderFabricChips();
+    bindWaterfallNav();
+    bindStageView();
+    bindQuantity();
+    bindGiftToggle();
+    bindFinalActions();
+    bindGenericInputs();
+    loadDraft();
+    setActiveStep(STATE.ui.current_step || "mode", { silent: true });
+    refreshAll();
   }
 
-  function readDraft() {
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      return raw ? JSON.parse(raw) : null;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  function persistDraft() {
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(buildSnapshot()));
-    } catch (error) {
-      console.warn("Custom print draft save failed", error);
-    }
-  }
-
-  function clearDraft() {
-    try {
-      window.localStorage.removeItem(storageKey);
-    } catch (error) {
-      console.warn("Custom print draft clear failed", error);
-    }
-  }
-
-  function allowedValues(items) {
-    return new Set((items || []).map((item) => item.value));
-  }
-
-  function getProductConfig(type) {
-    return (config.products || {})[type] || (config.products || {}).hoodie;
-  }
-
-  function normalizeState(raw) {
-    const base = deepCopy(defaultState);
-    const draftState = raw || {};
-
-    base.quick_start_mode = allowedValues(config.quick_start_modes).has(draftState.quick_start_mode)
-      ? draftState.quick_start_mode
-      : base.quick_start_mode;
-    base.mode = draftState.mode === "brand" ? "brand" : "personal";
-    base.starter_style = allowedValues(config.starter_styles).has(draftState.starter_style)
-      ? draftState.starter_style
-      : (base.starter_style || "minimal");
-
-    const productType = ((draftState.product || {}).type || base.product.type || "hoodie");
-    base.product.type = (config.products || {})[productType] ? productType : "hoodie";
-
-    const productConfig = getProductConfig(base.product.type);
-    const fitChoices = (productConfig.fits || []).map((item) => item.value);
-    const requestedFit = (draftState.product || {}).fit || base.product.fit || "";
-    base.product.fit = fitChoices.includes(requestedFit) ? requestedFit : (productConfig.default_fit || "");
-
-    const fabricChoices = ((productConfig.fabrics || {})[base.product.fit] || []).map((item) => item.value);
-    const requestedFabric = (draftState.product || {}).fabric || base.product.fabric || "";
-    base.product.fabric = fabricChoices.includes(requestedFabric)
-      ? requestedFabric
-      : (productConfig.default_fabric || fabricChoices[0] || "");
-
-    const colorChoices = (productConfig.colors || []).map((item) => item.value);
-    const requestedColor = (draftState.product || {}).color || base.product.color || "";
-    base.product.color = colorChoices.includes(requestedColor)
-      ? requestedColor
-      : (productConfig.default_color || colorChoices[0] || "");
-
-    const requestedZones = Array.isArray((draftState.print || {}).zones) ? (draftState.print || {}).zones : base.print.zones;
-    const availableZones = new Set(productConfig.zones || []);
-    base.print.zones = (requestedZones || []).filter((zone, index, list) => availableZones.has(zone) && list.indexOf(zone) === index);
-    if (!base.print.zones.length) {
-      base.print.zones = deepCopy(productConfig.default_zones || ["front"]);
-    }
-
-    const requestedAddOns = Array.isArray((draftState.print || {}).add_ons) ? (draftState.print || {}).add_ons : [];
-    const addOnChoices = new Set((productConfig.add_ons || []).map((item) => item.value));
-    base.print.add_ons = requestedAddOns.filter((value, index, list) => addOnChoices.has(value) && list.indexOf(value) === index);
-    base.print.placement_note = ((draftState.print || {}).placement_note || base.print.placement_note || "").trim();
-
-    base.artwork.service_kind = allowedValues(config.artwork_services).has((draftState.artwork || {}).service_kind)
-      ? (draftState.artwork || {}).service_kind
-      : (base.quick_start_mode === "have_file" ? "ready" : "design");
-    base.artwork.triage_status = allowedValues(config.triage_statuses).has((draftState.artwork || {}).triage_status)
-      ? (draftState.artwork || {}).triage_status
-      : deriveTriageStatus(base.artwork.service_kind, Array.isArray((draftState.artwork || {}).files) ? (draftState.artwork || {}).files : []);
-    base.artwork.files = Array.isArray((draftState.artwork || {}).files) ? (draftState.artwork || {}).files : [];
-
-    base.order.quantity = positiveInt((draftState.order || {}).quantity, base.order.quantity || 1);
-    base.order.size_mode = allowedValues(config.size_modes).has((draftState.order || {}).size_mode)
-      ? (draftState.order || {}).size_mode
-      : (base.order.size_mode || "single");
-    base.order.sizes_note = ((draftState.order || {}).sizes_note || base.order.sizes_note || "").trim();
-    base.order.gift = Boolean((draftState.order || {}).gift);
-
-    base.contact.channel = allowedValues(config.contact_channels).has((draftState.contact || {}).channel)
-      ? (draftState.contact || {}).channel
-      : (base.contact.channel || "");
-    base.contact.name = ((draftState.contact || {}).name || base.contact.name || "").trim();
-    base.contact.value = ((draftState.contact || {}).value || base.contact.value || "").trim();
-
-    base.notes = base.notes || {};
-    base.notes.brand_name = ((draftState.notes || {}).brand_name || (base.notes || {}).brand_name || "").trim();
-    base.notes.brief = ((draftState.notes || {}).brief || (base.notes || {}).brief || "").trim();
-    base.notes.garment_note = ((draftState.notes || {}).garment_note || (base.notes || {}).garment_note || "").trim();
-
-    base.ui = base.ui || {};
-    const requestedStep = ((draftState.ui || {}).current_step || base.ui.current_step || "quickstart").trim();
-    base.ui.current_step = stepOrder.includes(requestedStep) ? requestedStep : "quickstart";
-
-    stageView = inferStageView(base.print.zones[0] || "front");
-    return base;
-  }
-
-  function positiveInt(value, fallback) {
-    const parsed = Number.parseInt(value, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-  }
-
-  function inferStageView(zone) {
-    return zone === "back" ? "back" : "front";
-  }
-
-  function deriveTriageStatus(serviceKind, files) {
-    if (serviceKind === "ready") {
-      return files.length ? "print-ready" : "needs-review";
-    }
-    if (serviceKind === "adjust") {
-      return "needs-work";
-    }
-    return files.length ? "reference-only" : "needs-review";
-  }
-
-  function bindEvents() {
-    delegateChoice(dom.quickStartList, (value) => {
-      state.quick_start_mode = value;
-      if (value === "have_file" && state.artwork.service_kind === "design") {
-        state.artwork.service_kind = "ready";
-        state.artwork.triage_status = deriveTriageStatus("ready", state.artwork.files);
-      }
-      if (value === "starter_style" && !state.starter_style) {
-        state.starter_style = "minimal";
-      }
-      setCurrentStep("mode");
-      renderAll();
-    });
-
-    delegateChoice(dom.starterStyleList, (value) => {
-      state.starter_style = value;
-      setCurrentStep("quickstart");
-      renderAll();
-    });
-
-    delegateChoice(dom.modeList, (value) => {
-      state.mode = value;
-      setCurrentStep("product");
-      renderAll();
-    });
-
-    delegateChoice(dom.productList, (value) => {
-      state.product.type = value;
-      const productConfig = getProductConfig(value);
-      state.product.fit = productConfig.default_fit || "";
-      state.product.fabric = productConfig.default_fabric || "";
-      state.product.color = productConfig.default_color || "";
-      state.print.zones = deepCopy(productConfig.default_zones || ["front"]);
-      state.print.add_ons = [];
-      state.print.placement_note = "";
-      if (value === "customer_garment" && state.artwork.service_kind === "ready") {
-        state.artwork.service_kind = "design";
-      }
-      stageView = inferStageView(state.print.zones[0]);
-      setCurrentStep("product");
-      renderAll();
-    });
-
-    delegateChoice(dom.fitList, (value) => {
-      state.product.fit = value;
-      const productConfig = getProductConfig(state.product.type);
-      const fabrics = ((productConfig.fabrics || {})[value] || []).map((item) => item.value);
-      if (fabrics.length && !fabrics.includes(state.product.fabric)) {
-        state.product.fabric = fabrics[0];
-      }
-      setCurrentStep("product");
-      renderAll();
-    });
-
-    delegateChoice(dom.fabricList, (value) => {
-      state.product.fabric = value;
-      setCurrentStep("product");
-      renderAll();
-    });
-
-    delegateChoice(dom.colorList, (value) => {
-      state.product.color = value;
-      setCurrentStep("product");
-      renderAll();
-    });
-
-    delegateChoice(dom.zoneList, (value) => {
-      toggleSelection(state.print.zones, value, getProductConfig(state.product.type).default_zones || ["front"]);
-      if (value === "back") {
-        stageView = "back";
-      }
-      if (value === "front") {
-        stageView = "front";
-      }
-      setCurrentStep("product");
-      renderAll();
-    });
-
-    delegateChoice(dom.addonsList, (value) => {
-      toggleSelection(state.print.add_ons, value, []);
-      setCurrentStep("product");
-      renderAll();
-    });
-
-    delegateChoice(dom.artworkServiceList, (value) => {
-      state.artwork.service_kind = value;
-      state.artwork.triage_status = deriveTriageStatus(value, state.artwork.files);
-      setCurrentStep("artwork");
-      renderAll();
-    });
-
-    delegateChoice(dom.triageList, (value) => {
-      state.artwork.triage_status = value;
-      setCurrentStep("artwork");
-      renderAll();
-    });
-
-    delegateChoice(dom.sizeModeList, (value) => {
-      state.order.size_mode = value;
-      setCurrentStep("quantity");
-      renderAll();
-    });
-
-    delegateChoice(dom.contactChannelList, (value) => {
-      state.contact.channel = value;
-      updateContactPlaceholder();
-      setCurrentStep("review");
-      renderAll();
-    });
-
-    dom.brandNameInput.addEventListener("input", () => {
-      state.notes.brand_name = dom.brandNameInput.value.trim();
-      setCurrentStep("mode");
-      persistDraft();
-    });
-
-    dom.placementNoteInput.addEventListener("input", () => {
-      state.print.placement_note = dom.placementNoteInput.value.trim();
-      setCurrentStep("product");
-      persistDraft();
-    });
-
-    dom.fileInput.addEventListener("change", () => {
-      selectedFiles = Array.from(dom.fileInput.files || []);
-      state.artwork.files = selectedFiles.map((file, index) => ({
-        name: file.name,
-        zone: state.print.zones[index] || state.print.zones[0] || "front",
-        status: state.artwork.triage_status,
-        role: state.artwork.triage_status === "reference-only" ? "reference" : "design",
-      }));
-      state.artwork.triage_status = deriveTriageStatus(state.artwork.service_kind, state.artwork.files);
-      setCurrentStep("artwork");
-      renderAll();
-    });
-
-    dom.briefInput.addEventListener("input", () => {
-      state.notes.brief = dom.briefInput.value.trim();
-      setCurrentStep("artwork");
-      persistDraft();
-    });
-
-    dom.quantityInput.addEventListener("input", () => {
-      state.order.quantity = positiveInt(dom.quantityInput.value, 1);
-      setCurrentStep("quantity");
-      renderAll();
-    });
-
-    dom.giftInput.addEventListener("change", () => {
-      state.order.gift = Boolean(dom.giftInput.checked);
-      setCurrentStep("quantity");
-      renderAll();
-    });
-
-    dom.sizesNoteInput.addEventListener("input", () => {
-      state.order.sizes_note = dom.sizesNoteInput.value.trim();
-      setCurrentStep("quantity");
-      persistDraft();
-    });
-
-    dom.garmentNoteInput.addEventListener("input", () => {
-      state.notes.garment_note = dom.garmentNoteInput.value.trim();
-      setCurrentStep("quantity");
-      persistDraft();
-    });
-
-    dom.nameInput.addEventListener("input", () => {
-      state.contact.name = dom.nameInput.value.trim();
-      setCurrentStep("review");
-      persistDraft();
-    });
-
-    dom.brandShortcutInput.addEventListener("input", () => {
-      if (!state.notes.brand_name) {
-        state.notes.brand_name = dom.brandShortcutInput.value.trim();
-      }
-      setCurrentStep("review");
-      persistDraft();
-    });
-
-    dom.contactValueInput.addEventListener("input", () => {
-      state.contact.value = dom.contactValueInput.value.trim();
-      setCurrentStep("review");
-      persistDraft();
-    });
-
-    dom.stageViewButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        stageView = button.dataset.stageView || "front";
-        renderStage();
+  // ── Renderers ───────────────────────────────────────────────
+  function renderModeChips() {
+    const container = dom.modeList;
+    if (!container) return;
+    container.querySelectorAll("[data-choice-value]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        STATE.mode = btn.dataset.choiceValue;
+        afterChoice("mode");
       });
     });
+  }
 
-    dom.buildStrip.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-step-link]");
-      if (!button) {
-        return;
-      }
-      focusStep(button.dataset.stepLink);
-    });
-
-    dom.stepSections.forEach((section) => {
-      section.addEventListener("click", () => {
-        setCurrentStep(section.dataset.step || "quickstart");
-        renderBuildStrip();
+  function renderProductCards() {
+    if (!dom.productList) return;
+    dom.productList.querySelectorAll("[data-choice-value]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const value = btn.dataset.choiceValue;
+        STATE.product.type = value;
+        STATE.product.fit = null;
+        STATE.product.fabric = null;
+        STATE.product.color = null;
+        STATE.print.zones = [];
+        STATE.print.add_ons = [];
+        STATE.artwork.service_kind = null;
+        filesByZone.clear();
+        // For products that need no config step (config skip), advance straight
+        afterChoice("product");
       });
-    });
-
-    dom.stepNavButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        focusStep(button.dataset.stepNav);
-      });
-    });
-
-    dom.startFlowButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        focusStep("quickstart");
-      });
-    });
-
-    dom.safeExitButtons.forEach((button) => {
-      button.addEventListener("click", handleSafeExit);
-    });
-
-    dom.mobileSummaryToggleButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        const expanded = root.dataset.mobileExpanded === "true";
-        root.dataset.mobileExpanded = expanded ? "false" : "true";
-      });
-    });
-
-    dom.submitShortcut.addEventListener("click", () => {
-      form.requestSubmit();
-    });
-
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const errors = validateBeforeSubmit();
-      if (errors.length) {
-        showStatus(errors.join(" "), "error");
-        return;
-      }
-
-      const snapshot = buildSnapshot();
-      const pricing = computePricing();
-      const formData = buildFormData(snapshot, pricing);
-
-      setBusy(true);
-      try {
-        const response = await fetch(config.submit_url, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            "X-Requested-With": "fetch",
-            "X-CSRFToken": getCsrfToken(),
-          },
-          body: formData,
-        });
-
-        const payload = await response.json();
-        if (!response.ok || !payload.ok) {
-          const messages = flattenErrors(payload.errors || {});
-          showStatus(messages.length ? messages.join(" ") : "Не вдалося відправити заявку. Перевірте поля або спробуйте ще раз.", "error");
-          return;
-        }
-
-        clearDraft();
-        showStatus(payload.message || "Заявку прийнято. Менеджер зв'яжеться найближчим часом.", "success");
-        root.dataset.mobileExpanded = "false";
-      } catch (error) {
-        showStatus("Мережевий збій під час відправки. Ви можете спробувати ще раз або передати чернетку менеджеру.", "error");
-      } finally {
-        setBusy(false);
-      }
     });
   }
 
-  function renderAll() {
-    renderQuickStart();
-    renderModes();
-    renderProducts();
-    renderProductConfig();
-    renderArtwork();
-    renderQuantity();
-    renderReview();
-    renderStage();
-    renderStepPanels();
-    renderBuildStrip();
-    renderPriceCapsule();
-    syncInputsFromState();
+  function renderArtworkCardModifiers() {
+    if (!dom.artworkList) return;
+    dom.artworkList.querySelectorAll("[data-choice-value]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        STATE.artwork.service_kind = btn.dataset.choiceValue;
+        if (STATE.artwork.service_kind === "ready") STATE.artwork.triage_status = "print-ready";
+        else if (STATE.artwork.service_kind === "adjust") STATE.artwork.triage_status = "needs-work";
+        else STATE.artwork.triage_status = "reference-only";
+        renderArtworkActiveState();
+        renderDropzones();
+        refreshAll();
+        persistDraft();
+      });
+    });
+  }
+
+  function renderContactChannelChips() {
+    if (!dom.contactChannelList) return;
+    dom.contactChannelList.innerHTML = "";
+    (CONFIG.contact_channels || []).forEach((ch) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cp-mini-chip";
+      btn.dataset.choiceValue = ch.value;
+      btn.textContent = ch.label;
+      btn.addEventListener("click", () => {
+        STATE.contact.channel = ch.value;
+        if (dom.contactValueInput) dom.contactValueInput.placeholder = ch.placeholder || "@username або +380...";
+        renderContactChannelChipsActive();
+        refreshAll();
+        persistDraft();
+      });
+      dom.contactChannelList.appendChild(btn);
+    });
+  }
+
+  function renderContactChannelChipsActive() {
+    if (!dom.contactChannelList) return;
+    dom.contactChannelList.querySelectorAll("[data-choice-value]").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.choiceValue === STATE.contact.channel);
+    });
+  }
+
+  function getProductConfig() {
+    if (!STATE.product.type) return null;
+    return (CONFIG.products || {})[STATE.product.type] || null;
+  }
+
+  function renderFitChips() {
+    if (!dom.fitList) return;
+    dom.fitList.innerHTML = "";
+    const cfg = getProductConfig();
+    const fits = cfg && cfg.fits ? cfg.fits : [];
+    if (!fits.length) {
+      if (dom.fitBlock) dom.fitBlock.hidden = true;
+      return;
+    }
+    if (dom.fitBlock) dom.fitBlock.hidden = false;
+    fits.forEach((f) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cp-mini-chip";
+      if (STATE.product.fit === f.value) btn.classList.add("is-active");
+      btn.dataset.choiceValue = f.value;
+      btn.innerHTML = `<strong>${f.label}</strong><small>${f.description || ""}</small>`;
+      btn.addEventListener("click", () => {
+        STATE.product.fit = f.value;
+        // Reset fabric since available fabrics depend on fit
+        STATE.product.fabric = null;
+        renderFabricChips();
+        renderFitChips();
+        refreshAll();
+        persistDraft();
+      });
+      dom.fitList.appendChild(btn);
+    });
+  }
+
+  function renderFabricChips() {
+    if (!dom.fabricList) return;
+    dom.fabricList.innerHTML = "";
+    const cfg = getProductConfig();
+    const fabricsMap = cfg && cfg.fabrics ? cfg.fabrics : {};
+    const fabrics = STATE.product.fit ? fabricsMap[STATE.product.fit] || [] : [];
+    if (!fabrics.length) {
+      if (dom.fabricBlock) dom.fabricBlock.hidden = true;
+      return;
+    }
+    if (dom.fabricBlock) dom.fabricBlock.hidden = false;
+    fabrics.forEach((fab) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cp-mini-chip";
+      if (STATE.product.fabric === fab.value) btn.classList.add("is-active");
+      btn.dataset.choiceValue = fab.value;
+      btn.textContent = fab.label;
+      btn.addEventListener("click", () => {
+        STATE.product.fabric = fab.value;
+        renderFabricChips();
+        refreshAll();
+        persistDraft();
+      });
+      dom.fabricList.appendChild(btn);
+    });
+  }
+
+  function renderColorChips() {
+    if (!dom.colorList) return;
+    dom.colorList.innerHTML = "";
+    const cfg = getProductConfig();
+    const colors = cfg && cfg.colors ? cfg.colors : [];
+    colors.forEach((c) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cp-swatch";
+      btn.dataset.choiceValue = c.value;
+      btn.style.setProperty("--swatch", c.hex);
+      if (STATE.product.color === c.value) btn.classList.add("is-active");
+      btn.innerHTML = `<span class="cp-swatch-dot" style="background:${c.hex}"></span><span>${c.label}</span>`;
+      btn.addEventListener("click", () => {
+        STATE.product.color = c.value;
+        applyGarmentColor();
+        renderColorChips();
+        refreshAll();
+        persistDraft();
+      });
+      dom.colorList.appendChild(btn);
+    });
+  }
+
+  function renderZoneChipsForCurrent() {
+    if (!dom.zoneList) return;
+    dom.zoneList.innerHTML = "";
+    const cfg = getProductConfig();
+    const zones = cfg && cfg.zones ? cfg.zones : [];
+    if (!zones.length) {
+      dom.zoneList.innerHTML = `<small class="cp-empty-hint">Спочатку оберіть виріб.</small>`;
+      return;
+    }
+    zones.forEach((z) => {
+      const isActive = STATE.print.zones.includes(z);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cp-mini-chip cp-mini-chip--zone";
+      if (isActive) btn.classList.add("is-active");
+      btn.dataset.choiceValue = z;
+      btn.textContent = (CONFIG.zone_labels && CONFIG.zone_labels[z]) || z;
+      btn.addEventListener("click", () => {
+        toggleZone(z);
+      });
+      dom.zoneList.appendChild(btn);
+    });
+    // Show placement_note if "custom" zone is selected
+    if (dom.placementNoteWrap) {
+      dom.placementNoteWrap.hidden = !STATE.print.zones.includes("custom");
+    }
+    renderZoneOverlay();
+  }
+
+  function toggleZone(zone) {
+    const idx = STATE.print.zones.indexOf(zone);
+    if (idx >= 0) {
+      STATE.print.zones.splice(idx, 1);
+      filesByZone.delete(zone);
+    } else {
+      STATE.print.zones.push(zone);
+    }
+    renderZoneChipsForCurrent();
+    renderDropzones();
+    refreshAll();
     persistDraft();
   }
 
-  function renderQuickStart() {
-    dom.quickStartList.innerHTML = (config.quick_start_modes || []).map((item) => (
-      `<button type="button" class="cp-option-card ${state.quick_start_mode === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        <small>Старт</small>
-        <strong>${escapeHtml(item.label)}</strong>
-        <span>${escapeHtml(item.hint)}</span>
-      </button>`
-    )).join("");
-
-    dom.starterStyleWrap.hidden = state.quick_start_mode !== "starter_style";
-    dom.starterStyleList.innerHTML = (config.starter_styles || []).map((item) => (
-      `<button type="button" class="cp-mini-chip ${state.starter_style === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        ${escapeHtml(item.label)}
-      </button>`
-    )).join("");
-
-    const active = (config.quick_start_modes || []).find((item) => item.value === state.quick_start_mode) || config.quick_start_modes[0];
-    dom.heroDynamicLabel.textContent = active ? active.label : "Почати з нуля";
-    dom.heroDynamicCopy.textContent = active ? active.hint : "";
-  }
-
-  function renderModes() {
-    dom.modeList.innerHTML = (config.modes || []).map((item) => (
-      `<button type="button" class="cp-option-card ${state.mode === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        <small>Формат</small>
-        <strong>${escapeHtml(item.label)}</strong>
-        <span>${escapeHtml(item.hint || "")}</span>
-      </button>`
-    )).join("");
-    dom.brandFields.hidden = state.mode !== "brand";
-  }
-
-  function renderProducts() {
-    dom.productList.innerHTML = Object.entries(config.products || {}).map(([value, product]) => (
-      `<button type="button" class="cp-product-card ${state.product.type === value ? "is-active" : ""}" data-choice-value="${escapeHtml(value)}">
-        <small>${escapeHtml(product.eyebrow || "product")}</small>
-        <strong>${escapeHtml(product.label)}</strong>
-        <span>${escapeHtml(product.summary || "")}</span>
-      </button>`
-    )).join("");
-  }
-
-  function renderProductConfig() {
-    const product = getProductConfig(state.product.type);
-    dom.hoodieConfig.hidden = state.product.type !== "hoodie";
-    dom.garmentNoteWrap.hidden = state.product.type !== "customer_garment";
-    dom.addonsWrap.hidden = !(product.add_ons || []).length;
-
-    dom.fitList.innerHTML = (product.fits || []).map((item) => (
-      `<button type="button" class="cp-mini-chip ${state.product.fit === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        ${escapeHtml(item.label)}
-      </button>`
-    )).join("");
-
-    const fabrics = (product.fabrics || {})[state.product.fit] || [];
-    dom.fabricList.innerHTML = fabrics.map((item) => (
-      `<button type="button" class="cp-mini-chip ${state.product.fabric === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        ${escapeHtml(item.label)}
-      </button>`
-    )).join("");
-
-    dom.colorList.innerHTML = (product.colors || []).map((item) => (
-      `<button type="button" class="cp-swatch ${state.product.color === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        <span class="cp-swatch-dot" style="background:${escapeHtml(item.hex || "#444")}"></span>
-        ${escapeHtml(item.label)}
-      </button>`
-    )).join("");
-
-    dom.zoneList.innerHTML = (product.zones || []).map((zone) => (
-      `<button type="button" class="cp-mini-chip ${state.print.zones.includes(zone) ? "is-active" : ""}" data-choice-value="${escapeHtml(zone)}">
-        ${escapeHtml((config.zone_labels || {})[zone] || zone)}
-      </button>`
-    )).join("");
-
-    dom.addonsList.innerHTML = (product.add_ons || []).map((item) => (
-      `<button type="button" class="cp-mini-chip ${state.print.add_ons.includes(item.value) ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        ${escapeHtml(item.label)}
-      </button>`
-    )).join("");
-
-    const showPlacementNote = state.print.zones.includes("custom") || state.product.type === "customer_garment";
-    dom.placementNoteWrap.hidden = !showPlacementNote;
-  }
-
-  function renderArtwork() {
-    dom.artworkServiceList.innerHTML = (config.artwork_services || []).map((item) => (
-      `<button type="button" class="cp-option-card ${state.artwork.service_kind === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        <small>Макет</small>
-        <strong>${escapeHtml(item.label)}</strong>
-        <span>${escapeHtml(item.hint || "")}</span>
-      </button>`
-    )).join("");
-
-    dom.triageList.innerHTML = (config.triage_statuses || []).map((item) => (
-      `<button type="button" class="cp-mini-chip ${state.artwork.triage_status === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        ${escapeHtml(item.label)}
-      </button>`
-    )).join("");
-
-    if (!state.artwork.files.length) {
-      dom.fileList.textContent = "Файли ще не додані.";
+  function renderAddons() {
+    if (!dom.addonsList) return;
+    dom.addonsList.innerHTML = "";
+    const cfg = getProductConfig();
+    const addons = cfg && cfg.add_ons ? cfg.add_ons : [];
+    if (!addons.length) {
+      if (dom.addonsWrap) dom.addonsWrap.hidden = true;
       return;
     }
-
-    const restoreNotice = state.artwork.files.length && !selectedFiles.length
-      ? `<div class="cp-file-item"><div><strong>Чернетку відновлено</strong><div>Назви файлів збережено, але самі файли потрібно вибрати повторно перед відправкою.</div></div></div>`
-      : "";
-
-    dom.fileList.innerHTML = restoreNotice + state.artwork.files.map((file, index) => (
-      `<div class="cp-file-item">
-        <div>
-          <strong>${escapeHtml(file.name || `file-${index + 1}`)}</strong>
-          <div>${escapeHtml((config.zone_labels || {})[file.zone] || file.zone || "front")} · ${escapeHtml(labelForValue(config.triage_statuses, file.status || state.artwork.triage_status))}</div>
-        </div>
-        <span>${escapeHtml(labelForFileRole(file.role || "design"))}</span>
-      </div>`
-    )).join("");
-  }
-
-  function renderQuantity() {
-    dom.sizeModeList.innerHTML = (config.size_modes || []).map((item) => (
-      `<button type="button" class="cp-mini-chip ${state.order.size_mode === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        ${escapeHtml(item.label)}
-      </button>`
-    )).join("");
-
-    dom.contactChannelList.innerHTML = (config.contact_channels || []).map((item) => (
-      `<button type="button" class="cp-mini-chip ${state.contact.channel === item.value ? "is-active" : ""}" data-choice-value="${escapeHtml(item.value)}">
-        ${escapeHtml(item.label)}
-      </button>`
-    )).join("");
-  }
-
-  function renderReview() {
-    const product = getProductConfig(state.product.type);
-    const pricing = computePricing();
-    const contactLabel = ((config.contact_channels || []).find((item) => item.value === state.contact.channel) || {}).label || "Не вказано";
-    const lines = [
-      `<ul>
-        <li><strong>Старт:</strong> ${escapeHtml(labelForValue(config.quick_start_modes, state.quick_start_mode))}</li>
-        <li><strong>Формат:</strong> ${escapeHtml(state.mode === "brand" ? "Для команди / бренду" : "Для себе")}</li>
-        <li><strong>Виріб:</strong> ${escapeHtml(product.label || "Худі")}</li>
-        <li><strong>Зони:</strong> ${escapeHtml(formatZones())}</li>
-        <li><strong>Макет:</strong> ${escapeHtml(labelForValue(config.artwork_services, state.artwork.service_kind))} / ${escapeHtml(labelForValue(config.triage_statuses, state.artwork.triage_status))}</li>
-        <li><strong>Кількість:</strong> ${escapeHtml(String(state.order.quantity))}</li>
-        <li><strong>Контакт:</strong> ${escapeHtml(contactLabel)}${state.contact.value ? ` — ${escapeHtml(state.contact.value)}` : ""}</li>
-        <li><strong>Ціна зараз:</strong> ${pricing.estimate_required ? "Ціну уточнюємо" : `${formatPrice(pricing.final_total)} / шт`}</li>
-      </ul>`,
-    ];
-
-    if (state.notes.brand_name) {
-      lines.push(`<div><strong>Бренд / команда:</strong> ${escapeHtml(state.notes.brand_name)}</div>`);
-    }
-    if (state.notes.brief) {
-      lines.push(`<div><strong>Бриф:</strong> ${escapeHtml(state.notes.brief)}</div>`);
-    }
-    if (state.order.gift) {
-      lines.push("<div><strong>Подарунок:</strong> так</div>");
-    }
-    dom.reviewBox.innerHTML = lines.join("");
-  }
-
-  function renderBuildStrip() {
-    const summary = {
-      quickstart: labelForValue(config.quick_start_modes, state.quick_start_mode),
-      mode: state.mode === "brand" ? "Для команди / бренду" : "Для себе",
-      product: getProductConfig(state.product.type).label || "Худі",
-      artwork: labelForValue(config.artwork_services, state.artwork.service_kind),
-      review: state.contact.value || "Контакт не вказано",
-    };
-
-    root.querySelectorAll("[data-step-summary]").forEach((node) => {
-      const step = node.dataset.stepSummary;
-      node.textContent = summary[step] || "—";
-    });
-
-    root.querySelectorAll("[data-step-link]").forEach((button) => {
-      const buttonStep = button.dataset.stepLink;
-      button.classList.toggle("is-active", buttonStep === state.ui.current_step);
-      button.classList.toggle("is-done", stepOrder.indexOf(buttonStep) < stepOrder.indexOf(state.ui.current_step));
-    });
-  }
-
-  function renderStepPanels() {
-    dom.stepSections.forEach((section) => {
-      const isCurrent = section.dataset.step === state.ui.current_step;
-      section.hidden = !isCurrent;
-      section.classList.toggle("is-current", isCurrent);
-    });
-  }
-
-  function renderStage() {
-    const product = getProductConfig(state.product.type);
-    const color = (product.colors || []).find((item) => item.value === state.product.color) || {};
-    dom.garment.className = `cp-garment cp-garment--${state.product.type} cp-garment--${stageView}`;
-    dom.garment.style.setProperty("--cp-garment-fill", color.hex || "#46424a");
-    dom.stageEyebrow.textContent = product.eyebrow || "Виріб";
-    dom.stageLabel.textContent = product.label || "Худі";
-    dom.stageNote.textContent = product.hero_note || "";
-    dom.stageZones.textContent = formatZones();
-    dom.stageAddons.textContent = state.print.add_ons.length
-      ? `Додаткові деталі: ${(state.print.add_ons || []).map((value) => labelForAddOn(value)).join(", ")}.`
-      : "Без додаткових деталей.";
-
-    dom.stageViewButtons.forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.stageView === stageView);
-    });
-
-    renderStagePins();
-  }
-
-  function renderStagePins() {
-    const productType = state.product.type;
-    const productConfig = getProductConfig(productType);
-    const viewPositions = (((stagePositions[productType] || {})[stageView]) || {});
-
-    dom.zoneLayer.innerHTML = (productConfig.zones || []).map((zone) => {
-      const position = viewPositions[zone];
-      const hidden = !position;
-      return `
-        <button
-          type="button"
-          class="cp-zone-pin ${state.print.zones.includes(zone) ? "is-active" : ""}"
-          data-stage-zone="${escapeHtml(zone)}"
-          ${hidden ? "hidden" : ""}
-          style="${hidden ? "" : `top:${position.top};left:${position.left};transform:translate(-50%, -50%);`}"
-        >
-          ${escapeHtml((config.zone_labels || {})[zone] || zone)}
-        </button>
+    if (dom.addonsWrap) dom.addonsWrap.hidden = false;
+    addons.forEach((a) => {
+      const isActive = STATE.print.add_ons.includes(a.value);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cp-addon-card cp-addon-card--lacing";
+      if (isActive) btn.classList.add("is-active");
+      btn.dataset.choiceValue = a.value;
+      btn.dataset.priceModifier = String(a.price_delta || 0);
+      btn.innerHTML = `
+        <span class="cp-addon-card-icon" aria-hidden="true">${addonSvg(a.icon)}</span>
+        <span class="cp-addon-card-body">
+          <strong>${a.label}</strong>
+          <span class="cp-addon-card-badge">${a.badge || ""}</span>
+          <span class="cp-addon-card-hint">${a.hint || ""}</span>
+        </span>
       `;
-    }).join("");
-
-    dom.zoneLayer.querySelectorAll("[data-stage-zone]").forEach((button) => {
-      button.addEventListener("click", () => {
-        toggleSelection(state.print.zones, button.dataset.stageZone, getProductConfig(state.product.type).default_zones || ["front"]);
-        setCurrentStep("product");
-        renderAll();
+      btn.addEventListener("click", () => {
+        const i = STATE.print.add_ons.indexOf(a.value);
+        if (i >= 0) STATE.print.add_ons.splice(i, 1);
+        else STATE.print.add_ons.push(a.value);
+        renderAddons();
+        refreshAll();
+        persistDraft();
       });
+      dom.addonsList.appendChild(btn);
     });
   }
 
-  function renderPriceCapsule() {
-    const pricing = computePricing();
-    const product = getProductConfig(state.product.type);
-    let title = "Ціну уточнюємо";
-    let priceMain = "Прорахунок";
-    let priceSub = "Один або кілька параметрів потребують ручного прорахунку.";
-
-    if (!pricing.estimate_required && pricing.final_total !== null) {
-      title = `Від ${formatPrice(pricing.final_total)} / шт`;
-      priceMain = formatPrice(pricing.final_total);
-      priceSub = "Попередня ціна для одного стандартного розміщення принта.";
-    } else if (pricing.base_price !== null) {
-      title = `База від ${formatPrice(pricing.base_price)}`;
-      priceMain = "Уточнюємо";
-      priceSub = "Бачимо базу, але фінальний прорахунок потребує менеджерської валідації.";
-    }
-
-    dom.capsuleTitle.textContent = title;
-    dom.priceMain.textContent = priceMain;
-    dom.priceSub.textContent = priceSub;
-    dom.inlinePriceSummary.textContent = `${product.label}: ${title}`;
-    dom.mobilePrice.textContent = pricing.estimate_required ? title : `${priceMain} / шт`;
-    dom.mobilePriceNote.textContent = pricing.estimate_required ? "Відкрити деталі" : "Ціна вже порахована";
-
-    const breakdown = [
-      `<ul>
-        <li><strong>База:</strong> ${pricing.base_price !== null ? escapeHtml(formatPrice(pricing.base_price)) : "менеджерський прорахунок"}</li>
-        <li><strong>Макет:</strong> ${pricing.design_price ? escapeHtml(`+${formatPrice(pricing.design_price)}`) : "без доплати"}</li>
-        <li><strong>Зони:</strong> ${escapeHtml(formatZones())}</li>
-        <li><strong>Деталі:</strong> ${state.print.add_ons.length ? escapeHtml((state.print.add_ons || []).map((value) => labelForAddOn(value)).join(", ")) : "немає"}</li>
-        <li><strong>Кількість:</strong> ${escapeHtml(String(state.order.quantity))}</li>
-      </ul>`,
-    ];
-
-    if (pricing.discount_percent) {
-      breakdown.push(`<div><strong>Знижка:</strong> ${escapeHtml(String(pricing.discount_percent))}%</div>`);
-    }
-    if (pricing.estimate_required && pricing.estimate_reason) {
-      breakdown.push(`<div><strong>Чому уточнюємо:</strong> ${escapeHtml(formatEstimateReason(pricing.estimate_reason))}</div>`);
-    }
-    dom.priceBreakdown.innerHTML = breakdown.join("");
+  function addonSvg(name) {
+    if (name === "lacing") return lacingSvg();
+    return defaultDotSvg();
   }
 
-  function computePricing() {
-    const product = getProductConfig(state.product.type);
-    const matrix = product.pricing || {};
-    const result = {
-      base_price: null,
-      design_price: 0,
-      discount_percent: 0,
-      discount_amount: 0,
-      final_total: null,
-      estimate_required: false,
-      estimate_reason: "",
-    };
+  function lacingSvg() {
+    return `
+      <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="18" cy="20" r="4" stroke="currentColor" stroke-width="2"/>
+        <circle cx="38" cy="20" r="4" stroke="currentColor" stroke-width="2"/>
+        <circle cx="18" cy="36" r="4" stroke="currentColor" stroke-width="2"/>
+        <circle cx="38" cy="36" r="4" stroke="currentColor" stroke-width="2"/>
+        <path d="M22 20 L34 36 M34 20 L22 36 M22 36 L34 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M14 24 C 8 28, 8 28, 14 32 M42 24 C 48 28, 48 28, 42 32" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    `;
+  }
 
-    if (matrix.base === null || state.product.type === "customer_garment") {
-      result.estimate_required = true;
-      result.estimate_reason = "customer_garment";
+  function defaultDotSvg() {
+    return `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="6" stroke="currentColor" stroke-width="2"/></svg>`;
+  }
+
+  function renderArtworkActiveState() {
+    if (!dom.artworkList) return;
+    dom.artworkList.querySelectorAll("[data-choice-value]").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.choiceValue === STATE.artwork.service_kind);
+    });
+  }
+
+  function renderDropzones() {
+    if (!dom.dropzoneGrid) return;
+    // Clear all .cp-dropzone children but keep the empty hint
+    dom.dropzoneGrid.querySelectorAll(".cp-dropzone").forEach((el) => el.remove());
+    const zones = STATE.print.zones;
+    if (!zones.length) {
+      if (dom.dropzoneEmpty) dom.dropzoneEmpty.hidden = false;
+      return;
+    }
+    if (dom.dropzoneEmpty) dom.dropzoneEmpty.hidden = true;
+    zones.forEach((zone) => {
+      const wrap = document.createElement("label");
+      wrap.className = "cp-dropzone";
+      wrap.dataset.zone = zone;
+      const label = (CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone;
+      const filesInfo = filesByZone.get(zone) || [];
+      wrap.innerHTML = `
+        <div class="cp-dropzone-head">
+          <small>Зона</small>
+          <strong>${label}</strong>
+        </div>
+        <input type="file" multiple accept="image/*,application/pdf,.ai,.eps,.psd,.tiff,.svg" data-dropzone-input>
+        <div class="cp-dropzone-body">
+          <span class="cp-dropzone-cta">+ Завантажити файл</span>
+          <span class="cp-dropzone-meta" data-dropzone-meta>${filesInfo.length ? filesInfo.length + ' файл(ів) додано' : 'PDF, AI, EPS, PSD, PNG, JPG, TIFF, SVG'}</span>
+        </div>
+        ${filesInfo.length ? `<ul class="cp-dropzone-list">${filesInfo.map((f) => `<li>${escapeHtml(f.name)} <small>${formatBytes(f.size)}</small></li>`).join("")}</ul>` : ""}
+      `;
+      const input = wrap.querySelector("[data-dropzone-input]");
+      input.addEventListener("change", (event) => {
+        const files = Array.from(event.target.files || []);
+        if (files.length) {
+          filesByZone.set(zone, files);
+        } else {
+          filesByZone.delete(zone);
+        }
+        renderDropzones();
+        refreshAll();
+      });
+      dom.dropzoneGrid.appendChild(wrap);
+    });
+  }
+
+  // ── Stage rendering ─────────────────────────────────────────
+  function applyGarmentColor() {
+    if (!dom.garment) return;
+    const cfg = getProductConfig();
+    const color = (cfg?.colors || []).find((c) => c.value === STATE.product.color);
+    if (color) dom.garment.style.setProperty("--garment-color", color.hex);
+  }
+
+  function applyGarmentType() {
+    if (!dom.garment) return;
+    const type = STATE.product.type || "hoodie";
+    dom.garment.classList.remove("cp-garment--hoodie", "cp-garment--tshirt", "cp-garment--longsleeve", "cp-garment--customer");
+    dom.garment.classList.add(
+      type === "tshirt" ? "cp-garment--tshirt" :
+      type === "longsleeve" ? "cp-garment--longsleeve" :
+      type === "customer_garment" ? "cp-garment--customer" :
+      "cp-garment--hoodie"
+    );
+    if (dom.garmentHood) dom.garmentHood.style.display = type === "hoodie" ? "" : "none";
+  }
+
+  function applyStageView(view) {
+    STATE.ui.stage_view = view;
+    if (!dom.garment) return;
+    dom.garment.classList.toggle("cp-garment--front", view === "front");
+    dom.garment.classList.toggle("cp-garment--back", view === "back");
+    dom.stageViewSwitch?.forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.stageView === view);
+    });
+    renderZoneOverlay();
+  }
+
+  function renderZoneOverlay() {
+    if (!dom.zoneLayer) return;
+    dom.zoneLayer.innerHTML = "";
+    const type = STATE.product.type;
+    if (!type) return;
+    const positions = (STAGE_POSITIONS[type] || {})[STATE.ui.stage_view] || {};
+    STATE.print.zones.forEach((zone) => {
+      const pos = positions[zone];
+      if (!pos) return;
+      const pin = document.createElement("span");
+      pin.className = "cp-zone-pin";
+      pin.style.top = pos.top;
+      pin.style.left = pos.left;
+      pin.dataset.zone = zone;
+      pin.title = (CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone;
+      dom.zoneLayer.appendChild(pin);
+    });
+  }
+
+  function bindStageView() {
+    dom.stageViewSwitch?.forEach((btn) => {
+      btn.addEventListener("click", () => applyStageView(btn.dataset.stageView));
+    });
+  }
+
+  // ── Quantity + Smart sizing ─────────────────────────────────
+  function bindQuantity() {
+    if (dom.qtyInput) {
+      dom.qtyInput.addEventListener("input", () => {
+        const v = parseInt(dom.qtyInput.value, 10);
+        STATE.order.quantity = isFinite(v) && v > 0 ? v : 0;
+        renderSizing();
+        refreshAll();
+        persistDraft();
+      });
+    }
+    dom.qtySteps?.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const delta = parseInt(btn.dataset.qtyStep, 10) || 0;
+        const next = Math.max(0, (STATE.order.quantity || 0) + delta);
+        STATE.order.quantity = next;
+        if (dom.qtyInput) dom.qtyInput.value = next || "";
+        renderSizing();
+        refreshAll();
+        persistDraft();
+      });
+    });
+    dom.sizeManagerBtn?.addEventListener("click", () => {
+      STATE.order.size_mode = "manager";
+      renderSizing();
+      refreshAll();
+      persistDraft();
+    });
+    dom.sizesNoteInput?.addEventListener("input", () => {
+      STATE.order.sizes_note = dom.sizesNoteInput.value;
+      persistDraft();
+    });
+    dom.garmentNoteInput?.addEventListener("input", () => {
+      STATE.notes.garment_note = dom.garmentNoteInput.value;
+      persistDraft();
+    });
+  }
+
+  function renderSizing() {
+    if (!dom.sizeBlock) return;
+    const qty = STATE.order.quantity || 0;
+    const grid = CONFIG.size_grid || ["XS", "S", "M", "L", "XL", "2XL"];
+    if (qty <= 0) {
+      dom.sizeBlock.hidden = true;
+      if (dom.qtyHint) dom.qtyHint.textContent = "Введіть кількість — ми покажемо адаптивний вибір розмірів.";
+      if (dom.b2bMeta) dom.b2bMeta.hidden = true;
+      return;
+    }
+    dom.sizeBlock.hidden = false;
+    if (STATE.product.type === "customer_garment") {
+      // For customer_garment we hide size grid entirely, keep textarea
+      dom.sizeGrid.hidden = true;
+      dom.sizeMatrix.hidden = true;
+      if (dom.sizeManagerBtn) dom.sizeManagerBtn.hidden = true;
+      if (dom.sizesNoteWrap) dom.sizesNoteWrap.hidden = false;
+      if (dom.garmentNoteWrap) dom.garmentNoteWrap.hidden = false;
+      if (dom.sizeWarning) dom.sizeWarning.hidden = true;
+      if (dom.qtyHint) dom.qtyHint.textContent = "Опишіть розміри і характеристики свого виробу нижче.";
+    } else if (qty === 1) {
+      // Single-size chip row
+      STATE.order.size_mode = "single";
+      dom.sizeGrid.hidden = false;
+      dom.sizeMatrix.hidden = true;
+      if (dom.sizeManagerBtn) dom.sizeManagerBtn.hidden = false;
+      if (dom.garmentNoteWrap) dom.garmentNoteWrap.hidden = true;
+      if (dom.sizesNoteWrap) dom.sizesNoteWrap.hidden = true;
+      if (dom.qtyHint) dom.qtyHint.textContent = "Один виріб — один розмір. Натисніть, щоб обрати.";
+      // Reset size_breakdown to single
+      const currentSingle = grid.find((s) => (STATE.order.size_breakdown || {})[s]) || null;
+      dom.sizeGrid.innerHTML = "";
+      grid.forEach((s) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "cp-mini-chip";
+        if (currentSingle === s) chip.classList.add("is-active");
+        chip.dataset.choiceValue = s;
+        chip.textContent = s;
+        chip.addEventListener("click", () => {
+          STATE.order.size_breakdown = { [s]: 1 };
+          renderSizing();
+          refreshAll();
+          persistDraft();
+        });
+        dom.sizeGrid.appendChild(chip);
+      });
+      if (dom.sizeWarning) dom.sizeWarning.hidden = true;
     } else {
-      let base = Number(matrix.base || 0);
-      if (state.product.fit === "oversize") {
-        base += Number(matrix.oversize_delta || 0);
-      }
-      if (state.product.fit !== "oversize" && state.product.fabric === "premium") {
-        base += Number(matrix.premium_delta || 0);
-      }
-      base += Math.max(0, state.print.zones.length - 1) * Number(matrix.extra_zone_delta || 0);
-      base += state.print.add_ons.length * Number(matrix.add_on_delta || 0);
-      result.base_price = base;
-    }
-
-    if (state.artwork.service_kind === "adjust") {
-      result.design_price = 300;
-    }
-    if (state.artwork.service_kind === "design") {
-      result.design_price = 500;
-    }
-
-    if (state.mode === "brand" && state.order.quantity >= 20) {
-      result.discount_percent = 10;
-    } else if (state.mode === "brand" && state.order.quantity >= 10) {
-      result.discount_percent = 5;
-    }
-
-    const subtotal = (result.base_price || 0) + result.design_price;
-    result.discount_amount = result.discount_percent ? Math.round(subtotal * result.discount_percent / 100) : 0;
-
-    if (state.print.zones.includes("custom")) {
-      result.estimate_required = true;
-      result.estimate_reason = "custom_zone";
-    } else if (state.print.zones.length > 1) {
-      result.estimate_required = true;
-      result.estimate_reason = "multi_zone";
-    } else if (state.artwork.service_kind !== "ready") {
-      result.estimate_required = true;
-      result.estimate_reason = state.artwork.service_kind;
-    }
-
-    if (!result.estimate_required) {
-      result.final_total = Math.max(subtotal - result.discount_amount, 0);
-    }
-
-    return result;
-  }
-
-  function buildSnapshot() {
-    const pricing = computePricing();
-    return {
-      version: 2,
-      quick_start_mode: state.quick_start_mode,
-      mode: state.mode,
-      starter_style: state.starter_style,
-      product: {
-        type: state.product.type,
-        fit: state.product.fit,
-        fabric: state.product.fabric,
-        color: state.product.color,
-      },
-      print: {
-        zones: deepCopy(state.print.zones),
-        add_ons: deepCopy(state.print.add_ons),
-        placement_note: state.print.placement_note,
-      },
-      artwork: {
-        service_kind: state.artwork.service_kind,
-        triage_status: state.artwork.triage_status,
-        files: deepCopy(state.artwork.files),
-      },
-      order: {
-        quantity: state.order.quantity,
-        size_mode: state.order.size_mode,
-        sizes_note: state.order.sizes_note,
-        gift: state.order.gift,
-      },
-      contact: {
-        channel: state.contact.channel,
-        name: state.contact.name,
-        value: state.contact.value,
-      },
-      pricing,
-      notes: {
-        brand_name: state.notes.brand_name,
-        brief: state.notes.brief,
-        garment_note: state.notes.garment_note,
-      },
-      ui: {
-        current_step: state.ui.current_step,
-      },
-    };
-  }
-
-  function buildPlacementSpecs(snapshot) {
-    return (snapshot.print.zones || []).map((zone, index) => {
-      const file = snapshot.artwork.files.find((item) => item.zone === zone) || snapshot.artwork.files[index] || null;
-      const isStandardZone = zone === "front" || zone === "back";
-      const spec = {
-        zone,
-        label: (config.zone_labels || {})[zone] || zone,
-        variant: index === 0 && isStandardZone ? "standard" : "estimate",
-        is_free: index === 0 && isStandardZone,
-        format: isStandardZone ? "standard" : "custom",
-        size: isStandardZone ? "standard" : "manager_review",
-      };
-      if (file) {
-        spec.file_index = snapshot.artwork.files.indexOf(file);
-        spec.attachment_role = file.role === "reference" ? "reference" : "design";
-      }
-      return spec;
-    });
-  }
-
-  function buildFormData(snapshot, pricing) {
-    const data = new FormData();
-    data.append("service_kind", state.artwork.service_kind);
-    data.append("product_type", state.product.type);
-    (state.print.zones || []).forEach((zone) => data.append("placements", zone));
-    data.append("placement_note", state.print.placement_note || "");
-    data.append("quantity", String(state.order.quantity || 1));
-    data.append("size_mode", state.order.size_mode || "single");
-    data.append("sizes_note", state.order.sizes_note || "");
-    data.append("client_kind", state.mode === "brand" ? "brand" : "personal");
-    data.append("business_kind", state.mode === "brand" ? "branding" : "");
-    data.append("brand_name", state.notes.brand_name || "");
-    data.append("garment_note", state.notes.garment_note || "");
-    data.append("fit", state.product.fit || "");
-    data.append("fabric", state.product.fabric || "");
-    data.append("color_choice", state.product.color || "");
-    data.append("file_triage_status", state.artwork.triage_status || "");
-    data.append("exit_step", state.ui.current_step || "");
-    data.append("placement_specs_json", JSON.stringify(buildPlacementSpecs(snapshot)));
-    data.append("pricing_snapshot_json", JSON.stringify(pricing));
-    data.append("config_draft_json", JSON.stringify(snapshot));
-    data.append("name", state.contact.name || "");
-    data.append("contact_channel", state.contact.channel || "");
-    data.append("contact_value", state.contact.value || "");
-    data.append("brief", state.notes.brief || "");
-    selectedFiles.forEach((file) => data.append("files", file));
-    return data;
-  }
-
-  async function handleSafeExit() {
-    const snapshot = buildSnapshot();
-      showStatus("Передаю чернетку менеджеру…", "success");
-    setBusy(true);
-
-    try {
-      const response = await fetch(config.safe_exit_url, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": getCsrfToken(),
-        },
-        body: JSON.stringify(snapshot),
-      });
-
-      const payload = await response.json();
-      if (!response.ok || !payload.ok) {
-        showStatus("Не вдалося передати чернетку менеджеру. Спробуйте ще раз або надішліть заявку повністю.", "error");
+      // Matrix mode
+      if (STATE.order.size_mode === "manager") {
+        dom.sizeGrid.hidden = true;
+        dom.sizeMatrix.hidden = true;
+        if (dom.sizeManagerBtn) dom.sizeManagerBtn.hidden = false;
+        if (dom.sizesNoteWrap) dom.sizesNoteWrap.hidden = false;
+        if (dom.garmentNoteWrap) dom.garmentNoteWrap.hidden = true;
+        if (dom.qtyHint) dom.qtyHint.textContent = "Розміри уточнимо разом з менеджером — заповніть примітку.";
+        if (dom.sizeWarning) dom.sizeWarning.hidden = true;
         return;
       }
+      STATE.order.size_mode = "mixed";
+      dom.sizeGrid.hidden = true;
+      dom.sizeMatrix.hidden = false;
+      if (dom.sizeManagerBtn) dom.sizeManagerBtn.hidden = false;
+      if (dom.sizesNoteWrap) dom.sizesNoteWrap.hidden = false;
+      if (dom.garmentNoteWrap) dom.garmentNoteWrap.hidden = true;
+      if (dom.qtyHint) dom.qtyHint.textContent = `Розподіліть ${qty} шт. по розмірах. Сума має дорівнювати ${qty}.`;
 
-      const leadLabel = payload.lead_number ? ` Чернетка зафіксована як ${payload.lead_number}.` : "";
-      showStatus(`Чернетку передано менеджеру.${leadLabel} Відкриваю Telegram для прямого контакту.`, "success");
-      window.setTimeout(() => {
-        window.open(payload.manager_url || config.telegram_manager_url, "_blank", "noopener");
-      }, 180);
-      root.dataset.mobileExpanded = "false";
+      dom.sizeMatrix.innerHTML = "";
+      grid.forEach((s) => {
+        const wrap = document.createElement("label");
+        wrap.className = "cp-size-matrix-cell";
+        wrap.innerHTML = `<span>${s}</span><input type="number" min="0" inputmode="numeric" value="${(STATE.order.size_breakdown || {})[s] || ""}" placeholder="0" data-size-input="${s}">`;
+        const input = wrap.querySelector("input");
+        input.addEventListener("input", () => {
+          const n = parseInt(input.value, 10);
+          if (!STATE.order.size_breakdown) STATE.order.size_breakdown = {};
+          STATE.order.size_breakdown[s] = isFinite(n) && n > 0 ? n : 0;
+          validateSizeMatrix();
+          refreshAll();
+          persistDraft();
+        });
+        dom.sizeMatrix.appendChild(wrap);
+      });
+      validateSizeMatrix();
+    }
+    // B2B live calc
+    updateB2bMeta();
+  }
+
+  function validateSizeMatrix() {
+    if (!dom.sizeWarning) return;
+    const qty = STATE.order.quantity || 0;
+    const sum = Object.values(STATE.order.size_breakdown || {}).reduce((a, b) => a + (parseInt(b, 10) || 0), 0);
+    if (qty > 1 && STATE.order.size_mode === "mixed" && sum !== qty) {
+      dom.sizeWarning.hidden = false;
+      dom.sizeWarning.textContent = sum < qty
+        ? `Не вистачає ${qty - sum} шт. — додайте розміри.`
+        : `Перевищено на ${sum - qty} шт. — зменшіть розміри.`;
+      dom.sizeWarning.classList.toggle("is-error", sum !== qty);
+    } else {
+      dom.sizeWarning.hidden = true;
+    }
+  }
+
+  function updateB2bMeta() {
+    const qty = STATE.order.quantity || 0;
+    const isB2b = STATE.mode === "brand";
+    if (!isB2b || qty < 5) {
+      if (dom.b2bMeta) dom.b2bMeta.hidden = true;
+      return;
+    }
+    const tier = CONFIG.b2b_tier || { unit_step: 5, discount_per_unit: 10 };
+    const steps = Math.floor(qty / tier.unit_step);
+    const discount = steps * tier.discount_per_unit;
+    if (dom.b2bMeta) dom.b2bMeta.hidden = false;
+    if (dom.b2bDiscount) dom.b2bDiscount.textContent = `-${discount} грн / шт`;
+  }
+
+  // ── Gift toggle ─────────────────────────────────────────────
+  function bindGiftToggle() {
+    dom.giftToggle?.addEventListener("click", () => {
+      STATE.order.gift_enabled = !STATE.order.gift_enabled;
+      dom.giftToggle.classList.toggle("is-active", STATE.order.gift_enabled);
+      if (dom.giftTextWrap) dom.giftTextWrap.hidden = !STATE.order.gift_enabled;
+      refreshAll();
+      persistDraft();
+    });
+    dom.giftTextInput?.addEventListener("input", () => {
+      STATE.order.gift_text = dom.giftTextInput.value;
+      persistDraft();
+    });
+  }
+
+  // ── Generic inputs ──────────────────────────────────────────
+  function bindGenericInputs() {
+    dom.placementNoteInput?.addEventListener("input", () => {
+      STATE.print.placement_note = dom.placementNoteInput.value;
+      persistDraft();
+    });
+    dom.briefInput?.addEventListener("input", () => {
+      STATE.notes.brief = dom.briefInput.value;
+      persistDraft();
+    });
+    dom.nameInput?.addEventListener("input", () => {
+      STATE.contact.name = dom.nameInput.value;
+      refreshAll();
+      persistDraft();
+    });
+    dom.contactValueInput?.addEventListener("input", () => {
+      STATE.contact.value = dom.contactValueInput.value;
+      refreshAll();
+      persistDraft();
+    });
+    dom.brandNameInput?.addEventListener("input", () => {
+      STATE.notes.brand_name = dom.brandNameInput.value;
+      persistDraft();
+    });
+    dom.startFlow?.addEventListener("click", () => {
+      const target = document.getElementById("cp-step-mode");
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  // ── Waterfall step navigation ───────────────────────────────
+  function bindWaterfallNav() {
+    dom.stepEditButtons?.forEach((btn) => {
+      btn.addEventListener("click", () => setActiveStep(btn.dataset.stepEdit));
+    });
+    dom.stepBackButtons?.forEach((btn) => {
+      btn.addEventListener("click", () => setActiveStep(btn.dataset.stepBack));
+    });
+    dom.stepNextButtons?.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const target = btn.dataset.stepNext;
+        if (canAdvance(STATE.ui.current_step)) {
+          markStepDone(STATE.ui.current_step);
+          setActiveStep(target);
+        } else {
+          showStatus("Заповніть поточний крок, щоб рухатись далі.", "warning");
+        }
+      });
+    });
+    dom.stepSkipButtons?.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        // Skip current step (e.g. gift)
+        STATE.order.gift_enabled = false;
+        if (dom.giftToggle) dom.giftToggle.classList.remove("is-active");
+        if (dom.giftTextWrap) dom.giftTextWrap.hidden = true;
+        markStepDone(STATE.ui.current_step);
+        setActiveStep(btn.dataset.stepSkip);
+        refreshAll();
+        persistDraft();
+      });
+    });
+  }
+
+  function setActiveStep(key, opts = {}) {
+    if (!STEPS.includes(key)) return;
+    STATE.ui.current_step = key;
+    document.querySelectorAll("[data-step]").forEach((section) => {
+      const stepKey = section.dataset.step;
+      const isCurrent = stepKey === key;
+      const isDone = STATE.ui.done_steps.has(stepKey);
+      section.classList.toggle("is-active", isCurrent);
+      section.classList.toggle("is-done", !isCurrent && isDone);
+      section.classList.toggle("is-pending", !isCurrent && !isDone);
+    });
+    refreshAll();
+    if (!opts.silent) {
+      const target = document.getElementById(`cp-step-${key}`);
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    persistDraft();
+  }
+
+  function markStepDone(key) {
+    if (!STEPS.includes(key)) return;
+    STATE.ui.done_steps.add(key);
+  }
+
+  function afterChoice(stepKey) {
+    markStepDone(stepKey);
+    refreshAll();
+    // Determine next step
+    const next = nextStepAfter(stepKey);
+    if (next) setActiveStep(next);
+    persistDraft();
+  }
+
+  function nextStepAfter(stepKey) {
+    let idx = STEPS.indexOf(stepKey);
+    if (idx < 0) return null;
+    for (let i = idx + 1; i < STEPS.length; i++) {
+      const candidate = STEPS[i];
+      if (candidate === "config" && STATE.product.type !== "hoodie") continue;
+      return candidate;
+    }
+    return null;
+  }
+
+  function canAdvance(stepKey) {
+    switch (stepKey) {
+      case "mode": return !!STATE.mode;
+      case "product": return !!STATE.product.type;
+      case "config":
+        if (STATE.product.type !== "hoodie") return true;
+        return !!STATE.product.fit && !!STATE.product.fabric && !!STATE.product.color;
+      case "zones": return STATE.print.zones.length > 0;
+      case "artwork": return !!STATE.artwork.service_kind;
+      case "quantity":
+        if (STATE.order.quantity <= 0) return false;
+        if (STATE.product.type === "customer_garment") return true;
+        if (STATE.order.size_mode === "manager") return true;
+        if (STATE.order.quantity === 1) return Object.values(STATE.order.size_breakdown || {}).some((v) => v > 0);
+        const sum = Object.values(STATE.order.size_breakdown || {}).reduce((a, b) => a + (parseInt(b, 10) || 0), 0);
+        return sum === STATE.order.quantity;
+      case "gift":
+        return true; // gift is optional, the next button always works
+      case "contact":
+        return !!STATE.contact.channel && !!STATE.contact.name && !!STATE.contact.value;
+      default:
+        return true;
+    }
+  }
+
+  // ── Refresh: stage card + receipt + summaries + side states ─
+  function refreshAll() {
+    updateStageVisibility();
+    updateStageMeta();
+    applyGarmentType();
+    applyGarmentColor();
+    applyStageView(STATE.ui.stage_view || "front");
+    updateBrandFieldsVisibility();
+    updateSummaries();
+    updateB2bMeta();
+    renderReceipt();
+    updateFinalActionsAvailability();
+  }
+
+  function updateStageVisibility() {
+    if (!dom.stageCard) return;
+    const visible = STAGE_VISIBLE_AFTER.has(STATE.ui.current_step) && !!STATE.product.type;
+    dom.stageCard.classList.toggle("is-hidden", !visible);
+  }
+
+  function updateStageMeta() {
+    const cfg = getProductConfig();
+    if (dom.stageEyebrow) dom.stageEyebrow.textContent = cfg ? (cfg.eyebrow || "Виріб") : "Виріб";
+    if (dom.stageTitleSecondary) dom.stageTitleSecondary.textContent = cfg ? cfg.label : "—";
+    if (dom.stageNote) dom.stageNote.textContent = cfg ? (cfg.hero_note || cfg.summary || "") : "Оберіть виріб, щоб побачити деталі.";
+    if (dom.stageZones) {
+      const zones = STATE.print.zones.map((z) => (CONFIG.zone_labels && CONFIG.zone_labels[z]) || z);
+      dom.stageZones.textContent = zones.length ? zones.join(", ") : "—";
+    }
+    if (dom.stageAddons) {
+      const cfgAddons = (cfg && cfg.add_ons) || [];
+      const labels = STATE.print.add_ons
+        .map((v) => (cfgAddons.find((a) => a.value === v) || {}).label)
+        .filter(Boolean);
+      const giftLabel = STATE.order.gift_enabled ? `Подарункова упаковка` : null;
+      const all = [...labels, giftLabel].filter(Boolean);
+      dom.stageAddons.textContent = all.length ? all.join(" · ") : "Без додаткових деталей.";
+    }
+  }
+
+  function updateBrandFieldsVisibility() {
+    if (!dom.brandFields) return;
+    dom.brandFields.hidden = STATE.mode !== "brand";
+  }
+
+  function updateSummaries() {
+    setStepSummary("mode", STATE.mode === "brand" ? "Для команди / бренду" : STATE.mode === "personal" ? "Для себе" : "—");
+
+    const cfg = getProductConfig();
+    setStepSummary("product", cfg ? cfg.label : "—");
+
+    if (STATE.product.type === "hoodie") {
+      const parts = [];
+      if (STATE.product.fit) parts.push(STATE.product.fit === "oversize" ? "Оверсайз" : "Класичний");
+      if (STATE.product.fabric) parts.push(STATE.product.fabric === "premium" ? "Преміум" : "База");
+      if (STATE.product.color) {
+        const c = (cfg.colors || []).find((x) => x.value === STATE.product.color);
+        if (c) parts.push(c.label);
+      }
+      setStepSummary("config", parts.length ? parts.join(" · ") : "—");
+    } else {
+      const c = cfg ? (cfg.colors || []).find((x) => x.value === STATE.product.color) : null;
+      setStepSummary("config", c ? c.label : "—");
+    }
+
+    setStepSummary("zones", STATE.print.zones.length
+      ? STATE.print.zones.map((z) => (CONFIG.zone_labels && CONFIG.zone_labels[z]) || z).join(", ")
+      : "—");
+
+    if (STATE.artwork.service_kind) {
+      const services = CONFIG.artwork_services || [];
+      const item = services.find((s) => s.value === STATE.artwork.service_kind);
+      const totalFiles = Array.from(filesByZone.values()).reduce((acc, list) => acc + list.length, 0);
+      setStepSummary("artwork", `${item ? item.label : "—"}${totalFiles ? ` · ${totalFiles} файл(ів)` : ""}`);
+    } else {
+      setStepSummary("artwork", "—");
+    }
+
+    if (STATE.order.quantity > 0) {
+      let breakdown = "";
+      if (STATE.product.type !== "customer_garment" && STATE.order.size_mode !== "manager") {
+        const entries = Object.entries(STATE.order.size_breakdown || {})
+          .filter(([, v]) => v > 0)
+          .map(([k, v]) => `${k}×${v}`);
+        if (entries.length) breakdown = ` · ${entries.join(", ")}`;
+      } else if (STATE.order.size_mode === "manager") {
+        breakdown = " · через менеджера";
+      }
+      setStepSummary("quantity", `${STATE.order.quantity} шт${breakdown}`);
+    } else {
+      setStepSummary("quantity", "—");
+    }
+
+    setStepSummary("gift", STATE.order.gift_enabled ? `Так (+${(CONFIG.gift_service || {}).price || 100} грн)` : "Без подарунку");
+
+    if (STATE.contact.channel || STATE.contact.value) {
+      const channelMap = (CONFIG.contact_channels || []).reduce((acc, ch) => { acc[ch.value] = ch.label; return acc; }, {});
+      const ch = channelMap[STATE.contact.channel] || "—";
+      setStepSummary("contact", `${ch}${STATE.contact.value ? `: ${STATE.contact.value}` : ""}`);
+    } else {
+      setStepSummary("contact", "—");
+    }
+  }
+
+  function setStepSummary(key, value) {
+    const el = root.querySelector(`[data-step-summary-value="${key}"]`);
+    if (el) el.textContent = value;
+  }
+
+  // ── Pricing ─────────────────────────────────────────────────
+  function computePricing() {
+    const cfg = getProductConfig();
+    if (!cfg || !cfg.pricing) {
+      return {
+        base_price: null,
+        design_price: 0,
+        addons_price: 0,
+        gift_price: 0,
+        zones_price: 0,
+        unit_total: null,
+        b2b_discount_per_unit: 0,
+        final_total: null,
+        estimate_required: !!cfg && (cfg.pricing?.base === null || STATE.product.type === "customer_garment"),
+        estimate_reason: STATE.product.type === "customer_garment" ? "Свій одяг — потрібен ручний прорахунок." : "",
+        breakdown: [],
+      };
+    }
+    const pricing = cfg.pricing;
+    const breakdown = [];
+
+    let base = pricing.base ?? 0;
+    if (STATE.product.fabric === "premium") base += pricing.premium_delta || 0;
+    if (STATE.product.fit === "oversize") base += pricing.oversize_delta || 0;
+    breakdown.push({ label: `База · ${cfg.label}`, value: base });
+
+    const extraZones = Math.max(0, STATE.print.zones.length - 1);
+    const zonesPrice = extraZones * (pricing.extra_zone_delta || 0);
+    if (extraZones > 0) breakdown.push({ label: `+${extraZones} зон`, value: zonesPrice });
+
+    let designPrice = 0;
+    const services = CONFIG.artwork_services || [];
+    const svc = services.find((s) => s.value === STATE.artwork.service_kind);
+    if (svc && svc.price_delta) {
+      designPrice = svc.price_delta;
+      breakdown.push({ label: svc.label, value: designPrice });
+    }
+
+    let addonsPrice = 0;
+    const cfgAddons = cfg.add_ons || [];
+    STATE.print.add_ons.forEach((value) => {
+      const a = cfgAddons.find((x) => x.value === value);
+      if (a && a.price_delta) {
+        addonsPrice += a.price_delta;
+        breakdown.push({ label: a.label, value: a.price_delta });
+      }
+    });
+
+    let giftPrice = 0;
+    if (STATE.order.gift_enabled) {
+      giftPrice = (CONFIG.gift_service || {}).price || 0;
+      if (giftPrice) breakdown.push({ label: "Подарункова упаковка", value: giftPrice });
+    }
+
+    let unitTotal = base + zonesPrice + designPrice + addonsPrice;
+    let b2bDiscountPerUnit = 0;
+    const qty = STATE.order.quantity || 0;
+    if (STATE.mode === "brand" && qty >= 5) {
+      const tier = CONFIG.b2b_tier || { unit_step: 5, discount_per_unit: 10 };
+      const steps = Math.floor(qty / tier.unit_step);
+      b2bDiscountPerUnit = steps * tier.discount_per_unit;
+    }
+    const unitAfterDiscount = Math.max(0, unitTotal - b2bDiscountPerUnit);
+    const subTotal = unitAfterDiscount * Math.max(1, qty || 1);
+    const finalTotal = subTotal + giftPrice;
+    if (b2bDiscountPerUnit > 0) {
+      breakdown.push({ label: `B2B знижка (-${b2bDiscountPerUnit} грн/шт × ${qty})`, value: -b2bDiscountPerUnit * qty });
+    }
+
+    return {
+      base_price: base,
+      design_price: designPrice,
+      addons_price: addonsPrice,
+      gift_price: giftPrice,
+      zones_price: zonesPrice,
+      unit_total: unitAfterDiscount,
+      b2b_discount_per_unit: b2bDiscountPerUnit,
+      final_total: finalTotal,
+      quantity: qty,
+      estimate_required: false,
+      estimate_reason: "",
+      breakdown,
+    };
+  }
+
+  function renderReceipt() {
+    if (!dom.receiptList || !dom.receiptTotal) return;
+    const pricing = computePricing();
+    if (!STATE.product.type) {
+      dom.receiptTotal.textContent = "Ціну побачите після першого вибору";
+      dom.receiptList.innerHTML = `<li class="is-empty">Поки що нічого не додано — оберіть виріб, щоб побачити прорахунок.</li>`;
+      if (dom.receiptMode) dom.receiptMode.textContent = "Базова конфігурація";
+      if (dom.receiptHint) dom.receiptHint.textContent = "Ціна оновлюється в реальному часі.";
+      return;
+    }
+    if (pricing.estimate_required || pricing.base_price === null) {
+      dom.receiptTotal.textContent = "Прорахунок з менеджером";
+      dom.receiptList.innerHTML = `<li class="is-empty">${escapeHtml(pricing.estimate_reason || "Цей виріб потребує індивідуального прорахунку.")}</li>`;
+      if (dom.receiptMode) dom.receiptMode.textContent = STATE.mode === "brand" ? "B2B" : "B2C";
+      if (dom.receiptHint) dom.receiptHint.textContent = "Натисніть «Надіслати менеджеру» — підготуємо точну ціну.";
+      return;
+    }
+    dom.receiptList.innerHTML = pricing.breakdown.map((row) => `
+      <li><span>${escapeHtml(row.label)}</span><strong>${formatPrice(row.value)}</strong></li>
+    `).join("");
+    const qty = STATE.order.quantity || 1;
+    const totalText = qty > 1
+      ? `${formatPrice(pricing.final_total)} <small>· ${formatPrice(pricing.unit_total)}/шт × ${qty}${pricing.gift_price ? " + подарунок" : ""}</small>`
+      : `${formatPrice(pricing.final_total)}`;
+    dom.receiptTotal.innerHTML = totalText;
+    if (dom.receiptMode) dom.receiptMode.textContent = STATE.mode === "brand" ? "B2B · опт" : "B2C · роздріб";
+    if (dom.receiptHint) {
+      const hints = [];
+      if (pricing.b2b_discount_per_unit > 0) hints.push(`B2B: -${pricing.b2b_discount_per_unit} грн/шт`);
+      if (STATE.order.gift_enabled) hints.push("Подарунок включено");
+      hints.push("Ціна оновлюється в реальному часі.");
+      dom.receiptHint.textContent = hints.join(" · ");
+    }
+  }
+
+  function updateFinalActionsAvailability() {
+    const ready = canAdvance("contact");
+    const pricing = computePricing();
+    const cartReady = ready && STATE.product.type !== "customer_garment" && !pricing.estimate_required;
+    if (dom.addToCartBtn) {
+      dom.addToCartBtn.disabled = !cartReady;
+      dom.addToCartBtn.classList.toggle("is-disabled", !cartReady);
+    }
+    if (dom.submitLeadBtn) {
+      dom.submitLeadBtn.disabled = !ready;
+      dom.submitLeadBtn.classList.toggle("is-disabled", !ready);
+    }
+    if (dom.cartActionHint) {
+      dom.cartActionHint.textContent = cartReady
+        ? `${formatPrice(pricing.final_total)} · додамо в кошик зі снимком конфігурації`
+        : (pricing.estimate_required ? "Цей виріб потребує менеджерського прорахунку" : "Заповніть всі кроки, щоб додати в кошик");
+    }
+    if (dom.leadActionHint) {
+      dom.leadActionHint.textContent = ready
+        ? "Бот відправить заявку в Telegram"
+        : "Заповніть контакт, щоб менеджер міг відповісти";
+    }
+  }
+
+  // ── Final actions ───────────────────────────────────────────
+  function bindFinalActions() {
+    dom.addToCartBtn?.addEventListener("click", handleAddToCart);
+    dom.submitLeadBtn?.addEventListener("click", (event) => {
+      event.preventDefault();
+      handleSubmitLead();
+    });
+    dom.form?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      handleSubmitLead();
+    });
+    dom.safeExitBtn?.addEventListener("click", handleSafeExit);
+  }
+
+  function buildSnapshot(submissionType) {
+    return {
+      version: 2,
+      submission_type: submissionType,
+      mode: STATE.mode || "personal",
+      product: { ...STATE.product },
+      print: { ...STATE.print },
+      artwork: { ...STATE.artwork, files: serializeFiles() },
+      order: {
+        quantity: STATE.order.quantity || 0,
+        size_mode: STATE.order.size_mode || "single",
+        sizes_note: STATE.order.sizes_note || "",
+        size_breakdown: { ...STATE.order.size_breakdown },
+        gift: { enabled: !!STATE.order.gift_enabled, text: STATE.order.gift_text || "" },
+      },
+      contact: { ...STATE.contact },
+      notes: { ...STATE.notes },
+      pricing: computePricing(),
+      ui: { current_step: STATE.ui.current_step },
+    };
+  }
+
+  function serializeFiles() {
+    const out = [];
+    let idx = 0;
+    filesByZone.forEach((list, zone) => {
+      list.forEach((file) => {
+        out.push({
+          name: file.name,
+          zone,
+          status: STATE.artwork.triage_status || "needs-review",
+          role: "design",
+          file_index: idx++,
+        });
+      });
+    });
+    return out;
+  }
+
+  function buildFormData(submissionType) {
+    const fd = new FormData();
+    const snap = buildSnapshot(submissionType);
+    fd.append("snapshot_json", JSON.stringify(snap));
+    fd.append("submission_type", submissionType);
+
+    // Map form fields to legacy CustomPrintLeadForm if needed
+    fd.append("service_kind", STATE.artwork.service_kind || "design");
+    fd.append("product_type", STATE.product.type || "hoodie");
+    (STATE.print.zones || []).forEach((z) => fd.append("placements", z));
+    fd.append("placement_note", STATE.print.placement_note || "");
+    fd.append("quantity", String(STATE.order.quantity || 1));
+    fd.append("size_mode", STATE.order.size_mode || "single");
+    fd.append("sizes_note", STATE.order.sizes_note || "");
+    fd.append("client_kind", STATE.mode || "personal");
+    fd.append("brand_name", STATE.notes.brand_name || "");
+    fd.append("fit", STATE.product.fit || "");
+    fd.append("fabric", STATE.product.fabric || "");
+    fd.append("color_choice", STATE.product.color || "");
+    fd.append("garment_note", STATE.notes.garment_note || "");
+    fd.append("file_triage_status", STATE.artwork.triage_status || "needs-review");
+    fd.append("name", STATE.contact.name || "");
+    fd.append("contact_channel", STATE.contact.channel || "");
+    fd.append("contact_value", STATE.contact.value || "");
+    fd.append("brief", STATE.notes.brief || "");
+
+    // Per-zone files: append with zone marker
+    let fileIdx = 0;
+    filesByZone.forEach((list, zone) => {
+      list.forEach((file) => {
+        fd.append("attachments", file);
+        fd.append("attachment_zones", zone);
+        fileIdx++;
+      });
+    });
+    return fd;
+  }
+
+  async function handleSubmitLead() {
+    if (!canAdvance("contact")) {
+      showStatus("Заповніть імʼя, канал звʼязку і контакт.", "error");
+      return;
+    }
+    const url = CONFIG.submit_url;
+    if (!url) return;
+    setBusy(true);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "X-CSRFToken": getCsrfToken(), "X-Requested-With": "XMLHttpRequest" },
+        body: buildFormData("lead"),
+      });
+      const data = await safeJson(response);
+      if (!response.ok) {
+        const msg = data?.errors ? formatErrors(data.errors) : "Не вдалося надіслати заявку. Спробуйте ще раз.";
+        showStatus(msg, "error");
+        return;
+      }
+      clearDraft();
+      const number = data?.lead_number ? ` №${data.lead_number}` : "";
+      showStatus(`Дякуємо! Заявка${number} вже у менеджера.`, "success");
     } catch (error) {
-      showStatus("Не вдалося передати чернетку через мережеву помилку.", "error");
+      console.error("[custom-print v2] submit lead failed", error);
+      showStatus("Сервер тимчасово недоступний. Спробуйте через кілька хвилин.", "error");
     } finally {
       setBusy(false);
     }
   }
 
-  function validateBeforeSubmit() {
-    const errors = [];
-
-    if (state.mode === "brand" && !state.notes.brand_name) {
-      errors.push("Вкажіть назву бренду або команди.");
-    }
-    if (state.print.zones.includes("custom") && !state.print.placement_note) {
-      errors.push("Опишіть нестандартне розміщення принта.");
-    }
-    if (state.product.type === "customer_garment" && !state.notes.garment_note) {
-      errors.push("Опишіть свій виріб для попереднього прорахунку.");
-    }
-    if (state.artwork.service_kind === "ready" && !selectedFiles.length) {
-      errors.push("Додайте готовий файл для друку.");
-    }
-    if (state.artwork.service_kind === "adjust") {
-      if (!selectedFiles.length) {
-        errors.push("Додайте файл, який потрібно підготувати.");
-      }
-      if (!state.notes.brief) {
-        errors.push("Опишіть, що саме потрібно змінити у файлі.");
-      }
-    }
-    if (state.artwork.service_kind === "design" && !state.notes.brief) {
-      errors.push("Опишіть ідею, стиль або референси для дизайну.");
-    }
-    if (!state.contact.name) {
-      errors.push("Вкажіть ім'я для менеджера.");
-    }
-    if (!state.contact.channel) {
-      errors.push("Оберіть канал зв'язку.");
-    }
-    if (!state.contact.value) {
-      errors.push("Вкажіть контакт для зв'язку.");
-    }
-
-    return errors;
-  }
-
-  function flattenErrors(errors) {
-    return Object.values(errors || {}).reduce((result, list) => result.concat(list || []), []);
-  }
-
-  function syncInputsFromState() {
-    dom.brandNameInput.value = state.notes.brand_name || "";
-    dom.placementNoteInput.value = state.print.placement_note || "";
-    dom.briefInput.value = state.notes.brief || "";
-    dom.quantityInput.value = String(state.order.quantity || 1);
-    dom.giftInput.checked = Boolean(state.order.gift);
-    dom.sizesNoteInput.value = state.order.sizes_note || "";
-    dom.garmentNoteInput.value = state.notes.garment_note || "";
-    dom.nameInput.value = state.contact.name || "";
-    dom.brandShortcutInput.value = state.mode === "brand" ? (state.notes.brand_name || "") : "";
-    dom.contactValueInput.value = state.contact.value || "";
-    updateContactPlaceholder();
-  }
-
-  function updateContactPlaceholder() {
-    const channel = (config.contact_channels || []).find((item) => item.value === state.contact.channel);
-    dom.contactValueInput.placeholder = (channel && channel.placeholder) || "@username або +380...";
-  }
-
-  function labelForValue(items, value) {
-    const match = (items || []).find((item) => item.value === value);
-    return match ? match.label : value;
-  }
-
-  function labelForAddOn(value) {
-    const product = getProductConfig(state.product.type);
-    return labelForValue(product.add_ons || [], value);
-  }
-
-  function formatZones() {
-    return (state.print.zones || []).map((zone) => (config.zone_labels || {})[zone] || zone).join(", ");
-  }
-
-  function formatPrice(value) {
-    if (value === null || value === undefined || Number.isNaN(Number(value))) {
-      return "Ціну уточнюємо";
-    }
-    return `${new Intl.NumberFormat("uk-UA").format(Number(value))} грн`;
-  }
-
-  function labelForFileRole(value) {
-    if (value === "reference") {
-      return "Референс";
-    }
-    return "Робочий файл";
-  }
-
-  function formatEstimateReason(reason) {
-    const labels = {
-      customer_garment: "свій виріб потребує окремого прорахунку",
-      custom_zone: "обрано нестандартну зону друку",
-      multi_zone: "обрано кілька зон друку",
-      design: "потрібна допомога з дизайном",
-      adjust: "файл потрібно допрацювати",
-      ready: "файл потрібно перевірити",
-    };
-    return labels[reason] || "потрібна ручна перевірка";
-  }
-
-  function toggleSelection(list, value, fallback) {
-    const index = list.indexOf(value);
-    if (index >= 0) {
-      list.splice(index, 1);
-      if (!list.length) {
-        fallback.forEach((item) => list.push(item));
-      }
+  async function handleAddToCart() {
+    if (!canAdvance("contact")) {
+      showStatus("Заповніть всі кроки, перш ніж додавати в кошик.", "error");
       return;
     }
-    list.push(value);
-  }
-
-  function showStatus(message, tone) {
-    dom.statusBox.classList.remove("is-error", "is-success");
-    if (tone === "error") {
-      dom.statusBox.classList.add("is-error");
+    const pricing = computePricing();
+    if (pricing.estimate_required) {
+      showStatus("Цей виріб потребує менеджерського прорахунку. Натисніть «Надіслати менеджеру».", "warning");
+      return;
     }
-    if (tone === "success") {
-      dom.statusBox.classList.add("is-success");
+    const url = CONFIG.add_to_cart_url;
+    if (!url) {
+      showStatus("Кошик тимчасово недоступний. Скористайтесь Telegram-кнопкою.", "error");
+      return;
     }
-    dom.statusBox.innerHTML = message;
-  }
-
-  function setBusy(isBusy) {
-    root.dataset.busy = isBusy ? "true" : "false";
-    form.querySelectorAll("button, input, textarea").forEach((element) => {
-      if (element.dataset.safeExitTrigger || element.dataset.mobileSummaryToggle) {
+    setBusy(true);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "X-CSRFToken": getCsrfToken(), "X-Requested-With": "XMLHttpRequest" },
+        body: buildFormData("cart"),
+      });
+      const data = await safeJson(response);
+      if (!response.ok || !data?.ok) {
+        const msg = data?.error || "Не вдалося додати в кошик. Спробуйте ще раз.";
+        showStatus(msg, "error");
         return;
       }
-      if (element.type !== "hidden") {
-        element.disabled = isBusy;
+      clearDraft();
+      showStatus(`Додано в кошик · ${formatPrice(pricing.final_total)}. Перейти до оформлення?`, "success");
+      if (data.cart_url) {
+        setTimeout(() => { window.location.href = data.cart_url; }, 1200);
       }
+    } catch (error) {
+      console.error("[custom-print v2] add to cart failed", error);
+      showStatus("Не вдалося додати в кошик. Спробуйте ще раз.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSafeExit() {
+    const url = CONFIG.safe_exit_url;
+    if (!url) {
+      window.open(CONFIG.telegram_manager_url || "https://t.me/twocomms", "_blank");
+      return;
+    }
+    try {
+      const snap = buildSnapshot("safe_exit");
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "X-CSRFToken": getCsrfToken(), "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        body: JSON.stringify(snap),
+      });
+      const data = await safeJson(response);
+      const link = data?.manager_url || CONFIG.telegram_manager_url || "https://t.me/twocomms";
+      window.open(link, "_blank");
+    } catch (error) {
+      console.error("[custom-print v2] safe exit failed", error);
+      window.open(CONFIG.telegram_manager_url || "https://t.me/twocomms", "_blank");
+    }
+  }
+
+  function setBusy(busy) {
+    [dom.addToCartBtn, dom.submitLeadBtn].forEach((btn) => {
+      if (!btn) return;
+      btn.classList.toggle("is-busy", busy);
+      btn.disabled = busy ? true : btn.disabled;
     });
   }
 
-  function setCurrentStep(step) {
-    state.ui.current_step = stepOrder.includes(step) ? step : "quickstart";
+  function showStatus(message, kind) {
+    if (!dom.statusBox) return;
+    dom.statusBox.textContent = message;
+    dom.statusBox.classList.remove("is-success", "is-error", "is-warning");
+    if (kind === "success") dom.statusBox.classList.add("is-success");
+    if (kind === "error") dom.statusBox.classList.add("is-error");
+    if (kind === "warning") dom.statusBox.classList.add("is-warning");
   }
 
-  function focusStep(step) {
-    if (!stepOrder.includes(step)) {
-      return;
-    }
-    setCurrentStep(step);
-    renderAll();
-    const target = document.getElementById(`cp-step-${step}`);
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }
-
-  function delegateChoice(container, handler) {
-    if (!container) {
-      return;
-    }
-    container.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-choice-value]");
-      if (!button) {
-        return;
-      }
-      handler(button.dataset.choiceValue);
-    });
-  }
-
+  // ── Helpers ─────────────────────────────────────────────────
   function getCsrfToken() {
-    const meta = document.querySelector('meta[name="csrf-token"]');
-    if (meta && meta.content) {
-      return meta.content;
-    }
-    const match = document.cookie.match(/csrftoken=([^;]+)/);
+    const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
     return match ? decodeURIComponent(match[1]) : "";
   }
 
+  async function safeJson(response) {
+    try { return await response.json(); } catch { return null; }
+  }
+
+  function formatErrors(errors) {
+    const lines = [];
+    Object.entries(errors).forEach(([field, list]) => {
+      (list || []).forEach((m) => lines.push(`${field}: ${m}`));
+    });
+    return lines.join("\n");
+  }
+
+  function formatPrice(value) {
+    if (value === null || value === undefined) return "—";
+    return `${Math.round(value).toLocaleString("uk-UA")} грн`;
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes && bytes !== 0) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+
   function escapeHtml(value) {
+    if (!value) return "";
     return String(value)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  // ── Draft ───────────────────────────────────────────────────
+  function persistDraft() {
+    try {
+      const draft = {
+        v: 2,
+        ts: Date.now(),
+        mode: STATE.mode,
+        product: STATE.product,
+        print: STATE.print,
+        artwork: STATE.artwork,
+        order: STATE.order,
+        notes: STATE.notes,
+        contact: STATE.contact,
+        ui: {
+          current_step: STATE.ui.current_step,
+          done_steps: Array.from(STATE.ui.done_steps),
+          stage_view: STATE.ui.stage_view,
+        },
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+    } catch (err) {
+      // ignore quota
+    }
+  }
+
+  function loadDraft() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (!draft || draft.v !== 2) return;
+      if (draft.mode) STATE.mode = draft.mode;
+      if (draft.product) Object.assign(STATE.product, draft.product);
+      if (draft.print) Object.assign(STATE.print, draft.print);
+      if (draft.artwork) Object.assign(STATE.artwork, draft.artwork);
+      if (draft.order) Object.assign(STATE.order, draft.order);
+      if (draft.notes) Object.assign(STATE.notes, draft.notes);
+      if (draft.contact) Object.assign(STATE.contact, draft.contact);
+      if (draft.ui) {
+        STATE.ui.current_step = draft.ui.current_step || "mode";
+        STATE.ui.done_steps = new Set(draft.ui.done_steps || []);
+        STATE.ui.stage_view = draft.ui.stage_view || "front";
+      }
+      // Restore inputs
+      if (dom.qtyInput && STATE.order.quantity) dom.qtyInput.value = STATE.order.quantity;
+      if (dom.placementNoteInput) dom.placementNoteInput.value = STATE.print.placement_note || "";
+      if (dom.briefInput) dom.briefInput.value = STATE.notes.brief || "";
+      if (dom.nameInput) dom.nameInput.value = STATE.contact.name || "";
+      if (dom.contactValueInput) dom.contactValueInput.value = STATE.contact.value || "";
+      if (dom.brandNameInput) dom.brandNameInput.value = STATE.notes.brand_name || "";
+      if (dom.giftTextInput) dom.giftTextInput.value = STATE.order.gift_text || "";
+      if (dom.giftToggle) dom.giftToggle.classList.toggle("is-active", !!STATE.order.gift_enabled);
+      if (dom.giftTextWrap) dom.giftTextWrap.hidden = !STATE.order.gift_enabled;
+      if (dom.garmentNoteInput) dom.garmentNoteInput.value = STATE.notes.garment_note || "";
+      if (dom.sizesNoteInput) dom.sizesNoteInput.value = STATE.order.sizes_note || "";
+      // Re-render dependent UI
+      renderFitChips();
+      renderFabricChips();
+      renderColorChips();
+      renderZoneChipsForCurrent();
+      renderAddons();
+      renderArtworkActiveState();
+      renderContactChannelChipsActive();
+      renderSizing();
+      renderDropzones();
+    } catch (err) {
+      console.warn("[custom-print v2] draft load failed", err);
+    }
+  }
+
+  function clearDraft() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) { /* ignore */ }
   }
 })();

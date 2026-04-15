@@ -22,6 +22,7 @@ import json
 from ..models import Product, PromoCode
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
+from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
 from .utils import (
     get_cart_from_session,
     save_cart_to_session,
@@ -270,12 +271,66 @@ def view_cart(request):
         checkout_payload_ids = json.dumps(content_ids, ensure_ascii=False)
         checkout_payload_contents = json.dumps(contents, ensure_ascii=False)
 
+    # ── V2 Custom Print items (session-based) ─────────────────
+    custom_cart_raw = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
+    custom_items = []
+    custom_items_total = Decimal('0')
+    custom_items_qty = 0
+    if isinstance(custom_cart_raw, dict):
+        for key, item in custom_cart_raw.items():
+            if not isinstance(item, dict):
+                continue
+            try:
+                qty = int(item.get('quantity') or 1)
+            except (TypeError, ValueError):
+                qty = 1
+            try:
+                final_total = Decimal(str(item.get('final_total') or 0))
+            except Exception:
+                final_total = Decimal('0')
+            try:
+                unit_total = Decimal(str(item.get('unit_total') or 0))
+            except Exception:
+                unit_total = Decimal('0')
+            zones = item.get('zone_labels') or []
+            size_breakdown = item.get('size_breakdown') or {}
+            size_parts = [f"{s}×{n}" for s, n in size_breakdown.items() if n]
+            custom_items.append({
+                'key': key,
+                'lead_id': item.get('lead_id'),
+                'lead_number': item.get('lead_number') or '',
+                'label': item.get('label') or 'Кастомний виріб',
+                'product_label': item.get('product_label') or '',
+                'zones': zones,
+                'zones_display': ', '.join(zones) if zones else '',
+                'quantity': qty,
+                'unit_total': unit_total.quantize(Decimal('0.01')),
+                'final_total': final_total.quantize(Decimal('0.01')),
+                'gift_enabled': bool(item.get('gift_enabled')),
+                'gift_text': item.get('gift_text') or '',
+                'mode': item.get('mode') or 'personal',
+                'fit': item.get('fit') or '',
+                'fabric': item.get('fabric') or '',
+                'color': item.get('color') or '',
+                'b2b_discount_per_unit': item.get('b2b_discount_per_unit') or 0,
+                'size_breakdown_display': ', '.join(size_parts),
+            })
+            custom_items_total += final_total
+            custom_items_qty += qty
+
+    combined_total = (total + custom_items_total).quantize(Decimal('0.01'))
+
     return render(
         request,
         'pages/cart.html',
         {
             'items': cart_items,  # Шаблон ожидает 'items', а не 'cart_items'!
             'cart_items': cart_items,  # Оставляем для совместимости
+            'custom_items': custom_items,
+            'custom_items_total': custom_items_total.quantize(Decimal('0.01')),
+            'custom_items_qty': custom_items_qty,
+            'combined_total': combined_total,
+            'has_any_items': bool(cart_items) or bool(custom_items),
             'subtotal': subtotal,
             'discount': discount,
             'total': total,
@@ -287,8 +342,8 @@ def view_cart(request):
             'total_points': total_points,  # ДОБАВЛЕНО: баллы за заказ
             'promo_code': promo_code,
             'applied_promo': promo_code,  # ДОБАВЛЕНО: алиас для шаблона
-            'cart_count': len(cart_items),
-            'items_total_qty': total_quantity,
+            'cart_count': len(cart_items) + len(custom_items),
+            'items_total_qty': total_quantity + custom_items_qty,
             'checkout_payload': checkout_payload,
             'checkout_payload_ids': checkout_payload_ids,
             'checkout_payload_contents': checkout_payload_contents,

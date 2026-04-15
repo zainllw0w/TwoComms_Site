@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}DTF-конфігуратор кастомного одягу — TwoComms{% endblock %}
-{% block description %}Кастомний DTF-конфігуратор для худі, футболок, лонгслівів і свого одягу. Зберіть виріб, зони друку, файл або ідею і передайте весь контекст менеджеру без хаосу.{% endblock %}
+{% block description %}Кастомний DTF-конфігуратор для худі, футболок, лонгслівів і свого одягу. Зберіть виріб, зони друку, файл або ідею і передайте весь контекст менеджеру або одразу в кошик.{% endblock %}
 {% block keywords %}dtf друк, кастомний принт, друк на худі, друк на футболках, кастомний одяг, twocomms{% endblock %}
 {% block og_type %}website{% endblock %}
 
@@ -14,64 +14,39 @@
 {% block content %}
 <section class="cp-page" data-custom-print-root>
   <div class="container-xxl cp-shell">
-    <div class="cp-hero">
+    <header class="cp-hero">
       <div class="cp-hero-copy">
         <span class="cp-kicker">Кастомний DTF-друк</span>
-        <h1 class="cp-title">Створіть свій принт без довгої анкети.</h1>
+        <h1 class="cp-title">Зберіть свій принт без анкети.</h1>
         <p class="cp-lead">
-          Почніть з нуля, завантажте готовий файл або візьміть стартовий стиль. Далі ви спокійно зберете виріб,
-          зони друку, макет і контакт, а якщо не захочете добивати заявку зараз, зможете передати чернетку менеджеру.
+          Виберіть для кого, потім виріб, зони, макет, кількість і подарункову опцію.
+          Кожен крок розгортається плавно, а ціна оновлюється прямо на сцені виробу.
         </p>
         <div class="cp-hero-actions">
-          <button class="cp-link cp-link--primary" type="button" data-start-flow>Створити свій дизайн</button>
+          <button class="cp-link cp-link--primary" type="button" data-start-flow>Розпочати конфігурацію</button>
           <a class="cp-link cp-link--ghost" href="https://t.me/twocomms" target="_blank" rel="noopener">Написати менеджеру</a>
         </div>
       </div>
 
       <div class="cp-hero-panel">
-        <div class="cp-hero-stat cp-hero-stat--dynamic">
-          <small>Поточний старт</small>
-          <strong data-hero-dynamic-label>Почати з нуля</strong>
-          <span data-hero-dynamic-copy>Збираємо конфігурацію покроково: виріб, зони, стиль і контакт.</span>
-        </div>
-        <ul class="cp-hero-list" aria-label="Що ви отримаєте">
-          <li>Одразу бачите виріб і ключові зони друку.</li>
-          <li>На екрані тільки один головний крок, без довгого полотна форми.</li>
-          <li>У будь-який момент можна передати чернетку менеджеру.</li>
+        <ul class="cp-hero-list" aria-label="Що буде далі">
+          <li>Кроки розгортаються вниз — попередні згортаються у рядки з резюме.</li>
+          <li>Ціна формується одразу під фотографією виробу.</li>
+          <li>На фіналі — або в кошик, або на узгодження з менеджером.</li>
         </ul>
       </div>
-    </div>
+    </header>
 
     <form id="customPrintConfiguratorForm" class="cp-configurator" novalidate>
-      <nav class="cp-build-strip" aria-label="Ключові кроки">
-        <button type="button" class="cp-build-chip is-active" data-step-link="quickstart">
-          <small>Старт</small>
-          <strong data-step-summary="quickstart">Почати з нуля</strong>
-        </button>
-        <button type="button" class="cp-build-chip" data-step-link="mode">
-          <small>Формат</small>
-          <strong data-step-summary="mode">Для себе</strong>
-        </button>
-        <button type="button" class="cp-build-chip" data-step-link="product">
-          <small>Виріб</small>
-          <strong data-step-summary="product">Худі</strong>
-        </button>
-        <button type="button" class="cp-build-chip" data-step-link="artwork">
-          <small>Макет</small>
-          <strong data-step-summary="artwork">Потрібен дизайн</strong>
-        </button>
-        <button type="button" class="cp-build-chip" data-step-link="review">
-          <small>Фінал</small>
-          <strong data-step-summary="review">Контакт не вказано</strong>
-        </button>
-      </nav>
 
-      <div class="cp-workbench">
-        <section class="cp-stage-card" aria-labelledby="cp-stage-title">
+      <div class="cp-workbench" data-workbench>
+
+        <!-- ═══ STAGE CARD (with Stage Receipt inline) ═══ -->
+        <aside class="cp-stage-card is-hidden" aria-labelledby="cp-stage-title" data-stage-card>
           <div class="cp-card-head">
             <div>
               <span class="cp-card-eyebrow">Виріб на сцені</span>
-              <h2 id="cp-stage-title">Виріб і зона друку</h2>
+              <h2 id="cp-stage-title" data-stage-label>Виріб і зона друку</h2>
             </div>
             <div class="cp-stage-view-switch" role="group" aria-label="Сторона виробу">
               <button type="button" class="is-active" data-stage-view="front">Спереду</button>
@@ -94,311 +69,416 @@
 
           <div class="cp-stage-meta">
             <div class="cp-stage-copy">
-              <small data-stage-eyebrow>Головний сценарій</small>
-              <strong data-stage-label>Худі</strong>
-              <span data-stage-note>Оптимальний шлях для DTF-замовлення з точним відчуттям виробу.</span>
+              <small data-stage-eyebrow>Виріб</small>
+              <strong data-stage-title-secondary>—</strong>
+              <span data-stage-note>Оберіть виріб, щоб побачити деталі.</span>
             </div>
             <div class="cp-stage-copy">
               <small>Активні зони</small>
-              <strong data-stage-zones>Спереду</strong>
+              <strong data-stage-zones>—</strong>
               <span data-stage-addons>Без додаткових деталей.</span>
             </div>
           </div>
 
-          <div class="cp-stage-toolbar">
-            <div class="cp-stage-help">
-              <a href="https://t.me/twocomms" target="_blank" rel="noopener">Написати в Telegram</a>
-              <button type="button" data-safe-exit-trigger>Передати менеджеру</button>
-            </div>
-            <div class="cp-stage-inline-summary" data-inline-price-summary>Ціну уточнимо після перевірки.</div>
-          </div>
-        </section>
-
-        <div class="cp-panel-column">
-          <section id="cp-step-quickstart" class="cp-card cp-card--step is-current" data-step="quickstart">
-            <div class="cp-card-head">
+          <!-- ═══ STAGE RECEIPT (replaces capsule) ═══ -->
+          <div class="cp-stage-receipt" data-stage-receipt>
+            <div class="cp-stage-receipt-head">
               <div>
-                <span class="cp-card-eyebrow">1. Старт</span>
-                <h2>З чого почати</h2>
+                <small>Підсумок</small>
+                <strong data-receipt-total>Ціну побачите після першого вибору</strong>
               </div>
+              <span class="cp-stage-receipt-mode" data-receipt-mode>Базова конфігурація</span>
             </div>
-            <div class="cp-option-grid cp-option-grid--three" data-quick-start-list>
-              {% for item in custom_print_config.quick_start_modes %}
-                <button type="button" class="cp-option-card {% if item.value == custom_print_config.defaults.quick_start_mode %}is-active{% endif %}" data-choice-value="{{ item.value }}">
-                  <small>Старт</small>
-                  <strong>{{ item.label }}</strong>
-                  <span>{{ item.hint }}</span>
-                </button>
-              {% endfor %}
+            <ul class="cp-stage-receipt-list" data-receipt-list>
+              <li class="is-empty">Поки що нічого не додано — оберіть виріб, щоб побачити прорахунок.</li>
+            </ul>
+            <div class="cp-stage-receipt-foot" data-receipt-foot>
+              <span data-receipt-hint>Ціна оновлюється в реальному часі.</span>
             </div>
-            <div class="cp-inline-note" data-starter-style-wrap hidden>
-              <div class="cp-inline-note-copy">
-                <strong>Стартові стилі</strong>
-                <span>Три кураторські напрями без бібліотеки шаблонів. Це тільки відправна точка для вайбу й композиції.</span>
+          </div>
+        </aside>
+
+        <!-- ═══ WATERFALL: вертикальний список кроків ═══ -->
+        <div class="cp-waterfall" data-waterfall>
+
+          <!-- STEP 1: Mode (B2C / B2B) -->
+          <section class="cp-step is-active" data-step="mode" id="cp-step-mode">
+            <div class="cp-step-summary" data-step-summary-row>
+              <span class="cp-step-summary-num">1</span>
+              <div class="cp-step-summary-text">
+                <small>Формат</small>
+                <strong data-step-summary-value="mode">—</strong>
               </div>
-              <div class="cp-mini-chip-row" data-starter-style-list>
-                {% for item in custom_print_config.starter_styles %}
-                  <button type="button" class="cp-mini-chip {% if forloop.first %}is-active{% endif %}" data-choice-value="{{ item.value }}">{{ item.label }}</button>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="mode">Змінити</button>
+            </div>
+            <div class="cp-step-body">
+              <div class="cp-step-head">
+                <span class="cp-card-eyebrow">1. Формат</span>
+                <h2>Цей кастом — для кого?</h2>
+                <p>Це визначає поля, ціни і логіку калькулятора.</p>
+              </div>
+              <div class="cp-option-grid cp-option-grid--two" data-mode-list>
+                {% for item in custom_print_config.modes %}
+                  <button type="button" class="cp-option-card" data-choice-value="{{ item.value }}">
+                    <small>Формат</small>
+                    <strong>{{ item.label }}</strong>
+                    <span>{{ item.hint }}</span>
+                  </button>
                 {% endfor %}
               </div>
             </div>
           </section>
 
-          <section id="cp-step-mode" class="cp-card cp-card--step" data-step="mode" hidden>
-            <div class="cp-card-head">
-              <div>
-                <span class="cp-card-eyebrow">2. Формат</span>
-                <h2>Для кого цей комплект</h2>
+          <!-- STEP 2: Product -->
+          <section class="cp-step is-pending" data-step="product" id="cp-step-product">
+            <div class="cp-step-summary" data-step-summary-row>
+              <span class="cp-step-summary-num">2</span>
+              <div class="cp-step-summary-text">
+                <small>Виріб</small>
+                <strong data-step-summary-value="product">—</strong>
               </div>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="product">Змінити</button>
             </div>
-            <div class="cp-option-grid cp-option-grid--two" data-mode-list>
-              {% for item in custom_print_config.modes %}
-                <button type="button" class="cp-option-card {% if item.value == custom_print_config.defaults.mode %}is-active{% endif %}" data-choice-value="{{ item.value }}">
-                  <small>Формат</small>
-                  <strong>{{ item.label }}</strong>
-                  <span>{{ item.hint }}</span>
-                </button>
-              {% endfor %}
-            </div>
-            <div class="cp-inline-fields" data-brand-fields hidden>
-              <label class="cp-field" for="cp-brand-name">
-                <span>Назва бренду / команди</span>
-                <input id="cp-brand-name" name="brand_name" type="text" data-brand-name-input placeholder="Наприклад, Void Unit або внутрішня команда">
-              </label>
+            <div class="cp-step-body">
+              <div class="cp-step-head">
+                <span class="cp-card-eyebrow">2. Виріб</span>
+                <h2>Що друкуємо?</h2>
+                <p>Оберіть виріб для кастомного нанесення.</p>
+              </div>
+              <div class="cp-product-grid" data-product-list>
+                {% for value, product in custom_print_config.products.items %}
+                  <button type="button" class="cp-product-card" data-choice-value="{{ value }}">
+                    <small>{{ product.eyebrow }}</small>
+                    <strong>{{ product.label }}</strong>
+                    <span>{{ product.summary }}</span>
+                  </button>
+                {% endfor %}
+              </div>
             </div>
           </section>
 
-          <section id="cp-step-product" class="cp-card cp-card--step" data-step="product" hidden>
-            <div class="cp-card-head">
-              <div>
-                <span class="cp-card-eyebrow">3. Виріб</span>
-                <h2>Вибір виробу і базової конфігурації</h2>
+          <!-- STEP 3: Config (only for hoodie) -->
+          <section class="cp-step is-pending" data-step="config" id="cp-step-config">
+            <div class="cp-step-summary" data-step-summary-row>
+              <span class="cp-step-summary-num">3</span>
+              <div class="cp-step-summary-text">
+                <small>Налаштування</small>
+                <strong data-step-summary-value="config">—</strong>
               </div>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="config">Змінити</button>
             </div>
-            <div class="cp-product-grid" data-product-list>
-              {% for value, product in custom_print_config.products.items %}
-                <button type="button" class="cp-product-card {% if value == custom_print_config.defaults.product.type %}is-active{% endif %}" data-choice-value="{{ value }}">
-                  <small>{{ product.eyebrow }}</small>
-                  <strong>{{ product.label }}</strong>
-                  <span>{{ product.summary }}</span>
-                </button>
-              {% endfor %}
-            </div>
+            <div class="cp-step-body">
+              <div class="cp-step-head">
+                <span class="cp-card-eyebrow">3. Налаштування</span>
+                <h2>Крій, тканина, колір</h2>
+                <p>Оберіть параметри. Сцена оновлюється на ходу.</p>
+              </div>
 
-            <div class="cp-config-cluster" data-hoodie-config>
+              <div class="cp-config-cluster" data-hoodie-config>
+                <div class="cp-config-block" data-fit-block>
+                  <div class="cp-subhead">
+                    <strong>Посадка</strong>
+                    <span>Класичний або оверсайз.</span>
+                  </div>
+                  <div class="cp-mini-chip-row" data-fit-list></div>
+                </div>
+
+                <div class="cp-config-block" data-fabric-block>
+                  <div class="cp-subhead">
+                    <strong>Тканина</strong>
+                    <span>Залежить від обраної посадки.</span>
+                  </div>
+                  <div class="cp-mini-chip-row" data-fabric-list></div>
+                </div>
+              </div>
+
               <div class="cp-config-block">
                 <div class="cp-subhead">
-                  <strong>Посадка</strong>
-                  <span>Для худі є два режими посадки.</span>
+                  <strong>Колір виробу</strong>
+                  <span>Сцена відтворює колір у режимі реального часу.</span>
                 </div>
-                <div class="cp-mini-chip-row" data-fit-list>
-                  {% for item in custom_print_config.products.hoodie.fits %}
-                    <button type="button" class="cp-mini-chip {% if item.value == custom_print_config.defaults.product.fit %}is-active{% endif %}" data-choice-value="{{ item.value }}">{{ item.label }}</button>
-                  {% endfor %}
-                </div>
+                <div class="cp-swatch-row" data-color-list></div>
+              </div>
+
+              <div class="cp-step-actions">
+                <button type="button" class="cp-secondary-button" data-step-back="product">Назад</button>
+                <button type="button" class="cp-link cp-link--primary" data-step-next="zones">Далі до зон</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- STEP 4: Zones + premium addons -->
+          <section class="cp-step is-pending" data-step="zones" id="cp-step-zones">
+            <div class="cp-step-summary" data-step-summary-row>
+              <span class="cp-step-summary-num">4</span>
+              <div class="cp-step-summary-text">
+                <small>Зони друку</small>
+                <strong data-step-summary-value="zones">—</strong>
+              </div>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="zones">Змінити</button>
+            </div>
+            <div class="cp-step-body">
+              <div class="cp-step-head">
+                <span class="cp-card-eyebrow">4. Зони друку</span>
+                <h2>Де друкуємо?</h2>
+                <p>Можна обрати кілька зон. Для кожної зони ви додасте окремий файл на наступному кроці.</p>
               </div>
 
               <div class="cp-config-block">
                 <div class="cp-subhead">
-                  <strong>Тканина</strong>
-                  <span>Класичний крій підтримує базу або преміум, оверсайз іде через преміум.</span>
+                  <strong>Активні зони</strong>
+                  <span>Перший друк йде в базовій ціні. Кожна додаткова зона має окрему доплату.</span>
                 </div>
-                <div class="cp-mini-chip-row" data-fabric-list>
-                  {% for item in custom_print_config.products.hoodie.fabrics.regular %}
-                    <button type="button" class="cp-mini-chip {% if item.value == custom_print_config.defaults.product.fabric %}is-active{% endif %}" data-choice-value="{{ item.value }}">{{ item.label }}</button>
-                  {% endfor %}
-                </div>
+                <div class="cp-mini-chip-row cp-mini-chip-row--zones" data-zone-list></div>
+                <label class="cp-field" for="cp-placement-note" data-placement-note-wrap hidden>
+                  <span>Опис нестандартної зони</span>
+                  <textarea id="cp-placement-note" name="placement_note" rows="3" data-placement-note-input placeholder="Наприклад: вертикальний друк по боковому шву або нестандартне розміщення на своєму виробі"></textarea>
+                </label>
               </div>
-            </div>
 
-            <div class="cp-config-block">
-              <div class="cp-subhead">
-                <strong>Колір виробу</strong>
-                <span>Поки без складної палітри: тільки робочі базові кольори для швидкого рішення.</span>
-              </div>
-              <div class="cp-swatch-row" data-color-list></div>
-            </div>
-
-            <div class="cp-config-block">
+              <div class="cp-config-block" data-addons-wrap>
                 <div class="cp-subhead">
-                  <strong>Зони друку</strong>
-                  <span>У верхньому рядку залишаються тільки головні рішення, без дрібного шуму.</span>
+                  <strong>Преміум-апгрейди</strong>
+                  <span>Тільки одна, але справді помітна деталь.</span>
                 </div>
-              <div class="cp-mini-chip-row" data-zone-list></div>
-              <label class="cp-field" for="cp-placement-note" data-placement-note-wrap hidden>
-                <span>Примітка до нестандартної зони</span>
-                <textarea id="cp-placement-note" name="placement_note" rows="3" data-placement-note-input placeholder="Наприклад: вертикальний друк по боковому шву або нестандартне розміщення на своєму виробі"></textarea>
-              </label>
-            </div>
+                <div class="cp-addon-grid" data-addons-list></div>
+              </div>
 
-            <div class="cp-config-block" data-addons-wrap>
+              <div class="cp-step-actions">
+                <button type="button" class="cp-secondary-button" data-step-back="config">Назад</button>
+                <button type="button" class="cp-link cp-link--primary" data-step-next="artwork">Далі до макета</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- STEP 5: Artwork (per-zone uploads) -->
+          <section class="cp-step is-pending" data-step="artwork" id="cp-step-artwork">
+            <div class="cp-step-summary" data-step-summary-row>
+              <span class="cp-step-summary-num">5</span>
+              <div class="cp-step-summary-text">
+                <small>Макет</small>
+                <strong data-step-summary-value="artwork">—</strong>
+              </div>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="artwork">Змінити</button>
+            </div>
+            <div class="cp-step-body">
+              <div class="cp-step-head">
+                <span class="cp-card-eyebrow">5. Макет</span>
+                <h2>Файл і послуга з підготовки</h2>
+                <p>Завантажте свій файл або позначте, що потрібен дизайн. Ціна послуги одразу видна на кнопці.</p>
+              </div>
+
+              <div class="cp-artwork-services" data-artwork-service-list>
+                {% for item in custom_print_config.artwork_services %}
+                  <button type="button" class="cp-artwork-service" data-choice-value="{{ item.value }}" data-price-modifier="{{ item.price_delta }}">
+                    <span class="cp-artwork-service-head">
+                      <strong>{{ item.label }}</strong>
+                      <span class="cp-artwork-service-badge">{{ item.badge }}</span>
+                    </span>
+                    <span class="cp-artwork-service-hint">{{ item.hint }}</span>
+                  </button>
+                {% endfor %}
+              </div>
+
+              <div class="cp-dropzone-grid" data-dropzone-grid>
+                <p class="cp-dropzone-empty" data-dropzone-empty>Спочатку оберіть зони друку — для кожної зʼявиться окреме поле завантаження.</p>
+              </div>
+
+              <label class="cp-field" for="cp-brief">
+                <span>Бриф / задача</span>
+                <textarea id="cp-brief" name="brief" rows="4" data-brief-input placeholder="Опишіть ідею, стиль або референси. Якщо потрібен дизайн — це обовʼязково."></textarea>
+              </label>
+
+              <div class="cp-step-actions">
+                <button type="button" class="cp-secondary-button" data-step-back="zones">Назад</button>
+                <button type="button" class="cp-link cp-link--primary" data-step-next="quantity">Далі до кількості</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- STEP 6: Quantity + Smart sizing -->
+          <section class="cp-step is-pending" data-step="quantity" id="cp-step-quantity">
+            <div class="cp-step-summary" data-step-summary-row>
+              <span class="cp-step-summary-num">6</span>
+              <div class="cp-step-summary-text">
+                <small>Кількість</small>
+                <strong data-step-summary-value="quantity">—</strong>
+              </div>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="quantity">Змінити</button>
+            </div>
+            <div class="cp-step-body">
+              <div class="cp-step-head">
+                <span class="cp-card-eyebrow">6. Кількість і розміри</span>
+                <h2>Скільки і яких розмірів?</h2>
+                <p data-quantity-hint>Введіть кількість — ми покажемо адаптивний вибір розмірів.</p>
+              </div>
+
+              <div class="cp-qty-bar">
+                <div class="cp-qty-bar-counter">
+                  <button type="button" class="cp-qty-step" data-qty-step="-1" aria-label="Зменшити">−</button>
+                  <input id="cp-quantity" name="quantity" type="number" min="1" inputmode="numeric" placeholder="0" data-quantity-input>
+                  <button type="button" class="cp-qty-step" data-qty-step="1" aria-label="Збільшити">+</button>
+                </div>
+                <div class="cp-qty-bar-meta" data-b2b-meta hidden>
+                  <small>B2B знижка</small>
+                  <strong data-b2b-discount>0 грн / шт</strong>
+                </div>
+              </div>
+
+              <div class="cp-size-block" data-size-block hidden>
                 <div class="cp-subhead">
-                  <strong>Деталі виробу</strong>
-                  <span>Легкі виробничі доповнення, якщо вони потрібні вже на етапі заявки.</span>
+                  <strong>Розмір</strong>
+                  <span data-size-hint>Один клік — і розмір зафіксовано.</span>
                 </div>
-              <div class="cp-mini-chip-row" data-addons-list></div>
-            </div>
+                <div class="cp-size-grid" data-size-grid hidden></div>
+                <div class="cp-size-matrix" data-size-matrix hidden></div>
+                <div class="cp-size-warning" data-size-warning hidden></div>
+                <button type="button" class="cp-secondary-button cp-secondary-button--ghost" data-size-manager hidden>Уточнити розміри з менеджером</button>
+                <label class="cp-field" data-sizes-note-wrap hidden>
+                  <span>Примітка по розмірах</span>
+                  <textarea name="sizes_note" rows="2" data-sizes-note-input placeholder="Якщо потрібні особливі розміри або примітки"></textarea>
+                </label>
+              </div>
 
-            <div class="cp-step-actions">
-              <button type="button" class="cp-secondary-button" data-step-nav="mode">Назад</button>
-              <button type="button" class="cp-link cp-link--primary" data-step-nav="artwork">Далі до макета</button>
+              <label class="cp-field" for="cp-garment-note" data-garment-note-wrap hidden>
+                <span>Опис свого виробу</span>
+                <textarea id="cp-garment-note" name="garment_note" rows="3" data-garment-note-input placeholder="Матеріал, колір, крій, стан виробу та все, що важливо для прорахунку"></textarea>
+              </label>
+
+              <div class="cp-step-actions">
+                <button type="button" class="cp-secondary-button" data-step-back="artwork">Назад</button>
+                <button type="button" class="cp-link cp-link--primary" data-step-next="gift">Далі до подарунку</button>
+              </div>
             </div>
           </section>
 
-          <section id="cp-step-artwork" class="cp-card cp-card--step" data-step="artwork" hidden>
-            <div class="cp-card-head">
-              <div>
-                <span class="cp-card-eyebrow">4. Макет</span>
-                <h2>Макет, файл і перевірка</h2>
+          <!-- STEP 7: Gift -->
+          <section class="cp-step is-pending" data-step="gift" id="cp-step-gift">
+            <div class="cp-step-summary" data-step-summary-row>
+              <span class="cp-step-summary-num">7</span>
+              <div class="cp-step-summary-text">
+                <small>Подарунок</small>
+                <strong data-step-summary-value="gift">—</strong>
               </div>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="gift">Змінити</button>
             </div>
-            <div class="cp-option-grid cp-option-grid--three" data-artwork-service-list></div>
-
-            <div class="cp-config-block">
-              <div class="cp-subhead">
-                <strong>Оцінка файлу</strong>
-                <span>Не блокує заявку. Якщо є сумнів, ми просто передамо файл менеджеру на перевірку.</span>
+            <div class="cp-step-body">
+              <div class="cp-step-head">
+                <span class="cp-card-eyebrow">7. Подарунок</span>
+                <h2>Це сюрприз?</h2>
+                <p>Опційно: преміум-упаковка та персональна листівка.</p>
               </div>
-              <div class="cp-mini-chip-row" data-triage-list></div>
-            </div>
 
-            <div class="cp-upload-panel">
-              <label class="cp-upload-field" for="cp-artwork-files">
-                <span>Додайте файл або референси</span>
-                <input id="cp-artwork-files" name="artwork_files" type="file" data-file-input multiple accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.ai,.eps,.psd,.cdr">
+              <button type="button" class="cp-addon-card cp-addon-card--gift" data-gift-toggle data-price-modifier="{{ custom_print_config.gift_service.price }}">
+                <span class="cp-addon-card-icon" aria-hidden="true">
+                  <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="6" y="20" width="44" height="30" rx="3" stroke="currentColor" stroke-width="2"/>
+                    <path d="M6 28h44" stroke="currentColor" stroke-width="2"/>
+                    <path d="M28 20v30" stroke="currentColor" stroke-width="2"/>
+                    <path d="M28 20c-6 0-10-3-10-7s4-5 7-3 3 6 3 10z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                    <path d="M28 20c6 0 10-3 10-7s-4-5-7-3-3 6-3 10z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="cp-addon-card-body">
+                  <strong>Подарункова упаковка</strong>
+                  <span class="cp-addon-card-badge">+{{ custom_print_config.gift_service.price }} грн</span>
+                  <span class="cp-addon-card-hint">{{ custom_print_config.gift_service.note }}</span>
+                  <span class="cp-addon-card-bonus">{{ custom_print_config.gift_service.bonus_note }}</span>
+                </span>
+              </button>
+
+              <label class="cp-field" data-gift-text-wrap hidden>
+                <span>Текст побажання (необовʼязково)</span>
+                <textarea rows="3" data-gift-text-input placeholder="Введіть текст для листівки. Або залиште пустим — ми покладемо чисту листівку для вашого почерку."></textarea>
               </label>
-              <div class="cp-file-list" data-file-list>Файли ще не додані.</div>
-            </div>
 
-            <label class="cp-field" for="cp-brief">
-              <span>Бриф / задача</span>
-              <textarea id="cp-brief" name="brief" rows="4" data-brief-input placeholder="Що потрібно зробити з файлом або який стиль / настрій ви хочете отримати"></textarea>
-            </label>
-
-            <div class="cp-step-actions">
-              <button type="button" class="cp-secondary-button" data-step-nav="product">Назад</button>
-              <button type="button" class="cp-link cp-link--primary" data-step-nav="quantity">Далі до кількості</button>
+              <div class="cp-step-actions">
+                <button type="button" class="cp-secondary-button" data-step-back="quantity">Назад</button>
+                <button type="button" class="cp-link cp-link--primary" data-step-next="contact">Перейти до контактів</button>
+                <button type="button" class="cp-tertiary-button" data-step-skip="contact">Пропустити подарунок</button>
+              </div>
             </div>
           </section>
 
-          <section id="cp-step-quantity" class="cp-card cp-card--step" data-step="quantity" hidden>
-            <div class="cp-card-head">
-              <div>
-                <span class="cp-card-eyebrow">5. Кількість</span>
-                <h2>Кількість, розміри й подарунок</h2>
+          <!-- STEP 8: Contact + dual final -->
+          <section class="cp-step is-pending" data-step="contact" id="cp-step-contact">
+            <div class="cp-step-summary" data-step-summary-row>
+              <span class="cp-step-summary-num">8</span>
+              <div class="cp-step-summary-text">
+                <small>Контакт</small>
+                <strong data-step-summary-value="contact">—</strong>
               </div>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="contact">Змінити</button>
             </div>
-
-            <div class="cp-inline-fields cp-inline-fields--compact">
-              <label class="cp-field" for="cp-quantity">
-                <span>Кількість</span>
-                <input id="cp-quantity" name="quantity" type="number" min="1" value="1" data-quantity-input>
-              </label>
-              <label class="cp-field cp-field--toggle" for="cp-gift">
-                <span>Позначити як подарунок</span>
-                <input id="cp-gift" name="gift" type="checkbox" data-gift-input>
-              </label>
-            </div>
-
-            <div class="cp-config-block">
-              <div class="cp-subhead">
-                <strong>Режим розмірів</strong>
-                <span>Один розмір, мікс або уточнення з менеджером.</span>
+            <div class="cp-step-body">
+              <div class="cp-step-head">
+                <span class="cp-card-eyebrow">8. Контакт і фінал</span>
+                <h2>Контакт і дія</h2>
+                <p>Оберіть, куди передати запит — у кошик або менеджеру.</p>
               </div>
-              <div class="cp-mini-chip-row" data-size-mode-list></div>
-            </div>
 
-            <label class="cp-field" for="cp-sizes-note">
-              <span>Розміри / коментар</span>
-              <textarea id="cp-sizes-note" name="sizes_note" rows="3" data-sizes-note-input placeholder="Наприклад: M x4, L x6 або «узгодимо після мокапу»"></textarea>
-            </label>
+              <div class="cp-inline-fields">
+                <label class="cp-field" for="cp-contact-name">
+                  <span>Ваше імʼя</span>
+                  <input id="cp-contact-name" name="contact_name" type="text" data-name-input placeholder="Ім'я для менеджера">
+                </label>
+                <label class="cp-field" for="cp-brand-name" data-brand-fields hidden>
+                  <span>Бренд / Instagram</span>
+                  <input id="cp-brand-name" name="brand_name" type="text" data-brand-name-input placeholder="Назва бренду або @instagram">
+                </label>
+              </div>
 
-            <label class="cp-field" for="cp-garment-note" data-garment-note-wrap hidden>
-              <span>Опис свого виробу</span>
-              <textarea id="cp-garment-note" name="garment_note" rows="3" data-garment-note-input placeholder="Матеріал, колір, крій, стан виробу та все, що важливо для прорахунку"></textarea>
-            </label>
+              <div class="cp-config-block">
+                <div class="cp-subhead">
+                  <strong>Канал звʼязку</strong>
+                  <span>Telegram / WhatsApp / телефон.</span>
+                </div>
+                <div class="cp-mini-chip-row" data-contact-channel-list></div>
+              </div>
 
-            <div class="cp-step-actions">
-              <button type="button" class="cp-secondary-button" data-step-nav="artwork">Назад</button>
-              <button type="button" class="cp-link cp-link--primary" data-step-nav="review">Далі до контакту</button>
+              <label class="cp-field" for="cp-contact-value">
+                <span>Контакт</span>
+                <input id="cp-contact-value" name="contact_value" type="text" data-contact-value-input placeholder="@username або +380...">
+              </label>
+
+              <div class="cp-status-box" data-status-box aria-live="polite">
+                Контакт + кнопка нижче. Чорнетка відразу зберігається локально.
+              </div>
+
+              <div class="cp-final-actions" data-final-actions>
+                <button type="button" class="cp-final-button cp-final-button--primary" data-action-add-to-cart>
+                  <span class="cp-final-button-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M3 4h2l3 12h12l3-9H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <circle cx="9" cy="20" r="1.6" fill="currentColor"/>
+                      <circle cx="18" cy="20" r="1.6" fill="currentColor"/>
+                    </svg>
+                  </span>
+                  <span class="cp-final-button-text">
+                    <strong>Додати в кошик</strong>
+                    <small data-cart-action-hint>Передзамовлення зі снимком конфігурації</small>
+                  </span>
+                </button>
+                <button type="submit" class="cp-final-button cp-final-button--secondary" data-action-submit-lead>
+                  <span class="cp-final-button-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M21 12a9 9 0 1 1-3.6-7.2L21 3v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </span>
+                  <span class="cp-final-button-text">
+                    <strong>Надіслати менеджеру</strong>
+                    <small data-lead-action-hint>Бот відправить заявку в Telegram</small>
+                  </span>
+                </button>
+              </div>
+
+              <button type="button" class="cp-tertiary-button cp-tertiary-button--center" data-safe-exit-trigger>Зберегти чернетку і відкрити Telegram</button>
             </div>
           </section>
 
-          <section id="cp-step-review" class="cp-card cp-card--step" data-step="review" hidden>
-            <div class="cp-card-head">
-              <div>
-                <span class="cp-card-eyebrow">6. Контакт і підтвердження</span>
-                <h2>Перед відправкою</h2>
-              </div>
-            </div>
-
-            <div class="cp-review-box" data-review-box></div>
-
-            <div class="cp-inline-fields">
-              <label class="cp-field" for="cp-contact-name">
-                <span>Ваше ім'я</span>
-                <input id="cp-contact-name" name="contact_name" type="text" data-name-input placeholder="Ім'я для менеджера">
-              </label>
-              <label class="cp-field" for="cp-brand-shortcut">
-                <span>Бренд / серія (необов'язково)</span>
-                <input id="cp-brand-shortcut" name="brand_shortcut" type="text" data-brand-shortcut-input placeholder="Коротка позначка для серії або бренду">
-              </label>
-            </div>
-
-            <div class="cp-config-block">
-              <div class="cp-subhead">
-                <strong>Канал зв'язку</strong>
-                <span>Оберіть зручний спосіб зв'язку: Telegram, WhatsApp або телефон.</span>
-              </div>
-              <div class="cp-mini-chip-row" data-contact-channel-list></div>
-            </div>
-
-            <label class="cp-field" for="cp-contact-value">
-              <span>Контакт</span>
-              <input id="cp-contact-value" name="contact_value" type="text" data-contact-value-input placeholder="@username або +380...">
-            </label>
-
-            <div class="cp-status-box" data-status-box aria-live="polite">
-              Заповніть контакт і натисніть «Надіслати заявку», або передайте чернетку менеджеру, якщо хочете завершити діалог пізніше.
-            </div>
-
-            <div class="cp-step-actions">
-              <button type="button" class="cp-secondary-button" data-step-nav="quantity">Назад</button>
-            </div>
-          </section>
-
-          <aside class="cp-capsule" data-price-capsule>
-            <div class="cp-capsule-head">
-              <div>
-                <small>Попередня вартість</small>
-                <strong data-capsule-title>Ціну уточнюємо</strong>
-              </div>
-              <button type="button" class="cp-capsule-toggle" data-mobile-summary-toggle>Деталі</button>
-            </div>
-
-            <div class="cp-capsule-price">
-              <span data-price-main>Прорахунок</span>
-              <small data-price-sub>Один або кілька параметрів потребують ручного прорахунку.</small>
-            </div>
-
-            <div class="cp-capsule-breakdown" data-price-breakdown></div>
-
-            <div class="cp-capsule-actions">
-              <button type="submit" class="cp-submit-button">Надіслати заявку</button>
-              <button type="button" class="cp-secondary-button" data-safe-exit-trigger>Передати менеджеру</button>
-            </div>
-          </aside>
         </div>
       </div>
     </form>
-  </div>
-
-  <div class="cp-mobile-bar" data-mobile-bar>
-    <button type="button" class="cp-mobile-bar-toggle" data-mobile-summary-toggle>
-      <span data-mobile-price>Ціну уточнюємо</span>
-      <small data-mobile-price-note>Відкрити деталі</small>
-    </button>
-    <button type="button" class="cp-mobile-bar-action" data-submit-shortcut>Надіслати</button>
   </div>
 </section>
 

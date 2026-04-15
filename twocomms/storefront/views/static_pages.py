@@ -27,9 +27,13 @@ from django.urls import reverse
 from storefront.models import Category, CustomPrintLead, Product
 from storefront.forms import CustomPrintLeadForm
 from storefront.custom_print_config import (
+    PRODUCT_LABELS,
+    SESSION_CUSTOM_CART_KEY,
     TELEGRAM_MANAGER_URL,
+    ZONE_LABELS,
     build_custom_print_config,
     build_placement_specs,
+    compute_cart_label,
     normalize_custom_print_snapshot,
 )
 from storefront.custom_print_notifications import (
@@ -522,6 +526,7 @@ def custom_print(request):
     config = build_custom_print_config(
         submit_url=request.build_absolute_uri(reverse("custom_print_lead")),
         safe_exit_url=request.build_absolute_uri(reverse("custom_print_safe_exit")),
+        add_to_cart_url=request.build_absolute_uri(reverse("custom_print_add_to_cart")),
     )
     return render(request, 'pages/custom_print.html', {
         'page_title': 'Кастомний принт',
@@ -554,6 +559,109 @@ def custom_print_lead(request):
             "message": "Дякуємо! Менеджер зв’яжеться з вами найближчим часом.",
         }
     )
+
+
+@require_POST
+def custom_print_add_to_cart(request):
+    """
+    V2 endpoint: create a CustomPrintLead (source=custom_print_cart) and
+    push a lightweight reference into the session-based custom cart.
+    """
+    form = CustomPrintLeadForm(request.POST, request.FILES)
+    if not form.is_valid():
+        errors = {}
+        for field, field_errors in form.errors.get_json_data().items():
+            errors[field] = [error["message"] for error in field_errors]
+        return JsonResponse({"ok": False, "errors": errors}, status=400)
+
+    with transaction.atomic():
+        lead = form.save()
+        # Override source so the lead shows up in the "cart" pipeline for manager.
+        lead.source = "custom_print_cart"
+        lead.save(update_fields=["source"])
+        transaction.on_commit(
+            lambda: notify_new_custom_print_lead(lead),
+            robust=True,
+        )
+
+    snapshot = lead.config_draft_json or {}
+    pricing = snapshot.get("pricing") or {}
+    product_payload = snapshot.get("product") or {}
+    print_payload = snapshot.get("print") or {}
+    order_payload = snapshot.get("order") or {}
+    gift_enabled = bool(((order_payload.get("gift") or {}) or {}).get("enabled")) if isinstance(order_payload.get("gift"), dict) else bool(order_payload.get("gift"))
+
+    custom_cart = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
+    if not isinstance(custom_cart, dict):
+        custom_cart = {}
+
+    key = f"custom:{lead.pk}"
+    custom_cart[key] = {
+        "lead_id": lead.pk,
+        "lead_number": getattr(lead, "lead_number", "") or f"CP-{lead.pk}",
+        "label": compute_cart_label(snapshot),
+        "product_type": product_payload.get("type") or lead.product_type,
+        "product_label": PRODUCT_LABELS.get(product_payload.get("type") or lead.product_type, ""),
+        "fit": product_payload.get("fit") or "",
+        "fabric": product_payload.get("fabric") or "",
+        "color": product_payload.get("color") or "",
+        "zones": list(print_payload.get("zones") or []),
+        "zone_labels": [ZONE_LABELS.get(z, z) for z in (print_payload.get("zones") or [])],
+        "quantity": int(order_payload.get("quantity") or lead.quantity or 1),
+        "size_mode": order_payload.get("size_mode") or lead.size_mode or "single",
+        "size_breakdown": order_payload.get("size_breakdown") or {},
+        "gift_enabled": gift_enabled,
+        "gift_text": (order_payload.get("gift_text") if not isinstance(order_payload.get("gift"), dict) else (order_payload.get("gift") or {}).get("text")) or "",
+        "unit_total": pricing.get("unit_total") or pricing.get("base_price") or 0,
+        "final_total": pricing.get("final_total") or 0,
+        "b2b_discount_per_unit": pricing.get("b2b_discount_per_unit") or 0,
+        "mode": snapshot.get("mode") or "personal",
+    }
+    request.session[SESSION_CUSTOM_CART_KEY] = custom_cart
+    request.session.modified = True
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "lead_number": getattr(lead, "lead_number", None),
+            "cart_url": reverse("cart"),
+            "custom_cart_count": len(custom_cart),
+            "message": "Кастом додано в кошик. Відкриваємо…",
+        }
+    )
+
+
+@require_POST
+def custom_print_remove(request):
+    """
+    V2 endpoint: remove a single custom-print item from the session cart.
+    """
+    raw_key = (request.POST.get("key") or "").strip()
+    lead_id_raw = (request.POST.get("lead_id") or "").strip()
+    custom_cart = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
+    if not isinstance(custom_cart, dict):
+        custom_cart = {}
+
+    removed = None
+    if raw_key and raw_key in custom_cart:
+        removed = custom_cart.pop(raw_key, None)
+    elif lead_id_raw:
+        try:
+            lead_id_int = int(lead_id_raw)
+        except (TypeError, ValueError):
+            lead_id_int = None
+        if lead_id_int is not None:
+            key_by_id = f"custom:{lead_id_int}"
+            if key_by_id in custom_cart:
+                removed = custom_cart.pop(key_by_id, None)
+
+    request.session[SESSION_CUSTOM_CART_KEY] = custom_cart
+    request.session.modified = True
+    return JsonResponse({
+        "ok": True,
+        "removed": bool(removed),
+        "custom_cart_count": len(custom_cart),
+    })
 
 
 @require_POST
