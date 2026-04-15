@@ -44,6 +44,19 @@ FRONT_SIZE_PRESETS = [
 ]
 FRONT_SIZE_DEFAULT = "A4"
 
+BACK_SIZE_PRESETS = [
+    {"value": "A4", "label": "A4", "stage_scale": 0.62},
+    {"value": "A3", "label": "A3", "stage_scale": 0.78},
+    {"value": "A2", "label": "A2", "stage_scale": 0.92},
+]
+BACK_SIZE_DEFAULT = "A4"
+
+SLEEVE_MODE_OPTIONS = [
+    {"value": "a6", "label": "A6", "badge": "A6", "stage_scale": 0.42},
+    {"value": "full_text", "label": "На весь рукав текстом", "badge": "Текст", "stage_scale": 0.94},
+]
+SLEEVE_MODE_DEFAULT = "a6"
+
 STAGE_META = {
     "placeholder_title": "Виріб на сцені",
     "placeholder_note": "Оберіть виріб, щоб побачити сцену, зони і масштаб принта.",
@@ -54,6 +67,8 @@ ZONE_LABELS = {
     "front": "Спереду",
     "back": "На спині",
     "sleeve": "На рукаві",
+    "sleeve_left": "Лівий рукав",
+    "sleeve_right": "Правий рукав",
     "custom": "Інша зона",
 }
 
@@ -72,6 +87,7 @@ FIT_LABELS = {
 FABRIC_LABELS = {
     "standard": "База",
     "premium": "Преміум",
+    "thermo": "Термо",
 }
 
 SERVICE_LABELS = {
@@ -218,11 +234,11 @@ PRODUCT_MATRIX = {
         ],
         "fabrics": {
             "regular": [
-                {"value": "standard", "label": "База"},
-                {"value": "premium", "label": "Преміум"},
+                {"value": "standard", "label": "База", "price_delta": 0},
+                {"value": "premium", "label": "Преміум", "price_delta": 250},
             ],
             "oversize": [
-                {"value": "premium", "label": "Преміум"},
+                {"value": "premium", "label": "Преміум", "price_delta": 250},
             ],
         },
         "default_fit": "regular",
@@ -257,24 +273,37 @@ PRODUCT_MATRIX = {
     "tshirt": {
         "label": "Футболка",
         "eyebrow": "Швидкий старт",
-        "summary": "Легший шлях без зайвої конфігурації.",
-        "hero_note": "Швидкий варіант, якщо потрібен чистий старт з однією або двома зонами.",
-        "fits": [],
-        "fabrics": {},
-        "default_fit": "",
-        "default_fabric": "",
+        "summary": "Легкий виріб з окремим вибором посадки, тканини й принта на сцені.",
+        "hero_note": "Швидкий варіант, якщо потрібна футболка з фронтом, спиною або принтом на рукаві.",
+        "fits": [
+            {"value": "regular", "label": "Класична", "description": "Рівна класична посадка для базового принта."},
+            {"value": "oversize", "label": "Оверсайз", "description": "Більш вільний силует без додаткової анкети."},
+        ],
+        "fabrics": {
+            "regular": [
+                {"value": "premium", "label": "Преміум", "price_delta": 0},
+                {"value": "thermo", "label": "Термо", "price_delta": 500},
+            ],
+            "oversize": [
+                {"value": "premium", "label": "Преміум", "price_delta": 0},
+                {"value": "thermo", "label": "Термо", "price_delta": 500},
+            ],
+        },
+        "default_fit": "regular",
+        "default_fabric": "premium",
         "colors": [
             {"value": "black", "label": "Чорний", "hex": "#151515"},
             {"value": "white", "label": "Білий", "hex": "#f1ede6"},
             {"value": "graphite", "label": "Графіт", "hex": "#4a4a52"},
         ],
         "default_color": "black",
-        "zones": ["front", "back"],
+        "zones": ["front", "back", "sleeve"],
         "default_zones": [],
         "add_ons": [],
         "pricing": {
             "base": 700,
             "premium_delta": 0,
+            "thermo_delta": 500,
             "oversize_delta": 0,
             "extra_zone_delta": 150,
             "add_on_delta": 0,
@@ -378,34 +407,105 @@ def build_custom_print_config(*, submit_url: str, safe_exit_url: str, add_to_car
         "progress_steps": deepcopy(PROGRESS_STEPS),
         "front_size_presets": deepcopy(FRONT_SIZE_PRESETS),
         "front_size_default": FRONT_SIZE_DEFAULT,
+        "back_size_presets": deepcopy(BACK_SIZE_PRESETS),
+        "back_size_default": BACK_SIZE_DEFAULT,
+        "sleeve_mode_options": deepcopy(SLEEVE_MODE_OPTIONS),
+        "sleeve_mode_default": SLEEVE_MODE_DEFAULT,
         "stage_meta": deepcopy(STAGE_META),
         "defaults": normalize_custom_print_snapshot({}),
     }
 
 
-def build_placement_specs(snapshot: dict) -> list[dict]:
+def _expand_print_placements(snapshot: dict) -> list[dict]:
     zones = list((snapshot.get("print") or {}).get("zones") or [])
     zone_options = (snapshot.get("print") or {}).get("zone_options") or {}
-    specs = []
+    front_sizes = {item["value"] for item in FRONT_SIZE_PRESETS}
+    back_sizes = {item["value"] for item in BACK_SIZE_PRESETS}
+    sleeve_modes = {item["value"] for item in SLEEVE_MODE_OPTIONS}
+    entries = []
+
     for index, zone in enumerate(zones):
+        options = zone_options.get(zone) if isinstance(zone_options, dict) else {}
+        if not isinstance(options, dict):
+            options = {}
+
+        if zone == "sleeve":
+            left_enabled = bool(options.get("left_enabled"))
+            right_enabled = bool(options.get("right_enabled"))
+            if not left_enabled and not right_enabled:
+                left_enabled = True
+            for side in ("left", "right"):
+                enabled = left_enabled if side == "left" else right_enabled
+                if not enabled:
+                    continue
+                mode = str(options.get(f"{side}_mode") or SLEEVE_MODE_DEFAULT).strip()
+                if mode not in sleeve_modes:
+                    mode = SLEEVE_MODE_DEFAULT
+                text = str(options.get(f"{side}_text") or "").strip()
+                entry = {
+                    "zone": "sleeve",
+                    "placement_key": f"sleeve_{side}",
+                    "label": ZONE_LABELS.get(f"sleeve_{side}", f"sleeve_{side}"),
+                    "side": side,
+                    "mode": mode,
+                    "text": text,
+                    "top_level_index": index,
+                }
+                scene_preview = options.get(f"{side}_scene_preview")
+                if isinstance(scene_preview, dict) and scene_preview:
+                    entry["scene_preview"] = deepcopy(scene_preview)
+                entries.append(entry)
+            continue
+
+        entry = {
+            "zone": zone,
+            "placement_key": zone,
+            "label": ZONE_LABELS.get(zone, zone),
+            "top_level_index": index,
+        }
+        size_preset = str(options.get("size_preset") or "").upper()
+        if zone == "front" and size_preset in front_sizes:
+            entry["size_preset"] = size_preset
+        elif zone == "back" and size_preset in back_sizes:
+            entry["size_preset"] = size_preset
+        scene_preview = options.get("scene_preview")
+        if isinstance(scene_preview, dict) and scene_preview:
+            entry["scene_preview"] = deepcopy(scene_preview)
+        entries.append(entry)
+
+    return entries
+
+
+def build_placement_specs(snapshot: dict) -> list[dict]:
+    specs = []
+    for expanded_index, entry in enumerate(_expand_print_placements(snapshot)):
+        zone = entry["zone"]
         spec = {
             "zone": zone,
-            "label": ZONE_LABELS.get(zone, zone),
-            "variant": "standard" if index == 0 and zone in {"front", "back"} else "estimate",
-            "is_free": index == 0 and zone in {"front", "back"},
+            "placement_key": entry.get("placement_key") or zone,
+            "label": entry.get("label") or ZONE_LABELS.get(zone, zone),
+            "variant": "standard" if expanded_index == 0 and zone in {"front", "back"} else "estimate",
+            "is_free": expanded_index == 0,
             "format": "standard" if zone in {"front", "back"} else "custom",
             "size": "standard" if zone in {"front", "back"} else "manager_review",
-            "file_index": index,
+            "file_index": entry.get("top_level_index", expanded_index),
             "attachment_role": "design",
         }
-        options = zone_options.get(zone) if isinstance(zone_options, dict) else None
-        if isinstance(options, dict):
-            size_preset = str(options.get("size_preset") or "").upper()
-            if zone == "front" and size_preset in {item["value"] for item in FRONT_SIZE_PRESETS}:
-                spec["size_preset"] = size_preset
-            scene_preview = options.get("scene_preview")
-            if isinstance(scene_preview, dict) and scene_preview:
-                spec["scene_preview"] = deepcopy(scene_preview)
+        if "size_preset" in entry:
+            spec["size_preset"] = entry["size_preset"]
+            spec["size"] = entry["size_preset"]
+        if zone == "sleeve":
+            spec["side"] = entry.get("side")
+            spec["mode"] = entry.get("mode") or SLEEVE_MODE_DEFAULT
+            if spec["mode"] == "full_text":
+                spec["format"] = "text_vertical"
+                spec["size"] = "full_sleeve"
+            else:
+                spec["size"] = "A6"
+            if entry.get("text"):
+                spec["text"] = entry["text"]
+        if "scene_preview" in entry:
+            spec["scene_preview"] = deepcopy(entry["scene_preview"])
         specs.append(spec)
     return specs
 
@@ -459,6 +559,8 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
     zone_options = {}
     raw_zone_options = print_payload.get("zone_options") or {}
     allowed_front_sizes = {item["value"] for item in FRONT_SIZE_PRESETS}
+    allowed_back_sizes = {item["value"] for item in BACK_SIZE_PRESETS}
+    allowed_sleeve_modes = {item["value"] for item in SLEEVE_MODE_OPTIONS}
     if isinstance(raw_zone_options, dict):
         for zone, raw_options in raw_zone_options.items():
             if zone not in available_zones or zone not in zones or not isinstance(raw_options, dict):
@@ -469,13 +571,52 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
                 if size_preset not in allowed_front_sizes:
                     size_preset = FRONT_SIZE_DEFAULT
                 normalized_options["size_preset"] = size_preset
+            elif zone == "back":
+                size_preset = str(raw_options.get("size_preset") or "").upper()
+                if size_preset not in allowed_back_sizes:
+                    size_preset = BACK_SIZE_DEFAULT
+                normalized_options["size_preset"] = size_preset
+            elif zone == "sleeve":
+                left_enabled = bool(raw_options.get("left_enabled"))
+                right_enabled = bool(raw_options.get("right_enabled"))
+                if raw_options.get("mode") and "left_mode" not in raw_options:
+                    left_enabled = True
+                    raw_options = {
+                        **raw_options,
+                        "left_mode": raw_options.get("mode"),
+                        "left_text": raw_options.get("text"),
+                    }
+                if not left_enabled and not right_enabled:
+                    left_enabled = True
+                normalized_options["left_enabled"] = left_enabled
+                normalized_options["right_enabled"] = right_enabled
+                for side in ("left", "right"):
+                    mode = str(raw_options.get(f"{side}_mode") or SLEEVE_MODE_DEFAULT).strip()
+                    if mode not in allowed_sleeve_modes:
+                        mode = SLEEVE_MODE_DEFAULT
+                    normalized_options[f"{side}_mode"] = mode
+                    normalized_options[f"{side}_text"] = str(raw_options.get(f"{side}_text") or "").strip()[:120]
+                    scene_preview = raw_options.get(f"{side}_scene_preview")
+                    if isinstance(scene_preview, dict) and scene_preview:
+                        normalized_options[f"{side}_scene_preview"] = deepcopy(scene_preview)
             scene_preview = raw_options.get("scene_preview")
-            if isinstance(scene_preview, dict) and scene_preview:
+            if zone in {"front", "back"} and isinstance(scene_preview, dict) and scene_preview:
                 normalized_options["scene_preview"] = deepcopy(scene_preview)
             if normalized_options:
                 zone_options[zone] = normalized_options
     if "front" in zones and "front" not in zone_options:
         zone_options["front"] = {"size_preset": FRONT_SIZE_DEFAULT}
+    if "back" in zones and "back" not in zone_options:
+        zone_options["back"] = {"size_preset": BACK_SIZE_DEFAULT}
+    if "sleeve" in zones and "sleeve" not in zone_options:
+        zone_options["sleeve"] = {
+            "left_enabled": True,
+            "right_enabled": False,
+            "left_mode": SLEEVE_MODE_DEFAULT,
+            "left_text": "",
+            "right_mode": SLEEVE_MODE_DEFAULT,
+            "right_text": "",
+        }
 
     add_on_choices = {item["value"] for item in product_config.get("add_ons") or []}
     add_ons = []

@@ -23,9 +23,19 @@
 
   const STORAGE_KEY = CONFIG.storage_key || "twocomms.custom_print.v2.draft";
   const STEPS = ["mode", "product", "config", "zones", "artwork", "quantity", "gift", "contact"];
-  const STAGE_VISIBLE_AFTER = new Set(STEPS.slice(1));
+  const STAGE_VISIBLE_AFTER = new Set(STEPS.filter((step) => step !== "mode"));
   const FRONT_SIZE_DEFAULT = CONFIG.front_size_default || "A4";
+  const BACK_SIZE_DEFAULT = CONFIG.back_size_default || "A4";
+  const SLEEVE_MODE_DEFAULT = CONFIG.sleeve_mode_default || "a6";
   const FRONT_SIZE_PRESETS = (CONFIG.front_size_presets || []).reduce((acc, item) => {
+    if (item && item.value) acc[item.value] = item;
+    return acc;
+  }, {});
+  const BACK_SIZE_PRESETS = (CONFIG.back_size_presets || []).reduce((acc, item) => {
+    if (item && item.value) acc[item.value] = item;
+    return acc;
+  }, {});
+  const SLEEVE_MODE_OPTIONS = (CONFIG.sleeve_mode_options || []).reduce((acc, item) => {
     if (item && item.value) acc[item.value] = item;
     return acc;
   }, {});
@@ -36,19 +46,27 @@
           pin: { top: "43%", left: "50%" },
           plate: { top: "43%", left: "50%", width: "34%", height: "18%", rotate: "0deg" },
         },
-        sleeve: {
-          pin: { top: "44%", left: "80%" },
-          plate: { top: "46%", left: "76%", width: "13%", height: "28%", rotate: "24deg" },
+        sleeve_left: {
+          pin: { top: "46%", left: "24%" },
+          plate: { top: "48%", left: "24%", width: "12%", height: "30%", rotate: "21deg" },
+        },
+        sleeve_right: {
+          pin: { top: "46%", left: "76%" },
+          plate: { top: "48%", left: "76%", width: "12%", height: "30%", rotate: "-21deg" },
         },
       },
       back: {
         back: {
           pin: { top: "43%", left: "50%" },
-          plate: { top: "43%", left: "50%", width: "42%", height: "22%", rotate: "0deg" },
+          plate: { top: "45%", left: "50%", width: "28%", height: "42%", rotate: "0deg" },
         },
-        sleeve: {
-          pin: { top: "44%", left: "24%" },
-          plate: { top: "46%", left: "28%", width: "13%", height: "28%", rotate: "-24deg" },
+        sleeve_left: {
+          pin: { top: "46%", left: "24%" },
+          plate: { top: "48%", left: "24%", width: "12%", height: "30%", rotate: "-21deg" },
+        },
+        sleeve_right: {
+          pin: { top: "46%", left: "76%" },
+          plate: { top: "48%", left: "76%", width: "12%", height: "30%", rotate: "21deg" },
         },
       },
     },
@@ -58,11 +76,27 @@
           pin: { top: "41%", left: "50%" },
           plate: { top: "42%", left: "50%", width: "32%", height: "18%", rotate: "0deg" },
         },
+        sleeve_left: {
+          pin: { top: "29%", left: "25%" },
+          plate: { top: "31%", left: "25%", width: "11%", height: "22%", rotate: "12deg" },
+        },
+        sleeve_right: {
+          pin: { top: "29%", left: "75%" },
+          plate: { top: "31%", left: "75%", width: "11%", height: "22%", rotate: "-12deg" },
+        },
       },
       back: {
         back: {
           pin: { top: "41%", left: "50%" },
-          plate: { top: "42%", left: "50%", width: "40%", height: "22%", rotate: "0deg" },
+          plate: { top: "42%", left: "50%", width: "26%", height: "38%", rotate: "0deg" },
+        },
+        sleeve_left: {
+          pin: { top: "30%", left: "25%" },
+          plate: { top: "32%", left: "25%", width: "11%", height: "23%", rotate: "-12deg" },
+        },
+        sleeve_right: {
+          pin: { top: "30%", left: "75%" },
+          plate: { top: "32%", left: "75%", width: "11%", height: "23%", rotate: "12deg" },
         },
       },
     },
@@ -72,19 +106,27 @@
           pin: { top: "42%", left: "50%" },
           plate: { top: "42%", left: "50%", width: "33%", height: "17%", rotate: "0deg" },
         },
-        sleeve: {
-          pin: { top: "44%", left: "81%" },
-          plate: { top: "46%", left: "77%", width: "13%", height: "29%", rotate: "21deg" },
+        sleeve_left: {
+          pin: { top: "46%", left: "24%" },
+          plate: { top: "48%", left: "24%", width: "12%", height: "34%", rotate: "18deg" },
+        },
+        sleeve_right: {
+          pin: { top: "46%", left: "76%" },
+          plate: { top: "48%", left: "76%", width: "12%", height: "34%", rotate: "-18deg" },
         },
       },
       back: {
         back: {
           pin: { top: "42%", left: "50%" },
-          plate: { top: "42%", left: "50%", width: "40%", height: "21%", rotate: "0deg" },
+          plate: { top: "42%", left: "50%", width: "28%", height: "42%", rotate: "0deg" },
         },
-        sleeve: {
-          pin: { top: "44%", left: "21%" },
-          plate: { top: "46%", left: "25%", width: "13%", height: "29%", rotate: "-21deg" },
+        sleeve_left: {
+          pin: { top: "46%", left: "24%" },
+          plate: { top: "48%", left: "24%", width: "12%", height: "34%", rotate: "-18deg" },
+        },
+        sleeve_right: {
+          pin: { top: "46%", left: "76%" },
+          plate: { top: "48%", left: "76%", width: "12%", height: "34%", rotate: "18deg" },
         },
       },
     },
@@ -102,7 +144,7 @@
       back: {
         back: {
           pin: { top: "43%", left: "50%" },
-          plate: { top: "43%", left: "50%", width: "38%", height: "20%", rotate: "0deg" },
+          plate: { top: "43%", left: "50%", width: "26%", height: "40%", rotate: "0deg" },
         },
         custom: {
           pin: { top: "62%", left: "68%" },
@@ -152,6 +194,14 @@
     placementNoteInput: root.querySelector("[data-placement-note-input]"),
     frontSizeWrap: root.querySelector("[data-front-size-wrap]"),
     frontSizeList: root.querySelector("[data-front-size-list]"),
+    backSizeWrap: root.querySelector("[data-back-size-wrap]"),
+    backSizeList: root.querySelector("[data-back-size-list]"),
+    sleeveWrap: root.querySelector("[data-sleeve-wrap]"),
+    sleeveSideList: root.querySelector("[data-sleeve-side-list]"),
+    sleeveEditors: root.querySelectorAll("[data-sleeve-editor]"),
+    sleeveModeLists: root.querySelectorAll("[data-sleeve-mode-list]"),
+    sleeveTextWraps: root.querySelectorAll("[data-sleeve-text-wrap]"),
+    sleeveTextInputs: root.querySelectorAll("[data-sleeve-text-input]"),
     addonsList: root.querySelector("[data-addons-list]"),
     addonsWrap: root.querySelector("[data-addons-wrap]"),
     artworkList: root.querySelector("[data-artwork-service-list]"),
@@ -249,6 +299,8 @@
     renderContactChannelChips();
     renderZoneChipsForCurrent();
     renderFrontSizeOptions();
+    renderBackSizeOptions();
+    renderSleeveControls();
     renderAddons();
     renderColorChips();
     renderFitChips();
@@ -287,6 +339,21 @@
     return FRONT_SIZE_PRESETS[getFrontSizePreset()]?.stage_scale || 0.74;
   }
 
+  function getBackSizePreset() {
+    return (
+      STATE.print.zone_options?.back?.size_preset ||
+      BACK_SIZE_DEFAULT
+    );
+  }
+
+  function getBackSizeScale() {
+    return BACK_SIZE_PRESETS[getBackSizePreset()]?.stage_scale || 0.62;
+  }
+
+  function getSleeveModeScale(mode) {
+    return SLEEVE_MODE_OPTIONS[mode]?.stage_scale || 0.42;
+  }
+
   function ensureFrontZoneOptions() {
     if (!STATE.print.zone_options || typeof STATE.print.zone_options !== "object") {
       STATE.print.zone_options = {};
@@ -297,6 +364,100 @@
     if (!STATE.print.zone_options.front.size_preset) {
       STATE.print.zone_options.front.size_preset = FRONT_SIZE_DEFAULT;
     }
+  }
+
+  function ensureBackZoneOptions() {
+    if (!STATE.print.zone_options || typeof STATE.print.zone_options !== "object") {
+      STATE.print.zone_options = {};
+    }
+    if (!STATE.print.zone_options.back || typeof STATE.print.zone_options.back !== "object") {
+      STATE.print.zone_options.back = {};
+    }
+    if (!STATE.print.zone_options.back.size_preset) {
+      STATE.print.zone_options.back.size_preset = BACK_SIZE_DEFAULT;
+    }
+  }
+
+  function ensureSleeveZoneOptions() {
+    if (!STATE.print.zone_options || typeof STATE.print.zone_options !== "object") {
+      STATE.print.zone_options = {};
+    }
+    if (!STATE.print.zone_options.sleeve || typeof STATE.print.zone_options.sleeve !== "object") {
+      STATE.print.zone_options.sleeve = {};
+    }
+    const sleeve = STATE.print.zone_options.sleeve;
+    if (typeof sleeve.left_enabled !== "boolean" && typeof sleeve.right_enabled !== "boolean") {
+      sleeve.left_enabled = true;
+      sleeve.right_enabled = false;
+    }
+    if (!sleeve.left_mode) sleeve.left_mode = SLEEVE_MODE_DEFAULT;
+    if (!sleeve.right_mode) sleeve.right_mode = SLEEVE_MODE_DEFAULT;
+    if (!sleeve.left_text) sleeve.left_text = "";
+    if (!sleeve.right_text) sleeve.right_text = "";
+  }
+
+  function isSleeveSideEnabled(side) {
+    ensureSleeveZoneOptions();
+    return !!STATE.print.zone_options.sleeve?.[`${side}_enabled`];
+  }
+
+  function getSleeveMode(side) {
+    ensureSleeveZoneOptions();
+    return STATE.print.zone_options.sleeve?.[`${side}_mode`] || SLEEVE_MODE_DEFAULT;
+  }
+
+  function getSleeveText(side) {
+    ensureSleeveZoneOptions();
+    return STATE.print.zone_options.sleeve?.[`${side}_text`] || "";
+  }
+
+  function getExpandedPlacements() {
+    const placements = [];
+    (STATE.print.zones || []).forEach((zone) => {
+      if (zone === "front") {
+        placements.push({
+          zone,
+          placement_key: "front",
+          label: (CONFIG.zone_labels && CONFIG.zone_labels.front) || "front",
+          size_preset: getFrontSizePreset(),
+          scene_preview: getStagePreviewForZone("front"),
+        });
+        return;
+      }
+      if (zone === "back") {
+        placements.push({
+          zone,
+          placement_key: "back",
+          label: (CONFIG.zone_labels && CONFIG.zone_labels.back) || "back",
+          size_preset: getBackSizePreset(),
+          scene_preview: getStagePreviewForZone("back"),
+        });
+        return;
+      }
+      if (zone === "sleeve") {
+        ensureSleeveZoneOptions();
+        ["left", "right"].forEach((side) => {
+          if (!isSleeveSideEnabled(side)) return;
+          placements.push({
+            zone,
+            placement_key: `sleeve_${side}`,
+            label: (CONFIG.zone_labels && CONFIG.zone_labels[`sleeve_${side}`]) || `sleeve_${side}`,
+            side,
+            mode: getSleeveMode(side),
+            text: getSleeveText(side),
+            scene_preview: getStagePreviewForZone(`sleeve_${side}`),
+          });
+        });
+        return;
+      }
+      placements.push({
+        zone,
+        placement_key: zone,
+        label: (CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone,
+        scene_preview: getStagePreviewForZone(zone),
+      });
+    });
+    return placements;
   }
 
   function normalizeClientState() {
@@ -324,13 +485,22 @@
       }
     });
 
-    if (STATE.print.zones.includes("front")) {
-      ensureFrontZoneOptions();
-    } else if (STATE.print.zone_options.front) {
-      delete STATE.print.zone_options.front;
+    if (STATE.print.zones.includes("front")) ensureFrontZoneOptions();
+    else if (STATE.print.zone_options.front) delete STATE.print.zone_options.front;
+
+    if (STATE.print.zones.includes("back")) ensureBackZoneOptions();
+    else if (STATE.print.zone_options.back) delete STATE.print.zone_options.back;
+
+    if (STATE.print.zones.includes("sleeve")) {
+      ensureSleeveZoneOptions();
+      if (!STATE.print.zone_options.sleeve.left_enabled && !STATE.print.zone_options.sleeve.right_enabled) {
+        STATE.print.zone_options.sleeve.left_enabled = true;
+      }
+    } else if (STATE.print.zone_options.sleeve) {
+      delete STATE.print.zone_options.sleeve;
     }
 
-    if (STATE.product.fit === "oversize") {
+    if (STATE.product.type === "hoodie" && STATE.product.fit === "oversize") {
       STATE.product.fabric = "premium";
     }
 
@@ -356,10 +526,14 @@
   }
 
   function getStagePreviewForZone(zone) {
-    const scale = zone === "front" ? getFrontSizeScale() : 1;
+    const scale =
+      zone === "front" ? getFrontSizeScale() :
+      zone === "back" ? getBackSizeScale() :
+      zone.startsWith("sleeve_") ? getSleeveModeScale(getSleeveMode(zone.endsWith("left") ? "left" : "right")) :
+      1;
     return {
       product_type: STATE.product.type || "",
-      view: zone === "back" ? "back" : "front",
+      view: zone === "back" ? "back" : (zone.startsWith("sleeve_") ? (STATE.ui.stage_view || "front") : "front"),
       color: STATE.product.color || "",
       scale,
     };
@@ -371,8 +545,23 @@
       const current = { ...(STATE.print.zone_options?.[zone] || {}) };
       if (zone === "front") {
         current.size_preset = getFrontSizePreset();
+        current.scene_preview = getStagePreviewForZone("front");
       }
-      current.scene_preview = getStagePreviewForZone(zone);
+      if (zone === "back") {
+        current.size_preset = getBackSizePreset();
+        current.scene_preview = getStagePreviewForZone("back");
+      }
+      if (zone === "sleeve") {
+        ensureSleeveZoneOptions();
+        current.left_enabled = isSleeveSideEnabled("left");
+        current.right_enabled = isSleeveSideEnabled("right");
+        current.left_mode = getSleeveMode("left");
+        current.right_mode = getSleeveMode("right");
+        current.left_text = getSleeveText("left");
+        current.right_text = getSleeveText("right");
+        if (current.left_enabled) current.left_scene_preview = getStagePreviewForZone("sleeve_left");
+        if (current.right_enabled) current.right_scene_preview = getStagePreviewForZone("sleeve_right");
+      }
       zoneOptions[zone] = current;
     });
     return zoneOptions;
@@ -434,6 +623,8 @@
         renderAddons();
         renderZoneChipsForCurrent();
         renderFrontSizeOptions();
+        renderBackSizeOptions();
+        renderSleeveControls();
         afterChoice("product");
       });
     });
@@ -493,11 +684,18 @@
     return (CONFIG.products || {})[STATE.product.type] || null;
   }
 
+  function getSelectedFabricConfig() {
+    const cfg = getProductConfig();
+    if (!cfg || !cfg.fabrics || !STATE.product.fit) return null;
+    return ((cfg.fabrics[STATE.product.fit] || []).find((item) => item.value === STATE.product.fabric)) || null;
+  }
+
   function renderFitChips() {
     if (!dom.fitList) return;
     dom.fitList.innerHTML = "";
     const cfg = getProductConfig();
     const fits = cfg && cfg.fits ? cfg.fits : [];
+    const fabricsMap = cfg && cfg.fabrics ? cfg.fabrics : {};
     if (!fits.length) {
       if (dom.fitBlock) dom.fitBlock.hidden = true;
       return;
@@ -509,15 +707,21 @@
       btn.className = "cp-fit-card";
       if (STATE.product.fit === f.value) btn.classList.add("is-active");
       btn.dataset.choiceValue = f.value;
+      const fabricOptions = fabricsMap[f.value] || [];
+      const helperNote = f.value === "oversize" && cfg?.label === "Худі"
+        ? "Преміум-тканина фіксується автоматично"
+        : fabricOptions.length > 1
+          ? "Нижче зʼявляться доступні тканини і ціни"
+          : "Тканина фіксується автоматично";
       btn.innerHTML = `
         <small>Посадка</small>
         <strong>${f.label}</strong>
         <span>${f.description || ""}</span>
-        <em>${f.value === "oversize" ? "Преміум-тканина фіксується автоматично" : "Можна обрати базу або преміум"}</em>
+        <em>${helperNote}</em>
       `;
       btn.addEventListener("click", () => {
         STATE.product.fit = f.value;
-        STATE.product.fabric = f.value === "oversize" ? "premium" : null;
+        STATE.product.fabric = STATE.product.type === "hoodie" && f.value === "oversize" ? "premium" : null;
         renderFabricChips();
         renderFitChips();
         refreshAll();
@@ -538,15 +742,17 @@
       return;
     }
     if (dom.fabricBlock) dom.fabricBlock.hidden = false;
-    const isLocked = STATE.product.fit === "oversize";
+    const isLocked = STATE.product.type === "hoodie" && STATE.product.fit === "oversize";
     fabrics.forEach((fab) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "cp-mini-chip";
+      btn.className = "cp-mini-chip cp-mini-chip--fabric";
       if (STATE.product.fabric === fab.value) btn.classList.add("is-active");
       if (isLocked && fab.value === "premium") btn.classList.add("is-locked");
       btn.dataset.choiceValue = fab.value;
-      btn.textContent = fab.label;
+      const priceDelta = Number(fab.price_delta || 0);
+      const priceLabel = priceDelta > 0 ? `+${priceDelta} грн` : "в базі";
+      btn.innerHTML = `<span>${escapeHtml(fab.label)}</span><small>${escapeHtml(priceLabel)}</small>`;
       btn.addEventListener("click", () => {
         if (isLocked && fab.value !== "premium") return;
         STATE.product.fabric = fab.value;
@@ -609,6 +815,8 @@
       dom.placementNoteWrap.hidden = !STATE.print.zones.includes("custom");
     }
     renderFrontSizeOptions();
+    renderBackSizeOptions();
+    renderSleeveControls();
     renderZoneOverlay();
   }
 
@@ -617,19 +825,18 @@
     if (current.has(zone)) {
       current.delete(zone);
       filesByZone.delete(zone);
+      if (zone === "sleeve" && STATE.print.zone_options.sleeve) {
+        delete STATE.print.zone_options.sleeve;
+      }
     } else {
       current.add(zone);
       if (zone === "front") ensureFrontZoneOptions();
-      if (zone === "front") {
-        applyStageView("front");
-      } else if (zone === "back") {
-        applyStageView("back");
-      }
+      if (zone === "back") ensureBackZoneOptions();
+      if (zone === "sleeve") ensureSleeveZoneOptions();
+      if (zone === "front") applyStageView("front");
+      else if (zone === "back") applyStageView("back");
     }
     STATE.print.zones = getAvailableZones().filter((item) => current.has(item));
-    if (!STATE.print.zones.includes("front") && STATE.print.zone_options.front) {
-      delete STATE.print.zone_options.front;
-    }
     invalidateAfter("zones");
     renderZoneChipsForCurrent();
     renderDropzones();
@@ -660,6 +867,108 @@
         persistDraft();
       });
       dom.frontSizeList.appendChild(btn);
+    });
+  }
+
+  function renderBackSizeOptions() {
+    if (!dom.backSizeList || !dom.backSizeWrap) return;
+    dom.backSizeList.innerHTML = "";
+    const enabled = STATE.print.zones.includes("back");
+    dom.backSizeWrap.hidden = !enabled;
+    if (!enabled) return;
+    ensureBackZoneOptions();
+    (CONFIG.back_size_presets || []).forEach((preset) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cp-size-preset";
+      btn.dataset.choiceValue = preset.value;
+      if (getBackSizePreset() === preset.value) btn.classList.add("is-active");
+      btn.innerHTML = `<strong>${preset.label}</strong><span>Вертикально на сцені</span>`;
+      btn.addEventListener("click", () => {
+        ensureBackZoneOptions();
+        STATE.print.zone_options.back.size_preset = preset.value;
+        applyStageView("back");
+        renderBackSizeOptions();
+        refreshAll();
+        persistDraft();
+      });
+      dom.backSizeList.appendChild(btn);
+    });
+  }
+
+  function renderSleeveControls() {
+    if (!dom.sleeveWrap || !dom.sleeveSideList) return;
+    const enabled = STATE.print.zones.includes("sleeve");
+    dom.sleeveWrap.hidden = !enabled;
+    dom.sleeveSideList.innerHTML = "";
+    dom.sleeveEditors.forEach((node) => { node.hidden = true; });
+    if (!enabled) return;
+    ensureSleeveZoneOptions();
+
+    [
+      { side: "left", label: (CONFIG.zone_labels && CONFIG.zone_labels.sleeve_left) || "Лівий рукав" },
+      { side: "right", label: (CONFIG.zone_labels && CONFIG.zone_labels.sleeve_right) || "Правий рукав" },
+    ].forEach(({ side, label }) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cp-mini-chip cp-mini-chip--sleeve-side";
+      if (isSleeveSideEnabled(side)) btn.classList.add("is-active");
+      btn.innerHTML = `<span>${escapeHtml(label)}</span><small>${side === "right" ? "окрема платна зона" : "базовий рукав"}</small>`;
+      btn.addEventListener("click", () => {
+        ensureSleeveZoneOptions();
+        const next = !isSleeveSideEnabled(side);
+        STATE.print.zone_options.sleeve[`${side}_enabled`] = next;
+        if (!STATE.print.zone_options.sleeve.left_enabled && !STATE.print.zone_options.sleeve.right_enabled) {
+          STATE.print.zones = STATE.print.zones.filter((zone) => zone !== "sleeve");
+          delete STATE.print.zone_options.sleeve;
+        }
+        renderZoneChipsForCurrent();
+        renderDropzones();
+        refreshAll();
+        persistDraft();
+      });
+      dom.sleeveSideList.appendChild(btn);
+    });
+
+    dom.sleeveEditors.forEach((node) => {
+      const side = node.dataset.sleeveEditor;
+      const active = isSleeveSideEnabled(side);
+      node.hidden = !active;
+      if (!active) return;
+      const modeList = root.querySelector(`[data-sleeve-mode-list="${side}"]`);
+      const textWrap = root.querySelector(`[data-sleeve-text-wrap="${side}"]`);
+      const textInput = root.querySelector(`[data-sleeve-text-input="${side}"]`);
+      if (modeList) {
+        modeList.innerHTML = "";
+        (CONFIG.sleeve_mode_options || []).forEach((option) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "cp-size-preset";
+          if (getSleeveMode(side) === option.value) btn.classList.add("is-active");
+          btn.innerHTML = `<strong>${escapeHtml(option.label)}</strong><span>${escapeHtml(option.badge || "")}</span>`;
+          btn.addEventListener("click", () => {
+            ensureSleeveZoneOptions();
+            STATE.print.zone_options.sleeve[`${side}_mode`] = option.value;
+            renderSleeveControls();
+            refreshAll();
+            persistDraft();
+          });
+          modeList.appendChild(btn);
+        });
+      }
+      if (textWrap) {
+        const useText = getSleeveMode(side) === "full_text";
+        textWrap.hidden = !useText;
+      }
+      if (textInput) {
+        textInput.value = getSleeveText(side);
+        textInput.oninput = () => {
+          ensureSleeveZoneOptions();
+          STATE.print.zone_options.sleeve[`${side}_text`] = textInput.value.slice(0, 120);
+          refreshAll();
+          persistDraft();
+        };
+      }
     });
   }
 
@@ -807,6 +1116,80 @@
     renderZoneOverlay();
   }
 
+  function getStageTargets() {
+    const cfg = getProductConfig();
+    if (!cfg) return [];
+    const targets = [];
+    if ((cfg.zones || []).includes("front")) {
+      targets.push({
+        key: "front",
+        zone: "front",
+        label: (CONFIG.zone_labels && CONFIG.zone_labels.front) || "front",
+        isActive: STATE.print.zones.includes("front"),
+      });
+    }
+    if ((cfg.zones || []).includes("back")) {
+      targets.push({
+        key: "back",
+        zone: "back",
+        label: (CONFIG.zone_labels && CONFIG.zone_labels.back) || "back",
+        isActive: STATE.print.zones.includes("back"),
+      });
+    }
+    if ((cfg.zones || []).includes("sleeve")) {
+      const sleeve = STATE.print.zone_options?.sleeve || {};
+      targets.push(
+        {
+          key: "sleeve_left",
+          zone: "sleeve",
+          side: "left",
+          label: (CONFIG.zone_labels && CONFIG.zone_labels.sleeve_left) || "Лівий рукав",
+          isActive: STATE.print.zones.includes("sleeve") && !!sleeve.left_enabled,
+        },
+        {
+          key: "sleeve_right",
+          zone: "sleeve",
+          side: "right",
+          label: (CONFIG.zone_labels && CONFIG.zone_labels.sleeve_right) || "Правий рукав",
+          isActive: STATE.print.zones.includes("sleeve") && !!sleeve.right_enabled,
+        }
+      );
+    }
+    if ((cfg.zones || []).includes("custom")) {
+      targets.push({
+        key: "custom",
+        zone: "custom",
+        label: (CONFIG.zone_labels && CONFIG.zone_labels.custom) || "custom",
+        isActive: STATE.print.zones.includes("custom"),
+      });
+    }
+    return targets;
+  }
+
+  function toggleStageTarget(targetKey) {
+    if (targetKey === "front" || targetKey === "back" || targetKey === "custom") {
+      toggleZone(targetKey);
+      return;
+    }
+    if (!targetKey.startsWith("sleeve_")) return;
+    const side = targetKey.endsWith("left") ? "left" : "right";
+    if (!STATE.print.zones.includes("sleeve")) {
+      STATE.print.zones = [...STATE.print.zones, "sleeve"];
+    }
+    ensureSleeveZoneOptions();
+    STATE.print.zone_options.sleeve[`${side}_enabled`] = !isSleeveSideEnabled(side);
+    if (!STATE.print.zone_options.sleeve.left_enabled && !STATE.print.zone_options.sleeve.right_enabled) {
+      STATE.print.zones = STATE.print.zones.filter((zone) => zone !== "sleeve");
+      delete STATE.print.zone_options.sleeve;
+      filesByZone.delete("sleeve");
+    }
+    invalidateAfter("zones");
+    renderZoneChipsForCurrent();
+    renderDropzones();
+    refreshAll();
+    persistDraft();
+  }
+
   function renderZoneOverlay() {
     if (!dom.zoneLayer || !dom.stageOverlay) return;
     dom.zoneLayer.innerHTML = "";
@@ -814,31 +1197,37 @@
     if (dom.stagePlaceholder) dom.stagePlaceholder.hidden = !!STATE.product.type;
     if (!STATE.product.type) return;
 
-    const availableZones = getAvailableZones();
     const viewLayouts = (STAGE_LAYOUTS[STATE.product.type] || {})[STATE.ui.stage_view] || {};
-
-    availableZones.forEach((zone) => {
-      const layout = viewLayouts[zone];
+    getStageTargets().forEach((target) => {
+      const layout = viewLayouts[target.key];
       if (!layout) return;
-      const isActive = STATE.print.zones.includes(zone);
       const pin = document.createElement("button");
       pin.type = "button";
       pin.className = "cp-zone-pin";
-      if (isActive) pin.classList.add("is-active");
+      if (target.isActive) pin.classList.add("is-active");
       pin.style.top = layout.pin.top;
       pin.style.left = layout.pin.left;
-      pin.dataset.zone = zone;
-      pin.innerHTML = `<span>${escapeHtml((CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone)}</span>`;
-      pin.title = (CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone;
-      pin.addEventListener("click", () => toggleZone(zone));
+      pin.dataset.zone = target.key;
+      pin.innerHTML = `<span>${escapeHtml(target.label)}</span>`;
+      pin.title = target.label;
+      pin.addEventListener("click", () => toggleStageTarget(target.key));
       dom.zoneLayer.appendChild(pin);
 
-      if (isActive) {
+      if (target.isActive) {
         const plate = document.createElement("button");
-        const sizePreset = zone === "front" ? getFrontSizePreset() : "";
-        const scale = zone === "front" ? getFrontSizeScale() : 1;
+        const sizePreset =
+          target.key === "front" ? getFrontSizePreset() :
+          target.key === "back" ? getBackSizePreset() :
+          target.key.startsWith("sleeve_") && getSleeveMode(target.side) === "a6" ? "A6" :
+          target.key.startsWith("sleeve_") ? "TEXT" :
+          "";
+        const scale =
+          target.key === "front" ? getFrontSizeScale() :
+          target.key === "back" ? getBackSizeScale() :
+          target.key.startsWith("sleeve_") ? getSleeveModeScale(getSleeveMode(target.side)) :
+          1;
         plate.type = "button";
-        plate.className = `cp-stage-print cp-stage-print--${zone}`;
+        plate.className = `cp-stage-print cp-stage-print--${target.zone} cp-stage-print--${target.key}`;
         plate.style.setProperty("--plate-top", layout.plate.top);
         plate.style.setProperty("--plate-left", layout.plate.left);
         plate.style.setProperty("--plate-width", layout.plate.width);
@@ -846,12 +1235,15 @@
         plate.style.setProperty("--plate-rotate", layout.plate.rotate || "0deg");
         plate.style.setProperty("--plate-scale", String(scale));
         plate.style.setProperty("--plate-label-scale", String(scale > 0 ? 1 / scale : 1));
-        plate.dataset.zone = zone;
+        plate.dataset.zone = target.key;
+        const badgeText = target.key.startsWith("sleeve_") && getSleeveMode(target.side) === "full_text"
+          ? escapeHtml((getSleeveText(target.side) || "Текст").slice(0, 18))
+          : escapeHtml(sizePreset);
         plate.innerHTML = `
-          <span class="cp-stage-print-label">${escapeHtml((CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone)}</span>
-          <span class="cp-stage-print-badge">${zone === "front" ? escapeHtml(sizePreset) : "ON"}</span>
+          <span class="cp-stage-print-label">${escapeHtml(target.label)}</span>
+          <span class="cp-stage-print-badge">${badgeText || "ON"}</span>
         `;
-        plate.addEventListener("click", () => toggleZone(zone));
+        plate.addEventListener("click", () => toggleStageTarget(target.key));
         dom.stageOverlay.appendChild(plate);
       }
     });
@@ -1165,9 +1557,17 @@
       case "product": return !!STATE.product.type;
       case "config":
         if (!STATE.product.type) return false;
-        if (STATE.product.type === "hoodie") return !!STATE.product.fit && !!STATE.product.fabric && !!STATE.product.color;
+        if (getProductConfig()?.fits?.length) return !!STATE.product.fit && !!STATE.product.fabric && !!STATE.product.color;
         return !!STATE.product.color;
-      case "zones": return STATE.print.zones.length > 0;
+      case "zones":
+        if (STATE.print.zones.length === 0) return false;
+        if (STATE.print.zones.includes("sleeve")) {
+          ensureSleeveZoneOptions();
+          const leftNeedsText = isSleeveSideEnabled("left") && getSleeveMode("left") === "full_text" && !getSleeveText("left").trim();
+          const rightNeedsText = isSleeveSideEnabled("right") && getSleeveMode("right") === "full_text" && !getSleeveText("right").trim();
+          if (leftNeedsText || rightNeedsText) return false;
+        }
+        return true;
       case "artwork": return !!STATE.artwork.service_kind;
       case "quantity":
         if (STATE.order.quantity <= 0) return false;
@@ -1206,10 +1606,11 @@
 
   function updateFlowPhase() {
     const lobby = isLobbyPhase();
+    const stageVisible = !lobby && STAGE_VISIBLE_AFTER.has(STATE.ui.current_step);
     root.dataset.flowPhase = lobby ? "lobby" : "studio";
     if (dom.shell) dom.shell.dataset.flowPhase = lobby ? "lobby" : "studio";
     if (dom.progressShell) dom.progressShell.hidden = lobby;
-    if (dom.workbench) dom.workbench.classList.toggle("is-lobby-mode", lobby);
+    if (dom.workbench) dom.workbench.classList.toggle("is-lobby-mode", !stageVisible);
   }
 
   function renderProgressStrip() {
@@ -1257,7 +1658,7 @@
     if (dom.stageTitleSecondary) dom.stageTitleSecondary.textContent = cfg ? cfg.label : (placeholder.placeholder_title || "—");
     if (dom.stageNote) dom.stageNote.textContent = cfg ? (cfg.hero_note || cfg.summary || "") : (placeholder.placeholder_note || "Оберіть виріб, щоб побачити деталі.");
     if (dom.stageZones) {
-      const zones = STATE.print.zones.map((z) => (CONFIG.zone_labels && CONFIG.zone_labels[z]) || z);
+      const zones = getExpandedPlacements().map((item) => item.label);
       dom.stageZones.textContent = zones.length ? zones.join(", ") : (cfg ? "Зони ще не активовані" : "Зони зʼявляться після вибору виробу");
     }
     if (dom.stageAddons) {
@@ -1265,7 +1666,17 @@
       const labels = STATE.print.add_ons
         .map((v) => (cfgAddons.find((a) => a.value === v) || {}).label)
         .filter(Boolean);
-      if (STATE.print.zones.includes("front")) labels.push(`Спереду · ${getFrontSizePreset()}`);
+      getExpandedPlacements().forEach((placement) => {
+        if (placement.zone === "front") labels.push(`Спереду · ${placement.size_preset}`);
+        else if (placement.zone === "back") labels.push(`На спині · ${placement.size_preset}`);
+        else if (placement.zone === "sleeve") {
+          labels.push(
+            placement.mode === "full_text"
+              ? `${placement.label} · текст`
+              : `${placement.label} · A6`
+          );
+        }
+      });
       const giftLabel = STATE.order.gift_enabled ? `Подарункова упаковка` : null;
       const all = [...labels, giftLabel].filter(Boolean);
       dom.stageAddons.textContent = all.length ? all.join(" · ") : (cfg ? "Без додаткових деталей." : "Поки що без активних деталей.");
@@ -1295,14 +1706,25 @@
       setStepSummary("config", parts.length ? parts.join(" · ") : "—");
     } else {
       const c = cfg ? (cfg.colors || []).find((x) => x.value === STATE.product.color) : null;
-      setStepSummary("config", c ? c.label : "—");
+      const parts = [];
+      const selectedFabric = getSelectedFabricConfig();
+      if (STATE.product.fit) parts.push(STATE.product.fit === "oversize" ? "Оверсайз" : "Класична");
+      if (selectedFabric) parts.push(selectedFabric.label);
+      else if (STATE.product.fabric) parts.push(STATE.product.fabric);
+      if (c) parts.push(c.label);
+      setStepSummary("config", parts.length ? parts.join(" · ") : "—");
     }
 
-    setStepSummary("zones", STATE.print.zones.length
-      ? STATE.print.zones.map((z) => {
-        const label = (CONFIG.zone_labels && CONFIG.zone_labels[z]) || z;
-        if (z === "front") return `${label} · ${getFrontSizePreset()}`;
-        return label;
+    setStepSummary("zones", getExpandedPlacements().length
+      ? getExpandedPlacements().map((placement) => {
+        if (placement.zone === "front") return `${placement.label} · ${placement.size_preset}`;
+        if (placement.zone === "back") return `${placement.label} · ${placement.size_preset}`;
+        if (placement.zone === "sleeve") {
+          return placement.mode === "full_text"
+            ? `${placement.label} · текст`
+            : `${placement.label} · A6`;
+        }
+        return placement.label;
       }).join(", ")
       : "—");
 
@@ -1368,11 +1790,18 @@
     const breakdown = [];
 
     let base = pricing.base ?? 0;
-    if (STATE.product.fabric === "premium") base += pricing.premium_delta || 0;
+    const fabricConfig = getSelectedFabricConfig();
+    if (fabricConfig) base += Number(fabricConfig.price_delta || 0);
+    else if (STATE.product.fabric === "premium") base += pricing.premium_delta || 0;
+    else if (STATE.product.fabric === "thermo") base += pricing.thermo_delta || 0;
     if (STATE.product.fit === "oversize") base += pricing.oversize_delta || 0;
-    breakdown.push({ label: `База · ${cfg.label}`, value: base });
+    const baseLabelParts = ["База", cfg.label];
+    if (STATE.product.fit === "oversize") baseLabelParts.push("Оверсайз");
+    else if (STATE.product.fit === "regular") baseLabelParts.push(cfg.label === "Футболка" ? "Класична" : "Класичний");
+    if (fabricConfig?.label) baseLabelParts.push(fabricConfig.label);
+    breakdown.push({ label: baseLabelParts.join(" · "), value: base });
 
-    const extraZones = Math.max(0, STATE.print.zones.length - 1);
+    const extraZones = Math.max(0, getExpandedPlacements().length - 1);
     const zonesPrice = extraZones * (pricing.extra_zone_delta || 0);
     if (extraZones > 0) breakdown.push({ label: `+${extraZones} зон`, value: zonesPrice });
 
@@ -1550,36 +1979,49 @@
   function buildPlacementSpecs(snapshot) {
     const specs = [];
     const zoneOptions = snapshot.print?.zone_options || {};
-    const files = snapshot.artwork?.files || [];
     (snapshot.print?.zones || []).forEach((zone, zoneIndex) => {
-      const baseSpec = {
-        zone,
-        label: (CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone,
-        variant: zoneIndex === 0 && (zone === "front" || zone === "back") ? "standard" : "estimate",
-        is_free: zoneIndex === 0 && (zone === "front" || zone === "back"),
-        format: zone === "front" || zone === "back" ? "standard" : "custom",
-        size: zone === "front" || zone === "back" ? "standard" : "manager_review",
-      };
       const options = zoneOptions[zone] || {};
-      if (zone === "front" && options.size_preset) {
-        baseSpec.size_preset = options.size_preset;
-      }
-      if (options.scene_preview) {
-        baseSpec.scene_preview = options.scene_preview;
-      }
-
-      const zoneFiles = files.filter((item) => item.zone === zone);
-      if (!zoneFiles.length) {
-        specs.push({ ...baseSpec, file_index: zoneIndex, attachment_role: "design" });
+      if (zone === "sleeve") {
+        [
+          { side: "left", enabled: !!options.left_enabled, mode: options.left_mode || SLEEVE_MODE_DEFAULT, text: options.left_text || "", scene_preview: options.left_scene_preview },
+          { side: "right", enabled: !!options.right_enabled, mode: options.right_mode || SLEEVE_MODE_DEFAULT, text: options.right_text || "", scene_preview: options.right_scene_preview },
+        ].forEach((item) => {
+          if (!item.enabled) return;
+          specs.push({
+            zone: "sleeve",
+            placement_key: `sleeve_${item.side}`,
+            label: (CONFIG.zone_labels && CONFIG.zone_labels[`sleeve_${item.side}`]) || `sleeve_${item.side}`,
+            variant: specs.length === 0 ? "standard" : "estimate",
+            is_free: specs.length === 0,
+            format: item.mode === "full_text" ? "text_vertical" : "custom",
+            size: item.mode === "full_text" ? "full_sleeve" : "A6",
+            mode: item.mode,
+            text: item.text,
+            side: item.side,
+            file_index: zoneIndex,
+            attachment_role: "design",
+            ...(item.scene_preview ? { scene_preview: item.scene_preview } : {}),
+          });
+        });
         return;
       }
-      zoneFiles.forEach((file, fileIndex) => {
-        specs.push({
-          ...baseSpec,
-          file_index: typeof file.file_index === "number" ? file.file_index : fileIndex,
-          attachment_role: file.role === "reference" ? "reference" : "design",
-        });
-      });
+      const spec = {
+        zone,
+        placement_key: zone,
+        label: (CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone,
+        variant: specs.length === 0 && (zone === "front" || zone === "back") ? "standard" : "estimate",
+        is_free: specs.length === 0,
+        format: zone === "front" || zone === "back" ? "standard" : "custom",
+        size: zone === "front" || zone === "back" ? "standard" : "manager_review",
+        file_index: zoneIndex,
+        attachment_role: "design",
+      };
+      if ((zone === "front" || zone === "back") && options.size_preset) {
+        spec.size_preset = options.size_preset;
+        spec.size = options.size_preset;
+      }
+      if (options.scene_preview) spec.scene_preview = options.scene_preview;
+      specs.push(spec);
     });
     return specs;
   }
@@ -1858,6 +2300,8 @@
       renderColorChips();
       renderZoneChipsForCurrent();
       renderFrontSizeOptions();
+      renderBackSizeOptions();
+      renderSleeveControls();
       renderAddons();
       renderArtworkActiveState();
       renderContactChannelChipsActive();

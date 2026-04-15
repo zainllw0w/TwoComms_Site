@@ -192,14 +192,14 @@
               <div class="cp-step-head">
                 <span class="cp-card-eyebrow">3. Налаштування</span>
                 <h2>Крій, тканина, колір</h2>
-                <p>Тут формується силует виробу. Для худі окремо керуються посадка, тканина і люверси.</p>
+                <p>Тут формується силует виробу: посадка, тканина, колір і виробничі деталі для доступного типу виробу.</p>
               </div>
 
               <div class="cp-config-cluster" data-hoodie-config>
                 <div class="cp-config-block" data-fit-block>
                   <div class="cp-subhead">
                     <strong>Посадка</strong>
-                    <span>Оберіть силует. Для оверсайзу преміум-тканина фіксується автоматично.</span>
+                    <span>Оберіть силует виробу. Доступні тканини й ціни нижче підлаштовуються під обрану посадку.</span>
                   </div>
                   <div class="cp-fit-grid" data-fit-list></div>
                 </div>
@@ -207,7 +207,7 @@
                 <div class="cp-config-block" data-fabric-block>
                   <div class="cp-subhead">
                     <strong>Тканина</strong>
-                    <span>Для оверсайзу доступна тільки преміум-тканина.</span>
+                    <span>Якщо доступно кілька варіантів, доплата показується одразу біля назви тканини.</span>
                   </div>
                   <div class="cp-fabric-row" data-fabric-list></div>
                 </div>
@@ -271,6 +271,49 @@
                   <span>Для фронтальної зони можна одразу вибрати масштаб нанесення і побачити його на сцені.</span>
                 </div>
                 <div class="cp-front-size-row" data-front-size-list></div>
+              </div>
+
+              <div class="cp-config-block" data-back-size-wrap hidden>
+                <div class="cp-subhead">
+                  <strong>Розмір принта на спині</strong>
+                  <span>Спина показується у вертикальному форматі, тому тут доступні масштаби A4, A3 і A2.</span>
+                </div>
+                <div class="cp-front-size-row" data-back-size-list></div>
+              </div>
+
+              <div class="cp-config-block" data-sleeve-wrap hidden>
+                <div class="cp-subhead">
+                  <strong>Рукави</strong>
+                  <span>Кожен активний рукав рахується окремою зоною. Для кожного можна вибрати A6 або вертикальний текст на всю довжину.</span>
+                </div>
+
+                <div class="cp-sleeve-side-row" data-sleeve-side-list></div>
+
+                <div class="cp-sleeve-editor-grid">
+                  <div class="cp-sleeve-editor" data-sleeve-editor="left" hidden>
+                    <div class="cp-sleeve-editor-head">
+                      <strong>Лівий рукав</strong>
+                      <span>Покажемо вибраний режим прямо на сцені.</span>
+                    </div>
+                    <div class="cp-front-size-row" data-sleeve-mode-list="left"></div>
+                    <label class="cp-field" data-sleeve-text-wrap="left" hidden>
+                      <span>Текст для лівого рукава</span>
+                      <input type="text" data-sleeve-text-input="left" maxlength="120" placeholder="Наприклад: TWOCOMMS CLUB">
+                    </label>
+                  </div>
+
+                  <div class="cp-sleeve-editor" data-sleeve-editor="right" hidden>
+                    <div class="cp-sleeve-editor-head">
+                      <strong>Правий рукав</strong>
+                      <span>Другий рукав рахується як окрема платна зона.</span>
+                    </div>
+                    <div class="cp-front-size-row" data-sleeve-mode-list="right"></div>
+                    <label class="cp-field" data-sleeve-text-wrap="right" hidden>
+                      <span>Текст для правого рукава</span>
+                      <input type="text" data-sleeve-text-input="right" maxlength="120" placeholder="Наприклад: EST. 2014">
+                    </label>
+                  </div>
+                </div>
               </div>
 
               <div class="cp-step-actions">

@@ -90,9 +90,11 @@ class CustomPrintPageTests(TestCase):
         self.assertContains(response, '"telegram_manager_url"')
         self.assertContains(response, '"progress_steps"')
         self.assertContains(response, '"front_size_presets"')
+        self.assertContains(response, '"back_size_presets"')
+        self.assertContains(response, '"sleeve_mode_options"')
         self.assertContains(response, '"current_step": "mode"')
 
-    def test_custom_print_config_exposes_progress_steps_and_front_size_presets(self):
+    def test_custom_print_config_exposes_progress_steps_tshirt_rules_and_zone_presets(self):
         from storefront.custom_print_config import build_custom_print_config
 
         config = build_custom_print_config(
@@ -109,29 +111,56 @@ class CustomPrintPageTests(TestCase):
             [item["value"] for item in config["front_size_presets"]],
             ["A6", "A5", "A4"],
         )
+        self.assertEqual(
+            [item["value"] for item in config["back_size_presets"]],
+            ["A4", "A3", "A2"],
+        )
+        self.assertEqual(
+            [item["value"] for item in config["sleeve_mode_options"]],
+            ["a6", "full_text"],
+        )
         self.assertEqual(config["front_size_default"], "A4")
+        self.assertEqual(config["back_size_default"], "A4")
         self.assertEqual(config["products"]["hoodie"]["add_ons"][0]["price_delta"], 150)
         self.assertEqual(config["artwork_services"][1]["price_delta"], 150)
         self.assertEqual(config["artwork_services"][2]["price_delta"], 300)
+        self.assertEqual(
+            [item["value"] for item in config["products"]["tshirt"]["fits"]],
+            ["regular", "oversize"],
+        )
+        self.assertEqual(
+            [item["value"] for item in config["products"]["tshirt"]["fabrics"]["regular"]],
+            ["premium", "thermo"],
+        )
+        self.assertEqual(config["products"]["tshirt"]["fabrics"]["regular"][1]["price_delta"], 500)
 
-    def test_normalize_snapshot_preserves_front_size_preset_and_collapses_legacy_grommets(self):
+    def test_normalize_snapshot_preserves_zone_sizes_and_sleeves(self):
         from storefront.custom_print_config import normalize_custom_print_snapshot
 
         normalized = normalize_custom_print_snapshot(
             {
                 "product": {
-                    "type": "hoodie",
+                    "type": "tshirt",
                     "fit": "oversize",
-                    "fabric": "standard",
+                    "fabric": "thermo",
                     "color": "graphite",
                 },
                 "print": {
-                    "zones": ["front", "back"],
-                    "add_ons": ["grommets"],
+                    "zones": ["front", "back", "sleeve"],
                     "zone_options": {
                         "front": {
                             "size_preset": "A4",
-                        }
+                        },
+                        "back": {
+                            "size_preset": "A2",
+                        },
+                        "sleeve": {
+                            "left_enabled": True,
+                            "right_enabled": True,
+                            "left_mode": "full_text",
+                            "left_text": "TWOCOMMS",
+                            "right_mode": "a6",
+                        },
                     },
                 },
                 "ui": {"current_step": "zones"},
@@ -139,24 +168,38 @@ class CustomPrintPageTests(TestCase):
         )
 
         self.assertEqual(normalized["product"]["fit"], "oversize")
-        self.assertEqual(normalized["product"]["fabric"], "premium")
-        self.assertEqual(normalized["print"]["add_ons"], ["lacing"])
+        self.assertEqual(normalized["product"]["fabric"], "thermo")
         self.assertEqual(
             normalized["print"]["zone_options"]["front"]["size_preset"],
             "A4",
         )
+        self.assertEqual(normalized["print"]["zone_options"]["back"]["size_preset"], "A2")
+        self.assertTrue(normalized["print"]["zone_options"]["sleeve"]["left_enabled"])
+        self.assertTrue(normalized["print"]["zone_options"]["sleeve"]["right_enabled"])
+        self.assertEqual(normalized["print"]["zone_options"]["sleeve"]["left_mode"], "full_text")
+        self.assertEqual(normalized["print"]["zone_options"]["sleeve"]["left_text"], "TWOCOMMS")
 
-    def test_build_placement_specs_carries_front_size_preset(self):
+    def test_build_placement_specs_expand_back_and_both_sleeves(self):
         from storefront.custom_print_config import build_placement_specs
 
         specs = build_placement_specs(
             {
                 "print": {
-                    "zones": ["front", "back"],
+                    "zones": ["front", "back", "sleeve"],
                     "zone_options": {
                         "front": {
                             "size_preset": "A5",
-                        }
+                        },
+                        "back": {
+                            "size_preset": "A2",
+                        },
+                        "sleeve": {
+                            "left_enabled": True,
+                            "right_enabled": True,
+                            "left_mode": "full_text",
+                            "left_text": "LEFT TEXT",
+                            "right_mode": "a6",
+                        },
                     },
                 }
             }
@@ -165,7 +208,12 @@ class CustomPrintPageTests(TestCase):
         self.assertEqual(specs[0]["zone"], "front")
         self.assertEqual(specs[0]["size_preset"], "A5")
         self.assertEqual(specs[1]["zone"], "back")
-        self.assertNotIn("size_preset", specs[1])
+        self.assertEqual(specs[1]["size_preset"], "A2")
+        self.assertEqual(specs[2]["placement_key"], "sleeve_left")
+        self.assertEqual(specs[2]["mode"], "full_text")
+        self.assertEqual(specs[2]["text"], "LEFT TEXT")
+        self.assertEqual(specs[3]["placement_key"], "sleeve_right")
+        self.assertEqual(specs[3]["mode"], "a6")
 
     def test_home_page_contains_inline_custom_print_tile_inside_categories_grid(self):
         response = self._get(reverse("home"), follow=True)

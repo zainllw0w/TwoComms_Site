@@ -2150,6 +2150,13 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.cp-workbench.is-lobby-mode .cp-waterfall,
+.cp-workbench.is-lobby-mode .cp-step,
+.cp-workbench.is-lobby-mode .cp-step--mode {
+  width: 100%;
+  max-width: none;
+}
+
 .cp-stage-card {
   top: 5.85rem;
 }
@@ -2403,6 +2410,19 @@
   gap: 0.72rem;
 }
 
+.cp-mini-chip--fabric {
+  display: inline-grid;
+  gap: 0.16rem;
+  align-items: start;
+}
+
+.cp-mini-chip--fabric small,
+.cp-mini-chip--sleeve-side small {
+  color: var(--cp-soft);
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
 .cp-mini-chip.is-locked {
   border-color: rgba(242, 211, 155, 0.36);
   background: rgba(215, 164, 80, 0.12);
@@ -2442,6 +2462,81 @@
   font-size: 0.74rem;
 }
 
+.cp-sleeve-side-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.72rem;
+  margin-bottom: 0.9rem;
+}
+
+.cp-mini-chip--sleeve-side {
+  display: inline-grid;
+  gap: 0.16rem;
+  min-width: 168px;
+  text-align: left;
+}
+
+.cp-sleeve-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.cp-sleeve-editor {
+  padding: 0.95rem 1rem;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cp-sleeve-editor-head {
+  display: grid;
+  gap: 0.18rem;
+  margin-bottom: 0.8rem;
+}
+
+.cp-sleeve-editor-head strong {
+  font-size: 0.98rem;
+}
+
+.cp-sleeve-editor-head span {
+  color: var(--cp-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.cp-stage-print--back::before {
+  border-radius: 22px;
+}
+
+.cp-stage-print--sleeve_left::before,
+.cp-stage-print--sleeve_right::before {
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(242, 211, 155, 0.28), rgba(242, 211, 155, 0.08)),
+    repeating-linear-gradient(180deg, rgba(242, 211, 155, 0.2), rgba(242, 211, 155, 0.2) 10px, rgba(255, 255, 255, 0.04) 10px, rgba(255, 255, 255, 0.04) 20px);
+}
+
+.cp-stage-print--sleeve_left .cp-stage-print-badge,
+.cp-stage-print--sleeve_right .cp-stage-print-badge {
+  max-width: 108px;
+  min-width: 42px;
+  padding-inline: 0.5rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cp-stage-print--sleeve_left .cp-stage-print-label,
+.cp-stage-print--sleeve_right .cp-stage-print-label {
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cp-step[hidden] {
   display: none !important;
 }
@@ -2475,6 +2570,10 @@
   }
 
   .cp-fit-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cp-sleeve-editor-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

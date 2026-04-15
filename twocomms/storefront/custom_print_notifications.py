@@ -13,6 +13,7 @@ from storefront.custom_print_config import (
     TELEGRAM_MANAGER_URL,
     TRIAGE_LABELS,
     ZONE_LABELS,
+    build_placement_specs,
 )
 
 
@@ -176,11 +177,25 @@ def _snapshot_product_label(snapshot: dict) -> str:
 
 def _snapshot_placements_text(snapshot: dict) -> str:
     print_payload = snapshot.get("print") or {}
-    zones = [ZONE_LABELS.get(zone, zone) for zone in (print_payload.get("zones") or [])]
     add_ons = print_payload.get("add_ons") or []
     parts = []
-    if zones:
-        parts.append(", ".join(zones))
+    placement_specs = build_placement_specs(snapshot)
+    if placement_specs:
+        items = []
+        for spec in placement_specs:
+            label = spec.get("label") or ZONE_LABELS.get(spec.get("placement_key") or spec.get("zone"), spec.get("zone") or "—")
+            if spec.get("size_preset"):
+                label = f"{label} · {spec['size_preset']}"
+            elif spec.get("zone") == "sleeve":
+                label = f"{label} · {'текст' if spec.get('mode') == 'full_text' else 'A6'}"
+            if spec.get("text"):
+                label = f"{label} ({spec['text']})"
+            items.append(label)
+        parts.append(", ".join(items))
+    else:
+        zones = [ZONE_LABELS.get(zone, zone) for zone in (print_payload.get("zones") or [])]
+        if zones:
+            parts.append(", ".join(zones))
     placement_note = (print_payload.get("placement_note") or "").strip()
     if placement_note:
         parts.append(f"Примітка: {placement_note}")
