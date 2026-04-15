@@ -13,14 +13,15 @@
 
 {% block content %}
 <section class="cp-page" data-custom-print-root>
-  <div class="container-xxl cp-shell">
+  <div class="container-xxl cp-shell" data-shell>
     <header class="cp-hero">
       <div class="cp-hero-copy">
         <span class="cp-kicker">Кастомний DTF-друк</span>
         <h1 class="cp-title">Зберіть свій принт без анкети.</h1>
         <p class="cp-lead">
-          Виберіть для кого, потім виріб, зони, макет, кількість і подарункову опцію.
-          Кожен крок розгортається плавно, а ціна оновлюється прямо на сцені виробу.
+          Спочатку оберіть формат, далі покроково зберете виріб, сцену, зони й макет.
+          Кожен наступний крок відкривається тільки після попереднього, а сцена і ціна
+          синхронно оновлюються в одному місці.
         </p>
         <div class="cp-hero-actions">
           <button class="cp-link cp-link--primary" type="button" data-start-flow>Розпочати конфігурацію</button>
@@ -29,15 +30,28 @@
       </div>
 
       <div class="cp-hero-panel">
-        <ul class="cp-hero-list" aria-label="Що буде далі">
-          <li>Кроки розгортаються вниз — попередні згортаються у рядки з резюме.</li>
-          <li>Ціна формується одразу під фотографією виробу.</li>
-          <li>На фіналі — або в кошик, або на узгодження з менеджером.</li>
-        </ul>
+        <article class="cp-hero-stat">
+          <small>Потік</small>
+          <strong>Один активний крок</strong>
+          <span>Завершені рішення збираються у короткі рядки зверху, а майбутні кроки не відволікають.</span>
+        </article>
+        <article class="cp-hero-stat">
+          <small>Сцена</small>
+          <strong>Зони і макет синхронні</strong>
+          <span>Клік по сцені і клік по панелі міняють одну й ту саму конфігурацію без дублювання.</span>
+        </article>
+        <article class="cp-hero-stat">
+          <small>Фінал</small>
+          <strong>Ціна видно одразу</strong>
+          <span>Підсумок живе прямо біля виробу: або додаємо в кошик, або віддаємо менеджеру на узгодження.</span>
+        </article>
       </div>
     </header>
 
     <form id="customPrintConfiguratorForm" class="cp-configurator" novalidate>
+      <div class="cp-build-strip-shell" data-progress-shell hidden>
+        <div class="cp-build-strip" data-progress-strip aria-label="Прогрес конфігурації"></div>
+      </div>
 
       <div class="cp-workbench" data-workbench>
 
@@ -56,7 +70,14 @@
 
           <div class="cp-stage-frame">
             <div class="cp-stage-aura"></div>
+            <div class="cp-stage-orbit"></div>
+            <div class="cp-stage-placeholder" data-stage-placeholder>
+              <strong>{{ custom_print_config.stage_meta.placeholder_title }}</strong>
+              <span>{{ custom_print_config.stage_meta.placeholder_note }}</span>
+            </div>
             <div class="cp-garment-shell">
+              <div class="cp-stage-ground"></div>
+              <div class="cp-stage-overlay" data-stage-overlay aria-hidden="true"></div>
               <div class="cp-garment cp-garment--hoodie cp-garment--front" data-garment>
                 <div class="cp-garment-hood" data-garment-hood></div>
                 <div class="cp-garment-body"></div>
@@ -102,7 +123,7 @@
         <div class="cp-waterfall" data-waterfall>
 
           <!-- STEP 1: Mode (B2C / B2B) -->
-          <section class="cp-step is-active" data-step="mode" id="cp-step-mode">
+          <section class="cp-step cp-step--mode is-active" data-step="mode" id="cp-step-mode">
             <div class="cp-step-summary" data-step-summary-row>
               <span class="cp-step-summary-num">1</span>
               <div class="cp-step-summary-text">
@@ -115,7 +136,7 @@
               <div class="cp-step-head">
                 <span class="cp-card-eyebrow">1. Формат</span>
                 <h2>Цей кастом — для кого?</h2>
-                <p>Це визначає поля, ціни і логіку калькулятора.</p>
+                <p>Від цього залежить логіка ціни, розмірного блоку і фінальна механіка замовлення.</p>
               </div>
               <div class="cp-option-grid cp-option-grid--two" data-mode-list>
                 {% for item in custom_print_config.modes %}
@@ -157,7 +178,7 @@
             </div>
           </section>
 
-          <!-- STEP 3: Config (only for hoodie) -->
+          <!-- STEP 3: Config -->
           <section class="cp-step is-pending" data-step="config" id="cp-step-config">
             <div class="cp-step-summary" data-step-summary-row>
               <span class="cp-step-summary-num">3</span>
@@ -171,33 +192,41 @@
               <div class="cp-step-head">
                 <span class="cp-card-eyebrow">3. Налаштування</span>
                 <h2>Крій, тканина, колір</h2>
-                <p>Оберіть параметри. Сцена оновлюється на ходу.</p>
+                <p>Тут формується силует виробу. Для худі окремо керуються посадка, тканина і люверси.</p>
               </div>
 
               <div class="cp-config-cluster" data-hoodie-config>
                 <div class="cp-config-block" data-fit-block>
                   <div class="cp-subhead">
                     <strong>Посадка</strong>
-                    <span>Класичний або оверсайз.</span>
+                    <span>Оберіть силует. Для оверсайзу преміум-тканина фіксується автоматично.</span>
                   </div>
-                  <div class="cp-mini-chip-row" data-fit-list></div>
+                  <div class="cp-fit-grid" data-fit-list></div>
                 </div>
 
                 <div class="cp-config-block" data-fabric-block>
                   <div class="cp-subhead">
                     <strong>Тканина</strong>
-                    <span>Залежить від обраної посадки.</span>
+                    <span>Для оверсайзу доступна тільки преміум-тканина.</span>
                   </div>
-                  <div class="cp-mini-chip-row" data-fabric-list></div>
+                  <div class="cp-fabric-row" data-fabric-list></div>
                 </div>
               </div>
 
               <div class="cp-config-block">
                 <div class="cp-subhead">
                   <strong>Колір виробу</strong>
-                  <span>Сцена відтворює колір у режимі реального часу.</span>
+                  <span>Сцена показує відтінок з підсиленим світлом, але без втрати реального кольору.</span>
                 </div>
                 <div class="cp-swatch-row" data-color-list></div>
+              </div>
+
+              <div class="cp-config-block" data-addons-wrap hidden>
+                <div class="cp-subhead">
+                  <strong>Деталі худі</strong>
+                  <span>Преміум-апгрейд доступний тільки для худі і враховується одразу на сцені.</span>
+                </div>
+                <div class="cp-addon-grid" data-addons-list></div>
               </div>
 
               <div class="cp-step-actions">
@@ -227,7 +256,7 @@
               <div class="cp-config-block">
                 <div class="cp-subhead">
                   <strong>Активні зони</strong>
-                  <span>Перший друк йде в базовій ціні. Кожна додаткова зона має окрему доплату.</span>
+                  <span>Перший друк входить у базову ціну. Додаткові зони можна вмикати і вимикати прямо на сцені.</span>
                 </div>
                 <div class="cp-mini-chip-row cp-mini-chip-row--zones" data-zone-list></div>
                 <label class="cp-field" for="cp-placement-note" data-placement-note-wrap hidden>
@@ -236,12 +265,12 @@
                 </label>
               </div>
 
-              <div class="cp-config-block" data-addons-wrap>
+              <div class="cp-config-block" data-front-size-wrap hidden>
                 <div class="cp-subhead">
-                  <strong>Преміум-апгрейди</strong>
-                  <span>Тільки одна, але справді помітна деталь.</span>
+                  <strong>Розмір принта спереду</strong>
+                  <span>Для фронтальної зони можна одразу вибрати масштаб нанесення і побачити його на сцені.</span>
                 </div>
-                <div class="cp-addon-grid" data-addons-list></div>
+                <div class="cp-front-size-row" data-front-size-list></div>
               </div>
 
               <div class="cp-step-actions">
