@@ -23,24 +23,92 @@
 
   const STORAGE_KEY = CONFIG.storage_key || "twocomms.custom_print.v2.draft";
   const STEPS = ["mode", "product", "config", "zones", "artwork", "quantity", "gift", "contact"];
-  const STAGE_VISIBLE_AFTER = new Set(["product", "config", "zones", "artwork", "quantity", "gift", "contact"]);
-
-  const STAGE_POSITIONS = {
+  const STAGE_VISIBLE_AFTER = new Set(STEPS.slice(1));
+  const FRONT_SIZE_DEFAULT = CONFIG.front_size_default || "A4";
+  const FRONT_SIZE_PRESETS = (CONFIG.front_size_presets || []).reduce((acc, item) => {
+    if (item && item.value) acc[item.value] = item;
+    return acc;
+  }, {});
+  const STAGE_LAYOUTS = {
     hoodie: {
-      front: { front: { top: "44%", left: "50%" }, sleeve: { top: "42%", left: "73%" } },
-      back: { back: { top: "44%", left: "50%" }, sleeve: { top: "42%", left: "28%" } },
+      front: {
+        front: {
+          pin: { top: "43%", left: "50%" },
+          plate: { top: "43%", left: "50%", width: "34%", height: "18%", rotate: "0deg" },
+        },
+        sleeve: {
+          pin: { top: "44%", left: "80%" },
+          plate: { top: "46%", left: "76%", width: "13%", height: "28%", rotate: "24deg" },
+        },
+      },
+      back: {
+        back: {
+          pin: { top: "43%", left: "50%" },
+          plate: { top: "43%", left: "50%", width: "42%", height: "22%", rotate: "0deg" },
+        },
+        sleeve: {
+          pin: { top: "44%", left: "24%" },
+          plate: { top: "46%", left: "28%", width: "13%", height: "28%", rotate: "-24deg" },
+        },
+      },
     },
     tshirt: {
-      front: { front: { top: "42%", left: "50%" } },
-      back: { back: { top: "42%", left: "50%" } },
+      front: {
+        front: {
+          pin: { top: "41%", left: "50%" },
+          plate: { top: "42%", left: "50%", width: "32%", height: "18%", rotate: "0deg" },
+        },
+      },
+      back: {
+        back: {
+          pin: { top: "41%", left: "50%" },
+          plate: { top: "42%", left: "50%", width: "40%", height: "22%", rotate: "0deg" },
+        },
+      },
     },
     longsleeve: {
-      front: { front: { top: "43%", left: "50%" }, sleeve: { top: "44%", left: "78%" } },
-      back: { back: { top: "43%", left: "50%" }, sleeve: { top: "44%", left: "22%" } },
+      front: {
+        front: {
+          pin: { top: "42%", left: "50%" },
+          plate: { top: "42%", left: "50%", width: "33%", height: "17%", rotate: "0deg" },
+        },
+        sleeve: {
+          pin: { top: "44%", left: "81%" },
+          plate: { top: "46%", left: "77%", width: "13%", height: "29%", rotate: "21deg" },
+        },
+      },
+      back: {
+        back: {
+          pin: { top: "42%", left: "50%" },
+          plate: { top: "42%", left: "50%", width: "40%", height: "21%", rotate: "0deg" },
+        },
+        sleeve: {
+          pin: { top: "44%", left: "21%" },
+          plate: { top: "46%", left: "25%", width: "13%", height: "29%", rotate: "-21deg" },
+        },
+      },
     },
     customer_garment: {
-      front: { front: { top: "44%", left: "50%" }, custom: { top: "62%", left: "32%" } },
-      back: { back: { top: "44%", left: "50%" }, custom: { top: "62%", left: "68%" } },
+      front: {
+        front: {
+          pin: { top: "43%", left: "50%" },
+          plate: { top: "43%", left: "50%", width: "32%", height: "18%", rotate: "0deg" },
+        },
+        custom: {
+          pin: { top: "62%", left: "32%" },
+          plate: { top: "60%", left: "34%", width: "22%", height: "16%", rotate: "-10deg" },
+        },
+      },
+      back: {
+        back: {
+          pin: { top: "43%", left: "50%" },
+          plate: { top: "43%", left: "50%", width: "38%", height: "20%", rotate: "0deg" },
+        },
+        custom: {
+          pin: { top: "62%", left: "68%" },
+          plate: { top: "60%", left: "66%", width: "22%", height: "16%", rotate: "10deg" },
+        },
+      },
     },
   };
 
@@ -49,7 +117,11 @@
 
   // ── DOM refs ────────────────────────────────────────────────
   const dom = {
+    shell: root.querySelector("[data-shell]"),
     form: root.querySelector("#customPrintConfiguratorForm"),
+    progressShell: root.querySelector("[data-progress-shell]"),
+    progressStrip: root.querySelector("[data-progress-strip]"),
+    workbench: root.querySelector("[data-workbench]"),
     waterfall: root.querySelector("[data-waterfall]"),
     stageCard: root.querySelector("[data-stage-card]"),
     stageEyebrow: root.querySelector("[data-stage-eyebrow]"),
@@ -58,9 +130,11 @@
     stageZones: root.querySelector("[data-stage-zones]"),
     stageAddons: root.querySelector("[data-stage-addons]"),
     stageLabel: root.querySelector("[data-stage-label]"),
+    stagePlaceholder: root.querySelector("[data-stage-placeholder]"),
     stageViewSwitch: root.querySelectorAll("[data-stage-view]"),
     garment: root.querySelector("[data-garment]"),
     garmentHood: root.querySelector("[data-garment-hood]"),
+    stageOverlay: root.querySelector("[data-stage-overlay]"),
     zoneLayer: root.querySelector("[data-zone-layer]"),
     receiptTotal: root.querySelector("[data-receipt-total]"),
     receiptList: root.querySelector("[data-receipt-list]"),
@@ -76,6 +150,8 @@
     zoneList: root.querySelector("[data-zone-list]"),
     placementNoteWrap: root.querySelector("[data-placement-note-wrap]"),
     placementNoteInput: root.querySelector("[data-placement-note-input]"),
+    frontSizeWrap: root.querySelector("[data-front-size-wrap]"),
+    frontSizeList: root.querySelector("[data-front-size-list]"),
     addonsList: root.querySelector("[data-addons-list]"),
     addonsWrap: root.querySelector("[data-addons-wrap]"),
     artworkList: root.querySelector("[data-artwork-service-list]"),
@@ -134,6 +210,7 @@
         zones: [],
         add_ons: [],
         placement_note: "",
+        zone_options: {},
       },
       artwork: {
         service_kind: null,
@@ -171,6 +248,7 @@
     renderArtworkCardModifiers();
     renderContactChannelChips();
     renderZoneChipsForCurrent();
+    renderFrontSizeOptions();
     renderAddons();
     renderColorChips();
     renderFitChips();
@@ -186,6 +264,128 @@
     refreshAll();
   }
 
+  function isLobbyPhase() {
+    return !STATE.mode && STATE.ui.current_step === "mode";
+  }
+
+  function getStepIndex(stepKey) {
+    return STEPS.indexOf(stepKey);
+  }
+
+  function getStageType() {
+    return STATE.product.type || "hoodie";
+  }
+
+  function getFrontSizePreset() {
+    return (
+      STATE.print.zone_options?.front?.size_preset ||
+      FRONT_SIZE_DEFAULT
+    );
+  }
+
+  function getFrontSizeScale() {
+    return FRONT_SIZE_PRESETS[getFrontSizePreset()]?.stage_scale || 0.74;
+  }
+
+  function ensureFrontZoneOptions() {
+    if (!STATE.print.zone_options || typeof STATE.print.zone_options !== "object") {
+      STATE.print.zone_options = {};
+    }
+    if (!STATE.print.zone_options.front || typeof STATE.print.zone_options.front !== "object") {
+      STATE.print.zone_options.front = {};
+    }
+    if (!STATE.print.zone_options.front.size_preset) {
+      STATE.print.zone_options.front.size_preset = FRONT_SIZE_DEFAULT;
+    }
+  }
+
+  function normalizeClientState() {
+    if (!STATE.print.zone_options || typeof STATE.print.zone_options !== "object") {
+      STATE.print.zone_options = {};
+    }
+
+    if (STATE.product.type && !CONFIG.products?.[STATE.product.type]) {
+      STATE.product.type = null;
+    }
+
+    const cfg = getProductConfig();
+    const availableZones = cfg?.zones || [];
+    const availableAddons = new Set((cfg?.add_ons || []).map((item) => item.value));
+    const legacyAddons = new Map([["grommets", "lacing"], ["inside_label", "lacing"], ["hem_tag", "lacing"]]);
+
+    STATE.print.zones = (STATE.print.zones || []).filter((zone) => availableZones.includes(zone));
+    STATE.print.add_ons = (STATE.print.add_ons || [])
+      .map((value) => legacyAddons.get(value) || value)
+      .filter((value, index, list) => availableAddons.has(value) && list.indexOf(value) === index);
+
+    Object.keys(STATE.print.zone_options).forEach((zone) => {
+      if (!STATE.print.zones.includes(zone)) {
+        delete STATE.print.zone_options[zone];
+      }
+    });
+
+    if (STATE.print.zones.includes("front")) {
+      ensureFrontZoneOptions();
+    } else if (STATE.print.zone_options.front) {
+      delete STATE.print.zone_options.front;
+    }
+
+    if (STATE.product.fit === "oversize") {
+      STATE.product.fabric = "premium";
+    }
+
+    const colorValues = new Set((cfg?.colors || []).map((item) => item.value));
+    if (cfg && (!STATE.product.color || !colorValues.has(STATE.product.color))) {
+      STATE.product.color = cfg.default_color || (cfg.colors || [])[0]?.value || null;
+    }
+
+    const currentIndex = Math.max(0, getStepIndex(STATE.ui.current_step));
+    if (!(STATE.ui.done_steps instanceof Set)) {
+      STATE.ui.done_steps = new Set(Array.isArray(STATE.ui.done_steps) ? STATE.ui.done_steps : []);
+    }
+    if (!STATE.mode) {
+      STATE.ui.done_steps.clear();
+      STATE.ui.current_step = "mode";
+    } else if (!STATE.ui.done_steps.size && currentIndex > 0) {
+      STEPS.slice(0, currentIndex).forEach((step) => STATE.ui.done_steps.add(step));
+    }
+  }
+
+  function getAvailableZones() {
+    return getProductConfig()?.zones || [];
+  }
+
+  function getStagePreviewForZone(zone) {
+    const scale = zone === "front" ? getFrontSizeScale() : 1;
+    return {
+      product_type: STATE.product.type || "",
+      view: zone === "back" ? "back" : "front",
+      color: STATE.product.color || "",
+      scale,
+    };
+  }
+
+  function buildZoneOptionsSnapshot() {
+    const zoneOptions = {};
+    (STATE.print.zones || []).forEach((zone) => {
+      const current = { ...(STATE.print.zone_options?.[zone] || {}) };
+      if (zone === "front") {
+        current.size_preset = getFrontSizePreset();
+      }
+      current.scene_preview = getStagePreviewForZone(zone);
+      zoneOptions[zone] = current;
+    });
+    return zoneOptions;
+  }
+
+  function collectOrderedFiles() {
+    const ordered = [];
+    (STATE.print.zones || []).forEach((zone) => {
+      (filesByZone.get(zone) || []).forEach((file) => ordered.push({ zone, file }));
+    });
+    return ordered;
+  }
+
   // ── Renderers ───────────────────────────────────────────────
   function renderModeChips() {
     const container = dom.modeList;
@@ -193,8 +393,15 @@
     container.querySelectorAll("[data-choice-value]").forEach((btn) => {
       btn.addEventListener("click", () => {
         STATE.mode = btn.dataset.choiceValue;
+        normalizeClientState();
         afterChoice("mode");
       });
+    });
+  }
+
+  function renderModeChipsActive() {
+    dom.modeList?.querySelectorAll("[data-choice-value]").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.choiceValue === STATE.mode);
     });
   }
 
@@ -203,17 +410,38 @@
     dom.productList.querySelectorAll("[data-choice-value]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const value = btn.dataset.choiceValue;
+        const previousType = STATE.product.type;
         STATE.product.type = value;
         STATE.product.fit = null;
         STATE.product.fabric = null;
         STATE.product.color = null;
         STATE.print.zones = [];
         STATE.print.add_ons = [];
+        STATE.print.zone_options = {};
+        STATE.print.placement_note = "";
         STATE.artwork.service_kind = null;
+        STATE.artwork.triage_status = null;
+        invalidateAfter("product");
         filesByZone.clear();
-        // For products that need no config step (config skip), advance straight
+        if (previousType !== value) {
+          STATE.order.size_breakdown = {};
+          STATE.order.sizes_note = "";
+        }
+        normalizeClientState();
+        renderFitChips();
+        renderFabricChips();
+        renderColorChips();
+        renderAddons();
+        renderZoneChipsForCurrent();
+        renderFrontSizeOptions();
         afterChoice("product");
       });
+    });
+  }
+
+  function renderProductCardsActive() {
+    dom.productList?.querySelectorAll("[data-choice-value]").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.choiceValue === STATE.product.type);
     });
   }
 
@@ -278,14 +506,18 @@
     fits.forEach((f) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "cp-mini-chip";
+      btn.className = "cp-fit-card";
       if (STATE.product.fit === f.value) btn.classList.add("is-active");
       btn.dataset.choiceValue = f.value;
-      btn.innerHTML = `<strong>${f.label}</strong><small>${f.description || ""}</small>`;
+      btn.innerHTML = `
+        <small>Посадка</small>
+        <strong>${f.label}</strong>
+        <span>${f.description || ""}</span>
+        <em>${f.value === "oversize" ? "Преміум-тканина фіксується автоматично" : "Можна обрати базу або преміум"}</em>
+      `;
       btn.addEventListener("click", () => {
         STATE.product.fit = f.value;
-        // Reset fabric since available fabrics depend on fit
-        STATE.product.fabric = null;
+        STATE.product.fabric = f.value === "oversize" ? "premium" : null;
         renderFabricChips();
         renderFitChips();
         refreshAll();
@@ -306,14 +538,17 @@
       return;
     }
     if (dom.fabricBlock) dom.fabricBlock.hidden = false;
+    const isLocked = STATE.product.fit === "oversize";
     fabrics.forEach((fab) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "cp-mini-chip";
       if (STATE.product.fabric === fab.value) btn.classList.add("is-active");
+      if (isLocked && fab.value === "premium") btn.classList.add("is-locked");
       btn.dataset.choiceValue = fab.value;
       btn.textContent = fab.label;
       btn.addEventListener("click", () => {
+        if (isLocked && fab.value !== "premium") return;
         STATE.product.fabric = fab.value;
         renderFabricChips();
         refreshAll();
@@ -373,21 +608,59 @@
     if (dom.placementNoteWrap) {
       dom.placementNoteWrap.hidden = !STATE.print.zones.includes("custom");
     }
+    renderFrontSizeOptions();
     renderZoneOverlay();
   }
 
   function toggleZone(zone) {
-    const idx = STATE.print.zones.indexOf(zone);
-    if (idx >= 0) {
-      STATE.print.zones.splice(idx, 1);
+    const current = new Set(STATE.print.zones || []);
+    if (current.has(zone)) {
+      current.delete(zone);
       filesByZone.delete(zone);
     } else {
-      STATE.print.zones.push(zone);
+      current.add(zone);
+      if (zone === "front") ensureFrontZoneOptions();
+      if (zone === "front") {
+        applyStageView("front");
+      } else if (zone === "back") {
+        applyStageView("back");
+      }
     }
+    STATE.print.zones = getAvailableZones().filter((item) => current.has(item));
+    if (!STATE.print.zones.includes("front") && STATE.print.zone_options.front) {
+      delete STATE.print.zone_options.front;
+    }
+    invalidateAfter("zones");
     renderZoneChipsForCurrent();
     renderDropzones();
     refreshAll();
     persistDraft();
+  }
+
+  function renderFrontSizeOptions() {
+    if (!dom.frontSizeList || !dom.frontSizeWrap) return;
+    dom.frontSizeList.innerHTML = "";
+    const enabled = STATE.print.zones.includes("front");
+    dom.frontSizeWrap.hidden = !enabled;
+    if (!enabled) return;
+    ensureFrontZoneOptions();
+    (CONFIG.front_size_presets || []).forEach((preset) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cp-size-preset";
+      btn.dataset.choiceValue = preset.value;
+      if (getFrontSizePreset() === preset.value) btn.classList.add("is-active");
+      btn.innerHTML = `<strong>${preset.label}</strong><span>Масштаб на сцені</span>`;
+      btn.addEventListener("click", () => {
+        ensureFrontZoneOptions();
+        STATE.print.zone_options.front.size_preset = preset.value;
+        applyStageView("front");
+        renderFrontSizeOptions();
+        refreshAll();
+        persistDraft();
+      });
+      dom.frontSizeList.appendChild(btn);
+    });
   }
 
   function renderAddons() {
@@ -505,19 +778,21 @@
     if (!dom.garment) return;
     const cfg = getProductConfig();
     const color = (cfg?.colors || []).find((c) => c.value === STATE.product.color);
-    if (color) dom.garment.style.setProperty("--garment-color", color.hex);
+    const gradient = color ? buildGarmentGradient(color.hex) : buildGarmentGradient("#4a454e");
+    dom.garment.style.setProperty("--cp-garment-fill", gradient);
   }
 
   function applyGarmentType() {
     if (!dom.garment) return;
-    const type = STATE.product.type || "hoodie";
-    dom.garment.classList.remove("cp-garment--hoodie", "cp-garment--tshirt", "cp-garment--longsleeve", "cp-garment--customer");
+    const type = getStageType();
+    dom.garment.classList.remove("cp-garment--hoodie", "cp-garment--tshirt", "cp-garment--longsleeve", "cp-garment--customer_garment", "is-placeholder");
     dom.garment.classList.add(
       type === "tshirt" ? "cp-garment--tshirt" :
       type === "longsleeve" ? "cp-garment--longsleeve" :
-      type === "customer_garment" ? "cp-garment--customer" :
+      type === "customer_garment" ? "cp-garment--customer_garment" :
       "cp-garment--hoodie"
     );
+    dom.garment.classList.toggle("is-placeholder", !STATE.product.type);
     if (dom.garmentHood) dom.garmentHood.style.display = type === "hoodie" ? "" : "none";
   }
 
@@ -533,22 +808,60 @@
   }
 
   function renderZoneOverlay() {
-    if (!dom.zoneLayer) return;
+    if (!dom.zoneLayer || !dom.stageOverlay) return;
     dom.zoneLayer.innerHTML = "";
-    const type = STATE.product.type;
-    if (!type) return;
-    const positions = (STAGE_POSITIONS[type] || {})[STATE.ui.stage_view] || {};
-    STATE.print.zones.forEach((zone) => {
-      const pos = positions[zone];
-      if (!pos) return;
-      const pin = document.createElement("span");
+    dom.stageOverlay.innerHTML = "";
+    if (dom.stagePlaceholder) dom.stagePlaceholder.hidden = !!STATE.product.type;
+    if (!STATE.product.type) return;
+
+    const availableZones = getAvailableZones();
+    const viewLayouts = (STAGE_LAYOUTS[STATE.product.type] || {})[STATE.ui.stage_view] || {};
+
+    availableZones.forEach((zone) => {
+      const layout = viewLayouts[zone];
+      if (!layout) return;
+      const isActive = STATE.print.zones.includes(zone);
+      const pin = document.createElement("button");
+      pin.type = "button";
       pin.className = "cp-zone-pin";
-      pin.style.top = pos.top;
-      pin.style.left = pos.left;
+      if (isActive) pin.classList.add("is-active");
+      pin.style.top = layout.pin.top;
+      pin.style.left = layout.pin.left;
       pin.dataset.zone = zone;
+      pin.innerHTML = `<span>${escapeHtml((CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone)}</span>`;
       pin.title = (CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone;
+      pin.addEventListener("click", () => toggleZone(zone));
       dom.zoneLayer.appendChild(pin);
+
+      if (isActive) {
+        const plate = document.createElement("button");
+        const sizePreset = zone === "front" ? getFrontSizePreset() : "";
+        const scale = zone === "front" ? getFrontSizeScale() : 1;
+        plate.type = "button";
+        plate.className = `cp-stage-print cp-stage-print--${zone}`;
+        plate.style.setProperty("--plate-top", layout.plate.top);
+        plate.style.setProperty("--plate-left", layout.plate.left);
+        plate.style.setProperty("--plate-width", layout.plate.width);
+        plate.style.setProperty("--plate-height", layout.plate.height);
+        plate.style.setProperty("--plate-rotate", layout.plate.rotate || "0deg");
+        plate.style.setProperty("--plate-scale", String(scale));
+        plate.style.setProperty("--plate-label-scale", String(scale > 0 ? 1 / scale : 1));
+        plate.dataset.zone = zone;
+        plate.innerHTML = `
+          <span class="cp-stage-print-label">${escapeHtml((CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone)}</span>
+          <span class="cp-stage-print-badge">${zone === "front" ? escapeHtml(sizePreset) : "ON"}</span>
+        `;
+        plate.addEventListener("click", () => toggleZone(zone));
+        dom.stageOverlay.appendChild(plate);
+      }
     });
+  }
+
+  function buildGarmentGradient(hex) {
+    const top = mixHex(hex, "#ffffff", 0.22);
+    const middle = mixHex(hex, "#2d2520", 0.16);
+    const bottom = mixHex(hex, "#000000", 0.34);
+    return `linear-gradient(180deg, ${top} 0%, ${middle} 48%, ${bottom} 100%)`;
   }
 
   function bindStageView() {
@@ -795,13 +1108,17 @@
   function setActiveStep(key, opts = {}) {
     if (!STEPS.includes(key)) return;
     STATE.ui.current_step = key;
+    const currentIndex = getStepIndex(key);
     document.querySelectorAll("[data-step]").forEach((section) => {
       const stepKey = section.dataset.step;
+      const stepIndex = getStepIndex(stepKey);
       const isCurrent = stepKey === key;
       const isDone = STATE.ui.done_steps.has(stepKey);
+      const isVisible = isCurrent || (isDone && stepIndex < currentIndex);
+      section.hidden = !isVisible;
       section.classList.toggle("is-active", isCurrent);
       section.classList.toggle("is-done", !isCurrent && isDone);
-      section.classList.toggle("is-pending", !isCurrent && !isDone);
+      section.classList.toggle("is-pending", !isCurrent && !isDone && stepIndex > currentIndex);
     });
     refreshAll();
     if (!opts.silent) {
@@ -814,6 +1131,14 @@
   function markStepDone(key) {
     if (!STEPS.includes(key)) return;
     STATE.ui.done_steps.add(key);
+  }
+
+  function invalidateAfter(stepKey) {
+    const stepIndex = getStepIndex(stepKey);
+    STEPS.slice(stepIndex + 1).forEach((item) => STATE.ui.done_steps.delete(item));
+    if (getStepIndex(STATE.ui.current_step) > stepIndex) {
+      STATE.ui.current_step = stepKey;
+    }
   }
 
   function afterChoice(stepKey) {
@@ -829,9 +1154,7 @@
     let idx = STEPS.indexOf(stepKey);
     if (idx < 0) return null;
     for (let i = idx + 1; i < STEPS.length; i++) {
-      const candidate = STEPS[i];
-      if (candidate === "config" && STATE.product.type !== "hoodie") continue;
-      return candidate;
+      return STEPS[i];
     }
     return null;
   }
@@ -841,8 +1164,9 @@
       case "mode": return !!STATE.mode;
       case "product": return !!STATE.product.type;
       case "config":
-        if (STATE.product.type !== "hoodie") return true;
-        return !!STATE.product.fit && !!STATE.product.fabric && !!STATE.product.color;
+        if (!STATE.product.type) return false;
+        if (STATE.product.type === "hoodie") return !!STATE.product.fit && !!STATE.product.fabric && !!STATE.product.color;
+        return !!STATE.product.color;
       case "zones": return STATE.print.zones.length > 0;
       case "artwork": return !!STATE.artwork.service_kind;
       case "quantity":
@@ -863,41 +1187,88 @@
 
   // ── Refresh: stage card + receipt + summaries + side states ─
   function refreshAll() {
+    normalizeClientState();
+    updateFlowPhase();
     updateStageVisibility();
     updateStageMeta();
     applyGarmentType();
     applyGarmentColor();
     applyStageView(STATE.ui.stage_view || "front");
+    renderModeChipsActive();
+    renderProductCardsActive();
     updateBrandFieldsVisibility();
     updateSummaries();
+    renderProgressStrip();
     updateB2bMeta();
     renderReceipt();
     updateFinalActionsAvailability();
   }
 
+  function updateFlowPhase() {
+    const lobby = isLobbyPhase();
+    root.dataset.flowPhase = lobby ? "lobby" : "studio";
+    if (dom.shell) dom.shell.dataset.flowPhase = lobby ? "lobby" : "studio";
+    if (dom.progressShell) dom.progressShell.hidden = lobby;
+    if (dom.workbench) dom.workbench.classList.toggle("is-lobby-mode", lobby);
+  }
+
+  function renderProgressStrip() {
+    if (!dom.progressStrip) return;
+    const steps = CONFIG.progress_steps || STEPS.map((value) => ({ value, label: value }));
+    dom.progressStrip.innerHTML = "";
+    steps.forEach((step) => {
+      const btn = document.createElement("button");
+      const stepKey = step.value;
+      const isActive = STATE.ui.current_step === stepKey;
+      const isDone = STATE.ui.done_steps.has(stepKey);
+      btn.type = "button";
+      btn.className = "cp-build-chip";
+      if (isActive) btn.classList.add("is-active");
+      else if (isDone) btn.classList.add("is-done");
+      else btn.classList.add("is-pending");
+      btn.innerHTML = `
+        <small>${getStepIndex(stepKey) + 1}. ${escapeHtml(step.label)}</small>
+        <strong>${escapeHtml(getProgressStepValue(stepKey))}</strong>
+      `;
+      btn.disabled = !isActive && !isDone;
+      btn.addEventListener("click", () => {
+        if (!btn.disabled) setActiveStep(stepKey);
+      });
+      dom.progressStrip.appendChild(btn);
+    });
+  }
+
+  function getProgressStepValue(stepKey) {
+    const value = root.querySelector(`[data-step-summary-value="${stepKey}"]`)?.textContent?.trim();
+    return value && value !== "—" ? value : "Ще не вибрано";
+  }
+
   function updateStageVisibility() {
     if (!dom.stageCard) return;
-    const visible = STAGE_VISIBLE_AFTER.has(STATE.ui.current_step) && !!STATE.product.type;
+    const visible = !isLobbyPhase() && STAGE_VISIBLE_AFTER.has(STATE.ui.current_step);
     dom.stageCard.classList.toggle("is-hidden", !visible);
   }
 
   function updateStageMeta() {
     const cfg = getProductConfig();
-    if (dom.stageEyebrow) dom.stageEyebrow.textContent = cfg ? (cfg.eyebrow || "Виріб") : "Виріб";
-    if (dom.stageTitleSecondary) dom.stageTitleSecondary.textContent = cfg ? cfg.label : "—";
-    if (dom.stageNote) dom.stageNote.textContent = cfg ? (cfg.hero_note || cfg.summary || "") : "Оберіть виріб, щоб побачити деталі.";
+    const placeholder = CONFIG.stage_meta || {};
+    if (dom.stageEyebrow) dom.stageEyebrow.textContent = cfg ? (cfg.eyebrow || "Виріб") : "Сцена";
+    if (dom.stageLabel) dom.stageLabel.textContent = cfg ? `${cfg.label} на сцені` : (placeholder.placeholder_title || "Виріб на сцені");
+    if (dom.stageTitleSecondary) dom.stageTitleSecondary.textContent = cfg ? cfg.label : (placeholder.placeholder_title || "—");
+    if (dom.stageNote) dom.stageNote.textContent = cfg ? (cfg.hero_note || cfg.summary || "") : (placeholder.placeholder_note || "Оберіть виріб, щоб побачити деталі.");
     if (dom.stageZones) {
       const zones = STATE.print.zones.map((z) => (CONFIG.zone_labels && CONFIG.zone_labels[z]) || z);
-      dom.stageZones.textContent = zones.length ? zones.join(", ") : "—";
+      dom.stageZones.textContent = zones.length ? zones.join(", ") : (cfg ? "Зони ще не активовані" : "Зони зʼявляться після вибору виробу");
     }
     if (dom.stageAddons) {
       const cfgAddons = (cfg && cfg.add_ons) || [];
       const labels = STATE.print.add_ons
         .map((v) => (cfgAddons.find((a) => a.value === v) || {}).label)
         .filter(Boolean);
+      if (STATE.print.zones.includes("front")) labels.push(`Спереду · ${getFrontSizePreset()}`);
       const giftLabel = STATE.order.gift_enabled ? `Подарункова упаковка` : null;
       const all = [...labels, giftLabel].filter(Boolean);
-      dom.stageAddons.textContent = all.length ? all.join(" · ") : "Без додаткових деталей.";
+      dom.stageAddons.textContent = all.length ? all.join(" · ") : (cfg ? "Без додаткових деталей." : "Поки що без активних деталей.");
     }
   }
 
@@ -920,6 +1291,7 @@
         const c = (cfg.colors || []).find((x) => x.value === STATE.product.color);
         if (c) parts.push(c.label);
       }
+      if (STATE.print.add_ons.includes("lacing")) parts.push("Люверси");
       setStepSummary("config", parts.length ? parts.join(" · ") : "—");
     } else {
       const c = cfg ? (cfg.colors || []).find((x) => x.value === STATE.product.color) : null;
@@ -927,7 +1299,11 @@
     }
 
     setStepSummary("zones", STATE.print.zones.length
-      ? STATE.print.zones.map((z) => (CONFIG.zone_labels && CONFIG.zone_labels[z]) || z).join(", ")
+      ? STATE.print.zones.map((z) => {
+        const label = (CONFIG.zone_labels && CONFIG.zone_labels[z]) || z;
+        if (z === "front") return `${label} · ${getFrontSizePreset()}`;
+        return label;
+      }).join(", ")
       : "—");
 
     if (STATE.artwork.service_kind) {
@@ -1132,9 +1508,16 @@
     return {
       version: 2,
       submission_type: submissionType,
+      quick_start_mode: "start_blank",
       mode: STATE.mode || "personal",
+      starter_style: "",
       product: { ...STATE.product },
-      print: { ...STATE.print },
+      print: {
+        zones: [...STATE.print.zones],
+        add_ons: [...STATE.print.add_ons],
+        placement_note: STATE.print.placement_note || "",
+        zone_options: buildZoneOptionsSnapshot(),
+      },
       artwork: { ...STATE.artwork, files: serializeFiles() },
       order: {
         quantity: STATE.order.quantity || 0,
@@ -1152,28 +1535,63 @@
 
   function serializeFiles() {
     const out = [];
-    let idx = 0;
-    filesByZone.forEach((list, zone) => {
-      list.forEach((file) => {
-        out.push({
-          name: file.name,
-          zone,
-          status: STATE.artwork.triage_status || "needs-review",
-          role: "design",
-          file_index: idx++,
-        });
+    collectOrderedFiles().forEach(({ zone, file }, index) => {
+      out.push({
+        name: file.name,
+        zone,
+        status: STATE.artwork.triage_status || "needs-review",
+        role: "design",
+        file_index: index,
       });
     });
     return out;
   }
 
+  function buildPlacementSpecs(snapshot) {
+    const specs = [];
+    const zoneOptions = snapshot.print?.zone_options || {};
+    const files = snapshot.artwork?.files || [];
+    (snapshot.print?.zones || []).forEach((zone, zoneIndex) => {
+      const baseSpec = {
+        zone,
+        label: (CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone,
+        variant: zoneIndex === 0 && (zone === "front" || zone === "back") ? "standard" : "estimate",
+        is_free: zoneIndex === 0 && (zone === "front" || zone === "back"),
+        format: zone === "front" || zone === "back" ? "standard" : "custom",
+        size: zone === "front" || zone === "back" ? "standard" : "manager_review",
+      };
+      const options = zoneOptions[zone] || {};
+      if (zone === "front" && options.size_preset) {
+        baseSpec.size_preset = options.size_preset;
+      }
+      if (options.scene_preview) {
+        baseSpec.scene_preview = options.scene_preview;
+      }
+
+      const zoneFiles = files.filter((item) => item.zone === zone);
+      if (!zoneFiles.length) {
+        specs.push({ ...baseSpec, file_index: zoneIndex, attachment_role: "design" });
+        return;
+      }
+      zoneFiles.forEach((file, fileIndex) => {
+        specs.push({
+          ...baseSpec,
+          file_index: typeof file.file_index === "number" ? file.file_index : fileIndex,
+          attachment_role: file.role === "reference" ? "reference" : "design",
+        });
+      });
+    });
+    return specs;
+  }
+
   function buildFormData(submissionType) {
     const fd = new FormData();
     const snap = buildSnapshot(submissionType);
-    fd.append("snapshot_json", JSON.stringify(snap));
-    fd.append("submission_type", submissionType);
+    const pricing = snap.pricing || computePricing();
+    fd.append("placement_specs_json", JSON.stringify(buildPlacementSpecs(snap)));
+    fd.append("pricing_snapshot_json", JSON.stringify(pricing));
+    fd.append("config_draft_json", JSON.stringify(snap));
 
-    // Map form fields to legacy CustomPrintLeadForm if needed
     fd.append("service_kind", STATE.artwork.service_kind || "design");
     fd.append("product_type", STATE.product.type || "hoodie");
     (STATE.print.zones || []).forEach((z) => fd.append("placements", z));
@@ -1182,25 +1600,21 @@
     fd.append("size_mode", STATE.order.size_mode || "single");
     fd.append("sizes_note", STATE.order.sizes_note || "");
     fd.append("client_kind", STATE.mode || "personal");
+    fd.append("business_kind", STATE.mode === "brand" ? "branding" : "");
     fd.append("brand_name", STATE.notes.brand_name || "");
     fd.append("fit", STATE.product.fit || "");
     fd.append("fabric", STATE.product.fabric || "");
     fd.append("color_choice", STATE.product.color || "");
     fd.append("garment_note", STATE.notes.garment_note || "");
     fd.append("file_triage_status", STATE.artwork.triage_status || "needs-review");
+    fd.append("exit_step", STATE.ui.current_step || "contact");
     fd.append("name", STATE.contact.name || "");
     fd.append("contact_channel", STATE.contact.channel || "");
     fd.append("contact_value", STATE.contact.value || "");
     fd.append("brief", STATE.notes.brief || "");
 
-    // Per-zone files: append with zone marker
-    let fileIdx = 0;
-    filesByZone.forEach((list, zone) => {
-      list.forEach((file) => {
-        fd.append("attachments", file);
-        fd.append("attachment_zones", zone);
-        fileIdx++;
-      });
+    collectOrderedFiles().forEach(({ file }) => {
+      fd.append("files", file);
     });
     return fd;
   }
@@ -1303,8 +1717,15 @@
     [dom.addToCartBtn, dom.submitLeadBtn].forEach((btn) => {
       if (!btn) return;
       btn.classList.toggle("is-busy", busy);
-      btn.disabled = busy ? true : btn.disabled;
+      if (busy) {
+        btn.dataset.wasDisabled = btn.disabled ? "1" : "0";
+        btn.disabled = true;
+      } else {
+        btn.disabled = btn.dataset.wasDisabled === "1";
+        delete btn.dataset.wasDisabled;
+      }
     });
+    if (!busy) updateFinalActionsAvailability();
   }
 
   function showStatus(message, kind) {
@@ -1356,6 +1777,25 @@
       .replace(/'/g, "&#39;");
   }
 
+  function mixHex(base, target, weight) {
+    const clampWeight = Math.min(Math.max(weight, 0), 1);
+    const parse = (hex) => {
+      const normalized = String(hex || "").replace("#", "");
+      const value = normalized.length === 3
+        ? normalized.split("").map((char) => char + char).join("")
+        : normalized.padEnd(6, "0").slice(0, 6);
+      return {
+        r: parseInt(value.slice(0, 2), 16),
+        g: parseInt(value.slice(2, 4), 16),
+        b: parseInt(value.slice(4, 6), 16),
+      };
+    };
+    const a = parse(base);
+    const b = parse(target);
+    const mix = (left, right) => Math.round(left + (right - left) * clampWeight);
+    return `rgb(${mix(a.r, b.r)}, ${mix(a.g, b.g)}, ${mix(a.b, b.b)})`;
+  }
+
   // ── Draft ───────────────────────────────────────────────────
   function persistDraft() {
     try {
@@ -1399,6 +1839,7 @@
         STATE.ui.done_steps = new Set(draft.ui.done_steps || []);
         STATE.ui.stage_view = draft.ui.stage_view || "front";
       }
+      normalizeClientState();
       // Restore inputs
       if (dom.qtyInput && STATE.order.quantity) dom.qtyInput.value = STATE.order.quantity;
       if (dom.placementNoteInput) dom.placementNoteInput.value = STATE.print.placement_note || "";
@@ -1416,6 +1857,7 @@
       renderFabricChips();
       renderColorChips();
       renderZoneChipsForCurrent();
+      renderFrontSizeOptions();
       renderAddons();
       renderArtworkActiveState();
       renderContactChannelChipsActive();
