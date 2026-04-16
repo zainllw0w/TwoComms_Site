@@ -339,11 +339,27 @@ PRODUCT_MATRIX = {
         "fabrics": {
             "regular": [
                 {"value": "premium", "label": "Преміум", "price_delta": 0, "included_in_base": True},
-                {"value": "thermo", "label": "Термо", "price_delta": 500, "included_in_base": False},
+                {
+                    "value": "thermo", "label": "Термо", "price_delta": 500, "included_in_base": False,
+                    "info_title": "Футболка з WOW-ефектом❤️",
+                    "info_desc": "Реагує на тепло тіла та змінює колір.\nІдеальна для образів, які привертають увагу.",
+                    "colors": [
+                        {"value": "thermo_green", "label": "Зелений (Термо)", "hex": "#8ba38d"},
+                        {"value": "thermo_pink", "label": "Рожевий (Термо)", "hex": "#e78ba7"}
+                    ]
+                },
             ],
             "oversize": [
                 {"value": "premium", "label": "Преміум", "price_delta": 0, "included_in_base": True},
-                {"value": "thermo", "label": "Термо", "price_delta": 500, "included_in_base": False},
+                {
+                    "value": "thermo", "label": "Термо", "price_delta": 500, "included_in_base": False,
+                    "info_title": "Футболка з WOW-ефектом❤️",
+                    "info_desc": "Реагує на тепло тіла та змінює колір.\nІдеальна для образів, які привертають увагу.",
+                    "colors": [
+                        {"value": "thermo_green", "label": "Зелений (Термо)", "hex": "#8ba38d"},
+                        {"value": "thermo_pink", "label": "Рожевий (Термо)", "hex": "#e78ba7"}
+                    ]
+                },
             ],
         },
         "default_fit": "regular",

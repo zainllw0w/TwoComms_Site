@@ -768,29 +768,106 @@
           ? `+${priceDelta} грн`
           : "без доплати";
       const tierLabel = fab.value === "premium" ? "Преміум" : fab.value === "thermo" ? "Термо" : "База";
-      btn.innerHTML = `
+      let btnContent = `
         <span class="cp-fabric-chip-title">
           <strong>${escapeHtml(fab.label)}</strong>
           <small>${escapeHtml(tierLabel)}</small>
         </span>
         <span class="cp-fabric-chip-meta">${escapeHtml(priceLabel)}</span>
       `;
+      
+      if (fab.info_title) {
+        btn.classList.add("has-info");
+        btn.innerHTML = `
+          <div class="cp-fabric-chip-content">
+            ${btnContent}
+          </div>
+          <span role="button" class="cp-fabric-info-trigger" aria-label="Відкрити опис" data-info-title="${escapeHtml(fab.info_title)}" data-info-desc="${escapeHtml(fab.info_desc)}">?</span>
+        `;
+      } else {
+        btn.innerHTML = btnContent;
+      }
+      
       btn.addEventListener("click", () => {
         if (isLocked) return;
         STATE.product.fabric = fab.value;
         renderFabricChips();
+        renderColorChips();
         refreshAll();
         persistDraft();
       });
       dom.fabricList.appendChild(btn);
+      
+      // Bind info trigger if exists
+      const trigger = btn.querySelector('.cp-fabric-info-trigger');
+      if (trigger) {
+        trigger.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          showFabricInfoModal(fab);
+        });
+      }
     });
+  }
+
+  function showFabricInfoModal(fab) {
+    let modal = document.getElementById("cp-fabric-info-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "cp-fabric-info-modal";
+      modal.className = "cp-fabric-modal-overlay";
+      modal.innerHTML = `
+        <div class="cp-fabric-modal-box">
+          <button class="cp-fabric-modal-close">&times;</button>
+          <div class="cp-fabric-modal-media">
+             <!-- Placeholder for reference image -->
+             <img src="/static/img/configurator/ui/thermo-preview.png" alt="Thermo Effect" onerror="this.style.display='none'">
+          </div>
+          <h3 class="cp-fabric-modal-title"></h3>
+          <p class="cp-fabric-modal-desc"></p>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      
+      modal.querySelector(".cp-fabric-modal-close").addEventListener("click", () => {
+        modal.classList.remove("is-visible");
+      });
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) modal.classList.remove("is-visible");
+      });
+    }
+    
+    modal.querySelector(".cp-fabric-modal-title").textContent = fab.info_title;
+    modal.querySelector(".cp-fabric-modal-desc").innerHTML = (fab.info_desc || "").replace(/\\n/g, "<br>");
+    
+    // Add specific class for theming
+    modal.className = "cp-fabric-modal-overlay is-visible";
+    if (fab.value === 'thermo') {
+      modal.classList.add("is-thermo-theme");
+    }
   }
 
   function renderColorChips() {
     if (!dom.colorList) return;
     dom.colorList.innerHTML = "";
     const cfg = getProductConfig();
-    const colors = cfg && cfg.colors ? cfg.colors : [];
+    let colors = cfg && cfg.colors ? cfg.colors : [];
+
+    // Override colors if the selected fabric specifies its own palette (e.g. thermo)
+    if (cfg && cfg.fabrics && STATE.product.fit) {
+      const activeFitFabrics = cfg.fabrics[STATE.product.fit] || [];
+      const activeFabric = activeFitFabrics.find(f => f.value === STATE.product.fabric);
+      if (activeFabric && activeFabric.colors && activeFabric.colors.length > 0) {
+        colors = activeFabric.colors;
+      }
+    }
+
+    // Force color update if current isn't in scope
+    if (colors.length > 0 && !colors.some(c => c.value === STATE.product.color)) {
+      STATE.product.color = colors[0].value;
+      applyGarmentColor();
+    }
+
     colors.forEach((c) => {
       const btn = document.createElement("button");
       btn.type = "button";
