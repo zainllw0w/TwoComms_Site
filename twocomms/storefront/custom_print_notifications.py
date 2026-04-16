@@ -40,25 +40,86 @@ def _build_notifier() -> TelegramNotifier:
 
 
 def _placements_text(lead) -> str:
-    mapping = {
-        "front": "Спереду",
-        "back": "На спині",
-        "sleeve": "На рукаві",
-        "custom": "Інший варіант",
-    }
-    placement_specs = getattr(lead, "placement_specs_json", None) or []
-    items = []
-    if placement_specs:
-        for spec in placement_specs:
-            zone = spec.get("zone")
-            label = spec.get("label") or mapping.get(zone, str(zone))
-            suffix = " (доп.)" if not spec.get("is_free", False) else ""
-            items.append(f"{label}{suffix}")
-    else:
-        items = [mapping.get(item, str(item)) for item in (lead.placements or [])]
+    items = [_format_placement_descriptor(spec, include_text=True) for spec in _placement_specs_for_lead(lead)]
     if lead.placement_note:
         items.append(f"Примітка: {lead.placement_note}")
-    return ", ".join(items) or "—"
+    return " | ".join(filter(None, items)) or "—"
+
+
+def _placement_specs_for_lead(lead) -> list[dict]:
+    placement_specs = getattr(lead, "placement_specs_json", None) or []
+    if placement_specs:
+        return [spec for spec in placement_specs if isinstance(spec, dict)]
+    return [
+        {
+            "zone": zone,
+            "placement_key": zone,
+            "label": ZONE_LABELS.get(zone, zone),
+        }
+        for zone in (lead.placements or [])
+    ]
+
+
+def _format_placement_descriptor(spec: dict, *, include_text: bool) -> str:
+    placement_key = spec.get("placement_key") or spec.get("zone")
+    label = spec.get("label") or ZONE_LABELS.get(placement_key or spec.get("zone"), spec.get("zone") or "—")
+    parts = [label]
+    if spec.get("size_preset"):
+        parts.append(str(spec["size_preset"]).upper())
+    elif spec.get("zone") == "sleeve":
+        parts.append("текст" if spec.get("mode") == "full_text" else "A6")
+    if include_text and spec.get("text"):
+        parts.append(str(spec["text"]))
+    return " · ".join(part for part in parts if part)
+
+
+def _placement_descriptor_by_key(lead) -> dict[str, str]:
+    mapping = {}
+    for spec in _placement_specs_for_lead(lead):
+        placement_key = spec.get("placement_key") or spec.get("zone")
+        if not placement_key:
+            continue
+        mapping[placement_key] = _format_placement_descriptor(spec, include_text=False)
+    return mapping
+
+
+def _build_attachment_caption(lead, placement_key: str, index: int, total: int) -> str:
+    descriptor = _placement_descriptor_by_key(lead).get(placement_key) or ZONE_LABELS.get(placement_key, placement_key or "Файл")
+    return f"{index}/{total} · {descriptor}"
+
+
+def _collect_attachment_payloads(lead) -> list[dict]:
+    placement_index = {
+        (spec.get("placement_key") or spec.get("zone")): idx
+        for idx, spec in enumerate(_placement_specs_for_lead(lead))
+    }
+    attachments = list(getattr(lead.attachments, "all", lambda: [])())
+    ordered_attachments = sorted(
+        attachments,
+        key=lambda attachment: (
+            placement_index.get(getattr(attachment, "placement_zone", ""), 999),
+            getattr(attachment, "sort_order", 0),
+        ),
+    )
+    existing = []
+    for attachment in ordered_attachments:
+        file_path = getattr(getattr(attachment, "file", None), "path", "")
+        if not file_path or not os.path.exists(file_path):
+            continue
+        existing.append(attachment)
+
+    payloads = []
+    total = len(existing)
+    for index, attachment in enumerate(existing, start=1):
+        file_path = getattr(getattr(attachment, "file", None), "path", "")
+        payloads.append(
+            {
+                "path": file_path,
+                "is_image": _is_image_attachment(attachment),
+                "caption": _build_attachment_caption(lead, getattr(attachment, "placement_zone", ""), index, total),
+            }
+        )
+    return payloads
 
 
 def _build_admin_panel_link(lead) -> str:
@@ -114,41 +175,71 @@ def _is_image_attachment(attachment) -> bool:
 
 def _build_message(lead) -> str:
     attachment_count = lead.attachments.count() if getattr(lead, "pk", None) else 0
-    business_kind = getattr(lead, "business_kind", "")
+    product_parts = [escape(lead.get_product_type_display())]
+    if getattr(lead, "fit", ""):
+        product_parts.append(escape(FIT_LABELS.get(lead.fit, lead.fit)))
+    if getattr(lead, "fabric", ""):
+        product_parts.append(escape(FABRIC_LABELS.get(lead.fabric, lead.fabric)))
+    if getattr(lead, "color_choice", ""):
+        product_parts.append(escape(lead.color_choice))
+
     parts = [
         "<b>Кастомний принт: нова заявка</b>",
+        "",
+        "<b>Заявка</b>",
         f"• <b>Номер:</b> <code>{escape(lead.lead_number)}</code>",
         f"• <b>Сценарій:</b> {escape(lead.get_client_kind_display())}",
         f"• <b>Послуга:</b> {escape(lead.get_service_kind_display())}",
-        f"• <b>Виріб:</b> {escape(lead.get_product_type_display())}",
-        f"• <b>Розміщення:</b> {escape(_placements_text(lead))}",
-        f"• <b>Кількість:</b> {lead.quantity}",
-        f"• <b>Режим розмірів:</b> {escape(getattr(lead, 'get_size_mode_display', lambda: '—')() or '—')}",
-        f"• <b>Розміри:</b> {escape(lead.sizes_note or '—')}",
-        f"• <b>Прорахунок:</b> {escape(_pricing_text(lead))}",
-        f"• <b>Ім'я:</b> {escape(lead.name)}",
-        f"• <b>Канал зв'язку:</b> {escape(lead.get_contact_channel_display())}",
-        f"• <b>Контакт:</b> {escape(lead.contact_value)}",
-        f"• <b>Файлів:</b> {attachment_count}",
-        f"• <b>Бриф:</b> {escape((lead.brief or '—')[:1200])}",
-        "• <b>Доставка / оплата:</b> Нова Пошта, старт після повної оплати та погодження мокапа.",
-        "",
-        f'• <a href="{_build_admin_panel_link(lead)}">Відкрити в панелі</a>',
     ]
-    if business_kind:
-        parts.insert(3, f"• <b>B2B:</b> {escape(lead.get_business_kind_display())}")
-    if lead.brand_name:
-        parts.insert(10, f"• <b>Бренд / команда:</b> {escape(lead.brand_name)}")
+    if getattr(lead, "business_kind", ""):
+        parts.append(f"• <b>B2B:</b> {escape(lead.get_business_kind_display())}")
+    if getattr(lead, "brand_name", ""):
+        parts.append(f"• <b>Бренд / команда:</b> {escape(lead.brand_name)}")
+
+    parts.extend(
+        [
+            "",
+            "<b>Виріб</b>",
+            f"• <b>Конфігурація:</b> {' / '.join(product_parts)}",
+        ]
+    )
     if getattr(lead, "garment_note", ""):
-        parts.insert(8, f"• <b>Опис виробу:</b> {escape(lead.garment_note)}")
-    if getattr(lead, "fit", ""):
-        parts.insert(8, f"• <b>Посадка:</b> {escape(FIT_LABELS.get(lead.fit, lead.fit))}")
-    if getattr(lead, "fabric", ""):
-        parts.insert(9, f"• <b>Тканина:</b> {escape(FABRIC_LABELS.get(lead.fabric, lead.fabric))}")
-    if getattr(lead, "color_choice", ""):
-        parts.insert(10, f"• <b>Колір:</b> {escape(lead.color_choice)}")
+        parts.append(f"• <b>Опис виробу:</b> {escape(lead.garment_note)}")
     if getattr(lead, "file_triage_status", ""):
-        parts.insert(11, f"• <b>File triage:</b> {escape(lead.file_triage_status)}")
+        parts.append(f"• <b>File triage:</b> {escape(lead.file_triage_status)}")
+
+    placement_lines = [f"• {escape(_format_placement_descriptor(spec, include_text=True))}" for spec in _placement_specs_for_lead(lead)]
+    parts.extend(
+        [
+            "",
+            "<b>Макет / зони</b>",
+            *(placement_lines if placement_lines else ["• —"]),
+            f"• <b>Файлів:</b> {attachment_count}",
+        ]
+    )
+    if getattr(lead, "placement_note", ""):
+        parts.append(f"• <b>Примітка:</b> {escape(lead.placement_note)}")
+
+    parts.extend(
+        [
+            "",
+            "<b>Кількість / ціна</b>",
+            f"• <b>Кількість:</b> {lead.quantity}",
+            f"• <b>Режим розмірів:</b> {escape(getattr(lead, 'get_size_mode_display', lambda: '—')() or '—')}",
+            f"• <b>Розміри:</b> {escape(lead.sizes_note or '—')}",
+            f"• <b>Прорахунок:</b> {escape(_pricing_text(lead))}",
+            "",
+            "<b>Контакт</b>",
+            f"• <b>Ім'я:</b> {escape(lead.name)}",
+            f"• <b>Канал:</b> {escape(lead.get_contact_channel_display())}",
+            f"• <b>Контакт:</b> {escape(lead.contact_value)}",
+            "",
+            "<b>Бриф / завдання</b>",
+            escape((lead.brief or "—")[:1200]),
+            "",
+            f'• <a href="{_build_admin_panel_link(lead)}">Відкрити в панелі</a>',
+        ]
+    )
     return "\n".join(parts)
 
 
@@ -273,30 +364,37 @@ def notify_new_custom_print_lead(lead) -> bool:
             logger.warning("Custom print Telegram notifier is not configured.")
             return False
 
-        image_paths = []
-        document_paths = []
-        for attachment in lead.attachments.all():
-            file_path = getattr(getattr(attachment, "file", None), "path", "")
-            if not file_path or not os.path.exists(file_path):
-                continue
-            if _is_image_attachment(attachment):
-                image_paths.append(file_path)
-            else:
-                document_paths.append(file_path)
-
-        if len(image_paths) > 1:
-            notifier.send_admin_media_group(image_paths)
-        elif len(image_paths) == 1:
-            notifier.send_admin_photo(image_paths[0], caption="")
-
-        for file_path in document_paths:
-            notifier.send_admin_document(file_path, caption="Файл із заявки", filename=Path(file_path).name)
-
-        return notifier.send_admin_message(
+        success = notifier.send_admin_message(
             _build_message(lead),
             parse_mode="HTML",
             reply_markup=_reply_markup(lead),
         )
+        payloads = _collect_attachment_payloads(lead)
+        image_payloads = [payload for payload in payloads if payload["is_image"]]
+        document_payloads = [payload for payload in payloads if not payload["is_image"]]
+
+        if len(image_payloads) > 1:
+            success = notifier.send_admin_media_group(
+                [payload["path"] for payload in image_payloads],
+                captions=[payload["caption"] for payload in image_payloads],
+                parse_mode="HTML",
+            ) or success
+        elif len(image_payloads) == 1:
+            success = notifier.send_admin_photo(
+                image_payloads[0]["path"],
+                caption=image_payloads[0]["caption"],
+                parse_mode="HTML",
+            ) or success
+
+        for payload in document_payloads:
+            success = notifier.send_admin_document(
+                payload["path"],
+                caption=payload["caption"],
+                filename=Path(payload["path"]).name,
+                parse_mode="HTML",
+            ) or success
+
+        return success
     except Exception as exc:
         logger.warning("Custom print Telegram notify failed: %s", exc, exc_info=True)
         return False

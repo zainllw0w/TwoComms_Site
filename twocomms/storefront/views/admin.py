@@ -459,6 +459,8 @@ def _group_custom_print_attachments(lead):
         "front": "На грудях / спереду",
         "back": "На спині",
         "sleeve": "На рукаві",
+        "sleeve_left": "Лівий рукав",
+        "sleeve_right": "Правий рукав",
         "custom": "Інше",
         "unsorted": "Без прив'язки",
     }
