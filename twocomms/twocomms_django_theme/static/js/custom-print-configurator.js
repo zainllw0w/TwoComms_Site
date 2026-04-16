@@ -775,8 +775,8 @@
       let btnContent = `
         <span class="cp-fabric-chip-title">
           <strong>${displayLabel}</strong>
-          <small>${escapeHtml(tierLabel)}</small>
         </span>
+
 
         <span class="cp-fabric-chip-meta">${escapeHtml(priceLabel)}</span>
       `;
@@ -1125,8 +1125,38 @@
       return;
     }
     if (dom.addonsWrap) dom.addonsWrap.hidden = false;
-    
     visibleAddons.forEach((a) => {
+      // Special rendering if it's the Fleece group
+      if (a.group === "fleece") {
+         let fleeceWrap = dom.addonsList.querySelector(".cp-fleece-toggle");
+         if (!fleeceWrap) {
+             fleeceWrap = document.createElement("div");
+             fleeceWrap.className = "cp-fleece-toggle";
+             fleeceWrap.innerHTML = `<span class="cp-fleece-title">Утеплення (Фліс)</span><div class="cp-fleece-options"></div>`;
+             dom.addonsList.appendChild(fleeceWrap);
+         }
+         
+         const isActive = STATE.print.add_ons.includes(a.value);
+         const btn = document.createElement("button");
+         btn.type = "button";
+         btn.className = `cp-fleece-btn cp-fleece-btn--${a.value}`;
+         if (isActive) btn.classList.add("is-active");
+         btn.innerHTML = `<span class="cp-addon-card-icon">${addonSvg(a.icon || "fleece")}</span> <span class="cp-fleece-btn-label">${escapeHtml(a.label)}</span>`;
+         btn.addEventListener("click", () => {
+             // Exclusive toggle logic
+             STATE.print.add_ons = STATE.print.add_ons.filter(item => {
+                 const currentAddon = addons.find(x => x.value === item);
+                 return !(currentAddon && currentAddon.group === "fleece");
+             });
+             STATE.print.add_ons.push(a.value);
+             renderAddons();
+             refreshAll();
+             persistDraft();
+         });
+         fleeceWrap.querySelector(".cp-fleece-options").appendChild(btn);
+         return; // skip standard rendering
+      }
+
       const isAutoIncluded = a.auto_include_condition === "premium_or_oversize";
       const isActive = isAutoIncluded ? true : STATE.print.add_ons.includes(a.value);
       
