@@ -14,37 +14,34 @@
 {% block content %}
 <section class="cp-page" data-custom-print-root>
   <div class="container-xxl cp-shell" data-shell>
-    <header class="cp-hero">
-      <div class="cp-hero-copy">
-        <span class="cp-kicker">Кастомний DTF-друк</span>
-        <h1 class="cp-title">Зберіть свій принт без анкети.</h1>
-        <p class="cp-lead">
-          Спочатку оберіть формат, далі покроково зберете виріб, сцену, зони й макет.
-          Кожен наступний крок відкривається тільки після попереднього, а сцена і ціна
-          синхронно оновлюються в одному місці.
+    <header class="cp-hero cp-hero--redesigned" data-hero>
+      <div class="cp-hero-content">
+        <span class="cp-hero-badge">DTF-Конфігуратор</span>
+        <h1 class="cp-hero-title">Створи свій дизайн<br>без обмежень.</h1>
+        <p class="cp-hero-desc">
+          Передовий 3D-подібний конфігуратор DTF-друку. Збирай виріб, редагуй зони та отримуй миттєвий результат ціни. Без анкет і очікувань.
         </p>
         <div class="cp-hero-actions">
-          <button class="cp-link cp-link--primary" type="button" data-start-flow>Розпочати конфігурацію</button>
-          <a class="cp-link cp-link--ghost" href="https://t.me/twocomms" target="_blank" rel="noopener">Написати менеджеру</a>
+          <button class="cp-btn cp-btn--primary" type="button" data-start-flow>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Розпочати конфігурацію
+          </button>
+          
+          <button class="cp-btn cp-btn--secondary" type="button" title="Поки що в розробці" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            Замовити DTF плівку
+          </button>
+
+          <a class="cp-btn cp-btn--telegram" href="https://t.me/twocomms" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Написати менеджеру
+          </a>
         </div>
       </div>
-
-      <div class="cp-hero-panel">
-        <article class="cp-hero-stat">
-          <small>Потік</small>
-          <strong>Один активний крок</strong>
-          <span>Завершені рішення збираються у короткі рядки зверху, а майбутні кроки не відволікають.</span>
-        </article>
-        <article class="cp-hero-stat">
-          <small>Сцена</small>
-          <strong>Зони і макет синхронні</strong>
-          <span>Клік по сцені і клік по панелі міняють одну й ту саму конфігурацію без дублювання.</span>
-        </article>
-        <article class="cp-hero-stat">
-          <small>Фінал</small>
-          <strong>Ціна видно одразу</strong>
-          <span>Підсумок живе прямо біля виробу: або додаємо в кошик, або віддаємо менеджеру на узгодження.</span>
-        </article>
+      
+      <div class="cp-hero-visual">
+        <img src="{% static 'images/hero_dtf_graphic.png' %}" alt="TwoComms Custom Print Graphic" loading="lazy">
+        <div class="cp-hero-visual-glow"></div>
       </div>
     </header>
 
