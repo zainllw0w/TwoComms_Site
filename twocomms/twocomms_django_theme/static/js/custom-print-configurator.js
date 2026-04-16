@@ -1795,6 +1795,13 @@
       persistDraft();
     });
     dom.startFlow?.addEventListener("click", () => {
+      // Clear storage and hard reload to ensure absolutely pristine state
+      if (STATE.product.type) {
+        localStorage.removeItem(DRAFT_CACHE_KEY);
+        location.reload();
+        return;
+      }
+      
       const target = document.getElementById("cp-step-mode");
       if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
     });
