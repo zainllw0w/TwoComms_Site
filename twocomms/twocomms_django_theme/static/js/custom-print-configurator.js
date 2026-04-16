@@ -714,10 +714,15 @@
           ? "Нижче зʼявляться доступні тканини і ціни"
           : "Тканина фіксується автоматично";
       btn.innerHTML = `
-        <small>Посадка</small>
-        <strong>${f.label}</strong>
-        <span>${f.description || ""}</span>
-        <em>${helperNote}</em>
+        <div class="cp-fit-card-figure">
+          <img src="/static/img/configurator/ui/hoodie-${f.value}.png" alt="${f.label}">
+        </div>
+        <div class="cp-fit-card-info">
+          <small>Посадка</small>
+          <strong>${f.label}</strong>
+          <span>${f.description || ""}</span>
+          <em>${helperNote}</em>
+        </div>
       `;
       btn.addEventListener("click", () => {
         STATE.product.fit = f.value;
@@ -874,7 +879,15 @@
       btn.className = "cp-size-preset";
       btn.dataset.choiceValue = preset.value;
       if (getFrontSizePreset() === preset.value) btn.classList.add("is-active");
-      btn.innerHTML = `<strong>${preset.label}</strong><span>Масштаб на сцені</span>`;
+      btn.innerHTML = `
+        <div class="cp-size-icon">
+          <img src="/static/img/configurator/ui/size-${preset.value}.svg" alt="${preset.label}" onerror="this.src='/static/img/configurator/ui/size-a4.svg'">
+        </div>
+        <div class="cp-size-details">
+          <strong>${preset.label}</strong>
+          <span>Масштаб на сцені</span>
+        </div>
+      `;
       btn.addEventListener("click", () => {
         ensureFrontZoneOptions();
         STATE.print.zone_options.front.size_preset = preset.value;
@@ -900,7 +913,15 @@
       btn.className = "cp-size-preset";
       btn.dataset.choiceValue = preset.value;
       if (getBackSizePreset() === preset.value) btn.classList.add("is-active");
-      btn.innerHTML = `<strong>${preset.label}</strong><span>Вертикально на сцені</span>`;
+      btn.innerHTML = `
+        <div class="cp-size-icon">
+          <img src="/static/img/configurator/ui/size-${preset.value}.svg" alt="${preset.label}" onerror="this.src='/static/img/configurator/ui/size-a4.svg'">
+        </div>
+        <div class="cp-size-details">
+          <strong>${preset.label}</strong>
+          <span>Вертикально на сцені</span>
+        </div>
+      `;
       btn.addEventListener("click", () => {
         ensureBackZoneOptions();
         STATE.print.zone_options.back.size_preset = preset.value;
@@ -963,7 +984,16 @@
           btn.type = "button";
           btn.className = "cp-size-preset";
           if (getSleeveMode(side) === option.value) btn.classList.add("is-active");
-          btn.innerHTML = `<strong>${escapeHtml(option.label)}</strong><span>${escapeHtml(option.badge || "")}</span>`;
+          btn.innerHTML = `
+            <div class="cp-size-icon">
+              <!-- Using A6 scale for sleeve presets, assuming it scales or we provide another icon -->
+              <img src="/static/img/configurator/ui/size-a6.svg" alt="${escapeHtml(option.label)}">
+            </div>
+            <div class="cp-size-details">
+              <strong>${escapeHtml(option.label)}</strong>
+              <span>${escapeHtml(option.badge || "")}</span>
+            </div>
+          `;
           btn.addEventListener("click", () => {
             ensureSleeveZoneOptions();
             STATE.print.zone_options.sleeve[`${side}_mode`] = option.value;
@@ -1290,23 +1320,15 @@
       };
       const anchor = getPlacementAnchor(placement);
       if (!anchor?.button) return;
-      const pin = document.createElement("button");
-      pin.type = "button";
-      pin.className = "cp-zone-pin";
-      if (target.isActive) pin.classList.add("is-active");
-      pin.style.top = asPercent(anchor.button.y);
-      pin.style.left = asPercent(anchor.button.x);
-      pin.dataset.zone = target.key;
-      pin.innerHTML = `<small>${escapeHtml(getStagePinCode(target))}</small>`;
-      pin.title = target.label;
-      pin.addEventListener("click", () => handleStageTargetInteraction(target.key));
-      dom.zoneLayer.appendChild(pin);
+      // Removed cp-zone-pin, we will attach the label directly to the plate if we want.
 
-      if (target.isActive && anchor.plate) {
+      if (anchor.plate) {
         const plate = document.createElement("button");
         plate.type = "button";
         plate.className = `cp-stage-print cp-stage-print--${target.zone} cp-stage-print--${target.key}`;
         plate.classList.add(`cp-stage-print--shape-${anchor.plate.shape || "panel"}`);
+        if (!target.isActive) plate.classList.add("is-inactive");
+        else plate.classList.add("is-active");
         if (placement.zone === "sleeve" && placement.mode === "full_text") {
           plate.classList.add("is-text-placement");
         }
@@ -1317,6 +1339,7 @@
         plate.style.setProperty("--plate-rotate", `${Number(anchor.plate.rotate || 0)}deg`);
         plate.style.setProperty("--plate-radius", `${Number(anchor.plate.radius || 18)}px`);
         plate.dataset.zone = target.key;
+        plate.addEventListener("click", () => handleStageTargetInteraction(target.key));
         const badgeText = escapeHtml(getStageBadgeText(placement));
         plate.innerHTML = `
           <span class="cp-stage-print-badge">${badgeText || "ON"}</span>
