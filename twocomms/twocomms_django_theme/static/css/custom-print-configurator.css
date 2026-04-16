@@ -31,6 +31,7 @@
 /* ── 1. Shell & Card Foundation ────────────────────────────── */
 .cp-shell {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.3rem;
 }
 
@@ -83,6 +84,7 @@
 
 .cp-hero-copy {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 }
 
@@ -131,6 +133,7 @@
 
 .cp-hero-panel {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.95rem;
 }
 
@@ -227,6 +230,7 @@
 /* ── 4. Configurator Layout ────────────────────────────────── */
 .cp-configurator {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 }
 
@@ -360,6 +364,7 @@
 
 .cp-panel-column {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 }
 
@@ -749,6 +754,7 @@
 .cp-subhead,
 .cp-inline-note-copy {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.22rem;
   margin-bottom: 0.8rem;
 }
@@ -823,6 +829,7 @@
 /* ── 10. Form Fields ───────────────────────────────────────── */
 .cp-field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.42rem;
 }
 
@@ -1145,6 +1152,7 @@
 /* ── V2.1 Waterfall container ──────────────────────────────── */
 .cp-waterfall {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.85rem;
 }
 
@@ -1245,6 +1253,7 @@
 /* Body (expanded) — shown when step is active */
 .cp-step-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   padding: 0 1.15rem 1.15rem;
   animation: step-expand var(--cp-transition-enter);
@@ -1257,6 +1266,7 @@
 
 .cp-step-head {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.35rem;
   padding-top: 0.35rem;
 }
@@ -3142,6 +3152,49 @@
 }
 
 @media (max-width: 560px) {
+  .cp-shell,
+  .cp-configurator,
+  .cp-workbench,
+  .cp-waterfall,
+  .cp-stage-card,
+  .cp-step,
+  .cp-step-body,
+  .cp-config-block,
+  .cp-field,
+  .cp-final-actions {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .cp-hero {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    width: 100%;
+    max-width: 100%;
+    padding: 0.95rem;
+  }
+
+  .cp-hero-copy,
+  .cp-hero-panel,
+  .cp-hero-stat {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .cp-hero-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cp-hero-actions > * {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
   .cp-step-summary {
     grid-template-columns: auto minmax(0, 1fr);
     align-items: flex-start;
