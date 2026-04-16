@@ -237,6 +237,31 @@ def _stage_box(x: float, y: float, width: float, height: float, rotate: float = 
         "shape": shape,
     }
 
+ISO_SIZES = {
+    "A6": (105, 148),
+    "A5": (148, 210),
+    "A4": (210, 297),
+    "A3": (297, 420),
+    "A2": (420, 594),
+}
+
+def calc_iso_box(format_key: str, body_width_mm: float, svg_body_width: float, svg_collar_y: float, top_offset_mm: float = 50, x_center: float = 50, radius: float = 24, shape: str = "panel", padding_mm: float = 0) -> dict:
+    w_mm, h_mm = ISO_SIZES.get(format_key, (210, 297))
+    scale = svg_body_width / body_width_mm
+    
+    box_w = (w_mm + padding_mm) * scale
+    box_h = (h_mm + padding_mm) * scale
+    
+    y_start_svg = svg_collar_y + (top_offset_mm * scale)
+    y_center_svg = y_start_svg + (box_h / 2.0)
+    
+    width_pct = (box_w / 420.0) * 100
+    height_pct = (box_h / 520.0) * 100
+    y_center_pct = (y_center_svg / 520.0) * 100
+    
+    return _stage_box(x_center, round(y_center_pct, 1), round(width_pct, 1), round(height_pct, 1), 0, radius, shape)
+
+
 
 def _stage_anchor(button_x: float, button_y: float, *, presets: dict | None = None, modes: dict | None = None, default: dict | None = None) -> dict:
     payload = {
@@ -415,9 +440,9 @@ STAGE_PROFILES = {
                         50,
                         42.5,
                         presets={
-                            "A6": _stage_box(50, 42.8, 15.5, 10.5, 0, 18, "panel"),
-                            "A5": _stage_box(50, 43.2, 21.5, 14.2, 0, 19, "panel"),
-                            "A4": _stage_box(50, 44.1, 28.5, 18.6, 0, 20, "panel"),
+                            "A6": calc_iso_box("A6", body_width_mm=600, svg_body_width=204, svg_collar_y=138, top_offset_mm=80, radius=18),
+                            "A5": calc_iso_box("A5", body_width_mm=600, svg_body_width=204, svg_collar_y=138, top_offset_mm=80, radius=19),
+                            "A4": calc_iso_box("A4", body_width_mm=600, svg_body_width=204, svg_collar_y=138, top_offset_mm=80, radius=20),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
@@ -454,9 +479,9 @@ STAGE_PROFILES = {
                         50,
                         44.5,
                         presets={
-                            "A4": _stage_box(50, 45.8, 24.5, 31.5, 0, 22, "panel"),
-                            "A3": _stage_box(50, 48.2, 30.2, 38.8, 0, 22, "panel"),
-                            "A2": _stage_box(50, 51.2, 36.8, 46.8, 0, 24, "panel"),
+                            "A4": calc_iso_box("A4", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=80, radius=22),
+                            "A3": calc_iso_box("A3", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=80, radius=22),
+                            "A2": calc_iso_box("A2", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=80, radius=24),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
@@ -496,9 +521,9 @@ STAGE_PROFILES = {
                         50,
                         43.8,
                         presets={
-                            "A6": _stage_box(50, 44.4, 16.5, 11.2, 0, 19, "panel"),
-                            "A5": _stage_box(50, 45.1, 23.5, 15.5, 0, 20, "panel"),
-                            "A4": _stage_box(50, 46.4, 31.2, 20.8, 0, 22, "panel"),
+                            "A6": calc_iso_box("A6", body_width_mm=650, svg_body_width=220, svg_collar_y=154, top_offset_mm=80, radius=18),
+                            "A5": calc_iso_box("A5", body_width_mm=650, svg_body_width=220, svg_collar_y=154, top_offset_mm=80, radius=19),
+                            "A4": calc_iso_box("A4", body_width_mm=650, svg_body_width=220, svg_collar_y=154, top_offset_mm=80, radius=21),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
@@ -694,9 +719,10 @@ STAGE_PROFILES = {
                         50,
                         42.8,
                         presets={
-                            "A4": _stage_box(50, 44.8, 25.2, 31.2, 0, 20, "panel"),
-                            "A3": _stage_box(50, 47.2, 31.4, 38.8, 0, 21, "panel"),
-                            "A2": _stage_box(50, 50.2, 38.2, 45.8, 0, 22, "panel"),
+                            # На oversize худи спина шире: svg_body_width ~ 220
+                            "A4": calc_iso_box("A4", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=80, radius=20),
+                            "A3": calc_iso_box("A3", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=80, radius=21),
+                            "A2": calc_iso_box("A2", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=80, radius=22),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
