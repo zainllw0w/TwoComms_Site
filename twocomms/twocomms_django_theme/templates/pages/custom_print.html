@@ -14,7 +14,7 @@
 {% block content %}
 <section class="cp-page" data-custom-print-root>
   <div class="container-xxl cp-shell" data-shell>
-    <header class="cp-hero cp-hero--minimal" data-hero>
+    <header class="cp-hero cp-hero--premium" data-hero>
       <div class="cp-hero-art" aria-hidden="true">
         <div class="cp-hero-beam"></div>
         <div class="cp-hero-orb"></div>
@@ -32,35 +32,41 @@
       </div>
 
       <div class="cp-hero-copy">
-        <div class="cp-hero-brand">
-          <span class="cp-hero-brandmark" aria-hidden="true">
-            <img src="{% static 'img/logo.svg' %}" alt="" loading="eager" width="44" height="44">
-          </span>
-          <div class="cp-hero-brandcopy">
-            <strong>TwoComms Custom Print</strong>
-            <span>Худі, футболки, лонгсліви та ваші речі під друк.</span>
+        <div class="cp-animate-in cp-delay-1">
+          <div class="cp-hero-brand">
+            <span class="cp-hero-brandmark" aria-hidden="true">
+              <img src="{% static 'img/logo.svg' %}" alt="" loading="eager" width="44" height="44">
+            </span>
+            <div class="cp-hero-brandcopy">
+              <strong>TwoComms Custom Print</strong>
+              <span>Худі, футболки, лонгсліви та ваші речі під друк.</span>
+            </div>
           </div>
         </div>
 
-        <span class="cp-hero-badge">Кастомний DTF-друк</span>
-        <h1 class="cp-hero-title">Кастомний одяг без зайвих пояснень.</h1>
-        <p class="cp-hero-desc">
+        <div class="cp-animate-in cp-delay-2">
+          <span class="cp-hero-badge">Кастомний DTF-друк</span>
+        </div>
+        
+        <h1 class="cp-hero-title cp-animate-in cp-delay-3">Кастомний одяг без зайвих пояснень.</h1>
+        <p class="cp-hero-desc cp-animate-in cp-delay-4">
           Оберіть виріб, зони друку та макет. Якщо потрібна DTF-плівка з обраними принтами, напишіть нам у Telegram — підготуємо.
         </p>
 
-        <div class="cp-hero-actions">
-          <button class="cp-btn cp-btn--primary" type="button" data-start-flow>
+        <div class="cp-hero-actions cp-animate-in cp-delay-5">
+          <button class="cp-btn cp-btn--primary cp-btn--glow" type="button" data-start-flow>
+            <span class="cp-btn-shimmer"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
             Розпочати конфігурацію
           </button>
 
-          <a class="cp-btn cp-btn--telegram" href="https://t.me/twocomms" target="_blank" rel="noopener">
+          <a class="cp-btn cp-btn--telegram cp-btn--glass" href="https://t.me/twocomms" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             Написати нам у Telegram
           </a>
         </div>
 
-        <div class="cp-hero-scrollcue" aria-hidden="true">
+        <div class="cp-hero-scrollcue cp-animate-in cp-delay-6" aria-hidden="true">
           <span class="cp-hero-scrollcue-line"></span>
           <span>Скрольте до конфігуратора</span>
         </div>
