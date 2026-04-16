@@ -4067,3 +4067,36 @@
   opacity: 1;
   color: var(--cp-accent);
 }
+
+.cp-btn--soon {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--cp-muted);
+  border-color: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.cp-btn--soon:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+  transform: none;
+  box-shadow: none;
+}
+
+.cp-btn-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(242, 211, 155, 0.08);
+  border: 1px solid rgba(242, 211, 155, 0.22);
+  color: var(--cp-accent-soft);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
