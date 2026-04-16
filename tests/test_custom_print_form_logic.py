@@ -112,6 +112,126 @@ def base_payload(**overrides):
 
 
 class CustomPrintLeadFormLogicTests(unittest.TestCase):
+    def test_ready_manager_submission_allows_missing_files_for_upload_backed_placements(self):
+        payload = base_payload(
+            placements=["back"],
+            placement_specs_json=json.dumps(
+                [
+                    {
+                        "zone": "back",
+                        "placement_key": "back",
+                        "label": "На спині",
+                        "size_preset": "A2",
+                        "requires_artwork_file": True,
+                        "file_index": 0,
+                    }
+                ]
+            ),
+            config_draft_json=json.dumps(
+                {
+                    "version": 2,
+                    "submission_type": "lead",
+                    "mode": "personal",
+                    "product": {
+                        "type": "hoodie",
+                        "fit": "oversize",
+                        "fabric": "premium",
+                        "color": "graphite",
+                    },
+                    "print": {
+                        "zones": ["back"],
+                        "zone_options": {
+                            "back": {
+                                "size_preset": "A2",
+                            },
+                        },
+                    },
+                    "artwork": {
+                        "service_kind": "ready",
+                        "triage_status": "print-ready",
+                        "files": [],
+                    },
+                    "order": {
+                        "quantity": 1,
+                        "size_mode": "single",
+                        "sizes_note": "L x1",
+                    },
+                    "contact": {
+                        "channel": "telegram",
+                        "name": "Тест",
+                        "value": "@twocomms_test",
+                    },
+                    "ui": {"current_step": "contact"},
+                }
+            ),
+        )
+
+        form = CustomPrintLeadForm(payload, {}, require_artwork_files=False)
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_ready_cart_submission_still_requires_missing_files_for_upload_backed_placements(self):
+        payload = base_payload(
+            placements=["back"],
+            placement_specs_json=json.dumps(
+                [
+                    {
+                        "zone": "back",
+                        "placement_key": "back",
+                        "label": "На спині",
+                        "size_preset": "A2",
+                        "requires_artwork_file": True,
+                        "file_index": 0,
+                    }
+                ]
+            ),
+            config_draft_json=json.dumps(
+                {
+                    "version": 2,
+                    "submission_type": "cart",
+                    "mode": "personal",
+                    "product": {
+                        "type": "hoodie",
+                        "fit": "oversize",
+                        "fabric": "premium",
+                        "color": "graphite",
+                    },
+                    "print": {
+                        "zones": ["back"],
+                        "zone_options": {
+                            "back": {
+                                "size_preset": "A2",
+                            },
+                        },
+                    },
+                    "artwork": {
+                        "service_kind": "ready",
+                        "triage_status": "print-ready",
+                        "files": [],
+                    },
+                    "order": {
+                        "quantity": 1,
+                        "size_mode": "single",
+                        "sizes_note": "L x1",
+                    },
+                    "contact": {
+                        "channel": "telegram",
+                        "name": "Тест",
+                        "value": "@twocomms_test",
+                    },
+                    "ui": {"current_step": "contact"},
+                }
+            ),
+        )
+
+        form = CustomPrintLeadForm(payload, {}, require_artwork_files=True)
+
+        self.assertFalse(form.is_valid())
+        self.assertEqual(
+            form.errors["files"],
+            ["Додайте файли для всіх зон, де потрібен макет."],
+        )
+
     def test_ready_submission_with_text_only_sleeve_is_valid_without_files(self):
         form = CustomPrintLeadForm(base_payload(), {})
 
