@@ -289,13 +289,18 @@ PRODUCT_MATRIX = {
             {"value": "regular", "label": "Класичний", "description": "Базова посадка для щоденного мерчу."},
             {"value": "oversize", "label": "Оверсайз", "description": "Більш масивний силует з відчуттям преміум-речі."},
         ],
-                "fabrics": {
+        "fabrics": {
             "regular": [
-                {"value": "standard", "label": "База", "price_delta": 0, "included_in_base": True},
-                {"value": "premium", "label": "Преміум", "price_delta": 250, "included_in_base": False},
+                {"value": "standard", "label": "Стандарт (трьохнитка на флісі/петля)", "price_delta": 0, "included_in_base": True},
+                {"value": "premium", "label": "Преміум (трьохнитка на флісі/петля)", "price_delta": 250, "included_in_base": False},
             ],
             "oversize": [
-                {"value": "premium", "label": "Преміум", "price_delta": 0, "included_in_base": True},
+                {"value": "standard", "label": "Стандарт (трьохнитка на флісі/петля)", "price_delta": 0, "included_in_base": True},
+                {"value": "premium", "label": "Преміум (трьохнитка на флісі/петля)", "price_delta": 250, "included_in_base": False},
+            ],
+            "zip_hoodie": [
+                {"value": "standard", "label": "Стандарт (трьохнитка на флісі/петля)", "price_delta": 0, "included_in_base": True},
+                {"value": "premium", "label": "Преміум (трьохнитка на флісі/петля)", "price_delta": 250, "included_in_base": False},
             ],
         },
         "default_fit": "regular",
@@ -500,105 +505,6 @@ PRODUCT_MATRIX = {
 
 
 STAGE_PROFILES = {
-    "tshirt": {
-        "default_fit": "regular",
-        "regular": {
-            "front": {
-                "view_box": "0 0 420 520",
-                "svg_markup": _svg_markup(
-                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M80 150 C50 160 30 180 20 220 L30 320 C40 330 60 330 80 320 L100 220 L100 450 C100 480 120 490 210 490 C300 490 320 480 320 450 L320 220 L340 320 C360 330 380 330 390 320 L400 220 C390 180 370 160 340 150 L280 120 C240 140 180 140 140 120 Z'/>",
-                    "<path class='cp-stage-svg__part cp-stage-svg__part--base' d='M100 150 C130 180 160 190 210 190 C260 190 290 180 320 150 L340 160 C320 220 320 250 320 450 C320 480 290 490 210 490 C130 490 100 480 100 450 C100 250 100 220 80 160 Z'/>",
-                    "<path class='cp-stage-svg__part cp-stage-svg__part--top' d='M140 120 C160 150 180 160 210 160 C240 160 260 150 280 120 C260 100 160 100 140 120 Z'/>",
-                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M140 120 C160 140 180 150 210 150 C240 150 260 140 280 120'/>",
-                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M120 470 H300'/>",
-                ),
-                "anchors": {
-                    "front": _stage_anchor(
-                        50,
-                        40,
-                        presets={
-                            "A6": calc_iso_box("A6", body_width_mm=550, svg_body_width=220, svg_collar_y=160, top_offset_mm=210, x_center=65, radius=16),
-                            "A5": calc_iso_box("A5", body_width_mm=550, svg_body_width=220, svg_collar_y=160, top_offset_mm=260, radius=18),
-                            "A4": calc_iso_box("A4", body_width_mm=550, svg_body_width=220, svg_collar_y=160, top_offset_mm=280, radius=20),
-                        },
-                    ),
-                    "sleeve_left": _stage_anchor(25, 45, modes={"a6": _stage_box(30, 48, 12, 18, 0, 16, "sleeve_patch")}),
-                    "sleeve_right": _stage_anchor(75, 45, modes={"a6": _stage_box(70, 48, 12, 18, 0, 16, "sleeve_patch")})
-                },
-            },
-            "back": {
-                "view_box": "0 0 420 520",
-                "svg_markup": _svg_markup(
-                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M80 150 C50 160 30 180 20 220 L30 320 C40 330 60 330 80 320 L100 220 L100 450 C100 480 120 490 210 490 C300 490 320 480 320 450 L320 220 L340 320 C360 330 380 330 390 320 L400 220 C390 180 370 160 340 150 L280 120 C240 140 180 140 140 120 Z'/>",
-                    "<path class='cp-stage-svg__part cp-stage-svg__part--base' d='M100 150 C130 130 160 120 210 120 C260 120 290 130 320 150 L340 160 C320 220 320 250 320 450 C320 480 290 490 210 490 C130 490 100 480 100 450 C100 250 100 220 80 160 Z'/>",
-                    "<path class='cp-stage-svg__part cp-stage-svg__part--top' d='M140 120 C160 130 180 140 210 140 C240 140 260 130 280 120 C260 100 160 100 140 120 Z'/>",
-                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M140 120 C160 130 180 135 210 135 C240 135 260 130 280 120'/>",
-                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M120 470 H300'/>",
-                ),
-                "anchors": {
-                    "back": _stage_anchor(
-                        50,
-                        40,
-                        presets={
-                            "A4": calc_iso_box("A4", body_width_mm=550, svg_body_width=220, svg_collar_y=135, top_offset_mm=260, radius=20),
-                            "A3": calc_iso_box("A3", body_width_mm=550, svg_body_width=220, svg_collar_y=135, top_offset_mm=290, radius=21),
-                            "A2": calc_iso_box("A2", body_width_mm=550, svg_body_width=220, svg_collar_y=135, top_offset_mm=320, radius=22),
-                        },
-                    ),
-                    "sleeve_left": _stage_anchor(25, 45, modes={"a6": _stage_box(30, 48, 12, 18, 0, 16, "sleeve_patch")}),
-                    "sleeve_right": _stage_anchor(75, 45, modes={"a6": _stage_box(70, 48, 12, 18, 0, 16, "sleeve_patch")})
-                },
-            },
-        },
-        "oversize": {
-            "front": {
-                "view_box": "0 0 420 520",
-                "svg_markup": _svg_markup(
-                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M60 150 C30 160 10 180 5 220 L15 360 C25 370 45 370 65 360 L85 240 L85 450 C85 480 105 490 210 490 C315 490 335 480 335 450 L335 240 L355 360 C375 370 395 370 405 360 L415 220 C410 180 390 160 360 150 L280 120 C240 140 180 140 140 120 Z'/>",
-                    "<path class='cp-stage-svg__part cp-stage-svg__part--base' d='M85 150 C115 180 145 190 210 190 C275 190 305 180 335 150 L355 160 C335 240 335 270 335 450 C335 480 305 490 210 490 C115 490 85 480 85 450 C85 270 85 240 65 160 Z'/>",
-                    "<path class='cp-stage-svg__part cp-stage-svg__part--top' d='M140 120 C160 150 180 160 210 160 C240 160 260 150 280 120 C260 100 160 100 140 120 Z'/>",
-                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M140 120 C160 140 180 150 210 150 C240 150 260 140 280 120'/>",
-                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M105 470 H315'/>",
-                ),
-                "anchors": {
-                    "front": _stage_anchor(
-                        50,
-                        40,
-                        presets={
-                            "A6": calc_iso_box("A6", body_width_mm=600, svg_body_width=250, svg_collar_y=160, top_offset_mm=210, x_center=65, radius=16),
-                            "A5": calc_iso_box("A5", body_width_mm=600, svg_body_width=250, svg_collar_y=160, top_offset_mm=260, radius=18),
-                            "A4": calc_iso_box("A4", body_width_mm=600, svg_body_width=250, svg_collar_y=160, top_offset_mm=280, radius=20),
-                        },
-                    ),
-                    "sleeve_left": _stage_anchor(20, 45, modes={"a6": _stage_box(25, 48, 12, 18, 0, 16, "sleeve_patch")}),
-                    "sleeve_right": _stage_anchor(80, 45, modes={"a6": _stage_box(75, 48, 12, 18, 0, 16, "sleeve_patch")})
-                },
-            },
-            "back": {
-                "view_box": "0 0 420 520",
-                "svg_markup": _svg_markup(
-                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M60 150 C30 160 10 180 5 220 L15 360 C25 370 45 370 65 360 L85 240 L85 450 C85 480 105 490 210 490 C315 490 335 480 335 450 L335 240 L355 360 C375 370 395 370 405 360 L415 220 C410 180 390 160 360 150 L280 120 C240 140 180 140 140 120 Z'/>",
-                    "<path class='cp-stage-svg__part cp-stage-svg__part--base' d='M85 150 C115 130 145 120 210 120 C275 120 305 130 335 150 L355 160 C335 240 335 270 335 450 C335 480 305 490 210 490 C115 490 85 480 85 450 C85 270 85 240 65 160 Z'/>",
-                    "<path class='cp-stage-svg__part cp-stage-svg__part--top' d='M140 120 C160 130 180 140 210 140 C240 140 260 130 280 120 C260 100 160 100 140 120 Z'/>",
-                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M140 120 C160 130 180 135 210 135 C240 135 260 130 280 120'/>",
-                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M105 470 H315'/>",
-                ),
-                "anchors": {
-                    "back": _stage_anchor(
-                        50,
-                        40,
-                        presets={
-                            "A4": calc_iso_box("A4", body_width_mm=600, svg_body_width=250, svg_collar_y=135, top_offset_mm=260, radius=20),
-                            "A3": calc_iso_box("A3", body_width_mm=600, svg_body_width=250, svg_collar_y=135, top_offset_mm=290, radius=21),
-                            "A2": calc_iso_box("A2", body_width_mm=600, svg_body_width=250, svg_collar_y=135, top_offset_mm=320, radius=22),
-                        },
-                    ),
-                    "sleeve_left": _stage_anchor(20, 45, modes={"a6": _stage_box(25, 48, 12, 18, 0, 16, "sleeve_patch")}),
-                    "sleeve_right": _stage_anchor(80, 45, modes={"a6": _stage_box(75, 48, 12, 18, 0, 16, "sleeve_patch")})
-                },
-            },
-        },
-    },
     "hoodie": {
         "default_fit": "regular",
         "regular": {
@@ -764,4 +670,714 @@ STAGE_PROFILES = {
             },
         },
     },
+    "tshirt": {
+        "default_fit": "regular",
+        "regular": {
+            "front": {
+                "view_box": "0 0 420 520",
+                "svg_markup": _svg_markup(
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M134 142 C105 149 83 162 69 182 C55 201 50 221 53 246 C55 261 65 272 79 275 C92 278 102 271 109 258 L131 188 C134 173 136 156 134 142 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M286 142 C315 149 337 162 351 182 C365 201 370 221 367 246 C365 261 355 272 341 275 C328 278 318 271 311 258 L289 188 C286 173 284 156 286 142 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--base' d='M143 142 C160 122 184 112 210 112 C236 112 260 122 277 142 L286 153 C294 162 298 174 297 187 L291 452 C290 472 274 488 254 488 H166 C146 488 130 472 129 452 L123 187 C122 174 126 162 134 153 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--top' d='M168 139 C176 128 191 121 210 121 C229 121 244 128 252 139 C244 151 229 157 210 157 C191 157 176 151 168 139 Z'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M165 140 C176 149 192 154 210 154 C228 154 244 149 255 140'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M139 475 H281'/>",
+                ),
+                "anchors": {
+                    "front": _stage_anchor(
+                        50,
+                        40.8,
+                        presets={
+                            "A6": _stage_box(50, 41.2, 15.4, 10.4, 0, 18, "panel"),
+                            "A5": _stage_box(50, 41.8, 21.2, 14.0, 0, 19, "panel"),
+                            "A4": _stage_box(50, 42.8, 28.6, 18.6, 0, 20, "panel"),
+                        },
+                    ),
+                    "sleeve_left": _stage_anchor(
+                        27.5,
+                        29.6,
+                        modes={
+                            "a6": _stage_box(27.2, 31.8, 9.8, 12.8, 13, 16, "sleeve_patch"),
+                            "full_text": _stage_box(25.1, 39.4, 7.4, 25.8, 14, 16, "sleeve_text"),
+                        },
+                    ),
+                    "sleeve_right": _stage_anchor(
+                        72.5,
+                        29.6,
+                        modes={
+                            "a6": _stage_box(72.8, 31.8, 9.8, 12.8, -13, 16, "sleeve_patch"),
+                            "full_text": _stage_box(74.9, 39.4, 7.4, 25.8, -14, 16, "sleeve_text"),
+                        },
+                    ),
+                },
+            },
+            "back": {
+                "view_box": "0 0 420 520",
+                "svg_markup": _svg_markup(
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M134 146 C106 154 85 168 72 188 C60 207 55 226 58 250 C60 265 70 276 83 279 C95 282 104 275 110 263 L129 190 C133 174 135 159 134 146 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M286 146 C314 154 335 168 348 188 C360 207 365 226 362 250 C360 265 350 276 337 279 C325 282 316 275 310 263 L291 190 C287 174 285 159 286 146 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--base' d='M143 146 C161 126 185 116 210 116 C235 116 259 126 277 146 L286 157 C293 166 297 178 296 191 L290 452 C289 472 273 488 253 488 H167 C147 488 131 472 130 452 L124 191 C123 178 127 166 134 157 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--top' d='M170 147 C177 140 190 136 210 136 C230 136 243 140 250 147 C242 156 229 160 210 160 C191 160 178 156 170 147 Z'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M170 150 C181 157 195 160 210 160 C225 160 239 157 250 150'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M140 475 H280'/>",
+                ),
+                "anchors": {
+                    "back": _stage_anchor(
+                        50,
+                        41.8,
+                        presets={
+                            "A4": _stage_box(50, 43.6, 23.6, 29.8, 0, 20, "panel"),
+                            "A3": _stage_box(50, 45.8, 29.2, 36.2, 0, 20, "panel"),
+                            "A2": _stage_box(50, 48.8, 35.2, 43.4, 0, 22, "panel"),
+                        },
+                    ),
+                    "sleeve_left": _stage_anchor(
+                        27.6,
+                        30.3,
+                        modes={
+                            "a6": _stage_box(27.2, 33.2, 9.8, 13.0, -12, 16, "sleeve_patch"),
+                            "full_text": _stage_box(25.4, 40.8, 7.3, 26.0, -13, 16, "sleeve_text"),
+                        },
+                    ),
+                    "sleeve_right": _stage_anchor(
+                        72.4,
+                        30.3,
+                        modes={
+                            "a6": _stage_box(72.8, 33.2, 9.8, 13.0, 12, 16, "sleeve_patch"),
+                            "full_text": _stage_box(74.6, 40.8, 7.3, 26.0, 13, 16, "sleeve_text"),
+                        },
+                    ),
+                },
+            },
+        },
+        "oversize": {
+            "front": {
+                "view_box": "0 0 420 520",
+                "svg_markup": _svg_markup(
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M118 168 C79 177 48 197 29 226 C13 251 8 278 12 308 C15 328 29 342 48 346 C64 349 79 342 89 328 L122 230 C128 208 129 188 118 168 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M302 168 C341 177 372 197 391 226 C407 251 412 278 408 308 C405 328 391 342 372 346 C356 349 341 342 331 328 L298 230 C292 208 291 188 302 168 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--base' d='M120 166 C148 140 179 128 210 128 C241 128 272 140 300 166 L316 183 C329 197 335 213 333 230 L323 454 C322 476 302 492 280 492 H140 C118 492 98 476 97 454 L87 230 C85 213 91 197 104 183 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--top' d='M160 160 C171 148 189 142 210 142 C231 142 249 148 260 160 C248 172 231 178 210 178 C189 178 172 172 160 160 Z'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M158 162 C171 172 189 176 210 176 C231 176 249 172 262 162'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M138 478 H282'/>",
+                ),
+                "anchors": {
+                    "front": _stage_anchor(
+                        50,
+                        41.8,
+                        presets={
+                            "A6": _stage_box(50, 42.6, 16.0, 10.8, 0, 18, "panel"),
+                            "A5": _stage_box(50, 43.4, 22.4, 14.8, 0, 19, "panel"),
+                            "A4": _stage_box(50, 44.6, 30.4, 19.8, 0, 21, "panel"),
+                        },
+                    ),
+                    "sleeve_left": _stage_anchor(
+                        24.8,
+                        34.4,
+                        modes={
+                            "a6": _stage_box(24.8, 37.2, 10.2, 13.4, 12, 16, "sleeve_patch"),
+                            "full_text": _stage_box(23.2, 46.6, 7.8, 28.8, 13, 16, "sleeve_text"),
+                        },
+                    ),
+                    "sleeve_right": _stage_anchor(
+                        75.2,
+                        34.4,
+                        modes={
+                            "a6": _stage_box(75.2, 37.2, 10.2, 13.4, -12, 16, "sleeve_patch"),
+                            "full_text": _stage_box(76.8, 46.6, 7.8, 28.8, -13, 16, "sleeve_text"),
+                        },
+                    ),
+                },
+            },
+            "back": {
+                "view_box": "0 0 420 520",
+                "svg_markup": _svg_markup(
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M118 172 C81 181 51 202 33 231 C18 255 13 282 17 312 C20 332 34 346 53 350 C69 353 83 346 93 332 L121 236 C127 214 128 194 118 172 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M302 172 C339 181 369 202 387 231 C402 255 407 282 403 312 C400 332 386 346 367 350 C351 353 337 346 327 332 L299 236 C293 214 292 194 302 172 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--base' d='M120 170 C148 145 179 134 210 134 C241 134 272 145 300 170 L315 187 C328 201 334 217 332 234 L322 454 C321 476 301 492 279 492 H141 C119 492 99 476 98 454 L88 234 C86 217 92 201 105 187 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--top' d='M162 170 C173 161 190 156 210 156 C230 156 247 161 258 170 C247 180 230 185 210 185 C190 185 173 180 162 170 Z'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M161 172 C173 180 190 184 210 184 C230 184 247 180 259 172'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M140 478 H280'/>",
+                ),
+                "anchors": {
+                    "back": _stage_anchor(
+                        50,
+                        42.8,
+                        presets={
+                            # На oversize худи спина шире: svg_body_width ~ 220
+                            "A4": calc_iso_box("A4", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=380, radius=20),
+                            "A3": calc_iso_box("A3", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=380, radius=21),
+                            "A2": calc_iso_box("A2", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=380, radius=22),
+                        },
+                    ),
+                    "sleeve_left": _stage_anchor(
+                        24.8,
+                        35.0,
+                        modes={
+                            "a6": _stage_box(24.8, 38.2, 10.2, 13.6, -11, 16, "sleeve_patch"),
+                            "full_text": _stage_box(23.5, 47.4, 7.6, 29.2, -12, 16, "sleeve_text"),
+                        },
+                    ),
+                    "sleeve_right": _stage_anchor(
+                        75.2,
+                        35.0,
+                        modes={
+                            "a6": _stage_box(75.2, 38.2, 10.2, 13.6, 11, 16, "sleeve_patch"),
+                            "full_text": _stage_box(76.5, 47.4, 7.6, 29.2, 12, 16, "sleeve_text"),
+                        },
+                    ),
+                },
+            },
+        },
+    },
+    "longsleeve": {
+        "default_fit": "default",
+        "default": {
+            "front": {
+                "view_box": "0 0 420 520",
+                "svg_markup": _svg_markup(
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M128 146 C96 158 71 181 55 214 C39 247 34 288 38 332 C40 354 53 370 73 374 C88 377 100 369 107 355 L134 194 C138 176 136 160 128 146 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M292 146 C324 158 349 181 365 214 C381 247 386 288 382 332 C380 354 367 370 347 374 C332 377 320 369 313 355 L286 194 C282 176 284 160 292 146 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--base' d='M140 145 C159 123 184 112 210 112 C236 112 261 123 280 145 L289 158 C298 168 302 182 301 196 L294 456 C293 475 278 490 259 490 H161 C142 490 127 475 126 456 L119 196 C118 182 122 168 131 158 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--top' d='M169 143 C177 132 192 126 210 126 C228 126 243 132 251 143 C243 153 228 158 210 158 C192 158 177 153 169 143 Z'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M168 145 C179 153 194 157 210 157 C226 157 241 153 252 145'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M141 476 H279'/>",
+                ),
+                "anchors": {
+                    "front": _stage_anchor(
+                        50,
+                        41.8,
+                        presets={
+                            "A6": _stage_box(50, 42.2, 15.7, 10.6, 0, 18, "panel"),
+                            "A5": _stage_box(50, 42.8, 21.6, 14.2, 0, 19, "panel"),
+                            "A4": _stage_box(50, 43.9, 29.2, 18.8, 0, 20, "panel"),
+                        },
+                    ),
+                    "sleeve_left": _stage_anchor(
+                        26.2,
+                        46.2,
+                        modes={
+                            "a6": _stage_box(26.8, 49.4, 10.1, 16.0, 18, 16, "sleeve_patch"),
+                            "full_text": _stage_box(23.8, 58.2, 8.0, 36.8, 17, 18, "sleeve_text"),
+                        },
+                    ),
+                    "sleeve_right": _stage_anchor(
+                        73.8,
+                        46.2,
+                        modes={
+                            "a6": _stage_box(73.2, 49.4, 10.1, 16.0, -18, 16, "sleeve_patch"),
+                            "full_text": _stage_box(76.2, 58.2, 8.0, 36.8, -17, 18, "sleeve_text"),
+                        },
+                    ),
+                },
+            },
+            "back": {
+                "view_box": "0 0 420 520",
+                "svg_markup": _svg_markup(
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M128 150 C97 163 72 187 57 220 C43 252 38 294 42 338 C45 359 57 375 76 379 C92 382 103 374 109 360 L131 198 C135 180 135 164 128 150 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--shade' d='M292 150 C323 163 348 187 363 220 C377 252 382 294 378 338 C375 359 363 375 344 379 C328 382 317 374 311 360 L289 198 C285 180 285 164 292 150 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--base' d='M140 150 C159 128 184 118 210 118 C236 118 261 128 280 150 L289 163 C297 173 301 186 300 199 L293 456 C292 475 277 490 258 490 H162 C143 490 128 475 127 456 L120 199 C119 186 123 173 131 163 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--top' d='M171 151 C178 144 191 140 210 140 C229 140 242 144 249 151 C241 160 228 164 210 164 C192 164 179 160 171 151 Z'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M171 153 C181 160 194 164 210 164 C226 164 239 160 249 153'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M142 476 H278'/>",
+                ),
+                "anchors": {
+                    "back": _stage_anchor(
+                        50,
+                        42.6,
+                        presets={
+                            "A4": _stage_box(50, 44.4, 24.4, 30.6, 0, 20, "panel"),
+                            "A3": _stage_box(50, 46.6, 30.0, 37.8, 0, 21, "panel"),
+                            "A2": _stage_box(50, 49.6, 36.2, 45.0, 0, 22, "panel"),
+                        },
+                    ),
+                    "sleeve_left": _stage_anchor(
+                        26.0,
+                        47.0,
+                        modes={
+                            "a6": _stage_box(26.0, 50.6, 10.1, 16.4, -17, 16, "sleeve_patch"),
+                            "full_text": _stage_box(23.5, 59.2, 8.0, 37.2, -16, 18, "sleeve_text"),
+                        },
+                    ),
+                    "sleeve_right": _stage_anchor(
+                        74.0,
+                        47.0,
+                        modes={
+                            "a6": _stage_box(74.0, 50.6, 10.1, 16.4, 17, 16, "sleeve_patch"),
+                            "full_text": _stage_box(76.5, 59.2, 8.0, 37.2, 16, 18, "sleeve_text"),
+                        },
+                    ),
+                },
+            },
+        },
+    },
+    "customer_garment": {
+        "default_fit": "default",
+        "default": {
+            "front": {
+                "view_box": "0 0 420 520",
+                "svg_markup": _svg_markup(
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--base' d='M145 136 C164 118 186 110 210 110 C234 110 256 118 275 136 L285 149 C295 160 300 174 300 189 V454 C300 474 284 490 264 490 H156 C136 490 120 474 120 454 V189 C120 174 125 160 135 149 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--top' d='M171 136 C179 125 193 119 210 119 C227 119 241 125 249 136 C241 147 227 153 210 153 C193 153 179 147 171 136 Z'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M170 138 C180 147 194 151 210 151 C226 151 240 147 250 138'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M141 476 H279'/>",
+                ),
+                "anchors": {
+                    "front": _stage_anchor(
+                        50,
+                        42.6,
+                        presets={
+                            "A6": _stage_box(50, 43.0, 15.4, 10.4, 0, 18, "panel"),
+                            "A5": _stage_box(50, 43.6, 21.4, 14.0, 0, 19, "panel"),
+                            "A4": _stage_box(50, 44.8, 28.8, 18.6, 0, 20, "panel"),
+                        },
+                    ),
+                    "custom": _stage_anchor(
+                        34.5,
+                        62.0,
+                        default=_stage_box(35.5, 63.0, 23.5, 15.5, -8, 18, "custom_panel"),
+                    ),
+                },
+            },
+            "back": {
+                "view_box": "0 0 420 520",
+                "svg_markup": _svg_markup(
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--base' d='M145 142 C164 124 186 116 210 116 C234 116 256 124 275 142 L285 155 C295 166 300 180 300 195 V454 C300 474 284 490 264 490 H156 C136 490 120 474 120 454 V195 C120 180 125 166 135 155 Z'/>",
+                    "<path class='cp-stage-svg__part cp-stage-svg__part--top' d='M172 145 C179 138 193 134 210 134 C227 134 241 138 248 145 C240 154 227 158 210 158 C193 158 180 154 172 145 Z'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M171 147 C181 154 194 158 210 158 C226 158 239 154 249 147'/>",
+                    "<path class='cp-stage-svg__detail cp-stage-svg__detail--line' d='M141 476 H279'/>",
+                ),
+                "anchors": {
+                    "back": _stage_anchor(
+                        50,
+                        43.4,
+                        presets={
+                            "A4": _stage_box(50, 45.2, 23.8, 30.2, 0, 20, "panel"),
+                            "A3": _stage_box(50, 47.6, 29.4, 37.2, 0, 21, "panel"),
+                            "A2": _stage_box(50, 50.8, 35.8, 44.4, 0, 22, "panel"),
+                        },
+                    ),
+                    "custom": _stage_anchor(
+                        65.5,
+                        62.0,
+                        default=_stage_box(64.5, 63.0, 23.5, 15.5, 8, 18, "custom_panel"),
+                    ),
+                },
+            },
+        },
+    },
+}
+
+
+def _coerce_int(value, default: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def _coerce_price(value):
+    if value in (None, ""):
+        return None
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return None
+
+
+def _allowed_values(items):
+    return {item["value"] for item in items}
+
+
+def build_custom_print_config(*, submit_url: str, safe_exit_url: str, add_to_cart_url: str = "") -> dict:
+    return {
+        "version": 2,
+        "storage_key": CUSTOM_PRINT_DRAFT_STORAGE_KEY,
+        "submit_url": submit_url,
+        "safe_exit_url": safe_exit_url,
+        "add_to_cart_url": add_to_cart_url,
+        "telegram_manager_url": TELEGRAM_MANAGER_URL,
+        "quick_start_modes": deepcopy(QUICK_START_MODES),  # legacy
+        "modes": deepcopy(CLIENT_MODES),
+        "starter_styles": deepcopy(STARTER_STYLES),  # legacy
+        "artwork_services": deepcopy(ARTWORK_SERVICES),
+        "triage_statuses": deepcopy(TRIAGE_STATUSES),
+        "size_modes": deepcopy(SIZE_MODES),
+        "contact_channels": deepcopy(CONTACT_CHANNELS),
+        "zone_labels": deepcopy(ZONE_LABELS),
+        "product_labels": deepcopy(PRODUCT_LABELS),
+        "products": deepcopy(PRODUCT_MATRIX),
+        "gift_service": deepcopy(GIFT_SERVICE),
+        "b2b_tier": deepcopy(B2B_TIER),
+        "size_grid": list(SIZE_GRID),
+        "progress_steps": deepcopy(PROGRESS_STEPS),
+        "front_size_presets": deepcopy(FRONT_SIZE_PRESETS),
+        "front_size_default": FRONT_SIZE_DEFAULT,
+        "back_size_presets": deepcopy(BACK_SIZE_PRESETS),
+        "back_size_default": BACK_SIZE_DEFAULT,
+        "sleeve_mode_options": deepcopy(SLEEVE_MODE_OPTIONS),
+        "sleeve_mode_default": SLEEVE_MODE_DEFAULT,
+        "stage_meta": deepcopy(STAGE_META),
+        "stage_profiles": deepcopy(STAGE_PROFILES),
+        "defaults": normalize_custom_print_snapshot({}),
     }
+
+
+def _expand_print_placements(snapshot: dict) -> list[dict]:
+    zones = list((snapshot.get("print") or {}).get("zones") or [])
+    zone_options = (snapshot.get("print") or {}).get("zone_options") or {}
+    front_sizes = {item["value"] for item in FRONT_SIZE_PRESETS}
+    back_sizes = {item["value"] for item in BACK_SIZE_PRESETS}
+    sleeve_modes = {item["value"] for item in SLEEVE_MODE_OPTIONS}
+    entries = []
+
+    for index, zone in enumerate(zones):
+        options = zone_options.get(zone) if isinstance(zone_options, dict) else {}
+        if not isinstance(options, dict):
+            options = {}
+
+        if zone == "sleeve":
+            left_enabled = bool(options.get("left_enabled"))
+            right_enabled = bool(options.get("right_enabled"))
+            if not left_enabled and not right_enabled:
+                left_enabled = True
+            for side in ("left", "right"):
+                enabled = left_enabled if side == "left" else right_enabled
+                if not enabled:
+                    continue
+                mode = str(options.get(f"{side}_mode") or SLEEVE_MODE_DEFAULT).strip()
+                if mode not in sleeve_modes:
+                    mode = SLEEVE_MODE_DEFAULT
+                text = str(options.get(f"{side}_text") or "").strip()
+                entry = {
+                    "zone": "sleeve",
+                    "placement_key": f"sleeve_{side}",
+                    "label": ZONE_LABELS.get(f"sleeve_{side}", f"sleeve_{side}"),
+                    "side": side,
+                    "mode": mode,
+                    "text": text,
+                    "top_level_index": index,
+                }
+                scene_preview = options.get(f"{side}_scene_preview")
+                if isinstance(scene_preview, dict) and scene_preview:
+                    entry["scene_preview"] = deepcopy(scene_preview)
+                entries.append(entry)
+            continue
+
+        entry = {
+            "zone": zone,
+            "placement_key": zone,
+            "label": ZONE_LABELS.get(zone, zone),
+            "top_level_index": index,
+        }
+        size_preset = str(options.get("size_preset") or "").upper()
+        if zone == "front" and size_preset in front_sizes:
+            entry["size_preset"] = size_preset
+        elif zone == "back" and size_preset in back_sizes:
+            entry["size_preset"] = size_preset
+        scene_preview = options.get("scene_preview")
+        if isinstance(scene_preview, dict) and scene_preview:
+            entry["scene_preview"] = deepcopy(scene_preview)
+        entries.append(entry)
+
+    return entries
+
+
+def build_placement_specs(snapshot: dict) -> list[dict]:
+    specs = []
+    artwork_file_index = 0
+    for expanded_index, entry in enumerate(_expand_print_placements(snapshot)):
+        zone = entry["zone"]
+        requires_artwork_file = not (zone == "sleeve" and (entry.get("mode") or SLEEVE_MODE_DEFAULT) == "full_text")
+        spec = {
+            "zone": zone,
+            "placement_key": entry.get("placement_key") or zone,
+            "label": entry.get("label") or ZONE_LABELS.get(zone, zone),
+            "variant": "standard" if expanded_index == 0 and zone in {"front", "back"} else "estimate",
+            "is_free": expanded_index == 0,
+            "format": "standard" if zone in {"front", "back"} else "custom",
+            "size": "standard" if zone in {"front", "back"} else "manager_review",
+            "attachment_role": "design",
+            "requires_artwork_file": requires_artwork_file,
+        }
+        if requires_artwork_file:
+            spec["file_index"] = artwork_file_index
+            artwork_file_index += 1
+        if "size_preset" in entry:
+            spec["size_preset"] = entry["size_preset"]
+            spec["size"] = entry["size_preset"]
+        if zone == "sleeve":
+            spec["side"] = entry.get("side")
+            spec["mode"] = entry.get("mode") or SLEEVE_MODE_DEFAULT
+            if spec["mode"] == "full_text":
+                spec["format"] = "text_vertical"
+                spec["size"] = "full_sleeve"
+            else:
+                spec["size"] = "A6"
+            if entry.get("text"):
+                spec["text"] = entry["text"]
+        if "scene_preview" in entry:
+            spec["scene_preview"] = deepcopy(entry["scene_preview"])
+        specs.append(spec)
+    return specs
+
+
+def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
+    raw_snapshot = raw_snapshot or {}
+
+    quick_start_mode = (raw_snapshot.get("quick_start_mode") or "start_blank").strip()
+    if quick_start_mode not in _allowed_values(QUICK_START_MODES):
+        quick_start_mode = "start_blank"
+
+    mode = (raw_snapshot.get("mode") or "personal").strip()
+    if mode not in {"personal", "brand"}:
+        mode = "personal"
+
+    product_payload = raw_snapshot.get("product") or {}
+    product_type = (product_payload.get("type") or "hoodie").strip()
+    if product_type not in PRODUCT_MATRIX:
+        product_type = "hoodie"
+    product_config = PRODUCT_MATRIX[product_type]
+
+    fit = (product_payload.get("fit") or product_config.get("default_fit") or "").strip()
+    fit_choices = {item["value"] for item in product_config.get("fits") or []}
+    if fit_choices and fit not in fit_choices:
+        fit = product_config.get("default_fit") or next(iter(fit_choices))
+    if not fit_choices:
+        fit = ""
+
+    fabric_choices = {
+        item["value"]
+        for item in (product_config.get("fabrics") or {}).get(fit or product_config.get("default_fit") or "", [])
+    }
+    fabric = (product_payload.get("fabric") or product_config.get("default_fabric") or "").strip()
+    if fabric_choices and fabric not in fabric_choices:
+        fabric = next(iter(fabric_choices))
+    if not fabric_choices:
+        fabric = product_config.get("default_fabric", "")
+
+    color_choices = {item["value"] for item in product_config.get("colors") or []}
+    color = (product_payload.get("color") or product_config.get("default_color") or "").strip()
+    if color_choices and color not in color_choices:
+        color = product_config.get("default_color") or next(iter(color_choices))
+
+    print_payload = raw_snapshot.get("print") or {}
+    available_zones = set(product_config.get("zones") or [])
+    zones = []
+    for zone in print_payload.get("zones") or []:
+        if zone in available_zones and zone not in zones:
+            zones.append(zone)
+
+    zone_options = {}
+    raw_zone_options = print_payload.get("zone_options") or {}
+    allowed_front_sizes = {item["value"] for item in FRONT_SIZE_PRESETS}
+    allowed_back_sizes = {item["value"] for item in BACK_SIZE_PRESETS}
+    allowed_sleeve_modes = {item["value"] for item in SLEEVE_MODE_OPTIONS}
+    if isinstance(raw_zone_options, dict):
+        for zone, raw_options in raw_zone_options.items():
+            if zone not in available_zones or zone not in zones or not isinstance(raw_options, dict):
+                continue
+            normalized_options = {}
+            if zone == "front":
+                size_preset = str(raw_options.get("size_preset") or "").upper()
+                if size_preset not in allowed_front_sizes:
+                    size_preset = FRONT_SIZE_DEFAULT
+                normalized_options["size_preset"] = size_preset
+            elif zone == "back":
+                size_preset = str(raw_options.get("size_preset") or "").upper()
+                if size_preset not in allowed_back_sizes:
+                    size_preset = BACK_SIZE_DEFAULT
+                normalized_options["size_preset"] = size_preset
+            elif zone == "sleeve":
+                left_enabled = bool(raw_options.get("left_enabled"))
+                right_enabled = bool(raw_options.get("right_enabled"))
+                if raw_options.get("mode") and "left_mode" not in raw_options:
+                    left_enabled = True
+                    raw_options = {
+                        **raw_options,
+                        "left_mode": raw_options.get("mode"),
+                        "left_text": raw_options.get("text"),
+                    }
+                if not left_enabled and not right_enabled:
+                    left_enabled = True
+                normalized_options["left_enabled"] = left_enabled
+                normalized_options["right_enabled"] = right_enabled
+                for side in ("left", "right"):
+                    mode = str(raw_options.get(f"{side}_mode") or SLEEVE_MODE_DEFAULT).strip()
+                    if mode not in allowed_sleeve_modes:
+                        mode = SLEEVE_MODE_DEFAULT
+                    normalized_options[f"{side}_mode"] = mode
+                    normalized_options[f"{side}_text"] = str(raw_options.get(f"{side}_text") or "").strip()[:120]
+                    scene_preview = raw_options.get(f"{side}_scene_preview")
+                    if isinstance(scene_preview, dict) and scene_preview:
+                        normalized_options[f"{side}_scene_preview"] = deepcopy(scene_preview)
+            scene_preview = raw_options.get("scene_preview")
+            if zone in {"front", "back"} and isinstance(scene_preview, dict) and scene_preview:
+                normalized_options["scene_preview"] = deepcopy(scene_preview)
+            if normalized_options:
+                zone_options[zone] = normalized_options
+    if "front" in zones and "front" not in zone_options:
+        zone_options["front"] = {"size_preset": FRONT_SIZE_DEFAULT}
+    if "back" in zones and "back" not in zone_options:
+        zone_options["back"] = {"size_preset": BACK_SIZE_DEFAULT}
+    if "sleeve" in zones and "sleeve" not in zone_options:
+        zone_options["sleeve"] = {
+            "left_enabled": True,
+            "right_enabled": False,
+            "left_mode": SLEEVE_MODE_DEFAULT,
+            "left_text": "",
+            "right_mode": SLEEVE_MODE_DEFAULT,
+            "right_text": "",
+        }
+
+    add_on_choices = {item["value"] for item in product_config.get("add_ons") or []}
+    add_ons = []
+    raw_add_ons = print_payload.get("add_ons") or []
+    for add_on in raw_add_ons:
+        # Legacy compat: old hoodie drafts with inside_label/hem_tag/grommets → collapse to lacing.
+        if product_type == "hoodie" and add_on in {"inside_label", "hem_tag", "grommets"}:
+            add_on = "lacing"
+        if add_on in add_on_choices and add_on not in add_ons:
+            add_ons.append(add_on)
+
+    artwork_payload = raw_snapshot.get("artwork") or {}
+    service_kind = (artwork_payload.get("service_kind") or "").strip()
+    if service_kind not in SERVICE_LABELS:
+        service_kind = ""
+
+    files = []
+    for index, item in enumerate(artwork_payload.get("files") or []):
+        if not isinstance(item, dict):
+            continue
+        zone = item.get("zone")
+        if zone not in available_zones:
+            zone = zones[min(index, len(zones) - 1)] if zones else ""
+        status = (item.get("status") or "").strip()
+        if status not in TRIAGE_LABELS:
+            status = "needs-review"
+        files.append(
+            {
+                "name": str(item.get("name") or "").strip(),
+                "zone": zone,
+                "status": status,
+                "role": str(item.get("role") or "design").strip() or "design",
+            }
+        )
+
+    triage_status = (artwork_payload.get("triage_status") or "").strip()
+    if triage_status not in TRIAGE_LABELS:
+        if service_kind == "ready":
+            triage_status = "print-ready" if files else "needs-review"
+        elif service_kind == "adjust":
+            triage_status = "needs-work"
+        elif files:
+            triage_status = "reference-only"
+        else:
+            triage_status = "needs-review"
+
+    order_payload = raw_snapshot.get("order") or {}
+    size_mode = (order_payload.get("size_mode") or "single").strip()
+    if size_mode not in _allowed_values(SIZE_MODES):
+        size_mode = "single"
+
+    raw_size_breakdown = order_payload.get("size_breakdown") or {}
+    if not isinstance(raw_size_breakdown, dict):
+        raw_size_breakdown = {}
+    size_breakdown = {}
+    for key in SIZE_GRID:
+        try:
+            qty = int(raw_size_breakdown.get(key, 0) or 0)
+        except (TypeError, ValueError):
+            qty = 0
+        if qty < 0:
+            qty = 0
+        size_breakdown[key] = qty
+
+    gift_payload = order_payload.get("gift")
+    if isinstance(gift_payload, dict):
+        gift_enabled = bool(gift_payload.get("enabled"))
+        gift_text = str(gift_payload.get("text") or "").strip()
+    else:
+        gift_enabled = bool(gift_payload)
+        gift_text = str(order_payload.get("gift_text") or "").strip()
+
+    contact_payload = raw_snapshot.get("contact") or {}
+    channel = (contact_payload.get("channel") or "").strip()
+    if channel not in _allowed_values(CONTACT_CHANNELS):
+        channel = ""
+
+    pricing_payload = raw_snapshot.get("pricing") or {}
+    notes_payload = raw_snapshot.get("notes") or {}
+    current_step = str(((raw_snapshot.get("ui") or {}).get("current_step") or "mode")).strip() or "mode"
+
+    submission_type = (raw_snapshot.get("submission_type") or "lead").strip()
+    if submission_type not in {"lead", "cart", "safe_exit"}:
+        submission_type = "lead"
+
+    return {
+        "version": 2,
+        "submission_type": submission_type,
+        "quick_start_mode": quick_start_mode,
+        "mode": mode,
+        "starter_style": str(raw_snapshot.get("starter_style") or "").strip(),
+        "product": {
+            "type": product_type,
+            "fit": fit,
+            "fabric": fabric,
+            "color": color,
+        },
+        "print": {
+            "zones": zones,
+            "add_ons": add_ons,
+            "placement_note": str(print_payload.get("placement_note") or "").strip(),
+            "zone_options": zone_options,
+        },
+        "artwork": {
+            "service_kind": service_kind,
+            "triage_status": triage_status,
+            "files": files,
+        },
+        "order": {
+            "quantity": _coerce_int(order_payload.get("quantity"), 1),
+            "size_mode": size_mode,
+            "sizes_note": str(order_payload.get("sizes_note") or "").strip(),
+            "size_breakdown": size_breakdown,
+            "gift": gift_enabled,
+            "gift_text": gift_text,
+        },
+        "contact": {
+            "channel": channel,
+            "name": str(contact_payload.get("name") or "").strip(),
+            "value": str(contact_payload.get("value") or "").strip(),
+        },
+        "pricing": {
+            "base_price": _coerce_price(pricing_payload.get("base_price")),
+            "design_price": _coerce_price(pricing_payload.get("design_price")),
+            "addons_price": _coerce_price(pricing_payload.get("addons_price")),
+            "gift_price": _coerce_price(pricing_payload.get("gift_price")),
+            "discount_percent": _coerce_price(pricing_payload.get("discount_percent")),
+            "discount_amount": _coerce_price(pricing_payload.get("discount_amount")),
+            "b2b_discount_per_unit": _coerce_price(pricing_payload.get("b2b_discount_per_unit")),
+            "unit_total": _coerce_price(pricing_payload.get("unit_total")),
+            "final_total": _coerce_price(pricing_payload.get("final_total")),
+            "estimate_required": bool(pricing_payload.get("estimate_required")),
+            "estimate_reason": str(pricing_payload.get("estimate_reason") or "").strip(),
+        },
+        "notes": {
+            "brand_name": str(notes_payload.get("brand_name") or "").strip(),
+            "brief": str(notes_payload.get("brief") or "").strip(),
+            "garment_note": str(notes_payload.get("garment_note") or "").strip(),
+        },
+        "ui": {
+            "current_step": current_step,
+        },
+    }
+
+
+def compute_cart_label(snapshot: dict) -> str:
+    product_type = ((snapshot.get("product") or {}).get("type") or "hoodie").strip()
+    label = PRODUCT_LABELS.get(product_type, product_type or "Кастом")
+    zones = [ZONE_LABELS.get(z, z) for z in ((snapshot.get("print") or {}).get("zones") or [])]
+    suffix = f" · {', '.join(zones)}" if zones else ""
+    return f"Кастом · {label}{suffix}"
