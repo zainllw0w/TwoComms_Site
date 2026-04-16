@@ -3546,3 +3546,34 @@
   100% { box-shadow: 0 0 20px rgba(255, 140, 0, 0.6), inset 0 0 15px rgba(255, 60, 100, 0.2); border-color: rgba(255, 140, 0, 0.9) !important; }
 }
 
+
+/* ====== FIRE SVG ICON & AUTO-INCLUDED ADDONS ====== */
+.cp-fire-icon {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 6px;
+  margin-bottom: 2px;
+  width: 16px;
+  height: 16px;
+  color: #ff8c00;
+  animation: fireFlicker 1.5s infinite alternate ease-in-out;
+}
+@keyframes fireFlicker {
+  0% { transform: scale(1); opacity: 0.8; filter: drop-shadow(0 0 2px #ff8c00); }
+  100% { transform: scale(1.2); opacity: 1; filter: drop-shadow(0 0 8px #ff3c64); color: #ff3c64; }
+}
+
+.cp-addon-card.is-auto-included {
+  cursor: default;
+  /* Prevent toggle hover effects, freeze it in active state visually */
+}
+.cp-addon-card.is-auto-included:hover {
+  transform: none;
+}
+.cp-addon-card.is-auto-included .cp-addon-card-badge {
+  background: rgba(215, 164, 80, 0.2);
+  color: var(--cp-accent);
+}
+.cp-addon-card.is-auto-included {
+  pointer-events: none;
+}
