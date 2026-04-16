@@ -300,8 +300,7 @@ PRODUCT_MATRIX = {
                 {
                     "value": "thermo", "label": "Термо", "price_delta": 500, "included_in_base": False,
                     "info_title": "Футболка з WOW-ефектом❤️",
-                    "info_desc": "Реагує на тепло тіла та змінює колір.
-Ідеальна для образів, які привертають увагу.",
+                    "info_desc": "Реагує на тепло тіла та змінює колір.\nІдеальна для образів, які привертають увагу.",
                     "colors": [
                         {"value": "thermo_green", "label": "Зелений (Термо)", "hex": "#8ba38d"},
                         {"value": "thermo_pink", "label": "Рожевий (Термо)", "hex": "#e78ba7"}
@@ -358,8 +357,7 @@ PRODUCT_MATRIX = {
                 {
                     "value": "thermo", "label": "Термо", "price_delta": 500, "included_in_base": False,
                     "info_title": "Футболка з WOW-ефектом❤️",
-                    "info_desc": "Реагує на тепло тіла та змінює колір.
-Ідеальна для образів, які привертають увагу.",
+                    "info_desc": "Реагує на тепло тіла та змінює колір.\nІдеальна для образів, які привертають увагу.",
                     "colors": [
                         {"value": "thermo_green", "label": "Зелений (Термо)", "hex": "#8ba38d"},
                         {"value": "thermo_pink", "label": "Рожевий (Термо)", "hex": "#e78ba7"}
