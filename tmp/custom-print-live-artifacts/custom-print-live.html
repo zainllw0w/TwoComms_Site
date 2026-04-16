@@ -1,0 +1,2442 @@
+
+
+
+
+
+<!DOCTYPE html>
+<html lang='uk' data-bs-theme='dark' data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
+  data-meta-pixel-id="823958313630148" 
+  data-tiktok-pixel-id="D43L7DBC77UA61AHLTVG">
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <meta name="csrf-token" content="HK6h3NPfFeGzRo1yCBstkrhnynDbBcf9GyZ8gGtBdie9Kb8WM65fEHHUsXahHeqb">
+
+  <!-- Preload критических шрифтов (CSS loads via compress block + media hack) -->
+  <link rel="preload" href="/static/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/Inter-Bold.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- Font Awesome: non-blocking load (icons not critical for first paint) -->
+  <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css" media="print" onload="this.media='all'">
+  <noscript>
+    <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
+  </noscript>
+
+  <!-- Расширенные SEO Meta Tags -->
+  
+  <title>DTF-конфігуратор кастомного одягу — TwoComms</title>
+  <meta name="robots"
+    content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="description"
+    content="Кастомний DTF-конфігуратор для худі, футболок, лонгслівів і свого одягу. Зберіть виріб, зони друку, файл або ідею і передайте весь контекст менеджеру без хаосу.">
+  <meta name="keywords"
+    content="dtf друк, кастомний принт, друк на худі, друк на футболках, кастомний одяг, twocomms">
+  <link rel="canonical"
+    href="https://twocomms.shop/custom-print/">
+  
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url"
+    content="https://twocomms.shop/custom-print/">
+  <meta property="og:title" content="TwoComms — Стріт & Мілітарі Одяг">
+  <meta property="og:description"
+    content="TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.">
+  <meta property="og:image"
+    content="https://twocomms.shop/static/img/logo.svg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="TwoComms">
+  <meta property="og:locale" content="uk_UA">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url"
+    content="https://twocomms.shop/custom-print/">
+  <meta property="twitter:title" content="TwoComms — Стріт & Мілітарі Одяг">
+  <meta property="twitter:description"
+    content="TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.">
+  <meta property="twitter:image"
+    content="https://twocomms.shop/static/img/logo.svg">
+  
+
+  <!-- Performance and Caching -->
+  <meta http-equiv="Cache-Control" content="public, max-age=3600">
+  <meta http-equiv="Expires" content="Вт, 14 Кві 2026 17:49:54 GMT">
+
+  <!-- CDN preconnect for Bootstrap -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
+  <!-- Preload only critical JS modules - others loaded on demand -->
+  <link rel="modulepreload" href="/static/js/modules/shared.js">
+
+  <!-- Bootstrap CSS: non-blocking load via media="print" hack -->
+  <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'
+    media="print" onload="this.media='all'">
+  <noscript>
+    <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'>
+  </noscript>
+
+
+
+  <!-- PWA Support -->
+  <link rel="manifest" href="/static/site.webmanifest">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TwoComms">
+
+  <!-- Favicon and Icons -->
+  <link rel='apple-touch-icon' sizes='180x180' href='/static/img/favicon-180x180.png'>
+  <link rel='icon' type='image/png' sizes='32x32' href='/static/img/favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='192x192' href='/static/img/favicon-192x192.png'>
+  <link rel='icon' type='image/png' sizes='512x512' href='/static/img/favicon-512x512.png'>
+  <meta name='application-name' content='TwoComms'>
+  <meta name='theme-color' content='#111111'>
+  <meta name='msapplication-TileColor' content='#111111'>
+  <meta name='msapplication-TileImage' content='/static/img/favicon-180x180.png'>
+  <meta name='msapplication-square512x512logo' content="/static/img/favicon-512x512.png">
+  <link rel='mask-icon' href='/static/img/logo.svg' color='#7c3aed'>
+  <link rel='icon' href='/static/img/favicon.ico' sizes='any' type='image/x-icon'>
+
+  <!-- Early performance hint: enable lite mode for mobile/save-data/low-memory/low-CPU -->
+  <script>(function () {
+      try {
+        var docEl = document.documentElement;
+        var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        var saveData = connection && connection.saveData;
+        var deviceMemory = Number(navigator.deviceMemory || 0);
+        var cpuCores = Number(navigator.hardwareConcurrency || 0);
+        var lowRam = deviceMemory && deviceMemory > 0 && deviceMemory <= 2;
+        var lowCPU = cpuCores && cpuCores <= 2;
+        var isMobile = window.innerWidth < 768;
+        var storedMode = null;
+        try {
+          storedMode = window.localStorage ? localStorage.getItem('twc-effects-mode') : null;
+        } catch (_) { storedMode = null; }
+        // Уважаем ручной "high", но не фиксируем "lite", если устройство мощное
+        var forceLite = (storedMode === 'lite') && (saveData || lowRam || lowCPU);
+        var forceHigh = storedMode === 'high';
+        // Auto perf-lite: только при реальных ограничениях, а не просто из-за ширины
+        // (иначе на мощных телефонах отключаются эффекты)
+        var needsLite = saveData || lowRam || lowCPU;
+        if (forceLite || (!forceHigh && needsLite)) {
+          docEl.classList.remove('effects-high');
+          docEl.classList.add('effects-lite');
+          docEl.classList.add('perf-lite');
+        } else {
+          docEl.classList.remove('effects-lite');
+          docEl.classList.add('effects-high');
+        }
+      } catch (e) { }
+    })();</script>
+
+  <!-- Critical CSS inline для быстрой отрисовки с CLS исправлениями -->
+  <style>
+    /* Critical fonts - inline @font-face to match preloaded fonts */
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('/static/fonts/Inter-Regular.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url('/static/fonts/Inter-Bold.woff2') format('woff2');
+    }
+    
+    /* Critical CSS - минимальные стили для первой отрисовки */
+    body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #ffffff;
+      font-size-adjust: 0.52;
+    }
+
+    .navbar {
+      position: fixed;
+      /* Всегда на верху экрана */
+      top: 0;
+      /* Позиция сверху */
+      left: 0;
+      /* От левого края */
+      right: 0;
+      /* До правого края */
+      z-index: 1030;
+      /* Поверх контента */
+      width: 100%;
+      /* На всю ширину */
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      height: 70px;
+      /* Фиксированная высота */
+      contain: layout;
+      /* Изолируем layout */
+    }
+
+    /* Отступ сверху для main, чтобы контент не был под navbar */
+    main.container-xxl {
+      padding-top: calc(70px + 1rem) !important;
+      /* Высота navbar + оригинальный padding */
+    }
+
+    .hero-section {
+      min-height: 60vh;
+      /* Уменьшаем высоту hero-панели */
+      height: 60vh;
+      /* Фиксированная высота */
+      max-height: 60vh;
+      /* Предотвращаем переполнение */
+      display: flex;
+      align-items: center;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+      position: relative;
+      contain: layout size;
+      /* Изолируем layout и размеры */
+      overflow: hidden;
+    }
+
+    .hero-content {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .hero-container {
+      --hero-gutter-x: 1.5rem;
+      --hero-gutter-y: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: calc(-1 * var(--hero-gutter-y));
+      margin-right: calc(-.5 * var(--hero-gutter-x));
+      margin-left: calc(-.5 * var(--hero-gutter-x));
+    }
+
+    .hero-container>[class*='col-'] {
+      flex: 0 0 auto;
+      padding-right: calc(var(--hero-gutter-x) * .5);
+      padding-left: calc(var(--hero-gutter-x) * .5);
+      padding-top: var(--hero-gutter-y);
+      padding-bottom: 0;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    @media (min-width: 768px) {
+      .hero-container>.col-md-6 {
+        width: 50%;
+        max-width: 50%;
+      }
+    }
+
+    .hero-text-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      min-height: clamp(320px, 28vw, 420px);
+    }
+
+    /* Critical styles for LCP element (hero-title-main) - added 2025-12-08 */
+    .hero-section .hero-title-main {
+      font-size: 3.5rem;
+      font-weight: 700;
+      color: #ffffff;
+      text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      font-size-adjust: 0.52;
+    }
+    
+    .hero-section .hero-title-accent {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a855f7, #8b5cf6, #7c3aed);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-size-adjust: 0.52;
+    }
+    
+    .hero-section .hero-subtitle {
+      font-size: 1.125rem;
+      color: rgba(255, 255, 255, 0.8);
+      font-weight: 400;
+      font-size-adjust: 0.52;
+    }
+    
+    /* Responsive hero styles */
+    @media (max-width: 768px) {
+      .hero-section .hero-title-main {
+        font-size: 2.5rem;
+      }
+      .hero-section .hero-title-accent {
+        font-size: 1.8rem;
+      }
+      .hero-section .hero-subtitle {
+        font-size: 1rem;
+      }
+    }
+
+    main.container-xxl {
+      min-height: 100vh;
+      /* Предотвращаем смещения при загрузке контента */
+      position: relative;
+      contain: layout;
+      /* Изолируем layout от внешних влияний */
+    }
+
+    .hero-particles {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      contain: layout;
+      /* Изолируем layout */
+      z-index: 1;
+    }
+
+    .hero-particles .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      contain: layout;
+      /* Изолируем layout */
+    }
+
+    .loading {
+      opacity: 0.7;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 15px;
+    }
+
+    /* Предотвращаем смещения при загрузке изображений */
+    img {
+      height: auto;
+      max-width: 100%;
+      contain: layout;
+      /* Изолируем layout */
+    }
+
+    /* Фиксируем стартовые состояния панелей и ratio-блоков без ожидания внешнего CSS */
+    .user-panel,
+    #mini-cart-panel-mobile,
+    #user-panel-mobile {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+
+    .user-panel.show,
+    #mini-cart-panel-mobile.show,
+    #user-panel-mobile.show {
+      display: block !important;
+      visibility: visible !important;
+      pointer-events: auto !important;
+    }
+
+    @media (min-width: 768px) {
+
+      #mini-cart-panel-mobile,
+      #user-panel-mobile {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .hero-text-section {
+        min-height: 340px;
+      }
+    }
+
+    .ratio {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ratio picture,
+    .ratio img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .hero-logo-image {
+      aspect-ratio: 1 / 1;
+      max-width: 100%;
+      height: auto;
+      object-fit: contain;
+      contain: layout;
+    }
+
+    picture {
+      display: block;
+      contain: layout;
+    }
+
+    /* Предотвращаем смещения при загрузке скриптов */
+    .script-loading {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .script-loaded {
+      opacity: 1;
+    }
+
+    /* Доп. экономия для perf-lite: убираем тяжелые фоновые слои */
+    .perf-lite body:before,
+    .perf-lite body:after {
+      display: none !important;
+      content: none !important;
+    }
+
+    .perf-lite .hero-section {
+      background: #0a0a0a !important;
+      box-shadow: none !important;
+    }
+
+    /* Hero logo показываем в perf-lite режиме (статичный, низкая нагрузка) */
+    .perf-lite .hero-logo-bg {
+      animation: none !important; /* Отключаем только анимацию */
+    }
+    
+    /* Частицы скрываем в perf-lite т.к. они анимированы */
+    .perf-lite .hero-particles .particle {
+      display: none !important;
+    }
+
+    /* Balanced perf-lite: disable animations but keep static visuals */
+    /* Hide only particles (heavy animation), keep floating logos visible */
+    .perf-lite .featured-particles,
+    .perf-lite .dark-particles,
+    .perf-lite .toggle-btn-ripple,
+    .perf-lite .cart-sparks-container,
+    .perf-lite .sparks-container {
+      display: none !important;
+    }
+    
+    /* Keep glow, gradient and floating logo elements but disable their animations */
+    .perf-lite .featured-glow,
+    .perf-lite .dark-glow,
+    .perf-lite .featured-gradient-1,
+    .perf-lite .featured-gradient-2,
+    .perf-lite .dark-gradient-1,
+    .perf-lite .dark-gradient-2,
+    .perf-lite .card-glow-dark,
+    .perf-lite .toggle-btn-glow,
+    .perf-lite .floating-logo,
+    .perf-lite .featured-floating-logos,
+    .perf-lite .floating-logos {
+      animation: none !important;
+    }
+    
+    /* Static position for floating logos in perf-lite (no float animation) */
+    .perf-lite .floating-logo {
+      opacity: 0.15 !important;
+    }
+
+    /* Keep beautiful backgrounds for sections - don't replace with plain color */
+    /* .featured-unified-block and .categories-unified-block keep their gradients */
+
+    /* Disable animations globally but keep transitions for hover effects */
+    .perf-lite * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+    
+    /* Allow short transitions for hover feedback */
+    .perf-lite a,
+    .perf-lite button,
+    .perf-lite .card {
+      transition-duration: 0.15s !important;
+    }
+    
+    /* Critical product card styles to prevent CLS */
+    .card.product,
+    .product-card {
+      background: rgba(20, 20, 20, 0.95);
+      border-radius: 16px;
+      overflow: hidden;
+      contain: layout style paint;
+    }
+    
+    .ratio-product {
+      aspect-ratio: 4 / 5;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card-body {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      min-height: 120px;
+    }
+    
+    /* Bottom nav placeholder */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: rgba(10, 10, 10, 0.95);
+      z-index: 1030;
+      contain: layout;
+    }
+    
+    @media (min-width: 768px) {
+      .bottom-nav {
+        display: none;
+      }
+    }
+    
+    /* Reveal animation defaults - show immediately if perf-lite */
+    .reveal,
+    .reveal-fast,
+    .stagger-item {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    
+    .reveal.visible,
+    .reveal-fast.visible,
+    .stagger-item.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    /* Perf-lite: show immediately without animation */
+    .perf-lite .reveal,
+    .perf-lite .reveal-fast,
+    .perf-lite .stagger-item {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  </style>
+
+  <!-- Основные стили (standard load for stability) -->
+  <link rel="stylesheet" href="/static/CACHE/css/output.ad97713c4ff2.css" type="text/css">
+  <noscript>
+    <link rel="stylesheet" href="/static/css/fonts.css">
+    <link rel="stylesheet" href="/static/css/styles.purged.css">
+    <link rel="stylesheet" href="/static/css/cls-ultimate.css">
+  </noscript>
+
+  <style>
+    /* ===== AGGRESSIVE PERF-LITE MODE FOR MOBILE PAGESPEED ===== */
+    
+    /* Kill ALL backdrop-filter (very expensive on mobile GPU) */
+    .perf-lite .hero.bg-hero,
+    .perf-lite .bottom-nav,
+    .perf-lite #mini-cart-panel-mobile,
+    .perf-lite #user-panel-mobile,
+    .perf-lite .navbar,
+    .perf-lite .modal-glass,
+    .perf-lite .panel-glass,
+    .perf-lite .card.glassy {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+
+    /* Kill ALL filter effects (causes compositing) */
+    .perf-lite .card.product,
+    .perf-lite .bottom-nav-item:hover .bottom-nav-icon svg,
+    .perf-lite .bottom-nav-item.active .bottom-nav-icon svg,
+    .perf-lite .product-card,
+    .perf-lite .category-card,
+    .perf-lite img,
+    .perf-lite [class*="glow"],
+    .perf-lite [class*="shadow"] {
+      filter: none !important;
+      box-shadow: none !important;
+    }
+
+    /* Kill ALL transitions/animations for TBT reduction */
+    .perf-lite .hint-wiggle,
+    .perf-lite .reveal,
+    .perf-lite .reveal-fast,
+    .perf-lite .reveal-stagger,
+    .perf-lite .stagger-item {
+      transition: none !important;
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+
+    /* Make reveal items immediately visible */
+    .perf-lite .reveal,
+    .perf-lite .reveal-fast,
+    .perf-lite .reveal-stagger,
+    .perf-lite .stagger-item {
+      visibility: visible !important;
+    }
+
+    /* Kill expensive background animations */
+    .perf-lite body::before,
+    .perf-lite body::after {
+      display: none !important;
+      content: none !important;
+    }
+
+    /* Hide ALL decorative glow/spark elements */
+    .perf-lite .cart-sparks-container,
+    .perf-lite .sparks-container,
+    .perf-lite .avatar-glow,
+    .perf-lite .avatar-glow-large,
+    .perf-lite .avatar-glow-mobile,
+    .perf-lite .cart-glow,
+    .perf-lite .cart-glow-mobile,
+    .perf-lite .toggle-btn-glow,
+    .perf-lite .toggle-btn-ripple,
+    .perf-lite .card-glow-dark,
+    .perf-lite .featured-glow,
+    .perf-lite .dark-glow,
+    .perf-lite .hero-glow,
+    .perf-lite .favorite-btn-glow {
+      display: none !important;
+    }
+
+    /* Hide only particles (heavy animation) - keep floating logos visible */
+    .perf-lite .hero-particles,
+    .perf-lite .featured-particles,
+    .perf-lite .dark-particles,
+    .perf-lite .particle {
+      display: none !important;
+    }
+    
+    /* Floating logos visible but static (no animation) */
+    .perf-lite .floating-logos,
+    .perf-lite .featured-floating-logos,
+    .perf-lite .floating-logo {
+      animation: none !important;
+      opacity: 0.12 !important;
+    }
+
+    /* Keep gradients visible but static */
+    .perf-lite .featured-gradient-1,
+    .perf-lite .featured-gradient-2,
+    .perf-lite .dark-gradient-1,
+    .perf-lite .dark-gradient-2 {
+      animation: none !important;
+      opacity: 0.7 !important;
+    }
+
+    /* CRITICAL: Kill @keyframes animations globally */
+    .perf-lite *,
+    .perf-lite *::before,
+    .perf-lite *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      animation-delay: 0ms !important;
+      transition-delay: 0ms !important;
+    }
+
+    /* Mobile-specific optimizations */
+    @media (max-width: 768px) {
+      .perf-lite .bottom-nav {
+        box-shadow: none !important;
+        background: rgba(10, 10, 10, 0.98) !important;
+      }
+      
+      /* Simplify card hover states */
+      .perf-lite .card:hover,
+      .perf-lite .product-card:hover,
+      .perf-lite .category-card:hover {
+        transform: none !important;
+        box-shadow: none !important;
+      }
+      
+      /* Hide hero decoration completely */
+      .perf-lite .hero-decoration {
+        display: none !important;
+      }
+    }
+  </style>
+  
+  
+  <link rel="stylesheet" href="/static/css/custom-print-configurator.css">
+
+
+  <!-- Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "TwoComms",
+    "url": "https://twocomms.shop",
+    "logo": "https://twocomms.shop/static/img/logo.svg",
+    "description": "Магазин стріт & мілітарі одягу з ексклюзивним дизайном",
+    "foundingDate": "2024",
+    "address": {
+      "@type": "PostalAddress",
+      "addressCountry": "UA",
+      "addressLocality": "Україна"
+    },
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer service",
+      "availableLanguage": "Ukrainian"
+    },
+    "sameAs": [
+      "https://instagram.com/twocomms",
+      "https://t.me/twocomms"
+    ]
+  }
+  </script>
+
+  <!-- TikTok Pixel загружается через analytics-loader.js для избежания дублирования -->
+
+  <!-- Meta Pixel Code - оптимизированная загрузка -->
+  
+  
+  
+  
+  
+  
+  <div id="am" data-ga-id="109EFTWM05" data-clarity-id="t7u94cvpqc" data-meta-pixel-id="823958313630148"
+    data-tiktok-pixel-id="D43L7DBC77UA61AHLTVG" style="display:none">
+  </div>
+  
+  
+  
+  
+  
+  
+  <noscript><img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=823958313630148&ev=PageView&noscript=1" /></noscript>
+  <!-- End Meta Pixel Code -->
+  
+
+  <!-- Google Tag Manager - AGGRESSIVE deferred loading for PageSpeed -->
+  
+  <script>
+    // Initialize dataLayer immediately for event buffering
+    window.dataLayer = window.dataLayer || [];
+    // Defer GTM load until user interaction OR long timeout
+    (function() {
+      var gtmLoaded = false;
+      var interactionEvents = ['scroll', 'click', 'touchstart', 'mousemove', 'keydown'];
+      
+      function loadGTM() {
+        if (gtmLoaded) return;
+        gtmLoaded = true;
+        // Remove interaction listeners
+        interactionEvents.forEach(function(evt) {
+          window.removeEventListener(evt, loadGTM, {passive: true, capture: true});
+        });
+        
+        var w = window, d = document, l = 'dataLayer', i = 'GTM-PRLLBF9H';
+        w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+        var f = d.getElementsByTagName('script')[0],
+          j = d.createElement('script'),
+          dl = l != 'dataLayer' ? '&l=' + l : '';
+        j.async = true;
+        j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+        j.onerror = function () {
+          if (console && console.debug) console.debug('GTM script failed to load - possible ad blocker');
+        };
+        if (f && f.parentNode) {
+          f.parentNode.insertBefore(j, f);
+        } else {
+          (d.head || d.getElementsByTagName('head')[0]).appendChild(j);
+        }
+      }
+      
+      // Load on first user interaction (scroll, click, touch, etc.)
+      interactionEvents.forEach(function(evt) {
+        window.addEventListener(evt, loadGTM, {passive: true, capture: true, once: true});
+      });
+      
+      // Fallback: Load after 4s timeout if no interaction (increased from 2.5s)
+      setTimeout(loadGTM, 4000);
+    })();
+  </script>
+  
+  <!-- End Google Tag Manager -->
+
+  <!-- Analytics Loader - загружаем в head для ранней инициализации пикселей -->
+  <script defer src="/static/js/analytics-loader.js?v=3"></script>
+</head>
+
+<body class='bg-body text-body'
+  data-survey-module-url="/static/js/modules/survey.js"
+  style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>
+  <!-- Deferred preconnects for analytics (not in head to avoid blocking first paint) -->
+  
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="preconnect" href="https://connect.facebook.net">
+  <link rel="preconnect" href="https://analytics.tiktok.com">
+  <link rel="dns-prefetch" href="https://www.clarity.ms">
+  
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PRLLBF9H" height="0" width="0"
+      style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+  
+
+<nav class='navbar navbar-expand-lg border-bottom sticky-top bg-body backdrop-blur'>
+  <div class='container-xxl'>
+    <a class='navbar-brand fw-bold d-flex align-items-center gap-2' href='/'>
+      <img src='/static/img/logo.svg' width='28' height='28' alt="TwoComms логотип - стріт & мілітарі одяг"> TwoComms
+    </a>
+    <button class='navbar-toggler position-relative' type='button' data-bs-toggle='collapse' data-bs-target='#navMain' aria-controls='navMain' aria-label='Перемикач навігації'>
+      <span class='navbar-toggler-icon'></span>
+    </button>
+    <div class='collapse navbar-collapse' id='navMain'>
+      
+      <ul class='navbar-nav me-auto mb-2 mb-lg-0'>
+        <li class='nav-item'><a class='nav-link' href='/catalog/'>Каталог</a></li>
+        <li class='nav-item'><a class='nav-link' href='/delivery/'>Доставка і оплата</a></li>
+        <li class='nav-item'><a class='nav-link' href='/cooperation/'>Співпраця</a></li>
+        <li class='nav-item'><a class='nav-link' href='/about/'>Про бренд</a></li>
+        <li class='nav-item'><a class='nav-link' href='/contacts/'>Контакти</a></li>
+      </ul>
+      
+      <form class='d-none d-lg-flex me-3' role='search' action='/search/'>
+        <input class='form-control form-control-sm bg-elevate' type='search' name='q' placeholder='Пошук…' aria-label='Пошук'>
+      </form>
+      <div class='d-flex align-items-center position-relative'>
+        <a class='btn btn-sm btn-gradient-suggest me-3' href='/add-print/'>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="me-1">
+            <path d="M19 15v4H5v-4H3v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4h-2zM11 8.414V20h2V8.414l3.293 3.293 1.414-1.414L12 4.586 6.293 10.293l1.414 1.414L11 8.414z"/>
+          </svg>
+          Запропонувати принт
+        </a>
+        <!-- Контейнер корзины и избранного -->
+        <div class="cart-favorites-container d-none d-lg-flex align-items-center gap-1">
+          <!-- Избранное для незарегистрированных пользователей -->
+          
+          <div class="favorites-container position-relative d-none d-lg-block">
+            <a href="/favorites/" class="favorites-btn" aria-label="Перейти до обраних товарів">
+              <div class="favorites-icon-wrapper" aria-live="polite" aria-atomic="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="favorites-icon">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+                <div class="favorites-glow"></div>
+                <span id="favorites-count" class="favorites-badge" aria-label="Кількість товарів у обраних">0</span>
+              </div>
+            </a>
+          </div>
+          
+
+          <!-- Корзина -->
+          <div class="cart-container position-relative d-none d-lg-block">
+            <button id="cart-toggle" type="button" class="cart-btn" aria-label="Відкрити міні-корзину">
+              <div class="cart-icon-wrapper" aria-live="polite" aria-atomic="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="cart-icon">
+                  <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                </svg>
+                <div class="cart-glow"></div>
+                <span id="cart-count" class="cart-badge" aria-label="Кількість товарів у кошику">0</span>
+              </div>
+            </button>
+          </div>
+        </div>
+          
+          <!-- Мини-корзина -->
+          <div id="mini-cart-panel" class="cart-panel">
+            <!-- Анимация искр для корзины -->
+            <div class="cart-sparks-container">
+              <div class="cart-spark cart-spark-1"></div>
+              <div class="cart-spark cart-spark-2"></div>
+              <div class="cart-spark cart-spark-3"></div>
+              <div class="cart-spark cart-spark-4"></div>
+              <div class="cart-spark cart-spark-5"></div>
+              <div class="cart-spark cart-spark-6"></div>
+            </div>
+            
+            <!-- Заголовок корзины -->
+            <div class="cart-header">
+              <div class="cart-header-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                </svg>
+              </div>
+              <div class="cart-title">Кошик</div>
+              <button type="button" class="close-btn" data-cart-close aria-label="Закрити">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>
+            
+            <!-- Содержимое корзины -->
+            <div id="mini-cart-content" class="cart-content">
+              <div class="cart-loading">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Завантаження…</div>
+              </div>
+            </div>
+            
+            <!-- Меню действий корзины -->
+            <div class="cart-menu">
+              <a href="/delivery/" class="cart-menu-item">
+                <div class="cart-menu-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                  </svg>
+                </div>
+                <span>Умови доставки і оплати</span>
+                <div class="cart-menu-arrow">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                  </svg>
+                </div>
+              </a>
+            </div>
+            
+            <!-- Информационная панель -->
+            <div class="cart-info">
+              <div class="cart-info-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-8h-2V7h2v2z"/>
+                </svg>
+              </div>
+              <div class="cart-info-text">
+                Залишайте заявку на сайті або оплачуйте миттєво через mono checkout
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Аватар/профіль -->
+        <div class="user-profile-container position-relative d-none d-lg-block ms-4" data-mobile-hide="true">
+          <button id="user-toggle" type="button" class="user-avatar-btn" aria-label="Відкрити панель користувача">
+            <div class="avatar-wrapper">
+              
+                <div class="guest-avatar">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                  </svg>
+                </div>
+              
+              <div class="avatar-glow"></div>
+              
+            </div>
+          </button>
+          
+          <div id="user-panel" class="user-panel d-none" aria-hidden="true" inert>
+            
+              <!-- Для неавторизованных пользователей -->
+              <div class="auth-header">
+                <div class="auth-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                  </svg>
+                </div>
+                <div class="auth-title">Вхід в акаунт</div>
+                <button type="button" class="close-btn" data-user-close aria-label="Закрити">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                  </svg>
+                </button>
+              </div>
+              
+              <div class="auth-menu">
+                <a href="/login/" class="auth-btn primary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
+                  </svg>
+                  <span>Увійти</span>
+                </a>
+                
+                <a href="/register/" class="auth-btn secondary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                  </svg>
+                  <span>Зареєструватись</span>
+                </a>
+
+                <a href="/oauth/login/google-oauth2/" class="auth-btn secondary">
+                  <img src="/static/img/google.svg" width="16" height="16" alt="Вхід через Google - TwoComms" loading="lazy">
+                  <span>Увійти через Google</span>
+                </a>
+              </div>
+              
+              <div class="auth-info">
+                <div class="info-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                  </svg>
+                </div>
+                <div class="info-text">
+                  Авторизуйтесь, щоб не вводити дані кожного разу та накопичувати бали
+                </div>
+              </div>
+            
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</nav>
+<!-- Красивое нижнее меню для мобильных устройств -->
+<div class='d-lg-none bottom-nav'>
+  <div class="bottom-nav-container">
+    <!-- Домой -->
+    <a href='/' class='bottom-nav-item '>
+      <div class="bottom-nav-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+        </svg>
+      </div>
+      <span class="bottom-nav-label">Головна</span>
+    </a>
+    
+    <!-- Каталог -->
+    <a href='/catalog/' class='bottom-nav-item '>
+      <div class="bottom-nav-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+        </svg>
+      </div>
+      <span class="bottom-nav-label">Каталог</span>
+    </a>
+    
+    <!-- Корзина -->
+    <div class="bottom-nav-item cart-container-mobile">
+      <button id="cart-toggle-mobile" type="button" class="cart-btn-mobile" aria-label="Відкрити міні-корзину">
+        <div class="cart-icon-wrapper-mobile" aria-live="polite" aria-atomic="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="cart-icon">
+            <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+          </svg>
+          <div class="cart-glow-mobile"></div>
+          <span id="cart-count-mobile" class="cart-badge-mobile" aria-label="Кількість товарів у кошику">0</span>
+        </div>
+      </button>
+      <span class="bottom-nav-label">Кошик</span>
+    </div>
+    
+    <!-- Избранное - СКРЫТО В МОБИЛЬНОЙ ВЕРСИИ -->
+    <a href='/favorites/' class='bottom-nav-item ' style="display: none !important;" id="favorites-mobile-bottom-nav">
+      <div class="bottom-nav-icon position-relative">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        <!-- Счетчик избранного для мобильных -->
+        <span id="favorites-count-mobile" class="favorites-badge-mobile" aria-label="Кількість товарів у обраних">0</span>
+      </div>
+      <span class="bottom-nav-label">Обране</span>
+    </a>
+    
+    <!-- Профиль -->
+    <div class="bottom-nav-item user-profile-container-mobile">
+      
+      <a href="/login/" class="user-login-link-mobile">
+        <div class="avatar-wrapper-mobile">
+          <div class="guest-avatar-mobile">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+          </div>
+          <div class="avatar-glow-mobile"></div>
+        </div>
+      </a>
+      
+      <span class="bottom-nav-label">Увійти</span>
+    </div>
+  </div>
+</div>
+
+<!-- hideOnMobile moved to main.js -->
+
+  <main class='container-xxl py-4 py-md-5'>
+    
+    
+<section class="cp-page" data-custom-print-root>
+  <div class="container-xxl cp-shell">
+    <div class="cp-hero">
+      <div class="cp-hero-copy">
+        <span class="cp-kicker">Кастомний DTF-друк</span>
+        <h1 class="cp-title">Створіть свій принт без довгої анкети.</h1>
+        <p class="cp-lead">
+          Почніть з нуля, завантажте готовий файл або візьміть стартовий стиль. Далі ви спокійно зберете виріб,
+          зони друку, макет і контакт, а якщо не захочете добивати заявку зараз, зможете передати чернетку менеджеру.
+        </p>
+        <div class="cp-hero-actions">
+          <button class="cp-link cp-link--primary" type="button" data-start-flow>Створити свій дизайн</button>
+          <a class="cp-link cp-link--ghost" href="https://t.me/twocomms" target="_blank" rel="noopener">Написати менеджеру</a>
+        </div>
+      </div>
+
+      <div class="cp-hero-panel">
+        <div class="cp-hero-stat cp-hero-stat--dynamic">
+          <small>Поточний старт</small>
+          <strong data-hero-dynamic-label>Почати з нуля</strong>
+          <span data-hero-dynamic-copy>Збираємо конфігурацію покроково: виріб, зони, стиль і контакт.</span>
+        </div>
+        <ul class="cp-hero-list" aria-label="Що ви отримаєте">
+          <li>Одразу бачите виріб і ключові зони друку.</li>
+          <li>На екрані тільки один головний крок, без довгого полотна форми.</li>
+          <li>У будь-який момент можна передати чернетку менеджеру.</li>
+        </ul>
+      </div>
+    </div>
+
+    <form id="customPrintConfiguratorForm" class="cp-configurator" novalidate>
+      <nav class="cp-progress" aria-label="Кроки конфігуратора" data-progress-bar>
+        <div class="cp-progress-track"><div class="cp-progress-fill" data-progress-fill></div></div>
+        <ol class="cp-progress-steps">
+          <li><button type="button" class="cp-progress-step is-active" data-step-link="quickstart"><span class="cp-progress-dot"></span><span class="cp-progress-label">Старт</span></button></li>
+          <li><button type="button" class="cp-progress-step" data-step-link="mode"><span class="cp-progress-dot"></span><span class="cp-progress-label">Формат</span></button></li>
+          <li><button type="button" class="cp-progress-step" data-step-link="product"><span class="cp-progress-dot"></span><span class="cp-progress-label">Виріб</span></button></li>
+          <li><button type="button" class="cp-progress-step" data-step-link="artwork"><span class="cp-progress-dot"></span><span class="cp-progress-label">Макет</span></button></li>
+          <li><button type="button" class="cp-progress-step" data-step-link="quantity"><span class="cp-progress-dot"></span><span class="cp-progress-label">Кількість</span></button></li>
+          <li><button type="button" class="cp-progress-step" data-step-link="review"><span class="cp-progress-dot"></span><span class="cp-progress-label">Контакт</span></button></li>
+        </ol>
+      </nav>
+
+      <div class="cp-workbench">
+        <section class="cp-stage-card" aria-labelledby="cp-stage-title">
+          <div class="cp-card-head">
+            <div>
+              <span class="cp-card-eyebrow">Виріб на сцені</span>
+              <h2 id="cp-stage-title">Виріб і зона друку</h2>
+            </div>
+            <div class="cp-stage-view-switch" role="group" aria-label="Сторона виробу">
+              <button type="button" class="is-active" data-stage-view="front">Спереду</button>
+              <button type="button" data-stage-view="back">Зі спини</button>
+            </div>
+          </div>
+
+          <div class="cp-stage-frame">
+            <div class="cp-stage-aura"></div>
+            <div class="cp-garment-shell">
+              <div class="cp-garment cp-garment--hoodie cp-garment--front" data-garment>
+                <div class="cp-garment-hood" data-garment-hood></div>
+                <div class="cp-garment-body"></div>
+                <div class="cp-garment-sleeve cp-garment-sleeve--left"></div>
+                <div class="cp-garment-sleeve cp-garment-sleeve--right"></div>
+              </div>
+              <div class="cp-zone-layer" data-zone-layer aria-label="Доступні зони друку"></div>
+            </div>
+          </div>
+
+          <div class="cp-stage-meta">
+            <div class="cp-stage-copy">
+              <small data-stage-eyebrow>Головний сценарій</small>
+              <strong data-stage-label>Худі</strong>
+              <span data-stage-note>Оптимальний шлях для DTF-замовлення з точним відчуттям виробу.</span>
+            </div>
+            <div class="cp-stage-copy">
+              <small>Активні зони</small>
+              <strong data-stage-zones>Спереду</strong>
+              <span data-stage-addons>Без додаткових деталей.</span>
+            </div>
+          </div>
+
+          <div class="cp-stage-toolbar">
+            <div class="cp-stage-help">
+              <a href="https://t.me/twocomms" target="_blank" rel="noopener">Написати в Telegram</a>
+              <button type="button" data-safe-exit-trigger>Передати менеджеру</button>
+            </div>
+            <div class="cp-stage-inline-summary" data-inline-price-summary>Ціну уточнимо після перевірки.</div>
+          </div>
+        </section>
+
+        <div class="cp-panel-column">
+          <section id="cp-step-quickstart" class="cp-card cp-card--step is-current" data-step="quickstart">
+            <div class="cp-card-head">
+              <div>
+                <span class="cp-card-eyebrow">1. Старт</span>
+                <h2>З чого почати</h2>
+              </div>
+            </div>
+            <div class="cp-option-grid cp-option-grid--three" data-quick-start-list>
+              
+                <button type="button" class="cp-option-card is-active" data-choice-value="start_blank">
+                  <small>Старт</small>
+                  <strong>Почати з нуля</strong>
+                  <span>Збираємо конфігурацію покроково: виріб, зони, стиль і контакт.</span>
+                </button>
+              
+                <button type="button" class="cp-option-card " data-choice-value="have_file">
+                  <small>Старт</small>
+                  <strong>У мене є файл</strong>
+                  <span>Фокус на перевірці макета, оцінці файлів і швидкому запуску в роботу.</span>
+                </button>
+              
+                <button type="button" class="cp-option-card " data-choice-value="starter_style">
+                  <small>Старт</small>
+                  <strong>Показати стартові стилі</strong>
+                  <span>Починаємо з кураторського напряму і швидко збираємо зрозумілий бриф.</span>
+                </button>
+              
+            </div>
+            <div class="cp-inline-note" data-starter-style-wrap hidden>
+              <div class="cp-inline-note-copy">
+                <strong>Стартові стилі</strong>
+                <span>Три кураторські напрями без бібліотеки шаблонів. Це тільки відправна точка для вайбу й композиції.</span>
+              </div>
+              <div class="cp-mini-chip-row" data-starter-style-list>
+                
+                  <button type="button" class="cp-mini-chip is-active" data-choice-value="minimal">Мінімальний</button>
+                
+                  <button type="button" class="cp-mini-chip " data-choice-value="bold">Сміливий</button>
+                
+                  <button type="button" class="cp-mini-chip " data-choice-value="logo-first">Лого в центрі</button>
+                
+              </div>
+            </div>
+          </section>
+
+          <section id="cp-step-mode" class="cp-card cp-card--step" data-step="mode" hidden>
+            <div class="cp-card-head">
+              <div>
+                <span class="cp-card-eyebrow">2. Формат</span>
+                <h2>Для кого цей комплект</h2>
+              </div>
+            </div>
+            <div class="cp-option-grid cp-option-grid--two" data-mode-list>
+              
+                <button type="button" class="cp-option-card is-active" data-choice-value="personal">
+                  <small>Формат</small>
+                  <strong>Для себе</strong>
+                  <span>Один виріб або невелика серія без зайвої бюрократії.</span>
+                </button>
+              
+                <button type="button" class="cp-option-card " data-choice-value="brand">
+                  <small>Формат</small>
+                  <strong>Для команди / бренду</strong>
+                  <span>Мерч, бренд-комплекти та серії з передачею деталей менеджеру.</span>
+                </button>
+              
+            </div>
+            <div class="cp-inline-fields" data-brand-fields hidden>
+              <label class="cp-field" for="cp-brand-name">
+                <span>Назва бренду / команди</span>
+                <input id="cp-brand-name" name="brand_name" type="text" data-brand-name-input placeholder="Наприклад, Void Unit або внутрішня команда">
+              </label>
+            </div>
+          </section>
+
+          <section id="cp-step-product" class="cp-card cp-card--step" data-step="product" hidden>
+            <div class="cp-card-head">
+              <div>
+                <span class="cp-card-eyebrow">3. Виріб</span>
+                <h2>Вибір виробу і базової конфігурації</h2>
+              </div>
+            </div>
+            <div class="cp-product-grid" data-product-list>
+              
+                <button type="button" class="cp-product-card is-active" data-choice-value="hoodie">
+                  <small>Головний сценарій</small>
+                  <strong>Худі</strong>
+                  <span>Найглибший шлях: посадка, тканина, колір, зони і виробничі деталі.</span>
+                </button>
+              
+                <button type="button" class="cp-product-card " data-choice-value="tshirt">
+                  <small>Швидкий старт</small>
+                  <strong>Футболка</strong>
+                  <span>Легший шлях без зайвої конфігурації.</span>
+                </button>
+              
+                <button type="button" class="cp-product-card " data-choice-value="longsleeve">
+                  <small>Швидкий старт</small>
+                  <strong>Лонгслів</strong>
+                  <span>Помірно глибокий шлях між футболкою та худі.</span>
+                </button>
+              
+                <button type="button" class="cp-product-card " data-choice-value="customer_garment">
+                  <small>Через менеджера</small>
+                  <strong>Свій одяг</strong>
+                  <span>Менеджерський сценарій для вашого виробу з ручним прорахунком.</span>
+                </button>
+              
+            </div>
+
+            <div class="cp-config-cluster" data-hoodie-config>
+              <div class="cp-config-block">
+                <div class="cp-subhead">
+                  <strong>Посадка</strong>
+                  <span>Для худі є два режими посадки.</span>
+                </div>
+                <div class="cp-mini-chip-row" data-fit-list>
+                  
+                    <button type="button" class="cp-mini-chip is-active" data-choice-value="regular">Класичний</button>
+                  
+                    <button type="button" class="cp-mini-chip " data-choice-value="oversize">Оверсайз</button>
+                  
+                </div>
+              </div>
+
+              <div class="cp-config-block">
+                <div class="cp-subhead">
+                  <strong>Тканина</strong>
+                  <span>Класичний крій підтримує базу або преміум, оверсайз іде через преміум.</span>
+                </div>
+                <div class="cp-mini-chip-row" data-fabric-list>
+                  
+                    <button type="button" class="cp-mini-chip " data-choice-value="standard">База</button>
+                  
+                    <button type="button" class="cp-mini-chip is-active" data-choice-value="premium">Преміум</button>
+                  
+                </div>
+              </div>
+            </div>
+
+            <div class="cp-config-block">
+              <div class="cp-subhead">
+                <strong>Колір виробу</strong>
+                <span>Поки без складної палітри: тільки робочі базові кольори для швидкого рішення.</span>
+              </div>
+              <div class="cp-swatch-row" data-color-list></div>
+            </div>
+
+            <div class="cp-config-block">
+                <div class="cp-subhead">
+                  <strong>Зони друку</strong>
+                  <span>Перша зона безкоштовна. Кожна додаткова зона +180 грн.</span>
+                </div>
+              <div class="cp-mini-chip-row" data-zone-list></div>
+              <label class="cp-field" for="cp-placement-note" data-placement-note-wrap hidden>
+                <span>Примітка до нестандартної зони</span>
+                <textarea id="cp-placement-note" name="placement_note" rows="3" data-placement-note-input placeholder="Наприклад: вертикальний друк по боковому шву або нестандартне розміщення на своєму виробі"></textarea>
+              </label>
+            </div>
+
+            <div data-addons-wrap>
+              <div class="cp-config-block">
+                <div class="cp-subhead">
+                  <strong>Деталі виробу</strong>
+                  <span>Додаткові опції до вашого виробу.</span>
+                </div>
+                <div data-addons-list></div>
+              </div>
+            </div>
+
+            <div class="cp-step-actions">
+              <button type="button" class="cp-secondary-button" data-step-nav="mode">Назад</button>
+              <button type="button" class="cp-link cp-link--primary" data-step-nav="artwork">Далі до макета</button>
+            </div>
+          </section>
+
+          <section id="cp-step-artwork" class="cp-card cp-card--step" data-step="artwork" hidden>
+            <div class="cp-card-head">
+              <div>
+                <span class="cp-card-eyebrow">4. Макет</span>
+                <h2>Ваш макет</h2>
+              </div>
+            </div>
+            <div class="cp-option-grid cp-option-grid--three" data-artwork-service-list></div>
+
+            <div class="cp-upload-panel">
+              <label class="cp-upload-field" for="cp-artwork-files">
+                <span>Додайте файл або референси</span>
+                <input id="cp-artwork-files" name="artwork_files" type="file" data-file-input multiple accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.ai,.eps,.psd,.cdr">
+              </label>
+              <div class="cp-file-list" data-file-list>Файли ще не додані.</div>
+            </div>
+
+            <label class="cp-field" for="cp-brief">
+              <span>Бриф / задача</span>
+              <textarea id="cp-brief" name="brief" rows="4" data-brief-input placeholder="Що потрібно зробити з файлом або який стиль / настрій ви хочете отримати"></textarea>
+            </label>
+
+            <div class="cp-step-actions">
+              <button type="button" class="cp-secondary-button" data-step-nav="product">Назад</button>
+              <button type="button" class="cp-link cp-link--primary" data-step-nav="quantity">Далі до кількості</button>
+            </div>
+          </section>
+
+          <section id="cp-step-quantity" class="cp-card cp-card--step" data-step="quantity" hidden>
+            <div class="cp-card-head">
+              <div>
+                <span class="cp-card-eyebrow">5. Кількість</span>
+                <h2>Скільки виробів</h2>
+              </div>
+            </div>
+
+            <div class="cp-config-block">
+              <div class="cp-subhead">
+                <strong>Кількість виробів</strong>
+                <span>Вкажіть скільки штук вам потрібно.</span>
+              </div>
+              <div class="cp-quantity-row">
+                <button type="button" class="cp-qty-btn" data-qty-minus>−</button>
+                <input id="cp-quantity" name="quantity" type="number" min="1" value="1" class="cp-qty-input" data-quantity-input>
+                <button type="button" class="cp-qty-btn" data-qty-plus>+</button>
+              </div>
+            </div>
+
+            <div class="cp-config-block">
+              <div class="cp-subhead">
+                <strong>Режим розмірів</strong>
+                <span>Один розмір, мікс або уточнення з менеджером.</span>
+              </div>
+              <div class="cp-mini-chip-row" data-size-mode-list></div>
+            </div>
+
+            <label class="cp-field" for="cp-sizes-note">
+              <span>Розміри / коментар</span>
+              <textarea id="cp-sizes-note" name="sizes_note" rows="3" data-sizes-note-input placeholder="Наприклад: M x4, L x6 або «узгодимо після мокапу»"></textarea>
+            </label>
+
+            <label class="cp-field" for="cp-garment-note" data-garment-note-wrap hidden>
+              <span>Опис свого виробу</span>
+              <textarea id="cp-garment-note" name="garment_note" rows="3" data-garment-note-input placeholder="Матеріал, колір, крій, стан виробу та все, що важливо для прорахунку"></textarea>
+            </label>
+
+            <div class="cp-toggle-card" data-gift-toggle>
+              <div class="cp-toggle-switch"></div>
+              <div class="cp-toggle-body">
+                <div class="cp-toggle-label">Це подарунок</div>
+                <div class="cp-toggle-hint">Ми підготуємо виріб для подарункової упаковки</div>
+              </div>
+            </div>
+            <input type="hidden" name="gift" value="0" data-gift-input>
+
+            <div class="cp-step-actions">
+              <button type="button" class="cp-secondary-button" data-step-nav="artwork">Назад</button>
+              <button type="button" class="cp-link cp-link--primary" data-step-nav="review">Далі до контакту</button>
+            </div>
+          </section>
+
+          <section id="cp-step-review" class="cp-card cp-card--step" data-step="review" hidden>
+            <div class="cp-card-head">
+              <div>
+                <span class="cp-card-eyebrow">6. Контакт і підтвердження</span>
+                <h2>Перед відправкою</h2>
+              </div>
+            </div>
+
+            <div class="cp-review-box" data-review-box></div>
+
+            <div class="cp-inline-fields">
+              <label class="cp-field" for="cp-contact-name">
+                <span>Ваше ім'я</span>
+                <input id="cp-contact-name" name="contact_name" type="text" data-name-input placeholder="Ім'я для менеджера">
+              </label>
+              <label class="cp-field" for="cp-brand-shortcut">
+                <span>Бренд / серія (необов'язково)</span>
+                <input id="cp-brand-shortcut" name="brand_shortcut" type="text" data-brand-shortcut-input placeholder="Коротка позначка для серії або бренду">
+              </label>
+            </div>
+
+            <div class="cp-config-block">
+              <div class="cp-subhead">
+                <strong>Канал зв'язку</strong>
+                <span>Оберіть зручний спосіб зв'язку: Telegram, WhatsApp або телефон.</span>
+              </div>
+              <div class="cp-mini-chip-row" data-contact-channel-list></div>
+            </div>
+
+            <label class="cp-field" for="cp-contact-value">
+              <span>Контакт</span>
+              <input id="cp-contact-value" name="contact_value" type="text" data-contact-value-input placeholder="@username або +380...">
+            </label>
+
+            <div class="cp-status-box" data-status-box aria-live="polite">
+              Заповніть контакт і натисніть «Надіслати заявку», або передайте чернетку менеджеру, якщо хочете завершити діалог пізніше.
+            </div>
+
+            <div class="cp-step-actions">
+              <button type="button" class="cp-secondary-button" data-step-nav="quantity">Назад</button>
+            </div>
+          </section>
+
+          <aside class="cp-capsule" data-price-capsule>
+            <div class="cp-capsule-head">
+              <div>
+                <small>Попередня вартість</small>
+                <strong data-capsule-title>Ціну уточнюємо</strong>
+              </div>
+              <button type="button" class="cp-capsule-toggle" data-mobile-summary-toggle>Деталі</button>
+            </div>
+
+            <div class="cp-capsule-price">
+              <span data-price-main>Прорахунок</span>
+              <small data-price-sub>Один або кілька параметрів потребують ручного прорахунку.</small>
+            </div>
+
+            <div class="cp-capsule-breakdown" data-price-breakdown></div>
+
+            <div class="cp-capsule-actions">
+              <button type="submit" class="cp-submit-button">Надіслати заявку</button>
+              <button type="button" class="cp-secondary-button" data-safe-exit-trigger>Передати менеджеру</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="cp-mobile-bar" data-mobile-bar>
+    <button type="button" class="cp-mobile-bar-toggle" data-mobile-summary-toggle>
+      <span data-mobile-price>Ціну уточнюємо</span>
+      <small data-mobile-price-note>Відкрити деталі</small>
+    </button>
+    <button type="button" class="cp-mobile-bar-action" data-submit-shortcut>Надіслати</button>
+  </div>
+</section>
+
+<script id="customPrintConfiguratorConfig" type="application/json">{"version": 2, "storage_key": "twocomms.custom_print.v2.draft", "submit_url": "https://twocomms.shop/custom-print/lead/", "safe_exit_url": "https://twocomms.shop/custom-print/safe-exit/", "telegram_manager_url": "https://t.me/twocomms", "quick_start_modes": [{"value": "start_blank", "label": "\u041f\u043e\u0447\u0430\u0442\u0438 \u0437 \u043d\u0443\u043b\u044f", "hint": "\u0417\u0431\u0438\u0440\u0430\u0454\u043c\u043e \u043a\u043e\u043d\u0444\u0456\u0433\u0443\u0440\u0430\u0446\u0456\u044e \u043f\u043e\u043a\u0440\u043e\u043a\u043e\u0432\u043e: \u0432\u0438\u0440\u0456\u0431, \u0437\u043e\u043d\u0438, \u0441\u0442\u0438\u043b\u044c \u0456 \u043a\u043e\u043d\u0442\u0430\u043a\u0442."}, {"value": "have_file", "label": "\u0423 \u043c\u0435\u043d\u0435 \u0454 \u0444\u0430\u0439\u043b", "hint": "\u0424\u043e\u043a\u0443\u0441 \u043d\u0430 \u043f\u0435\u0440\u0435\u0432\u0456\u0440\u0446\u0456 \u043c\u0430\u043a\u0435\u0442\u0430, \u043e\u0446\u0456\u043d\u0446\u0456 \u0444\u0430\u0439\u043b\u0456\u0432 \u0456 \u0448\u0432\u0438\u0434\u043a\u043e\u043c\u0443 \u0437\u0430\u043f\u0443\u0441\u043a\u0443 \u0432 \u0440\u043e\u0431\u043e\u0442\u0443."}, {"value": "starter_style", "label": "\u041f\u043e\u043a\u0430\u0437\u0430\u0442\u0438 \u0441\u0442\u0430\u0440\u0442\u043e\u0432\u0456 \u0441\u0442\u0438\u043b\u0456", "hint": "\u041f\u043e\u0447\u0438\u043d\u0430\u0454\u043c\u043e \u0437 \u043a\u0443\u0440\u0430\u0442\u043e\u0440\u0441\u044c\u043a\u043e\u0433\u043e \u043d\u0430\u043f\u0440\u044f\u043c\u0443 \u0456 \u0448\u0432\u0438\u0434\u043a\u043e \u0437\u0431\u0438\u0440\u0430\u0454\u043c\u043e \u0437\u0440\u043e\u0437\u0443\u043c\u0456\u043b\u0438\u0439 \u0431\u0440\u0438\u0444."}], "modes": [{"value": "personal", "label": "\u0414\u043b\u044f \u0441\u0435\u0431\u0435", "hint": "\u041e\u0434\u0438\u043d \u0432\u0438\u0440\u0456\u0431 \u0430\u0431\u043e \u043d\u0435\u0432\u0435\u043b\u0438\u043a\u0430 \u0441\u0435\u0440\u0456\u044f \u0431\u0435\u0437 \u0437\u0430\u0439\u0432\u043e\u0457 \u0431\u044e\u0440\u043e\u043a\u0440\u0430\u0442\u0456\u0457."}, {"value": "brand", "label": "\u0414\u043b\u044f \u043a\u043e\u043c\u0430\u043d\u0434\u0438 / \u0431\u0440\u0435\u043d\u0434\u0443", "hint": "\u041c\u0435\u0440\u0447, \u0431\u0440\u0435\u043d\u0434-\u043a\u043e\u043c\u043f\u043b\u0435\u043a\u0442\u0438 \u0442\u0430 \u0441\u0435\u0440\u0456\u0457 \u0437 \u043f\u0435\u0440\u0435\u0434\u0430\u0447\u0435\u044e \u0434\u0435\u0442\u0430\u043b\u0435\u0439 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u0443."}], "starter_styles": [{"value": "minimal", "label": "\u041c\u0456\u043d\u0456\u043c\u0430\u043b\u044c\u043d\u0438\u0439", "accent": "\u0427\u0438\u0441\u0442\u0456 \u043f\u0440\u043e\u043f\u043e\u0440\u0446\u0456\u0457, \u043e\u0434\u0438\u043d \u0430\u043a\u0446\u0435\u043d\u0442, \u0431\u0430\u0433\u0430\u0442\u043e \u043f\u043e\u0432\u0456\u0442\u0440\u044f."}, {"value": "bold", "label": "\u0421\u043c\u0456\u043b\u0438\u0432\u0438\u0439", "accent": "\u041a\u043e\u043d\u0442\u0440\u0430\u0441\u0442\u043d\u0456 \u043f\u043b\u043e\u0449\u0438\u043d\u0438, \u0432\u0435\u043b\u0438\u043a\u0456 \u043a\u043e\u043c\u043f\u043e\u0437\u0438\u0446\u0456\u0457, \u0431\u0456\u043b\u044c\u0448 \u043f\u043e\u043c\u0456\u0442\u043d\u0438\u0439 \u0436\u0435\u0441\u0442."}, {"value": "logo-first", "label": "\u041b\u043e\u0433\u043e \u0432 \u0446\u0435\u043d\u0442\u0440\u0456", "accent": "\u041b\u043e\u0433\u043e\u0442\u0438\u043f \u0430\u0431\u043e \u043a\u043e\u0440\u043e\u0442\u043a\u0438\u0439 \u0437\u043d\u0430\u043a \u044f\u043a \u0446\u0435\u043d\u0442\u0440 \u0432\u0441\u0456\u0454\u0457 \u043a\u043e\u043c\u043f\u043e\u0437\u0438\u0446\u0456\u0457."}], "artwork_services": [{"value": "ready", "label": "\u0413\u043e\u0442\u043e\u0432\u0438\u0439 \u0444\u0430\u0439\u043b", "hint": "\u0412\u0438 \u0432\u0436\u0435 \u043c\u0430\u0454\u0442\u0435 \u043c\u0430\u043a\u0435\u0442 \u0456 \u0445\u043e\u0447\u0435\u0442\u0435 \u043f\u0435\u0440\u0435\u0439\u0442\u0438 \u0434\u043e \u0434\u0440\u0443\u043a\u0443 \u043c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u043e \u0448\u0432\u0438\u0434\u043a\u043e."}, {"value": "adjust", "label": "\u041f\u043e\u0442\u0440\u0456\u0431\u043d\u043e \u0434\u043e\u043f\u0440\u0430\u0446\u044e\u0432\u0430\u0442\u0438", "hint": "\u0404 \u0444\u0430\u0439\u043b \u0430\u0431\u043e \u0440\u0435\u0444\u0435\u0440\u0435\u043d\u0441, \u0430\u043b\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0430 \u0447\u0438\u0441\u0442\u043a\u0430, \u0430\u0434\u0430\u043f\u0442\u0430\u0446\u0456\u044f \u0447\u0438 \u043f\u0456\u0434\u0433\u043e\u0442\u043e\u0432\u043a\u0430."}, {"value": "design", "label": "\u041f\u043e\u0442\u0440\u0456\u0431\u0435\u043d \u0434\u0438\u0437\u0430\u0439\u043d", "hint": "\u0404 \u0456\u0434\u0435\u044f, \u0432\u0430\u0439\u0431 \u0430\u0431\u043e \u0440\u0435\u0444\u0435\u0440\u0435\u043d\u0441\u0438, \u0430 \u043c\u0438 \u0434\u043e\u043f\u043e\u043c\u043e\u0436\u0435\u043c\u043e \u0437\u0456\u0431\u0440\u0430\u0442\u0438 \u043c\u0430\u043a\u0435\u0442 \u0437 \u043d\u0443\u043b\u044f."}], "triage_statuses": [{"value": "print-ready", "label": "\u0413\u043e\u0442\u043e\u0432\u0438\u0439 \u0434\u043e \u0434\u0440\u0443\u043a\u0443", "hint": "\u0424\u0430\u0439\u043b \u0432\u0438\u0433\u043b\u044f\u0434\u0430\u0454 \u0433\u043e\u0442\u043e\u0432\u0438\u043c \u0434\u043e \u0434\u0440\u0443\u043a\u0443 \u0431\u0435\u0437 \u0434\u043e\u0434\u0430\u0442\u043a\u043e\u0432\u043e\u0457 \u043f\u0456\u0434\u0433\u043e\u0442\u043e\u0432\u043a\u0438."}, {"value": "needs-work", "label": "\u041f\u043e\u0442\u0440\u0456\u0431\u043d\u0430 \u043f\u0456\u0434\u0433\u043e\u0442\u043e\u0432\u043a\u0430", "hint": "\u041f\u043e\u0442\u0440\u0456\u0431\u043d\u043e \u043f\u0456\u0434\u0447\u0438\u0441\u0442\u0438\u0442\u0438, \u043f\u0435\u0440\u0435\u0432\u0435\u0441\u0442\u0438 \u0443 \u043f\u0440\u0430\u0432\u0438\u043b\u044c\u043d\u0438\u0439 \u0444\u043e\u0440\u043c\u0430\u0442 \u0430\u0431\u043e \u043f\u0456\u0434\u0433\u043e\u0442\u0443\u0432\u0430\u0442\u0438 \u0434\u0435\u0442\u0430\u043b\u0456."}, {"value": "reference-only", "label": "\u041b\u0438\u0448\u0435 \u0440\u0435\u0444\u0435\u0440\u0435\u043d\u0441", "hint": "\u0426\u0435 \u0440\u0435\u0444\u0435\u0440\u0435\u043d\u0441, \u043d\u0430 \u043e\u0441\u043d\u043e\u0432\u0456 \u044f\u043a\u043e\u0433\u043e \u0449\u0435 \u0442\u0440\u0435\u0431\u0430 \u0437\u0456\u0431\u0440\u0430\u0442\u0438 \u0440\u043e\u0431\u043e\u0447\u0438\u0439 \u043c\u0430\u043a\u0435\u0442."}], "size_modes": [{"value": "single", "label": "\u041e\u0434\u0438\u043d \u0440\u043e\u0437\u043c\u0456\u0440"}, {"value": "mixed", "label": "\u041c\u0456\u043a\u0441 \u0440\u043e\u0437\u043c\u0456\u0440\u0456\u0432"}, {"value": "manager", "label": "\u0423\u0442\u043e\u0447\u043d\u044e \u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c"}], "contact_channels": [{"value": "telegram", "label": "Telegram", "placeholder": "@username \u0430\u0431\u043e https://t.me/username"}, {"value": "whatsapp", "label": "WhatsApp", "placeholder": "+380..."}, {"value": "phone", "label": "\u0422\u0435\u043b\u0435\u0444\u043e\u043d", "placeholder": "+380..."}], "zone_labels": {"front": "\u0421\u043f\u0435\u0440\u0435\u0434\u0443", "back": "\u041d\u0430 \u0441\u043f\u0438\u043d\u0456", "sleeve": "\u041d\u0430 \u0440\u0443\u043a\u0430\u0432\u0456", "custom": "\u0406\u043d\u0448\u0430 \u0437\u043e\u043d\u0430"}, "product_labels": {"hoodie": "\u0425\u0443\u0434\u0456", "tshirt": "\u0424\u0443\u0442\u0431\u043e\u043b\u043a\u0430", "longsleeve": "\u041b\u043e\u043d\u0433\u0441\u043b\u0456\u0432", "customer_garment": "\u0421\u0432\u0456\u0439 \u043e\u0434\u044f\u0433"}, "products": {"hoodie": {"label": "\u0425\u0443\u0434\u0456", "eyebrow": "\u0413\u043e\u043b\u043e\u0432\u043d\u0438\u0439 \u0441\u0446\u0435\u043d\u0430\u0440\u0456\u0439", "summary": "\u041d\u0430\u0439\u0433\u043b\u0438\u0431\u0448\u0438\u0439 \u0448\u043b\u044f\u0445: \u043f\u043e\u0441\u0430\u0434\u043a\u0430, \u0442\u043a\u0430\u043d\u0438\u043d\u0430, \u043a\u043e\u043b\u0456\u0440, \u0437\u043e\u043d\u0438 \u0456 \u0432\u0438\u0440\u043e\u0431\u043d\u0438\u0447\u0456 \u0434\u0435\u0442\u0430\u043b\u0456.", "hero_note": "\u041d\u0430\u0439\u0437\u0440\u0443\u0447\u043d\u0456\u0448\u0438\u0439 \u0441\u0442\u0430\u0440\u0442, \u044f\u043a\u0449\u043e \u0445\u043e\u0447\u0435\u0442\u0435 \u0442\u043e\u0447\u043d\u043e \u0437\u0456\u0431\u0440\u0430\u0442\u0438 \u0445\u0443\u0434\u0456 \u043f\u0456\u0434 \u0441\u0432\u0456\u0439 \u043f\u0440\u0438\u043d\u0442.", "fits": [{"value": "regular", "label": "\u041a\u043b\u0430\u0441\u0438\u0447\u043d\u0438\u0439", "description": "\u0411\u0430\u0437\u043e\u0432\u0430 \u043f\u043e\u0441\u0430\u0434\u043a\u0430 \u0434\u043b\u044f \u0449\u043e\u0434\u0435\u043d\u043d\u043e\u0433\u043e \u043c\u0435\u0440\u0447\u0443."}, {"value": "oversize", "label": "\u041e\u0432\u0435\u0440\u0441\u0430\u0439\u0437", "description": "\u0411\u0456\u043b\u044c\u0448 \u043c\u0430\u0441\u0438\u0432\u043d\u0438\u0439 \u0441\u0438\u043b\u0443\u0435\u0442 \u0437 \u0432\u0456\u0434\u0447\u0443\u0442\u0442\u044f\u043c \u043f\u0440\u0435\u043c\u0456\u0443\u043c-\u0440\u0435\u0447\u0456."}], "fabrics": {"regular": [{"value": "standard", "label": "\u0411\u0430\u0437\u0430"}, {"value": "premium", "label": "\u041f\u0440\u0435\u043c\u0456\u0443\u043c"}], "oversize": [{"value": "premium", "label": "\u041f\u0440\u0435\u043c\u0456\u0443\u043c"}]}, "default_fit": "regular", "default_fabric": "premium", "colors": [{"value": "black", "label": "\u0427\u043e\u0440\u043d\u0438\u0439", "hex": "#151515"}, {"value": "graphite", "label": "\u0413\u0440\u0430\u0444\u0456\u0442", "hex": "#3b3b3f"}, {"value": "sand", "label": "\u041f\u0456\u0441\u043e\u0447\u043d\u0438\u0439", "hex": "#c8b28d"}, {"value": "bone", "label": "\u0421\u0432\u0456\u0442\u043b\u0438\u0439", "hex": "#ebe3d6"}], "default_color": "black", "zones": ["front", "back", "sleeve"], "default_zones": ["front"], "add_ons": [{"value": "inside_label", "label": "\u0412\u043d\u0443\u0442\u0440\u0456\u0448\u043d\u044f \u0431\u0456\u0440\u043a\u0430"}, {"value": "hem_tag", "label": "\u041d\u0430\u0448\u0438\u0432\u043a\u0430 \u043d\u0430 \u043d\u0438\u0437"}, {"value": "grommets", "label": "\u0414\u043e\u0434\u0430\u0442\u043a\u043e\u0432\u0456 \u0434\u0435\u0442\u0430\u043b\u0456"}], "pricing": {"base": 1600, "premium_delta": 250, "oversize_delta": 200, "extra_zone_delta": 180, "add_on_delta": 120}}, "tshirt": {"label": "\u0424\u0443\u0442\u0431\u043e\u043b\u043a\u0430", "eyebrow": "\u0428\u0432\u0438\u0434\u043a\u0438\u0439 \u0441\u0442\u0430\u0440\u0442", "summary": "\u041b\u0435\u0433\u0448\u0438\u0439 \u0448\u043b\u044f\u0445 \u0431\u0435\u0437 \u0437\u0430\u0439\u0432\u043e\u0457 \u043a\u043e\u043d\u0444\u0456\u0433\u0443\u0440\u0430\u0446\u0456\u0457.", "hero_note": "\u0428\u0432\u0438\u0434\u043a\u0438\u0439 \u0432\u0430\u0440\u0456\u0430\u043d\u0442, \u044f\u043a\u0449\u043e \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d \u0447\u0438\u0441\u0442\u0438\u0439 \u0441\u0442\u0430\u0440\u0442 \u0437 \u043e\u0434\u043d\u0456\u0454\u044e \u0430\u0431\u043e \u0434\u0432\u043e\u043c\u0430 \u0437\u043e\u043d\u0430\u043c\u0438.", "fits": [], "fabrics": {}, "default_fit": "", "default_fabric": "", "colors": [{"value": "black", "label": "\u0427\u043e\u0440\u043d\u0438\u0439", "hex": "#151515"}, {"value": "white", "label": "\u0411\u0456\u043b\u0438\u0439", "hex": "#f1ede6"}, {"value": "graphite", "label": "\u0413\u0440\u0430\u0444\u0456\u0442", "hex": "#4a4a52"}], "default_color": "black", "zones": ["front", "back"], "default_zones": ["front"], "add_ons": [], "pricing": {"base": 700, "premium_delta": 0, "oversize_delta": 0, "extra_zone_delta": 150, "add_on_delta": 0}}, "longsleeve": {"label": "\u041b\u043e\u043d\u0433\u0441\u043b\u0456\u0432", "eyebrow": "\u0428\u0432\u0438\u0434\u043a\u0438\u0439 \u0441\u0442\u0430\u0440\u0442", "summary": "\u041f\u043e\u043c\u0456\u0440\u043d\u043e \u0433\u043b\u0438\u0431\u043e\u043a\u0438\u0439 \u0448\u043b\u044f\u0445 \u043c\u0456\u0436 \u0444\u0443\u0442\u0431\u043e\u043b\u043a\u043e\u044e \u0442\u0430 \u0445\u0443\u0434\u0456.", "hero_note": "\u041f\u0456\u0434\u0456\u0439\u0434\u0435, \u044f\u043a\u0449\u043e \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d \u0447\u0438\u0441\u0442\u0438\u0439 \u0444\u0440\u043e\u043d\u0442, \u0441\u043f\u0438\u043d\u0430 \u0430\u0431\u043e \u0430\u043a\u0446\u0435\u043d\u0442 \u043d\u0430 \u0440\u0443\u043a\u0430\u0432\u0456.", "fits": [], "fabrics": {}, "default_fit": "", "default_fabric": "", "colors": [{"value": "black", "label": "\u0427\u043e\u0440\u043d\u0438\u0439", "hex": "#151515"}, {"value": "bone", "label": "\u0421\u0432\u0456\u0442\u043b\u0438\u0439", "hex": "#e7ddcf"}, {"value": "olive", "label": "\u041e\u043b\u0438\u0432\u043a\u043e\u0432\u0438\u0439", "hex": "#59604a"}], "default_color": "black", "zones": ["front", "back", "sleeve"], "default_zones": ["front"], "add_ons": [], "pricing": {"base": 900, "premium_delta": 0, "oversize_delta": 0, "extra_zone_delta": 160, "add_on_delta": 0}}, "customer_garment": {"label": "\u0421\u0432\u0456\u0439 \u043e\u0434\u044f\u0433", "eyebrow": "\u0427\u0435\u0440\u0435\u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u0430", "summary": "\u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u0441\u044c\u043a\u0438\u0439 \u0441\u0446\u0435\u043d\u0430\u0440\u0456\u0439 \u0434\u043b\u044f \u0432\u0430\u0448\u043e\u0433\u043e \u0432\u0438\u0440\u043e\u0431\u0443 \u0437 \u0440\u0443\u0447\u043d\u0438\u043c \u043f\u0440\u043e\u0440\u0430\u0445\u0443\u043d\u043a\u043e\u043c.", "hero_note": "\u0413\u043e\u043b\u043e\u0432\u043d\u0435 \u0442\u0443\u0442: \u043e\u043f\u0438\u0441 \u0432\u0438\u0440\u043e\u0431\u0443, \u0437\u043e\u043d\u0438 \u0456 \u0447\u0456\u0442\u043a\u0435 \u0444\u043e\u0440\u043c\u0443\u043b\u044e\u0432\u0430\u043d\u043d\u044f \u0437\u0430\u0434\u0430\u0447\u0456.", "fits": [], "fabrics": {}, "default_fit": "", "default_fabric": "", "colors": [{"value": "own", "label": "\u0412\u0430\u0448 \u043a\u043e\u043b\u0456\u0440", "hex": "#6d6d6d"}], "default_color": "own", "zones": ["front", "back", "custom"], "default_zones": ["custom"], "add_ons": [], "pricing": {"base": null, "premium_delta": 0, "oversize_delta": 0, "extra_zone_delta": 0, "add_on_delta": 0}}}, "defaults": {"version": 2, "quick_start_mode": "start_blank", "mode": "personal", "starter_style": "", "product": {"type": "hoodie", "fit": "regular", "fabric": "premium", "color": "black"}, "print": {"zones": ["front"], "add_ons": [], "placement_note": ""}, "artwork": {"service_kind": "design", "triage_status": "needs-review", "files": []}, "order": {"quantity": 1, "size_mode": "single", "sizes_note": "", "gift": false}, "contact": {"channel": "", "name": "", "value": ""}, "pricing": {"base_price": null, "design_price": null, "discount_percent": null, "discount_amount": null, "final_total": null, "estimate_required": false, "estimate_reason": ""}, "notes": {"brand_name": "", "brief": "", "garment_note": ""}, "ui": {"current_step": "quickstart"}}}</script>
+
+  </main>
+  
+  
+  <footer class='border-top py-4 mt-5'><div class='container-xxl d-flex flex-column flex-md-row justify-content-between align-items-start gap-3'><div><div class='fw-semibold'>TwoComms</div><div class='text-secondary small'>Мілітарі / стріт / Made in Ukraine</div><div class='text-secondary small mt-2'>©  TwoComms</div></div><div class='small text-secondary'>Накопичуйте бали за покупки та використовуйте їх для знижок</div><div class='small'><a href='https://instagram.com/twocomms' target='_blank' rel='noopener'>Instagram</a> · <a href='https://t.me/twocomms' target='_blank' rel='noopener'>Telegram</a> · <a href='/cooperation/'>Співпраця</a></div></div></footer>
+  
+
+  <!-- Мобильные мини-панели (только для мобильной версии) -->
+  <div id="mini-cart-panel-mobile" class="cart-panel d-none d-md-none">
+    <!-- Анимация искр для корзины -->
+    <div class="cart-sparks-container">
+      <div class="cart-spark cart-spark-1"></div>
+      <div class="cart-spark cart-spark-2"></div>
+      <div class="cart-spark cart-spark-3"></div>
+      <div class="cart-spark cart-spark-4"></div>
+      <div class="cart-spark cart-spark-5"></div>
+      <div class="cart-spark cart-spark-6"></div>
+    </div>
+
+    <!-- Заголовок корзины -->
+    <div class="cart-header">
+      <div class="cart-header-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z" />
+        </svg>
+      </div>
+      <div class="cart-title">Кошик</div>
+      <button type="button" class="close-btn" data-cart-close-mobile aria-label="Закрити">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Содержимое корзины -->
+    <div id="mini-cart-content-mobile" class="cart-content">
+      <div class="cart-loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Завантаження…</div>
+      </div>
+    </div>
+
+    <!-- Меню действий корзины -->
+    <div class="cart-menu">
+      <a href="/delivery/" class="cart-menu-item">
+        <div class="cart-menu-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
+          </svg>
+        </div>
+        <span>Умови доставки і оплати</span>
+        <div class="cart-menu-arrow">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+          </svg>
+        </div>
+      </a>
+    </div>
+
+    <!-- Информационная панель -->
+    <div class="cart-info">
+      <div class="cart-info-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+        </svg>
+      </div>
+      <div class="cart-info-text">
+        Залишайте заявку на сайті або оплачуйте миттєво через mono checkout
+      </div>
+    </div>
+  </div>
+
+  <div id="user-panel-mobile" class="user-panel d-none d-md-none" aria-hidden="true" inert>
+    
+    <!-- Для неавторизованных пользователей -->
+    <div class="auth-header">
+      <div class="auth-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+        </svg>
+      </div>
+      <div class="auth-title">Вхід в акаунт</div>
+      <button type="button" class="close-btn" data-user-close-mobile aria-label="Закрити">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="auth-menu">
+      <a href="/login/" class="auth-btn primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z" />
+        </svg>
+        <span>Увійти</span>
+      </a>
+
+      <a href="/register/" class="auth-btn secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+        </svg>
+        <span>Зареєструватись</span>
+      </a>
+
+      <a href="/oauth/login/google-oauth2/" class="auth-btn secondary">
+        <img src="/static/img/google.svg" width="16" height="16" alt="Вхід через Google - TwoComms"
+          loading="lazy">
+        <span>Увійти через Google</span>
+      </a>
+    </div>
+
+    <div class="auth-info">
+      <div class="info-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+        </svg>
+      </div>
+      <div class="info-text">
+        Авторизуйтесь, щоб не вводити дані кожного разу та накопичувати бали
+      </div>
+    </div>
+    
+  </div>
+
+  <!-- Performance optimization: CSS loading enhancement -->
+  <script>
+    // Улучшение загрузки CSS для лучшей производительности
+    (function () {
+      // Функция для загрузки CSS асинхронно
+      function loadCSS(href, before, media) {
+        var doc = window.document;
+        var ss = doc.createElement("link");
+        var ref;
+        if (before) {
+          ref = before;
+        } else {
+          var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+          ref = refs[refs.length - 1];
+        }
+
+        var sheets = doc.styleSheets;
+        ss.rel = "stylesheet";
+        ss.href = href;
+        ss.media = "only x";
+
+        function ready(cb) {
+          if (doc.body) cb();
+          else if (doc.addEventListener) doc.addEventListener("DOMContentLoaded", cb);
+        }
+
+        ready(function () {
+          ref.parentNode.insertBefore(ss, (before ? ref : ref.nextSibling));
+        });
+
+        var onloadcssdefined = function (cb) {
+          var resolvedHref = ss.href;
+          var i = sheets.length;
+          while (i--) {
+            if (sheets[i].href === resolvedHref) {
+              return cb();
+            }
+          }
+          setTimeout(function () {
+            onloadcssdefined(cb);
+          });
+        };
+
+        function loadCB() {
+          if (ss.addEventListener) {
+            ss.removeEventListener("load", loadCB);
+          }
+          ss.media = media || "all";
+        }
+
+        if (ss.addEventListener) {
+          ss.addEventListener("load", loadCB);
+        }
+        ss.onloadcssdefined = onloadcssdefined;
+        onloadcssdefined(loadCB);
+        return ss;
+      }
+
+      // Применяем улучшения для всех preload CSS
+      var preloadLinks = document.querySelectorAll('link[rel="preload"][as="style"]');
+      preloadLinks.forEach(function (link) {
+        link.addEventListener('load', function () {
+          this.rel = 'stylesheet';
+        });
+      });
+
+      // Убираем класс loading после загрузки CSS
+      document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(function () {
+          document.body.classList.remove('loading');
+        }, 100);
+      });
+    })();
+  </script>
+
+  <!-- Оптимизированная загрузка скриптов с приоритизацией -->
+  <script defer src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
+    onload="this.classList.add('script-loaded')" onerror="this.classList.add('script-error')"
+    crossorigin="anonymous"></script>
+  <script type="module" src="/static/js/main.js?v=42" onload="this.classList.add('script-loaded')"
+    onerror="this.classList.add('script-error')" crossorigin="anonymous"></script>
+
+  <!-- UI fallback helpers -->
+  <script>
+    /* Fallback: глобальные функции, если основной JS не заинициализирован */
+    (function () {
+      var dlog = window.dlog || function () {
+        if (window.console && console.debug) {
+          try { console.debug.apply(console, arguments); } catch (_) { console.log.apply(console, arguments); }
+        }
+      };
+      window.dlog = dlog;
+
+      // UI debugging disabled for production
+      function getCookie(name) {
+        var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        var result = m ? decodeURIComponent(m.pop()) : '';
+        return result;
+      }
+      if (typeof window.QtyInc !== 'function') {
+        window.QtyInc = function (selector) {
+          var input = typeof selector === 'string' ? document.querySelector(selector) : selector;
+          if (!input) { return; }
+          var v = parseInt(input.value || '1', 10) || 1; input.value = Math.max(1, v + 1);
+          try { if (window.trackEvent) { var pid = (document.querySelector('[data-add-to-cart]') || {}).getAttribute && document.querySelector('[data-add-to-cart]').getAttribute('data-add-to-cart'); if (pid) { window.trackEvent('CustomizeProduct', { content_ids: [String(pid)], content_type: 'product', action: 'inc_qty' }); } } } catch (_) { }
+        };
+      }
+      if (typeof window.QtyDec !== 'function') {
+        window.QtyDec = function (selector) {
+          var input = typeof selector === 'string' ? document.querySelector(selector) : selector;
+          if (!input) { return; }
+          var v = parseInt(input.value || '1', 10) || 1; input.value = Math.max(1, v - 1);
+          try { if (window.trackEvent) { var pid = (document.querySelector('[data-add-to-cart]') || {}).getAttribute && document.querySelector('[data-add-to-cart]').getAttribute('data-add-to-cart'); if (pid) { window.trackEvent('CustomizeProduct', { content_ids: [String(pid)], content_type: 'product', action: 'dec_qty' }); } } } catch (_) { }
+        };
+      }
+      if (typeof window.CartRemoveKey !== 'function') {
+        window.CartRemoveKey = function (key, el) {
+          // Получаем CSRF токен из мета-тега или cookie
+          var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+            document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+            getCookie('csrftoken');
+
+          var body = new URLSearchParams({ key: key });
+
+          fetch('/cart/remove/', {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest',
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+            },
+            body: body
+          }).then(function (r) {
+            if (!r.ok) {
+              throw new Error('Network response was not ok: ' + r.status);
+            }
+            return r.json();
+          }).then(function (d) {
+            if (d && d.ok) {
+              try { if (window.updateCartBadge) window.updateCartBadge(d.count); } catch (_) { }
+
+              // Отправляем событие обновления корзины для страницы корзины
+              try {
+                document.dispatchEvent(new CustomEvent('cartUpdated', { detail: { action: 'remove', key: key } }));
+              } catch (_) { }
+
+              // Удаляем элемент из DOM
+              if (el) {
+                var row = el.closest('[data-cart-row]') || el.closest('.d-flex');
+                if (row && row.parentElement) {
+                  row.style.opacity = '0';
+                  row.style.transform = 'translateX(-20px)';
+                  row.style.transition = 'all 0.3s ease';
+                  setTimeout(function () {
+                    if (row.parentElement) row.parentElement.removeChild(row);
+                  }, 300);
+                }
+              }
+
+              // Обновляем мини-корзину
+              var miniPromise = null;
+              try { if (window.refreshMiniCart) miniPromise = window.refreshMiniCart(); } catch (_) { }
+              var reopen = function () { try { if (window.openMiniCart) { window.openMiniCart({ skipRefresh: true }); } } catch (_) { } };
+              if (miniPromise && miniPromise.finally) {
+                miniPromise.then(reopen).catch(reopen).finally(function () {
+                  try { if (window.refreshCartSummary) window.refreshCartSummary(); } catch (_) { }
+                });
+              } else {
+                try { if (window.refreshCartSummary) window.refreshCartSummary(); } catch (_) { }
+                reopen();
+              }
+
+              // Обновляем UI страницы корзины БЕЗ перезагрузки
+              var cartList = document.getElementById('cart-list');
+              if (cartList) {
+                var cartContainerEl = document.querySelector('.cart-page-container');
+                var cartController = cartContainerEl && cartContainerEl.__cartController;
+                if (cartController && typeof cartController.requestSync === 'function') {
+                  cartController.requestSync(0);
+                  return;
+                }
+                // Обновляем итоговую сумму товаров (subtotal)
+                var summaryValue = document.querySelector('.cart-summary-row:first-child .cart-summary-value');
+                var summaryLabel = document.querySelector('.cart-summary-row:first-child .cart-summary-label');
+                var payNowAmount = document.getElementById('pay-now-amount');
+
+                // Обновляем subtotal (сумма товаров без скидки)
+                if (summaryValue && d.subtotal !== undefined) {
+                  summaryValue.textContent = parseFloat(d.subtotal).toFixed(2) + ' грн';
+                }
+                if (summaryLabel && d.count !== undefined) {
+                  summaryLabel.textContent = 'Товари (' + d.count + '):';
+                }
+
+                // Обновляем блок скидки промокода если есть
+                var discountRow = document.querySelector('.cart-summary-discount');
+                if (d.discount !== undefined && d.discount > 0) {
+                  // Показываем блок скидки если его нет
+                  if (!discountRow) {
+                    // Находим место для вставки (после суммы товаров, перед итогом)
+                    var summaryRows = document.querySelectorAll('.cart-checkout-summary .cart-summary-row');
+                    if (summaryRows.length > 0) {
+                      var discountHtml = '<div class="cart-summary-row cart-summary-discount"><span class="cart-summary-label"><div class="cart-discount-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Знижка промокоду</div></span><span class="cart-summary-value">-' + parseFloat(d.discount).toFixed(2) + ' грн</span></div>';
+                      summaryRows[0].insertAdjacentHTML('afterend', discountHtml);
+                    }
+                  } else {
+                    // Обновляем существующий блок
+                    var discountValue = discountRow.querySelector('.cart-summary-value');
+                    if (discountValue) {
+                      discountValue.textContent = '-' + parseFloat(d.discount).toFixed(2) + ' грн';
+                    }
+                  }
+                } else {
+                  // Скрываем блок скидки если скидки нет
+                  if (discountRow) {
+                    discountRow.remove();
+                  }
+                }
+
+                // Обновляем итоговую сумму (total)
+                if (payNowAmount && d.total !== undefined) {
+                  // КРИТИЧНО: Используем Number чтобы избежать проблем с форматированием
+                  var totalValue = Number(parseFloat(d.total));
+                  if (isNaN(totalValue)) totalValue = 0;
+
+                  // ВАЖНО: Обновляем только data-total атрибут, НЕ текст напрямую
+                  // Используем toFixed(2) для сохранения в data-атрибуте, но как число для расчетов
+                  payNowAmount.setAttribute('data-total', totalValue.toFixed(2));
+
+                  // Обновляем paymentSummary для корректного пересчета предоплаты
+                  if (window.paymentSummary) {
+                    window.paymentSummary.total = totalValue;
+                  }
+
+                  // КРИТИЧНО: ВСЕГДА вызываем updatePaymentSummary для правильного отображения суммы
+                  // Она сама решит что показывать: 200 грн при prepay_200 или полную сумму
+                  // Используем setTimeout чтобы гарантировать что updatePaymentSummary выполнится ПОСЛЕ всех обновлений
+                  setTimeout(function () {
+                    var payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
+                    if (payTypeSelect && typeof window.updatePaymentSummary === 'function') {
+                      // Используем глобальную функцию и текущее значение селекта
+                      window.updatePaymentSummary(payTypeSelect.value || 'online_full');
+                    } else if (typeof window.updatePaymentSummary === 'function') {
+                      // Если селект еще не загружен, используем значение по умолчанию
+                      window.updatePaymentSummary('online_full');
+                    }
+                  }, 50);
+                }
+
+                // Если корзина пуста - показываем сообщение
+                if (d.count === 0) {
+                  setTimeout(function () {
+                    var mainSection = document.querySelector('.cart-main-section');
+                    if (mainSection) {
+                      mainSection.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg></div><h2 class="cart-empty-title">Кошик порожній</h2><p class="cart-empty-text">Додайте товари до кошика, щоб зробити замовлення</p><a href="/" class="cart-empty-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01L12 2z"/></svg>Перейти до покупок</a></div>';
+                    }
+                  }, 350);
+                }
+              }
+
+              try {
+                if (window.trackEvent) {
+                  var rowEl = el && el.closest ? el.closest('[data-cart-row]') : null;
+                  if (!rowEl) {
+                    rowEl = document.querySelector('[data-cart-row][data-key="' + key + '"]');
+                  }
+                  var offerId = rowEl ? rowEl.getAttribute('data-offer-id') : null;
+                  if (offerId) {
+                    var payload = {
+                      content_ids: [offerId],
+                      content_type: 'product',
+                      contents: [{
+                        id: offerId,
+                        quantity: 1
+                      }]
+                    };
+                    window.trackEvent('RemoveFromCart', payload);
+                  } else {
+                    if (console && console.debug) {
+                      console.debug('RemoveFromCart: offer_id not found for key', key);
+                    }
+                  }
+                }
+              } catch (_) { }
+            }
+          }).catch(function (error) {
+            // Тихая обработка ошибок - перезагружаем только если на странице корзины
+            if (document.getElementById('cart-list')) {
+              location.reload();
+            }
+          });
+        };
+      }
+      if (typeof window.CartRemove !== 'function') {
+        window.CartRemove = function (pid, size, el) { return window.CartRemoveKey(String(pid) + ':' + (size || ''), el); };
+      }
+
+      if (typeof window.cleanCart !== 'function') {
+        window.cleanCart = function () {
+          if (confirm('Ви впевнені, що хочете очистити кошик?')) {
+            var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+              document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+              getCookie('csrftoken');
+
+            fetch('/cart/clear/', {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+              }
+            }).then(function (r) {
+              if (!r.ok) {
+                throw new Error('Network response was not ok');
+              }
+              return r.json();
+            }).then(function (d) {
+              if (d && d.ok) {
+                location.reload();
+              }
+            }).catch(function (error) {
+              // Тихая обработка - перезагружаем в любом случае
+              location.reload();
+            });
+          }
+        };
+      }
+      if (typeof window.AddToCart !== 'function') {
+        window.AddToCart = function (btn) {
+          var productId = btn.getAttribute('data-add-to-cart');
+          var sizeInput = document.querySelector('input[name="size"]:checked');
+          var size = (sizeInput ? sizeInput.value : 'S') || 'S';
+          var wrap = btn.closest('[data-qty]') || document;
+          var qtyInput = wrap.querySelector('input[type="number"]#qty') || wrap.querySelector('[data-qty] input[type="number"]') || document.querySelector('#qty') || (btn.parentElement ? btn.parentElement.querySelector('input[type="number"]') : null);
+          var qty = Math.max(1, parseInt(qtyInput && qtyInput.value ? qtyInput.value : '1', 10));
+
+          // Получаем выбранный цвет
+          var colorVariantId = null;
+          var activeColorSwatch = document.querySelector('#color-picker .color-swatch.active');
+          if (activeColorSwatch) {
+            colorVariantId = activeColorSwatch.getAttribute('data-variant');
+          }
+
+          // Получаем CSRF токен
+          var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+            document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+            getCookie('csrftoken');
+
+          var body = new URLSearchParams({ product_id: String(productId), size: String(size).toUpperCase(), qty: String(qty) });
+          if (colorVariantId) {
+            body.append('color_variant_id', colorVariantId);
+          }
+
+          fetch('/cart/add/', {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest',
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+            },
+            body: body
+          }).then(function (r) {
+            if (!r.ok) {
+              throw new Error('Network response was not ok');
+            }
+            return r.json();
+          }).then(function (d) {
+            if (d && d.ok) {
+              try {
+                if (window.updateCartBadge) window.updateCartBadge(d.count);
+                if (window.refreshMiniCart) window.refreshMiniCart();
+                if (window.openMiniCart) window.openMiniCart();
+                if (document.querySelector('.cart-page-container')) {
+                  try {
+                    if (window.refreshCartPage) { window.refreshCartPage(); }
+                    else { window.location.reload(); }
+                  } catch (_) { window.location.reload(); }
+                }
+              } catch (_) { }
+              try {
+                if (window.__twcTrackAddToCart) {
+                  window.__twcTrackAddToCart(d, btn, qty);
+                }
+              } catch (trackErr) {
+                if (window.console && console.debug) {
+                  console.debug('AddToCart tracking error:', trackErr);
+                }
+              }
+              // AddToCart tracking handled by main.js to avoid duplication
+            } else {
+              console.error('Add to cart failed:', d);
+            }
+          }).catch(function (error) {
+            console.error('Add to cart error:', error);
+            alert('Помилка при додаванні товару до кошика. Спробуйте ще раз.');
+          });
+          return false;
+        };
+      }
+    })();
+
+    // Применяем CSS переменные для комбинированных цветов в корзине и заказах
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.swatch[data-secondary]:not([data-secondary=""])').forEach(function (swatch) {
+        var primary = swatch.getAttribute('data-primary');
+        var secondary = swatch.getAttribute('data-secondary');
+
+        if (secondary && secondary !== '') {
+          swatch.style.setProperty('--primary-color', primary);
+          swatch.style.setProperty('--secondary-color', secondary);
+        }
+      });
+    });
+  </script>
+
+  <!-- Модальное окно с информацией о баллах -->
+  <div class="modal fade" id="pointsInfoModal" tabindex="-1" aria-labelledby="pointsInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content points-info-modal">
+        <div class="modal-header">
+          <div class="modal-title-section">
+            <div class="modal-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+            </div>
+            <div class="modal-title-content">
+              <h5 class="modal-title" id="pointsInfoModalLabel">Система балів</h5>
+              <p class="modal-subtitle">Як працюють бали за покупки</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="points-info-content">
+            <div class="product-points-info">
+              <div class="product-points-badge">
+                <span class="points-amount" id="modalPointsAmount">0</span>
+                <span class="points-label">балів за цей товар</span>
+              </div>
+              <div class="product-title" id="modalProductTitle">Назва товару</div>
+            </div>
+
+            <div class="points-explanation">
+              <div class="explanation-item">
+                <div class="explanation-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                  </svg>
+                </div>
+                <div class="explanation-text">
+                  <strong>Нарахування балів:</strong> Бали нараховуються автоматично після підтвердження замовлення
+                </div>
+              </div>
+
+              <div class="explanation-item">
+                <div class="explanation-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z" />
+                  </svg>
+                </div>
+                <div class="explanation-text">
+                  <strong>Використання балів:</strong> Зареєстровані користувачі можуть витратити бали у кабінеті
+                </div>
+              </div>
+
+              <div class="explanation-item">
+                <div class="explanation-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                </div>
+                <div class="explanation-text">
+                  <strong>Можливості:</strong> Обмін на промокоди або пожертвування на ЗСУ
+                </div>
+              </div>
+            </div>
+
+            <div class="points-actions">
+              
+              <a href="/login/" class="btn btn-outline-primary points-action-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z" />
+                </svg>
+                Увійти для накопичення балів
+              </a>
+              
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // Обработчик для модального окна с информацией о баллах
+      const pointsInfoModal = document.getElementById('pointsInfoModal');
+      if (pointsInfoModal) {
+        pointsInfoModal.addEventListener('show.bs.modal', function (event) {
+          const button = event.relatedTarget;
+          const productTitle = button.getAttribute('data-product-title');
+          const pointsAmount = button.getAttribute('data-points-amount');
+
+          // Обновляем содержимое модального окна
+          document.getElementById('modalProductTitle').textContent = productTitle;
+          document.getElementById('modalPointsAmount').textContent = pointsAmount;
+        });
+      }
+    });
+  </script>
+
+  <style>
+    .points-info-modal .modal-content {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+    }
+
+    .points-info-modal .modal-header {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 1.5rem;
+    }
+
+    .modal-title-section {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .modal-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+      border-radius: 12px;
+      color: white;
+    }
+
+    .modal-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .modal-subtitle {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    .points-info-modal .modal-body {
+      padding: 1.5rem;
+    }
+
+    .product-points-info {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(124, 58, 237, 0.05));
+      border-radius: 12px;
+      border: 1px solid rgba(124, 58, 237, 0.2);
+    }
+
+    .product-points-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .points-amount {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent-color);
+    }
+
+    .points-label {
+      font-size: 1rem;
+      color: var(--text-secondary);
+    }
+
+    .product-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .points-explanation {
+      margin-bottom: 2rem;
+    }
+
+    .explanation-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .explanation-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .explanation-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+      border-radius: 8px;
+      color: #10b981;
+      flex-shrink: 0;
+    }
+
+    .explanation-text {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .explanation-text strong {
+      color: var(--text-primary);
+    }
+
+    .points-actions {
+      text-align: center;
+    }
+
+    .points-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s ease;
+    }
+
+    .points-action-btn:hover {
+      transform: translateY(-1px);
+      text-decoration: none;
+    }
+
+    .btn-primary.points-action-btn {
+      background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+      border: none;
+      color: white;
+    }
+
+    .btn-primary.points-action-btn:hover {
+      box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+      color: white;
+    }
+
+    .btn-outline-primary.points-action-btn {
+      border: 1px solid var(--accent-color);
+      color: var(--accent-color);
+      background: transparent;
+    }
+
+    .btn-outline-primary.points-action-btn:hover {
+      background: var(--accent-color);
+      color: white;
+      box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+    }
+
+    @media (max-width: 768px) {
+      .points-info-modal .modal-dialog {
+        margin: 1rem;
+      }
+
+      .modal-title-section {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.75rem;
+      }
+
+      .explanation-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.75rem;
+      }
+    }
+  </style>
+
+  
+  
+  <script src="/static/js/custom-print-configurator.js" defer></script>
+
+
+  <!-- JavaScript для управления видимостью favorites -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      function toggleFavoritesVisibility() {
+        // Десктопный мини-профиль
+        const favoritesItem = document.getElementById('favorites-menu-item');
+        // Мобильная нижняя навигация
+        const favoritesMobileBottomNav = document.getElementById('favorites-mobile-bottom-nav');
+
+
+        if (window.innerWidth <= 991) {
+          // Скрываем на мобильных - агрессивно
+
+          if (favoritesItem) {
+            favoritesItem.style.setProperty('display', 'none', 'important');
+            favoritesItem.style.setProperty('visibility', 'hidden', 'important');
+            favoritesItem.style.setProperty('opacity', '0', 'important');
+            favoritesItem.style.setProperty('height', '0', 'important');
+            favoritesItem.style.setProperty('overflow', 'hidden', 'important');
+            favoritesItem.style.setProperty('position', 'absolute', 'important');
+            favoritesItem.style.setProperty('left', '-9999px', 'important');
+          }
+
+          if (favoritesMobileBottomNav) {
+            favoritesMobileBottomNav.style.setProperty('display', 'none', 'important');
+            favoritesMobileBottomNav.style.setProperty('visibility', 'hidden', 'important');
+            favoritesMobileBottomNav.style.setProperty('opacity', '0', 'important');
+            favoritesMobileBottomNav.style.setProperty('height', '0', 'important');
+            favoritesMobileBottomNav.style.setProperty('overflow', 'hidden', 'important');
+            favoritesMobileBottomNav.style.setProperty('position', 'absolute', 'important');
+            favoritesMobileBottomNav.style.setProperty('left', '-9999px', 'important');
+          }
+        } else {
+          // Показываем на десктопе
+
+          if (favoritesItem) {
+            favoritesItem.style.setProperty('display', 'flex', 'important');
+            favoritesItem.style.setProperty('visibility', 'visible', 'important');
+            favoritesItem.style.setProperty('opacity', '1', 'important');
+            favoritesItem.style.setProperty('height', 'auto', 'important');
+            favoritesItem.style.setProperty('overflow', 'visible', 'important');
+            favoritesItem.style.setProperty('position', 'static', 'important');
+            favoritesItem.style.setProperty('left', 'auto', 'important');
+          }
+
+          if (favoritesMobileBottomNav) {
+            favoritesMobileBottomNav.style.setProperty('display', 'none', 'important');
+          }
+        }
+      }
+
+      // Применяем при загрузке
+      setTimeout(toggleFavoritesVisibility, 100);
+
+      // Обновляем при изменении размера окна
+      window.addEventListener('resize', function () {
+        setTimeout(toggleFavoritesVisibility, 50);
+      });
+    });
+  </script>
+
+  
+
+  
+
+  <!-- Service Worker cleanup: unregister legacy workers and clear caches -->
+  <script>
+    (function () {
+      'use strict';
+      var CLEANUP_KEY = 'twcSwCleanupV1';
+      var DAY_MS = 24 * 60 * 60 * 1000;
+      var now = Date.now();
+
+      try {
+        var lastRun = parseInt(localStorage.getItem(CLEANUP_KEY) || '0', 10);
+        if (Number.isFinite(lastRun) && now - lastRun < DAY_MS) {
+          return;
+        }
+        localStorage.setItem(CLEANUP_KEY, String(now));
+      } catch (err) {
+        // Если localStorage недоступен, пытаемся выполнить очистку однократно
+      }
+
+      if (!('serviceWorker' in navigator)) {
+        return;
+      }
+
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.getRegistrations()
+          .then(function (registrations) {
+            return Promise.all(registrations.map(function (registration) {
+              return registration.unregister();
+            }));
+          })
+          .catch(function () { /* no-op */ });
+
+        if ('caches' in window) {
+          caches.keys()
+            .then(function (cacheNames) {
+              return Promise.all(cacheNames.map(function (cacheName) {
+                return caches.delete(cacheName);
+              }));
+            })
+            .catch(function () { /* no-op */ });
+        }
+      });
+    })();
+  </script>
+
+</body>
+
+</html>

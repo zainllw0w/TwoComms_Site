@@ -3290,4 +3290,102 @@
   [data-contact-channel-list].cp-mini-chip-row {
     grid-template-columns: minmax(0, 1fr);
   }
+  }
+}
+
+/* --- PREMIUM UI CONFIGURATOR APPENDS --- */
+
+.cp-fit-card {
+  padding: 0;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden;
+  gap: 0;
+}
+.cp-fit-card-figure {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #000;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.cp-fit-card-figure img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+.cp-fit-card:hover .cp-fit-card-figure img,
+.cp-fit-card.is-active .cp-fit-card-figure img {
+  transform: scale(1.05);
+}
+.cp-fit-card-info {
+  padding: 1rem 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.cp-size-preset {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.85rem;
+}
+.cp-size-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cp-text);
+  opacity: 0.6;
+}
+.cp-size-preset.is-active .cp-size-icon {
+  color: var(--cp-accent);
+  opacity: 1;
+}
+.cp-size-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.cp-size-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.cp-stage-view-switch button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+}
+.cp-stage-view-switch button img {
+  opacity: 0.6;
+}
+.cp-stage-view-switch button.is-active img {
+  opacity: 1;
+  /* filter: none; */ /* Removing drop-shadow to keep images original gold */
+}
+
+/* stage print styling / Hitboxes */
+.cp-stage-print {
+  pointer-events: auto !important; /* Make plate clickable */
+  transition: all 0.2s ease;
+}
+.cp-stage-print:hover::before {
+  background: repeating-linear-gradient(135deg, rgba(242, 211, 155, 0.35), rgba(242, 211, 155, 0.35) 12px, rgba(255, 255, 255, 0.1) 12px, rgba(255, 255, 255, 0.1) 24px) !important;
+  backdrop-filter: blur(2px);
+}
+.cp-stage-print.is-inactive {
+  opacity: 0.5;
+}
+.cp-stage-print.is-inactive:hover {
+  opacity: 1;
+}
+/* Ensure the label and badge can be clicked safely without jumping */
+.cp-stage-print-label,
+.cp-stage-print-badge {
+  pointer-events: none;
 }
