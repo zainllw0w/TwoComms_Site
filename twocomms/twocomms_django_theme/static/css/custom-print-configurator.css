@@ -3123,3 +3123,118 @@
     font-size: 0.6rem;
   }
 }
+
+/* ── V2.13 Responsive containment sweep ───────────────────── */
+@media (max-width: 1100px) {
+  .cp-shell[data-flow-phase="studio"] .cp-hero,
+  .cp-workbench {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cp-stage-card {
+    position: relative;
+    top: auto;
+  }
+
+  .cp-stage-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .cp-step-summary {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: flex-start;
+  }
+
+  .cp-step-summary-edit {
+    grid-column: 2;
+    justify-self: flex-start;
+    margin-top: 0.1rem;
+  }
+
+  .cp-step-summary-text strong {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+  }
+
+  .cp-step-actions {
+    flex-wrap: wrap;
+  }
+
+  .cp-step-actions > * {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .cp-final-button-text strong,
+  .cp-final-button-text small,
+  .cp-stage-guide,
+  .cp-status-box,
+  .cp-step-head p,
+  .cp-subhead span,
+  .cp-inline-note-copy {
+    overflow-wrap: anywhere;
+  }
+
+  [data-contact-channel-list].cp-mini-chip-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  [data-contact-channel-list] .cp-mini-chip {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.72rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .cp-hero,
+  .cp-card,
+  .cp-stage-card,
+  .cp-capsule {
+    border-radius: 22px;
+  }
+
+  .cp-stage-card,
+  .cp-card {
+    padding-inline: 0.82rem;
+  }
+
+  .cp-config-block,
+  .cp-upload-panel,
+  .cp-inline-note,
+  .cp-review-box,
+  .cp-status-box {
+    padding: 0.82rem 0.85rem;
+    border-radius: 18px;
+  }
+
+  .cp-step-summary {
+    padding: 0.72rem 0.8rem;
+  }
+
+  .cp-step-body {
+    padding: 0 0.8rem 0.9rem;
+  }
+
+  .cp-step-summary-num {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
+  }
+
+  .cp-step-summary-text strong,
+  .cp-card h2,
+  .cp-stage-card h2 {
+    line-height: 1.25;
+  }
+
+  [data-contact-channel-list].cp-mini-chip-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
