@@ -1306,6 +1306,14 @@
     dom.zoneLayer.innerHTML = "";
     dom.stageOverlay.innerHTML = "";
     if (dom.stagePlaceholder) dom.stagePlaceholder.hidden = !!STATE.product.type;
+    
+    // Hide hitboxes when not actively configuring zones to keep scene clean
+    if (STATE.ui.current_step !== "zones" && STATE.ui.current_step !== "artwork") {
+      dom.stageOverlay.style.display = "none";
+    } else {
+      dom.stageOverlay.style.display = "";
+    }
+    
     if (!STATE.product.type) return;
     const activePlacements = getExpandedPlacements();
     getStageTargets().forEach((target) => {
