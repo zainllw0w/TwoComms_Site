@@ -48,6 +48,7 @@
   // ── DOM refs ────────────────────────────────────────────────
   const dom = {
     shell: root.querySelector("[data-shell]"),
+    hero: root.querySelector("[data-hero]"),
     form: root.querySelector("#customPrintConfiguratorForm"),
     progressShell: root.querySelector("[data-progress-shell]"),
     progressStrip: root.querySelector("[data-progress-strip]"),
@@ -200,9 +201,52 @@
     bindGiftToggle();
     bindFinalActions();
     bindGenericInputs();
+    bindHeroMotion();
     loadDraft();
     setActiveStep(STATE.ui.current_step || "mode", { silent: true });
     refreshAll();
+  }
+
+  function bindHeroMotion() {
+    if (!dom.hero) return;
+
+    const motionQuery = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)") || null;
+    let rafId = 0;
+
+    const updateHeroMotion = () => {
+      rafId = 0;
+      if (motionQuery?.matches) {
+        dom.hero.style.setProperty("--cp-hero-scroll", "0");
+        return;
+      }
+
+      const rect = dom.hero.getBoundingClientRect();
+      const travel = Math.max(rect.height || 0, 1);
+      const progress = Math.min(Math.max((-rect.top) / travel, 0), 1);
+      dom.hero.style.setProperty("--cp-hero-scroll", progress.toFixed(3));
+    };
+
+    const requestHeroMotionUpdate = () => {
+      if (rafId) return;
+      rafId = globalThis.requestAnimationFrame(updateHeroMotion);
+    };
+
+    const handleMotionPreferenceChange = (event) => {
+      if (event.matches) {
+        dom.hero.style.setProperty("--cp-hero-scroll", "0");
+        return;
+      }
+      requestHeroMotionUpdate();
+    };
+
+    requestHeroMotionUpdate();
+    globalThis.addEventListener("scroll", requestHeroMotionUpdate, { passive: true });
+    globalThis.addEventListener("resize", requestHeroMotionUpdate);
+    if (typeof motionQuery?.addEventListener === "function") {
+      motionQuery.addEventListener("change", handleMotionPreferenceChange);
+    } else if (typeof motionQuery?.addListener === "function") {
+      motionQuery.addListener(handleMotionPreferenceChange);
+    }
   }
 
   function isLobbyPhase() {
@@ -1797,7 +1841,7 @@
     dom.startFlow?.addEventListener("click", () => {
       // Clear storage and hard reload to ensure absolutely pristine state
       if (STATE.product.type) {
-        localStorage.removeItem(DRAFT_CACHE_KEY);
+        localStorage.removeItem(STORAGE_KEY);
         location.reload();
         return;
       }
