@@ -40,6 +40,7 @@
     return acc;
   }, {});
   const STAGE_PROFILES = CONFIG.stage_profiles || {};
+  const submissionPolicy = globalThis.CustomPrintSubmissionPolicy || null;
 
   const STATE = createState();
   const filesByPlacement = new Map(); // placement_key -> File[]
@@ -61,6 +62,8 @@
     stageLabel: root.querySelector("[data-stage-label]"),
     stagePlaceholder: root.querySelector("[data-stage-placeholder]"),
     stageViewSwitch: root.querySelectorAll("[data-stage-view]"),
+    stageGuide: root.querySelector("[data-stage-guide]"),
+    stageLegend: root.querySelector("[data-stage-legend]"),
     garment: root.querySelector("[data-garment]"),
     stageOverlay: root.querySelector("[data-stage-overlay]"),
     zoneLayer: root.querySelector("[data-zone-layer]"),
@@ -1294,9 +1297,9 @@
       pin.style.top = asPercent(anchor.button.y);
       pin.style.left = asPercent(anchor.button.x);
       pin.dataset.zone = target.key;
-      pin.innerHTML = `<span>${escapeHtml(target.label)}</span>`;
+      pin.innerHTML = `<small>${escapeHtml(getStagePinCode(target))}</small>`;
       pin.title = target.label;
-      pin.addEventListener("click", () => toggleStageTarget(target.key));
+      pin.addEventListener("click", () => handleStageTargetInteraction(target.key));
       dom.zoneLayer.appendChild(pin);
 
       if (target.isActive && anchor.plate) {
@@ -1314,23 +1317,103 @@
         plate.style.setProperty("--plate-rotate", `${Number(anchor.plate.rotate || 0)}deg`);
         plate.style.setProperty("--plate-radius", `${Number(anchor.plate.radius || 18)}px`);
         plate.dataset.zone = target.key;
-        const badgeText = placement.zone === "sleeve" && placement.mode === "full_text"
-          ? escapeHtml((placement.text || "Текст").slice(0, 18))
-          : escapeHtml(placement.size_preset || (placement.zone === "sleeve" ? "A6" : ""));
+        const badgeText = escapeHtml(getStageBadgeText(placement));
         plate.innerHTML = `
-          <span class="cp-stage-print-label">${escapeHtml(getStagePlateLabel(placement))}</span>
           <span class="cp-stage-print-badge">${badgeText || "ON"}</span>
         `;
-        plate.addEventListener("click", () => toggleStageTarget(target.key));
+        plate.title = target.label;
+        plate.addEventListener("click", () => handleStageTargetInteraction(target.key));
         dom.stageOverlay.appendChild(plate);
       }
     });
   }
 
-  function getStagePlateLabel(placement) {
-    if (placement.placement_key === "front") return "Перед";
-    if (placement.placement_key === "back") return "Спина";
-    return placement.label;
+  function getStageTargetView(targetKey) {
+    if (targetKey === "front" || targetKey === "custom") return "front";
+    return "back";
+  }
+
+  function focusStageTarget(targetKey) {
+    applyStageView(getStageTargetView(targetKey));
+  }
+
+  function handleStageTargetInteraction(targetKey) {
+    focusStageTarget(targetKey);
+    if (STATE.ui.current_step === "zones") {
+      toggleStageTarget(targetKey);
+    }
+  }
+
+  function getStagePinCode(target) {
+    if (target.key === "front") return "FR";
+    if (target.key === "back") return "BK";
+    if (target.key === "sleeve_left") return "SL";
+    if (target.key === "sleeve_right") return "SR";
+    return "C";
+  }
+
+  function getStageBadgeText(placement) {
+    if (placement.zone === "sleeve" && placement.mode === "full_text") return "TEXT";
+    if (placement.size_preset) return placement.size_preset;
+    if (placement.zone === "sleeve") return "A6";
+    return "ON";
+  }
+
+  function getStageGuideText() {
+    if (!STATE.product.type) return "Оберіть виріб, щоб побачити сцену і доступні placement’и.";
+    if (STATE.ui.current_step === "zones") {
+      return "На кроці «Зони друку» торкніться мітки або картки зони, щоб увімкнути чи вимкнути placement.";
+    }
+    return "Торкніться мітки або картки нижче, щоб сфокусувати потрібну зону без перевантаження сцени.";
+  }
+
+  function getStageLegendMeta(target, placement) {
+    if (!target.isActive) {
+      return STATE.ui.current_step === "zones" ? "Натисніть, щоб увімкнути зону" : "Доступна зона";
+    }
+    if (!placement) return "Активна зона";
+    if (placement.zone === "sleeve" && placement.mode === "full_text") {
+      const text = (placement.text || "").trim();
+      return text ? `Текст · ${text.slice(0, 22)}` : "Текст на рукаві";
+    }
+    if (placement.size_preset) return placement.size_preset;
+    if (placement.zone === "sleeve") return "A6";
+    return "Активна зона";
+  }
+
+  function renderStageLegend() {
+    if (!dom.stageLegend) return;
+    dom.stageLegend.innerHTML = "";
+    if (dom.stageGuide) dom.stageGuide.textContent = getStageGuideText();
+    if (!STATE.product.type) {
+      dom.stageLegend.innerHTML = `<div class="cp-stage-legend-empty">Зони зʼявляться після вибору виробу та кроку з конфігурацією принта.</div>`;
+      return;
+    }
+    const placements = getExpandedPlacements();
+    getStageTargets().forEach((target) => {
+      const placement = placements.find((item) => item.placement_key === target.key) || null;
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "cp-stage-legend-chip";
+      if (target.isActive) chip.classList.add("is-active");
+      if (getStageTargetView(target.key) === (STATE.ui.stage_view || "front")) {
+        chip.classList.add("is-focused");
+      }
+      chip.innerHTML = `
+        <small>${target.isActive ? "Активна зона" : "Доступна зона"}</small>
+        <strong>${escapeHtml(target.label)}</strong>
+        <span>${escapeHtml(getStageLegendMeta(target, placement))}</span>
+      `;
+      chip.addEventListener("click", () => {
+        if (STATE.ui.current_step === "zones") {
+          handleStageTargetInteraction(target.key);
+        } else {
+          focusStageTarget(target.key);
+          renderStageLegend();
+        }
+      });
+      dom.stageLegend.appendChild(chip);
+    });
   }
 
   function asPercent(value) {
@@ -1687,6 +1770,7 @@
     updateBrandFieldsVisibility();
     updateSummaries();
     renderProgressStrip();
+    renderStageLegend();
     updateB2bMeta();
     renderReceipt();
     updateFinalActionsAvailability();
@@ -1769,6 +1853,45 @@
       const all = [...labels, giftLabel].filter(Boolean);
       dom.stageAddons.textContent = all.length ? all.join(" · ") : (cfg ? "Без додаткових деталей." : "Поки що без активних деталей.");
     }
+    if (dom.stageGuide) dom.stageGuide.textContent = getStageGuideText();
+  }
+
+  function getSharedSubmissionIssues() {
+    const issues = [];
+    if (!STATE.mode) issues.push("Оберіть формат замовлення.");
+    if (!STATE.product.type) issues.push("Оберіть виріб.");
+    if (!canAdvance("config")) issues.push("Завершіть налаштування виробу.");
+    if (!canAdvance("zones")) issues.push("Оберіть і налаштуйте зони друку.");
+    if (!STATE.artwork.service_kind) {
+      issues.push("Оберіть сценарій роботи з макетом.");
+    } else if (STATE.artwork.service_kind === "design" && !(STATE.notes.brief || "").trim()) {
+      issues.push("Опишіть бриф / завдання для дизайну.");
+    } else if (STATE.artwork.service_kind === "adjust" && !(STATE.notes.brief || "").trim()) {
+      issues.push("Опишіть, що саме потрібно змінити у файлі.");
+    }
+    if (!canAdvance("quantity")) issues.push("Заповніть кількість і розміри.");
+    if (!canAdvance("contact")) issues.push("Заповніть імʼя, канал звʼязку і контакт.");
+    return issues;
+  }
+
+  function buildActionPolicy() {
+    const pricing = computePricing();
+    const baseIssues = getSharedSubmissionIssues();
+    const artworkIssues = getArtworkValidationIssues();
+    if (submissionPolicy?.buildFinalActionPolicy) {
+      return submissionPolicy.buildFinalActionPolicy({
+        baseIssues,
+        artworkIssues,
+        estimateRequired: pricing.estimate_required,
+        isCustomerGarment: STATE.product.type === "customer_garment",
+      });
+    }
+    return {
+      leadReady: baseIssues.length === 0,
+      cartReady: baseIssues.length === 0 && artworkIssues.length === 0 && !pricing.estimate_required && STATE.product.type !== "customer_garment",
+      leadHint: baseIssues[0] || "Бот відправить заявку в Telegram",
+      cartHint: artworkIssues[0] || baseIssues[0] || "Передзамовлення зі снимком конфігурації",
+    };
   }
 
   function updateBrandFieldsVisibility() {
@@ -1989,28 +2112,23 @@
   }
 
   function updateFinalActionsAvailability() {
-    const contactReady = canAdvance("contact");
-    const artworkIssues = getArtworkValidationIssues();
-    const ready = contactReady && artworkIssues.length === 0;
+    const actionPolicy = buildActionPolicy();
     const pricing = computePricing();
-    const cartReady = ready && STATE.product.type !== "customer_garment" && !pricing.estimate_required;
     if (dom.addToCartBtn) {
-      dom.addToCartBtn.disabled = !cartReady;
-      dom.addToCartBtn.classList.toggle("is-disabled", !cartReady);
+      dom.addToCartBtn.disabled = !actionPolicy.cartReady;
+      dom.addToCartBtn.classList.toggle("is-disabled", !actionPolicy.cartReady);
     }
     if (dom.submitLeadBtn) {
-      dom.submitLeadBtn.disabled = !ready;
-      dom.submitLeadBtn.classList.toggle("is-disabled", !ready);
+      dom.submitLeadBtn.disabled = !actionPolicy.leadReady;
+      dom.submitLeadBtn.classList.toggle("is-disabled", !actionPolicy.leadReady);
     }
     if (dom.cartActionHint) {
-      dom.cartActionHint.textContent = cartReady
+      dom.cartActionHint.textContent = actionPolicy.cartReady
         ? `${formatPrice(pricing.final_total)} · додамо в кошик зі снимком конфігурації`
-        : artworkIssues[0] || (pricing.estimate_required ? "Цей виріб потребує менеджерського прорахунку" : "Заповніть всі кроки, щоб додати в кошик");
+        : actionPolicy.cartHint;
     }
     if (dom.leadActionHint) {
-      dom.leadActionHint.textContent = ready
-        ? "Бот відправить заявку в Telegram"
-        : artworkIssues[0] || "Заповніть контакт, щоб менеджер міг відповісти";
+      dom.leadActionHint.textContent = actionPolicy.leadHint;
     }
   }
 
@@ -2163,13 +2281,9 @@
   }
 
   async function handleSubmitLead() {
-    if (!canAdvance("contact")) {
-      showStatus("Заповніть імʼя, канал звʼязку і контакт.", "error");
-      return;
-    }
-    const artworkIssues = getArtworkValidationIssues();
-    if (artworkIssues.length) {
-      showStatus(artworkIssues[0], "error");
+    const actionPolicy = buildActionPolicy();
+    if (!actionPolicy.leadReady) {
+      showStatus(actionPolicy.leadHint || "Перевірте форму перед відправкою.", "error");
       return;
     }
     const url = CONFIG.submit_url;
@@ -2199,20 +2313,12 @@
   }
 
   async function handleAddToCart() {
-    if (!canAdvance("contact")) {
-      showStatus("Заповніть всі кроки, перш ніж додавати в кошик.", "error");
-      return;
-    }
-    const artworkIssues = getArtworkValidationIssues();
-    if (artworkIssues.length) {
-      showStatus(artworkIssues[0], "error");
+    const actionPolicy = buildActionPolicy();
+    if (!actionPolicy.cartReady) {
+      showStatus(actionPolicy.cartHint || "Перевірте форму перед додаванням у кошик.", actionPolicy.leadReady ? "warning" : "error");
       return;
     }
     const pricing = computePricing();
-    if (pricing.estimate_required) {
-      showStatus("Цей виріб потребує менеджерського прорахунку. Натисніть «Надіслати менеджеру».", "warning");
-      return;
-    }
     const url = CONFIG.add_to_cart_url;
     if (!url) {
       showStatus("Кошик тимчасово недоступний. Скористайтесь Telegram-кнопкою.", "error");

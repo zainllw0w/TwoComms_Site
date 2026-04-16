@@ -104,6 +104,10 @@ class CustomPrintLeadForm(forms.Form):
     contact_value = forms.CharField(max_length=255)
     brief = forms.CharField(required=False, widget=forms.Textarea)
 
+    def __init__(self, *args, require_artwork_files=None, **kwargs):
+        self.require_artwork_files = require_artwork_files
+        super().__init__(*args, **kwargs)
+
     @staticmethod
     def _spec_requires_artwork_file(spec):
         if not isinstance(spec, dict):
@@ -199,6 +203,10 @@ class CustomPrintLeadForm(forms.Form):
             self.add_error("config_draft_json", exc)
             config_draft = {}
         normalized_snapshot = normalize_custom_print_snapshot(config_draft) if config_draft else {}
+        submission_type = (
+            (config_draft.get("submission_type") if isinstance(config_draft, dict) else "")
+            or ""
+        ).strip()
 
         if not placement_specs and normalized_snapshot:
             placement_specs = build_placement_specs(normalized_snapshot)
@@ -216,6 +224,9 @@ class CustomPrintLeadForm(forms.Form):
 
         required_artwork_specs = [spec for spec in placement_specs if self._spec_requires_artwork_file(spec)]
         required_artwork_file_count = len(required_artwork_specs)
+        require_artwork_files = self.require_artwork_files
+        if require_artwork_files is None:
+            require_artwork_files = submission_type != "lead"
 
         if "custom" in placements and not placement_note:
             self.add_error("placement_note", "Опишіть нестандартне розміщення принта.")
@@ -227,13 +238,17 @@ class CustomPrintLeadForm(forms.Form):
         if cleaned.get("product_type") == CustomPrintProductType.CUSTOMER_GARMENT and not garment_note:
             self.add_error("garment_note", "Опишіть ваш виріб для попереднього прорахунку.")
 
-        if service_kind == CustomPrintServiceKind.READY and len(files) < required_artwork_file_count:
+        if (
+            require_artwork_files
+            and service_kind == CustomPrintServiceKind.READY
+            and len(files) < required_artwork_file_count
+        ):
             self.add_error("files", "Додайте файли для всіх зон, де потрібен макет.")
 
         if service_kind == CustomPrintServiceKind.ADJUST:
             if not brief:
                 self.add_error("brief", "Опишіть, що саме потрібно змінити у файлі.")
-            if len(files) < required_artwork_file_count:
+            if require_artwork_files and len(files) < required_artwork_file_count:
                 self.add_error("files", "Додайте файли для всіх зон, де потрібен макет.")
 
         if service_kind == CustomPrintServiceKind.DESIGN and not brief:

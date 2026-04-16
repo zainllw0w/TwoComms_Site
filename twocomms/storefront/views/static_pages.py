@@ -539,7 +539,7 @@ def custom_print_lead(request):
     """
     AJAX endpoint для новой лид-формы кастомного принта.
     """
-    form = CustomPrintLeadForm(request.POST, request.FILES)
+    form = CustomPrintLeadForm(request.POST, request.FILES, require_artwork_files=False)
     if not form.is_valid():
         errors = {}
         for field, field_errors in form.errors.get_json_data().items():
@@ -567,7 +567,7 @@ def custom_print_add_to_cart(request):
     V2 endpoint: create a CustomPrintLead (source=custom_print_cart) and
     push a lightweight reference into the session-based custom cart.
     """
-    form = CustomPrintLeadForm(request.POST, request.FILES)
+    form = CustomPrintLeadForm(request.POST, request.FILES, require_artwork_files=True)
     if not form.is_valid():
         errors = {}
         for field, field_errors in form.errors.get_json_data().items():

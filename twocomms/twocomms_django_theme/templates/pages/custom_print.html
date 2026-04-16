@@ -83,6 +83,12 @@
             </div>
           </div>
 
+          <div class="cp-stage-guide" data-stage-guide>
+            Торкніться мітки, щоб подивитися placement на виробі.
+          </div>
+
+          <div class="cp-stage-legend" data-stage-legend aria-label="Зони друку на сцені"></div>
+
           <div class="cp-stage-meta">
             <div class="cp-stage-copy">
               <small data-stage-eyebrow>Виріб</small>
@@ -554,5 +560,6 @@
 
 {% block extra_js %}
   {{ block.super }}
+  <script src="{% static 'js/custom-print-submission-policy.js' %}" defer></script>
   <script src="{% static 'js/custom-print-configurator.js' %}" defer></script>
 {% endblock %}
