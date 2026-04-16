@@ -714,8 +714,8 @@
           ? "Нижче зʼявляться доступні тканини і ціни"
           : "Тканина фіксується автоматично";
       btn.innerHTML = `
-        <div class="cp-fit-card-figure">
-          <img src="/static/img/configurator/ui/hoodie-${f.value}.png" alt="${f.label}">
+        <div class="cp-fit-card-figure" style="display: ${'block'}">
+          <img src="/static/img/configurator/ui/${STATE.product.type}-${f.value}.png" alt="${f.label}" onerror="this.parentElement.style.display='none'">
         </div>
         <div class="cp-fit-card-info">
           <small>Посадка</small>
