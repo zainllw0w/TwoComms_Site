@@ -560,9 +560,9 @@ STAGE_PROFILES = {
                         50,
                         45.8,
                         presets={
-                            "A4": _stage_box(50, 47.2, 26.8, 33.5, 0, 22, "panel"),
-                            "A3": _stage_box(50, 49.8, 33.4, 41.2, 0, 23, "panel"),
-                            "A2": _stage_box(50, 53.2, 39.8, 49.4, 0, 24, "panel"),
+                            "A4": calc_iso_box("A4", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=380, radius=20),
+                            "A3": calc_iso_box("A3", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=380, radius=21),
+                            "A2": calc_iso_box("A2", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=380, radius=22),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
