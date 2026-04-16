@@ -67,117 +67,255 @@
 
 /* ── 2. Hero ───────────────────────────────────────────────── */
 .cp-hero {
+  --cp-hero-scroll: 0;
   z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
-  gap: 2rem;
-  padding: clamp(1.5rem, 3vw, 2.5rem);
-  align-items: center;
-  background: rgba(20, 20, 22, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 24px;
-  overflow: hidden;
   position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: flex-end;
+  padding: clamp(1.45rem, 3vw, 2.7rem);
+  min-height: clamp(460px, calc(100svh - 112px), 680px);
+  background:
+    radial-gradient(circle at 72% 24%, rgba(242, 211, 155, 0.1), transparent 26%),
+    radial-gradient(circle at 86% 18%, rgba(215, 164, 80, 0.12), transparent 24%),
+    linear-gradient(135deg, rgba(9, 8, 10, 0.98), rgba(18, 16, 20, 0.98) 52%, rgba(11, 10, 13, 0.98));
+  border-color: rgba(236, 197, 127, 0.16);
 }
 
-@media (max-width: 900px) {
-  .cp-hero {
-    grid-template-columns: 1fr;
-    text-align: center;
-  }
+.cp-hero::before,
+.cp-hero::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
 }
 
-.cp-hero-content {
+.cp-hero::before {
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.06;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 86%);
+}
+
+.cp-hero::after {
+  inset: auto 8% 0 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(242, 211, 155, 0.4), transparent);
+  opacity: 0.55;
+}
+
+.cp-hero-copy {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
-  padding: 1rem 0;
+  align-items: flex-start;
+  gap: 1.05rem;
+  width: min(100%, 42rem);
+  min-width: 0;
+  padding: clamp(1.25rem, 4vw, 3.4rem) 0 1rem;
 }
 
-@media (max-width: 900px) {
-  .cp-hero-content {
-    align-items: center;
-  }
+.cp-hero-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  max-width: min(100%, 28rem);
+}
+
+.cp-hero-brandmark {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 17px;
+  background:
+    radial-gradient(circle at 28% 28%, rgba(255, 255, 255, 0.26), transparent 34%),
+    linear-gradient(145deg, rgba(242, 211, 155, 0.24), rgba(156, 97, 33, 0.14));
+  border: 1px solid rgba(242, 211, 155, 0.16);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+}
+
+.cp-hero-brandmark img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.3));
+}
+
+.cp-hero-brandcopy {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.cp-hero-brandcopy strong {
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: #fff8ed;
+  overflow-wrap: anywhere;
+}
+
+.cp-hero-brandcopy span {
+  color: var(--cp-soft);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .cp-hero-badge {
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  padding: 0.45rem 1rem;
+  padding: 0.52rem 1rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(139, 163, 141, 0.15) 0%, rgba(231, 139, 167, 0.15) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  background: rgba(242, 211, 155, 0.08);
+  border: 1px solid rgba(242, 211, 155, 0.2);
+  color: var(--cp-accent-soft);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .cp-hero-title {
   margin: 0;
-  font-size: clamp(2.4rem, 4vw, 4rem);
-  line-height: 1.05;
-  letter-spacing: -0.04em;
-  color: #ffffff;
+  max-width: 8.4ch;
+  font-size: clamp(2.85rem, 6vw, 5.75rem);
+  line-height: 0.92;
+  letter-spacing: -0.065em;
+  color: #fffaf2;
+  text-wrap: balance;
 }
 
 .cp-hero-desc {
   margin: 0;
-  max-width: 50ch;
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 1.05rem;
-  line-height: 1.6;
+  max-width: 34rem;
+  color: var(--cp-muted);
+  font-size: clamp(1rem, 1.4vw, 1.12rem);
+  line-height: 1.65;
+  text-wrap: pretty;
 }
 
 .cp-hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.8rem;
-  margin-top: 0.5rem;
+  gap: 0.85rem;
+  margin-top: 0.1rem;
 }
 
-@media (max-width: 900px) {
-  .cp-hero-actions {
-    justify-content: center;
-  }
-}
-
-.cp-hero-visual {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 300px;
-  display: flex;
+.cp-hero-scrollcue {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 16px;
-  overflow: hidden;
+  gap: 0.75rem;
+  margin-top: auto;
+  padding-top: 1rem;
+  color: var(--cp-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.cp-hero-visual img {
-  width: 100%;
-  height: auto;
-  min-height: 100%;
-  object-fit: cover;
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 2;
-  filter: contrast(1.1) brightness(1.05);
+.cp-hero-scrollcue-line {
+  width: 74px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(242, 211, 155, 0.18), rgba(242, 211, 155, 0.72));
+  transform-origin: left center;
+  animation: cp-hero-scrollcue 2.8s ease-in-out infinite;
 }
 
-.cp-hero-visual-glow {
+.cp-hero-art {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 80%;
-  height: 80%;
-  background: radial-gradient(circle, rgba(231,139,167,0.4) 0%, rgba(139,163,141,0.2) 50%, transparent 70%);
-  filter: blur(40px);
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.cp-hero-beam,
+.cp-hero-orb,
+.cp-hero-mark,
+.cp-hero-silhouette-shell {
+  position: absolute;
+}
+
+.cp-hero-beam {
+  top: -12%;
+  right: -6%;
+  width: min(48vw, 560px);
+  height: 140%;
+  background:
+    radial-gradient(circle at 36% 28%, rgba(242, 211, 155, 0.16), transparent 26%),
+    linear-gradient(180deg, rgba(242, 211, 155, 0.07), transparent 68%);
+  opacity: calc(0.78 - var(--cp-hero-scroll) * 0.24);
+  transform: translate3d(calc(var(--cp-hero-scroll) * 18px), calc(var(--cp-hero-scroll) * -22px), 0);
+  filter: blur(2px);
+}
+
+.cp-hero-orb {
+  top: clamp(16%, 20vh, 24%);
+  right: clamp(12%, 16vw, 20%);
+  width: clamp(120px, 12vw, 180px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.24), rgba(242, 211, 155, 0.18) 34%, rgba(242, 211, 155, 0.04) 58%, transparent 72%);
+  opacity: calc(0.92 - var(--cp-hero-scroll) * 0.24);
+  transform: translate3d(0, calc(var(--cp-hero-scroll) * -28px), 0);
+  filter: blur(1px);
+}
+
+.cp-hero-mark {
+  top: clamp(20%, 22vh, 27%);
+  right: clamp(12%, 15vw, 19%);
   z-index: 1;
+  display: grid;
+  place-items: center;
+  width: clamp(86px, 10vw, 136px);
+  aspect-ratio: 1;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.32), transparent 34%),
+    linear-gradient(145deg, rgba(242, 211, 155, 0.3), rgba(156, 97, 33, 0.16));
+  border: 1px solid rgba(242, 211, 155, 0.18);
+  box-shadow:
+    0 22px 42px rgba(0, 0, 0, 0.24),
+    0 0 0 10px rgba(242, 211, 155, 0.03);
+  opacity: calc(0.9 - var(--cp-hero-scroll) * 0.26);
+  transform: translate3d(0, calc(var(--cp-hero-scroll) * -22px), 0);
+}
+
+.cp-hero-mark img {
+  width: 56%;
+  height: 56%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.22));
+}
+
+.cp-hero-silhouette-shell {
+  right: clamp(-1rem, -2vw, 1rem);
+  bottom: clamp(-4.5rem, -7vh, -1rem);
+  width: min(42vw, 430px);
+  opacity: calc(0.22 - var(--cp-hero-scroll) * 0.08);
+}
+
+.cp-hero-silhouette {
+  --cp-garment-fill: linear-gradient(180deg, rgba(94, 90, 100, 0.68), rgba(18, 17, 20, 0.24) 92%);
+  width: 82%;
+  height: 80%;
+  transform: translate3d(0, calc(var(--cp-hero-scroll) * -34px), 0) scale(1.06);
+  filter: saturate(0.7) drop-shadow(0 32px 42px rgba(0, 0, 0, 0.22));
+}
+
+.cp-hero-silhouette .cp-garment-body,
+.cp-hero-silhouette .cp-garment-sleeve,
+.cp-hero-silhouette .cp-garment-hood {
+  border-color: rgba(255, 236, 204, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* Base modern button */
@@ -186,12 +324,14 @@
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  height: 48px;
-  padding: 0 1.4rem;
+  min-height: 52px;
+  padding: 0.95rem 1.45rem;
   border-radius: 999px;
   font-size: 0.95rem;
-  font-weight: 600;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid transparent;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), background 180ms cubic-bezier(0.16, 1, 0.3, 1), color 180ms cubic-bezier(0.16, 1, 0.3, 1), border-color 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   text-decoration: none;
   font-family: inherit;
@@ -204,43 +344,171 @@
 }
 
 .cp-btn--primary {
-  background: var(--cp-foreground);
-  color: var(--cp-background);
-  border: none;
+  background: linear-gradient(135deg, var(--cp-accent-soft), var(--cp-accent));
+  color: #171317;
+  border-color: rgba(242, 211, 155, 0.28);
+  box-shadow: 0 18px 42px rgba(215, 164, 80, 0.28);
 }
 
 .cp-btn--primary:hover {
-  background: #fff;
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px -6px rgba(255, 255, 255, 0.4);
-}
-
-.cp-btn--secondary {
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--cp-soft);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.cp-btn--secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cp-btn--secondary:disabled:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 22px 48px rgba(215, 164, 80, 0.34);
 }
 
 .cp-btn--telegram {
-  background: transparent;
-  color: #2AABEE;
-  border: 1px solid rgba(42, 171, 238, 0.3);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--cp-text);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .cp-btn--telegram:hover {
   background: rgba(42, 171, 238, 0.1);
-  border-color: #2AABEE;
+  border-color: rgba(42, 171, 238, 0.36);
+  color: #dff6ff;
   transform: translateY(-2px);
+}
+
+.cp-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(242, 211, 155, 0.18);
+}
+
+@keyframes cp-hero-scrollcue {
+  0%,
+  100% {
+    transform: scaleX(0.55);
+    opacity: 0.45;
+  }
+
+  50% {
+    transform: scaleX(1);
+    opacity: 0.95;
+  }
+}
+
+@media (max-width: 1080px) {
+  .cp-hero {
+    min-height: clamp(440px, 68svh, 620px);
+  }
+
+  .cp-hero-title {
+    font-size: clamp(2.55rem, 7vw, 4.7rem);
+  }
+
+  .cp-hero-silhouette-shell {
+    width: min(44vw, 360px);
+    opacity: 0.18;
+  }
+}
+
+@media (max-width: 900px) {
+  .cp-hero {
+    align-items: flex-start;
+    min-height: auto;
+    padding-bottom: 2rem;
+  }
+
+  .cp-hero-copy {
+    width: min(100%, 31rem);
+    padding: 1rem 0 2rem;
+  }
+
+  .cp-hero-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cp-hero-title {
+    max-width: 8.2ch;
+    font-size: clamp(2.25rem, 11vw, 3.55rem);
+  }
+
+  .cp-hero-beam {
+    top: -4%;
+    right: -30%;
+    width: 90%;
+    opacity: 0.58;
+  }
+
+  .cp-hero-orb {
+    top: 10%;
+    right: 8%;
+    width: 100px;
+  }
+
+  .cp-hero-mark {
+    top: 5.75rem;
+    right: 1rem;
+    width: 78px;
+  }
+
+  .cp-hero-silhouette-shell {
+    right: -5rem;
+    bottom: -2rem;
+    width: 250px;
+    opacity: 0.12;
+  }
+}
+
+@media (max-width: 560px) {
+  .cp-hero-brand {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: flex-start;
+    gap: 0.7rem;
+    width: 100%;
+    max-width: min(100%, 21rem);
+  }
+
+  .cp-hero-brandmark {
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
+  }
+
+  .cp-hero-brandmark img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .cp-hero-brandcopy span {
+    font-size: 0.82rem;
+  }
+
+  .cp-hero-title {
+    max-width: 7.3ch;
+    font-size: clamp(2rem, 10.2vw, 3rem);
+  }
+
+  .cp-hero-desc {
+    max-width: 21rem;
+  }
+
+  .cp-hero-scrollcue {
+    font-size: 0.74rem;
+  }
+
+  .cp-hero-scrollcue-line {
+    width: 52px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-hero {
+    --cp-hero-scroll: 0 !important;
+  }
+
+  .cp-hero-beam,
+  .cp-hero-orb,
+  .cp-hero-mark,
+  .cp-hero-silhouette {
+    transform: none !important;
+  }
+
+  .cp-hero-scrollcue-line {
+    animation: none;
+  }
 }
 
 /* ── 3. Buttons & Links ────────────────────────────────────── */
