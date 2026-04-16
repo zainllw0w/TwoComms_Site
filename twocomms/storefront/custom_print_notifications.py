@@ -203,6 +203,10 @@ def _build_message(lead) -> str:
             f"• <b>Конфігурація:</b> {' / '.join(product_parts)}",
         ]
     )
+    if getattr(lead, "add_ons", None):
+        mapped_addons = [ADDON_LABELS.get(a, a) for a in lead.add_ons]
+        parts.append(f"• <b>Доповнення:</b> {escape(', '.join(mapped_addons))}")
+
     if getattr(lead, "garment_note", ""):
         parts.append(f"• <b>Опис виробу:</b> {escape(lead.garment_note)}")
     if getattr(lead, "file_triage_status", ""):
@@ -290,8 +294,10 @@ def _snapshot_placements_text(snapshot: dict) -> str:
     placement_note = (print_payload.get("placement_note") or "").strip()
     if placement_note:
         parts.append(f"Примітка: {placement_note}")
-    if add_ons:
-        parts.append(f"Add-ons: {', '.join(add_ons)}")
+
+    mapped_addons = [ADDON_LABELS.get(a, a) for a in add_ons]
+    if mapped_addons:
+        parts.append(f"Add-ons: {', '.join(mapped_addons)}")
     return " | ".join(parts) or "—"
 
 

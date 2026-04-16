@@ -321,6 +321,20 @@ PRODUCT_MATRIX = {
         "default_zones": [],
         "add_ons": [
             {
+                "value": "fleece",
+                "label": "З флісом",
+                "price_delta": 0,
+                "icon": "fleece",
+                "group": "fleece"
+            },
+            {
+                "value": "no_fleece",
+                "label": "Без флісу",
+                "price_delta": 0,
+                "icon": "no_fleece",
+                "group": "fleece"
+            },
+            {
                 "value": "lacing",
                 "label": "Люверси зі шнурками",
                 "price_delta": 150,
