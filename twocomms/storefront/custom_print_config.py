@@ -440,9 +440,9 @@ STAGE_PROFILES = {
                         50,
                         42.5,
                         presets={
-                            "A6": calc_iso_box("A6", body_width_mm=600, svg_body_width=204, svg_collar_y=138, top_offset_mm=130, x_center=61, radius=18),
-                            "A5": calc_iso_box("A5", body_width_mm=600, svg_body_width=204, svg_collar_y=138, top_offset_mm=170, radius=19),
-                            "A4": calc_iso_box("A4", body_width_mm=600, svg_body_width=204, svg_collar_y=138, top_offset_mm=170, radius=20),
+                            "A6": calc_iso_box("A6", body_width_mm=600, svg_body_width=204, svg_collar_y=138, top_offset_mm=230, x_center=58, radius=18),
+                            "A5": calc_iso_box("A5", body_width_mm=600, svg_body_width=204, svg_collar_y=138, top_offset_mm=280, radius=19),
+                            "A4": calc_iso_box("A4", body_width_mm=600, svg_body_width=204, svg_collar_y=138, top_offset_mm=280, radius=20),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
@@ -479,9 +479,9 @@ STAGE_PROFILES = {
                         50,
                         44.5,
                         presets={
-                            "A4": calc_iso_box("A4", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=180, radius=22),
-                            "A3": calc_iso_box("A3", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=180, radius=22),
-                            "A2": calc_iso_box("A2", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=180, radius=24),
+                            "A4": calc_iso_box("A4", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=240, radius=22),
+                            "A3": calc_iso_box("A3", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=240, radius=22),
+                            "A2": calc_iso_box("A2", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=240, radius=24),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
@@ -521,9 +521,9 @@ STAGE_PROFILES = {
                         50,
                         43.8,
                         presets={
-                            "A6": calc_iso_box("A6", body_width_mm=650, svg_body_width=220, svg_collar_y=154, top_offset_mm=130, x_center=61, radius=18),
-                            "A5": calc_iso_box("A5", body_width_mm=650, svg_body_width=220, svg_collar_y=154, top_offset_mm=170, radius=19),
-                            "A4": calc_iso_box("A4", body_width_mm=650, svg_body_width=220, svg_collar_y=154, top_offset_mm=170, radius=21),
+                            "A6": calc_iso_box("A6", body_width_mm=650, svg_body_width=220, svg_collar_y=154, top_offset_mm=230, x_center=58, radius=18),
+                            "A5": calc_iso_box("A5", body_width_mm=650, svg_body_width=220, svg_collar_y=154, top_offset_mm=280, radius=19),
+                            "A4": calc_iso_box("A4", body_width_mm=650, svg_body_width=220, svg_collar_y=154, top_offset_mm=280, radius=21),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
@@ -720,9 +720,9 @@ STAGE_PROFILES = {
                         42.8,
                         presets={
                             # На oversize худи спина шире: svg_body_width ~ 220
-                            "A4": calc_iso_box("A4", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=180, radius=20),
-                            "A3": calc_iso_box("A3", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=180, radius=21),
-                            "A2": calc_iso_box("A2", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=180, radius=22),
+                            "A4": calc_iso_box("A4", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=240, radius=20),
+                            "A3": calc_iso_box("A3", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=240, radius=21),
+                            "A2": calc_iso_box("A2", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=240, radius=22),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
