@@ -39,123 +39,10 @@
     if (item && item.value) acc[item.value] = item;
     return acc;
   }, {});
-  const STAGE_LAYOUTS = {
-    hoodie: {
-      front: {
-        front: {
-          pin: { top: "43%", left: "50%" },
-          plate: { top: "43%", left: "50%", width: "34%", height: "18%", rotate: "0deg" },
-        },
-        sleeve_left: {
-          pin: { top: "46%", left: "24%" },
-          plate: { top: "48%", left: "24%", width: "12%", height: "30%", rotate: "21deg" },
-        },
-        sleeve_right: {
-          pin: { top: "46%", left: "76%" },
-          plate: { top: "48%", left: "76%", width: "12%", height: "30%", rotate: "-21deg" },
-        },
-      },
-      back: {
-        back: {
-          pin: { top: "43%", left: "50%" },
-          plate: { top: "45%", left: "50%", width: "28%", height: "42%", rotate: "0deg" },
-        },
-        sleeve_left: {
-          pin: { top: "46%", left: "24%" },
-          plate: { top: "48%", left: "24%", width: "12%", height: "30%", rotate: "-21deg" },
-        },
-        sleeve_right: {
-          pin: { top: "46%", left: "76%" },
-          plate: { top: "48%", left: "76%", width: "12%", height: "30%", rotate: "21deg" },
-        },
-      },
-    },
-    tshirt: {
-      front: {
-        front: {
-          pin: { top: "41%", left: "50%" },
-          plate: { top: "42%", left: "50%", width: "32%", height: "18%", rotate: "0deg" },
-        },
-        sleeve_left: {
-          pin: { top: "29%", left: "25%" },
-          plate: { top: "31%", left: "25%", width: "11%", height: "22%", rotate: "12deg" },
-        },
-        sleeve_right: {
-          pin: { top: "29%", left: "75%" },
-          plate: { top: "31%", left: "75%", width: "11%", height: "22%", rotate: "-12deg" },
-        },
-      },
-      back: {
-        back: {
-          pin: { top: "41%", left: "50%" },
-          plate: { top: "42%", left: "50%", width: "26%", height: "38%", rotate: "0deg" },
-        },
-        sleeve_left: {
-          pin: { top: "30%", left: "25%" },
-          plate: { top: "32%", left: "25%", width: "11%", height: "23%", rotate: "-12deg" },
-        },
-        sleeve_right: {
-          pin: { top: "30%", left: "75%" },
-          plate: { top: "32%", left: "75%", width: "11%", height: "23%", rotate: "12deg" },
-        },
-      },
-    },
-    longsleeve: {
-      front: {
-        front: {
-          pin: { top: "42%", left: "50%" },
-          plate: { top: "42%", left: "50%", width: "33%", height: "17%", rotate: "0deg" },
-        },
-        sleeve_left: {
-          pin: { top: "46%", left: "24%" },
-          plate: { top: "48%", left: "24%", width: "12%", height: "34%", rotate: "18deg" },
-        },
-        sleeve_right: {
-          pin: { top: "46%", left: "76%" },
-          plate: { top: "48%", left: "76%", width: "12%", height: "34%", rotate: "-18deg" },
-        },
-      },
-      back: {
-        back: {
-          pin: { top: "42%", left: "50%" },
-          plate: { top: "42%", left: "50%", width: "28%", height: "42%", rotate: "0deg" },
-        },
-        sleeve_left: {
-          pin: { top: "46%", left: "24%" },
-          plate: { top: "48%", left: "24%", width: "12%", height: "34%", rotate: "-18deg" },
-        },
-        sleeve_right: {
-          pin: { top: "46%", left: "76%" },
-          plate: { top: "48%", left: "76%", width: "12%", height: "34%", rotate: "18deg" },
-        },
-      },
-    },
-    customer_garment: {
-      front: {
-        front: {
-          pin: { top: "43%", left: "50%" },
-          plate: { top: "43%", left: "50%", width: "32%", height: "18%", rotate: "0deg" },
-        },
-        custom: {
-          pin: { top: "62%", left: "32%" },
-          plate: { top: "60%", left: "34%", width: "22%", height: "16%", rotate: "-10deg" },
-        },
-      },
-      back: {
-        back: {
-          pin: { top: "43%", left: "50%" },
-          plate: { top: "43%", left: "50%", width: "26%", height: "40%", rotate: "0deg" },
-        },
-        custom: {
-          pin: { top: "62%", left: "68%" },
-          plate: { top: "60%", left: "66%", width: "22%", height: "16%", rotate: "10deg" },
-        },
-      },
-    },
-  };
+  const STAGE_PROFILES = CONFIG.stage_profiles || {};
 
   const STATE = createState();
-  const filesByZone = new Map(); // zone -> File[]
+  const filesByPlacement = new Map(); // placement_key -> File[]
 
   // ── DOM refs ────────────────────────────────────────────────
   const dom = {
@@ -175,7 +62,6 @@
     stagePlaceholder: root.querySelector("[data-stage-placeholder]"),
     stageViewSwitch: root.querySelectorAll("[data-stage-view]"),
     garment: root.querySelector("[data-garment]"),
-    garmentHood: root.querySelector("[data-garment-hood]"),
     stageOverlay: root.querySelector("[data-stage-overlay]"),
     zoneLayer: root.querySelector("[data-zone-layer]"),
     receiptTotal: root.querySelector("[data-receipt-total]"),
@@ -335,10 +221,6 @@
     );
   }
 
-  function getFrontSizeScale() {
-    return FRONT_SIZE_PRESETS[getFrontSizePreset()]?.stage_scale || 0.74;
-  }
-
   function getBackSizePreset() {
     return (
       STATE.print.zone_options?.back?.size_preset ||
@@ -346,12 +228,52 @@
     );
   }
 
-  function getBackSizeScale() {
-    return BACK_SIZE_PRESETS[getBackSizePreset()]?.stage_scale || 0.62;
+  function getStageProfileProduct() {
+    return STAGE_PROFILES[STATE.product.type || ""] || null;
   }
 
-  function getSleeveModeScale(mode) {
-    return SLEEVE_MODE_OPTIONS[mode]?.stage_scale || 0.42;
+  function getStageFitKey() {
+    const productProfiles = getStageProfileProduct();
+    if (!productProfiles) return null;
+    if (STATE.product.fit && productProfiles[STATE.product.fit]) return STATE.product.fit;
+    return productProfiles.default_fit || Object.keys(productProfiles).find((key) => key !== "default_fit") || null;
+  }
+
+  function getStageProfile() {
+    const productProfiles = getStageProfileProduct();
+    const fitKey = getStageFitKey();
+    if (!productProfiles || !fitKey) return null;
+    const fitProfiles = productProfiles[fitKey] || {};
+    return fitProfiles[STATE.ui.stage_view] || fitProfiles.front || null;
+  }
+
+  function getPlacementAnchor(placement) {
+    const stageProfile = getStageProfile();
+    if (!stageProfile) return null;
+    const anchor = stageProfile.anchors?.[placement.placement_key];
+    if (!anchor) return null;
+    if (placement.placement_key === "front") {
+      return {
+        button: anchor.button,
+        plate: anchor.presets?.[placement.size_preset || getFrontSizePreset()] || null,
+      };
+    }
+    if (placement.placement_key === "back") {
+      return {
+        button: anchor.button,
+        plate: anchor.presets?.[placement.size_preset || getBackSizePreset()] || null,
+      };
+    }
+    if (placement.placement_key.startsWith("sleeve_")) {
+      return {
+        button: anchor.button,
+        plate: anchor.modes?.[placement.mode || SLEEVE_MODE_DEFAULT] || null,
+      };
+    }
+    return {
+      button: anchor.button,
+      plate: anchor.default || null,
+    };
   }
 
   function ensureFrontZoneOptions() {
@@ -420,6 +342,7 @@
           placement_key: "front",
           label: (CONFIG.zone_labels && CONFIG.zone_labels.front) || "front",
           size_preset: getFrontSizePreset(),
+          requires_artwork_file: true,
           scene_preview: getStagePreviewForZone("front"),
         });
         return;
@@ -430,6 +353,7 @@
           placement_key: "back",
           label: (CONFIG.zone_labels && CONFIG.zone_labels.back) || "back",
           size_preset: getBackSizePreset(),
+          requires_artwork_file: true,
           scene_preview: getStagePreviewForZone("back"),
         });
         return;
@@ -445,6 +369,7 @@
             side,
             mode: getSleeveMode(side),
             text: getSleeveText(side),
+            requires_artwork_file: getSleeveMode(side) !== "full_text",
             scene_preview: getStagePreviewForZone(`sleeve_${side}`),
           });
         });
@@ -454,6 +379,7 @@
         zone,
         placement_key: zone,
         label: (CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone,
+        requires_artwork_file: true,
         scene_preview: getStagePreviewForZone(zone),
       });
     });
@@ -500,8 +426,22 @@
       delete STATE.print.zone_options.sleeve;
     }
 
-    if (STATE.product.type === "hoodie" && STATE.product.fit === "oversize") {
-      STATE.product.fabric = "premium";
+    const fitKey = STATE.product.fit || cfg?.default_fit || "";
+    const fabricOptions = fitKey ? (cfg?.fabrics?.[fitKey] || []) : [];
+    const includedFabric = fabricOptions.find((item) => item.included_in_base) || fabricOptions[0] || null;
+    if (fabricOptions.length === 1 && includedFabric) {
+      STATE.product.fabric = includedFabric.value;
+    } else if (fabricOptions.length > 1 && !fabricOptions.some((item) => item.value === STATE.product.fabric)) {
+      STATE.product.fabric = includedFabric?.value || null;
+    } else if (!fabricOptions.length) {
+      STATE.product.fabric = "";
+    }
+
+    if (STATE.print.zone_options.sleeve) {
+      if (getSleeveMode("left") === "full_text") deletePlacementFiles("sleeve_left");
+      if (getSleeveMode("right") === "full_text") deletePlacementFiles("sleeve_right");
+      if (!isSleeveSideEnabled("left")) deletePlacementFiles("sleeve_left");
+      if (!isSleeveSideEnabled("right")) deletePlacementFiles("sleeve_right");
     }
 
     const colorValues = new Set((cfg?.colors || []).map((item) => item.value));
@@ -526,16 +466,14 @@
   }
 
   function getStagePreviewForZone(zone) {
-    const scale =
-      zone === "front" ? getFrontSizeScale() :
-      zone === "back" ? getBackSizeScale() :
-      zone.startsWith("sleeve_") ? getSleeveModeScale(getSleeveMode(zone.endsWith("left") ? "left" : "right")) :
-      1;
     return {
       product_type: STATE.product.type || "",
-      view: zone === "back" ? "back" : (zone.startsWith("sleeve_") ? (STATE.ui.stage_view || "front") : "front"),
+      fit: getStageFitKey() || "",
+      view: STATE.ui.stage_view || "front",
       color: STATE.product.color || "",
-      scale,
+      placement_key: zone,
+      size_preset: zone === "front" ? getFrontSizePreset() : zone === "back" ? getBackSizePreset() : "",
+      mode: zone.startsWith("sleeve_") ? getSleeveMode(zone.endsWith("left") ? "left" : "right") : "",
     };
   }
 
@@ -569,10 +507,69 @@
 
   function collectOrderedFiles() {
     const ordered = [];
-    (STATE.print.zones || []).forEach((zone) => {
-      (filesByZone.get(zone) || []).forEach((file) => ordered.push({ zone, file }));
-    });
+    getExpandedPlacements()
+      .filter((placement) => placement.requires_artwork_file)
+      .forEach((placement) => {
+        (filesByPlacement.get(placement.placement_key) || []).forEach((file) => {
+          ordered.push({
+            zone: placement.zone,
+            placement_key: placement.placement_key,
+            label: placement.label,
+            file,
+          });
+        });
+      });
     return ordered;
+  }
+
+  function deletePlacementFiles(placementKey) {
+    filesByPlacement.delete(placementKey);
+  }
+
+  function deleteZoneFiles(zone) {
+    if (zone === "sleeve") {
+      deletePlacementFiles("sleeve_left");
+      deletePlacementFiles("sleeve_right");
+      return;
+    }
+    if (zone) {
+      deletePlacementFiles(zone);
+    }
+  }
+
+  function getRequiredArtworkPlacements() {
+    return getExpandedPlacements().filter((placement) => placement.requires_artwork_file);
+  }
+
+  function getArtworkValidationIssues() {
+    const issues = [];
+    const serviceKind = STATE.artwork.service_kind;
+    if (!serviceKind) {
+      issues.push("Оберіть послугу для макета.");
+    }
+    if (serviceKind === "design" && !STATE.notes.brief.trim()) {
+      issues.push("Опишіть бриф / завдання для дизайну.");
+    }
+    if (serviceKind === "adjust") {
+      if (!STATE.notes.brief.trim()) {
+        issues.push("Опишіть, що саме потрібно змінити у макеті.");
+      }
+      const missingPlacements = getRequiredArtworkPlacements()
+        .filter((placement) => !(filesByPlacement.get(placement.placement_key) || []).length)
+        .map((placement) => placement.label);
+      if (missingPlacements.length) {
+        issues.push(`Додайте макети для: ${missingPlacements.join(", ")}.`);
+      }
+    }
+    if (serviceKind === "ready") {
+      const missingPlacements = getRequiredArtworkPlacements()
+        .filter((placement) => !(filesByPlacement.get(placement.placement_key) || []).length)
+        .map((placement) => placement.label);
+      if (missingPlacements.length) {
+        issues.push(`Додайте готові макети для: ${missingPlacements.join(", ")}.`);
+      }
+    }
+    return issues;
   }
 
   // ── Renderers ───────────────────────────────────────────────
@@ -611,7 +608,7 @@
         STATE.artwork.service_kind = null;
         STATE.artwork.triage_status = null;
         invalidateAfter("product");
-        filesByZone.clear();
+        filesByPlacement.clear();
         if (previousType !== value) {
           STATE.order.size_breakdown = {};
           STATE.order.sizes_note = "";
@@ -742,19 +739,36 @@
       return;
     }
     if (dom.fabricBlock) dom.fabricBlock.hidden = false;
-    const isLocked = STATE.product.type === "hoodie" && STATE.product.fit === "oversize";
+    const baseFabric = fabrics.find((item) => item.included_in_base) || fabrics[0];
+    if (!STATE.product.fabric || !fabrics.some((item) => item.value === STATE.product.fabric)) {
+      STATE.product.fabric = baseFabric?.value || null;
+    }
+    const isLocked = fabrics.length === 1;
     fabrics.forEach((fab) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "cp-mini-chip cp-mini-chip--fabric";
       if (STATE.product.fabric === fab.value) btn.classList.add("is-active");
-      if (isLocked && fab.value === "premium") btn.classList.add("is-locked");
+      if (isLocked) btn.classList.add("is-locked", "is-single");
+      if (fab.value === "premium") btn.classList.add("is-premium");
+      if (fab.included_in_base) btn.classList.add("is-included");
       btn.dataset.choiceValue = fab.value;
       const priceDelta = Number(fab.price_delta || 0);
-      const priceLabel = priceDelta > 0 ? `+${priceDelta} грн` : "в базі";
-      btn.innerHTML = `<span>${escapeHtml(fab.label)}</span><small>${escapeHtml(priceLabel)}</small>`;
+      const priceLabel = fab.included_in_base
+        ? "входить у базу"
+        : priceDelta > 0
+          ? `+${priceDelta} грн`
+          : "без доплати";
+      const tierLabel = fab.value === "premium" ? "Преміум" : fab.value === "thermo" ? "Термо" : "База";
+      btn.innerHTML = `
+        <span class="cp-fabric-chip-title">
+          <strong>${escapeHtml(fab.label)}</strong>
+          <small>${escapeHtml(tierLabel)}</small>
+        </span>
+        <span class="cp-fabric-chip-meta">${escapeHtml(priceLabel)}</span>
+      `;
       btn.addEventListener("click", () => {
-        if (isLocked && fab.value !== "premium") return;
+        if (isLocked) return;
         STATE.product.fabric = fab.value;
         renderFabricChips();
         refreshAll();
@@ -824,7 +838,7 @@
     const current = new Set(STATE.print.zones || []);
     if (current.has(zone)) {
       current.delete(zone);
-      filesByZone.delete(zone);
+      deleteZoneFiles(zone);
       if (zone === "sleeve" && STATE.print.zone_options.sleeve) {
         delete STATE.print.zone_options.sleeve;
       }
@@ -918,6 +932,7 @@
         ensureSleeveZoneOptions();
         const next = !isSleeveSideEnabled(side);
         STATE.print.zone_options.sleeve[`${side}_enabled`] = next;
+        if (!next) deletePlacementFiles(`sleeve_${side}`);
         if (!STATE.print.zone_options.sleeve.left_enabled && !STATE.print.zone_options.sleeve.right_enabled) {
           STATE.print.zones = STATE.print.zones.filter((zone) => zone !== "sleeve");
           delete STATE.print.zone_options.sleeve;
@@ -949,7 +964,11 @@
           btn.addEventListener("click", () => {
             ensureSleeveZoneOptions();
             STATE.print.zone_options.sleeve[`${side}_mode`] = option.value;
+            if (option.value === "full_text") {
+              deletePlacementFiles(`sleeve_${side}`);
+            }
             renderSleeveControls();
+            renderDropzones();
             refreshAll();
             persistDraft();
           });
@@ -1041,29 +1060,40 @@
 
   function renderDropzones() {
     if (!dom.dropzoneGrid) return;
-    // Clear all .cp-dropzone children but keep the empty hint
     dom.dropzoneGrid.querySelectorAll(".cp-dropzone").forEach((el) => el.remove());
-    const zones = STATE.print.zones;
-    if (!zones.length) {
-      if (dom.dropzoneEmpty) dom.dropzoneEmpty.hidden = false;
+    const placements = getRequiredArtworkPlacements();
+    if (!STATE.print.zones.length) {
+      if (dom.dropzoneEmpty) {
+        dom.dropzoneEmpty.hidden = false;
+        dom.dropzoneEmpty.textContent = "Спочатку оберіть зони друку — для кожного placement’а з макетом зʼявиться окреме поле завантаження.";
+      }
+      return;
+    }
+    if (!placements.length) {
+      if (dom.dropzoneEmpty) {
+        dom.dropzoneEmpty.hidden = false;
+        dom.dropzoneEmpty.textContent = "Для активних placement’ів зараз не потрібен окремий файл. Наприклад, текстові рукави можна залишити без аплоаду.";
+      }
       return;
     }
     if (dom.dropzoneEmpty) dom.dropzoneEmpty.hidden = true;
-    zones.forEach((zone) => {
+    placements.forEach((placement) => {
       const wrap = document.createElement("label");
       wrap.className = "cp-dropzone";
-      wrap.dataset.zone = zone;
-      const label = (CONFIG.zone_labels && CONFIG.zone_labels[zone]) || zone;
-      const filesInfo = filesByZone.get(zone) || [];
+      wrap.dataset.zone = placement.zone;
+      wrap.dataset.placementKey = placement.placement_key;
+      const label = getDropzoneTitle(placement);
+      const filesInfo = filesByPlacement.get(placement.placement_key) || [];
+      const metaLabel = getDropzoneMeta(placement, filesInfo.length);
       wrap.innerHTML = `
         <div class="cp-dropzone-head">
-          <small>Зона</small>
+          <small>Макет</small>
           <strong>${label}</strong>
         </div>
         <input type="file" multiple accept="image/*,application/pdf,.ai,.eps,.psd,.tiff,.svg" data-dropzone-input>
         <div class="cp-dropzone-body">
           <span class="cp-dropzone-cta">+ Завантажити файл</span>
-          <span class="cp-dropzone-meta" data-dropzone-meta>${filesInfo.length ? filesInfo.length + ' файл(ів) додано' : 'PDF, AI, EPS, PSD, PNG, JPG, TIFF, SVG'}</span>
+          <span class="cp-dropzone-meta" data-dropzone-meta>${metaLabel}</span>
         </div>
         ${filesInfo.length ? `<ul class="cp-dropzone-list">${filesInfo.map((f) => `<li>${escapeHtml(f.name)} <small>${formatBytes(f.size)}</small></li>`).join("")}</ul>` : ""}
       `;
@@ -1071,9 +1101,9 @@
       input.addEventListener("change", (event) => {
         const files = Array.from(event.target.files || []);
         if (files.length) {
-          filesByZone.set(zone, files);
+          filesByPlacement.set(placement.placement_key, files);
         } else {
-          filesByZone.delete(zone);
+          deletePlacementFiles(placement.placement_key);
         }
         renderDropzones();
         refreshAll();
@@ -1082,27 +1112,74 @@
     });
   }
 
+  function getDropzoneTitle(placement) {
+    if (placement.placement_key === "front") return "Макет для переду";
+    if (placement.placement_key === "back") return "Макет для спини";
+    if (placement.placement_key === "sleeve_left") return "Макет для лівого рукава";
+    if (placement.placement_key === "sleeve_right") return "Макет для правого рукава";
+    return `Макет для ${placement.label.toLowerCase()}`;
+  }
+
+  function getDropzoneMeta(placement, fileCount) {
+    if (fileCount) {
+      return `${fileCount} файл(ів) додано`;
+    }
+    if (placement.size_preset) {
+      return `${placement.size_preset} · PDF, AI, EPS, PSD, PNG, JPG, TIFF, SVG`;
+    }
+    if (placement.zone === "sleeve") {
+      return "A6 · PDF, AI, EPS, PSD, PNG, JPG, TIFF, SVG";
+    }
+    return "PDF, AI, EPS, PSD, PNG, JPG, TIFF, SVG";
+  }
+
   // ── Stage rendering ─────────────────────────────────────────
   function applyGarmentColor() {
     if (!dom.garment) return;
     const cfg = getProductConfig();
     const color = (cfg?.colors || []).find((c) => c.value === STATE.product.color);
-    const gradient = color ? buildGarmentGradient(color.hex) : buildGarmentGradient("#4a454e");
-    dom.garment.style.setProperty("--cp-garment-fill", gradient);
+    const base = color?.hex || "#4a454e";
+    dom.garment.style.setProperty("--cp-stage-base-fill", mixHex(base, "#1f1916", 0.08));
+    dom.garment.style.setProperty("--cp-stage-top-fill", mixHex(base, "#ffffff", 0.16));
+    dom.garment.style.setProperty("--cp-stage-shade-fill", mixHex(base, "#000000", 0.32));
+    dom.garment.style.setProperty("--cp-stage-stroke", mixHex(base, "#ffffff", 0.42));
+    dom.garment.style.setProperty("--cp-stage-shadow", mixHex(base, "#000000", 0.58));
   }
 
   function applyGarmentType() {
     if (!dom.garment) return;
     const type = getStageType();
-    dom.garment.classList.remove("cp-garment--hoodie", "cp-garment--tshirt", "cp-garment--longsleeve", "cp-garment--customer_garment", "is-placeholder");
+    dom.garment.classList.remove("cp-garment--hoodie", "cp-garment--tshirt", "cp-garment--longsleeve", "cp-garment--customer_garment", "cp-garment-fit--regular", "cp-garment-fit--oversize", "is-placeholder");
     dom.garment.classList.add(
       type === "tshirt" ? "cp-garment--tshirt" :
       type === "longsleeve" ? "cp-garment--longsleeve" :
       type === "customer_garment" ? "cp-garment--customer_garment" :
       "cp-garment--hoodie"
     );
+    if (STATE.product.fit) {
+      dom.garment.classList.add(`cp-garment-fit--${STATE.product.fit}`);
+    }
     dom.garment.classList.toggle("is-placeholder", !STATE.product.type);
-    if (dom.garmentHood) dom.garmentHood.style.display = type === "hoodie" ? "" : "none";
+  }
+
+  function renderStageSvg() {
+    if (!dom.garment) return;
+    if (!STATE.product.type) {
+      dom.garment.innerHTML = "";
+      return;
+    }
+    const stageProfile = getStageProfile();
+    if (!stageProfile) {
+      dom.garment.innerHTML = "";
+      return;
+    }
+    dom.garment.innerHTML = `
+      <svg class="cp-stage-svg" viewBox="${escapeHtml(stageProfile.view_box || "0 0 420 520")}" aria-hidden="true" focusable="false">
+        <g class="cp-stage-svg__scene">
+          ${stageProfile.svg_markup || ""}
+        </g>
+      </svg>
+    `;
   }
 
   function applyStageView(view) {
@@ -1113,6 +1190,7 @@
     dom.stageViewSwitch?.forEach((btn) => {
       btn.classList.toggle("is-active", btn.dataset.stageView === view);
     });
+    renderStageSvg();
     renderZoneOverlay();
   }
 
@@ -1181,7 +1259,7 @@
     if (!STATE.print.zone_options.sleeve.left_enabled && !STATE.print.zone_options.sleeve.right_enabled) {
       STATE.print.zones = STATE.print.zones.filter((zone) => zone !== "sleeve");
       delete STATE.print.zone_options.sleeve;
-      filesByZone.delete("sleeve");
+      deleteZoneFiles("sleeve");
     }
     invalidateAfter("zones");
     renderZoneChipsForCurrent();
@@ -1196,57 +1274,67 @@
     dom.stageOverlay.innerHTML = "";
     if (dom.stagePlaceholder) dom.stagePlaceholder.hidden = !!STATE.product.type;
     if (!STATE.product.type) return;
-
-    const viewLayouts = (STAGE_LAYOUTS[STATE.product.type] || {})[STATE.ui.stage_view] || {};
+    const activePlacements = getExpandedPlacements();
     getStageTargets().forEach((target) => {
-      const layout = viewLayouts[target.key];
-      if (!layout) return;
+      const placement = activePlacements.find((item) => item.placement_key === target.key) || {
+        zone: target.zone,
+        placement_key: target.key,
+        label: target.label,
+        side: target.side,
+        mode: target.side ? getSleeveMode(target.side) : "",
+        text: target.side ? getSleeveText(target.side) : "",
+        size_preset: target.key === "front" ? getFrontSizePreset() : target.key === "back" ? getBackSizePreset() : "",
+      };
+      const anchor = getPlacementAnchor(placement);
+      if (!anchor?.button) return;
       const pin = document.createElement("button");
       pin.type = "button";
       pin.className = "cp-zone-pin";
       if (target.isActive) pin.classList.add("is-active");
-      pin.style.top = layout.pin.top;
-      pin.style.left = layout.pin.left;
+      pin.style.top = asPercent(anchor.button.y);
+      pin.style.left = asPercent(anchor.button.x);
       pin.dataset.zone = target.key;
       pin.innerHTML = `<span>${escapeHtml(target.label)}</span>`;
       pin.title = target.label;
       pin.addEventListener("click", () => toggleStageTarget(target.key));
       dom.zoneLayer.appendChild(pin);
 
-      if (target.isActive) {
+      if (target.isActive && anchor.plate) {
         const plate = document.createElement("button");
-        const sizePreset =
-          target.key === "front" ? getFrontSizePreset() :
-          target.key === "back" ? getBackSizePreset() :
-          target.key.startsWith("sleeve_") && getSleeveMode(target.side) === "a6" ? "A6" :
-          target.key.startsWith("sleeve_") ? "TEXT" :
-          "";
-        const scale =
-          target.key === "front" ? getFrontSizeScale() :
-          target.key === "back" ? getBackSizeScale() :
-          target.key.startsWith("sleeve_") ? getSleeveModeScale(getSleeveMode(target.side)) :
-          1;
         plate.type = "button";
         plate.className = `cp-stage-print cp-stage-print--${target.zone} cp-stage-print--${target.key}`;
-        plate.style.setProperty("--plate-top", layout.plate.top);
-        plate.style.setProperty("--plate-left", layout.plate.left);
-        plate.style.setProperty("--plate-width", layout.plate.width);
-        plate.style.setProperty("--plate-height", layout.plate.height);
-        plate.style.setProperty("--plate-rotate", layout.plate.rotate || "0deg");
-        plate.style.setProperty("--plate-scale", String(scale));
-        plate.style.setProperty("--plate-label-scale", String(scale > 0 ? 1 / scale : 1));
+        plate.classList.add(`cp-stage-print--shape-${anchor.plate.shape || "panel"}`);
+        if (placement.zone === "sleeve" && placement.mode === "full_text") {
+          plate.classList.add("is-text-placement");
+        }
+        plate.style.setProperty("--plate-top", asPercent(anchor.plate.y));
+        plate.style.setProperty("--plate-left", asPercent(anchor.plate.x));
+        plate.style.setProperty("--plate-width", asPercent(anchor.plate.width));
+        plate.style.setProperty("--plate-height", asPercent(anchor.plate.height));
+        plate.style.setProperty("--plate-rotate", `${Number(anchor.plate.rotate || 0)}deg`);
+        plate.style.setProperty("--plate-radius", `${Number(anchor.plate.radius || 18)}px`);
         plate.dataset.zone = target.key;
-        const badgeText = target.key.startsWith("sleeve_") && getSleeveMode(target.side) === "full_text"
-          ? escapeHtml((getSleeveText(target.side) || "Текст").slice(0, 18))
-          : escapeHtml(sizePreset);
+        const badgeText = placement.zone === "sleeve" && placement.mode === "full_text"
+          ? escapeHtml((placement.text || "Текст").slice(0, 18))
+          : escapeHtml(placement.size_preset || (placement.zone === "sleeve" ? "A6" : ""));
         plate.innerHTML = `
-          <span class="cp-stage-print-label">${escapeHtml(target.label)}</span>
+          <span class="cp-stage-print-label">${escapeHtml(getStagePlateLabel(placement))}</span>
           <span class="cp-stage-print-badge">${badgeText || "ON"}</span>
         `;
         plate.addEventListener("click", () => toggleStageTarget(target.key));
         dom.stageOverlay.appendChild(plate);
       }
     });
+  }
+
+  function getStagePlateLabel(placement) {
+    if (placement.placement_key === "front") return "Перед";
+    if (placement.placement_key === "back") return "Спина";
+    return placement.label;
+  }
+
+  function asPercent(value) {
+    return `${Number(value || 0)}%`;
   }
 
   function buildGarmentGradient(hex) {
@@ -1731,7 +1819,7 @@
     if (STATE.artwork.service_kind) {
       const services = CONFIG.artwork_services || [];
       const item = services.find((s) => s.value === STATE.artwork.service_kind);
-      const totalFiles = Array.from(filesByZone.values()).reduce((acc, list) => acc + list.length, 0);
+      const totalFiles = Array.from(filesByPlacement.values()).reduce((acc, list) => acc + list.length, 0);
       setStepSummary("artwork", `${item ? item.label : "—"}${totalFiles ? ` · ${totalFiles} файл(ів)` : ""}`);
     } else {
       setStepSummary("artwork", "—");
@@ -1791,9 +1879,14 @@
 
     let base = pricing.base ?? 0;
     const fabricConfig = getSelectedFabricConfig();
-    if (fabricConfig) base += Number(fabricConfig.price_delta || 0);
-    else if (STATE.product.fabric === "premium") base += pricing.premium_delta || 0;
-    else if (STATE.product.fabric === "thermo") base += pricing.thermo_delta || 0;
+    const fabricOptions = STATE.product.fit ? (cfg.fabrics?.[STATE.product.fit] || []) : [];
+    const hasFabricChoice = fabricOptions.length > 1;
+    if (fabricConfig && hasFabricChoice) {
+      base += Number(fabricConfig.price_delta || 0);
+    } else if (!fabricConfig && hasFabricChoice) {
+      if (STATE.product.fabric === "premium") base += pricing.premium_delta || 0;
+      else if (STATE.product.fabric === "thermo") base += pricing.thermo_delta || 0;
+    }
     if (STATE.product.fit === "oversize") base += pricing.oversize_delta || 0;
     const baseLabelParts = ["База", cfg.label];
     if (STATE.product.fit === "oversize") baseLabelParts.push("Оверсайз");
@@ -1896,7 +1989,9 @@
   }
 
   function updateFinalActionsAvailability() {
-    const ready = canAdvance("contact");
+    const contactReady = canAdvance("contact");
+    const artworkIssues = getArtworkValidationIssues();
+    const ready = contactReady && artworkIssues.length === 0;
     const pricing = computePricing();
     const cartReady = ready && STATE.product.type !== "customer_garment" && !pricing.estimate_required;
     if (dom.addToCartBtn) {
@@ -1910,12 +2005,12 @@
     if (dom.cartActionHint) {
       dom.cartActionHint.textContent = cartReady
         ? `${formatPrice(pricing.final_total)} · додамо в кошик зі снимком конфігурації`
-        : (pricing.estimate_required ? "Цей виріб потребує менеджерського прорахунку" : "Заповніть всі кроки, щоб додати в кошик");
+        : artworkIssues[0] || (pricing.estimate_required ? "Цей виріб потребує менеджерського прорахунку" : "Заповніть всі кроки, щоб додати в кошик");
     }
     if (dom.leadActionHint) {
       dom.leadActionHint.textContent = ready
         ? "Бот відправить заявку в Telegram"
-        : "Заповніть контакт, щоб менеджер міг відповісти";
+        : artworkIssues[0] || "Заповніть контакт, щоб менеджер міг відповісти";
     }
   }
 
@@ -1964,10 +2059,12 @@
 
   function serializeFiles() {
     const out = [];
-    collectOrderedFiles().forEach(({ zone, file }, index) => {
+    collectOrderedFiles().forEach(({ zone, placement_key, label, file }, index) => {
       out.push({
         name: file.name,
         zone,
+        placement_key,
+        label,
         status: STATE.artwork.triage_status || "needs-review",
         role: "design",
         file_index: index,
@@ -1978,6 +2075,7 @@
 
   function buildPlacementSpecs(snapshot) {
     const specs = [];
+    let artworkFileIndex = 0;
     const zoneOptions = snapshot.print?.zone_options || {};
     (snapshot.print?.zones || []).forEach((zone, zoneIndex) => {
       const options = zoneOptions[zone] || {};
@@ -1987,6 +2085,7 @@
           { side: "right", enabled: !!options.right_enabled, mode: options.right_mode || SLEEVE_MODE_DEFAULT, text: options.right_text || "", scene_preview: options.right_scene_preview },
         ].forEach((item) => {
           if (!item.enabled) return;
+          const requiresArtworkFile = item.mode !== "full_text";
           specs.push({
             zone: "sleeve",
             placement_key: `sleeve_${item.side}`,
@@ -1998,8 +2097,9 @@
             mode: item.mode,
             text: item.text,
             side: item.side,
-            file_index: zoneIndex,
             attachment_role: "design",
+            requires_artwork_file: requiresArtworkFile,
+            ...(requiresArtworkFile ? { file_index: artworkFileIndex++ } : {}),
             ...(item.scene_preview ? { scene_preview: item.scene_preview } : {}),
           });
         });
@@ -2013,8 +2113,9 @@
         is_free: specs.length === 0,
         format: zone === "front" || zone === "back" ? "standard" : "custom",
         size: zone === "front" || zone === "back" ? "standard" : "manager_review",
-        file_index: zoneIndex,
+        file_index: artworkFileIndex++,
         attachment_role: "design",
+        requires_artwork_file: true,
       };
       if ((zone === "front" || zone === "back") && options.size_preset) {
         spec.size_preset = options.size_preset;
@@ -2066,6 +2167,11 @@
       showStatus("Заповніть імʼя, канал звʼязку і контакт.", "error");
       return;
     }
+    const artworkIssues = getArtworkValidationIssues();
+    if (artworkIssues.length) {
+      showStatus(artworkIssues[0], "error");
+      return;
+    }
     const url = CONFIG.submit_url;
     if (!url) return;
     setBusy(true);
@@ -2095,6 +2201,11 @@
   async function handleAddToCart() {
     if (!canAdvance("contact")) {
       showStatus("Заповніть всі кроки, перш ніж додавати в кошик.", "error");
+      return;
+    }
+    const artworkIssues = getArtworkValidationIssues();
+    if (artworkIssues.length) {
+      showStatus(artworkIssues[0], "error");
       return;
     }
     const pricing = computePricing();

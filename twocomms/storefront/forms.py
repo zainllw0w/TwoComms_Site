@@ -13,7 +13,7 @@ from dtf.utils import (
 )
 from productcolors.models import ProductColorVariant, ProductColorImage
 from storefront.services.catalog import ensure_color_identity
-from storefront.custom_print_config import normalize_custom_print_snapshot
+from storefront.custom_print_config import build_placement_specs, normalize_custom_print_snapshot
 
 from .models import (
     CustomPrintBusinessKind,
@@ -105,6 +105,15 @@ class CustomPrintLeadForm(forms.Form):
     brief = forms.CharField(required=False, widget=forms.Textarea)
 
     @staticmethod
+    def _spec_requires_artwork_file(spec):
+        if not isinstance(spec, dict):
+            return False
+        requires_artwork_file = spec.get("requires_artwork_file")
+        if requires_artwork_file is None:
+            return spec.get("mode") != "full_text"
+        return bool(requires_artwork_file)
+
+    @staticmethod
     def _parse_json_field(raw_value, default, field_name):
         if raw_value in (None, ""):
             return default
@@ -191,15 +200,22 @@ class CustomPrintLeadForm(forms.Form):
             config_draft = {}
         normalized_snapshot = normalize_custom_print_snapshot(config_draft) if config_draft else {}
 
+        if not placement_specs and normalized_snapshot:
+            placement_specs = build_placement_specs(normalized_snapshot)
         if not placement_specs and placements:
             placement_specs = [
                 {
                     "zone": zone,
                     "label": dict(self.PLACEMENT_CHOICES).get(zone, zone),
+                    "placement_key": zone,
+                    "requires_artwork_file": True,
                     "file_index": index,
                 }
                 for index, zone in enumerate(placements)
             ]
+
+        required_artwork_specs = [spec for spec in placement_specs if self._spec_requires_artwork_file(spec)]
+        required_artwork_file_count = len(required_artwork_specs)
 
         if "custom" in placements and not placement_note:
             self.add_error("placement_note", "Опишіть нестандартне розміщення принта.")
@@ -211,14 +227,14 @@ class CustomPrintLeadForm(forms.Form):
         if cleaned.get("product_type") == CustomPrintProductType.CUSTOMER_GARMENT and not garment_note:
             self.add_error("garment_note", "Опишіть ваш виріб для попереднього прорахунку.")
 
-        if service_kind == CustomPrintServiceKind.READY and not files:
-            self.add_error("files", "Додайте готовий файл для друку.")
+        if service_kind == CustomPrintServiceKind.READY and len(files) < required_artwork_file_count:
+            self.add_error("files", "Додайте файли для всіх зон, де потрібен макет.")
 
         if service_kind == CustomPrintServiceKind.ADJUST:
             if not brief:
                 self.add_error("brief", "Опишіть, що саме потрібно змінити у файлі.")
-            if not files:
-                self.add_error("files", "Додайте файл, який потрібно підготувати.")
+            if len(files) < required_artwork_file_count:
+                self.add_error("files", "Додайте файли для всіх зон, де потрібен макет.")
 
         if service_kind == CustomPrintServiceKind.DESIGN and not brief:
             self.add_error("brief", "Опишіть ідею, стиль або референси для дизайну.")
@@ -319,7 +335,7 @@ class CustomPrintLeadForm(forms.Form):
             CustomPrintLeadAttachment.objects.create(
                 lead=lead,
                 file=uploaded_file,
-                placement_zone=(matched_spec or {}).get("zone", ""),
+                placement_zone=(matched_spec or {}).get("placement_key") or (matched_spec or {}).get("zone", ""),
                 attachment_role=(matched_spec or {}).get("attachment_role")
                 or CustomPrintLeadAttachment.AttachmentRole.DESIGN,
                 sort_order=sort_order,

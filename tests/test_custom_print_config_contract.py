@@ -45,6 +45,43 @@ class CustomPrintConfigContractTests(unittest.TestCase):
             ["premium", "thermo"],
         )
         self.assertEqual(config["products"]["tshirt"]["fabrics"]["regular"][1]["price_delta"], 500)
+        self.assertIn("stage_profiles", config)
+        self.assertIn("hoodie", config["stage_profiles"])
+        self.assertIn("regular", config["stage_profiles"]["hoodie"])
+        self.assertIn("oversize", config["stage_profiles"]["hoodie"])
+
+    def test_config_marks_single_oversize_hoodie_fabric_as_included(self):
+        config = build_custom_print_config(
+            submit_url="https://twocomms.shop/custom-print/lead/",
+            safe_exit_url="https://twocomms.shop/custom-print/safe-exit/",
+            add_to_cart_url="https://twocomms.shop/custom-print/add-to-cart/",
+        )
+
+        oversize_fabrics = config["products"]["hoodie"]["fabrics"]["oversize"]
+        self.assertEqual(len(oversize_fabrics), 1)
+        self.assertEqual(oversize_fabrics[0]["value"], "premium")
+        self.assertEqual(oversize_fabrics[0]["price_delta"], 0)
+        self.assertTrue(oversize_fabrics[0]["included_in_base"])
+
+    def test_stage_profiles_expose_distinct_back_presets_for_a4_a3_a2(self):
+        config = build_custom_print_config(
+            submit_url="https://twocomms.shop/custom-print/lead/",
+            safe_exit_url="https://twocomms.shop/custom-print/safe-exit/",
+            add_to_cart_url="https://twocomms.shop/custom-print/add-to-cart/",
+        )
+
+        back_presets = (
+            config["stage_profiles"]["hoodie"]["regular"]["back"]["anchors"]["back"]["presets"]
+        )
+        a4 = back_presets["A4"]
+        a3 = back_presets["A3"]
+        a2 = back_presets["A2"]
+
+        self.assertLess(a4["width"], a3["width"])
+        self.assertLess(a3["width"], a2["width"])
+        self.assertLess(a4["height"], a3["height"])
+        self.assertLess(a3["height"], a2["height"])
+        self.assertGreater(a2["y"], a3["y"])
 
     def test_normalize_snapshot_preserves_zone_sizes_sleeves_and_legacy_lacing(self):
         normalized = normalize_custom_print_snapshot(
@@ -128,13 +165,43 @@ class CustomPrintConfigContractTests(unittest.TestCase):
 
         self.assertEqual(specs[0]["zone"], "front")
         self.assertEqual(specs[0]["size_preset"], "A5")
+        self.assertTrue(specs[0]["requires_artwork_file"])
+        self.assertEqual(specs[0]["file_index"], 0)
         self.assertEqual(specs[1]["zone"], "back")
         self.assertEqual(specs[1]["size_preset"], "A2")
+        self.assertTrue(specs[1]["requires_artwork_file"])
+        self.assertEqual(specs[1]["file_index"], 1)
         self.assertEqual(specs[2]["placement_key"], "sleeve_left")
         self.assertEqual(specs[2]["mode"], "full_text")
         self.assertEqual(specs[2]["text"], "LEFT TEXT")
+        self.assertFalse(specs[2]["requires_artwork_file"])
+        self.assertNotIn("file_index", specs[2])
         self.assertEqual(specs[3]["placement_key"], "sleeve_right")
         self.assertEqual(specs[3]["mode"], "a6")
+        self.assertTrue(specs[3]["requires_artwork_file"])
+        self.assertEqual(specs[3]["file_index"], 2)
+
+    def test_build_placement_specs_text_only_sleeve_does_not_require_file(self):
+        specs = build_placement_specs(
+            {
+                "print": {
+                    "zones": ["sleeve"],
+                    "zone_options": {
+                        "sleeve": {
+                            "left_enabled": True,
+                            "right_enabled": False,
+                            "left_mode": "full_text",
+                            "left_text": "TWOCOMMS",
+                        },
+                    },
+                }
+            }
+        )
+
+        self.assertEqual(len(specs), 1)
+        self.assertEqual(specs[0]["placement_key"], "sleeve_left")
+        self.assertFalse(specs[0]["requires_artwork_file"])
+        self.assertNotIn("file_index", specs[0])
 
 
 if __name__ == "__main__":
