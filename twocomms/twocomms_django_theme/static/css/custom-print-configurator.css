@@ -3388,4 +3388,5 @@
 .cp-stage-print-label,
 .cp-stage-print-badge {
   pointer-events: none;
+  display: none !important;
 }
