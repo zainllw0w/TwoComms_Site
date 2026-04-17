@@ -218,19 +218,19 @@
           </section>
 
           <!-- STEP 3: Config -->
-          <section class="cp-step is-pending" data-step="fit" id="cp-step-fit">
+          <section class="cp-step is-pending" data-step="config" id="cp-step-config">
             <div class="cp-step-summary" data-step-summary-row>
               <span class="cp-step-summary-num">3</span>
               <div class="cp-step-summary-text">
-                <small>Крій</small>
+                <small>Налаштування</small>
                 <strong data-step-summary-value="config">—</strong>
               </div>
               <button type="button" class="cp-step-summary-edit" data-step-edit="config">Змінити</button>
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">3. Крій / Силует</span>
-                <h2>Крій та посадка</h2>
+                <span class="cp-card-eyebrow">3. Налаштування</span>
+                <h2>Крій, тканина, колір</h2>
                 <p>Тут формується силует виробу: посадка, тканина, колір і виробничі деталі для доступного типу виробу.</p>
               </div>
 
@@ -243,30 +243,7 @@
                   <div class="cp-fit-grid" data-fit-list></div>
                 </div>
 
-                              <div class="cp-step-actions">
-                <button type="button" class="cp-secondary-button" data-step-back="product">Назад</button>
-                <button type="button" class="cp-link cp-link--primary" data-step-next="fabric">Далі до тканини</button>
-              </div>
-            </div>
-          </section>
-
-          <!-- STEP 4: Fabric + Color -->
-          <section class="cp-step is-pending" data-step="fabric" id="cp-step-fabric">
-            <div class="cp-step-summary" data-step-summary-row>
-              <span class="cp-step-summary-num">4</span>
-              <div class="cp-step-summary-text">
-                <small>Тканина і колір</small>
-                <strong data-step-summary-value="fabric">—</strong>
-              </div>
-              <button type="button" class="cp-step-summary-edit" data-step-edit="fabric">Змінити</button>
-            </div>
-            <div class="cp-step-body">
-              <div class="cp-step-head">
-                <span class="cp-card-eyebrow">4. Тканина і колір</span>
-                <h2>Вибір тканини і кольору</h2>
-                <p>Оберіть тканину та колір вашого виробу.</p>
-              </div>
-<div class="cp-config-block" data-fabric-block>
+                <div class="cp-config-block" data-fabric-block>
                   <div class="cp-subhead">
                     <strong>Тканина</strong>
                     <span>Якщо доступно кілька варіантів, доплата показується одразу біля назви тканини.</span>
@@ -283,17 +260,25 @@
                 <div class="cp-swatch-row" data-color-list></div>
               </div>
 
-                            <div class="cp-step-actions">
-                <button type="button" class="cp-secondary-button" data-step-back="fit">Назад</button>
+              <div class="cp-config-block" data-addons-wrap hidden>
+                <div class="cp-subhead">
+                  <strong>Деталі худі</strong>
+                  <span>Преміум-апгрейд доступний тільки для худі і враховується одразу на сцені.</span>
+                </div>
+                <div class="cp-addon-grid" data-addons-list></div>
+              </div>
+
+              <div class="cp-step-actions">
+                <button type="button" class="cp-secondary-button" data-step-back="product">Назад</button>
                 <button type="button" class="cp-link cp-link--primary" data-step-next="zones">Далі до зон</button>
               </div>
             </div>
           </section>
 
-<!-- STEP 9: Zones + premium addons -->
+          <!-- STEP 4: Zones + premium addons -->
           <section class="cp-step is-pending" data-step="zones" id="cp-step-zones">
             <div class="cp-step-summary" data-step-summary-row>
-              <span class="cp-step-summary-num">9</span>
+              <span class="cp-step-summary-num">4</span>
               <div class="cp-step-summary-text">
                 <small>Зони друку</small>
                 <strong data-step-summary-value="zones">—</strong>
@@ -302,7 +287,7 @@
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">5. Зони друку та деталі</span>
+                <span class="cp-card-eyebrow">4. Зони друку</span>
                 <h2>Де друкуємо?</h2>
                 <p>Можна обрати кілька зон. Для кожної зони ви додасте окремий файл на наступному кроці.</p>
               </div>
@@ -370,26 +355,17 @@
                 </div>
               </div>
 
-              <div class="cp-config-block" data-addons-wrap hidden>
-                <div class="cp-subhead">
-                  <strong>Деталі худі</strong>
-                  <span>Преміум-апгрейд доступний тільки для худі і враховується одразу на сцені.</span>
-                </div>
-                <div class="cp-addon-grid" data-addons-list></div>
-              </div>
-
-              
               <div class="cp-step-actions">
-                <button type="button" class="cp-secondary-button" data-step-back="fabric">Назад</button>
+                <button type="button" class="cp-secondary-button" data-step-back="config">Назад</button>
                 <button type="button" class="cp-link cp-link--primary" data-step-next="artwork">Далі до макета</button>
               </div>
             </div>
           </section>
 
-          <!-- STEP 9: Artwork (per-zone uploads) -->
+          <!-- STEP 5: Artwork (per-zone uploads) -->
           <section class="cp-step is-pending" data-step="artwork" id="cp-step-artwork">
             <div class="cp-step-summary" data-step-summary-row>
-              <span class="cp-step-summary-num">9</span>
+              <span class="cp-step-summary-num">5</span>
               <div class="cp-step-summary-text">
                 <small>Макет</small>
                 <strong data-step-summary-value="artwork">—</strong>
@@ -398,7 +374,7 @@
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">6. Макет</span>
+                <span class="cp-card-eyebrow">5. Макет</span>
                 <h2>Файл і послуга з підготовки</h2>
                 <p>Поля завантаження зʼявляються тільки для тих placement’ів, де реально потрібен окремий макет. Текстові рукави показуємо без зайвого аплоаду.</p>
               </div>
@@ -431,10 +407,10 @@
             </div>
           </section>
 
-          <!-- STEP 9: Quantity + Smart sizing -->
+          <!-- STEP 6: Quantity + Smart sizing -->
           <section class="cp-step is-pending" data-step="quantity" id="cp-step-quantity">
             <div class="cp-step-summary" data-step-summary-row>
-              <span class="cp-step-summary-num">9</span>
+              <span class="cp-step-summary-num">6</span>
               <div class="cp-step-summary-text">
                 <small>Кількість</small>
                 <strong data-step-summary-value="quantity">—</strong>
@@ -443,7 +419,7 @@
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">7. Кількість і розміри</span>
+                <span class="cp-card-eyebrow">6. Кількість і розміри</span>
                 <h2>Скільки і яких розмірів?</h2>
                 <p data-quantity-hint>Введіть кількість — ми покажемо адаптивний вибір розмірів.</p>
               </div>
@@ -487,10 +463,10 @@
             </div>
           </section>
 
-          <!-- STEP 9: Gift -->
+          <!-- STEP 7: Gift -->
           <section class="cp-step is-pending" data-step="gift" id="cp-step-gift">
             <div class="cp-step-summary" data-step-summary-row>
-              <span class="cp-step-summary-num">9</span>
+              <span class="cp-step-summary-num">7</span>
               <div class="cp-step-summary-text">
                 <small>Подарунок</small>
                 <strong data-step-summary-value="gift">—</strong>
@@ -499,7 +475,7 @@
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">8. Подарунок</span>
+                <span class="cp-card-eyebrow">7. Подарунок</span>
                 <h2>Це сюрприз?</h2>
                 <p>Опційно: преміум-упаковка та персональна листівка.</p>
               </div>
@@ -535,10 +511,10 @@
             </div>
           </section>
 
-          <!-- STEP 9: Contact + dual final -->
+          <!-- STEP 8: Contact + dual final -->
           <section class="cp-step is-pending" data-step="contact" id="cp-step-contact">
             <div class="cp-step-summary" data-step-summary-row>
-              <span class="cp-step-summary-num">9</span>
+              <span class="cp-step-summary-num">8</span>
               <div class="cp-step-summary-text">
                 <small>Контакт</small>
                 <strong data-step-summary-value="contact">—</strong>
@@ -547,7 +523,7 @@
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">9. Контакт і фінал</span>
+                <span class="cp-card-eyebrow">8. Контакт і фінал</span>
                 <h2>Контакт і дія</h2>
                 <p>Оберіть, куди передати запит — у кошик або менеджеру.</p>
               </div>
@@ -623,5 +599,5 @@
 {% block extra_js %}
   {{ block.super }}
   <script src="{% static 'js/custom-print-submission-policy.js' %}" defer></script>
-  <script src="{% static 'js/custom-print-configurator.js' %}" defer></script>
+  <script src="{% static 'js/custom-print-configurator.js' %}?v=20260417-config-flow-restore" defer></script>
 {% endblock %}

@@ -22,8 +22,8 @@
   }
 
   const STORAGE_KEY = CONFIG.storage_key || "twocomms.custom_print.v2.draft";
-  const STEPS = ["mode", "product", "fit", "fabric", "zones", "artwork", "quantity", "gift", "contact"];
-  const STAGE_VISIBLE_AFTER = new Set(STEPS.filter((step) => step !== "mode" && step !== "product"));
+  const STEPS = ["mode", "product", "config", "zones", "artwork", "quantity", "gift", "contact"];
+  const STAGE_VISIBLE_AFTER = new Set(STEPS.filter((step) => step !== "mode"));
   const FRONT_SIZE_DEFAULT = CONFIG.front_size_default || "A4";
   const BACK_SIZE_DEFAULT = CONFIG.back_size_default || "A4";
   const SLEEVE_MODE_DEFAULT = CONFIG.sleeve_mode_default || "a6";
@@ -1942,13 +1942,9 @@
     switch (stepKey) {
       case "mode": return !!STATE.mode;
       case "product": return !!STATE.product.type;
-      case "fit":
+      case "config":
         if (!STATE.product.type) return false;
-        if (getProductConfig()?.fits?.length) return !!STATE.product.fit;
-        return true;
-      case "fabric":
-        if (!STATE.product.type) return false;
-        if (getProductConfig()?.fits?.length) return !!STATE.product.fabric && !!STATE.product.color;
+        if (getProductConfig()?.fits?.length) return !!STATE.product.fit && !!STATE.product.fabric && !!STATE.product.color;
         return !!STATE.product.color;
       case "zones":
         if (STATE.print.zones.length === 0) return false;
@@ -2080,8 +2076,7 @@
     const issues = [];
     if (!STATE.mode) issues.push("Оберіть формат замовлення.");
     if (!STATE.product.type) issues.push("Оберіть виріб.");
-    if (!canAdvance("fit")) issues.push("Оберіть крій / посадка.");
-    if (!canAdvance("fabric")) issues.push("Оберіть тканину і колір.");
+    if (!canAdvance("config")) issues.push("Завершіть налаштування виробу.");
     if (!canAdvance("zones")) issues.push("Оберіть і налаштуйте зони друку.");
     if (!STATE.artwork.service_kind) {
       issues.push("Оберіть сценарій роботи з макетом.");
@@ -2127,24 +2122,24 @@
     setStepSummary("product", cfg ? cfg.label : "—");
 
     if (STATE.product.type === "hoodie") {
-      setStepSummary("fit", STATE.product.fit === "oversize" ? "Оверсайз" : "Класичний");
-      const fabParts = [];
-      if (STATE.product.fabric) fabParts.push(STATE.product.fabric === "premium" ? "Преміум" : "База");
+      const parts = [];
+      if (STATE.product.fit) parts.push(STATE.product.fit === "oversize" ? "Оверсайз" : "Класичний");
+      if (STATE.product.fabric) parts.push(STATE.product.fabric === "premium" ? "Преміум" : "База");
       if (STATE.product.color) {
         const c = (cfg.colors || []).find((x) => x.value === STATE.product.color);
-        if (c) fabParts.push(c.label);
+        if (c) parts.push(c.label);
       }
-      if (STATE.print.add_ons.includes("lacing")) fabParts.push("Люверси");
-      setStepSummary("fabric", fabParts.length ? fabParts.join(" · ") : "—");
+      if (STATE.print.add_ons.includes("lacing")) parts.push("Люверси");
+      setStepSummary("config", parts.length ? parts.join(" · ") : "—");
     } else {
       const c = cfg ? (cfg.colors || []).find((x) => x.value === STATE.product.color) : null;
+      const parts = [];
       const selectedFabric = getSelectedFabricConfig();
-      setStepSummary("fit", STATE.product.fit ? (STATE.product.fit === "oversize" ? "Оверсайз" : "Класична") : "—");
-      const fabParts = [];
-      if (selectedFabric) fabParts.push(selectedFabric.label);
-      else if (STATE.product.fabric) fabParts.push(STATE.product.fabric);
-      if (c) fabParts.push(c.label);
-      setStepSummary("fabric", fabParts.length ? fabParts.join(" · ") : "—");
+      if (STATE.product.fit) parts.push(STATE.product.fit === "oversize" ? "Оверсайз" : "Класична");
+      if (selectedFabric) parts.push(selectedFabric.label);
+      else if (STATE.product.fabric) parts.push(STATE.product.fabric);
+      if (c) parts.push(c.label);
+      setStepSummary("config", parts.length ? parts.join(" · ") : "—");
     }
 
     setStepSummary("zones", getExpandedPlacements().length
