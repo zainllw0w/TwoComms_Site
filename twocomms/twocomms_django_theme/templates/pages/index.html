@@ -43,10 +43,10 @@
 
     
     .sl-panel-light {
-      background: linear-gradient(135deg, rgba(255, 150, 80, 0.15), rgba(255, 209, 140, 0.05));
+      background: linear-gradient(135deg, #5A2714, #2A1107);
       border-radius: 20px;
       padding: 1rem;
-      border: 1px solid rgba(255, 140, 66, 0.3);
+      border: 1px solid rgba(255, 140, 66, 0.2);
       box-shadow: 0 8px 24px rgba(0,0,0,0.25);
     }
 
@@ -328,7 +328,7 @@
       text-transform: uppercase;
       background: rgba(255, 140, 66, 0.2);
       color: #ffb98a;
-      border: 1px solid rgba(255, 140, 66, 0.3);
+      border: 1px solid rgba(255, 140, 66, 0.2);
       margin-bottom: 0.5rem;
     }
 
@@ -1245,57 +1245,67 @@
             <div class="sr-banner-icon" id="survey-gift-icon-container">
               <!-- ИКОНКА КОРЗИНЫ / ПОДАРУНКА ЗНАХОДИТЬСЯ ТУТ -->
               <svg width="100" height="100" viewBox="0 0 100 100" fill="none" style="filter: drop-shadow(0 0 20px rgba(255,140,66,0.5));">
-                <!-- Coin left back -->
-                <circle cx="20" cy="75" r="10" fill="#FFD18C" stroke="#FF8C42" stroke-width="2"/>
-                <circle cx="20" cy="75" r="6" fill="none" stroke="#FF8C42" stroke-width="1"/>
+  
+  <!-- Second Banknote (Behind the first) -->
+  <g transform="translate(25, 22) rotate(-15)">
+    <rect x="0" y="0" width="38" height="55" rx="3" fill="url(#noteGradDark)" stroke="#e66820" stroke-width="2"/>
+    <rect x="3" y="3" width="32" height="49" rx="1" fill="none" stroke="rgba(255,209,140,0.2)" stroke-width="1"/>
+    <text x="19" y="24" font-family="Inter, Arial, sans-serif" font-weight="900" font-size="12" fill="rgba(255,255,255,0.6)" text-anchor="middle">200</text>
+  </g>
 
-                <!-- Main Box -->
-                <rect x="25" y="45" width="50" height="40" rx="4" fill="url(#boxBodyGrad)"/>
-                
-                <!-- Vertical Ribbon -->
-                <rect x="42" y="45" width="16" height="40" fill="url(#ribbonGrad)"/>
-                
-                <!-- Lid -->
-                <rect x="20" y="32" width="60" height="15" rx="3" fill="url(#boxLidGrad)"/>
-                <!-- Lid Ribbon -->
-                <rect x="42" y="32" width="16" height="15" fill="url(#ribbonGrad)"/>
+  <!-- The Main Banknote -->
+  <g transform="translate(45, 12) rotate(12)">
+    <!-- Base paper -->
+    <rect x="0" y="0" width="40" height="55" rx="3" fill="url(#noteGrad)" stroke="#FFd18c" stroke-width="2"/>
+    <!-- Inner border -->
+    <rect x="4" y="4" width="32" height="47" rx="1" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-dasharray="3 3"/>
+    <!-- "200" text -->
+    <text x="20" y="24" font-family="Inter, Arial, sans-serif" font-weight="900" font-size="14" fill="#fff" text-anchor="middle">200</text>
+    <!-- Grivna symbol -->
+    <text x="20" y="42" font-family="Inter, Arial, sans-serif" font-weight="900" font-size="18" fill="#fff" text-anchor="middle">₴</text>
+  </g>
 
-                <!-- Bow Loops -->
-                <path d="M50 32 C 40 10, 25 20, 42 32 Z" fill="url(#bowGrad)"/>
-                <path d="M50 32 C 60 10, 75 20, 58 32 Z" fill="url(#bowGrad)"/>
+  <!-- Main Box -->
+  <rect x="25" y="55" width="50" height="35" rx="4" fill="url(#boxBodyGrad)"/>
+  
+  <!-- Vertical Ribbon -->
+  <rect x="42" y="55" width="16" height="35" fill="url(#ribbonGrad)"/>
+  
+  <!-- Lid -->
+  <rect x="20" y="45" width="60" height="12" rx="3" fill="url(#boxLidGrad)"/>
+  <!-- Lid Ribbon -->
+  <rect x="42" y="45" width="16" height="12" fill="url(#ribbonGrad)"/>
 
-                <!-- Stack of coins on right -->
-                <ellipse cx="85" cy="78" rx="14" ry="6" fill="#FFD18C" stroke="#FF8C42" stroke-width="1.5"/>
-                <rect x="71" y="74" width="28" height="4" fill="#FFD18C"/>
-                <ellipse cx="85" cy="74" rx="14" ry="6" fill="#FFD18C" stroke="#FF8C42" stroke-width="1.5"/>
-                
-                <rect x="71" y="68" width="28" height="6" fill="#FFD18C"/>
-                <ellipse cx="85" cy="68" rx="14" ry="6" fill="#FFD18C" stroke="#FF8C42" stroke-width="1.5"/>
+  <!-- Minimalist Sparkles -->
+  <path d="M12 40 L16 32 L20 40 L12 36 L20 36 Z" fill="#FFD18C"/>
+  <path d="M85 30 L88 22 L91 30 L83 26 L93 26 Z" fill="#FFD18C"/>
 
-                <circle cx="85" cy="55" r="14" fill="#FFD18C" stroke="#FF8C42" stroke-width="2"/>
-                <circle cx="85" cy="55" r="10" fill="none" stroke="#FF8C42" stroke-width="1"/>
-                <!-- $ sign -->
-                <text x="85" y="61" font-family="Arial, sans-serif" font-weight="900" font-size="16" fill="#FF8C42" text-anchor="middle">$</text>
+  <defs>
+    <!-- Banknote gradients -->
+    <linearGradient id="noteGrad" x1="0" y1="0" x2="40" y2="55" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffb366" />
+      <stop offset="1" stop-color="#f26e10" />
+    </linearGradient>
+    <linearGradient id="noteGradDark" x1="0" y1="0" x2="38" y2="55" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b85f25" />
+      <stop offset="1" stop-color="#993900" />
+    </linearGradient>
 
-                <defs>
-                  <linearGradient id="boxBodyGrad" x1="25" y1="45" x2="75" y2="85" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#FFD18C" />
-                    <stop offset="1" stop-color="#FF8C42" />
-                  </linearGradient>
-                  <linearGradient id="boxLidGrad" x1="20" y1="32" x2="80" y2="47" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#ffedcc" />
-                    <stop offset="1" stop-color="#ffb873" />
-                  </linearGradient>
-                  <linearGradient id="ribbonGrad" x1="42" y1="32" x2="58" y2="85" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#fff5e6" />
-                    <stop offset="1" stop-color="#ffd699" />
-                  </linearGradient>
-                  <linearGradient id="bowGrad" x1="25" y1="10" x2="75" y2="32" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#fff5e6" />
-                    <stop offset="1" stop-color="#ffc97f" />
-                  </linearGradient>
-                </defs>
-              </svg>
+    <!-- Box gradients -->
+    <linearGradient id="boxBodyGrad" x1="25" y1="55" x2="75" y2="90" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8C42" />
+      <stop offset="1" stop-color="#b54810" />
+    </linearGradient>
+    <linearGradient id="boxLidGrad" x1="20" y1="45" x2="80" y2="57" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffa566" />
+      <stop offset="1" stop-color="#d15a15" />
+    </linearGradient>
+    <linearGradient id="ribbonGrad" x1="42" y1="45" x2="58" y2="90" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD18C" />
+      <stop offset="1" stop-color="#e6922e" />
+    </linearGradient>
+  </defs>
+</svg>
             </div>
           </div>
 
