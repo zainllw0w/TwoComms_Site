@@ -2622,7 +2622,7 @@
       });
       const data = await safeJson(response);
       if (!response.ok || !data?.ok) {
-        const msg = data?.error || "Не вдалося додати в кошик. Спробуйте ще раз.";
+        const msg = data?.errors ? formatErrors(data.errors) : (data?.error || "Не вдалося додати в кошик. Спробуйте ще раз.");
         showStatus(msg, "error");
         return;
       }

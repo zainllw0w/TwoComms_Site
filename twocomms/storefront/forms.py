@@ -23,6 +23,7 @@ from .models import (
     CustomPrintContactChannel,
     CustomPrintLead,
     CustomPrintLeadAttachment,
+    CustomPrintModerationStatus,
     CustomPrintProductType,
     CustomPrintServiceKind,
     CustomPrintSizeMode,
@@ -304,33 +305,44 @@ class CustomPrintLeadForm(forms.Form):
         self.cleaned_files = validated_files
         return cleaned
 
-    def save(self) -> CustomPrintLead:
-        lead = CustomPrintLead.objects.create(
-            service_kind=self.cleaned_data["service_kind"],
-            product_type=self.cleaned_data["product_type"],
-            placements=self.cleaned_data["placements"],
-            placement_note=self.cleaned_data.get("placement_note", ""),
-            quantity=self.cleaned_data["quantity"],
-            size_mode=self.cleaned_data.get("size_mode", ""),
-            sizes_note=self.cleaned_data.get("sizes_note", ""),
-            client_kind=self.cleaned_data.get("client_kind") or CustomPrintClientKind.PERSONAL,
-            business_kind=self.cleaned_data.get("business_kind", ""),
-            brand_name=self.cleaned_data.get("brand_name", ""),
-            fit=self.cleaned_data.get("fit", ""),
-            fabric=self.cleaned_data.get("fabric", ""),
-            color_choice=self.cleaned_data.get("color_choice", ""),
-            garment_note=self.cleaned_data.get("garment_note", ""),
-            file_triage_status=self.cleaned_data.get("file_triage_status", ""),
-            exit_step=self.cleaned_data.get("exit_step", ""),
-            placement_specs_json=self.cleaned_data.get("placement_specs_json") or [],
-            pricing_snapshot_json=self.cleaned_data.get("pricing_snapshot_json") or {},
-            config_draft_json=self.cleaned_data.get("config_draft_json") or {},
-            name=self.cleaned_data["name"],
-            contact_channel=self.cleaned_data["contact_channel"],
-            contact_value=self.cleaned_data["contact_value"],
-            brief=self.cleaned_data.get("brief", ""),
-            source="main_custom_print",
-        )
+    def save(
+        self,
+        *,
+        source: str = "main_custom_print",
+        moderation_status: str | None = None,
+    ) -> CustomPrintLead:
+        create_kwargs = {
+            "service_kind": self.cleaned_data["service_kind"],
+            "product_type": self.cleaned_data["product_type"],
+            "placements": self.cleaned_data["placements"],
+            "placement_note": self.cleaned_data.get("placement_note", ""),
+            "quantity": self.cleaned_data["quantity"],
+            "size_mode": self.cleaned_data.get("size_mode", ""),
+            "sizes_note": self.cleaned_data.get("sizes_note", ""),
+            "client_kind": self.cleaned_data.get("client_kind") or CustomPrintClientKind.PERSONAL,
+            "business_kind": self.cleaned_data.get("business_kind", ""),
+            "brand_name": self.cleaned_data.get("brand_name", ""),
+            "fit": self.cleaned_data.get("fit", ""),
+            "fabric": self.cleaned_data.get("fabric", ""),
+            "color_choice": self.cleaned_data.get("color_choice", ""),
+            "garment_note": self.cleaned_data.get("garment_note", ""),
+            "file_triage_status": self.cleaned_data.get("file_triage_status", ""),
+            "exit_step": self.cleaned_data.get("exit_step", ""),
+            "placement_specs_json": self.cleaned_data.get("placement_specs_json") or [],
+            "pricing_snapshot_json": self.cleaned_data.get("pricing_snapshot_json") or {},
+            "config_draft_json": self.cleaned_data.get("config_draft_json") or {},
+            "name": self.cleaned_data["name"],
+            "contact_channel": self.cleaned_data["contact_channel"],
+            "contact_value": self.cleaned_data["contact_value"],
+            "brief": self.cleaned_data.get("brief", ""),
+            "source": source or "main_custom_print",
+        }
+        if moderation_status is not None:
+            create_kwargs["moderation_status"] = moderation_status
+        elif source == "custom_print_cart":
+            create_kwargs["moderation_status"] = CustomPrintModerationStatus.DRAFT
+
+        lead = CustomPrintLead.objects.create(**create_kwargs)
         placement_specs = self.cleaned_data.get("placement_specs_json") or []
         file_spec_map = {}
         for spec in placement_specs:

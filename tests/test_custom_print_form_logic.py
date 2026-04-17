@@ -330,6 +330,67 @@ class CustomPrintLeadFormLogicTests(unittest.TestCase):
         self.assertEqual(first_call["placement_zone"], "front")
         self.assertEqual(second_call["placement_zone"], "sleeve_right")
 
+    def test_save_accepts_source_and_moderation_overrides_for_initial_insert(self):
+        payload = base_payload(
+            placements=["front"],
+            placement_specs_json=json.dumps(
+                [
+                    {
+                        "zone": "front",
+                        "placement_key": "front",
+                        "label": "Спереду",
+                        "size_preset": "A4",
+                        "requires_artwork_file": True,
+                        "file_index": 0,
+                    }
+                ]
+            ),
+            config_draft_json=json.dumps(
+                {
+                    "version": 2,
+                    "mode": "personal",
+                    "product": {
+                        "type": "hoodie",
+                        "fit": "oversize",
+                        "fabric": "premium",
+                        "color": "graphite",
+                    },
+                    "print": {
+                        "zones": ["front"],
+                        "zone_options": {"front": {"size_preset": "A4"}},
+                    },
+                    "artwork": {
+                        "service_kind": "ready",
+                        "triage_status": "print-ready",
+                        "files": [{"name": "front.png", "zone": "front", "status": "print-ready"}],
+                    },
+                    "order": {
+                        "quantity": 1,
+                        "size_mode": "single",
+                        "sizes_note": "L x1",
+                    },
+                    "contact": {
+                        "channel": "telegram",
+                        "name": "Тест",
+                        "value": "@twocomms_test",
+                    },
+                    "ui": {"current_step": "contact"},
+                }
+            ),
+        )
+        files = {"files": [make_png("front.png")]}
+        form = CustomPrintLeadForm(payload, files)
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+        dummy_lead = SimpleNamespace(pk=202)
+        with patch("storefront.forms.CustomPrintLead.objects.create", return_value=dummy_lead) as create_lead:
+            with patch("storefront.forms.CustomPrintLeadAttachment.objects.create"):
+                form.save(source="custom_print_cart", moderation_status="draft")
+
+        self.assertEqual(create_lead.call_args.kwargs["source"], "custom_print_cart")
+        self.assertEqual(create_lead.call_args.kwargs["moderation_status"], "draft")
+
 
 if __name__ == "__main__":
     unittest.main()

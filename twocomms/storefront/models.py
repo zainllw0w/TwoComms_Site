@@ -292,6 +292,7 @@ class CustomPrintLead(models.Model):
         max_length=20,
         choices=CustomPrintModerationStatus.choices,
         default=CustomPrintModerationStatus.DRAFT,
+        db_default=CustomPrintModerationStatus.DRAFT,
         verbose_name="Статус модерації кастомного кошика",
     )
     approved_price = models.DecimalField(

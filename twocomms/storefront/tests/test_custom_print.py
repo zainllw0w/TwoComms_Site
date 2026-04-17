@@ -65,7 +65,7 @@ class CustomPrintPageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "TwoComms Custom Print")
-        self.assertContains(response, "Кастомний одяг без зайвих пояснень.")
+        self.assertContains(response, "Зберіть кастомний одяг під свій принт.")
         self.assertContains(response, "Кастомний DTF-друк")
         self.assertContains(response, "Розпочати конфігурацію")
         self.assertContains(response, "Написати нам у Telegram")
@@ -571,10 +571,155 @@ class CustomPrintPageTests(TestCase):
                 "ok": False,
                 "errors": {
                     "brief": ["Опишіть, що саме потрібно змінити у файлі."],
-                    "files": ["Додайте файл, який потрібно підготувати."],
                 },
             },
         )
+
+    def test_custom_print_add_to_cart_creates_draft_lead_and_session_entry(self):
+        from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
+        from storefront.models import CustomPrintLead, CustomPrintModerationStatus
+
+        response = self._post(
+            reverse("custom_print_add_to_cart"),
+            {
+                "service_kind": "ready",
+                "product_type": "hoodie",
+                "placements": ["front"],
+                "placement_specs_json": json.dumps(
+                    [
+                        {
+                            "zone": "front",
+                            "placement_key": "front",
+                            "label": "Спереду",
+                            "size_preset": "A4",
+                            "requires_artwork_file": True,
+                            "file_index": 0,
+                        }
+                    ]
+                ),
+                "pricing_snapshot_json": json.dumps(
+                    {
+                        "product_label": "Худі",
+                        "base_price": 1800,
+                        "design_price": 0,
+                        "discount_percent": 0,
+                        "discount_amount": 0,
+                        "final_total": 1800,
+                        "estimate_required": False,
+                    }
+                ),
+                "config_draft_json": json.dumps(
+                    {
+                        "version": 2,
+                        "mode": "personal",
+                        "product": {
+                            "type": "hoodie",
+                            "fit": "oversize",
+                            "fabric": "premium",
+                            "color": "graphite",
+                        },
+                        "print": {
+                            "zones": ["front"],
+                            "zone_options": {"front": {"size_preset": "A4"}},
+                        },
+                        "artwork": {
+                            "service_kind": "ready",
+                            "triage_status": "print-ready",
+                            "files": [{"name": "front.png", "zone": "front", "status": "print-ready"}],
+                        },
+                        "order": {
+                            "quantity": 1,
+                            "size_mode": "single",
+                            "sizes_note": "L x1",
+                        },
+                        "contact": {
+                            "channel": "telegram",
+                            "name": "Тест",
+                            "value": "@test",
+                        },
+                        "pricing": {
+                            "base_price": 1800,
+                            "final_total": 1800,
+                            "estimate_required": False,
+                        },
+                        "ui": {"current_step": "contact"},
+                    }
+                ),
+                "quantity": "1",
+                "size_mode": "single",
+                "sizes_note": "L x1",
+                "client_kind": "personal",
+                "name": "Тест",
+                "contact_channel": "telegram",
+                "contact_value": "@test",
+                "fit": "oversize",
+                "fabric": "premium",
+                "color_choice": "graphite",
+                "file_triage_status": "print-ready",
+                "files": self._png_file("front.png"),
+            },
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        lead = CustomPrintLead.objects.get()
+        self.assertEqual(lead.source, "custom_print_cart")
+        self.assertEqual(lead.moderation_status, CustomPrintModerationStatus.DRAFT)
+        payload = json.loads(response.content)
+        self.assertTrue(payload["ok"])
+        session_cart = self.client.session[SESSION_CUSTOM_CART_KEY]
+        self.assertIn(f"custom:{lead.pk}", session_cart)
+        self.assertEqual(
+            session_cart[f"custom:{lead.pk}"]["moderation_status"],
+            CustomPrintModerationStatus.DRAFT,
+        )
+
+    def test_cart_mini_renders_custom_item_without_regular_cart_products(self):
+        from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
+        from storefront.models import CustomPrintLead, CustomPrintModerationStatus
+
+        lead = CustomPrintLead.objects.create(
+            service_kind="ready",
+            product_type="hoodie",
+            placements=["front"],
+            placement_specs_json=[{"zone": "front", "placement_key": "front", "label": "Спереду"}],
+            quantity=1,
+            size_mode="single",
+            sizes_note="L x1",
+            client_kind="personal",
+            name="Тест",
+            contact_channel="telegram",
+            contact_value="@test",
+            brief="",
+            fit="oversize",
+            fabric="premium",
+            color_choice="graphite",
+            source="custom_print_cart",
+            moderation_status=CustomPrintModerationStatus.DRAFT,
+            pricing_snapshot_json={"final_total": 1800},
+            config_draft_json={"pricing": {"final_total": 1800}},
+        )
+        session = self.client.session
+        session[SESSION_CUSTOM_CART_KEY] = {
+            f"custom:{lead.pk}": {
+                "lead_id": lead.pk,
+                "lead_number": lead.lead_number,
+                "label": "Худі · front",
+                "product_label": "Худі",
+                "quantity": 1,
+                "final_total": 1800,
+                "moderation_status": CustomPrintModerationStatus.DRAFT,
+            }
+        }
+        session.save()
+
+        response = self._get(reverse("cart_mini"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, lead.lead_number)
+        self.assertContains(response, "Кастомний друк")
+        self.assertContains(response, "Чернетка")
+        self.assertNotContains(response, "Кошик порожній.")
 
     def test_custom_print_design_requires_brief(self):
         response = self._post(
@@ -720,7 +865,7 @@ class CustomPrintPageTests(TestCase):
         self.assertEqual(lead.color_choice, "graphite")
         self.assertEqual(lead.file_triage_status, "needs-work")
         self.assertEqual(lead.exit_step, "artwork")
-        self.assertEqual(lead.config_draft_json["print"]["add_ons"], ["grommets"])
+        self.assertEqual(lead.config_draft_json["print"]["add_ons"], ["lacing"])
         payload = json.loads(response.content)
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["lead_number"], lead.lead_number)
@@ -857,6 +1002,37 @@ class CustomPrintAdminAndNotificationTests(TestCase):
         lead.refresh_from_db()
         self.assertEqual(lead.status, "in_progress")
         self.assertJSONEqual(response.content, {"success": True, "status": "in_progress"})
+
+    def test_staff_can_approve_custom_print_lead_from_custom_admin(self):
+        from storefront.models import CustomPrintModerationStatus
+
+        lead = self._make_lead(
+            source="custom_print_cart",
+            moderation_status=CustomPrintModerationStatus.AWAITING_REVIEW,
+        )
+        self.client.force_login(self.staff_user)
+
+        response = self.client.post(
+            reverse("admin_custom_print_lead_moderation", args=[lead.pk]),
+            data=json.dumps({"action": "approve", "price": "2450.50", "note": "Підтверджено менеджером"}),
+            content_type="application/json",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        lead.refresh_from_db()
+        self.assertEqual(lead.moderation_status, CustomPrintModerationStatus.APPROVED)
+        self.assertEqual(str(lead.approved_price), "2450.50")
+        self.assertEqual(lead.manager_note, "Підтверджено менеджером")
+        self.assertJSONEqual(
+            response.content,
+            {
+                "success": True,
+                "moderation_status": "approved",
+                "approved_price": "2450.50",
+                "manager_note": "Підтверджено менеджером",
+            },
+        )
 
     def test_custom_print_notification_uses_custom_admin_deeplink(self):
         from storefront.custom_print_notifications import _build_admin_panel_link, _build_message
