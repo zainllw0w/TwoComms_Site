@@ -96,6 +96,8 @@ from .static_pages import (
     custom_print_lead,
     custom_print_remove,
     custom_print_safe_exit,
+    custom_print_submit_review,
+    custom_print_moderation_action,
     delivery,
     returns,
     privacy_policy,
@@ -204,6 +206,7 @@ from .admin import (
     admin_reorder_products,
     admin_update_product_status,
     admin_custom_print_lead_status,
+    admin_custom_print_lead_moderation,
     admin_toggle_manager,
     add_category,
     add_print,
@@ -357,6 +360,7 @@ __all__ = [
     'robots_txt', 'static_sitemap', 'google_merchant_feed',
     'static_verification_file', 'about', 'contacts', 'custom_print', 'custom_print_lead',
     'custom_print_safe_exit', 'custom_print_add_to_cart', 'custom_print_remove',
+    'custom_print_submit_review', 'custom_print_moderation_action',
     'delivery', 'returns',
     'privacy_policy', 'terms_of_service', 'test_analytics_events',
     'prom_feed_xml', 'uaprom_products_feed',
@@ -392,6 +396,7 @@ __all__ = [
     'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
     'admin_reorder_products', 'admin_update_product_status',
     'admin_custom_print_lead_status',
+    'admin_custom_print_lead_moderation',
     'admin_toggle_manager',
 
     # Aliases (для обратной совместимости)

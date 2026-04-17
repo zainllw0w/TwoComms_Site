@@ -574,15 +574,15 @@ def custom_print_add_to_cart(request):
             errors[field] = [error["message"] for error in field_errors]
         return JsonResponse({"ok": False, "errors": errors}, status=400)
 
+    from storefront.models import CustomPrintModerationStatus
+
     with transaction.atomic():
         lead = form.save()
         # Override source so the lead shows up in the "cart" pipeline for manager.
         lead.source = "custom_print_cart"
-        lead.save(update_fields=["source"])
-        transaction.on_commit(
-            lambda: notify_new_custom_print_lead(lead),
-            robust=True,
-        )
+        lead.moderation_status = CustomPrintModerationStatus.DRAFT
+        lead.save(update_fields=["source", "moderation_status"])
+        # Пока не отправляем нотификацию - это произойдёт при клике "Відправити менеджеру"
 
     snapshot = lead.config_draft_json or {}
     pricing = snapshot.get("pricing") or {}
@@ -616,6 +616,7 @@ def custom_print_add_to_cart(request):
         "final_total": pricing.get("final_total") or 0,
         "b2b_discount_per_unit": pricing.get("b2b_discount_per_unit") or 0,
         "mode": snapshot.get("mode") or "personal",
+        "moderation_status": CustomPrintModerationStatus.DRAFT,
     }
     request.session[SESSION_CUSTOM_CART_KEY] = custom_cart
     request.session.modified = True
@@ -662,6 +663,138 @@ def custom_print_remove(request):
         "removed": bool(removed),
         "custom_cart_count": len(custom_cart),
     })
+
+
+def _custom_print_action_signature(lead_id: int, action: str, token: str) -> str:
+    """Compute HMAC signature for Telegram moderation action URLs."""
+    import hmac
+    import hashlib
+    from django.conf import settings
+    secret = (getattr(settings, "SECRET_KEY", "") or "").encode("utf-8")
+    payload = f"{lead_id}:{action}:{token}".encode("utf-8")
+    return hmac.new(secret, payload, hashlib.sha256).hexdigest()[:32]
+
+
+def _verify_custom_print_action(lead, action: str, token: str, signature: str) -> bool:
+    import hmac
+    if not lead or not token or not signature:
+        return False
+    if (lead.moderation_token or "") != token:
+        return False
+    expected = _custom_print_action_signature(lead.pk, action, token)
+    return hmac.compare_digest(expected, signature)
+
+
+@require_POST
+def custom_print_submit_review(request):
+    """
+    User clicks "Send to manager for review". Mark every draft/rejected custom
+    item in the session cart as awaiting_review and notify the manager via Telegram
+    with approve/reject/contact inline buttons.
+    """
+    from storefront.models import CustomPrintLead, CustomPrintModerationStatus
+    from storefront.custom_print_notifications import notify_custom_print_moderation_request
+
+    custom_cart = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
+    if not isinstance(custom_cart, dict) or not custom_cart:
+        return JsonResponse({"ok": False, "error": "Кастомних товарів у кошику немає."}, status=400)
+
+    lead_ids = [item.get("lead_id") for item in custom_cart.values()
+                if isinstance(item, dict) and item.get("lead_id")]
+    if not lead_ids:
+        return JsonResponse({"ok": False, "error": "Немає кастомних позицій для відправки."}, status=400)
+
+    leads = list(CustomPrintLead.objects.filter(pk__in=lead_ids))
+    notified = 0
+    now = timezone.now()
+    for lead in leads:
+        # Skip if already awaiting or approved
+        if lead.moderation_status in (CustomPrintModerationStatus.AWAITING_REVIEW,
+                                       CustomPrintModerationStatus.APPROVED):
+            continue
+        lead.ensure_moderation_token()
+        lead.moderation_status = CustomPrintModerationStatus.AWAITING_REVIEW
+        lead.reviewed_at = None
+        lead.save(update_fields=["moderation_status", "moderation_token", "reviewed_at"])
+        # Sync session snapshot
+        key = f"custom:{lead.pk}"
+        if key in custom_cart and isinstance(custom_cart[key], dict):
+            custom_cart[key]["moderation_status"] = CustomPrintModerationStatus.AWAITING_REVIEW
+        try:
+            if notify_custom_print_moderation_request(lead):
+                notified += 1
+        except Exception:
+            logging.getLogger(__name__).exception("notify_custom_print_moderation_request failed for lead %s", lead.pk)
+
+    request.session[SESSION_CUSTOM_CART_KEY] = custom_cart
+    request.session.modified = True
+
+    return JsonResponse({
+        "ok": True,
+        "notified": notified,
+        "message": "Замовлення надіслано менеджеру на перевірку.",
+    })
+
+
+def _render_moderation_result(request, *, title: str, message: str, ok: bool = True, status_code: int = 200):
+    return HttpResponse(
+        f"<!doctype html><html lang='uk'><head><meta charset='utf-8'>"
+        f"<title>{title}</title>"
+        f"<style>body{{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0b0b0b;color:#eee;"
+        f"display:flex;align-items:center;justify-content:center;height:100vh;margin:0;padding:20px;text-align:center;}}"
+        f".card{{max-width:420px;background:#1c1c1c;border-radius:14px;padding:32px;"
+        f"border:1px solid {'#2ecc71' if ok else '#e74c3c'};}}"
+        f"h1{{font-size:22px;margin:0 0 12px;}}p{{margin:0;line-height:1.5;color:#cfcfcf;}}</style>"
+        f"</head><body><div class='card'><h1>{title}</h1><p>{message}</p></div></body></html>",
+        status=status_code,
+    )
+
+
+def custom_print_moderation_action(request, lead_id: int, action: str):
+    """
+    HMAC-signed URL endpoint used by manager from the Telegram inline buttons.
+    Actions: 'approve', 'reject'.
+    """
+    from storefront.models import CustomPrintLead, CustomPrintModerationStatus
+
+    if action not in {"approve", "reject"}:
+        return _render_moderation_result(request, title="Некоректна дія",
+                                         message="Невідома дія модерації.", ok=False, status_code=400)
+
+    token = (request.GET.get("token") or "").strip()
+    signature = (request.GET.get("sig") or "").strip()
+    try:
+        lead = CustomPrintLead.objects.get(pk=lead_id)
+    except CustomPrintLead.DoesNotExist:
+        return _render_moderation_result(request, title="Не знайдено",
+                                         message="Заявку не знайдено.", ok=False, status_code=404)
+
+    if not _verify_custom_print_action(lead, action, token, signature):
+        return _render_moderation_result(request, title="Підпис невалідний",
+                                         message="Посилання застаріло або недійсне.",
+                                         ok=False, status_code=403)
+
+    if action == "approve":
+        lead.moderation_status = CustomPrintModerationStatus.APPROVED
+        lead.reviewed_at = timezone.now()
+        lead.save(update_fields=["moderation_status", "reviewed_at"])
+        return _render_moderation_result(
+            request,
+            title="Погоджено",
+            message=f"Заявку {lead.lead_number} позначено як погоджену. Клієнт тепер може оплатити замовлення.",
+            ok=True,
+        )
+
+    # reject
+    lead.moderation_status = CustomPrintModerationStatus.REJECTED
+    lead.reviewed_at = timezone.now()
+    lead.save(update_fields=["moderation_status", "reviewed_at"])
+    return _render_moderation_result(
+        request,
+        title="Відхилено",
+        message=f"Заявку {lead.lead_number} позначено як відхилену. Клієнту показано статус у кошику.",
+        ok=True,
+    )
 
 
 @require_POST

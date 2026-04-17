@@ -236,7 +236,10 @@ class CartPageController {
   applyState(data) {
     this.state = data;
 
-    this.renderItems(Array.isArray(data.items) ? data.items : []);
+    this.renderItems(
+      Array.isArray(data.items) ? data.items : [],
+      Array.isArray(data.custom_items) ? data.custom_items : []
+    );
     this.updateSummary(data);
     this.updatePaymentSummary(this.getCurrentPayType(), data);
     this.updatePoints(data);
@@ -249,12 +252,14 @@ class CartPageController {
     }
   }
 
-  renderItems(items) {
+  renderItems(items, customItems) {
     if (!this.cartMainSection) {
       return;
     }
 
-    if (!items.length) {
+    customItems = Array.isArray(customItems) ? customItems : [];
+
+    if (!items.length && !customItems.length) {
       this.cartMainSection.innerHTML = CART_EMPTY_TEMPLATE;
       return;
     }
@@ -268,8 +273,106 @@ class CartPageController {
     }
 
     const placeholder = this.placeholderImage || '';
-    const rows = items.map((item) => this.renderItem(item, placeholder)).join('');
-    this.cartList.innerHTML = rows;
+    const customRows = customItems.map((ci) => this.renderCustomItem(ci)).join('');
+    const regularRows = items.map((item) => this.renderItem(item, placeholder)).join('');
+    this.cartList.innerHTML = customRows + regularRows;
+  }
+
+  renderCustomItem(ci) {
+    const leadNumber = ci.lead_number ? ` · №${escapeHtml(String(ci.lead_number))}` : '';
+    const zones = ci.zones_display ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Зони:</span>
+              <span class="cart-item-value">${escapeHtml(ci.zones_display)}</span>
+            </div>` : '';
+    const productLabel = ci.product_label ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Виріб:</span>
+              <span class="cart-item-value">${escapeHtml(ci.product_label)}</span>
+            </div>` : '';
+    const sizeBreakdown = ci.size_breakdown_display ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Розміри:</span>
+              <span class="cart-item-value">${escapeHtml(ci.size_breakdown_display)}</span>
+            </div>` : '';
+    const color = ci.color ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Колір:</span>
+              <span class="cart-item-value">${escapeHtml(ci.color)}</span>
+            </div>` : '';
+    const fit = ci.fit ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Крій:</span>
+              <span class="cart-item-value">${escapeHtml(ci.fit)}</span>
+            </div>` : '';
+
+    let moderationBadge = '';
+    if (ci.is_draft) {
+      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--draft">Очікує відправки на перевірку</span>`;
+    } else if (ci.is_awaiting_review) {
+      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--pending">⏳ На перевірці менеджера</span>`;
+    } else if (ci.is_approved) {
+      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--approved">✅ Погоджено — можна оплачувати</span>`;
+    } else if (ci.is_rejected) {
+      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--rejected">❌ Відхилено менеджером</span>`;
+    }
+    const managerNote = ci.manager_note ? `<div class="cart-item-manager-note">Коментар менеджера: ${escapeHtml(ci.manager_note)}</div>` : '';
+
+    return `
+      <div class="cart-item cart-item--custom" data-custom-key="${escapeHtml(ci.key || '')}" data-lead-id="${escapeHtml(String(ci.lead_id || ''))}">
+        <div class="cart-item-sparks">
+          <div class="cart-item-spark cart-item-spark-1"></div>
+          <div class="cart-item-spark cart-item-spark-2"></div>
+          <div class="cart-item-spark cart-item-spark-3"></div>
+        </div>
+
+        <div class="cart-item-image cart-item-image--custom" aria-hidden="true">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2l2.4 4.86 5.37.78-3.88 3.78.91 5.35L12 14.9l-4.8 2.52.91-5.35L4.23 8.3l5.37-.78L12 2z"/>
+            <path d="M9 14h6"/>
+          </svg>
+        </div>
+
+        <div class="cart-item-info">
+          <div class="cart-item-custom-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            Кастомний друк${leadNumber}
+          </div>
+          <div class="cart-item-moderation" data-status="${escapeHtml(ci.moderation_status || '')}">
+            ${moderationBadge}
+            ${managerNote}
+          </div>
+          <h3 class="cart-item-title">${escapeHtml(ci.label || 'Кастомний виріб')}</h3>
+          <div class="cart-item-details">${productLabel}${zones}
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Кількість:</span>
+              <span class="cart-item-value">${Number(ci.quantity || 1)}</span>
+            </div>${sizeBreakdown}${color}${fit}
+          </div>
+          <div class="cart-item-price">
+            <span class="cart-item-price-label">Ціна:</span>
+            <span class="cart-item-price-value">
+              <span class="cart-item-price-current">${formatUAH(parseNumber(ci.unit_total))} / шт</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="cart-item-actions">
+          <div class="cart-item-total">
+            <span class="cart-item-total-label">Разом:</span>
+            <span class="cart-item-total-value">${formatUAH(parseNumber(ci.line_total))}</span>
+          </div>
+          <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="${escapeHtml(ci.key || '')}" data-lead-id="${escapeHtml(String(ci.lead_id || ''))}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+            Видалити
+          </button>
+        </div>
+      </div>
+    `;
   }
 
   renderItem(item, placeholder) {

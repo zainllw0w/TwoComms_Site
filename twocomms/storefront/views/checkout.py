@@ -7,9 +7,10 @@ from django.db import transaction
 from django.http import JsonResponse
 
 from orders.models import Order, OrderItem
-from storefront.models import Product, PromoCode
+from storefront.models import Product, PromoCode, CustomPrintLead, CustomPrintModerationStatus
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
+from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
 from .utils import (
     get_cart_from_session,
     clear_cart,
@@ -33,9 +34,37 @@ def create_order(request):
     Creates an order from the current cart.
     """
     cart = get_cart_from_session(request)
-    if not cart:
+    custom_cart = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
+    if not cart and not (isinstance(custom_cart, dict) and custom_cart):
         messages.error(request, "Ваш кошик порожній")
         return redirect('cart')
+
+    # Split custom-print items into approved (join the order) and pending
+    # (stay in the cart for a later, combined payment). Regular items are paid now.
+    approved_custom_leads = []
+    pending_custom_keys = []  # custom-cart keys to keep in session after checkout
+    if isinstance(custom_cart, dict) and custom_cart:
+        key_to_lead_id = {
+            k: v.get('lead_id')
+            for k, v in custom_cart.items()
+            if isinstance(v, dict) and v.get('lead_id')
+        }
+        lead_ids = [lid for lid in key_to_lead_id.values() if lid]
+        leads_qs = list(CustomPrintLead.objects.filter(pk__in=lead_ids)) if lead_ids else []
+        leads_by_id = {l.pk: l for l in leads_qs}
+        for key, lead_id in key_to_lead_id.items():
+            lead = leads_by_id.get(lead_id)
+            if lead and lead.moderation_status == CustomPrintModerationStatus.APPROVED:
+                approved_custom_leads.append(lead)
+            else:
+                pending_custom_keys.append(key)
+        # If there's nothing payable now (no regulars, no approved customs) — wait.
+        if not cart and not approved_custom_leads:
+            messages.info(
+                request,
+                "Кастомний принт ще очікує на перевірку менеджера. Оплата стане доступною після погодження."
+            )
+            return redirect('cart')
 
     # Get user data
     if request.user.is_authenticated:
@@ -64,6 +93,14 @@ def create_order(request):
     # Validate required fields
     if not all([full_name, phone, city, np_office]):
         messages.error(request, "Будь ласка, заповніть всі обов'язкові поля")
+        return redirect('cart')
+
+    # Prepay is disabled when custom items are present
+    if approved_custom_leads and pay_type == 'prepay_200':
+        messages.error(
+            request,
+            "Передплата 200 грн недоступна з кастомним принтом. Оберіть повну онлайн-оплату."
+        )
         return redirect('cart')
 
     try:
@@ -115,6 +152,15 @@ def create_order(request):
 
             OrderItem.objects.bulk_create(order_items)
 
+            # Attach approved custom-print leads to this order and add their totals
+            for lead in approved_custom_leads:
+                try:
+                    total_sum += Decimal(str(lead.final_price_value))
+                except Exception:
+                    pass
+                lead.order = order
+                lead.save(update_fields=["order"])
+
             order.total_sum = total_sum
 
             # Apply Promo Code
@@ -133,8 +179,17 @@ def create_order(request):
 
             order.save()
 
-            # Clear cart
+            # Clear regular cart — approved custom items are now attached to the order.
             clear_cart(request)
+            # Keep only unapproved custom items in session so the user can pay them later.
+            current_custom = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
+            if isinstance(current_custom, dict):
+                remaining = {
+                    k: v for k, v in current_custom.items()
+                    if k in pending_custom_keys
+                }
+                request.session[SESSION_CUSTOM_CART_KEY] = remaining
+                request.session.modified = True
 
             # Handle Payment
             if pay_type in ['online_full', 'prepay_200']:
