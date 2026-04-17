@@ -165,6 +165,60 @@ def _reply_markup(lead):
     }
 
 
+def _build_moderation_action_url(lead, action: str) -> str:
+    """Build absolute signed URL for telegram moderation action (approve/reject)."""
+    from storefront.views.static_pages import _custom_print_action_signature
+    lead.ensure_moderation_token()
+    token = lead.moderation_token
+    signature = _custom_print_action_signature(lead.pk, action, token)
+    return f"{MAIN_PUBLIC_BASE_URL}/custom-print/moderation/{lead.pk}/{action}/?token={token}&sig={signature}"
+
+
+def _build_contact_client_url(lead) -> str:
+    """Build the tg.me/wa.me/tel: URL for the customer's preferred channel."""
+    channel = (getattr(lead, "contact_channel", "") or "").strip().lower()
+    raw_value = (getattr(lead, "contact_value", "") or "").strip()
+    cleaned = raw_value.lstrip("@").replace(" ", "")
+    if channel == "telegram":
+        handle = cleaned.lstrip("@")
+        if handle.startswith("http"):
+            return handle
+        return f"https://t.me/{handle}" if handle else TELEGRAM_MANAGER_URL
+    if channel == "whatsapp":
+        digits = "".join(ch for ch in raw_value if ch.isdigit())
+        return f"https://wa.me/{digits}" if digits else TELEGRAM_MANAGER_URL
+    if channel == "phone":
+        digits = "".join(ch for ch in raw_value if ch.isdigit() or ch == "+")
+        return f"tel:{digits}" if digits else TELEGRAM_MANAGER_URL
+    return TELEGRAM_MANAGER_URL
+
+
+def _moderation_reply_markup(lead):
+    """Approve / Reject / Contact client inline keyboard for the manager's chat."""
+    if lead is None:
+        return None
+    approve_url = _build_moderation_action_url(lead, "approve")
+    reject_url = _build_moderation_action_url(lead, "reject")
+    contact_url = _build_contact_client_url(lead)
+    channel = (getattr(lead, "contact_channel", "") or "").strip().lower()
+    channel_emoji = {"telegram": "✈️", "whatsapp": "💬", "phone": "📞"}.get(channel, "📨")
+    contact_label = f"{channel_emoji} Звʼязатися з клієнтом"
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "✅ Погодити", "url": approve_url},
+                {"text": "❌ Відхилити", "url": reject_url},
+            ],
+            [
+                {"text": contact_label, "url": contact_url},
+            ],
+            [
+                {"text": "Відкрити в панелі", "url": _build_admin_panel_link(lead)},
+            ],
+        ]
+    }
+
+
 def _is_image_attachment(attachment) -> bool:
     file_name = getattr(getattr(attachment, "file", None), "name", "")
     mime_type, _ = mimetypes.guess_type(file_name)
@@ -403,6 +457,108 @@ def notify_new_custom_print_lead(lead) -> bool:
         return success
     except Exception as exc:
         logger.warning("Custom print Telegram notify failed: %s", exc, exc_info=True)
+        return False
+
+
+def _build_moderation_request_message(lead) -> str:
+    base = _build_message(lead)
+    header = (
+        "<b>🛒 Кастомний кошик: потрібна перевірка</b>\n"
+        f"• <b>Ціна зі знижкою клієнта:</b> {escape(str(lead.final_price_value))} грн\n"
+        "• Натисніть «Погодити», щоб клієнт міг оплатити, або «Відхилити».\n"
+        "• Для уточнення — «Звʼязатися з клієнтом».\n\n"
+    )
+    return header + base
+
+
+def notify_custom_print_moderation_request(lead) -> bool:
+    """Send notification to manager when user submits the custom cart for review.
+
+    Includes full lead details, attached images/documents, and approve/reject/contact
+    inline buttons.
+    """
+    try:
+        notifier = _build_notifier()
+        if not notifier.is_configured():
+            logger.warning("Custom print moderation notifier is not configured.")
+            return False
+
+        lead.ensure_moderation_token()
+        markup = _moderation_reply_markup(lead)
+        success = notifier.send_admin_message(
+            _build_moderation_request_message(lead),
+            parse_mode="HTML",
+            reply_markup=markup,
+        )
+        payloads = _collect_attachment_payloads(lead)
+        image_payloads = [payload for payload in payloads if payload["is_image"]]
+        document_payloads = [payload for payload in payloads if not payload["is_image"]]
+
+        if len(image_payloads) > 1:
+            success = notifier.send_admin_media_group(
+                [payload["path"] for payload in image_payloads],
+                captions=[payload["caption"] for payload in image_payloads],
+                parse_mode="HTML",
+            ) or success
+        elif len(image_payloads) == 1:
+            success = notifier.send_admin_photo(
+                image_payloads[0]["path"],
+                caption=image_payloads[0]["caption"],
+                parse_mode="HTML",
+            ) or success
+
+        for payload in document_payloads:
+            success = notifier.send_admin_document(
+                payload["path"],
+                caption=payload["caption"],
+                filename=Path(payload["path"]).name,
+                parse_mode="HTML",
+            ) or success
+
+        return success
+    except Exception as exc:
+        logger.warning("Custom print moderation notify failed: %s", exc, exc_info=True)
+        return False
+
+
+def notify_custom_print_moderation_result(lead) -> bool:
+    """Notify the customer (best-effort) about the outcome of moderation.
+
+    Sends a concise message to the manager chat so the manager can forward or
+    contact the customer. If there's a structured customer telegram handle we
+    could extend later to send DM.
+    """
+    try:
+        notifier = _build_notifier()
+        if not notifier.is_configured():
+            return False
+        status = getattr(lead, "moderation_status", "")
+        if status == "approved":
+            emoji = "✅"
+            title = "Схвалено менеджером"
+        elif status == "rejected":
+            emoji = "❌"
+            title = "Відхилено менеджером"
+        else:
+            return False
+        price_line = ""
+        try:
+            if getattr(lead, "approved_price", None):
+                price_line = f"\n<b>Фінальна ціна:</b> {lead.approved_price} грн"
+        except Exception:
+            pass
+        note_line = ""
+        note = (getattr(lead, "manager_note", "") or "").strip()
+        if note:
+            note_line = f"\n<b>Коментар менеджера:</b> {note}"
+        message = (
+            f"{emoji} <b>Заявка {getattr(lead, 'lead_number', lead.pk)} — {title}</b>"
+            f"{price_line}"
+            f"{note_line}"
+        )
+        return notifier.send_admin_message(message, parse_mode="HTML")
+    except Exception as exc:
+        logger.warning("Custom print moderation-result notify failed: %s", exc, exc_info=True)
         return False
 
 

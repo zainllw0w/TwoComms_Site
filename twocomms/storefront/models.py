@@ -219,6 +219,13 @@ class CustomPrintContactChannel(models.TextChoices):
     PHONE = "phone", _("Телефон")
 
 
+class CustomPrintModerationStatus(models.TextChoices):
+    DRAFT = "draft", _("Чернетка")
+    AWAITING_REVIEW = "awaiting_review", _("На перевірці менеджера")
+    APPROVED = "approved", _("Погоджено — оплата доступна")
+    REJECTED = "rejected", _("Відхилено менеджером")
+
+
 class CustomPrintLead(models.Model):
     lead_number = models.CharField(max_length=24, unique=True, blank=True, verbose_name="Номер заявки")
     status = models.CharField(
@@ -281,6 +288,35 @@ class CustomPrintLead(models.Model):
     contact_value = models.CharField(max_length=255, verbose_name="Контакт")
     brief = models.TextField(blank=True, verbose_name="Опис задачі")
     source = models.CharField(max_length=50, default="main_custom_print", blank=True, verbose_name="Джерело")
+    moderation_status = models.CharField(
+        max_length=20,
+        choices=CustomPrintModerationStatus.choices,
+        default=CustomPrintModerationStatus.DRAFT,
+        verbose_name="Статус модерації кастомного кошика",
+    )
+    approved_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Ціна після погодження менеджера",
+    )
+    manager_note = models.TextField(blank=True, default="", verbose_name="Коментар менеджера")
+    moderation_token = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="Токен для дій менеджера",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="Коли відреаговано")
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="custom_print_leads",
+        verbose_name="Замовлення",
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
 
@@ -315,6 +351,28 @@ class CustomPrintLead(models.Model):
     @property
     def estimate_required(self):
         return bool((self.pricing_snapshot_json or {}).get("estimate_required"))
+
+    @property
+    def final_price_value(self):
+        """Returns approved_price if set, else snapshot final_total, else 0."""
+        if self.approved_price is not None:
+            return self.approved_price
+        snapshot = self.pricing_snapshot_json or {}
+        value = snapshot.get("final_total") or snapshot.get("unit_total") or 0
+        from decimal import Decimal, InvalidOperation
+        try:
+            return Decimal(str(value))
+        except (InvalidOperation, TypeError):
+            return Decimal("0")
+
+    def ensure_moderation_token(self, save=True):
+        """Generate and persist a random moderation token used for Telegram URL buttons."""
+        if not self.moderation_token:
+            import secrets
+            self.moderation_token = secrets.token_urlsafe(32)
+            if save and self.pk:
+                type(self).objects.filter(pk=self.pk).update(moderation_token=self.moderation_token)
+        return self.moderation_token
 
     @staticmethod
     def generate_lead_number():

@@ -339,6 +339,21 @@ def monobank_create_invoice(request):
             'error': 'Кошик порожній. Додайте товари перед оплатою.'
         })
 
+    # Custom-print policy: pending custom items are NOT blocking — they stay in the
+    # user's session and can be paid after manager approval. Regular items are paid
+    # now; approved custom items can be attached to the order (future enhancement).
+    # Prepay is still disabled whenever there are any custom items, because the
+    # manager may re-price them.
+    from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
+    from storefront.models import CustomPrintLead, CustomPrintModerationStatus
+    custom_cart = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
+    if isinstance(custom_cart, dict) and custom_cart:
+        if body.get('pay_type') == 'prepay_200':
+            return JsonResponse({
+                'success': False,
+                'error': 'Передплата 200 грн недоступна, коли у кошику є кастомний принт. Оберіть повну онлайн-оплату.'
+            })
+
     # Получаем данные клиента
     if request.user.is_authenticated:
         try:

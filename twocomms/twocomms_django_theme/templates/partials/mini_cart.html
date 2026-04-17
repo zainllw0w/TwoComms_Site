@@ -1,7 +1,31 @@
 {% load static %}
 {% load responsive_images %}
 <div class="vstack gap-3" style="min-width: 300px;">
-  {% if items %}
+  {% if has_any_items %}
+    {% if custom_items %}
+      {% for ci in custom_items %}
+        <div class="d-flex align-items-center justify-content-between border rounded-3 p-2 bg-elevate mini-cart-custom-row" data-custom-key="{{ ci.key }}" data-lead-id="{{ ci.lead_id }}" style="border-color: rgba(250,204,21,0.35) !important;">
+          <div class="d-flex align-items-center gap-2" style="min-width: 0; flex: 1;">
+            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:rgba(250,204,21,0.12);border:1px solid rgba(250,204,21,0.3);color:#fde68a;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2l2.4 4.86 5.37.78-3.88 3.78.91 5.35L12 14.9l-4.8 2.52.91-5.35L4.23 8.3l5.37-.78L12 2z"/>
+                <path d="M9 14h6"/>
+              </svg>
+            </div>
+            <div style="min-width: 0; overflow: hidden;">
+              <div class="fw-semibold small text-truncate" style="color:#fde68a;">Кастомний друк{% if ci.lead_number %} · №{{ ci.lead_number }}{% endif %}</div>
+              <div class="small text-truncate" title="{{ ci.label }}">{{ ci.label }}</div>
+              <div class="text-secondary" style="font-size:11px;">×{{ ci.quantity }}{% if ci.moderation_status_label %} · {{ ci.moderation_status_label }}{% endif %}</div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <div class="text-nowrap small fw-semibold">{{ ci.line_total }} грн</div>
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endif %}
+  {% if has_any_items %}
     {% for it in items %}
       <div class="d-flex align-items-center justify-content-between border rounded-3 p-2 bg-elevate" data-cart-row data-key="{{ it.key }}" data-offer-id="{{ it.offer_id }}">
         <div class="d-flex align-items-center gap-2">
@@ -54,9 +78,15 @@
     {% endfor %}
     <div class="d-flex justify-content-between align-items-center">
       <div class="fw-semibold">Разом</div>
-      <div class="fw-semibold">{{ total }} грн</div>
+      <div class="fw-semibold">{{ combined_total|default:total }} грн</div>
     </div>
+    {% if custom_items %}
+    <div class="text-secondary small" style="margin-top:-6px;">
+      Кастомні позиції очікують підтвердження менеджером. Фінальну ціну узгоджуєте в кошику.
+    </div>
+    {% endif %}
     <a href="{% url 'cart' %}" class="btn btn-cta w-100">Оформити на сайті</a>
+    {% if not custom_items %}
     <div class="mono-checkout-mini" data-mono-status-scope>
       <button type="button" class="btn btn-outline-light w-100 mono-checkout-btn-mini" data-mono-checkout-trigger="mini">
         <span class="mono-checkout-label">Оформити через</span>
@@ -73,6 +103,7 @@
       </button>
       <div class="mono-checkout-status text-secondary text-center mt-2" data-mono-checkout-status role="status" aria-live="polite"></div>
     </div>
+    {% endif %}
   {% else %}
     <div class="text-secondary small">Кошик порожній.</div>
   {% endif %}

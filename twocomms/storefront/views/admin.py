@@ -48,6 +48,7 @@ from ..models import (
     CustomPrintClientKind,
     CustomPrintLead,
     CustomPrintLeadStatus,
+    CustomPrintModerationStatus,
     CustomPrintProductType,
     Catalog,
     SizeGrid,
@@ -800,6 +801,64 @@ def admin_custom_print_lead_status(request, lead_id: int):
     lead.status = status_value
     lead.save(update_fields=['status', 'updated_at'])
     return JsonResponse({'success': True, 'status': lead.status})
+
+
+@staff_member_required
+def admin_custom_print_lead_moderation(request, lead_id: int):
+    """Manager action: approve or reject a custom-print lead from the staff panel.
+
+    POST body: {"action": "approve"|"reject", "price": "NNN.NN" (optional, for approve), "note": "..."}
+    On reject: any user session that still holds this lead in its custom-cart will
+    see it marked rejected on the next cart/mini-cart load and the entry removed
+    (the cart views skip leads that are REJECTED and no longer in session).
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid payload'}, status=400)
+
+    action = (payload.get('action') or '').strip().lower()
+    if action not in {'approve', 'reject'}:
+        return JsonResponse({'success': False, 'error': 'Invalid action'}, status=400)
+
+    note = (payload.get('note') or '').strip()
+    price_raw = payload.get('price')
+
+    lead = get_object_or_404(CustomPrintLead, pk=lead_id)
+
+    update_fields = ['moderation_status', 'manager_note', 'reviewed_at', 'updated_at']
+    lead.reviewed_at = timezone.now()
+    lead.manager_note = note
+
+    if action == 'approve':
+        from decimal import Decimal, InvalidOperation
+        if price_raw not in (None, ''):
+            try:
+                lead.approved_price = Decimal(str(price_raw))
+                update_fields.append('approved_price')
+            except (InvalidOperation, TypeError):
+                return JsonResponse({'success': False, 'error': 'Некоректна ціна'}, status=400)
+        lead.moderation_status = CustomPrintModerationStatus.APPROVED
+    else:
+        lead.moderation_status = CustomPrintModerationStatus.REJECTED
+
+    lead.save(update_fields=update_fields)
+
+    # Notify customer via Telegram if they provided a telegram contact (best-effort).
+    try:
+        from storefront.custom_print_notifications import notify_custom_print_moderation_result
+        notify_custom_print_moderation_result(lead)
+    except Exception:
+        pass
+
+    return JsonResponse({
+        'success': True,
+        'moderation_status': lead.moderation_status,
+        'approved_price': str(lead.approved_price or ''),
+        'manager_note': lead.manager_note,
+    })
 
 
 @staff_member_required

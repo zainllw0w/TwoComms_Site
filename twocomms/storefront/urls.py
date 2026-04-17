@@ -66,6 +66,7 @@ urlpatterns = [
     path('admin-panel/order/approve-payment/', _legacy_view('admin_approve_payment'), name='admin_approve_payment'),
     path('admin-panel/order/<int:pk>/delete/', _legacy_view('admin_order_delete'), name='admin_order_delete'),
     path('admin-panel/custom-print/<int:lead_id>/status/', views.admin_custom_print_lead_status, name='admin_custom_print_lead_status'),
+    path('admin-panel/custom-print/<int:lead_id>/moderation/', views.admin_custom_print_lead_moderation, name='admin_custom_print_lead_moderation'),
     # orders
     path('orders/create/', views.order_create, name='order_create'),
     path('orders/success/<int:order_id>/', views.order_success, name='order_success'),
@@ -161,6 +162,8 @@ urlpatterns = [
     path('custom-print/safe-exit/', views.custom_print_safe_exit, name='custom_print_safe_exit'),
     path('custom-print/add-to-cart/', views.custom_print_add_to_cart, name='custom_print_add_to_cart'),
     path('custom-print/remove/', views.custom_print_remove, name='custom_print_remove'),
+    path('custom-print/submit-review/', views.custom_print_submit_review, name='custom_print_submit_review'),
+    path('custom-print/moderation/<int:lead_id>/<str:action>/', views.custom_print_moderation_action, name='custom_print_moderation_action'),
     path('delivery/', views.delivery_view, name='delivery'),
     path('cooperation/', views.cooperation, name='cooperation'),
     path('about/', views.about, name='about'),
