@@ -97,6 +97,25 @@ class CustomPrintPageTests(TestCase):
         self.assertContains(response, '"sleeve_mode_options"')
         self.assertContains(response, '"current_step": "mode"')
 
+    def test_custom_print_page_keeps_product_settings_in_single_config_step(self):
+        response = self._get(reverse("custom_print"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-step="config"')
+        self.assertContains(response, 'data-step-edit="config"')
+        self.assertContains(response, 'data-step-next="zones"')
+        self.assertContains(response, "Крій, тканина, колір")
+        self.assertNotContains(response, 'data-step="fit"')
+        self.assertNotContains(response, 'data-step="fabric"')
+        self.assertNotContains(response, "Далі до тканини")
+        self.assertNotContains(response, "Вибір тканини і кольору")
+
+    def test_custom_print_page_cache_busts_configurator_script(self):
+        response = self._get(reverse("custom_print"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "custom-print-configurator.js?v=")
+
     def test_custom_print_config_exposes_progress_steps_tshirt_rules_and_zone_presets(self):
         from storefront.custom_print_config import build_custom_print_config
 
