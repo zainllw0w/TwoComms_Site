@@ -4435,3 +4435,302 @@
     flex-direction: column;
   }
 }
+
+@media (max-width: 720px) {
+  .cp-step {
+    scroll-margin-top: 7.6rem;
+  }
+
+  .cp-config-cluster {
+    gap: 0.9rem;
+  }
+
+  .cp-fit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(0.5rem, 2.5vw, 0.75rem);
+  }
+
+  .cp-fit-card {
+    min-width: 0;
+    border-radius: 20px;
+  }
+
+  .cp-fit-card-figure {
+    aspect-ratio: 0.92 / 1;
+  }
+
+  .cp-fit-card-info {
+    gap: 0.18rem;
+    padding: clamp(0.7rem, 3vw, 0.95rem);
+  }
+
+  .cp-fit-card small {
+    font-size: clamp(0.56rem, 2.1vw, 0.66rem);
+    letter-spacing: 0.07em;
+  }
+
+  .cp-fit-card strong {
+    font-size: clamp(0.88rem, 3.5vw, 1rem);
+    line-height: 1.1;
+  }
+
+  .cp-fit-card span,
+  .cp-fit-card em {
+    font-size: clamp(0.66rem, 2.45vw, 0.79rem);
+    line-height: 1.32;
+  }
+
+  .cp-fabric-row {
+    display: grid;
+    gap: clamp(0.45rem, 2vw, 0.7rem);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cp-fabric-row[data-count="1"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cp-fabric-row[data-count="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cp-fabric-row[data-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .cp-mini-chip--fabric {
+    width: 100%;
+    min-width: 0;
+    min-height: 100%;
+    padding: clamp(0.7rem, 2.4vw, 0.88rem) clamp(0.55rem, 2vw, 0.8rem);
+    border-radius: 18px;
+    gap: 0.28rem;
+  }
+
+  .cp-mini-chip--fabric.has-info {
+    padding-top: clamp(0.85rem, 2.8vw, 1rem);
+    padding-right: clamp(0.85rem, 2.8vw, 1rem);
+  }
+
+  .cp-fabric-chip-title strong {
+    font-size: clamp(0.8rem, 2.9vw, 0.94rem);
+    line-height: 1.12;
+  }
+
+  .cp-fabric-chip-meta {
+    align-self: stretch;
+    justify-content: center;
+    margin-top: 0.36rem;
+    padding: 0.22rem 0.45rem;
+    text-align: center;
+    white-space: normal;
+    font-size: clamp(0.58rem, 2.1vw, 0.72rem);
+    line-height: 1.15;
+  }
+
+  .cp-fabric-info-trigger {
+    top: 6px;
+    right: 6px;
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+
+  .cp-step-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    align-items: stretch;
+  }
+
+  .cp-step-actions > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .cp-step-actions > :only-child,
+  .cp-step-actions > :nth-child(3):last-child {
+    grid-column: 1 / -1;
+  }
+
+  .cp-step-actions .cp-link,
+  .cp-step-actions .cp-secondary-button,
+  .cp-step-actions .cp-tertiary-button {
+    padding-inline: 0.85rem;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .cp-build-strip-shell {
+    position: relative;
+    z-index: 1;
+    padding: 0 0 0.35rem;
+    margin-bottom: 0.35rem;
+    scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 5rem);
+  }
+
+  .cp-build-strip-shell::before {
+    border-radius: 999px;
+  }
+
+  .cp-build-strip {
+    align-items: center;
+    gap: 0;
+    overflow: visible;
+    padding: 0.75rem 0.85rem;
+  }
+
+  .cp-build-chip {
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    max-width: none;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    opacity: 1;
+  }
+
+  .cp-build-chip small,
+  .cp-build-chip strong {
+    display: none;
+  }
+
+  .cp-build-chip::before {
+    content: "";
+    position: relative;
+    z-index: 1;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.14);
+    box-shadow: none;
+  }
+
+  .cp-build-chip::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(50% + 8px);
+    width: calc(100% - 16px);
+    height: 2px;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.12);
+    pointer-events: none;
+  }
+
+  .cp-build-chip:last-child::after {
+    display: none;
+  }
+
+  .cp-build-chip.is-active::before {
+    width: 12px;
+    height: 12px;
+    border-color: rgba(242, 211, 155, 0.9);
+    background: rgba(242, 211, 155, 0.95);
+    box-shadow: 0 0 0 4px rgba(242, 211, 155, 0.18);
+  }
+
+  .cp-build-chip.is-done::before {
+    border: 0;
+    background: var(--cp-success);
+  }
+
+  .cp-build-chip.is-done::after,
+  .cp-build-chip.is-active::after {
+    background: rgba(242, 211, 155, 0.42);
+  }
+
+  .cp-build-chip.is-pending {
+    pointer-events: none;
+  }
+
+  .cp-build-chip.is-pending::before {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .cp-build-chip.is-pending::after {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .cp-build-chip:hover:not(.is-pending) {
+    border: 0;
+    background: transparent;
+  }
+}
+
+@media (max-width: 420px) {
+  .cp-fit-card-figure {
+    aspect-ratio: 0.82 / 1;
+  }
+
+  .cp-fit-card strong {
+    font-size: clamp(0.82rem, 3.4vw, 0.9rem);
+  }
+
+  .cp-fit-card span,
+  .cp-fit-card em {
+    font-size: clamp(0.62rem, 2.7vw, 0.7rem);
+  }
+
+  .cp-fabric-row[data-count="3"] {
+    gap: 0.38rem;
+  }
+
+  .cp-fabric-row[data-count="3"] .cp-mini-chip--fabric {
+    padding: 0.68rem 0.38rem 0.64rem;
+    border-radius: 16px;
+  }
+
+  .cp-fabric-row[data-count="3"] .cp-mini-chip--fabric.has-info {
+    padding-top: 0.82rem;
+    padding-right: 0.75rem;
+  }
+
+  .cp-fabric-row[data-count="3"] .cp-fabric-chip-title strong {
+    font-size: clamp(0.68rem, 2.9vw, 0.76rem);
+  }
+
+  .cp-fabric-row[data-count="3"] .cp-fabric-chip-meta {
+    padding: 0.18rem 0.28rem;
+    font-size: 0.54rem;
+  }
+
+  .cp-fabric-row[data-count="3"] .cp-fabric-info-trigger {
+    top: 4px;
+    right: 4px;
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+  }
+
+  .cp-step-actions .cp-link,
+  .cp-step-actions .cp-secondary-button,
+  .cp-step-actions .cp-tertiary-button {
+    min-height: 46px;
+    padding-inline: 0.7rem;
+    font-size: 0.88rem;
+  }
+
+  .cp-build-strip {
+    padding-inline: 0.7rem;
+  }
+
+  .cp-build-chip::before {
+    width: 9px;
+    height: 9px;
+  }
+
+  .cp-build-chip.is-active::before {
+    width: 11px;
+    height: 11px;
+  }
+}

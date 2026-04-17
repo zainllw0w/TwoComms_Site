@@ -41,6 +41,7 @@
   }, {});
   const STAGE_PROFILES = CONFIG.stage_profiles || {};
   const submissionPolicy = globalThis.CustomPrintSubmissionPolicy || null;
+  const mobileProgressQuery = globalThis.matchMedia ? globalThis.matchMedia("(max-width: 720px)") : null;
 
   const STATE = createState();
   const filesByPlacement = new Map(); // placement_key -> File[]
@@ -133,8 +134,15 @@
     stepNextButtons: root.querySelectorAll("[data-step-next]"),
     stepSkipButtons: root.querySelectorAll("[data-step-skip]"),
   };
+  const progressHome = dom.progressShell ? document.createComment("cp-progress-home") : null;
+  if (progressHome && dom.progressShell?.parentNode) {
+    dom.progressShell.parentNode.insertBefore(progressHome, dom.progressShell);
+  }
 
   init();
+  mobileProgressQuery?.addEventListener?.("change", () => {
+    syncProgressShellPlacement();
+  });
 
   // ────────────────────────────────────────────────────────────
   function createState() {
@@ -740,6 +748,7 @@
     const cfg = getProductConfig();
     const fits = cfg && cfg.fits ? cfg.fits : [];
     const fabricsMap = cfg && cfg.fabrics ? cfg.fabrics : {};
+    dom.fitList.dataset.count = String(fits.length);
     if (!fits.length) {
       if (dom.fitBlock) dom.fitBlock.hidden = true;
       return;
@@ -786,6 +795,7 @@
     const cfg = getProductConfig();
     const fabricsMap = cfg && cfg.fabrics ? cfg.fabrics : {};
     const fabrics = STATE.product.fit ? fabricsMap[STATE.product.fit] || [] : [];
+    dom.fabricList.dataset.count = String(fabrics.length);
     if (!fabrics.length) {
       if (dom.fabricBlock) dom.fabricBlock.hidden = true;
       return;
@@ -1947,7 +1957,10 @@
     refreshAll();
     if (!opts.silent) {
       const target = document.getElementById(`cp-step-${key}`);
-      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+      const scrollTarget = mobileProgressQuery?.matches && dom.progressShell && !dom.progressShell.hidden
+        ? dom.progressShell
+        : target;
+      if (scrollTarget) scrollTarget.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     persistDraft();
   }
@@ -2021,6 +2034,7 @@
   function refreshAll() {
     normalizeClientState();
     updateFlowPhase();
+    syncProgressShellPlacement();
     updateStageVisibility();
     updateStageMeta();
     applyGarmentType();
@@ -2046,6 +2060,17 @@
     if (dom.workbench) dom.workbench.classList.toggle("is-lobby-mode", !stageVisible);
   }
 
+  function syncProgressShellPlacement() {
+    if (!dom.progressShell || !progressHome?.parentNode) return;
+    const shouldInline = !isLobbyPhase() && !!mobileProgressQuery?.matches;
+    const activeStep = root.querySelector(`[data-step="${STATE.ui.current_step}"]`);
+    if (shouldInline && activeStep?.parentNode) {
+      activeStep.parentNode.insertBefore(dom.progressShell, activeStep);
+      return;
+    }
+    progressHome.parentNode.insertBefore(dom.progressShell, progressHome.nextSibling);
+  }
+
   function renderProgressStrip() {
     if (!dom.progressStrip) return;
     const steps = CONFIG.progress_steps || STEPS.map((value) => ({ value, label: value }));
@@ -2053,15 +2078,18 @@
     steps.forEach((step) => {
       const btn = document.createElement("button");
       const stepKey = step.value;
+      const stepIndex = getStepIndex(stepKey) + 1;
       const isActive = STATE.ui.current_step === stepKey;
       const isDone = STATE.ui.done_steps.has(stepKey);
       btn.type = "button";
       btn.className = "cp-build-chip";
+      btn.dataset.stepIndex = String(stepIndex);
       if (isActive) btn.classList.add("is-active");
       else if (isDone) btn.classList.add("is-done");
       else btn.classList.add("is-pending");
+      btn.setAttribute("aria-label", `${stepIndex}. ${step.label}. ${getProgressStepValue(stepKey)}`);
       btn.innerHTML = `
-        <small>${getStepIndex(stepKey) + 1}. ${escapeHtml(step.label)}</small>
+        <small>${stepIndex}. ${escapeHtml(step.label)}</small>
         <strong>${escapeHtml(getProgressStepValue(stepKey))}</strong>
       `;
       btn.disabled = !isActive && !isDone;
