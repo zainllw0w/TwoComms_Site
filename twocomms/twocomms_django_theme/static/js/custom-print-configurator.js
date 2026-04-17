@@ -1491,11 +1491,22 @@
     }
     if (!targetKey.startsWith("sleeve_")) return;
     const side = targetKey.endsWith("left") ? "left" : "right";
-    if (!STATE.print.zones.includes("sleeve")) {
+    const hadSleeveZone = STATE.print.zones.includes("sleeve");
+    const existingSleeve = STATE.print.zone_options?.sleeve || {};
+    if (!hadSleeveZone) {
       STATE.print.zones = [...STATE.print.zones, "sleeve"];
+      STATE.print.zone_options.sleeve = {
+        left_enabled: side === "left",
+        right_enabled: side === "right",
+        left_mode: existingSleeve.left_mode || SLEEVE_MODE_DEFAULT,
+        right_mode: existingSleeve.right_mode || SLEEVE_MODE_DEFAULT,
+        left_text: existingSleeve.left_text || "",
+        right_text: existingSleeve.right_text || "",
+      };
+    } else {
+      ensureSleeveZoneOptions();
+      STATE.print.zone_options.sleeve[`${side}_enabled`] = !isSleeveSideEnabled(side);
     }
-    ensureSleeveZoneOptions();
-    STATE.print.zone_options.sleeve[`${side}_enabled`] = !isSleeveSideEnabled(side);
     if (!STATE.print.zone_options.sleeve.left_enabled && !STATE.print.zone_options.sleeve.right_enabled) {
       STATE.print.zones = STATE.print.zones.filter((zone) => zone !== "sleeve");
       delete STATE.print.zone_options.sleeve;
@@ -1574,7 +1585,10 @@
   }
 
   function focusStageTarget(targetKey) {
-    applyStageView(getStageTargetView(targetKey));
+    const targetView = getStageTargetView(targetKey);
+    if (targetView !== (STATE.ui.stage_view || "front")) {
+      applyStageView(targetView);
+    }
   }
 
   function handleStageTargetInteraction(targetKey) {
