@@ -103,6 +103,17 @@ TRIAGE_LABELS = {
     "needs-review": "Потрібна перевірка",
 }
 
+ADDON_LABELS = {
+    "lacing": "Люверси зі шнурками",
+    "grommets": "Люверси зі шнурками",
+    "inside_label": "Люверси зі шнурками",
+    "hem_tag": "Люверси зі шнурками",
+    "fleece": "З флісом",
+    "no_fleece": "Без флісу",
+    "ribbed_neck": "Щільна горловина (Рібана)",
+    "twill_tape": "Кіперна стрічка",
+}
+
 # Legacy (kept for back-compat with old drafts / admin filters).
 QUICK_START_MODES = [
     {

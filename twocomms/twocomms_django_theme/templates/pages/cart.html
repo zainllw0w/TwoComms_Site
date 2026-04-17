@@ -104,10 +104,11 @@
                     Кастомний друк {% if ci.lead_number %}· №{{ ci.lead_number }}{% endif %}
                   </div>
                   <div class="cart-item-moderation" data-status="{{ ci.moderation_status }}">
-                    {% if ci.is_draft %}
-                      <span class="cart-item-moderation-badge cart-item-moderation-badge--draft">Очікує відправки на перевірку</span>
-                    {% elif ci.is_awaiting_review %}
-                      <span class="cart-item-moderation-badge cart-item-moderation-badge--pending">⏳ На перевірці менеджера</span>
+                    {% if ci.is_pending %}
+                      <span class="cart-item-moderation-badge cart-item-moderation-badge--pending">
+                        <span class="cart-item-status-spinner" aria-hidden="true"></span>
+                        {% if ci.is_draft %}Передаємо менеджеру на перевірку{% else %}На перевірці менеджера{% endif %}
+                      </span>
                     {% elif ci.is_approved %}
                       <span class="cart-item-moderation-badge cart-item-moderation-badge--approved">✅ Погоджено — можна оплачувати</span>
                     {% elif ci.is_rejected %}
@@ -125,20 +126,38 @@
                       <span class="cart-item-value">{{ ci.product_label }}</span>
                     </div>
                     {% endif %}
-                    {% if ci.zones_display %}
+                    {% if ci.placements_display %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Зони:</span>
-                      <span class="cart-item-value">{{ ci.zones_display }}</span>
+                      <span class="cart-item-label">Розміщення:</span>
+                      <span class="cart-item-value">{{ ci.placements_display }}</span>
                     </div>
                     {% endif %}
                     <div class="cart-item-detail">
                       <span class="cart-item-label">Кількість:</span>
                       <span class="cart-item-value">{{ ci.quantity }}</span>
                     </div>
+                    {% if ci.size_mode_label %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">Режим розмірів:</span>
+                      <span class="cart-item-value">{{ ci.size_mode_label }}</span>
+                    </div>
+                    {% endif %}
                     {% if ci.size_breakdown_display %}
                     <div class="cart-item-detail">
                       <span class="cart-item-label">Розміри:</span>
                       <span class="cart-item-value">{{ ci.size_breakdown_display }}</span>
+                    </div>
+                    {% endif %}
+                    {% if ci.fit_label %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">Крій:</span>
+                      <span class="cart-item-value">{{ ci.fit_label }}</span>
+                    </div>
+                    {% endif %}
+                    {% if ci.fabric_label %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">Тканина:</span>
+                      <span class="cart-item-value">{{ ci.fabric_label }}</span>
                     </div>
                     {% endif %}
                     {% if ci.color %}
@@ -147,10 +166,28 @@
                       <span class="cart-item-value">{{ ci.color }}</span>
                     </div>
                     {% endif %}
-                    {% if ci.fit %}
+                    {% if ci.service_kind_label %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Крій:</span>
-                      <span class="cart-item-value">{{ ci.fit }}</span>
+                      <span class="cart-item-label">Послуга:</span>
+                      <span class="cart-item-value">{{ ci.service_kind_label }}</span>
+                    </div>
+                    {% endif %}
+                    {% if ci.file_triage_label %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">Підготовка файлу:</span>
+                      <span class="cart-item-value">{{ ci.file_triage_label }}</span>
+                    </div>
+                    {% endif %}
+                    {% if ci.add_on_labels %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">Додатково:</span>
+                      <span class="cart-item-value">{{ ci.add_on_labels|join:", " }}</span>
+                    </div>
+                    {% endif %}
+                    {% if ci.placement_note %}
+                    <div class="cart-item-detail">
+                      <span class="cart-item-label">Коментар до розміщення:</span>
+                      <span class="cart-item-value">{{ ci.placement_note }}</span>
                     </div>
                     {% endif %}
                     {% if ci.gift_enabled %}
@@ -167,18 +204,38 @@
                     {% endif %}
                   </div>
                   <div class="cart-item-price">
-                    <span class="cart-item-price-label">Ціна:</span>
+                    <span class="cart-item-price-label">{{ ci.price_caption }}:</span>
                     <span class="cart-item-price-value">
                       <span class="cart-item-price-current">{{ ci.unit_total|floatformat:2 }} грн / шт</span>
                     </span>
+                    {% if ci.pending_price_note %}
+                    <div class="cart-item-price-note">{{ ci.pending_price_note }}</div>
+                    {% elif ci.payment_note %}
+                    <div class="cart-item-price-note">{{ ci.payment_note }}</div>
+                    {% endif %}
                   </div>
                 </div>
 
                 <div class="cart-item-actions">
                   <div class="cart-item-total">
                     <span class="cart-item-total-label">Разом:</span>
+                    {% if ci.included_in_payment %}
                     <span class="cart-item-total-value">{{ ci.final_total|floatformat:2 }} грн</span>
+                    {% else %}
+                    <span class="cart-item-total-value cart-item-total-value--muted">Після погодження</span>
+                    {% if ci.final_total > 0 %}
+                    <div class="cart-item-total-note">Орієнтовно {{ ci.final_total|floatformat:2 }} грн</div>
+                    {% endif %}
+                    {% endif %}
                   </div>
+                  {% if ci.show_manager_contact %}
+                  <a href="https://t.me/twocomms"
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     class="cart-item-manager-link">
+                    Написати менеджеру
+                  </a>
+                  {% endif %}
                   <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="{{ ci.key }}" data-lead-id="{{ ci.lead_id }}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -585,7 +642,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 2l2.4 4.86 5.37.78-3.88 3.78.91 5.35L12 14.9l-4.8 2.52.91-5.35L4.23 8.3l5.37-.78L12 2z"/>
                 </svg>
-                Кастомний друк ({{ custom_items_qty }}):
+                {% if any_pending_review %}Орієнтовно за кастомний друк{% else %}Кастомний друк{% endif %} ({{ custom_items_qty }}):
               </div>
             </span>
             <span class="cart-summary-value">{{ custom_items_total|floatformat:2 }} грн</span>
@@ -613,8 +670,8 @@
             <span class="cart-summary-label" id="pay-now-label">До сплати:</span>
             <span class="cart-summary-value"
                   id="pay-now-amount"
-                  data-total="{{ combined_total|default:total|floatformat:'2' }}"
-                  data-prepay="200">{% if pay_now_amount %}{{ pay_now_amount|floatformat:2 }} грн{% else %}{{ combined_total|default:total|floatformat:2 }} грн{% endif %}</span>
+                  data-total="{{ approved_total|default:total|floatformat:'2' }}"
+                  data-prepay="200">{% if pay_now_amount %}{{ pay_now_amount|floatformat:2 }} грн{% else %}{{ approved_total|default:total|floatformat:2 }} грн{% endif %}</span>
           </div>
           <div class="cart-summary-row cart-summary-prepay d-none" id="prepay-remaining-row">
             <span class="cart-summary-label">Залишок при отриманні:</span>
@@ -695,9 +752,9 @@
         <div class="cart-custom-moderation-note cart-custom-moderation-note--approved">
           ✅ Менеджер погодив усі кастомні позиції. Тепер можна оплатити все замовлення разом.
         </div>
-      {% elif any_awaiting_review %}
+      {% elif any_pending_review %}
         <div class="cart-custom-moderation-note cart-custom-moderation-note--pending">
-          ⏳ Кастомний принт проходить модерацію. Щойно менеджер погодить деталі та фінальну ціну — позиція автоматично додасться до рахунку і ви зможете оплатити все разом. А поки що ви можете оформити та сплатити решту товарів <strong>без урахування кастомного одягу</strong> — як тільки модерація завершиться, ми приєднаємо кастомну позицію до вашого замовлення.
+          ⏳ Кастомний одяг уже переданий менеджеру на перевірку. Поки триває модерація, позиція відображається в кошику окремо і <strong>не входить до суми оплати зараз</strong>. Щойно менеджер погодить деталі та фінальну ціну — кастом автоматично приєднається до рахунку.
         </div>
         <a href="https://t.me/twocomms"
            target="_blank"
@@ -714,36 +771,15 @@
         </div>
       {% else %}
         <div class="cart-custom-moderation-note">
-          Оплата кастомного принту можлива після перевірки менеджером. Натисніть «Відправити менеджеру на перевірку», щоб узгодити деталі та фінальну ціну. До моменту погодження ви можете оплатити інші товари окремо — кастомну позицію приєднаємо до рахунку після підтвердження.
+          Менеджер уже працює з вашим кастомним запитом. Коли модерацію буде завершено, позиція автоматично стане доступною для оплати в цьому ж кошику.
         </div>
-      {% endif %}
-
-      {% if not all_approved %}
-        <button type="button"
-                id="customPrintSubmitBtn"
-                class="cart-checkout-btn cart-custom-submit-btn"
-                {% if any_awaiting_review %}disabled{% endif %}
-                data-submit-review-url="{% url 'custom_print_submit_review' %}">
-          <span class="cart-cta-content">
-            <span class="cart-cta-text">
-              {% if any_awaiting_review %}
-                ⏳ Очікування перевірки менеджера
-              {% elif any_rejected %}
-                Повторно відправити менеджеру на перевірку
-              {% else %}
-                Відправити менеджеру на перевірку
-              {% endif %}
-            </span>
-          </span>
-        </button>
-        <div id="customPrintSubmitStatus" class="text-secondary small mt-2" role="status" aria-live="polite"></div>
       {% endif %}
     </div>
   {% endif %}
 
   <!-- Monobank онлайн оплата -->
   <div class="cart-monobank-container" data-mono-status-scope>
-    <button type="button" id="monobank-pay-btn" class="cart-monobank-btn" data-monobank-pay-trigger="cart">
+    <button type="button" id="monobank-pay-btn" class="cart-monobank-btn" data-monobank-pay-trigger="cart" {% if not has_payable_items %}disabled{% endif %}>
       <span class="cart-monobank-logo" aria-hidden="true">
         <span class="mono">mono</span><span class="dot">·</span><span class="pay">pay</span>
       </span>
@@ -767,7 +803,7 @@
 
 
           {% if request.user.is_authenticated %}
-            <button type="button" class="cart-checkout-btn cart-cta-beam" id="placeOrderBtn" data-monobank-pay-trigger="cart">
+            <button type="button" class="cart-checkout-btn cart-cta-beam" id="placeOrderBtn" data-monobank-pay-trigger="cart" {% if not has_payable_items %}disabled{% endif %}>
               <span class="cart-cta-border">
                 <span class="cart-cta-border-spin"></span>
                 <span class="cart-cta-border-bg"></span>
@@ -785,7 +821,7 @@
               </span>
             </button>
           {% else %}
-            <button type="button" class="cart-checkout-btn cart-cta-beam cart-checkout-btn-guest" id="guestOrderBtn" data-monobank-pay-trigger="cart">
+            <button type="button" class="cart-checkout-btn cart-cta-beam cart-checkout-btn-guest" id="guestOrderBtn" data-monobank-pay-trigger="cart" {% if not has_payable_items %}disabled{% endif %}>
               <span class="cart-cta-border">
                 <span class="cart-cta-border-spin"></span>
                 <span class="cart-cta-border-bg"></span>
@@ -804,7 +840,9 @@
             </button>
           {% endif %}
           <div class="cart-checkout-note text-secondary mt-3">
-            {% if has_custom_items and not all_approved %}
+            {% if has_custom_items and not has_payable_items %}
+              Оплата стане доступною після погодження менеджером. Зараз у кошику немає позицій, які можна оплатити окремо.
+            {% elif has_custom_items and not all_approved %}
               Оплата покриє лише звичайні товари. Кастомна позиція приєднається до замовлення автоматично після погодження менеджером — на ваш номер надійде додаткове повідомлення з фінальною ціною.
             {% else %}
               Після оформлення замовлення менеджер зв'яжеться з вами за вказаним номером телефону, щоб підтвердити деталі та узгодити доставку.
@@ -1446,7 +1484,7 @@ body.contact-modal-open .cart-container::after {
 .cart-item-moderation-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 3px 10px;
   border-radius: 999px;
   font-size: 11px;
@@ -1462,6 +1500,15 @@ body.contact-modal-open .cart-container::after {
   color: #fde68a;
   background: rgba(250, 204, 21, 0.1);
   border-color: rgba(250, 204, 21, 0.3);
+}
+
+.cart-item-status-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(191, 219, 254, 0.22);
+  border-top-color: currentColor;
+  animation: cart-status-spin 0.9s linear infinite;
 }
 
 .cart-item-moderation-badge--pending {
@@ -1489,6 +1536,42 @@ body.contact-modal-open .cart-container::after {
   padding: 6px 10px;
   border-radius: 8px;
   border-left: 2px solid rgba(250, 204, 21, 0.5);
+}
+
+.cart-item-price-note,
+.cart-item-total-note {
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(226, 232, 240, 0.78);
+  line-height: 1.45;
+}
+
+.cart-item-total-value--muted {
+  color: #bfdbfe;
+}
+
+.cart-item-manager-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(34, 158, 217, 0.4);
+  background: rgba(34, 158, 217, 0.12);
+  color: #7dd3fc;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.cart-item-manager-link:hover {
+  transform: translateY(-1px);
+  color: #dbeafe;
+  background: rgba(34, 158, 217, 0.18);
+  border-color: rgba(34, 158, 217, 0.55);
+  text-decoration: none;
 }
 
 .cart-custom-moderation-block {
@@ -1527,6 +1610,15 @@ body.contact-modal-open .cart-container::after {
   opacity: 0.7;
   cursor: not-allowed;
   filter: grayscale(0.3);
+}
+
+@keyframes cart-status-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .cart-custom-telegram-btn {
@@ -1621,96 +1713,15 @@ body.contact-modal-open .cart-container::after {
 (function() {
   'use strict';
 
-  function getCookie(name) {
-    const value = '; ' + document.cookie;
-    const parts = value.split('; ' + name + '=');
-    if (parts.length === 2) return parts.pop().split(';').shift();
-    return '';
-  }
-
-  function removeCustomItem(btn) {
-    const key = btn.getAttribute('data-key') || '';
-    const leadId = btn.getAttribute('data-lead-id') || '';
-    if (!key && !leadId) return;
-
-    const row = btn.closest('.cart-item--custom');
-    if (row) row.style.opacity = '0.5';
-
-    const formData = new FormData();
-    if (key) formData.append('key', key);
-    if (leadId) formData.append('lead_id', leadId);
-
-    const csrf = getCookie('csrftoken') || (document.querySelector('input[name=csrfmiddlewaretoken]') || {}).value || '';
-
-    fetch('{% url "custom_print_remove" %}', {
-      method: 'POST',
-      body: formData,
-      credentials: 'same-origin',
-      headers: {
-        'X-CSRFToken': csrf,
-        'X-Requested-With': 'XMLHttpRequest'
-      }
-    })
-      .then(function(r) { return r.json().catch(function() { return null; }); })
-      .then(function(data) {
-        if (data && data.ok) {
-          window.location.reload();
-        } else if (row) {
-          row.style.opacity = '1';
-          const msg = (data && data.error) || 'Не вдалося видалити позицію.';
-          console.warn('[cart] custom remove failed:', msg);
-        }
-      })
-      .catch(function(err) {
-        if (row) row.style.opacity = '1';
-        console.error('[cart] custom remove error:', err);
-      });
-  }
-
   document.addEventListener('click', function(evt) {
     const btn = evt.target.closest('[data-custom-remove]');
     if (!btn) return;
     evt.preventDefault();
     evt.stopPropagation();
-    removeCustomItem(btn);
+    if (typeof window.CustomCartRemove === 'function') {
+      window.CustomCartRemove(btn);
+    }
   }, true);
-
-  // Custom print: submit to manager for review
-  const submitBtn = document.getElementById('customPrintSubmitBtn');
-  const submitStatus = document.getElementById('customPrintSubmitStatus');
-  if (submitBtn) {
-    submitBtn.addEventListener('click', function(evt) {
-      evt.preventDefault();
-      if (submitBtn.disabled) return;
-      const url = submitBtn.getAttribute('data-submit-review-url');
-      if (!url) return;
-      submitBtn.disabled = true;
-      if (submitStatus) submitStatus.textContent = 'Відправляємо менеджеру…';
-      const csrf = getCookie('csrftoken') || (document.querySelector('input[name=csrfmiddlewaretoken]') || {}).value || '';
-      fetch(url, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'X-CSRFToken': csrf,
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      })
-        .then(function(r) { return r.json().catch(function() { return null; }); })
-        .then(function(data) {
-          if (data && data.ok) {
-            if (submitStatus) submitStatus.textContent = data.message || 'Замовлення надіслано менеджеру.';
-            setTimeout(function() { window.location.reload(); }, 600);
-          } else {
-            submitBtn.disabled = false;
-            if (submitStatus) submitStatus.textContent = (data && data.error) || 'Не вдалося надіслати. Спробуйте ще раз.';
-          }
-        })
-        .catch(function() {
-          submitBtn.disabled = false;
-          if (submitStatus) submitStatus.textContent = 'Помилка мережі. Спробуйте ще раз.';
-        });
-    });
-  }
 })();
 </script>
 {% endblock %}

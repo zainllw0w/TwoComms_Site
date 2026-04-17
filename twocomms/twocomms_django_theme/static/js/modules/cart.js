@@ -76,6 +76,7 @@ class CartPageController {
     this.prepayAmountEl = root.querySelector('#prepay-remaining-amount');
     this.prepayNote = root.querySelector('#prepay-note');
     this.payTypeSelect = root.querySelector('#pay_type_auth') || root.querySelector('#pay_type_guest');
+    this.monobankPayBtn = root.querySelector('#monobank-pay-btn');
     this.placeOrderBtn = root.querySelector('#placeOrderBtn');
     this.guestOrderBtn = root.querySelector('#guestOrderBtn');
     this.pointsSummary = root.querySelector('#cart-points-summary');
@@ -242,6 +243,7 @@ class CartPageController {
     );
     this.updateSummary(data);
     this.updatePaymentSummary(this.getCurrentPayType(), data);
+    this.toggleCheckoutAvailability(data);
     this.updatePoints(data);
     this.updateCheckoutPayload(data);
     this.updatePromoDiscount(data);
@@ -280,15 +282,20 @@ class CartPageController {
 
   renderCustomItem(ci) {
     const leadNumber = ci.lead_number ? ` · №${escapeHtml(String(ci.lead_number))}` : '';
-    const zones = ci.zones_display ? `
+    const placements = ci.placements_display ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Зони:</span>
-              <span class="cart-item-value">${escapeHtml(ci.zones_display)}</span>
+              <span class="cart-item-label">Розміщення:</span>
+              <span class="cart-item-value">${escapeHtml(ci.placements_display)}</span>
             </div>` : '';
     const productLabel = ci.product_label ? `
             <div class="cart-item-detail">
               <span class="cart-item-label">Виріб:</span>
               <span class="cart-item-value">${escapeHtml(ci.product_label)}</span>
+            </div>` : '';
+    const sizeMode = ci.size_mode_label ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Режим розмірів:</span>
+              <span class="cart-item-value">${escapeHtml(ci.size_mode_label)}</span>
             </div>` : '';
     const sizeBreakdown = ci.size_breakdown_display ? `
             <div class="cart-item-detail">
@@ -300,23 +307,63 @@ class CartPageController {
               <span class="cart-item-label">Колір:</span>
               <span class="cart-item-value">${escapeHtml(ci.color)}</span>
             </div>` : '';
-    const fit = ci.fit ? `
+    const fit = ci.fit_label ? `
             <div class="cart-item-detail">
               <span class="cart-item-label">Крій:</span>
-              <span class="cart-item-value">${escapeHtml(ci.fit)}</span>
+              <span class="cart-item-value">${escapeHtml(ci.fit_label)}</span>
+            </div>` : '';
+    const fabric = ci.fabric_label ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Тканина:</span>
+              <span class="cart-item-value">${escapeHtml(ci.fabric_label)}</span>
+            </div>` : '';
+    const serviceKind = ci.service_kind_label ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Послуга:</span>
+              <span class="cart-item-value">${escapeHtml(ci.service_kind_label)}</span>
+            </div>` : '';
+    const fileTriage = ci.file_triage_label ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Підготовка файлу:</span>
+              <span class="cart-item-value">${escapeHtml(ci.file_triage_label)}</span>
+            </div>` : '';
+    const addOns = Array.isArray(ci.add_on_labels) && ci.add_on_labels.length ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Додатково:</span>
+              <span class="cart-item-value">${escapeHtml(ci.add_on_labels.join(', '))}</span>
+            </div>` : '';
+    const placementNote = ci.placement_note ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Коментар до розміщення:</span>
+              <span class="cart-item-value">${escapeHtml(ci.placement_note)}</span>
+            </div>` : '';
+    const gift = ci.gift_enabled ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">🎁 Подарунок:</span>
+              <span class="cart-item-value">${escapeHtml(ci.gift_text || 'Упаковка + промокод 10%')}</span>
+            </div>` : '';
+    const b2bDiscount = parseNumber(ci.b2b_discount_per_unit) > 0 && ci.mode === 'brand' ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">B2B знижка:</span>
+              <span class="cart-item-value">-${formatUAH(parseNumber(ci.b2b_discount_per_unit))} / шт</span>
             </div>` : '';
 
     let moderationBadge = '';
-    if (ci.is_draft) {
-      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--draft">Очікує відправки на перевірку</span>`;
-    } else if (ci.is_awaiting_review) {
-      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--pending">⏳ На перевірці менеджера</span>`;
+    if (ci.is_pending) {
+      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--pending"><span class="cart-item-status-spinner" aria-hidden="true"></span>${ci.is_draft ? 'Передаємо менеджеру на перевірку' : 'На перевірці менеджера'}</span>`;
     } else if (ci.is_approved) {
       moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--approved">✅ Погоджено — можна оплачувати</span>`;
     } else if (ci.is_rejected) {
       moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--rejected">❌ Відхилено менеджером</span>`;
     }
     const managerNote = ci.manager_note ? `<div class="cart-item-manager-note">Коментар менеджера: ${escapeHtml(ci.manager_note)}</div>` : '';
+    const priceNote = ci.pending_price_note || ci.payment_note || '';
+    const totalValue = ci.included_in_payment
+      ? `<span class="cart-item-total-value">${formatUAH(parseNumber(ci.line_total))}</span>`
+      : `<span class="cart-item-total-value cart-item-total-value--muted">Після погодження</span>${parseNumber(ci.final_total) > 0 ? `<div class="cart-item-total-note">Орієнтовно ${formatUAH(parseNumber(ci.final_total))}</div>` : ''}`;
+    const managerLink = ci.show_manager_contact
+      ? `<a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="cart-item-manager-link">Написати менеджеру</a>`
+      : '';
 
     return `
       <div class="cart-item cart-item--custom" data-custom-key="${escapeHtml(ci.key || '')}" data-lead-id="${escapeHtml(String(ci.lead_id || ''))}">
@@ -345,25 +392,27 @@ class CartPageController {
             ${managerNote}
           </div>
           <h3 class="cart-item-title">${escapeHtml(ci.label || 'Кастомний виріб')}</h3>
-          <div class="cart-item-details">${productLabel}${zones}
+          <div class="cart-item-details">${productLabel}${placements}
             <div class="cart-item-detail">
               <span class="cart-item-label">Кількість:</span>
               <span class="cart-item-value">${Number(ci.quantity || 1)}</span>
-            </div>${sizeBreakdown}${color}${fit}
+            </div>${sizeMode}${sizeBreakdown}${fit}${fabric}${color}${serviceKind}${fileTriage}${addOns}${placementNote}${gift}${b2bDiscount}
           </div>
           <div class="cart-item-price">
-            <span class="cart-item-price-label">Ціна:</span>
+            <span class="cart-item-price-label">${escapeHtml(ci.price_caption || 'Ціна')}:</span>
             <span class="cart-item-price-value">
               <span class="cart-item-price-current">${formatUAH(parseNumber(ci.unit_total))} / шт</span>
             </span>
+            ${priceNote ? `<div class="cart-item-price-note">${escapeHtml(priceNote)}</div>` : ''}
           </div>
         </div>
 
         <div class="cart-item-actions">
           <div class="cart-item-total">
             <span class="cart-item-total-label">Разом:</span>
-            <span class="cart-item-total-value">${formatUAH(parseNumber(ci.line_total))}</span>
+            ${totalValue}
           </div>
+          ${managerLink}
           <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="${escapeHtml(ci.key || '')}" data-lead-id="${escapeHtml(String(ci.lead_id || ''))}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -527,7 +576,7 @@ class CartPageController {
       return;
     }
 
-    const total = Math.max(parseNumber(state.total ?? state.grand_total), 0);
+    const total = Math.max(parseNumber(state.approved_total ?? state.total ?? state.grand_total), 0);
     const isPrepay = payType === 'prepay_200';
     const payNow = isPrepay ? Math.min(this.prepayValue, total) : total;
     const remaining = isPrepay ? Math.max(total - payNow, 0) : 0;
@@ -551,6 +600,16 @@ class CartPageController {
       pay_now: payNow,
       remaining,
     };
+  }
+
+  toggleCheckoutAvailability(state = this.state) {
+    const payableTotal = Math.max(parseNumber(state?.approved_total ?? state?.total ?? state?.grand_total), 0);
+    const hasPayableItems = payableTotal > 0.009;
+    [this.monobankPayBtn, this.placeOrderBtn, this.guestOrderBtn].forEach((button) => {
+      if (button) {
+        button.disabled = !hasPayableItems;
+      }
+    });
   }
 
   updatePoints(data) {
@@ -584,10 +643,8 @@ class CartPageController {
 
     const encodedIds = encodeURIComponent(JSON.stringify(ids));
     const encodedContents = encodeURIComponent(JSON.stringify(contents));
-    const total = parseNumber(data.total ?? data.grand_total);
-    const itemsCount = Number.isFinite(data.items_count)
-      ? Number(data.items_count)
-      : contents.reduce((acc, item) => acc + Number(item.quantity || 0), 0);
+    const total = parseNumber(data.approved_total ?? data.total ?? data.grand_total);
+    const itemsCount = contents.reduce((acc, item) => acc + Number(item.quantity || 0), 0);
 
     this.checkoutPayloadEl.setAttribute('data-ids', encodedIds);
     this.checkoutPayloadEl.setAttribute('data-contents', encodedContents);
@@ -900,6 +957,15 @@ export function initCartInteractions() {
   document.addEventListener('click', (event) => {
     const btn = event.target.closest?.('.cart-item-remove-btn');
     if (!btn) {
+      return;
+    }
+    if (btn.hasAttribute('data-custom-remove') && typeof window.CustomCartRemoveKey === 'function') {
+      event.preventDefault();
+      window.CustomCartRemoveKey(
+        btn.getAttribute('data-key') || '',
+        btn,
+        btn.getAttribute('data-lead-id') || ''
+      );
       return;
     }
     const key = btn.getAttribute('data-key');

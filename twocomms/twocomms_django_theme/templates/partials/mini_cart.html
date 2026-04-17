@@ -20,6 +20,13 @@
           </div>
           <div class="d-flex align-items-center gap-2 flex-shrink-0">
             <div class="text-nowrap small fw-semibold">{{ ci.line_total }} грн</div>
+            <button type="button"
+                    class="btn btn-sm btn-outline-light"
+                    data-custom-remove
+                    data-key="{{ ci.key }}"
+                    data-lead-id="{{ ci.lead_id }}"
+                    onclick="if (window.CustomCartRemove) { window.CustomCartRemove(this); } return false;"
+                    aria-label="Видалити кастомну позицію">×</button>
           </div>
         </div>
       {% endfor %}
