@@ -24,7 +24,7 @@ from django.utils.text import slugify
 from django.utils import timezone
 from urllib.parse import urljoin
 from django.urls import reverse
-from storefront.models import Category, CustomPrintLead, Product
+from storefront.models import Category, CustomPrintLead, CustomPrintModerationStatus, Product
 from storefront.forms import CustomPrintLeadForm
 from storefront.custom_print_config import (
     PRODUCT_LABELS,
@@ -574,14 +574,11 @@ def custom_print_add_to_cart(request):
             errors[field] = [error["message"] for error in field_errors]
         return JsonResponse({"ok": False, "errors": errors}, status=400)
 
-    from storefront.models import CustomPrintModerationStatus
-
     with transaction.atomic():
-        lead = form.save()
-        # Override source so the lead shows up in the "cart" pipeline for manager.
-        lead.source = "custom_print_cart"
-        lead.moderation_status = CustomPrintModerationStatus.DRAFT
-        lead.save(update_fields=["source", "moderation_status"])
+        lead = form.save(
+            source="custom_print_cart",
+            moderation_status=CustomPrintModerationStatus.DRAFT,
+        )
         # Пока не отправляем нотификацию - это произойдёт при клике "Відправити менеджеру"
 
     snapshot = lead.config_draft_json or {}
@@ -850,6 +847,7 @@ def custom_print_safe_exit(request):
             contact_value=contact.get("value") or "",
             brief=notes.get("brief") or "",
             source="custom_print_safe_exit",
+            moderation_status=CustomPrintModerationStatus.DRAFT,
         )
 
     notify_custom_print_safe_exit(lead=lead, snapshot=lead.config_draft_json if lead else snapshot)

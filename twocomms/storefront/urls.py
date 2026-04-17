@@ -2,6 +2,7 @@ from django.urls import path
 from django.views.decorators.csrf import csrf_exempt
 from django.http import Http404
 from . import views
+from .view_loader import load_view_attr
 # Import auth views from the modular auth.py module
 from .views import auth as auth_views
 
@@ -25,6 +26,20 @@ def _legacy_view(name):
         return handler(request, *args, **kwargs)
 
     _wrapped.__name__ = name
+    return _wrapped
+
+
+def _module_view(module_path, attr_name):
+    """Resolve modular views lazily so stale worker imports do not break URLConf."""
+
+    def _wrapped(request, *args, **kwargs):
+        try:
+            handler = load_view_attr(module_path, attr_name)
+        except AttributeError as exc:
+            raise Http404(str(exc))
+        return handler(request, *args, **kwargs)
+
+    _wrapped.__name__ = attr_name
     return _wrapped
 
 
@@ -65,8 +80,16 @@ urlpatterns = [
     path('admin-panel/order/update-payment-status/', _legacy_view('admin_update_payment_status'), name='admin_update_payment_status'),
     path('admin-panel/order/approve-payment/', _legacy_view('admin_approve_payment'), name='admin_approve_payment'),
     path('admin-panel/order/<int:pk>/delete/', _legacy_view('admin_order_delete'), name='admin_order_delete'),
-    path('admin-panel/custom-print/<int:lead_id>/status/', views.admin_custom_print_lead_status, name='admin_custom_print_lead_status'),
-    path('admin-panel/custom-print/<int:lead_id>/moderation/', views.admin_custom_print_lead_moderation, name='admin_custom_print_lead_moderation'),
+    path(
+        'admin-panel/custom-print/<int:lead_id>/status/',
+        _module_view('storefront.views.admin', 'admin_custom_print_lead_status'),
+        name='admin_custom_print_lead_status',
+    ),
+    path(
+        'admin-panel/custom-print/<int:lead_id>/moderation/',
+        _module_view('storefront.views.admin', 'admin_custom_print_lead_moderation'),
+        name='admin_custom_print_lead_moderation',
+    ),
     # orders
     path('orders/create/', views.order_create, name='order_create'),
     path('orders/success/<int:order_id>/', views.order_success, name='order_success'),
@@ -157,13 +180,33 @@ urlpatterns = [
     path('dev/grant-admin/', views.dev_grant_admin, name='dev_grant_admin'),
     # static pages
     path('add-print/', views.add_print, name='add_print'),
-    path('custom-print/', views.custom_print, name='custom_print'),
-    path('custom-print/lead/', views.custom_print_lead, name='custom_print_lead'),
-    path('custom-print/safe-exit/', views.custom_print_safe_exit, name='custom_print_safe_exit'),
-    path('custom-print/add-to-cart/', views.custom_print_add_to_cart, name='custom_print_add_to_cart'),
-    path('custom-print/remove/', views.custom_print_remove, name='custom_print_remove'),
-    path('custom-print/submit-review/', views.custom_print_submit_review, name='custom_print_submit_review'),
-    path('custom-print/moderation/<int:lead_id>/<str:action>/', views.custom_print_moderation_action, name='custom_print_moderation_action'),
+    path('custom-print/', _module_view('storefront.views.static_pages', 'custom_print'), name='custom_print'),
+    path('custom-print/lead/', _module_view('storefront.views.static_pages', 'custom_print_lead'), name='custom_print_lead'),
+    path(
+        'custom-print/safe-exit/',
+        _module_view('storefront.views.static_pages', 'custom_print_safe_exit'),
+        name='custom_print_safe_exit',
+    ),
+    path(
+        'custom-print/add-to-cart/',
+        _module_view('storefront.views.static_pages', 'custom_print_add_to_cart'),
+        name='custom_print_add_to_cart',
+    ),
+    path(
+        'custom-print/remove/',
+        _module_view('storefront.views.static_pages', 'custom_print_remove'),
+        name='custom_print_remove',
+    ),
+    path(
+        'custom-print/submit-review/',
+        _module_view('storefront.views.static_pages', 'custom_print_submit_review'),
+        name='custom_print_submit_review',
+    ),
+    path(
+        'custom-print/moderation/<int:lead_id>/<str:action>/',
+        _module_view('storefront.views.static_pages', 'custom_print_moderation_action'),
+        name='custom_print_moderation_action',
+    ),
     path('delivery/', views.delivery_view, name='delivery'),
     path('cooperation/', views.cooperation, name='cooperation'),
     path('about/', views.about, name='about'),

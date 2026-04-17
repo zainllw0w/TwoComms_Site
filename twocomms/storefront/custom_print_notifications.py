@@ -20,6 +20,16 @@ from storefront.custom_print_config import (
 logger = logging.getLogger(__name__)
 
 MAIN_PUBLIC_BASE_URL = "https://twocomms.shop"
+ADDON_LABELS = {
+    "lacing": "Люверси зі шнурками",
+    "grommets": "Люверси зі шнурками",
+    "inside_label": "Люверси зі шнурками",
+    "hem_tag": "Люверси зі шнурками",
+    "fleece": "З флісом",
+    "no_fleece": "Без флісу",
+    "ribbed_neck": "Щільна горловина (Рібана)",
+    "twill_tape": "Кіперна стрічка",
+}
 
 
 def _first_env(*keys: str) -> str:

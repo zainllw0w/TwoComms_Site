@@ -1050,9 +1050,8 @@ def cart_mini(request):
         HttpResponse: Rendered HTML partial
     """
     cart_sess = request.session.get('cart', {})
-
-    if not cart_sess:
-        return render(request, 'partials/mini_cart.html', {'items': [], 'total': 0})
+    if not isinstance(cart_sess, dict):
+        cart_sess = {}
 
     ids = [i['product_id'] for i in cart_sess.values()]
     prods = Product.objects.in_bulk(ids)

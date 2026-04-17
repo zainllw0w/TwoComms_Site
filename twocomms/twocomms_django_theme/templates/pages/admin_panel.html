@@ -4036,6 +4036,21 @@ function awardPromocode(proposalId) {
 
 const adminCsrf = (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '';
 
+async function parseAdminJsonResponse(response) {
+  const raw = await response.text();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    const fallbackError = response.status === 403
+      ? 'Немає доступу до модерації. Оновіть сторінку та увійдіть знову.'
+      : response.status === 404
+        ? 'Endpoint модерації не знайдено. Потрібне оновлення сервера.'
+        : `Сервер повернув неочікувану відповідь (${response.status}).`;
+    return { success: false, error: fallbackError };
+  }
+}
+
 async function updateCustomPrintLeadStatus(leadId, newStatus) {
   try {
     const response = await fetch(`/admin-panel/custom-print/${leadId}/status/`, {
@@ -4046,7 +4061,7 @@ async function updateCustomPrintLeadStatus(leadId, newStatus) {
       },
       body: JSON.stringify({ status: newStatus }),
     });
-    const payload = await response.json();
+    const payload = await parseAdminJsonResponse(response);
     if (!response.ok || !payload.success) {
       throw new Error(payload.error || 'Не вдалося оновити статус');
     }
@@ -4079,7 +4094,7 @@ async function moderateCustomPrintLead(leadId, action) {
       },
       body: JSON.stringify(body),
     });
-    const payload = await response.json();
+    const payload = await parseAdminJsonResponse(response);
     if (!response.ok || !payload.success) {
       throw new Error(payload.error || 'Не вдалося оновити модерацію');
     }
