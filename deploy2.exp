@@ -1,0 +1,6 @@
+#!/usr/bin/expect -f
+set password "trs5m4t1"
+spawn ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && touch ../tmp/restart.txt || touch tmp/restart.txt || touch passenger_wsgi.py || touch twocomms/wsgi.py || touch wsgi.py'"
+expect "*?assword:*"
+send "$password\r"
+expect eof
