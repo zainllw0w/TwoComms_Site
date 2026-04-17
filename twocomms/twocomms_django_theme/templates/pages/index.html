@@ -29,212 +29,178 @@
   {{ block.super }}
   <link rel="preload" href="{% static 'img/logo.svg' %}" as="image" fetchpriority="high">
   <style>
-    .survey-card {
+    .survey-card-modern {
+      margin: 1.5rem 0;
+    }
+
+    .survey-header-row {
       display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      align-items: stretch;
-      padding: 0;
-      background: rgba(15, 16, 20, 0.4);
-      border-radius: 20px;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.25rem;
     }
 
-    @media (min-width: 768px) {
-      .survey-card {
-        flex-direction: row;
-        align-items: center;
-        gap: 1.5rem;
-      }
-    }
-
-    .survey-signal-compact {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 1rem;
-      border-radius: 16px;
-      /* Using exact gradient from previous design left block for matching */
-      background: radial-gradient(circle at top right, rgba(255, 204, 122, 0.16), transparent 34%), linear-gradient(160deg, rgba(255, 186, 97, 0.24), rgba(255, 140, 66, 0.12) 52%, rgba(10, 11, 17, 0.88));
-      border: 1px solid rgba(255, 174, 91, 0.28);
-      box-shadow: 0 18px 34px rgba(255, 140, 66, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.14);
-      flex: 0 0 auto;
-    }
-
-    .survey-signal-ring-compact {
-      width: 48px;
-      height: 48px;
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #ffd18c, #ff8c42);
-      color: #2a1508;
-      box-shadow: 0 12px 24px rgba(255, 140, 66, 0.34);
-    }
-
-    .survey-signal-ring-compact svg {
-      width: 24px;
-      height: 24px;
-    }
-
-    .survey-signal-copy-compact {
-      display: flex;
-      flex-direction: column;
-      line-height: 1.1;
-    }
-
-    .survey-signal-kicker-compact {
-      font-size: 0.7rem;
+    .survey-title-main {
+      margin: 0;
+      color: #fff;
+      font-size: clamp(1.4rem, 2.5vw, 1.8rem);
       font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .survey-subtitle-main {
+      margin: 0.35rem 0 0 0;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: clamp(0.85rem, 1.5vw, 0.95rem);
+    }
+
+    .survey-toggle-pill {
+      background: rgba(255, 163, 102, 1);
+      color: #1a0c06;
+      border: none;
+      padding: 0.45rem 1rem;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
       text-transform: uppercase;
-      color: rgba(255, 241, 221, 0.82);
-      letter-spacing: 0.05em;
-      margin-bottom: 0.2rem;
+      box-shadow: 0 4px 12px rgba(255, 140, 66, 0.25);
+      transition: opacity 0.2s;
     }
 
-    .survey-signal-bonus-compact {
-      font-size: 1.3rem;
-      font-weight: 800;
-      color: #fff4e2;
+    .survey-toggle-pill:hover {
+      opacity: 0.9;
     }
 
-    .survey-signal-pill-compact {
-      margin-left: auto;
-      padding: 0.36rem 0.72rem;
-      border-radius: 999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      background: rgba(8, 8, 12, 0.42);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      color: rgba(255, 249, 239, 0.92);
-      backdrop-filter: blur(10px);
-    }
-
-    @media (min-width: 768px) {
-      .survey-signal-pill-compact {
-        margin-left: 1rem;
-      }
-    }
-
-    .survey-promo-banner {
+    .survey-banner-inner {
+      background: linear-gradient(135deg, #38160d, #1c0602);
+      border-radius: 20px;
+      padding: clamp(1.5rem, 3vw, 2.5rem);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      flex: 1;
-      padding: 1.25rem 2rem;
-      border-radius: 20px;
-      background: linear-gradient(135deg, rgba(255, 209, 140, 0.08), rgba(255, 140, 66, 0.03));
-      border: 1px solid rgba(255, 186, 97, 0.15);
       position: relative;
       overflow: hidden;
+      border: 1px solid rgba(255, 140, 66, 0.15);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
 
-    .survey-promo-content {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      z-index: 1;
-      max-width: 32rem;
+    .survey-banner-content {
+      position: relative;
+      z-index: 2;
+      max-width: 34rem;
     }
 
-    .survey-promo-title {
+    .survey-banner-title {
       margin: 0;
-      color: #f8f1e6;
-      font-size: clamp(1.4rem, 2vw, 1.8rem);
-      font-weight: 800;
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      font-weight: 900;
       line-height: 1.1;
-      letter-spacing: -0.02em;
+      color: #fff;
       text-transform: uppercase;
+      letter-spacing: -0.01em;
     }
 
-    .survey-promo-subtitle {
-      margin: 0;
-      color: rgba(255, 255, 255, 0.8);
-      font-size: 0.95rem;
-      line-height:1.4;
-      margin-bottom: 0.75rem;
+    .survey-banner-subtitle {
+      margin: 0.85rem 0 0 0;
+      color: rgba(255, 255, 255, 0.85);
+      font-size: clamp(0.9rem, 1.5vw, 1.05rem);
+      line-height: 1.45;
+      font-weight: 400;
     }
 
-    .survey-promo-actions {
+    .survey-banner-icon {
+      position: relative;
+      z-index: 1;
+    }
+
+    .survey-footer-row {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 1.2rem;
+      margin-top: 1.25rem;
       flex-wrap: wrap;
+      gap: 1.5rem;
     }
 
-    .survey-cta-compact {
-      padding: 0.75rem 1.5rem;
+    .survey-pills-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+      padding-bottom: 0.25rem;
+    }
+    
+    .survey-pills-row::-webkit-scrollbar {
+      display: none;
+    }
+
+    .survey-pill-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.75);
+      background: rgba(255, 255, 255, 0.03);
+      white-space: nowrap;
+    }
+
+    .survey-pill-dot {
+      width: 6px;
+      height: 6px;
+      background: #ffaa55;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #ffaa55;
+    }
+
+    .survey-cta-main {
+      background: linear-gradient(135deg, #ff9b55, #ffb347);
+      color: #1a0c06;
       border: none;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #ff8c42, #ffb347);
-      color: #1d130a;
-      box-shadow: 0 10px 24px rgba(255, 140, 66, 0.28);
+      padding: 0.85rem 1.75rem;
+      border-radius: 12px;
       font-weight: 700;
       font-size: 0.95rem;
       cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 8px 24px rgba(255, 140, 66, 0.3);
+      transition: transform 0.2s ease;
+      white-space: nowrap;
     }
 
-    .survey-cta-compact:hover {
+    .survey-cta-main:hover {
       transform: translateY(-2px);
-      box-shadow: 0 12px 30px rgba(255, 140, 66, 0.36);
     }
-
-    .survey-dismiss-btn {
-      background: transparent;
-      border: none;
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 0.85rem;
-      text-decoration: underline;
-      text-underline-offset: 4px;
-      cursor: pointer;
-      padding: 0.4rem;
-      transition: color 0.2s;
-    }
-
-    .survey-dismiss-btn:hover {
-      color: rgba(255, 255, 255, 0.8);
-    }
-
-    .survey-promo-icon {
-      position: absolute;
-      right: 2rem;
-      top: 50%;
-      transform: translateY(-50%);
-      opacity: 0.9;
-      pointer-events: none;
-    }
-
-    @media (max-width: 991px) {
-      .survey-promo-icon {
-        right: 0.5rem;
-        opacity: 0.4;
-      }
-    }
-
-    @media (max-width: 640px) {
-      .survey-promo-banner {
+    
+    @media (max-width: 768px) {
+      .survey-banner-inner {
         flex-direction: column;
         align-items: flex-start;
-        padding: 1.25rem;
+        padding: 1.5rem;
+        gap: 1.5rem;
       }
-      .survey-promo-icon {
-        position: relative;
-        right: auto;
-        top: auto;
-        transform: none;
-        margin-top: 1rem;
+      .survey-banner-icon {
         margin-left: auto;
-        opacity: 0.8;
+        width: 80px;
+        height: 80px;
       }
-      .survey-signal-compact {
-        flex-wrap: wrap;
-      }
-      .survey-signal-pill-compact {
-        margin-left: 0;
-        margin-top: 0.5rem;
+      .survey-banner-icon svg {
         width: 100%;
-        text-align: center;
+        height: 100%;
+      }
+      .survey-header-row {
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .survey-toggle-pill {
+        align-self: flex-start;
       }
     }
     .survey-modal {
@@ -1166,53 +1132,36 @@
       </div>
     </div>
     
-    <!-- Скрываемый контент (теперь без заголовка, компактный блок) -->
+    <!-- Скрываемый контент (референсный дизайн) -->
     <div class="featured-content-unified collapsed" id="featured-content" style="display: block; max-height: none; overflow: visible;">
-      <div class="survey-card survey-card-modern mb-2 mt-2">
+      <div class="survey-card-modern mb-3 mt-2">
         
-        <!-- Left block -->
-        <div class="survey-signal-compact">
-          <div class="survey-signal-ring-compact">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 2C6.49 2 2 5.92 2 11c0 2.52 1.09 4.78 2.86 6.38L4 22l4.06-2.2c1.2.33 2.49.5 3.94.5 5.51 0 10-3.92 10-9S17.51 2 12 2zm.1 14.4c-.62 0-1.1-.48-1.1-1.08 0-.63.48-1.12 1.1-1.12.64 0 1.14.49 1.14 1.12 0 .6-.5 1.08-1.14 1.08zm2.1-6.33c-.36.45-.84.74-1.25 1.03-.39.27-.63.53-.63 1.07v.3h-1.4v-.42c0-.86.4-1.38.96-1.78.3-.22.65-.43.91-.74.22-.26.33-.54.33-.87 0-.7-.59-1.16-1.35-1.16-.77 0-1.3.45-1.43 1.2l-1.48-.3c.2-1.34 1.43-2.3 2.95-2.3 1.65 0 2.86 1 2.86 2.44 0 .62-.16 1.14-.47 1.53z"/>
-            </svg>
+        <!-- Header row -->
+        <div class="survey-header-row">
+          <div>
+            <h2 class="survey-title-main">Допоможи покращити TWOCOMMS</h2>
+            <p class="survey-subtitle-main">Коротке опитування без довгої анкети: відповіді допоможуть нам зробити магазин і колекції кращими.</p>
           </div>
-          <div class="survey-signal-copy-compact">
-            <span class="survey-signal-kicker-compact">Бонус</span>
-            <span class="survey-signal-bonus-compact">-{{ survey_reward.amount_uah|default:200 }} грн</span>
-          </div>
-          <div class="survey-signal-pill-compact">≈5 хв</div>
+          <button type="button" class="survey-toggle-pill" id="featuredToggle">
+            БІЛЬШЕ НЕ ПОКАЗУВАТИ
+          </button>
         </div>
 
-        <!-- Right block -->
-        <div class="survey-promo-banner">
-          <div class="survey-promo-content">
-            <h3 class="survey-promo-title">ВИГРАЙ {{ survey_reward.amount_uah|default:200 }} ГРН ЗА ОПИТУВАННЯ!</h3>
-            <p class="survey-promo-subtitle">Дай відповідь на кілька запитань та забери свій промокод!</p>
-            
-            <div class="survey-promo-actions">
-              <button
-                type="button"
-                class="survey-cta-compact survey-cta"
-                data-survey-cta
-                data-survey-key="{{ survey_key }}"
-                data-survey-start-text="{{ survey_ui_home.cta_start_uk|default:'Пройти опитування' }}"
-                data-survey-continue-text="{{ survey_ui_home.cta_continue_uk|default:'Продовжити опитування' }}"
-                data-survey-authenticated="{% if request.user.is_authenticated %}1{% else %}0{% endif %}"
-                data-login-url="{% url 'login' %}?next={{ request.path }}"
-              >
-                <span>Пройти опитування</span>
-              </button>
-              <button type="button" class="survey-dismiss-btn" id="featuredToggle">
-                Більше не показувати
-              </button>
-            </div>
+        <!-- Banner inner -->
+        <div class="survey-banner-inner">
+          <div class="survey-banner-content">
+            <h3 class="survey-banner-title">
+              ВИГРАЙ {{ survey_reward.amount_uah|default:200 }} ГРН<br>ЗА ОПИТУВАННЯ!
+            </h3>
+            <p class="survey-banner-subtitle">
+              Дай відповідь на кілька запитань та забери свій промокод!
+            </p>
           </div>
-          <div class="survey-promo-icon">
-            <svg width="84" height="84" viewBox="0 0 24 24" fill="none" style="filter: drop-shadow(0 0 16px rgba(255,140,66,0.5));">
-              <path d="M20 7H16C16 5.89543 15.1046 5 14 5C13.1951 5 12.5013 5.47487 12 6.1499C11.4987 5.47487 10.8049 5 10 5C8.89543 5 8 5.89543 8 7H4C3.44772 7 3 7.44772 3 8V11C3 11.5523 3.44772 12 4 12H5V19C5 19.5523 5.44772 20 6 20H18C18.5523 20 19 19.5523 19 19V12H20C20.5523 12 21 11.5523 21 11V8C21 7.44772 20.5523 7 20 7ZM10 6.5C10.2761 6.5 10.5 6.72386 10.5 7C10.5 7.27614 10.2761 7.5 10 7.5C9.72386 7.5 9.5 7.27614 9.5 7C9.5 6.72386 9.72386 6.5 10 6.5ZM14 6.5C14.2761 6.5 14.5 6.72386 14.5 7C14.5 7.27614 14.2761 7.5 14 7.5C13.7238 7.5 13.5 7.27614 13.5 7C13.5 6.72386 13.7238 6.5 14 6.5ZM11 12V18H7V12H11ZM17 18H13V12H17V18ZM19 10.5H5V8.5H19V10.5Z" fill="url(#giftGrad3)" />
+          <div class="survey-banner-icon">
+            <svg width="100" height="100" viewBox="0 0 24 24" fill="none" style="filter: drop-shadow(0 0 16px rgba(255,140,66,0.5));">
+              <path d="M20 7H16C16 5.89543 15.1046 5 14 5C13.1951 5 12.5013 5.47487 12 6.1499C11.4987 5.47487 10.8049 5 10 5C8.89543 5 8 5.89543 8 7H4C3.44772 7 3 7.44772 3 8V11C3 11.5523 3.44772 12 4 12H5V19C5 19.5523 5.44772 20 6 20H18C18.5523 20 19 19.5523 19 19V12H20C20.5523 12 21 11.5523 21 11V8C21 7.44772 20.5523 7 20 7ZM10 6.5C10.2761 6.5 10.5 6.72386 10.5 7C10.5 7.27614 10.2761 7.5 10 7.5C9.72386 7.5 9.5 7.27614 9.5 7C9.5 6.72386 9.72386 6.5 10 6.5ZM14 6.5C14.2761 6.5 14.5 6.72386 14.5 7C14.5 7.27614 14.2761 7.5 14 7.5C13.7238 7.5 13.5 7.27614 13.5 7C13.5 6.72386 13.7238 6.5 14 6.5ZM11 12V18H7V12H11ZM17 18H13V12H17V18ZM19 10.5H5V8.5H19V10.5Z" fill="url(#giftGrad4)" />
               <defs>
-                <linearGradient id="giftGrad3" x1="12" y1="5" x2="12" y2="20" gradientUnits="userSpaceOnUse">
+                <linearGradient id="giftGrad4" x1="12" y1="5" x2="12" y2="20" gradientUnits="userSpaceOnUse">
                   <stop stop-color="#FFD18C" />
                   <stop offset="1" stop-color="#FF8C42" />
                 </linearGradient>
@@ -1221,9 +1170,33 @@
           </div>
         </div>
 
+        <!-- Footer row (Pills + CTA) -->
+        <div class="survey-footer-row">
+          <div class="survey-pills-row">
+            <span class="survey-pill-item"><span class="survey-pill-dot"></span> Без форми на одну сторінку</span>
+            <span class="survey-pill-item"><span class="survey-pill-dot"></span> Прогрес збережеться</span>
+            <span class="survey-pill-item"><span class="survey-pill-dot"></span> Лише для зареєстрованих користувачів</span>
+            <span class="survey-pill-item" style="color: #ffaa55;"><span class="survey-pill-dot"></span> Займе близько 5 хвилин</span>
+          </div>
+          <button
+            type="button"
+            class="survey-cta-main"
+            data-survey-cta
+            data-survey-key="{{ survey_key }}"
+            data-survey-start-text="{{ survey_ui_home.cta_start_uk|default:'Пройти опитування' }}"
+            data-survey-continue-text="{{ survey_ui_home.cta_continue_uk|default:'Продовжити опитування' }}"
+            data-survey-authenticated="{% if request.user.is_authenticated %}1{% else %}0{% endif %}"
+            data-login-url="{% url 'login' %}?next={{ request.path }}"
+          >
+            <span>Пройти опитування</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+            </svg>
+          </button>
+        </div>
+
       </div>
     </div>
-  </div>
 </section>
 {% cache 1800 categories_block %}
 <section class="mb-4 mb-md-5 reveal categories-section">
