@@ -147,6 +147,25 @@
       font-weight: 700;
       letter-spacing: -0.01em;
     }
+    .sr-brand-wrapper {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.25em;
+      white-space: nowrap;
+    }
+    .sr-brand-logo {
+      height: 0.85em;
+      width: auto;
+      transform: translateY(0.05em);
+      filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+    }
+    .sr-brand-text {
+      background: linear-gradient(110deg, #ffffff 10%, #ffe3c2 50%, #ff9e5e 90%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+    }
     .sr-subtitle {
       margin: 0.25rem 0 0 0;
       color: rgba(255, 255, 255, 0.7);
@@ -1280,7 +1299,13 @@
         <div class="survey-right-panel">
           <div class="sr-header-row">
             <div>
-              <h2 class="sr-title">Допоможи покращити TWOCOMMS</h2>
+              <h2 class="sr-title">
+                Допоможи покращити
+                <span class="sr-brand-wrapper">
+                  <img src="{% static 'img/logo.svg' %}" alt="TwoComms" class="sr-brand-logo">
+                  <span class="sr-brand-text">TWOCOMMS</span>
+                </span>
+              </h2>
               <p class="sr-subtitle">Коротке опитування без довгої анкети: відповіді допоможуть нам стати кращими.</p>
             </div>
             <button type="button" class="sr-dismiss" id="featuredToggle">
