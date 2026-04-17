@@ -1025,7 +1025,7 @@
       if (getFrontSizePreset() === preset.value) btn.classList.add("is-active");
       btn.innerHTML = `
         <div class="cp-size-icon">
-          <img src="/static/img/configurator/ui/size-${preset.value}.svg" alt="${preset.label}" onerror="this.src='/static/img/configurator/ui/size-a4.svg'">
+          <img src="/static/img/configurator/ui/size-${String(preset.value || "").toLowerCase()}.svg" alt="${preset.label}" onerror="this.src='/static/img/configurator/ui/size-a4.svg'">
         </div>
         <div class="cp-size-details">
           <strong>${preset.label}</strong>
@@ -1059,7 +1059,7 @@
       if (getBackSizePreset() === preset.value) btn.classList.add("is-active");
       btn.innerHTML = `
         <div class="cp-size-icon">
-          <img src="/static/img/configurator/ui/size-${preset.value}.svg" alt="${preset.label}" onerror="this.src='/static/img/configurator/ui/size-a4.svg'">
+          <img src="/static/img/configurator/ui/size-${String(preset.value || "").toLowerCase()}.svg" alt="${preset.label}" onerror="this.src='/static/img/configurator/ui/size-a4.svg'">
         </div>
         <div class="cp-size-details">
           <strong>${preset.label}</strong>
