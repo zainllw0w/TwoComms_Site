@@ -33,7 +33,8 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         )
         self.assertEqual(config["front_size_default"], "A4")
         self.assertEqual(config["back_size_default"], "A4")
-        self.assertEqual(config["artwork_services"][1]["price_delta"], 150)
+        self.assertEqual(config["artwork_services"][1]["price_delta"], 100)
+        self.assertIn("до 15 хв", config["artwork_services"][1]["hint"])
         self.assertEqual(config["artwork_services"][2]["price_delta"], 300)
         self.assertEqual(config["products"]["hoodie"]["add_ons"][0]["price_delta"], 150)
         self.assertEqual(
