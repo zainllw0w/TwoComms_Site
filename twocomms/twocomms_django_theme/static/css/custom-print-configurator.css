@@ -1578,6 +1578,13 @@
 
 /* ── V2.1 Waterfall container ──────────────────────────────── */
 .cp-waterfall {
+  display: block;
+}
+
+.cp-step-viewport {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.85rem;
@@ -1713,9 +1720,15 @@
 }
 
 /* State: active (expanded body visible, no summary badge) */
+@keyframes slideInFromRightStep {
+  0% { transform: translateX(20px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
 .cp-step.is-active {
   border-color: var(--cp-accent);
   box-shadow: 0 0 0 1px rgba(215, 164, 80, 0.4), 0 24px 60px rgba(0, 0, 0, 0.35);
+  animation: slideInFromRightStep 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .cp-step.is-active .cp-step-summary {
