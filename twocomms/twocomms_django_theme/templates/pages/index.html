@@ -246,25 +246,80 @@
     }
     .sr-cta:hover { transform: translateY(-2px); }
 
-    @media (max-width: 900px) {
+    @media (max-width: 899px) {
+      .sl-panel-light, .survey-panel-dark:not(.sr-banner) {
+        display: none !important;
+      }
+      .survey-container-v3 { display: block; margin: 0.5rem 0; gap: 0; }
+      
       .sr-header-row {
         flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.75rem;
       }
+      .sr-title { font-size: 1.15rem; }
+      .sr-subtitle { font-size: 0.8rem; }
       .sr-dismiss {
-        align-self: flex-start;
+        align-self: center !important;
+        margin: 0 !important;
+        padding: 0.5rem 1.25rem !important;
       }
-    }
-    @media (max-width: 600px) {
+
       .sr-banner {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
+        flex-direction: row !important;
+        align-items: center !important;
+        padding: 1.25rem 1rem !important;
+        gap: 0.5rem !important;
+      }
+      .sr-banner-text {
+        flex: 1;
+        min-width: 0;
+      }
+      .sr-banner-title {
+        font-size: clamp(1rem, 4.5vw, 1.3rem) !important;
+        line-height: 1.15;
+      }
+      .sr-banner-desc {
+        font-size: 0.75rem !important;
+        margin-top: 0.4rem;
       }
       .sr-banner-icon {
-        margin-left: auto;
-        width: 70px; height: 70px;
+        margin: 0 !important;
+        flex-shrink: 0;
+        width: 85px !important; 
+        height: 85px !important;
       }
-      .sr-banner-icon svg { width: 100%; height: 100%; }
+
+      .sr-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+      }
+      .sr-footer-pills {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: center;
+        gap: 0.4rem;
+        width: 100%;
+      }
+      .sr-pill {
+        flex: 1;
+        justify-content: center;
+        text-align: center;
+        font-size: 0.6rem !important;
+        padding: 0.35rem 0.2rem !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .sr-cta {
+        width: 100%;
+        justify-content: center;
+        padding: 0.85rem !important;
+        font-size: 1rem !important;
+      }
     }
 .survey-modal {
       position: fixed;
