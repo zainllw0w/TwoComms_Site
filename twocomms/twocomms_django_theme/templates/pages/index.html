@@ -32,13 +32,22 @@
         /* NEW SURVEY CSS V3 */
     .survey-container-v3 {
       display: grid;
-      gap: 1.25rem;
+      gap: 1rem;
       margin: 1rem 0;
     }
     @media (min-width: 900px) {
       .survey-container-v3 {
         grid-template-columns: 280px 1fr;
       }
+    }
+
+    
+    .sl-panel-light {
+      background: linear-gradient(135deg, rgba(255, 150, 80, 0.15), rgba(255, 209, 140, 0.05));
+      border-radius: 20px;
+      padding: 1rem;
+      border: 1px solid rgba(255, 140, 66, 0.3);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
     }
 
     .survey-panel-dark {
@@ -54,7 +63,7 @@
       display: flex;
       align-items: center;
       gap: 1rem;
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
     }
     .sl-icon {
       width: 48px;
@@ -102,16 +111,16 @@
       font-size: 0.85rem;
       color: rgba(255, 255, 255, 0.7);
       line-height: 1.4;
-      margin-bottom: 1.25rem;
+      margin-bottom: 0.75rem;
     }
     .sl-tags {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.35rem;
     }
     .sl-tag {
       background: rgba(0, 0, 0, 0.3);
-      padding: 0.5rem 0.8rem;
+      padding: 0.4rem 0.6rem;
       border-radius: 8px;
       font-size: 0.75rem;
       color: rgba(255, 255, 255, 0.8);
@@ -1191,7 +1200,7 @@
       <div class="survey-container-v3">
         
         <!-- Left Panel -->
-        <div class="survey-panel-dark">
+        <div class="sl-panel-light">
           <div class="sl-header">
             <div class="sl-icon">
               <!-- Question mark in bubble SVG -->
@@ -1235,12 +1244,55 @@
             </div>
             <div class="sr-banner-icon" id="survey-gift-icon-container">
               <!-- ИКОНКА КОРЗИНЫ / ПОДАРУНКА ЗНАХОДИТЬСЯ ТУТ -->
-              <svg width="90" height="90" viewBox="0 0 24 24" fill="none" style="filter: drop-shadow(0 0 16px rgba(255,140,66,0.3));">
-                <path d="M20 7H16C16 5.89543 15.1046 5 14 5C13.1951 5 12.5013 5.47487 12 6.1499C11.4987 5.47487 10.8049 5 10 5C8.89543 5 8 5.89543 8 7H4C3.44772 7 3 7.44772 3 8V11C3 11.5523 3.44772 12 4 12H5V19C5 19.5523 5.44772 20 6 20H18C18.5523 20 19 19.5523 19 19V12H20C20.5523 12 21 11.5523 21 11V8C21 7.44772 20.5523 7 20 7ZM10 6.5C10.2761 6.5 10.5 6.72386 10.5 7C10.5 7.27614 10.2761 7.5 10 7.5C9.72386 7.5 9.5 7.27614 9.5 7C9.5 6.72386 9.72386 6.5 10 6.5ZM14 6.5C14.2761 6.5 14.5 6.72386 14.5 7C14.5 7.27614 14.2761 7.5 14 7.5C13.7238 7.5 13.5 7.27614 13.5 7C13.5 6.72386 13.7238 6.5 14 6.5ZM11 12V18H7V12H11ZM17 18H13V12H17V18ZM19 10.5H5V8.5H19V10.5Z" fill="url(#giftGrad5)" />
+              <svg width="100" height="100" viewBox="0 0 100 100" fill="none" style="filter: drop-shadow(0 0 20px rgba(255,140,66,0.5));">
+                <!-- Coin left back -->
+                <circle cx="20" cy="75" r="10" fill="#FFD18C" stroke="#FF8C42" stroke-width="2"/>
+                <circle cx="20" cy="75" r="6" fill="none" stroke="#FF8C42" stroke-width="1"/>
+
+                <!-- Main Box -->
+                <rect x="25" y="45" width="50" height="40" rx="4" fill="url(#boxBodyGrad)"/>
+                
+                <!-- Vertical Ribbon -->
+                <rect x="42" y="45" width="16" height="40" fill="url(#ribbonGrad)"/>
+                
+                <!-- Lid -->
+                <rect x="20" y="32" width="60" height="15" rx="3" fill="url(#boxLidGrad)"/>
+                <!-- Lid Ribbon -->
+                <rect x="42" y="32" width="16" height="15" fill="url(#ribbonGrad)"/>
+
+                <!-- Bow Loops -->
+                <path d="M50 32 C 40 10, 25 20, 42 32 Z" fill="url(#bowGrad)"/>
+                <path d="M50 32 C 60 10, 75 20, 58 32 Z" fill="url(#bowGrad)"/>
+
+                <!-- Stack of coins on right -->
+                <ellipse cx="85" cy="78" rx="14" ry="6" fill="#FFD18C" stroke="#FF8C42" stroke-width="1.5"/>
+                <rect x="71" y="74" width="28" height="4" fill="#FFD18C"/>
+                <ellipse cx="85" cy="74" rx="14" ry="6" fill="#FFD18C" stroke="#FF8C42" stroke-width="1.5"/>
+                
+                <rect x="71" y="68" width="28" height="6" fill="#FFD18C"/>
+                <ellipse cx="85" cy="68" rx="14" ry="6" fill="#FFD18C" stroke="#FF8C42" stroke-width="1.5"/>
+
+                <circle cx="85" cy="55" r="14" fill="#FFD18C" stroke="#FF8C42" stroke-width="2"/>
+                <circle cx="85" cy="55" r="10" fill="none" stroke="#FF8C42" stroke-width="1"/>
+                <!-- $ sign -->
+                <text x="85" y="61" font-family="Arial, sans-serif" font-weight="900" font-size="16" fill="#FF8C42" text-anchor="middle">$</text>
+
                 <defs>
-                  <linearGradient id="giftGrad5" x1="12" y1="5" x2="12" y2="20" gradientUnits="userSpaceOnUse">
+                  <linearGradient id="boxBodyGrad" x1="25" y1="45" x2="75" y2="85" gradientUnits="userSpaceOnUse">
                     <stop stop-color="#FFD18C" />
                     <stop offset="1" stop-color="#FF8C42" />
+                  </linearGradient>
+                  <linearGradient id="boxLidGrad" x1="20" y1="32" x2="80" y2="47" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#ffedcc" />
+                    <stop offset="1" stop-color="#ffb873" />
+                  </linearGradient>
+                  <linearGradient id="ribbonGrad" x1="42" y1="32" x2="58" y2="85" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#fff5e6" />
+                    <stop offset="1" stop-color="#ffd699" />
+                  </linearGradient>
+                  <linearGradient id="bowGrad" x1="25" y1="10" x2="75" y2="32" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#fff5e6" />
+                    <stop offset="1" stop-color="#ffc97f" />
                   </linearGradient>
                 </defs>
               </svg>
