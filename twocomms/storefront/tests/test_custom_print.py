@@ -159,6 +159,11 @@ class CustomPrintPageTests(TestCase):
             ["standard", "premium", "thermo"],
         )
         self.assertEqual(config["products"]["tshirt"]["fabrics"]["oversize"][2]["price_delta"], 500)
+        self.assertEqual(
+            [item["value"] for item in config["products"]["hoodie"]["fabrics"]["oversize"]],
+            ["premium"],
+        )
+        self.assertEqual(config["products"]["hoodie"]["fabrics"]["oversize"][0]["price_delta"], 0)
 
     def test_normalize_snapshot_preserves_zone_sizes_and_sleeves(self):
         from storefront.custom_print_config import normalize_custom_print_snapshot

@@ -61,16 +61,21 @@ class CustomPrintConfigContractTests(unittest.TestCase):
             add_to_cart_url="https://twocomms.shop/custom-print/add-to-cart/",
         )
 
+        regular_fabrics = config["products"]["hoodie"]["fabrics"]["regular"]
         oversize_fabrics = config["products"]["hoodie"]["fabrics"]["oversize"]
         self.assertEqual(
-            [item["value"] for item in oversize_fabrics],
+            [item["value"] for item in regular_fabrics],
             ["standard", "premium"],
         )
-        self.assertEqual(oversize_fabrics[0]["label"], "Стандарт")
-        self.assertEqual(oversize_fabrics[1]["label"], "Преміум")
-        self.assertEqual(oversize_fabrics[1]["price_delta"], 250)
-        self.assertEqual(oversize_fabrics[1]["info_theme"], "premium")
-        self.assertIn("вищу щільність", oversize_fabrics[1]["info_desc"])
+        self.assertEqual(
+            [item["value"] for item in oversize_fabrics],
+            ["premium"],
+        )
+        self.assertEqual(oversize_fabrics[0]["label"], "Преміум")
+        self.assertEqual(oversize_fabrics[0]["price_delta"], 0)
+        self.assertTrue(oversize_fabrics[0]["included_in_base"])
+        self.assertEqual(oversize_fabrics[0]["info_theme"], "premium")
+        self.assertIn("вищу щільність", oversize_fabrics[0]["info_desc"])
 
     def test_stage_profiles_expose_distinct_back_presets_for_a4_a3_a2(self):
         config = build_custom_print_config(
