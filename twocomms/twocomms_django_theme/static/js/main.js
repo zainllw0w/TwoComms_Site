@@ -2438,7 +2438,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (isCollapsed) {
     categoriesContainer.classList.add('collapsed');
     categoriesToggle.classList.add('collapsed');
-    toggleText.textContent = 'Развернуть';
+    toggleText.textContent = 'Розгорнути';
   }
 
   categoriesToggle.addEventListener('click', function () {
@@ -2452,7 +2452,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // Разворачиваем блок
       categoriesContainer.classList.remove('collapsed');
       categoriesToggle.classList.remove('collapsed');
-      toggleText.textContent = 'Свернуть';
+      toggleText.textContent = 'Згорнути';
       localStorage.setItem('categories-collapsed', 'false');
 
       // Анимация появления
@@ -2469,7 +2469,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // Сворачиваем блок
       categoriesContainer.classList.add('collapsing');
       categoriesToggle.classList.add('collapsed');
-      toggleText.textContent = 'Развернуть';
+      toggleText.textContent = 'Розгорнути';
       localStorage.setItem('categories-collapsed', 'true');
 
       // Анимация скрытия
