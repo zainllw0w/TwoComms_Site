@@ -15,22 +15,6 @@
 <section class="cp-page" data-custom-print-root>
   <div class="container-xxl cp-shell" data-shell>
     <header class="cp-hero cp-hero--premium" data-hero>
-      <div class="cp-hero-art" aria-hidden="true">
-        <div class="cp-hero-beam"></div>
-        <div class="cp-hero-orb"></div>
-        <div class="cp-hero-mark">
-          <img src="{% static 'img/logo.svg' %}" alt="" loading="eager" width="64" height="64">
-        </div>
-        <div class="cp-garment-shell cp-hero-silhouette-shell">
-          <div class="cp-garment cp-garment--hoodie cp-hero-silhouette">
-            <div class="cp-garment-hood"></div>
-            <div class="cp-garment-sleeve cp-garment-sleeve--left"></div>
-            <div class="cp-garment-sleeve cp-garment-sleeve--right"></div>
-            <div class="cp-garment-body"></div>
-          </div>
-        </div>
-      </div>
-
       <div class="cp-hero-copy">
         <div class="cp-animate-in cp-delay-1">
           <div class="cp-hero-brand">
@@ -39,7 +23,7 @@
             </span>
             <div class="cp-hero-brandcopy">
               <strong>TwoComms Custom Print</strong>
-              <span>Худі, футболки, лонгсліви та ваші речі під друк.</span>
+              <span>Худі, футболки, лонгсліви та ваші речі під DTF-друк.</span>
             </div>
           </div>
         </div>
@@ -48,9 +32,9 @@
           <span class="cp-hero-badge">Кастомний DTF-друк</span>
         </div>
         
-        <h1 class="cp-hero-title cp-animate-in cp-delay-3">Кастомний одяг без зайвих пояснень.</h1>
+        <h1 class="cp-hero-title cp-animate-in cp-delay-3">Зберіть кастомний одяг під свій принт.</h1>
         <p class="cp-hero-desc cp-animate-in cp-delay-4">
-          Оберіть виріб, зони друку та макет. Якщо потрібна DTF-плівка з обраними принтами, напишіть нам у Telegram — підготуємо.
+          Оберіть виріб, тканину, зони друку та макет. Якщо потрібна тільки DTF-плівка з вашими принтами, напишіть нам у Telegram — підготуємо окремо.
         </p>
 
         <div class="cp-hero-actions cp-animate-in cp-delay-5">
@@ -77,6 +61,42 @@
           <span>Скрольте до конфігуратора</span>
         </div>
       </div>
+
+      <aside class="cp-hero-panel cp-animate-in cp-delay-4" aria-label="Сценарій роботи з конфігуратором">
+        <div class="cp-hero-panel-head">
+          <small>Зрозумілий процес</small>
+          <strong>Усе зібрано в один короткий сценарій.</strong>
+        </div>
+
+        <ol class="cp-hero-panel-list">
+          <li class="cp-hero-panel-item">
+            <span class="cp-hero-panel-index">01</span>
+            <div>
+              <strong>Виріб і тканина</strong>
+              <p>Худі, футболка, лонгслів або своя річ з потрібною базою під друк.</p>
+            </div>
+          </li>
+          <li class="cp-hero-panel-item">
+            <span class="cp-hero-panel-index">02</span>
+            <div>
+              <strong>Зони друку</strong>
+              <p>Одразу бачите placement на сцені й вмикаєте тільки потрібні зони.</p>
+            </div>
+          </li>
+          <li class="cp-hero-panel-item">
+            <span class="cp-hero-panel-index">03</span>
+            <div>
+              <strong>Макет або бриф</strong>
+              <p>Завантажуєте готовий файл або лишаєте коротке завдання для менеджера.</p>
+            </div>
+          </li>
+        </ol>
+
+        <div class="cp-hero-panel-foot">
+          <small>Для старту не потрібні зайві пояснення</small>
+          <p>Конфігуратор сам збирає ключові деталі замовлення в одному потоці.</p>
+        </div>
+      </aside>
     </header>
 
     <form id="customPrintConfiguratorForm" class="cp-configurator" novalidate>
@@ -263,7 +283,7 @@
               <div class="cp-config-block" data-addons-wrap hidden>
                 <div class="cp-subhead">
                   <strong>Деталі худі</strong>
-                  <span>Преміум-апгрейд доступний тільки для худі і враховується одразу на сцені.</span>
+                  <span>Преміум-апгрейди для худі. На картці одразу видно, чи деталь зараз увімкнена.</span>
                 </div>
                 <div class="cp-addon-grid" data-addons-list></div>
               </div>

@@ -291,16 +291,49 @@ PRODUCT_MATRIX = {
         ],
         "fabrics": {
             "regular": [
-                {"value": "standard", "label": "Стандарт (трьохнитка на флісі/петля)", "price_delta": 0, "included_in_base": True},
-                {"value": "premium", "label": "Преміум (трьохнитка на флісі/петля)", "price_delta": 250, "included_in_base": False},
+                {"value": "standard", "label": "Стандарт", "price_delta": 0, "included_in_base": True},
+                {
+                    "value": "premium",
+                    "label": "Преміум",
+                    "price_delta": 250,
+                    "included_in_base": False,
+                    "info_title": "Що таке преміум для худі?",
+                    "info_desc": (
+                        "Преміум-варіант має вищу щільність, акуратнішу обробку пеньє та краще тримає форму навіть після активного носіння.\n"
+                        "Полотно більш стійке до навантаження, менше кошлатиться, виглядає структурніше й дає відчутно чистішу поверхню під кастомний принт."
+                    ),
+                    "info_theme": "premium",
+                },
             ],
             "oversize": [
-                {"value": "standard", "label": "Стандарт (трьохнитка на флісі/петля)", "price_delta": 0, "included_in_base": True},
-                {"value": "premium", "label": "Преміум (трьохнитка на флісі/петля)", "price_delta": 250, "included_in_base": False},
+                {"value": "standard", "label": "Стандарт", "price_delta": 0, "included_in_base": True},
+                {
+                    "value": "premium",
+                    "label": "Преміум",
+                    "price_delta": 250,
+                    "included_in_base": False,
+                    "info_title": "Що таке преміум для худі?",
+                    "info_desc": (
+                        "Преміум-варіант має вищу щільність, акуратнішу обробку пеньє та краще тримає форму навіть після активного носіння.\n"
+                        "Полотно більш стійке до навантаження, менше кошлатиться, виглядає структурніше й дає відчутно чистішу поверхню під кастомний принт."
+                    ),
+                    "info_theme": "premium",
+                },
             ],
             "zip_hoodie": [
-                {"value": "standard", "label": "Стандарт (трьохнитка на флісі/петля)", "price_delta": 0, "included_in_base": True},
-                {"value": "premium", "label": "Преміум (трьохнитка на флісі/петля)", "price_delta": 250, "included_in_base": False},
+                {"value": "standard", "label": "Стандарт", "price_delta": 0, "included_in_base": True},
+                {
+                    "value": "premium",
+                    "label": "Преміум",
+                    "price_delta": 250,
+                    "included_in_base": False,
+                    "info_title": "Що таке преміум для худі?",
+                    "info_desc": (
+                        "Преміум-варіант має вищу щільність, акуратнішу обробку пеньє та краще тримає форму навіть після активного носіння.\n"
+                        "Полотно більш стійке до навантаження, менше кошлатиться, виглядає структурніше й дає відчутно чистішу поверхню під кастомний принт."
+                    ),
+                    "info_theme": "premium",
+                },
             ],
         },
         "default_fit": "regular",
@@ -316,6 +349,14 @@ PRODUCT_MATRIX = {
         "default_zones": [],
         "add_ons": [
             {
+                "value": "lacing",
+                "label": "Люверси зі шнурками",
+                "price_delta": 150,
+                "icon": "lacing",
+                "badge": "+150 грн",
+                "hint": "Преміум-апгрейд: металеві люверси й унікальні шнурки замість стандартних.",
+            },
+            {
                 "value": "fleece",
                 "label": "З флісом",
                 "price_delta": 0,
@@ -328,14 +369,6 @@ PRODUCT_MATRIX = {
                 "price_delta": 0,
                 "icon": "no_fleece",
                 "group": "fleece"
-            },
-            {
-                "value": "lacing",
-                "label": "Люверси зі шнурками",
-                "price_delta": 150,
-                "icon": "lacing",
-                "badge": "+150 грн",
-                "hint": "Преміум-апгрейд: металеві люверси й унікальні шнурки замість стандартних.",
             },
         ],
         "pricing": {

@@ -152,9 +152,13 @@ class CustomPrintPageTests(TestCase):
         )
         self.assertEqual(
             [item["value"] for item in config["products"]["tshirt"]["fabrics"]["regular"]],
-            ["premium", "thermo"],
+            ["standard", "premium"],
         )
-        self.assertEqual(config["products"]["tshirt"]["fabrics"]["regular"][1]["price_delta"], 500)
+        self.assertEqual(
+            [item["value"] for item in config["products"]["tshirt"]["fabrics"]["oversize"]],
+            ["standard", "premium", "thermo"],
+        )
+        self.assertEqual(config["products"]["tshirt"]["fabrics"]["oversize"][2]["price_delta"], 500)
 
     def test_normalize_snapshot_preserves_zone_sizes_and_sleeves(self):
         from storefront.custom_print_config import normalize_custom_print_snapshot
@@ -162,9 +166,9 @@ class CustomPrintPageTests(TestCase):
         normalized = normalize_custom_print_snapshot(
             {
                 "product": {
-                    "type": "tshirt",
+                    "type": "hoodie",
                     "fit": "oversize",
-                    "fabric": "thermo",
+                    "fabric": "premium",
                     "color": "graphite",
                 },
                 "print": {
@@ -190,7 +194,7 @@ class CustomPrintPageTests(TestCase):
         )
 
         self.assertEqual(normalized["product"]["fit"], "oversize")
-        self.assertEqual(normalized["product"]["fabric"], "thermo")
+        self.assertEqual(normalized["product"]["fabric"], "premium")
         self.assertEqual(
             normalized["print"]["zone_options"]["front"]["size_preset"],
             "A4",

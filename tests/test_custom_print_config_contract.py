@@ -42,15 +42,19 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         )
         self.assertEqual(
             [item["value"] for item in config["products"]["tshirt"]["fabrics"]["regular"]],
-            ["premium", "thermo"],
+            ["standard", "premium"],
         )
-        self.assertEqual(config["products"]["tshirt"]["fabrics"]["regular"][1]["price_delta"], 500)
+        self.assertEqual(
+            [item["value"] for item in config["products"]["tshirt"]["fabrics"]["oversize"]],
+            ["standard", "premium", "thermo"],
+        )
+        self.assertEqual(config["products"]["tshirt"]["fabrics"]["oversize"][2]["price_delta"], 500)
         self.assertIn("stage_profiles", config)
         self.assertIn("hoodie", config["stage_profiles"])
         self.assertIn("regular", config["stage_profiles"]["hoodie"])
         self.assertIn("oversize", config["stage_profiles"]["hoodie"])
 
-    def test_config_marks_single_oversize_hoodie_fabric_as_included(self):
+    def test_config_exposes_clean_hoodie_fabric_labels_and_premium_info(self):
         config = build_custom_print_config(
             submit_url="https://twocomms.shop/custom-print/lead/",
             safe_exit_url="https://twocomms.shop/custom-print/safe-exit/",
@@ -58,10 +62,15 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         )
 
         oversize_fabrics = config["products"]["hoodie"]["fabrics"]["oversize"]
-        self.assertEqual(len(oversize_fabrics), 1)
-        self.assertEqual(oversize_fabrics[0]["value"], "premium")
-        self.assertEqual(oversize_fabrics[0]["price_delta"], 0)
-        self.assertTrue(oversize_fabrics[0]["included_in_base"])
+        self.assertEqual(
+            [item["value"] for item in oversize_fabrics],
+            ["standard", "premium"],
+        )
+        self.assertEqual(oversize_fabrics[0]["label"], "Стандарт")
+        self.assertEqual(oversize_fabrics[1]["label"], "Преміум")
+        self.assertEqual(oversize_fabrics[1]["price_delta"], 250)
+        self.assertEqual(oversize_fabrics[1]["info_theme"], "premium")
+        self.assertIn("вищу щільність", oversize_fabrics[1]["info_desc"])
 
     def test_stage_profiles_expose_distinct_back_presets_for_a4_a3_a2(self):
         config = build_custom_print_config(
@@ -87,9 +96,9 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         normalized = normalize_custom_print_snapshot(
             {
                 "product": {
-                    "type": "tshirt",
+                    "type": "hoodie",
                     "fit": "oversize",
-                    "fabric": "thermo",
+                    "fabric": "premium",
                     "color": "graphite",
                 },
                 "print": {
@@ -115,8 +124,8 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         )
 
         self.assertEqual(normalized["product"]["fit"], "oversize")
-        self.assertEqual(normalized["product"]["fabric"], "thermo")
-        self.assertEqual(normalized["print"]["add_ons"], [])
+        self.assertEqual(normalized["product"]["fabric"], "premium")
+        self.assertEqual(normalized["print"]["add_ons"], ["lacing"])
         self.assertEqual(normalized["print"]["zone_options"]["front"]["size_preset"], "A4")
         self.assertEqual(normalized["print"]["zone_options"]["back"]["size_preset"], "A2")
         self.assertTrue(normalized["print"]["zone_options"]["sleeve"]["left_enabled"])

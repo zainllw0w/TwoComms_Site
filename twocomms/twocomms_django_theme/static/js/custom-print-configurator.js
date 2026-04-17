@@ -884,14 +884,32 @@
       modal.addEventListener("click", (e) => {
         if (e.target === modal) modal.classList.remove("is-visible");
       });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") modal.classList.remove("is-visible");
+      });
     }
     
+    const media = modal.querySelector(".cp-fabric-modal-media");
+    const mediaImage = media?.querySelector("img");
+    const previewImage = fab.preview_image || "";
+    if (media && mediaImage) {
+      media.hidden = !previewImage;
+      if (previewImage) {
+        mediaImage.src = previewImage;
+        mediaImage.alt = fab.info_title || fab.label || "Fabric preview";
+      } else {
+        mediaImage.removeAttribute("src");
+        mediaImage.alt = "";
+      }
+    }
+
     modal.querySelector(".cp-fabric-modal-title").textContent = fab.info_title;
     modal.querySelector(".cp-fabric-modal-desc").innerHTML = (fab.info_desc || "").replace(/\\n/g, "<br>");
     
-    // Add specific class for theming
     modal.className = "cp-fabric-modal-overlay is-visible";
-    if (fab.value === 'thermo') {
+    if (fab.info_theme) {
+      modal.classList.add(`is-${fab.info_theme}-theme`);
+    } else if (fab.value === "thermo") {
       modal.classList.add("is-thermo-theme");
     }
   }
@@ -1211,11 +1229,22 @@
       if (isAutoIncluded) btn.classList.add("is-auto-included"); // new class to lock
       btn.dataset.choiceValue = a.value;
       btn.dataset.priceModifier = String(a.price_delta || 0);
+      btn.setAttribute("aria-pressed", String(isActive));
+      if (isAutoIncluded) btn.setAttribute("aria-disabled", "true");
+      const toggleLabel = isAutoIncluded ? "Входить" : isActive ? "Увімкнено" : "Вимкнено";
       btn.innerHTML = `
         <span class="cp-addon-card-icon" aria-hidden="true">${addonSvg(a.icon)}</span>
         <span class="cp-addon-card-body">
-          <strong>${escapeHtml(a.label)}</strong>
-          <span class="cp-addon-card-badge">${escapeHtml(a.badge || "")}</span>
+          <span class="cp-addon-card-topline">
+            <strong>${escapeHtml(a.label)}</strong>
+            <span class="cp-addon-card-control">
+              <span class="cp-addon-card-control-text">${toggleLabel}</span>
+              <span class="cp-addon-card-switch" aria-hidden="true">
+                <span class="cp-addon-card-switch-thumb"></span>
+              </span>
+            </span>
+          </span>
+          ${a.badge ? `<span class="cp-addon-card-badge">${escapeHtml(a.badge)}</span>` : ""}
           <span class="cp-addon-card-hint">${escapeHtml(a.hint || "")}</span>
         </span>
       `;
@@ -1525,7 +1554,8 @@
         plate.style.setProperty("--plate-rotate", `${Number(anchor.plate.rotate || 0)}deg`);
         plate.style.setProperty("--plate-radius", `${Number(anchor.plate.radius || 18)}px`);
         plate.dataset.zone = target.key;
-        plate.addEventListener("click", () => handleStageTargetInteraction(target.key));
+        plate.setAttribute("aria-pressed", String(!!target.isActive));
+        plate.setAttribute("aria-label", `${target.label}${target.isActive ? ", увімкнено" : ", вимкнено"}`);
         const badgeText = escapeHtml(getStageBadgeText(placement));
         plate.innerHTML = `
           <span class="cp-stage-print-badge">${badgeText || "ON"}</span>
@@ -1539,6 +1569,7 @@
 
   function getStageTargetView(targetKey) {
     if (targetKey === "front" || targetKey === "custom") return "front";
+    if (targetKey === "sleeve_left" || targetKey === "sleeve_right") return STATE.ui.stage_view || "front";
     return "back";
   }
 
