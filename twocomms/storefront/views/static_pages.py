@@ -17,6 +17,7 @@ from django.shortcuts import render
 from django.db import transaction
 from django.views.decorators.http import require_POST
 import json
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 import importlib.machinery
 import importlib.util
@@ -27,6 +28,7 @@ from django.urls import reverse
 from storefront.models import Category, CustomPrintLead, CustomPrintModerationStatus, Product
 from storefront.forms import CustomPrintLeadForm
 from storefront.custom_print_config import (
+    ADDON_LABELS,
     PRODUCT_LABELS,
     SESSION_CUSTOM_CART_KEY,
     TELEGRAM_MANAGER_URL,
@@ -37,6 +39,7 @@ from storefront.custom_print_config import (
     normalize_custom_print_snapshot,
 )
 from storefront.custom_print_notifications import (
+    notify_custom_print_moderation_request,
     notify_custom_print_safe_exit,
     notify_new_custom_print_lead,
 )
@@ -561,6 +564,95 @@ def custom_print_lead(request):
     )
 
 
+def _safe_decimal_or_zero(value) -> Decimal:
+    try:
+        return Decimal(str(value or 0))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal("0")
+
+
+def _build_custom_cart_session_item(lead) -> dict:
+    snapshot = lead.config_draft_json or {}
+    pricing = snapshot.get("pricing") or {}
+    product_payload = snapshot.get("product") or {}
+    print_payload = snapshot.get("print") or {}
+    order_payload = snapshot.get("order") or {}
+    artwork_payload = snapshot.get("artwork") or {}
+    gift_payload = order_payload.get("gift")
+    placement_specs = lead.placement_specs_json or []
+
+    if isinstance(gift_payload, dict):
+        gift_enabled = bool(gift_payload.get("enabled"))
+        gift_text = (gift_payload.get("text") or "").strip()
+    else:
+        gift_enabled = bool(gift_payload)
+        gift_text = (order_payload.get("gift_text") or "").strip()
+
+    try:
+        quantity = int(order_payload.get("quantity") or lead.quantity or 1)
+    except (TypeError, ValueError):
+        quantity = 1
+    if quantity < 1:
+        quantity = 1
+
+    final_total = _safe_decimal_or_zero(pricing.get("final_total") or lead.final_price_value)
+    unit_total = _safe_decimal_or_zero(pricing.get("unit_total") or pricing.get("base_price"))
+    if unit_total <= 0 and quantity > 0 and final_total > 0:
+        unit_total = (final_total / Decimal(quantity)).quantize(Decimal("0.01"))
+
+    raw_add_ons = list(print_payload.get("add_ons") or [])
+    add_on_labels = []
+    for add_on in raw_add_ons:
+        label = ADDON_LABELS.get(add_on, add_on)
+        if label and label not in add_on_labels:
+            add_on_labels.append(label)
+
+    zone_labels = []
+    if placement_specs:
+        for spec in placement_specs:
+            if not isinstance(spec, dict):
+                continue
+            placement_key = spec.get("placement_key") or spec.get("zone")
+            label = spec.get("label") or ZONE_LABELS.get(placement_key, placement_key or "")
+            if label and label not in zone_labels:
+                zone_labels.append(label)
+    else:
+        for zone in (print_payload.get("zones") or lead.placements or []):
+            label = ZONE_LABELS.get(zone, zone)
+            if label and label not in zone_labels:
+                zone_labels.append(label)
+
+    return {
+        "lead_id": lead.pk,
+        "lead_number": getattr(lead, "lead_number", "") or f"CP-{lead.pk}",
+        "label": compute_cart_label(snapshot),
+        "product_type": product_payload.get("type") or lead.product_type,
+        "product_label": PRODUCT_LABELS.get(product_payload.get("type") or lead.product_type, ""),
+        "fit": product_payload.get("fit") or lead.fit or "",
+        "fabric": product_payload.get("fabric") or lead.fabric or "",
+        "color": product_payload.get("color") or lead.color_choice or "",
+        "zones": list(print_payload.get("zones") or lead.placements or []),
+        "zone_labels": zone_labels,
+        "placement_specs": placement_specs,
+        "quantity": quantity,
+        "size_mode": order_payload.get("size_mode") or lead.size_mode or "single",
+        "size_breakdown": order_payload.get("size_breakdown") or {},
+        "sizes_note": order_payload.get("sizes_note") or lead.sizes_note or "",
+        "gift_enabled": gift_enabled,
+        "gift_text": gift_text,
+        "unit_total": str(unit_total.quantize(Decimal("0.01"))),
+        "final_total": str(final_total.quantize(Decimal("0.01"))),
+        "b2b_discount_per_unit": pricing.get("b2b_discount_per_unit") or 0,
+        "mode": snapshot.get("mode") or lead.client_kind or "personal",
+        "service_kind": artwork_payload.get("service_kind") or lead.service_kind or "",
+        "file_triage_status": artwork_payload.get("triage_status") or lead.file_triage_status or "",
+        "add_ons": raw_add_ons,
+        "add_on_labels": add_on_labels,
+        "placement_note": (print_payload.get("placement_note") or lead.placement_note or "").strip(),
+        "moderation_status": lead.moderation_status or CustomPrintModerationStatus.DRAFT,
+    }
+
+
 @require_POST
 def custom_print_add_to_cart(request):
     """
@@ -577,46 +669,26 @@ def custom_print_add_to_cart(request):
     with transaction.atomic():
         lead = form.save(
             source="custom_print_cart",
-            moderation_status=CustomPrintModerationStatus.DRAFT,
+            moderation_status=CustomPrintModerationStatus.AWAITING_REVIEW,
         )
-        # Пока не отправляем нотификацию - это произойдёт при клике "Відправити менеджеру"
-
-    snapshot = lead.config_draft_json or {}
-    pricing = snapshot.get("pricing") or {}
-    product_payload = snapshot.get("product") or {}
-    print_payload = snapshot.get("print") or {}
-    order_payload = snapshot.get("order") or {}
-    gift_enabled = bool(((order_payload.get("gift") or {}) or {}).get("enabled")) if isinstance(order_payload.get("gift"), dict) else bool(order_payload.get("gift"))
+        lead.ensure_moderation_token()
 
     custom_cart = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
     if not isinstance(custom_cart, dict):
         custom_cart = {}
 
     key = f"custom:{lead.pk}"
-    custom_cart[key] = {
-        "lead_id": lead.pk,
-        "lead_number": getattr(lead, "lead_number", "") or f"CP-{lead.pk}",
-        "label": compute_cart_label(snapshot),
-        "product_type": product_payload.get("type") or lead.product_type,
-        "product_label": PRODUCT_LABELS.get(product_payload.get("type") or lead.product_type, ""),
-        "fit": product_payload.get("fit") or "",
-        "fabric": product_payload.get("fabric") or "",
-        "color": product_payload.get("color") or "",
-        "zones": list(print_payload.get("zones") or []),
-        "zone_labels": [ZONE_LABELS.get(z, z) for z in (print_payload.get("zones") or [])],
-        "quantity": int(order_payload.get("quantity") or lead.quantity or 1),
-        "size_mode": order_payload.get("size_mode") or lead.size_mode or "single",
-        "size_breakdown": order_payload.get("size_breakdown") or {},
-        "gift_enabled": gift_enabled,
-        "gift_text": (order_payload.get("gift_text") if not isinstance(order_payload.get("gift"), dict) else (order_payload.get("gift") or {}).get("text")) or "",
-        "unit_total": pricing.get("unit_total") or pricing.get("base_price") or 0,
-        "final_total": pricing.get("final_total") or 0,
-        "b2b_discount_per_unit": pricing.get("b2b_discount_per_unit") or 0,
-        "mode": snapshot.get("mode") or "personal",
-        "moderation_status": CustomPrintModerationStatus.DRAFT,
-    }
+    custom_cart[key] = _build_custom_cart_session_item(lead)
     request.session[SESSION_CUSTOM_CART_KEY] = custom_cart
     request.session.modified = True
+
+    try:
+        notify_custom_print_moderation_request(lead)
+    except Exception:
+        logging.getLogger(__name__).exception(
+            "notify_custom_print_moderation_request failed for lead %s during add-to-cart",
+            lead.pk,
+        )
 
     return JsonResponse(
         {
@@ -624,7 +696,7 @@ def custom_print_add_to_cart(request):
             "lead_number": getattr(lead, "lead_number", None),
             "cart_url": reverse("cart"),
             "custom_cart_count": len(custom_cart),
-            "message": "Кастом додано в кошик. Відкриваємо…",
+            "message": "Кастом додано в кошик і передано менеджеру на модерацію. Відкриваємо…",
         }
     )
 

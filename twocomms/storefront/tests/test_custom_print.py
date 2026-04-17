@@ -575,7 +575,8 @@ class CustomPrintPageTests(TestCase):
             },
         )
 
-    def test_custom_print_add_to_cart_creates_draft_lead_and_session_entry(self):
+    @patch("storefront.views.static_pages.notify_custom_print_moderation_request")
+    def test_custom_print_add_to_cart_creates_awaiting_review_lead_session_entry_and_notifies_manager(self, notify_mock):
         from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
         from storefront.models import CustomPrintLead, CustomPrintModerationStatus
 
@@ -664,17 +665,19 @@ class CustomPrintPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         lead = CustomPrintLead.objects.get()
         self.assertEqual(lead.source, "custom_print_cart")
-        self.assertEqual(lead.moderation_status, CustomPrintModerationStatus.DRAFT)
+        self.assertEqual(lead.moderation_status, CustomPrintModerationStatus.AWAITING_REVIEW)
+        self.assertTrue(lead.moderation_token)
         payload = json.loads(response.content)
         self.assertTrue(payload["ok"])
         session_cart = self.client.session[SESSION_CUSTOM_CART_KEY]
         self.assertIn(f"custom:{lead.pk}", session_cart)
         self.assertEqual(
             session_cart[f"custom:{lead.pk}"]["moderation_status"],
-            CustomPrintModerationStatus.DRAFT,
+            CustomPrintModerationStatus.AWAITING_REVIEW,
         )
+        notify_mock.assert_called_once_with(lead)
 
-    def test_cart_mini_renders_custom_item_without_regular_cart_products(self):
+    def test_cart_mini_renders_custom_item_with_remove_button_without_regular_cart_products(self):
         from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
         from storefront.models import CustomPrintLead, CustomPrintModerationStatus
 
@@ -695,7 +698,7 @@ class CustomPrintPageTests(TestCase):
             fabric="premium",
             color_choice="graphite",
             source="custom_print_cart",
-            moderation_status=CustomPrintModerationStatus.DRAFT,
+            moderation_status=CustomPrintModerationStatus.AWAITING_REVIEW,
             pricing_snapshot_json={"final_total": 1800},
             config_draft_json={"pricing": {"final_total": 1800}},
         )
@@ -708,7 +711,7 @@ class CustomPrintPageTests(TestCase):
                 "product_label": "Худі",
                 "quantity": 1,
                 "final_total": 1800,
-                "moderation_status": CustomPrintModerationStatus.DRAFT,
+                "moderation_status": CustomPrintModerationStatus.AWAITING_REVIEW,
             }
         }
         session.save()
@@ -718,8 +721,218 @@ class CustomPrintPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, lead.lead_number)
         self.assertContains(response, "Кастомний друк")
-        self.assertContains(response, "Чернетка")
+        self.assertContains(response, "На перевірці")
+        self.assertContains(response, "data-custom-remove")
+        self.assertContains(response, "Видалити")
         self.assertNotContains(response, "Кошик порожній.")
+
+    def test_custom_print_remove_deletes_item_from_session(self):
+        from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
+
+        session = self.client.session
+        session[SESSION_CUSTOM_CART_KEY] = {
+            "custom:77": {
+                "lead_id": 77,
+                "lead_number": "CP-77",
+                "label": "Худі · Спереду",
+                "quantity": 1,
+                "final_total": 1800,
+            }
+        }
+        session.save()
+
+        response = self._post(
+            reverse("custom_print_remove"),
+            {"key": "custom:77"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(
+            response.content,
+            {
+                "ok": True,
+                "removed": True,
+                "custom_cart_count": 0,
+            },
+        )
+        self.assertEqual(self.client.session.get(SESSION_CUSTOM_CART_KEY), {})
+
+    def test_cart_page_renders_custom_only_pending_item_with_full_details_and_no_submit_review_step(self):
+        from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
+        from storefront.models import CustomPrintLead, CustomPrintModerationStatus
+
+        lead = CustomPrintLead.objects.create(
+            service_kind="adjust",
+            product_type="hoodie",
+            placements=["front", "back"],
+            placement_specs_json=[
+                {
+                    "zone": "front",
+                    "placement_key": "front",
+                    "label": "Спереду",
+                    "size_preset": "A4",
+                },
+                {
+                    "zone": "back",
+                    "placement_key": "back",
+                    "label": "На спині",
+                    "size_preset": "A3",
+                },
+            ],
+            quantity=3,
+            size_mode="mixed",
+            sizes_note="M x2, L x1",
+            client_kind="brand",
+            name="Тест",
+            contact_channel="telegram",
+            contact_value="@test",
+            brief="Потрібна адаптація логотипу",
+            fit="oversize",
+            fabric="premium",
+            color_choice="graphite",
+            file_triage_status="needs-work",
+            source="custom_print_cart",
+            moderation_status=CustomPrintModerationStatus.AWAITING_REVIEW,
+            pricing_snapshot_json={"final_total": 5400, "unit_total": 1800},
+            config_draft_json={
+                "mode": "brand",
+                "product": {
+                    "type": "hoodie",
+                    "fit": "oversize",
+                    "fabric": "premium",
+                    "color": "graphite",
+                },
+                "print": {
+                    "zones": ["front", "back"],
+                    "add_ons": ["lacing"],
+                },
+                "artwork": {
+                    "service_kind": "adjust",
+                    "triage_status": "needs-work",
+                },
+                "order": {
+                    "quantity": 3,
+                    "size_mode": "mixed",
+                    "size_breakdown": {"M": 2, "L": 1},
+                    "gift": {"enabled": True, "text": "Подарункова упаковка"},
+                },
+                "pricing": {
+                    "unit_total": 1800,
+                    "final_total": 5400,
+                },
+            },
+        )
+        session = self.client.session
+        session[SESSION_CUSTOM_CART_KEY] = {
+            f"custom:{lead.pk}": {
+                "lead_id": lead.pk,
+                "lead_number": lead.lead_number,
+                "label": "Худі · Спереду, На спині",
+                "product_label": "Худі",
+                "quantity": 3,
+                "final_total": 5400,
+                "unit_total": 1800,
+                "moderation_status": CustomPrintModerationStatus.AWAITING_REVIEW,
+                "zone_labels": ["Спереду", "На спині"],
+                "size_breakdown": {"M": 2, "L": 1},
+                "fit": "oversize",
+                "fabric": "premium",
+                "color": "graphite",
+                "mode": "brand",
+                "gift_enabled": True,
+                "gift_text": "Подарункова упаковка",
+                "service_kind": "adjust",
+                "file_triage_status": "needs-work",
+                "add_on_labels": ["Люверси зі шнурками"],
+            }
+        }
+        session.save()
+
+        response = self._get(reverse("cart"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, lead.lead_number)
+        self.assertContains(response, "Кастомний друк")
+        self.assertContains(response, "На перевірці менеджера")
+        self.assertContains(response, "Написати менеджеру в Telegram")
+        self.assertContains(response, "Худі")
+        self.assertContains(response, "Оверсайз")
+        self.assertContains(response, "Преміум")
+        self.assertContains(response, "graphite")
+        self.assertContains(response, "Потрібно допрацювати")
+        self.assertContains(response, "Потрібна підготовка")
+        self.assertContains(response, "Люверси зі шнурками")
+        self.assertContains(response, "M×2, L×1")
+        self.assertContains(response, "Подарункова упаковка")
+        self.assertContains(response, "Ціна узгоджується після модерації")
+        self.assertContains(response, f'data-custom-key="custom:{lead.pk}"', html=False)
+        self.assertNotContains(response, "Відправити менеджеру на перевірку")
+
+    def test_cart_items_api_keeps_custom_only_cart_non_empty_and_excludes_pending_custom_from_payable_total(self):
+        from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
+        from storefront.models import CustomPrintLead, CustomPrintModerationStatus
+
+        lead = CustomPrintLead.objects.create(
+            service_kind="ready",
+            product_type="hoodie",
+            placements=["front"],
+            placement_specs_json=[{"zone": "front", "placement_key": "front", "label": "Спереду"}],
+            quantity=1,
+            size_mode="single",
+            sizes_note="L x1",
+            client_kind="personal",
+            name="Тест",
+            contact_channel="telegram",
+            contact_value="@test",
+            fit="oversize",
+            fabric="premium",
+            color_choice="graphite",
+            source="custom_print_cart",
+            moderation_status=CustomPrintModerationStatus.AWAITING_REVIEW,
+            pricing_snapshot_json={"final_total": 1800, "unit_total": 1800},
+            config_draft_json={
+                "product": {"type": "hoodie", "fit": "oversize", "fabric": "premium", "color": "graphite"},
+                "print": {"zones": ["front"]},
+                "artwork": {"service_kind": "ready", "triage_status": "print-ready"},
+                "order": {"quantity": 1, "size_mode": "single", "sizes_note": "L x1"},
+                "pricing": {"final_total": 1800, "unit_total": 1800},
+            },
+        )
+        session = self.client.session
+        session[SESSION_CUSTOM_CART_KEY] = {
+            f"custom:{lead.pk}": {
+                "lead_id": lead.pk,
+                "lead_number": lead.lead_number,
+                "label": "Худі · Спереду",
+                "product_label": "Худі",
+                "quantity": 1,
+                "final_total": 1800,
+                "unit_total": 1800,
+                "moderation_status": CustomPrintModerationStatus.AWAITING_REVIEW,
+                "zone_labels": ["Спереду"],
+                "fit": "oversize",
+                "fabric": "premium",
+                "color": "graphite",
+                "service_kind": "ready",
+                "file_triage_status": "print-ready",
+            }
+        }
+        session.save()
+
+        response = self._get(reverse("cart_items_api"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["items"], [])
+        self.assertEqual(len(payload["custom_items"]), 1)
+        self.assertEqual(payload["items_count"], 1)
+        self.assertEqual(payload["positions_count"], 1)
+        self.assertTrue(payload["has_custom_items"])
+        self.assertEqual(payload["combined_total"], 1800.0)
+        self.assertEqual(payload["approved_total"], 0.0)
+        self.assertFalse(payload["payment_allowed"])
 
     def test_custom_print_design_requires_brief(self):
         response = self._post(

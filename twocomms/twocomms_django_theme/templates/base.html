@@ -1360,6 +1360,90 @@
           });
         };
       }
+      if (typeof window.CustomCartRemoveKey !== 'function') {
+        window.CustomCartRemoveKey = function (key, el, leadId) {
+          var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+            document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+            getCookie('csrftoken');
+
+          var body = new URLSearchParams();
+          if (key) {
+            body.append('key', key);
+          }
+          if (leadId) {
+            body.append('lead_id', leadId);
+          }
+
+          fetch('/custom-print/remove/', {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest',
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+            },
+            body: body
+          }).then(function (r) {
+            if (!r.ok) {
+              throw new Error('Network response was not ok: ' + r.status);
+            }
+            return r.json();
+          }).then(function (d) {
+            if (d && d.ok) {
+              if (el) {
+                var row = el.closest('.cart-item--custom') || el.closest('.mini-cart-custom-row') || el.closest('.d-flex');
+                if (row) {
+                  row.style.opacity = '0';
+                  row.style.transform = 'translateX(-20px)';
+                  row.style.transition = 'all 0.3s ease';
+                }
+              }
+
+              try {
+                document.dispatchEvent(new CustomEvent('cartUpdated', {
+                  detail: { action: 'remove_custom', key: key, lead_id: leadId || null }
+                }));
+              } catch (_) { }
+
+              var miniPromise = null;
+              try { if (window.refreshMiniCart) miniPromise = window.refreshMiniCart(); } catch (_) { }
+              var reopen = function () { try { if (window.openMiniCart) { window.openMiniCart({ skipRefresh: true }); } } catch (_) { } };
+              if (miniPromise && miniPromise.finally) {
+                miniPromise.then(reopen).catch(reopen).finally(function () {
+                  try { if (window.refreshCartSummary) window.refreshCartSummary(); } catch (_) { }
+                });
+              } else {
+                try { if (window.refreshCartSummary) window.refreshCartSummary(); } catch (_) { }
+                reopen();
+              }
+
+              var cartContainerEl = document.querySelector('.cart-page-container');
+              var cartController = cartContainerEl && cartContainerEl.__cartController;
+              if (cartController && typeof cartController.requestSync === 'function') {
+                cartController.requestSync(0);
+              } else if (document.getElementById('cart-list')) {
+                window.location.reload();
+              }
+            }
+          }).catch(function () {
+            if (document.getElementById('cart-list')) {
+              window.location.reload();
+            } else {
+              try { if (window.refreshMiniCart) window.refreshMiniCart(); } catch (_) { }
+            }
+          });
+          return false;
+        };
+      }
+      if (typeof window.CustomCartRemove !== 'function') {
+        window.CustomCartRemove = function (el) {
+          if (!el) { return false; }
+          return window.CustomCartRemoveKey(
+            el.getAttribute('data-key') || '',
+            el,
+            el.getAttribute('data-lead-id') || ''
+          );
+        };
+      }
       if (typeof window.CartRemove !== 'function') {
         window.CartRemove = function (pid, size, el) { return window.CartRemoveKey(String(pid) + ':' + (size || ''), el); };
       }

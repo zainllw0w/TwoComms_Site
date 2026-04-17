@@ -22,7 +22,17 @@ import json
 from ..models import Product, PromoCode, CustomPrintLead, CustomPrintModerationStatus
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
-from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
+from storefront.custom_print_config import (
+    ADDON_LABELS,
+    FABRIC_LABELS,
+    FIT_LABELS,
+    PRODUCT_LABELS,
+    SERVICE_LABELS,
+    SESSION_CUSTOM_CART_KEY,
+    TRIAGE_LABELS,
+    ZONE_LABELS,
+)
+from storefront.custom_print_notifications import notify_custom_print_moderation_request
 from .utils import (
     get_cart_from_session,
     save_cart_to_session,
@@ -40,6 +50,10 @@ monobank_logger = logging.getLogger('storefront.monobank')
 MONOBANK_SUCCESS_STATUSES = {'success', 'hold'}
 MONOBANK_PENDING_STATUSES = {'processing'}
 MONOBANK_FAILURE_STATUSES = {'failure', 'expired', 'rejected', 'canceled', 'cancelled', 'reversed'}
+CUSTOM_PRINT_SIZE_MODE_LABELS = {
+    'single': 'Один розмір',
+    'mixed': 'Мікс розмірів',
+}
 
 
 # ==================== CART VIEWS ====================
@@ -64,6 +78,302 @@ def _calculate_original_subtotal(cart):
             qty = 1
         total += Decimal(product.price) * qty
     return total
+
+
+def _safe_decimal(value, default='0') -> Decimal:
+    try:
+        return Decimal(str(value if value is not None else default))
+    except Exception:
+        return Decimal(str(default))
+
+
+def _unique_strings(values) -> list[str]:
+    result = []
+    for value in values or []:
+        normalized = str(value or '').strip()
+        if normalized and normalized not in result:
+            result.append(normalized)
+    return result
+
+
+def _format_custom_placement_descriptor(spec: dict) -> str:
+    placement_key = spec.get('placement_key') or spec.get('zone')
+    label = spec.get('label') or ZONE_LABELS.get(placement_key, placement_key or '—')
+    parts = [label]
+    if spec.get('size_preset'):
+        parts.append(str(spec['size_preset']).upper())
+    elif spec.get('zone') == 'sleeve':
+        parts.append('Текст' if spec.get('mode') == 'full_text' else 'A6')
+    if spec.get('text'):
+        parts.append(str(spec['text']).strip())
+    return ' · '.join(part for part in parts if part)
+
+
+def _custom_print_status_label(status: str) -> str:
+    return {
+        CustomPrintModerationStatus.DRAFT: 'Передаємо менеджеру на перевірку',
+        CustomPrintModerationStatus.AWAITING_REVIEW: 'На перевірці менеджера',
+        CustomPrintModerationStatus.APPROVED: 'Погоджено менеджером',
+        CustomPrintModerationStatus.REJECTED: 'Відхилено менеджером',
+    }.get(status, 'На перевірці менеджера')
+
+
+def _promote_legacy_custom_draft(lead, session_item: dict | None) -> tuple[str, bool]:
+    if not lead or lead.moderation_status != CustomPrintModerationStatus.DRAFT:
+        return (lead.moderation_status if lead else CustomPrintModerationStatus.DRAFT), False
+    if (lead.source or '') != 'custom_print_cart':
+        return lead.moderation_status, False
+
+    lead.ensure_moderation_token()
+    lead.moderation_status = CustomPrintModerationStatus.AWAITING_REVIEW
+    lead.reviewed_at = None
+    lead.save(update_fields=['moderation_status', 'moderation_token', 'reviewed_at'])
+
+    if isinstance(session_item, dict):
+        session_item['moderation_status'] = CustomPrintModerationStatus.AWAITING_REVIEW
+
+    try:
+        notify_custom_print_moderation_request(lead)
+    except Exception:
+        cart_logger.exception('notify_custom_print_moderation_request failed for legacy draft lead %s', lead.pk)
+
+    return CustomPrintModerationStatus.AWAITING_REVIEW, True
+
+
+def _build_custom_cart_entry_payload(key: str, item: dict, lead=None) -> tuple[dict, dict]:
+    snapshot = {}
+    if lead and isinstance(getattr(lead, 'config_draft_json', None), dict):
+        snapshot = lead.config_draft_json or {}
+
+    product_payload = snapshot.get('product') or {}
+    print_payload = snapshot.get('print') or {}
+    artwork_payload = snapshot.get('artwork') or {}
+    order_payload = snapshot.get('order') or {}
+
+    placement_specs = item.get('placement_specs') or getattr(lead, 'placement_specs_json', None) or []
+    placement_specs = [spec for spec in placement_specs if isinstance(spec, dict)]
+    placement_descriptors = _unique_strings([_format_custom_placement_descriptor(spec) for spec in placement_specs])
+
+    zone_labels = item.get('zone_labels') or []
+    if not zone_labels:
+        for spec in placement_specs:
+            placement_key = spec.get('placement_key') or spec.get('zone')
+            label = spec.get('label') or ZONE_LABELS.get(placement_key, placement_key or '')
+            if label:
+                zone_labels.append(label)
+    if not zone_labels:
+        zone_labels = [ZONE_LABELS.get(zone, zone) for zone in (item.get('zones') or print_payload.get('zones') or getattr(lead, 'placements', None) or [])]
+    zone_labels = _unique_strings(zone_labels)
+
+    size_breakdown = item.get('size_breakdown') or order_payload.get('size_breakdown') or {}
+    size_parts = [f'{size}×{count}' for size, count in size_breakdown.items() if count]
+    sizes_note = (item.get('sizes_note') or order_payload.get('sizes_note') or getattr(lead, 'sizes_note', '') or '').strip()
+    size_breakdown_display = ', '.join(size_parts) or sizes_note
+
+    gift_enabled = bool(item.get('gift_enabled'))
+    gift_text = (item.get('gift_text') or '').strip()
+    if not gift_enabled and isinstance(order_payload.get('gift'), dict):
+        gift_enabled = bool((order_payload.get('gift') or {}).get('enabled'))
+        gift_text = gift_text or ((order_payload.get('gift') or {}).get('text') or '').strip()
+    elif not gift_enabled and order_payload.get('gift'):
+        gift_enabled = True
+        gift_text = gift_text or (order_payload.get('gift_text') or '').strip()
+
+    quantity = item.get('quantity') or order_payload.get('quantity') or getattr(lead, 'quantity', 1) or 1
+    try:
+        quantity = max(int(quantity), 1)
+    except (TypeError, ValueError):
+        quantity = 1
+
+    moderation_status = getattr(lead, 'moderation_status', '') or item.get('moderation_status') or CustomPrintModerationStatus.DRAFT
+    if lead:
+        moderation_status, _ = _promote_legacy_custom_draft(lead, item)
+    is_draft = moderation_status == CustomPrintModerationStatus.DRAFT
+    is_awaiting = moderation_status == CustomPrintModerationStatus.AWAITING_REVIEW
+    is_approved = moderation_status == CustomPrintModerationStatus.APPROVED
+    is_rejected = moderation_status == CustomPrintModerationStatus.REJECTED
+    is_pending = is_draft or is_awaiting
+
+    final_total = getattr(lead, 'final_price_value', None) if lead is not None else None
+    final_total = _safe_decimal(final_total if final_total is not None else item.get('final_total'))
+    unit_total = _safe_decimal(item.get('unit_total'))
+    if unit_total <= 0:
+        pricing_snapshot = getattr(lead, 'pricing_snapshot_json', None) if lead is not None else {}
+        if isinstance(pricing_snapshot, dict):
+            unit_total = _safe_decimal(pricing_snapshot.get('unit_total') or pricing_snapshot.get('base_price'))
+    if unit_total <= 0 and quantity > 0 and final_total > 0:
+        unit_total = (final_total / Decimal(quantity)).quantize(Decimal('0.01'))
+
+    product_type = item.get('product_type') or product_payload.get('type') or getattr(lead, 'product_type', '')
+    fit_value = item.get('fit') or product_payload.get('fit') or getattr(lead, 'fit', '') or ''
+    fabric_value = item.get('fabric') or product_payload.get('fabric') or getattr(lead, 'fabric', '') or ''
+    color_value = item.get('color') or product_payload.get('color') or getattr(lead, 'color_choice', '') or ''
+    mode_value = item.get('mode') or snapshot.get('mode') or getattr(lead, 'client_kind', '') or 'personal'
+    service_kind = item.get('service_kind') or artwork_payload.get('service_kind') or getattr(lead, 'service_kind', '') or ''
+    file_triage_status = item.get('file_triage_status') or artwork_payload.get('triage_status') or getattr(lead, 'file_triage_status', '') or ''
+    placement_note = (item.get('placement_note') or print_payload.get('placement_note') or getattr(lead, 'placement_note', '') or '').strip()
+    add_on_values = _unique_strings(item.get('add_ons') or print_payload.get('add_ons') or [])
+    add_on_labels = _unique_strings(item.get('add_on_labels') or [ADDON_LABELS.get(value, value) for value in add_on_values])
+
+    payload = {
+        'key': key,
+        'lead_id': item.get('lead_id'),
+        'lead_number': item.get('lead_number') or getattr(lead, 'lead_number', '') or '',
+        'label': item.get('label') or 'Кастомний виріб',
+        'product_type': product_type,
+        'product_label': item.get('product_label') or (getattr(lead, 'pricing_snapshot_json', {}) or {}).get('product_label') or PRODUCT_LABELS.get(product_type, ''),
+        'placements_display': ', '.join(placement_descriptors or zone_labels),
+        'zones_display': ', '.join(zone_labels),
+        'quantity': quantity,
+        'size_mode': item.get('size_mode') or order_payload.get('size_mode') or getattr(lead, 'size_mode', '') or 'single',
+        'size_mode_label': CUSTOM_PRINT_SIZE_MODE_LABELS.get(item.get('size_mode') or order_payload.get('size_mode') or getattr(lead, 'size_mode', ''), ''),
+        'size_breakdown_display': size_breakdown_display,
+        'gift_enabled': gift_enabled,
+        'gift_text': gift_text,
+        'fit': fit_value,
+        'fit_label': FIT_LABELS.get(fit_value, fit_value),
+        'fabric': fabric_value,
+        'fabric_label': FABRIC_LABELS.get(fabric_value, fabric_value),
+        'color': color_value,
+        'mode': mode_value,
+        'b2b_discount_per_unit': item.get('b2b_discount_per_unit') or 0,
+        'service_kind': service_kind,
+        'service_kind_label': SERVICE_LABELS.get(service_kind, service_kind),
+        'file_triage_status': file_triage_status,
+        'file_triage_label': TRIAGE_LABELS.get(file_triage_status, file_triage_status),
+        'placement_note': placement_note,
+        'add_on_labels': add_on_labels,
+        'unit_total': unit_total.quantize(Decimal('0.01')),
+        'line_total': final_total.quantize(Decimal('0.01')),
+        'final_total': final_total.quantize(Decimal('0.01')),
+        'moderation_status': moderation_status,
+        'moderation_status_label': _custom_print_status_label(moderation_status),
+        'is_draft': is_draft,
+        'is_awaiting_review': is_awaiting,
+        'is_approved': is_approved,
+        'is_rejected': is_rejected,
+        'is_pending': is_pending,
+        'manager_note': getattr(lead, 'manager_note', '') if lead is not None else '',
+        'approved_price': getattr(lead, 'approved_price', None) if lead is not None else None,
+        'included_in_payment': is_approved,
+        'price_caption': 'Орієнтовна ціна' if is_pending else ('Фінальна ціна' if is_approved else 'Ціна'),
+        'payment_note': 'Не входить до оплати зараз' if is_pending else ('Додано до рахунку' if is_approved else ''),
+        'pending_price_note': 'Ціна узгоджується після модерації' if is_pending else '',
+        'show_manager_contact': is_pending,
+    }
+
+    session_snapshot = {
+        'lead_id': payload['lead_id'],
+        'lead_number': payload['lead_number'],
+        'label': payload['label'],
+        'product_type': payload['product_type'],
+        'product_label': payload['product_label'],
+        'fit': fit_value,
+        'fabric': fabric_value,
+        'color': color_value,
+        'zones': list(item.get('zones') or print_payload.get('zones') or getattr(lead, 'placements', None) or []),
+        'zone_labels': zone_labels,
+        'placement_specs': placement_specs,
+        'quantity': quantity,
+        'size_mode': payload['size_mode'],
+        'size_breakdown': size_breakdown,
+        'sizes_note': sizes_note,
+        'gift_enabled': gift_enabled,
+        'gift_text': gift_text,
+        'unit_total': str(payload['unit_total']),
+        'final_total': str(payload['final_total']),
+        'mode': mode_value,
+        'b2b_discount_per_unit': item.get('b2b_discount_per_unit') or 0,
+        'service_kind': service_kind,
+        'file_triage_status': file_triage_status,
+        'add_ons': add_on_values,
+        'add_on_labels': add_on_labels,
+        'placement_note': placement_note,
+        'moderation_status': moderation_status,
+    }
+    return payload, session_snapshot
+
+
+def _collect_custom_cart_state(request) -> dict:
+    custom_cart_raw = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
+    if not isinstance(custom_cart_raw, dict):
+        custom_cart_raw = {}
+
+    leads_map = {}
+    lead_ids = [item.get('lead_id') for item in custom_cart_raw.values() if isinstance(item, dict) and item.get('lead_id')]
+    if lead_ids:
+        leads_map = {lead.pk: lead for lead in CustomPrintLead.objects.filter(pk__in=lead_ids)}
+
+    rejected_keys = []
+    session_changed = False
+    any_awaiting_review = False
+    any_rejected = False
+    any_pending_review = False
+    has_draft_items = False
+    has_custom_items = False
+    all_approved = True
+    custom_items_total = Decimal('0')
+    approved_custom_total = Decimal('0')
+    custom_items_qty = 0
+    custom_items = []
+
+    for key, item in list(custom_cart_raw.items()):
+        if not isinstance(item, dict):
+            rejected_keys.append(key)
+            continue
+
+        lead_id = item.get('lead_id')
+        lead = leads_map.get(lead_id) if lead_id else None
+        if lead is not None and lead.moderation_status == CustomPrintModerationStatus.REJECTED:
+            rejected_keys.append(key)
+            continue
+
+        payload, session_snapshot = _build_custom_cart_entry_payload(key, item, lead=lead)
+        if item != {**item, **session_snapshot}:
+            merged = dict(item)
+            merged.update(session_snapshot)
+            custom_cart_raw[key] = merged
+            session_changed = True
+
+        custom_items.append(payload)
+        custom_items_total += payload['final_total']
+        custom_items_qty += payload['quantity']
+        has_custom_items = True
+        if payload['is_pending']:
+            any_pending_review = True
+        if payload['is_draft']:
+            has_draft_items = True
+        if payload['is_awaiting_review']:
+            any_awaiting_review = True
+        if payload['is_rejected']:
+            any_rejected = True
+        if payload['is_approved']:
+            approved_custom_total += payload['final_total']
+        else:
+            all_approved = False
+
+    if rejected_keys:
+        for key in rejected_keys:
+            custom_cart_raw.pop(key, None)
+        session_changed = True
+
+    if session_changed:
+        request.session[SESSION_CUSTOM_CART_KEY] = custom_cart_raw
+        request.session.modified = True
+
+    return {
+        'custom_items': custom_items,
+        'custom_items_total': custom_items_total.quantize(Decimal('0.01')),
+        'approved_custom_total': approved_custom_total.quantize(Decimal('0.01')),
+        'custom_items_qty': custom_items_qty,
+        'has_custom_items': has_custom_items,
+        'any_pending_review': any_pending_review,
+        'any_awaiting_review': any_awaiting_review,
+        'any_rejected': any_rejected,
+        'all_approved': all_approved if has_custom_items else False,
+        'has_draft_items': has_draft_items,
+        'rejected_removed': bool(rejected_keys),
+    }
 
 
 @never_cache
@@ -271,165 +581,27 @@ def view_cart(request):
         checkout_payload_ids = json.dumps(content_ids, ensure_ascii=False)
         checkout_payload_contents = json.dumps(contents, ensure_ascii=False)
 
-    # ── V2 Custom Print items (session-based) ─────────────────
-    custom_cart_raw = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
-    custom_items = []
-    custom_items_total = Decimal('0')
-    custom_items_qty = 0
-    has_custom_items = False
-    any_pending_review = False
-    any_awaiting_review = False
-    any_rejected = False
-    all_approved = True  # True if every custom item is approved; False otherwise
-    has_draft_items = False
+    custom_cart_state = _collect_custom_cart_state(request)
+    custom_items = custom_cart_state['custom_items']
+    custom_items_total = custom_cart_state['custom_items_total']
+    custom_items_qty = custom_cart_state['custom_items_qty']
+    has_custom_items = custom_cart_state['has_custom_items']
+    any_pending_review = custom_cart_state['any_pending_review']
+    any_awaiting_review = custom_cart_state['any_awaiting_review']
+    any_rejected = custom_cart_state['any_rejected']
+    all_approved = custom_cart_state['all_approved']
+    has_draft_items = custom_cart_state['has_draft_items']
+    approved_total = (total + custom_cart_state['approved_custom_total']).quantize(Decimal('0.01'))
 
-    # Fetch fresh CustomPrintLead records for all session lead_ids (source of truth for moderation)
-    leads_map = {}
-    if isinstance(custom_cart_raw, dict):
-        lead_ids = [item.get('lead_id') for item in custom_cart_raw.values()
-                    if isinstance(item, dict) and item.get('lead_id')]
-        if lead_ids:
-            leads_map = {lead.pk: lead for lead in CustomPrintLead.objects.filter(pk__in=lead_ids)}
-
-    # Auto-purge rejected custom items from the session BEFORE rendering — a manager
-    # rejection must remove the item from the customer's cart entirely.
-    if isinstance(custom_cart_raw, dict):
-        rejected_keys = []
-        for key, item in list(custom_cart_raw.items()):
-            if not isinstance(item, dict):
-                continue
-            lead_id = item.get('lead_id')
-            lead_obj = leads_map.get(lead_id) if lead_id else None
-            if lead_obj is not None and lead_obj.moderation_status == CustomPrintModerationStatus.REJECTED:
-                rejected_keys.append(key)
-        if rejected_keys:
-            for key in rejected_keys:
-                custom_cart_raw.pop(key, None)
-            request.session[SESSION_CUSTOM_CART_KEY] = custom_cart_raw
-            request.session.modified = True
-            # Surface a one-time notice so the user understands why items disappeared.
-            try:
-                from django.contrib import messages as dj_messages
-                dj_messages.info(
-                    request,
-                    "Кастомну позицію відхилено менеджером — її видалено з кошика. За потреби ви можете створити нову заявку."
-                )
-            except Exception:
-                pass
-
-    if isinstance(custom_cart_raw, dict):
-        for key, item in custom_cart_raw.items():
-            if not isinstance(item, dict):
-                continue
-            try:
-                qty = int(item.get('quantity') or 1)
-            except (TypeError, ValueError):
-                qty = 1
-            try:
-                unit_total = Decimal(str(item.get('unit_total') or 0))
-            except Exception:
-                unit_total = Decimal('0')
-
-            # Moderation state from DB (fresh), with fallback to session
-            lead_id = item.get('lead_id')
-            lead_obj = leads_map.get(lead_id) if lead_id else None
-            if lead_obj is not None:
-                moderation_status = lead_obj.moderation_status or CustomPrintModerationStatus.DRAFT
-                final_total = lead_obj.final_price_value
-                approved_price = lead_obj.approved_price
-                manager_note = lead_obj.manager_note or ''
-            else:
-                moderation_status = item.get('moderation_status') or CustomPrintModerationStatus.DRAFT
-                try:
-                    final_total = Decimal(str(item.get('final_total') or 0))
-                except Exception:
-                    final_total = Decimal('0')
-                approved_price = None
-                manager_note = ''
-
-            try:
-                final_total = Decimal(str(final_total))
-            except Exception:
-                final_total = Decimal('0')
-
-            zones = item.get('zone_labels') or []
-            size_breakdown = item.get('size_breakdown') or {}
-            size_parts = [f"{s}×{n}" for s, n in size_breakdown.items() if n]
-
-            is_draft = moderation_status == CustomPrintModerationStatus.DRAFT
-            is_awaiting = moderation_status == CustomPrintModerationStatus.AWAITING_REVIEW
-            is_approved = moderation_status == CustomPrintModerationStatus.APPROVED
-            is_rejected = moderation_status == CustomPrintModerationStatus.REJECTED
-
-            if is_draft:
-                has_draft_items = True
-            if is_awaiting:
-                any_awaiting_review = True
-            if is_rejected:
-                any_rejected = True
-            if not is_approved:
-                all_approved = False
-            if is_draft or is_awaiting or is_rejected:
-                any_pending_review = True
-
-            status_label = {
-                CustomPrintModerationStatus.DRAFT: 'Очікує відправки на перевірку',
-                CustomPrintModerationStatus.AWAITING_REVIEW: 'На перевірці менеджера',
-                CustomPrintModerationStatus.APPROVED: 'Погоджено менеджером',
-                CustomPrintModerationStatus.REJECTED: 'Відхилено менеджером',
-            }.get(moderation_status, 'Очікує відправки на перевірку')
-
-            custom_items.append({
-                'key': key,
-                'lead_id': lead_id,
-                'lead_number': item.get('lead_number') or '',
-                'label': item.get('label') or 'Кастомний виріб',
-                'product_label': item.get('product_label') or '',
-                'zones': zones,
-                'zones_display': ', '.join(zones) if zones else '',
-                'quantity': qty,
-                'unit_total': unit_total.quantize(Decimal('0.01')),
-                'final_total': final_total.quantize(Decimal('0.01')),
-                'gift_enabled': bool(item.get('gift_enabled')),
-                'gift_text': item.get('gift_text') or '',
-                'mode': item.get('mode') or 'personal',
-                'fit': item.get('fit') or '',
-                'fabric': item.get('fabric') or '',
-                'color': item.get('color') or '',
-                'b2b_discount_per_unit': item.get('b2b_discount_per_unit') or 0,
-                'size_breakdown_display': ', '.join(size_parts),
-                'moderation_status': moderation_status,
-                'moderation_status_label': status_label,
-                'is_draft': is_draft,
-                'is_awaiting_review': is_awaiting,
-                'is_approved': is_approved,
-                'is_rejected': is_rejected,
-                'approved_price': approved_price,
-                'manager_note': manager_note,
-            })
-            custom_items_total += final_total
-            custom_items_qty += qty
-            has_custom_items = True
-
-    if not has_custom_items:
-        all_approved = False  # No custom items — flag irrelevant
-
-    # Sync fresh moderation state back to session snapshot so other views stay consistent
-    if has_custom_items and isinstance(custom_cart_raw, dict):
-        session_changed = False
-        for item in custom_items:
-            key = item['key']
-            if key in custom_cart_raw and isinstance(custom_cart_raw[key], dict):
-                existing = custom_cart_raw[key]
-                if existing.get('moderation_status') != item['moderation_status']:
-                    existing['moderation_status'] = item['moderation_status']
-                    session_changed = True
-                if str(existing.get('final_total') or '') != str(item['final_total']):
-                    existing['final_total'] = str(item['final_total'])
-                    session_changed = True
-        if session_changed:
-            request.session[SESSION_CUSTOM_CART_KEY] = custom_cart_raw
-            request.session.modified = True
+    if custom_cart_state['rejected_removed']:
+        try:
+            from django.contrib import messages as dj_messages
+            dj_messages.info(
+                request,
+                "Кастомну позицію відхилено менеджером — її видалено з кошика. За потреби ви можете створити нову заявку."
+            )
+        except Exception:
+            pass
 
     # Payment gating: if there are custom items, payment allowed only when ALL are approved.
     # Prepay is disabled whenever custom items exist (manager decides final price).
@@ -441,6 +613,12 @@ def view_cart(request):
         prepay_allowed = True
 
     combined_total = (total + custom_items_total).quantize(Decimal('0.01'))
+    has_payable_items = approved_total > 0
+    if pay_now_amount is not None:
+        if approved_total <= 0:
+            pay_now_amount = Decimal('0.00')
+        else:
+            pay_now_amount = min(pay_now_amount, approved_total)
 
     return render(
         request,
@@ -449,10 +627,12 @@ def view_cart(request):
             'items': cart_items,  # Шаблон ожидает 'items', а не 'cart_items'!
             'cart_items': cart_items,  # Оставляем для совместимости
             'custom_items': custom_items,
-            'custom_items_total': custom_items_total.quantize(Decimal('0.01')),
+            'custom_items_total': custom_items_total,
             'custom_items_qty': custom_items_qty,
             'combined_total': combined_total,
+            'approved_total': approved_total,
             'has_any_items': bool(cart_items) or bool(custom_items),
+            'has_payable_items': has_payable_items,
             'has_custom_items': has_custom_items,
             'any_pending_review': any_pending_review,
             'any_awaiting_review': any_awaiting_review,
@@ -1117,69 +1297,10 @@ def cart_mini(request):
             'offer_id': offer_id,
         })
 
-    # ── V2 Custom print items (session-based) for mini cart ────
-    custom_cart_raw = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
-    custom_items = []
-    custom_items_total = Decimal('0')
-    custom_items_qty = 0
-    if isinstance(custom_cart_raw, dict) and custom_cart_raw:
-        lead_ids = [v.get('lead_id') for v in custom_cart_raw.values()
-                    if isinstance(v, dict) and v.get('lead_id')]
-        leads_map = {lead.pk: lead for lead in CustomPrintLead.objects.filter(pk__in=lead_ids)} if lead_ids else {}
-        # Auto-purge rejected leads from the session
-        rejected_keys = [
-            k for k, v in custom_cart_raw.items()
-            if isinstance(v, dict)
-            and v.get('lead_id')
-            and leads_map.get(v.get('lead_id')) is not None
-            and leads_map[v.get('lead_id')].moderation_status == CustomPrintModerationStatus.REJECTED
-        ]
-        if rejected_keys:
-            for k in rejected_keys:
-                custom_cart_raw.pop(k, None)
-            request.session[SESSION_CUSTOM_CART_KEY] = custom_cart_raw
-            request.session.modified = True
-        for key, item in custom_cart_raw.items():
-            if not isinstance(item, dict):
-                continue
-            try:
-                qty = int(item.get('quantity') or 1)
-            except (TypeError, ValueError):
-                qty = 1
-            lead_id = item.get('lead_id')
-            lead = leads_map.get(lead_id) if lead_id else None
-            if lead is not None:
-                final_total = lead.final_price_value
-                moderation_status = lead.moderation_status or CustomPrintModerationStatus.DRAFT
-            else:
-                try:
-                    final_total = Decimal(str(item.get('final_total') or 0))
-                except Exception:
-                    final_total = Decimal('0')
-                moderation_status = item.get('moderation_status') or CustomPrintModerationStatus.DRAFT
-            try:
-                final_total = Decimal(str(final_total))
-            except Exception:
-                final_total = Decimal('0')
-            status_label = {
-                CustomPrintModerationStatus.DRAFT: 'Чернетка',
-                CustomPrintModerationStatus.AWAITING_REVIEW: 'На перевірці',
-                CustomPrintModerationStatus.APPROVED: 'Погоджено',
-                CustomPrintModerationStatus.REJECTED: 'Відхилено',
-            }.get(moderation_status, '')
-            custom_items.append({
-                'key': key,
-                'lead_id': lead_id,
-                'lead_number': item.get('lead_number') or '',
-                'label': item.get('label') or 'Кастомний виріб',
-                'product_label': item.get('product_label') or '',
-                'quantity': qty,
-                'line_total': final_total.quantize(Decimal('0.01')),
-                'moderation_status': moderation_status,
-                'moderation_status_label': status_label,
-            })
-            custom_items_total += final_total
-            custom_items_qty += qty
+    custom_cart_state = _collect_custom_cart_state(request)
+    custom_items = custom_cart_state['custom_items']
+    custom_items_total = custom_cart_state['custom_items_total']
+    custom_items_qty = custom_cart_state['custom_items_qty']
 
     combined_total = total + float(custom_items_total)
 
@@ -1188,7 +1309,7 @@ def cart_mini(request):
         'total': total,
         'total_points': total_points,
         'custom_items': custom_items,
-        'custom_items_total': custom_items_total.quantize(Decimal('0.01')),
+        'custom_items_total': custom_items_total,
         'custom_items_qty': custom_items_qty,
         'combined_total': combined_total,
         'has_any_items': bool(items) or bool(custom_items),
@@ -1428,128 +1549,36 @@ def cart_items_api(request):
     total = total.quantize(Decimal('0.01'))
     total_savings = (site_discount_total + discount).quantize(Decimal('0.01'))
 
-    # ── Custom print items (session-based) for API response ──
-    custom_cart_raw = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
-    custom_items_payload = []
-    custom_items_total = Decimal('0')
-    custom_items_qty = 0
-    has_custom_items = False
-    any_awaiting_review = False
-    any_rejected = False
-    all_approved = True
-    if isinstance(custom_cart_raw, dict) and custom_cart_raw:
-        lead_ids = [v.get('lead_id') for v in custom_cart_raw.values()
-                    if isinstance(v, dict) and v.get('lead_id')]
-        leads_map = {lead.pk: lead for lead in CustomPrintLead.objects.filter(pk__in=lead_ids)} if lead_ids else {}
-        # Auto-purge rejected leads from the session so JSON reflects removal.
-        rejected_keys = [
-            k for k, v in custom_cart_raw.items()
-            if isinstance(v, dict)
-            and v.get('lead_id')
-            and leads_map.get(v.get('lead_id')) is not None
-            and leads_map[v.get('lead_id')].moderation_status == CustomPrintModerationStatus.REJECTED
-        ]
-        if rejected_keys:
-            for k in rejected_keys:
-                custom_cart_raw.pop(k, None)
-            request.session[SESSION_CUSTOM_CART_KEY] = custom_cart_raw
-            request.session.modified = True
-        for key, item in custom_cart_raw.items():
-            if not isinstance(item, dict):
-                continue
-            try:
-                qty = int(item.get('quantity') or 1)
-            except (TypeError, ValueError):
-                qty = 1
-            lead_id = item.get('lead_id')
-            lead = leads_map.get(lead_id) if lead_id else None
-            if lead is not None:
-                moderation_status = lead.moderation_status or CustomPrintModerationStatus.DRAFT
-                final_total = lead.final_price_value
-                manager_note = lead.manager_note or ''
-            else:
-                moderation_status = item.get('moderation_status') or CustomPrintModerationStatus.DRAFT
-                try:
-                    final_total = Decimal(str(item.get('final_total') or 0))
-                except Exception:
-                    final_total = Decimal('0')
-                manager_note = ''
-            try:
-                final_total = Decimal(str(final_total))
-            except Exception:
-                final_total = Decimal('0')
-            try:
-                unit_total = Decimal(str(item.get('unit_total') or 0))
-            except Exception:
-                unit_total = Decimal('0')
-            status_label = {
-                CustomPrintModerationStatus.DRAFT: 'Очікує відправки на перевірку',
-                CustomPrintModerationStatus.AWAITING_REVIEW: 'На перевірці менеджера',
-                CustomPrintModerationStatus.APPROVED: 'Погоджено менеджером',
-                CustomPrintModerationStatus.REJECTED: 'Відхилено менеджером',
-            }.get(moderation_status, '')
-            is_draft = moderation_status == CustomPrintModerationStatus.DRAFT
-            is_awaiting = moderation_status == CustomPrintModerationStatus.AWAITING_REVIEW
-            is_approved = moderation_status == CustomPrintModerationStatus.APPROVED
-            is_rejected = moderation_status == CustomPrintModerationStatus.REJECTED
-            if is_awaiting:
-                any_awaiting_review = True
-            if is_rejected:
-                any_rejected = True
-            if not is_approved:
-                all_approved = False
-            zones = item.get('zone_labels') or []
-            size_breakdown = item.get('size_breakdown') or {}
-            size_parts = [f"{s}×{n}" for s, n in size_breakdown.items() if n]
-            custom_items_payload.append({
-                'key': key,
-                'lead_id': lead_id,
-                'lead_number': item.get('lead_number') or '',
-                'label': item.get('label') or 'Кастомний виріб',
-                'product_label': item.get('product_label') or '',
-                'zones_display': ', '.join(zones) if zones else '',
-                'quantity': qty,
-                'unit_total': float(unit_total.quantize(Decimal('0.01'))),
-                'line_total': float(final_total.quantize(Decimal('0.01'))),
-                'final_total': float(final_total.quantize(Decimal('0.01'))),
-                'color': item.get('color') or '',
-                'fit': item.get('fit') or '',
-                'size_breakdown_display': ', '.join(size_parts),
-                'moderation_status': moderation_status,
-                'moderation_status_label': status_label,
-                'is_draft': is_draft,
-                'is_awaiting_review': is_awaiting,
-                'is_approved': is_approved,
-                'is_rejected': is_rejected,
-                'manager_note': manager_note,
-            })
-            custom_items_total += final_total
-            custom_items_qty += qty
-            has_custom_items = True
-
-    if not has_custom_items:
-        all_approved = False
-
+    custom_cart_state = _collect_custom_cart_state(request)
+    custom_items_total = custom_cart_state['custom_items_total']
+    custom_items_qty = custom_cart_state['custom_items_qty']
+    has_custom_items = custom_cart_state['has_custom_items']
+    any_awaiting_review = custom_cart_state['any_awaiting_review']
+    any_rejected = custom_cart_state['any_rejected']
+    all_approved = custom_cart_state['all_approved']
     combined_total = (total + custom_items_total).quantize(Decimal('0.01'))
-    approved_total = total
-    if has_custom_items:
-        approved_total = sum(
-            (Decimal(str(ci['final_total'])) for ci in custom_items_payload if ci['is_approved']),
-            Decimal('0')
-        ) + total
+    approved_total = (total + custom_cart_state['approved_custom_total']).quantize(Decimal('0.01'))
+
+    custom_items_payload = []
+    for ci in custom_cart_state['custom_items']:
+        payload = dict(ci)
+        payload['unit_total'] = float(ci['unit_total'])
+        payload['line_total'] = float(ci['line_total'])
+        payload['final_total'] = float(ci['final_total'])
+        custom_items_payload.append(payload)
 
     return JsonResponse({
         'ok': True,
         'items': cart_items,
         'custom_items': custom_items_payload,
-        'custom_items_total': float(custom_items_total.quantize(Decimal('0.01'))),
+        'custom_items_total': float(custom_items_total),
         'custom_items_qty': custom_items_qty,
         'has_custom_items': has_custom_items,
         'any_awaiting_review': any_awaiting_review,
         'any_rejected': any_rejected,
         'all_approved': all_approved,
         'combined_total': float(combined_total),
-        'approved_total': float(approved_total.quantize(Decimal('0.01'))),
+        'approved_total': float(approved_total),
         'prepay_allowed': not has_custom_items,
         'payment_allowed': (not has_custom_items) or all_approved,
         'subtotal': float(subtotal),
