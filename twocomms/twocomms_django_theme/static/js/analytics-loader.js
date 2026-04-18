@@ -1343,25 +1343,31 @@
   setupGlobalEventBridge();
   
   // PERF OPTIMIZATION: Defer pixel loading to improve PageSpeed TBT score
-  // Pixels will be loaded on user interaction OR after delay (whichever first)
+  // Pixels will be loaded on user interaction OR after idle window (whichever first).
+  // Mobile-safe: skip mousemove (too noisy), prefer pointerdown.
   var pixelsLoaded = false;
-  var interactionEvents = ['scroll', 'click', 'touchstart', 'mousemove'];
-  
+  var interactionEvents = ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown'];
+  var deviceClass = (doc.documentElement.dataset.deviceClass || '').toLowerCase();
+  var isLowDevice = deviceClass === 'low';
+
   function initializePixelsDeferred() {
     if (pixelsLoaded) return;
     pixelsLoaded = true;
-    
+
     // Remove interaction listeners
     interactionEvents.forEach(function(evt) {
       win.removeEventListener(evt, initializePixelsDeferred, {passive: true, capture: true});
     });
-    
+
     if (console && console.log) {
-      console.log('[Analytics] Initializing pixels (deferred)...');
+      console.log('[Analytics] Initializing pixels (deferred, deviceClass=' + (deviceClass || 'unknown') + ')');
     }
-    
+
     loadMetaPixel();
-    loadTikTokPixel();
+    // TikTok pixel ~250 KB unused JS — пропускаем на low-end устройствах до реального интереса.
+    if (!isLowDevice) {
+      loadTikTokPixel();
+    }
     
     // Проверяем что пиксели загрузились (для отладки)
     setTimeout(function() {
@@ -1392,9 +1398,15 @@
     win.addEventListener(evt, initializePixelsDeferred, {passive: true, capture: true, once: true});
   });
   
-  // Fallback: Load after 3s timeout to ensure pixels work if no interaction
-  // This balances PageSpeed vs analytics tracking
-  setTimeout(initializePixelsDeferred, 3000);
+  // Fallback: Load after idle window to ensure pixels work if no interaction.
+  // Раньше был setTimeout(..., 3000) — на mobile это давало post-load long tasks.
+  // Используем requestIdleCallback с большим timeout, fallback на 10s setTimeout.
+  var idleDelay = isLowDevice ? 15000 : 8000;
+  if (typeof win.requestIdleCallback === 'function') {
+    win.requestIdleCallback(initializePixelsDeferred, { timeout: idleDelay });
+  } else {
+    setTimeout(initializePixelsDeferred, idleDelay);
+  }
   
   // Also try on window.load as safety net
   win.addEventListener('load', function() {
@@ -1428,7 +1440,20 @@
   }
   win.addEventListener('pageshow', handleBFCacherestore);
   
-  // Остальные скрипты загружаем с задержкой для оптимизации
-  schedule(loadGoogleAnalytics, 2000);
-  schedule(loadClarity, 3000);
+  // Остальные скрипты загружаем c большей задержкой + предпочтительно в idle-окно.
+  // GA4 — важнее для атрибуции, поэтому раньше; Clarity — рекординг, поздно.
+  // На low-device класс Clarity не грузится вообще до явной интеракции через pixelsDeferred trigger.
+  var gaDelay = isLowDevice ? 12000 : 6000;
+  var clarityDelay = isLowDevice ? 30000 : 15000;
+  if (typeof win.requestIdleCallback === 'function') {
+    win.requestIdleCallback(function () { schedule(loadGoogleAnalytics, 0); }, { timeout: gaDelay });
+    if (!isLowDevice) {
+      win.requestIdleCallback(function () { schedule(loadClarity, 0); }, { timeout: clarityDelay });
+    }
+  } else {
+    schedule(loadGoogleAnalytics, gaDelay);
+    if (!isLowDevice) {
+      schedule(loadClarity, clarityDelay);
+    }
+  }
 })(window, document);

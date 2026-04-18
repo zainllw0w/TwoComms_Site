@@ -1,11 +1,12 @@
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('../fonts/Inter-Regular.woff2') format('woff2'),
-    url('../fonts/Inter-Regular.ttf') format('truetype');
-}
+/*
+ * Inter webfont declarations.
+ * Weights 400 и 700 объявлены inline в base.html (critical path + preload),
+ * здесь остаются только 500 и 600 — чтобы не дублировать загрузку
+ * (аудит 2026-04-18 зафиксировал повторную загрузку Regular/Bold по двум URL).
+ *
+ * Если странице нужен weight, которого нет в файле (800/900),
+ * браузер использует synthetic bold от weight 700 — визуально идентично.
+ */
 
 @font-face {
   font-family: 'Inter';
@@ -23,13 +24,4 @@
   font-display: swap;
   src: url('../fonts/Inter-SemiBold.woff2') format('woff2'),
     url('../fonts/Inter-SemiBold.ttf') format('truetype');
-}
-
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('../fonts/Inter-Bold.woff2') format('woff2'),
-    url('../fonts/Inter-Bold.ttf') format('truetype');
 }

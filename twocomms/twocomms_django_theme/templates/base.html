@@ -17,11 +17,14 @@
   <link rel="preload" href="{% static 'fonts/Inter-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="{% static 'fonts/Inter-Bold.woff2' %}" as="font" type="font/woff2" crossorigin>
 
-  <!-- Font Awesome: non-blocking load (icons not critical for first paint) -->
+  {# Font Awesome: non-blocking load (icons not critical for first paint).
+     Pages without FA icons (e.g. home) override the `fontawesome_css` block to skip the load. #}
+  {% block fontawesome_css %}
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}" media="print" onload="this.media='all'">
   <noscript>
     <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
   </noscript>
+  {% endblock %}
 
   <!-- Расширенные SEO Meta Tags -->
   {% block seo_meta %}
@@ -100,37 +103,55 @@
   <link rel='mask-icon' href='{% static "img/logo.svg" %}' color='#7c3aed'>
   <link rel='icon' href='{% static "img/favicon.ico" %}' sizes='any' type='image/x-icon'>
 
-  <!-- Early performance hint: enable lite mode for mobile/save-data/low-memory/low-CPU -->
+  <!-- Early performance hint: enable lite mode for mobile/save-data/low-memory/low-CPU.
+       Unified device-class detector (Phase 3.1): sets data-device-class="low|mid|high"
+       AND backward-compatible classes (effects-lite / effects-high / perf-lite) that
+       существующие JS-модули и CSS-правила уже используют. -->
   <script>(function () {
       try {
         var docEl = document.documentElement;
         var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-        var saveData = connection && connection.saveData;
+        var saveData = !!(connection && connection.saveData);
+        var effType = (connection && connection.effectiveType) || '';
+        var slowNet = /(^|\b)(2g|slow-2g)($|\b)/i.test(effType);
         var deviceMemory = Number(navigator.deviceMemory || 0);
         var cpuCores = Number(navigator.hardwareConcurrency || 0);
-        var lowRam = deviceMemory && deviceMemory > 0 && deviceMemory <= 2;
-        var lowCPU = cpuCores && cpuCores <= 2;
-        var isMobile = window.innerWidth < 768;
+        var lowRam = deviceMemory > 0 && deviceMemory <= 2;
+        var lowCPU = cpuCores > 0 && cpuCores <= 2;
+        var midRam = deviceMemory > 0 && deviceMemory <= 4;
+        var midCPU = cpuCores > 0 && cpuCores <= 4;
+        var isNarrow = window.innerWidth <= 768;
+        var prefersReducedMotion = false;
+        try { prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) {}
         var storedMode = null;
-        try {
-          storedMode = window.localStorage ? localStorage.getItem('twc-effects-mode') : null;
-        } catch (_) { storedMode = null; }
-        // Уважаем ручной "high", но не фиксируем "lite", если устройство мощное
-        var forceLite = (storedMode === 'lite') && (saveData || lowRam || lowCPU);
-        var forceHigh = storedMode === 'high';
-        // Auto perf-lite: только при реальных ограничениях, а не просто из-за ширины
-        // (иначе на мощных телефонах отключаются эффекты)
-        var needsLite = saveData || lowRam || lowCPU;
-        if (forceLite || (!forceHigh && needsLite)) {
+        try { storedMode = window.localStorage ? localStorage.getItem('twc-effects-mode') : null; } catch (_) {}
+
+        // Классификация: low — явные ограничения; mid — узкий/средний девайс; high — остальное.
+        var deviceClass = 'high';
+        if (saveData || slowNet || lowRam || lowCPU) deviceClass = 'low';
+        else if (midRam || midCPU || isNarrow) deviceClass = 'mid';
+
+        // Ручные override через localStorage — пользователь всегда может зафиксировать.
+        if (storedMode === 'lite' && (saveData || lowRam || lowCPU || midRam || midCPU)) deviceClass = 'low';
+        if (storedMode === 'high') deviceClass = 'high';
+
+        docEl.dataset.deviceClass = deviceClass;
+        if (prefersReducedMotion) docEl.dataset.reducedMotion = '1';
+
+        // Backward-compat: существующие стили опираются на effects-lite / perf-lite.
+        if (deviceClass === 'low') {
           docEl.classList.remove('effects-high');
-          docEl.classList.add('effects-lite');
-          docEl.classList.add('perf-lite');
+          docEl.classList.add('effects-lite', 'perf-lite');
         } else {
-          docEl.classList.remove('effects-lite');
+          docEl.classList.remove('effects-lite', 'perf-lite');
           docEl.classList.add('effects-high');
         }
       } catch (e) { }
     })();</script>
+
+  <!-- SSR-маркеры «нужна ли синхронизация бейджа». Если cart/favs пусты —
+       фронт не делает /cart/summary/ и /favorites/count/ (экономия 2 HTTP). -->
+  <script>window.__TC_SYNC_CART={{ sync_cart_badge|yesno:"true,false" }};window.__TC_SYNC_FAVS={{ sync_favorites_badge|yesno:"true,false" }};</script>
 
   <!-- Critical CSS inline для быстрой отрисовки с CLS исправлениями -->
   <style>
@@ -1576,7 +1597,10 @@
     });
   </script>
 
-  <!-- Модальное окно с информацией о баллах -->
+  <!-- Модальное окно с информацией о баллах — lazy-mount через <template>, чтобы
+       не раздувать initial DOM (~90 узлов). Монтируется на первый клик по триггеру
+       [data-bs-target="#pointsInfoModal"] или на idle после LCP. -->
+  <template id="points-modal-template">
   <div class="modal fade" id="pointsInfoModal" tabindex="-1" aria-labelledby="pointsInfoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content points-info-modal">
@@ -1667,23 +1691,43 @@
       </div>
     </div>
   </div>
+  </template>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      // Обработчик для модального окна с информацией о баллах
-      const pointsInfoModal = document.getElementById('pointsInfoModal');
-      if (pointsInfoModal) {
-        pointsInfoModal.addEventListener('show.bs.modal', function (event) {
-          const button = event.relatedTarget;
-          const productTitle = button.getAttribute('data-product-title');
-          const pointsAmount = button.getAttribute('data-points-amount');
-
-          // Обновляем содержимое модального окна
-          document.getElementById('modalProductTitle').textContent = productTitle;
-          document.getElementById('modalPointsAmount').textContent = pointsAmount;
-        });
-      }
-    });
+    (function () {
+      var mounted = false;
+      var mountPointsModal = function () {
+        if (mounted) return null;
+        var tpl = document.getElementById('points-modal-template');
+        if (!tpl) return null;
+        var frag = tpl.content.cloneNode(true);
+        document.body.appendChild(frag);
+        mounted = true;
+        var modal = document.getElementById('pointsInfoModal');
+        if (modal) {
+          modal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            if (!button) return;
+            var productTitle = button.getAttribute('data-product-title');
+            var pointsAmount = button.getAttribute('data-points-amount');
+            var titleEl = document.getElementById('modalProductTitle');
+            var amountEl = document.getElementById('modalPointsAmount');
+            if (titleEl) titleEl.textContent = productTitle || '';
+            if (amountEl) amountEl.textContent = pointsAmount || '';
+          });
+        }
+        return modal;
+      };
+      // Lazy-mount: в первую очередь по клику на триггер (capture перед Bootstrap).
+      document.addEventListener('click', function (e) {
+        if (mounted) return;
+        var t = e.target && e.target.closest && e.target.closest('[data-bs-target="#pointsInfoModal"]');
+        if (t) mountPointsModal();
+      }, true);
+      // Fallback idle-mount: чтобы первое открытие не ждало кодогенерации шаблона.
+      var idle = window.requestIdleCallback || function (cb) { return setTimeout(cb, 1500); };
+      idle(function () { mountPointsModal(); }, { timeout: 5000 });
+    })();
   </script>
 
   <style>

@@ -32,6 +32,43 @@ def orders_processing_count(request):
     }
 
 
+def user_state_hint(request):
+    """
+    Дёшевый маркер «есть ли что синхронизировать»: если у анонимного пользователя
+    нет ни cart, ни session favorites, клиентские fetch-и /cart/summary/ и
+    /favorites/count/ бессмысленны (вернут 0). Фронт читает `window.__TC_SYNC_BADGES`
+    и пропускает запросы, если маркер = false. После любого действия (add to cart/fav)
+    сессия заполнится → следующая страница разрешит fetch.
+
+    Нет DB-запросов. Для авторизованных — всегда true (у них может быть избранное в БД).
+    """
+    has_cart = False
+    has_favs = False
+    try:
+        cart = request.session.get('cart')
+        if isinstance(cart, dict) and cart:
+            has_cart = True
+        if not has_cart:
+            custom_cart = request.session.get('custom_cart')
+            if isinstance(custom_cart, dict) and custom_cart:
+                has_cart = True
+    except Exception:
+        has_cart = True  # не мешаем работе при ошибке
+    try:
+        if request.user.is_authenticated:
+            has_favs = True
+        else:
+            session_favs = request.session.get('favorites')
+            has_favs = bool(session_favs)
+    except Exception:
+        has_favs = True
+
+    return {
+        'sync_cart_badge': has_cart,
+        'sync_favorites_badge': has_favs,
+    }
+
+
 def analytics_settings(request):
     """
     Контекстный процессор для добавления настроек аналитики в шаблоны
