@@ -668,532 +668,34 @@ function toggleMiniCart() {
   if (panel.classList.contains('d-none') || !panel.classList.contains('show')) openMiniCart(); else closeMiniCart();
 }
 
-function getCheckoutAnalyticsPayload() {
-  const el = document.getElementById('checkout-payload');
-  if (!el) return null;
-  let contents = [];
-  let ids = [];
-  const rawContents = el.dataset.contents ? decodeURIComponent(el.dataset.contents) : '[]';
-  const rawIds = el.dataset.ids ? decodeURIComponent(el.dataset.ids) : '[]';
-  try { contents = JSON.parse(rawContents || '[]'); } catch (_) { contents = []; }
-  try { ids = JSON.parse(rawIds || '[]'); } catch (_) { ids = []; }
-  const value = parseFloat(el.dataset.value || '0');
-  const currency = el.dataset.currency || 'UAH';
-  let numItems = parseInt(el.dataset.numItems || '0', 10);
-  if (Number.isNaN(numItems) || numItems <= 0) {
-    numItems = contents.reduce((acc, item) => acc + (item.quantity || 0), 0);
-    if (!numItems && ids.length) {
-      numItems = ids.length;
-    }
-  }
-  return { contents, content_ids: ids, value, currency, num_items: numItems };
-}
-
-function getMonoCheckoutStatus(button) {
-  if (!button) return null;
-  const explicit = button.getAttribute('data-mono-status');
-  if (explicit) {
-    try { return document.querySelector(explicit); } catch (_) { return null; }
-  }
-  const scope = button.closest('[data-mono-status-scope]') || button.closest('.vstack') || button.parentElement;
-  if (scope) {
-    const el = scope.querySelector('[data-mono-checkout-status]');
-    if (el) return el;
-  }
-  return null;
-}
-
-function setMonoCheckoutStatus(statusEl, type, message) {
-  if (!statusEl) return;
-  statusEl.textContent = message || '';
-  statusEl.classList.remove('error', 'success', 'text-danger', 'text-success');
-  if (type === 'error') {
-    statusEl.classList.remove('text-secondary');
-    statusEl.classList.add('error', 'text-danger');
-  } else if (type === 'success') {
-    statusEl.classList.remove('text-secondary');
-    statusEl.classList.add('success', 'text-success');
-  } else {
-    if (!statusEl.classList.contains('text-secondary')) statusEl.classList.add('text-secondary');
-  }
-}
-
-function toggleMonoCheckoutLoading(button, isLoading) {
-  if (!button) return;
-  if (isLoading) {
-    button.setAttribute('aria-busy', 'true');
-    button.disabled = true;
-    button.classList.add('loading');
-  } else {
-    button.removeAttribute('aria-busy');
-    button.disabled = false;
-    button.classList.remove('loading');
-  }
-}
-
-function collectMonoCsrf() {
-  const meta = document.querySelector('meta[name="csrf-token"]');
-  if (meta && meta.getAttribute) {
-    const token = meta.getAttribute('content');
-    if (token) return token;
-  }
-  const input = document.querySelector('[name="csrfmiddlewaretoken"]');
-  if (input && 'value' in input && input.value) {
-    return input.value;
-  }
-  if (typeof getCookie === 'function') {
-    return getCookie('csrftoken');
-  }
-  return '';
-}
-
-function resolveMonoProductContext(button) {
-  const context = {
-    productId: null,
-    size: '',
-    qty: 1,
-    colorVariantId: null
-  };
-  if (!button) return context;
-
-  context.productId = button.getAttribute('data-product-id');
-
-  const rootSelector = button.getAttribute('data-product-root');
-  let root = null;
-  if (rootSelector) {
-    try { root = document.querySelector(rootSelector); } catch (_) { root = null; }
-  }
-  if (!root) root = button.closest('[data-product-container]');
-  const find = (selector) => root ? root.querySelector(selector) : document.querySelector(selector);
-
-  const checkedSize = find('input[name="size"]:checked');
-  if (checkedSize) context.size = checkedSize.value;
-  if (!context.size) {
-    const sizeInput = find('input[name="size"]');
-    if (sizeInput) context.size = sizeInput.value;
-  }
-  context.size = (context.size || '').toString().trim();
-
-  const qtyInput = find('#qty');
-  if (qtyInput) {
-    const parsed = parseInt(qtyInput.value, 10);
-    if (Number.isFinite(parsed) && parsed > 0) context.qty = parsed;
-  }
-
-  const colorActive = find('#color-picker .color-swatch.active') || document.querySelector('#color-picker .color-swatch.active');
-  if (colorActive) context.colorVariantId = colorActive.getAttribute('data-variant');
-
-  return context;
-}
-
-function addProductToCartForMono(button) {
-  const context = resolveMonoProductContext(button);
-  const productId = context.productId;
-  if (!productId) return Promise.resolve();
-
-  const body = new URLSearchParams();
-  body.append('product_id', String(productId));
-  body.append('size', (context.size || 'S').toUpperCase());
-  body.append('qty', String(context.qty));
-  if (context.colorVariantId) body.append('color_variant_id', context.colorVariantId);
-
-  const csrfToken = collectMonoCsrf();
-
-  return fetch('/cart/add/', {
-    method: 'POST',
-    headers: {
-      'X-CSRFToken': csrfToken || '',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-    },
-    body
-  })
-    .then(r => {
-      if (!r.ok) throw new Error('Не вдалося додати товар до кошика. Спробуйте ще раз.');
-      return r.json();
-    })
-    .then(data => {
-      if (!(data && data.ok)) {
-        const message = data && data.error ? data.error : 'Не вдалося додати товар до кошика. Спробуйте ще раз.';
-        throw new Error(message);
-      }
-      try { if (typeof data.count === 'number' && window.updateCartBadge) window.updateCartBadge(data.count); } catch (_) { }
-      try { if (window.refreshMiniCart) window.refreshMiniCart(); } catch (_) { }
-      try { if (window.refreshCartSummary) window.refreshCartSummary(); } catch (_) { }
-      return data;
+// Mono/Monobank checkout — extracted to modules/checkout-mono.js (Phase 2.1).
+// The module is loaded lazily on first detection of a mono/monobank trigger.
+window.__twcMono = {
+  readGuestStorageValue: readGuestStorageValue,
+  buildMetaWithUserData: buildMetaWithUserData,
+  safeGenerateAnalyticsEventId: safeGenerateAnalyticsEventId,
+};
+let __monoModulePromise = null;
+function __loadMonoModule() {
+  if (!__monoModulePromise) {
+    __monoModulePromise = import('./modules/checkout-mono.js').catch((err) => {
+      __monoModulePromise = null;
+      throw err;
     });
-}
-
-function requestMonoCheckout() {
-  const csrfToken = collectMonoCsrf();
-  // Collect guest form fields if present (for unauthenticated users)
-  const guestForm = document.getElementById('guest-form');
-  let payload = {};
-  const getAnyVal = (name) => {
-    const fromForm = guestForm && guestForm.querySelector(`[name="${name}"]`);
-    if (fromForm && 'value' in fromForm) return (fromForm.value || '').trim();
-    const anywhere = document.querySelector(`[name="${name}"]`);
-    if (anywhere && 'value' in anywhere) {
-      return (anywhere.value || '').trim();
-    }
-    return readGuestStorageValue(name);
-  };
-  if (guestForm || document.querySelector('[name="full_name"]') || document.querySelector('[name="phone"]')) {
-    payload = {
-      full_name: getAnyVal('full_name'),
-      phone: getAnyVal('phone'),
-      city: getAnyVal('city'),
-      np_office: getAnyVal('np_office'),
-      pay_type: getAnyVal('pay_type') || 'online_full',
-      email: getAnyVal('email')
-    };
   }
-  return fetch('/cart/monobank/quick/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': csrfToken || '',
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    credentials: 'same-origin',
-    body: JSON.stringify(payload)
-  }).then(response => response.json().then(data => ({ data, status: response.status, ok: response.ok })).catch(() => ({ data: null, status: response.status, ok: false })));
+  return __monoModulePromise;
 }
-
-function requestMonoCheckoutSingleProduct(button) {
-  const csrfToken = collectMonoCsrf();
-  const context = resolveMonoProductContext(button);
-
-  if (!context.productId) {
-    return Promise.resolve({ data: { success: false, error: 'Товар недоступний.' }, status: 400, ok: false });
-  }
-
-  const payload = {
-    product_id: context.productId,
-    size: (context.size || 'S').toUpperCase(),
-    qty: context.qty,
-    single_product: true
-  };
-  if (context.colorVariantId) payload.color_variant_id = context.colorVariantId;
-  // Include guest fields if present
-  const guestForm = document.getElementById('guest-form');
-  const getAnyVal = (name) => {
-    const fromForm = guestForm && guestForm.querySelector(`[name="${name}"]`);
-    if (fromForm && 'value' in fromForm) return (fromForm.value || '').trim();
-    const anywhere = document.querySelector(`[name="${name}"]`);
-    if (anywhere && 'value' in anywhere) {
-      return (anywhere.value || '').trim();
-    }
-    return readGuestStorageValue(name);
-  };
-  if (guestForm || document.querySelector('[name="full_name"]') || document.querySelector('[name="phone"]')) {
-    payload.full_name = getAnyVal('full_name');
-    payload.phone = getAnyVal('phone');
-    payload.city = getAnyVal('city');
-    payload.np_office = getAnyVal('np_office');
-    payload.pay_type = getAnyVal('pay_type') || 'online_full';
-    payload.email = getAnyVal('email');
-  }
-
-  return fetch('/cart/monobank/quick/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': csrfToken || '',
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    credentials: 'same-origin',
-    body: JSON.stringify(payload)
-  }).then(response => response.json().then(data => ({ data, status: response.status, ok: response.ok })).catch(() => ({ data: null, status: response.status, ok: false })));
-}
-
-function startMonoCheckout(button, statusEl, options) {
-  const opts = options || {};
-  setMonoCheckoutStatus(statusEl, '', '');
-  toggleMonoCheckoutLoading(button, true);
-
-  const triggerType = button.getAttribute('data-mono-checkout-trigger');
-  const isSingleProduct = triggerType === 'product';
-
-  let requestPromise;
-  if (isSingleProduct) {
-    // Для кнопки в детальном товаре создаем заказ на один товар
-    requestPromise = requestMonoCheckoutSingleProduct(button);
-  } else {
-    // Для миникорзины используем корзину
-    const ensureProduct = opts.ensureProduct ? addProductToCartForMono(button) : Promise.resolve();
-    requestPromise = ensureProduct.then(() => requestMonoCheckout());
-  }
-
-  return requestPromise
-    .then(result => {
-      const data = result.data || {};
-      if (result.ok && data.success && data.redirect_url) {
-        setMonoCheckoutStatus(statusEl, 'success', 'Відкриваємо mono checkout…');
-        const analytics = getCheckoutAnalyticsPayload();
-        try {
-          if (window.trackEvent && analytics) {
-            const eventId = data.add_payment_event_id || safeGenerateAnalyticsEventId();
-            const meta = buildMetaWithUserData(eventId);
-            window.trackEvent('AddPaymentInfo', {
-              value: analytics.value,
-              currency: analytics.currency,
-              num_items: analytics.num_items,
-              payment_method: 'monobank',
-              content_ids: analytics.content_ids,
-              contents: analytics.contents,
-              event_id: eventId,
-              __meta: meta
-            });
-          }
-        } catch (_) { }
-        window.location.href = data.redirect_url;
-        return;
-      }
-      let message = (data && data.error) ? data.error : 'Не вдалося створити платіж. Спробуйте ще раз.';
-      if (result.status === 401) {
-        message = 'Увійдіть, щоб скористатися mono checkout.';
-      }
-      setMonoCheckoutStatus(statusEl, 'error', message);
-      throw new Error(message);
-    })
-    .catch(err => {
-      if (err && err.message) {
-        setMonoCheckoutStatus(statusEl, 'error', err.message);
-      }
-    })
-    .finally(() => {
-      toggleMonoCheckoutLoading(button, false);
-    });
-}
-
 function bindMonoCheckout(scope) {
   const root = scope || document;
-  const buttons = root.querySelectorAll('[data-mono-checkout-trigger]');
-
-  buttons.forEach((button) => {
-    if (!button || button.dataset.monoCheckoutBound === '1') return;
-    button.dataset.monoCheckoutBound = '1';
-    const statusEl = getMonoCheckoutStatus(button);
-    const triggerType = button.getAttribute('data-mono-checkout-trigger');
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      if (button.disabled) return;
-      const options = { ensureProduct: triggerType === 'product' };
-      startMonoCheckout(button, statusEl, options);
-      const analytics = getCheckoutAnalyticsPayload();
-      if (analytics) {
-        try {
-          const eventId = safeGenerateAnalyticsEventId();
-          try {
-            if (window.__twcAnalytics && typeof window.__twcAnalytics.pushBeginCheckoutEvent === 'function') {
-              window.__twcAnalytics.pushBeginCheckoutEvent(analytics, {
-                eventId,
-                eventLabel: triggerType === 'product' ? 'Mono checkout product' : 'Mono checkout cart'
-              });
-            }
-          } catch (helperErr) {
-            if (console && console.debug) {
-              console.debug('begin_checkout dataLayer error:', helperErr);
-            }
-          }
-          if (window.trackEvent) {
-            const meta = buildMetaWithUserData(eventId);
-            window.trackEvent('InitiateCheckout', {
-              value: analytics.value,
-              currency: analytics.currency,
-              num_items: analytics.num_items,
-              payment_method: 'monobank',
-              content_ids: analytics.content_ids,
-              contents: analytics.contents,
-              event_id: eventId,
-              __meta: meta
-            });
-          }
-        } catch (_) { }
-      }
-    });
-  });
+  if (!root || typeof root.querySelector !== 'function') return;
+  if (!root.querySelector('[data-mono-checkout-trigger]')) return;
+  __loadMonoModule().then((m) => { try { m.bindMonoCheckout(root); } catch (_) {} }).catch(() => {});
 }
-
-// Monobank Pay (эквайринг) функции
-function requestMonobankPay() {
-  const csrfToken = collectMonoCsrf();
-  // Collect guest form fields if present
-  const guestForm = document.getElementById('guest-form');
-  let payload = {};
-  const getAnyVal = (name) => {
-    const fromForm = guestForm && guestForm.querySelector(`[name="${name}"]`);
-    if (fromForm && 'value' in fromForm) return (fromForm.value || '').trim();
-    const anywhere = document.querySelector(`[name="${name}"]`);
-    return anywhere && 'value' in anywhere ? (anywhere.value || '').trim() : '';
-  };
-  // Специальная функция для pay_type - учитываем pay_type_auth и pay_type_guest
-  const getPayType = () => {
-    console.log('🔍 getPayType() called');
-    if (guestForm) {
-      const guestPayType = document.getElementById('pay_type_guest');
-      console.log('🔍 Guest form found, pay_type_guest element:', guestPayType);
-      if (guestPayType && guestPayType.value) {
-        console.log('✅ Returning guest pay_type:', guestPayType.value.trim());
-        return guestPayType.value.trim();
-      }
-    }
-    const authPayType = document.getElementById('pay_type_auth');
-    console.log('🔍 Auth pay_type_auth element:', authPayType);
-    if (authPayType && authPayType.value) {
-      console.log('✅ Returning auth pay_type:', authPayType.value.trim());
-      return authPayType.value.trim();
-    }
-    console.log('⚠️ No pay_type found, returning default: online_full');
-    return 'online_full';
-  };
-  if (guestForm || document.querySelector('[name="full_name"]') || document.querySelector('[name="phone"]')) {
-    payload = {
-      full_name: getAnyVal('full_name'),
-      phone: getAnyVal('phone'),
-      city: getAnyVal('city'),
-      np_office: getAnyVal('np_office'),
-      pay_type: getPayType()
-    };
-  }
-  // ИСПРАВЛЕНИЕ: Напрямую используем pay_type из селекта, без промежуточных mode
-  console.log('🔍 About to call getPayType()...');
-  const effectivePayType = getPayType();
-  console.log('🔍 getPayType() returned:', effectivePayType);
-
-  if (!payload || typeof payload !== 'object') {
-    payload = {};
-  }
-  payload.pay_type = effectivePayType;
-
-  // КРИТИЧНО: Добавляем tracking данные для дедупликации Pixel ↔ CAPI
-  try {
-    if (window.getTrackingContext && typeof window.getTrackingContext === 'function') {
-      const tracking = window.getTrackingContext();
-      if (tracking && typeof tracking === 'object') {
-        // Не сохраняем event_id на этапе создания заказа - он генерируется при отправке событий
-        if ('event_id' in tracking) {
-          delete tracking.event_id;
-        }
-        if ('lead_event_id' in tracking) {
-          delete tracking.lead_event_id;
-        }
-      }
-      payload.tracking = tracking;
-      console.log('✅ Tracking context added to payload:', tracking);
-    }
-  } catch (trackingErr) {
-    console.warn('⚠️ Failed to get tracking context:', trackingErr);
-  }
-
-  console.log('🚚 Preparing MonoPay payload:', JSON.stringify(payload, null, 2));
-  console.log('🔍 pay_type in payload:', payload.pay_type);
-  console.log('🔍 payload.pay_type === "prepay_200":', payload.pay_type === 'prepay_200');
-  console.log('🔍 payload.pay_type === "online_full":', payload.pay_type === 'online_full');
-
-  return fetch('/cart/monobank/create-invoice/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': csrfToken || '',
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    credentials: 'same-origin',
-    body: JSON.stringify(payload)
-  }).then(response => response.json().then(data => ({ data, status: response.status, ok: response.ok })).catch(() => ({ data: null, status: response.status, ok: false })));
-}
-
-function startMonobankPay(button, statusEl) {
-  setMonoCheckoutStatus(statusEl, '', '');
-  toggleMonoCheckoutLoading(button, true);
-
-  // ИСПРАВЛЕНИЕ: Убрана зависимость от data-monobank-pay-mode
-  return requestMonobankPay()
-    .then(result => {
-      const data = result.data || {};
-      if (result.ok && data.success && data.invoice_url) {
-        setMonoCheckoutStatus(statusEl, 'success', 'Відкриваємо платіжну сторінку…');
-        const analytics = getCheckoutAnalyticsPayload();
-        try {
-          if (window.trackEvent && analytics) {
-            const eventId = data.add_payment_event_id || safeGenerateAnalyticsEventId();
-            const meta = buildMetaWithUserData(eventId);
-            window.trackEvent('AddPaymentInfo', {
-              value: analytics.value,
-              currency: analytics.currency,
-              num_items: analytics.num_items,
-              payment_method: 'monobank_pay',
-              content_ids: analytics.content_ids,
-              contents: analytics.contents,
-              event_id: eventId,
-              __meta: meta
-            });
-          }
-        } catch (_) { }
-        window.location.href = data.invoice_url;
-        return;
-      }
-      let message = (data && data.error) ? data.error : 'Не вдалося створити платіж. Спробуйте ще раз.';
-      if (result.status === 401) {
-        message = 'Увійдіть, щоб скористатися онлайн оплатою.';
-      }
-      setMonoCheckoutStatus(statusEl, 'error', message);
-      throw new Error(message);
-    })
-    .catch(err => {
-      if (err && err.message) {
-        setMonoCheckoutStatus(statusEl, 'error', err.message);
-      }
-    })
-    .finally(() => {
-      toggleMonoCheckoutLoading(button, false);
-    });
-}
-
 function bindMonobankPay(scope) {
   const root = scope || document;
-  root.querySelectorAll('[data-monobank-pay-trigger]').forEach((button) => {
-    if (!button || button.dataset.monobankPayBound === '1') return;
-    button.dataset.monobankPayBound = '1';
-    const statusEl = getMonoCheckoutStatus(button);
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      if (button.disabled) return;
-      startMonobankPay(button, statusEl);
-      const analytics = getCheckoutAnalyticsPayload();
-      if (analytics) {
-        try {
-          const eventId = safeGenerateAnalyticsEventId();
-          try {
-            if (window.__twcAnalytics && typeof window.__twcAnalytics.pushBeginCheckoutEvent === 'function') {
-              window.__twcAnalytics.pushBeginCheckoutEvent(analytics, {
-                eventId,
-                eventLabel: 'Monobank Pay'
-              });
-            }
-          } catch (helperErr) {
-            if (console && console.debug) {
-              console.debug('begin_checkout dataLayer error:', helperErr);
-            }
-          }
-          if (window.trackEvent) {
-            const meta = buildMetaWithUserData(eventId);
-            window.trackEvent('InitiateCheckout', {
-              value: analytics.value,
-              currency: analytics.currency,
-              num_items: analytics.num_items,
-              payment_method: 'monobank_pay',
-              content_ids: analytics.content_ids,
-              contents: analytics.contents,
-              event_id: eventId,
-              __meta: meta
-            });
-          }
-        } catch (_) { }
-      }
-    });
-  });
+  if (!root || typeof root.querySelector !== 'function') return;
+  if (!root.querySelector('[data-monobank-pay-trigger]')) return;
+  __loadMonoModule().then((m) => { try { m.bindMonobankPay(root); } catch (_) {} }).catch(() => {});
 }
 
 
@@ -1261,17 +763,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     scheduleIdle(() => {
-      refreshCartSummary();
-
-      // Загружаем счетчик избранного для незарегистрированных пользователей
-      fetch('/favorites/count/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(r => r.ok ? r.json() : null)
-        .then(d => {
-          if (d && d.count !== undefined) {
-            updateFavoritesBadge(d.count);
-          }
-        })
-        .catch(() => { });
+      // SSR-маркер: если cart пуст на сервере, не дёргаем /cart/summary/
+      if (window.__TC_SYNC_CART !== false) {
+        refreshCartSummary();
+      }
+      if (window.__TC_SYNC_FAVS !== false) {
+        fetch('/favorites/count/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => {
+            if (d && d.count !== undefined) {
+              updateFavoritesBadge(d.count);
+            }
+          })
+          .catch(() => { });
+      }
     });
   };
   
@@ -1708,6 +1213,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ===== Авто-оптимизация тяжёлых эффектов без изменения вида =====
 document.addEventListener('DOMContentLoaded', function () {
+  // На `data-device-class="low"` те же эффекты уже глобально killed статическим CSS
+  // (Phase 3.2). Runtime-релаксация тут лишь включала бы их обратно с inline !important,
+  // перекрывая CSS. Поэтому на low — просто выходим.
+  const _dc = (document.documentElement.dataset.deviceClass || '').toLowerCase();
+  if (_dc === 'low') return;
   if (!(PERF_LITE || prefersReducedMotion)) return;
   scheduleIdle(() => {
     const candidateSelectors = [
@@ -2049,11 +1559,17 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
-// ===== Выравнивание карточек по высоте (общая инициализация) =====
+// ===== Выравнивание карточек по высоте (desktop-only, никогда не трогаем mobile layout) =====
 document.addEventListener('DOMContentLoaded', function () {
   const rows = document.querySelectorAll('.row[data-stagger-grid]');
   if (!rows.length) return;
-  const equalizeMq = window.matchMedia('(min-width: 768px)');
+  // Mobile / low-end: не делаем JS-equalization — CSS grid + line-clamp справляются сами.
+  const deviceClass = (document.documentElement.dataset.deviceClass || '').toLowerCase();
+  const isMobileViewport = window.matchMedia('(max-width: 899px)').matches;
+  if (deviceClass === 'low' || isMobileViewport) {
+    return;
+  }
+  const equalizeMq = window.matchMedia('(min-width: 900px)');
   let eqScheduled = false;
   function equalizeCardHeights() {
     if (eqScheduled) return;
@@ -2175,75 +1691,13 @@ document.addEventListener('DOMContentLoaded', function () {
   window.addEventListener('resize', debouncedEqualizeAll);
 });
 
-// ====== PRODUCT DETAIL: цвета и галерея ======
+// ====== PRODUCT DETAIL: цвета и галерея (lazy — modules/product-gallery.js) ======
 document.addEventListener('DOMContentLoaded', function () {
-  const variantTag = document.getElementById('variant-data');
-  const colorPicker = document.getElementById('color-picker');
-  const carousel = document.getElementById('productCarousel');
-  if (!variantTag || !colorPicker || !carousel) return;
-  const bindPointsModal = () => {
-    const pointsInfoModal = document.getElementById('pointsInfoModal');
-    if (pointsInfoModal) {
-      pointsInfoModal.addEventListener('show.bs.modal', function (event) {
-        const button = event.relatedTarget;
-        if (!button) return;
-        const title = button.getAttribute('data-product-title');
-        const points = button.getAttribute('data-points-amount');
-        const t = document.getElementById('modalProductTitle');
-        const p = document.getElementById('modalPointsAmount');
-        if (t) t.textContent = title || '';
-        if (p) p.textContent = points || '0';
-      });
-    }
-  };
-  if (carousel.dataset.galleryInitialized === '1') {
-    bindPointsModal();
-    return;
-  }
-  let variants = []; try { variants = JSON.parse(variantTag.textContent || '[]'); } catch (_) { variants = []; }
-  const inner = carousel.querySelector('.carousel-inner');
-  const indicators = carousel.querySelector('.carousel-indicators');
-  const thumbs = document.getElementById('product-thumbs');
-  function rebuild(images) {
-    if (!(inner && indicators && thumbs)) return;
-    inner.innerHTML = '';
-    indicators.innerHTML = '';
-    thumbs.innerHTML = '';
-    const mainImg = document.getElementById('mainImage');
-    const fallbackSrc = mainImg ? mainImg.src : '';
-    const list = (images && images.length) ? images : [fallbackSrc];
-    list.forEach((url, idx) => {
-      const item = document.createElement('div');
-      item.className = 'carousel-item' + (idx === 0 ? ' active' : '');
-      // Escape URL just in case, though usually safe
-      const safeUrl = escapeHtml(url);
-      item.innerHTML = '<img src="' + safeUrl + '" class="d-block w-100 h-100 object-fit-contain" alt="Фото товару">';
-      inner.appendChild(item);
-
-      const ind = document.createElement('button');
-      ind.type = 'button';
-      ind.setAttribute('data-bs-target', '#productCarousel');
-      ind.setAttribute('data-bs-slide-to', String(idx));
-      if (idx === 0) {
-        ind.className = 'active';
-        ind.setAttribute('aria-current', 'true');
-      }
-      indicators.appendChild(ind);
-
-      const th = document.createElement('button');
-      th.type = 'button';
-      th.className = 'btn p-0 thumb';
-      th.setAttribute('data-bs-target', '#productCarousel');
-      th.setAttribute('data-bs-slide-to', String(idx));
-      th.innerHTML = '<img src="' + safeUrl + '" class="rounded-3 object-fit-cover" style="width:72px;height:72px;" alt="Мініатюра">';
-      thumbs.appendChild(th);
-    });
-  }
-  function onColorClick(btn) { const id = parseInt(btn.getAttribute('data-variant') || '-1', 10); const v = variants.find(x => x.id === id); if (!v) return; colorPicker.querySelectorAll('.color-swatch').forEach(b => b.classList.remove('active')); btn.classList.add('active'); rebuild(v.images || []); }
-  if (variants.length) { const def = variants.find(v => v.is_default) || variants[0]; rebuild(def && def.images ? def.images : []); }
-  colorPicker.querySelectorAll('.color-swatch').forEach(b => b.addEventListener('click', () => onColorClick(b)));
-  carousel.dataset.galleryInitialized = '1';
-  bindPointsModal();
+  if (!document.getElementById('productCarousel')) return;
+  if (!document.getElementById('variant-data') || !document.getElementById('color-picker')) return;
+  import('./modules/product-gallery.js')
+    .then((m) => { try { m.initProductGallery(); } catch (_) {} })
+    .catch(() => {});
 });
 
 // ====== CONTACTS: показать телефон ======
@@ -2251,162 +1705,53 @@ document.addEventListener('DOMContentLoaded', function () {
   const btn = document.getElementById('show-phone-btn'); const phone = document.getElementById('phone-number'); if (btn && phone) { btn.addEventListener('click', () => { phone.style.display = 'inline-block'; btn.style.display = 'none'; }); }
 });
 
-// ===== ФУНКЦИИ ДЛЯ ИЗБРАННЫХ ТОВАРОВ =====
+// ===== ИЗБРАННЫЕ ТОВАРЫ: глобальные стабы + lazy-loader (Phase 2.1 ext) =====
+// Реальная реализация живёт в modules/favorites.js и грузится по первому же
+// клику heart-кнопки или первому IO-событию для .favorite-btn в viewport.
+// Inline `onclick="toggleFavorite(...)"` в шаблонах продолжает работать:
+// стабы сохраняют синхронный вызов, затем dynamic-import + делегация.
+window.updateFavoritesBadge = updateFavoritesBadge;
 
-// Функция для переключения избранного
+let __favModulePromise = null;
+function __loadFavModule() {
+  if (!__favModulePromise) {
+    __favModulePromise = import('./modules/favorites.js').catch((err) => {
+      __favModulePromise = null;
+      throw err;
+    });
+  }
+  return __favModulePromise;
+}
+
 function toggleFavorite(productId, button) {
-  if (!button) return;
-
-  // Показываем индикатор загрузки
-  button.classList.add('loading');
-
-  fetch(`/favorites/toggle/${productId}/`, {
-    method: 'POST',
-    headers: {
-      'X-CSRFToken': getCookie('csrftoken'),
-      'Content-Type': 'application/json',
-    },
-  })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        // Обновляем состояние кнопки
-        if (data.is_favorite) {
-          button.classList.add('is-favorite');
-          try {
-            if (window.trackEvent) {
-              // Для wishlist используем базовый offer_id
-              var offerId = 'TC-' + productId + '-default-S';
-              // Получаем цену из кнопки или используем минимальное значение
-              var productPrice = parseFloat(button.getAttribute('data-product-price') || '0');
-              if (!productPrice || productPrice === 0) {
-                productPrice = 0.01; // Минимальное значение для TikTok
-              }
-
-              window.trackEvent('AddToWishlist', {
-                content_ids: [offerId],
-                content_type: 'product',
-                value: productPrice,
-                currency: 'UAH',
-                num_items: 1,
-                contents: [{
-                  id: offerId,
-                  quantity: 1,
-                  item_price: productPrice
-                }]
-              });
-            }
-          } catch (_) { }
-        } else {
-          button.classList.remove('is-favorite');
-          try {
-            if (window.trackEvent) {
-              // Для wishlist используем базовый offer_id
-              var offerId = 'TC-' + productId + '-default-S';
-              // Получаем цену из кнопки или используем минимальное значение
-              var productPrice = parseFloat(button.getAttribute('data-product-price') || '0');
-              if (!productPrice || productPrice === 0) {
-                productPrice = 0.01; // Минимальное значение для TikTok
-              }
-
-              window.trackEvent('RemoveFromWishlist', {
-                content_ids: [offerId],
-                content_type: 'product',
-                value: productPrice,
-                currency: 'UAH',
-                num_items: 1,
-                contents: [{
-                  id: offerId,
-                  quantity: 1,
-                  item_price: productPrice
-                }]
-              });
-            }
-          } catch (_) { }
-        }
-
-        // Обновляем счетчик избранного
-        if (data.favorites_count !== undefined) {
-          updateFavoritesBadge(data.favorites_count);
-        }
-
-        // Показываем уведомление
-        showNotification(data.message, 'success');
-      } else {
-        showNotification(data.message || 'Помилка', 'error');
-      }
-    })
-    .catch(error => {
-      console.error('Error:', error);
-      showNotification('Помилка з\'єднання', 'error');
-    })
-    .finally(() => {
-      // Восстанавливаем кнопку
-      button.classList.remove('loading');
-    });
+  if (button) button.classList.add('loading');
+  __loadFavModule()
+    .then((m) => { try { m.toggleFavorite(productId, button); } catch (_) { if (button) button.classList.remove('loading'); } })
+    .catch(() => { if (button) button.classList.remove('loading'); });
 }
 
-// Функция для проверки статуса избранного
 function checkFavoriteStatus(productId, button) {
-  if (!button) return;
-
-  fetch(`/favorites/check/${productId}/`)
-    .then(response => response.json())
-    .then(data => {
-      if (data.is_favorite) {
-        button.classList.add('is-favorite');
-      } else {
-        button.classList.remove('is-favorite');
-      }
-    })
-    .catch(error => {
-      console.error('Error checking favorite status:', error);
-    });
+  __loadFavModule()
+    .then((m) => { try { m.checkFavoriteStatus(productId, button); } catch (_) {} })
+    .catch(() => {});
 }
 
-// Функция для показа уведомлений
 function showNotification(message, type = 'info') {
-  // Создаем элемент уведомления
-  const notification = document.createElement('div');
-  notification.className = `notification notification-${type}`;
-  notification.innerHTML = `
-    <div class="notification-content">
-      <span class="notification-message">${escapeHtml(message)}</span>
-      <button class="notification-close" onclick="this.parentElement.parentElement.remove();">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-        </svg>
-      </button>
-    </div>
-  `;
-
-  // Добавляем в body
-  document.body.appendChild(notification);
-
-  // Показываем с анимацией
-  setTimeout(() => {
-    notification.classList.add('show');
-  }, 100);
-
-  // Автоматически скрываем через 3 секунды
-  setTimeout(() => {
-    notification.classList.remove('show');
-    setTimeout(() => {
-      if (notification.parentElement) {
-        notification.remove();
-      }
-    }, 300);
-  }, 3000);
+  __loadFavModule()
+    .then((m) => { try { m.showNotification(message, type); } catch (_) {} })
+    .catch(() => {});
 }
+window.toggleFavorite = toggleFavorite;
+window.checkFavoriteStatus = checkFavoriteStatus;
+window.showNotification = showNotification;
 
-// Инициализация статуса избранного для всех кнопок при загрузке страницы
+// Инициализация статуса избранного — ленивая проверка только для видимых кнопок.
 document.addEventListener('DOMContentLoaded', function () {
   const favoriteButtons = document.querySelectorAll('.favorite-btn');
   if (!favoriteButtons.length) return;
-  // Ленивая проверка статуса избранного — только при появлении в вьюпорте
   if ('IntersectionObserver' in window) {
-    const io = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
         const button = entry.target;
         const productId = button.getAttribute('data-product-id');
@@ -2414,10 +1759,9 @@ document.addEventListener('DOMContentLoaded', function () {
         io.unobserve(button);
       });
     }, { root: null, rootMargin: '100px 0px', threshold: 0.01 });
-    favoriteButtons.forEach(btn => io.observe(btn));
+    favoriteButtons.forEach((btn) => io.observe(btn));
   } else {
-    // Фолбэк: проверяем сразу
-    favoriteButtons.forEach(button => {
+    favoriteButtons.forEach((button) => {
       const productId = button.getAttribute('data-product-id');
       if (productId) { checkFavoriteStatus(productId, button); }
     });
@@ -2455,10 +1799,13 @@ document.addEventListener('DOMContentLoaded', function () {
       toggleText.textContent = 'Згорнути';
       localStorage.setItem('categories-collapsed', 'false');
 
-      // Анимация появления
+      // Анимация появления: используем rAF вместо forced reflow через offsetHeight
       categoriesContainer.style.display = 'block';
-      void categoriesContainer.offsetHeight; // Форсируем reflow
-      categoriesContainer.classList.add('expanding');
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          categoriesContainer.classList.add('expanding');
+        });
+      });
 
       // Убираем класс анимации после завершения
       setTimeout(() => {
@@ -2541,16 +1888,7 @@ document.addEventListener('click', function (e) {
   } catch (_) { }
 });
 
-// Опрос подгружаем сразу, чтобы кнопка работала без задержек
-document.addEventListener('DOMContentLoaded', () => {
-  const surveyModuleUrl = document.body && document.body.dataset ? document.body.dataset.surveyModuleUrl : null;
-  if (!surveyModuleUrl) return;
-  if (document.querySelector('[data-survey-cta]') || document.getElementById('survey-modal')) {
-    import(surveyModuleUrl)
-      .then(({ initSurvey }) => initSurvey())
-      .catch(() => { });
-  }
-});
+// Опрос монтируется page-scoped импортом (index.html). Дубль init удалён ради экономии startup JS.
 
 // Цветовые точки, корзина и пагинация подгружаются по требованию, чтобы сократить работу в главном потоке
 document.addEventListener('DOMContentLoaded', () => {

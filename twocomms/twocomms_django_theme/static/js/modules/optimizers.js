@@ -58,6 +58,10 @@ export const MobileOptimizer = {
   },
 
   isLowEndDevice() {
+    // Phase 3.1: читаем унифицированный data-device-class, с fallback на старую эвристику.
+    const dc = (document.documentElement.dataset.deviceClass || '').toLowerCase();
+    if (dc === 'low') return true;
+    if (dc === 'mid' || dc === 'high') return false;
     return navigator.hardwareConcurrency <= 2 ||
            navigator.deviceMemory <= 2 ||
            navigator.connection?.effectiveType === 'slow-2g' ||
@@ -67,19 +71,16 @@ export const MobileOptimizer = {
   initMobileOptimizations() {
     if (!this.isMobile()) return;
 
+    // Класс `perf-lite` уже выставлен inline-детектором в base.html (Phase 3.1).
+    // Здесь применяем только рантайм-твики, которые невозможны чистым CSS.
     if (this.isLowEndDevice()) {
-      PerformanceOptimizer.scrollThreshold = 20;
-      document.documentElement.classList.add('perf-lite');
       const particles = document.querySelectorAll('.particle');
       particles.forEach((particle, index) => {
         if (index > 1) particle.style.display = 'none';
       });
-      this.disableBackdropFilters();
-      this.reduceAnimationFrequency();
     }
 
     this.optimizeTouchEvents();
-    this.optimizeMobileImages();
   },
 
   optimizeTouchEvents() {
@@ -131,55 +132,9 @@ export const MobileOptimizer = {
     }, { passive: false });
   },
 
-  disableBackdropFilters() {
-    const style = document.createElement('style');
-    style.textContent = `
-      .perf-lite * {
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-      }
-    `;
-    document.head.appendChild(style);
-  },
+  // disableBackdropFilters / reduceAnimationFrequency переведены в статический CSS
+  // (home.css, блок Phase 3.2) — runtime-инъекция style больше не нужна.
 
-  reduceAnimationFrequency() {
-    const style = document.createElement('style');
-    style.textContent = `
-      .perf-lite * {
-        animation-duration: 0.3s !important;
-        transition-duration: 0.2s !important;
-      }
-      .perf-lite .particle,
-      .perf-lite .floating-logo {
-        animation: none !important;
-      }
-    `;
-    document.head.appendChild(style);
-  },
-
-  optimizeMobileImages() {
-    const images = document.querySelectorAll('img[loading="lazy"]');
-    images.forEach(img => {
-      if ('IntersectionObserver' in window) {
-        const observer = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting) {
-              const target = entry.target;
-              if (target.dataset.src) {
-                target.src = target.dataset.src;
-                target.removeAttribute('data-src');
-              }
-              observer.unobserve(target);
-            }
-          });
-        }, {
-          rootMargin: '50px 0px',
-          threshold: 0.1
-        });
-        observer.observe(img);
-      }
-    });
-  }
 };
 
 export const ImageOptimizer = {

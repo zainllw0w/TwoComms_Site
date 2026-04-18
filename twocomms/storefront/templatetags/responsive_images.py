@@ -1,13 +1,35 @@
 """
-Template tags для адаптивных изображений
+Template tags для адаптивных изображений.
+
+Strict mode: при отсутствии оптимизированных AVIF/WebP вариантов для изображения
+логгируется warning (PERF_IMAGE_STRICT=True в settings). Это помогает быстро находить
+карточки товаров, которые на продакшн-главной уходят в raw JPEG (аудит 2026-04-18).
 """
 
-from django import template
-from django.conf import settings
+import logging
 import os
 from pathlib import Path
 
+from django import template
+from django.conf import settings
+
 register = template.Library()
+logger = logging.getLogger(__name__)
+
+_STRICT_MODE = bool(getattr(settings, 'PERF_IMAGE_STRICT', settings.DEBUG))
+_WARNED_PATHS = set()  # dedupe warnings per-process
+
+
+def _warn_missing_variants(image_path: str, base_dir: Path) -> None:
+    """Лог один раз на процесс, чтобы не забивать stdout."""
+    if not _STRICT_MODE or not image_path or image_path in _WARNED_PATHS:
+        return
+    _WARNED_PATHS.add(image_path)
+    logger.warning(
+        "responsive_images: no optimized AVIF/WebP variants for %s "
+        "(expected in %s/optimized/). Run: python manage.py optimize_images",
+        image_path, base_dir,
+    )
 
 
 @register.inclusion_tag('responsive_image.html')
@@ -217,6 +239,9 @@ def optimized_image(
         for fmt, entries in by_format.items():
             if entries:
                 responsive_srcsets[fmt] = ", ".join(sorted(entries, key=lambda item: int(item.split()[-1][:-1])))
+
+    if not webp_file_path.exists() and not avif_file_path.exists() and not responsive_sources:
+        _warn_missing_variants(image_path, base_dir)
 
     fallback_format = base_path.suffix.lstrip('.').lower()
     img_srcset = responsive_srcsets.get(fallback_format, '') if responsive_srcsets else ''

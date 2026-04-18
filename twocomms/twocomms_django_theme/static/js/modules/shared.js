@@ -59,13 +59,18 @@ export const prefersReducedMotion = (() => {
   }
 })();
 
-export const PERF_LITE = (() => {
+// Читаем унифицированный data-device-class (Phase 3.1), с fallback на старый класс.
+export const DEVICE_CLASS = (() => {
   try {
-    return document.documentElement.classList.contains('perf-lite');
+    const dc = (document.documentElement.dataset.deviceClass || '').toLowerCase();
+    if (dc === 'low' || dc === 'mid' || dc === 'high') return dc;
+    return document.documentElement.classList.contains('perf-lite') ? 'low' : 'high';
   } catch (_) {
-    return false;
+    return 'high';
   }
 })();
+
+export const PERF_LITE = DEVICE_CLASS === 'low';
 
 export function debounce(fn, wait) {
   let t;
