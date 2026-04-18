@@ -1,0 +1,265 @@
+{% extends 'base.html' %}
+{% load seo_tags %}
+
+{% block title %}{{ page.meta_title }}{% endblock %}
+{% block description %}{{ page.meta_description }}{% endblock %}
+{% block keywords %}{{ page.meta_keywords }}{% endblock %}
+
+{% block structured_data %}
+  {% if faq_items %}
+    {% faq_schema faq_items %}
+  {% endif %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "{{ page.schema_type }}",
+    "name": "{{ page.hero_title|escapejs }}",
+    "description": "{{ page.meta_description|escapejs }}",
+    "url": "{{ request.build_absolute_uri|escapejs }}",
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": "TwoComms",
+      "url": "{{ request.scheme }}://{{ request.get_host }}"
+    },
+    "breadcrumb": {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Головна",
+          "item": "{{ request.scheme }}://{{ request.get_host }}{% url 'home' %}"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "{{ page.hero_title|escapejs }}",
+          "item": "{{ request.build_absolute_uri|escapejs }}"
+        }
+      ]
+    }
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<div class="support-shell">
+  <nav class="support-breadcrumbs" aria-label="Breadcrumb">
+    {% for crumb in breadcrumb_items %}
+      {% if forloop.last %}
+        <span aria-current="page">{{ crumb.name }}</span>
+      {% else %}
+        <a href="{{ crumb.url }}">{{ crumb.name }}</a>
+        <span aria-hidden="true">/</span>
+      {% endif %}
+    {% endfor %}
+  </nav>
+
+  <section class="support-hero">
+    <div class="support-hero-copy">
+      <span class="support-kicker">{{ page.hero_kicker }}</span>
+      <h1 class="support-title">{{ page.hero_title }}</h1>
+      <p class="support-intro">{{ page.hero_intro }}</p>
+
+      {% if page.hero_stats %}
+        <div class="support-hero-stats">
+          {% for stat in page.hero_stats %}
+            <div class="support-stat">
+              <div class="support-stat-value">{{ stat.value }}</div>
+              <div class="support-stat-label">{{ stat.label }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="support-hero-orbit">
+      <div class="support-orbit-card">
+        <strong>Навігація без шуму</strong>
+        <div class="support-copy">Сторінка зібрана так, щоб користувач одразу переходив у правильний сценарій: покупка, підтримка, догляд, розміри або статус замовлення.</div>
+      </div>
+      <div class="support-orbit-card">
+        <strong>SEO та перелінковка</strong>
+        <div class="support-copy">Кожен блок тут не тільки пояснює сервіс, а й веде в глибші розділи магазину, які реально потрібні до та після замовлення.</div>
+      </div>
+      <div class="support-orbit-card">
+        <strong>Актуальні маршрути</strong>
+        <div class="support-copy">Каталог, FAQ, допомога, доставка, пошук, карта сайту й контакти об'єднані в один зрозумілий кластер.</div>
+      </div>
+    </div>
+  </section>
+
+  {% if page.intro_links %}
+    <div class="support-quick-links" aria-label="Швидка навігація">
+      {% for link in page.intro_links %}
+        <a class="support-chip" href="{{ link.url }}">{{ link.label }}</a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="support-main-grid">
+    {% for section in page.sections %}
+      <section class="support-section-card" id="{{ section.anchor }}">
+        {% if section.eyebrow %}
+          <span class="support-eyebrow">{{ section.eyebrow }}</span>
+        {% endif %}
+        <h2 class="support-section-title">{{ section.title }}</h2>
+        {% if section.lead %}
+          <p class="support-section-lead">{{ section.lead }}</p>
+        {% endif %}
+        {% if section.intro %}
+          <p class="support-section-lead">{{ section.intro }}</p>
+        {% endif %}
+
+        {% if section.paragraphs %}
+          <div class="support-paragraphs">
+            {% for paragraph in section.paragraphs %}
+              <p>{{ paragraph }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if section.bullets %}
+          <ul class="support-bullet-list">
+            {% for bullet in section.bullets %}
+              <li>{{ bullet }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        {% if section.cards %}
+          <div class="support-cards-grid">
+            {% for card in section.cards %}
+              {% if card.url %}
+                <a href="{{ card.url }}" class="support-link-card">
+                  <div class="support-card-title">{{ card.title }}</div>
+                  <div class="support-link-text">{{ card.text }}</div>
+                  <span class="support-link-arrow">Перейти</span>
+                </a>
+              {% else %}
+                <article class="support-card">
+                  <h3 class="support-card-title">{{ card.title }}</h3>
+                  <div class="support-card-text">{{ card.text }}</div>
+                </article>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if section.links %}
+          <div class="support-links-grid">
+            {% for link in section.links %}
+              <a href="{{ link.url }}" class="support-link-card">
+                <div class="support-link-title">{{ link.title }}</div>
+                <div class="support-link-text">{{ link.text }}</div>
+                <span class="support-link-arrow">Відкрити розділ</span>
+              </a>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </section>
+    {% endfor %}
+
+    {% if size_grids %}
+      <section class="support-section-card" id="size-grids">
+        <span class="support-eyebrow">Live catalog data</span>
+        <h2 class="support-section-title">Актуальні розмірні сітки</h2>
+        <div class="support-size-grid-list">
+          {% for grid in size_grids %}
+            <article class="support-size-grid-card">
+              <div class="support-size-grid-meta">{{ grid.catalog.name }}</div>
+              <h3 class="support-size-grid-title">{{ grid.name }}</h3>
+              {% if grid.description %}
+                <div class="support-size-grid-copy">{{ grid.description }}</div>
+              {% else %}
+                <div class="support-size-grid-copy">Сітка розмірів для відповідного каталогу. Якщо потрібне точне уточнення, зверніться до команди перед оплатою.</div>
+              {% endif %}
+              {% if grid.image %}
+                <a href="{{ grid.image.url }}" class="support-size-grid-image">
+                  <img src="{{ grid.image.url }}" alt="{{ grid.name }} — таблиця розмірів TwoComms" loading="lazy">
+                </a>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% elif page.key == 'size_guide' %}
+      <section class="support-section-card" id="size-grids">
+        <span class="support-eyebrow">Update later</span>
+        <h2 class="support-section-title">Розмірні сітки будуть тут</h2>
+        <div class="support-empty-state">У локальному середовищі активні сітки розмірів не знайдені. Сторінка вже готова до публікації й автоматично покаже їх, щойно вони є в базі.</div>
+      </section>
+    {% endif %}
+
+    {% if dynamic_groups %}
+      {% for group in dynamic_groups %}
+        <section class="support-section-card">
+          {% if group.eyebrow %}
+            <span class="support-eyebrow">{{ group.eyebrow }}</span>
+          {% endif %}
+          <h2 class="support-section-title">{{ group.title }}</h2>
+          <div class="support-links-grid">
+            {% for item in group.items %}
+              <a href="{{ item.url }}" class="support-link-card">
+                <div class="support-link-title">{{ item.title }}</div>
+                <div class="support-link-text">{{ item.text }}</div>
+                <span class="support-link-arrow">Перейти</span>
+              </a>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    {% endif %}
+
+    {% if featured_products %}
+      <section class="support-section-card" id="latest-products">
+        <span class="support-eyebrow">Latest links</span>
+        <h2 class="support-section-title">Свіжі товарні сторінки</h2>
+        <div class="support-products-grid">
+          {% for product in featured_products %}
+            <a href="{% url 'product' product.slug %}" class="support-product-card">
+              {% if product.category %}
+                <div class="support-product-category">{{ product.category.name }}</div>
+              {% endif %}
+              <div class="support-product-title">{{ product.title }}</div>
+              <div class="support-product-meta">Прямий перехід до товару з актуального каталогу TwoComms.</div>
+            </a>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    {% if page.faq_items %}
+      <section class="support-section-card" id="faq">
+        <span class="support-eyebrow">FAQ cluster</span>
+        <h2 class="support-section-title">Поширені запитання</h2>
+        <div class="support-faq-list">
+          {% for item in page.faq_items %}
+            <details class="support-faq-item" id="{{ item.anchor }}" {% if forloop.first %}open{% endif %}>
+              <summary>{{ item.question }}</summary>
+              <div class="support-faq-answer">
+                <p>{{ item.answer }}</p>
+              </div>
+            </details>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    {% if page.cta %}
+      <section class="support-cta">
+        <h2>{{ page.cta.title }}</h2>
+        <div class="support-copy">{{ page.cta.text }}</div>
+        <div class="support-cta-actions">
+          {% if page.cta.primary %}
+            <a href="{{ page.cta.primary.url }}" class="support-button support-button--primary">{{ page.cta.primary.label }}</a>
+          {% endif %}
+          {% if page.cta.secondary %}
+            <a href="{{ page.cta.secondary.url }}" class="support-button support-button--secondary">{{ page.cta.secondary.label }}</a>
+          {% endif %}
+        </div>
+      </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

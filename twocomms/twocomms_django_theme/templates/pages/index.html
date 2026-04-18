@@ -807,6 +807,7 @@
       display: flex;
       justify-content: center;
       margin-top: 1.1rem;
+      padding-inline: 0.2rem;
     }
 
     .pagination-showcase::before {
@@ -821,11 +822,20 @@
 
     .pagination-rail {
       display: flex;
-      justify-content: center;
+      justify-content: flex-start;
       width: 100%;
       overflow-x: auto;
-      padding: 0.1rem 0 0.35rem;
+      padding:
+        0.1rem
+        max(0.55rem, env(safe-area-inset-left))
+        0.45rem
+        max(0.55rem, env(safe-area-inset-right));
       scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+      scroll-padding-inline:
+        max(0.8rem, env(safe-area-inset-left))
+        max(0.8rem, env(safe-area-inset-right));
     }
 
     .pagination-rail::-webkit-scrollbar {
@@ -835,6 +845,7 @@
     .pagination-premium {
       position: relative;
       align-items: center;
+      justify-content: flex-start;
       flex-wrap: nowrap;
       gap: 0.45rem;
       padding: 0.48rem;
@@ -849,6 +860,7 @@
       backdrop-filter: blur(18px);
       width: max-content;
       isolation: isolate;
+      scroll-snap-type: x proximity;
     }
 
     .pagination-premium::before {
@@ -864,6 +876,7 @@
     .pagination-premium .page-item {
       display: flex;
       position: relative;
+      scroll-snap-align: center;
     }
 
     .pagination-premium .page-link {
@@ -1053,8 +1066,34 @@
       }
 
       .pagination-premium .page-item-nav .page-link {
-        min-width: 7rem;
+        min-width: 3.15rem;
         padding-inline: 0.9rem;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .pagination-showcase {
+        margin-inline: -0.25rem;
+      }
+
+      .pagination-premium {
+        gap: 0.38rem;
+        padding: 0.4rem;
+      }
+
+      .pagination-premium .page-link {
+        min-width: 2.65rem;
+        height: 2.65rem;
+        padding-inline: 0.72rem;
+      }
+
+      .pagination-premium .page-item-nav .page-link {
+        min-width: 2.9rem;
+        padding-inline: 0.72rem;
+      }
+
+      .page-link-label {
+        display: none;
       }
     }
 
@@ -1116,17 +1155,13 @@
       }
 
       .pagination-premium .page-link {
-        min-width: 2.6rem;
-        height: 2.65rem;
-        padding-inline: 0.75rem;
+        min-width: 2.48rem;
+        height: 2.55rem;
+        padding-inline: 0.65rem;
       }
 
       .pagination-premium .page-item-nav .page-link {
-        min-width: 3rem;
-      }
-
-      .page-link-label {
-        display: none;
+        min-width: 2.7rem;
       }
     }
 
@@ -1607,7 +1642,7 @@
       data-current-page="{{ page_obj.number }}"
       data-base-path="{{ request.path }}"
     >
-      <ul class="pagination pagination-sm pagination-premium justify-content-center mb-0">
+      <ul class="pagination pagination-sm pagination-premium mb-0" data-pagination-list>
         <li class="page-item page-item-nav {% if not page_obj.has_previous %}disabled{% endif %}">
           <a
             class="page-link"

@@ -1,1 +1,106 @@
-<footer class='border-top py-4 mt-5'><div class='container-xxl d-flex flex-column flex-md-row justify-content-between align-items-start gap-3'><div><div class='fw-semibold'>TwoComms</div><div class='text-secondary small'>Мілітарі / стріт / Made in Ukraine</div><div class='text-secondary small mt-2'>© {{ now|date:'Y' }} TwoComms</div></div><div class='small text-secondary'>Накопичуйте бали за покупки та використовуйте їх для знижок</div><div class='small'><a href='https://instagram.com/twocomms' target='_blank' rel='noopener'>Instagram</a> · <a href='https://t.me/twocomms' target='_blank' rel='noopener'>Telegram</a> · <a href='{% url 'cooperation' %}'>Співпраця</a></div></div></footer>
+{% load static %}
+
+<footer class="site-footer-premium">
+  <div class="container-xxl">
+    <div class="footer-grid">
+      <section class="footer-brand">
+        <div class="footer-brand-head">
+          <div class="footer-brand-logo">
+            <img src="{% static 'img/logo.svg' %}" alt="TWOCOMMS">
+          </div>
+          <div>
+            <div class="footer-tagline">Militari / Street / Made in Ukraine</div>
+            <h2 class="footer-brand-name">TWOCOMMS</h2>
+          </div>
+        </div>
+        <p class="footer-copy">
+          TwoComms поєднує мілітарі та стріт естетику, сервісні сценарії покупки й сильну внутрішню навігацію:
+          звідси можна швидко перейти в підтримку, FAQ, карту сайту, пошук, відстеження замовлення та сторінки бренду.
+        </p>
+        <p class="footer-note">
+          Накопичуйте бали за покупки, використовуйте промокоди, переходьте в help-центр і швидко знаходьте потрібний маршрут по сайту без зайвого хаосу.
+        </p>
+        <div class="footer-socials" aria-label="Соцмережі та швидкі дії">
+          <a class="footer-social" href="https://instagram.com/twocomms" target="_blank" rel="noopener" aria-label="Instagram TwoComms">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2.2A2.8 2.8 0 0 0 4.2 7v10A2.8 2.8 0 0 0 7 19.8h10a2.8 2.8 0 0 0 2.8-2.8V7A2.8 2.8 0 0 0 17 4.2H7zm10.4 1.3a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2zM12 6.4A5.6 5.6 0 1 1 6.4 12 5.6 5.6 0 0 1 12 6.4zm0 2.2A3.4 3.4 0 1 0 15.4 12 3.4 3.4 0 0 0 12 8.6z"/>
+            </svg>
+          </a>
+          <a class="footer-social" href="https://t.me/twocomms" target="_blank" rel="noopener" aria-label="Telegram TwoComms">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M21.4 4.6 3.8 11.4c-1.2.5-1.2 1.2-.2 1.5l4.5 1.4 1.7 5.3c.2.6.1.9.8.9.5 0 .8-.2 1.1-.6l2.2-2.1 4.6 3.4c.8.5 1.5.2 1.7-.8l3-14.2c.3-1.2-.4-1.7-1.8-1.2ZM9 13.8l9.2-5.8c.5-.3 1-.1.6.3L11.2 15l-.3 3.3-1.9-4.5Z"/>
+            </svg>
+          </a>
+          <a class="footer-social" href="{% url 'contacts' %}" aria-label="Контакти TwoComms">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M21 6.5a2.5 2.5 0 0 0-2.5-2.5h-13A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a2.5 2.5 0 0 0 2.5-2.5v-11Zm-2 .6v.2l-7 4.9-7-4.9v-.2c0-.5.4-.9.9-.9h12.2c.5 0 .9.4.9.9Zm-.9 10.7H5.9a.9.9 0 0 1-.9-.9V9.8l6.5 4.5a1 1 0 0 0 1 0L19 9.8v7.1c0 .5-.4.9-.9.9Z"/>
+            </svg>
+          </a>
+          <a class="footer-social" href="{% url 'search' %}" aria-label="Пошук по сайту">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M10.5 3a7.5 7.5 0 1 1-4.9 13.2l-2.9 2.9-1.4-1.4 2.9-2.9A7.5 7.5 0 0 1 10.5 3Zm0 2A5.5 5.5 0 1 0 16 10.5 5.5 5.5 0 0 0 10.5 5Z"/>
+            </svg>
+          </a>
+        </div>
+      </section>
+
+      <section class="footer-column">
+        <div class="footer-column-title">Покупка та навігація</div>
+        <ul class="footer-link-list">
+          <li><a href="{% url 'catalog' %}">Каталог товарів</a></li>
+          <li><a href="{% url 'delivery' %}">Доставка і оплата</a></li>
+          <li><a href="{% url 'search' %}">Пошук по сайту</a></li>
+          <li><a href="{% url 'news' %}">Новини та релізи</a></li>
+          <li><a href="{% url 'custom_print' %}">Кастомний принт</a></li>
+        </ul>
+      </section>
+
+      <section class="footer-column">
+        <div class="footer-column-title">Підтримка клієнта</div>
+        <ul class="footer-link-list">
+          <li><a href="{% url 'help_center' %}">Допомога</a></li>
+          <li><a href="{% url 'faq' %}">FAQ</a></li>
+          <li><a href="{% url 'order_tracking' %}">Відстеження замовлення</a></li>
+          <li><a href="{% url 'size_guide' %}">Таблиця розмірів</a></li>
+          <li><a href="{% url 'care_guide' %}">Догляд за одягом</a></li>
+          <li><a href="{% url 'returns' %}">Повернення та обмін</a></li>
+        </ul>
+      </section>
+
+      <section class="footer-column">
+        <div class="footer-column-title">Бренд та довіра</div>
+        <ul class="footer-link-list">
+          <li><a href="{% url 'about' %}">Про бренд</a></li>
+          <li><a href="{% url 'cooperation' %}">Співпраця</a></li>
+          <li><a href="{% url 'contacts' %}">Контакти</a></li>
+          <li><a href="{% url 'site_map_page' %}">Карта сайту</a></li>
+          <li><a href="{% url 'privacy_policy' %}">Політика конфіденційності</a></li>
+          <li><a href="{% url 'terms_of_service' %}">Умови використання</a></li>
+        </ul>
+      </section>
+
+      <section class="footer-faq-highlight">
+        <div class="footer-highlight-label">FAQ моменти</div>
+        <div class="footer-highlight-list">
+          <a class="footer-highlight-link" href="{% url 'faq' %}#faq-1">
+            Як оформити замовлення?
+            <span>Швидкий сценарій від каталогу до checkout.</span>
+          </a>
+          <a class="footer-highlight-link" href="{% url 'faq' %}#faq-4">
+            Де дивитися статус замовлення?
+            <span>Пояснення по кабінету, TTN і сторінці відстеження.</span>
+          </a>
+          <a class="footer-highlight-link" href="{% url 'faq' %}#faq-8">
+            Як доглядати за одягом?
+            <span>Прання, сушіння, прасування та ресурс принта.</span>
+          </a>
+        </div>
+      </section>
+    </div>
+
+    <div class="footer-bottom">
+      <div>TwoComms: сервіс, підтримка, новини бренду, довіра та важливі сторінки зібрані в один навігаційний кластер.</div>
+      <div class="footer-rights">All Rights Reserved © TWOCOMMS, 2026</div>
+    </div>
+  </div>
+</footer>

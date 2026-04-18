@@ -14,6 +14,42 @@ function buildPageHref(basePath, page) {
   return `${safeBasePath}?page=${page}`;
 }
 
+function syncPaginationViewport(navElement, currentPage) {
+  if (!navElement) return;
+  const scrollContainer = navElement.closest('.pagination-rail');
+  const activeItem = navElement.querySelector(`.page-item-number[data-page="${currentPage}"]`);
+  if (!scrollContainer || !activeItem) return;
+
+  const scrollToActive = () => {
+    const itemRect = activeItem.getBoundingClientRect();
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const maxScroll = scrollContainer.scrollWidth - scrollContainer.clientWidth;
+
+    if (maxScroll <= 0) {
+      return;
+    }
+
+    let targetLeft = scrollContainer.scrollLeft + (itemRect.left - containerRect.left) - ((containerRect.width - itemRect.width) / 2);
+    targetLeft = Math.max(0, Math.min(targetLeft, maxScroll));
+
+    if (currentPage <= 2) {
+      targetLeft = 0;
+    }
+
+    const totalPages = parseNumber(navElement.dataset.totalPages || currentPage, currentPage);
+    if (currentPage >= totalPages - 1) {
+      targetLeft = maxScroll;
+    }
+
+    scrollContainer.scrollTo({
+      left: targetLeft,
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+    });
+  };
+
+  requestAnimationFrame(scrollToActive);
+}
+
 function updatePaginationNav(navElement, currentPage) {
   if (!navElement) return;
   const totalPages = parseNumber(navElement.dataset.totalPages || currentPage, currentPage);
@@ -51,6 +87,8 @@ function updatePaginationNav(navElement, currentPage) {
     nextItem.classList.toggle('disabled', disabled);
     nextLink.setAttribute('href', disabled ? '#' : buildPageHref(basePath, currentPage + 1));
   }
+
+  syncPaginationViewport(navElement, currentPage);
 }
 
 function animateNewCards(container) {
