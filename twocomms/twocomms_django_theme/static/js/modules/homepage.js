@@ -14,11 +14,27 @@ function buildPageHref(basePath, page) {
   return `${safeBasePath}?page=${page}`;
 }
 
+function syncPaginationLayout(navElement) {
+  if (!navElement) return false;
+  const scrollContainer = navElement.closest('.pagination-rail');
+  if (!scrollContainer) return false;
+
+  const needsScroll = Math.ceil(scrollContainer.scrollWidth - scrollContainer.clientWidth) > 4;
+  scrollContainer.classList.toggle('is-scrollable', needsScroll);
+  return needsScroll;
+}
+
 function syncPaginationViewport(navElement, currentPage) {
   if (!navElement) return;
   const scrollContainer = navElement.closest('.pagination-rail');
   const activeItem = navElement.querySelector(`.page-item-number[data-page="${currentPage}"]`);
   if (!scrollContainer || !activeItem) return;
+
+  const needsScroll = syncPaginationLayout(navElement);
+  if (!needsScroll) {
+    scrollContainer.scrollLeft = 0;
+    return;
+  }
 
   const scrollToActive = () => {
     const itemRect = activeItem.getBoundingClientRect();
@@ -262,6 +278,16 @@ export function initHomepagePagination() {
         const nextPage = parseNumber(loadMoreBtn.dataset.page, getCurrentPage() + 1);
         loadPage(nextPage);
       });
+    }
+
+    if (paginationNav) {
+      let resizeFrame = 0;
+      window.addEventListener('resize', () => {
+        window.cancelAnimationFrame(resizeFrame);
+        resizeFrame = window.requestAnimationFrame(() => {
+          updatePaginationNav(paginationNav, getCurrentPage());
+        });
+      }, { passive: true });
     }
 
     syncUI();
