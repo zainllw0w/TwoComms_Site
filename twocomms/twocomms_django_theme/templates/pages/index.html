@@ -33,6 +33,10 @@
   <link rel="preload" href="{% static 'img/logo.svg' %}" as="image" fetchpriority="high">
   <link rel="preload" href="{% static 'css/home.css' %}" as="style">
   <link rel="stylesheet" href="{% static 'css/home.css' %}">
+  {# JS-модули, гарантированно грузящиеся на home сразу после LCP —
+     modulepreload даёт браузеру фору на DNS/fetch/parse параллельно с main.js. #}
+  <link rel="modulepreload" href="{% static 'js/modules/product-media.js' %}">
+  <link rel="modulepreload" href="{% static 'js/modules/homepage.js' %}">
 {% endblock %}
 
 {% block structured_data %}
