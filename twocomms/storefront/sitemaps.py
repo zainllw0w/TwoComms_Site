@@ -6,6 +6,27 @@ from django.urls import reverse
 from .models import Product, Category
 from django.utils import timezone
 
+PUBLIC_STATIC_ROUTE_NAMES = [
+    'home',
+    'catalog',
+    'delivery',
+    'about',
+    'contacts',
+    'cooperation',
+    'custom_print',
+    'search',
+    'help_center',
+    'faq',
+    'size_guide',
+    'care_guide',
+    'order_tracking',
+    'site_map_page',
+    'news',
+    'returns',
+    'privacy_policy',
+    'terms_of_service',
+]
+
 
 class StaticViewSitemap(Sitemap):
     """
@@ -17,10 +38,7 @@ class StaticViewSitemap(Sitemap):
     domain = 'twocomms.shop'
 
     def items(self):
-        return [
-            'home',
-            'catalog',
-        ]
+        return PUBLIC_STATIC_ROUTE_NAMES
 
     def location(self, item):
         return reverse(item)
@@ -39,8 +57,7 @@ class ProductSitemap(Sitemap):
     domain = 'twocomms.shop'
 
     def items(self):
-        # Возвращаем все товары, так как у Product нет поля is_active
-        return Product.objects.all().order_by('id')
+        return Product.objects.filter(status='published').exclude(slug='').order_by('id')
 
     def lastmod(self, obj):
         # У Product нет полей времени, возвращаем None

@@ -11,21 +11,26 @@ Static Pages views - Статические страницы и служебны
 - Тестовая страница для аналитики
 """
 
+from copy import deepcopy
+import importlib.machinery
+import importlib.util
+import json
+import logging
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
+import re
+import xml.etree.ElementTree as ET
+from urllib.parse import urljoin
+
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.conf import settings
 from django.shortcuts import render
 from django.db import transaction
 from django.views.decorators.http import require_POST
-import json
-from decimal import Decimal, InvalidOperation
-from pathlib import Path
-import importlib.machinery
-import importlib.util
 from django.utils.text import slugify
 from django.utils import timezone
-from urllib.parse import urljoin
 from django.urls import reverse
-from storefront.models import Category, CustomPrintLead, CustomPrintModerationStatus, Product
+from storefront.models import Category, CustomPrintLead, CustomPrintModerationStatus, Product, SizeGrid
 from storefront.forms import CustomPrintLeadForm
 from storefront.custom_print_config import (
     ADDON_LABELS,
@@ -44,14 +49,32 @@ from storefront.custom_print_notifications import (
     notify_new_custom_print_lead,
 )
 from storefront.utils.analytics_helpers import FEED_DEFAULT_COLOR, normalize_feed_color
-import re
-import xml.etree.ElementTree as ET
-import logging
+from storefront.support_content import HELP_FAQ_ITEMS, SUPPORT_PAGE_DEFINITIONS
 
 # Константы для feed
 FEED_SIZE_OPTIONS = ["S", "M", "L", "XL"]
 DEFAULT_FEED_SEASON = "Демисезон"
 _LEGACY_GOOGLE_MERCHANT_FEED = None
+SITEMAP_STATIC_ROUTE_NAMES = (
+    "home",
+    "catalog",
+    "delivery",
+    "about",
+    "contacts",
+    "cooperation",
+    "custom_print",
+    "search",
+    "help_center",
+    "faq",
+    "size_guide",
+    "care_guide",
+    "order_tracking",
+    "site_map_page",
+    "news",
+    "returns",
+    "privacy_policy",
+    "terms_of_service",
+)
 
 # Вспомогательные функции для feed
 
@@ -135,7 +158,7 @@ def static_sitemap(request):
     host = request.get_host().split(":")[0]
     base_url = f"{scheme}://{host}"
 
-    paths = ["/", "/catalog/"]
+    paths = [reverse(route_name) for route_name in SITEMAP_STATIC_ROUTE_NAMES]
 
     for product in Product.objects.filter(status="published").only("slug"):
         if product.slug:
@@ -162,6 +185,119 @@ def static_sitemap(request):
 
     xml_payload = ET.tostring(urlset, encoding="utf-8", xml_declaration=True)
     return HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
+
+
+def _hydrate_link_payload(item):
+    payload = deepcopy(item)
+    url_name = payload.pop("url_name", None)
+    if url_name:
+        payload["url"] = reverse(url_name)
+    return payload
+
+
+def _build_page_context(request, page_key):
+    if page_key not in SUPPORT_PAGE_DEFINITIONS:
+        raise Http404("Support page not found")
+
+    page = deepcopy(SUPPORT_PAGE_DEFINITIONS[page_key])
+    page["key"] = page_key
+    page["schema_type"] = "CollectionPage" if page_key in {"faq", "site_map_page", "news"} else "WebPage"
+    page["intro_links"] = [_hydrate_link_payload(link) for link in page.get("intro_links", [])]
+
+    hydrated_sections = []
+    for idx, section in enumerate(page.get("sections", []), start=1):
+        payload = deepcopy(section)
+        payload["anchor"] = payload.get("id") or f"section-{idx}"
+        payload["cards"] = [_hydrate_link_payload(card) for card in payload.get("cards", [])]
+        payload["links"] = [_hydrate_link_payload(link) for link in payload.get("links", [])]
+        hydrated_sections.append(payload)
+    page["sections"] = hydrated_sections
+
+    hydrated_faq = []
+    for idx, faq_item in enumerate(page.get("faq_items", []), start=1):
+        payload = deepcopy(faq_item)
+        payload["anchor"] = f"faq-{idx}"
+        hydrated_faq.append(payload)
+    page["faq_items"] = hydrated_faq
+
+    cta = page.get("cta")
+    if cta:
+        cta_payload = deepcopy(cta)
+        for action_name in ("primary", "secondary"):
+            action = cta_payload.get(action_name)
+            if action:
+                cta_payload[action_name] = _hydrate_link_payload(action)
+        page["cta"] = cta_payload
+
+    context = {
+        "page": page,
+        "page_title": page["page_title"],
+        "faq_items": page.get("faq_items", []),
+        "breadcrumb_items": [
+            {"name": "Головна", "url": reverse("home")},
+            {"name": page["hero_title"], "url": request.path},
+        ],
+    }
+
+    if page_key == "size_guide":
+        context["size_grids"] = list(
+            SizeGrid.objects.filter(is_active=True)
+            .select_related("catalog")
+            .order_by("catalog__order", "catalog__name", "order", "name")
+        )
+
+    if page_key == "site_map_page":
+        categories = [
+            {
+                "title": category.name,
+                "text": category.description or "Категорія каталогу TwoComms з окремою підбіркою товарів.",
+                "url": reverse("catalog_by_cat", kwargs={"cat_slug": category.slug}),
+            }
+            for category in Category.objects.filter(is_active=True).only("name", "slug", "description")
+            if category.slug
+        ]
+        latest_products = [
+            {
+                "title": product.title,
+                "text": f"Сторінка товару{f' у категорії {product.category.name}' if getattr(product, 'category', None) else ''}.",
+                "url": reverse("product", kwargs={"slug": product.slug}),
+            }
+            for product in (
+                Product.objects.filter(status="published", slug__isnull=False)
+                .exclude(slug="")
+                .select_related("category")
+                .only("title", "slug", "category__name")
+                .order_by("-priority", "-id")[:8]
+            )
+        ]
+        context["dynamic_groups"] = [
+            {
+                "title": "Категорії каталогу",
+                "eyebrow": "Catalog map",
+                "items": categories,
+            },
+            {
+                "title": "Актуальні товарні сторінки",
+                "eyebrow": "Fresh product links",
+                "items": latest_products,
+            },
+        ]
+
+    if page_key == "news":
+        context["featured_products"] = list(
+            Product.objects.filter(status="published", slug__isnull=False)
+            .exclude(slug="")
+            .select_related("category")
+            .only("title", "slug", "category__name")
+            .order_by("-priority", "-id")[:8]
+        )
+
+    return context
+
+
+def _render_support_page(request, page_key):
+    context = _build_page_context(request, page_key)
+    return render(request, context["page"]["template"], context)
 
 
 def google_merchant_feed(request):
@@ -518,8 +654,44 @@ def delivery(request):
     Страница "Доставка и оплата".
     """
     return render(request, 'pages/delivery.html', {
-        'page_title': 'Доставка та оплата'
+        'page_title': 'Доставка та оплата',
+        'faq_items': HELP_FAQ_ITEMS,
     })
+
+
+def help_center(request):
+    """Service-manual page with internal linking and support FAQ."""
+    return _render_support_page(request, "help_center")
+
+
+def faq(request):
+    """FAQ hub."""
+    return _render_support_page(request, "faq")
+
+
+def size_guide(request):
+    """Size guide and fit advice."""
+    return _render_support_page(request, "size_guide")
+
+
+def care_guide(request):
+    """Care guide for garments and prints."""
+    return _render_support_page(request, "care_guide")
+
+
+def order_tracking(request):
+    """Order tracking help page."""
+    return _render_support_page(request, "order_tracking")
+
+
+def site_map_page(request):
+    """Human-readable sitemap with link clusters."""
+    return _render_support_page(request, "site_map_page")
+
+
+def news(request):
+    """Brand updates and latest product links."""
+    return _render_support_page(request, "news")
 
 
 def custom_print(request):
@@ -936,27 +1108,21 @@ def returns(request):
     """
     Страница "Возврат и обмен".
     """
-    return render(request, 'pages/returns.html', {
-        'page_title': 'Повернення та обмін'
-    })
+    return _render_support_page(request, "returns")
 
 
 def privacy_policy(request):
     """
     Страница "Политика конфиденциальности".
     """
-    return render(request, 'pages/privacy_policy.html', {
-        'page_title': 'Політика конфіденційності'
-    })
+    return _render_support_page(request, "privacy_policy")
 
 
 def terms_of_service(request):
     """
     Страница "Условия использования".
     """
-    return render(request, 'pages/terms_of_service.html', {
-        'page_title': 'Умови використання'
-    })
+    return _render_support_page(request, "terms_of_service")
 
 
 def test_analytics_events(request):
