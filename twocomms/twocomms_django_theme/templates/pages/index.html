@@ -776,16 +776,32 @@
       font-size: 0.93rem;
     }
 
+    .category-card-custom-action-wrapper {
+      margin-left: auto;
+      flex: 0 1 clamp(20rem, 28vw, 28rem);
+      width: min(100%, clamp(20rem, 28vw, 28rem));
+      min-width: clamp(18rem, 24vw, 24rem);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .category-card-custom-helptext {
+      font-size: 0.72rem;
+      color: rgba(255, 255, 255, 0.6);
+      text-align: center;
+      line-height: 1.2;
+    }
+
     .category-card-custom-action {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 0.65rem;
-      flex: 0 1 clamp(20rem, 28vw, 28rem);
-      width: min(100%, clamp(20rem, 28vw, 28rem));
-      min-width: clamp(18rem, 24vw, 24rem);
+      width: 100%;
       min-height: 56px;
-      margin-left: auto;
       padding: 0.95rem clamp(1.25rem, 2vw, 1.8rem);
       border-radius: 999px;
       color: #1c1208;
@@ -1084,10 +1100,13 @@
         align-items: stretch;
       }
 
-      .category-card-custom-action {
+      .category-card-custom-action-wrapper {
         width: 100%;
         min-width: 0;
         margin-left: 0;
+      }
+      .category-card-custom-action {
+        width: 100%;
       }
 
       .pagination-premium .page-link {
@@ -1238,10 +1257,12 @@
         min-width: clamp(9.75rem, 10vw, 11.5rem);
       }
 
-      .category-card-custom-action {
-        min-height: 50px;
+      .category-card-custom-action-wrapper {
         width: min(100%, clamp(17rem, 20vw, 21rem));
         min-width: clamp(17rem, 20vw, 21rem);
+      }
+      .category-card-custom-action {
+        min-height: 50px;
         padding-block: 0.82rem;
       }
     }
@@ -1603,14 +1624,14 @@
                     Обери основу, свій принт, матеріали й деталі — вартість побачиш одразу.
                   </p>
                 </div>
-                <div class="category-card-custom-action-wrapper" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                  <span class="category-card-custom-action" style="margin-top: 0; margin-bottom: 0.35rem; width: 100%;">
+                <div class="category-card-custom-action-wrapper">
+                  <span class="category-card-custom-action">
                     Спробувати конструктор
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
                     </svg>
                   </span>
-                  <span class="category-card-custom-help" style="font-size: 0.72rem; color: rgba(255,255,255,0.6); text-align: center; display: block; line-height: 1.2;">
+                  <span class="category-card-custom-helptext">
                     Потрібна допомога? Менеджер підкаже.
                   </span>
                 </div>
