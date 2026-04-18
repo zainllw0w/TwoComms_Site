@@ -54,11 +54,12 @@ class SupportStaticPagesTests(SimpleTestCase):
         self.assertContains(response, reverse("size_guide"))
         self.assertContains(response, reverse("site_map_page"))
 
-    def test_mobile_bottom_nav_does_not_render_profile_avatar_toggle(self):
+    def test_mobile_bottom_nav_restores_profile_entry(self):
         response = self.client.get(reverse("help_center"), secure=True)
 
-        self.assertNotContains(response, 'id="user-toggle-mobile"', html=False)
-        self.assertNotContains(response, "user-avatar-btn-mobile", html=False)
+        self.assertContains(response, "user-login-link-mobile", html=False)
+        self.assertContains(response, '<span class="bottom-nav-label">Увійти</span>', html=False)
+        self.assertNotContains(response, '<span class="bottom-nav-label">Допомога</span>', html=False)
 
     @patch("storefront.views.static_pages.Category.objects.filter")
     @patch("storefront.views.static_pages.Product.objects.filter")
