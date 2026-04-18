@@ -1279,10 +1279,11 @@
     <div class="col-12 hero-content">
       <div class="hero-text-section">
         <h1 class="hero-title">
+          <span class="visually-hidden">TwoComms — бренд: </span>
           <span class="hero-title-main">Стріт & мілітарі</span>
           <span class="hero-title-accent">одяг</span>
         </h1>
-        <p class="hero-subtitle">Футболки, худі, лонгсліви. Дизайн з характером.</p>
+        <p class="hero-subtitle">Ексклюзивні футболки, худі та лонгсліви. Бренд TwoComms — дизайн з характером.</p>
         <div class="hero-actions">
           <a class="hero-btn-primary" href="{% url 'catalog' %}">
             <span>Перейти в каталог</span>
@@ -1596,18 +1597,23 @@
             <div class="card-content-compact category-card-custom-content">
               <div class="category-card-custom-inner category-card-custom-panel">
                 <div class="category-card-custom-copy">
-                  <span class="category-card-custom-kicker">Свій принт</span>
-                  <h3 class="category-card-custom-title">Замовити кастомний одяг</h3>
+                  <span class="category-card-custom-kicker">Свій дизайн</span>
+                  <h3 class="category-card-custom-title">Збери одяг під себе</h3>
                   <p class="category-card-custom-text">
-                    Guided DTF-конфігуратор для худі, футболки, лонгсліва або свого виробу з quick estimate і safe exit до менеджера.
+                    Обери основу, свій принт, матеріали й деталі — вартість побачиш одразу.
                   </p>
                 </div>
-                <span class="category-card-custom-action">
-                  Перейти до заявки
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                  </svg>
-                </span>
+                <div class="category-card-custom-action-wrapper" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                  <span class="category-card-custom-action" style="margin-top: 0; margin-bottom: 0.35rem; width: 100%;">
+                    Спробувати конструктор
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                    </svg>
+                  </span>
+                  <span class="category-card-custom-help" style="font-size: 0.72rem; color: rgba(255,255,255,0.6); text-align: center; display: block; line-height: 1.2;">
+                    Потрібна допомога? Менеджер підкаже.
+                  </span>
+                </div>
               </div>
             </div>
           </a>
