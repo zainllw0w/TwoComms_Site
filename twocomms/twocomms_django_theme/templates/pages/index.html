@@ -780,6 +780,8 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      align-self: center;
+      text-decoration: none;
       gap: 0.65rem;
       flex: 0 1 clamp(20rem, 28vw, 28rem);
       width: min(100%, clamp(20rem, 28vw, 28rem));
@@ -1590,7 +1592,7 @@
         </div>
 
         <div class="categories-cta-wrap">
-          <a href="{% url 'custom_print' %}" class="category-card-compact category-card-custom" title="Замовити кастомний одяг">
+          <div class="category-card-compact category-card-custom" title="Замовити кастомний одяг">
             <div class="card-bg-dark">
               <div class="card-glow-dark"></div>
               <div class="card-ripple-dark"></div>
@@ -1604,7 +1606,7 @@
                     Обери основу, свій принт, матеріали й деталі — вартість побачиш одразу.
                   </p>
                 </div>
-                <span class="category-card-custom-action">
+                <a href="{% url 'custom_print' %}" class="category-card-custom-action">
                   Спробувати конструктор
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
@@ -1612,10 +1614,10 @@
                   <span style="position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); font-size: 0.72rem; color: rgba(255,255,255,0.6); text-align: center; white-space: nowrap; line-height: 1.2; font-weight: 400; text-transform: none; pointer-events: none;">
                     Потрібна допомога? Менеджер підкаже.
                   </span>
-                </span>
+                </a>
               </div>
             </div>
-          </a>
+          </div>
         </div>
       </div>
     </div>
