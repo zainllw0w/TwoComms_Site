@@ -592,12 +592,26 @@ LOGGING = {
             'class': 'logging.FileHandler',
             'filename': BASE_DIR / 'django.log',
         },
+        'rum_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(BASE_DIR / 'rum.log'),
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 3,
+            'encoding': 'utf-8',
+            'delay': True,
+        },
     },
     'loggers': {
         'django': {
             'handlers': ['file'],
             'level': 'INFO',
             'propagate': True,
+        },
+        'storefront.rum': {
+            'handlers': ['rum_file'],
+            'level': 'INFO',
+            'propagate': False,
         },
     },
 }
