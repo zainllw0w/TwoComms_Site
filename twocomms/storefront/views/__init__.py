@@ -89,6 +89,7 @@ from .static_pages import (
     uaprom_products_feed,
     prom_feed_xml,
     static_verification_file,
+    indexnow_key_file,
     about,
     contacts,
     custom_print,
@@ -365,7 +366,7 @@ __all__ = [
 
     # Static Pages
     'robots_txt', 'static_sitemap', 'google_merchant_feed',
-    'static_verification_file', 'about', 'contacts', 'custom_print', 'custom_print_lead',
+    'static_verification_file', 'indexnow_key_file', 'about', 'contacts', 'custom_print', 'custom_print_lead',
     'custom_print_safe_exit', 'custom_print_add_to_cart', 'custom_print_remove',
     'custom_print_submit_review', 'custom_print_moderation_action',
     'delivery', 'help_center', 'faq', 'size_guide', 'care_guide',
