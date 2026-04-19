@@ -65,6 +65,7 @@ urlpatterns = [
     path('cart/summary/', views.cart_summary, name='cart_summary'),
     path('cart/mini/', views.cart_mini, name='cart_mini'),
     path('cart/items/', views.cart_items_api, name='cart_items_api'),
+    path('api/rum/', _module_view('storefront.views.api', 'rum_beacon'), name='rum_beacon'),
     path('cart/clean/', views.clean_cart, name='clean_cart'),
     # path('checkout/', views.checkout, name='checkout'), # REMOVED: Dead code
     # auth - using modular auth views with proper password validation

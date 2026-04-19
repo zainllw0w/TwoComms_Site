@@ -150,6 +150,74 @@ def track_event(request):
         }, status=400)
 
 
+@require_http_methods(["POST"])
+@csrf_exempt  # RUM маяк идёт navigator.sendBeacon — без CSRF токена
+def rum_beacon(request):
+    """
+    Real User Monitoring beacon — приёмник Core Web Vitals с клиента.
+
+    Принимает JSON (или form-data c параметром `payload`) вида:
+        {
+          "url": "https://twocomms.shop/",
+          "nav_type": "navigate|reload|back_forward",
+          "device_class": "low|mid|high",
+          "conn": "4g|3g|2g|slow-2g|unknown",
+          "metrics": {
+            "LCP": 2400, "CLS": 0.03, "INP": 180, "FCP": 1100, "TTFB": 220, "FID": 45
+          },
+          "ua_mobile": true
+        }
+
+    Не сохраняет в БД — пишет в 'storefront.rum' logger (по умолчанию stdout/файл,
+    дальше можно перенаправить в ELK/Sentry/CloudWatch через настройки логирования).
+    Тихо возвращает 204 — клиенту не нужен ответ; sendBeacon игнорирует тело.
+    """
+    import json
+    import logging
+
+    logger = logging.getLogger('storefront.rum')
+
+    try:
+        raw = request.body or b''
+        # sendBeacon с type=application/json кладёт тело напрямую;
+        # fetch-fallback может приходить как form-data c ключом payload
+        if raw:
+            try:
+                data = json.loads(raw.decode('utf-8', errors='replace'))
+            except (ValueError, UnicodeDecodeError):
+                data = {}
+        else:
+            data = {}
+        if not data and request.POST:
+            try:
+                data = json.loads(request.POST.get('payload', '{}'))
+            except (ValueError, TypeError):
+                data = {}
+
+        metrics = data.get('metrics') or {}
+        if not isinstance(metrics, dict):
+            metrics = {}
+        # Огрубляем и не логируем ничего, кроме ожидаемых полей — защита от мусора
+        allowed = {'LCP', 'CLS', 'INP', 'FCP', 'TTFB', 'FID'}
+        safe_metrics = {k: metrics[k] for k in allowed if k in metrics}
+
+        logger.info(
+            'rum url=%s nav=%s dc=%s conn=%s mobile=%s metrics=%s',
+            str(data.get('url') or '')[:200],
+            str(data.get('nav_type') or '')[:16],
+            str(data.get('device_class') or '')[:8],
+            str(data.get('conn') or '')[:12],
+            bool(data.get('ua_mobile')),
+            safe_metrics,
+        )
+    except Exception:
+        # RUM никогда не должен 5xx-ить — тихо глотаем
+        logger.debug('rum beacon parse failed', exc_info=True)
+
+    # 204 No Content — минимальный оверхед, sendBeacon не читает тело
+    return JsonResponse({}, status=204)
+
+
 @require_http_methods(["GET"])
 def search_suggestions(request):
     """

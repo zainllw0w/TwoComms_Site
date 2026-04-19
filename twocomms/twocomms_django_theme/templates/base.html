@@ -825,6 +825,9 @@
 
   <!-- Analytics Loader - загружаем в head для ранней инициализации пикселей -->
   <script defer src="{% static 'js/analytics-loader.js' %}?v=3"></script>
+  {# RUM beacon — Core Web Vitals на реальных устройствах. defer, 0 зависимостей,
+     отправка единственным sendBeacon() на visibilitychange=hidden / pagehide. #}
+  <script defer src="{% static 'js/rum.js' %}"></script>
 </head>
 
 <body class='bg-body text-body'
