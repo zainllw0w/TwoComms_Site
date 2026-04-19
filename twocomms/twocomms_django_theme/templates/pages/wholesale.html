@@ -31,42 +31,21 @@
   }
 }
 </script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "Який мінімальний обсяг оптового замовлення у TwoComms?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Оптові партії стартують від 8 одиниць. Ми допоможемо підібрати оптимальний асортимент футболок та худі під ваш магазин."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Чи можна отримати фіксовані ціни для дропшиперів?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Так, після підписання партнерського договору ви отримуєте закріплені прайс-листи на ключові позиції: футболки, худі та мерч TwoComms."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Як швидко відвантажуються оптові замовлення?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Замовлення готуємо протягом 24 годин, формуємо накладну на сайті та відправляємо вашому перевізнику по Україні."
-      }
-    }
-  ]
-}
-</script>
+{% breadcrumb_schema breadcrumb_items %}
+{% faq_schema faq_items %}
 {% endblock %}
 
 {% block breadcrumbs %}
-  {% breadcrumbs request %}
+  <nav class="wholesale-breadcrumbs" aria-label="Breadcrumb">
+    {% for crumb in breadcrumb_items %}
+      {% if forloop.last %}
+        <span aria-current="page">{{ crumb.name }}</span>
+      {% else %}
+        <a href="{{ crumb.url }}">{{ crumb.name }}</a>
+        <span aria-hidden="true">/</span>
+      {% endif %}
+    {% endfor %}
+  </nav>
 {% endblock %}
 
 {% block extra_css %}
@@ -82,6 +61,124 @@
       color: var(--tc-text);
       overflow-x: hidden; /* Prevent horizontal scrolling */
       word-wrap: break-word; /* Prevent text overflow */
+    }
+
+    .wholesale-breadcrumbs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin: 0 0 1.25rem;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 0.95rem;
+    }
+
+    .wholesale-breadcrumbs a {
+      color: rgba(255, 255, 255, 0.86);
+      text-decoration: none;
+    }
+
+    .wholesale-breadcrumbs a:hover {
+      color: #fff;
+      text-decoration: underline;
+    }
+
+    .wholesale-seo-stack {
+      margin-top: 2.5rem;
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .wholesale-seo-card {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      padding: clamp(1.25rem, 2vw, 2rem);
+      background: linear-gradient(180deg, rgba(17, 17, 24, 0.78), rgba(10, 10, 16, 0.88));
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+    }
+
+    .wholesale-seo-card h2 {
+      margin: 0 0 0.5rem;
+      font-size: clamp(1.45rem, 2vw, 2rem);
+    }
+
+    .wholesale-seo-card > p {
+      margin: 0 0 1.25rem;
+      color: rgba(255, 255, 255, 0.72);
+      max-width: 72ch;
+      line-height: 1.65;
+    }
+
+    .wholesale-faq-list {
+      display: grid;
+      gap: 0.9rem;
+    }
+
+    .wholesale-faq-item {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 1rem 1.1rem;
+    }
+
+    .wholesale-faq-item summary {
+      cursor: pointer;
+      list-style: none;
+      font-weight: 700;
+    }
+
+    .wholesale-faq-item summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .wholesale-faq-item p {
+      margin: 0.85rem 0 0;
+      color: rgba(255, 255, 255, 0.75);
+      line-height: 1.65;
+    }
+
+    .wholesale-link-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+
+    .wholesale-link-card {
+      display: block;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 1rem 1.1rem;
+      text-decoration: none;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.03);
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .wholesale-link-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(168, 85, 247, 0.48);
+      background: rgba(168, 85, 247, 0.08);
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .wholesale-link-card small {
+      display: block;
+      margin-bottom: 0.45rem;
+      color: rgba(255, 255, 255, 0.56);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .wholesale-link-card strong {
+      display: block;
+      margin-bottom: 0.45rem;
+      font-size: 1.05rem;
+    }
+
+    .wholesale-link-card span {
+      color: rgba(255, 255, 255, 0.72);
+      line-height: 1.55;
     }
     
     /* Ensure proper mobile viewport handling */
@@ -2740,6 +2837,49 @@
         </div>
       </div>
       {% endfor %}
+    </div>
+  </section>
+
+  <section class="wholesale-seo-stack" aria-label="Оптовий SEO layer">
+    <div class="wholesale-seo-card">
+      <h2>Поширені питання про оптові закупівлі</h2>
+      <p>
+        Тут зібрані ключові відповіді для магазинів, шоурумів, дропшиперів і команд, які планують
+        запускати продажі або закупівлі через TwoComms на основному домені.
+      </p>
+      <div class="wholesale-faq-list">
+        {% for faq in faq_items %}
+          <details class="wholesale-faq-item">
+            <summary>{{ faq.question }}</summary>
+            <p>{{ faq.answer }}</p>
+          </details>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="wholesale-seo-card">
+      <h2>Що ще подивитися перед запуском опта</h2>
+      <p>
+        Якщо вам потрібно не просто скачати прайс, а швидко узгодити умови, зразки або паралельний кастомний
+        сценарій, переходьте в суміжні money pages без зайвого пошуку по сайту.
+      </p>
+      <div class="wholesale-link-grid">
+        <a class="wholesale-link-card" href="{% url 'custom_print' %}">
+          <small>Custom print</small>
+          <strong>Кастомний друк для партій</strong>
+          <span>Для брендів, подій, команд і корпоративного мерчу зі своїм принтом.</span>
+        </a>
+        <a class="wholesale-link-card" href="{% url 'delivery' %}">
+          <small>Delivery</small>
+          <strong>Доставка та оплата</strong>
+          <span>Перевірте логістику, умови відправки, дедлайни та базові правила оформлення.</span>
+        </a>
+        <a class="wholesale-link-card" href="{% url 'contacts' %}">
+          <small>Contacts</small>
+          <strong>Зв'язок з менеджером</strong>
+          <span>Швидкий перехід у канал, де можна узгодити асортимент, документи й запуск продажів.</span>
+        </a>
+      </div>
     </div>
   </section>
 </div>

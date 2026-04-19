@@ -144,6 +144,12 @@ def breadcrumbs(request, product=None, category=None):
         }
     ]
 
+    if category or product:
+        breadcrumb_list.append({
+            'name': 'Каталог',
+            'url': reverse('catalog')
+        })
+
     if category:
         breadcrumb_list.append({
             'name': category.name,

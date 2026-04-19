@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, Http404
 from django.contrib.auth.decorators import user_passes_test
+from django.urls import reverse
 
 
 def staff_required(view_func):
@@ -68,19 +69,71 @@ def dev_grant_admin(request): return redirect('home')
 
 # ==================== STATIC PAGES STUBS ====================
 
+WHOLESALE_FAQ_ITEMS = [
+    {
+        'question': 'Який мінімальний обсяг оптового замовлення у TwoComms?',
+        'answer': 'Оптові партії стартують від 8 одиниць. Ми допомагаємо зібрати асортимент під магазин, шоурум, команду або локальний бренд.',
+    },
+    {
+        'question': 'Чи можна отримати фіксовані ціни для дропшиперів?',
+        'answer': 'Так. Для дропшипінгу та постійних партнерів фіксуємо прайс і формат роботи після узгодження умов та асортименту.',
+    },
+    {
+        'question': 'Як швидко відвантажуються оптові замовлення?',
+        'answer': 'Після підтвердження складу й замовлення ми готуємо партію, оформлюємо документи та передаємо відправку по Україні у погоджений дедлайн.',
+    },
+]
+
+COOPERATION_FAQ_ITEMS = [
+    {
+        'question': 'Які формати співпраці доступні у TwoComms?',
+        'answer': 'Ми працюємо з дропшипінгом, оптовими закупівлями, бренд-партнерствами, дизайнерами, блогерами та медіа.',
+    },
+    {
+        'question': 'Кому підійде сторінка співпраці?',
+        'answer': 'Сторінка підходить магазинам, шоурумам, брендам, дизайнерам, контент-кріейторам і командам, які хочуть запускати спільні проєкти або продавати TwoComms.',
+    },
+    {
+        'question': 'Куди звертатися для старту співпраці?',
+        'answer': 'Найшвидший шлях — написати в Telegram або перейти в оптовий чи кастомний сценарій, якщо вам потрібен конкретний формат запуску.',
+    },
+]
+
 
 def add_print(request): return render(request, 'pages/stub.html')
 def delivery_view(request): return render(request, 'pages/delivery.html')  # Assuming template exists
 # Use real template for cooperation
-def cooperation(request): return render(request, 'pages/cooperation.html')
+def cooperation(request):
+    return render(
+        request,
+        'pages/cooperation.html',
+        {
+            'faq_items': COOPERATION_FAQ_ITEMS,
+            'breadcrumb_items': [
+                {'name': 'Головна', 'url': reverse('home')},
+                {'name': 'Співпраця з TwoComms', 'url': reverse('cooperation')},
+            ],
+        },
+    )
 
 # ==================== WHOLESALE STUBS ====================
 
 
-def pricelist_redirect(request): return redirect('home')
-def pricelist_page(request): return render(request, 'pages/wholesale.html')
+def pricelist_redirect(request): return redirect('wholesale_page', permanent=True)
+def pricelist_page(request): return redirect('wholesale_page', permanent=True)
 def test_pricelist(request): return JsonResponse({'status': 'ok'})
-def wholesale_page(request): return render(request, 'pages/wholesale.html')
+def wholesale_page(request):
+    return render(
+        request,
+        'pages/wholesale.html',
+        {
+            'faq_items': WHOLESALE_FAQ_ITEMS,
+            'breadcrumb_items': [
+                {'name': 'Головна', 'url': reverse('home')},
+                {'name': 'Оптові закупівлі та дропшипінг', 'url': reverse('wholesale_page')},
+            ],
+        },
+    )
 def wholesale_order_form(request): return render(request, 'pages/wholesale_order_form.html')
 def generate_wholesale_invoice(request): return redirect('wholesale_page')
 def download_invoice_file(request, invoice_id): raise Http404

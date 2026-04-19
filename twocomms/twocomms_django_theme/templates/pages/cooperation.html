@@ -1,11 +1,76 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load seo_tags %}
 
 {% block title %}Співпраця з TwoComms{% endblock %}
+{% block description %}Співпраця з TwoComms для магазинів, шоурумів, дропшиперів, дизайнерів, блогерів і брендів. Окремі маршрути для опта, партнерств, контенту та запуску спільних проєктів.{% endblock %}
+{% block keywords %}співпраця TwoComms, дропшипінг одягу, опт одягу, бренд партнерство, співпраця з блогерами, співпраця з дизайнерами{% endblock %}
+{% block og_title %}Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства{% endblock %}
+{% block og_description %}Оберіть формат співпраці з TwoComms: дропшипінг, оптові закупівлі, спільні колекції, робота з дизайнерами, блогерами та медіа.{% endblock %}
+{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/placeholder.jpg' %}{% endblock %}
+{% block twitter_title %}Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства{% endblock %}
+{% block twitter_description %}TwoComms відкриває партнерські маршрути для магазинів, брендів, дизайнерів, блогерів та медіа.{% endblock %}
+{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/placeholder.jpg' %}{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Співпраця з TwoComms",
+  "description": "Сторінка для партнерств, дропшипінгу, оптових закупівель, бренд-колаборацій і співпраці з дизайнерами або медіа.",
+  "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "TwoComms",
+    "url": "{{ request.scheme }}://{{ request.get_host }}"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "TwoComms"
+  }
+}
+</script>
+{% breadcrumb_schema breadcrumb_items %}
+{% faq_schema faq_items %}
+{% endblock %}
+
+{% block breadcrumbs %}
+  <nav class="cooperation-breadcrumbs" aria-label="Breadcrumb">
+    {% for crumb in breadcrumb_items %}
+      {% if forloop.last %}
+        <span aria-current="page">{{ crumb.name }}</span>
+      {% else %}
+        <a href="{{ crumb.url }}">{{ crumb.name }}</a>
+        <span aria-hidden="true">/</span>
+      {% endif %}
+    {% endfor %}
+  </nav>
+{% endblock %}
 
 {% block extra_css %}
   {{ block.super }}
   <style>
+    .cooperation-breadcrumbs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin: 0 0 1.25rem;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 0.95rem;
+    }
+
+    .cooperation-breadcrumbs a {
+      color: rgba(255, 255, 255, 0.86);
+      text-decoration: none;
+    }
+
+    .cooperation-breadcrumbs a:hover {
+      color: #fff;
+      text-decoration: underline;
+    }
+
     .cooperation-hero .hero-features {
       display: grid !important;
       grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
@@ -42,6 +107,104 @@
       border: none !important;
       filter: none !important;
       box-shadow: none !important;
+    }
+
+    .cooperation-seo-stack {
+      margin-top: 2.5rem;
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .cooperation-seo-card {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      padding: clamp(1.25rem, 2vw, 2rem);
+      background: linear-gradient(180deg, rgba(17, 17, 24, 0.78), rgba(10, 10, 16, 0.88));
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+    }
+
+    .cooperation-seo-card h2 {
+      margin: 0 0 0.5rem;
+      font-size: clamp(1.45rem, 2vw, 2rem);
+    }
+
+    .cooperation-seo-card > p {
+      margin: 0 0 1.25rem;
+      color: rgba(255, 255, 255, 0.72);
+      max-width: 72ch;
+      line-height: 1.65;
+    }
+
+    .cooperation-faq-list {
+      display: grid;
+      gap: 0.9rem;
+    }
+
+    .cooperation-faq-item {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 1rem 1.1rem;
+    }
+
+    .cooperation-faq-item summary {
+      cursor: pointer;
+      list-style: none;
+      font-weight: 700;
+    }
+
+    .cooperation-faq-item summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .cooperation-faq-item p {
+      margin: 0.85rem 0 0;
+      color: rgba(255, 255, 255, 0.75);
+      line-height: 1.65;
+    }
+
+    .cooperation-link-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+
+    .cooperation-link-card {
+      display: block;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 1rem 1.1rem;
+      text-decoration: none;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.03);
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .cooperation-link-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(168, 85, 247, 0.48);
+      background: rgba(168, 85, 247, 0.08);
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .cooperation-link-card small {
+      display: block;
+      margin-bottom: 0.45rem;
+      color: rgba(255, 255, 255, 0.56);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .cooperation-link-card strong {
+      display: block;
+      margin-bottom: 0.45rem;
+      font-size: 1.05rem;
+    }
+
+    .cooperation-link-card span {
+      color: rgba(255, 255, 255, 0.72);
+      line-height: 1.55;
     }
   </style>
 {% endblock %}
@@ -442,5 +605,48 @@
       </div>
     </div>
   </div>
+
+  <section class="cooperation-seo-stack" aria-label="Cooperation SEO layer">
+    <div class="cooperation-seo-card">
+      <h2>Поширені питання про співпрацю</h2>
+      <p>
+        Якщо ви вибираєте між дропшипінгом, оптовим запуском, бренд-проєктом або контентною
+        колаборацією, почніть з цих відповідей і переходьте в потрібний сценарій без зайвого шуму.
+      </p>
+      <div class="cooperation-faq-list">
+        {% for faq in faq_items %}
+          <details class="cooperation-faq-item">
+            <summary>{{ faq.question }}</summary>
+            <p>{{ faq.answer }}</p>
+          </details>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="cooperation-seo-card">
+      <h2>Швидкі маршрути для партнерів</h2>
+      <p>
+        Ці сторінки закривають найчастіші next step сценарії: оптові закупівлі, кастомний друк для партій,
+        а також прямий контакт з командою для нестандартних колаборацій.
+      </p>
+      <div class="cooperation-link-grid">
+        <a class="cooperation-link-card" href="{% url 'wholesale_page' %}">
+          <small>Wholesale</small>
+          <strong>Оптові умови та прайс</strong>
+          <span>Для магазинів, шоурумів, мереж і дропшиперів, яким потрібні обсяги та комерційні умови.</span>
+        </a>
+        <a class="cooperation-link-card" href="{% url 'custom_print' %}">
+          <small>Custom print</small>
+          <strong>Кастомний принт для брендів</strong>
+          <span>Для мерчу, команд, подій і партій зі своїм дизайном або приватним лейблом.</span>
+        </a>
+        <a class="cooperation-link-card" href="{% url 'contacts' %}">
+          <small>Contacts</small>
+          <strong>Прямий контакт з командою</strong>
+          <span>Переходьте до контактів, якщо потрібен нестандартний формат співпраці або швидкий запуск.</span>
+        </a>
+      </div>
+    </div>
+  </section>
 </div>
 {% endblock %}

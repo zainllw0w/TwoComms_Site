@@ -84,6 +84,7 @@ from .cart import (
 # Статические страницы
 from .static_pages import (
     robots_txt,
+    llms_txt,
     static_sitemap,
     google_merchant_feed,
     uaprom_products_feed,
@@ -365,7 +366,7 @@ __all__ = [
     'cart_summary', 'cart_mini', 'cart_items_api',
 
     # Static Pages
-    'robots_txt', 'static_sitemap', 'google_merchant_feed',
+    'robots_txt', 'llms_txt', 'static_sitemap', 'google_merchant_feed',
     'static_verification_file', 'indexnow_key_file', 'about', 'contacts', 'custom_print', 'custom_print_lead',
     'custom_print_safe_exit', 'custom_print_add_to_cart', 'custom_print_remove',
     'custom_print_submit_review', 'custom_print_moderation_action',
