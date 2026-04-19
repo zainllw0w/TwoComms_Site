@@ -28,6 +28,7 @@ from .utils import cache_page_for_anon, HOME_PRODUCTS_PER_PAGE, PRODUCTS_PER_PAG
 # ==================== CATALOG VIEWS ====================
 
 @ensure_csrf_cookie
+@cache_page_for_anon(300)  # Phase 4.1: 5-мин кэш для анонимов; cart/favs-бейджи идут AJAX, не в кэше
 def home(request):
     """
     Главная страница сайта.
