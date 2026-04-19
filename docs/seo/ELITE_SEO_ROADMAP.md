@@ -1675,3 +1675,32 @@ Performance widget:
   - `Bing ecosystem`;
   - `Brave`;
   - открытый web footprint, который подхватывают `GPT / Gemini / Claude`.
+
+### 24.15. Live deploy verification, 20 апреля 2026
+
+После деплоя коммита `aeed8d2e` на production подтверждено:
+
+- `https://twocomms.shop/robots.txt`
+  - явно допускает `OAI-SearchBot`, `ChatGPT-User`, `Claude-SearchBot`, `Claude-User`, `PerplexityBot`, `Perplexity-User`;
+  - явно допускает `Google-Extended`;
+  - продолжает блокировать `GPTBot`, `ClaudeBot`, `CCBot`;
+  - продолжает держать `Disallow: /search/`;
+  - отдает корректный `Sitemap: https://twocomms.shop/sitemap.xml`.
+- `https://twocomms.shop/llms.txt` и `https://twocomms.shop/.well-known/llms.txt`
+  - отдаются `200`;
+  - содержат canonical map главных public routes бренда и commerce/support pages.
+- `https://twocomms.shop/pricelist/`
+  - отдает `301` на `/wholesale/`.
+- `https://twocomms.shop/custom-print/`
+  - live содержит `BreadcrumbList`, `FAQPage` и видимый FAQ-блок.
+- `https://twocomms.shop/wholesale/`
+  - live содержит `BreadcrumbList`, `FAQPage` и видимый wholesale FAQ-блок.
+- production `submit_indexnow_urls --core`
+  - отработал успешно;
+  - `IndexNow accepted 18 URL(s)`.
+
+Практический вывод:
+
+- AI-search surface больше не держится на implicit-default поведении;
+- у сайта теперь есть явная crawler policy для `ChatGPT / Claude / Perplexity / Gemini`, отдельный `llms.txt` layer и подтвержденный live `IndexNow` submit;
+- дальше рост будет упираться уже не в базовую crawl-policy, а в authority, entity signals, cited mentions, reviews, UGC, B2B cases и coverage под реальные query-intents.
