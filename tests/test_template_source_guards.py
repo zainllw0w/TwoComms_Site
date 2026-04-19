@@ -6,11 +6,14 @@ from pathlib import Path
 BASE_TEMPLATE = Path(
     "/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/templates/base.html"
 )
+HOME_TEMPLATE = Path(
+    "/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/templates/pages/index.html"
+)
 
 
 class BaseTemplateSourceGuardsTests(unittest.TestCase):
-    def test_base_template_avoids_multiline_django_hash_comments(self):
-        content = BASE_TEMPLATE.read_text(encoding="utf-8")
+    def _multiline_hash_comments(self, template_path: Path):
+        content = template_path.read_text(encoding="utf-8")
         multiline_comments = []
         cursor = 0
 
@@ -27,10 +30,24 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
                 multiline_comments.append(comment)
             cursor = end + 2
 
+        return multiline_comments
+
+    def test_base_template_avoids_multiline_django_hash_comments(self):
+        multiline_comments = self._multiline_hash_comments(BASE_TEMPLATE)
+
         self.assertEqual(
             multiline_comments,
             [],
             "base.html must not use multiline {# ... #} comments because they leak into rendered HTML",
+        )
+
+    def test_home_template_avoids_multiline_django_hash_comments(self):
+        multiline_comments = self._multiline_hash_comments(HOME_TEMPLATE)
+
+        self.assertEqual(
+            multiline_comments,
+            [],
+            "index.html must not use multiline {# ... #} comments because they leak into rendered HTML",
         )
 
     def test_base_template_keeps_homepage_footer_and_rum_assets(self):
