@@ -63,7 +63,7 @@ SITEMAP_STATIC_ROUTE_NAMES = (
     "contacts",
     "cooperation",
     "custom_print",
-    "search",
+    "wholesale_page",
     "help_center",
     "faq",
     "size_guide",
@@ -134,14 +134,34 @@ def robots_txt(request):
         "User-agent: *",
         "Allow: /",
         "",
-        f"Sitemap: {request.build_absolute_uri('/sitemap.xml')}",
-        "",
-        "# Disallow admin and internal pages",
+        "# Disallow internal/admin pages",
         "Disallow: /admin/",
+        "Disallow: /admin-panel/",
         "Disallow: /accounts/",
         "Disallow: /orders/",
         "Disallow: /cart/",
         "Disallow: /checkout/",
+        "Disallow: /api/",
+        "Disallow: /debug/",
+        "Disallow: /dev/",
+        "",
+        "# Search results — noindex reinforcement",
+        "Disallow: /search/",
+        "",
+        "# Block AI training crawlers (not search)",
+        "User-agent: GPTBot",
+        "Disallow: /",
+        "",
+        "User-agent: CCBot",
+        "Disallow: /",
+        "",
+        "User-agent: anthropic-ai",
+        "Disallow: /",
+        "",
+        "User-agent: Google-Extended",
+        "Disallow: /",
+        "",
+        f"Sitemap: {request.build_absolute_uri('/sitemap.xml')}",
     ]
 
     return HttpResponse("\n".join(lines), content_type="text/plain")
@@ -343,7 +363,7 @@ def google_merchant_feed(request):
 def uaprom_products_feed(request):
     """
     Генерирует XML feed для Prom.ua / UAPROM.
-    Формат: YML (Yandex Market Language)
+    Формат: legacy YML feed для marketplace-импорта.
 
     Обновленная версия:
     - Включает только опубликованные товары
@@ -629,6 +649,14 @@ def static_verification_file(request):
         pass
 
     raise Http404("Verification file not found")
+
+
+def indexnow_key_file(request, key):
+    configured_key = (getattr(settings, "INDEXNOW_KEY", "") or "").strip()
+    if not getattr(settings, "INDEXNOW_ENABLED", True) or not configured_key or key != configured_key:
+        raise Http404("IndexNow key not found")
+
+    return HttpResponse(configured_key, content_type="text/plain; charset=utf-8")
 
 
 def about(request):

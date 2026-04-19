@@ -1,7 +1,33 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Про бренд TwoComms{% endblock %}
+{% block title %}Про бренд TwoComms — стріт & мілітарі одяг від воїна{% endblock %}
+{% block description %}TwoComms — український бренд стріт та мілітарі одягу, заснований воїном. Ексклюзивний дизайн, підтримка ЗСУ, система балів та лояльності.{% endblock %}
+{% block keywords %}TwoComms, про бренд, мілітарі одяг, стріт одяг, українська марка, підтримка ЗСУ, воїнський дух{% endblock %}
+{% block og_title %}Про бренд TwoComms — стріт & мілітарі одяг від воїна{% endblock %}
+{% block og_description %}TwoComms — бренд, створений воїном, для воїнів та свідомих людей. Якісний стріт & мілітарі одяг з ексклюзивним дизайном.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "TwoComms",
+  "url": "https://twocomms.shop",
+  "logo": "https://twocomms.shop{% static 'img/logo.svg' %}",
+  "description": "Український бренд стріт та мілітарі одягу, заснований воїном.",
+  "foundingDate": "2023",
+  "sameAs": [
+    "https://instagram.com/twocomms",
+    "https://t.me/twocomms"
+  ],
+  "address": {
+    "@type": "PostalAddress",
+    "addressCountry": "UA"
+  }
+}
+</script>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">

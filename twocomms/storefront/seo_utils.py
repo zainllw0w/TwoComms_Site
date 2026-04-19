@@ -4,10 +4,12 @@ SEO утилиты для автоматической генерации мет
 import re
 import json
 import os
+from datetime import timedelta
 from decimal import Decimal
 from typing import List, Dict
 from urllib.parse import urljoin
 from django.conf import settings
+from django.utils import timezone
 from .models import Product, Category
 
 SITE_BASE_URL = getattr(settings, 'SITE_BASE_URL', 'https://twocomms.shop')
@@ -292,16 +294,20 @@ class SEOMetaGenerator:
         # AI-описание уже должно быть сохранено в базе данных
         # Эта функция вызывается при каждом запросе, поэтому не генерируем AI контент здесь
 
+        image_url = ''
+        if product.display_image:
+            image_url = _build_absolute_url(product.display_image.url)
+
         return {
             'title': SEOKeywordGenerator.generate_meta_title(product),
             'description': description,
             'keywords': ', '.join(keywords),
             'og_title': SEOKeywordGenerator.generate_meta_title(product),
             'og_description': description,
-            'og_image': product.display_image.url if product.display_image else '',
+            'og_image': image_url,
             'twitter_title': SEOKeywordGenerator.generate_meta_title(product),
             'twitter_description': description,
-            'twitter_image': product.display_image.url if product.display_image else '',
+            'twitter_image': image_url,
         }
 
     @staticmethod
@@ -323,16 +329,20 @@ class SEOMetaGenerator:
                     clean_desc = clean_desc[:117] + "..."
                 description = clean_desc
 
+        cover_url = ''
+        if category.cover:
+            cover_url = _build_absolute_url(category.cover.url)
+
         return {
             'title': title,
             'description': description,
             'keywords': ', '.join(keywords),
             'og_title': title,
             'og_description': description,
-            'og_image': category.cover.url if category.cover else '',
+            'og_image': cover_url,
             'twitter_title': title,
             'twitter_description': description,
-            'twitter_image': category.cover.url if category.cover else '',
+            'twitter_image': cover_url,
         }
 
 
@@ -375,39 +385,9 @@ class StructuredDataGenerator:
         }
 
     @staticmethod
-    def _get_aggregate_rating() -> Dict:
-        return {
-            "@type": "AggregateRating",
-            "ratingValue": "4.8",
-            "reviewCount": "127",
-            "bestRating": "5",
-            "worstRating": "1"
-        }
-
-    @staticmethod
-    def _get_default_reviews(product: Product) -> List[Dict]:
-        review_body = (
-            f"Покупці відзначають якість матеріалів та комфорт {product.title}. "
-            "TwoComms забезпечує швидку доставку та підтримку."
-        )
-        return [
-            {
-                "@type": "Review",
-                "name": f"Відгук про {product.title}",
-                "reviewBody": review_body,
-                "datePublished": "2024-01-15",
-                "reviewRating": {
-                    "@type": "Rating",
-                    "ratingValue": "5",
-                    "bestRating": "5",
-                    "worstRating": "1"
-                },
-                "author": {
-                    "@type": "Person",
-                    "name": "Перевірений покупець TwoComms"
-                }
-            }
-        ]
+    def _get_dynamic_price_valid_until() -> str:
+        """Returns a priceValidUntil date 90 days from today in ISO format."""
+        return (timezone.now().date() + timedelta(days=90)).isoformat()
 
     @staticmethod
     def _build_shipping_delivery_time() -> Dict:
@@ -528,7 +508,7 @@ class StructuredDataGenerator:
                 "availability": "https://schema.org/InStock",
                 "itemCondition": "https://schema.org/NewCondition",
                 "url": f"https://twocomms.shop/product/{product.slug}/",
-                "priceValidUntil": "2025-12-31",
+                "priceValidUntil": StructuredDataGenerator._get_dynamic_price_valid_until(),
                 "hasMerchantReturnPolicy": {
                     "@type": "MerchantReturnPolicy",
                     "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
@@ -550,36 +530,71 @@ class StructuredDataGenerator:
                 },
                 "shippingDetails": StructuredDataGenerator._get_weight_based_shipping_details()
             },
-            "aggregateRating": StructuredDataGenerator._get_aggregate_rating(),
-            "review": StructuredDataGenerator._get_default_reviews(product)
         }
+
+        # Merchant-level properties (age_group, gender, google_product_category)
+        age_group = "adult"
+        gender = "unisex"
+        if product.category:
+            category_name = product.category.name.lower()
+            if any(word in category_name for word in ['чоловіч', 'мужск', 'men']):
+                gender = "male"
+            elif any(word in category_name for word in ['жіноч', 'женск', 'women']):
+                gender = "female"
+
+        schema["additionalProperty"].extend([
+            {"@type": "PropertyValue", "name": "age_group", "value": age_group},
+            {"@type": "PropertyValue", "name": "gender", "value": gender},
+            {"@type": "PropertyValue", "name": "size_type", "value": "regular"},
+            {"@type": "PropertyValue", "name": "size_system", "value": "UA"},
+        ])
 
         # Добавляем категорию
         if product.category:
             schema["category"] = product.category.name
             schema["additionalProperty"].append({
                 "@type": "PropertyValue",
-                "name": "Категорія",
-                "value": product.category.name
+                "name": "google_product_category",
+                "value": "1604"  # Apparel & Accessories > Clothing
             })
 
         # Добавляем все изображения
         if len(images) > 1:
             schema["image"] = images
 
-        # Добавляем размеры
-        schema["additionalProperty"].extend([
-            {
-                "@type": "PropertyValue",
-                "name": "Розміри",
-                "value": "S, M, L, XL, XXL"
-            },
-            {
+        # Добавляем реальные цвета из вариантов
+        try:
+            from productcolors.models import ProductColorVariant
+            color_names = []
+            color_variants = ProductColorVariant.objects.filter(product=product).select_related('color')
+            for variant in color_variants:
+                if variant.color and variant.color.name:
+                    color_names.append(variant.color.name)
+            if color_names:
+                schema["additionalProperty"].append({
+                    "@type": "PropertyValue",
+                    "name": "Колір",
+                    "value": ", ".join(color_names[:5])
+                })
+            else:
+                schema["additionalProperty"].append({
+                    "@type": "PropertyValue",
+                    "name": "Колір",
+                    "value": "Різні кольори"
+                })
+        except Exception:
+            schema["additionalProperty"].append({
                 "@type": "PropertyValue",
                 "name": "Колір",
                 "value": "Різні кольори"
-            }
-        ])
+            })
+
+        # Добавляем размеры
+        schema["additionalProperty"].append({
+            "@type": "PropertyValue",
+            "name": "Розміри",
+            "value": "S, M, L, XL, XXL"
+        })
 
         # Добавляем скидку если есть
         if product.has_discount:
@@ -593,166 +608,22 @@ class StructuredDataGenerator:
                     "unitCode": "C62"
                 }
             }
-            schema["offers"]["priceValidUntil"] = "2025-12-31"
+
+        # Respect product.seo_schema as JSON override (merge with generated)
+        if product.seo_schema and isinstance(product.seo_schema, dict):
+            for key, value in product.seo_schema.items():
+                if key not in ('@context', '@type'):
+                    schema[key] = value
 
         return schema
 
     @staticmethod
     def generate_google_merchant_schema(product: Product) -> Dict:
-        """Генерирует схему специально для Google Merchant Center"""
-        # Получаем все изображения товара
-        images = []
-        if product.display_image:
-            images.append(f"https://twocomms.shop{product.display_image.url}")
-
-        # Дополнительные изображения
-        try:
-            for img in product.images.all()[:10]:  # До 10 изображений для Google
-                images.append(f"https://twocomms.shop{img.image.url}")
-        except Exception:
-            pass
-
-        # Изображения цветовых вариантов
-        try:
-            from productcolors.models import ProductColorVariant
-            color_variants = ProductColorVariant.objects.filter(product=product).prefetch_related('images')
-            for variant in color_variants:
-                for img in variant.images.all():
-                    img_url = f"https://twocomms.shop{img.image.url}"
-                    if img_url not in images:
-                        images.append(img_url)
-        except Exception:
-            pass
-
-        # Определяем возрастную группу и пол
-        age_group = "adult"
-        gender = "unisex"
-
-        if product.category:
-            category_name = product.category.name.lower()
-            if any(word in category_name for word in ['чоловіч', 'мужск', 'men']):
-                gender = "male"
-            elif any(word in category_name for word in ['жіноч', 'женск', 'women']):
-                gender = "female"
-
-        schema = {
-            "@context": "https://schema.org",
-            "@type": "Product",
-            "name": product.title,
-            "description": product.description or f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном від TwoComms. Стріт & мілітарі стиль.",
-            "sku": f"TC-{product.id}",
-            "mpn": f"TC-{product.id}",
-            "url": f"https://twocomms.shop/product/{product.slug}/",
-            "image": images,
-            "brand": {
-                "@type": "Brand",
-                "name": "TwoComms"
-            },
-            "manufacturer": {
-                "@type": "Organization",
-                "name": "TwoComms"
-            },
-            "offers": {
-                "@type": "Offer",
-                "price": str(product.final_price),
-                "priceCurrency": "UAH",
-                "availability": "https://schema.org/InStock",
-                "itemCondition": "https://schema.org/NewCondition",
-                "url": f"https://twocomms.shop/product/{product.slug}/",
-                "priceValidUntil": "2025-12-31",
-                "hasMerchantReturnPolicy": {
-                    "@type": "MerchantReturnPolicy",
-                    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-                    "merchantReturnDays": 14,
-                    "returnMethod": "https://schema.org/ReturnByMail",
-                    "returnFees": "https://schema.org/ReturnShippingFees",
-                    "returnShippingFeesAmount": StructuredDataGenerator._get_return_shipping_amount(),
-                    "applicableCountry": "UA"
-                },
-                "shippingDetails": StructuredDataGenerator._get_weight_based_shipping_details(),
-                "seller": {
-                    "@type": "Organization",
-                    "name": "TwoComms",
-                    "url": "https://twocomms.shop"
-                }
-            },
-            "aggregateRating": StructuredDataGenerator._get_aggregate_rating(),
-            "review": StructuredDataGenerator._get_default_reviews(product),
-            # Специальные поля для Google Merchant Center
-            "additionalProperty": [
-                {
-                    "@type": "PropertyValue",
-                    "name": "age_group",
-                    "value": age_group
-                },
-                {
-                    "@type": "PropertyValue",
-                    "name": "gender",
-                    "value": gender
-                },
-                {
-                    "@type": "PropertyValue",
-                    "name": "material",
-                    "value": "100% cotton"
-                },
-                {
-                    "@type": "PropertyValue",
-                    "name": "size_type",
-                    "value": "regular"
-                },
-                {
-                    "@type": "PropertyValue",
-                    "name": "size_system",
-                    "value": "UA"
-                },
-                {
-                    "@type": "PropertyValue",
-                    "name": "condition",
-                    "value": "new"
-                },
-                {
-                    "@type": "PropertyValue",
-                    "name": "availability",
-                    "value": "in stock"
-                }
-            ]
-        }
-
-        # Добавляем категорию
-        if product.category:
-            schema["category"] = product.category.name
-            schema["additionalProperty"].append({
-                "@type": "PropertyValue",
-                "name": "google_product_category",
-                "value": "1604"  # Apparel & Accessories > Clothing
-            })
-
-        # Добавляем размеры
-        schema["additionalProperty"].append({
-            "@type": "PropertyValue",
-            "name": "size",
-            "value": "S,M,L,XL,XXL"
-        })
-
-        # Добавляем цвета если есть
-        try:
-            from productcolors.models import ProductColorVariant
-            colors = []
-            color_variants = ProductColorVariant.objects.filter(product=product).select_related('color')
-            for variant in color_variants:
-                if variant.color and variant.color.name:
-                    colors.append(variant.color.name)
-
-            if colors:
-                schema["additionalProperty"].append({
-                    "@type": "PropertyValue",
-                    "name": "color",
-                    "value": ",".join(colors[:3])  # Максимум 3 цвета
-                })
-        except Exception:
-            pass
-
-        return schema
+        """
+        DEPRECATED: Use generate_product_schema() instead.
+        Now returns the same unified product schema to avoid duplicate JSON-LD blocks.
+        """
+        return StructuredDataGenerator.generate_product_schema(product)
 
     @staticmethod
     def generate_breadcrumb_schema(breadcrumbs: List[Dict]) -> Dict:

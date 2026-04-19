@@ -1,8 +1,9 @@
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.storage import staticfiles_storage
+from django.contrib.sitemaps import views as sitemap_views
 from django.views.generic.base import RedirectView
 from storefront import views as storefront_views
 from storefront.sitemaps import StaticViewSitemap, ProductSitemap, CategorySitemap
@@ -45,8 +46,8 @@ urlpatterns = [
     # Дропшип редирект
     path("dropshipper/", RedirectView.as_view(url="/orders/dropshipper/", permanent=False), name="dropshipper_redirect"),
 
-    # Sitemap
-    path('sitemap.xml', storefront_views.static_sitemap, name='django.contrib.sitemaps.views.sitemap'),
+    # Sitemap — Django framework view with proper lastmod/changefreq/priority
+    path('sitemap.xml', sitemap_views.sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
 
     # Явный маршрут для /favicon.ico → статический файл
     path("favicon.ico", RedirectView.as_view(
@@ -63,6 +64,7 @@ urlpatterns = [
     # Verification файл в корне сайта
     path("494cb80b2da94b4395dbbed566ab540d.txt", storefront_views.static_verification_file,
          name="static_verification_file"),
+    re_path(r"^(?P<key>[A-Za-z0-9]+)\.txt$", storefront_views.indexnow_key_file, name="indexnow_key_file"),
 
     # Google Merchant feed
     path('google_merchant_feed.xml', storefront_views.google_merchant_feed, name='google_merchant_feed'),

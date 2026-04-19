@@ -301,7 +301,8 @@ def search(request):
                 'show_category_cards': False,
                 'selected_category': selected_category,
                 'query': query,
-                'results_count': len(product_list)
+                'results_count': len(product_list),
+                'is_search_page': True,
             }
         )
     except Exception as e:
@@ -327,6 +328,7 @@ def search(request):
                 'selected_category': None,
                 'show_category_cards': False,
                 'results_count': 0,
+                'is_search_page': True,
                 'error': 'Произошла ошибка при поиске. Попробуйте еще раз.'
             }
         )

@@ -2,6 +2,38 @@
 {% load static %}
 
 {% block title %}Контакти — TwoComms{% endblock %}
+{% block description %}Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Офіційні магазини та форма зворотного зв'язку.{% endblock %}
+{% block keywords %}контакти TwoComms, телефон, telegram, instagram, зворотній зв'язок, магазини TwoComms{% endblock %}
+{% block og_title %}Контакти — TwoComms{% endblock %}
+{% block og_description %}Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  "name": "Контакти TwoComms",
+  "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
+  "mainEntity": {
+    "@type": "Organization",
+    "name": "TwoComms",
+    "url": "https://twocomms.shop",
+    "contactPoint": [
+      {
+        "@type": "ContactPoint",
+        "telephone": "+380966543212",
+        "contactType": "customer service",
+        "availableLanguage": ["Ukrainian", "Russian"]
+      }
+    ],
+    "sameAs": [
+      "https://instagram.com/twocomms",
+      "https://t.me/twocomms"
+    ]
+  }
+}
+</script>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">

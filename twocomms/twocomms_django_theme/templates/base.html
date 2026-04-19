@@ -38,6 +38,7 @@
   <link rel="canonical"
     href="{% block canonical %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
   {% block pagination_links %}{% endblock %}
+  <link rel="alternate" hreflang="uk" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
@@ -63,10 +64,6 @@
   <meta property="twitter:image"
     content="{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endblock %}">
   {% endblock %}
-
-  <!-- Performance and Caching -->
-  <meta http-equiv="Cache-Control" content="public, max-age=3600">
-  <meta http-equiv="Expires" content="{% now 'D, d M Y H:i:s' %} GMT">
 
   <!-- CDN preconnect for Bootstrap -->
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
