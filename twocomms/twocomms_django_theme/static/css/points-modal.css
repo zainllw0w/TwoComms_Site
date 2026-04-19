@@ -1,0 +1,181 @@
+/* Points info modal styles — extracted from base.html inline <style>.
+ * Modal is hidden below-fold on first paint, so these rules are non-critical.
+ * Loaded non-blocking via media=print onload='this.media=all' to unblock LCP.
+ */
+.points-info-modal .modal-content {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+}
+
+.points-info-modal .modal-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1.5rem;
+}
+
+.modal-title-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+  border-radius: 12px;
+  color: white;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.points-info-modal .modal-body {
+  padding: 1.5rem;
+}
+
+.product-points-info {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(124, 58, 237, 0.05));
+  border-radius: 12px;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+.product-points-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.points-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.points-label {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.product-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.points-explanation {
+  margin-bottom: 2rem;
+}
+
+.explanation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.explanation-item:last-child {
+  margin-bottom: 0;
+}
+
+.explanation-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+  border-radius: 8px;
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.explanation-text {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.explanation-text strong {
+  color: var(--text-primary);
+}
+
+.points-actions {
+  text-align: center;
+}
+
+.points-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.points-action-btn:hover {
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+.btn-primary.points-action-btn {
+  background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+  border: none;
+  color: white;
+}
+
+.btn-primary.points-action-btn:hover {
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+  color: white;
+}
+
+.btn-outline-primary.points-action-btn {
+  border: 1px solid var(--accent-color);
+  color: var(--accent-color);
+  background: transparent;
+}
+
+.btn-outline-primary.points-action-btn:hover {
+  background: var(--accent-color);
+  color: white;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+}
+
+@media (max-width: 768px) {
+  .points-info-modal .modal-dialog {
+    margin: 1rem;
+  }
+
+  .modal-title-section {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+
+  .explanation-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+}
