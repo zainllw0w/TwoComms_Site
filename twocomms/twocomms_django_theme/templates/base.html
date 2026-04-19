@@ -17,8 +17,10 @@
   <link rel="preload" href="{% static 'fonts/Inter-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="{% static 'fonts/Inter-Bold.woff2' %}" as="font" type="font/woff2" crossorigin>
 
-  {# Font Awesome: non-blocking load (icons not critical for first paint).
-     Pages without FA icons (e.g. home) override the `fontawesome_css` block to skip the load. #}
+  {% comment %}
+  Font Awesome: non-blocking load (icons not critical for first paint).
+  Pages without FA icons (e.g. home) override the `fontawesome_css` block to skip the load.
+  {% endcomment %}
   {% block fontawesome_css %}
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}" media="print" onload="this.media='all'">
   <noscript>
@@ -569,9 +571,11 @@
   <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
   <link rel="stylesheet" href="{% static 'css/perf-lite.css' %}">
   {% endcompress %}
-  {# support-hub.css — только классы .footer-* / .support-* (below-fold на /),
-     грузим non-blocking через media=print-hack, чтобы не тормозить LCP.
-     На no-JS браузерах — fallback через <noscript>. #}
+  {% comment %}
+  support-hub.css — только классы .footer-* / .support-* (below-fold на /),
+  грузим non-blocking через media=print-hack, чтобы не тормозить LCP.
+  На no-JS браузерах — fallback через <noscript>.
+  {% endcomment %}
   <link rel="stylesheet" href="{% static 'css/support-hub.css' %}"
         media="print" onload="this.media='all'">
   <noscript>
@@ -580,8 +584,10 @@
     <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
     <link rel="stylesheet" href="{% static 'css/support-hub.css' %}">
   </noscript>
-  {# perf-lite правила вынесены в static/css/perf-lite.css (бандлится через compress выше).
-     Экономия: ~4 KB inline HTML per page, те же правила применяются на html.perf-lite. #}
+  {% comment %}
+  perf-lite правила вынесены в static/css/perf-lite.css (бандлится через compress выше).
+  Экономия: ~4 KB inline HTML per page, те же правила применяются на html.perf-lite.
+  {% endcomment %}
 
   {% block extra_css %}{% endblock %}
 
@@ -694,8 +700,10 @@
 
   <!-- Analytics Loader - загружаем в head для ранней инициализации пикселей -->
   <script defer src="{% static 'js/analytics-loader.js' %}?v=3"></script>
-  {# RUM beacon — Core Web Vitals на реальных устройствах. defer, 0 зависимостей,
-     отправка единственным sendBeacon() на visibilitychange=hidden / pagehide. #}
+  {% comment %}
+  RUM beacon — Core Web Vitals на реальных устройствах. defer, 0 зависимостей,
+  отправка единственным sendBeacon() на visibilitychange=hidden / pagehide.
+  {% endcomment %}
   <script defer src="{% static 'js/rum.js' %}"></script>
 </head>
 
@@ -985,8 +993,10 @@
     onerror="this.classList.add('script-error')" crossorigin="anonymous"></script>
 
   <!-- UI fallback helpers (QtyInc/QtyDec/AddToCart/CartRemove*) -->
-  {# Вынесено в /static/js/ui-fallback.js — 22 KB из HTML → отдельный
-     кэшируемый static. defer гарантирует выполнение до первого onclick. #}
+  {% comment %}
+  Вынесено в /static/js/ui-fallback.js — 22 KB из HTML → отдельный
+  кэшируемый static. defer гарантирует выполнение до первого onclick.
+  {% endcomment %}
   <script defer src="{% static 'js/ui-fallback.js' %}"></script>
 
   <!-- Модальное окно с информацией о баллах — lazy-mount через <template>, чтобы
@@ -1122,9 +1132,11 @@
     })();
   </script>
 
-  {# points-info-modal inline CSS (3.5 KB, 177 lines) вынесен в отдельный
-     файл и грузится non-blocking — модалка скрыта на first paint, нет
-     смысла блокировать LCP её стилями. #}
+  {% comment %}
+  points-info-modal inline CSS (3.5 KB, 177 lines) вынесен в отдельный
+  файл и грузится non-blocking — модалка скрыта на first paint, нет
+  смысла блокировать LCP её стилями.
+  {% endcomment %}
   <link rel="stylesheet" href="{% static 'css/points-modal.css' %}"
         media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="{% static 'css/points-modal.css' %}"></noscript>
