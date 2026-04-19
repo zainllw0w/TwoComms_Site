@@ -1521,176 +1521,6 @@ document.addEventListener('click', (e) => {
     });
 });
 
-// ===== Функциональность скрытия блока "Рекомендовано" =====
-document.addEventListener('DOMContentLoaded', function () {
-  const featuredToggle = document.getElementById('featuredToggle') || document.getElementById('featured-toggle');
-  const featuredContent = document.getElementById('featured-content');
-  if (!featuredToggle || !featuredContent) return;
-
-  const getState = () => {
-    const collapsedKey = localStorage.getItem('featuredCollapsed');
-    const hiddenKey = localStorage.getItem('featured-hidden');
-    if (collapsedKey !== null) return collapsedKey === 'true';
-    if (hiddenKey !== null) return hiddenKey === 'true';
-    return false;
-  };
-  const setState = (collapsed) => {
-    localStorage.setItem('featuredCollapsed', collapsed ? 'true' : 'false');
-    localStorage.setItem('featured-hidden', collapsed ? 'true' : 'false');
-  };
-  const applyState = (collapsed) => {
-    featuredContent.style.display = collapsed ? 'none' : 'block';
-    featuredContent.classList.toggle('collapsed', collapsed);
-    featuredToggle.classList.toggle('collapsed', collapsed);
-    const hint = featuredToggle.querySelector('.toggle-hint-text') || featuredToggle.querySelector('.toggle-text');
-    if (hint) hint.textContent = collapsed ? 'Показати' : 'Сховати';
-    const icon = featuredToggle.querySelector('.toggle-icon svg');
-    if (icon) icon.style.transform = collapsed ? 'rotate(180deg)' : 'rotate(0deg)';
-    featuredToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-  };
-
-  applyState(getState());
-  featuredToggle.addEventListener('click', function () {
-    featuredToggle.classList.add('pulsing');
-    setTimeout(() => featuredToggle.classList.remove('pulsing'), 600);
-    const collapsedNext = featuredContent.style.display !== 'none';
-    applyState(collapsedNext);
-    setState(collapsedNext);
-  });
-});
-
-// ===== Выравнивание карточек по высоте (desktop-only, никогда не трогаем mobile layout) =====
-document.addEventListener('DOMContentLoaded', function () {
-  const rows = document.querySelectorAll('.row[data-stagger-grid]');
-  if (!rows.length) return;
-  // Mobile / low-end: не делаем JS-equalization — CSS grid + line-clamp справляются сами.
-  const deviceClass = (document.documentElement.dataset.deviceClass || '').toLowerCase();
-  const isMobileViewport = window.matchMedia('(max-width: 899px)').matches;
-  if (deviceClass === 'low' || isMobileViewport) {
-    return;
-  }
-  const equalizeMq = window.matchMedia('(min-width: 900px)');
-  let eqScheduled = false;
-  function equalizeCardHeights() {
-    if (eqScheduled) return;
-    eqScheduled = true;
-    const run = () => {
-      rows.forEach(row => {
-        const cards = row.querySelectorAll('.card.product');
-        if (!cards.length) return;
-        if (!equalizeMq.matches) {
-          if (row.dataset.eqHeight) { delete row.dataset.eqHeight; }
-          cards.forEach(card => {
-            card.style.height = '';
-            card.style.minHeight = '';
-            card.style.maxHeight = '';
-          });
-          return;
-        }
-        const rowDisplay = window.getComputedStyle(row).display;
-        if (rowDisplay === 'grid') {
-          if (row.dataset.eqHeight) { delete row.dataset.eqHeight; }
-          cards.forEach(card => {
-            card.style.height = '';
-            card.style.minHeight = '';
-            card.style.maxHeight = '';
-          });
-          return;
-        }
-        let maxHeight = 0;
-        cards.forEach(card => {
-          const h = card.getBoundingClientRect().height;
-          if (h > maxHeight) maxHeight = h;
-        });
-        const target = String(Math.ceil(maxHeight));
-        if (row.dataset.eqHeight === target) return;
-        row.dataset.eqHeight = target;
-        const px = target + 'px';
-        cards.forEach(card => {
-          card.style.minHeight = px;
-          card.style.maxHeight = '';
-          card.style.height = '';
-        });
-      });
-      eqScheduled = false;
-    };
-    if ('requestAnimationFrame' in window) { requestAnimationFrame(run); }
-    else { setTimeout(run, 0); }
-  }
-  window.equalizeCardHeights = equalizeCardHeights;
-
-  // ===== Выравнивание заголовков товаров в одной строке =====
-  let titleEqScheduled = false;
-  function equalizeProductTitles() {
-    if (titleEqScheduled) return;
-    titleEqScheduled = true;
-    const run = () => {
-      rows.forEach(row => {
-        const cards = row.querySelectorAll('.card.product');
-        if (!cards.length) return;
-
-        // Сначала сбрасываем все высоты заголовков
-        const titles = [];
-        cards.forEach(card => {
-          const title = card.querySelector('.product-title');
-          if (title) {
-            title.style.height = '';
-            title.style.minHeight = '';
-            title.style.maxHeight = '';
-            titles.push(title);
-          }
-        });
-
-        if (!titles.length) return;
-
-        // Ждем следующий фрейм для получения правильных размеров
-        requestAnimationFrame(() => {
-          // Группируем заголовки по рядам (по offsetTop)
-          const rowGroups = new Map();
-          titles.forEach(title => {
-            const top = title.getBoundingClientRect().top;
-            const roundedTop = Math.round(top / 10) * 10; // Группируем с точностью до 10px
-            if (!rowGroups.has(roundedTop)) {
-              rowGroups.set(roundedTop, []);
-            }
-            rowGroups.get(roundedTop).push(title);
-          });
-
-          // Для каждой группы находим максимальную высоту и применяем ко всем
-          rowGroups.forEach(groupTitles => {
-            let maxHeight = 0;
-            groupTitles.forEach(title => {
-              const h = title.getBoundingClientRect().height;
-              if (h > maxHeight) maxHeight = h;
-            });
-
-            const targetHeight = Math.ceil(maxHeight);
-            groupTitles.forEach(title => {
-              title.style.height = targetHeight + 'px';
-            });
-          });
-        });
-      });
-      titleEqScheduled = false;
-    };
-    if ('requestAnimationFrame' in window) { requestAnimationFrame(run); }
-    else { setTimeout(run, 0); }
-  }
-
-  window.equalizeProductTitles = equalizeProductTitles;
-
-  // Вызываем обе функции выравнивания
-  const equalizeAll = () => {
-    equalizeCardHeights();
-    setTimeout(equalizeProductTitles, 50);
-  };
-
-  equalizeAll();
-  window.addEventListener('load', equalizeAll);
-  const debouncedEqualizeAll = debounce(equalizeAll, 160);
-  window.addEventListener('resize', debouncedEqualizeAll);
-});
-
 // ====== PRODUCT DETAIL: цвета и галерея (lazy — modules/product-gallery.js) ======
 document.addEventListener('DOMContentLoaded', function () {
   if (!document.getElementById('productCarousel')) return;
@@ -1769,65 +1599,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ===== ФУНКЦИОНАЛЬНОСТЬ СВОРАЧИВАНИЯ КАТЕГОРИЙ =====
-document.addEventListener('DOMContentLoaded', function () {
-  const categoriesToggle = document.getElementById('categoriesToggle');
-  const categoriesContainer = document.getElementById('categoriesContainer');
-  const toggleText = categoriesToggle?.querySelector('.toggle-text');
-
-  if (!categoriesToggle || !categoriesContainer || !toggleText) return;
-
-  // Проверяем сохраненное состояние
-  const isCollapsed = localStorage.getItem('categories-collapsed') === 'true';
-
-  if (isCollapsed) {
-    categoriesContainer.classList.add('collapsed');
-    categoriesToggle.classList.add('collapsed');
-    toggleText.textContent = 'Розгорнути';
-  }
-
-  categoriesToggle.addEventListener('click', function () {
-    const isCollapsed = categoriesContainer.classList.contains('collapsed');
-
-    // Добавляем эффект пульсации кнопки
-    categoriesToggle.classList.add('pulsing');
-    setTimeout(() => categoriesToggle.classList.remove('pulsing'), 600);
-
-    if (isCollapsed) {
-      // Разворачиваем блок
-      categoriesContainer.classList.remove('collapsed');
-      categoriesToggle.classList.remove('collapsed');
-      toggleText.textContent = 'Згорнути';
-      localStorage.setItem('categories-collapsed', 'false');
-
-      // Анимация появления: используем rAF вместо forced reflow через offsetHeight
-      categoriesContainer.style.display = 'block';
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          categoriesContainer.classList.add('expanding');
-        });
-      });
-
-      // Убираем класс анимации после завершения
-      setTimeout(() => {
-        categoriesContainer.classList.remove('expanding');
-      }, 800);
-
-    } else {
-      // Сворачиваем блок
-      categoriesContainer.classList.add('collapsing');
-      categoriesToggle.classList.add('collapsed');
-      toggleText.textContent = 'Розгорнути';
-      localStorage.setItem('categories-collapsed', 'true');
-
-      // Анимация скрытия
-      setTimeout(() => {
-        categoriesContainer.classList.remove('collapsing');
-        categoriesContainer.classList.add('collapsed');
-        categoriesContainer.style.display = 'none';
-      }, 800);
-    }
-  });
-});
 
 // Поиск в шапке
 document.addEventListener('DOMContentLoaded', function () {
@@ -1903,9 +1674,17 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(({ initCartInteractions }) => initCartInteractions())
         .catch(() => { });
     }
-    if (document.getElementById('load-more-btn') || document.getElementById('products-container')) {
+    // Home-only блоки: featured toggle, categories toggle, card equalization,
+    // pagination — все в одном модуле, подгружаются lazy при наличии маркеров.
+    if (
+      document.getElementById('load-more-btn') ||
+      document.getElementById('products-container') ||
+      document.getElementById('featuredToggle') ||
+      document.getElementById('featured-toggle') ||
+      document.getElementById('categoriesToggle')
+    ) {
       import('./modules/homepage.js')
-        .then(({ initHomepagePagination }) => initHomepagePagination())
+        .then(({ initHomepage }) => initHomepage())
         .catch(() => { });
     }
   });

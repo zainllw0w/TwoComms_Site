@@ -1,4 +1,4 @@
-import { prefersReducedMotion } from './shared.js';
+import { prefersReducedMotion, debounce } from './shared.js';
 import { forceShowAllImages } from './product-media.js';
 
 function parseNumber(value, fallback = 1) {
@@ -299,4 +299,228 @@ export function initHomepagePagination() {
   } else {
     boot();
   }
+}
+
+// =====================================================================
+// Phase 2.1 — Extracted from main.js: home-only UI блоки.
+// Импортируется динамически только на главной (см. main.js:lazy-load).
+// =====================================================================
+
+/**
+ * "Рекомендовано" collapsible toggle — локальный state в localStorage.
+ */
+export function initFeaturedToggle() {
+  const featuredToggle = document.getElementById('featuredToggle') || document.getElementById('featured-toggle');
+  const featuredContent = document.getElementById('featured-content');
+  if (!featuredToggle || !featuredContent) return;
+
+  const getState = () => {
+    const collapsedKey = localStorage.getItem('featuredCollapsed');
+    const hiddenKey = localStorage.getItem('featured-hidden');
+    if (collapsedKey !== null) return collapsedKey === 'true';
+    if (hiddenKey !== null) return hiddenKey === 'true';
+    return false;
+  };
+  const setState = (collapsed) => {
+    localStorage.setItem('featuredCollapsed', collapsed ? 'true' : 'false');
+    localStorage.setItem('featured-hidden', collapsed ? 'true' : 'false');
+  };
+  const applyState = (collapsed) => {
+    featuredContent.style.display = collapsed ? 'none' : 'block';
+    featuredContent.classList.toggle('collapsed', collapsed);
+    featuredToggle.classList.toggle('collapsed', collapsed);
+    const hint = featuredToggle.querySelector('.toggle-hint-text') || featuredToggle.querySelector('.toggle-text');
+    if (hint) hint.textContent = collapsed ? 'Показати' : 'Сховати';
+    const icon = featuredToggle.querySelector('.toggle-icon svg');
+    if (icon) icon.style.transform = collapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+    featuredToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  };
+
+  applyState(getState());
+  featuredToggle.addEventListener('click', function () {
+    featuredToggle.classList.add('pulsing');
+    setTimeout(() => featuredToggle.classList.remove('pulsing'), 600);
+    const collapsedNext = featuredContent.style.display !== 'none';
+    applyState(collapsedNext);
+    setState(collapsedNext);
+  });
+}
+
+/**
+ * Categories collapsible — локальный state в localStorage.
+ */
+export function initCategoriesToggle() {
+  const categoriesToggle = document.getElementById('categoriesToggle');
+  const categoriesContainer = document.getElementById('categoriesContainer');
+  const toggleText = categoriesToggle?.querySelector('.toggle-text');
+  if (!categoriesToggle || !categoriesContainer || !toggleText) return;
+
+  const isCollapsedInit = localStorage.getItem('categories-collapsed') === 'true';
+  if (isCollapsedInit) {
+    categoriesContainer.classList.add('collapsed');
+    categoriesToggle.classList.add('collapsed');
+    toggleText.textContent = 'Розгорнути';
+  }
+
+  categoriesToggle.addEventListener('click', function () {
+    const isCollapsed = categoriesContainer.classList.contains('collapsed');
+    categoriesToggle.classList.add('pulsing');
+    setTimeout(() => categoriesToggle.classList.remove('pulsing'), 600);
+
+    if (isCollapsed) {
+      categoriesContainer.classList.remove('collapsed');
+      categoriesToggle.classList.remove('collapsed');
+      toggleText.textContent = 'Згорнути';
+      localStorage.setItem('categories-collapsed', 'false');
+      categoriesContainer.style.display = 'block';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          categoriesContainer.classList.add('expanding');
+        });
+      });
+      setTimeout(() => {
+        categoriesContainer.classList.remove('expanding');
+      }, 800);
+    } else {
+      categoriesContainer.classList.add('collapsing');
+      categoriesToggle.classList.add('collapsed');
+      toggleText.textContent = 'Розгорнути';
+      localStorage.setItem('categories-collapsed', 'true');
+      setTimeout(() => {
+        categoriesContainer.classList.remove('collapsing');
+        categoriesContainer.classList.add('collapsed');
+        categoriesContainer.style.display = 'none';
+      }, 800);
+    }
+  });
+}
+
+/**
+ * Desktop-only card height + title equalization.
+ * На mobile/low — early return (CSS grid + line-clamp делают работу).
+ * Публикует window.equalizeCardHeights / equalizeProductTitles для совместимости
+ * с pagination-додатковим load, который вызывает их после подгрузки страницы.
+ */
+export function initCardEqualization() {
+  const rows = document.querySelectorAll('.row[data-stagger-grid]');
+  if (!rows.length) return;
+  const deviceClass = (document.documentElement.dataset.deviceClass || '').toLowerCase();
+  const isMobileViewport = window.matchMedia('(max-width: 899px)').matches;
+  if (deviceClass === 'low' || isMobileViewport) return;
+
+  const equalizeMq = window.matchMedia('(min-width: 900px)');
+  let eqScheduled = false;
+  function equalizeCardHeights() {
+    if (eqScheduled) return;
+    eqScheduled = true;
+    const run = () => {
+      rows.forEach(row => {
+        const cards = row.querySelectorAll('.card.product');
+        if (!cards.length) return;
+        if (!equalizeMq.matches) {
+          if (row.dataset.eqHeight) { delete row.dataset.eqHeight; }
+          cards.forEach(card => {
+            card.style.height = '';
+            card.style.minHeight = '';
+            card.style.maxHeight = '';
+          });
+          return;
+        }
+        const rowDisplay = window.getComputedStyle(row).display;
+        if (rowDisplay === 'grid') {
+          if (row.dataset.eqHeight) { delete row.dataset.eqHeight; }
+          cards.forEach(card => {
+            card.style.height = '';
+            card.style.minHeight = '';
+            card.style.maxHeight = '';
+          });
+          return;
+        }
+        let maxHeight = 0;
+        cards.forEach(card => {
+          const h = card.getBoundingClientRect().height;
+          if (h > maxHeight) maxHeight = h;
+        });
+        const target = String(Math.ceil(maxHeight));
+        if (row.dataset.eqHeight === target) return;
+        row.dataset.eqHeight = target;
+        const px = target + 'px';
+        cards.forEach(card => {
+          card.style.minHeight = px;
+          card.style.maxHeight = '';
+          card.style.height = '';
+        });
+      });
+      eqScheduled = false;
+    };
+    if ('requestAnimationFrame' in window) { requestAnimationFrame(run); }
+    else { setTimeout(run, 0); }
+  }
+  window.equalizeCardHeights = equalizeCardHeights;
+
+  let titleEqScheduled = false;
+  function equalizeProductTitles() {
+    if (titleEqScheduled) return;
+    titleEqScheduled = true;
+    const run = () => {
+      rows.forEach(row => {
+        const cards = row.querySelectorAll('.card.product');
+        if (!cards.length) return;
+        const titles = [];
+        cards.forEach(card => {
+          const title = card.querySelector('.product-title');
+          if (title) {
+            title.style.height = '';
+            title.style.minHeight = '';
+            title.style.maxHeight = '';
+            titles.push(title);
+          }
+        });
+        if (!titles.length) return;
+        requestAnimationFrame(() => {
+          const rowGroups = new Map();
+          titles.forEach(title => {
+            const top = title.getBoundingClientRect().top;
+            const roundedTop = Math.round(top / 10) * 10;
+            if (!rowGroups.has(roundedTop)) rowGroups.set(roundedTop, []);
+            rowGroups.get(roundedTop).push(title);
+          });
+          rowGroups.forEach(groupTitles => {
+            let maxHeight = 0;
+            groupTitles.forEach(title => {
+              const h = title.getBoundingClientRect().height;
+              if (h > maxHeight) maxHeight = h;
+            });
+            const targetHeight = Math.ceil(maxHeight);
+            groupTitles.forEach(title => {
+              title.style.height = targetHeight + 'px';
+            });
+          });
+        });
+      });
+      titleEqScheduled = false;
+    };
+    if ('requestAnimationFrame' in window) { requestAnimationFrame(run); }
+    else { setTimeout(run, 0); }
+  }
+  window.equalizeProductTitles = equalizeProductTitles;
+
+  const equalizeAll = () => {
+    equalizeCardHeights();
+    setTimeout(equalizeProductTitles, 50);
+  };
+  equalizeAll();
+  window.addEventListener('load', equalizeAll);
+  const debouncedEqualizeAll = debounce(equalizeAll, 160);
+  window.addEventListener('resize', debouncedEqualizeAll);
+}
+
+/**
+ * Unified entrypoint: вызывается lazy-loader'ом в main.js на home page.
+ */
+export function initHomepage() {
+  initFeaturedToggle();
+  initCategoriesToggle();
+  initCardEqualization();
+  initHomepagePagination();
 }
