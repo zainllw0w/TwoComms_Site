@@ -16,12 +16,23 @@ except Exception:
 # Приоритет: DJANGO_ENV_FILE -> .env.production -> .env
 BASE_DIR = Path(__file__).resolve().parent.parent
 _explicit_env_file = os.environ.get('DJANGO_ENV_FILE')
+_loaded_env = False
 if _explicit_env_file:
-    load_dotenv(_explicit_env_file)
-else:
-    for candidate in (BASE_DIR / ".env.production", BASE_DIR / ".env"):
+    explicit_path = Path(_explicit_env_file)
+    if explicit_path.exists():
+        load_dotenv(explicit_path)
+        _loaded_env = True
+
+if not _loaded_env:
+    for candidate in (
+        BASE_DIR / ".env.production",
+        BASE_DIR.parent / ".env.production",
+        BASE_DIR / ".env",
+        BASE_DIR.parent / ".env",
+    ):
         if candidate.exists():
             load_dotenv(candidate)
+            os.environ['DJANGO_ENV_FILE'] = str(candidate)
             break
 
 from .settings import *
