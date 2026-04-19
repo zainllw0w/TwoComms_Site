@@ -196,6 +196,16 @@ WSGI_APPLICATION = 'twocomms.wsgi.application'
 
 # Sites framework
 SITE_ID = 1
+SITE_BASE_URL = os.environ.get("SITE_BASE_URL", "https://twocomms.shop").rstrip("/")
+
+# IndexNow / Bing fast discovery
+INDEXNOW_ENABLED = _env_bool("INDEXNOW_ENABLED", default=True)
+INDEXNOW_KEY = os.environ.get("INDEXNOW_KEY", "").strip()
+INDEXNOW_ENDPOINT = os.environ.get("INDEXNOW_ENDPOINT", "https://api.indexnow.org/indexnow").strip()
+try:
+    INDEXNOW_TIMEOUT = float(os.environ.get("INDEXNOW_TIMEOUT", "2.5"))
+except (TypeError, ValueError):
+    INDEXNOW_TIMEOUT = 2.5
 
 # URL для входа в систему
 LOGIN_URL = '/login/'
