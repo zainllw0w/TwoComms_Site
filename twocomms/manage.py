@@ -20,7 +20,7 @@ def _ensure_env_file():
                 load_dotenv = None
             if load_dotenv:
                 load_dotenv(env_candidate)
-        return
+            return
 
     base_dir = Path(__file__).resolve().parent
     candidates = [

@@ -2,11 +2,13 @@
 Сигналы для автоматического обновления фидов при изменении товаров
 """
 import logging
-from django.db.models.signals import post_save, post_delete
+from django.db import transaction
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 from .tasks import generate_google_merchant_feed_task, optimize_image_field_task
 
 from .models import Product
+from .services.indexnow import enqueue_indexnow_urls, get_product_public_url
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,27 @@ def update_google_merchant_feed_on_product_save(sender, instance, created, **kwa
         logger.error(f"Ошибка при планировании обновления Google Merchant feed: {e}", exc_info=True)
 
 
+@receiver(pre_save, sender=Product)
+def remember_previous_product_public_url(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._indexnow_previous_public_url = None
+        return
+
+    previous = Product.objects.filter(pk=instance.pk).only("slug", "status").first()
+    instance._indexnow_previous_public_url = get_product_public_url(previous)
+
+
+@receiver(post_save, sender=Product)
+def submit_product_to_indexnow_on_save(sender, instance, **kwargs):
+    previous_url = getattr(instance, "_indexnow_previous_public_url", None)
+    current_url = get_product_public_url(instance)
+    urls = [url for url in (previous_url, current_url) if url]
+    if not urls:
+        return
+
+    transaction.on_commit(lambda: enqueue_indexnow_urls(urls))
+
+
 @receiver(post_delete, sender=Product)
 def update_google_merchant_feed_on_product_delete(sender, instance, **kwargs):
     """
@@ -57,6 +80,15 @@ def update_google_merchant_feed_on_product_delete(sender, instance, **kwargs):
 
     except Exception as e:
         logger.error(f"Ошибка при планировании обновления Google Merchant feed: {e}", exc_info=True)
+
+
+@receiver(post_delete, sender=Product)
+def submit_product_to_indexnow_on_delete(sender, instance, **kwargs):
+    public_url = get_product_public_url(instance)
+    if not public_url:
+        return
+
+    transaction.on_commit(lambda: enqueue_indexnow_urls([public_url]))
 
 
 def _enqueue_image_optimization(instance, field_name: str):

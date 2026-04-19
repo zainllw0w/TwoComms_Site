@@ -57,6 +57,14 @@ def generate_google_merchant_feed_task():
         logger.error(f"Error generating Google Merchant feed: {e}", exc_info=True)
 
 
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 3})
+def submit_indexnow_urls_task(self, urls: list[str]) -> bool:
+    """Notify IndexNow about updated public URLs."""
+    from .services.indexnow import submit_indexnow_urls
+
+    return submit_indexnow_urls(urls)
+
+
 def _resolve_image_path(instance, field_name: str) -> Path | None:
     """
     Safely extracts absolute image path from a model instance field.

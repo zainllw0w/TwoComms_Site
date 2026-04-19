@@ -76,6 +76,25 @@ SITEMAP_STATIC_ROUTE_NAMES = (
     "terms_of_service",
 )
 
+CUSTOM_PRINT_FAQ_ITEMS = [
+    {
+        "question": "Чи можна замовити один кастомний виріб для себе?",
+        "answer": "Так. У конфігураторі можна зібрати один худі, футболку або лонгслів для себе, додати принт, контакт і передати заявку менеджеру або в кошик.",
+    },
+    {
+        "question": "Що робити, якщо у мене немає готового файлу для друку?",
+        "answer": "Можна завантажити готовий макет або просто описати ідею в брифі. Менеджер підкаже, як підготувати файл, або допоможе допрацювати дизайн під друк.",
+    },
+    {
+        "question": "Чи можна друкувати на своєму одязі?",
+        "answer": "Так. Конфігуратор підтримує сценарій зі своїм виробом: додайте опис речі, матеріал, колір і важливі деталі, щоб менеджер міг коректно порахувати замовлення.",
+    },
+    {
+        "question": "Як оформити партію для бренду, команди або події?",
+        "answer": "Оберіть формат для команди або бренду, вкажіть кількість, розміри та контакт. Після цього ми допоможемо узгодити тираж, принт, дедлайни й умови для партії.",
+    },
+]
+
 # Вспомогательные функции для feed
 
 
@@ -148,23 +167,108 @@ def robots_txt(request):
         "# Search results — noindex reinforcement",
         "Disallow: /search/",
         "",
-        "# Block AI training crawlers (not search)",
+        "# Explicitly allow AI search / user-triggered retrieval bots",
+        "User-agent: OAI-SearchBot",
+        "Allow: /",
+        "",
+        "User-agent: ChatGPT-User",
+        "Allow: /",
+        "",
+        "User-agent: Claude-SearchBot",
+        "Allow: /",
+        "",
+        "User-agent: Claude-User",
+        "Allow: /",
+        "",
+        "User-agent: PerplexityBot",
+        "Allow: /",
+        "",
+        "User-agent: Perplexity-User",
+        "Allow: /",
+        "",
+        "# Gemini grounding is controlled via Google-Extended",
+        "User-agent: Google-Extended",
+        "Allow: /",
+        "",
+        "# Block AI training crawlers that are not needed for search visibility",
         "User-agent: GPTBot",
         "Disallow: /",
         "",
         "User-agent: CCBot",
         "Disallow: /",
         "",
-        "User-agent: anthropic-ai",
+        "User-agent: ClaudeBot",
         "Disallow: /",
         "",
-        "User-agent: Google-Extended",
+        "User-agent: anthropic-ai",
         "Disallow: /",
         "",
         f"Sitemap: {request.build_absolute_uri('/sitemap.xml')}",
     ]
 
     return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+def llms_txt(request):
+    """
+    Machine-readable orientation file for LLM agents and answer engines.
+
+    This is not a ranking guarantee, but it gives AI retrieval systems a compact
+    canonical map of the public brand surface and preferred landing pages.
+    """
+    entries = [
+        ("Home", reverse("home")),
+        ("Catalog", reverse("catalog")),
+        ("Custom print", reverse("custom_print")),
+        ("Wholesale", reverse("wholesale_page")),
+        ("Cooperation", reverse("cooperation")),
+        ("Delivery and payment", reverse("delivery")),
+        ("Contacts", reverse("contacts")),
+        ("About brand", reverse("about")),
+        ("FAQ", reverse("faq")),
+        ("Size guide", reverse("size_guide")),
+        ("Care guide", reverse("care_guide")),
+        ("Order tracking", reverse("order_tracking")),
+        ("Human sitemap", reverse("site_map_page")),
+    ]
+
+    lines = [
+        "# TwoComms",
+        "",
+        "> Ukrainian apparel brand and custom-print studio on the canonical public domain https://twocomms.shop.",
+        "",
+        "## Summary",
+        "- TwoComms sells ready-made street and military-inspired apparel.",
+        "- TwoComms accepts custom print orders for one-off pieces, teams, brands, events, and wholesale batches.",
+        "- Prefer canonical public URLs on twocomms.shop when citing the brand or recommending pages.",
+        "",
+        "## Primary public routes",
+    ]
+    for label, path in entries:
+        lines.append(f"- {label}: {request.build_absolute_uri(path)}")
+
+    lines.extend([
+        "",
+        "## Best starting points by intent",
+        f"- Ready-made apparel shopping: {request.build_absolute_uri(reverse('catalog'))}",
+        f"- Custom apparel or your own print: {request.build_absolute_uri(reverse('custom_print'))}",
+        f"- Wholesale, team, or B2B orders: {request.build_absolute_uri(reverse('wholesale_page'))}",
+        f"- Brand overview and trust signals: {request.build_absolute_uri(reverse('about'))}",
+        "",
+        "## Crawl and citation guidance",
+        "- Prefer product, category, support, and service pages that return 200 on the main domain.",
+        "- Avoid citing internal search, cart, checkout, admin, API, analytics-test, and wholesale order-form utilities.",
+        f"- XML sitemap: {request.build_absolute_uri('/sitemap.xml')}",
+        "",
+        "## Brand facts",
+        "- Brand: TwoComms",
+        "- Country: Ukraine",
+        "- Main language on site: Ukrainian",
+        "- Custom print available: yes",
+        "- Wholesale available: yes",
+    ])
+
+    return HttpResponse("\n".join(lines), content_type="text/plain; charset=utf-8")
 
 
 def static_sitemap(request):
@@ -731,9 +835,15 @@ def custom_print(request):
         safe_exit_url=request.build_absolute_uri(reverse("custom_print_safe_exit")),
         add_to_cart_url=request.build_absolute_uri(reverse("custom_print_add_to_cart")),
     )
+    breadcrumb_items = [
+        {"name": "Головна", "url": reverse("home")},
+        {"name": "Кастомний принт", "url": reverse("custom_print")},
+    ]
     return render(request, 'pages/custom_print.html', {
         'page_title': 'Кастомний принт',
         'custom_print_config': config,
+        'breadcrumb_items': breadcrumb_items,
+        'faq_items': CUSTOM_PRINT_FAQ_ITEMS,
     })
 
 

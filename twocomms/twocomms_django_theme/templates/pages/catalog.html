@@ -2,6 +2,7 @@
 {% load static %}
 {% load cache %}
 {% load responsive_images %}
+{% load seo_tags %}
 
 {% block title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
 
@@ -27,6 +28,12 @@
 {% block twitter_title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
 {% block twitter_description %}{% if category %}{{ category.name }} з авторськими принтами від TwoComms.{% else %}Каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
 {% block twitter_image %}{% if category and category.cover %}{{ request.scheme }}://{{ request.get_host }}{{ category.cover.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endif %}{% endblock %}
+
+{% block breadcrumbs %}
+  {% if category %}
+    {% breadcrumbs request category=category %}
+  {% endif %}
+{% endblock %}
 
 {% block content %}
 {% if category %}

@@ -61,6 +61,8 @@ urlpatterns = [
     path("robots.txt", storefront_views.robots_txt, name="robots_txt"),
     # Fallback на случай, если где-то закешировался старый редирект на /static/robots.txt
     path("static/robots.txt", storefront_views.robots_txt),
+    path("llms.txt", storefront_views.llms_txt, name="llms_txt"),
+    path(".well-known/llms.txt", storefront_views.llms_txt, name="well_known_llms_txt"),
     # Verification файл в корне сайта
     path("494cb80b2da94b4395dbbed566ab540d.txt", storefront_views.static_verification_file,
          name="static_verification_file"),

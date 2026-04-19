@@ -25,28 +25,10 @@
   <div class="col-12 col-lg-6">
     <div class="ratio ratio-product-detail rounded-4 overflow-hidden bg-elevate glass position-relative">
       {% if product.main_image %}
-        {% optimized_image
-          product.main_image.url
-          product.title
-          "w-100 h-100 object-fit-contain"
-          img_id='mainImage'
-          product.main_image.width|default:1080
-          product.main_image.height|default:1350
-          loading='eager'
-          fetchpriority='high'
-          sizes='(max-width: 992px) 100vw, 50vw' %}
+        {% optimized_image product.main_image.url product.title "w-100 h-100 object-fit-contain" product.main_image.width|default:1080 product.main_image.height|default:1350 loading='eager' fetchpriority='high' sizes='(max-width: 992px) 100vw, 50vw' img_id='mainImage' %}
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
-        {% optimized_image
-          ph_url
-          product.title
-          "w-100 h-100 object-fit-contain"
-          img_id='mainImage'
-          1080
-          1350
-          loading='eager'
-          fetchpriority='high'
-          sizes='(max-width: 992px) 100vw, 50vw' %}
+        {% optimized_image ph_url product.title "w-100 h-100 object-fit-contain" 1080 1350 loading='eager' fetchpriority='high' sizes='(max-width: 992px) 100vw, 50vw' img_id='mainImage' %}
       {% endif %}
     </div>
     {# Старый статический блок миниатюр скрыт: теперь миниатюры строит JS в #product-thumbs #}
@@ -56,7 +38,7 @@
        data-product-id="{{ product.id }}"
        data-product-title="{{ product.title|escapejs }}"
        data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
-       data-offer-id-map="{{ offer_id_map|safe }}"
+       data-offer-id-map='{{ offer_id_map|escape }}'
        data-default-offer-id="{{ default_offer_id }}"
        data-current-offer-id="{{ default_offer_id }}"
        id="product-detail-container">
