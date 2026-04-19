@@ -570,6 +570,7 @@
   <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
   <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
   <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
+  <link rel="stylesheet" href="{% static 'css/perf-lite.css' %}">
   {% endcompress %}
   {# support-hub.css — только классы .footer-* / .support-* (below-fold на /),
      грузим non-blocking через media=print-hack, чтобы не тормозить LCP.
@@ -582,138 +583,9 @@
     <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
     <link rel="stylesheet" href="{% static 'css/support-hub.css' %}">
   </noscript>
+  {# perf-lite правила вынесены в static/css/perf-lite.css (бандлится через compress выше).
+     Экономия: ~4 KB inline HTML per page, те же правила применяются на html.perf-lite. #}
 
-  <style>
-    /* ===== AGGRESSIVE PERF-LITE MODE FOR MOBILE PAGESPEED ===== */
-    
-    /* Kill ALL backdrop-filter (very expensive on mobile GPU) */
-    .perf-lite .hero.bg-hero,
-    .perf-lite .bottom-nav,
-    .perf-lite #mini-cart-panel-mobile,
-    .perf-lite #user-panel-mobile,
-    .perf-lite .navbar,
-    .perf-lite .modal-glass,
-    .perf-lite .panel-glass,
-    .perf-lite .card.glassy {
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-    }
-
-    /* Kill ALL filter effects (causes compositing) */
-    .perf-lite .card.product,
-    .perf-lite .bottom-nav-item:hover .bottom-nav-icon svg,
-    .perf-lite .bottom-nav-item.active .bottom-nav-icon svg,
-    .perf-lite .product-card,
-    .perf-lite .category-card,
-    .perf-lite img,
-    .perf-lite [class*="glow"],
-    .perf-lite [class*="shadow"] {
-      filter: none !important;
-      box-shadow: none !important;
-    }
-
-    /* Kill ALL transitions/animations for TBT reduction */
-    .perf-lite .hint-wiggle,
-    .perf-lite .reveal,
-    .perf-lite .reveal-fast,
-    .perf-lite .reveal-stagger,
-    .perf-lite .stagger-item {
-      transition: none !important;
-      animation: none !important;
-      opacity: 1 !important;
-      transform: none !important;
-    }
-
-    /* Make reveal items immediately visible */
-    .perf-lite .reveal,
-    .perf-lite .reveal-fast,
-    .perf-lite .reveal-stagger,
-    .perf-lite .stagger-item {
-      visibility: visible !important;
-    }
-
-    /* Kill expensive background animations */
-    .perf-lite body::before,
-    .perf-lite body::after {
-      display: none !important;
-      content: none !important;
-    }
-
-    /* Hide ALL decorative glow/spark elements */
-    .perf-lite .cart-sparks-container,
-    .perf-lite .sparks-container,
-    .perf-lite .avatar-glow,
-    .perf-lite .avatar-glow-large,
-    .perf-lite .avatar-glow-mobile,
-    .perf-lite .cart-glow,
-    .perf-lite .cart-glow-mobile,
-    .perf-lite .toggle-btn-glow,
-    .perf-lite .toggle-btn-ripple,
-    .perf-lite .card-glow-dark,
-    .perf-lite .featured-glow,
-    .perf-lite .dark-glow,
-    .perf-lite .hero-glow,
-    .perf-lite .favorite-btn-glow {
-      display: none !important;
-    }
-
-    /* Hide only particles (heavy animation) - keep floating logos visible */
-    .perf-lite .hero-particles,
-    .perf-lite .featured-particles,
-    .perf-lite .dark-particles,
-    .perf-lite .particle {
-      display: none !important;
-    }
-    
-    /* Floating logos visible but static (no animation) */
-    .perf-lite .floating-logos,
-    .perf-lite .featured-floating-logos,
-    .perf-lite .floating-logo {
-      animation: none !important;
-      opacity: 0.12 !important;
-    }
-
-    /* Keep gradients visible but static */
-    .perf-lite .featured-gradient-1,
-    .perf-lite .featured-gradient-2,
-    .perf-lite .dark-gradient-1,
-    .perf-lite .dark-gradient-2 {
-      animation: none !important;
-      opacity: 0.7 !important;
-    }
-
-    /* CRITICAL: Kill @keyframes animations globally */
-    .perf-lite *,
-    .perf-lite *::before,
-    .perf-lite *::after {
-      animation-duration: 0.001ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.001ms !important;
-      animation-delay: 0ms !important;
-      transition-delay: 0ms !important;
-    }
-
-    /* Mobile-specific optimizations */
-    @media (max-width: 768px) {
-      .perf-lite .bottom-nav {
-        box-shadow: none !important;
-        background: rgba(10, 10, 10, 0.98) !important;
-      }
-      
-      /* Simplify card hover states */
-      .perf-lite .card:hover,
-      .perf-lite .product-card:hover,
-      .perf-lite .category-card:hover {
-        transform: none !important;
-        box-shadow: none !important;
-      }
-      
-      /* Hide hero decoration completely */
-      .perf-lite .hero-decoration {
-        display: none !important;
-      }
-    }
-  </style>
   {% block extra_css %}{% endblock %}
 
   <!-- Structured Data (JSON-LD) -->
