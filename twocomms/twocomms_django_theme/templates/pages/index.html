@@ -7,22 +7,16 @@
 {% block keywords %}стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль{% endblock %}
 
 {% block og_type %}website{% endblock %}
+{% block og_title %}TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном{% endblock %}
+{% block og_description %}Футболки, худі та лонгсліви з авторськими принтами. Бренд TwoComms — українське виробництво, швидка доставка.{% endblock %}
+{% block twitter_title %}TwoComms — стріт & мілітарі одяг{% endblock %}
+{% block twitter_description %}Ексклюзивні футболки, худі та лонгсліви з характером. Швидка доставка по Україні.{% endblock %}
 
-{% block canonical %}
-  {% if page_obj and page_obj.number > 1 %}
-    {{ request.scheme }}://{{ request.get_host }}{{ request.path }}?page={{ page_obj.number }}
-  {% else %}
-    {{ request.scheme }}://{{ request.get_host }}{{ request.path }}
-  {% endif %}
-{% endblock %}
+{% block canonical %}{% if page_obj and page_obj.number > 1 %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ request.scheme }}://{{ request.get_host }}/{% endif %}{% endblock %}
 
 {% block pagination_links %}
-  {% if page_obj and page_obj.has_previous %}
-    <link rel="prev" href="{{ request.path }}?page={{ page_obj.previous_page_number }}">
-  {% endif %}
-  {% if page_obj and page_obj.has_next %}
-    <link rel="next" href="{{ request.path }}?page={{ page_obj.next_page_number }}">
-  {% endif %}
+{% if page_obj and page_obj.has_previous %}<link rel="prev" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% if page_obj.previous_page_number > 1 %}?page={{ page_obj.previous_page_number }}{% endif %}">{% endif %}
+{% if page_obj and page_obj.has_next %}<link rel="next" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}?page={{ page_obj.next_page_number }}">{% endif %}
 {% endblock %}
 
 {# Home не использует Font Awesome — отключаем загрузку CSS (~103 KB, ~99.7% unused). #}
