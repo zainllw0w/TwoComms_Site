@@ -21,6 +21,9 @@ class Category(models.Model):
     ai_keywords = models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
     ai_description = models.TextField(blank=True, null=True, verbose_name='AI-опис')
     ai_content_generated = models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
+    # SEO timestamps for sitemap lastmod
+    created_at = models.DateTimeField(auto_now_add=True, null=True, verbose_name='Створено')
+    updated_at = models.DateTimeField(auto_now=True, null=True, verbose_name='Оновлено')
 
     class Meta:
         ordering = ['order', 'name']
@@ -489,6 +492,9 @@ class Product(models.Model):
     ai_keywords = models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
     ai_description = models.TextField(blank=True, null=True, verbose_name='AI-опис')
     ai_content_generated = models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
+    # SEO timestamps for sitemap lastmod
+    created_at = models.DateTimeField(auto_now_add=True, null=True, verbose_name='Створено')
+    updated_at = models.DateTimeField(auto_now=True, null=True, verbose_name='Оновлено')
 
     def save(self, *args, **kwargs):
         # Синхронизуем legacy-описание с новым полем

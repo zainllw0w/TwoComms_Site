@@ -1,5 +1,6 @@
 from django.urls import path
 from django.views.decorators.csrf import csrf_exempt
+from django.views.generic.base import RedirectView
 from django.http import Http404
 from . import views
 from .view_loader import load_view_attr
@@ -255,7 +256,7 @@ urlpatterns = [
     path('pricelist/', _legacy_view('pricelist_page'), name='pricelist_page'),
     path('test-pricelist/', _legacy_view('test_pricelist'), name='test_wholesale_prices'),
     path('wholesale/', _legacy_view('wholesale_page'), name='wholesale_page'),
-    path('opt/', _legacy_view('wholesale_page'), name='wholesale_page_alt'),
+    path('opt/', RedirectView.as_view(url='/wholesale/', permanent=True), name='wholesale_page_alt'),
     path('wholesale/order-form/', _legacy_view('wholesale_order_form'), name='wholesale_order_form'),
     path('wholesale/generate-invoice/', _legacy_view('generate_wholesale_invoice'), name='generate_wholesale_invoice'),
     path('wholesale/download-invoice/<int:invoice_id>/', _legacy_view('download_invoice_file'), name='download_invoice_file'),

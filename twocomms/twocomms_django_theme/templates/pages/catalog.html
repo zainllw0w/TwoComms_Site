@@ -12,7 +12,21 @@
 {% block keywords %}{% if category %}{{ category.name|lower }}, {% endif %}стріт одяг, мілітарі одяг, футболки, худі,
 лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, каталог одягу{% endblock %}
 
+{% block robots %}{% if is_search_page %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
+
+{% block canonical %}{% if page_obj and page_obj.number > 1 %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endif %}{% endblock %}
+
+{% block pagination_links %}
+{% if page_obj %}{% if page_obj.has_previous %}<link rel="prev" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% if page_obj.previous_page_number > 1 %}?page={{ page_obj.previous_page_number }}{% endif %}">{% endif %}{% if page_obj.has_next %}<link rel="next" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}?page={{ page_obj.next_page_number }}">{% endif %}{% endif %}
+{% endblock %}
+
 {% block og_type %}website{% endblock %}
+{% block og_title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
+{% block og_description %}{% if category %}{{ category.name }} з авторськими принтами від TwoComms. Стріт & мілітарі одяг.{% else %}Повний каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
+{% block og_image %}{% if category and category.cover %}{{ request.scheme }}://{{ request.get_host }}{{ category.cover.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endif %}{% endblock %}
+{% block twitter_title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
+{% block twitter_description %}{% if category %}{{ category.name }} з авторськими принтами від TwoComms.{% else %}Каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
+{% block twitter_image %}{% if category and category.cover %}{{ request.scheme }}://{{ request.get_host }}{{ category.cover.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endif %}{% endblock %}
 
 {% block content %}
 {% if category %}
@@ -87,7 +101,7 @@
         {% endif %}
       </h1>
       {% if category and category.description %}
-      <p class="text-secondary mb-0">{{ category.description|striptags|truncatewords:40 }}</p>
+      <p class="text-secondary mb-0">{{ category.description|striptags|truncatewords:25 }}</p>
       {% elif not category %}
       <p class="text-secondary mb-0">Обирайте футболки, худі та лонгсліви з авторськими принтами, українським
         виробництвом та швидкою доставкою по всій країні.</p>
@@ -221,6 +235,15 @@
   </ul>
 </nav>
 {% endif %}
+</section>
+{% endif %}
+
+{% if category and category.description %}
+<section class="col-12 mt-4">
+  <div class="card glass p-4">
+    <h2 class="h5 fw-semibold mb-3">{{ category.name }} — TwoComms</h2>
+    <div class="text-secondary small lh-lg">{{ category.description|safe }}</div>
+  </div>
 </section>
 {% endif %}
 </div>

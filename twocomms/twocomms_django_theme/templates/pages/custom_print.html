@@ -3,8 +3,31 @@
 
 {% block title %}DTF-конфігуратор кастомного одягу — TwoComms{% endblock %}
 {% block description %}Кастомний DTF-конфігуратор для худі, футболок, лонгслівів і свого одягу. Зберіть виріб, зони друку, файл або ідею і передайте весь контекст менеджеру або одразу в кошик.{% endblock %}
-{% block keywords %}dtf друк, кастомний принт, друк на худі, друк на футболках, кастомний одяг, twocomms{% endblock %}
+{% block keywords %}dtf друк, кастомний принт, друк на худі, друк на футболках, кастомний одяг, twocomms, dtf конфігуратор{% endblock %}
 {% block og_type %}website{% endblock %}
+{% block og_title %}DTF-конфігуратор кастомного одягу — TwoComms{% endblock %}
+{% block og_description %}Збери річ під свій дизайн: обери основу, тканину, зони друку й макет. Конструктор покаже вигляд і вартість.{% endblock %}
+{% block twitter_title %}DTF-конфігуратор кастомного одягу — TwoComms{% endblock %}
+{% block twitter_description %}Кастомний DTF-друк на худі, футболках, лонгслівах. Збери виріб під свій дизайн за лічені хвилини.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Service",
+  "name": "Кастомний DTF-друк на одязі",
+  "provider": {
+    "@type": "Organization",
+    "name": "TwoComms",
+    "url": "https://twocomms.shop"
+  },
+  "description": "Кастомний DTF-конфігуратор для худі, футболок, лонгслівів. Обери основу, тканину, зони друку й макет.",
+  "url": "https://twocomms.shop/custom-print/",
+  "areaServed": "UA",
+  "serviceType": "DTF Printing"
+}
+</script>
+{% endblock %}
 
 {% block extra_css %}
   {{ block.super }}
