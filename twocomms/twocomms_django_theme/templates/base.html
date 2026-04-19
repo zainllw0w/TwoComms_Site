@@ -570,8 +570,12 @@
   <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
   <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
   <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
-  <link rel="stylesheet" href="{% static 'css/support-hub.css' %}">
   {% endcompress %}
+  {# support-hub.css — только классы .footer-* / .support-* (below-fold на /),
+     грузим non-blocking через media=print-hack, чтобы не тормозить LCP.
+     На no-JS браузерах — fallback через <noscript>. #}
+  <link rel="stylesheet" href="{% static 'css/support-hub.css' %}"
+        media="print" onload="this.media='all'">
   <noscript>
     <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
     <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
