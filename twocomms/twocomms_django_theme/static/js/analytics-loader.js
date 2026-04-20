@@ -950,6 +950,16 @@
     }
   }
 
+  function loadClarityOnFirstInteraction() {
+    if (!CLARITY_ID || win.__clarityArmed) {
+      return;
+    }
+    win.__clarityArmed = true;
+    interactionEvents.forEach(function (evt) {
+      win.addEventListener(evt, loadClarity, { passive: true, capture: true, once: true });
+    });
+  }
+
   function buildAdvancedMatchingMap() {
     var amEl = doc.getElementById('am');
     if (!amEl) {
@@ -1437,13 +1447,16 @@
   var clarityDelay = isLowDevice ? 30000 : 15000;
   if (typeof win.requestIdleCallback === 'function') {
     win.requestIdleCallback(function () { schedule(loadGoogleAnalytics, 0); }, { timeout: gaDelay });
-    if (!isLowDevice) {
+    if (!isLowDevice && routeName !== 'home') {
       win.requestIdleCallback(function () { schedule(loadClarity, 0); }, { timeout: clarityDelay });
     }
   } else {
     schedule(loadGoogleAnalytics, gaDelay);
-    if (!isLowDevice) {
+    if (!isLowDevice && routeName !== 'home') {
       schedule(loadClarity, clarityDelay);
     }
+  }
+  if (!isLowDevice && routeName === 'home') {
+    loadClarityOnFirstInteraction();
   }
 })(window, document);
