@@ -13,10 +13,8 @@ import xml.etree.ElementTree as ET
 from django.core.management.base import BaseCommand
 
 from storefront.models import Product
+from storefront.services.size_guides import resolve_product_sizes
 from storefront.utils.analytics_helpers import get_offer_id
-
-# Базовые размеры для одежды
-DEFAULT_SIZES = ["S", "M", "L", "XL", "XXL"]
 
 
 def normalize_title_for_feed(title: str) -> str:
@@ -307,7 +305,8 @@ class Command(BaseCommand):
         products = Product.objects.filter(
             status="published",
             is_dropship_available=True,
-        ).select_related("category").prefetch_related(
+        ).select_related("category", "catalog").prefetch_related(
+            "catalog__options__values",
             "color_variants__color",
             "color_variants__images",
             "images",
@@ -389,9 +388,10 @@ class Command(BaseCommand):
 
             group_id = f"TC-GROUP-{product.id}"
             base_title = normalize_title_for_feed(product.title)
+            product_sizes = resolve_product_sizes(product)
 
             for var in variants:
-                for size in DEFAULT_SIZES:
+                for size in product_sizes:
                     item = ET.SubElement(channel, "item")
 
                     g_id = ET.SubElement(item, "g:id")

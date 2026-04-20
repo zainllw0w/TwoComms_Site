@@ -131,6 +131,7 @@ class SizeGrid(models.Model):
     name = models.CharField(max_length=200, verbose_name='Назва сітки розмірів')
     image = models.ImageField(upload_to='size_grids/', blank=True, null=True, verbose_name='Зображення сітки розмірів')
     description = models.TextField(blank=True, verbose_name='Опис сітки')
+    guide_data = models.JSONField(default=dict, blank=True, verbose_name='Структуровані дані сітки')
     is_active = models.BooleanField(default=True, verbose_name='Активна')
     order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
@@ -653,7 +654,9 @@ class Product(models.Model):
             list: Список всех offer_ids
         """
         if sizes is None:
-            sizes = ['S', 'M', 'L', 'XL', 'XXL']
+            from storefront.services.size_guides import resolve_product_sizes
+
+            sizes = resolve_product_sizes(self)
 
         offer_ids = []
 

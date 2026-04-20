@@ -11,6 +11,7 @@ from urllib.parse import urljoin
 from django.conf import settings
 from django.utils import timezone
 from .models import Product, Category
+from .services.size_guides import resolve_product_sizes
 
 SITE_BASE_URL = getattr(settings, 'SITE_BASE_URL', 'https://twocomms.shop')
 if not SITE_BASE_URL.endswith('/'):
@@ -590,10 +591,11 @@ class StructuredDataGenerator:
             })
 
         # Добавляем размеры
+        resolved_sizes = resolve_product_sizes(product)
         schema["additionalProperty"].append({
             "@type": "PropertyValue",
             "name": "Розміри",
-            "value": "S, M, L, XL, XXL"
+            "value": ", ".join(resolved_sizes)
         })
 
         # Добавляем скидку если есть

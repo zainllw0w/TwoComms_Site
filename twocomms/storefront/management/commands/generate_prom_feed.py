@@ -1,10 +1,8 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from storefront.models import Product, Category
+from storefront.services.size_guides import resolve_product_sizes
 import time
-
-# Basic sizes for apparel
-DEFAULT_SIZES = ["S", "M", "L", "XL", "XXL"]
 
 
 def escape_xml(value):
@@ -71,7 +69,8 @@ class Command(BaseCommand):
         categories = Category.objects.filter(id__in=category_ids)
 
         # 2. Fetch Products with caching
-        products_qs = relevant_products.select_related('category').prefetch_related(
+        products_qs = relevant_products.select_related('category', 'catalog').prefetch_related(
+            'catalog__options__values',
             'color_variants__color',
             'color_variants__images',
             'images'
@@ -147,7 +146,7 @@ class Command(BaseCommand):
                         if product.main_image:
                             fake_variant['images'].append(product.main_image.url)
 
-                        for size in DEFAULT_SIZES:
+                        for size in resolve_product_sizes(product):
                             final_variants.append({
                                 'color_var': fake_variant,
                                 'size': size
@@ -172,7 +171,7 @@ class Command(BaseCommand):
                                 'stock': cv.stock  # Actual stock
                             }
 
-                            for size in DEFAULT_SIZES:
+                            for size in resolve_product_sizes(product):
                                 final_variants.append({
                                     'color_var': var_data,
                                     'size': size

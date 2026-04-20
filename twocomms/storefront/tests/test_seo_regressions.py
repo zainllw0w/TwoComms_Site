@@ -1,6 +1,8 @@
+from unittest.mock import patch
+
 from decimal import Decimal
 
-from django.test import Client, TestCase
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from orders.models import Order
@@ -56,7 +58,8 @@ class OrderSuccessSeoRegressionTests(TestCase):
         self.assertContains(response, 'content="noindex, nofollow"', html=False)
 
 
-class ServicePageSeoMetaRegressionTests(TestCase):
+@override_settings(NOVA_POSHTA_FALLBACK_ENABLED=False)
+class ServicePageSeoMetaRegressionTests(SimpleTestCase):
     def setUp(self):
         self.client = Client()
 
@@ -64,7 +67,7 @@ class ServicePageSeoMetaRegressionTests(TestCase):
         cases = [
             (
                 reverse("about"),
-                '<meta property="twitter:title" content="Про бренд TwoComms — стріт & мілітарі одяг від воїна">',
+                '<meta property="twitter:title" content="Про бренд TwoComms — стріт та мілітарі одяг Made in Ukraine">',
             ),
             (
                 reverse("contacts"),
@@ -85,6 +88,51 @@ class ServicePageSeoMetaRegressionTests(TestCase):
                 response = self.client.get(url, follow=True)
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, expected_meta, html=False)
+
+    def test_about_page_uses_symmetric_support_layout(self):
+        response = self.client.get(reverse("about"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'class="support-shell support-shell--brand"',
+            html=False,
+        )
+        self.assertContains(response, 'aria-label="Breadcrumb"', html=False)
+        self.assertNotContains(response, '"@type": "FAQPage"', html=False)
+
+    def test_delivery_page_faq_schema_matches_visible_content(self):
+        response = self.client.get(reverse("delivery"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '"@type": "FAQPage"', html=False)
+        self.assertContains(response, "Чи можна оплатити товар при отриманні?")
+        self.assertNotContains(response, "Чи є таблиця розмірів?")
+
+    @patch("storefront.views.static_pages.SizeGrid.objects.filter")
+    @patch("storefront.views.static_pages.Product.objects.filter")
+    def test_support_pages_render_breadcrumb_schema_consistently(self, product_filter_mock, size_grid_filter_mock):
+        product_filter_mock.return_value.exclude.return_value.select_related.return_value.only.return_value.order_by.return_value.__getitem__.return_value = []
+        size_grid_filter_mock.return_value.select_related.return_value.order_by.return_value = []
+
+        routes = [
+            reverse("help_center"),
+            reverse("faq"),
+            reverse("delivery"),
+            reverse("returns"),
+            reverse("privacy_policy"),
+            reverse("terms_of_service"),
+            reverse("about"),
+            reverse("news"),
+            reverse("size_guide"),
+        ]
+
+        for url in routes:
+            with self.subTest(url=url):
+                response = self.client.get(url, follow=True)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, '"@type": "BreadcrumbList"', html=False)
+                self.assertContains(response, 'aria-label="Breadcrumb"', html=False)
 
 
 class CategoryNavigationSeoRegressionTests(TestCase):
