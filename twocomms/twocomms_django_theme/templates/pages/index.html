@@ -477,27 +477,53 @@
 {% block extra_js %}
   {{ block.super }}
   <script>
-    // Survey module: lazy-load только по клику на CTA или idle-fallback,
-    // чтобы не тянуть 16 KB survey.js при LCP/TTI главной.
+    // Survey module: lazy-load только по явному намерению пользователя,
+    // чтобы не тянуть survey.js в критическую цепочку главной.
     (function(){
       var SURVEY_URL = "{% static 'js/modules/survey.js' %}";
-      var loaded = false;
-      function loadSurvey() {
-        if (loaded) return;
-        loaded = true;
-        import(SURVEY_URL)
-          .then(function(mod){ if (mod && mod.initSurvey) mod.initSurvey(); })
-          .catch(function(){});
+      var surveyPromise = null;
+
+      function findSurveyTrigger(target) {
+        return target && target.closest ? target.closest('[data-survey-cta], [data-survey-open]') : null;
       }
-      // Прямой клик по CTA — грузим сразу.
+
+      function loadSurvey() {
+        if (surveyPromise) return surveyPromise;
+        surveyPromise = import(SURVEY_URL)
+          .then(function(mod){ if (mod && mod.initSurvey) mod.initSurvey(); })
+          .catch(function(err){
+            surveyPromise = null;
+            throw err;
+          });
+        return surveyPromise;
+      }
+
+      function warmSurvey(event) {
+        if (!findSurveyTrigger(event.target)) return;
+        loadSurvey().catch(function(){});
+      }
+
+      document.addEventListener('pointerdown', warmSurvey, true);
+      document.addEventListener('focusin', warmSurvey, true);
+      document.addEventListener('mouseover', warmSurvey, true);
+
       document.addEventListener('click', function(e){
-        var t = e.target && e.target.closest && e.target.closest('[data-survey-cta], [data-survey-open]');
-        if (t) loadSurvey();
+        var trigger = findSurveyTrigger(e.target);
+        if (!trigger) return;
+        if (trigger.dataset.surveyBootstrapReplay === '1') {
+          delete trigger.dataset.surveyBootstrapReplay;
+          return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+        loadSurvey()
+          .then(function(){
+            trigger.dataset.surveyBootstrapReplay = '1';
+            trigger.click();
+          })
+          .catch(function(){});
       }, true);
-      // Idle-fallback: если пользователь не кликнул в ближайшие 6 секунд,
-      // всё равно инициализируем (для восстановления in_progress сессий).
-      var idle = window.requestIdleCallback || function(cb){ return setTimeout(cb, 3000); };
-      idle(function(){ loadSurvey(); }, { timeout: 6000 });
     })();
   </script>
 {% endblock %}

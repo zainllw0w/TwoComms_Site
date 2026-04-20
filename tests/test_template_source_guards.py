@@ -15,6 +15,7 @@ HOME_BOOTSTRAP_SUBSET_FILE = (
 )
 MAIN_JS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "js" / "main.js"
 STYLES_CSS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "styles.css"
+STYLES_PURGED_CSS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "styles.purged.css"
 
 
 class BaseTemplateSourceGuardsTests(unittest.TestCase):
@@ -72,6 +73,7 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         self.assertIn('<meta name="csrf-token" content="">', content)
         self.assertNotIn('content="{{ csrf_token }}"', content)
         self.assertIn("getCookie('csrftoken')", content)
+        self.assertNotIn("data-survey-module-url", content)
 
     def test_base_template_uses_client_side_sync_hints(self):
         content = BASE_TEMPLATE.read_text(encoding="utf-8")
@@ -185,6 +187,43 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
             "transform: translateX(-50%) !important;",
             ".bottom-nav-item.active .bottom-nav-icon::before {",
             "filter: none !important;",
+        ):
+            self.assertIn(needle, source)
+
+    def test_home_template_keeps_survey_loader_off_idle_path(self):
+        source = HOME_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertIn("document.addEventListener('pointerdown', warmSurvey, true);", source)
+        self.assertIn("document.addEventListener('focusin', warmSurvey, true);", source)
+        self.assertIn("document.addEventListener('mouseover', warmSurvey, true);", source)
+        self.assertIn("trigger.dataset.surveyBootstrapReplay = '1';", source)
+        self.assertNotIn("requestIdleCallback", source)
+        self.assertNotIn("setTimeout(cb, 3000)", source)
+
+    def test_styles_css_drops_global_survey_bundle(self):
+        source = STYLES_CSS_FILE.read_text(encoding="utf-8")
+
+        self.assertNotIn("/* Survey CTA + modal */", source)
+        self.assertNotIn(".survey-card {", source)
+        self.assertNotIn(".survey-modal {", source)
+        self.assertNotIn("body.survey-modal-open", source)
+
+    def test_styles_purged_css_drops_global_survey_bundle(self):
+        source = STYLES_PURGED_CSS_FILE.read_text(encoding="utf-8")
+
+        self.assertNotIn(".survey-card{", source)
+        self.assertNotIn(".survey-modal{", source)
+        self.assertNotIn("body.survey-modal-open", source)
+
+    def test_home_css_keeps_survey_modal_styles(self):
+        source = HOME_CSS_FILE.read_text(encoding="utf-8")
+
+        for needle in (
+            ".survey-modal {",
+            ".survey-dialog {",
+            ".survey-btn {",
+            ".survey-option {",
+            "body.survey-modal-open {",
         ):
             self.assertIn(needle, source)
 
