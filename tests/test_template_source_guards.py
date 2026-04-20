@@ -9,6 +9,12 @@ BASE_TEMPLATE = Path(
 HOME_TEMPLATE = Path(
     "/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/templates/pages/index.html"
 )
+SETTINGS_FILE = Path(
+    "/Users/zainllw0w/TwoComms/site/twocomms/twocomms/settings.py"
+)
+CATALOG_VIEWS_FILE = Path(
+    "/Users/zainllw0w/TwoComms/site/twocomms/storefront/views/catalog.py"
+)
 
 
 class BaseTemplateSourceGuardsTests(unittest.TestCase):
@@ -56,6 +62,34 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         self.assertIn("css/support-hub.css", content)
         self.assertIn("js/rum.js", content)
         self.assertIn("js/ui-fallback.js", content)
+
+    def test_base_template_does_not_embed_server_generated_csrf_token(self):
+        content = BASE_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertIn('<meta name="csrf-token" content="">', content)
+        self.assertNotIn('content="{{ csrf_token }}"', content)
+        self.assertIn("getCookie('csrftoken')", content)
+
+    def test_base_template_uses_client_side_sync_hints(self):
+        content = BASE_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertIn("readSyncHint('twc-sync-cart')", content)
+        self.assertIn("readSyncHint('twc-sync-favs')", content)
+        self.assertNotIn("sync_cart_badge|yesno", content)
+        self.assertNotIn("sync_favorites_badge|yesno", content)
+
+    def test_settings_drop_session_sync_context_processor(self):
+        settings_source = SETTINGS_FILE.read_text(encoding="utf-8")
+
+        self.assertNotIn("storefront.context_processors.user_state_hint", settings_source)
+
+    def test_catalog_views_keep_csrf_cookie_on_cached_catalog_pages(self):
+        source = CATALOG_VIEWS_FILE.read_text(encoding="utf-8")
+
+        self.assertRegex(
+            source,
+            r"@ensure_csrf_cookie\s+@cache_page_for_anon\(600\)[^\n]*\ndef catalog",
+        )
 
 
 if __name__ == "__main__":

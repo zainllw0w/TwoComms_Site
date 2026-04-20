@@ -682,6 +682,10 @@
 
   // Получение CSRF токена
   function getCSRFToken() {
+    const cookieMatch = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    if (cookieMatch && cookieMatch[1]) {
+      return decodeURIComponent(cookieMatch[1]);
+    }
     const meta = document.querySelector('meta[name="csrf-token"]');
     if (meta) return meta.getAttribute('content');
 
@@ -705,4 +709,3 @@
   }
 
 })();
-

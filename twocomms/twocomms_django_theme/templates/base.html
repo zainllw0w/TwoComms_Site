@@ -4,14 +4,28 @@
 {% load seo_tags %}
 {% load image_optimization %}
 <!DOCTYPE html>
-<html lang='uk' data-bs-theme='dark' {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
+<html lang='uk' data-bs-theme='dark' data-route-name="{{ request.resolver_match.url_name|default:'' }}" {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
   data-meta-pixel-id="823958313630148" {% endif %}
   data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}"{% if TIKTOK_TEST_EVENT_CODE %} data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}"{% endif %}>
 
 <head>
   <meta charset='utf-8'>
   <meta name='viewport' content='width=device-width, initial-scale=1'>
-  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="csrf-token" content="">
+  <script>
+    (function () {
+      function getCookie(name) {
+        var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return match ? decodeURIComponent(match.pop()) : '';
+      }
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      if (!meta) return;
+      var token = getCookie('csrftoken');
+      if (token) {
+        meta.setAttribute('content', token);
+      }
+    })();
+  </script>
 
   <!-- Preload критических шрифтов (CSS loads via compress block + media hack) -->
   <link rel="preload" href="{% static 'fonts/Inter-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
@@ -83,8 +97,55 @@
   {% endif %}
 
   {% if not debug %}
-  <!-- Ahrefs Web Analytics -->
-  <script src="https://analytics.ahrefs.com/analytics.js" data-key="mqcrvLWW5rjDFxrteLCZVw" async></script>
+  <!-- Ahrefs Web Analytics: defer to interaction/quiet window, same as other non-critical analytics. -->
+  <script>
+    (function () {
+      var loaded = false;
+      var docEl = document.documentElement;
+      var deviceClass = (function () {
+        var existing = (docEl.getAttribute('data-device-class') || '').toLowerCase();
+        if (existing) return existing;
+        try {
+          var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+          var saveData = !!(connection && connection.saveData);
+          var effType = (connection && connection.effectiveType) || '';
+          var slowNet = /(^|\\b)(2g|slow-2g)($|\\b)/i.test(effType);
+          var deviceMemory = Number(navigator.deviceMemory || 0);
+          var cpuCores = Number(navigator.hardwareConcurrency || 0);
+          if (saveData || slowNet || (deviceMemory > 0 && deviceMemory <= 2) || (cpuCores > 0 && cpuCores <= 2)) {
+            return 'low';
+          }
+          if ((deviceMemory > 0 && deviceMemory <= 4) || (cpuCores > 0 && cpuCores <= 4) || window.innerWidth <= 768) {
+            return 'mid';
+          }
+        } catch (_) { }
+        return 'high';
+      })();
+      var routeName = (docEl.getAttribute('data-route-name') || '').toLowerCase();
+      var interactionEvents = routeName === 'home'
+        ? ['click', 'pointerdown', 'keydown']
+        : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown'];
+      var fallbackDelay = deviceClass === 'low' ? 9000 : (deviceClass === 'mid' ? 6000 : 4000);
+
+      function loadAhrefs() {
+        if (loaded) return;
+        loaded = true;
+        interactionEvents.forEach(function (evt) {
+          window.removeEventListener(evt, loadAhrefs, { capture: true });
+        });
+        var script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://analytics.ahrefs.com/analytics.js';
+        script.setAttribute('data-key', 'mqcrvLWW5rjDFxrteLCZVw');
+        document.head.appendChild(script);
+      }
+
+      interactionEvents.forEach(function (evt) {
+        window.addEventListener(evt, loadAhrefs, { passive: true, capture: true, once: true });
+      });
+      setTimeout(loadAhrefs, fallbackDelay);
+    })();
+  </script>
   {% endif %}
 
   <!-- Preload only critical JS modules - others loaded on demand -->
@@ -164,9 +225,21 @@
       } catch (e) { }
     })();</script>
 
-  <!-- SSR-маркеры «нужна ли синхронизация бейджа». Если cart/favs пусты —
-       фронт не делает /cart/summary/ и /favorites/count/ (экономия 2 HTTP). -->
-  <script>window.__TC_SYNC_CART={{ sync_cart_badge|yesno:"true,false" }};window.__TC_SYNC_FAVS={{ sync_favorites_badge|yesno:"true,false" }};</script>
+  <!-- Client-side sync hints: avoid binding cached anonymous HTML to per-session state. -->
+  <script>
+    (function () {
+      var isAuthenticated = {% if request.user.is_authenticated %}true{% else %}false{% endif %};
+      function readSyncHint(key) {
+        try {
+          return window.localStorage ? localStorage.getItem(key) === '1' : false;
+        } catch (_) {
+          return false;
+        }
+      }
+      window.__TC_SYNC_CART = isAuthenticated || readSyncHint('twc-sync-cart');
+      window.__TC_SYNC_FAVS = isAuthenticated || readSyncHint('twc-sync-favs');
+    })();
+  </script>
 
   <!-- Critical CSS inline для быстрой отрисовки с CLS исправлениями -->
   <style>
@@ -599,7 +672,13 @@
     // Defer GTM load until user interaction OR long timeout
     (function() {
       var gtmLoaded = false;
-      var interactionEvents = ['scroll', 'click', 'touchstart', 'mousemove', 'keydown'];
+      var docEl = document.documentElement;
+      var deviceClass = (docEl.getAttribute('data-device-class') || '').toLowerCase();
+      var routeName = (docEl.getAttribute('data-route-name') || '').toLowerCase();
+      var interactionEvents = routeName === 'home'
+        ? ['click', 'pointerdown', 'keydown']
+        : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown'];
+      var gtmTimeout = deviceClass === 'low' ? 9000 : (deviceClass === 'mid' ? 6000 : 4000);
       
       function loadGTM() {
         if (gtmLoaded) return;
@@ -631,15 +710,15 @@
         window.addEventListener(evt, loadGTM, {passive: true, capture: true, once: true});
       });
       
-      // Fallback: Load after 4s timeout if no interaction (increased from 2.5s)
-      setTimeout(loadGTM, 4000);
+      // Fallback: weaker devices get a longer quiet window before GTM startup.
+      setTimeout(loadGTM, gtmTimeout);
     })();
   </script>
   {% endif %}
   <!-- End Google Tag Manager -->
 
   <!-- Analytics Loader - загружаем в head для ранней инициализации пикселей -->
-  <script defer src="{% static 'js/analytics-loader.js' %}?v=3"></script>
+  <script defer src="{% static 'js/analytics-loader.js' %}?v=4"></script>
   {% comment %}
   RUM beacon — Core Web Vitals на реальных устройствах. defer, 0 зависимостей,
   отправка единственным sendBeacon() на visibilitychange=hidden / pagehide.
@@ -924,7 +1003,7 @@
   <script defer src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
     onload="this.classList.add('script-loaded')" onerror="this.classList.add('script-error')"
     crossorigin="anonymous"></script>
-  <script type="module" src="{% static 'js/main.js' %}?v=42" onload="this.classList.add('script-loaded')"
+  <script type="module" src="{% static 'js/main.js' %}?v=43" onload="this.classList.add('script-loaded')"
     onerror="this.classList.add('script-error')" crossorigin="anonymous"></script>
 
   <!-- UI fallback helpers (QtyInc/QtyDec/AddToCart/CartRemove*) -->
@@ -932,7 +1011,7 @@
   Вынесено в /static/js/ui-fallback.js — 22 KB из HTML → отдельный
   кэшируемый static. defer гарантирует выполнение до первого onclick.
   {% endcomment %}
-  <script defer src="{% static 'js/ui-fallback.js' %}"></script>
+  <script defer src="{% static 'js/ui-fallback.js' %}?v=2"></script>
 
   <!-- Модальное окно с информацией о баллах — lazy-mount через <template>, чтобы
        не раздувать initial DOM (~90 узлов). Монтируется на первый клик по триггеру

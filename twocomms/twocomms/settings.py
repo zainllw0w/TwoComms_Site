@@ -183,7 +183,6 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'storefront.context_processors.orders_processing_count',
                 'storefront.context_processors.analytics_settings',
-                'storefront.context_processors.user_state_hint',
                 'social_django.context_processors.backends',
                 'social_django.context_processors.login_redirect',
                 'management.context_processors.management_shell_context',

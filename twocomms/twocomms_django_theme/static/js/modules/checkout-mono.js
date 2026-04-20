@@ -80,6 +80,10 @@ function toggleMonoCheckoutLoading(button, isLoading) {
 }
 
 function collectMonoCsrf() {
+  if (typeof getCookie === 'function') {
+    const cookieToken = getCookie('csrftoken');
+    if (cookieToken) return cookieToken;
+  }
   const meta = document.querySelector('meta[name="csrf-token"]');
   if (meta && meta.getAttribute) {
     const token = meta.getAttribute('content');
@@ -88,9 +92,6 @@ function collectMonoCsrf() {
   const input = document.querySelector('[name="csrfmiddlewaretoken"]');
   if (input && 'value' in input && input.value) {
     return input.value;
-  }
-  if (typeof getCookie === 'function') {
-    return getCookie('csrftoken');
   }
   return '';
 }

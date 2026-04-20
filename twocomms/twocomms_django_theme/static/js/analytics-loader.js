@@ -1346,7 +1346,10 @@
   // Pixels will be loaded on user interaction OR after idle window (whichever first).
   // Mobile-safe: skip mousemove (too noisy), prefer pointerdown.
   var pixelsLoaded = false;
-  var interactionEvents = ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown'];
+  var routeName = (doc.documentElement.getAttribute('data-route-name') || '').toLowerCase();
+  var interactionEvents = routeName === 'home'
+    ? ['click', 'pointerdown', 'keydown']
+    : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown'];
   var deviceClass = (doc.documentElement.dataset.deviceClass || '').toLowerCase();
   var isLowDevice = deviceClass === 'low';
 
@@ -1407,19 +1410,6 @@
   } else {
     setTimeout(initializePixelsDeferred, idleDelay);
   }
-  
-  // Also try on window.load as safety net
-  win.addEventListener('load', function() {
-    // Give a small delay after load
-    setTimeout(function() {
-      if (!pixelsLoaded) {
-        if (console && console.log) {
-          console.log('[Analytics] window.load fallback - loading pixels...');
-        }
-        initializePixelsDeferred();
-      }
-    }, 500);
-  }, { once: true });
 
   function handleBFCacherestore(event) {
     if (!event || !event.persisted) {
