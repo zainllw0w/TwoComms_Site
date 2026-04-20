@@ -71,9 +71,14 @@ class HomepagePaginationCssTests(SimpleTestCase):
             css,
             r"@media\s*\(max-width:\s*768px\)\s*\{[\s\S]*?\.pagination-rail\.is-scaled\s*\{[\s\S]*?overflow-x:\s*hidden;",
         )
-        self.assertIn("transform: scale(var(--pagination-mobile-scale, 1));", css)
+        self.assertIn(
+            "transform: translateX(var(--pagination-mobile-offset, 0px)) scale(var(--pagination-mobile-scale, 1));",
+            css,
+        )
+        self.assertIn("transform-origin: left top;", css)
         self.assertIn("window.matchMedia('(max-width: 768px)')", js)
         self.assertIn("--pagination-mobile-scale", js)
+        self.assertIn("--pagination-mobile-offset", js)
         self.assertIn("scrollContainer.classList.add('is-scaled');", js)
 
     def test_home_template_has_no_raw_survey_comment_text(self):
@@ -116,8 +121,13 @@ class HomepagePaginationCssTests(SimpleTestCase):
         self.assertIn("pagination_html", js)
         self.assertIn("home-pagination-shell", js)
         self.assertRegex(js, r"getPaginationNav\s*=\s*\(\)\s*=>")
-        self.assertIn("const mobileVisualInset = isMobilePaginationViewport() ? 12 : 0;", js)
+        self.assertIn("const mobileVisualInset = isMobilePaginationViewport() ? 16 : 0;", js)
         self.assertIn("scrollContainer.clientWidth - railPaddingX - mobileVisualInset", js)
+        self.assertIn("const scaledWidth = naturalWidth * scale;", js)
+        self.assertIn(
+            "showcase.style.setProperty('--pagination-mobile-offset', `${Math.max(0, Math.floor((availableWidth - scaledWidth) / 2))}px`);",
+            js,
+        )
 
     def test_home_pagination_has_ellipsis_style(self):
         css_path = (
