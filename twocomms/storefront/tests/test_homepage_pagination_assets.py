@@ -116,6 +116,8 @@ class HomepagePaginationCssTests(SimpleTestCase):
         self.assertIn("pagination_html", js)
         self.assertIn("home-pagination-shell", js)
         self.assertRegex(js, r"getPaginationNav\s*=\s*\(\)\s*=>")
+        self.assertIn("const mobileVisualInset = isMobilePaginationViewport() ? 12 : 0;", js)
+        self.assertIn("scrollContainer.clientWidth - railPaddingX - mobileVisualInset", js)
 
     def test_home_pagination_has_ellipsis_style(self):
         css_path = (

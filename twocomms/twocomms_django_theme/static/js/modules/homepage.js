@@ -39,7 +39,8 @@ function syncPaginationLayout(navElement) {
       const railStyles = window.getComputedStyle(scrollContainer);
       const railPaddingX = parseFloat(railStyles.paddingLeft || '0') + parseFloat(railStyles.paddingRight || '0');
       const railPaddingY = parseFloat(railStyles.paddingTop || '0') + parseFloat(railStyles.paddingBottom || '0');
-      const availableWidth = Math.max(0, scrollContainer.clientWidth - railPaddingX);
+      const mobileVisualInset = isMobilePaginationViewport() ? 12 : 0;
+      const availableWidth = Math.max(0, scrollContainer.clientWidth - railPaddingX - mobileVisualInset);
       const naturalWidth = Math.ceil(paginationList.scrollWidth);
       const naturalHeight = Math.ceil(paginationList.offsetHeight);
 
