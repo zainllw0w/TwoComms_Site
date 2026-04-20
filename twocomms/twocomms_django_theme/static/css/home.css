@@ -822,6 +822,11 @@ body.survey-modal-open {
   pointer-events: none;
 }
 
+#home-pagination-shell {
+  width: 100%;
+  min-width: 0;
+}
+
 .pagination-rail {
   box-sizing: border-box;
   display: flex;
