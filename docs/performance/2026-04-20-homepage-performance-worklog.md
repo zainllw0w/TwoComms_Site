@@ -7,6 +7,7 @@
 - Repo pinned to `Django==5.2.11` in [twocomms/requirements.txt](/Users/zainllw0w/TwoComms/site/twocomms/requirements.txt:2). Упоминание Django 6 в задаче не соответствует текущему коду.
 - Production homepage still returns fast HTML; prior audit and current headers indicate client path remains the main bottleneck.
 - Production static/font assets currently return `cache-control: public, max-age=604800` (7 days), not the 6-12 month intent described in code/config.
+- Production static serving is mixed: `static/CACHE/css/...` and `static/dtf/css/...` already return `max-age=15552000, immutable`, while top-level `static/js/*.js` and `static/fonts/*.woff2` still come back as `max-age=604800` from LiteSpeed.
 
 ## Что уже подтверждено как сделанное
 
@@ -46,3 +47,4 @@
 - Production curl re-check confirmed the original CSRF mismatch symptom before the fix: cookie changed each request, while cached meta token stayed constant.
 - Production after `72e7f848` deploy: homepage switched to `/static/CACHE/css/output.7ad7d9273725.css`, `fonts.css` disappeared from HTML, and the live CSS bundle no longer contains `Inter-Medium.woff2`, `Inter-SemiBold.woff2`, or querystring variants of `Inter-Regular/Bold`.
 - Fresh Lighthouse after the font dedupe deploy: `performance 0.80`, `FCP 1.4s`, `LCP 4.6s`, `TBT 110ms`, `CLS 0.002`. Before that pass, the same flow measured roughly `performance 0.67`, `FCP 2.6s`, `LCP 10.1s`.
+- Fresh Lighthouse after enabling `effects-lite` for `mid` devices and moving homepage Clarity off the idle path: `performance 0.82`, `FCP 1.4s`, `LCP 4.5s`, `TBT 50ms`, `CLS 0.001`.
