@@ -1067,66 +1067,43 @@
 
   {% block extra_js %}{% endblock %}
 
-  <!-- JavaScript для управления видимостью favorites -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      function toggleFavoritesVisibility() {
-        // Десктопный мини-профиль
-        const favoritesItem = document.getElementById('favorites-menu-item');
-        // Мобильная нижняя навигация
-        const favoritesMobileBottomNav = document.getElementById('favorites-mobile-bottom-nav');
-
-
-        if (window.innerWidth <= 991) {
-          // Скрываем на мобильных - агрессивно
-
-          if (favoritesItem) {
-            favoritesItem.style.setProperty('display', 'none', 'important');
-            favoritesItem.style.setProperty('visibility', 'hidden', 'important');
-            favoritesItem.style.setProperty('opacity', '0', 'important');
-            favoritesItem.style.setProperty('height', '0', 'important');
-            favoritesItem.style.setProperty('overflow', 'hidden', 'important');
-            favoritesItem.style.setProperty('position', 'absolute', 'important');
-            favoritesItem.style.setProperty('left', '-9999px', 'important');
-          }
-
-          if (favoritesMobileBottomNav) {
-            favoritesMobileBottomNav.style.setProperty('display', 'none', 'important');
-            favoritesMobileBottomNav.style.setProperty('visibility', 'hidden', 'important');
-            favoritesMobileBottomNav.style.setProperty('opacity', '0', 'important');
-            favoritesMobileBottomNav.style.setProperty('height', '0', 'important');
-            favoritesMobileBottomNav.style.setProperty('overflow', 'hidden', 'important');
-            favoritesMobileBottomNav.style.setProperty('position', 'absolute', 'important');
-            favoritesMobileBottomNav.style.setProperty('left', '-9999px', 'important');
-          }
-        } else {
-          // Показываем на десктопе
-
-          if (favoritesItem) {
-            favoritesItem.style.setProperty('display', 'flex', 'important');
-            favoritesItem.style.setProperty('visibility', 'visible', 'important');
-            favoritesItem.style.setProperty('opacity', '1', 'important');
-            favoritesItem.style.setProperty('height', 'auto', 'important');
-            favoritesItem.style.setProperty('overflow', 'visible', 'important');
-            favoritesItem.style.setProperty('position', 'static', 'important');
-            favoritesItem.style.setProperty('left', 'auto', 'important');
-          }
-
-          if (favoritesMobileBottomNav) {
-            favoritesMobileBottomNav.style.setProperty('display', 'none', 'important');
-          }
-        }
+  <!-- Favorites visibility: pure CSS media queries (replaced JS resize-listener 2026-04-20) -->
+  <style>
+    @media (max-width: 991.98px) {
+      #favorites-menu-item {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        position: absolute !important;
+        left: -9999px !important;
       }
-
-      // Применяем при загрузке
-      setTimeout(toggleFavoritesVisibility, 100);
-
-      // Обновляем при изменении размера окна
-      window.addEventListener('resize', function () {
-        setTimeout(toggleFavoritesVisibility, 50);
-      });
-    });
-  </script>
+      #favorites-mobile-bottom-nav {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        position: absolute !important;
+        left: -9999px !important;
+      }
+    }
+    @media (min-width: 992px) {
+      #favorites-menu-item {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+        left: auto !important;
+      }
+      #favorites-mobile-bottom-nav {
+        display: none !important;
+      }
+    }
+  </style>
 
   {% comment %}
   <!-- Analytics and Performance Monitoring - ОТКЛЮЧЕНО -->
