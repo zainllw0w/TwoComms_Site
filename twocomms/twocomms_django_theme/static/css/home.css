@@ -828,7 +828,7 @@ body.survey-modal-open {
   align-items: stretch;
   justify-content: flex-start;
   width: 100%;
-  max-width: min(100%, calc(100vw - 0.6rem));
+  max-width: 100%;
   overflow-x: auto;
   overflow-y: visible;
   padding:
@@ -999,10 +999,6 @@ body.survey-modal-open {
   .pagination-showcase {
     min-height: var(--pagination-mobile-height);
     padding-inline: clamp(0.55rem, 3vw, 0.85rem);
-  }
-
-  .pagination-rail {
-    max-width: min(100%, calc(100vw - 1.15rem));
   }
 
   .survey-card {
