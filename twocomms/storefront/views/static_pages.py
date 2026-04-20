@@ -50,7 +50,11 @@ from storefront.custom_print_notifications import (
 )
 from storefront.services.size_guides import build_public_size_guide_blocks, resolve_product_sizes
 from storefront.utils.analytics_helpers import FEED_DEFAULT_COLOR, normalize_feed_color
-from storefront.support_content import FOOTER_CONTENT, SUPPORT_PAGE_DEFINITIONS
+from storefront.support_content import (
+    FOOTER_CONTENT,
+    PRO_BRAND_FAQ_ITEMS,
+    SUPPORT_PAGE_DEFINITIONS,
+)
 
 # Константы для feed
 DEFAULT_FEED_SEASON = "Демисезон"
@@ -768,9 +772,23 @@ def indexnow_key_file(request, key):
 
 def about(request):
     """
-    Страница "О нас".
+    Brand story page with dedicated layout and structured content.
     """
-    return _render_support_page(request, "about")
+    breadcrumb_items = [
+        {"name": "Головна", "url": reverse("home")},
+        {"name": "Про бренд", "url": reverse("about")},
+    ]
+
+    return render(
+        request,
+        "pages/pro_brand.html",
+        {
+            "page_title": "Про бренд",
+            "faq_items": deepcopy(PRO_BRAND_FAQ_ITEMS),
+            "breadcrumb_items": breadcrumb_items,
+            "footer_content": deepcopy(FOOTER_CONTENT),
+        },
+    )
 
 
 def contacts(request):
