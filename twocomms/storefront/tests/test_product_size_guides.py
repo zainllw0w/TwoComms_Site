@@ -12,7 +12,11 @@ from storefront.models import (
     ProductStatus,
     SizeGrid,
 )
-from storefront.services.size_guides import resolve_product_size_context, resolve_product_size_guide
+from storefront.services.size_guides import (
+    build_public_size_guide_blocks,
+    resolve_product_size_context,
+    resolve_product_size_guide,
+)
 
 
 class ProductSizeGuideResolverTests(TestCase):
@@ -125,6 +129,31 @@ class ProductSizeGuideResolverTests(TestCase):
         self.assertEqual(size_context["sizes"], ["S", "M", "L", "XL", "XXL"])
         self.assertEqual(size_context["selected_size"], "XXL")
         self.assertEqual(size_context["display_labels"]["XXL"], "2XL")
+
+    def test_preset_detection_without_size_grid_falls_back_to_generic_guidance(self):
+        product = Product.objects.create(
+            title="Heavyweight hoodie",
+            slug="heavyweight-hoodie-no-grid",
+            category=self.hoodie_category,
+            price=1800,
+            description="No confirmed size grid yet.",
+            status=ProductStatus.PUBLISHED,
+        )
+
+        guide = resolve_product_size_guide(product)
+
+        self.assertEqual(guide["source"], "fallback")
+        self.assertEqual(guide["rows"], [])
+        self.assertEqual(guide["guide_key"], "hoodie")
+
+    def test_public_size_guide_blocks_require_actual_size_grids(self):
+        empty_blocks = build_public_size_guide_blocks([])
+
+        self.assertEqual(empty_blocks["blocks"], [])
+
+        populated_blocks = build_public_size_guide_blocks([self.catalog_default_grid, self.override_grid])
+
+        self.assertEqual([block["guide_key"] for block in populated_blocks["blocks"]], ["hoodie", "basic_tshirt"])
 
 
 class ProductDetailSizeGuideViewTests(TestCase):

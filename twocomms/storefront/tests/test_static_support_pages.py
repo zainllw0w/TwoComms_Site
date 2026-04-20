@@ -78,16 +78,15 @@ class SupportStaticPagesTests(SimpleTestCase):
         self.assertNotContains(response, "Чи є таблиця розмірів?")
 
     @patch("storefront.views.static_pages.SizeGrid.objects.filter")
-    def test_size_guide_page_renders_confirmed_hoodie_and_tshirt_blocks(self, size_grid_filter_mock):
+    def test_size_guide_page_hides_confirmed_blocks_when_no_db_guides_exist(self, size_grid_filter_mock):
         size_grid_filter_mock.return_value.select_related.return_value.order_by.return_value = []
 
         response = self.client.get(reverse("size_guide"), secure=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Худі")
-        self.assertContains(response, "Футболка базова")
-        self.assertContains(response, "Довжина (A)")
-        self.assertContains(response, "Ширина")
+        self.assertNotContains(response, "Confirmed guides")
+        self.assertNotContains(response, "Футболка базова")
+        self.assertNotContains(response, "Довжина (A)")
 
     @patch("storefront.views.static_pages.Category.objects.filter")
     @patch("storefront.views.static_pages.Product.objects.filter")
