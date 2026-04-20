@@ -243,13 +243,29 @@
 
   <!-- Critical CSS inline для быстрой отрисовки с CLS исправлениями -->
   <style>
-    /* Critical fonts - inline @font-face to match preloaded fonts */
+    /* Critical fonts - inline @font-face to match preloaded fonts.
+       Keep all active weights on the same static URLs so browsers do not
+       fetch duplicate Inter files via compressor-rewritten query URLs. */
     @font-face {
       font-family: 'Inter';
       font-style: normal;
       font-weight: 400;
       font-display: swap;
       src: url('{% static "fonts/Inter-Regular.woff2" %}') format('woff2');
+    }
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url('{% static "fonts/Inter-Regular.woff2" %}') format('woff2');
+    }
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 600;
+      font-display: swap;
+      src: url('{% static "fonts/Inter-Bold.woff2" %}') format('woff2');
     }
     @font-face {
       font-family: 'Inter';
@@ -579,7 +595,6 @@
 
   <!-- Основные стили (standard load for stability) -->
   {% compress css %}
-  <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
   <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
   <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
   <link rel="stylesheet" href="{% static 'css/perf-lite.css' %}">
@@ -592,7 +607,6 @@
   <link rel="stylesheet" href="{% static 'css/support-hub.css' %}"
         media="print" onload="this.media='all'">
   <noscript>
-    <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
     <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
     <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
     <link rel="stylesheet" href="{% static 'css/support-hub.css' %}">
