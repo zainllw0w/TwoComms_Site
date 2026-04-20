@@ -1033,43 +1033,8 @@
 
   {% block extra_js %}{% endblock %}
 
-  <!-- Favorites visibility: pure CSS media queries (replaced JS resize-listener 2026-04-20) -->
-  <style>
-    @media (max-width: 991.98px) {
-      #favorites-menu-item {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        height: 0 !important;
-        overflow: hidden !important;
-        position: absolute !important;
-        left: -9999px !important;
-      }
-      #favorites-mobile-bottom-nav {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        height: 0 !important;
-        overflow: hidden !important;
-        position: absolute !important;
-        left: -9999px !important;
-      }
-    }
-    @media (min-width: 992px) {
-      #favorites-menu-item {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        height: auto !important;
-        overflow: visible !important;
-        position: static !important;
-        left: auto !important;
-      }
-      #favorites-mobile-bottom-nav {
-        display: none !important;
-      }
-    }
-  </style>
+  <!-- Favorites visibility rules moved to static/css/cls-ultimate.css (2026-04-20). -->
+
 
   {% comment %}
   <!-- Analytics and Performance Monitoring - ОТКЛЮЧЕНО -->
