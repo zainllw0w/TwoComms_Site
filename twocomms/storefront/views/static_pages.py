@@ -48,11 +48,11 @@ from storefront.custom_print_notifications import (
     notify_custom_print_safe_exit,
     notify_new_custom_print_lead,
 )
+from storefront.services.size_guides import build_public_size_guide_blocks, resolve_product_sizes
 from storefront.utils.analytics_helpers import FEED_DEFAULT_COLOR, normalize_feed_color
-from storefront.support_content import HELP_FAQ_ITEMS, SUPPORT_PAGE_DEFINITIONS
+from storefront.support_content import FOOTER_CONTENT, SUPPORT_PAGE_DEFINITIONS
 
 # Константы для feed
-FEED_SIZE_OPTIONS = ["S", "M", "L", "XL"]
 DEFAULT_FEED_SEASON = "Демисезон"
 _LEGACY_GOOGLE_MERCHANT_FEED = None
 SITEMAP_STATIC_ROUTE_NAMES = (
@@ -325,7 +325,7 @@ def _build_page_context(request, page_key):
 
     page = deepcopy(SUPPORT_PAGE_DEFINITIONS[page_key])
     page["key"] = page_key
-    page["schema_type"] = "CollectionPage" if page_key in {"faq", "site_map_page", "news"} else "WebPage"
+    page["schema_type"] = page.get("schema_type") or ("CollectionPage" if page_key in {"faq", "site_map_page", "news"} else "WebPage")
     page["intro_links"] = [_hydrate_link_payload(link) for link in page.get("intro_links", [])]
 
     hydrated_sections = []
@@ -357,6 +357,7 @@ def _build_page_context(request, page_key):
         "page": page,
         "page_title": page["page_title"],
         "faq_items": page.get("faq_items", []),
+        "footer_content": deepcopy(FOOTER_CONTENT),
         "breadcrumb_items": [
             {"name": "Головна", "url": reverse("home")},
             {"name": page["hero_title"], "url": request.path},
@@ -364,11 +365,12 @@ def _build_page_context(request, page_key):
     }
 
     if page_key == "size_guide":
-        context["size_grids"] = list(
+        size_grids = list(
             SizeGrid.objects.filter(is_active=True)
             .select_related("catalog")
             .order_by("catalog__order", "catalog__name", "order", "name")
         )
+        context["size_guide_blocks"] = build_public_size_guide_blocks(size_grids)
 
     if page_key == "site_map_page":
         categories = [
@@ -484,8 +486,9 @@ def uaprom_products_feed(request):
         products_qs = (
             Product.objects
             .filter(status='published')  # Только опубликованные товары
-            .select_related("category")
+            .select_related("category", "catalog")
             .prefetch_related(
+                "catalog__options__values",
                 "images",
                 "color_variants__images",
                 "color_variants__color"
@@ -643,7 +646,7 @@ def uaprom_products_feed(request):
                     if not sanitized_description_ua:
                         sanitized_description_ua = sanitized_description
 
-                    for size in FEED_SIZE_OPTIONS:
+                    for size in resolve_product_sizes(product):
                         try:
                             offer_id = product.get_offer_id(variant_id, size)
                             offer_el = ET.SubElement(
@@ -767,9 +770,7 @@ def about(request):
     """
     Страница "О нас".
     """
-    return render(request, 'pages/about.html', {
-        'page_title': 'Про нас'
-    })
+    return _render_support_page(request, "about")
 
 
 def contacts(request):
@@ -785,10 +786,7 @@ def delivery(request):
     """
     Страница "Доставка и оплата".
     """
-    return render(request, 'pages/delivery.html', {
-        'page_title': 'Доставка та оплата',
-        'faq_items': HELP_FAQ_ITEMS,
-    })
+    return _render_support_page(request, "delivery")
 
 
 def help_center(request):
@@ -1438,7 +1436,7 @@ def prom_feed_xml(request):
                 if product.main_image:
                     fake_variant['images'].append(product.main_image.url)
 
-                for size in FEED_SIZE_OPTIONS:  # Use predefined sizes
+                for size in resolve_product_sizes(product):
                     final_variants.append({
                         'color_var': fake_variant,
                         'size': size
@@ -1454,7 +1452,7 @@ def prom_feed_xml(request):
                         'variant_id': cv.id,
                         'stock': cv.stock
                     }
-                    for size in FEED_SIZE_OPTIONS:
+                    for size in resolve_product_sizes(product):
                         final_variants.append({
                             'color_var': var_data,
                             'size': size

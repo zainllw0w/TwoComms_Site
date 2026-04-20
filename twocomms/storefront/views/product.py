@@ -14,6 +14,7 @@ from django.urls import reverse
 
 from ..models import Product
 from ..services.catalog_helpers import get_detailed_color_variants
+from ..services.size_guides import resolve_product_size_context
 from ..recommendations import ProductRecommendationEngine
 
 
@@ -48,18 +49,24 @@ def product_detail(request, slug):
         offer_id_map: JSON mapping (color_variant_id, size) -> offer_id для JS
         default_offer_id: Offer ID для текущего выбора (default цвет + размер)
     """
-    product = get_object_or_404(Product.objects.select_related('category').prefetch_related('images'), slug=slug, status='published')
+    product = get_object_or_404(
+        Product.objects.select_related('category', 'catalog', 'size_grid', 'size_grid__catalog').prefetch_related(
+            'images',
+            'catalog__size_grids',
+            'catalog__options__values',
+        ),
+        slug=slug,
+        status='published',
+    )
     images = product.images.all()
 
     # Читаем параметры из URL (?size=M&color=123)
     preselected_size = request.GET.get('size', '').upper()
     preselected_color_id = request.GET.get('color', '')  # ID цветового варианта
 
-    available_sizes = ['S', 'M', 'L', 'XL', 'XXL']
-
-    # Валидируем размер
-    if preselected_size not in available_sizes:
-        preselected_size = None  # Будет выбран default размер в JS
+    size_context = resolve_product_size_context(product, preselected_size)
+    available_sizes = size_context["sizes"]
+    preselected_size = size_context["selected_size"]
 
     # Варианты цветов с изображениями (если есть приложение и данные)
     color_variants = get_detailed_color_variants(product)
@@ -190,6 +197,9 @@ def product_detail(request, slug):
             'offer_id_map': offer_id_map_json,
             'default_offer_id': default_offer_id,
             'available_sizes': available_sizes,
+            'size_display_labels': size_context["display_labels"],
+            'resolved_size_guide': size_context["guide"],
+            'resolved_size_profile': size_context["profile"],
         }
     )
 

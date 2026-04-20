@@ -1,49 +1,52 @@
 {% extends 'base.html' %}
-{% load seo_tags %}
+{% load seo_tags admin_filters %}
 
 {% block title %}{{ page.meta_title }}{% endblock %}
 {% block description %}{{ page.meta_description }}{% endblock %}
 {% block keywords %}{{ page.meta_keywords }}{% endblock %}
+{% block og_title %}{{ page.meta_title }}{% endblock %}
+{% block og_description %}{{ page.meta_description }}{% endblock %}
+{% block twitter_title %}{{ page.meta_title }}{% endblock %}
+{% block twitter_description %}{{ page.meta_description }}{% endblock %}
 
 {% block structured_data %}
   {% if faq_items %}
     {% faq_schema faq_items %}
   {% endif %}
   <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "{{ page.schema_type }}",
-    "name": "{{ page.hero_title|escapejs }}",
-    "description": "{{ page.meta_description|escapejs }}",
-    "url": "{{ request.build_absolute_uri|escapejs }}",
-    "isPartOf": {
-      "@type": "WebSite",
-      "name": "TwoComms",
-      "url": "{{ request.scheme }}://{{ request.get_host }}"
+  [
+    {
+      "@context": "https://schema.org",
+      "@type": "{{ page.schema_type|default:'WebPage' }}",
+      "name": "{{ page.hero_title|escapejs }}",
+      "description": "{{ page.meta_description|escapejs }}",
+      "url": "{{ request.build_absolute_uri|escapejs }}",
+      "isPartOf": {
+        "@type": "WebSite",
+        "name": "TwoComms",
+        "url": "{{ request.scheme }}://{{ request.get_host }}"
+      }
     },
-    "breadcrumb": {
+    {
+      "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       "itemListElement": [
-        {
-          "@type": "ListItem",
-          "position": 1,
-          "name": "Головна",
-          "item": "{{ request.scheme }}://{{ request.get_host }}{% url 'home' %}"
-        },
-        {
-          "@type": "ListItem",
-          "position": 2,
-          "name": "{{ page.hero_title|escapejs }}",
-          "item": "{{ request.build_absolute_uri|escapejs }}"
-        }
+        {% for crumb in breadcrumb_items %}
+          {
+            "@type": "ListItem",
+            "position": {{ forloop.counter }},
+            "name": "{{ crumb.name|escapejs }}",
+            "item": "{% if forloop.last %}{{ request.build_absolute_uri|escapejs }}{% else %}{{ request.scheme }}://{{ request.get_host }}{{ crumb.url|escapejs }}{% endif %}"
+          }{% if not forloop.last %},{% endif %}
+        {% endfor %}
       ]
     }
-  }
+  ]
   </script>
 {% endblock %}
 
 {% block content %}
-<div class="support-shell">
+<div class="support-shell support-shell--{{ page.variant|default:'default' }}">
   <nav class="support-breadcrumbs" aria-label="Breadcrumb">
     {% for crumb in breadcrumb_items %}
       {% if forloop.last %}
@@ -56,46 +59,36 @@
   </nav>
 
   <section class="support-hero">
-    <div class="support-hero-copy">
-      <span class="support-kicker">{{ page.hero_kicker }}</span>
+    <div class="support-hero-inner">
+      {% if page.hero_kicker %}
+        <span class="support-kicker">{{ page.hero_kicker }}</span>
+      {% endif %}
       <h1 class="support-title">{{ page.hero_title }}</h1>
       <p class="support-intro">{{ page.hero_intro }}</p>
 
-      {% if page.hero_stats %}
-        <div class="support-hero-stats">
-          {% for stat in page.hero_stats %}
-            <div class="support-stat">
-              <div class="support-stat-value">{{ stat.value }}</div>
-              <div class="support-stat-label">{{ stat.label }}</div>
-            </div>
+      {% if page.hero_meta or page.hero_stats %}
+        <div class="support-hero-meta">
+          {% if page.hero_meta %}
+            {% for item in page.hero_meta %}
+              <span class="support-meta-chip">{{ item }}</span>
+            {% endfor %}
+          {% elif page.hero_stats %}
+            {% for item in page.hero_stats %}
+              <span class="support-meta-chip"><strong>{{ item.value }}</strong> {{ item.label }}</span>
+            {% endfor %}
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if page.intro_links %}
+        <div class="support-quick-links" aria-label="Швидка навігація">
+          {% for link in page.intro_links %}
+            <a class="support-chip" href="{{ link.url }}">{{ link.label }}</a>
           {% endfor %}
         </div>
       {% endif %}
     </div>
-
-    <div class="support-hero-orbit">
-      <div class="support-orbit-card">
-        <strong>Навігація без шуму</strong>
-        <div class="support-copy">Сторінка зібрана так, щоб користувач одразу переходив у правильний сценарій: покупка, підтримка, догляд, розміри або статус замовлення.</div>
-      </div>
-      <div class="support-orbit-card">
-        <strong>SEO та перелінковка</strong>
-        <div class="support-copy">Кожен блок тут не тільки пояснює сервіс, а й веде в глибші розділи магазину, які реально потрібні до та після замовлення.</div>
-      </div>
-      <div class="support-orbit-card">
-        <strong>Актуальні маршрути</strong>
-        <div class="support-copy">Каталог, FAQ, допомога, доставка, пошук, карта сайту й контакти об'єднані в один зрозумілий кластер.</div>
-      </div>
-    </div>
   </section>
-
-  {% if page.intro_links %}
-    <div class="support-quick-links" aria-label="Швидка навігація">
-      {% for link in page.intro_links %}
-        <a class="support-chip" href="{{ link.url }}">{{ link.label }}</a>
-      {% endfor %}
-    </div>
-  {% endif %}
 
   <div class="support-main-grid">
     {% for section in page.sections %}
@@ -104,6 +97,7 @@
           <span class="support-eyebrow">{{ section.eyebrow }}</span>
         {% endif %}
         <h2 class="support-section-title">{{ section.title }}</h2>
+
         {% if section.lead %}
           <p class="support-section-lead">{{ section.lead }}</p>
         {% endif %}
@@ -149,45 +143,125 @@
         {% if section.links %}
           <div class="support-links-grid">
             {% for link in section.links %}
-              <a href="{{ link.url }}" class="support-link-card">
-                <div class="support-link-title">{{ link.title }}</div>
-                <div class="support-link-text">{{ link.text }}</div>
-                <span class="support-link-arrow">Відкрити розділ</span>
-              </a>
+              {% if link.url %}
+                <a href="{{ link.url }}" class="support-link-card">
+                  <div class="support-link-title">{{ link.title }}</div>
+                  <div class="support-link-text">{{ link.text }}</div>
+                  <span class="support-link-arrow">Відкрити розділ</span>
+                </a>
+              {% else %}
+                <article class="support-card">
+                  <h3 class="support-card-title">{{ link.title }}</h3>
+                  <div class="support-card-text">{{ link.text }}</div>
+                </article>
+              {% endif %}
             {% endfor %}
           </div>
         {% endif %}
       </section>
     {% endfor %}
 
-    {% if size_grids %}
-      <section class="support-section-card" id="size-grids">
-        <span class="support-eyebrow">Live catalog data</span>
-        <h2 class="support-section-title">Актуальні розмірні сітки</h2>
-        <div class="support-size-grid-list">
-          {% for grid in size_grids %}
-            <article class="support-size-grid-card">
-              <div class="support-size-grid-meta">{{ grid.catalog.name }}</div>
-              <h3 class="support-size-grid-title">{{ grid.name }}</h3>
-              {% if grid.description %}
-                <div class="support-size-grid-copy">{{ grid.description }}</div>
-              {% else %}
-                <div class="support-size-grid-copy">Сітка розмірів для відповідного каталогу. Якщо потрібне точне уточнення, зверніться до команди перед оплатою.</div>
+    {% if size_guide_blocks.blocks %}
+      <section class="support-section-card" id="size-guide-blocks">
+        <span class="support-eyebrow">Confirmed guides</span>
+        <h2 class="support-section-title">Підтверджені сітки по категоріях</h2>
+        <div class="support-size-guide-blocks">
+          {% for block in size_guide_blocks.blocks %}
+            <article class="support-size-guide-block">
+              <div class="support-size-guide-copy">
+                <div class="support-size-grid-meta">{{ block.eyebrow }}</div>
+                <h3 class="support-size-grid-title">{{ block.title }}</h3>
+                {% if block.intro %}
+                  <p class="support-size-grid-copy">{{ block.intro }}</p>
+                {% endif %}
+
+                {% if block.legend %}
+                  <div class="support-guide-legend">
+                    {% for item in block.legend %}
+                      <div class="support-guide-legend-item">
+                        <strong>{{ item.label }}</strong>
+                        {% if item.description %}{{ item.description }}{% endif %}
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="support-table-wrap">
+                <table class="support-table">
+                  <thead>
+                    <tr>
+                      {% for column in block.columns %}
+                        <th>{{ column.label }}</th>
+                      {% endfor %}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in block.rows %}
+                      <tr>
+                        {% for column in block.columns %}
+                          <td{% if column.key == 'size' %} class="support-table-size"{% endif %}>
+                            {% if column.key == 'size' %}
+                              {{ row.display_size|default:row.size }}
+                            {% else %}
+                              {{ row|get_item:column.key }}
+                            {% endif %}
+                          </td>
+                        {% endfor %}
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              {% if block.notes %}
+                <div class="support-guide-notes">
+                  {% for note in block.notes %}
+                    <div class="support-guide-note">{{ note }}</div>
+                  {% endfor %}
+                </div>
               {% endif %}
-              {% if grid.image %}
-                <a href="{{ grid.image.url }}" class="support-size-grid-image">
-                  <img src="{{ grid.image.url }}" alt="{{ grid.name }} — таблиця розмірів TwoComms" loading="lazy">
+
+              {% if block.fit_notes %}
+                <div class="support-guide-fit">
+                  <div class="support-guide-fit-title">Поради по посадці</div>
+                  <ul class="support-bullet-list support-bullet-list--compact">
+                    {% for note in block.fit_notes %}
+                      <li>{{ note }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+
+              {% if block.image_url %}
+                <a href="{{ block.image_url }}" class="support-size-grid-image">
+                  <img src="{{ block.image_url }}" alt="{{ block.image_alt|default:block.title }}" loading="lazy">
                 </a>
               {% endif %}
             </article>
           {% endfor %}
         </div>
       </section>
-    {% elif page.key == 'size_guide' %}
-      <section class="support-section-card" id="size-grids">
-        <span class="support-eyebrow">Update later</span>
-        <h2 class="support-section-title">Розмірні сітки будуть тут</h2>
-        <div class="support-empty-state">У локальному середовищі активні сітки розмірів не знайдені. Сторінка вже готова до публікації й автоматично покаже їх, щойно вони є в базі.</div>
+    {% endif %}
+
+    {% if size_guide_blocks.extra_visuals %}
+      <section class="support-section-card" id="size-guide-visuals">
+        <span class="support-eyebrow">Additional visuals</span>
+        <h2 class="support-section-title">Інші візуальні схеми</h2>
+        <div class="support-size-grid-list">
+          {% for block in size_guide_blocks.extra_visuals %}
+            <article class="support-size-grid-card">
+              {% if block.catalog_name %}
+                <div class="support-size-grid-meta">{{ block.catalog_name }}</div>
+              {% endif %}
+              <h3 class="support-size-grid-title">{{ block.title }}</h3>
+              <div class="support-size-grid-copy">{{ block.intro }}</div>
+              <a href="{{ block.image_url }}" class="support-size-grid-image">
+                <img src="{{ block.image_url }}" alt="{{ block.image_alt|default:block.title }}" loading="lazy">
+              </a>
+            </article>
+          {% endfor %}
+        </div>
       </section>
     {% endif %}
 
@@ -222,7 +296,7 @@
                 <div class="support-product-category">{{ product.category.name }}</div>
               {% endif %}
               <div class="support-product-title">{{ product.title }}</div>
-              <div class="support-product-meta">Прямий перехід до товару з актуального каталогу TwoComms.</div>
+              <div class="support-product-meta">Прямий перехід до актуальної картки товару.</div>
             </a>
           {% endfor %}
         </div>
@@ -231,7 +305,7 @@
 
     {% if page.faq_items %}
       <section class="support-section-card" id="faq">
-        <span class="support-eyebrow">FAQ cluster</span>
+        <span class="support-eyebrow">FAQ</span>
         <h2 class="support-section-title">Поширені запитання</h2>
         <div class="support-faq-list">
           {% for item in page.faq_items %}

@@ -558,9 +558,10 @@ class ProductSEOForm(forms.ModelForm):
 class SizeGridForm(forms.ModelForm):
     class Meta:
         model = SizeGrid
-        fields = ["name", "image", "description", "is_active"]
+        fields = ["name", "image", "description", "guide_data", "is_active"]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 4}),
+            "guide_data": forms.Textarea(attrs={"rows": 8, "placeholder": '{"profile_key": "hoodie", "rows": [...]}'})
         }
 
 

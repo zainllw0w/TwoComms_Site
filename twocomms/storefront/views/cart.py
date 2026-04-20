@@ -33,6 +33,7 @@ from storefront.custom_print_config import (
     ZONE_LABELS,
 )
 from storefront.custom_print_notifications import notify_custom_print_moderation_request
+from storefront.services.size_guides import normalize_requested_size
 from .utils import (
     get_cart_from_session,
     save_cart_to_session,
@@ -477,7 +478,7 @@ def view_cart(request):
             color_variant = color_variants_map.get(int(color_variant_id)) if color_variant_id else None
 
             color_label = _color_label_from_variant(color_variant)
-            size_value = (item_data.get('size', '') or 'S').upper()
+            size_value = normalize_requested_size(product, item_data.get('size'))
             # color_variant_id = color_variant.id if color_variant else None # Already have it
             offer_id = product.get_offer_id(color_variant_id, size_value, color_name=color_label)
             content_ids.append(offer_id)
@@ -670,7 +671,7 @@ def add_to_cart(request):
     ВОССТАНОВЛЕНА РАБОЧАЯ ЛОГИКА из старого views.py
     """
     pid = request.POST.get('product_id')
-    size = ((request.POST.get('size') or '').strip() or 'S').upper()
+    size = None
     color_variant_id = request.POST.get('color_variant_id')
     try:
         qty = int(request.POST.get('qty') or '1')
@@ -679,6 +680,7 @@ def add_to_cart(request):
     qty = max(qty, 1)
 
     product = get_object_or_404(Product, pk=pid)
+    size = normalize_requested_size(product, request.POST.get('size'))
     price = product.final_price
     if not isinstance(price, Decimal):
         price = Decimal(str(price))
@@ -1279,9 +1281,7 @@ def cart_mini(request):
         except Exception:
             pass
 
-        size_value = (it.get('size', '') or '').upper()
-        if not size_value:
-            size_value = 'S'
+        size_value = normalize_requested_size(p, it.get('size'))
         color_variant_id = color_variant.id if color_variant else None
         offer_id = p.get_offer_id(color_variant_id, size_value)
 
@@ -1480,7 +1480,7 @@ def cart_items_api(request):
             variant_id = item_data.get('color_variant_id')
             color_variant = variants_map.get(int(variant_id)) if variant_id else None
             color_label = _color_label_from_variant(color_variant)
-            size_value = (item_data.get('size', '') or 'S').upper()
+            size_value = normalize_requested_size(product, item_data.get('size'))
             color_variant_id = color_variant.id if color_variant else None
             offer_id = product.get_offer_id(color_variant_id, size_value)
 

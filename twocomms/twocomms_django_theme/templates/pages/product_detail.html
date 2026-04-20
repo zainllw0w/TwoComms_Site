@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load static %}{% load cache %}{% load seo_tags %}{% load responsive_images %}
+{% extends "base.html" %}{% load static %}{% load cache %}{% load seo_tags %}{% load responsive_images %}{% load admin_filters %}
 
 {% block title %}{% seo_title product=product %}{% endblock %}
 {% block description %}{% seo_description product=product %}{% endblock %}
@@ -58,20 +58,19 @@
     <div class="mb-3">
       <div class="small text-secondary mb-2">Розмір</div>
       <div class="d-flex flex-wrap gap-2">
-        <input type="radio" class="btn-check" name="size" id="size-s" value="S" autocomplete="off"{% if not preselected_size or preselected_size == 'S' %} checked{% endif %}>
-        <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-s">S</label>
-
-        <input type="radio" class="btn-check" name="size" id="size-m" value="M" autocomplete="off"{% if preselected_size == 'M' %} checked{% endif %}>
-        <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-m">M</label>
-
-        <input type="radio" class="btn-check" name="size" id="size-l" value="L" autocomplete="off"{% if preselected_size == 'L' %} checked{% endif %}>
-        <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-l">L</label>
-
-        <input type="radio" class="btn-check" name="size" id="size-xl" value="XL" autocomplete="off"{% if preselected_size == 'XL' %} checked{% endif %}>
-        <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-xl">XL</label>
-
-        <input type="radio" class="btn-check" name="size" id="size-xxl" value="XXL" autocomplete="off"{% if preselected_size == 'XXL' %} checked{% endif %}>
-        <label class="btn btn-outline-light rounded-3 px-3 py-2 size-unavailable" for="size-xxl" title="Немає в наявності">XXL</label>
+        {% for size in available_sizes %}
+          <input
+            type="radio"
+            class="btn-check"
+            name="size"
+            id="size-{{ size|lower }}"
+            value="{{ size }}"
+            autocomplete="off"
+            {% if preselected_size == size %}checked{% endif %}>
+          <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-{{ size|lower }}">
+            {{ size_display_labels|get_item:size|default:size }}
+          </label>
+        {% endfor %}
       </div>
     </div>
 
@@ -169,61 +168,105 @@
           <div class="text-secondary">{{ product.description|default:'…'|linebreaksbr }}</div>
         </div>
         <div id="tab-size" class="product-tab-pane">
-          <div class="text-secondary">
-            <div class="mb-3">
-              <h6 class="fw-semibold mb-2">Таблиця розмірів</h6>
-              <div class="table-responsive">
-                <table class="table table-sm table-borderless text-secondary small">
-                  <thead>
-                    <tr>
-                      <th>Розмір</th>
-                      <th>Груди (см)</th>
-                      <th>Талія (см)</th>
-                      <th>Стегна (см)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td class="fw-semibold">S</td>
-                      <td>88-92</td>
-                      <td>70-74</td>
-                      <td>94-98</td>
-                    </tr>
-                    <tr>
-                      <td class="fw-semibold">M</td>
-                      <td>92-96</td>
-                      <td>74-78</td>
-                      <td>98-102</td>
-                    </tr>
-                    <tr>
-                      <td class="fw-semibold">L</td>
-                      <td>96-100</td>
-                      <td>78-82</td>
-                      <td>102-106</td>
-                    </tr>
-                    <tr>
-                      <td class="fw-semibold">XL</td>
-                      <td>100-104</td>
-                      <td>82-86</td>
-                      <td>106-110</td>
-                    </tr>
-                    <tr>
-                      <td class="fw-semibold">XXL</td>
-                      <td>104-108</td>
-                      <td>86-90</td>
-                      <td>110-114</td>
-                    </tr>
-                  </tbody>
-                </table>
+          {% if resolved_size_guide %}
+            <div class="card bg-elevate border-0 rounded-4 p-3">
+              <div class="text-uppercase small text-secondary mb-2">{{ resolved_size_guide.eyebrow|default:"Fit guide" }}</div>
+              <h6 class="fw-semibold mb-2">{{ resolved_size_guide.title }}</h6>
+              {% if resolved_size_guide.intro %}
+                <p class="text-secondary small mb-3">{{ resolved_size_guide.intro }}</p>
+              {% endif %}
+
+              {% if resolved_size_guide.legend %}
+                <div class="d-grid gap-2 mb-3">
+                  {% for item in resolved_size_guide.legend %}
+                    <div class="small text-secondary">
+                      <strong class="text-light">{{ item.label }}</strong>
+                      {% if item.description %} — {{ item.description }}{% endif %}
+                    </div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+
+              {% if resolved_size_guide.rows %}
+                <div class="table-responsive mb-3">
+                  <table class="table table-sm align-middle text-secondary small mb-0">
+                    <thead>
+                      <tr>
+                        {% for column in resolved_size_guide.columns %}
+                          <th>{{ column.label }}</th>
+                        {% endfor %}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for row in resolved_size_guide.rows %}
+                        <tr>
+                          {% for column in resolved_size_guide.columns %}
+                            <td{% if column.key == 'size' %} class="fw-semibold text-light"{% endif %}>
+                              {% if column.key == 'size' %}
+                                {{ row.display_size|default:row.size }}
+                              {% else %}
+                                {{ row|get_item:column.key }}
+                              {% endif %}
+                            </td>
+                          {% endfor %}
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% endif %}
+
+              {% if resolved_size_guide.image_url and not resolved_size_guide.rows %}
+                <div class="mb-3">
+                  <a href="{{ resolved_size_guide.image_url }}" class="d-inline-block">
+                    <img
+                      src="{{ resolved_size_guide.image_url }}"
+                      alt="{{ resolved_size_guide.image_alt|default:resolved_size_guide.title }}"
+                      class="img-fluid rounded-4 border border-light-subtle">
+                  </a>
+                </div>
+              {% endif %}
+
+              {% if resolved_size_guide.notes %}
+                <div class="d-grid gap-1 mb-3">
+                  {% for note in resolved_size_guide.notes %}
+                    <div class="small text-secondary">• {{ note }}</div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+
+              {% if resolved_size_guide.fit_notes %}
+                <div class="fw-semibold mb-2">Рекомендації по посадці</div>
+                <div class="d-grid gap-1 mb-3">
+                  {% for note in resolved_size_guide.fit_notes %}
+                    <div class="small text-secondary">• {{ note }}</div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+
+              {% if resolved_size_guide.cta %}
+                <div class="rounded-4 border border-light-subtle p-3">
+                  <div class="fw-semibold mb-1">{{ resolved_size_guide.cta.title }}</div>
+                  <div class="small text-secondary mb-2">{{ resolved_size_guide.cta.text }}</div>
+                  <a class="btn btn-outline-light btn-sm rounded-3" href="{% url resolved_size_guide.cta.url_name %}">
+                    {{ resolved_size_guide.cta.label }}
+                  </a>
+                </div>
+              {% endif %}
+            </div>
+          {% else %}
+            <div class="card bg-elevate border-0 rounded-4 p-3">
+              <div class="text-uppercase small text-secondary mb-2">Fit guide</div>
+              <h6 class="fw-semibold mb-2">Підбір розміру</h6>
+              <p class="text-secondary small mb-3">
+                Порівняйте заміри зі своєю річчю схожого типу або відкрийте загальну розмірну сітку TwoComms.
+              </p>
+              <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-outline-light btn-sm rounded-3" href="{% url 'size_guide' %}">Розмірна сітка</a>
+                <a class="btn btn-outline-light btn-sm rounded-3" href="{% url 'contacts' %}">Допомога з вибором</a>
               </div>
             </div>
-            <div class="small text-muted">
-              <strong>Як виміряти:</strong><br>
-              • Груди: навколо найширшої частини грудей<br>
-              • Талія: навколо найвужчої частини талії<br>
-              • Стегна: навколо найширшої частини стегон
-            </div>
-          </div>
+          {% endif %}
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@ from unittest.mock import patch
 from django.test import Client, RequestFactory, SimpleTestCase, override_settings
 from django.urls import reverse
 
+from storefront.support_content import DELIVERY_FAQ_ITEMS
 from storefront.views.static_pages import static_sitemap
 
 
@@ -21,6 +22,8 @@ class SupportStaticPagesTests(SimpleTestCase):
         size_grid_filter_mock.return_value.select_related.return_value.order_by.return_value = []
 
         route_names = [
+            "about",
+            "delivery",
             "help_center",
             "faq",
             "size_guide",
@@ -38,28 +41,53 @@ class SupportStaticPagesTests(SimpleTestCase):
                 response = self.client.get(reverse(route_name), secure=True)
                 self.assertEqual(response.status_code, 200)
 
-    def test_help_center_exposes_faq_schema_and_core_links(self):
+    def test_help_center_links_to_faq_without_rendering_duplicate_faq_block(self):
         response = self.client.get(reverse("help_center"), secure=True)
 
-        self.assertContains(response, '"@type": "FAQPage"')
+        self.assertNotContains(response, '"@type": "FAQPage"', html=False)
+        self.assertNotContains(response, "Поширені запитання")
         self.assertContains(response, reverse("faq"))
         self.assertContains(response, reverse("delivery"))
-        self.assertContains(response, reverse("order_tracking"))
-
-    def test_home_footer_contains_support_navigation(self):
-        response = self.client.get(reverse("help_center"), secure=True)
-
-        self.assertContains(response, reverse("help_center"))
-        self.assertContains(response, reverse("faq"))
         self.assertContains(response, reverse("size_guide"))
-        self.assertContains(response, reverse("site_map_page"))
 
-    def test_mobile_bottom_nav_restores_profile_entry(self):
-        response = self.client.get(reverse("help_center"), secure=True)
+    def test_footer_uses_symmetric_clusters_without_old_highlight_copy(self):
+        response = self.client.get(reverse("about"), secure=True)
 
-        self.assertContains(response, "user-login-link-mobile", html=False)
-        self.assertContains(response, '<span class="bottom-nav-label">Увійти</span>', html=False)
-        self.assertNotContains(response, '<span class="bottom-nav-label">Допомога</span>', html=False)
+        self.assertContains(response, "Покупка")
+        self.assertContains(response, "Підтримка")
+        self.assertContains(response, "Бренд")
+        self.assertContains(response, "Швидкий доступ")
+        self.assertContains(response, "All Rights Reserved © TWOCOMMS, 2026")
+        self.assertNotContains(response, "FAQ моменти")
+        self.assertNotContains(response, "TwoComms: сервіс, підтримка, новини бренду")
+
+    def test_about_and_delivery_use_shared_support_shell(self):
+        for route_name in ["about", "delivery"]:
+            with self.subTest(route_name=route_name):
+                response = self.client.get(reverse(route_name), secure=True)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'class="support-shell', html=False)
+                self.assertContains(response, 'aria-label="Breadcrumb"', html=False)
+
+    def test_delivery_page_uses_delivery_specific_faq_content(self):
+        response = self.client.get(reverse("delivery"), secure=True)
+
+        self.assertContains(response, '"@type": "FAQPage"', html=False)
+        for item in DELIVERY_FAQ_ITEMS:
+            self.assertContains(response, item["question"])
+        self.assertNotContains(response, "Чи є таблиця розмірів?")
+
+    @patch("storefront.views.static_pages.SizeGrid.objects.filter")
+    def test_size_guide_page_renders_confirmed_hoodie_and_tshirt_blocks(self, size_grid_filter_mock):
+        size_grid_filter_mock.return_value.select_related.return_value.order_by.return_value = []
+
+        response = self.client.get(reverse("size_guide"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Худі")
+        self.assertContains(response, "Футболка базова")
+        self.assertContains(response, "Довжина (A)")
+        self.assertContains(response, "Ширина")
 
     @patch("storefront.views.static_pages.Category.objects.filter")
     @patch("storefront.views.static_pages.Product.objects.filter")
