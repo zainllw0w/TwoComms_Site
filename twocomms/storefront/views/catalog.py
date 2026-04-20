@@ -201,6 +201,7 @@ def load_more_products(request):
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
 
+@ensure_csrf_cookie
 @cache_page_for_anon(600)  # Кэшируем каталог на 10 минут только для анонимов
 def catalog(request, cat_slug=None):
     """

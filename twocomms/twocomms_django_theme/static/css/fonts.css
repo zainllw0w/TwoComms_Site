@@ -1,8 +1,9 @@
 /*
  * Inter webfont declarations.
- * Weights 400 и 700 объявлены inline в base.html (critical path + preload),
- * здесь остаются только 500 и 600 — чтобы не дублировать загрузку
- * (аудит 2026-04-18 зафиксировал повторную загрузку Regular/Bold по двум URL).
+ * Weights 400 и 700 объявлены inline в base.html (critical path + preload).
+ * Для 500/600 на слабых девайсах не тащим отдельные файлы Medium/SemiBold:
+ * алиасим их на уже загруженные Regular/Bold. Это убирает ещё ~220 KiB
+ * шрифтового трафика на mobile home без заметной деградации визуала.
  *
  * Если странице нужен weight, которого нет в файле (800/900),
  * браузер использует synthetic bold от weight 700 — визуально идентично.
@@ -13,8 +14,8 @@
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('../fonts/Inter-Medium.woff2') format('woff2'),
-    url('../fonts/Inter-Medium.ttf') format('truetype');
+  src: url('../fonts/Inter-Regular.woff2') format('woff2'),
+    url('../fonts/Inter-Regular.ttf') format('truetype');
 }
 
 @font-face {
@@ -22,6 +23,6 @@
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('../fonts/Inter-SemiBold.woff2') format('woff2'),
-    url('../fonts/Inter-SemiBold.ttf') format('truetype');
+  src: url('../fonts/Inter-Bold.woff2') format('woff2'),
+    url('../fonts/Inter-Bold.ttf') format('truetype');
 }

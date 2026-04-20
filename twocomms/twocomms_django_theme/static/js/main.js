@@ -438,6 +438,8 @@ const panelState = () => ({
   cartShown: !(miniCartPanel() || { classList: { contains: () => true } }).classList.contains('d-none')
 });
 function updateCartBadge(count) {
+  const normalizedCount = Number.isFinite(Number(count)) ? Number(count) : 0;
+  setCartSyncEnabled(normalizedCount > 0);
   const n = String(count || 0);
   const desktop = DOMCache.get('cart-count');
   const mobile = DOMCache.get('cart-count-mobile');
@@ -455,6 +457,34 @@ function updateCartBadge(count) {
 }
 window.updateCartBadge = updateCartBadge;
 
+const CART_SYNC_HINT_KEY = 'twc-sync-cart';
+const FAVORITES_SYNC_HINT_KEY = 'twc-sync-favs';
+
+function persistSyncHint(key, enabled) {
+  try {
+    if (!window.localStorage) return;
+    if (enabled) {
+      window.localStorage.setItem(key, '1');
+    } else {
+      window.localStorage.removeItem(key);
+    }
+  } catch (_) { }
+}
+
+function setCartSyncEnabled(enabled) {
+  const normalized = !!enabled;
+  window.__TC_SYNC_CART = normalized;
+  persistSyncHint(CART_SYNC_HINT_KEY, normalized);
+}
+window.setCartSyncEnabled = setCartSyncEnabled;
+
+function setFavoritesSyncEnabled(enabled) {
+  const normalized = !!enabled;
+  window.__TC_SYNC_FAVS = normalized;
+  persistSyncHint(FAVORITES_SYNC_HINT_KEY, normalized);
+}
+window.setFavoritesSyncEnabled = setFavoritesSyncEnabled;
+
 function refreshCartSummary() {
   return fetch('/cart/summary/', {
     headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -468,6 +498,8 @@ window.refreshCartSummary = refreshCartSummary;
 
 // Функция для обновления счетчика избранного
 function updateFavoritesBadge(count) {
+  const normalizedCount = Number.isFinite(Number(count)) ? Number(count) : 0;
+  setFavoritesSyncEnabled(normalizedCount > 0);
   const n = String(count || 0);
   const desktop = DOMCache.get('favorites-count');
   const mobile = DOMCache.get('favorites-count-mobile');
@@ -565,6 +597,23 @@ function miniCartPanel() {
 let uiGuardUntil = 0;
 let suppressGlobalCloseUntil = 0;
 let suppressNextDocPointerdownUntil = 0; // блокируем ближайший pointerdown от документа (клик по тогглеру)
+function showAnimatedPanel(panel) {
+  if (!panel) return;
+  panel.classList.remove('hiding');
+  panel.classList.remove('d-none');
+  panel.removeAttribute('inert');
+  panel.setAttribute('aria-hidden', 'false');
+  const commitOpen = () => {
+    panel.classList.add('show');
+  };
+  if ('requestAnimationFrame' in window) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(commitOpen);
+    });
+  } else {
+    setTimeout(commitOpen, 0);
+  }
+}
 function openMiniCart(opts = {}) {
   const { skipRefresh = false } = opts;
   const id = nextEvt();
@@ -636,7 +685,7 @@ window.__twcMono = {
 let __monoModulePromise = null;
 function __loadMonoModule() {
   if (!__monoModulePromise) {
-    __monoModulePromise = import('./modules/checkout-mono.js').catch((err) => {
+    __monoModulePromise = import('./modules/checkout-mono.js?v=20260420').catch((err) => {
       __monoModulePromise = null;
       throw err;
     });
@@ -707,6 +756,15 @@ window.openMiniCart = openMiniCart;
 document.addEventListener('DOMContentLoaded', () => {
   try { bindMonoCheckout(document); } catch (_) { }
   try { bindMonobankPay(document); } catch (_) { }
+  const docEl = document.documentElement;
+  const routeName = (docEl.dataset.routeName || '').toLowerCase();
+  const deviceClass = (docEl.dataset.deviceClass || '').toLowerCase();
+  const cartBootEvents = routeName === 'home'
+    ? ['click', 'pointerdown', 'keydown']
+    : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown'];
+  const cartBootDelay = routeName === 'home'
+    ? (deviceClass === 'low' ? 3500 : 2500)
+    : 2000;
   
   // PERF: Delay cart/favorites requests until AFTER LCP (1.5s) or user interaction
   // This is critical for mobile PageSpeed TBT score
@@ -716,7 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__cartDataLoaded = true;
     
     // Remove interaction listeners
-    ['scroll', 'click', 'touchstart'].forEach(evt => {
+    cartBootEvents.forEach(evt => {
       window.removeEventListener(evt, loadCartData, { passive: true, capture: true });
     });
     
@@ -739,12 +797,12 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   
   // Load on user interaction (more aggressive for PageSpeed)
-  ['scroll', 'click', 'touchstart'].forEach(evt => {
+  cartBootEvents.forEach(evt => {
     window.addEventListener(evt, loadCartData, { passive: true, capture: true, once: true });
   });
   
-  // Fallback: Load after 2s if no interaction (allows LCP to complete first)
-  setTimeout(loadCartData, 2000);
+  // Fallback: home gets a longer quiet window to keep LCP clean on weaker devices.
+  setTimeout(loadCartData, cartBootDelay);
 
   // Применим цвета для свотчей на текущей странице
   scheduleIdle(function () { try { applySwatchColors(document); } catch (_) { } });
@@ -929,7 +987,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const userToggle = document.getElementById('user-toggle');
   const userPanel = document.getElementById('user-panel');
   if (userToggle && userPanel) {
-    const openUser = () => { const id = nextEvt(); userPanel._opId = (userPanel._opId || 0) + 1; const opId = userPanel._opId; if (userPanel._hideTimeout) { clearTimeout(userPanel._hideTimeout); userPanel._hideTimeout = null; } userPanel.classList.remove('hiding'); userPanel.classList.remove('d-none'); userPanel.removeAttribute('inert'); userPanel.setAttribute('aria-hidden', 'false'); void userPanel.offsetHeight; userPanel.classList.add('show'); };
+    const openUser = () => { const id = nextEvt(); userPanel._opId = (userPanel._opId || 0) + 1; const opId = userPanel._opId; if (userPanel._hideTimeout) { clearTimeout(userPanel._hideTimeout); userPanel._hideTimeout = null; } showAnimatedPanel(userPanel); };
     const closeUser = (reason) => { const id = nextEvt(); userPanel._opId = (userPanel._opId || 0) + 1; const opId = userPanel._opId; userPanel.classList.remove('show'); userPanel.classList.add('hiding'); const t = setTimeout(() => { if (opId !== userPanel._opId) return; userPanel.classList.add('d-none'); userPanel.classList.remove('hiding'); userPanel.setAttribute('inert', ''); userPanel.setAttribute('aria-hidden', 'true'); }, 220); userPanel._hideTimeout = t; userPanel.addEventListener('transitionend', function onEnd(e) { if (e.target !== userPanel) return; userPanel.removeEventListener('transitionend', onEnd); if (opId !== userPanel._opId) return; clearTimeout(t); userPanel.classList.add('d-none'); userPanel.classList.remove('hiding'); userPanel.setAttribute('inert', ''); userPanel.setAttribute('aria-hidden', 'true'); }); };
     if (!userToggle.dataset.uiBoundUser) {
       userToggle.dataset.uiBoundUser = '1';
@@ -945,7 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const userToggleMobile = document.getElementById('user-toggle-mobile');
   const userPanelMobile = document.getElementById('user-panel-mobile');
   if (userToggleMobile && userPanelMobile) {
-    const openUserMobile = () => { const id = nextEvt(); userPanelMobile._opId = (userPanelMobile._opId || 0) + 1; const opId = userPanelMobile._opId; if (userPanelMobile._hideTimeout) { clearTimeout(userPanelMobile._hideTimeout); userPanelMobile._hideTimeout = null; } userPanelMobile.classList.remove('hiding'); userPanelMobile.classList.remove('d-none'); userPanelMobile.removeAttribute('inert'); userPanelMobile.setAttribute('aria-hidden', 'false'); void userPanelMobile.offsetHeight; userPanelMobile.classList.add('show'); };
+    const openUserMobile = () => { const id = nextEvt(); userPanelMobile._opId = (userPanelMobile._opId || 0) + 1; const opId = userPanelMobile._opId; if (userPanelMobile._hideTimeout) { clearTimeout(userPanelMobile._hideTimeout); userPanelMobile._hideTimeout = null; } showAnimatedPanel(userPanelMobile); };
     const closeUserMobile = (reason) => { const id = nextEvt(); userPanelMobile._opId = (userPanelMobile._opId || 0) + 1; const opId = userPanelMobile._opId; userPanelMobile.classList.remove('show'); userPanelMobile.classList.add('hiding'); const t = setTimeout(() => { if (opId !== userPanelMobile._opId) return; userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); userPanelMobile.setAttribute('inert', ''); userPanelMobile.setAttribute('aria-hidden', 'true'); }, 220); userPanelMobile._hideTimeout = t; userPanelMobile.addEventListener('transitionend', function onEnd(e) { if (e.target !== userPanelMobile) return; userPanelMobile.removeEventListener('transitionend', onEnd); if (opId !== userPanelMobile._opId) return; clearTimeout(t); userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); userPanelMobile.setAttribute('inert', ''); userPanelMobile.setAttribute('aria-hidden', 'true'); }); };
     if (!userToggleMobile.dataset.uiBoundUser) {
       userToggleMobile.dataset.uiBoundUser = '1';
@@ -1020,6 +1078,9 @@ document.addEventListener('DOMContentLoaded', () => {
   (function () {
     const bottomNav = document.querySelector('.bottom-nav');
     if (!bottomNav) return;
+    const bottomNavDeviceClass = (document.documentElement.dataset.deviceClass || 'high').toLowerCase();
+    const scrollAdaptiveEnabled = !(window.matchMedia('(max-width: 768px)').matches && bottomNavDeviceClass !== 'high');
+    bottomNav.dataset.scrollMode = scrollAdaptiveEnabled ? 'adaptive' : 'static';
 
     let lastScrollY = PerformanceOptimizer.getScrollY();
     let hidden = false;
@@ -1053,6 +1114,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const maybeShowHint = () => {
+      if (!scrollAdaptiveEnabled) return;
       if (hintShown) return;
       if (prefersReducedMotion || PERF_LITE) { hintShown = true; return; }
       bottomNav.classList.add('hint-wiggle');
@@ -1061,49 +1123,54 @@ document.addEventListener('DOMContentLoaded', () => {
       hintShown = true;
     };
 
-    // Оптимизированная обработка скролла
-    PerformanceOptimizer.onScrollChange = (currentY, lastY) => {
-      const dy = currentY - lastY;
-      if (Math.abs(dy) < 1) return; // Игнорируем микро-движения
+    if (scrollAdaptiveEnabled) {
+      // Оптимизированная обработка скролла
+      PerformanceOptimizer.onScrollChange = (currentY, lastY) => {
+        const dy = currentY - lastY;
+        if (Math.abs(dy) < 1) return; // Игнорируем микро-движения
 
-      isScrolling = true;
-      clearTimeout(scrollEndTimer);
-      scrollEndTimer = setTimeout(() => {
-        isScrolling = false;
-        scrollMomentum = 0; // Сброс после остановки скролла
-      }, 150);
+        isScrolling = true;
+        clearTimeout(scrollEndTimer);
+        scrollEndTimer = setTimeout(() => {
+          isScrolling = false;
+          scrollMomentum = 0; // Сброс после остановки скролла
+        }, 150);
 
-      // Определяем направление с гистерезисом
-      const currentDirection = dy > 2 ? 1 : (dy < -2 ? -1 : 0);
+        // Определяем направление с гистерезисом
+        const currentDirection = dy > 2 ? 1 : (dy < -2 ? -1 : 0);
 
-      // Сброс импульса при смене направления
-      if (currentDirection !== 0 && scrollDirection !== 0 && currentDirection !== scrollDirection) {
-        scrollMomentum = 0;
-      }
-      scrollDirection = currentDirection;
+        // Сброс импульса при смене направления
+        if (currentDirection !== 0 && scrollDirection !== 0 && currentDirection !== scrollDirection) {
+          scrollMomentum = 0;
+        }
+        scrollDirection = currentDirection;
 
-      // Накапливаем импульс
-      scrollMomentum += dy;
+        // Накапливаем импульс
+        scrollMomentum += dy;
 
-      // Разные пороги для скрытия и показа (гистерезис)
-      const HIDE_THRESHOLD = 50;  // Нужно проскроллить вниз 50px
-      const SHOW_THRESHOLD = -20; // Нужно проскроллить вверх 20px
+        // Разные пороги для скрытия и показа (гистерезис)
+        const HIDE_THRESHOLD = 50;  // Нужно проскроллить вниз 50px
+        const SHOW_THRESHOLD = -20; // Нужно проскроллить вверх 20px
 
-      // Скрытие меню - только при значительном скролле вниз
-      if (!hidden && scrollMomentum > HIDE_THRESHOLD) {
-        setHidden(true);
-      }
-      // Показ меню - при любом скролле вверх (если скрыто)
-      else if (hidden && scrollMomentum < SHOW_THRESHOLD) {
-        setHidden(false);
-      }
+        // Скрытие меню - только при значительном скролле вниз
+        if (!hidden && scrollMomentum > HIDE_THRESHOLD) {
+          setHidden(true);
+        }
+        // Показ меню - при любом скролле вверх (если скрыто)
+        else if (hidden && scrollMomentum < SHOW_THRESHOLD) {
+          setHidden(false);
+        }
 
-      // Ограничиваем импульс
-      scrollMomentum = Math.max(-100, Math.min(100, scrollMomentum));
-    };
+        // Ограничиваем импульс
+        scrollMomentum = Math.max(-100, Math.min(100, scrollMomentum));
+      };
 
-    // Инициализируем оптимизированный скролл
-    PerformanceOptimizer.initScrollOptimization();
+      // Инициализируем оптимизированный скролл
+      PerformanceOptimizer.initScrollOptimization();
+    } else {
+      bottomNav.classList.remove('bottom-nav--hidden', 'hint-wiggle');
+      hidden = false;
+    }
 
     // Фокус в полях ввода — скрыть; блюр — показать
     document.addEventListener('focusin', (e) => {
@@ -1114,56 +1181,60 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('focusout', (e) => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
         setHidden(false);
-        maybeShowHint();
+        if (scrollAdaptiveEnabled) {
+          maybeShowHint();
+        }
       }
     });
 
-    // Свайпы - только для явных жестов, не конфликтующих со скроллом
-    const onTouchStart = (e) => {
-      const t = e.touches ? e.touches[0] : e;
-      touchStartY = t.clientY;
-      touchStartX = t.clientX;
-      touchMoved = false;
-    };
-    const onTouchMove = (e) => {
-      touchMoved = true;
-    };
-    const onTouchEnd = (e) => {
-      if (touchStartY == null) return;
+    if (scrollAdaptiveEnabled) {
+      // Свайпы - только для явных жестов, не конфликтующих со скроллом
+      const onTouchStart = (e) => {
+        const t = e.touches ? e.touches[0] : e;
+        touchStartY = t.clientY;
+        touchStartX = t.clientX;
+        touchMoved = false;
+      };
+      const onTouchMove = (e) => {
+        touchMoved = true;
+      };
+      const onTouchEnd = (e) => {
+        if (touchStartY == null) return;
 
-      // Игнорируем тач-события во время активного скролла
-      if (isScrolling) {
+        // Игнорируем тач-события во время активного скролла
+        if (isScrolling) {
+          touchStartY = touchStartX = null;
+          touchMoved = false;
+          return;
+        }
+
+        const t = (e.changedTouches && e.changedTouches[0]) || e;
+        const dy = (t.clientY - touchStartY) || 0;
+        const dx = (t.clientX - touchStartX) || 0;
+        const absY = Math.abs(dy), absX = Math.abs(dx);
+
+        // Только явные вертикальные свайпы (не скролл!)
+        // Увеличенный порог для предотвращения ложных срабатываний
+        if (absY > 40 && absY > absX * 2) {
+          if (dy > 0) {
+            setHidden(true, true); // force = true для свайпов
+          } else if (hidden) {
+            setHidden(false, true);
+          }
+          maybeShowHint();
+        }
         touchStartY = touchStartX = null;
         touchMoved = false;
-        return;
-      }
+      };
 
-      const t = (e.changedTouches && e.changedTouches[0]) || e;
-      const dy = (t.clientY - touchStartY) || 0;
-      const dx = (t.clientX - touchStartX) || 0;
-      const absY = Math.abs(dy), absX = Math.abs(dx);
+      // Навешиваем только на меню (не глобально, чтобы не конфликтовать со скроллом)
+      bottomNav.addEventListener('touchstart', onTouchStart, { passive: true });
+      bottomNav.addEventListener('touchmove', onTouchMove, { passive: true });
+      bottomNav.addEventListener('touchend', onTouchEnd, { passive: true });
 
-      // Только явные вертикальные свайпы (не скролл!)
-      // Увеличенный порог для предотвращения ложных срабатываний
-      if (absY > 40 && absY > absX * 2) {
-        if (dy > 0) {
-          setHidden(true, true); // force = true для свайпов
-        } else {
-          if (hidden) setHidden(false, true);
-        }
-        maybeShowHint();
-      }
-      touchStartY = touchStartX = null;
-      touchMoved = false;
-    };
-
-    // Навешиваем только на меню (не глобально, чтобы не конфликтовать со скроллом)
-    bottomNav.addEventListener('touchstart', onTouchStart, { passive: true });
-    bottomNav.addEventListener('touchmove', onTouchMove, { passive: true });
-    bottomNav.addEventListener('touchend', onTouchEnd, { passive: true });
-
-    // Первичная ненавязчивая подсказка — один раз за сессию
-    setTimeout(() => { maybeShowHint(); }, 800);
+      // Первичная ненавязчивая подсказка — один раз за сессию
+      setTimeout(() => { maybeShowHint(); }, 800);
+    }
   })();
 });
 

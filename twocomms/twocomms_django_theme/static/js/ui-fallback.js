@@ -42,7 +42,8 @@
   if (typeof window.CartRemoveKey !== 'function') {
     window.CartRemoveKey = function (key, el) {
       // Получаем CSRF токен из мета-тега или cookie
-      var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+      var csrfToken = getCookie('csrftoken') ||
+        document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
         document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
         getCookie('csrftoken');
 
@@ -219,7 +220,8 @@
   }
   if (typeof window.CustomCartRemoveKey !== 'function') {
     window.CustomCartRemoveKey = function (key, el, leadId) {
-      var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+      var csrfToken = getCookie('csrftoken') ||
+        document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
         document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
         getCookie('csrftoken');
 
@@ -308,7 +310,8 @@
   if (typeof window.cleanCart !== 'function') {
     window.cleanCart = function () {
       if (confirm('Ви впевнені, що хочете очистити кошик?')) {
-        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+        var csrfToken = getCookie('csrftoken') ||
+          document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
           document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
           getCookie('csrftoken');
 
@@ -352,7 +355,8 @@
       }
 
       // Получаем CSRF токен
-      var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+      var csrfToken = getCookie('csrftoken') ||
+        document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
         document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
         getCookie('csrftoken');
 
