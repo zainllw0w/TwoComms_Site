@@ -14,10 +14,46 @@ function buildPageHref(basePath, page) {
   return `${safeBasePath}?page=${page}`;
 }
 
+function isMobilePaginationViewport() {
+  return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+}
+
+function resetPaginationMobileScale(showcase, scrollContainer) {
+  showcase?.style.removeProperty('--pagination-mobile-scale');
+  showcase?.style.removeProperty('--pagination-mobile-height');
+  scrollContainer?.classList.remove('is-scaled');
+}
+
 function syncPaginationLayout(navElement) {
   if (!navElement) return false;
   const scrollContainer = navElement.closest('.pagination-rail');
   if (!scrollContainer) return false;
+
+  const showcase = scrollContainer.closest('.pagination-showcase');
+  const paginationList = navElement.querySelector('.pagination-premium');
+
+  if (showcase && paginationList) {
+    resetPaginationMobileScale(showcase, scrollContainer);
+
+    if (isMobilePaginationViewport()) {
+      const railStyles = window.getComputedStyle(scrollContainer);
+      const railPaddingX = parseFloat(railStyles.paddingLeft || '0') + parseFloat(railStyles.paddingRight || '0');
+      const railPaddingY = parseFloat(railStyles.paddingTop || '0') + parseFloat(railStyles.paddingBottom || '0');
+      const availableWidth = Math.max(0, scrollContainer.clientWidth - railPaddingX);
+      const naturalWidth = Math.ceil(paginationList.scrollWidth);
+      const naturalHeight = Math.ceil(paginationList.offsetHeight);
+
+      if (availableWidth > 0 && naturalWidth > availableWidth + 1) {
+        const scale = Math.min(1, availableWidth / naturalWidth);
+        showcase.style.setProperty('--pagination-mobile-scale', scale.toFixed(4));
+        showcase.style.setProperty('--pagination-mobile-height', `${Math.ceil(naturalHeight * scale + railPaddingY + 6)}px`);
+        scrollContainer.classList.add('is-scaled');
+        scrollContainer.classList.remove('is-scrollable');
+        scrollContainer.scrollLeft = 0;
+        return false;
+      }
+    }
+  }
 
   const needsScroll = Math.ceil(scrollContainer.scrollWidth - scrollContainer.clientWidth) > 4;
   scrollContainer.classList.toggle('is-scrollable', needsScroll);
