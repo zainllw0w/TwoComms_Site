@@ -1116,15 +1116,15 @@ body.survey-modal-open {
 
 @media (max-width: 768px) {
   .pagination-rail.is-scaled {
-    justify-content: center;
+    justify-content: flex-start;
     overflow-x: hidden;
     scroll-padding-inline: 0;
   }
 
   .pagination-rail.is-scaled .pagination-premium {
-    margin-inline: auto;
-    transform: scale(var(--pagination-mobile-scale, 1));
-    transform-origin: center top;
+    margin-inline: 0;
+    transform: translateX(var(--pagination-mobile-offset, 0px)) scale(var(--pagination-mobile-scale, 1));
+    transform-origin: left top;
     will-change: transform;
     scroll-snap-type: none;
   }

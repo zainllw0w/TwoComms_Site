@@ -21,6 +21,7 @@ function isMobilePaginationViewport() {
 function resetPaginationMobileScale(showcase, scrollContainer) {
   showcase?.style.removeProperty('--pagination-mobile-scale');
   showcase?.style.removeProperty('--pagination-mobile-height');
+  showcase?.style.removeProperty('--pagination-mobile-offset');
   scrollContainer?.classList.remove('is-scaled');
 }
 
@@ -39,14 +40,16 @@ function syncPaginationLayout(navElement) {
       const railStyles = window.getComputedStyle(scrollContainer);
       const railPaddingX = parseFloat(railStyles.paddingLeft || '0') + parseFloat(railStyles.paddingRight || '0');
       const railPaddingY = parseFloat(railStyles.paddingTop || '0') + parseFloat(railStyles.paddingBottom || '0');
-      const mobileVisualInset = isMobilePaginationViewport() ? 12 : 0;
+      const mobileVisualInset = isMobilePaginationViewport() ? 16 : 0;
       const availableWidth = Math.max(0, scrollContainer.clientWidth - railPaddingX - mobileVisualInset);
       const naturalWidth = Math.ceil(paginationList.scrollWidth);
       const naturalHeight = Math.ceil(paginationList.offsetHeight);
 
       if (availableWidth > 0 && naturalWidth > availableWidth + 1) {
         const scale = Math.min(1, availableWidth / naturalWidth);
+        const scaledWidth = naturalWidth * scale;
         showcase.style.setProperty('--pagination-mobile-scale', scale.toFixed(4));
+        showcase.style.setProperty('--pagination-mobile-offset', `${Math.max(0, Math.floor((availableWidth - scaledWidth) / 2))}px`);
         showcase.style.setProperty('--pagination-mobile-height', `${Math.ceil(naturalHeight * scale + railPaddingY + 6)}px`);
         scrollContainer.classList.add('is-scaled');
         scrollContainer.classList.remove('is-scrollable');
