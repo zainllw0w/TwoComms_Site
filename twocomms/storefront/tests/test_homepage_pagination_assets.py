@@ -104,11 +104,23 @@ class HomepagePaginationCssTests(SimpleTestCase):
             / "pages"
             / "index.html"
         )
+        css_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "home.css"
+        )
         template = template_path.read_text(encoding="utf-8")
+        css = css_path.read_text(encoding="utf-8")
 
         self.assertIn('id="home-pagination-shell"', template)
         self.assertIn('{% include "partials/home_pagination.html"', template)
         self.assertNotIn("{% for num in paginator.page_range %}", template)
+        self.assertRegex(
+            css,
+            r"#home-pagination-shell\s*\{[\s\S]*?width:\s*100%;[\s\S]*?min-width:\s*0;",
+        )
 
     def test_home_pagination_js_swaps_server_rendered_html(self):
         js_path = (
