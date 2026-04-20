@@ -82,6 +82,11 @@
   <link rel="dns-prefetch" href="https://www.google-analytics.com">
   {% endif %}
 
+  {% if not debug %}
+  <!-- Ahrefs Web Analytics -->
+  <script src="https://analytics.ahrefs.com/analytics.js" data-key="mqcrvLWW5rjDFxrteLCZVw" async></script>
+  {% endif %}
+
   <!-- Preload only critical JS modules - others loaded on demand -->
   <link rel="modulepreload" href="{% static 'js/modules/shared.js' %}">
 

@@ -16,6 +16,10 @@
   <!-- ASSET_REQUEST | id=og-dtf | type=photo | usage=Open Graph share image | spec=1200x630 | notes=DTF Lab Proof cover -->
   <meta property="og:image" content="{% static 'dtf/assets/og-dtf.jpg' %}">
   <link rel="canonical" href="{{ request.build_absolute_uri }}">
+  {% if not debug %}
+  <!-- Ahrefs Web Analytics -->
+  <script src="https://analytics.ahrefs.com/analytics.js" data-key="mqcrvLWW5rjDFxrteLCZVw" async></script>
+  {% endif %}
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
