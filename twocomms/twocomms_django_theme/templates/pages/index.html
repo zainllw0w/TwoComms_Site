@@ -506,17 +506,33 @@
   {% endif %}
 </section>
 
-<script>
-  // Collapsible Featured и загрузка «Показать ещё» перенесены в main.js
-</script>
 {% endblock %}
 
 {% block extra_js %}
   {{ block.super }}
-  <script type="module">
-    import("{% static 'js/modules/survey.js' %}")
-      .then(({ initSurvey }) => initSurvey())
-      .catch(() => {});
+  <script>
+    // Survey module: lazy-load только по клику на CTA или idle-fallback,
+    // чтобы не тянуть 16 KB survey.js при LCP/TTI главной.
+    (function(){
+      var SURVEY_URL = "{% static 'js/modules/survey.js' %}";
+      var loaded = false;
+      function loadSurvey() {
+        if (loaded) return;
+        loaded = true;
+        import(SURVEY_URL)
+          .then(function(mod){ if (mod && mod.initSurvey) mod.initSurvey(); })
+          .catch(function(){});
+      }
+      // Прямой клик по CTA — грузим сразу.
+      document.addEventListener('click', function(e){
+        var t = e.target && e.target.closest && e.target.closest('[data-survey-cta], [data-survey-open]');
+        if (t) loadSurvey();
+      }, true);
+      // Idle-fallback: если пользователь не кликнул в ближайшие 6 секунд,
+      // всё равно инициализируем (для восстановления in_progress сессий).
+      var idle = window.requestIdleCallback || function(cb){ return setTimeout(cb, 3000); };
+      idle(function(){ loadSurvey(); }, { timeout: 6000 });
+    })();
   </script>
 {% endblock %}
 
