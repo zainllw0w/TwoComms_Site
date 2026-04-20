@@ -53,7 +53,7 @@ def add_cache_headers(headers, path, url):
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
     # Изображения - кешируем на 1 год
-    elif file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico']:
+    elif file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.svg', '.ico']:
         headers['Cache-Control'] = 'public, max-age=31536000, immutable'  # 1 год
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
@@ -92,9 +92,9 @@ def get_media_cache_headers(path):
     headers = {}
     file_extension = Path(path).suffix.lower()
 
-    # Изображения продуктов - кешируем на 30 дней
-    if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
-        headers['Cache-Control'] = 'public, max-age=2592000'  # 30 дней
+    # Изображения продуктов - кешируем на 1 год (оптимизированные варианты содержат хэш в имени)
+    if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif']:
+        headers['Cache-Control'] = 'public, max-age=31536000'  # 1 год
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
     # Аватары - кешируем на 7 дней
