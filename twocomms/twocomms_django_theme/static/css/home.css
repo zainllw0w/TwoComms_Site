@@ -841,11 +841,6 @@ body.survey-modal-open {
     max(1rem, env(safe-area-inset-right));
 }
 
-.pagination-rail:not(.is-scrollable) {
-  justify-content: center;
-  overflow-x: visible;
-}
-
 .pagination-rail::-webkit-scrollbar {
   display: none;
 }
@@ -873,10 +868,6 @@ body.survey-modal-open {
   max-width: 100%;
   isolation: isolate;
   scroll-snap-type: x proximity;
-}
-
-.pagination-rail:not(.is-scrollable) .pagination-premium {
-  margin-inline: auto;
 }
 
 .pagination-premium::before {
@@ -1199,6 +1190,17 @@ body.survey-modal-open {
 
   .pagination-premium .page-item-nav .page-link {
     min-width: 2.7rem;
+  }
+}
+
+@media (min-width: 769px) {
+  .pagination-rail:not(.is-scrollable) {
+    justify-content: center;
+    overflow-x: visible;
+  }
+
+  .pagination-rail:not(.is-scrollable) .pagination-premium {
+    margin-inline: auto;
   }
 }
 

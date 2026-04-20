@@ -31,3 +31,31 @@ class HomepagePaginationCssTests(SimpleTestCase):
         self.assertIn("justify-content: flex-start;", rail_blocks[0])
         self.assertIn("overflow-x: auto;", rail_blocks[0])
         self.assertIn("scroll-padding-inline:", rail_blocks[0])
+
+    def test_home_pagination_keeps_not_scrollable_centering_desktop_only(self):
+        css_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "home.css"
+        )
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertRegex(css, r"@media\s*\(min-width:\s*769px\)")
+        self.assertRegex(
+            css,
+            r"@media\s*\(min-width:\s*769px\)\s*\{[\s\S]*?\.pagination-rail:not\(\.is-scrollable\)\s*\{[\s\S]*?justify-content:\s*center;[\s\S]*?overflow-x:\s*visible;",
+        )
+
+    def test_home_template_has_no_raw_survey_comment_text(self):
+        template_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "templates"
+            / "pages"
+            / "index.html"
+        )
+        template = template_path.read_text(encoding="utf-8")
+
+        self.assertNotIn("Survey-модалка упакована в <template>", template)
