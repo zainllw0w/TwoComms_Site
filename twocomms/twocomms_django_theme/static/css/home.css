@@ -1837,15 +1837,23 @@ html[data-reduced-motion="1"] *::after {
 }
 
 /* =========================================================================
-   Phase 3.3 — content-visibility для offscreen секций.
+   Phase 3.3 — content-visibility для offscreen секций главной.
    Браузер скипает layout/paint для секций вне viewport до первого scroll.
-   Применяем только к non-hero секциям — критично не ломать LCP-элементы.
+   Hero/первая складка — не трогаем (LCP). Fix 2026-04-20: селекторы
+   выровнены по фактической разметке (#featured-section, #new-products-section,
+   .categories-section — это реальные id/class в pages/index.html).
    contain-intrinsic-size резервирует высоту, чтобы scrollbar не прыгал.
    ========================================================================= */
-.categories-section,
-.featured-section,
-.products-grid .product-card:nth-child(n+5) {
+#featured-section,
+#new-products-section,
+.categories-section {
   content-visibility: auto;
-  contain-intrinsic-size: 1px 420px;
+  contain-intrinsic-size: 1px 520px;
+}
+
+/* Для карточек в products-grid вне initial viewport — отложенная отрисовка. */
+#new-products-section .col.product-card-wrap:nth-child(n+5) {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 460px;
 }
 
