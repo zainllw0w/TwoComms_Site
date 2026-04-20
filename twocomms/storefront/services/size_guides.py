@@ -402,9 +402,6 @@ def resolve_product_size_guide(product):
     if size_grid:
         return _build_visual_fallback(size_grid, source)
 
-    if profile_key:
-        return _build_structured_guide(profile_key, "preset_detected")
-
     return _build_global_fallback(product)
 
 
@@ -487,8 +484,13 @@ def build_public_size_guide_blocks(size_grids=None):
 
     blocks = []
     for profile_key in ("hoodie", "basic_tshirt"):
-        source = "catalog_default" if profile_key in matched else "preset_detected"
-        block = _build_structured_guide(profile_key, source, size_grid=matched.get(profile_key))
+        if profile_key not in matched:
+            continue
+        block = _build_structured_guide(
+            profile_key,
+            "catalog_default",
+            size_grid=matched[profile_key],
+        )
         blocks.append(block)
 
     return {
