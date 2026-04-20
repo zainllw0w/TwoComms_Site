@@ -24,6 +24,9 @@
 - Mobile bottom-nav no longer uses scroll-adaptive hide/show on phone-sized screens; [main.js](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/static/js/main.js:1077) now keeps the dock static for `max-width: 768px`, while [styles.css](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/static/css/styles.css:10309) removes the mobile blur / translate-heavy motion that was the strongest jank suspect.
 - Runtime heavy-effect relaxation no longer mutates `backdrop-filter` during scroll; [main.js](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/static/js/main.js:1285) now limits that path to pausing infinite animations only.
 - Guard tests in [test_template_source_guards.py](/Users/zainllw0w/TwoComms/site/tests/test_template_source_guards.py:1) now resolve files from the active checkout instead of a hardcoded absolute repo path, so worktree validation checks the edited tree, not another clone.
+- Homepage survey bootstrap no longer uses an idle fallback import; [index.html](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/templates/pages/index.html:480) now loads `survey.js` only on intent (`pointerdown`, `focusin`, `mouseover`) and preserves first-click behavior via a one-time replay guard.
+- Dead survey config was removed from [base.html](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/templates/base.html:780); `data-survey-module-url` had no live consumer in the JS codebase.
+- Old survey CTA/modal CSS was removed from the global [styles.css](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/static/css/styles.css:1) bundle because homepage now keeps that UI in [home.css](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/static/css/home.css:327). After the purge rebuild, `styles.purged.css` dropped from `330567` to `319809` bytes.
 
 ## Что остаётся проблемным
 
@@ -47,7 +50,9 @@
 11. Done: remove homepage dependency on external `bootstrap.min.css` and replace it with a local route-scoped extracted subset in `css/bootstrap-home-subset.css`.
 12. Done: fix source-guard tests so they validate the current checkout/worktree instead of a stale absolute path.
 13. Done: make the mobile bottom-nav static on phone-sized screens and remove scroll-time `backdrop-filter` mutations from the runtime optimizer.
-14. In progress: continue with next-layer payload reductions and server/runtime hot spots that are still safe without Redis/Celery.
+14. Done: remove homepage survey idle import so `modules/survey.js` no longer belongs to the critical request chain.
+15. Done: remove duplicated legacy survey CTA/modal CSS from the global render-blocking bundle and keep those styles route-scoped in `home.css`.
+16. In progress: continue with next-layer payload reductions and server/runtime hot spots that are still safe without Redis/Celery.
 
 ## Верификация после правок
 
@@ -58,3 +63,6 @@
 - Production after `72e7f848` deploy: homepage switched to `/static/CACHE/css/output.7ad7d9273725.css`, `fonts.css` disappeared from HTML, and the live CSS bundle no longer contains `Inter-Medium.woff2`, `Inter-SemiBold.woff2`, or querystring variants of `Inter-Regular/Bold`.
 - Fresh Lighthouse after the font dedupe deploy: `performance 0.80`, `FCP 1.4s`, `LCP 4.6s`, `TBT 110ms`, `CLS 0.002`. Before that pass, the same flow measured roughly `performance 0.67`, `FCP 2.6s`, `LCP 10.1s`.
 - Fresh Lighthouse after enabling `effects-lite` for `mid` devices and moving homepage Clarity off the idle path: `performance 0.82`, `FCP 1.4s`, `LCP 4.5s`, `TBT 50ms`, `CLS 0.001`.
+- `python -m unittest tests.test_template_source_guards` — passed after the survey-loader/CSS split changes (`22 tests`).
+- `DEBUG=1 SECRET_KEY=test python twocomms/manage.py test storefront.tests.test_homepage_pagination_assets tests.test_template_source_guards --verbosity 1` — passed after the same pass (`30 tests`).
+- Local browser verification remains partially blocked by the current checkout's incomplete SQLite DB: homepage rendering still fails before template paint because `storefront_product` is missing. This is an environment/data limitation, not evidence of a regression in the edited files, so final behavioral verification must happen against production after deploy.
