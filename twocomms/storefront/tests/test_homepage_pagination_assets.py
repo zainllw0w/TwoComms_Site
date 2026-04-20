@@ -28,6 +28,7 @@ class HomepagePaginationCssTests(SimpleTestCase):
             1,
             "Homepage pagination rail should have a single base ruleset so mobile-safe overflow rules are not overridden later.",
         )
+        self.assertIn("box-sizing: border-box;", rail_blocks[0])
         self.assertIn("justify-content: flex-start;", rail_blocks[0])
         self.assertIn("overflow-x: auto;", rail_blocks[0])
         self.assertIn("scroll-padding-inline:", rail_blocks[0])
