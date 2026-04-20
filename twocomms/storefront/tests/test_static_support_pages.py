@@ -61,13 +61,23 @@ class SupportStaticPagesTests(SimpleTestCase):
         self.assertNotContains(response, "FAQ моменти")
         self.assertNotContains(response, "TwoComms: сервіс, підтримка, новини бренду")
 
-    def test_about_and_delivery_use_shared_support_shell(self):
-        for route_name in ["about", "delivery"]:
-            with self.subTest(route_name=route_name):
-                response = self.client.get(reverse(route_name), secure=True)
-                self.assertEqual(response.status_code, 200)
-                self.assertContains(response, 'class="support-shell', html=False)
-                self.assertContains(response, 'aria-label="Breadcrumb"', html=False)
+    def test_about_page_uses_dedicated_brand_layout_while_delivery_keeps_support_shell(self):
+        about_response = self.client.get(reverse("about"), secure=True)
+        self.assertEqual(about_response.status_code, 200)
+        self.assertContains(about_response, 'class="pro-brand-page"', html=False)
+        self.assertContains(about_response, 'data-brand-scroll', html=False)
+        self.assertContains(about_response, 'aria-label="Breadcrumb"', html=False)
+
+        delivery_response = self.client.get(reverse("delivery"), secure=True)
+        self.assertEqual(delivery_response.status_code, 200)
+        self.assertContains(delivery_response, 'class="support-shell', html=False)
+        self.assertContains(delivery_response, 'aria-label="Breadcrumb"', html=False)
+
+    def test_legacy_about_path_redirects_to_new_brand_url(self):
+        response = self.client.get("/about/", secure=True, follow=False)
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response["Location"], "/pro-brand/")
 
     def test_delivery_page_uses_delivery_specific_faq_content(self):
         response = self.client.get(reverse("delivery"), secure=True)
@@ -104,3 +114,5 @@ class SupportStaticPagesTests(SimpleTestCase):
         self.assertContains(response, "http://testserver/doglyad-za-odyagom/")
         self.assertContains(response, "http://testserver/vidstezhennya-zamovlennya/")
         self.assertContains(response, "http://testserver/mapa-saytu/")
+        self.assertContains(response, "http://testserver/pro-brand/")
+        self.assertNotContains(response, "http://testserver/about/")

@@ -2,11 +2,12 @@ from unittest.mock import patch
 
 from decimal import Decimal
 
-from django.test import Client, SimpleTestCase, TestCase, override_settings
+from django.test import Client, RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from orders.models import Order
 from storefront.models import Category, Product
+from storefront.views.static_pages import static_sitemap
 
 
 class ProductPageSeoRegressionTests(TestCase):
@@ -67,7 +68,7 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
         cases = [
             (
                 reverse("about"),
-                '<meta property="twitter:title" content="Про бренд TwoComms — стріт та мілітарі одяг Made in Ukraine">',
+                '<meta property="twitter:title" content="TwoComms — не крапка. Продовження.">',
             ),
             (
                 reverse("contacts"),
@@ -89,17 +90,32 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, expected_meta, html=False)
 
-    def test_about_page_uses_symmetric_support_layout(self):
+    def test_about_page_uses_brand_story_layout(self):
         response = self.client.get(reverse("about"), follow=True)
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            'class="support-shell support-shell--brand"',
+            'class="pro-brand-page"',
             html=False,
         )
+        self.assertContains(response, 'data-brand-scroll', html=False)
         self.assertContains(response, 'aria-label="Breadcrumb"', html=False)
-        self.assertNotContains(response, '"@type": "FAQPage"', html=False)
+        self.assertContains(response, '"@type": "FAQPage"', html=False)
+
+    def test_legacy_about_url_redirects_to_pro_brand(self):
+        response = self.client.get("/about/", secure=True, follow=False)
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response["Location"], "/pro-brand/")
+
+    def test_llms_txt_prefers_pro_brand_canonical_url(self):
+        response = self.client.get("/llms.txt", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertIn("https://testserver/pro-brand/", body)
+        self.assertNotIn("https://testserver/about/", body)
 
     def test_delivery_page_faq_schema_matches_visible_content(self):
         response = self.client.get(reverse("delivery"), follow=True)
@@ -151,6 +167,20 @@ class CategoryNavigationSeoRegressionTests(TestCase):
         self.assertContains(response, 'aria-label="breadcrumb"', html=False)
         self.assertContains(response, f'href="{reverse("catalog")}"', html=False)
         self.assertContains(response, self.category.name)
+
+
+class SitemapSeoRegressionTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.factory = RequestFactory()
+
+    def test_sitemap_prefers_pro_brand_url_and_not_legacy_about(self):
+        request = self.factory.get(reverse("django.contrib.sitemaps.views.sitemap"), secure=True)
+        response = static_sitemap(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "https://testserver/pro-brand/")
+        self.assertNotContains(response, "https://testserver/about/")
 
 
 class HeaderCtaSeoRegressionTests(TestCase):

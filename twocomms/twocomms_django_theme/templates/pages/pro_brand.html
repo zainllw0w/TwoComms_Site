@@ -1,0 +1,553 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load seo_tags %}
+
+{% block title %}TwoComms — харківський бренд одягу про характер, стійкість і продовження{% endblock %}
+{% block description %}TwoComms — український streetwear / military-adjacent бренд із Харкова. Одяг з кодом, сенсовими принтами, реальним походженням і філософією: не крапка, а продовження.{% endblock %}
+{% block keywords %}TwoComms, харківський бренд одягу, український streetwear бренд, military-adjacent одяг, одяг зі змістом, сенсові принти, дві коми, не крапка а продовження, знак шака, Харків, одяг з кодом, одяг з характером, психологічна броня, внутрішня дисципліна, підтримка ЗСУ{% endblock %}
+{% block og_title %}TwoComms — харківський бренд одягу про характер, стійкість і продовження{% endblock %}
+{% block og_description %}TwoComms — український бренд одягу з Харкова, створений на перетині streetwear, military-adjacent естетики та реального досвіду стійкості.{% endblock %}
+{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/favicon-512x512.png' %}{% endblock %}
+{% block twitter_title %}TwoComms — не крапка. Продовження.{% endblock %}
+{% block twitter_description %}Одяг з кодом для людей, які тримають форму зсередини. Харківський streetwear / military-adjacent бренд TwoComms.{% endblock %}
+{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/favicon-512x512.png' %}{% endblock %}
+{% block canonical %}{{ request.scheme }}://{{ request.get_host }}{% url 'about' %}{% endblock %}
+
+{% block fontawesome_css %}{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  "name": "TwoComms — не крапка. Продовження.",
+  "description": "TwoComms — український бренд одягу з Харкова, створений на перетині streetwear, military-adjacent естетики та реального досвіду стійкості.",
+  "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'about' %}",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "TwoComms",
+    "url": "{{ request.scheme }}://{{ request.get_host }}"
+  },
+  "about": {
+    "@type": "Organization",
+    "name": "TwoComms"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "OnlineStore",
+  "@id": "{{ request.scheme }}://{{ request.get_host }}/#organization",
+  "name": "TwoComms",
+  "url": "{{ request.scheme }}://{{ request.get_host }}/",
+  "logo": "{{ request.scheme }}://{{ request.get_host }}{% static 'img/favicon-512x512.png' %}",
+  "description": "TwoComms — український streetwear / military-adjacent бренд одягу з Харкова, створений навколо ідеї продовження після критичної точки: не крапка, а продовження.",
+  "slogan": "Не крапка. Продовження.",
+  "telephone": "+380966543212",
+  "address": {
+    "@type": "PostalAddress",
+    "addressCountry": "UA",
+    "addressLocality": "Kharkiv"
+  },
+  "foundingLocation": {
+    "@type": "Place",
+    "name": "Kharkiv, Ukraine"
+  },
+  "contactPoint": [
+    {
+      "@type": "ContactPoint",
+      "telephone": "+380966543212",
+      "contactType": "customer support",
+      "availableLanguage": ["Ukrainian", "Russian"]
+    }
+  ],
+  "sameAs": [
+    "https://instagram.com/twocomms",
+    "https://t.me/twocomms"
+  ]
+}
+</script>
+{% breadcrumb_schema breadcrumb_items %}
+{% faq_schema faq_items %}
+{% endblock %}
+
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="preload" href="{% static 'css/pro-brand.css' %}" as="style">
+  <link rel="stylesheet" href="{% static 'css/pro-brand.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <nav class="pro-brand-breadcrumbs reveal" aria-label="Breadcrumb">
+    {% for crumb in breadcrumb_items %}
+      {% if forloop.last %}
+        <span aria-current="page">{{ crumb.name }}</span>
+      {% else %}
+        <a href="{{ crumb.url }}">{{ crumb.name }}</a>
+        <span aria-hidden="true">/</span>
+      {% endif %}
+    {% endfor %}
+  </nav>
+{% endblock %}
+
+{% block content %}
+<div class="pro-brand-page">
+  <section class="pro-brand-hero pro-brand-breakout">
+    <div class="pro-brand-hero__backdrop" aria-hidden="true">
+      <div class="pro-brand-hero__grain"></div>
+      <div class="pro-brand-hero__vignette"></div>
+      <div class="pro-brand-hero__orb pro-brand-hero__orb--left"></div>
+      <div class="pro-brand-hero__orb pro-brand-hero__orb--right"></div>
+      <span class="pro-brand-hero__comma pro-brand-hero__comma--first">,</span>
+      <span class="pro-brand-hero__comma pro-brand-hero__comma--second">,</span>
+    </div>
+
+    <div class="pro-brand-hero__inner">
+      <div class="pro-brand-hero__copy">
+        <p class="pro-brand-kicker">Харківський бренд одягу</p>
+        <h1 class="pro-brand-title">
+          <span class="pro-brand-title__brand">TwoComms —</span>
+          <span class="pro-brand-title__line">не крапка.</span>
+          <span class="pro-brand-title__line pro-brand-title__line--accent">Продовження.</span>
+        </h1>
+        <p class="pro-brand-hero__lead">
+          Харківський бренд streetwear / military-adjacent одягу про характер, внутрішню
+          дисципліну і рух далі після критичної точки.
+        </p>
+        <p class="pro-brand-hero__body">
+          Ми створюємо речі з кодом: сенсові принти, щільна база, чиста посадка,
+          харківський характер і філософія продовження. TwoComms — це не військовий
+          мерч і не патріотичний шум. Це одяг для людей, які тримають форму зсередини.
+        </p>
+
+        <div class="pro-brand-actions">
+          <a href="{% url 'catalog' %}" class="pro-brand-btn pro-brand-btn--primary">Дивитись каталог</a>
+          <a href="#what-is" class="pro-brand-btn pro-brand-btn--ghost">Зрозуміти бренд</a>
+        </div>
+
+        <ul class="pro-brand-hero__meta" aria-label="Ключові характеристики бренду">
+          <li>Український streetwear бренд</li>
+          <li>Харків як ДНК</li>
+          <li>Одяг з кодом і характером</li>
+        </ul>
+      </div>
+
+      <div class="pro-brand-hero__visual" aria-hidden="true">
+        <div class="pro-brand-poster">
+          <div class="pro-brand-poster__halo"></div>
+          <div class="pro-brand-poster__frame">
+            <div class="pro-brand-poster__logo-wrap">
+              <img
+                src="{% static 'img/logo.svg' %}"
+                alt="TwoComms — харківський бренд streetwear одягу з філософією не крапка, а продовження"
+                class="pro-brand-poster__logo"
+                width="320"
+                height="347"
+                decoding="async"
+                fetchpriority="high"
+              >
+            </div>
+            <div class="pro-brand-poster__copy">
+              <p class="pro-brand-poster__eyebrow">Харків. Код. Продовження.</p>
+              <p class="pro-brand-poster__statement">Одяг з кодом для людей, які тримають форму зсередини.</p>
+            </div>
+            <div class="pro-brand-poster__rail">
+              <span>streetwear</span>
+              <span>military-adjacent</span>
+              <span>made in Ukraine</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pro-brand-summary reveal" aria-labelledby="brand-summary-title">
+    <div class="pro-brand-summary__head">
+      <p class="pro-brand-kicker">Коротко про бренд</p>
+      <h2 id="brand-summary-title">Що таке TwoComms одним видимим блоком</h2>
+    </div>
+    <p class="pro-brand-summary__text">
+      TwoComms — український бренд одягу з Харкова, створений на перетині streetwear,
+      military-adjacent естетики та реального досвіду стійкості. Бренд будується навколо
+      ідеї продовження після критичної точки: не крапка, а кома. Його речі поєднують
+      сенсові принти, харківський код, внутрішню дисципліну, якісну базу та відчуття
+      одягу як психологічної броні.
+    </p>
+    <div class="pro-brand-summary__links" aria-label="Навігація сторінкою">
+      <a href="#what-is">Що таке TwoComms</a>
+      <a href="#what-is">Не крапка. Продовження.</a>
+      <a href="#kharkiv">Харків у ДНК</a>
+      <a href="#prints">Принти як коди</a>
+      <a href="#quality">Якість</a>
+      <a href="#faq">Запитання</a>
+    </div>
+  </section>
+
+  <section class="pro-brand-scroll pro-brand-breakout" id="what-is" data-brand-scroll>
+    <div class="pro-brand-scroll__shell">
+      <div class="pro-brand-scroll__sticky">
+        <div class="pro-brand-scroll__narrative">
+          <article class="pro-brand-scroll__step is-active" data-step="0">
+            <p class="pro-brand-kicker">Що таке TwoComms</p>
+            <h2>Що таке TwoComms</h2>
+            <p>
+              TwoComms — це харківський бренд одягу для людей, які не шукають випадкових речей.
+              Ми створюємо streetwear із військово-суміжною естетикою, сенсовими принтами та
+              внутрішнім кодом: характер, воля, стійкість, дисципліна і рух далі після критичної точки.
+            </p>
+            <p>
+              Для нас одяг — не тільки зовнішній шар. Це спосіб тримати форму, показувати позицію
+              без зайвого шуму і носити з собою знак того, що твоя історія триває.
+            </p>
+            <p>
+              TwoComms не намагається бути гучним для всіх. Він створений для тих, хто зчитує
+              сенс, поважає силу без крику і відчуває, що стиль може мати стрижень.
+            </p>
+          </article>
+
+          <article class="pro-brand-scroll__step" data-step="1" id="meaning">
+            <p class="pro-brand-kicker">Не крапка. Продовження.</p>
+            <h2>Не крапка. Продовження.</h2>
+            <p>У назві TwoComms закладено дві коми.</p>
+            <p>
+              Перша кома — це критичний стан. Момент між життям і смертю. Точка, де все могло
+              закінчитися.
+            </p>
+            <p>
+              Друга кома — це знак пунктуації. Не фінал. Не знак питання. Не розгубленість.
+              Пауза перед наступним реченням.
+            </p>
+            <p>
+              Саме з цієї різниці народився сенс бренду. Критична точка не стала крапкою.
+              Вона стала місцем, після якого починається нова форма життя, нова дія і нова
+              внутрішня дисципліна.
+            </p>
+            <p>
+              TwoComms — це одяг про продовження. Про здатність зібрати себе після удару,
+              оцінити сектор, зробити вдих і рухатися далі.
+            </p>
+          </article>
+
+          <article class="pro-brand-scroll__step" data-step="2">
+            <p class="pro-brand-kicker">Знак для своїх</p>
+            <h2>Знак для своїх</h2>
+            <p>У TwoComms знак шака — не пляжний жест і не декоративний символ.</p>
+            <p>
+              Для бренду це короткий сигнал: свій, живий, все ок, продовжуємо. Жест, який не
+              потребує довгого пояснення, коли поруч люди, що розуміють ціну спокою, контролю
+              і руху далі.
+            </p>
+            <p>
+              Ми використовуємо цей знак як нагадування: тримай стан, не втрачай зв’язок зі
+              своїми, оцінюй ситуацію і роби наступний крок.
+            </p>
+            <p>Це не знак показової агресії. Це знак внутрішньої зібраності.</p>
+          </article>
+        </div>
+
+        <div class="pro-brand-scroll__stage" aria-hidden="true">
+          <div class="pro-brand-stage">
+            <div class="pro-brand-stage__hinge"></div>
+            <div class="pro-brand-stage__panel">
+              <div class="pro-brand-stage__panel-glow"></div>
+              <div class="pro-brand-stage__logo-lockup">
+                <img src="{% static 'img/logo.svg' %}" alt="" class="pro-brand-stage__logo" width="180" height="195" loading="lazy" decoding="async">
+              </div>
+              <div class="pro-brand-stage__screen">
+                <div class="pro-brand-stage__screen-state is-active" data-screen="0">
+                  <span class="pro-brand-stage__label">харківський код</span>
+                  <strong>streetwear / military-adjacent</strong>
+                  <p>Одяг зі змістом, сенсовими принтами та внутрішньою дисципліною.</p>
+                </div>
+                <div class="pro-brand-stage__screen-state" data-screen="1">
+                  <span class="pro-brand-stage__label">дві коми</span>
+                  <strong>Не крапка. Продовження.</strong>
+                  <p>Критична точка не стала фіналом. Вона стала паузою перед наступним реченням.</p>
+                </div>
+                <div class="pro-brand-stage__screen-state" data-screen="2">
+                  <span class="pro-brand-stage__label">знак для своїх</span>
+                  <strong>свій / живий / продовжуємо</strong>
+                  <p>Шака як тихий сигнал зв’язку, контролю і руху далі без зайвого шуму.</p>
+                </div>
+              </div>
+              <div class="pro-brand-stage__commas">
+                <span>,</span>
+                <span>,</span>
+              </div>
+            </div>
+            <div class="pro-brand-stage__deck">
+              <div class="pro-brand-stage__deck-line"></div>
+              <div class="pro-brand-stage__deck-line"></div>
+              <div class="pro-brand-stage__deck-line"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pro-brand-split reveal">
+    <div class="pro-brand-split__content">
+      <div class="pro-brand-split__intro">
+        <p class="pro-brand-kicker">Походження бренду</p>
+        <h2>Походження бренду</h2>
+      </div>
+      <div class="pro-brand-split__text">
+        <p>
+          TwoComms створений із реального досвіду війни, ризику і життя, де помилка має ціну.
+          Це походження не про романтизацію бою і не про тиск на емоції. Воно про стандарт,
+          який формується там, де зайве відсікається саме.
+        </p>
+        <p>
+          Після важкого поранення і критичної точки перед засновником залишився вибір:
+          поставити крапку або продовжити. TwoComms став відповіддю на цей вибір.
+        </p>
+        <p>
+          Біль не стала продуктом. Продуктом стала дисципліна, увага до деталей, повага до
+          речі і бажання створювати одяг, який має сенс, тримає форму і витримує реальність.
+        </p>
+        <p>Тому історія бренду не просить жалості. Вона пояснює, звідки взявся характер.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="pro-brand-split pro-brand-split--alt reveal" id="kharkiv">
+    <div class="pro-brand-split__content">
+      <div class="pro-brand-split__intro">
+        <p class="pro-brand-kicker">Харків у ДНК TwoComms</p>
+        <h2>Харків у ДНК TwoComms</h2>
+      </div>
+      <div class="pro-brand-split__text">
+        <p>TwoComms не можна відділити від Харкова.</p>
+        <p>
+          Для нас Харків — не геомітка і не декоративна згадка в описі бренду. Це середовище,
+          яке формує характер: фронтир, індустріальна точність, жорсткість без показухи,
+          здатність працювати під тиском і не втрачати форму.
+        </p>
+        <p>
+          Багато перших сенсів бренду народжувалися на фоні міста, яке продовжує жити,
+          створювати і триматися попри удари. Саме тому харківський код у TwoComms —
+          це не про жалість. Це про силу міста, яке не зупиняється.
+        </p>
+        <p>
+          Харків навчив нас простій речі: якщо ідея слабка, вона не витримає реальність.
+          Якщо ідея справжня — вона стає формою, принтом, тканиною, посадкою і рухом далі.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="pro-brand-print-codes reveal" id="prints">
+    <div class="pro-brand-print-codes__intro">
+      <p class="pro-brand-kicker">Принти як коди</p>
+      <h2>Принти як коди</h2>
+      <p>
+        Принт у TwoComms — не картинка на тканині. Це візуальний маніфест. Ми не наносимо символи
+        заради шуму. Кожен принт має працювати як сигнал: для себе, для своїх, для міста, для країни
+        і для тієї частини характеру, яку не хочеться пояснювати словами.
+      </p>
+    </div>
+
+    <div class="pro-brand-print-codes__grid" data-stagger-grid>
+      <article class="pro-brand-code-card stagger-item">
+        <p class="pro-brand-code-card__eyebrow">Код ідеї</p>
+        <h3>Довіряй своїй божевільній ідеї</h3>
+        <p>
+          Це не мотиваційна фраза для декору. Це нагадування про стан, у якому людина
+          продовжує рухатися навіть тоді, коли її ідея здається неможливою для інших.
+        </p>
+      </article>
+
+      <article class="pro-brand-code-card stagger-item">
+        <p class="pro-brand-code-card__eyebrow">Код свободи</p>
+        <h3>Рабів до раю не пускають</h3>
+        <p>
+          Це про свободу як внутрішній закон. Про людину, яка не погоджується на роль,
+          нав’язану страхом, системою або обставинами.
+        </p>
+      </article>
+
+      <article class="pro-brand-code-card stagger-item">
+        <p class="pro-brand-code-card__eyebrow">Код Харкова</p>
+        <h3>Місто як характер</h3>
+        <p>
+          Харківські принти — це спосіб зафіксувати характер міста: фронтир, стійкість,
+          індустріальну силу, пам’ять і впертість життя.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section class="pro-brand-proof reveal" id="quality">
+    <div class="pro-brand-proof__main">
+      <div class="pro-brand-proof__block">
+        <p class="pro-brand-kicker">Річ, що тримає стан</p>
+        <h2>Річ, що тримає стан</h2>
+        <p>
+          Ми віримо, що одяг може впливати на те, як людина тримає себе.
+        </p>
+        <p>
+          Не через магію. Через форму, вагу, посадку, фактуру, знак і сенс, який людина
+          зчитує в речі.
+        </p>
+        <p>
+          Коли тканина має щільність, крій тримає лінію, а принт не випадковий — річ перестає
+          бути просто одягом. Вона стає нагадуванням про стан: зібраність, тишу, контроль,
+          готовність і власну опору.
+        </p>
+        <p>
+          Це наша версія психологічної броні. Не імітація захисту. Не військова рольова гра.
+          А внутрішнє відчуття форми, яке залишається з тобою в русі.
+        </p>
+      </div>
+
+      <div class="pro-brand-proof__block">
+        <p class="pro-brand-kicker">Якість, яка доводить ідею</p>
+        <h2>Якість, яка доводить ідею</h2>
+        <p>Сильний сенс не працює на слабкій базі.</p>
+        <p>
+          Тому TwoComms починається не з принта, а з пошуку правильної тканини, посадки,
+          друку і контролю. Ми тестуємо бази, відсікаємо невдалі рішення, перевіряємо,
+          як річ сидить, дихає, тримає форму і живе після носіння.
+        </p>
+        <p>
+          Якість для нас — це повага до людини. Якщо річ говорить про характер, вона сама
+          має мати характер: щільність, зручність, чисту посадку, витриманий друк і відчуття
+          предмета, який не купили випадково.
+        </p>
+        <p>
+          TwoComms — це не просто принт на дешевій основі. Це спроба зібрати сенс,
+          форму і матеріал в одну чесну річ.
+        </p>
+      </div>
+    </div>
+
+    <div class="pro-brand-proof__rail">
+      <a href="{% url 'delivery' %}" class="pro-brand-proof-link">
+        <small>Доставка і оплата</small>
+        <strong>Прозорий маршрут покупки</strong>
+        <span>Окремо винесені умови, логістика та післяпродажний шлях.</span>
+      </a>
+      <a href="{% url 'returns' %}" class="pro-brand-proof-link">
+        <small>Повернення та обмін</small>
+        <strong>Повага після покупки</strong>
+        <span>Видимі правила — без прихованих умов і пошуку по месенджерах.</span>
+      </a>
+      <a href="{% url 'contacts' %}" class="pro-brand-proof-link">
+        <small>Контакти</small>
+        <strong>Нормальний зв’язок</strong>
+        <span>Публічний канал комунікації, коли потрібно уточнити деталі по речі або замовленню.</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="pro-brand-dual reveal">
+    <article class="pro-brand-dual__item">
+      <p class="pro-brand-kicker">Зв’язок із фронтом</p>
+      <h2>Зв’язок із фронтом</h2>
+      <p>
+        TwoComms має реальний зв’язок із військовим контекстом, але не продає війну як
+        естетику.
+      </p>
+      <p>
+        Для нас фронт — не декорація і не рекламний важіль. Це джерело відповідальності,
+        пам’яті і стандарту. Саме звідти походить розуміння, що зайві деталі заважають,
+        слабка річ не витримує, а символ має право існувати тільки тоді, коли за ним є правда.
+      </p>
+      <p>
+        Коли ми робимо дропи, колаборації або підтримку ЗСУ, це має звучати конкретно
+        і спокійно: що створено, кому допомогли, який сенс стоїть за принтом або проєктом.
+      </p>
+      <p>
+        Підтримка фронту — це не головний рекламний гачок TwoComms. Це природне
+        продовження ДНК бренду.
+      </p>
+    </article>
+
+    <article class="pro-brand-dual__item">
+      <p class="pro-brand-kicker">Для кого TwoComms</p>
+      <h2>Для кого TwoComms</h2>
+      <p>TwoComms не намагається подобатися всім.</p>
+      <p>
+        Це бренд для людей, яким близькі характер, смак, український контекст і внутрішня
+        дисципліна. Його можуть носити військові, ветерани, волонтери, цивільні, люди з
+        Харкова, ті, хто підтримує Україну, і ті, хто просто відчуває: стиль має бути не порожнім.
+      </p>
+      <p>Це не про статус над іншими. Це про впізнавання себе.</p>
+      <p>
+        Про людей, які звикли тримати лінію, не кричати про силу і рухатися далі навіть після
+        моментів, які могли поставити крапку.
+      </p>
+    </article>
+  </section>
+
+  <section class="pro-brand-future reveal">
+    <div class="pro-brand-future__copy">
+      <p class="pro-brand-kicker">Куди ми йдемо</p>
+      <h2>Куди ми йдемо</h2>
+      <p>
+        TwoComms — це не один дроп і не один принт. Це система, яка буде розширюватися:
+        від футболок, худі й лонгслівів до складніших силуетів, аксесуарів, колаборацій і речей
+        із більш тихим, архітектурним характером.
+      </p>
+      <p>
+        Ми рухаємося до бренду, де кожна лінійка має свою функцію: гучний маніфест,
+        харківський код, мінімалістичний силует, кастом, фронтовий контекст, міський
+        щоденний одяг.
+      </p>
+      <p>Основа незмінна: сенс, форма, якість і продовження.</p>
+    </div>
+    <div class="pro-brand-future__mantra">
+      <p>Ми знаємо, звідки ми.</p>
+      <p>Ми знаємо, що означає наш знак.</p>
+      <p>Ми знаємо, чому ця річ існує.</p>
+      <p>Ми не ставимо крапку.</p>
+      <p>Ми продовжуємо.</p>
+    </div>
+  </section>
+
+  <section class="pro-brand-faq reveal" id="faq">
+    <div class="pro-brand-faq__intro">
+      <p class="pro-brand-kicker">Запитання про бренд</p>
+      <h2>Запитання про бренд</h2>
+      <p>
+        Видимі відповіді для людей і для AI-пошуку: що означає назва, як TwoComms
+        пов’язаний із Харковом, чому бренд не зводиться до військового мерчу і для кого
+        створені ці речі.
+      </p>
+    </div>
+
+    <div class="pro-brand-faq__list">
+      {% for item in faq_items %}
+        <details class="pro-brand-faq__item">
+          <summary>{{ item.question }}</summary>
+          <p>{{ item.answer }}</p>
+        </details>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="pro-brand-cta pro-brand-breakout reveal">
+    <div class="pro-brand-cta__inner">
+      <p class="pro-brand-kicker">Фінальний крок</p>
+      <h2>Обери свою форму продовження</h2>
+      <p>
+        Кожна річ TwoComms починається з ідеї, але має закінчуватися на людині.
+        Подивись каталог, знайди код, який відгукується, і носи не просто принт —
+        носи стан, який хочеш тримати.
+      </p>
+      <div class="pro-brand-actions pro-brand-actions--center">
+        <a href="{% url 'catalog' %}" class="pro-brand-btn pro-brand-btn--primary">Дивитись каталог</a>
+        <a href="{% url 'custom_print' %}" class="pro-brand-btn pro-brand-btn--ghost">Подивитись кастомний принт</a>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+  <script src="{% static 'js/pro-brand.js' %}" defer></script>
+{% endblock %}
