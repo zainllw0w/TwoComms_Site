@@ -8,6 +8,10 @@
  * возможен один cache miss; повторные заходы — hit.
  */
 
+/* Homepage Bootstrap subset moved to css/bootstrap-home-subset.css so the
+   route can keep Bootstrap-consistent rendering without the external CDN
+   stylesheet or a hand-maintained compatibility block in this file. */
+
 /* ==== Survey V3 styles migrated from inline <style> in pages/index.html ==== */
     /* NEW SURVEY CSS V3 */
 .survey-container-v3 {

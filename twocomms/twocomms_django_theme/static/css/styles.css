@@ -10344,6 +10344,42 @@ body::after {
   }
 }
 
+@media (max-width: 768px) {
+  .bottom-nav {
+    background: rgba(14, 16, 20, 0.96);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transition: opacity 0.18s ease !important;
+  }
+
+  .bottom-nav.bottom-nav--hidden {
+    transform: translateX(-50%) !important;
+    transition: opacity 0.18s ease !important;
+  }
+
+  .bottom-nav-item,
+  .bottom-nav-item.active,
+  .bottom-nav-item:hover:not(.active),
+  .bottom-nav-item:active,
+  .bottom-nav-item:hover .bottom-nav-icon,
+  .bottom-nav-item.active .bottom-nav-icon,
+  .bottom-nav-item:active .bottom-nav-icon,
+  .bottom-nav-item.active .bottom-nav-label {
+    transform: none !important;
+  }
+
+  .bottom-nav-item.active .bottom-nav-icon::before {
+    display: none !important;
+  }
+
+  .bottom-nav-item .bottom-nav-icon svg,
+  .bottom-nav-item:hover .bottom-nav-icon svg,
+  .bottom-nav-item.active .bottom-nav-icon svg {
+    filter: none !important;
+    transform: translate(-50%, -50%) !important;
+  }
+}
+
 .bottom-nav.bottom-nav--hidden {
   transform: translateX(-50%) translateY(calc(100% + 20px)) !important;
   opacity: 0;

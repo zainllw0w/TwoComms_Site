@@ -9,6 +9,12 @@ SETTINGS_FILE = REPO_ROOT / "twocomms" / "twocomms" / "settings.py"
 CATALOG_VIEWS_FILE = REPO_ROOT / "twocomms" / "storefront" / "views" / "catalog.py"
 DTF_ANIMATIONS_FILE = REPO_ROOT / "twocomms" / "dtf" / "static" / "dtf" / "css" / "components" / "animations.css"
 ANALYTICS_LOADER_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "js" / "analytics-loader.js"
+HOME_CSS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "home.css"
+HOME_BOOTSTRAP_SUBSET_FILE = (
+    REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "bootstrap-home-subset.css"
+)
+MAIN_JS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "js" / "main.js"
+STYLES_CSS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "styles.css"
 
 
 class BaseTemplateSourceGuardsTests(unittest.TestCase):
@@ -58,6 +64,7 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         self.assertIn("js/ui-fallback.js", content)
         self.assertNotIn("css/fonts.css", content)
         self.assertIn("js/analytics-loader.js' %}?v=5", content)
+        self.assertIn("js/main.js' %}?v=44", content)
 
     def test_base_template_does_not_embed_server_generated_csrf_token(self):
         content = BASE_TEMPLATE.read_text(encoding="utf-8")
@@ -121,6 +128,65 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
             r"var fallbackDelay = routeName === 'home'\s*\?\s*null\s*:\s*\(deviceClass === 'low'",
         )
         self.assertIn("if (fallbackDelay !== null)", content)
+
+    def test_base_template_uses_local_bootstrap_subset_on_home(self):
+        content = BASE_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertRegex(
+            content,
+            re.compile(
+                r"{% if request\.resolver_match\.url_name == 'home' %}[\s\S]+css/bootstrap-home-subset\.css"
+                r"[\s\S]+{% else %}[\s\S]+bootstrap@5\.3\.3/dist/css/bootstrap\.min\.css",
+            ),
+        )
+
+    def test_home_css_no_longer_carries_hand_maintained_bootstrap_subset(self):
+        source = HOME_CSS_FILE.read_text(encoding="utf-8")
+
+        self.assertNotIn(".navbar-toggler-icon {", source)
+
+    def test_home_bootstrap_subset_keeps_required_selectors(self):
+        source = HOME_BOOTSTRAP_SUBSET_FILE.read_text(encoding="utf-8")
+
+        for needle in (
+            ".container-xxl{",
+            ".border-bottom{",
+            ".navbar-toggler-icon{",
+            ".collapse:not(.show){",
+            ".form-control{",
+            ".modal-backdrop{",
+            ".row-cols-2>*{",
+            ".visually-hidden{",
+            ".modal.show .modal-dialog{",
+            ".disabled>.page-link",
+        ):
+            self.assertIn(needle, source)
+
+    def test_main_js_keeps_bottom_nav_static_on_small_screens(self):
+        source = MAIN_JS_FILE.read_text(encoding="utf-8")
+
+        self.assertIn("const isSmallScreen = window.matchMedia('(max-width: 768px)').matches;", source)
+        self.assertIn("const scrollAdaptiveEnabled = !isSmallScreen && bottomNavDeviceClass === 'high';", source)
+
+    def test_main_js_no_longer_mutates_backdrop_filter_on_scroll(self):
+        source = MAIN_JS_FILE.read_text(encoding="utf-8")
+
+        self.assertNotIn("setProperty('backdrop-filter'", source)
+        self.assertNotIn("removeProperty('backdrop-filter'", source)
+        self.assertIn("setProperty('animation-play-state', 'paused', 'important');", source)
+
+    def test_styles_css_simplifies_mobile_bottom_nav_motion(self):
+        source = STYLES_CSS_FILE.read_text(encoding="utf-8")
+
+        for needle in (
+            "backdrop-filter: none !important;",
+            "-webkit-backdrop-filter: none !important;",
+            ".bottom-nav.bottom-nav--hidden {",
+            "transform: translateX(-50%) !important;",
+            ".bottom-nav-item.active .bottom-nav-icon::before {",
+            "filter: none !important;",
+        ):
+            self.assertIn(needle, source)
 
 
 if __name__ == "__main__":

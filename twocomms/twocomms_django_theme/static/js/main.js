@@ -1079,7 +1079,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const bottomNav = document.querySelector('.bottom-nav');
     if (!bottomNav) return;
     const bottomNavDeviceClass = (document.documentElement.dataset.deviceClass || 'high').toLowerCase();
-    const scrollAdaptiveEnabled = !(window.matchMedia('(max-width: 768px)').matches && bottomNavDeviceClass !== 'high');
+    const isSmallScreen = window.matchMedia('(max-width: 768px)').matches;
+    const scrollAdaptiveEnabled = !isSmallScreen && bottomNavDeviceClass === 'high';
     bottomNav.dataset.scrollMode = scrollAdaptiveEnabled ? 'adaptive' : 'static';
 
     let lastScrollY = PerformanceOptimizer.getScrollY();
@@ -1279,18 +1280,15 @@ document.addEventListener('DOMContentLoaded', function () {
       } catch (_) { }
     });
 
-    if (!heavyMeta.length) return;
+    const animatedHeavyMeta = heavyMeta.filter(({ hasInfiniteAnim }) => hasInfiniteAnim);
+    if (!animatedHeavyMeta.length) return;
 
     let relaxTimer = null;
     let relaxed = false;
     function relaxHeavy() {
       if (relaxed) return; relaxed = true;
-      heavyMeta.forEach(({ el, hasBackdrop, hasInfiniteAnim }) => {
+      animatedHeavyMeta.forEach(({ el, hasInfiniteAnim }) => {
         try {
-          if (hasBackdrop) {
-            el.style.setProperty('backdrop-filter', 'blur(6px) saturate(110%)', 'important');
-            el.style.setProperty('-webkit-backdrop-filter', 'blur(6px) saturate(110%)', 'important');
-          }
           if (hasInfiniteAnim) {
             el.style.setProperty('animation-play-state', 'paused', 'important');
           }
@@ -1299,10 +1297,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     function restoreHeavy() {
       if (!relaxed) return; relaxed = false;
-      heavyMeta.forEach(({ el }) => {
+      animatedHeavyMeta.forEach(({ el }) => {
         try {
-          el.style.removeProperty('backdrop-filter');
-          el.style.removeProperty('-webkit-backdrop-filter');
           el.style.removeProperty('animation-play-state');
         } catch (_) { }
       });
@@ -1326,7 +1322,7 @@ document.addEventListener('DOMContentLoaded', function () {
           })
         );
       }, { threshold: 0.05 });
-      heavyMeta.forEach(({ el }) => { try { io.observe(el); } catch (_) { } });
+      animatedHeavyMeta.forEach(({ el }) => { try { io.observe(el); } catch (_) { } });
     }
   });
 });
