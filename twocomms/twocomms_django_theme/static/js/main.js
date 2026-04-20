@@ -425,52 +425,10 @@ document.addEventListener('DOMContentLoaded', () => {
   window.registerRevealTargets = registerRevealTargets;
 });
 
-// ===== Force hide cart/profile on mobile (header widgets) - оптимизированная версия =====
-document.addEventListener('DOMContentLoaded', function () {
-  // Кэшируем элементы и используем CSS классы вместо прямого изменения стилей
-  const cartContainer = document.querySelector('.cart-container[data-mobile-hide="true"]');
-  const profileContainer = document.querySelector('.user-profile-container[data-mobile-hide="true"]');
-
-  if (!cartContainer && !profileContainer) return;
-
-  // Используем CSS медиа-запросы вместо JavaScript для скрытия элементов
-  function updateMobileVisibility() {
-    // Используем requestAnimationFrame для избежания принудительной компоновки
-    requestAnimationFrame(() => {
-      const isMobile = window.innerWidth <= 991.98;
-
-      if (cartContainer) {
-        cartContainer.classList.toggle('mobile-hidden', isMobile);
-      }
-      if (profileContainer) {
-        profileContainer.classList.toggle('mobile-hidden', isMobile);
-      }
-    });
-  }
-
-  // Инициализация - убеждаемся, что элементы видны на десктопе
-  function initDesktopVisibility() {
-    const isDesktop = window.innerWidth > 991.98;
-    if (isDesktop) {
-      if (cartContainer) {
-        cartContainer.classList.remove('mobile-hidden');
-      }
-      if (profileContainer) {
-        profileContainer.classList.remove('mobile-hidden');
-      }
-    }
-  }
-
-  // Инициализация с задержкой для избежания блокировки рендеринга
-  setTimeout(() => {
-    initDesktopVisibility();
-    updateMobileVisibility();
-  }, 0);
-
-  // Используем более эффективный обработчик resize
-  // Используем более эффективный обработчик resize
-  window.addEventListener('resize', debounce(updateMobileVisibility, 100));
-});
+// ===== Force hide cart/profile on mobile: handled by CSS (base.html media query
+// + Bootstrap d-none d-lg-block on header). JS removed 2026-04-20 — было dead-code:
+// toggled class .mobile-hidden, у которого нет CSS-правил; видимость уже
+// обеспечивается media query. =====
 
 // ===== Корзина (AJAX) =====
 
