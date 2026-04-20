@@ -29,6 +29,7 @@ class HomepagePaginationCssTests(SimpleTestCase):
             "Homepage pagination rail should have a single base ruleset so mobile-safe overflow rules are not overridden later.",
         )
         self.assertIn("box-sizing: border-box;", rail_blocks[0])
+        self.assertIn("max-width: 100%;", rail_blocks[0])
         self.assertIn("justify-content: flex-start;", rail_blocks[0])
         self.assertIn("overflow-x: auto;", rail_blocks[0])
         self.assertIn("scroll-padding-inline:", rail_blocks[0])
@@ -159,7 +160,7 @@ class HomepagePaginationCssTests(SimpleTestCase):
             css,
             r"@media\s*\(max-width:\s*768px\)\s*\{[\s\S]*?\.pagination-showcase\s*\{[\s\S]*?padding-inline:\s*clamp\(0\.55rem,\s*3vw,\s*0\.85rem\);",
         )
-        self.assertRegex(
+        self.assertNotRegex(
             css,
-            r"@media\s*\(max-width:\s*768px\)\s*\{[\s\S]*?\.pagination-rail\s*\{[\s\S]*?max-width:\s*min\(100%,\s*calc\(100vw - 1\.15rem\)\);",
+            r"@media\s*\(max-width:\s*768px\)\s*\{[\s\S]*?\.pagination-rail\s*\{[\s\S]*?max-width:",
         )
