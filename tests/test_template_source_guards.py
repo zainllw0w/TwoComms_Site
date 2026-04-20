@@ -62,6 +62,7 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         self.assertIn("css/support-hub.css", content)
         self.assertIn("js/rum.js", content)
         self.assertIn("js/ui-fallback.js", content)
+        self.assertNotIn("css/fonts.css", content)
 
     def test_base_template_does_not_embed_server_generated_csrf_token(self):
         content = BASE_TEMPLATE.read_text(encoding="utf-8")
@@ -77,6 +78,12 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         self.assertIn("readSyncHint('twc-sync-favs')", content)
         self.assertNotIn("sync_cart_badge|yesno", content)
         self.assertNotIn("sync_favorites_badge|yesno", content)
+
+    def test_base_template_inlines_all_inter_weights_to_prevent_duplicate_font_fetches(self):
+        content = BASE_TEMPLATE.read_text(encoding="utf-8")
+
+        for weight in ("400", "500", "600", "700"):
+            self.assertIn(f"font-weight: {weight};", content)
 
     def test_settings_drop_session_sync_context_processor(self):
         settings_source = SETTINGS_FILE.read_text(encoding="utf-8")
