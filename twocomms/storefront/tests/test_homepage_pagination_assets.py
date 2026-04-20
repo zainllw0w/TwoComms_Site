@@ -87,3 +87,47 @@ class HomepagePaginationCssTests(SimpleTestCase):
         template = template_path.read_text(encoding="utf-8")
 
         self.assertNotIn("Survey-модалка упакована в <template>", template)
+
+    def test_home_template_uses_pagination_partial_shell(self):
+        template_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "templates"
+            / "pages"
+            / "index.html"
+        )
+        template = template_path.read_text(encoding="utf-8")
+
+        self.assertIn('id="home-pagination-shell"', template)
+        self.assertIn('{% include "partials/home_pagination.html"', template)
+        self.assertNotIn("{% for num in paginator.page_range %}", template)
+
+    def test_home_pagination_js_swaps_server_rendered_html(self):
+        js_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "js"
+            / "modules"
+            / "homepage.js"
+        )
+        js = js_path.read_text(encoding="utf-8")
+
+        self.assertIn("pagination_html", js)
+        self.assertIn("home-pagination-shell", js)
+        self.assertRegex(js, r"getPaginationNav\s*=\s*\(\)\s*=>")
+
+    def test_home_pagination_has_ellipsis_style(self):
+        css_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "home.css"
+        )
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertRegex(
+            css,
+            r"\.pagination-premium \.page-item-ellipsis \.page-link\s*\{[\s\S]*?pointer-events:\s*none;",
+        )

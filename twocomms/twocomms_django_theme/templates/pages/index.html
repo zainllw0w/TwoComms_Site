@@ -465,43 +465,9 @@
   
   {% if paginator.num_pages > 1 %}
   <div class="pagination-showcase">
-    <nav
-      aria-label="Навігація по новинках"
-      class="pagination-rail"
-      data-total-pages="{{ paginator.num_pages }}"
-      data-current-page="{{ page_obj.number }}"
-      data-base-path="{{ request.path }}"
-    >
-      <ul class="pagination pagination-sm pagination-premium mb-0" data-pagination-list>
-        <li class="page-item page-item-nav page-item-nav-prev {% if not page_obj.has_previous %}disabled{% endif %}">
-          <a
-            class="page-link"
-            data-page-nav="prev"
-            href="{% if page_obj.has_previous %}{% if page_obj.previous_page_number == 1 %}{{ request.path }}{% else %}?page={{ page_obj.previous_page_number }}{% endif %}{% else %}#{% endif %}"
-            rel="prev"
-          >
-            <span class="page-link-icon" aria-hidden="true">←</span>
-            <span class="page-link-label">Попередня</span>
-          </a>
-        </li>
-        {% for num in paginator.page_range %}
-          <li class="page-item page-item-number {% if num == page_obj.number %}active{% endif %}" data-page="{{ num }}">
-            <a class="page-link" href="{% if num == 1 %}{{ request.path }}{% else %}?page={{ num }}{% endif %}" {% if num == page_obj.number %}aria-current="page"{% endif %}>{{ num }}</a>
-          </li>
-        {% endfor %}
-        <li class="page-item page-item-nav page-item-nav-next {% if not page_obj.has_next %}disabled{% endif %}">
-          <a
-            class="page-link"
-            data-page-nav="next"
-            href="{% if page_obj.has_next %}?page={{ page_obj.next_page_number }}{% else %}#{% endif %}"
-            rel="next"
-          >
-            <span class="page-link-label">Наступна</span>
-            <span class="page-link-icon" aria-hidden="true">→</span>
-          </a>
-        </li>
-      </ul>
-    </nav>
+    <div id="home-pagination-shell">
+      {% include "partials/home_pagination.html" with homepage_pagination_base_path=request.path %}
+    </div>
   </div>
   {% endif %}
 </section>
