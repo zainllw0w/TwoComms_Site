@@ -827,6 +827,7 @@ body.survey-modal-open {
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
+  min-width: 0;
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
