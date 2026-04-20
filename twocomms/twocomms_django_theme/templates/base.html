@@ -424,74 +424,6 @@
       opacity: 1;
     }
 
-    /* Доп. экономия для perf-lite: убираем тяжелые фоновые слои */
-    .perf-lite body:before,
-    .perf-lite body:after {
-      display: none !important;
-      content: none !important;
-    }
-
-    .perf-lite .hero-section {
-      background: #0a0a0a !important;
-      box-shadow: none !important;
-    }
-
-    /* Hero logo показываем в perf-lite режиме (статичный, низкая нагрузка) */
-    .perf-lite .hero-logo-bg {
-      animation: none !important; /* Отключаем только анимацию */
-    }
-    
-    /* Частицы скрываем в perf-lite т.к. они анимированы */
-    .perf-lite .hero-particles .particle {
-      display: none !important;
-    }
-
-    /* Balanced perf-lite: disable animations but keep static visuals */
-    /* Hide only particles (heavy animation), keep floating logos visible */
-    .perf-lite .featured-particles,
-    .perf-lite .dark-particles,
-    .perf-lite .toggle-btn-ripple,
-    .perf-lite .cart-sparks-container,
-    .perf-lite .sparks-container {
-      display: none !important;
-    }
-    
-    /* Keep glow, gradient and floating logo elements but disable their animations */
-    .perf-lite .featured-glow,
-    .perf-lite .dark-glow,
-    .perf-lite .featured-gradient-1,
-    .perf-lite .featured-gradient-2,
-    .perf-lite .dark-gradient-1,
-    .perf-lite .dark-gradient-2,
-    .perf-lite .card-glow-dark,
-    .perf-lite .toggle-btn-glow,
-    .perf-lite .floating-logo,
-    .perf-lite .featured-floating-logos,
-    .perf-lite .floating-logos {
-      animation: none !important;
-    }
-    
-    /* Static position for floating logos in perf-lite (no float animation) */
-    .perf-lite .floating-logo {
-      opacity: 0.15 !important;
-    }
-
-    /* Keep beautiful backgrounds for sections - don't replace with plain color */
-    /* .featured-unified-block and .categories-unified-block keep their gradients */
-
-    /* Disable animations globally but keep transitions for hover effects */
-    .perf-lite * {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-    }
-    
-    /* Allow short transitions for hover feedback */
-    .perf-lite a,
-    .perf-lite button,
-    .perf-lite .card {
-      transition-duration: 0.15s !important;
-    }
-    
     /* Critical product card styles to prevent CLS */
     .card.product,
     .product-card {
@@ -547,20 +479,12 @@
       opacity: 0;
       transform: translateY(20px);
     }
-    
+
     .reveal.visible,
     .reveal-fast.visible,
     .stagger-item.visible {
       opacity: 1;
       transform: translateY(0);
-    }
-    
-    /* Perf-lite: show immediately without animation */
-    .perf-lite .reveal,
-    .perf-lite .reveal-fast,
-    .perf-lite .stagger-item {
-      opacity: 1 !important;
-      transform: none !important;
     }
   </style>
 
