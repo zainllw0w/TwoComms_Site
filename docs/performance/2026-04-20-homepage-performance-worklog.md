@@ -17,6 +17,7 @@
 - Card equalization is already disabled for mobile / low devices in [homepage.js](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/static/js/modules/homepage.js:455).
 - `effects-lite` is now enabled for `mid` devices in [base.html](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/templates/base.html:218), while `perf-lite` remains reserved for `low` devices only.
 - DTF mobile dock keeps horizontal centering during entrance animation in [animations.css](/Users/zainllw0w/TwoComms/site/twocomms/dtf/static/dtf/css/components/animations.css:151).
+- Homepage no longer starts Microsoft Clarity from the idle path; [analytics-loader.js](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/static/js/analytics-loader.js:900) now arms it only after the first real interaction on `/`.
 
 ## Что остаётся проблемным
 
@@ -35,7 +36,8 @@
 6. Done: alias Inter `500/600` to already critical `400/700` files and remove the extra `fonts.css` layer so the same font files are not downloaded twice under different URLs.
 7. Done: turn on `effects-lite` for mid-tier devices to reduce blur/glow/compositing pressure without dropping into the harsher `perf-lite` mode.
 8. Done: fix DTF mobile dock transform so entrance animation preserves `translateX(-50%)` and does not visually jump.
-9. In progress: continue with next-layer payload reductions and server/runtime hot spots that are still safe without Redis/Celery.
+9. Done: keep Clarity off the homepage idle path so bounce visits do not pay that script cost without any user interaction.
+10. In progress: continue with next-layer payload reductions and server/runtime hot spots that are still safe without Redis/Celery.
 
 ## Верификация после правок
 

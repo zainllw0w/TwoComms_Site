@@ -18,6 +18,9 @@ CATALOG_VIEWS_FILE = Path(
 DTF_ANIMATIONS_FILE = Path(
     "/Users/zainllw0w/TwoComms/site/twocomms/dtf/static/dtf/css/components/animations.css"
 )
+ANALYTICS_LOADER_FILE = Path(
+    "/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/static/js/analytics-loader.js"
+)
 
 
 class BaseTemplateSourceGuardsTests(unittest.TestCase):
@@ -66,6 +69,7 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         self.assertIn("js/rum.js", content)
         self.assertIn("js/ui-fallback.js", content)
         self.assertNotIn("css/fonts.css", content)
+        self.assertIn("js/analytics-loader.js' %}?v=5", content)
 
     def test_base_template_does_not_embed_server_generated_csrf_token(self):
         content = BASE_TEMPLATE.read_text(encoding="utf-8")
@@ -113,6 +117,13 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
 
         self.assertIn("transform: translateX(-50%) translateY(120%);", source)
         self.assertIn("transform: translateX(-50%) translateY(0);", source)
+
+    def test_analytics_loader_keeps_clarity_off_home_idle_path(self):
+        source = ANALYTICS_LOADER_FILE.read_text(encoding="utf-8")
+
+        self.assertIn("if (!isLowDevice && routeName !== 'home') {", source)
+        self.assertIn("if (!isLowDevice && routeName === 'home') {", source)
+        self.assertIn("loadClarityOnFirstInteraction();", source)
 
 
 if __name__ == "__main__":
