@@ -538,6 +538,11 @@
 
 {% block modals %}
   {{ block.super }}
+  {# Survey-модалка упакована в <template> — контент парсится, но в DOM не живёт
+     до initSurvey(), который клонирует шаблон в body (экономия ~65 DOM-узлов
+     и лишнего style-recalc на first paint). initSurvey импортируется lazy
+     при клике на [data-survey-cta] или на idle-фоллбэке в index.html. #}
+  <template id="survey-modal-template">
   <div
     class="survey-modal"
     id="survey-modal"
@@ -596,4 +601,5 @@
       </div>
     </div>
   </div>
+  </template>
 {% endblock %}

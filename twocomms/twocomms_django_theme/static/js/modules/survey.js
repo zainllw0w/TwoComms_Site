@@ -37,8 +37,18 @@ function buildOptionTooltip(helpText) {
 
 export function initSurvey() {
   const cta = document.querySelector('[data-survey-cta]');
-  const modal = document.getElementById('survey-modal');
-  if (!cta || !modal) return;
+  if (!cta) return;
+  // Lazy-mount: если модалка лежит в <template id="survey-modal-template">,
+  // переносим её в body. Экономит DOM-узлы (~65 шт.) на first paint.
+  let modal = document.getElementById('survey-modal');
+  if (!modal) {
+    const tpl = document.getElementById('survey-modal-template');
+    if (tpl && tpl.content) {
+      document.body.appendChild(tpl.content.cloneNode(true));
+      modal = document.getElementById('survey-modal');
+    }
+  }
+  if (!modal) return;
   if (modal.dataset.surveyInit === '1') return;
   modal.dataset.surveyInit = '1';
 
