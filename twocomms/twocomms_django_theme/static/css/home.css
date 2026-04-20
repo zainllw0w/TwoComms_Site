@@ -984,6 +984,16 @@ body.survey-modal-open {
   box-shadow: none;
 }
 
+.pagination-premium .page-item-ellipsis .page-link {
+  min-width: 2.6rem;
+  padding-inline: 0.55rem;
+  color: rgba(255, 241, 221, 0.72);
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.04);
+  pointer-events: none;
+  box-shadow: none;
+}
+
 @media (max-width: 768px) {
   .survey-card {
     grid-template-columns: 1fr;

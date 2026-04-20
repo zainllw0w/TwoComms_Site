@@ -198,20 +198,26 @@ export function initHomepagePagination() {
     const productsContainer = document.getElementById('products-container');
     const loadMoreBtn = document.getElementById('load-more-btn');
     const loadMoreContainer = document.getElementById('load-more-container');
-    const paginationNav = document.querySelector('nav[aria-label="Навігація по новинках"]');
+    const getPaginationShell = () => document.getElementById('home-pagination-shell');
+    const getPaginationNav = () => document.querySelector('nav[aria-label="Навігація по новинках"]');
 
     if (!productsContainer) {
       return;
     }
 
     const getTotalPages = () => {
+      const paginationNav = getPaginationNav();
       const dataValue = loadMoreContainer?.dataset.totalPages || paginationNav?.dataset.totalPages || '1';
       return parseNumber(dataValue, 1);
     };
 
-    const getCurrentPage = () => parseNumber(loadMoreContainer?.dataset.currentPage || paginationNav?.dataset.currentPage || '1', 1);
+    const getCurrentPage = () => {
+      const paginationNav = getPaginationNav();
+      return parseNumber(loadMoreContainer?.dataset.currentPage || paginationNav?.dataset.currentPage || '1', 1);
+    };
 
     const setTotalPages = (value) => {
+      const paginationNav = getPaginationNav();
       if (loadMoreContainer) {
         loadMoreContainer.dataset.totalPages = String(value);
       }
@@ -221,6 +227,7 @@ export function initHomepagePagination() {
     };
 
     const setCurrentPage = (value) => {
+      const paginationNav = getPaginationNav();
       if (loadMoreContainer) {
         loadMoreContainer.dataset.currentPage = String(value);
       }
@@ -249,6 +256,7 @@ export function initHomepagePagination() {
     const syncUI = () => {
       const totalPages = getTotalPages();
       const currentPage = getCurrentPage();
+      const paginationNav = getPaginationNav();
       if (paginationNav) {
         paginationNav.dataset.totalPages = String(totalPages);
         paginationNav.dataset.currentPage = String(currentPage);
@@ -274,11 +282,16 @@ export function initHomepagePagination() {
         .then(data => {
           if (data && data.html && data.html.trim() !== '') {
             productsContainer.insertAdjacentHTML('beforeend', data.html);
+            const paginationShell = getPaginationShell();
+            if (paginationShell && typeof data.pagination_html === 'string' && data.pagination_html.trim() !== '') {
+              paginationShell.innerHTML = data.pagination_html;
+            }
             const totalPages = parseNumber(data.total_pages, getTotalPages());
             const currentPage = parseNumber(data.current_page, targetPage);
             setTotalPages(totalPages);
             setCurrentPage(currentPage);
             const hasMore = updateLoadMoreState(currentPage, totalPages);
+            const paginationNav = getPaginationNav();
             if (!hasMore && paginationNav) {
               updatePaginationNav(paginationNav, currentPage);
             }
@@ -316,15 +329,13 @@ export function initHomepagePagination() {
       });
     }
 
-    if (paginationNav) {
-      let resizeFrame = 0;
-      window.addEventListener('resize', () => {
-        window.cancelAnimationFrame(resizeFrame);
-        resizeFrame = window.requestAnimationFrame(() => {
-          updatePaginationNav(paginationNav, getCurrentPage());
-        });
-      }, { passive: true });
-    }
+    let resizeFrame = 0;
+    window.addEventListener('resize', () => {
+      window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(() => {
+        updatePaginationNav(getPaginationNav(), getCurrentPage());
+      });
+    }, { passive: true });
 
     syncUI();
     revealColorDots(productsContainer);

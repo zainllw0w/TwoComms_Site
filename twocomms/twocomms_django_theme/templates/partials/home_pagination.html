@@ -1,0 +1,47 @@
+{% if paginator.num_pages > 1 and homepage_pagination_items %}
+<nav
+  aria-label="Навігація по новинках"
+  class="pagination-rail"
+  data-total-pages="{{ paginator.num_pages }}"
+  data-current-page="{{ page_obj.number }}"
+  data-base-path="{{ homepage_pagination_base_path|default:'/' }}"
+>
+  <ul class="pagination pagination-sm pagination-premium mb-0" data-pagination-list>
+    {% for item in homepage_pagination_items %}
+      {% if item.type == 'prev' %}
+        <li class="page-item page-item-nav page-item-nav-prev {% if item.is_disabled %}disabled{% endif %}">
+          <a
+            class="page-link"
+            data-page-nav="prev"
+            href="{{ item.url }}"
+            rel="prev"
+          >
+            <span class="page-link-icon" aria-hidden="true">←</span>
+            <span class="page-link-label">Попередня</span>
+          </a>
+        </li>
+      {% elif item.type == 'next' %}
+        <li class="page-item page-item-nav page-item-nav-next {% if item.is_disabled %}disabled{% endif %}">
+          <a
+            class="page-link"
+            data-page-nav="next"
+            href="{{ item.url }}"
+            rel="next"
+          >
+            <span class="page-link-label">Наступна</span>
+            <span class="page-link-icon" aria-hidden="true">→</span>
+          </a>
+        </li>
+      {% elif item.type == 'ellipsis' %}
+        <li class="page-item page-item-ellipsis disabled" aria-hidden="true">
+          <span class="page-link">…</span>
+        </li>
+      {% elif item.type == 'page' %}
+        <li class="page-item page-item-number {% if item.is_current %}active{% endif %}" data-page="{{ item.page }}">
+          <a class="page-link" href="{{ item.url }}"{% if item.is_current %} aria-current="page"{% endif %}>{{ item.page }}</a>
+        </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}

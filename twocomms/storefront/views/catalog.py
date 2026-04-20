@@ -14,8 +14,10 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator, EmptyPage
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.template.loader import render_to_string
+from django.urls import reverse
 
 from ..models import Product, Category, SurveySession
+from ..pagination import build_homepage_pagination_items
 from ..services.catalog_helpers import (
     build_color_preview_map,
     get_categories_cached,
@@ -82,6 +84,11 @@ def home(request):
     # Проверяем есть ли еще товары для пагинации
     total_products = paginator.count
     has_more = page_obj.has_next()
+    homepage_pagination_items = build_homepage_pagination_items(
+        current_page=page_obj.number,
+        total_pages=paginator.num_pages,
+        base_path=reverse("home"),
+    )
 
     survey_def = load_survey_definition()
     survey_ui_home = survey_def.get('ui_copy', {}).get('homepage_block', {}) if survey_def else {}
@@ -112,6 +119,7 @@ def home(request):
             'current_page': page_obj.number,
             'paginator': paginator,
             'page_obj': page_obj,
+            'homepage_pagination_items': homepage_pagination_items,
             'total_products': total_products,
             'survey_ui_home': survey_ui_home,
             'survey_ui_modal': survey_ui_modal,
@@ -158,19 +166,36 @@ def load_more_products(request):
         # Проверяем есть ли еще товары
         total_products = paginator.count
         has_more = page_obj.has_next()
+        homepage_pagination_items = build_homepage_pagination_items(
+            current_page=page_obj.number,
+            total_pages=paginator.num_pages,
+            base_path=reverse("home"),
+        )
 
         # Рендерим HTML для товаров
         products_html = render_to_string('partials/products_list.html', {
             'products': products,
             'page': page
         })
+        pagination_html = render_to_string(
+            'partials/home_pagination.html',
+            {
+                'homepage_pagination_items': homepage_pagination_items,
+                'page_obj': page_obj,
+                'paginator': paginator,
+                'homepage_pagination_base_path': reverse("home"),
+            },
+            request=request,
+        )
 
         return JsonResponse({
             'html': products_html,
             'has_more': has_more,
             'next_page': page_obj.next_page_number() if has_more else None,
             'total_pages': paginator.num_pages,
-            'current_page': page_obj.number
+            'current_page': page_obj.number,
+            'pagination_html': pagination_html,
+            'total_products': total_products,
         })
 
     return JsonResponse({'error': 'Invalid request'}, status=400)
