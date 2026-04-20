@@ -2,25 +2,13 @@ import re
 import unittest
 from pathlib import Path
 
-
-BASE_TEMPLATE = Path(
-    "/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/templates/base.html"
-)
-HOME_TEMPLATE = Path(
-    "/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/templates/pages/index.html"
-)
-SETTINGS_FILE = Path(
-    "/Users/zainllw0w/TwoComms/site/twocomms/twocomms/settings.py"
-)
-CATALOG_VIEWS_FILE = Path(
-    "/Users/zainllw0w/TwoComms/site/twocomms/storefront/views/catalog.py"
-)
-DTF_ANIMATIONS_FILE = Path(
-    "/Users/zainllw0w/TwoComms/site/twocomms/dtf/static/dtf/css/components/animations.css"
-)
-ANALYTICS_LOADER_FILE = Path(
-    "/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/static/js/analytics-loader.js"
-)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+BASE_TEMPLATE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "templates" / "base.html"
+HOME_TEMPLATE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "templates" / "pages" / "index.html"
+SETTINGS_FILE = REPO_ROOT / "twocomms" / "twocomms" / "settings.py"
+CATALOG_VIEWS_FILE = REPO_ROOT / "twocomms" / "storefront" / "views" / "catalog.py"
+DTF_ANIMATIONS_FILE = REPO_ROOT / "twocomms" / "dtf" / "static" / "dtf" / "css" / "components" / "animations.css"
+ANALYTICS_LOADER_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "js" / "analytics-loader.js"
 
 
 class BaseTemplateSourceGuardsTests(unittest.TestCase):
@@ -124,6 +112,15 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         self.assertIn("if (!isLowDevice && routeName !== 'home') {", source)
         self.assertIn("if (!isLowDevice && routeName === 'home') {", source)
         self.assertIn("loadClarityOnFirstInteraction();", source)
+
+    def test_base_template_keeps_ahrefs_homepage_interaction_only(self):
+        content = BASE_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertRegex(
+            content,
+            r"var fallbackDelay = routeName === 'home'\s*\?\s*null\s*:\s*\(deviceClass === 'low'",
+        )
+        self.assertIn("if (fallbackDelay !== null)", content)
 
 
 if __name__ == "__main__":
