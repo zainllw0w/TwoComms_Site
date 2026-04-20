@@ -19,6 +19,8 @@
 - `effects-lite` is now enabled for `mid` devices in [base.html](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/templates/base.html:218), while `perf-lite` remains reserved for `low` devices only.
 - DTF mobile dock keeps horizontal centering during entrance animation in [animations.css](/Users/zainllw0w/TwoComms/site/twocomms/dtf/static/dtf/css/components/animations.css:151).
 - Homepage no longer starts Microsoft Clarity from the idle path; [analytics-loader.js](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/static/js/analytics-loader.js:900) now arms it only after the first real interaction on `/`.
+- Homepage no longer starts Ahrefs from a no-interaction timeout on `/`; the script in [base.html](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/templates/base.html:100) is now interaction-only for the home route.
+- Guard tests in [test_template_source_guards.py](/Users/zainllw0w/TwoComms/site/tests/test_template_source_guards.py:1) now resolve files from the active checkout instead of a hardcoded absolute repo path, so worktree validation checks the edited tree, not another clone.
 
 ## Что остаётся проблемным
 
@@ -38,7 +40,9 @@
 7. Done: turn on `effects-lite` for mid-tier devices to reduce blur/glow/compositing pressure without dropping into the harsher `perf-lite` mode.
 8. Done: fix DTF mobile dock transform so entrance animation preserves `translateX(-50%)` and does not visually jump.
 9. Done: keep Clarity off the homepage idle path so bounce visits do not pay that script cost without any user interaction.
-10. In progress: continue with next-layer payload reductions and server/runtime hot spots that are still safe without Redis/Celery.
+10. Done: keep Ahrefs off the homepage timeout path; it now loads on `/` only after real interaction.
+11. Done: fix source-guard tests so they validate the current checkout/worktree instead of a stale absolute path.
+12. In progress: continue with next-layer payload reductions and server/runtime hot spots that are still safe without Redis/Celery.
 
 ## Верификация после правок
 
