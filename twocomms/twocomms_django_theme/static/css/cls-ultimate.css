@@ -451,3 +451,34 @@ footer {
    - Only performance optimizations applied
 ============================================================================ */
 
+/* ============================================================================
+   Favorites visibility — extracted from inline <style> in base.html (2026-04-20).
+   Pure CSS media queries заменили 55-строчный resize-listener на JS.
+============================================================================ */
+@media (max-width: 991.98px) {
+  #favorites-menu-item,
+  #favorites-mobile-bottom-nav {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    left: -9999px !important;
+  }
+}
+@media (min-width: 992px) {
+  #favorites-menu-item {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+    left: auto !important;
+  }
+  #favorites-mobile-bottom-nav {
+    display: none !important;
+  }
+}
+
