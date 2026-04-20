@@ -15,6 +15,9 @@ SETTINGS_FILE = Path(
 CATALOG_VIEWS_FILE = Path(
     "/Users/zainllw0w/TwoComms/site/twocomms/storefront/views/catalog.py"
 )
+DTF_ANIMATIONS_FILE = Path(
+    "/Users/zainllw0w/TwoComms/site/twocomms/dtf/static/dtf/css/components/animations.css"
+)
 
 
 class BaseTemplateSourceGuardsTests(unittest.TestCase):
@@ -85,6 +88,13 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         for weight in ("400", "500", "600", "700"):
             self.assertIn(f"font-weight: {weight};", content)
 
+    def test_base_template_enables_effects_lite_for_mid_devices(self):
+        content = BASE_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertIn("} else if (deviceClass === 'mid') {", content)
+        self.assertIn("docEl.classList.add('effects-lite');", content)
+        self.assertIn("docEl.classList.remove('effects-high', 'perf-lite');", content)
+
     def test_settings_drop_session_sync_context_processor(self):
         settings_source = SETTINGS_FILE.read_text(encoding="utf-8")
 
@@ -97,6 +107,12 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
             source,
             r"@ensure_csrf_cookie\s+@cache_page_for_anon\(600\)[^\n]*\ndef catalog",
         )
+
+    def test_dtf_mobile_dock_animation_keeps_horizontal_centering(self):
+        source = DTF_ANIMATIONS_FILE.read_text(encoding="utf-8")
+
+        self.assertIn("transform: translateX(-50%) translateY(120%);", source)
+        self.assertIn("transform: translateX(-50%) translateY(0);", source)
 
 
 if __name__ == "__main__":

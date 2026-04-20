@@ -149,12 +149,12 @@
 
 /* 6. Mobile dock entrance */
 .mobile-dock {
-  transform: translateY(120%);
+  transform: translateX(-50%) translateY(120%);
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .mobile-dock.is-visible {
-  transform: translateY(0);
+  transform: translateX(-50%) translateY(0);
 }
 
 /* 7. Dropzone drag-over */
