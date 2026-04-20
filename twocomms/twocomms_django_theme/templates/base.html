@@ -215,9 +215,13 @@
         if (prefersReducedMotion) docEl.dataset.reducedMotion = '1';
 
         // Backward-compat: существующие стили опираются на effects-lite / perf-lite.
+        // Mid devices keep the full layout but lose the heaviest visual effects.
         if (deviceClass === 'low') {
           docEl.classList.remove('effects-high');
           docEl.classList.add('effects-lite', 'perf-lite');
+        } else if (deviceClass === 'mid') {
+          docEl.classList.remove('effects-high', 'perf-lite');
+          docEl.classList.add('effects-lite');
         } else {
           docEl.classList.remove('effects-lite', 'perf-lite');
           docEl.classList.add('effects-high');
