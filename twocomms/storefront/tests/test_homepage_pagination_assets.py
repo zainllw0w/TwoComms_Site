@@ -131,3 +131,22 @@ class HomepagePaginationCssTests(SimpleTestCase):
             css,
             r"\.pagination-premium \.page-item-ellipsis \.page-link\s*\{[\s\S]*?pointer-events:\s*none;",
         )
+
+    def test_home_pagination_mobile_reserves_edge_gutter(self):
+        css_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "home.css"
+        )
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertRegex(
+            css,
+            r"@media\s*\(max-width:\s*768px\)\s*\{[\s\S]*?\.pagination-showcase\s*\{[\s\S]*?padding-inline:\s*clamp\(0\.55rem,\s*3vw,\s*0\.85rem\);",
+        )
+        self.assertRegex(
+            css,
+            r"@media\s*\(max-width:\s*768px\)\s*\{[\s\S]*?\.pagination-rail\s*\{[\s\S]*?max-width:\s*min\(100%,\s*calc\(100vw - 1\.15rem\)\);",
+        )

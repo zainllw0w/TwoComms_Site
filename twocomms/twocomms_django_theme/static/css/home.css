@@ -995,6 +995,15 @@ body.survey-modal-open {
 }
 
 @media (max-width: 768px) {
+  .pagination-showcase {
+    min-height: var(--pagination-mobile-height);
+    padding-inline: clamp(0.55rem, 3vw, 0.85rem);
+  }
+
+  .pagination-rail {
+    max-width: min(100%, calc(100vw - 1.15rem));
+  }
+
   .survey-card {
     grid-template-columns: 1fr;
   }
@@ -1106,10 +1115,6 @@ body.survey-modal-open {
 }
 
 @media (max-width: 768px) {
-  .pagination-showcase {
-    min-height: var(--pagination-mobile-height);
-  }
-
   .pagination-rail.is-scaled {
     justify-content: center;
     overflow-x: hidden;
