@@ -15,8 +15,8 @@ class HomepagePaginationCssTests(SimpleTestCase):
         )
         css = css_path.read_text(encoding="utf-8")
 
-        rail_blocks = re.findall(r"\.pagination-rail\s*\{([^}]*)\}", css, re.S)
-        showcase_blocks = re.findall(r"\.pagination-showcase\s*\{([^}]*)\}", css, re.S)
+        rail_blocks = re.findall(r"^\.pagination-rail\s*\{([^}]*)\}", css, re.S | re.M)
+        showcase_blocks = re.findall(r"^\.pagination-showcase\s*\{([^}]*)\}", css, re.S | re.M)
 
         self.assertEqual(
             len(showcase_blocks),
@@ -47,6 +47,34 @@ class HomepagePaginationCssTests(SimpleTestCase):
             css,
             r"@media\s*\(min-width:\s*769px\)\s*\{[\s\S]*?\.pagination-rail:not\(\.is-scrollable\)\s*\{[\s\S]*?justify-content:\s*center;[\s\S]*?overflow-x:\s*visible;",
         )
+
+    def test_home_pagination_has_mobile_scale_hook(self):
+        css_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "home.css"
+        )
+        js_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "js"
+            / "modules"
+            / "homepage.js"
+        )
+        css = css_path.read_text(encoding="utf-8")
+        js = js_path.read_text(encoding="utf-8")
+
+        self.assertRegex(
+            css,
+            r"@media\s*\(max-width:\s*768px\)\s*\{[\s\S]*?\.pagination-rail\.is-scaled\s*\{[\s\S]*?overflow-x:\s*hidden;",
+        )
+        self.assertIn("transform: scale(var(--pagination-mobile-scale, 1));", css)
+        self.assertIn("window.matchMedia('(max-width: 768px)')", js)
+        self.assertIn("--pagination-mobile-scale", js)
+        self.assertIn("scrollContainer.classList.add('is-scaled');", js)
 
     def test_home_template_has_no_raw_survey_comment_text(self):
         template_path = (
