@@ -114,6 +114,24 @@
   transition-delay: 0ms !important;
 }
 
+/* Unique rules preserved from inline base.html critical block (2026-04-20) */
+.perf-lite .hero-section {
+  background: #0a0a0a !important;
+  box-shadow: none !important;
+}
+.perf-lite .hero-logo-bg {
+  animation: none !important;
+}
+.perf-lite .floating-logo {
+  opacity: 0.15 !important;
+}
+/* Short transitions for hover feedback on interactive elements */
+.perf-lite a,
+.perf-lite button,
+.perf-lite .card {
+  transition-duration: 0.15s !important;
+}
+
 /* Mobile-specific optimizations */
 @media (max-width: 768px) {
   .perf-lite .bottom-nav {
