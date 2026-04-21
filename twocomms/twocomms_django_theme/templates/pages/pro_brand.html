@@ -148,9 +148,13 @@
   </section>
 
   <!-- SUMMARY COMPACT -->
-  <section class="pb-section pb-reveal" aria-labelledby="brand-summary-title">
+  <section class="pb-section pb-reveal" aria-labelledby="brand-summary-title" style="position: relative; z-index: 10;">
     <div class="pb-container">
-      <div class="pb-compact-summary">
+      <div class="pb-organic-pill">
+        <div class="pb-organic-bg">
+          <img src="{% static 'img/logo.svg' %}" alt="" class="pb-floating-logo pb-fl-1" aria-hidden="true">
+          <img src="{% static 'img/logo.svg' %}" alt="" class="pb-floating-logo pb-fl-2" aria-hidden="true">
+        </div>
         <div class="pb-compact-header">
           <svg class="pb-compact-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
           <h2 id="brand-summary-title">Що таке TwoComms одним блоком</h2>
@@ -182,7 +186,7 @@
       </div>
 
       <div class="pb-bento-grid pb-reveal" id="pb-bento-grid">
-        <article class="pb-bento-card pb-col-span-2">
+        <article class="pb-bento-card pb-col-span-2 pb-card-floating">
           <div class="pb-bento-bg"></div>
           <div class="pb-bento-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8v12h16V8"></path><path d="M8 8V4h8v4"></path><path d="M12 12v4"></path><path d="M10 14h4"></path></svg>
@@ -206,7 +210,7 @@
           </div>
         </article>
 
-        <article class="pb-bento-card">
+        <article class="pb-bento-card pb-card-hollow">
           <div class="pb-bento-bg"></div>
           <div class="pb-bento-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
@@ -267,14 +271,15 @@
   </section>
 
   <!-- SPLIT / DNA KHARKIV -->
-  <section class="pb-section pb-breakout" id="kharkiv">
+  <section class="pb-section pb-breakout pb-frontier-banner" id="kharkiv">
+    <div class="pb-frontier-bg-text" aria-hidden="true">ХАРКІВ</div>
     <div class="pb-container">
       <div class="pb-split-layout pb-reveal">
         <div class="pb-split-sticky">
            <span class="pb-kicker">ДНК Бренду</span>
-           <h2 class="pb-heading-xl">Харків у ДНК TwoComms.</h2>
+           <h2 class="pb-heading-xl" style="position: relative; z-index: 5;">Харків у ДНК TwoComms.</h2>
         </div>
-        <div class="pb-split-text pb-glass-panel">
+        <div class="pb-split-text pb-frontier-panel">
           <p class="pb-lead">TwoComms не можна відділити від Харкова.</p>
           <p>Для нас Харків — не геомітка і не декоративна згадка. Це середовище, яке формує характер: фронтир, індустріальна точність, жорсткість без показухи, здатність працювати під тиском і не втрачати форму.</p>
           <p>Багато перших сенсів бренду народжувалися на фоні міста, яке продовжує жити, створювати і триматися попри удари. Харківський код — це про силу міста, яке не зупиняється.</p>
