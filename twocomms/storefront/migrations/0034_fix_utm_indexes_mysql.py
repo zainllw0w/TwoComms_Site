@@ -6,6 +6,31 @@
 from django.db import migrations
 
 
+MYSQL_VENDOR = "mysql"
+
+
+def apply_mysql_utm_index_fix(apps, schema_editor):
+    if schema_editor.connection.vendor != MYSQL_VENDOR:
+        return
+
+    schema_editor.execute(
+        "DROP INDEX IF EXISTS idx_utm_source_medium_campaign ON storefront_utmsession;"
+    )
+    schema_editor.execute(
+        "CREATE INDEX idx_utm_source_medium_campaign "
+        "ON storefront_utmsession (utm_source(80), utm_medium(80), utm_campaign(80));"
+    )
+
+
+def reverse_mysql_utm_index_fix(apps, schema_editor):
+    if schema_editor.connection.vendor != MYSQL_VENDOR:
+        return
+
+    schema_editor.execute(
+        "DROP INDEX IF EXISTS idx_utm_source_medium_campaign ON storefront_utmsession;"
+    )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -13,15 +38,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Remove the problematic index if it exists
-        migrations.RunSQL(
-            sql="DROP INDEX IF EXISTS idx_utm_source_medium_campaign ON storefront_utmsession;",
-            reverse_sql="CREATE INDEX idx_utm_source_medium_campaign ON storefront_utmsession (utm_source(80), utm_medium(80), utm_campaign(80));"
-        ),
-        # Create index with prefixes (80 chars per field = 320 bytes per field = 960 bytes total, within 1000 byte limit)
-        migrations.RunSQL(
-            sql="CREATE INDEX idx_utm_source_medium_campaign ON storefront_utmsession (utm_source(80), utm_medium(80), utm_campaign(80));",
-            reverse_sql="DROP INDEX IF EXISTS idx_utm_source_medium_campaign ON storefront_utmsession;"
+        migrations.RunPython(
+            apply_mysql_utm_index_fix,
+            reverse_mysql_utm_index_fix,
         ),
     ]
-

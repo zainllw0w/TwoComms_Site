@@ -66,6 +66,8 @@ urlpatterns = [
     path('cart/summary/', views.cart_summary, name='cart_summary'),
     path('cart/mini/', views.cart_mini, name='cart_mini'),
     path('cart/items/', views.cart_items_api, name='cart_items_api'),
+    path('cart/delivery/cities/', views.nova_poshta_city_search, name='cart_np_city_search'),
+    path('cart/delivery/warehouses/', views.nova_poshta_warehouse_search, name='cart_np_warehouse_search'),
     # csrf_exempt здесь обязателен: _module_view — внешняя обёртка, CSRF
     # middleware смотрит её, а не внутренний @csrf_exempt на rum_beacon.
     path('api/rum/', csrf_exempt(_module_view('storefront.views.api', 'rum_beacon')), name='rum_beacon'),

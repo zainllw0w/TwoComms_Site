@@ -1,4 +1,5 @@
 import { getCookie, DOMCache, escapeHtml } from './shared.js';
+import { initNovaPoshtaSelectors } from './nova-poshta-selector.js';
 
 const CART_EMPTY_TEMPLATE = `
   <div class="cart-empty">
@@ -979,6 +980,9 @@ export function initCartInteractions() {
   setupCartValidation(document.getElementById('deliveryForm'));
 
   const root = document.querySelector('.cart-page-container');
+  if (root) {
+    initNovaPoshtaSelectors(root);
+  }
   if (root) {
     if (root.__cartController) {
       root.__cartController.destroy();

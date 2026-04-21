@@ -21,7 +21,9 @@
 <div class="cart-page-container"
      data-cart-items-url="{% url 'cart_items_api' %}"
      data-cart-summary-url="{% url 'cart_summary' %}"
-     data-contact-url="{% url 'contact_manager' %}">
+     data-contact-url="{% url 'contact_manager' %}"
+     data-np-city-search-url="{% url 'cart_np_city_search' %}"
+     data-np-warehouse-search-url="{% url 'cart_np_warehouse_search' %}">
   <!-- Заголовок страницы -->
   <div class="cart-page-header">
     <div class="cart-page-header-icon">
@@ -377,7 +379,7 @@
           </div>
           
           {% with prof=request.user.userprofile %}
-          <form method="post" class="cart-sidebar-form" id="deliveryForm" novalidate>
+          <form method="post" class="cart-sidebar-form" id="deliveryForm" novalidate data-np-form="auth">
             {% csrf_token %}
             <input type="hidden" name="form_type" value="update_profile" id="form_type_input">
             
@@ -401,19 +403,37 @@
             
             <div class="cart-form-group">
               <label class="cart-form-label">Місто *</label>
-              <div class="cart-form-input-wrapper">
-                <input type="text" name="city" class="cart-form-input" placeholder="Київ"
-                       value="{{ prof.city|default:'' }}" required>
+              <div class="cart-form-input-wrapper np-selector" data-np-city-selector>
+                <input type="text" name="city" class="cart-form-input" placeholder="Почніть вводити місто Нової пошти"
+                       value="{{ prof.city|default:'' }}" required autocomplete="off" spellcheck="false"
+                       data-np-city-input aria-autocomplete="list" aria-expanded="false">
+                <input type="hidden" data-np-settlement-ref>
+                <input type="hidden" data-np-city-ref>
                 <div class="cart-form-input-glow"></div>
+                <div class="np-selector-results" data-np-city-results hidden></div>
+              </div>
+              <div class="np-selector-status" data-np-city-status>
+                Почніть вводити назву міста і виберіть варіант зі списку. Якщо сервіс НП недоступний, поле можна заповнити вручну.
               </div>
             </div>
             
             <div class="cart-form-group">
               <label class="cart-form-label">Відділення / Поштомат НП *</label>
-              <div class="cart-form-input-wrapper">
-                <input type="text" name="np_office" class="cart-form-input" placeholder="№ відділення або адреса поштомата"
-                       value="{{ prof.np_office|default:'' }}" required>
+              <div class="cart-form-input-wrapper np-selector" data-np-warehouse-selector>
+                <input type="text" name="np_office" class="cart-form-input" placeholder="Оберіть відділення або поштомат"
+                       value="{{ prof.np_office|default:'' }}" required autocomplete="off" spellcheck="false"
+                       data-np-warehouse-input aria-autocomplete="list" aria-expanded="false">
+                <input type="hidden" data-np-warehouse-ref>
                 <div class="cart-form-input-glow"></div>
+                <div class="np-selector-results" data-np-warehouse-results hidden></div>
+              </div>
+              <div class="np-selector-kind" data-np-kind-toggle>
+                <button type="button" class="np-selector-kind-btn is-active" data-kind="all">Усі пункти</button>
+                <button type="button" class="np-selector-kind-btn" data-kind="branch">Відділення</button>
+                <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
+              </div>
+              <div class="np-selector-status" data-np-warehouse-status>
+                Після вибору міста почніть вводити номер або адресу відділення. Для надійності можна залишити значення вручну.
               </div>
             </div>
             
@@ -479,7 +499,7 @@
             Щоб не вводити дані кожного разу — авторизуйтесь і накопичуйте бали.
           </div>
           
-          <form method="post" class="cart-sidebar-form" id="guest-form">
+          <form method="post" class="cart-sidebar-form" id="guest-form" data-np-form="guest">
             {% csrf_token %}
             <input type="hidden" name="form_type" value="guest_order">
             
@@ -519,9 +539,17 @@
             
             <div class="cart-form-group">
               <label class="cart-form-label">Місто *</label>
-              <div class="cart-form-input-wrapper">
-                <input type="text" name="city" class="cart-form-input" placeholder="Київ" required>
+              <div class="cart-form-input-wrapper np-selector" data-np-city-selector>
+                <input type="text" name="city" class="cart-form-input" placeholder="Почніть вводити місто Нової пошти"
+                       required autocomplete="off" spellcheck="false"
+                       data-np-city-input aria-autocomplete="list" aria-expanded="false">
+                <input type="hidden" data-np-settlement-ref>
+                <input type="hidden" data-np-city-ref>
                 <div class="cart-form-input-glow"></div>
+                <div class="np-selector-results" data-np-city-results hidden></div>
+              </div>
+              <div class="np-selector-status" data-np-city-status>
+                Почніть вводити назву міста і виберіть варіант зі списку. Якщо сервіс НП недоступний, поле можна заповнити вручну.
               </div>
               {% if guest_form.city.errors %}
                 <div class="cart-form-error">{{ guest_form.city.errors.0 }}</div>
@@ -530,9 +558,21 @@
             
             <div class="cart-form-group">
               <label class="cart-form-label">Відділення / Поштомат НП *</label>
-              <div class="cart-form-input-wrapper">
-                <input type="text" name="np_office" class="cart-form-input" placeholder="№ відділення або адреса поштомата" required>
+              <div class="cart-form-input-wrapper np-selector" data-np-warehouse-selector>
+                <input type="text" name="np_office" class="cart-form-input" placeholder="Оберіть відділення або поштомат"
+                       required autocomplete="off" spellcheck="false"
+                       data-np-warehouse-input aria-autocomplete="list" aria-expanded="false">
+                <input type="hidden" data-np-warehouse-ref>
                 <div class="cart-form-input-glow"></div>
+                <div class="np-selector-results" data-np-warehouse-results hidden></div>
+              </div>
+              <div class="np-selector-kind" data-np-kind-toggle>
+                <button type="button" class="np-selector-kind-btn is-active" data-kind="all">Усі пункти</button>
+                <button type="button" class="np-selector-kind-btn" data-kind="branch">Відділення</button>
+                <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
+              </div>
+              <div class="np-selector-status" data-np-warehouse-status>
+                Після вибору міста почніть вводити номер або адресу відділення. Для надійності можна залишити значення вручну.
               </div>
               {% if guest_form.np_office.errors %}
                 <div class="cart-form-error">{{ guest_form.np_office.errors.0 }}</div>
@@ -1193,6 +1233,118 @@
 
 .btn-contact-manager:active {
   transform: translateY(0);
+}
+
+.np-selector {
+  position: relative;
+}
+
+.np-selector-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(10, 14, 22, 0.98);
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.34);
+  backdrop-filter: blur(16px);
+}
+
+.np-selector-results[hidden] {
+  display: none !important;
+}
+
+.np-selector-option {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #e2e8f0;
+  text-align: left;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.np-selector-option:hover,
+.np-selector-option:focus-visible {
+  border-color: rgba(52, 211, 153, 0.38);
+  background: rgba(15, 23, 42, 0.96);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.np-selector-option-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.np-selector-option-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.np-selector-kind {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.np-selector-kind-btn {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.06);
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.np-selector-kind-btn:hover,
+.np-selector-kind-btn:focus-visible {
+  border-color: rgba(52, 211, 153, 0.3);
+  color: #0f172a;
+  outline: none;
+}
+
+.np-selector-kind-btn.is-active {
+  background: rgba(52, 211, 153, 0.14);
+  border-color: rgba(52, 211, 153, 0.34);
+  color: #047857;
+}
+
+.np-selector-status {
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.np-selector-status.is-loading {
+  color: #2563eb;
+}
+
+.np-selector-status.is-success {
+  color: #059669;
+}
+
+.np-selector-status.is-error {
+  color: #dc2626;
 }
 
 body.contact-modal-open,
