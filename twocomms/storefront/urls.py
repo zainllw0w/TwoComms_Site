@@ -66,9 +66,12 @@ urlpatterns = [
     path('cart/summary/', views.cart_summary, name='cart_summary'),
     path('cart/mini/', views.cart_mini, name='cart_mini'),
     path('cart/items/', views.cart_items_api, name='cart_items_api'),
+    path('cart/delivery/cities/', views.nova_poshta_city_search, name='cart_np_city_search'),
+    path('cart/delivery/warehouses/', views.nova_poshta_warehouse_search, name='cart_np_warehouse_search'),
     # csrf_exempt здесь обязателен: _module_view — внешняя обёртка, CSRF
     # middleware смотрит её, а не внутренний @csrf_exempt на rum_beacon.
     path('api/rum/', csrf_exempt(_module_view('storefront.views.api', 'rum_beacon')), name='rum_beacon'),
+    path('api/track-event/', csrf_exempt(_module_view('storefront.views.api', 'track_event')), name='track_event'),
     path('cart/clean/', views.clean_cart, name='clean_cart'),
     # path('checkout/', views.checkout, name='checkout'), # REMOVED: Dead code
     # auth - using modular auth views with proper password validation
@@ -98,6 +101,16 @@ urlpatterns = [
     path('orders/create/', views.order_create, name='order_create'),
     path('orders/success/<int:order_id>/', views.order_success, name='order_success'),
     path('orders/success-preview/', views.order_success_preview, name='order_success_preview'),  # Тестовый preview
+    path(
+        'orders/telegram-action/<int:order_id>/<str:status>/',
+        _module_view('storefront.views.order_actions', 'telegram_order_status_action'),
+        name='telegram_order_status_action',
+    ),
+    path(
+        'orders/telegram-waybill/<int:order_id>/<str:action>/',
+        _module_view('storefront.views.order_actions', 'telegram_order_np_waybill_action'),
+        name='telegram_order_np_waybill_action',
+    ),
     path('my/orders/', views.my_orders, name='my_orders'),
     path('orders/update-payment-method/', views.update_payment_method, name='update_payment_method'),
     path('orders/confirm-payment/', views.confirm_payment, name='confirm_payment'),
@@ -172,7 +185,7 @@ urlpatterns = [
     path('cart/contact-manager/', views.contact_manager, name='contact_manager'),
     # Monobank acquiring
     path('cart/monobank/create-invoice/', views.monobank_create_invoice, name='monobank_create_invoice'),
-    path('cart/monobank/quick/', views.monobank_create_checkout, name='monobank_quick_invoice'),
+    path('cart/monobank/quick/', _legacy_view('monobank_create_checkout'), name='monobank_quick_invoice'),
     path('payments/monobank/return/', views.monobank_return, name='monobank_return'),
     path('payments/monobank/webhook/', csrf_exempt(views.monobank_webhook), name='monobank_webhook'),
     # API endpoints

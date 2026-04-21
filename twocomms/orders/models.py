@@ -41,6 +41,9 @@ class Order(models.Model):
     email = models.EmailField(max_length=254, blank=True, null=True, db_index=True, verbose_name='Email')
     city = models.CharField(max_length=100)
     np_office = models.CharField(max_length=200)
+    np_settlement_ref = models.CharField(max_length=36, blank=True)
+    np_city_ref = models.CharField(max_length=36, blank=True)
+    np_warehouse_ref = models.CharField(max_length=36, blank=True)
     pay_type = models.CharField(max_length=20, choices=PAY_TYPE_CHOICES, default='online_full')
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='unpaid')
     total_sum = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -54,6 +57,12 @@ class Order(models.Model):
     payment_provider = models.CharField(max_length=50, blank=True, default='')
     payment_invoice_id = models.CharField(max_length=128, blank=True, default='')
     payment_payload = models.JSONField(blank=True, null=True)
+    nova_poshta_recipient_ref = models.CharField(max_length=36, blank=True, null=True)
+    nova_poshta_recipient_contact_ref = models.CharField(max_length=36, blank=True, null=True)
+    nova_poshta_document_ref = models.CharField(max_length=36, blank=True, null=True)
+    admin_tg_chat_id = models.BigIntegerField(null=True, blank=True, verbose_name='Telegram admin chat id')
+    admin_tg_message_id = models.BigIntegerField(null=True, blank=True, verbose_name='Telegram admin message id')
+    admin_tg_messages = models.JSONField(blank=True, null=True)
     points_awarded = models.BooleanField(default=False, verbose_name='Бали нараховані')
     cancellation_reason = models.CharField(
         max_length=50,
