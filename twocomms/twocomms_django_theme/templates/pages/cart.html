@@ -409,11 +409,12 @@
                        data-np-city-input aria-autocomplete="list" aria-expanded="false">
                 <input type="hidden" name="np_settlement_ref" value="{{ prof.np_settlement_ref|default:'' }}" data-np-settlement-ref>
                 <input type="hidden" name="np_city_ref" value="{{ prof.np_city_ref|default:'' }}" data-np-city-ref>
+                <input type="hidden" name="np_city_token" data-np-city-token>
                 <div class="cart-form-input-glow"></div>
                 <div class="np-selector-results" data-np-city-results hidden></div>
               </div>
               <div class="np-selector-status" data-np-city-status>
-                Почніть вводити назву міста і виберіть варіант зі списку. Якщо сервіс НП недоступний, поле можна заповнити вручну.
+                Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти.
               </div>
             </div>
             
@@ -424,6 +425,7 @@
                        value="{{ prof.np_office|default:'' }}" required autocomplete="off" spellcheck="false"
                        data-np-warehouse-input aria-autocomplete="list" aria-expanded="false">
                 <input type="hidden" name="np_warehouse_ref" value="{{ prof.np_warehouse_ref|default:'' }}" data-np-warehouse-ref>
+                <input type="hidden" name="np_warehouse_token" data-np-warehouse-token>
                 <div class="cart-form-input-glow"></div>
                 <div class="np-selector-results" data-np-warehouse-results hidden></div>
               </div>
@@ -433,7 +435,7 @@
                 <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
               </div>
               <div class="np-selector-status" data-np-warehouse-status>
-                Після вибору міста почніть вводити номер або адресу відділення. Для надійності можна залишити значення вручну.
+                Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти.
               </div>
             </div>
             
@@ -545,11 +547,12 @@
                        data-np-city-input aria-autocomplete="list" aria-expanded="false">
                 <input type="hidden" name="np_settlement_ref" data-np-settlement-ref>
                 <input type="hidden" name="np_city_ref" data-np-city-ref>
+                <input type="hidden" name="np_city_token" data-np-city-token>
                 <div class="cart-form-input-glow"></div>
                 <div class="np-selector-results" data-np-city-results hidden></div>
               </div>
               <div class="np-selector-status" data-np-city-status>
-                Почніть вводити назву міста і виберіть варіант зі списку. Якщо сервіс НП недоступний, поле можна заповнити вручну.
+                Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти.
               </div>
               {% if guest_form.city.errors %}
                 <div class="cart-form-error">{{ guest_form.city.errors.0 }}</div>
@@ -563,6 +566,7 @@
                        required autocomplete="off" spellcheck="false"
                        data-np-warehouse-input aria-autocomplete="list" aria-expanded="false">
                 <input type="hidden" name="np_warehouse_ref" data-np-warehouse-ref>
+                <input type="hidden" name="np_warehouse_token" data-np-warehouse-token>
                 <div class="cart-form-input-glow"></div>
                 <div class="np-selector-results" data-np-warehouse-results hidden></div>
               </div>
@@ -572,7 +576,7 @@
                 <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
               </div>
               <div class="np-selector-status" data-np-warehouse-status>
-                Після вибору міста почніть вводити номер або адресу відділення. Для надійності можна залишити значення вручну.
+                Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти.
               </div>
               {% if guest_form.np_office.errors %}
                 <div class="cart-form-error">{{ guest_form.np_office.errors.0 }}</div>

@@ -6,8 +6,9 @@ from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.http import JsonResponse
 
-from orders.nova_poshta_data import apply_nova_poshta_refs, extract_nova_poshta_refs
+from orders.nova_poshta_data import apply_nova_poshta_refs
 from orders.models import Order, OrderItem
+from orders.nova_poshta_checkout import NovaPoshtaSelectionError, resolve_delivery_selection
 from storefront.models import Product, PromoCode, CustomPrintLead, CustomPrintModerationStatus
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
@@ -68,37 +69,40 @@ def create_order(request):
             return redirect('cart')
 
     # Get user data
+    try:
+        delivery_selection = resolve_delivery_selection(request.POST)
+    except NovaPoshtaSelectionError as exc:
+        messages.error(request, exc.message)
+        return redirect('cart')
+
+    delivery_refs = {
+        "np_settlement_ref": delivery_selection.settlement_ref,
+        "np_city_ref": delivery_selection.city_ref,
+        "np_warehouse_ref": delivery_selection.warehouse_ref,
+    }
+
     if request.user.is_authenticated:
         user = request.user
         try:
             profile = user.userprofile
             full_name = (request.POST.get('full_name') or profile.full_name or user.get_full_name() or '').strip()
             phone = (request.POST.get('phone') or profile.phone or '').strip()
-            city = (request.POST.get('city') or profile.city or '').strip()
-            np_office = (request.POST.get('np_office') or profile.np_office or '').strip()
+            city = delivery_selection.city
+            np_office = delivery_selection.np_office
             pay_type = (request.POST.get('pay_type') or profile.pay_type or 'online_full').strip()
-            delivery_refs = extract_nova_poshta_refs(request.POST or None)
-            if not any(delivery_refs.values()):
-                delivery_refs = {
-                    "np_settlement_ref": getattr(profile, "np_settlement_ref", "") or "",
-                    "np_city_ref": getattr(profile, "np_city_ref", "") or "",
-                    "np_warehouse_ref": getattr(profile, "np_warehouse_ref", "") or "",
-                }
         except UserProfile.DoesNotExist:
             full_name = request.POST.get('full_name', '')
             phone = request.POST.get('phone', '')
-            city = request.POST.get('city', '')
-            np_office = request.POST.get('np_office', '')
+            city = delivery_selection.city
+            np_office = delivery_selection.np_office
             pay_type = request.POST.get('pay_type', 'online_full')
-            delivery_refs = extract_nova_poshta_refs(request.POST or None)
     else:
         user = None
         full_name = request.POST.get('full_name', '')
         phone = request.POST.get('phone', '')
-        city = request.POST.get('city', '')
-        np_office = request.POST.get('np_office', '')
+        city = delivery_selection.city
+        np_office = delivery_selection.np_office
         pay_type = request.POST.get('pay_type', 'online_full')
-        delivery_refs = extract_nova_poshta_refs(request.POST or None)
 
     # Validate required fields
     if not all([full_name, phone, city, np_office]):

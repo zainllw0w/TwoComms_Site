@@ -471,7 +471,7 @@ class NovaPoshtaDirectoryService:
     ) -> list[dict[str, Any]]:
         if not self.api_key:
             raise NovaPoshtaLookupUnavailable(
-                "Пошук Нової пошти тимчасово недоступний. Можна ввести дані вручну."
+                "Довідник Нової пошти тимчасово недоступний. Спробуйте ще раз трохи пізніше."
             )
 
         payload = {
@@ -488,12 +488,12 @@ class NovaPoshtaDirectoryService:
         except requests.exceptions.RequestException as exc:
             logger.warning("Nova Poshta lookup request failed for %s.%s: %s", model_name, called_method, exc)
             raise NovaPoshtaLookupUnavailable(
-                "Пошук Нової пошти тимчасово недоступний. Можна ввести дані вручну."
+                "Довідник Нової пошти тимчасово недоступний. Спробуйте ще раз трохи пізніше."
             ) from exc
         except ValueError as exc:
             logger.warning("Nova Poshta lookup returned invalid JSON for %s.%s", model_name, called_method)
             raise NovaPoshtaLookupUnavailable(
-                "Пошук Нової пошти тимчасово недоступний. Можна ввести дані вручну."
+                "Довідник Нової пошти тимчасово недоступний. Спробуйте ще раз трохи пізніше."
             ) from exc
 
         errors = [str(item).strip() for item in data.get("errors") or [] if str(item).strip()]
