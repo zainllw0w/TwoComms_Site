@@ -37,6 +37,11 @@
 </script>
 {% endblock %}
 
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/contacts.css' %}">
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4">
   <!-- Hero Section -->

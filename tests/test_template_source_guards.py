@@ -5,11 +5,15 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BASE_TEMPLATE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "templates" / "base.html"
 HOME_TEMPLATE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "templates" / "pages" / "index.html"
+CONTACTS_TEMPLATE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "templates" / "pages" / "contacts.html"
+COOPERATION_TEMPLATE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "templates" / "pages" / "cooperation.html"
 SETTINGS_FILE = REPO_ROOT / "twocomms" / "twocomms" / "settings.py"
 CATALOG_VIEWS_FILE = REPO_ROOT / "twocomms" / "storefront" / "views" / "catalog.py"
 DTF_ANIMATIONS_FILE = REPO_ROOT / "twocomms" / "dtf" / "static" / "dtf" / "css" / "components" / "animations.css"
 ANALYTICS_LOADER_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "js" / "analytics-loader.js"
 HOME_CSS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "home.css"
+CONTACTS_CSS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "contacts.css"
+COOPERATION_CSS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "cooperation.css"
 HOME_BOOTSTRAP_SUBSET_FILE = (
     REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "bootstrap-home-subset.css"
 )
@@ -142,6 +146,15 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
             ),
         )
 
+    def test_base_template_limits_home_preconnects_to_non_bootstrap_origins(self):
+        content = BASE_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertIn("{% if request.resolver_match.url_name != 'home' %}", content)
+        self.assertIn('<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">', content)
+        self.assertIn('<link rel="dns-prefetch" href="https://www.googletagmanager.com">', content)
+        self.assertIn('<link rel="dns-prefetch" href="https://connect.facebook.net">', content)
+        self.assertIn('<link rel="dns-prefetch" href="https://analytics.tiktok.com">', content)
+
     def test_home_css_no_longer_carries_hand_maintained_bootstrap_subset(self):
         source = HOME_CSS_FILE.read_text(encoding="utf-8")
 
@@ -224,6 +237,47 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
             ".survey-btn {",
             ".survey-option {",
             "body.survey-modal-open {",
+        ):
+            self.assertIn(needle, source)
+
+    def test_contacts_template_uses_route_scoped_css(self):
+        source = CONTACTS_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertIn("css/contacts.css", source)
+
+    def test_cooperation_template_uses_route_scoped_css(self):
+        source = COOPERATION_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertIn("css/cooperation.css", source)
+
+    def test_global_styles_drop_route_specific_marketing_blocks(self):
+        source = STYLES_CSS_FILE.read_text(encoding="utf-8")
+
+        self.assertNotIn("/* ===== COOPERATION PAGE STYLES ===== */", source)
+        self.assertNotIn("/* About page styles */", source)
+        self.assertNotIn("/* Contacts page styles */", source)
+
+    def test_contacts_css_keeps_route_specific_selectors(self):
+        source = CONTACTS_CSS_FILE.read_text(encoding="utf-8")
+
+        for needle in (
+            "/* Contacts page styles */",
+            ".contacts-hero {",
+            ".contact-methods {",
+            ".store-locations {",
+            ".contact-form-section {",
+        ):
+            self.assertIn(needle, source)
+
+    def test_cooperation_css_keeps_route_specific_selectors(self):
+        source = COOPERATION_CSS_FILE.read_text(encoding="utf-8")
+
+        for needle in (
+            "/* ===== COOPERATION PAGE STYLES ===== */",
+            ".cooperation-hero {",
+            ".partnership-card {",
+            ".bloggers-section {",
+            ".cta-button {",
         ):
             self.assertIn(needle, source)
 

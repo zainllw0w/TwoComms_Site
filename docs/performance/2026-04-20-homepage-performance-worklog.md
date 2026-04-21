@@ -27,6 +27,8 @@
 - Homepage survey bootstrap no longer uses an idle fallback import; [index.html](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/templates/pages/index.html:480) now loads `survey.js` only on intent (`pointerdown`, `focusin`, `mouseover`) and preserves first-click behavior via a one-time replay guard.
 - Dead survey config was removed from [base.html](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/templates/base.html:780); `data-survey-module-url` had no live consumer in the JS codebase.
 - Old survey CTA/modal CSS was removed from the global [styles.css](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/static/css/styles.css:1) bundle because homepage now keeps that UI in [home.css](/Users/zainllw0w/TwoComms/site/twocomms/twocomms_django_theme/static/css/home.css:327). After the purge rebuild, `styles.purged.css` dropped from `330567` to `319809` bytes.
+- Legacy route-specific marketing CSS was split out of the global bundle: `cooperation` now loads [cooperation.css](/Users/zainllw0w/TwoComms/site_perf_opt_round2/twocomms/twocomms_django_theme/static/css/cooperation.css), `contacts` now loads [contacts.css](/Users/zainllw0w/TwoComms/site_perf_opt_round2/twocomms/twocomms_django_theme/static/css/contacts.css), and the old unused `about` block was removed from [styles.css](/Users/zainllw0w/TwoComms/site_perf_opt_round2/twocomms/twocomms_django_theme/static/css/styles.css). This directly shrinks the render-blocking homepage CSS without touching checkout/cart flows.
+- Homepage `<head>` no longer opens unnecessary preconnect sockets to jsDelivr / GTM / Meta / TikTok on first paint; [base.html](/Users/zainllw0w/TwoComms/site_perf_opt_round2/twocomms/twocomms_django_theme/templates/base.html) now keeps only `dns-prefetch` on `/` and reserves full `preconnect` for routes that still benefit from it.
 
 ## Что остаётся проблемным
 
@@ -52,7 +54,8 @@
 13. Done: make the mobile bottom-nav static on phone-sized screens and remove scroll-time `backdrop-filter` mutations from the runtime optimizer.
 14. Done: remove homepage survey idle import so `modules/survey.js` no longer belongs to the critical request chain.
 15. Done: remove duplicated legacy survey CTA/modal CSS from the global render-blocking bundle and keep those styles route-scoped in `home.css`.
-16. In progress: continue with next-layer payload reductions and server/runtime hot spots that are still safe without Redis/Celery.
+16. Done: move legacy `contacts` / `cooperation` CSS out of the global bundle, drop the dead `about` block, and reduce unnecessary home-route preconnect overhead.
+17. In progress: continue with next-layer payload reductions and server/runtime hot spots that are still safe without Redis/Celery.
 
 ## Верификация после правок
 

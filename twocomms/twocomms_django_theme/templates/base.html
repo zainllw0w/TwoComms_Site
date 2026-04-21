@@ -81,17 +81,24 @@
     content="{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endblock %}">
   {% endblock %}
 
-  <!-- CDN preconnect for Bootstrap -->
+  <!-- CDN warm-up is only needed on routes that still load Bootstrap from jsDelivr. -->
+  {% if request.resolver_match.url_name != 'home' %}
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  {% endif %}
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 
   <!-- Preconnects для аналитики: TCP+TLS handshake параллельно с парсингом
        HTML, чтобы когда interaction-триггер запустит GTM/Pixel/Clarity/TikTok,
        соединение уже было готово (экономия 150–350 ms на late-load). -->
   {% if not debug %}
+  {% if request.resolver_match.url_name != 'home' %}
   <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin>
   <link rel="preconnect" href="https://connect.facebook.net" crossorigin>
   <link rel="preconnect" href="https://analytics.tiktok.com" crossorigin>
+  {% endif %}
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+  <link rel="dns-prefetch" href="https://connect.facebook.net">
+  <link rel="dns-prefetch" href="https://analytics.tiktok.com">
   <link rel="dns-prefetch" href="https://www.clarity.ms">
   <link rel="dns-prefetch" href="https://www.google-analytics.com">
   {% endif %}
