@@ -37,6 +37,21 @@ class ProductPageSeoRegressionTests(TestCase):
         self.assertNotIn("{#", html)
         self.assertNotIn('data-offer-id-map="{"', html)
 
+    def test_product_page_prefers_manual_meta_and_social_preview_fallback(self):
+        self.product.seo_title = "SEO Title Override для товару"
+        self.product.seo_description = "Акуратний SEO опис для перевірки метатегів без обривів."
+        self.product.seo_keywords = "seo override, twocomms, test product"
+        self.product.save(update_fields=["seo_title", "seo_description", "seo_keywords"])
+
+        response = self.client.get(reverse("product", kwargs={"slug": self.product.slug}), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<title>SEO Title Override для товару</title>", html=False)
+        self.assertContains(response, 'content="Акуратний SEO опис для перевірки метатегів без обривів."', html=False)
+        self.assertContains(response, 'content="seo override, twocomms, test product"', html=False)
+        self.assertContains(response, "social-preview.jpg", html=False)
+        self.assertContains(response, 'property="og:image:alt"', html=False)
+
 
 class OrderSuccessSeoRegressionTests(TestCase):
     def setUp(self):
@@ -169,6 +184,14 @@ class CategoryNavigationSeoRegressionTests(TestCase):
         self.assertContains(response, f'href="{reverse("catalog")}"', html=False)
         self.assertContains(response, self.category.name)
 
+    def test_catalog_root_renders_breadcrumbs_and_breadcrumb_schema(self):
+        response = self.client.get(reverse("catalog"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'aria-label="breadcrumb"', html=False)
+        self.assertContains(response, reverse("home"))
+        self.assertContains(response, '"@type": "BreadcrumbList"', html=False)
+
 
 class SitemapSeoRegressionTests(TestCase):
     def setUp(self):
@@ -294,7 +317,7 @@ class RobotsTxtAiSearchRegressionTests(TestCase):
             **{"wsgi.url_scheme": "https"},
         )
 
-    def test_robots_txt_allows_ai_search_bots_and_blocks_training_bots(self):
+    def test_robots_txt_allows_ai_search_and_training_bots_for_maximum_discoverability(self):
         response = self.client.get(reverse("robots_txt"), secure=True)
 
         self.assertEqual(response.status_code, 200)
@@ -307,8 +330,10 @@ class RobotsTxtAiSearchRegressionTests(TestCase):
         self.assertIn("User-agent: PerplexityBot\nAllow: /", body)
         self.assertIn("User-agent: Perplexity-User\nAllow: /", body)
         self.assertIn("User-agent: Google-Extended\nAllow: /", body)
-        self.assertIn("User-agent: GPTBot\nDisallow: /", body)
-        self.assertIn("User-agent: ClaudeBot\nDisallow: /", body)
+        self.assertIn("User-agent: GPTBot\nAllow: /", body)
+        self.assertIn("User-agent: CCBot\nAllow: /", body)
+        self.assertIn("User-agent: ClaudeBot\nAllow: /", body)
+        self.assertIn("User-agent: anthropic-ai\nAllow: /", body)
         self.assertIn("Disallow: /search/", body)
         self.assertIn("Sitemap: https://twocomms.shop/sitemap.xml", body)
 

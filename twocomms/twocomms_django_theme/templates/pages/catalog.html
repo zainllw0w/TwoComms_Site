@@ -6,9 +6,7 @@
 
 {% block title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
 
-{% block description %}{% if category %}Купити {{ category.name|lower }} в TwoComms. Якісний стріт & мілітарі одяг з
-ексклюзивним дизайном. Швидка доставка по Україні.{% else %}Каталог стріт & мілітарі одягу TwoComms. Футболки, худі,
-лонгсліви з ексклюзивним дизайном. Якісний одяг з характером.{% endif %}{% endblock %}
+{% block description %}{% if category %}Купити {{ category.name|lower }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні.{% else %}Каталог стріт & мілітарі одягу TwoComms: футболки, худі, лонгсліви та новинки бренду з характером.{% endif %}{% endblock %}
 
 {% block keywords %}{% if category %}{{ category.name|lower }}, {% endif %}стріт одяг, мілітарі одяг, футболки, худі,
 лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, каталог одягу{% endblock %}
@@ -24,14 +22,16 @@
 {% block og_type %}website{% endblock %}
 {% block og_title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
 {% block og_description %}{% if category %}{{ category.name }} з авторськими принтами від TwoComms. Стріт & мілітарі одяг.{% else %}Повний каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
-{% block og_image %}{% if category and category.cover %}{{ request.scheme }}://{{ request.get_host }}{{ category.cover.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endif %}{% endblock %}
+{% block og_image %}{% if category and category.cover %}{{ request.scheme }}://{{ request.get_host }}{{ category.cover.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
 {% block twitter_title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
 {% block twitter_description %}{% if category %}{{ category.name }} з авторськими принтами від TwoComms.{% else %}Каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
-{% block twitter_image %}{% if category and category.cover %}{{ request.scheme }}://{{ request.get_host }}{{ category.cover.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endif %}{% endblock %}
+{% block twitter_image %}{% if category and category.cover %}{{ request.scheme }}://{{ request.get_host }}{{ category.cover.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
 
 {% block breadcrumbs %}
   {% if category %}
     {% breadcrumbs request category=category %}
+  {% else %}
+    {% breadcrumbs request current_name='Каталог' %}
   {% endif %}
 {% endblock %}
 
@@ -73,6 +73,16 @@
 </script>
 {% endif %}
 {% if not category %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Головна", "item": "{{ request.scheme }}://{{ request.get_host }}/"},
+    {"@type": "ListItem", "position": 2, "name": "Каталог", "item": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}"}
+  ]
+}
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",

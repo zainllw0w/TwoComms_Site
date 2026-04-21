@@ -7,9 +7,11 @@
 {% block og_title %}{% seo_title product=product %}{% endblock %}
 {% block og_description %}{% seo_description product=product %}{% endblock %}
 {% block og_image %}{% seo_og_image product=product %}{% endblock %}
+{% block og_image_alt %}{{ product.main_image_alt|default:product.title }}{% endblock %}
 {% block twitter_title %}{% seo_title product=product %}{% endblock %}
 {% block twitter_description %}{% seo_description product=product %}{% endblock %}
 {% block twitter_image %}{% seo_og_image product=product %}{% endblock %}
+{% block twitter_image_alt %}{{ product.main_image_alt|default:product.title }}{% endblock %}
 
 {% block structured_data %}
   {% product_schema product %}
@@ -25,7 +27,7 @@
   <div class="col-12 col-lg-6">
     <div class="ratio ratio-product-detail rounded-4 overflow-hidden bg-elevate glass position-relative">
       {% if product.main_image %}
-        {% optimized_image product.main_image.url product.title "w-100 h-100 object-fit-contain" product.main_image.width|default:1080 product.main_image.height|default:1350 loading='eager' fetchpriority='high' sizes='(max-width: 992px) 100vw, 50vw' img_id='mainImage' %}
+        {% optimized_image product.main_image.url product.main_image_alt|default:product.title "w-100 h-100 object-fit-contain" product.main_image.width|default:1080 product.main_image.height|default:1350 loading='eager' fetchpriority='high' sizes='(max-width: 992px) 100vw, 50vw' img_id='mainImage' %}
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
         {% optimized_image ph_url product.title "w-100 h-100 object-fit-contain" 1080 1350 loading='eager' fetchpriority='high' sizes='(max-width: 992px) 100vw, 50vw' img_id='mainImage' %}
@@ -129,7 +131,7 @@
               <img
                 src="{{ product.display_image.url }}"
                 class="d-block w-100 h-100 object-fit-contain"
-                alt="{{ product.title }}"
+                alt="{{ product.main_image_alt|default:product.title }}"
                 width="1080" height="1350"
               >
             {% else %}
@@ -302,6 +304,7 @@
       var dataTag = document.getElementById('variant-data');
       var variants = [];
       try{ variants = JSON.parse((dataTag && dataTag.textContent) || '[]'); }catch(_){ variants=[]; }
+      var productImageAltBase = '{{ product.main_image_alt|default:product.title|escapejs }}';
 
       var carousel = document.getElementById('productCarousel');
       var inner = carousel ? carousel.querySelector('.carousel-inner') : null;
@@ -345,7 +348,7 @@
           var img = document.createElement('img');
           img.src = url;
           img.className = 'd-block w-100 h-100 object-fit-contain';
-          img.alt = '{{ product.title|escapejs }}';
+          img.alt = productImageAltBase + ' — фото ' + (idx + 1);
           item.appendChild(img);
 
           inner.appendChild(item);
@@ -361,7 +364,7 @@
           var th = document.createElement('button');
           th.type='button'; th.className='btn p-0 thumb'; th.setAttribute('data-bs-target','#productCarousel'); th.setAttribute('data-bs-slide-to', String(idx));
           var ti = document.createElement('img');
-          ti.src = url; ti.className='rounded-3 object-fit-cover'; ti.style.width='72px'; ti.style.height='72px'; ti.alt='';
+          ti.src = url; ti.className='rounded-3 object-fit-cover'; ti.style.width='72px'; ti.style.height='72px'; ti.alt = productImageAltBase + ' — мініатюра ' + (idx + 1);
           th.appendChild(ti);
           
           thumbs.appendChild(th);

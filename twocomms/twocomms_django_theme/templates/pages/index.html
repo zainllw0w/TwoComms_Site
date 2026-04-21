@@ -2,7 +2,7 @@
 
 {% block title %}TwoComms — Стріт & Мілітарі Одяг | Головна{% endblock %}
 
-{% block description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю. Швидка доставка по Україні.{% endblock %}
+{% block description %}TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні.{% endblock %}
 
 {% block keywords %}стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль{% endblock %}
 
@@ -37,18 +37,41 @@
 
 {% block structured_data %}
 <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  "name": "TwoComms",
-  "url": "{{ request.scheme }}://{{ request.get_host }}",
-  "description": "Магазин стріт & мілітарі одягу з ексклюзивним дизайном",
-  "potentialAction": {
-    "@type": "SearchAction",
-    "target": "{{ request.scheme }}://{{ request.get_host }}/search/?q={search_term_string}",
-    "query-input": "required name=search_term_string"
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "TwoComms",
+    "url": "{{ request.scheme }}://{{ request.get_host }}",
+    "description": "Магазин стріт & мілітарі одягу з ексклюзивним дизайном",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "{{ request.scheme }}://{{ request.get_host }}/search/?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "TwoComms — Головна",
+    "description": "Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом.",
+    "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
+    "primaryImageOfPage": "{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}",
+    "mainEntity": {
+      "@type": "ItemList",
+      "itemListElement": [
+        {% for c in categories|slice:":8" %}
+        {
+          "@type": "ListItem",
+          "position": {{ forloop.counter }},
+          "name": "{{ c.name|escapejs }}",
+          "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'catalog_by_cat' c.slug %}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+      ]
+    }
   }
-}
+]
 </script>
 {% endblock %}
 

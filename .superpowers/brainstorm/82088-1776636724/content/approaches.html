@@ -1,0 +1,133 @@
+<h2>Three implementation approaches</h2>
+<p class="subtitle">Comparing how to redesign the footer, support pages, FAQ system, and size-guide foundation</p>
+
+<div class="cards">
+  <div class="card" data-choice="css-lift" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. Cosmetic lift only</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Footer keeps same structure</div>
+          <div class="section">
+            <div class="placeholder">Big hero stays</div>
+          </div>
+          <div class="split">
+            <div class="mockup">
+              <div class="mockup-header">Repeated FAQ</div>
+              <div class="mockup-body">
+                <div class="mock-content">help</div>
+                <div class="mock-content">faq</div>
+                <div class="mock-content">delivery</div>
+              </div>
+            </div>
+            <div class="mockup">
+              <div class="mockup-header">Static size tab</div>
+              <div class="mockup-body">
+                <div class="mock-content">Same table everywhere</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. CSS Lift</h3>
+      <p>Fastest, but keeps the same IA problems: duplicated FAQ, noisy heroes, hardcoded size tables, and fragile SEO consistency.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Smallest immediate effort</li><li>Low template churn</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Does not solve root structure</li><li>Will likely need rework soon</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="systemic" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. Systemic premium-minimal (recommended)</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Balanced footer cluster: Shop / Support / Brand / Utility</div>
+          <div class="section">
+            <div class="split">
+              <div class="mockup">
+                <div class="mockup-header">Quiet service hero</div>
+                <div class="mockup-body">
+                  <div class="mock-content">H1 + short intro + chips</div>
+                  <div class="mock-content">No orbit cards by default</div>
+                </div>
+              </div>
+              <div class="mockup">
+                <div class="mockup-header">Structured body</div>
+                <div class="mockup-body">
+                  <div class="mock-content">TOC / sections / CTA</div>
+                  <div class="mock-content">Only topical mini-FAQ</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="split">
+            <div class="mockup">
+              <div class="mockup-header">Single FAQ hub</div>
+              <div class="mockup-body">
+                <div class="mock-content">Canonical FAQ page</div>
+                <div class="mock-content">Context pages link into it</div>
+              </div>
+            </div>
+            <div class="mockup">
+              <div class="mockup-header">Catalog + override sizes</div>
+              <div class="mockup-body">
+                <div class="mock-content">Default by product type</div>
+                <div class="mock-content">Per-product override later</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Systemic Premium Minimal</h3>
+      <p>Best balance: fixes structure and duplication while keeping the change set contained and future-proof for later brand storytelling and per-product size overrides.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Solves IA and visual harmony together</li><li>Future-proof for size system and about-page rebuild</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Needs template/data-layer cleanup</li><li>Requires tighter SEO regression checks</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="bespoke" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C. Bespoke page-by-page redesign</div>
+        <div class="mockup-body">
+          <div class="split">
+            <div class="mockup">
+              <div class="mockup-header">Custom footer</div>
+              <div class="mockup-body"><div class="mock-content">Unique composition</div></div>
+            </div>
+            <div class="mockup">
+              <div class="mockup-header">Custom help page</div>
+              <div class="mockup-body"><div class="mock-content">Custom layout</div></div>
+            </div>
+          </div>
+          <div class="split">
+            <div class="mockup">
+              <div class="mockup-header">Custom FAQ page</div>
+              <div class="mockup-body"><div class="mock-content">Standalone logic</div></div>
+            </div>
+            <div class="mockup">
+              <div class="mockup-header">Custom size pages</div>
+              <div class="mockup-body"><div class="mock-content">Standalone components</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. Bespoke Everywhere</h3>
+      <p>Maximum visual polish in theory, but highest risk of fragmenting templates, breaking consistency, and slowing down later SEO/text rollout.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Very expressive visuals</li><li>Maximum local freedom</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>High maintenance cost</li><li>Easy to create a third parallel system</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

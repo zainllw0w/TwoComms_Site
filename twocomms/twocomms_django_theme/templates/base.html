@@ -55,6 +55,7 @@
     href="{% block canonical %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
   {% block pagination_links %}{% endblock %}
   <link rel="alternate" hreflang="uk" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+  <link rel="alternate" hreflang="x-default" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
@@ -64,7 +65,8 @@
   <meta property="og:description"
     content="{% block og_description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.{% endblock %}">
   <meta property="og:image"
-    content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endblock %}">
+    content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}{% endblock %}">
+  <meta property="og:image:alt" content="{% block og_image_alt %}TwoComms — стріт & мілітарі одяг{% endblock %}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:site_name" content="TwoComms">
@@ -78,7 +80,8 @@
   <meta property="twitter:description"
     content="{% block twitter_description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.{% endblock %}">
   <meta property="twitter:image"
-    content="{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endblock %}">
+    content="{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}{% endblock %}">
+  <meta name="twitter:image:alt" content="{% block twitter_image_alt %}TwoComms — стріт & мілітарі одяг{% endblock %}">
   {% endblock %}
 
   <!-- CDN warm-up is only needed on routes that still load Bootstrap from jsDelivr. -->
