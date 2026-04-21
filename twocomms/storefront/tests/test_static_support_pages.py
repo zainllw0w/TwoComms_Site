@@ -65,7 +65,8 @@ class SupportStaticPagesTests(SimpleTestCase):
         about_response = self.client.get(reverse("about"), secure=True)
         self.assertEqual(about_response.status_code, 200)
         self.assertContains(about_response, 'class="pro-brand-page"', html=False)
-        self.assertContains(about_response, 'data-brand-scroll', html=False)
+        self.assertContains(about_response, 'data-pro-brand-video', html=False)
+        self.assertNotContains(about_response, 'data-brand-scroll', html=False)
         self.assertContains(about_response, 'aria-label="Breadcrumb"', html=False)
 
         delivery_response = self.client.get(reverse("delivery"), secure=True)

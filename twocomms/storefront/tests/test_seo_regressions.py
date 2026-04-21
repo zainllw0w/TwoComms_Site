@@ -99,7 +99,8 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
             'class="pro-brand-page"',
             html=False,
         )
-        self.assertContains(response, 'data-brand-scroll', html=False)
+        self.assertContains(response, 'data-pro-brand-video', html=False)
+        self.assertNotContains(response, 'data-brand-scroll', html=False)
         self.assertContains(response, 'aria-label="Breadcrumb"', html=False)
         self.assertContains(response, '"@type": "FAQPage"', html=False)
 
