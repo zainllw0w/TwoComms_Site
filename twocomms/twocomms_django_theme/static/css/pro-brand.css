@@ -362,8 +362,6 @@
   box-shadow: 0 40px 100px rgba(0,0,0,0.8), inset 0 2px 0 rgba(255,255,255,0.1);
   position: relative; overflow: hidden;
   border: none;
-  margin-top: -4rem;
-  z-index: 10;
   display: flex; flex-direction: column; gap: 1.5rem;
 }
 .pb-organic-bg {
@@ -552,23 +550,41 @@
 }
 .pb-banksy-card:hover { transform: translateY(-5px); }
 
-/* The taped canvas frame */
-.pb-banksy-visual { position: relative; width: 100%; aspect-ratio: 1/1; padding: 1rem; margin-bottom: 2rem; background: rgba(10,12,18,0.2); border: 2px dashed rgba(255,255,255,0.1); }
+/* Neo-Brutalist Frame System */
+.pb-banksy-visual { 
+  position: relative; width: 100%; aspect-ratio: 1/1; 
+  padding: 0.5rem; margin-bottom: 2.5rem; 
+  background: #0d0f14; border: 1px solid rgba(255,255,255,0.05); 
+  box-shadow: 12px 12px 0 #050608, 12px 12px 0 1px rgba(255,255,255,0.1);
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: flex; align-items: center; justify-content: center;
+}
+.pb-banksy-card:hover .pb-banksy-visual { 
+  transform: translate(-4px, -4px);
+  box-shadow: 16px 16px 0 var(--pb-accent), 16px 16px 0 1px rgba(255,255,255,0.2);
+}
 .pb-banksy-frame { 
   position: relative; width: 100%; height: 100%; overflow: hidden; 
-  /* Ripped paper edge effect using clip-path */
-  clip-path: polygon(2% 2%, 98% 0%, 100% 97%, 1% 100%, 0% 50%);
+  background: #000;
+  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
   transition: all 0.5s ease;
 }
-.pb-banksy-card:hover .pb-banksy-frame { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 50%); }
-
-/* Tape */
-.pb-banksy-tape {
-  position: absolute; top: -10px; left: 50%; transform: translateX(-50%) rotate(-3deg);
-  width: 80px; height: 30px; background: rgba(255,255,255,0.1);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.4); z-index: 5; backdrop-filter: blur(2px);
-  border-radius: 2px;
+/* Scanning Laser Line inside the frame */
+.pb-banksy-visual::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 2px;
+  background: var(--pb-accent); box-shadow: 0 0 12px var(--pb-accent);
+  opacity: 0.5; z-index: 10; pointer-events: none;
+  animation: pb-frame-scan 5s infinite cubic-bezier(0.4, 0, 0.2, 1);
 }
+@keyframes pb-frame-scan {
+  0% { top: 5%; opacity: 0; }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.8; }
+  100% { top: 95%; opacity: 0; }
+}
+
+/* Tape is removed/hidden */
+.pb-banksy-tape { display: none; }
 
 /* Image styling */
 .pb-banksy-image { 
