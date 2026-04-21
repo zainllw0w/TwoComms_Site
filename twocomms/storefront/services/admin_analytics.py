@@ -9,11 +9,11 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from typing import Any, Iterable
+from typing import Any
 
 from django.core.cache import cache
 from django.db.models import Avg, CharField, Count, DurationField, ExpressionWrapper, F, Min, Q, Sum
-from django.db.models.functions import Coalesce, TruncDay
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
@@ -556,14 +556,34 @@ def _build_daily_labels(filters: AnalyticsFilters) -> list[date]:
     return labels
 
 
-def _bucket_by_day(rows: Iterable[dict[str, Any]], key: str) -> dict[str, float]:
-    bucket: dict[str, float] = {}
-    for row in rows:
-        day_value = row.get("day")
-        if not day_value:
-            continue
-        bucket[str(day_value.date() if hasattr(day_value, "date") else day_value)] = _as_float(row.get(key))
-    return bucket
+def _local_day_key(value: Any) -> str | None:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        if timezone.is_aware(value):
+            return timezone.localtime(value).date().isoformat()
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return None
+
+
+def _count_queryset_by_local_day(qs, datetime_field: str) -> dict[str, int]:
+    counter: Counter[str] = Counter()
+    for value in qs.values_list(datetime_field, flat=True).iterator(chunk_size=2000):
+        day_key = _local_day_key(value)
+        if day_key:
+            counter[day_key] += 1
+    return dict(counter)
+
+
+def _sum_queryset_by_local_day(qs, datetime_field: str, value_field: str) -> dict[str, float]:
+    totals: defaultdict[str, float] = defaultdict(float)
+    for value, amount in qs.values_list(datetime_field, value_field).iterator(chunk_size=2000):
+        day_key = _local_day_key(value)
+        if day_key:
+            totals[day_key] += _as_float(amount)
+    return dict(totals)
 
 
 def _delta(current: float, previous: float) -> float | None:
@@ -644,7 +664,8 @@ def _build_overview_cards(filters: AnalyticsFilters) -> dict[str, Any]:
     if compare_filters:
         compare_scope = _resolve_scope(compare_filters)
         compare_site_qs = compare_scope.site_qs
-        compare_orders = _orders_queryset(compare_filters, compare_scope).filter(payment_status="paid")
+        compare_all_orders = _orders_queryset(compare_filters, compare_scope)
+        compare_orders = compare_all_orders.filter(payment_status="paid")
         compare_actions = _actions_queryset(compare_filters, compare_scope)
         compare_survey = _survey_queryset(compare_filters)
         compare.update(
@@ -722,56 +743,17 @@ def _timeseries_data(filters: AnalyticsFilters) -> dict[str, Any]:
         }
 
     scope = _resolve_scope(filters)
-    session_rows = (
-        scope.site_qs.annotate(day=TruncDay("first_seen"))
-        .values("day")
-        .annotate(total=Count("id"))
-        .order_by("day")
-    )
-    order_rows = (
-        _orders_queryset(filters, scope)
-        .annotate(day=TruncDay("created"))
-        .values("day")
-        .annotate(total=Count("id"))
-        .order_by("day")
-    )
-    revenue_rows = (
-        _orders_queryset(filters, scope)
-        .filter(payment_status="paid")
-        .annotate(day=TruncDay("created"))
-        .values("day")
-        .annotate(total=Sum("total_sum"))
-        .order_by("day")
+    session_bucket = _count_queryset_by_local_day(scope.site_qs, "first_seen")
+    order_bucket = _count_queryset_by_local_day(_orders_queryset(filters, scope), "created")
+    revenue_bucket = _sum_queryset_by_local_day(
+        _orders_queryset(filters, scope).filter(payment_status="paid"),
+        "created",
+        "total_sum",
     )
     actions_qs = _actions_queryset(filters, scope)
-    cart_rows = (
-        actions_qs.filter(action_type="add_to_cart")
-        .annotate(day=TruncDay("timestamp"))
-        .values("day")
-        .annotate(total=Count("id"))
-        .order_by("day")
-    )
-    checkout_rows = (
-        actions_qs.filter(action_type="initiate_checkout")
-        .annotate(day=TruncDay("timestamp"))
-        .values("day")
-        .annotate(total=Count("id"))
-        .order_by("day")
-    )
-    purchase_rows = (
-        actions_qs.filter(action_type="purchase")
-        .annotate(day=TruncDay("timestamp"))
-        .values("day")
-        .annotate(total=Count("id"))
-        .order_by("day")
-    )
-
-    session_bucket = _bucket_by_day(session_rows, "total")
-    order_bucket = _bucket_by_day(order_rows, "total")
-    revenue_bucket = _bucket_by_day(revenue_rows, "total")
-    cart_bucket = _bucket_by_day(cart_rows, "total")
-    checkout_bucket = _bucket_by_day(checkout_rows, "total")
-    purchase_bucket = _bucket_by_day(purchase_rows, "total")
+    cart_bucket = _count_queryset_by_local_day(actions_qs.filter(action_type="add_to_cart"), "timestamp")
+    checkout_bucket = _count_queryset_by_local_day(actions_qs.filter(action_type="initiate_checkout"), "timestamp")
+    purchase_bucket = _count_queryset_by_local_day(actions_qs.filter(action_type="purchase"), "timestamp")
 
     labels = _build_daily_labels(filters)
     label_strings = [item.isoformat() for item in labels]
@@ -789,24 +771,14 @@ def _timeseries_data(filters: AnalyticsFilters) -> dict[str, Any]:
     compare_filters = filters.build_compare_filters()
     if compare_filters and compare_filters.start_at and compare_filters.end_at:
         compare_scope = _resolve_scope(compare_filters)
-        compare_sessions = (
-            compare_scope.site_qs.annotate(day=TruncDay("first_seen"))
-            .values("day")
-            .annotate(total=Count("id"))
-            .order_by("day")
-        )
-        compare_revenue = (
-            _orders_queryset(compare_filters, compare_scope)
-            .filter(payment_status="paid")
-            .annotate(day=TruncDay("created"))
-            .values("day")
-            .annotate(total=Sum("total_sum"))
-            .order_by("day")
-        )
         compare_labels = _build_daily_labels(compare_filters)
         compare_label_strings = [item.isoformat() for item in compare_labels]
-        compare_session_bucket = _bucket_by_day(compare_sessions, "total")
-        compare_revenue_bucket = _bucket_by_day(compare_revenue, "total")
+        compare_session_bucket = _count_queryset_by_local_day(compare_scope.site_qs, "first_seen")
+        compare_revenue_bucket = _sum_queryset_by_local_day(
+            _orders_queryset(compare_filters, compare_scope).filter(payment_status="paid"),
+            "created",
+            "total_sum",
+        )
         comparison = {
             "label": "Попередній період" if filters.compare_to == "previous_period" else "Рік до року",
             "labels": compare_label_strings,
@@ -962,12 +934,9 @@ def _sales_data(filters: AnalyticsFilters) -> dict[str, Any]:
         source_class, _ = classify_session_source(session)
         source_ltv_map[source_class]["sessions"] += 1
 
-    daily_rows = (
-        paid_orders.annotate(day=TruncDay("created"))
-        .values("day")
-        .annotate(revenue=Sum("total_sum"), orders=Count("id"))
-        .order_by("day")
-    )
+    daily_revenue = _sum_queryset_by_local_day(paid_orders, "created", "total_sum")
+    daily_orders = _count_queryset_by_local_day(paid_orders, "created")
+    daily_labels = sorted(set(daily_revenue.keys()) | set(daily_orders.keys()))
 
     top_products = (
         order_items.values("product_id", "product__title")
@@ -990,9 +959,9 @@ def _sales_data(filters: AnalyticsFilters) -> dict[str, Any]:
             for row in payment_split_rows
         ],
         "daily_series": {
-            "labels": [row["day"].date().isoformat() for row in daily_rows],
-            "revenue": [round(_as_float(row["revenue"]), 2) for row in daily_rows],
-            "orders": [row["orders"] for row in daily_rows],
+            "labels": daily_labels,
+            "revenue": [round(_as_float(daily_revenue.get(label, 0)), 2) for label in daily_labels],
+            "orders": [_as_int(daily_orders.get(label, 0)) for label in daily_labels],
         },
         "source_ltv": [
             {

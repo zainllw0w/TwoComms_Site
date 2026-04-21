@@ -1,6 +1,9 @@
+from decimal import Decimal
+
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
 
+from orders.models import Order
 from storefront.models import SiteSession, UserAction
 
 
@@ -39,12 +42,42 @@ class AdminAnalyticsApiTests(TestCase):
         self.assertIn("integration_status", payload)
         self.assertIn("data", payload["overview"])
 
+    def test_bundle_supports_compare_mode_for_staff(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(
+            "/api/admin/analytics/?period=month&compare_to=previous_period",
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("comparison", payload["overview"]["data"])
+        self.assertIn("orders", payload["overview"]["data"]["comparison"])
+
     def test_products_widget_endpoint_is_available_for_staff(self):
         self.client.force_login(self.staff)
         response = self.client.get("/api/admin/analytics/products/?period=month", secure=True)
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertIn("data", payload)
+        self.assertEqual(payload.get("source"), "internal")
+
+    def test_sales_widget_endpoint_is_available_for_staff(self):
+        Order.objects.create(
+            full_name="Buyer",
+            phone="+380991112233",
+            city="Kyiv",
+            np_office="1",
+            pay_type="online_full",
+            total_sum=Decimal("1200.00"),
+            status="new",
+            payment_status="paid",
+        )
+
+        self.client.force_login(self.staff)
+        response = self.client.get("/api/admin/analytics/sales/?period=month", secure=True)
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("daily_series", payload["data"])
         self.assertEqual(payload.get("source"), "internal")
 
     def test_admin_panel_stats_section_renders_new_dashboard_shell(self):
