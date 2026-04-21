@@ -98,6 +98,11 @@
   <!-- HERO SECTION -->
   <section class="pb-hero pb-breakout">
     <div class="pb-hero-bg" aria-hidden="true">
+      <div class="pb-hero-macro-logo pb-glitch-container" data-tilt>
+        <img src="{% static 'img/logo.svg' %}" alt="TwoComms Logo Background" class="pb-logo-img pb-glitch-base">
+        <img src="{% static 'img/logo.svg' %}" alt="" aria-hidden="true" class="pb-logo-img pb-glitch-layer pb-glitch-1">
+        <img src="{% static 'img/logo.svg' %}" alt="" aria-hidden="true" class="pb-logo-img pb-glitch-layer pb-glitch-2">
+      </div>
       <canvas id="pb-hero-canvas"></canvas>
       <div class="pb-hero-glow"></div>
       <div class="pb-hero-noise"></div>
@@ -124,7 +129,7 @@
         </p>
 
         <div class="pb-actions pb-reveal pb-delay-4">
-          <a href="{% url 'catalog' %}" class="pb-btn pb-btn-primary">
+          <a href="{% url 'catalog' %}" class="pb-btn pb-btn-gold">
             <span>Дивитись каталог</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
           </a>
@@ -138,25 +143,6 @@
         </ul>
       </div>
 
-      <div class="pb-hero-visual pb-reveal pb-delay-3" aria-hidden="true">
-        <div class="pb-poster">
-          <div class="pb-poster-glass" data-tilt>
-            <div class="pb-poster-logo pb-glitch-container">
-              <img src="{% static 'img/logo.svg' %}" alt="TwoComms Logo" class="pb-logo-img pb-glitch-base" width="280">
-              <img src="{% static 'img/logo.svg' %}" alt="TwoComms Logo Glitch" class="pb-logo-img pb-glitch-layer pb-glitch-1" aria-hidden="true" width="280">
-              <img src="{% static 'img/logo.svg' %}" alt="TwoComms Logo Glitch" class="pb-logo-img pb-glitch-layer pb-glitch-2" aria-hidden="true" width="280">
-            </div>
-            <div class="pb-poster-content">
-              <p class="pb-poster-eyebrow">Харків. Код. Продовження.</p>
-              <p class="pb-poster-statement">Одяг з кодом для людей, які тримають форму зсередини.</p>
-              <div class="pb-poster-tags">
-                <span class="pb-tag">streetwear</span>
-                <span class="pb-tag">military-adjacent</span>
-                <span class="pb-tag">made in Ukraine</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </section>
@@ -199,7 +185,7 @@
         <article class="pb-bento-card pb-col-span-2">
           <div class="pb-bento-bg"></div>
           <div class="pb-bento-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M7 7h.01"></path><path d="M17 7h.01"></path><path d="M7 17h.01"></path><path d="M17 17h.01"></path></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8v12h16V8"></path><path d="M8 8V4h8v4"></path><path d="M12 12v4"></path><path d="M10 14h4"></path></svg>
           </div>
           <div class="pb-bento-content">
             <span class="pb-bento-eyebrow">Що таке TwoComms</span>
@@ -211,7 +197,7 @@
         <article class="pb-bento-card" id="meaning">
           <div class="pb-bento-bg"></div>
           <div class="pb-bento-icon">
-             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 10c0-2.5-1.5-4-3.5-4s-3.5 1.5-3.5 4c0 1.5 1 2.8 2.3 3.3l-1.5 3.2c-.4.8.4 1.5 1.2 1l3.5-5.5C12.8 11.2 13.5 10.5 13.5 10z"/></svg>
           </div>
           <div class="pb-bento-content">
             <span class="pb-bento-eyebrow">Не крапка. Продовження.</span>
@@ -223,7 +209,7 @@
         <article class="pb-bento-card">
           <div class="pb-bento-bg"></div>
           <div class="pb-bento-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
           </div>
           <div class="pb-bento-content">
             <span class="pb-bento-eyebrow">Знак для своїх</span>
@@ -241,7 +227,7 @@
               <p class="pb-bento-text">Після важкого поранення і критичної точки перед засновником залишився вибір: поставити крапку або продовжити. TwoComms став відповіддю на цей вибір.</p>
             </div>
             <div class="pb-bento-decor">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.5" class="pb-large-watermark"><path d="M12 2L2 22h20L12 2z"></path></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.3" class="pb-large-watermark"><path d="M12 2L2 22h20L12 2z"></path><path d="M12 2v20"></path><path d="M2 22l10-10l10 10"></path></svg>
             </div>
           </div>
         </article>
@@ -456,7 +442,7 @@
         <p class="pb-cta-text pb-text-center">Кожна річ TwoComms починається з ідеї, але має закінчуватися на людині. Знайди код, який відгукується, і носи стан, який хочеш тримати.</p>
         
         <div class="pb-actions pb-justify-center">
-          <a href="{% url 'catalog' %}" class="pb-btn pb-btn-primary pb-btn-large">
+          <a href="{% url 'catalog' %}" class="pb-btn pb-btn-gold pb-btn-large">
             <span>Каталог</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
           </a>

@@ -167,6 +167,25 @@
   padding: 1rem 2.25rem;
   font-size: 1.05rem;
 }
+.pb-btn-gold {
+  background: linear-gradient(135deg, #FFE890 0%, #D4AF37 60%, #996515 100%);
+  color: #050505;
+  box-shadow: 0 12px 32px rgba(212, 175, 55, 0.25);
+  position: relative;
+  overflow: hidden;
+  border: none;
+}
+.pb-btn-gold::before {
+  content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent);
+  animation: pb-gold-shimmer 4s ease-in-out infinite;
+  transform: skewX(-20deg);
+}
+.pb-btn-gold:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(212, 175, 55, 0.4); }
+@keyframes pb-gold-shimmer {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
 
 /* BREADCRUMBS */
 .pb-breadcrumbs {
@@ -292,13 +311,24 @@
   pointer-events: none; opacity: 0.5;
 }
 .pb-poster-logo { text-align: center; padding: 1rem 0; position: relative; }
+.pb-hero-macro-logo {
+  position: absolute;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 140vw; max-width: 2000px;
+  pointer-events: none; opacity: 0.02; z-index: -1;
+}
+.pb-hero-macro-logo .pb-logo-img { width: 100%; height: auto; object-fit: contain; }
+
 .pb-glitch-container { position: relative; display: inline-block; transform: translateZ(40px); }
 .pb-logo-img { max-width: 100%; height: auto; }
 .pb-glitch-layer { position: absolute; top: 0; left: 0; width: 100%; opacity: 0; pointer-events: none; }
 .pb-glitch-base { position: relative; opacity: 1; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5)); }
-.pb-poster-glass:hover .pb-glitch-layer { animation: pb-glitch-anim 0.3s cubic-bezier(.25, .46, .45, .94) both infinite; opacity: 0.6; }
-.pb-poster-glass:hover .pb-glitch-1 { filter: drop-shadow(-3px 0 0 rgba(255,0,0,0.8)); mix-blend-mode: screen; }
-.pb-poster-glass:hover .pb-glitch-2 { animation-duration: 0.5s; animation-direction: reverse; filter: drop-shadow(3px 0 0 rgba(0,255,255,0.8)); mix-blend-mode: screen; }
+
+/* Apply glitch specifically to macro if we want, or keep it inside .pb-poster-glass for tilt. Since macro is behind tilt, let's keep hover independent if needed */
+.pb-glitch-container:hover .pb-glitch-layer { animation: pb-glitch-anim 0.3s cubic-bezier(.25, .46, .45, .94) both infinite; opacity: 0.6; }
+.pb-glitch-container:hover .pb-glitch-1 { filter: drop-shadow(-3px 0 0 rgba(255,0,0,0.8)); mix-blend-mode: screen; }
+.pb-glitch-container:hover .pb-glitch-2 { animation-duration: 0.5s; animation-direction: reverse; filter: drop-shadow(3px 0 0 rgba(0,255,255,0.8)); mix-blend-mode: screen; }
+
 @keyframes pb-glitch-anim {
   0% { transform: translate(0) }
   20% { transform: translate(-2px, 1px) clip-path: polygon(0 10%, 100% 10%, 100% 20%, 0 20%); }
@@ -352,13 +382,14 @@
   display: flex; flex-direction: column; justify-content: flex-end;
   overflow: hidden;
   transition: transform var(--pb-transition-smooth), border-color 0.3s;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 .pb-bento-card::after {
   content: '';
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
-  background: radial-gradient(600px circle at var(--mouse-x, 0) var(--mouse-y, 0), rgba(139, 92, 246, 0.12), transparent 40%);
-  z-index: 3; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+  background: radial-gradient(800px circle at var(--mouse-x, 0) var(--mouse-y, 0), rgba(255, 255, 255, 0.05), transparent 40%);
+  z-index: 3; pointer-events: none; opacity: 0; transition: opacity 0.4s;
 }
 .pb-bento-card:hover::after { opacity: 1; }
 .pb-bento-card:hover {
@@ -378,8 +409,8 @@
 .pb-bento-content, .pb-bento-icon { position: relative; z-index: 1; }
 .pb-bento-icon { margin-bottom: auto; background: rgba(255,255,255,0.05); width: 48px; height: 48px; border-radius: var(--pb-radius-sm); border: 1px solid var(--pb-border); display: flex; align-items: center; justify-content: center; color: var(--pb-accent); }
 .pb-bento-eyebrow { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--pb-kicker-color); margin-bottom: 0.5rem; display: block; }
-.pb-bento-title { font-size: 1.5rem; margin: 0 0 0.75rem; font-weight: 600; line-height: 1.2; }
-.pb-bento-text { margin: 0; color: var(--pb-text-muted); font-size: 1rem; }
+.pb-bento-title { font-size: 1.5rem; margin: 0 0 0.5rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+.pb-bento-text { margin: 0; color: var(--pb-text-muted); font-size: 0.95rem; line-height: 1.6; font-weight: 400; }
 .pb-bento-text-part { max-width: 60%; }
 .pb-large-watermark { width: 140px; height: 140px; color: rgba(255,255,255,0.03); transform: rotate(15deg); }
 
