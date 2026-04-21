@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import IntegrityError, models, transaction
@@ -1506,3 +1507,280 @@ class UserAction(models.Model):
 
     def __str__(self):
         return f"{self.get_action_type_display()} - {self.timestamp}"
+
+
+class WebPushDeviceSubscription(models.Model):
+    class DeviceType(models.TextChoices):
+        DESKTOP = "desktop", _("Desktop")
+        MOBILE = "mobile", _("Mobile")
+        TABLET = "tablet", _("Tablet")
+        UNKNOWN = "unknown", _("Unknown")
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="web_push_subscriptions",
+        verbose_name="Користувач",
+    )
+    installation_id = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+        verbose_name="ID браузерної інсталяції",
+    )
+    endpoint = models.URLField(
+        max_length=1000,
+        unique=True,
+        verbose_name="Push endpoint",
+    )
+    auth_key = models.CharField(max_length=255, verbose_name="Ключ auth")
+    p256dh_key = models.CharField(max_length=255, verbose_name="Ключ p256dh")
+    language = models.CharField(max_length=16, blank=True, verbose_name="Мова браузера")
+    timezone = models.CharField(max_length=64, blank=True, verbose_name="Часовий пояс")
+    browser_family = models.CharField(max_length=64, blank=True, verbose_name="Браузер")
+    operating_system = models.CharField(max_length=64, blank=True, verbose_name="ОС")
+    device_type = models.CharField(
+        max_length=20,
+        choices=DeviceType.choices,
+        default=DeviceType.UNKNOWN,
+        db_index=True,
+        verbose_name="Тип пристрою",
+    )
+    user_agent = models.TextField(blank=True, verbose_name="User Agent")
+    last_seen_path = models.CharField(max_length=512, blank=True, verbose_name="Остання сторінка")
+    metadata = models.JSONField(default=dict, blank=True, verbose_name="Метадані")
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name="Активна")
+    subscribed_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Підписано")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+    last_seen_at = models.DateTimeField(auto_now=True, db_index=True, verbose_name="Остання активність")
+    unsubscribed_at = models.DateTimeField(null=True, blank=True, verbose_name="Відписано")
+    last_success_at = models.DateTimeField(null=True, blank=True, verbose_name="Остання успішна доставка")
+    last_failure_at = models.DateTimeField(null=True, blank=True, verbose_name="Остання помилка")
+    failure_count = models.PositiveIntegerField(default=0, verbose_name="Кількість помилок")
+    last_error = models.CharField(max_length=255, blank=True, verbose_name="Остання помилка")
+
+    class Meta:
+        verbose_name = "Web Push підписка"
+        verbose_name_plural = "Web Push підписки"
+        ordering = ["-last_seen_at"]
+        indexes = [
+            models.Index(fields=["is_active", "-last_seen_at"], name="idx_push_sub_active_seen"),
+            models.Index(fields=["installation_id", "is_active"], name="idx_push_subscription_install"),
+            models.Index(fields=["user", "is_active"], name="idx_push_subscription_user"),
+            models.Index(fields=["device_type", "is_active"], name="idx_push_subscription_device"),
+        ]
+
+    def __str__(self):
+        identity = self.installation_id or self.endpoint
+        return f"Push subscription {identity}"
+
+    def mark_inactive(self, error_message=""):
+        now = timezone.now()
+        update_fields = [
+            "is_active",
+            "unsubscribed_at",
+            "last_failure_at",
+            "last_error",
+            "updated_at",
+        ]
+        self.is_active = False
+        self.unsubscribed_at = now
+        self.last_failure_at = now
+        self.last_error = (error_message or "")[:255]
+        self.save(update_fields=update_fields)
+
+    def mark_delivery_success(self):
+        now = timezone.now()
+        self.is_active = True
+        self.last_success_at = now
+        self.failure_count = 0
+        self.last_error = ""
+        self.save(update_fields=["is_active", "last_success_at", "failure_count", "last_error", "updated_at"])
+
+    def register_failure(self, error_message=""):
+        self.failure_count = (self.failure_count or 0) + 1
+        self.last_failure_at = timezone.now()
+        self.last_error = (error_message or "")[:255]
+        self.save(update_fields=["failure_count", "last_failure_at", "last_error", "updated_at"])
+
+
+class PushNotificationCampaign(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", _("Чернетка")
+        SENDING = "sending", _("Надсилання")
+        SENT = "sent", _("Надіслано")
+        PARTIAL = "partial", _("Частково доставлено")
+        FAILED = "failed", _("Помилка")
+
+    class AudienceMode(models.TextChoices):
+        ALL_ACTIVE = "all_active", _("Усі активні підписки")
+
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="push_campaigns",
+        verbose_name="Створив",
+    )
+    title = models.CharField(max_length=120, verbose_name="Заголовок")
+    body = models.CharField(max_length=240, verbose_name="Текст повідомлення")
+    target_url = models.CharField(max_length=500, verbose_name="Посилання переходу")
+    image = models.ImageField(
+        upload_to="push_notifications/",
+        blank=True,
+        null=True,
+        verbose_name="Зображення сповіщення",
+    )
+    audience_mode = models.CharField(
+        max_length=20,
+        choices=AudienceMode.choices,
+        default=AudienceMode.ALL_ACTIVE,
+        verbose_name="Аудиторія",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True,
+        verbose_name="Статус",
+    )
+    last_error = models.CharField(max_length=255, blank=True, verbose_name="Остання помилка")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Створено")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+    sent_started_at = models.DateTimeField(null=True, blank=True, verbose_name="Початок надсилання")
+    sent_finished_at = models.DateTimeField(null=True, blank=True, verbose_name="Завершення надсилання")
+    targeted_count = models.PositiveIntegerField(default=0, verbose_name="Заплановано")
+    sent_count = models.PositiveIntegerField(default=0, verbose_name="Прийнято push-сервісом")
+    displayed_count = models.PositiveIntegerField(default=0, verbose_name="Показано")
+    clicked_count = models.PositiveIntegerField(default=0, verbose_name="Кліки")
+    closed_count = models.PositiveIntegerField(default=0, verbose_name="Закрито")
+    failed_count = models.PositiveIntegerField(default=0, verbose_name="Помилки")
+
+    class Meta:
+        verbose_name = "Push кампанія"
+        verbose_name_plural = "Push кампанії"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "-created_at"], name="idx_push_campaign_status"),
+        ]
+
+    def __str__(self):
+        return f"Push #{self.pk or 'new'} — {self.title}"
+
+    @property
+    def display_rate(self):
+        if not self.sent_count:
+            return Decimal("0")
+        return (
+            Decimal(self.displayed_count or 0) * Decimal("100") / Decimal(self.sent_count)
+        ).quantize(Decimal("0.01"))
+
+    @property
+    def click_rate(self):
+        if not self.displayed_count:
+            return Decimal("0")
+        return (
+            Decimal(self.clicked_count or 0) * Decimal("100") / Decimal(self.displayed_count)
+        ).quantize(Decimal("0.01"))
+
+    def sync_delivery_metrics(self):
+        deliveries = self.deliveries.all()
+        self.targeted_count = deliveries.count()
+        self.sent_count = deliveries.filter(sent_at__isnull=False).count()
+        self.displayed_count = deliveries.filter(displayed_at__isnull=False).count()
+        self.clicked_count = deliveries.filter(clicked_at__isnull=False).count()
+        self.closed_count = deliveries.filter(closed_at__isnull=False).count()
+        self.failed_count = deliveries.filter(failed_at__isnull=False).count()
+
+        if self.targeted_count == 0:
+            self.status = self.Status.DRAFT
+        elif self.failed_count and not self.sent_count:
+            self.status = self.Status.FAILED
+        elif self.failed_count:
+            self.status = self.Status.PARTIAL
+        elif self.sent_count:
+            self.status = self.Status.SENT
+
+        self.save(
+            update_fields=[
+                "targeted_count",
+                "sent_count",
+                "displayed_count",
+                "clicked_count",
+                "closed_count",
+                "failed_count",
+                "status",
+                "updated_at",
+            ]
+        )
+
+
+class PushNotificationDelivery(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Очікує")
+        SENT = "sent", _("Надіслано")
+        DISPLAYED = "displayed", _("Показано")
+        CLICKED = "clicked", _("Клік")
+        CLOSED = "closed", _("Закрито")
+        FAILED = "failed", _("Помилка")
+        EXPIRED = "expired", _("Недійсна підписка")
+
+    campaign = models.ForeignKey(
+        PushNotificationCampaign,
+        on_delete=models.CASCADE,
+        related_name="deliveries",
+        verbose_name="Кампанія",
+    )
+    subscription = models.ForeignKey(
+        WebPushDeviceSubscription,
+        on_delete=models.CASCADE,
+        related_name="deliveries",
+        verbose_name="Підписка",
+    )
+    event_token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        verbose_name="Токен події",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+        verbose_name="Статус",
+    )
+    push_service_status_code = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="HTTP статус push-сервісу",
+    )
+    error_code = models.CharField(max_length=64, blank=True, verbose_name="Код помилки")
+    error_message = models.CharField(max_length=255, blank=True, verbose_name="Повідомлення помилки")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+    sent_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name="Надіслано")
+    displayed_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name="Показано")
+    clicked_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name="Клік")
+    closed_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name="Закрито")
+    failed_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name="Помилка")
+
+    class Meta:
+        verbose_name = "Push доставка"
+        verbose_name_plural = "Push доставки"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["campaign", "subscription"],
+                name="uniq_push_delivery_campaign_subscription",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["campaign", "status"], name="idx_push_deliv_cmp_status"),
+            models.Index(fields=["subscription", "-created_at"], name="idx_push_delivery_subscription"),
+        ]
+
+    def __str__(self):
+        return f"Delivery #{self.pk} for campaign #{self.campaign_id}"

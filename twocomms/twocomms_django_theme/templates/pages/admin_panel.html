@@ -386,6 +386,12 @@
           </svg>
           Кастомні замовлення
         </a>
+        <a href="?section=push_notifications" class="admin-nav-item {% if section == 'push_notifications' %}active{% endif %}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm6-6V11a6 6 0 1 0-12 0v5L4 18v1h16v-1l-2-2z"/>
+          </svg>
+          Push
+        </a>
         <a href="?section=collaboration" class="admin-nav-item {% if section == 'collaboration' %}active{% endif %}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2a5 5 0 015 5v1h1a4 4 0 110 8h-1v1a5 5 0 11-10 0v-1H6a4 4 0 110-8h1V7a5 5 0 015-5z"/>
@@ -2685,6 +2691,9 @@
 
     {% elif section == 'dispatcher' %}
       {% include "partials/admin_dispatcher_section.html" %}
+
+    {% elif section == 'push_notifications' %}
+      {% include "partials/admin_push_notifications_section.html" %}
 
     {% elif section == 'collaboration' %}
       {% include "partials/admin_collaboration_section.html" %}
