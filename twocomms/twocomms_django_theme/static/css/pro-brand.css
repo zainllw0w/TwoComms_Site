@@ -540,53 +540,55 @@
 .pb-split-text p:last-child { margin: 0; }
 .pb-split-text .pb-lead { color: var(--pb-text); margin-bottom: 2rem; }
 
-/* PRINTS AS CODES HUD */
-.pb-codes-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
-.pb-hud-card {
+/* PRINTS AS CODES: BANKSY STYLE */
+.pb-codes-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 3rem; margin-top: 3rem;
+}
+.pb-banksy-card {
   display: flex; flex-direction: column; 
-  background: rgba(10,12,18,0.4); border: 1px solid rgba(255,255,255,0.05);
-  border-radius: var(--pb-radius-lg); overflow: hidden;
-  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.3s;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  background: transparent;
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
 }
-.pb-hud-card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.7); }
-.pb-hud-visual { position: relative; width: 100%; aspect-ratio: 3/4; padding: 1.5rem; }
-.pb-hud-frame { 
-  position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: var(--pb-radius-md); 
-  border: 1px solid rgba(255,255,255,0.08); background: #080a0f;
+.pb-banksy-card:hover { transform: translateY(-5px); }
+
+/* The taped canvas frame */
+.pb-banksy-visual { position: relative; width: 100%; aspect-ratio: 1/1; padding: 1rem; margin-bottom: 2rem; background: rgba(10,12,18,0.2); border: 2px dashed rgba(255,255,255,0.1); }
+.pb-banksy-frame { 
+  position: relative; width: 100%; height: 100%; overflow: hidden; 
+  /* Ripped paper edge effect using clip-path */
+  clip-path: polygon(2% 2%, 98% 0%, 100% 97%, 1% 100%, 0% 50%);
+  transition: all 0.5s ease;
 }
-.pb-hud-image { 
+.pb-banksy-card:hover .pb-banksy-frame { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 50%); }
+
+/* Tape */
+.pb-banksy-tape {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%) rotate(-3deg);
+  width: 80px; height: 30px; background: rgba(255,255,255,0.1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4); z-index: 10; backdrop-filter: blur(2px);
+  border-radius: 2px;
+}
+
+/* Image styling */
+.pb-banksy-image { 
   width: 100%; height: 100%; object-fit: cover; 
-  filter: grayscale(1) contrast(1.2) brightness(0.6); mix-blend-mode: luminosity; 
+  filter: grayscale(1) contrast(1.4) brightness(0.7); mix-blend-mode: hard-light; 
   transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.pb-hud-card:hover .pb-hud-image { filter: grayscale(0) contrast(1) brightness(1); mix-blend-mode: normal; transform: scale(1.05); }
+.pb-banksy-card:hover .pb-banksy-image { filter: grayscale(0) contrast(1.1) brightness(0.9); mix-blend-mode: normal; transform: scale(1.03); }
 
-/* HUD Target Corners */
-.pb-hud-corners span { position: absolute; width: 20px; height: 20px; border-color: rgba(255,255,255,0.4); border-style: solid; z-index: 2; transition: all 0.3s; }
-.pb-hud-corners .top-left { top: 0; left: 0; border-width: 2px 0 0 2px; }
-.pb-hud-corners .top-right { top: 0; right: 0; border-width: 2px 2px 0 0; }
-.pb-hud-corners .bot-left { bottom: 0; left: 0; border-width: 0 0 2px 2px; }
-.pb-hud-corners .bot-right { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
-.pb-hud-card:hover .pb-hud-corners span { border-color: var(--pb-accent); width: 15px; height: 15px; margin: 10px; }
-
-/* Scanner Line */
-.pb-hud-scanner {
-  position: absolute; left: 0; right: 0; height: 2px; background: rgba(212, 175, 55, 0.5);
-  box-shadow: 0 0 10px rgba(212, 175, 55, 0.5); z-index: 2; opacity: 0;
-  animation: pb-hud-scan 4s infinite linear;
-}
-.pb-hud-card:hover .pb-hud-scanner { opacity: 1; }
-@keyframes pb-hud-scan { 0% { top: -10%; } 100% { top: 110%; } }
+/* Dirt/Noise overlay */
+.pb-banksy-noise { position: absolute; inset: 0; background: url('https://www.transparenttextures.com/patterns/stucco.png'); opacity: 0.3; pointer-events: none; mix-blend-mode: overlay; z-index: 5; }
 
 /* Content Section */
-.pb-hud-content { padding: 0 2rem 2.5rem; display: flex; flex-direction: column; flex-grow: 1; border-left: 2px solid transparent; transition: border-color 0.3s; margin: 2rem 0 0 1rem; }
-.pb-hud-card:hover .pb-hud-content { border-left-color: var(--pb-accent); }
-.pb-hud-meta { display: flex; gap: 1rem; margin-bottom: 1rem; font-family: monospace; font-size: 0.85rem; letter-spacing: 0.1em; }
-.pb-hud-data { color: var(--pb-text-muted); opacity: 0.5; }
-.pb-hud-tag { color: var(--pb-accent); text-transform: uppercase; }
-.pb-hud-card .pb-code-title { font-size: 1.35rem; font-weight: 700; margin: 0 0 1rem; line-height: 1.25; }
-.pb-hud-card .pb-code-desc { margin: 0; color: var(--pb-text-muted); font-size: 0.95rem; line-height: 1.6; }
+.pb-banksy-content { padding: 0 1rem; display: flex; flex-direction: column; flex-grow: 1; }
+.pb-banksy-meta { display: flex; gap: 1rem; margin-bottom: 1rem; font-family: 'Courier New', Courier, monospace; letter-spacing: 0.1em; color: var(--pb-accent); align-items: baseline; }
+.pb-banksy-stencil { font-size: 1.5rem; font-weight: 800; text-transform: uppercase; border-bottom: 3px solid var(--pb-accent); padding-bottom: 3px; display: inline-block; white-space: nowrap; }
+.pb-banksy-tag { color: var(--pb-text-muted); text-transform: uppercase; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.15em; }
+
+.pb-banksy-title { font-size: 1.5rem; font-weight: 800; margin: 0 0 1rem; line-height: 1.25; color: var(--pb-text); text-transform: uppercase; }
+.pb-banksy-desc { margin: 0; color: var(--pb-text-muted); font-size: 0.95rem; line-height: 1.6; border-left: 2px solid rgba(255,255,255,0.1); padding-left: 1rem; }
 
 /* PROOF LAYOUT */
 .pb-proof-layout { display: flex; flex-direction: column; gap: 2rem; }
@@ -744,7 +746,6 @@
   .pb-video-wrapper { grid-template-columns: 1fr; gap: 2rem; }
   .pb-split-layout { grid-template-columns: 1fr; gap: 2rem; }
   .pb-split-sticky { position: static; }
-  .pb-codes-grid { grid-template-columns: repeat(2, 1fr); }
   .pb-future-banner { grid-template-columns: 1fr; gap: 2rem; }
   .pb-faq-grid { grid-template-columns: 1fr; gap: 3rem; }
   .pb-faq-sticky { position: static; }
@@ -769,6 +770,5 @@
   .pb-large-watermark { display: none; }
   .pb-proof-main { grid-template-columns: 1fr; }
   .pb-proof-rail { grid-template-columns: 1fr; }
-  .pb-codes-grid { grid-template-columns: 1fr; }
   .pb-dual-grid { grid-template-columns: 1fr; }
 }
