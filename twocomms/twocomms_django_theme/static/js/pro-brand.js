@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 2. Poster 3D Tilt
-  const tiltContainer = document.querySelector(".pb-hero-inner");
+  const tiltContainer = document.querySelector(".pb-hero");
   const tiltCard = document.querySelector("[data-tilt]");
   if (tiltContainer && tiltCard) {
     tiltContainer.addEventListener("mousemove", (e) => {
@@ -36,15 +36,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const centerX = rect.width / 2;
       const centerY = rect.height / 2;
       
-      const rotateX = ((y - centerY) / centerY) * -4;
-      const rotateY = ((x - centerX) / centerX) * 4;
+      const rotateX = ((y - centerY) / centerY) * -3;
+      const rotateY = ((x - centerX) / centerX) * 3;
       
-      tiltCard.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+      tiltCard.style.transform = `translate(-50%, -50%) perspective(1500px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
     });
     
     tiltContainer.addEventListener("mouseleave", () => {
       tiltCard.style.transition = "transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)";
-      tiltCard.style.transform = `perspective(1000px) rotateY(-5deg) rotateX(2deg)`;
+      tiltCard.style.transform = `translate(-50%, -50%) perspective(1000px) rotateY(0deg) rotateX(0deg)`;
     });
     tiltContainer.addEventListener("mouseenter", () => {
       tiltCard.style.transition = "none";
@@ -87,7 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
       draw() {
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(139, 92, 246, ${this.opacity})`;
+        ctx.fillStyle = `rgba(235, 230, 220, ${this.opacity})`;
         ctx.fill();
       }
     }
