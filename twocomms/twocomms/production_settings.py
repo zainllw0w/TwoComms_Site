@@ -39,7 +39,12 @@ from .settings import *
 
 # Возможность отключить аналитическую мидлварь через переменную окружения
 if os.environ.get('DISABLE_ANALYTICS', 'false').lower() in ('1', 'true', 'yes'):
-    MIDDLEWARE = [m for m in MIDDLEWARE if m != "storefront.tracking.SimpleAnalyticsMiddleware"]
+    disabled_analytics_middleware = {
+        "storefront.tracking.AnalyticsIdentityMiddleware",
+        "storefront.tracking.SimpleAnalyticsMiddleware",
+        "storefront.utm_middleware.UTMTrackingMiddleware",
+    }
+    MIDDLEWARE = [m for m in MIDDLEWARE if m not in disabled_analytics_middleware]
     # Добавляем HTTPS middleware в продакшене
     if "twocomms.middleware.ForceHTTPSMiddleware" not in MIDDLEWARE:
         MIDDLEWARE.insert(0, "twocomms.middleware.ForceHTTPSMiddleware")

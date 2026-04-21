@@ -22,6 +22,7 @@
   }
 
   const STORAGE_KEY = CONFIG.storage_key || "twocomms.custom_print.v2.draft";
+  const TRACK_EVENT_URL = CONFIG.track_event_url || "/api/track-event/";
   const STEPS = ["mode", "product", "config", "zones", "artwork", "quantity", "gift", "contact"];
   const STAGE_VISIBLE_AFTER = new Set(STEPS.filter((step) => step !== "mode"));
   const FRONT_SIZE_DEFAULT = CONFIG.front_size_default || "A4";
@@ -45,6 +46,11 @@
 
   const STATE = createState();
   const filesByPlacement = new Map(); // placement_key -> File[]
+  const analyticsState = {
+    flowStarted: false,
+    enteredSteps: new Set(),
+    completedSteps: new Set(),
+  };
 
   // ── DOM refs ────────────────────────────────────────────────
   const dom = {
@@ -188,6 +194,67 @@
         stage_view: "front",
       },
     };
+  }
+
+  function buildAnalyticsMetadata(extra = {}) {
+    const pricing = computePricing();
+    return {
+      current_step: STATE.ui.current_step || "mode",
+      mode: STATE.mode || "",
+      product_type: STATE.product.type || "",
+      service_kind: STATE.artwork.service_kind || "",
+      quantity: STATE.order.quantity || 0,
+      zones: [...(STATE.print.zones || [])],
+      file_count: collectOrderedFiles().length,
+      estimate_required: !!pricing.estimate_required,
+      final_total: pricing.final_total ?? null,
+      ...extra,
+    };
+  }
+
+  function sendAnalyticsEvent(eventType, metadata = {}) {
+    if (!TRACK_EVENT_URL || !eventType) return;
+    const body = JSON.stringify({
+      event_type: eventType,
+      metadata,
+    });
+    try {
+      if (navigator.sendBeacon) {
+        const blob = new Blob([body], { type: "application/json" });
+        navigator.sendBeacon(TRACK_EVENT_URL, blob);
+        return;
+      }
+    } catch (_) {
+      // noop
+    }
+    fetch(TRACK_EVENT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      credentials: "same-origin",
+      keepalive: true,
+      body,
+    }).catch(() => {});
+  }
+
+  function ensureFlowStarted(trigger) {
+    if (analyticsState.flowStarted) return;
+    analyticsState.flowStarted = true;
+    sendAnalyticsEvent("custom_print_start", buildAnalyticsMetadata({ trigger }));
+  }
+
+  function trackStepEnter(stepKey, extra = {}) {
+    if (!stepKey || analyticsState.enteredSteps.has(stepKey)) return;
+    analyticsState.enteredSteps.add(stepKey);
+    sendAnalyticsEvent("custom_print_step_enter", buildAnalyticsMetadata({ step_key: stepKey, ...extra }));
+  }
+
+  function trackStepComplete(stepKey, extra = {}) {
+    if (!stepKey || analyticsState.completedSteps.has(stepKey)) return;
+    analyticsState.completedSteps.add(stepKey);
+    sendAnalyticsEvent("custom_print_step_complete", buildAnalyticsMetadata({ step_key: stepKey, ...extra }));
   }
 
   function init() {
@@ -1900,7 +1967,7 @@
         location.reload();
         return;
       }
-      
+      ensureFlowStarted("start_button");
       const target = document.getElementById("cp-step-mode");
       if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -1918,8 +1985,10 @@
       btn.addEventListener("click", () => {
         const target = btn.dataset.stepNext;
         if (canAdvance(STATE.ui.current_step)) {
+          ensureFlowStarted(`step_next_${STATE.ui.current_step}`);
+          trackStepComplete(STATE.ui.current_step, { transition_to: target });
           markStepDone(STATE.ui.current_step);
-          setActiveStep(target);
+          setActiveStep(target, { fromStep: STATE.ui.current_step });
         } else {
           showStatus("Заповніть поточний крок, щоб рухатись далі.", "warning");
         }
@@ -1931,8 +2000,10 @@
         STATE.order.gift_enabled = false;
         if (dom.giftToggle) dom.giftToggle.classList.remove("is-active");
         if (dom.giftTextWrap) dom.giftTextWrap.hidden = true;
+        ensureFlowStarted(`step_skip_${STATE.ui.current_step}`);
+        trackStepComplete(STATE.ui.current_step, { transition_to: btn.dataset.stepSkip, skipped: true });
         markStepDone(STATE.ui.current_step);
-        setActiveStep(btn.dataset.stepSkip);
+        setActiveStep(btn.dataset.stepSkip, { fromStep: STATE.ui.current_step });
         refreshAll();
         persistDraft();
       });
@@ -1956,6 +2027,8 @@
     });
     refreshAll();
     if (!opts.silent) {
+      ensureFlowStarted(`step_enter_${key}`);
+      trackStepEnter(key, { from_step: opts.fromStep || null });
       const target = document.getElementById(`cp-step-${key}`);
       const scrollTarget = mobileProgressQuery?.matches && dom.progressShell && !dom.progressShell.hidden
         ? dom.progressShell
@@ -1979,11 +2052,13 @@
   }
 
   function afterChoice(stepKey) {
+    ensureFlowStarted(`after_choice_${stepKey}`);
+    const next = nextStepAfter(stepKey);
+    trackStepComplete(stepKey, { transition_to: next });
     markStepDone(stepKey);
     refreshAll();
     // Determine next step
-    const next = nextStepAfter(stepKey);
-    if (next) setActiveStep(next);
+    if (next) setActiveStep(next, { fromStep: stepKey });
     persistDraft();
   }
 

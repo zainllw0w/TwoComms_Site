@@ -48,6 +48,7 @@ from storefront.custom_print_notifications import (
     notify_custom_print_safe_exit,
     notify_new_custom_print_lead,
 )
+from storefront.utm_tracking import record_custom_print_event
 from storefront.services.catalog_helpers import apply_public_product_order
 from storefront.services.size_guides import build_public_size_guide_blocks, resolve_product_sizes
 from storefront.utils.analytics_helpers import FEED_DEFAULT_COLOR, normalize_feed_color
@@ -856,6 +857,7 @@ def custom_print(request):
         submit_url=request.build_absolute_uri(reverse("custom_print_lead")),
         safe_exit_url=request.build_absolute_uri(reverse("custom_print_safe_exit")),
         add_to_cart_url=request.build_absolute_uri(reverse("custom_print_add_to_cart")),
+        track_event_url=request.build_absolute_uri(reverse("track_event")),
     )
     breadcrumb_items = [
         {"name": "Головна", "url": reverse("home")},
@@ -887,6 +889,13 @@ def custom_print_lead(request):
             lambda: notify_new_custom_print_lead(lead),
             robust=True,
         )
+    record_custom_print_event(
+        request,
+        "custom_print_send_to_manager",
+        lead=lead,
+        step_key=(lead.exit_step or "contact"),
+        metadata={"submission_type": "lead"},
+    )
     return JsonResponse(
         {
             "ok": True,
@@ -1021,6 +1030,13 @@ def custom_print_add_to_cart(request):
             "notify_custom_print_moderation_request failed for lead %s during add-to-cart",
             lead.pk,
         )
+    record_custom_print_event(
+        request,
+        "custom_print_add_to_cart",
+        lead=lead,
+        step_key=(lead.exit_step or "contact"),
+        metadata={"submission_type": "cart"},
+    )
 
     return JsonResponse(
         {
@@ -1126,6 +1142,13 @@ def custom_print_submit_review(request):
                 notified += 1
         except Exception:
             logging.getLogger(__name__).exception("notify_custom_print_moderation_request failed for lead %s", lead.pk)
+        record_custom_print_event(
+            request,
+            "custom_print_send_to_manager",
+            lead=lead,
+            step_key=(lead.exit_step or "contact"),
+            metadata={"submission_type": "cart_review"},
+        )
 
     request.session[SESSION_CUSTOM_CART_KEY] = custom_cart
     request.session.modified = True
@@ -1179,6 +1202,13 @@ def custom_print_moderation_action(request, lead_id: int, action: str):
         lead.moderation_status = CustomPrintModerationStatus.APPROVED
         lead.reviewed_at = timezone.now()
         lead.save(update_fields=["moderation_status", "reviewed_at"])
+        record_custom_print_event(
+            request,
+            "custom_print_moderation_result",
+            lead=lead,
+            step_key=(lead.exit_step or ""),
+            metadata={"result": "approved"},
+        )
         return _render_moderation_result(
             request,
             title="Погоджено",
@@ -1190,6 +1220,13 @@ def custom_print_moderation_action(request, lead_id: int, action: str):
     lead.moderation_status = CustomPrintModerationStatus.REJECTED
     lead.reviewed_at = timezone.now()
     lead.save(update_fields=["moderation_status", "reviewed_at"])
+    record_custom_print_event(
+        request,
+        "custom_print_moderation_result",
+        lead=lead,
+        step_key=(lead.exit_step or ""),
+        metadata={"result": "rejected"},
+    )
     return _render_moderation_result(
         request,
         title="Відхилено",
@@ -1254,6 +1291,17 @@ def custom_print_safe_exit(request):
             moderation_status=CustomPrintModerationStatus.DRAFT,
         )
 
+    record_custom_print_event(
+        request,
+        "custom_print_safe_exit",
+        lead=lead,
+        step_key=(snapshot.get("ui") or {}).get("current_step"),
+        metadata={
+            "had_contact": can_persist_lead,
+            "zones": list((snapshot.get("print") or {}).get("zones") or []),
+            "submission_type": "safe_exit",
+        },
+    )
     notify_custom_print_safe_exit(lead=lead, snapshot=lead.config_draft_json if lead else snapshot)
     return JsonResponse(
         {

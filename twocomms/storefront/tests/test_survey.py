@@ -9,6 +9,7 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
+from storefront.models import UserAction
 from storefront.services.survey_engine import (
     SurveyEngine,
     award_survey_promocode,
@@ -93,7 +94,11 @@ class SurveyViewTests(TestCase):
         self.override = override_settings(SURVEY_DEFINITION_PATH=self.definition_path)
         self.override.enable()
         clear_survey_definition_cache()
-        self.client = Client()
+        self.client = Client(
+            HTTP_HOST="twocomms.shop",
+            SERVER_PORT="443",
+            **{"wsgi.url_scheme": "https"},
+        )
 
     def tearDown(self):
         clear_survey_definition_cache()
@@ -101,18 +106,19 @@ class SurveyViewTests(TestCase):
         self.temp_dir.cleanup()
 
     def test_start_requires_auth(self):
-        response = self.client.post(reverse("survey_start_or_resume"), data="{}", content_type="application/json")
+        response = self.client.post(reverse("survey_start_or_resume"), data="{}", content_type="application/json", secure=True)
         self.assertEqual(response.status_code, 401)
 
     def test_authenticated_start_and_answer(self):
         user = User.objects.create_user(username="surveyuser", password="pass1234")
         self.client.force_login(user)
 
-        start_response = self.client.post(reverse("survey_start_or_resume"), data="{}", content_type="application/json")
+        start_response = self.client.post(reverse("survey_start_or_resume"), data="{}", content_type="application/json", secure=True)
         self.assertEqual(start_response.status_code, 200)
         payload = start_response.json()
         self.assertTrue(payload.get("success"))
         self.assertEqual(payload["question"]["id"], "q1")
+        self.assertEqual(UserAction.objects.filter(action_type="survey_start").count(), 1)
 
         answer_response = self.client.post(
             reverse("survey_submit_answer"),
@@ -122,7 +128,11 @@ class SurveyViewTests(TestCase):
                 "version": payload["version"],
             }),
             content_type="application/json",
+            secure=True,
         )
         self.assertEqual(answer_response.status_code, 200)
         answer_payload = answer_response.json()
         self.assertEqual(answer_payload["question"]["id"], "q3")
+        self.assertEqual(UserAction.objects.filter(action_type="survey_answer").count(), 1)
+        answer_action = UserAction.objects.get(action_type="survey_answer")
+        self.assertEqual(answer_action.metadata.get("question_id"), "q1")

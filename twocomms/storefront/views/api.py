@@ -8,13 +8,20 @@ API views - AJAX и JSON endpoints.
 - Аналитика и трекинг
 """
 
+import json
+import logging
+
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 
-from ..models import Product
+from ..models import CustomPrintLead, Product, SurveySession, UserAction
 from ..services.catalog_helpers import get_categories_cached
+from ..utm_tracking import record_custom_print_event, record_search, record_survey_event, record_user_action
 from cache_utils import get_fragment_cache
+
+
+logger = logging.getLogger('storefront.analytics')
 
 
 # ==================== API ENDPOINTS ====================
@@ -121,29 +128,104 @@ def track_event(request):
     Returns:
         JsonResponse: success
     """
-    import json
-
     try:
         data = json.loads(request.body)
         event_type = data.get('event_type')
         product_id = data.get('product_id')
         category_id = data.get('category_id')
         metadata = data.get('metadata', {})
+        if not isinstance(metadata, dict):
+            metadata = {}
 
-        # TODO: Сохранить событие в БД или отправить в аналитику
-        # Например: Google Analytics, Mixpanel, etc.
+        if not event_type:
+            return JsonResponse({
+                'success': False,
+                'error': 'event_type is required'
+            }, status=400)
 
-        # Пока просто логируем
-        import logging
-        logger = logging.getLogger('storefront.analytics')
-        logger.info(f"Event: {event_type}, Product: {product_id}, Category: {category_id}")
+        allowed_event_types = {choice[0] for choice in UserAction.ACTION_TYPES}
+        if event_type not in allowed_event_types:
+            return JsonResponse({
+                'success': False,
+                'error': f'Unsupported event_type: {event_type}'
+            }, status=400)
+
+        if product_id in ("", None):
+            product_id = None
+        elif not isinstance(product_id, int):
+            try:
+                product_id = int(product_id)
+            except (TypeError, ValueError):
+                product_id = None
+
+        if category_id is not None:
+            metadata.setdefault('category_id', category_id)
+
+        product_name = metadata.get('product_name')
+        if product_id and not product_name:
+            product_name = Product.objects.filter(pk=product_id).values_list('title', flat=True).first()
+
+        action = None
+        if event_type == 'search':
+            query = (metadata.get('query') or data.get('query') or '').strip()
+            if not query:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'query is required for search events'
+                }, status=400)
+            action = record_search(request, query)
+        elif event_type.startswith('custom_print_'):
+            lead = None
+            lead_id = metadata.get('lead_id') or data.get('lead_id')
+            if lead_id:
+                try:
+                    lead = CustomPrintLead.objects.filter(pk=int(lead_id)).first()
+                except (TypeError, ValueError):
+                    lead = None
+            action = record_custom_print_event(
+                request,
+                event_type,
+                lead=lead,
+                step_key=metadata.get('step_key'),
+                metadata=metadata,
+            )
+        elif event_type.startswith('survey_'):
+            session = None
+            session_id = metadata.get('survey_session_id') or data.get('survey_session_id')
+            if session_id:
+                try:
+                    session = SurveySession.objects.filter(pk=int(session_id)).first()
+                except (TypeError, ValueError):
+                    session = None
+            action = record_survey_event(
+                request,
+                event_type,
+                session=session,
+                question_id=metadata.get('question_id') or data.get('question_id'),
+                metadata=metadata,
+            )
+        else:
+            action = record_user_action(
+                request,
+                action_type=event_type,
+                product_id=product_id,
+                product_name=product_name,
+                cart_value=data.get('cart_value'),
+                order_id=data.get('order_id'),
+                order_number=data.get('order_number'),
+                metadata=metadata,
+            )
+
+        logger.info("Event tracked: %s, product=%s, category=%s", event_type, product_id, category_id)
 
         return JsonResponse({
             'success': True,
-            'message': 'Event tracked'
+            'message': 'Event tracked',
+            'stored': bool(action)
         })
 
     except Exception as e:
+        logger.exception("track_event failed")
         return JsonResponse({
             'success': False,
             'error': str(e)

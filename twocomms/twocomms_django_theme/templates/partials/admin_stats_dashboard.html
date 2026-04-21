@@ -1,0 +1,785 @@
+{% load static %}
+
+<style>
+  .analytics-workspace {
+    display: grid;
+    gap: 1.35rem;
+  }
+
+  .analytics-toolbar {
+    position: sticky;
+    top: 88px;
+    z-index: 8;
+    display: grid;
+    gap: 1rem;
+    padding: 1.1rem;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background:
+      radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 32%),
+      radial-gradient(circle at top right, rgba(251,191,36,0.12), transparent 28%),
+      linear-gradient(180deg, rgba(17,24,39,0.96), rgba(10,15,25,0.98));
+    backdrop-filter: blur(16px);
+    box-shadow: 0 24px 60px rgba(2,6,23,0.35);
+  }
+
+  .analytics-toolbar-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .analytics-toolbar-title {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .analytics-toolbar-title h2 {
+    margin: 0;
+    font-size: 1.9rem;
+    font-weight: 900;
+    color: #f8fafc;
+  }
+
+  .analytics-toolbar-title p {
+    margin: 0;
+    color: rgba(226,232,240,0.72);
+    max-width: 760px;
+  }
+
+  .analytics-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .analytics-legacy-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.8rem 1rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #dbeafe;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .analytics-filter-grid {
+    display: grid;
+    gap: 0.9rem;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .analytics-filter {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .analytics-filter label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(191,219,254,0.74);
+  }
+
+  .analytics-filter select,
+  .analytics-filter input {
+    min-height: 44px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(15,23,42,0.82);
+    color: #f8fafc;
+    padding: 0.7rem 0.85rem;
+  }
+
+  .analytics-filter--inline {
+    align-self: end;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+  }
+
+  .analytics-filter--inline button {
+    min-height: 44px;
+    padding: 0.8rem 1rem;
+    border-radius: 14px;
+    border: 0;
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
+    color: white;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .analytics-filter--inline a {
+    color: rgba(191,219,254,0.88);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .analytics-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: rgba(226,232,240,0.8);
+    font-size: 0.92rem;
+  }
+
+  .analytics-status-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .analytics-status-card {
+    padding: 1rem 1.05rem;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .analytics-status-card[data-status="healthy"] {
+    border-color: rgba(16,185,129,0.34);
+    background: rgba(6,95,70,0.18);
+  }
+
+  .analytics-status-card[data-status="warning"] {
+    border-color: rgba(245,158,11,0.34);
+    background: rgba(120,53,15,0.22);
+  }
+
+  .analytics-status-card[data-status="error"] {
+    border-color: rgba(239,68,68,0.34);
+    background: rgba(127,29,29,0.2);
+  }
+
+  .analytics-status-card strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 1rem;
+    color: #f8fafc;
+  }
+
+  .analytics-status-card p {
+    margin: 0;
+    color: rgba(226,232,240,0.76);
+    font-size: 0.92rem;
+  }
+
+  .analytics-warning-list {
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .analytics-warning-item {
+    padding: 0.9rem 1rem;
+    border-radius: 16px;
+    border: 1px solid rgba(251,191,36,0.24);
+    background: rgba(120,53,15,0.18);
+    color: #fde68a;
+    font-size: 0.92rem;
+  }
+
+  .analytics-kpi-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+
+  .analytics-kpi-card {
+    position: relative;
+    overflow: hidden;
+    padding: 1.05rem;
+    border-radius: 22px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background:
+      radial-gradient(circle at top right, rgba(14,165,233,0.14), transparent 30%),
+      linear-gradient(180deg, rgba(15,23,42,0.92), rgba(15,23,42,0.78));
+  }
+
+  .analytics-kpi-card small {
+    display: block;
+    color: rgba(191,219,254,0.76);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.74rem;
+    font-weight: 800;
+  }
+
+  .analytics-kpi-card strong {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 2rem;
+    line-height: 1.05;
+    color: #f8fafc;
+  }
+
+  .analytics-kpi-card span {
+    display: block;
+    margin-top: 0.4rem;
+    font-size: 0.9rem;
+    color: rgba(226,232,240,0.7);
+  }
+
+  .analytics-kpi-trend {
+    margin-top: 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.38rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .analytics-kpi-trend.is-up {
+    color: #86efac;
+  }
+
+  .analytics-kpi-trend.is-down {
+    color: #fca5a5;
+  }
+
+  .analytics-tabs {
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+  }
+
+  .analytics-tab-btn {
+    min-height: 44px;
+    padding: 0.75rem 1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    color: rgba(226,232,240,0.82);
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .analytics-tab-btn.is-active {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 12px 28px rgba(234,88,12,0.22);
+  }
+
+  .analytics-panel {
+    display: none;
+    gap: 1rem;
+  }
+
+  .analytics-panel.is-active {
+    display: grid;
+  }
+
+  .analytics-card {
+    padding: 1.1rem;
+    border-radius: 22px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: linear-gradient(180deg, rgba(15,23,42,0.94), rgba(15,23,42,0.78));
+  }
+
+  .analytics-card h3 {
+    margin: 0 0 0.9rem;
+    font-size: 1.05rem;
+    font-weight: 900;
+    color: #f8fafc;
+  }
+
+  .analytics-card p {
+    margin: 0;
+    color: rgba(226,232,240,0.74);
+  }
+
+  .analytics-grid-2,
+  .analytics-grid-3 {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .analytics-grid-2 {
+    grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.9fr);
+  }
+
+  .analytics-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .analytics-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .analytics-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem 0.9rem;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    color: #e2e8f0;
+  }
+
+  .analytics-list-item strong {
+    color: #f8fafc;
+  }
+
+  .analytics-table-wrap {
+    overflow-x: auto;
+  }
+
+  .analytics-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .analytics-table th,
+  .analytics-table td {
+    padding: 0.8rem 0.7rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    color: #e2e8f0;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .analytics-table th {
+    color: rgba(191,219,254,0.78);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .analytics-meta-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    color: rgba(226,232,240,0.82);
+    font-size: 0.8rem;
+    font-weight: 800;
+  }
+
+  .analytics-footnote {
+    color: rgba(148,163,184,0.82);
+    font-size: 0.88rem;
+  }
+
+  @media (max-width: 1180px) {
+    .analytics-filter-grid,
+    .analytics-grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .analytics-grid-2 {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .analytics-toolbar {
+      top: 74px;
+      padding: 0.95rem;
+      border-radius: 18px;
+    }
+
+    .analytics-filter-grid,
+    .analytics-grid-3 {
+      grid-template-columns: 1fr;
+    }
+
+    .analytics-toolbar-title h2 {
+      font-size: 1.45rem;
+    }
+  }
+</style>
+
+{% with headline=analytics_dashboard.overview.data.headline comparison=analytics_dashboard.overview.data.comparison integrations=analytics_dashboard.integration_status.data.integrations %}
+  <div class="analytics-workspace" data-admin-analytics-root>
+    <form class="analytics-toolbar" method="get" action="{% url 'admin_panel' %}">
+      <input type="hidden" name="section" value="stats">
+      <div class="analytics-toolbar-head">
+        <div class="analytics-toolbar-title">
+          <h2>Unified Analytics Workspace</h2>
+          <p>Єдине вікно для трафіку, продажів, кошика, товарів, кастомного принта, опитувань і live UX-сигналів. Внутрішня БД є primary source; GA4 та Clarity підтягуються як окремі шари з явним позначенням джерела.</p>
+        </div>
+        <div class="analytics-toolbar-actions">
+          <a class="analytics-legacy-link" href="{{ analytics_dashboard.legacy_dispatcher_url }}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+            Legacy dispatcher
+          </a>
+        </div>
+      </div>
+
+      <div class="analytics-filter-grid">
+        <div class="analytics-filter">
+          <label for="analytics-period">Період</label>
+          <select id="analytics-period" name="period">
+            {% for value, label in analytics_dashboard.period_options %}
+              <option value="{{ value }}" {% if analytics_dashboard.filters.period == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="analytics-filter">
+          <label for="analytics-date-from">Дата від</label>
+          <input id="analytics-date-from" type="date" name="date_from" value="{{ analytics_dashboard.filters.date_from }}">
+        </div>
+        <div class="analytics-filter">
+          <label for="analytics-date-to">Дата до</label>
+          <input id="analytics-date-to" type="date" name="date_to" value="{{ analytics_dashboard.filters.date_to }}">
+        </div>
+        <div class="analytics-filter">
+          <label for="analytics-compare">Порівняння</label>
+          <select id="analytics-compare" name="compare_to">
+            {% for value, label in analytics_dashboard.compare_options %}
+              <option value="{{ value }}" {% if analytics_dashboard.filters.compare_to == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="analytics-filter">
+          <label for="analytics-source-class">Клас джерела</label>
+          <select id="analytics-source-class" name="source_class">
+            {% for value, label in analytics_dashboard.source_class_options %}
+              <option value="{{ value }}" {% if analytics_dashboard.filters.source_class == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="analytics-filter">
+          <label for="analytics-device">Пристрій</label>
+          <select id="analytics-device" name="device_type">
+            {% for value, label in analytics_dashboard.device_options %}
+              <option value="{{ value }}" {% if analytics_dashboard.filters.device_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="analytics-filter">
+          <label for="analytics-utm-source">UTM source</label>
+          <select id="analytics-utm-source" name="utm_source">
+            <option value="">Усі</option>
+            {% for option in analytics_dashboard.utm_source_options %}
+              <option value="{{ option.value }}" {% if analytics_dashboard.filters.utm_source == option.value %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="analytics-filter">
+          <label for="analytics-utm-medium">UTM medium</label>
+          <select id="analytics-utm-medium" name="utm_medium">
+            <option value="">Усі</option>
+            {% for option in analytics_dashboard.utm_medium_options %}
+              <option value="{{ option.value }}" {% if analytics_dashboard.filters.utm_medium == option.value %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="analytics-filter">
+          <label for="analytics-campaign">Кампанія</label>
+          <select id="analytics-campaign" name="campaign">
+            <option value="">Усі</option>
+            {% for option in analytics_dashboard.campaign_options %}
+              <option value="{{ option.value }}" {% if analytics_dashboard.filters.campaign == option.value %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="analytics-filter">
+          <label for="analytics-product">Товар</label>
+          <select id="analytics-product" name="product_id">
+            <option value="">Усі</option>
+            {% for option in analytics_dashboard.product_options %}
+              <option value="{{ option.value }}" {% if analytics_dashboard.filters.product_id == option.value %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="analytics-filter analytics-filter--inline">
+          <label class="analytics-checkbox">
+            <input type="checkbox" name="include_bots" value="1" {% if analytics_dashboard.filters.include_bots %}checked{% endif %}>
+            Показувати ботів
+          </label>
+        </div>
+        <div class="analytics-filter analytics-filter--inline">
+          <button type="submit">Оновити workspace</button>
+          <a href="?section=stats">Скинути</a>
+        </div>
+      </div>
+    </form>
+
+    <div class="analytics-status-grid">
+      {% for integration in integrations %}
+        <div class="analytics-status-card" data-status="{{ integration.status }}">
+          <strong>{{ integration.label }}</strong>
+          <p>{{ integration.message }}</p>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if analytics_dashboard.integration_status.data.warnings %}
+      <div class="analytics-warning-list">
+        {% for warning in analytics_dashboard.integration_status.data.warnings %}
+          <div class="analytics-warning-item">{{ warning }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="analytics-kpi-grid">
+      <div class="analytics-kpi-card">
+        <small>Сесії</small>
+        <strong>{{ headline.sessions|default:0 }}</strong>
+        <span>Унікальні: {{ headline.unique_visitors|default:0 }}</span>
+        {% if comparison.sessions.delta_percent is not None %}
+          <div class="analytics-kpi-trend {% if comparison.sessions.delta_percent >= 0 %}is-up{% else %}is-down{% endif %}">
+            {{ comparison.sessions.delta_percent }}%
+          </div>
+        {% endif %}
+      </div>
+      <div class="analytics-kpi-card">
+        <small>Замовлення</small>
+        <strong>{{ headline.orders|default:0 }}</strong>
+        <span>Оплачені: {{ headline.paid_orders|default:0 }}</span>
+      </div>
+      <div class="analytics-kpi-card">
+        <small>Виручка</small>
+        <strong>{{ headline.revenue|floatformat:0 }} ₴</strong>
+        <span>AOV: {{ headline.aov|floatformat:0 }} ₴</span>
+        {% if comparison.revenue.delta_percent is not None %}
+          <div class="analytics-kpi-trend {% if comparison.revenue.delta_percent >= 0 %}is-up{% else %}is-down{% endif %}">
+            {{ comparison.revenue.delta_percent }}%
+          </div>
+        {% endif %}
+      </div>
+      <div class="analytics-kpi-card">
+        <small>Конверсія</small>
+        <strong>{{ headline.conversion_rate|floatformat:2 }}%</strong>
+        <span>Bounce: {{ headline.bounce_rate|floatformat:2 }}%</span>
+      </div>
+      <div class="analytics-kpi-card">
+        <small>Кошик</small>
+        <strong>{{ headline.cart_adds|default:0 }}</strong>
+        <span>Checkout start: {{ headline.checkout_starts|default:0 }}</span>
+      </div>
+      <div class="analytics-kpi-card">
+        <small>Покупки</small>
+        <strong>{{ headline.purchases|default:0 }}</strong>
+        <span>Середня сесія: {{ headline.avg_session_seconds|default:0 }} с</span>
+      </div>
+      <div class="analytics-kpi-card">
+        <small>Custom print</small>
+        <strong>{{ headline.custom_print_starts|default:0 }}</strong>
+        <span>Стартів у конфігураторі</span>
+      </div>
+      <div class="analytics-kpi-card">
+        <small>Опитування</small>
+        <strong>{{ headline.survey_completions|default:0 }}</strong>
+        <span>Стартів: {{ headline.survey_starts|default:0 }}</span>
+      </div>
+    </div>
+
+    <div class="analytics-tabs" data-analytics-tabs>
+      <button type="button" class="analytics-tab-btn is-active" data-analytics-tab="overview">Огляд</button>
+      <button type="button" class="analytics-tab-btn" data-analytics-tab="traffic">Трафік</button>
+      <button type="button" class="analytics-tab-btn" data-analytics-tab="sales">Продажі</button>
+      <button type="button" class="analytics-tab-btn" data-analytics-tab="cart">Кошик / Checkout</button>
+      <button type="button" class="analytics-tab-btn" data-analytics-tab="products">Товари</button>
+      <button type="button" class="analytics-tab-btn" data-analytics-tab="custom-print">Кастомний принт</button>
+      <button type="button" class="analytics-tab-btn" data-analytics-tab="survey">Опитування</button>
+      <button type="button" class="analytics-tab-btn" data-analytics-tab="ux">UX / Якість даних</button>
+    </div>
+
+    <section class="analytics-panel is-active" data-analytics-panel="overview">
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>Тренди по днях</h3>
+          <canvas id="analyticsOverviewChart" height="120"></canvas>
+        </div>
+        <div class="analytics-card">
+          <h3>Статус даних</h3>
+          <div class="analytics-list" id="analyticsOverviewFreshness"></div>
+        </div>
+      </div>
+      <div class="analytics-grid-3">
+        <div class="analytics-card">
+          <h3>Сесії vs покупки</h3>
+          <p class="analytics-footnote">Верхній огляд дає швидкий сигнал по ефективності воронки. Дані не змішують GA4 і внутрішню БД в один KPI.</p>
+        </div>
+        <div class="analytics-card">
+          <h3>Tracked from</h3>
+          <div class="analytics-list" id="analyticsTrackedFromList"></div>
+        </div>
+        <div class="analytics-card">
+          <h3>Compare mode</h3>
+          <div class="analytics-list" id="analyticsCompareSummary"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="analytics-panel" data-analytics-panel="traffic">
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>Класи джерел та канали</h3>
+          <canvas id="analyticsTrafficChart" height="120"></canvas>
+        </div>
+        <div class="analytics-card">
+          <h3>GA4 acquisition layer</h3>
+          <div class="analytics-list" id="analyticsGa4Summary"></div>
+        </div>
+      </div>
+      <div class="analytics-grid-3">
+        <div class="analytics-card">
+          <h3>Top sources</h3>
+          <div class="analytics-table-wrap" id="analyticsTrafficSources"></div>
+        </div>
+        <div class="analytics-card">
+          <h3>Landing / Referrers</h3>
+          <div class="analytics-list" id="analyticsTrafficLanding"></div>
+        </div>
+        <div class="analytics-card">
+          <h3>Geo / Device / Browser</h3>
+          <div class="analytics-list" id="analyticsTrafficBreakdowns"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="analytics-panel" data-analytics-panel="sales">
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>Дохід та замовлення</h3>
+          <canvas id="analyticsSalesChart" height="120"></canvas>
+        </div>
+        <div class="analytics-card">
+          <h3>Sales summary</h3>
+          <div class="analytics-list" id="analyticsSalesSummary"></div>
+        </div>
+      </div>
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>Payment split</h3>
+          <div class="analytics-list" id="analyticsPaymentSplit"></div>
+        </div>
+        <div class="analytics-card">
+          <h3>Source LTV / top products</h3>
+          <div class="analytics-table-wrap" id="analyticsSalesTables"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="analytics-panel" data-analytics-panel="cart">
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>Funnel</h3>
+          <canvas id="analyticsCartChart" height="120"></canvas>
+        </div>
+        <div class="analytics-card">
+          <h3>Cart summary</h3>
+          <div class="analytics-list" id="analyticsCartSummary"></div>
+        </div>
+      </div>
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>Payment methods</h3>
+          <div class="analytics-list" id="analyticsCartPayments"></div>
+        </div>
+        <div class="analytics-card">
+          <h3>Top removals</h3>
+          <div class="analytics-table-wrap" id="analyticsCartRemovals"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="analytics-panel" data-analytics-panel="products">
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>Top viewed products</h3>
+          <canvas id="analyticsProductsChart" height="120"></canvas>
+        </div>
+        <div class="analytics-card">
+          <h3>Categories / low-view inventory</h3>
+          <div class="analytics-list" id="analyticsProductsSidebar"></div>
+        </div>
+      </div>
+      <div class="analytics-card">
+        <h3>Products table</h3>
+        <div class="analytics-table-wrap" id="analyticsProductsTable"></div>
+      </div>
+    </section>
+
+    <section class="analytics-panel" data-analytics-panel="custom-print">
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>Step funnel</h3>
+          <canvas id="analyticsCustomPrintChart" height="120"></canvas>
+        </div>
+        <div class="analytics-card">
+          <h3>Custom print summary</h3>
+          <div class="analytics-list" id="analyticsCustomPrintSummary"></div>
+        </div>
+      </div>
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>Safe exits</h3>
+          <div class="analytics-list" id="analyticsCustomPrintExits"></div>
+        </div>
+        <div class="analytics-card">
+          <h3>Moderation / B2B mix</h3>
+          <div class="analytics-table-wrap" id="analyticsCustomPrintTables"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="analytics-panel" data-analytics-panel="survey">
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>Survey funnel</h3>
+          <canvas id="analyticsSurveyChart" height="120"></canvas>
+        </div>
+        <div class="analytics-card">
+          <h3>Survey summary</h3>
+          <div class="analytics-list" id="analyticsSurveySummary"></div>
+        </div>
+      </div>
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>Question drop-off</h3>
+          <div class="analytics-table-wrap" id="analyticsSurveyDropoff"></div>
+        </div>
+        <div class="analytics-card">
+          <h3>Question answers</h3>
+          <div class="analytics-table-wrap" id="analyticsSurveyAnswers"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="analytics-panel" data-analytics-panel="ux">
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>UX issues / Clarity live</h3>
+          <canvas id="analyticsUxChart" height="120"></canvas>
+        </div>
+        <div class="analytics-card">
+          <h3>Tracking freshness</h3>
+          <div class="analytics-list" id="analyticsUxFreshness"></div>
+        </div>
+      </div>
+      <div class="analytics-grid-2">
+        <div class="analytics-card">
+          <h3>Problematic URLs</h3>
+          <div class="analytics-table-wrap" id="analyticsUxUrls"></div>
+        </div>
+        <div class="analytics-card">
+          <h3>Warnings</h3>
+          <div class="analytics-list" id="analyticsUxWarnings"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+{% endwith %}
+
+{{ analytics_dashboard.config|json_script:"adminAnalyticsConfig" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+<script src="{% static 'js/admin-analytics-dashboard.js' %}?v=20260422" defer></script>
