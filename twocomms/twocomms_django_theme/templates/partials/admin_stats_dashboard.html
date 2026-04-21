@@ -281,10 +281,17 @@
   }
 
   .analytics-card {
+    min-width: 0;
+    align-self: start;
     padding: 1.1rem;
     border-radius: 22px;
     border: 1px solid rgba(255,255,255,0.08);
     background: linear-gradient(180deg, rgba(15,23,42,0.94), rgba(15,23,42,0.78));
+  }
+
+  .analytics-card--chart {
+    display: flex;
+    flex-direction: column;
   }
 
   .analytics-card h3 {
@@ -303,6 +310,7 @@
   .analytics-grid-3 {
     display: grid;
     gap: 1rem;
+    align-items: start;
   }
 
   .analytics-grid-2 {
@@ -335,6 +343,21 @@
 
   .analytics-table-wrap {
     overflow-x: auto;
+  }
+
+  .analytics-chart-shell {
+    position: relative;
+    width: 100%;
+    height: clamp(260px, 34vh, 420px);
+    min-height: 260px;
+    max-height: 420px;
+    margin-top: 0.15rem;
+  }
+
+  .analytics-chart-shell canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
   }
 
   .analytics-table {
@@ -400,6 +423,11 @@
 
     .analytics-toolbar-title h2 {
       font-size: 1.45rem;
+    }
+
+    .analytics-chart-shell {
+      height: clamp(240px, 38vh, 320px);
+      min-height: 240px;
     }
   }
 </style>
@@ -594,9 +622,11 @@
 
     <section class="analytics-panel is-active" data-analytics-panel="overview">
       <div class="analytics-grid-2">
-        <div class="analytics-card">
+        <div class="analytics-card analytics-card--chart">
           <h3>Тренди по днях</h3>
-          <canvas id="analyticsOverviewChart" height="120"></canvas>
+          <div class="analytics-chart-shell">
+            <canvas id="analyticsOverviewChart" height="120"></canvas>
+          </div>
         </div>
         <div class="analytics-card">
           <h3>Статус даних</h3>
@@ -621,9 +651,11 @@
 
     <section class="analytics-panel" data-analytics-panel="traffic">
       <div class="analytics-grid-2">
-        <div class="analytics-card">
+        <div class="analytics-card analytics-card--chart">
           <h3>Класи джерел та канали</h3>
-          <canvas id="analyticsTrafficChart" height="120"></canvas>
+          <div class="analytics-chart-shell">
+            <canvas id="analyticsTrafficChart" height="120"></canvas>
+          </div>
         </div>
         <div class="analytics-card">
           <h3>GA4 acquisition layer</h3>
@@ -648,9 +680,11 @@
 
     <section class="analytics-panel" data-analytics-panel="sales">
       <div class="analytics-grid-2">
-        <div class="analytics-card">
+        <div class="analytics-card analytics-card--chart">
           <h3>Дохід та замовлення</h3>
-          <canvas id="analyticsSalesChart" height="120"></canvas>
+          <div class="analytics-chart-shell">
+            <canvas id="analyticsSalesChart" height="120"></canvas>
+          </div>
         </div>
         <div class="analytics-card">
           <h3>Sales summary</h3>
@@ -671,9 +705,11 @@
 
     <section class="analytics-panel" data-analytics-panel="cart">
       <div class="analytics-grid-2">
-        <div class="analytics-card">
+        <div class="analytics-card analytics-card--chart">
           <h3>Funnel</h3>
-          <canvas id="analyticsCartChart" height="120"></canvas>
+          <div class="analytics-chart-shell">
+            <canvas id="analyticsCartChart" height="120"></canvas>
+          </div>
         </div>
         <div class="analytics-card">
           <h3>Cart summary</h3>
@@ -694,9 +730,11 @@
 
     <section class="analytics-panel" data-analytics-panel="products">
       <div class="analytics-grid-2">
-        <div class="analytics-card">
+        <div class="analytics-card analytics-card--chart">
           <h3>Top viewed products</h3>
-          <canvas id="analyticsProductsChart" height="120"></canvas>
+          <div class="analytics-chart-shell">
+            <canvas id="analyticsProductsChart" height="120"></canvas>
+          </div>
         </div>
         <div class="analytics-card">
           <h3>Categories / low-view inventory</h3>
@@ -711,9 +749,11 @@
 
     <section class="analytics-panel" data-analytics-panel="custom-print">
       <div class="analytics-grid-2">
-        <div class="analytics-card">
+        <div class="analytics-card analytics-card--chart">
           <h3>Step funnel</h3>
-          <canvas id="analyticsCustomPrintChart" height="120"></canvas>
+          <div class="analytics-chart-shell">
+            <canvas id="analyticsCustomPrintChart" height="120"></canvas>
+          </div>
         </div>
         <div class="analytics-card">
           <h3>Custom print summary</h3>
@@ -734,9 +774,11 @@
 
     <section class="analytics-panel" data-analytics-panel="survey">
       <div class="analytics-grid-2">
-        <div class="analytics-card">
+        <div class="analytics-card analytics-card--chart">
           <h3>Survey funnel</h3>
-          <canvas id="analyticsSurveyChart" height="120"></canvas>
+          <div class="analytics-chart-shell">
+            <canvas id="analyticsSurveyChart" height="120"></canvas>
+          </div>
         </div>
         <div class="analytics-card">
           <h3>Survey summary</h3>
@@ -757,9 +799,11 @@
 
     <section class="analytics-panel" data-analytics-panel="ux">
       <div class="analytics-grid-2">
-        <div class="analytics-card">
+        <div class="analytics-card analytics-card--chart">
           <h3>UX issues / Clarity live</h3>
-          <canvas id="analyticsUxChart" height="120"></canvas>
+          <div class="analytics-chart-shell">
+            <canvas id="analyticsUxChart" height="120"></canvas>
+          </div>
         </div>
         <div class="analytics-card">
           <h3>Tracking freshness</h3>
