@@ -414,30 +414,53 @@
   </section>
 
   <!-- FAQ -->
-  <section class="pb-section pt-large" id="faq">
+  <section class="pb-section pb-breakout pb-faq-universe" id="faq">
+    <div class="pb-faq-bg-grid"></div>
     <div class="pb-container">
-      <div class="pb-faq-wrapper pb-reveal">
-        <div class="pb-faq-header">
-           <span class="pb-kicker">Відповіді</span>
-           <h2 class="pb-heading-xl">Запитання про бренд</h2>
-           <p class="pb-text-muted">Видимі відповіді для людей і для пошуку: що означає назва, як TwoComms пов’язаний із Харковом, і чому це не зводиться лише до військового мерчу.</p>
+      <div class="pb-faq-grid pb-reveal">
+        
+        <!-- Left Sticky Area -->
+        <div class="pb-faq-sidebar">
+          <div class="pb-faq-sticky">
+             <span class="pb-kicker">Відповіді</span>
+             <h2 class="pb-heading-xl">Запитання<br>про бренд</h2>
+             <p class="pb-text-muted">Видимі відповіді для людей і для пошуку: що означає назва, як TwoComms пов’язаний із Харковом, і чому це не зводиться лише до військового мерчу.</p>
+             
+             <!-- Creative Anchor: Rotating Typographic Badge -->
+             <div class="pb-rotating-badge" aria-hidden="true">
+               <svg viewBox="0 0 200 200" class="pb-rotating-svg">
+                  <path id="badgePath" d="M 100, 100 m -65, 0 a 65,65 0 1,1 130,0 a 65,65 0 1,1 -130,0" fill="transparent"/>
+                  <text font-size="16" font-weight="700" letter-spacing="3" fill="currentColor">
+                    <textPath href="#badgePath" startOffset="0%">TWOCOMMS • KEEP THE FORM • TWOCOMMS • KEEP THE FORM • </textPath>
+                  </text>
+               </svg>
+               <div class="pb-badge-center">
+                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--pb-accent)" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+               </div>
+             </div>
+          </div>
         </div>
+
+        <!-- Right Accordion List -->
         <div class="pb-faq-list">
           {% for item in faq_items %}
             <details class="pb-faq-item" name="brand-faq">
               <summary class="pb-faq-summary">
                 <span class="pb-faq-title">{{ item.question }}</span>
-                <span class="pb-faq-icon">
-                  <svg class="pb-icon-plus" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                  <svg class="pb-icon-minus" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
+                <span class="pb-faq-icon-wrapper">
+                  <span class="pb-faq-icon-line pb-faq-icon-h"></span>
+                  <span class="pb-faq-icon-line pb-faq-icon-v"></span>
                 </span>
               </summary>
-              <div class="pb-faq-content">
-                <p>{{ item.answer }}</p>
+              <div class="pb-faq-content-wrapper">
+                <div class="pb-faq-content-inner">
+                  <p>{{ item.answer }}</p>
+                </div>
               </div>
             </details>
           {% endfor %}
         </div>
+
       </div>
     </div>
   </section>
