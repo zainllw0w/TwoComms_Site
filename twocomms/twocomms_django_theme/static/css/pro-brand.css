@@ -589,10 +589,10 @@
 /* Image styling */
 .pb-banksy-image { 
   width: 100%; height: 100%; object-fit: cover; 
-  filter: grayscale(1) contrast(1.4) brightness(0.7); mix-blend-mode: hard-light; 
+  filter: grayscale(0.5) contrast(1.1) brightness(0.95); 
   transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.pb-banksy-card:hover .pb-banksy-image { filter: grayscale(0) contrast(1.1) brightness(0.9); mix-blend-mode: normal; transform: scale(1.03); }
+.pb-banksy-card:hover .pb-banksy-image { filter: grayscale(0) contrast(1.0) brightness(1.05); transform: scale(1.03); }
 
 /* Dirt/Noise overlay */
 .pb-banksy-noise { position: absolute; inset: 0; background: url('https://www.transparenttextures.com/patterns/stucco.png'); opacity: 0.3; pointer-events: none; mix-blend-mode: overlay; z-index: 3; }
@@ -682,10 +682,37 @@
 .pb-dual-card p { position: relative; z-index: 2; color: var(--pb-text-muted); margin: 0; font-size: 1.05rem; line-height: 1.6; }
 
 .pb-future-banner { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 3rem; align-items: center; }
-.pb-future-mantra { padding: 2.5rem; border-radius: var(--pb-radius-lg); border: 1px solid var(--pb-border); background: radial-gradient(circle at top right, rgba(139, 92, 246, 0.1), transparent 70%); }
-.pb-future-mantra ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 1rem; }
-.pb-future-mantra li { display: flex; align-items: center; gap: 0.75rem; font-size: 1.1rem; color: var(--pb-text); }
-.pb-accent-svg { color: var(--pb-accent); }
+.pb-future-mantra { 
+  position: relative; padding: 2.5rem; border-radius: var(--pb-radius-lg); 
+  border: 1px solid rgba(255, 255, 255, 0.05); 
+  background: rgba(10, 12, 18, 0.6);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.5), 0 20px 50px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+.pb-future-mantra::before {
+  content: ''; position: absolute; top: -50%; left: 0; right: 0; height: 200%;
+  background: linear-gradient(to bottom, transparent, rgba(139, 92, 246, 0.05), transparent);
+  animation: pb-scan-pulse 4s linear infinite; pointer-events: none; z-index: 1;
+}
+@keyframes pb-scan-pulse { 0% { transform: translateY(-50%); } 100% { transform: translateY(50%); } }
+.pb-future-mantra ul { position: relative; z-index: 2; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 1.5rem; }
+.pb-future-mantra li { 
+  display: flex; align-items: center; gap: 1rem; font-size: 1.15rem; font-family: 'Courier New', Courier, monospace; color: #fff; font-weight: 600;
+  opacity: 0; transform: translateX(-20px); filter: blur(4px);
+}
+.pb-reveal.is-revealed .pb-future-mantra li { animation: pb-hud-reveal 0.6s cubic-bezier(0.2, 1, 0.2, 1) forwards; }
+.pb-reveal.is-revealed .pb-future-mantra li:nth-child(1) { animation-delay: 0.2s; }
+.pb-reveal.is-revealed .pb-future-mantra li:nth-child(2) { animation-delay: 0.4s; }
+.pb-reveal.is-revealed .pb-future-mantra li:nth-child(3) { animation-delay: 0.6s; }
+.pb-reveal.is-revealed .pb-future-mantra li:nth-child(4) { animation-delay: 0.8s; }
+
+@keyframes pb-hud-reveal {
+  0% { opacity: 0; transform: translateX(-20px) scale(0.95); filter: blur(5px); }
+  50% { filter: blur(0); }
+  100% { opacity: 1; transform: translateX(0) scale(1); filter: blur(0); }
+}
+.pb-accent-svg { color: var(--pb-accent); filter: drop-shadow(0 0 5px var(--pb-accent)); animation: pb-hud-flash 2.5s infinite alternate; }
+@keyframes pb-hud-flash { 0%, 100% { opacity: 1; filter: drop-shadow(0 0 10px var(--pb-accent)); } 50% { opacity: 0.4; filter: drop-shadow(0 0 2px var(--pb-accent)); } }
 
 /* FAQ SECTION OVERHAUL */
 .pb-faq-universe {
@@ -752,8 +779,19 @@
 /* CTA */
 .pb-cta-section { 
   position: relative; overflow: hidden;
-  background: #06080d; 
-  border-top: 1px solid var(--pb-border); margin-top: 4rem; 
+  background: #06080d; padding-top: 2rem;
+}
+/* Liquid Transition Divider */
+.pb-cta-section::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pb-accent), transparent);
+  box-shadow: 0 0 20px 2px var(--pb-accent), 0 0 40px 10px rgba(139, 92, 246, 0.4);
+  opacity: 0.6; z-index: 5;
+  animation: pb-breathe-divider 4s infinite alternate;
+}
+@keyframes pb-breathe-divider {
+  0% { opacity: 0.4; filter: blur(1px); transform: scaleX(0.9); }
+  100% { opacity: 0.9; filter: blur(3px); transform: scaleX(1.1); }
 }
 .pb-cta-section::before {
   content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
