@@ -42,6 +42,10 @@
   box-sizing: border-box;
 }
 
+.pro-brand-page :is(.pb-section[id], .pb-future-banner[id]) {
+  scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 6.5rem);
+}
+
 /* UTILS */
 .pb-container {
   width: min(1200px, 100% - 2rem);
@@ -1533,6 +1537,10 @@ html[data-route-name="about"] .site-footer-premium {
 
   .pro-brand-page .pb-section {
     padding: 2.75rem 0;
+  }
+
+  .pro-brand-page :is(.pb-section[id], .pb-future-banner[id]) {
+    scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 5rem);
   }
 
   .pro-brand-page .pt-large {
