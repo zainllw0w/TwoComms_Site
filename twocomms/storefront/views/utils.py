@@ -28,7 +28,10 @@ def _build_anon_cache_key(request, view_func, key_prefix=None):
     query = _build_query_string(request.GET)
     accept_lang = request.META.get('HTTP_ACCEPT_LANGUAGE', '')
     language = getattr(request, 'LANGUAGE_CODE', '')
-    prefix = key_prefix or f"{view_func.__module__}.{view_func.__name__}"
+    if callable(key_prefix):
+        prefix = key_prefix(request, view_func)
+    else:
+        prefix = key_prefix or f"{view_func.__module__}.{view_func.__name__}"
     fingerprint = f"{path}?{query}|{language}|{accept_lang}"
     digest = hashlib.sha256(fingerprint.encode('utf-8')).hexdigest()
     return f"anon-page:{prefix}:{digest}"
@@ -74,6 +77,19 @@ def cache_page_for_anon(timeout, key_prefix=None):
             return response
         return _wrapped_view
     return decorator
+
+
+def public_product_listing_cache_prefix(request, view_func):
+    """
+    Versioned cache prefix for anonymous pages that render public product lists.
+
+    A dedicated version lets admin drag-and-drop immediately affect homepage and
+    catalog pages without clearing unrelated cached responses.
+    """
+    from ..services.catalog_helpers import get_public_product_order_version
+
+    version = get_public_product_order_version()
+    return f"{view_func.__module__}.{view_func.__name__}:product-order-v{version}"
 
 
 def unique_slugify(model, base_slug):

@@ -10,8 +10,13 @@ from typing import Iterable, List, Dict, Any
 from django.apps import apps
 from django.core.cache import BaseCache
 from django.db import DatabaseError
+from django.db.models import QuerySet
+
+from cache_utils import get_cache
 
 logger = logging.getLogger(__name__)
+
+PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY = "products:public_order_version"
 
 
 def get_categories_cached(cache_backend: BaseCache, timeout: int = 600):
@@ -31,6 +36,56 @@ def get_categories_cached(cache_backend: BaseCache, timeout: int = 600):
     categories = list(Category.objects.filter(is_active=True).order_by('order', 'name'))
     cache_backend.set('categories:ordered', categories, timeout)
     return categories
+
+
+def apply_public_product_order(queryset: QuerySet) -> QuerySet:
+    """
+    Central source of truth for public product ordering.
+
+    Admin drag-and-drop writes to Product.priority, so every public product list
+    that should reflect admin order must use this helper.
+    """
+    return queryset.order_by("-priority", "-id")
+
+
+def get_public_product_order_version(cache_backend: BaseCache | None = None) -> int:
+    """
+    Version marker for public product list cache keys.
+
+    When admin reorder changes product priority, bumping this version invalidates
+    cached anonymous listing pages without clearing unrelated cache entries.
+    """
+    cache_backend = cache_backend or get_cache()
+    version = cache_backend.get(PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY)
+    if version is None:
+        cache_backend.add(PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY, 1, timeout=None)
+        version = cache_backend.get(PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY)
+
+    try:
+        return max(int(version), 1)
+    except (TypeError, ValueError):
+        cache_backend.set(PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY, 1, timeout=None)
+        return 1
+
+
+def bump_public_product_order_version(cache_backend: BaseCache | None = None) -> int:
+    """
+    Bump the public product order cache version after admin reorder commits.
+    """
+    cache_backend = cache_backend or get_cache()
+    current_version = get_public_product_order_version(cache_backend)
+    try:
+        next_version = cache_backend.incr(PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY)
+    except Exception:
+        next_version = current_version + 1
+        cache_backend.set(PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY, next_version, timeout=None)
+
+    try:
+        return max(int(next_version), current_version + 1)
+    except (TypeError, ValueError):
+        fallback_version = current_version + 1
+        cache_backend.set(PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY, fallback_version, timeout=None)
+        return fallback_version
 
 
 def _load_product_color_variant_queryset(product_ids: Iterable[int]):

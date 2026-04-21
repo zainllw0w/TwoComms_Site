@@ -19,18 +19,35 @@ from django.urls import reverse
 from ..models import Product, Category, SurveySession
 from ..pagination import build_homepage_pagination_items
 from ..services.catalog_helpers import (
+    apply_public_product_order,
     build_color_preview_map,
     get_categories_cached,
 )
 from ..services.survey_engine import load_survey_definition
 from cache_utils import get_fragment_cache
-from .utils import cache_page_for_anon, HOME_PRODUCTS_PER_PAGE, PRODUCTS_PER_PAGE
+from .utils import (
+    cache_page_for_anon,
+    HOME_PRODUCTS_PER_PAGE,
+    PRODUCTS_PER_PAGE,
+    public_product_listing_cache_prefix,
+)
 
 
 # ==================== CATALOG VIEWS ====================
 
+def _product_cards_queryset():
+    return Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
+        'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
+        'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
+        'dropship_note', 'unpublished_reason'
+    )
+
+
 @ensure_csrf_cookie
-@cache_page_for_anon(300)  # Phase 4.1: 5-мин кэш для анонимов; cart/favs-бейджи идут AJAX, не в кэше
+@cache_page_for_anon(
+    300,
+    key_prefix=public_product_listing_cache_prefix,
+)  # Phase 4.1: 5-мин кэш для анонимов; cart/favs-бейджи идут AJAX, не в кэше
 def home(request):
     """
     Главная страница сайта.
@@ -42,25 +59,21 @@ def home(request):
     - Предпросмотр цветовых вариантов
     """
     # Оптимизированные запросы с select_related и prefetch_related
-    featured = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
-        'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
-        'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
-        'dropship_note', 'unpublished_reason'
-    ).filter(
-        featured=True,
-        status='published'
-    ).order_by('-id').first()
+    featured = apply_public_product_order(
+        _product_cards_queryset().filter(
+            featured=True,
+            status='published'
+        )
+    ).first()
 
     fragment_cache = get_fragment_cache()
     categories = get_categories_cached(fragment_cache)
 
     # Пагинация
     page_number = request.GET.get('page', '1')
-    product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
-        'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
-        'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
-        'dropship_note', 'unpublished_reason'
-    ).filter(status='published').order_by('-id')
+    product_qs = apply_public_product_order(
+        _product_cards_queryset().filter(status='published')
+    )
     paginator = Paginator(product_qs, HOME_PRODUCTS_PER_PAGE)
 
     try:
@@ -144,11 +157,9 @@ def load_more_products(request):
         page = int(request.GET.get('page', 1))
         per_page = HOME_PRODUCTS_PER_PAGE
 
-        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
-            'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
-            'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
-            'dropship_note', 'unpublished_reason'
-        ).filter(status='published').order_by('-id')
+        product_qs = apply_public_product_order(
+            _product_cards_queryset().filter(status='published')
+        )
         paginator = Paginator(product_qs, per_page)
 
         try:
@@ -202,7 +213,7 @@ def load_more_products(request):
 
 
 @ensure_csrf_cookie
-@cache_page_for_anon(600)  # Кэшируем каталог на 10 минут только для анонимов
+@cache_page_for_anon(600, key_prefix=public_product_listing_cache_prefix)  # Кэшируем каталог на 10 минут только для анонимов
 def catalog(request, cat_slug=None):
     """
     Страница каталога товаров.
@@ -220,22 +231,16 @@ def catalog(request, cat_slug=None):
 
     if cat_slug:
         category = get_object_or_404(Category, slug=cat_slug)
-        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
-            'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
-            'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
-            'dropship_note', 'unpublished_reason'
-        ).filter(
+        product_qs = apply_public_product_order(_product_cards_queryset().filter(
             category=category,
             status='published'
-        ).order_by('-id')
+        ))
         show_category_cards = False
     else:
         category = None
-        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
-            'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
-            'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
-            'dropship_note', 'unpublished_reason'
-        ).filter(status='published').order_by('-id')
+        product_qs = apply_public_product_order(
+            _product_cards_queryset().filter(status='published')
+        )
         show_category_cards = True
 
     # Pagination
@@ -289,11 +294,7 @@ def search(request):
         category_slug = request.GET.get('category', '').strip()
 
         # Используем тот же подход, что и в рабочей версии из views.py
-        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
-            'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
-            'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
-            'dropship_note', 'unpublished_reason'
-        ).filter(status='published')
+        product_qs = _product_cards_queryset().filter(status='published')
 
         if query:
             # Поиск по названию (базовый поиск, как в рабочей версии из views.py)
@@ -312,7 +313,7 @@ def search(request):
         fragment_cache = get_fragment_cache()
         categories = get_categories_cached(fragment_cache)
 
-        product_list = list(product_qs.order_by('-id'))
+        product_list = list(apply_public_product_order(product_qs))
         color_previews = build_color_preview_map(product_list)
 
         for product in product_list:
