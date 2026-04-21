@@ -4,7 +4,7 @@
 {% load seo_tags %}
 {% load image_optimization %}
 <!DOCTYPE html>
-<html lang='uk' data-bs-theme='dark' data-route-name="{{ request.resolver_match.url_name|default:'' }}" {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
+<html lang='uk' data-bs-theme='dark' data-route-name="{{ request.resolver_match.url_name|default:'' }}" data-page-shell="{% if request.resolver_match.url_name == 'about' %}marketing{% else %}commerce{% endif %}" data-analytics-mode="{% if request.resolver_match.url_name == 'about' %}passive{% else %}default{% endif %}" {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
   data-meta-pixel-id="823958313630148" {% endif %}
   data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}"{% if TIKTOK_TEST_EVENT_CODE %} data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}"{% endif %}>
 
@@ -94,7 +94,7 @@
        HTML, чтобы когда interaction-триггер запустит GTM/Pixel/Clarity/TikTok,
        соединение уже было готово (экономия 150–350 ms на late-load). -->
   {% if not debug %}
-  {% if request.resolver_match.url_name != 'home' %}
+  {% if request.resolver_match.url_name != 'home' and request.resolver_match.url_name != 'about' %}
   <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin>
   <link rel="preconnect" href="https://connect.facebook.net" crossorigin>
   <link rel="preconnect" href="https://analytics.tiktok.com" crossorigin>
@@ -132,12 +132,18 @@
         return 'high';
       })();
       var routeName = (docEl.getAttribute('data-route-name') || '').toLowerCase();
+      var analyticsMode = (docEl.getAttribute('data-analytics-mode') || '').toLowerCase();
+      var isPassiveAnalytics = analyticsMode === 'passive';
       var interactionEvents = routeName === 'home'
         ? ['click', 'pointerdown', 'keydown']
-        : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown'];
+        : (isPassiveAnalytics
+          ? ['click', 'pointerdown', 'keydown']
+          : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown']);
       var fallbackDelay = routeName === 'home'
         ? null
-        : (deviceClass === 'low' ? 9000 : (deviceClass === 'mid' ? 6000 : 4000));
+        : (isPassiveAnalytics
+          ? (deviceClass === 'low' ? 18000 : 12000)
+          : (deviceClass === 'low' ? 9000 : (deviceClass === 'mid' ? 6000 : 4000)));
 
       function loadAhrefs() {
         if (loaded) return;
@@ -711,10 +717,16 @@
       var docEl = document.documentElement;
       var deviceClass = (docEl.getAttribute('data-device-class') || '').toLowerCase();
       var routeName = (docEl.getAttribute('data-route-name') || '').toLowerCase();
+      var analyticsMode = (docEl.getAttribute('data-analytics-mode') || '').toLowerCase();
+      var isPassiveAnalytics = analyticsMode === 'passive';
       var interactionEvents = routeName === 'home'
         ? ['click', 'pointerdown', 'keydown']
-        : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown'];
-      var gtmTimeout = deviceClass === 'low' ? 9000 : (deviceClass === 'mid' ? 6000 : 4000);
+        : (isPassiveAnalytics
+          ? ['click', 'pointerdown', 'keydown']
+          : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown']);
+      var gtmTimeout = isPassiveAnalytics
+        ? (deviceClass === 'low' ? 18000 : 12000)
+        : (deviceClass === 'low' ? 9000 : (deviceClass === 'mid' ? 6000 : 4000));
       
       function loadGTM() {
         if (gtmLoaded) return;
@@ -754,7 +766,7 @@
   <!-- End Google Tag Manager -->
 
   <!-- Analytics Loader - загружаем в head для ранней инициализации пикселей -->
-  <script defer src="{% static 'js/analytics-loader.js' %}?v=5"></script>
+  <script defer src="{% static 'js/analytics-loader.js' %}?v=6"></script>
   {% comment %}
   RUM beacon — Core Web Vitals на реальных устройствах. defer, 0 зависимостей,
   отправка единственным sendBeacon() на visibilitychange=hidden / pagehide.
@@ -1063,7 +1075,7 @@
   <script defer src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
     onload="this.classList.add('script-loaded')" onerror="this.classList.add('script-error')"
     crossorigin="anonymous"></script>
-  <script type="module" src="{% static 'js/main.js' %}?v=44" onload="this.classList.add('script-loaded')"
+  <script type="module" src="{% static 'js/main.js' %}?v=45" onload="this.classList.add('script-loaded')"
     onerror="this.classList.add('script-error')" crossorigin="anonymous"></script>
 
   <!-- UI fallback helpers (QtyInc/QtyDec/AddToCart/CartRemove*) -->
@@ -1071,11 +1083,14 @@
   Вынесено в /static/js/ui-fallback.js — 22 KB из HTML → отдельный
   кэшируемый static. defer гарантирует выполнение до первого onclick.
   {% endcomment %}
+  {% if request.resolver_match.url_name != 'about' %}
   <script defer src="{% static 'js/ui-fallback.js' %}?v=2"></script>
+  {% endif %}
 
   <!-- Модальное окно с информацией о баллах — lazy-mount через <template>, чтобы
        не раздувать initial DOM (~90 узлов). Монтируется на первый клик по триггеру
        [data-bs-target="#pointsInfoModal"] или на idle после LCP. -->
+  {% if request.resolver_match.url_name != 'about' %}
   <template id="points-modal-template">
   <div class="modal fade" id="pointsInfoModal" tabindex="-1" aria-labelledby="pointsInfoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -1180,6 +1195,7 @@
   <link rel="stylesheet" href="{% static 'css/points-modal.css' %}"
         media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="{% static 'css/points-modal.css' %}"></noscript>
+  {% endif %}
 
   {% block extra_js %}{% endblock %}
 

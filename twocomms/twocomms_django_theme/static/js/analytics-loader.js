@@ -1357,9 +1357,13 @@
   // Mobile-safe: skip mousemove (too noisy), prefer pointerdown.
   var pixelsLoaded = false;
   var routeName = (doc.documentElement.getAttribute('data-route-name') || '').toLowerCase();
+  var analyticsMode = (doc.documentElement.getAttribute('data-analytics-mode') || '').toLowerCase();
+  var isPassiveAnalytics = analyticsMode === 'passive';
   var interactionEvents = routeName === 'home'
     ? ['click', 'pointerdown', 'keydown']
-    : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown'];
+    : (isPassiveAnalytics
+      ? ['click', 'pointerdown', 'keydown']
+      : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown']);
   var deviceClass = (doc.documentElement.dataset.deviceClass || '').toLowerCase();
   var isLowDevice = deviceClass === 'low';
 
@@ -1414,7 +1418,9 @@
   // Fallback: Load after idle window to ensure pixels work if no interaction.
   // Раньше был setTimeout(..., 3000) — на mobile это давало post-load long tasks.
   // Используем requestIdleCallback с большим timeout, fallback на 10s setTimeout.
-  var idleDelay = isLowDevice ? 15000 : 8000;
+  var idleDelay = isPassiveAnalytics
+    ? (isLowDevice ? 22000 : 14000)
+    : (isLowDevice ? 15000 : 8000);
   if (typeof win.requestIdleCallback === 'function') {
     win.requestIdleCallback(initializePixelsDeferred, { timeout: idleDelay });
   } else {
@@ -1443,20 +1449,24 @@
   // Остальные скрипты загружаем c большей задержкой + предпочтительно в idle-окно.
   // GA4 — важнее для атрибуции, поэтому раньше; Clarity — рекординг, поздно.
   // На low-device класс Clarity не грузится вообще до явной интеракции через pixelsDeferred trigger.
-  var gaDelay = isLowDevice ? 12000 : 6000;
-  var clarityDelay = isLowDevice ? 30000 : 15000;
+  var gaDelay = isPassiveAnalytics
+    ? (isLowDevice ? 18000 : 10000)
+    : (isLowDevice ? 12000 : 6000);
+  var clarityDelay = isPassiveAnalytics
+    ? null
+    : (isLowDevice ? 30000 : 15000);
   if (typeof win.requestIdleCallback === 'function') {
     win.requestIdleCallback(function () { schedule(loadGoogleAnalytics, 0); }, { timeout: gaDelay });
-    if (!isLowDevice && routeName !== 'home') {
+    if (clarityDelay !== null && !isLowDevice && routeName !== 'home') {
       win.requestIdleCallback(function () { schedule(loadClarity, 0); }, { timeout: clarityDelay });
     }
   } else {
     schedule(loadGoogleAnalytics, gaDelay);
-    if (!isLowDevice && routeName !== 'home') {
+    if (clarityDelay !== null && !isLowDevice && routeName !== 'home') {
       schedule(loadClarity, clarityDelay);
     }
   }
-  if (!isLowDevice && routeName === 'home') {
+  if (!isLowDevice && (routeName === 'home' || isPassiveAnalytics)) {
     loadClarityOnFirstInteraction();
   }
 })(window, document);

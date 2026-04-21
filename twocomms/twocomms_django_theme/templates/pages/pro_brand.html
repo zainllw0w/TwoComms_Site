@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load seo_tags %}
+{% load image_optimization %}
 
 {% block title %}TwoComms — харківський бренд одягу про характер, стійкість і продовження{% endblock %}
 {% block description %}TwoComms — український streetwear / military-adjacent бренд із Харкова. Одяг з кодом, сенсовими принтами, реальним походженням і філософією: не крапка, а продовження.{% endblock %}
@@ -80,8 +81,153 @@
 
 {% block extra_css %}
   {{ block.super }}
-  <link rel="preload" href="{% static 'css/pro-brand.css' %}" as="style">
-  <link rel="stylesheet" href="{% static 'css/pro-brand.css' %}">
+  <style>
+    .pro-brand-page {
+      background: #030407;
+      color: #f4f4f5;
+      overflow-x: clip;
+    }
+    .pro-brand-page .pb-breakout {
+      position: relative;
+      width: 100vw;
+      margin-inline: calc(50% - 50vw);
+    }
+    .pro-brand-page .pb-container {
+      width: min(1200px, 100% - 2rem);
+      margin-inline: auto;
+    }
+    .pro-brand-page .pb-hero {
+      position: relative;
+      min-height: clamp(600px, 80svh, 920px);
+      display: flex;
+      align-items: center;
+      padding: 4rem 0;
+      background: #030407;
+      overflow: hidden;
+    }
+    .pro-brand-page .pb-hero-bg {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 0%, rgba(18, 20, 28, 0.6), transparent 70%);
+    }
+    .pro-brand-page .pb-hero-inner {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: clamp(2rem, 5vw, 4rem);
+      align-items: center;
+    }
+    .pro-brand-page .pb-hero-content {
+      max-width: 42rem;
+    }
+    .pro-brand-page .pb-hero-macro-logo {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: min(130vw, 1760px);
+      transform: translate(-50%, -50%);
+      opacity: 0.08;
+      pointer-events: none;
+    }
+    .pro-brand-page .pb-logo-img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .pro-brand-page .pb-title {
+      margin: 0 0 1.5rem;
+      font-size: clamp(3rem, 6.5vw, 6rem);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+      font-weight: 800;
+      text-wrap: balance;
+    }
+    .pro-brand-page .pb-title-brand {
+      display: block;
+      margin-bottom: 1rem;
+      font-size: clamp(0.85rem, 1.5vw, 1rem);
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: rgba(244, 244, 245, 0.64);
+    }
+    .pro-brand-page .pb-title-line {
+      display: block;
+    }
+    .pro-brand-page .pb-hero-lead {
+      margin: 0 0 1rem;
+      max-width: 38rem;
+      font-size: clamp(1.15rem, 1.8vw, 1.45rem);
+      line-height: 1.5;
+    }
+    .pro-brand-page .pb-hero-body {
+      margin: 0 0 2.5rem;
+      max-width: 38rem;
+      color: rgba(244, 244, 245, 0.7);
+      font-size: 1.05rem;
+    }
+    .pro-brand-page .pb-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .pro-brand-page .pb-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.85rem 1.75rem;
+      border-radius: 999px;
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+    .pro-brand-page .pb-btn-gold {
+      background: linear-gradient(135deg, #ffe890 0%, #d4af37 60%, #996515 100%);
+      color: #050505;
+    }
+    .pro-brand-page .pb-btn-secondary {
+      color: #f4f4f5;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .pro-brand-page .pb-hero-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin: 2.5rem 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .pro-brand-page .pb-hero-tags li {
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      background: rgba(16, 18, 27, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: rgba(244, 244, 245, 0.72);
+      font-size: 0.85rem;
+    }
+    .pro-brand-page #pb-hero-canvas,
+    .pro-brand-page .pb-hero-glow,
+    .pro-brand-page .pb-hero-noise {
+      opacity: 0;
+    }
+    @media (max-width: 900px) {
+      .pro-brand-page .pb-hero {
+        min-height: auto;
+        padding: 2.75rem 0 2rem;
+      }
+      .pro-brand-page .pb-hero-inner {
+        grid-template-columns: 1fr;
+      }
+      .pro-brand-page .pb-title {
+        font-size: clamp(2.65rem, 12vw, 4rem);
+      }
+    }
+  </style>
+  <link rel="preload" href="{% static 'css/pro-brand.css' %}?v=4" as="style">
+  <link rel="stylesheet" href="{% static 'css/pro-brand.css' %}?v=4">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -320,7 +466,7 @@
           <div class="pb-banksy-visual">
              <div class="pb-banksy-tape"></div>
              <div class="pb-banksy-frame">
-                <img src="{% static 'images/banksy_idea.png' %}" alt="Довіряй своїй божевільній ідеї" class="pb-banksy-image" loading="lazy" decoding="async">
+                {% responsive_image 'images/banksy_idea.png' 'Довіряй своїй божевільній ідеї' sizes='(max-width: 767px) 92vw, (max-width: 1200px) 44vw, 31vw' loading='lazy' class_name='pb-banksy-image' %}
                 <div class="pb-banksy-noise"></div>
              </div>
           </div>
@@ -338,7 +484,7 @@
           <div class="pb-banksy-visual">
              <div class="pb-banksy-tape"></div>
              <div class="pb-banksy-frame">
-                <img src="{% static 'images/banksy_freedom.png' %}" alt="Рабів до раю не пускають" class="pb-banksy-image" loading="lazy" decoding="async">
+                {% responsive_image 'images/banksy_freedom.png' 'Рабів до раю не пускають' sizes='(max-width: 767px) 92vw, (max-width: 1200px) 44vw, 31vw' loading='lazy' class_name='pb-banksy-image' %}
                 <div class="pb-banksy-noise"></div>
              </div>
           </div>
@@ -356,7 +502,7 @@
           <div class="pb-banksy-visual">
              <div class="pb-banksy-tape"></div>
              <div class="pb-banksy-frame">
-                <img src="{% static 'images/banksy_kharkiv.png' %}" alt="Місто як характер" class="pb-banksy-image" loading="lazy" decoding="async">
+                {% responsive_image 'images/banksy_kharkiv.png' 'Місто як характер' sizes='(max-width: 767px) 92vw, (max-width: 1200px) 44vw, 31vw' loading='lazy' class_name='pb-banksy-image' %}
                 <div class="pb-banksy-noise"></div>
              </div>
           </div>
@@ -447,23 +593,39 @@
           <p class="pb-text-muted">Основа незмінна: сенс, форма, якість і продовження. Система розширюватиметься: від футболок і худі до складніших силуетів, аксесуарів та речей із тихим, архітектурним характером.</p>
         </div>
         <div class="pb-future-mantra">
+          <div class="pb-future-head">
+            <span class="pb-future-label">Наступний контур</span>
+            <p class="pb-future-intro">Розширюємо бренд як систему: не шумом, а послідовними кроками, які тримають характер, знак і внутрішню дисципліну.</p>
+          </div>
           <div class="pb-future-stack">
-            <div class="pb-future-line">
+            <article class="pb-future-line">
               <span class="pb-future-index">01</span>
-              <p>Ми знаємо, звідки ми.</p>
-            </div>
-            <div class="pb-future-line">
+              <div class="pb-future-copy">
+                <strong>Ми знаємо, звідки ми.</strong>
+                <span>Харківський код і дисципліна залишаються основою кожної нової речі.</span>
+              </div>
+            </article>
+            <article class="pb-future-line">
               <span class="pb-future-index">02</span>
-              <p>Ми знаємо свій знак.</p>
-            </div>
-            <div class="pb-future-line">
+              <div class="pb-future-copy">
+                <strong>Ми знаємо свій знак.</strong>
+                <span>Власна візуальна мова не розчиняється в трендах і випадкових жестах.</span>
+              </div>
+            </article>
+            <article class="pb-future-line">
               <span class="pb-future-index">03</span>
-              <p>Ми не ставимо крапку.</p>
-            </div>
-            <div class="pb-future-line">
+              <div class="pb-future-copy">
+                <strong>Ми не ставимо крапку.</strong>
+                <span>Кожен дроп продовжує ідею бренду, а не запускає її заново.</span>
+              </div>
+            </article>
+            <article class="pb-future-line">
               <span class="pb-future-index">04</span>
-              <p>Ми продовжуємо.</p>
-            </div>
+              <div class="pb-future-copy">
+                <strong>Ми продовжуємо.</strong>
+                <span>Від базових форм до тихіших складніших силуетів, аксесуарів і цілісної системи.</span>
+              </div>
+            </article>
           </div>
         </div>
       </div>
@@ -545,5 +707,5 @@
 
 {% block extra_js %}
   {{ block.super }}
-  <script src="{% static 'js/pro-brand.js' %}" defer></script>
+  <script src="{% static 'js/pro-brand.js' %}?v=2" defer></script>
 {% endblock %}

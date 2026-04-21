@@ -70,6 +70,10 @@ class SupportStaticPagesTests(SimpleTestCase):
         self.assertContains(about_response, 'aria-label="Breadcrumb"', html=False)
         self.assertContains(about_response, 'href="https://testserver/pro-brand/"', html=False)
         self.assertContains(about_response, '"@type": ["Organization", "OnlineStore"]', html=False)
+        self.assertContains(about_response, 'data-page-shell="marketing"', html=False)
+        self.assertContains(about_response, 'data-analytics-mode="passive"', html=False)
+        self.assertNotContains(about_response, 'points-modal-template', html=False)
+        self.assertNotContains(about_response, 'js/ui-fallback.js', html=False)
 
         delivery_response = self.client.get(reverse("delivery"), secure=True)
         self.assertEqual(delivery_response.status_code, 200)
