@@ -12,9 +12,10 @@ Cart views - Корзина покупок.
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.cache import never_cache
 from django.contrib import messages
+from django_ratelimit.decorators import ratelimit
 from decimal import Decimal, ROUND_HALF_UP
 import logging
 import json
@@ -22,6 +23,11 @@ import json
 from ..models import Product, PromoCode, CustomPrintLead, CustomPrintModerationStatus
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
+from orders.nova_poshta_lookup import (
+    NovaPoshtaDirectoryService,
+    NovaPoshtaLookupError,
+    NovaPoshtaLookupUnavailable,
+)
 from storefront.custom_print_config import (
     ADDON_LABELS,
     FABRIC_LABELS,
@@ -55,6 +61,7 @@ CUSTOM_PRINT_SIZE_MODE_LABELS = {
     'single': 'Один розмір',
     'mixed': 'Мікс розмірів',
 }
+LOOKUP_RATE_LIMIT = '60/m'
 
 
 # ==================== CART VIEWS ====================
@@ -1594,3 +1601,115 @@ def cart_items_api(request):
         'applied_promo': promo_code.code if promo_code else None,
         'total_savings': float(total_savings),
     })
+
+
+def _coerce_positive_int(raw_value, *, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, min(value, maximum))
+
+
+def _lookup_rate_limited_response() -> JsonResponse:
+    return JsonResponse(
+        {
+            'ok': False,
+            'error': 'Забагато запитів. Спробуйте ще раз за хвилину.',
+        },
+        status=429,
+    )
+
+
+@require_GET
+@ratelimit(key='user_or_ip', rate=LOOKUP_RATE_LIMIT, method='GET', block=False)
+def nova_poshta_city_search(request):
+    if getattr(request, 'limited', False):
+        return _lookup_rate_limited_response()
+
+    query = (request.GET.get('q') or '').strip()
+    limit = _coerce_positive_int(request.GET.get('limit'), default=10, minimum=1, maximum=20)
+
+    if len(query) < 2:
+        return JsonResponse({'ok': True, 'items': []})
+
+    service = NovaPoshtaDirectoryService()
+    try:
+        items = service.search_settlements(query, limit=limit)
+    except NovaPoshtaLookupUnavailable as exc:
+        return JsonResponse(
+            {
+                'ok': False,
+                'available': False,
+                'error': str(exc),
+            },
+            status=503,
+        )
+    except NovaPoshtaLookupError as exc:
+        cart_logger.warning('Nova Poshta city lookup failed for query=%r: %s', query, exc)
+        return JsonResponse(
+            {
+                'ok': False,
+                'error': 'Не вдалося отримати список міст Нової пошти.',
+            },
+            status=502,
+        )
+
+    return JsonResponse({'ok': True, 'items': items})
+
+
+@require_GET
+@ratelimit(key='user_or_ip', rate=LOOKUP_RATE_LIMIT, method='GET', block=False)
+def nova_poshta_warehouse_search(request):
+    if getattr(request, 'limited', False):
+        return _lookup_rate_limited_response()
+
+    settlement_ref = (request.GET.get('settlement_ref') or '').strip()
+    city_ref = (request.GET.get('city_ref') or '').strip()
+    query = (request.GET.get('q') or '').strip()
+    kind = (request.GET.get('kind') or 'all').strip().lower()
+    limit = _coerce_positive_int(request.GET.get('limit'), default=20, minimum=1, maximum=50)
+
+    if not settlement_ref and not city_ref:
+        return JsonResponse(
+            {
+                'ok': False,
+                'error': 'Спочатку оберіть місто зі списку Нової пошти.',
+            },
+            status=400,
+        )
+
+    service = NovaPoshtaDirectoryService()
+    try:
+        items = service.search_warehouses(
+            settlement_ref=settlement_ref,
+            city_ref=city_ref,
+            query=query,
+            kind=kind,
+            limit=limit,
+        )
+    except NovaPoshtaLookupUnavailable as exc:
+        return JsonResponse(
+            {
+                'ok': False,
+                'available': False,
+                'error': str(exc),
+            },
+            status=503,
+        )
+    except NovaPoshtaLookupError as exc:
+        cart_logger.warning(
+            'Nova Poshta warehouse lookup failed for settlement_ref=%r city_ref=%r: %s',
+            settlement_ref,
+            city_ref,
+            exc,
+        )
+        return JsonResponse(
+            {
+                'ok': False,
+                'error': 'Не вдалося отримати список відділень Нової пошти.',
+            },
+            status=502,
+        )
+
+    return JsonResponse({'ok': True, 'items': items})

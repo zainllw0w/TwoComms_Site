@@ -1695,7 +1695,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(() => { });
     }
     if (document.querySelector('.cart-page-container') || document.getElementById('promo-code-input')) {
-      import('./modules/cart.js?v=20250130')
+      import('./modules/cart.js?v=20260422')
         .then(({ initCartInteractions }) => initCartInteractions())
         .catch(() => { });
     }
