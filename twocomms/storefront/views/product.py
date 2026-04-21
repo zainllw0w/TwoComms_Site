@@ -16,6 +16,7 @@ from ..models import Product
 from ..services.catalog_helpers import get_detailed_color_variants
 from ..services.size_guides import resolve_product_size_context
 from ..recommendations import ProductRecommendationEngine
+from ..utm_tracking import record_product_view
 
 
 # ==================== PRODUCT VIEWS ====================
@@ -58,6 +59,7 @@ def product_detail(request, slug):
         slug=slug,
         status='published',
     )
+    record_product_view(request, product.id, product.title)
     images = product.images.all()
 
     # Читаем параметры из URL (?size=M&color=123)

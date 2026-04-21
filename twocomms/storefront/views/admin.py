@@ -83,6 +83,10 @@ from storefront.services.catalog import (
     formset_to_variant_payloads,
     sync_variant_images,
 )
+from storefront.services.admin_analytics import (
+    build_admin_analytics_context,
+    build_product_admin_metrics,
+)
 from storefront.services.catalog_helpers import bump_public_product_order_version
 
 
@@ -430,9 +434,16 @@ def _build_catalogs_context():
 
     catalogs = Catalog.objects.filter(is_active=True).order_by('order', 'name')
 
+    product_list = list(products)
+    product_metrics = build_product_admin_metrics([product.id for product in product_list])
+    for product in product_list:
+        metrics = product_metrics.get(product.id, {})
+        product.total_views = metrics.get('total_views', 0)
+        product.unique_ip_views = metrics.get('unique_ip_views', 0)
+
     return {
         'categories': categories,
-        'products': products,
+        'products': product_list,
         'catalogs': catalogs,
         'product_statuses': ProductStatus,
     }
@@ -688,6 +699,8 @@ def admin_panel(request):
         'section': section,
         'stats': _build_stats(period_param),
     }
+    if section == 'stats':
+        context.update(build_admin_analytics_context(request))
 
     if section == 'users':
         context.update(_build_users_context())

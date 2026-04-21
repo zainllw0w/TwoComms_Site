@@ -24,6 +24,7 @@ from ..services.catalog_helpers import (
     get_categories_cached,
 )
 from ..services.survey_engine import load_survey_definition
+from ..utm_tracking import record_search
 from cache_utils import get_fragment_cache
 from .utils import (
     cache_page_for_anon,
@@ -300,6 +301,7 @@ def search(request):
             # Поиск по названию (базовый поиск, как в рабочей версии из views.py)
             # Сначала пробуем простой поиск по title, как в рабочей версии
             product_qs = product_qs.filter(title__icontains=query)
+            record_search(request, query)
 
         # Фильтрация по категории
         selected_category = None

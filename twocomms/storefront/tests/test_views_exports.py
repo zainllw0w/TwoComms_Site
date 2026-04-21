@@ -1,7 +1,7 @@
 from django.test import SimpleTestCase
 
-from twocomms.storefront import views
-from twocomms.storefront.views import monobank as monobank_views
+from storefront import views
+from storefront.views import monobank as monobank_views
 
 
 class ViewExportsTests(SimpleTestCase):

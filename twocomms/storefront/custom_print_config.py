@@ -1033,13 +1033,20 @@ def _allowed_values(items):
     return {item["value"] for item in items}
 
 
-def build_custom_print_config(*, submit_url: str, safe_exit_url: str, add_to_cart_url: str = "") -> dict:
+def build_custom_print_config(
+    *,
+    submit_url: str,
+    safe_exit_url: str,
+    add_to_cart_url: str = "",
+    track_event_url: str = "",
+) -> dict:
     return {
         "version": 2,
         "storage_key": CUSTOM_PRINT_DRAFT_STORAGE_KEY,
         "submit_url": submit_url,
         "safe_exit_url": safe_exit_url,
         "add_to_cart_url": add_to_cart_url,
+        "track_event_url": track_event_url,
         "telegram_manager_url": TELEGRAM_MANAGER_URL,
         "quick_start_modes": deepcopy(QUICK_START_MODES),  # legacy
         "modes": deepcopy(CLIENT_MODES),

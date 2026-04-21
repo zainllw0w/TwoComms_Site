@@ -16,6 +16,7 @@ from ..services.survey_engine import (
     load_survey_definition,
 )
 from ..tasks import queue_survey_report
+from ..utm_tracking import record_survey_event
 from ..utm_utils import parse_user_agent
 
 logger = logging.getLogger(__name__)
@@ -114,6 +115,7 @@ def survey_start_or_resume(request):
 
     device_data = parse_user_agent(request.META.get("HTTP_USER_AGENT", ""))
 
+    created = False
     try:
         with transaction.atomic():
             session, created = SurveySession.objects.select_for_update().get_or_create(
@@ -139,6 +141,14 @@ def survey_start_or_resume(request):
 
     _ensure_current_question(session, engine)
     session.save(update_fields=["last_activity_at"])
+    if created:
+        record_survey_event(
+            request,
+            "survey_start",
+            session=session,
+            question_id=session.current_question_id,
+            metadata={"created": True},
+        )
     return JsonResponse(_serialize_state(session, engine))
 
 
@@ -235,6 +245,16 @@ def survey_submit_answer(request):
                     "version",
                     "last_activity_at",
                 ])
+                record_survey_event(
+                    request,
+                    "survey_skip" if answer is None else "survey_answer",
+                    session=session,
+                    question_id=question_id,
+                    metadata={
+                        "question_type": question.get("type"),
+                        "next_question_id": session.current_question_id,
+                    },
+                )
                 return JsonResponse(_serialize_state(session, engine))
 
             min_required = int(definition.get("end_conditions", {}).get("min_answered_questions", 0))
@@ -242,7 +262,21 @@ def survey_submit_answer(request):
                 logger.warning("Survey ended early for session %s", session.id)
 
             session.save(update_fields=["answers", "history", "version", "last_activity_at"])
+            record_survey_event(
+                request,
+                "survey_skip" if answer is None else "survey_answer",
+                session=session,
+                question_id=question_id,
+                metadata={"question_type": question.get("type")},
+            )
             session = _complete_session(session, definition)
+            record_survey_event(
+                request,
+                "survey_complete",
+                session=session,
+                question_id=question_id,
+                metadata={"question_type": question.get("type")},
+            )
             return JsonResponse(_serialize_state(session, engine))
 
     except SurveySession.DoesNotExist:
@@ -293,6 +327,13 @@ def survey_back_one_step(request):
                 "version",
                 "last_activity_at",
             ])
+            record_survey_event(
+                request,
+                "survey_back",
+                session=session,
+                question_id=last_question_id,
+                metadata={"client_version": client_version},
+            )
             return JsonResponse(_serialize_state(session, engine))
 
     except SurveySession.DoesNotExist:
@@ -310,7 +351,15 @@ def survey_close(request):
         return error_response
 
     survey_key = definition.get("survey_key", "print_feedback_v1")
-    SurveySession.objects.filter(user=request.user, survey_key=survey_key).update(last_activity_at=timezone.now())
+    session = SurveySession.objects.filter(user=request.user, survey_key=survey_key).first()
+    if session:
+        SurveySession.objects.filter(pk=session.pk).update(last_activity_at=timezone.now())
+        record_survey_event(
+            request,
+            "survey_close",
+            session=session,
+            question_id=session.current_question_id,
+        )
     return JsonResponse({"success": True})
 
 
@@ -341,4 +390,10 @@ def survey_complete(request):
         return JsonResponse({"success": False, "error": "required_missing"}, status=400)
 
     session = _complete_session(session, definition)
+    record_survey_event(
+        request,
+        "survey_complete",
+        session=session,
+        metadata={"completed_via": "explicit_endpoint"},
+    )
     return JsonResponse(_serialize_state(session, engine))

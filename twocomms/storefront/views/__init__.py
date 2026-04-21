@@ -79,6 +79,8 @@ from .cart import (
     cart_summary,
     cart_mini,
     cart_items_api,
+    nova_poshta_city_search,
+    nova_poshta_warehouse_search,
 )
 
 # Статические страницы
@@ -364,6 +366,7 @@ __all__ = [
     'view_cart', 'add_to_cart', 'update_cart', 'remove_from_cart', 'clear_cart',
     'contact_manager', 'get_cart_count', 'apply_promo_code', 'remove_promo_code',
     'cart_summary', 'cart_mini', 'cart_items_api',
+    'nova_poshta_city_search', 'nova_poshta_warehouse_search',
 
     # Static Pages
     'robots_txt', 'llms_txt', 'static_sitemap', 'google_merchant_feed',

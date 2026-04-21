@@ -81,6 +81,13 @@ def record_user_action(
             **kwargs
         )
 
+        base_metadata = dict(metadata or {})
+        visitor_id = getattr(request, 'analytics_visitor_id', None)
+        if visitor_id and 'visitor_id' not in base_metadata:
+            base_metadata['visitor_id'] = visitor_id
+        if hasattr(request, 'analytics_first_touch_data') and request.analytics_first_touch_data and 'first_touch' not in base_metadata:
+            base_metadata['first_touch'] = request.analytics_first_touch_data
+
         # Создаем запись действия
         action = UserAction.objects.create(
             utm_session=utm_session,
@@ -93,7 +100,7 @@ def record_user_action(
             cart_value=cart_value,
             order_id=order_id,
             order_number=order_number[:20] if order_number else None,
-            metadata=metadata or {},
+            metadata=base_metadata,
             points_earned=points,
         )
 
@@ -218,6 +225,101 @@ def record_search(request, query: str):
         action_type='search',
         metadata={'query': query}
     )
+
+
+def record_custom_print_event(request, action_type: str, *, lead=None, step_key: Optional[str] = None, metadata: Optional[dict] = None):
+    """Records a custom-print lifecycle event."""
+    payload = dict(metadata or {})
+    if lead is not None:
+        payload.setdefault('lead_id', getattr(lead, 'pk', None))
+        payload.setdefault('lead_number', getattr(lead, 'lead_number', ''))
+        payload.setdefault('product_type', getattr(lead, 'product_type', ''))
+        payload.setdefault('client_kind', getattr(lead, 'client_kind', ''))
+        payload.setdefault('source', getattr(lead, 'source', ''))
+    if step_key:
+        payload['step_key'] = step_key
+    return record_user_action(request, action_type=action_type, metadata=payload)
+
+
+def record_survey_event(request, action_type: str, *, session=None, question_id: Optional[str] = None, metadata: Optional[dict] = None):
+    """Records a survey lifecycle event."""
+    payload = dict(metadata or {})
+    if session is not None:
+        payload.setdefault('survey_session_id', getattr(session, 'pk', None))
+        payload.setdefault('survey_key', getattr(session, 'survey_key', ''))
+        payload.setdefault('survey_status', getattr(session, 'status', ''))
+    if question_id:
+        payload['question_id'] = question_id
+    return record_user_action(request, action_type=action_type, metadata=payload)
+
+
+def record_order_action(
+    action_type: str,
+    order,
+    *,
+    request=None,
+    cart_value: Optional[float] = None,
+    metadata: Optional[dict] = None,
+) -> Optional[UserAction]:
+    """Records an order-level action even when payment confirmation arrives from a webhook."""
+    try:
+        session_key = None
+        if request is not None:
+            session_key = request.session.session_key
+            if not session_key:
+                request.session.save()
+                session_key = request.session.session_key
+        session_key = session_key or getattr(order, 'session_key', None)
+
+        utm_session = getattr(order, 'utm_session', None)
+        if utm_session is None and session_key:
+            utm_session = UTMSession.objects.filter(session_key=session_key).first()
+
+        site_session = SiteSession.objects.filter(session_key=session_key).first() if session_key else None
+        user = getattr(order, 'user', None)
+        if user is None and request is not None and getattr(request.user, 'is_authenticated', False):
+            user = request.user
+
+        points = calculate_action_points(
+            action_type,
+            cart_value=cart_value,
+            order_value=cart_value,
+        )
+
+        base_metadata = dict(metadata or {})
+        if request is not None:
+            visitor_id = getattr(request, 'analytics_visitor_id', None)
+            first_touch = getattr(request, 'analytics_first_touch_data', None)
+        else:
+            visitor_id = getattr(site_session, 'visitor_id', None) or getattr(utm_session, 'visitor_id', None)
+            first_touch = getattr(site_session, 'first_touch_data', None)
+
+        if visitor_id and 'visitor_id' not in base_metadata:
+            base_metadata['visitor_id'] = visitor_id
+        if first_touch and 'first_touch' not in base_metadata:
+            base_metadata['first_touch'] = first_touch
+
+        action = UserAction.objects.create(
+            utm_session=utm_session,
+            site_session=site_session,
+            user=user,
+            action_type=action_type,
+            page_path=request.path[:512] if request is not None and hasattr(request, 'path') else None,
+            cart_value=cart_value if cart_value is not None else getattr(order, 'total_sum', None),
+            order_id=getattr(order, 'pk', None),
+            order_number=(getattr(order, 'order_number', None) or '')[:20] or None,
+            metadata=base_metadata,
+            points_earned=points,
+        )
+
+        if utm_session is not None and action_type in {'lead', 'purchase'}:
+            utm_session.mark_as_converted(conversion_type=action_type)
+
+        logger.info("Recorded order action: %s for order %s", action_type, getattr(order, 'order_number', getattr(order, 'pk', None)))
+        return action
+    except Exception as e:
+        logger.error(f"Error recording order action: {e}", exc_info=True)
+        return None
 
 
 def link_order_to_utm(request, order):

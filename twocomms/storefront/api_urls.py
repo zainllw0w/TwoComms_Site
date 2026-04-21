@@ -15,6 +15,7 @@ from .viewsets import (
     CommunicationViewSet,
     AdminProductBuilderViewSet,
 )
+from .admin_analytics_api import AdminAnalyticsViewSet
 from .utm_api_views import UTMAnalyticsViewSet, export_utm_csv
 
 
@@ -28,6 +29,7 @@ router.register(r'cart', CartViewSet, basename='api-cart')
 router.register(r'analytics', AnalyticsViewSet, basename='api-analytics')
 router.register(r'communication', CommunicationViewSet, basename='api-communication')
 router.register(r'admin/product-builder', AdminProductBuilderViewSet, basename='api-admin-product-builder')
+router.register(r'admin/analytics', AdminAnalyticsViewSet, basename='api-admin-analytics')
 router.register(r'utm', UTMAnalyticsViewSet, basename='api-utm')
 
 # URL patterns
