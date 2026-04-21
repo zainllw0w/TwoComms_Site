@@ -197,6 +197,9 @@ function requestMonoCheckout() {
       phone: getAnyVal('phone'),
       city: getAnyVal('city'),
       np_office: getAnyVal('np_office'),
+      np_settlement_ref: getAnyVal('np_settlement_ref'),
+      np_city_ref: getAnyVal('np_city_ref'),
+      np_warehouse_ref: getAnyVal('np_warehouse_ref'),
       pay_type: getAnyVal('pay_type') || 'online_full',
       email: getAnyVal('email')
     };
@@ -243,6 +246,9 @@ function requestMonoCheckoutSingleProduct(button) {
     payload.phone = getAnyVal('phone');
     payload.city = getAnyVal('city');
     payload.np_office = getAnyVal('np_office');
+    payload.np_settlement_ref = getAnyVal('np_settlement_ref');
+    payload.np_city_ref = getAnyVal('np_city_ref');
+    payload.np_warehouse_ref = getAnyVal('np_warehouse_ref');
     payload.pay_type = getAnyVal('pay_type') || 'online_full';
     payload.email = getAnyVal('email');
   }
@@ -399,6 +405,9 @@ function requestMonobankPay() {
       phone: getAnyVal('phone'),
       city: getAnyVal('city'),
       np_office: getAnyVal('np_office'),
+      np_settlement_ref: getAnyVal('np_settlement_ref'),
+      np_city_ref: getAnyVal('np_city_ref'),
+      np_warehouse_ref: getAnyVal('np_warehouse_ref'),
       pay_type: getPayType()
     };
   }

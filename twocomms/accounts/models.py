@@ -9,6 +9,9 @@ class UserProfile(models.Model):
     phone = models.CharField(max_length=32, blank=True)
     city = models.CharField(max_length=100, blank=True)
     np_office = models.CharField(max_length=200, blank=True)
+    np_settlement_ref = models.CharField(max_length=36, blank=True)
+    np_city_ref = models.CharField(max_length=36, blank=True)
+    np_warehouse_ref = models.CharField(max_length=36, blank=True)
     pay_type = models.CharField(max_length=10, choices=[
         ('full', 'Повна оплата'),
         ('partial', 'Часткова оплата')

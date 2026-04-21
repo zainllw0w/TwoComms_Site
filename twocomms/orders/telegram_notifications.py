@@ -2,11 +2,16 @@
 Telegram уведомления для заказов
 """
 import json
-import requests
 import os
 import re
 from pathlib import Path
+
+import requests
 from django.utils import timezone
+
+from orders.nova_poshta_documents import TELEGRAM_CREATE_NP_WAYBILL_ACTION
+from orders.status_management import get_telegram_status_action
+from orders.telegram_status_links import build_order_action_url, build_order_status_action_url
 # Import async task
 try:
     from storefront.tasks import send_telegram_notification_task
@@ -19,6 +24,86 @@ def _parse_chat_ids(raw_value):
         return []
     parts = re.split(r"[;,\s]+", str(raw_value))
     return [part for part in (p.strip() for p in parts) if part]
+
+
+def _normalize_order_admin_message_ref(chat_id, message_id):
+    try:
+        normalized_chat_id = int(chat_id)
+        normalized_message_id = int(message_id)
+    except (TypeError, ValueError):
+        return None
+    if not normalized_chat_id or not normalized_message_id:
+        return None
+    return {
+        "chat_id": normalized_chat_id,
+        "message_id": normalized_message_id,
+    }
+
+
+def _get_order_admin_message_refs(order):
+    refs = []
+    seen = set()
+
+    primary_ref = _normalize_order_admin_message_ref(
+        getattr(order, "admin_tg_chat_id", None),
+        getattr(order, "admin_tg_message_id", None),
+    )
+    if primary_ref:
+        refs.append(primary_ref)
+        seen.add((primary_ref["chat_id"], primary_ref["message_id"]))
+
+    raw_refs = getattr(order, "admin_tg_messages", None) or []
+    if isinstance(raw_refs, list):
+        for raw_ref in raw_refs:
+            if not isinstance(raw_ref, dict):
+                continue
+            normalized_ref = _normalize_order_admin_message_ref(
+                raw_ref.get("chat_id"),
+                raw_ref.get("message_id"),
+            )
+            if not normalized_ref:
+                continue
+            ref_key = (normalized_ref["chat_id"], normalized_ref["message_id"])
+            if ref_key in seen:
+                continue
+            refs.append(normalized_ref)
+            seen.add(ref_key)
+
+    return refs
+
+
+def _save_order_admin_message_refs(order, refs):
+    normalized_refs = []
+    seen = set()
+    for ref in refs:
+        normalized_ref = None
+        if isinstance(ref, dict):
+            normalized_ref = _normalize_order_admin_message_ref(
+                ref.get("chat_id"),
+                ref.get("message_id"),
+            )
+        elif isinstance(ref, (list, tuple)) and len(ref) >= 2:
+            normalized_ref = _normalize_order_admin_message_ref(ref[0], ref[1])
+        if not normalized_ref:
+            continue
+        ref_key = (normalized_ref["chat_id"], normalized_ref["message_id"])
+        if ref_key in seen:
+            continue
+        normalized_refs.append(normalized_ref)
+        seen.add(ref_key)
+
+    if normalized_refs:
+        order.admin_tg_chat_id = normalized_refs[0]["chat_id"]
+        order.admin_tg_message_id = normalized_refs[0]["message_id"]
+        order.admin_tg_messages = normalized_refs
+    else:
+        order.admin_tg_chat_id = None
+        order.admin_tg_message_id = None
+        order.admin_tg_messages = None
+
+    if hasattr(order, "save"):
+        order.save(update_fields=["admin_tg_chat_id", "admin_tg_message_id", "admin_tg_messages"])
+    return normalized_refs
 
 
 class TelegramNotifier:
@@ -51,12 +136,19 @@ class TelegramNotifier:
             return self.admin_ids or self.chat_ids
         return self.chat_ids or self.admin_ids
 
-    def _post(self, method, *, data=None, files=None, timeout=10):
+    def _post_json(self, method, *, data=None, files=None, timeout=10):
         url = f"https://api.telegram.org/bot{self.bot_token}/{method}"
         response = requests.post(url, data=data, files=files, timeout=timeout)
-        return response.status_code == 200
+        try:
+            return response.json()
+        except ValueError:
+            return None
 
-    def send_message(self, message, parse_mode='HTML', reply_markup=None):
+    def _post(self, method, *, data=None, files=None, timeout=10):
+        payload = self._post_json(method, data=data, files=files, timeout=timeout)
+        return bool(payload and payload.get("ok"))
+
+    def send_message(self, message, parse_mode='HTML', reply_markup=None, return_results=False):
         """Отправляет сообщение в Telegram админу"""
         print(f"🔵 send_message to ADMIN called")
         print(f"🔵 bot_token: {'SET' if self.bot_token else 'NOT SET'}")
@@ -71,9 +163,9 @@ class TelegramNotifier:
         target_ids = self._resolve_targets(admin=True)
         print(f"🟡 Target admin IDs: {', '.join(target_ids) if target_ids else 'NOT SET'}")
         if not target_ids:
-            return False
+            return [] if return_results else False
 
-        if self.async_enabled and send_telegram_notification_task and reply_markup is None:
+        if self.async_enabled and send_telegram_notification_task and reply_markup is None and not return_results:
             print(f"🟢 Delegating to Celery task (chat_id={target_ids})")
             for target_id in target_ids:
                 send_telegram_notification_task.delay(message, chat_id=target_id, parse_mode=parse_mode)
@@ -81,9 +173,9 @@ class TelegramNotifier:
         else:
             # Fallback if task not available (e.g. during migration or if import failed)
             success = False
+            sent_results = []
             for target_id in target_ids:
                 try:
-                    url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
                     data = {
                         'chat_id': target_id,
                         'text': message,
@@ -92,10 +184,15 @@ class TelegramNotifier:
                     if reply_markup is not None:
                         data['reply_markup'] = json.dumps(reply_markup, ensure_ascii=False)
                     print(f"🟢 Sending SYNC POST to Telegram API for admin (chat_id={target_id})")
-                    success = self._post("sendMessage", data=data, timeout=10) or success
+                    payload = self._post_json("sendMessage", data=data, timeout=10)
+                    if payload and payload.get("ok"):
+                        success = True
+                        result = payload.get("result") or {}
+                        if return_results:
+                            sent_results.append(result)
                 except Exception as e:
                     print(f"❌ Exception in send_message to admin (chat_id={target_id}): {e}")
-            return success
+            return sent_results if return_results else success
 
     def send_admin_message(self, message, parse_mode='HTML', reply_markup=None):
         """
@@ -332,6 +429,12 @@ class TelegramNotifier:
 │     Статус оплаты: {order.get_payment_status_display()}
 │     Статус заказа: {order.get_status_display()}
 │     Время создания: {order.created.strftime('%d.%m.%Y %H:%M')}
+"""
+
+        if getattr(order, "tracking_number", None):
+            full_block += f"│     ТТН: {order.tracking_number}\n"
+
+        full_block += f"""
 ├─────────────────────────────────────────┤
 {payment_info}
 ├─────────────────────────────────────────┤
@@ -382,13 +485,87 @@ class TelegramNotifier:
 
         return message
 
+    def _build_order_management_reply_markup(self, order):
+        if (
+            not getattr(order, "pk", None)
+            or getattr(order, "tracking_number", None)
+            or getattr(order, "nova_poshta_document_ref", None)
+            or getattr(order, "status", "") in {"done", "cancelled"}
+        ):
+            return None
+
+        action = get_telegram_status_action('ship')
+        if not action or not getattr(order, 'pk', None):
+            return None
+
+        try:
+            ship_url = build_order_status_action_url(order, 'ship')
+            create_waybill_url = build_order_action_url(
+                order,
+                TELEGRAM_CREATE_NP_WAYBILL_ACTION,
+                route_name="telegram_order_np_waybill_action",
+            )
+        except Exception:
+            return None
+
+        return {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": "📦 Створити ТТН НП",
+                        "url": create_waybill_url,
+                    }
+                ],
+                [
+                    {
+                        "text": action["button_text"],
+                        "url": ship_url,
+                    }
+                ]
+            ]
+        }
+
     def send_new_order_notification(self, order):
         """Отправляет уведомление о новом заказе"""
         if not self.is_configured():
             return False
 
         message = self.format_order_message(order)
-        return self.send_message(message)
+        reply_markup = self._build_order_management_reply_markup(order)
+        sent_results = self.send_message(
+            message,
+            reply_markup=reply_markup,
+            return_results=True,
+        )
+        if sent_results and getattr(order, "pk", None):
+            refs = []
+            for result in sent_results:
+                chat = result.get("chat") or {}
+                refs.append((chat.get("id"), result.get("message_id")))
+            _save_order_admin_message_refs(order, refs)
+        return bool(sent_results)
+
+    def update_order_notification_message(self, order, *, clear_actions=False):
+        refs = _get_order_admin_message_refs(order)
+        if not refs or not self.bot_token:
+            return False
+
+        message = self.format_order_message(order)
+        reply_markup = {"inline_keyboard": []} if clear_actions else self._build_order_management_reply_markup(order)
+        success = False
+        for ref in refs:
+            payload = {
+                "chat_id": ref["chat_id"],
+                "message_id": ref["message_id"],
+                "text": message,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            }
+            if reply_markup is not None:
+                payload["reply_markup"] = json.dumps(reply_markup, ensure_ascii=False)
+            result = self._post_json("editMessageText", data=payload, timeout=10)
+            success = bool(result and result.get("ok")) or success
+        return success
 
     def send_admin_status_update(self, order, old_status, new_status):
         """Отправляет админу уведомление об изменении статусу замовлення"""

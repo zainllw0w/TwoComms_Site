@@ -32,9 +32,11 @@ from django.contrib import messages
 import requests
 
 from ..models import Product, PromoCode
+from orders.nova_poshta_data import apply_nova_poshta_refs, extract_nova_poshta_refs
 from orders.models import Order as OrderModel, OrderItem
 from orders.telegram_notifications import TelegramNotifier
 from orders.facebook_conversions_service import get_facebook_conversions_service
+from ..utm_tracking import link_order_to_utm, record_initiate_checkout, record_lead, record_order_action
 from .utils import (
     _reset_monobank_session,
     get_cart_from_session,
@@ -339,6 +341,8 @@ def monobank_create_invoice(request):
             'error': 'Кошик порожній. Додайте товари перед оплатою.'
         })
 
+    _ensure_session_key(request)
+
     # Custom-print policy: pending custom items are NOT blocking — they stay in the
     # user's session and can be paid after manager approval. Regular items are paid
     # now; approved custom items can be attached to the order (future enhancement).
@@ -378,6 +382,9 @@ def monobank_create_invoice(request):
         phone = _body_override('phone', prof.phone)
         city = _body_override('city', prof.city)
         np_office = _body_override('np_office', prof.np_office)
+        delivery_refs = {}
+        for field_name in ('np_settlement_ref', 'np_city_ref', 'np_warehouse_ref'):
+            delivery_refs[field_name] = _body_override(field_name, getattr(prof, field_name, ''))
 
         pay_type_raw = (body.get('pay_type') or prof.pay_type or 'online_full')
         normalized_pay_type = (pay_type_raw or '').strip().lower()
@@ -396,6 +403,7 @@ def monobank_create_invoice(request):
         city = body.get('city', '').strip()
         np_office = body.get('np_office', '').strip()
         pay_type = body.get('pay_type', 'online_full')
+        delivery_refs = extract_nova_poshta_refs(body)
         monobank_logger.info(f'Guest user: pay_type={pay_type}')
 
         # Валидация для гостей
@@ -440,6 +448,8 @@ def monobank_create_invoice(request):
                     'error': 'Сума замовлення повинна бути більше 0'
                 })
 
+            record_initiate_checkout(request, float(total_sum))
+
             # Создаем Order
             order = OrderModel.objects.create(
                 user=request.user if request.user.is_authenticated else None,
@@ -447,12 +457,16 @@ def monobank_create_invoice(request):
                 phone=phone,
                 city=city,
                 np_office=np_office,
+                session_key=request.session.session_key,
                 pay_type=pay_type,
                 total_sum=total_sum,
                 status='new',
                 payment_status='unpaid',
                 payment_provider='monobank_pay'
             )
+            apply_nova_poshta_refs(order, delivery_refs)
+            order.save(update_fields=['np_settlement_ref', 'np_city_ref', 'np_warehouse_ref'])
+            link_order_to_utm(request, order)
 
             monobank_logger.info(f'Order created: {order.order_number} (ID: {order.id})')
             monobank_logger.info(f'🔍 Order.pay_type = {order.pay_type}')
@@ -831,6 +845,7 @@ def monobank_create_invoice(request):
             order.payment_payload = payment_payload
             order.payment_status = 'checking'
             order.save(update_fields=['payment_invoice_id', 'payment_payload', 'payment_status'])
+            record_lead(request, order.id, order.order_number, float(payment_amount))
 
             monobank_logger.info(f'Order {order.order_number}: Saved tracking context: external_id={external_source}, fbp={bool(fbp_cookie)}, fbc={bool(fbc_cookie)}')
 
@@ -1067,6 +1082,16 @@ def _apply_monobank_status(order, status_value, payload=None, source='webhook'):
 
     # Уведомление в Telegram при смене статуса оплаты на оплачено/предоплата
     if order.payment_status in ('paid', 'prepaid') and order.payment_status != old_payment_status:
+        record_order_action(
+            'purchase',
+            order,
+            cart_value=float(order.total_sum or 0),
+            metadata={
+                'monobank_status': status_lower,
+                'source': source,
+                'payment_status': order.payment_status,
+            },
+        )
         try:
             notifier = TelegramNotifier()
             notifier.send_admin_payment_status_update(

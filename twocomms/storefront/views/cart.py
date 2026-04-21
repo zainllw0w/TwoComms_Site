@@ -23,6 +23,7 @@ import json
 from ..models import Product, PromoCode, CustomPrintLead, CustomPrintModerationStatus
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
+from orders.nova_poshta_data import apply_nova_poshta_refs
 from orders.nova_poshta_lookup import (
     NovaPoshtaDirectoryService,
     NovaPoshtaLookupError,
@@ -61,6 +62,7 @@ CUSTOM_PRINT_SIZE_MODE_LABELS = {
     'single': 'Один розмір',
     'mixed': 'Мікс розмірів',
 }
+
 LOOKUP_RATE_LIMIT = '60/m'
 
 
@@ -412,6 +414,7 @@ def view_cart(request):
                 profile.phone = (request.POST.get('phone') or '').strip()
                 profile.city = (request.POST.get('city') or '').strip()
                 profile.np_office = (request.POST.get('np_office') or '').strip()
+                apply_nova_poshta_refs(profile, request.POST)
 
                 pay_type_raw = request.POST.get('pay_type')
                 if pay_type_raw:
@@ -1655,7 +1658,12 @@ def nova_poshta_city_search(request):
             status=502,
         )
 
-    return JsonResponse({'ok': True, 'items': items})
+    return JsonResponse(
+        {
+            'ok': True,
+            'items': items,
+        }
+    )
 
 
 @require_GET
@@ -1712,4 +1720,9 @@ def nova_poshta_warehouse_search(request):
             status=502,
         )
 
-    return JsonResponse({'ok': True, 'items': items})
+    return JsonResponse(
+        {
+            'ok': True,
+            'items': items,
+        }
+    )

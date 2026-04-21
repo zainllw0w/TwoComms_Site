@@ -21,11 +21,12 @@ class NovaPoshtaLookupUnavailable(NovaPoshtaLookupError):
 
 class NovaPoshtaDirectoryService:
     """
-    Checkout-safe adapter for Nova Poshta city and warehouse lookups.
+    Lookup adapter for Nova Poshta settlement and warehouse selection.
 
-    The project already relies on the legacy JSON API endpoint, so this service keeps the
-    integration server-side and progressive instead of switching the whole checkout flow to
-    another API family.
+    This service intentionally uses the existing JSON API endpoint already wired in the
+    project (`https://api.novaposhta.ua/v2.0/json/`) instead of switching checkout flows
+    to the newer REST API family, because production is already configured around the
+    legacy endpoint and we need a minimal-risk integration for cart/checkout UX.
     """
 
     API_URL = "https://api.novaposhta.ua/v2.0/json/"
@@ -41,6 +42,9 @@ class NovaPoshtaDirectoryService:
         self.api_url = getattr(settings, "NOVA_POSHTA_API_URL", self.API_URL) or self.API_URL
         self.api_url = self.api_url.rstrip("/") + "/"
 
+    def is_available(self) -> bool:
+        return bool(self.api_key)
+
     def search_settlements(self, query: str, *, limit: int = 10) -> list[dict[str, Any]]:
         normalized_query = " ".join(str(query or "").split())
         normalized_limit = max(1, min(int(limit or 10), 20))
@@ -49,7 +53,10 @@ class NovaPoshtaDirectoryService:
 
         cache_key = self._cache_key(
             "settlements",
-            {"query": normalized_query.lower(), "limit": normalized_limit},
+            {
+                "query": normalized_query.lower(),
+                "limit": normalized_limit,
+            },
         )
         return cache.get_or_set(
             cache_key,
@@ -101,7 +108,11 @@ class NovaPoshtaDirectoryService:
         payload = self._request(
             "Address",
             "searchSettlements",
-            {"CityName": query, "Limit": str(limit), "Page": "1"},
+            {
+                "CityName": query,
+                "Limit": str(limit),
+                "Page": "1",
+            },
         )
 
         addresses: list[dict[str, Any]] = []
@@ -111,6 +122,7 @@ class NovaPoshtaDirectoryService:
 
         seen: set[tuple[str, str, str]] = set()
         results: list[dict[str, Any]] = []
+
         for item in addresses:
             label = str(item.get("Present") or item.get("MainDescription") or "").strip()
             settlement_ref = str(item.get("SettlementRef") or item.get("Ref") or "").strip()
@@ -123,6 +135,7 @@ class NovaPoshtaDirectoryService:
             if signature in seen:
                 continue
             seen.add(signature)
+
             results.append(
                 {
                     "label": label,
@@ -130,7 +143,9 @@ class NovaPoshtaDirectoryService:
                     "area": str(item.get("Area") or "").strip(),
                     "region": str(item.get("Region") or "").strip(),
                     "settlement_type": str(
-                        item.get("SettlementTypeDescription") or item.get("SettlementTypeCode") or ""
+                        item.get("SettlementTypeDescription")
+                        or item.get("SettlementTypeCode")
+                        or ""
                     ).strip(),
                     "settlement_ref": settlement_ref,
                     "city_ref": city_ref,
@@ -152,34 +167,47 @@ class NovaPoshtaDirectoryService:
     ) -> list[dict[str, Any]]:
         type_map = self._get_warehouse_type_map()
         use_full_directory_lookup = bool(query)
+
         ref_candidates: list[dict[str, str]] = []
         if city_ref:
             ref_candidates.append({"CityRef": city_ref})
         if settlement_ref and settlement_ref != city_ref:
             ref_candidates.append({"SettlementRef": settlement_ref})
 
-        had_request_attempt = False
         last_unavailable: NovaPoshtaLookupUnavailable | None = None
+        had_request_attempt = False
 
         for ref_payload in ref_candidates:
             for model_name in ("Address", "AddressGeneral"):
                 had_request_attempt = True
                 try:
                     if use_full_directory_lookup:
-                        items = self._get_warehouse_directory(
+                        directory_items = self._get_warehouse_directory(
                             model_name=model_name,
                             ref_payload=ref_payload,
                             type_map=type_map,
                         )
-                        results = self._filter_warehouse_items(items, query=query, kind=kind, limit=limit)
+                        results = self._filter_warehouse_items(
+                            directory_items,
+                            query=query,
+                            kind=kind,
+                            limit=limit,
+                        )
                     else:
                         payload = self._request(
                             model_name,
                             "getWarehouses",
-                            {**self._build_fast_warehouse_request_properties(kind=kind, limit=limit), **ref_payload},
+                            {
+                                **self._build_fast_warehouse_request_properties(kind=kind, limit=limit),
+                                **ref_payload,
+                            },
                         )
-                        items = self._transform_warehouses(payload, type_map=type_map, kind="all")
-                        results = self._filter_warehouse_items(items, query="", kind=kind, limit=limit)
+                        results = self._filter_warehouse_items(
+                            self._transform_warehouses(payload, type_map=type_map, kind="all"),
+                            query="",
+                            kind=kind,
+                            limit=limit,
+                        )
                 except NovaPoshtaLookupUnavailable as exc:
                     last_unavailable = exc
                     continue
@@ -193,7 +221,7 @@ class NovaPoshtaDirectoryService:
                     continue
 
                 try:
-                    items = self._get_warehouse_directory(
+                    directory_items = self._get_warehouse_directory(
                         model_name=model_name,
                         ref_payload=ref_payload,
                         type_map=type_map,
@@ -204,7 +232,12 @@ class NovaPoshtaDirectoryService:
                 except NovaPoshtaLookupError:
                     continue
 
-                results = self._filter_warehouse_items(items, query="", kind=kind, limit=limit)
+                results = self._filter_warehouse_items(
+                    directory_items,
+                    query="",
+                    kind=kind,
+                    limit=limit,
+                )
                 if results:
                     return results[:limit]
 
@@ -214,12 +247,14 @@ class NovaPoshtaDirectoryService:
 
     def _build_fast_warehouse_request_properties(self, *, kind: str, limit: int) -> dict[str, str]:
         page_size = limit
-        properties = {"Page": "1"}
+        request_properties = {"Page": "1"}
+
         if kind == "postomat":
             page_size = max(limit, self.FAST_WAREHOUSE_PAGE_SIZE)
-            properties["FindByString"] = "поштомат"
-        properties["Limit"] = str(max(1, min(page_size, 500)))
-        return properties
+            request_properties["FindByString"] = "поштомат"
+
+        request_properties["Limit"] = str(max(1, min(page_size, 500)))
+        return request_properties
 
     def _get_warehouse_directory(
         self,
@@ -228,7 +263,13 @@ class NovaPoshtaDirectoryService:
         ref_payload: dict[str, str],
         type_map: dict[str, str],
     ) -> list[dict[str, Any]]:
-        cache_key = self._cache_key("warehouse_directory", {"model_name": model_name, **ref_payload})
+        cache_key = self._cache_key(
+            "warehouse_directory",
+            {
+                "model_name": model_name,
+                **ref_payload,
+            },
+        )
         return cache.get_or_set(
             cache_key,
             lambda: self._load_warehouse_directory(
@@ -301,7 +342,11 @@ class NovaPoshtaDirectoryService:
         display_label = label or short_address or description
         raw_label = " ".join(
             str(value or "").lower()
-            for value in (item.get("label"), item.get("short_address"), item.get("description"))
+            for value in (
+                item.get("label"),
+                item.get("short_address"),
+                item.get("description"),
+            )
         )
 
         starts_with_query = any(
@@ -341,15 +386,22 @@ class NovaPoshtaDirectoryService:
                 continue
 
             ref = str(item.get("Ref") or "").strip()
-            label = str(item.get("ShortAddress") or item.get("Description") or item.get("DescriptionRu") or "").strip()
-            if not ref or not label or ref in seen:
+            label = str(
+                item.get("ShortAddress")
+                or item.get("Description")
+                or item.get("DescriptionRu")
+                or ""
+            ).strip()
+            if not ref or not label:
                 continue
 
             warehouse_kind = self._detect_warehouse_kind(item, type_map)
             if kind != "all" and warehouse_kind != kind:
                 continue
-
+            if ref in seen:
+                continue
             seen.add(ref)
+
             results.append(
                 {
                     "ref": ref,
@@ -377,11 +429,22 @@ class NovaPoshtaDirectoryService:
                 item.get("ShortAddress"),
             )
         ).lower()
+
         if any(marker in haystack for marker in ("поштомат", "postomat", "parcel locker", "parcel shop")):
             return "postomat"
         return "branch"
 
+    @staticmethod
+    def _normalize_lookup_text(value: Any) -> str:
+        return " ".join(str(value or "").strip().lower().split())
+
+    @staticmethod
+    def _normalize_lookup_number(value: Any) -> str:
+        return "".join(char for char in str(value or "") if char.isdigit())
+
     def _get_warehouse_type_map(self) -> dict[str, str]:
+        cache_key = "nova_poshta_lookup:warehouse_types"
+
         def load_mapping() -> dict[str, str]:
             try:
                 payload = self._request("Address", "getWarehouseTypes", {})
@@ -398,11 +461,7 @@ class NovaPoshtaDirectoryService:
                     mapping[ref] = label
             return mapping
 
-        return cache.get_or_set(
-            "nova_poshta_lookup:warehouse_types",
-            load_mapping,
-            self.WAREHOUSE_TYPES_CACHE_TTL,
-        ) or {}
+        return cache.get_or_set(cache_key, load_mapping, self.WAREHOUSE_TYPES_CACHE_TTL) or {}
 
     def _request(
         self,
@@ -451,14 +510,6 @@ class NovaPoshtaDirectoryService:
     def _cache_key(self, prefix: str, payload: dict[str, Any]) -> str:
         digest = hashlib.sha1(repr(sorted(payload.items())).encode("utf-8")).hexdigest()
         return f"nova_poshta_lookup:{prefix}:{digest}"
-
-    @staticmethod
-    def _normalize_lookup_text(value: Any) -> str:
-        return " ".join(str(value or "").strip().lower().split())
-
-    @staticmethod
-    def _normalize_lookup_number(value: Any) -> str:
-        return "".join(char for char in str(value or "") if char.isdigit())
 
     @staticmethod
     def _safe_int(value: Any) -> int | None:
