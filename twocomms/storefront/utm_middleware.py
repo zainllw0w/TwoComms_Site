@@ -147,6 +147,8 @@ class UTMTrackingMiddleware(MiddlewareMixin):
 
             # Получаем IP-адрес
             ip_address = get_client_ip(request)
+            visitor_id = getattr(request, 'analytics_visitor_id', None)
+            first_touch_data = getattr(request, 'analytics_first_touch_data', {}) or {}
 
             # Определяем геолокацию
             geo_data = {}
@@ -162,6 +164,7 @@ class UTMTrackingMiddleware(MiddlewareMixin):
                 utm_session, created = UTMSession.objects.get_or_create(
                     session_key=session_key,
                     defaults={
+                        'visitor_id': visitor_id,
                         # UTM параметры
                         'utm_source': utm_data.get('utm_source'),
                         'utm_medium': utm_data.get('utm_medium'),
@@ -205,6 +208,20 @@ class UTMTrackingMiddleware(MiddlewareMixin):
                 else:
                     # Обновляем last_seen и увеличиваем счетчик визитов
                     utm_session.increment_visit()
+                    updated_fields = []
+                    if visitor_id and utm_session.visitor_id != visitor_id:
+                        utm_session.visitor_id = visitor_id
+                        updated_fields.append('visitor_id')
+                    if ip_address and utm_session.ip_address != ip_address:
+                        utm_session.ip_address = ip_address
+                        updated_fields.append('ip_address')
+                    if first_touch_data and utm_session.landing_page != (first_touch_data.get('landing_path') or utm_session.landing_page):
+                        # keep the original landing_page when it already exists
+                        if not utm_session.landing_page:
+                            utm_session.landing_page = (first_touch_data.get('landing_path') or '')[:512] or None
+                            updated_fields.append('landing_page')
+                    if updated_fields:
+                        utm_session.save(update_fields=updated_fields)
                     logger.info(f"Updated existing UTM session: {utm_session}")
 
                 # Связываем с SiteSession, если она существует

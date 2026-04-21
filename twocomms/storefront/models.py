@@ -1078,6 +1078,7 @@ class SiteSession(models.Model):
     а для авторизованных — связываем с пользователем.
     """
     session_key = models.CharField(max_length=40, unique=True, db_index=True)
+    visitor_id = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.TextField(blank=True, null=True)
@@ -1086,6 +1087,7 @@ class SiteSession(models.Model):
     last_seen = models.DateTimeField(auto_now=True, db_index=True)
     last_path = models.CharField(max_length=512, blank=True)
     pageviews = models.PositiveIntegerField(default=0)
+    first_touch_data = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ['-last_seen']
@@ -1312,6 +1314,7 @@ class UTMSession(models.Model):
         blank=True
     )
     session_key = models.CharField(max_length=40, db_index=True, unique=True)
+    visitor_id = models.CharField(max_length=64, blank=True, null=True, db_index=True)
 
     # UTM параметры (стандартные)
     utm_source = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Джерело (utm_source)')
@@ -1447,6 +1450,19 @@ class UserAction(models.Model):
         ('lead', 'Лід (передплата)'),
         ('purchase', 'Покупка'),
         ('search', 'Пошук'),
+        ('custom_print_start', 'Кастомний принт: старт'),
+        ('custom_print_step_enter', 'Кастомний принт: вхід у крок'),
+        ('custom_print_step_complete', 'Кастомний принт: завершення кроку'),
+        ('custom_print_add_to_cart', 'Кастомний принт: додано в кошик'),
+        ('custom_print_send_to_manager', 'Кастомний принт: відправлено менеджеру'),
+        ('custom_print_safe_exit', 'Кастомний принт: safe exit'),
+        ('custom_print_moderation_result', 'Кастомний принт: результат модерації'),
+        ('survey_start', 'Опитування: старт'),
+        ('survey_answer', 'Опитування: відповідь'),
+        ('survey_back', 'Опитування: назад'),
+        ('survey_skip', 'Опитування: пропуск'),
+        ('survey_close', 'Опитування: закриття'),
+        ('survey_complete', 'Опитування: завершення'),
         ('click', 'Клік'),
         ('scroll', 'Прокрутка'),
         ('time_on_page', 'Час на сторінці'),

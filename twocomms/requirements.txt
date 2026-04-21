@@ -46,6 +46,8 @@ whitenoise==6.7.0
 
 # HTTP запросы для скачивания аватарок
 requests==2.32.5
+google-analytics-data
+google-auth
 phonenumbers==9.0.12
 
 # OpenAI Python client for AI-generated content (optional)
