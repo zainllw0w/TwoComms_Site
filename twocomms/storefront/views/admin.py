@@ -19,12 +19,16 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import (
     Avg,
+    Case,
     DurationField,
     ExpressionWrapper,
     F,
+    IntegerField,
+    Prefetch,
     Q,
     Sum,
-    Prefetch,
+    Value,
+    When,
 )
 from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string
@@ -78,7 +82,8 @@ from storefront.services.catalog import (
     append_product_gallery,
     formset_to_variant_payloads,
     sync_variant_images,
-    )
+)
+from storefront.services.catalog_helpers import bump_public_product_order_version
 
 
 # ==================== ADMIN VIEWS ====================
@@ -419,6 +424,7 @@ def _build_catalogs_context():
 
     products = (
         Product.objects.select_related('category', 'catalog')
+        .prefetch_related('images', 'color_variants__images')
         .order_by('-priority', '-id')
     )
 
@@ -726,20 +732,31 @@ def admin_reorder_products(request):
     except Exception:
         return JsonResponse({'success': False, 'error': 'Invalid payload'}, status=400)
 
+    ids = list(dict.fromkeys(ids))
+
     if not ids:
         return JsonResponse({'success': False, 'error': 'Empty order'}, status=400)
 
-    priority_start = len(ids)
-    updates = []
-    for idx, product_id in enumerate(ids):
-        priority_value = priority_start - idx
-        updates.append((product_id, priority_value))
+    existing_ids = set(
+        Product.objects.filter(id__in=ids).values_list('id', flat=True)
+    )
+    ordered_existing_ids = [product_id for product_id in ids if product_id in existing_ids]
+    if not ordered_existing_ids:
+        return JsonResponse({'success': False, 'error': 'Products not found'}, status=404)
 
-    # Обновляем только существующие товары
-    for pid, prio in updates:
-        Product.objects.filter(id=pid).update(priority=prio)
+    priority_start = len(ordered_existing_ids)
+    priority_cases = [
+        When(id=product_id, then=Value(priority_start - idx))
+        for idx, product_id in enumerate(ordered_existing_ids)
+    ]
 
-    return JsonResponse({'success': True, 'updated': len(updates)})
+    with transaction.atomic():
+        updated = Product.objects.filter(id__in=ordered_existing_ids).update(
+            priority=Case(*priority_cases, output_field=IntegerField())
+        )
+        transaction.on_commit(bump_public_product_order_version)
+
+    return JsonResponse({'success': True, 'updated': updated})
 
 
 @staff_member_required
@@ -871,7 +888,7 @@ def manage_products(request):
         featured: Показать только featured
         search: Поиск по названию
     """
-    products = Product.objects.select_related('category').order_by('-id')
+    products = Product.objects.select_related('category').order_by('-priority', '-id')
 
     # Фильтры
     category_id = request.GET.get('category')

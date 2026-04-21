@@ -307,6 +307,94 @@
     line-height: 1.6;
   }
 
+  .catalog-dnd-hint {
+    margin: 0.9rem 0 1.1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 167, 40, 0.22);
+    background: linear-gradient(135deg, rgba(255, 167, 40, 0.1), rgba(255, 126, 41, 0.05));
+    color: rgba(255,255,255,0.82);
+    font-size: 0.92rem;
+  }
+
+  .products-grid.is-saving-order {
+    pointer-events: none;
+    opacity: 0.92;
+  }
+
+  .product-card {
+    position: relative;
+  }
+
+  .product-header {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+  }
+
+  .product-card.is-dragging {
+    opacity: 0.62;
+    transform: scale(0.985);
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.34);
+  }
+
+  .product-card.is-drop-target {
+    outline: 2px solid rgba(255, 167, 40, 0.38);
+    outline-offset: 4px;
+  }
+
+  .product-drag-handle {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+    width: 52px;
+    min-width: 52px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.8);
+    cursor: grab;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  }
+
+  .product-drag-handle:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 167, 40, 0.35);
+    background: rgba(255, 167, 40, 0.08);
+  }
+
+  .product-drag-handle:active {
+    cursor: grabbing;
+  }
+
+  .product-drag-handle-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffcf91;
+  }
+
+  .product-drag-order {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.42);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .product-info {
+    min-width: 0;
+  }
+
   @media (max-width: 1180px) {
     .custom-print-toolbar-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1912,10 +2000,14 @@
               </a>
             </div>
           </div>
+
+          <p class="catalog-dnd-hint">
+            Перетягуйте товари за ручку зліва. Новий порядок зберігається одразу та відразу застосовується на головній сторінці й у публічних списках товарів.
+          </p>
           
           <div class="products-grid">
             {% for product in products %}
-              <div class="product-card" data-product-id="{{ product.id }}" data-product-name="{{ product.title|lower }}" data-category-name="{{ product.category.name|lower }}" draggable="true">
+              <div class="product-card" data-product-id="{{ product.id }}" data-product-name="{{ product.title|lower }}" data-category-name="{{ product.category.name|lower }}" data-order-position="{{ forloop.counter }}" draggable="true">
                 <div class="product-sparks">
                   <div class="product-spark product-spark-1"></div>
                   <div class="product-spark product-spark-2"></div>
@@ -1923,6 +2015,19 @@
                 </div>
                 
                 <div class="product-header">
+                  <button type="button" class="product-drag-handle" data-drag-handle aria-label="Перемістити товар {{ product.title }}">
+                    <span class="product-drag-handle-icon" aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="8" cy="6" r="1.5"></circle>
+                        <circle cx="16" cy="6" r="1.5"></circle>
+                        <circle cx="8" cy="12" r="1.5"></circle>
+                        <circle cx="16" cy="12" r="1.5"></circle>
+                        <circle cx="8" cy="18" r="1.5"></circle>
+                        <circle cx="16" cy="18" r="1.5"></circle>
+                      </svg>
+                    </span>
+                    <span class="product-drag-order" data-product-order-index>{{ forloop.counter }}</span>
+                  </button>
                   <div class="product-image">
                     {% if product.display_image %}
                       <img src="{{ product.display_image.url }}" alt="{{ product.title }}" class="product-img">
@@ -3236,10 +3341,57 @@ function deleteProduct(productId, productName) {
   if (!grid) return;
   const csrf = document.querySelector('[name=csrfmiddlewaretoken]');
   let dragged = null;
+  let dropTarget = null;
+  let isSaving = false;
+  let hasQueuedSave = false;
+
+  const getCards = () => Array.from(grid.querySelectorAll('.product-card'));
+  const getOrderIds = () => getCards().map(card => card.dataset.productId).filter(Boolean);
+  const getOrderSignature = () => getOrderIds().join(',');
+  let savedOrderSignature = getOrderSignature();
+
+  const refreshOrderBadges = () => {
+    getCards().forEach((card, index) => {
+      card.dataset.orderPosition = String(index + 1);
+      const badge = card.querySelector('[data-product-order-index]');
+      if (badge) badge.textContent = String(index + 1);
+    });
+  };
+
+  const clearDropTarget = () => {
+    if (dropTarget) {
+      dropTarget.classList.remove('is-drop-target');
+      dropTarget = null;
+    }
+  };
+
+  const restoreSavedOrder = () => {
+    if (!savedOrderSignature) return;
+    const cardsById = new Map(getCards().map(card => [card.dataset.productId, card]));
+    savedOrderSignature.split(',').forEach(productId => {
+      const card = cardsById.get(productId);
+      if (card) {
+        grid.appendChild(card);
+      }
+    });
+    refreshOrderBadges();
+  };
 
   const sendOrder = () => {
-    const ids = Array.from(grid.querySelectorAll('.product-card')).map(card => card.dataset.productId);
-    if (!ids.length) return;
+    const ids = getOrderIds();
+    const nextSignature = ids.join(',');
+    if (!nextSignature || nextSignature === savedOrderSignature) {
+      refreshOrderBadges();
+      return;
+    }
+    if (isSaving) {
+      hasQueuedSave = true;
+      return;
+    }
+
+    isSaving = true;
+    grid.classList.add('is-saving-order');
+
     fetch('/admin-panel/products/reorder/', {
       method: 'POST',
       headers: {
@@ -3251,36 +3403,64 @@ function deleteProduct(productId, productName) {
       .then(res => res.json())
       .then(data => {
         if (!data.success) throw new Error(data.error || 'Не вдалося зберегти порядок');
-        showNotification(`Порядок оновлено (${data.updated})`, 'success');
+        savedOrderSignature = nextSignature;
+        showNotification('Порядок товарів оновлено. Головна сторінка синхронізована.', 'success');
       })
       .catch(err => {
         console.error(err);
-        showNotification('Помилка збереження порядку', 'error');
+        restoreSavedOrder();
+        showNotification('Помилка збереження порядку. Попередній порядок відновлено.', 'error');
+      })
+      .finally(() => {
+        isSaving = false;
+        grid.classList.remove('is-saving-order');
+        if (hasQueuedSave) {
+          hasQueuedSave = false;
+          sendOrder();
+        }
       });
   };
 
   grid.addEventListener('dragstart', evt => {
+    const handle = evt.target.closest('[data-drag-handle]');
     const card = evt.target.closest('.product-card');
-    if (!card) return;
+    if (!handle || !card) {
+      evt.preventDefault();
+      return;
+    }
     dragged = card;
     card.classList.add('is-dragging');
-    evt.dataTransfer.effectAllowed = 'move';
+    if (evt.dataTransfer) {
+      evt.dataTransfer.effectAllowed = 'move';
+      evt.dataTransfer.setData('text/plain', card.dataset.productId || '');
+    }
   });
 
   grid.addEventListener('dragover', evt => {
     if (!dragged) return;
     evt.preventDefault();
     const target = evt.target.closest('.product-card');
-    if (!target || target === dragged) return;
+    if (!target || target === dragged) {
+      clearDropTarget();
+      return;
+    }
     const bounds = target.getBoundingClientRect();
     const shouldInsertAfter = (evt.clientY - bounds.top) > bounds.height / 2;
     grid.insertBefore(dragged, shouldInsertAfter ? target.nextSibling : target);
+    refreshOrderBadges();
+
+    if (dropTarget !== target) {
+      clearDropTarget();
+      target.classList.add('is-drop-target');
+      dropTarget = target;
+    }
   });
 
   const finalize = () => {
     if (!dragged) return;
     dragged.classList.remove('is-dragging');
     dragged = null;
+    clearDropTarget();
     sendOrder();
   };
 
@@ -3289,6 +3469,7 @@ function deleteProduct(productId, productName) {
     finalize();
   });
   grid.addEventListener('dragend', finalize);
+  refreshOrderBadges();
 })();
 
 /* Обновление статусів товарів */

@@ -48,6 +48,7 @@ from storefront.custom_print_notifications import (
     notify_custom_print_safe_exit,
     notify_new_custom_print_lead,
 )
+from storefront.services.catalog_helpers import apply_public_product_order
 from storefront.services.size_guides import build_public_size_guide_blocks, resolve_product_sizes
 from storefront.utils.analytics_helpers import FEED_DEFAULT_COLOR, normalize_feed_color
 from storefront.support_content import (
@@ -393,11 +394,12 @@ def _build_page_context(request, page_key):
                 "url": reverse("product", kwargs={"slug": product.slug}),
             }
             for product in (
-                Product.objects.filter(status="published", slug__isnull=False)
-                .exclude(slug="")
-                .select_related("category")
-                .only("title", "slug", "category__name")
-                .order_by("-priority", "-id")[:8]
+                apply_public_product_order(
+                    Product.objects.filter(status="published", slug__isnull=False)
+                    .exclude(slug="")
+                    .select_related("category")
+                    .only("title", "slug", "category__name")
+                )[:8]
             )
         ]
         context["dynamic_groups"] = [
@@ -415,11 +417,12 @@ def _build_page_context(request, page_key):
 
     if page_key == "news":
         context["featured_products"] = list(
-            Product.objects.filter(status="published", slug__isnull=False)
-            .exclude(slug="")
-            .select_related("category")
-            .only("title", "slug", "category__name")
-            .order_by("-priority", "-id")[:8]
+            apply_public_product_order(
+                Product.objects.filter(status="published", slug__isnull=False)
+                .exclude(slug="")
+                .select_related("category")
+                .only("title", "slug", "category__name")
+            )[:8]
         )
 
     return context
@@ -488,16 +491,17 @@ def uaprom_products_feed(request):
 
         # Фильтруем только опубликованные товары
         products_qs = (
-            Product.objects
-            .filter(status='published')  # Только опубликованные товары
-            .select_related("category", "catalog")
-            .prefetch_related(
-                "catalog__options__values",
-                "images",
-                "color_variants__images",
-                "color_variants__color"
+            apply_public_product_order(
+                Product.objects
+                .filter(status='published')  # Только опубликованные товары
+                .select_related("category", "catalog")
+                .prefetch_related(
+                    "catalog__options__values",
+                    "images",
+                    "color_variants__images",
+                    "color_variants__color"
+                )
             )
-            .order_by("-priority", "-id")  # Сначала по приоритету, потом по ID (новые первыми)
         )
         products = list(products_qs)
 
@@ -1389,15 +1393,16 @@ def prom_feed_xml(request):
         base_url = "https://twocomms.shop"
 
         products_qs = (
-            Product.objects
-            .filter(status='published', is_dropship_available=True)
-            .select_related("category")
-            .prefetch_related(
-                "images",
-                "color_variants__images",
-                "color_variants__color"
+            apply_public_product_order(
+                Product.objects
+                .filter(status='published', is_dropship_available=True)
+                .select_related("category")
+                .prefetch_related(
+                    "images",
+                    "color_variants__images",
+                    "color_variants__color"
+                )
             )
-            .order_by("-id")
         )
         products = list(products_qs)
 
