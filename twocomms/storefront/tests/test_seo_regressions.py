@@ -121,6 +121,10 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
         self.assertContains(response, 'href="https://testserver/pro-brand/"', html=False)
         self.assertContains(response, 'content="https://testserver/pro-brand/"', html=False)
         self.assertContains(response, '"@type": ["Organization", "OnlineStore"]', html=False)
+        self.assertContains(response, 'data-page-shell="marketing"', html=False)
+        self.assertContains(response, 'data-analytics-mode="passive"', html=False)
+        self.assertNotContains(response, 'points-modal-template', html=False)
+        self.assertNotContains(response, 'js/ui-fallback.js', html=False)
 
     def test_legacy_about_url_redirects_to_pro_brand(self):
         response = self.client.get("/about/", secure=True, follow=False)

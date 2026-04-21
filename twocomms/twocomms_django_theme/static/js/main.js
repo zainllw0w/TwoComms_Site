@@ -10,7 +10,6 @@ import {
   escapeHtml
 } from './modules/shared.js';
 import { PerformanceOptimizer, ImageOptimizer, MobileOptimizer } from './modules/optimizers.js';
-import { initProductMedia } from './modules/product-media.js';
 
 // Помечаем, что основной JS инициализирован и можно запускать анимации
 document.documentElement.classList.add('js-ready');
@@ -759,12 +758,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const docEl = document.documentElement;
   const routeName = (docEl.dataset.routeName || '').toLowerCase();
   const deviceClass = (docEl.dataset.deviceClass || '').toLowerCase();
+  const pageShell = (docEl.dataset.pageShell || '').toLowerCase();
+  const isMarketingShell = pageShell === 'marketing';
   const cartBootEvents = routeName === 'home'
     ? ['click', 'pointerdown', 'keydown']
-    : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown'];
+    : (isMarketingShell
+      ? ['click', 'pointerdown', 'keydown']
+      : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown']);
   const cartBootDelay = routeName === 'home'
     ? (deviceClass === 'low' ? 3500 : 2500)
-    : 2000;
+    : (isMarketingShell
+      ? (deviceClass === 'low' ? 6500 : 4500)
+      : 2000);
   
   // PERF: Delay cart/favorites requests until AFTER LCP (1.5s) or user interaction
   // This is critical for mobile PageSpeed TBT score
