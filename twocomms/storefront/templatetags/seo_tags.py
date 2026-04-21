@@ -1,31 +1,55 @@
 """
 Шаблонные теги для SEO оптимизации
 """
+from importlib import import_module
 import json
 from django import template
 from django.utils.safestring import mark_safe
 from django.urls import reverse
-from ..seo_utils import (
-    get_product_seo_meta,
-    get_category_seo_meta,
-    get_product_schema,
-    get_breadcrumb_schema,
-    get_google_merchant_schema,
-    get_default_social_image_url,
-    SEOContentOptimizer
-)
 
 register = template.Library()
+
+
+def _seo_utils():
+    return import_module("storefront.seo_utils")
+
+
+def _get_product_seo_meta(product):
+    return _seo_utils().get_product_seo_meta(product)
+
+
+def _get_category_seo_meta(category):
+    return _seo_utils().get_category_seo_meta(category)
+
+
+def _get_product_schema(product):
+    return _seo_utils().get_product_schema(product)
+
+
+def _get_breadcrumb_schema(breadcrumbs):
+    return _seo_utils().get_breadcrumb_schema(breadcrumbs)
+
+
+def _get_google_merchant_schema(product):
+    return _seo_utils().get_google_merchant_schema(product)
+
+
+def _get_default_social_image_url():
+    return _seo_utils().get_default_social_image_url()
+
+
+def _seo_content_optimizer():
+    return _seo_utils().SEOContentOptimizer
 
 
 @register.simple_tag(takes_context=True)
 def seo_title(context, product=None, category=None):
     """Возвращает SEO заголовок"""
     if product:
-        meta_data = get_product_seo_meta(product)
+        meta_data = _get_product_seo_meta(product)
         return meta_data.get('title', 'TwoComms — Стріт & Мілітарі Одяг')
     elif category:
-        meta_data = get_category_seo_meta(category)
+        meta_data = _get_category_seo_meta(category)
         return meta_data.get('title', 'TwoComms — Стріт & Мілітарі Одяг')
     return 'TwoComms — Стріт & Мілітарі Одяг'
 
@@ -34,10 +58,10 @@ def seo_title(context, product=None, category=None):
 def seo_description(context, product=None, category=None):
     """Возвращает SEO описание"""
     if product:
-        meta_data = get_product_seo_meta(product)
+        meta_data = _get_product_seo_meta(product)
         return meta_data.get('description', 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.')
     elif category:
-        meta_data = get_category_seo_meta(category)
+        meta_data = _get_category_seo_meta(category)
         return meta_data.get('description', 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.')
     return 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.'
 
@@ -46,10 +70,10 @@ def seo_description(context, product=None, category=None):
 def seo_keywords(context, product=None, category=None):
     """Возвращает SEO ключевые слова"""
     if product:
-        meta_data = get_product_seo_meta(product)
+        meta_data = _get_product_seo_meta(product)
         return meta_data.get('keywords', 'стріт одяг, мілітарі одяг, TwoComms')
     elif category:
-        meta_data = get_category_seo_meta(category)
+        meta_data = _get_category_seo_meta(category)
         return meta_data.get('keywords', 'стріт одяг, мілітарі одяг, TwoComms')
     return 'стріт одяг, мілітарі одяг, TwoComms'
 
@@ -58,10 +82,10 @@ def seo_keywords(context, product=None, category=None):
 def seo_og_image(context, product=None, category=None):
     """Возвращает Open Graph изображение"""
     if product:
-        meta_data = get_product_seo_meta(product)
+        meta_data = _get_product_seo_meta(product)
         return meta_data.get('og_image', '')
     elif category:
-        meta_data = get_category_seo_meta(category)
+        meta_data = _get_category_seo_meta(category)
         return meta_data.get('og_image', '')
     return ''
 
@@ -74,9 +98,9 @@ def seo_meta_tags(context, product=None, category=None):
     meta_data = {}
 
     if product:
-        meta_data = get_product_seo_meta(product)
+        meta_data = _get_product_seo_meta(product)
     elif category:
-        meta_data = get_category_seo_meta(category)
+        meta_data = _get_category_seo_meta(category)
     else:
         # Базовые мета-теги для главной страницы
         meta_data = {
@@ -105,7 +129,7 @@ def product_schema(product):
     if not product:
         return ''
 
-    schema = get_product_schema(product)
+    schema = _get_product_schema(product)
     return mark_safe(f'<script type="application/ld+json">{schema}</script>')
 
 
@@ -117,7 +141,7 @@ def google_merchant_schema(product):
     if not product:
         return ''
 
-    schema = get_google_merchant_schema(product)
+    schema = _get_google_merchant_schema(product)
     return mark_safe(f'<script type="application/ld+json">{schema}</script>')
 
 
@@ -129,7 +153,7 @@ def breadcrumb_schema(breadcrumbs):
     if not breadcrumbs:
         return ''
 
-    schema = get_breadcrumb_schema(breadcrumbs)
+    schema = _get_breadcrumb_schema(breadcrumbs)
     return mark_safe(f'<script type="application/ld+json">{schema}</script>')
 
 
@@ -190,7 +214,7 @@ def generate_alt_text(image_name, product_title=None):
     """
     Генерирует alt-текст для изображения
     """
-    return SEOContentOptimizer.generate_alt_text_for_image(image_name, product_title)
+    return _seo_content_optimizer().generate_alt_text_for_image(image_name, product_title)
 
 
 @register.simple_tag
@@ -201,7 +225,7 @@ def seo_suggestions(product):
     if not product:
         return []
 
-    return SEOContentOptimizer.suggest_content_improvements(product)
+    return _seo_content_optimizer().suggest_content_improvements(product)
 
 
 @register.filter
@@ -232,7 +256,7 @@ def og_image_url(request, image_url=None):
     Возвращает полный URL для Open Graph изображения
     """
     if not image_url:
-        return get_default_social_image_url()
+        return _get_default_social_image_url()
 
     if image_url.startswith('http'):
         return image_url

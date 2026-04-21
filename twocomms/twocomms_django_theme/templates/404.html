@@ -1,0 +1,437 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}404 — Щось пішло не так{% endblock %}
+
+{% block content %}
+<style>
+/* CSS Reset specifically for the canvas full screen vibe if needed, but we keep the main container */
+.error-404-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: calc(100vh - 120px);
+    background: radial-gradient(circle at center, #1b0a2b 0%, #080310 100%);
+    border-radius: 24px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 100px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5);
+    margin: 1rem 0 3rem 0;
+    font-family: 'Inter', sans-serif;
+}
+
+#spermCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let clicks pass through to UI */
+    z-index: 1;
+}
+
+.error-404-content {
+    z-index: 2;
+    text-align: center;
+    background: rgba(10, 5, 16, 0.6);
+    padding: 3rem 4rem;
+    border-radius: 20px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.05);
+    max-width: 600px;
+    transform: translateY(-20px);
+    animation: floatIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes floatIn {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+.title-404 {
+    font-size: 10rem;
+    line-height: 1;
+    font-weight: 900;
+    margin: 0 0 1rem 0;
+    background: linear-gradient(135deg, #d3b8ff, #9b6cff, #6f26ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 10px 40px rgba(111, 38, 255, 0.5);
+    letter-spacing: -5px;
+}
+
+.subtitle-404 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 1rem;
+}
+
+.text-404 {
+    font-size: 1.1rem;
+    color: #a7a7a7;
+    margin-bottom: 2.5rem;
+    line-height: 1.6;
+}
+
+.btn-home {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 2.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, #7c3aed, #5b21b6);
+    border-radius: 999px;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 10px 25px rgba(124, 58, 237, 0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.btn-home:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 15px 35px rgba(124, 58, 237, 0.5);
+    color: #fff;
+    border-color: rgba(255,255,255,0.3);
+}
+
+/* Chat bubble specifically for the sperm */
+.sperm-bubble {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.95);
+    color: #000;
+    padding: 12px 20px;
+    border-radius: 20px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    transform: scale(0.5) translateY(20px);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 10;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    pointer-events: none;
+    transform-origin: bottom left;
+    white-space: nowrap;
+}
+
+.sperm-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 20px;
+    border-width: 8px 8px 0;
+    border-style: solid;
+    border-color: rgba(255, 255, 255, 0.95) transparent transparent transparent;
+}
+
+.sperm-bubble.active {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+
+@media (max-width: 768px) {
+    .title-404 { font-size: 6rem; letter-spacing: -2px; }
+    .subtitle-404 { font-size: 1.5rem; }
+    .error-404-content { padding: 2rem; margin: 1rem; width: calc(100% - 2rem); }
+    .error-404-wrapper { min-height: 80vh; border-radius: 16px; margin: 0; }
+}
+</style>
+
+<div class="container-xxl px-0 px-md-3">
+    <div class="error-404-wrapper">
+        <canvas id="spermCanvas"></canvas>
+        <div id="spermBubble" class="sperm-bubble">(Щось ми не туди припливли...)</div>
+        
+        <div class="error-404-content">
+            <h1 class="title-404">404</h1>
+            <h2 class="subtitle-404">Упс, глухий кут</h2>
+            <p class="text-404">Схоже, ми припливли кудись не туди.<br>Сторінка, яку ви шукаєте, не існує або була переміщена.</p>
+            <a href="{% url 'home' %}" class="btn-home">
+                Повернутися на головну
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('spermCanvas');
+    const ctx = canvas.getContext('2d');
+    const bubble = document.getElementById('spermBubble');
+    
+    let w, h;
+    function resize() {
+        const wrapper = canvas.parentElement;
+        w = canvas.width = wrapper.offsetWidth;
+        h = canvas.height = wrapper.offsetHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const randomRange = (min, max) => Math.random() * (max - min) + min;
+
+    class Sperm {
+        constructor(isHero = false) {
+            this.isHero = isHero;
+            this.initData();
+            if (this.isHero) {
+                this.x = w * 0.4;
+                this.y = h + 150; 
+                this.vx = randomRange(0.5, 1.5);
+                this.vy = randomRange(-2.5, -1.8);
+                this.state = 'swimming'; // swimming -> stopping -> talking -> leaving -> reset
+                this.timer = 0;
+                this.headWidth = 6.5;
+                this.headHeight = 5;
+                this.tailLen = 85;
+                this.tailSpeed = 0.18;
+            }
+        }
+
+        initData() {
+            this.x = randomRange(0, w);
+            this.y = h + randomRange(50, 400); 
+            // Swim mostly upwards
+            this.vx = randomRange(-1.5, 1.5);
+            this.vy = randomRange(-3.5, -1.5);
+            this.history = [];
+            this.angle = Math.atan2(this.vy, this.vx);
+            this.wiggleOffset = randomRange(0, Math.PI * 2);
+            this.tailLen = randomRange(45, 75);
+            this.headWidth = randomRange(3.5, 5.5);
+            this.headHeight = this.headWidth * 0.75;
+            this.tailSpeed = randomRange(0.12, 0.22);
+        }
+
+        update() {
+            if (!this.isHero) {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.angle = Math.atan2(this.vy, this.vx);
+                this.wiggleOffset += this.tailSpeed;
+
+                // Reset when offscreen top
+                if (this.y < -150 || this.x < -150 || this.x > w + 150) {
+                    this.initData();
+                }
+            } else {
+                // Hero state machine
+                if (this.state === 'swimming') {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.angle = Math.atan2(this.vy, this.vx);
+                    this.wiggleOffset += this.tailSpeed;
+                    
+                    // Trigger stopping when reaching 45% height (centered)
+                    if (this.y < h * 0.45) {
+                        this.state = 'stopping';
+                    }
+                } 
+                else if (this.state === 'stopping') {
+                    // Decelerate
+                    this.vx *= 0.90;
+                    this.vy *= 0.90;
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.wiggleOffset += this.tailSpeed * 0.8;
+                    
+                    // Smoothly rotate to look down-right (turning around)
+                    const targetAngle = 0.8; // radians
+                    let angleDiff = targetAngle - this.angle;
+                    
+                    // Normalize to [-PI, PI]
+                    while (angleDiff > Math.PI) angleDiff -= Math.PI*2;
+                    while (angleDiff < -Math.PI) angleDiff += Math.PI*2;
+                    
+                    this.angle += angleDiff * 0.08;
+
+                    // Fully stopped?
+                    if (Math.abs(this.vx) < 0.1 && Math.abs(this.vy) < 0.1) {
+                        this.state = 'talking';
+                        this.timer = 0;
+                        
+                        bubble.style.left = (this.x + 15) + 'px';
+                        bubble.style.top = (this.y - 50) + 'px';
+                        bubble.classList.add('active');
+                    }
+                }
+                else if (this.state === 'talking') {
+                    this.timer++;
+                    
+                    // Gentle float in place
+                    this.x += Math.cos(this.timer * 0.03) * 0.1;
+                    this.y += Math.sin(this.timer * 0.05) * 0.2;
+                    
+                    // Keep bubbling near head
+                    bubble.style.left = (this.x + 15) + 'px';
+                    bubble.style.top = (this.y - 50) + 'px';
+                    
+                    // Keep tail slightly wiggling
+                    this.wiggleOffset += this.tailSpeed * 0.4;
+
+                    if (this.timer > 240) { // Approx 4 seconds
+                        bubble.classList.remove('active');
+                        this.state = 'leaving';
+                        // Accelerate back and down
+                        this.vx = 0;
+                        this.vy = 0;
+                        this.accX = randomRange(-0.1, -0.05);
+                        this.accY = randomRange(0.05, 0.1);
+                    }
+                }
+                else if (this.state === 'leaving') {
+                    this.vx += this.accX;
+                    this.vy += this.accY;
+                    
+                    // Cap speed
+                    const speed = Math.hypot(this.vx, this.vy);
+                    if (speed > 4) {
+                        this.vx = (this.vx / speed) * 4;
+                        this.vy = (this.vy / speed) * 4;
+                    }
+                    
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    
+                    // Match angle to velocity
+                    let targetAngle = Math.atan2(this.vy, this.vx);
+                    if (speed > 0.5) {
+                        let angleDiff = targetAngle - this.angle;
+                        while (angleDiff > Math.PI) angleDiff -= Math.PI*2;
+                        while (angleDiff < -Math.PI) angleDiff += Math.PI*2;
+                        this.angle += angleDiff * 0.1;
+                    }
+                    
+                    this.wiggleOffset += this.tailSpeed * 1.5; // Fast swim away
+
+                    if (this.y > h + 150 || this.x < -150) {
+                        // Reset hero cycle after some long delay to swim up again
+                        this.initData();
+                        this.x = w * randomRange(0.2, 0.8);
+                        this.y = h + randomRange(200, 800);
+                        this.state = 'swimming';
+                        this.vx = randomRange(-1, 1);
+                        this.vy = randomRange(-2.5, -1.8);
+                    }
+                }
+            }
+
+            // Path recording for tail physics
+            this.history.unshift({x: this.x, y: this.y, wiggle: Math.sin(this.wiggleOffset)});
+            if (this.history.length > 20) {
+                this.history.pop();
+            }
+        }
+
+        draw(ctx) {
+            if (this.history.length < 2) return;
+
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
+
+            // Give the hero a soft majestic glow
+            if (this.isHero) {
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+            }
+
+            // Head Draw
+            ctx.fillStyle = this.isHero ? '#ffffff' : 'rgba(255, 255, 255, 0.35)';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, this.headWidth, this.headHeight, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eye indicator when turned / talking
+            if (this.isHero && (this.state === 'stopping' || this.state === 'talking')) {
+                ctx.fillStyle = '#080310';
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                // Face "right/down". Our unrotated model faces right (+x)
+                ctx.arc(2, 1.5, 1.5, 0, Math.PI * 2); 
+                ctx.fill();
+            }
+
+            ctx.restore();
+
+            // Tail Draw
+            ctx.beginPath();
+            ctx.moveTo(this.history[0].x, this.history[0].y);
+            ctx.strokeStyle = this.isHero ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.15)';
+            ctx.lineCap = 'round';
+
+            for (let i = 1; i < this.history.length; i++) {
+                const pt = this.history[i];
+                const prev = this.history[i-1];
+                
+                // Normal direction for wiggle displacement
+                const dirAngle = Math.atan2(pt.y - prev.y, pt.x - prev.x);
+                const perpAngle = dirAngle + Math.PI / 2;
+                
+                // Tail tapers off and wiggles
+                const stepScale = (i / this.history.length); 
+                const amplitude = Math.sin(stepScale * Math.PI) * (this.tailLen / 3);
+                
+                const wX = Math.cos(perpAngle) * pt.wiggle * amplitude;
+                const wY = Math.sin(perpAngle) * pt.wiggle * amplitude;
+
+                ctx.lineTo(pt.x + wX, pt.y + wY);
+                // Thickness decays
+                const maxThick = this.headHeight * 0.9;
+                ctx.lineWidth = Math.max(0.2, maxThick * (1 - stepScale));
+                ctx.stroke();
+                
+                // Segment connector
+                ctx.beginPath();
+                ctx.moveTo(pt.x + wX, pt.y + wY);
+            }
+        }
+    }
+
+    // Populate "swarm"
+    const swarm = [];
+    // Spawn 40 regular ones
+    for (let i = 0; i < 40; i++) {
+        // Pre-warm them so they are already on screen when loaded
+        const s = new Sperm(false);
+        s.y = randomRange(0, h);
+        swarm.push(s);
+    }
+    
+    // Create the solo hero at bottom
+    swarm.push(new Sperm(true));
+
+    // Render loop
+    function render() {
+        ctx.clearRect(0, 0, w, h);
+        
+        // Background particles base update
+        for (let s of swarm) {
+            if (!s.isHero) s.update();
+        }
+        for (let s of swarm) {
+            if (s.isHero) s.update();
+        }
+        
+        // Background draw
+        for (let s of swarm) {
+            if (!s.isHero) s.draw(ctx);
+        }
+        // Foreground draw
+        for (let s of swarm) {
+            if (s.isHero) s.draw(ctx);
+        }
+
+        requestAnimationFrame(render);
+    }
+    
+    // Initial start
+    requestAnimationFrame(render);
+});
+</script>
+{% endblock %}
