@@ -12,6 +12,15 @@ document.addEventListener("DOMContentLoaded", () => {
   if (disableScrollReveal) {
     revealItems.forEach((item) => item.classList.add("pb-is-visible"));
   } else if ("IntersectionObserver" in window) {
+    root.classList.add("pb-scroll-reveal");
+
+    revealItems.forEach((item) => {
+      const rect = item.getBoundingClientRect();
+      if (rect.top < window.innerHeight * 0.92) {
+        item.classList.add("pb-is-visible");
+      }
+    });
+
     const revealObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {

@@ -73,13 +73,18 @@
 
 /* REVEAL ANIMATIONS */
 .pb-reveal {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+.pb-page.pb-scroll-reveal .pb-reveal {
   opacity: 0;
   transform: translateY(30px);
   filter: blur(4px);
   transition: opacity 0.8s ease-out, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.8s ease-out;
   will-change: opacity, transform, filter;
 }
-.pb-reveal.pb-is-visible {
+.pb-page.pb-scroll-reveal .pb-reveal.pb-is-visible {
   opacity: 1;
   transform: translateY(0);
   filter: blur(0);
