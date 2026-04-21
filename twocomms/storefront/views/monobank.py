@@ -32,8 +32,9 @@ from django.contrib import messages
 import requests
 
 from ..models import Product, PromoCode
-from orders.nova_poshta_data import apply_nova_poshta_refs, extract_nova_poshta_refs
+from orders.nova_poshta_data import apply_nova_poshta_refs
 from orders.models import Order as OrderModel, OrderItem
+from orders.nova_poshta_checkout import NovaPoshtaSelectionError, resolve_delivery_selection
 from orders.telegram_notifications import TelegramNotifier
 from orders.facebook_conversions_service import get_facebook_conversions_service
 from ..utm_tracking import link_order_to_utm, record_initiate_checkout, record_lead, record_order_action
@@ -358,6 +359,21 @@ def monobank_create_invoice(request):
                 'error': 'Передплата 200 грн недоступна, коли у кошику є кастомний принт. Оберіть повну онлайн-оплату.'
             })
 
+    try:
+        delivery_selection = resolve_delivery_selection(body)
+    except NovaPoshtaSelectionError as exc:
+        return JsonResponse({
+            'success': False,
+            'field': exc.field,
+            'error': exc.message,
+        }, status=400)
+
+    delivery_refs = {
+        'np_settlement_ref': delivery_selection.settlement_ref,
+        'np_city_ref': delivery_selection.city_ref,
+        'np_warehouse_ref': delivery_selection.warehouse_ref,
+    }
+
     # Получаем данные клиента
     if request.user.is_authenticated:
         try:
@@ -380,11 +396,8 @@ def monobank_create_invoice(request):
 
         full_name = _body_override('full_name', prof.full_name or request.user.username)
         phone = _body_override('phone', prof.phone)
-        city = _body_override('city', prof.city)
-        np_office = _body_override('np_office', prof.np_office)
-        delivery_refs = {}
-        for field_name in ('np_settlement_ref', 'np_city_ref', 'np_warehouse_ref'):
-            delivery_refs[field_name] = _body_override(field_name, getattr(prof, field_name, ''))
+        city = delivery_selection.city
+        np_office = delivery_selection.np_office
 
         pay_type_raw = (body.get('pay_type') or prof.pay_type or 'online_full')
         normalized_pay_type = (pay_type_raw or '').strip().lower()
@@ -400,10 +413,9 @@ def monobank_create_invoice(request):
         # Для гостей - из POST body
         full_name = body.get('full_name', '').strip()
         phone = body.get('phone', '').strip()
-        city = body.get('city', '').strip()
-        np_office = body.get('np_office', '').strip()
+        city = delivery_selection.city
+        np_office = delivery_selection.np_office
         pay_type = body.get('pay_type', 'online_full')
-        delivery_refs = extract_nova_poshta_refs(body)
         monobank_logger.info(f'Guest user: pay_type={pay_type}')
 
         # Валидация для гостей

@@ -23,6 +23,12 @@ from orders.nova_poshta_lookup import (
     NovaPoshtaDirectoryService,
     NovaPoshtaLookupUnavailable,
 )
+from orders.nova_poshta_checkout import (
+    NovaPoshtaSelectionError,
+    build_city_choice_token,
+    build_warehouse_choice_token,
+    resolve_delivery_selection,
+)
 
 
 class NovaPoshtaDirectoryServiceTests(SimpleTestCase):
@@ -189,6 +195,56 @@ class NovaPoshtaDirectoryServiceTests(SimpleTestCase):
             ),
         )
 
+    def test_resolve_delivery_selection_accepts_signed_city_and_warehouse(self):
+        selection = resolve_delivery_selection(
+            {
+                'np_city_token': build_city_choice_token(
+                    {
+                        'label': 'м. Київ, Київ',
+                        'settlement_ref': 'settlement-ref',
+                        'city_ref': 'delivery-city-ref',
+                    }
+                ),
+                'np_warehouse_token': build_warehouse_choice_token(
+                    {
+                        'label': 'Відділення №22, Київ, вул. Тестова, 1',
+                        'ref': 'warehouse-ref',
+                        'kind': 'branch',
+                        'city_ref': 'delivery-city-ref',
+                    }
+                ),
+            }
+        )
+
+        self.assertEqual(selection.city, 'м. Київ, Київ')
+        self.assertEqual(selection.np_office, 'Відділення №22, Київ, вул. Тестова, 1')
+        self.assertEqual(selection.city_ref, 'delivery-city-ref')
+        self.assertEqual(selection.warehouse_ref, 'warehouse-ref')
+
+    def test_resolve_delivery_selection_rejects_mismatched_city(self):
+        with self.assertRaises(NovaPoshtaSelectionError) as exc_info:
+            resolve_delivery_selection(
+                {
+                    'np_city_token': build_city_choice_token(
+                        {
+                            'label': 'м. Київ, Київ',
+                            'settlement_ref': 'settlement-ref',
+                            'city_ref': 'delivery-city-ref',
+                        }
+                    ),
+                    'np_warehouse_token': build_warehouse_choice_token(
+                        {
+                            'label': 'Поштомат №22, Львів',
+                            'ref': 'warehouse-ref-2',
+                            'kind': 'postomat',
+                            'city_ref': 'other-city-ref',
+                        }
+                    ),
+                }
+            )
+
+        self.assertEqual(exc_info.exception.field, 'np_office')
+
 
 @override_settings(NOVA_POSHTA_FALLBACK_ENABLED=False, RATELIMIT_ENABLE=False)
 class NovaPoshtaLookupEndpointTests(SimpleTestCase):
@@ -207,10 +263,11 @@ class NovaPoshtaLookupEndpointTests(SimpleTestCase):
         ]
 
         response = self.client.get(reverse('cart_np_city_search'), {'q': 'Київ'}, secure=True)
+        payload = response.json()
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            response.json(),
+            payload,
             {
                 'ok': True,
                 'items': [
@@ -219,6 +276,7 @@ class NovaPoshtaLookupEndpointTests(SimpleTestCase):
                         'settlement_ref': 'settlement-ref',
                         'city_ref': 'delivery-city-ref',
                         'warehouses': 1473,
+                        'token': payload['items'][0]['token'],
                     }
                 ],
             },
@@ -240,7 +298,7 @@ class NovaPoshtaLookupEndpointTests(SimpleTestCase):
     @patch('storefront.views.cart.NovaPoshtaDirectoryService.search_warehouses')
     def test_warehouse_lookup_endpoint_handles_unavailable_service(self, mock_search):
         mock_search.side_effect = NovaPoshtaLookupUnavailable(
-            'Пошук Нової пошти тимчасово недоступний. Можна ввести дані вручну.'
+            'Довідник Нової пошти тимчасово недоступний. Спробуйте ще раз трохи пізніше.'
         )
 
         response = self.client.get(
@@ -258,7 +316,7 @@ class NovaPoshtaLookupEndpointTests(SimpleTestCase):
             {
                 'ok': False,
                 'available': False,
-                'error': 'Пошук Нової пошти тимчасово недоступний. Можна ввести дані вручну.',
+                'error': 'Довідник Нової пошти тимчасово недоступний. Спробуйте ще раз трохи пізніше.',
             },
         )
 

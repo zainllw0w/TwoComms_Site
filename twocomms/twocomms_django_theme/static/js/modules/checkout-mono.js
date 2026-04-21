@@ -11,6 +11,7 @@
  */
 
 import { getCookie } from './shared.js';
+import { validateNovaPoshtaSelection } from './nova-poshta-selector.js?v=20260422b';
 
 function deps() {
   return window.__twcMono || {};
@@ -199,7 +200,9 @@ function requestMonoCheckout() {
       np_office: getAnyVal('np_office'),
       np_settlement_ref: getAnyVal('np_settlement_ref'),
       np_city_ref: getAnyVal('np_city_ref'),
+      np_city_token: getAnyVal('np_city_token'),
       np_warehouse_ref: getAnyVal('np_warehouse_ref'),
+      np_warehouse_token: getAnyVal('np_warehouse_token'),
       pay_type: getAnyVal('pay_type') || 'online_full',
       email: getAnyVal('email')
     };
@@ -248,7 +251,9 @@ function requestMonoCheckoutSingleProduct(button) {
     payload.np_office = getAnyVal('np_office');
     payload.np_settlement_ref = getAnyVal('np_settlement_ref');
     payload.np_city_ref = getAnyVal('np_city_ref');
+    payload.np_city_token = getAnyVal('np_city_token');
     payload.np_warehouse_ref = getAnyVal('np_warehouse_ref');
+    payload.np_warehouse_token = getAnyVal('np_warehouse_token');
     payload.pay_type = getAnyVal('pay_type') || 'online_full';
     payload.email = getAnyVal('email');
   }
@@ -407,7 +412,9 @@ function requestMonobankPay() {
       np_office: getAnyVal('np_office'),
       np_settlement_ref: getAnyVal('np_settlement_ref'),
       np_city_ref: getAnyVal('np_city_ref'),
+      np_city_token: getAnyVal('np_city_token'),
       np_warehouse_ref: getAnyVal('np_warehouse_ref'),
+      np_warehouse_token: getAnyVal('np_warehouse_token'),
       pay_type: getPayType()
     };
   }
@@ -448,8 +455,21 @@ function requestMonobankPay() {
 function startMonobankPay(button, statusEl) {
   setMonoCheckoutStatus(statusEl, '', '');
   toggleMonoCheckoutLoading(button, true);
+  const deliveryForm = document.getElementById('deliveryForm');
+  const guestForm = document.getElementById('guest-form');
+  const sourceForm = guestForm || deliveryForm;
 
-  return requestMonobankPay()
+  return Promise.resolve()
+    .then(async () => {
+      if (!sourceForm) {
+        return;
+      }
+      const isValid = await validateNovaPoshtaSelection(sourceForm, { showErrors: true });
+      if (!isValid) {
+        throw new Error('Оберіть місто та пункт доставки зі списку Нової пошти.');
+      }
+    })
+    .then(() => requestMonobankPay())
     .then(result => {
       const data = result.data || {};
       if (result.ok && data.success && data.invoice_url) {

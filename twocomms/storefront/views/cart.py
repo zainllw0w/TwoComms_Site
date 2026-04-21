@@ -29,6 +29,12 @@ from orders.nova_poshta_lookup import (
     NovaPoshtaLookupError,
     NovaPoshtaLookupUnavailable,
 )
+from orders.nova_poshta_checkout import (
+    NovaPoshtaSelectionError,
+    resolve_delivery_selection,
+    serialize_city_choice,
+    serialize_warehouse_choice,
+)
 from storefront.custom_print_config import (
     ADDON_LABELS,
     FABRIC_LABELS,
@@ -410,29 +416,39 @@ def view_cart(request):
                 except UserProfile.DoesNotExist:
                     profile = UserProfile.objects.create(user=request.user)
 
-                profile.full_name = (request.POST.get('full_name') or '').strip()
-                profile.phone = (request.POST.get('phone') or '').strip()
-                profile.city = (request.POST.get('city') or '').strip()
-                profile.np_office = (request.POST.get('np_office') or '').strip()
-                apply_nova_poshta_refs(profile, request.POST)
-
-                pay_type_raw = request.POST.get('pay_type')
-                if pay_type_raw:
-                    # Импортируем функцию нормализации типа оплаты из старого views
-                    try:
-                        import storefront.views as old_views
-                        if hasattr(old_views, '_normalize_pay_type'):
-                            profile.pay_type = old_views._normalize_pay_type(pay_type_raw)
-                        else:
-                            # Fallback: если функция не найдена, используем значение напрямую или по умолчанию
-                            profile.pay_type = pay_type_raw if pay_type_raw in ['online_full', 'prepay_200'] else 'online_full'
-                    except Exception as e:
-                        cart_logger.error('Error normalizing pay_type: %s', e)
-                        # В случае ошибки не обновляем pay_type
-
                 try:
+                    delivery_selection = resolve_delivery_selection(request.POST)
+                    profile.full_name = (request.POST.get('full_name') or '').strip()
+                    profile.phone = (request.POST.get('phone') or '').strip()
+                    profile.city = delivery_selection.city
+                    profile.np_office = delivery_selection.np_office
+                    apply_nova_poshta_refs(
+                        profile,
+                        {
+                            'np_settlement_ref': delivery_selection.settlement_ref,
+                            'np_city_ref': delivery_selection.city_ref,
+                            'np_warehouse_ref': delivery_selection.warehouse_ref,
+                        },
+                    )
+
+                    pay_type_raw = request.POST.get('pay_type')
+                    if pay_type_raw:
+                        # Импортируем функцию нормализации типа оплаты из старого views
+                        try:
+                            import storefront.views as old_views
+                            if hasattr(old_views, '_normalize_pay_type'):
+                                profile.pay_type = old_views._normalize_pay_type(pay_type_raw)
+                            else:
+                                # Fallback: если функция не найдена, используем значение напрямую или по умолчанию
+                                profile.pay_type = pay_type_raw if pay_type_raw in ['online_full', 'prepay_200'] else 'online_full'
+                        except Exception as e:
+                            cart_logger.error('Error normalizing pay_type: %s', e)
+                            # В случае ошибки не обновляем pay_type
+
                     profile.save()
                     messages.success(request, 'Дані доставки успішно оновлено!')
+                except NovaPoshtaSelectionError as exc:
+                    messages.error(request, _message_for_delivery_selection_error(exc))
                 except Exception as e:
                     cart_logger.error('Error saving profile: %s', e, exc_info=True)
                     messages.error(request, 'Помилка при збереженні даних. Спробуйте ще раз.')
@@ -1624,6 +1640,10 @@ def _lookup_rate_limited_response() -> JsonResponse:
     )
 
 
+def _message_for_delivery_selection_error(exc: NovaPoshtaSelectionError) -> str:
+    return exc.message or 'Оберіть коректні дані доставки зі списку Нової пошти.'
+
+
 @require_GET
 @ratelimit(key='user_or_ip', rate=LOOKUP_RATE_LIMIT, method='GET', block=False)
 def nova_poshta_city_search(request):
@@ -1658,12 +1678,7 @@ def nova_poshta_city_search(request):
             status=502,
         )
 
-    return JsonResponse(
-        {
-            'ok': True,
-            'items': items,
-        }
-    )
+    return JsonResponse({'ok': True, 'items': [serialize_city_choice(item) for item in items]})
 
 
 @require_GET
@@ -1723,6 +1738,9 @@ def nova_poshta_warehouse_search(request):
     return JsonResponse(
         {
             'ok': True,
-            'items': items,
+            'items': [
+                serialize_warehouse_choice(item, fallback_city_ref=city_ref or settlement_ref)
+                for item in items
+            ],
         }
     )
