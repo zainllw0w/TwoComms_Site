@@ -78,6 +78,17 @@ def _guess_product_material(product: Product) -> str:
     return "бавовна"
 
 
+def _safe_product_display_image(product) -> object | None:
+    main_image = getattr(product, "main_image", None)
+    if main_image:
+        return main_image
+
+    try:
+        return getattr(product, "display_image", None)
+    except Exception:
+        return None
+
+
 class SEOKeywordGenerator:
     """Генератор ключевых слов на основе анализа контента"""
 
@@ -167,7 +178,7 @@ class SEOKeywordGenerator:
                     color_name = variant.color.name.lower()
                     if color_name in cls.COLOR_KEYWORDS:
                         keywords.extend(cls.COLOR_KEYWORDS[color_name])
-        except ImportError:
+        except Exception:
             pass
 
         # Добавляем сохраненные AI-ключевые слова, если они есть
@@ -345,8 +356,9 @@ class SEOMetaGenerator:
         title = SEOKeywordGenerator.generate_meta_title(product)
 
         image_url = get_default_social_image_url()
-        if product.display_image:
-            image_url = _build_absolute_url(product.display_image.url)
+        display_image = _safe_product_display_image(product)
+        if display_image:
+            image_url = _build_absolute_url(display_image.url)
 
         return {
             'title': title,
@@ -491,8 +503,9 @@ class StructuredDataGenerator:
         """Генерирует Product schema для товара (совместимо с Google Merchant Center)"""
         # Базовые изображения
         images = []
-        if product.display_image:
-            images.append(_build_absolute_url(product.display_image.url))
+        display_image = _safe_product_display_image(product)
+        if display_image:
+            images.append(_build_absolute_url(display_image.url))
 
         # Добавляем дополнительные изображения
         try:
@@ -654,7 +667,7 @@ class StructuredDataGenerator:
         # Добавляем размеры
         resolved_sizes = resolve_product_sizes(product)
         if resolved_sizes:
-            schema["size"] = resolved_sizes if len(resolved_sizes) > 1 else resolved_sizes[0]
+            schema["size"] = ", ".join(resolved_sizes)
             schema["additionalProperty"].append({
                 "@type": "PropertyValue",
                 "name": "Розміри",
