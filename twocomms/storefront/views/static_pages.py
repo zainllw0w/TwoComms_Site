@@ -774,9 +774,10 @@ def about(request):
     """
     Brand story page with dedicated layout and structured content.
     """
+    brand_page_url = request.build_absolute_uri(reverse("about"))
     breadcrumb_items = [
         {"name": "Головна", "url": reverse("home")},
-        {"name": "Про бренд", "url": reverse("about")},
+        {"name": "Про бренд", "url": brand_page_url},
     ]
 
     return render(
@@ -784,6 +785,7 @@ def about(request):
         "pages/pro_brand.html",
         {
             "page_title": "Про бренд",
+            "brand_page_url": brand_page_url,
             "faq_items": deepcopy(PRO_BRAND_FAQ_ITEMS),
             "breadcrumb_items": breadcrumb_items,
             "footer_content": deepcopy(FOOTER_CONTENT),

@@ -7,11 +7,15 @@
 {% block keywords %}TwoComms, харківський бренд одягу, український streetwear бренд, military-adjacent одяг, одяг зі змістом, сенсові принти, дві коми, не крапка а продовження, знак шака, Харків, одяг з кодом, одяг з характером, психологічна броня, внутрішня дисципліна, підтримка ЗСУ{% endblock %}
 {% block og_title %}TwoComms — харківський бренд одягу про характер, стійкість і продовження{% endblock %}
 {% block og_description %}TwoComms — український бренд одягу з Харкова, створений на перетині streetwear, military-adjacent естетики та реального досвіду стійкості.{% endblock %}
+{% block og_url %}{{ brand_page_url }}{% endblock %}
 {% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/favicon-512x512.png' %}{% endblock %}
+{% block og_image_alt %}TwoComms — харківський бренд одягу, streetwear / military-adjacent естетика{% endblock %}
 {% block twitter_title %}TwoComms — не крапка. Продовження.{% endblock %}
 {% block twitter_description %}Одяг з кодом для людей, які тримають форму зсередини. Харківський streetwear / military-adjacent бренд TwoComms.{% endblock %}
+{% block twitter_url %}{{ brand_page_url }}{% endblock %}
 {% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/favicon-512x512.png' %}{% endblock %}
-{% block canonical %}{{ request.scheme }}://{{ request.get_host }}{% url 'about' %}{% endblock %}
+{% block twitter_image_alt %}TwoComms — одяг з характером, кодом і харківським походженням{% endblock %}
+{% block canonical %}{{ brand_page_url }}{% endblock %}
 
 {% block fontawesome_css %}{% endblock %}
 
@@ -22,23 +26,25 @@
   "@type": "AboutPage",
   "name": "TwoComms — не крапка. Продовження.",
   "description": "TwoComms — український бренд одягу з Харкова, створений на перетині streetwear, military-adjacent естетики та реального досвіду стійкості.",
-  "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'about' %}",
+  "url": "{{ brand_page_url }}",
+  "mainEntity": {
+    "@id": "{{ brand_page_url }}#organization"
+  },
   "isPartOf": {
     "@type": "WebSite",
     "name": "TwoComms",
     "url": "{{ request.scheme }}://{{ request.get_host }}"
   },
   "about": {
-    "@type": "Organization",
-    "name": "TwoComms"
+    "@id": "{{ brand_page_url }}#organization"
   }
 }
 </script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "OnlineStore",
-  "@id": "{{ request.scheme }}://{{ request.get_host }}/#organization",
+  "@type": ["Organization", "OnlineStore"],
+  "@id": "{{ brand_page_url }}#organization",
   "name": "TwoComms",
   "url": "{{ request.scheme }}://{{ request.get_host }}/",
   "logo": "{{ request.scheme }}://{{ request.get_host }}{% static 'img/favicon-512x512.png' %}",
@@ -94,7 +100,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="pb-page">
+<div class="pro-brand-page pb-page">
   <!-- HERO SECTION -->
   <section class="pb-hero pb-breakout">
     <div class="pb-hero-bg" aria-hidden="true">
@@ -148,7 +154,7 @@
   </section>
 
   <!-- SUMMARY COMPACT -->
-  <section class="pb-section pb-reveal" aria-labelledby="brand-summary-title" style="position: relative; z-index: 10;">
+  <section class="pb-section pb-section-summary pb-reveal" aria-labelledby="brand-summary-title">
     <div class="pb-container">
       <div class="pb-organic-pill">
         <div class="pb-organic-bg">
@@ -256,9 +262,13 @@
             </div>
             <div class="pb-player-screen">
               <div class="pb-player-glow"></div>
-              <button class="pb-play-btn" aria-label="Play Brand Video Placeholder">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"></path></svg>
-              </button>
+              <div class="pb-player-overlay">
+                <span class="pb-player-status">PLACEHOLDER / SOON</span>
+                <div class="pb-play-marker" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"></path></svg>
+                </div>
+                <p class="pb-player-note">Тут з’явиться вбудований бренд-фільм без перебудови layout.</p>
+              </div>
             </div>
             <div class="pb-player-footer">
               <span>IN DEVELOPMENT</span>
@@ -277,7 +287,7 @@
       <div class="pb-split-layout pb-reveal">
         <div class="pb-split-sticky">
            <span class="pb-kicker">ДНК Бренду</span>
-           <h2 class="pb-heading-xl" style="position: relative; z-index: 5;">Харків у ДНК TwoComms.</h2>
+           <h2 class="pb-heading-xl pb-heading-offset">Харків у ДНК TwoComms.</h2>
         </div>
         <div class="pb-split-text pb-frontier-panel">
           <p class="pb-lead">TwoComms не можна відділити від Харкова.</p>
@@ -304,7 +314,7 @@
           <div class="pb-banksy-visual">
              <div class="pb-banksy-tape"></div>
              <div class="pb-banksy-frame">
-                <img src="{% static 'images/banksy_idea.png' %}" alt="Довіряй своїй божевільній ідеї" class="pb-banksy-image">
+                <img src="{% static 'images/banksy_idea.png' %}" alt="Довіряй своїй божевільній ідеї" class="pb-banksy-image" loading="lazy" decoding="async">
                 <div class="pb-banksy-noise"></div>
              </div>
           </div>
@@ -318,11 +328,11 @@
           </div>
         </article>
         
-        <article class="pb-banksy-card" style="transition-delay: 0.1s;">
+        <article class="pb-banksy-card pb-card-stagger-1">
           <div class="pb-banksy-visual">
              <div class="pb-banksy-tape"></div>
              <div class="pb-banksy-frame">
-                <img src="{% static 'images/banksy_freedom.png' %}" alt="Рабів до раю не пускають" class="pb-banksy-image">
+                <img src="{% static 'images/banksy_freedom.png' %}" alt="Рабів до раю не пускають" class="pb-banksy-image" loading="lazy" decoding="async">
                 <div class="pb-banksy-noise"></div>
              </div>
           </div>
@@ -336,11 +346,11 @@
           </div>
         </article>
 
-        <article class="pb-banksy-card" style="transition-delay: 0.2s;">
+        <article class="pb-banksy-card pb-card-stagger-2">
           <div class="pb-banksy-visual">
              <div class="pb-banksy-tape"></div>
              <div class="pb-banksy-frame">
-                <img src="{% static 'images/banksy_kharkiv.png' %}" alt="Місто як характер" class="pb-banksy-image">
+                <img src="{% static 'images/banksy_kharkiv.png' %}" alt="Місто як характер" class="pb-banksy-image" loading="lazy" decoding="async">
                 <div class="pb-banksy-noise"></div>
              </div>
           </div>
@@ -518,17 +528,4 @@
 {% block extra_js %}
   {{ block.super }}
   <script src="{% static 'js/pro-brand.js' %}" defer></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('pb-is-visible');
-          }
-        });
-      }, { threshold: 0.1 });
-      
-      document.querySelectorAll('.pb-reveal').forEach(el => observer.observe(el));
-    });
-  </script>
 {% endblock %}
