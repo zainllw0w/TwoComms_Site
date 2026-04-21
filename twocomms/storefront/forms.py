@@ -1,7 +1,9 @@
 import re
 import json
+from urllib.parse import urlparse
 
 from django import forms
+from django.conf import settings
 from django.forms import inlineformset_factory
 
 from dtf.utils import (
@@ -32,6 +34,7 @@ from .models import (
     CatalogOption,
     CatalogOptionValue,
     SizeGrid,
+    PushNotificationCampaign,
 )
 
 # ✅ Виджет с поддержкой множественной загрузки
@@ -809,3 +812,72 @@ class PrintProposalForm(forms.ModelForm):
 
         # Лёгкая защита от спама: ограничим частоту отправок в view
         return data
+
+
+class PushNotificationCampaignForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["title"].widget.attrs.update(
+            {"class": "push-form-input", "data-push-title": "1"}
+        )
+        self.fields["body"].widget.attrs.update(
+            {"class": "push-form-textarea", "data-push-body": "1"}
+        )
+        self.fields["target_url"].widget.attrs.update(
+            {"class": "push-form-input", "data-push-link": "1"}
+        )
+        self.fields["image"].widget.attrs.update(
+            {"class": "push-form-input", "accept": "image/*", "data-push-image": "1"}
+        )
+
+    class Meta:
+        model = PushNotificationCampaign
+        fields = ["title", "body", "target_url", "image"]
+        widgets = {
+            "title": forms.TextInput(
+                attrs={
+                    "placeholder": "Наприклад: Новий дроп уже на сайті",
+                    "maxlength": 120,
+                }
+            ),
+            "body": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "maxlength": 240,
+                    "placeholder": "Короткий і зрозумілий текст push-сповіщення",
+                }
+            ),
+            "target_url": forms.TextInput(
+                attrs={
+                    "placeholder": "/catalog/ або https://twocomms.shop/catalog/",
+                }
+            ),
+        }
+        help_texts = {
+            "image": "Рекомендовано горизонтальне зображення 1200×630 або крупніше.",
+        }
+
+    def clean_target_url(self):
+        raw_value = (self.cleaned_data.get("target_url") or "").strip()
+        if not raw_value:
+            raise forms.ValidationError("Вкажіть сторінку, куди має вести push-сповіщення.")
+
+        site_base_url = (getattr(settings, "SITE_BASE_URL", "") or "").strip()
+        site_host = urlparse(site_base_url).netloc.lower()
+
+        if raw_value.startswith("/"):
+            return raw_value
+
+        parsed = urlparse(raw_value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise forms.ValidationError("Вкажіть внутрішнє посилання сайту або повний URL цього сайту.")
+
+        if site_host and parsed.netloc.lower() != site_host:
+            raise forms.ValidationError("Push-сповіщення може вести лише на сторінки сайту TwoComms.")
+
+        normalized = parsed.path or "/"
+        if parsed.query:
+            normalized = f"{normalized}?{parsed.query}"
+        if parsed.fragment:
+            normalized = f"{normalized}#{parsed.fragment}"
+        return normalized

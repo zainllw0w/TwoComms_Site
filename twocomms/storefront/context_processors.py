@@ -1,5 +1,7 @@
 from cache_utils import get_cache
 from django.conf import settings
+from django.urls import reverse
+from django.templatetags.static import static
 
 
 def orders_processing_count(request):
@@ -89,4 +91,30 @@ def analytics_settings(request):
     return {
         'TIKTOK_PIXEL_ID': tiktok_pixel_id,
         'TIKTOK_TEST_EVENT_CODE': tiktok_test_event_code,
+    }
+
+
+def web_push_settings(request):
+    base_url = (getattr(settings, "SITE_BASE_URL", "") or "").rstrip("/")
+    icon_path = getattr(settings, "WEB_PUSH_ICON_PATH", "") or static("img/favicon-192x192.png")
+    badge_path = getattr(settings, "WEB_PUSH_BADGE_PATH", "") or static("img/favicon-192x192.png")
+
+    def _abs_url(path):
+        if not path:
+            return ""
+        if path.startswith(("http://", "https://")):
+            return path
+        return f"{base_url}{path}"
+
+    return {
+        "web_push_config": {
+            "enabled": bool(getattr(settings, "WEB_PUSH_ENABLED", False)),
+            "vapidPublicKey": getattr(settings, "WEB_PUSH_VAPID_PUBLIC_KEY", ""),
+            "subscribeUrl": reverse("push_subscribe"),
+            "unsubscribeUrl": reverse("push_unsubscribe"),
+            "promptDelayMs": int(getattr(settings, "WEB_PUSH_PROMPT_DELAY_MS", 12000) or 12000),
+            "siteBaseUrl": base_url,
+            "defaultIconUrl": _abs_url(icon_path),
+            "defaultBadgeUrl": _abs_url(badge_path),
+        }
     }

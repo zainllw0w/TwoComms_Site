@@ -184,6 +184,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'storefront.context_processors.orders_processing_count',
                 'storefront.context_processors.analytics_settings',
+                'storefront.context_processors.web_push_settings',
                 'social_django.context_processors.backends',
                 'social_django.context_processors.login_redirect',
                 'management.context_processors.management_shell_context',
@@ -197,6 +198,23 @@ WSGI_APPLICATION = 'twocomms.wsgi.application'
 # Sites framework
 SITE_ID = 1
 SITE_BASE_URL = os.environ.get("SITE_BASE_URL", "https://twocomms.shop").rstrip("/")
+
+# Web Push / browser notifications
+WEB_PUSH_VAPID_PUBLIC_KEY = os.environ.get("WEB_PUSH_VAPID_PUBLIC_KEY", "").strip()
+WEB_PUSH_VAPID_PRIVATE_KEY = os.environ.get("WEB_PUSH_VAPID_PRIVATE_KEY", "").strip()
+WEB_PUSH_VAPID_SUBJECT = os.environ.get("WEB_PUSH_VAPID_SUBJECT", "").strip()
+WEB_PUSH_ENABLED = bool(
+    WEB_PUSH_VAPID_PUBLIC_KEY and WEB_PUSH_VAPID_PRIVATE_KEY and WEB_PUSH_VAPID_SUBJECT
+)
+WEB_PUSH_ICON_PATH = os.environ.get(
+    "WEB_PUSH_ICON_PATH",
+    "/static/img/favicon-192x192.png",
+).strip() or "/static/img/favicon-192x192.png"
+WEB_PUSH_BADGE_PATH = os.environ.get(
+    "WEB_PUSH_BADGE_PATH",
+    "/static/img/favicon-192x192.png",
+).strip() or "/static/img/favicon-192x192.png"
+WEB_PUSH_PROMPT_DELAY_MS = _env_int("WEB_PUSH_PROMPT_DELAY_MS", 12000)
 
 # IndexNow / Bing fast discovery
 INDEXNOW_ENABLED = _env_bool("INDEXNOW_ENABLED", default=True)
