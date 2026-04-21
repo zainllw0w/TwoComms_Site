@@ -11,6 +11,7 @@ from ..seo_utils import (
     get_product_schema,
     get_breadcrumb_schema,
     get_google_merchant_schema,
+    get_default_social_image_url,
     SEOContentOptimizer
 )
 
@@ -133,7 +134,7 @@ def breadcrumb_schema(breadcrumbs):
 
 
 @register.inclusion_tag('partials/breadcrumbs.html')
-def breadcrumbs(request, product=None, category=None):
+def breadcrumbs(request, product=None, category=None, current_name=None):
     """
     Генерирует хлебные крошки
     """
@@ -143,6 +144,16 @@ def breadcrumbs(request, product=None, category=None):
             'url': reverse('home')
         }
     ]
+
+    if current_name and not category and not product:
+        breadcrumb_list.append({
+            'name': current_name,
+            'url': request.path,
+        })
+        return {
+            'breadcrumbs': breadcrumb_list,
+            'request': request
+        }
 
     if category or product:
         breadcrumb_list.append({
@@ -221,7 +232,7 @@ def og_image_url(request, image_url=None):
     Возвращает полный URL для Open Graph изображения
     """
     if not image_url:
-        return f"{request.scheme}://{request.get_host()}/static/img/logo.svg"
+        return get_default_social_image_url()
 
     if image_url.startswith('http'):
         return image_url

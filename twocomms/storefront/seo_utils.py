@@ -17,6 +17,8 @@ SITE_BASE_URL = getattr(settings, 'SITE_BASE_URL', 'https://twocomms.shop')
 if not SITE_BASE_URL.endswith('/'):
     SITE_BASE_URL += '/'
 
+DEFAULT_SOCIAL_IMAGE_PATH = "static/img/social-preview.jpg"
+
 
 def _build_absolute_url(path: str) -> str:
     """Возвращает абсолютный URL, используя SITE_BASE_URL как базу"""
@@ -25,6 +27,55 @@ def _build_absolute_url(path: str) -> str:
     if path.startswith(('http://', 'https://')):
         return path
     return urljoin(SITE_BASE_URL, path.lstrip('/'))
+
+
+def get_default_social_image_url() -> str:
+    return _build_absolute_url(DEFAULT_SOCIAL_IMAGE_PATH)
+
+
+def _clean_text(raw: str | None) -> str:
+    if not raw:
+        return ""
+    cleaned = re.sub(r"<[^>]+>", " ", str(raw))
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
+
+
+def _truncate_at_word_boundary(text: str, limit: int) -> str:
+    if not text or len(text) <= limit:
+        return text
+
+    cut = text[: max(0, limit - 3)].rstrip(" ,.;:-")
+    if " " in cut:
+        cut = cut.rsplit(" ", 1)[0].rstrip(" ,.;:-")
+    return f"{cut}..."
+
+
+def _pick_product_description_source(product: Product) -> str:
+    for attr in ("seo_description", "short_description", "ai_description", "full_description", "description"):
+        value = _clean_text(getattr(product, attr, ""))
+        if value:
+            return value
+    return ""
+
+
+def _guess_product_material(product: Product) -> str:
+    lookup_source = " ".join(
+        filter(
+            None,
+            [
+                getattr(product, "title", ""),
+                getattr(getattr(product, "category", None), "name", ""),
+                getattr(product, "slug", ""),
+            ],
+        )
+    ).lower()
+
+    if any(token in lookup_source for token in ("худі", "hoodie", "світшот", "sweatshirt")):
+        return "трьохнитка"
+    if "лонг" in lookup_source or "long" in lookup_source:
+        return "бавовна"
+    return "бавовна"
 
 
 class SEOKeywordGenerator:
@@ -253,35 +304,34 @@ class SEOKeywordGenerator:
     @classmethod
     def generate_meta_description(cls, product: Product) -> str:
         """Генерирует мета-описание для товара"""
-        # Используем сохраненное AI-описание, если оно есть
-        if hasattr(product, 'ai_description') and product.ai_description:
-            return product.ai_description[:160]
+        stored_description = _clean_text(getattr(product, "seo_description", "")) or _clean_text(getattr(product, "ai_description", ""))
+        if stored_description:
+            return _truncate_at_word_boundary(stored_description, 160)
 
-        # Иначе генерируем стандартное описание
-        base_desc = f"Купити {product.title} в TwoComms. "
-
-        if product.description:
-            # Берем первые 120 символов описания
-            clean_desc = re.sub(r'<[^>]+>', '', product.description)
-            if len(clean_desc) > 120:
-                clean_desc = clean_desc[:117] + "..."
-            base_desc += clean_desc
-        else:
-            base_desc += f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном."
-
-        base_desc += f" Ціна: {product.final_price} грн. Швидка доставка по Україні."
-
-        return base_desc[:160]  # Максимум 160 символов
+        category_label = product.category.name.lower() if product.category else "одяг"
+        source_description = _pick_product_description_source(product)
+        teaser = _truncate_at_word_boundary(source_description, 84) if source_description else f"Якісний {category_label} з характером і швидким відвантаженням."
+        parts = [
+            product.title,
+            teaser,
+            f"Ціна від {product.final_price} грн.",
+            "Доставка по Україні.",
+        ]
+        return _truncate_at_word_boundary(" ".join(part for part in parts if part), 160)
 
     @classmethod
     def generate_meta_title(cls, product: Product) -> str:
         """Генерирует мета-заголовок для товара"""
+        stored_title = _clean_text(getattr(product, "seo_title", ""))
+        if stored_title:
+            return _truncate_at_word_boundary(stored_title, 60)
+
         title = f"{product.title} - TwoComms"
 
         if product.category:
             title = f"{product.title} ({product.category.name}) - TwoComms"
 
-        return title[:60]  # Максимум 60 символов
+        return _truncate_at_word_boundary(title, 60)
 
 
 class SEOMetaGenerator:
@@ -290,23 +340,22 @@ class SEOMetaGenerator:
     @staticmethod
     def generate_product_meta(product: Product) -> Dict[str, str]:
         """Генерирует все мета-теги для товара"""
-        keywords = SEOKeywordGenerator.generate_product_keywords(product)
+        keywords = _clean_text(getattr(product, "seo_keywords", "")) or ", ".join(SEOKeywordGenerator.generate_product_keywords(product))
         description = SEOKeywordGenerator.generate_meta_description(product)
-        # AI-описание уже должно быть сохранено в базе данных
-        # Эта функция вызывается при каждом запросе, поэтому не генерируем AI контент здесь
+        title = SEOKeywordGenerator.generate_meta_title(product)
 
-        image_url = ''
+        image_url = get_default_social_image_url()
         if product.display_image:
             image_url = _build_absolute_url(product.display_image.url)
 
         return {
-            'title': SEOKeywordGenerator.generate_meta_title(product),
+            'title': title,
             'description': description,
-            'keywords': ', '.join(keywords),
-            'og_title': SEOKeywordGenerator.generate_meta_title(product),
+            'keywords': keywords,
+            'og_title': title,
             'og_description': description,
             'og_image': image_url,
-            'twitter_title': SEOKeywordGenerator.generate_meta_title(product),
+            'twitter_title': title,
             'twitter_description': description,
             'twitter_image': image_url,
         }
@@ -325,24 +374,21 @@ class SEOMetaGenerator:
             description = f"Купити {category.name.lower()} в TwoComms. Якісний одяг з ексклюзивним дизайном. Швидка доставка по Україні."
 
             if category.description:
-                clean_desc = re.sub(r'<[^>]+>', '', category.description)
-                if len(clean_desc) > 120:
-                    clean_desc = clean_desc[:117] + "..."
-                description = clean_desc
+                description = _truncate_at_word_boundary(_clean_text(category.description), 160)
 
-        cover_url = ''
+        cover_url = get_default_social_image_url()
         if category.cover:
             cover_url = _build_absolute_url(category.cover.url)
 
         return {
             'title': title,
-            'description': description,
+            'description': _truncate_at_word_boundary(_clean_text(description), 160),
             'keywords': ', '.join(keywords),
             'og_title': title,
-            'og_description': description,
+            'og_description': _truncate_at_word_boundary(_clean_text(description), 160),
             'og_image': cover_url,
             'twitter_title': title,
-            'twitter_description': description,
+            'twitter_description': _truncate_at_word_boundary(_clean_text(description), 160),
             'twitter_image': cover_url,
         }
 
@@ -446,12 +492,12 @@ class StructuredDataGenerator:
         # Базовые изображения
         images = []
         if product.display_image:
-            images.append(f"https://twocomms.shop{product.display_image.url}")
+            images.append(_build_absolute_url(product.display_image.url))
 
         # Добавляем дополнительные изображения
         try:
             for img in product.images.all()[:4]:  # Максимум 4 дополнительных изображения
-                images.append(f"https://twocomms.shop{img.image.url}")
+                images.append(_build_absolute_url(img.image.url))
         except Exception:
             pass
 
@@ -461,25 +507,41 @@ class StructuredDataGenerator:
             color_variants = ProductColorVariant.objects.filter(product=product).prefetch_related('images')
             for variant in color_variants[:2]:  # Максимум 2 цветовых варианта
                 for img in variant.images.all()[:2]:
-                    if f"https://twocomms.shop{img.image.url}" not in images:
-                        images.append(f"https://twocomms.shop{img.image.url}")
+                    candidate = _build_absolute_url(img.image.url)
+                    if candidate not in images:
+                        images.append(candidate)
         except Exception:
             pass
+
+        if not images:
+            images.append(get_default_social_image_url())
+
+        description = _truncate_at_word_boundary(
+            _pick_product_description_source(product)
+            or f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном від TwoComms",
+            320,
+        )
+        material = _guess_product_material(product)
 
         schema = {
             "@context": "https://schema.org",
             "@type": "Product",
             "name": product.title,
-            "description": product.description or f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном від TwoComms",
+            "description": description,
             "sku": f"TC-{product.id}",
             "mpn": f"TC-{product.id}",  # Manufacturer Part Number
-            "url": f"https://twocomms.shop/product/{product.slug}/",
-            "image": images[0] if images else "https://twocomms.shop/static/img/placeholder.jpg",
+            "url": _build_absolute_url(f"product/{product.slug}/"),
+            "image": images[0] if len(images) == 1 else images,
+            "material": material,
+            "countryOfOrigin": {
+                "@type": "Country",
+                "name": "Україна"
+            },
             "additionalProperty": [
                 {
                     "@type": "PropertyValue",
                     "name": "Матеріал",
-                    "value": "100% бавовна"
+                    "value": material
                 },
                 {
                     "@type": "PropertyValue",
@@ -495,12 +557,12 @@ class StructuredDataGenerator:
             "brand": {
                 "@type": "Brand",
                 "name": "TwoComms",
-                "url": "https://twocomms.shop"
+                "url": _build_absolute_url("")
             },
             "manufacturer": {
                 "@type": "Organization",
                 "name": "TwoComms",
-                "url": "https://twocomms.shop"
+                "url": _build_absolute_url("")
             },
             "offers": {
                 "@type": "Offer",
@@ -508,7 +570,7 @@ class StructuredDataGenerator:
                 "priceCurrency": "UAH",
                 "availability": "https://schema.org/InStock",
                 "itemCondition": "https://schema.org/NewCondition",
-                "url": f"https://twocomms.shop/product/{product.slug}/",
+                "url": _build_absolute_url(f"product/{product.slug}/"),
                 "priceValidUntil": StructuredDataGenerator._get_dynamic_price_valid_until(),
                 "hasMerchantReturnPolicy": {
                     "@type": "MerchantReturnPolicy",
@@ -522,7 +584,7 @@ class StructuredDataGenerator:
                 "seller": {
                     "@type": "Organization",
                     "name": "TwoComms",
-                    "url": "https://twocomms.shop",
+                    "url": _build_absolute_url(""),
                     "address": {
                         "@type": "PostalAddress",
                         "addressCountry": "UA",
@@ -560,9 +622,6 @@ class StructuredDataGenerator:
             })
 
         # Добавляем все изображения
-        if len(images) > 1:
-            schema["image"] = images
-
         # Добавляем реальные цвета из вариантов
         try:
             from productcolors.models import ProductColorVariant
@@ -572,10 +631,12 @@ class StructuredDataGenerator:
                 if variant.color and variant.color.name:
                     color_names.append(variant.color.name)
             if color_names:
+                unique_colors = list(dict.fromkeys(color_names))[:5]
+                schema["color"] = ", ".join(unique_colors)
                 schema["additionalProperty"].append({
                     "@type": "PropertyValue",
                     "name": "Колір",
-                    "value": ", ".join(color_names[:5])
+                    "value": ", ".join(unique_colors)
                 })
             else:
                 schema["additionalProperty"].append({
@@ -592,11 +653,13 @@ class StructuredDataGenerator:
 
         # Добавляем размеры
         resolved_sizes = resolve_product_sizes(product)
-        schema["additionalProperty"].append({
-            "@type": "PropertyValue",
-            "name": "Розміри",
-            "value": ", ".join(resolved_sizes)
-        })
+        if resolved_sizes:
+            schema["size"] = resolved_sizes if len(resolved_sizes) > 1 else resolved_sizes[0]
+            schema["additionalProperty"].append({
+                "@type": "PropertyValue",
+                "name": "Розміри",
+                "value": ", ".join(resolved_sizes)
+            })
 
         # Добавляем скидку если есть
         if product.has_discount:

@@ -1,0 +1,6 @@
+#!/usr/bin/expect -f
+set password "trs5m4t1"
+spawn ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc 'cd /home/qlknpodo/TWC/TwoComms_Site && git pull && cd twocomms && source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && python manage.py shell -c \"from django.core.cache import cache; cache.clear()\" && touch passenger_wsgi.py twocomms/wsgi.py TwoComms_Site/wsgi.py tmp/restart.txt'"
+expect "*?assword:*"
+send "$password\r"
+expect eof
