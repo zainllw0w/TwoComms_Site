@@ -154,3 +154,6 @@ class PublicProductOrderingTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-drag-handle", html=False)
         self.assertContains(response, "Новий порядок зберігається одразу", html=False)
+        self.assertContains(response, "grid.addEventListener('pointerdown', armDragFromHandle);", html=False)
+        self.assertContains(response, "window.addEventListener('pointerup', clearArmedDragCard);", html=False)
+        self.assertContains(response, "armedDragCard !== card", html=False)
