@@ -1,9 +1,24 @@
+from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.core.cache import cache
 from django.test import SimpleTestCase, override_settings
 from django.urls import reverse
 
+from orders.forms import TelegramNovaPoshtaWaybillForm
+from orders.nova_poshta_documents import (
+    TELEGRAM_CREATE_NP_WAYBILL_ACTION,
+    NovaPoshtaDocumentService,
+    NovaPoshtaResolvedPoint,
+    build_waybill_description,
+)
+from orders.telegram_notifications import TelegramNotifier
+from orders.telegram_status_links import (
+    build_order_action_token,
+    build_order_action_url,
+    verify_order_action_token,
+)
 from orders.nova_poshta_lookup import (
     NovaPoshtaDirectoryService,
     NovaPoshtaLookupUnavailable,
@@ -175,7 +190,7 @@ class NovaPoshtaDirectoryServiceTests(SimpleTestCase):
         )
 
 
-@override_settings(NOVA_POSHTA_FALLBACK_ENABLED=False)
+@override_settings(NOVA_POSHTA_FALLBACK_ENABLED=False, RATELIMIT_ENABLE=False)
 class NovaPoshtaLookupEndpointTests(SimpleTestCase):
     def setUp(self):
         cache.clear()
@@ -246,3 +261,175 @@ class NovaPoshtaLookupEndpointTests(SimpleTestCase):
                 'error': 'Пошук Нової пошти тимчасово недоступний. Можна ввести дані вручну.',
             },
         )
+
+
+class _FakeItems:
+    def __init__(self, items):
+        self._items = list(items)
+
+    def all(self):
+        return list(self._items)
+
+    def count(self):
+        return len(self._items)
+
+
+class NovaPoshtaWaybillServiceTests(SimpleTestCase):
+    def _build_order(self, **overrides):
+        item = SimpleNamespace(title='Худі TwoComms', qty=1)
+        payload = {
+            'pk': 101,
+            'full_name': 'Тестовий клієнт',
+            'phone': '+380991112233',
+            'city': 'Київ',
+            'np_office': 'Відділення №4',
+            'np_settlement_ref': 'recipient-settlement-ref',
+            'np_city_ref': 'recipient-city-ref',
+            'np_warehouse_ref': 'recipient-warehouse-ref',
+            'total_sum': '1499.00',
+            'pay_type': 'prepay_200',
+            'items': _FakeItems([item]),
+            'tracking_number': None,
+            'nova_poshta_document_ref': None,
+            'status': 'new',
+        }
+        payload.update(overrides)
+        total_sum = Decimal(str(payload['total_sum']))
+        payload.setdefault('get_remaining_amount', lambda total=total_sum: total - Decimal('200.00'))
+        return SimpleNamespace(**payload)
+
+    def test_build_waybill_description_uses_single_item_title(self):
+        order = self._build_order()
+        self.assertEqual(build_waybill_description(order), 'Одяг бренду TwoComms, Худі TwoComms')
+
+    def test_build_waybill_description_uses_quantity_for_multiple_items(self):
+        items = _FakeItems([
+            SimpleNamespace(title='Футболка', qty=2),
+            SimpleNamespace(title='Худі', qty=1),
+        ])
+        order = self._build_order(items=items)
+        self.assertEqual(build_waybill_description(order), 'Одяг бренду TwoComms, у кількості 3 шт.')
+
+    @patch.object(NovaPoshtaDocumentService, '_resolve_default_sender_point')
+    def test_build_initial_payload_prefills_sender_and_prepay_cod(self, mock_sender_point):
+        mock_sender_point.return_value = NovaPoshtaResolvedPoint(
+            city_label='м. Харків, Харків',
+            warehouse_label='Відділення №138 (до 200 кг): Проїзд Стадіонний, 13',
+            settlement_ref='sender-settlement-ref',
+            city_ref='sender-city-ref',
+            warehouse_ref='sender-warehouse-ref',
+            warehouse_kind='branch',
+        )
+        order = self._build_order()
+        service = NovaPoshtaDocumentService()
+
+        payload = service.build_initial_payload(order)
+
+        self.assertEqual(payload['recipient_full_name'], 'Тестовий клієнт')
+        self.assertEqual(payload['recipient_city_ref'], 'recipient-city-ref')
+        self.assertEqual(payload['sender_city_ref'], 'sender-city-ref')
+        self.assertEqual(payload['sender_warehouse_ref'], 'sender-warehouse-ref')
+        self.assertEqual(payload['description'], 'Одяг бренду TwoComms, Худі TwoComms')
+        self.assertEqual(payload['cod_amount'], '1299.00')
+        self.assertEqual(payload['payer_type'], 'Recipient')
+        self.assertEqual(payload['payment_method'], 'Cash')
+
+    @patch.object(NovaPoshtaDocumentService, '_resolve_default_sender_point')
+    def test_build_initial_payload_sets_full_cod_for_cod_orders(self, mock_sender_point):
+        mock_sender_point.return_value = NovaPoshtaResolvedPoint(
+            city_label='м. Харків, Харків',
+            warehouse_label='Відділення №138',
+            settlement_ref='sender-settlement-ref',
+            city_ref='sender-city-ref',
+            warehouse_ref='sender-warehouse-ref',
+            warehouse_kind='branch',
+        )
+        order = self._build_order(pay_type='cod', total_sum='990.00')
+        service = NovaPoshtaDocumentService()
+
+        payload = service.build_initial_payload(order)
+
+        self.assertEqual(payload['cod_amount'], '990.00')
+
+
+class NovaPoshtaWaybillFormTests(SimpleTestCase):
+    def test_form_normalizes_recipient_phone(self):
+        form = TelegramNovaPoshtaWaybillForm(
+            data={
+                'recipient_full_name': 'Тест Клієнт',
+                'recipient_phone': '+38 (099) 111-22-33',
+                'recipient_city': 'Київ',
+                'recipient_settlement_ref': '',
+                'recipient_city_ref': '',
+                'recipient_warehouse': 'Відділення №4',
+                'recipient_warehouse_ref': '',
+                'sender_city': 'Харків',
+                'sender_settlement_ref': '',
+                'sender_city_ref': '',
+                'sender_warehouse': 'Відділення №138',
+                'sender_warehouse_ref': '',
+                'description': 'Одяг бренду TwoComms',
+                'declared_cost': '1499',
+                'weight': '1',
+                'seats_amount': '1',
+                'length_cm': '30',
+                'width_cm': '20',
+                'height_cm': '8',
+                'cod_amount': '',
+                'payer_type': 'Recipient',
+                'payment_method': 'Cash',
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['recipient_phone'], '380991112233')
+        self.assertEqual(form.cleaned_data['cod_amount'], 0)
+
+
+@override_settings(ROOT_URLCONF='storefront.urls', SITE_BASE_URL='https://twocomms.shop')
+class TelegramOrderActionLinkTests(SimpleTestCase):
+    def test_generic_action_token_roundtrip(self):
+        token = build_order_action_token(77, TELEGRAM_CREATE_NP_WAYBILL_ACTION)
+        self.assertTrue(
+            verify_order_action_token(
+                token,
+                order_id=77,
+                action=TELEGRAM_CREATE_NP_WAYBILL_ACTION,
+            )
+        )
+        self.assertFalse(
+            verify_order_action_token(
+                token,
+                order_id=77,
+                action='ship',
+            )
+        )
+
+    def test_build_waybill_action_url_uses_new_route(self):
+        order = SimpleNamespace(pk=33)
+        url = build_order_action_url(
+            order,
+            TELEGRAM_CREATE_NP_WAYBILL_ACTION,
+            route_name='telegram_order_np_waybill_action',
+        )
+
+        self.assertIn('/orders/telegram-waybill/33/create-np-waybill/', url)
+        self.assertIn('token=', url)
+
+    @patch('orders.telegram_notifications.build_order_status_action_url', return_value='https://example.com/ship')
+    @patch('orders.telegram_notifications.build_order_action_url', return_value='https://example.com/create')
+    def test_order_notification_markup_contains_create_waybill_and_ship_buttons(self, *_mocks):
+        order = SimpleNamespace(
+            pk=1,
+            status='new',
+            tracking_number='',
+            nova_poshta_document_ref='',
+        )
+        notifier = TelegramNotifier(bot_token='token', admin_id='1', async_enabled=False)
+
+        markup = notifier._build_order_management_reply_markup(order)
+
+        self.assertEqual(markup['inline_keyboard'][0][0]['text'], '📦 Створити ТТН НП')
+        self.assertEqual(markup['inline_keyboard'][0][0]['url'], 'https://example.com/create')
+        self.assertEqual(markup['inline_keyboard'][1][0]['text'], '🚚 Відправлено + ТТН')
+        self.assertEqual(markup['inline_keyboard'][1][0]['url'], 'https://example.com/ship')

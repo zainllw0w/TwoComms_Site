@@ -407,8 +407,8 @@
                 <input type="text" name="city" class="cart-form-input" placeholder="Почніть вводити місто Нової пошти"
                        value="{{ prof.city|default:'' }}" required autocomplete="off" spellcheck="false"
                        data-np-city-input aria-autocomplete="list" aria-expanded="false">
-                <input type="hidden" data-np-settlement-ref>
-                <input type="hidden" data-np-city-ref>
+                <input type="hidden" name="np_settlement_ref" value="{{ prof.np_settlement_ref|default:'' }}" data-np-settlement-ref>
+                <input type="hidden" name="np_city_ref" value="{{ prof.np_city_ref|default:'' }}" data-np-city-ref>
                 <div class="cart-form-input-glow"></div>
                 <div class="np-selector-results" data-np-city-results hidden></div>
               </div>
@@ -423,7 +423,7 @@
                 <input type="text" name="np_office" class="cart-form-input" placeholder="Оберіть відділення або поштомат"
                        value="{{ prof.np_office|default:'' }}" required autocomplete="off" spellcheck="false"
                        data-np-warehouse-input aria-autocomplete="list" aria-expanded="false">
-                <input type="hidden" data-np-warehouse-ref>
+                <input type="hidden" name="np_warehouse_ref" value="{{ prof.np_warehouse_ref|default:'' }}" data-np-warehouse-ref>
                 <div class="cart-form-input-glow"></div>
                 <div class="np-selector-results" data-np-warehouse-results hidden></div>
               </div>
@@ -543,8 +543,8 @@
                 <input type="text" name="city" class="cart-form-input" placeholder="Почніть вводити місто Нової пошти"
                        required autocomplete="off" spellcheck="false"
                        data-np-city-input aria-autocomplete="list" aria-expanded="false">
-                <input type="hidden" data-np-settlement-ref>
-                <input type="hidden" data-np-city-ref>
+                <input type="hidden" name="np_settlement_ref" data-np-settlement-ref>
+                <input type="hidden" name="np_city_ref" data-np-city-ref>
                 <div class="cart-form-input-glow"></div>
                 <div class="np-selector-results" data-np-city-results hidden></div>
               </div>
@@ -562,7 +562,7 @@
                 <input type="text" name="np_office" class="cart-form-input" placeholder="Оберіть відділення або поштомат"
                        required autocomplete="off" spellcheck="false"
                        data-np-warehouse-input aria-autocomplete="list" aria-expanded="false">
-                <input type="hidden" data-np-warehouse-ref>
+                <input type="hidden" name="np_warehouse_ref" data-np-warehouse-ref>
                 <div class="cart-form-input-glow"></div>
                 <div class="np-selector-results" data-np-warehouse-results hidden></div>
               </div>

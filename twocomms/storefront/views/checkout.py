@@ -6,6 +6,7 @@ from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.http import JsonResponse
 
+from orders.nova_poshta_data import apply_nova_poshta_refs, extract_nova_poshta_refs
 from orders.models import Order, OrderItem
 from storefront.models import Product, PromoCode, CustomPrintLead, CustomPrintModerationStatus
 from productcolors.models import ProductColorVariant
@@ -71,17 +72,25 @@ def create_order(request):
         user = request.user
         try:
             profile = user.userprofile
-            full_name = profile.full_name or user.get_full_name()
-            phone = profile.phone
-            city = profile.city
-            np_office = profile.np_office
-            pay_type = profile.pay_type
+            full_name = (request.POST.get('full_name') or profile.full_name or user.get_full_name() or '').strip()
+            phone = (request.POST.get('phone') or profile.phone or '').strip()
+            city = (request.POST.get('city') or profile.city or '').strip()
+            np_office = (request.POST.get('np_office') or profile.np_office or '').strip()
+            pay_type = (request.POST.get('pay_type') or profile.pay_type or 'online_full').strip()
+            delivery_refs = extract_nova_poshta_refs(request.POST or None)
+            if not any(delivery_refs.values()):
+                delivery_refs = {
+                    "np_settlement_ref": getattr(profile, "np_settlement_ref", "") or "",
+                    "np_city_ref": getattr(profile, "np_city_ref", "") or "",
+                    "np_warehouse_ref": getattr(profile, "np_warehouse_ref", "") or "",
+                }
         except UserProfile.DoesNotExist:
             full_name = request.POST.get('full_name', '')
             phone = request.POST.get('phone', '')
             city = request.POST.get('city', '')
             np_office = request.POST.get('np_office', '')
             pay_type = request.POST.get('pay_type', 'online_full')
+            delivery_refs = extract_nova_poshta_refs(request.POST or None)
     else:
         user = None
         full_name = request.POST.get('full_name', '')
@@ -89,6 +98,7 @@ def create_order(request):
         city = request.POST.get('city', '')
         np_office = request.POST.get('np_office', '')
         pay_type = request.POST.get('pay_type', 'online_full')
+        delivery_refs = extract_nova_poshta_refs(request.POST or None)
 
     # Validate required fields
     if not all([full_name, phone, city, np_office]):
@@ -116,6 +126,7 @@ def create_order(request):
                 status='new',
                 payment_status='unpaid'
             )
+            apply_nova_poshta_refs(order, delivery_refs)
             order.save()
 
             # Create Order Items
@@ -144,9 +155,11 @@ def create_order(request):
                     order=order,
                     product=product,
                     color_variant=variant,
+                    title=product.title,
                     size=item.get('size', 'S'),
-                    quantity=qty,
-                    price=price
+                    qty=qty,
+                    unit_price=price,
+                    line_total=price * qty,
                 ))
                 total_sum += price * qty
 

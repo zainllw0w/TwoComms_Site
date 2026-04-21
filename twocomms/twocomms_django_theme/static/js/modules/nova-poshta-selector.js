@@ -46,7 +46,7 @@ function showResults(container, input) {
   }
 }
 
-function createOptionButton(item, buildMeta) {
+function createOptionButton(item, metaTextBuilder) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'np-selector-option';
@@ -56,7 +56,7 @@ function createOptionButton(item, buildMeta) {
   main.textContent = item.label || '';
   button.appendChild(main);
 
-  const metaText = typeof buildMeta === 'function' ? buildMeta(item) : '';
+  const metaText = metaTextBuilder ? metaTextBuilder(item) : '';
   if (metaText) {
     const meta = document.createElement('div');
     meta.className = 'np-selector-option-meta';
@@ -70,9 +70,6 @@ function createOptionButton(item, buildMeta) {
 class NovaPoshtaSelectorController {
   constructor(form, options) {
     this.form = form;
-    this.cityUrl = options.cityUrl;
-    this.warehouseUrl = options.warehouseUrl;
-
     this.cityInput = form.querySelector('[data-np-city-input]');
     this.cityResults = form.querySelector('[data-np-city-results]');
     this.cityStatus = form.querySelector('[data-np-city-status]');
@@ -85,6 +82,9 @@ class NovaPoshtaSelectorController {
     this.warehouseRefInput = form.querySelector('[data-np-warehouse-ref]');
     this.kindButtons = Array.from(form.querySelectorAll('[data-np-kind-toggle] [data-kind]'));
 
+    this.cityUrl = options.cityUrl;
+    this.warehouseUrl = options.warehouseUrl;
+
     this.lookupDisabled = false;
     this.selectedSettlementRef = '';
     this.selectedCityRef = '';
@@ -95,6 +95,7 @@ class NovaPoshtaSelectorController {
 
     this.skipCityInputHandler = false;
     this.skipWarehouseInputHandler = false;
+
     this.cityController = null;
     this.warehouseController = null;
 
@@ -112,23 +113,15 @@ class NovaPoshtaSelectorController {
       return;
     }
 
-    this.selectedSettlementRef = this.settlementRefInput?.value?.trim() || '';
-    this.selectedCityRef = this.cityRefInput?.value?.trim() || '';
-    this.selectedWarehouseRef = this.warehouseRefInput?.value?.trim() || '';
-
     this.cityInput.addEventListener('input', this.handleCityInput);
-    this.cityInput.addEventListener('keydown', (event) => {
-      this.handleInputKeydown(event, this.cityResults, (item) => this.selectCity(item));
-    });
+    this.cityInput.addEventListener('keydown', (event) => this.handleInputKeydown(event, this.cityResults, (item) => this.selectCity(item)));
     this.cityInput.addEventListener('blur', () => {
       window.setTimeout(() => hideResults(this.cityResults, this.cityInput), 150);
     });
 
     this.warehouseInput.addEventListener('input', this.handleWarehouseInput);
     this.warehouseInput.addEventListener('focus', this.handleWarehouseFocus);
-    this.warehouseInput.addEventListener('keydown', (event) => {
-      this.handleInputKeydown(event, this.warehouseResults, (item) => this.selectWarehouse(item));
-    });
+    this.warehouseInput.addEventListener('keydown', (event) => this.handleInputKeydown(event, this.warehouseResults, (item) => this.selectWarehouse(item)));
     this.warehouseInput.addEventListener('blur', () => {
       window.setTimeout(() => hideResults(this.warehouseResults, this.warehouseInput), 150);
     });
@@ -149,6 +142,10 @@ class NovaPoshtaSelectorController {
     });
 
     document.addEventListener('click', this.handleDocumentClick);
+
+    this.selectedSettlementRef = this.settlementRefInput?.value?.trim() || '';
+    this.selectedCityRef = this.cityRefInput?.value?.trim() || '';
+    this.selectedWarehouseRef = this.warehouseRefInput?.value?.trim() || '';
 
     if (this.cityInput.value.trim()) {
       this.selectedCityLabel = this.cityInput.value.trim();
@@ -176,28 +173,6 @@ class NovaPoshtaSelectorController {
     hideResults(this.warehouseResults, this.warehouseInput);
   }
 
-  handleInputKeydown(event, container, selectFn) {
-    if (event.key === 'Escape') {
-      hideResults(container, event.currentTarget);
-      return;
-    }
-    if (event.key !== 'Enter') {
-      return;
-    }
-
-    const firstOption = container?.querySelector?.('[data-item-json]');
-    if (!firstOption) {
-      return;
-    }
-
-    event.preventDefault();
-    try {
-      selectFn(JSON.parse(firstOption.dataset.itemJson || '{}'));
-    } catch (_) {
-      // no-op
-    }
-  }
-
   handleCityInput() {
     if (this.skipCityInputHandler) {
       this.skipCityInputHandler = false;
@@ -205,7 +180,10 @@ class NovaPoshtaSelectorController {
     }
 
     const currentValue = this.cityInput.value.trim();
-    if (this.selectedCityLabel && normalizeValue(currentValue) !== normalizeValue(this.selectedCityLabel)) {
+    const currentNormalized = normalizeValue(currentValue);
+    const selectedNormalized = normalizeValue(this.selectedCityLabel);
+
+    if (selectedNormalized && currentNormalized !== selectedNormalized) {
       this.clearCitySelection({ preserveInput: true });
       this.clearWarehouseSelection({ preserveInput: false });
     }
@@ -215,11 +193,13 @@ class NovaPoshtaSelectorController {
       setStatus(this.cityStatus, 'Почніть вводити назву міста.', '');
       return;
     }
+
     if (currentValue.length < CITY_MIN_CHARS) {
       hideResults(this.cityResults, this.cityInput);
       setStatus(this.cityStatus, 'Введіть щонайменше 2 символи для пошуку міста.', '');
       return;
     }
+
     if (this.lookupDisabled) {
       setStatus(this.cityStatus, 'Пошук НП недоступний. Місто можна ввести вручну.', 'error');
       return;
@@ -236,7 +216,10 @@ class NovaPoshtaSelectorController {
     }
 
     const currentValue = this.warehouseInput.value.trim();
-    if (this.selectedWarehouseLabel && normalizeValue(currentValue) !== normalizeValue(this.selectedWarehouseLabel)) {
+    const currentNormalized = normalizeValue(currentValue);
+    const selectedNormalized = normalizeValue(this.selectedWarehouseLabel);
+
+    if (selectedNormalized && currentNormalized !== selectedNormalized) {
       this.clearWarehouseSelection({ preserveInput: true });
     }
 
@@ -250,16 +233,12 @@ class NovaPoshtaSelectorController {
       return;
     }
 
-    if (!(this.selectedSettlementRef || this.selectedCityRef)) {
+    if (currentValue && !(this.selectedSettlementRef || this.selectedCityRef)) {
       this.ensureCitySelection()
         .then((resolved) => {
           if (!resolved) {
             hideResults(this.warehouseResults, this.warehouseInput);
-            setStatus(
-              this.warehouseStatus,
-              'Оберіть місто зі списку Нової пошти, щоб отримати підказки для відділення.',
-              '',
-            );
+            setStatus(this.warehouseStatus, 'Оберіть місто зі списку Нової пошти, щоб отримати підказки для відділення.', '');
             return;
           }
           setStatus(this.warehouseStatus, 'Шукаємо відділення або поштомат…', 'loading');
@@ -271,30 +250,52 @@ class NovaPoshtaSelectorController {
       return;
     }
 
-    setStatus(this.warehouseStatus, 'Шукаємо відділення або поштомат…', 'loading');
-    this.debouncedWarehouseLookup();
+    if (this.selectedSettlementRef || this.selectedCityRef) {
+      setStatus(this.warehouseStatus, 'Шукаємо відділення або поштомат…', 'loading');
+      this.debouncedWarehouseLookup();
+    }
   }
 
   handleWarehouseFocus() {
-    if (this.lookupDisabled || this.warehouseInput.value.trim()) {
+    if (this.lookupDisabled) {
+      return;
+    }
+    if (!this.warehouseInput.value.trim()) {
+      this.ensureCitySelection()
+        .then((resolved) => {
+          if (!resolved) {
+            setStatus(this.warehouseStatus, 'Оберіть місто зі списку Нової пошти, щоб отримати підказки для відділення.', '');
+            return;
+          }
+          this.fetchWarehouses();
+        })
+        .catch(() => {
+          setStatus(this.warehouseStatus, 'Не вдалося підготувати пошук відділень. Можна ввести дані вручну.', 'error');
+        });
+    }
+  }
+
+  handleInputKeydown(event, container, selectFn) {
+    if (event.key === 'Escape') {
+      hideResults(container, event.currentTarget);
       return;
     }
 
-    this.ensureCitySelection()
-      .then((resolved) => {
-        if (!resolved) {
-          setStatus(
-            this.warehouseStatus,
-            'Оберіть місто зі списку Нової пошти, щоб отримати підказки для відділення.',
-            '',
-          );
-          return;
-        }
-        this.fetchWarehouses();
-      })
-      .catch(() => {
-        setStatus(this.warehouseStatus, 'Не вдалося підготувати пошук відділень. Можна ввести дані вручну.', 'error');
-      });
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    const firstOption = container?.querySelector?.('[data-item-json]');
+    if (!firstOption) {
+      return;
+    }
+
+    event.preventDefault();
+    try {
+      selectFn(JSON.parse(firstOption.dataset.itemJson || '{}'));
+    } catch (_) {
+      // no-op
+    }
   }
 
   async ensureCitySelection() {
@@ -349,6 +350,7 @@ class NovaPoshtaSelectorController {
         signal: this.cityController.signal,
       });
       const payload = await response.json().catch(() => ({}));
+
       if (!response.ok || !payload.ok) {
         if (response.status === 503) {
           this.lookupDisabled = true;
@@ -383,66 +385,6 @@ class NovaPoshtaSelectorController {
     }
   }
 
-  async fetchWarehouses() {
-    if (this.lookupDisabled || !(this.selectedSettlementRef || this.selectedCityRef)) {
-      return [];
-    }
-
-    if (this.warehouseController) {
-      this.warehouseController.abort();
-    }
-    this.warehouseController = new AbortController();
-
-    const params = new URLSearchParams();
-    if (this.selectedSettlementRef) {
-      params.set('settlement_ref', this.selectedSettlementRef);
-    }
-    if (this.selectedCityRef) {
-      params.set('city_ref', this.selectedCityRef);
-    }
-    if (this.warehouseInput.value.trim()) {
-      params.set('q', this.warehouseInput.value.trim());
-    }
-    params.set('kind', this.activeKind);
-    params.set('limit', '20');
-
-    try {
-      const response = await fetch(`${this.warehouseUrl}?${params.toString()}`, {
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'Cache-Control': 'no-cache',
-        },
-        signal: this.warehouseController.signal,
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.ok) {
-        if (response.status === 503) {
-          this.lookupDisabled = true;
-        }
-        setStatus(
-          this.warehouseStatus,
-          payload.error || 'Пошук відділень тимчасово недоступний. Можна ввести пункт вручну.',
-          response.status === 400 ? '' : 'error',
-        );
-        hideResults(this.warehouseResults, this.warehouseInput);
-        return [];
-      }
-
-      const items = Array.isArray(payload.items) ? payload.items : [];
-      this.renderWarehouses(items);
-      return items;
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        return [];
-      }
-      setStatus(this.warehouseStatus, 'Не вдалося завантажити список відділень. Можна ввести пункт вручну.', 'error');
-      hideResults(this.warehouseResults, this.warehouseInput);
-      return [];
-    } finally {
-      this.warehouseController = null;
-    }
-  }
-
   renderCities(items) {
     if (!items.length) {
       hideResults(this.cityResults, this.cityInput);
@@ -474,6 +416,105 @@ class NovaPoshtaSelectorController {
     setStatus(this.cityStatus, 'Оберіть місто зі списку Нової пошти.', '');
   }
 
+  selectCity(item, options = {}) {
+    const focusWarehouse = options.focusWarehouse !== false;
+    const nextLabel = item.label || '';
+    const nextSettlementRef = item.settlement_ref || item.legacy_ref || '';
+    const nextCityRef = item.city_ref || item.legacy_ref || '';
+    const cityChanged =
+      normalizeValue(this.selectedCityLabel) &&
+      normalizeValue(this.selectedCityLabel) !== normalizeValue(nextLabel);
+
+    this.selectedSettlementRef = nextSettlementRef;
+    this.selectedCityRef = nextCityRef;
+    this.selectedCityLabel = nextLabel;
+
+    if (this.settlementRefInput) {
+      this.settlementRefInput.value = nextSettlementRef;
+    }
+    if (this.cityRefInput) {
+      this.cityRefInput.value = nextCityRef;
+    }
+
+    this.skipCityInputHandler = true;
+    this.cityInput.value = nextLabel;
+    this.cityInput.dispatchEvent(new Event('input', { bubbles: true }));
+    this.cityInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+    hideResults(this.cityResults, this.cityInput);
+    setStatus(this.cityStatus, `Місто вибрано: ${nextLabel}`, 'success');
+
+    if (cityChanged || !this.selectedWarehouseRef) {
+      this.clearWarehouseSelection({ preserveInput: false });
+    }
+
+    if (focusWarehouse) {
+      window.requestAnimationFrame(() => this.warehouseInput.focus());
+    }
+  }
+
+  async fetchWarehouses() {
+    if (this.lookupDisabled || !(this.selectedSettlementRef || this.selectedCityRef)) {
+      return [];
+    }
+
+    if (this.warehouseController) {
+      this.warehouseController.abort();
+    }
+    this.warehouseController = new AbortController();
+
+    const query = this.warehouseInput.value.trim();
+    const params = new URLSearchParams();
+    if (this.selectedSettlementRef) {
+      params.set('settlement_ref', this.selectedSettlementRef);
+    }
+    if (this.selectedCityRef) {
+      params.set('city_ref', this.selectedCityRef);
+    }
+    if (query) {
+      params.set('q', query);
+    }
+    params.set('kind', this.activeKind);
+    params.set('limit', '20');
+
+    try {
+      const response = await fetch(`${this.warehouseUrl}?${params.toString()}`, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Cache-Control': 'no-cache',
+        },
+        signal: this.warehouseController.signal,
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || !payload.ok) {
+        if (response.status === 503) {
+          this.lookupDisabled = true;
+        }
+        setStatus(
+          this.warehouseStatus,
+          payload.error || 'Пошук відділень тимчасово недоступний. Можна ввести пункт вручну.',
+          response.status === 400 ? '' : 'error',
+        );
+        hideResults(this.warehouseResults, this.warehouseInput);
+        return [];
+      }
+
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      this.renderWarehouses(items);
+      return items;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        return [];
+      }
+      setStatus(this.warehouseStatus, 'Не вдалося завантажити список відділень. Можна ввести пункт вручну.', 'error');
+      hideResults(this.warehouseResults, this.warehouseInput);
+      return [];
+    } finally {
+      this.warehouseController = null;
+    }
+  }
+
   renderWarehouses(items) {
     if (!items.length) {
       hideResults(this.warehouseResults, this.warehouseInput);
@@ -484,7 +525,8 @@ class NovaPoshtaSelectorController {
     this.warehouseResults.innerHTML = '';
     items.forEach((item) => {
       const button = createOptionButton(item, (current) => {
-        const meta = [current.kind === 'postomat' ? 'Поштомат' : 'Відділення'];
+        const meta = [];
+        meta.push(current.kind === 'postomat' ? 'Поштомат' : 'Відділення');
         if (current.number) {
           meta.push(`№${current.number}`);
         }
@@ -502,43 +544,10 @@ class NovaPoshtaSelectorController {
     setStatus(this.warehouseStatus, 'Оберіть відділення або поштомат зі списку Нової пошти.', '');
   }
 
-  selectCity(item, options = {}) {
-    const focusWarehouse = options.focusWarehouse !== false;
-    const nextLabel = item.label || '';
-    const nextSettlementRef = item.settlement_ref || item.legacy_ref || '';
-    const nextCityRef = item.city_ref || item.legacy_ref || '';
-    const cityChanged =
-      this.selectedCityLabel &&
-      normalizeValue(this.selectedCityLabel) !== normalizeValue(nextLabel);
-
-    this.selectedSettlementRef = nextSettlementRef;
-    this.selectedCityRef = nextCityRef;
-    this.selectedCityLabel = nextLabel;
-    if (this.settlementRefInput) {
-      this.settlementRefInput.value = nextSettlementRef;
-    }
-    if (this.cityRefInput) {
-      this.cityRefInput.value = nextCityRef;
-    }
-
-    this.skipCityInputHandler = true;
-    this.cityInput.value = nextLabel;
-    this.cityInput.dispatchEvent(new Event('input', { bubbles: true }));
-    this.cityInput.dispatchEvent(new Event('change', { bubbles: true }));
-    hideResults(this.cityResults, this.cityInput);
-    setStatus(this.cityStatus, `Місто вибрано: ${nextLabel}`, 'success');
-
-    if (cityChanged || !this.selectedWarehouseRef) {
-      this.clearWarehouseSelection({ preserveInput: false });
-    }
-    if (focusWarehouse) {
-      window.requestAnimationFrame(() => this.warehouseInput.focus());
-    }
-  }
-
   selectWarehouse(item) {
     const nextLabel = item.label || '';
     const nextRef = item.ref || '';
+
     this.selectedWarehouseRef = nextRef;
     this.selectedWarehouseLabel = nextLabel;
     if (this.warehouseRefInput) {
@@ -549,6 +558,7 @@ class NovaPoshtaSelectorController {
     this.warehouseInput.value = nextLabel;
     this.warehouseInput.dispatchEvent(new Event('input', { bubbles: true }));
     this.warehouseInput.dispatchEvent(new Event('change', { bubbles: true }));
+
     hideResults(this.warehouseResults, this.warehouseInput);
     setStatus(
       this.warehouseStatus,

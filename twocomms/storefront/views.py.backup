@@ -1175,6 +1175,7 @@ def process_guest_order(request):
     """
     Обработка заказа для неавторизованного пользователя
     """
+    from orders.nova_poshta_data import apply_nova_poshta_refs, extract_nova_poshta_refs
     from orders.models import Order, OrderItem
     
     # Проверяем корзину
@@ -1189,6 +1190,7 @@ def process_guest_order(request):
     phone = request.POST.get('phone', '').strip()
     city = request.POST.get('city', '').strip()
     np_office = request.POST.get('np_office', '').strip()
+    delivery_refs = extract_nova_poshta_refs(request.POST or None)
     pay_type = request.POST.get('pay_type', '')
     
     # Проверяем обязательные поля
@@ -1261,6 +1263,8 @@ def process_guest_order(request):
         total_sum=0,
         status='new'
     )
+    apply_nova_poshta_refs(order, delivery_refs)
+    order.save(update_fields=['np_settlement_ref', 'np_city_ref', 'np_warehouse_ref'])
     
     # Добавляем товары в заказ
     for key, it in cart.items():
@@ -2453,6 +2457,7 @@ def admin_update_user(request):
 @login_required
 def order_create(request):
     # Локальный импорт моделей заказов – сразу, до использования
+    from orders.nova_poshta_data import apply_nova_poshta_refs, extract_nova_poshta_refs
     from orders.models import Order, OrderItem
 
     # Требуем заполненный профиль доставки
@@ -2468,6 +2473,7 @@ def order_create(request):
         phone = request.POST.get('phone', '').strip()
         city = request.POST.get('city', '').strip()
         np_office = request.POST.get('np_office', '').strip()
+        delivery_refs = extract_nova_poshta_refs(request.POST or None)
         pay_type = request.POST.get('pay_type', '')
         
         # Валидация данных из формы
@@ -2502,6 +2508,7 @@ def order_create(request):
         prof.city = city
         prof.np_office = np_office
         prof.pay_type = pay_type
+        apply_nova_poshta_refs(prof, delivery_refs)
         prof.save()
         
     else:
@@ -2510,6 +2517,11 @@ def order_create(request):
         phone = prof.phone
         city = prof.city
         np_office = prof.np_office
+        delivery_refs = {
+            'np_settlement_ref': getattr(prof, 'np_settlement_ref', '') or '',
+            'np_city_ref': getattr(prof, 'np_city_ref', '') or '',
+            'np_warehouse_ref': getattr(prof, 'np_warehouse_ref', '') or '',
+        }
         pay_type = prof.pay_type
         
         # Проверяем обязательные поля с более строгой валидацией
@@ -2568,6 +2580,8 @@ def order_create(request):
             phone=phone, city=city, np_office=np_office,
             pay_type=pay_type, total_sum=0, status='new'
         )
+        apply_nova_poshta_refs(order, delivery_refs)
+        order.save(update_fields=['np_settlement_ref', 'np_city_ref', 'np_warehouse_ref'])
         
         # Создаем все товары заказа
         order_items = []
@@ -2827,6 +2841,8 @@ def admin_order_update(request):
         return redirect('/admin-panel/?section=orders')
     
     from orders.models import Order
+    from orders.status_management import apply_order_status_update, first_validation_error
+    from django.core.exceptions import ValidationError
     from django.http import JsonResponse
     
     oid = request.POST.get('order_id')
@@ -2836,80 +2852,32 @@ def admin_order_update(request):
     cancel_comment = request.POST.get('cancellation_comment', '').strip()
     
     try:
-        o = Order.objects.get(pk=oid)
+        result = apply_order_status_update(
+            oid,
+            status=status,
+            tracking_number=tracking_number,
+            cancellation_reason=cancel_reason,
+            cancellation_comment=cancel_comment,
+        )
+        o = result['order']
     except Order.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Замовлення не знайдено'})
-    
-    old_status = o.status
-    if status in dict(Order.STATUS_CHOICES):
-        # Валідація причини скасування
-        if status == 'cancelled':
-            valid_reasons = [c[0] for c in Order._meta.get_field('cancellation_reason').choices]
-            if cancel_reason and cancel_reason not in valid_reasons:
-                return JsonResponse({'success': False, 'error': 'Невірна причина скасування'})
-            if not cancel_reason:
-                return JsonResponse({'success': False, 'error': 'Вкажіть причину скасування'})
-            o.cancellation_reason = cancel_reason
-            o.cancellation_comment = cancel_comment or None
-        else:
-            o.cancellation_reason = None
-            o.cancellation_comment = None
+    except ValidationError as exc:
+        return JsonResponse({'success': False, 'error': first_validation_error(exc)})
 
-        o.status = status
-        
-        # Обновляем ТТН если предоставлен
-        if tracking_number:
-            o.tracking_number = tracking_number
-        
-        o.save()
-        
-        # Обрабатываем баллы при изменении статуса
-        if o.user:  # Только для авторизованных пользователей
-            from accounts.models import UserPoints
-            user_points = UserPoints.get_or_create_points(o.user)
-            
-            # Рассчитываем баллы за заказ
-            total_points = 0
-            for item in o.items.all():
-                if item.product.points_reward > 0:
-                    total_points += item.product.points_reward * item.qty
-            
-            # Статусы, при которых начисляются баллы
-            points_awarding_statuses = ['prep', 'ship', 'done']  # 'готовится к отправке', 'отправлен', 'получен'
-            
-            # Статусы, при которых отменяются баллы
-            points_cancelling_statuses = ['cancelled']  # 'отменен'
-            
-            # Если переходим к статусу начисления баллов и баллы еще не начислены
-            if status in points_awarding_statuses and old_status not in points_awarding_statuses and not o.points_awarded:
-                if total_points > 0:
-                    user_points.add_points(total_points, f'Замовлення #{o.order_number} {o.get_status_display()}')
-                    o.points_awarded = True
-                    o.save(update_fields=['points_awarded'])
-            
-            # Если переходим к статусу отмены баллов и баллы были начислены
-            elif status in points_cancelling_statuses and old_status not in points_cancelling_statuses and o.points_awarded:
-                if total_points > 0:
-                    user_points.spend_points(total_points, f'Скасування замовлення #{o.order_number}')
-                    o.points_awarded = False
-                    o.save(update_fields=['points_awarded'])
-        
-        # Формируем сообщение об успехе
-        status_display = dict(Order.STATUS_CHOICES).get(status, status)
-        message = f'Статус замовлення змінено на "{status_display}"'
-        if tracking_number:
-            message += f' з ТТН: {tracking_number}'
-        
-        return JsonResponse({
-            'success': True, 
-            'message': message,
-            'status': status,
-            'tracking_number': tracking_number,
-            'cancellation_reason': o.cancellation_reason,
-            'cancellation_comment': o.cancellation_comment
-        })
+    status_display = dict(Order.STATUS_CHOICES).get(o.status, o.status)
+    message = f'Статус замовлення змінено на "{status_display}"'
+    if o.tracking_number:
+        message += f' з ТТН: {o.tracking_number}'
     
-    return JsonResponse({'success': False, 'error': 'Невірний статус'})
+    return JsonResponse({
+        'success': True,
+        'message': message,
+        'status': o.status,
+        'tracking_number': o.tracking_number or '',
+        'cancellation_reason': o.cancellation_reason,
+        'cancellation_comment': o.cancellation_comment
+    })
 
 
 @login_required
@@ -5415,6 +5383,9 @@ def _validate_checkout_payload(raw_payload):
     phone = (raw_payload.get('phone') or '').strip()
     city = (raw_payload.get('city') or '').strip()
     np_office = (raw_payload.get('np_office') or '').strip()
+    np_settlement_ref = (raw_payload.get('np_settlement_ref') or '').strip()
+    np_city_ref = (raw_payload.get('np_city_ref') or '').strip()
+    np_warehouse_ref = (raw_payload.get('np_warehouse_ref') or '').strip()
     pay_type = (raw_payload.get('pay_type') or 'full').strip().lower() or 'full'
 
     errors = []
@@ -5442,6 +5413,9 @@ def _validate_checkout_payload(raw_payload):
         'phone': phone,
         'city': city,
         'np_office': np_office,
+        'np_settlement_ref': np_settlement_ref,
+        'np_city_ref': np_city_ref,
+        'np_warehouse_ref': np_warehouse_ref,
         'pay_type': 'full'
     }
     return errors, cleaned
@@ -5449,6 +5423,7 @@ def _validate_checkout_payload(raw_payload):
 
 def _create_or_update_monobank_order(request, customer_data):
     """Create or update an order for Monobank payment, returning (order, amount_decimal, basket_order)."""
+    from orders.nova_poshta_data import apply_nova_poshta_refs
     from orders.models import Order, OrderItem
 
     cart = request.session.get('cart') or {}
@@ -5476,6 +5451,9 @@ def _create_or_update_monobank_order(request, customer_data):
                 phone=customer_data['phone'],
                 city=customer_data['city'],
                 np_office=customer_data['np_office'],
+                np_settlement_ref=customer_data.get('np_settlement_ref', '') or '',
+                np_city_ref=customer_data.get('np_city_ref', '') or '',
+                np_warehouse_ref=customer_data.get('np_warehouse_ref', '') or '',
                 pay_type='full',
                 status='new',
                 payment_status='checking',
@@ -5488,12 +5466,13 @@ def _create_or_update_monobank_order(request, customer_data):
             order.phone = customer_data['phone']
             order.city = customer_data['city']
             order.np_office = customer_data['np_office']
+            apply_nova_poshta_refs(order, customer_data)
             order.pay_type = 'full'
             order.session_key = session_key
             order.payment_status = 'checking'
             order.discount_amount = Decimal('0')
             order.total_sum = Decimal('0')
-            order.save(update_fields=['full_name', 'phone', 'city', 'np_office', 'pay_type', 'session_key', 'payment_status', 'discount_amount', 'total_sum'])
+            order.save(update_fields=['full_name', 'phone', 'city', 'np_office', 'np_settlement_ref', 'np_city_ref', 'np_warehouse_ref', 'pay_type', 'session_key', 'payment_status', 'discount_amount', 'total_sum'])
 
         order_items = []
         total_sum = Decimal('0')
@@ -5639,6 +5618,9 @@ def _prepare_checkout_customer_data(request):
                 'phone': profile.phone or '',
                 'city': profile.city or '',
                 'np_office': profile.np_office or '',
+                'np_settlement_ref': getattr(profile, 'np_settlement_ref', '') or '',
+                'np_city_ref': getattr(profile, 'np_city_ref', '') or '',
+                'np_warehouse_ref': getattr(profile, 'np_warehouse_ref', '') or '',
                 'pay_type': profile.pay_type or 'full',
                 'user': request.user
             }
@@ -5651,6 +5633,9 @@ def _prepare_checkout_customer_data(request):
         'phone': '',
         'city': '',
         'np_office': '',
+        'np_settlement_ref': '',
+        'np_city_ref': '',
+        'np_warehouse_ref': '',
         'pay_type': 'full',
         'user': None
     }
@@ -5730,6 +5715,9 @@ def monobank_create_invoice(request):
                 'phone': cleaned['phone'],
                 'city': cleaned['city'],
                 'np_office': cleaned['np_office'],
+                'np_settlement_ref': cleaned.get('np_settlement_ref', ''),
+                'np_city_ref': cleaned.get('np_city_ref', ''),
+                'np_warehouse_ref': cleaned.get('np_warehouse_ref', ''),
                 'pay_type': cleaned['pay_type'],
                 'user': None
             }
@@ -5988,6 +5976,9 @@ def _create_single_product_order(product, size, qty, color_variant_id, customer)
         'phone': customer.get('phone', '') or '',
         'city': customer.get('city', '') or '',
         'np_office': customer.get('np_office', '') or '',
+        'np_settlement_ref': customer.get('np_settlement_ref', '') or '',
+        'np_city_ref': customer.get('np_city_ref', '') or '',
+        'np_warehouse_ref': customer.get('np_warehouse_ref', '') or '',
         'pay_type': customer.get('pay_type', 'full') or 'full'
     }
 
@@ -6011,6 +6002,9 @@ def _create_single_product_order(product, size, qty, color_variant_id, customer)
         phone=customer_data['phone'],
         city=customer_data['city'],
         np_office=customer_data['np_office'],
+        np_settlement_ref=customer_data['np_settlement_ref'],
+        np_city_ref=customer_data['np_city_ref'],
+        np_warehouse_ref=customer_data['np_warehouse_ref'],
         pay_type=customer_data['pay_type'],
         payment_status='checking',
         status='new',
@@ -6078,6 +6072,9 @@ def monobank_create_checkout(request):
                     'phone': cleaned['phone'],
                     'city': cleaned['city'],
                     'np_office': cleaned['np_office'],
+                    'np_settlement_ref': cleaned.get('np_settlement_ref', ''),
+                    'np_city_ref': cleaned.get('np_city_ref', ''),
+                    'np_warehouse_ref': cleaned.get('np_warehouse_ref', ''),
                     'pay_type': cleaned['pay_type'],
                     'user': None
                 }
@@ -6097,6 +6094,9 @@ def monobank_create_checkout(request):
                     'phone': cleaned['phone'],
                     'city': cleaned['city'],
                     'np_office': cleaned['np_office'],
+                    'np_settlement_ref': cleaned.get('np_settlement_ref', ''),
+                    'np_city_ref': cleaned.get('np_city_ref', ''),
+                    'np_warehouse_ref': cleaned.get('np_warehouse_ref', ''),
                     'pay_type': cleaned['pay_type'],
                     'user': None
                 }
