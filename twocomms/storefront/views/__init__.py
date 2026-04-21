@@ -116,6 +116,10 @@ from .static_pages import (
     test_analytics_events,
 )
 
+from .platform import (
+    service_worker_script,
+)
+
 # Профиль
 from .profile import (
     profile,

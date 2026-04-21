@@ -1,0 +1,147 @@
+.web-push-prompt {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1200;
+  width: min(420px, calc(100vw - 24px));
+  overflow: hidden;
+  border: 1px solid rgba(255, 196, 97, 0.18);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 190, 92, 0.16), transparent 44%),
+    linear-gradient(145deg, rgba(10, 13, 20, 0.96), rgba(19, 24, 34, 0.98));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(22px);
+}
+
+.web-push-prompt__glow {
+  position: absolute;
+  inset: -30% auto auto -18%;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(255, 184, 77, 0.26), transparent 68%);
+  pointer-events: none;
+}
+
+.web-push-prompt__content {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  padding: 1.15rem 1.15rem 1rem;
+}
+
+.web-push-prompt__icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 184, 77, 0.24), rgba(255, 140, 56, 0.18));
+  border: 1px solid rgba(255, 199, 114, 0.24);
+  color: #f7efe2;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.web-push-prompt__text {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.web-push-prompt__title {
+  color: #f8fafc;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.web-push-prompt__copy {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.86);
+  font-size: 0.92rem;
+  line-height: 1.52;
+}
+
+.web-push-prompt__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+}
+
+.web-push-prompt__btn {
+  min-height: 44px;
+  padding: 0 1rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.92rem;
+  font-weight: 700;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.web-push-prompt__btn:hover {
+  transform: translateY(-1px);
+}
+
+.web-push-prompt__btn:disabled {
+  opacity: 0.7;
+  transform: none;
+}
+
+.web-push-prompt__btn--primary {
+  background: linear-gradient(135deg, #f3a63f, #ff7b4a);
+  color: #10141c;
+  box-shadow: 0 12px 28px rgba(255, 141, 53, 0.28);
+}
+
+.web-push-prompt__btn--ghost {
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.web-push-prompt[data-tone='success'] {
+  border-color: rgba(74, 222, 128, 0.24);
+}
+
+.web-push-prompt[data-tone='warning'] {
+  border-color: rgba(248, 113, 113, 0.24);
+}
+
+.web-push-prompt[data-tone='loading'] {
+  border-color: rgba(96, 165, 250, 0.24);
+}
+
+.web-push-prompt[data-tone='install'] .web-push-prompt__icon {
+  background: linear-gradient(135deg, rgba(91, 152, 255, 0.22), rgba(36, 196, 201, 0.18));
+  border-color: rgba(118, 180, 255, 0.26);
+}
+
+@media (max-width: 640px) {
+  .web-push-prompt {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+
+  .web-push-prompt__content {
+    grid-template-columns: 1fr;
+  }
+
+  .web-push-prompt__icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .web-push-prompt__actions {
+    flex-direction: column-reverse;
+  }
+
+  .web-push-prompt__btn {
+    width: 100%;
+  }
+}

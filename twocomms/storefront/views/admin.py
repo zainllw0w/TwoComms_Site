@@ -16,10 +16,12 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.conf import settings
 from django.db import transaction
 from django.db.models import (
     Avg,
     Case,
+    Count,
     DurationField,
     ExpressionWrapper,
     F,
@@ -33,6 +35,7 @@ from django.db.models import (
 from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -55,13 +58,17 @@ from ..models import (
     CustomPrintModerationStatus,
     CustomPrintProductType,
     Catalog,
+    PushNotificationCampaign,
+    PushNotificationDelivery,
     SizeGrid,
     SiteSession,
+    WebPushDeviceSubscription,
 )
 from ..forms import (
     ProductForm,
     ProductSEOForm,
     CategoryForm,
+    PushNotificationCampaignForm,
     PrintProposalForm,
     SizeGridForm,
     CatalogOptionFormSet,
@@ -88,6 +95,10 @@ from storefront.services.admin_analytics import (
     build_product_admin_metrics,
 )
 from storefront.services.catalog_helpers import bump_public_product_order_version
+from storefront.services.web_push import (
+    WebPushConfigurationError,
+    send_campaign,
+)
 
 
 # ==================== ADMIN VIEWS ====================
@@ -263,6 +274,51 @@ def _build_stats(period_param):
         pass
 
     return stats
+
+
+def _build_push_notifications_context(request, form=None):
+    active_subscriptions = WebPushDeviceSubscription.objects.filter(is_active=True)
+    installation_count = (
+        active_subscriptions.exclude(installation_id="")
+        .values("installation_id")
+        .distinct()
+        .count()
+    )
+    anonymous_without_install_id = active_subscriptions.filter(installation_id="").count()
+
+    campaigns = (
+        PushNotificationCampaign.objects.select_related("created_by")
+        .order_by("-created_at")[:20]
+    )
+    deliveries = PushNotificationDelivery.objects.select_related("campaign", "subscription")
+
+    device_breakdown = list(
+        active_subscriptions.values("device_type")
+        .annotate(total=Count("id"))
+        .order_by("-total", "device_type")
+    )
+
+    recent_performance = {
+        "sent": deliveries.filter(sent_at__isnull=False).count(),
+        "displayed": deliveries.filter(displayed_at__isnull=False).count(),
+        "clicked": deliveries.filter(clicked_at__isnull=False).count(),
+        "failed": deliveries.filter(failed_at__isnull=False).count(),
+    }
+
+    return {
+        "push_form": form or PushNotificationCampaignForm(),
+        "push_campaigns": campaigns,
+        "push_metrics": {
+            "active_subscriptions": active_subscriptions.count(),
+            "active_installations": installation_count + anonymous_without_install_id,
+            "known_users": active_subscriptions.filter(user__isnull=False).values("user_id").distinct().count(),
+            "recent_performance": recent_performance,
+            "device_breakdown": device_breakdown,
+        },
+        "web_push_enabled": bool(getattr(settings, "WEB_PUSH_ENABLED", False)),
+        "web_push_public_key": getattr(settings, "WEB_PUSH_VAPID_PUBLIC_KEY", ""),
+        "web_push_subject": getattr(settings, "WEB_PUSH_VAPID_SUBJECT", ""),
+    }
 
 
 def _build_orders_context(request):
@@ -721,6 +777,8 @@ def admin_panel(request):
         context.update(_build_collaboration_context())
     elif section == 'dispatcher':
         context.update(_build_dispatcher_context(request))
+    elif section == 'push_notifications':
+        context.update(_build_push_notifications_context(request))
 
     html_content = render_to_string('pages/admin_panel.html', context, request=request)
     response = HttpResponse(html_content)
@@ -729,6 +787,93 @@ def admin_panel(request):
     response['Expires'] = '0'
 
     return response
+
+
+@staff_member_required
+def admin_push_notifications_create(request):
+    if request.method != "POST":
+        return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+    submit_action = (request.POST.get("submit_action") or "send_now").strip()
+    form = PushNotificationCampaignForm(request.POST, request.FILES)
+
+    if not form.is_valid():
+        context = {
+            "section": "push_notifications",
+            "stats": _build_stats("today"),
+        }
+        context.update(_build_push_notifications_context(request, form=form))
+        html_content = render_to_string("pages/admin_panel.html", context, request=request)
+        response = HttpResponse(html_content, status=400)
+        response["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response["Pragma"] = "no-cache"
+        response["Expires"] = "0"
+        return response
+
+    campaign = form.save(commit=False)
+    campaign.created_by = request.user
+    campaign.status = PushNotificationCampaign.Status.DRAFT
+    campaign.save()
+
+    if submit_action == "save_draft":
+        messages.success(request, "Чернетку push-кампанії збережено.")
+        return redirect(f"{reverse('admin_panel')}?section=push_notifications")
+
+    try:
+        result = send_campaign(campaign)
+    except WebPushConfigurationError as exc:
+        campaign.status = PushNotificationCampaign.Status.FAILED
+        campaign.last_error = str(exc)[:255]
+        campaign.sent_finished_at = timezone.now()
+        campaign.save(update_fields=["status", "last_error", "sent_finished_at", "updated_at"])
+        messages.error(request, f"Push не налаштовано: {exc}")
+        return redirect(f"{reverse('admin_panel')}?section=push_notifications")
+
+    if result["failed"]:
+        messages.warning(
+            request,
+            f"Push-кампанію відправлено частково: успішно {result['sent']}, помилок {result['failed']}.",
+        )
+    else:
+        messages.success(request, f"Push-кампанію відправлено: {result['sent']} підписок.")
+
+    return redirect(f"{reverse('admin_panel')}?section=push_notifications")
+
+
+@staff_member_required
+def admin_push_notifications_send(request, campaign_id: int):
+    if request.method != "POST":
+        return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+    campaign = get_object_or_404(PushNotificationCampaign, pk=campaign_id)
+    if campaign.status not in {
+        PushNotificationCampaign.Status.DRAFT,
+        PushNotificationCampaign.Status.FAILED,
+        PushNotificationCampaign.Status.PARTIAL,
+    }:
+        messages.error(request, "Повторно можна відправити лише чернетку або кампанію з помилкою.")
+        return redirect(f"{reverse('admin_panel')}?section=push_notifications")
+
+    campaign.deliveries.all().delete()
+    try:
+        result = send_campaign(campaign)
+    except WebPushConfigurationError as exc:
+        campaign.status = PushNotificationCampaign.Status.FAILED
+        campaign.last_error = str(exc)[:255]
+        campaign.sent_finished_at = timezone.now()
+        campaign.save(update_fields=["status", "last_error", "sent_finished_at", "updated_at"])
+        messages.error(request, f"Push не налаштовано: {exc}")
+        return redirect(f"{reverse('admin_panel')}?section=push_notifications")
+
+    if result["failed"]:
+        messages.warning(
+            request,
+            f"Push-кампанію відправлено частково: успішно {result['sent']}, помилок {result['failed']}.",
+        )
+    else:
+        messages.success(request, f"Push-кампанію відправлено: {result['sent']} підписок.")
+
+    return redirect(f"{reverse('admin_panel')}?section=push_notifications")
 
 
 @staff_member_required

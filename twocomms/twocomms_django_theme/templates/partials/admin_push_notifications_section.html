@@ -1,0 +1,920 @@
+<style>
+  .push-admin-shell {
+    display: grid;
+    gap: 1.2rem;
+  }
+
+  .push-admin-alerts {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .push-admin-alert {
+    padding: 1rem 1.1rem;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: #f8fafc;
+  }
+
+  .push-admin-alert.success { border-color: rgba(74,222,128,0.28); }
+  .push-admin-alert.warning { border-color: rgba(251,191,36,0.28); }
+  .push-admin-alert.error { border-color: rgba(248,113,113,0.28); }
+
+  .push-admin-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 1.25rem;
+    border-radius: 28px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background:
+      radial-gradient(circle at top right, rgba(255,171,67,0.22), transparent 34%),
+      linear-gradient(145deg, rgba(13,18,26,0.98), rgba(21,26,37,0.96));
+    box-shadow: 0 30px 60px rgba(0,0,0,0.22);
+  }
+
+  .push-admin-hero-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .push-admin-hero-copy {
+    display: grid;
+    gap: 0.9rem;
+  }
+
+  .push-admin-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: fit-content;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,190,98,0.22);
+    background: rgba(255,190,98,0.08);
+    color: #ffd18b;
+    font-weight: 700;
+    font-size: 0.82rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .push-admin-title {
+    margin: 0;
+    font-size: clamp(1.6rem, 2.8vw, 2.45rem);
+    font-weight: 900;
+    line-height: 1.06;
+    color: #f8fafc;
+  }
+
+  .push-admin-subtitle {
+    margin: 0;
+    max-width: 64ch;
+    color: rgba(226,232,240,0.82);
+    font-size: 1rem;
+    line-height: 1.62;
+  }
+
+  .push-admin-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .push-admin-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.7rem 0.92rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.05);
+    color: #f8fafc;
+    font-weight: 700;
+  }
+
+  .push-admin-chip small {
+    color: rgba(226,232,240,0.62);
+    font-weight: 600;
+  }
+
+  .push-admin-callout {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 22px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .push-admin-callout h4,
+  .push-admin-callout p {
+    margin: 0;
+  }
+
+  .push-admin-callout p {
+    color: rgba(226,232,240,0.8);
+    line-height: 1.55;
+  }
+
+  .push-admin-metrics {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .push-admin-metric {
+    padding: 1rem 1.05rem;
+    border-radius: 22px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025));
+    min-height: 142px;
+  }
+
+  .push-admin-metric-value {
+    margin-top: 0.85rem;
+    color: #f8fafc;
+    font-size: 2rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .push-admin-metric-label {
+    color: rgba(226,232,240,0.66);
+    font-size: 0.86rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .push-admin-metric-note {
+    margin-top: 0.55rem;
+    color: rgba(226,232,240,0.78);
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
+  .push-admin-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.25fr);
+    align-items: start;
+  }
+
+  .push-admin-card {
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.035);
+    overflow: hidden;
+  }
+
+  .push-admin-card-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.8rem;
+    align-items: center;
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .push-admin-card-header h3,
+  .push-admin-card-header p {
+    margin: 0;
+  }
+
+  .push-admin-card-header p {
+    color: rgba(226,232,240,0.7);
+    font-size: 0.92rem;
+  }
+
+  .push-admin-card-body {
+    padding: 1.05rem 1.1rem 1.15rem;
+  }
+
+  .push-form {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .push-form-grid {
+    display: grid;
+    gap: 0.95rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .push-form-field {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .push-form-field--full {
+    grid-column: 1 / -1;
+  }
+
+  .push-form-field label {
+    color: rgba(226,232,240,0.9);
+    font-weight: 700;
+    font-size: 0.92rem;
+  }
+
+  .push-form-field input,
+  .push-form-field textarea {
+    width: 100%;
+    min-height: 48px;
+    padding: 0.85rem 0.95rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(9,12,18,0.86);
+    color: #f8fafc;
+    resize: vertical;
+  }
+
+  .push-form-field textarea {
+    min-height: 132px;
+  }
+
+  .push-form-hint,
+  .push-form-errors {
+    color: rgba(226,232,240,0.64);
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+
+  .push-form-errors {
+    color: #fca5a5;
+    font-weight: 600;
+  }
+
+  .push-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .push-submit-btn {
+    min-height: 46px;
+    padding: 0 1rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-weight: 800;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .push-submit-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .push-submit-btn.primary {
+    background: linear-gradient(135deg, #f3a63f, #ff7b4a);
+    color: #111827;
+    box-shadow: 0 16px 28px rgba(255,140,74,0.22);
+  }
+
+  .push-submit-btn.secondary {
+    background: rgba(255,255,255,0.04);
+    color: #f8fafc;
+    border-color: rgba(255,255,255,0.1);
+  }
+
+  .push-submit-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .push-preview {
+    position: sticky;
+    top: 92px;
+    display: grid;
+    gap: 0.9rem;
+  }
+
+  .push-preview-phone {
+    padding: 1rem;
+    border-radius: 28px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background:
+      radial-gradient(circle at top, rgba(255,182,86,0.18), transparent 40%),
+      linear-gradient(180deg, rgba(10,13,18,0.98), rgba(23,28,39,0.98));
+  }
+
+  .push-preview-status {
+    display: inline-flex;
+    width: fit-content;
+    padding: 0.45rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    color: rgba(226,232,240,0.72);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .push-preview-notification {
+    margin-top: 0.95rem;
+    display: grid;
+    gap: 0.9rem;
+    padding: 1rem;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.06);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .push-preview-top {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .push-preview-icon {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .push-preview-icon img,
+  .push-preview-image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .push-preview-meta {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .push-preview-brand {
+    color: rgba(226,232,240,0.66);
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .push-preview-title {
+    color: #f8fafc;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.3;
+  }
+
+  .push-preview-body {
+    color: rgba(226,232,240,0.84);
+    font-size: 0.94rem;
+    line-height: 1.55;
+  }
+
+  .push-preview-image {
+    display: none;
+    width: 100%;
+    aspect-ratio: 1.75 / 1;
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .push-preview-image.has-image {
+    display: block;
+  }
+
+  .push-preview-link {
+    color: #ffd18b;
+    font-size: 0.84rem;
+    font-weight: 700;
+    word-break: break-word;
+  }
+
+  .push-device-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 0.9rem;
+  }
+
+  .push-device-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #f8fafc;
+    font-size: 0.86rem;
+    font-weight: 700;
+  }
+
+  .push-history-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .push-history-table thead th {
+    padding: 0.8rem 0.75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: rgba(226,232,240,0.65);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .push-history-table tbody td {
+    padding: 0.95rem 0.75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    color: #f8fafc;
+    vertical-align: top;
+  }
+
+  .push-history-title {
+    display: grid;
+    gap: 0.42rem;
+  }
+
+  .push-history-title strong {
+    color: #f8fafc;
+  }
+
+  .push-history-title small {
+    color: rgba(226,232,240,0.66);
+    line-height: 1.55;
+  }
+
+  .push-history-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 112px;
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: #f8fafc;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .push-history-status.sent { color: #86efac; border-color: rgba(74,222,128,0.25); }
+  .push-history-status.partial { color: #fcd34d; border-color: rgba(251,191,36,0.25); }
+  .push-history-status.failed { color: #fca5a5; border-color: rgba(248,113,113,0.25); }
+  .push-history-status.draft { color: #93c5fd; border-color: rgba(96,165,250,0.25); }
+  .push-history-status.sending { color: #c4b5fd; border-color: rgba(168,85,247,0.25); }
+
+  .push-history-kpi {
+    display: grid;
+    gap: 0.28rem;
+  }
+
+  .push-history-kpi strong {
+    font-size: 1rem;
+  }
+
+  .push-history-kpi small {
+    color: rgba(226,232,240,0.66);
+  }
+
+  .push-history-actions {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .push-history-retry {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 0 0.9rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: #f8fafc;
+    font-weight: 700;
+  }
+
+  .push-history-thumbnail {
+    width: 64px;
+    aspect-ratio: 1 / 1;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .push-history-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .push-empty-state {
+    padding: 1.2rem;
+    border-radius: 20px;
+    border: 1px dashed rgba(255,255,255,0.12);
+    color: rgba(226,232,240,0.74);
+    line-height: 1.6;
+  }
+
+  @media (max-width: 1200px) {
+    .push-admin-metrics {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .push-admin-grid,
+    .push-admin-hero-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .push-preview {
+      position: static;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .push-form-grid,
+    .push-admin-metrics {
+      grid-template-columns: 1fr;
+    }
+
+    .push-history-table,
+    .push-history-table thead,
+    .push-history-table tbody,
+    .push-history-table tr,
+    .push-history-table th,
+    .push-history-table td {
+      display: block;
+      width: 100%;
+    }
+
+    .push-history-table thead {
+      display: none;
+    }
+
+    .push-history-table tbody td {
+      padding-top: 0.35rem;
+      padding-bottom: 0.75rem;
+    }
+  }
+</style>
+
+<div class="push-admin-shell">
+  {% if messages %}
+    <div class="push-admin-alerts">
+      {% for message in messages %}
+        <div class="push-admin-alert {{ message.tags|default:'' }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <section class="push-admin-hero">
+    <div class="push-admin-hero-grid">
+      <div class="push-admin-hero-copy">
+        <span class="push-admin-eyebrow">Push Control Center</span>
+        <h2 class="push-admin-title">Браузерні push-сповіщення для всіх підтримуваних пристроїв</h2>
+        <p class="push-admin-subtitle">
+          Створюйте push-кампанії з зображенням, коротким текстом і прямим переходом на сторінку сайту.
+          Система зберігає історію показів, кліків, помилок доставки та актуальну кількість активних браузерів.
+        </p>
+        <div class="push-admin-chip-row">
+          <span class="push-admin-chip"><small>Статус</small> {% if web_push_enabled %}VAPID налаштовано{% else %}Потрібне налаштування VAPID{% endif %}</span>
+          <span class="push-admin-chip"><small>Safari iOS</small> Потрібен запуск з домашнього екрана</span>
+          <span class="push-admin-chip"><small>Аналітика</small> Прийнято, показано, клік, закриття</span>
+        </div>
+      </div>
+      <div class="push-admin-callout">
+        <h4>Що враховано в реалізації</h4>
+        <p>Системний браузерний prompt викликається лише по явній дії користувача. Це відповідає актуальним best practices і не знижує trust score браузерів.</p>
+        <p>Для iPhone/iPad повідомлення працюють у Home Screen web app. Для desktop і більшості Android-браузерів достатньо звичайного HTTPS-сайту.</p>
+        {% if not web_push_enabled %}
+          <p><strong>Що ще потрібно для продакшна:</strong> додати `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`, `WEB_PUSH_VAPID_SUBJECT` у production env.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <section class="push-admin-metrics">
+    <article class="push-admin-metric">
+      <div class="push-admin-metric-label">Активні браузери</div>
+      <div class="push-admin-metric-value">{{ push_metrics.active_installations|default:0 }}</div>
+      <div class="push-admin-metric-note">Орієнтовна кількість браузерних інсталяцій з увімкненими push.</div>
+    </article>
+    <article class="push-admin-metric">
+      <div class="push-admin-metric-label">Активні підписки</div>
+      <div class="push-admin-metric-value">{{ push_metrics.active_subscriptions|default:0 }}</div>
+      <div class="push-admin-metric-note">Усі чинні device/browser subscriptions, доступні для доставки.</div>
+    </article>
+    <article class="push-admin-metric">
+      <div class="push-admin-metric-label">Відомі користувачі</div>
+      <div class="push-admin-metric-value">{{ push_metrics.known_users|default:0 }}</div>
+      <div class="push-admin-metric-note">Підписки, які вже пов’язані з авторизованими акаунтами.</div>
+    </article>
+    <article class="push-admin-metric">
+      <div class="push-admin-metric-label">Поточна ефективність</div>
+      <div class="push-admin-metric-value">{{ push_metrics.recent_performance.clicked|default:0 }}</div>
+      <div class="push-admin-metric-note">
+        Прийнято: {{ push_metrics.recent_performance.sent|default:0 }} ·
+        Показано: {{ push_metrics.recent_performance.displayed|default:0 }} ·
+        Помилки: {{ push_metrics.recent_performance.failed|default:0 }}
+      </div>
+    </article>
+  </section>
+
+  {% if push_metrics.device_breakdown %}
+    <div class="push-device-breakdown">
+      {% for item in push_metrics.device_breakdown %}
+        <span class="push-device-pill">
+          {{ item.device_type|default:"unknown"|upper }} <small>{{ item.total }}</small>
+        </span>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <section class="push-admin-grid">
+    <div class="push-admin-card">
+      <div class="push-admin-card-header">
+        <div>
+          <h3>Нова push-кампанія</h3>
+          <p>Чернетка або миттєве надсилання на всі активні підписки.</p>
+        </div>
+      </div>
+      <div class="push-admin-card-body">
+        <form
+          method="post"
+          action="{% url 'admin_push_notifications_create' %}"
+          enctype="multipart/form-data"
+          class="push-form"
+          data-push-form
+        >
+          {% csrf_token %}
+          <div class="push-form-grid">
+            <div class="push-form-field push-form-field--full">
+              <label for="{{ push_form.title.id_for_label }}">Заголовок</label>
+              {{ push_form.title }}
+              {% if push_form.title.errors %}
+                <div class="push-form-errors">{{ push_form.title.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+            <div class="push-form-field push-form-field--full">
+              <label for="{{ push_form.body.id_for_label }}">Текст повідомлення</label>
+              {{ push_form.body }}
+              <div class="push-form-hint">Тримайте текст коротким: одна цінність, один чіткий CTA.</div>
+              {% if push_form.body.errors %}
+                <div class="push-form-errors">{{ push_form.body.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+            <div class="push-form-field">
+              <label for="{{ push_form.target_url.id_for_label }}">Посилання переходу</label>
+              {{ push_form.target_url }}
+              <div class="push-form-hint">Лише сторінки TwoComms. UTM-мітки додаються автоматично.</div>
+              {% if push_form.target_url.errors %}
+                <div class="push-form-errors">{{ push_form.target_url.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+            <div class="push-form-field">
+              <label for="{{ push_form.image.id_for_label }}">Зображення</label>
+              {{ push_form.image }}
+              <div class="push-form-hint">{{ push_form.image.help_text|default:"" }}</div>
+              {% if push_form.image.errors %}
+                <div class="push-form-errors">{{ push_form.image.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="push-form-hint">
+            На desktop/macOS Safari та сучасних Android/desktop браузерах повідомлення працюють як стандартний Web Push.
+            На iPhone/iPad користувач має додати сайт на домашній екран, і лише тоді система дозволить push.
+          </div>
+          <div class="push-form-actions">
+            <button
+              type="submit"
+              name="submit_action"
+              value="send_now"
+              class="push-submit-btn primary"
+              {% if not web_push_enabled %}disabled{% endif %}
+            >
+              Надіслати зараз
+            </button>
+            <button
+              type="submit"
+              name="submit_action"
+              value="save_draft"
+              class="push-submit-btn secondary"
+            >
+              Зберегти як чернетку
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="push-preview">
+      <div class="push-preview-phone">
+        <span class="push-preview-status">Live Preview</span>
+        <div class="push-preview-notification">
+          <div class="push-preview-top">
+            <div class="push-preview-icon">
+              <img src="/static/img/favicon-192x192.png" alt="TwoComms">
+            </div>
+            <div class="push-preview-meta">
+              <span class="push-preview-brand">TwoComms</span>
+              <div class="push-preview-title" data-push-preview-title>{{ push_form.title.value|default:"Новий дроп вже доступний" }}</div>
+            </div>
+          </div>
+          <div class="push-preview-body" data-push-preview-body>{{ push_form.body.value|default:"Короткий текст push-повідомлення з чітким CTA та без зайвого шуму." }}</div>
+          <div class="push-preview-image {% if push_form.image.value %}has-image{% endif %}" data-push-preview-image-wrap>
+            <img
+              src="{% if push_form.image.value and push_form.instance.image %}{{ push_form.instance.image.url }}{% endif %}"
+              alt=""
+              data-push-preview-image
+            >
+          </div>
+          <div class="push-preview-link" data-push-preview-link>{{ push_form.target_url.value|default:"/catalog/" }}</div>
+        </div>
+      </div>
+      <div class="push-admin-card">
+        <div class="push-admin-card-header">
+          <div>
+            <h3>Що бачить система</h3>
+            <p>Push сервіс, показ, клік і фактичний browser/device split.</p>
+          </div>
+        </div>
+        <div class="push-admin-card-body">
+          <div class="push-admin-chip-row">
+            <span class="push-admin-chip"><small>Subject</small> {{ web_push_subject|default:"не задано" }}</span>
+            <span class="push-admin-chip"><small>Ключ</small> {% if web_push_public_key %}публічний ключ додано{% else %}не задано{% endif %}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="push-admin-card">
+    <div class="push-admin-card-header">
+      <div>
+        <h3>Історія push-кампаній</h3>
+        <p>Уся історія показів, кліків, статусів доставки та повторних відправок.</p>
+      </div>
+    </div>
+    <div class="push-admin-card-body">
+      {% if push_campaigns %}
+        <table class="push-history-table">
+          <thead>
+            <tr>
+              <th>Кампанія</th>
+              <th>Статус</th>
+              <th>Охоплення</th>
+              <th>Покази</th>
+              <th>Кліки</th>
+              <th>CTR</th>
+              <th>Медіа</th>
+              <th>Дії</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for campaign in push_campaigns %}
+              <tr>
+                <td>
+                  <div class="push-history-title">
+                    <strong>{{ campaign.title }}</strong>
+                    <small>{{ campaign.body }}</small>
+                    <small>
+                      {{ campaign.created_at|date:"d.m.Y H:i" }}
+                      {% if campaign.created_by %}· {{ campaign.created_by.username }}{% endif %}
+                    </small>
+                    <small>{{ campaign.target_url }}</small>
+                    {% if campaign.last_error %}
+                      <small style="color:#fca5a5;">{{ campaign.last_error }}</small>
+                    {% endif %}
+                  </div>
+                </td>
+                <td>
+                  <span class="push-history-status {{ campaign.status }}">
+                    {{ campaign.get_status_display }}
+                  </span>
+                </td>
+                <td>
+                  <div class="push-history-kpi">
+                    <strong>{{ campaign.sent_count }}/{{ campaign.targeted_count }}</strong>
+                    <small>Прийнято / ціль</small>
+                  </div>
+                </td>
+                <td>
+                  <div class="push-history-kpi">
+                    <strong>{{ campaign.displayed_count }}</strong>
+                    <small>{{ campaign.display_rate }}% від доставлених</small>
+                  </div>
+                </td>
+                <td>
+                  <div class="push-history-kpi">
+                    <strong>{{ campaign.clicked_count }}</strong>
+                    <small>{{ campaign.closed_count }} закрито · {{ campaign.failed_count }} помилок</small>
+                  </div>
+                </td>
+                <td>
+                  <div class="push-history-kpi">
+                    <strong>{{ campaign.click_rate }}%</strong>
+                    <small>Кліків від показаних</small>
+                  </div>
+                </td>
+                <td>
+                  {% if campaign.image %}
+                    <div class="push-history-thumbnail">
+                      <img src="{{ campaign.image.url }}" alt="{{ campaign.title }}">
+                    </div>
+                  {% else %}
+                    <small style="color:rgba(226,232,240,0.64);">Без зображення</small>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="push-history-actions">
+                    {% if campaign.status == 'draft' or campaign.status == 'failed' or campaign.status == 'partial' %}
+                      <form method="post" action="{% url 'admin_push_notifications_send' campaign.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="push-history-retry" {% if not web_push_enabled %}disabled{% endif %}>
+                          Надіслати
+                        </button>
+                      </form>
+                    {% else %}
+                      <small style="color:rgba(226,232,240,0.64);">Повторне надсилання не потрібне</small>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="push-empty-state">
+          Поки що push-кампаній немає. Створіть перше повідомлення, щоб тут з’явилася історія доставки, показів і переходів.
+        </div>
+      {% endif %}
+    </div>
+  </section>
+</div>
+
+<script>
+  (function () {
+    const form = document.querySelector('[data-push-form]');
+    if (!form) {
+      return;
+    }
+
+    const titleInput = form.querySelector('[data-push-title]');
+    const bodyInput = form.querySelector('[data-push-body]');
+    const linkInput = form.querySelector('[data-push-link]');
+    const imageInput = form.querySelector('[data-push-image]');
+
+    const previewTitle = document.querySelector('[data-push-preview-title]');
+    const previewBody = document.querySelector('[data-push-preview-body]');
+    const previewLink = document.querySelector('[data-push-preview-link]');
+    const previewImage = document.querySelector('[data-push-preview-image]');
+    const previewImageWrap = document.querySelector('[data-push-preview-image-wrap]');
+
+    function updatePreview() {
+      if (previewTitle) {
+        previewTitle.textContent = (titleInput && titleInput.value.trim()) || 'Новий дроп вже доступний';
+      }
+      if (previewBody) {
+        previewBody.textContent = (bodyInput && bodyInput.value.trim()) || 'Короткий текст push-повідомлення з чітким CTA та без зайвого шуму.';
+      }
+      if (previewLink) {
+        previewLink.textContent = (linkInput && linkInput.value.trim()) || '/catalog/';
+      }
+    }
+
+    function updateImagePreview() {
+      if (!imageInput || !previewImage || !previewImageWrap) {
+        return;
+      }
+
+      const file = imageInput.files && imageInput.files[0];
+      if (!file) {
+        previewImage.removeAttribute('src');
+        previewImageWrap.classList.remove('has-image');
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(file);
+      previewImage.src = objectUrl;
+      previewImageWrap.classList.add('has-image');
+    }
+
+    titleInput && titleInput.addEventListener('input', updatePreview);
+    bodyInput && bodyInput.addEventListener('input', updatePreview);
+    linkInput && linkInput.addEventListener('input', updatePreview);
+    imageInput && imageInput.addEventListener('change', updateImagePreview);
+    updatePreview();
+  })();
+</script>
