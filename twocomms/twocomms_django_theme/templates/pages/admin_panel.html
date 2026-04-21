@@ -3344,6 +3344,7 @@ function deleteProduct(productId, productName) {
   let dropTarget = null;
   let isSaving = false;
   let hasQueuedSave = false;
+  let armedDragCard = null;
 
   const getCards = () => Array.from(grid.querySelectorAll('.product-card'));
   const getOrderIds = () => getCards().map(card => card.dataset.productId).filter(Boolean);
@@ -3363,6 +3364,15 @@ function deleteProduct(productId, productName) {
       dropTarget.classList.remove('is-drop-target');
       dropTarget = null;
     }
+  };
+
+  const clearArmedDragCard = () => {
+    armedDragCard = null;
+  };
+
+  const armDragFromHandle = evt => {
+    const handle = evt.target.closest('[data-drag-handle]');
+    armedDragCard = handle ? handle.closest('.product-card') : null;
   };
 
   const restoreSavedOrder = () => {
@@ -3421,11 +3431,20 @@ function deleteProduct(productId, productName) {
       });
   };
 
+  grid.addEventListener('pointerdown', armDragFromHandle);
+  grid.addEventListener('mousedown', armDragFromHandle);
+  grid.addEventListener('pointerup', clearArmedDragCard);
+  grid.addEventListener('mouseup', clearArmedDragCard);
+  grid.addEventListener('pointercancel', clearArmedDragCard);
+  window.addEventListener('pointerup', clearArmedDragCard);
+  window.addEventListener('mouseup', clearArmedDragCard);
+  window.addEventListener('blur', clearArmedDragCard);
+
   grid.addEventListener('dragstart', evt => {
-    const handle = evt.target.closest('[data-drag-handle]');
     const card = evt.target.closest('.product-card');
-    if (!handle || !card) {
+    if (!card || armedDragCard !== card) {
       evt.preventDefault();
+      clearArmedDragCard();
       return;
     }
     dragged = card;
@@ -3461,6 +3480,7 @@ function deleteProduct(productId, productName) {
     dragged.classList.remove('is-dragging');
     dragged = null;
     clearDropTarget();
+    clearArmedDragCard();
     sendOrder();
   };
 
