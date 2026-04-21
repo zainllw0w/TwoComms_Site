@@ -32,7 +32,6 @@
   };
 
   initTabs();
-  renderOverview();
   activateTab(config.initialTab || "overview");
 
   function initTabs() {
@@ -711,6 +710,8 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        resizeDelay: 180,
+        animation: false,
         plugins: {
           legend: {
             labels: { color: "rgba(226,232,240,0.78)" },
