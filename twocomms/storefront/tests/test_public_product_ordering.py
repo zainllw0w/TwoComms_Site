@@ -153,7 +153,8 @@ class PublicProductOrderingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-drag-handle", html=False)
-        self.assertContains(response, "Новий порядок зберігається одразу", html=False)
-        self.assertContains(response, "grid.addEventListener('pointerdown', armDragFromHandle);", html=False)
-        self.assertContains(response, "window.addEventListener('pointerup', clearArmedDragCard);", html=False)
-        self.assertContains(response, "armedDragCard !== card", html=False)
+        self.assertContains(response, "Порядок зберігається після відпускання", html=False)
+        self.assertContains(response, "placeholder.className = 'product-card-placeholder';", html=False)
+        self.assertContains(response, "window.addEventListener('pointermove', onGlobalPointerMove, { passive: false });", html=False)
+        self.assertContains(response, "document.body.classList.add('is-product-sorting');", html=False)
+        self.assertNotContains(response, 'draggable="true"', html=False)
