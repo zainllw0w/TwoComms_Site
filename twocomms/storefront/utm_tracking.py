@@ -211,6 +211,71 @@ def record_purchase(request, order_id: int, order_number: str, cart_value: float
     return action
 
 
+def record_order_action(
+    action_type: str,
+    order,
+    *,
+    cart_value: Optional[float] = None,
+    metadata: Optional[dict] = None,
+    **kwargs,
+) -> Optional[UserAction]:
+    """
+    Записывает UTM-действие, когда в коде уже есть заказ, но нет request.
+
+    Используется в post-payment flows, например в Monobank webhook/return handlers,
+    где событие нужно привязать к order.session_key / order.utm_session.
+    """
+    try:
+        utm_session = getattr(order, 'utm_session', None)
+        site_session = None
+        session_key = getattr(order, 'session_key', None)
+
+        if session_key:
+            try:
+                site_session = SiteSession.objects.get(session_key=session_key)
+            except SiteSession.DoesNotExist:
+                logger.debug("No Site session found for session_key: %s", session_key)
+
+            if utm_session is None:
+                try:
+                    utm_session = UTMSession.objects.get(session_key=session_key)
+                except UTMSession.DoesNotExist:
+                    logger.debug("No UTM session found for session_key: %s", session_key)
+
+        if site_session is None and utm_session is not None:
+            site_session = utm_session.session
+
+        action = UserAction.objects.create(
+            utm_session=utm_session,
+            site_session=site_session,
+            user=getattr(order, 'user', None),
+            action_type=action_type,
+            cart_value=cart_value,
+            order_id=getattr(order, 'pk', None),
+            order_number=getattr(order, 'order_number', None),
+            metadata=metadata or {},
+            points_earned=calculate_action_points(
+                action_type,
+                cart_value=cart_value,
+                order_value=cart_value,
+                **kwargs,
+            ),
+        )
+
+        if utm_session is not None and action_type in {'lead', 'purchase'}:
+            utm_session.mark_as_converted(conversion_type=action_type)
+
+        logger.info(
+            "Recorded order action: %s for order %s",
+            action_type,
+            getattr(order, 'order_number', getattr(order, 'pk', 'unknown')),
+        )
+        return action
+    except Exception as e:
+        logger.error("Error recording order action: %s", e, exc_info=True)
+        return None
+
+
 def record_search(request, query: str):
     """Записывает поисковый запрос"""
     return record_user_action(
