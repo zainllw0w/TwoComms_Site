@@ -98,6 +98,7 @@
   <!-- HERO SECTION -->
   <section class="pb-hero pb-breakout">
     <div class="pb-hero-bg" aria-hidden="true">
+      <canvas id="pb-hero-canvas"></canvas>
       <div class="pb-hero-glow"></div>
       <div class="pb-hero-noise"></div>
     </div>
@@ -139,9 +140,11 @@
 
       <div class="pb-hero-visual pb-reveal pb-delay-3" aria-hidden="true">
         <div class="pb-poster">
-          <div class="pb-poster-glass">
-            <div class="pb-poster-logo">
-              <img src="{% static 'img/logo.svg' %}" alt="TwoComms Logo" class="pb-logo-img" width="280">
+          <div class="pb-poster-glass" data-tilt>
+            <div class="pb-poster-logo pb-glitch-container">
+              <img src="{% static 'img/logo.svg' %}" alt="TwoComms Logo" class="pb-logo-img pb-glitch-base" width="280">
+              <img src="{% static 'img/logo.svg' %}" alt="TwoComms Logo Glitch" class="pb-logo-img pb-glitch-layer pb-glitch-1" aria-hidden="true" width="280">
+              <img src="{% static 'img/logo.svg' %}" alt="TwoComms Logo Glitch" class="pb-logo-img pb-glitch-layer pb-glitch-2" aria-hidden="true" width="280">
             </div>
             <div class="pb-poster-content">
               <p class="pb-poster-eyebrow">Харків. Код. Продовження.</p>
@@ -192,7 +195,7 @@
         </p>
       </div>
 
-      <div class="pb-bento-grid pb-reveal">
+      <div class="pb-bento-grid pb-reveal" id="pb-bento-grid">
         <article class="pb-bento-card pb-col-span-2">
           <div class="pb-bento-bg"></div>
           <div class="pb-bento-icon">
