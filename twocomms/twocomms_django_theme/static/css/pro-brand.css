@@ -211,7 +211,7 @@
 .pb-hero::after {
   content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 15rem;
   background: linear-gradient(to top, rgba(3,4,7,1) 5%, transparent);
-  pointer-events: none; z-index: 10;
+  pointer-events: none; z-index: 2;
 }
 .pb-hero-bg {
   position: absolute;
@@ -566,7 +566,7 @@
 .pb-banksy-tape {
   position: absolute; top: -10px; left: 50%; transform: translateX(-50%) rotate(-3deg);
   width: 80px; height: 30px; background: rgba(255,255,255,0.1);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.4); z-index: 10; backdrop-filter: blur(2px);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4); z-index: 5; backdrop-filter: blur(2px);
   border-radius: 2px;
 }
 
@@ -579,7 +579,7 @@
 .pb-banksy-card:hover .pb-banksy-image { filter: grayscale(0) contrast(1.1) brightness(0.9); mix-blend-mode: normal; transform: scale(1.03); }
 
 /* Dirt/Noise overlay */
-.pb-banksy-noise { position: absolute; inset: 0; background: url('https://www.transparenttextures.com/patterns/stucco.png'); opacity: 0.3; pointer-events: none; mix-blend-mode: overlay; z-index: 5; }
+.pb-banksy-noise { position: absolute; inset: 0; background: url('https://www.transparenttextures.com/patterns/stucco.png'); opacity: 0.3; pointer-events: none; mix-blend-mode: overlay; z-index: 3; }
 
 /* Content Section */
 .pb-banksy-content { padding: 0 1rem; display: flex; flex-direction: column; flex-grow: 1; }
@@ -734,8 +734,19 @@
 .pb-faq-item[open] .pb-faq-content-wrapper { animation: pb-faq-fade 0.4s ease forwards; }
 
 /* CTA */
-.pb-cta-section { background: linear-gradient(180deg, transparent, rgba(139, 92, 246, 0.05)); border-top: 1px solid var(--pb-border); margin-top: 4rem; }
-.pb-cta-box { padding: 6rem 0; max-width: 600px; margin: 0 auto; }
+.pb-cta-section { 
+  position: relative; overflow: hidden;
+  background: #06080d; 
+  border-top: 1px solid var(--pb-border); margin-top: 4rem; 
+}
+.pb-cta-section::before {
+  content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100vw; height: 40vw; min-height: 400px;
+  background: radial-gradient(circle at center bottom, rgba(139, 92, 246, 0.15), transparent 70%);
+  filter: blur(40px); opacity: 0.8; pointer-events: none; z-index: 0;
+}
+.pb-cta-box { position: relative; z-index: 2; padding: 6rem 0; max-width: 600px; margin: 0 auto; }
+.pb-cta-box .pb-actions { margin-top: 2.5rem; position: relative; z-index: 3; }
 .pb-cta-text { margin: 0 auto 2.5rem; color: var(--pb-text-muted); font-size: 1.1rem; }
 
 /* RESPONSIVE DESIGN */
@@ -761,7 +772,7 @@
   .pb-proof-main { grid-template-columns: 1fr; }
   .pb-proof-rail { grid-template-columns: 1fr; gap: 1rem; }
   .pb-dual-grid { grid-template-columns: 1fr; }
-}
+@media (max-width: 480px) {
   .pb-title { font-size: clamp(2.5rem, 10vw, 4rem); }
   .pb-bento-grid { grid-template-columns: 1fr; }
   .pb-bento-card.pb-col-span-2.pb-card-dark { grid-column: span 1; }
