@@ -40,6 +40,14 @@ class UserProfile(models.Model):
     tg_manager_daily_advice_enabled = models.BooleanField(default=True, verbose_name='Щоденні поради в Telegram')
     tg_manager_critical_advice_enabled = models.BooleanField(default=True, verbose_name='Критичні поради в Telegram')
     is_manager = models.BooleanField(default=False, verbose_name='Менеджер (доступ до Management)')
+    push_marketing_enabled = models.BooleanField(
+        default=True,
+        verbose_name='Маркетингові push-сповіщення',
+    )
+    push_order_updates_enabled = models.BooleanField(
+        default=True,
+        verbose_name='Push-статуси замовлень',
+    )
 
     # Налаштування менеджера (виплати)
     manager_position = models.CharField(max_length=120, blank=True, verbose_name='Посада/статус')

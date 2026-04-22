@@ -3,6 +3,7 @@ from importlib import import_module
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from django.conf import settings
+from django.db.models import Q
 from django.templatetags.static import static
 from django.utils import timezone
 from django.utils.text import slugify
@@ -15,6 +16,7 @@ except ModuleNotFoundError:
 
 _webpush_dependency_resolved = webpush is not None
 
+from accounts.models import UserProfile
 from storefront.models import (
     PushNotificationCampaign,
     PushNotificationDelivery,
@@ -128,6 +130,7 @@ def build_campaign_payload(campaign, delivery):
         "tag": f"twc-push-campaign-{campaign.pk}",
         "campaignId": campaign.pk,
         "deliveryToken": str(delivery.event_token),
+        "timestamp": int(timezone.now().timestamp() * 1000),
     }
     image_url = _notification_image_url(campaign)
     if image_url:
@@ -152,6 +155,19 @@ def _vapid_claims():
     return {"sub": subject}
 
 
+def _eligible_campaign_subscriptions(campaign):
+    subscriptions = WebPushDeviceSubscription.objects.filter(is_active=True).order_by("id")
+    if campaign.audience_mode != PushNotificationCampaign.AudienceMode.ALL_ACTIVE:
+        return subscriptions.none()
+
+    enabled_user_ids = UserProfile.objects.filter(
+        push_marketing_enabled=True
+    ).values_list("user_id", flat=True)
+    return subscriptions.filter(
+        Q(user__isnull=True) | Q(user_id__in=enabled_user_ids)
+    )
+
+
 def send_campaign(campaign):
     webpush_callable, webpush_exception_class = _resolve_webpush_dependency()
 
@@ -171,13 +187,11 @@ def send_campaign(campaign):
     campaign.sent_finished_at = None
     campaign.save(update_fields=["status", "last_error", "sent_started_at", "sent_finished_at", "updated_at"])
 
-    subscriptions = WebPushDeviceSubscription.objects.filter(is_active=True).order_by("id")
-    if campaign.audience_mode != PushNotificationCampaign.AudienceMode.ALL_ACTIVE:
-        subscriptions = subscriptions.none()
+    subscriptions = _eligible_campaign_subscriptions(campaign)
 
     if not subscriptions.exists():
         campaign.status = PushNotificationCampaign.Status.FAILED
-        campaign.last_error = "Немає активних підписок для надсилання."
+        campaign.last_error = "Немає активних підписок для цієї аудиторії."
         campaign.sent_finished_at = timezone.now()
         campaign.save(
             update_fields=["status", "last_error", "sent_finished_at", "updated_at"]

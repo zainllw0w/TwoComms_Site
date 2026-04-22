@@ -212,3 +212,56 @@ class LogoutViewTests(AuthViewTestCase):
 
         self.assertRedirects(response, reverse("home"), fetch_redirect_response=False)
         self.assertIsNone(self.client.session.get("_auth_user_id"))
+
+
+class ProfileSetupViewTests(AuthViewTestCase):
+    def setUp(self):
+        super().setUp()
+        self.profile_setup_url = reverse("profile_setup")
+        self.user = self.create_user(phone="+380991234567")
+        self.client.force_login(self.user, backend="django.contrib.auth.backends.ModelBackend")
+
+    def test_profile_setup_renders_profile_and_push_preferences_section(self):
+        response = self.get(self.profile_setup_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["profile"], self.user.userprofile)
+        self.assertContains(response, "Push-сповіщення")
+        self.assertContains(response, 'data-web-push-profile')
+
+    def test_profile_setup_post_redirects_back_to_profile_setup(self):
+        response = self.post(
+            self.profile_setup_url,
+            {
+                "full_name": "Test User",
+                "phone": "+380991234567",
+                "email": "user@example.com",
+                "telegram": "@testuser",
+                "instagram": "@twocomms",
+                "city": "Kyiv",
+                "np_office": "1",
+                "pay_type": "full",
+            },
+        )
+
+        self.assertRedirects(response, self.profile_setup_url, fetch_redirect_response=False)
+        self.user.userprofile.refresh_from_db()
+        self.assertEqual(self.user.userprofile.full_name, "Test User")
+        self.assertEqual(self.user.userprofile.city, "Kyiv")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "user@example.com")
+
+    def test_profile_setup_push_preferences_form_updates_flags_independently(self):
+        response = self.post(
+            self.profile_setup_url,
+            {
+                "form_type": "push_preferences",
+                "push_order_updates_enabled": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], f"{self.profile_setup_url}#push-preferences")
+        self.user.userprofile.refresh_from_db()
+        self.assertFalse(self.user.userprofile.push_marketing_enabled)
+        self.assertTrue(self.user.userprofile.push_order_updates_enabled)

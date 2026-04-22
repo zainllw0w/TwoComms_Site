@@ -173,6 +173,11 @@ function addProductToCartForMono(button) {
         throw new Error(message);
       }
       try { if (typeof data.count === 'number' && window.updateCartBadge) window.updateCartBadge(data.count); } catch (_) { }
+      try {
+        document.dispatchEvent(new CustomEvent('cartUpdated', {
+          detail: { action: 'add', productId: productId, source: 'mono-checkout' }
+        }));
+      } catch (_) { }
       try { if (window.refreshMiniCart) window.refreshMiniCart(); } catch (_) { }
       try { if (window.refreshCartSummary) window.refreshCartSummary(); } catch (_) { }
       return data;

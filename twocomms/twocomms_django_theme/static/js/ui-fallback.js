@@ -382,6 +382,9 @@
         if (d && d.ok) {
           try {
             if (window.updateCartBadge) window.updateCartBadge(d.count);
+            document.dispatchEvent(new CustomEvent('cartUpdated', {
+              detail: { action: 'add', productId: productId, source: 'ui-fallback' }
+            }));
             if (window.refreshMiniCart) window.refreshMiniCart();
             if (window.openMiniCart) window.openMiniCart();
             if (document.querySelector('.cart-page-container')) {
