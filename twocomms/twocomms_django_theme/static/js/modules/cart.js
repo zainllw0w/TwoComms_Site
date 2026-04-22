@@ -1,6 +1,10 @@
 import { getCookie, DOMCache, escapeHtml } from './shared.js';
 import { initNovaPoshtaSelectors } from './nova-poshta-selector.js?v=20260422b';
-import { normalizeUkraineCheckoutPhoneValue, syncUkraineCheckoutPhoneField } from './phone.js';
+import {
+  normalizeUkraineCheckoutPhoneValue,
+  syncUkraineCheckoutPhoneField,
+  syncUkraineCheckoutPhoneHint
+} from './phone.js?v=20260422c';
 
 const CART_EMPTY_TEMPLATE = `
   <div class="cart-empty">
@@ -908,8 +912,21 @@ function setupCartValidation(form) {
   };
 
   inputs.forEach((input) => {
-    input.addEventListener('input', () => clearError(input));
-    input.addEventListener('blur', () => validate(input));
+    if (input.name === 'phone') {
+      syncUkraineCheckoutPhoneHint(input);
+    }
+    input.addEventListener('input', () => {
+      clearError(input);
+      if (input.name === 'phone') {
+        syncUkraineCheckoutPhoneHint(input);
+      }
+    });
+    input.addEventListener('blur', () => {
+      if (input.name === 'phone') {
+        syncUkraineCheckoutPhoneHint(input);
+      }
+      validate(input);
+    });
   });
 
   form.addEventListener('submit', (event) => {
