@@ -118,6 +118,7 @@ from .static_pages import (
 
 from .platform import (
     service_worker_script,
+    web_manifest,
 )
 
 # Профиль

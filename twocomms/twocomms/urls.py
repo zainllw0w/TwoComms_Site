@@ -19,6 +19,7 @@ sitemaps = {
 urlpatterns = [
     # PWA sw.js served directly to keep scope stable across browsers.
     path("sw.js", storefront_views.service_worker_script, name="service_worker_js"),
+    path("site.webmanifest", storefront_views.web_manifest, name="site_webmanifest"),
     # Core - storefront include comes after root-level platform files.
     path("", include("storefront.urls")),
 
