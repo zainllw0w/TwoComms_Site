@@ -18,8 +18,8 @@ class ForceHTTPSMiddleware(MiddlewareMixin):
     """
 
     def process_request(self, request):
-        # Проверяем, что мы не в режиме отладки
-        if settings.DEBUG:
+        # Следуем явной настройке, а не побочно завязаны на DEBUG.
+        if not getattr(settings, 'SECURE_SSL_REDIRECT', False):
             return None
 
         # Service worker registration on some production frontends can reach Django
@@ -186,7 +186,7 @@ class SimpleRateLimitMiddleware(MiddlewareMixin):
 
     def process_request(self, request):
         # Skip rate limiting in DEBUG mode
-        if settings.DEBUG:
+        if settings.DEBUG or not getattr(settings, 'SIMPLE_RATE_LIMIT_ENABLED', True):
             return None
 
         # DTF public pages are read-heavy and already protected by endpoint-level limits.

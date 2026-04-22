@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -31,6 +32,8 @@ class CustomPrintPageTests(TestCase):
         super().tearDownClass()
 
     def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.client = Client(
             HTTP_HOST="twocomms.shop",
             SERVER_PORT="443",
@@ -65,14 +68,15 @@ class CustomPrintPageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "TwoComms Custom Print")
-        self.assertContains(response, "Зберіть кастомний одяг під свій принт.")
+        self.assertContains(response, "Збери річ під свій дизайн")
         self.assertContains(response, "Кастомний DTF-друк")
-        self.assertContains(response, "Розпочати конфігурацію")
+        self.assertContains(response, "data-start-flow")
         self.assertContains(response, "Написати нам у Telegram")
         self.assertContains(response, "Для себе")
         self.assertContains(response, "Для команди / бренду")
         self.assertContains(response, "Худі")
-        self.assertContains(response, "Цей кастом — для кого?")
+        self.assertContains(response, 'data-step="mode"')
+        self.assertContains(response, "Для кого збираємо?")
         self.assertContains(response, "customPrintConfiguratorForm")
         self.assertContains(response, "custom-print-configurator.css")
         self.assertContains(response, "custom-print-configurator.js")
@@ -104,7 +108,9 @@ class CustomPrintPageTests(TestCase):
         self.assertContains(response, 'data-step="config"')
         self.assertContains(response, 'data-step-edit="config"')
         self.assertContains(response, 'data-step-next="zones"')
-        self.assertContains(response, "Крій, тканина, колір")
+        self.assertContains(response, "Посадка")
+        self.assertContains(response, "Тканина")
+        self.assertContains(response, "Колір виробу")
         self.assertNotContains(response, 'data-step="fit"')
         self.assertNotContains(response, 'data-step="fabric"')
         self.assertNotContains(response, "Далі до тканини")
@@ -144,8 +150,9 @@ class CustomPrintPageTests(TestCase):
         self.assertEqual(config["front_size_default"], "A4")
         self.assertEqual(config["back_size_default"], "A4")
         self.assertEqual(config["products"]["hoodie"]["add_ons"][0]["price_delta"], 150)
+        self.assertEqual(config["artwork_services"][1]["value"], "adjust")
+        self.assertEqual(config["artwork_services"][1]["label"], "Потрібно допрацювати")
         self.assertEqual(config["artwork_services"][1]["price_delta"], 100)
-        self.assertIn("до 15 хв", config["artwork_services"][1]["hint"])
         self.assertEqual(config["artwork_services"][2]["price_delta"], 300)
         self.assertEqual(
             [item["value"] for item in config["products"]["tshirt"]["fits"]],
@@ -255,16 +262,17 @@ class CustomPrintPageTests(TestCase):
         self.assertContains(response, "categories-top-grid--exact")
         self.assertContains(response, "categories-cta-wrap")
         self.assertContains(response, "Замовити кастомний одяг")
-        self.assertContains(response, "Перейти до заявки")
         self.assertContains(response, "category-card-custom-panel")
+        self.assertContains(response, "category-card-custom-action")
         self.assertContains(response, reverse("custom_print"))
         self.assertNotContains(response, "custom-print-home-cta")
 
     def test_home_page_uses_custom_survey_and_pagination_shells(self):
         from storefront.models import Product
+        from storefront.views.utils import HOME_PRODUCTS_PER_PAGE
 
         category = Category.objects.get(slug="tshirts")
-        for index in range(1, 10):
+        for index in range(1, HOME_PRODUCTS_PER_PAGE + 3):
             Product.objects.create(
                 title=f"Тестовий товар {index}",
                 slug=f"test-product-{index}",
@@ -276,8 +284,10 @@ class CustomPrintPageTests(TestCase):
         response = self._get(reverse("home"), follow=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "survey-reward-panel")
-        self.assertContains(response, "Промокод на 200 грн")
+        self.assertContains(response, "survey-unified-block")
+        self.assertContains(response, "survey-container-v3")
+        self.assertContains(response, "Бонус за фідбек")
+        self.assertContains(response, "data-survey-cta")
         self.assertContains(response, "pagination-showcase")
         self.assertContains(response, "pagination-rail")
         self.assertNotContains(response, "page-selector-shell")

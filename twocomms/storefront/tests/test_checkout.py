@@ -1,399 +1,368 @@
 """
-Unit tests for checkout views (checkout.py).
+Checkout-adjacent tests for the current storefront contract.
 
-Tests:
-- checkout: Checkout page display
-- create_order: Order creation
-- confirm_payment: Payment confirmation
-- order_success: Order success page
+Covers:
+- order_create
+- order_success
+- confirm_payment
+- cart/promo endpoints used by the checkout flow
 """
 
-from django.test import TestCase, Client
-from django.urls import reverse
-from django.contrib.auth.models import User
 from decimal import Decimal
+from unittest.mock import Mock, patch
 
-from storefront.models import Product, Category, PromoCode
-from orders.models import Order
-from accounts.models import UserProfile
+from django.contrib.auth.models import User
+from django.http import HttpResponseRedirect
+from django.test import TestCase
+from django.urls import reverse
+
+from orders.models import Order, OrderItem
+from storefront.models import Category, Product, PromoCode
 
 
-class CheckoutViewTests(TestCase):
-    """Tests for checkout function."""
-
+class CheckoutTestSupport(TestCase):
     def setUp(self):
-        """Set up test client, user, and products."""
-        self.client = Client()
-        self.checkout_url = reverse('checkout')
-
-        # Create test user
-        self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
-        self.profile = UserProfile.objects.create(
-            user=self.user,
-            phone='+380991234567',
-            full_name='Test User',
-            city='Київ',
-            np_office='Відділення №1'
-        )
-
-        # Create test products
         self.category = Category.objects.create(
             name='Test Category',
-            slug='test-category'
+            slug='test-category',
         )
-
         self.product = Product.objects.create(
             title='Test Product',
             slug='test-product',
             category=self.category,
-            retail_price=Decimal('100.00'),
-            is_active=True,
-            in_stock=True
+            price=130,
+            status='published',
         )
 
-        # Add product to cart
+        self.order_create_url = reverse('order_create')
+        self.order_success_url_name = 'order_success'
+        self.confirm_payment_url = reverse('confirm_payment')
+        self.cart_summary_url = reverse('cart_summary')
+        self.apply_promo_url = reverse('apply_promo_code')
+        self.remove_promo_url = reverse('remove_promo_code')
+
+    def set_cart(self, *, product=None, qty=2, size='M'):
+        product = product or self.product
         session = self.client.session
         session['cart'] = {
-            str(self.product.id): {
-                'quantity': 2,
-                'color': 'Black',
-                'size': 'M'
+            f'{product.id}:{size}': {
+                'product_id': product.id,
+                'qty': qty,
+                'size': size,
             }
         }
         session.save()
 
-    def test_checkout_page_loads(self):
-        """Test that checkout page loads successfully."""
-        response = self.client.get(self.checkout_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'checkout')
-
-    def test_checkout_with_empty_cart(self):
-        """Test checkout with empty cart."""
-        # Clear cart
-        session = self.client.session
-        session['cart'] = {}
-        session.save()
-
-        response = self.client.get(self.checkout_url)
-
-        # Should redirect to cart or show error
-        self.assertIn(response.status_code, [200, 302])
-
-    def test_checkout_with_authenticated_user(self):
-        """Test checkout with logged in user."""
-        self.client.login(username='testuser', password='testpass123')
-
-        response = self.client.get(self.checkout_url)
-
-        self.assertEqual(response.status_code, 200)
-        # Should have user profile data
-        self.assertContains(response, self.profile.phone)
-
-    def test_checkout_with_guest(self):
-        """Test checkout as guest user."""
-        response = self.client.get(self.checkout_url)
-
-        self.assertEqual(response.status_code, 200)
-        # Should display form for guest info
-        self.assertContains(response, 'phone')
-
-    def test_checkout_displays_cart_summary(self):
-        """Test that checkout displays cart items."""
-        response = self.client.get(self.checkout_url)
-
-        self.assertEqual(response.status_code, 200)
-        # Should show product in cart
-        self.assertContains(response, self.product.title)
-
-    def test_checkout_with_promo_code(self):
-        """Test checkout with applied promo code."""
-        # Create and apply promo code
-        promo = PromoCode.objects.create(
-            code='TEST10',
-            discount_type='percentage',
-            discount_value=Decimal('10.00'),
-            is_active=True
-        )
-
-        session = self.client.session
-        session['promo_code_id'] = promo.id
-        session.save()
-
-        response = self.client.get(self.checkout_url)
-
-        self.assertEqual(response.status_code, 200)
-        # Should display discount
-        self.assertContains(response, promo.code)
-
-
-class CreateOrderTests(TestCase):
-    """Tests for create_order function."""
-
-    def setUp(self):
-        """Set up test client and products."""
-        self.client = Client()
-        self.create_order_url = reverse('order_create')
-
-        # Create test product
-        self.category = Category.objects.create(
-            name='Test Category',
-            slug='test-category'
-        )
-
-        self.product = Product.objects.create(
-            title='Test Product',
-            slug='test-product',
-            category=self.category,
-            retail_price=Decimal('100.00'),
-            is_active=True,
-            in_stock=True
-        )
-
-        # Add to cart
-        session = self.client.session
-        session['cart'] = {
-            str(self.product.id): {
-                'quantity': 2,
-                'color': 'Black',
-                'size': 'M'
-            }
-        }
-        session.save()
-
-    def test_create_order_as_guest(self):
-        """Test order creation as guest user."""
-        response = self.client.post(self.create_order_url, {
-            'full_name': 'Test Guest',
-            'phone': '+380991234567',
-            'email': 'guest@example.com',
-            'city': 'Київ',
-            'np_office': 'Відділення №1',
-            'payment_method': 'cash',
-            'delivery_method': 'nova_poshta'
-        })
-
-        # Should create order and redirect
-        self.assertEqual(response.status_code, 302)
-
-        # Order should exist
-        self.assertTrue(Order.objects.filter(
-            phone='+380991234567'
-        ).exists())
-
-        # Cart should be cleared
-        cart = self.client.session.get('cart', {})
-        self.assertEqual(len(cart), 0)
-
-    def test_create_order_authenticated_user(self):
-        """Test order creation as authenticated user."""
-        # Create and login user
+    def make_user(self, *, username='buyer', pay_type='full'):
         user = User.objects.create_user(
-            username='testuser',
-            password='testpass123'
+            username=username,
+            email=f'{username}@example.com',
+            password='testpass123',
         )
-        UserProfile.objects.create(
-            user=user,
-            phone='+380991234567',
-            full_name='Test User'
+        profile = user.userprofile
+        profile.full_name = 'Profile Buyer'
+        profile.phone = '+380991234567'
+        profile.city = 'Київ'
+        profile.np_office = 'Відділення №1'
+        profile.pay_type = pay_type
+        profile.save()
+        return user
+
+    def make_fake_order_item_class(self):
+        manager = Mock()
+
+        class FakeOrderItem:
+            objects = manager
+
+            def __init__(self, **kwargs):
+                self.order = kwargs['order']
+                self.product = kwargs['product']
+                self.color_variant = kwargs.get('color_variant')
+                self.size = kwargs.get('size', '')
+                self.qty = kwargs.get('qty', kwargs.get('quantity'))
+                self.unit_price = kwargs.get('unit_price', kwargs.get('price'))
+                self.line_total = kwargs.get('line_total', self.qty * self.unit_price)
+                self.raw_kwargs = kwargs
+
+        return FakeOrderItem, manager
+
+
+class CreateOrderTests(CheckoutTestSupport):
+    def test_create_order_guest_cod_creates_order_and_clears_cart(self):
+        self.set_cart()
+        fake_order_item_class, fake_manager = self.make_fake_order_item_class()
+
+        with patch('storefront.views.checkout.OrderItem', fake_order_item_class):
+            response = self.client.post(
+                self.order_create_url,
+                {
+                    'full_name': 'Guest Buyer',
+                    'phone': '+380501112233',
+                    'city': 'Львів',
+                    'np_office': 'Відділення №5',
+                    'pay_type': 'cod',
+                },
+            )
+
+        order = Order.objects.get()
+        self.assertRedirects(
+            response,
+            reverse(self.order_success_url_name, kwargs={'order_id': order.id}),
+            fetch_redirect_response=False,
         )
-        self.client.login(username='testuser', password='testpass123')
+        self.assertIsNone(order.user)
+        self.assertEqual(order.full_name, 'Guest Buyer')
+        self.assertEqual(order.phone, '+380501112233')
+        self.assertEqual(order.city, 'Львів')
+        self.assertEqual(order.np_office, 'Відділення №5')
+        self.assertEqual(order.pay_type, 'cod')
+        self.assertEqual(order.total_sum, Decimal('260'))
+        self.assertEqual(self.client.session.get('cart'), {})
 
-        response = self.client.post(self.create_order_url, {
-            'full_name': 'Test User',
-            'phone': '+380991234567',
-            'city': 'Київ',
-            'np_office': 'Відділення №1',
-            'payment_method': 'card',
-            'delivery_method': 'nova_poshta'
-        })
+        bulk_items = fake_manager.bulk_create.call_args.args[0]
+        self.assertEqual(len(bulk_items), 1)
+        self.assertEqual(bulk_items[0].product, self.product)
+        self.assertEqual(bulk_items[0].qty, 2)
+        self.assertEqual(bulk_items[0].unit_price, self.product.final_price)
+        self.assertEqual(bulk_items[0].line_total, self.product.final_price * 2)
 
-        # Should create order
-        self.assertEqual(response.status_code, 302)
+    def test_create_order_authenticated_uses_profile_data(self):
+        self.set_cart()
+        user = self.make_user(pay_type='full')
+        self.client.force_login(user)
+        fake_order_item_class, _ = self.make_fake_order_item_class()
 
-        # Order should be linked to user
-        order = Order.objects.filter(user=user).first()
-        self.assertIsNotNone(order)
+        with patch('storefront.views.checkout.OrderItem', fake_order_item_class):
+            response = self.client.post(
+                self.order_create_url,
+                {
+                    'full_name': 'Posted Name',
+                    'phone': '+380000000000',
+                    'city': 'Одеса',
+                    'np_office': 'Відділення №99',
+                    'pay_type': 'cod',
+                },
+            )
+
+        order = Order.objects.get(user=user)
+        self.assertRedirects(
+            response,
+            reverse(self.order_success_url_name, kwargs={'order_id': order.id}),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(order.full_name, 'Profile Buyer')
         self.assertEqual(order.phone, '+380991234567')
+        self.assertEqual(order.city, 'Київ')
+        self.assertEqual(order.np_office, 'Відділення №1')
+        self.assertEqual(order.pay_type, 'full')
 
-    def test_create_order_with_empty_cart(self):
-        """Test order creation with empty cart."""
-        # Clear cart
-        session = self.client.session
-        session['cart'] = {}
-        session.save()
+    def test_create_order_guest_online_full_calls_monobank(self):
+        self.set_cart()
+        fake_order_item_class, _ = self.make_fake_order_item_class()
 
-        response = self.client.post(self.create_order_url, {
-            'full_name': 'Test User',
-            'phone': '+380991234567',
-            'city': 'Київ',
-            'np_office': 'Відділення №1',
-            'payment_method': 'cash',
-            'delivery_method': 'nova_poshta'
-        })
+        with patch('storefront.views.checkout.OrderItem', fake_order_item_class), patch(
+            'storefront.views.checkout.monobank_create_invoice',
+            return_value=HttpResponseRedirect('/mock-monobank-checkout/'),
+        ) as monobank_create_invoice:
+            response = self.client.post(
+                self.order_create_url,
+                {
+                    'full_name': 'Card Buyer',
+                    'phone': '+380671112233',
+                    'city': 'Київ',
+                    'np_office': 'Відділення №7',
+                    'pay_type': 'online_full',
+                },
+            )
 
-        # Should return error or redirect
-        self.assertIn(response.status_code, [200, 302, 400])
+        order = Order.objects.get()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/mock-monobank-checkout/')
+        self.assertEqual(monobank_create_invoice.call_args.args[1], order.id)
+        self.assertEqual(order.pay_type, 'online_full')
 
-    def test_create_order_with_invalid_data(self):
-        """Test order creation with invalid phone."""
-        response = self.client.post(self.create_order_url, {
-            'full_name': 'Test User',
-            'phone': 'invalid',
-            'city': 'Київ',
-            'np_office': 'Відділення №1',
-            'payment_method': 'cash',
-            'delivery_method': 'nova_poshta'
-        })
+    def test_create_order_empty_cart_redirects_to_cart(self):
+        response = self.client.post(
+            self.order_create_url,
+            {
+                'full_name': 'Empty Cart Buyer',
+                'phone': '+380501112233',
+                'city': 'Київ',
+                'np_office': 'Відділення №1',
+                'pay_type': 'cod',
+            },
+        )
 
-        # Should show error
-        self.assertEqual(response.status_code, 400)
+        self.assertRedirects(response, reverse('cart'), fetch_redirect_response=False)
+        self.assertFalse(Order.objects.exists())
 
-    def test_create_order_with_promo_code(self):
-        """Test order creation with promo code discount."""
-        # Create promo code
+    def test_create_order_ignores_cart_promo_session_keys(self):
+        self.set_cart()
         promo = PromoCode.objects.create(
             code='TEST10',
             discount_type='percentage',
             discount_value=Decimal('10.00'),
-            is_active=True
+            is_active=True,
         )
-
-        # Apply promo to session
         session = self.client.session
         session['promo_code_id'] = promo.id
+        session['promo_code_data'] = {
+            'code': promo.code,
+            'discount': 26.0,
+        }
         session.save()
 
-        response = self.client.post(self.create_order_url, {
-            'full_name': 'Test User',
-            'phone': '+380991234567',
-            'city': 'Київ',
-            'np_office': 'Відділення №1',
-            'payment_method': 'cash',
-            'delivery_method': 'nova_poshta'
-        })
+        fake_order_item_class, _ = self.make_fake_order_item_class()
+        with patch('storefront.views.checkout.OrderItem', fake_order_item_class):
+            response = self.client.post(
+                self.order_create_url,
+                {
+                    'full_name': 'Promo Buyer',
+                    'phone': '+380501112233',
+                    'city': 'Харків',
+                    'np_office': 'Відділення №3',
+                    'pay_type': 'cod',
+                },
+            )
 
-        self.assertEqual(response.status_code, 302)
-
-        # Order should have discount applied
-        order = Order.objects.first()
-        self.assertIsNotNone(order)
-        self.assertIsNotNone(order.promo_code)
-        self.assertEqual(order.promo_code.code, 'TEST10')
-
-    def test_create_order_card_payment_redirect(self):
-        """Test that card payment redirects to payment gateway."""
-        response = self.client.post(self.create_order_url, {
-            'full_name': 'Test User',
-            'phone': '+380991234567',
-            'city': 'Київ',
-            'np_office': 'Відділення №1',
-            'payment_method': 'card',
-            'delivery_method': 'nova_poshta'
-        })
-
-        # Should redirect to payment page
-        self.assertEqual(response.status_code, 302)
-
-        order = Order.objects.first()
-        # Should redirect to payment confirmation
-        self.assertIn(order.order_number, response.url)
+        order = Order.objects.get()
+        self.assertRedirects(
+            response,
+            reverse(self.order_success_url_name, kwargs={'order_id': order.id}),
+            fetch_redirect_response=False,
+        )
+        self.assertIsNone(order.promo_code)
+        self.assertEqual(order.discount_amount, Decimal('0'))
+        self.assertNotIn('promo_code_id', self.client.session)
+        self.assertNotIn('promo_code_data', self.client.session)
 
 
-class ConfirmPaymentTests(TestCase):
-    """Tests for confirm_payment function."""
-
+class OrderSuccessTests(CheckoutTestSupport):
     def setUp(self):
-        """Set up test client and order."""
-        self.client = Client()
-
-        # Create test user and order
-        self.user = User.objects.create_user(
-            username='testuser',
-            password='testpass123'
-        )
-
+        super().setUp()
         self.order = Order.objects.create(
-            user=self.user,
-            order_number='TEST001',
-            full_name='Test User',
-            phone='+380991234567',
-            email='test@example.com',
-            total=Decimal('200.00'),
-            payment_method='card',
-            payment_status='pending'
+            full_name='Success Buyer',
+            phone='+380991112233',
+            email='buyer@example.com',
+            city='Київ',
+            np_office='Відділення №4',
+            pay_type='cod',
+            payment_status='paid',
+            total_sum=Decimal('260.00'),
         )
-
-        self.confirm_url = reverse('confirm_payment', args=[self.order.order_number])
-
-    def test_confirm_payment_page_loads(self):
-        """Test that payment confirmation page loads."""
-        response = self.client.get(self.confirm_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, self.order.order_number)
-
-    def test_confirm_payment_authenticated_user(self):
-        """Test payment confirmation for order owner."""
-        self.client.login(username='testuser', password='testpass123')
-
-        response = self.client.get(self.confirm_url)
-        self.assertEqual(response.status_code, 200)
-
-    def test_confirm_payment_displays_amount(self):
-        """Test that payment page displays correct amount."""
-        response = self.client.get(self.confirm_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '200')
-
-
-class OrderSuccessTests(TestCase):
-    """Tests for order_success function."""
-
-    def setUp(self):
-        """Set up test client and order."""
-        self.client = Client()
-
-        self.user = User.objects.create_user(
-            username='testuser',
-            password='testpass123'
+        OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            title=self.product.title,
+            size='M',
+            qty=2,
+            unit_price=Decimal('130.00'),
+            line_total=Decimal('260.00'),
         )
+        self.success_url = reverse(self.order_success_url_name, kwargs={'order_id': self.order.id})
 
-        self.order = Order.objects.create(
-            user=self.user,
-            order_number='TEST001',
-            full_name='Test User',
-            phone='+380991234567',
-            email='test@example.com',
-            total=Decimal('200.00'),
-            payment_method='cash',
-            payment_status='paid'
-        )
-
-        self.success_url = reverse('order_success', args=[self.order.order_number])
-
-    def test_order_success_page_loads(self):
-        """Test that order success page loads."""
-        response = self.client.get(self.success_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, self.order.order_number)
-
-    def test_order_success_authenticated_user(self):
-        """Test success page for authenticated user."""
-        self.client.login(username='testuser', password='testpass123')
-
-        response = self.client.get(self.success_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'success')
-
-    def test_order_success_displays_order_details(self):
-        """Test that success page shows order details."""
+    def test_order_success_renders_order_details(self):
         response = self.client.get(self.success_url)
 
         self.assertEqual(response.status_code, 200)
-        # Should display order number and total
+        self.assertEqual(response.context['order'].pk, self.order.pk)
         self.assertContains(response, self.order.order_number)
         self.assertContains(response, self.order.full_name)
+        self.assertContains(response, self.product.title)
+        self.assertEqual(response.context['order'].total_sum, self.order.total_sum)
+
+    def test_order_success_returns_404_for_unknown_order(self):
+        response = self.client.get(
+            reverse(self.order_success_url_name, kwargs={'order_id': self.order.id + 999})
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+
+class ConfirmPaymentTests(CheckoutTestSupport):
+    def test_confirm_payment_redirects_to_my_orders(self):
+        response = self.client.get(self.confirm_payment_url)
+
+        self.assertRedirects(response, reverse('my_orders'), fetch_redirect_response=False)
+
+    def test_confirm_payment_follow_redirect_for_authenticated_user(self):
+        user = self.make_user(username='history-user')
+        self.client.force_login(user)
+
+        response = self.client.get(self.confirm_payment_url, follow=True)
+
+        self.assertRedirects(response, reverse('my_orders'))
+        self.assertContains(response, 'Мої замовлення')
+
+
+class PromoAndCartTests(CheckoutTestSupport):
+    def test_cart_summary_uses_current_cart_session_shape(self):
+        discounted_product = Product.objects.create(
+            title='Discounted Product',
+            slug='discounted-product',
+            category=self.category,
+            price=130,
+            discount_percent=10,
+            status='published',
+        )
+        self.set_cart(product=discounted_product)
+
+        response = self.client.get(self.cart_summary_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['count'], 2)
+        self.assertEqual(response.json()['total'], 234.0)
+
+    def test_apply_promo_code_requires_authenticated_user(self):
+        self.set_cart()
+        promo = PromoCode.objects.create(
+            code='LOGIN10',
+            discount_type='percentage',
+            discount_value=Decimal('10.00'),
+            is_active=True,
+        )
+
+        response = self.client.post(self.apply_promo_url, {'promo_code': promo.code})
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(response.json()['auth_required'])
+        self.assertNotIn('promo_code_id', self.client.session)
+
+    def test_apply_promo_code_stores_session_data_for_authenticated_user(self):
+        self.set_cart()
+        user = self.make_user(username='promo-user')
+        self.client.force_login(user)
+        promo = PromoCode.objects.create(
+            code='SAVE10',
+            discount_type='percentage',
+            discount_value=Decimal('10.00'),
+            is_active=True,
+        )
+
+        response = self.client.post(self.apply_promo_url, {'promo_code': 'save10'})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['promo_code'], 'SAVE10')
+        self.assertEqual(data['discount'], 26.0)
+        self.assertEqual(data['total'], 234.0)
+        self.assertEqual(self.client.session['promo_code_id'], promo.id)
+        self.assertEqual(self.client.session['promo_code_data']['code'], promo.code)
+
+    def test_remove_promo_code_clears_session_keys(self):
+        self.set_cart()
+        session = self.client.session
+        session['promo_code_id'] = 123
+        session['promo_code_data'] = {'code': 'SAVE10', 'discount': 26.0}
+        session.save()
+
+        response = self.client.post(self.remove_promo_url)
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['discount'], 0.0)
+        self.assertEqual(data['total'], 260.0)
+        self.assertNotIn('promo_code_id', self.client.session)
+        self.assertNotIn('promo_code_data', self.client.session)

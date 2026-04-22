@@ -432,6 +432,8 @@ class ProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if 'slug' in self.fields:
+            self.fields['slug'].required = False
         # Позволяем создавать товары без явного указания дроп/опт цены — проставляем 0 по умолчанию
         for price_field in ('drop_price', 'wholesale_price'):
             if price_field in self.fields:
