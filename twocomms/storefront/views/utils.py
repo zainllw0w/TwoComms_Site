@@ -91,10 +91,17 @@ def public_product_listing_cache_prefix(request, view_func):
     A dedicated version lets admin drag-and-drop immediately affect homepage and
     catalog pages without clearing unrelated cached responses.
     """
-    from ..services.catalog_helpers import get_public_product_order_version
+    from ..services.catalog_helpers import (
+        get_public_category_version,
+        get_public_product_order_version,
+    )
 
-    version = get_public_product_order_version()
-    return f"{view_func.__module__}.{view_func.__name__}:product-order-v{version}"
+    product_version = get_public_product_order_version()
+    category_version = get_public_category_version()
+    return (
+        f"{view_func.__module__}.{view_func.__name__}"
+        f":product-order-v{product_version}:category-v{category_version}"
+    )
 
 
 def unique_slugify(model, base_slug):

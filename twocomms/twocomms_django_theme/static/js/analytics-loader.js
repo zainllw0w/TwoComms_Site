@@ -79,7 +79,10 @@
       date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
       expires = '; expires=' + date.toUTCString();
     }
-    var cookieString = name + '=' + encodeURIComponent(value) + expires + '; path=/';
+    var cookieString = name + '=' + encodeURIComponent(value) + expires + '; path=/; SameSite=Lax';
+    if (win.location && win.location.protocol === 'https:') {
+      cookieString += '; Secure';
+    }
     doc.cookie = cookieString;
   }
   

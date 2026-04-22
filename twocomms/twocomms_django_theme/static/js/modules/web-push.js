@@ -60,6 +60,10 @@ function clearDismissal() {
   } catch (_) { }
 }
 
+function hasAnotherPromptOpen() {
+  return Boolean(document.querySelector('[data-pwa-install-prompt]'));
+}
+
 function detectDeviceType() {
   const width = Math.min(window.innerWidth || 0, window.screen?.width || 0) || window.innerWidth || 0;
   const ua = navigator.userAgent || '';
@@ -136,7 +140,7 @@ function urlBase64ToUint8Array(base64String) {
 
 async function ensureServiceWorker() {
   if (!registerPromise) {
-    const serviceWorkerUrl = readConfig()?.serviceWorkerUrl || '/static/sw.js';
+    const serviceWorkerUrl = readConfig()?.serviceWorkerUrl || '/sw.js';
     registerPromise = navigator.serviceWorker.register(serviceWorkerUrl, {
       scope: '/',
       updateViaCache: 'none',
@@ -242,7 +246,7 @@ function buildPromptCard(mode) {
         <div class="web-push-prompt__text">
           <div class="web-push-prompt__title">Push-сповіщення на iPhone/iPad</div>
           <p class="web-push-prompt__copy" data-web-push-copy>
-            Додайте TwoComms на домашній екран, а потім відкрийте сайт як вебзастосунок, щоб увімкнути системні push-сповіщення.
+            Додайте TwoComms на домашній екран, щоб відкривати сайт як застосунок і ввімкнути системні push-сповіщення в iPhone/iPad.
           </p>
         </div>
         <div class="web-push-prompt__actions">
@@ -321,6 +325,9 @@ function shouldShowPrompt() {
     return false;
   }
   if (document.visibilityState === 'hidden') {
+    return false;
+  }
+  if (hasAnotherPromptOpen()) {
     return false;
   }
   if (isDismissed()) {

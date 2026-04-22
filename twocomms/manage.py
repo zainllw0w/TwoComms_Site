@@ -44,7 +44,12 @@ def _ensure_env_file():
 def main():
     """Run administrative tasks."""
     _ensure_env_file()
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'twocomms.settings')
+    default_settings_module = 'twocomms.settings'
+    env_file_name = Path(os.environ.get("DJANGO_ENV_FILE", "")).name
+    if env_file_name == ".env.production" or os.environ.get("DJANGO_ENV", "").lower() == "production":
+        default_settings_module = 'twocomms.production_settings'
+
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', default_settings_module)
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

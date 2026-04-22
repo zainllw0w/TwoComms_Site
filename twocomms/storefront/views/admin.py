@@ -1013,7 +1013,10 @@ def admin_update_product_status(request):
     if status_value not in ProductStatus.values:
         return JsonResponse({'success': False, 'error': 'Invalid status'}, status=400)
 
-    updated = Product.objects.filter(id=product_id).update(status=status_value)
+    with transaction.atomic():
+        updated = Product.objects.filter(id=product_id).update(status=status_value)
+        if updated:
+            transaction.on_commit(bump_public_product_order_version)
     if not updated:
         return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
 

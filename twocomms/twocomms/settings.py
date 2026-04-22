@@ -15,6 +15,8 @@ import os
 import warnings
 import pymysql
 
+from .cache_headers import is_immutable_static_url
+
 # Настройка PyMySQL для работы с MySQL
 pymysql.install_as_MySQLdb()
 
@@ -207,8 +209,8 @@ WEB_PUSH_ENABLED = bool(
     WEB_PUSH_VAPID_PUBLIC_KEY and WEB_PUSH_VAPID_PRIVATE_KEY and WEB_PUSH_VAPID_SUBJECT
 )
 WEB_PUSH_SERVICE_WORKER_PATH = (
-    os.environ.get("WEB_PUSH_SERVICE_WORKER_PATH", "/static/sw.js").strip()
-    or "/static/sw.js"
+    os.environ.get("WEB_PUSH_SERVICE_WORKER_PATH", "/sw.js").strip()
+    or "/sw.js"
 )
 WEB_PUSH_ICON_PATH = os.environ.get(
     "WEB_PUSH_ICON_PATH",
@@ -816,10 +818,17 @@ COMPRESS_JS_FILTERS = [
 if not DEBUG:
     COMPRESS_CSS_HASHING_METHOD = 'content'
     COMPRESS_JS_HASHING_METHOD = 'content'
-    # WhiteNoise: gzip+brotli, агрессивный кэш
-    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    # WhiteNoise: gzip+brotli, manifest-based cache busting.
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
     WHITENOISE_MAX_AGE = 60*60*24*180  # 180 дней
-    WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: True
+    WHITENOISE_IMMUTABLE_FILE_TEST = is_immutable_static_url
 
 # Переключаемся на on-the-fly режим, если offline bundle ещё не сгенерирован
 COMPRESS_OFFLINE = ensure_compress_offline(COMPRESS_OFFLINE)

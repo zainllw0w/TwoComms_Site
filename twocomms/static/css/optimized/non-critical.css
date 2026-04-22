@@ -19381,7 +19381,7 @@ input[type="file"].form-control:hover {
 .hero-pattern {
   position: absolute;
   inset: 0;
-  background: url('../img/noise.png') repeat;
+  background: url('../../img/noise.png') repeat;
   opacity: 0.1;
 }
 
@@ -19861,7 +19861,7 @@ input[type="file"].form-control:hover {
 .contacts-hero .hero-pattern {
   position: absolute;
   inset: 0;
-  background: url('../img/noise.png') repeat;
+  background: url('../../img/noise.png') repeat;
   opacity: 0.1;
 }
 

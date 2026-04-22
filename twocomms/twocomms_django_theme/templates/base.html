@@ -10,7 +10,8 @@
 
 <head>
   <meta charset='utf-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover'>
+  <meta name="color-scheme" content="dark">
   <meta name="csrf-token" content="">
   <script>
     (function () {
@@ -187,6 +188,7 @@
   <!-- PWA Support -->
   <link rel="manifest" href="{% static 'site.webmanifest' %}">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="TwoComms">
 
@@ -202,10 +204,8 @@
   <meta name='msapplication-square512x512logo' content="{% static 'img/favicon-512x512.png' %}">
   <link rel='mask-icon' href='{% static "img/logo.svg" %}' color='#7c3aed'>
   <link rel='icon' href='{% static "img/favicon.ico" %}' sizes='any' type='image/x-icon'>
-  {% if web_push_config.enabled %}
   <link rel="stylesheet" href="{% static 'css/web-push.css' %}" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="{% static 'css/web-push.css' %}"></noscript>
-  {% endif %}
 
   <!-- Early performance hint: enable lite mode for mobile/save-data/low-memory/low-CPU.
        Unified device-class detector (Phase 3.1): sets data-device-class="low|mid|high"
@@ -817,7 +817,7 @@
     {% block content %}{% endblock %}
   </main>
   {% block modals %}{% endblock %}
-  {% cache 86400 footer_block_v3 %}
+  {% cache 86400 footer_block_v3 using="fragments" %}
   {% include 'partials/footer.html' %}
   {% endcache %}
 
@@ -1080,7 +1080,7 @@
   <script defer src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
     onload="this.classList.add('script-loaded')" onerror="this.classList.add('script-error')"
     crossorigin="anonymous"></script>
-  <script type="module" src="{% static 'js/main.js' %}?v=45" onload="this.classList.add('script-loaded')"
+  <script type="module" src="{% static 'js/main.js' %}?v=46" onload="this.classList.add('script-loaded')"
     onerror="this.classList.add('script-error')" crossorigin="anonymous"></script>
 
   <!-- UI fallback helpers (QtyInc/QtyDec/AddToCart/CartRemove*) -->

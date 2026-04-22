@@ -625,7 +625,14 @@ def _render(request, template, context, status: int | None = None):
     response = render(request, template, context, status=status)
     lang = request.GET.get("lang")
     if lang in ("uk", "ru", "en"):
-        response.set_cookie("dtf_lang", lang, max_age=365 * 24 * 3600)
+        response.set_cookie(
+            "dtf_lang",
+            lang,
+            max_age=365 * 24 * 3600,
+            secure=bool(not settings.DEBUG),
+            samesite="Lax",
+            httponly=True,
+        )
     return response
 
 
