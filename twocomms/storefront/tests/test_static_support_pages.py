@@ -7,7 +7,11 @@ from storefront.support_content import DELIVERY_FAQ_ITEMS
 from storefront.views.static_pages import static_sitemap
 
 
-@override_settings(NOVA_POSHTA_FALLBACK_ENABLED=False)
+@override_settings(
+    NOVA_POSHTA_FALLBACK_ENABLED=False,
+    COMPRESS_ENABLED=False,
+    COMPRESS_OFFLINE=False,
+)
 class SupportStaticPagesTests(SimpleTestCase):
     def setUp(self):
         self.client = Client()
@@ -58,18 +62,28 @@ class SupportStaticPagesTests(SimpleTestCase):
         self.assertContains(response, "Бренд")
         self.assertContains(response, "Швидкий доступ")
         self.assertContains(response, "All Rights Reserved © TWOCOMMS, 2026")
+        self.assertContains(response, "Streetwear / Military-adjacent / Made in Ukraine")
         self.assertNotContains(response, "FAQ моменти")
         self.assertNotContains(response, "TwoComms: сервіс, підтримка, новини бренду")
+        self.assertNotContains(response, "Militari / Street / Made in Ukraine")
 
     def test_about_page_uses_dedicated_brand_layout_while_delivery_keeps_support_shell(self):
         about_response = self.client.get(reverse("about"), secure=True)
         self.assertEqual(about_response.status_code, 200)
+        about_html = about_response.content.decode("utf-8")
         self.assertContains(about_response, 'pro-brand-page pb-page', html=False)
         self.assertContains(about_response, 'data-pro-brand-video', html=False)
         self.assertNotContains(about_response, 'data-brand-scroll', html=False)
         self.assertContains(about_response, 'aria-label="Breadcrumb"', html=False)
-        self.assertContains(about_response, 'href="https://testserver/pro-brand/"', html=False)
-        self.assertContains(about_response, '"@type": ["Organization", "OnlineStore"]', html=False)
+        self.assertContains(about_response, 'href="https://twocomms.shop/pro-brand/"', html=False)
+        self.assertContains(about_response, '"@type": "AboutPage"', html=False)
+        self.assertContains(about_response, '"@type": "Organization"', html=False)
+        self.assertNotContains(about_response, '"@type": ["Organization", "OnlineStore"]', html=False)
+        self.assertContains(about_response, 'Що таке TwoComms')
+        self.assertContains(about_response, 'Що означає назва TwoComms')
+        self.assertContains(about_response, 'Streetwear / Military-adjacent / Made in Ukraine')
+        self.assertNotContains(about_response, 'IN DEVELOPMENT')
+        self.assertEqual(about_html.count("<h1"), 1)
         self.assertContains(about_response, 'data-page-shell="marketing"', html=False)
         self.assertContains(about_response, 'data-analytics-mode="passive"', html=False)
         self.assertNotContains(about_response, 'points-modal-template', html=False)

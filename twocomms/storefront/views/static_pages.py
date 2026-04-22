@@ -209,7 +209,7 @@ def robots_txt(request):
         "User-agent: anthropic-ai",
         "Allow: /",
         "",
-        f"Sitemap: {request.build_absolute_uri('/sitemap.xml')}",
+        f"Sitemap: {settings.SITE_BASE_URL}/sitemap.xml",
     ]
 
     return HttpResponse("\n".join(lines), content_type="text/plain")
@@ -779,7 +779,7 @@ def about(request):
     """
     Brand story page with dedicated layout and structured content.
     """
-    brand_page_url = request.build_absolute_uri(reverse("about"))
+    brand_page_url = f"{settings.SITE_BASE_URL}{reverse('about')}"
     breadcrumb_items = [
         {"name": "Головна", "url": reverse("home")},
         {"name": "Про бренд", "url": brand_page_url},
