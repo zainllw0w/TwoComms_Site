@@ -496,43 +496,184 @@
       position: relative;
       margin-top: auto;
       min-height: clamp(15.5rem, 23vw, 18.5rem);
-      border-radius: 28px;
-      overflow: hidden;
       isolation: isolate;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      background:
-        radial-gradient(circle at 50% 26%, rgba(211, 27, 18, 0.16), transparent 38%),
-        linear-gradient(180deg, rgba(15, 17, 24, 0.34) 0%, rgba(4, 5, 8, 0.96) 100%);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 42px rgba(0, 0, 0, 0.22);
+      overflow: visible;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      pointer-events: none;
     }
     .pro-brand-page .pb-sign-visual::before {
       content: "";
       position: absolute;
-      inset: 0;
-      z-index: 2;
-      background: linear-gradient(180deg, rgba(3, 4, 7, 0.06) 0%, rgba(3, 4, 7, 0.22) 18%, rgba(3, 4, 7, 0.64) 100%);
+      top: 14%;
+      left: -2%;
+      width: 42%;
+      height: 56%;
+      z-index: 0;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(255, 111, 72, 0.34) 0%, rgba(206, 30, 16, 0.18) 34%, rgba(118, 10, 5, 0.08) 54%, transparent 76%);
+      filter: blur(32px);
+      mix-blend-mode: screen;
+      opacity: 0.5;
+      animation: pb-sign-burst 7.4s ease-in-out infinite;
       pointer-events: none;
     }
     .pro-brand-page .pb-sign-visual::after {
       content: "";
       position: absolute;
-      inset: auto 12% -14% 12%;
-      height: 42%;
-      z-index: 1;
-      background: radial-gradient(circle at 50% 0%, rgba(233, 45, 31, 0.22), rgba(124, 11, 5, 0.04) 56%, transparent 78%);
-      filter: blur(20px);
-      opacity: 0.85;
+      top: 18%;
+      right: -4%;
+      width: 40%;
+      height: 52%;
+      z-index: 0;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(255, 145, 105, 0.3) 0%, rgba(208, 42, 20, 0.16) 32%, rgba(116, 10, 5, 0.08) 52%, transparent 78%);
+      filter: blur(34px);
+      mix-blend-mode: screen;
+      opacity: 0.42;
+      animation: pb-sign-burst 8.3s ease-in-out -3.1s infinite;
       pointer-events: none;
     }
-    .pro-brand-page .pb-sign-image {
+    .pro-brand-page .pb-sign-core-glow {
       position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: center 18%;
-      filter: saturate(0.72) contrast(0.98) brightness(0.62);
-      transform: scale(1.02);
+      inset: 28% 18% 12% 18%;
+      z-index: 0;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(255, 126, 86, 0.22) 0%, rgba(198, 31, 16, 0.14) 34%, rgba(121, 12, 6, 0.06) 56%, transparent 76%);
+      filter: blur(24px);
+      mix-blend-mode: screen;
+      opacity: 0.38;
+      animation: pb-sign-core-pulse 9.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .pro-brand-page .pb-sign-sparks {
+      position: absolute;
+      inset: -8% -10% 4% -10%;
+      z-index: 1;
+      pointer-events: none;
+    }
+    .pro-brand-page .pb-sign-spark {
+      --spark-drift: 12px;
+      --spark-rise: 58px;
+      --spark-rotate: 8deg;
+      --spark-tilt: -8deg;
+      position: absolute;
+      width: 2px;
+      height: 16px;
+      bottom: 28%;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255, 246, 235, 0) 0%, rgba(255, 243, 229, 0.96) 22%, rgba(255, 174, 102, 0.92) 52%, rgba(183, 37, 13, 0) 100%);
+      box-shadow: 0 0 8px rgba(255, 106, 61, 0.24);
+      mix-blend-mode: screen;
+      opacity: 0;
+      animation: pb-sign-spark 5.4s linear infinite;
+    }
+    .pro-brand-page .pb-sign-spark:nth-child(3n) {
+      width: 2.5px;
+      height: 2.5px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(255, 244, 228, 0.98) 0%, rgba(255, 170, 98, 0.9) 52%, rgba(171, 26, 10, 0) 100%);
+      box-shadow: 0 0 7px rgba(255, 116, 68, 0.2);
+    }
+    .pro-brand-page .pb-sign-spark:nth-child(4n) {
+      width: 1.5px;
+      height: 12px;
+    }
+    .pro-brand-page .pb-sign-spark:nth-child(1) {
+      left: 2%;
+      bottom: 26%;
+      --spark-drift: 22px;
+      --spark-rise: 52px;
+      animation-delay: 0s;
+      animation-duration: 4.9s;
+    }
+    .pro-brand-page .pb-sign-spark:nth-child(2) {
+      left: 8%;
+      bottom: 42%;
+      --spark-drift: 18px;
+      --spark-rise: 64px;
+      --spark-tilt: -12deg;
+      animation-delay: 0.9s;
+      animation-duration: 5.5s;
+    }
+    .pro-brand-page .pb-sign-spark:nth-child(3) {
+      left: 14%;
+      bottom: 58%;
+      --spark-drift: 16px;
+      --spark-rise: 44px;
+      animation-delay: 1.6s;
+      animation-duration: 4.7s;
+    }
+    .pro-brand-page .pb-sign-spark:nth-child(4) {
+      left: 21%;
+      bottom: 72%;
+      --spark-drift: 11px;
+      --spark-rise: 40px;
+      animation-delay: 0.4s;
+      animation-duration: 5.2s;
+    }
+    .pro-brand-page .pb-sign-spark:nth-child(5) {
+      right: 3%;
+      bottom: 28%;
+      --spark-drift: -22px;
+      --spark-rise: 54px;
+      --spark-rotate: -9deg;
+      animation-delay: 0.2s;
+      animation-duration: 5.1s;
+    }
+    .pro-brand-page .pb-sign-spark:nth-child(6) {
+      right: 9%;
+      bottom: 46%;
+      --spark-drift: -18px;
+      --spark-rise: 66px;
+      --spark-tilt: 10deg;
+      animation-delay: 1.3s;
+      animation-duration: 5.8s;
+    }
+    .pro-brand-page .pb-sign-spark:nth-child(7) {
+      right: 16%;
+      bottom: 61%;
+      --spark-drift: -14px;
+      --spark-rise: 46px;
+      animation-delay: 2s;
+      animation-duration: 4.8s;
+    }
+    .pro-brand-page .pb-sign-spark:nth-child(8) {
+      right: 24%;
+      bottom: 76%;
+      --spark-drift: -9px;
+      --spark-rise: 36px;
+      animation-delay: 0.7s;
+      animation-duration: 5s;
+    }
+    .pro-brand-page .pb-sign-spark:nth-child(9) {
+      left: 12%;
+      bottom: 18%;
+      --spark-drift: 18px;
+      --spark-rise: 36px;
+      animation-delay: 2.6s;
+      animation-duration: 5.6s;
+    }
+    .pro-brand-page .pb-sign-spark:nth-child(10) {
+      right: 12%;
+      bottom: 16%;
+      --spark-drift: -18px;
+      --spark-rise: 38px;
+      animation-delay: 2.3s;
+      animation-duration: 5.4s;
+    }
+    .pro-brand-page .pb-sign-image {
+      position: relative;
+      z-index: 2;
+      display: block;
+      width: min(100%, 23rem);
+      height: auto;
+      max-height: 100%;
+      object-fit: contain;
+      object-position: center bottom;
+      filter: drop-shadow(0 18px 30px rgba(255, 85, 46, 0.16));
+      transform: translateY(0);
     }
     @keyframes pb-meaning-flicker {
       0%, 100% { opacity: 0.24; transform: scale(0.98); }
@@ -604,6 +745,58 @@
         filter: drop-shadow(0 0 10px rgba(255, 82, 42, 0.08));
       }
     }
+    @keyframes pb-sign-burst {
+      0%, 100% {
+        opacity: 0.26;
+        transform: scale(0.86);
+      }
+      22% {
+        opacity: 0.52;
+        transform: scale(1.02);
+      }
+      48% {
+        opacity: 0.3;
+        transform: scale(0.94);
+      }
+      72% {
+        opacity: 0.58;
+        transform: scale(1.08);
+      }
+    }
+    @keyframes pb-sign-core-pulse {
+      0%, 100% {
+        opacity: 0.28;
+        transform: scale(0.94);
+      }
+      35% {
+        opacity: 0.42;
+        transform: scale(1.02);
+      }
+      60% {
+        opacity: 0.22;
+        transform: scale(0.98);
+      }
+      82% {
+        opacity: 0.46;
+        transform: scale(1.06);
+      }
+    }
+    @keyframes pb-sign-spark {
+      0% {
+        transform: translate3d(0, 8px, 0) scale(0.6) rotate(var(--spark-tilt));
+        opacity: 0;
+      }
+      18% {
+        opacity: 0.88;
+      }
+      46% {
+        opacity: 0.38;
+      }
+      100% {
+        transform: translate3d(var(--spark-drift), calc(-1 * var(--spark-rise)), 0) scale(1) rotate(calc(var(--spark-tilt) + var(--spark-rotate)));
+        opacity: 0;
+      }
+    }
     .pro-brand-page .pb-proof-card {
       min-height: 100%;
     }
@@ -618,6 +811,9 @@
       }
       .pro-brand-page .pb-sign-visual {
         min-height: clamp(13rem, 29vw, 16rem);
+      }
+      .pro-brand-page .pb-sign-image {
+        width: min(100%, 21rem);
       }
       .pro-brand-page .pb-meaning-layout {
         min-height: 0;
@@ -681,6 +877,9 @@
       .pro-brand-page .pb-sign-visual {
         min-height: 14.5rem;
       }
+      .pro-brand-page .pb-sign-image {
+        width: min(100%, 19rem);
+      }
       .pro-brand-page .pb-title {
         font-size: clamp(2.65rem, 12vw, 4rem);
       }
@@ -688,6 +887,9 @@
     @media (max-width: 640px) {
       .pro-brand-page .pb-sign-visual {
         min-height: 12.5rem;
+      }
+      .pro-brand-page .pb-sign-image {
+        width: min(100%, 16rem);
       }
       .pro-brand-page .pb-meaning-visual {
         width: min(100%, 16rem);
@@ -701,6 +903,12 @@
       }
     }
     @media (prefers-reduced-motion: reduce) {
+      .pro-brand-page .pb-sign-visual::before,
+      .pro-brand-page .pb-sign-visual::after,
+      .pro-brand-page .pb-sign-core-glow,
+      .pro-brand-page .pb-sign-spark {
+        animation: none !important;
+      }
       .pro-brand-page .pb-meaning-visual::before,
       .pro-brand-page .pb-meaning-glow,
       .pro-brand-page .pb-meaning-ember,
@@ -876,6 +1084,19 @@
               <p class="pb-bento-text">Ми використовуємо цей знак як нагадування: тримай стан, не втрачай зв’язок зі своїми і не став крапку там, де має бути продовження.</p>
             </div>
             <div class="pb-sign-visual" aria-hidden="true">
+              <span class="pb-sign-core-glow"></span>
+              <div class="pb-sign-sparks">
+                <span class="pb-sign-spark"></span>
+                <span class="pb-sign-spark"></span>
+                <span class="pb-sign-spark"></span>
+                <span class="pb-sign-spark"></span>
+                <span class="pb-sign-spark"></span>
+                <span class="pb-sign-spark"></span>
+                <span class="pb-sign-spark"></span>
+                <span class="pb-sign-spark"></span>
+                <span class="pb-sign-spark"></span>
+                <span class="pb-sign-spark"></span>
+              </div>
               <img src="{% static 'img/logo_fire/stena.png' %}" alt="" width="1600" height="1232" loading="lazy" decoding="async" class="pb-sign-image">
             </div>
           </div>
