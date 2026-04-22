@@ -142,7 +142,6 @@ def web_push_settings(request):
             "enabled": push_enabled,
             "vapidPublicKey": getattr(settings, "WEB_PUSH_VAPID_PUBLIC_KEY", ""),
             "serviceWorkerUrl": getattr(settings, "WEB_PUSH_SERVICE_WORKER_PATH", "/sw.js"),
-            "serviceWorkerUrl": getattr(settings, "WEB_PUSH_SERVICE_WORKER_PATH", "/sw.js"),
             "subscribeUrl": subscribe_url,
             "unsubscribeUrl": unsubscribe_url,
             "promptDelayMs": int(getattr(settings, "WEB_PUSH_PROMPT_DELAY_MS", 12000) or 12000),
