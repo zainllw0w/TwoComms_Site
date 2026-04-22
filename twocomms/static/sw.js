@@ -1,4 +1,4 @@
-const SW_VERSION = '2026-04-22-push-v1';
+const SW_VERSION = '2026-04-22-push-v2';
 const EVENTS_ENDPOINT = '/push/events/';
 
 function postDeliveryEvent(eventType, deliveryToken) {
@@ -42,6 +42,7 @@ function buildNotificationOptions(payload) {
     icon: payload.icon || '/static/img/favicon-192x192.png',
     badge: payload.badge || payload.icon || '/static/img/favicon-192x192.png',
     image: payload.image || undefined,
+    timestamp: payload.timestamp || Date.now(),
     tag: payload.tag || undefined,
     renotify: false,
     requireInteraction: false,

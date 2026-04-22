@@ -3,6 +3,7 @@ from django.conf import settings
 from django.urls import NoReverseMatch, reverse
 from django.templatetags.static import static
 
+from accounts.models import UserProfile
 from storefront.services.web_push import is_web_push_configured
 
 
@@ -101,14 +102,33 @@ def web_push_settings(request):
     icon_path = getattr(settings, "WEB_PUSH_ICON_PATH", "") or static("img/favicon-192x192.png")
     badge_path = getattr(settings, "WEB_PUSH_BADGE_PATH", "") or static("img/favicon-192x192.png")
     push_enabled = is_web_push_configured()
+    current_user = getattr(request, "user", None)
+    is_authenticated = bool(getattr(current_user, "is_authenticated", False))
+    viewer_preferences = {
+        "marketingEnabled": True,
+        "orderUpdatesEnabled": True,
+    }
 
     try:
         subscribe_url = reverse("push_subscribe")
         unsubscribe_url = reverse("push_unsubscribe")
+        profile_url = reverse("profile_setup")
     except NoReverseMatch:
         subscribe_url = ""
         unsubscribe_url = ""
+        profile_url = ""
         push_enabled = False
+
+    if is_authenticated:
+        try:
+            profile = current_user.userprofile
+        except UserProfile.DoesNotExist:
+            profile = None
+        if profile is not None:
+            viewer_preferences = {
+                "marketingEnabled": bool(profile.push_marketing_enabled),
+                "orderUpdatesEnabled": bool(profile.push_order_updates_enabled),
+            }
 
     def _abs_url(path):
         if not path:
@@ -128,5 +148,24 @@ def web_push_settings(request):
             "siteBaseUrl": base_url,
             "defaultIconUrl": _abs_url(icon_path),
             "defaultBadgeUrl": _abs_url(badge_path),
+            "viewer": {
+                "isAuthenticated": is_authenticated,
+                "profileUrl": profile_url,
+                "preferences": viewer_preferences,
+            },
+            "strategy": {
+                "repeatVisitMin": int(getattr(settings, "WEB_PUSH_PROMPT_MIN_REPEAT_VISITS", 2) or 2),
+                "pageViewMin": int(getattr(settings, "WEB_PUSH_PROMPT_MIN_PAGE_VIEWS", 3) or 3),
+                "warmupMs": int(getattr(settings, "WEB_PUSH_PROMPT_WARMUP_MS", 45000) or 45000),
+                "visitGapMs": int(getattr(settings, "WEB_PUSH_PROMPT_VISIT_GAP_MS", 21600000) or 21600000),
+                "cartPromptDelayMs": int(getattr(settings, "WEB_PUSH_CART_PROMPT_DELAY_MS", 2500) or 2500),
+                "orderSuccessPromptDelayMs": int(
+                    getattr(settings, "WEB_PUSH_ORDER_SUCCESS_PROMPT_DELAY_MS", 5000) or 5000
+                ),
+                "subscriptionSyncIntervalMs": int(
+                    getattr(settings, "WEB_PUSH_SUBSCRIPTION_SYNC_INTERVAL_MS", 86400000)
+                    or 86400000
+                ),
+            },
         }
     }

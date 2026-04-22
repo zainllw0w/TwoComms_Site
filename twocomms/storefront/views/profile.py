@@ -9,9 +9,11 @@ Profile views - Профиль пользователя и личный каби
 - Настройки уведомлений
 """
 
+from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from accounts.models import UserProfile, FavoriteProduct, UserPoints, PointsHistory
@@ -149,6 +151,13 @@ def profile_setup(request):
     except UserProfile.DoesNotExist:
         prof = UserProfile.objects.create(user=request.user)
 
+    if request.method == 'POST' and request.POST.get('form_type') == 'push_preferences':
+        prof.push_marketing_enabled = 'push_marketing_enabled' in request.POST
+        prof.push_order_updates_enabled = 'push_order_updates_enabled' in request.POST
+        prof.save(update_fields=['push_marketing_enabled', 'push_order_updates_enabled'])
+        messages.success(request, 'Налаштування push-сповіщень оновлено.')
+        return redirect(f"{reverse('profile_setup')}#push-preferences")
+
     if request.method == 'POST':
         form = ProfileSetupForm(request.POST, request.FILES)
         if form.is_valid():
@@ -174,7 +183,8 @@ def profile_setup(request):
                 request.user.email = form.cleaned_data['email']
                 request.user.save()
 
-            return redirect('profile')
+            messages.success(request, 'Профіль оновлено.')
+            return redirect('profile_setup')
     else:
         initial = {
             'full_name': prof.full_name,
@@ -189,7 +199,14 @@ def profile_setup(request):
         }
         form = ProfileSetupForm(initial=initial)
 
-    return render(request, 'pages/auth_profile_setup.html', {'form': form})
+    return render(
+        request,
+        'pages/auth_profile_setup.html',
+        {
+            'form': form,
+            'profile': prof,
+        },
+    )
 
 
 @login_required

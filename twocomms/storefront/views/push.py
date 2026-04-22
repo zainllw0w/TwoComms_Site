@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from accounts.models import UserProfile
 from storefront.models import PushNotificationDelivery, WebPushDeviceSubscription
 from storefront.services.web_push import is_web_push_configured, record_delivery_event
 
@@ -35,6 +36,10 @@ def _validate_subscription_payload(payload):
     if device_type not in {choice[0] for choice in WebPushDeviceSubscription.DeviceType.choices}:
         device_type = WebPushDeviceSubscription.DeviceType.UNKNOWN
 
+    metadata = payload.get("metadata") or {}
+    if not isinstance(metadata, dict):
+        metadata = {}
+
     return {
         "endpoint": endpoint,
         "auth_key": auth_key,
@@ -47,12 +52,27 @@ def _validate_subscription_payload(payload):
         "device_type": device_type,
         "user_agent": (payload.get("user_agent") or request_user_agent(payload)).strip()[:4000],
         "last_seen_path": (payload.get("last_seen_path") or "").strip()[:512],
-        "metadata": payload.get("metadata") or {},
+        "metadata": metadata,
     }
 
 
 def request_user_agent(payload):
     return payload.get("userAgent") or payload.get("user_agent") or ""
+
+
+def _user_preference_snapshot(user):
+    if not getattr(user, "is_authenticated", False):
+        return {}
+
+    try:
+        profile = user.userprofile
+    except UserProfile.DoesNotExist:
+        return {}
+
+    return {
+        "marketing_enabled": bool(profile.push_marketing_enabled),
+        "order_updates_enabled": bool(profile.push_order_updates_enabled),
+    }
 
 
 @require_http_methods(["POST"])
@@ -64,6 +84,13 @@ def push_subscribe(request):
     normalized = _validate_subscription_payload(payload)
     if normalized is None:
         return JsonResponse({"ok": False, "error": "Invalid push subscription payload."}, status=400)
+
+    preference_snapshot = _user_preference_snapshot(request.user)
+    if preference_snapshot:
+        normalized["metadata"] = {
+            **normalized["metadata"],
+            "user_preferences": preference_snapshot,
+        }
 
     installation_id = normalized["installation_id"]
     endpoint = normalized["endpoint"]

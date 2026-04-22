@@ -82,6 +82,34 @@ class WebPushFlowTests(TestCase):
         self.assertEqual(subscription.browser_family, "Chrome")
         self.assertTrue(subscription.is_active)
 
+    def test_push_subscribe_stores_authenticated_user_preference_snapshot(self):
+        user = self.user_model.objects.create_user(
+            username="push_customer",
+            password="secret123",
+        )
+        user.userprofile.push_marketing_enabled = False
+        user.userprofile.push_order_updates_enabled = True
+        user.userprofile.save(update_fields=["push_marketing_enabled", "push_order_updates_enabled"])
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("push_subscribe"),
+            data=json.dumps(self._subscription_payload()),
+            content_type="application/json",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        subscription = WebPushDeviceSubscription.objects.get()
+        self.assertEqual(subscription.user, user)
+        self.assertEqual(
+            subscription.metadata["user_preferences"],
+            {
+                "marketing_enabled": False,
+                "order_updates_enabled": True,
+            },
+        )
+
     def test_push_subscribe_rejects_requests_without_pywebpush_dependency(self):
         with patch.object(web_push_service, "webpush", None):
             response = self.client.post(
@@ -163,6 +191,70 @@ class WebPushFlowTests(TestCase):
                 web_push_service.send_campaign(campaign)
 
         self.assertIs(mocked_webpush.call_args.kwargs["vapid_private_key"], fake_vapid)
+
+    @patch("storefront.services.web_push.webpush")
+    def test_send_campaign_skips_users_with_marketing_push_disabled(self, mocked_webpush):
+        mocked_webpush.return_value = SimpleNamespace(status_code=201)
+        enabled_user = self.user_model.objects.create_user(
+            username="push_enabled",
+            password="secret123",
+        )
+        disabled_user = self.user_model.objects.create_user(
+            username="push_disabled",
+            password="secret123",
+        )
+        disabled_user.userprofile.push_marketing_enabled = False
+        disabled_user.userprofile.save(update_fields=["push_marketing_enabled"])
+
+        campaign = PushNotificationCampaign.objects.create(
+            title="Маркетинговий push",
+            body="Тестова маркетингова кампанія",
+            target_url="/catalog/",
+            created_by=self.staff_user,
+        )
+        WebPushDeviceSubscription.objects.create(
+            user=enabled_user,
+            installation_id="install-enabled",
+            endpoint="https://push.example.test/subscription-enabled",
+            auth_key="auth-token",
+            p256dh_key="p256dh-token",
+            browser_family="Chrome",
+            operating_system="macOS",
+            device_type=WebPushDeviceSubscription.DeviceType.DESKTOP,
+            is_active=True,
+        )
+        WebPushDeviceSubscription.objects.create(
+            user=disabled_user,
+            installation_id="install-disabled",
+            endpoint="https://push.example.test/subscription-disabled",
+            auth_key="auth-token",
+            p256dh_key="p256dh-token",
+            browser_family="Chrome",
+            operating_system="macOS",
+            device_type=WebPushDeviceSubscription.DeviceType.DESKTOP,
+            is_active=True,
+        )
+        WebPushDeviceSubscription.objects.create(
+            installation_id="install-anon",
+            endpoint="https://push.example.test/subscription-anon",
+            auth_key="auth-token",
+            p256dh_key="p256dh-token",
+            browser_family="Chrome",
+            operating_system="macOS",
+            device_type=WebPushDeviceSubscription.DeviceType.DESKTOP,
+            is_active=True,
+        )
+
+        result = web_push_service.send_campaign(campaign)
+        endpoints = [
+            call.kwargs["subscription_info"]["endpoint"]
+            for call in mocked_webpush.call_args_list
+        ]
+
+        self.assertEqual(result["sent"], 2)
+        self.assertIn("https://push.example.test/subscription-enabled", endpoints)
+        self.assertIn("https://push.example.test/subscription-anon", endpoints)
+        self.assertNotIn("https://push.example.test/subscription-disabled", endpoints)
 
     def test_home_page_embeds_web_push_config(self):
         response = self.client.get(reverse("home"), secure=True)
@@ -327,6 +419,29 @@ class WebPushFlowTests(TestCase):
         self.assertFalse(payload["enabled"])
         self.assertEqual(payload["subscribeUrl"], "")
         self.assertEqual(payload["unsubscribeUrl"], "")
+
+    def test_web_push_context_processor_exposes_viewer_preferences(self):
+        user = self.user_model.objects.create_user(
+            username="viewer-prefs",
+            password="secret123",
+        )
+        user.userprofile.push_marketing_enabled = False
+        user.userprofile.push_order_updates_enabled = True
+        user.userprofile.save(update_fields=["push_marketing_enabled", "push_order_updates_enabled"])
+        request = self.request_factory.get("/")
+        request.user = user
+
+        payload = web_push_settings(request)["web_push_config"]
+
+        self.assertTrue(payload["viewer"]["isAuthenticated"])
+        self.assertEqual(payload["viewer"]["profileUrl"], reverse("profile_setup"))
+        self.assertEqual(
+            payload["viewer"]["preferences"],
+            {
+                "marketingEnabled": False,
+                "orderUpdatesEnabled": True,
+            },
+        )
 
     @patch("storefront.services.web_push.webpush")
     def test_staff_can_send_push_campaign_from_admin(self, mocked_webpush):

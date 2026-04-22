@@ -2,8 +2,80 @@ import { getCookie } from './shared.js';
 
 const INSTALLATION_ID_KEY = 'twc-web-push-installation-id-v1';
 const DISMISS_UNTIL_KEY = 'twc-web-push-dismissed-until';
+const DEVICE_DISABLED_KEY = 'twc-web-push-device-disabled';
+const PROMPT_IMPRESSIONS_KEY = 'twc-web-push-prompt-impressions';
+const VISIT_COUNT_KEY = 'twc-web-push-visit-count';
+const PAGE_VIEW_COUNT_KEY = 'twc-web-push-page-view-count';
+const LAST_SEEN_AT_KEY = 'twc-web-push-last-seen-at';
+const LAST_SYNC_AT_KEY = 'twc-web-push-last-sync-at';
+const LAST_SYNC_AUTH_KEY = 'twc-web-push-last-sync-auth';
+const SESSION_STARTED_AT_KEY = 'twc-web-push-session-started-at';
+const SESSION_PROMPT_SHOWN_KEY = 'twc-web-push-session-prompt-shown';
+
+const MAX_PROMPT_IMPRESSIONS = 4;
+const PROMPT_PRIORITIES = {
+  manual: 100,
+  order_success: 80,
+  cart: 70,
+  engaged: 40,
+};
 
 let registerPromise = null;
+let promptTimerId = null;
+let scheduledPromptPriority = -1;
+let profileControlsBound = false;
+
+function getStorage(kind) {
+  try {
+    return kind === 'session' ? window.sessionStorage : window.localStorage;
+  } catch (_) {
+    return null;
+  }
+}
+
+function storageGet(key, fallback = '', kind = 'local') {
+  const storage = getStorage(kind);
+  if (!storage) {
+    return fallback;
+  }
+  try {
+    const value = storage.getItem(key);
+    return value === null ? fallback : value;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function storageSet(key, value, kind = 'local') {
+  const storage = getStorage(kind);
+  if (!storage) {
+    return;
+  }
+  try {
+    storage.setItem(key, String(value));
+  } catch (_) { }
+}
+
+function storageRemove(key, kind = 'local') {
+  const storage = getStorage(kind);
+  if (!storage) {
+    return;
+  }
+  try {
+    storage.removeItem(key);
+  } catch (_) { }
+}
+
+function readNumber(key, kind = 'local', fallback = 0) {
+  const value = parseInt(storageGet(key, '', kind), 10);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function incrementNumber(key, kind = 'local') {
+  const nextValue = readNumber(key, kind, 0) + 1;
+  storageSet(key, nextValue, kind);
+  return nextValue;
+}
 
 function readConfig() {
   const node = document.getElementById('web-push-config');
@@ -18,46 +90,80 @@ function readConfig() {
   }
 }
 
+function readStrategy(config) {
+  const strategy = config?.strategy || {};
+  return {
+    repeatVisitMin: Math.max(1, Number(strategy.repeatVisitMin || 2)),
+    pageViewMin: Math.max(1, Number(strategy.pageViewMin || 3)),
+    warmupMs: Math.max(5000, Number(strategy.warmupMs || 45000)),
+    visitGapMs: Math.max(1800000, Number(strategy.visitGapMs || 21600000)),
+    cartPromptDelayMs: Math.max(0, Number(strategy.cartPromptDelayMs || 2500)),
+    orderSuccessPromptDelayMs: Math.max(0, Number(strategy.orderSuccessPromptDelayMs || 5000)),
+    subscriptionSyncIntervalMs: Math.max(
+      300000,
+      Number(strategy.subscriptionSyncIntervalMs || 86400000)
+    ),
+  };
+}
+
 function createInstallationId() {
-  try {
-    const existing = window.localStorage.getItem(INSTALLATION_ID_KEY);
-    if (existing) {
-      return existing;
-    }
-
-    const generated = window.crypto && window.crypto.randomUUID
-      ? window.crypto.randomUUID()
-      : 'twc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12);
-
-    window.localStorage.setItem(INSTALLATION_ID_KEY, generated);
-    return generated;
-  } catch (_) {
-    return 'twc-' + Date.now();
+  const existing = storageGet(INSTALLATION_ID_KEY, '');
+  if (existing) {
+    return existing;
   }
+
+  const generated = window.crypto && window.crypto.randomUUID
+    ? window.crypto.randomUUID()
+    : 'twc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12);
+  storageSet(INSTALLATION_ID_KEY, generated);
+  return generated;
+}
+
+function getPermissionState() {
+  if (!('Notification' in window)) {
+    return 'unsupported';
+  }
+  return Notification.permission;
 }
 
 function isDismissed() {
-  try {
-    const until = parseInt(window.localStorage.getItem(DISMISS_UNTIL_KEY) || '0', 10);
-    return Number.isFinite(until) && until > Date.now();
-  } catch (_) {
-    return false;
-  }
+  return readNumber(DISMISS_UNTIL_KEY, 'local', 0) > Date.now();
 }
 
 function dismissPrompt(days = 21) {
-  try {
-    window.localStorage.setItem(
-      DISMISS_UNTIL_KEY,
-      String(Date.now() + days * 24 * 60 * 60 * 1000)
-    );
-  } catch (_) { }
+  storageSet(DISMISS_UNTIL_KEY, Date.now() + days * 24 * 60 * 60 * 1000);
 }
 
 function clearDismissal() {
-  try {
-    window.localStorage.removeItem(DISMISS_UNTIL_KEY);
-  } catch (_) { }
+  storageRemove(DISMISS_UNTIL_KEY);
+}
+
+function isDeviceDisabled() {
+  return storageGet(DEVICE_DISABLED_KEY, '0') === '1';
+}
+
+function setDeviceDisabled(disabled) {
+  storageSet(DEVICE_DISABLED_KEY, disabled ? '1' : '0');
+}
+
+function hasPromptShownThisSession() {
+  return storageGet(SESSION_PROMPT_SHOWN_KEY, '', 'session') !== '';
+}
+
+function markPromptShownThisSession(reason) {
+  storageSet(SESSION_PROMPT_SHOWN_KEY, reason || '1', 'session');
+}
+
+function markPromptImpression() {
+  incrementNumber(PROMPT_IMPRESSIONS_KEY);
+}
+
+function clearScheduledPrompt() {
+  if (promptTimerId) {
+    window.clearTimeout(promptTimerId);
+    promptTimerId = null;
+  }
+  scheduledPromptPriority = -1;
 }
 
 function detectDeviceType() {
@@ -149,6 +255,26 @@ async function ensureServiceWorker() {
   return registerPromise;
 }
 
+function userPreferenceSnapshot(config) {
+  return config?.viewer?.preferences || {
+    marketingEnabled: true,
+    orderUpdatesEnabled: true,
+  };
+}
+
+function markSuccessfulSync(config) {
+  storageSet(LAST_SYNC_AT_KEY, Date.now());
+  storageSet(
+    LAST_SYNC_AUTH_KEY,
+    config?.viewer?.isAuthenticated ? '1' : '0'
+  );
+}
+
+function authStateChangedSinceLastSync(config) {
+  const currentAuthState = config?.viewer?.isAuthenticated ? '1' : '0';
+  return storageGet(LAST_SYNC_AUTH_KEY, '') !== currentAuthState;
+}
+
 async function syncSubscription(config, subscription) {
   const payload = {
     subscription: subscription.toJSON(),
@@ -162,7 +288,8 @@ async function syncSubscription(config, subscription) {
     last_seen_path: window.location.pathname + window.location.search,
     metadata: {
       standalone: isStandalone(),
-      permission: Notification.permission,
+      permission: getPermissionState(),
+      preferences: userPreferenceSnapshot(config),
     },
   };
 
@@ -182,6 +309,9 @@ async function syncSubscription(config, subscription) {
   }
 
   clearDismissal();
+  setDeviceDisabled(false);
+  markSuccessfulSync(config);
+  dispatchPushStateChange(config);
   return response.json().catch(() => ({}));
 }
 
@@ -198,6 +328,76 @@ async function subscribeUser(config) {
 
   await syncSubscription(config, subscription);
   return subscription;
+}
+
+async function syncGrantedSubscription(config, options = {}) {
+  const { force = false } = options;
+  const strategy = readStrategy(config);
+  const permission = getPermissionState();
+
+  if (permission !== 'granted' || !canUsePush() || isDeviceDisabled()) {
+    dispatchPushStateChange(config);
+    return false;
+  }
+
+  const lastSyncAt = readNumber(LAST_SYNC_AT_KEY, 'local', 0);
+  const syncIsFresh = lastSyncAt && (Date.now() - lastSyncAt) < strategy.subscriptionSyncIntervalMs;
+  if (!force && syncIsFresh && !authStateChangedSinceLastSync(config)) {
+    dispatchPushStateChange(config);
+    return false;
+  }
+
+  try {
+    await subscribeUser(config);
+    return true;
+  } catch (_) {
+    dispatchPushStateChange(config);
+    return false;
+  }
+}
+
+async function unsubscribeDevice(config) {
+  const payload = {
+    installation_id: createInstallationId(),
+  };
+
+  if (canUsePush()) {
+    try {
+      const registration = await ensureServiceWorker();
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        payload.endpoint = subscription.endpoint || '';
+        try {
+          await subscription.unsubscribe();
+        } catch (_) { }
+      }
+    } catch (_) { }
+  }
+
+  if (config?.unsubscribeUrl) {
+    try {
+      await fetch(config.unsubscribeUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
+      });
+    } catch (_) { }
+  }
+
+  setDeviceDisabled(true);
+  storageRemove(LAST_SYNC_AT_KEY);
+  storageSet(
+    LAST_SYNC_AUTH_KEY,
+    config?.viewer?.isAuthenticated ? '1' : '0'
+  );
+  clearScheduledPrompt();
+  removePromptCard();
+  dispatchPushStateChange(config);
 }
 
 function removePromptCard() {
@@ -228,7 +428,40 @@ function maybeNotify(message, type = 'info') {
   }
 }
 
-function buildPromptCard(mode) {
+function promptCopy(reason) {
+  if (reason === 'order_success') {
+    return {
+      title: 'Отримувати статус цього замовлення?',
+      body: 'Увімкніть push, щоб бачити доставку, оновлення замовлення та важливі повідомлення без зайвих листів.',
+      action: 'Увімкнути',
+    };
+  }
+
+  if (reason === 'cart') {
+    return {
+      title: 'Увімкнути push-сповіщення?',
+      body: 'Ми повідомимо про статус замовлення, важливі оновлення та вигідні пропозиції саме тоді, коли це доречно.',
+      action: 'Увімкнути',
+    };
+  }
+
+  if (reason === 'manual') {
+    return {
+      title: 'Налаштувати push-сповіщення',
+      body: 'Увімкніть push у цьому браузері, щоб TwoComms міг надсилати статуси замовлень та важливі оновлення.',
+      action: 'Продовжити',
+    };
+  }
+
+  return {
+    title: 'Увімкнути push-сповіщення?',
+    body: 'Отримуйте нові дропи, важливі оновлення та спецпропозиції TwoComms прямо в браузері.',
+    action: 'Увімкнути',
+  };
+}
+
+function buildPromptCard(mode, reason) {
+  const copy = promptCopy(reason);
   const wrapper = document.createElement('aside');
   wrapper.className = 'web-push-prompt';
   wrapper.setAttribute('data-web-push-prompt', '1');
@@ -240,9 +473,9 @@ function buildPromptCard(mode) {
       <div class="web-push-prompt__content">
         <div class="web-push-prompt__icon" aria-hidden="true">Push</div>
         <div class="web-push-prompt__text">
-          <div class="web-push-prompt__title">Push-сповіщення на iPhone/iPad</div>
+          <div class="web-push-prompt__title">Push на iPhone/iPad</div>
           <p class="web-push-prompt__copy" data-web-push-copy>
-            Додайте TwoComms на домашній екран, а потім відкрийте сайт як вебзастосунок, щоб увімкнути системні push-сповіщення.
+            Додайте TwoComms на домашній екран, відкрийте сайт як застосунок і після цього дозвольте системні сповіщення.
           </p>
         </div>
         <div class="web-push-prompt__actions">
@@ -260,17 +493,15 @@ function buildPromptCard(mode) {
     <div class="web-push-prompt__content">
       <div class="web-push-prompt__icon" aria-hidden="true">Push</div>
       <div class="web-push-prompt__text">
-        <div class="web-push-prompt__title">Увімкнути push-сповіщення?</div>
-        <p class="web-push-prompt__copy" data-web-push-copy>
-          Отримуйте нові дропи, важливі оновлення та спецпропозиції TwoComms прямо в браузері.
-        </p>
+        <div class="web-push-prompt__title">${copy.title}</div>
+        <p class="web-push-prompt__copy" data-web-push-copy>${copy.body}</p>
       </div>
       <div class="web-push-prompt__actions">
         <button type="button" class="web-push-prompt__btn web-push-prompt__btn--ghost" data-web-push-dismiss>
           Пізніше
         </button>
         <button type="button" class="web-push-prompt__btn web-push-prompt__btn--primary" data-web-push-enable>
-          Увімкнути
+          ${copy.action}
         </button>
       </div>
     </div>
@@ -278,15 +509,56 @@ function buildPromptCard(mode) {
   return wrapper;
 }
 
-function showPromptCard(config, mode) {
+function shouldShowPrompt(config, options = {}) {
+  const { force = false } = options;
+  if (!config || !config.enabled || !config.vapidPublicKey) {
+    return false;
+  }
+  if (document.documentElement.hasAttribute('data-no-web-push')) {
+    return false;
+  }
+  if (document.visibilityState === 'hidden') {
+    return false;
+  }
+  if (getPermissionState() !== 'default') {
+    return false;
+  }
+  if (!force && isDismissed()) {
+    return false;
+  }
+  if (!force && isDeviceDisabled()) {
+    return false;
+  }
+  if (!force && hasPromptShownThisSession()) {
+    return false;
+  }
+  if (!force && readNumber(PROMPT_IMPRESSIONS_KEY, 'local', 0) >= MAX_PROMPT_IMPRESSIONS) {
+    return false;
+  }
+  return true;
+}
+
+function showPromptCard(config, options = {}) {
+  const { mode = 'default', reason = 'engaged', force = false } = options;
+  if (!shouldShowPrompt(config, { force })) {
+    dispatchPushStateChange(config);
+    return false;
+  }
+
+  clearScheduledPrompt();
   removePromptCard();
-  const card = buildPromptCard(mode);
+  markPromptShownThisSession(reason);
+  markPromptImpression();
+
+  const card = buildPromptCard(mode, reason);
   document.body.appendChild(card);
+  dispatchPushStateChange(config);
 
   const dismissButton = card.querySelector('[data-web-push-dismiss]');
   dismissButton?.addEventListener('click', () => {
-    dismissPrompt(mode === 'ios_install' ? 30 : 21);
+    dismissPrompt(mode === 'ios_install' ? 7 : 21);
     removePromptCard();
+    dispatchPushStateChange(config);
   });
 
   const enableButton = card.querySelector('[data-web-push-enable]');
@@ -300,33 +572,286 @@ function showPromptCard(config, mode) {
         dismissPrompt(45);
         updatePromptState('Дозвіл не надано. Ви завжди можете змінити це в налаштуваннях браузера.', 'warning');
         maybeNotify('Push-сповіщення не увімкнено.', 'info');
-        setTimeout(removePromptCard, 4200);
+        dispatchPushStateChange(config);
+        window.setTimeout(removePromptCard, 4200);
         return;
       }
 
-      await subscribeUser(config);
+      await syncGrantedSubscription(config, { force: true });
       updatePromptState('Push-сповіщення увімкнено. Нові повідомлення прийдуть у браузер автоматично.', 'success');
       maybeNotify('Push-сповіщення успішно увімкнено.', 'success');
-      setTimeout(removePromptCard, 2400);
+      dispatchPushStateChange(config);
+      window.setTimeout(removePromptCard, 2400);
     } catch (error) {
       updatePromptState(error?.message || 'Не вдалося налаштувати push-сповіщення.', 'warning');
       maybeNotify(error?.message || 'Не вдалося налаштувати push-сповіщення.', 'error');
       enableButton.disabled = false;
+      dispatchPushStateChange(config);
     }
+  });
+
+  return true;
+}
+
+function schedulePrompt(config, reason, delayMs, options = {}) {
+  const priority = PROMPT_PRIORITIES[reason] || 0;
+  if (promptTimerId && priority < scheduledPromptPriority) {
+    return false;
+  }
+
+  clearScheduledPrompt();
+  scheduledPromptPriority = priority;
+  promptTimerId = window.setTimeout(() => {
+    promptTimerId = null;
+    scheduledPromptPriority = -1;
+    showPromptCard(config, {
+      mode: isIOS() && !isStandalone() ? 'ios_install' : 'default',
+      reason,
+      force: options.force === true,
+    });
+  }, Math.max(0, delayMs));
+
+  return true;
+}
+
+function readEngagement(config) {
+  const strategy = readStrategy(config);
+  const now = Date.now();
+  const lastSeenAt = readNumber(LAST_SEEN_AT_KEY, 'local', 0);
+  if (!storageGet(SESSION_STARTED_AT_KEY, '', 'session')) {
+    storageSet(SESSION_STARTED_AT_KEY, now, 'session');
+  }
+
+  if (!lastSeenAt || (now - lastSeenAt) > strategy.visitGapMs) {
+    incrementNumber(VISIT_COUNT_KEY);
+  }
+
+  storageSet(LAST_SEEN_AT_KEY, now);
+  incrementNumber(PAGE_VIEW_COUNT_KEY);
+}
+
+function engagementSnapshot(config) {
+  const sessionStartedAt = readNumber(SESSION_STARTED_AT_KEY, 'session', Date.now());
+  return {
+    visits: readNumber(VISIT_COUNT_KEY, 'local', 0),
+    pageViews: readNumber(PAGE_VIEW_COUNT_KEY, 'local', 0),
+    sessionMs: Math.max(0, Date.now() - sessionStartedAt),
+    strategy: readStrategy(config),
+  };
+}
+
+function isOrderSuccessPage() {
+  return Boolean(document.getElementById('purchase-payload'));
+}
+
+function maybeScheduleEngagedPrompt(config) {
+  if (!shouldShowPrompt(config)) {
+    return;
+  }
+
+  const snapshot = engagementSnapshot(config);
+  if (snapshot.visits < snapshot.strategy.repeatVisitMin) {
+    return;
+  }
+  if (snapshot.pageViews < snapshot.strategy.pageViewMin) {
+    return;
+  }
+
+  const promptDelay = Math.max(1000, Number(config.promptDelayMs || 12000));
+  const remainingWarmupMs = Math.max(0, snapshot.strategy.warmupMs - snapshot.sessionMs);
+  schedulePrompt(config, 'engaged', Math.max(promptDelay, remainingWarmupMs));
+}
+
+function pushProfileNodes() {
+  const root = document.querySelector('[data-web-push-profile]');
+  if (!root) {
+    return null;
+  }
+  return {
+    root,
+    status: root.querySelector('[data-web-push-profile-status]'),
+    detail: root.querySelector('[data-web-push-profile-detail]'),
+    enable: root.querySelector('[data-web-push-profile-enable]'),
+    disable: root.querySelector('[data-web-push-profile-disable]'),
+  };
+}
+
+function profileStateText(config) {
+  const permission = getPermissionState();
+  if (permission === 'denied') {
+    return {
+      state: 'denied',
+      status: 'Push заблоковані у браузері',
+      detail: 'Щоб увімкнути їх знову, дозвольте сповіщення для цього сайту в налаштуваннях браузера.',
+      canEnable: false,
+      canDisable: false,
+      enableLabel: 'Недоступно',
+    };
+  }
+
+  if (permission === 'granted' && !isDeviceDisabled()) {
+    return {
+      state: 'enabled',
+      status: 'Push увімкнено на цьому пристрої',
+      detail: 'Цей браузер отримуватиме масові кампанії та персональні оновлення, коли вони будуть підключені.',
+      canEnable: false,
+      canDisable: true,
+      enableLabel: 'Увімкнено',
+    };
+  }
+
+  if (permission === 'granted' && isDeviceDisabled()) {
+    return {
+      state: 'device_disabled',
+      status: 'Push вимкнено для цього браузера',
+      detail: 'Системний дозвіл у браузері залишився, але сайт більше не використовує цю підписку, доки ви не ввімкнете її знову.',
+      canEnable: true,
+      canDisable: false,
+      enableLabel: 'Увімкнути знову',
+    };
+  }
+
+  if (isIOS() && !isStandalone()) {
+    return {
+      state: 'ios_install',
+      status: 'На iPhone/iPad спочатку додайте сайт на екран Додому',
+      detail: 'Після запуску TwoComms як вебзастосунку ви зможете ввімкнути системні push-сповіщення для цього пристрою.',
+      canEnable: true,
+      canDisable: false,
+      enableLabel: 'Показати інструкцію',
+    };
+  }
+
+  if (!canUsePush()) {
+    return {
+      state: 'unsupported',
+      status: 'У цьому режимі браузера Web Push недоступний',
+      detail: 'Спробуйте сучасний браузер з HTTPS та підтримкою service worker, щоб увімкнути сповіщення.',
+      canEnable: false,
+      canDisable: false,
+      enableLabel: 'Недоступно',
+    };
+  }
+
+  return {
+    state: 'default',
+    status: 'Push ще не увімкнено в цьому браузері',
+    detail: 'Увімкніть сповіщення тут, щоб отримувати статуси замовлень, важливі оновлення та релевантні пропозиції.',
+    canEnable: true,
+    canDisable: false,
+    enableLabel: 'Увімкнути в цьому браузері',
+  };
+}
+
+function renderProfileControls(config) {
+  const nodes = pushProfileNodes();
+  if (!nodes) {
+    return;
+  }
+
+  const view = profileStateText(config);
+  nodes.root.setAttribute('data-state', view.state);
+
+  if (nodes.status) {
+    nodes.status.textContent = view.status;
+  }
+  if (nodes.detail) {
+    nodes.detail.textContent = view.detail;
+  }
+  if (nodes.enable) {
+    nodes.enable.textContent = view.enableLabel;
+    nodes.enable.hidden = !view.canEnable;
+    nodes.enable.disabled = !view.canEnable;
+  }
+  if (nodes.disable) {
+    nodes.disable.hidden = !view.canDisable;
+    nodes.disable.disabled = !view.canDisable;
+  }
+}
+
+function dispatchPushStateChange(config) {
+  renderProfileControls(config);
+  try {
+    document.dispatchEvent(new CustomEvent('twc:web-push-state', {
+      detail: {
+        permission: getPermissionState(),
+        deviceDisabled: isDeviceDisabled(),
+        isStandalone: isStandalone(),
+      },
+    }));
+  } catch (_) { }
+}
+
+async function handleManualEnable(config) {
+  const permission = getPermissionState();
+
+  if (permission === 'granted') {
+    const synced = await syncGrantedSubscription(config, { force: true });
+    if (synced) {
+      maybeNotify('Push-сповіщення увімкнено для цього браузера.', 'success');
+    }
+    return;
+  }
+
+  if (permission === 'denied') {
+    maybeNotify('Push вже заблоковані в налаштуваннях браузера.', 'info');
+    dispatchPushStateChange(config);
+    return;
+  }
+
+  showPromptCard(config, {
+    mode: isIOS() && !isStandalone() ? 'ios_install' : 'default',
+    reason: 'manual',
+    force: true,
   });
 }
 
-function shouldShowPrompt() {
-  if (document.documentElement.hasAttribute('data-no-web-push')) {
-    return false;
+function bindProfileControls(config) {
+  if (profileControlsBound) {
+    renderProfileControls(config);
+    return;
   }
-  if (document.visibilityState === 'hidden') {
-    return false;
+
+  const nodes = pushProfileNodes();
+  if (!nodes) {
+    return;
   }
-  if (isDismissed()) {
-    return false;
-  }
-  return true;
+
+  profileControlsBound = true;
+  nodes.enable?.addEventListener('click', (event) => {
+    event.preventDefault();
+    handleManualEnable(config).catch(() => undefined);
+  });
+  nodes.disable?.addEventListener('click', (event) => {
+    event.preventDefault();
+    unsubscribeDevice(config)
+      .then(() => maybeNotify('Push-сповіщення для цього браузера вимкнено.', 'success'))
+      .catch(() => maybeNotify('Не вдалося вимкнути push-сповіщення.', 'error'));
+  });
+  renderProfileControls(config);
+}
+
+function bindIntentSignals(config) {
+  document.addEventListener('cartUpdated', (event) => {
+    const detail = event?.detail || {};
+    if (detail.action !== 'add' || !shouldShowPrompt(config)) {
+      return;
+    }
+    schedulePrompt(
+      config,
+      'cart',
+      readStrategy(config).cartPromptDelayMs
+    );
+  });
+
+  document.addEventListener('click', (event) => {
+    const toggle = event.target.closest('[data-web-push-open]');
+    if (!toggle) {
+      return;
+    }
+    event.preventDefault();
+    handleManualEnable(config).catch(() => undefined);
+  });
 }
 
 async function bootWebPush(config) {
@@ -334,38 +859,31 @@ async function bootWebPush(config) {
     return;
   }
 
-  if (!window.isSecureContext || !('serviceWorker' in navigator)) {
+  readEngagement(config);
+  bindProfileControls(config);
+  bindIntentSignals(config);
+  dispatchPushStateChange(config);
+
+  if (getPermissionState() === 'granted') {
+    const profilePanelPresent = Boolean(document.querySelector('[data-web-push-profile]'));
+    await syncGrantedSubscription(config, { force: profilePanelPresent });
     return;
   }
 
-  if (Notification.permission === 'granted' && canUsePush()) {
-    try {
-      await subscribeUser(config);
-    } catch (_) { }
+  if (getPermissionState() !== 'default') {
     return;
   }
 
-  if (Notification.permission !== 'default' || !shouldShowPrompt()) {
+  if (isOrderSuccessPage()) {
+    schedulePrompt(
+      config,
+      'order_success',
+      readStrategy(config).orderSuccessPromptDelayMs
+    );
     return;
   }
 
-  const promptDelay = Math.max(1500, Number(config.promptDelayMs || 12000));
-  window.setTimeout(() => {
-    if (!shouldShowPrompt()) {
-      return;
-    }
-
-    if (isIOS() && !isStandalone()) {
-      showPromptCard(config, 'ios_install');
-      return;
-    }
-
-    if (!canUsePush()) {
-      return;
-    }
-
-    showPromptCard(config, 'default');
-  }, promptDelay);
+  maybeScheduleEngagedPrompt(config);
 }
 
 export function initWebPush() {
