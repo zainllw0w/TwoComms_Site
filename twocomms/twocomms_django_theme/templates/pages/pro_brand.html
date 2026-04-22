@@ -4,10 +4,10 @@
 {% load image_optimization %}
 
 {% block title %}TwoComms — харківський бренд одягу про характер, стійкість і продовження{% endblock %}
-{% block description %}TwoComms — український streetwear / military-adjacent бренд із Харкова. Одяг з кодом, сенсовими принтами, реальним походженням і філософією: не крапка, а продовження.{% endblock %}
+{% block description %}TwoComms — український streetwear / military-adjacent бренд одягу з Харкова. Речі з кодом, сенсовими принтами, якісною базою і філософією: не крапка, а продовження.{% endblock %}
 {% block keywords %}TwoComms, харківський бренд одягу, український streetwear бренд, military-adjacent одяг, одяг зі змістом, сенсові принти, дві коми, не крапка а продовження, знак шака, Харків, одяг з кодом, одяг з характером, психологічна броня, внутрішня дисципліна, підтримка ЗСУ{% endblock %}
 {% block og_title %}TwoComms — харківський бренд одягу про характер, стійкість і продовження{% endblock %}
-{% block og_description %}TwoComms — український бренд одягу з Харкова, створений на перетині streetwear, military-adjacent естетики та реального досвіду стійкості.{% endblock %}
+{% block og_description %}TwoComms — український streetwear / military-adjacent бренд одягу з Харкова. Речі з кодом, сенсовими принтами, якісною базою і філософією: не крапка, а продовження.{% endblock %}
 {% block og_url %}{{ brand_page_url }}{% endblock %}
 {% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/favicon-512x512.png' %}{% endblock %}
 {% block og_image_alt %}TwoComms — харківський бренд одягу, streetwear / military-adjacent естетика{% endblock %}
@@ -25,54 +25,50 @@
 {
   "@context": "https://schema.org",
   "@type": "AboutPage",
-  "name": "TwoComms — не крапка. Продовження.",
-  "description": "TwoComms — український бренд одягу з Харкова, створений на перетині streetwear, military-adjacent естетики та реального досвіду стійкості.",
+  "@id": "{{ brand_page_url }}#about-page",
+  "name": "Про бренд TwoComms",
   "url": "{{ brand_page_url }}",
-  "mainEntity": {
-    "@id": "{{ brand_page_url }}#organization"
+  "inLanguage": "uk-UA",
+  "description": "TwoComms — український streetwear / military-adjacent бренд одягу з Харкова. Речі з кодом, сенсовими принтами, якісною базою і філософією: не крапка, а продовження.",
+  "about": {
+    "@id": "https://twocomms.shop/#organization"
   },
   "isPartOf": {
     "@type": "WebSite",
+    "@id": "https://twocomms.shop/#website",
     "name": "TwoComms",
-    "url": "{{ request.scheme }}://{{ request.get_host }}"
-  },
-  "about": {
-    "@id": "{{ brand_page_url }}#organization"
+    "url": "https://twocomms.shop/"
   }
 }
 </script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": ["Organization", "OnlineStore"],
-  "@id": "{{ brand_page_url }}#organization",
+  "@type": "Organization",
+  "@id": "https://twocomms.shop/#organization",
   "name": "TwoComms",
-  "url": "{{ request.scheme }}://{{ request.get_host }}/",
-  "logo": "{{ request.scheme }}://{{ request.get_host }}{% static 'img/favicon-512x512.png' %}",
+  "url": "https://twocomms.shop/",
+  "logo": "https://twocomms.shop{% static 'img/logo.svg' %}",
   "description": "TwoComms — український streetwear / military-adjacent бренд одягу з Харкова, створений навколо ідеї продовження після критичної точки: не крапка, а продовження.",
-  "slogan": "Не крапка. Продовження.",
-  "telephone": "+380966543212",
-  "address": {
-    "@type": "PostalAddress",
-    "addressCountry": "UA",
-    "addressLocality": "Kharkiv"
-  },
-  "foundingLocation": {
-    "@type": "Place",
-    "name": "Kharkiv, Ukraine"
-  },
-  "contactPoint": [
-    {
-      "@type": "ContactPoint",
-      "telephone": "+380966543212",
-      "contactType": "customer support",
-      "availableLanguage": ["Ukrainian", "Russian"]
-    }
-  ],
   "sameAs": [
     "https://instagram.com/twocomms",
     "https://t.me/twocomms"
-  ]
+  ],
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "telephone": "+380966543212",
+    "contactType": "customer support",
+    "availableLanguage": "uk"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": "https://twocomms.shop/#website",
+  "name": "TwoComms",
+  "url": "https://twocomms.shop/"
 }
 </script>
 {% breadcrumb_schema breadcrumb_items %}
@@ -208,10 +204,23 @@
       color: rgba(244, 244, 245, 0.72);
       font-size: 0.85rem;
     }
+    .pro-brand-page .pb-proof-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1.5rem;
+    }
+    .pro-brand-page .pb-proof-card {
+      min-height: 100%;
+    }
     .pro-brand-page #pb-hero-canvas,
     .pro-brand-page .pb-hero-glow,
     .pro-brand-page .pb-hero-noise {
       opacity: 0;
+    }
+    @media (max-width: 1100px) {
+      .pro-brand-page .pb-proof-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
     @media (max-width: 900px) {
       .pro-brand-page .pb-hero {
@@ -219,6 +228,9 @@
         padding: 2.75rem 0 2rem;
       }
       .pro-brand-page .pb-hero-inner {
+        grid-template-columns: 1fr;
+      }
+      .pro-brand-page .pb-proof-grid {
         grid-template-columns: 1fr;
       }
       .pro-brand-page .pb-title {
@@ -251,7 +263,7 @@
   <section class="pb-hero pb-breakout">
     <div class="pb-hero-bg" aria-hidden="true">
       <div class="pb-hero-macro-logo pb-glitch-container" data-tilt>
-        <img src="{% static 'img/logo.svg' %}" alt="TwoComms Logo Background" class="pb-logo-img pb-glitch-base">
+        <img src="{% static 'img/logo.svg' %}" alt="" aria-hidden="true" class="pb-logo-img pb-glitch-base">
         <img src="{% static 'img/logo.svg' %}" alt="" aria-hidden="true" class="pb-logo-img pb-glitch-layer pb-glitch-1">
         <img src="{% static 'img/logo.svg' %}" alt="" aria-hidden="true" class="pb-logo-img pb-glitch-layer pb-glitch-2">
       </div>
@@ -294,13 +306,11 @@
           <li>Одяг з кодом</li>
         </ul>
       </div>
-
-      </div>
     </div>
   </section>
 
   <!-- SUMMARY COMPACT -->
-  <section class="pb-section pb-section-summary pb-reveal" aria-labelledby="brand-summary-title">
+  <section class="pb-section pb-section-summary pb-reveal" id="manifesto" aria-labelledby="what-is-title">
     <div class="pb-container">
       <div class="pb-organic-pill">
         <div class="pb-organic-bg">
@@ -309,16 +319,22 @@
         </div>
         <div class="pb-compact-header">
           <svg class="pb-compact-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
-          <h2 id="brand-summary-title">Що таке TwoComms одним блоком</h2>
+          <h2 id="what-is-title">Що таке TwoComms</h2>
         </div>
         <p class="pb-compact-text">
-          TwoComms — український бренд одягу з Харкова, створений на перетині streetwear, military-adjacent естетики та реального досвіду стійкості. Бренд будується навколо ідеї продовження після критичної точки: не крапка, а кома. Його речі поєднують сенсові принти, харківський код, внутрішню дисципліну, якісну базу та відчуття одягу як психологічної броні.
+          TwoComms — український бренд одягу з Харкова на перетині streetwear, military-adjacent естетики та реального досвіду стійкості. У центрі бренду — ідея продовження після критичної точки: не крапка, а кома. Ми створюємо речі з кодом: сенсові принти, щільну базу, чисту посадку, харківський характер і відчуття одягу як форми, що допомагає тримати стан.
+        </p>
+        <p class="pb-kicker">Не шум. Не роль.</p>
+        <h3 class="pb-heading-l">Форма, яка тримає людину</h3>
+        <p class="pb-compact-text">
+          TwoComms — харківський бренд для людей, яким важливі не випадкові речі, а характер, сенс і внутрішня дисципліна. Ми не продаємо образ війни і не створюємо військову рольову гру. Ми збираємо streetwear із внутрішнім кодом: стійкість, точність, форма і рух далі.
         </p>
         <div class="pb-pill-nav">
-          <a href="#manifesto" class="pb-pill">Маніфест</a>
-          <a href="#video" class="pb-pill">Відео</a>
-          <a href="#kharkiv" class="pb-pill">ДНК Харкова</a>
-          <a href="#prints" class="pb-pill">Сенси</a>
+          <a href="#meaning" class="pb-pill">Назва</a>
+          <a href="#sign" class="pb-pill">Знак</a>
+          <a href="#origin" class="pb-pill">Походження</a>
+          <a href="#kharkiv" class="pb-pill">Харків</a>
+          <a href="#prints" class="pb-pill">Принти</a>
           <a href="#quality" class="pb-pill">Якість</a>
           <a href="#faq" class="pb-pill">FAQ</a>
         </div>
@@ -326,63 +342,49 @@
     </div>
   </section>
 
-  <!-- MANIFESTO BENTO GRID -->
-  <section class="pb-section pt-large pb-breakout" id="manifesto">
+  <!-- BRAND CODE GRID -->
+  <section class="pb-section pt-large pb-breakout" aria-label="Код бренду">
     <div class="pb-container">
-      <div class="pb-section-header pb-reveal">
-        <span class="pb-kicker">Маніфест</span>
-        <h2 class="pb-heading-xl">Не шум. Не роль. <br><span class="pb-text-muted">Форма, яка тримає людину.</span></h2>
-        <p class="pb-section-desc">
-          TwoComms — харківський бренд для людей, яким важливі не випадкові речі, а характер і сенс. Ми не продаємо образ війни. Ми збираємо streetwear із внутрішнім кодом: стійкість, дисципліна, точність і рух далі.
-        </p>
-      </div>
-
       <div class="pb-bento-grid pb-reveal" id="pb-bento-grid">
-        <article class="pb-bento-card pb-col-span-2 pb-card-floating">
+        <article class="pb-bento-card pb-col-span-2 pb-card-floating" id="meaning">
           <div class="pb-bento-bg"></div>
           <div class="pb-bento-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8v12h16V8"></path><path d="M8 8V4h8v4"></path><path d="M12 12v4"></path><path d="M10 14h4"></path></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16"></path><path d="M7 8h5"></path><path d="M12 16h5"></path></svg>
           </div>
           <div class="pb-bento-content">
-            <span class="pb-bento-eyebrow">Що таке TwoComms</span>
-            <h3 class="pb-bento-title">Одяг з кодом</h3>
-            <p class="pb-bento-text">База, посадка, знак і принт у нас працюють як одна система. Річ має не просто виглядати правильно, а тримати стан, коли людина рухається крізь тиск і шум.</p>
+            <span class="pb-bento-eyebrow">Назва бренду</span>
+            <h2 class="pb-bento-title">Що означає назва TwoComms</h2>
+            <p class="pb-bento-text">У назві TwoComms закладено дві коми.</p>
+            <p class="pb-bento-text">Перша кома — критичний стан. Момент на межі, де все могло закінчитися. Друга кома — знак пунктуації. Не фінал, не крапка, не кінець речення, а пауза перед продовженням.</p>
+            <p class="pb-bento-text">Саме тому TwoComms — це не історія про біль заради болю. Це історія про те, що після найважчої точки можна зібрати себе, повернути форму і зробити наступний крок.</p>
           </div>
         </article>
 
-        <article class="pb-bento-card" id="meaning">
-          <div class="pb-bento-bg"></div>
-          <div class="pb-bento-icon">
-             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 10c0-2.5-1.5-4-3.5-4s-3.5 1.5-3.5 4c0 1.5 1 2.8 2.3 3.3l-1.5 3.2c-.4.8.4 1.5 1.2 1l3.5-5.5C12.8 11.2 13.5 10.5 13.5 10z"/></svg>
-          </div>
-          <div class="pb-bento-content">
-            <span class="pb-bento-eyebrow">Не крапка. Продовження.</span>
-            <h3 class="pb-bento-title">Кома замість фіналу</h3>
-            <p class="pb-bento-text">Не кінець, а нова фаза. Не романтизація болю, а готовність продовжити.</p>
-          </div>
-        </article>
-
-        <article class="pb-bento-card pb-card-hollow">
+        <article class="pb-bento-card pb-card-hollow" id="sign">
           <div class="pb-bento-bg"></div>
           <div class="pb-bento-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
           </div>
           <div class="pb-bento-content">
-            <span class="pb-bento-eyebrow">Знак для своїх</span>
-            <h3 class="pb-bento-title">Свій. Живий. Продовжуємо.</h3>
-            <p class="pb-bento-text">Шака — це сигнал для тих, хто розуміє ціну зібраності та контролю.</p>
+            <span class="pb-bento-eyebrow">Сигнал</span>
+            <h2 class="pb-bento-title">Знак для своїх</h2>
+            <p class="pb-bento-text">Шака у TwoComms — не декоративний жест і не пляжний символ. Для нас це короткий сигнал: свій, живий, все ок, продовжуємо.</p>
+            <p class="pb-bento-text">Це знак зв’язку і контролю. Він не потребує зайвих пояснень там, де люди розуміють ціну спокою, зібраності і руху далі.</p>
+            <p class="pb-bento-text">Ми використовуємо цей знак як нагадування: тримай стан, не втрачай зв’язок зі своїми і не став крапку там, де має бути продовження.</p>
           </div>
         </article>
 
-        <article class="pb-bento-card pb-col-span-2 pb-card-dark">
+        <article class="pb-bento-card pb-col-span-2 pb-card-dark" id="origin">
           <div class="pb-bento-bg pb-bg-pattern"></div>
           <div class="pb-bento-content pb-flex-row">
             <div class="pb-bento-text-part">
               <span class="pb-bento-eyebrow">Походження</span>
-              <h3 class="pb-bento-title">З реального досвіду</h3>
+              <h2 class="pb-bento-title">Походження бренду</h2>
+              <p class="pb-bento-text">TwoComms народився з реального досвіду війни, ризику і життя, де помилка має ціну. Це походження не про романтизацію бою і не про тиск на емоції. Воно про стандарт, який формується там, де зайве відсікається саме.</p>
               <p class="pb-bento-text">Після важкого поранення і критичної точки перед засновником залишився вибір: поставити крапку або продовжити. TwoComms став відповіддю на цей вибір.</p>
+              <p class="pb-bento-text">Біль не стала продуктом. Продуктом стала дисципліна, увага до деталей, повага до речі і бажання створювати одяг, який має сенс, тримає форму і витримує реальність.</p>
             </div>
-            <div class="pb-bento-decor">
+            <div class="pb-bento-decor" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.3" class="pb-large-watermark"><path d="M12 2L2 22h20L12 2z"></path><path d="M12 2v20"></path><path d="M2 22l10-10l10 10"></path></svg>
             </div>
           </div>
@@ -397,20 +399,20 @@
       <div class="pb-video-wrapper pb-reveal">
         <div class="pb-video-content">
           <span class="pb-kicker">Візуальна історія</span>
-          <h2 class="pb-heading-l">Бренд-фільм у підготовці.</h2>
-          <p class="pb-text-muted">Готуємо центральну відео-сцену про характер, Харків і продовження. Кадр уже зібраний як тиха прем’єрна рамка, щоб ролик зайшов у сторінку природно, без відчуття тимчасової заглушки.</p>
+          <h2 class="pb-heading-l">Характер. Харків. Продовження.</h2>
+          <p class="pb-text-muted">Візуальна мова TwoComms будується на деталях: фактурі тканини, знаку, принті, міському світлі, тиші й контролі. Ми не показуємо війну як декорацію. Ми показуємо стан, який залишається після критичної точки.</p>
         </div>
         <div class="pb-video-player">
           <div class="pb-player-frame">
             <div class="pb-player-chrome">
-              <span>BRAND FILM</span>
+              <span>VISUAL STORY</span>
               <span>TWOCOMMS</span>
             </div>
             <div class="pb-player-screen">
               <div class="pb-player-glow"></div>
               <div class="pb-player-grid" aria-hidden="true"></div>
               <div class="pb-player-overlay">
-                <span class="pb-player-status">Brand film / soon</span>
+                <span class="pb-player-status">Візуальна мова</span>
                 <div class="pb-player-button" aria-hidden="true">
                   <span class="pb-player-button-core">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"></path></svg>
@@ -418,13 +420,13 @@
                 </div>
                 <div class="pb-player-copy">
                   <strong>Характер. Харків. Продовження.</strong>
-                  <p class="pb-player-note">Місце для головного ролика бренду вже готове: без технічного шуму, з правильною композицією під майбутню прем’єру.</p>
+                  <p class="pb-player-note">Ми не показуємо війну як декорацію. Ми показуємо стан, який залишається після критичної точки.</p>
                 </div>
               </div>
             </div>
             <div class="pb-player-footer">
-              <span>IN DEVELOPMENT</span>
-              <span>16:9 CINEMATIC</span>
+              <span>TWOCOMMS</span>
+              <span>16:9 ATMOSPHERE</span>
             </div>
           </div>
         </div>
@@ -439,13 +441,14 @@
       <div class="pb-split-layout pb-reveal">
         <div class="pb-split-sticky">
            <span class="pb-kicker">ДНК Бренду</span>
-           <h2 class="pb-heading-xl pb-heading-offset">Харків у ДНК TwoComms.</h2>
+           <h2 class="pb-heading-xl pb-heading-offset">Харків у ДНК TwoComms</h2>
         </div>
         <div class="pb-split-text pb-frontier-panel">
           <p class="pb-lead">TwoComms не можна відділити від Харкова.</p>
           <p>Для нас Харків — не геомітка і не декоративна згадка. Це середовище, яке формує характер: фронтир, індустріальна точність, жорсткість без показухи, здатність працювати під тиском і не втрачати форму.</p>
           <p>Багато перших сенсів бренду народжувалися на фоні міста, яке продовжує жити, створювати і триматися попри удари. Харківський код — це про силу міста, яке не зупиняється.</p>
           <p>Харків навчив нас: якщо ідея слабка, вона не витримає реальність. Якщо ідея справжня — вона стає формою, принтом, тканиною, посадкою і рухом далі.</p>
+          <p>Саме тому харківський код у TwoComms проявляється не тільки в принтах, а й у підході до речі: менше випадковості, більше точності, щільності, контролю і поваги до того, як одяг живе на людині.</p>
         </div>
       </div>
     </div>
@@ -456,17 +459,17 @@
     <div class="pb-container">
       <div class="pb-section-header pb-reveal">
         <span class="pb-kicker">Сенси</span>
-        <h2 class="pb-heading-xl">Принти як <span class="pb-text-accent">візуальні коди.</span></h2>
-        <p class="pb-section-desc">Додаємо не просто символи заради шуму. Кожен принт працює як сигнал: для себе, для своїх, і для тієї частини характеру, яку не хочеться пояснювати словами.</p>
+        <h2 class="pb-heading-xl">Принти як <span class="pb-text-accent">візуальні коди</span></h2>
+        <p class="pb-section-desc">Принт у TwoComms — не картинка на тканині. Це візуальний код, який має причину існування.</p>
+        <p class="pb-section-desc">Ми не додаємо символи заради шуму. Кожен принт працює як сигнал: для себе, для своїх, для Харкова, для України і для тієї частини характеру, яку не хочеться пояснювати словами.</p>
       </div>
 
       <div class="pb-codes-grid pb-reveal">
-        
         <article class="pb-banksy-card">
           <div class="pb-banksy-visual">
              <div class="pb-banksy-tape"></div>
              <div class="pb-banksy-frame">
-                {% responsive_image 'images/banksy_idea.png' 'Довіряй своїй божевільній ідеї' sizes='(max-width: 767px) 92vw, (max-width: 1200px) 44vw, 31vw' loading='lazy' class_name='pb-banksy-image' %}
+                {% responsive_image 'images/banksy_idea.png' 'Сенсовий принт TwoComms Довіряй своїй божевільній ідеї' sizes='(max-width: 767px) 92vw, (max-width: 1200px) 44vw, 31vw' loading='lazy' class_name='pb-banksy-image' %}
                 <div class="pb-banksy-noise"></div>
              </div>
           </div>
@@ -479,12 +482,12 @@
              <p class="pb-banksy-desc">Нагадування про стан, у якому людина продовжує рухатися, навіть коли ідея здається неможливою іншим.</p>
           </div>
         </article>
-        
+
         <article class="pb-banksy-card pb-card-stagger-1">
           <div class="pb-banksy-visual">
              <div class="pb-banksy-tape"></div>
              <div class="pb-banksy-frame">
-                {% responsive_image 'images/banksy_freedom.png' 'Рабів до раю не пускають' sizes='(max-width: 767px) 92vw, (max-width: 1200px) 44vw, 31vw' loading='lazy' class_name='pb-banksy-image' %}
+                {% responsive_image 'images/banksy_freedom.png' 'Сенсовий принт TwoComms Рабів до раю не пускають' sizes='(max-width: 767px) 92vw, (max-width: 1200px) 44vw, 31vw' loading='lazy' class_name='pb-banksy-image' %}
                 <div class="pb-banksy-noise"></div>
              </div>
           </div>
@@ -502,7 +505,7 @@
           <div class="pb-banksy-visual">
              <div class="pb-banksy-tape"></div>
              <div class="pb-banksy-frame">
-                {% responsive_image 'images/banksy_kharkiv.png' 'Місто як характер' sizes='(max-width: 767px) 92vw, (max-width: 1200px) 44vw, 31vw' loading='lazy' class_name='pb-banksy-image' %}
+                {% responsive_image 'images/banksy_kharkiv.png' 'Харківський код TwoComms у принті про характер міста' sizes='(max-width: 767px) 92vw, (max-width: 1200px) 44vw, 31vw' loading='lazy' class_name='pb-banksy-image' %}
                 <div class="pb-banksy-noise"></div>
              </div>
           </div>
@@ -515,7 +518,6 @@
              <p class="pb-banksy-desc">Спосіб зафіксувати характер міста: фронтир, стійкість, індустріальну силу і впертість життя.</p>
           </div>
         </article>
-
       </div>
     </div>
   </section>
@@ -525,22 +527,58 @@
     <div class="pb-container">
       <div class="pb-proof-layout pb-reveal">
         <div class="pb-proof-main">
-          <div class="pb-proof-box pb-aurora-panel">
+          <article class="pb-proof-box pb-aurora-panel">
+            <div class="pb-aurora-content">
+              <span class="pb-kicker">Стан</span>
+              <h2 class="pb-heading-l">Річ, що тримає стан</h2>
+              <p>Ми віримо, що одяг впливає на те, як людина тримає себе. Не через магію, а через форму, вагу, фактуру, посадку і сенс, який людина зчитує в речі.</p>
+              <p>Коли тканина має щільність, крій тримає лінію, а принт не випадковий, річ перестає бути просто зовнішнім шаром. Вона стає нагадуванням про стан: зібраність, тишу, контроль і власну опору.</p>
+              <p>Це наша версія психологічної броні. Не імітація фізичного захисту і не військова рольова гра, а внутрішнє відчуття форми, межі й зібраності, яке залишається з тобою в русі.</p>
+            </div>
+          </article>
+          <article class="pb-proof-box pb-aurora-panel">
             <div class="pb-aurora-content">
               <span class="pb-kicker">Якість</span>
-              <h3 class="pb-heading-l">Річ, що тримає стан</h3>
-              <p>Ми віримо, що одяг впливає на те, як людина тримає себе. Не через магію, а через форму, вагу, фактуру і сенс.</p>
-              <p>Це наша версія психологічної броні. Не відчуття захисту і не військова рольова гра, а внутрішнє відчуття форми, яке залишається з тобою в русі.</p>
+              <h2 class="pb-heading-l">Якість, яка доводить ідею</h2>
+              <p>Сильний сенс не працює на слабкій базі. Тому TwoComms починається не з принта, а з речі: тканини, посадки, друку, швів і контролю.</p>
+              <p>Ми не робимо принт на випадковій основі. Якщо річ говорить про характер, вона сама має мати характер: щільність, чисту форму, витриманий друк і відчуття предмета, який не купили випадково.</p>
             </div>
-          </div>
-          <div class="pb-proof-box pb-aurora-panel">
-            <div class="pb-aurora-content">
-              <span class="pb-kicker">Доказ ідеї</span>
-              <h3 class="pb-heading-l">Сильний сенс не працює<br>на слабкій базі</h3>
-              <p>Якість для нас — це повага до людини. Якщо річ говорить про характер, вона сама має мати щільність, чисту посадку, витриманий друк.</p>
-              <p>TwoComms — це спроба зібрати сенс, форму і матеріал в одну чесну річ.</p>
+          </article>
+        </div>
+
+        <div class="pb-proof-grid">
+          <article class="pb-bento-card pb-proof-card">
+            <div class="pb-bento-bg"></div>
+            <div class="pb-bento-content">
+              <span class="pb-bento-eyebrow">База</span>
+              <h3 class="pb-bento-title">База</h3>
+              <p class="pb-bento-text">Щільна тканина, яка тримає силует і дає речі фізичну вагу.</p>
             </div>
-          </div>
+          </article>
+          <article class="pb-bento-card pb-proof-card">
+            <div class="pb-bento-bg"></div>
+            <div class="pb-bento-content">
+              <span class="pb-bento-eyebrow">Посадка</span>
+              <h3 class="pb-bento-title">Посадка</h3>
+              <p class="pb-bento-text">Форма без зайвого шуму: річ має сидіти впевнено і не сковувати рух.</p>
+            </div>
+          </article>
+          <article class="pb-bento-card pb-proof-card">
+            <div class="pb-bento-bg"></div>
+            <div class="pb-bento-content">
+              <span class="pb-bento-eyebrow">Друк</span>
+              <h3 class="pb-bento-title">Друк</h3>
+              <p class="pb-bento-text">Принт має бути частиною речі, а не випадковою картинкою на поверхні.</p>
+            </div>
+          </article>
+          <article class="pb-bento-card pb-proof-card">
+            <div class="pb-bento-bg"></div>
+            <div class="pb-bento-content">
+              <span class="pb-bento-eyebrow">Контроль</span>
+              <h3 class="pb-bento-title">Контроль</h3>
+              <p class="pb-bento-text">Перед відправкою ми перевіряємо вигляд, друк, базу і загальне відчуття речі.</p>
+            </div>
+          </article>
         </div>
 
         <div class="pb-proof-rail">
@@ -576,20 +614,22 @@
       <div class="pb-dual-grid pb-reveal">
         <article class="pb-dual-card">
           <span class="pb-kicker">Позиція</span>
-          <h3 class="pb-heading-l">Зв’язок із фронтом</h3>
-          <p>TwoComms має реальний зв’язок із військовим контекстом, але не продає війну як естетику. Підтримка фронту — це не рекламний важіль, а джерело відповідальності, пам’яті і стандарту. Коли ми робимо дропи чи підтримку ЗСУ, це звучить конкретно і спокійно.</p>
+          <h2 class="pb-heading-l">Зв’язок із фронтом</h2>
+          <p>TwoComms має реальний зв’язок із військовим контекстом, але не продає війну як естетику. Для нас фронт — не декорація і не рекламний важіль. Це джерело відповідальності, пам’яті, стандарту і поваги до людей, які знають ціну речам.</p>
+          <p>Цей зв’язок проявляється в походженні бренду, окремих принтах, колабораціях, підтримці ЗСУ і ставленні до якості. Ми не використовуємо військовий досвід як позу. Ми переводимо його в дисципліну, сенс і речі, які не мають бути випадковими.</p>
         </article>
 
         <article class="pb-dual-card">
           <span class="pb-kicker">Аудиторія</span>
-          <h3 class="pb-heading-l">Для кого TwoComms</h3>
-          <p>Ми не намагаємося подобатися всім. Це бренд для людей, яким близькі український контекст і внутрішня дисципліна: військові, цивільні, ті, хто розуміє смак і не кричить про силу. Цей одяг для тих, хто продовжує рух.</p>
+          <h2 class="pb-heading-l">Для кого TwoComms</h2>
+          <p>TwoComms не намагається подобатися всім. Це бренд для людей, яким близькі характер, український контекст, внутрішня дисципліна і речі з причиною існування.</p>
+          <p>Його можуть носити військові, ветерани, волонтери, цивільні, харків’яни і ті, хто підтримує Україну з різних міст і країн. Головне не статус. Головне — здатність зчитати сенс і носити його без зайвого шуму.</p>
         </article>
       </div>
 
       <div class="pb-future-banner pb-reveal pt-large" id="future">
         <div class="pb-future-content">
-          <h3 class="pb-heading-xl pb-mb-md">Куди ми йдемо</h3>
+          <h2 class="pb-heading-xl pb-mb-md">Куди ми йдемо</h2>
           <p class="pb-text-muted">Основа незмінна: сенс, форма, якість і продовження. Система розширюватиметься: від футболок і худі до складніших силуетів, аксесуарів та речей із тихим, архітектурним характером.</p>
         </div>
         <div class="pb-future-mantra">
@@ -642,7 +682,7 @@
         <div class="pb-faq-sidebar">
           <div class="pb-faq-sticky">
              <span class="pb-kicker">Відповіді</span>
-             <h2 class="pb-heading-xl">Запитання<br>про бренд</h2>
+             <h2 class="pb-heading-xl">Запитання про бренд</h2>
              <p class="pb-text-muted">Видимі відповіді для людей і для пошуку: що означає назва, як TwoComms пов’язаний із Харковом, і чому це не зводиться лише до військового мерчу.</p>
              
              <!-- Creative Anchor: Rotating Typographic Badge -->

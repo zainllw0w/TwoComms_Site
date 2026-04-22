@@ -74,7 +74,11 @@ class OrderSuccessSeoRegressionTests(TestCase):
         self.assertContains(response, 'content="noindex, nofollow"', html=False)
 
 
-@override_settings(NOVA_POSHTA_FALLBACK_ENABLED=False)
+@override_settings(
+    NOVA_POSHTA_FALLBACK_ENABLED=False,
+    COMPRESS_ENABLED=False,
+    COMPRESS_OFFLINE=False,
+)
 class ServicePageSeoMetaRegressionTests(SimpleTestCase):
     def setUp(self):
         self.client = Client()
@@ -109,6 +113,7 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
         response = self.client.get(reverse("about"), secure=True, follow=True)
 
         self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
         self.assertContains(
             response,
             'pro-brand-page pb-page',
@@ -118,9 +123,19 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
         self.assertNotContains(response, 'data-brand-scroll', html=False)
         self.assertContains(response, 'aria-label="Breadcrumb"', html=False)
         self.assertContains(response, '"@type": "FAQPage"', html=False)
-        self.assertContains(response, 'href="https://testserver/pro-brand/"', html=False)
-        self.assertContains(response, 'content="https://testserver/pro-brand/"', html=False)
-        self.assertContains(response, '"@type": ["Organization", "OnlineStore"]', html=False)
+        self.assertContains(response, 'href="https://twocomms.shop/pro-brand/"', html=False)
+        self.assertContains(response, 'content="https://twocomms.shop/pro-brand/"', html=False)
+        self.assertContains(response, '"@type": "Organization"', html=False)
+        self.assertNotContains(response, '"@type": ["Organization", "OnlineStore"]', html=False)
+        self.assertContains(response, '"name": "Про бренд TwoComms"', html=False)
+        self.assertContains(response, 'Що означає назва TwoComms')
+        self.assertContains(response, 'Знак для своїх')
+        self.assertContains(response, 'Походження бренду')
+        self.assertContains(response, 'Якість, яка доводить ідею')
+        self.assertContains(response, 'Streetwear / Military-adjacent / Made in Ukraine')
+        self.assertNotContains(response, 'Brand film / soon')
+        self.assertNotContains(response, 'IN DEVELOPMENT')
+        self.assertEqual(html.count("<h1"), 1)
         self.assertContains(response, 'data-page-shell="marketing"', html=False)
         self.assertContains(response, 'data-analytics-mode="passive"', html=False)
         self.assertNotContains(response, 'points-modal-template', html=False)
