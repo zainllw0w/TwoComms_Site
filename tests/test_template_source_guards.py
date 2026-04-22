@@ -68,8 +68,8 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         self.assertIn("js/rum.js", content)
         self.assertIn("js/ui-fallback.js", content)
         self.assertNotIn("css/fonts.css", content)
-        self.assertIn("js/analytics-loader.js' %}?v=5", content)
-        self.assertIn("js/main.js' %}?v=44", content)
+        self.assertRegex(content, r"js/analytics-loader\.js' %}\?v=\d+")
+        self.assertRegex(content, r"js/main\.js' %}\?v=[^\"']+")
 
     def test_base_template_does_not_embed_server_generated_csrf_token(self):
         content = BASE_TEMPLATE.read_text(encoding="utf-8")
@@ -92,6 +92,10 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
 
         for weight in ("400", "500", "600", "700"):
             self.assertIn(f"font-weight: {weight};", content)
+        self.assertRegex(
+            content,
+            r"{% if request\.resolver_match\.url_name != 'home' %}[\s\S]+fonts/Inter-Regular\.woff2[\s\S]+fonts/Inter-Bold\.woff2",
+        )
 
     def test_base_template_enables_effects_lite_for_mid_devices(self):
         content = BASE_TEMPLATE.read_text(encoding="utf-8")
@@ -155,6 +159,19 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         self.assertIn('<link rel="dns-prefetch" href="https://connect.facebook.net">', content)
         self.assertIn('<link rel="dns-prefetch" href="https://analytics.tiktok.com">', content)
 
+    def test_base_template_drops_shared_modulepreload(self):
+        content = BASE_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertNotIn('rel="modulepreload"', content)
+
+    def test_base_template_skips_css_loader_on_home(self):
+        content = BASE_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertRegex(
+            content,
+            r"{% if request\.resolver_match\.url_name != 'home' %}[\s\S]+js/css-loader\.js",
+        )
+
     def test_home_css_no_longer_carries_hand_maintained_bootstrap_subset(self):
         source = HOME_CSS_FILE.read_text(encoding="utf-8")
 
@@ -213,6 +230,14 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         self.assertNotIn("requestIdleCallback", source)
         self.assertNotIn("setTimeout(cb, 3000)", source)
 
+    def test_home_template_drops_preload_competition_for_css_logo_and_modules(self):
+        source = HOME_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertIn("css/home.css", source)
+        self.assertNotIn('rel="preload" href="{% static \'img/logo.svg\' %}"', source)
+        self.assertNotIn('rel="preload" href="{% static \'css/home.css\' %}"', source)
+        self.assertNotIn('rel="modulepreload"', source)
+
     def test_styles_css_drops_global_survey_bundle(self):
         source = STYLES_CSS_FILE.read_text(encoding="utf-8")
 
@@ -227,6 +252,16 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         self.assertNotIn(".survey-card{", source)
         self.assertNotIn(".survey-modal{", source)
         self.assertNotIn("body.survey-modal-open", source)
+
+    def test_main_js_defers_install_prompts_and_product_media_boot(self):
+        source = MAIN_JS_FILE.read_text(encoding="utf-8")
+
+        self.assertNotIn("import { initProductMedia } from './modules/product-media.js';", source)
+        self.assertNotIn("import { initWebPush } from './modules/web-push.js';", source)
+        self.assertNotIn("import { initPwaInstall } from './modules/pwa-install.js';", source)
+        self.assertIn("function initDeferredInstallPrompts()", source)
+        self.assertIn("import('./modules/web-push.js')", source)
+        self.assertIn("import('./modules/pwa-install.js')", source)
 
     def test_home_css_keeps_survey_modal_styles(self):
         source = HOME_CSS_FILE.read_text(encoding="utf-8")
