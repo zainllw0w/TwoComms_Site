@@ -33,7 +33,7 @@ import requests
 
 from ..models import Product, PromoCode
 from orders.nova_poshta_data import apply_nova_poshta_refs
-from orders.nova_poshta_documents import normalize_phone
+from orders.nova_poshta_documents import normalize_checkout_phone
 from orders.models import Order as OrderModel, OrderItem
 from orders.nova_poshta_checkout import NovaPoshtaSelectionError, resolve_delivery_selection
 from orders.telegram_notifications import TelegramNotifier
@@ -450,7 +450,8 @@ def monobank_create_invoice(request):
             return value or default_value
 
         full_name = _body_override('full_name', prof.full_name or request.user.username)
-        phone = normalize_phone(_body_override('phone', prof.phone))
+        raw_phone = _body_override('phone', prof.phone)
+        phone = normalize_checkout_phone(raw_phone)
         city = delivery_selection.city
         np_office = delivery_selection.np_office
 
@@ -467,18 +468,26 @@ def monobank_create_invoice(request):
     else:
         # Для гостей - из POST body
         full_name = body.get('full_name', '').strip()
-        phone = normalize_phone(body.get('phone', ''))
+        raw_phone = body.get('phone', '')
+        phone = normalize_checkout_phone(raw_phone)
         city = delivery_selection.city
         np_office = delivery_selection.np_office
         pay_type = body.get('pay_type', 'online_full')
         monobank_logger.info(f'Guest user: pay_type={pay_type}')
 
         # Валидация для гостей
-        if not all([full_name, phone, city, np_office]):
+        if not all([full_name, city, np_office]):
             return JsonResponse({
                 'success': False,
                 'error': 'Будь ласка, заповніть всі обов\'язкові поля!'
             })
+
+    if raw_phone and not phone:
+        return JsonResponse({
+            'success': False,
+            'field': 'phone',
+            'error': 'Вкажіть коректний український номер телефону. Можна без +380.',
+        }, status=400)
 
     monobank_logger.info(f'Customer data: full_name={full_name}, pay_type={pay_type}')
 

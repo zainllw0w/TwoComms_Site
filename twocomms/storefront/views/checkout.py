@@ -8,7 +8,7 @@ from django.http import JsonResponse
 
 from orders.nova_poshta_data import apply_nova_poshta_refs
 from orders.models import Order, OrderItem
-from orders.nova_poshta_documents import normalize_phone
+from orders.nova_poshta_documents import normalize_checkout_phone
 from orders.nova_poshta_checkout import NovaPoshtaSelectionError, resolve_delivery_selection
 from storefront.models import Product, PromoCode, CustomPrintLead, CustomPrintModerationStatus
 from productcolors.models import ProductColorVariant
@@ -84,26 +84,34 @@ def create_order(request):
 
     if request.user.is_authenticated:
         user = request.user
+        raw_phone = request.POST.get('phone') or ''
         try:
             profile = user.userprofile
             full_name = (request.POST.get('full_name') or profile.full_name or user.get_full_name() or '').strip()
-            phone = normalize_phone(request.POST.get('phone') or profile.phone or '')
+            raw_phone = request.POST.get('phone') or profile.phone or ''
+            phone = normalize_checkout_phone(raw_phone)
             city = delivery_selection.city
             np_office = delivery_selection.np_office
             pay_type = (request.POST.get('pay_type') or profile.pay_type or 'online_full').strip()
         except UserProfile.DoesNotExist:
             full_name = request.POST.get('full_name', '')
-            phone = normalize_phone(request.POST.get('phone', ''))
+            raw_phone = request.POST.get('phone', '')
+            phone = normalize_checkout_phone(raw_phone)
             city = delivery_selection.city
             np_office = delivery_selection.np_office
             pay_type = request.POST.get('pay_type', 'online_full')
     else:
         user = None
         full_name = request.POST.get('full_name', '')
-        phone = normalize_phone(request.POST.get('phone', ''))
+        raw_phone = request.POST.get('phone', '')
+        phone = normalize_checkout_phone(raw_phone)
         city = delivery_selection.city
         np_office = delivery_selection.np_office
         pay_type = request.POST.get('pay_type', 'online_full')
+
+    if raw_phone and not phone:
+        messages.error(request, "Вкажіть коректний український номер телефону. Можна без +380.")
+        return redirect('cart')
 
     # Validate required fields
     if not all([full_name, phone, city, np_office]):

@@ -12,6 +12,7 @@
 
 import { getCookie } from './shared.js';
 import { validateNovaPoshtaSelection } from './nova-poshta-selector.js?v=20260422b';
+import { syncUkraineCheckoutPhoneField } from './phone.js';
 
 function deps() {
   return window.__twcMono || {};
@@ -468,6 +469,11 @@ function startMonobankPay(button, statusEl) {
     .then(async () => {
       if (!sourceForm) {
         return;
+      }
+      const phoneField = sourceForm.querySelector('[name="phone"]');
+      if (phoneField && !syncUkraineCheckoutPhoneField(phoneField)) {
+        phoneField.focus();
+        throw new Error('Вкажіть коректний український номер. Можна без +380.');
       }
       const isValid = await validateNovaPoshtaSelection(sourceForm, { showErrors: true });
       if (!isValid) {

@@ -8,9 +8,43 @@ from django.urls import reverse
 
 from accounts.models import UserProfile
 from orders.models import Order
+from orders.nova_poshta_documents import normalize_checkout_phone, normalize_phone, normalize_phone_for_np
 from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
 from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
 from storefront.models import Category, CustomPrintLead, CustomPrintModerationStatus, Product
+
+
+class PhoneNormalizationTests(TestCase):
+    def test_normalize_phone_accepts_common_ukrainian_shortcuts(self):
+        samples = (
+            '0939693920',
+            '80939693920',
+            '8939693920',
+            '939693920',
+            '380939693920',
+            '+380939693920',
+            '00380939693920',
+        )
+
+        for sample in samples:
+            with self.subTest(sample=sample):
+                self.assertEqual(normalize_phone(sample), '+380939693920')
+                self.assertEqual(normalize_checkout_phone(sample), '+380939693920')
+                self.assertEqual(normalize_phone_for_np(sample), '380939693920')
+
+    def test_normalize_phone_preserves_explicit_international_number(self):
+        self.assertEqual(normalize_phone('+55 11 91234-5678'), '+5511912345678')
+        self.assertEqual(normalize_phone('0055 11 91234-5678'), '+5511912345678')
+
+    def test_normalize_phone_does_not_reinterpret_explicit_short_e164(self):
+        self.assertEqual(normalize_phone('+380808020'), '')
+        self.assertEqual(normalize_checkout_phone('+380808020'), '')
+        self.assertEqual(normalize_phone_for_np('+380808020'), '')
+
+    def test_checkout_phone_remains_ukraine_only_until_nova_poshta_waybill_support_is_confirmed(self):
+        self.assertEqual(normalize_phone('+1 (202) 555-0125'), '+12025550125')
+        self.assertEqual(normalize_checkout_phone('+1 (202) 555-0125'), '')
+        self.assertEqual(normalize_phone_for_np('+1 (202) 555-0125'), '')
 
 
 class NovaPoshtaCheckoutValidationTests(TestCase):
@@ -143,6 +177,62 @@ class NovaPoshtaCheckoutValidationTests(TestCase):
         messages = [message.message for message in response.context['messages']]
         self.assertIn('Дані доставки успішно оновлено!', messages)
 
+    def test_profile_update_normalizes_ukrainian_phone_without_country_code(self):
+        self.client.login(username='np-user', password='testpass123')
+        delivery = self._delivery_payload()
+
+        response = self.client.post(
+            self.cart_url,
+            {
+                'form_type': 'update_profile',
+                'full_name': 'Updated User',
+                'phone': '0939693920',
+                'city': delivery['city'],
+                'np_office': delivery['np_office'],
+                'np_settlement_ref': delivery['np_settlement_ref'],
+                'np_city_ref': delivery['np_city_ref'],
+                'np_city_token': delivery['np_city_token'],
+                'np_warehouse_ref': delivery['np_warehouse_ref'],
+                'np_warehouse_token': delivery['np_warehouse_token'],
+                'pay_type': 'online_full',
+            },
+            secure=True,
+            follow=True,
+        )
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.phone, '+380939693920')
+        messages = [message.message for message in response.context['messages']]
+        self.assertIn('Дані доставки успішно оновлено!', messages)
+
+    def test_profile_update_rejects_foreign_phone_for_delivery_flow(self):
+        self.client.login(username='np-user', password='testpass123')
+        delivery = self._delivery_payload()
+
+        response = self.client.post(
+            self.cart_url,
+            {
+                'form_type': 'update_profile',
+                'full_name': 'Updated User',
+                'phone': '+5511912345678',
+                'city': delivery['city'],
+                'np_office': delivery['np_office'],
+                'np_settlement_ref': delivery['np_settlement_ref'],
+                'np_city_ref': delivery['np_city_ref'],
+                'np_city_token': delivery['np_city_token'],
+                'np_warehouse_ref': delivery['np_warehouse_ref'],
+                'np_warehouse_token': delivery['np_warehouse_token'],
+                'pay_type': 'online_full',
+            },
+            secure=True,
+            follow=True,
+        )
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.phone, '+380991234567')
+        messages = [message.message for message in response.context['messages']]
+        self.assertIn('Вкажіть коректний український номер телефону. Можна без +380.', messages)
+
     def test_order_create_requires_signed_nova_poshta_selection(self):
         self._set_cart()
 
@@ -191,6 +281,58 @@ class NovaPoshtaCheckoutValidationTests(TestCase):
         self.assertEqual(order.np_settlement_ref, 'settlement-ref')
         self.assertEqual(order.np_city_ref, 'delivery-city-ref')
         self.assertEqual(order.np_warehouse_ref, 'warehouse-ref')
+        self.assertEqual(order.phone, '+380991234567')
+
+    def test_order_create_normalizes_phone_without_country_code(self):
+        self._set_cart()
+        delivery = self._delivery_payload()
+
+        response = self.client.post(
+            self.order_create_url,
+            {
+                'full_name': 'Guest User',
+                'phone': '80939693920',
+                'city': delivery['city'],
+                'np_office': delivery['np_office'],
+                'np_settlement_ref': delivery['np_settlement_ref'],
+                'np_city_ref': delivery['np_city_ref'],
+                'np_city_token': delivery['np_city_token'],
+                'np_warehouse_ref': delivery['np_warehouse_ref'],
+                'np_warehouse_token': delivery['np_warehouse_token'],
+                'pay_type': 'cash',
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        order = Order.objects.get()
+        self.assertEqual(order.phone, '+380939693920')
+
+    def test_order_create_rejects_explicit_foreign_phone(self):
+        self._set_cart()
+        delivery = self._delivery_payload()
+
+        response = self.client.post(
+            self.order_create_url,
+            {
+                'full_name': 'Guest User',
+                'phone': '+5511912345678',
+                'city': delivery['city'],
+                'np_office': delivery['np_office'],
+                'np_settlement_ref': delivery['np_settlement_ref'],
+                'np_city_ref': delivery['np_city_ref'],
+                'np_city_token': delivery['np_city_token'],
+                'np_warehouse_ref': delivery['np_warehouse_ref'],
+                'np_warehouse_token': delivery['np_warehouse_token'],
+                'pay_type': 'cash',
+            },
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(Order.objects.count(), 0)
+        messages = [message.message for message in response.context['messages']]
+        self.assertIn('Вкажіть коректний український номер телефону. Можна без +380.', messages)
 
     def test_monobank_create_invoice_rejects_unsigned_delivery_payload(self):
         self._set_cart()
@@ -218,6 +360,41 @@ class NovaPoshtaCheckoutValidationTests(TestCase):
                 'success': False,
                 'field': 'city',
                 'error': 'Оберіть місто зі списку Нової пошти.',
+            },
+        )
+
+    def test_monobank_create_invoice_rejects_foreign_phone_in_checkout_flow(self):
+        self._set_cart()
+        delivery = self._delivery_payload()
+
+        response = self.client.post(
+            self.monobank_create_invoice_url,
+            data=json.dumps(
+                {
+                    'full_name': 'Guest User',
+                    'phone': '+5511912345678',
+                    'city': delivery['city'],
+                    'np_office': delivery['np_office'],
+                    'np_settlement_ref': delivery['np_settlement_ref'],
+                    'np_city_ref': delivery['np_city_ref'],
+                    'np_city_token': delivery['np_city_token'],
+                    'np_warehouse_ref': delivery['np_warehouse_ref'],
+                    'np_warehouse_token': delivery['np_warehouse_token'],
+                    'pay_type': 'online_full',
+                }
+            ),
+            content_type='application/json',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json(),
+            {
+                'success': False,
+                'field': 'phone',
+                'error': 'Вкажіть коректний український номер телефону. Можна без +380.',
             },
         )
 

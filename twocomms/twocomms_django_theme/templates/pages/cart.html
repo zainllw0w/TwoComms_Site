@@ -395,10 +395,11 @@
             <div class="cart-form-group">
               <label class="cart-form-label">Телефон *</label>
               <div class="cart-form-input-wrapper">
-                <input type="tel" name="phone" class="cart-form-input" placeholder="+380XXXXXXXXX"
-                       value="{{ prof.phone|default:'' }}" pattern="[+0-9\s\-()]{7,20}" inputmode="tel" required>
+                <input type="tel" name="phone" class="cart-form-input" placeholder="0931234567"
+                       value="{{ prof.phone|default:'' }}" pattern="[+0-9\s\-()]{7,20}" inputmode="tel" autocomplete="tel" required>
                 <div class="cart-form-input-glow"></div>
               </div>
+              <div class="cart-form-hint text-secondary small mt-2">Префікс +380 підставимо автоматично.</div>
             </div>
             
             <div class="cart-form-group">
@@ -519,10 +520,11 @@
             <div class="cart-form-group">
               <label class="cart-form-label">Телефон *</label>
               <div class="cart-form-input-wrapper">
-                <input type="tel" name="phone" class="cart-form-input" placeholder="+380XXXXXXXXX"
-                       pattern="[+0-9\s\-()]{7,20}" inputmode="tel" required>
+                <input type="tel" name="phone" class="cart-form-input" placeholder="0931234567"
+                       pattern="[+0-9\s\-()]{7,20}" inputmode="tel" autocomplete="tel" required>
                 <div class="cart-form-input-glow"></div>
               </div>
+              <div class="cart-form-hint text-secondary small mt-2">Префікс +380 підставимо автоматично.</div>
               {% if guest_form.phone.errors %}
                 <div class="cart-form-error">{{ guest_form.phone.errors.0 }}</div>
               {% endif %}
