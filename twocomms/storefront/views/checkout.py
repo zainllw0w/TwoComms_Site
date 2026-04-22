@@ -8,6 +8,7 @@ from django.http import JsonResponse
 
 from orders.nova_poshta_data import apply_nova_poshta_refs
 from orders.models import Order, OrderItem
+from orders.nova_poshta_documents import normalize_phone
 from orders.nova_poshta_checkout import NovaPoshtaSelectionError, resolve_delivery_selection
 from storefront.models import Product, PromoCode, CustomPrintLead, CustomPrintModerationStatus
 from productcolors.models import ProductColorVariant
@@ -86,20 +87,20 @@ def create_order(request):
         try:
             profile = user.userprofile
             full_name = (request.POST.get('full_name') or profile.full_name or user.get_full_name() or '').strip()
-            phone = (request.POST.get('phone') or profile.phone or '').strip()
+            phone = normalize_phone(request.POST.get('phone') or profile.phone or '')
             city = delivery_selection.city
             np_office = delivery_selection.np_office
             pay_type = (request.POST.get('pay_type') or profile.pay_type or 'online_full').strip()
         except UserProfile.DoesNotExist:
             full_name = request.POST.get('full_name', '')
-            phone = request.POST.get('phone', '')
+            phone = normalize_phone(request.POST.get('phone', ''))
             city = delivery_selection.city
             np_office = delivery_selection.np_office
             pay_type = request.POST.get('pay_type', 'online_full')
     else:
         user = None
         full_name = request.POST.get('full_name', '')
-        phone = request.POST.get('phone', '')
+        phone = normalize_phone(request.POST.get('phone', ''))
         city = delivery_selection.city
         np_office = delivery_selection.np_office
         pay_type = request.POST.get('pay_type', 'online_full')
@@ -240,7 +241,7 @@ def payment_callback(request):
 
 def order_success(request, order_id):
     order = get_object_or_404(
-        Order.objects.prefetch_related('items__product', 'items__color_variant'),
+        Order.objects.prefetch_related('items__product', 'items__color_variant', 'custom_print_leads'),
         id=order_id
     )
     return render(request, 'pages/order_success.html', {'order': order})

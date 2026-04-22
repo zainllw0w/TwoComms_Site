@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from orders.models import Order, OrderItem
@@ -14,7 +14,7 @@ from orders.telegram_status_links import (
 )
 from storefront.models import Category, Product
 
-
+@override_settings(NOVA_POSHTA_FALLBACK_ENABLED=False, RATELIMIT_ENABLE=False)
 class TelegramOrderStatusActionTests(TestCase):
     def setUp(self):
         self._merchant_feed_patcher = patch("storefront.signals.generate_google_merchant_feed_task.apply_async")
@@ -115,6 +115,39 @@ class TelegramOrderStatusActionTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, "done")
         self.assertEqual(order.tracking_number, "20450000000001")
+
+    def test_staff_payment_status_update_canonicalizes_prepaid(self):
+        order = self._create_order(payment_status="unpaid")
+        staff = User.objects.create_user(username="staff-pay", password="pass12345", is_staff=True)
+        self.client.force_login(staff)
+
+        response = self.client.post(
+            reverse("admin_update_payment_status"),
+            data={"order_id": order.pk, "payment_status": "prepaid"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        order.refresh_from_db()
+        self.assertEqual(order.payment_status, "prepaid")
+        self.assertEqual(response.json()["payment_status_label"], "Внесена передплата")
+
+    def test_staff_payment_snapshot_endpoint_merges_legacy_partial_into_prepaid(self):
+        order = self._create_order(payment_status="partial", pay_type="prepay_200")
+        staff = User.objects.create_user(username="staff-live", password="pass12345", is_staff=True)
+        self.client.force_login(staff)
+
+        response = self.client.get(
+            reverse("admin_order_payment_snapshots"),
+            {"ids": str(order.pk)},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["orders"][str(order.pk)]["payment_status"], "prepaid")
+        self.assertEqual(payload["orders"][str(order.pk)]["cod_amount"], "1099.00")
 
     @patch("orders.signals._safe_queue_notification")
     def test_staff_admin_order_update_uses_shared_helper(self, _queue_mock):
@@ -251,3 +284,77 @@ class TelegramOrderStatusActionTests(TestCase):
         self.assertEqual(order.np_warehouse_ref, "recipient-warehouse-ref")
         update_message_mock.assert_called_once()
         self.assertContains(response, "ТТН 20451234123456 створено")
+
+    @patch("storefront.views.order_actions.NovaPoshtaDocumentService")
+    def test_waybill_page_restores_saved_postomat_tokens(self, service_cls):
+        order = self._create_order(
+            np_settlement_ref="recipient-settlement-ref",
+            np_city_ref="recipient-city-ref",
+            np_warehouse_ref="recipient-warehouse-ref",
+            np_office="Поштомат №22, Київ, вул. Тестова, 1",
+            payment_status="prepaid",
+            pay_type="prepay_200",
+        )
+        token = build_order_action_token(order.pk, TELEGRAM_CREATE_NP_WAYBILL_ACTION)
+
+        service = service_cls.return_value
+        service.is_configured.return_value = True
+        service.build_initial_payload.return_value = {
+            "recipient_full_name": "Тестовий клієнт",
+            "recipient_phone": "+380991112233",
+            "recipient_city": "Київ",
+            "recipient_settlement_ref": "recipient-settlement-ref",
+            "recipient_city_ref": "recipient-city-ref",
+            "recipient_city_token": "city-token-1",
+            "recipient_warehouse": "Поштомат №22, Київ, вул. Тестова, 1",
+            "recipient_warehouse_ref": "recipient-warehouse-ref",
+            "recipient_warehouse_token": "warehouse-token-1",
+            "sender_city": "Харків",
+            "sender_settlement_ref": "sender-settlement-ref",
+            "sender_city_ref": "sender-city-ref",
+            "sender_city_token": "sender-city-token-1",
+            "sender_warehouse": "Відділення №138",
+            "sender_warehouse_ref": "sender-warehouse-ref",
+            "sender_warehouse_token": "sender-warehouse-token-1",
+            "description": "Одяг бренду TwoComms, Telegram Hoodie",
+            "declared_cost": "1299.00",
+            "weight": "1.0",
+            "seats_amount": "1",
+            "length_cm": "30",
+            "width_cm": "20",
+            "height_cm": "8",
+            "cod_amount": "1099.00",
+            "payer_type": "Recipient",
+            "payment_method": "Cash",
+        }
+
+        response = self.client.get(
+            reverse("telegram_order_np_waybill_action", args=[order.pk, TELEGRAM_CREATE_NP_WAYBILL_ACTION]),
+            {"token": token},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="recipient_city_token"')
+        self.assertContains(response, 'value="city-token-1"', count=1)
+        self.assertContains(response, 'name="recipient_warehouse_token"')
+        self.assertContains(response, 'value="warehouse-token-1"', count=1)
+        self.assertContains(response, "Поштомат №22, Київ, вул. Тестова, 1")
+
+    def test_waybill_payment_snapshot_returns_live_payment_values(self):
+        order = self._create_order(pay_type="prepay_200", payment_status="paid")
+        token = build_order_action_token(order.pk, TELEGRAM_CREATE_NP_WAYBILL_ACTION)
+
+        response = self.client.get(
+            reverse("telegram_order_payment_snapshot", args=[order.pk, TELEGRAM_CREATE_NP_WAYBILL_ACTION]),
+            {"token": token},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["snapshot"]["payment_status"], "paid")
+        self.assertEqual(payload["snapshot"]["payment_status_label"], "Оплачено повністю")
+        self.assertEqual(payload["snapshot"]["declared_cost"], "1299.00")
+        self.assertEqual(payload["snapshot"]["cod_amount"], "0.00")

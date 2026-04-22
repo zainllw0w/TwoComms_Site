@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.models import UserProfile, FavoriteProduct, UserPoints, PointsHistory
 from orders.models import Order
+from orders.nova_poshta_documents import normalize_phone
 from ..models import Product
 from .auth import ProfileSetupForm
 
@@ -103,7 +104,7 @@ def edit_profile(request):
 
         # Обновляем профиль
         user_profile.full_name = request.POST.get('full_name', '')
-        user_profile.phone = request.POST.get('phone', '')
+        user_profile.phone = normalize_phone(request.POST.get('phone', ''))
         user_profile.email = request.POST.get('email', '')
         user_profile.telegram = request.POST.get('telegram', '')
         user_profile.instagram = request.POST.get('instagram', '')
@@ -203,7 +204,8 @@ def order_history(request):
     orders = Order.objects.filter(user=request.user).order_by('-created').prefetch_related(
         'items__product',
         'items__color_variant__color',
-        'items__color_variant__images'
+        'items__color_variant__images',
+        'custom_print_leads',
     )
 
     if status_filter:
@@ -230,7 +232,8 @@ def order_detail(request, order_number):
     queryset = Order.objects.prefetch_related(
         'items__product',
         'items__color_variant__color',
-        'items__color_variant__images'
+        'items__color_variant__images',
+        'custom_print_leads',
     )
     order = get_object_or_404(
         queryset,

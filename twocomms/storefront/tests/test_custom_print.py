@@ -1257,6 +1257,35 @@ class CustomPrintAdminAndNotificationTests(TestCase):
             },
         )
 
+    def test_staff_cannot_approve_custom_print_lead_without_positive_final_price(self):
+        from storefront.models import CustomPrintModerationStatus
+
+        lead = self._make_lead(
+            source="custom_print_cart",
+            product_type="customer_garment",
+            pricing_snapshot_json={"final_total": None, "estimate_required": True},
+            moderation_status=CustomPrintModerationStatus.AWAITING_REVIEW,
+        )
+        self.client.force_login(self.staff_user)
+
+        response = self.client.post(
+            reverse("admin_custom_print_lead_moderation", args=[lead.pk]),
+            data=json.dumps({"action": "approve", "note": "Без ціни"}),
+            content_type="application/json",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        lead.refresh_from_db()
+        self.assertEqual(lead.moderation_status, CustomPrintModerationStatus.AWAITING_REVIEW)
+        self.assertJSONEqual(
+            response.content,
+            {
+                "success": False,
+                "error": "Для погодження потрібно вказати фінальну ціну більше 0 грн.",
+            },
+        )
+
     def test_custom_print_notification_uses_custom_admin_deeplink(self):
         from storefront.custom_print_notifications import _build_admin_panel_link, _build_message
 

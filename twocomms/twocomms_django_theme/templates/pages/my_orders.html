@@ -221,7 +221,7 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
               </svg>
-              Товари в замовленні ({{ o.items.count }})
+              Товари в замовленні
             </div>
           </div>
           
@@ -272,6 +272,42 @@
                   <div class="order-item-side">
                     <div class="order-item-price">{{ it.line_total }} грн</div>
                     <div class="order-item-unit-price">{{ it.price }} грн/шт</div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+            {% for lead in o.custom_print_leads.all %}
+              <div class="order-item-card">
+                <div class="order-item-image">
+                  <div class="order-item-placeholder">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                    </svg>
+                  </div>
+                </div>
+
+                <div class="order-item-content">
+                  <div class="order-item-main">
+                    <div class="order-item-title">Кастомний виріб {{ lead.lead_number }}</div>
+                    <div class="order-item-specs">
+                      <div class="order-item-spec">
+                        <span class="spec-label">Тип:</span>
+                        <span class="spec-value">{{ lead.get_product_type_display }}</span>
+                      </div>
+                      <div class="order-item-spec">
+                        <span class="spec-label">Кількість:</span>
+                        <span class="spec-value">{{ lead.quantity }} шт</span>
+                      </div>
+                      <div class="order-item-spec">
+                        <span class="spec-label">Статус:</span>
+                        <span class="spec-value">Погоджено менеджером</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="order-item-side">
+                    <div class="order-item-price">{{ lead.final_price_value }} грн</div>
+                    <div class="order-item-unit-price">Кастомне замовлення</div>
                   </div>
                 </div>
               </div>

@@ -1319,14 +1319,14 @@
 
     <!-- Карточка статуса оплаты -->
     {% if order %}
-    <div class="status-card {% if order.payment_status == 'paid' %}paid{% elif order.payment_status == 'prepaid' %}prepaid{% endif %}">
+    <div class="status-card {% if order.payment_status == 'paid' %}paid{% elif order.payment_status == 'prepaid' or order.payment_status == 'partial' %}prepaid{% endif %}">
       <div class="status-icon-text">
         <div class="status-icon">
           {% if order.payment_status == 'paid' %}
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M20 6L9 17l-5-5"/>
             </svg>
-          {% elif order.payment_status == 'prepaid' %}
+          {% elif order.payment_status == 'prepaid' or order.payment_status == 'partial' %}
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
             </svg>
@@ -1340,7 +1340,7 @@
             {% else %}
             <p class="status-text">Дякуємо за покупку! Твоє замовлення оплачено через Monobank та відправлено в обробку. Ми розпочнемо підготовку найближчим часом.</p>
             {% endif %}
-          {% elif order.payment_status == 'prepaid' %}
+          {% elif order.payment_status == 'prepaid' or order.payment_status == 'partial' %}
             <h2 class="status-title">✅ Передплата внесена!</h2>
             {% if user.is_authenticated %}
             <p class="status-text">Дякуємо, брат! Передплата внесена. Залишок оплатиш при отриманні на Новій Пошті. Ми розпочнемо підготовку та відправимо на вказане відділення.</p>
@@ -1358,7 +1358,7 @@
         </div>
       </div>
       
-      {% if order.payment_status == 'prepaid' %}
+      {% if order.payment_status == 'prepaid' or order.payment_status == 'partial' %}
       <div class="status-amount">
         <div class="amount-row">
           <span class="amount-label">Внесена передплата:</span>
@@ -1494,7 +1494,7 @@
       </div>
 
       <!-- Список товаров -->
-      {% if order.items.all %}
+      {% if order.items.all or order.custom_print_leads.all %}
       <div class="order-items-list">
         <h3 class="items-title">Товари в замовленні:</h3>
         {% for item in order.items.all %}
@@ -1518,6 +1518,23 @@
               • Кількість: {{ item.qty }}
             </div>
             <div class="item-price">{{ item.line_total }} грн</div>
+          </div>
+        </div>
+        {% endfor %}
+        {% for lead in order.custom_print_leads.all %}
+        <div class="item-card">
+          <div class="item-image" style="background: rgba(249, 115, 22, 0.12); display: flex; align-items: center; justify-content: center;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(249, 115, 22, 0.65)" stroke-width="2">
+              <path d="M6 6h12v12H6z"/>
+              <path d="M9 9h6v6H9z"/>
+            </svg>
+          </div>
+          <div class="item-info">
+            <h4 class="item-title">Кастомний виріб {{ lead.lead_number }}</h4>
+            <div class="item-details">
+              Тип: {{ lead.get_product_type_display }} • Кількість: {{ lead.quantity }} • Статус: погоджено
+            </div>
+            <div class="item-price">{{ lead.final_price_value }} грн</div>
           </div>
         </div>
         {% endfor %}

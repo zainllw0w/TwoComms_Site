@@ -1,6 +1,6 @@
 from django import forms
 
-from orders.nova_poshta_documents import normalize_phone_for_np
+from orders.nova_poshta_documents import normalize_phone, normalize_phone_for_np
 
 
 class CompanyProfileForm(forms.Form):
@@ -67,7 +67,7 @@ class CompanyProfileForm(forms.Form):
     )
 
     def clean_phone(self):
-        phone = self.cleaned_data.get('phone', '').strip()
+        phone = normalize_phone(self.cleaned_data.get('phone', ''))
         if not phone:
             raise forms.ValidationError('Телефон обов’язковий для заповнення.')
         return phone
@@ -107,14 +107,18 @@ class TelegramNovaPoshtaWaybillForm(forms.Form):
     recipient_city = forms.CharField(label="Місто одержувача", max_length=150)
     recipient_settlement_ref = forms.CharField(max_length=36, required=False, widget=forms.HiddenInput())
     recipient_city_ref = forms.CharField(max_length=36, required=False, widget=forms.HiddenInput())
+    recipient_city_token = forms.CharField(max_length=255, required=False, widget=forms.HiddenInput())
     recipient_warehouse = forms.CharField(label="Відділення / поштомат одержувача", max_length=200)
     recipient_warehouse_ref = forms.CharField(max_length=36, required=False, widget=forms.HiddenInput())
+    recipient_warehouse_token = forms.CharField(max_length=255, required=False, widget=forms.HiddenInput())
 
     sender_city = forms.CharField(label="Місто відправника", max_length=150)
     sender_settlement_ref = forms.CharField(max_length=36, required=False, widget=forms.HiddenInput())
     sender_city_ref = forms.CharField(max_length=36, required=False, widget=forms.HiddenInput())
+    sender_city_token = forms.CharField(max_length=255, required=False, widget=forms.HiddenInput())
     sender_warehouse = forms.CharField(label="Відділення відправника", max_length=200)
     sender_warehouse_ref = forms.CharField(max_length=36, required=False, widget=forms.HiddenInput())
+    sender_warehouse_token = forms.CharField(max_length=255, required=False, widget=forms.HiddenInput())
 
     description = forms.CharField(label="Опис відправлення", max_length=120)
     declared_cost = forms.DecimalField(label="Оголошена вартість", max_digits=12, decimal_places=2, min_value=0)
@@ -164,12 +168,16 @@ class TelegramNovaPoshtaWaybillForm(forms.Form):
                 continue
             field.widget.attrs.setdefault("class", "telegram-waybill-input")
             field.widget.attrs.setdefault("placeholder", placeholders.get(name, ""))
+            if name == "declared_cost":
+                field.widget.attrs.setdefault("data-payment-declared-field", "")
+            if name == "cod_amount":
+                field.widget.attrs.setdefault("data-payment-cod-field", "")
         self.fields["payer_type"].initial = "Recipient"
         self.fields["payment_method"].initial = "Cash"
 
     def clean_recipient_phone(self):
-        phone = normalize_phone_for_np(self.cleaned_data.get("recipient_phone", ""))
-        if len(phone) < 12:
+        phone = normalize_phone(self.cleaned_data.get("recipient_phone", ""))
+        if not normalize_phone_for_np(phone):
             raise forms.ValidationError("Телефон одержувача має бути у форматі +380XXXXXXXXX.")
         return phone
 

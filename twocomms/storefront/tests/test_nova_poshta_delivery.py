@@ -12,6 +12,7 @@ from orders.nova_poshta_documents import (
     NovaPoshtaDocumentService,
     NovaPoshtaResolvedPoint,
     build_waybill_description,
+    normalize_phone,
 )
 from orders.telegram_notifications import TelegramNotifier
 from orders.telegram_status_links import (
@@ -346,6 +347,7 @@ class NovaPoshtaWaybillServiceTests(SimpleTestCase):
             'np_warehouse_ref': 'recipient-warehouse-ref',
             'total_sum': '1499.00',
             'pay_type': 'prepay_200',
+            'payment_status': 'unpaid',
             'items': _FakeItems([item]),
             'tracking_number': None,
             'nova_poshta_document_ref': None,
@@ -389,6 +391,10 @@ class NovaPoshtaWaybillServiceTests(SimpleTestCase):
         self.assertEqual(payload['sender_warehouse_ref'], 'sender-warehouse-ref')
         self.assertEqual(payload['description'], 'Одяг бренду TwoComms, Худі TwoComms')
         self.assertEqual(payload['cod_amount'], '1299.00')
+        self.assertTrue(payload['recipient_city_token'])
+        self.assertTrue(payload['recipient_warehouse_token'])
+        self.assertTrue(payload['sender_city_token'])
+        self.assertTrue(payload['sender_warehouse_token'])
         self.assertEqual(payload['payer_type'], 'Recipient')
         self.assertEqual(payload['payment_method'], 'Cash')
 
@@ -408,6 +414,30 @@ class NovaPoshtaWaybillServiceTests(SimpleTestCase):
         payload = service.build_initial_payload(order)
 
         self.assertEqual(payload['cod_amount'], '990.00')
+
+    @patch.object(NovaPoshtaDocumentService, '_resolve_default_sender_point')
+    def test_build_initial_payload_sets_zero_cod_for_fully_paid_prepay_order(self, mock_sender_point):
+        mock_sender_point.return_value = NovaPoshtaResolvedPoint(
+            city_label='м. Харків, Харків',
+            warehouse_label='Відділення №138',
+            settlement_ref='sender-settlement-ref',
+            city_ref='sender-city-ref',
+            warehouse_ref='sender-warehouse-ref',
+            warehouse_kind='branch',
+        )
+        order = self._build_order(payment_status='paid')
+        service = NovaPoshtaDocumentService()
+
+        payload = service.build_initial_payload(order)
+
+        self.assertEqual(payload['declared_cost'], '1499.00')
+        self.assertEqual(payload['cod_amount'], '')
+
+    def test_normalize_phone_accepts_common_ua_variants(self):
+        self.assertEqual(normalize_phone('+38 (099) 111-22-33'), '+380991112233')
+        self.assertEqual(normalize_phone('380991112233'), '+380991112233')
+        self.assertEqual(normalize_phone('0991112233'), '+380991112233')
+        self.assertEqual(normalize_phone('80991112233'), '+380991112233')
 
 
 class NovaPoshtaWaybillFormTests(SimpleTestCase):
@@ -440,7 +470,7 @@ class NovaPoshtaWaybillFormTests(SimpleTestCase):
         )
 
         self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data['recipient_phone'], '380991112233')
+        self.assertEqual(form.cleaned_data['recipient_phone'], '+380991112233')
         self.assertEqual(form.cleaned_data['cod_amount'], 0)
 
 

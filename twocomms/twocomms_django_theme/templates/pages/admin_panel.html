@@ -663,9 +663,9 @@
               <div class="filter-stat-number">{{ payment_status_counts.checking|default:0 }}</div>
               <div class="filter-stat-label">На перевірці</div>
             </div>
-            <div class="filter-stat-item payment-partial" onclick="filterOrders('all', 'partial')">
-              <div class="filter-stat-number">{{ payment_status_counts.partial|default:0 }}</div>
-              <div class="filter-stat-label">Частково оплачено</div>
+            <div class="filter-stat-item payment-partial" onclick="filterOrders('all', 'prepaid')">
+              <div class="filter-stat-number">{{ payment_status_counts.prepaid|default:0 }}</div>
+              <div class="filter-stat-label">Передплата</div>
             </div>
             <div class="filter-stat-item payment-paid" onclick="filterOrders('all', 'paid')">
               <div class="filter-stat-number">{{ payment_status_counts.paid|default:0 }}</div>
@@ -687,7 +687,7 @@
               <option value="all" {% if payment_filter == 'all' %}selected{% endif %}>Всі оплати</option>
               <option value="unpaid" {% if payment_filter == 'unpaid' %}selected{% endif %}>Не оплачено</option>
               <option value="checking" {% if payment_filter == 'checking' %}selected{% endif %}>На перевірці</option>
-              <option value="partial" {% if payment_filter == 'partial' %}selected{% endif %}>Внесена передплата</option>
+              <option value="prepaid" {% if payment_filter == 'prepaid' %}selected{% endif %}>Внесена передплата</option>
               <option value="paid" {% if payment_filter == 'paid' %}selected{% endif %}>Оплачено повністю</option>
             </select>
           </div>
@@ -696,7 +696,7 @@
         <!-- Список заказов -->
         <div class="orders-list">
           {% for o in orders %}
-            <div class="admin-order-card" data-order-id="{{ o.id }}">
+            <div class="admin-order-card" data-order-id="{{ o.id }}" data-payment-status="{{ o.payment_status_canonical }}">
               <!-- Анимация искр -->
               <div class="order-sparks">
                 <div class="order-spark order-spark-1"></div>
@@ -720,28 +720,28 @@
                         </svg>
                       </div>
                     </button>
-                    {% if o.payment_status %}
-                      {% if o.payment_status == 'paid' %}
+                    {% if o.payment_status_canonical %}
+                      {% if o.payment_status_canonical == 'paid' %}
                         {% with pill_bg='#10b981' pill_text='Оплачено' %}
-                        <span class="payment-status-pill" style="margin-left: 12px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: {{ pill_bg }};">
+                        <span class="payment-status-pill" data-payment-status-pill style="margin-left: 12px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: {{ pill_bg }};">
                           {{ pill_text }}
                         </span>
                         {% endwith %}
-                      {% elif o.payment_status == 'partial' or o.payment_status == 'prepaid' %}
+                      {% elif o.payment_status_canonical == 'prepaid' %}
                         {% with pill_bg='#f97316' pill_text='Передплата' %}
-                        <span class="payment-status-pill" style="margin-left: 12px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: {{ pill_bg }};">
+                        <span class="payment-status-pill" data-payment-status-pill style="margin-left: 12px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: {{ pill_bg }};">
                           {{ pill_text }}
                         </span>
                         {% endwith %}
-                      {% elif o.payment_status == 'checking' %}
+                      {% elif o.payment_status_canonical == 'checking' %}
                         {% with pill_bg='#3b82f6' pill_text='На перевірці' %}
-                        <span class="payment-status-pill" style="margin-left: 12px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: {{ pill_bg }};">
+                        <span class="payment-status-pill" data-payment-status-pill style="margin-left: 12px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: {{ pill_bg }};">
                           {{ pill_text }}
                         </span>
                         {% endwith %}
                       {% else %}
                         {% with pill_bg='#fbbf24' pill_text='Не оплачено' %}
-                        <span class="payment-status-pill" style="margin-left: 12px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: {{ pill_bg }};">
+                        <span class="payment-status-pill" data-payment-status-pill style="margin-left: 12px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: {{ pill_bg }};">
                           {{ pill_text }}
                         </span>
                         {% endwith %}
@@ -841,11 +841,11 @@
                     </div>
                     <div class="info-item">
                       <span class="info-label">Статус Monobank:</span>
-                      <span class="info-value">{{ o.payment_last_status|default:'немає даних' }}</span>
+                      <span class="info-value" data-payment-last-status>{{ o.payment_last_status|default:'немає даних' }}</span>
                     </div>
                     <div class="info-item">
                       <span class="info-label">Оновлено:</span>
-                      <span class="info-value">
+                      <span class="info-value" data-payment-last-time>
                         {% if o.payment_last_time %}
                           {{ o.payment_last_time|date:"d.m.Y H:i" }}
                         {% else %}
@@ -960,11 +960,11 @@
                   </svg>
                   <span>Статус оплати</span>
                 </div>
-                <select class="payment-status-select" onchange="updatePaymentStatus('{{ o.id }}', this.value)" data-original-value="{{ o.payment_status }}">
-                  <option value="unpaid" {% if o.payment_status == 'unpaid' %}selected{% endif %}>Не оплачено</option>
-                  <option value="checking" {% if o.payment_status == 'checking' %}selected{% endif %}>На перевірці</option>
-                  <option value="partial" {% if o.payment_status == 'partial' %}selected{% endif %}>Внесена передплата</option>
-                  <option value="paid" {% if o.payment_status == 'paid' %}selected{% endif %}>Оплачено повністю</option>
+                <select class="payment-status-select" data-payment-status-select onchange="updatePaymentStatus('{{ o.id }}', this.value)" data-original-value="{{ o.payment_status_canonical }}">
+                  <option value="unpaid" {% if o.payment_status_canonical == 'unpaid' %}selected{% endif %}>Не оплачено</option>
+                  <option value="checking" {% if o.payment_status_canonical == 'checking' %}selected{% endif %}>На перевірці</option>
+                  <option value="prepaid" {% if o.payment_status_canonical == 'prepaid' %}selected{% endif %}>Внесена передплата</option>
+                  <option value="paid" {% if o.payment_status_canonical == 'paid' %}selected{% endif %}>Оплачено повністю</option>
                 </select>
               </div>
 
@@ -976,14 +976,14 @@
                       <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
                     </svg>
                     <span>Скріншот оплати</span>
-                    {% if o.payment_status == 'checking' %}
-                      <span class="screenshot-status checking">Очікує перевірки</span>
-                    {% elif o.payment_status == 'paid' %}
-                      <span class="screenshot-status approved">Підтверджено</span>
-                    {% elif o.payment_status == 'partial' %}
-                      <span class="screenshot-status partial">Часткова оплата</span>
+                    {% if o.payment_status_canonical == 'checking' %}
+                      <span class="screenshot-status checking" data-payment-screenshot-status>Очікує перевірки</span>
+                    {% elif o.payment_status_canonical == 'paid' %}
+                      <span class="screenshot-status approved" data-payment-screenshot-status>Підтверджено</span>
+                    {% elif o.payment_status_canonical == 'prepaid' %}
+                      <span class="screenshot-status partial" data-payment-screenshot-status>Часткова оплата</span>
                     {% else %}
-                      <span class="screenshot-status unpaid">Не оплачено</span>
+                      <span class="screenshot-status unpaid" data-payment-screenshot-status>Не оплачено</span>
                     {% endif %}
                     <svg class="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M7 10l5 5 5-5z"/>
@@ -992,7 +992,7 @@
                   <div class="screenshot-content" id="screenshot-{{ o.id }}" style="display: none;">
                     <div class="screenshot-container">
                       <img src="{{ o.payment_screenshot.url }}" alt="Скріншот оплати" class="payment-screenshot">
-                      {% if o.payment_status == 'checking' %}
+                      {% if o.payment_status_canonical == 'checking' %}
                         <div class="screenshot-actions">
                           <button class="btn-approve" onclick="approvePayment('{{ o.id }}')">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -1012,9 +1012,9 @@
                           <div class="info-item">
                             <span class="info-label">Статус:</span>
                             <span class="info-value">
-                              {% if o.payment_status == 'paid' %}
+                              {% if o.payment_status_canonical == 'paid' %}
                                 Оплачено повністю
-                              {% elif o.payment_status == 'partial' %}
+                              {% elif o.payment_status_canonical == 'prepaid' %}
                                 Внесена передплата
                               {% else %}
                                 Не оплачено
@@ -1406,12 +1406,12 @@
                       <div class="payment-number">{{ user.payment_status_counts.unpaid|default:0 }}</div>
                       <div class="payment-label">Не оплачено</div>
                     </div>
-                    <div class="payment-item checking clickable" onclick="filterUserOrders('{{ user.user.id }}', 'status', 'checking')">
+                    <div class="payment-item checking clickable" onclick="filterUserOrders('{{ user.user.id }}', 'payment_status', 'checking')">
                       <div class="payment-number">{{ user.payment_status_counts.checking|default:0 }}</div>
                       <div class="payment-label">На перевірці</div>
                     </div>
-                    <div class="payment-item partial clickable" onclick="filterUserOrders('{{ user.user.id }}', 'payment_status', 'partial')">
-                      <div class="payment-number">{{ user.payment_status_counts.partial|default:0 }}</div>
+                    <div class="payment-item partial clickable" onclick="filterUserOrders('{{ user.user.id }}', 'payment_status', 'prepaid')">
+                      <div class="payment-number">{{ user.payment_status_counts.prepaid|default:0 }}</div>
                       <div class="payment-label">Частково</div>
                     </div>
                     <div class="payment-item paid clickable" onclick="filterUserOrders('{{ user.user.id }}', 'payment_status', 'paid')">
@@ -3846,7 +3846,7 @@ function updatePaymentStatus(orderId, newPaymentStatus) {
   const paymentStatusText = {
     'unpaid': 'Не оплачено',
     'checking': 'На перевірці',
-    'partial': 'Внесена передплата',
+    'prepaid': 'Внесена передплата',
     'paid': 'Оплачено повністю'
   };
   
@@ -3867,7 +3867,8 @@ function updatePaymentStatus(orderId, newPaymentStatus) {
         /* Обновляем селект в интерфейсе */
         const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updatePaymentStatus"]`);
         if (select) {
-          select.value = newPaymentStatus;
+          select.value = data.payment_status || newPaymentStatus;
+          select.setAttribute('data-original-value', data.payment_status || newPaymentStatus);
         }
       } else {
         showNotification('Помилка: ' + data.error, 'error');
@@ -3894,6 +3895,125 @@ function updatePaymentStatus(orderId, newPaymentStatus) {
       select.value = select.getAttribute('data-original-value');
     }
   }
+}
+
+function getOrderPaymentStatusConfig(status) {
+  switch (status) {
+    case 'paid':
+      return {
+        label: 'Оплачено',
+        badgeLabel: 'Підтверджено',
+        color: '#10b981',
+        screenshotClass: 'approved',
+      };
+    case 'prepaid':
+      return {
+        label: 'Передплата',
+        badgeLabel: 'Часткова оплата',
+        color: '#f97316',
+        screenshotClass: 'partial',
+      };
+    case 'checking':
+      return {
+        label: 'На перевірці',
+        badgeLabel: 'Очікує перевірки',
+        color: '#3b82f6',
+        screenshotClass: 'checking',
+      };
+    default:
+      return {
+        label: 'Не оплачено',
+        badgeLabel: 'Не оплачено',
+        color: '#fbbf24',
+        screenshotClass: 'unpaid',
+      };
+  }
+}
+
+function formatPaymentSnapshotTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('uk-UA', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function applyOrderPaymentSnapshot(card, snapshot) {
+  if (!card || !snapshot) return;
+
+  const status = snapshot.payment_status || 'unpaid';
+  const config = getOrderPaymentStatusConfig(status);
+  card.setAttribute('data-payment-status', status);
+
+  const pill = card.querySelector('[data-payment-status-pill]');
+  if (pill) {
+    pill.textContent = config.label;
+    pill.style.background = config.color;
+  }
+
+  const select = card.querySelector('[data-payment-status-select]');
+  if (select) {
+    select.value = status;
+    select.setAttribute('data-original-value', status);
+  }
+
+  const screenshotStatus = card.querySelector('[data-payment-screenshot-status]');
+  if (screenshotStatus) {
+    screenshotStatus.textContent = config.badgeLabel;
+    screenshotStatus.className = `screenshot-status ${config.screenshotClass}`;
+    screenshotStatus.setAttribute('data-payment-screenshot-status', '');
+  }
+
+  const lastStatus = card.querySelector('[data-payment-last-status]');
+  if (lastStatus) {
+    lastStatus.textContent = snapshot.payment_last_status || 'немає даних';
+  }
+
+  const lastTime = card.querySelector('[data-payment-last-time]');
+  if (lastTime) {
+    lastTime.textContent = formatPaymentSnapshotTime(snapshot.payment_last_time);
+  }
+}
+
+async function pollOrderPaymentSnapshots() {
+  if (document.hidden) return;
+
+  const cards = Array.from(document.querySelectorAll('.admin-order-card[data-order-id]'));
+  if (!cards.length) return;
+
+  const ids = cards
+    .map((card) => card.getAttribute('data-order-id'))
+    .filter(Boolean);
+
+  if (!ids.length) return;
+
+  try {
+    const response = await fetch(`{% url "admin_order_payment_snapshots" %}?ids=${encodeURIComponent(ids.join(','))}`, {
+      headers: {'X-Requested-With': 'XMLHttpRequest'}
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      return;
+    }
+
+    cards.forEach((card) => {
+      const orderId = card.getAttribute('data-order-id');
+      if (!orderId || !data.orders[orderId]) return;
+      applyOrderPaymentSnapshot(card, data.orders[orderId]);
+    });
+  } catch (error) {
+    console.warn('Payment snapshot polling failed', error);
+  }
+}
+
+if (document.querySelector('.admin-order-card[data-order-id]')) {
+  pollOrderPaymentSnapshots();
+  window.setInterval(pollOrderPaymentSnapshots, 5000);
 }
 
 function copyOrderNumber(orderNumber) {

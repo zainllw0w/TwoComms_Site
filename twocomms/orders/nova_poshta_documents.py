@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -9,7 +10,15 @@ from typing import Any
 import requests
 from django.conf import settings
 
+from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
 from orders.nova_poshta_lookup import NovaPoshtaDirectoryService
+
+try:
+    import phonenumbers
+    from phonenumbers import PhoneNumberFormat
+except Exception:  # pragma: no cover - optional runtime dependency
+    phonenumbers = None
+    PhoneNumberFormat = None
 
 logger = logging.getLogger(__name__)
 
@@ -30,15 +39,180 @@ class NovaPoshtaResolvedPoint:
     warehouse_kind: str
 
 
+def _ua_phone_candidates(raw_phone: str) -> list[str]:
+    raw = str(raw_phone or "").strip()
+    digits = re.sub(r"\D+", "", raw)
+    if not digits:
+        return []
+
+    candidates: list[str] = []
+    for value in (
+        raw,
+        f"+{digits}" if raw.startswith("+") else "",
+        f"+{digits}" if digits.startswith("380") and len(digits) == 12 else "",
+        digits if digits.startswith("0") and len(digits) == 10 else "",
+        f"0{digits[1:]}" if digits.startswith("8") and len(digits) == 10 else "",
+        f"0{digits}" if len(digits) == 9 else "",
+        f"0{digits[1:]}" if digits.startswith("80") and len(digits) == 11 else "",
+    ):
+        value = (value or "").strip()
+        if value and value not in candidates:
+            candidates.append(value)
+    return candidates
+
+
+def normalize_phone(phone: str) -> str:
+    digits = re.sub(r"\D+", "", str(phone or ""))
+    if not digits:
+        return ""
+
+    if phonenumbers is not None:
+        for candidate in _ua_phone_candidates(phone):
+            try:
+                parsed = phonenumbers.parse(candidate, "UA")
+            except Exception:
+                continue
+            if not phonenumbers.is_possible_number(parsed):
+                continue
+            if not phonenumbers.is_valid_number(parsed):
+                continue
+            try:
+                return phonenumbers.format_number(parsed, PhoneNumberFormat.E164)
+            except Exception:
+                continue
+
+    if digits.startswith("380") and len(digits) == 12:
+        return f"+{digits}"
+    if digits.startswith("80") and len(digits) == 11:
+        return f"+38{digits[1:]}"
+    if digits.startswith("0") and len(digits) == 10:
+        return f"+38{digits}"
+    if len(digits) == 9:
+        return f"+380{digits}"
+    if str(phone or "").strip().startswith("+"):
+        return f"+{digits}"
+    return ""
+
+
 def normalize_phone_for_np(phone: str) -> str:
-    digits = "".join(ch for ch in str(phone or "") if ch.isdigit())
-    if digits.startswith("380") and len(digits) >= 12:
-        return digits[:12]
-    if digits.startswith("80") and len(digits) >= 11:
-        return f"3{digits[:11]}"
-    if digits.startswith("0") and len(digits) >= 10:
-        return f"38{digits[:10]}"
-    return digits
+    normalized = normalize_phone(phone)
+    digits = "".join(ch for ch in normalized if ch.isdigit())
+    if digits.startswith("380") and len(digits) == 12:
+        return digits
+    return ""
+
+
+def canonicalize_order_pay_type(value: Any) -> str:
+    raw = str(value or "").strip().lower()
+    if raw in {"prepay_200", "prepay", "prepaid", "partial", "partial_payment", "prepay200"}:
+        return "prepay_200"
+    if raw == "cod":
+        return "cod"
+    return "online_full"
+
+
+def canonicalize_payment_status(value: Any) -> str:
+    raw = str(value or "").strip().lower()
+    if raw == "partial":
+        return "prepaid"
+    if raw in {"unpaid", "checking", "prepaid", "paid"}:
+        return raw
+    return "unpaid"
+
+
+def get_payment_status_label(value: Any) -> str:
+    return {
+        "unpaid": "Не оплачено",
+        "checking": "На перевірці",
+        "prepaid": "Внесена передплата",
+        "paid": "Оплачено повністю",
+    }.get(canonicalize_payment_status(value), "Не оплачено")
+
+
+def build_order_payment_snapshot(order) -> dict[str, Any]:
+    total_sum = NovaPoshtaDocumentService._as_money(getattr(order, "total_sum", 0))
+    pay_type = canonicalize_order_pay_type(getattr(order, "pay_type", ""))
+    payment_status = canonicalize_payment_status(getattr(order, "payment_status", ""))
+
+    prepayment_amount = Decimal("0.00")
+    get_prepayment_amount = getattr(order, "get_prepayment_amount", None)
+    if callable(get_prepayment_amount):
+        prepayment_amount = NovaPoshtaDocumentService._as_money(get_prepayment_amount())
+    elif pay_type == "prepay_200":
+        prepayment_amount = Decimal("200.00")
+
+    if payment_status == "paid":
+        cod_amount = Decimal("0.00")
+    elif pay_type == "prepay_200":
+        cod_amount = max(total_sum - prepayment_amount, Decimal("0.00"))
+    elif pay_type == "cod":
+        cod_amount = max(total_sum, Decimal("0.00"))
+    else:
+        cod_amount = Decimal("0.00")
+
+    return {
+        "payment_status": payment_status,
+        "payment_status_label": get_payment_status_label(payment_status),
+        "pay_type": pay_type,
+        "total_sum": f"{total_sum:.2f}",
+        "total_sum_value": total_sum,
+        "declared_cost": f"{total_sum:.2f}",
+        "declared_cost_value": total_sum,
+        "prepayment_amount": f"{prepayment_amount:.2f}",
+        "prepayment_amount_value": prepayment_amount,
+        "cod_amount": f"{cod_amount:.2f}",
+        "cod_amount_value": cod_amount,
+        "remaining_amount": f"{cod_amount:.2f}",
+        "remaining_amount_value": cod_amount,
+    }
+
+
+def _infer_warehouse_kind(warehouse_label: str, *, fallback: str = "branch") -> str:
+    normalized = str(warehouse_label or "").strip().lower()
+    if "поштомат" in normalized or "postomat" in normalized:
+        return "postomat"
+    return fallback if fallback in {"branch", "postomat"} else "branch"
+
+
+def _build_point_tokens(
+    *,
+    city_label: str,
+    settlement_ref: str,
+    city_ref: str,
+    warehouse_label: str,
+    warehouse_ref: str,
+    warehouse_kind: str,
+) -> tuple[str, str]:
+    city_token = ""
+    warehouse_token = ""
+
+    if city_label and (settlement_ref or city_ref):
+        try:
+            city_token = build_city_choice_token(
+                {
+                    "label": city_label,
+                    "settlement_ref": settlement_ref or city_ref,
+                    "city_ref": city_ref or settlement_ref,
+                }
+            )
+        except Exception:
+            city_token = ""
+
+    if warehouse_label and warehouse_ref:
+        try:
+            warehouse_token = build_warehouse_choice_token(
+                {
+                    "label": warehouse_label,
+                    "ref": warehouse_ref,
+                    "kind": _infer_warehouse_kind(warehouse_label, fallback=warehouse_kind),
+                    "city_ref": city_ref,
+                },
+                fallback_city_ref=city_ref,
+            )
+        except Exception:
+            warehouse_token = ""
+
+    return city_token, warehouse_token
 
 
 def split_person_name(full_name: str) -> dict[str, str]:
@@ -62,8 +236,23 @@ def build_waybill_description(order) -> str:
     if total_qty == 1 and len(items) == 1:
         title = str(getattr(items[0], "title", "") or "товар").strip()
         return f"Одяг бренду TwoComms, {title}"[:120]
+    custom_items = list(
+        getattr(order, "custom_print_leads", []).all()
+        if hasattr(getattr(order, "custom_print_leads", None), "all")
+        else getattr(order, "custom_print_leads", []) or []
+    )
+    custom_qty = sum(int(getattr(item, "quantity", 0) or 0) for item in custom_items)
+    if custom_qty == 1 and len(custom_items) == 1:
+        product_label = getattr(custom_items[0], "get_product_type_display", None)
+        if callable(product_label):
+            title = product_label()
+        else:
+            title = getattr(custom_items[0], "product_type", "") or "кастомний виріб"
+        return f"Одяг бренду TwoComms, {title}"[:120]
     if total_qty > 1:
         return f"Одяг бренду TwoComms, у кількості {total_qty} шт."
+    if custom_qty > 1:
+        return f"Одяг бренду TwoComms, кастомних виробів {custom_qty} шт."
     return "Одяг бренду TwoComms"
 
 
@@ -88,30 +277,55 @@ class NovaPoshtaDocumentService:
 
     def build_initial_payload(self, order) -> dict[str, Any]:
         sender_point = self._resolve_default_sender_point()
-        declared_cost = self._as_money(getattr(order, "total_sum", 0))
-        remaining_cod = self._get_cod_amount(order)
+        payment_snapshot = build_order_payment_snapshot(order)
+        recipient_city = getattr(order, "city", "") or ""
+        recipient_settlement_ref = getattr(order, "np_settlement_ref", "") or ""
+        recipient_city_ref = getattr(order, "np_city_ref", "") or ""
+        recipient_warehouse = getattr(order, "np_office", "") or ""
+        recipient_warehouse_ref = getattr(order, "np_warehouse_ref", "") or ""
+        recipient_city_token, recipient_warehouse_token = _build_point_tokens(
+            city_label=recipient_city,
+            settlement_ref=recipient_settlement_ref,
+            city_ref=recipient_city_ref,
+            warehouse_label=recipient_warehouse,
+            warehouse_ref=recipient_warehouse_ref,
+            warehouse_kind=_infer_warehouse_kind(recipient_warehouse),
+        )
+        sender_city_token, sender_warehouse_token = _build_point_tokens(
+            city_label=sender_point.city_label,
+            settlement_ref=sender_point.settlement_ref,
+            city_ref=sender_point.city_ref,
+            warehouse_label=sender_point.warehouse_label,
+            warehouse_ref=sender_point.warehouse_ref,
+            warehouse_kind=sender_point.warehouse_kind,
+        )
+        recipient_phone = normalize_phone(getattr(order, "phone", "") or "") or (getattr(order, "phone", "") or "")
 
         return {
             "recipient_full_name": getattr(order, "full_name", "") or "",
-            "recipient_phone": getattr(order, "phone", "") or "",
-            "recipient_city": getattr(order, "city", "") or "",
-            "recipient_settlement_ref": getattr(order, "np_settlement_ref", "") or "",
-            "recipient_city_ref": getattr(order, "np_city_ref", "") or "",
-            "recipient_warehouse": getattr(order, "np_office", "") or "",
-            "recipient_warehouse_ref": getattr(order, "np_warehouse_ref", "") or "",
+            "recipient_phone": recipient_phone,
+            "recipient_city": recipient_city,
+            "recipient_settlement_ref": recipient_settlement_ref,
+            "recipient_city_ref": recipient_city_ref,
+            "recipient_city_token": recipient_city_token,
+            "recipient_warehouse": recipient_warehouse,
+            "recipient_warehouse_ref": recipient_warehouse_ref,
+            "recipient_warehouse_token": recipient_warehouse_token,
             "sender_city": sender_point.city_label,
             "sender_settlement_ref": sender_point.settlement_ref,
             "sender_city_ref": sender_point.city_ref,
+            "sender_city_token": sender_city_token,
             "sender_warehouse": sender_point.warehouse_label,
             "sender_warehouse_ref": sender_point.warehouse_ref,
+            "sender_warehouse_token": sender_warehouse_token,
             "description": build_waybill_description(order),
-            "declared_cost": f"{declared_cost:.2f}",
+            "declared_cost": payment_snapshot["declared_cost"],
             "weight": "1.0",
             "seats_amount": "1",
             "length_cm": f"{self.DEFAULT_LENGTH_CM}",
             "width_cm": f"{self.DEFAULT_WIDTH_CM}",
             "height_cm": f"{self.DEFAULT_HEIGHT_CM}",
-            "cod_amount": f"{remaining_cod:.2f}" if remaining_cod > 0 else "",
+            "cod_amount": payment_snapshot["cod_amount"] if payment_snapshot["cod_amount_value"] > 0 else "",
             "payer_type": "Recipient",
             "payment_method": "Cash",
         }
@@ -141,7 +355,7 @@ class NovaPoshtaDocumentService:
         )
 
         recipient_phone = normalize_phone_for_np(payload.get("recipient_phone", ""))
-        if len(recipient_phone) < 12:
+        if len(recipient_phone) != 12 or not recipient_phone.startswith("380"):
             raise NovaPoshtaDocumentError("Вкажіть коректний телефон одержувача у форматі +380XXXXXXXXX.")
 
         recipient_name = split_person_name(payload.get("recipient_full_name", ""))
@@ -501,14 +715,7 @@ class NovaPoshtaDocumentService:
         return data
 
     def _get_cod_amount(self, order) -> Decimal:
-        pay_type = str(getattr(order, "pay_type", "") or "").strip()
-        if pay_type == "prepay_200":
-            remaining = getattr(order, "get_remaining_amount", None)
-            if callable(remaining):
-                return max(self._as_money(remaining()), Decimal("0.00"))
-        if pay_type == "cod":
-            return max(self._as_money(getattr(order, "total_sum", 0)), Decimal("0.00"))
-        return Decimal("0.00")
+        return build_order_payment_snapshot(order)["cod_amount_value"]
 
     @staticmethod
     def _normalize_name(value: Any) -> str:

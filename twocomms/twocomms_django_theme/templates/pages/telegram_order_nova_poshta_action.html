@@ -455,10 +455,31 @@
           <strong>{{ order.phone }}</strong>
         </div>
         <div class="tg-waybill-meta-card">
-          <span>До сплати / сума</span>
-          <strong>{{ order.total_sum }} грн</strong>
+          <span>Сума замовлення</span>
+          <strong data-payment-total-sum>{% if payment_snapshot %}{{ payment_snapshot.total_sum }}{% else %}{{ order.total_sum }}{% endif %} грн</strong>
         </div>
       </div>
+
+      {% if payment_snapshot %}
+        <div class="tg-waybill-meta" style="margin-top: 14px;">
+          <div class="tg-waybill-meta-card">
+            <span>Статус оплати</span>
+            <strong data-payment-status-label>{{ payment_snapshot.payment_status_label }}</strong>
+          </div>
+          <div class="tg-waybill-meta-card">
+            <span>Оголошена вартість</span>
+            <strong data-payment-declared-value>{{ payment_snapshot.declared_cost }} грн</strong>
+          </div>
+          <div class="tg-waybill-meta-card">
+            <span>Післяплата</span>
+            <strong data-payment-cod-value>{{ payment_snapshot.cod_amount }} грн</strong>
+          </div>
+          <div class="tg-waybill-meta-card">
+            <span>Monobank</span>
+            <strong data-payment-last-status>{{ payment_snapshot.payment_last_status|default:"немає даних" }}</strong>
+          </div>
+        </div>
+      {% endif %}
     {% else %}
       <p class="tg-waybill-subtitle">
         Перевірка підпису не пройдена, тому дані замовлення не показуються.
@@ -536,9 +557,11 @@
             </div>
 
             <div data-np-form>
-              {{ form.recipient_settlement_ref }}
-              {{ form.recipient_city_ref }}
-              {{ form.recipient_warehouse_ref }}
+              <input type="hidden" name="recipient_settlement_ref" value="{{ form.recipient_settlement_ref.value|default:'' }}" data-np-settlement-ref>
+              <input type="hidden" name="recipient_city_ref" value="{{ form.recipient_city_ref.value|default:'' }}" data-np-city-ref>
+              <input type="hidden" name="recipient_city_token" value="{{ form.recipient_city_token.value|default:'' }}" data-np-city-token>
+              <input type="hidden" name="recipient_warehouse_ref" value="{{ form.recipient_warehouse_ref.value|default:'' }}" data-np-warehouse-ref>
+              <input type="hidden" name="recipient_warehouse_token" value="{{ form.recipient_warehouse_token.value|default:'' }}" data-np-warehouse-token>
 
               <div class="tg-waybill-field">
                 <label class="tg-waybill-label" for="id_recipient_city">{{ form.recipient_city.label }}</label>
@@ -605,9 +628,11 @@
           </p>
 
           <div class="tg-waybill-fields" data-np-form>
-            {{ form.sender_settlement_ref }}
-            {{ form.sender_city_ref }}
-            {{ form.sender_warehouse_ref }}
+            <input type="hidden" name="sender_settlement_ref" value="{{ form.sender_settlement_ref.value|default:'' }}" data-np-settlement-ref>
+            <input type="hidden" name="sender_city_ref" value="{{ form.sender_city_ref.value|default:'' }}" data-np-city-ref>
+            <input type="hidden" name="sender_city_token" value="{{ form.sender_city_token.value|default:'' }}" data-np-city-token>
+            <input type="hidden" name="sender_warehouse_ref" value="{{ form.sender_warehouse_ref.value|default:'' }}" data-np-warehouse-ref>
+            <input type="hidden" name="sender_warehouse_token" value="{{ form.sender_warehouse_token.value|default:'' }}" data-np-warehouse-token>
 
             <div class="tg-waybill-field">
               <label class="tg-waybill-label" for="id_sender_city">{{ form.sender_city.label }}</label>
@@ -780,6 +805,86 @@
   const root = document.querySelector('.tg-waybill-page');
   if (root) {
     initNovaPoshtaSelectors(root);
+  }
+
+  const declaredField = document.querySelector('[data-payment-declared-field]');
+  const codField = document.querySelector('[data-payment-cod-field]');
+  const snapshotUrl = `{% if order %}{% url 'telegram_order_payment_snapshot' order.id 'create-np-waybill' %}?token={{ token|urlencode }}{% endif %}`;
+
+  function markFieldAsManual(field) {
+    if (!field) return;
+    const autofillValue = field.dataset.autofillValue || '';
+    field.dataset.manualOverride = field.value !== autofillValue ? 'true' : 'false';
+  }
+
+  [declaredField, codField].forEach((field) => {
+    if (!field) return;
+    field.dataset.autofillValue = field.value || '';
+    field.addEventListener('input', () => markFieldAsManual(field));
+    field.addEventListener('change', () => markFieldAsManual(field));
+  });
+
+  function maybeAutofill(field, nextValue) {
+    if (!field) return;
+    const normalizedValue = String(nextValue || '');
+    const currentValue = field.value || '';
+    const autofillValue = field.dataset.autofillValue || '';
+    const isManual = field.dataset.manualOverride === 'true';
+    if (!isManual && (currentValue === '' || currentValue === autofillValue)) {
+      field.value = normalizedValue;
+    }
+    field.dataset.autofillValue = normalizedValue;
+  }
+
+  function applyPaymentSnapshot(snapshot) {
+    if (!snapshot) return;
+
+    const statusLabel = document.querySelector('[data-payment-status-label]');
+    if (statusLabel) {
+      statusLabel.textContent = snapshot.payment_status_label || 'Не оплачено';
+    }
+
+    const totalLabel = document.querySelector('[data-payment-total-sum]');
+    if (totalLabel) {
+      totalLabel.textContent = `${snapshot.total_sum || '0.00'} грн`;
+    }
+
+    const declaredLabel = document.querySelector('[data-payment-declared-value]');
+    if (declaredLabel) {
+      declaredLabel.textContent = `${snapshot.declared_cost || '0.00'} грн`;
+    }
+
+    const codLabel = document.querySelector('[data-payment-cod-value]');
+    if (codLabel) {
+      codLabel.textContent = `${snapshot.cod_amount || '0.00'} грн`;
+    }
+
+    const lastStatus = document.querySelector('[data-payment-last-status]');
+    if (lastStatus) {
+      lastStatus.textContent = snapshot.payment_last_status || 'немає даних';
+    }
+
+    maybeAutofill(declaredField, snapshot.declared_cost || '0.00');
+    maybeAutofill(codField, snapshot.cod_amount || '0.00');
+  }
+
+  async function pollPaymentSnapshot() {
+    if (!snapshotUrl || document.hidden) return;
+    try {
+      const response = await fetch(snapshotUrl, {
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) return;
+      applyPaymentSnapshot(data.snapshot);
+    } catch (error) {
+      console.warn('Telegram waybill payment snapshot polling failed', error);
+    }
+  }
+
+  if (snapshotUrl) {
+    pollPaymentSnapshot();
+    window.setInterval(pollPaymentSnapshot, 5000);
   }
 </script>
 {% endblock %}

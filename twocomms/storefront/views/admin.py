@@ -41,6 +41,11 @@ from django.utils.text import slugify
 
 import json
 
+from orders.nova_poshta_documents import (
+    build_order_payment_snapshot,
+    canonicalize_payment_status,
+    get_payment_status_label,
+)
 from ..models import (
     OfflineStore,
     PageView,
@@ -325,13 +330,19 @@ def _build_push_notifications_context(request, form=None):
 def _build_orders_context(request):
     """Формирует данные для секции заказов."""
     status_filter = request.GET.get('status', 'all')
-    payment_filter = request.GET.get('payment', 'all')
+    payment_filter_raw = request.GET.get('payment', 'all')
+    payment_filter = (
+        canonicalize_payment_status(payment_filter_raw)
+        if payment_filter_raw != 'all'
+        else 'all'
+    )
     user_id_filter = request.GET.get('user_id')
 
     orders_qs = (
         Order.objects.select_related('user')
         .prefetch_related(
-            Prefetch('items', queryset=OrderItem.objects.select_related('product'))
+            Prefetch('items', queryset=OrderItem.objects.select_related('product')),
+            'custom_print_leads',
         )
         .order_by('-created')
     )
@@ -339,7 +350,10 @@ def _build_orders_context(request):
     if status_filter != 'all':
         orders_qs = orders_qs.filter(status=status_filter)
     if payment_filter != 'all':
-        orders_qs = orders_qs.filter(payment_status=payment_filter)
+        if payment_filter == 'prepaid':
+            orders_qs = orders_qs.filter(payment_status__in=['prepaid', 'partial'])
+        else:
+            orders_qs = orders_qs.filter(payment_status=payment_filter)
 
     user_filter_info = None
     if user_id_filter:
@@ -362,15 +376,19 @@ def _build_orders_context(request):
     payment_status_counts = {
         'unpaid': Order.objects.filter(payment_status='unpaid').count(),
         'checking': Order.objects.filter(payment_status='checking').count(),
-        'partial': Order.objects.filter(payment_status='partial').count(),
+        'prepaid': Order.objects.filter(payment_status__in=['prepaid', 'partial']).count(),
         'paid': Order.objects.filter(payment_status='paid').count(),
     }
 
     orders = list(orders_qs)
     for order in orders:
+        snapshot = build_order_payment_snapshot(order)
         payload = order.payment_payload or {}
         history = payload.get('history') or []
         last_entry = history[-1] if history else {}
+        order.payment_status_canonical = snapshot['payment_status']
+        order.payment_status_label = snapshot['payment_status_label']
+        order.payment_snapshot = snapshot
         order.payment_last_status = last_entry.get('status') or payload.get('last_status')
         order.payment_last_time = last_entry.get('received_at') or last_entry.get('ts') or payload.get('last_update_at')
         order.payment_history_safe = history[-10:]
@@ -408,7 +426,7 @@ def _build_users_context():
     payment_status_template = {
         'unpaid': 0,
         'checking': 0,
-        'partial': 0,
+        'prepaid': 0,
         'paid': 0,
     }
 
@@ -429,8 +447,9 @@ def _build_users_context():
 
         for order in user_orders:
             order_status_counts[order.status] = order_status_counts.get(order.status, 0) + 1
-            payment_status_counts[order.payment_status] = (
-                payment_status_counts.get(order.payment_status, 0) + 1
+            payment_status = canonicalize_payment_status(order.payment_status)
+            payment_status_counts[payment_status] = (
+                payment_status_counts.get(payment_status, 0) + 1
             )
 
         total_spent = sum(
@@ -473,6 +492,67 @@ def _build_users_context():
         })
 
     return {'user_data': user_data}
+
+
+@staff_member_required
+def admin_update_payment_status(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Невірний метод запиту'}, status=405)
+
+    order_id = request.POST.get('order_id')
+    payment_status = canonicalize_payment_status(request.POST.get('payment_status'))
+
+    if not order_id or payment_status not in {'unpaid', 'checking', 'prepaid', 'paid'}:
+        return JsonResponse({'success': False, 'error': 'Невірний статус оплати'}, status=400)
+
+    order = get_object_or_404(Order, pk=order_id)
+    order.payment_status = payment_status
+    order.save(update_fields=['payment_status', 'updated'])
+
+    return JsonResponse(
+        {
+            'success': True,
+            'message': f'Статус оплати змінено на "{get_payment_status_label(payment_status)}"',
+            'payment_status': payment_status,
+            'payment_status_label': get_payment_status_label(payment_status),
+        }
+    )
+
+
+@staff_member_required
+def admin_order_payment_snapshots(request):
+    raw_ids = request.GET.get('ids', '')
+    try:
+        order_ids = [int(value) for value in raw_ids.split(',') if value.strip()]
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Некоректні id замовлень'}, status=400)
+
+    if not order_ids:
+        return JsonResponse({'success': True, 'orders': {}})
+
+    orders = Order.objects.filter(pk__in=order_ids).only(
+        'id',
+        'payment_status',
+        'pay_type',
+        'total_sum',
+        'payment_payload',
+    )
+    payload = {}
+    for order in orders:
+        snapshot = build_order_payment_snapshot(order)
+        payment_payload = order.payment_payload or {}
+        history = payment_payload.get('history') or []
+        last_entry = history[-1] if history else {}
+        snapshot['payment_last_status'] = last_entry.get('status') or payment_payload.get('last_status') or ''
+        snapshot['payment_last_time'] = (
+            last_entry.get('received_at')
+            or last_entry.get('ts')
+            or payment_payload.get('last_update_at')
+            or ''
+        )
+        payload[str(order.pk)] = snapshot
+
+    return JsonResponse({'success': True, 'orders': payload})
 
 
 def _build_catalogs_context():
@@ -1016,6 +1096,15 @@ def admin_custom_print_lead_moderation(request, lead_id: int):
                 update_fields.append('approved_price')
             except (InvalidOperation, TypeError):
                 return JsonResponse({'success': False, 'error': 'Некоректна ціна'}, status=400)
+        final_price = Decimal(str(lead.final_price_value or 0))
+        if final_price <= 0:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'error': 'Для погодження потрібно вказати фінальну ціну більше 0 грн.',
+                },
+                status=400,
+            )
         lead.moderation_status = CustomPrintModerationStatus.APPROVED
     else:
         lead.moderation_status = CustomPrintModerationStatus.REJECTED
