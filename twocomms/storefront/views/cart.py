@@ -29,7 +29,7 @@ from orders.nova_poshta_lookup import (
     NovaPoshtaLookupError,
     NovaPoshtaLookupUnavailable,
 )
-from orders.nova_poshta_documents import normalize_phone
+from orders.nova_poshta_documents import normalize_checkout_phone, normalize_phone
 from orders.nova_poshta_checkout import (
     NovaPoshtaSelectionError,
     resolve_delivery_selection,
@@ -420,7 +420,14 @@ def view_cart(request):
                 try:
                     delivery_selection = resolve_delivery_selection(request.POST)
                     profile.full_name = (request.POST.get('full_name') or '').strip()
-                    profile.phone = normalize_phone(request.POST.get('phone') or '')
+                    raw_phone = request.POST.get('phone') or ''
+                    profile.phone = normalize_checkout_phone(raw_phone)
+                    if not profile.phone:
+                        messages.error(
+                            request,
+                            'Вкажіть коректний український номер телефону. Можна без +380.'
+                        )
+                        return redirect('cart')
                     profile.city = delivery_selection.city
                     profile.np_office = delivery_selection.np_office
                     apply_nova_poshta_refs(

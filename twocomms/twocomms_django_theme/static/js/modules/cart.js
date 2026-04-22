@@ -1,5 +1,6 @@
 import { getCookie, DOMCache, escapeHtml } from './shared.js';
 import { initNovaPoshtaSelectors } from './nova-poshta-selector.js?v=20260422b';
+import { normalizeUkraineCheckoutPhoneValue, syncUkraineCheckoutPhoneField } from './phone.js';
 
 const CART_EMPTY_TEMPLATE = `
   <div class="cart-empty">
@@ -894,10 +895,13 @@ function setupCartValidation(form) {
     }
 
     if (value && field.name === 'phone') {
-      const cleaned = value.replace(/[^\d+]/g, '');
-      if (!cleaned.startsWith('+380') || cleaned.length !== 13) {
-        markError(field, 'Телефон у форматі +380XXXXXXXXX');
+      const normalized = normalizeUkraineCheckoutPhoneValue(value);
+      if (!normalized) {
+        markError(field, 'Вкажіть коректний український номер. Можна без +380.');
         return false;
+      }
+      if (field.value !== normalized) {
+        syncUkraineCheckoutPhoneField(field);
       }
     }
     return true;

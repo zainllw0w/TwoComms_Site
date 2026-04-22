@@ -15,7 +15,7 @@ from django.core.exceptions import ValidationError
 
 from ..models import Product
 from accounts.models import UserProfile, FavoriteProduct
-from orders.nova_poshta_documents import normalize_phone
+from orders.nova_poshta_documents import normalize_checkout_phone
 
 
 def _published_products_for_user(user):
@@ -113,7 +113,9 @@ class ProfileSetupForm(forms.Form):
         required=True,
         widget=forms.TextInput(attrs={
             "class": "form-control bg-elevate",
-            "placeholder": "+380XXXXXXXXX"
+            "placeholder": "0931234567",
+            "autocomplete": "tel",
+            "inputmode": "tel",
         })
     )
     email = forms.EmailField(
@@ -183,9 +185,9 @@ class ProfileSetupForm(forms.Form):
         return data
 
     def clean_phone(self):
-        phone = normalize_phone(self.cleaned_data.get("phone", ""))
+        phone = normalize_checkout_phone(self.cleaned_data.get("phone", ""))
         if not phone:
-            raise ValidationError("Введіть коректний номер телефону у форматі +380XXXXXXXXX")
+            raise ValidationError("Введіть коректний український номер телефону. Можна без +380.")
         return phone
 
 

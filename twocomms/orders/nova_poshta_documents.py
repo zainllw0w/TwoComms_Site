@@ -39,37 +39,63 @@ class NovaPoshtaResolvedPoint:
     warehouse_kind: str
 
 
-def _ua_phone_candidates(raw_phone: str) -> list[str]:
+def _phone_parse_candidates(raw_phone: str) -> list[tuple[str, str | None]]:
     raw = str(raw_phone or "").strip()
     digits = re.sub(r"\D+", "", raw)
     if not digits:
         return []
 
-    candidates: list[str] = []
-    for value in (
-        raw,
-        f"+{digits}" if raw.startswith("+") else "",
-        f"+{digits}" if digits.startswith("380") and len(digits) == 12 else "",
-        digits if digits.startswith("0") and len(digits) == 10 else "",
-        f"0{digits[1:]}" if digits.startswith("8") and len(digits) == 10 else "",
-        f"0{digits}" if len(digits) == 9 else "",
-        f"0{digits[1:]}" if digits.startswith("80") and len(digits) == 11 else "",
-    ):
+    candidates: list[tuple[str, str | None]] = []
+
+    def add(value: str, region: str | None = "UA") -> None:
         value = (value or "").strip()
-        if value and value not in candidates:
-            candidates.append(value)
+        item = (value, region)
+        if value and item not in candidates:
+            candidates.append(item)
+
+    if raw.startswith("+"):
+        add(raw, None)
+        add(f"+{digits}", None)
+        return candidates
+
+    if digits.startswith("00"):
+        add(f"+{digits[2:]}", None)
+        return candidates
+
+    if digits.startswith("380") and len(digits) == 12:
+        add(f"+{digits}", None)
+        add(digits, "UA")
+        return candidates
+
+    if digits.startswith("80") and len(digits) == 11:
+        add(digits[1:], "UA")
+        return candidates
+
+    if digits.startswith("8") and len(digits) == 10:
+        add(f"0{digits[1:]}", "UA")
+        return candidates
+
+    if digits.startswith("0") and len(digits) == 10:
+        add(digits, "UA")
+        return candidates
+
+    if len(digits) == 9:
+        add(digits, "UA")
+        add(f"0{digits}", "UA")
+
     return candidates
 
 
 def normalize_phone(phone: str) -> str:
+    raw = str(phone or "").strip()
     digits = re.sub(r"\D+", "", str(phone or ""))
     if not digits:
         return ""
 
     if phonenumbers is not None:
-        for candidate in _ua_phone_candidates(phone):
+        for candidate, region in _phone_parse_candidates(phone):
             try:
-                parsed = phonenumbers.parse(candidate, "UA")
+                parsed = phonenumbers.parse(candidate, region)
             except Exception:
                 continue
             if not phonenumbers.is_possible_number(parsed):
@@ -81,16 +107,31 @@ def normalize_phone(phone: str) -> str:
             except Exception:
                 continue
 
+    if raw.startswith("+"):
+        if digits.startswith("380"):
+            return f"+{digits}" if len(digits) == 12 else ""
+        if 8 <= len(digits) <= 15:
+            return f"+{digits}"
+        return ""
+
+    if digits.startswith("00"):
+        trimmed = digits[2:]
+        if trimmed.startswith("380"):
+            return f"+{trimmed}" if len(trimmed) == 12 else ""
+        if 8 <= len(trimmed) <= 15:
+            return f"+{trimmed}"
+        return ""
+
     if digits.startswith("380") and len(digits) == 12:
         return f"+{digits}"
     if digits.startswith("80") and len(digits) == 11:
         return f"+38{digits[1:]}"
+    if digits.startswith("8") and len(digits) == 10:
+        return f"+380{digits[1:]}"
     if digits.startswith("0") and len(digits) == 10:
         return f"+38{digits}"
     if len(digits) == 9:
         return f"+380{digits}"
-    if str(phone or "").strip().startswith("+"):
-        return f"+{digits}"
     return ""
 
 
@@ -100,6 +141,15 @@ def normalize_phone_for_np(phone: str) -> str:
     if digits.startswith("380") and len(digits) == 12:
         return digits
     return ""
+
+
+def normalize_checkout_phone(phone: str) -> str:
+    """
+    Checkout currently creates domestic Nova Poshta shipments, so keep the
+    stored value in E.164 while requiring a Ukrainian delivery-compatible number.
+    """
+    normalized = normalize_phone(phone)
+    return normalized if normalize_phone_for_np(normalized) else ""
 
 
 def canonicalize_order_pay_type(value: Any) -> str:
