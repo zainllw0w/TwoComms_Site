@@ -503,21 +503,34 @@ function buildPromptCard(mode, reason) {
     wrapper.innerHTML = `
       <div class="web-push-prompt__glow"></div>
       <div class="web-push-prompt__content">
-        <div class="web-push-prompt__icon" aria-hidden="true">Push</div>
+        <div class="web-push-prompt__icon" aria-hidden="true">App</div>
         <div class="web-push-prompt__text">
           <span class="web-push-prompt__eyebrow" data-web-push-eyebrow>iPhone та iPad</span>
-          <div class="web-push-prompt__title" data-web-push-title>Push на iPhone/iPad</div>
+          <div class="web-push-prompt__title" data-web-push-title>Установіть TwoComms на екран Додому</div>
           <p class="web-push-prompt__copy" data-web-push-copy>
-            Додайте TwoComms на екран Додому, відкрийте сайт як застосунок і після цього дозвольте системні сповіщення у системному prompt.
+            На iPhone та iPad push працюють після встановлення TwoComms як вебзастосунку. Це займає кілька секунд і не потребує App Store.
           </p>
-          <div class="web-push-prompt__benefits" aria-hidden="true">
-            <span class="web-push-prompt__benefit">1. Поділитися</span>
-            <span class="web-push-prompt__benefit">2. На екран Додому</span>
+          <div class="web-push-prompt__steps" aria-hidden="true">
+            <div class="web-push-prompt__step">
+              <span class="web-push-prompt__step-index">1</span>
+              <div class="web-push-prompt__step-copy">
+                <strong>Відкрийте меню “Поділитися”</strong>
+                <small>У Safari або в іншому браузері на iPhone/iPad.</small>
+              </div>
+            </div>
+            <div class="web-push-prompt__step">
+              <span class="web-push-prompt__step-index">2</span>
+              <div class="web-push-prompt__step-copy">
+                <strong>Натисніть “На екран Додому”</strong>
+                <small>Потім відкрийте TwoComms з іконки та дозвольте системні push-сповіщення.</small>
+              </div>
+            </div>
           </div>
+          <p class="web-push-prompt__meta">Після встановлення TwoComms відкриватиметься як окремий швидкий вебзастосунок.</p>
         </div>
         <div class="web-push-prompt__actions">
           <button type="button" class="web-push-prompt__btn web-push-prompt__btn--ghost" data-web-push-dismiss>
-            Зрозуміло
+            Добре
           </button>
         </div>
       </div>
@@ -792,11 +805,11 @@ function profileStateText(config) {
   if (isIOS() && !isStandalone()) {
     return {
       state: 'ios_install',
-      status: 'На iPhone/iPad спочатку додайте сайт на екран Додому',
-      detail: 'Після запуску TwoComms як вебзастосунку ви зможете ввімкнути системні push-сповіщення для цього пристрою.',
+      status: 'На iPhone/iPad спочатку встановіть TwoComms на екран Додому',
+      detail: 'Після цього сайт відкриватиметься як вебзастосунок TwoComms, і вже з нього можна буде дозволити системні push-сповіщення для цього пристрою.',
       canEnable: true,
       canDisable: false,
-      enableLabel: 'Показати інструкцію',
+      enableLabel: 'Як встановити на iPhone/iPad',
     };
   }
 

@@ -115,6 +115,61 @@
   font-weight: 700;
 }
 
+.web-push-prompt__steps {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.web-push-prompt__step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: start;
+  padding: 0.72rem 0.8rem;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.web-push-prompt__step-index {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(118, 180, 255, 0.18);
+  border: 1px solid rgba(118, 180, 255, 0.22);
+  color: #e0ecff;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.web-push-prompt__step-copy {
+  display: grid;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
+.web-push-prompt__step-copy strong {
+  color: #f8fafc;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.web-push-prompt__step-copy small {
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.web-push-prompt__meta {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.68);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .web-push-prompt__actions {
   grid-column: 1 / -1;
   display: flex;
@@ -193,6 +248,11 @@
   border-color: rgba(118, 180, 255, 0.26);
 }
 
+.web-push-prompt[data-tone='install'] .web-push-prompt__eyebrow {
+  color: #d9ecff;
+  background: rgba(91, 152, 255, 0.12);
+}
+
 @media (max-width: 640px) {
   .web-push-prompt {
     right: max(12px, calc(env(safe-area-inset-right, 0px) + 8px));
@@ -220,6 +280,10 @@
 
   .web-push-prompt__btn {
     width: 100%;
+  }
+
+  .web-push-prompt__step {
+    padding: 0.68rem 0.72rem;
   }
 }
 
