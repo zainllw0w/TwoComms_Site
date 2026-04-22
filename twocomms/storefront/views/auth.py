@@ -95,6 +95,10 @@ class RegisterForm(forms.Form):
 class ProfileSetupForm(forms.Form):
     """Форма первоначальной настройки профиля."""
 
+    def __init__(self, *args, has_existing_ubd_doc=False, **kwargs):
+        self.has_existing_ubd_doc = has_existing_ubd_doc
+        super().__init__(*args, **kwargs)
+
     full_name = forms.CharField(
         label="ПІБ",
         max_length=200,
@@ -174,7 +178,7 @@ class ProfileSetupForm(forms.Form):
 
     def clean(self):
         data = super().clean()
-        if data.get("is_ubd") and not data.get("ubd_doc"):
+        if data.get("is_ubd") and not data.get("ubd_doc") and not self.has_existing_ubd_doc:
             self.add_error("ubd_doc", "Для УБД додайте фото посвідчення")
         return data
 
