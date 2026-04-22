@@ -215,22 +215,32 @@
         radial-gradient(circle at 67% 40%, rgba(144, 21, 8, 0.18), transparent 34%),
         radial-gradient(circle at top right, rgba(199, 164, 106, 0.08), transparent 60%);
     }
+    .pro-brand-page #meaning.pb-bento-card {
+      display: block;
+      align-self: start;
+      min-height: 0;
+      padding-bottom: 1.65rem;
+    }
+    .pro-brand-page #meaning .pb-bento-icon {
+      margin-bottom: 1.25rem;
+    }
     .pro-brand-page .pb-meaning-layout {
-      position: relative;
-      min-height: clamp(24.5rem, 31vw, 27.75rem);
-      padding-top: clamp(8.5rem, 11vw, 10.75rem);
+      position: static;
+      min-height: 0;
+      padding-top: 0;
     }
     .pro-brand-page .pb-meaning-copy {
       position: relative;
       z-index: 2;
-      max-width: min(100%, 58rem);
+      max-width: 100%;
+      padding-top: clamp(5.75rem, 7vw, 6.85rem);
     }
     .pro-brand-page .pb-meaning-visual {
       position: absolute;
-      top: clamp(-0.55rem, 0.8vw, 0.45rem);
-      left: 51%;
-      width: min(100%, clamp(14.75rem, 20vw, 18.5rem));
-      min-height: clamp(10.5rem, 14vw, 13.5rem);
+      top: 2.5rem;
+      left: 49%;
+      width: min(100%, clamp(13.25rem, 17vw, 15.5rem));
+      min-height: clamp(9.5rem, 12vw, 11.35rem);
       transform: translateX(-50%);
       isolation: isolate;
       pointer-events: none;
@@ -239,12 +249,12 @@
     .pro-brand-page .pb-meaning-visual::before {
       content: "";
       position: absolute;
-      inset: 10% 4% 18% 6%;
+      inset: 4% 4% 16% 4%;
       border-radius: 999px;
-      background: radial-gradient(circle at 50% 54%, rgba(255, 92, 52, 0.22), rgba(122, 17, 8, 0.13) 38%, transparent 76%);
-      filter: blur(22px);
-      opacity: 0.56;
-      animation: pb-meaning-flicker 7.8s ease-in-out infinite;
+      background: radial-gradient(circle at 50% 48%, rgba(255, 102, 56, 0.26), rgba(122, 17, 8, 0.14) 34%, transparent 74%);
+      filter: blur(20px);
+      opacity: 0.62;
+      animation: pb-meaning-flicker 8.6s ease-in-out infinite;
     }
     .pro-brand-page .pb-meaning-glow {
       position: absolute;
@@ -254,40 +264,40 @@
       pointer-events: none;
     }
     .pro-brand-page .pb-meaning-glow-soft {
-      inset: 20% 8% 14% 10%;
-      background: radial-gradient(circle, rgba(255, 124, 78, 0.28) 0%, rgba(192, 37, 18, 0.12) 40%, transparent 76%);
-      opacity: 0.34;
-      animation: pb-meaning-flicker 8.8s ease-in-out infinite reverse;
+      inset: 12% 4% 20% 4%;
+      background: radial-gradient(circle, rgba(255, 132, 80, 0.26) 0%, rgba(192, 37, 18, 0.1) 42%, transparent 76%);
+      opacity: 0.4;
+      animation: pb-meaning-flicker 9.2s ease-in-out infinite reverse;
     }
     .pro-brand-page .pb-meaning-glow-core {
-      inset: 34% 24% 18% 24%;
-      background: radial-gradient(circle, rgba(255, 196, 160, 0.22) 0%, rgba(255, 109, 61, 0.18) 34%, transparent 74%);
-      opacity: 0.24;
-      filter: blur(12px);
-      animation: pb-meaning-flicker 7.1s ease-in-out infinite;
+      inset: 24% 18% 18% 18%;
+      background: radial-gradient(circle, rgba(255, 198, 164, 0.26) 0%, rgba(255, 109, 61, 0.16) 34%, transparent 72%);
+      opacity: 0.26;
+      filter: blur(11px);
+      animation: pb-meaning-flicker 8s ease-in-out infinite;
     }
     .pro-brand-page .pb-meaning-embers {
       position: absolute;
-      inset: -8% -8% 10% -8%;
+      inset: -16% -10% 12% -10%;
       z-index: 1;
       pointer-events: none;
     }
     .pro-brand-page .pb-meaning-ember {
-      --ember-drift: 12px;
-      --ember-rise: 64px;
+      --ember-drift: 10px;
+      --ember-rise: 54px;
       --ember-rotate: 6deg;
       --ember-tilt: -8deg;
       position: absolute;
-      bottom: 42%;
+      bottom: 58%;
       width: 1.5px;
-      height: 12px;
+      height: 11px;
       border-radius: 999px;
       background: linear-gradient(180deg, rgba(255, 243, 227, 0) 0%, rgba(255, 241, 226, 0.94) 22%, rgba(255, 165, 94, 0.92) 52%, rgba(176, 32, 12, 0.08) 100%);
       box-shadow: 0 0 6px rgba(255, 116, 66, 0.18);
       mix-blend-mode: screen;
       filter: blur(0.1px);
       opacity: 0;
-      animation: pb-meaning-ember 5.4s linear infinite;
+      animation: pb-meaning-ember 5.8s linear infinite;
     }
     .pro-brand-page .pb-meaning-ember:nth-child(3n) {
       width: 2px;
@@ -300,117 +310,117 @@
       box-shadow: 0 0 6px rgba(255, 117, 68, 0.18);
     }
     .pro-brand-page .pb-meaning-ember:nth-child(1) {
-      left: 10%;
-      bottom: 54%;
-      --ember-drift: 10px;
-      --ember-rise: 56px;
-      --ember-tilt: -16deg;
+      left: 6%;
+      bottom: 70%;
+      --ember-drift: 8px;
+      --ember-rise: 46px;
+      --ember-tilt: -14deg;
       animation-delay: 0s;
-      animation-duration: 4.6s;
-    }
-    .pro-brand-page .pb-meaning-ember:nth-child(2) {
-      left: 19%;
-      bottom: 43%;
-      --ember-drift: -8px;
-      --ember-rise: 72px;
-      --ember-rotate: -7deg;
-      --ember-tilt: 9deg;
-      animation-delay: 0.8s;
       animation-duration: 5.1s;
     }
+    .pro-brand-page .pb-meaning-ember:nth-child(2) {
+      left: 17%;
+      bottom: 62%;
+      --ember-drift: -7px;
+      --ember-rise: 56px;
+      --ember-rotate: -7deg;
+      --ember-tilt: 9deg;
+      animation-delay: 0.7s;
+      animation-duration: 5.4s;
+    }
     .pro-brand-page .pb-meaning-ember:nth-child(3) {
-      left: 30%;
-      bottom: 49%;
-      --ember-drift: 7px;
-      --ember-rise: 58px;
+      left: 28%;
+      bottom: 68%;
+      --ember-drift: 6px;
+      --ember-rise: 48px;
       --ember-rotate: 4deg;
       --ember-tilt: -6deg;
-      animation-delay: 1.4s;
-      animation-duration: 4.3s;
+      animation-delay: 1.2s;
+      animation-duration: 4.8s;
     }
     .pro-brand-page .pb-meaning-ember:nth-child(4) {
-      left: 41%;
-      bottom: 56%;
-      --ember-drift: -10px;
-      --ember-rise: 66px;
+      left: 40%;
+      bottom: 73%;
+      --ember-drift: -8px;
+      --ember-rise: 52px;
       --ember-rotate: -10deg;
       --ember-tilt: 12deg;
       animation-delay: 0.4s;
-      animation-duration: 4.9s;
+      animation-duration: 5s;
     }
     .pro-brand-page .pb-meaning-ember:nth-child(5) {
-      left: 54%;
-      bottom: 58%;
-      --ember-drift: 8px;
-      --ember-rise: 62px;
-      --ember-tilt: -10deg;
-      animation-delay: 1.9s;
-      animation-duration: 5.3s;
+      left: 52%;
+      bottom: 75%;
+      --ember-drift: 7px;
+      --ember-rise: 50px;
+      --ember-tilt: -9deg;
+      animation-delay: 1.8s;
+      animation-duration: 5.7s;
     }
     .pro-brand-page .pb-meaning-ember:nth-child(6) {
-      left: 67%;
-      bottom: 53%;
-      --ember-drift: -7px;
-      --ember-rise: 60px;
+      left: 64%;
+      bottom: 69%;
+      --ember-drift: -6px;
+      --ember-rise: 48px;
       --ember-rotate: -5deg;
       --ember-tilt: 8deg;
-      animation-delay: 2.2s;
-      animation-duration: 4.7s;
+      animation-delay: 2.1s;
+      animation-duration: 5s;
     }
     .pro-brand-page .pb-meaning-ember:nth-child(7) {
-      left: 78%;
-      bottom: 46%;
-      --ember-drift: 6px;
-      --ember-rise: 68px;
+      left: 76%;
+      bottom: 63%;
+      --ember-drift: 5px;
+      --ember-rise: 54px;
       --ember-tilt: -12deg;
       animation-delay: 0.9s;
-      animation-duration: 5.5s;
+      animation-duration: 5.9s;
     }
     .pro-brand-page .pb-meaning-ember:nth-child(8) {
-      left: 88%;
-      bottom: 51%;
-      --ember-drift: -9px;
-      --ember-rise: 58px;
+      left: 92%;
+      bottom: 69%;
+      --ember-drift: -7px;
+      --ember-rise: 46px;
       --ember-rotate: -8deg;
       --ember-tilt: 10deg;
       animation-delay: 1.6s;
-      animation-duration: 4.8s;
+      animation-duration: 5.1s;
     }
     .pro-brand-page .pb-meaning-ember:nth-child(9) {
-      left: 73%;
-      bottom: 32%;
-      --ember-drift: 8px;
-      --ember-rise: 54px;
+      left: 14%;
+      bottom: 81%;
+      --ember-drift: 6px;
+      --ember-rise: 40px;
       --ember-tilt: -7deg;
-      animation-delay: 2.8s;
-      animation-duration: 5.2s;
+      animation-delay: 2.5s;
+      animation-duration: 5.8s;
     }
     .pro-brand-page .pb-meaning-ember:nth-child(10) {
-      left: 91%;
-      bottom: 36%;
-      --ember-drift: -7px;
-      --ember-rise: 48px;
+      left: 83%;
+      bottom: 82%;
+      --ember-drift: -5px;
+      --ember-rise: 38px;
       --ember-tilt: 11deg;
       animation-delay: 0.5s;
-      animation-duration: 4.5s;
+      animation-duration: 5.3s;
     }
     .pro-brand-page .pb-meaning-ember:nth-child(11) {
-      left: 23%;
-      bottom: 62%;
-      --ember-drift: 5px;
-      --ember-rise: 46px;
+      left: 33%;
+      bottom: 86%;
+      --ember-drift: 4px;
+      --ember-rise: 34px;
       --ember-tilt: -9deg;
       animation-delay: 1.5s;
-      animation-duration: 4.9s;
+      animation-duration: 5.2s;
     }
     .pro-brand-page .pb-meaning-ember:nth-child(12) {
-      left: 60%;
-      bottom: 66%;
-      --ember-drift: -6px;
-      --ember-rise: 44px;
+      left: 58%;
+      bottom: 88%;
+      --ember-drift: -4px;
+      --ember-rise: 32px;
       --ember-tilt: 12deg;
-      animation-delay: 3s;
-      animation-duration: 4.4s;
+      animation-delay: 2.9s;
+      animation-duration: 4.9s;
     }
     .pro-brand-page .pb-meaning-stack {
       position: absolute;
@@ -428,31 +438,31 @@
       width: 100%;
       height: 100%;
       object-fit: contain;
-      transform-origin: 50% 60%;
+      transform-origin: 50% 50%;
       backface-visibility: hidden;
-      will-change: opacity, transform, filter;
+      will-change: opacity, filter;
     }
     .pro-brand-page .pb-meaning-image-base {
       opacity: 0.06;
-      filter: drop-shadow(0 10px 24px rgba(255, 150, 103, 0.12));
+      filter: drop-shadow(0 10px 22px rgba(255, 150, 103, 0.12));
     }
     .pro-brand-page .pb-meaning-image-flare {
       opacity: 1;
-      mix-blend-mode: screen;
-      filter: saturate(1.04) brightness(1.02) drop-shadow(0 0 24px rgba(255, 77, 41, 0.18));
+      mix-blend-mode: normal;
+      filter: drop-shadow(0 0 18px rgba(255, 82, 42, 0.14));
     }
     .pro-brand-page .pb-meaning-visual.pb-meaning-live::before {
       animation-duration: 7.1s;
     }
     .pro-brand-page .pb-meaning-visual.pb-meaning-live .pb-meaning-image-base {
       animation:
-        pb-meaning-primary-reveal 3.1s cubic-bezier(0.2, 0.86, 0.2, 1) forwards,
-        pb-meaning-primary-idle 8.4s ease-in-out 3.1s infinite;
+        pb-meaning-primary-reveal 4.6s cubic-bezier(0.2, 0.86, 0.2, 1) forwards,
+        pb-meaning-primary-idle 9.2s ease-in-out 4.6s infinite;
     }
     .pro-brand-page .pb-meaning-visual.pb-meaning-live .pb-meaning-image-flare {
       animation:
-        pb-meaning-secondary-reveal 3.8s cubic-bezier(0.2, 0.86, 0.2, 1) forwards,
-        pb-meaning-secondary-idle 10.2s ease-in-out 3.9s infinite;
+        pb-meaning-secondary-reveal 5.2s cubic-bezier(0.2, 0.86, 0.2, 1) forwards,
+        pb-meaning-secondary-idle 12s ease-in-out 5.2s infinite;
     }
     @keyframes pb-meaning-flicker {
       0%, 100% { opacity: 0.24; transform: scale(0.98); }
@@ -462,31 +472,26 @@
     }
     @keyframes pb-meaning-primary-reveal {
       0% {
-        opacity: 0.06;
-        transform: translate3d(0, 10px, 0) scale(0.972);
-        filter: saturate(0.78) brightness(0.82) drop-shadow(0 8px 18px rgba(255, 140, 96, 0.06));
+        opacity: 0.04;
+        filter: drop-shadow(0 8px 18px rgba(255, 140, 96, 0.05));
       }
       42% {
-        opacity: 0.52;
-        transform: translate3d(0, 5px, 0) scale(0.988);
-        filter: saturate(0.92) brightness(0.94) drop-shadow(0 10px 22px rgba(255, 153, 104, 0.1));
+        opacity: 0.26;
+        filter: drop-shadow(0 9px 20px rgba(255, 153, 104, 0.08));
       }
       100% {
         opacity: 0.97;
-        transform: translate3d(0, 0, 0) scale(1);
         filter: drop-shadow(0 12px 24px rgba(255, 153, 104, 0.12));
       }
     }
     @keyframes pb-meaning-primary-idle {
       0%, 100% {
         opacity: 0.95;
-        transform: translate3d(0, 0, 0) scale(1);
         filter: drop-shadow(0 12px 24px rgba(255, 153, 104, 0.11));
       }
       50% {
         opacity: 0.985;
-        transform: translate3d(0, -1px, 0) scale(1.006);
-        filter: saturate(1.02) brightness(1.02) drop-shadow(0 13px 26px rgba(255, 170, 119, 0.14));
+        filter: drop-shadow(0 13px 26px rgba(255, 170, 119, 0.14));
       }
     }
     @keyframes pb-meaning-ember {
@@ -507,30 +512,26 @@
     }
     @keyframes pb-meaning-secondary-reveal {
       0% {
-        opacity: 1;
-        transform: translate3d(0, 0, 0) scale(1.02);
-        filter: saturate(1.1) brightness(1.05) blur(0);
+        opacity: 0.98;
+        filter: drop-shadow(0 0 18px rgba(255, 82, 42, 0.12));
       }
-      32% {
-        opacity: 0.72;
-        transform: translate3d(0, -1px, 0) scale(1.014);
+      38% {
+        opacity: 0.58;
+        filter: drop-shadow(0 0 16px rgba(255, 82, 42, 0.1));
       }
       100% {
-        opacity: 0.04;
-        transform: translate3d(0, -2px, 0) scale(1);
-        filter: saturate(0.94) brightness(0.92) blur(0.35px);
+        opacity: 0;
+        filter: drop-shadow(0 0 10px rgba(255, 82, 42, 0.02));
       }
     }
     @keyframes pb-meaning-secondary-idle {
       0%, 100% {
-        opacity: 0.02;
-        transform: translate3d(0, 0, 0) scale(1);
-        filter: saturate(0.98) brightness(0.98) blur(0.2px);
+        opacity: 0;
+        filter: drop-shadow(0 0 8px rgba(255, 82, 42, 0));
       }
       50% {
-        opacity: 0.1;
-        transform: translate3d(0, -1px, 0) scale(1.008);
-        filter: saturate(1.06) brightness(1.05) blur(0);
+        opacity: 0.05;
+        filter: drop-shadow(0 0 10px rgba(255, 82, 42, 0.08));
       }
     }
     .pro-brand-page .pb-proof-card {
@@ -542,14 +543,17 @@
       opacity: 0;
     }
     @media (max-width: 1100px) {
+      .pro-brand-page #meaning.pb-bento-card {
+        padding-bottom: 1.5rem;
+      }
       .pro-brand-page .pb-meaning-layout {
-        min-height: clamp(23rem, 35vw, 25.5rem);
-        padding-top: clamp(7.75rem, 14vw, 9.75rem);
+        min-height: 0;
+        padding-top: 0;
       }
       .pro-brand-page .pb-meaning-visual {
-        left: 54%;
-        width: min(100%, clamp(13.25rem, 22vw, 16.25rem));
-        min-height: clamp(9.75rem, 15vw, 12rem);
+        left: 50%;
+        width: min(100%, clamp(12rem, 18vw, 14rem));
+        min-height: clamp(8.75rem, 12vw, 10.25rem);
       }
       .pro-brand-page .pb-proof-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -564,20 +568,20 @@
         grid-template-columns: 1fr;
       }
       .pro-brand-page .pb-meaning-layout {
-        grid-template-columns: 1fr;
         min-height: auto;
         padding-top: 0;
-        gap: 1.5rem;
       }
       .pro-brand-page .pb-meaning-visual {
         position: relative;
-        order: -1;
         width: min(100%, 18rem);
         min-height: 12.75rem;
-        margin: 0 0 0 auto;
+        margin: 0 auto 1rem;
         top: auto;
         left: auto;
         transform: none;
+      }
+      .pro-brand-page .pb-meaning-copy {
+        padding-top: 0;
       }
       .pro-brand-page .pb-meaning-stack {
         right: 0;
