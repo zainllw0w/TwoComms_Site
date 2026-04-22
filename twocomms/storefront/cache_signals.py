@@ -6,7 +6,11 @@ from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
 from cache_utils import get_fragment_cache
-from .models import Category
+from .models import Category, Product
+from .services.catalog_helpers import (
+    bump_public_category_version,
+    bump_public_product_order_version,
+)
 from .services.indexnow import enqueue_indexnow_urls, get_category_public_url
 
 
@@ -27,6 +31,15 @@ def invalidate_category_cache(sender, **kwargs):
     """
     cache_backend = get_fragment_cache()
     cache_backend.delete('categories:ordered')
+    transaction.on_commit(bump_public_category_version)
+
+
+@receiver([post_save, post_delete], sender=Product)
+def invalidate_public_product_listing_cache(sender, **kwargs):
+    """
+    Любое изменение публичного товара должно быстро отражаться в home/catalog.
+    """
+    transaction.on_commit(bump_public_product_order_version)
 
 
 @receiver(post_save, sender=Category)

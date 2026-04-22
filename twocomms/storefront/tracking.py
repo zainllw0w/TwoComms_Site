@@ -102,6 +102,7 @@ class AnalyticsIdentityMiddleware(MiddlewareMixin):
                 max_age=COOKIE_MAX_AGE,
                 secure=bool(not settings.DEBUG),
                 samesite='Lax',
+                httponly=True,
             )
 
         if getattr(request, '_analytics_set_first_touch_cookie', False):
@@ -115,6 +116,7 @@ class AnalyticsIdentityMiddleware(MiddlewareMixin):
                 max_age=COOKIE_MAX_AGE,
                 secure=bool(not settings.DEBUG),
                 samesite='Lax',
+                httponly=True,
             )
         return response
 

@@ -36,6 +36,7 @@ if not _loaded_env:
             break
 
 from .settings import *
+from .cache_headers import add_cache_headers, is_immutable_static_url
 
 # Возможность отключить аналитическую мидлварь через переменную окружения
 if os.environ.get('DISABLE_ANALYTICS', 'false').lower() in ('1', 'true', 'yes'):
@@ -471,7 +472,7 @@ else:
         },
     }
 
-SESSION_ENGINE = os.environ.get('SESSION_ENGINE', 'django.contrib.sessions.backends.db')
+SESSION_ENGINE = os.environ.get('SESSION_ENGINE', 'django.contrib.sessions.backends.cached_db')
 if SESSION_ENGINE == 'django.contrib.sessions.backends.cached_db':
     SESSION_CACHE_ALIAS = os.environ.get('SESSION_CACHE_ALIAS', 'default')
 
@@ -491,56 +492,28 @@ STATICFILES_FINDERS = [
     'compressor.finders.CompressorFinder',
 ]
 
-# WhiteNoise: включаем сжатие и манифест с агрессивным кешированием
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# WhiteNoise: включаем сжатие и manifest-based cache busting.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 WHITENOISE_MAX_AGE = int(os.environ.get('WHITENOISE_MAX_AGE', str(60*60*24*365)))  # 1 год для статических файлов
-WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: True
+WHITENOISE_IMMUTABLE_FILE_TEST = is_immutable_static_url
 
 # Дополнительные настройки WhiteNoise для лучшего кеширования
-WHITENOISE_USE_FINDERS = True
+WHITENOISE_USE_FINDERS = False
 
 # Эффективные настройки кеширования для разных типов ресурсов
-WHITENOISE_ADD_HEADERS_FUNCTION = 'twocomms.cache_headers.add_cache_headers'
+WHITENOISE_ADD_HEADERS_FUNCTION = add_cache_headers
 
 # Настройки кеширования для медиа файлов
 MEDIA_CACHE_MAX_AGE = 60 * 60 * 24 * 30  # 30 дней для медиа файлов
 WHITENOISE_AUTOREFRESH = False  # Отключаем автообновление в продакшене
 WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'eot']
-
-# Настройки кеширования статических файлов
-
-
-def add_cache_headers(headers, path, url):
-    """Добавляет заголовки кеширования для статических файлов"""
-    if path.endswith('sw.js') or 'sw.js' in path:
-        service_worker_csp = (
-            "default-src 'self'; "
-            "connect-src 'self' "
-            "https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com "
-            "https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com "
-            "https://region1.analytics.google.com https://region1.google-analytics.com "
-            "https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net "
-            "https://www.google.com https://*.google.com "
-            "https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com "
-            "https://analytics.tiktok.com https://ads.tiktok.com "
-            "https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms; "
-            "script-src 'self'; "
-            "worker-src 'self'; "
-        )
-        headers['Cache-Control'] = 'public, max-age=0, must-revalidate'
-        headers['Content-Security-Policy'] = service_worker_csp
-        headers['Service-Worker-Allowed'] = '/'
-        headers['Vary'] = 'Accept-Encoding'
-        headers['X-Content-Type-Options'] = 'nosniff'
-        headers['X-Frame-Options'] = 'SAMEORIGIN'
-        return
-
-    if any(path.endswith(ext) for ext in ['.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot']):
-        headers['Cache-Control'] = 'public, max-age=15552000, immutable'  # 180 дней
-        headers['Vary'] = 'Accept-Encoding'
-
-
-WHITENOISE_ADD_HEADERS_FUNCTION = add_cache_headers
 
 COMPRESS_ENABLED = True
 COMPRESS_OFFLINE = True
@@ -588,7 +561,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # HSTS
 SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMАINS = True
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # Куки

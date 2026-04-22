@@ -26,7 +26,7 @@ class ForceHTTPSMiddleware(MiddlewareMixin):
         # without the usual proxy HTTPS markers, which creates a self-redirect loop.
         # The worker still requires a secure browser context, so skip middleware
         # canonicalization here and let the dedicated view answer directly.
-        if request.path == '/sw.js':
+        if request.path in {'/sw.js', '/static/sw.js'}:
             return None
 
         if request.path.startswith('/tg-manager/webhook/'):

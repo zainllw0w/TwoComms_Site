@@ -41,7 +41,7 @@ body::after {
   position: fixed;
   inset: 0;
   z-index: -2;
-  background: url('../img/noise.png') repeat;
+  background: url('../../img/noise.png') repeat;
   opacity: 0.06;
   animation: noiseMove 150s linear infinite;
   backdrop-filter: blur(2px);
@@ -94,7 +94,7 @@ body::before {
 /* Дополнительные декоративные элементы фона */
 body::after {
   background-image: 
-    url('../img/noise.png'),
+    url('../../img/noise.png'),
     radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
     radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.02) 0%, transparent 30%);
   background-size: 
@@ -203,7 +203,7 @@ body::after {
   inset: 0;
   z-index: -2;
   background-image: 
-    url('../img/noise.png'),
+    url('../../img/noise.png'),
     radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
     radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.02) 0%, transparent 30%),
     radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.01) 0%, transparent 60%);
@@ -363,7 +363,7 @@ body::after {
   inset: 0;
   z-index: -2;
   background-image: 
-    url('../img/noise.png'),
+    url('../../img/noise.png'),
     radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
     radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.02) 0%, transparent 30%),
     radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.01) 0%, transparent 60%),
@@ -395,7 +395,7 @@ body::after {
   body::after {
     animation: none;
   }
-}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(10px) saturate(120%)}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
+}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(10px) saturate(120%)}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
 
 /* ВЫРАВНИВАНИЕ КАРТОЧЕК С ПОДДЕРЖКОЙ JAVASCRIPT */
 

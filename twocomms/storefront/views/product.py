@@ -13,7 +13,7 @@ from django.http import JsonResponse
 from django.urls import reverse
 
 from ..models import Product
-from ..services.catalog_helpers import get_detailed_color_variants
+from ..services.catalog_helpers import get_detailed_color_variants, get_public_product_order_version
 from ..services.size_guides import resolve_product_size_context
 from ..recommendations import ProductRecommendationEngine
 from ..utm_tracking import record_product_view
@@ -184,6 +184,8 @@ def product_detail(request, slug):
         for rec_product in recommended_products:
             rec_product.colors_preview = preview_map.get(rec_product.id, [])
 
+    public_product_order_version = get_public_product_order_version()
+
     return render(
         request,
         'pages/product_detail.html',
@@ -202,6 +204,7 @@ def product_detail(request, slug):
             'size_display_labels': size_context["display_labels"],
             'resolved_size_guide': size_context["guide"],
             'resolved_size_profile': size_context["profile"],
+            'public_product_order_version': public_product_order_version,
         }
     )
 

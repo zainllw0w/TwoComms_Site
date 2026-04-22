@@ -1005,7 +1005,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </style>
 
 {% if recommended_products %}
-  {% cache 3600 product_detail_recommendations product.id %}
+  {% cache 3600 product_detail_recommendations product.id public_product_order_version using="fragments" %}
   <section class="product-recommendations">
     <div class="product-recommendations-header">
       <div>

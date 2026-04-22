@@ -76,7 +76,7 @@
 {% endblock %}
 
 {% block content %}
-{% cache 1800 hero_block %}
+{% cache 1800 hero_block using="fragments" %}
 <section class="hero-section mb-4 mb-md-5 reveal">
   <!-- Фоновый логотип -->
   <div class="hero-logo-bg">
@@ -299,7 +299,7 @@
     </div>
 
 </section>
-{% cache 1800 categories_block %}
+{% cache 1800 categories_block public_category_version using="fragments" %}
 <section class="mb-4 mb-md-5 reveal categories-section">
   <!-- Единый блок категорий без разделения -->
   <div class="categories-unified-block">
@@ -441,7 +441,7 @@
   <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid id="products-container" data-mobile-stagger="true">
     {% for p in products %}
     <div class="col product-card-wrap stagger-item reveal-stagger">
-      {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id forloop.counter0 %}
+      {% cache 900 product_card p.id p.updated_at|date:'U' p.final_price p.discount_percent p.display_image.name p.category_id forloop.counter0 using="fragments" %}
         {% if forloop.counter0 < 2 %}
           {% include "partials/product_card.html" with p=p stagger=True eager=True %}
         {% else %}

@@ -79,7 +79,10 @@ class HomepagePaginationWindowHelperTests(SimpleTestCase):
     CACHES={
         "default": {
             "BACKEND": "django.core.cache.backends.dummy.DummyCache",
-        }
+        },
+        "fragments": {
+            "BACKEND": "django.core.cache.backends.dummy.DummyCache",
+        },
     }
 )
 class HomepagePaginationWindowViewTests(TestCase):

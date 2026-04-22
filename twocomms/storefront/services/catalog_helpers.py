@@ -17,6 +17,7 @@ from cache_utils import get_cache
 logger = logging.getLogger(__name__)
 
 PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY = "products:public_order_version"
+PUBLIC_CATEGORY_VERSION_CACHE_KEY = "categories:public_version"
 
 
 def get_categories_cached(cache_backend: BaseCache, timeout: int = 600):
@@ -85,6 +86,43 @@ def bump_public_product_order_version(cache_backend: BaseCache | None = None) ->
     except (TypeError, ValueError):
         fallback_version = current_version + 1
         cache_backend.set(PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY, fallback_version, timeout=None)
+        return fallback_version
+
+
+def get_public_category_version(cache_backend: BaseCache | None = None) -> int:
+    """
+    Version marker for public category fragments and listing pages.
+    """
+    cache_backend = cache_backend or get_cache()
+    version = cache_backend.get(PUBLIC_CATEGORY_VERSION_CACHE_KEY)
+    if version is None:
+        cache_backend.add(PUBLIC_CATEGORY_VERSION_CACHE_KEY, 1, timeout=None)
+        version = cache_backend.get(PUBLIC_CATEGORY_VERSION_CACHE_KEY)
+
+    try:
+        return max(int(version), 1)
+    except (TypeError, ValueError):
+        cache_backend.set(PUBLIC_CATEGORY_VERSION_CACHE_KEY, 1, timeout=None)
+        return 1
+
+
+def bump_public_category_version(cache_backend: BaseCache | None = None) -> int:
+    """
+    Bump the public category cache version after category mutations commit.
+    """
+    cache_backend = cache_backend or get_cache()
+    current_version = get_public_category_version(cache_backend)
+    try:
+        next_version = cache_backend.incr(PUBLIC_CATEGORY_VERSION_CACHE_KEY)
+    except Exception:
+        next_version = current_version + 1
+        cache_backend.set(PUBLIC_CATEGORY_VERSION_CACHE_KEY, next_version, timeout=None)
+
+    try:
+        return max(int(next_version), current_version + 1)
+    except (TypeError, ValueError):
+        fallback_version = current_version + 1
+        cache_backend.set(PUBLIC_CATEGORY_VERSION_CACHE_KEY, fallback_version, timeout=None)
         return fallback_version
 
 

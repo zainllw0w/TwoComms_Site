@@ -3,8 +3,12 @@
 """
 
 import os
+import re
 from pathlib import Path
 from functools import lru_cache
+
+
+IMMUTABLE_ASSET_RE = re.compile(r"^.+\.[0-9a-f]{8,}\..+$")
 
 
 @lru_cache(maxsize=4096)
@@ -13,6 +17,15 @@ def _cached_mtime(path):
         return os.path.getmtime(path)
     except OSError:
         return 0
+
+
+def is_immutable_static_url(path, url):
+    """
+    WhiteNoise callback: immutable only for content-hashed asset URLs.
+    """
+    if not url:
+        return False
+    return bool(IMMUTABLE_ASSET_RE.match(str(url)))
 
 
 def add_cache_headers(headers, path, url):
@@ -45,21 +58,28 @@ def add_cache_headers(headers, path, url):
 
     # Определяем тип файла по расширению
     file_extension = Path(path).suffix.lower()
+    is_immutable = is_immutable_static_url(path, url)
 
-    # CSS и JS файлы - кешируем на 1 год (все, не только min)
-    # Версионирование через django-compressor обеспечивает cache busting
-    if file_extension in ['.css', '.js']:
-        headers['Cache-Control'] = 'public, max-age=31536000, immutable'  # 1 год
+    if is_immutable:
+        headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+
+    # CSS/JS without content hash should revalidate sooner to avoid sticky stale assets.
+    elif file_extension in ['.css', '.js']:
+        headers['Cache-Control'] = 'public, max-age=86400'
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
-    # Изображения - кешируем на 1 год
+    elif file_extension in ['.webmanifest']:
+        headers['Cache-Control'] = 'public, max-age=0, must-revalidate'
+        headers['ETag'] = f'"{_cached_mtime(path)}"'
+
+    # Изображения - кешируем на 7 дней, если имя файла не versioned/hash-based
     elif file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.svg', '.ico']:
-        headers['Cache-Control'] = 'public, max-age=31536000, immutable'  # 1 год
+        headers['Cache-Control'] = 'public, max-age=604800'
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
-    # Шрифты - кешируем на 1 год
+    # Шрифты - кешируем на 7 дней, если имя файла не versioned/hash-based
     elif file_extension in ['.woff', '.woff2', '.ttf', '.eot']:
-        headers['Cache-Control'] = 'public, max-age=31536000, immutable'  # 1 год
+        headers['Cache-Control'] = 'public, max-age=604800'
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
     # HTML файлы - кешируем на 1 час
@@ -92,19 +112,27 @@ def get_media_cache_headers(path):
     headers = {}
     file_extension = Path(path).suffix.lower()
 
-    # Изображения продуктов - кешируем на 1 год (оптимизированные варианты содержат хэш в имени)
-    if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif']:
-        headers['Cache-Control'] = 'public, max-age=31536000'  # 1 год
+    # Аватары и прочие пользовательские изображения должны обновляться заметно быстрее.
+    if 'avatars' in path:
+        headers['Cache-Control'] = 'public, max-age=86400, must-revalidate'  # 1 день
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
-    # Аватары - кешируем на 7 дней
-    elif 'avatars' in path:
-        headers['Cache-Control'] = 'public, max-age=604800'  # 7 дней
+    # Изображения/медиа upload-папки mutable по URL, поэтому без hash-name не даём годовой TTL.
+    elif file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.svg', '.ico']:
+        if IMMUTABLE_ASSET_RE.match(Path(path).name):
+            headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        else:
+            headers['Cache-Control'] = 'public, max-age=86400, must-revalidate'  # 1 день
+        headers['ETag'] = f'"{_cached_mtime(path)}"'
+
+    # Видео/аудио тоже считаем mutable, если URL не versioned.
+    elif file_extension in ['.mp4', '.mp3', '.avi', '.mov', '.webm']:
+        headers['Cache-Control'] = 'public, max-age=86400, must-revalidate'  # 1 день
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
     # Остальные медиа файлы - кешируем на 1 день
     else:
-        headers['Cache-Control'] = 'public, max-age=86400'  # 1 день
+        headers['Cache-Control'] = 'public, max-age=86400, must-revalidate'  # 1 день
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
     return headers
