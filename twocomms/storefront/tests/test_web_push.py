@@ -14,6 +14,8 @@ from storefront.models import (
     PushNotificationDelivery,
     WebPushDeviceSubscription,
 )
+from storefront.services import web_push as web_push_service
+from storefront.services.web_push import WebPushConfigurationError
 
 
 @override_settings(
@@ -74,6 +76,36 @@ class WebPushFlowTests(TestCase):
         self.assertEqual(subscription.installation_id, "install-1")
         self.assertEqual(subscription.browser_family, "Chrome")
         self.assertTrue(subscription.is_active)
+
+    def test_push_subscribe_rejects_requests_without_pywebpush_dependency(self):
+        with patch.object(web_push_service, "webpush", None):
+            response = self.client.post(
+                reverse("push_subscribe"),
+                data=json.dumps(self._subscription_payload()),
+                content_type="application/json",
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(
+            response.content,
+            {"ok": False, "error": "Web Push is not configured."},
+        )
+
+    def test_send_campaign_raises_configuration_error_without_pywebpush_dependency(self):
+        campaign = PushNotificationCampaign.objects.create(
+            title="Нове повідомлення",
+            body="Тест push-повідомлення",
+            target_url="/catalog/",
+            created_by=self.staff_user,
+        )
+
+        with patch.object(web_push_service, "webpush", None):
+            with self.assertRaisesMessage(
+                WebPushConfigurationError,
+                "pywebpush dependency is not installed",
+            ):
+                web_push_service.send_campaign(campaign)
 
     def test_home_page_embeds_web_push_config(self):
         response = self.client.get(reverse("home"), secure=True)

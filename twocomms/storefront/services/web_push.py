@@ -6,7 +6,11 @@ from django.templatetags.static import static
 from django.utils import timezone
 from django.utils.text import slugify
 
-from pywebpush import WebPushException, webpush
+try:
+    from pywebpush import WebPushException, webpush
+except ModuleNotFoundError:
+    WebPushException = RuntimeError
+    webpush = None
 
 from storefront.models import (
     PushNotificationCampaign,
@@ -20,7 +24,7 @@ class WebPushConfigurationError(RuntimeError):
 
 
 def is_web_push_configured():
-    return bool(getattr(settings, "WEB_PUSH_ENABLED", False))
+    return bool(getattr(settings, "WEB_PUSH_ENABLED", False) and webpush is not None)
 
 
 def _absolute_site_url(raw_value):
@@ -92,8 +96,10 @@ def _vapid_claims():
 
 
 def send_campaign(campaign):
-    if not is_web_push_configured():
+    if not getattr(settings, "WEB_PUSH_ENABLED", False):
         raise WebPushConfigurationError("Web Push is not configured")
+    if webpush is None:
+        raise WebPushConfigurationError("pywebpush dependency is not installed")
 
     private_key = (getattr(settings, "WEB_PUSH_VAPID_PRIVATE_KEY", "") or "").strip()
     if not private_key:

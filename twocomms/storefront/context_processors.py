@@ -3,6 +3,8 @@ from django.conf import settings
 from django.urls import reverse
 from django.templatetags.static import static
 
+from storefront.services.web_push import is_web_push_configured
+
 
 def orders_processing_count(request):
     """
@@ -108,7 +110,7 @@ def web_push_settings(request):
 
     return {
         "web_push_config": {
-            "enabled": bool(getattr(settings, "WEB_PUSH_ENABLED", False)),
+            "enabled": is_web_push_configured(),
             "vapidPublicKey": getattr(settings, "WEB_PUSH_VAPID_PUBLIC_KEY", ""),
             "serviceWorkerUrl": getattr(settings, "WEB_PUSH_SERVICE_WORKER_PATH", "/static/sw.js"),
             "subscribeUrl": reverse("push_subscribe"),

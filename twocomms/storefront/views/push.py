@@ -8,7 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from storefront.models import PushNotificationDelivery, WebPushDeviceSubscription
-from storefront.services.web_push import record_delivery_event
+from storefront.services.web_push import is_web_push_configured, record_delivery_event
 
 
 def _read_json_body(request):
@@ -57,7 +57,7 @@ def request_user_agent(payload):
 
 @require_http_methods(["POST"])
 def push_subscribe(request):
-    if not getattr(settings, "WEB_PUSH_ENABLED", False):
+    if not is_web_push_configured():
         return JsonResponse({"ok": False, "error": "Web Push is not configured."}, status=400)
 
     payload = _read_json_body(request)

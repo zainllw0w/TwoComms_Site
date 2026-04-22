@@ -97,6 +97,7 @@ from storefront.services.admin_analytics import (
 from storefront.services.catalog_helpers import bump_public_product_order_version
 from storefront.services.web_push import (
     WebPushConfigurationError,
+    is_web_push_configured,
     send_campaign,
 )
 
@@ -315,7 +316,7 @@ def _build_push_notifications_context(request, form=None):
             "recent_performance": recent_performance,
             "device_breakdown": device_breakdown,
         },
-        "web_push_enabled": bool(getattr(settings, "WEB_PUSH_ENABLED", False)),
+        "web_push_enabled": is_web_push_configured(),
         "web_push_public_key": getattr(settings, "WEB_PUSH_VAPID_PUBLIC_KEY", ""),
         "web_push_subject": getattr(settings, "WEB_PUSH_VAPID_SUBJECT", ""),
     }
