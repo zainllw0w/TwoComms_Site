@@ -2,150 +2,11 @@
 {% load static %}
 
 {% block title %}Профіль — TwoComms{% endblock %}
-{% block extra_css %}
-<style>
-  .push-preferences-card {
-    margin-top: 1.5rem;
-    border: 1px solid rgba(212, 175, 55, 0.18);
-    background:
-      radial-gradient(circle at top left, rgba(212, 175, 55, 0.12), transparent 38%),
-      linear-gradient(180deg, rgba(17, 17, 19, 0.98), rgba(11, 11, 13, 0.98));
-    box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
-  }
-
-  .push-device-card {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 1.2rem 1.25rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 20px;
-    background: rgba(255, 255, 255, 0.03);
-  }
-
-  .push-device-copy h3 {
-    margin: 0 0 0.35rem;
-    color: #f5f5f5;
-    font-size: 1.1rem;
-    font-weight: 700;
-  }
-
-  .push-device-copy p {
-    margin: 0;
-    color: rgba(229, 231, 235, 0.72);
-    line-height: 1.55;
-  }
-
-  .push-device-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    margin-bottom: 0.8rem;
-    padding: 0.38rem 0.7rem;
-    border-radius: 999px;
-    border: 1px solid rgba(212, 175, 55, 0.25);
-    background: rgba(212, 175, 55, 0.08);
-    color: #f6d77d;
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  .push-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-  }
-
-  .push-pref-grid {
-    display: grid;
-    gap: 1rem;
-    margin-top: 1.25rem;
-  }
-
-  .push-pref-option {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.9rem;
-    padding: 1rem 1.05rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.025);
-    cursor: pointer;
-  }
-
-  .push-pref-option input {
-    margin-top: 0.18rem;
-    width: 1.1rem;
-    height: 1.1rem;
-    accent-color: #d4af37;
-  }
-
-  .push-pref-option h4 {
-    margin: 0 0 0.28rem;
-    color: #f5f5f5;
-    font-size: 1rem;
-    font-weight: 700;
-  }
-
-  .push-pref-option p {
-    margin: 0;
-    color: rgba(229, 231, 235, 0.68);
-    line-height: 1.55;
-  }
-
-  .push-note {
-    margin-top: 1rem;
-    padding: 0.95rem 1rem;
-    border-radius: 16px;
-    border: 1px solid rgba(96, 165, 250, 0.18);
-    background: rgba(59, 130, 246, 0.08);
-    color: rgba(229, 231, 235, 0.78);
-    line-height: 1.55;
-  }
-
-  .push-note strong {
-    display: block;
-    margin-bottom: 0.45rem;
-    color: #eff6ff;
-    font-size: 0.96rem;
-    font-weight: 700;
-  }
-
-  .push-note ol {
-    margin: 0.55rem 0 0.7rem 1.15rem;
-    padding: 0;
-  }
-
-  .push-note li + li {
-    margin-top: 0.32rem;
-  }
-
-  .push-note p {
-    margin: 0;
-  }
-
-  @media (max-width: 767.98px) {
-    .push-device-card {
-      flex-direction: column;
-    }
-
-    .push-actions {
-      width: 100%;
-    }
-
-    .push-actions .btn {
-      width: 100%;
-    }
-  }
-</style>
-{% endblock %}
 
 {% block content %}
-<div class="profile-container">
+<div class="profile-container"
+     data-np-city-search-url="{% url 'cart_np_city_search' %}"
+     data-np-warehouse-search-url="{% url 'cart_np_warehouse_search' %}">
 <div class="row justify-content-center">
     <div class="col-12 col-lg-10 col-xl-8">
       
@@ -196,7 +57,7 @@
 
       <!-- Основная форма -->
       <div class="profile-card">
-        <form method="post" enctype="multipart/form-data" class="profile-form">
+        <form method="post" enctype="multipart/form-data" class="profile-form" data-np-form="profile" data-np-optional="1">
           {% csrf_token %}
           
           <!-- Секция аватара -->
@@ -263,6 +124,7 @@
                     </svg>
                     {{ form.phone }}
                   </div>
+                  <small class="form-hint">Префікс +380 підставимо автоматично.</small>
                   {% if form.phone.errors %}
                     <div class="error-message">{{ form.phone.errors.0 }}</div>
                   {% endif %}
@@ -391,12 +253,17 @@
                   <label for="{{ form.city.id_for_label }}" class="form-label">
                     {{ form.city.label }}
                   </label>
-                  <div class="input-with-icon">
+                  <div class="input-with-icon np-selector" data-np-city-selector>
                     <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                     </svg>
                     {{ form.city }}
+                    {{ form.np_settlement_ref }}
+                    {{ form.np_city_ref }}
+                    {{ form.np_city_token }}
+                    <div class="np-selector-results" data-np-city-results hidden></div>
                   </div>
+                  <small class="form-hint np-selector-status" data-np-city-status">Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти.</small>
                   {% if form.city.errors %}
                     <div class="error-message">{{ form.city.errors.0 }}</div>
                   {% endif %}
@@ -408,12 +275,21 @@
                   <label for="{{ form.np_office.id_for_label }}" class="form-label">
                     {{ form.np_office.label }}
                   </label>
-                  <div class="input-with-icon">
+                  <div class="input-with-icon np-selector" data-np-warehouse-selector>
                     <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
                     </svg>
                     {{ form.np_office }}
+                    {{ form.np_warehouse_ref }}
+                    {{ form.np_warehouse_token }}
+                    <div class="np-selector-results" data-np-warehouse-results hidden></div>
                   </div>
+                  <div class="np-selector-kind" data-np-kind-toggle>
+                    <button type="button" class="np-selector-kind-btn is-active" data-kind="all">Усі пункти</button>
+                    <button type="button" class="np-selector-kind-btn" data-kind="branch">Відділення</button>
+                    <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
+                  </div>
+                  <small class="form-hint np-selector-status" data-np-warehouse-status">Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти.</small>
                   {% if form.np_office.errors %}
                     <div class="error-message">{{ form.np_office.errors.0 }}</div>
                   {% endif %}
@@ -614,6 +490,7 @@
   </div>
 </div>
 
+<script type="module" src="{% static 'js/modules/nova-poshta-form-bridge.js' %}?v=20260422a"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const ubdCheckbox = document.getElementById('{{ form.is_ubd.id_for_label }}');

@@ -68,8 +68,12 @@ function createOptionButton(item, buildMeta) {
   return button;
 }
 
+function getFieldContainer(field) {
+  return field?.closest?.('.cart-form-group, .form-group, .ds-input, .ds-np-field') || field?.parentElement || null;
+}
+
 function ensureErrorNode(field) {
-  const wrap = field?.closest('.cart-form-group') || field?.parentElement;
+  const wrap = getFieldContainer(field);
   if (!wrap) {
     return null;
   }
@@ -87,6 +91,7 @@ function setFieldError(field, message) {
     return;
   }
   field.classList.add('cart-form-input-error');
+  field.classList.add('is-invalid');
   const err = ensureErrorNode(field);
   if (err) {
     err.textContent = message;
@@ -99,7 +104,8 @@ function clearFieldError(field) {
     return;
   }
   field.classList.remove('cart-form-input-error');
-  const wrap = field.closest('.cart-form-group') || field.parentElement;
+  field.classList.remove('is-invalid');
+  const wrap = getFieldContainer(field);
   const err = wrap?.querySelector('.cart-form-error');
   if (err) {
     err.style.display = 'none';
@@ -153,6 +159,7 @@ class NovaPoshtaSelectorController {
     this.warehouseRefInput = form.querySelector('[data-np-warehouse-ref]');
     this.warehouseTokenInput = form.querySelector('[data-np-warehouse-token]');
     this.kindButtons = Array.from(form.querySelectorAll('[data-np-kind-toggle] [data-kind]'));
+    this.optionalSelection = form.dataset.npOptional === '1';
 
     this.lookupDisabled = false;
     this.selectedSettlementRef = '';
@@ -800,6 +807,12 @@ class NovaPoshtaSelectorController {
     const showErrors = options.showErrors !== false;
     let valid = true;
 
+    if (this.optionalSelection && !this.hasAnySelectionInput()) {
+      clearFieldError(this.cityInput);
+      clearFieldError(this.warehouseInput);
+      return true;
+    }
+
     const hasCitySelection = await this.ensureCitySelection({ silent: !showErrors });
     if (!hasCitySelection || !this.selectedCityToken) {
       valid = false;
@@ -833,10 +846,22 @@ class NovaPoshtaSelectorController {
     }
     return valid;
   }
+
+  hasAnySelectionInput() {
+    return [
+      this.cityInput?.value,
+      this.warehouseInput?.value,
+      this.selectedSettlementRef,
+      this.selectedCityRef,
+      this.selectedCityToken,
+      this.selectedWarehouseRef,
+      this.selectedWarehouseToken,
+    ].some((value) => normalizeValue(value));
+  }
 }
 
 function getOrCreateController(form) {
-  if (!form || form.dataset?.npForm !== 'auth' && form.dataset?.npForm !== 'guest') {
+  if (!form || !form.dataset?.npForm) {
     return null;
   }
   const existing = controllerRegistry.get(form);

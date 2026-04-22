@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError
 
 from ..models import Product
 from accounts.models import UserProfile, FavoriteProduct
+from orders.nova_poshta_checkout import NovaPoshtaSelectionError, resolve_optional_delivery_selection
 from orders.nova_poshta_documents import normalize_checkout_phone
 
 
@@ -96,7 +97,7 @@ class ProfileSetupForm(forms.Form):
     """Форма первоначальной настройки профиля."""
 
     def __init__(self, *args, has_existing_ubd_doc=False, **kwargs):
-        self.has_existing_ubd_doc = has_existing_ubd_doc
+        self.has_existing_ubd_doc = bool(has_existing_ubd_doc)
         super().__init__(*args, **kwargs)
 
     full_name = forms.CharField(
@@ -116,6 +117,7 @@ class ProfileSetupForm(forms.Form):
             "placeholder": "0931234567",
             "autocomplete": "tel",
             "inputmode": "tel",
+            "data-uk-phone-field": "1",
         })
     )
     email = forms.EmailField(
@@ -147,7 +149,12 @@ class ProfileSetupForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={
             "class": "form-control bg-elevate",
-            "placeholder": "Київ"
+            "placeholder": "Почніть вводити місто Нової пошти",
+            "autocomplete": "off",
+            "spellcheck": "false",
+            "data-np-city-input": "1",
+            "aria-autocomplete": "list",
+            "aria-expanded": "false",
         })
     )
     np_office = forms.CharField(
@@ -155,8 +162,33 @@ class ProfileSetupForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={
             "class": "form-control bg-elevate",
-            "placeholder": "№ відділення або адреса поштомата"
+            "placeholder": "Оберіть відділення або поштомат",
+            "autocomplete": "off",
+            "spellcheck": "false",
+            "data-np-warehouse-input": "1",
+            "aria-autocomplete": "list",
+            "aria-expanded": "false",
         })
+    )
+    np_settlement_ref = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"data-np-settlement-ref": "1"}),
+    )
+    np_city_ref = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"data-np-city-ref": "1"}),
+    )
+    np_city_token = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"data-np-city-token": "1"}),
+    )
+    np_warehouse_ref = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"data-np-warehouse-ref": "1"}),
+    )
+    np_warehouse_token = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"data-np-warehouse-token": "1"}),
     )
     pay_type = forms.ChoiceField(
         label="Тип оплати",
@@ -182,6 +214,26 @@ class ProfileSetupForm(forms.Form):
         data = super().clean()
         if data.get("is_ubd") and not data.get("ubd_doc") and not self.has_existing_ubd_doc:
             self.add_error("ubd_doc", "Для УБД додайте фото посвідчення")
+        try:
+            delivery_selection = resolve_optional_delivery_selection(data)
+        except NovaPoshtaSelectionError as exc:
+            self.add_error(exc.field, exc.message)
+            return data
+
+        if delivery_selection:
+            data["city"] = delivery_selection.city
+            data["np_office"] = delivery_selection.np_office
+            data["np_settlement_ref"] = delivery_selection.settlement_ref
+            data["np_city_ref"] = delivery_selection.city_ref
+            data["np_warehouse_ref"] = delivery_selection.warehouse_ref
+        else:
+            data["city"] = ""
+            data["np_office"] = ""
+            data["np_settlement_ref"] = ""
+            data["np_city_ref"] = ""
+            data["np_warehouse_ref"] = ""
+            data["np_city_token"] = ""
+            data["np_warehouse_token"] = ""
         return data
 
     def clean_phone(self):

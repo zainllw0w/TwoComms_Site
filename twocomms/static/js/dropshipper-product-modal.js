@@ -122,7 +122,7 @@
         </div>
         
         <!-- Контент товара (скрыт по умолчанию) -->
-        <div id="dsProductContent" style="display: none;">
+        <div id="dsProductContent" data-np-city-search-url="/cart/delivery/cities/" data-np-warehouse-search-url="/cart/delivery/warehouses/" style="display: none;">
           <!-- Информация о товаре -->
           <div style="display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
             <div style="flex-shrink: 0; width: 200px; position: relative;">
@@ -217,7 +217,7 @@
           </div>
           
           <!-- Форма -->
-          <form id="dsProductForm">
+          <form id="dsProductForm" data-np-form="dropship-quick">
             <!-- Параметры товара -->
             <div style="margin-bottom: 30px;">
               <h5 style="margin: 0 0 15px; font-weight: 700; color: #e5e7eb; font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,.08); padding-bottom: 10px;">
@@ -296,12 +296,12 @@
             </div>
             
             <!-- Данные клиента -->
-            <div style="margin-bottom: 20px;">
+            <div style="margin-bottom: 20px;" data-np-city-search-url="/cart/delivery/cities/" data-np-warehouse-search-url="/cart/delivery/warehouses/">
               <h5 style="margin: 0 0 15px; font-weight: 700; color: #e5e7eb; font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,.08); padding-bottom: 10px;">
                 Дані клієнта
               </h5>
               <div style="display: grid; grid-template-columns: 1fr; gap: 18px;">
-                <div>
+                <div class="ds-np-field">
                   <label style="display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,.65); margin-bottom: 8px;">
                     ПІБ клієнта *
                   </label>
@@ -317,11 +317,11 @@
                 </div>
                 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px;">
-                  <div>
+                  <div class="ds-np-field">
                     <label style="display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,.65); margin-bottom: 8px;">
                       Телефон *
                     </label>
-                    <input type="tel" id="dsClientPhone" placeholder="+380 __ ___ __ __" required style="
+                    <input type="tel" id="dsClientPhone" placeholder="0931234567" required data-uk-phone-field style="
                       width: 100%;
                       padding: 12px 14px;
                       border-radius: 12px;
@@ -330,13 +330,38 @@
                       color: #e5e7eb;
                       transition: border-color 0.3s ease;
                     " onfocus="this.style.borderColor='rgba(139,92,246,.38)'" onblur="this.style.borderColor='rgba(255,255,255,.16)'">
+                    <small style="display: block; margin-top: 8px; color: rgba(229,231,235,.65);">Префікс +380 підставимо автоматично.</small>
                   </div>
                   
-                  <div>
+                  <div class="ds-np-field">
                     <label style="display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,.65); margin-bottom: 8px;">
                       Місто *
                     </label>
-                    <input type="text" id="dsClientCity" placeholder="Місто доставки" required style="
+                    <div class="np-selector" data-np-city-selector>
+                      <input type="text" id="dsClientCity" placeholder="Почніть вводити місто Нової пошти" required autocomplete="off" spellcheck="false" data-np-city-input aria-autocomplete="list" aria-expanded="false" style="
+                        width: 100%;
+                        padding: 12px 14px;
+                        border-radius: 12px;
+                        border: 1px solid rgba(255,255,255,.16);
+                        background: rgba(12,12,18,.65);
+                        color: #e5e7eb;
+                        transition: border-color 0.3s ease;
+                      " onfocus="this.style.borderColor='rgba(139,92,246,.38)'" onblur="this.style.borderColor='rgba(255,255,255,.16)'">
+                      <input type="hidden" id="dsClientSettlementRef" data-np-settlement-ref>
+                      <input type="hidden" id="dsClientCityRef" data-np-city-ref>
+                      <input type="hidden" id="dsClientCityToken" data-np-city-token>
+                      <div class="np-selector-results" data-np-city-results hidden></div>
+                    </div>
+                    <small class="np-selector-status" data-np-city-status style="display: block; margin-top: 8px; color: rgba(229,231,235,.65);">Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти.</small>
+                  </div>
+                </div>
+                
+                <div class="ds-np-field">
+                  <label style="display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,.65); margin-bottom: 8px;">
+                    Відділення Нової Пошти *
+                  </label>
+                  <div class="np-selector" data-np-warehouse-selector>
+                    <input type="text" id="dsClientNPOffice" placeholder="Оберіть відділення або поштомат" required autocomplete="off" spellcheck="false" data-np-warehouse-input aria-autocomplete="list" aria-expanded="false" style="
                       width: 100%;
                       padding: 12px 14px;
                       border-radius: 12px;
@@ -345,25 +370,19 @@
                       color: #e5e7eb;
                       transition: border-color 0.3s ease;
                     " onfocus="this.style.borderColor='rgba(139,92,246,.38)'" onblur="this.style.borderColor='rgba(255,255,255,.16)'">
+                    <input type="hidden" id="dsClientWarehouseRef" data-np-warehouse-ref>
+                    <input type="hidden" id="dsClientWarehouseToken" data-np-warehouse-token>
+                    <div class="np-selector-results" data-np-warehouse-results hidden></div>
                   </div>
+                  <div class="np-selector-kind" data-np-kind-toggle style="margin-top: 10px;">
+                    <button type="button" class="np-selector-kind-btn is-active" data-kind="all">Усі пункти</button>
+                    <button type="button" class="np-selector-kind-btn" data-kind="branch">Відділення</button>
+                    <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
+                  </div>
+                  <small class="np-selector-status" data-np-warehouse-status style="display: block; margin-top: 8px; color: rgba(229,231,235,.65);">Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти.</small>
                 </div>
                 
-                <div>
-                  <label style="display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,.65); margin-bottom: 8px;">
-                    Відділення Нової Пошти *
-                  </label>
-                  <input type="text" id="dsClientNPOffice" placeholder="Номер або адреса відділення" required style="
-                    width: 100%;
-                    padding: 12px 14px;
-                    border-radius: 12px;
-                    border: 1px solid rgba(255,255,255,.16);
-                    background: rgba(12,12,18,.65);
-                    color: #e5e7eb;
-                    transition: border-color 0.3s ease;
-                  " onfocus="this.style.borderColor='rgba(139,92,246,.38)'" onblur="this.style.borderColor='rgba(255,255,255,.16)'">
-                </div>
-                
-                <div>
+                <div class="ds-np-field">
                   <label style="display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,.65); margin-bottom: 8px;">
                     Джерело замовлення
                   </label>
@@ -378,7 +397,7 @@
                   " onfocus="this.style.borderColor='rgba(139,92,246,.38)'" onblur="this.style.borderColor='rgba(255,255,255,.16)'">
                 </div>
                 
-                <div>
+                <div class="ds-np-field">
                   <label style="display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,.65); margin-bottom: 8px;">
                     Примітки
                   </label>
@@ -638,6 +657,7 @@
     // ===== ШАГ 6: ДОБАВЛЕНИЕ В DOM =====
     document.body.appendChild(backdrop);
     document.body.appendChild(popup);
+    window.TwoCommsNovaPoshta?.initScope?.(popup);
     
     // ===== ШАГ 7: ПОКАЗЫВАЕМ МОДАЛЬНОЕ ОКНО =====
     // position: fixed с top: 50%, left: 50% и transform: translate(-50%, -50%)
@@ -950,6 +970,14 @@
         showNotification('Товар не завантажено', 'error');
         return;
       }
+
+      if (window.TwoCommsNovaPoshta?.validateForm) {
+        const validation = await window.TwoCommsNovaPoshta.validateForm(form, { showErrors: true });
+        if (!validation.ok) {
+          showNotification(validation.message, 'error');
+          return;
+        }
+      }
       
       // Собираем данные формы
       const paymentMethod = popup.querySelector('input[name="paymentMethod"]:checked');
@@ -966,6 +994,11 @@
         client_phone: popup.querySelector('#dsClientPhone').value.trim(),
         client_city: popup.querySelector('#dsClientCity').value.trim(),
         client_np_office: popup.querySelector('#dsClientNPOffice').value.trim(),
+        client_np_settlement_ref: popup.querySelector('#dsClientSettlementRef').value.trim(),
+        client_np_city_ref: popup.querySelector('#dsClientCityRef').value.trim(),
+        client_np_city_token: popup.querySelector('#dsClientCityToken').value.trim(),
+        client_np_warehouse_ref: popup.querySelector('#dsClientWarehouseRef').value.trim(),
+        client_np_warehouse_token: popup.querySelector('#dsClientWarehouseToken').value.trim(),
         order_source: popup.querySelector('#dsOrderSource').value.trim(),
         notes: popup.querySelector('#dsOrderNotes').value.trim(),
         

@@ -9,16 +9,18 @@ Profile views - Профиль пользователя и личный каби
 - Настройки уведомлений
 """
 
-from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.urls import reverse
 from django.views.decorators.http import require_POST
+from django.urls import reverse
 
 from accounts.models import UserProfile, FavoriteProduct, UserPoints, PointsHistory
 from orders.models import Order
-from orders.nova_poshta_documents import normalize_phone
+from orders.nova_poshta_checkout import NovaPoshtaSelectionError, resolve_optional_delivery_selection
+from orders.nova_poshta_data import apply_nova_poshta_refs
+from orders.nova_poshta_documents import normalize_checkout_phone
 from ..models import Product
 from .auth import ProfileSetupForm
 
@@ -32,6 +34,25 @@ def _published_products(request):
     if not (request.user.is_authenticated and request.user.is_staff):
         qs = qs.filter(status='published')
     return qs
+
+
+def _apply_profile_delivery_selection(profile: UserProfile, selection) -> None:
+    if selection:
+        profile.city = selection.city
+        profile.np_office = selection.np_office
+        apply_nova_poshta_refs(
+            profile,
+            {
+                "np_settlement_ref": selection.settlement_ref,
+                "np_city_ref": selection.city_ref,
+                "np_warehouse_ref": selection.warehouse_ref,
+            },
+        )
+        return
+
+    profile.city = ""
+    profile.np_office = ""
+    apply_nova_poshta_refs(profile, {})
 
 
 # ==================== PROFILE VIEWS ====================
@@ -104,14 +125,24 @@ def edit_profile(request):
         request.user.email = request.POST.get('email', '')
         request.user.save()
 
+        phone = normalize_checkout_phone(request.POST.get('phone', ''))
+        if not phone:
+            messages.error(request, 'Введіть коректний український номер телефону. Можна без +380.')
+            return redirect('profile_setup')
+
+        try:
+            delivery_selection = resolve_optional_delivery_selection(request.POST)
+        except NovaPoshtaSelectionError as exc:
+            messages.error(request, exc.message)
+            return redirect('profile_setup')
+
         # Обновляем профиль
         user_profile.full_name = request.POST.get('full_name', '')
-        user_profile.phone = normalize_phone(request.POST.get('phone', ''))
+        user_profile.phone = phone
         user_profile.email = request.POST.get('email', '')
         user_profile.telegram = request.POST.get('telegram', '')
         user_profile.instagram = request.POST.get('instagram', '')
-        user_profile.city = request.POST.get('city', '')
-        user_profile.np_office = request.POST.get('np_office', '')
+        _apply_profile_delivery_selection(user_profile, delivery_selection)
         user_profile.pay_type = request.POST.get('pay_type', 'full')
 
         # Аватар
@@ -125,7 +156,7 @@ def edit_profile(request):
 
         user_profile.save()
 
-        return redirect('profile')
+        return redirect('home')
 
     return render(
         request,
@@ -165,13 +196,13 @@ def profile_setup(request):
             has_existing_ubd_doc=bool(prof.ubd_doc),
         )
         if form.is_valid():
+            delivery_selection = resolve_optional_delivery_selection(form.cleaned_data)
             prof.full_name = form.cleaned_data.get('full_name', '')
             prof.phone = form.cleaned_data['phone']
             prof.email = form.cleaned_data.get('email', '')
             prof.telegram = form.cleaned_data.get('telegram', '')
             prof.instagram = form.cleaned_data.get('instagram', '')
-            prof.city = form.cleaned_data.get('city', '')
-            prof.np_office = form.cleaned_data.get('np_office', '')
+            _apply_profile_delivery_selection(prof, delivery_selection)
             prof.pay_type = form.cleaned_data.get('pay_type', 'full')
             prof.is_ubd = form.cleaned_data.get('is_ubd', False)
 
@@ -198,6 +229,9 @@ def profile_setup(request):
             'instagram': prof.instagram,
             'city': prof.city,
             'np_office': prof.np_office,
+            'np_settlement_ref': prof.np_settlement_ref,
+            'np_city_ref': prof.np_city_ref,
+            'np_warehouse_ref': prof.np_warehouse_ref,
             'pay_type': prof.pay_type,
             'is_ubd': prof.is_ubd,
         }

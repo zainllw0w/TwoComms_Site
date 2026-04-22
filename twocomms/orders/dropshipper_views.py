@@ -17,6 +17,12 @@ import logging
 import requests
 
 from .models import DropshipperOrder, DropshipperOrderItem, DropshipperStats, DropshipperPayout
+from .nova_poshta_checkout import (
+    NovaPoshtaSelectionError,
+    format_delivery_selection_address,
+    resolve_delivery_selection,
+)
+from .nova_poshta_documents import normalize_checkout_phone
 from storefront.models import Product, Category
 from productcolors.models import ProductColorVariant
 from .forms import CompanyProfileForm
@@ -27,6 +33,39 @@ monobank_logger = logging.getLogger('monobank')
 
 
 LONG_SLEEVE_SLUG = 'long-sleeve'
+
+
+def _extract_client_delivery_payload(data):
+    return {
+        'city': data.get('client_city', ''),
+        'np_office': data.get('client_np_office', ''),
+        'np_settlement_ref': data.get('client_np_settlement_ref', ''),
+        'np_city_ref': data.get('client_np_city_ref', ''),
+        'np_city_token': data.get('client_np_city_token', ''),
+        'np_warehouse_ref': data.get('client_np_warehouse_ref', ''),
+        'np_warehouse_token': data.get('client_np_warehouse_token', ''),
+    }
+
+
+def _resolve_client_delivery_selection(data):
+    try:
+        return resolve_delivery_selection(_extract_client_delivery_payload(data))
+    except NovaPoshtaSelectionError as exc:
+        raise ValueError(exc.message) from exc
+
+
+def _normalize_client_phone(raw_phone):
+    phone = normalize_checkout_phone(raw_phone)
+    if not phone:
+        raise ValueError('Вкажіть коректний український номер телефону. Можна без +380.')
+    return phone
+
+
+def _apply_client_delivery_selection(order, selection) -> None:
+    order.client_np_address = format_delivery_selection_address(selection)
+    order.client_np_settlement_ref = selection.settlement_ref
+    order.client_np_city_ref = selection.city_ref
+    order.client_np_warehouse_ref = selection.warehouse_ref
 
 
 def _get_dropship_categories():
@@ -514,6 +553,15 @@ def add_to_cart(request):
                 'message': 'Заповніть всі обов\'язкові поля клієнта'
             })
 
+        try:
+            client_phone = _normalize_client_phone(client_phone)
+            delivery_selection = _resolve_client_delivery_selection(data)
+        except ValueError as exc:
+            return JsonResponse({
+                'success': False,
+                'message': str(exc),
+            }, status=422)
+
         product = get_object_or_404(Product, id=product_id)
         color_variant = None
 
@@ -523,21 +571,24 @@ def add_to_cart(request):
         # Получаем актуальную цену дропа
         actual_drop_price = product.get_drop_price(request.user)
 
-        # Формируем адрес доставки
-        client_np_address = f"{client_city}, {client_np_office}"
-
         # Создаем заказ сразу (новая логика - не используем корзину)
         with transaction.atomic():
             order = DropshipperOrder.objects.create(
                 dropshipper=request.user,
                 client_name=client_name,
                 client_phone=client_phone,
-                client_np_address=client_np_address,
                 order_source=order_source,
                 notes=notes,
                 payment_method=payment_method,
                 status='pending'
             )
+            _apply_client_delivery_selection(order, delivery_selection)
+            order.save(update_fields=[
+                'client_np_address',
+                'client_np_settlement_ref',
+                'client_np_city_ref',
+                'client_np_warehouse_ref',
+            ])
 
             # Добавляем товар в заказ
             order_item = DropshipperOrderItem.objects.create(
@@ -670,6 +721,26 @@ def create_dropshipper_order(request):
                 'message': 'Корзина пуста. Добавьте товары перед созданием заказа.'
             })
 
+        client_name = (data.get('client_name') or '').strip()
+        raw_client_phone = (data.get('client_phone') or '').strip()
+        client_city = (data.get('client_city') or '').strip()
+        client_np_office = (data.get('client_np_office') or '').strip()
+
+        if not all([client_name, raw_client_phone, client_city, client_np_office]):
+            return JsonResponse({
+                'success': False,
+                'message': 'Заповніть всі обов\'язкові поля клієнта',
+            }, status=422)
+
+        try:
+            client_phone = _normalize_client_phone(raw_client_phone)
+            delivery_selection = _resolve_client_delivery_selection(data)
+        except ValueError as exc:
+            return JsonResponse({
+                'success': False,
+                'message': str(exc),
+            }, status=422)
+
         with transaction.atomic():
             # Получаем способ оплаты
             payment_method = data.get('payment_method', 'cod')  # По умолчанию - наложенный платеж
@@ -677,14 +748,23 @@ def create_dropshipper_order(request):
             # Создаем заказ
             order = DropshipperOrder.objects.create(
                 dropshipper=request.user,
-                client_name=data.get('client_name', ''),
-                client_phone=data.get('client_phone', ''),
-                client_np_address=data.get('client_np_address', ''),
-                order_source=data.get('order_source', ''),
-                notes=data.get('notes', ''),
+                client_name=client_name,
+                client_phone='',
+                client_np_address='',
+                order_source=(data.get('order_source') or '').strip(),
+                notes=(data.get('notes') or '').strip(),
                 payment_method=payment_method,
                 status='pending'  # Изменяем статус на pending для отображения
             )
+            order.client_phone = client_phone
+            _apply_client_delivery_selection(order, delivery_selection)
+            order.save(update_fields=[
+                'client_phone',
+                'client_np_address',
+                'client_np_settlement_ref',
+                'client_np_city_ref',
+                'client_np_warehouse_ref',
+            ])
 
             # Добавляем товары из корзины
             total_drop_price = 0

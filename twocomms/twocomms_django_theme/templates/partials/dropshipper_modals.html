@@ -8,9 +8,11 @@
       </button>
     </header>
 
-    <form id="ds-order-form" class="ds-form">
+    <form id="ds-order-form" class="ds-form" data-np-form="dropship">
       {% csrf_token %}
-      <div class="ds-order-form__layout">
+      <div class="ds-order-form__layout"
+           data-np-city-search-url="{% url 'cart_np_city_search' %}"
+           data-np-warehouse-search-url="{% url 'cart_np_warehouse_search' %}">
         <div class="ds-order-form__section">
           <h3 class="ds-order-form__section-title">Дані клієнта</h3>
           <div class="ds-form__grid">
@@ -20,15 +22,34 @@
             </label>
             <label class="ds-input">
               <span class="ds-input__label">Телефон клієнта</span>
-              <input type="tel" name="client_phone" required autocomplete="tel" placeholder="+380 __ ___ __ __">
+              <input type="tel" name="client_phone" required autocomplete="tel" inputmode="tel" placeholder="0931234567" data-uk-phone-field>
+              <small class="ds-input__hint">Префікс +380 підставимо автоматично.</small>
             </label>
             <label class="ds-input">
               <span class="ds-input__label">Місто (Нова Пошта)</span>
-              <input type="text" name="client_city" required placeholder="Місто доставки">
+              <div class="np-selector" data-np-city-selector>
+                <input type="text" name="client_city" required placeholder="Почніть вводити місто Нової пошти" autocomplete="off" spellcheck="false" data-np-city-input aria-autocomplete="list" aria-expanded="false">
+                <input type="hidden" name="client_np_settlement_ref" data-np-settlement-ref>
+                <input type="hidden" name="client_np_city_ref" data-np-city-ref>
+                <input type="hidden" name="client_np_city_token" data-np-city-token>
+                <div class="np-selector-results" data-np-city-results hidden></div>
+              </div>
+              <small class="ds-input__hint np-selector-status" data-np-city-status>Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти.</small>
             </label>
             <label class="ds-input ds-input--full">
               <span class="ds-input__label">Відділення Нової Пошти</span>
-              <input type="text" name="client_np_office" required placeholder="Номер або адреса відділення / поштомату">
+              <div class="np-selector" data-np-warehouse-selector>
+                <input type="text" name="client_np_office" required placeholder="Оберіть відділення або поштомат" autocomplete="off" spellcheck="false" data-np-warehouse-input aria-autocomplete="list" aria-expanded="false">
+                <input type="hidden" name="client_np_warehouse_ref" data-np-warehouse-ref>
+                <input type="hidden" name="client_np_warehouse_token" data-np-warehouse-token>
+                <div class="np-selector-results" data-np-warehouse-results hidden></div>
+              </div>
+              <div class="np-selector-kind" data-np-kind-toggle>
+                <button type="button" class="np-selector-kind-btn is-active" data-kind="all">Усі пункти</button>
+                <button type="button" class="np-selector-kind-btn" data-kind="branch">Відділення</button>
+                <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
+              </div>
+              <small class="ds-input__hint np-selector-status" data-np-warehouse-status>Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти.</small>
             </label>
             <label class="ds-input ds-input--full">
               <span class="ds-input__label">Джерело замовлення (необов'язково)</span>

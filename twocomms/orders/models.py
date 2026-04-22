@@ -492,6 +492,9 @@ class DropshipperOrder(models.Model):
     client_name = models.CharField(max_length=200, verbose_name="ПІБ клієнта")
     client_phone = models.CharField(max_length=32, verbose_name="Телефон клієнта")
     client_np_address = models.CharField(max_length=500, verbose_name="Адреса НП клієнта")
+    client_np_settlement_ref = models.CharField(max_length=36, blank=True, verbose_name="Ref населеного пункту НП")
+    client_np_city_ref = models.CharField(max_length=36, blank=True, verbose_name="Ref міста НП")
+    client_np_warehouse_ref = models.CharField(max_length=36, blank=True, verbose_name="Ref відділення НП")
 
     # Информация о заказе
     order_number = models.CharField(max_length=20, unique=True, blank=True, verbose_name="Номер замовлення")

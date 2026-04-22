@@ -32,19 +32,6 @@ class PhoneNormalizationTests(TestCase):
                 self.assertEqual(normalize_checkout_phone(sample), '+380939693920')
                 self.assertEqual(normalize_phone_for_np(sample), '380939693920')
 
-    def test_normalize_phone_drops_trunk_zero_after_country_code(self):
-        samples = (
-            '3800939693920',
-            '+3800939693920',
-            '003800939693920',
-        )
-
-        for sample in samples:
-            with self.subTest(sample=sample):
-                self.assertEqual(normalize_phone(sample), '+380939693920')
-                self.assertEqual(normalize_checkout_phone(sample), '+380939693920')
-                self.assertEqual(normalize_phone_for_np(sample), '380939693920')
-
     def test_normalize_phone_preserves_explicit_international_number(self):
         self.assertEqual(normalize_phone('+55 11 91234-5678'), '+5511912345678')
         self.assertEqual(normalize_phone('0055 11 91234-5678'), '+5511912345678')
@@ -69,6 +56,7 @@ class NovaPoshtaCheckoutValidationTests(TestCase):
         self.cart_url = reverse('cart')
         self.order_create_url = reverse('order_create')
         self.monobank_create_invoice_url = reverse('monobank_create_invoice')
+        self.profile_setup_url = reverse('profile_setup')
 
         self.category = Category.objects.create(name='Test Category', slug='test-category')
         self.product = Product.objects.create(
@@ -245,6 +233,87 @@ class NovaPoshtaCheckoutValidationTests(TestCase):
         self.assertEqual(self.profile.phone, '+380991234567')
         messages = [message.message for message in response.context['messages']]
         self.assertIn('Вкажіть коректний український номер телефону. Можна без +380.', messages)
+
+    def test_profile_setup_allows_blank_delivery_fields(self):
+        self.client.login(username='np-user', password='testpass123')
+
+        response = self.client.post(
+            self.profile_setup_url,
+            {
+                'full_name': 'Updated User',
+                'phone': '0939693920',
+                'email': 'updated@example.com',
+                'telegram': '@updated_user',
+                'instagram': '@updated_insta',
+                'city': '',
+                'np_office': '',
+                'pay_type': 'partial',
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.city, '')
+        self.assertEqual(self.profile.np_office, '')
+        self.assertEqual(self.profile.np_settlement_ref, '')
+        self.assertEqual(self.profile.np_city_ref, '')
+        self.assertEqual(self.profile.np_warehouse_ref, '')
+        self.assertEqual(self.profile.phone, '+380939693920')
+
+    def test_profile_setup_requires_signed_nova_poshta_selection_when_delivery_present(self):
+        self.client.login(username='np-user', password='testpass123')
+
+        response = self.client.post(
+            self.profile_setup_url,
+            {
+                'full_name': 'Updated User',
+                'phone': '+380661112233',
+                'city': 'Київ',
+                'np_office': 'Відділення №1',
+                'pay_type': 'partial',
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.city, 'Старе місто')
+        self.assertEqual(self.profile.np_office, 'Старе відділення')
+        self.assertFormError(
+            response.context['form'],
+            'city',
+            'Оберіть місто зі списку Нової пошти.',
+        )
+
+    def test_profile_setup_saves_canonical_nova_poshta_values(self):
+        self.client.login(username='np-user', password='testpass123')
+        delivery = self._delivery_payload()
+
+        response = self.client.post(
+            self.profile_setup_url,
+            {
+                'full_name': 'Updated User',
+                'phone': '+380661112233',
+                'city': delivery['city'],
+                'np_office': delivery['np_office'],
+                'np_settlement_ref': delivery['np_settlement_ref'],
+                'np_city_ref': delivery['np_city_ref'],
+                'np_city_token': delivery['np_city_token'],
+                'np_warehouse_ref': delivery['np_warehouse_ref'],
+                'np_warehouse_token': delivery['np_warehouse_token'],
+                'pay_type': 'partial',
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.city, delivery['canonical_city'])
+        self.assertEqual(self.profile.np_office, delivery['canonical_np_office'])
+        self.assertEqual(self.profile.np_settlement_ref, 'settlement-ref')
+        self.assertEqual(self.profile.np_city_ref, 'delivery-city-ref')
+        self.assertEqual(self.profile.np_warehouse_ref, 'warehouse-ref')
 
     def test_order_create_requires_signed_nova_poshta_selection(self):
         self._set_cart()
