@@ -12,10 +12,12 @@ import {
 import { PerformanceOptimizer, ImageOptimizer, MobileOptimizer } from './modules/optimizers.js';
 import { initProductMedia } from './modules/product-media.js';
 import { initWebPush } from './modules/web-push.js';
+import { initPwaInstall } from './modules/pwa-install.js';
 
 // Помечаем, что основной JS инициализирован и можно запускать анимации
 document.documentElement.classList.add('js-ready');
 initWebPush();
+initPwaInstall();
 
 const ANALYTICS_BRAND_NAME = 'TwoComms';
 

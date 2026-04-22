@@ -232,10 +232,27 @@ function maybeNotify(message, type = 'info') {
   }
 }
 
+function trackWebPushMetric(eventName, extra = {}) {
+  try {
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: eventName,
+      web_push_event_name: eventName,
+      browser_family: detectBrowserFamily(),
+      operating_system: detectOperatingSystem(),
+      device_type: detectDeviceType(),
+      standalone: isStandalone(),
+      permission: Notification.permission,
+      path: window.location.pathname,
+      ...extra,
+    });
+  } catch (_) { }
+}
+
 function buildPromptCard(mode) {
   const wrapper = document.createElement('aside');
   wrapper.className = 'web-push-prompt';
-  wrapper.setAttribute('data-web-push-prompt', '1');
+  wrapper.setAttribute('data-web-push-prompt', mode);
   wrapper.setAttribute('data-tone', mode === 'ios_install' ? 'install' : 'default');
 
   if (mode === 'ios_install') {
@@ -252,6 +269,30 @@ function buildPromptCard(mode) {
         <div class="web-push-prompt__actions">
           <button type="button" class="web-push-prompt__btn web-push-prompt__btn--ghost" data-web-push-dismiss>
             Зрозуміло
+          </button>
+        </div>
+      </div>
+    `;
+    return wrapper;
+  }
+
+  if (mode === 'retry') {
+    wrapper.innerHTML = `
+      <div class="web-push-prompt__glow"></div>
+      <div class="web-push-prompt__content">
+        <div class="web-push-prompt__icon" aria-hidden="true">Push</div>
+        <div class="web-push-prompt__text">
+          <div class="web-push-prompt__title">Push потребує повторного підключення</div>
+          <p class="web-push-prompt__copy" data-web-push-copy>
+            Дозвіл браузера вже видано, але TwoComms не зміг синхронізувати підписку. Повторіть підключення, щоб сповіщення працювали стабільно.
+          </p>
+        </div>
+        <div class="web-push-prompt__actions">
+          <button type="button" class="web-push-prompt__btn web-push-prompt__btn--ghost" data-web-push-dismiss>
+            Пізніше
+          </button>
+          <button type="button" class="web-push-prompt__btn web-push-prompt__btn--primary" data-web-push-enable>
+            Повторити
           </button>
         </div>
       </div>
@@ -286,20 +327,30 @@ function showPromptCard(config, mode) {
   removePromptCard();
   const card = buildPromptCard(mode);
   document.body.appendChild(card);
+  trackWebPushMetric('web_push_prompt_shown', { mode });
 
   const dismissButton = card.querySelector('[data-web-push-dismiss]');
   dismissButton?.addEventListener('click', () => {
     dismissPrompt(mode === 'ios_install' ? 30 : 21);
+    trackWebPushMetric('web_push_prompt_dismissed', { mode });
     removePromptCard();
   });
 
   const enableButton = card.querySelector('[data-web-push-enable]');
   enableButton?.addEventListener('click', async () => {
     enableButton.disabled = true;
-    updatePromptState('Запитуємо дозвіл браузера…', 'loading');
 
     try {
-      const permission = await Notification.requestPermission();
+      let permission = Notification.permission;
+      if (permission !== 'granted') {
+        updatePromptState('Запитуємо дозвіл браузера…', 'loading');
+        permission = await Notification.requestPermission();
+      } else {
+        updatePromptState('Синхронізуємо наявний дозвіл браузера…', 'loading');
+      }
+
+      trackWebPushMetric('web_push_permission_result', { mode, permission });
+
       if (permission !== 'granted') {
         dismissPrompt(45);
         updatePromptState('Дозвіл не надано. Ви завжди можете змінити це в налаштуваннях браузера.', 'warning');
@@ -309,10 +360,15 @@ function showPromptCard(config, mode) {
       }
 
       await subscribeUser(config);
+      trackWebPushMetric('web_push_subscribe_success', { mode });
       updatePromptState('Push-сповіщення увімкнено. Нові повідомлення прийдуть у браузер автоматично.', 'success');
       maybeNotify('Push-сповіщення успішно увімкнено.', 'success');
       setTimeout(removePromptCard, 2400);
     } catch (error) {
+      trackWebPushMetric('web_push_subscribe_error', {
+        mode,
+        error_message: (error && error.message) || 'unknown_error',
+      });
       updatePromptState(error?.message || 'Не вдалося налаштувати push-сповіщення.', 'warning');
       maybeNotify(error?.message || 'Не вдалося налаштувати push-сповіщення.', 'error');
       enableButton.disabled = false;
@@ -348,7 +404,16 @@ async function bootWebPush(config) {
   if (Notification.permission === 'granted' && canUsePush()) {
     try {
       await subscribeUser(config);
-    } catch (_) { }
+    } catch (error) {
+      trackWebPushMetric('web_push_boot_sync_error', {
+        error_message: (error && error.message) || 'unknown_error',
+      });
+      if (shouldShowPrompt()) {
+        showPromptCard(config, 'retry');
+      } else {
+        maybeNotify('Не вдалося синхронізувати push-підписку. Спробуйте ще раз трохи пізніше.', 'warning');
+      }
+    }
     return;
   }
 
