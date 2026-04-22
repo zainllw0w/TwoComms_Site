@@ -18,7 +18,7 @@ COMMIT_MESSAGE="$1"
 SERVER_USER="qlknpodo"
 SERVER_HOST="195.191.24.169"
 SERVER_PATH="/home/qlknpodo/TWC/TwoComms_Site/twocomms"
-SERVER_PASSWORD="trs5m4t1"
+SERVER_PASSWORD="${DEPLOY_SERVER_PASSWORD:?Set DEPLOY_SERVER_PASSWORD before running deploy.sh}"
 
 echo "📝 Коммит: $COMMIT_MESSAGE"
 
@@ -30,27 +30,31 @@ echo "2️⃣ Коммитим изменения..."
 git commit -m "$COMMIT_MESSAGE" || echo "Нет изменений для коммита"
 
 echo "3️⃣ Пушим в GitHub..."
-git push origin main
+git push origin HEAD
 
 # 2. Деплой на сервер
 echo "4️⃣ Подключаемся к серверу и делаем git pull..."
 sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} << 'EOF'
     cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
-    
-    echo "   📥 Получаем изменения с GitHub..."
-    git pull origin main
-    
+
     echo "   📦 Активируем виртуальное окружение..."
     source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
-    
+
+    echo "   📥 Получаем изменения с GitHub..."
+    git pull --ff-only origin main
+
+    echo "   🔎 Проверяем конфигурацию Django..."
+    SECRET_KEY="${SECRET_KEY:-placeholder-deploy-secret}" python manage.py check --deploy
+
+    echo "   🧩 Генерируем offline-compress бандлы..."
+    python manage.py compress --force
+
     echo "   📚 Собираем статические файлы..."
     python manage.py collectstatic --noinput
-    
-    echo "   🧩 Генерируем сжатые бандлы..."
-    python manage.py compress --force
-    
-    echo "   🔄 Перезапускаем сервер..."
-    touch twocomms/wsgi.py
+
+    echo "   🔄 Перезапускаем Passenger..."
+    mkdir -p tmp
+    touch tmp/restart.txt
     
     echo "   ✅ Деплой на сервере завершен!"
 EOF

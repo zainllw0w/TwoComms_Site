@@ -167,6 +167,10 @@ function clearScheduledPrompt() {
   scheduledPromptPriority = -1;
 }
 
+function hasAnotherPromptOpen() {
+  return Boolean(document.querySelector('[data-pwa-install-prompt]'));
+}
+
 function detectDeviceType() {
   const width = Math.min(window.innerWidth || 0, window.screen?.width || 0) || window.innerWidth || 0;
   const ua = navigator.userAgent || '';
@@ -243,7 +247,7 @@ function urlBase64ToUint8Array(base64String) {
 
 async function ensureServiceWorker() {
   if (!registerPromise) {
-    const serviceWorkerUrl = readConfig()?.serviceWorkerUrl || '/static/sw.js';
+    const serviceWorkerUrl = readConfig()?.serviceWorkerUrl || '/sw.js';
     registerPromise = navigator.serviceWorker.register(serviceWorkerUrl, {
       scope: '/',
       updateViaCache: 'none',
@@ -578,6 +582,9 @@ function shouldShowPrompt(config, options = {}) {
     return false;
   }
   if (document.visibilityState === 'hidden') {
+    return false;
+  }
+  if (hasAnotherPromptOpen()) {
     return false;
   }
   if (getPermissionState() !== 'default') {

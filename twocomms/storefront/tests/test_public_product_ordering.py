@@ -7,7 +7,10 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from storefront.models import Category, Product
-from storefront.services.catalog_helpers import get_public_product_order_version
+from storefront.services.catalog_helpers import (
+    get_public_category_version,
+    get_public_product_order_version,
+)
 
 
 @override_settings(
@@ -15,7 +18,11 @@ from storefront.services.catalog_helpers import get_public_product_order_version
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
             "LOCATION": "public-product-ordering-tests",
-        }
+        },
+        "fragments": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "public-product-ordering-tests-fragments",
+        },
     }
 )
 class PublicProductOrderingTests(TestCase):
@@ -145,6 +152,47 @@ class PublicProductOrderingTests(TestCase):
             updated_html,
             [self.low_priority.title, self.high_priority.title, self.middle_priority.title],
         )
+
+    def test_category_change_bumps_public_category_version(self):
+        initial_version = get_public_category_version()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.category.name = "Ordering Category Updated"
+            self.category.save(update_fields=["name"])
+
+        self.assertGreater(get_public_category_version(), initial_version)
+
+    def test_product_save_bumps_public_product_version(self):
+        initial_version = get_public_product_order_version()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.high_priority.title = "Priority High Updated"
+            self.high_priority.save(update_fields=["title"])
+
+        self.assertGreater(get_public_product_order_version(), initial_version)
+
+    def test_admin_status_update_bumps_public_product_version(self):
+        self.staff_client.force_login(self.staff_user)
+        initial_version = get_public_product_order_version()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.staff_client.post(
+                reverse("admin_update_product_status"),
+                data=json.dumps(
+                    {
+                        "product_id": self.high_priority.id,
+                        "status": "draft",
+                    }
+                ),
+                content_type="application/json",
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+        self.assertGreater(get_public_product_order_version(), initial_version)
+        self.high_priority.refresh_from_db()
+        self.assertEqual(self.high_priority.status, "draft")
 
     def test_admin_catalogs_section_renders_drag_controls(self):
         self.staff_client.force_login(self.staff_user)

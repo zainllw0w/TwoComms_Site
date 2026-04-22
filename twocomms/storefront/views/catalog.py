@@ -23,6 +23,8 @@ from ..services.catalog_helpers import (
     apply_public_product_order,
     build_color_preview_map,
     get_categories_cached,
+    get_public_category_version,
+    get_public_product_order_version,
 )
 from ..services.survey_engine import load_survey_definition
 from ..utm_tracking import record_search
@@ -70,6 +72,8 @@ def home(request):
 
     fragment_cache = get_fragment_cache()
     categories = get_categories_cached(fragment_cache)
+    public_product_order_version = get_public_product_order_version(fragment_cache)
+    public_category_version = get_public_category_version(fragment_cache)
 
     # Пагинация
     page_number = request.GET.get('page', '1')
@@ -142,6 +146,8 @@ def home(request):
             'survey_key': survey_key,
             'survey_cta_text': survey_cta_text,
             'survey_has_active': survey_has_active,
+            'public_product_order_version': public_product_order_version,
+            'public_category_version': public_category_version,
         }
     )
 
@@ -230,6 +236,8 @@ def catalog(request, cat_slug=None):
     """
     fragment_cache = get_fragment_cache()
     categories = get_categories_cached(fragment_cache)
+    public_product_order_version = get_public_product_order_version(fragment_cache)
+    public_category_version = get_public_category_version(fragment_cache)
 
     if cat_slug:
         category = get_object_or_404(Category, slug=cat_slug, is_active=True)
@@ -272,6 +280,8 @@ def catalog(request, cat_slug=None):
             'cat_slug': cat_slug or '',
             'page_obj': page_obj,
             'paginator': paginator,
+            'public_product_order_version': public_product_order_version,
+            'public_category_version': public_category_version,
         }
     )
 
@@ -320,6 +330,8 @@ def search(request):
 
         fragment_cache = get_fragment_cache()
         categories = get_categories_cached(fragment_cache)
+        public_product_order_version = get_public_product_order_version(fragment_cache)
+        public_category_version = get_public_category_version(fragment_cache)
 
         product_list = list(apply_public_product_order(product_qs))
         color_previews = build_color_preview_map(product_list)
@@ -338,6 +350,8 @@ def search(request):
                 'query': query,
                 'results_count': len(product_list),
                 'is_search_page': True,
+                'public_product_order_version': public_product_order_version,
+                'public_category_version': public_category_version,
             }
         )
     except Exception as e:
@@ -350,8 +364,12 @@ def search(request):
         try:
             fragment_cache = get_fragment_cache()
             categories = get_categories_cached(fragment_cache) if fragment_cache else []
+            public_product_order_version = get_public_product_order_version(fragment_cache)
+            public_category_version = get_public_category_version(fragment_cache)
         except Exception:
             categories = []
+            public_product_order_version = 1
+            public_category_version = 1
 
         return render(
             request,
@@ -364,6 +382,8 @@ def search(request):
                 'show_category_cards': False,
                 'results_count': 0,
                 'is_search_page': True,
-                'error': 'Произошла ошибка при поиске. Попробуйте еще раз.'
+                'error': 'Произошла ошибка при поиске. Попробуйте еще раз.',
+                'public_product_order_version': public_product_order_version,
+                'public_category_version': public_category_version,
             }
         )

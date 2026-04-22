@@ -263,15 +263,51 @@ class WebPushFlowTests(TestCase):
         self.assertContains(response, 'id="web-push-config"')
         self.assertContains(response, reverse("push_subscribe"))
         self.assertContains(response, "test-public-key")
-        self.assertContains(response, "/static/sw.js")
+        self.assertContains(response, "/sw.js")
         self.assertContains(response, 'name="apple-mobile-web-app-capable" content="yes"')
 
     def test_static_service_worker_path_points_to_existing_asset(self):
         response = self.client.get(reverse("home"), secure=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "/static/sw.js")
+        self.assertContains(response, "/sw.js")
         self.assertTrue(finders.find("sw.js"))
+
+    def test_home_page_contains_pwa_head_metadata(self):
+        response = self.client.get(reverse("home"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "viewport-fit=cover")
+        self.assertContains(response, "apple-mobile-web-app-capable")
+        self.assertContains(response, "site.webmanifest")
+        self.assertContains(response, "css/web-push.css")
+
+    def test_service_worker_route_serves_root_worker_with_cache_headers(self):
+        response = self.client.get(reverse("service_worker_js"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "networkFirstNavigation")
+        self.assertEqual(response["Service-Worker-Allowed"], "/")
+        self.assertIn("must-revalidate", response["Cache-Control"])
+
+    def test_manifest_contains_install_metadata_and_existing_shortcuts(self):
+        manifest_path = finders.find("site.webmanifest")
+
+        self.assertTrue(manifest_path)
+        with open(manifest_path, "r", encoding="utf-8") as manifest_file:
+            manifest = json.load(manifest_file)
+
+        self.assertEqual(manifest["id"], "/")
+        self.assertEqual(manifest["start_url"], "/?source=pwa")
+        self.assertIn("standalone", manifest["display_override"])
+        self.assertEqual(manifest["launch_handler"]["client_mode"], "focus-existing")
+
+        for icon in manifest["icons"]:
+            self.assertTrue(finders.find(icon["src"].replace("/static/", "", 1)))
+
+        for shortcut in manifest["shortcuts"]:
+            for icon in shortcut.get("icons", []):
+                self.assertTrue(finders.find(icon["src"].replace("/static/", "", 1)))
 
     def test_new_subscription_deactivates_previous_same_installation(self):
         old_subscription = WebPushDeviceSubscription.objects.create(
