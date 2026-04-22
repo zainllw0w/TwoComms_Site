@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.staticfiles import finders
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -78,14 +79,14 @@ class WebPushFlowTests(TestCase):
         self.assertContains(response, 'id="web-push-config"')
         self.assertContains(response, reverse("push_subscribe"))
         self.assertContains(response, "test-public-key")
+        self.assertContains(response, "/static/sw.js")
 
-    def test_service_worker_is_served_from_root_scope(self):
-        response = self.client.get("/sw.js", secure=True)
+    def test_static_service_worker_path_points_to_existing_asset(self):
+        response = self.client.get(reverse("home"), secure=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Service-Worker-Allowed"], "/")
-        self.assertIn("application/javascript", response["Content-Type"])
-        self.assertContains(response, "EVENTS_ENDPOINT = '/push/events/'")
+        self.assertContains(response, "/static/sw.js")
+        self.assertTrue(finders.find("sw.js"))
 
     def test_new_subscription_deactivates_previous_same_installation(self):
         old_subscription = WebPushDeviceSubscription.objects.create(
