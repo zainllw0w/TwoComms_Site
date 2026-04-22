@@ -10,14 +10,36 @@ import {
   escapeHtml
 } from './modules/shared.js';
 import { PerformanceOptimizer, ImageOptimizer, MobileOptimizer } from './modules/optimizers.js';
-import { initProductMedia } from './modules/product-media.js';
-import { initWebPush } from './modules/web-push.js';
-import { initPwaInstall } from './modules/pwa-install.js';
 
 // Помечаем, что основной JS инициализирован и можно запускать анимации
 document.documentElement.classList.add('js-ready');
-initWebPush();
-initPwaInstall();
+
+function initDeferredInstallPrompts() {
+  const boot = () => {
+    scheduleIdle(() => {
+      if (document.getElementById('web-push-config')) {
+        import('./modules/web-push.js')
+          .then(({ initWebPush }) => initWebPush())
+          .catch(() => { });
+      }
+
+      if ('serviceWorker' in navigator) {
+        import('./modules/pwa-install.js')
+          .then(({ initPwaInstall }) => initPwaInstall())
+          .catch(() => { });
+      }
+    });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+    return;
+  }
+
+  boot();
+}
+
+initDeferredInstallPrompts();
 
 const ANALYTICS_BRAND_NAME = 'TwoComms';
 
