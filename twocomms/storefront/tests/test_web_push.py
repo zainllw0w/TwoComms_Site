@@ -95,6 +95,18 @@ class WebPushFlowTests(TestCase):
             {"ok": False, "error": "Web Push is not configured."},
         )
 
+    def test_is_web_push_configured_reloads_dependency_if_it_appears_later(self):
+        with patch.object(web_push_service, "webpush", None):
+            with patch.object(web_push_service, "_webpush_dependency_resolved", False):
+                with patch(
+                    "storefront.services.web_push.import_module",
+                    return_value=SimpleNamespace(
+                        webpush=lambda **kwargs: None,
+                        WebPushException=RuntimeError,
+                    ),
+                ):
+                    self.assertTrue(web_push_service.is_web_push_configured())
+
     def test_send_campaign_raises_configuration_error_without_pywebpush_dependency(self):
         campaign = PushNotificationCampaign.objects.create(
             title="Нове повідомлення",

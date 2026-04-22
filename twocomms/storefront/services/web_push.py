@@ -1,4 +1,5 @@
 import json
+from importlib import import_module
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from django.conf import settings
@@ -12,6 +13,8 @@ except ModuleNotFoundError:
     WebPushException = RuntimeError
     webpush = None
 
+_webpush_dependency_resolved = webpush is not None
+
 from storefront.models import (
     PushNotificationCampaign,
     PushNotificationDelivery,
@@ -23,8 +26,30 @@ class WebPushConfigurationError(RuntimeError):
     pass
 
 
+def _resolve_webpush_dependency():
+    global WebPushException, webpush, _webpush_dependency_resolved
+
+    if webpush is not None:
+        return webpush, WebPushException
+    if _webpush_dependency_resolved:
+        return None, WebPushException
+
+    try:
+        module = import_module("pywebpush")
+    except ModuleNotFoundError:
+        WebPushException = RuntimeError
+        _webpush_dependency_resolved = True
+        return None, WebPushException
+
+    webpush = getattr(module, "webpush", None)
+    WebPushException = getattr(module, "WebPushException", RuntimeError)
+    _webpush_dependency_resolved = True
+    return webpush, WebPushException
+
+
 def is_web_push_configured():
-    return bool(getattr(settings, "WEB_PUSH_ENABLED", False) and webpush is not None)
+    webpush_callable, _ = _resolve_webpush_dependency()
+    return bool(getattr(settings, "WEB_PUSH_ENABLED", False) and webpush_callable is not None)
 
 
 def _absolute_site_url(raw_value):
@@ -107,9 +132,11 @@ def _vapid_claims():
 
 
 def send_campaign(campaign):
+    webpush_callable, webpush_exception_class = _resolve_webpush_dependency()
+
     if not getattr(settings, "WEB_PUSH_ENABLED", False):
         raise WebPushConfigurationError("Web Push is not configured")
-    if webpush is None:
+    if webpush_callable is None:
         raise WebPushConfigurationError("pywebpush dependency is not installed")
 
     private_key = (getattr(settings, "WEB_PUSH_VAPID_PRIVATE_KEY", "") or "").strip()
@@ -150,7 +177,7 @@ def send_campaign(campaign):
         )
         payload = build_campaign_payload(campaign, delivery)
         try:
-            response = webpush(
+            response = webpush_callable(
                 subscription_info=_build_subscription_info(subscription),
                 data=json.dumps(payload),
                 vapid_private_key=private_key,
@@ -164,7 +191,7 @@ def send_campaign(campaign):
             delivery.save(update_fields=["status", "sent_at", "push_service_status_code"])
             subscription.mark_delivery_success()
             sent_count += 1
-        except WebPushException as exc:
+        except webpush_exception_class as exc:
             status_code = getattr(getattr(exc, "response", None), "status_code", None)
             error_message = str(exc)[:255]
             delivery.push_service_status_code = status_code
