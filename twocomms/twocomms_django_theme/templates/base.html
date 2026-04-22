@@ -28,9 +28,12 @@
     })();
   </script>
 
-  <!-- Preload критических шрифтов (CSS loads via compress block + media hack) -->
+  <!-- Home relies on inline @font-face + font-display: swap to avoid competing
+       with render-blocking CSS on slow mobile connections. -->
+  {% if request.resolver_match.url_name != 'home' %}
   <link rel="preload" href="{% static 'fonts/Inter-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="{% static 'fonts/Inter-Bold.woff2' %}" as="font" type="font/woff2" crossorigin>
+  {% endif %}
 
   {% comment %}
   Font Awesome: non-blocking load (icons not critical for first paint).
@@ -168,9 +171,6 @@
     })();
   </script>
   {% endif %}
-
-  <!-- Preload only critical JS modules - others loaded on demand -->
-  <link rel="modulepreload" href="{% static 'js/modules/shared.js' %}">
 
   {% if request.resolver_match.url_name == 'home' %}
   <link rel="stylesheet" href="{% static 'css/bootstrap-home-subset.css' %}">
@@ -1074,7 +1074,9 @@
 
   <!-- Performance optimization: CSS loading enhancement (extracted) -->
   {{ web_push_config|json_script:"web-push-config" }}
+  {% if request.resolver_match.url_name != 'home' %}
   <script defer src="{% static 'js/css-loader.js' %}"></script>
+  {% endif %}
 
   <!-- Оптимизированная загрузка скриптов с приоритизацией -->
   <script defer src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
