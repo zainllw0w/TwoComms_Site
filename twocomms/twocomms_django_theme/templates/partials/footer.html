@@ -14,13 +14,84 @@
       {% if footer_content.socials %}
         <div class="footer-socials" aria-label="Соцмережі TwoComms">
           {% for item in footer_content.socials %}
-            <a class="footer-social-link" href="{{ item.url }}" target="_blank" rel="noopener">{{ item.label }}</a>
+            {% with social_label=item.label|default:"Соцмережа" social_url=item.url|default:"#"%}
+              {% if "instagram" in social_label|lower or "instagram" in social_url|lower %}
+                <a class="footer-social-link footer-social-link--instagram"
+                   href="{{ social_url }}"
+                   target="_blank"
+                   rel="noopener noreferrer me"
+                   aria-label="Instagram TwoComms"
+                   title="Instagram">
+                  <span class="footer-social-link__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                      <rect x="3.25" y="3.25" width="17.5" height="17.5" rx="5.25" stroke="currentColor" stroke-width="1.5"></rect>
+                      <circle cx="12" cy="12" r="4.1" stroke="currentColor" stroke-width="1.5"></circle>
+                      <circle cx="17.35" cy="6.7" r="1.15" fill="currentColor"></circle>
+                    </svg>
+                  </span>
+                  <span class="visually-hidden">Instagram</span>
+                </a>
+              {% elif "telegram" in social_label|lower or "telegram" in social_url|lower or "t.me" in social_url|lower %}
+                <a class="footer-social-link footer-social-link--telegram"
+                   href="{{ social_url }}"
+                   target="_blank"
+                   rel="noopener noreferrer me"
+                   aria-label="Telegram TwoComms"
+                   title="Telegram">
+                  <span class="footer-social-link__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                      <path d="M20.25 5.25L3.9 11.54C3.16 11.82 3.19 12.88 3.95 13.12L7.77 14.36L9.24 19.08C9.47 19.81 10.43 19.94 10.84 19.3L13.16 15.66L17.64 18.97C18.27 19.43 19.16 19.08 19.3 18.31L21.72 6.48C21.88 5.67 21 4.97 20.25 5.25Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
+                      <path d="M7.77 14.36L20.72 5.64" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                      <path d="M9.11 18.64L10.34 14.12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                    </svg>
+                  </span>
+                  <span class="visually-hidden">Telegram</span>
+                </a>
+              {% else %}
+                <a class="footer-social-link footer-social-link--text"
+                   href="{{ social_url }}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   aria-label="{{ social_label }}"
+                   title="{{ social_label }}">
+                  {{ social_label }}
+                </a>
+              {% endif %}
+            {% endwith %}
           {% endfor %}
         </div>
       {% else %}
         <div class="footer-socials" aria-label="Соцмережі TwoComms">
-          <a class="footer-social-link" href="https://instagram.com/twocomms" target="_blank" rel="noopener">Instagram</a>
-          <a class="footer-social-link" href="https://t.me/twocomms" target="_blank" rel="noopener">Telegram</a>
+          <a class="footer-social-link footer-social-link--instagram"
+             href="https://instagram.com/twocomms"
+             target="_blank"
+             rel="noopener noreferrer me"
+             aria-label="Instagram TwoComms"
+             title="Instagram">
+            <span class="footer-social-link__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                <rect x="3.25" y="3.25" width="17.5" height="17.5" rx="5.25" stroke="currentColor" stroke-width="1.5"></rect>
+                <circle cx="12" cy="12" r="4.1" stroke="currentColor" stroke-width="1.5"></circle>
+                <circle cx="17.35" cy="6.7" r="1.15" fill="currentColor"></circle>
+              </svg>
+            </span>
+            <span class="visually-hidden">Instagram</span>
+          </a>
+          <a class="footer-social-link footer-social-link--telegram"
+             href="https://t.me/twocomms"
+             target="_blank"
+             rel="noopener noreferrer me"
+             aria-label="Telegram TwoComms"
+             title="Telegram">
+            <span class="footer-social-link__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                <path d="M20.25 5.25L3.9 11.54C3.16 11.82 3.19 12.88 3.95 13.12L7.77 14.36L9.24 19.08C9.47 19.81 10.43 19.94 10.84 19.3L13.16 15.66L17.64 18.97C18.27 19.43 19.16 19.08 19.3 18.31L21.72 6.48C21.88 5.67 21 4.97 20.25 5.25Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
+                <path d="M7.77 14.36L20.72 5.64" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                <path d="M9.11 18.64L10.34 14.12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+              </svg>
+            </span>
+            <span class="visually-hidden">Telegram</span>
+          </a>
         </div>
       {% endif %}
     </div>
