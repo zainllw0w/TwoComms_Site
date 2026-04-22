@@ -11,6 +11,7 @@
 
 import logging
 from typing import Optional
+from .analytics_audience import build_audience_snapshot, merge_audience_metadata
 from .models import UTMSession, SiteSession, UserAction
 from .utm_utils import calculate_action_points
 
@@ -87,6 +88,14 @@ def record_user_action(
             base_metadata['visitor_id'] = visitor_id
         if hasattr(request, 'analytics_first_touch_data') and request.analytics_first_touch_data and 'first_touch' not in base_metadata:
             base_metadata['first_touch'] = request.analytics_first_touch_data
+        audience_snapshot = getattr(request, 'analytics_audience_snapshot', None)
+        if audience_snapshot is None:
+            audience_snapshot = build_audience_snapshot(
+                user=user,
+                ip_value=getattr(site_session, 'ip_address', None),
+                existing_payload=getattr(site_session, 'first_touch_data', None),
+            )
+        base_metadata = merge_audience_metadata(base_metadata, audience_snapshot)
 
         # Создаем запись действия
         action = UserAction.objects.create(
@@ -298,6 +307,14 @@ def record_order_action(
             base_metadata['visitor_id'] = visitor_id
         if first_touch and 'first_touch' not in base_metadata:
             base_metadata['first_touch'] = first_touch
+        base_metadata = merge_audience_metadata(
+            base_metadata,
+            build_audience_snapshot(
+                user=user,
+                ip_value=getattr(site_session, 'ip_address', None),
+                existing_payload=getattr(site_session, 'first_touch_data', None),
+            ),
+        )
 
         action = UserAction.objects.create(
             utm_session=utm_session,

@@ -42,7 +42,7 @@ function createClassList() {
   };
 }
 
-async function renderTab(tabName, payload) {
+async function renderTab(tabName, payload, options = {}) {
   const targets = {
     adminAnalyticsConfig: {
       textContent: JSON.stringify({
@@ -92,6 +92,11 @@ async function renderTab(tabName, payload) {
     querySelector: (selector) => (selector === '[data-admin-analytics-root]' ? root : null),
   };
 
+  const fetchImpl = options.fetchImpl || (async () => ({
+    ok: true,
+    json: async () => payload,
+  }));
+
   const sandbox = {
     document,
     window: {
@@ -99,9 +104,7 @@ async function renderTab(tabName, payload) {
       setInterval,
       clearInterval,
     },
-    fetch: async () => ({
-      json: async () => payload,
-    }),
+    fetch: fetchImpl,
     URLSearchParams,
     Promise,
     JSON,
@@ -177,4 +180,16 @@ test('composite sales tables also include per-cell labels for stacked mobile row
   assert.match(targets.analyticsSalesTables.innerHTML, /data-label="Канал"/);
   assert.match(targets.analyticsSalesTables.innerHTML, /data-label="LTV"/);
   assert.match(targets.analyticsSalesTables.innerHTML, /data-label="Товар"/);
+});
+
+test('failed widget fetch renders inline warning instead of silent console-only failure', async () => {
+  const targets = await renderTab('traffic', null, {
+    fetchImpl: async () => ({
+      ok: false,
+      status: 503,
+      json: async () => ({}),
+    }),
+  });
+
+  assert.match(targets.analyticsTrafficSources.innerHTML, /HTTP 503 while loading acquisition/);
 });

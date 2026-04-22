@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 import requests
 from django.test import TestCase
 
-from storefront.services.external_analytics import get_clarity_status, get_ga4_status
+from storefront.services.external_analytics import fetch_ga4_acquisition_snapshot, get_clarity_status, get_ga4_status
 
 
 class ExternalAnalyticsTests(TestCase):
@@ -32,3 +32,22 @@ class ExternalAnalyticsTests(TestCase):
         clarity_request_mock.assert_called_once_with(num_of_days=1, use_cache=False)
         self.assertEqual(status["status"], "error")
         self.assertEqual(status["details"]["http_status"], 403)
+
+    @patch("storefront.services.external_analytics.run_ga4_report")
+    def test_ga4_acquisition_snapshot_keeps_partial_success_when_one_subreport_fails(self, run_ga4_report_mock):
+        def side_effect(*args, **kwargs):
+            if kwargs.get("dimensions") == ["sessionSource", "sessionMedium"]:
+                raise RuntimeError("quota exceeded")
+            return {"rows": [], "row_count": 0, "quota": ""}
+
+        run_ga4_report_mock.side_effect = side_effect
+
+        snapshot = fetch_ga4_acquisition_snapshot(
+            start_date=__import__("datetime").date(2026, 4, 1),
+            end_date=__import__("datetime").date(2026, 4, 2),
+        )
+
+        self.assertIn("channel_groups", snapshot)
+        self.assertIn("devices", snapshot)
+        self.assertEqual(snapshot["errors"]["sources"], "quota exceeded")
+        self.assertNotIn("error", snapshot)

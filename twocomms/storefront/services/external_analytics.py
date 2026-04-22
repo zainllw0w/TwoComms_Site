@@ -384,67 +384,55 @@ def fetch_ga4_acquisition_snapshot(
     utm_medium: str = "",
     campaign: str = "",
 ) -> dict[str, Any]:
-    try:
-        return {
-            "channel_groups": run_ga4_report(
-                dimensions=["sessionDefaultChannelGroup"],
-                metrics=["sessions", "activeUsers", "engagementRate"],
+    report_specs = {
+        "channel_groups": {
+            "dimensions": ["sessionDefaultChannelGroup"],
+            "metrics": ["sessions", "activeUsers", "engagementRate"],
+            "limit": 20,
+        },
+        "sources": {
+            "dimensions": ["sessionSource", "sessionMedium"],
+            "metrics": ["sessions", "activeUsers", "engagementRate"],
+            "limit": 25,
+        },
+        "devices": {
+            "dimensions": ["deviceCategory", "browser"],
+            "metrics": ["sessions", "activeUsers", "engagementRate"],
+            "limit": 15,
+        },
+        "countries": {
+            "dimensions": ["country"],
+            "metrics": ["sessions", "activeUsers", "engagementRate"],
+            "limit": 15,
+        },
+        "landing_pages": {
+            "dimensions": ["landingPagePlusQueryString"],
+            "metrics": ["sessions", "activeUsers", "engagementRate"],
+            "limit": 15,
+        },
+    }
+    snapshot: dict[str, Any] = {"errors": {}}
+    for key, spec in report_specs.items():
+        try:
+            snapshot[key] = run_ga4_report(
+                dimensions=spec["dimensions"],
+                metrics=spec["metrics"],
                 start_date=start_date,
                 end_date=end_date,
                 device_type=device_type,
                 utm_source=utm_source,
                 utm_medium=utm_medium,
                 campaign=campaign,
-                limit=20,
-            ),
-            "sources": run_ga4_report(
-                dimensions=["sessionSource", "sessionMedium"],
-                metrics=["sessions", "activeUsers", "engagementRate"],
-                start_date=start_date,
-                end_date=end_date,
-                device_type=device_type,
-                utm_source=utm_source,
-                utm_medium=utm_medium,
-                campaign=campaign,
-                limit=25,
-            ),
-            "devices": run_ga4_report(
-                dimensions=["deviceCategory", "browser"],
-                metrics=["sessions", "activeUsers", "engagementRate"],
-                start_date=start_date,
-                end_date=end_date,
-                device_type=device_type,
-                utm_source=utm_source,
-                utm_medium=utm_medium,
-                campaign=campaign,
-                limit=15,
-            ),
-            "countries": run_ga4_report(
-                dimensions=["country"],
-                metrics=["sessions", "activeUsers", "engagementRate"],
-                start_date=start_date,
-                end_date=end_date,
-                device_type=device_type,
-                utm_source=utm_source,
-                utm_medium=utm_medium,
-                campaign=campaign,
-                limit=15,
-            ),
-            "landing_pages": run_ga4_report(
-                dimensions=["landingPagePlusQueryString"],
-                metrics=["sessions", "activeUsers", "engagementRate"],
-                start_date=start_date,
-                end_date=end_date,
-                device_type=device_type,
-                utm_source=utm_source,
-                utm_medium=utm_medium,
-                campaign=campaign,
-                limit=15,
-            ),
-        }
-    except Exception as exc:
-        logger.warning("GA4 acquisition snapshot failed: %s", exc, exc_info=True)
-        return {"error": str(exc)}
+                limit=spec["limit"],
+            )
+        except Exception as exc:
+            logger.warning("GA4 acquisition subreport %s failed: %s", key, exc, exc_info=True)
+            snapshot["errors"][key] = str(exc)
+
+    if len(snapshot["errors"]) == len(report_specs):
+        first_error = next(iter(snapshot["errors"].values()), "GA4 unavailable")
+        snapshot["error"] = first_error
+    return snapshot
 
 
 def _clarity_token() -> str:

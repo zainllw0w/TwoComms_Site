@@ -19,6 +19,7 @@
     },
     charts: {},
     loading: new Set(),
+    renderedTabs: new Set(),
   };
 
   const tabToEndpoint = {
@@ -53,6 +54,10 @@
       return;
     }
 
+    if (state.renderedTabs.has(tabName) && state.cache[tabToEndpoint[tabName]]) {
+      return;
+    }
+
     const endpoint = tabToEndpoint[tabName];
     if (!endpoint) return;
     ensureWidget(endpoint)
@@ -64,9 +69,11 @@
         if (tabName === "custom-print") renderCustomPrint(widget);
         if (tabName === "survey") renderSurvey(widget);
         if (tabName === "ux") renderUx(widget);
+        state.renderedTabs.add(tabName);
       })
       .catch((error) => {
         console.error(`[admin analytics] ${endpoint} failed`, error);
+        renderFetchFailure(tabName, error);
       });
   }
 
@@ -94,6 +101,9 @@
         headers: { "X-Requested-With": "XMLHttpRequest" },
         credentials: "same-origin",
       });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} while loading ${endpoint}`);
+      }
       const payload = await response.json();
       state.cache[endpoint] = payload;
       return payload;
@@ -216,7 +226,17 @@
       title: item.label,
       value: `${formatInt(item.sessions)} сесій`,
     }));
-    renderList(document.getElementById("analyticsTrafficBreakdowns"), breakdownItems);
+    if (data.excluded_activity?.sessions || data.excluded_activity?.page_views) {
+      renderList(document.getElementById("analyticsTrafficBreakdowns"), [
+        {
+          title: "Excluded admin/internal",
+          value: `${formatInt(data.excluded_activity.sessions)} сесій · ${formatInt(data.excluded_activity.page_views)} pageviews`,
+        },
+        ...breakdownItems,
+      ]);
+    } else {
+      renderList(document.getElementById("analyticsTrafficBreakdowns"), breakdownItems);
+    }
 
     const ga4Summary = document.getElementById("analyticsGa4Summary");
     if (data.ga4_snapshot?.error) {
@@ -271,6 +291,8 @@
       { title: "AOV", value: formatMoney(data.summary?.aov) },
       { title: "Items sold", value: formatInt(data.summary?.items_sold) },
       { title: "Repeat purchase rate", value: formatPercent(data.summary?.repeat_purchase_rate, true) },
+      { title: "Excluded orders", value: formatInt(data.excluded_activity?.orders) },
+      { title: "Excluded revenue", value: formatMoney(data.excluded_activity?.revenue) },
     ]);
 
     renderList(
@@ -332,6 +354,8 @@
       { title: "Add → checkout", value: formatPercent(data.summary?.add_to_checkout_rate, true) },
       { title: "Add → purchase", value: formatPercent(data.summary?.add_to_purchase_rate, true) },
       { title: "Added then purchased", value: formatInt(data.summary?.added_then_purchased) },
+      { title: "Excluded admin adds", value: formatInt(data.excluded_activity?.adds) },
+      { title: "Excluded admin purchases", value: formatInt(data.excluded_activity?.purchases) },
     ]);
 
     renderList(
@@ -380,6 +404,10 @@
     });
 
     renderList(document.getElementById("analyticsProductsSidebar"), [
+      {
+        title: "Excluded admin views",
+        value: `${formatInt(data.excluded_activity?.product_views)} views`,
+      },
       ...(data.categories || []).slice(0, 6).map((item) => ({
         title: item.category,
         value: `${formatInt(item.views)} переглядів`,
@@ -624,6 +652,24 @@
       }
     });
     return true;
+  }
+
+  function renderFetchFailure(tabName, error) {
+    const idsByTab = {
+      traffic: ["analyticsTrafficSources", "analyticsTrafficLanding", "analyticsTrafficBreakdowns", "analyticsGa4Summary"],
+      sales: ["analyticsSalesSummary", "analyticsPaymentSplit", "analyticsSalesTables"],
+      cart: ["analyticsCartSummary", "analyticsCartPayments", "analyticsCartRemovals"],
+      products: ["analyticsProductsSidebar", "analyticsProductsTable"],
+      "custom-print": ["analyticsCustomPrintSummary", "analyticsCustomPrintExits", "analyticsCustomPrintTables"],
+      survey: ["analyticsSurveySummary", "analyticsSurveyDropoff", "analyticsSurveyAnswers"],
+      ux: ["analyticsUxFreshness", "analyticsUxUrls", "analyticsUxWarnings"],
+    };
+    (idsByTab[tabName] || []).forEach((id) => {
+      const target = document.getElementById(id);
+      if (target) {
+        target.innerHTML = `<div class="analytics-warning-item">${escapeHtml(error?.message || "Widget load failed")}</div>`;
+      }
+    });
   }
 
   function renderList(target, items) {

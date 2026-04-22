@@ -19,6 +19,11 @@ from django.utils.dateparse import parse_date
 
 from orders.models import Order, OrderItem
 
+from ..analytics_audience import (
+    non_public_action_q,
+    non_public_order_q,
+    non_public_session_q,
+)
 from ..models import (
     Category,
     CustomPrintLead,
@@ -44,6 +49,7 @@ logger = logging.getLogger(__name__)
 
 WIDGET_CACHE_TTL = 60 * 5
 TRACKED_FROM_CACHE_TTL = 60 * 10
+INTEGRATION_STATUS_TTL = 60 * 60 * 6
 
 SOURCE_CLASS_CHOICES = [
     ("all", "Усі джерела"),
@@ -178,6 +184,7 @@ class AnalyticsScope:
     site_qs: Any
     utm_qs: Any
     session_keys: set[str] | None
+    audience_scope: str = "public"
 
 
 def _cache_get_or_set(prefix: str, payload: dict[str, Any], builder, ttl: int = WIDGET_CACHE_TTL):
@@ -449,7 +456,40 @@ def classify_order_source(order: Order) -> str:
     return source_class
 
 
-def _resolve_scope(filters: AnalyticsFilters) -> AnalyticsScope:
+def _filter_sessions_for_audience(qs, audience_scope: str):
+    if audience_scope == "all":
+        return qs
+    if audience_scope == "excluded":
+        return qs.filter(non_public_session_q())
+    return qs.exclude(non_public_session_q())
+
+
+def _filter_actions_for_audience(qs, audience_scope: str):
+    if audience_scope == "all":
+        return qs
+    if audience_scope == "excluded":
+        return qs.filter(non_public_action_q())
+    return qs.exclude(non_public_action_q())
+
+
+def _filter_pageviews_for_audience(qs, audience_scope: str):
+    if audience_scope == "all":
+        return qs
+    query = non_public_session_q("session__")
+    if audience_scope == "excluded":
+        return qs.filter(query)
+    return qs.exclude(query)
+
+
+def _filter_orders_for_audience(qs, audience_scope: str):
+    if audience_scope == "all":
+        return qs
+    if audience_scope == "excluded":
+        return qs.filter(non_public_order_q())
+    return qs.exclude(non_public_order_q())
+
+
+def _resolve_scope(filters: AnalyticsFilters, audience_scope: str = "public") -> AnalyticsScope:
     site_qs = SiteSession.objects.select_related("utm_data").all()
     site_qs = _apply_range(site_qs, "first_seen", filters)
     human_pageviews = (
@@ -463,6 +503,7 @@ def _resolve_scope(filters: AnalyticsFilters) -> AnalyticsScope:
     ).filter(has_human_pageview=True)
     if not filters.include_bots:
         site_qs = site_qs.filter(is_bot=False)
+    site_qs = _filter_sessions_for_audience(site_qs, audience_scope)
     if filters.device_type != "all":
         site_qs = site_qs.filter(utm_data__device_type=filters.device_type)
     if filters.utm_source:
@@ -494,12 +535,18 @@ def _resolve_scope(filters: AnalyticsFilters) -> AnalyticsScope:
     if session_keys is not None:
         utm_qs = utm_qs.filter(session_key__in=session_keys)
 
-    return AnalyticsScope(site_qs=site_qs, utm_qs=utm_qs, session_keys=session_keys)
+    return AnalyticsScope(
+        site_qs=site_qs,
+        utm_qs=utm_qs,
+        session_keys=session_keys,
+        audience_scope=audience_scope,
+    )
 
 
 def _orders_queryset(filters: AnalyticsFilters, scope: AnalyticsScope):
     qs = Order.objects.select_related("utm_session", "user").prefetch_related("items", "items__product")
     qs = _apply_range(qs, "created", filters)
+    qs = _filter_orders_for_audience(qs, scope.audience_scope)
     if filters.utm_source:
         qs = qs.filter(utm_source=filters.utm_source)
     if filters.utm_medium:
@@ -516,6 +563,7 @@ def _orders_queryset(filters: AnalyticsFilters, scope: AnalyticsScope):
 def _actions_queryset(filters: AnalyticsFilters, scope: AnalyticsScope):
     qs = UserAction.objects.select_related("site_session", "utm_session")
     qs = _apply_range(qs, "timestamp", filters)
+    qs = _filter_actions_for_audience(qs, scope.audience_scope)
     if filters.product_id:
         qs = qs.filter(product_id=filters.product_id)
     if filters.utm_source:
@@ -540,6 +588,7 @@ def _pageviews_queryset(filters: AnalyticsFilters, scope: AnalyticsScope):
     qs = PageView.objects.select_related("session")
     qs = _apply_range(qs, "when", filters)
     qs = qs.exclude(analytics_noise_q("path"))
+    qs = _filter_pageviews_for_audience(qs, scope.audience_scope)
     if not filters.include_bots:
         qs = qs.filter(is_bot=False)
     if scope.session_keys is not None:
@@ -631,19 +680,36 @@ def _average_session_seconds(site_qs) -> int:
     return int(duration.total_seconds()) if duration else 0
 
 
-def _tracked_from(*action_types: str) -> str | None:
-    payload = {"action_types": action_types}
+def _tracked_from(*action_types: str, audience_scope: str = "public") -> str | None:
+    payload = {"action_types": action_types, "audience_scope": audience_scope}
 
     def _builder():
-        value = (
-            UserAction.objects.filter(action_type__in=action_types)
-            .order_by("timestamp")
-            .values_list("timestamp", flat=True)
-            .first()
-        )
+        qs = UserAction.objects.filter(action_type__in=action_types)
+        qs = _filter_actions_for_audience(qs, audience_scope)
+        value = qs.order_by("timestamp").values_list("timestamp", flat=True).first()
         return value.isoformat() if value else None
 
     return _cache_get_or_set("tracked_from", payload, _builder, ttl=TRACKED_FROM_CACHE_TTL)
+
+
+def _excluded_overview_activity(filters: AnalyticsFilters) -> dict[str, Any]:
+    scope = _resolve_scope(filters, audience_scope="excluded")
+    orders_qs = _orders_queryset(filters, scope)
+    paid_orders = orders_qs.filter(payment_status="paid")
+    actions_qs = _actions_queryset(filters, scope)
+    pageviews_qs = _pageviews_queryset(filters, scope)
+    return {
+        "sessions": scope.site_qs.count(),
+        "page_views": pageviews_qs.count(),
+        "orders": orders_qs.count(),
+        "paid_orders": paid_orders.count(),
+        "revenue": round(_as_float(paid_orders.aggregate(total=Sum("total_sum"))["total"]), 2),
+        "product_views": actions_qs.filter(action_type="product_view").count(),
+        "searches": actions_qs.filter(action_type="search").count(),
+        "cart_adds": actions_qs.filter(action_type="add_to_cart").count(),
+        "checkout_starts": actions_qs.filter(action_type="initiate_checkout").count(),
+        "purchases": actions_qs.filter(action_type="purchase").count() or paid_orders.count(),
+    }
 
 
 def _build_overview_cards(filters: AnalyticsFilters) -> dict[str, Any]:
@@ -675,6 +741,7 @@ def _build_overview_cards(filters: AnalyticsFilters) -> dict[str, Any]:
     custom_starts = actions_qs.filter(action_type="custom_print_start").count()
     survey_starts = actions_qs.filter(action_type="survey_start").count() or survey_qs.count()
     survey_completions = actions_qs.filter(action_type="survey_complete").count() or survey_qs.filter(status="completed").count()
+    excluded_activity = _excluded_overview_activity(filters)
 
     compare_filters = filters.build_compare_filters()
     compare = {}
@@ -726,13 +793,14 @@ def _build_overview_cards(filters: AnalyticsFilters) -> dict[str, Any]:
         },
         "comparison": compare,
         "tracked_from": {
-            "product_views": _tracked_from("product_view"),
-            "search": _tracked_from("search"),
-            "checkout": _tracked_from("initiate_checkout"),
-            "purchase": _tracked_from("purchase"),
-            "custom_print": _tracked_from("custom_print_start", "custom_print_step_enter"),
-            "survey": _tracked_from("survey_start", "survey_answer"),
+            "product_views": _tracked_from("product_view", audience_scope="public"),
+            "search": _tracked_from("search", audience_scope="public"),
+            "checkout": _tracked_from("initiate_checkout", audience_scope="public"),
+            "purchase": _tracked_from("purchase", audience_scope="public"),
+            "custom_print": _tracked_from("custom_print_start", "custom_print_step_enter", audience_scope="public"),
+            "survey": _tracked_from("survey_start", "survey_answer", audience_scope="public"),
         },
+        "excluded_activity": excluded_activity,
     }
 
 
@@ -818,7 +886,6 @@ def build_timeseries_widget(filters: AnalyticsFilters) -> dict[str, Any]:
 
 def _acquisition_data(filters: AnalyticsFilters) -> dict[str, Any]:
     scope = _resolve_scope(filters)
-    sessions = list(scope.site_qs)
     source_class_counter = Counter()
     source_map: dict[tuple[str, str], dict[str, Any]] = {}
     landing_counter = Counter()
@@ -830,7 +897,7 @@ def _acquisition_data(filters: AnalyticsFilters) -> dict[str, Any]:
     search_term_counter = Counter()
     new_vs_returning = Counter({"new": 0, "returning": 0})
 
-    for session in sessions:
+    for session in scope.site_qs.iterator(chunk_size=500):
         source_class, meta = classify_session_source(session)
         source_class_counter[source_class] += 1
         source_key = (meta["utm_source"], meta["utm_medium"])
@@ -881,6 +948,7 @@ def _acquisition_data(filters: AnalyticsFilters) -> dict[str, Any]:
             utm_medium=filters.utm_medium,
             campaign=filters.campaign,
         )
+    excluded_scope = _resolve_scope(filters, audience_scope="excluded")
 
     return {
         "source_classes": [
@@ -908,6 +976,10 @@ def _acquisition_data(filters: AnalyticsFilters) -> dict[str, Any]:
             for row in internal_searches
             if row["metadata__query"]
         ],
+        "excluded_activity": {
+            "sessions": excluded_scope.site_qs.count(),
+            "page_views": _pageviews_queryset(filters, excluded_scope).count(),
+        },
         "ga4_snapshot": ga4_snapshot,
     }
 
@@ -960,6 +1032,9 @@ def _sales_data(filters: AnalyticsFilters) -> dict[str, Any]:
         .annotate(items_sold=Sum("qty"), revenue=Sum("line_total"))
         .order_by("-revenue")[:15]
     )
+    excluded_scope = _resolve_scope(filters, audience_scope="excluded")
+    excluded_orders = _orders_queryset(filters, excluded_scope)
+    excluded_paid_orders = excluded_orders.filter(payment_status="paid")
 
     return {
         "summary": {
@@ -970,6 +1045,11 @@ def _sales_data(filters: AnalyticsFilters) -> dict[str, Any]:
             "items_sold": _as_int(order_items.aggregate(total=Sum("qty"))["total"]),
             "repeat_purchase_rate": round((repeat_customers / total_customers) * 100, 2) if total_customers else 0,
             "total_customers": total_customers,
+        },
+        "excluded_activity": {
+            "orders": excluded_orders.count(),
+            "paid_orders": excluded_paid_orders.count(),
+            "revenue": round(_as_float(excluded_paid_orders.aggregate(total=Sum("total_sum"))["total"]), 2),
         },
         "payment_split": [
             {"payment_status": row["payment_status"] or "unknown", "count": row["total"]}
@@ -1064,6 +1144,9 @@ def _cart_data(filters: AnalyticsFilters) -> dict[str, Any]:
         {"key": "initiate_checkout", "label": "Почали checkout", "count": checkout_unique},
         {"key": "purchase", "label": "Купили", "count": purchase_unique},
     ]
+    excluded_scope = _resolve_scope(filters, audience_scope="excluded")
+    excluded_actions = _actions_queryset(filters, excluded_scope)
+    excluded_orders = _orders_queryset(filters, excluded_scope)
 
     return {
         "summary": {
@@ -1076,6 +1159,13 @@ def _cart_data(filters: AnalyticsFilters) -> dict[str, Any]:
             "add_to_purchase_rate": round((purchase_unique / add_unique) * 100, 2) if add_unique else 0,
             "remove_after_add": len(add_entities & remove_entities),
             "added_then_purchased": purchased_from_added,
+        },
+        "excluded_activity": {
+            "adds": excluded_actions.filter(action_type="add_to_cart").count(),
+            "removes": excluded_actions.filter(action_type="remove_from_cart").count(),
+            "checkout_starts": excluded_actions.filter(action_type="initiate_checkout").count(),
+            "purchases": excluded_actions.filter(action_type="purchase").count()
+            or excluded_orders.filter(payment_status="paid").count(),
         },
         "funnel": funnel,
         "payment_methods": [{"pay_type": row["pay_type"] or "unknown", "count": row["total"]} for row in payment_methods],
@@ -1103,6 +1193,7 @@ def build_product_admin_metrics(product_ids: list[int]) -> dict[int, dict[str, i
         return {}
     totals = (
         UserAction.objects.filter(action_type="product_view", product_id__in=product_ids)
+        .exclude(non_public_action_q())
         .values("product_id")
         .annotate(
             total_views=Count("id"),
@@ -1150,6 +1241,11 @@ def _products_data(filters: AnalyticsFilters) -> dict[str, Any]:
             revenue=Sum("line_total"),
         )
     }
+    product_map = {
+        product.pk: product
+        for product in Product.objects.filter(pk__in=[row["product_id"] for row in view_rows[:25] if row["product_id"]])
+        .select_related("category")
+    }
 
     top_viewed = []
     category_counter = Counter()
@@ -1159,7 +1255,7 @@ def _products_data(filters: AnalyticsFilters) -> dict[str, Any]:
         if not product_id:
             continue
         viewed_product_ids.append(product_id)
-        product = Product.objects.filter(pk=product_id).select_related("category").first()
+        product = product_map.get(product_id)
         add_count = add_rows.get(product_id, 0)
         purchase_meta = purchase_rows.get(product_id, {})
         total_views = row["total_views"]
@@ -1201,12 +1297,20 @@ def _products_data(filters: AnalyticsFilters) -> dict[str, Any]:
             )
         if len(low_viewed) >= 20:
             break
+    excluded_scope = _resolve_scope(filters, audience_scope="excluded")
+    excluded_actions = _actions_queryset(filters, excluded_scope)
+    excluded_paid_orders = _orders_queryset(filters, excluded_scope).filter(payment_status="paid")
 
     return {
         "summary": {
-            "tracked_product_view_from": _tracked_from("product_view"),
-            "tracked_add_to_cart_from": _tracked_from("add_to_cart"),
-            "tracked_purchase_from": _tracked_from("purchase"),
+            "tracked_product_view_from": _tracked_from("product_view", audience_scope="public"),
+            "tracked_add_to_cart_from": _tracked_from("add_to_cart", audience_scope="public"),
+            "tracked_purchase_from": _tracked_from("purchase", audience_scope="public"),
+        },
+        "excluded_activity": {
+            "product_views": excluded_actions.filter(action_type="product_view").count(),
+            "cart_adds": excluded_actions.filter(action_type="add_to_cart").count(),
+            "purchases": excluded_actions.filter(action_type="purchase").count() or excluded_paid_orders.count(),
         },
         "top_viewed": top_viewed,
         "low_viewed": low_viewed,
@@ -1221,7 +1325,7 @@ def build_products_widget(filters: AnalyticsFilters) -> dict[str, Any]:
         lambda: _widget_result(
             source="internal",
             data=_products_data(filters),
-            tracked_from=_tracked_from("product_view"),
+            tracked_from=_tracked_from("product_view", audience_scope="public"),
         ),
     )
 
@@ -1321,7 +1425,7 @@ def build_custom_print_widget(filters: AnalyticsFilters) -> dict[str, Any]:
         lambda: _widget_result(
             source="internal",
             data=_custom_print_data(filters),
-            tracked_from=_tracked_from("custom_print_start", "custom_print_step_enter"),
+            tracked_from=_tracked_from("custom_print_start", "custom_print_step_enter", audience_scope="public"),
         ),
     )
 
@@ -1391,7 +1495,7 @@ def build_survey_widget(filters: AnalyticsFilters) -> dict[str, Any]:
         lambda: _widget_result(
             source="internal",
             data=_survey_data(filters),
-            tracked_from=_tracked_from("survey_start", "survey_answer"),
+            tracked_from=_tracked_from("survey_start", "survey_answer", audience_scope="public"),
         ),
     )
 
@@ -1403,9 +1507,18 @@ def _ux_health_data(filters: AnalyticsFilters) -> dict[str, Any]:
 
     tracking_freshness = [
         {
-            "label": "Остання сесія",
+            "label": "Остання сесія (будь-яка)",
             "timestamp": (
                 SiteSession.objects.order_by("-last_seen").values_list("last_seen", flat=True).first()
+            ),
+        },
+        {
+            "label": "Остання публічна сесія",
+            "timestamp": (
+                SiteSession.objects.exclude(non_public_session_q())
+                .order_by("-last_seen")
+                .values_list("last_seen", flat=True)
+                .first()
             ),
         },
         {
@@ -1445,12 +1558,15 @@ def _ux_health_data(filters: AnalyticsFilters) -> dict[str, Any]:
 
     clarity_overview = None
     clarity_urls = None
-    clarity_error = None
+    clarity_errors: list[str] = []
     try:
         clarity_overview = fetch_clarity_overview(num_of_days=days)
+    except Exception as exc:
+        clarity_errors.append(f"overview: {exc}")
+    try:
         clarity_urls = fetch_clarity_problem_urls(num_of_days=days)
     except Exception as exc:
-        clarity_error = str(exc)
+        clarity_errors.append(f"problem_urls: {exc}")
 
     ip_total = SiteSession.objects.count()
     ip_with_value = SiteSession.objects.exclude(ip_address__isnull=True).count()
@@ -1462,8 +1578,10 @@ def _ux_health_data(filters: AnalyticsFilters) -> dict[str, Any]:
         warnings.append("IP capture поки що неповний: unique-IP метрики треба перевірити на production.")
     if visitor_total and (visitor_with_cookie / visitor_total) < 0.75:
         warnings.append("Cookie stitching `twc_vid` ще не покриває більшість сесій.")
-    if clarity_error:
+    if clarity_errors:
         warnings.append("Clarity live insights недоступний, показуємо лише внутрішні метрики.")
+    if filters.start_at and filters.end_at and (filters.end_at.date() - filters.start_at.date()).days >= 3:
+        warnings.append("Clarity live insights показує максимум останні 3 дні, навіть якщо обрано довший період.")
 
     return {
         "tracking_freshness": [
@@ -1479,6 +1597,10 @@ def _ux_health_data(filters: AnalyticsFilters) -> dict[str, Any]:
         },
         "clarity_overview": clarity_overview,
         "problem_urls": clarity_urls or [],
+        "meta": {
+            "clarity_errors": clarity_errors,
+            "clarity_live_window_days": days,
+        },
         "warnings": warnings,
     }
 
@@ -1494,6 +1616,12 @@ def build_ux_health_widget(filters: AnalyticsFilters) -> dict[str, Any]:
 def _integration_status_data() -> dict[str, Any]:
     last_session = SiteSession.objects.order_by("-last_seen").values_list("last_seen", flat=True).first()
     last_action = UserAction.objects.order_by("-timestamp").values_list("timestamp", flat=True).first()
+    last_public_action = (
+        UserAction.objects.exclude(non_public_action_q())
+        .order_by("-timestamp")
+        .values_list("timestamp", flat=True)
+        .first()
+    )
     total_sessions = SiteSession.objects.count()
     ip_sessions = SiteSession.objects.exclude(ip_address__isnull=True).count()
     visitor_sessions = SiteSession.objects.exclude(visitor_id__isnull=True).exclude(visitor_id="").count()
@@ -1507,12 +1635,17 @@ def _integration_status_data() -> dict[str, Any]:
             "total_sessions": total_sessions,
             "last_session_at": last_session.isoformat() if last_session else "",
             "last_action_at": last_action.isoformat() if last_action else "",
+            "last_public_action_at": last_public_action.isoformat() if last_public_action else "",
             "ip_capture_ratio": round((ip_sessions / total_sessions) * 100, 2) if total_sessions else 0,
             "visitor_cookie_ratio": round((visitor_sessions / total_sessions) * 100, 2) if total_sessions else 0,
         },
     }
     ga4_status = get_ga4_status(test_connection=True)
-    clarity_status = get_clarity_status(test_connection=True)
+    clarity_status = get_clarity_status(test_connection=False)
+    clarity_status.setdefault("details", {})
+    clarity_status["details"]["live_check_deferred"] = True
+    if clarity_status["status"] == "healthy":
+        clarity_status["message"] = "Токен Clarity налаштований. Live-перевірка виконується лише у UX-вкладці, щоб не спалювати export quota."
 
     warnings = []
     if internal_status["details"]["ip_capture_ratio"] < 75:
@@ -1529,7 +1662,12 @@ def _integration_status_data() -> dict[str, Any]:
 
 
 def build_integration_status_widget(filters: AnalyticsFilters | None = None) -> dict[str, Any]:
-    return _widget_result(source="internal", data=_integration_status_data())
+    return _cache_get_or_set(
+        "integration_status",
+        {"filters": getattr(filters, "cache_key", lambda: "default")()},
+        lambda: _widget_result(source="internal", data=_integration_status_data()),
+        ttl=INTEGRATION_STATUS_TTL,
+    )
 
 
 def build_widget_by_name(name: str, filters: AnalyticsFilters) -> dict[str, Any]:
@@ -1556,8 +1694,10 @@ def build_widget_by_name(name: str, filters: AnalyticsFilters) -> dict[str, Any]
 
 
 def _top_distinct_choices(field_name: str, limit: int = 15) -> list[dict[str, Any]]:
+    public_session_keys = SiteSession.objects.exclude(non_public_session_q()).values("session_key")
     rows = (
-        UTMSession.objects.exclude(**{f"{field_name}__isnull": True})
+        UTMSession.objects.filter(session_key__in=Subquery(public_session_keys))
+        .exclude(**{f"{field_name}__isnull": True})
         .exclude(**{field_name: ""})
         .values(field_name)
         .annotate(total=Count("id"))

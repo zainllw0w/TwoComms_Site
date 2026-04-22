@@ -1,10 +1,16 @@
 {% load static %}
 
 <style>
+  .analytics-workspace,
+  .analytics-workspace * {
+    box-sizing: border-box;
+  }
+
   .analytics-workspace {
     display: grid;
     gap: 1.35rem;
     min-width: 0;
+    max-width: 100%;
   }
 
   .analytics-toolbar {
@@ -35,6 +41,7 @@
   .analytics-toolbar-title {
     display: grid;
     gap: 0.35rem;
+    min-width: 0;
   }
 
   .analytics-toolbar-title h2 {
@@ -48,6 +55,7 @@
     margin: 0;
     color: rgba(226,232,240,0.72);
     max-width: 760px;
+    overflow-wrap: anywhere;
   }
 
   .analytics-toolbar-actions {
@@ -55,6 +63,7 @@
     align-items: center;
     gap: 0.75rem;
     flex-wrap: wrap;
+    min-width: 0;
   }
 
   .analytics-legacy-link {
@@ -76,9 +85,33 @@
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
+  .analytics-filter-disclosure {
+    display: grid;
+    gap: 0.9rem;
+  }
+
+  .analytics-filter-summary {
+    display: none;
+  }
+
+  @media (min-width: 761px) {
+    .analytics-filter-disclosure {
+      display: block;
+    }
+
+    .analytics-filter-disclosure > summary {
+      display: none;
+    }
+
+    .analytics-filter-disclosure > .analytics-filter-grid {
+      display: grid !important;
+    }
+  }
+
   .analytics-filter {
     display: grid;
     gap: 0.35rem;
+    min-width: 0;
   }
 
   .analytics-filter label {
@@ -91,6 +124,7 @@
 
   .analytics-filter select,
   .analytics-filter input {
+    width: 100%;
     min-height: 44px;
     border-radius: 14px;
     border: 1px solid rgba(255,255,255,0.1);
@@ -144,6 +178,7 @@
     border-radius: 18px;
     border: 1px solid rgba(255,255,255,0.08);
     background: rgba(255,255,255,0.04);
+    min-width: 0;
   }
 
   .analytics-status-card[data-status="healthy"] {
@@ -172,6 +207,7 @@
     margin: 0;
     color: rgba(226,232,240,0.76);
     font-size: 0.92rem;
+    overflow-wrap: anywhere;
   }
 
   .analytics-warning-list {
@@ -186,6 +222,7 @@
     background: rgba(120,53,15,0.18);
     color: #fde68a;
     font-size: 0.92rem;
+    overflow-wrap: anywhere;
   }
 
   .analytics-kpi-grid {
@@ -253,6 +290,7 @@
     display: flex;
     gap: 0.65rem;
     flex-wrap: wrap;
+    min-width: 0;
   }
 
   .analytics-tab-btn {
@@ -276,6 +314,7 @@
   .analytics-panel {
     display: none;
     gap: 1rem;
+    min-width: 0;
   }
 
   .analytics-panel.is-active {
@@ -313,6 +352,7 @@
     display: grid;
     gap: 1rem;
     align-items: start;
+    min-width: 0;
   }
 
   .analytics-grid-2 {
@@ -326,6 +366,7 @@
   .analytics-list {
     display: grid;
     gap: 0.75rem;
+    min-width: 0;
   }
 
   .analytics-list-item {
@@ -342,16 +383,21 @@
 
   .analytics-list-item strong {
     color: #f8fafc;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .analytics-list-item span {
     text-align: right;
+    min-width: 0;
+    overflow-wrap: anywhere;
     word-break: break-word;
   }
 
   .analytics-table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    max-width: 100%;
   }
 
   .analytics-chart-shell {
@@ -405,6 +451,44 @@
   .analytics-footnote {
     color: rgba(148,163,184,0.82);
     font-size: 0.88rem;
+  }
+
+  .analytics-excluded-grid {
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .analytics-excluded-card {
+    padding: 0.9rem 1rem;
+    border-radius: 18px;
+    border: 1px dashed rgba(148,163,184,0.32);
+    background: rgba(15,23,42,0.54);
+    min-width: 0;
+  }
+
+  .analytics-excluded-card small {
+    display: block;
+    color: rgba(148,163,184,0.84);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .analytics-excluded-card strong {
+    display: block;
+    margin-top: 0.35rem;
+    color: #f8fafc;
+    font-size: 1.2rem;
+  }
+
+  .analytics-excluded-card span {
+    display: block;
+    margin-top: 0.3rem;
+    color: rgba(226,232,240,0.72);
+    font-size: 0.88rem;
+    overflow-wrap: anywhere;
   }
 
   @media (max-width: 1180px) {
@@ -497,7 +581,12 @@
       padding-bottom: 0.25rem;
       margin: 0 -0.1rem;
       scroll-snap-type: x proximity;
+      scrollbar-width: none;
       -webkit-overflow-scrolling: touch;
+    }
+
+    .analytics-tabs::-webkit-scrollbar {
+      display: none;
     }
 
     .analytics-tab-btn {
@@ -515,6 +604,55 @@
       border-radius: 18px;
     }
 
+    .analytics-filter-disclosure {
+      gap: 0.8rem;
+    }
+
+    .analytics-filter-disclosure[open] .analytics-filter-summary svg {
+      transform: rotate(180deg);
+    }
+
+    .analytics-filter-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      width: 100%;
+      padding: 0.85rem 0.95rem;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: #f8fafc;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .analytics-filter-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .analytics-filter-summary strong,
+    .analytics-filter-summary span {
+      display: block;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .analytics-filter-summary strong {
+      font-size: 0.92rem;
+    }
+
+    .analytics-filter-summary span {
+      color: rgba(191,219,254,0.76);
+      font-size: 0.82rem;
+      text-align: right;
+    }
+
+    .analytics-filter-summary svg {
+      flex: 0 0 auto;
+      transition: transform 0.2s ease;
+    }
+
     .analytics-list-item {
       flex-direction: column;
       align-items: flex-start;
@@ -528,6 +666,10 @@
     .analytics-chart-shell {
       height: clamp(220px, 36vh, 300px);
       min-height: 220px;
+    }
+
+    .analytics-excluded-grid {
+      grid-template-columns: 1fr;
     }
 
     .analytics-table--responsive {
@@ -595,6 +737,14 @@
       font-size: 1.45rem;
     }
 
+    .analytics-filter-summary {
+      align-items: flex-start;
+    }
+
+    .analytics-filter-summary span {
+      text-align: left;
+    }
+
     .analytics-table--responsive td {
       grid-template-columns: 1fr;
       gap: 0.3rem;
@@ -619,94 +769,103 @@
         </div>
       </div>
 
-      <div class="analytics-filter-grid">
-        <div class="analytics-filter">
-          <label for="analytics-period">Період</label>
-          <select id="analytics-period" name="period">
-            {% for value, label in analytics_dashboard.period_options %}
-              <option value="{{ value }}" {% if analytics_dashboard.filters.period == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
+      <details class="analytics-filter-disclosure">
+        <summary class="analytics-filter-summary">
+          <div>
+            <strong>Фільтри та сегменти</strong>
+            <span>{{ analytics_dashboard.filters.date_from }}{% if analytics_dashboard.filters.date_to %} - {{ analytics_dashboard.filters.date_to }}{% endif %}</span>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+        </summary>
+        <div class="analytics-filter-grid">
+          <div class="analytics-filter">
+            <label for="analytics-period">Період</label>
+            <select id="analytics-period" name="period">
+              {% for value, label in analytics_dashboard.period_options %}
+                <option value="{{ value }}" {% if analytics_dashboard.filters.period == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="analytics-filter">
+            <label for="analytics-date-from">Дата від</label>
+            <input id="analytics-date-from" type="date" name="date_from" value="{{ analytics_dashboard.filters.date_from }}">
+          </div>
+          <div class="analytics-filter">
+            <label for="analytics-date-to">Дата до</label>
+            <input id="analytics-date-to" type="date" name="date_to" value="{{ analytics_dashboard.filters.date_to }}">
+          </div>
+          <div class="analytics-filter">
+            <label for="analytics-compare">Порівняння</label>
+            <select id="analytics-compare" name="compare_to">
+              {% for value, label in analytics_dashboard.compare_options %}
+                <option value="{{ value }}" {% if analytics_dashboard.filters.compare_to == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="analytics-filter">
+            <label for="analytics-source-class">Клас джерела</label>
+            <select id="analytics-source-class" name="source_class">
+              {% for value, label in analytics_dashboard.source_class_options %}
+                <option value="{{ value }}" {% if analytics_dashboard.filters.source_class == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="analytics-filter">
+            <label for="analytics-device">Пристрій</label>
+            <select id="analytics-device" name="device_type">
+              {% for value, label in analytics_dashboard.device_options %}
+                <option value="{{ value }}" {% if analytics_dashboard.filters.device_type == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="analytics-filter">
+            <label for="analytics-utm-source">UTM source</label>
+            <select id="analytics-utm-source" name="utm_source">
+              <option value="">Усі</option>
+              {% for option in analytics_dashboard.utm_source_options %}
+                <option value="{{ option.value }}" {% if analytics_dashboard.filters.utm_source == option.value %}selected{% endif %}>{{ option.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="analytics-filter">
+            <label for="analytics-utm-medium">UTM medium</label>
+            <select id="analytics-utm-medium" name="utm_medium">
+              <option value="">Усі</option>
+              {% for option in analytics_dashboard.utm_medium_options %}
+                <option value="{{ option.value }}" {% if analytics_dashboard.filters.utm_medium == option.value %}selected{% endif %}>{{ option.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="analytics-filter">
+            <label for="analytics-campaign">Кампанія</label>
+            <select id="analytics-campaign" name="campaign">
+              <option value="">Усі</option>
+              {% for option in analytics_dashboard.campaign_options %}
+                <option value="{{ option.value }}" {% if analytics_dashboard.filters.campaign == option.value %}selected{% endif %}>{{ option.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="analytics-filter">
+            <label for="analytics-product">Товар</label>
+            <select id="analytics-product" name="product_id">
+              <option value="">Усі</option>
+              {% for option in analytics_dashboard.product_options %}
+                <option value="{{ option.value }}" {% if analytics_dashboard.filters.product_id == option.value %}selected{% endif %}>{{ option.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="analytics-filter analytics-filter--inline">
+            <label class="analytics-checkbox">
+              <input type="checkbox" name="include_bots" value="1" {% if analytics_dashboard.filters.include_bots %}checked{% endif %}>
+              Показувати ботів
+            </label>
+          </div>
+          <div class="analytics-filter analytics-filter--inline">
+            <button type="submit">Оновити workspace</button>
+            <a href="?section=stats">Скинути</a>
+          </div>
         </div>
-        <div class="analytics-filter">
-          <label for="analytics-date-from">Дата від</label>
-          <input id="analytics-date-from" type="date" name="date_from" value="{{ analytics_dashboard.filters.date_from }}">
-        </div>
-        <div class="analytics-filter">
-          <label for="analytics-date-to">Дата до</label>
-          <input id="analytics-date-to" type="date" name="date_to" value="{{ analytics_dashboard.filters.date_to }}">
-        </div>
-        <div class="analytics-filter">
-          <label for="analytics-compare">Порівняння</label>
-          <select id="analytics-compare" name="compare_to">
-            {% for value, label in analytics_dashboard.compare_options %}
-              <option value="{{ value }}" {% if analytics_dashboard.filters.compare_to == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="analytics-filter">
-          <label for="analytics-source-class">Клас джерела</label>
-          <select id="analytics-source-class" name="source_class">
-            {% for value, label in analytics_dashboard.source_class_options %}
-              <option value="{{ value }}" {% if analytics_dashboard.filters.source_class == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="analytics-filter">
-          <label for="analytics-device">Пристрій</label>
-          <select id="analytics-device" name="device_type">
-            {% for value, label in analytics_dashboard.device_options %}
-              <option value="{{ value }}" {% if analytics_dashboard.filters.device_type == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="analytics-filter">
-          <label for="analytics-utm-source">UTM source</label>
-          <select id="analytics-utm-source" name="utm_source">
-            <option value="">Усі</option>
-            {% for option in analytics_dashboard.utm_source_options %}
-              <option value="{{ option.value }}" {% if analytics_dashboard.filters.utm_source == option.value %}selected{% endif %}>{{ option.label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="analytics-filter">
-          <label for="analytics-utm-medium">UTM medium</label>
-          <select id="analytics-utm-medium" name="utm_medium">
-            <option value="">Усі</option>
-            {% for option in analytics_dashboard.utm_medium_options %}
-              <option value="{{ option.value }}" {% if analytics_dashboard.filters.utm_medium == option.value %}selected{% endif %}>{{ option.label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="analytics-filter">
-          <label for="analytics-campaign">Кампанія</label>
-          <select id="analytics-campaign" name="campaign">
-            <option value="">Усі</option>
-            {% for option in analytics_dashboard.campaign_options %}
-              <option value="{{ option.value }}" {% if analytics_dashboard.filters.campaign == option.value %}selected{% endif %}>{{ option.label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="analytics-filter">
-          <label for="analytics-product">Товар</label>
-          <select id="analytics-product" name="product_id">
-            <option value="">Усі</option>
-            {% for option in analytics_dashboard.product_options %}
-              <option value="{{ option.value }}" {% if analytics_dashboard.filters.product_id == option.value %}selected{% endif %}>{{ option.label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="analytics-filter analytics-filter--inline">
-          <label class="analytics-checkbox">
-            <input type="checkbox" name="include_bots" value="1" {% if analytics_dashboard.filters.include_bots %}checked{% endif %}>
-            Показувати ботів
-          </label>
-        </div>
-        <div class="analytics-filter analytics-filter--inline">
-          <button type="submit">Оновити workspace</button>
-          <a href="?section=stats">Скинути</a>
-        </div>
-      </div>
+      </details>
     </form>
 
     <div class="analytics-status-grid">
@@ -778,6 +937,26 @@
         <span>Стартів: {{ headline.survey_starts|default:0 }}</span>
       </div>
     </div>
+
+    {% if analytics_dashboard.overview.data.excluded_activity.sessions or analytics_dashboard.overview.data.excluded_activity.cart_adds or analytics_dashboard.overview.data.excluded_activity.orders %}
+      <div class="analytics-excluded-grid">
+        <div class="analytics-excluded-card">
+          <small>Виключено з Public KPI</small>
+          <strong>{{ analytics_dashboard.overview.data.excluded_activity.sessions|default:0 }} сесій</strong>
+          <span>{{ analytics_dashboard.overview.data.excluded_activity.page_views|default:0 }} pageviews і {{ analytics_dashboard.overview.data.excluded_activity.product_views|default:0 }} product views від staff/internal.</span>
+        </div>
+        <div class="analytics-excluded-card">
+          <small>Кошик та checkout</small>
+          <strong>{{ analytics_dashboard.overview.data.excluded_activity.cart_adds|default:0 }} add-to-cart</strong>
+          <span>{{ analytics_dashboard.overview.data.excluded_activity.checkout_starts|default:0 }} checkout start і {{ analytics_dashboard.overview.data.excluded_activity.purchases|default:0 }} purchase не змішуються з публічною воронкою.</span>
+        </div>
+        <div class="analytics-excluded-card">
+          <small>Замовлення та revenue</small>
+          <strong>{{ analytics_dashboard.overview.data.excluded_activity.orders|default:0 }} замовлень</strong>
+          <span>{{ analytics_dashboard.overview.data.excluded_activity.revenue|floatformat:0 }} ₴ виключено як admin/internal activity.</span>
+        </div>
+      </div>
+    {% endif %}
 
     <div class="analytics-tabs" data-analytics-tabs>
       <button type="button" class="analytics-tab-btn is-active" data-analytics-tab="overview">Огляд</button>

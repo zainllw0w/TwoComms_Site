@@ -1385,6 +1385,13 @@
     if (!isLowDevice) {
       loadTikTokPixel();
     }
+    // На low-device не ждем ещё 12-30 секунд после первого интереса пользователя:
+    // GA4 и Clarity догружаем сразу после deferred trigger, иначе мобильные визиты
+    // слишком часто уходят до старта аналитики.
+    if (isLowDevice) {
+      schedule(loadGoogleAnalytics, 0);
+      schedule(loadClarity, 1500);
+    }
     
     // Проверяем что пиксели загрузились (для отладки)
     setTimeout(function() {
@@ -1448,7 +1455,8 @@
   
   // Остальные скрипты загружаем c большей задержкой + предпочтительно в idle-окно.
   // GA4 — важнее для атрибуции, поэтому раньше; Clarity — рекординг, поздно.
-  // На low-device класс Clarity не грузится вообще до явной интеракции через pixelsDeferred trigger.
+  // На low-device Clarity теперь грузится через deferred trigger после первого интереса,
+  // а не теряется полностью.
   var gaDelay = isPassiveAnalytics
     ? (isLowDevice ? 18000 : 10000)
     : (isLowDevice ? 12000 : 6000);

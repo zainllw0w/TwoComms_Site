@@ -9,6 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 
+from .analytics_audience import build_request_audience_snapshot, merge_audience_metadata
 from .analytics_noise import is_analytics_noise_path
 from .models import PageView, SiteSession
 from .utm_utils import get_client_ip, sanitize_utm_param
@@ -158,6 +159,10 @@ class SimpleAnalyticsMiddleware(MiddlewareMixin):
             bot = is_bot(ua)
             visitor_id = getattr(request, 'analytics_visitor_id', None)
             first_touch_data = getattr(request, 'analytics_first_touch_data', {}) or {}
+            audience_snapshot = build_request_audience_snapshot(request, ip_value=ip)
+            first_touch_data = merge_audience_metadata(first_touch_data, audience_snapshot)
+            request.analytics_first_touch_data = first_touch_data
+            request.analytics_audience_snapshot = audience_snapshot
 
             with transaction.atomic():
                 sess, _ = SiteSession.objects.select_for_update().get_or_create(
@@ -181,7 +186,7 @@ class SimpleAnalyticsMiddleware(MiddlewareMixin):
                     sess.visitor_id = visitor_id
                 if ip and sess.ip_address != ip:
                     sess.ip_address = ip
-                if first_touch_data and not sess.first_touch_data:
+                if first_touch_data != (sess.first_touch_data or {}):
                     sess.first_touch_data = first_touch_data
                 sess.last_path = path
                 sess.pageviews = (sess.pageviews or 0) + 1
