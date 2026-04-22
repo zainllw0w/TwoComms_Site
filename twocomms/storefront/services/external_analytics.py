@@ -98,13 +98,23 @@ def _load_ga4_dependencies():
     }
 
 
-def _ga4_property_id() -> str:
+def _ga4_property_id_raw() -> str:
     return _env_first(
         "GA4_PROPERTY_ID",
         "GA4_PROPERTY_NUMERIC_ID",
         "GOOGLE_ANALYTICS_PROPERTY_ID",
         "GOOGLE_ANALYTICS_4_PROPERTY_ID",
     )
+
+
+def _ga4_property_id() -> str:
+    raw_value = _ga4_property_id_raw()
+    if not raw_value:
+        return ""
+    normalized = raw_value.strip()
+    if normalized.startswith("properties/"):
+        normalized = normalized.split("/", 1)[1].strip()
+    return normalized if normalized.isdigit() else ""
 
 
 def _build_ga4_client():
@@ -142,14 +152,23 @@ def _build_ga4_client():
 
 
 def get_ga4_status(test_connection: bool = False) -> dict[str, Any]:
+    raw_property_id = _ga4_property_id_raw()
     property_id = _ga4_property_id()
-    if not property_id:
+    if not raw_property_id:
         return ConnectorStatus(
             key="ga4",
             label="GA4 Data API",
             status="warning",
             message="Не заданий numeric property ID для backend-запитів.",
             details={"property_id": "", "configured": False},
+        ).as_dict()
+    if not property_id:
+        return ConnectorStatus(
+            key="ga4",
+            label="GA4 Data API",
+            status="warning",
+            message="GA4 property ID має бути numeric (наприклад, 504296337).",
+            details={"property_id": raw_property_id, "configured": False},
         ).as_dict()
 
     try:
@@ -309,7 +328,7 @@ def run_ga4_report(
 ) -> dict[str, Any]:
     property_id = _ga4_property_id()
     if not property_id:
-        raise RuntimeError("GA4 property ID is not configured")
+        raise RuntimeError("GA4 property ID is missing or invalid")
 
     payload = {
         "property_id": property_id,
@@ -457,7 +476,7 @@ def get_clarity_status(test_connection: bool = False) -> dict[str, Any]:
         ).as_dict()
 
     try:
-        _clarity_request(num_of_days=1)
+        _clarity_request(num_of_days=1, use_cache=False)
         return ConnectorStatus(
             key="clarity",
             label="Microsoft Clarity",
@@ -466,6 +485,8 @@ def get_clarity_status(test_connection: bool = False) -> dict[str, Any]:
             details=details,
         ).as_dict()
     except Exception as exc:
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            details["http_status"] = exc.response.status_code
         details["connection_error"] = str(exc)
         return ConnectorStatus(
             key="clarity",
@@ -482,6 +503,7 @@ def _clarity_request(
     dimension1: str = "",
     dimension2: str = "",
     dimension3: str = "",
+    use_cache: bool = True,
 ) -> list[dict[str, Any]]:
     token = _clarity_token()
     if not token:
@@ -518,6 +540,8 @@ def _clarity_request(
             raise RuntimeError("Unexpected Clarity response shape")
         return data
 
+    if not use_cache:
+        return _builder()
     return _cache_get_or_set("clarity_live_insights", payload, CLARITY_CACHE_TTL, _builder)
 
 

@@ -6,7 +6,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from orders.models import Order
-from storefront.models import Category, Product, UserAction
+from storefront.models import Category, PageView, Product, SiteSession, UserAction
 from storefront.views.monobank import _apply_monobank_status
 
 
@@ -39,6 +39,22 @@ class AnalyticsTrackingTests(TestCase):
         self.assertEqual(response.status_code, 200)
         action = UserAction.objects.get(action_type="search")
         self.assertEqual(action.metadata.get("query"), "Analytics")
+
+    def test_service_worker_requests_do_not_create_sessions_or_pageviews(self):
+        response = self.client.get(
+            "/sw.js",
+            secure=True,
+            HTTP_SEC_FETCH_MODE="no-cors",
+        )
+        self.assertIn(response.status_code, {200, 404})
+        self.assertFalse(SiteSession.objects.exists())
+        self.assertFalse(PageView.objects.exists())
+
+    def test_head_requests_do_not_create_sessions_or_pageviews(self):
+        response = self.client.head("/", secure=True)
+        self.assertIn(response.status_code, {200, 301, 302})
+        self.assertFalse(SiteSession.objects.exists())
+        self.assertFalse(PageView.objects.exists())
 
     def test_track_event_persists_custom_print_step_event(self):
         response = self.client.post(

@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.cache import cache
-from django.db.models import Avg, CharField, Count, DurationField, ExpressionWrapper, F, Min, Q, Sum
+from django.db.models import Avg, CharField, Count, DurationField, Exists, ExpressionWrapper, F, Min, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -30,6 +30,7 @@ from ..models import (
     UserAction,
     UTMSession,
 )
+from ..analytics_noise import analytics_noise_q
 from ..utm_utils import get_client_ip
 from .external_analytics import (
     fetch_clarity_overview,
@@ -419,7 +420,11 @@ def classify_session_source(session: SiteSession) -> tuple[str, dict[str, Any]]:
         "os_name": (getattr(utm, "os_name", "") or "").strip(),
         "country_name": (getattr(utm, "country_name", "") or "").strip(),
         "city": (getattr(utm, "city", "") or "").strip(),
-        "landing_page": (getattr(utm, "landing_page", "") or "").strip() or session.last_path,
+        "landing_page": (
+            (getattr(utm, "landing_page", "") or "")
+            or str(first_touch.get("landing_path") or "")
+            or str(getattr(session, "first_human_path", "") or "")
+        ).strip() or session.last_path,
         "is_returning": bool(getattr(utm, "is_returning_visitor", False)),
     }
 
@@ -447,6 +452,15 @@ def classify_order_source(order: Order) -> str:
 def _resolve_scope(filters: AnalyticsFilters) -> AnalyticsScope:
     site_qs = SiteSession.objects.select_related("utm_data").all()
     site_qs = _apply_range(site_qs, "first_seen", filters)
+    human_pageviews = (
+        PageView.objects.filter(session_id=OuterRef("pk"))
+        .exclude(analytics_noise_q("path"))
+        .order_by("when")
+    )
+    site_qs = site_qs.annotate(
+        has_human_pageview=Exists(human_pageviews),
+        first_human_path=Subquery(human_pageviews.values("path")[:1]),
+    ).filter(has_human_pageview=True)
     if not filters.include_bots:
         site_qs = site_qs.filter(is_bot=False)
     if filters.device_type != "all":
@@ -525,6 +539,7 @@ def _actions_queryset(filters: AnalyticsFilters, scope: AnalyticsScope):
 def _pageviews_queryset(filters: AnalyticsFilters, scope: AnalyticsScope):
     qs = PageView.objects.select_related("session")
     qs = _apply_range(qs, "when", filters)
+    qs = qs.exclude(analytics_noise_q("path"))
     if not filters.include_bots:
         qs = qs.filter(is_bot=False)
     if scope.session_keys is not None:
@@ -648,7 +663,9 @@ def _build_overview_cards(filters: AnalyticsFilters) -> dict[str, Any]:
     all_orders_count = orders_qs.count()
     aov = _as_float(paid_orders.aggregate(avg=Avg("total_sum"))["avg"])
     avg_duration = _average_session_seconds(site_qs)
-    bounce_sessions = site_qs.filter(pageviews__lte=1).count()
+    bounce_sessions = site_qs.annotate(
+        clean_pageviews=Count("views", filter=~analytics_noise_q("views__path"))
+    ).filter(clean_pageviews__lte=1).count()
     bounce_rate = round((bounce_sessions / sessions_count) * 100, 2) if sessions_count else 0
     conversion_rate = round((paid_orders_count / sessions_count) * 100, 2) if sessions_count else 0
 
@@ -1436,7 +1453,7 @@ def _ux_health_data(filters: AnalyticsFilters) -> dict[str, Any]:
         clarity_error = str(exc)
 
     ip_total = SiteSession.objects.count()
-    ip_with_value = SiteSession.objects.exclude(ip_address__isnull=True).exclude(ip_address="").count()
+    ip_with_value = SiteSession.objects.exclude(ip_address__isnull=True).count()
     visitor_total = SiteSession.objects.count()
     visitor_with_cookie = SiteSession.objects.exclude(visitor_id__isnull=True).exclude(visitor_id="").count()
 
@@ -1478,7 +1495,7 @@ def _integration_status_data() -> dict[str, Any]:
     last_session = SiteSession.objects.order_by("-last_seen").values_list("last_seen", flat=True).first()
     last_action = UserAction.objects.order_by("-timestamp").values_list("timestamp", flat=True).first()
     total_sessions = SiteSession.objects.count()
-    ip_sessions = SiteSession.objects.exclude(ip_address__isnull=True).exclude(ip_address="").count()
+    ip_sessions = SiteSession.objects.exclude(ip_address__isnull=True).count()
     visitor_sessions = SiteSession.objects.exclude(visitor_id__isnull=True).exclude(visitor_id="").count()
 
     internal_status = {
@@ -1494,8 +1511,8 @@ def _integration_status_data() -> dict[str, Any]:
             "visitor_cookie_ratio": round((visitor_sessions / total_sessions) * 100, 2) if total_sessions else 0,
         },
     }
-    ga4_status = get_ga4_status(test_connection=False)
-    clarity_status = get_clarity_status(test_connection=False)
+    ga4_status = get_ga4_status(test_connection=True)
+    clarity_status = get_clarity_status(test_connection=True)
 
     warnings = []
     if internal_status["details"]["ip_capture_ratio"] < 75:
@@ -1512,12 +1529,7 @@ def _integration_status_data() -> dict[str, Any]:
 
 
 def build_integration_status_widget(filters: AnalyticsFilters | None = None) -> dict[str, Any]:
-    cache_payload = {"filters": filters.cache_key() if filters else "none"}
-    return _cache_get_or_set(
-        "integration_status",
-        cache_payload,
-        lambda: _widget_result(source="internal", data=_integration_status_data()),
-    )
+    return _widget_result(source="internal", data=_integration_status_data())
 
 
 def build_widget_by_name(name: str, filters: AnalyticsFilters) -> dict[str, Any]:

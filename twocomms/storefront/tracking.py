@@ -9,6 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 
+from .analytics_noise import is_analytics_noise_path
 from .models import PageView, SiteSession
 from .utm_utils import get_client_ip, sanitize_utm_param
 
@@ -132,20 +133,21 @@ class SimpleAnalyticsMiddleware(MiddlewareMixin):
             # Не трекаем ботов и служебные пути
             ua = request.META.get('HTTP_USER_AGENT', '')
             path = request.path or ''
-            if is_bot(ua) or path.startswith('/admin') or path.startswith('/static') or path.startswith('/media'):
+            fetch_mode = (request.META.get('HTTP_SEC_FETCH_MODE') or '').strip().lower()
+            if (
+                is_bot(ua)
+                or is_analytics_noise_path(path)
+                or request.method != 'GET'
+                or (fetch_mode and fetch_mode not in {'navigate', 'nested-navigate'})
+            ):
                 return None  # Пропускаем ботов дальше по цепочке middleware
 
             # Для анонимов не создаём новую серверную сессию на простых GET (избежим write I/O)
             if not request.user.is_authenticated:
-                if request.method == 'GET':
-                    # Учитываем только уже существующие пользовательские сессии
-                    session_key = request.session.session_key
-                    if not session_key:
-                        return
-                else:
-                    # На POST/PUT/DELETE нам важна сессия: не выходим досрочно
-                    if not request.session.session_key:
-                        request.session.save()
+                # Учитываем только уже существующие пользовательские сессии
+                session_key = request.session.session_key
+                if not session_key:
+                    return
 
             # На этом этапе сессия может существовать (или пользователь авторизован)
             if not request.session.session_key:
