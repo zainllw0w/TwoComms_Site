@@ -651,6 +651,7 @@
   {% block extra_css %}{% endblock %}
 
   <!-- Structured Data (JSON-LD) -->
+  {% if request.resolver_match.url_name != 'about' %}
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -676,6 +677,7 @@
     ]
   }
   </script>
+  {% endif %}
 
   <!-- TikTok Pixel загружается через analytics-loader.js для избежания дублирования -->
 
