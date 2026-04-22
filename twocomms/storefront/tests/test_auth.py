@@ -1,6 +1,7 @@
 """Contract tests for storefront auth views."""
 
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
@@ -265,3 +266,30 @@ class ProfileSetupViewTests(AuthViewTestCase):
         self.user.userprofile.refresh_from_db()
         self.assertFalse(self.user.userprofile.push_marketing_enabled)
         self.assertTrue(self.user.userprofile.push_order_updates_enabled)
+
+    def test_profile_setup_keeps_existing_ubd_doc_without_reupload(self):
+        self.user.userprofile.is_ubd = True
+        self.user.userprofile.ubd_doc = SimpleUploadedFile(
+            "ubd.jpg",
+            b"existing-doc",
+            content_type="image/jpeg",
+        )
+        self.user.userprofile.save(update_fields=["is_ubd", "ubd_doc"])
+
+        response = self.post(
+            self.profile_setup_url,
+            {
+                "full_name": "UBD User",
+                "phone": "+380991234567",
+                "email": "ubd@example.com",
+                "city": "Kyiv",
+                "np_office": "5",
+                "pay_type": "full",
+                "is_ubd": "on",
+            },
+        )
+
+        self.assertRedirects(response, self.profile_setup_url, fetch_redirect_response=False)
+        self.user.userprofile.refresh_from_db()
+        self.assertTrue(self.user.userprofile.is_ubd)
+        self.assertTrue(bool(self.user.userprofile.ubd_doc))

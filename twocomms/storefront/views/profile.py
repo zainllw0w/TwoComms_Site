@@ -159,7 +159,11 @@ def profile_setup(request):
         return redirect(f"{reverse('profile_setup')}#push-preferences")
 
     if request.method == 'POST':
-        form = ProfileSetupForm(request.POST, request.FILES)
+        form = ProfileSetupForm(
+            request.POST,
+            request.FILES,
+            has_existing_ubd_doc=bool(prof.ubd_doc),
+        )
         if form.is_valid():
             prof.full_name = form.cleaned_data.get('full_name', '')
             prof.phone = form.cleaned_data['phone']
@@ -197,7 +201,7 @@ def profile_setup(request):
             'pay_type': prof.pay_type,
             'is_ubd': prof.is_ubd,
         }
-        form = ProfileSetupForm(initial=initial)
+        form = ProfileSetupForm(initial=initial, has_existing_ubd_doc=bool(prof.ubd_doc))
 
     return render(
         request,
