@@ -1,17 +1,31 @@
 .web-push-prompt {
   position: fixed;
-  right: 18px;
-  bottom: 18px;
-  z-index: 1200;
-  width: min(420px, calc(100vw - 24px));
+  right: max(18px, calc(env(safe-area-inset-right, 0px) + 12px));
+  bottom: max(18px, calc(env(safe-area-inset-bottom, 0px) + 12px));
+  z-index: 1060;
+  width: min(428px, calc(100vw - 24px));
+  max-height: min(82vh, 560px);
   overflow: hidden;
   border: 1px solid rgba(255, 196, 97, 0.18);
-  border-radius: 24px;
+  border-radius: 26px;
   background:
     radial-gradient(circle at top left, rgba(255, 190, 92, 0.16), transparent 44%),
     linear-gradient(145deg, rgba(10, 13, 20, 0.96), rgba(19, 24, 34, 0.98));
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(22px);
+  animation: web-push-prompt-enter 0.28s cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+@keyframes web-push-prompt-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
 }
 
 .web-push-prompt__glow {
@@ -28,6 +42,8 @@
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 1rem;
+  max-height: inherit;
+  overflow-y: auto;
   padding: 1.15rem 1.15rem 1rem;
 }
 
@@ -48,12 +64,27 @@
 
 .web-push-prompt__text {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.55rem;
+}
+
+.web-push-prompt__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  padding: 0.32rem 0.62rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 227, 184, 0.96);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .web-push-prompt__title {
   color: #f8fafc;
-  font-size: 1rem;
+  font-size: 1.02rem;
   font-weight: 800;
   line-height: 1.2;
 }
@@ -65,11 +96,33 @@
   line-height: 1.52;
 }
 
+.web-push-prompt__benefits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.web-push-prompt__benefit {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0.18rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(226, 232, 240, 0.84);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .web-push-prompt__actions {
   grid-column: 1 / -1;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 0.7rem;
+  margin-top: 0.15rem;
 }
 
 .web-push-prompt__btn {
@@ -84,6 +137,11 @@
 
 .web-push-prompt__btn:hover {
   transform: translateY(-1px);
+}
+
+.web-push-prompt__btn:focus-visible {
+  outline: 2px solid rgba(255, 209, 139, 0.82);
+  outline-offset: 2px;
 }
 
 .web-push-prompt__btn:disabled {
@@ -115,6 +173,21 @@
   border-color: rgba(96, 165, 250, 0.24);
 }
 
+.web-push-prompt[data-tone='success'] .web-push-prompt__eyebrow {
+  color: #bbf7d0;
+  background: rgba(74, 222, 128, 0.12);
+}
+
+.web-push-prompt[data-tone='warning'] .web-push-prompt__eyebrow {
+  color: #fecaca;
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.web-push-prompt[data-tone='loading'] .web-push-prompt__eyebrow {
+  color: #bfdbfe;
+  background: rgba(96, 165, 250, 0.12);
+}
+
 .web-push-prompt[data-tone='install'] .web-push-prompt__icon {
   background: linear-gradient(135deg, rgba(91, 152, 255, 0.22), rgba(36, 196, 201, 0.18));
   border-color: rgba(118, 180, 255, 0.26);
@@ -122,14 +195,18 @@
 
 @media (max-width: 640px) {
   .web-push-prompt {
-    right: 12px;
-    left: 12px;
-    bottom: 12px;
+    right: max(12px, calc(env(safe-area-inset-right, 0px) + 8px));
+    left: max(12px, calc(env(safe-area-inset-left, 0px) + 8px));
+    bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) + 8px));
     width: auto;
+    max-height: min(78vh, 560px);
+    border-radius: 24px;
   }
 
   .web-push-prompt__content {
     grid-template-columns: 1fr;
+    gap: 0.9rem;
+    padding: 1rem 1rem 0.95rem;
   }
 
   .web-push-prompt__icon {
@@ -143,5 +220,19 @@
 
   .web-push-prompt__btn {
     width: 100%;
+  }
+}
+
+@media (max-height: 720px) {
+  .web-push-prompt {
+    max-height: 78vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .web-push-prompt,
+  .web-push-prompt__btn {
+    animation: none;
+    transition: none;
   }
 }

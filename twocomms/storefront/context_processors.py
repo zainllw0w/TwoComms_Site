@@ -158,7 +158,7 @@ def web_push_settings(request):
                 "pageViewMin": int(getattr(settings, "WEB_PUSH_PROMPT_MIN_PAGE_VIEWS", 3) or 3),
                 "warmupMs": int(getattr(settings, "WEB_PUSH_PROMPT_WARMUP_MS", 45000) or 45000),
                 "visitGapMs": int(getattr(settings, "WEB_PUSH_PROMPT_VISIT_GAP_MS", 21600000) or 21600000),
-                "cartPromptDelayMs": int(getattr(settings, "WEB_PUSH_CART_PROMPT_DELAY_MS", 2500) or 2500),
+                "cartPromptDelayMs": int(getattr(settings, "WEB_PUSH_CART_PROMPT_DELAY_MS", 4000) or 4000),
                 "orderSuccessPromptDelayMs": int(
                     getattr(settings, "WEB_PUSH_ORDER_SUCCESS_PROMPT_DELAY_MS", 5000) or 5000
                 ),

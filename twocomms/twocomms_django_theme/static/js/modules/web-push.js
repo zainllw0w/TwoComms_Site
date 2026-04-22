@@ -13,6 +13,7 @@ const SESSION_STARTED_AT_KEY = 'twc-web-push-session-started-at';
 const SESSION_PROMPT_SHOWN_KEY = 'twc-web-push-session-prompt-shown';
 
 const MAX_PROMPT_IMPRESSIONS = 4;
+const MAX_OVERLAY_RETRIES = 4;
 const PROMPT_PRIORITIES = {
   manual: 100,
   order_success: 80,
@@ -97,7 +98,7 @@ function readStrategy(config) {
     pageViewMin: Math.max(1, Number(strategy.pageViewMin || 3)),
     warmupMs: Math.max(5000, Number(strategy.warmupMs || 45000)),
     visitGapMs: Math.max(1800000, Number(strategy.visitGapMs || 21600000)),
-    cartPromptDelayMs: Math.max(0, Number(strategy.cartPromptDelayMs || 2500)),
+    cartPromptDelayMs: Math.max(0, Number(strategy.cartPromptDelayMs || 4000)),
     orderSuccessPromptDelayMs: Math.max(0, Number(strategy.orderSuccessPromptDelayMs || 5000)),
     subscriptionSyncIntervalMs: Math.max(
       300000,
@@ -407,15 +408,23 @@ function removePromptCard() {
   }
 }
 
-function updatePromptState(message, tone = 'default') {
+function updatePromptState({ title, message, eyebrow, tone = 'default' }) {
   const card = document.querySelector('[data-web-push-prompt]');
   if (!card) {
     return;
   }
 
+  const titleNode = card.querySelector('[data-web-push-title]');
   const textNode = card.querySelector('[data-web-push-copy]');
+  const eyebrowNode = card.querySelector('[data-web-push-eyebrow]');
+  if (titleNode && title) {
+    titleNode.textContent = title;
+  }
   if (textNode) {
     textNode.textContent = message;
+  }
+  if (eyebrowNode && eyebrow) {
+    eyebrowNode.textContent = eyebrow;
   }
   card.setAttribute('data-tone', tone);
 }
@@ -431,33 +440,53 @@ function maybeNotify(message, type = 'info') {
 function promptCopy(reason) {
   if (reason === 'order_success') {
     return {
+      eyebrow: 'Після замовлення',
       title: 'Отримувати статус цього замовлення?',
       body: 'Увімкніть push, щоб бачити доставку, оновлення замовлення та важливі повідомлення без зайвих листів.',
       action: 'Увімкнути',
+      benefits: ['Статус замовлення', 'Доставка', 'Без зайвих листів'],
     };
   }
 
   if (reason === 'cart') {
     return {
-      title: 'Увімкнути push-сповіщення?',
-      body: 'Ми повідомимо про статус замовлення, важливі оновлення та вигідні пропозиції саме тоді, коли це доречно.',
+      eyebrow: 'Лише корисні сповіщення',
+      title: 'Залишатися в курсі без зайвого шуму?',
+      body: 'Покажемо статус замовлення, доставку та справді доречні оновлення тоді, коли вони вам потрібні.',
       action: 'Увімкнути',
+      benefits: ['Статус замовлення', 'Доставка', 'Без спаму'],
     };
   }
 
   if (reason === 'manual') {
     return {
+      eyebrow: 'Налаштування браузера',
       title: 'Налаштувати push-сповіщення',
       body: 'Увімкніть push у цьому браузері, щоб TwoComms міг надсилати статуси замовлень та важливі оновлення.',
       action: 'Продовжити',
+      benefits: ['Цей браузер', 'Швидке увімкнення', 'Керується у профілі'],
     };
   }
 
   return {
+    eyebrow: 'Для постійних гостей',
     title: 'Увімкнути push-сповіщення?',
-    body: 'Отримуйте нові дропи, важливі оновлення та спецпропозиції TwoComms прямо в браузері.',
+    body: 'Отримуйте статуси замовлень, важливі оновлення та новини про дропи прямо в браузері.',
     action: 'Увімкнути',
+    benefits: ['Статуси', 'Нові дропи', 'Без зайвого шуму'],
   };
+}
+
+function renderPromptBenefits(copy) {
+  const benefits = Array.isArray(copy?.benefits) ? copy.benefits.filter(Boolean) : [];
+  if (!benefits.length) {
+    return '';
+  }
+  return `
+    <div class="web-push-prompt__benefits" aria-hidden="true">
+      ${benefits.map((item) => `<span class="web-push-prompt__benefit">${item}</span>`).join('')}
+    </div>
+  `;
 }
 
 function buildPromptCard(mode, reason) {
@@ -466,6 +495,9 @@ function buildPromptCard(mode, reason) {
   wrapper.className = 'web-push-prompt';
   wrapper.setAttribute('data-web-push-prompt', '1');
   wrapper.setAttribute('data-tone', mode === 'ios_install' ? 'install' : 'default');
+  wrapper.setAttribute('role', 'dialog');
+  wrapper.setAttribute('aria-live', 'polite');
+  wrapper.setAttribute('aria-label', 'Налаштування push-сповіщень');
 
   if (mode === 'ios_install') {
     wrapper.innerHTML = `
@@ -473,10 +505,15 @@ function buildPromptCard(mode, reason) {
       <div class="web-push-prompt__content">
         <div class="web-push-prompt__icon" aria-hidden="true">Push</div>
         <div class="web-push-prompt__text">
-          <div class="web-push-prompt__title">Push на iPhone/iPad</div>
+          <span class="web-push-prompt__eyebrow" data-web-push-eyebrow>iPhone та iPad</span>
+          <div class="web-push-prompt__title" data-web-push-title>Push на iPhone/iPad</div>
           <p class="web-push-prompt__copy" data-web-push-copy>
-            Додайте TwoComms на домашній екран, відкрийте сайт як застосунок і після цього дозвольте системні сповіщення.
+            Додайте TwoComms на екран Додому, відкрийте сайт як застосунок і після цього дозвольте системні сповіщення у системному prompt.
           </p>
+          <div class="web-push-prompt__benefits" aria-hidden="true">
+            <span class="web-push-prompt__benefit">1. Поділитися</span>
+            <span class="web-push-prompt__benefit">2. На екран Додому</span>
+          </div>
         </div>
         <div class="web-push-prompt__actions">
           <button type="button" class="web-push-prompt__btn web-push-prompt__btn--ghost" data-web-push-dismiss>
@@ -493,8 +530,10 @@ function buildPromptCard(mode, reason) {
     <div class="web-push-prompt__content">
       <div class="web-push-prompt__icon" aria-hidden="true">Push</div>
       <div class="web-push-prompt__text">
-        <div class="web-push-prompt__title">${copy.title}</div>
+        <span class="web-push-prompt__eyebrow" data-web-push-eyebrow>${copy.eyebrow}</span>
+        <div class="web-push-prompt__title" data-web-push-title>${copy.title}</div>
         <p class="web-push-prompt__copy" data-web-push-copy>${copy.body}</p>
+        ${renderPromptBenefits(copy)}
       </div>
       <div class="web-push-prompt__actions">
         <button type="button" class="web-push-prompt__btn web-push-prompt__btn--ghost" data-web-push-dismiss>
@@ -507,6 +546,14 @@ function buildPromptCard(mode, reason) {
     </div>
   `;
   return wrapper;
+}
+
+function hasBlockingOverlay() {
+  if (document.body?.classList.contains('modal-open')) {
+    return true;
+  }
+
+  return Boolean(document.querySelector('.modal.show, .offcanvas.show, [aria-modal="true"]'));
 }
 
 function shouldShowPrompt(config, options = {}) {
@@ -539,7 +586,17 @@ function shouldShowPrompt(config, options = {}) {
 }
 
 function showPromptCard(config, options = {}) {
-  const { mode = 'default', reason = 'engaged', force = false } = options;
+  const { mode = 'default', reason = 'engaged', force = false, retryCount = 0 } = options;
+  if (!force && hasBlockingOverlay()) {
+    if (retryCount < MAX_OVERLAY_RETRIES) {
+      schedulePrompt(config, reason, 1800, {
+        force,
+        retryCount: retryCount + 1,
+      });
+    }
+    return false;
+  }
+
   if (!shouldShowPrompt(config, { force })) {
     dispatchPushStateChange(config);
     return false;
@@ -564,13 +621,23 @@ function showPromptCard(config, options = {}) {
   const enableButton = card.querySelector('[data-web-push-enable]');
   enableButton?.addEventListener('click', async () => {
     enableButton.disabled = true;
-    updatePromptState('Запитуємо дозвіл браузера…', 'loading');
+    updatePromptState({
+      title: 'Підключаємо push…',
+      message: 'Запитуємо дозвіл браузера. Системне вікно зʼявиться лише один раз.',
+      eyebrow: 'Системний доступ',
+      tone: 'loading',
+    });
 
     try {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         dismissPrompt(45);
-        updatePromptState('Дозвіл не надано. Ви завжди можете змінити це в налаштуваннях браузера.', 'warning');
+        updatePromptState({
+          title: 'Доступ не надано',
+          message: 'Ви завжди можете змінити це в налаштуваннях браузера, коли будете готові.',
+          eyebrow: 'Безпека браузера',
+          tone: 'warning',
+        });
         maybeNotify('Push-сповіщення не увімкнено.', 'info');
         dispatchPushStateChange(config);
         window.setTimeout(removePromptCard, 4200);
@@ -578,12 +645,22 @@ function showPromptCard(config, options = {}) {
       }
 
       await syncGrantedSubscription(config, { force: true });
-      updatePromptState('Push-сповіщення увімкнено. Нові повідомлення прийдуть у браузер автоматично.', 'success');
+      updatePromptState({
+        title: 'Push увімкнено',
+        message: 'Нові повідомлення про замовлення та важливі оновлення тепер приходитимуть у браузер автоматично.',
+        eyebrow: 'Готово',
+        tone: 'success',
+      });
       maybeNotify('Push-сповіщення успішно увімкнено.', 'success');
       dispatchPushStateChange(config);
       window.setTimeout(removePromptCard, 2400);
     } catch (error) {
-      updatePromptState(error?.message || 'Не вдалося налаштувати push-сповіщення.', 'warning');
+      updatePromptState({
+        title: 'Не вдалося завершити налаштування',
+        message: error?.message || 'Спробуйте ще раз або перевірте налаштування браузера.',
+        eyebrow: 'Потрібна перевірка',
+        tone: 'warning',
+      });
       maybeNotify(error?.message || 'Не вдалося налаштувати push-сповіщення.', 'error');
       enableButton.disabled = false;
       dispatchPushStateChange(config);
@@ -608,6 +685,7 @@ function schedulePrompt(config, reason, delayMs, options = {}) {
       mode: isIOS() && !isStandalone() ? 'ios_install' : 'default',
       reason,
       force: options.force === true,
+      retryCount: Number(options.retryCount || 0),
     });
   }, Math.max(0, delayMs));
 

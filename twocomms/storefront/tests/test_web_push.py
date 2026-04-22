@@ -409,6 +409,8 @@ class WebPushFlowTests(TestCase):
         self.assertContains(response, "Нова push-кампанія")
         self.assertNotContains(response, "Що ще потрібно для продакшна")
         self.assertContains(response, "Без зображення")
+        self.assertContains(response, "push-history-scroll")
+        self.assertContains(response, 'data-label="Статус"')
 
     @override_settings(ROOT_URLCONF="django.contrib.auth.urls")
     def test_web_push_context_processor_handles_missing_push_routes(self):
@@ -442,6 +444,7 @@ class WebPushFlowTests(TestCase):
                 "orderUpdatesEnabled": True,
             },
         )
+        self.assertEqual(payload["strategy"]["cartPromptDelayMs"], 4000)
 
     @patch("storefront.services.web_push.webpush")
     def test_staff_can_send_push_campaign_from_admin(self, mocked_webpush):

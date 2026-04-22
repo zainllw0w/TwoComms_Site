@@ -194,6 +194,7 @@
 
   .push-admin-card-body {
     padding: 1.05rem 1.1rem 1.15rem;
+    min-width: 0;
   }
 
   .push-form {
@@ -415,9 +416,34 @@
     font-weight: 700;
   }
 
+  .push-history-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.15rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 190, 98, 0.3) rgba(255,255,255,0.05);
+    scrollbar-gutter: stable both-edges;
+  }
+
+  .push-history-scroll::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  .push-history-scroll::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.05);
+    border-radius: 999px;
+  }
+
+  .push-history-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 190, 98, 0.3);
+    border-radius: 999px;
+  }
+
   .push-history-table {
     width: 100%;
     border-collapse: collapse;
+    min-width: 1020px;
   }
 
   .push-history-table thead th {
@@ -446,11 +472,13 @@
 
   .push-history-title strong {
     color: #f8fafc;
+    overflow-wrap: anywhere;
   }
 
   .push-history-title small {
     color: rgba(226,232,240,0.66);
     line-height: 1.55;
+    overflow-wrap: anywhere;
   }
 
   .push-history-status {
@@ -548,6 +576,14 @@
     .push-admin-metrics {
       grid-template-columns: 1fr;
     }
+  }
+
+  @media (max-width: 1024px) {
+    .push-history-scroll {
+      overflow: visible;
+      padding-bottom: 0;
+      scrollbar-width: auto;
+    }
 
     .push-history-table,
     .push-history-table thead,
@@ -563,9 +599,72 @@
       display: none;
     }
 
+    .push-history-table {
+      min-width: 0;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .push-history-table tbody {
+      display: grid;
+      gap: 0.9rem;
+    }
+
+    .push-history-table tr {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.85rem 1rem;
+      padding: 1rem;
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(145deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
     .push-history-table tbody td {
-      padding-top: 0.35rem;
-      padding-bottom: 0.75rem;
+      display: grid;
+      gap: 0.38rem;
+      min-width: 0;
+      padding: 0;
+      border-bottom: 0;
+    }
+
+    .push-history-table tbody td::before {
+      content: attr(data-label);
+      color: rgba(226,232,240,0.58);
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .push-history-table tbody td:first-child,
+    .push-history-table tbody td:last-child {
+      grid-column: 1 / -1;
+    }
+
+    .push-history-status {
+      min-width: 0;
+      width: fit-content;
+    }
+
+    .push-history-actions,
+    .push-history-actions form {
+      width: 100%;
+    }
+
+    .push-history-retry {
+      width: 100%;
+    }
+
+    .push-history-thumbnail {
+      width: min(96px, 100%);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .push-history-table tr {
+      grid-template-columns: 1fr;
     }
   }
 </style>
@@ -773,92 +872,94 @@
     </div>
     <div class="push-admin-card-body">
       {% if push_campaigns %}
-        <table class="push-history-table">
-          <thead>
-            <tr>
-              <th>Кампанія</th>
-              <th>Статус</th>
-              <th>Охоплення</th>
-              <th>Покази</th>
-              <th>Кліки</th>
-              <th>CTR</th>
-              <th>Медіа</th>
-              <th>Дії</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for campaign in push_campaigns %}
+        <div class="push-history-scroll">
+          <table class="push-history-table">
+            <thead>
               <tr>
-                <td>
-                  <div class="push-history-title">
-                    <strong>{{ campaign.title }}</strong>
-                    <small>{{ campaign.body }}</small>
-                    <small>
-                      {{ campaign.created_at|date:"d.m.Y H:i" }}
-                      {% if campaign.created_by %}· {{ campaign.created_by.username }}{% endif %}
-                    </small>
-                    <small>{{ campaign.target_url }}</small>
-                    {% if campaign.last_error %}
-                      <small style="color:#fca5a5;">{{ campaign.last_error }}</small>
-                    {% endif %}
-                  </div>
-                </td>
-                <td>
-                  <span class="push-history-status {{ campaign.status }}">
-                    {{ campaign.get_status_display }}
-                  </span>
-                </td>
-                <td>
-                  <div class="push-history-kpi">
-                    <strong>{{ campaign.sent_count }}/{{ campaign.targeted_count }}</strong>
-                    <small>Прийнято / ціль</small>
-                  </div>
-                </td>
-                <td>
-                  <div class="push-history-kpi">
-                    <strong>{{ campaign.displayed_count }}</strong>
-                    <small>{{ campaign.display_rate }}% від доставлених</small>
-                  </div>
-                </td>
-                <td>
-                  <div class="push-history-kpi">
-                    <strong>{{ campaign.clicked_count }}</strong>
-                    <small>{{ campaign.closed_count }} закрито · {{ campaign.failed_count }} помилок</small>
-                  </div>
-                </td>
-                <td>
-                  <div class="push-history-kpi">
-                    <strong>{{ campaign.click_rate }}%</strong>
-                    <small>Кліків від показаних</small>
-                  </div>
-                </td>
-                <td>
-                  {% if campaign.image %}
-                    <div class="push-history-thumbnail">
-                      <img src="{{ campaign.image.url }}" alt="{{ campaign.title }}">
-                    </div>
-                  {% else %}
-                    <small style="color:rgba(226,232,240,0.64);">Без зображення</small>
-                  {% endif %}
-                </td>
-                <td>
-                  <div class="push-history-actions">
-                    {% if campaign.status == 'draft' or campaign.status == 'failed' or campaign.status == 'partial' %}
-                      <form method="post" action="{% url 'admin_push_notifications_send' campaign.id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="push-history-retry" {% if not web_push_enabled %}disabled{% endif %}>
-                          Надіслати
-                        </button>
-                      </form>
-                    {% else %}
-                      <small style="color:rgba(226,232,240,0.64);">Повторне надсилання не потрібне</small>
-                    {% endif %}
-                  </div>
-                </td>
+                <th>Кампанія</th>
+                <th>Статус</th>
+                <th>Охоплення</th>
+                <th>Покази</th>
+                <th>Кліки</th>
+                <th>CTR</th>
+                <th>Медіа</th>
+                <th>Дії</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {% for campaign in push_campaigns %}
+                <tr>
+                  <td data-label="Кампанія">
+                    <div class="push-history-title">
+                      <strong>{{ campaign.title }}</strong>
+                      <small>{{ campaign.body }}</small>
+                      <small>
+                        {{ campaign.created_at|date:"d.m.Y H:i" }}
+                        {% if campaign.created_by %}· {{ campaign.created_by.username }}{% endif %}
+                      </small>
+                      <small>{{ campaign.target_url }}</small>
+                      {% if campaign.last_error %}
+                        <small style="color:#fca5a5;">{{ campaign.last_error }}</small>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td data-label="Статус">
+                    <span class="push-history-status {{ campaign.status }}">
+                      {{ campaign.get_status_display }}
+                    </span>
+                  </td>
+                  <td data-label="Охоплення">
+                    <div class="push-history-kpi">
+                      <strong>{{ campaign.sent_count }}/{{ campaign.targeted_count }}</strong>
+                      <small>Прийнято / ціль</small>
+                    </div>
+                  </td>
+                  <td data-label="Покази">
+                    <div class="push-history-kpi">
+                      <strong>{{ campaign.displayed_count }}</strong>
+                      <small>{{ campaign.display_rate }}% від доставлених</small>
+                    </div>
+                  </td>
+                  <td data-label="Кліки">
+                    <div class="push-history-kpi">
+                      <strong>{{ campaign.clicked_count }}</strong>
+                      <small>{{ campaign.closed_count }} закрито · {{ campaign.failed_count }} помилок</small>
+                    </div>
+                  </td>
+                  <td data-label="CTR">
+                    <div class="push-history-kpi">
+                      <strong>{{ campaign.click_rate }}%</strong>
+                      <small>Кліків від показаних</small>
+                    </div>
+                  </td>
+                  <td data-label="Медіа">
+                    {% if campaign.image %}
+                      <div class="push-history-thumbnail">
+                        <img src="{{ campaign.image.url }}" alt="{{ campaign.title }}">
+                      </div>
+                    {% else %}
+                      <small style="color:rgba(226,232,240,0.64);">Без зображення</small>
+                    {% endif %}
+                  </td>
+                  <td data-label="Дії">
+                    <div class="push-history-actions">
+                      {% if campaign.status == 'draft' or campaign.status == 'failed' or campaign.status == 'partial' %}
+                        <form method="post" action="{% url 'admin_push_notifications_send' campaign.id %}">
+                          {% csrf_token %}
+                          <button type="submit" class="push-history-retry" {% if not web_push_enabled %}disabled{% endif %}>
+                            Надіслати
+                          </button>
+                        </form>
+                      {% else %}
+                        <small style="color:rgba(226,232,240,0.64);">Повторне надсилання не потрібне</small>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       {% else %}
         <div class="push-empty-state">
           Поки що push-кампаній немає. Створіть перше повідомлення, щоб тут з’явилася історія доставки, показів і переходів.
