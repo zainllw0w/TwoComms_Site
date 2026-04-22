@@ -15,7 +15,10 @@ from storefront.models import (
     WebPushDeviceSubscription,
 )
 from storefront.services import web_push as web_push_service
-from storefront.services.web_push import WebPushConfigurationError
+from storefront.services.web_push import (
+    WebPushConfigurationError,
+    build_campaign_payload,
+)
 
 
 @override_settings(
@@ -211,6 +214,39 @@ class WebPushFlowTests(TestCase):
         self.assertEqual(campaign.displayed_count, 1)
         self.assertEqual(campaign.clicked_count, 1)
 
+    def test_campaign_payload_uses_default_image_when_campaign_has_no_upload(self):
+        campaign = PushNotificationCampaign.objects.create(
+            title="Fallback image",
+            body="Тест fallback картинки",
+            target_url="/catalog/",
+            created_by=self.staff_user,
+        )
+        subscription = WebPushDeviceSubscription.objects.create(
+            installation_id="install-fallback",
+            endpoint="https://push.example.test/subscription-fallback",
+            auth_key="auth-token",
+            p256dh_key="p256dh-token",
+            browser_family="Chrome",
+            operating_system="macOS",
+            device_type=WebPushDeviceSubscription.DeviceType.DESKTOP,
+            is_active=True,
+        )
+        delivery = PushNotificationDelivery.objects.create(
+            campaign=campaign,
+            subscription=subscription,
+        )
+
+        payload = build_campaign_payload(campaign, delivery)
+
+        self.assertEqual(
+            payload["image"],
+            "https://twocomms.shop/static/img/favicon-512x512.png",
+        )
+        self.assertEqual(
+            payload["icon"],
+            "https://twocomms.shop/static/img/favicon-192x192.png",
+        )
+
     def test_staff_admin_panel_renders_push_notifications_section(self):
         self.client.force_login(self.staff_user)
         response = self.client.get(
@@ -222,6 +258,8 @@ class WebPushFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Push Control Center")
         self.assertContains(response, "Нова push-кампанія")
+        self.assertNotContains(response, "Що ще потрібно для продакшна")
+        self.assertContains(response, "/static/img/favicon-512x512.png")
 
     @patch("storefront.services.web_push.webpush")
     def test_staff_can_send_push_campaign_from_admin(self, mocked_webpush):

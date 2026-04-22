@@ -210,6 +210,10 @@ WEB_PUSH_SERVICE_WORKER_PATH = (
     os.environ.get("WEB_PUSH_SERVICE_WORKER_PATH", "/static/sw.js").strip()
     or "/static/sw.js"
 )
+WEB_PUSH_DEFAULT_IMAGE_PATH = os.environ.get(
+    "WEB_PUSH_DEFAULT_IMAGE_PATH",
+    "/static/img/favicon-512x512.png",
+).strip() or "/static/img/favicon-512x512.png"
 WEB_PUSH_ICON_PATH = os.environ.get(
     "WEB_PUSH_ICON_PATH",
     "/static/img/favicon-192x192.png",

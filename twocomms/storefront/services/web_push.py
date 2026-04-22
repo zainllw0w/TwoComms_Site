@@ -41,9 +41,27 @@ def _notification_icon_url():
     return _absolute_site_url(custom_path or static("img/favicon-192x192.png"))
 
 
+def get_default_notification_icon_url():
+    return _notification_icon_url()
+
+
 def _notification_badge_url():
     custom_path = (getattr(settings, "WEB_PUSH_BADGE_PATH", "") or "").strip()
     return _absolute_site_url(custom_path or static("img/favicon-192x192.png"))
+
+
+def get_default_notification_image_url():
+    custom_path = (getattr(settings, "WEB_PUSH_DEFAULT_IMAGE_PATH", "") or "").strip()
+    return _absolute_site_url(custom_path or static("img/favicon-512x512.png"))
+
+
+def _notification_image_url(campaign):
+    if campaign and campaign.image:
+        try:
+            return _absolute_site_url(campaign.image.url)
+        except Exception:
+            pass
+    return get_default_notification_image_url()
 
 
 def _tracked_target_url(campaign):
@@ -58,19 +76,12 @@ def _tracked_target_url(campaign):
 
 
 def build_campaign_payload(campaign, delivery):
-    image_url = ""
-    if campaign.image:
-        try:
-            image_url = _absolute_site_url(campaign.image.url)
-        except Exception:
-            image_url = ""
-
     return {
         "title": campaign.title,
         "body": campaign.body,
         "icon": _notification_icon_url(),
         "badge": _notification_badge_url(),
-        "image": image_url,
+        "image": _notification_image_url(campaign),
         "url": _tracked_target_url(campaign),
         "tag": f"twc-push-campaign-{campaign.pk}",
         "campaignId": campaign.pk,
