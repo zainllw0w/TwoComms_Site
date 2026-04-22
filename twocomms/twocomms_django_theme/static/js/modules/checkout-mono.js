@@ -12,7 +12,7 @@
 
 import { getCookie } from './shared.js';
 import { validateNovaPoshtaSelection } from './nova-poshta-selector.js?v=20260422b';
-import { syncUkraineCheckoutPhoneField } from './phone.js';
+import { syncUkraineCheckoutPhoneField } from './phone.js?v=20260422c';
 
 function deps() {
   return window.__twcMono || {};

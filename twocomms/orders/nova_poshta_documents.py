@@ -54,12 +54,22 @@ def _phone_parse_candidates(raw_phone: str) -> list[tuple[str, str | None]]:
             candidates.append(item)
 
     if raw.startswith("+"):
+        if digits.startswith("3800") and len(digits) == 13:
+            add(f"+380{digits[4:]}", None)
         add(raw, None)
         add(f"+{digits}", None)
         return candidates
 
     if digits.startswith("00"):
+        trimmed = digits[2:]
+        if trimmed.startswith("3800") and len(trimmed) == 13:
+            add(f"+380{trimmed[4:]}", None)
         add(f"+{digits[2:]}", None)
+        return candidates
+
+    if digits.startswith("3800") and len(digits) == 13:
+        add(f"+380{digits[4:]}", None)
+        add(f"0{digits[4:]}", "UA")
         return candidates
 
     if digits.startswith("380") and len(digits) == 12:
@@ -108,6 +118,8 @@ def normalize_phone(phone: str) -> str:
                 continue
 
     if raw.startswith("+"):
+        if digits.startswith("3800") and len(digits) == 13:
+            return f"+380{digits[4:]}"
         if digits.startswith("380"):
             return f"+{digits}" if len(digits) == 12 else ""
         if 8 <= len(digits) <= 15:
@@ -116,12 +128,16 @@ def normalize_phone(phone: str) -> str:
 
     if digits.startswith("00"):
         trimmed = digits[2:]
+        if trimmed.startswith("3800") and len(trimmed) == 13:
+            return f"+380{trimmed[4:]}"
         if trimmed.startswith("380"):
             return f"+{trimmed}" if len(trimmed) == 12 else ""
         if 8 <= len(trimmed) <= 15:
             return f"+{trimmed}"
         return ""
 
+    if digits.startswith("3800") and len(digits) == 13:
+        return f"+380{digits[4:]}"
     if digits.startswith("380") and len(digits) == 12:
         return f"+{digits}"
     if digits.startswith("80") and len(digits) == 11:

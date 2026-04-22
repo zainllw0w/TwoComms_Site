@@ -32,6 +32,19 @@ class PhoneNormalizationTests(TestCase):
                 self.assertEqual(normalize_checkout_phone(sample), '+380939693920')
                 self.assertEqual(normalize_phone_for_np(sample), '380939693920')
 
+    def test_normalize_phone_drops_trunk_zero_after_country_code(self):
+        samples = (
+            '3800939693920',
+            '+3800939693920',
+            '003800939693920',
+        )
+
+        for sample in samples:
+            with self.subTest(sample=sample):
+                self.assertEqual(normalize_phone(sample), '+380939693920')
+                self.assertEqual(normalize_checkout_phone(sample), '+380939693920')
+                self.assertEqual(normalize_phone_for_np(sample), '380939693920')
+
     def test_normalize_phone_preserves_explicit_international_number(self):
         self.assertEqual(normalize_phone('+55 11 91234-5678'), '+5511912345678')
         self.assertEqual(normalize_phone('0055 11 91234-5678'), '+5511912345678')

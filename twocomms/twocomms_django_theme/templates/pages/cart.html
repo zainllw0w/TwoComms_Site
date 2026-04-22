@@ -399,7 +399,9 @@
                        value="{{ prof.phone|default:'' }}" pattern="[+0-9\s\-()]{7,20}" inputmode="tel" autocomplete="tel" required>
                 <div class="cart-form-input-glow"></div>
               </div>
-              <div class="cart-form-hint text-secondary small mt-2">Префікс +380 підставимо автоматично.</div>
+              <div class="cart-form-hint text-secondary small mt-2" data-phone-hint>
+                Можна вводити 093..., 809..., 380... або +380... — номер приведемо до потрібного формату.
+              </div>
             </div>
             
             <div class="cart-form-group">
@@ -524,7 +526,9 @@
                        pattern="[+0-9\s\-()]{7,20}" inputmode="tel" autocomplete="tel" required>
                 <div class="cart-form-input-glow"></div>
               </div>
-              <div class="cart-form-hint text-secondary small mt-2">Префікс +380 підставимо автоматично.</div>
+              <div class="cart-form-hint text-secondary small mt-2" data-phone-hint>
+                Можна вводити 093..., 809..., 380... або +380... — номер приведемо до потрібного формату.
+              </div>
               {% if guest_form.phone.errors %}
                 <div class="cart-form-error">{{ guest_form.phone.errors.0 }}</div>
               {% endif %}
