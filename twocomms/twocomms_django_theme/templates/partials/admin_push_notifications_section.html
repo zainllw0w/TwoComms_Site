@@ -599,7 +599,11 @@
         <p>Системний браузерний prompt викликається лише по явній дії користувача. Це відповідає актуальним best practices і не знижує trust score браузерів.</p>
         <p>Для iPhone/iPad повідомлення працюють у Home Screen web app. Для desktop і більшості Android-браузерів достатньо звичайного HTTPS-сайту.</p>
         {% if not web_push_enabled %}
-          <p><strong>Що ще потрібно для продакшна:</strong> додати `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`, `WEB_PUSH_VAPID_SUBJECT` у production env.</p>
+          <p>
+            <strong>Що ще потрібно для продакшна:</strong>
+            згенерувати ключі командою <code>python manage.py generate_web_push_vapid_keys</code>
+            і додати <code>{{ web_push_missing_settings|join:", " }}</code> у <code>{{ web_push_env_file_hint }}</code>.
+          </p>
         {% endif %}
       </div>
     </div>
@@ -725,7 +729,7 @@
         <div class="push-preview-notification">
           <div class="push-preview-top">
             <div class="push-preview-icon">
-              <img src="/static/img/favicon-192x192.png" alt="TwoComms">
+              <img src="{{ web_push_default_icon_url }}" alt="TwoComms">
             </div>
             <div class="push-preview-meta">
               <span class="push-preview-brand">TwoComms</span>
@@ -733,11 +737,12 @@
             </div>
           </div>
           <div class="push-preview-body" data-push-preview-body>{{ push_form.body.value|default:"Короткий текст push-повідомлення з чітким CTA та без зайвого шуму." }}</div>
-          <div class="push-preview-image {% if push_form.image.value %}has-image{% endif %}" data-push-preview-image-wrap>
+          <div class="push-preview-image has-image" data-push-preview-image-wrap>
             <img
-              src="{% if push_form.image.value and push_form.instance.image %}{{ push_form.instance.image.url }}{% endif %}"
+              src="{% if push_form.instance.image %}{{ push_form.instance.image.url }}{% else %}{{ web_push_default_image_url }}{% endif %}"
               alt=""
               data-push-preview-image
+              data-push-default-image="{{ web_push_default_image_url }}"
             >
           </div>
           <div class="push-preview-link" data-push-preview-link>{{ push_form.target_url.value|default:"/catalog/" }}</div>
@@ -829,13 +834,9 @@
                   </div>
                 </td>
                 <td>
-                  {% if campaign.image %}
-                    <div class="push-history-thumbnail">
-                      <img src="{{ campaign.image.url }}" alt="{{ campaign.title }}">
-                    </div>
-                  {% else %}
-                    <small style="color:rgba(226,232,240,0.64);">Без зображення</small>
-                  {% endif %}
+                  <div class="push-history-thumbnail">
+                    <img src="{% if campaign.image %}{{ campaign.image.url }}{% else %}{{ web_push_default_image_url }}{% endif %}" alt="{{ campaign.title }}">
+                  </div>
                 </td>
                 <td>
                   <div class="push-history-actions">
@@ -881,6 +882,8 @@
     const previewLink = document.querySelector('[data-push-preview-link]');
     const previewImage = document.querySelector('[data-push-preview-image]');
     const previewImageWrap = document.querySelector('[data-push-preview-image-wrap]');
+    const defaultImageUrl = previewImage ? (previewImage.getAttribute('data-push-default-image') || previewImage.getAttribute('src') || '') : '';
+    let currentObjectUrl = null;
 
     function updatePreview() {
       if (previewTitle) {
@@ -901,13 +904,25 @@
 
       const file = imageInput.files && imageInput.files[0];
       if (!file) {
-        previewImage.removeAttribute('src');
-        previewImageWrap.classList.remove('has-image');
+        if (currentObjectUrl) {
+          URL.revokeObjectURL(currentObjectUrl);
+          currentObjectUrl = null;
+        }
+        if (defaultImageUrl) {
+          previewImage.src = defaultImageUrl;
+          previewImageWrap.classList.add('has-image');
+        } else {
+          previewImage.removeAttribute('src');
+          previewImageWrap.classList.remove('has-image');
+        }
         return;
       }
 
-      const objectUrl = URL.createObjectURL(file);
-      previewImage.src = objectUrl;
+      if (currentObjectUrl) {
+        URL.revokeObjectURL(currentObjectUrl);
+      }
+      currentObjectUrl = URL.createObjectURL(file);
+      previewImage.src = currentObjectUrl;
       previewImageWrap.classList.add('has-image');
     }
 
@@ -916,5 +931,6 @@
     linkInput && linkInput.addEventListener('input', updatePreview);
     imageInput && imageInput.addEventListener('change', updateImagePreview);
     updatePreview();
+    updateImagePreview();
   })();
 </script>
