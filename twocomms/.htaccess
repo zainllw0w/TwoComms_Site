@@ -9,11 +9,6 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
 RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
 
-# Service worker must stay available from the root scope.
-# On LiteSpeed/PythonAnywhere this internal rewrite avoids an external 302 and
-# keeps browser registration predictable while still serving the static asset.
-RewriteRule ^sw\.js$ static/sw.js [L]
-
 # MIME types для современных форматов (если mod_mime не знает их)
 <IfModule mod_mime.c>
     AddType image/avif .avif
