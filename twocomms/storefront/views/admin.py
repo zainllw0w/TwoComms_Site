@@ -103,7 +103,6 @@ from storefront.services.catalog_helpers import bump_public_product_order_versio
 from storefront.services.web_push import (
     WebPushConfigurationError,
     get_default_notification_icon_url,
-    get_default_notification_image_url,
     is_web_push_configured,
     send_campaign,
 )
@@ -327,7 +326,6 @@ def _build_push_notifications_context(request, form=None):
         "web_push_public_key": getattr(settings, "WEB_PUSH_VAPID_PUBLIC_KEY", ""),
         "web_push_subject": getattr(settings, "WEB_PUSH_VAPID_SUBJECT", ""),
         "web_push_default_icon_url": get_default_notification_icon_url(),
-        "web_push_default_image_url": get_default_notification_image_url(),
         "web_push_missing_settings": [
             name
             for name, value in (

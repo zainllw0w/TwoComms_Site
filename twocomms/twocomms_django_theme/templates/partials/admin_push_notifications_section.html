@@ -737,12 +737,11 @@
             </div>
           </div>
           <div class="push-preview-body" data-push-preview-body>{{ push_form.body.value|default:"Короткий текст push-повідомлення з чітким CTA та без зайвого шуму." }}</div>
-          <div class="push-preview-image has-image" data-push-preview-image-wrap>
+          <div class="push-preview-image {% if push_form.instance.image %}has-image{% endif %}" data-push-preview-image-wrap>
             <img
-              src="{% if push_form.instance.image %}{{ push_form.instance.image.url }}{% else %}{{ web_push_default_image_url }}{% endif %}"
+              {% if push_form.instance.image %}src="{{ push_form.instance.image.url }}"{% endif %}
               alt=""
               data-push-preview-image
-              data-push-default-image="{{ web_push_default_image_url }}"
             >
           </div>
           <div class="push-preview-link" data-push-preview-link>{{ push_form.target_url.value|default:"/catalog/" }}</div>
@@ -834,9 +833,13 @@
                   </div>
                 </td>
                 <td>
-                  <div class="push-history-thumbnail">
-                    <img src="{% if campaign.image %}{{ campaign.image.url }}{% else %}{{ web_push_default_image_url }}{% endif %}" alt="{{ campaign.title }}">
-                  </div>
+                  {% if campaign.image %}
+                    <div class="push-history-thumbnail">
+                      <img src="{{ campaign.image.url }}" alt="{{ campaign.title }}">
+                    </div>
+                  {% else %}
+                    <small style="color:rgba(226,232,240,0.64);">Без зображення</small>
+                  {% endif %}
                 </td>
                 <td>
                   <div class="push-history-actions">
@@ -882,7 +885,6 @@
     const previewLink = document.querySelector('[data-push-preview-link]');
     const previewImage = document.querySelector('[data-push-preview-image]');
     const previewImageWrap = document.querySelector('[data-push-preview-image-wrap]');
-    const defaultImageUrl = previewImage ? (previewImage.getAttribute('data-push-default-image') || previewImage.getAttribute('src') || '') : '';
     let currentObjectUrl = null;
 
     function updatePreview() {
@@ -908,13 +910,8 @@
           URL.revokeObjectURL(currentObjectUrl);
           currentObjectUrl = null;
         }
-        if (defaultImageUrl) {
-          previewImage.src = defaultImageUrl;
-          previewImageWrap.classList.add('has-image');
-        } else {
-          previewImage.removeAttribute('src');
-          previewImageWrap.classList.remove('has-image');
-        }
+        previewImage.removeAttribute('src');
+        previewImageWrap.classList.remove('has-image');
         return;
       }
 
