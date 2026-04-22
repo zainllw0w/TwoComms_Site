@@ -18,8 +18,20 @@
       "integration-status": config.initialData?.integrationStatus || null,
     },
     charts: {},
-    loading: new Set(),
+    inFlight: {},
     renderedTabs: new Set(),
+    currentTab: config.initialTab || "overview",
+  };
+
+  const renderers = {
+    overview: renderOverview,
+    traffic: renderTraffic,
+    sales: renderSales,
+    cart: renderCart,
+    products: renderProducts,
+    "custom-print": renderCustomPrint,
+    survey: renderSurvey,
+    ux: renderUx,
   };
 
   const tabToEndpoint = {
@@ -42,33 +54,34 @@
   }
 
   function activateTab(tabName) {
+    state.currentTab = tabName;
     root.querySelectorAll("[data-analytics-tab]").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.analyticsTab === tabName);
     });
     root.querySelectorAll("[data-analytics-panel]").forEach((panel) => {
       panel.classList.toggle("is-active", panel.dataset.analyticsPanel === tabName);
     });
+    syncTabState(tabName);
 
-    if (tabName === "overview") {
-      renderOverview();
-      return;
-    }
-
-    if (state.renderedTabs.has(tabName) && state.cache[tabToEndpoint[tabName]]) {
-      return;
-    }
-
+    const render = renderers[tabName];
+    if (!render) return;
     const endpoint = tabToEndpoint[tabName];
-    if (!endpoint) return;
+
+    if (!endpoint) {
+      if (!state.renderedTabs.has(tabName)) {
+        render();
+        state.renderedTabs.add(tabName);
+      }
+      return;
+    }
+
+    if (state.renderedTabs.has(tabName) && state.cache[endpoint]) {
+      return;
+    }
+
     ensureWidget(endpoint)
       .then((widget) => {
-        if (tabName === "traffic") renderTraffic(widget);
-        if (tabName === "sales") renderSales(widget);
-        if (tabName === "cart") renderCart(widget);
-        if (tabName === "products") renderProducts(widget);
-        if (tabName === "custom-print") renderCustomPrint(widget);
-        if (tabName === "survey") renderSurvey(widget);
-        if (tabName === "ux") renderUx(widget);
+        render(widget);
         state.renderedTabs.add(tabName);
       })
       .catch((error) => {
@@ -85,30 +98,23 @@
 
   async function ensureWidget(endpoint) {
     if (state.cache[endpoint]) return state.cache[endpoint];
-    if (state.loading.has(endpoint)) {
-      return new Promise((resolve) => {
-        const interval = window.setInterval(() => {
-          if (!state.loading.has(endpoint)) {
-            window.clearInterval(interval);
-            resolve(state.cache[endpoint]);
-          }
-        }, 100);
-      });
-    }
-    state.loading.add(endpoint);
+    if (state.inFlight[endpoint]) return state.inFlight[endpoint];
+
     try {
-      const response = await fetch(buildWidgetUrl(endpoint), {
+      state.inFlight[endpoint] = fetch(buildWidgetUrl(endpoint), {
         headers: { "X-Requested-With": "XMLHttpRequest" },
         credentials: "same-origin",
+      }).then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} while loading ${endpoint}`);
+        }
+        const payload = await response.json();
+        state.cache[endpoint] = payload;
+        return payload;
       });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} while loading ${endpoint}`);
-      }
-      const payload = await response.json();
-      state.cache[endpoint] = payload;
-      return payload;
+      return await state.inFlight[endpoint];
     } finally {
-      state.loading.delete(endpoint);
+      delete state.inFlight[endpoint];
     }
   }
 
@@ -215,11 +221,11 @@
 
     const breakdownItems = [];
     (data.devices || []).slice(0, 4).forEach((item) => breakdownItems.push({
-      title: `Device: ${item.label}`,
+      title: `Пристрій: ${item.label}`,
       value: `${formatInt(item.sessions)} сесій`,
     }));
     (data.browsers || []).slice(0, 4).forEach((item) => breakdownItems.push({
-      title: `Browser: ${item.label}`,
+      title: `Браузер: ${item.label}`,
       value: `${formatInt(item.sessions)} сесій`,
     }));
     (data.geo || []).slice(0, 4).forEach((item) => breakdownItems.push({
@@ -229,7 +235,7 @@
     if (data.excluded_activity?.sessions || data.excluded_activity?.page_views) {
       renderList(document.getElementById("analyticsTrafficBreakdowns"), [
         {
-          title: "Excluded admin/internal",
+          title: "Виключено admin/internal",
           value: `${formatInt(data.excluded_activity.sessions)} сесій · ${formatInt(data.excluded_activity.page_views)} pageviews`,
         },
         ...breakdownItems,
@@ -287,12 +293,12 @@
 
     renderList(document.getElementById("analyticsSalesSummary"), [
       { title: "Оплачені замовлення", value: formatInt(data.summary?.paid_orders) },
-      { title: "Revenue", value: formatMoney(data.summary?.revenue) },
+      { title: "Виручка", value: formatMoney(data.summary?.revenue) },
       { title: "AOV", value: formatMoney(data.summary?.aov) },
-      { title: "Items sold", value: formatInt(data.summary?.items_sold) },
-      { title: "Repeat purchase rate", value: formatPercent(data.summary?.repeat_purchase_rate, true) },
-      { title: "Excluded orders", value: formatInt(data.excluded_activity?.orders) },
-      { title: "Excluded revenue", value: formatMoney(data.excluded_activity?.revenue) },
+      { title: "Продано одиниць", value: formatInt(data.summary?.items_sold) },
+      { title: "Повторні покупки", value: formatPercent(data.summary?.repeat_purchase_rate, true) },
+      { title: "Виключені замовлення", value: formatInt(data.excluded_activity?.orders) },
+      { title: "Виключена виручка", value: formatMoney(data.excluded_activity?.revenue) },
     ]);
 
     renderList(
@@ -405,7 +411,7 @@
 
     renderList(document.getElementById("analyticsProductsSidebar"), [
       {
-        title: "Excluded admin views",
+        title: "Виключені admin перегляди",
         value: `${formatInt(data.excluded_activity?.product_views)} views`,
       },
       ...(data.categories || []).slice(0, 6).map((item) => ({
@@ -413,7 +419,7 @@
         value: `${formatInt(item.views)} переглядів`,
       })),
       ...(data.low_viewed || []).slice(0, 6).map((item) => ({
-        title: `Low view: ${item.title}`,
+        title: `Low-view: ${item.title}`,
         value: `${formatInt(item.total_views)} views`,
       })),
     ]);
@@ -462,12 +468,12 @@
     });
 
     renderList(document.getElementById("analyticsCustomPrintSummary"), [
-      { title: "Unique starters", value: formatInt(data.summary?.unique_starters) },
+      { title: "Унікальні стартери", value: formatInt(data.summary?.unique_starters) },
       { title: "Leads", value: formatInt(data.summary?.leads) },
-      { title: "Add to cart", value: formatInt(data.summary?.add_to_cart) },
-      { title: "Send to manager", value: formatInt(data.summary?.send_to_manager) },
-      { title: "Linked to order", value: formatPercent(data.summary?.linked_to_order_rate, true) },
-      { title: "Average final value", value: formatMoney(data.summary?.avg_final_value) },
+      { title: "Додано в кошик", value: formatInt(data.summary?.add_to_cart) },
+      { title: "Надіслано менеджеру", value: formatInt(data.summary?.send_to_manager) },
+      { title: "Прив'язано до замовлення", value: formatPercent(data.summary?.linked_to_order_rate, true) },
+      { title: "Середній фінальний чек", value: formatMoney(data.summary?.avg_final_value) },
     ]);
 
     renderList(
@@ -526,10 +532,10 @@
     });
 
     renderList(document.getElementById("analyticsSurveySummary"), [
-      { title: "Starts", value: formatInt(data.summary?.starts) },
-      { title: "Completed", value: formatInt(data.summary?.completed) },
+      { title: "Старти", value: formatInt(data.summary?.starts) },
+      { title: "Завершено", value: formatInt(data.summary?.completed) },
       { title: "Completion rate", value: formatPercent(data.summary?.completion_rate, true) },
-      { title: "Promo issued", value: formatInt(data.summary?.promo_issued) },
+      { title: "Видано промокодів", value: formatInt(data.summary?.promo_issued) },
       { title: "Downstream purchase", value: formatPercent(data.summary?.downstream_purchase_rate, true) },
     ]);
 
@@ -559,7 +565,7 @@
     const data = widget.data || {};
     const clarityOverview = data.clarity_overview || {};
     const metrics = [
-      { label: "Traffic", value: totalFromClarityMetric(clarityOverview.Traffic, "totalSessionCount") },
+      { label: "Трафік", value: totalFromClarityMetric(clarityOverview.Traffic, "totalSessionCount") },
       { label: "Rage clicks", value: totalFromClarityMetric(clarityOverview["Rage Click Count"], "Rage Click Count") },
       { label: "Dead clicks", value: totalFromClarityMetric(clarityOverview["Dead Click Count"], "Dead Click Count") },
       { label: "Quickbacks", value: totalFromClarityMetric(clarityOverview["Quickback Click"], "Quickback Click") },
@@ -611,10 +617,10 @@
           value: `${formatPercent(data.capture_health?.ip_capture_ratio, true)}`,
         },
         {
-          title: "Visitor cookie coverage",
+          title: "Покриття visitor cookie",
           value: `${formatPercent(data.capture_health?.visitor_cookie_ratio, true)}`,
         },
-        ...((data.warnings || []).map((warning) => ({ title: "Warning", value: warning }))),
+        ...((data.warnings || []).map((warning) => ({ title: "Попередження", value: warning }))),
       ]
     );
   }
@@ -670,6 +676,34 @@
         target.innerHTML = `<div class="analytics-warning-item">${escapeHtml(error?.message || "Widget load failed")}</div>`;
       }
     });
+  }
+
+  function syncTabState(tabName) {
+    const tabInput = root.querySelector("[data-analytics-tab-input]");
+    if (tabInput) {
+      tabInput.value = tabName;
+    }
+
+    root.querySelectorAll("[data-analytics-preserve-tab-link]").forEach((link) => {
+      try {
+        const url = new URL(link.getAttribute("href"), window.location.href);
+        url.searchParams.set("analytics_tab", tabName);
+        link.setAttribute("href", `${url.pathname}${url.search}${url.hash}`);
+      } catch (error) {
+        console.warn("[admin analytics] failed to sync tab link", error);
+      }
+    });
+
+    if (!window.location || !window.history || typeof window.history.replaceState !== "function") {
+      return;
+    }
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("analytics_tab", tabName);
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    } catch (error) {
+      console.warn("[admin analytics] failed to sync tab in URL", error);
+    }
   }
 
   function renderList(target, items) {

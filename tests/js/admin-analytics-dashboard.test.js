@@ -52,6 +52,18 @@ async function renderTab(tabName, payload, options = {}) {
         initialData: {},
       }),
     },
+    analyticsTabInput: {
+      value: tabName,
+    },
+    analyticsPreserveLink: {
+      href: '?section=stats',
+      getAttribute(name) {
+        return this[name];
+      },
+      setAttribute(name, value) {
+        this[name] = value;
+      },
+    },
   };
 
   const idsByTab = {
@@ -80,9 +92,14 @@ async function renderTab(tabName, payload, options = {}) {
   ];
 
   const root = {
+    querySelector: (selector) => {
+      if (selector === '[data-analytics-tab-input]') return targets.analyticsTabInput;
+      return null;
+    },
     querySelectorAll: (selector) => {
       if (selector === '[data-analytics-tab]') return tabButtons;
       if (selector === '[data-analytics-panel]') return panels;
+      if (selector === '[data-analytics-preserve-tab-link]') return [targets.analyticsPreserveLink];
       return [];
     },
   };
@@ -103,8 +120,11 @@ async function renderTab(tabName, payload, options = {}) {
       document,
       setInterval,
       clearInterval,
+      location: { href: 'https://twocomms.shop/admin-panel/?section=stats' },
+      history: { replaceState: () => {} },
     },
     fetch: fetchImpl,
+    URL,
     URLSearchParams,
     Promise,
     JSON,
@@ -192,4 +212,19 @@ test('failed widget fetch renders inline warning instead of silent console-only 
   });
 
   assert.match(targets.analyticsTrafficSources.innerHTML, /HTTP 503 while loading acquisition/);
+});
+
+test('tab activation keeps current analytics tab in hidden form input and reset links', async () => {
+  const targets = await renderTab('sales', {
+    data: {
+      summary: {},
+      payment_split: [],
+      daily_series: { labels: [], revenue: [], orders: [] },
+      source_ltv: [],
+      top_products: [],
+    },
+  });
+
+  assert.equal(targets.analyticsTabInput.value, 'sales');
+  assert.match(targets.analyticsPreserveLink.href, /analytics_tab=sales/);
 });

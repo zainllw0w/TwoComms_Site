@@ -5,6 +5,37 @@
 
 {% block extra_css %}
 <style>
+  @media (min-width: 761px) {
+    .admin-panel--stats .admin-header {
+      margin-bottom: 1.4rem;
+    }
+
+    .admin-panel--stats .admin-header-content,
+    .admin-panel--stats .admin-content {
+      max-width: min(1500px, calc(100vw - 2rem));
+    }
+
+    .admin-panel--stats .admin-header-content {
+      display: grid;
+      align-items: start;
+      gap: 1rem;
+    }
+
+    .admin-panel--stats .admin-nav {
+      row-gap: 0.75rem;
+    }
+
+    .admin-panel--stats .admin-nav-item {
+      padding: 0.7rem 0.95rem;
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .admin-panel--stats .admin-nav-item.active {
+      box-shadow: 0 8px 22px rgba(139, 92, 246, 0.16);
+    }
+  }
+
   .order-actions-inline {
     margin-left: auto;
     display: flex;
@@ -510,7 +541,7 @@
 
 {% block content %}
 {% csrf_token %}
-<div class="admin-panel">
+<div class="admin-panel {% if section == 'stats' %}admin-panel--stats{% endif %}">
   <!-- Заголовок админ-панели -->
         <div class="admin-header">
         <div class="admin-header-content">

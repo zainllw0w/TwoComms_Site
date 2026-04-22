@@ -316,6 +316,10 @@
       font-size-adjust: 0.52;
     }
 
+    :root {
+      --site-navbar-height: 70px;
+    }
+
     .navbar {
       position: fixed;
       /* Всегда на верху экрана */
@@ -332,7 +336,7 @@
       background: rgba(0, 0, 0, 0.8);
       backdrop-filter: blur(10px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      height: 70px;
+      height: var(--site-navbar-height);
       /* Фиксированная высота */
       contain: layout;
       /* Изолируем layout */
@@ -340,7 +344,7 @@
 
     /* Отступ сверху для main, чтобы контент не был под navbar */
     main.container-xxl {
-      padding-top: calc(70px + 1rem) !important;
+      padding-top: calc(var(--site-navbar-height) + 1rem) !important;
       /* Высота navbar + оригинальный padding */
     }
 

@@ -14,20 +14,24 @@
   }
 
   .analytics-toolbar {
-    position: sticky;
-    top: 88px;
-    z-index: 8;
+    position: relative;
+    z-index: 4;
     display: grid;
     gap: 1rem;
     padding: 1.1rem;
     border-radius: 24px;
     border: 1px solid rgba(255,255,255,0.08);
     background:
-      radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 32%),
-      radial-gradient(circle at top right, rgba(251,191,36,0.12), transparent 28%),
-      linear-gradient(180deg, rgba(17,24,39,0.96), rgba(10,15,25,0.98));
-    backdrop-filter: blur(16px);
-    box-shadow: 0 24px 60px rgba(2,6,23,0.35);
+      radial-gradient(circle at top left, rgba(56,189,248,0.14), transparent 34%),
+      linear-gradient(180deg, rgba(12,18,30,0.98), rgba(8,13,24,0.98));
+    box-shadow: 0 20px 48px rgba(2,6,23,0.26);
+  }
+
+  @media (min-width: 1320px) {
+    .analytics-toolbar {
+      position: sticky;
+      top: calc(var(--site-navbar-height, 70px) + 12px);
+    }
   }
 
   .analytics-toolbar-head {
@@ -49,6 +53,7 @@
     font-size: 1.9rem;
     font-weight: 900;
     color: #f8fafc;
+    text-wrap: balance;
   }
 
   .analytics-toolbar-title p {
@@ -79,10 +84,10 @@
     text-decoration: none;
   }
 
-  .analytics-filter-grid {
+  .analytics-toolbar-primary {
     display: grid;
     gap: 0.9rem;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   }
 
   .analytics-filter-disclosure {
@@ -90,22 +95,18 @@
     gap: 0.9rem;
   }
 
-  .analytics-filter-summary {
+  .analytics-filter-grid {
+    display: grid;
+    gap: 0.9rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .analytics-filter-grid--advanced {
     display: none;
   }
 
-  @media (min-width: 761px) {
-    .analytics-filter-disclosure {
-      display: block;
-    }
-
-    .analytics-filter-disclosure > summary {
-      display: none;
-    }
-
-    .analytics-filter-disclosure > .analytics-filter-grid {
-      display: grid !important;
-    }
+  .analytics-filter-disclosure[open] > .analytics-filter-grid--advanced {
+    display: grid;
   }
 
   .analytics-filter {
@@ -159,6 +160,11 @@
     text-decoration: none;
   }
 
+  .analytics-filter--actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
   .analytics-checkbox {
     display: inline-flex;
     align-items: center;
@@ -167,47 +173,142 @@
     font-size: 0.92rem;
   }
 
-  .analytics-status-grid {
+  .analytics-filter-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.85rem 0.95rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: #f8fafc;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .analytics-filter-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .analytics-filter-summary strong,
+  .analytics-filter-summary span {
+    display: block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .analytics-filter-summary strong {
+    font-size: 0.92rem;
+  }
+
+  .analytics-filter-summary span {
+    color: rgba(191,219,254,0.76);
+    font-size: 0.82rem;
+    text-align: right;
+  }
+
+  .analytics-filter-summary svg {
+    flex: 0 0 auto;
+    transition: transform 0.2s ease;
+  }
+
+  .analytics-filter-disclosure[open] .analytics-filter-summary svg {
+    transform: rotate(180deg);
+  }
+
+  .analytics-active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .analytics-active-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.05);
+    color: rgba(226,232,240,0.88);
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .analytics-active-chip small {
+    color: rgba(148,163,184,0.9);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .analytics-health-strip {
     display: grid;
-    gap: 1rem;
+    gap: 0.85rem;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 
-  .analytics-status-card {
-    padding: 1rem 1.05rem;
-    border-radius: 18px;
+  .analytics-health-chip {
+    padding: 0.9rem 1rem;
+    border-radius: 16px;
     border: 1px solid rgba(255,255,255,0.08);
     background: rgba(255,255,255,0.04);
     min-width: 0;
   }
 
-  .analytics-status-card[data-status="healthy"] {
+  .analytics-health-chip[data-status="healthy"] {
     border-color: rgba(16,185,129,0.34);
-    background: rgba(6,95,70,0.18);
+    background: rgba(6,95,70,0.16);
   }
 
-  .analytics-status-card[data-status="warning"] {
+  .analytics-health-chip[data-status="warning"] {
     border-color: rgba(245,158,11,0.34);
-    background: rgba(120,53,15,0.22);
+    background: rgba(120,53,15,0.18);
   }
 
-  .analytics-status-card[data-status="error"] {
+  .analytics-health-chip[data-status="error"] {
     border-color: rgba(239,68,68,0.34);
-    background: rgba(127,29,29,0.2);
+    background: rgba(127,29,29,0.18);
   }
 
-  .analytics-status-card strong {
+  .analytics-health-chip strong {
     display: block;
     margin-bottom: 0.25rem;
-    font-size: 1rem;
+    font-size: 0.95rem;
     color: #f8fafc;
   }
 
-  .analytics-status-card p {
+  .analytics-health-chip p {
     margin: 0;
     color: rgba(226,232,240,0.76);
-    font-size: 0.92rem;
+    font-size: 0.88rem;
     overflow-wrap: anywhere;
+  }
+
+  .analytics-health-details {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .analytics-health-details summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: fit-content;
+    padding: 0.65rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid rgba(251,191,36,0.22);
+    background: rgba(120,53,15,0.14);
+    color: #fde68a;
+    font-weight: 800;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .analytics-health-details summary::-webkit-details-marker {
+    display: none;
   }
 
   .analytics-warning-list {
@@ -229,6 +330,14 @@
     display: grid;
     gap: 1rem;
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+
+  .analytics-kpi-grid--primary {
+    grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  }
+
+  .analytics-kpi-grid--secondary {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 
   .analytics-kpi-card {
@@ -257,6 +366,7 @@
     font-size: 2rem;
     line-height: 1.05;
     color: #f8fafc;
+    font-variant-numeric: tabular-nums;
   }
 
   .analytics-kpi-card span {
@@ -289,11 +399,27 @@
   .analytics-tabs {
     display: flex;
     gap: 0.65rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
     min-width: 0;
   }
 
+  .analytics-tabs::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .analytics-tabs::-webkit-scrollbar-thumb {
+    background: rgba(148,163,184,0.34);
+    border-radius: 999px;
+  }
+
   .analytics-tab-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    scroll-snap-align: start;
     min-height: 44px;
     padding: 0.75rem 1rem;
     border-radius: 999px;
@@ -340,6 +466,7 @@
     font-size: 1.05rem;
     font-weight: 900;
     color: #f8fafc;
+    text-wrap: balance;
   }
 
   .analytics-card p {
@@ -369,10 +496,20 @@
     min-width: 0;
   }
 
+  .analytics-list--stacked .analytics-list-item {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-list--stacked .analytics-list-item span {
+    max-width: none;
+    justify-self: start;
+    text-align: left;
+  }
+
   .analytics-list-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
     gap: 1rem;
     padding: 0.8rem 0.9rem;
     border-radius: 16px;
@@ -389,9 +526,12 @@
 
   .analytics-list-item span {
     text-align: right;
+    justify-self: end;
+    max-width: 32ch;
     min-width: 0;
     overflow-wrap: anywhere;
     word-break: break-word;
+    font-variant-numeric: tabular-nums;
   }
 
   .analytics-table-wrap {
@@ -418,6 +558,7 @@
   .analytics-table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
   }
 
   .analytics-table th,
@@ -427,6 +568,8 @@
     color: #e2e8f0;
     text-align: left;
     vertical-align: top;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .analytics-table th {
@@ -492,17 +635,29 @@
   }
 
   @media (max-width: 1180px) {
-    .analytics-filter-grid,
-    .analytics-grid-3 {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
     .analytics-grid-2 {
       grid-template-columns: 1fr;
     }
   }
 
+  @media (max-width: 1120px) {
+    .analytics-grid-3 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .analytics-list-item {
+      grid-template-columns: 1fr;
+    }
+
+    .analytics-list-item span {
+      max-width: none;
+      justify-self: start;
+      text-align: left;
+    }
+  }
+
   @media (max-width: 980px) {
+    .analytics-toolbar-primary,
     .analytics-filter-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -520,7 +675,6 @@
       border-radius: 18px;
     }
 
-    .analytics-filter-grid,
     .analytics-grid-3 {
       grid-template-columns: 1fr;
     }
@@ -575,26 +729,6 @@
       font-size: 1.6rem;
     }
 
-    .analytics-tabs {
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      padding-bottom: 0.25rem;
-      margin: 0 -0.1rem;
-      scroll-snap-type: x proximity;
-      scrollbar-width: none;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    .analytics-tabs::-webkit-scrollbar {
-      display: none;
-    }
-
-    .analytics-tab-btn {
-      flex: 0 0 auto;
-      white-space: nowrap;
-      scroll-snap-align: start;
-    }
-
     .analytics-panel {
       gap: 0.85rem;
     }
@@ -602,65 +736,6 @@
     .analytics-card {
       padding: 1rem;
       border-radius: 18px;
-    }
-
-    .analytics-filter-disclosure {
-      gap: 0.8rem;
-    }
-
-    .analytics-filter-disclosure[open] .analytics-filter-summary svg {
-      transform: rotate(180deg);
-    }
-
-    .analytics-filter-summary {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      width: 100%;
-      padding: 0.85rem 0.95rem;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.04);
-      color: #f8fafc;
-      cursor: pointer;
-      list-style: none;
-    }
-
-    .analytics-filter-summary::-webkit-details-marker {
-      display: none;
-    }
-
-    .analytics-filter-summary strong,
-    .analytics-filter-summary span {
-      display: block;
-      min-width: 0;
-      overflow-wrap: anywhere;
-    }
-
-    .analytics-filter-summary strong {
-      font-size: 0.92rem;
-    }
-
-    .analytics-filter-summary span {
-      color: rgba(191,219,254,0.76);
-      font-size: 0.82rem;
-      text-align: right;
-    }
-
-    .analytics-filter-summary svg {
-      flex: 0 0 auto;
-      transition: transform 0.2s ease;
-    }
-
-    .analytics-list-item {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .analytics-list-item span {
-      width: 100%;
-      text-align: left;
     }
 
     .analytics-chart-shell {
@@ -745,6 +820,11 @@
       text-align: left;
     }
 
+    .analytics-toolbar-primary,
+    .analytics-filter-grid {
+      grid-template-columns: 1fr;
+    }
+
     .analytics-table--responsive td {
       grid-template-columns: 1fr;
       gap: 0.3rem;
@@ -756,52 +836,86 @@
   <div class="analytics-workspace" data-admin-analytics-root>
     <form class="analytics-toolbar" method="get" action="{% url 'admin_panel' %}">
       <input type="hidden" name="section" value="stats">
+      <input type="hidden" name="analytics_tab" value="{{ analytics_dashboard.config.initialTab }}" data-analytics-tab-input>
       <div class="analytics-toolbar-head">
         <div class="analytics-toolbar-title">
-          <h2>Unified Analytics Workspace</h2>
+          <h2>Єдина аналітична панель</h2>
           <p>Єдине вікно для трафіку, продажів, кошика, товарів, кастомного принта, опитувань і live UX-сигналів. Внутрішня БД є primary source; GA4 та Clarity підтягуються як окремі шари з явним позначенням джерела.</p>
         </div>
         <div class="analytics-toolbar-actions">
-          <a class="analytics-legacy-link" href="{{ analytics_dashboard.legacy_dispatcher_url }}">
+          <a class="analytics-legacy-link" href="{{ analytics_dashboard.legacy_dispatcher_url }}" data-analytics-preserve-tab-link>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-            Legacy dispatcher
+            Legacy-диспетчер
           </a>
         </div>
       </div>
 
-      <details class="analytics-filter-disclosure">
+      <div class="analytics-toolbar-primary">
+        <div class="analytics-filter">
+          <label for="analytics-period">Період</label>
+          <select id="analytics-period" name="period">
+            {% for value, label in analytics_dashboard.period_options %}
+              <option value="{{ value }}" {% if analytics_dashboard.filters.period == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="analytics-filter">
+          <label for="analytics-date-from">Дата від</label>
+          <input id="analytics-date-from" type="date" name="date_from" value="{{ analytics_dashboard.filters.date_from }}">
+        </div>
+        <div class="analytics-filter">
+          <label for="analytics-date-to">Дата до</label>
+          <input id="analytics-date-to" type="date" name="date_to" value="{{ analytics_dashboard.filters.date_to }}">
+        </div>
+        <div class="analytics-filter">
+          <label for="analytics-compare">Порівняння</label>
+          <select id="analytics-compare" name="compare_to">
+            {% for value, label in analytics_dashboard.compare_options %}
+              <option value="{{ value }}" {% if analytics_dashboard.filters.compare_to == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="analytics-filter analytics-filter--inline analytics-filter--actions">
+          <button type="submit">Оновити workspace</button>
+          <a href="?section=stats&analytics_tab={{ analytics_dashboard.config.initialTab }}" data-analytics-preserve-tab-link>Скинути</a>
+        </div>
+      </div>
+
+      {% if analytics_dashboard.filters.source_class != "all" or analytics_dashboard.filters.device_type != "all" or analytics_dashboard.filters.utm_source or analytics_dashboard.filters.utm_medium or analytics_dashboard.filters.campaign or analytics_dashboard.filters.product_id or analytics_dashboard.filters.include_bots %}
+        <div class="analytics-active-filters">
+          {% if analytics_dashboard.filters.source_class != "all" %}
+            <span class="analytics-active-chip"><small>Канал</small>{{ analytics_dashboard.filters.source_class }}</span>
+          {% endif %}
+          {% if analytics_dashboard.filters.device_type != "all" %}
+            <span class="analytics-active-chip"><small>Пристрій</small>{{ analytics_dashboard.filters.device_type }}</span>
+          {% endif %}
+          {% if analytics_dashboard.filters.utm_source %}
+            <span class="analytics-active-chip"><small>UTM source</small>{{ analytics_dashboard.filters.utm_source }}</span>
+          {% endif %}
+          {% if analytics_dashboard.filters.utm_medium %}
+            <span class="analytics-active-chip"><small>UTM medium</small>{{ analytics_dashboard.filters.utm_medium }}</span>
+          {% endif %}
+          {% if analytics_dashboard.filters.campaign %}
+            <span class="analytics-active-chip"><small>Кампанія</small>{{ analytics_dashboard.filters.campaign }}</span>
+          {% endif %}
+          {% if analytics_dashboard.filters.product_id %}
+            <span class="analytics-active-chip"><small>Товар</small>ID {{ analytics_dashboard.filters.product_id }}</span>
+          {% endif %}
+          {% if analytics_dashboard.filters.include_bots %}
+            <span class="analytics-active-chip"><small>Трафік</small>Боти включені</span>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      <details class="analytics-filter-disclosure" {% if analytics_dashboard.filters.source_class != "all" or analytics_dashboard.filters.device_type != "all" or analytics_dashboard.filters.utm_source or analytics_dashboard.filters.utm_medium or analytics_dashboard.filters.campaign or analytics_dashboard.filters.product_id or analytics_dashboard.filters.include_bots %}open{% endif %}>
         <summary class="analytics-filter-summary">
           <div>
-            <strong>Фільтри та сегменти</strong>
-            <span>{{ analytics_dashboard.filters.date_from }}{% if analytics_dashboard.filters.date_to %} - {{ analytics_dashboard.filters.date_to }}{% endif %}</span>
+            <strong>Додаткові фільтри</strong>
+            <span>{% if analytics_dashboard.filters.source_class != "all" or analytics_dashboard.filters.device_type != "all" or analytics_dashboard.filters.utm_source or analytics_dashboard.filters.utm_medium or analytics_dashboard.filters.campaign or analytics_dashboard.filters.product_id or analytics_dashboard.filters.include_bots %}Є активні сегменти{% else %}Source, device, UTM, product, bots{% endif %}</span>
           </div>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
         </summary>
-        <div class="analytics-filter-grid">
-          <div class="analytics-filter">
-            <label for="analytics-period">Період</label>
-            <select id="analytics-period" name="period">
-              {% for value, label in analytics_dashboard.period_options %}
-                <option value="{{ value }}" {% if analytics_dashboard.filters.period == value %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="analytics-filter">
-            <label for="analytics-date-from">Дата від</label>
-            <input id="analytics-date-from" type="date" name="date_from" value="{{ analytics_dashboard.filters.date_from }}">
-          </div>
-          <div class="analytics-filter">
-            <label for="analytics-date-to">Дата до</label>
-            <input id="analytics-date-to" type="date" name="date_to" value="{{ analytics_dashboard.filters.date_to }}">
-          </div>
-          <div class="analytics-filter">
-            <label for="analytics-compare">Порівняння</label>
-            <select id="analytics-compare" name="compare_to">
-              {% for value, label in analytics_dashboard.compare_options %}
-                <option value="{{ value }}" {% if analytics_dashboard.filters.compare_to == value %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
+        <div class="analytics-filter-grid analytics-filter-grid--advanced">
           <div class="analytics-filter">
             <label for="analytics-source-class">Клас джерела</label>
             <select id="analytics-source-class" name="source_class">
@@ -860,32 +974,11 @@
               Показувати ботів
             </label>
           </div>
-          <div class="analytics-filter analytics-filter--inline">
-            <button type="submit">Оновити workspace</button>
-            <a href="?section=stats">Скинути</a>
-          </div>
         </div>
       </details>
     </form>
 
-    <div class="analytics-status-grid">
-      {% for integration in integrations %}
-        <div class="analytics-status-card" data-status="{{ integration.status }}">
-          <strong>{{ integration.label }}</strong>
-          <p>{{ integration.message }}</p>
-        </div>
-      {% endfor %}
-    </div>
-
-    {% if analytics_dashboard.integration_status.data.warnings %}
-      <div class="analytics-warning-list">
-        {% for warning in analytics_dashboard.integration_status.data.warnings %}
-          <div class="analytics-warning-item">{{ warning }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-
-    <div class="analytics-kpi-grid">
+    <div class="analytics-kpi-grid analytics-kpi-grid--primary">
       <div class="analytics-kpi-card">
         <small>Сесії</small>
         <strong>{{ headline.sessions|default:0 }}</strong>
@@ -916,6 +1009,9 @@
         <strong>{{ headline.conversion_rate|floatformat:2 }}%</strong>
         <span>Bounce: {{ headline.bounce_rate|floatformat:2 }}%</span>
       </div>
+    </div>
+
+    <div class="analytics-kpi-grid analytics-kpi-grid--secondary">
       <div class="analytics-kpi-card">
         <small>Кошик</small>
         <strong>{{ headline.cart_adds|default:0 }}</strong>
@@ -958,6 +1054,29 @@
       </div>
     {% endif %}
 
+    <div class="analytics-health-strip">
+      {% for integration in integrations %}
+        <div class="analytics-health-chip" data-status="{{ integration.status }}">
+          <strong>{{ integration.label }}</strong>
+          <p>{{ integration.message }}</p>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if analytics_dashboard.integration_status.data.warnings %}
+      <details class="analytics-health-details">
+        <summary>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+          Технічні попередження
+        </summary>
+        <div class="analytics-warning-list">
+          {% for warning in analytics_dashboard.integration_status.data.warnings %}
+            <div class="analytics-warning-item">{{ warning }}</div>
+          {% endfor %}
+        </div>
+      </details>
+    {% endif %}
+
     <div class="analytics-tabs" data-analytics-tabs>
       <button type="button" class="analytics-tab-btn is-active" data-analytics-tab="overview">Огляд</button>
       <button type="button" class="analytics-tab-btn" data-analytics-tab="traffic">Трафік</button>
@@ -988,12 +1107,12 @@
           <p class="analytics-footnote">Верхній огляд дає швидкий сигнал по ефективності воронки. Дані не змішують GA4 і внутрішню БД в один KPI.</p>
         </div>
         <div class="analytics-card">
-          <h3>Tracked from</h3>
+          <h3>Точки збору</h3>
           <div class="analytics-list" id="analyticsTrackedFromList"></div>
         </div>
         <div class="analytics-card">
-          <h3>Compare mode</h3>
-          <div class="analytics-list" id="analyticsCompareSummary"></div>
+          <h3>Режим порівняння</h3>
+          <div class="analytics-list analytics-list--stacked" id="analyticsCompareSummary"></div>
         </div>
       </div>
     </section>
@@ -1013,15 +1132,15 @@
       </div>
       <div class="analytics-grid-3">
         <div class="analytics-card">
-          <h3>Top sources</h3>
+          <h3>Топ-джерела</h3>
           <div class="analytics-table-wrap" id="analyticsTrafficSources"></div>
         </div>
         <div class="analytics-card">
-          <h3>Landing / Referrers</h3>
+          <h3>Landing / referrers</h3>
           <div class="analytics-list" id="analyticsTrafficLanding"></div>
         </div>
         <div class="analytics-card">
-          <h3>Geo / Device / Browser</h3>
+          <h3>Гео / пристрої / браузери</h3>
           <div class="analytics-list" id="analyticsTrafficBreakdowns"></div>
         </div>
       </div>
@@ -1036,17 +1155,17 @@
           </div>
         </div>
         <div class="analytics-card">
-          <h3>Sales summary</h3>
+          <h3>Підсумок продажів</h3>
           <div class="analytics-list" id="analyticsSalesSummary"></div>
         </div>
       </div>
       <div class="analytics-grid-2">
         <div class="analytics-card">
-          <h3>Payment split</h3>
+          <h3>Розподіл оплат</h3>
           <div class="analytics-list" id="analyticsPaymentSplit"></div>
         </div>
         <div class="analytics-card">
-          <h3>Source LTV / top products</h3>
+          <h3>LTV каналів / топ-товари</h3>
           <div class="analytics-table-wrap" id="analyticsSalesTables"></div>
         </div>
       </div>
@@ -1061,17 +1180,17 @@
           </div>
         </div>
         <div class="analytics-card">
-          <h3>Cart summary</h3>
+          <h3>Підсумок кошика</h3>
           <div class="analytics-list" id="analyticsCartSummary"></div>
         </div>
       </div>
       <div class="analytics-grid-2">
         <div class="analytics-card">
-          <h3>Payment methods</h3>
+          <h3>Методи оплати</h3>
           <div class="analytics-list" id="analyticsCartPayments"></div>
         </div>
         <div class="analytics-card">
-          <h3>Top removals</h3>
+          <h3>Найчастіші видалення</h3>
           <div class="analytics-table-wrap" id="analyticsCartRemovals"></div>
         </div>
       </div>
@@ -1080,18 +1199,18 @@
     <section class="analytics-panel" data-analytics-panel="products">
       <div class="analytics-grid-2">
         <div class="analytics-card analytics-card--chart">
-          <h3>Top viewed products</h3>
+          <h3>Топ переглядів товарів</h3>
           <div class="analytics-chart-shell">
             <canvas id="analyticsProductsChart" height="120"></canvas>
           </div>
         </div>
         <div class="analytics-card">
-          <h3>Categories / low-view inventory</h3>
+          <h3>Категорії / low-view товари</h3>
           <div class="analytics-list" id="analyticsProductsSidebar"></div>
         </div>
       </div>
       <div class="analytics-card">
-        <h3>Products table</h3>
+        <h3>Таблиця товарів</h3>
         <div class="analytics-table-wrap" id="analyticsProductsTable"></div>
       </div>
     </section>
@@ -1105,17 +1224,17 @@
           </div>
         </div>
         <div class="analytics-card">
-          <h3>Custom print summary</h3>
+          <h3>Підсумок custom print</h3>
           <div class="analytics-list" id="analyticsCustomPrintSummary"></div>
         </div>
       </div>
       <div class="analytics-grid-2">
         <div class="analytics-card">
-          <h3>Safe exits</h3>
+          <h3>Безпечні виходи</h3>
           <div class="analytics-list" id="analyticsCustomPrintExits"></div>
         </div>
         <div class="analytics-card">
-          <h3>Moderation / B2B mix</h3>
+          <h3>Модерація / B2B-мікс</h3>
           <div class="analytics-table-wrap" id="analyticsCustomPrintTables"></div>
         </div>
       </div>
@@ -1130,17 +1249,17 @@
           </div>
         </div>
         <div class="analytics-card">
-          <h3>Survey summary</h3>
+          <h3>Підсумок опитування</h3>
           <div class="analytics-list" id="analyticsSurveySummary"></div>
         </div>
       </div>
       <div class="analytics-grid-2">
         <div class="analytics-card">
-          <h3>Question drop-off</h3>
+          <h3>Drop-off по питаннях</h3>
           <div class="analytics-table-wrap" id="analyticsSurveyDropoff"></div>
         </div>
         <div class="analytics-card">
-          <h3>Question answers</h3>
+          <h3>Відповіді по питаннях</h3>
           <div class="analytics-table-wrap" id="analyticsSurveyAnswers"></div>
         </div>
       </div>
@@ -1155,13 +1274,13 @@
           </div>
         </div>
         <div class="analytics-card">
-          <h3>Tracking freshness</h3>
+          <h3>Свіжість трекінгу</h3>
           <div class="analytics-list" id="analyticsUxFreshness"></div>
         </div>
       </div>
       <div class="analytics-grid-2">
         <div class="analytics-card">
-          <h3>Problematic URLs</h3>
+          <h3>Проблемні URL</h3>
           <div class="analytics-table-wrap" id="analyticsUxUrls"></div>
         </div>
         <div class="analytics-card">
