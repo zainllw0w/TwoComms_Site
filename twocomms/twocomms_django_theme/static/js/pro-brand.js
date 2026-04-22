@@ -51,6 +51,42 @@ document.addEventListener("DOMContentLoaded", () => {
     videoStage.dataset.motion = allowHeavyMotion ? "ready" : "reduced";
   }
 
+  const meaningVisual = root.querySelector(".pb-meaning-visual");
+  if (meaningVisual) {
+    const activateMeaningVisual = () => {
+      meaningVisual.classList.add("pb-meaning-live");
+    };
+
+    if (prefersReducedMotion || !("IntersectionObserver" in window)) {
+      activateMeaningVisual();
+    } else {
+      requestAnimationFrame(() => {
+        const rect = meaningVisual.getBoundingClientRect();
+        if (rect.top < window.innerHeight * 0.96) {
+          activateMeaningVisual();
+        }
+      });
+
+      const meaningObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) {
+              return;
+            }
+            activateMeaningVisual();
+            meaningObserver.unobserve(entry.target);
+          });
+        },
+        {
+          threshold: 0.28,
+          rootMargin: "0px 0px -10% 0px",
+        },
+      );
+
+      meaningObserver.observe(meaningVisual);
+    }
+  }
+
   if (!allowHeavyMotion) {
     return;
   }
