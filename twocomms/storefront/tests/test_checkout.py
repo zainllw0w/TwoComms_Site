@@ -17,6 +17,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from orders.models import Order, OrderItem
+from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
 from storefront.models import Category, Product, PromoCode
 
 
@@ -52,6 +53,43 @@ class CheckoutTestSupport(TestCase):
             }
         }
         session.save()
+
+    def delivery_payload(
+        self,
+        *,
+        city_label='м. Київ, Київ',
+        city_ref='delivery-city-ref',
+        settlement_ref='settlement-ref',
+        warehouse_label='Відділення №1, Київ',
+        warehouse_ref='warehouse-ref',
+    ):
+        return {
+            'city': 'довільне введення',
+            'np_office': 'довільне введення',
+            'np_settlement_ref': 'spoofed-settlement-ref',
+            'np_city_ref': 'spoofed-city-ref',
+            'np_city_token': build_city_choice_token(
+                {
+                    'label': city_label,
+                    'settlement_ref': settlement_ref,
+                    'city_ref': city_ref,
+                }
+            ),
+            'np_warehouse_ref': 'spoofed-warehouse-ref',
+            'np_warehouse_token': build_warehouse_choice_token(
+                {
+                    'label': warehouse_label,
+                    'ref': warehouse_ref,
+                    'kind': 'branch',
+                    'city_ref': city_ref,
+                }
+            ),
+            'canonical_city': city_label,
+            'canonical_np_office': warehouse_label,
+            'canonical_settlement_ref': settlement_ref,
+            'canonical_city_ref': city_ref,
+            'canonical_warehouse_ref': warehouse_ref,
+        }
 
     def make_user(self, *, username='buyer', pay_type='full'):
         user = User.objects.create_user(
@@ -90,6 +128,13 @@ class CheckoutTestSupport(TestCase):
 class CreateOrderTests(CheckoutTestSupport):
     def test_create_order_guest_cod_creates_order_and_clears_cart(self):
         self.set_cart()
+        delivery = self.delivery_payload(
+            city_label='м. Львів, Львів',
+            city_ref='lviv-city-ref',
+            settlement_ref='lviv-settlement-ref',
+            warehouse_label='Відділення №5, Львів',
+            warehouse_ref='lviv-warehouse-ref',
+        )
         fake_order_item_class, fake_manager = self.make_fake_order_item_class()
 
         with patch('storefront.views.checkout.OrderItem', fake_order_item_class):
@@ -98,10 +143,16 @@ class CreateOrderTests(CheckoutTestSupport):
                 {
                     'full_name': 'Guest Buyer',
                     'phone': '+380501112233',
-                    'city': 'Львів',
-                    'np_office': 'Відділення №5',
+                    'city': delivery['city'],
+                    'np_office': delivery['np_office'],
+                    'np_settlement_ref': delivery['np_settlement_ref'],
+                    'np_city_ref': delivery['np_city_ref'],
+                    'np_city_token': delivery['np_city_token'],
+                    'np_warehouse_ref': delivery['np_warehouse_ref'],
+                    'np_warehouse_token': delivery['np_warehouse_token'],
                     'pay_type': 'cod',
                 },
+                secure=True,
             )
 
         order = Order.objects.get()
@@ -113,8 +164,11 @@ class CreateOrderTests(CheckoutTestSupport):
         self.assertIsNone(order.user)
         self.assertEqual(order.full_name, 'Guest Buyer')
         self.assertEqual(order.phone, '+380501112233')
-        self.assertEqual(order.city, 'Львів')
-        self.assertEqual(order.np_office, 'Відділення №5')
+        self.assertEqual(order.city, delivery['canonical_city'])
+        self.assertEqual(order.np_office, delivery['canonical_np_office'])
+        self.assertEqual(order.np_settlement_ref, delivery['canonical_settlement_ref'])
+        self.assertEqual(order.np_city_ref, delivery['canonical_city_ref'])
+        self.assertEqual(order.np_warehouse_ref, delivery['canonical_warehouse_ref'])
         self.assertEqual(order.pay_type, 'cod')
         self.assertEqual(order.total_sum, Decimal('260'))
         self.assertEqual(self.client.session.get('cart'), {})
@@ -128,6 +182,13 @@ class CreateOrderTests(CheckoutTestSupport):
 
     def test_create_order_authenticated_uses_profile_data(self):
         self.set_cart()
+        delivery = self.delivery_payload(
+            city_label='м. Одеса, Одеса',
+            city_ref='odesa-city-ref',
+            settlement_ref='odesa-settlement-ref',
+            warehouse_label='Відділення №99, Одеса',
+            warehouse_ref='odesa-warehouse-ref',
+        )
         user = self.make_user(pay_type='full')
         self.client.force_login(user)
         fake_order_item_class, _ = self.make_fake_order_item_class()
@@ -136,12 +197,18 @@ class CreateOrderTests(CheckoutTestSupport):
             response = self.client.post(
                 self.order_create_url,
                 {
-                    'full_name': 'Posted Name',
-                    'phone': '+380000000000',
-                    'city': 'Одеса',
-                    'np_office': 'Відділення №99',
-                    'pay_type': 'cod',
+                    'full_name': '',
+                    'phone': '',
+                    'city': delivery['city'],
+                    'np_office': delivery['np_office'],
+                    'np_settlement_ref': delivery['np_settlement_ref'],
+                    'np_city_ref': delivery['np_city_ref'],
+                    'np_city_token': delivery['np_city_token'],
+                    'np_warehouse_ref': delivery['np_warehouse_ref'],
+                    'np_warehouse_token': delivery['np_warehouse_token'],
+                    'pay_type': '',
                 },
+                secure=True,
             )
 
         order = Order.objects.get(user=user)
@@ -152,12 +219,22 @@ class CreateOrderTests(CheckoutTestSupport):
         )
         self.assertEqual(order.full_name, 'Profile Buyer')
         self.assertEqual(order.phone, '+380991234567')
-        self.assertEqual(order.city, 'Київ')
-        self.assertEqual(order.np_office, 'Відділення №1')
+        self.assertEqual(order.city, delivery['canonical_city'])
+        self.assertEqual(order.np_office, delivery['canonical_np_office'])
+        self.assertEqual(order.np_settlement_ref, delivery['canonical_settlement_ref'])
+        self.assertEqual(order.np_city_ref, delivery['canonical_city_ref'])
+        self.assertEqual(order.np_warehouse_ref, delivery['canonical_warehouse_ref'])
         self.assertEqual(order.pay_type, 'full')
 
     def test_create_order_guest_online_full_calls_monobank(self):
         self.set_cart()
+        delivery = self.delivery_payload(
+            city_label='м. Київ, Київ',
+            city_ref='kyiv-city-ref',
+            settlement_ref='kyiv-settlement-ref',
+            warehouse_label='Відділення №7, Київ',
+            warehouse_ref='kyiv-warehouse-ref',
+        )
         fake_order_item_class, _ = self.make_fake_order_item_class()
 
         with patch('storefront.views.checkout.OrderItem', fake_order_item_class), patch(
@@ -169,10 +246,16 @@ class CreateOrderTests(CheckoutTestSupport):
                 {
                     'full_name': 'Card Buyer',
                     'phone': '+380671112233',
-                    'city': 'Київ',
-                    'np_office': 'Відділення №7',
+                    'city': delivery['city'],
+                    'np_office': delivery['np_office'],
+                    'np_settlement_ref': delivery['np_settlement_ref'],
+                    'np_city_ref': delivery['np_city_ref'],
+                    'np_city_token': delivery['np_city_token'],
+                    'np_warehouse_ref': delivery['np_warehouse_ref'],
+                    'np_warehouse_token': delivery['np_warehouse_token'],
                     'pay_type': 'online_full',
                 },
+                secure=True,
             )
 
         order = Order.objects.get()
@@ -198,6 +281,13 @@ class CreateOrderTests(CheckoutTestSupport):
 
     def test_create_order_ignores_cart_promo_session_keys(self):
         self.set_cart()
+        delivery = self.delivery_payload(
+            city_label='м. Харків, Харків',
+            city_ref='kharkiv-city-ref',
+            settlement_ref='kharkiv-settlement-ref',
+            warehouse_label='Відділення №3, Харків',
+            warehouse_ref='kharkiv-warehouse-ref',
+        )
         promo = PromoCode.objects.create(
             code='TEST10',
             discount_type='percentage',
@@ -219,10 +309,16 @@ class CreateOrderTests(CheckoutTestSupport):
                 {
                     'full_name': 'Promo Buyer',
                     'phone': '+380501112233',
-                    'city': 'Харків',
-                    'np_office': 'Відділення №3',
+                    'city': delivery['city'],
+                    'np_office': delivery['np_office'],
+                    'np_settlement_ref': delivery['np_settlement_ref'],
+                    'np_city_ref': delivery['np_city_ref'],
+                    'np_city_token': delivery['np_city_token'],
+                    'np_warehouse_ref': delivery['np_warehouse_ref'],
+                    'np_warehouse_token': delivery['np_warehouse_token'],
                     'pay_type': 'cod',
                 },
+                secure=True,
             )
 
         order = Order.objects.get()
