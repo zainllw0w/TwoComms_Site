@@ -8,7 +8,7 @@ const MAX_IMAGE_CACHE_ENTRIES = 64;
 
 const PRECACHE_URLS = [
   OFFLINE_URL,
-  '/static/site.webmanifest',
+  '/site.webmanifest',
   '/static/img/favicon-192x192.png',
   '/static/img/favicon-512x512.png',
   '/static/img/favicon-180x180.png',
@@ -154,6 +154,9 @@ function shouldCacheStaticAsset(request, url) {
   }
   if (!isSameOrigin(url)) {
     return false;
+  }
+  if (url.pathname === '/site.webmanifest') {
+    return request.destination === 'manifest';
   }
   if (!url.pathname.startsWith('/static/')) {
     return false;

@@ -279,7 +279,7 @@ class WebPushFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "viewport-fit=cover")
         self.assertContains(response, "apple-mobile-web-app-capable")
-        self.assertContains(response, "site.webmanifest")
+        self.assertContains(response, reverse("site_webmanifest"))
         self.assertContains(response, "css/web-push.css")
 
     def test_service_worker_route_serves_root_worker_with_cache_headers(self):
@@ -291,6 +291,13 @@ class WebPushFlowTests(TestCase):
         self.assertContains(response, "navigationPreload.enable")
         self.assertEqual(response["Service-Worker-Allowed"], "/")
         self.assertIn("must-revalidate", response["Cache-Control"])
+
+    def test_manifest_route_serves_correct_content_type(self):
+        response = self.client.get(reverse("site_webmanifest"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/manifest+json; charset=utf-8")
+        self.assertContains(response, '"start_url": "/?source=pwa"')
 
     def test_manifest_contains_install_metadata_and_existing_shortcuts(self):
         manifest_path = finders.find("site.webmanifest")
