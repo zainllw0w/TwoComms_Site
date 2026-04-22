@@ -206,6 +206,10 @@ WEB_PUSH_VAPID_SUBJECT = os.environ.get("WEB_PUSH_VAPID_SUBJECT", "").strip()
 WEB_PUSH_ENABLED = bool(
     WEB_PUSH_VAPID_PUBLIC_KEY and WEB_PUSH_VAPID_PRIVATE_KEY and WEB_PUSH_VAPID_SUBJECT
 )
+WEB_PUSH_SERVICE_WORKER_PATH = (
+    os.environ.get("WEB_PUSH_SERVICE_WORKER_PATH", "/static/sw.js").strip()
+    or "/static/sw.js"
+)
 WEB_PUSH_ICON_PATH = os.environ.get(
     "WEB_PUSH_ICON_PATH",
     "/static/img/favicon-192x192.png",

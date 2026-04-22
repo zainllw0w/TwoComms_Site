@@ -136,7 +136,8 @@ function urlBase64ToUint8Array(base64String) {
 
 async function ensureServiceWorker() {
   if (!registerPromise) {
-    registerPromise = navigator.serviceWorker.register('/sw.js', {
+    const serviceWorkerUrl = readConfig()?.serviceWorkerUrl || '/static/sw.js';
+    registerPromise = navigator.serviceWorker.register(serviceWorkerUrl, {
       scope: '/',
       updateViaCache: 'none',
     }).catch((error) => {
