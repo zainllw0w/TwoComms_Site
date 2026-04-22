@@ -287,6 +287,8 @@ class WebPushFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "networkFirstNavigation")
+        self.assertContains(response, "/static/offline.html")
+        self.assertContains(response, "navigationPreload.enable")
         self.assertEqual(response["Service-Worker-Allowed"], "/")
         self.assertIn("must-revalidate", response["Cache-Control"])
 
