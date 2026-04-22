@@ -1199,6 +1199,17 @@ def custom_print_moderation_action(request, lead_id: int, action: str):
                                          ok=False, status_code=403)
 
     if action == "approve":
+        if Decimal(str(lead.final_price_value or 0)) <= 0:
+            return _render_moderation_result(
+                request,
+                title="Потрібна ціна",
+                message=(
+                    f"Заявку {lead.lead_number} не можна погодити без фінальної ціни. "
+                    "Вкажіть суму в staff-панелі й повторіть дію."
+                ),
+                ok=False,
+                status_code=409,
+            )
         lead.moderation_status = CustomPrintModerationStatus.APPROVED
         lead.reviewed_at = timezone.now()
         lead.save(update_fields=["moderation_status", "reviewed_at"])

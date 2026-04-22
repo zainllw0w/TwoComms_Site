@@ -4,7 +4,7 @@ import logging
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 
@@ -15,7 +15,9 @@ from orders.nova_poshta_documents import (
     TELEGRAM_CREATE_NP_WAYBILL_ACTION,
     NovaPoshtaDocumentError,
     NovaPoshtaDocumentService,
+    build_order_payment_snapshot,
     build_waybill_description,
+    normalize_phone,
 )
 from orders.status_management import (
     _apply_order_status_update_to_order,
@@ -69,29 +71,32 @@ def _waybill_action_block_reason(order: Order) -> str | None:
 
 
 def _fallback_waybill_initial(service: NovaPoshtaDocumentService, order: Order) -> dict[str, str]:
-    cod_amount = service._get_cod_amount(order)
-    declared_cost = service._as_money(getattr(order, "total_sum", 0))
+    payment_snapshot = build_order_payment_snapshot(order)
     return {
         "recipient_full_name": order.full_name or "",
-        "recipient_phone": order.phone or "",
+        "recipient_phone": normalize_phone(order.phone or "") or (order.phone or ""),
         "recipient_city": order.city or "",
         "recipient_settlement_ref": getattr(order, "np_settlement_ref", "") or "",
         "recipient_city_ref": getattr(order, "np_city_ref", "") or "",
+        "recipient_city_token": "",
         "recipient_warehouse": order.np_office or "",
         "recipient_warehouse_ref": getattr(order, "np_warehouse_ref", "") or "",
+        "recipient_warehouse_token": "",
         "sender_city": service.SENDER_CITY_QUERY,
         "sender_settlement_ref": "",
         "sender_city_ref": "",
+        "sender_city_token": "",
         "sender_warehouse": service.SENDER_WAREHOUSE_QUERY,
         "sender_warehouse_ref": "",
+        "sender_warehouse_token": "",
         "description": build_waybill_description(order),
-        "declared_cost": f"{declared_cost:.2f}",
+        "declared_cost": payment_snapshot["declared_cost"],
         "weight": "1.0",
         "seats_amount": "1",
         "length_cm": f"{service.DEFAULT_LENGTH_CM}",
         "width_cm": f"{service.DEFAULT_WIDTH_CM}",
         "height_cm": f"{service.DEFAULT_HEIGHT_CM}",
-        "cod_amount": f"{cod_amount:.2f}" if cod_amount > 0 else "",
+        "cod_amount": payment_snapshot["cod_amount"] if payment_snapshot["cod_amount_value"] > 0 else "",
         "payer_type": "Recipient",
         "payment_method": "Cash",
     }
@@ -114,6 +119,21 @@ def _update_telegram_message_after_order_change(order: Order) -> None:
         telegram_notifier.update_order_notification_message(order, clear_actions=True)
     except Exception:
         logger.exception("Failed to update Telegram order notification message for order %s", order.pk)
+
+
+def _payment_snapshot_payload(order: Order) -> dict:
+    snapshot = build_order_payment_snapshot(order)
+    payload = order.payment_payload or {}
+    history = payload.get("history") or []
+    last_entry = history[-1] if history else {}
+    snapshot["payment_last_status"] = last_entry.get("status") or payload.get("last_status") or ""
+    snapshot["payment_last_time"] = (
+        last_entry.get("received_at")
+        or last_entry.get("ts")
+        or payload.get("last_update_at")
+        or ""
+    )
+    return snapshot
 
 
 def _render_status_action_page(
@@ -177,6 +197,7 @@ def _render_waybill_action_page(
             "is_blocked": is_blocked,
             "warnings": warnings or [],
             "can_submit": can_submit,
+            "payment_snapshot": _payment_snapshot_payload(order) if order else None,
         },
         status_code=status_code,
     )
@@ -389,4 +410,29 @@ def telegram_order_np_waybill_action(request, order_id: int, action: str):
         token=token,
         form=form,
         helper_message=helper_message,
+    )
+
+
+@require_http_methods(["GET"])
+def telegram_order_payment_snapshot(request, order_id: int, action: str):
+    if action != TELEGRAM_CREATE_NP_WAYBILL_ACTION:
+        raise Http404("Unknown Telegram order action")
+
+    token = _get_token(request)
+    if not verify_order_action_token(token, order_id=order_id, action=action):
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Посилання недійсне або вже застаріло.",
+            },
+            status=403,
+        )
+
+    order = get_object_or_404(Order, pk=order_id)
+    return JsonResponse(
+        {
+            "success": True,
+            "order_id": order.pk,
+            "snapshot": _payment_snapshot_payload(order),
+        }
     )

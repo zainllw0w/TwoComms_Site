@@ -1,6 +1,6 @@
 import json
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase
@@ -9,7 +9,8 @@ from django.urls import reverse
 from accounts.models import UserProfile
 from orders.models import Order
 from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
-from storefront.models import Category, Product
+from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
+from storefront.models import Category, CustomPrintLead, CustomPrintModerationStatus, Product
 
 
 class NovaPoshtaCheckoutValidationTests(TestCase):
@@ -219,3 +220,87 @@ class NovaPoshtaCheckoutValidationTests(TestCase):
                 'error': 'Оберіть місто зі списку Нової пошти.',
             },
         )
+
+    @patch('storefront.views.monobank.get_facebook_conversions_service')
+    @patch('storefront.views.monobank.TelegramNotifier.send_new_order_notification')
+    @patch('storefront.views.monobank.record_lead')
+    @patch('storefront.views.monobank.record_initiate_checkout')
+    @patch('storefront.views.monobank.link_order_to_utm')
+    @patch('storefront.views.monobank._monobank_api_request')
+    def test_monobank_create_invoice_includes_approved_custom_print_without_regular_cart(
+        self,
+        monobank_request_mock,
+        _link_order_mock,
+        _checkout_mock,
+        _record_lead_mock,
+        _notify_mock,
+        facebook_service_mock,
+    ):
+        delivery = self._delivery_payload()
+        lead = CustomPrintLead.objects.create(
+            service_kind='ready',
+            product_type='hoodie',
+            placements=['front'],
+            quantity=2,
+            client_kind='personal',
+            size_mode='single',
+            pricing_snapshot_json={'final_total': '2450.50', 'product_label': 'Худі'},
+            name='Custom Client',
+            contact_channel='telegram',
+            contact_value='@custom_client',
+            brief='Кастомний худі',
+            source='custom_print_cart',
+            moderation_status=CustomPrintModerationStatus.APPROVED,
+            approved_price='2450.50',
+        )
+        session = self.client.session
+        session[SESSION_CUSTOM_CART_KEY] = {
+            f'custom:{lead.pk}': {
+                'lead_id': lead.pk,
+                'moderation_status': CustomPrintModerationStatus.APPROVED,
+            }
+        }
+        session.save()
+
+        monobank_request_mock.return_value = {
+            'invoiceId': 'mono-invoice-1',
+            'pageUrl': 'https://pay.monobank.test/invoice-1',
+        }
+        facebook_service = Mock()
+        facebook_service_mock.return_value = facebook_service
+
+        response = self.client.post(
+            self.monobank_create_invoice_url,
+            data=json.dumps(
+                {
+                    'full_name': 'Guest User',
+                    'phone': '0991112233',
+                    'city': delivery['city'],
+                    'np_office': delivery['np_office'],
+                    'np_settlement_ref': delivery['np_settlement_ref'],
+                    'np_city_ref': delivery['np_city_ref'],
+                    'np_city_token': delivery['np_city_token'],
+                    'np_warehouse_ref': delivery['np_warehouse_ref'],
+                    'np_warehouse_token': delivery['np_warehouse_token'],
+                    'pay_type': 'online_full',
+                }
+            ),
+            content_type='application/json',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['success'])
+
+        order = Order.objects.get()
+        lead.refresh_from_db()
+        self.assertEqual(order.phone, '+380991112233')
+        self.assertEqual(order.total_sum, Decimal('2450.50'))
+        self.assertEqual(order.items.count(), 0)
+        self.assertEqual(lead.order_id, order.pk)
+        self.assertEqual(order.payment_payload['custom_print_lead_ids'], [lead.pk])
+        self.assertEqual(order.payment_status, 'checking')
+        monobank_request_mock.assert_called_once()
+        facebook_service.send_add_payment_info_event.assert_called_once()

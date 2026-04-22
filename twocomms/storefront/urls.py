@@ -102,7 +102,16 @@ urlpatterns = [
     path('admin-panel/update-user/', _legacy_view('admin_update_user'), name='admin_update_user'),
     path('admin-panel/order/update/', _legacy_view('admin_order_update'), name='admin_order_update'),
     path('admin-panel/order/update-status/', _legacy_view('admin_order_update'), name='admin_update_order_status'),
-    path('admin-panel/order/update-payment-status/', _legacy_view('admin_update_payment_status'), name='admin_update_payment_status'),
+    path(
+        'admin-panel/order/update-payment-status/',
+        _module_view('storefront.views.admin', 'admin_update_payment_status'),
+        name='admin_update_payment_status',
+    ),
+    path(
+        'admin-panel/orders/payment-snapshots/',
+        _module_view('storefront.views.admin', 'admin_order_payment_snapshots'),
+        name='admin_order_payment_snapshots',
+    ),
     path('admin-panel/order/approve-payment/', _legacy_view('admin_approve_payment'), name='admin_approve_payment'),
     path('admin-panel/order/<int:pk>/delete/', _legacy_view('admin_order_delete'), name='admin_order_delete'),
     path(
@@ -128,6 +137,11 @@ urlpatterns = [
         'orders/telegram-waybill/<int:order_id>/<str:action>/',
         _module_view('storefront.views.order_actions', 'telegram_order_np_waybill_action'),
         name='telegram_order_np_waybill_action',
+    ),
+    path(
+        'orders/telegram-waybill/<int:order_id>/<str:action>/payment-snapshot/',
+        _module_view('storefront.views.order_actions', 'telegram_order_payment_snapshot'),
+        name='telegram_order_payment_snapshot',
     ),
     path('my/orders/', views.my_orders, name='my_orders'),
     path('orders/update-payment-method/', views.update_payment_method, name='update_payment_method'),

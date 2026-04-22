@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError
 
 from ..models import Product
 from accounts.models import UserProfile, FavoriteProduct
+from orders.nova_poshta_documents import normalize_phone
 
 
 def _published_products_for_user(user):
@@ -176,6 +177,12 @@ class ProfileSetupForm(forms.Form):
         if data.get("is_ubd") and not data.get("ubd_doc"):
             self.add_error("ubd_doc", "Для УБД додайте фото посвідчення")
         return data
+
+    def clean_phone(self):
+        phone = normalize_phone(self.cleaned_data.get("phone", ""))
+        if not phone:
+            raise ValidationError("Введіть коректний номер телефону у форматі +380XXXXXXXXX")
+        return phone
 
 
 # ==================== VIEWS ====================

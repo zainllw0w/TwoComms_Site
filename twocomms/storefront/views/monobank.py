@@ -33,6 +33,7 @@ import requests
 
 from ..models import Product, PromoCode
 from orders.nova_poshta_data import apply_nova_poshta_refs
+from orders.nova_poshta_documents import normalize_phone
 from orders.models import Order as OrderModel, OrderItem
 from orders.nova_poshta_checkout import NovaPoshtaSelectionError, resolve_delivery_selection
 from orders.telegram_notifications import TelegramNotifier
@@ -89,6 +90,47 @@ def _notify_monobank_order(order, method_label):
             'Failed to send Telegram notification for order %s: %s',
             order.id, e
         )
+
+
+def _split_custom_cart_entries(custom_cart):
+    from storefront.models import CustomPrintLead, CustomPrintModerationStatus
+
+    approved_leads = []
+    approved_keys = []
+    pending_keys = []
+    missing_price_leads = []
+
+    if not isinstance(custom_cart, dict) or not custom_cart:
+        return approved_leads, approved_keys, pending_keys, missing_price_leads
+
+    key_to_lead_id = {
+        key: value.get('lead_id')
+        for key, value in custom_cart.items()
+        if isinstance(value, dict) and value.get('lead_id')
+    }
+    lead_ids = [lead_id for lead_id in key_to_lead_id.values() if lead_id]
+    leads_by_id = {
+        lead.pk: lead
+        for lead in CustomPrintLead.objects.filter(pk__in=lead_ids)
+    } if lead_ids else {}
+
+    for key, lead_id in key_to_lead_id.items():
+        lead = leads_by_id.get(lead_id)
+        if not lead or lead.moderation_status != CustomPrintModerationStatus.APPROVED:
+            pending_keys.append(key)
+            continue
+        try:
+            final_price = Decimal(str(lead.final_price_value))
+        except Exception:
+            final_price = Decimal('0.00')
+        if final_price <= 0:
+            missing_price_leads.append(lead)
+            pending_keys.append(key)
+            continue
+        approved_leads.append(lead)
+        approved_keys.append(key)
+
+    return approved_leads, approved_keys, pending_keys, missing_price_leads
 
 
 def _cleanup_expired_monobank_orders():
@@ -336,28 +378,41 @@ def monobank_create_invoice(request):
 
     # Получаем cart
     cart = get_cart_from_session(request)
-    if not cart:
+
+    _ensure_session_key(request)
+
+    # Approved custom-print items must join the paid order. Pending items stay in
+    # the custom cart until moderation is complete.
+    from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
+    custom_cart = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
+    approved_custom_leads, approved_custom_keys, pending_custom_keys, missing_price_leads = _split_custom_cart_entries(custom_cart)
+    has_custom_items = isinstance(custom_cart, dict) and bool(custom_cart)
+
+    if missing_price_leads:
+        lead_numbers = ", ".join(lead.lead_number for lead in missing_price_leads[:3] if lead.lead_number)
+        suffix = f" ({lead_numbers})" if lead_numbers else ""
+        return JsonResponse({
+            'success': False,
+            'error': f'Для погодженого кастомного виробу ще не зафіксована фінальна ціна{suffix}. Вкажіть ціну в адмінці та спробуйте знову.'
+        }, status=400)
+
+    if not cart and not approved_custom_leads:
         return JsonResponse({
             'success': False,
             'error': 'Кошик порожній. Додайте товари перед оплатою.'
         })
 
-    _ensure_session_key(request)
+    if has_custom_items and body.get('pay_type') == 'prepay_200':
+        return JsonResponse({
+            'success': False,
+            'error': 'Передплата 200 грн недоступна, коли у кошику є кастомний принт. Оберіть повну онлайн-оплату.'
+        })
 
-    # Custom-print policy: pending custom items are NOT blocking — they stay in the
-    # user's session and can be paid after manager approval. Regular items are paid
-    # now; approved custom items can be attached to the order (future enhancement).
-    # Prepay is still disabled whenever there are any custom items, because the
-    # manager may re-price them.
-    from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
-    from storefront.models import CustomPrintLead, CustomPrintModerationStatus
-    custom_cart = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
-    if isinstance(custom_cart, dict) and custom_cart:
-        if body.get('pay_type') == 'prepay_200':
-            return JsonResponse({
-                'success': False,
-                'error': 'Передплата 200 грн недоступна, коли у кошику є кастомний принт. Оберіть повну онлайн-оплату.'
-            })
+    if has_custom_items and not cart and not approved_custom_leads:
+        return JsonResponse({
+            'success': False,
+            'error': 'Кастомний принт ще очікує на погодження менеджера. Оплата стане доступною після модерації.'
+        })
 
     try:
         delivery_selection = resolve_delivery_selection(body)
@@ -395,7 +450,7 @@ def monobank_create_invoice(request):
             return value or default_value
 
         full_name = _body_override('full_name', prof.full_name or request.user.username)
-        phone = _body_override('phone', prof.phone)
+        phone = normalize_phone(_body_override('phone', prof.phone))
         city = delivery_selection.city
         np_office = delivery_selection.np_office
 
@@ -412,7 +467,7 @@ def monobank_create_invoice(request):
     else:
         # Для гостей - из POST body
         full_name = body.get('full_name', '').strip()
-        phone = body.get('phone', '').strip()
+        phone = normalize_phone(body.get('phone', ''))
         city = delivery_selection.city
         np_office = delivery_selection.np_office
         pay_type = body.get('pay_type', 'online_full')
@@ -426,6 +481,12 @@ def monobank_create_invoice(request):
             })
 
     monobank_logger.info(f'Customer data: full_name={full_name}, pay_type={pay_type}')
+
+    if not all([full_name, phone, city, np_office]):
+        return JsonResponse({
+            'success': False,
+            'error': 'Будь ласка, заповніть всі обов\'язкові поля!'
+        }, status=400)
 
     # Нормализуем pay_type
     monobank_logger.info(f'🔍 BEFORE normalization: pay_type={pay_type}')
@@ -453,6 +514,11 @@ def monobank_create_invoice(request):
                 unit = p.final_price
                 line = unit * it['qty']
                 total_sum += line
+
+            approved_custom_total = Decimal('0')
+            for lead in approved_custom_leads:
+                approved_custom_total += Decimal(str(lead.final_price_value))
+            total_sum += approved_custom_total
 
             if total_sum <= 0:
                 return JsonResponse({
@@ -509,6 +575,10 @@ def monobank_create_invoice(request):
 
             OrderItem.objects.bulk_create(order_items)
             monobank_logger.info(f'Created {len(order_items)} order items')
+
+            for lead in approved_custom_leads:
+                lead.order = order
+                lead.save(update_fields=['order'])
 
             # Применяем промокод если есть
             promo_code_id = request.session.get('promo_code_id')
@@ -678,6 +748,18 @@ def monobank_create_invoice(request):
                     except Exception as e:
                         monobank_logger.warning(f'Error formatting basket item: {e}')
 
+                for lead in approved_custom_leads:
+                    try:
+                        basket_entries.append({
+                            'name': f'Кастомний виріб {lead.lead_number}',
+                            'qty': int(getattr(lead, 'quantity', 0) or 1),
+                            'sum': int(Decimal(str(lead.final_price_value)) * 100),
+                            'icon': '',
+                            'unit': 'шт',
+                        })
+                    except Exception as e:
+                        monobank_logger.warning(f'Error formatting custom print basket item: {e}')
+
                 # Добавляем позицию со скидкой если есть промокод
                 if order.promo_code and order.discount_amount > 0:
                     discount_kopecks = int(order.discount_amount * 100)
@@ -844,7 +926,8 @@ def monobank_create_invoice(request):
                 'request': payload,
                 'create': creation_data,
                 'history': [],
-                'tracking': tracking_context
+                'tracking': tracking_context,
+                'custom_print_lead_ids': [lead.pk for lead in approved_custom_leads],
             }
 
             # Добавляем client_ip_address и client_user_agent на верхний уровень для совместимости
@@ -866,6 +949,8 @@ def monobank_create_invoice(request):
             # Сохраняем в сессию
             request.session['monobank_invoice_id'] = invoice_id
             request.session['monobank_pending_order_id'] = order.id
+            request.session['monobank_approved_custom_keys'] = approved_custom_keys
+            request.session['monobank_pending_custom_keys'] = pending_custom_keys
             request.session.modified = True
 
             # Отправляем AddPaymentInfo через CAPI для дедупликации с пикселем
@@ -1056,11 +1141,25 @@ def _append_payment_history(order, status, payload, source):
 
 def _cleanup_after_success(request):
     """Clear cart/promo and Mono session keys after successful payment."""
+    approved_custom_keys = request.session.pop('monobank_approved_custom_keys', None) or []
+    if approved_custom_keys:
+        try:
+            from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
+
+            custom_cart = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
+            if isinstance(custom_cart, dict):
+                for key in approved_custom_keys:
+                    custom_cart.pop(key, None)
+                request.session[SESSION_CUSTOM_CART_KEY] = custom_cart
+        except Exception:
+            monobank_logger.warning('Failed to cleanup approved custom cart entries after successful payment')
+
     request.session.pop('cart', None)
     request.session.pop('promo_code', None)
     request.session.pop('promo_code_id', None)
     request.session.pop('monobank_invoice_id', None)
     request.session.pop('monobank_pending_order_id', None)
+    request.session.pop('monobank_pending_custom_keys', None)
     request.session.modified = True
 
 

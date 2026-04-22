@@ -29,6 +29,7 @@ from orders.nova_poshta_lookup import (
     NovaPoshtaLookupError,
     NovaPoshtaLookupUnavailable,
 )
+from orders.nova_poshta_documents import normalize_phone
 from orders.nova_poshta_checkout import (
     NovaPoshtaSelectionError,
     resolve_delivery_selection,
@@ -419,7 +420,7 @@ def view_cart(request):
                 try:
                     delivery_selection = resolve_delivery_selection(request.POST)
                     profile.full_name = (request.POST.get('full_name') or '').strip()
-                    profile.phone = (request.POST.get('phone') or '').strip()
+                    profile.phone = normalize_phone(request.POST.get('phone') or '')
                     profile.city = delivery_selection.city
                     profile.np_office = delivery_selection.np_office
                     apply_nova_poshta_refs(
@@ -1363,7 +1364,7 @@ def contact_manager(request):
     try:
         # Получаем данные из формы
         full_name = request.POST.get('full_name', '').strip()
-        phone = request.POST.get('phone', '').strip()
+        phone = normalize_phone(request.POST.get('phone', ''))
         telegram = request.POST.get('telegram', '').strip()
         whatsapp = request.POST.get('whatsapp', '').strip()
 
@@ -1374,7 +1375,7 @@ def contact_manager(request):
                 'error': 'ПІБ повинно містити мінімум 3 символи'
             })
 
-        if not phone or len(phone) < 10:
+        if not phone:
             return JsonResponse({
                 'success': False,
                 'error': 'Введіть коректний номер телефону'
