@@ -94,6 +94,12 @@ class SupportStaticPagesTests(SimpleTestCase):
             self.assertContains(response, item["question"])
         self.assertNotContains(response, "Чи є таблиця розмірів?")
 
+    def test_returns_page_explains_ready_goods_window_and_custom_exception(self):
+        response = self.client.get(reverse("returns"), secure=True)
+
+        self.assertContains(response, "протягом 14 днів з моменту отримання")
+        self.assertContains(response, "Кастомний одяг, виготовлений за індивідуальним замовленням, не підлягає поверненню чи обміну")
+
     @patch("storefront.views.static_pages.SizeGrid.objects.filter")
     def test_size_guide_page_hides_confirmed_blocks_when_no_db_guides_exist(self, size_grid_filter_mock):
         size_grid_filter_mock.return_value.select_related.return_value.order_by.return_value = []

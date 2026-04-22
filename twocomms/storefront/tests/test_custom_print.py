@@ -116,6 +116,13 @@ class CustomPrintPageTests(TestCase):
         self.assertNotContains(response, "Далі до тканини")
         self.assertNotContains(response, "Вибір тканини і кольору")
 
+    def test_custom_print_page_mentions_custom_return_exception(self):
+        response = self._get(reverse("custom_print"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "готові товари належної якості можна повернути або обміняти протягом 14 днів")
+        self.assertContains(response, "кастомний одяг, виготовлений за індивідуальним замовленням, не підлягає поверненню чи обміну")
+
     def test_custom_print_page_cache_busts_configurator_script(self):
         response = self._get(reverse("custom_print"), follow=True)
 
