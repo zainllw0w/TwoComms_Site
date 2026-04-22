@@ -687,175 +687,182 @@
       flex: 1 1 34%;
       min-width: 0;
       display: flex;
-      align-items: flex-end;
-      justify-content: flex-end;
+      align-items: stretch;
+      justify-content: center;
       overflow: hidden;
       pointer-events: none;
     }
     .pro-brand-page .pb-origin-decor::before {
       content: "";
       position: absolute;
-      inset: 12% 8% 8% 24%;
+      inset: 6% 8% 10% 8%;
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0) 58%),
-        radial-gradient(circle at 54% 66%, rgba(206, 33, 18, 0.15), rgba(118, 10, 5, 0.04) 50%, transparent 74%);
-      filter: blur(26px);
-      opacity: 0.48;
-      transform: skewX(-7deg);
-      animation: pb-origin-decor-breathe 13s ease-in-out infinite;
+        radial-gradient(circle at 50% 76%, rgba(206, 33, 18, 0.18), rgba(118, 10, 5, 0.05) 40%, transparent 72%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0) 48%);
+      filter: blur(28px);
+      opacity: 0.42;
+      animation: pb-origin-atmosphere 13s ease-in-out infinite;
     }
     .pro-brand-page .pb-origin-decor::after {
       content: "";
       position: absolute;
-      inset: 14% 12% 16% auto;
-      width: 1px;
-      background: linear-gradient(180deg, rgba(243, 179, 106, 0), rgba(243, 179, 106, 0.28), rgba(243, 179, 106, 0));
-      opacity: 0.55;
+      inset: auto 18% 6% 18%;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(243, 179, 106, 0), rgba(243, 179, 106, 0.22), rgba(243, 179, 106, 0));
+      opacity: 0.36;
+    }
+    .pro-brand-page .pb-origin-stage {
+      position: relative;
+      width: min(100%, clamp(16rem, 26vw, 21.5rem));
+      height: clamp(11rem, 17vw, 13.5rem);
+      margin: auto auto 0;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      isolation: isolate;
+      overflow: hidden;
+      transform: translate3d(0, 0, 0);
+      animation: pb-origin-stage-drift 12s ease-in-out infinite;
+    }
+    .pro-brand-page .pb-origin-stage::before {
+      content: "";
+      position: absolute;
+      inset: auto 18% 10% 18%;
+      height: 42%;
+      z-index: 0;
+      border-radius: 999px;
+      background: radial-gradient(circle at 50% 52%, rgba(224, 42, 24, 0.24), rgba(122, 12, 6, 0.06) 52%, transparent 78%);
+      filter: blur(24px);
+      opacity: 0.74;
+      animation: pb-origin-core-breathe 8.8s ease-in-out infinite;
+    }
+    .pro-brand-page .pb-origin-stage::after {
+      content: "";
+      position: absolute;
+      top: 26%;
+      left: 50%;
+      width: 46%;
+      height: 32%;
+      z-index: 0;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(255, 133, 84, 0.16) 0%, rgba(207, 36, 19, 0.1) 36%, transparent 72%);
+      filter: blur(18px);
+      transform: translateX(-50%);
+      opacity: 0.34;
+    }
+    .pro-brand-page .pb-origin-skyline {
+      position: absolute;
+      top: 2%;
+      left: 50%;
+      width: min(100%, 19.5rem);
+      height: auto;
+      transform: translateX(-50%);
+      overflow: visible;
+      z-index: 1;
+      opacity: 0.52;
+      animation: pb-origin-skyline-drift 15s ease-in-out infinite;
+    }
+    .pro-brand-page .pb-origin-skyline path {
+      stroke: rgba(255, 240, 226, 0.2);
+      stroke-width: 1.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      filter: drop-shadow(0 0 10px rgba(255, 112, 73, 0.08));
     }
     .pro-brand-page .pb-origin-year {
       position: relative;
-      width: min(100%, clamp(15rem, 26vw, 20.5rem));
-      height: clamp(9rem, 15vw, 12rem);
-      margin: auto 0 0 auto;
-      z-index: 1;
+      width: 100%;
+      margin-top: auto;
+      padding-bottom: 0.25rem;
       display: flex;
       align-items: flex-end;
-      justify-content: flex-end;
-      line-height: 0.82;
+      justify-content: center;
+      line-height: 0.85;
       font-weight: 800;
-      letter-spacing: -0.08em;
+      letter-spacing: 0.06em;
       user-select: none;
-      overflow: hidden;
-      isolation: isolate;
-      transform: rotate(-3deg);
-      animation: pb-origin-year-drift 11s ease-in-out infinite;
-    }
-    .pro-brand-page .pb-origin-year::before {
-      content: "";
-      position: absolute;
-      inset: auto 16% 8% 18%;
-      height: 44%;
-      z-index: 0;
-      border-radius: 999px;
-      background: radial-gradient(circle at 50% 48%, rgba(224, 42, 24, 0.22), rgba(122, 12, 6, 0.05) 54%, transparent 78%);
-      filter: blur(22px);
-      opacity: 0.72;
-      animation: pb-origin-year-core 9s ease-in-out infinite;
-    }
-    .pro-brand-page .pb-origin-year::after {
-      content: "";
-      position: absolute;
-      top: -18%;
-      bottom: -18%;
-      left: -36%;
-      width: 28%;
       z-index: 2;
-      background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 214, 176, 0.15) 40%, rgba(255, 109, 61, 0.2) 58%, rgba(255, 255, 255, 0));
-      filter: blur(12px);
-      transform: skewX(-18deg);
-      opacity: 0.46;
-      animation: pb-origin-year-sweep 10.8s ease-in-out infinite;
     }
-    .pro-brand-page .pb-origin-year-track {
+    .pro-brand-page .pb-origin-year-shadow,
+    .pro-brand-page .pb-origin-year-main {
+      font-size: clamp(4.15rem, 7.6vw, 5.55rem);
+      white-space: nowrap;
+    }
+    .pro-brand-page .pb-origin-year-shadow {
       position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: flex-end;
-      justify-content: flex-end;
-      font-size: clamp(4.25rem, 8vw, 6rem);
-      color: rgba(204, 30, 16, 0.08);
-      filter: blur(10px);
-      transform: translate3d(0.34rem, 0.4rem, 0) scale(1.02);
-      opacity: 0.88;
-      animation: pb-origin-year-pulse 9.6s ease-in-out infinite;
+      inset: auto auto 0.35rem 50%;
+      transform: translateX(-50%);
+      color: rgba(204, 30, 16, 0.1);
+      filter: blur(9px);
+      opacity: 0.82;
+      animation: pb-origin-shadow-breathe 9.8s ease-in-out infinite;
     }
     .pro-brand-page .pb-origin-year-main {
       position: relative;
-      display: flex;
-      align-items: flex-end;
-      justify-content: flex-end;
-      font-size: clamp(4.25rem, 8vw, 6rem);
-      z-index: 1;
-    }
-    .pro-brand-page .pb-origin-year-track span,
-    .pro-brand-page .pb-origin-year-main span {
-      display: block;
-      min-width: 0.72em;
-    }
-    .pro-brand-page .pb-origin-year-track span + span,
-    .pro-brand-page .pb-origin-year-main span + span {
-      margin-left: -0.34rem;
-    }
-    .pro-brand-page .pb-origin-year-main span {
-      color: rgba(255, 255, 255, 0.03);
+      color: rgba(255, 255, 255, 0.032);
       -webkit-text-stroke: 1px rgba(255, 255, 255, 0.095);
-      text-shadow: 0 0 18px rgba(255, 110, 72, 0.08);
+      text-shadow: 0 0 18px rgba(255, 110, 72, 0.07);
+      animation: pb-origin-year-main-breathe 11s ease-in-out infinite;
     }
-    .pro-brand-page .pb-origin-year-main span:nth-child(1) {
-      transform: translateY(-0.12em);
-    }
-    .pro-brand-page .pb-origin-year-main span:nth-child(2) {
-      transform: translateY(-0.02em);
-    }
-    .pro-brand-page .pb-origin-year-main span:nth-child(3) {
-      transform: translateY(0.1em);
-    }
-    .pro-brand-page .pb-origin-year-main span:nth-child(4) {
-      transform: translateY(-0.05em);
-    }
-    @keyframes pb-origin-decor-breathe {
+    @keyframes pb-origin-atmosphere {
       0%, 100% {
-        opacity: 0.42;
-        transform: skewX(-7deg) scale(0.98);
+        opacity: 0.36;
+        transform: scale(0.98);
       }
       50% {
-        opacity: 0.58;
-        transform: skewX(-7deg) scale(1.02);
+        opacity: 0.52;
+        transform: scale(1.03);
       }
     }
-    @keyframes pb-origin-year-drift {
+    @keyframes pb-origin-stage-drift {
       0%, 100% {
-        transform: rotate(-3deg) translate3d(0, 0, 0);
+        transform: translate3d(0, 0, 0);
       }
       50% {
-        transform: rotate(-2deg) translate3d(-2px, -4px, 0);
+        transform: translate3d(0, -4px, 0);
       }
     }
-    @keyframes pb-origin-year-core {
+    @keyframes pb-origin-core-breathe {
       0%, 100% {
-        opacity: 0.54;
-        transform: scale(0.92);
+        opacity: 0.5;
+        transform: scale(0.94);
       }
       50% {
-        opacity: 0.82;
+        opacity: 0.8;
         transform: scale(1.08);
       }
     }
-    @keyframes pb-origin-year-pulse {
+    @keyframes pb-origin-skyline-drift {
       0%, 100% {
-        opacity: 0.76;
-        transform: translate3d(0.34rem, 0.4rem, 0) scale(1.01);
+        opacity: 0.42;
+        transform: translateX(-50%) translateY(0);
       }
       50% {
-        opacity: 0.95;
-        transform: translate3d(0.45rem, 0.48rem, 0) scale(1.04);
+        opacity: 0.62;
+        transform: translateX(-50%) translateY(-3px);
       }
     }
-    @keyframes pb-origin-year-sweep {
-      0%, 12% {
-        left: -36%;
-        opacity: 0;
+    @keyframes pb-origin-shadow-breathe {
+      0%, 100% {
+        opacity: 0.62;
+        transform: translateX(-50%) scale(0.99);
       }
-      22% {
-        opacity: 0.54;
+      50% {
+        opacity: 0.92;
+        transform: translateX(-50%) scale(1.03);
       }
-      48% {
-        left: 108%;
-        opacity: 0.2;
+    }
+    @keyframes pb-origin-year-main-breathe {
+      0%, 100% {
+        opacity: 0.92;
+        transform: scale(1);
       }
-      100% {
-        left: 108%;
-        opacity: 0;
+      50% {
+        opacity: 1;
+        transform: scale(1.012);
       }
     }
     @keyframes pb-meaning-flicker {
@@ -998,10 +1005,16 @@
       .pro-brand-page .pb-sign-image {
         width: min(100%, 21rem);
       }
-      .pro-brand-page .pb-origin-year,
-      .pro-brand-page .pb-origin-year-track,
+      .pro-brand-page .pb-origin-stage {
+        width: min(100%, 19rem);
+        height: clamp(10rem, 17vw, 12rem);
+      }
+      .pro-brand-page .pb-origin-year-shadow,
       .pro-brand-page .pb-origin-year-main {
-        font-size: clamp(4rem, 7vw, 5.35rem);
+        font-size: clamp(3.7rem, 6.8vw, 4.9rem);
+      }
+      .pro-brand-page .pb-origin-skyline {
+        width: min(100%, 17rem);
       }
       .pro-brand-page .pb-meaning-layout {
         min-height: 0;
@@ -1069,24 +1082,22 @@
         width: min(100%, 19rem);
       }
       .pro-brand-page .pb-origin-decor {
-        min-height: 10rem;
-        justify-content: flex-start;
+        min-height: 10.5rem;
+        justify-content: center;
       }
       .pro-brand-page .pb-origin-decor::before {
-        inset: 8% 10% 2% 0;
+        inset: 10% 4% 6% 4%;
       }
-      .pro-brand-page .pb-origin-decor::after {
-        inset: 8% auto 10% 0;
-      }
-      .pro-brand-page .pb-origin-year {
-        margin: 0;
-        transform: none;
+      .pro-brand-page .pb-origin-stage {
         width: min(100%, 16rem);
-        height: 9rem;
+        height: 9.5rem;
       }
-      .pro-brand-page .pb-origin-year-track,
+      .pro-brand-page .pb-origin-skyline {
+        width: min(100%, 14.5rem);
+      }
+      .pro-brand-page .pb-origin-year-shadow,
       .pro-brand-page .pb-origin-year-main {
-        font-size: clamp(3.6rem, 13vw, 4.9rem);
+        font-size: clamp(3.2rem, 12vw, 4.3rem);
       }
       .pro-brand-page .pb-title {
         font-size: clamp(2.65rem, 12vw, 4rem);
@@ -1102,9 +1113,16 @@
       .pro-brand-page .pb-origin-decor {
         min-height: 8rem;
       }
-      .pro-brand-page .pb-origin-year-track,
+      .pro-brand-page .pb-origin-stage {
+        width: min(100%, 13rem);
+        height: 7.5rem;
+      }
+      .pro-brand-page .pb-origin-skyline {
+        width: min(100%, 11.75rem);
+      }
+      .pro-brand-page .pb-origin-year-shadow,
       .pro-brand-page .pb-origin-year-main {
-        font-size: clamp(3rem, 17vw, 4.2rem);
+        font-size: clamp(2.45rem, 15vw, 3.5rem);
       }
       .pro-brand-page .pb-meaning-visual {
         width: min(100%, 16rem);
@@ -1123,10 +1141,11 @@
       .pro-brand-page .pb-sign-core-glow,
       .pro-brand-page .pb-sign-spark,
       .pro-brand-page .pb-origin-decor::before,
-      .pro-brand-page .pb-origin-year,
-      .pro-brand-page .pb-origin-year::before,
-      .pro-brand-page .pb-origin-year::after,
-      .pro-brand-page .pb-origin-year-track {
+      .pro-brand-page .pb-origin-stage,
+      .pro-brand-page .pb-origin-stage::before,
+      .pro-brand-page .pb-origin-skyline,
+      .pro-brand-page .pb-origin-year-shadow,
+      .pro-brand-page .pb-origin-year-main {
         animation: none !important;
       }
       .pro-brand-page .pb-meaning-visual::before,
@@ -1333,19 +1352,19 @@
               <p class="pb-bento-text">Біль не стала продуктом. Продуктом стала дисципліна, увага до деталей, повага до речі і бажання створювати одяг, який має сенс, тримає форму і витримує реальність.</p>
             </div>
             <div class="pb-bento-decor pb-origin-decor" aria-hidden="true">
-              <div class="pb-origin-year">
-                <span class="pb-origin-year-track">
-                  <span>1</span>
-                  <span>6</span>
-                  <span>5</span>
-                  <span>4</span>
-                </span>
-                <span class="pb-origin-year-main">
-                  <span>1</span>
-                  <span>6</span>
-                  <span>5</span>
-                  <span>4</span>
-                </span>
+              <div class="pb-origin-stage">
+                <svg class="pb-origin-skyline" viewBox="0 0 360 116" aria-hidden="true">
+                  <path d="M16 94h40l16-16 16 16h30V66l18-16 18 16v28h36l20-20 20 20h24V54l18-16 18 16v40h46"></path>
+                  <path d="M124 94V60"></path>
+                  <path d="M160 94V56"></path>
+                  <path d="M262 94V48"></path>
+                  <path d="M52 94V84"></path>
+                  <path d="M228 94V76"></path>
+                </svg>
+                <div class="pb-origin-year">
+                  <span class="pb-origin-year-shadow">1654</span>
+                  <span class="pb-origin-year-main">1654</span>
+                </div>
               </div>
             </div>
           </div>
