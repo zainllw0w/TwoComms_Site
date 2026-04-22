@@ -22,6 +22,13 @@ class ForceHTTPSMiddleware(MiddlewareMixin):
         if settings.DEBUG:
             return None
 
+        # Service worker registration on some production frontends can reach Django
+        # without the usual proxy HTTPS markers, which creates a self-redirect loop.
+        # The worker still requires a secure browser context, so skip middleware
+        # canonicalization here and let the dedicated view answer directly.
+        if request.path == '/sw.js':
+            return None
+
         if request.path.startswith('/tg-manager/webhook/'):
             return None
 
