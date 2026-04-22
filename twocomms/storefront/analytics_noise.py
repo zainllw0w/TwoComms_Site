@@ -1,0 +1,54 @@
+from __future__ import annotations
+
+from django.db.models import Q
+
+
+TRACKING_NOISE_EXACT_PATHS = frozenset(
+    {
+        "/api",
+        "/favicon.ico",
+        "/favorites/count/",
+        "/manifest.json",
+        "/manifest.webmanifest",
+        "/robots.txt",
+        "/site.webmanifest",
+        "/sw.js",
+        "/xmlrpc.php",
+    }
+)
+
+TRACKING_NOISE_PATH_PREFIXES = (
+    "/__debug__",
+    "/accounts/telegram/",
+    "/activity/pulse/",
+    "/admin",
+    "/admin-panel",
+    "/api/",
+    "/cart/summary/",
+    "/favorites/check/",
+    "/favorites/toggle/",
+    "/invoices/api/",
+    "/media/",
+    "/parsing/api/",
+    "/payments/monobank/webhook/",
+    "/reminders/feed/",
+    "/static/",
+)
+
+
+def normalize_tracking_path(path: str | None) -> str:
+    return (path or "").strip() or "/"
+
+
+def is_analytics_noise_path(path: str | None) -> bool:
+    normalized = normalize_tracking_path(path)
+    return normalized in TRACKING_NOISE_EXACT_PATHS or any(
+        normalized.startswith(prefix) for prefix in TRACKING_NOISE_PATH_PREFIXES
+    )
+
+
+def analytics_noise_q(field_name: str = "path") -> Q:
+    query = Q(**{f"{field_name}__in": tuple(TRACKING_NOISE_EXACT_PATHS)})
+    for prefix in TRACKING_NOISE_PATH_PREFIXES:
+        query |= Q(**{f"{field_name}__startswith": prefix})
+    return query
