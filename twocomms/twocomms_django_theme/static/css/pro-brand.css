@@ -1688,6 +1688,24 @@ html[data-route-name="about"] .site-footer-premium {
     padding-bottom: 1.75rem;
   }
 
+  .pro-brand-page .pb-video-wrapper {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 1.5rem;
+    padding: 1.6rem;
+  }
+
+  .pro-brand-page .pb-video-content,
+  .pro-brand-page .pb-video-player,
+  .pro-brand-page .pb-player-frame {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .pro-brand-page .pb-video-player {
+    order: 1;
+  }
+
   .pro-brand-page .pb-title {
     font-size: clamp(2.35rem, 9.2vw, 3.2rem);
     line-height: 0.94;
