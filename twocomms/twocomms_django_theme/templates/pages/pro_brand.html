@@ -675,6 +675,87 @@
       filter: drop-shadow(0 18px 30px rgba(255, 85, 46, 0.16));
       transform: translateY(0);
     }
+    .pro-brand-page #origin.pb-bento-card {
+      overflow: hidden;
+    }
+    .pro-brand-page #origin .pb-bento-content.pb-flex-row {
+      position: relative;
+      align-items: stretch;
+    }
+    .pro-brand-page .pb-origin-decor {
+      position: relative;
+      flex: 1 1 34%;
+      min-width: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-end;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .pro-brand-page .pb-origin-decor::before {
+      content: "";
+      position: absolute;
+      inset: 10% 4% 4% 22%;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 56%),
+        radial-gradient(circle at 50% 62%, rgba(206, 33, 18, 0.14), rgba(118, 10, 5, 0.03) 48%, transparent 72%);
+      filter: blur(24px);
+      opacity: 0.55;
+      transform: skewX(-7deg);
+    }
+    .pro-brand-page .pb-origin-decor::after {
+      content: "";
+      position: absolute;
+      inset: 16% 10% 14% auto;
+      width: 1px;
+      background: linear-gradient(180deg, rgba(243, 179, 106, 0), rgba(243, 179, 106, 0.28), rgba(243, 179, 106, 0));
+      opacity: 0.55;
+    }
+    .pro-brand-page .pb-origin-year {
+      position: relative;
+      margin: auto -0.35rem -0.7rem auto;
+      z-index: 1;
+      line-height: 0.82;
+      font-weight: 800;
+      letter-spacing: -0.08em;
+      user-select: none;
+      transform: rotate(-2deg);
+    }
+    .pro-brand-page .pb-origin-year-track {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      gap: clamp(0.12rem, 0.6vw, 0.35rem);
+      font-size: clamp(6.4rem, 14vw, 10.5rem);
+      color: rgba(204, 30, 16, 0.06);
+      filter: blur(12px);
+      transform: translate3d(0.3rem, 0.35rem, 0);
+    }
+    .pro-brand-page .pb-origin-year-main {
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      gap: clamp(0.12rem, 0.6vw, 0.35rem);
+      font-size: clamp(6.4rem, 14vw, 10.5rem);
+    }
+    .pro-brand-page .pb-origin-year-main span {
+      display: block;
+      color: rgba(255, 255, 255, 0.03);
+      -webkit-text-stroke: 1px rgba(255, 255, 255, 0.095);
+      text-shadow: 0 0 18px rgba(255, 110, 72, 0.08);
+    }
+    .pro-brand-page .pb-origin-year-main span:nth-child(1) {
+      transform: translateY(-0.12em);
+    }
+    .pro-brand-page .pb-origin-year-main span:nth-child(2) {
+      transform: translateY(-0.02em);
+    }
+    .pro-brand-page .pb-origin-year-main span:nth-child(3) {
+      transform: translateY(0.1em);
+    }
+    .pro-brand-page .pb-origin-year-main span:nth-child(4) {
+      transform: translateY(-0.05em);
+    }
     @keyframes pb-meaning-flicker {
       0%, 100% { opacity: 0.24; transform: scale(0.98); }
       28% { opacity: 0.36; }
@@ -815,6 +896,11 @@
       .pro-brand-page .pb-sign-image {
         width: min(100%, 21rem);
       }
+      .pro-brand-page .pb-origin-year,
+      .pro-brand-page .pb-origin-year-track,
+      .pro-brand-page .pb-origin-year-main {
+        font-size: clamp(5.5rem, 13vw, 8.5rem);
+      }
       .pro-brand-page .pb-meaning-layout {
         min-height: 0;
         padding-top: 0;
@@ -880,6 +966,24 @@
       .pro-brand-page .pb-sign-image {
         width: min(100%, 19rem);
       }
+      .pro-brand-page .pb-origin-decor {
+        min-height: 10rem;
+        justify-content: flex-start;
+      }
+      .pro-brand-page .pb-origin-decor::before {
+        inset: 4% 18% 0 0;
+      }
+      .pro-brand-page .pb-origin-decor::after {
+        inset: 8% auto 10% 0;
+      }
+      .pro-brand-page .pb-origin-year {
+        margin: 0;
+        transform: none;
+      }
+      .pro-brand-page .pb-origin-year-track,
+      .pro-brand-page .pb-origin-year-main {
+        font-size: clamp(4.8rem, 17vw, 7.2rem);
+      }
       .pro-brand-page .pb-title {
         font-size: clamp(2.65rem, 12vw, 4rem);
       }
@@ -890,6 +994,13 @@
       }
       .pro-brand-page .pb-sign-image {
         width: min(100%, 16rem);
+      }
+      .pro-brand-page .pb-origin-decor {
+        min-height: 8rem;
+      }
+      .pro-brand-page .pb-origin-year-track,
+      .pro-brand-page .pb-origin-year-main {
+        font-size: clamp(3.8rem, 22vw, 5.8rem);
       }
       .pro-brand-page .pb-meaning-visual {
         width: min(100%, 16rem);
@@ -1112,8 +1223,16 @@
               <p class="pb-bento-text">Після важкого поранення і критичної точки перед засновником залишився вибір: поставити крапку або продовжити. TwoComms став відповіддю на цей вибір.</p>
               <p class="pb-bento-text">Біль не стала продуктом. Продуктом стала дисципліна, увага до деталей, повага до речі і бажання створювати одяг, який має сенс, тримає форму і витримує реальність.</p>
             </div>
-            <div class="pb-bento-decor" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.3" class="pb-large-watermark"><path d="M12 2L2 22h20L12 2z"></path><path d="M12 2v20"></path><path d="M2 22l10-10l10 10"></path></svg>
+            <div class="pb-bento-decor pb-origin-decor" aria-hidden="true">
+              <div class="pb-origin-year">
+                <span class="pb-origin-year-track">1654</span>
+                <span class="pb-origin-year-main">
+                  <span>1</span>
+                  <span>6</span>
+                  <span>5</span>
+                  <span>4</span>
+                </span>
+              </div>
             </div>
           </div>
         </article>
