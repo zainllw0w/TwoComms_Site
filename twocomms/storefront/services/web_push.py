@@ -47,6 +47,29 @@ def _resolve_webpush_dependency():
     return webpush, WebPushException
 
 
+def _resolve_vapid_private_key(private_key):
+    normalized_key = (private_key or "").strip()
+    if not normalized_key:
+        raise WebPushConfigurationError("WEB_PUSH_VAPID_PRIVATE_KEY is not configured")
+
+    if "-----BEGIN" not in normalized_key:
+        return normalized_key
+
+    try:
+        vapid_module = import_module("py_vapid")
+    except ModuleNotFoundError as exc:
+        raise WebPushConfigurationError("py_vapid dependency is not installed") from exc
+
+    vapid_class = getattr(vapid_module, "Vapid01", None) or getattr(vapid_module, "Vapid", None)
+    if vapid_class is None:
+        raise WebPushConfigurationError("py_vapid dependency is not installed")
+
+    try:
+        return vapid_class.from_pem(normalized_key.encode("utf-8"))
+    except Exception as exc:
+        raise WebPushConfigurationError(f"WEB_PUSH_VAPID_PRIVATE_KEY is invalid: {exc}") from exc
+
+
 def is_web_push_configured():
     webpush_callable, _ = _resolve_webpush_dependency()
     return bool(getattr(settings, "WEB_PUSH_ENABLED", False) and webpush_callable is not None)
@@ -140,6 +163,7 @@ def send_campaign(campaign):
     private_key = (getattr(settings, "WEB_PUSH_VAPID_PRIVATE_KEY", "") or "").strip()
     if not private_key:
         raise WebPushConfigurationError("WEB_PUSH_VAPID_PRIVATE_KEY is not configured")
+    vapid_private_key = _resolve_vapid_private_key(private_key)
 
     campaign.status = PushNotificationCampaign.Status.SENDING
     campaign.last_error = ""
@@ -178,7 +202,7 @@ def send_campaign(campaign):
             response = webpush_callable(
                 subscription_info=_build_subscription_info(subscription),
                 data=json.dumps(payload),
-                vapid_private_key=private_key,
+                vapid_private_key=vapid_private_key,
                 vapid_claims=_vapid_claims(),
                 ttl=86400,
                 timeout=10,
