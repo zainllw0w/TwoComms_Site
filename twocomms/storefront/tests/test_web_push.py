@@ -71,6 +71,22 @@ class WebPushFlowTests(TestCase):
         self.assertEqual(subscription.browser_family, "Chrome")
         self.assertTrue(subscription.is_active)
 
+    def test_home_page_embeds_web_push_config(self):
+        response = self.client.get(reverse("home"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="web-push-config"')
+        self.assertContains(response, reverse("push_subscribe"))
+        self.assertContains(response, "test-public-key")
+
+    def test_service_worker_is_served_from_root_scope(self):
+        response = self.client.get("/sw.js", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Service-Worker-Allowed"], "/")
+        self.assertIn("application/javascript", response["Content-Type"])
+        self.assertContains(response, "EVENTS_ENDPOINT = '/push/events/'")
+
     def test_new_subscription_deactivates_previous_same_installation(self):
         old_subscription = WebPushDeviceSubscription.objects.create(
             installation_id="install-1",
