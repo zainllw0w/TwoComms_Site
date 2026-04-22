@@ -168,10 +168,15 @@ picture img {
 
 /* Panels and modals - prevent shifts when opening */
 #mini-cart-panel-mobile,
-#user-panel-mobile,
+#user-panel-mobile {
+  position: fixed;
+  transform: translateZ(0);
+  contain: layout style paint;
+}
+
+/* Keep desktop dropdown panels anchored to their trigger icons. */
 .user-panel,
 .cart-panel {
-  position: fixed;
   transform: translateZ(0);
   contain: layout style paint;
 }
@@ -481,4 +486,3 @@ footer {
     display: none !important;
   }
 }
-
