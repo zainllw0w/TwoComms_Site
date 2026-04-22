@@ -10,6 +10,15 @@ from django.core import signing
 CITY_TOKEN_SALT = "orders.nova_poshta.city_choice"
 WAREHOUSE_TOKEN_SALT = "orders.nova_poshta.warehouse_choice"
 DEFAULT_TOKEN_MAX_AGE = 7 * 24 * 60 * 60
+DELIVERY_SELECTION_FIELDS = (
+    "city",
+    "np_office",
+    "np_settlement_ref",
+    "np_city_ref",
+    "np_city_token",
+    "np_warehouse_ref",
+    "np_warehouse_token",
+)
 
 
 class NovaPoshtaSelectionError(Exception):
@@ -109,6 +118,23 @@ def resolve_delivery_selection(payload: Mapping[str, Any]) -> NovaPoshtaDelivery
         city_token=raw_city_token,
         warehouse_token=raw_warehouse_token,
     )
+
+
+def has_delivery_selection_data(payload: Mapping[str, Any] | None) -> bool:
+    payload = payload or {}
+    return any(_clean_string(payload.get(field)) for field in DELIVERY_SELECTION_FIELDS)
+
+
+def resolve_optional_delivery_selection(
+    payload: Mapping[str, Any] | None,
+) -> NovaPoshtaDeliverySelection | None:
+    if not has_delivery_selection_data(payload):
+        return None
+    return resolve_delivery_selection(payload or {})
+
+
+def format_delivery_selection_address(selection: NovaPoshtaDeliverySelection) -> str:
+    return ", ".join(part for part in (selection.city, selection.np_office) if part)
 
 
 def serialize_city_choice(item: Mapping[str, Any]) -> dict[str, Any]:

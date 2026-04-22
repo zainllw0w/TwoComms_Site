@@ -62,9 +62,10 @@
 {% block extra_js %}
 <script src="{% static 'js/dropshipper.js' %}?v=20251023delegate" defer></script>
 {% if user.is_authenticated %}
+  <script type="module" src="{% static 'js/modules/nova-poshta-form-bridge.js' %}?v=20260422a"></script>
   {% compress js %}
-<script src="{% static 'js/dropshipper.dashboard.js' %}?v=20251023delegate" defer></script>
-<script src="{% static 'js/dropshipper-product-modal.js' %}?v=20251023delegate" defer></script>
+<script src="{% static 'js/dropshipper.dashboard.js' %}?v=20260422np" defer></script>
+<script src="{% static 'js/dropshipper-product-modal.js' %}?v=20260422np" defer></script>
 {% endcompress %}
 {% else %}
   <script src="{% static 'js/dropshipper-auth-modal.js' %}?v=20251030fixed" defer></script>

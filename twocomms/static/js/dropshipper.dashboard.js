@@ -106,22 +106,33 @@
   }
 
   function bindOrderForm() {
-    orderForm.addEventListener('submit', (event) => {
+    orderForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!orderItems.length) {
         showToast('Додайте хоча б один товар до замовлення', 'warning');
         return;
       }
 
+      if (window.TwoCommsNovaPoshta?.validateForm) {
+        const validation = await window.TwoCommsNovaPoshta.validateForm(orderForm, { showErrors: true });
+        if (!validation.ok) {
+          showToast(validation.message, 'warning');
+          return;
+        }
+      }
+
       const formData = new FormData(orderForm);
-      const client_city = formData.get('client_city') || '';
-      const client_np_office = formData.get('client_np_office') || '';
-      const client_np_address = `${client_city}, ${client_np_office}`.trim();
       
       const payload = {
         client_name: formData.get('client_name'),
         client_phone: formData.get('client_phone'),
-        client_np_address: client_np_address,
+        client_city: formData.get('client_city') || '',
+        client_np_office: formData.get('client_np_office') || '',
+        client_np_settlement_ref: formData.get('client_np_settlement_ref') || '',
+        client_np_city_ref: formData.get('client_np_city_ref') || '',
+        client_np_city_token: formData.get('client_np_city_token') || '',
+        client_np_warehouse_ref: formData.get('client_np_warehouse_ref') || '',
+        client_np_warehouse_token: formData.get('client_np_warehouse_token') || '',
         order_source: formData.get('order_source') || '',
         notes: formData.get('notes'),
         items: orderItems.map((item) => ({

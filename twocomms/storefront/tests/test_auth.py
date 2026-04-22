@@ -5,6 +5,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
+from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
 from storefront.views.auth import LoginForm, RegisterForm
 
 
@@ -222,6 +223,36 @@ class ProfileSetupViewTests(AuthViewTestCase):
         self.user = self.create_user(phone="+380991234567")
         self.client.force_login(self.user, backend="django.contrib.auth.backends.ModelBackend")
 
+    def _delivery_payload(self):
+        city_label = "м. Київ, Київ"
+        city_ref = "delivery-city-ref"
+        settlement_ref = "settlement-ref"
+        warehouse_label = "Відділення №22, Київ, вул. Тестова, 1"
+        return {
+            "city": "довільний текст, який має бути проігнорований",
+            "np_office": "ще один довільний текст",
+            "np_settlement_ref": "spoofed-settlement-ref",
+            "np_city_ref": "spoofed-city-ref",
+            "np_city_token": build_city_choice_token(
+                {
+                    "label": city_label,
+                    "settlement_ref": settlement_ref,
+                    "city_ref": city_ref,
+                }
+            ),
+            "np_warehouse_ref": "spoofed-warehouse-ref",
+            "np_warehouse_token": build_warehouse_choice_token(
+                {
+                    "label": warehouse_label,
+                    "ref": "warehouse-ref",
+                    "kind": "branch",
+                    "city_ref": city_ref,
+                }
+            ),
+            "canonical_city": city_label,
+            "canonical_np_office": warehouse_label,
+        }
+
     def test_profile_setup_renders_profile_and_push_preferences_section(self):
         response = self.get(self.profile_setup_url)
 
@@ -233,6 +264,7 @@ class ProfileSetupViewTests(AuthViewTestCase):
         self.assertContains(response, "без App Store")
 
     def test_profile_setup_post_redirects_back_to_profile_setup(self):
+        delivery = self._delivery_payload()
         response = self.post(
             self.profile_setup_url,
             {
@@ -241,8 +273,13 @@ class ProfileSetupViewTests(AuthViewTestCase):
                 "email": "user@example.com",
                 "telegram": "@testuser",
                 "instagram": "@twocomms",
-                "city": "Kyiv",
-                "np_office": "1",
+                "city": delivery["city"],
+                "np_office": delivery["np_office"],
+                "np_settlement_ref": delivery["np_settlement_ref"],
+                "np_city_ref": delivery["np_city_ref"],
+                "np_city_token": delivery["np_city_token"],
+                "np_warehouse_ref": delivery["np_warehouse_ref"],
+                "np_warehouse_token": delivery["np_warehouse_token"],
                 "pay_type": "full",
             },
         )
@@ -250,7 +287,8 @@ class ProfileSetupViewTests(AuthViewTestCase):
         self.assertRedirects(response, self.profile_setup_url, fetch_redirect_response=False)
         self.user.userprofile.refresh_from_db()
         self.assertEqual(self.user.userprofile.full_name, "Test User")
-        self.assertEqual(self.user.userprofile.city, "Kyiv")
+        self.assertEqual(self.user.userprofile.city, delivery["canonical_city"])
+        self.assertEqual(self.user.userprofile.np_office, delivery["canonical_np_office"])
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, "user@example.com")
 
@@ -270,6 +308,7 @@ class ProfileSetupViewTests(AuthViewTestCase):
         self.assertTrue(self.user.userprofile.push_order_updates_enabled)
 
     def test_profile_setup_keeps_existing_ubd_doc_without_reupload(self):
+        delivery = self._delivery_payload()
         self.user.userprofile.is_ubd = True
         self.user.userprofile.ubd_doc = SimpleUploadedFile(
             "ubd.jpg",
@@ -284,8 +323,13 @@ class ProfileSetupViewTests(AuthViewTestCase):
                 "full_name": "UBD User",
                 "phone": "+380991234567",
                 "email": "ubd@example.com",
-                "city": "Kyiv",
-                "np_office": "5",
+                "city": delivery["city"],
+                "np_office": delivery["np_office"],
+                "np_settlement_ref": delivery["np_settlement_ref"],
+                "np_city_ref": delivery["np_city_ref"],
+                "np_city_token": delivery["np_city_token"],
+                "np_warehouse_ref": delivery["np_warehouse_ref"],
+                "np_warehouse_token": delivery["np_warehouse_token"],
                 "pay_type": "full",
                 "is_ubd": "on",
             },
