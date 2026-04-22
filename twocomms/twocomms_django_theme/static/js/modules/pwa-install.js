@@ -15,6 +15,7 @@ const EXCLUDED_PATH_PREFIXES = [
 
 let deferredPrompt = null;
 let promptTimer = null;
+let registerPromise = null;
 
 function isStandalone() {
   try {
@@ -131,6 +132,38 @@ function pushAnalytics(eventName, extra = {}) {
       ...extra,
     });
   } catch (_) { }
+}
+
+function readServiceWorkerUrl() {
+  const configNode = document.getElementById('web-push-config');
+  if (!configNode) {
+    return '/sw.js';
+  }
+
+  try {
+    const config = JSON.parse(configNode.textContent || '{}');
+    return config.serviceWorkerUrl || '/sw.js';
+  } catch (_) {
+    return '/sw.js';
+  }
+}
+
+function ensureAppShellWorker() {
+  if (!window.isSecureContext || !('serviceWorker' in navigator)) {
+    return Promise.resolve(null);
+  }
+
+  if (!registerPromise) {
+    registerPromise = navigator.serviceWorker.register(readServiceWorkerUrl(), {
+      scope: '/',
+      updateViaCache: 'none',
+    }).catch((error) => {
+      registerPromise = null;
+      throw error;
+    });
+  }
+
+  return registerPromise;
 }
 
 function removePrompt() {
@@ -279,6 +312,7 @@ export function initPwaInstall() {
     return;
   }
 
+  ensureAppShellWorker().catch(() => undefined);
   trackLaunchIfNeeded();
 
   window.addEventListener('beforeinstallprompt', (event) => {

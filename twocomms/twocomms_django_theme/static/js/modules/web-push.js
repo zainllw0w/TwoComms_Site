@@ -336,28 +336,38 @@ async function subscribeUser(config) {
 }
 
 async function syncGrantedSubscription(config, options = {}) {
-  const { force = false } = options;
+  const { force = false, detailed = false } = options;
   const strategy = readStrategy(config);
   const permission = getPermissionState();
 
-  if (permission !== 'granted' || !canUsePush() || isDeviceDisabled()) {
+  if (permission !== 'granted') {
     dispatchPushStateChange(config);
-    return false;
+    return detailed ? { synced: false, reason: 'permission' } : false;
+  }
+
+  if (!canUsePush()) {
+    dispatchPushStateChange(config);
+    return detailed ? { synced: false, reason: 'unsupported' } : false;
+  }
+
+  if (isDeviceDisabled()) {
+    dispatchPushStateChange(config);
+    return detailed ? { synced: false, reason: 'device_disabled' } : false;
   }
 
   const lastSyncAt = readNumber(LAST_SYNC_AT_KEY, 'local', 0);
   const syncIsFresh = lastSyncAt && (Date.now() - lastSyncAt) < strategy.subscriptionSyncIntervalMs;
   if (!force && syncIsFresh && !authStateChangedSinceLastSync(config)) {
     dispatchPushStateChange(config);
-    return false;
+    return detailed ? { synced: false, reason: 'fresh' } : false;
   }
 
   try {
     await subscribeUser(config);
-    return true;
+    return detailed ? { synced: true, reason: 'synced' } : true;
   } catch (_) {
     dispatchPushStateChange(config);
-    return false;
+    return detailed ? { synced: false, reason: 'error' } : false;
   }
 }
 
@@ -441,6 +451,25 @@ function maybeNotify(message, type = 'info') {
   }
 }
 
+function trackWebPushMetric(eventName, extra = {}) {
+  try {
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: eventName,
+      web_push_event_name: eventName,
+      browser_family: detectBrowserFamily(),
+      operating_system: detectOperatingSystem(),
+      device_type: detectDeviceType(),
+      standalone: isStandalone(),
+      permission: getPermissionState(),
+      route_name: document.documentElement.getAttribute('data-route-name') || '',
+      device_class: document.documentElement.getAttribute('data-device-class') || '',
+      path: window.location.pathname,
+      ...extra,
+    });
+  } catch (_) { }
+}
+
 function promptCopy(reason) {
   if (reason === 'order_success') {
     return {
@@ -498,7 +527,10 @@ function buildPromptCard(mode, reason) {
   const wrapper = document.createElement('aside');
   wrapper.className = 'web-push-prompt';
   wrapper.setAttribute('data-web-push-prompt', '1');
-  wrapper.setAttribute('data-tone', mode === 'ios_install' ? 'install' : 'default');
+  wrapper.setAttribute(
+    'data-tone',
+    mode === 'ios_install' ? 'install' : (mode === 'retry' ? 'warning' : 'default')
+  );
   wrapper.setAttribute('role', 'dialog');
   wrapper.setAttribute('aria-live', 'polite');
   wrapper.setAttribute('aria-label', 'Налаштування push-сповіщень');
@@ -542,6 +574,36 @@ function buildPromptCard(mode, reason) {
     return wrapper;
   }
 
+  if (mode === 'retry') {
+    wrapper.innerHTML = `
+      <div class="web-push-prompt__glow"></div>
+      <div class="web-push-prompt__content">
+        <div class="web-push-prompt__icon" aria-hidden="true">Push</div>
+        <div class="web-push-prompt__text">
+          <span class="web-push-prompt__eyebrow" data-web-push-eyebrow>Повторне підключення</span>
+          <div class="web-push-prompt__title" data-web-push-title>Push потребує повторної синхронізації</div>
+          <p class="web-push-prompt__copy" data-web-push-copy>
+            Системний дозвіл уже надано, але TwoComms не зміг оновити push-підписку для цього браузера. Повторіть підключення, щоб сповіщення працювали стабільно.
+          </p>
+          <div class="web-push-prompt__benefits" aria-hidden="true">
+            <span class="web-push-prompt__benefit">Дозвіл уже є</span>
+            <span class="web-push-prompt__benefit">Оновимо підписку</span>
+            <span class="web-push-prompt__benefit">Без повторної установки</span>
+          </div>
+        </div>
+        <div class="web-push-prompt__actions">
+          <button type="button" class="web-push-prompt__btn web-push-prompt__btn--ghost" data-web-push-dismiss>
+            Пізніше
+          </button>
+          <button type="button" class="web-push-prompt__btn web-push-prompt__btn--primary" data-web-push-enable>
+            Повторити
+          </button>
+        </div>
+      </div>
+    `;
+    return wrapper;
+  }
+
   wrapper.innerHTML = `
     <div class="web-push-prompt__glow"></div>
     <div class="web-push-prompt__content">
@@ -574,7 +636,7 @@ function hasBlockingOverlay() {
 }
 
 function shouldShowPrompt(config, options = {}) {
-  const { force = false } = options;
+  const { force = false, allowGranted = false } = options;
   if (!config || !config.enabled || !config.vapidPublicKey) {
     return false;
   }
@@ -587,7 +649,11 @@ function shouldShowPrompt(config, options = {}) {
   if (hasAnotherPromptOpen()) {
     return false;
   }
-  if (getPermissionState() !== 'default') {
+  const permission = getPermissionState();
+  if (!allowGranted && permission !== 'default') {
+    return false;
+  }
+  if (allowGranted && permission !== 'default' && permission !== 'granted') {
     return false;
   }
   if (!force && isDismissed()) {
@@ -607,9 +673,11 @@ function shouldShowPrompt(config, options = {}) {
 
 function showPromptCard(config, options = {}) {
   const { mode = 'default', reason = 'engaged', force = false, retryCount = 0 } = options;
+  const allowGranted = mode === 'retry';
   if (!force && hasBlockingOverlay()) {
     if (retryCount < MAX_OVERLAY_RETRIES) {
       schedulePrompt(config, reason, 1800, {
+        mode,
         force,
         retryCount: retryCount + 1,
       });
@@ -617,7 +685,7 @@ function showPromptCard(config, options = {}) {
     return false;
   }
 
-  if (!shouldShowPrompt(config, { force })) {
+  if (!shouldShowPrompt(config, { force, allowGranted })) {
     dispatchPushStateChange(config);
     return false;
   }
@@ -629,11 +697,13 @@ function showPromptCard(config, options = {}) {
 
   const card = buildPromptCard(mode, reason);
   document.body.appendChild(card);
+  trackWebPushMetric('web_push_prompt_shown', { mode, reason });
   dispatchPushStateChange(config);
 
   const dismissButton = card.querySelector('[data-web-push-dismiss]');
   dismissButton?.addEventListener('click', () => {
     dismissPrompt(mode === 'ios_install' ? 7 : 21);
+    trackWebPushMetric('web_push_prompt_dismissed', { mode, reason });
     removePromptCard();
     dispatchPushStateChange(config);
   });
@@ -641,15 +711,25 @@ function showPromptCard(config, options = {}) {
   const enableButton = card.querySelector('[data-web-push-enable]');
   enableButton?.addEventListener('click', async () => {
     enableButton.disabled = true;
+    const hasGrantedPermission = getPermissionState() === 'granted';
+
     updatePromptState({
-      title: 'Підключаємо push…',
-      message: 'Запитуємо дозвіл браузера. Системне вікно зʼявиться лише один раз.',
-      eyebrow: 'Системний доступ',
+      title: hasGrantedPermission ? 'Відновлюємо push…' : 'Підключаємо push…',
+      message: hasGrantedPermission
+        ? 'Системний дозвіл уже є. Оновлюємо підписку TwoComms для цього браузера.'
+        : 'Запитуємо дозвіл браузера. Системне вікно зʼявиться лише один раз.',
+      eyebrow: hasGrantedPermission ? 'Повторна синхронізація' : 'Системний доступ',
       tone: 'loading',
     });
 
     try {
-      const permission = await Notification.requestPermission();
+      let permission = getPermissionState();
+      if (permission !== 'granted') {
+        permission = await Notification.requestPermission();
+      }
+
+      trackWebPushMetric('web_push_permission_result', { mode, reason, permission });
+
       if (permission !== 'granted') {
         dismissPrompt(45);
         updatePromptState({
@@ -664,7 +744,12 @@ function showPromptCard(config, options = {}) {
         return;
       }
 
-      await syncGrantedSubscription(config, { force: true });
+      const syncResult = await syncGrantedSubscription(config, { force: true, detailed: true });
+      if (!syncResult.synced) {
+        throw new Error('Не вдалося зберегти push-підписку.');
+      }
+
+      trackWebPushMetric('web_push_subscribe_success', { mode, reason });
       updatePromptState({
         title: 'Push увімкнено',
         message: 'Нові повідомлення про замовлення та важливі оновлення тепер приходитимуть у браузер автоматично.',
@@ -675,6 +760,11 @@ function showPromptCard(config, options = {}) {
       dispatchPushStateChange(config);
       window.setTimeout(removePromptCard, 2400);
     } catch (error) {
+      trackWebPushMetric('web_push_subscribe_error', {
+        mode,
+        reason,
+        error_message: error?.message || 'unknown_error',
+      });
       updatePromptState({
         title: 'Не вдалося завершити налаштування',
         message: error?.message || 'Спробуйте ще раз або перевірте налаштування браузера.',
@@ -702,7 +792,7 @@ function schedulePrompt(config, reason, delayMs, options = {}) {
     promptTimerId = null;
     scheduledPromptPriority = -1;
     showPromptCard(config, {
-      mode: isIOS() && !isStandalone() ? 'ios_install' : 'default',
+      mode: options.mode || (isIOS() && !isStandalone() ? 'ios_install' : 'default'),
       reason,
       force: options.force === true,
       retryCount: Number(options.retryCount || 0),
@@ -884,10 +974,18 @@ async function handleManualEnable(config) {
   const permission = getPermissionState();
 
   if (permission === 'granted') {
-    const synced = await syncGrantedSubscription(config, { force: true });
-    if (synced) {
+    const syncResult = await syncGrantedSubscription(config, { force: true, detailed: true });
+    if (syncResult.synced) {
       maybeNotify('Push-сповіщення увімкнено для цього браузера.', 'success');
+    } else if (syncResult.reason === 'error' && canUsePush() && !isDeviceDisabled()) {
+      trackWebPushMetric('web_push_manual_sync_error', { reason: 'manual' });
+      showPromptCard(config, {
+        mode: 'retry',
+        reason: 'manual',
+        force: true,
+      });
     }
+    dispatchPushStateChange(config);
     return;
   }
 
@@ -964,7 +1062,23 @@ async function bootWebPush(config) {
 
   if (getPermissionState() === 'granted') {
     const profilePanelPresent = Boolean(document.querySelector('[data-web-push-profile]'));
-    await syncGrantedSubscription(config, { force: profilePanelPresent });
+    const syncResult = await syncGrantedSubscription(config, {
+      force: profilePanelPresent,
+      detailed: true,
+    });
+
+    if (syncResult.reason === 'error' && canUsePush() && !isDeviceDisabled()) {
+      trackWebPushMetric('web_push_boot_sync_error', {
+        reason: 'manual',
+        profile_panel_present: profilePanelPresent,
+      });
+      showPromptCard(config, {
+        mode: 'retry',
+        reason: 'manual',
+        force: true,
+      });
+    }
+
     return;
   }
 
