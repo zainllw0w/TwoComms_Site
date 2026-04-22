@@ -229,6 +229,8 @@ class ProfileSetupViewTests(AuthViewTestCase):
         self.assertEqual(response.context["profile"], self.user.userprofile)
         self.assertContains(response, "Push-сповіщення")
         self.assertContains(response, 'data-web-push-profile')
+        self.assertContains(response, "екран Додому")
+        self.assertContains(response, "без App Store")
 
     def test_profile_setup_post_redirects_back_to_profile_setup(self):
         response = self.post(

@@ -107,6 +107,27 @@
     line-height: 1.55;
   }
 
+  .push-note strong {
+    display: block;
+    margin-bottom: 0.45rem;
+    color: #eff6ff;
+    font-size: 0.96rem;
+    font-weight: 700;
+  }
+
+  .push-note ol {
+    margin: 0.55rem 0 0.7rem 1.15rem;
+    padding: 0;
+  }
+
+  .push-note li + li {
+    margin-top: 0.32rem;
+  }
+
+  .push-note p {
+    margin: 0;
+  }
+
   @media (max-width: 767.98px) {
     .push-device-card {
       flex-direction: column;
@@ -540,7 +561,13 @@
             </div>
 
             <div class="push-note">
-              На iPhone та iPad Web Push працює після додавання сайту на екран Додому і запуску TwoComms як вебзастосунку. На desktop, Android і сучасних мобільних браузерах достатньо дозволити сповіщення для цього сайту.
+              <strong>iPhone та iPad: як увімкнути push правильно</strong>
+              <ol>
+                <li>У Safari або іншому браузері відкрийте меню “Поділитися”.</li>
+                <li>Натисніть “На екран Додому”, а потім відкрийте TwoComms з іконки.</li>
+                <li>Після запуску як вебзастосунку дозвольте системні push-сповіщення.</li>
+              </ol>
+              <p>Це встановлює TwoComms як швидкий вебзастосунок, без App Store. На desktop, Android і сучасних мобільних браузерах достатньо дозволити сповіщення для цього сайту.</p>
             </div>
 
             <div class="form-actions" style="padding-top: 1.25rem;">

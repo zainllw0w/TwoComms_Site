@@ -264,6 +264,7 @@ class WebPushFlowTests(TestCase):
         self.assertContains(response, reverse("push_subscribe"))
         self.assertContains(response, "test-public-key")
         self.assertContains(response, "/static/sw.js")
+        self.assertContains(response, 'name="apple-mobile-web-app-capable" content="yes"')
 
     def test_static_service_worker_path_points_to_existing_asset(self):
         response = self.client.get(reverse("home"), secure=True)
