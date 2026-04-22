@@ -285,8 +285,10 @@ def register_view(request):
 
                 logger.info(f"New user registered: {username}")
 
-                # Автоматически авторизуем
-                login(request, user)
+                # Новый пользователь создан локальным Django backend'ом;
+                # указываем его явно, чтобы регистрация не падала при
+                # наличии нескольких AUTHENTICATION_BACKENDS.
+                login(request, user, backend='django.contrib.auth.backends.ModelBackend')
 
                 # Переносим избранные товары из сессии в базу данных
                 session_favorites = request.session.get('favorites', [])

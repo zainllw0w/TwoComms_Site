@@ -1,245 +1,214 @@
-"""
-Unit tests for authentication views (auth.py).
+"""Contract tests for storefront auth views."""
 
-Tests:
-- login_view: Login functionality
-- register_view: User registration
-- logout_view: Logout functionality
-"""
-
-from django.test import TestCase, Client
-from django.urls import reverse
 from django.contrib.auth.models import User
-from accounts.models import UserProfile
+from django.test import Client, TestCase, override_settings
+from django.urls import reverse
+
+from storefront.views.auth import LoginForm, RegisterForm
 
 
-class LoginViewTests(TestCase):
-    """Tests for login_view function."""
-
-    def setUp(self):
-        """Set up test client and test user."""
-        self.client = Client()
-        self.login_url = reverse('login')
-
-        # Create test user
-        self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
-        UserProfile.objects.create(user=self.user, phone='+380991234567')
-
-    def test_login_page_loads(self):
-        """Test that login page loads successfully."""
-        response = self.client.get(self.login_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'login')
-
-    def test_login_with_valid_credentials(self):
-        """Test login with correct username and password."""
-        response = self.client.post(self.login_url, {
-            'username': 'testuser',
-            'password': 'testpass123'
-        })
-
-        # Should redirect to home after successful login
-        self.assertEqual(response.status_code, 302)
-
-        # User should be authenticated
-        self.assertTrue(self.client.session.get('_auth_user_id'))
-
-    def test_login_with_invalid_credentials(self):
-        """Test login with incorrect password."""
-        response = self.client.post(self.login_url, {
-            'username': 'testuser',
-            'password': 'wrongpassword'
-        })
-
-        # Should stay on login page with error
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'error')
-
-    def test_login_with_nonexistent_user(self):
-        """Test login with non-existent username."""
-        response = self.client.post(self.login_url, {
-            'username': 'nonexistent',
-            'password': 'testpass123'
-        })
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'error')
-
-    def test_redirect_authenticated_user(self):
-        """Test that authenticated user is redirected from login page."""
-        # Login user
-        self.client.login(username='testuser', password='testpass123')
-
-        # Try to access login page
-        response = self.client.get(self.login_url)
-
-        # Should redirect to home
-        self.assertEqual(response.status_code, 302)
-
-    def test_login_with_next_parameter(self):
-        """Test login redirect with 'next' parameter."""
-        response = self.client.post(self.login_url + '?next=/profile/', {
-            'username': 'testuser',
-            'password': 'testpass123'
-        })
-
-        # Should redirect to specified page
-        self.assertRedirects(response, '/profile/', fetch_redirect_response=False)
-
-
-class RegisterViewTests(TestCase):
-    """Tests for register_view function."""
+@override_settings(ALLOWED_HOSTS=["twocomms.shop", "testserver"])
+class AuthViewTestCase(TestCase):
+    host = "twocomms.shop"
 
     def setUp(self):
-        """Set up test client."""
-        self.client = Client()
-        self.register_url = reverse('register')
+        super().setUp()
+        self.client = Client(HTTP_HOST=self.host)
 
-    def test_register_page_loads(self):
-        """Test that registration page loads successfully."""
-        response = self.client.get(self.register_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'register')
+    def get(self, url, **kwargs):
+        return self.client.get(url, secure=True, **kwargs)
 
-    def test_register_new_user(self):
-        """Test successful user registration."""
-        response = self.client.post(self.register_url, {
-            'username': 'newuser',
-            'email': 'newuser@example.com',
-            'password1': 'securepass123',
-            'password2': 'securepass123'
-        })
+    def post(self, url, data=None, **kwargs):
+        return self.client.post(url, data=data or {}, secure=True, **kwargs)
 
-        # Should create user
-        self.assertTrue(User.objects.filter(username='newuser').exists())
-
-        # Should redirect to profile setup
-        self.assertEqual(response.status_code, 302)
-
-        # User should be automatically logged in
-        self.assertTrue(self.client.session.get('_auth_user_id'))
-
-    def test_register_with_existing_username(self):
-        """Test registration with username that already exists."""
-        # Create existing user
-        User.objects.create_user(
-            username='existinguser',
-            email='existing@example.com',
-            password='pass123'
-        )
-
-        # Try to register with same username
-        response = self.client.post(self.register_url, {
-            'username': 'existinguser',
-            'email': 'new@example.com',
-            'password1': 'securepass123',
-            'password2': 'securepass123'
-        })
-
-        # Should show error
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'error')
-
-    def test_register_with_mismatched_passwords(self):
-        """Test registration with non-matching passwords."""
-        response = self.client.post(self.register_url, {
-            'username': 'newuser',
-            'email': 'newuser@example.com',
-            'password1': 'securepass123',
-            'password2': 'differentpass123'
-        })
-
-        # Should show error
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'password')
-
-        # User should not be created
-        self.assertFalse(User.objects.filter(username='newuser').exists())
-
-    def test_register_with_weak_password(self):
-        """Test registration with weak password."""
-        response = self.client.post(self.register_url, {
-            'username': 'newuser',
-            'email': 'newuser@example.com',
-            'password1': '123',
-            'password2': '123'
-        })
-
-        # Should show error
-        self.assertEqual(response.status_code, 200)
-
-        # User should not be created
-        self.assertFalse(User.objects.filter(username='newuser').exists())
-
-    def test_redirect_authenticated_user_from_register(self):
-        """Test that authenticated user is redirected from register page."""
-        # Create and login user
-        user = User.objects.create_user(
-            username='testuser',
-            password='testpass123'
-        )
-        self.client.login(username='testuser', password='testpass123')
-
-        # Try to access register page
-        response = self.client.get(self.register_url)
-
-        # Should redirect to home
-        self.assertEqual(response.status_code, 302)
+    def create_user(self, *, username="testuser", password="StrongPass123!", phone=""):
+        user = User.objects.create_user(username=username, password=password)
+        user.userprofile.phone = phone
+        user.userprofile.save(update_fields=["phone"])
+        return user
 
 
-class LogoutViewTests(TestCase):
-    """Tests for logout_view function."""
-
+class LoginViewTests(AuthViewTestCase):
     def setUp(self):
-        """Set up test client and user."""
-        self.client = Client()
-        self.logout_url = reverse('logout')
+        super().setUp()
+        self.login_url = reverse("login")
 
-        # Create and login user
-        self.user = User.objects.create_user(
-            username='testuser',
-            password='testpass123'
+    def test_login_page_loads_with_current_form_contract(self):
+        response = self.get(f"{self.login_url}?next=/profile/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.context["form"], LoginForm)
+        self.assertEqual(list(response.context["form"].fields), ["username", "password"])
+        self.assertEqual(response.context["next"], "/profile/")
+
+    def test_login_with_valid_credentials_redirects_home_for_completed_profile(self):
+        user = self.create_user(phone="+380991234567")
+
+        response = self.post(
+            self.login_url,
+            {"username": user.username, "password": "StrongPass123!"},
         )
-        self.client.login(username='testuser', password='testpass123')
 
-    def test_logout_authenticated_user(self):
-        """Test logout for authenticated user."""
-        # Verify user is logged in
-        self.assertTrue(self.client.session.get('_auth_user_id'))
+        self.assertRedirects(response, reverse("home"), fetch_redirect_response=False)
+        self.assertEqual(self.client.session.get("_auth_user_id"), str(user.pk))
 
-        # Logout
-        response = self.client.get(self.logout_url)
+    def test_login_with_valid_credentials_redirects_to_profile_setup_when_phone_missing(self):
+        user = self.create_user(username="empty-phone")
 
-        # Should redirect to home
-        self.assertEqual(response.status_code, 302)
+        response = self.post(
+            self.login_url,
+            {"username": user.username, "password": "StrongPass123!"},
+        )
 
-        # User should not be authenticated
-        self.assertIsNone(self.client.session.get('_auth_user_id'))
+        self.assertRedirects(response, reverse("profile_setup"), fetch_redirect_response=False)
+        self.assertEqual(self.client.session.get("_auth_user_id"), str(user.pk))
 
-    def test_logout_clears_session(self):
-        """Test that logout clears user session data."""
-        # Add some session data
+    def test_login_with_invalid_credentials_returns_non_field_error(self):
+        user = self.create_user(phone="+380991234567")
+
+        response = self.post(
+            self.login_url,
+            {"username": user.username, "password": "wrongpassword"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["form"].non_field_errors(),
+            ["Невірний логін або пароль"],
+        )
+        self.assertIsNone(self.client.session.get("_auth_user_id"))
+
+    def test_authenticated_user_is_redirected_from_login_to_profile_setup(self):
+        user = self.create_user(phone="+380991234567")
+        self.client.force_login(user, backend="django.contrib.auth.backends.ModelBackend")
+
+        response = self.get(self.login_url)
+
+        self.assertRedirects(response, reverse("profile_setup"), fetch_redirect_response=False)
+
+    def test_login_honors_next_parameter_after_profile_check(self):
+        user = self.create_user(phone="+380991234567")
+
+        response = self.post(
+            f"{self.login_url}?next=/profile/",
+            {
+                "username": user.username,
+                "password": "StrongPass123!",
+                "next": "/profile/",
+            },
+        )
+
+        self.assertRedirects(response, "/profile/", fetch_redirect_response=False)
+
+
+class RegisterViewTests(AuthViewTestCase):
+    def setUp(self):
+        super().setUp()
+        self.register_url = reverse("register")
+
+    def test_register_page_loads_with_current_form_contract(self):
+        response = self.get(self.register_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.context["form"], RegisterForm)
+        self.assertEqual(
+            list(response.context["form"].fields),
+            ["username", "password1", "password2"],
+        )
+
+    def test_register_valid_data_creates_user_and_redirects_to_profile_setup(self):
+        response = self.post(
+            self.register_url,
+            {
+                "username": "newuser",
+                "password1": "StrongPass123!",
+                "password2": "StrongPass123!",
+            },
+        )
+
+        self.assertRedirects(response, reverse("profile_setup"), fetch_redirect_response=False)
+        self.assertTrue(User.objects.filter(username="newuser").exists())
+        user = User.objects.get(username="newuser")
+        self.assertEqual(self.client.session.get("_auth_user_id"), str(user.pk))
+
+        self.assertEqual(user.userprofile.phone, "")
+
+    def test_register_with_existing_username_returns_field_error(self):
+        self.create_user(username="existinguser")
+
+        response = self.post(
+            self.register_url,
+            {
+                "username": "existinguser",
+                "password1": "StrongPass123!",
+                "password2": "StrongPass123!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["form"].errors["username"],
+            ["Користувач з таким логіном вже існує"],
+        )
+
+    def test_register_with_mismatched_passwords_returns_password2_error(self):
+        response = self.post(
+            self.register_url,
+            {
+                "username": "newuser",
+                "password1": "StrongPass123!",
+                "password2": "Mismatch123!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["form"].errors["password2"],
+            ["Паролі не співпадають"],
+        )
+        self.assertFalse(User.objects.filter(username="newuser").exists())
+
+    def test_register_with_weak_password_returns_password1_errors(self):
+        response = self.post(
+            self.register_url,
+            {"username": "newuser", "password1": "123", "password2": "123"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("password1", response.context["form"].errors)
+        self.assertFalse(User.objects.filter(username="newuser").exists())
+
+    def test_authenticated_user_is_redirected_from_register_to_profile_setup(self):
+        user = self.create_user(phone="+380991234567")
+        self.client.force_login(user, backend="django.contrib.auth.backends.ModelBackend")
+
+        response = self.get(self.register_url)
+
+        self.assertRedirects(response, reverse("profile_setup"), fetch_redirect_response=False)
+
+
+class LogoutViewTests(AuthViewTestCase):
+    def setUp(self):
+        super().setUp()
+        self.logout_url = reverse("logout")
+        self.user = self.create_user(phone="+380991234567")
+        self.client.force_login(self.user, backend="django.contrib.auth.backends.ModelBackend")
+
+    def test_logout_authenticated_user_redirects_home_and_clears_session(self):
         session = self.client.session
-        session['cart'] = {'test': 'data'}
+        session["cart"] = {"test": "data"}
         session.save()
 
-        # Logout
-        self.client.get(self.logout_url)
+        response = self.get(self.logout_url)
 
-        # Session should be cleared
-        self.assertNotIn('_auth_user_id', self.client.session)
+        self.assertRedirects(response, reverse("home"), fetch_redirect_response=False)
+        self.assertIsNone(self.client.session.get("_auth_user_id"))
+        self.assertIsNone(self.client.session.get("cart"))
 
-    def test_logout_unauthenticated_user(self):
-        """Test logout when user is not authenticated."""
-        # Logout first
+    def test_logout_unauthenticated_user_redirects_home(self):
         self.client.logout()
 
-        # Try to logout again
-        response = self.client.get(self.logout_url)
+        response = self.get(self.logout_url)
 
-        # Should still redirect successfully
-        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("home"), fetch_redirect_response=False)
+        self.assertIsNone(self.client.session.get("_auth_user_id"))

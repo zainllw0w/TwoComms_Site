@@ -12,6 +12,7 @@ Catalog views - Каталог товаров и категорий.
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.core.paginator import Paginator, EmptyPage
+from django.db.models import Q
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -231,11 +232,13 @@ def catalog(request, cat_slug=None):
     categories = get_categories_cached(fragment_cache)
 
     if cat_slug:
-        category = get_object_or_404(Category, slug=cat_slug)
-        product_qs = apply_public_product_order(_product_cards_queryset().filter(
-            category=category,
-            status='published'
-        ))
+        category = get_object_or_404(Category, slug=cat_slug, is_active=True)
+        product_qs = apply_public_product_order(
+            _product_cards_queryset().filter(
+                category=category,
+                status='published',
+            )
+        )
         show_category_cards = False
     else:
         category = None
@@ -298,9 +301,12 @@ def search(request):
         product_qs = _product_cards_queryset().filter(status='published')
 
         if query:
-            # Поиск по названию (базовый поиск, как в рабочей версии из views.py)
-            # Сначала пробуем простой поиск по title, как в рабочей версии
-            product_qs = product_qs.filter(title__icontains=query)
+            product_qs = product_qs.filter(
+                Q(title__icontains=query)
+                | Q(description__icontains=query)
+                | Q(full_description__icontains=query)
+                | Q(short_description__icontains=query)
+            )
             record_search(request, query)
 
         # Фильтрация по категории

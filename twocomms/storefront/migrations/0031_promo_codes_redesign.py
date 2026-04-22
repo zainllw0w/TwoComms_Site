@@ -10,6 +10,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ('orders', '0001_initial'),
         ('storefront', '0030_add_performance_indexes'),
         ('orders', '0001_initial'),
     ]

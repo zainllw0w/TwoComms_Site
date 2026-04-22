@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 
 from storefront.models import Category, Product
@@ -74,11 +75,12 @@ class IndexNowServiceTests(TestCase):
 )
 class IndexNowSignalTests(TestCase):
     def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.category = Category.objects.create(name="Hoodies", slug="hoodie")
 
     @patch("storefront.tasks.submit_indexnow_urls_task.delay")
-    @patch("storefront.signals.generate_google_merchant_feed_task.apply_async")
-    def test_published_product_save_enqueues_indexnow_after_commit(self, merchant_feed_mock, indexnow_delay_mock):
+    def test_published_product_save_enqueues_indexnow_after_commit(self, indexnow_delay_mock):
         with self.captureOnCommitCallbacks(execute=True):
             Product.objects.create(
                 title="Test Product",
@@ -88,5 +90,22 @@ class IndexNowSignalTests(TestCase):
                 status="published",
             )
 
-        merchant_feed_mock.assert_called_once()
         indexnow_delay_mock.assert_called_once_with(["https://twocomms.shop/product/test-product/"])
+
+    @patch("storefront.tasks.submit_indexnow_urls_task.delay")
+    @patch("storefront.signals.generate_google_merchant_feed_task.apply_async")
+    def test_published_product_save_schedules_google_merchant_feed_when_lock_absent(
+        self,
+        merchant_feed_mock,
+        indexnow_delay_mock,
+    ):
+        Product.objects.create(
+            title="Merchant Feed Product",
+            slug="merchant-feed-product",
+            category=self.category,
+            price=1000,
+            status="published",
+        )
+
+        merchant_feed_mock.assert_called_once_with(countdown=300)
+        indexnow_delay_mock.assert_not_called()

@@ -61,14 +61,13 @@ def _normalise_ordered_payloads(
 ) -> List[VariantImagePayload]:
     """
     Apply deterministic ordering to payloads, filling gaps with sequential ints.
+
+    The admin builder already submits rows in visual order, so preserve the
+    incoming sequence and only compact surviving rows to contiguous integers.
+    Legacy numeric `order` values may contain gaps and should not reshuffle
+    a user-arranged sequence.
     """
     surviving = [payload for payload in payloads if not payload.delete]
-    surviving.sort(
-        key=lambda payload: (
-            payload.order if payload.order is not None else 10_000,
-            payload.instance.pk if payload.instance else 10_000,
-        )
-    )
 
     ordered: List[VariantImagePayload] = []
     for index, payload in enumerate(surviving):

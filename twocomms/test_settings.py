@@ -35,9 +35,34 @@ class DisableMigrations:
 
 MIGRATION_MODULES = DisableMigrations()
 
-# Отключаем DEBUG в тестах
+# Детерминированный профиль тестового окружения.
 DEBUG = False
 SECURE_SSL_REDIRECT = False
+ALLOWED_HOSTS = [
+    'testserver',
+    'test.com',
+    'localhost',
+    '127.0.0.1',
+    'twocomms.shop',
+    'www.twocomms.shop',
+    'dtf.twocomms.shop',
+    'management.twocomms.shop',
+]
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_DOMAIN = None
+CSRF_COOKIE_DOMAIN = None
+EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+NOVA_POSHTA_FALLBACK_ENABLED = False
+TESTING = True
+SIMPLE_RATE_LIMIT_ENABLED = False
+
+# Изоляция Celery: broker/result backend не должны ходить в Redis/RabbitMQ.
+CELERY_BROKER_URL = 'memory://'
+CELERY_RESULT_BACKEND = 'cache+memory://'
+CELERY_TASK_ALWAYS_EAGER = False
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = False
 
 # Простой пароль хэшер для ускорения тестов
 PASSWORD_HASHERS = [

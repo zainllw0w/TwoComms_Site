@@ -106,7 +106,7 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
                 self.assertContains(response, expected_meta, html=False)
 
     def test_about_page_uses_brand_story_layout(self):
-        response = self.client.get(reverse("about"), follow=True)
+        response = self.client.get(reverse("about"), secure=True, follow=True)
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(

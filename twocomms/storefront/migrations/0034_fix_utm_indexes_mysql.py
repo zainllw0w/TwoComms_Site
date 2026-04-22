@@ -20,8 +20,6 @@ def apply_mysql_utm_index_fix(apps, schema_editor):
         "CREATE INDEX idx_utm_source_medium_campaign "
         "ON storefront_utmsession (utm_source(80), utm_medium(80), utm_campaign(80));"
     )
-
-
 def reverse_mysql_utm_index_fix(apps, schema_editor):
     if schema_editor.connection.vendor != MYSQL_VENDOR:
         return

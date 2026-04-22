@@ -1,0 +1,17 @@
+<div class="product-quick-view">
+  <h3>{{ product.title }}</h3>
+  <p class="product-quick-view__price">{{ product.final_price }} грн</p>
+  {% if product.short_description %}
+    <p>{{ product.short_description }}</p>
+  {% elif product.description %}
+    <p>{{ product.description|truncatechars:180 }}</p>
+  {% endif %}
+
+  {% if color_variants %}
+    <ul class="product-quick-view__colors">
+      {% for variant in color_variants %}
+        <li>{{ variant.name|default:variant.primary_hex }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>

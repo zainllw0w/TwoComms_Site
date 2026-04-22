@@ -1184,7 +1184,11 @@ def admin_product_builder(request, product_id=None):
             prefix='size_grid',
             instance=size_grid_base_instance
         )
-        size_grid_form_used = size_grid_form.has_changed()
+        size_grid_bound_values = [
+            (request.POST.get(f'size_grid-{field_name}') or '').strip()
+            for field_name in ('name', 'description', 'guide_data')
+        ]
+        size_grid_form_used = any(size_grid_bound_values) or bool(request.FILES.get('size_grid-image'))
         size_grid_form_valid = True
         if size_grid_form_used:
             size_grid_form_valid = size_grid_form.is_valid()

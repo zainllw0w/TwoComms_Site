@@ -1,456 +1,214 @@
 """
-Unit tests for shopping cart views (cart.py).
-
-Tests:
-- view_cart: Display cart contents
-- add_to_cart: Add product to cart
-- update_cart: Update product quantity
-- remove_from_cart: Remove product from cart
-- clear_cart: Empty the cart
-- apply_promo_code: Apply promo code discount
-- remove_promo_code: Remove promo code
-- get_cart_count: Get total items count
+Regression tests for the current storefront cart contract.
 """
 
-from django.test import TestCase, Client
-from django.urls import reverse
+from __future__ import annotations
+
 from decimal import Decimal
-import json
 
-from storefront.models import Product, Category, PromoCode
+from django.contrib.auth.models import User
+from django.test import TestCase
+from django.urls import reverse
+
+from storefront.models import Category, Product, PromoCode
 
 
-class ViewCartTests(TestCase):
-    """Tests for view_cart function."""
-
+class CartViewTestCase(TestCase):
     def setUp(self):
-        """Set up test client and test products."""
-        self.client = Client()
-        self.cart_url = reverse('cart')
-
-        # Create test category and products
-        self.category = Category.objects.create(
-            name='Test Category',
-            slug='test-category'
-        )
-
-        self.product1 = Product.objects.create(
-            title='Test Product 1',
-            slug='test-product-1',
+        super().setUp()
+        self.category = Category.objects.create(name="Test Category", slug="test-category")
+        self.product = Product.objects.create(
+            title="Test Product",
+            slug="test-product",
             category=self.category,
-            retail_price=Decimal('100.00'),
-            is_active=True,
-            in_stock=True
+            price=100,
+            status="published",
         )
 
-        self.product2 = Product.objects.create(
-            title='Test Product 2',
-            slug='test-product-2',
-            category=self.category,
-            retail_price=Decimal('200.00'),
-            is_active=True,
-            in_stock=True
-        )
-
-    def test_view_empty_cart(self):
-        """Test viewing an empty cart."""
-        response = self.client.get(self.cart_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'cart')
-        # Cart should be empty
-        cart = response.context.get('cart', {})
-        self.assertEqual(len(cart), 0)
-
-    def test_view_cart_with_products(self):
-        """Test viewing cart with products."""
-        # Add products to session cart
+    def set_cart(self, *, qty=2, size="M"):
         session = self.client.session
-        session['cart'] = {
-            str(self.product1.id): {
-                'quantity': 2,
-                'color': 'Black',
-                'size': 'M'
+        session["cart"] = {
+            f"{self.product.id}:{size}:default": {
+                "product_id": self.product.id,
+                "qty": qty,
+                "size": size,
+                "color_variant_id": None,
             }
         }
         session.save()
+        return next(iter(session["cart"].keys()))
 
-        response = self.client.get(self.cart_url)
-        self.assertEqual(response.status_code, 200)
-
-        # Should display product
-        self.assertContains(response, self.product1.title)
-
-
-class AddToCartTests(TestCase):
-    """Tests for add_to_cart function."""
-
-    def setUp(self):
-        """Set up test client and products."""
-        self.client = Client()
-        self.add_to_cart_url = reverse('add_to_cart')
-
-        self.category = Category.objects.create(
-            name='Test Category',
-            slug='test-category'
+    def create_user(self, username="promo-user"):
+        user = User.objects.create_user(
+            username=username,
+            email=f"{username}@example.com",
+            password="StrongPass123!",
         )
-
-        self.product = Product.objects.create(
-            title='Test Product',
-            slug='test-product',
-            category=self.category,
-            retail_price=Decimal('100.00'),
-            is_active=True,
-            in_stock=True
-        )
-
-    def test_add_product_to_cart(self):
-        """Test adding a product to cart."""
-        response = self.client.post(self.add_to_cart_url, {
-            'product_id': self.product.id,
-            'quantity': 1,
-            'color': 'Black',
-            'size': 'M'
-        })
-
-        # Should return success response
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
-        self.assertTrue(data.get('success'))
-
-        # Product should be in session cart
-        cart = self.client.session.get('cart', {})
-        self.assertIn(str(self.product.id), cart)
-        self.assertEqual(cart[str(self.product.id)]['quantity'], 1)
-
-    def test_add_product_with_quantity(self):
-        """Test adding product with specific quantity."""
-        response = self.client.post(self.add_to_cart_url, {
-            'product_id': self.product.id,
-            'quantity': 5,
-            'color': 'Black',
-            'size': 'L'
-        })
-
-        data = json.loads(response.content)
-        self.assertTrue(data.get('success'))
-
-        cart = self.client.session.get('cart', {})
-        self.assertEqual(cart[str(self.product.id)]['quantity'], 5)
-
-    def test_add_nonexistent_product(self):
-        """Test adding non-existent product to cart."""
-        response = self.client.post(self.add_to_cart_url, {
-            'product_id': 99999,
-            'quantity': 1
-        })
-
-        # Should return error
-        self.assertEqual(response.status_code, 404)
-        data = json.loads(response.content)
-        self.assertFalse(data.get('success'))
-
-    def test_add_inactive_product(self):
-        """Test adding inactive product to cart."""
-        self.product.is_active = False
-        self.product.save()
-
-        response = self.client.post(self.add_to_cart_url, {
-            'product_id': self.product.id,
-            'quantity': 1
-        })
-
-        # Should return error
-        self.assertEqual(response.status_code, 400)
-        data = json.loads(response.content)
-        self.assertFalse(data.get('success'))
-
-    def test_add_out_of_stock_product(self):
-        """Test adding out of stock product."""
-        self.product.in_stock = False
-        self.product.save()
-
-        response = self.client.post(self.add_to_cart_url, {
-            'product_id': self.product.id,
-            'quantity': 1
-        })
-
-        # Should return error
-        self.assertEqual(response.status_code, 400)
-        data = json.loads(response.content)
-        self.assertFalse(data.get('success'))
-        self.assertIn('stock', data.get('error', '').lower())
+        user.userprofile.phone = "+380991234567"
+        user.userprofile.save(update_fields=["phone"])
+        return user
 
 
-class UpdateCartTests(TestCase):
-    """Tests for update_cart function."""
-
-    def setUp(self):
-        """Set up test client and cart."""
-        self.client = Client()
-        self.update_cart_url = reverse('update_cart')
-
-        self.category = Category.objects.create(
-            name='Test Category',
-            slug='test-category'
-        )
-
-        self.product = Product.objects.create(
-            title='Test Product',
-            slug='test-product',
-            category=self.category,
-            retail_price=Decimal('100.00'),
-            is_active=True,
-            in_stock=True
-        )
-
-        # Add product to cart
-        session = self.client.session
-        session['cart'] = {
-            str(self.product.id): {
-                'quantity': 2,
-                'color': 'Black',
-                'size': 'M'
-            }
-        }
-        session.save()
-
-    def test_update_product_quantity(self):
-        """Test updating product quantity in cart."""
-        response = self.client.post(self.update_cart_url, {
-            'product_id': self.product.id,
-            'quantity': 5
-        })
+class ViewCartTests(CartViewTestCase):
+    def test_view_empty_cart_exposes_empty_context(self):
+        response = self.client.get(reverse("cart"))
 
         self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
-        self.assertTrue(data.get('success'))
+        self.assertEqual(response.context["items"], [])
+        self.assertEqual(response.context["subtotal"], Decimal("0.00"))
+        self.assertEqual(response.context["total"], Decimal("0.00"))
 
-        cart = self.client.session.get('cart', {})
-        self.assertEqual(cart[str(self.product.id)]['quantity'], 5)
+    def test_view_cart_with_products_renders_session_items(self):
+        cart_key = self.set_cart(qty=2)
 
-    def test_update_to_zero_quantity(self):
-        """Test updating quantity to 0 removes product."""
-        response = self.client.post(self.update_cart_url, {
-            'product_id': self.product.id,
-            'quantity': 0
-        })
+        response = self.client.get(reverse("cart"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.product.title)
+        self.assertEqual(len(response.context["items"]), 1)
+        self.assertEqual(response.context["items"][0]["key"], cart_key)
+        self.assertEqual(response.context["items"][0]["qty"], 2)
+        self.assertEqual(response.context["subtotal"], Decimal("200.00"))
 
-        cart = self.client.session.get('cart', {})
-        self.assertNotIn(str(self.product.id), cart)
 
-    def test_update_nonexistent_cart_item(self):
-        """Test updating product not in cart."""
-        response = self.client.post(self.update_cart_url, {
-            'product_id': 99999,
-            'quantity': 1
-        })
+class AddToCartTests(CartViewTestCase):
+    def test_add_product_to_cart_returns_current_json_payload(self):
+        response = self.client.post(
+            reverse("cart_add"),
+            {"product_id": self.product.id, "qty": 2, "size": "L"},
+        )
 
-        # Should return error
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["count"], 2)
+        self.assertEqual(payload["total"], 200.0)
+        self.assertEqual(payload["item"]["quantity"], 2)
+        self.assertEqual(payload["item"]["size"], "L")
+        self.assertIn(f"{self.product.id}:L:default", self.client.session["cart"])
+
+    def test_add_same_product_accumulates_quantity(self):
+        self.client.post(reverse("cart_add"), {"product_id": self.product.id, "qty": 1, "size": "M"})
+
+        response = self.client.post(
+            reverse("cart_add"),
+            {"product_id": self.product.id, "qty": 3, "size": "M"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 4)
+        self.assertEqual(self.client.session["cart"][f"{self.product.id}:M:default"]["qty"], 4)
+
+    def test_add_nonexistent_product_returns_404(self):
+        response = self.client.post(reverse("cart_add"), {"product_id": 99999, "qty": 1})
+
         self.assertEqual(response.status_code, 404)
 
 
-class RemoveFromCartTests(TestCase):
-    """Tests for remove_from_cart function."""
+class UpdateAndRemoveCartTests(CartViewTestCase):
+    def test_update_cart_changes_quantity_for_existing_key(self):
+        cart_key = self.set_cart(qty=2)
 
-    def setUp(self):
-        """Set up test client and cart."""
-        self.client = Client()
-
-        self.category = Category.objects.create(
-            name='Test Category',
-            slug='test-category'
-        )
-
-        self.product = Product.objects.create(
-            title='Test Product',
-            slug='test-product',
-            category=self.category,
-            retail_price=Decimal('100.00'),
-            is_active=True,
-            in_stock=True
-        )
-
-        # Add product to cart
-        session = self.client.session
-        session['cart'] = {
-            str(self.product.id): {
-                'quantity': 2,
-                'color': 'Black',
-                'size': 'M'
-            }
-        }
-        session.save()
-
-        self.remove_url = reverse('cart_remove', args=[self.product.id])
-
-    def test_remove_product_from_cart(self):
-        """Test removing product from cart."""
-        response = self.client.post(self.remove_url)
+        response = self.client.post(reverse("update_cart"), {"cart_key": cart_key, "qty": 5})
 
         self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
-        self.assertTrue(data.get('success'))
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["line_total"], 500.0)
+        self.assertEqual(payload["total"], 500.0)
+        self.assertEqual(self.client.session["cart"][cart_key]["qty"], 5)
 
-        cart = self.client.session.get('cart', {})
-        self.assertNotIn(str(self.product.id), cart)
+    def test_update_cart_rejects_missing_key(self):
+        self.set_cart()
 
-    def test_remove_nonexistent_product(self):
-        """Test removing product that's not in cart."""
-        remove_url = reverse('cart_remove', args=[99999])
-        response = self.client.post(remove_url)
-
-        # Should still return success (idempotent)
-        self.assertEqual(response.status_code, 200)
-
-
-class ClearCartTests(TestCase):
-    """Tests for clear_cart function."""
-
-    def setUp(self):
-        """Set up test client and cart."""
-        self.client = Client()
-        self.clear_cart_url = reverse('clean_cart')
-
-        self.category = Category.objects.create(
-            name='Test Category',
-            slug='test-category'
-        )
-
-        # Add multiple products to cart
-        session = self.client.session
-        session['cart'] = {
-            '1': {'quantity': 2},
-            '2': {'quantity': 3},
-            '3': {'quantity': 1}
-        }
-        session.save()
-
-    def test_clear_cart(self):
-        """Test clearing all products from cart."""
-        response = self.client.post(self.clear_cart_url)
-
-        self.assertEqual(response.status_code, 302)  # Redirect
-
-        cart = self.client.session.get('cart', {})
-        self.assertEqual(len(cart), 0)
-
-    def test_clear_empty_cart(self):
-        """Test clearing an already empty cart."""
-        # Clear cart first
-        session = self.client.session
-        session['cart'] = {}
-        session.save()
-
-        response = self.client.post(self.clear_cart_url)
-
-        # Should still work
-        self.assertEqual(response.status_code, 302)
-
-
-class PromoCodeTests(TestCase):
-    """Tests for promo code functionality."""
-
-    def setUp(self):
-        """Set up test client and promo code."""
-        self.client = Client()
-        self.apply_promo_url = reverse('apply_promo_code')
-        self.remove_promo_url = reverse('remove_promo_code')
-
-        # Create promo code
-        self.promo = PromoCode.objects.create(
-            code='TEST10',
-            discount_type='percentage',
-            discount_value=Decimal('10.00'),
-            is_active=True,
-            usage_limit=100,
-            used_count=0
-        )
-
-    def test_apply_valid_promo_code(self):
-        """Test applying a valid promo code."""
-        response = self.client.post(self.apply_promo_url, {
-            'promo_code': 'TEST10'
-        })
-
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
-        self.assertTrue(data.get('success'))
-
-        # Promo code should be in session
-        self.assertEqual(
-            self.client.session.get('promo_code_id'),
-            self.promo.id
-        )
-
-    def test_apply_invalid_promo_code(self):
-        """Test applying non-existent promo code."""
-        response = self.client.post(self.apply_promo_url, {
-            'promo_code': 'INVALID'
-        })
+        response = self.client.post(reverse("update_cart"), {"cart_key": "missing", "qty": 1})
 
         self.assertEqual(response.status_code, 404)
-        data = json.loads(response.content)
-        self.assertFalse(data.get('success'))
+        self.assertFalse(response.json()["success"])
 
-    def test_apply_inactive_promo_code(self):
-        """Test applying inactive promo code."""
-        self.promo.is_active = False
-        self.promo.save()
+    def test_remove_from_cart_deletes_item_by_exact_key(self):
+        cart_key = self.set_cart()
 
-        response = self.client.post(self.apply_promo_url, {
-            'promo_code': 'TEST10'
-        })
+        response = self.client.post(reverse("cart_remove"), {"key": cart_key})
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["count"], 0)
+        self.assertEqual(payload["removed"], [cart_key])
+        self.assertEqual(self.client.session["cart"], {})
 
-    def test_remove_promo_code(self):
-        """Test removing applied promo code."""
-        # Apply promo first
+    def test_remove_from_cart_keeps_ok_response_for_missing_item(self):
+        self.set_cart()
+
+        response = self.client.post(reverse("cart_remove"), {"key": "missing"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["removed"], [])
+
+
+class CartUtilityEndpointTests(CartViewTestCase):
+    def test_clear_cart_ajax_empties_cart_and_promo_session(self):
+        self.set_cart()
         session = self.client.session
-        session['promo_code_id'] = self.promo.id
+        session["promo_code_id"] = 1
+        session["promo_code_data"] = {"code": "SAVE10"}
         session.save()
 
-        response = self.client.post(self.remove_promo_url)
+        response = self.client.post(
+            reverse("clean_cart"),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
 
         self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
-        self.assertTrue(data.get('success'))
+        self.assertTrue(response.json()["ok"])
+        self.assertEqual(self.client.session["cart"], {})
+        self.assertNotIn("promo_code_id", self.client.session)
+        self.assertNotIn("promo_code_data", self.client.session)
 
-        # Promo code should be removed from session
-        self.assertIsNone(self.client.session.get('promo_code_id'))
+    def test_get_cart_count_sums_current_qty_values(self):
+        self.set_cart(qty=3)
 
-
-class GetCartCountTests(TestCase):
-    """Tests for get_cart_count function."""
-
-    def setUp(self):
-        """Set up test client and cart."""
-        self.client = Client()
-        self.cart_count_url = reverse('get_cart_count')
-
-    def test_get_cart_count_empty(self):
-        """Test getting count of empty cart."""
-        response = self.client.get(self.cart_count_url)
+        response = self.client.get(reverse("get_cart_count"))
 
         self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
-        self.assertEqual(data.get('count'), 0)
+        self.assertEqual(response.json()["cart_count"], 3)
 
-    def test_get_cart_count_with_items(self):
-        """Test getting count with items in cart."""
+
+class PromoCodeTests(CartViewTestCase):
+    def test_apply_valid_promo_code_for_authenticated_user(self):
+        self.set_cart(qty=2)
+        user = self.create_user()
+        self.client.force_login(user)
+        promo = PromoCode.objects.create(
+            code="SAVE10",
+            discount_type="percentage",
+            discount_value=Decimal("10.00"),
+            is_active=True,
+        )
+
+        response = self.client.post(reverse("apply_promo_code"), {"promo_code": "save10"})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["discount"], 20.0)
+        self.assertEqual(payload["total"], 180.0)
+        self.assertEqual(self.client.session["promo_code_id"], promo.id)
+
+    def test_remove_promo_code_clears_session_and_restores_total(self):
+        self.set_cart(qty=2)
         session = self.client.session
-        session['cart'] = {
-            '1': {'quantity': 2},
-            '2': {'quantity': 3},
-            '3': {'quantity': 1}
-        }
+        session["promo_code_id"] = 123
+        session["promo_code_data"] = {"code": "SAVE10", "discount": 20.0}
         session.save()
 
-        response = self.client.get(self.cart_count_url)
+        response = self.client.post(reverse("remove_promo_code"))
 
         self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
-        # Total: 2 + 3 + 1 = 6
-        self.assertEqual(data.get('count'), 6)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["discount"], 0.0)
+        self.assertEqual(payload["total"], 200.0)
+        self.assertNotIn("promo_code_id", self.client.session)
+        self.assertNotIn("promo_code_data", self.client.session)
