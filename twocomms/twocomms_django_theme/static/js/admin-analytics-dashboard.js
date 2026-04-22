@@ -647,7 +647,7 @@
       return;
     }
     target.innerHTML = `
-      <table class="analytics-table">
+      <table class="analytics-table analytics-table--responsive">
         <thead>
           <tr>${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr>
         </thead>
@@ -657,7 +657,7 @@
               ${columns.map((column) => {
                 const value = row[column.key];
                 const rendered = column.formatter ? column.formatter(value) : value;
-                return `<td>${escapeHtml(String(rendered ?? "—"))}</td>`;
+                return `<td data-label="${escapeHtml(column.label)}">${escapeHtml(String(rendered ?? "—"))}</td>`;
               }).join("")}
             </tr>
           `).join("")}
@@ -681,7 +681,7 @@
       return '<div class="analytics-warning-item">Немає даних.</div>';
     }
     return `
-      <table class="analytics-table">
+      <table class="analytics-table analytics-table--responsive">
         <thead>
           <tr>${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr>
         </thead>
@@ -691,7 +691,7 @@
               ${columns.map((column) => {
                 const value = row[column.key];
                 const rendered = column.formatter ? column.formatter(value) : value;
-                return `<td>${escapeHtml(String(rendered ?? "—"))}</td>`;
+                return `<td data-label="${escapeHtml(column.label)}">${escapeHtml(String(rendered ?? "—"))}</td>`;
               }).join("")}
             </tr>
           `).join("")}
