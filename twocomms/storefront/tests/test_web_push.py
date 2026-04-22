@@ -226,10 +226,10 @@ class WebPushFlowTests(TestCase):
         self.assertEqual(campaign.displayed_count, 1)
         self.assertEqual(campaign.clicked_count, 1)
 
-    def test_campaign_payload_uses_default_image_when_campaign_has_no_upload(self):
+    def test_campaign_payload_omits_image_when_campaign_has_no_upload(self):
         campaign = PushNotificationCampaign.objects.create(
             title="Fallback image",
-            body="Тест fallback картинки",
+            body="Тест без картинки",
             target_url="/catalog/",
             created_by=self.staff_user,
         )
@@ -250,16 +250,19 @@ class WebPushFlowTests(TestCase):
 
         payload = build_campaign_payload(campaign, delivery)
 
-        self.assertEqual(
-            payload["image"],
-            "https://twocomms.shop/static/img/favicon-512x512.png",
-        )
+        self.assertNotIn("image", payload)
         self.assertEqual(
             payload["icon"],
             "https://twocomms.shop/static/img/favicon-192x192.png",
         )
 
     def test_staff_admin_panel_renders_push_notifications_section(self):
+        PushNotificationCampaign.objects.create(
+            title="Без картинки",
+            body="Кампанія без медіа",
+            target_url="/catalog/",
+            created_by=self.staff_user,
+        )
         self.client.force_login(self.staff_user)
         response = self.client.get(
             reverse("admin_panel"),
@@ -271,7 +274,7 @@ class WebPushFlowTests(TestCase):
         self.assertContains(response, "Push Control Center")
         self.assertContains(response, "Нова push-кампанія")
         self.assertNotContains(response, "Що ще потрібно для продакшна")
-        self.assertContains(response, "/static/img/favicon-512x512.png")
+        self.assertContains(response, "Без зображення")
 
     @patch("storefront.services.web_push.webpush")
     def test_staff_can_send_push_campaign_from_admin(self, mocked_webpush):
