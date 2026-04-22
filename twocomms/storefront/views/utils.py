@@ -28,11 +28,16 @@ def _build_anon_cache_key(request, view_func, key_prefix=None):
     query = _build_query_string(request.GET)
     accept_lang = request.META.get('HTTP_ACCEPT_LANGUAGE', '')
     language = getattr(request, 'LANGUAGE_CODE', '')
+    scheme = getattr(request, 'scheme', '') or 'http'
+    try:
+        host = request.get_host().lower()
+    except Exception:
+        host = str(request.META.get('HTTP_HOST') or request.META.get('SERVER_NAME') or '').lower()
     if callable(key_prefix):
         prefix = key_prefix(request, view_func)
     else:
         prefix = key_prefix or f"{view_func.__module__}.{view_func.__name__}"
-    fingerprint = f"{path}?{query}|{language}|{accept_lang}"
+    fingerprint = f"{scheme}://{host}{path}?{query}|{language}|{accept_lang}"
     digest = hashlib.sha256(fingerprint.encode('utf-8')).hexdigest()
     return f"anon-page:{prefix}:{digest}"
 

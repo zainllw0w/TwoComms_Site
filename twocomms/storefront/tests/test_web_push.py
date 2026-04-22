@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.staticfiles import finders
+from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -26,6 +27,8 @@ from storefront.models import (
 )
 class WebPushFlowTests(TestCase):
     def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.client = Client(
             HTTP_HOST="twocomms.shop",
             SERVER_PORT="443",
