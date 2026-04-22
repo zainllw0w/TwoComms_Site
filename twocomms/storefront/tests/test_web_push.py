@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.contrib.staticfiles import finders
 from django.core.cache import cache
-from django.test import Client, TestCase, override_settings
+from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -14,6 +14,7 @@ from storefront.models import (
     PushNotificationDelivery,
     WebPushDeviceSubscription,
 )
+from storefront.context_processors import web_push_settings
 from storefront.services import web_push as web_push_service
 from storefront.services.web_push import (
     WebPushConfigurationError,
@@ -39,6 +40,7 @@ class WebPushFlowTests(TestCase):
             SERVER_PORT="443",
             **{"wsgi.url_scheme": "https"},
         )
+        self.request_factory = RequestFactory()
         self.user_model = get_user_model()
         self.staff_user = self.user_model.objects.create_user(
             username="push_admin",
@@ -121,6 +123,46 @@ class WebPushFlowTests(TestCase):
                 "pywebpush dependency is not installed",
             ):
                 web_push_service.send_campaign(campaign)
+
+    @patch("storefront.services.web_push.webpush")
+    def test_send_campaign_converts_pem_vapid_key_to_vapid_object(self, mocked_webpush):
+        fake_vapid = object()
+        mocked_webpush.return_value = SimpleNamespace(status_code=201)
+        campaign = PushNotificationCampaign.objects.create(
+            title="PEM key send",
+            body="Тест PEM ключа",
+            target_url="/catalog/",
+            created_by=self.staff_user,
+        )
+        WebPushDeviceSubscription.objects.create(
+            installation_id="install-pem",
+            endpoint="https://push.example.test/subscription-pem",
+            auth_key="auth-token",
+            p256dh_key="p256dh-token",
+            browser_family="Chrome",
+            operating_system="macOS",
+            device_type=WebPushDeviceSubscription.DeviceType.DESKTOP,
+            is_active=True,
+        )
+
+        pem_key = "\n".join(
+            [
+                "-----BEGIN PRIVATE KEY-----",
+                "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgDUMMYKEYDATA",
+                "-----END PRIVATE KEY-----",
+            ]
+        )
+
+        with override_settings(WEB_PUSH_VAPID_PRIVATE_KEY=pem_key):
+            with patch(
+                "storefront.services.web_push.import_module",
+                return_value=SimpleNamespace(
+                    Vapid01=SimpleNamespace(from_pem=lambda key: fake_vapid)
+                ),
+            ):
+                web_push_service.send_campaign(campaign)
+
+        self.assertIs(mocked_webpush.call_args.kwargs["vapid_private_key"], fake_vapid)
 
     def test_home_page_embeds_web_push_config(self):
         response = self.client.get(reverse("home"), secure=True)
@@ -275,6 +317,16 @@ class WebPushFlowTests(TestCase):
         self.assertContains(response, "Нова push-кампанія")
         self.assertNotContains(response, "Що ще потрібно для продакшна")
         self.assertContains(response, "Без зображення")
+
+    @override_settings(ROOT_URLCONF="django.contrib.auth.urls")
+    def test_web_push_context_processor_handles_missing_push_routes(self):
+        request = self.request_factory.get("/")
+
+        payload = web_push_settings(request)["web_push_config"]
+
+        self.assertFalse(payload["enabled"])
+        self.assertEqual(payload["subscribeUrl"], "")
+        self.assertEqual(payload["unsubscribeUrl"], "")
 
     @patch("storefront.services.web_push.webpush")
     def test_staff_can_send_push_campaign_from_admin(self, mocked_webpush):

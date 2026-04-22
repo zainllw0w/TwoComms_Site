@@ -1,6 +1,6 @@
 from cache_utils import get_cache
 from django.conf import settings
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.templatetags.static import static
 
 from storefront.services.web_push import is_web_push_configured
@@ -100,6 +100,15 @@ def web_push_settings(request):
     base_url = (getattr(settings, "SITE_BASE_URL", "") or "").rstrip("/")
     icon_path = getattr(settings, "WEB_PUSH_ICON_PATH", "") or static("img/favicon-192x192.png")
     badge_path = getattr(settings, "WEB_PUSH_BADGE_PATH", "") or static("img/favicon-192x192.png")
+    push_enabled = is_web_push_configured()
+
+    try:
+        subscribe_url = reverse("push_subscribe")
+        unsubscribe_url = reverse("push_unsubscribe")
+    except NoReverseMatch:
+        subscribe_url = ""
+        unsubscribe_url = ""
+        push_enabled = False
 
     def _abs_url(path):
         if not path:
@@ -110,11 +119,11 @@ def web_push_settings(request):
 
     return {
         "web_push_config": {
-            "enabled": is_web_push_configured(),
+            "enabled": push_enabled,
             "vapidPublicKey": getattr(settings, "WEB_PUSH_VAPID_PUBLIC_KEY", ""),
             "serviceWorkerUrl": getattr(settings, "WEB_PUSH_SERVICE_WORKER_PATH", "/static/sw.js"),
-            "subscribeUrl": reverse("push_subscribe"),
-            "unsubscribeUrl": reverse("push_unsubscribe"),
+            "subscribeUrl": subscribe_url,
+            "unsubscribeUrl": unsubscribe_url,
             "promptDelayMs": int(getattr(settings, "WEB_PUSH_PROMPT_DELAY_MS", 12000) or 12000),
             "siteBaseUrl": base_url,
             "defaultIconUrl": _abs_url(icon_path),
