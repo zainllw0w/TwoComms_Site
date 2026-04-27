@@ -106,6 +106,21 @@ class HomeViewTests(CatalogViewTestCase):
         self.assertContains(response, "--c1: #000000; --c2: #FFFFFF;")
         self.assertNotIn('class="product-card-dots"', html)
 
+    def test_home_card_image_area_links_to_product_detail_and_protects_image(self):
+        product = self.create_product(title="Linked Product", slug="linked-product")
+        product_url = reverse("product", kwargs={"slug": product.slug})
+
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'href="{product_url}" class="home-product-media home-product-media-link"',
+        )
+        self.assertContains(response, 'data-product-card-link')
+        self.assertContains(response, 'data-twc-image-protected="true"')
+        self.assertContains(response, 'draggable="false"')
+
 
 class CatalogViewTests(CatalogViewTestCase):
     def test_catalog_root_shows_published_products_and_category_cards(self):

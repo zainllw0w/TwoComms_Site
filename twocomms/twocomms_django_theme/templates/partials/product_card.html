@@ -4,11 +4,13 @@
 {% with animate=animate|default_if_none:True %}
 {% if home_card %}
 {% with card_image=p.homepage_image %}
+{% url 'product' p.slug as product_url %}
 <article
   class="home-product-card card product h-100 {% if animate %}{% if stagger %}reveal-stagger stagger-item{% else %}reveal-fast{% endif %}{% else %}no-reveal{% endif %}"
   data-product-id="{{ p.id }}" data-product-title="{{ p.title|escapejs }}" data-product-price="{{ p.final_price }}"
-  data-product-category="{{ p.category.name|default_if_none:''|escapejs }}">
-  <div class="home-product-media">
+  data-product-category="{{ p.category.name|default_if_none:''|escapejs }}" data-product-url="{{ product_url }}">
+  <a href="{{ product_url }}" class="home-product-media home-product-media-link" data-product-card-link
+    data-twc-image-protected="true" aria-label="Переглянути {{ p.title }}">
     {% if card_image %}
       {% if eager|default_if_none:False %}
       {% optimized_image card_image.url p.title "home-product-image product-main-image" 1080 1600 loading='eager' fetchpriority='auto' sizes='(max-width: 576px) 45vw, (max-width: 992px) 45vw, (max-width: 1400px) 23vw, 18vw' %}
@@ -22,7 +24,7 @@
       {% optimized_image 'img/placeholder.jpg' p.title "home-product-image product-main-image" 1080 1600 %}
       {% endif %}
     {% endif %}
-  </div>
+  </a>
 
   <div class="home-product-scrim home-product-scrim-top"></div>
   <div class="home-product-scrim home-product-scrim-bottom"></div>
@@ -73,7 +75,7 @@
   {% endif %}
 
   <div class="home-product-content">
-    <a href="{% url 'product' p.slug %}" class="home-product-title">{{ p.title }}</a>
+    <a href="{{ product_url }}" class="home-product-title" data-product-card-link>{{ p.title }}</a>
 
     <div class="home-product-price-row">
       <span class="home-product-price">{{ p.final_price }} грн</span>
@@ -92,7 +94,7 @@
         </svg>
         <span>{% if p.points_reward %}{{ p.points_reward }} балів{% else %}0 балів{% endif %}</span>
       </div>
-      <a href="{% url 'product' p.slug %}" class="home-product-cta" aria-label="Переглянути {{ p.title }}">
+      <a href="{{ product_url }}" class="home-product-cta" data-product-card-link aria-label="Переглянути {{ p.title }}">
         <span>Переглянути</span>
         <span class="home-product-cta-icon" aria-hidden="true">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">

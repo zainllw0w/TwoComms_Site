@@ -42,6 +42,98 @@ function initDeferredInstallPrompts() {
 initDeferredInstallPrompts();
 
 const ANALYTICS_BRAND_NAME = 'TwoComms';
+const COPY_ATTRIBUTION_MIN_LENGTH = 4;
+const COPY_ATTRIBUTION_LABEL = 'Скопійовано з TwoComms';
+
+function closestElementFromNode(node) {
+  if (!node) {
+    return null;
+  }
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    return node;
+  }
+  return node.parentElement || null;
+}
+
+function getCanonicalCopyUrl() {
+  const canonical = document.querySelector('link[rel="canonical"]');
+  const href = canonical ? canonical.getAttribute('href') : '';
+  if (href) {
+    try {
+      return new URL(href, window.location.origin).href;
+    } catch (_) { }
+  }
+  return window.location.href.split('#')[0];
+}
+
+function shouldSkipCopyAttribution(selection) {
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+    return true;
+  }
+  const text = selection.toString().trim();
+  if (!text || text.length < COPY_ATTRIBUTION_MIN_LENGTH || text.includes(COPY_ATTRIBUTION_LABEL)) {
+    return true;
+  }
+  const anchor = closestElementFromNode(selection.anchorNode);
+  const focus = closestElementFromNode(selection.focusNode);
+  const excludedSelector = [
+    'input',
+    'textarea',
+    'select',
+    '[contenteditable="true"]',
+    '[data-copy-raw]',
+    '[data-share-copy]',
+    '.copyable-text',
+    '.order-number-copy',
+    'pre',
+    'code',
+  ].join(',');
+  return Boolean(
+    anchor?.closest(excludedSelector) ||
+    focus?.closest(excludedSelector)
+  );
+}
+
+function initCopyAttribution() {
+  document.addEventListener('copy', (event) => {
+    const selection = window.getSelection ? window.getSelection() : null;
+    if (!event.clipboardData || shouldSkipCopyAttribution(selection)) {
+      return;
+    }
+
+    const selectedText = selection.toString().trim();
+    const sourceUrl = getCanonicalCopyUrl();
+    const plainText = `${selectedText}\n\n${COPY_ATTRIBUTION_LABEL}: ${sourceUrl}`;
+    const htmlText = `${escapeHtml(selectedText).replace(/\n/g, '<br>')}<p>${COPY_ATTRIBUTION_LABEL}: <a href="${escapeHtml(sourceUrl)}">${escapeHtml(sourceUrl)}</a></p>`;
+
+    event.clipboardData.setData('text/plain', plainText);
+    event.clipboardData.setData('text/html', htmlText);
+    event.preventDefault();
+  });
+}
+
+function isProtectedImageTarget(target) {
+  return Boolean(target?.closest?.(
+    '[data-twc-image-protected], .home-product-media-link, .product-main-image, .tc-media-hero-img'
+  ));
+}
+
+function initProtectedImageInteractions() {
+  document.addEventListener('contextmenu', (event) => {
+    if (isProtectedImageTarget(event.target)) {
+      event.preventDefault();
+    }
+  }, { capture: true });
+
+  document.addEventListener('dragstart', (event) => {
+    if (isProtectedImageTarget(event.target)) {
+      event.preventDefault();
+    }
+  }, { capture: true });
+}
+
+initCopyAttribution();
+initProtectedImageInteractions();
 
 function getAnalyticsTrackingContext() {
   if (typeof window.getTrackingContext === 'function') {
@@ -1690,6 +1782,7 @@ document.addEventListener('click', function (e) {
     const pid = card.getAttribute('data-product-id');
     const title = card.getAttribute('data-product-title');
     const price = card.getAttribute('data-product-price');
+    const category = card.getAttribute('data-product-category');
 
     if (pid && window.trackEvent) {
       // Для карточек в каталоге используем базовый offer_id (default color, size S)
@@ -1702,10 +1795,14 @@ document.addEventListener('click', function (e) {
         content_ids: [offerId],
         content_type: 'product',
         content_name: title,
+        content_category: category,
         value: priceNum,
         currency: 'UAH',
         contents: [{
           id: offerId,
+          item_name: title,
+          item_category: category,
+          brand: ANALYTICS_BRAND_NAME,
           quantity: 1,
           item_price: priceNum
         }],

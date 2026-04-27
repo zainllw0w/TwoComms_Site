@@ -27,6 +27,12 @@
     {% if class_name %}class="{{ class_name }}"{% endif %}
     {% if width %}width="{{ width }}"{% endif %}
     {% if height %}height="{{ height }}"{% endif %}
+    {% if class_name %}
+      {% if 'product-main-image' in class_name or 'tc-media-hero-img' in class_name %}
+        data-twc-image-protected="true"
+        draggable="false"
+      {% endif %}
+    {% endif %}
     {% if extra_attrs %}
       {% for attr_key, attr_val in extra_attrs.items %}
         {{ attr_key }}="{{ attr_val }}"
