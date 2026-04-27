@@ -9,6 +9,8 @@ from django.urls import reverse
 from orders.forms import TelegramNovaPoshtaWaybillForm
 from orders.nova_poshta_documents import (
     TELEGRAM_CREATE_NP_WAYBILL_ACTION,
+    TELEGRAM_DELETE_NP_WAYBILL_ACTION,
+    NovaPoshtaDocumentError,
     NovaPoshtaDocumentService,
     NovaPoshtaResolvedPoint,
     build_waybill_description,
@@ -439,6 +441,168 @@ class NovaPoshtaWaybillServiceTests(SimpleTestCase):
         self.assertEqual(normalize_phone('0991112233'), '+380991112233')
         self.assertEqual(normalize_phone('80991112233'), '+380991112233')
 
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_delete_waybill_calls_internetdocument_delete(self):
+        service = NovaPoshtaDocumentService()
+        document_ref = '00000000-0000-0000-0000-000000000001'
+
+        with patch.object(
+            service,
+            '_request',
+            return_value={'data': [{'Ref': document_ref}], 'warnings': ['warning text']},
+        ) as request_mock:
+            result = service.delete_waybill(document_ref)
+
+        request_mock.assert_called_once_with(
+            'InternetDocument',
+            'delete',
+            {'DocumentRefs': document_ref},
+        )
+        self.assertEqual(result['document_ref'], document_ref)
+        self.assertEqual(result['warnings'], ['warning text'])
+
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_delete_waybill_requires_matching_api_confirmation(self):
+        service = NovaPoshtaDocumentService()
+        document_ref = '00000000-0000-0000-0000-000000000001'
+
+        with patch.object(service, '_request', return_value={'data': [], 'warnings': []}):
+            with self.assertRaisesRegex(NovaPoshtaDocumentError, 'не підтвердив видалення'):
+                service.delete_waybill(document_ref)
+
+        with patch.object(
+            service,
+            '_request',
+            return_value={'data': [{'Ref': '00000000-0000-0000-0000-000000000002'}], 'warnings': []},
+        ):
+            with self.assertRaisesRegex(NovaPoshtaDocumentError, 'саме цієї накладної'):
+                service.delete_waybill(document_ref)
+
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_create_waybill_uses_afterpayment_without_backward_delivery(self):
+        service = NovaPoshtaDocumentService()
+        order = self._build_order(payment_status='prepaid')
+        sender_point = NovaPoshtaResolvedPoint(
+            city_label='м. Харків, Харків',
+            warehouse_label='Відділення №138',
+            settlement_ref='sender-settlement-ref',
+            city_ref='sender-city-ref',
+            warehouse_ref='sender-warehouse-ref',
+            warehouse_kind='branch',
+        )
+        recipient_point = NovaPoshtaResolvedPoint(
+            city_label='м. Київ, Київ',
+            warehouse_label='Відділення №4',
+            settlement_ref='recipient-settlement-ref',
+            city_ref='recipient-city-ref',
+            warehouse_ref='recipient-warehouse-ref',
+            warehouse_kind='branch',
+        )
+        payload = {
+            'recipient_full_name': 'Тестовий клієнт',
+            'recipient_phone': '+380991112233',
+            'recipient_city': 'Київ',
+            'recipient_city_ref': 'recipient-city-ref',
+            'recipient_warehouse': 'Відділення №4',
+            'recipient_warehouse_ref': 'recipient-warehouse-ref',
+            'sender_city': 'Харків',
+            'sender_city_ref': 'sender-city-ref',
+            'sender_warehouse': 'Відділення №138',
+            'sender_warehouse_ref': 'sender-warehouse-ref',
+            'description': 'Одяг бренду TwoComms',
+            'declared_cost': '1499.00',
+            'weight': '1',
+            'seats_amount': '1',
+            'length_cm': '30',
+            'width_cm': '20',
+            'height_cm': '8',
+            'cod_amount': '1299.00',
+            'payer_type': 'Recipient',
+            'payment_method': 'Cash',
+        }
+
+        with (
+            patch.object(service, '_resolve_sender_profile', return_value={
+                'sender_ref': 'sender-ref',
+                'contact_ref': 'sender-contact-ref',
+                'phone': '380991112233',
+            }),
+            patch.object(service, '_resolve_point', side_effect=[sender_point, recipient_point]),
+            patch.object(service, '_request') as request_mock,
+        ):
+            request_mock.side_effect = [
+                {'data': [{'Ref': 'recipient-ref', 'ContactPerson': [{'Ref': 'recipient-contact-ref'}]}]},
+                {'data': [{'IntDocNumber': '20451234123456', 'Ref': 'document-ref'}], 'warnings': []},
+            ]
+            result = service.create_waybill(order, payload)
+
+        self.assertEqual(result['tracking_number'], '20451234123456')
+        self.assertEqual(result['recipient_contact_ref'], 'recipient-contact-ref')
+        self.assertEqual(request_mock.call_count, 2)
+        model_name, called_method, method_properties = request_mock.call_args_list[-1].args
+        self.assertEqual((model_name, called_method), ('InternetDocument', 'save'))
+        self.assertEqual(method_properties['AfterpaymentOnGoodsCost'], '1299')
+        self.assertNotIn('BackwardDeliveryData', method_properties)
+
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_create_waybill_requires_document_ref(self):
+        service = NovaPoshtaDocumentService()
+        order = self._build_order(payment_status='paid')
+        sender_point = NovaPoshtaResolvedPoint(
+            city_label='м. Харків, Харків',
+            warehouse_label='Відділення №138',
+            settlement_ref='sender-settlement-ref',
+            city_ref='sender-city-ref',
+            warehouse_ref='sender-warehouse-ref',
+            warehouse_kind='branch',
+        )
+        recipient_point = NovaPoshtaResolvedPoint(
+            city_label='м. Київ, Київ',
+            warehouse_label='Відділення №4',
+            settlement_ref='recipient-settlement-ref',
+            city_ref='recipient-city-ref',
+            warehouse_ref='recipient-warehouse-ref',
+            warehouse_kind='branch',
+        )
+        payload = {
+            'recipient_full_name': 'Тестовий клієнт',
+            'recipient_phone': '+380991112233',
+            'recipient_city': 'Київ',
+            'recipient_city_ref': 'recipient-city-ref',
+            'recipient_warehouse': 'Відділення №4',
+            'recipient_warehouse_ref': 'recipient-warehouse-ref',
+            'sender_city': 'Харків',
+            'sender_city_ref': 'sender-city-ref',
+            'sender_warehouse': 'Відділення №138',
+            'sender_warehouse_ref': 'sender-warehouse-ref',
+            'description': 'Одяг бренду TwoComms',
+            'declared_cost': '1499.00',
+            'weight': '1',
+            'seats_amount': '1',
+            'length_cm': '30',
+            'width_cm': '20',
+            'height_cm': '8',
+            'cod_amount': '',
+            'payer_type': 'Recipient',
+            'payment_method': 'Cash',
+        }
+
+        with (
+            patch.object(service, '_resolve_sender_profile', return_value={
+                'sender_ref': 'sender-ref',
+                'contact_ref': 'sender-contact-ref',
+                'phone': '380991112233',
+            }),
+            patch.object(service, '_resolve_point', side_effect=[sender_point, recipient_point]),
+            patch.object(service, '_request') as request_mock,
+        ):
+            request_mock.side_effect = [
+                {'data': [{'Ref': 'recipient-ref', 'ContactPerson': [{'Ref': 'recipient-contact-ref'}]}]},
+                {'data': [{'IntDocNumber': '20451234123456'}], 'warnings': []},
+            ]
+            with self.assertRaisesRegex(NovaPoshtaDocumentError, 'Ref створеної накладної'):
+                service.create_waybill(order, payload)
+
 
 class NovaPoshtaWaybillFormTests(SimpleTestCase):
     def test_form_normalizes_recipient_phone(self):
@@ -472,6 +636,62 @@ class NovaPoshtaWaybillFormTests(SimpleTestCase):
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data['recipient_phone'], '+380991112233')
         self.assertEqual(form.cleaned_data['cod_amount'], 0)
+
+    def test_form_accepts_long_signed_selector_tokens(self):
+        warehouse_token = build_warehouse_choice_token(
+            {
+                'label': 'Поштомат №12345: Київ, вул. Тестова дуже довга назва відділення до 200 кг, 123',
+                'ref': '00000000-0000-0000-0000-000000000002',
+                'kind': 'postomat',
+                'city_ref': '00000000-0000-0000-0000-000000000001',
+            }
+        )
+        self.assertGreater(len(warehouse_token), 255)
+
+        form = TelegramNovaPoshtaWaybillForm(
+            data={
+                'recipient_full_name': 'Тест Клієнт',
+                'recipient_phone': '+38 (099) 111-22-33',
+                'recipient_city': 'Київ',
+                'recipient_settlement_ref': '00000000-0000-0000-0000-000000000001',
+                'recipient_city_ref': '00000000-0000-0000-0000-000000000001',
+                'recipient_city_token': build_city_choice_token(
+                    {
+                        'label': 'Київ',
+                        'settlement_ref': '00000000-0000-0000-0000-000000000001',
+                        'city_ref': '00000000-0000-0000-0000-000000000001',
+                    }
+                ),
+                'recipient_warehouse': 'Поштомат №12345',
+                'recipient_warehouse_ref': '00000000-0000-0000-0000-000000000002',
+                'recipient_warehouse_token': warehouse_token,
+                'sender_city': 'Харків',
+                'sender_settlement_ref': '00000000-0000-0000-0000-000000000003',
+                'sender_city_ref': '00000000-0000-0000-0000-000000000003',
+                'sender_city_token': build_city_choice_token(
+                    {
+                        'label': 'Харків',
+                        'settlement_ref': '00000000-0000-0000-0000-000000000003',
+                        'city_ref': '00000000-0000-0000-0000-000000000003',
+                    }
+                ),
+                'sender_warehouse': 'Відділення №138',
+                'sender_warehouse_ref': '00000000-0000-0000-0000-000000000004',
+                'sender_warehouse_token': warehouse_token,
+                'description': 'Одяг бренду TwoComms',
+                'declared_cost': '1499',
+                'weight': '1',
+                'seats_amount': '1',
+                'length_cm': '30',
+                'width_cm': '20',
+                'height_cm': '8',
+                'cod_amount': '',
+                'payer_type': 'Recipient',
+                'payment_method': 'Cash',
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors.as_json())
 
 
 @override_settings(ROOT_URLCONF='storefront.urls', SITE_BASE_URL='https://twocomms.shop')
@@ -521,3 +741,24 @@ class TelegramOrderActionLinkTests(SimpleTestCase):
         self.assertEqual(markup['inline_keyboard'][0][0]['url'], 'https://example.com/create')
         self.assertEqual(markup['inline_keyboard'][1][0]['text'], '🚚 Відправлено + ТТН')
         self.assertEqual(markup['inline_keyboard'][1][0]['url'], 'https://example.com/ship')
+
+    @patch('orders.telegram_notifications.build_order_action_url', return_value='https://example.com/delete')
+    def test_order_notification_markup_contains_delete_waybill_button(self, _build_action_url):
+        order = SimpleNamespace(
+            pk=1,
+            status='ship',
+            tracking_number='20451234123456',
+            nova_poshta_document_ref='00000000-0000-0000-0000-000000000001',
+        )
+        notifier = TelegramNotifier(bot_token='token', admin_id='1', async_enabled=False)
+
+        markup = notifier._build_order_management_reply_markup(order)
+
+        self.assertEqual(markup['inline_keyboard'][0][0]['text'], '🗑 Видалити ТТН НП')
+        self.assertEqual(markup['inline_keyboard'][0][0]['url'], 'https://example.com/delete')
+        _build_action_url.assert_called_once_with(
+            order,
+            TELEGRAM_DELETE_NP_WAYBILL_ACTION,
+            route_name='telegram_order_np_waybill_action',
+            token_scope='00000000-0000-0000-0000-000000000001',
+        )

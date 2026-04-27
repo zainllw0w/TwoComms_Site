@@ -56,6 +56,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 NOVA_POSHTA_FALLBACK_ENABLED = False
 TESTING = True
 SIMPLE_RATE_LIMIT_ENABLED = False
+COMPRESS_ENABLED = False
+COMPRESS_OFFLINE = False
 
 # Изоляция Celery: broker/result backend не должны ходить в Redis/RabbitMQ.
 CELERY_BROKER_URL = 'memory://'

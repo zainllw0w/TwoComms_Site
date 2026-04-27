@@ -1,6 +1,7 @@
 const CITY_MIN_CHARS = 2;
 const SEARCH_DEBOUNCE_MS = 250;
 const controllerRegistry = new WeakMap();
+const submitControllerRegistry = new WeakMap();
 
 function debounce(fn, wait) {
   let timer = null;
@@ -143,6 +144,7 @@ function matchesWarehouse(item, query) {
 class NovaPoshtaSelectorController {
   constructor(form, options) {
     this.form = form;
+    this.submitForm = form?.matches?.('form') ? form : form?.closest?.('form');
     this.cityUrl = options.cityUrl;
     this.warehouseUrl = options.warehouseUrl;
 
@@ -235,7 +237,7 @@ class NovaPoshtaSelectorController {
       });
     });
 
-    this.form.addEventListener('submit', this.handleSubmit);
+    registerSubmitController(this);
     document.addEventListener('click', this.handleDocumentClick);
     this.restoreExistingSelection();
   }
@@ -879,6 +881,60 @@ function getOrCreateController(form) {
   const controller = new NovaPoshtaSelectorController(form, { cityUrl, warehouseUrl });
   controllerRegistry.set(form, controller);
   return controller;
+}
+
+function registerSubmitController(controller) {
+  const submitForm = controller.submitForm;
+  if (!submitForm) {
+    return;
+  }
+
+  let entry = submitControllerRegistry.get(submitForm);
+  if (!entry) {
+    entry = {
+      controllers: [],
+      isSubmitting: false,
+      skipNextSubmit: false,
+    };
+    submitControllerRegistry.set(submitForm, entry);
+
+    submitForm.addEventListener('submit', async (event) => {
+      if (entry.skipNextSubmit) {
+        entry.skipNextSubmit = false;
+        return;
+      }
+
+      event.preventDefault();
+      if (entry.isSubmitting) {
+        return;
+      }
+
+      entry.isSubmitting = true;
+      try {
+        let valid = true;
+        for (const item of entry.controllers) {
+          const controllerValid = await item.validateSelection({ showErrors: true });
+          valid = controllerValid && valid;
+        }
+        if (!valid) {
+          return;
+        }
+
+        entry.skipNextSubmit = true;
+        if (typeof submitForm.requestSubmit === 'function') {
+          submitForm.requestSubmit();
+        } else {
+          HTMLFormElement.prototype.submit.call(submitForm);
+        }
+      } finally {
+        entry.isSubmitting = false;
+      }
+    });
+  }
+
+  if (!entry.controllers.includes(controller)) {
+    entry.controllers.push(controller);
+  }
 }
 
 export async function validateNovaPoshtaSelection(form, options = {}) {

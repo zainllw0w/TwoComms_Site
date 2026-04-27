@@ -13,6 +13,7 @@ from orders.models import Order
 from orders.nova_poshta_data import apply_nova_poshta_refs
 from orders.nova_poshta_documents import (
     TELEGRAM_CREATE_NP_WAYBILL_ACTION,
+    TELEGRAM_DELETE_NP_WAYBILL_ACTION,
     NovaPoshtaDocumentError,
     NovaPoshtaDocumentService,
     build_order_payment_snapshot,
@@ -28,6 +29,7 @@ from orders.status_management import (
 )
 from orders.telegram_notifications import telegram_notifier
 from orders.telegram_status_links import (
+    build_order_action_url,
     verify_order_action_token,
     verify_order_status_token,
 )
@@ -68,6 +70,42 @@ def _waybill_action_block_reason(order: Order) -> str | None:
     if order.tracking_number:
         return "Для цього замовлення ТТН уже збережена вручну або через інший сценарій."
     return None
+
+
+def _delete_waybill_action_block_reason(order: Order) -> str | None:
+    if order.status in {"done", "cancelled"}:
+        return (
+            f"Видалення ТТН більше недоступне. "
+            f"Поточний статус: {order.get_status_display()}."
+        )
+    if not order.nova_poshta_document_ref:
+        return "Для цього замовлення немає створеної через API накладної Нова пошта."
+    return None
+
+
+def _build_delete_waybill_url(order: Order | None) -> str:
+    if not order or not getattr(order, "nova_poshta_document_ref", None):
+        return ""
+    try:
+        return build_order_action_url(
+            order,
+            TELEGRAM_DELETE_NP_WAYBILL_ACTION,
+            route_name="telegram_order_np_waybill_action",
+            token_scope=order.nova_poshta_document_ref or "",
+        )
+    except Exception:
+        logger.exception("Failed to build Nova Poshta delete action URL for order %s", getattr(order, "pk", None))
+        return ""
+
+
+def _hidden_field_errors(form: TelegramNovaPoshtaWaybillForm | None) -> list[str]:
+    if not form:
+        return []
+    errors: list[str] = []
+    for field in form.hidden_fields():
+        for error in field.errors:
+            errors.append(f"{field.name}: {error}")
+    return errors
 
 
 def _fallback_waybill_initial(service: NovaPoshtaDocumentService, order: Order) -> dict[str, str]:
@@ -114,11 +152,28 @@ def _build_waybill_initial(service: NovaPoshtaDocumentService, order: Order) -> 
         )
 
 
-def _update_telegram_message_after_order_change(order: Order) -> None:
+def _update_telegram_message_after_order_change(order: Order, *, clear_actions: bool = False) -> None:
     try:
-        telegram_notifier.update_order_notification_message(order, clear_actions=True)
+        telegram_notifier.update_order_notification_message(order, clear_actions=clear_actions)
     except Exception:
         logger.exception("Failed to update Telegram order notification message for order %s", order.pk)
+
+
+def _delete_created_waybill_safely(
+    service: NovaPoshtaDocumentService,
+    *,
+    document_ref: str,
+    order_id: int,
+) -> None:
+    if not document_ref:
+        return
+    try:
+        service.delete_waybill(document_ref)
+    except Exception:
+        logger.exception(
+            "Failed to compensate Nova Poshta waybill creation after local order update failed for order %s",
+            order_id,
+        )
 
 
 def _payment_snapshot_payload(order: Order) -> dict:
@@ -182,7 +237,9 @@ def _render_waybill_action_page(
     is_blocked: bool = False,
     warnings: list[str] | None = None,
     can_submit: bool = True,
+    can_delete: bool = False,
 ):
+    delete_url = _build_delete_waybill_url(order) if can_delete else ""
     return _render_template(
         request,
         WAYBILL_ACTION_TEMPLATE,
@@ -197,6 +254,9 @@ def _render_waybill_action_page(
             "is_blocked": is_blocked,
             "warnings": warnings or [],
             "can_submit": can_submit,
+            "can_delete": bool(can_delete and delete_url),
+            "delete_url": delete_url,
+            "hidden_field_errors": _hidden_field_errors(form),
             "payment_snapshot": _payment_snapshot_payload(order) if order else None,
         },
         status_code=status_code,
@@ -246,7 +306,7 @@ def telegram_order_status_action(request, order_id: int, status: str):
                 require_tracking_number=bool(action.get("requires_tracking_number")),
             )
             updated_order = result["order"]
-            _update_telegram_message_after_order_change(updated_order)
+            _update_telegram_message_after_order_change(updated_order, clear_actions=True)
             return _render_status_action_page(
                 request,
                 order=updated_order,
@@ -280,11 +340,28 @@ def telegram_order_status_action(request, order_id: int, status: str):
 
 @require_http_methods(["GET", "POST"])
 def telegram_order_np_waybill_action(request, order_id: int, action: str):
-    if action != TELEGRAM_CREATE_NP_WAYBILL_ACTION:
+    if action not in {TELEGRAM_CREATE_NP_WAYBILL_ACTION, TELEGRAM_DELETE_NP_WAYBILL_ACTION}:
         raise Http404("Unknown Telegram order action")
 
     token = _get_token(request)
-    if not verify_order_action_token(token, order_id=order_id, action=action):
+    if action == TELEGRAM_DELETE_NP_WAYBILL_ACTION:
+        order = Order.objects.filter(pk=order_id).first()
+        if not order or not verify_order_action_token(
+            token,
+            order_id=order_id,
+            action=action,
+            scope=order.nova_poshta_document_ref or "",
+        ):
+            return _render_waybill_action_page(
+                request,
+                order=None,
+                token=token,
+                form=None,
+                status_code=403,
+                error_message="Посилання недійсне або вже застаріло. Відкрийте актуальне повідомлення в Telegram.",
+                can_submit=False,
+            )
+    elif not verify_order_action_token(token, order_id=order_id, action=action):
         return _render_waybill_action_page(
             request,
             order=None,
@@ -294,20 +371,8 @@ def telegram_order_np_waybill_action(request, order_id: int, action: str):
             error_message="Посилання недійсне або вже застаріло. Відкрийте актуальне повідомлення в Telegram.",
             can_submit=False,
         )
-
-    order = get_object_or_404(Order, pk=order_id)
-    block_reason = _waybill_action_block_reason(order)
-    if block_reason:
-        return _render_waybill_action_page(
-            request,
-            order=order,
-            token=token,
-            form=None,
-            status_code=409,
-            error_message=block_reason,
-            is_blocked=True,
-            can_submit=False,
-        )
+    else:
+        order = get_object_or_404(Order, pk=order_id)
 
     service = NovaPoshtaDocumentService()
     if not service.is_configured():
@@ -321,10 +386,138 @@ def telegram_order_np_waybill_action(request, order_id: int, action: str):
             can_submit=False,
         )
 
+    if action == TELEGRAM_DELETE_NP_WAYBILL_ACTION:
+        block_reason = _delete_waybill_action_block_reason(order)
+        if block_reason:
+            return _render_waybill_action_page(
+                request,
+                order=order,
+                token=token,
+                form=None,
+                status_code=409,
+                error_message=block_reason,
+                is_blocked=True,
+                can_submit=False,
+            )
+
+        if request.method == "POST":
+            tracking_number = order.tracking_number or ""
+            try:
+                with transaction.atomic():
+                    locked_order = Order.objects.select_for_update().get(pk=order.pk)
+                    block_reason = _delete_waybill_action_block_reason(locked_order)
+                    if block_reason:
+                        return _render_waybill_action_page(
+                            request,
+                            order=locked_order,
+                            token=token,
+                            form=None,
+                            status_code=409,
+                            error_message=block_reason,
+                            is_blocked=True,
+                                can_submit=False,
+                            )
+
+                    document_ref = locked_order.nova_poshta_document_ref or ""
+                    if not verify_order_action_token(
+                        token,
+                        order_id=locked_order.pk,
+                        action=action,
+                        scope=document_ref,
+                    ):
+                        return _render_waybill_action_page(
+                            request,
+                            order=None,
+                            token=token,
+                            form=None,
+                            status_code=403,
+                            error_message=(
+                                "Посилання недійсне або вже застаріло. "
+                                "Відкрийте актуальне повідомлення в Telegram."
+                            ),
+                            can_submit=False,
+                        )
+
+                    tracking_number = locked_order.tracking_number or tracking_number
+                    deleted = service.delete_waybill(document_ref)
+                    locked_order.tracking_number = None
+                    locked_order.shipment_status = None
+                    locked_order.shipment_status_updated = None
+                    locked_order.nova_poshta_document_ref = None
+                    locked_order.nova_poshta_recipient_ref = None
+                    locked_order.nova_poshta_recipient_contact_ref = None
+                    if locked_order.status == "ship":
+                        locked_order.status = "prep"
+                    locked_order.save(
+                        update_fields=[
+                            "tracking_number",
+                            "shipment_status",
+                            "shipment_status_updated",
+                            "nova_poshta_document_ref",
+                            "nova_poshta_recipient_ref",
+                            "nova_poshta_recipient_contact_ref",
+                            "status",
+                        ]
+                    )
+
+                _update_telegram_message_after_order_change(locked_order)
+                return _render_waybill_action_page(
+                    request,
+                    order=locked_order,
+                    token=token,
+                    form=None,
+                    is_success=True,
+                    success_message=(
+                        f"ТТН {tracking_number} видалено в Nova Poshta API і очищено в замовленні "
+                        f"#{locked_order.order_number}."
+                    ),
+                    warnings=deleted.get("warnings") or [],
+                    can_submit=False,
+                )
+            except NovaPoshtaDocumentError as exc:
+                error_message = str(exc)
+            except Exception:
+                logger.exception("Unexpected error while deleting Nova Poshta waybill for order %s", order.pk)
+                error_message = "Не вдалося видалити ТТН через внутрішню помилку. Спробуйте ще раз."
+
+            return _render_waybill_action_page(
+                request,
+                order=order,
+                token=token,
+                form=None,
+                error_message=error_message,
+                can_submit=False,
+                can_delete=True,
+            )
+
+        return _render_waybill_action_page(
+            request,
+            order=order,
+            token=token,
+            form=None,
+            helper_message="Перевірте ТТН перед видаленням. Після видалення накладну можна буде створити заново.",
+            can_submit=False,
+            can_delete=True,
+        )
+
+    block_reason = _waybill_action_block_reason(order)
+    if block_reason:
+        return _render_waybill_action_page(
+            request,
+            order=order,
+            token=token,
+            form=None,
+            status_code=409,
+            error_message=block_reason,
+            is_blocked=True,
+            can_submit=False,
+        )
+
     initial, helper_message = _build_waybill_initial(service, order)
     form = TelegramNovaPoshtaWaybillForm(request.POST or None, initial=initial if request.method == "GET" else None)
 
     if request.method == "POST" and form.is_valid():
+        created: dict | None = None
         try:
             with transaction.atomic():
                 locked_order = (
@@ -371,7 +564,24 @@ def telegram_order_np_waybill_action(request, order_id: int, action: str):
                     require_tracking_number=True,
                 )
                 updated_order = update_result["order"]
-
+        except NovaPoshtaDocumentError as exc:
+            error_message = str(exc)
+        except ValidationError as exc:
+            _delete_created_waybill_safely(
+                service,
+                document_ref=str((created or {}).get("document_ref") or ""),
+                order_id=order.pk,
+            )
+            error_message = first_validation_error(exc)
+        except Exception:
+            _delete_created_waybill_safely(
+                service,
+                document_ref=str((created or {}).get("document_ref") or ""),
+                order_id=order.pk,
+            )
+            logger.exception("Unexpected error while creating Nova Poshta waybill for order %s", order.pk)
+            error_message = "Не вдалося створити ТТН через внутрішню помилку. Спробуйте ще раз."
+        else:
             _update_telegram_message_after_order_change(updated_order)
             return _render_waybill_action_page(
                 request,
@@ -386,14 +596,8 @@ def telegram_order_np_waybill_action(request, order_id: int, action: str):
                 warnings=created.get("warnings") or [],
                 helper_message=helper_message,
                 can_submit=False,
+                can_delete=True,
             )
-        except NovaPoshtaDocumentError as exc:
-            error_message = str(exc)
-        except ValidationError as exc:
-            error_message = first_validation_error(exc)
-        except Exception:
-            logger.exception("Unexpected error while creating Nova Poshta waybill for order %s", order.pk)
-            error_message = "Не вдалося створити ТТН через внутрішню помилку. Спробуйте ще раз."
 
         return _render_waybill_action_page(
             request,
