@@ -23,7 +23,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260427-pdp-redesign-v3">
+<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-pdp-polish-v1">
 {% endblock %}
 
 {% block content %}
@@ -99,13 +99,17 @@
 
       <a class="tc-custom-print-card" href="{% url 'custom_print' %}">
         <span class="tc-custom-print-mark" aria-hidden="true">
-          <img src="{% static 'img/logo.svg' %}" alt="" width="34" height="34">
+          <img src="{% static 'img/pdp/custom-print-crest.png' %}" alt="" width="96" height="96" loading="lazy">
         </span>
         <span class="tc-custom-print-copy">
           <strong>Індивідуальний позивний або бренд?</strong>
-          <small>Нанесемо ваш логотип чи позивний під замовлення.</small>
+          <small>Нанесемо ваш логотип чи позивний під замовлення. Створимо унікальний принт разом з TwoComms.</small>
         </span>
-        <span class="tc-custom-print-action">Створити свій принт</span>
+        <span class="tc-custom-print-action">
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V21h3.75L18.8 9.95l-3.75-3.75L4 17.25Zm13.7-8.7-2.25-2.25 1.4-1.4a1.06 1.06 0 0 1 1.5 0l.75.75c.42.42.42 1.08 0 1.5l-1.4 1.4Z" fill="currentColor"/></svg>
+          Створити свій принт
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="m13.17 12-4.58-4.59L10 6l6 6-6 6-1.41-1.41L13.17 12Z" fill="currentColor"/></svg>
+        </span>
       </a>
     </section>
 
@@ -134,22 +138,23 @@
       <div class="tc-product-meta">
         <span class="tc-rating-safe" aria-label="Рейтинг магазину TwoComms">
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.97 6.02 6.64.97-4.8 4.68 1.13 6.61L12 17.16l-5.94 3.12 1.13-6.61-4.8-4.68 6.64-.97L12 2Z" fill="currentColor"/></svg>
-          4.9
+          <strong>4.9</strong> <span>(45 відгуків)</span>
         </span>
-        <span>Артикул: {{ default_offer_id|default:product.id }}</span>
+        <span class="tc-meta-dot" aria-hidden="true">•</span>
+        <span class="tc-sku-line">Артикул: <span>{{ default_offer_id|default:product.id }}</span></span>
       </div>
 
       <div class="tc-badge-row" aria-label="Особливості товару">
         <span class="tc-info-badge">
-          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5Zm0 2.3 6.2 3.45L12 11.2 5.8 7.75 12 4.3ZM5 9.45l6 3.34v6.9l-6-3.33V9.45Zm8 10.24v-6.9l6-3.34v6.91l-6 3.33Z" fill="currentColor"/></svg>
+          <span class="tc-badge-emoji" aria-hidden="true">💎</span>
           Преміум тканина
         </span>
         <span class="tc-info-badge">
-          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4V4Zm2 2v12h12V6H6Zm2 3h8v2H8V9Zm0 4h5v2H8v-2Z" fill="currentColor"/></svg>
+          <span class="tc-badge-emoji" aria-hidden="true">🇺🇦</span>
           Made in UA
         </span>
         <span class="tc-info-badge">
-          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" fill="currentColor"/></svg>
+          <span class="tc-badge-emoji" aria-hidden="true">🔥</span>
           Лімітований дроп
         </span>
       </div>
@@ -165,7 +170,10 @@
       <div class="tc-selector-block">
         <div class="tc-selector-head">
           <span>Розмір</span>
-          <a href="{% url 'size_guide' %}" class="tc-soft-link">Як обрати розмір?</a>
+          <a href="{% url 'size_guide' %}" class="tc-soft-link">
+            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V21h3.75L18.8 9.95l-3.75-3.75L4 17.25Zm13.7-8.7-2.25-2.25 1.4-1.4a1.06 1.06 0 0 1 1.5 0l.75.75c.42.42.42 1.08 0 1.5l-1.4 1.4Z" fill="currentColor"/></svg>
+            Як обрати розмір?
+          </a>
         </div>
         {% if available_sizes %}
           <div class="tc-size-grid" role="radiogroup" aria-label="Розмір">
@@ -230,7 +238,11 @@
                 <label class="tc-fit-option{% if option.is_default %} active{% endif %}" for="fit-{{ option.code }}" data-fit-option>
                   <span class="tc-fit-check" aria-hidden="true"></span>
                   <span class="tc-fit-icon" aria-hidden="true">
-                    <svg width="28" height="28" viewBox="0 0 24 24"><path d="M8 3 5 5.5 2 7l2.2 4.4L6 10.5V21h12V10.5l1.8.9L22 7l-3-1.5L16 3l-4 2-4-2Zm.35 2.2L12 7l3.65-1.8 1.85 1.55 1.9.95-.5 1-2.9-1.45V19H8V7.25L5.1 8.7l-.5-1 1.9-.95 1.85-1.55Z" fill="currentColor"/></svg>
+                    {% if option.code == "oversize" %}
+                      <img class="tc-fit-icon-img" src="{% static 'img/pdp/fit-oversize.png' %}" alt="" width="64" height="64" loading="lazy">
+                    {% else %}
+                      <img class="tc-fit-icon-img" src="{% static 'img/pdp/fit-classic.png' %}" alt="" width="64" height="64" loading="lazy">
+                    {% endif %}
                   </span>
                   <span class="tc-fit-copy">
                     <strong>{{ option.label }}</strong>
@@ -403,8 +415,8 @@
           data-product-name="{{ product.title|escapejs }}"
           data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
           data-product-price="{{ product.final_price }}">
-          <span>Додати в кошик</span>
-          <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a2 2 0 1 0 .01 0H7Zm10 0a2 2 0 1 0 .01 0H17ZM1 3h3l3.6 7.59-1.35 2.45A2 2 0 0 0 8 16h11v-2H8.42l1.1-2H16a2 2 0 0 0 1.76-1.05L21 5H5.21l-.94-2H1Z" fill="currentColor"/></svg>
+          <span>ДОДАТИ В КОШИК</span>
+          <svg class="tc-add-cart-icon" width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 18.4a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6Zm9.8 0a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6ZM2 3h2.75l2.7 10.08A2.6 2.6 0 0 0 10 15h7.45a2.6 2.6 0 0 0 2.48-1.82L22 6.5H7.07L6.55 4.55A2.1 2.1 0 0 0 4.52 3H2Zm5.6 5.5h11.7l-1.28 4.05a.6.6 0 0 1-.57.45H10a.6.6 0 0 1-.58-.45L7.6 8.5Z" fill="currentColor"/></svg>
         </button>
         <div class="tc-purchase-side">
           <span><svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h11v8h2l2-3h3v7h-2a3 3 0 0 1-6 0H9a3 3 0 0 1-6 0H1V8a2 2 0 0 1 2-2Zm0 2v8.2A3 3 0 0 1 8.8 16H12V8H3Zm13 5v3h1.2A3 3 0 0 1 19 16.2V13h-3Z" fill="currentColor"/></svg>Швидка відправка</span>
@@ -491,5 +503,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/product-detail.js' %}?v=20260427-pdp-redesign-v3" defer></script>
+<script src="{% static 'js/product-detail.js' %}?v=20260428-pdp-polish-v1" defer></script>
 {% endblock %}
