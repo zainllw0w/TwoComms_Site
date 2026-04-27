@@ -72,6 +72,13 @@
             <div class="hint mt-1">Додаткові фото додаються до кожного кольору праворуч.</div>
           </div>
           {% endif %}
+          {% if form.home_card_image %}
+          <div class="mt-3">
+            <label class="form-label">Прев'ю картки на головній</label>
+            {{ form.home_card_image }}
+            <div class="hint mt-1">Окреме вертикальне зображення для головної сторінки. Якщо порожнє — використовується головне зображення.</div>
+          </div>
+          {% endif %}
         </div>
 
         <!-- Секція: Параметри -->

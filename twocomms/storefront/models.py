@@ -461,6 +461,12 @@ class Product(models.Model):
     description = models.TextField(blank=True, verbose_name='Опис (legacy)')
     full_description = models.TextField(blank=True, verbose_name='Повний опис')
     main_image = models.ImageField(upload_to='products/', blank=True, null=True)
+    home_card_image = models.ImageField(
+        upload_to='products/home_cards/',
+        blank=True,
+        null=True,
+        verbose_name='Зображення картки на головній'
+    )
     main_image_alt = models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст головного зображення')
     points_reward = models.PositiveIntegerField(default=0, verbose_name='Бали за покупку')
     status = models.CharField(
@@ -522,6 +528,13 @@ class Product(models.Model):
         if self.has_discount:
             return int(self.price*(100-self.discount_percent)/100)
         return self.price
+
+    @property
+    def homepage_image(self):
+        """Зображення для картки на головній з fallback на поточне прев'ю товару."""
+        if self.home_card_image:
+            return self.home_card_image
+        return self.display_image
 
     @property
     def display_image(self):
@@ -687,6 +700,45 @@ class Product(models.Model):
             models.Index(fields=['priority', '-id'], name='idx_product_priority_id'),
             models.Index(fields=['published_at'], name='idx_product_published_at'),
         ]
+
+
+class ProductFitOption(models.Model):
+    """Editable fit/cut option shown on product detail pages for supported apparel."""
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='fit_options')
+    code = models.SlugField(max_length=50, verbose_name='Код посадки')
+    label = models.CharField(max_length=100, verbose_name='Назва')
+    description = models.CharField(max_length=220, blank=True, verbose_name='Опис')
+    icon = models.CharField(max_length=64, blank=True, verbose_name='Іконка')
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
+    is_default = models.BooleanField(default=False, verbose_name='За замовчуванням')
+    is_active = models.BooleanField(default=True, verbose_name='Активна')
+
+    class Meta:
+        verbose_name = 'Посадка товару'
+        verbose_name_plural = 'Посадки товарів'
+        ordering = ['order', 'id']
+        unique_together = ('product', 'code')
+        indexes = [
+            models.Index(fields=['product', 'order'], name='idx_fit_product_order'),
+            models.Index(fields=['product', 'is_active'], name='idx_fit_product_active'),
+            models.Index(fields=['product', 'is_default'], name='idx_fit_product_default'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['product'],
+                condition=models.Q(is_default=True),
+                name='uniq_default_fit_per_product',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.product.title}: {self.label}'
+
+    def save(self, *args, **kwargs):
+        if self.is_default and self.product_id:
+            ProductFitOption.objects.filter(product_id=self.product_id, is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
 
 
 class ProductImage(models.Model):

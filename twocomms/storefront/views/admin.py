@@ -78,6 +78,7 @@ from ..forms import (
     SizeGridForm,
     CatalogOptionFormSet,
     build_color_variant_formset,
+    build_product_fit_option_formset,
 )
 from .utils import unique_slugify
 from accounts.models import FavoriteProduct, UserPoints, UserProfile
@@ -1317,6 +1318,11 @@ def admin_product_builder(request, product_id=None):
         files=request.FILES if request.method == 'POST' else None,
         prefix='color_variants'
     )
+    fit_formset = build_product_fit_option_formset(
+        product=product,
+        data=request.POST if request.method == 'POST' else None,
+        prefix='fit_options',
+    )
 
     option_formset = None
     option_formset_valid = True
@@ -1344,6 +1350,7 @@ def admin_product_builder(request, product_id=None):
 
         seo_form_valid = seo_form.is_valid()
         color_formset_valid = color_formset.is_valid()
+        fit_formset_valid = fit_formset.is_valid()
 
         images_valid = True
         for variant_form in color_formset.forms:
@@ -1352,7 +1359,7 @@ def admin_product_builder(request, product_id=None):
                 if not images_formset.is_valid():
                     images_valid = False
 
-        if product_form_valid and seo_form_valid and color_formset_valid and images_valid and size_grid_form_valid and option_formset_valid:
+        if product_form_valid and seo_form_valid and color_formset_valid and fit_formset_valid and images_valid and size_grid_form_valid and option_formset_valid:
             with transaction.atomic():
                 product_obj = product_form.save(commit=False)
                 # Генерация slug, если не задан або змінено
@@ -1508,6 +1515,20 @@ def admin_product_builder(request, product_id=None):
                 if option_formset is not None and option_formset.is_bound and option_formset_valid and option_formset_has_changes:
                     option_formset.save()
 
+                # Сохранение вариантов посадки
+                fit_formset.instance = product_obj
+                fit_formset.save()
+                active_fit_options = list(product_obj.fit_options.filter(is_active=True).order_by('order', 'id'))
+                default_options = [option for option in active_fit_options if option.is_default]
+                if default_options:
+                    default = default_options[0]
+                    product_obj.fit_options.filter(is_default=True).exclude(pk=default.pk).update(is_default=False)
+                elif active_fit_options:
+                    default = active_fit_options[0]
+                    if not default.is_default:
+                        default.is_default = True
+                        default.save(update_fields=['is_default'])
+
                 messages.success(request, 'Товар успішно збережено.')
                 return redirect('admin_product_builder_edit', product_id=product_obj.pk)
         else:
@@ -1582,6 +1603,7 @@ def admin_product_builder(request, product_id=None):
         'seo_form': seo_form,
         'size_grid_form': size_grid_form,
         'color_formset': color_formset,
+        'fit_formset': fit_formset,
         'option_formset': option_formset,
         'catalogs': catalogs,
         'selected_catalog': catalog_instance,

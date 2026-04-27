@@ -5,6 +5,7 @@ from .models import (
     CustomPrintLeadAttachment,
     PrintProposal,
     Product,
+    ProductFitOption,
     ProductImage,
     PushNotificationCampaign,
     PushNotificationDelivery,
@@ -21,7 +22,7 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('title', 'category', 'price', 'discount_percent', 'points_reward', 'featured')
+    list_display = ('title', 'category', 'price', 'discount_percent', 'points_reward', 'featured', 'home_card_image')
     list_filter = ('category', 'featured')
     search_fields = ('title', 'slug')
     prepopulated_fields = {'slug': ('title',)}
@@ -30,6 +31,13 @@ class ProductAdmin(admin.ModelAdmin):
 @admin.register(ProductImage)
 class ProductImageAdmin(admin.ModelAdmin):
     list_display = ('product', 'image')
+
+
+@admin.register(ProductFitOption)
+class ProductFitOptionAdmin(admin.ModelAdmin):
+    list_display = ('product', 'code', 'label', 'order', 'is_default', 'is_active')
+    list_filter = ('is_active', 'is_default')
+    search_fields = ('product__title', 'code', 'label')
 
 
 @admin.register(PrintProposal)

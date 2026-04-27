@@ -22,180 +22,300 @@
   {% breadcrumbs request product=product %}
 {% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260427-pdp-redesign-v3">
+{% endblock %}
+
 {% block content %}
-<div class="row g-4">
-  <div class="col-12 col-lg-6">
-    <div class="ratio ratio-product-detail rounded-4 overflow-hidden bg-elevate glass position-relative">
-      {% if product.main_image %}
-        {% optimized_image product.main_image.url product.main_image_alt|default:product.title "w-100 h-100 object-fit-contain" product.main_image.width|default:1080 product.main_image.height|default:1350 loading='eager' fetchpriority='high' sizes='(max-width: 992px) 100vw, 50vw' img_id='mainImage' %}
-      {% else %}
-        {% static 'img/placeholder.jpg' as ph_url %}
-        {% optimized_image ph_url product.title "w-100 h-100 object-fit-contain" 1080 1350 loading='eager' fetchpriority='high' sizes='(max-width: 992px) 100vw, 50vw' img_id='mainImage' %}
-      {% endif %}
-    </div>
-    {# Старый статический блок миниатюр скрыт: теперь миниатюры строит JS в #product-thumbs #}
-  </div>
+<div class="tc-pdp-shell" data-pdp>
+  <div class="tc-pdp-bg" aria-hidden="true"></div>
 
-  <div class="col-12 col-lg-6" 
-       data-product-id="{{ product.id }}"
-       data-product-title="{{ product.title|escapejs }}"
-       data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
-       data-offer-id-map='{{ offer_id_map|escape }}'
-       data-default-offer-id="{{ default_offer_id }}"
-       data-current-offer-id="{{ default_offer_id }}"
-       id="product-detail-container">
-    <h1 class="h3 fw-bold mb-2">{{ product.title }}</h1>
-    <div class="text-secondary small mb-3">{{ product.category.name }}</div>
-    <div class="d-flex align-items-center gap-3 mb-3">
-      <div class="fs-4 fw-semibold">{{ product.final_price }} грн</div>
-      {% if product.has_discount %}
-        <div class="text-decoration-line-through text-secondary">{{ product.price }} грн</div>
-        <span class="badge text-bg-danger">-{{ product.discount_percent }}%</span>
-      {% endif %}
-    </div>
-    
-
-
-    <!-- Размеры -->
-    <div class="mb-3">
-      <div class="small text-secondary mb-2">Розмір</div>
-      <div class="d-flex flex-wrap gap-2">
-        {% for size in available_sizes %}
-          <input
-            type="radio"
-            class="btn-check"
-            name="size"
-            id="size-{{ size|lower }}"
-            value="{{ size }}"
-            autocomplete="off"
-            {% if preselected_size == size %}checked{% endif %}>
-          <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-{{ size|lower }}">
-            {{ size_display_labels|get_item:size|default:size }}
-          </label>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- Селектор кольорів та бали -->
-    <div class="card bg-elevate border-0 rounded-4 p-2 mb-3">
-      <div class="d-flex justify-content-between align-items-start mb-2">
-        <div class="small text-secondary">Кольори</div>
-        {% if product.points_reward > 0 %}
-        <div class="points-reward-compact">
-          <div class="d-flex align-items-center gap-1">
-            <div class="points-icon-small">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
-            </div>
-            <span class="points-text-small">{{ product.points_reward }} балів</span>
-            <button type="button" class="btn btn-sm btn-outline-light points-help-small" aria-label="Дізнатись про бали" 
-                    data-bs-toggle="modal" data-bs-target="#pointsInfoModal" 
-                    data-product-title="{{ product.title }}" data-points-amount="{{ product.points_reward }}"
-                    onclick="event.stopPropagation();">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-              </svg>
-            </button>
-          </div>
+  <div class="tc-pdp-grid">
+    <section class="tc-media-panel" aria-label="Галерея товару">
+      <div class="tc-gallery-card">
+      <div class="tc-media-stage" id="mainImageWrapper">
+        <div class="tc-media-ambient" aria-hidden="true"></div>
+        <div class="tc-media-sparks" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
         </div>
+        {% if product.display_image %}
+          {% optimized_image product.display_image.url product.main_image_alt|default:product.title "tc-media-hero-img" 1080 1350 loading='eager' fetchpriority='high' sizes='(max-width: 768px) 94vw, (max-width: 992px) 90vw, (max-width: 1600px) 46vw, 720px' img_id='mainProductImage' %}
+        {% else %}
+          {% static 'img/placeholder.jpg' as ph_url %}
+          <img
+            id="mainProductImage"
+            class="tc-media-hero-img"
+            src="{{ ph_url }}"
+            alt="{{ product.title }}"
+            width="1080"
+            height="1350"
+            loading="eager"
+            decoding="async"
+            fetchpriority="high"
+            data-initial-image="{{ ph_url }}"
+            data-zoom="{{ ph_url }}">
+        {% endif %}
+
+        <div class="tc-media-logo-lockup" aria-hidden="true">
+          <img src="{% static 'img/logo.svg' %}" alt="" width="34" height="34">
+          <span>TwoComms</span>
+        </div>
+
+        <div class="tc-media-controls" aria-label="Дії з фото">
+          <button type="button" class="tc-icon-btn" data-gallery-zoom aria-label="Збільшити фото">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Zm0-2a8 8 0 0 1 6.32 12.9l3.39 3.39-1.42 1.42-3.39-3.39A8 8 0 1 1 11 3Zm-1 4h2v3h3v2h-3v3h-2v-3H7v-2h3V7Z" fill="currentColor"/>
+            </svg>
+          </button>
+          <button type="button" class="tc-icon-btn" data-share-copy aria-label="Скопіювати посилання">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7a3.27 3.27 0 0 0 0-1.39l7.05-4.11A2.99 2.99 0 1 0 15 5c0 .24.03.47.08.69L8.03 9.8a3 3 0 1 0 0 4.4l7.11 4.17c-.04.2-.06.41-.06.63a2.92 2.92 0 1 0 2.92-2.92Z" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="tc-thumb-shell">
+        <button type="button" class="tc-thumb-nav" data-thumb-prev aria-label="Попереднє фото">‹</button>
+        <div class="tc-thumb-strip" id="productThumbnails" aria-label="Мініатюри товару"></div>
+        <button type="button" class="tc-thumb-nav" data-thumb-next aria-label="Наступне фото">›</button>
+      </div>
+      </div>
+
+      <div class="tc-trust-strip" aria-label="Переваги покупки">
+        <div class="tc-trust-item">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h11v8h2.2l2-3H21v7h-2a3 3 0 0 1-6 0H9a3 3 0 0 1-6 0H1V8a2 2 0 0 1 2-2Zm0 2v8.18A3 3 0 0 1 8.82 16H12V8H3Zm13 5v3h1.18A3 3 0 0 1 19 16.18V13h-3ZM6 17.5A1.5 1.5 0 1 0 6 20a1.5 1.5 0 0 0 0-2.5Zm10 1A1.5 1.5 0 1 0 19 18.5a1.5 1.5 0 0 0-3 0Z" fill="currentColor"/></svg>
+          <span><strong>Швидка відправка</strong><small>1-2 дні по Україні</small></span>
+        </div>
+        <div class="tc-trust-item">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm0 2.14L18 6.4V11c0 3.9-2.42 7.64-6 8.86C8.42 18.64 6 14.9 6 11V6.4l6-2.26Zm3.7 5.16 1.4 1.4-5.8 5.8-3.4-3.4 1.4-1.4 2 2 4.4-4.4Z" fill="currentColor"/></svg>
+          <span><strong>Індивідуальний підхід</strong><small>Допоможемо з вибором</small></span>
+        </div>
+        <div class="tc-trust-item">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V6a6 6 0 1 1-5.3 3.2L5.24 7.74A8 8 0 1 0 17.65 6.35Z" fill="currentColor"/></svg>
+          <span><strong>Обмін розміру</strong><small>14 днів на обмін</small></span>
+        </div>
+      </div>
+
+      <a class="tc-custom-print-card" href="{% url 'custom_print' %}">
+        <span class="tc-custom-print-mark" aria-hidden="true">
+          <img src="{% static 'img/logo.svg' %}" alt="" width="34" height="34">
+        </span>
+        <span class="tc-custom-print-copy">
+          <strong>Індивідуальний позивний або бренд?</strong>
+          <small>Нанесемо ваш логотип чи позивний під замовлення.</small>
+        </span>
+        <span class="tc-custom-print-action">Створити свій принт</span>
+      </a>
+    </section>
+
+    <section
+      class="tc-product-panel"
+      id="product-detail-container"
+      data-product-id="{{ product.id }}"
+      data-product-title="{{ product.title|escapejs }}"
+      data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
+      data-offer-id-map='{{ offer_id_map|escape }}'
+      data-default-offer-id="{{ default_offer_id }}"
+      data-current-offer-id="{{ default_offer_id }}"
+      data-current-variant="{% if color_variants %}{{ color_variants.0.id }}{% else %}default{% endif %}"
+      data-share-url="{{ request.build_absolute_uri }}">
+      <div class="tc-product-panel-actions" aria-label="Дії з товаром">
+        <button type="button" class="tc-panel-icon-btn" data-product-id="{{ product.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати до обраних">
+          <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.1 20.55 12 20.65l-.11-.1C7.14 16.24 4 13.39 4 10.5A3.5 3.5 0 0 1 7.5 7c1.54 0 3.04.99 3.57 2.36h1.87A3.9 3.9 0 0 1 16.5 7a3.5 3.5 0 0 1 3.5 3.5c0 2.89-3.14 5.74-7.9 10.05ZM16.5 5c-1.74 0-3.41.81-4.5 2.08A5.96 5.96 0 0 0 7.5 5 5.5 5.5 0 0 0 2 10.5c0 3.75 3.4 6.84 8.55 11.51L12 23.35l1.45-1.32C18.6 17.34 22 14.25 22 10.5A5.5 5.5 0 0 0 16.5 5Z" fill="currentColor"/></svg>
+        </button>
+        <button type="button" class="tc-panel-icon-btn" data-share-copy aria-label="Поділитися товаром">
+          <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7a3.27 3.27 0 0 0 0-1.39l7.05-4.11A2.99 2.99 0 1 0 15 5c0 .24.03.47.08.69L8.03 9.8a3 3 0 1 0 0 4.4l7.11 4.17c-.04.2-.06.41-.06.63a2.92 2.92 0 1 0 2.92-2.92Z" fill="currentColor"/></svg>
+        </button>
+      </div>
+
+      <h1 class="tc-product-title">{{ product.title }}</h1>
+      <div class="tc-product-kicker">{{ product.category.name|default:"TwoComms drop" }}</div>
+      <div class="tc-product-meta">
+        <span class="tc-rating-safe" aria-label="Рейтинг магазину TwoComms">
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.97 6.02 6.64.97-4.8 4.68 1.13 6.61L12 17.16l-5.94 3.12 1.13-6.61-4.8-4.68 6.64-.97L12 2Z" fill="currentColor"/></svg>
+          4.9
+        </span>
+        <span>Артикул: {{ default_offer_id|default:product.id }}</span>
+      </div>
+
+      <div class="tc-badge-row" aria-label="Особливості товару">
+        <span class="tc-info-badge">
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5Zm0 2.3 6.2 3.45L12 11.2 5.8 7.75 12 4.3ZM5 9.45l6 3.34v6.9l-6-3.33V9.45Zm8 10.24v-6.9l6-3.34v6.91l-6 3.33Z" fill="currentColor"/></svg>
+          Преміум тканина
+        </span>
+        <span class="tc-info-badge">
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4V4Zm2 2v12h12V6H6Zm2 3h8v2H8V9Zm0 4h5v2H8v-2Z" fill="currentColor"/></svg>
+          Made in UA
+        </span>
+        <span class="tc-info-badge">
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" fill="currentColor"/></svg>
+          Лімітований дроп
+        </span>
+      </div>
+
+      <div class="tc-price-row">
+        <span class="tc-current-price">{{ product.final_price }} грн</span>
+        {% if product.has_discount %}
+          <span class="tc-old-price">{{ product.price }} грн</span>
+          <span class="tc-discount-badge">-{{ product.discount_percent }}%</span>
         {% endif %}
       </div>
-      {% if color_variants %}
-      <div class="d-flex flex-wrap gap-2" id="color-picker">
-        {% for v in color_variants %}
-          <button type="button"
-                  class="btn color-swatch{% if v.is_default %} active{% endif %}"
-                  data-variant="{{ v.id }}"
-                  data-primary="{{ v.primary_hex }}"
-                  data-secondary="{{ v.secondary_hex }}">
-            <span class="swatch" data-primary="{{ v.primary_hex }}" data-secondary="{{ v.secondary_hex }}"></span>
-          </button>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="text-secondary small">
-        <i class="fas fa-info-circle me-1"></i>
-        Для цього товару доступний тільки один колір
-      </div>
-      {% endif %}
-    </div>
 
-    <!-- Галерея товару: обёртка для перемещения на место исходного фото -->
-    <div class="product-gallery-block">
-      <div id="productCarousel" class="carousel slide mb-3" data-bs-ride="false">
-        <div class="carousel-inner rounded-4 overflow-hidden bg-elevate ratio ratio-product-detail">
-          <!-- Заповниться динамічно (варіант кольору або головне фото) -->
-          <div class="carousel-item active">
-            {% if product.display_image %}
-              <img
-                src="{{ product.display_image.url }}"
-                class="d-block w-100 h-100 object-fit-contain"
-                alt="{{ product.main_image_alt|default:product.title }}"
-                width="1080" height="1350"
-              >
-            {% else %}
-              {% static 'img/placeholder.jpg' as ph_url %}
-              <img
-                src="{{ ph_url }}"
-                class="d-block w-100 h-100 object-fit-contain"
-                alt="{{ product.title }}"
-                width="1080" height="1350"
-              >
+      <div class="tc-selector-block">
+        <div class="tc-selector-head">
+          <span>Розмір</span>
+          <a href="{% url 'size_guide' %}" class="tc-soft-link">Як обрати розмір?</a>
+        </div>
+        {% if available_sizes %}
+          <div class="tc-size-grid" role="radiogroup" aria-label="Розмір">
+            {% for size in available_sizes %}
+              <input
+                type="radio"
+                class="btn-check"
+                name="size"
+                id="size-{{ size|lower }}"
+                value="{{ size }}"
+                autocomplete="off"
+                {% if preselected_size == size %}checked{% endif %}>
+              <label class="tc-size-option" for="size-{{ size|lower }}">
+                {{ size_display_labels|get_item:size|default:size }}
+              </label>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="tc-muted-copy mb-0">Розміри уточнюються менеджером після замовлення.</p>
+        {% endif %}
+      </div>
+
+      <div class="tc-selector-split">
+        <div class="tc-selector-block">
+          <div class="tc-selector-head"><span>Колір</span></div>
+          {% if color_variants %}
+            <div class="tc-color-row" id="color-picker" aria-label="Колір">
+              {% for v in color_variants %}
+                <span class="tc-color-choice">
+                  <button
+                    type="button"
+                    class="color-swatch tc-color-option{% if v.is_default %} active{% endif %}"
+                    data-variant="{{ v.id }}"
+                    data-primary="{{ v.primary_hex }}"
+                    data-secondary="{{ v.secondary_hex|default:'' }}"
+                    style="--primary-color: {{ v.primary_hex }}; --secondary-color: {{ v.secondary_hex|default:v.primary_hex }};"
+                    aria-label="Колір {{ v.name|default:forloop.counter }}">
+                    <span class="tc-color-dot"></span>
+                  </button>
+                  <span>{{ v.name|default:"Колір" }}</span>
+                </span>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="tc-muted-copy mb-0">Для цього товару доступний один колір.</p>
+          {% endif %}
+        </div>
+
+        {% if show_fit_selector %}
+          <div class="tc-selector-block" data-fit-selector>
+            <div class="tc-selector-head"><span>Посадка</span></div>
+            <div class="tc-fit-grid" role="radiogroup" aria-label="Посадка">
+              {% for option in fit_options %}
+                <input
+                  type="radio"
+                  class="btn-check"
+                  name="fit_option"
+                  id="fit-{{ option.code }}"
+                  value="{{ option.code }}"
+                  autocomplete="off"
+                  {% if option.is_default %}checked{% endif %}>
+                <label class="tc-fit-option{% if option.is_default %} active{% endif %}" for="fit-{{ option.code }}" data-fit-option>
+                  <span class="tc-fit-check" aria-hidden="true"></span>
+                  <span class="tc-fit-icon" aria-hidden="true">
+                    <svg width="28" height="28" viewBox="0 0 24 24"><path d="M8 3 5 5.5 2 7l2.2 4.4L6 10.5V21h12V10.5l1.8.9L22 7l-3-1.5L16 3l-4 2-4-2Zm.35 2.2L12 7l3.65-1.8 1.85 1.55 1.9.95-.5 1-2.9-1.45V19H8V7.25L5.1 8.7l-.5-1 1.9-.95 1.85-1.55Z" fill="currentColor"/></svg>
+                  </span>
+                  <span class="tc-fit-copy">
+                    <strong>{{ option.label }}</strong>
+                    {% if option.description %}<small>{{ option.description }}</small>{% endif %}
+                  </span>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="tc-product-tabs" data-pdp-tabs>
+        <div class="tc-tab-list" role="tablist" aria-label="Інформація про товар">
+          <button type="button" class="tc-tab-btn active" id="tab-desc" role="tab" aria-controls="panel-desc" aria-selected="true" data-pdp-tab="desc">Опис</button>
+          <button type="button" class="tc-tab-btn" id="tab-size" role="tab" aria-controls="panel-size" aria-selected="false" data-pdp-tab="size">Розмірна сітка</button>
+          <button type="button" class="tc-tab-btn" id="tab-care" role="tab" aria-controls="panel-care" aria-selected="false" data-pdp-tab="care">Догляд</button>
+        </div>
+
+        <div class="tc-tab-panel active" id="panel-desc" role="tabpanel" aria-labelledby="tab-desc" data-pdp-panel="desc">
+          <div class="tc-desc-layout">
+            <div class="tc-desc-copy">
+              {% if product.short_description %}
+                <p class="tc-lead-copy">{{ product.short_description|linebreaksbr }}</p>
+              {% endif %}
+              {% if product.full_description %}
+                <div class="tc-rich-copy">{{ product.full_description|linebreaksbr }}</div>
+              {% elif product.description %}
+                <div class="tc-rich-copy">{{ product.description|linebreaksbr }}</div>
+              {% else %}
+                <p class="tc-muted-copy">Опис товару буде додано найближчим часом.</p>
+              {% endif %}
+              <div class="tc-check-list tc-desc-checks">
+                <div>Матеріал підібраний для щоденного носіння та стабільної посадки.</div>
+                <div>Принт зберігає контраст за правильного догляду.</div>
+                <div>Відправка по Україні після підтвердження замовлення.</div>
+              </div>
+            </div>
+            {% if resolved_size_guide and resolved_size_guide.rows %}
+              <div class="tc-mini-size-card" aria-label="Коротка розмірна сітка">
+                <strong>{{ resolved_size_guide.title|default:"Розмірна сітка" }}</strong>
+                <table>
+                  <tbody>
+                    {% for row in resolved_size_guide.rows|slice:":5" %}
+                      <tr>
+                        <th scope="row">{{ row.display_size|default:row.size }}</th>
+                        {% for column in resolved_size_guide.columns|slice:"1:3" %}
+                          <td>{{ row|get_item:column.key }}</td>
+                        {% endfor %}
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+                <button type="button" class="tc-mini-size-link" data-pdp-tab-trigger="size">Дивитися повну сітку →</button>
+              </div>
             {% endif %}
           </div>
         </div>
-        <div class="carousel-indicators position-static mt-2"></div>
-      </div>
 
-      <!-- Мініатюри: буде побудовано динамічно -->
-      <div class="d-flex gap-2 overflow-auto pb-2" id="product-thumbs"></div>
-    </div>
-
-    {# Передаем список дополнительных изображений продукта в безопасном JSON #}
-    {% if images %}
-    <script id="product-extra-images" type="application/json">[
-      {% for ph in images %}{% if ph.image %}"{{ ph.image.url }}"{% else %}null{% endif %}{% if not forloop.last %},{% endif %}{% endfor %}
-    ]</script>
-    {% endif %}
-
-    <!-- Красивые вкладки для описания и размерной сетки -->
-    <div class="product-tabs-container mb-4">
-      <div class="product-tabs-header">
-        <button type="button" class="product-tab-button active" data-tab="desc">Опис</button>
-        <button type="button" class="product-tab-button" data-tab="size">Розмірна сітка</button>
-      </div>
-      <div class="product-tab-content">
-        <div id="tab-desc" class="product-tab-pane active">
-          <div class="text-secondary">{{ product.description|default:'…'|linebreaksbr }}</div>
-        </div>
-        <div id="tab-size" class="product-tab-pane">
+        <div class="tc-tab-panel" id="panel-size" role="tabpanel" aria-labelledby="tab-size" data-pdp-panel="size" hidden>
           {% if resolved_size_guide %}
-            <div class="card bg-elevate border-0 rounded-4 p-3">
-              <div class="text-uppercase small text-secondary mb-2">{{ resolved_size_guide.eyebrow|default:"Fit guide" }}</div>
-              <h6 class="fw-semibold mb-2">{{ resolved_size_guide.title }}</h6>
-              {% if resolved_size_guide.intro %}
-                <p class="text-secondary small mb-3">{{ resolved_size_guide.intro }}</p>
-              {% endif %}
+            <div class="tc-size-guide-card">
+              <div>
+                <div class="tc-guide-eyebrow">{{ resolved_size_guide.eyebrow|default:"Fit guide" }}</div>
+                <h2 class="tc-guide-title">{{ resolved_size_guide.title }}</h2>
+                {% if resolved_size_guide.intro %}
+                  <p class="tc-muted-copy">{{ resolved_size_guide.intro }}</p>
+                {% endif %}
+              </div>
 
               {% if resolved_size_guide.legend %}
-                <div class="d-grid gap-2 mb-3">
+                <div class="tc-guide-notes">
                   {% for item in resolved_size_guide.legend %}
-                    <div class="small text-secondary">
-                      <strong class="text-light">{{ item.label }}</strong>
-                      {% if item.description %} — {{ item.description }}{% endif %}
-                    </div>
+                    <div><strong>{{ item.label }}</strong>{% if item.description %} {{ item.description }}{% endif %}</div>
                   {% endfor %}
                 </div>
               {% endif %}
 
               {% if resolved_size_guide.rows %}
-                <div class="table-responsive mb-3">
-                  <table class="table table-sm align-middle text-secondary small mb-0">
+                <div class="tc-size-table-wrap">
+                  <table class="tc-size-table">
                     <thead>
                       <tr>
                         {% for column in resolved_size_guide.columns %}
-                          <th>{{ column.label }}</th>
+                          <th scope="col">{{ column.label }}</th>
                         {% endfor %}
                       </tr>
                     </thead>
@@ -203,7 +323,7 @@
                       {% for row in resolved_size_guide.rows %}
                         <tr>
                           {% for column in resolved_size_guide.columns %}
-                            <td{% if column.key == 'size' %} class="fw-semibold text-light"{% endif %}>
+                            <td{% if column.key == 'size' %} class="tc-size-table-key"{% endif %}>
                               {% if column.key == 'size' %}
                                 {{ row.display_size|default:row.size }}
                               {% else %}
@@ -216,1097 +336,160 @@
                     </tbody>
                   </table>
                 </div>
-              {% endif %}
-
-              {% if resolved_size_guide.image_url and not resolved_size_guide.rows %}
-                <div class="mb-3">
-                  <a href="{{ resolved_size_guide.image_url }}" class="d-inline-block">
-                    <img
-                      src="{{ resolved_size_guide.image_url }}"
-                      alt="{{ resolved_size_guide.image_alt|default:resolved_size_guide.title }}"
-                      class="img-fluid rounded-4 border border-light-subtle">
-                  </a>
-                </div>
+              {% elif resolved_size_guide.image_url %}
+                <a class="tc-size-image-link" href="{{ resolved_size_guide.image_url }}">
+                  <img src="{{ resolved_size_guide.image_url }}" alt="{{ resolved_size_guide.image_alt|default:resolved_size_guide.title }}" loading="lazy">
+                </a>
               {% endif %}
 
               {% if resolved_size_guide.notes %}
-                <div class="d-grid gap-1 mb-3">
+                <div class="tc-check-list">
                   {% for note in resolved_size_guide.notes %}
-                    <div class="small text-secondary">• {{ note }}</div>
+                    <div>{{ note }}</div>
                   {% endfor %}
                 </div>
               {% endif %}
 
               {% if resolved_size_guide.fit_notes %}
-                <div class="fw-semibold mb-2">Рекомендації по посадці</div>
-                <div class="d-grid gap-1 mb-3">
+                <div class="tc-guide-subtitle">Рекомендації по посадці</div>
+                <div class="tc-check-list">
                   {% for note in resolved_size_guide.fit_notes %}
-                    <div class="small text-secondary">• {{ note }}</div>
+                    <div>{{ note }}</div>
                   {% endfor %}
                 </div>
               {% endif %}
 
               {% if resolved_size_guide.cta %}
-                <div class="rounded-4 border border-light-subtle p-3">
-                  <div class="fw-semibold mb-1">{{ resolved_size_guide.cta.title }}</div>
-                  <div class="small text-secondary mb-2">{{ resolved_size_guide.cta.text }}</div>
-                  <a class="btn btn-outline-light btn-sm rounded-3" href="{% url resolved_size_guide.cta.url_name %}">
-                    {{ resolved_size_guide.cta.label }}
-                  </a>
-                </div>
+                <a class="tc-guide-cta" href="{% url resolved_size_guide.cta.url_name %}">
+                  <span><strong>{{ resolved_size_guide.cta.title }}</strong><small>{{ resolved_size_guide.cta.text }}</small></span>
+                  <span>{{ resolved_size_guide.cta.label }}</span>
+                </a>
               {% endif %}
             </div>
           {% else %}
-            <div class="card bg-elevate border-0 rounded-4 p-3">
-              <div class="text-uppercase small text-secondary mb-2">Fit guide</div>
-              <h6 class="fw-semibold mb-2">Підбір розміру</h6>
-              <p class="text-secondary small mb-3">
-                Порівняйте заміри зі своєю річчю схожого типу або відкрийте загальну розмірну сітку TwoComms.
-              </p>
-              <div class="d-flex flex-wrap gap-2">
-                <a class="btn btn-outline-light btn-sm rounded-3" href="{% url 'size_guide' %}">Розмірна сітка</a>
-                <a class="btn btn-outline-light btn-sm rounded-3" href="{% url 'contacts' %}">Допомога з вибором</a>
+            <div class="tc-size-guide-card">
+              <h2 class="tc-guide-title">Підбір розміру</h2>
+              <p class="tc-muted-copy">Відкрийте загальну розмірну сітку TwoComms або напишіть нам для уточнення посадки.</p>
+              <div class="tc-guide-actions">
+                <a class="tc-outline-link" href="{% url 'size_guide' %}">Розмірна сітка</a>
+                <a class="tc-outline-link" href="{% url 'contacts' %}">Допомога з вибором</a>
               </div>
             </div>
           {% endif %}
         </div>
+
+        <div class="tc-tab-panel" id="panel-care" role="tabpanel" aria-labelledby="tab-care" data-pdp-panel="care" hidden>
+          <div class="tc-care-grid">
+            <div class="tc-care-item"><strong>Прання</strong><span>30°C, делікатний режим, навиворіт.</span></div>
+            <div class="tc-care-item"><strong>Принт</strong><span>Не прасувати напряму по нанесенню.</span></div>
+            <div class="tc-care-item"><strong>Сушка</strong><span>Без агресивної машинної сушки.</span></div>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- Дані про варіанти для JS (безпечний валідний JSON) -->
-    {{ color_variants|json_script:"variant-data" }}
-    <div id="product-analytics-payload"
-         data-id="{{ product.id }}"
-         data-title="{{ product.title|escapejs }}"
-         data-category="{{ product.category.name|escapejs }}"
-         data-price="{{ product.final_price }}"
-         data-has_discount="{{ product.has_discount|yesno:'1,0' }}">
-    </div>
-
-    <script>
-    (function(){
-      // Применяем CSS переменные для комбинированных цветов
-      document.querySelectorAll('.color-swatch .swatch').forEach(function(swatch) {
-        var primary = swatch.getAttribute('data-primary') || '';
-        var secondary = swatch.getAttribute('data-secondary') || '';
-        if (primary) { swatch.style.setProperty('--primary-color', primary); }
-        if (secondary) {
-          swatch.style.setProperty('--secondary-color', secondary);
-          var divider = document.createElement('div');
-          divider.className = 'divider';
-          swatch.appendChild(divider);
-        } else {
-          swatch.style.removeProperty('--secondary-color');
-        }
-      });
-      
-      // Парсимо дані варіантів
-      var dataTag = document.getElementById('variant-data');
-      var variants = [];
-      try{ variants = JSON.parse((dataTag && dataTag.textContent) || '[]'); }catch(_){ variants=[]; }
-      var productImageAltBase = '{{ product.main_image_alt|default:product.title|escapejs }}';
-
-      var carousel = document.getElementById('productCarousel');
-      var inner = carousel ? carousel.querySelector('.carousel-inner') : null;
-      var indicators = carousel ? carousel.querySelector('.carousel-indicators') : null;
-      var thumbs = document.getElementById('product-thumbs');
-      if (carousel) {
-        carousel.dataset.galleryInitialized = '1';
-      }
-
-      function rebuildCarousel(images){
-        if(!(inner && indicators && thumbs)) return;
-        inner.innerHTML = '';
-        indicators.innerHTML = '';
-        thumbs.innerHTML = '';
-        var list;
-        if(images && images.length){
-          // фильтруем пустые и дубли, сохраняем порядок
-          var seen = {};
-          list = [];
-          images.forEach(function(url){
-            if(!url || seen[url]) return;
-            seen[url] = true;
-            list.push(url);
-          });
-        } else {
-          // Fallback: главное изображение + дополнительные изображения товара
-          var mainUrl = '{% if product.main_image %}{{ product.main_image.url }}{% else %}{% static "img/placeholder.jpg" %}{% endif %}';
-          var extra = [];
-          var extraTag = document.getElementById('product-extra-images');
-          if(extraTag){
-            try{ extra = JSON.parse(extraTag.textContent||'[]') || []; }catch(_){ extra = []; }
-            // фильтруем пустые
-            extra = extra.filter(function(u){ return !!u; });
-          }
-          list = [mainUrl].concat(extra);
-        }
-
-        list.forEach(function(url, idx){
-          var item = document.createElement('div');
-          item.className = 'carousel-item' + (idx===0?' active':'');
-          var img = document.createElement('img');
-          img.src = url;
-          img.className = 'd-block w-100 h-100 object-fit-contain';
-          img.alt = productImageAltBase + ' — фото ' + (idx + 1);
-          item.appendChild(img);
-
-          inner.appendChild(item);
-
-          var ind = document.createElement('button');
-          ind.type = 'button';
-          ind.setAttribute('data-bs-target', '#productCarousel');
-          ind.setAttribute('data-bs-slide-to', String(idx));
-          if(idx===0){ ind.className='active'; ind.setAttribute('aria-current','true'); }
-          ind.setAttribute('aria-label','Слайд '+(idx+1));
-          indicators.appendChild(ind);
-
-          var th = document.createElement('button');
-          th.type='button'; th.className='btn p-0 thumb'; th.setAttribute('data-bs-target','#productCarousel'); th.setAttribute('data-bs-slide-to', String(idx));
-          var ti = document.createElement('img');
-          ti.src = url; ti.className='rounded-3 object-fit-cover'; ti.style.width='72px'; ti.style.height='72px'; ti.alt = productImageAltBase + ' — мініатюра ' + (idx + 1);
-          th.appendChild(ti);
-          
-          thumbs.appendChild(th);
-        });
-        // Принудительно возвращаемся к первому слайду, чтобы не было сдвига на 3-й фото
-        if (carousel && typeof bootstrap !== 'undefined' && bootstrap.Carousel) {
-          try {
-            var bsCarousel = bootstrap.Carousel.getOrCreateInstance(carousel, { interval: false, ride: false, pause: true, wrap: true });
-            bsCarousel.to(0);
-          } catch (_) {}
-        }
-        if (thumbs) {
-          thumbs.scrollLeft = 0;
-        }
-      }
-
-      function pickDefault(){
-        var d = variants.find(function(v){ return v.is_default; });
-        return d || variants[0] || null;
-      }
-
-      function onColorClick(e){
-        var btn = e.currentTarget;
-        var id = parseInt(btn.getAttribute('data-variant')||'-1',10);
-        var v = variants.find(function(x){ return x.id===id; });
-        if(!v) return;
-        // Активний стан
-        document.querySelectorAll('#color-picker .color-swatch').forEach(function(b){ b.classList.remove('active'); });
-        btn.classList.add('active');
-        rebuildCarousel(v.images || []);
-      }
-
-      // Ініціалізація
-      if(variants.length){
-        var def = pickDefault();
-        rebuildCarousel(def && def.images ? def.images : []);
-        document.querySelectorAll('#color-picker .color-swatch').forEach(function(b){
-          b.addEventListener('click', onColorClick);
-        });
-      } else {
-        // Без кольорів: збираємо карусель з головного та додаткових зображень
-        rebuildCarousel([]);
-      }
-    })();
-    </script>
-
-    <div class="d-flex flex-wrap align-items-center gap-2" id="product-action-bar" data-product-container>
-      <div class="qty-control" data-qty>
-        <button type="button" onclick="QtyDec('#qty'); return false;" aria-label="Зменшити">−</button>
-        <input type="number" id="qty" min="1" value="1" inputmode="numeric">
-        <button type="button" onclick="QtyInc('#qty'); return false;" aria-label="Збільшити">+</button>
+      <div class="tc-purchase-bar" id="product-action-bar" data-product-container>
+        <div class="tc-qty-wrap">
+          <span>Кількість</span>
+          <div class="tc-qty-control" data-qty>
+            <button type="button" onclick="QtyDec('#qty'); return false;" aria-label="Зменшити кількість">−</button>
+            <input type="number" id="qty" min="1" value="1" inputmode="numeric" aria-label="Кількість">
+            <button type="button" onclick="QtyInc('#qty'); return false;" aria-label="Збільшити кількість">+</button>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="tc-add-btn"
+          data-add-to-cart="{{ product.id }}"
+          data-product-name="{{ product.title|escapejs }}"
+          data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
+          data-product-price="{{ product.final_price }}">
+          <span>Додати в кошик</span>
+          <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a2 2 0 1 0 .01 0H7Zm10 0a2 2 0 1 0 .01 0H17ZM1 3h3l3.6 7.59-1.35 2.45A2 2 0 0 0 8 16h11v-2H8.42l1.1-2H16a2 2 0 0 0 1.76-1.05L21 5H5.21l-.94-2H1Z" fill="currentColor"/></svg>
+        </button>
+        <div class="tc-purchase-side">
+          <span><svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h11v8h2l2-3h3v7h-2a3 3 0 0 1-6 0H9a3 3 0 0 1-6 0H1V8a2 2 0 0 1 2-2Zm0 2v8.2A3 3 0 0 1 8.8 16H12V8H3Zm13 5v3h1.2A3 3 0 0 1 19 16.2V13h-3Z" fill="currentColor"/></svg>Швидка відправка</span>
+          <span><svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.7 6.3A8 8 0 0 0 12 4V1L7 6l5 5V6a6 6 0 1 1-5.3 3.2L5.2 7.7A8 8 0 1 0 17.7 6.3Z" fill="currentColor"/></svg>Обмін розміру 14 днів</span>
+        </div>
       </div>
-      <button type="button"
-              class="cart-beam-btn flex-grow-1 flex-md-grow-0"
-              data-add-to-cart="{{ product.id }}"
-              data-product-name="{{ product.title|escapejs }}"
-              data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
-              data-product-price="{{ product.final_price }}"
-              onclick="return AddToCart(this);">
-        <span class="cart-beam-border">
-          <span class="cart-beam-border-spin"></span>
-          <span class="cart-beam-border-bg"></span>
-        </span>
-        <span class="cart-beam-surface">
-          <span class="cart-beam-sheen"></span>
-          <span class="cart-beam-dots"></span>
-          <span class="cart-beam-hover"></span>
-        </span>
-        <span class="cart-beam-content">
-          <span class="btn-text">Додати в кошик</span>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cart-beam-icon">
-            <path d="M5 12h14"></path>
-            <path d="m12 5 7 7-7 7"></path>
-          </svg>
-        </span>
-      </button>
-    </div>
-    <div class="small text-secondary mt-2">Накопичуйте бали за покупки та використовуйте їх для знижок</div>
+
+      {% if product.points_reward > 0 %}
+        <button type="button" class="tc-points-line" data-bs-toggle="modal" data-bs-target="#pointsInfoModal" data-product-title="{{ product.title }}" data-points-amount="{{ product.points_reward }}">
+          <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.97 6.02 6.64.97-4.8 4.68 1.13 6.61L12 17.16l-5.94 3.12 1.13-6.61-4.8-4.68 6.64-.97L12 2Z" fill="currentColor"/></svg>
+          Отримайте {{ product.points_reward }} балів за покупку цього товару
+        </button>
+      {% endif %}
+    </section>
   </div>
 
-<!-- Модальное окно с информацией о баллах -->
-<div class="modal fade" id="pointsInfoModal" tabindex="-1" aria-labelledby="pointsInfoModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content points-info-modal">
-      <div class="modal-header">
-        <div class="modal-title-section">
-          <div class="modal-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
-          </div>
-          <div class="modal-title-content">
-            <h5 class="modal-title" id="pointsInfoModalLabel">Система балів</h5>
-            <p class="modal-subtitle">Як працюють бали за покупки</p>
-          </div>
+  {% if recommended_products %}
+    {% cache 3600 product_detail_recommendations product.id public_product_order_version recommended_product_ids using="fragments" %}
+      <section class="tc-related-panel" aria-labelledby="tc-related-title">
+        <div class="tc-related-head">
+          <h2 id="tc-related-title">Схожі товари</h2>
+          <a href="{% url 'catalog' %}">Переглянути всі</a>
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="points-info-content">
-          <div class="product-points-info">
-            <div class="product-points-badge">
-              <span class="points-amount" id="modalPointsAmount">0</span>
-              <span class="points-label">балів за цей товар</span>
-            </div>
-            <div class="product-title" id="modalProductTitle">Назва товару</div>
-          </div>
-          
-          <div class="points-explanation">
-            <div class="explanation-item">
-              <div class="explanation-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
-              </div>
-              <div class="explanation-text">
-                <strong>Нарахування балів:</strong> Бали нараховуються автоматично після підтвердження замовлення
-              </div>
-            </div>
-            
-            <div class="explanation-item">
-              <div class="explanation-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
-                </svg>
-              </div>
-              <div class="explanation-text">
-                <strong>Використання балів:</strong> Зареєстровані користувачі можуть витратити бали у кабінеті
-              </div>
-            </div>
-            
-            <div class="explanation-item">
-              <div class="explanation-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
-              </div>
-              <div class="explanation-text">
-                <strong>Можливості:</strong> Обмін на промокоди або пожертвування на ЗСУ
-              </div>
-            </div>
-          </div>
-          
-          <div class="points-actions">
-            {% if user.is_authenticated %}
-              <a href="{% url 'buy_with_points' %}" class="btn btn-primary points-action-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
-                Перейти до балів
+        <div class="tc-related-grid" aria-label="Рекомендовані товари">
+          {% for rec_product in recommended_products|slice:":4" %}
+            <article class="tc-related-card">
+              <a href="{% url 'product' rec_product.slug %}" class="tc-related-link" aria-label="{{ rec_product.title }}">
+                <span class="tc-related-image-wrap">
+                  {% if rec_product.display_image %}
+                    <img src="{{ rec_product.display_image.url }}" alt="{{ rec_product.title }}" loading="lazy" width="520" height="650">
+                  {% else %}
+                    {% static 'img/placeholder.jpg' as ph_url %}
+                    <img src="{{ ph_url }}" alt="{{ rec_product.title }}" loading="lazy" width="520" height="650">
+                  {% endif %}
+                  {% if rec_product.has_discount %}
+                    <span class="tc-related-discount">-{{ rec_product.discount_percent }}%</span>
+                  {% endif %}
+                </span>
+                <span class="tc-related-info">
+                  <span class="tc-related-title">{{ rec_product.title }}</span>
+                  <span class="tc-related-meta">
+                    <span class="tc-related-rating">4.9</span>
+                    <span class="tc-related-price">{{ rec_product.final_price }} грн</span>
+                  </span>
+                </span>
               </a>
-            {% else %}
-              <a href="{% url 'login' %}" class="btn btn-outline-primary points-action-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
-                </svg>
-                Увійти для накопичення балів
-              </a>
-            {% endif %}
-          </div>
+              <button type="button" class="tc-related-fav" data-product-id="{{ rec_product.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати {{ rec_product.title }} до обраних">
+                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.1 20.55 12 20.65l-.11-.1C7.14 16.24 4 13.39 4 10.5A3.5 3.5 0 0 1 7.5 7c1.54 0 3.04.99 3.57 2.36h1.87A3.9 3.9 0 0 1 16.5 7a3.5 3.5 0 0 1 3.5 3.5c0 2.89-3.14 5.74-7.9 10.05ZM16.5 5c-1.74 0-3.41.81-4.5 2.08A5.96 5.96 0 0 0 7.5 5 5.5 5.5 0 0 0 2 10.5c0 3.75 3.4 6.84 8.55 11.51L12 23.35l1.45-1.32C18.6 17.34 22 14.25 22 10.5A5.5 5.5 0 0 0 16.5 5Z" fill="currentColor"/></svg>
+              </button>
+            </article>
+          {% endfor %}
         </div>
-      </div>
+      </section>
+    {% endcache %}
+  {% endif %}
+
+  <div class="tc-sticky-mobile" id="productStickyMobile">
+    <div class="tc-sticky-price">
+      <span>{{ product.final_price }} грн</span>
+      {% if product.has_discount %}<small>{{ product.price }} грн</small>{% endif %}
     </div>
+    <button type="button" class="tc-sticky-add-btn" data-pdp-sticky-add>
+      Додати в кошик
+    </button>
   </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Обработчик для модального окна с информацией о баллах
-  const pointsInfoModal = document.getElementById('pointsInfoModal');
-  if (pointsInfoModal) {
-    pointsInfoModal.addEventListener('show.bs.modal', function(event) {
-      const button = event.relatedTarget;
-      const productTitle = button.getAttribute('data-product-title');
-      const pointsAmount = button.getAttribute('data-points-amount');
-      
-      // Обновляем содержимое модального окна
-      document.getElementById('modalProductTitle').textContent = productTitle;
-      document.getElementById('modalPointsAmount').textContent = pointsAmount;
-    });
-  }
-});
-</script>
+{{ color_variants|json_script:"variant-data" }}
+{{ extra_image_urls|json_script:"product-extra-images" }}
+{{ offer_id_map_data|json_script:"offer-id-map" }}
+<div
+  id="product-analytics-payload"
+  data-id="{{ product.id }}"
+  data-title="{{ product.title|escapejs }}"
+  data-category="{{ product.category.name|default_if_none:''|escapejs }}"
+  data-price="{{ product.final_price }}"
+  data-has-discount="{{ product.has_discount|yesno:'1,0' }}">
+</div>
+{% endblock %}
 
-<style>
-/* Color swatch styles */
-.swatch {
-  display: inline-block;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  position: relative;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
-  background: #666666;
-}
-
-.points-info-modal .modal-content {
-  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 16px;
-}
-
-.points-info-modal .modal-header {
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-  padding: 1.5rem;
-}
-
-.modal-title-section {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.modal-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, var(--accent-color), #7c3aed);
-  border-radius: 12px;
-  color: white;
-}
-
-.modal-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.modal-subtitle {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.points-info-modal .modal-body {
-  padding: 1.5rem;
-}
-
-.product-points-info {
-  text-align: center;
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(124, 58, 237, 0.05));
-  border-radius: 12px;
-  border: 1px solid rgba(124, 58, 237, 0.2);
-}
-
-.product-points-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.points-amount {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--accent-color);
-}
-
-.points-label {
-  font-size: 1rem;
-  color: var(--text-secondary);
-}
-
-.product-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.points-explanation {
-  margin-bottom: 2rem;
-}
-
-.explanation-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.explanation-item:last-child {
-  margin-bottom: 0;
-}
-
-.explanation-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
-  border-radius: 8px;
-  color: #10b981;
-  flex-shrink: 0;
-}
-
-.explanation-text {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.explanation-text strong {
-  color: var(--text-primary);
-}
-
-.points-actions {
-  text-align: center;
-}
-
-.points-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border-radius: 12px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.3s ease;
-}
-
-.points-action-btn:hover {
-  transform: translateY(-1px);
-  text-decoration: none;
-}
-
-.btn-primary.points-action-btn {
-  background: linear-gradient(135deg, var(--accent-color), #7c3aed);
-  border: none;
-  color: white;
-}
-
-.btn-primary.points-action-btn:hover {
-  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
-  color: white;
-}
-
-.btn-outline-primary.points-action-btn {
-  border: 1px solid var(--accent-color);
-  color: var(--accent-color);
-  background: transparent;
-}
-
-.btn-outline-primary.points-action-btn:hover {
-  background: var(--accent-color);
-  color: white;
-  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
-}
-
-@media (max-width: 768px) {
-  .points-info-modal .modal-dialog {
-    margin: 1rem;
-  }
-  
-  .modal-title-section {
-    flex-direction: column;
-    text-align: center;
-    gap: 0.75rem;
-  }
-  
-  .explanation-item {
-    flex-direction: column;
-    text-align: center;
-    gap: 0.75rem;
-  }
-}
-</style>
-
-<style>
-/* Минимальные стили для свотчей цветов (восстановлено) */
-.color-swatch{width:36px;height:36px;padding:0;border:2px solid rgba(255,255,255,.35);border-radius:50%;background:transparent;display:inline-flex;align-items:center;justify-content:center}
-.color-swatch.active{border-color:var(--accent-color,#7c3aed)}
-.color-swatch .swatch{display:inline-block;width:28px;height:28px;border-radius:50%;background:var(--primary-color,#ddd);position:relative;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
-.color-swatch .swatch .divider{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(0,0,0,.2);transform:translateX(-.5px);pointer-events:none;border-radius:1px}
-
-/* Стили для недоступных размеров */
-.size-unavailable {
-  opacity: 0.5 !important;
-  cursor: not-allowed !important;
-  position: relative;
-}
-.size-unavailable::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, transparent 45%, rgba(220,53,69,0.3) 45%, rgba(220,53,69,0.3) 55%, transparent 55%);
-  pointer-events: none;
-}
-
-/* Стили для неактивной кнопки добавления в корзину */
-.btn-cta.unavailable {
-  background-color: #6c757d !important;
-  border-color: #6c757d !important;
-  opacity: 0.6 !important;
-  cursor: not-allowed !important;
-  pointer-events: none !important;
-}
-
-/* Анимированная кнопка "Додати в кошик" */
-.cart-beam-btn {
-  --cart-beam-accent: #f97316;
-  --cart-beam-base: #0f0f15;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  width: 100%;
-  min-width: 220px;
-  min-height: 56px;
-  padding: 0;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: #fff;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-weight: 700;
-  font-size: 0.95rem;
-  line-height: 1;
-  overflow: hidden;
-  isolation: isolate;
-  transition: transform 0.45s ease, box-shadow 0.45s ease, filter 0.45s ease;
-}
-
-.cart-beam-btn .cart-beam-content {
-  position: relative;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 1.05rem 2.75rem;
-}
-
-.cart-beam-btn .btn-text {
-  color: rgba(255, 255, 255, 0.9);
-  transition: color 0.3s ease;
-}
-
-.cart-beam-btn .cart-beam-icon {
-  width: 16px;
-  height: 16px;
-  transition: transform 0.3s ease;
-}
-
-.cart-beam-btn:hover {
-  transform: scale(1.02);
-  box-shadow:
-    0 0 44px -12px rgba(249, 115, 22, 0.65),
-    0 14px 30px -18px rgba(0, 0, 0, 0.9);
-}
-
-.cart-beam-btn:hover .btn-text {
-  color: #fff;
-}
-
-.cart-beam-btn:hover .cart-beam-icon {
-  transform: translateX(3px);
-}
-
-.cart-beam-border {
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  border-radius: 999px;
-  overflow: hidden;
-  z-index: 0;
-}
-
-.cart-beam-border-spin {
-  position: absolute;
-  inset: -120%;
-  background: conic-gradient(from 0deg, transparent 0deg 300deg, var(--cart-beam-accent) 360deg);
-  animation: cart-beam-spin 3s linear infinite;
-}
-
-.cart-beam-border-bg {
-  position: absolute;
-  inset: 2px;
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.05), transparent 52%),
-    linear-gradient(180deg, #14131c, #0f0e15 55%, #0b0b12);
-}
-
-.cart-beam-surface {
-  position: absolute;
-  inset: 2px;
-  border-radius: 999px;
-  overflow: hidden;
-  z-index: 1;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
-    radial-gradient(circle at 50% 115%, rgba(249, 115, 22, 0.2), transparent 58%);
-}
-
-.cart-beam-sheen {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent);
-}
-
-.cart-beam-dots {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.26) 1px, transparent 1px);
-  background-size: 14px 14px;
-  opacity: 0.16;
-  mix-blend-mode: overlay;
-  animation: cart-beam-dots 10s linear infinite;
-}
-
-.cart-beam-hover {
-  position: absolute;
-  inset: 15% 10%;
-  background: radial-gradient(circle at 50% 100%, rgba(249, 115, 22, 0.2), transparent 62%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.cart-beam-btn:hover .cart-beam-hover {
-  opacity: 1;
-}
-
-.cart-beam-btn:focus-visible {
-  outline: 2px solid rgba(249, 115, 22, 0.7);
-  outline-offset: 3px;
-}
-
-.cart-beam-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  box-shadow: none;
-  transform: none;
-}
-
-@keyframes cart-beam-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes cart-beam-dots {
-  from {
-    background-position: 0 0;
-  }
-  to {
-    background-position: 24px 24px;
-  }
-}
-
-@media (min-width: 768px) {
-  .cart-beam-btn {
-    width: auto;
-  }
-}
-
-@media (max-width: 576px) {
-  .cart-beam-btn {
-    min-width: 100%;
-    min-height: 60px;
-    font-size: 1.05rem;
-    letter-spacing: 0.12em;
-  }
-  .cart-beam-btn .cart-beam-content {
-    padding: 1.05rem 1.8rem;
-    width: 100%;
-    justify-content: center;
-  }
-  .cart-beam-btn:hover {
-    box-shadow:
-      0 0 52px -10px rgba(139, 92, 246, 0.75),
-      0 14px 26px -16px rgba(0, 0, 0, 0.9);
-  }
-}
-
-.product-recommendations {
-  margin-top: 3rem;
-  padding: 2.5rem;
-  border-radius: 24px;
-  background: linear-gradient(135deg, rgba(20, 22, 27, 0.9), rgba(10, 12, 17, 0.92));
-  border: 1px solid rgba(139, 92, 246, 0.15);
-  box-shadow: 0 25px 65px rgba(15, 17, 22, 0.55);
-  position: relative;
-  overflow: hidden;
-}
-
-.product-recommendations::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at top right, rgba(139, 92, 246, 0.15), transparent 55%);
-  pointer-events: none;
-}
-
-.product-recommendations-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.75rem;
-}
-
-.product-recommendations-title {
-  font-size: clamp(1.5rem, 2vw, 1.8rem);
-  font-weight: 700;
-  margin: 0;
-  letter-spacing: 0.01em;
-}
-
-.product-recommendations-hint {
-  font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-@media (max-width: 768px) {
-  .product-recommendations {
-    padding: 1.5rem;
-    border-radius: 18px;
-    margin-top: 2rem;
-  }
-
-  .product-recommendations-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-</style>
-
-{% if recommended_products %}
-  {% cache 3600 product_detail_recommendations product.id public_product_order_version using="fragments" %}
-  <section class="product-recommendations">
-    <div class="product-recommendations-header">
-      <div>
-        <h2 class="product-recommendations-title">Вам також сподобається</h2>
-        <p class="product-recommendations-hint mb-0">Підібрано автоматично, виходячи з переглянутого товару</p>
-      </div>
-    </div>
-    <div class="row g-3 g-lg-4">
-      {% for rec_product in recommended_products %}
-        <div class="col-6 col-md-4 col-lg-3">
-          {% include "partials/product_card.html" with p=rec_product %}
-        </div>
-      {% endfor %}
-    </div>
-  </section>
-  {% endcache %}
-{% endif %}
-
+{% block modals %}
+  {{ block.super }}
+  {% include 'partials/product_delivery_modal.html' %}
 {% endblock %}
 
 {% block extra_js %}
-<script>
-(function(){
-  // === OFFER ID TRACKING SYSTEM ===
-  // Система отслеживания текущего offer_id для синхронизации с пикселями
-  var productContainer = document.getElementById('product-detail-container');
-  if (!productContainer) return;
-  
-  var offerIdMap = {};
-  try {
-    offerIdMap = JSON.parse(productContainer.getAttribute('data-offer-id-map') || '{}');
-  } catch(e) {
-    console.error('Failed to parse offer_id_map:', e);
-  }
-  
-  var currentOfferId = productContainer.getAttribute('data-current-offer-id');
-  var analyticsPayloadEl = document.getElementById('product-analytics-payload');
-  
-  // Функция для получения текущего выбранного цвета и размера
-  function getCurrentSelection() {
-    var selectedColor = document.querySelector('.color-swatch.active');
-    var selectedSize = document.querySelector('input[name="size"]:checked');
-    
-    var colorVariantId = selectedColor ? selectedColor.getAttribute('data-variant') : null;
-    var size = selectedSize ? selectedSize.value.toUpperCase() : 'S';
-    
-    var key = (colorVariantId || 'default') + ':' + size;
-    return {
-      colorVariantId: colorVariantId,
-      size: size,
-      key: key,
-      offerId: offerIdMap[key] || currentOfferId
-    };
-  }
-  
-  // Функция для обновления текущего offer_id
-  function updateCurrentOfferId() {
-    var selection = getCurrentSelection();
-    currentOfferId = selection.offerId;
-    productContainer.setAttribute('data-current-offer-id', currentOfferId);
-    return currentOfferId;
-  }
-  
-  // Принудительно выбираем размер из URL параметра (если есть)
-  function selectSizeFromURL() {
-    var urlParams = new URLSearchParams(window.location.search);
-    var sizeParam = urlParams.get('size');
-    if (sizeParam) {
-      sizeParam = sizeParam.toUpperCase();
-      var sizeRadio = document.querySelector('input[name="size"][value="' + sizeParam + '"]');
-      if (sizeRadio) {
-        sizeRadio.checked = true;
-        sizeRadio.dispatchEvent(new Event('change', { bubbles: true }));
-        if (console && console.log) {
-          console.log('Size selected from URL:', sizeParam);
-        }
-      }
-    }
-  }
-  
-  // Вызываем сразу и после полной загрузки DOM
-  selectSizeFromURL();
-  
-  // Инициализация: устанавливаем начальный offer_id с учетом предвыбранного размера
-  updateCurrentOfferId();
-  
-  // Отслеживание изменения размера
-  document.querySelectorAll('input[name="size"]').forEach(function(input){
-    input.addEventListener('change', function(){
-      updateCurrentOfferId();
-      // Не отправляем событие при каждом изменении размера
-      // События отправляются только при AddToCart/ViewContent
-    });
-  });
-  
-  // Отслеживание изменения цвета
-  document.querySelectorAll('.color-swatch').forEach(function(button){
-    button.addEventListener('click', function(){
-      updateCurrentOfferId();
-      
-      // Отправляем CustomizeProduct с правильным offer_id
-      try{
-        if(window.trackEvent){
-          var selection = getCurrentSelection();
-          var priceValue = 0;
-          if (analyticsPayloadEl) {
-            var parsedPrice = parseFloat(analyticsPayloadEl.dataset.price || '0');
-            if (!isNaN(parsedPrice) && parsedPrice > 0) {
-              priceValue = parsedPrice;
-            }
-          }
-          window.trackEvent('CustomizeProduct', { 
-            content_ids: [selection.offerId], 
-            content_type: 'product',
-            variant_id: selection.colorVariantId,
-            value: priceValue,
-            currency: 'UAH'
-          });
-        }
-      }catch(_){ }
-    });
-  });
-  
-  // ViewContent при загрузке карточки - используем offer_id
-  // Используем setTimeout чтобы дождаться полной готовности DOM и radio buttons
-  setTimeout(function(){
-  try{
-    var pe=document.getElementById('product-analytics-payload');
-    if(pe && window.trackEvent){
-      var title = pe.dataset.title;
-      var category = pe.dataset.category;
-      var price = parseFloat(pe.dataset.price||'0');
-        
-      // Ensure price is valid and positive
-      if (isNaN(price) || price < 0) {
-        price = 0;
-      }
-        
-        // Получаем текущий offer_id (учитывая предвыбранный размер)
-        var selection = getCurrentSelection();
-        
-        // Debug: логируем выбранный размер и offer_id
-        if (console && console.log) {
-          console.log('ViewContent - Selected size:', selection.size, 'OfferId:', selection.offerId);
-        }
-        
-      var brandName = 'TwoComms';
-      var viewEventId = (window.__twcAnalytics && typeof window.__twcAnalytics.safeGenerateEventId === 'function')
-        ? window.__twcAnalytics.safeGenerateEventId()
-        : (typeof window.generateEventId === 'function' ? window.generateEventId() : (Date.now() + '_' + Math.random().toString(36).substring(2, 11)));
-      var trackingCtx = (typeof window.getTrackingContext === 'function' && window.getTrackingContext()) || {};
-      var ecommerceItem = {
-        item_id: selection.offerId,
-        item_name: title,
-        item_brand: brandName,
-        item_category: category || '',
-        item_variant: selection.size || '',
-        price: price,
-        quantity: 1,
-        currency: 'UAH'
-      };
-      var eventModelItems = [{
-        id: selection.offerId,
-        name: title,
-        price: price,
-        quantity: 1
-      }];
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({
-        event: 'view_item',
-        event_id: viewEventId,
-        fbp: trackingCtx.fbp || null,
-        fbc: trackingCtx.fbc || null,
-        ecommerce: {
-          currency: 'UAH',
-          value: price,
-          items: [ecommerceItem]
-        },
-        eventModel: {
-          event_id: viewEventId,
-          value: price,
-          currency: 'UAH',
-          content_name: title,
-          items: eventModelItems,
-          ecomm_prodid: [selection.offerId],
-          ecomm_pagetype: 'product',
-          ecomm_totalvalue: price
-        }
-      });
-      var metaOptions = { event_id: viewEventId };
-      if (typeof window.buildUserDataForEvent === 'function') {
-        try {
-          var ctx = window.buildUserDataForEvent();
-          if (ctx && typeof ctx === 'object') {
-            if (ctx.user_data && Object.keys(ctx.user_data).length) {
-              metaOptions.user_data = ctx.user_data;
-            }
-            if (ctx.external_id) {
-              metaOptions.external_id = ctx.external_id;
-            }
-            if (ctx.fbp) {
-              metaOptions.fbp = ctx.fbp;
-            }
-            if (ctx.fbc) {
-              metaOptions.fbc = ctx.fbc;
-            }
-          }
-        } catch (metaErr) {
-          if (console && console.debug) {
-            console.debug('buildUserDataForEvent error:', metaErr);
-          }
-        }
-      }
-      window.trackEvent('ViewContent', {
-        content_ids: [selection.offerId],
-        content_name: title,
-        content_type: 'product',
-        content_category: category,
-        value: price,
-        currency: 'UAH',
-        contents: [{
-          id: selection.offerId,
-          quantity: 1,
-          item_price: price
-        }],
-        event_id: viewEventId,
-        __meta: metaOptions
-      });
-    }
-    }catch(err){ 
-      if (console && console.error) {
-        console.error('ViewContent error:', err);
-      }
-    }
-  }, 200); // Небольшая задержка для гарантии готовности DOM
-
-  const main = document.getElementById('mainImage');
-  if(main){
-    // Выбор цвета по умолчанию и первичное изображение обрабатываются выше в логике галереи
-    try{
-      document.querySelectorAll('.thumb[data-img]').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          var url = btn.getAttribute('data-img');
-          if(url){ main.src = url; }
-          document.querySelectorAll('.thumb').forEach(function(b){ b.classList.remove('active'); });
-          btn.classList.add('active');
-        });
-      });
-    }catch(_){ }
-  }
-
-  // Подсветка выбранного размера (Bootstrap btn-check это уже делает, добавим только читаемость)
-  // и проверка доступности размера для блокировки кнопки
-  try{
-    var addToCartBtn = document.querySelector('[data-add-to-cart]');
-    var addToCartText = addToCartBtn ? addToCartBtn.querySelector('.btn-text') : null;
-    function setAddToCartText(text){
-      if(addToCartText){
-        addToCartText.textContent = text;
-      } else if(addToCartBtn) {
-        addToCartBtn.textContent = text;
-      }
-    }
-    function checkSizeAvailability(){
-      if(!addToCartBtn) return;
-      var checkedSize = document.querySelector('input[name="size"]:checked');
-      if(checkedSize && checkedSize.value === 'XXL'){
-        addToCartBtn.classList.add('unavailable');
-        addToCartBtn.disabled = true;
-        setAddToCartText('Немає в наявності');
-      } else {
-        addToCartBtn.classList.remove('unavailable');
-        addToCartBtn.disabled = false;
-        setAddToCartText('Додати в кошик');
-      }
-    }
-    document.querySelectorAll('input[name="size"]').forEach(function(input){
-      input.addEventListener('change', checkSizeAvailability);
-    });
-    // Проверяем при загрузке
-    checkSizeAvailability();
-  }catch(_){ }
-
-  // Переключение вкладок описания и размерной сетки (устойчивое к ошибкам)
-  try {
-    var tabsContainer = document.querySelector('.product-tabs-container');
-    if (tabsContainer) {
-      var tabButtons = Array.from(tabsContainer.querySelectorAll('.product-tab-button'));
-      var tabPanes = Array.from(tabsContainer.querySelectorAll('.product-tab-pane'));
-      var activateTab = function(name) {
-        tabButtons.forEach(function(btn){ btn.classList.toggle('active', btn.dataset.tab === name); });
-        tabPanes.forEach(function(pane){ pane.classList.toggle('active', pane.id === 'tab-' + name); });
-      };
-      tabsContainer.addEventListener('click', function(e){
-        var btn = e.target.closest('.product-tab-button');
-        if(!btn) return;
-        e.preventDefault();
-        activateTab(btn.dataset.tab);
-      });
-    }
-  } catch (_) {}
-})();
-</script>
+<script src="{% static 'js/product-detail.js' %}?v=20260427-pdp-redesign-v3" defer></script>
 {% endblock %}

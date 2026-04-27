@@ -210,23 +210,28 @@ class ProductBuilder {
   }
 
   setupMediaUploads() {
-    const mainInput = this.form.querySelector('[data-main-image-input]');
-    const mainPreview = this.form.querySelector('[data-main-image-preview]');
-    if (mainInput && mainPreview) {
-      mainInput.addEventListener('change', evt => {
+    const bindPreview = (inputSelector, previewSelector, emptyIconClass = 'fa-image') => {
+      const input = this.form.querySelector(inputSelector);
+      const preview = this.form.querySelector(previewSelector);
+      if (!input || !preview) return;
+
+      input.addEventListener('change', evt => {
         const [file] = Array.from(evt.target.files || []);
         if (!file) {
-          mainPreview.innerHTML = '<span class="placeholder-icon"><i class="fas fa-image"></i></span>';
+          preview.innerHTML = `<span class="placeholder-icon"><i class="fas ${emptyIconClass}"></i></span>`;
           return;
         }
         const img = document.createElement('img');
         const url = URL.createObjectURL(file);
         img.src = url;
         img.onload = () => URL.revokeObjectURL(url);
-        mainPreview.innerHTML = '';
-        mainPreview.appendChild(img);
+        preview.innerHTML = '';
+        preview.appendChild(img);
       });
-    }
+    };
+
+    bindPreview('[data-main-image-input]', '[data-main-image-preview]');
+    bindPreview('[data-home-card-image-input]', '[data-home-card-image-preview]', 'fa-mobile-alt');
 
     const extraInput = this.form.querySelector('[data-extra-images-input]');
     const extraList = this.form.querySelector('[data-extra-upload-list]');

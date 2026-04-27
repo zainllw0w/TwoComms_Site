@@ -126,6 +126,8 @@ from productcolors.models import ProductColorImage
 def optimize_product_main_image(sender, instance, **kwargs):
     if instance.main_image:
         _enqueue_image_optimization(instance, 'main_image')
+    if instance.home_card_image:
+        _enqueue_image_optimization(instance, 'home_card_image')
 
 
 @receiver(post_save, sender=ProductImage)

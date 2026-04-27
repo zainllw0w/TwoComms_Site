@@ -4,6 +4,7 @@ Utility helpers for catalog-related views: cached categories and colour variants
 from __future__ import annotations
 
 import logging
+import hashlib
 from collections import defaultdict
 from typing import Iterable, List, Dict, Any
 
@@ -18,6 +19,49 @@ logger = logging.getLogger(__name__)
 
 PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY = "products:public_order_version"
 PUBLIC_CATEGORY_VERSION_CACHE_KEY = "categories:public_version"
+
+_COLOR_LABELS_BY_HEX = {
+    "000000": "Чорний",
+    "050505": "Чорний",
+    "111111": "Чорний",
+    "151515": "Чорний",
+    "FFFFFF": "Білий",
+    "F5F5F5": "Білий",
+    "7A5A3A": "Койот",
+    "8B6B45": "Койот",
+    "A47A4D": "Койот",
+    "59604A": "Олива",
+    "5C6449": "Олива",
+    "6B6F45": "Олива",
+    "4F5A3A": "Олива",
+}
+
+_COLOR_LABELS_BY_NAME = {
+    "black": "Чорний",
+    "white": "Білий",
+    "olive": "Олива",
+    "coyote": "Койот",
+    "khaki": "Хакі",
+}
+
+
+def _display_color_name(color) -> str:
+    name = (getattr(color, 'name', '') or '').strip()
+    if name:
+        return _COLOR_LABELS_BY_NAME.get(name.lower(), name)
+
+    primary = (getattr(color, 'primary_hex', '') or '').strip().lstrip('#').upper()
+    secondary = (getattr(color, 'secondary_hex', '') or '').strip().lstrip('#').upper()
+    primary_name = _COLOR_LABELS_BY_HEX.get(primary)
+    secondary_name = _COLOR_LABELS_BY_HEX.get(secondary)
+
+    if primary_name and secondary_name and primary_name != secondary_name:
+        return f'{primary_name}/{secondary_name}'
+    if primary_name:
+        return primary_name
+    if primary:
+        return f'#{primary}'
+    return ''
 
 
 def get_categories_cached(cache_backend: BaseCache, timeout: int = 600):
@@ -174,6 +218,7 @@ def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str,
         preview_map[variant.product_id].append(
             {
                 'id': variant.id,
+                'name': _display_color_name(color),
                 'primary_hex': getattr(color, 'primary_hex', '') or '',
                 'secondary_hex': getattr(color, 'secondary_hex', '') or '',
                 'first_image_url': first_image,
@@ -182,6 +227,23 @@ def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str,
         )
 
     return preview_map
+
+
+def build_color_preview_key(variants: Iterable[Dict[str, Any]]) -> str:
+    """
+    Compact fragment-cache key for rendered colour controls.
+    """
+    variants = list(variants or [])
+    if not variants:
+        return "colors:0"
+
+    digest = hashlib.blake2s(digest_size=8)
+    for variant in variants:
+        for field in ("id", "name", "primary_hex", "secondary_hex", "first_image_url", "is_default"):
+            digest.update(str(variant.get(field, "")).encode("utf-8"))
+            digest.update(b"\0")
+
+    return f"colors:{len(variants)}:{digest.hexdigest()}"
 
 
 def get_detailed_color_variants(product) -> List[Dict[str, Any]]:
@@ -217,6 +279,7 @@ def get_detailed_color_variants(product) -> List[Dict[str, Any]]:
         variants.append(
             {
                 'id': variant.id,
+                'name': _display_color_name(color),
                 'primary_hex': getattr(color, 'primary_hex', '') or '',
                 'secondary_hex': getattr(color, 'secondary_hex', '') or '',
                 'is_default': bool(getattr(variant, 'is_default', False)),

@@ -6,6 +6,7 @@ from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
+from productcolors.models import Color, ProductColorImage, ProductColorVariant
 from storefront.models import Category, Product
 from storefront.services.catalog_helpers import (
     get_public_category_version,
@@ -170,6 +171,36 @@ class PublicProductOrderingTests(TestCase):
             self.high_priority.save(update_fields=["title"])
 
         self.assertGreater(get_public_product_order_version(), initial_version)
+
+    def test_color_variant_changes_bump_public_product_version(self):
+        initial_version = get_public_product_order_version()
+        color = Color.objects.create(name="Black", primary_hex="#000000")
+
+        with self.captureOnCommitCallbacks(execute=True):
+            variant = ProductColorVariant.objects.create(
+                product=self.high_priority,
+                color=color,
+                is_default=True,
+            )
+
+        variant_version = get_public_product_order_version()
+        self.assertGreater(variant_version, initial_version)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            with patch("storefront.signals.optimize_image_field_task.delay"):
+                ProductColorImage.objects.create(
+                    variant=variant,
+                    image="product_colors/variant.png",
+                )
+
+        image_version = get_public_product_order_version()
+        self.assertGreater(image_version, variant_version)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            color.name = "Black Updated"
+            color.save(update_fields=["name"])
+
+        self.assertGreater(get_public_product_order_version(), image_version)
 
     def test_admin_status_update_bumps_public_product_version(self):
         self.staff_client.force_login(self.staff_user)

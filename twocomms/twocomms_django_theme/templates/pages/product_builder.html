@@ -5,8 +5,9 @@
 
 {% url 'api-admin-product-builder-list' as builder_api_list %}
 
-{% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/product-builder.css' %}?v=2025.10.24.001">
+{% block extra_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/product-builder.css' %}?v=2026.04.27.001">
 {% endblock %}
 
 {% block content %}
@@ -259,6 +260,28 @@
                     {{ product_form.main_image }}
                   </label>
                   <small class="text-muted d-block">JPG, PNG, WebP до 10 МБ.</small>
+                </div>
+              </div>
+            </div>
+            <div class="grid-item grid-item--image">
+              <label class="form-label">Прев'ю картки на головній</label>
+              <div class="main-upload-card home-card-upload-card">
+                <div class="main-preview home-card-preview" data-home-card-image-preview>
+                  {% if product and product.home_card_image %}
+                  <img src="{{ product.home_card_image.url }}" alt="Прев'ю картки на головній">
+                  {% elif product and product.homepage_image %}
+                  <img src="{{ product.homepage_image.url }}" alt="Fallback прев'ю картки на головній">
+                  <span class="preview-fallback-badge">Fallback</span>
+                  {% else %}
+                  <span class="placeholder-icon"><i class="fas fa-mobile-alt"></i></span>
+                  {% endif %}
+                </div>
+                <div class="main-upload-actions">
+                  <label class="btn btn-outline-light btn-sm w-100 mb-2">
+                    <i class="fas fa-upload me-1"></i>Завантажити для головної
+                    {{ product_form.home_card_image }}
+                  </label>
+                  <small class="text-muted d-block">Вертикальне фото для головної картки. Якщо не обрано, використовується поточне головне прев'ю.</small>
                 </div>
               </div>
             </div>
@@ -711,6 +734,56 @@
           {% else %}
           <div class="alert alert-warning">Formset кольорів не переданий у контекст.</div>
           {% endif %}
+
+          {% if fit_formset %}
+          <div class="mt-4">
+            <h3 class="section-title">
+              <i class="fas fa-tshirt me-2"></i>Посадка товару
+            </h3>
+            <p class="text-muted small mb-3">Для футболок ці опції показуються на сторінці товару як вибір крою.</p>
+            {{ fit_formset.management_form }}
+            <div class="row g-3">
+              {% for form in fit_formset %}
+              <div class="col-12 col-lg-6">
+                <article class="catalog-option-card h-100">
+                  {{ form.id }}
+                  {{ form.DELETE }}
+                  <div class="option-header">
+                    <div class="option-title">
+                      <i class="fas fa-ruler-combined"></i>
+                      <span>{{ form.label.value|default:"Посадка" }}</span>
+                    </div>
+                    <div class="form-check form-switch">
+                      {{ form.is_active }}
+                      <label class="form-check-label">Активна</label>
+                    </div>
+                  </div>
+                  <div class="option-grid">
+                    <label class="form-label">Код</label>
+                    {{ form.code }}
+                    <label class="form-label">Назва</label>
+                    {{ form.label }}
+                    <label class="form-label">Опис</label>
+                    {{ form.description }}
+                    <label class="form-label">Іконка</label>
+                    {{ form.icon }}
+                    <div class="option-row">
+                      <div>
+                        <label class="form-label">Порядок</label>
+                        {{ form.order }}
+                      </div>
+                      <div class="option-switch">
+                        <label class="form-label">За замовчуванням</label>
+                        <div class="form-check form-switch">{{ form.is_default }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
         </div>
       </section>
 
@@ -894,5 +967,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script type="module" src="{% static 'js/product-builder.js' %}?v=2025.10.24.001"></script>
+<script type="module" src="{% static 'js/product-builder.js' %}?v=2026.04.27.001"></script>
 {% endblock %}
