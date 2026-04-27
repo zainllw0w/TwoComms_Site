@@ -319,18 +319,187 @@
   }
 
   function initShare(root, container) {
-    const buttons = root.querySelectorAll('[data-share-copy]');
+    const buttons = root.querySelectorAll('[data-share-action], [data-share-copy]');
     if (!buttons.length) return;
 
     buttons.forEach((button) => {
+      if (button.dataset.shareBound === '1') return;
+      button.dataset.shareBound = '1';
       button.addEventListener('click', async () => {
-        const url = container.getAttribute('data-share-url') || window.location.href;
-        const copied = await copyToClipboard(url);
-        if (!copied) return;
-        button.classList.add('is-copied');
-        window.setTimeout(() => button.classList.remove('is-copied'), 1400);
+        const action = button.getAttribute('data-share-action') || 'copy';
+        const shareData = buildShareData(root, container);
+
+        if (action === 'native') {
+          const shared = await tryNativeShare(shareData);
+          if (shared) {
+            trackShareAction('native', shareData.url);
+            pulseShareButton(button, 'is-shared');
+            return;
+          }
+          await copyShareUrl(button, shareData.url);
+          return;
+        }
+
+        if (action === 'copy') {
+          await copyShareUrl(button, shareData.url);
+          return;
+        }
+
+        if (action === 'telegram') {
+          trackShareAction(action, shareData.url);
+          openTelegramShare(shareData);
+          return;
+        }
+
+        const providerUrl = buildProviderShareUrl(action, shareData);
+        if (!providerUrl) return;
+        trackShareAction(action, shareData.url);
+        openShareTarget(providerUrl);
       });
     });
+  }
+
+  function buildShareData(root, container) {
+    const title = decodeDataValue(container.getAttribute('data-product-title')) || cleanDocumentTitle();
+    const category = decodeDataValue(container.getAttribute('data-product-category'));
+    const text = category ? `${title} — ${category} від TwoComms` : `${title} — TwoComms`;
+    return {
+      title,
+      text,
+      url: buildShareUrl(root, container),
+    };
+  }
+
+  function buildShareUrl(root, container) {
+    const canonical = document.querySelector('link[rel="canonical"]');
+    const rawUrl = (canonical && canonical.href) ||
+      container.getAttribute('data-share-url') ||
+      window.location.href;
+    let url;
+    try {
+      url = new URL(rawUrl, window.location.href);
+    } catch (_) {
+      return window.location.href;
+    }
+
+    url.hash = '';
+    url.search = '';
+
+    const sizeInput = root.querySelector('input[name="size"]:checked');
+    const size = sizeInput ? String(sizeInput.value || '').toUpperCase() : '';
+    if (size) url.searchParams.set('size', size);
+
+    const color = root.querySelector('#color-picker .color-swatch.active');
+    const colorId = color ? color.getAttribute('data-variant') : '';
+    if (colorId && colorId !== 'default') url.searchParams.set('color', colorId);
+
+    return url.toString();
+  }
+
+  async function tryNativeShare(shareData) {
+    if (!navigator.share) return false;
+    const payload = {
+      title: shareData.title,
+      text: shareData.text,
+      url: shareData.url,
+    };
+
+    try {
+      if (navigator.canShare && !navigator.canShare(payload)) return false;
+    } catch (_) { }
+
+    try {
+      await navigator.share(payload);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function buildProviderShareUrl(action, shareData) {
+    const url = encodeURIComponent(shareData.url);
+    const text = encodeURIComponent(shareData.text);
+
+    if (action === 'telegram') {
+      return `https://t.me/share/url?url=${url}&text=${text}`;
+    }
+    if (action === 'facebook') {
+      return `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+    }
+    if (action === 'x') {
+      return `https://twitter.com/intent/tweet?url=${url}&text=${text}`;
+    }
+    return '';
+  }
+
+  function openTelegramShare(shareData) {
+    const webUrl = buildProviderShareUrl('telegram', shareData);
+    if (!isLikelyMobile()) {
+      openShareTarget(webUrl);
+      return;
+    }
+
+    const appUrl = `tg://msg_url?url=${encodeURIComponent(shareData.url)}&text=${encodeURIComponent(shareData.text)}`;
+    window.location.href = appUrl;
+    window.setTimeout(() => {
+      if (document.visibilityState === 'visible') {
+        window.location.href = webUrl;
+      }
+    }, 850);
+  }
+
+  function isLikelyMobile() {
+    return window.matchMedia && window.matchMedia('(max-width: 767.98px), (pointer: coarse)').matches;
+  }
+
+  function openShareTarget(url) {
+    const popup = window.open(url, '_blank', 'width=760,height=620');
+    if (popup && typeof popup.focus === 'function') {
+      try {
+        popup.opener = null;
+      } catch (_) { }
+      popup.focus();
+      return;
+    }
+    window.location.href = url;
+  }
+
+  async function copyShareUrl(button, url) {
+    const copied = await copyToClipboard(url);
+    if (!copied) return;
+    trackShareAction('copy', url);
+    pulseShareButton(button, 'is-copied');
+  }
+
+  function pulseShareButton(button, className) {
+    button.classList.add(className);
+    window.setTimeout(() => button.classList.remove(className), 1400);
+  }
+
+  function trackShareAction(method, url) {
+    try {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: 'share_product',
+        event_id: makeEventId(),
+        method,
+        product_url: url,
+      });
+    } catch (_) { }
+  }
+
+  function cleanDocumentTitle() {
+    return String(document.title || 'TwoComms').replace(/\s*[|—-]\s*TwoComms.*$/i, '').trim() || 'TwoComms';
+  }
+
+  function decodeDataValue(value) {
+    if (!value) return '';
+    return String(value)
+      .replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => String.fromCharCode(Number.parseInt(code, 16)))
+      .replace(/\\x27/g, "'")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\')
+      .trim();
   }
 
   async function copyToClipboard(value) {

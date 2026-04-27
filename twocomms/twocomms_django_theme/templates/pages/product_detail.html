@@ -23,7 +23,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-pdp-polish-v1">
+<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-pdp-share-v1">
 {% endblock %}
 
 {% block content %}
@@ -128,7 +128,7 @@
         <button type="button" class="tc-panel-icon-btn" data-product-id="{{ product.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати до обраних">
           <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.1 20.55 12 20.65l-.11-.1C7.14 16.24 4 13.39 4 10.5A3.5 3.5 0 0 1 7.5 7c1.54 0 3.04.99 3.57 2.36h1.87A3.9 3.9 0 0 1 16.5 7a3.5 3.5 0 0 1 3.5 3.5c0 2.89-3.14 5.74-7.9 10.05ZM16.5 5c-1.74 0-3.41.81-4.5 2.08A5.96 5.96 0 0 0 7.5 5 5.5 5.5 0 0 0 2 10.5c0 3.75 3.4 6.84 8.55 11.51L12 23.35l1.45-1.32C18.6 17.34 22 14.25 22 10.5A5.5 5.5 0 0 0 16.5 5Z" fill="currentColor"/></svg>
         </button>
-        <button type="button" class="tc-panel-icon-btn" data-share-copy aria-label="Поділитися товаром">
+        <button type="button" class="tc-panel-icon-btn" data-share-action="native" data-share-copy aria-label="Поділитися товаром">
           <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7a3.27 3.27 0 0 0 0-1.39l7.05-4.11A2.99 2.99 0 1 0 15 5c0 .24.03.47.08.69L8.03 9.8a3 3 0 1 0 0 4.4l7.11 4.17c-.04.2-.06.41-.06.63a2.92 2.92 0 1 0 2.92-2.92Z" fill="currentColor"/></svg>
         </button>
       </div>
@@ -160,11 +160,28 @@
       </div>
 
       <div class="tc-price-row">
-        <span class="tc-current-price">{{ product.final_price }} грн</span>
-        {% if product.has_discount %}
-          <span class="tc-old-price">{{ product.price }} грн</span>
-          <span class="tc-discount-badge">-{{ product.discount_percent }}%</span>
-        {% endif %}
+        <div class="tc-price-values">
+          <span class="tc-current-price">{{ product.final_price }} грн</span>
+          {% if product.has_discount %}
+            <span class="tc-old-price">{{ product.price }} грн</span>
+            <span class="tc-discount-badge">-{{ product.discount_percent }}%</span>
+          {% endif %}
+        </div>
+        <div class="tc-share-row" aria-label="Поділитися товаром">
+          <span class="tc-share-label">Поділитися:</span>
+          <button type="button" class="tc-share-btn tc-share-btn--telegram" data-share-action="telegram" aria-label="Поділитися в Telegram">
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.86 4.56 18.7 19.45c-.24 1.05-.86 1.3-1.74.8l-4.82-3.55-2.33 2.24c-.26.26-.47.47-.96.47l.35-4.92 8.95-8.08c.39-.35-.08-.54-.6-.19L6.49 13.18 1.72 11.7c-1.04-.33-1.06-1.04.22-1.54L20.58 2.98c.86-.32 1.62.2 1.28 1.58Z" fill="currentColor"/></svg>
+          </button>
+          <button type="button" class="tc-share-btn tc-share-btn--facebook" data-share-action="facebook" aria-label="Поділитися у Facebook">
+            <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.18 8.08V6.72c0-.66.44-.82.75-.82h1.9V3.02L14.2 3c-2.92 0-3.58 2.18-3.58 3.57v1.51H8.3v3.24h2.32V21h3.56v-9.68h2.66l.35-3.24h-3.01Z" fill="currentColor"/></svg>
+          </button>
+          <button type="button" class="tc-share-btn tc-share-btn--x" data-share-action="x" aria-label="Поділитися в X">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.12 4h4.55l4.08 5.49L17.45 4h2.35l-5.96 6.96L20.42 20h-4.56l-4.55-6.13L6.05 20H3.7l6.52-7.62L4.12 4Zm3.42 1.32 9.01 13.36h1.43L8.98 5.32H7.54Z" fill="currentColor"/></svg>
+          </button>
+          <button type="button" class="tc-share-btn tc-share-btn--copy" data-share-action="copy" aria-label="Скопіювати посилання">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 13.4a1.1 1.1 0 0 1 0-1.56l4.7-4.7a3.3 3.3 0 1 1 4.66 4.66l-2.05 2.05a1.1 1.1 0 1 1-1.56-1.56l2.05-2.05a1.1 1.1 0 1 0-1.56-1.56l-4.7 4.7a1.1 1.1 0 0 1-1.55 0Zm2.8-2.8a1.1 1.1 0 0 1 0 1.56l-4.7 4.7a3.3 3.3 0 0 1-4.66-4.66l2.05-2.05a1.1 1.1 0 0 1 1.56 1.56L5.6 13.76a1.1 1.1 0 0 0 1.56 1.56l4.7-4.7a1.1 1.1 0 0 1 1.55 0Z" fill="currentColor"/></svg>
+          </button>
+        </div>
       </div>
 
       <div class="tc-selector-block">
@@ -259,46 +276,28 @@
         <div class="tc-tab-list" role="tablist" aria-label="Інформація про товар">
           <button type="button" class="tc-tab-btn active" id="tab-desc" role="tab" aria-controls="panel-desc" aria-selected="true" data-pdp-tab="desc">Опис</button>
           <button type="button" class="tc-tab-btn" id="tab-size" role="tab" aria-controls="panel-size" aria-selected="false" data-pdp-tab="size">Розмірна сітка</button>
+          <button type="button" class="tc-tab-btn" id="tab-delivery" role="tab" aria-controls="panel-delivery" aria-selected="false" data-pdp-tab="delivery">Доставка</button>
           <button type="button" class="tc-tab-btn" id="tab-care" role="tab" aria-controls="panel-care" aria-selected="false" data-pdp-tab="care">Догляд</button>
         </div>
 
         <div class="tc-tab-panel active" id="panel-desc" role="tabpanel" aria-labelledby="tab-desc" data-pdp-panel="desc">
           <div class="tc-desc-layout">
             <div class="tc-desc-copy">
-              {% if product.short_description %}
-                <p class="tc-lead-copy">{{ product.short_description|linebreaksbr }}</p>
-              {% endif %}
+              <p class="tc-lead-copy">{{ product.title }} — це не просто одяг. Це стан.</p>
+              <p class="tc-muted-copy">Створений для тих, хто йде своїм шляхом, навіть коли все навколо летить під три чорти.</p>
               {% if product.full_description %}
-                <div class="tc-rich-copy">{{ product.full_description|linebreaksbr }}</div>
+                <div class="tc-rich-copy tc-rich-copy--compact">{{ product.full_description|linebreaksbr }}</div>
               {% elif product.description %}
-                <div class="tc-rich-copy">{{ product.description|linebreaksbr }}</div>
-              {% else %}
-                <p class="tc-muted-copy">Опис товару буде додано найближчим часом.</p>
+                <div class="tc-rich-copy tc-rich-copy--compact">{{ product.description|linebreaksbr }}</div>
               {% endif %}
-              <div class="tc-check-list tc-desc-checks">
-                <div>Матеріал підібраний для щоденного носіння та стабільної посадки.</div>
-                <div>Принт зберігає контраст за правильного догляду.</div>
-                <div>Відправка по Україні після підтвердження замовлення.</div>
+              <div class="tc-check-list tc-desc-checks tc-desc-bullets">
+                <div>Матеріал: 95% бавовна, 5% еластан — преміум якість, щільність 190 г/м²</div>
+                <div>М'який та приємний до тіла, дихає і не сковує рухів</div>
+                <div>Підсилені шви та еластичні манжети для довговічності</div>
+                <div>Принт витримує багато прань — не тріскається та не вигорає</div>
+                <div>Зроблено в Україні з любов'ю та увагою до деталей</div>
               </div>
             </div>
-            {% if resolved_size_guide and resolved_size_guide.rows %}
-              <div class="tc-mini-size-card" aria-label="Коротка розмірна сітка">
-                <strong>{{ resolved_size_guide.title|default:"Розмірна сітка" }}</strong>
-                <table>
-                  <tbody>
-                    {% for row in resolved_size_guide.rows|slice:":5" %}
-                      <tr>
-                        <th scope="row">{{ row.display_size|default:row.size }}</th>
-                        {% for column in resolved_size_guide.columns|slice:"1:3" %}
-                          <td>{{ row|get_item:column.key }}</td>
-                        {% endfor %}
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-                <button type="button" class="tc-mini-size-link" data-pdp-tab-trigger="size">Дивитися повну сітку →</button>
-              </div>
-            {% endif %}
           </div>
         </div>
 
@@ -390,6 +389,14 @@
           {% endif %}
         </div>
 
+        <div class="tc-tab-panel" id="panel-delivery" role="tabpanel" aria-labelledby="tab-delivery" data-pdp-panel="delivery" hidden>
+          <div class="tc-delivery-grid">
+            <div class="tc-care-item"><strong>Відправка</strong><span>1–2 дні по Україні після підтвердження замовлення.</span></div>
+            <div class="tc-care-item"><strong>Оплата</strong><span>Онлайн або після узгодження деталей з менеджером.</span></div>
+            <div class="tc-care-item"><strong>Обмін</strong><span>14 днів на обмін розміру, якщо річ не була у використанні.</span></div>
+          </div>
+        </div>
+
         <div class="tc-tab-panel" id="panel-care" role="tabpanel" aria-labelledby="tab-care" data-pdp-panel="care" hidden>
           <div class="tc-care-grid">
             <div class="tc-care-item"><strong>Прання</strong><span>30°C, делікатний режим, навиворіт.</span></div>
@@ -479,7 +486,7 @@
       {% if product.has_discount %}<small>{{ product.price }} грн</small>{% endif %}
     </div>
     <button type="button" class="tc-sticky-add-btn" data-pdp-sticky-add>
-      Додати в кошик
+      ДОДАТИ В КОШИК
     </button>
   </div>
 </div>
@@ -503,5 +510,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/product-detail.js' %}?v=20260428-pdp-polish-v1" defer></script>
+<script src="{% static 'js/product-detail.js' %}?v=20260428-pdp-share-v1" defer></script>
 {% endblock %}

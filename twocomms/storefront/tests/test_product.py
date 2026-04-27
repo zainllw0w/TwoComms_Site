@@ -108,6 +108,21 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, self.product.title)
         self.assertEqual(response.context["breadcrumbs"][-1]["name"], self.product.title)
 
+    def test_product_detail_renders_share_actions_and_delivery_tab(self):
+        response = self.client.get(reverse("product", args=[self.product.slug]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-share-action="native"', html=False)
+        self.assertContains(response, 'data-share-action="telegram"', html=False)
+        self.assertContains(response, 'data-share-action="facebook"', html=False)
+        self.assertContains(response, 'data-share-action="x"', html=False)
+        self.assertContains(response, 'data-share-action="copy"', html=False)
+        self.assertContains(response, 'data-pdp-tab="delivery"', html=False)
+        self.assertContains(response, 'id="panel-delivery"', html=False)
+        self.assertContains(response, 'data-add-to-cart=', html=False)
+        self.assertContains(response, 'product-detail.css?v=20260428-pdp-share-v1', html=False)
+        self.assertContains(response, 'product-detail.js?v=20260428-pdp-share-v1', html=False)
+
     def test_product_detail_returns_404_for_unpublished_product(self):
         self.product.status = "draft"
         self.product.save(update_fields=["status"])
