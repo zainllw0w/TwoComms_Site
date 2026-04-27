@@ -23,6 +23,7 @@ except Exception:  # pragma: no cover - optional runtime dependency
 logger = logging.getLogger(__name__)
 
 TELEGRAM_CREATE_NP_WAYBILL_ACTION = "create-np-waybill"
+TELEGRAM_DELETE_NP_WAYBILL_ACTION = "delete-np-waybill"
 
 
 class NovaPoshtaDocumentError(Exception):
@@ -428,12 +429,17 @@ class NovaPoshtaDocumentService:
         if not recipient_name["first_name"]:
             raise NovaPoshtaDocumentError("Вкажіть ПІБ одержувача.")
 
-        recipient_ref = self._create_recipient_counterparty(recipient_point.city_ref, recipient_name, recipient_phone)
-        recipient_contact_ref = self._create_recipient_contact(
-            recipient_ref,
+        recipient_ref, recipient_contact_ref = self._create_recipient_counterparty(
+            recipient_point.city_ref,
             recipient_name,
             recipient_phone,
         )
+        if not recipient_contact_ref:
+            recipient_contact_ref = self._create_recipient_contact(
+                recipient_ref,
+                recipient_name,
+                recipient_phone,
+            )
 
         dimensions = self._normalize_dimensions(
             payload.get("length_cm"),
@@ -445,6 +451,12 @@ class NovaPoshtaDocumentService:
         seats_amount = int(str(payload.get("seats_amount") or "1").strip() or "1")
         description = str(payload.get("description") or "").strip() or build_waybill_description(order)
         cod_amount = self._as_money(payload.get("cod_amount") or "0")
+        self._validate_waybill_package(
+            recipient_point=recipient_point,
+            dimensions=dimensions,
+            declared_cost=declared_cost,
+            seats_amount=seats_amount,
+        )
 
         method_properties = {
             "PayerType": str(payload.get("payer_type") or "Recipient").strip() or "Recipient",
@@ -482,13 +494,6 @@ class NovaPoshtaDocumentService:
 
         if cod_amount > 0:
             method_properties["AfterpaymentOnGoodsCost"] = self._format_money(cod_amount)
-            method_properties["BackwardDeliveryData"] = [
-                {
-                    "PayerType": "Recipient",
-                    "CargoType": "Money",
-                    "RedeliveryString": self._format_money(cod_amount),
-                }
-            ]
 
         response = self._request("InternetDocument", "save", method_properties)
         result = next(iter(response.get("data") or []), None) or {}
@@ -496,6 +501,8 @@ class NovaPoshtaDocumentService:
         document_ref = str(result.get("Ref") or "").strip()
         if not tracking_number:
             raise NovaPoshtaDocumentError("Nova Poshta API не повернув номер ТТН.")
+        if not document_ref:
+            raise NovaPoshtaDocumentError("Nova Poshta API не повернув Ref створеної накладної.")
 
         return {
             "tracking_number": tracking_number,
@@ -504,6 +511,36 @@ class NovaPoshtaDocumentService:
             "recipient_contact_ref": recipient_contact_ref,
             "recipient_point": recipient_point,
             "sender_point": sender_point,
+            "warnings": [str(item).strip() for item in response.get("warnings") or [] if str(item).strip()],
+        }
+
+    def delete_waybill(self, document_ref: str) -> dict[str, Any]:
+        if not self.is_configured():
+            raise NovaPoshtaDocumentError("NOVA_POSHTA_API_KEY не налаштований.")
+
+        normalized_ref = str(document_ref or "").strip()
+        if not normalized_ref:
+            raise NovaPoshtaDocumentError("Не вказано Ref накладної Нова пошта для видалення.")
+
+        response = self._request(
+            "InternetDocument",
+            "delete",
+            {
+                "DocumentRefs": normalized_ref,
+            },
+        )
+        deleted = next(iter(response.get("data") or []), None)
+        if not isinstance(deleted, dict):
+            raise NovaPoshtaDocumentError("Nova Poshta API не підтвердив видалення накладної.")
+        deleted_error = str(deleted.get("Error") or deleted.get("Errors") or "").strip()
+        if deleted_error:
+            raise NovaPoshtaDocumentError(deleted_error)
+        deleted_ref = str(deleted.get("Ref") or "").strip()
+        if not deleted_ref or deleted_ref != normalized_ref:
+            raise NovaPoshtaDocumentError("Nova Poshta API не підтвердив видалення саме цієї накладної.")
+
+        return {
+            "document_ref": deleted_ref,
             "warnings": [str(item).strip() for item in response.get("warnings") or [] if str(item).strip()],
         }
 
@@ -594,6 +631,16 @@ class NovaPoshtaDocumentService:
             preferred_kind=preferred_kind,
             point_role=point_role,
         )
+        warehouse_city_ref = str(warehouse.get("city_ref") or "").strip()
+        if not normalized_city_ref and warehouse_city_ref:
+            normalized_city_ref = warehouse_city_ref
+        if not normalized_city_ref:
+            city = self._pick_city_candidate(normalized_city, point_role=point_role)
+            normalized_settlement_ref = normalized_settlement_ref or city.get("settlement_ref", "")
+            normalized_city_ref = city.get("city_ref", "") or normalized_city_ref
+            normalized_city = city.get("label", normalized_city)
+        if not normalized_city_ref:
+            raise NovaPoshtaDocumentError(f"Не вдалося визначити Ref міста {point_role} в довіднику Нової пошти.")
         return NovaPoshtaResolvedPoint(
             city_label=normalized_city,
             warehouse_label=warehouse.get("label", normalized_warehouse or normalized_city),
@@ -704,7 +751,7 @@ class NovaPoshtaDocumentService:
         city_ref: str,
         person_name: dict[str, str],
         phone: str,
-    ) -> str:
+    ) -> tuple[str, str]:
         response = self._request(
             "Counterparty",
             "save",
@@ -722,7 +769,8 @@ class NovaPoshtaDocumentService:
         recipient_ref = str(recipient.get("Ref") or "").strip()
         if not recipient_ref:
             raise NovaPoshtaDocumentError("Nova Poshta API не повернув Ref одержувача.")
-        return recipient_ref
+        contact_ref = self._find_nested_ref(recipient.get("ContactPerson"))
+        return recipient_ref, contact_ref
 
     def _create_recipient_contact(
         self,
@@ -780,12 +828,51 @@ class NovaPoshtaDocumentService:
             raise NovaPoshtaDocumentError("Nova Poshta API не підтвердив створення накладної.")
         return data
 
+    def _validate_waybill_package(
+        self,
+        *,
+        recipient_point: NovaPoshtaResolvedPoint,
+        dimensions: tuple[Decimal, Decimal, Decimal],
+        declared_cost: Decimal,
+        seats_amount: int,
+    ) -> None:
+        if seats_amount != 1:
+            raise NovaPoshtaDocumentError("Автоматичне створення ТТН зараз підтримує тільки одне місце.")
+
+        if recipient_point.warehouse_kind != "postomat":
+            return
+
+        length_cm, width_cm, height_cm = dimensions
+        if declared_cost > Decimal("10000"):
+            raise NovaPoshtaDocumentError("Для поштомата оголошена вартість не може перевищувати 10000 грн.")
+        if length_cm > Decimal("60") or width_cm > Decimal("40") or height_cm > Decimal("30"):
+            raise NovaPoshtaDocumentError(
+                "Для поштомата габарити не можуть перевищувати 60x40x30 см."
+            )
+
     def _get_cod_amount(self, order) -> Decimal:
         return build_order_payment_snapshot(order)["cod_amount_value"]
 
     @staticmethod
     def _normalize_name(value: Any) -> str:
         return " ".join(str(value or "").strip().lower().split())
+
+    @classmethod
+    def _find_nested_ref(cls, value: Any) -> str:
+        if isinstance(value, dict):
+            ref = str(value.get("Ref") or "").strip()
+            if ref:
+                return ref
+            for nested in value.values():
+                found = cls._find_nested_ref(nested)
+                if found:
+                    return found
+        if isinstance(value, list):
+            for item in value:
+                found = cls._find_nested_ref(item)
+                if found:
+                    return found
+        return ""
 
     @staticmethod
     def _normalize_decimal(

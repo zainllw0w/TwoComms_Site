@@ -9,7 +9,7 @@ from pathlib import Path
 import requests
 from django.utils import timezone
 
-from orders.nova_poshta_documents import TELEGRAM_CREATE_NP_WAYBILL_ACTION
+from orders.nova_poshta_documents import TELEGRAM_CREATE_NP_WAYBILL_ACTION, TELEGRAM_DELETE_NP_WAYBILL_ACTION
 from orders.status_management import get_telegram_status_action
 from orders.telegram_status_links import build_order_action_url, build_order_status_action_url
 # Import async task
@@ -488,10 +488,33 @@ class TelegramNotifier:
     def _build_order_management_reply_markup(self, order):
         if (
             not getattr(order, "pk", None)
-            or getattr(order, "tracking_number", None)
-            or getattr(order, "nova_poshta_document_ref", None)
             or getattr(order, "status", "") in {"done", "cancelled"}
         ):
+            return None
+
+        if getattr(order, "nova_poshta_document_ref", None):
+            try:
+                delete_waybill_url = build_order_action_url(
+                    order,
+                    TELEGRAM_DELETE_NP_WAYBILL_ACTION,
+                    route_name="telegram_order_np_waybill_action",
+                    token_scope=getattr(order, "nova_poshta_document_ref", "") or "",
+                )
+            except Exception:
+                return None
+
+            return {
+                "inline_keyboard": [
+                    [
+                        {
+                            "text": "🗑 Видалити ТТН НП",
+                            "url": delete_waybill_url,
+                        }
+                    ],
+                ]
+            }
+
+        if getattr(order, "tracking_number", None):
             return None
 
         action = get_telegram_status_action('ship')

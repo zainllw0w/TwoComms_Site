@@ -277,6 +277,18 @@
     opacity: 0.65;
   }
 
+  .tg-waybill-delete {
+    min-height: 52px;
+    border: 1px solid rgba(251, 113, 133, 0.42);
+    border-radius: 999px;
+    padding: 0 24px;
+    background: rgba(244, 63, 94, 0.16);
+    color: #ffe4e6;
+    font-size: 0.96rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
   .np-selector {
     position: relative;
   }
@@ -512,10 +524,13 @@
       {% csrf_token %}
       <input type="hidden" name="token" value="{{ token }}">
 
-      {% if form.non_field_errors %}
+      {% if form.non_field_errors or hidden_field_errors %}
         <div class="tg-waybill-panel">
           <ul class="tg-waybill-errors">
             {% for error in form.non_field_errors %}
+              <li>{{ error }}</li>
+            {% endfor %}
+            {% for error in hidden_field_errors %}
               <li>{{ error }}</li>
             {% endfor %}
           </ul>
@@ -741,10 +756,24 @@
               <div class="tg-waybill-field">
                 <label class="tg-waybill-label" for="id_weight">{{ form.weight.label }}</label>
                 {{ form.weight }}
+                {% if form.weight.errors %}
+                  <ul class="tg-waybill-errors">
+                    {% for error in form.weight.errors %}
+                      <li>{{ error }}</li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
               </div>
               <div class="tg-waybill-field">
                 <label class="tg-waybill-label" for="id_seats_amount">{{ form.seats_amount.label }}</label>
                 {{ form.seats_amount }}
+                {% if form.seats_amount.errors %}
+                  <ul class="tg-waybill-errors">
+                    {% for error in form.seats_amount.errors %}
+                      <li>{{ error }}</li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
               </div>
             </div>
 
@@ -752,16 +781,37 @@
               <div class="tg-waybill-field">
                 <label class="tg-waybill-label" for="id_length_cm">{{ form.length_cm.label }}</label>
                 {{ form.length_cm }}
+                {% if form.length_cm.errors %}
+                  <ul class="tg-waybill-errors">
+                    {% for error in form.length_cm.errors %}
+                      <li>{{ error }}</li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
               </div>
               <div class="tg-waybill-field">
                 <label class="tg-waybill-label" for="id_width_cm">{{ form.width_cm.label }}</label>
                 {{ form.width_cm }}
+                {% if form.width_cm.errors %}
+                  <ul class="tg-waybill-errors">
+                    {% for error in form.width_cm.errors %}
+                      <li>{{ error }}</li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
               </div>
             </div>
 
             <div class="tg-waybill-field">
               <label class="tg-waybill-label" for="id_height_cm">{{ form.height_cm.label }}</label>
               {{ form.height_cm }}
+              {% if form.height_cm.errors %}
+                <ul class="tg-waybill-errors">
+                  {% for error in form.height_cm.errors %}
+                    <li>{{ error }}</li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -776,10 +826,24 @@
             <div class="tg-waybill-field">
               <label class="tg-waybill-label" for="id_payer_type">{{ form.payer_type.label }}</label>
               {{ form.payer_type }}
+              {% if form.payer_type.errors %}
+                <ul class="tg-waybill-errors">
+                  {% for error in form.payer_type.errors %}
+                    <li>{{ error }}</li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
             </div>
             <div class="tg-waybill-field">
               <label class="tg-waybill-label" for="id_payment_method">{{ form.payment_method.label }}</label>
               {{ form.payment_method }}
+              {% if form.payment_method.errors %}
+                <ul class="tg-waybill-errors">
+                  {% for error in form.payment_method.errors %}
+                    <li>{{ error }}</li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -792,6 +856,21 @@
             і прибере керуючі кнопки з Telegram-повідомлення.
           </p>
           <button type="submit" class="tg-waybill-submit">Створити ТТН</button>
+        </div>
+      </div>
+    </form>
+  {% endif %}
+
+  {% if can_delete and delete_url %}
+    <form method="post" action="{{ delete_url }}" class="tg-waybill-form">
+      {% csrf_token %}
+      <div class="tg-waybill-panel">
+        <div class="tg-waybill-actions">
+          <p>
+            Видалення прибере накладну в Nova Poshta API, очистить ТТН у замовленні
+            і поверне кнопки керування в Telegram-повідомленні.
+          </p>
+          <button type="submit" class="tg-waybill-delete">Видалити ТТН</button>
         </div>
       </div>
     </form>
@@ -809,7 +888,7 @@
 
   const declaredField = document.querySelector('[data-payment-declared-field]');
   const codField = document.querySelector('[data-payment-cod-field]');
-  const snapshotUrl = `{% if order %}{% url 'telegram_order_payment_snapshot' order.id 'create-np-waybill' %}?token={{ token|urlencode }}{% endif %}`;
+  const snapshotUrl = `{% if can_submit and form and order %}{% url 'telegram_order_payment_snapshot' order.id 'create-np-waybill' %}?token={{ token|urlencode }}{% endif %}`;
 
   function markFieldAsManual(field) {
     if (!field) return;

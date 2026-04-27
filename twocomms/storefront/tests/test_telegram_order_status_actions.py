@@ -5,7 +5,11 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from orders.models import Order, OrderItem
-from orders.nova_poshta_documents import TELEGRAM_CREATE_NP_WAYBILL_ACTION, NovaPoshtaResolvedPoint
+from orders.nova_poshta_documents import (
+    TELEGRAM_CREATE_NP_WAYBILL_ACTION,
+    TELEGRAM_DELETE_NP_WAYBILL_ACTION,
+    NovaPoshtaResolvedPoint,
+)
 from orders.telegram_notifications import TelegramNotifier
 from orders.telegram_status_links import (
     build_order_action_token,
@@ -14,7 +18,12 @@ from orders.telegram_status_links import (
 )
 from storefront.models import Category, Product
 
-@override_settings(NOVA_POSHTA_FALLBACK_ENABLED=False, RATELIMIT_ENABLE=False)
+@override_settings(
+    NOVA_POSHTA_FALLBACK_ENABLED=False,
+    RATELIMIT_ENABLE=False,
+    COMPRESS_ENABLED=False,
+    COMPRESS_OFFLINE=False,
+)
 class TelegramOrderStatusActionTests(TestCase):
     def setUp(self):
         self._merchant_feed_patcher = patch("storefront.signals.generate_google_merchant_feed_task.apply_async")
@@ -284,6 +293,151 @@ class TelegramOrderStatusActionTests(TestCase):
         self.assertEqual(order.np_warehouse_ref, "recipient-warehouse-ref")
         update_message_mock.assert_called_once()
         self.assertContains(response, "ТТН 20451234123456 створено")
+
+    @patch("storefront.views.order_actions.telegram_notifier.update_order_notification_message", return_value=True)
+    @patch("storefront.views.order_actions.NovaPoshtaDocumentService")
+    @patch("orders.signals._safe_queue_notification")
+    def test_guest_order_can_delete_nova_poshta_waybill(self, _queue_mock, service_cls, update_message_mock):
+        order = self._create_order(
+            status="ship",
+            tracking_number="20451234123456",
+            nova_poshta_document_ref="00000000-0000-0000-0000-000000000001",
+            nova_poshta_recipient_ref="recipient-ref-1",
+            nova_poshta_recipient_contact_ref="recipient-contact-ref-1",
+        )
+        token = build_order_action_token(
+            order.pk,
+            TELEGRAM_DELETE_NP_WAYBILL_ACTION,
+            scope=order.nova_poshta_document_ref,
+        )
+
+        service = service_cls.return_value
+        service.is_configured.return_value = True
+        service.delete_waybill.return_value = {
+            "document_ref": "00000000-0000-0000-0000-000000000001",
+            "warnings": [],
+        }
+
+        response = self.client.post(
+            reverse("telegram_order_np_waybill_action", args=[order.pk, TELEGRAM_DELETE_NP_WAYBILL_ACTION]),
+            data={"token": token},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        service.delete_waybill.assert_called_once_with("00000000-0000-0000-0000-000000000001")
+        order.refresh_from_db()
+        self.assertEqual(order.status, "prep")
+        self.assertIsNone(order.tracking_number)
+        self.assertIsNone(order.nova_poshta_document_ref)
+        self.assertIsNone(order.nova_poshta_recipient_ref)
+        self.assertIsNone(order.nova_poshta_recipient_contact_ref)
+        update_message_mock.assert_called_once()
+        self.assertContains(response, "ТТН 20451234123456 видалено")
+
+    @patch("storefront.views.order_actions.NovaPoshtaDocumentService")
+    def test_delete_nova_poshta_waybill_rejects_stale_document_token(self, service_cls):
+        order = self._create_order(
+            status="ship",
+            tracking_number="20451234123456",
+            nova_poshta_document_ref="00000000-0000-0000-0000-000000000002",
+        )
+        token = build_order_action_token(
+            order.pk,
+            TELEGRAM_DELETE_NP_WAYBILL_ACTION,
+            scope="00000000-0000-0000-0000-000000000001",
+        )
+
+        response = self.client.post(
+            reverse("telegram_order_np_waybill_action", args=[order.pk, TELEGRAM_DELETE_NP_WAYBILL_ACTION]),
+            data={"token": token},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        service_cls.return_value.delete_waybill.assert_not_called()
+        order.refresh_from_db()
+        self.assertEqual(order.tracking_number, "20451234123456")
+        self.assertEqual(order.nova_poshta_document_ref, "00000000-0000-0000-0000-000000000002")
+
+    @patch("storefront.views.order_actions.NovaPoshtaDocumentService")
+    def test_delete_nova_poshta_waybill_rechecks_token_inside_order_lock(self, service_cls):
+        order = self._create_order(
+            status="ship",
+            tracking_number="20451234123456",
+            nova_poshta_document_ref="00000000-0000-0000-0000-000000000001",
+        )
+        service_cls.return_value.is_configured.return_value = True
+
+        with patch(
+            "storefront.views.order_actions.verify_order_action_token",
+            side_effect=[True, False],
+        ):
+            response = self.client.post(
+                reverse("telegram_order_np_waybill_action", args=[order.pk, TELEGRAM_DELETE_NP_WAYBILL_ACTION]),
+                data={"token": "token"},
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 403)
+        service_cls.return_value.delete_waybill.assert_not_called()
+        order.refresh_from_db()
+        self.assertEqual(order.tracking_number, "20451234123456")
+        self.assertEqual(order.nova_poshta_document_ref, "00000000-0000-0000-0000-000000000001")
+
+    @patch("storefront.views.order_actions.NovaPoshtaDocumentService")
+    def test_delete_nova_poshta_waybill_bad_token_does_not_reveal_missing_order(self, service_cls):
+        response = self.client.get(
+            reverse("telegram_order_np_waybill_action", args=[999999, TELEGRAM_DELETE_NP_WAYBILL_ACTION]),
+            data={"token": "bad-token"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        service_cls.assert_not_called()
+
+    @patch("storefront.views.order_actions.NovaPoshtaDocumentService")
+    def test_create_waybill_blocked_page_does_not_mint_delete_link(self, service_cls):
+        order = self._create_order(
+            status="ship",
+            tracking_number="20451234123456",
+            nova_poshta_document_ref="00000000-0000-0000-0000-000000000001",
+        )
+        token = build_order_action_token(order.pk, TELEGRAM_CREATE_NP_WAYBILL_ACTION)
+        service_cls.return_value.is_configured.return_value = True
+
+        response = self.client.get(
+            reverse("telegram_order_np_waybill_action", args=[order.pk, TELEGRAM_CREATE_NP_WAYBILL_ACTION]),
+            data={"token": token},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertNotContains(response, "delete-np-waybill", status_code=409)
+        self.assertNotContains(response, "Видалити ТТН", status_code=409)
+
+    @patch("storefront.views.order_actions.NovaPoshtaDocumentService")
+    def test_delete_waybill_page_does_not_poll_create_snapshot(self, service_cls):
+        order = self._create_order(
+            status="ship",
+            tracking_number="20451234123456",
+            nova_poshta_document_ref="00000000-0000-0000-0000-000000000001",
+        )
+        token = build_order_action_token(
+            order.pk,
+            TELEGRAM_DELETE_NP_WAYBILL_ACTION,
+            scope=order.nova_poshta_document_ref,
+        )
+        service_cls.return_value.is_configured.return_value = True
+
+        response = self.client.get(
+            reverse("telegram_order_np_waybill_action", args=[order.pk, TELEGRAM_DELETE_NP_WAYBILL_ACTION]),
+            data={"token": token},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "telegram_order_payment_snapshot")
 
     @patch("storefront.views.order_actions.NovaPoshtaDocumentService")
     def test_waybill_page_restores_saved_postomat_tokens(self, service_cls):

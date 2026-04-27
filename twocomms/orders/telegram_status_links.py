@@ -11,16 +11,29 @@ SIGNER_SALT = "orders.telegram-action-link"
 TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 
 
+def _action_token_value(order_id: int, action: str, scope: str | None = None) -> str:
+    base = f"{order_id}:{action}"
+    normalized_scope = str(scope or "").strip()
+    return f"{base}:{normalized_scope}" if normalized_scope else base
+
+
 def get_public_base_url() -> str:
     return (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/")
 
 
-def build_order_action_token(order_id: int, action: str) -> str:
+def build_order_action_token(order_id: int, action: str, *, scope: str | None = None) -> str:
     signer = signing.TimestampSigner(salt=SIGNER_SALT)
-    return signer.sign(f"{order_id}:{action}")
+    return signer.sign(_action_token_value(order_id, action, scope))
 
 
-def verify_order_action_token(token: str, *, order_id: int, action: str, max_age: int = TOKEN_MAX_AGE_SECONDS) -> bool:
+def verify_order_action_token(
+    token: str,
+    *,
+    order_id: int,
+    action: str,
+    max_age: int = TOKEN_MAX_AGE_SECONDS,
+    scope: str | None = None,
+) -> bool:
     if not token:
         return False
 
@@ -29,11 +42,18 @@ def verify_order_action_token(token: str, *, order_id: int, action: str, max_age
         value = signer.unsign(token, max_age=max_age)
     except signing.BadSignature:
         return False
-    return value == f"{order_id}:{action}"
+    return value == _action_token_value(order_id, action, scope)
 
 
-def build_order_action_url(order, action: str, *, route_name: str, path_value: str | None = None) -> str:
-    token = build_order_action_token(order.pk, action)
+def build_order_action_url(
+    order,
+    action: str,
+    *,
+    route_name: str,
+    path_value: str | None = None,
+    token_scope: str | None = None,
+) -> str:
+    token = build_order_action_token(order.pk, action, scope=token_scope)
     path = reverse(route_name, args=[order.pk, path_value or action])
     query = urlencode({"token": token})
     return f"{get_public_base_url()}{path}?{query}"
