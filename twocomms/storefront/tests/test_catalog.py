@@ -4,6 +4,8 @@ Regression tests for storefront home/catalog/search endpoints.
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
@@ -15,6 +17,12 @@ class CatalogViewTestCase(TestCase):
     def setUp(self):
         super().setUp()
         cache.clear()
+        merchant_patcher = patch("storefront.signals.generate_google_merchant_feed_task.apply_async")
+        indexnow_patcher = patch("storefront.signals.enqueue_indexnow_urls")
+        self.addCleanup(merchant_patcher.stop)
+        self.addCleanup(indexnow_patcher.stop)
+        merchant_patcher.start()
+        indexnow_patcher.start()
         self.category = Category.objects.create(
             name="Category 1",
             slug="category-1",
@@ -189,3 +197,17 @@ class LoadMoreProductsTests(CatalogViewTestCase):
         payload = response.json()
         self.assertEqual(payload["current_page"], 2)
         self.assertFalse(payload["has_more"])
+
+    def test_load_more_handles_invalid_page_as_first_page(self):
+        for index in range(9):
+            self.create_product(
+                title=f"Invalid Page Product {index}",
+                slug=f"invalid-page-product-{index}",
+            )
+
+        response = self.client.get(reverse("load_more_products"), {"page": "bad"})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["current_page"], 1)
+        self.assertTrue(payload["has_more"])

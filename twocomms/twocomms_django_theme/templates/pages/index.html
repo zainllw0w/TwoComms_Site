@@ -459,22 +459,25 @@
     {% endfor %}
   </div>
   
-  {% if has_more_products %}
+  {% if paginator.num_pages > 1 %}
   <div class="text-center mt-4" id="load-more-container"
        data-total-pages="{{ paginator.num_pages }}"
-       data-current-page="{{ page_obj.number }}">
-    <button class="btn btn-outline-primary" id="load-more-btn" data-page="{{ page_obj.next_page_number }}">
+       data-current-page="{{ page_obj.number }}"
+       {% if not has_more_products %}style="display: none;"{% endif %}>
+    <button class="btn btn-outline-primary" id="load-more-btn" data-page="{% if page_obj.has_next %}{{ page_obj.next_page_number }}{% endif %}"{% if not has_more_products %} disabled{% endif %}>
       <span class="btn-text">Показати ще</span>
       <span class="btn-spinner d-none">
         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
         Завантаження...
       </span>
     </button>
+    {% if has_more_products %}
     <noscript>
       <div class="mt-3">
         <a class="btn btn-outline-primary" href="?page={{ page_obj.next_page_number }}">Наступна сторінка</a>
       </div>
     </noscript>
+    {% endif %}
   </div>
   {% endif %}
   

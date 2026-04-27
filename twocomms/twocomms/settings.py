@@ -705,6 +705,15 @@ if DEBUG:
                 'MAX_ENTRIES': 2000,
                 'CULL_FREQUENCY': 3,
             }
+        },
+        'fragments': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'twocomms-local-fragments',
+            'TIMEOUT': 900,
+            'OPTIONS': {
+                'MAX_ENTRIES': 5000,
+                'CULL_FREQUENCY': 3,
+            }
         }
     }
 else:

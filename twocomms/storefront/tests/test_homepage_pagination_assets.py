@@ -144,6 +144,38 @@ class HomepagePaginationCssTests(SimpleTestCase):
             js,
         )
 
+    def test_home_pagination_js_progressively_enhances_real_links(self):
+        js_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "js"
+            / "modules"
+            / "homepage.js"
+        )
+        js = js_path.read_text(encoding="utf-8")
+
+        self.assertIn("paginationShell.addEventListener('click'", js)
+        self.assertIn("mode: 'replace'", js)
+        self.assertIn("window.history.pushState", js)
+        self.assertIn("syncPaginationHead", js)
+        self.assertIn("window.location.assign(fallbackUrl)", js)
+        self.assertIn("scrollToProductsStart(document.getElementById('new-products-section'))", js)
+
+    def test_home_pagination_has_ajax_transition_states(self):
+        css_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "home.css"
+        )
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertIn("#products-container.is-page-exiting", css)
+        self.assertIn("#products-container.is-page-entering .product-card-wrap", css)
+        self.assertIn(".pagination-rail.is-page-fetching .page-link", css)
+
     def test_home_pagination_has_ellipsis_style(self):
         css_path = (
             Path(__file__).resolve().parents[2]

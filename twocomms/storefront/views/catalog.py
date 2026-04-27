@@ -162,7 +162,7 @@ def load_more_products(request):
         JsonResponse: HTML фрагмент с товарами + метаданные пагинации
     """
     if request.method == 'GET':
-        page = int(request.GET.get('page', 1))
+        page = request.GET.get('page', 1)
         per_page = HOME_PRODUCTS_PER_PAGE
 
         product_qs = apply_public_product_order(
@@ -170,10 +170,7 @@ def load_more_products(request):
         )
         paginator = Paginator(product_qs, per_page)
 
-        try:
-            page_obj = paginator.page(page)
-        except EmptyPage:
-            page_obj = paginator.page(paginator.num_pages)
+        page_obj = paginator.get_page(page)
 
         products = list(page_obj.object_list)
 
@@ -194,7 +191,7 @@ def load_more_products(request):
         # Рендерим HTML для товаров
         products_html = render_to_string('partials/products_list.html', {
             'products': products,
-            'page': page
+            'page': page_obj.number
         })
         pagination_html = render_to_string(
             'partials/home_pagination.html',
