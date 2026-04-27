@@ -217,6 +217,49 @@ class HomepagePaginationCssTests(SimpleTestCase):
             r"\.pagination-premium \.page-item-ellipsis \.page-link\s*\{[\s\S]*?pointer-events:\s*none;",
         )
 
+    def test_home_card_assets_keep_click_and_protection_hooks(self):
+        css_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "home.css"
+        )
+        js_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "js"
+            / "main.js"
+        )
+        css = css_path.read_text(encoding="utf-8")
+        js = js_path.read_text(encoding="utf-8")
+
+        self.assertIn(".home-product-media-link", css)
+        self.assertIn("-webkit-user-drag: none;", css)
+        self.assertIn("pointer-events: none;", css)
+        self.assertIn("initProtectedImageInteractions();", js)
+        self.assertIn("contextmenu", js)
+        self.assertIn("dragstart", js)
+        self.assertIn("[data-twc-image-protected]", js)
+
+    def test_main_js_adds_copy_attribution_without_touching_raw_copy_controls(self):
+        js_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "js"
+            / "main.js"
+        )
+        js = js_path.read_text(encoding="utf-8")
+
+        self.assertIn("COPY_ATTRIBUTION_LABEL = 'Скопійовано з TwoComms'", js)
+        self.assertIn("event.clipboardData.setData('text/plain'", js)
+        self.assertIn("event.clipboardData.setData('text/html'", js)
+        self.assertIn("[data-copy-raw]", js)
+        self.assertIn("[data-share-copy]", js)
+        self.assertIn(".copyable-text", js)
+
     def test_home_pagination_mobile_reserves_edge_gutter(self):
         css_path = (
             Path(__file__).resolve().parents[2]
