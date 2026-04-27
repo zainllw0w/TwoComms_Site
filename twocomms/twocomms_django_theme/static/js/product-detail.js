@@ -147,6 +147,9 @@
     if (state.mainImage.getAttribute('src') === url && !immediate) return;
 
     const apply = () => {
+      if (!immediate) {
+        clearResponsiveSources(state.mainImage);
+      }
       state.mainImage.src = url;
       state.mainImage.setAttribute('data-zoom', url);
       state.mainImage.classList.remove('is-switching');
@@ -161,6 +164,15 @@
     preloadImage(url)
       .then(() => window.setTimeout(apply, 60))
       .catch(() => window.setTimeout(apply, 90));
+  }
+
+  function clearResponsiveSources(image) {
+    const picture = image && image.closest ? image.closest('picture') : null;
+    if (!picture) return;
+    picture.querySelectorAll('source').forEach((source) => {
+      source.removeAttribute('srcset');
+      source.removeAttribute('sizes');
+    });
   }
 
   function preloadImage(url) {
@@ -421,7 +433,7 @@
       const mediaBottom = mediaPanel ? mediaPanel.getBoundingClientRect().bottom : 0;
       const purchaseRect = purchaseBar ? purchaseBar.getBoundingClientRect() : null;
       const purchaseVisible = purchaseRect && purchaseRect.top < window.innerHeight - 110 && purchaseRect.bottom > 0;
-      const hasPassedMedia = mediaBottom < window.innerHeight * 0.62;
+      const hasPassedMedia = mediaBottom < 88;
       stickyBar.classList.toggle('is-visible', hasPassedMedia && !purchaseVisible);
     };
 
