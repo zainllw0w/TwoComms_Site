@@ -176,6 +176,32 @@ class HomepagePaginationCssTests(SimpleTestCase):
         self.assertIn("#products-container.is-page-entering .product-card-wrap", css)
         self.assertIn(".pagination-rail.is-page-fetching .page-link", css)
 
+    def test_home_pagination_replace_uses_single_css_transition(self):
+        js_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "js"
+            / "modules"
+            / "homepage.js"
+        )
+        css_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "home.css"
+        )
+        js = js_path.read_text(encoding="utf-8")
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertIn("const runAfterProductsRender = (mode = 'append') =>", js)
+        self.assertRegex(js, r"if \(mode === 'append'\)\s*\{\s*animateNewCards\(productsContainer\);")
+        self.assertIn("revealColorDots(container, { animate: false });", js)
+        self.assertIn("void container.offsetHeight;", js)
+        self.assertNotIn("productsContainer.classList.toggle('is-page-replacing'", js)
+        self.assertNotIn("#products-container.is-page-replacing", css)
+
     def test_home_pagination_has_ellipsis_style(self):
         css_path = (
             Path(__file__).resolve().parents[2]

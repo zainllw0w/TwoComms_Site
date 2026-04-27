@@ -1740,7 +1740,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('featured-toggle') ||
       document.getElementById('categoriesToggle')
     ) {
-      import('./modules/homepage.js?v=20260427-pagination')
+      import('./modules/homepage.js?v=20260427-pagination-transition')
         .then(({ initHomepage }) => initHomepage())
         .catch(() => { });
     }

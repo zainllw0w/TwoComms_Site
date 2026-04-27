@@ -176,8 +176,9 @@ function animateNewCards(container) {
   });
 }
 
-function revealColorDots(container) {
+function revealColorDots(container, options = {}) {
   if (!container) return;
+  const shouldAnimate = options.animate !== false;
   const cards = container.querySelectorAll('.product-card-wrap');
   cards.forEach((card) => {
     if (card.dataset.colorDotsReady === '1') return;
@@ -187,7 +188,7 @@ function revealColorDots(container) {
     const dots = dotsWrap.querySelectorAll('.color-dot');
     dots.forEach((dot, idx) => {
       if (dot.classList.contains('visible')) return;
-      if (prefersReducedMotion) {
+      if (prefersReducedMotion || !shouldAnimate) {
         dot.classList.add('visible');
       } else {
         setTimeout(() => dot.classList.add('visible'), idx * 60);
@@ -199,6 +200,10 @@ function revealColorDots(container) {
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function nextAnimationFrame() {
+  return new Promise(resolve => requestAnimationFrame(resolve));
 }
 
 function buildAbsolutePageUrl(basePath, page) {
@@ -261,19 +266,21 @@ async function renderProductsHtml(container, html, mode) {
     container.insertAdjacentHTML('beforeend', html);
     return;
   }
-  container.classList.add('is-page-exiting');
-  if (!prefersReducedMotion) {
-    await delay(120);
+  if (prefersReducedMotion) {
+    container.innerHTML = html;
+    revealColorDots(container, { animate: false });
+    return;
   }
+  container.classList.add('is-page-exiting');
+  await delay(110);
   container.innerHTML = html;
+  revealColorDots(container, { animate: false });
   container.classList.remove('is-page-exiting');
   container.classList.add('is-page-entering');
-  requestAnimationFrame(() => {
-    container.classList.add('is-page-entered');
-  });
-  if (!prefersReducedMotion) {
-    await delay(420);
-  }
+  void container.offsetHeight;
+  await nextAnimationFrame();
+  container.classList.add('is-page-entered');
+  await delay(430);
   container.classList.remove('is-page-entering', 'is-page-entered');
 }
 
@@ -358,7 +365,6 @@ export function initHomepagePagination() {
       const paginationNav = getPaginationNav();
       productsContainer.setAttribute('aria-busy', busy ? 'true' : 'false');
       productsContainer.classList.toggle('is-page-loading', busy);
-      productsContainer.classList.toggle('is-page-replacing', busy && mode === 'replace');
       paginationNav?.classList.toggle('is-page-fetching', busy);
       paginationNav?.setAttribute('aria-busy', busy ? 'true' : 'false');
       if (loadMoreBtn && btnText && btnSpinner) {
@@ -375,7 +381,7 @@ export function initHomepagePagination() {
       const btnSpinner = loadMoreBtn?.querySelector('.btn-spinner');
       const paginationNav = getPaginationNav();
       productsContainer.setAttribute('aria-busy', 'false');
-      productsContainer.classList.remove('is-page-loading', 'is-page-replacing');
+      productsContainer.classList.remove('is-page-loading', 'is-page-exiting', 'is-page-entering', 'is-page-entered');
       paginationNav?.classList.remove('is-page-fetching');
       paginationNav?.setAttribute('aria-busy', 'false');
       if (loadMoreBtn && btnText && btnSpinner) {
@@ -384,9 +390,11 @@ export function initHomepagePagination() {
       }
     };
 
-    const runAfterProductsRender = () => {
-      animateNewCards(productsContainer);
-      revealColorDots(productsContainer);
+    const runAfterProductsRender = (mode = 'append') => {
+      if (mode === 'append') {
+        animateNewCards(productsContainer);
+      }
+      revealColorDots(productsContainer, { animate: mode === 'append' });
       setTimeout(() => {
         try {
           if (window.equalizeCardHeights) {
@@ -460,7 +468,7 @@ export function initHomepagePagination() {
             if (shouldScroll) {
               scrollToProductsStart(document.getElementById('new-products-section'));
             }
-            runAfterProductsRender();
+            runAfterProductsRender(mode);
           }
         })
         .catch(error => {
