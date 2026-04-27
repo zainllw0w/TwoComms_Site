@@ -234,12 +234,33 @@
                         не вибрано)
                       </div>
                     </div>
+                    {% if form.home_card_image %}
+                    <div class="info-group image-input">
+                      <label class="form-label">
+                        <i class="fas fa-mobile-alt me-2"></i>Прев'ю картки на головній
+                      </label>
+                      {{ form.home_card_image }}
+                      <div class="form-hint">
+                        <i class="fas fa-layer-group me-1"></i>Окреме вертикальне зображення для головної сторінки. Якщо порожнє — буде використано головне прев'ю.
+                      </div>
+                    </div>
+                    {% endif %}
                     {% if obj.main_image %}
                     <div class="info-group image-preview">
                       <div class="current-image">
                         <img src="{{ obj.main_image.url }}" alt="Поточне зображення" class="img-fluid rounded">
                         <div class="image-overlay">
                           <span class="image-label">Поточне зображення</span>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
+                    {% if obj.home_card_image %}
+                    <div class="info-group image-preview">
+                      <div class="current-image">
+                        <img src="{{ obj.home_card_image.url }}" alt="Прев'ю картки на головній" class="img-fluid rounded">
+                        <div class="image-overlay">
+                          <span class="image-label">Прев'ю головної</span>
                         </div>
                       </div>
                     </div>
@@ -480,8 +501,8 @@
               <div class="row">
                 <div class="col-md-6">
                   <div class="card product hover-raise">
-                    {% if obj.main_image %}
-                    <img src="{{ obj.main_image.url }}" class="card-img-top" alt="{{ obj.title }}"
+                    {% if obj.homepage_image %}
+                    <img src="{{ obj.homepage_image.url }}" class="card-img-top" alt="{{ obj.title }}"
                       style="height: 250px; object-fit: cover;">
                     {% else %}
                     <div class="card-img-top d-flex align-items-center justify-content-center"

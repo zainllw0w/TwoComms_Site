@@ -6,13 +6,14 @@ from __future__ import annotations
 
 import shutil
 import tempfile
+from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
-from storefront.models import Category, Product, ProductImage
+from storefront.models import Category, Product, ProductFitOption, ProductImage
 
 PNG_PIXEL = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
@@ -34,6 +35,18 @@ class ProductViewTestCase(TestCase):
 
     def setUp(self):
         super().setUp()
+        self.feed_task_patcher = patch(
+            "storefront.signals.generate_google_merchant_feed_task.apply_async",
+            return_value=None,
+        )
+        self.feed_task_mock = self.feed_task_patcher.start()
+        self.addCleanup(self.feed_task_patcher.stop)
+        self.image_task_patcher = patch(
+            "storefront.signals.optimize_image_field_task.delay",
+            return_value=None,
+        )
+        self.optimize_image_mock = self.image_task_patcher.start()
+        self.addCleanup(self.image_task_patcher.stop)
         self.category = Category.objects.create(
             name="Test Category",
             slug="test-category",
@@ -50,6 +63,40 @@ class ProductViewTestCase(TestCase):
 
     def _image_file(self, name: str) -> SimpleUploadedFile:
         return SimpleUploadedFile(name, PNG_PIXEL, content_type="image/png")
+
+
+class ProductHomepageImageTests(ProductViewTestCase):
+    def test_homepage_image_prefers_home_card_image(self):
+        with self.settings(MEDIA_ROOT=self._media_root):
+            self.product.main_image = self._image_file("main.png")
+            self.product.home_card_image = self._image_file("home-card.png")
+            self.product.save(update_fields=["main_image", "home_card_image"])
+
+        self.assertTrue(self.product.homepage_image.name.endswith("home-card.png"))
+
+    def test_homepage_image_falls_back_to_display_image_chain(self):
+        with self.settings(MEDIA_ROOT=self._media_root):
+            color = Color.objects.create(name="Black", primary_hex="#000000")
+            variant = ProductColorVariant.objects.create(
+                product=self.product,
+                color=color,
+                order=0,
+                is_default=True,
+            )
+            ProductColorImage.objects.create(
+                variant=variant,
+                image=self._image_file("variant-home-fallback.png"),
+                order=0,
+            )
+
+        self.assertTrue(self.product.homepage_image.name.endswith("variant-home-fallback.png"))
+
+    def test_home_card_image_enqueues_optimization(self):
+        with self.settings(MEDIA_ROOT=self._media_root):
+            self.product.home_card_image = self._image_file("home-card-opt.png")
+            self.product.save(update_fields=["home_card_image"])
+
+        self.optimize_image_mock.assert_any_call("storefront.Product", self.product.pk, "home_card_image")
 
 
 class ProductDetailTests(ProductViewTestCase):
@@ -93,6 +140,72 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["preselected_color"], selected_variant.pk)
         self.assertEqual(response.context["color_variants"][0]["id"], selected_variant.pk)
+
+    def test_product_detail_shows_fit_selector_for_tshirts(self):
+        tshirt_category = Category.objects.create(
+            name="Футболки",
+            slug="futbolki",
+            is_active=True,
+        )
+        product = Product.objects.create(
+            title="Футболка тестова",
+            slug="test-tshirt-fit",
+            category=tshirt_category,
+            price=1000,
+            description="Fit selector coverage.",
+            status="published",
+        )
+        ProductFitOption.objects.create(
+            product=product,
+            code="classic",
+            label="Класичний",
+            description="Прямий крій, стандартна посадка",
+            is_default=True,
+            order=0,
+        )
+        ProductFitOption.objects.create(
+            product=product,
+            code="oversize",
+            label="Оверсайз",
+            description="Вільний крій, спущене плече",
+            order=1,
+        )
+
+        response = self.client.get(reverse("product", args=[product.slug]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-fit-selector', html=False)
+        self.assertContains(response, "Класичний")
+        self.assertContains(response, "Оверсайз")
+
+    def test_product_detail_hides_fit_selector_for_non_tshirts(self):
+        longsleeve_category = Category.objects.create(
+            name="Лонгсліви",
+            slug="longsleeve",
+            is_active=True,
+        )
+        product = Product.objects.create(
+            title="Лонгслів тестовий",
+            slug="test-longsleeve-fit-hidden",
+            category=longsleeve_category,
+            price=1000,
+            description="Fit selector hidden coverage.",
+            status="published",
+        )
+        ProductFitOption.objects.create(
+            product=product,
+            code="classic",
+            label="Класичний",
+            description="Прямий крій",
+            is_default=True,
+            order=0,
+        )
+
+        response = self.client.get(reverse("product", args=[product.slug]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'data-fit-selector', html=False)
+        self.assertNotContains(response, "Оверсайз")
 
 
 class GetProductImagesTests(ProductViewTestCase):

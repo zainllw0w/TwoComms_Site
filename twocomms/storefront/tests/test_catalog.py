@@ -10,6 +10,7 @@ from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 
+from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product
 
 
@@ -78,6 +79,32 @@ class HomeViewTests(CatalogViewTestCase):
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 200)
         self.assertEqual(first.content, second.content)
+
+    def test_home_page_renders_color_dropdown_inside_home_card(self):
+        product = self.create_product(title="Color Product", slug="color-product")
+        color = Color.objects.create(
+            name="Deep Black",
+            primary_hex="#000000",
+            secondary_hex="#FFFFFF",
+        )
+        ProductColorVariant.objects.create(
+            product=product,
+            color=color,
+            is_default=True,
+            order=0,
+        )
+
+        response = self.client.get(reverse("home"))
+        rendered_product = response.context["products"][0]
+        html = response.content.decode("utf-8")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(rendered_product.colors_preview_key.startswith("colors:1:"))
+        self.assertContains(response, 'class="home-product-colors"')
+        self.assertContains(response, 'class="home-color-dot color-dot active"')
+        self.assertContains(response, 'aria-label="Колір Deep Black"')
+        self.assertContains(response, "--c1: #000000; --c2: #FFFFFF;")
+        self.assertNotIn('class="product-card-dots"', html)
 
 
 class CatalogViewTests(CatalogViewTestCase):

@@ -2,6 +2,109 @@
 {% load responsive_images %}
 {# form_filters удалён #}
 {% with animate=animate|default_if_none:True %}
+{% if home_card %}
+{% with card_image=p.homepage_image %}
+<article
+  class="home-product-card card product h-100 {% if animate %}{% if stagger %}reveal-stagger stagger-item{% else %}reveal-fast{% endif %}{% else %}no-reveal{% endif %}"
+  data-product-id="{{ p.id }}" data-product-title="{{ p.title|escapejs }}" data-product-price="{{ p.final_price }}"
+  data-product-category="{{ p.category.name|default_if_none:''|escapejs }}">
+  <div class="home-product-media">
+    {% if card_image %}
+      {% if eager|default_if_none:False %}
+      {% optimized_image card_image.url p.title "home-product-image product-main-image" 1080 1600 loading='eager' fetchpriority='auto' sizes='(max-width: 576px) 45vw, (max-width: 992px) 45vw, (max-width: 1400px) 23vw, 18vw' %}
+      {% else %}
+      {% optimized_image card_image.url p.title "home-product-image product-main-image" 1080 1600 fetchpriority='low' sizes='(max-width: 576px) 45vw, (max-width: 992px) 45vw, (max-width: 1400px) 23vw, 18vw' %}
+      {% endif %}
+    {% else %}
+      {% if eager|default_if_none:False %}
+      {% optimized_image 'img/placeholder.jpg' p.title "home-product-image product-main-image" 1080 1600 loading='eager' fetchpriority='auto' %}
+      {% else %}
+      {% optimized_image 'img/placeholder.jpg' p.title "home-product-image product-main-image" 1080 1600 %}
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="home-product-scrim home-product-scrim-top"></div>
+  <div class="home-product-scrim home-product-scrim-bottom"></div>
+  <div class="home-product-vignette"></div>
+
+  <div class="home-product-category">{{ p.category.name }}</div>
+
+  <button type="button" class="favorite-btn home-favorite-btn" data-product-id="{{ p.id }}"
+    onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);"
+    aria-label="Додати до обраних">
+    <div class="favorite-btn-icon">
+      <svg class="favorite-icon-empty" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path
+          d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+      </svg>
+      <svg class="favorite-icon-filled" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path
+          d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+      </svg>
+    </div>
+    <div class="favorite-btn-glow"></div>
+  </button>
+
+  {% if p.colors_preview %}
+  <div class="home-product-colors" aria-label="Доступні кольори">
+    <button type="button" class="home-color-trigger"
+      onclick="event.stopPropagation();"
+      aria-label="Показати кольори {{ p.title }}">
+      <span class="home-color-trigger-stack" aria-hidden="true">
+        {% for v in p.colors_preview|slice:":3" %}
+        <span class="home-color-mini-swatch"
+          style="--c1: {{ v.primary_hex }}; --c2: {% if v.secondary_hex %}{{ v.secondary_hex }}{% else %}{{ v.primary_hex }}{% endif %};"></span>
+        {% endfor %}
+      </span>
+      <span class="home-color-count">{{ p.colors_preview|length }}</span>
+    </button>
+    <div class="home-color-panel" role="list" aria-label="Кольори товару">
+      {% for v in p.colors_preview %}
+      <button type="button"
+        class="home-color-dot color-dot{% if v.is_default %} active{% endif %}"
+        title="{% if v.name %}{{ v.name }}{% else %}{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}{% endif %}"
+        style="--c1: {{ v.primary_hex }}; --c2: {% if v.secondary_hex %}{{ v.secondary_hex }}{% else %}{{ v.primary_hex }}{% endif %};"
+        data-image-url="{{ v.first_image_url|default:'' }}"
+        aria-label="Колір {% if v.name %}{{ v.name }}{% else %}{{ v.primary_hex }}{% if v.secondary_hex %} плюс {{ v.secondary_hex }}{% endif %}{% endif %}"></button>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="home-product-content">
+    <a href="{% url 'product' p.slug %}" class="home-product-title">{{ p.title }}</a>
+
+    <div class="home-product-price-row">
+      <span class="home-product-price">{{ p.final_price }} грн</span>
+      {% if p.has_discount %}
+      <span class="home-product-old-price">{{ p.price }}</span>
+      {% endif %}
+      {% if p.has_discount and p.discount_percent %}
+      <span class="home-product-discount">-{{ p.discount_percent }}%</span>
+      {% endif %}
+    </div>
+
+    <div class="home-product-footer">
+      <div class="home-product-points {% if not p.points_reward %}is-empty{% endif %}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        </svg>
+        <span>{% if p.points_reward %}{{ p.points_reward }} балів{% else %}0 балів{% endif %}</span>
+      </div>
+      <a href="{% url 'product' p.slug %}" class="home-product-cta" aria-label="Переглянути {{ p.title }}">
+        <span>Переглянути</span>
+        <span class="home-product-cta-icon" aria-hidden="true">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+          </svg>
+        </span>
+      </a>
+    </div>
+  </div>
+</article>
+{% endwith %}
+{% else %}
 <div
   class="card product h-100 hover-raise glass {% if animate %}{% if stagger %}reveal-stagger stagger-item{% else %}reveal-fast{% endif %}{% else %}no-reveal{% endif %}"
   data-product-id="{{ p.id }}" data-product-title="{{ p.title|escapejs }}" data-product-price="{{ p.final_price }}"
@@ -95,4 +198,5 @@
     </div>
   </div>
 </div>
+{% endif %}
 {% endwith %}

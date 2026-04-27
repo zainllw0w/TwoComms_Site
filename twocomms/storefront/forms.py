@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 from django import forms
 from django.conf import settings
-from django.forms import inlineformset_factory
+from django.forms import BaseInlineFormSet, inlineformset_factory
 
 from dtf.utils import (
     ALLOWED_HELP_EXTS,
@@ -20,6 +20,7 @@ from storefront.custom_print_config import build_placement_specs, normalize_cust
 from .models import (
     CustomPrintBusinessKind,
     Product,
+    ProductFitOption,
     Category,
     CustomPrintClientKind,
     CustomPrintContactChannel,
@@ -399,6 +400,7 @@ class ProductForm(forms.ModelForm):
             "featured",
             "description",
             "main_image",
+            "home_card_image",
             "points_reward",
             # Дополнительные поля для других шаблонов (опциональные)
             "catalog",
@@ -424,6 +426,7 @@ class ProductForm(forms.ModelForm):
             "priority": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
             "featured": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "main_image": forms.FileInput(attrs={"class": "form-control d-none", "accept": "image/*", "data-main-image-input": "1"}),
+            "home_card_image": forms.FileInput(attrs={"class": "form-control d-none", "accept": "image/*", "data-home-card-image-input": "1"}),
             "main_image_alt": forms.TextInput(attrs={"class": "form-control"}),
             "points_reward": forms.NumberInput(attrs={"class": "form-control", "min": "0", "value": "0"}),
             "drop_price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
@@ -725,6 +728,64 @@ ProductColorVariantFormSet = inlineformset_factory(
     extra=1,
     can_delete=True,
 )
+
+
+class ProductFitOptionForm(forms.ModelForm):
+    class Meta:
+        model = ProductFitOption
+        fields = [
+            "code",
+            "label",
+            "description",
+            "icon",
+            "order",
+            "is_default",
+            "is_active",
+        ]
+        widgets = {
+            "description": forms.TextInput(attrs={"placeholder": "Короткий опис посадки"}),
+            "icon": forms.TextInput(attrs={"placeholder": "tshirt-classic"}),
+            "order": forms.NumberInput(attrs={"min": "0"}),
+        }
+
+
+class ProductFitOptionBaseFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        default_count = 0
+        active_count = 0
+        for form in self.forms:
+            if not hasattr(form, "cleaned_data") or not form.cleaned_data:
+                continue
+            if form.cleaned_data.get("DELETE"):
+                continue
+            if not form.cleaned_data.get("is_active"):
+                continue
+            active_count += 1
+            if form.cleaned_data.get("is_default"):
+                default_count += 1
+
+        if active_count and default_count > 1:
+            raise forms.ValidationError("Для товару можна обрати тільки одну посадку за замовчуванням.")
+
+
+ProductFitOptionFormSet = inlineformset_factory(
+    Product,
+    ProductFitOption,
+    form=ProductFitOptionForm,
+    formset=ProductFitOptionBaseFormSet,
+    extra=2,
+    can_delete=True,
+)
+
+
+def build_product_fit_option_formset(product=None, data=None, prefix='fit_options'):
+    product_instance = product or Product()
+    return ProductFitOptionFormSet(
+        data=data if data is not None else None,
+        instance=product_instance,
+        prefix=prefix,
+    )
 
 
 def build_color_variant_formset(

@@ -6,6 +6,8 @@ from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
 from cache_utils import get_fragment_cache
+from productcolors.models import Color, ProductColorImage, ProductColorVariant
+
 from .models import Category, Product
 from .services.catalog_helpers import (
     bump_public_category_version,
@@ -38,6 +40,16 @@ def invalidate_category_cache(sender, **kwargs):
 def invalidate_public_product_listing_cache(sender, **kwargs):
     """
     Любое изменение публичного товара должно быстро отражаться в home/catalog.
+    """
+    transaction.on_commit(bump_public_product_order_version)
+
+
+@receiver([post_save, post_delete], sender=ProductColorVariant)
+@receiver([post_save, post_delete], sender=ProductColorImage)
+@receiver([post_save, post_delete], sender=Color)
+def invalidate_public_product_listing_cache_for_color_data(sender, **kwargs):
+    """
+    Colour-only edits change public cards but do not save Product itself.
     """
     transaction.on_commit(bump_public_product_order_version)
 

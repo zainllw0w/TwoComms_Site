@@ -1,711 +1,544 @@
 (function () {
   'use strict';
 
-  // Инициализация при загрузке DOM
-  document.addEventListener('DOMContentLoaded', function () {
-    initProductDetail();
-  });
+  const prefersReducedMotion = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  document.addEventListener('DOMContentLoaded', initProductDetail);
 
   function initProductDetail() {
-    initColorSwatches();
-    initImageGallery();
-    initRecommendationsCarousel();
-    initMediumZoom();
-    initTabs();
-    initSizeSelection();
-    initStickyButton();
-    initAddToCart();
-    initURLParams();
+    const root = document.querySelector('[data-pdp]');
+    const container = document.getElementById('product-detail-container');
+    if (!root || !container) return;
+
+    const state = {
+      root,
+      container,
+      variants: readJsonScript('variant-data', []),
+      extraImages: readJsonScript('product-extra-images', []),
+      offerIdMap: readOfferMap(container),
+      mainImage: document.getElementById('mainProductImage'),
+      thumbs: document.getElementById('productThumbnails'),
+      viewContentTracked: false,
+    };
+
+    initGallery(state);
+    initColorSelection(state);
+    initSizeSelection(state);
+    initFitSelection(root);
+    initTabs(root);
+    initShare(root, container);
+    initZoom(state);
+    initStickyAdd(root);
+    updateCurrentOfferId(state);
+    trackViewContent(state);
   }
 
-  // Переключение цветов с slide анимацией
-  function initColorSwatches() {
-    const colorPicker = document.getElementById('colorPicker');
-    if (!colorPicker) return;
-
-    const mainImage = document.getElementById('mainProductImage');
-    const mainWrapper = document.getElementById('mainImageWrapper');
-    const thumbnails = document.getElementById('productThumbnails');
-
-    // Парсим данные вариантов
-    const variantDataTag = document.getElementById('variant-data');
-    let variants = [];
+  function readJsonScript(id, fallback) {
+    const node = document.getElementById(id);
+    if (!node) return fallback;
     try {
-      variants = JSON.parse((variantDataTag && variantDataTag.textContent) || '[]');
-    } catch (e) {
-      variants = [];
-    }
-
-    // Превью изображения при hover на свотч
-    const swatches = colorPicker.querySelectorAll('.product-color-swatch, .product-color-swatch-compact');
-    swatches.forEach(swatch => {
-      const variantId = parseInt(swatch.getAttribute('data-variant') || '-1', 10);
-      const variant = variants.find(v => v.id === variantId);
-
-      // Клик на свотч (без превью при hover)
-      swatch.addEventListener('click', function () {
-        if (!variant) return;
-
-        // Убираем active со всех
-        swatches.forEach(s => s.classList.remove('active'));
-        swatch.classList.add('active');
-
-        // Добавляем checkmark
-        swatches.forEach(s => {
-          const checkIcon = s.querySelector('.color-check-icon');
-          if (checkIcon) checkIcon.remove();
-        });
-
-        if (!swatch.querySelector('.color-check-icon')) {
-          const checkIcon = document.createElement('span');
-          checkIcon.className = 'color-check-icon';
-          checkIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
-          swatch.appendChild(checkIcon);
-        }
-
-        // Переключаем изображения с slide анимацией
-        if (variant.images && variant.images.length > 0) {
-          switchImagesWithSlide(variant.images, mainImage, mainWrapper);
-          updateThumbnails(variant.images, thumbnails);
-        }
-
-        // Analytics tracking
-        try {
-          if (window.trackEvent) {
-            const payload = document.getElementById('product-analytics-payload');
-            const pid = payload && payload.dataset.id;
-            window.trackEvent('CustomizeProduct', {
-              content_ids: [String(pid)],
-              content_type: 'product',
-              variant_id: variantId
-            });
-          }
-        } catch (e) { }
-      });
-    });
-  }
-
-  // Slide анимация переключения изображений
-  function switchImagesWithSlide(images, mainImage, wrapper) {
-    if (!images || images.length === 0 || !mainImage || !wrapper) return;
-
-    const newImage = images[0];
-
-    // Создаем временное изображение для slide эффекта
-    const tempImg = document.createElement('img');
-    tempImg.src = newImage;
-    tempImg.className = 'product-main-image';
-    tempImg.style.position = 'absolute';
-    tempImg.style.top = '0';
-    tempImg.style.left = '100%';
-    tempImg.style.width = '100%';
-    tempImg.style.height = '100%';
-    tempImg.style.objectFit = 'contain';
-    tempImg.style.transition = 'left 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-    tempImg.alt = mainImage.alt;
-
-    wrapper.appendChild(tempImg);
-
-    // Запускаем анимацию
-    requestAnimationFrame(() => {
-      mainImage.style.transition = 'left 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-      mainImage.style.position = 'absolute';
-      mainImage.style.left = '-100%';
-
-      tempImg.style.left = '0';
-    });
-
-    // После анимации заменяем изображение
-    setTimeout(() => {
-      mainImage.src = newImage;
-      mainImage.setAttribute('data-zoom', newImage);
-      mainImage.style.position = 'static';
-      mainImage.style.left = 'auto';
-      mainImage.style.transition = '';
-      tempImg.remove();
-
-      // Обновляем zoom
-      if (window.mediumZoom) {
-        const zoom = window.mediumZoom(mainImage);
-        if (zoom) zoom.refresh();
-      }
-    }, 400);
-  }
-
-  // Показ превью цвета
-  let previewElement = null;
-  function showColorPreview(imageUrl) {
-    if (!imageUrl) return;
-
-    const mainImage = document.getElementById('mainProductImage');
-    if (!mainImage) return;
-
-    previewElement = document.createElement('div');
-    previewElement.className = 'color-preview-overlay';
-    previewElement.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 5;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    `;
-
-    const previewImg = document.createElement('img');
-    previewImg.src = imageUrl;
-    previewImg.style.cssText = `
-      max-width: 80%;
-      max-height: 80%;
-      object-fit: contain;
-      border-radius: 12px;
-    `;
-
-    previewElement.appendChild(previewImg);
-    mainImage.parentElement.appendChild(previewElement);
-
-    requestAnimationFrame(() => {
-      previewElement.style.opacity = '1';
-    });
-  }
-
-  function hideColorPreview() {
-    if (previewElement) {
-      previewElement.style.opacity = '0';
-      setTimeout(() => {
-        if (previewElement && previewElement.parentElement) {
-          previewElement.parentElement.removeChild(previewElement);
-        }
-        previewElement = null;
-      }, 300);
+      const parsed = JSON.parse(node.textContent || '');
+      return parsed == null ? fallback : parsed;
+    } catch (_) {
+      return fallback;
     }
   }
 
-  // Обновление галереи
-  function initImageGallery() {
-    const extraImagesTag = document.getElementById('product-extra-images');
-    if (!extraImagesTag) return;
-
-    let extraImages = [];
+  function readOfferMap(container) {
+    const scriptMap = readJsonScript('offer-id-map', null);
+    if (scriptMap && typeof scriptMap === 'object') return scriptMap;
     try {
-      extraImages = JSON.parse(extraImagesTag.textContent || '[]').filter(img => !!img);
-    } catch (e) {
-      extraImages = [];
+      return JSON.parse(container.getAttribute('data-offer-id-map') || '{}') || {};
+    } catch (_) {
+      return {};
     }
+  }
 
-    const mainImage = document.getElementById('mainProductImage');
-    if (!mainImage) return;
+  function uniqueImages(images) {
+    const seen = new Set();
+    return (images || []).filter((url) => {
+      if (!url || seen.has(url)) return false;
+      seen.add(url);
+      return true;
+    });
+  }
 
-    const mainUrl = mainImage.src;
-    const allImages = [mainUrl, ...extraImages];
-    const thumbnails = document.getElementById('productThumbnails');
+  function baseImages(state) {
+    const initial = state.mainImage
+      ? (state.mainImage.getAttribute('data-initial-image') || state.mainImage.currentSrc || state.mainImage.src)
+      : '';
+    return uniqueImages([initial].concat(state.extraImages || []));
+  }
 
-    if (!thumbnails) return;
+  function activeVariant(state) {
+    const active = state.root.querySelector('#color-picker .color-swatch.active');
+    if (!active) return null;
+    const id = Number(active.getAttribute('data-variant') || 0);
+    return (state.variants || []).find((variant) => Number(variant.id) === id) || null;
+  }
 
-    thumbnails.innerHTML = '';
+  function imagesForCurrentSelection(state) {
+    const variant = activeVariant(state);
+    if (variant && Array.isArray(variant.images) && variant.images.length) {
+      return uniqueImages(variant.images);
+    }
+    return baseImages(state);
+  }
 
-    allImages.forEach((url, idx) => {
-      const thumb = document.createElement('button');
-      thumb.type = 'button';
-      thumb.className = 'product-thumbnail' + (idx === 0 ? ' active' : '');
-      thumb.addEventListener('click', () => {
-        thumbnails.querySelectorAll('.product-thumbnail').forEach(t => t.classList.remove('active'));
-        thumb.classList.add('active');
-        mainImage.src = url;
-        mainImage.setAttribute('data-zoom', url);
-        if (window.mediumZoom) {
-          const zoom = window.mediumZoom(mainImage);
-          if (zoom) zoom.refresh();
-        }
-      });
+  function initGallery(state) {
+    if (!state.mainImage || !state.thumbs) return;
+    const images = imagesForCurrentSelection(state);
+    renderThumbnails(state, images);
+    initThumbnailNav(state);
+    if (images[0]) {
+      setMainImage(state, images[0], { immediate: true });
+    }
+  }
+
+  function renderThumbnails(state, images) {
+    if (!state.thumbs) return;
+    state.thumbs.innerHTML = '';
+
+    images.forEach((url, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `tc-thumbnail${index === 0 ? ' active' : ''}`;
+      button.setAttribute('aria-label', `Фото товару ${index + 1}`);
+      button.dataset.image = url;
 
       const img = document.createElement('img');
       img.src = url;
       img.alt = '';
-      img.loading = 'lazy';
+      img.loading = index === 0 ? 'eager' : 'lazy';
+      img.decoding = 'async';
 
-      thumb.appendChild(img);
-      thumbnails.appendChild(thumb);
+      button.appendChild(img);
+      button.addEventListener('click', () => {
+        state.thumbs.querySelectorAll('.tc-thumbnail').forEach((item) => item.classList.remove('active'));
+        button.classList.add('active');
+        setMainImage(state, url);
+      });
+      state.thumbs.appendChild(button);
     });
   }
 
-  function updateThumbnails(images, thumbnailsContainer) {
-    if (!images || images.length === 0 || !thumbnailsContainer) return;
+  function initThumbnailNav(state) {
+    const prev = state.root.querySelector('[data-thumb-prev]');
+    const next = state.root.querySelector('[data-thumb-next]');
+    if (!prev || !next || prev.dataset.bound === '1') return;
+    prev.dataset.bound = '1';
+    next.dataset.bound = '1';
 
-    thumbnailsContainer.innerHTML = '';
+    const scrollByThumb = (direction) => {
+      if (!state.thumbs) return;
+      const firstThumb = state.thumbs.querySelector('.tc-thumbnail');
+      const amount = firstThumb ? firstThumb.getBoundingClientRect().width + 12 : 124;
+      state.thumbs.scrollBy({ left: direction * amount, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+    };
 
-    images.forEach((url, idx) => {
-      const thumb = document.createElement('button');
-      thumb.type = 'button';
-      thumb.className = 'product-thumbnail' + (idx === 0 ? ' active' : '');
-      thumb.addEventListener('click', () => {
-        thumbnailsContainer.querySelectorAll('.product-thumbnail').forEach(t => t.classList.remove('active'));
-        thumb.classList.add('active');
-        const mainImage = document.getElementById('mainProductImage');
-        if (mainImage) {
-          mainImage.src = url;
-          mainImage.setAttribute('data-zoom', url);
-          if (window.mediumZoom) {
-            const zoom = window.mediumZoom(mainImage);
-            if (zoom) zoom.refresh();
-          }
-        }
-      });
-
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = '';
-      img.loading = 'lazy';
-
-      thumb.appendChild(img);
-      thumbnailsContainer.appendChild(thumb);
-    });
+    prev.addEventListener('click', () => scrollByThumb(-1));
+    next.addEventListener('click', () => scrollByThumb(1));
   }
 
-  // Medium Zoom для изображений
-  function initMediumZoom() {
-    const mainImage = document.getElementById('mainProductImage');
-    if (mainImage && window.mediumZoom) {
-      const zoom = window.mediumZoom(mainImage, {
-        background: 'rgba(12, 12, 15, 0.95)',
-        margin: 40
-      });
-      window.productImageZoom = zoom;
+  function setMainImage(state, url, options) {
+    if (!state.mainImage || !url) return;
+    const immediate = options && options.immediate;
+    if (state.mainImage.getAttribute('src') === url && !immediate) return;
+
+    const apply = () => {
+      state.mainImage.src = url;
+      state.mainImage.setAttribute('data-zoom', url);
+      state.mainImage.classList.remove('is-switching');
+    };
+
+    if (immediate || prefersReducedMotion) {
+      apply();
+      return;
     }
+
+    state.mainImage.classList.add('is-switching');
+    preloadImage(url)
+      .then(() => window.setTimeout(apply, 60))
+      .catch(() => window.setTimeout(apply, 90));
   }
 
-  // Карусель рекомендаций с автопрокруткой
-  function initRecommendationsCarousel() {
-    const swiperEl = document.getElementById('recommendationsSwiper');
-    if (!swiperEl || !window.Swiper) return;
-
-    const swiper = new window.Swiper(swiperEl, {
-      slidesPerView: 1,
-      spaceBetween: 20,
-      autoplay: {
-        delay: 3000, // 3 секунды между слайдами
-        disableOnInteraction: false,
-        pauseOnMouseEnter: true
-      },
-      loop: true,
-      speed: 1200, // Плавная прокрутка
-      effect: 'slide',
-      freeMode: false,
-      breakpoints: {
-        576: {
-          slidesPerView: 2,
-          spaceBetween: 20
-        },
-        768: {
-          slidesPerView: 3,
-          spaceBetween: 24
-        },
-        992: {
-          slidesPerView: 4,
-          spaceBetween: 24
-        },
-        1200: {
-          slidesPerView: 4,
-          spaceBetween: 28
-        }
-      },
-      navigation: {
-        nextEl: '.recommendations-next',
-        prevEl: '.recommendations-prev'
-      },
-      on: {
-        init: function () {
-          // Показываем навигацию только на desktop
-          if (window.innerWidth >= 992) {
-            const next = document.querySelector('.recommendations-next');
-            const prev = document.querySelector('.recommendations-prev');
-            if (next) next.style.display = 'flex';
-            if (prev) prev.style.display = 'flex';
-          }
-        }
-      }
-    });
-
-    // Скрываем навигацию на мобильных
-    window.addEventListener('resize', function () {
-      const next = document.querySelector('.recommendations-next');
-      const prev = document.querySelector('.recommendations-prev');
-      if (window.innerWidth >= 992) {
-        if (next) next.style.display = 'flex';
-        if (prev) prev.style.display = 'flex';
-      } else {
-        if (next) next.style.display = 'none';
-        if (prev) prev.style.display = 'none';
-      }
-    });
-  }
-
-  // Вкладки
-  function initTabs() {
-    const tabButtons = document.querySelectorAll('.product-tab-btn-modern');
-    const tabPanes = document.querySelectorAll('.product-tab-pane-modern');
-
-    tabButtons.forEach(button => {
-      button.addEventListener('click', function () {
-        const tabName = this.getAttribute('data-tab');
-
-        // Убираем active со всех
-        tabButtons.forEach(btn => btn.classList.remove('active'));
-        tabPanes.forEach(pane => pane.classList.remove('active'));
-
-        // Добавляем active к выбранным
-        this.classList.add('active');
-        const pane = document.getElementById('tab-' + tabName);
-        if (pane) pane.classList.add('active');
-      });
-    });
-  }
-
-  // Выбор размера
-  function initSizeSelection() {
-    const sizeInputs = document.querySelectorAll('input[name="size"]');
-    const addToCartBtn = document.getElementById('addToCartBtn');
-    const stickyBtn = document.getElementById('stickyAddToCartBtn');
-
-    function checkSizeAvailability() {
-      const checkedSize = document.querySelector('input[name="size"]:checked');
-      const isUnavailable = checkedSize && checkedSize.disabled;
-
-      [addToCartBtn, stickyBtn].forEach(btn => {
-        if (!btn) return;
-        if (isUnavailable) {
-          btn.classList.add('unavailable');
-          btn.disabled = true;
-          btn.querySelector('.btn-text')?.setAttribute('data-original-text', btn.querySelector('.btn-text').textContent);
-          btn.querySelector('.btn-text').textContent = 'Немає в наявності';
+  function preloadImage(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        if (img.decode) {
+          img.decode().then(resolve).catch(resolve);
         } else {
-          btn.classList.remove('unavailable');
-          btn.disabled = false;
-          const originalText = btn.querySelector('.btn-text')?.getAttribute('data-original-text');
-          if (originalText) {
-            btn.querySelector('.btn-text').textContent = originalText;
-          }
+          resolve();
         }
-      });
-    }
-
-    sizeInputs.forEach(input => {
-      input.addEventListener('change', checkSizeAvailability);
+      };
+      img.onerror = reject;
+      img.src = url;
     });
-
-    checkSizeAvailability();
   }
 
-  function debounce(func, wait) {
-    let timeout;
-    return function () {
-      const context = this;
-      const args = arguments;
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(context, args), wait);
+  function initColorSelection(state) {
+    const swatches = Array.from(state.root.querySelectorAll('#color-picker .color-swatch'));
+    if (!swatches.length) return;
+
+    swatches.forEach((button) => {
+      button.addEventListener('click', () => {
+        swatches.forEach((item) => item.classList.remove('active'));
+        button.classList.add('active');
+        state.container.dataset.currentVariant = button.getAttribute('data-variant') || 'default';
+        const images = imagesForCurrentSelection(state);
+        renderThumbnails(state, images);
+        if (images[0]) setMainImage(state, images[0]);
+        const offerId = updateCurrentOfferId(state);
+        trackCustomizeProduct(state, button.getAttribute('data-variant'), offerId);
+      });
+    });
+  }
+
+  function initSizeSelection(state) {
+    selectSizeFromURL();
+    state.root.querySelectorAll('input[name="size"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        updateCurrentOfferId(state);
+      });
+    });
+  }
+
+  function selectSizeFromURL() {
+    const sizeParam = new URLSearchParams(window.location.search).get('size');
+    if (!sizeParam) return;
+    const wanted = sizeParam.toUpperCase();
+    const input = Array.from(document.querySelectorAll('input[name="size"]'))
+      .find((item) => String(item.value || '').toUpperCase() === wanted);
+    if (input && !input.checked) {
+      input.checked = true;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  function currentSelection(state) {
+    const color = state.root.querySelector('#color-picker .color-swatch.active');
+    const sizeInput = state.root.querySelector('input[name="size"]:checked');
+    const colorVariantId = color ? color.getAttribute('data-variant') : null;
+    const size = sizeInput ? String(sizeInput.value || '').toUpperCase() : '';
+    const key = `${colorVariantId || 'default'}:${size}`;
+    const fallback = state.container.getAttribute('data-current-offer-id') ||
+      state.container.getAttribute('data-default-offer-id') ||
+      '';
+
+    return {
+      colorVariantId,
+      size,
+      key,
+      offerId: state.offerIdMap[key] || fallback,
     };
   }
 
-  // Sticky кнопка для мобильных
-  function initStickyButton() {
-    const stickyContainer = document.getElementById('productStickyMobile');
-    if (!stickyContainer) return;
-
-    // Показываем sticky на мобильных
-    function updateStickyVisibility() {
-      if (window.innerWidth < 992) {
-        stickyContainer.classList.add('active');
-      } else {
-        stickyContainer.classList.remove('active');
-      }
+  function updateCurrentOfferId(state) {
+    const selection = currentSelection(state);
+    if (selection.offerId) {
+      state.container.setAttribute('data-current-offer-id', selection.offerId);
     }
-
-    updateStickyVisibility();
-    window.addEventListener('resize', debounce(updateStickyVisibility, 100));
-
-    // Синхронизируем клики sticky и обычной кнопки
-    const stickyBtn = stickyContainer.querySelector('.sticky-add-btn');
-    const mainBtn = document.getElementById('addToCartBtn');
-
-    if (stickyBtn && mainBtn) {
-      stickyBtn.addEventListener('click', function () {
-        mainBtn.click();
-      });
-    }
+    return selection.offerId;
   }
 
-  // Добавление в корзину с fly to cart анимацией
-  function initAddToCart() {
-    const addButtons = document.querySelectorAll('[data-add-to-cart]');
+  function initFitSelection(root) {
+    const selector = root.querySelector('[data-fit-selector]');
+    if (!selector) return;
 
-    addButtons.forEach(button => {
-      button.addEventListener('click', function (e) {
-        // Если есть inline обработчик, не перехватываем
-        if (this.hasAttribute('onclick')) return;
-
-        e.preventDefault();
-
-        const productId = this.getAttribute('data-add-to-cart');
-        const sizeInput = document.querySelector('input[name="size"]:checked');
-        const size = sizeInput ? sizeInput.value : 'S';
-
-        // Получаем выбранный цвет
-        let colorVariantId = null;
-        const activeColorSwatch = document.querySelector('#colorPicker .product-color-swatch.active, #colorPicker .product-color-swatch-compact.active');
-        if (activeColorSwatch) {
-          colorVariantId = activeColorSwatch.getAttribute('data-variant');
-        }
-
-        // Получаем количество
-        const qtyInput = document.getElementById('productQty');
-        const qty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
-
-        // Показываем loading состояние
-        button.classList.add('loading');
-        button.disabled = true;
-
-        // Fly to cart анимация
-        const mainImage = document.getElementById('mainProductImage');
-        if (mainImage && window.innerWidth < 992) {
-          // На мобильных летит вниз
-          flyToCartMobile(mainImage, button);
-        } else if (mainImage) {
-          // На desktop летит вверх
-          flyToCartDesktop(mainImage, button);
-        }
-
-        // Отправляем запрос
-        const body = new URLSearchParams({
-          product_id: productId,
-          size: size,
-          qty: qty
-        });
-
-        if (colorVariantId) {
-          body.append('color_variant_id', colorVariantId);
-        }
-
-        fetch('/cart/add/', {
-          method: 'POST',
-          headers: {
-            'X-CSRFToken': getCSRFToken(),
-            'X-Requested-With': 'XMLHttpRequest',
-            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-          },
-          body: body
-        })
-          .then(r => r.json())
-          .then(data => {
-            button.classList.remove('loading');
-            button.disabled = false;
-
-            if (data.ok) {
-              // Success состояние
-              button.classList.add('success');
-              const originalText = button.querySelector('.btn-text')?.textContent;
-              if (originalText) {
-                button.querySelector('.btn-text').setAttribute('data-original-text', originalText);
-              }
-              button.querySelector('.btn-text').textContent = 'Додано!';
-
-              // Обновляем мини-корзину
-              try {
-                if (window.refreshMiniCart) window.refreshMiniCart();
-              } catch (e) { }
-
-              // Возвращаем текст через 2 секунды
-              setTimeout(() => {
-                button.classList.remove('success');
-                const original = button.querySelector('.btn-text')?.getAttribute('data-original-text');
-                if (original) {
-                  button.querySelector('.btn-text').textContent = original;
-                } else {
-                  button.querySelector('.btn-text').textContent = 'Додати в кошик';
-                }
-              }, 2000);
-            } else {
-              // Error состояние
-              button.classList.add('error');
-              button.querySelector('.btn-text').textContent = 'Помилка';
-              setTimeout(() => {
-                button.classList.remove('error');
-                const original = button.querySelector('.btn-text')?.getAttribute('data-original-text');
-                if (original) {
-                  button.querySelector('.btn-text').textContent = original;
-                } else {
-                  button.querySelector('.btn-text').textContent = 'Додати в кошик';
-                }
-              }, 2000);
-            }
-          })
-          .catch(error => {
-            button.classList.remove('loading');
-            button.disabled = false;
-            button.classList.add('error');
-            button.querySelector('.btn-text').textContent = 'Помилка';
-            setTimeout(() => {
-              button.classList.remove('error');
-              const original = button.querySelector('.btn-text')?.getAttribute('data-original-text');
-              if (original) {
-                button.querySelector('.btn-text').textContent = original;
-              } else {
-                button.querySelector('.btn-text').textContent = 'Додати в кошик';
-              }
-            }, 2000);
-          });
+    const options = Array.from(selector.querySelectorAll('[data-fit-option]'));
+    selector.querySelectorAll('input[name="fit_option"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        options.forEach((option) => option.classList.remove('active'));
+        const label = selector.querySelector(`label[for="${input.id}"]`);
+        if (label) label.classList.add('active');
+        const container = document.getElementById('product-detail-container');
+        if (container) container.dataset.currentFit = input.value || '';
       });
     });
   }
 
-  // Fly to cart анимация для мобильных
-  function flyToCartMobile(image, button) {
-    const flyElement = document.createElement('div');
-    flyElement.className = 'fly-to-cart';
+  function initTabs(root) {
+    const tabs = Array.from(root.querySelectorAll('[data-pdp-tab]'));
+    const panels = Array.from(root.querySelectorAll('[data-pdp-panel]'));
+    if (!tabs.length || !panels.length) return;
+
+    const activateTab = (tab, focus) => {
+        const target = tab.getAttribute('data-pdp-tab');
+        tabs.forEach((item) => {
+          const active = item === tab;
+          item.classList.toggle('active', active);
+          item.setAttribute('aria-selected', active ? 'true' : 'false');
+          item.setAttribute('tabindex', active ? '0' : '-1');
+        });
+        panels.forEach((panel) => {
+          const active = panel.getAttribute('data-pdp-panel') === target;
+          panel.classList.toggle('active', active);
+          panel.hidden = !active;
+        });
+        tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        if (focus) tab.focus();
+    };
+
+    tabs.forEach((tab, index) => {
+      tab.setAttribute('tabindex', tab.classList.contains('active') ? '0' : '-1');
+      tab.addEventListener('click', () => activateTab(tab, false));
+      tab.addEventListener('keydown', (event) => {
+        const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+        if (!keys.includes(event.key)) return;
+        event.preventDefault();
+        let nextIndex = index;
+        if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabs.length) % tabs.length;
+        if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
+        if (event.key === 'Home') nextIndex = 0;
+        if (event.key === 'End') nextIndex = tabs.length - 1;
+        activateTab(tabs[nextIndex], true);
+      });
+    });
+
+    root.querySelectorAll('[data-pdp-tab-trigger]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const target = button.getAttribute('data-pdp-tab-trigger');
+        const tab = tabs.find((item) => item.getAttribute('data-pdp-tab') === target);
+        if (tab) activateTab(tab, true);
+      });
+    });
+  }
+
+  function initShare(root, container) {
+    const buttons = root.querySelectorAll('[data-share-copy]');
+    if (!buttons.length) return;
+
+    buttons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        const url = container.getAttribute('data-share-url') || window.location.href;
+        const copied = await copyToClipboard(url);
+        if (!copied) return;
+        button.classList.add('is-copied');
+        window.setTimeout(() => button.classList.remove('is-copied'), 1400);
+      });
+    });
+  }
+
+  async function copyToClipboard(value) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch (_) { }
+
+    const input = document.createElement('textarea');
+    input.value = value;
+    input.setAttribute('readonly', '');
+    input.style.position = 'fixed';
+    input.style.top = '-1000px';
+    document.body.appendChild(input);
+    input.select();
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (_) {
+      ok = false;
+    }
+    input.remove();
+    return ok;
+  }
+
+  function initZoom(state) {
+    const buttons = state.root.querySelectorAll('[data-gallery-zoom]');
+    if (!buttons.length || !state.mainImage) return;
+
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => openLightbox(state.mainImage.getAttribute('data-zoom') || state.mainImage.src, state.mainImage.alt));
+    });
+  }
+
+  function openLightbox(src, alt) {
+    if (!src) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'tc-lightbox';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Закрити фото');
+    close.textContent = '×';
 
     const img = document.createElement('img');
-    img.src = image.src;
-    flyElement.appendChild(img);
+    img.src = src;
+    img.alt = alt || '';
 
-    document.body.appendChild(flyElement);
+    overlay.appendChild(close);
+    overlay.appendChild(img);
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
 
-    const buttonRect = button.getBoundingClientRect();
-    const cartBtn = document.querySelector('#cart-toggle-mobile') || document.querySelector('#cart-toggle');
+    const remove = () => {
+      overlay.classList.remove('is-visible');
+      window.setTimeout(() => {
+        overlay.remove();
+        document.body.style.overflow = '';
+      }, prefersReducedMotion ? 0 : 160);
+      document.removeEventListener('keydown', onKeydown);
+    };
+    const onKeydown = (event) => {
+      if (event.key === 'Escape') remove();
+    };
 
-    if (cartBtn) {
-      const cartRect = cartBtn.getBoundingClientRect();
-      const startRect = image.getBoundingClientRect();
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) remove();
+    });
+    close.addEventListener('click', remove);
+    document.addEventListener('keydown', onKeydown);
+    window.requestAnimationFrame(() => overlay.classList.add('is-visible'));
+  }
 
-      // Set initial position using transform
-      flyElement.style.position = 'fixed';
-      flyElement.style.left = '0';
-      flyElement.style.top = '0';
-      flyElement.style.transform = `translate(${startRect.left}px, ${startRect.top}px)`;
-      flyElement.style.willChange = 'transform, opacity';
+  function initStickyAdd(root) {
+    const stickyBar = root.querySelector('#productStickyMobile');
+    const stickyButton = root.querySelector('[data-pdp-sticky-add]');
+    const mainButton = root.querySelector('.tc-add-btn[data-add-to-cart]');
+    if (!stickyButton || !mainButton) return;
 
-      // Calculate target position relative to viewport (since fixed)
-      const targetX = cartRect.left + (cartRect.width / 2) - 30;
-      const targetY = cartRect.top + (cartRect.height / 2) - 30;
+    stickyButton.addEventListener('click', () => {
+      mainButton.click();
+    });
 
-      requestAnimationFrame(() => {
-        // Force reflow
-        flyElement.getBoundingClientRect();
+    if (!stickyBar) return;
 
-        flyElement.style.transition = 'transform 0.6s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.6s ease';
-        flyElement.style.transform = `translate(${targetX}px, ${targetY}px) scale(0.3)`;
-        flyElement.style.opacity = '0';
+    const mediaPanel = root.querySelector('.tc-gallery-card') || root.querySelector('.tc-media-stage');
+    const purchaseBar = root.querySelector('#product-action-bar');
+    const mobileQuery = window.matchMedia('(max-width: 767.98px)');
+
+    const updateStickyVisibility = () => {
+      if (!mobileQuery.matches) {
+        stickyBar.classList.remove('is-visible');
+        return;
+      }
+
+      const mediaBottom = mediaPanel ? mediaPanel.getBoundingClientRect().bottom : 0;
+      const purchaseRect = purchaseBar ? purchaseBar.getBoundingClientRect() : null;
+      const purchaseVisible = purchaseRect && purchaseRect.top < window.innerHeight - 110 && purchaseRect.bottom > 0;
+      const hasPassedMedia = mediaBottom < window.innerHeight * 0.62;
+      stickyBar.classList.toggle('is-visible', hasPassedMedia && !purchaseVisible);
+    };
+
+    updateStickyVisibility();
+    window.addEventListener('scroll', updateStickyVisibility, { passive: true });
+    window.addEventListener('resize', updateStickyVisibility);
+    if (mobileQuery.addEventListener) {
+      mobileQuery.addEventListener('change', updateStickyVisibility);
+    }
+  }
+
+  function trackCustomizeProduct(state, variantId, offerId) {
+    try {
+      if (!window.trackEvent || !offerId) return;
+      const payload = document.getElementById('product-analytics-payload');
+      const price = parsePrice(payload && payload.dataset.price);
+      window.trackEvent('CustomizeProduct', {
+        content_ids: [offerId],
+        content_type: 'product',
+        variant_id: variantId || null,
+        value: price,
+        currency: 'UAH',
+      });
+    } catch (_) { }
+  }
+
+  function trackViewContent(state) {
+    window.setTimeout(() => {
+      if (state.viewContentTracked) return;
+      const payload = document.getElementById('product-analytics-payload');
+      if (!payload || !window.trackEvent) return;
+
+      const selection = currentSelection(state);
+      const offerId = selection.offerId || payload.dataset.id;
+      const price = parsePrice(payload.dataset.price);
+      const title = payload.dataset.title || state.container.getAttribute('data-product-title') || '';
+      const category = payload.dataset.category || state.container.getAttribute('data-product-category') || '';
+      const eventId = makeEventId();
+      const trackingCtx = (typeof window.getTrackingContext === 'function' && window.getTrackingContext()) || {};
+      const item = {
+        item_id: offerId,
+        item_name: title,
+        item_brand: 'TwoComms',
+        item_category: category || '',
+        item_variant: selection.size || '',
+        price,
+        quantity: 1,
+        currency: 'UAH',
+      };
+
+      state.viewContentTracked = true;
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: 'view_item',
+        event_id: eventId,
+        fbp: trackingCtx.fbp || null,
+        fbc: trackingCtx.fbc || null,
+        ecommerce: {
+          currency: 'UAH',
+          value: price,
+          items: [item],
+        },
+        eventModel: {
+          event_id: eventId,
+          value: price,
+          currency: 'UAH',
+          content_name: title,
+          items: [{ id: offerId, name: title, price, quantity: 1 }],
+          ecomm_prodid: [offerId],
+          ecomm_pagetype: 'product',
+          ecomm_totalvalue: price,
+        },
       });
 
-      setTimeout(() => {
-        if (flyElement.parentElement) {
-          flyElement.parentElement.removeChild(flyElement);
+      const metaOptions = { event_id: eventId };
+      try {
+        if (typeof window.buildUserDataForEvent === 'function') {
+          const ctx = window.buildUserDataForEvent();
+          if (ctx && typeof ctx === 'object') {
+            if (ctx.user_data && Object.keys(ctx.user_data).length) metaOptions.user_data = ctx.user_data;
+            if (ctx.external_id) metaOptions.external_id = ctx.external_id;
+            if (ctx.fbp) metaOptions.fbp = ctx.fbp;
+            if (ctx.fbc) metaOptions.fbc = ctx.fbc;
+          }
         }
-      }, 600);
-    } else {
-      // Fallback: просто исчезает
-      setTimeout(() => {
-        if (flyElement.parentElement) {
-          flyElement.parentElement.removeChild(flyElement);
-        }
-      }, 300);
-    }
-  }
+      } catch (_) { }
 
-  // Fly to cart анимация для desktop
-  function flyToCartDesktop(image, button) {
-    const flyElement = document.createElement('div');
-    flyElement.className = 'fly-to-cart';
-
-    const img = document.createElement('img');
-    img.src = image.src;
-    flyElement.appendChild(img);
-
-    document.body.appendChild(flyElement);
-
-    const cartBtn = document.querySelector('#cart-toggle');
-
-    if (cartBtn) {
-      const cartRect = cartBtn.getBoundingClientRect();
-      const startRect = image.getBoundingClientRect();
-
-      // Set initial position using transform
-      flyElement.style.position = 'fixed';
-      flyElement.style.left = '0';
-      flyElement.style.top = '0';
-      flyElement.style.transform = `translate(${startRect.left}px, ${startRect.top}px)`;
-      flyElement.style.willChange = 'transform, opacity';
-
-      // Calculate target position
-      const targetX = cartRect.left + (cartRect.width / 2) - 30;
-      const targetY = cartRect.top + (cartRect.height / 2) - 30;
-
-      requestAnimationFrame(() => {
-        // Force reflow
-        flyElement.getBoundingClientRect();
-
-        flyElement.style.transition = 'transform 0.6s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.6s ease';
-        flyElement.style.transform = `translate(${targetX}px, ${targetY}px) scale(0.3)`;
-        flyElement.style.opacity = '0';
+      window.trackEvent('ViewContent', {
+        content_ids: [offerId],
+        content_name: title,
+        content_type: 'product',
+        content_category: category,
+        value: price,
+        currency: 'UAH',
+        contents: [{
+          id: offerId,
+          quantity: 1,
+          item_price: price,
+        }],
+        event_id: eventId,
+        __meta: metaOptions,
       });
-
-      setTimeout(() => {
-        if (flyElement.parentElement) {
-          flyElement.parentElement.removeChild(flyElement);
-        }
-      }, 600);
-    } else {
-      setTimeout(() => {
-        if (flyElement.parentElement) {
-          flyElement.parentElement.removeChild(flyElement);
-        }
-      }, 300);
-    }
+    }, 240);
   }
 
-  // URL параметры для размеров
-  function initURLParams() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const sizeParam = urlParams.get('size');
-
-    if (sizeParam) {
-      const sizeInput = document.querySelector(`input[name="size"][value="${sizeParam.toUpperCase()}"]`);
-      if (sizeInput && !sizeInput.disabled) {
-        sizeInput.checked = true;
-        sizeInput.dispatchEvent(new Event('change'));
-      }
-    }
+  function parsePrice(value) {
+    const parsed = Number.parseFloat(value || '0');
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
   }
 
-  // Получение CSRF токена
-  function getCSRFToken() {
-    const cookieMatch = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-    if (cookieMatch && cookieMatch[1]) {
-      return decodeURIComponent(cookieMatch[1]);
+  function makeEventId() {
+    if (window.__twcAnalytics && typeof window.__twcAnalytics.safeGenerateEventId === 'function') {
+      return window.__twcAnalytics.safeGenerateEventId();
     }
-    const meta = document.querySelector('meta[name="csrf-token"]');
-    if (meta) return meta.getAttribute('content');
-
-    const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
-    if (input) return input.value;
-
-    // Fallback: cookie
-    const name = 'csrftoken';
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-      const cookies = document.cookie.split(';');
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
-      }
+    if (typeof window.generateEventId === 'function') {
+      return window.generateEventId();
     }
-    return cookieValue;
+    return `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   }
-
 })();

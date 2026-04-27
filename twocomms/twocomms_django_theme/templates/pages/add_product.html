@@ -21,6 +21,9 @@
           <div class='col-md-6'>{{ form.category.label_tag }}{{ form.category }}</div>
           <div class='col-md-3'>{{ form.price.label_tag }}{{ form.price }}</div>
           <div class='col-md-3'>{{ form.main_image.label_tag }}{{ form.main_image }}</div>
+          {% if form.home_card_image %}
+          <div class='col-md-6'>{{ form.home_card_image.label_tag }}{{ form.home_card_image }}</div>
+          {% endif %}
         </div>
 
         <div class='row g-3'>

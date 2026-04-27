@@ -21,6 +21,7 @@ from ..models import Product, Category, SurveySession
 from ..pagination import build_homepage_pagination_items
 from ..services.catalog_helpers import (
     apply_public_product_order,
+    build_color_preview_key,
     build_color_preview_map,
     get_categories_cached,
     get_public_category_version,
@@ -98,7 +99,9 @@ def home(request):
     featured_variants = color_previews.get(featured.id, []) if featured else []
 
     for product in products:
-        setattr(product, 'colors_preview', color_previews.get(product.id, []))
+        colors_preview = color_previews.get(product.id, [])
+        setattr(product, 'colors_preview', colors_preview)
+        setattr(product, 'colors_preview_key', build_color_preview_key(colors_preview))
 
     # Проверяем есть ли еще товары для пагинации
     total_products = paginator.count
@@ -178,6 +181,7 @@ def load_more_products(request):
         color_previews = build_color_preview_map(products)
         for product in products:
             product.colors_preview = color_previews.get(product.id, [])
+            product.colors_preview_key = build_color_preview_key(product.colors_preview)
 
         # Проверяем есть ли еще товары
         total_products = paginator.count

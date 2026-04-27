@@ -8,6 +8,8 @@ Product views - Детальная информация о товарах.
 - Отзывов (в будущем)
 """
 
+import re
+
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.urls import reverse
@@ -20,6 +22,33 @@ from ..utm_tracking import record_product_view
 
 
 # ==================== PRODUCT VIEWS ====================
+
+def _is_tshirt_product(product):
+    candidates = [
+        getattr(product, 'title', ''),
+        getattr(getattr(product, 'category', None), 'name', ''),
+        getattr(getattr(product, 'category', None), 'slug', ''),
+        getattr(getattr(product, 'catalog', None), 'name', ''),
+        getattr(getattr(product, 'catalog', None), 'slug', ''),
+    ]
+    normalized = ' '.join(str(item or '').lower() for item in candidates)
+    tshirt_pattern = re.compile(r'(^|[^a-z0-9а-яіїєґ])(?:футбол\w*|t-?shirts?|tees?)(?=$|[^a-z0-9а-яіїєґ])')
+    return bool(tshirt_pattern.search(normalized))
+
+
+def _resolve_fit_options(product):
+    if not _is_tshirt_product(product):
+        return []
+
+    options = list(product.fit_options.filter(is_active=True).order_by('order', 'id'))
+    if not options:
+        return []
+
+    has_default = any(option.is_default for option in options)
+    if not has_default:
+        options[0].is_default = True
+    return options
+
 
 # ВАЖНО: Не кэшируем страницу товара, так как нужен предвыбор размера/цвета из URL параметров
 # @cache_page_for_anon(600)  # Отключено для поддержки ?size=M и ?color=X
@@ -55,6 +84,7 @@ def product_detail(request, slug):
             'images',
             'catalog__size_grids',
             'catalog__options__values',
+            'fit_options',
         ),
         slug=slug,
         status='published',
@@ -155,6 +185,11 @@ def product_detail(request, slug):
         default_offer_id = list(offer_id_map.values())[0]
 
     offer_id_map_json = json.dumps(offer_id_map)
+    extra_image_urls = [
+        image.image.url
+        for image in images
+        if getattr(image, 'image', None)
+    ]
 
     # Генерируем breadcrumbs для SEO
     breadcrumbs = [
@@ -175,7 +210,8 @@ def product_detail(request, slug):
 
     # Получаем рекомендации товаров
     recommendation_engine = ProductRecommendationEngine(user=request.user if hasattr(request, 'user') else None)
-    recommended_products = recommendation_engine.get_recommendations(product=product, limit=8)
+    recommended_products = list(recommendation_engine.get_recommendations(product=product, limit=8))
+    recommended_product_ids = ':'.join(str(rec_product.id) for rec_product in recommended_products)
 
     # Обрабатываем цветовые превью для рекомендаций
     if recommended_products:
@@ -185,6 +221,7 @@ def product_detail(request, slug):
             rec_product.colors_preview = preview_map.get(rec_product.id, [])
 
     public_product_order_version = get_public_product_order_version()
+    fit_options = _resolve_fit_options(product)
 
     return render(
         request,
@@ -196,15 +233,20 @@ def product_detail(request, slug):
             'auto_select_first_color': auto_select_first_color,
             'breadcrumbs': breadcrumbs,
             'recommended_products': recommended_products,
+            'recommended_product_ids': recommended_product_ids,
             'preselected_size': preselected_size,
             'preselected_color': preselected_color,  # ID предвыбранного цвета из ?color=123
             'offer_id_map': offer_id_map_json,
             'default_offer_id': default_offer_id,
+            'offer_id_map_data': offer_id_map,
+            'extra_image_urls': extra_image_urls,
             'available_sizes': available_sizes,
             'size_display_labels': size_context["display_labels"],
             'resolved_size_guide': size_context["guide"],
             'resolved_size_profile': size_context["profile"],
             'public_product_order_version': public_product_order_version,
+            'fit_options': fit_options,
+            'show_fit_selector': bool(fit_options),
         }
     )
 

@@ -65,17 +65,23 @@ function animateImageChange(img, newSrc) {
 }
 
 function handleColorDotClick(e) {
-  if (!e.target.classList || !e.target.classList.contains('color-dot')) {
+  const colorDot = e.target.closest ? e.target.closest('.color-dot') : null;
+  if (!colorDot) {
     return;
   }
   e.stopPropagation();
-  const colorDot = e.target;
   const productCardWrap = colorDot.closest('.product-card-wrap');
   const productCard = productCardWrap ? productCardWrap.querySelector('.card.product') : null;
   if (!productCard) {
     return;
   }
-  const mainImage = productCard.querySelector('.ratio picture img') || productCard.querySelector('.ratio .product-main-image') || productCard.querySelector('.ratio img');
+  const mainImage =
+    productCard.querySelector('.home-product-media picture img') ||
+    productCard.querySelector('.home-product-media .product-main-image') ||
+    productCard.querySelector('.product-main-image') ||
+    productCard.querySelector('.ratio picture img') ||
+    productCard.querySelector('.ratio .product-main-image') ||
+    productCard.querySelector('.ratio img');
   if (!mainImage) {
     return;
   }
