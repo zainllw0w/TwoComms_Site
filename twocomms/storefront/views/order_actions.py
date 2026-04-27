@@ -415,8 +415,8 @@ def telegram_order_np_waybill_action(request, order_id: int, action: str):
                             status_code=409,
                             error_message=block_reason,
                             is_blocked=True,
-                                can_submit=False,
-                            )
+                            can_submit=False,
+                        )
 
                     document_ref = locked_order.nova_poshta_document_ref or ""
                     if not verify_order_action_token(
@@ -537,7 +537,7 @@ def telegram_order_np_waybill_action(request, order_id: int, action: str):
                         error_message=block_reason,
                         is_blocked=True,
                         can_submit=False,
-                )
+                    )
 
                 created = service.create_waybill(locked_order, form.cleaned_data)
                 recipient_point = created["recipient_point"]

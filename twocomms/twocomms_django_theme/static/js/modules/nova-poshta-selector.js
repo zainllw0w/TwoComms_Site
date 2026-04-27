@@ -175,7 +175,6 @@ class NovaPoshtaSelectorController {
 
     this.skipCityInputHandler = false;
     this.skipWarehouseInputHandler = false;
-    this.skipSubmitValidation = false;
     this.isSubmitting = false;
     this.cityController = null;
     this.warehouseController = null;
@@ -184,7 +183,6 @@ class NovaPoshtaSelectorController {
     this.handleCityInput = this.handleCityInput.bind(this);
     this.handleWarehouseInput = this.handleWarehouseInput.bind(this);
     this.handleWarehouseFocus = this.handleWarehouseFocus.bind(this);
-    this.handleSubmit = this.handleSubmit.bind(this);
 
     this.debouncedCityLookup = debounce(() => this.fetchCities(), SEARCH_DEBOUNCE_MS);
     this.debouncedWarehouseLookup = debounce(() => this.fetchWarehouses(), SEARCH_DEBOUNCE_MS);
@@ -269,35 +267,6 @@ class NovaPoshtaSelectorController {
       selectFn(JSON.parse(firstOption.dataset.itemJson || '{}'));
     } catch (_) {
       // no-op
-    }
-  }
-
-  async handleSubmit(event) {
-    if (this.skipSubmitValidation) {
-      this.skipSubmitValidation = false;
-      return;
-    }
-
-    event.preventDefault();
-    if (this.isSubmitting) {
-      return;
-    }
-
-    this.isSubmitting = true;
-    try {
-      const isValid = await this.validateSelection({ showErrors: true });
-      if (!isValid) {
-        return;
-      }
-
-      this.skipSubmitValidation = true;
-      if (typeof this.form.requestSubmit === 'function') {
-        this.form.requestSubmit();
-      } else {
-        HTMLFormElement.prototype.submit.call(this.form);
-      }
-    } finally {
-      this.isSubmitting = false;
     }
   }
 

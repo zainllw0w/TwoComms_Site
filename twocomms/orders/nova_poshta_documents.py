@@ -500,6 +500,7 @@ class NovaPoshtaDocumentService:
         tracking_number = str(result.get("IntDocNumber") or "").strip()
         document_ref = str(result.get("Ref") or "").strip()
         if not tracking_number:
+            self._delete_incomplete_waybill_safely(document_ref)
             raise NovaPoshtaDocumentError("Nova Poshta API не повернув номер ТТН.")
         if not document_ref:
             raise NovaPoshtaDocumentError("Nova Poshta API не повернув Ref створеної накладної.")
@@ -543,6 +544,18 @@ class NovaPoshtaDocumentService:
             "document_ref": deleted_ref,
             "warnings": [str(item).strip() for item in response.get("warnings") or [] if str(item).strip()],
         }
+
+    def _delete_incomplete_waybill_safely(self, document_ref: str) -> None:
+        normalized_ref = str(document_ref or "").strip()
+        if not normalized_ref:
+            return
+        try:
+            self.delete_waybill(normalized_ref)
+        except Exception:
+            logger.exception(
+                "Failed to delete Nova Poshta waybill after incomplete create response for document %s",
+                normalized_ref,
+            )
 
     def _resolve_sender_profile(self) -> dict[str, str]:
         configured_ref = (getattr(settings, "NOVA_POSHTA_SENDER_COUNTERPARTY_REF", "") or "").strip()
@@ -849,9 +862,6 @@ class NovaPoshtaDocumentService:
             raise NovaPoshtaDocumentError(
                 "Для поштомата габарити не можуть перевищувати 60x40x30 см."
             )
-
-    def _get_cod_amount(self, order) -> Decimal:
-        return build_order_payment_snapshot(order)["cod_amount_value"]
 
     @staticmethod
     def _normalize_name(value: Any) -> str:

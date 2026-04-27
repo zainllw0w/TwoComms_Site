@@ -603,6 +603,72 @@ class NovaPoshtaWaybillServiceTests(SimpleTestCase):
             with self.assertRaisesRegex(NovaPoshtaDocumentError, 'Ref створеної накладної'):
                 service.create_waybill(order, payload)
 
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_create_waybill_deletes_incomplete_document_when_number_is_missing(self):
+        service = NovaPoshtaDocumentService()
+        order = self._build_order(payment_status='paid')
+        sender_point = NovaPoshtaResolvedPoint(
+            city_label='м. Харків, Харків',
+            warehouse_label='Відділення №138',
+            settlement_ref='sender-settlement-ref',
+            city_ref='sender-city-ref',
+            warehouse_ref='sender-warehouse-ref',
+            warehouse_kind='branch',
+        )
+        recipient_point = NovaPoshtaResolvedPoint(
+            city_label='м. Київ, Київ',
+            warehouse_label='Відділення №4',
+            settlement_ref='recipient-settlement-ref',
+            city_ref='recipient-city-ref',
+            warehouse_ref='recipient-warehouse-ref',
+            warehouse_kind='branch',
+        )
+        payload = {
+            'recipient_full_name': 'Тестовий клієнт',
+            'recipient_phone': '+380991112233',
+            'recipient_city': 'Київ',
+            'recipient_city_ref': 'recipient-city-ref',
+            'recipient_warehouse': 'Відділення №4',
+            'recipient_warehouse_ref': 'recipient-warehouse-ref',
+            'sender_city': 'Харків',
+            'sender_city_ref': 'sender-city-ref',
+            'sender_warehouse': 'Відділення №138',
+            'sender_warehouse_ref': 'sender-warehouse-ref',
+            'description': 'Одяг бренду TwoComms',
+            'declared_cost': '1499.00',
+            'weight': '1',
+            'seats_amount': '1',
+            'length_cm': '30',
+            'width_cm': '20',
+            'height_cm': '8',
+            'cod_amount': '',
+            'payer_type': 'Recipient',
+            'payment_method': 'Cash',
+        }
+
+        with (
+            patch.object(service, '_resolve_sender_profile', return_value={
+                'sender_ref': 'sender-ref',
+                'contact_ref': 'sender-contact-ref',
+                'phone': '380991112233',
+            }),
+            patch.object(service, '_resolve_point', side_effect=[sender_point, recipient_point]),
+            patch.object(service, '_request') as request_mock,
+        ):
+            request_mock.side_effect = [
+                {'data': [{'Ref': 'recipient-ref', 'ContactPerson': [{'Ref': 'recipient-contact-ref'}]}]},
+                {'data': [{'Ref': 'document-ref'}], 'warnings': []},
+                {'data': [{'Ref': 'document-ref'}], 'warnings': []},
+            ]
+            with self.assertRaisesRegex(NovaPoshtaDocumentError, 'не повернув номер ТТН'):
+                service.create_waybill(order, payload)
+
+        self.assertEqual(request_mock.call_args_list[-1].args, (
+            'InternetDocument',
+            'delete',
+            {'DocumentRefs': 'document-ref'},
+        ))
+
 
 class NovaPoshtaWaybillFormTests(SimpleTestCase):
     def test_form_normalizes_recipient_phone(self):
