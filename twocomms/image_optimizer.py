@@ -24,7 +24,7 @@ class ImageOptimizer:
     }
 
     # Ширины, которые используются в responsive srcset-именах файлов.
-    RESPONSIVE_WIDTHS = [320, 480, 640, 768, 960, 1024, 1280, 1600, 1920]
+    RESPONSIVE_WIDTHS = [320, 480, 640, 768, 960, 1024, 1280, 1440]
 
     def __init__(self):
         self.media_root = settings.MEDIA_ROOT
@@ -89,7 +89,7 @@ class ImageOptimizer:
         output_format='WEBP',
         target_width=640,
         quality=None,
-        max_height=2400,
+        max_height=2000,
     ):
         """
         Оптимизирует изображение до максимальной ширины/высоты и возвращает
@@ -191,7 +191,7 @@ class ImageOptimizer:
         # Получаем информацию о файле
         file_name = Path(product_image_path).stem
         file_ext = Path(product_image_path).suffix.lower()
-        max_product_size = (1920, 2400)
+        max_product_size = (1600, 2000)
 
         optimized_images = {}
 
