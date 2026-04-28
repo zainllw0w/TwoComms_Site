@@ -3,6 +3,10 @@
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── 0. Design Tokens ──────────────────────────────────────── */
+body {
+  background: #03060c;
+}
+
 .cp-page {
   --cp-bg: #09080a;
   --cp-surface: rgba(17, 16, 18, 0.9);
@@ -24,7 +28,9 @@
   --cp-transition-enter: 300ms cubic-bezier(0.2, 0, 0, 1);
   --cp-transition-large: 400ms cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
+  min-height: 100vh;
   padding-bottom: 7rem;
+  background: #03060c;
   color: var(--cp-text);
 }
 
@@ -4743,13 +4749,15 @@
   --cp-ref-blue: #0d2233;
   display: grid;
   box-sizing: border-box;
-  grid-template-columns: minmax(350px, 0.83fr) minmax(460px, 1.35fr) minmax(260px, 0.62fr);
-  gap: clamp(1rem, 1.8rem, 1.8rem);
-  align-items: center;
+  grid-template-columns: minmax(340px, 0.78fr) minmax(520px, 1.38fr) minmax(286px, 0.54fr);
+  gap: clamp(0.8rem, 1.4vw, 1.35rem);
+  align-items: start;
   width: 100vw;
-  min-height: 660px;
+  height: 900px !important;
+  min-height: 900px !important;
+  max-height: none;
   margin-inline: calc(50% - 50vw);
-  padding: 28px 34px 34px;
+  padding: 30px 34px 44px;
   border-radius: 0;
   border-width: 1px 0;
   border-color: rgba(255, 255, 255, 0.08);
@@ -4778,10 +4786,10 @@
 
 .cp-hero--reference .cp-hero-copy {
   z-index: 3;
-  align-self: center;
-  gap: 1.15rem;
+  align-self: start;
+  gap: 1rem;
   width: min(100%, 430px);
-  padding: 0;
+  padding: 28px 0 0;
 }
 
 .cp-hero--reference .cp-hero-brand {
@@ -4905,16 +4913,33 @@
   position: relative;
   z-index: 2;
   display: grid;
-  align-self: center;
+  align-self: start;
   align-items: center;
   min-width: 0;
+  overflow: visible;
 }
 
 .cp-hero-stage {
   position: relative;
-  width: min(100%, 880px);
-  margin: 0 auto 56px;
+  left: 50%;
+  width: min(150%, 1180px);
+  max-width: none;
+  margin: 0 0 78px;
   aspect-ratio: 1672 / 941;
+  transform: translateX(-50%);
+  isolation: isolate;
+}
+
+.cp-hero-stage::before {
+  content: "";
+  position: absolute;
+  inset: -9% -10% 1%;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at 50% 88%, rgba(240, 191, 106, 0.2), transparent 34%),
+    radial-gradient(ellipse at 50% 45%, rgba(124, 66, 255, 0.18), transparent 48%);
+  filter: blur(2px);
+  pointer-events: none;
 }
 
 .cp-hero-stage img {
@@ -4923,6 +4948,8 @@
   height: 100%;
   object-fit: contain;
   filter: saturate(1.08) contrast(1.04);
+  mask-image: radial-gradient(ellipse 72% 76% at 50% 54%, #000 50%, rgba(0, 0, 0, 0.82) 63%, transparent 88%);
+  -webkit-mask-image: radial-gradient(ellipse 72% 76% at 50% 54%, #000 50%, rgba(0, 0, 0, 0.82) 63%, transparent 88%);
   user-select: none;
 }
 
@@ -4991,11 +5018,12 @@
 }
 
 .cp-hero-logo-on-cloth--hoodie {
-  top: 45%;
+  top: 46.3%;
   left: 30.4%;
-  width: 5.2%;
+  width: 4.7%;
   transform: translate(-50%, -50%) rotate(-1deg);
-  opacity: 0.94;
+  opacity: 0.84;
+  mix-blend-mode: screen;
 }
 
 .cp-hero-logo-on-cloth--hoodie span {
@@ -5010,6 +5038,8 @@
   left: 49.4%;
   width: 17.5%;
   transform: translate(-50%, -50%) rotate(-4deg);
+  opacity: 0.94;
+  mix-blend-mode: screen;
 }
 
 .cp-hero-logo-on-cloth--tee img {
@@ -5036,9 +5066,10 @@
 .cp-hero-logo-on-cloth--longsleeve {
   top: 42.5%;
   right: 27.7%;
-  width: 4.3%;
+  width: 3.85%;
   transform: translate(50%, -50%) rotate(2deg);
-  opacity: 0.9;
+  opacity: 0.78;
+  mix-blend-mode: screen;
 }
 
 .cp-hero-palette {
@@ -5103,19 +5134,22 @@
   position: relative;
   z-index: 3;
   display: grid;
-  align-self: center;
+  align-self: start;
+  justify-self: end;
   gap: 0.82rem;
+  width: min(100%, 310px);
+  margin-top: 44px;
   min-width: 0;
 }
 
 .cp-hero-option {
   position: relative;
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 74px minmax(0, 1fr);
   gap: 1rem;
   align-items: center;
-  min-height: 122px;
-  padding: 1rem 1.05rem;
+  min-height: 140px;
+  padding: 1.05rem 1.08rem;
   border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 18px;
   background:
@@ -5152,8 +5186,8 @@
 .cp-hero-option-icon {
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 64px;
+  width: 74px;
+  height: 74px;
   border-radius: 999px;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.045);
@@ -5161,8 +5195,8 @@
 }
 
 .cp-hero-option-icon svg {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
 }
 
 .cp-hero-option-icon--violet {
@@ -5211,21 +5245,33 @@
 .cp-hero-mini-swatches i:nth-child(4) { background: #d24d36; }
 .cp-hero-mini-swatches i:nth-child(5) { background: #f5a542; }
 
+.cp-hero-telegram-mobile {
+  display: none;
+}
+
 .cp-shell[data-flow-phase="lobby"] .cp-hero--reference {
-  min-height: min(760px, calc(100svh - 90px));
+  height: 900px !important;
+  min-height: 900px !important;
+  max-height: none;
 }
 
 .cp-shell[data-flow-phase="studio"] .cp-hero--reference {
-  grid-template-columns: minmax(0, 1fr);
-  min-height: auto;
+  grid-template-columns: minmax(0, 0.95fr) minmax(260px, 0.55fr);
+  height: auto !important;
+  min-height: auto !important;
+  max-height: none;
   padding: 1rem 1.1rem;
+  align-items: center;
 }
 
-.cp-shell[data-flow-phase="studio"] .cp-hero--reference .cp-hero-theatre,
 .cp-shell[data-flow-phase="studio"] .cp-hero--reference .cp-hero-options,
 .cp-shell[data-flow-phase="studio"] .cp-hero--reference .cp-hero-proof-row,
 .cp-shell[data-flow-phase="studio"] .cp-hero--reference .cp-hero-signature {
   display: none;
+}
+
+.cp-shell[data-flow-phase="studio"] .cp-hero--reference .cp-hero-copy {
+  padding-top: 0;
 }
 
 .cp-shell[data-flow-phase="studio"] .cp-hero--reference .cp-hero-title {
@@ -5233,14 +5279,36 @@
   font-size: 2.35rem;
 }
 
+.cp-shell[data-flow-phase="studio"] .cp-hero-stage {
+  left: auto;
+  width: min(100%, 420px);
+  margin: 0 auto;
+  transform: none;
+}
+
+.cp-shell[data-flow-phase="studio"] .cp-hero-palette,
+.cp-shell[data-flow-phase="studio"] .cp-hero-garment-label,
+.cp-shell[data-flow-phase="studio"] .cp-hero-logo-on-cloth {
+  display: none;
+}
+
 @media (max-width: 1320px) {
   .cp-hero--reference {
-    grid-template-columns: minmax(270px, 0.7fr) minmax(390px, 1.28fr) minmax(244px, 0.62fr);
+    grid-template-columns: minmax(270px, 0.68fr) minmax(430px, 1.28fr) minmax(244px, 0.58fr);
     padding-inline: 24px;
   }
 
   .cp-hero--reference .cp-hero-title {
     font-size: 4.15rem;
+  }
+
+  .cp-hero-stage {
+    width: min(140%, 1060px);
+  }
+
+  .cp-hero-options {
+    width: min(100%, 294px);
+    margin-top: 34px;
   }
 
   .cp-hero-proof-row {
@@ -5253,19 +5321,19 @@
   }
 
   .cp-hero-option {
-    min-height: 108px;
-    grid-template-columns: 54px minmax(0, 1fr);
+    min-height: 126px;
+    grid-template-columns: 62px minmax(0, 1fr);
     gap: 0.82rem;
   }
 
   .cp-hero-option-icon {
-    width: 54px;
-    height: 54px;
+    width: 62px;
+    height: 62px;
   }
 
   .cp-hero-option-icon svg {
-    width: 30px;
-    height: 30px;
+    width: 34px;
+    height: 34px;
   }
 }
 
@@ -5285,6 +5353,9 @@
   }
 
   .cp-hero-options {
+    justify-self: stretch;
+    width: 100%;
+    margin-top: 0;
     grid-column: 1 / -1;
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -5302,6 +5373,8 @@
     flex-direction: column;
     align-items: stretch;
     gap: 1.25rem;
+    height: auto !important;
+    min-height: auto !important;
     padding: 1.15rem;
   }
 
@@ -5329,6 +5402,8 @@
 
   .cp-hero-stage {
     width: 100%;
+    left: auto;
+    transform: none;
     margin-bottom: 84px;
   }
 
@@ -5343,8 +5418,15 @@
 
 @media (max-width: 680px) {
   .cp-hero--reference {
-    padding: 0.92rem;
+    gap: 0.72rem;
+    padding: 0.82rem 0.92rem calc(6.2rem + env(safe-area-inset-bottom));
     border-radius: 0;
+    max-height: none;
+  }
+
+  .cp-hero--reference .cp-hero-copy {
+    gap: 0.72rem;
+    padding-top: 0;
   }
 
   .cp-hero--reference .cp-hero-badge {
@@ -5354,14 +5436,14 @@
 
   .cp-hero--reference .cp-hero-title {
     max-width: 12ch;
-    font-size: 2.52rem;
+    font-size: 2.38rem;
     line-height: 1.04;
   }
 
   .cp-hero--reference .cp-hero-desc {
-    max-width: 34ch;
-    font-size: 0.92rem;
-    line-height: 1.48;
+    max-width: 31ch;
+    font-size: 0.88rem;
+    line-height: 1.38;
     overflow-wrap: break-word;
   }
 
@@ -5371,8 +5453,25 @@
   }
 
   .cp-hero--reference .cp-btn {
-    min-height: 52px;
+    min-height: 48px;
     padding-inline: 1rem;
+  }
+
+  .cp-hero--reference .cp-hero-actions {
+    gap: 0.58rem;
+    margin-top: 0.1rem;
+  }
+
+  .cp-hero--reference .cp-hero-actions .cp-btn--telegram {
+    display: none;
+  }
+
+  .cp-hero-telegram-mobile {
+    display: inline-flex;
+    width: 100%;
+    min-height: 46px;
+    margin-top: 0.1rem;
+    justify-content: center;
   }
 
   .cp-hero-proof-row {
@@ -5384,9 +5483,10 @@
   }
 
   .cp-hero-stage {
-    width: 116%;
-    margin-left: -8%;
-    margin-bottom: 78px;
+    left: 50%;
+    width: min(120%, 470px);
+    margin: -0.35rem 0 0;
+    transform: translateX(-50%);
   }
 
   .cp-hero-garment-label {
@@ -5407,54 +5507,80 @@
   }
 
   .cp-hero-palette {
-    right: 0;
-    bottom: 0.7rem;
-    left: 0;
-    justify-content: flex-start;
-    min-height: 58px;
-    overflow-x: auto;
-    padding-inline: 0.85rem;
-    scrollbar-width: none;
-  }
-
-  .cp-hero-palette::-webkit-scrollbar {
     display: none;
   }
 
   .cp-hero-palette span,
   .cp-hero-palette b {
-    font-size: 0.78rem;
+    font-size: 0.72rem;
   }
 
   .cp-hero-palette i {
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
   }
 
   .cp-hero-options {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(132px, 42vw);
+    gap: 0.55rem;
+    width: 100%;
+    margin-top: 0.1rem;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+    scrollbar-width: none;
+  }
+
+  .cp-hero-options::-webkit-scrollbar {
+    display: none;
   }
 
   .cp-hero-option {
-    grid-template-columns: 52px minmax(0, 1fr);
-    min-height: 102px;
-    border-radius: 16px;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 0.55rem;
+    min-height: 58px;
+    padding: 0.58rem 0.68rem;
+    border-radius: 14px;
   }
 
   .cp-hero-option-icon {
-    width: 52px;
-    height: 52px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .cp-hero-option-icon svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .cp-hero-option strong {
+    margin: 0;
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+  }
+
+  .cp-hero-option p,
+  .cp-hero-mini-swatches {
+    display: none;
+  }
+
+  .cp-hero-option::after {
+    top: 0.52rem;
+    right: 0.52rem;
+    width: 7px;
+    height: 7px;
   }
 }
 
 @media (max-width: 420px) {
   .cp-hero--reference .cp-hero-title {
-    font-size: 2.35rem;
+    font-size: 2.24rem;
   }
 
   .cp-hero-stage {
-    width: 126%;
-    margin-left: -13%;
+    width: min(118%, 452px);
+    margin-left: 0;
   }
 
   .cp-hero-garment-label--hoodie {
