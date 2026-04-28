@@ -127,7 +127,20 @@ class CustomPrintPageTests(TestCase):
         response = self._get(reverse("custom_print"), follow=True)
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "custom-print-configurator.css?v=20260428-custom-print-cache-v2")
         self.assertContains(response, "custom-print-configurator.js?v=")
+
+    def test_custom_print_page_disables_browser_cache(self):
+        response = self._get(reverse("custom_print"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        cache_control = response.headers.get("Cache-Control", "")
+        self.assertIn("no-store", cache_control)
+        self.assertIn("no-cache", cache_control)
+        self.assertIn("must-revalidate", cache_control)
+        self.assertIn("max-age=0", cache_control)
+        self.assertEqual(response.headers.get("Pragma"), "no-cache")
+        self.assertEqual(response.headers.get("Expires"), "0")
 
     def test_custom_print_config_exposes_progress_steps_tshirt_rules_and_zone_presets(self):
         from storefront.custom_print_config import build_custom_print_config
