@@ -27,6 +27,7 @@
     initSizeSelection(state);
     initFitSelection(root);
     initTabs(root);
+    initDescriptionCollapse(root);
     initShare(root, container);
     initZoom(state);
     initStickyAdd(root);
@@ -329,6 +330,79 @@
         if (tab) activateTab(tab, true);
       });
     });
+  }
+
+  function initDescriptionCollapse(root) {
+    const collapse = root.querySelector('[data-pdp-description-collapse]');
+    if (!collapse) return;
+
+    const content = collapse.querySelector('[data-pdp-description-content]');
+    const toggle = collapse.querySelector('[data-pdp-description-toggle]');
+    if (!content || !toggle) return;
+
+    let measureRaf = null;
+
+    const collapsedHeight = () => {
+      const value = window.getComputedStyle(collapse).getPropertyValue('--tc-desc-collapsed-height');
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 278;
+    };
+
+    const setToggleText = (expanded) => {
+      toggle.textContent = expanded
+        ? (toggle.dataset.lessLabel || 'Згорнути')
+        : (toggle.dataset.moreLabel || 'Показати більше');
+    };
+
+    const updateState = () => {
+      const limit = collapsedHeight();
+      const fullHeight = content.scrollHeight;
+      const isCollapsible = fullHeight > limit + 18;
+      const isExpanded = collapse.classList.contains('is-expanded');
+
+      collapse.classList.toggle('is-collapsible', isCollapsible);
+      toggle.hidden = !isCollapsible;
+
+      if (!isCollapsible) {
+        collapse.classList.remove('is-collapsed', 'is-expanded');
+        toggle.setAttribute('aria-expanded', 'false');
+        content.style.removeProperty('max-height');
+        setToggleText(false);
+        return;
+      }
+
+      collapse.style.setProperty('--tc-desc-expanded-height', `${fullHeight}px`);
+      collapse.classList.toggle('is-collapsed', !isExpanded);
+      toggle.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+      setToggleText(isExpanded);
+    };
+
+    const scheduleUpdate = () => {
+      if (measureRaf) window.cancelAnimationFrame(measureRaf);
+      measureRaf = window.requestAnimationFrame(() => {
+        measureRaf = null;
+        updateState();
+      });
+    };
+
+    toggle.addEventListener('click', () => {
+      const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+      collapse.style.setProperty('--tc-desc-expanded-height', `${content.scrollHeight}px`);
+      collapse.classList.toggle('is-expanded', !isExpanded);
+      collapse.classList.toggle('is-collapsed', isExpanded);
+      toggle.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+      setToggleText(!isExpanded);
+    });
+
+    scheduleUpdate();
+    window.addEventListener('resize', scheduleUpdate, { passive: true });
+    if (window.ResizeObserver) {
+      const observer = new ResizeObserver(scheduleUpdate);
+      observer.observe(content);
+    }
+    if (!prefersReducedMotion) {
+      window.setTimeout(scheduleUpdate, 180);
+    }
   }
 
   function initShare(root, container) {

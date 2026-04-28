@@ -4,6 +4,7 @@ Regression tests for storefront product detail and product AJAX endpoints.
 
 from __future__ import annotations
 
+from pathlib import Path
 import shutil
 import tempfile
 from unittest.mock import patch
@@ -120,8 +121,42 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'data-pdp-tab="delivery"', html=False)
         self.assertContains(response, 'id="panel-delivery"', html=False)
         self.assertContains(response, 'data-add-to-cart=', html=False)
-        self.assertContains(response, 'product-detail.css?v=20260428-pdp-fit-v2', html=False)
-        self.assertContains(response, 'product-detail.js?v=20260428-pdp-fit-v2', html=False)
+        self.assertContains(response, 'product-detail.css?v=20260428-pdp-balance-v4', html=False)
+        self.assertContains(response, 'product-detail.js?v=20260428-pdp-balance-v4', html=False)
+
+    def test_product_detail_renders_description_collapse_hooks(self):
+        self.product.full_description = "\n".join(
+            [
+                "ВАЙБ: КРИЖАНА СВІЖІСТЬ",
+                "Колір має значення. Ми обрали цей відтінок для чистого образу.",
+                "Тканина рівня люкс, м'яка і приємна до тіла.",
+                "Посилені шви та еластичні манжети для довговічності.",
+            ]
+            * 3
+        )
+        self.product.save(update_fields=["full_description"])
+
+        response = self.client.get(reverse("product", args=[self.product.slug]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "ВАЙБ: КРИЖАНА СВІЖІСТЬ")
+        self.assertContains(response, 'class="tc-desc-collapse is-collapsible is-collapsed"', html=False)
+        self.assertContains(response, 'data-pdp-description-collapse', html=False)
+        self.assertContains(response, 'data-pdp-description-content', html=False)
+        self.assertContains(response, 'data-pdp-description-toggle', html=False)
+        self.assertContains(response, 'aria-expanded="false"', html=False)
+        self.assertContains(response, f'aria-controls="tc-desc-content-{self.product.id}"', html=False)
+        self.assertContains(response, "<noscript>", html=False)
+
+    def test_product_detail_css_keeps_desktop_sizes_in_one_scroll_row(self):
+        css_path = Path(__file__).resolve().parents[2] / "twocomms_django_theme/static/css/product-detail.css"
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertIn("display: flex", css)
+        self.assertIn("flex-wrap: nowrap", css)
+        self.assertIn("flex: 0 0 68px", css)
+        self.assertIn(".btn-check:focus-visible + .tc-size-option", css)
+        self.assertNotIn("grid-template-columns: repeat(5, 68px)", css)
 
     def test_product_detail_returns_404_for_unpublished_product(self):
         self.product.status = "draft"
