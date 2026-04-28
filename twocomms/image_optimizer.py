@@ -83,14 +83,23 @@ class ImageOptimizer:
             logger.error(f"Ошибка оптимизации изображения {image_path}: {e}")
             return None
 
-    def optimize_image_to_width(self, image_path, output_format='WEBP', target_width=640, quality=None):
+    def optimize_image_to_width(
+        self,
+        image_path,
+        output_format='WEBP',
+        target_width=640,
+        quality=None,
+        max_height=2400,
+    ):
         """
-        Оптимизирует изображение до точной максимальной ширины и возвращает
+        Оптимизирует изображение до максимальной ширины/высоты и возвращает
         (actual_width, bytes).
 
         Width-дескриптор в имени файла должен совпадать с реальной шириной
         результата. Для вертикальных фото фиксированный box (width, height)
-        создавал файлы уже, чем заявленный `640w`/`1024w`.
+        создавал файлы уже, чем заявленный `640w`/`1024w`. Высота тоже
+        ограничена, чтобы очень длинные product-фото не убивали shared-хостинг
+        во время AVIF-кодирования.
         """
         try:
             with Image.open(image_path) as img:
@@ -107,9 +116,14 @@ class ImageOptimizer:
                     img = img.convert('RGB')
 
                 target_width = max(1, int(target_width))
-                if img.width > target_width:
-                    target_height = max(1, round(img.height * (target_width / img.width)))
-                    img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                max_height = max(1, int(max_height))
+                scale = min(target_width / img.width, max_height / img.height, 1)
+                if scale < 1:
+                    next_size = (
+                        max(1, round(img.width * scale)),
+                        max(1, round(img.height * scale)),
+                    )
+                    img = img.resize(next_size, Image.Resampling.LANCZOS)
 
                 if quality is None:
                     quality = self.QUALITY_SETTINGS.get(output_format, 85)
