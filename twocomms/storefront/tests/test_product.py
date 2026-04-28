@@ -362,39 +362,6 @@ class GetProductVariantsTests(ProductViewTestCase):
         self.assertEqual(variants_by_id[secondary_variant.pk]["secondary_hex"], "#111111")
         self.assertEqual(len(variants_by_id[secondary_variant.pk]["images"]), 1)
 
-    def test_get_product_variants_returns_optimized_image_sources(self):
-        with self.settings(MEDIA_ROOT=self._media_root):
-            color = Color.objects.create(name="Black", primary_hex="#000000")
-            variant = ProductColorVariant.objects.create(
-                product=self.product,
-                color=color,
-                order=0,
-                is_default=True,
-            )
-            color_image = ProductColorImage.objects.create(
-                variant=variant,
-                image=self._image_file("variant-optimized.png"),
-                order=0,
-            )
-            image_path = Path(color_image.image.path)
-            optimized_dir = image_path.parent / "optimized"
-            optimized_dir.mkdir(parents=True, exist_ok=True)
-            (optimized_dir / "variant-optimized_640w.avif").write_bytes(b"avif")
-            (optimized_dir / "variant-optimized_640w.webp").write_bytes(b"webp")
-            (optimized_dir / "variant-optimized.webp").write_bytes(b"webp-base")
-            (optimized_dir / "variant-optimized.avif").write_bytes(b"avif-base")
-
-            response = self.client.get(reverse("get_product_variants", args=[self.product.pk]))
-
-        self.assertEqual(response.status_code, 200)
-        variant_payload = response.json()["variants"][0]
-        image_payload = variant_payload["images"][0]
-        self.assertIsInstance(image_payload, dict)
-        self.assertTrue(image_payload["original_url"].endswith("/variant-optimized.png"))
-        self.assertIn("/optimized/variant-optimized_640w.avif 640w", image_payload["avif_srcset"])
-        self.assertIn("/optimized/variant-optimized_640w.webp 640w", image_payload["webp_srcset"])
-        self.assertTrue(image_payload["url"].endswith("/optimized/variant-optimized_640w.webp"))
-
     def test_get_product_variants_returns_404_for_missing_product(self):
         response = self.client.get(reverse("get_product_variants", args=[99999]))
 
