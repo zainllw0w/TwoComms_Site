@@ -38,6 +38,18 @@ class Command(BaseCommand):
             action='store_true',
             help='Regenerate optimized files even if current WebP/AVIF variants already exist.'
         )
+        parser.add_argument(
+            '--min-id',
+            type=int,
+            default=None,
+            help='Only process objects with id greater than or equal to this value.'
+        )
+        parser.add_argument(
+            '--max-id',
+            type=int,
+            default=None,
+            help='Only process objects with id less than or equal to this value.'
+        )
 
     def handle(self, *args, **options):
         optimizer = ImageOptimizer()
@@ -50,6 +62,8 @@ class Command(BaseCommand):
             }
         sleep = float(options.get('sleep') or 0)
         force = bool(options.get('force'))
+        min_id = options.get('min_id')
+        max_id = options.get('max_id')
 
         self.stdout.write('Starting image optimization...')
         self.stdout.flush()
@@ -75,10 +89,17 @@ class Command(BaseCommand):
         def _should_stop() -> bool:
             return limit is not None and processed >= limit
 
+        def _id_range(queryset):
+            if min_id is not None:
+                queryset = queryset.filter(pk__gte=min_id)
+            if max_id is not None:
+                queryset = queryset.filter(pk__lte=max_id)
+            return queryset
+
         # 1. Products Main Images
         if 'product_main' in steps:
             _refresh_connection()
-            products = Product.objects.exclude(main_image='').defer('catalog')
+            products = _id_range(Product.objects.exclude(main_image='').defer('catalog'))
             total_products = products.count()
             self.stdout.write(f'Found {total_products} products with main images')
             self.stdout.flush()
@@ -106,7 +127,7 @@ class Command(BaseCommand):
         # 2. Product Extra Images
         if 'product_extra' in steps:
             _refresh_connection()
-            product_images = ProductImage.objects.all()
+            product_images = _id_range(ProductImage.objects.all())
             total_p_images = product_images.count()
             self.stdout.write(f'\nFound {total_p_images} extra product images')
             self.stdout.flush()
@@ -134,7 +155,7 @@ class Command(BaseCommand):
         # 3. Product Color Images
         if 'color' in steps:
             _refresh_connection()
-            color_images = ProductColorImage.objects.all()
+            color_images = _id_range(ProductColorImage.objects.all())
             total_c_images = color_images.count()
             self.stdout.write(f'\nFound {total_c_images} product color images')
             self.stdout.flush()
@@ -162,7 +183,7 @@ class Command(BaseCommand):
         # 4. Categories
         if 'category' in steps:
             _refresh_connection()
-            categories = Category.objects.all()
+            categories = _id_range(Category.objects.all())
             self.stdout.write(f'\nFound {categories.count()} categories')
             self.stdout.flush()
 
@@ -207,7 +228,7 @@ class Command(BaseCommand):
         # 5. Catalog Options
         if 'option' in steps:
             _refresh_connection()
-            options = CatalogOptionValue.objects.exclude(image='')
+            options = _id_range(CatalogOptionValue.objects.exclude(image=''))
             self.stdout.write(f'\nFound {options.count()} catalog options with images')
             self.stdout.flush()
 
@@ -234,7 +255,7 @@ class Command(BaseCommand):
         # 6. Size Grids
         if 'size' in steps:
             _refresh_connection()
-            grids = SizeGrid.objects.exclude(image='')
+            grids = _id_range(SizeGrid.objects.exclude(image=''))
             self.stdout.write(f'\nFound {grids.count()} size grids with images')
             self.stdout.flush()
 
@@ -262,7 +283,7 @@ class Command(BaseCommand):
         if 'proposal' in steps:
             _refresh_connection()
             from storefront.models import PrintProposal
-            proposals = PrintProposal.objects.exclude(image='')
+            proposals = _id_range(PrintProposal.objects.exclude(image=''))
             self.stdout.write(f'\nFound {proposals.count()} print proposals with images')
             self.stdout.flush()
             for proposal in proposals.iterator(chunk_size=1000):
