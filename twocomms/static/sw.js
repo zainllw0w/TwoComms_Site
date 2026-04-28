@@ -1,4 +1,4 @@
-const SW_VERSION = '2026-04-22-pwa-shell-v3';
+const SW_VERSION = '2026-04-28-custom-print-hero-v1';
 const EVENTS_ENDPOINT = '/push/events/';
 const OFFLINE_URL = '/static/offline.html';
 const APP_SHELL_CACHE = `twc-app-shell-${SW_VERSION}`;

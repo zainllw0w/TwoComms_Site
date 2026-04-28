@@ -7,6 +7,7 @@ BASE_TEMPLATE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "templates" /
 HOME_TEMPLATE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "templates" / "pages" / "index.html"
 CONTACTS_TEMPLATE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "templates" / "pages" / "contacts.html"
 COOPERATION_TEMPLATE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "templates" / "pages" / "cooperation.html"
+CUSTOM_PRINT_TEMPLATE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "templates" / "pages" / "custom_print.html"
 SETTINGS_FILE = REPO_ROOT / "twocomms" / "twocomms" / "settings.py"
 CATALOG_VIEWS_FILE = REPO_ROOT / "twocomms" / "storefront" / "views" / "catalog.py"
 DTF_ANIMATIONS_FILE = REPO_ROOT / "twocomms" / "dtf" / "static" / "dtf" / "css" / "components" / "animations.css"
@@ -14,6 +15,9 @@ ANALYTICS_LOADER_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "stat
 HOME_CSS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "home.css"
 CONTACTS_CSS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "contacts.css"
 COOPERATION_CSS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "cooperation.css"
+CUSTOM_PRINT_CSS_FILE = (
+    REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "custom-print-configurator.css"
+)
 HOME_BOOTSTRAP_SUBSET_FILE = (
     REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "bootstrap-home-subset.css"
 )
@@ -252,6 +256,35 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
         self.assertNotIn(".survey-card{", source)
         self.assertNotIn(".survey-modal{", source)
         self.assertNotIn("body.survey-modal-open", source)
+
+    def test_custom_print_hero_reference_uses_container_width_and_cache_busting(self):
+        template_source = CUSTOM_PRINT_TEMPLATE.read_text(encoding="utf-8")
+        css_source = CUSTOM_PRINT_CSS_FILE.read_text(encoding="utf-8")
+
+        self.assertRegex(template_source, r"custom-print-configurator\.css' %}\?v=20260428-hero-print-zones")
+        self.assertIn(".cp-hero--reference {", css_source)
+        hero_block = css_source.split(".cp-hero--reference {", 1)[1].split("}", 1)[0]
+        self.assertIn("width: 100%;", hero_block)
+        self.assertIn("margin-inline: 0;", hero_block)
+        self.assertNotIn("width: 100vw;", hero_block)
+        self.assertNotIn("height: 900px", hero_block)
+
+    def test_custom_print_hero_has_print_zone_and_graffiti_motion_contracts(self):
+        template_source = CUSTOM_PRINT_TEMPLATE.read_text(encoding="utf-8")
+        css_source = CUSTOM_PRINT_CSS_FILE.read_text(encoding="utf-8")
+
+        for garment in ("hoodie", "longsleeve"):
+            self.assertIn(f"cp-hero-print-zone--{garment}", template_source)
+        for size in ("a6", "a5", "a4"):
+            self.assertIn(f"cp-hero-print-zone__frame--{size}", template_source)
+        for animation_name in (
+            "cp-hero-print-zone-cycle",
+            "cp-hero-tee-logo-pulse",
+            "cp-hero-graffiti-reveal",
+            "cp-hero-graffiti-spray",
+        ):
+            self.assertIn(f"@keyframes {animation_name}", css_source)
+        self.assertIn("data-text=\"твій стиль, твої правила.\"", template_source)
 
     def test_main_js_defers_install_prompts_and_product_media_boot(self):
         source = MAIN_JS_FILE.read_text(encoding="utf-8")
