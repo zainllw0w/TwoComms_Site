@@ -4,6 +4,14 @@
 {% load responsive_images %}
 {% load seo_tags %}
 
+{% block fontawesome_css %}{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<link rel="preload" as="image" href="{% static 'img/catalog/catalog-hero.webp' %}" fetchpriority="high">
+<link rel="stylesheet" href="{% static 'css/catalog-redesign.css' %}">
+{% endblock %}
+
 {% block title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
 
 {% block description %}{% if category %}Купити {{ category.name|lower }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні.{% else %}Каталог стріт & мілітарі одягу TwoComms: футболки, худі, лонгсліви та новинки бренду з характером.{% endif %}{% endblock %}
@@ -27,13 +35,7 @@
 {% block twitter_description %}{% if category %}{{ category.name }} з авторськими принтами від TwoComms.{% else %}Каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
 {% block twitter_image %}{% if category and category.cover %}{{ request.scheme }}://{{ request.get_host }}{{ category.cover.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
 
-{% block breadcrumbs %}
-  {% if category %}
-    {% breadcrumbs request category=category %}
-  {% else %}
-    {% breadcrumbs request current_name='Каталог' %}
-  {% endif %}
-{% endblock %}
+{% block breadcrumbs %}{% endblock %}
 
 {% block content %}
 {% if category %}
@@ -107,161 +109,252 @@
 }
 </script>
 {% endif %}
-<div class="row g-3 g-md-4">
-  <div class="col-12">
-    <header class="mb-3 mb-md-4">
-      <h1 class="h2 h1-lg fw-bold">
+<div class="catalog-redesign-shell">
+  <section class="catalog-hero{% if not show_category_cards %} catalog-hero--products{% endif %}" aria-labelledby="catalog-title">
+    <div class="catalog-hero__backdrop" aria-hidden="true"></div>
+    <div class="catalog-hero__smoke catalog-hero__smoke--left" aria-hidden="true"></div>
+    <div class="catalog-hero__smoke catalog-hero__smoke--right" aria-hidden="true"></div>
+    <div class="catalog-redesign-container">
+      <nav class="catalog-breadcrumb" aria-label="breadcrumb">
+        <a href="{% url 'home' %}">Головна</a>
+        <span aria-hidden="true">›</span>
         {% if category %}
-        {{ category.name }} — стріт & мілітарі одяг TwoComms
+        <a href="{% url 'catalog' %}">Каталог</a>
+        <span aria-hidden="true">›</span>
+        <span>{{ category.name }}</span>
         {% else %}
-        Каталог одягу TwoComms — стріт & мілітарі колекція
+        <span>Каталог</span>
         {% endif %}
-      </h1>
-      {% if category and category.description %}
-      <p class="text-secondary mb-0">{{ category.description|striptags|truncatewords:25 }}</p>
-      {% elif not category %}
-      <p class="text-secondary mb-0">Обирайте футболки, худі та лонгсліви з авторськими принтами, українським
-        виробництвом та швидкою доставкою по всій країні.</p>
-      {% endif %}
-    </header>
-  </div>
+      </nav>
 
-  <aside class="col-12">
-    <div class="d-flex flex-wrap gap-2 mb-3">
-      <a href="{% url 'catalog' %}"
-        class="btn btn-outline-light {% if not category %}active{% endif %} d-inline-flex align-items-center gap-2">
-        <img src="{% static 'img/icons/all.svg' %}" width="18" height="18" alt="Усі товари"> Усі
-      </a>
-      {% for c in categories %}
-      <a href="{% url 'catalog_by_cat' c.slug %}"
-        class="btn btn-outline-light {% if category and category.id == c.id %}active{% endif %} d-inline-flex align-items-center gap-2">
-        {% if c.icon %}
-        <img src="{{ c.icon.url }}" width="18" height="18" alt="{{ c.name }}">
-        {% else %}
-        <img src="{% static 'img/icons/default.svg' %}" width="18" height="18" alt="Категорія">
-        {% endif %}
-        {{ c.name }}
-      </a>
-      {% endfor %}
-    </div>
-  </aside>
-
-  {% if show_category_cards %}
-  <section class="col-12">
-    {% cache 1800 catalog_categories_v2 public_category_version using="fragments" %}
-    <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4">
-      {% for c in categories %}
-      <div class="col">
-        <a href="{% url 'catalog_by_cat' c.slug %}"
-          class="card product glass hover-raise text-decoration-none text-body">
-          <div class="ratio ratio-1x1 rounded-top-4 overflow-hidden bg-elevate">
-            {% if c.cover %}
-            <img src="{{ c.cover.url }}"
-              class="w-100 h-100 object-fit-cover"
-              width="{{ c.cover.width|default:1080 }}"
-              height="{{ c.cover.height|default:1080 }}"
-              alt="{{ c.name }}"
-              loading="lazy"
-              decoding="async">
+      <div class="catalog-hero__grid">
+        <header class="catalog-hero__copy">
+          <p class="catalog-hero__signal">Streetwear / Military-adjacent / Made in Ukraine</p>
+          <h1 id="catalog-title" class="catalog-hero__title">
+            {% if category %}
+            {{ category.name }}
+            {% elif is_search_page %}
+            Пошук у каталозі
             {% else %}
-            <img src="{% static 'img/placeholder.jpg' %}"
-              class="w-100 h-100 object-fit-cover"
-              width="1080"
-              height="1080"
-              alt="{{ c.name }}"
-              loading="lazy"
-              decoding="async">
+            Каталог<br>одягу
             {% endif %}
-          </div>
-          <div class="card-body">
-            <div class="fw-semibold">{{ c.name }}</div>
-            <div class="text-secondary small">{{ c.products.count }} товарів</div>
-          </div>
-        </a>
-      </div>
-      {% endfor %}
-    </div>
-    {% endcache %}
-  </section>
-  {% else %}
-  <section class="col-12">
-    {% cache 600 catalog_products request.get_full_path public_product_order_version public_category_version using="fragments" %}
-    <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>
-      {% for p in products %}
-      <div class="col product-card-wrap">
-        {% cache 900 product_card p.id p.updated_at|date:'U' p.final_price p.discount_percent p.display_image.name p.category_id forloop.counter0 using="fragments" %}
-          {% if forloop.counter0 < 2 %}
-            {% include "partials/product_card.html" with p=p stagger=False eager=True animate=False %}
+          </h1>
+          {% if category and category.description %}
+          <p class="catalog-hero__lead">{{ category.description|striptags|truncatewords:25 }}</p>
+          {% elif is_search_page %}
+          <p class="catalog-hero__lead">Результати за запитом «{{ query|default:"" }}» у каталозі TwoComms.</p>
           {% else %}
-            {% include "partials/product_card.html" with p=p stagger=False eager=False animate=False %}
+          <p class="catalog-hero__lead">Обирайте футболки, худі та лонгсліви з авторськими принтами, українським виробництвом та швидкою доставкою по всій країні.</p>
           {% endif %}
-        {% endcache %}
-        {% if p.colors_preview %}
-        <div class="product-card-dots">
-          <span class="text-secondary small me-1">Кольори:</span>
-          <div class="d-flex align-items-center gap-1">
-            {% for v in p.colors_preview %}
-            <span class="color-dot" title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}"
-              style="--c1: {{ v.primary_hex }}; --c2: {{ v.secondary_hex|default:'' }};"
-              data-image-url="{{ v.first_image_url|default:'' }}"></span>
-            {% endfor %}
+
+          <div class="catalog-hero__features" aria-label="Переваги TwoComms">
+            <div class="catalog-feature">
+              <span class="catalog-feature__icon" aria-hidden="true">
+                <img src="{% static 'img/logo1.svg' %}" width="22" height="22" alt="">
+              </span>
+              <span><strong>Дизайни</strong><small>власного виробництва</small></span>
+            </div>
+            <div class="catalog-feature">
+              <span class="catalog-feature__icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M12 3 4.5 6v5.4c0 4.5 3.1 8.7 7.5 9.8 4.4-1.1 7.5-5.3 7.5-9.8V6L12 3Zm0 2.2 5.5 2.2v4c0 3.3-2.2 6.5-5.5 7.6-3.3-1.1-5.5-4.3-5.5-7.6v-4L12 5.2Zm3.4 5.1-4.2 4.2-2.1-2.1-1.3 1.4 3.4 3.4 5.5-5.5-1.3-1.4Z"/></svg>
+              </span>
+              <span><strong>Якість</strong><small>преміум матеріалів</small></span>
+            </div>
+            <div class="catalog-feature">
+              <span class="catalog-feature__icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H15v4h2.9L21 11.7V17h-2.1a3 3 0 0 1-5.8 0H10a3 3 0 0 1-5.8 0H3V6.5ZM5.5 6a.5.5 0 0 0-.5.5V15h.8a3 3 0 0 1 3.4 0H13V6H5.5ZM15 10v5h.8a3 3 0 0 1 3.2 0v-2.6L17 10h-2Zm-8 7a1 1 0 1 0 2 0 1 1 0 0 0-2 0Zm8 0a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z"/></svg>
+              </span>
+              <span><strong>Доставка</strong><small>по всій Україні</small></span>
+            </div>
           </div>
-        </div>
-        {% endif %}
+        </header>
+
+        <aside class="catalog-print-panel" aria-label="Створити свій дизайн">
+          <div class="catalog-print-panel__copy">
+            <h2>Створи свій<br>дизайн</h2>
+            <p>Свій принт. Своя ідея.<br>Своє розташування.</p>
+          </div>
+          <div class="catalog-print-tools" aria-label="Етапи створення принта">
+            <span>
+              <svg width="26" height="26" viewBox="0 0 24 24" focusable="false"><path d="M5 5h14v14H5V5Zm2 2v7.6l2.4-2.4 2.7 2.7 3.1-3.8L17 13.3V7H7Zm0 10h10l-1.7-2-3 3-2.9-2.9L7 17Zm3-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/></svg>
+              Свій принт
+            </span>
+            <span>
+              <svg width="26" height="26" viewBox="0 0 24 24" focusable="false"><path d="M11 3h2v3h-2V3Zm7.1 2.5 1.4 1.4-2.1 2.1L16 7.6l2.1-2.1ZM4.5 6.9l1.4-1.4L8 7.6 6.6 9 4.5 6.9ZM12 8a5 5 0 0 1 3 9v2H9v-2a5 5 0 0 1 3-9Zm0 2a3 3 0 0 0-1.7 5.5l.7.5v1h2v-1l.7-.5A3 3 0 0 0 12 10Zm-3 10h6v2H9v-2Z"/></svg>
+              Своя ідея
+            </span>
+            <span>
+              <svg width="26" height="26" viewBox="0 0 24 24" focusable="false"><path d="m7 4 3 2h4l3-2 4 4-3 3v9H6v-9L3 8l4-4Zm.3 2.5L5.8 8 8 10.2V18h8v-7.8L18.2 8l-1.5-1.5-2.1 1.4H9.4L7.3 6.5Z"/></svg>
+              Своє розташування
+            </span>
+          </div>
+          <div class="catalog-print-preview">
+            <img src="{% static 'img/catalog/catalog-hoodies.webp' %}" width="1280" height="853" alt="Приклад чорного худі TwoComms з власним принтом" loading="eager" decoding="async" fetchpriority="low">
+          </div>
+          <a class="catalog-print-cta" href="{% url 'custom_print' %}">
+            <span>Створити свій принт</span>
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 20 12l-6.5 6.5-1.4-1.4 4.1-4.1H4v-2h12.2l-4.1-4.1 1.4-1.4Z"/></svg>
+          </a>
+          <p class="catalog-print-panel__note">Від 1 одиниці • Швидке виготовлення</p>
+        </aside>
       </div>
-      {% empty %}
-      <div class="text-secondary small">Немає товарів.</div>
-      {% endfor %}
-    </div>
-    {% endcache %}
 
-    {% if page_obj.has_other_pages %}
-    <nav aria-label="Page navigation" class="mt-5">
-      <ul class="pagination justify-content-center">
-        {% if page_obj.has_previous %}
-    <li class="page-item">
-      <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Попередня">
-        <span aria-hidden="true">&laquo;</span>
-      </a>
-    </li>
-    {% else %}
-    <li class="page-item disabled">
-      <span class="page-link" aria-hidden="true">&laquo;</span>
-    </li>
-    {% endif %}
-
-    {% for i in paginator.page_range %}
-    {% if page_obj.number == i %}
-    <li class="page-item active"><span class="page-link">{{ i }}</span></li>
-    {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %} <li class="page-item"><a class="page-link"
-        href="?page={{ i }}">{{ i }}</a></li>
-      {% endif %}
-      {% endfor %}
-
-      {% if page_obj.has_next %}
-      <li class="page-item">
-        <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Наступна">
-          <span aria-hidden="true">&raquo;</span>
+      {% if not show_category_cards %}
+      <nav class="catalog-filter-rail" aria-label="Фільтр категорій">
+        <a href="{% url 'catalog' %}" class="{% if not category and not is_search_page %}is-active{% endif %}">
+          <img src="{% static 'img/icons/all.svg' %}" width="18" height="18" alt=""> Усі товари
         </a>
-      </li>
-      {% else %}
-      <li class="page-item disabled">
-        <span class="page-link" aria-hidden="true">&raquo;</span>
-      </li>
+        {% for c in categories %}
+        <a href="{% url 'catalog_by_cat' c.slug %}" class="{% if category and category.id == c.id %}is-active{% endif %}">
+          {% if c.icon %}
+          <img src="{{ c.icon.url }}" width="18" height="18" alt="">
+          {% else %}
+          <img src="{% static 'img/icons/default.svg' %}" width="18" height="18" alt="">
+          {% endif %}
+          {{ c.name }}
+        </a>
+        {% endfor %}
+      </nav>
       {% endif %}
-  </ul>
-</nav>
-{% endif %}
-</section>
-{% endif %}
 
-{% if category and category.description %}
-<section class="col-12 mt-4">
-  <div class="card glass p-4">
-    <h2 class="h5 fw-semibold mb-3">{{ category.name }} — TwoComms</h2>
-    <div class="text-secondary small lh-lg">{{ category.description|safe }}</div>
-  </div>
-</section>
-{% endif %}
+      {% if show_category_cards and catalog_showcase_cards %}
+      <section class="catalog-showcase" aria-label="Категорії одягу TwoComms">
+        {% for card in catalog_showcase_cards %}
+        <a class="catalog-showcase-card catalog-showcase-card--{{ card.key }}" href="{% if card.category %}{% url 'catalog_by_cat' card.category.slug %}{% else %}{% url 'catalog' %}{% endif %}">
+          <span class="catalog-showcase-card__media">
+            <img src="{% static card.image %}" width="1280" height="853" alt="{{ card.title }} TwoComms" loading="eager" decoding="async" fetchpriority="{% if forloop.first %}high{% else %}low{% endif %}">
+          </span>
+          <span class="catalog-showcase-card__shade" aria-hidden="true"></span>
+          <span class="catalog-showcase-card__meta">
+            <span class="catalog-showcase-card__number">{{ card.number }}</span>
+            {% if card.product_count != None %}
+            <span class="catalog-showcase-card__count">{{ card.product_count }} товарів</span>
+            {% endif %}
+          </span>
+          <span class="catalog-showcase-card__swatches" aria-hidden="true">
+            {% for swatch in card.swatches %}
+            <span style="--swatch: {{ swatch }};"></span>
+            {% endfor %}
+          </span>
+          <span class="catalog-showcase-card__body">
+            <span class="catalog-showcase-card__title">{{ card.title }}</span>
+            <span class="catalog-showcase-card__subtitle">{{ card.subtitle }}</span>
+          </span>
+          <span class="catalog-showcase-card__arrow" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><path d="M7 17 17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </a>
+        {% endfor %}
+      </section>
+      <nav class="catalog-filter-rail catalog-filter-rail--after-showcase" aria-label="Усі категорії">
+        <a href="{% url 'catalog' %}" class="is-active">
+          <img src="{% static 'img/icons/all.svg' %}" width="18" height="18" alt=""> Усі товари
+        </a>
+        {% for c in categories %}
+        <a href="{% url 'catalog_by_cat' c.slug %}">
+          {% if c.icon %}
+          <img src="{{ c.icon.url }}" width="18" height="18" alt="">
+          {% else %}
+          <img src="{% static 'img/icons/default.svg' %}" width="18" height="18" alt="">
+          {% endif %}
+          {{ c.name }}
+        </a>
+        {% endfor %}
+      </nav>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if not show_category_cards %}
+  <section class="catalog-products-section" aria-label="{% if is_search_page %}Результати пошуку{% else %}Товари категорії{% endif %}">
+    <div class="catalog-redesign-container">
+      {% if is_search_page %}
+      <div class="catalog-section-head">
+        <h2>Результати пошуку</h2>
+        <p>{{ results_count|default:0 }} товарів знайдено</p>
+      </div>
+      {% endif %}
+
+      {% cache 600 catalog_products request.get_full_path public_product_order_version public_category_version using="fragments" %}
+      <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>
+        {% for p in products %}
+        <div class="col product-card-wrap">
+          {% cache 900 product_card p.id p.updated_at|date:'U' p.final_price p.discount_percent p.display_image.name p.category_id forloop.counter0 using="fragments" %}
+            {% if forloop.counter0 < 2 %}
+              {% include "partials/product_card.html" with p=p stagger=False eager=True animate=False %}
+            {% else %}
+              {% include "partials/product_card.html" with p=p stagger=False eager=False animate=False %}
+            {% endif %}
+          {% endcache %}
+          {% if p.colors_preview %}
+          <div class="product-card-dots">
+            <span class="text-secondary small me-1">Кольори:</span>
+            <div class="d-flex align-items-center gap-1">
+              {% for v in p.colors_preview %}
+              <span class="color-dot" title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}"
+                style="--c1: {{ v.primary_hex }}; --c2: {{ v.secondary_hex|default:'' }};"
+                data-image-url="{{ v.first_image_url|default:'' }}"></span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div class="text-secondary small">Немає товарів.</div>
+        {% endfor %}
+      </div>
+      {% endcache %}
+
+      {% if page_obj.has_other_pages %}
+      <nav aria-label="Page navigation" class="catalog-pagination">
+        <ul class="pagination justify-content-center">
+          {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Попередня">
+              <span aria-hidden="true">&laquo;</span>
+            </a>
+          </li>
+          {% else %}
+          <li class="page-item disabled">
+            <span class="page-link" aria-hidden="true">&laquo;</span>
+          </li>
+          {% endif %}
+
+          {% for i in paginator.page_range %}
+          {% if page_obj.number == i %}
+          <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+          {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+          <li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>
+          {% endif %}
+          {% endfor %}
+
+          {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Наступна">
+              <span aria-hidden="true">&raquo;</span>
+            </a>
+          </li>
+          {% else %}
+          <li class="page-item disabled">
+            <span class="page-link" aria-hidden="true">&raquo;</span>
+          </li>
+          {% endif %}
+        </ul>
+      </nav>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if category and category.description %}
+  <section class="catalog-category-description">
+    <div class="catalog-redesign-container">
+      <div class="catalog-description-panel">
+        <h2>{{ category.name }} — TwoComms</h2>
+        <div>{{ category.description|safe }}</div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
 </div>
 {% endblock %}
