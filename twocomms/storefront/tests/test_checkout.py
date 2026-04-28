@@ -42,14 +42,19 @@ class CheckoutTestSupport(TestCase):
         self.apply_promo_url = reverse('apply_promo_code')
         self.remove_promo_url = reverse('remove_promo_code')
 
-    def set_cart(self, *, product=None, qty=2, size='M'):
+    def set_cart(self, *, product=None, qty=2, size='M', fit_option_code='', fit_option_label=''):
         product = product or self.product
         session = self.client.session
+        key = f'{product.id}:{size}'
+        if fit_option_code:
+            key = f'{key}:default:{fit_option_code}'
         session['cart'] = {
-            f'{product.id}:{size}': {
+            key: {
                 'product_id': product.id,
                 'qty': qty,
                 'size': size,
+                'fit_option_code': fit_option_code,
+                'fit_option_label': fit_option_label,
             }
         }
         session.save()
@@ -179,6 +184,34 @@ class CreateOrderTests(CheckoutTestSupport):
         self.assertEqual(bulk_items[0].qty, 2)
         self.assertEqual(bulk_items[0].unit_price, self.product.final_price)
         self.assertEqual(bulk_items[0].line_total, self.product.final_price * 2)
+
+    def test_create_order_snapshots_fit_option_on_order_item(self):
+        self.set_cart(fit_option_code='classic', fit_option_label='Класичний')
+        delivery = self.delivery_payload()
+        fake_order_item_class, fake_manager = self.make_fake_order_item_class()
+
+        with patch('storefront.views.checkout.OrderItem', fake_order_item_class):
+            response = self.client.post(
+                self.order_create_url,
+                {
+                    'full_name': 'Guest Buyer',
+                    'phone': '+380501112233',
+                    'city': delivery['city'],
+                    'np_office': delivery['np_office'],
+                    'np_settlement_ref': delivery['np_settlement_ref'],
+                    'np_city_ref': delivery['np_city_ref'],
+                    'np_city_token': delivery['np_city_token'],
+                    'np_warehouse_ref': delivery['np_warehouse_ref'],
+                    'np_warehouse_token': delivery['np_warehouse_token'],
+                    'pay_type': 'cod',
+                },
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 302)
+        bulk_items = fake_manager.bulk_create.call_args.args[0]
+        self.assertEqual(bulk_items[0].raw_kwargs['fit_option_code'], 'classic')
+        self.assertEqual(bulk_items[0].raw_kwargs['fit_option_label'], 'Класичний')
 
     def test_create_order_authenticated_uses_profile_data(self):
         self.set_cart()

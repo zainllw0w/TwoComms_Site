@@ -222,6 +222,16 @@ def product_detail(request, slug):
 
     public_product_order_version = get_public_product_order_version()
     fit_options = _resolve_fit_options(product)
+    requested_fit_code = str(request.GET.get('fit', '') or '').strip().lower()
+    if fit_options:
+        selected_fit = next((option for option in fit_options if option.code == requested_fit_code), None)
+        if selected_fit is None:
+            selected_fit = next((option for option in fit_options if option.is_default), fit_options[0])
+        preselected_fit_code = selected_fit.code
+        for option in fit_options:
+            option.is_default = option.code == preselected_fit_code
+    else:
+        preselected_fit_code = ''
 
     return render(
         request,
@@ -247,6 +257,7 @@ def product_detail(request, slug):
             'public_product_order_version': public_product_order_version,
             'fit_options': fit_options,
             'show_fit_selector': bool(fit_options),
+            'preselected_fit_code': preselected_fit_code,
         }
     )
 

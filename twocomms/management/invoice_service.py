@@ -205,6 +205,7 @@ def normalize_management_invoice_payload(*, company_data: dict[str, Any], order_
             run_multiplier,
             include_2xl,
         )
+        fit_label = _clean_text(raw_item.get("fit") or raw_item.get("fit_label") or raw_item.get("fitOptionLabel"))
         quantity = _parse_quantity(raw_item.get("quantity"))
         if is_full_size_run:
             quantity = (_FULL_SIZE_RUN_BASE_QUANTITY + (1 if include_2xl else 0)) * run_multiplier
@@ -231,6 +232,7 @@ def normalize_management_invoice_payload(*, company_data: dict[str, Any], order_
                     "image": product.get("image") or product.get("main_image") or "",
                 },
                 "size": size_label,
+                "fit": fit_label,
                 "color": _clean_text((raw_item or {}).get("color")) or "Чорний",
                 "quantity": quantity,
                 "run_multiplier": run_multiplier,
@@ -260,6 +262,7 @@ def normalize_management_invoice_payload(*, company_data: dict[str, Any], order_
             {
                 "product": dict(item["product"]),
                 "size": item["size"],
+                "fit": item.get("fit", ""),
                 "color": item["color"],
                 "quantity": item["quantity"],
                 "run_multiplier": item["run_multiplier"],
@@ -308,6 +311,7 @@ def serialize_management_invoice_payload(normalized_payload: dict[str, Any]) -> 
             {
                 "product": dict(item["product"]),
                 "size": item["size"],
+                "fit": item.get("fit", ""),
                 "color": item["color"],
                 "quantity": item["quantity"],
                 "run_multiplier": item.get("run_multiplier", 1),
@@ -471,9 +475,12 @@ def build_management_invoice_workbook(
 
     current_row = header_row + 1
     for index, item in enumerate(normalized_items, start=1):
+        size_cell_value = item["size"]
+        if item.get("fit"):
+            size_cell_value = f'{size_cell_value} / {item["fit"]}'.strip()
         ws.cell(row=current_row, column=1, value=index)
         ws.cell(row=current_row, column=2, value=item["display_title"])
-        ws.cell(row=current_row, column=3, value=item["size"])
+        ws.cell(row=current_row, column=3, value=size_cell_value)
         ws.cell(row=current_row, column=4, value=item["color"])
         ws.cell(row=current_row, column=5, value=item["quantity"])
         ws.cell(row=current_row, column=6, value=float(item["unit_price"]))
@@ -497,7 +504,7 @@ def build_management_invoice_workbook(
         estimated_lines = max(
             1,
             len(str(item["display_title"])) // 34 + 1,
-            len(str(item["size"])) // 20 + 1,
+            len(str(size_cell_value)) // 20 + 1,
         )
         ws.row_dimensions[current_row].height = max(24, estimated_lines * 16)
         current_row += 1

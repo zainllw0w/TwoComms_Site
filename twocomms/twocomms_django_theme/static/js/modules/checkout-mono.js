@@ -103,7 +103,8 @@ function resolveMonoProductContext(button) {
     productId: null,
     size: '',
     qty: 1,
-    colorVariantId: null
+    colorVariantId: null,
+    fitOption: ''
   };
   if (!button) return context;
 
@@ -133,6 +134,8 @@ function resolveMonoProductContext(button) {
 
   const colorActive = find('#color-picker .color-swatch.active') || document.querySelector('#color-picker .color-swatch.active');
   if (colorActive) context.colorVariantId = colorActive.getAttribute('data-variant');
+  const fitInput = find('input[name="fit_option"]:checked') || document.querySelector('input[name="fit_option"]:checked');
+  if (fitInput) context.fitOption = fitInput.value || '';
 
   return context;
 }
@@ -152,6 +155,7 @@ function addProductToCartForMono(button) {
   body.append('size', (context.size || 'S').toUpperCase());
   body.append('qty', String(context.qty));
   if (context.colorVariantId) body.append('color_variant_id', context.colorVariantId);
+  if (context.fitOption) body.append('fit_option', context.fitOption);
 
   const csrfToken = collectMonoCsrf();
 
@@ -240,6 +244,7 @@ function requestMonoCheckoutSingleProduct(button) {
     single_product: true
   };
   if (context.colorVariantId) payload.color_variant_id = context.colorVariantId;
+  if (context.fitOption) payload.fit_option = context.fitOption;
   const guestForm = document.getElementById('guest-form');
   const getAnyVal = (name) => {
     const fromForm = guestForm && guestForm.querySelector(`[name="${name}"]`);

@@ -120,8 +120,8 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'data-pdp-tab="delivery"', html=False)
         self.assertContains(response, 'id="panel-delivery"', html=False)
         self.assertContains(response, 'data-add-to-cart=', html=False)
-        self.assertContains(response, 'product-detail.css?v=20260428-pdp-share-v1', html=False)
-        self.assertContains(response, 'product-detail.js?v=20260428-pdp-share-v1', html=False)
+        self.assertContains(response, 'product-detail.css?v=20260428-pdp-fit-v2', html=False)
+        self.assertContains(response, 'product-detail.js?v=20260428-pdp-fit-v2', html=False)
 
     def test_product_detail_returns_404_for_unpublished_product(self):
         self.product.status = "draft"
@@ -192,6 +192,41 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'data-fit-selector', html=False)
         self.assertContains(response, "Класичний")
         self.assertContains(response, "Оверсайз")
+
+    def test_product_detail_preselects_fit_from_url_for_tshirts(self):
+        tshirt_category = Category.objects.create(
+            name="Футболки",
+            slug="futbolki-preselect",
+            is_active=True,
+        )
+        product = Product.objects.create(
+            title="Футболка з посадкою",
+            slug="test-tshirt-fit-preselected",
+            category=tshirt_category,
+            price=1000,
+            description="Fit selector preselect coverage.",
+            status="published",
+        )
+        ProductFitOption.objects.create(
+            product=product,
+            code="classic",
+            label="Класичний",
+            is_default=True,
+            order=0,
+        )
+        ProductFitOption.objects.create(
+            product=product,
+            code="oversize",
+            label="Оверсайз",
+            order=1,
+        )
+
+        response = self.client.get(reverse("product", args=[product.slug]), {"fit": "oversize"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["preselected_fit_code"], "oversize")
+        self.assertContains(response, 'id="fit-oversize"', html=False)
+        self.assertContains(response, 'value="oversize"', html=False)
 
     def test_product_detail_hides_fit_selector_for_non_tshirts(self):
         longsleeve_category = Category.objects.create(

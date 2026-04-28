@@ -59,6 +59,9 @@
             <div class="fw-semibold small">{{ it.product.title }}</div>
             <div class="text-secondary small">
               Розмір: {{ it.size }} • ×{{ it.qty }}
+              {% if it.fit_label %}
+              <br>Посадка: {{ it.fit_label }}
+              {% endif %}
               {% if it.color_variant %}
               <br>
               <div class="d-flex align-items-center gap-1">

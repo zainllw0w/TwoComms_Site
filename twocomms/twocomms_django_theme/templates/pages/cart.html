@@ -289,6 +289,12 @@
                     <span class="cart-item-label">Кількість:</span>
                     <span class="cart-item-value">{{ it.qty }}</span>
                   </div>
+                  {% if it.fit_label %}
+                  <div class="cart-item-detail">
+                    <span class="cart-item-label">Посадка:</span>
+                    <span class="cart-item-value">{{ it.fit_label }}</span>
+                  </div>
+                  {% endif %}
                   {% if it.color_variant %}
                   <div class="cart-item-detail">
                     <span class="cart-item-label">Колір:</span>

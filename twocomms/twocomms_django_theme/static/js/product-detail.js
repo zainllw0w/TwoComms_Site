@@ -32,6 +32,7 @@
     initStickyAdd(root);
     updateCurrentOfferId(state);
     trackViewContent(state);
+    initRecentViewed(state);
   }
 
   function readJsonScript(id, fallback) {
@@ -55,9 +56,15 @@
     }
   }
 
+  function imageUrl(image) {
+    if (!image) return '';
+    if (typeof image === 'string') return image;
+    return image.url || image.src || '';
+  }
+
   function uniqueImages(images) {
     const seen = new Set();
-    return (images || []).filter((url) => {
+    return (images || []).map(imageUrl).filter((url) => {
       if (!url || seen.has(url)) return false;
       seen.add(url);
       return true;
@@ -260,12 +267,18 @@
     if (!selector) return;
 
     const options = Array.from(selector.querySelectorAll('[data-fit-option]'));
+    const container = document.getElementById('product-detail-container');
+    const checked = selector.querySelector('input[name="fit_option"]:checked');
+    if (checked && container) {
+      container.dataset.currentFit = checked.value || '';
+      const label = selector.querySelector(`label[for="${checked.id}"]`);
+      if (label) label.classList.add('active');
+    }
     selector.querySelectorAll('input[name="fit_option"]').forEach((input) => {
       input.addEventListener('change', () => {
         options.forEach((option) => option.classList.remove('active'));
         const label = selector.querySelector(`label[for="${input.id}"]`);
         if (label) label.classList.add('active');
-        const container = document.getElementById('product-detail-container');
         if (container) container.dataset.currentFit = input.value || '';
       });
     });
@@ -392,6 +405,10 @@
     const color = root.querySelector('#color-picker .color-swatch.active');
     const colorId = color ? color.getAttribute('data-variant') : '';
     if (colorId && colorId !== 'default') url.searchParams.set('color', colorId);
+
+    const fitInput = root.querySelector('input[name="fit_option"]:checked');
+    const fit = fitInput ? String(fitInput.value || '').trim() : '';
+    if (fit) url.searchParams.set('fit', fit);
 
     return url.toString();
   }
@@ -529,33 +546,89 @@
 
   function initZoom(state) {
     const buttons = state.root.querySelectorAll('[data-gallery-zoom]');
-    if (!buttons.length || !state.mainImage) return;
+    if (!state.mainImage) return;
 
     buttons.forEach((button) => {
       button.addEventListener('click', () => openLightbox(state.mainImage.getAttribute('data-zoom') || state.mainImage.src, state.mainImage.alt));
+    });
+    state.mainImage.addEventListener('click', () => {
+      openLightbox(state.mainImage.getAttribute('data-zoom') || state.mainImage.currentSrc || state.mainImage.src, state.mainImage.alt);
+    });
+    state.mainImage.setAttribute('tabindex', '0');
+    state.mainImage.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openLightbox(state.mainImage.getAttribute('data-zoom') || state.mainImage.currentSrc || state.mainImage.src, state.mainImage.alt);
+      }
     });
   }
 
   function openLightbox(src, alt) {
     if (!src) return;
+    let scale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let pointerId = null;
+
     const overlay = document.createElement('div');
     overlay.className = 'tc-lightbox';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Перегляд фото товару');
 
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.setAttribute('aria-label', 'Закрити фото');
-    close.textContent = '×';
+    const toolbar = document.createElement('div');
+    toolbar.className = 'tc-lightbox-toolbar';
+
+    const makeButton = (label, text, className) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = className || '';
+      button.setAttribute('aria-label', label);
+      button.textContent = text;
+      return button;
+    };
+
+    const zoomOut = makeButton('Зменшити фото', '−', 'tc-lightbox-tool');
+    const zoomReset = makeButton('Повернути масштаб 100%', '100%', 'tc-lightbox-tool tc-lightbox-reset');
+    const zoomIn = makeButton('Збільшити фото', '+', 'tc-lightbox-tool');
+    const close = makeButton('Закрити фото', '×', 'tc-lightbox-close');
+
+    toolbar.appendChild(zoomOut);
+    toolbar.appendChild(zoomReset);
+    toolbar.appendChild(zoomIn);
+    toolbar.appendChild(close);
+
+    const viewport = document.createElement('div');
+    viewport.className = 'tc-lightbox-viewport';
 
     const img = document.createElement('img');
     img.src = src;
     img.alt = alt || '';
+    img.draggable = false;
 
-    overlay.appendChild(close);
-    overlay.appendChild(img);
+    viewport.appendChild(img);
+    overlay.appendChild(toolbar);
+    overlay.appendChild(viewport);
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
+
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const applyTransform = () => {
+      if (scale <= 1) {
+        translateX = 0;
+        translateY = 0;
+      }
+      img.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`;
+      zoomReset.textContent = `${Math.round(scale * 100)}%`;
+      overlay.classList.toggle('is-zoomed', scale > 1);
+    };
+    const setScale = (nextScale) => {
+      scale = clamp(nextScale, 1, 3.5);
+      applyTransform();
+    };
 
     const remove = () => {
       overlay.classList.remove('is-visible');
@@ -567,14 +640,116 @@
     };
     const onKeydown = (event) => {
       if (event.key === 'Escape') remove();
+      if (event.key === '+' || event.key === '=') setScale(scale + 0.25);
+      if (event.key === '-') setScale(scale - 0.25);
+      if (event.key === '0') setScale(1);
     };
 
     overlay.addEventListener('click', (event) => {
       if (event.target === overlay) remove();
     });
     close.addEventListener('click', remove);
+    zoomIn.addEventListener('click', () => setScale(scale + 0.35));
+    zoomOut.addEventListener('click', () => setScale(scale - 0.35));
+    zoomReset.addEventListener('click', () => setScale(1));
+    viewport.addEventListener('dblclick', () => setScale(scale > 1 ? 1 : 2));
+    viewport.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      setScale(scale + (event.deltaY < 0 ? 0.18 : -0.18));
+    }, { passive: false });
+    viewport.addEventListener('pointerdown', (event) => {
+      if (scale <= 1) return;
+      dragging = true;
+      pointerId = event.pointerId;
+      startX = event.clientX - translateX;
+      startY = event.clientY - translateY;
+      viewport.setPointerCapture(pointerId);
+    });
+    viewport.addEventListener('pointermove', (event) => {
+      if (!dragging || scale <= 1) return;
+      translateX = event.clientX - startX;
+      translateY = event.clientY - startY;
+      applyTransform();
+    });
+    const stopDrag = () => {
+      dragging = false;
+      pointerId = null;
+    };
+    viewport.addEventListener('pointerup', stopDrag);
+    viewport.addEventListener('pointercancel', stopDrag);
     document.addEventListener('keydown', onKeydown);
+    close.focus({ preventScroll: true });
     window.requestAnimationFrame(() => overlay.classList.add('is-visible'));
+  }
+
+  function initRecentViewed(state) {
+    const panel = document.querySelector('[data-recent-viewed-panel]');
+    if (!panel || !state.container) return;
+
+    const storageKey = 'twc_recent_products_v1';
+    const canonical = document.querySelector('link[rel="canonical"]');
+    const url = canonical && canonical.href ? canonical.href : window.location.href.split('#')[0];
+    const productId = String(state.container.dataset.productId || '');
+    const current = {
+      id: productId,
+      title: decodeDataValue(state.container.getAttribute('data-product-title')) || cleanDocumentTitle(),
+      category: decodeDataValue(state.container.getAttribute('data-product-category')) || '',
+      price: (document.getElementById('product-analytics-payload') && document.getElementById('product-analytics-payload').dataset.price) || '',
+      image: state.mainImage ? (state.mainImage.getAttribute('data-initial-image') || state.mainImage.currentSrc || state.mainImage.src) : '',
+      url,
+    };
+
+    let items = [];
+    try {
+      items = JSON.parse(window.localStorage.getItem(storageKey) || '[]') || [];
+    } catch (_) {
+      items = [];
+    }
+
+    const previous = items.filter((item) => item && String(item.id) !== productId && item.url && item.title).slice(0, 4);
+    renderRecentViewed(panel, previous);
+
+    if (productId && current.url && current.title) {
+      const nextItems = [current].concat(previous).slice(0, 8);
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(nextItems));
+      } catch (_) { }
+    }
+  }
+
+  function renderRecentViewed(panel, items) {
+    if (!items.length) {
+      panel.hidden = true;
+      return;
+    }
+    const list = panel.querySelector('[data-recent-viewed-list]');
+    if (!list) return;
+    list.innerHTML = items.map((item) => `
+      <a class="tc-recent-card" href="${escapeAttribute(item.url)}">
+        <span class="tc-recent-image">
+          ${item.image ? `<img src="${escapeAttribute(item.image)}" alt="${escapeAttribute(item.title)} — переглянутий товар TwoComms" loading="lazy" width="112" height="140">` : ''}
+        </span>
+        <span class="tc-recent-copy">
+          <strong>${escapeHtml(item.title)}</strong>
+          ${item.category ? `<small>${escapeHtml(item.category)}</small>` : ''}
+          ${item.price ? `<b>${escapeHtml(item.price)} грн</b>` : ''}
+        </span>
+      </a>
+    `).join('');
+    panel.hidden = false;
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeAttribute(value) {
+    return escapeHtml(value).replace(/`/g, '&#96;');
   }
 
   function initStickyAdd(root) {

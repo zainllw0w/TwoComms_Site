@@ -23,7 +23,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-pdp-share-v1">
+<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-pdp-fit-v2">
 {% endblock %}
 
 {% block content %}
@@ -55,12 +55,6 @@
             data-initial-image="{{ ph_url }}"
             data-zoom="{{ ph_url }}">
         {% endif %}
-
-        <div class="tc-media-logo-lockup" aria-hidden="true">
-          <img src="{% static 'img/logo.svg' %}" alt="" width="34" height="34">
-          <span>TwoComms</span>
-        </div>
-
         <div class="tc-media-controls" aria-label="Дії з фото">
           <button type="button" class="tc-icon-btn" data-gallery-zoom aria-label="Збільшити фото">
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -99,11 +93,11 @@
 
       <a class="tc-custom-print-card" href="{% url 'custom_print' %}">
         <span class="tc-custom-print-mark" aria-hidden="true">
-          <img src="{% static 'img/pdp/custom-print-crest.png' %}" alt="" width="96" height="96" loading="lazy">
+          <img src="{% static 'img/logo.svg' %}" alt="" width="96" height="96" loading="lazy">
         </span>
         <span class="tc-custom-print-copy">
           <strong>Індивідуальний позивний або бренд?</strong>
-          <small>Нанесемо ваш логотип чи позивний під замовлення. Створимо унікальний принт разом з TwoComms.</small>
+          <small>Створимо принт з нуля під ваш позивний, логотип або ідею. Унікальна річ разом з TwoComms.</small>
         </span>
         <span class="tc-custom-print-action">
           <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V21h3.75L18.8 9.95l-3.75-3.75L4 17.25Zm13.7-8.7-2.25-2.25 1.4-1.4a1.06 1.06 0 0 1 1.5 0l.75.75c.42.42.42 1.08 0 1.5l-1.4 1.4Z" fill="currentColor"/></svg>
@@ -251,8 +245,8 @@
                   id="fit-{{ option.code }}"
                   value="{{ option.code }}"
                   autocomplete="off"
-                  {% if option.is_default %}checked{% endif %}>
-                <label class="tc-fit-option{% if option.is_default %} active{% endif %}" for="fit-{{ option.code }}" data-fit-option>
+                  {% if preselected_fit_code == option.code %}checked{% endif %}>
+                <label class="tc-fit-option{% if preselected_fit_code == option.code %} active{% endif %}" for="fit-{{ option.code }}" data-fit-option>
                   <span class="tc-fit-check" aria-hidden="true"></span>
                   <span class="tc-fit-icon" aria-hidden="true">
                     {% if option.code == "oversize" %}
@@ -448,15 +442,15 @@
           <a href="{% url 'catalog' %}">Переглянути всі</a>
         </div>
         <div class="tc-related-grid" aria-label="Рекомендовані товари">
-          {% for rec_product in recommended_products|slice:":4" %}
+          {% for rec_product in recommended_products|slice:":8" %}
             <article class="tc-related-card">
               <a href="{% url 'product' rec_product.slug %}" class="tc-related-link" aria-label="{{ rec_product.title }}">
                 <span class="tc-related-image-wrap">
                   {% if rec_product.display_image %}
-                    <img src="{{ rec_product.display_image.url }}" alt="{{ rec_product.title }}" loading="lazy" width="520" height="650">
+                    <img src="{{ rec_product.display_image.url }}" alt="{{ rec_product.main_image_alt|default:rec_product.title }} — схожий товар TwoComms" loading="lazy" width="520" height="650">
                   {% else %}
                     {% static 'img/placeholder.jpg' as ph_url %}
-                    <img src="{{ ph_url }}" alt="{{ rec_product.title }}" loading="lazy" width="520" height="650">
+                    <img src="{{ ph_url }}" alt="{{ rec_product.title }} — схожий товар TwoComms" loading="lazy" width="520" height="650">
                   {% endif %}
                   {% if rec_product.has_discount %}
                     <span class="tc-related-discount">-{{ rec_product.discount_percent }}%</span>
@@ -479,6 +473,14 @@
       </section>
     {% endcache %}
   {% endif %}
+
+  <section class="tc-recent-panel" data-recent-viewed-panel hidden aria-labelledby="tc-recent-title">
+    <div class="tc-related-head">
+      <h2 id="tc-recent-title">Нещодавно переглядали</h2>
+      <a href="{% url 'catalog' %}">До каталогу</a>
+    </div>
+    <div class="tc-recent-grid" data-recent-viewed-list></div>
+  </section>
 
   <div class="tc-sticky-mobile" id="productStickyMobile">
     <div class="tc-sticky-price">
@@ -510,5 +512,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/product-detail.js' %}?v=20260428-pdp-share-v1" defer></script>
+<script src="{% static 'js/product-detail.js' %}?v=20260428-pdp-fit-v2" defer></script>
 {% endblock %}

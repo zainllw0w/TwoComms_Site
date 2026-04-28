@@ -97,6 +97,41 @@ def _calculate_original_subtotal(cart):
     return total
 
 
+def _resolve_product_fit_payload(product, requested_code):
+    """
+    Resolve an editable product fit option for cart/order snapshots.
+
+    The fit selector exists only for products with active ProductFitOption rows.
+    We store both code and label: code keeps machine identity, label keeps the
+    historical order display stable if an admin renames the option later.
+    """
+    try:
+        options = list(
+            product.fit_options
+            .filter(is_active=True)
+            .order_by('order', 'id')
+            .only('code', 'label', 'is_default')
+        )
+    except Exception:
+        options = []
+
+    if not options:
+        return '', ''
+
+    requested = str(requested_code or '').strip().lower()
+    selected = next((option for option in options if option.code == requested), None)
+    if selected is None:
+        selected = next((option for option in options if option.is_default), options[0])
+
+    return selected.code, selected.label
+
+
+def _fit_display_from_cart_item(item_data):
+    code = str(item_data.get('fit_option_code') or item_data.get('fit') or '').strip()
+    label = str(item_data.get('fit_option_label') or item_data.get('fit_label') or '').strip()
+    return code, label or code
+
+
 def _safe_decimal(value, default='0') -> Decimal:
     try:
         return Decimal(str(value if value is not None else default))
@@ -513,6 +548,7 @@ def view_cart(request):
 
             color_label = _color_label_from_variant(color_variant)
             size_value = normalize_requested_size(product, item_data.get('size'))
+            fit_option_code, fit_option_label = _fit_display_from_cart_item(item_data)
             # color_variant_id = color_variant.id if color_variant else None # Already have it
             offer_id = product.get_offer_id(color_variant_id, size_value, color_name=color_label)
             content_ids.append(offer_id)
@@ -544,6 +580,9 @@ def view_cart(request):
                 'original_line_total': original_line_total,
                 'site_discount_amount': site_line_discount,
                 'size': size_value,
+                'fit_option_code': fit_option_code,
+                'fit_option_label': fit_option_label,
+                'fit_label': fit_option_label,
                 'color_variant': color_variant,
                 'color_label': color_label,  # ДОБАВЛЕНО: для отображения цвета
                 'offer_id': offer_id,
@@ -715,18 +754,25 @@ def add_to_cart(request):
 
     product = get_object_or_404(Product, pk=pid)
     size = normalize_requested_size(product, request.POST.get('size'))
+    fit_option_code, fit_option_label = _resolve_product_fit_payload(product, request.POST.get('fit_option'))
     price = product.final_price
     if not isinstance(price, Decimal):
         price = Decimal(str(price))
 
     cart = request.session.get('cart', {})
     key = f"{product.id}:{size}:{color_variant_id or 'default'}"
+    if fit_option_code:
+        key = f"{key}:{fit_option_code}"
     item = cart.get(key, {
         'product_id': product.id,
         'size': size,
         'color_variant_id': color_variant_id,
+        'fit_option_code': fit_option_code,
+        'fit_option_label': fit_option_label,
         'qty': 0
     })
+    item['fit_option_code'] = fit_option_code
+    item['fit_option_label'] = fit_option_label
     item['qty'] += qty
     cart[key] = item
     if qty <= 0:
@@ -780,6 +826,9 @@ def add_to_cart(request):
             'currency': 'UAH',
             'size': size,
             'color_variant_id': color_variant_id,
+            'fit_option_code': fit_option_code,
+            'fit_option_label': fit_option_label,
+            'fit_label': fit_option_label,
             'product_title': product.title,
             'product_category': product.category.name if getattr(product, 'category', None) else ''
         }
@@ -1316,6 +1365,7 @@ def cart_mini(request):
             pass
 
         size_value = normalize_requested_size(p, it.get('size'))
+        fit_option_code, fit_option_label = _fit_display_from_cart_item(it)
         color_variant_id = color_variant.id if color_variant else None
         offer_id = p.get_offer_id(color_variant_id, size_value)
 
@@ -1323,6 +1373,9 @@ def cart_mini(request):
             'key': key,
             'product': p,
             'size': size_value,
+            'fit_option_code': fit_option_code,
+            'fit_option_label': fit_option_label,
+            'fit_label': fit_option_label,
             'color_variant': color_variant,
             'color_label': _color_label_from_variant(color_variant),
             'qty': it['qty'],
@@ -1430,8 +1483,10 @@ def contact_manager(request):
 
             # Информация о размере и цвете
             size_info = f" ({item_data.get('size')})" if item_data.get('size') else ""
+            _, fit_label = _fit_display_from_cart_item(item_data)
+            fit_info = f" / {fit_label}" if fit_label else ""
 
-            message += f"• {product.title}{size_info} x {qty} шт = {line_total} грн\n"
+            message += f"• {product.title}{size_info}{fit_info} x {qty} шт = {line_total} грн\n"
 
         message += f"\n💰 <b>Всього:</b> {total_sum} грн"
         message += "\n\n<i>Клієнт очікує на зв'язок менеджера!</i>"
@@ -1515,6 +1570,7 @@ def cart_items_api(request):
             color_variant = variants_map.get(int(variant_id)) if variant_id else None
             color_label = _color_label_from_variant(color_variant)
             size_value = normalize_requested_size(product, item_data.get('size'))
+            fit_option_code, fit_option_label = _fit_display_from_cart_item(item_data)
             color_variant_id = color_variant.id if color_variant else None
             offer_id = product.get_offer_id(color_variant_id, size_value)
 
@@ -1544,6 +1600,9 @@ def cart_items_api(request):
                 'site_discount_amount': float(site_line_discount),
                 'qty': qty,
                 'size': size_value,
+                'fit_option_code': fit_option_code,
+                'fit_option_label': fit_option_label,
+                'fit_label': fit_option_label,
                 'color_variant_id': item_data.get('color_variant_id'),
                 'color_label': color_label,
                 'image_url': image_url,

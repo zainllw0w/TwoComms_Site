@@ -170,6 +170,8 @@ def create_order(request):
                     color_variant=variant,
                     title=product.title,
                     size=item.get('size', 'S'),
+                    fit_option_code=(item.get('fit_option_code') or item.get('fit') or ''),
+                    fit_option_label=(item.get('fit_option_label') or item.get('fit_label') or ''),
                     qty=qty,
                     unit_price=price,
                     line_total=price * qty,
