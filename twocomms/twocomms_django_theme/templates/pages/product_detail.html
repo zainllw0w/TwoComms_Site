@@ -24,6 +24,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-pdp-share-solo-v6">
+<link rel="stylesheet" href="{% static 'css/product-media-fit.css' %}?v=20260428-media-fit-v1">
 {% endblock %}
 
 {% block content %}
@@ -36,6 +37,7 @@
       <div class="tc-media-stage" id="mainImageWrapper">
         <div class="tc-media-ambient" aria-hidden="true"></div>
         <div class="tc-media-sparks" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
           <span></span><span></span><span></span><span></span><span></span><span></span>
         </div>
         {% if product.display_image %}
@@ -513,4 +515,5 @@
 
 {% block extra_js %}
 <script src="{% static 'js/product-detail.js' %}?v=20260428-image-sources-v1" defer></script>
+<script src="{% static 'js/product-media-fit.js' %}?v=20260428-media-fit-v1" defer></script>
 {% endblock %}

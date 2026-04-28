@@ -123,7 +123,9 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'id="panel-delivery"', html=False)
         self.assertContains(response, 'data-add-to-cart=', html=False)
         self.assertContains(response, 'product-detail.css?v=20260428-pdp-share-solo-v6', html=False)
+        self.assertContains(response, 'product-media-fit.css?v=20260428-media-fit-v1', html=False)
         self.assertContains(response, 'product-detail.js?v=20260428-image-sources-v1', html=False)
+        self.assertContains(response, 'product-media-fit.js?v=20260428-media-fit-v1', html=False)
 
     def test_product_detail_renders_description_collapse_hooks(self):
         self.product.full_description = "\n".join(
@@ -158,6 +160,17 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertIn("flex: 0 0 68px", css)
         self.assertIn(".btn-check:focus-visible + .tc-size-option", css)
         self.assertNotIn("grid-template-columns: repeat(5, 68px)", css)
+
+    def test_product_detail_media_fit_assets_define_wide_only_cover_mode(self):
+        static_root = Path(__file__).resolve().parents[2] / "twocomms_django_theme/static"
+        css = (static_root / "css/product-media-fit.css").read_text(encoding="utf-8")
+        js = (static_root / "js/product-media-fit.js").read_text(encoding="utf-8")
+
+        self.assertIn(".tc-media-stage.tc-media-fit-wide .tc-media-hero-img", css)
+        self.assertIn("object-fit: cover", css)
+        self.assertIn("object-fit: contain", css)
+        self.assertIn("const WIDE_RATIO = 1.42", js)
+        self.assertIn("MutationObserver", js)
 
     def test_product_detail_returns_404_for_unpublished_product(self):
         self.product.status = "draft"
