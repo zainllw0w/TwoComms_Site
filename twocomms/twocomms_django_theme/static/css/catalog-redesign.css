@@ -51,6 +51,7 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
     linear-gradient(180deg, rgba(3, 4, 6, 0.2), rgba(3, 4, 6, 0.9) 82%, #030406 100%),
     radial-gradient(circle at 66% 28%, rgba(124, 58, 237, 0.2), transparent 34%),
     #030406;
+  overflow: hidden;
 }
 
 .catalog-hero--products {
@@ -62,12 +63,14 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
   inset: 0;
   z-index: 0;
   background-image:
-    linear-gradient(90deg, rgba(3, 4, 6, 0.72) 0%, rgba(3, 4, 6, 0.36) 34%, rgba(3, 4, 6, 0.52) 74%, rgba(3, 4, 6, 0.9) 100%),
-    linear-gradient(180deg, rgba(3, 4, 6, 0.06), rgba(3, 4, 6, 0.86) 78%, #030406 100%),
+    linear-gradient(90deg, rgba(3, 4, 6, 0.74) 0%, rgba(3, 4, 6, 0.24) 34%, rgba(3, 4, 6, 0.34) 66%, rgba(3, 4, 6, 0.82) 100%),
+    linear-gradient(180deg, rgba(3, 4, 6, 0.04), rgba(3, 4, 6, 0.74) 80%, #030406 100%),
     url("../img/catalog/catalog-hero.webp");
-  background-size: cover;
-  background-position: center top;
-  opacity: 0.96;
+  background-size: 100% 100%, 100% 100%, clamp(1080px, 91vw, 1370px) auto;
+  background-position: center, center, 52% 14px;
+  background-repeat: no-repeat;
+  opacity: 0.98;
+  filter: saturate(1.04) contrast(1.04);
 }
 
 .catalog-hero__backdrop::before,
@@ -89,7 +92,8 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
 
 .catalog-hero__backdrop::after {
   background:
-    radial-gradient(circle at 50% 46%, transparent 0 28%, rgba(0, 0, 0, 0.28) 56%, rgba(0, 0, 0, 0.72) 100%),
+    radial-gradient(circle at 54% 42%, transparent 0 36%, rgba(0, 0, 0, 0.16) 62%, rgba(0, 0, 0, 0.66) 100%),
+    linear-gradient(90deg, rgba(3, 4, 6, 0.7) 0%, rgba(3, 4, 6, 0.2) 38%, rgba(3, 4, 6, 0.1) 60%, rgba(3, 4, 6, 0.52) 100%),
     linear-gradient(180deg, transparent 0 66%, #030406 100%);
 }
 
@@ -233,7 +237,7 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
 
 .catalog-print-panel {
   position: relative;
-  min-height: 388px;
+  min-height: 396px;
   padding: 34px;
   border: 1px solid var(--catalog-line);
   border-radius: 8px;
@@ -258,6 +262,21 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
     radial-gradient(circle at 0 0, rgba(158, 117, 255, 0.34), transparent 30%),
     linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent 54%);
   opacity: 0.85;
+}
+
+.catalog-print-panel::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 64px 64px;
+  opacity: 0.18;
+  -webkit-mask-image: linear-gradient(120deg, transparent 0 26%, #000 48%, transparent 86%);
+  mask-image: linear-gradient(120deg, transparent 0 26%, #000 48%, transparent 86%);
 }
 
 .catalog-print-panel__copy {
@@ -291,7 +310,8 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
   margin-top: 26px;
 }
 
-.catalog-print-tools span {
+.catalog-print-tool {
+  appearance: none;
   display: grid;
   place-items: center;
   gap: 8px;
@@ -301,9 +321,35 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
   border-radius: 8px;
   background: rgba(5, 6, 9, 0.52);
   color: rgba(255, 255, 255, 0.88);
+  font: inherit;
   font-size: 0.72rem;
   line-height: 1.2;
   text-align: center;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.catalog-print-tool:hover,
+.catalog-print-tool:focus-visible,
+.catalog-print-tool.is-active {
+  border-color: rgba(159, 115, 255, 0.74);
+  background: rgba(124, 58, 237, 0.16);
+  box-shadow:
+    inset 0 0 18px rgba(124, 58, 237, 0.18),
+    0 0 22px rgba(124, 58, 237, 0.14);
+}
+
+.catalog-print-tool:hover {
+  transform: translateY(-1px);
+}
+
+.catalog-print-tool:focus-visible {
+  outline: 2px solid rgba(159, 115, 255, 0.8);
+  outline-offset: 3px;
+}
+
+.catalog-print-tool.is-active {
+  color: #fff;
 }
 
 .catalog-print-tools svg {
@@ -312,21 +358,123 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
 
 .catalog-print-preview {
   position: absolute;
-  right: -18px;
-  top: 98px;
-  width: 250px;
-  aspect-ratio: 1 / 1.08;
+  right: -4px;
+  top: 42px;
+  width: 318px;
+  height: 326px;
   z-index: 1;
-  opacity: 0.96;
-  mask-image: linear-gradient(180deg, #000 0 76%, transparent 100%);
+  opacity: 0.98;
+  cursor: crosshair;
+  -webkit-mask-image: linear-gradient(180deg, #000 0 82%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0 82%, transparent 100%);
 }
 
 .catalog-print-preview img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 70% center;
+  object-position: 79% center;
   filter: saturate(0.9) contrast(1.08);
+}
+
+.catalog-print-preview__mist {
+  position: absolute;
+  inset: 7% 2% 4% 12%;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 67% 38%, rgba(159, 115, 255, 0.3), transparent 34%),
+    radial-gradient(circle at 42% 55%, rgba(255, 255, 255, 0.12), transparent 48%),
+    radial-gradient(circle at 80% 63%, rgba(124, 58, 237, 0.18), transparent 44%);
+  filter: blur(13px);
+  mix-blend-mode: screen;
+  opacity: 0.72;
+  animation: catalogPrintMist 7s ease-in-out infinite alternate;
+}
+
+.catalog-print-zone {
+  position: absolute;
+  z-index: 4;
+  left: 47%;
+  top: 28%;
+  width: 38%;
+  height: 44%;
+  border: 2px dashed rgba(143, 84, 255, 0.96);
+  border-radius: 2px;
+  background: rgba(124, 58, 237, 0.055);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 26px rgba(124, 58, 237, 0.46),
+    inset 0 0 28px rgba(124, 58, 237, 0.18);
+  pointer-events: none;
+  animation: catalogPrintZonePulse 2.8s ease-in-out infinite;
+}
+
+.catalog-print-zone__label {
+  position: absolute;
+  left: -2px;
+  top: -30px;
+  min-width: 88px;
+  padding: 5px 8px;
+  border: 1px solid rgba(159, 115, 255, 0.66);
+  border-radius: 4px;
+  color: #fff;
+  background: rgba(10, 8, 18, 0.84);
+  box-shadow: 0 0 18px rgba(124, 58, 237, 0.32);
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.catalog-print-zone__handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: #8f54ff;
+  border-style: solid;
+  background: #160e24;
+  box-shadow: 0 0 14px rgba(159, 115, 255, 0.74);
+}
+
+.catalog-print-zone__handle--tl {
+  left: -8px;
+  top: -8px;
+  border-width: 3px 0 0 3px;
+}
+
+.catalog-print-zone__handle--tr {
+  right: -8px;
+  top: -8px;
+  border-width: 3px 3px 0 0;
+}
+
+.catalog-print-zone__handle--br {
+  right: -8px;
+  bottom: -8px;
+  border-width: 0 3px 3px 0;
+}
+
+.catalog-print-zone__handle--bl {
+  left: -8px;
+  bottom: -8px;
+  border-width: 0 0 3px 3px;
+}
+
+.catalog-print-preview[data-print-mode="idea"] .catalog-print-zone {
+  left: 41%;
+  top: 23%;
+  width: 45%;
+  height: 49%;
+}
+
+.catalog-print-preview[data-print-mode="placement"] .catalog-print-zone {
+  left: 51%;
+  top: 35%;
+  width: 33%;
+  height: 38%;
 }
 
 .catalog-print-cta {
@@ -624,6 +772,35 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
   }
 }
 
+@keyframes catalogPrintMist {
+  0% {
+    transform: translate3d(-8px, 8px, 0) scale(0.98);
+    opacity: 0.56;
+  }
+  100% {
+    transform: translate3d(10px, -10px, 0) scale(1.06);
+    opacity: 0.78;
+  }
+}
+
+@keyframes catalogPrintZonePulse {
+  0%,
+  100% {
+    border-color: rgba(143, 84, 255, 0.88);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 0 18px rgba(124, 58, 237, 0.34),
+      inset 0 0 22px rgba(124, 58, 237, 0.14);
+  }
+  50% {
+    border-color: rgba(190, 166, 255, 1);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.1),
+      0 0 34px rgba(124, 58, 237, 0.56),
+      inset 0 0 32px rgba(124, 58, 237, 0.2);
+  }
+}
+
 @media (min-width: 768px) {
   .catalog-redesign-shell {
     margin-top: -3rem;
@@ -674,7 +851,8 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
   }
 
   .catalog-hero__backdrop {
-    background-position: 47% top;
+    background-size: 100% 100%, 100% 100%, 1080px auto;
+    background-position: center, center, 50% 0;
   }
 
   .catalog-breadcrumb {
@@ -720,19 +898,19 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
   .catalog-print-panel {
     display: flex;
     flex-direction: column;
-    min-height: 394px;
+    min-height: 0;
     padding: 24px;
   }
 
   .catalog-print-tools {
-    order: 4;
+    order: 3;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     width: 100%;
     gap: 8px;
     margin-top: 18px;
   }
 
-  .catalog-print-tools span {
+  .catalog-print-tool {
     min-height: 76px;
     gap: 6px;
     padding: 8px 6px;
@@ -742,21 +920,26 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
   }
 
   .catalog-print-preview {
-    right: -100px;
+    position: relative;
+    right: auto;
     top: auto;
-    bottom: 26px;
-    width: 255px;
-    object-position: center;
+    bottom: auto;
+    order: 2;
+    align-self: end;
+    width: min(100%, 320px);
+    height: 220px;
+    margin: -10px -8px 0 auto;
+    opacity: 0.95;
   }
 
   .catalog-print-cta {
-    order: 2;
+    order: 4;
     width: 100%;
     margin-top: 18px;
   }
 
   .catalog-print-panel__note {
-    order: 3;
+    order: 5;
   }
 
   .catalog-filter-rail {
@@ -854,7 +1037,16 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
   }
 
   .catalog-print-preview {
-    opacity: 0.72;
+    width: min(100%, 292px);
+    height: 206px;
+    margin-right: -6px;
+  }
+
+  .catalog-print-zone__label {
+    top: -24px;
+    min-width: 72px;
+    padding: 4px 6px;
+    font-size: 0.56rem;
   }
 
   .catalog-showcase-card {
@@ -866,6 +1058,9 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
   .catalog-hero__smoke,
   .catalog-showcase-card,
   .catalog-showcase-card__media img,
+  .catalog-print-tool,
+  .catalog-print-zone,
+  .catalog-print-preview__mist,
   .catalog-print-cta svg {
     animation: none;
     transition: none;
@@ -879,7 +1074,9 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
 }
 
 html.effects-lite .catalog-hero__smoke,
-html.perf-lite .catalog-hero__smoke {
+html.perf-lite .catalog-hero__smoke,
+html.effects-lite .catalog-print-preview__mist,
+html.perf-lite .catalog-print-preview__mist {
   display: none;
 }
 

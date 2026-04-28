@@ -142,6 +142,21 @@ class CatalogViewTests(CatalogViewTestCase):
         self.assertIn("Other Product", product_titles)
         self.assertNotIn("Hidden Product", product_titles)
 
+    def test_catalog_root_renders_print_zone_selector(self):
+        self.create_product(title="Root Product", slug="root-product")
+
+        response = self.client.get(reverse("catalog"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "catalog-print-panel")
+        self.assertContains(response, "catalog-print-tool is-active")
+        self.assertContains(response, 'data-print-mode="print"')
+        self.assertContains(response, 'aria-pressed="true"')
+        self.assertContains(response, "catalog-print-zone")
+        self.assertContains(response, "catalog-print-zone__handle")
+        self.assertContains(response, "Зона друку")
+        self.assertContains(response, "js/catalog-redesign.js")
+
     def test_catalog_by_category_limits_results_to_selected_category(self):
         in_category = self.create_product(title="Category Product", slug="category-product")
         self.create_product(

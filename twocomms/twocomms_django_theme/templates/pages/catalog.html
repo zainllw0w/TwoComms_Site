@@ -170,27 +170,35 @@
           </div>
         </header>
 
-        <aside class="catalog-print-panel" aria-label="Створити свій дизайн">
+        <aside class="catalog-print-panel" aria-label="Створити свій дизайн" data-catalog-print-panel>
           <div class="catalog-print-panel__copy">
             <h2>Створи свій<br>дизайн</h2>
             <p>Свій принт. Своя ідея.<br>Своє розташування.</p>
           </div>
           <div class="catalog-print-tools" aria-label="Етапи створення принта">
-            <span>
+            <button type="button" class="catalog-print-tool is-active" data-print-mode="print" aria-pressed="true">
               <svg width="26" height="26" viewBox="0 0 24 24" focusable="false"><path d="M5 5h14v14H5V5Zm2 2v7.6l2.4-2.4 2.7 2.7 3.1-3.8L17 13.3V7H7Zm0 10h10l-1.7-2-3 3-2.9-2.9L7 17Zm3-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/></svg>
               Свій принт
-            </span>
-            <span>
+            </button>
+            <button type="button" class="catalog-print-tool" data-print-mode="idea" aria-pressed="false">
               <svg width="26" height="26" viewBox="0 0 24 24" focusable="false"><path d="M11 3h2v3h-2V3Zm7.1 2.5 1.4 1.4-2.1 2.1L16 7.6l2.1-2.1ZM4.5 6.9l1.4-1.4L8 7.6 6.6 9 4.5 6.9ZM12 8a5 5 0 0 1 3 9v2H9v-2a5 5 0 0 1 3-9Zm0 2a3 3 0 0 0-1.7 5.5l.7.5v1h2v-1l.7-.5A3 3 0 0 0 12 10Zm-3 10h6v2H9v-2Z"/></svg>
               Своя ідея
-            </span>
-            <span>
+            </button>
+            <button type="button" class="catalog-print-tool" data-print-mode="placement" aria-pressed="false">
               <svg width="26" height="26" viewBox="0 0 24 24" focusable="false"><path d="m7 4 3 2h4l3-2 4 4-3 3v9H6v-9L3 8l4-4Zm.3 2.5L5.8 8 8 10.2V18h8v-7.8L18.2 8l-1.5-1.5-2.1 1.4H9.4L7.3 6.5Z"/></svg>
               Своє розташування
-            </span>
+            </button>
           </div>
-          <div class="catalog-print-preview">
+          <div class="catalog-print-preview" data-print-preview data-print-mode="print">
             <img src="{% static 'img/catalog/catalog-hoodies.webp' %}" width="1280" height="853" alt="Приклад чорного худі TwoComms з власним принтом" loading="eager" decoding="async" fetchpriority="low">
+            <span class="catalog-print-preview__mist" aria-hidden="true"></span>
+            <span class="catalog-print-zone" aria-hidden="true">
+              <span class="catalog-print-zone__label">Зона друку</span>
+              <span class="catalog-print-zone__handle catalog-print-zone__handle--tl"></span>
+              <span class="catalog-print-zone__handle catalog-print-zone__handle--tr"></span>
+              <span class="catalog-print-zone__handle catalog-print-zone__handle--br"></span>
+              <span class="catalog-print-zone__handle catalog-print-zone__handle--bl"></span>
+            </span>
           </div>
           <a class="catalog-print-cta" href="{% url 'custom_print' %}">
             <span>Створити свій принт</span>
@@ -358,4 +366,9 @@
   </section>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script defer src="{% static 'js/catalog-redesign.js' %}"></script>
 {% endblock %}
