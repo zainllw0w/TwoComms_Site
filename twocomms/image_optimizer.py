@@ -177,23 +177,39 @@ class ImageOptimizer:
         # Получаем информацию о файле
         file_name = Path(product_image_path).stem
         file_ext = Path(product_image_path).suffix.lower()
+        max_product_size = (1920, 2400)
 
         optimized_images = {}
 
         # Создаем оптимизированную версию в оригинальном формате
         if file_ext in ['.jpg', '.jpeg']:
-            optimized_data = self.optimize_image(product_image_path, 'JPEG', quality=85)
+            optimized_data = self.optimize_image(
+                product_image_path,
+                'JPEG',
+                quality=85,
+                max_size=max_product_size,
+            )
             if optimized_data:
                 optimized_images[f"{file_name}_optimized.jpg"] = optimized_data
 
         # Создаем WebP версию
-        webp_data = self.optimize_image(product_image_path, 'WEBP', quality=80)
+        webp_data = self.optimize_image(
+            product_image_path,
+            'WEBP',
+            quality=80,
+            max_size=max_product_size,
+        )
         if webp_data:
             optimized_images[f"{file_name}.webp"] = webp_data
 
         # Создаем AVIF версию
         try:
-            avif_data = self.optimize_image(product_image_path, 'AVIF', quality=75)
+            avif_data = self.optimize_image(
+                product_image_path,
+                'AVIF',
+                quality=75,
+                max_size=max_product_size,
+            )
             if avif_data:
                 optimized_images[f"{file_name}.avif"] = avif_data
         except Exception:
