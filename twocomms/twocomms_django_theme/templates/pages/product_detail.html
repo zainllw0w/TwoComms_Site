@@ -23,7 +23,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-pdp-fit-v2">
+<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-pdp-balance-v4">
 {% endblock %}
 
 {% block content %}
@@ -275,23 +275,43 @@
         </div>
 
         <div class="tc-tab-panel active" id="panel-desc" role="tabpanel" aria-labelledby="tab-desc" data-pdp-panel="desc">
-          <div class="tc-desc-layout">
-            <div class="tc-desc-copy">
-              <p class="tc-lead-copy">{{ product.title }} — це не просто одяг. Це стан.</p>
-              <p class="tc-muted-copy">Створений для тих, хто йде своїм шляхом, навіть коли все навколо летить під три чорти.</p>
-              {% if product.full_description %}
-                <div class="tc-rich-copy tc-rich-copy--compact">{{ product.full_description|linebreaksbr }}</div>
-              {% elif product.description %}
-                <div class="tc-rich-copy tc-rich-copy--compact">{{ product.description|linebreaksbr }}</div>
-              {% endif %}
-              <div class="tc-check-list tc-desc-checks tc-desc-bullets">
-                <div>Матеріал: 95% бавовна, 5% еластан — преміум якість, щільність 190 г/м²</div>
-                <div>М'який та приємний до тіла, дихає і не сковує рухів</div>
-                <div>Підсилені шви та еластичні манжети для довговічності</div>
-                <div>Принт витримує багато прань — не тріскається та не вигорає</div>
-                <div>Зроблено в Україні з любов'ю та увагою до деталей</div>
+          <div class="tc-desc-collapse is-collapsible is-collapsed" data-pdp-description-collapse>
+            <div class="tc-desc-collapse-content" id="tc-desc-content-{{ product.id }}" data-pdp-description-content>
+              <div class="tc-desc-layout">
+                <div class="tc-desc-copy">
+                  <p class="tc-lead-copy">{{ product.title }} — це не просто одяг. Це стан.</p>
+                  <p class="tc-muted-copy">Створений для тих, хто йде своїм шляхом, навіть коли все навколо летить під три чорти.</p>
+                  {% if product.full_description %}
+                    <div class="tc-rich-copy tc-rich-copy--compact">{{ product.full_description|linebreaksbr }}</div>
+                  {% elif product.description %}
+                    <div class="tc-rich-copy tc-rich-copy--compact">{{ product.description|linebreaksbr }}</div>
+                  {% endif %}
+                  <div class="tc-check-list tc-desc-checks tc-desc-bullets">
+                    <div>Матеріал: 95% бавовна, 5% еластан — преміум якість, щільність 190 г/м²</div>
+                    <div>М'який та приємний до тіла, дихає і не сковує рухів</div>
+                    <div>Підсилені шви та еластичні манжети для довговічності</div>
+                    <div>Принт витримує багато прань — не тріскається та не вигорає</div>
+                    <div>Зроблено в Україні з любов'ю та увагою до деталей</div>
+                  </div>
+                </div>
               </div>
             </div>
+            <button
+              type="button"
+              class="tc-desc-more"
+              data-pdp-description-toggle
+              data-more-label="Показати більше"
+              data-less-label="Згорнути"
+              aria-expanded="false"
+              aria-controls="tc-desc-content-{{ product.id }}">
+              Показати більше
+            </button>
+            <noscript>
+              <style>
+                .tc-desc-collapse.is-collapsible .tc-desc-collapse-content{max-height:none!important;overflow:visible!important}
+                .tc-desc-collapse.is-collapsible::after,.tc-desc-more{display:none!important}
+              </style>
+            </noscript>
           </div>
         </div>
 
@@ -512,5 +532,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/product-detail.js' %}?v=20260428-pdp-fit-v2" defer></script>
+<script src="{% static 'js/product-detail.js' %}?v=20260428-pdp-balance-v4" defer></script>
 {% endblock %}
