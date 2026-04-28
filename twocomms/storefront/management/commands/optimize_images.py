@@ -1,3 +1,4 @@
+import gc
 import time
 from pathlib import Path
 
@@ -67,6 +68,7 @@ class Command(BaseCommand):
             close_old_connections()
 
         def _pause():
+            gc.collect()
             if sleep > 0:
                 time.sleep(sleep)
 
