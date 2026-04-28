@@ -402,6 +402,10 @@ class ProductBuilder {
     let html = this.variantTemplate.innerHTML;
     html = html.replace(/color_variants-__prefix__/g, variantPrefix);
     html = html.replace(/__prefix__/g, currentTotal);
+    html = html.replace(
+      new RegExp(`${variantPrefix}-images-${currentTotal}`, 'g'),
+      `${variantPrefix}-images-__prefix__`
+    );
 
     const wrapper = document.createElement('div');
     wrapper.innerHTML = html.trim();

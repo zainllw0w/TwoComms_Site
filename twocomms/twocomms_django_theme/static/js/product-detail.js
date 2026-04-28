@@ -81,6 +81,7 @@
         (avif && avif.getAttribute('sizes')) ||
         (webp && webp.getAttribute('sizes')) ||
         '',
+      alt: image.getAttribute('alt') || '',
     };
   }
 
@@ -97,6 +98,7 @@
         avifSrcset: '',
         webpSrcset: '',
         sizes: '',
+        alt: '',
       } : null;
     }
 
@@ -112,6 +114,7 @@
       avifSrcset: image.avif_srcset || image.avifSrcset || '',
       webpSrcset: image.webp_srcset || image.webpSrcset || '',
       sizes: image.sizes || '',
+      alt: image.alt || image.alt_text || image.altText || '',
     };
   }
 
@@ -169,7 +172,7 @@
 
       const img = document.createElement('img');
       img.src = image.thumbnailUrl || image.url;
-      img.alt = '';
+      img.alt = image.alt || '';
       img.loading = index === 0 ? 'eager' : 'lazy';
       img.decoding = 'async';
 
@@ -207,6 +210,7 @@
     if (!state.mainImage || !url) return;
     const immediate = options && options.immediate;
     if ((state.mainImage.getAttribute('src') === url || state.mainImage.currentSrc === url) && !immediate) {
+      state.mainImage.alt = data.alt || state.container.dataset.productTitle || '';
       state.mainImage.setAttribute('data-zoom', data.zoomUrl || url);
       syncResponsiveSources(state.mainImage, data);
       return;
@@ -215,6 +219,7 @@
     const apply = () => {
       syncResponsiveSources(state.mainImage, data);
       state.mainImage.src = url;
+      state.mainImage.alt = data.alt || state.container.dataset.productTitle || '';
       state.mainImage.setAttribute('data-zoom', data.zoomUrl || url);
       state.mainImage.classList.remove('is-switching');
     };

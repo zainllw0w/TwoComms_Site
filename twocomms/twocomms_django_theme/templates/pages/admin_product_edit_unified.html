@@ -209,15 +209,82 @@
                     </div>
                   </div>
 
-                  <!-- Описание -->
+                  <!-- Опис -->
                   <div class="info-row description">
+                    <div class="info-group">
+                      <label class="form-label">
+                        <i class="fas fa-align-left me-2"></i>Короткий опис
+                      </label>
+                      {{ form.short_description }}
+                      <div class="form-hint">
+                        <i class="fas fa-lightbulb me-1"></i>До 300 символів. Використовується у списках товарів.
+                      </div>
+                    </div>
                     <div class="info-group full-width">
                       <label class="form-label">
-                        <i class="fas fa-align-left me-2"></i>Опис товару
+                        <i class="fas fa-align-justify me-2"></i>Повний опис
                       </label>
-                      {{ form.description }}
+                      {{ form.full_description }}
                       <div class="form-hint">
-                        <i class="fas fa-edit me-1"></i>Детальний опис товару для клієнтів
+                        <i class="fas fa-edit me-1"></i>Основний текст у вкладці "Опис".
+                      </div>
+                    </div>
+                    <div class="info-group full-width">
+                      <label class="form-label">
+                        <i class="fas fa-list-ul me-2"></i>Деталі
+                      </label>
+                      {{ form.details_text }}
+                      <div class="form-hint">
+                        <i class="fas fa-info-circle me-1"></i>Тип, колір, принт, стиль, посадка, сезон, бренд.
+                      </div>
+                    </div>
+                    <div class="info-group full-width">
+                      <label class="form-label">
+                        <i class="fas fa-users me-2"></i>Кому підійде
+                      </label>
+                      {{ form.target_audience }}
+                      <div class="form-hint">
+                        <i class="fas fa-user-check me-1"></i>Окремий блок для аудиторії та пошукового контексту.
+                      </div>
+                    </div>
+                    <div class="info-group full-width">
+                      <label class="form-label">
+                        <i class="fas fa-hand-sparkles me-2"></i>Догляд
+                      </label>
+                      {{ form.care_instructions }}
+                      <div class="form-hint">
+                        <i class="fas fa-tshirt me-1"></i>Текст для вкладки "Догляд" на сторінці товару.
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- SEO -->
+                  <div class="info-row description">
+                    <div class="info-group">
+                      <label class="form-label">
+                        <i class="fas fa-heading me-2"></i>SEO Title
+                      </label>
+                      {{ form.seo_title }}
+                      <div class="form-hint">
+                        <i class="fas fa-search me-1"></i>Окремий title для пошуку. Назва товару залишається H1.
+                      </div>
+                    </div>
+                    <div class="info-group full-width">
+                      <label class="form-label">
+                        <i class="fas fa-align-left me-2"></i>Meta description
+                      </label>
+                      {{ form.seo_description }}
+                      <div class="form-hint">
+                        <i class="fas fa-search-plus me-1"></i>Короткий пошуковий опис до 320 символів.
+                      </div>
+                    </div>
+                    <div class="info-group full-width">
+                      <label class="form-label">
+                        <i class="fas fa-key me-2"></i>SEO ключові слова
+                      </label>
+                      {{ form.seo_keywords }}
+                      <div class="form-hint">
+                        <i class="fas fa-tags me-1"></i>Ключі через кому; опис пишемо природно, без переспаму.
                       </div>
                     </div>
                   </div>
@@ -232,6 +299,15 @@
                       <div class="form-hint">
                         <i class="fas fa-upload me-1"></i>Основне зображення товару (автоматично з першого кольору, якщо
                         не вибрано)
+                      </div>
+                    </div>
+                    <div class="info-group">
+                      <label class="form-label">
+                        <i class="fas fa-closed-captioning me-2"></i>ALT головного зображення
+                      </label>
+                      {{ form.main_image_alt }}
+                      <div class="form-hint">
+                        <i class="fas fa-image me-1"></i>Якщо залишити порожнім, сайт сформує стандартний ALT.
                       </div>
                     </div>
                     {% if form.home_card_image %}
@@ -276,6 +352,86 @@
                       {{ form.slug }}
                       <div class="form-hint">
                         <i class="fas fa-magic me-1"></i>Автоматично генерується з назви
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- FAQ товару -->
+                  <div class="info-row description">
+                    <div class="info-group full-width">
+                      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
+                        <label class="form-label mb-0">
+                          <i class="fas fa-question-circle me-2"></i>FAQ товару
+                        </label>
+                        <button type="button" class="btn btn-outline-light btn-sm" data-add-faq>
+                          <i class="fas fa-plus me-1"></i>Додати питання
+                        </button>
+                      </div>
+                      {{ faq_formset.management_form }}
+                      <div class="faq-form-list" data-faq-form-list>
+                        {% for faq_form in faq_formset.forms %}
+                          <div class="faq-form-card border border-light border-opacity-10 rounded p-3 mb-3" data-faq-form>
+                            {{ faq_form.id }}
+                            <div class="row g-3">
+                              <div class="col-lg-7">
+                                <label class="form-label small">Питання</label>
+                                {{ faq_form.question }}
+                              </div>
+                              <div class="col-lg-2">
+                                <label class="form-label small">Порядок</label>
+                                {{ faq_form.order }}
+                              </div>
+                              <div class="col-lg-3 d-flex align-items-end gap-3">
+                                <div class="form-check">
+                                  {{ faq_form.is_active }}
+                                  <label class="form-check-label small" for="{{ faq_form.is_active.id_for_label }}">Показувати</label>
+                                </div>
+                                {% if faq_form.instance.pk %}
+                                  <div class="form-check">
+                                    {{ faq_form.DELETE }}
+                                    <label class="form-check-label small" for="{{ faq_form.DELETE.id_for_label }}">Видалити</label>
+                                  </div>
+                                {% endif %}
+                              </div>
+                              <div class="col-12">
+                                <label class="form-label small">Відповідь</label>
+                                {{ faq_form.answer }}
+                              </div>
+                            </div>
+                          </div>
+                        {% endfor %}
+                      </div>
+                      <template id="faq-empty-form-template">
+                        <div class="faq-form-card border border-light border-opacity-10 rounded p-3 mb-3" data-faq-form>
+                          {{ faq_formset.empty_form.id }}
+                          <div class="row g-3">
+                            <div class="col-lg-7">
+                              <label class="form-label small">Питання</label>
+                              {{ faq_formset.empty_form.question }}
+                            </div>
+                            <div class="col-lg-2">
+                              <label class="form-label small">Порядок</label>
+                              {{ faq_formset.empty_form.order }}
+                            </div>
+                            <div class="col-lg-3 d-flex align-items-end gap-3">
+                              <div class="form-check">
+                                {{ faq_formset.empty_form.is_active }}
+                                <label class="form-check-label small">Показувати</label>
+                              </div>
+                              <div class="form-check">
+                                {{ faq_formset.empty_form.DELETE }}
+                                <label class="form-check-label small">Видалити</label>
+                              </div>
+                            </div>
+                            <div class="col-12">
+                              <label class="form-label small">Відповідь</label>
+                              {{ faq_formset.empty_form.answer }}
+                            </div>
+                          </div>
+                        </div>
+                      </template>
+                      <div class="form-hint">
+                        <i class="fas fa-code me-1"></i>Активні питання показуються у вкладці "FAQ товару" після "Догляд" і додаються у FAQPage schema.
                       </div>
                     </div>
                   </div>
@@ -327,7 +483,7 @@
                     <div class="position-relative">
                       {% if color_variant.images.first %}
                       <img src="{{ color_variant.images.first.image.url }}" class="card-img-top"
-                        alt="{{ color_variant.color.name }}" style="height: 180px; object-fit: cover;">
+                        alt="{{ color_variant.images.first.alt_text|default:color_variant.color.name }}" style="height: 180px; object-fit: cover;">
                       {% else %}
                       <div class="card-img-top d-flex align-items-center justify-content-center"
                         style="height: 180px; background: linear-gradient(45deg, #2c3e50, #34495e);">
@@ -430,13 +586,16 @@
                 <div class="col-md-6 col-lg-4 col-xl-3">
                   <div class="card bg-dark border-0 h-100" data-product-image-id="{{ image.id }}" draggable="true">
                     <div class="position-relative">
-                      <img src="{{ image.image.url }}" class="card-img-top" alt="Додаткове зображення"
+                      <img src="{{ image.image.url }}" class="card-img-top" alt="{{ image.alt_text|default:'Додаткове зображення' }}"
                         style="height: 180px; object-fit: cover;">
                       <span class="badge bg-secondary position-absolute top-0 start-0 m-2">
                         <i class="fas fa-grip-vertical me-1"></i>Drag
                       </span>
                     </div>
                     <div class="card-body d-flex flex-column">
+                      <div class="text-muted small mb-2">
+                        ALT: {{ image.alt_text|default:"буде стандартний" }}
+                      </div>
                       <div class="mt-auto">
                         <div class="d-grid gap-2">
                           <a href="{% url 'admin_product_image_delete' obj.id image.id %}"
@@ -724,6 +883,11 @@
                   <i class="fas fa-upload me-1"></i>Оберіть одне або кілька зображень
                 </div>
               </div>
+              <div class="mb-3">
+                <label class="form-label small">ALT за замовчуванням для нових фото</label>
+                <input type="text" name="color_images_alt" class="form-control" placeholder="Наприклад: Принт на спині футболки TwoComms з трояндою">
+                <div class="form-hint">Для кожного прев'ю нижче можна задати окремий ALT.</div>
+              </div>
 
               <!-- Предварительный просмотр загруженных изображений -->
               <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
@@ -768,6 +932,11 @@
             <input type="file" name="additional_image" class="form-control" accept="image/*" required>
             <div class="form-text">Додайте зображення для галереї товару</div>
           </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">ALT зображення</label>
+            <input type="text" name="additional_image_alt" class="form-control" placeholder="Опис фото для SEO та доступності">
+            <div class="form-text">Якщо залишити порожнім, сайт підставить стандартний ALT.</div>
+          </div>
         </div>
         <div class="modal-footer border-0">
           <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Скасувати</button>
@@ -786,14 +955,46 @@
 <script>
   document.addEventListener('DOMContentLoaded', function () {
 
+    function cleanupModalArtifacts() {
+      document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('padding-right');
+    }
+
     (function relocateModals() {
       ['addColorModal', 'addImageModal'].forEach(function (id) {
         const el = document.getElementById(id);
         if (el && el.parentElement !== document.body) {
           try { document.body.appendChild(el); } catch (_) { }
         }
+        if (el) {
+          el.addEventListener('hidden.bs.modal', cleanupModalArtifacts);
+        }
       });
     })();
+    window.addEventListener('pageshow', cleanupModalArtifacts);
+
+    const faqList = document.querySelector('[data-faq-form-list]');
+    const faqTemplate = document.getElementById('faq-empty-form-template');
+    const faqTotalInput = document.querySelector('input[name="faqs-TOTAL_FORMS"]');
+    const addFaqBtn = document.querySelector('[data-add-faq]');
+    if (faqList && faqTemplate && faqTotalInput && addFaqBtn) {
+      addFaqBtn.addEventListener('click', function () {
+        const index = Number.parseInt(faqTotalInput.value || '0', 10);
+        const html = faqTemplate.innerHTML.replace(/__prefix__/g, String(index));
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html.trim();
+        const node = wrapper.firstElementChild;
+        if (!node) return;
+        const orderInput = node.querySelector('input[name$="-order"]');
+        if (orderInput && !orderInput.value) orderInput.value = index;
+        const activeInput = node.querySelector('input[name$="-is_active"]');
+        if (activeInput) activeInput.checked = true;
+        faqList.appendChild(node);
+        faqTotalInput.value = index + 1;
+      });
+    }
 
 
     const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
@@ -877,6 +1078,7 @@
     const colorVariantIdInput = document.getElementById('colorVariantId');
     const deleteIdsInput = document.getElementById('deleteImageIds');
     const colorImageInput = document.querySelector('#addColorModal input[name="color_images"]');
+    const colorImagesAltInput = document.querySelector('#addColorModal input[name="color_images_alt"]');
     const imagePreviewContainer = document.getElementById('imagePreviewContainer');
     const imagePreviewGrid = document.getElementById('imagePreviewGrid');
     const setAsMainToggle = document.getElementById('setAsMainToggle');
@@ -915,6 +1117,15 @@
     };
 
     const colorState = { variantId: null, images: [], newImages: [], deleted: new Set() };
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
 
     function updatePreview() {
       if (!combinedPreview || !previewText) return;
@@ -989,8 +1200,8 @@
       colorState.images
         .filter(img => !colorState.deleted.has(img.id))
         .sort((a, b) => (a.order || 0) - (b.order || 0))
-        .forEach(img => items.push({ type: 'existing', id: img.id, url: img.url || '' }));
-      colorState.newImages.forEach(img => items.push({ type: 'new', key: img.key, url: img.preview }));
+        .forEach(img => items.push({ type: 'existing', id: img.id, url: img.url || '', alt: img.alt || '' }));
+      colorState.newImages.forEach(img => items.push({ type: 'new', key: img.key, url: img.preview, alt: img.alt || '' }));
 
       if (!items.length) {
         imagePreviewContainer.style.display = 'none';
@@ -1003,9 +1214,9 @@
         card.className = 'image-preview-item position-relative border border-light border-opacity-25 rounded';
         card.setAttribute('draggable', 'true');
         card.dataset.imageCard = '1';
-        card.style.width = '110px';
-        card.style.height = '110px';
-        card.style.overflow = 'hidden';
+        card.style.width = '150px';
+        card.style.minHeight = '172px';
+        card.style.overflow = 'visible';
         if (item.type === 'existing') {
           card.dataset.imageType = 'existing';
           card.dataset.imageId = item.id;
@@ -1014,10 +1225,13 @@
           card.dataset.newKey = item.key;
         }
         card.innerHTML = `
-                <img src="${item.url}" alt="preview" style="width:100%;height:100%;object-fit:cover;">
-                <div class="image-number">${idx + 1}</div>
-                <button type="button" class="remove-image" data-action="remove-image"><i class="fas fa-times"></i></button>
-                <span class="drag-hint"><i class="fas fa-grip-vertical"></i></span>
+                <div style="position:relative;height:110px;overflow:hidden;border-radius:inherit;">
+                  <img src="${item.url}" alt="${escapeHtml(item.alt || 'preview')}" style="width:100%;height:100%;object-fit:cover;">
+                  <div class="image-number">${idx + 1}</div>
+                  <button type="button" class="remove-image" data-action="remove-image"><i class="fas fa-times"></i></button>
+                  <span class="drag-hint"><i class="fas fa-grip-vertical"></i></span>
+                </div>
+                <input type="text" class="form-control form-control-sm mt-2" data-image-alt placeholder="ALT" value="${escapeHtml(item.alt || '')}">
             `;
         imagePreviewGrid.appendChild(card);
       });
@@ -1084,7 +1298,7 @@
         files.forEach(file => {
           const key = `new-${Date.now()}-${Math.random().toString(16).slice(2)}`;
           const preview = URL.createObjectURL(file);
-          colorState.newImages.push({ key, file, preview });
+          colorState.newImages.push({ key, file, preview, alt: '' });
         });
         colorImageInput.value = '';
         renderImageGrid();
@@ -1101,6 +1315,7 @@
         colorSubmitBtn.innerHTML = '<i class="fas fa-plus me-1"></i>Додати колір';
       }
       if (colorImageInput) colorImageInput.value = '';
+      if (colorImagesAltInput) colorImagesAltInput.value = '';
       if (deleteIdsInput) deleteIdsInput.value = '';
       if (setAsMainToggle) setAsMainToggle.checked = false;
       if (colorNameInput) colorNameInput.value = '';
@@ -1216,6 +1431,7 @@
         formData.append('color_name', colorNameInput ? colorNameInput.value : '');
         formData.append('primary_hex', primaryHex ? primaryHex.value : '');
         formData.append('secondary_hex', secondaryHex ? secondaryHex.value : '');
+        formData.append('color_images_alt', colorImagesAltInput ? colorImagesAltInput.value : '');
         if (colorVariantIdInput && colorVariantIdInput.value) {
           formData.append('variant_id', colorVariantIdInput.value);
         }
@@ -1227,10 +1443,12 @@
         if (imagePreviewGrid) {
           imagePreviewGrid.querySelectorAll('[data-image-card]').forEach(card => {
             const type = card.dataset.imageType;
+            const altInput = card.querySelector('[data-image-alt]');
+            const alt = altInput ? altInput.value.trim() : '';
             if (type === 'existing' && card.dataset.imageId) {
-              orderPayload.push({ kind: 'existing', id: Number(card.dataset.imageId) });
+              orderPayload.push({ kind: 'existing', id: Number(card.dataset.imageId), alt });
             } else if (type === 'new' && card.dataset.newKey) {
-              orderPayload.push({ kind: 'new', key: card.dataset.newKey });
+              orderPayload.push({ kind: 'new', key: card.dataset.newKey, alt });
             }
           });
         }
@@ -1250,7 +1468,8 @@
           method: 'POST',
           body: formData,
           headers: {
-            'X-CSRFToken': csrfToken
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
           }
         }).then(resp => {
           const type = resp.headers.get('content-type');
@@ -1263,6 +1482,8 @@
             submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Збережено!';
             submitBtn.classList.remove('btn-cta');
             submitBtn.classList.add('btn-success');
+            if (colorModal) colorModal.hide();
+            cleanupModalArtifacts();
             setTimeout(() => window.location.reload(), 1200);
           } else {
             submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
@@ -1303,7 +1524,7 @@
         fetch(imageForm.action || window.location.href, {
           method: 'POST',
           body: new FormData(imageForm),
-          headers: { 'X-CSRFToken': csrfToken }
+          headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
         }).then(resp => {
           const type = resp.headers.get('content-type');
           if (type && type.includes('application/json')) return resp.json();
@@ -1313,6 +1534,10 @@
             submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Додано!';
             submitBtn.classList.remove('btn-cta');
             submitBtn.classList.add('btn-success');
+            const imageModalEl = document.getElementById('addImageModal');
+            const imageModal = imageModalEl && window.bootstrap ? bootstrap.Modal.getInstance(imageModalEl) : null;
+            if (imageModal) imageModal.hide();
+            cleanupModalArtifacts();
             setTimeout(() => window.location.reload(), 1000);
           } else {
             submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';

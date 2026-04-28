@@ -7,15 +7,16 @@
 {% block og_title %}{% seo_title product=product %}{% endblock %}
 {% block og_description %}{% seo_description product=product %}{% endblock %}
 {% block og_image %}{% seo_og_image product=product %}{% endblock %}
-{% block og_image_alt %}{{ product.main_image_alt|default:product.title }}{% endblock %}
+{% block og_image_alt %}{{ primary_image_alt|default:product.title }}{% endblock %}
 {% block twitter_title %}{% seo_title product=product %}{% endblock %}
 {% block twitter_description %}{% seo_description product=product %}{% endblock %}
 {% block twitter_image %}{% seo_og_image product=product %}{% endblock %}
-{% block twitter_image_alt %}{{ product.main_image_alt|default:product.title }}{% endblock %}
+{% block twitter_image_alt %}{{ primary_image_alt|default:product.title }}{% endblock %}
 
 {% block structured_data %}
   {% product_schema product %}
   {% breadcrumb_schema breadcrumbs %}
+  {% if product_faq_items %}{% faq_schema product_faq_items %}{% endif %}
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -23,7 +24,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-pdp-share-solo-v6">
+<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-faq-alt-v1">
 <link rel="stylesheet" href="{% static 'css/product-media-fit.css' %}?v=20260428-media-fit-v1">
 {% endblock %}
 
@@ -41,7 +42,7 @@
           <span></span><span></span><span></span><span></span><span></span><span></span>
         </div>
         {% if product.display_image %}
-          {% optimized_image product.display_image.url product.main_image_alt|default:product.title "tc-media-hero-img" 1080 1350 loading='eager' fetchpriority='high' sizes='(max-width: 768px) 94vw, (max-width: 992px) 90vw, (max-width: 1600px) 46vw, 720px' img_id='mainProductImage' %}
+          {% optimized_image product.display_image.url primary_image_alt|default:product.title "tc-media-hero-img" 1080 1350 loading='eager' fetchpriority='high' sizes='(max-width: 768px) 94vw, (max-width: 992px) 90vw, (max-width: 1600px) 46vw, 720px' img_id='mainProductImage' %}
         {% else %}
           {% static 'img/placeholder.jpg' as ph_url %}
           <img
@@ -254,6 +255,9 @@
           <button type="button" class="tc-tab-btn" id="tab-size" role="tab" aria-controls="panel-size" aria-selected="false" data-pdp-tab="size">Розмірна сітка</button>
           <button type="button" class="tc-tab-btn" id="tab-delivery" role="tab" aria-controls="panel-delivery" aria-selected="false" data-pdp-tab="delivery">Доставка</button>
           <button type="button" class="tc-tab-btn" id="tab-care" role="tab" aria-controls="panel-care" aria-selected="false" data-pdp-tab="care">Догляд</button>
+          {% if product_faq_items %}
+            <button type="button" class="tc-tab-btn" id="tab-faq" role="tab" aria-controls="panel-faq" aria-selected="false" data-pdp-tab="faq">FAQ товару</button>
+          {% endif %}
         </div>
 
         <div class="tc-tab-panel active" id="panel-desc" role="tabpanel" aria-labelledby="tab-desc" data-pdp-panel="desc">
@@ -268,13 +272,26 @@
                   {% elif product.description %}
                     <div class="tc-rich-copy tc-rich-copy--compact">{{ product.description|linebreaksbr }}</div>
                   {% endif %}
-                  <div class="tc-check-list tc-desc-checks tc-desc-bullets">
-                    <div>Матеріал: 95% бавовна, 5% еластан — преміум якість, щільність 190 г/м²</div>
-                    <div>М'який та приємний до тіла, дихає і не сковує рухів</div>
-                    <div>Підсилені шви та еластичні манжети для довговічності</div>
-                    <div>Принт витримує багато прань — не тріскається та не вигорає</div>
-                    <div>Зроблено в Україні з любов'ю та увагою до деталей</div>
-                  </div>
+                  {% if product.details_text %}
+                    <div class="tc-desc-section">
+                      <h2>Деталі</h2>
+                      <div class="tc-rich-copy tc-rich-copy--compact">{{ product.details_text|linebreaksbr }}</div>
+                    </div>
+                  {% else %}
+                    <div class="tc-check-list tc-desc-checks tc-desc-bullets">
+                      <div>Матеріал: 95% бавовна, 5% еластан — преміум якість, щільність 190 г/м²</div>
+                      <div>М'який та приємний до тіла, дихає і не сковує рухів</div>
+                      <div>Підсилені шви та еластичні манжети для довговічності</div>
+                      <div>Принт витримує багато прань — не тріскається та не вигорає</div>
+                      <div>Зроблено в Україні з любов'ю та увагою до деталей</div>
+                    </div>
+                  {% endif %}
+                  {% if product.target_audience %}
+                    <div class="tc-desc-section">
+                      <h2>Кому підійде</h2>
+                      <div class="tc-rich-copy tc-rich-copy--compact">{{ product.target_audience|linebreaksbr }}</div>
+                    </div>
+                  {% endif %}
                 </div>
               </div>
             </div>
@@ -394,12 +411,28 @@
         </div>
 
         <div class="tc-tab-panel" id="panel-care" role="tabpanel" aria-labelledby="tab-care" data-pdp-panel="care" hidden>
-          <div class="tc-care-grid">
-            <div class="tc-care-item"><strong>Прання</strong><span>30°C, делікатний режим, навиворіт.</span></div>
-            <div class="tc-care-item"><strong>Принт</strong><span>Не прасувати напряму по нанесенню.</span></div>
-            <div class="tc-care-item"><strong>Сушка</strong><span>Без агресивної машинної сушки.</span></div>
-          </div>
+          {% if product.care_instructions %}
+            <div class="tc-care-copy">{{ product.care_instructions|linebreaksbr }}</div>
+          {% else %}
+            <div class="tc-care-grid">
+              <div class="tc-care-item"><strong>Прання</strong><span>30°C, делікатний режим, навиворіт.</span></div>
+              <div class="tc-care-item"><strong>Принт</strong><span>Не прасувати напряму по нанесенню.</span></div>
+              <div class="tc-care-item"><strong>Сушка</strong><span>Без агресивної машинної сушки.</span></div>
+            </div>
+          {% endif %}
         </div>
+        {% if product_faq_items %}
+          <div class="tc-tab-panel" id="panel-faq" role="tabpanel" aria-labelledby="tab-faq" data-pdp-panel="faq" hidden>
+            <div class="tc-faq-list">
+              {% for item in product_faq_items %}
+                <details class="tc-faq-item" {% if forloop.first %}open{% endif %}>
+                  <summary>{{ item.question }}</summary>
+                  <div>{{ item.answer|linebreaksbr }}</div>
+                </details>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
       </div>
 
       <div class="tc-purchase-bar" id="product-action-bar" data-product-container>
@@ -514,6 +547,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/product-detail.js' %}?v=20260428-image-sources-v1" defer></script>
+<script src="{% static 'js/product-detail.js' %}?v=20260428-image-alt-faq-v1" defer></script>
 <script src="{% static 'js/product-media-fit.js' %}?v=20260428-media-fit-v1" defer></script>
 {% endblock %}

@@ -460,6 +460,9 @@ class Product(models.Model):
     short_description = models.CharField(max_length=300, blank=True, verbose_name='Короткий опис')
     description = models.TextField(blank=True, verbose_name='Опис (legacy)')
     full_description = models.TextField(blank=True, verbose_name='Повний опис')
+    details_text = models.TextField(blank=True, verbose_name='Деталі товару')
+    target_audience = models.TextField(blank=True, verbose_name='Кому підійде')
+    care_instructions = models.TextField(blank=True, verbose_name='Догляд за товаром')
     main_image = models.ImageField(upload_to='products/', blank=True, null=True)
     home_card_image = models.ImageField(
         upload_to='products/home_cards/',
@@ -752,6 +755,28 @@ class ProductImage(models.Model):
 
     def __str__(self):
         return f'Image for {self.product_id}'
+
+
+class ProductFAQ(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='faqs')
+    question = models.CharField(max_length=255, verbose_name='Питання')
+    answer = models.TextField(verbose_name='Відповідь')
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
+    is_active = models.BooleanField(default=True, verbose_name='Активне')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
+
+    class Meta:
+        verbose_name = 'FAQ товару'
+        verbose_name_plural = 'FAQ товарів'
+        ordering = ['order', 'id']
+        indexes = [
+            models.Index(fields=['product', 'order'], name='idx_product_faq_order'),
+            models.Index(fields=['product', 'is_active'], name='idx_product_faq_active'),
+        ]
+
+    def __str__(self):
+        return f'{self.product_id}: {self.question}'
 
 
 class PromoCodeGroup(models.Model):

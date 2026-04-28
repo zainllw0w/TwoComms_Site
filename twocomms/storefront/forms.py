@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 from django import forms
 from django.conf import settings
+from django.db.models import Max
 from django.forms import BaseInlineFormSet, inlineformset_factory
 
 from dtf.utils import (
@@ -20,6 +21,7 @@ from storefront.custom_print_config import build_placement_specs, normalize_cust
 from .models import (
     CustomPrintBusinessKind,
     Product,
+    ProductFAQ,
     ProductFitOption,
     Category,
     CustomPrintClientKind,
@@ -407,14 +409,23 @@ class ProductForm(forms.ModelForm):
             "size_grid",
             "short_description",
             "full_description",
+            "details_text",
+            "target_audience",
+            "care_instructions",
             "main_image_alt",
+            "seo_title",
+            "seo_description",
+            "seo_keywords",
             "drop_price",
             "wholesale_price",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 6, "class": "form-control"}),
             "short_description": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
-            "full_description": forms.Textarea(attrs={"rows": 6, "class": "form-control"}),
+            "full_description": forms.Textarea(attrs={"rows": 8, "class": "form-control"}),
+            "details_text": forms.Textarea(attrs={"rows": 5, "class": "form-control"}),
+            "target_audience": forms.Textarea(attrs={"rows": 4, "class": "form-control"}),
+            "care_instructions": forms.Textarea(attrs={"rows": 4, "class": "form-control"}),
             "title": forms.TextInput(attrs={"class": "form-control"}),
             "slug": forms.TextInput(attrs={"class": "form-control"}),
             "category": forms.Select(attrs={"class": "form-control"}),
@@ -428,6 +439,9 @@ class ProductForm(forms.ModelForm):
             "main_image": forms.FileInput(attrs={"class": "form-control d-none", "accept": "image/*", "data-main-image-input": "1"}),
             "home_card_image": forms.FileInput(attrs={"class": "form-control d-none", "accept": "image/*", "data-home-card-image-input": "1"}),
             "main_image_alt": forms.TextInput(attrs={"class": "form-control"}),
+            "seo_title": forms.TextInput(attrs={"class": "form-control", "maxlength": "160"}),
+            "seo_description": forms.Textarea(attrs={"rows": 3, "class": "form-control", "maxlength": "320"}),
+            "seo_keywords": forms.TextInput(attrs={"class": "form-control"}),
             "points_reward": forms.NumberInput(attrs={"class": "form-control", "min": "0", "value": "0"}),
             "drop_price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
             "wholesale_price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
@@ -437,11 +451,18 @@ class ProductForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if 'slug' in self.fields:
             self.fields['slug'].required = False
+        if not self.is_bound and not getattr(self.instance, 'pk', None) and 'priority' in self.fields:
+            self.fields['priority'].initial = self._next_priority()
         # Позволяем создавать товары без явного указания дроп/опт цены — проставляем 0 по умолчанию
         for price_field in ('drop_price', 'wholesale_price'):
             if price_field in self.fields:
                 self.fields[price_field].required = False
                 self.fields[price_field].initial = self.fields[price_field].initial or 0
+
+    @staticmethod
+    def _next_priority():
+        max_priority = Product.objects.aggregate(max_priority=Max('priority')).get('max_priority') or 0
+        return max_priority + 1
 
     def clean(self):
         data = super().clean()
@@ -508,6 +529,14 @@ class ProductForm(forms.ModelForm):
         if not short_description and full_description:
             data['short_description'] = full_description[:297].rstrip() + '...' if len(full_description) > 300 else full_description
 
+        seo_title = data.get('seo_title') or ''
+        if seo_title and len(seo_title) > 160:
+            self.add_error('seo_title', "SEO title не може бути довшим за 160 символів")
+
+        seo_description = data.get('seo_description') or ''
+        if seo_description and len(seo_description) > 320:
+            self.add_error('seo_description', "SEO description не може бути довшим за 320 символів")
+
         # Дроп/опт цены — задаем 0 по умолчанию, валидируем на неотрицательность
         for field_name in ('drop_price', 'wholesale_price'):
             value = data.get(field_name)
@@ -526,7 +555,10 @@ class ProductForm(forms.ModelForm):
         return data
 
     def save(self, commit=True):
+        is_new = self.instance.pk is None
         instance = super().save(commit=False)
+        if is_new and not instance.priority:
+            instance.priority = self._next_priority()
         # Поддерживаем legacy-поле description для обратной совместимости
         full_description = self.cleaned_data.get('full_description') or ''
         if full_description:
@@ -537,6 +569,36 @@ class ProductForm(forms.ModelForm):
             instance.save()
             self.save_m2m()
         return instance
+
+
+class ProductFAQForm(forms.ModelForm):
+    class Meta:
+        model = ProductFAQ
+        fields = ["question", "answer", "order", "is_active"]
+        widgets = {
+            "question": forms.TextInput(attrs={"class": "form-control", "placeholder": "Наприклад: Це чоловіча чи жіноча футболка?"}),
+            "answer": forms.Textarea(attrs={"rows": 3, "class": "form-control", "placeholder": "Коротка відповідь для клієнта і SEO"}),
+            "order": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+
+ProductFAQFormSet = inlineformset_factory(
+    Product,
+    ProductFAQ,
+    form=ProductFAQForm,
+    extra=1,
+    can_delete=True,
+)
+
+
+def build_product_faq_formset(product=None, data=None, prefix='faqs'):
+    product_instance = product or Product()
+    return ProductFAQFormSet(
+        data=data if data is not None else None,
+        instance=product_instance,
+        prefix=prefix,
+    )
 
 
 class ProductSEOForm(forms.ModelForm):

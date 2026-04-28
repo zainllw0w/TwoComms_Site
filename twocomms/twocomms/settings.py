@@ -271,6 +271,9 @@ OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o')
 USE_AI_KEYWORDS = os.environ.get('USE_AI_KEYWORDS', 'False').lower() in ('1', 'true', 'yes')
 # Whether to use AI-generated product descriptions in SEO meta (experimental)
 USE_AI_DESCRIPTIONS = os.environ.get('USE_AI_DESCRIPTIONS', 'False').lower() in ('1', 'true', 'yes')
+# Automatic AI rewriting/generation on product/category creation is disabled by default.
+# Manual/management SEO generation can still use USE_AI_KEYWORDS / USE_AI_DESCRIPTIONS.
+AUTO_GENERATE_AI_CONTENT_ON_CREATE = _env_bool('AUTO_GENERATE_AI_CONTENT_ON_CREATE', False)
 
 # TikTok Pixel configuration
 TIKTOK_PIXEL_ID = os.environ.get('TIKTOK_PIXEL_ID', 'D43L7DBC77UA61AHLTVG')  # Default fallback if not set

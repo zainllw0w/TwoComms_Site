@@ -3059,6 +3059,7 @@ def admin_product_new(request):
                 color_name = request.POST.get('color_name')
                 primary_hex = request.POST.get('primary_hex')
                 secondary_hex = request.POST.get('secondary_hex', '')
+                color_images_alt = (request.POST.get('color_images_alt') or '').strip()
                 color_images = request.FILES.getlist('color_images')
                 
                 if color_name and primary_hex and color_images:
@@ -3091,10 +3092,13 @@ def admin_product_new(request):
                     
                     # Добавляем изображения (всегда, если они есть)
                     if color_images:
+                        start_order = ProductColorImage.objects.filter(variant=color_variant).count()
                         for i, image_file in enumerate(color_images):
                             ProductColorImage.objects.create(
                                 variant=color_variant,
-                                image=image_file
+                                image=image_file,
+                                alt_text=color_images_alt,
+                                order=start_order + i
                             )
                     
                     if created:
@@ -3140,12 +3144,15 @@ def admin_product_new(request):
             try:
                 product = Product.objects.get(id=product_id)
                 additional_image = request.FILES.get('additional_image')
+                additional_image_alt = (request.POST.get('additional_image_alt') or '').strip()
                 
                 if additional_image:
                     from .models import ProductImage
                     ProductImage.objects.create(
                         product=product,
-                        image=additional_image
+                        image=additional_image,
+                        alt_text=additional_image_alt,
+                        order=ProductImage.objects.filter(product=product).count()
                     )
                     
                     return JsonResponse({
@@ -3270,7 +3277,7 @@ def admin_product_edit_unified(request, pk):
     """Универсальное редактирование товара со всеми настройками"""
     if not request.user.is_staff:
         return redirect('home')
-    from .forms import ProductForm
+    from .forms import ProductForm, build_product_faq_formset
     from .models import Product, ProductImage
     from productcolors.models import ProductColorVariant, Color, ProductColorImage
     obj = get_object_or_404(Product, pk=pk)
@@ -3331,10 +3338,11 @@ def admin_product_edit_unified(request, pk):
                 url = img.image.url
             except Exception:
                 url = ''
-            payload.append({'id': img.id, 'url': url, 'order': img.order})
+            payload.append({'id': img.id, 'url': url, 'order': img.order, 'alt': img.alt_text or ''})
         return payload
 
     form = None
+    faq_formset = build_product_faq_formset(obj, prefix='faqs')
 
     if request.method == 'POST':
         form_type = request.POST.get('form_type')
@@ -3344,8 +3352,9 @@ def admin_product_edit_unified(request, pk):
             data.setdefault('status', obj.status)
             data.setdefault('priority', obj.priority or 0)
             form = ProductForm(data, request.FILES, instance=obj)
+            faq_formset = build_product_faq_formset(obj, data=request.POST, prefix='faqs')
 
-            if form.is_valid():
+            if form.is_valid() and faq_formset.is_valid():
                 product = form.save(commit=False)
 
                 if not getattr(product, 'slug', None):
@@ -3360,13 +3369,19 @@ def admin_product_edit_unified(request, pk):
                             product.main_image = first_image.image
 
                 product.save()
+                faq_formset.instance = product
+                faq_formset.save()
 
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return _json_success({'message': 'Товар успішно збережено!'})
                 return redirect('/admin-panel/?section=catalogs')
 
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return _json_error('Помилка валідації.', status=400, extra={'errors': form.errors})
+                return _json_error(
+                    'Помилка валідації.',
+                    status=400,
+                    extra={'errors': form.errors, 'faq_errors': faq_formset.errors}
+                )
 
         elif form_type == 'reorder_product_images':
             order_raw = request.POST.get('order_payload') or request.POST.get('order') or ''
@@ -3407,6 +3422,7 @@ def admin_product_edit_unified(request, pk):
             secondary_hex = (request.POST.get('secondary_hex') or '').strip()
             color_files = request.FILES.getlist('color_images')
             set_as_main = request.POST.get('set_as_main') in ('1', 'true', 'on')
+            color_images_alt = (request.POST.get('color_images_alt') or '').strip()
 
             if not color_name or not primary_hex:
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -3460,7 +3476,10 @@ def admin_product_edit_unified(request, pk):
                         img_id = int(item.get('id'))
                     except (TypeError, ValueError):
                         continue
-                    updated = ProductColorImage.objects.filter(pk=img_id, variant=variant).update(order=order_index)
+                    updated = ProductColorImage.objects.filter(pk=img_id, variant=variant).update(
+                        order=order_index,
+                        alt_text=(item.get('alt') or '').strip()
+                    )
                     if updated:
                         processed_existing.add(img_id)
                         order_index += 1
@@ -3471,7 +3490,8 @@ def admin_product_edit_unified(request, pk):
                         ProductColorImage.objects.create(
                             variant=variant,
                             image=upload,
-                            order=order_index
+                            order=order_index,
+                            alt_text=(item.get('alt') or color_images_alt).strip()
                         )
                         created_count += 1
                         order_index += 1
@@ -3482,7 +3502,8 @@ def admin_product_edit_unified(request, pk):
                     ProductColorImage.objects.create(
                         variant=variant,
                         image=upload,
-                        order=start + i
+                        order=start + i,
+                        alt_text=color_images_alt
                     )
                     created_count += 1
                 order_index = start + len(color_files)
@@ -3516,15 +3537,22 @@ def admin_product_edit_unified(request, pk):
             files = []
             one = request.FILES.get('additional_image')
             many = request.FILES.getlist('additional_image')
+            additional_image_alt = (request.POST.get('additional_image_alt') or '').strip()
             if many:
                 files = many
             elif one:
                 files = [one]
 
             created = 0
+            start_order = ProductImage.objects.filter(product=obj).count()
             for f in files:
                 try:
-                    ProductImage.objects.create(product=obj, image=f)
+                    ProductImage.objects.create(
+                        product=obj,
+                        image=f,
+                        alt_text=additional_image_alt,
+                        order=start_order + created
+                    )
                     created += 1
                 except Exception:
                     continue
@@ -3538,6 +3566,7 @@ def admin_product_edit_unified(request, pk):
 
     return render(request, 'pages/admin_product_edit_unified.html', {
         'form': form,
+        'faq_formset': faq_formset,
         'obj': obj,
         'color_variants_payload': _variants_payload(obj),
         'product_images_payload': _product_images_payload(obj),

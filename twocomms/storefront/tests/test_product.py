@@ -10,11 +10,12 @@ import tempfile
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
-from storefront.models import Category, Product, ProductFitOption, ProductImage
+from storefront.models import Category, Product, ProductFAQ, ProductFitOption, ProductImage
 
 PNG_PIXEL = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
@@ -122,9 +123,9 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'data-pdp-tab="delivery"', html=False)
         self.assertContains(response, 'id="panel-delivery"', html=False)
         self.assertContains(response, 'data-add-to-cart=', html=False)
-        self.assertContains(response, 'product-detail.css?v=20260428-pdp-share-solo-v6', html=False)
+        self.assertContains(response, 'product-detail.css?v=20260428-faq-alt-v1', html=False)
         self.assertContains(response, 'product-media-fit.css?v=20260428-media-fit-v1', html=False)
-        self.assertContains(response, 'product-detail.js?v=20260428-image-sources-v1', html=False)
+        self.assertContains(response, 'product-detail.js?v=20260428-image-alt-faq-v1', html=False)
         self.assertContains(response, 'product-media-fit.js?v=20260428-media-fit-v1', html=False)
 
     def test_product_detail_renders_description_collapse_hooks(self):
@@ -306,15 +307,44 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertNotContains(response, 'data-fit-selector', html=False)
         self.assertNotContains(response, "Оверсайз")
 
+    def test_product_detail_renders_active_product_faq_tab_and_schema(self):
+        ProductFAQ.objects.create(
+            product=self.product,
+            question="Це чоловіча чи жіноча футболка?",
+            answer="Це футболка унісекс.",
+            order=0,
+            is_active=True,
+        )
+        ProductFAQ.objects.create(
+            product=self.product,
+            question="Неактивне питання",
+            answer="Не має показуватись.",
+            order=1,
+            is_active=False,
+        )
+
+        response = self.client.get(reverse("product", args=[self.product.slug]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["product_faq_items"][0]["question"], "Це чоловіча чи жіноча футболка?")
+        self.assertContains(response, 'data-pdp-tab="faq"', html=False)
+        self.assertContains(response, 'id="panel-faq"', html=False)
+        self.assertContains(response, "FAQ товару")
+        self.assertContains(response, "Це футболка унісекс.")
+        self.assertContains(response, '"@type": "FAQPage"', html=False)
+        self.assertNotContains(response, "Неактивне питання")
+
 
 class GetProductImagesTests(ProductViewTestCase):
     def test_get_product_images_returns_main_and_gallery(self):
         with self.settings(MEDIA_ROOT=self._media_root):
             self.product.main_image = self._image_file("main.png")
-            self.product.save(update_fields=["main_image"])
+            self.product.main_image_alt = "Main alt"
+            self.product.save(update_fields=["main_image", "main_image_alt"])
             ProductImage.objects.create(
                 product=self.product,
                 image=self._image_file("gallery.png"),
+                alt_text="Gallery alt",
                 order=0,
             )
 
@@ -326,6 +356,8 @@ class GetProductImagesTests(ProductViewTestCase):
         self.assertEqual(payload["count"], 2)
         self.assertTrue(payload["images"][0]["is_main"])
         self.assertFalse(payload["images"][1]["is_main"])
+        self.assertEqual(payload["images"][0]["alt"], "Main alt")
+        self.assertEqual(payload["images"][1]["alt"], "Gallery alt")
 
     def test_get_product_images_returns_404_for_missing_product(self):
         response = self.client.get(reverse("get_product_images", args=[99999]))
@@ -374,6 +406,7 @@ class GetProductVariantsTests(ProductViewTestCase):
         self.assertTrue(variants_by_id[default_variant.pk]["is_default"])
         self.assertEqual(variants_by_id[secondary_variant.pk]["secondary_hex"], "#111111")
         self.assertEqual(len(variants_by_id[secondary_variant.pk]["images"]), 1)
+        self.assertEqual(variants_by_id[secondary_variant.pk]["images"][0]["alt"], "Side")
 
     def test_get_product_variants_returns_optimized_image_sources(self):
         with self.settings(MEDIA_ROOT=self._media_root):
@@ -409,6 +442,7 @@ class GetProductVariantsTests(ProductViewTestCase):
         self.assertIn("/optimized/variant-optimized_640w.avif 640w", image_payload["avif_srcset"])
         self.assertIn("/optimized/variant-optimized_640w.webp 640w", image_payload["webp_srcset"])
         self.assertTrue(image_payload["url"].endswith("/optimized/variant-optimized_640w.webp"))
+        self.assertEqual(image_payload["alt"], "Optimized")
 
     def test_get_product_variants_returns_404_for_missing_product(self):
         response = self.client.get(reverse("get_product_variants", args=[99999]))
@@ -435,3 +469,105 @@ class QuickViewTests(ProductViewTestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertFalse(response.json()["success"])
+
+
+class AdminProductUnifiedTests(ProductViewTestCase):
+    def setUp(self):
+        super().setUp()
+        self.staff_user = get_user_model().objects.create_user(
+            username="product-admin",
+            password="secret123",
+            is_staff=True,
+        )
+        self.client.force_login(self.staff_user)
+
+    def test_legacy_product_new_page_renders_manual_seo_and_content_fields(self):
+        response = self.client.get(reverse("admin_product_new"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "SEO Title")
+        self.assertContains(response, "Meta description")
+        self.assertContains(response, "Деталі")
+        self.assertContains(response, "Кому підійде")
+        self.assertContains(response, "ALT головного зображення")
+
+    def test_legacy_product_new_ajax_saves_without_ai_and_places_product_first(self):
+        response = self.client.post(
+            reverse("admin_product_new"),
+            {
+                "form_type": "product",
+                "title": "Legacy New Product",
+                "slug": "legacy-new-product",
+                "category": str(self.category.pk),
+                "status": "published",
+                "priority": "0",
+                "price": "1200",
+                "discount_percent": "",
+                "points_reward": "0",
+                "short_description": "Short legacy create.",
+                "full_description": "Full legacy create.",
+                "details_text": "Тип: футболка",
+                "target_audience": "Для streetwear образу.",
+                "care_instructions": "Прати навиворіт.",
+                "seo_title": "Legacy SEO Title",
+                "seo_description": "Legacy SEO Description",
+                "seo_keywords": "legacy, twocomms",
+                "drop_price": "0",
+                "wholesale_price": "0",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+        product = Product.objects.get(title="Legacy New Product")
+        self.assertEqual(product.priority, 1)
+        self.assertEqual(product.seo_title, "Legacy SEO Title")
+        self.assertEqual(product.details_text, "Тип: футболка")
+
+    def test_unified_edit_saves_manual_seo_content_blocks_and_faq(self):
+        response = self.client.post(
+            reverse("admin_product_edit_unified", args=[self.product.pk]),
+            {
+                "form_type": "product",
+                "title": "Чорна футболка унісекс TwoComms",
+                "slug": self.product.slug,
+                "category": str(self.category.pk),
+                "status": "published",
+                "priority": "10",
+                "price": "1000",
+                "discount_percent": "",
+                "points_reward": "0",
+                "short_description": "Короткий опис для карточки.",
+                "full_description": "Довгий опис товару.",
+                "details_text": "Тип: футболка унісекс\nКолір: чорний",
+                "target_audience": "Підійде тим, хто шукає streetwear з сенсом.",
+                "care_instructions": "Прати навиворіт у делікатному режимі.",
+                "main_image_alt": "Чорна футболка TwoComms",
+                "seo_title": "Футболка унісекс | TwoComms",
+                "seo_description": "Чорна футболка унісекс TwoComms з авторським принтом.",
+                "seo_keywords": "футболка унісекс, TwoComms",
+                "drop_price": "0",
+                "wholesale_price": "0",
+                "faqs-TOTAL_FORMS": "1",
+                "faqs-INITIAL_FORMS": "0",
+                "faqs-MIN_NUM_FORMS": "0",
+                "faqs-MAX_NUM_FORMS": "1000",
+                "faqs-0-question": "Де розміщений принт?",
+                "faqs-0-answer": "Основний принт розміщений на спині.",
+                "faqs-0-order": "0",
+                "faqs-0-is_active": "on",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.seo_title, "Футболка унісекс | TwoComms")
+        self.assertEqual(self.product.details_text, "Тип: футболка унісекс\nКолір: чорний")
+        self.assertEqual(self.product.care_instructions, "Прати навиворіт у делікатному режимі.")
+        faq = ProductFAQ.objects.get(product=self.product)
+        self.assertEqual(faq.question, "Де розміщений принт?")
+        self.assertTrue(faq.is_active)
