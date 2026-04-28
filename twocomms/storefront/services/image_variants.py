@@ -12,6 +12,7 @@ from django.conf import settings
 
 DEFAULT_DISPLAY_WIDTH = 640
 DEFAULT_THUMB_WIDTH = 320
+MAX_RESPONSIVE_WIDTH = 1440
 
 
 def _media_url_prefixes() -> Tuple[str, ...]:
@@ -74,7 +75,10 @@ def _existing_responsive_entries(
         match = pattern.match(candidate.name)
         if not match or not candidate.exists():
             continue
-        entries.append((int(match.group(1)), _optimized_url(original_url, candidate.name)))
+        width = int(match.group(1))
+        if width > MAX_RESPONSIVE_WIDTH:
+            continue
+        entries.append((width, _optimized_url(original_url, candidate.name)))
     return sorted(entries, key=lambda item: item[0])
 
 

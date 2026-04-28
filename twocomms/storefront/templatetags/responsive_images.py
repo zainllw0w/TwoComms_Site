@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 _STRICT_MODE = bool(getattr(settings, 'PERF_IMAGE_STRICT', settings.DEBUG))
 _WARNED_PATHS = set()  # dedupe warnings per-process
+MAX_RESPONSIVE_WIDTH = 1440
 
 
 def _warn_missing_variants(image_path: str, base_dir: Path) -> None:
@@ -54,6 +55,8 @@ def _responsive_sources(
         if not match or not candidate.exists():
             continue
         width = int(match.group(1))
+        if width > MAX_RESPONSIVE_WIDTH:
+            continue
         if max_width and width > max_width:
             continue
         sources.append({
