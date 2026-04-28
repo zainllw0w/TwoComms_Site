@@ -1,0 +1,135 @@
+/*
+  PDP media fit layer.
+  Wide product photos should fill the cinematic media stage, while square and
+  portrait photos keep the safer contain behavior from product-detail.css.
+*/
+
+.tc-media-stage {
+  --tc-media-spark-size: 3.5px;
+}
+
+.tc-media-stage::after {
+  opacity: 0.58;
+}
+
+.tc-media-stage .tc-media-sparks span {
+  width: var(--tc-media-spark-size);
+  height: var(--tc-media-spark-size);
+  background: rgba(255, 154, 72, 0.9);
+  box-shadow:
+    0 0 14px rgba(255, 122, 47, 0.8),
+    0 0 28px rgba(141, 92, 255, 0.22);
+}
+
+.tc-media-stage .tc-media-sparks span:nth-child(7) { left: 18%; top: 36%; animation-delay: -2.7s; animation-duration: 8.2s; }
+.tc-media-stage .tc-media-sparks span:nth-child(8) { left: 37%; top: 88%; animation-delay: -5.6s; animation-duration: 7.4s; }
+.tc-media-stage .tc-media-sparks span:nth-child(9) { left: 59%; top: 12%; animation-delay: -1.8s; animation-duration: 8.8s; }
+.tc-media-stage .tc-media-sparks span:nth-child(10) { left: 76%; top: 46%; animation-delay: -4.8s; animation-duration: 7.8s; }
+.tc-media-stage .tc-media-sparks span:nth-child(11) { left: 90%; top: 78%; animation-delay: -3.6s; animation-duration: 8.4s; }
+.tc-media-stage .tc-media-sparks span:nth-child(12) { left: 8%; top: 86%; animation-delay: -6.4s; animation-duration: 7.1s; }
+
+.tc-media-stage.tc-media-fit-pending .tc-media-hero-img,
+.tc-media-stage.tc-media-fit-unknown .tc-media-hero-img {
+  object-fit: contain;
+}
+
+.tc-media-stage.tc-media-fit-wide {
+  background:
+    radial-gradient(circle at 16% 23%, rgba(255, 128, 45, 0.2), transparent 25%),
+    radial-gradient(circle at 90% 78%, rgba(141, 92, 255, 0.16), transparent 26%),
+    linear-gradient(115deg, rgba(28, 14, 8, 0.9), rgba(12, 13, 21, 0.76)),
+    linear-gradient(180deg, #13141b, #090a0f);
+}
+
+.tc-media-stage.tc-media-fit-wide::before {
+  opacity: 0.74;
+  background:
+    radial-gradient(circle at 12% 72%, rgba(255, 122, 47, 0.34), transparent 18%),
+    radial-gradient(circle at 70% 18%, rgba(255, 154, 72, 0.18), transparent 20%),
+    linear-gradient(90deg, rgba(255, 122, 47, 0.18), transparent 24%, transparent 72%, rgba(141, 92, 255, 0.16)),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.34));
+}
+
+.tc-media-stage.tc-media-fit-wide::after {
+  opacity: 0.78;
+  background-image:
+    radial-gradient(circle, rgba(255, 158, 72, 0.74) 0 1px, transparent 2px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.28) 0 1px, transparent 2px),
+    linear-gradient(180deg, transparent 52%, rgba(255, 106, 28, 0.11));
+  background-size: 52px 48px, 96px 82px, 100% 100%;
+  animation: tcMediaDustDrift 18s linear infinite;
+}
+
+.tc-media-stage.tc-media-fit-wide picture {
+  height: 100%;
+  min-height: 100%;
+}
+
+.tc-media-stage.tc-media-fit-wide .tc-media-hero-img {
+  min-height: 100%;
+  padding: 0;
+  object-fit: cover;
+  object-position: center;
+  transform: scale(1);
+  filter: saturate(1.04) contrast(1.04);
+}
+
+.tc-media-stage.tc-media-fit-wide:hover .tc-media-hero-img {
+  transform: scale(1.014);
+  filter: saturate(1.07) contrast(1.05);
+}
+
+.tc-media-stage.tc-media-fit-wide .tc-media-sparks span {
+  --tc-media-spark-size: 4px;
+  animation-duration: 6.2s;
+  box-shadow:
+    0 0 16px rgba(255, 122, 47, 0.92),
+    0 0 34px rgba(255, 122, 47, 0.26),
+    0 0 28px rgba(141, 92, 255, 0.22);
+}
+
+@keyframes tcMediaDustDrift {
+  0% {
+    background-position: 18px 22px, 64px 38px, 0 0;
+  }
+  100% {
+    background-position: 70px -26px, 160px -44px, 0 0;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .tc-media-stage.tc-media-fit-wide {
+    min-height: clamp(238px, 63vw, 390px);
+    aspect-ratio: 16 / 10;
+  }
+
+  .tc-media-stage.tc-media-fit-wide picture,
+  .tc-media-stage.tc-media-fit-wide .tc-media-hero-img {
+    height: 100%;
+    min-height: 100%;
+  }
+
+  .tc-media-stage.tc-media-fit-wide .tc-media-hero-img {
+    padding: 0;
+    object-fit: cover;
+    transform: none;
+  }
+
+  .tc-media-stage.tc-media-fit-wide:hover .tc-media-hero-img {
+    transform: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .tc-media-stage.tc-media-fit-wide {
+    min-height: clamp(218px, 66vw, 320px);
+    aspect-ratio: 4 / 3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-media-stage.tc-media-fit-wide::after,
+  .tc-media-stage .tc-media-sparks span {
+    animation: none !important;
+  }
+}
