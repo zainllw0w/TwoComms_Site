@@ -36,7 +36,7 @@
 
 {% block extra_css %}
   {{ block.super }}
-  <link rel="stylesheet" href="{% static 'css/custom-print-configurator.css' %}">
+  <link rel="stylesheet" href="{% static 'css/custom-print-configurator.css' %}?v=20260428-hero-print-zones">
   <style>
     .cp-breadcrumbs {
       display: flex;
@@ -203,7 +203,7 @@
           <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="12" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="10.5" cy="17.5" r="2.5"/></svg>Будь-який колір та дизайн</span>
         </div>
 
-        <div class="cp-hero-signature cp-animate-in cp-delay-6" aria-hidden="true">твій стиль, твої правила.</div>
+        <div class="cp-hero-signature cp-animate-in cp-delay-6" data-text="твій стиль, твої правила." aria-hidden="true">твій стиль, твої правила.</div>
       </div>
 
       <div class="cp-hero-theatre cp-animate-in cp-delay-3" aria-label="Приклад кастомного одягу TwoComms">
@@ -216,17 +216,38 @@
           <span class="cp-hero-garment-label cp-hero-garment-label--tee">Футболка</span>
           <span class="cp-hero-garment-label cp-hero-garment-label--longsleeve">Лонгслів</span>
 
-          <span class="cp-hero-logo-on-cloth cp-hero-logo-on-cloth--hoodie" aria-hidden="true">
-            <img src="{% static 'img/logo.svg' %}" alt="">
-            <span>TWOCOMMS</span>
+          <span class="cp-hero-print-zone cp-hero-print-zone--hoodie" aria-hidden="true">
+            <span class="cp-hero-print-zone__frame cp-hero-print-zone__frame--a6">
+              <span>ваш принт</span>
+              <strong>A6</strong>
+            </span>
+            <span class="cp-hero-print-zone__frame cp-hero-print-zone__frame--a5">
+              <span>ваш принт</span>
+              <strong>A5</strong>
+            </span>
+            <span class="cp-hero-print-zone__frame cp-hero-print-zone__frame--a4">
+              <span>ваш принт</span>
+              <strong>A4</strong>
+            </span>
           </span>
           <span class="cp-hero-logo-on-cloth cp-hero-logo-on-cloth--tee" aria-hidden="true">
             <img src="{% static 'img/logo.svg' %}" alt="">
             <strong>TWOCOMMS</strong>
             <small>FOR THE ONES WHO CREATE</small>
           </span>
-          <span class="cp-hero-logo-on-cloth cp-hero-logo-on-cloth--longsleeve" aria-hidden="true">
-            <img src="{% static 'img/logo.svg' %}" alt="">
+          <span class="cp-hero-print-zone cp-hero-print-zone--longsleeve" aria-hidden="true">
+            <span class="cp-hero-print-zone__frame cp-hero-print-zone__frame--a6">
+              <span>ваш принт</span>
+              <strong>A6</strong>
+            </span>
+            <span class="cp-hero-print-zone__frame cp-hero-print-zone__frame--a5">
+              <span>ваш принт</span>
+              <strong>A5</strong>
+            </span>
+            <span class="cp-hero-print-zone__frame cp-hero-print-zone__frame--a4">
+              <span>ваш принт</span>
+              <strong>A4</strong>
+            </span>
           </span>
         </figure>
 
