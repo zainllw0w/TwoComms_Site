@@ -23,7 +23,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-pdp-balance-v4">
+<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-pdp-polish-v5">
 {% endblock %}
 
 {% block content %}
@@ -508,7 +508,7 @@
       {% if product.has_discount %}<small>{{ product.price }} грн</small>{% endif %}
     </div>
     <button type="button" class="tc-sticky-add-btn" data-pdp-sticky-add>
-      ДОДАТИ В КОШИК
+      <span>ДОДАТИ В КОШИК</span>
     </button>
   </div>
 </div>
@@ -532,5 +532,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/product-detail.js' %}?v=20260428-pdp-balance-v4" defer></script>
+<script src="{% static 'js/product-detail.js' %}?v=20260428-pdp-polish-v5" defer></script>
 {% endblock %}

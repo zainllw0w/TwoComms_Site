@@ -121,8 +121,8 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'data-pdp-tab="delivery"', html=False)
         self.assertContains(response, 'id="panel-delivery"', html=False)
         self.assertContains(response, 'data-add-to-cart=', html=False)
-        self.assertContains(response, 'product-detail.css?v=20260428-pdp-balance-v4', html=False)
-        self.assertContains(response, 'product-detail.js?v=20260428-pdp-balance-v4', html=False)
+        self.assertContains(response, 'product-detail.css?v=20260428-pdp-polish-v5', html=False)
+        self.assertContains(response, 'product-detail.js?v=20260428-pdp-polish-v5', html=False)
 
     def test_product_detail_renders_description_collapse_hooks(self):
         self.product.full_description = "\n".join(
