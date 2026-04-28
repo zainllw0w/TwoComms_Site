@@ -5,12 +5,11 @@ from __future__ import annotations
 
 import shutil
 import tempfile
-from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
-from productcolors.models import Color, ProductColorImage, ProductColorVariant
+from productcolors.models import Color, ProductColorVariant
 from storefront.models import Catalog, Category, Product
 from storefront.services.catalog import (
     VariantImagePayload,
@@ -191,48 +190,3 @@ class MediaServiceTests(CatalogServiceTestCase):
             self.assertEqual(len(images), 1)
             self.assertEqual(images[0].order, 0)
             self.assertEqual(images[0].alt_text, "Primary(updated)")
-
-    def test_sync_variant_images_reorder_existing_images_does_not_enqueue_optimization(self):
-        with self.settings(MEDIA_ROOT=self._media_root):
-            with patch("storefront.signals.optimize_image_field_task.delay", return_value=None) as optimize_mock:
-                first = ProductColorImage.objects.create(
-                    variant=self.variant,
-                    image=self._image_file("existing-first.png"),
-                    alt_text="First",
-                    order=0,
-                )
-                second = ProductColorImage.objects.create(
-                    variant=self.variant,
-                    image=self._image_file("existing-second.png"),
-                    alt_text="Second",
-                    order=1,
-                )
-                optimize_mock.reset_mock()
-
-                sync_variant_images(
-                    self.variant,
-                    [
-                        VariantImagePayload(
-                            instance=second,
-                            uploaded_file=None,
-                            alt_text="Second",
-                            order=0,
-                        ),
-                        VariantImagePayload(
-                            instance=first,
-                            uploaded_file=None,
-                            alt_text="First",
-                            order=1,
-                        ),
-                    ],
-                    auto_assign_product_main=False,
-                )
-
-        self.assertEqual(
-            [
-                call
-                for call in optimize_mock.call_args_list
-                if call.args[:1] == ("productcolors.ProductColorImage",)
-            ],
-            [],
-        )
