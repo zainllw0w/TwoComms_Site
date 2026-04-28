@@ -364,6 +364,10 @@
       if (colorVariantId) {
         body.append('color_variant_id', colorVariantId);
       }
+      var fitInput = document.querySelector('input[name="fit_option"]:checked');
+      if (fitInput && fitInput.value) {
+        body.append('fit_option', fitInput.value);
+      }
 
       fetch('/cart/add/', {
         method: 'POST',

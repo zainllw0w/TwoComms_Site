@@ -68,6 +68,28 @@ def _apply_client_delivery_selection(order, selection) -> None:
     order.client_np_warehouse_ref = selection.warehouse_ref
 
 
+def _resolve_product_fit_payload(product, requested_code):
+    try:
+        options = list(
+            product.fit_options
+            .filter(is_active=True)
+            .order_by('order', 'id')
+            .only('code', 'label', 'description', 'is_default')
+        )
+    except Exception:
+        options = []
+
+    if not options:
+        return '', ''
+
+    requested = str(requested_code or '').strip().lower()
+    selected = next((option for option in options if option.code == requested), None)
+    if selected is None:
+        selected = next((option for option in options if option.is_default), options[0])
+
+    return selected.code, selected.label
+
+
 def _get_dropship_categories():
     categories_data = []
     for category in Category.objects.filter(is_active=True).order_by('order', 'name'):
@@ -528,6 +550,7 @@ def add_to_cart(request):
         product_id = data.get('product_id')
         color_variant_id = data.get('color_variant_id')
         size = data.get('size', '')
+        fit_option_code, fit_option_label = '', ''
         quantity = int(data.get('quantity', 1))
         selling_price = data.get('selling_price')
 
@@ -563,6 +586,10 @@ def add_to_cart(request):
             }, status=422)
 
         product = get_object_or_404(Product, id=product_id)
+        fit_option_code, fit_option_label = _resolve_product_fit_payload(
+            product,
+            data.get('fit_option') or data.get('fit_option_code')
+        )
         color_variant = None
 
         if color_variant_id:
@@ -596,6 +623,8 @@ def add_to_cart(request):
                 product=product,
                 color_variant=color_variant,
                 size=size,
+                fit_option_code=fit_option_code,
+                fit_option_label=fit_option_label,
                 quantity=quantity,
                 drop_price=actual_drop_price,
                 selling_price=selling_price or product.recommended_price,
@@ -667,12 +696,14 @@ def remove_from_cart(request):
         product_id = data.get('product_id')
         color_variant_id = data.get('color_variant_id')
         size = data.get('size', '')
+        fit_option_code = data.get('fit_option_code') or data.get('fit_option') or ''
 
         cart = request.session.get('dropshipper_cart', [])
         cart = [item for item in cart if not (
             item.get('product_id') == product_id and
             item.get('color_variant_id') == color_variant_id and
-            item.get('size') == size
+            item.get('size') == size and
+            (item.get('fit_option_code') or '') == fit_option_code
         )]
 
         request.session['dropshipper_cart'] = cart
@@ -782,6 +813,8 @@ def create_dropshipper_order(request):
                     product=product,
                     color_variant=color_variant,
                     size=item_data.get('size', ''),
+                    fit_option_code=item_data.get('fit_option_code', ''),
+                    fit_option_label=item_data.get('fit_option_label', ''),
                     quantity=item_data.get('quantity', 1),
                     drop_price=item_data.get('drop_price', 0),
                     selling_price=item_data.get('selling_price', 0),
@@ -918,6 +951,16 @@ def get_product_details(request, product_id):
                 'secondary_color_code': variant.color.secondary_hex if variant.color.secondary_hex else None
             })
 
+        fit_options = [
+            {
+                'code': option.code,
+                'label': option.label,
+                'description': option.description,
+                'is_default': option.is_default,
+            }
+            for option in product.fit_options.filter(is_active=True).order_by('order', 'id')
+        ]
+
         # Получаем основное изображение товара
         main_image_url = None
         if product.main_image:
@@ -940,6 +983,7 @@ def get_product_details(request, product_id):
             'recommended_price': float(recommended_price),
             'price_range': price_range,  # Добавляем диапазон цены
             'color_variants': color_variants,
+            'fit_options': fit_options,
             'category': {
                 'id': product.category.id,
                 'name': product.category.name
@@ -1049,6 +1093,8 @@ def create_dropshipper_monobank_payment(request):
             name_parts = [item.product.title]
             if item.size:
                 name_parts.append(f"розмір {item.size}")
+            if item.fit_label:
+                name_parts.append(item.fit_label)
             if item.color_variant and item.color_variant.color:
                 name_parts.append(item.color_variant.color.name)
             display_name = ' • '.join(filter(None, name_parts))[:128]

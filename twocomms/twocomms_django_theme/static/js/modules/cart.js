@@ -443,6 +443,7 @@ class CartPageController {
     const points = Number(item.points_reward || 0) * qty;
     const colorLabel = item.color_label || '—';
     const hasColor = Boolean(item.color_variant_id);
+    const fitLabel = item.fit_option_label || item.fit_label || '';
     const priceHtml = hasSiteDiscount
       ? `<span class="cart-item-price-old">${formatUAH(originalUnitPrice)}</span><span class="cart-item-price-current">${formatUAH(unitPrice)}</span>`
       : `<span class="cart-item-price-current">${formatUAH(unitPrice)}</span>`;
@@ -469,6 +470,11 @@ class CartPageController {
               <span class="cart-item-label">Кількість:</span>
               <span class="cart-item-value">${qty}</span>
             </div>
+            ${fitLabel ? `
+            <div class="cart-item-detail">
+              <span class="cart-item-label">Посадка:</span>
+              <span class="cart-item-value">${escapeHtml(fitLabel)}</span>
+            </div>` : ''}
             ${hasColor ? `
             <div class="cart-item-detail">
               <span class="cart-item-label">Колір:</span>

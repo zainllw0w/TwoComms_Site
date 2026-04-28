@@ -448,6 +448,8 @@ class TelegramNotifier:
             # Добавляем детали товара каждая на новой строке с └
             if item.size:
                 full_block += f"│        └ Размер: {item.size}\n"
+            if item.fit_label:
+                full_block += f"│        └ Посадка: {item.fit_label}\n"
             if item.qty:
                 full_block += f"│        └ Количество: {item.qty}\n"
             if item.color_variant:
@@ -956,6 +958,8 @@ class TelegramNotifier:
             # Детали товара
             if item.size:
                 full_block += f"│        └ Розмір: {item.size}\n"
+            if item.fit_label:
+                full_block += f"│        └ Посадка: {item.fit_label}\n"
             if item.quantity:
                 full_block += f"│        └ Кількість: {item.quantity}\n"
             if item.color_variant:

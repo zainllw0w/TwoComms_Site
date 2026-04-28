@@ -262,6 +262,22 @@
                     <option value="">Базовий колір</option>
                   </select>
                 </div>
+
+                <div id="dsProductFitWrap" style="display: none;">
+                  <label style="display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,.65); margin-bottom: 8px;">
+                    Посадка
+                  </label>
+                  <select id="dsProductFit" style="
+                    width: 100%;
+                    padding: 12px 14px;
+                    border-radius: 12px;
+                    border: 1px solid rgba(255,255,255,.16);
+                    background: rgba(12,12,18,.65);
+                    color: #e5e7eb;
+                    transition: border-color 0.3s ease;
+                  " onfocus="this.style.borderColor='rgba(139,92,246,.38)'" onblur="this.style.borderColor='rgba(255,255,255,.16)'">
+                  </select>
+                </div>
                 
                 <div>
                   <label style="display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,.65); margin-bottom: 8px;">
@@ -948,6 +964,26 @@
         productColor.appendChild(option);
       });
     }
+
+    const productFitWrap = popup.querySelector('#dsProductFitWrap');
+    const productFit = popup.querySelector('#dsProductFit');
+    if (productFitWrap && productFit) {
+      const fitOptions = Array.isArray(product.fit_options) ? product.fit_options : [];
+      if (fitOptions.length) {
+        productFit.innerHTML = '';
+        fitOptions.forEach(optionData => {
+          const option = document.createElement('option');
+          option.value = optionData.code || '';
+          option.textContent = optionData.label || optionData.code || 'Посадка';
+          if (optionData.is_default) option.selected = true;
+          productFit.appendChild(option);
+        });
+        productFitWrap.style.display = '';
+      } else {
+        productFit.innerHTML = '';
+        productFitWrap.style.display = 'none';
+      }
+    }
     
     // Инициализируем способ оплаты (по умолчанию COD)
     const defaultPaymentMethod = popup.querySelector('#dsPaymentCOD');
@@ -986,6 +1022,7 @@
         product_id: currentProduct.id,
         color_variant_id: popup.querySelector('#dsProductColor').value || null,
         size: popup.querySelector('#dsProductSize').value,
+        fit_option: popup.querySelector('#dsProductFit')?.value || '',
         quantity: parseInt(popup.querySelector('#dsProductQuantity').value) || 1,
         selling_price: parseFloat(popup.querySelector('#dsProductSellingPrice').value) || 0,
         

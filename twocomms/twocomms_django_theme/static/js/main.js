@@ -803,7 +803,7 @@ window.__twcMono = {
 let __monoModulePromise = null;
 function __loadMonoModule() {
   if (!__monoModulePromise) {
-    __monoModulePromise = import('./modules/checkout-mono.js?v=20260422c').catch((err) => {
+    __monoModulePromise = import('./modules/checkout-mono.js?v=20260428-pdp-fit-v2').catch((err) => {
       __monoModulePromise = null;
       throw err;
     });
@@ -1548,6 +1548,10 @@ function trackAddToCartAnalytics(serverData, triggerButton, fallbackQty) {
         variantLabel = selectedSize.value;
       }
     }
+    const fitLabel = (analyticsItem && (analyticsItem.fit_option_label || analyticsItem.fit_label)) || '';
+    if (fitLabel) {
+      variantLabel = variantLabel ? `${variantLabel} / ${fitLabel}` : fitLabel;
+    }
     const payload = {
       content_ids: [offerId],
       content_type: 'product',
@@ -1625,6 +1629,10 @@ document.addEventListener('click', (e) => {
   const body = new URLSearchParams({ product_id: productId, size: normalizedSize, qty: String(qty) });
   if (colorVariantId) {
     body.append('color_variant_id', colorVariantId);
+  }
+  const fitInput = document.querySelector('input[name="fit_option"]:checked');
+  if (fitInput && fitInput.value) {
+    body.append('fit_option', fitInput.value);
   }
 
   // Открываем мини-корзину сразу, чтобы пользователь видел текущее состояние
@@ -1824,7 +1832,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(() => { });
     }
     if (document.querySelector('.cart-page-container') || document.getElementById('promo-code-input')) {
-      import('./modules/cart.js?v=20260422c')
+      import('./modules/cart.js?v=20260428-pdp-fit-v2')
         .then(({ initCartInteractions }) => initCartInteractions())
         .catch(() => { });
     }

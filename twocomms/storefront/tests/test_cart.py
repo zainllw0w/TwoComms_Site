@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
-from storefront.models import Category, Product, PromoCode
+from storefront.models import Category, Product, ProductFitOption, PromoCode
 
 
 class CartViewTestCase(TestCase):
@@ -25,14 +25,19 @@ class CartViewTestCase(TestCase):
             status="published",
         )
 
-    def set_cart(self, *, qty=2, size="M"):
+    def set_cart(self, *, qty=2, size="M", fit_option_code="", fit_option_label=""):
         session = self.client.session
+        key = f"{self.product.id}:{size}:default"
+        if fit_option_code:
+            key = f"{key}:{fit_option_code}"
         session["cart"] = {
-            f"{self.product.id}:{size}:default": {
+            key: {
                 "product_id": self.product.id,
                 "qty": qty,
                 "size": size,
                 "color_variant_id": None,
+                "fit_option_code": fit_option_code,
+                "fit_option_label": fit_option_label,
             }
         }
         session.save()
@@ -98,6 +103,41 @@ class AddToCartTests(CartViewTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 4)
         self.assertEqual(self.client.session["cart"][f"{self.product.id}:M:default"]["qty"], 4)
+
+    def test_add_tshirt_fit_option_keeps_cart_lines_separate(self):
+        self.product.title = "Футболка Test Product"
+        self.product.save(update_fields=["title"])
+        ProductFitOption.objects.create(
+            product=self.product,
+            code="classic",
+            label="Класичний",
+            is_default=True,
+            order=0,
+        )
+        ProductFitOption.objects.create(
+            product=self.product,
+            code="oversize",
+            label="Оверсайз",
+            order=1,
+        )
+
+        response_classic = self.client.post(
+            reverse("cart_add"),
+            {"product_id": self.product.id, "qty": 1, "size": "M", "fit_option": "classic"},
+        )
+        response_oversize = self.client.post(
+            reverse("cart_add"),
+            {"product_id": self.product.id, "qty": 1, "size": "M", "fit_option": "oversize"},
+        )
+
+        self.assertEqual(response_classic.status_code, 200)
+        self.assertEqual(response_oversize.status_code, 200)
+        cart = self.client.session["cart"]
+        self.assertIn(f"{self.product.id}:M:default:classic", cart)
+        self.assertIn(f"{self.product.id}:M:default:oversize", cart)
+        self.assertEqual(cart[f"{self.product.id}:M:default:classic"]["fit_option_label"], "Класичний")
+        self.assertEqual(cart[f"{self.product.id}:M:default:oversize"]["fit_option_label"], "Оверсайз")
+        self.assertEqual(response_oversize.json()["item"]["fit_option_label"], "Оверсайз")
 
     def test_add_nonexistent_product_returns_404(self):
         response = self.client.post(reverse("cart_add"), {"product_id": 99999, "qty": 1})
@@ -173,6 +213,17 @@ class CartUtilityEndpointTests(CartViewTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["cart_count"], 3)
+
+    def test_cart_items_api_exposes_fit_label(self):
+        self.set_cart(qty=1, fit_option_code="classic", fit_option_label="Класичний")
+
+        response = self.client.get(reverse("cart_items_api"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["items"][0]["fit_option_code"], "classic")
+        self.assertEqual(payload["items"][0]["fit_option_label"], "Класичний")
 
 
 class PromoCodeTests(CartViewTestCase):

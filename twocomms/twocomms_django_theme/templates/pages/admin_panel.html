@@ -1074,6 +1074,12 @@
                               <span class="spec-label">Кількість:</span>
                               <span class="spec-value">{{ item.qty }} шт</span>
                             </div>
+                            {% if item.fit_label %}
+                            <div class="order-item-spec">
+                              <span class="spec-label">Посадка:</span>
+                              <span class="spec-value">{{ item.fit_label }}</span>
+                            </div>
+                            {% endif %}
                             {% if item.color_name %}
                             <div class="order-item-spec">
                               <span class="spec-label">Колір:</span>

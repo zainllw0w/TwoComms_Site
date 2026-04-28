@@ -576,6 +576,8 @@ def monobank_create_invoice(request):
                     color_variant=color_variant,
                     title=p.title,
                     size=it.get('size', ''),
+                    fit_option_code=(it.get('fit_option_code') or it.get('fit') or ''),
+                    fit_option_label=(it.get('fit_option_label') or it.get('fit_label') or ''),
                     qty=it['qty'],
                     unit_price=unit,
                     line_total=line
@@ -668,6 +670,8 @@ def monobank_create_invoice(request):
                         item_name = item.title
                         if item.size:
                             item_name += f' ({item.size})'
+                        if item.fit_label:
+                            item_name += f' / {item.fit_label}'
 
                         monobank_logger.info(f'🔍 PREPAY mode: Adding item with FULL price')
                         monobank_logger.info(f'🔍 - name: {item_name}')
@@ -740,6 +744,8 @@ def monobank_create_invoice(request):
 
                         # Добавляем информацию о промокоде к названию товара
                         item_name = f'{item.title} {item.size}'.strip()
+                        if item.fit_label:
+                            item_name = f'{item_name} / {item.fit_label}'.strip()
                         if order.promo_code:
                             item_name += f' [з промокодом {order.promo_code.code}]'
 
@@ -1042,6 +1048,8 @@ def _monobank_finalize_invoice(order, request=None):
             item_name = item.title
             if item.size:
                 item_name += f' ({item.size})'
+            if item.fit_label:
+                item_name += f' / {item.fit_label}'
 
             items.append({
                 'name': item_name,

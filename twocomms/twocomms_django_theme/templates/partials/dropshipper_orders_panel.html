@@ -403,6 +403,7 @@
                           <span style="color: rgba(229,231,235,.8); font-size: 0.95rem; font-weight: 500;">
                             {{ item.product.title }}
                             {% if item.size %} · {{ item.size }}{% endif %}
+                            {% if item.fit_label %} · {{ item.fit_label }}{% endif %}
                             {% if item.color_variant %} · {{ item.color_variant.color.name }}{% endif %}
                           </span>
                         </div>

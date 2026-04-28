@@ -139,6 +139,8 @@
           product_id: item.productId,
           color_variant_id: item.colorVariantId || null,
           size: item.size || '',
+          fit_option_code: item.fitOptionCode || '',
+          fit_option_label: item.fitOptionLabel || '',
           quantity: item.quantity,
           drop_price: item.dropPrice,
           selling_price: item.sellingPrice,
@@ -568,6 +570,11 @@ function renderOrderItems() {
                 <i class="fas fa-ruler" aria-hidden="true"></i>
                 ${item.size ? `Розмір: ${item.size}` : 'Розмір не обрано'}
               </span>
+              ${item.fitOptionLabel ? `
+              <span class="ds-order-item__detail">
+                <i class="fas fa-tshirt" aria-hidden="true"></i>
+                Посадка: ${item.fitOptionLabel}
+              </span>` : ''}
               <span class="ds-order-item__detail">
                 <i class="fas fa-palette" aria-hidden="true"></i>
                 ${item.colorName ? `Колір: ${item.colorName}` : 'Колір: базовий'}
@@ -608,7 +615,8 @@ function renderOrderItems() {
               body: JSON.stringify({
                 product_id: itemToRemove.productId,
                 color_variant_id: itemToRemove.colorVariantId,
-                size: itemToRemove.size
+                size: itemToRemove.size,
+                fit_option_code: itemToRemove.fitOptionCode || ''
               }),
             })
               .then(response => response.json())
@@ -656,6 +664,8 @@ function renderOrderItems() {
             sellingPrice: item.selling_price,
             quantity: item.quantity,
             size: item.size,
+            fitOptionCode: item.fit_option_code || '',
+            fitOptionLabel: item.fit_option_label || item.fit_label || '',
             colorVariantId: item.color_variant_id,
             colorName: item.color_name,
           }));

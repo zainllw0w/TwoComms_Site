@@ -22,7 +22,15 @@ class ProductRecommendationEngine:
         """
         Получает рекомендации товаров
         """
-        cache_key = f"recommendations_{self.user.id if self.user else 'anon'}_{product.id if product else 'home'}"
+        try:
+            from .services.catalog_helpers import get_public_product_order_version
+            public_version = get_public_product_order_version()
+        except Exception:
+            public_version = '0'
+        cache_key = (
+            f"recommendations_{self.user.id if self.user else 'anon'}_"
+            f"{product.id if product else 'home'}_limit_{limit}_public_{public_version}"
+        )
         recommendations = self.cache.get(cache_key)
 
         if recommendations is None:

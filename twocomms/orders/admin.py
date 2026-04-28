@@ -12,7 +12,7 @@ class DropshipperOrderItemInline(admin.TabularInline):
     """Inline для отображения товаров в заказе"""
     model = DropshipperOrderItem
     extra = 0
-    readonly_fields = ('product', 'color_variant', 'size', 'quantity', 'drop_price', 'selling_price',
+    readonly_fields = ('product', 'color_variant', 'size', 'fit_option_label', 'quantity', 'drop_price', 'selling_price',
                        'recommended_price', 'total_drop_price', 'total_selling_price', 'item_profit')
     can_delete = False
 
@@ -143,6 +143,8 @@ class DropshipperOrderAdmin(admin.ModelAdmin):
             items_html += f'<td style="padding: 8px;">{item.product.title}'
             if item.size:
                 items_html += f'<br><small>Розмір: {item.size}</small>'
+            if item.fit_label:
+                items_html += f'<br><small>Посадка: {item.fit_label}</small>'
             if item.color_variant:
                 items_html += f'<br><small>Колір: {item.color_variant.color.name if hasattr(item.color_variant.color, "name") else str(item.color_variant.color)}</small>'
             items_html += '</td>'
@@ -165,11 +167,11 @@ class DropshipperOrderAdmin(admin.ModelAdmin):
 @admin.register(DropshipperOrderItem)
 class DropshipperOrderItemAdmin(admin.ModelAdmin):
     """Административная панель для товаров в заказе дропшиппера"""
-    list_display = ('order_link', 'product', 'size', 'quantity', 'drop_price',
+    list_display = ('order_link', 'product', 'size', 'fit_option_label', 'quantity', 'drop_price',
                     'selling_price', 'item_profit')
     list_filter = ('order__status', 'product__category')
     search_fields = ('order__order_number', 'product__title')
-    readonly_fields = ('order', 'product', 'color_variant', 'total_drop_price',
+    readonly_fields = ('order', 'product', 'color_variant', 'fit_option_code', 'fit_option_label', 'total_drop_price',
                        'total_selling_price', 'item_profit')
 
     def get_queryset(self, request):

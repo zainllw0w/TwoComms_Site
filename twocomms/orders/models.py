@@ -288,6 +288,8 @@ class OrderItem(models.Model):
     color_variant = models.ForeignKey(ProductColorVariant, on_delete=models.PROTECT, null=True, blank=True)
     title = models.CharField(max_length=200)
     size = models.CharField(max_length=16, blank=True)
+    fit_option_code = models.CharField(max_length=50, blank=True, default='')
+    fit_option_label = models.CharField(max_length=100, blank=True, default='')
     qty = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=12, decimal_places=2)
     line_total = models.DecimalField(max_digits=12, decimal_places=2)
@@ -307,6 +309,11 @@ class OrderItem(models.Model):
             color_variant_id=color_variant_id,
             size=size
         )
+
+    @property
+    def fit_label(self):
+        """Snapshot of selected product fit/cut for order displays."""
+        return (self.fit_option_label or self.fit_option_code or '').strip()
 
     @property
     def color_name(self):
@@ -701,6 +708,8 @@ class DropshipperOrderItem(models.Model):
     product = models.ForeignKey('storefront.Product', on_delete=models.PROTECT, verbose_name="Товар")
     color_variant = models.ForeignKey('productcolors.ProductColorVariant', on_delete=models.PROTECT, null=True, blank=True, verbose_name="Колір")
     size = models.CharField(max_length=16, verbose_name="Розмір")
+    fit_option_code = models.CharField(max_length=50, blank=True, default='', verbose_name="Код посадки")
+    fit_option_label = models.CharField(max_length=100, blank=True, default='', verbose_name="Посадка")
     quantity = models.PositiveIntegerField(default=1, verbose_name="Кількість")
 
     # Цены
@@ -720,6 +729,11 @@ class DropshipperOrderItem(models.Model):
 
     def __str__(self):
         return f"{self.product.title} - {self.size} x{self.quantity}"
+
+    @property
+    def fit_label(self):
+        """Snapshot of selected product fit/cut for dropship order displays."""
+        return (self.fit_option_label or self.fit_option_code or '').strip()
 
     def save(self, *args, **kwargs):
         # Рассчитываем итоговые суммы
