@@ -4734,3 +4734,734 @@
     height: 11px;
   }
 }
+
+/* ====== CUSTOM PRINT HERO REFERENCE MATCH 2026-04-28 ====== */
+.cp-hero--reference {
+  --cp-ref-gold: #f0bf6a;
+  --cp-ref-gold-soft: #ffe1a0;
+  --cp-ref-purple: #7c42ff;
+  --cp-ref-blue: #0d2233;
+  display: grid;
+  box-sizing: border-box;
+  grid-template-columns: minmax(350px, 0.83fr) minmax(460px, 1.35fr) minmax(260px, 0.62fr);
+  gap: clamp(1rem, 1.8rem, 1.8rem);
+  align-items: center;
+  width: 100vw;
+  min-height: 660px;
+  margin-inline: calc(50% - 50vw);
+  padding: 28px 34px 34px;
+  border-radius: 0;
+  border-width: 1px 0;
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at 52% 42%, rgba(124, 66, 255, 0.22), transparent 31%),
+    radial-gradient(circle at 75% 34%, rgba(240, 191, 106, 0.14), transparent 24%),
+    linear-gradient(90deg, rgba(2, 5, 10, 0.99) 0%, rgba(10, 8, 18, 0.98) 45%, rgba(5, 8, 14, 0.99) 100%);
+  box-shadow: none;
+}
+
+.cp-hero--reference::before {
+  background:
+    radial-gradient(circle at 27% 100%, rgba(124, 66, 255, 0.16), transparent 16%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.016) 1px, transparent 1px);
+  background-size: auto, 56px 56px, 56px 56px;
+  opacity: 0.72;
+  mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.8), transparent 18%, transparent 82%, rgba(0, 0, 0, 0.85));
+}
+
+.cp-hero--reference::after {
+  inset: auto 0 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(240, 191, 106, 0.34), rgba(124, 66, 255, 0.3), transparent);
+}
+
+.cp-hero--reference .cp-hero-copy {
+  z-index: 3;
+  align-self: center;
+  gap: 1.15rem;
+  width: min(100%, 430px);
+  padding: 0;
+}
+
+.cp-hero--reference .cp-hero-brand {
+  display: none;
+}
+
+.cp-hero--reference .cp-hero-badge {
+  position: relative;
+  padding: 0.72rem 1.45rem;
+  background: rgba(240, 191, 106, 0.06);
+  border-color: rgba(240, 191, 106, 0.36);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02), 0 0 34px rgba(240, 191, 106, 0.1);
+  color: var(--cp-ref-gold);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+}
+
+.cp-hero--reference .cp-hero-badge::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  margin-right: 0.65rem;
+  background: currentColor;
+  clip-path: polygon(50% 0, 62% 31%, 96% 18%, 78% 100%, 22% 100%, 4% 18%, 38% 31%);
+}
+
+.cp-hero--reference .cp-hero-title {
+  max-width: 12.5ch;
+  font-size: 4.65rem;
+  line-height: 1;
+  letter-spacing: 0;
+  color: #ffffff;
+  text-shadow: 0 18px 40px rgba(0, 0, 0, 0.62);
+}
+
+.cp-hero--reference .cp-hero-title span {
+  display: inline-block;
+  color: transparent;
+  background: linear-gradient(180deg, #ffe5a8 0%, #f0bf6a 47%, #d1903e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: none;
+}
+
+.cp-hero--reference .cp-hero-desc {
+  max-width: 380px;
+  color: rgba(246, 247, 252, 0.68);
+  font-size: 1.04rem;
+  line-height: 1.55;
+}
+
+.cp-hero--reference .cp-hero-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: min(100%, 330px);
+  gap: 0.72rem;
+  margin-top: 0.35rem;
+}
+
+.cp-hero--reference .cp-btn {
+  min-height: 60px;
+  justify-content: space-between;
+  padding: 1rem 1.28rem;
+  border-radius: 999px;
+  font-size: 0.98rem;
+}
+
+.cp-hero--reference .cp-btn--primary {
+  border-color: rgba(255, 226, 164, 0.55);
+  background: linear-gradient(135deg, #ffe4a1 0%, #e6a94b 100%);
+  box-shadow: 0 12px 34px rgba(240, 191, 106, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.16) inset;
+}
+
+.cp-hero--reference .cp-btn--telegram {
+  justify-content: flex-start;
+  background: linear-gradient(180deg, rgba(13, 34, 51, 0.82), rgba(8, 18, 29, 0.86));
+  border-color: rgba(76, 169, 230, 0.22);
+  color: rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.cp-hero-proof-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.44rem;
+  width: min(100%, 430px);
+  margin-top: 0.2rem;
+}
+
+.cp-hero-proof-row span {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.44rem;
+  min-height: 58px;
+  padding: 0.5rem 0.62rem;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.cp-hero-proof-row svg {
+  width: 22px;
+  height: 22px;
+  color: rgba(255, 235, 190, 0.88);
+}
+
+.cp-hero-signature {
+  margin-top: 0.45rem;
+  color: #9c60ff;
+  font-size: 1.36rem;
+  line-height: 1;
+  transform: rotate(-4deg);
+  text-shadow: 0 0 16px rgba(124, 66, 255, 0.58);
+}
+
+.cp-hero-theatre {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  align-self: center;
+  align-items: center;
+  min-width: 0;
+}
+
+.cp-hero-stage {
+  position: relative;
+  width: min(100%, 880px);
+  margin: 0 auto 56px;
+  aspect-ratio: 1672 / 941;
+}
+
+.cp-hero-stage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: saturate(1.08) contrast(1.04);
+  user-select: none;
+}
+
+.cp-hero-garment-label {
+  position: absolute;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.32rem;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 3px 16px rgba(0, 0, 0, 0.78);
+}
+
+.cp-hero-garment-label::after {
+  content: "";
+  width: 1px;
+  height: 54px;
+  background: linear-gradient(180deg, rgba(255, 218, 146, 0.95), rgba(255, 218, 146, 0.18) 46%, transparent 46%, transparent 58%, rgba(255, 218, 146, 0.42) 58%);
+  background-size: 1px 12px;
+}
+
+.cp-hero-garment-label::before {
+  content: "";
+  order: 2;
+  width: 10px;
+  height: 10px;
+  margin-top: -0.1rem;
+  border-radius: 999px;
+  background: #fff4d0;
+  box-shadow: 0 0 18px rgba(240, 191, 106, 0.95);
+}
+
+.cp-hero-garment-label--hoodie {
+  top: 17.5%;
+  left: 24.2%;
+}
+
+.cp-hero-garment-label--tee {
+  top: 12.7%;
+  left: 49.7%;
+  transform: translateX(-50%);
+}
+
+.cp-hero-garment-label--longsleeve {
+  top: 17.4%;
+  right: 23.1%;
+}
+
+.cp-hero-logo-on-cloth {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  color: #ffffff;
+  text-align: center;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+}
+
+.cp-hero-logo-on-cloth img {
+  width: 100%;
+  height: auto;
+  filter: none;
+}
+
+.cp-hero-logo-on-cloth--hoodie {
+  top: 45%;
+  left: 30.4%;
+  width: 5.2%;
+  transform: translate(-50%, -50%) rotate(-1deg);
+  opacity: 0.94;
+}
+
+.cp-hero-logo-on-cloth--hoodie span {
+  margin-top: 0.16rem;
+  font-size: 0.46rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.cp-hero-logo-on-cloth--tee {
+  top: 43.2%;
+  left: 49.4%;
+  width: 17.5%;
+  transform: translate(-50%, -50%) rotate(-4deg);
+}
+
+.cp-hero-logo-on-cloth--tee img {
+  width: 30%;
+  margin-bottom: 0.1rem;
+}
+
+.cp-hero-logo-on-cloth--tee strong {
+  color: #ffffff;
+  font-size: 1.02rem;
+  line-height: 0.92;
+  letter-spacing: 0.08em;
+}
+
+.cp-hero-logo-on-cloth--tee small {
+  margin-top: 0.12rem;
+  color: #f0bf6a;
+  font-size: 0.36rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.cp-hero-logo-on-cloth--longsleeve {
+  top: 42.5%;
+  right: 27.7%;
+  width: 4.3%;
+  transform: translate(50%, -50%) rotate(2deg);
+  opacity: 0.9;
+}
+
+.cp-hero-palette {
+  position: absolute;
+  right: 2.5%;
+  bottom: 1.2rem;
+  left: 2.5%;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.72rem;
+  min-height: 64px;
+  padding: 0.72rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(8, 10, 15, 0.72);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.cp-hero-palette span,
+.cp-hero-palette b {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cp-hero-palette i {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--swatch);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 4px rgba(255, 255, 255, 0.18), 0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.cp-hero-palette .cp-hero-swatch-rainbow {
+  background: conic-gradient(from 20deg, #ef4444, #f59e0b, #84cc16, #22c55e, #06b6d4, #3b82f6, #7c3aed, #ef4444);
+}
+
+.cp-hero-palette button {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cp-hero-options {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  align-self: center;
+  gap: 0.82rem;
+  min-width: 0;
+}
+
+.cp-hero-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  min-height: 122px;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(124, 66, 255, 0.2), transparent 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.cp-hero-option:nth-child(2n) {
+  background:
+    radial-gradient(circle at 88% 20%, rgba(240, 191, 106, 0.18), transparent 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+  border-color: rgba(240, 191, 106, 0.18);
+}
+
+.cp-hero-option::after {
+  content: "";
+  position: absolute;
+  top: 1.35rem;
+  right: 1.25rem;
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background: var(--cp-ref-purple);
+  box-shadow: 0 0 18px rgba(124, 66, 255, 0.9);
+}
+
+.cp-hero-option:nth-child(2n)::after {
+  background: #f4c56c;
+  box-shadow: 0 0 18px rgba(240, 191, 106, 0.9);
+}
+
+.cp-hero-option-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cp-hero-option-icon svg {
+  width: 36px;
+  height: 36px;
+}
+
+.cp-hero-option-icon--violet {
+  box-shadow: 0 0 32px rgba(124, 66, 255, 0.26);
+  color: #f3ecff;
+}
+
+.cp-hero-option-icon--gold {
+  box-shadow: 0 0 32px rgba(240, 191, 106, 0.2);
+  color: #fff0cb;
+}
+
+.cp-hero-option strong {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.cp-hero-option p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.cp-hero-mini-swatches {
+  display: inline-flex;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+
+.cp-hero-mini-swatches i {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #7046c8;
+}
+
+.cp-hero-mini-swatches i:nth-child(2) { background: #315d8f; }
+.cp-hero-mini-swatches i:nth-child(3) { background: #4b8062; }
+.cp-hero-mini-swatches i:nth-child(4) { background: #d24d36; }
+.cp-hero-mini-swatches i:nth-child(5) { background: #f5a542; }
+
+.cp-shell[data-flow-phase="lobby"] .cp-hero--reference {
+  min-height: min(760px, calc(100svh - 90px));
+}
+
+.cp-shell[data-flow-phase="studio"] .cp-hero--reference {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: auto;
+  padding: 1rem 1.1rem;
+}
+
+.cp-shell[data-flow-phase="studio"] .cp-hero--reference .cp-hero-theatre,
+.cp-shell[data-flow-phase="studio"] .cp-hero--reference .cp-hero-options,
+.cp-shell[data-flow-phase="studio"] .cp-hero--reference .cp-hero-proof-row,
+.cp-shell[data-flow-phase="studio"] .cp-hero--reference .cp-hero-signature {
+  display: none;
+}
+
+.cp-shell[data-flow-phase="studio"] .cp-hero--reference .cp-hero-title {
+  max-width: none;
+  font-size: 2.35rem;
+}
+
+@media (max-width: 1320px) {
+  .cp-hero--reference {
+    grid-template-columns: minmax(270px, 0.7fr) minmax(390px, 1.28fr) minmax(244px, 0.62fr);
+    padding-inline: 24px;
+  }
+
+  .cp-hero--reference .cp-hero-title {
+    font-size: 4.15rem;
+  }
+
+  .cp-hero-proof-row {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(100%, 286px);
+  }
+
+  .cp-hero-proof-row span {
+    min-height: 42px;
+  }
+
+  .cp-hero-option {
+    min-height: 108px;
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 0.82rem;
+  }
+
+  .cp-hero-option-icon {
+    width: 54px;
+    height: 54px;
+  }
+
+  .cp-hero-option-icon svg {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .cp-hero--reference {
+    grid-template-columns: minmax(0, 0.78fr) minmax(430px, 1.18fr);
+    min-height: auto;
+    align-items: center;
+  }
+
+  .cp-hero--reference .cp-hero-copy {
+    width: min(100%, 360px);
+  }
+
+  .cp-hero--reference .cp-hero-title {
+    font-size: 4rem;
+  }
+
+  .cp-hero-options {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .cp-hero-option {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    min-height: 164px;
+  }
+}
+
+@media (max-width: 920px) {
+  .cp-hero--reference {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.25rem;
+    padding: 1.15rem;
+  }
+
+  .cp-hero--reference .cp-hero-copy {
+    width: min(100%, 620px);
+  }
+
+  .cp-hero--reference .cp-hero-title {
+    max-width: 12ch;
+    font-size: 3.35rem;
+  }
+
+  .cp-hero--reference .cp-hero-desc {
+    max-width: 560px;
+  }
+
+  .cp-hero--reference .cp-hero-actions {
+    width: min(100%, 420px);
+  }
+
+  .cp-hero-proof-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .cp-hero-stage {
+    width: 100%;
+    margin-bottom: 84px;
+  }
+
+  .cp-hero-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cp-hero-option {
+    min-height: 138px;
+  }
+}
+
+@media (max-width: 680px) {
+  .cp-hero--reference {
+    padding: 0.92rem;
+    border-radius: 0;
+  }
+
+  .cp-hero--reference .cp-hero-badge {
+    padding: 0.62rem 1rem;
+    font-size: 0.7rem;
+  }
+
+  .cp-hero--reference .cp-hero-title {
+    max-width: 12ch;
+    font-size: 2.52rem;
+    line-height: 1.04;
+  }
+
+  .cp-hero--reference .cp-hero-desc {
+    max-width: 34ch;
+    font-size: 0.92rem;
+    line-height: 1.48;
+    overflow-wrap: break-word;
+  }
+
+  .cp-hero--reference .cp-hero-copy,
+  .cp-hero--reference .cp-hero-actions {
+    width: 100%;
+  }
+
+  .cp-hero--reference .cp-btn {
+    min-height: 52px;
+    padding-inline: 1rem;
+  }
+
+  .cp-hero-proof-row {
+    display: none;
+  }
+
+  .cp-hero-signature {
+    display: none;
+  }
+
+  .cp-hero-stage {
+    width: 116%;
+    margin-left: -8%;
+    margin-bottom: 78px;
+  }
+
+  .cp-hero-garment-label {
+    font-size: 0.74rem;
+  }
+
+  .cp-hero-garment-label::after {
+    height: 34px;
+  }
+
+  .cp-hero-logo-on-cloth--hoodie span,
+  .cp-hero-logo-on-cloth--tee small {
+    display: none;
+  }
+
+  .cp-hero-logo-on-cloth--tee strong {
+    font-size: 0.68rem;
+  }
+
+  .cp-hero-palette {
+    right: 0;
+    bottom: 0.7rem;
+    left: 0;
+    justify-content: flex-start;
+    min-height: 58px;
+    overflow-x: auto;
+    padding-inline: 0.85rem;
+    scrollbar-width: none;
+  }
+
+  .cp-hero-palette::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cp-hero-palette span,
+  .cp-hero-palette b {
+    font-size: 0.78rem;
+  }
+
+  .cp-hero-palette i {
+    width: 26px;
+    height: 26px;
+  }
+
+  .cp-hero-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cp-hero-option {
+    grid-template-columns: 52px minmax(0, 1fr);
+    min-height: 102px;
+    border-radius: 16px;
+  }
+
+  .cp-hero-option-icon {
+    width: 52px;
+    height: 52px;
+  }
+}
+
+@media (max-width: 420px) {
+  .cp-hero--reference .cp-hero-title {
+    font-size: 2.35rem;
+  }
+
+  .cp-hero-stage {
+    width: 126%;
+    margin-left: -13%;
+  }
+
+  .cp-hero-garment-label--hoodie {
+    left: 23%;
+  }
+
+  .cp-hero-garment-label--longsleeve {
+    right: 21%;
+  }
+}
