@@ -15,7 +15,11 @@ from django.http import JsonResponse
 from django.urls import reverse
 
 from ..models import Product
-from ..services.catalog_helpers import get_detailed_color_variants, get_public_product_order_version
+from ..services.catalog_helpers import (
+    build_product_image_alt,
+    get_detailed_color_variants,
+    get_public_product_order_version,
+)
 from ..services.image_variants import build_optimized_image_payload
 from ..services.size_guides import resolve_product_size_context
 from ..recommendations import ProductRecommendationEngine
@@ -86,6 +90,7 @@ def product_detail(request, slug):
             'catalog__size_grids',
             'catalog__options__values',
             'fit_options',
+            'faqs',
         ),
         slug=slug,
         status='published',
@@ -186,10 +191,23 @@ def product_detail(request, slug):
         default_offer_id = list(offer_id_map.values())[0]
 
     offer_id_map_json = json.dumps(offer_id_map)
-    extra_image_urls = [
-        build_optimized_image_payload(image.image)
-        for image in images
-        if getattr(image, 'image', None)
+    extra_image_urls = []
+    for index, image in enumerate(images, start=1):
+        if not getattr(image, 'image', None):
+            continue
+        payload = build_optimized_image_payload(image.image)
+        payload["alt"] = build_product_image_alt(product, image.alt_text, index=index)
+        extra_image_urls.append(payload)
+
+    primary_image_alt = build_product_image_alt(product, product.main_image_alt, main=True)
+    if not product.main_image and color_variants and color_variants[0].get("images"):
+        primary_image_alt = color_variants[0]["images"][0].get("alt") or primary_image_alt
+    elif not product.main_image and extra_image_urls:
+        primary_image_alt = extra_image_urls[0].get("alt") or primary_image_alt
+
+    product_faq_items = [
+        {"question": faq.question, "answer": faq.answer}
+        for faq in product.faqs.filter(is_active=True).order_by("order", "id")
     ]
 
     # Генерируем breadcrumbs для SEO
@@ -251,6 +269,8 @@ def product_detail(request, slug):
             'default_offer_id': default_offer_id,
             'offer_id_map_data': offer_id_map,
             'extra_image_urls': extra_image_urls,
+            'primary_image_alt': primary_image_alt,
+            'product_faq_items': product_faq_items,
             'available_sizes': available_sizes,
             'size_display_labels': size_context["display_labels"],
             'resolved_size_guide': size_context["guide"],
@@ -283,14 +303,16 @@ def get_product_images(request, product_id):
         if product.main_image:
             image_urls.append({
                 'url': product.main_image.url,
-                'is_main': True
+                'is_main': True,
+                'alt': build_product_image_alt(product, product.main_image_alt, main=True),
             })
 
         # Дополнительные изображения
-        for img in images:
+        for index, img in enumerate(images, start=1):
             image_urls.append({
                 'url': img.image.url,
-                'is_main': False
+                'is_main': False,
+                'alt': build_product_image_alt(product, img.alt_text, index=index),
             })
 
         return JsonResponse({

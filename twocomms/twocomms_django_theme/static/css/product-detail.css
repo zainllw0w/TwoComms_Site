@@ -1308,6 +1308,19 @@ html[data-route-name="product"] .breadcrumb-nav {
   margin-bottom: 0;
 }
 
+.tc-desc-section {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.tc-desc-section h2 {
+  margin: 0;
+  color: var(--pdp-text);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
 .tc-size-guide-card {
   display: grid;
   gap: 14px;
@@ -1465,6 +1478,20 @@ html[data-route-name="product"] .breadcrumb-nav {
   gap: 10px;
 }
 
+.tc-care-copy,
+.tc-faq-item {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--pdp-radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tc-care-copy {
+  padding: 12px;
+  color: var(--pdp-muted);
+  font-size: 0.84rem;
+  line-height: 1.42;
+}
+
 .tc-care-item {
   display: grid;
   gap: 5px;
@@ -1477,6 +1504,49 @@ html[data-route-name="product"] .breadcrumb-nav {
 .tc-care-item strong {
   color: var(--pdp-text);
   font-size: 0.86rem;
+}
+
+.tc-faq-list {
+  display: grid;
+  gap: 10px;
+}
+
+.tc-faq-item {
+  padding: 0 12px;
+  color: var(--pdp-muted);
+}
+
+.tc-faq-item summary {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--pdp-text);
+  font-size: 0.88rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.tc-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.tc-faq-item summary::after {
+  content: "+";
+  margin-left: auto;
+  color: var(--pdp-violet-strong);
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.tc-faq-item[open] summary::after {
+  content: "-";
+}
+
+.tc-faq-item div {
+  padding: 0 0 12px;
+  font-size: 0.84rem;
+  line-height: 1.42;
 }
 
 .tc-purchase-bar {

@@ -65,6 +65,25 @@ def _display_color_name(color) -> str:
     return ''
 
 
+def build_product_image_alt(product, stored_alt: str | None = None, *, color_name: str = '', index: int | None = None, main: bool = False) -> str:
+    """
+    Return stored ALT text or a stable Ukrainian fallback for product images.
+    """
+    value = (stored_alt or '').strip()
+    if value:
+        return value
+
+    title = (getattr(product, 'title', '') or 'Товар TwoComms').strip()
+    color = (color_name or '').strip()
+    number = f' {index}' if index else ''
+
+    if main:
+        return f'{title} — головне фото товару TwoComms'
+    if color:
+        return f'{title} — {color} — фото{number} TwoComms'
+    return f'{title} — фото{number} TwoComms'
+
+
 def get_categories_cached(cache_backend: BaseCache, timeout: int = 600):
     """
     Retrieve ordered categories with caching.
@@ -276,16 +295,24 @@ def get_detailed_color_variants(product) -> List[Dict[str, Any]]:
             key=lambda image: (getattr(image, "order", 0), getattr(image, "id", 0)),
         )
 
-        image_urls = [
-            build_optimized_image_payload(image.image)
-            for image in images
-            if getattr(image, "image", None)
-        ]
+        image_urls = []
+        color_name = _display_color_name(color)
+        for index, image in enumerate(images, start=1):
+            if not getattr(image, "image", None):
+                continue
+            payload = build_optimized_image_payload(image.image)
+            payload["alt"] = build_product_image_alt(
+                product,
+                getattr(image, "alt_text", ""),
+                color_name=color_name,
+                index=index,
+            )
+            image_urls.append(payload)
 
         variants.append(
             {
                 'id': variant.id,
-                'name': _display_color_name(color),
+                'name': color_name,
                 'primary_hex': getattr(color, 'primary_hex', '') or '',
                 'secondary_hex': getattr(color, 'secondary_hex', '') or '',
                 'is_default': bool(getattr(variant, 'is_default', False)),

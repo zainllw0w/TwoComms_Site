@@ -9,11 +9,18 @@ from .tasks import generate_ai_content_for_product_task, generate_ai_content_for
 import os
 
 
+def _auto_ai_generation_enabled():
+    return bool(getattr(settings, 'AUTO_GENERATE_AI_CONTENT_ON_CREATE', False))
+
+
 @receiver(post_save, sender=Product)
 def generate_ai_content_for_product(sender, instance, created, **kwargs):
     """Автоматически генерирует AI-контент для нового товара"""
     if not created:
         return  # Только для новых товаров
+
+    if not _auto_ai_generation_enabled():
+        return  # Автоматическая AI-генерация при создании отключена
 
     # Проверяем настройки AI
     api_key = getattr(settings, 'OPENAI_API_KEY', None) or os.environ.get('OPENAI_API_KEY')
@@ -42,6 +49,9 @@ def generate_ai_content_for_category(sender, instance, created, **kwargs):
     """Автоматически генерирует AI-контент для новой категории"""
     if not created:
         return  # Только для новых категорий
+
+    if not _auto_ai_generation_enabled():
+        return  # Автоматическая AI-генерация при создании отключена
 
     # Проверяем настройки AI
     api_key = getattr(settings, 'OPENAI_API_KEY', None) or os.environ.get('OPENAI_API_KEY')
