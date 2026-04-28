@@ -29,6 +29,7 @@ except ModuleNotFoundError:
 from .models import Product, Category
 from .seo_utils import SEOKeywordGenerator, SEOContentOptimizer
 from .models import SurveySession
+from .services.image_variants import optimized_variants_are_current
 from .services.survey_engine import load_survey_definition
 from .services.survey_reports import build_survey_report, get_survey_title, resolve_report_path
 from orders.telegram_notifications import telegram_notifier
@@ -107,6 +108,10 @@ def optimize_image_field_task(self, model_label: str, object_id: int, field_name
     image_path = _resolve_image_path(instance, field_name)
     if not image_path:
         logger.debug("No image path for %s.%s (id=%s)", model_label, field_name, object_id)
+        return False
+
+    if optimized_variants_are_current(image_path):
+        logger.debug("Optimized variants are current for %s", image_path.name)
         return False
 
     optimized_dir = image_path.parent / "optimized"

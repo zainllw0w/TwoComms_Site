@@ -14,6 +14,7 @@ from django.db import DatabaseError
 from django.db.models import QuerySet
 
 from cache_utils import get_cache
+from .image_variants import build_optimized_image_payload
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +215,10 @@ def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str,
             # Fallback if prefetch didn't work
             images = list(variant.images.all()) if hasattr(variant, 'images') else []
 
-        first_image = images[0].image.url if images else ''
+        first_image = ''
+        if images:
+            first_payload = build_optimized_image_payload(images[0].image, display_width=320)
+            first_image = first_payload.get('thumbnail_url') or first_payload.get('url') or ''
         preview_map[variant.product_id].append(
             {
                 'id': variant.id,
@@ -273,7 +277,9 @@ def get_detailed_color_variants(product) -> List[Dict[str, Any]]:
         )
 
         image_urls = [
-            image.image.url for image in images if getattr(image, "image", None)
+            build_optimized_image_payload(image.image)
+            for image in images
+            if getattr(image, "image", None)
         ]
 
         variants.append(

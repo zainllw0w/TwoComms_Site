@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand
 
 from image_optimizer import ImageOptimizer
 from storefront.models import Product, ProductImage, Category, CatalogOptionValue, SizeGrid
+from storefront.services.image_variants import optimized_variants_are_current
 from productcolors.models import ProductColorImage
 
 
@@ -30,6 +31,11 @@ class Command(BaseCommand):
             default=0.0,
             help='Sleep seconds between items to reduce CPU spikes on constrained hosts.'
         )
+        parser.add_argument(
+            '--force',
+            action='store_true',
+            help='Regenerate optimized files even if current WebP/AVIF variants already exist.'
+        )
 
     def handle(self, *args, **options):
         optimizer = ImageOptimizer()
@@ -41,18 +47,16 @@ class Command(BaseCommand):
                 'category', 'option', 'size', 'proposal'
             }
         sleep = float(options.get('sleep') or 0)
+        force = bool(options.get('force'))
 
         self.stdout.write('Starting image optimization...')
         self.stdout.flush()
 
         def _already_optimized(image_path: Path) -> bool:
             """
-            Быстрый пропуск, если оптимизированные версии уже есть.
+            Быстрый пропуск, если оптимизированные версии уже есть и не старее исходника.
             """
-            optimized_dir = image_path.parent / "optimized"
-            webp = optimized_dir / f"{image_path.stem}.webp"
-            avif = optimized_dir / f"{image_path.stem}.avif"
-            return webp.exists() and avif.exists()
+            return optimized_variants_are_current(image_path)
 
         saved_total = 0
         processed = 0
@@ -75,7 +79,7 @@ class Command(BaseCommand):
                 if product.main_image:
                     path = Path(product.main_image.path)
                     if path.exists():
-                        if _already_optimized(path):
+                        if not force and _already_optimized(path):
                             continue
                         self.stdout.write(f'[{i}/{total_products}] Optimizing Product {product.id}: {product.title}')
                         self.stdout.flush()
@@ -101,7 +105,7 @@ class Command(BaseCommand):
                 if img.image:
                     path = Path(img.image.path)
                     if path.exists():
-                        if _already_optimized(path):
+                        if not force and _already_optimized(path):
                             continue
                         self.stdout.write(f'[{i}/{total_p_images}] Optimizing ProductImage {img.id}')
                         self.stdout.flush()
@@ -127,7 +131,7 @@ class Command(BaseCommand):
                 if img.image:
                     path = Path(img.image.path)
                     if path.exists():
-                        if _already_optimized(path):
+                        if not force and _already_optimized(path):
                             continue
                         self.stdout.write(f'[{i}/{total_c_images}] Optimizing ProductColorImage {img.id}')
                         self.stdout.flush()
@@ -153,7 +157,7 @@ class Command(BaseCommand):
                 if cat.icon:
                     path = Path(cat.icon.path)
                     if path.exists():
-                        if not _already_optimized(path):
+                        if force or not _already_optimized(path):
                             self.stdout.write(f'Optimizing Category Icon: {cat.name}')
                             self.stdout.flush()
                             variants = optimizer.optimize_category_icon(str(path))
@@ -171,7 +175,7 @@ class Command(BaseCommand):
                 if cat.cover:
                     path = Path(cat.cover.path)
                     if path.exists():
-                        if not _already_optimized(path):
+                        if force or not _already_optimized(path):
                             self.stdout.write(f'Optimizing Category Cover: {cat.name}')
                             self.stdout.flush()
                             variants = optimizer.optimize_product_image(str(path))  # Treat cover as product image for responsive sizes
@@ -195,7 +199,7 @@ class Command(BaseCommand):
                 if opt.image:
                     path = Path(opt.image.path)
                     if path.exists():
-                        if _already_optimized(path):
+                        if not force and _already_optimized(path):
                             continue
                         self.stdout.write(f'Optimizing Option Image: {opt.display_name}')
                         self.stdout.flush()
@@ -220,7 +224,7 @@ class Command(BaseCommand):
                 if grid.image:
                     path = Path(grid.image.path)
                     if path.exists():
-                        if _already_optimized(path):
+                        if not force and _already_optimized(path):
                             continue
                         self.stdout.write(f'Optimizing SizeGrid: {grid.name}')
                         self.stdout.flush()
@@ -245,7 +249,7 @@ class Command(BaseCommand):
                 if proposal.image:
                     path = Path(proposal.image.path)
                     if path.exists():
-                        if _already_optimized(path):
+                        if not force and _already_optimized(path):
                             continue
                         self.stdout.write(f'Optimizing PrintProposal: {proposal.id}')
                         self.stdout.flush()

@@ -21,6 +21,7 @@
   
   <img 
     src="{{ image_path }}" 
+    {% if original_image_path %}data-original-src="{{ original_image_path }}"{% endif %}
     {% if img_srcset %}srcset="{{ img_srcset }}"{% endif %}
     {% if img_id %}id="{{ img_id }}"{% endif %}
     alt="{{ alt_text }}"

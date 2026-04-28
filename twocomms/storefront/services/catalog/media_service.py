@@ -44,10 +44,12 @@ def formset_to_variant_payloads(formset) -> List[VariantImagePayload]:
         cleaned = getattr(form, "cleaned_data", None)
         if cleaned is None:
             continue
+        image_value = cleaned.get("image")
+        uploaded_file = image_value if isinstance(image_value, UploadedFile) else None
         payloads.append(
             VariantImagePayload(
                 instance=form.instance if getattr(form.instance, "pk", None) else None,
-                uploaded_file=cleaned.get("image") or getattr(form.instance, "image", None),
+                uploaded_file=uploaded_file,
                 alt_text=(cleaned.get("alt_text") or "").strip(),
                 order=cleaned.get("order"),
                 delete=bool(cleaned.get("DELETE")),
@@ -98,16 +100,38 @@ def sync_variant_images(
         else:
             image_obj = ProductColorImage(variant=variant)
 
+        image_changed = False
         if payload.uploaded_file:
             image_obj.image = payload.uploaded_file
+            image_changed = True
         elif not getattr(image_obj, "image", None):
             # Skip entries without image data.
             continue
 
-        image_obj.variant = variant
-        image_obj.order = payload.order or 0
-        image_obj.alt_text = payload.alt_text or image_obj.alt_text or ""
-        image_obj.save()
+        desired_order = payload.order or 0
+        desired_alt_text = payload.alt_text or image_obj.alt_text or ""
+        update_fields: list[str] = []
+
+        if image_obj.variant_id != variant.pk:
+            image_obj.variant = variant
+            update_fields.append("variant")
+        if image_obj.order != desired_order:
+            image_obj.order = desired_order
+            update_fields.append("order")
+        if (image_obj.alt_text or "") != desired_alt_text:
+            image_obj.alt_text = desired_alt_text
+            update_fields.append("alt_text")
+        if image_changed:
+            update_fields.append("image")
+
+        if image_obj.pk:
+            if update_fields:
+                image_obj.save(update_fields=sorted(set(update_fields)))
+        else:
+            image_obj.variant = variant
+            image_obj.order = desired_order
+            image_obj.alt_text = desired_alt_text
+            image_obj.save()
         keep_ids.append(image_obj.pk)
         results.append(image_obj)
 
