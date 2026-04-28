@@ -57,25 +57,77 @@
     }
   }
 
-  function imageUrl(image) {
-    if (!image) return '';
-    if (typeof image === 'string') return image;
-    return image.url || image.src || '';
+  function mainImagePayload(image) {
+    if (!image) return null;
+    const picture = image.closest ? image.closest('picture') : null;
+    const avif = picture ? picture.querySelector('source[type="image/avif"]') : null;
+    const webp = picture ? picture.querySelector('source[type="image/webp"]') : null;
+    const src = image.getAttribute('src') || image.src || '';
+    const current = image.currentSrc || src;
+
+    return {
+      url: current || src,
+      src: current || src,
+      original_url: image.getAttribute('data-initial-image') || image.getAttribute('data-original-src') || src || current,
+      zoom_url: image.getAttribute('data-zoom') ||
+        image.getAttribute('data-original-src') ||
+        image.getAttribute('data-initial-image') ||
+        src ||
+        current,
+      thumbnail_url: current || src,
+      avif_srcset: avif ? (avif.getAttribute('srcset') || '') : '',
+      webp_srcset: webp ? (webp.getAttribute('srcset') || '') : '',
+      sizes: image.getAttribute('sizes') ||
+        (avif && avif.getAttribute('sizes')) ||
+        (webp && webp.getAttribute('sizes')) ||
+        '',
+    };
+  }
+
+  function normalizeImage(image) {
+    if (!image) return null;
+    if (typeof image === 'string') {
+      const url = image.trim();
+      return url ? {
+        url,
+        src: url,
+        originalUrl: url,
+        zoomUrl: url,
+        thumbnailUrl: url,
+        avifSrcset: '',
+        webpSrcset: '',
+        sizes: '',
+      } : null;
+    }
+
+    const url = image.url || image.src || image.webp_url || image.avif_url || image.original_url || '';
+    if (!url) return null;
+
+    return {
+      url,
+      src: url,
+      originalUrl: image.original_url || image.originalUrl || image.zoom_url || image.zoomUrl || url,
+      zoomUrl: image.zoom_url || image.zoomUrl || image.original_url || image.originalUrl || url,
+      thumbnailUrl: image.thumbnail_url || image.thumbnailUrl || url,
+      avifSrcset: image.avif_srcset || image.avifSrcset || '',
+      webpSrcset: image.webp_srcset || image.webpSrcset || '',
+      sizes: image.sizes || '',
+    };
   }
 
   function uniqueImages(images) {
     const seen = new Set();
-    return (images || []).map(imageUrl).filter((url) => {
-      if (!url || seen.has(url)) return false;
-      seen.add(url);
+    return (images || []).map(normalizeImage).filter((image) => {
+      if (!image) return false;
+      const key = image.originalUrl || image.url;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
       return true;
     });
   }
 
   function baseImages(state) {
-    const initial = state.mainImage
-      ? (state.mainImage.getAttribute('data-initial-image') || state.mainImage.currentSrc || state.mainImage.src)
-      : '';
+    const initial = mainImagePayload(state.mainImage);
     return uniqueImages([initial].concat(state.extraImages || []));
   }
 
@@ -108,15 +160,15 @@
     if (!state.thumbs) return;
     state.thumbs.innerHTML = '';
 
-    images.forEach((url, index) => {
+    images.forEach((image, index) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = `tc-thumbnail${index === 0 ? ' active' : ''}`;
       button.setAttribute('aria-label', `Фото товару ${index + 1}`);
-      button.dataset.image = url;
+      button.dataset.image = image.url;
 
       const img = document.createElement('img');
-      img.src = url;
+      img.src = image.thumbnailUrl || image.url;
       img.alt = '';
       img.loading = index === 0 ? 'eager' : 'lazy';
       img.decoding = 'async';
@@ -125,7 +177,7 @@
       button.addEventListener('click', () => {
         state.thumbs.querySelectorAll('.tc-thumbnail').forEach((item) => item.classList.remove('active'));
         button.classList.add('active');
-        setMainImage(state, url);
+        setMainImage(state, image);
       });
       state.thumbs.appendChild(button);
     });
@@ -149,17 +201,21 @@
     next.addEventListener('click', () => scrollByThumb(1));
   }
 
-  function setMainImage(state, url, options) {
+  function setMainImage(state, image, options) {
+    const data = normalizeImage(image);
+    const url = data ? data.url : '';
     if (!state.mainImage || !url) return;
     const immediate = options && options.immediate;
-    if (state.mainImage.getAttribute('src') === url && !immediate) return;
+    if ((state.mainImage.getAttribute('src') === url || state.mainImage.currentSrc === url) && !immediate) {
+      state.mainImage.setAttribute('data-zoom', data.zoomUrl || url);
+      syncResponsiveSources(state.mainImage, data);
+      return;
+    }
 
     const apply = () => {
-      if (!immediate) {
-        clearResponsiveSources(state.mainImage);
-      }
+      syncResponsiveSources(state.mainImage, data);
       state.mainImage.src = url;
-      state.mainImage.setAttribute('data-zoom', url);
+      state.mainImage.setAttribute('data-zoom', data.zoomUrl || url);
       state.mainImage.classList.remove('is-switching');
     };
 
@@ -174,13 +230,38 @@
       .catch(() => window.setTimeout(apply, 90));
   }
 
-  function clearResponsiveSources(image) {
+  function syncResponsiveSources(image, data) {
     const picture = image && image.closest ? image.closest('picture') : null;
     if (!picture) return;
-    picture.querySelectorAll('source').forEach((source) => {
-      source.removeAttribute('srcset');
-      source.removeAttribute('sizes');
-    });
+
+    const updateSource = (type, srcset) => {
+      let source = picture.querySelector(`source[type="${type}"]`);
+      if (!srcset) {
+        if (source) source.remove();
+        return;
+      }
+      if (!source) {
+        source = document.createElement('source');
+        source.setAttribute('type', type);
+        picture.insertBefore(source, image);
+      }
+      source.setAttribute('srcset', srcset);
+      if (data.sizes) {
+        source.setAttribute('sizes', data.sizes);
+      } else {
+        source.removeAttribute('sizes');
+      }
+    };
+
+    updateSource('image/avif', data.avifSrcset);
+    updateSource('image/webp', data.webpSrcset);
+
+    image.removeAttribute('srcset');
+    if (data.sizes) {
+      image.setAttribute('sizes', data.sizes);
+    } else {
+      image.removeAttribute('sizes');
+    }
   }
 
   function preloadImage(url) {
@@ -764,12 +845,13 @@
     const canonical = document.querySelector('link[rel="canonical"]');
     const url = canonical && canonical.href ? canonical.href : window.location.href.split('#')[0];
     const productId = String(state.container.dataset.productId || '');
+    const currentImage = normalizeImage(mainImagePayload(state.mainImage));
     const current = {
       id: productId,
       title: decodeDataValue(state.container.getAttribute('data-product-title')) || cleanDocumentTitle(),
       category: decodeDataValue(state.container.getAttribute('data-product-category')) || '',
       price: (document.getElementById('product-analytics-payload') && document.getElementById('product-analytics-payload').dataset.price) || '',
-      image: state.mainImage ? (state.mainImage.getAttribute('data-initial-image') || state.mainImage.currentSrc || state.mainImage.src) : '',
+      image: currentImage ? (currentImage.thumbnailUrl || currentImage.url) : '',
       url,
     };
 

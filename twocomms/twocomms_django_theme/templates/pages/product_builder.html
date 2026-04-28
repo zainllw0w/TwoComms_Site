@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load responsive_images %}
 
 {% block title %}{% if product %}Редагувати товар — {{ product.title }}{% else %}Новий товар — Конструктор{% endif %}{% endblock %}
 
@@ -7,7 +8,7 @@
 
 {% block extra_css %}
 {{ block.super }}
-<link rel="stylesheet" href="{% static 'css/product-builder.css' %}?v=2026.04.27.001">
+<link rel="stylesheet" href="{% static 'css/product-builder.css' %}?v=2026.04.28.001">
 {% endblock %}
 
 {% block content %}
@@ -249,7 +250,7 @@
               <div class="main-upload-card">
                 <div class="main-preview" data-main-image-preview>
                   {% if product and product.main_image %}
-                  <img src="{{ product.main_image.url }}" alt="{{ product.main_image_alt|default:'Main image' }}">
+                  {% optimized_image product.main_image.url product.main_image_alt|default:'Main image' "builder-preview-img" 360 450 loading='lazy' fetchpriority='low' sizes='220px' %}
                   {% else %}
                   <span class="placeholder-icon"><i class="fas fa-image"></i></span>
                   {% endif %}
@@ -268,9 +269,9 @@
               <div class="main-upload-card home-card-upload-card">
                 <div class="main-preview home-card-preview" data-home-card-image-preview>
                   {% if product and product.home_card_image %}
-                  <img src="{{ product.home_card_image.url }}" alt="Прев'ю картки на головній">
+                  {% optimized_image product.home_card_image.url "Прев'ю картки на головній" "builder-preview-img" 360 450 loading='lazy' fetchpriority='low' sizes='220px' %}
                   {% elif product and product.homepage_image %}
-                  <img src="{{ product.homepage_image.url }}" alt="Fallback прев'ю картки на головній">
+                  {% optimized_image product.homepage_image.url "Fallback прев'ю картки на головній" "builder-preview-img" 360 450 loading='lazy' fetchpriority='low' sizes='220px' %}
                   <span class="preview-fallback-badge">Fallback</span>
                   {% else %}
                   <span class="placeholder-icon"><i class="fas fa-mobile-alt"></i></span>
@@ -297,7 +298,7 @@
                   <div class="gallery-existing" data-existing-gallery data-product-gallery>
                     {% for gallery_image in gallery_images %}
                     <div class="gallery-thumb" data-product-image-id="{{ gallery_image.id }}" draggable="true">
-                      <img src="{{ gallery_image.image.url }}" alt="{{ gallery_image.alt_text|default:'Gallery image' }}">
+                      {% optimized_image gallery_image.image.url gallery_image.alt_text|default:'Gallery image' "builder-preview-img" 320 320 loading='lazy' fetchpriority='low' sizes='120px' %}
                     </div>
                     {% endfor %}
                   </div>
@@ -525,7 +526,7 @@
                           <div class="image-card" draggable="true">
                             <div class="image-preview" data-image-preview>
                               {% if img_form.instance.pk and img_form.instance.image %}
-                              <img src="{{ img_form.instance.image.url }}" alt="{{ img_form.instance.alt_text }}">
+                              {% optimized_image img_form.instance.image.url img_form.instance.alt_text "builder-preview-img" 320 320 loading='lazy' fetchpriority='low' sizes='180px' %}
                               {% else %}
                               <span class="placeholder-icon"><i class="fas fa-image"></i></span>
                               {% endif %}
@@ -967,5 +968,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script type="module" src="{% static 'js/product-builder.js' %}?v=2026.04.27.001"></script>
+<script type="module" src="{% static 'js/product-builder.js' %}?v=2026.04.28.001"></script>
 {% endblock %}

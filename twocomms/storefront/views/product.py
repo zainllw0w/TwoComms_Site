@@ -16,6 +16,7 @@ from django.urls import reverse
 
 from ..models import Product
 from ..services.catalog_helpers import get_detailed_color_variants, get_public_product_order_version
+from ..services.image_variants import build_optimized_image_payload
 from ..services.size_guides import resolve_product_size_context
 from ..recommendations import ProductRecommendationEngine
 from ..utm_tracking import record_product_view
@@ -186,7 +187,7 @@ def product_detail(request, slug):
 
     offer_id_map_json = json.dumps(offer_id_map)
     extra_image_urls = [
-        image.image.url
+        build_optimized_image_payload(image.image)
         for image in images
         if getattr(image, 'image', None)
     ]

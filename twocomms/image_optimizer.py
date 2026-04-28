@@ -23,14 +23,8 @@ class ImageOptimizer:
         'AVIF': 75
     }
 
-    # Размеры для адаптивных изображений
-    RESPONSIVE_SIZES = [
-        (320, 240),   # Mobile small
-        (640, 480),   # Mobile large
-        (768, 576),   # Tablet
-        (1024, 768),  # Desktop small
-        (1920, 1080)  # Desktop large
-    ]
+    # Ширины, которые используются в responsive srcset-именах файлов.
+    RESPONSIVE_WIDTHS = [320, 480, 640, 768, 960, 1024, 1280, 1600, 1920]
 
     def __init__(self):
         self.media_root = settings.MEDIA_ROOT
@@ -89,6 +83,53 @@ class ImageOptimizer:
             logger.error(f"Ошибка оптимизации изображения {image_path}: {e}")
             return None
 
+    def optimize_image_to_width(self, image_path, output_format='WEBP', target_width=640, quality=None):
+        """
+        Оптимизирует изображение до точной максимальной ширины и возвращает
+        (actual_width, bytes).
+
+        Width-дескриптор в имени файла должен совпадать с реальной шириной
+        результата. Для вертикальных фото фиксированный box (width, height)
+        создавал файлы уже, чем заявленный `640w`/`1024w`.
+        """
+        try:
+            with Image.open(image_path) as img:
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    if output_format in ('JPEG', 'WEBP'):
+                        background = Image.new('RGB', img.size, (255, 255, 255))
+                        if img.mode == 'P':
+                            img = img.convert('RGBA')
+                        background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+                        img = background
+                    else:
+                        img = img.convert('RGBA')
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+
+                target_width = max(1, int(target_width))
+                if img.width > target_width:
+                    target_height = max(1, round(img.height * (target_width / img.width)))
+                    img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+
+                if quality is None:
+                    quality = self.QUALITY_SETTINGS.get(output_format, 85)
+
+                output_buffer = io.BytesIO()
+                if output_format == 'WEBP':
+                    img.save(output_buffer, format='WEBP', quality=quality, method=6)
+                elif output_format == 'AVIF':
+                    img.save(output_buffer, format='AVIF', quality=quality)
+                elif output_format == 'JPEG':
+                    img.save(output_buffer, format='JPEG', quality=quality, optimize=True)
+                elif output_format == 'PNG':
+                    img.save(output_buffer, format='PNG', optimize=True)
+
+                return img.width, output_buffer.getvalue()
+
+        except Exception as e:
+            logger.error(f"Ошибка оптимизации изображения {image_path}: {e}")
+            return 0, None
+
     def create_responsive_images(self, image_path, base_name):
         """
         Создает адаптивные версии изображения
@@ -99,18 +140,23 @@ class ImageOptimizer:
         """
         responsive_images = {}
 
-        for size in self.RESPONSIVE_SIZES:
+        seen_webp_widths = set()
+        seen_avif_widths = set()
+
+        for width in self.RESPONSIVE_WIDTHS:
             # Создаем WebP версию
-            webp_data = self.optimize_image(image_path, 'WEBP', max_size=size)
-            if webp_data:
-                webp_name = f"{base_name}_{size[0]}w.webp"
+            actual_width, webp_data = self.optimize_image_to_width(image_path, 'WEBP', target_width=width)
+            if webp_data and actual_width and actual_width not in seen_webp_widths:
+                seen_webp_widths.add(actual_width)
+                webp_name = f"{base_name}_{actual_width}w.webp"
                 responsive_images[webp_name] = webp_data
 
             # Создаем AVIF версию (если поддерживается)
             try:
-                avif_data = self.optimize_image(image_path, 'AVIF', max_size=size)
-                if avif_data:
-                    avif_name = f"{base_name}_{size[0]}w.avif"
+                actual_width, avif_data = self.optimize_image_to_width(image_path, 'AVIF', target_width=width)
+                if avif_data and actual_width and actual_width not in seen_avif_widths:
+                    seen_avif_widths.add(actual_width)
+                    avif_name = f"{base_name}_{actual_width}w.avif"
                     responsive_images[avif_name] = avif_data
             except Exception:
                 # AVIF может не поддерживаться

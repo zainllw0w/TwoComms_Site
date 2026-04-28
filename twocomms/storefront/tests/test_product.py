@@ -123,7 +123,7 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'id="panel-delivery"', html=False)
         self.assertContains(response, 'data-add-to-cart=', html=False)
         self.assertContains(response, 'product-detail.css?v=20260428-pdp-share-solo-v6', html=False)
-        self.assertContains(response, 'product-detail.js?v=20260428-pdp-polish-v5', html=False)
+        self.assertContains(response, 'product-detail.js?v=20260428-image-sources-v1', html=False)
 
     def test_product_detail_renders_description_collapse_hooks(self):
         self.product.full_description = "\n".join(
@@ -361,6 +361,41 @@ class GetProductVariantsTests(ProductViewTestCase):
         self.assertTrue(variants_by_id[default_variant.pk]["is_default"])
         self.assertEqual(variants_by_id[secondary_variant.pk]["secondary_hex"], "#111111")
         self.assertEqual(len(variants_by_id[secondary_variant.pk]["images"]), 1)
+
+    def test_get_product_variants_returns_optimized_image_sources(self):
+        with self.settings(MEDIA_ROOT=self._media_root):
+            color = Color.objects.create(name="Optimized", primary_hex="#123456")
+            variant = ProductColorVariant.objects.create(
+                product=self.product,
+                color=color,
+                order=0,
+                is_default=True,
+            )
+            color_image = ProductColorImage.objects.create(
+                variant=variant,
+                image=self._image_file("variant-optimized.png"),
+                alt_text="Optimized",
+                order=0,
+            )
+            image_path = Path(color_image.image.path)
+            optimized_dir = image_path.parent / "optimized"
+            optimized_dir.mkdir(parents=True, exist_ok=True)
+            for suffix in ("640w.avif", "640w.webp"):
+                (optimized_dir / f"{image_path.stem}_{suffix}").write_bytes(PNG_PIXEL)
+            for extension in ("avif", "webp"):
+                (optimized_dir / f"{image_path.stem}.{extension}").write_bytes(PNG_PIXEL)
+
+            response = self.client.get(reverse("get_product_variants", args=[self.product.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        image_payload = payload["variants"][0]["images"][0]
+
+        self.assertIsInstance(image_payload, dict)
+        self.assertTrue(image_payload["original_url"].endswith("/product_colors/variant-optimized.png"))
+        self.assertIn("/optimized/variant-optimized_640w.avif 640w", image_payload["avif_srcset"])
+        self.assertIn("/optimized/variant-optimized_640w.webp 640w", image_payload["webp_srcset"])
+        self.assertTrue(image_payload["url"].endswith("/optimized/variant-optimized_640w.webp"))
 
     def test_get_product_variants_returns_404_for_missing_product(self):
         response = self.client.get(reverse("get_product_variants", args=[99999]))

@@ -122,39 +122,101 @@ from .models import ProductImage, CatalogOptionValue, SizeGrid, PrintProposal
 from productcolors.models import ProductColorImage
 
 
+IMAGE_OPTIMIZATION_FIELDS = {
+    Product: ("main_image", "home_card_image"),
+    ProductImage: ("image",),
+    ProductColorImage: ("image",),
+    CatalogOptionValue: ("image",),
+    SizeGrid: ("image",),
+    PrintProposal: ("image",),
+}
+
+
+def _image_field_name(instance, field_name: str) -> str:
+    image_field = getattr(instance, field_name, None)
+    return getattr(image_field, "name", "") or ""
+
+
+@receiver(pre_save)
+def remember_previous_image_field_names(sender, instance, raw=False, update_fields=None, **kwargs):
+    field_names = IMAGE_OPTIMIZATION_FIELDS.get(sender)
+    if raw or not field_names:
+        return
+
+    if update_fields is not None:
+        update_fields = set(update_fields)
+        field_names = tuple(field for field in field_names if field in update_fields)
+        if not field_names:
+            instance._twc_changed_image_fields = set()
+            return
+
+    if not getattr(instance, "pk", None):
+        instance._twc_changed_image_fields = {
+            field for field in field_names if _image_field_name(instance, field)
+        }
+        return
+
+    previous = sender.objects.filter(pk=instance.pk).only(*field_names).first()
+    if previous is None:
+        instance._twc_changed_image_fields = {
+            field for field in field_names if _image_field_name(instance, field)
+        }
+        return
+
+    instance._twc_changed_image_fields = {
+        field
+        for field in field_names
+        if _image_field_name(previous, field) != _image_field_name(instance, field)
+    }
+
+
+def _should_enqueue_image_optimization(instance, field_name: str, created=False, update_fields=None) -> bool:
+    if not _image_field_name(instance, field_name):
+        return False
+    if update_fields is not None and field_name not in set(update_fields):
+        return False
+    if created:
+        return True
+
+    changed_fields = getattr(instance, "_twc_changed_image_fields", None)
+    if changed_fields is not None:
+        return field_name in changed_fields
+    return True
+
+
 @receiver(post_save, sender=Product)
-def optimize_product_main_image(sender, instance, **kwargs):
-    if instance.main_image:
+def optimize_product_main_image(sender, instance, created=False, update_fields=None, **kwargs):
+    if _should_enqueue_image_optimization(instance, "main_image", created=created, update_fields=update_fields):
         _enqueue_image_optimization(instance, 'main_image')
-    if instance.home_card_image:
+    if _should_enqueue_image_optimization(instance, "home_card_image", created=created, update_fields=update_fields):
         _enqueue_image_optimization(instance, 'home_card_image')
 
 
 @receiver(post_save, sender=ProductImage)
-def optimize_product_extra_image(sender, instance, **kwargs):
-    if instance.image:
+def optimize_product_extra_image(sender, instance, created=False, update_fields=None, **kwargs):
+    if _should_enqueue_image_optimization(instance, "image", created=created, update_fields=update_fields):
         _enqueue_image_optimization(instance, 'image')
 
 
 @receiver(post_save, sender=ProductColorImage)
-def optimize_product_color_image(sender, instance, **kwargs):
-    if instance.image:
+def optimize_product_color_image(sender, instance, created=False, update_fields=None, **kwargs):
+    if _should_enqueue_image_optimization(instance, "image", created=created, update_fields=update_fields):
         _enqueue_image_optimization(instance, 'image')
 
 
 @receiver(post_save, sender=CatalogOptionValue)
-def optimize_catalog_option_image(sender, instance, **kwargs):
-    if instance.image:
+def optimize_catalog_option_image(sender, instance, created=False, update_fields=None, **kwargs):
+    if _should_enqueue_image_optimization(instance, "image", created=created, update_fields=update_fields):
         _enqueue_image_optimization(instance, 'image')
 
 
 @receiver(post_save, sender=SizeGrid)
-def optimize_size_grid_image(sender, instance, **kwargs):
-    if instance.image:
+def optimize_size_grid_image(sender, instance, created=False, update_fields=None, **kwargs):
+    if _should_enqueue_image_optimization(instance, "image", created=created, update_fields=update_fields):
         _enqueue_image_optimization(instance, 'image')
 
 
 @receiver(post_save, sender=PrintProposal)
-def optimize_print_proposal_image(sender, instance, **kwargs):
-    if instance.image:
+def optimize_print_proposal_image(sender, instance, created=False, update_fields=None, **kwargs):
+    if _should_enqueue_image_optimization(instance, "image", created=created, update_fields=update_fields):
         _enqueue_image_optimization(instance, 'image')

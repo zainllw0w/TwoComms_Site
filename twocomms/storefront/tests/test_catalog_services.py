@@ -5,11 +5,12 @@ from __future__ import annotations
 
 import shutil
 import tempfile
+from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
-from productcolors.models import Color, ProductColorVariant
+from productcolors.models import Color, ProductColorImage, ProductColorVariant
 from storefront.models import Catalog, Category, Product
 from storefront.services.catalog import (
     VariantImagePayload,
@@ -190,3 +191,55 @@ class MediaServiceTests(CatalogServiceTestCase):
             self.assertEqual(len(images), 1)
             self.assertEqual(images[0].order, 0)
             self.assertEqual(images[0].alt_text, "Primary(updated)")
+
+    def test_sync_variant_images_reorder_existing_images_does_not_enqueue_optimization(self):
+        with self.settings(MEDIA_ROOT=self._media_root):
+            with patch("storefront.signals.optimize_image_field_task.delay") as optimize_delay:
+                first = ProductColorImage.objects.create(
+                    variant=self.variant,
+                    image=self._image_file("reorder-front.png"),
+                    alt_text="Front",
+                    order=0,
+                )
+                second = ProductColorImage.objects.create(
+                    variant=self.variant,
+                    image=self._image_file("reorder-back.png"),
+                    alt_text="Back",
+                    order=1,
+                )
+                optimize_delay.reset_mock()
+
+                sync_variant_images(
+                    self.variant,
+                    [
+                        VariantImagePayload(
+                            instance=second,
+                            uploaded_file=None,
+                            alt_text="Back",
+                            order=0,
+                        ),
+                        VariantImagePayload(
+                            instance=first,
+                            uploaded_file=None,
+                            alt_text="Front",
+                            order=1,
+                        ),
+                    ],
+                    auto_assign_product_main=False,
+                )
+
+        self.assertEqual(
+            [
+                image.pk
+                for image in self.variant.images.order_by("order", "id")
+            ],
+            [second.pk, first.pk],
+        )
+        self.assertFalse(
+            [
+                call
+                for call in optimize_delay.call_args_list
+                if call.args[:1] == ("productcolors.ProductColorImage",)
+            ],
+            "Reordering existing color images must not re-optimize unchanged files.",
+        )
