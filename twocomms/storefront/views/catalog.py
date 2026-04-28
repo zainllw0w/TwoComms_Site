@@ -12,7 +12,7 @@ Catalog views - Каталог товаров и категорий.
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.core.paginator import Paginator, EmptyPage
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -39,6 +39,81 @@ from .utils import (
 
 
 # ==================== CATALOG VIEWS ====================
+
+CATALOG_SHOWCASE_CARD_CONFIG = (
+    {
+        'key': 'longsleeves',
+        'number': '01',
+        'title': 'Лонгсліви',
+        'subtitle': 'Функціональність. Стиль. Характер.',
+        'image': 'img/catalog/catalog-longsleeves.webp',
+        'slugs': ('longslivy', 'longsleeves', 'longsleeve', 'longslivi'),
+        'tokens': ('лонг', 'long'),
+        'swatches': ('#050505', '#6a6b60', '#e7e1d3', '#8c8f79'),
+    },
+    {
+        'key': 'tshirts',
+        'number': '02',
+        'title': 'Футболки',
+        'subtitle': 'Графіка, що говорить гучніше за слова.',
+        'image': 'img/catalog/catalog-tshirts.webp',
+        'slugs': ('futbolki', 'futbolky', 'tshirts', 't-shirts', 'tshirt', 'tees'),
+        'tokens': ('футбол', 'tshirt', 'shirt', 'tee'),
+        'swatches': ('#050505', '#3a3d3f', '#62684a', '#ede8dc'),
+    },
+    {
+        'key': 'hoodies',
+        'number': '03',
+        'title': 'Худі',
+        'subtitle': 'Тепло. Захист. Нічого зайвого.',
+        'image': 'img/catalog/catalog-hoodies.webp',
+        'slugs': ('hudi', 'hoodie', 'hoodies', 'khudi'),
+        'tokens': ('худі', 'hood'),
+        'swatches': ('#050505', '#303436', '#6a6f48', '#efe9dc'),
+    },
+)
+
+
+def _match_showcase_category(categories, config):
+    slugs = {slug.lower() for slug in config['slugs']}
+    tokens = tuple(token.lower() for token in config['tokens'])
+
+    for category in categories:
+        slug = (getattr(category, 'slug', '') or '').lower()
+        name = (getattr(category, 'name', '') or '').lower()
+        if slug in slugs or any(token in slug or token in name for token in tokens):
+            return category
+
+    return None
+
+
+def _build_catalog_showcase_cards(categories):
+    matched_categories = {}
+    for config in CATALOG_SHOWCASE_CARD_CONFIG:
+        category = _match_showcase_category(categories, config)
+        if category and getattr(category, 'id', None):
+            matched_categories[config['key']] = category
+
+    category_ids = [category.id for category in matched_categories.values()]
+    product_counts = {}
+    if category_ids:
+        product_counts = {
+            item['category_id']: item['total']
+            for item in Product.objects.filter(
+                category_id__in=category_ids,
+                status='published',
+            ).values('category_id').annotate(total=Count('id'))
+        }
+
+    cards = []
+    for config in CATALOG_SHOWCASE_CARD_CONFIG:
+        category = matched_categories.get(config['key'])
+        cards.append({
+            **config,
+            'category': category,
+            'product_count': product_counts.get(category.id, 0) if category else None,
+        })
+    return cards
 
 def _product_cards_queryset():
     return Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
@@ -278,6 +353,7 @@ def catalog(request, cat_slug=None):
             'category': category,
             'products': products,
             'show_category_cards': show_category_cards,
+            'catalog_showcase_cards': _build_catalog_showcase_cards(categories) if show_category_cards else [],
             'cat_slug': cat_slug or '',
             'page_obj': page_obj,
             'paginator': paginator,
