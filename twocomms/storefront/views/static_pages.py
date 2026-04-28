@@ -867,12 +867,16 @@ def custom_print(request):
         {"name": "Головна", "url": reverse("home")},
         {"name": "Кастомний принт", "url": reverse("custom_print")},
     ]
-    return render(request, 'pages/custom_print.html', {
+    response = render(request, 'pages/custom_print.html', {
         'page_title': 'Кастомний принт',
         'custom_print_config': config,
         'breadcrumb_items': breadcrumb_items,
         'faq_items': CUSTOM_PRINT_FAQ_ITEMS,
     })
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
+    return response
 
 
 @require_POST

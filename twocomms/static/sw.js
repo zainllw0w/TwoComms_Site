@@ -1,4 +1,4 @@
-const SW_VERSION = '2026-04-28-custom-print-hero-v1';
+const SW_VERSION = '2026-04-28-custom-print-cache-v2';
 const EVENTS_ENDPOINT = '/push/events/';
 const OFFLINE_URL = '/static/offline.html';
 const APP_SHELL_CACHE = `twc-app-shell-${SW_VERSION}`;
@@ -14,7 +14,7 @@ const PRECACHE_URLS = [
   '/static/img/favicon-180x180.png',
 ];
 
-const STATIC_DESTINATIONS = new Set(['script', 'style', 'font', 'worker', 'manifest']);
+const STATIC_DESTINATIONS = new Set(['font', 'worker', 'manifest']);
 const IMAGE_DESTINATIONS = new Set(['image']);
 const EXCLUDED_NAVIGATION_PREFIXES = [
   '/admin/',
@@ -162,6 +162,9 @@ function shouldCacheStaticAsset(request, url) {
     return false;
   }
   if (url.pathname === '/sw.js' || url.pathname.endsWith('/sw.js')) {
+    return false;
+  }
+  if (request.destination === 'script' || request.destination === 'style') {
     return false;
   }
   return STATIC_DESTINATIONS.has(request.destination);

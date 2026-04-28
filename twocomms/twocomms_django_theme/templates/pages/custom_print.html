@@ -36,7 +36,7 @@
 
 {% block extra_css %}
   {{ block.super }}
-  <link rel="stylesheet" href="{% static 'css/custom-print-configurator.css' %}?v=20260428-hero-print-zones">
+  <link rel="stylesheet" href="{% static 'css/custom-print-configurator.css' %}?v=20260428-custom-print-cache-v2">
   <style>
     .cp-breadcrumbs {
       display: flex;
@@ -877,5 +877,5 @@
 {% block extra_js %}
   {{ block.super }}
   <script src="{% static 'js/custom-print-submission-policy.js' %}" defer></script>
-  <script src="{% static 'js/custom-print-configurator.js' %}?v=20260417-config-flow-restore" defer></script>
+  <script src="{% static 'js/custom-print-configurator.js' %}?v=20260428-custom-print-cache-v2" defer></script>
 {% endblock %}
