@@ -2,6 +2,7 @@ import time
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
+from django.db import close_old_connections
 
 from image_optimizer import ImageOptimizer
 from storefront.models import Product, ProductImage, Category, CatalogOptionValue, SizeGrid
@@ -61,6 +62,10 @@ class Command(BaseCommand):
         saved_total = 0
         processed = 0
 
+        def _refresh_connection():
+            # Долгая CPU-оптимизация может пережить wait_timeout MySQL на shared-хостинге.
+            close_old_connections()
+
         def _pause():
             if sleep > 0:
                 time.sleep(sleep)
@@ -70,6 +75,7 @@ class Command(BaseCommand):
 
         # 1. Products Main Images
         if 'product_main' in steps:
+            _refresh_connection()
             products = Product.objects.exclude(main_image='').defer('catalog')
             total_products = products.count()
             self.stdout.write(f'Found {total_products} products with main images')
@@ -93,9 +99,11 @@ class Command(BaseCommand):
                                 self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
                                 self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
                                 return
+            _refresh_connection()
 
         # 2. Product Extra Images
         if 'product_extra' in steps:
+            _refresh_connection()
             product_images = ProductImage.objects.all()
             total_p_images = product_images.count()
             self.stdout.write(f'\nFound {total_p_images} extra product images')
@@ -119,9 +127,11 @@ class Command(BaseCommand):
                                 self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
                                 self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
                                 return
+            _refresh_connection()
 
         # 3. Product Color Images
         if 'color' in steps:
+            _refresh_connection()
             color_images = ProductColorImage.objects.all()
             total_c_images = color_images.count()
             self.stdout.write(f'\nFound {total_c_images} product color images')
@@ -145,9 +155,11 @@ class Command(BaseCommand):
                                 self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
                                 self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
                                 return
+            _refresh_connection()
 
         # 4. Categories
         if 'category' in steps:
+            _refresh_connection()
             categories = Category.objects.all()
             self.stdout.write(f'\nFound {categories.count()} categories')
             self.stdout.flush()
@@ -188,9 +200,11 @@ class Command(BaseCommand):
                                     self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
                                     self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
                                     return
+            _refresh_connection()
 
         # 5. Catalog Options
         if 'option' in steps:
+            _refresh_connection()
             options = CatalogOptionValue.objects.exclude(image='')
             self.stdout.write(f'\nFound {options.count()} catalog options with images')
             self.stdout.flush()
@@ -213,9 +227,11 @@ class Command(BaseCommand):
                                 self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
                                 self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
                                 return
+            _refresh_connection()
 
         # 6. Size Grids
         if 'size' in steps:
+            _refresh_connection()
             grids = SizeGrid.objects.exclude(image='')
             self.stdout.write(f'\nFound {grids.count()} size grids with images')
             self.stdout.flush()
@@ -238,9 +254,11 @@ class Command(BaseCommand):
                                 self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
                                 self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
                                 return
+            _refresh_connection()
 
         # 7. Print Proposals (если есть)
         if 'proposal' in steps:
+            _refresh_connection()
             from storefront.models import PrintProposal
             proposals = PrintProposal.objects.exclude(image='')
             self.stdout.write(f'\nFound {proposals.count()} print proposals with images')
@@ -263,5 +281,6 @@ class Command(BaseCommand):
                                 self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
                                 self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
                                 return
+            _refresh_connection()
 
         self.stdout.write(self.style.SUCCESS(f'Image optimization completed. Saved {saved_total} optimized files.'))
