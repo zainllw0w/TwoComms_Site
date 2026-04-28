@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from django.core.cache import cache
+from django.core.cache import cache, caches
 from django.test import TestCase
 from django.urls import reverse
 
@@ -18,6 +18,7 @@ class CatalogViewTestCase(TestCase):
     def setUp(self):
         super().setUp()
         cache.clear()
+        caches["fragments"].clear()
         merchant_patcher = patch("storefront.signals.generate_google_merchant_feed_task.apply_async")
         indexnow_patcher = patch("storefront.signals.enqueue_indexnow_urls")
         self.addCleanup(merchant_patcher.stop)
@@ -156,6 +157,23 @@ class CatalogViewTests(CatalogViewTestCase):
         product_titles = [product.title for product in response.context["products"]]
         self.assertIn(in_category.title, product_titles)
         self.assertNotIn("Other Category Product", product_titles)
+
+    def test_catalog_category_uses_home_product_card_layout(self):
+        product = self.create_product(title="Styled Product", slug="styled-product")
+        product_url = reverse("product", kwargs={"slug": product.slug})
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "catalog-products-grid")
+        self.assertContains(response, "home-products-grid")
+        self.assertContains(response, "home-product-card card product")
+        self.assertContains(response, "reveal-stagger stagger-item")
+        self.assertContains(response, "home-product-media home-product-media-link")
+        self.assertContains(response, "home-product-content")
+        self.assertContains(response, f'href="{product_url}" class="home-product-media home-product-media-link"')
+        self.assertContains(response, product.title)
+        self.assertNotContains(response, 'class="card product h-100 hover-raise glass', html=False)
 
     def test_catalog_by_category_returns_404_for_inactive_category(self):
         self.category.is_active = False

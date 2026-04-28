@@ -580,9 +580,13 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
   color: var(--catalog-muted);
 }
 
-.catalog-products-section .card.product {
+.catalog-products-section .card.product:not(.home-product-card) {
   border-color: rgba(255, 255, 255, 0.12);
   background: rgba(12, 13, 18, 0.72);
+}
+
+.catalog-products-grid {
+  align-items: stretch;
 }
 
 .catalog-pagination {
