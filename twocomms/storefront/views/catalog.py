@@ -343,7 +343,9 @@ def catalog(request, cat_slug=None):
     color_previews = build_color_preview_map(products)
 
     for product in products:
-        product.colors_preview = color_previews.get(product.id, [])
+        colors_preview = color_previews.get(product.id, [])
+        product.colors_preview = colors_preview
+        product.colors_preview_key = build_color_preview_key(colors_preview)
 
     return render(
         request,
@@ -414,7 +416,9 @@ def search(request):
         color_previews = build_color_preview_map(product_list)
 
         for product in product_list:
-            product.colors_preview = color_previews.get(product.id, [])
+            colors_preview = color_previews.get(product.id, [])
+            product.colors_preview = colors_preview
+            product.colors_preview_key = build_color_preview_key(colors_preview)
 
         return render(
             request,

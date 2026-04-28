@@ -9,6 +9,7 @@
 {% block extra_css %}
 {{ block.super }}
 <link rel="preload" as="image" href="{% static 'img/catalog/catalog-hero.webp' %}" fetchpriority="high">
+<link rel="stylesheet" href="{% static 'css/home.css' %}">
 <link rel="stylesheet" href="{% static 'css/catalog-redesign.css' %}">
 {% endblock %}
 
@@ -275,15 +276,15 @@
       </div>
       {% endif %}
 
-      {% cache 600 catalog_products request.get_full_path public_product_order_version public_category_version using="fragments" %}
-      <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>
+      {% cache 600 catalog_products_home_cards_v2 request.get_full_path public_product_order_version public_category_version using="fragments" %}
+      <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4 home-products-grid catalog-products-grid" data-stagger-grid data-mobile-stagger="true">
         {% for p in products %}
         <div class="col product-card-wrap">
-          {% cache 900 product_card p.id p.updated_at|date:'U' p.final_price p.discount_percent p.display_image.name p.category_id forloop.counter0 using="fragments" %}
+          {% cache 900 product_card_home_catalog_v3 p.id p.updated_at|date:'U' p.final_price p.discount_percent p.home_card_image.name p.display_image.name p.category_id p.colors_preview_key forloop.counter0 using="fragments" %}
             {% if forloop.counter0 < 2 %}
-              {% include "partials/product_card.html" with p=p stagger=False eager=True animate=False %}
+              {% include "partials/product_card.html" with p=p stagger=True eager=True animate=True home_card=True %}
             {% else %}
-              {% include "partials/product_card.html" with p=p stagger=False eager=False animate=False %}
+              {% include "partials/product_card.html" with p=p stagger=True eager=False animate=True home_card=True %}
             {% endif %}
           {% endcache %}
           {% if p.colors_preview %}
