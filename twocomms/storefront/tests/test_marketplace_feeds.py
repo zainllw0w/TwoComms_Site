@@ -130,19 +130,76 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertEqual(google.status_code, 200)
         self.assertIn(b"<g:id>", google.content)
 
+        kasta = self.client.get("/kasta-feed.xml", secure=True)
+        self.assertEqual(kasta.status_code, 200)
+        self.assertIn(b"<name_ru>", kasta.content)
+        self.assertIn(b"<yml_catalog", kasta.content)
+
+    def test_kasta_feed_uses_kasta_specific_grouping_names_and_descriptions(self):
+        from storefront.services.marketplace_feeds import build_kasta_feed_xml
+
+        white = Color.objects.create(name="Білий", primary_hex="#FFFFFF")
+        ProductColorVariant.objects.create(
+            product=self.product,
+            color=white,
+            sku="TWC-TEST-WHITE",
+            barcode="",
+            stock=3,
+        )
+        self.product.full_description = "Український опис з посиланням https://example.com/video та зайвою ціною 1200 грн."
+        self.product.description = self.product.full_description
+        self.product.save(update_fields=["full_description", "description"])
+
+        root = ET.fromstring(build_kasta_feed_xml(base_url="https://twocomms.shop"))
+        categories = root.findall("shop/categories/category")
+        offers = root.findall("shop/offers/offer")
+
+        self.assertEqual(len(offers), 10)
+        self.assertTrue(all(category.attrib.get("rz_id") for category in categories))
+
+        articles = {offer.findtext("article") for offer in offers}
+        offer_ids = {offer.attrib["id"] for offer in offers}
+        name_ua_values = {offer.findtext("name_ua") for offer in offers}
+        name_ru_values = {offer.findtext("name_ru") for offer in offers}
+
+        self.assertEqual(len(articles), 1)
+        self.assertNotIn("TWC-TEST-BLACK", articles)
+        self.assertTrue(all(offer_id not in articles for offer_id in offer_ids))
+        self.assertEqual(name_ua_values, {"Футболка TwoComms Test"})
+        self.assertEqual(name_ru_values, {"Футболка TwoComms Test"})
+        self.assertTrue(all("Чорний" not in name for name in name_ua_values))
+
+        first = offers[0]
+        self.assertEqual(first.findtext("price"), "1200")
+        self.assertEqual(first.findtext("price_old"), "1500")
+        self.assertEqual(first.findtext("vendor"), "TwoComms")
+        self.assertEqual(first.findtext("state"), "new")
+        self.assertLessEqual(len(first.findtext("description_ua")), 5000)
+        self.assertNotIn("https://", first.findtext("description_ua"))
+        self.assertNotIn("грн", first.findtext("description_ua").lower())
+
+        params = {(param.attrib["name"], param.text) for param in first.findall("param")}
+        self.assertIn(("Колір", "Чорний"), params)
+        self.assertIn(("Розмір", "S"), params)
+        self.assertIn(("Країна виробництва", "Україна"), params)
+        self.assertTrue(all(name and value for name, value in params))
+
     def test_management_commands_write_distinct_marketplace_files(self):
         with TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
             google_path = tmp_path / "google.xml"
             rozetka_path = tmp_path / "rozetka.xml"
+            kasta_path = tmp_path / "kasta.xml"
             prom_path = tmp_path / "prom.xml"
 
             call_command("generate_google_merchant_feed", output=str(google_path), base_url="https://twocomms.shop")
             call_command("generate_rozetka_feed", output=str(rozetka_path), base_url="https://twocomms.shop")
+            call_command("generate_kasta_feed", output=str(kasta_path), base_url="https://twocomms.shop")
             call_command("generate_prom_feed", output=str(prom_path), base_url="https://twocomms.shop")
 
             google_xml = google_path.read_text(encoding="utf-8")
             rozetka_xml = rozetka_path.read_text(encoding="utf-8")
+            kasta_xml = kasta_path.read_text(encoding="utf-8")
             prom_xml = prom_path.read_text(encoding="utf-8")
 
         self.assertIn("<rss", google_xml)
@@ -150,5 +207,10 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertIn("<yml_catalog", rozetka_xml)
         self.assertIn("<article>TWC-TEST-BLACK</article>", rozetka_xml)
         self.assertNotIn("<g:id>", rozetka_xml)
+        self.assertIn("<yml_catalog", kasta_xml)
+        self.assertIn("<name_ru>Футболка TwoComms Test</name_ru>", kasta_xml)
+        self.assertIn("<article>TC", kasta_xml)
+        self.assertNotIn("<article>TWC-TEST-BLACK</article>", kasta_xml)
+        self.assertNotIn("<g:id>", kasta_xml)
         self.assertIn("<oldprice>1500</oldprice>", prom_xml)
         self.assertNotIn("<article>", prom_xml)
