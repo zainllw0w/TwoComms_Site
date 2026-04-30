@@ -155,7 +155,18 @@
   </style>
 {% endblock %}
 
-{% block breadcrumbs %}{% endblock %}
+{% block breadcrumbs %}
+  <nav class="cp-breadcrumbs" aria-label="Breadcrumb">
+    {% for crumb in breadcrumb_items %}
+      {% if forloop.last %}
+        <span aria-current="page">{{ crumb.name }}</span>
+      {% else %}
+        <a href="{{ crumb.url }}">{{ crumb.name }}</a>
+        <span aria-hidden="true">/</span>
+      {% endif %}
+    {% endfor %}
+  </nav>
+{% endblock %}
 
 {% block content %}
 <section class="cp-page" data-custom-print-root>

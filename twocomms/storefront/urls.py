@@ -274,6 +274,9 @@ urlpatterns = [
     path('google-merchant-feed.xml', views.google_merchant_feed, name='google_merchant_feed'),
     # alternate no-cache path
     path('google-merchant-feed-v2.xml', views.google_merchant_feed, name='google_merchant_feed_v2'),
+    # Rozetka marketplace feed
+    path('rozetka-feed.xml', views.rozetka_feed_xml, name='rozetka_feed_xml'),
+    path('rozetka.xml', views.rozetka_feed_xml, name='rozetka_feed_xml_short'),
     # UAPROM-style product feed (legacy Bezet feed)
     path('products_feed.xml', views.uaprom_products_feed, name='uaprom_products_feed'),
     # New Dynamic Prom.ua feed
