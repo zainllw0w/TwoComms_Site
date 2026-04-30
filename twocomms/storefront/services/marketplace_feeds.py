@@ -87,6 +87,7 @@ COLOR_RU = {
 
 CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 PRICE_TEXT_RE = re.compile(r"(?i)(ціна|цена|price)\s*[:\-]?[^\n<]*|\d+[\s.,]*(?:грн|uah|₴)")
+URL_TEXT_RE = re.compile(r"(?i)\b(?:https?://|www\.)\S+")
 CDATA_RE = re.compile(
     re.escape(CDATA_START).encode("utf-8") + b"(.*?)" + re.escape(CDATA_END).encode("utf-8"),
     re.DOTALL,
@@ -237,6 +238,29 @@ def _article_for_offer(product_id: int, variant_id: int | None, sku: str, color_
     return f"TC{int(product_id):04d}{color_part}"
 
 
+def _kasta_article_for_product(product: Product) -> str:
+    return f"TC{int(product.id):04d}"
+
+
+def _kasta_name_ru(title: str) -> str:
+    replacements = {
+        "Худі": "Худи",
+        "худі": "худи",
+        "Лонгслів": "Лонгслив",
+        "лонгслів": "лонгслив",
+        "Чоловічий": "Мужской",
+        "чоловічий": "мужской",
+        "Жіночий": "Женский",
+        "жіночий": "женский",
+        "Унісекс": "Унисекс",
+        "унісекс": "унисекс",
+    }
+    result = _clean_xml_text(title)
+    for source, replacement in replacements.items():
+        result = result.replace(source, replacement)
+    return result
+
+
 def is_valid_gtin(gtin: str) -> bool:
     value = _clean_xml_text(gtin)
     if not value.isdigit() or len(value) not in (8, 12, 13, 14):
@@ -356,6 +380,14 @@ def _description_html_ua(product: Product, offer_context: dict) -> str:
 def _google_description(product: Product, offer_context: dict) -> str:
     html = _description_html_ua(product, offer_context)
     return _truncate(_collapse_plain_text(html), 5000)
+
+
+def _kasta_description(html: str) -> str:
+    text = strip_tags(_clean_xml_text(html))
+    text = URL_TEXT_RE.sub("", text)
+    text = PRICE_TEXT_RE.sub("", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return _truncate(text, 5000)
 
 
 def _video_link(product: Product) -> str:
@@ -647,6 +679,76 @@ def build_rozetka_feed_xml(base_url: str | None = None) -> bytes:
             ("Вікова група", "Дорослі"),
             ("Принт", "Є"),
             ("Країна-виробник товару", "Україна"),
+        ]
+        for name, value in params:
+            clean_value = _truncate(value, 500)
+            if clean_value:
+                ET.SubElement(offer_el, "param", {"name": name}).text = clean_value
+
+    return _finalize_xml(catalog)
+
+
+def build_kasta_feed_xml(base_url: str | None = None) -> bytes:
+    base_url = resolve_base_url(base_url)
+    offers = iter_feed_offers(base_url)
+
+    catalog = ET.Element("yml_catalog", {"date": timezone.now().strftime("%Y-%m-%d %H:%M")})
+    shop = ET.SubElement(catalog, "shop")
+    ET.SubElement(shop, "name").text = SHOP_NAME
+    ET.SubElement(shop, "company").text = SHOP_COMPANY
+    ET.SubElement(shop, "url").text = base_url
+
+    currencies = ET.SubElement(shop, "currencies")
+    ET.SubElement(currencies, "currency", {"id": DEFAULT_CURRENCY, "rate": "1"})
+
+    categories_el = ET.SubElement(shop, "categories")
+    for category in _used_categories(offers):
+        attrs = {"id": str(category.id)}
+        rz_id = _category_rz_id(category)
+        if rz_id:
+            attrs["rz_id"] = rz_id
+        ET.SubElement(categories_el, "category", attrs).text = _truncate(category.name, 255)
+
+    offers_el = ET.SubElement(shop, "offers")
+    for offer in offers:
+        product = offer.product
+        offer_el = ET.SubElement(
+            offers_el,
+            "offer",
+            {"id": offer.rozetka_offer_id, "available": "true" if offer.available else "false"},
+        )
+        ET.SubElement(offer_el, "url").text = _truncate(offer.product_url, 500)
+        ET.SubElement(offer_el, "price").text = _format_yml_price(offer.price)
+        price_old = offer.old_price if offer.old_price and offer.old_price > offer.price else offer.price
+        ET.SubElement(offer_el, "price_old").text = _format_yml_price(price_old)
+        ET.SubElement(offer_el, "currencyId").text = DEFAULT_CURRENCY
+        ET.SubElement(offer_el, "categoryId").text = str(product.category_id)
+        for image_url in offer.image_urls[:20]:
+            ET.SubElement(offer_el, "picture").text = _truncate(image_url, 1999)
+        ET.SubElement(offer_el, "vendor").text = SHOP_NAME
+        ET.SubElement(offer_el, "article").text = _kasta_article_for_product(product)
+        ET.SubElement(offer_el, "stock_quantity").text = str(offer.stock)
+
+        base_title = _truncate(_clean_xml_text(product.title) or f"{SHOP_NAME} одяг", 255)
+        name_ru = _truncate(_kasta_name_ru(base_title) or base_title, 255)
+        ET.SubElement(offer_el, "name").text = name_ru
+        ET.SubElement(offer_el, "name_ua").text = base_title
+        ET.SubElement(offer_el, "name_ru").text = name_ru
+        _append_cdata(offer_el, "description", _kasta_description(offer.description_ru))
+        _append_cdata(offer_el, "description_ua", _kasta_description(offer.description_ua))
+        ET.SubElement(offer_el, "state").text = "new"
+
+        params = [
+            ("Колір", offer.color_ua),
+            ("Розмір", offer.size),
+            ("Склад", offer.material_ua),
+            ("Матеріал", offer.material_ua),
+            ("Сезон", "Демісезон"),
+            ("Стать", "Унісекс"),
+            ("Вікова група", "Дорослі"),
+            ("Принт", "Є"),
+            ("Країна виробництва", "Україна"),
+            ("Повернення", "Підлягає поверненню"),
         ]
         for name, value in params:
             clean_value = _truncate(value, 500)

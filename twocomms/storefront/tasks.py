@@ -53,6 +53,7 @@ def generate_google_merchant_feed_task():
         outputs = {
             'generate_google_merchant_feed': os.path.join(media_root, 'google-merchant-v3.xml'),
             'generate_rozetka_feed': os.path.join(media_root, 'rozetka-feed.xml'),
+            'generate_kasta_feed': os.path.join(media_root, 'kasta-feed.xml'),
             'generate_prom_feed': os.path.join(media_root, 'prom-feed.xml'),
         }
 

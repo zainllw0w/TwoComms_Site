@@ -73,6 +73,8 @@ urlpatterns = [
     path('merchant/product-feed', storefront_views.google_merchant_feed, name='google_merchant_feed_plain'),
     path('rozetka-feed.xml', storefront_views.rozetka_feed_xml, name='rozetka_feed_xml_root'),
     path('rozetka.xml', storefront_views.rozetka_feed_xml, name='rozetka_feed_xml_short_root'),
+    path('kasta-feed.xml', storefront_views.kasta_feed_xml, name='kasta_feed_xml_root'),
+    path('kasta.xml', storefront_views.kasta_feed_xml, name='kasta_feed_xml_short_root'),
 ]
 
 # Добавляем обработку медиа-файлов для разработки и продакшена

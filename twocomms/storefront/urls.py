@@ -277,6 +277,9 @@ urlpatterns = [
     # Rozetka marketplace feed
     path('rozetka-feed.xml', views.rozetka_feed_xml, name='rozetka_feed_xml'),
     path('rozetka.xml', views.rozetka_feed_xml, name='rozetka_feed_xml_short'),
+    # Kasta marketplace feed
+    path('kasta-feed.xml', views.kasta_feed_xml, name='kasta_feed_xml'),
+    path('kasta.xml', views.kasta_feed_xml, name='kasta_feed_xml_short'),
     # UAPROM-style product feed (legacy Bezet feed)
     path('products_feed.xml', views.uaprom_products_feed, name='uaprom_products_feed'),
     # New Dynamic Prom.ua feed

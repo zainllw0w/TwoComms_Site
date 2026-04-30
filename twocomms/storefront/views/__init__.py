@@ -89,6 +89,7 @@ from .static_pages import (
     llms_txt,
     static_sitemap,
     google_merchant_feed,
+    kasta_feed_xml,
     rozetka_feed_xml,
     uaprom_products_feed,
     prom_feed_xml,
@@ -375,7 +376,7 @@ __all__ = [
     'nova_poshta_city_search', 'nova_poshta_warehouse_search',
 
     # Static Pages
-    'robots_txt', 'llms_txt', 'static_sitemap', 'google_merchant_feed', 'rozetka_feed_xml',
+    'robots_txt', 'llms_txt', 'static_sitemap', 'google_merchant_feed', 'rozetka_feed_xml', 'kasta_feed_xml',
     'static_verification_file', 'indexnow_key_file', 'about', 'contacts', 'custom_print', 'custom_print_lead',
     'custom_print_safe_exit', 'custom_print_add_to_cart', 'custom_print_remove',
     'custom_print_submit_review', 'custom_print_moderation_action',
