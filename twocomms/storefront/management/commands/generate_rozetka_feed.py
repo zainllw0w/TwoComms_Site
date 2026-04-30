@@ -2,17 +2,17 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand
 
-from storefront.services.marketplace_feeds import build_google_merchant_feed_xml, iter_feed_offers, resolve_base_url
+from storefront.services.marketplace_feeds import build_rozetka_feed_xml, iter_feed_offers, resolve_base_url
 
 
 class Command(BaseCommand):
-    help = "Генерирует XML фид для Google Merchant Center"
+    help = "Генерирует XML/YML фид для Rozetka"
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--output",
             type=str,
-            default="google_merchant_feed.xml",
+            default="media/rozetka-feed.xml",
             help="Путь к выходному XML файлу",
         )
         parser.add_argument(
@@ -33,18 +33,12 @@ class Command(BaseCommand):
 
         if options["dry_run"]:
             self.stdout.write(
-                self.style.SUCCESS(
-                    f"Google Merchant feed готов к генерации: {len(offers)} офферов, base_url={base_url}"
-                )
+                self.style.SUCCESS(f"Rozetka feed готов к генерации: {len(offers)} офферов, base_url={base_url}")
             )
             return
 
         output_path = Path(options["output"])
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(build_google_merchant_feed_xml(base_url=base_url))
+        output_path.write_bytes(build_rozetka_feed_xml(base_url=base_url))
 
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"Google Merchant Center фид создан: {output_path} ({len(offers)} офферов)"
-            )
-        )
+        self.stdout.write(self.style.SUCCESS(f"Rozetka фид создан: {output_path} ({len(offers)} офферов)"))

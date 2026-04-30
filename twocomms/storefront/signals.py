@@ -2,40 +2,47 @@
 Сигналы для автоматического обновления фидов при изменении товаров
 """
 import logging
+from django.conf import settings
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 from .tasks import generate_google_merchant_feed_task, optimize_image_field_task
 
-from .models import Product
+from .models import Category, Product, ProductImage
+from productcolors.models import Color, ProductColorImage, ProductColorVariant
 from .services.indexnow import enqueue_indexnow_urls, get_product_public_url
 
 logger = logging.getLogger(__name__)
 
 
-@receiver(post_save, sender=Product)
-def update_google_merchant_feed_on_product_save(sender, instance, created, **kwargs):
-    """
-    Автоматически обновляет Google Merchant feed при создании или обновлении товара.
-    Использует debounce (5 минут), чтобы избежать частых перегенераций при массовых изменениях.
-    """
+def _schedule_marketplace_feed_update(reason: str, *, include_in_tests: bool = False):
+    if getattr(settings, "TESTING", False) and not include_in_tests:
+        return
+
     try:
         from django.core.cache import cache
         LOCK_KEY = 'google_merchant_feed_update_pending'
         LOCK_TIMEOUT = 300  # 5 минут
 
         if not cache.get(LOCK_KEY):
-            # Если обновления еще не запланировано, планируем через 5 минут
             generate_google_merchant_feed_task.apply_async(countdown=300)
             cache.set(LOCK_KEY, True, timeout=LOCK_TIMEOUT)
-
-            action = "создан" if created else "обновлен"
-            logger.info(f"Товар {instance.title} (ID: {instance.id}) {action}. Запланировано обновление Google Merchant feed через 5 минут.")
+            logger.info("%s. Запланировано обновление marketplace feeds через 5 минут.", reason)
         else:
-            logger.debug(f"Обновление Google Merchant feed уже запланировано.")
+            logger.debug("Обновление marketplace feeds уже запланировано.")
 
     except Exception as e:
-        logger.error(f"Ошибка при планировании обновления Google Merchant feed: {e}", exc_info=True)
+        logger.error(f"Ошибка при планировании обновления marketplace feeds: {e}", exc_info=True)
+
+
+@receiver(post_save, sender=Product)
+def update_google_merchant_feed_on_product_save(sender, instance, created, **kwargs):
+    """
+    Автоматически обновляет marketplace feeds при создании или обновлении товара.
+    Использует debounce (5 минут), чтобы избежать частых перегенераций при массовых изменениях.
+    """
+    action = "создан" if created else "обновлен"
+    _schedule_marketplace_feed_update(f"Товар {instance.title} (ID: {instance.id}) {action}", include_in_tests=True)
 
 
 @receiver(pre_save, sender=Product)
@@ -62,24 +69,20 @@ def submit_product_to_indexnow_on_save(sender, instance, **kwargs):
 @receiver(post_delete, sender=Product)
 def update_google_merchant_feed_on_product_delete(sender, instance, **kwargs):
     """
-    Автоматически обновляет Google Merchant feed при удалении товара.
+    Автоматически обновляет marketplace feeds при удалении товара.
     Использует debounce (5 минут).
     """
-    try:
-        from django.core.cache import cache
-        LOCK_KEY = 'google_merchant_feed_update_pending'
-        LOCK_TIMEOUT = 300  # 5 минут
+    _schedule_marketplace_feed_update(f"Товар {instance.title} (ID: {instance.id}) удален", include_in_tests=True)
 
-        if not cache.get(LOCK_KEY):
-            generate_google_merchant_feed_task.apply_async(countdown=300)
-            cache.set(LOCK_KEY, True, timeout=LOCK_TIMEOUT)
 
-            logger.info(f"Товар {instance.title} (ID: {instance.id}) удален. Запланировано обновление Google Merchant feed через 5 минут.")
-        else:
-            logger.debug(f"Обновление Google Merchant feed уже запланировано.")
-
-    except Exception as e:
-        logger.error(f"Ошибка при планировании обновления Google Merchant feed: {e}", exc_info=True)
+@receiver([post_save, post_delete], sender=Category)
+@receiver([post_save, post_delete], sender=ProductImage)
+@receiver([post_save, post_delete], sender=Color)
+@receiver([post_save, post_delete], sender=ProductColorVariant)
+@receiver([post_save, post_delete], sender=ProductColorImage)
+def update_marketplace_feeds_on_related_catalog_change(sender, instance, **kwargs):
+    """Regenerate feed snapshots when related catalog data changes."""
+    _schedule_marketplace_feed_update(f"Изменены данные фида: {sender.__name__} (ID: {getattr(instance, 'pk', '-')})")
 
 
 @receiver(post_delete, sender=Product)
