@@ -197,6 +197,7 @@ BUYME_DROP_DISCOUNT_RATES = {
     "hoodie": Decimal("0.22"),
     "apparel": Decimal("0.20"),
 }
+BUYME_MIN_QUANTITY = 100
 
 CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 PRICE_TEXT_RE = re.compile(r"(?i)(ціна|цена|price)\s*[:\-]?[^\n<]*|\d+[\s.,]*(?:грн|uah|₴)")
@@ -422,6 +423,10 @@ def _buyme_drop_price(product: Product, retail_price: int) -> Decimal:
     rate = BUYME_DROP_DISCOUNT_RATES.get(kind, BUYME_DROP_DISCOUNT_RATES["apparel"])
     drop_multiplier = Decimal("1") - rate
     return (Decimal(str(retail_price or 0)) * drop_multiplier).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _buyme_quantity(offer: FeedOffer) -> int:
+    return max(int(offer.stock or 0), BUYME_MIN_QUANTITY)
 
 
 def _buyme_description(product: Product, offer: FeedOffer) -> str:
@@ -967,12 +972,13 @@ def build_buyme_feed_xml(base_url: str | None = None) -> bytes:
         offer_id = _buyme_offer_id(product.id, offer.variant_id, offer.size, offer.color_ua)
         retail_price = _buyme_retail_price(offer)
         drop_price = _buyme_drop_price(product, retail_price)
+        quantity = _buyme_quantity(offer)
         offer_el = ET.SubElement(
             offers_el,
             "offer",
             {
                 "id": offer_id,
-                "available": "true" if offer.available else "false",
+                "available": "true" if quantity > 0 else "false",
                 "group_id": f"buyme-{int(product.id)}",
             },
         )
@@ -987,7 +993,7 @@ def build_buyme_feed_xml(base_url: str | None = None) -> bytes:
             ET.SubElement(offer_el, "picture").text = _truncate(image_url, 1999)
 
         ET.SubElement(offer_el, "vendorCode").text = offer_id
-        ET.SubElement(offer_el, "quantity_in_stock").text = str(offer.stock)
+        ET.SubElement(offer_el, "quantity_in_stock").text = str(quantity)
         ET.SubElement(offer_el, "country_of_origin").text = "Україна"
         ET.SubElement(offer_el, "pickup").text = "false"
         ET.SubElement(offer_el, "delivery").text = "true"

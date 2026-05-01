@@ -206,7 +206,7 @@ class MarketplaceFeedServiceTests(TestCase):
             color=white,
             sku="NIKE-TWC-TEST-WHITE",
             barcode="",
-            stock=3,
+            stock=0,
         )
         self.product.title = "Чорна футболка унісекс TwoComms Nike «Довіряй своїй божевільній ідеї»"
         self.product.full_description = "TwoComms Nike опис з посиланням https://example.com і ціною 1200 грн."
@@ -250,7 +250,10 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertEqual(first.findtext("priceDrop"), "1260.00")
         self.assertEqual(first.findtext("currencyId"), "UAH")
         self.assertEqual(first.findtext("categoryId"), str(self.category.id))
-        self.assertEqual(first.findtext("quantity_in_stock"), "7")
+        self.assertEqual(first.findtext("quantity_in_stock"), "100")
+        zero_stock_offer = next(offer for offer in offers if offer.attrib["id"].startswith("buyme-1-v2"))
+        self.assertEqual(zero_stock_offer.attrib["available"], "true")
+        self.assertEqual(zero_stock_offer.findtext("quantity_in_stock"), "100")
         self.assertIsNone(first.find("url"))
         self.assertTrue(first.findtext("picture").startswith("https://twocomms.shop/media/products/"))
         self.assertLessEqual(len(first.findtext("description_ua")), 3000)
