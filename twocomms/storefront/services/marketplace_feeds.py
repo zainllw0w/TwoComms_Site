@@ -85,6 +85,69 @@ COLOR_RU = {
     "Хакі": "Хаки",
 }
 
+UK_TO_RU_TEXT_REPLACEMENTS = (
+    ("Довіряй Своїй Божевільній Ідеї", "Доверяй Своей Безумной Идее"),
+    ("Довіряй своїй божевільній ідеї", "Доверяй своей безумной идее"),
+    ("Колекція", "Коллекция"),
+    ("Печатка Хулігана", "Печать Хулигана"),
+    ("Дрони навколо", "Дроны вокруг"),
+    ("Команда Сірко", "Команда Сирко"),
+    ("Життя Бентежне", "Жизнь Тревожная"),
+    ("мені поЖуй — це філософія", "мне поЖуй — это философия"),
+    ("Харківська Область", "Харьковская Область"),
+    ("Харків / Стиль — Це Все", "Харьков / Стиль — Это Все"),
+    ("Харків - Стиль Це Все", "Харьков - Стиль Это Все"),
+    ("Харків Edition", "Харьков Edition"),
+    ("І На Той Світ З Собою Візьму", "И На Тот Свет С Собой Возьму"),
+    ("Річ Йде Про Двозначні Суми", "Речь Идет О Двузначных Суммах"),
+    ("Дівчина З Покровська", "Девушка Из Покровска"),
+    ("Бізнес — Це Математика", "Бизнес — Это Математика"),
+    ("Тильний В Єбало", "Тыльный В Ебало"),
+    ("Тильний В Єб*Ло", "Тыльный В Еб*Ло"),
+    ("Де Мої Подарунки, Мразота?", "Где Мои Подарки, Мразота?"),
+    ("ЛОНГСЛІВ", "ЛОНГСЛИВ"),
+    ("Лонгсліви", "Лонгсливы"),
+    ("лонгсліви", "лонгсливы"),
+    ("Лонгслів", "Лонгслив"),
+    ("лонгслів", "лонгслив"),
+    ("ХУДІ", "ХУДИ"),
+    ("Худі", "Худи"),
+    ("худі", "худи"),
+    ("Чорна", "Черная"),
+    ("чорна", "черная"),
+    ("Чорний", "Черный"),
+    ("чорний", "черный"),
+    ("Білий", "Белый"),
+    ("білий", "белый"),
+    ("Сірий", "Серый"),
+    ("сірий", "серый"),
+    ("Жіночий", "Женский"),
+    ("жіночий", "женский"),
+    ("Чоловічий", "Мужской"),
+    ("чоловічий", "мужской"),
+    ("Класичний", "Классический"),
+    ("класичний", "классический"),
+    ("класичне", "классическое"),
+    ("класична", "классическая"),
+    ("Унісекс", "Унисекс"),
+    ("унісекс", "унисекс"),
+    ("Світ", "Свет"),
+    ("світ", "свет"),
+    ("Своїй", "Своей"),
+    ("своїй", "своей"),
+    ("Божевільній", "Безумной"),
+    ("божевільній", "безумной"),
+    ("Ідеї", "Идее"),
+    ("ідеї", "идее"),
+    ("Харків", "Харьков"),
+    ("Покровськ", "Покровск"),
+    ("Покровська", "Покровска"),
+    ("Одяг", "Одежда"),
+    ("одяг", "одежда"),
+    ("Мої", "Мои"),
+    ("мої", "мои"),
+)
+
 CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 PRICE_TEXT_RE = re.compile(r"(?i)(ціна|цена|price)\s*[:\-]?[^\n<]*|\d+[\s.,]*(?:грн|uah|₴)")
 URL_TEXT_RE = re.compile(r"(?i)\b(?:https?://|www\.)\S+")
@@ -238,27 +301,19 @@ def _article_for_offer(product_id: int, variant_id: int | None, sku: str, color_
     return f"TC{int(product_id):04d}{color_part}"
 
 
+def _uk_text_to_ru(value: object) -> str:
+    result = _clean_xml_text(value)
+    for source, replacement in UK_TO_RU_TEXT_REPLACEMENTS:
+        result = result.replace(source, replacement)
+    return result
+
+
 def _kasta_article_for_product(product: Product) -> str:
     return f"TC{int(product.id):04d}"
 
 
 def _kasta_name_ru(title: str) -> str:
-    replacements = {
-        "Худі": "Худи",
-        "худі": "худи",
-        "Лонгслів": "Лонгслив",
-        "лонгслів": "лонгслив",
-        "Чоловічий": "Мужской",
-        "чоловічий": "мужской",
-        "Жіночий": "Женский",
-        "жіночий": "женский",
-        "Унісекс": "Унисекс",
-        "унісекс": "унисекс",
-    }
-    result = _clean_xml_text(title)
-    for source, replacement in replacements.items():
-        result = result.replace(source, replacement)
-    return result
+    return _uk_text_to_ru(title)
 
 
 def is_valid_gtin(gtin: str) -> bool:
@@ -342,6 +397,8 @@ def _description_html_ru(product: Product, offer_context: dict) -> str:
     color = offer_context["color_ru"]
     size = offer_context["size"]
     material = offer_context["material_ru"]
+    title = _uk_text_to_ru(title)
+    category = _uk_text_to_ru(category)
     lead = f"{title} от TwoComms — качественная вещь категории {category.lower()} с эксклюзивным дизайном."
     return "".join(
         [
@@ -383,7 +440,7 @@ def _google_description(product: Product, offer_context: dict) -> str:
 
 
 def _kasta_description(html: str) -> str:
-    text = strip_tags(_clean_xml_text(html))
+    text = re.sub(r"<[^>]+>", " ", _clean_xml_text(html))
     text = URL_TEXT_RE.sub("", text)
     text = PRICE_TEXT_RE.sub("", text)
     text = re.sub(r"\s+", " ", text).strip()
@@ -460,7 +517,7 @@ def iter_feed_offers(base_url: str | None = None, products=None) -> list[FeedOff
         material_ua, material_ru = _material_pair(product)
         base_images = _collect_base_images(product, base_url)
         category_ua = _clean_xml_text(getattr(getattr(product, "category", None), "name", "")) or "Одяг"
-        category_ru = category_ua
+        category_ru = _uk_text_to_ru(category_ua)
         group_id = get_item_group_id(product.id)
         video_link = _video_link(product)
         sizes = resolve_product_sizes(product) or ["S", "M", "L", "XL", "XXL"]
@@ -661,7 +718,7 @@ def build_rozetka_feed_xml(base_url: str | None = None) -> bytes:
         ET.SubElement(offer_el, "article").text = offer.article
         ET.SubElement(offer_el, "stock_quantity").text = str(offer.stock)
 
-        name_ru = _truncate(f"{product.title} {offer.color_ru} {offer.size}", 255)
+        name_ru = _truncate(f"{_uk_text_to_ru(product.title)} {offer.color_ru} {offer.size}", 255)
         name_ua = _truncate(f"{product.title} {offer.color_ua} {offer.size}", 255)
         ET.SubElement(offer_el, "name").text = name_ru
         ET.SubElement(offer_el, "name_ua").text = name_ua
