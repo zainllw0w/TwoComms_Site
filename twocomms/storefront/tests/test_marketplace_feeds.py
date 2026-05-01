@@ -139,6 +139,12 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertIn(b"<name_ru>", kasta.content)
         self.assertIn(b"<yml_catalog", kasta.content)
 
+        buyme = self.client.get("/buyme-feed.xml", secure=True)
+        self.assertEqual(buyme.status_code, 200)
+        self.assertIn(b'group_id="buyme-', buyme.content)
+        self.assertIn(b"<priceDrop>", buyme.content)
+        self.assertIn(b"<yml_catalog", buyme.content)
+
     def test_kasta_feed_uses_kasta_specific_grouping_names_and_descriptions(self):
         from storefront.services.marketplace_feeds import build_kasta_feed_xml
 
@@ -191,22 +197,79 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertIn(("Країна виробництва", "Україна"), params)
         self.assertTrue(all(name and value for name, value in params))
 
+    def test_buyme_feed_groups_variants_uses_drop_discount_and_removes_brands(self):
+        from storefront.services.marketplace_feeds import build_buyme_feed_xml
+
+        white = Color.objects.create(name="Білий", primary_hex="#FFFFFF")
+        ProductColorVariant.objects.create(
+            product=self.product,
+            color=white,
+            sku="NIKE-TWC-TEST-WHITE",
+            barcode="",
+            stock=3,
+        )
+        self.product.title = "Чорна футболка унісекс TwoComms Nike «Довіряй своїй божевільній ідеї»"
+        self.product.full_description = "TwoComms Nike опис з посиланням https://example.com і ціною 1200 грн."
+        self.product.description = self.product.full_description
+        self.product.save(update_fields=["title", "full_description", "description"])
+
+        xml_payload = build_buyme_feed_xml(base_url="https://twocomms.shop")
+        xml_text = xml_payload.decode("utf-8").lower()
+        root = ET.fromstring(xml_payload)
+        categories = root.findall("shop/categories/category")
+        offers = root.findall("shop/offers/offer")
+
+        self.assertEqual(len(categories), 1)
+        self.assertEqual(len(offers), 10)
+        self.assertNotIn("twocomms", xml_text)
+        self.assertNotIn("nike", xml_text)
+        self.assertNotIn("<vendor>", xml_text)
+
+        group_ids = {offer.attrib.get("group_id") for offer in offers}
+        offer_ids = {offer.attrib["id"] for offer in offers}
+        names = {offer.findtext("name") for offer in offers}
+
+        self.assertEqual(group_ids, {f"buyme-{self.product.id}"})
+        self.assertEqual(len(offer_ids), 10)
+        self.assertEqual(names, {"Брендова футболка унісекс «Довіряй своїй божевільній ідеї»"})
+
+        first = offers[0]
+        self.assertEqual(first.attrib["available"], "true")
+        self.assertEqual(first.findtext("price"), "1500.00")
+        self.assertEqual(first.findtext("priceDrop"), "450.00")
+        self.assertEqual(first.findtext("currencyId"), "UAH")
+        self.assertEqual(first.findtext("categoryId"), str(self.category.id))
+        self.assertEqual(first.findtext("quantity_in_stock"), "7")
+        self.assertIsNone(first.find("url"))
+        self.assertIsNone(first.find("picture"))
+        self.assertLessEqual(len(first.findtext("description_ua")), 3000)
+        self.assertIn("Брендова футболка", first.findtext("description_ua"))
+        self.assertNotIn("TwoComms", first.findtext("description_ua"))
+
+        params = {(param.attrib["name"], param.text) for param in first.findall("param")}
+        self.assertIn(("Колір", "Чорний"), params)
+        self.assertIn(("Розмір", "S"), params)
+        self.assertIn(("Країна виробництва", "Україна"), params)
+
     def test_management_commands_write_distinct_marketplace_files(self):
         with TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
             google_path = tmp_path / "google.xml"
             rozetka_path = tmp_path / "rozetka.xml"
             kasta_path = tmp_path / "kasta.xml"
+            buyme_path = tmp_path / "buyme.xml"
             prom_path = tmp_path / "prom.xml"
 
             call_command("generate_google_merchant_feed", output=str(google_path), base_url="https://twocomms.shop")
             call_command("generate_rozetka_feed", output=str(rozetka_path), base_url="https://twocomms.shop")
             call_command("generate_kasta_feed", output=str(kasta_path), base_url="https://twocomms.shop")
+            call_command("generate_buyme_feed", output=str(buyme_path), base_url="https://twocomms.shop")
             call_command("generate_prom_feed", output=str(prom_path), base_url="https://twocomms.shop")
 
             google_xml = google_path.read_text(encoding="utf-8")
             rozetka_xml = rozetka_path.read_text(encoding="utf-8")
             kasta_xml = kasta_path.read_text(encoding="utf-8")
+            buyme_xml = buyme_path.read_text(encoding="utf-8")
             prom_xml = prom_path.read_text(encoding="utf-8")
 
         self.assertIn("<rss", google_xml)
@@ -219,5 +282,12 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertIn("<article>TC", kasta_xml)
         self.assertNotIn("<article>TWC-TEST-BLACK</article>", kasta_xml)
         self.assertNotIn("<g:id>", kasta_xml)
+        self.assertIn("<yml_catalog", buyme_xml)
+        self.assertIn('group_id="buyme-', buyme_xml)
+        self.assertIn("<price>1500.00</price>", buyme_xml)
+        self.assertIn("<priceDrop>450.00</priceDrop>", buyme_xml)
+        self.assertNotIn("TwoComms", buyme_xml)
+        self.assertNotIn("<vendor>", buyme_xml)
+        self.assertNotIn("<g:id>", buyme_xml)
         self.assertIn("<oldprice>1500</oldprice>", prom_xml)
         self.assertNotIn("<article>", prom_xml)

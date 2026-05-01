@@ -27,6 +27,7 @@ CDATA_END = "___TWC_CDATA_END___"
 
 SHOP_NAME = "TwoComms"
 SHOP_COMPANY = "TWOCOMMS"
+BUYME_SHOP_NAME = "Брендовий одяг"
 DEFAULT_CURRENCY = "UAH"
 DEFAULT_GOOGLE_PRODUCT_CATEGORY = "1604"  # Apparel & Accessories > Clothing
 PLACEHOLDER_IMAGE_PATH = "/static/img/placeholder.jpg"
@@ -148,6 +149,55 @@ UK_TO_RU_TEXT_REPLACEMENTS = (
     ("мої", "мои"),
 )
 
+BUYME_FORBIDDEN_BRAND_TERMS = (
+    "TwoComms",
+    "Two Comms",
+    "TWOCOMMS",
+    "TWC",
+    "Nike",
+    "Adidas",
+    "Puma",
+    "Reebok",
+    "New Balance",
+    "The North Face",
+    "Stone Island",
+    "Balenciaga",
+    "Gucci",
+    "Prada",
+    "Louis Vuitton",
+    "Supreme",
+    "Off-White",
+    "Jordan",
+    "Apple",
+    "Samsung",
+    "Sony",
+    "iPhone",
+    "AirPods",
+)
+BUYME_BRAND_RE = re.compile(
+    r"(?iu)(?<![\w])(?:"
+    + "|".join(re.escape(term) for term in sorted(BUYME_FORBIDDEN_BRAND_TERMS, key=len, reverse=True))
+    + r")(?![\w])"
+)
+BUYME_TITLE_NOISE_RE = re.compile(
+    r"(?iu)(?<![\w])(?:"
+    r"чорна|чорний|біла|білий|сірий|сіра|футболка|футболки|лонгслів|лонгсліви|худі|hoodie|t-?shirt|"
+    r"унісекс|unisex|жіночий|чоловічий|жіноча|чоловіча"
+    r")(?![\w])"
+)
+BUYME_KIND_LABELS = {
+    "tshirt": "Брендова футболка",
+    "longsleeve": "Брендовий лонгслів",
+    "hoodie": "Брендове худі",
+    "apparel": "Брендовий одяг",
+}
+BUYME_DROP_DISCOUNT_RATES = {
+    "tshirt": Decimal("0.30"),
+    "longsleeve": Decimal("0.10"),
+    "hoodie": Decimal("0.22"),
+    "apparel": Decimal("0.20"),
+}
+
 CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 PRICE_TEXT_RE = re.compile(r"(?i)(ціна|цена|price)\s*[:\-]?[^\n<]*|\d+[\s.,]*(?:грн|uah|₴)")
 URL_TEXT_RE = re.compile(r"(?i)\b(?:https?://|www\.)\S+")
@@ -229,6 +279,11 @@ def _format_yml_price(value: int | Decimal) -> str:
     return str(int(amount))
 
 
+def _format_buyme_price(value: int | Decimal) -> str:
+    amount = Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return f"{amount:.2f}"
+
+
 def _absolute_url(base_url: str, path: str | None) -> str:
     if not path:
         return ""
@@ -306,6 +361,69 @@ def _uk_text_to_ru(value: object) -> str:
     for source, replacement in UK_TO_RU_TEXT_REPLACEMENTS:
         result = result.replace(source, replacement)
     return result
+
+
+def _contains_buyme_forbidden_brand(value: object) -> bool:
+    return bool(BUYME_BRAND_RE.search(_clean_xml_text(value)))
+
+
+def _sanitize_buyme_text(value: object) -> str:
+    text = _clean_xml_text(value)
+    text = URL_TEXT_RE.sub("", text)
+    text = PRICE_TEXT_RE.sub("", text)
+    text = BUYME_BRAND_RE.sub("", text)
+    text = re.sub(r"\s+([,.;:!?])", r"\1", text)
+    text = re.sub(r"([«])\s+", r"\1", text)
+    text = re.sub(r"\s+([»])", r"\1", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    text = re.sub(r"\s*[-–—/]\s*(?=$)", "", text)
+    text = re.sub(r"^(?:[-–—/|,.;:]\s*)+", "", text)
+    return text.strip()
+
+
+def _buyme_design_phrase(product: Product) -> str:
+    title = _sanitize_buyme_text(getattr(product, "title", ""))
+    title = BUYME_TITLE_NOISE_RE.sub("", title)
+    title = re.sub(r"\s+([,.;:!?])", r"\1", title)
+    title = re.sub(r"([«])\s+", r"\1", title)
+    title = re.sub(r"\s+([»])", r"\1", title)
+    title = re.sub(r"\s{2,}", " ", title)
+    title = re.sub(r"^(?:[-–—/|,.;:]\s*)+", "", title)
+    title = re.sub(r"\s*(?:[-–—/|,.;:])+$", "", title)
+    return title.strip() or "з авторським принтом"
+
+
+def _buyme_base_name(product: Product) -> str:
+    kind = _product_kind(product)
+    label = BUYME_KIND_LABELS.get(kind, BUYME_KIND_LABELS["apparel"])
+    design = _buyme_design_phrase(product)
+    return _truncate(_sanitize_buyme_text(f"{label} унісекс {design}"), 255)
+
+
+def _buyme_offer_id(product_id: int, variant_id: int | None, size: str, color_ua: str) -> str:
+    variant_part = f"v{variant_id}" if variant_id else "default"
+    size_part = _ascii_token(size, "size").lower()
+    color_part = _ascii_token(color_ua, "color").lower()
+    return _truncate(f"buyme-{int(product_id)}-{variant_part}-{color_part}-{size_part}", 64)
+
+
+def _buyme_drop_discount_amount(product: Product, retail_price: int) -> Decimal:
+    kind = _product_kind(product)
+    rate = BUYME_DROP_DISCOUNT_RATES.get(kind, BUYME_DROP_DISCOUNT_RATES["apparel"])
+    return (Decimal(str(retail_price or 0)) * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _buyme_description(product: Product, offer: FeedOffer) -> str:
+    name = _buyme_base_name(product)
+    kind = _product_kind(product)
+    item_label = BUYME_KIND_LABELS.get(kind, BUYME_KIND_LABELS["apparel"]).lower()
+    text = (
+        f"{name}. {item_label.capitalize()} з авторським принтом для щоденного образу, "
+        "streetwear-стилю та продажу у форматі дропшипінгу. "
+        f"Матеріал: {offer.material_ua}. Колір: {offer.color_ua}. Розмір: {offer.size}. "
+        "Сезон: демісезон. Стать: унісекс. Стан: новий. Країна виробництва: Україна."
+    )
+    return _truncate(_sanitize_buyme_text(text), 3000)
 
 
 def _kasta_article_for_product(product: Product) -> str:
@@ -809,6 +927,75 @@ def build_kasta_feed_xml(base_url: str | None = None) -> bytes:
         ]
         for name, value in params:
             clean_value = _truncate(value, 500)
+            if clean_value:
+                ET.SubElement(offer_el, "param", {"name": name}).text = clean_value
+
+    return _finalize_xml(catalog)
+
+
+def build_buyme_feed_xml(base_url: str | None = None) -> bytes:
+    base_url = resolve_base_url(base_url)
+    offers = iter_feed_offers(base_url)
+
+    catalog = ET.Element("yml_catalog", {"date": timezone.now().strftime("%Y-%m-%d %H:%M")})
+    shop = ET.SubElement(catalog, "shop")
+    ET.SubElement(shop, "name").text = BUYME_SHOP_NAME
+    ET.SubElement(shop, "company").text = BUYME_SHOP_NAME
+
+    currencies = ET.SubElement(shop, "currencies")
+    ET.SubElement(currencies, "currency", {"id": DEFAULT_CURRENCY, "rate": "1"})
+
+    categories_el = ET.SubElement(shop, "categories")
+    for category in _used_categories(offers):
+        name = _truncate(_sanitize_buyme_text(category.name) or "Одяг", 255)
+        ET.SubElement(categories_el, "category", {"id": str(category.id)}).text = name
+
+    offers_el = ET.SubElement(shop, "offers")
+    for offer in offers:
+        product = offer.product
+        offer_id = _buyme_offer_id(product.id, offer.variant_id, offer.size, offer.color_ua)
+        retail_price = int(offer.base_price or 0)
+        drop_discount = _buyme_drop_discount_amount(product, retail_price)
+        offer_el = ET.SubElement(
+            offers_el,
+            "offer",
+            {
+                "id": offer_id,
+                "available": "true" if offer.available else "false",
+                "group_id": f"buyme-{int(product.id)}",
+            },
+        )
+        ET.SubElement(offer_el, "name").text = _buyme_base_name(product)
+        ET.SubElement(offer_el, "name_ua").text = _buyme_base_name(product)
+        ET.SubElement(offer_el, "price").text = _format_buyme_price(retail_price)
+        ET.SubElement(offer_el, "priceDrop").text = _format_buyme_price(drop_discount)
+        ET.SubElement(offer_el, "currencyId").text = DEFAULT_CURRENCY
+        ET.SubElement(offer_el, "categoryId").text = str(product.category_id)
+
+        for image_url in offer.image_urls[:10]:
+            if not _contains_buyme_forbidden_brand(image_url):
+                ET.SubElement(offer_el, "picture").text = _truncate(image_url, 1999)
+
+        ET.SubElement(offer_el, "vendorCode").text = offer_id
+        ET.SubElement(offer_el, "quantity_in_stock").text = str(offer.stock)
+        ET.SubElement(offer_el, "country_of_origin").text = "Україна"
+        ET.SubElement(offer_el, "pickup").text = "false"
+        ET.SubElement(offer_el, "delivery").text = "true"
+        _append_cdata(offer_el, "description", _buyme_description(product, offer))
+        _append_cdata(offer_el, "description_ua", _buyme_description(product, offer))
+
+        params = [
+            ("Колір", offer.color_ua),
+            ("Розмір", offer.size),
+            ("Матеріал", offer.material_ua),
+            ("Сезон", "Демісезон"),
+            ("Стать", "Унісекс"),
+            ("Вікова група", "Дорослі"),
+            ("Принт", "Є"),
+            ("Країна виробництва", "Україна"),
+        ]
+        for name, value in params[:50]:
+            clean_value = _truncate(_sanitize_buyme_text(value), 500)
             if clean_value:
                 ET.SubElement(offer_el, "param", {"name": name}).text = clean_value
 

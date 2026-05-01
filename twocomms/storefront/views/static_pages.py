@@ -46,6 +46,7 @@ from storefront.custom_print_notifications import (
 from storefront.utm_tracking import record_custom_print_event
 from storefront.services.catalog_helpers import apply_public_product_order
 from storefront.services.marketplace_feeds import (
+    build_buyme_feed_xml,
     build_google_merchant_feed_xml,
     build_kasta_feed_xml,
     build_prom_feed_xml,
@@ -422,6 +423,16 @@ def kasta_feed_xml(request):
     )
     response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
     response["Content-Disposition"] = 'inline; filename="kasta-feed.xml"'
+    return response
+
+
+def buyme_feed_xml(request):
+    """Dynamic BuyMe XML/YML feed."""
+    xml_payload = build_buyme_feed_xml(
+        base_url=getattr(settings, "FEED_BASE_URL", "").strip() or request.build_absolute_uri("/").rstrip("/")
+    )
+    response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
+    response["Content-Disposition"] = 'inline; filename="buyme-feed.xml"'
     return response
 
 
