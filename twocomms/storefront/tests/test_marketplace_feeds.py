@@ -30,7 +30,7 @@ class MarketplaceFeedServiceTests(TestCase):
 
         self.category = Category.objects.create(name="Футболки", slug="futbolki", is_active=True)
         self.product = Product.objects.create(
-            title="Футболка TwoComms Test",
+            title="Чорна футболка унісекс TwoComms «Довіряй своїй божевільній ідеї»",
             slug="twocomms-test-shirt",
             category=self.category,
             price=1500,
@@ -84,7 +84,11 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertEqual(first.findtext("stock_quantity"), "7")
         self.assertTrue(first.findtext("picture").startswith("https://twocomms.shop/media/products/"))
         self.assertIn("Чорний", first.findtext("name_ua"))
+        self.assertIn("Черная футболка унисекс TwoComms", first.findtext("name"))
+        self.assertNotIn("Чорна", first.findtext("name"))
         self.assertIn("Эксклюзивный дизайн", first.findtext("description"))
+        self.assertIn("Черная футболка унисекс TwoComms", first.findtext("description"))
+        self.assertNotIn("Довіряй", first.findtext("description"))
         self.assertNotIn("Український опис", first.findtext("description"))
 
         params = {(param.attrib["name"], param.text) for param in first.findall("param")}
@@ -165,9 +169,10 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertEqual(len(articles), 1)
         self.assertNotIn("TWC-TEST-BLACK", articles)
         self.assertTrue(all(offer_id not in articles for offer_id in offer_ids))
-        self.assertEqual(name_ua_values, {"Футболка TwoComms Test"})
-        self.assertEqual(name_ru_values, {"Футболка TwoComms Test"})
+        self.assertEqual(name_ua_values, {"Чорна футболка унісекс TwoComms «Довіряй своїй божевільній ідеї»"})
+        self.assertEqual(name_ru_values, {"Черная футболка унисекс TwoComms «Доверяй своей безумной идее»"})
         self.assertTrue(all("Чорний" not in name for name in name_ua_values))
+        self.assertTrue(all("Чорна" not in name for name in name_ru_values))
 
         first = offers[0]
         self.assertEqual(first.findtext("price"), "1200")
@@ -175,6 +180,8 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertEqual(first.findtext("vendor"), "TwoComms")
         self.assertEqual(first.findtext("state"), "new")
         self.assertLessEqual(len(first.findtext("description_ua")), 5000)
+        self.assertIn("Черная футболка унисекс TwoComms", first.findtext("description"))
+        self.assertNotIn("Чорна", first.findtext("description"))
         self.assertNotIn("https://", first.findtext("description_ua"))
         self.assertNotIn("грн", first.findtext("description_ua").lower())
 
@@ -208,7 +215,7 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertIn("<article>TWC-TEST-BLACK</article>", rozetka_xml)
         self.assertNotIn("<g:id>", rozetka_xml)
         self.assertIn("<yml_catalog", kasta_xml)
-        self.assertIn("<name_ru>Футболка TwoComms Test</name_ru>", kasta_xml)
+        self.assertIn("<name_ru>Черная футболка унисекс TwoComms", kasta_xml)
         self.assertIn("<article>TC", kasta_xml)
         self.assertNotIn("<article>TWC-TEST-BLACK</article>", kasta_xml)
         self.assertNotIn("<g:id>", kasta_xml)
