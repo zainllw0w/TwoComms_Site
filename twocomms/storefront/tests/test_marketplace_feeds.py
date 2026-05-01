@@ -211,19 +211,30 @@ class MarketplaceFeedServiceTests(TestCase):
         self.product.title = "Чорна футболка унісекс TwoComms Nike «Довіряй своїй божевільній ідеї»"
         self.product.full_description = "TwoComms Nike опис з посиланням https://example.com і ціною 1200 грн."
         self.product.description = self.product.full_description
-        self.product.save(update_fields=["title", "full_description", "description"])
+        self.product.recommended_price = 1800
+        self.product.discount_percent = 17
+        self.product.save(update_fields=["title", "full_description", "description", "recommended_price", "discount_percent"])
 
         xml_payload = build_buyme_feed_xml(base_url="https://twocomms.shop")
-        xml_text = xml_payload.decode("utf-8").lower()
         root = ET.fromstring(xml_payload)
         categories = root.findall("shop/categories/category")
         offers = root.findall("shop/offers/offer")
+        non_image_text = " ".join(
+            filter(
+                None,
+                [
+                    element.text
+                    for element in root.iter()
+                    if element.tag != "picture"
+                ],
+            )
+        ).lower()
 
         self.assertEqual(len(categories), 1)
         self.assertEqual(len(offers), 10)
-        self.assertNotIn("twocomms", xml_text)
-        self.assertNotIn("nike", xml_text)
-        self.assertNotIn("<vendor>", xml_text)
+        self.assertNotIn("twocomms", non_image_text)
+        self.assertNotIn("nike", non_image_text)
+        self.assertNotIn(b"<vendor>", xml_payload)
 
         group_ids = {offer.attrib.get("group_id") for offer in offers}
         offer_ids = {offer.attrib["id"] for offer in offers}
@@ -235,13 +246,13 @@ class MarketplaceFeedServiceTests(TestCase):
 
         first = offers[0]
         self.assertEqual(first.attrib["available"], "true")
-        self.assertEqual(first.findtext("price"), "1500.00")
-        self.assertEqual(first.findtext("priceDrop"), "450.00")
+        self.assertEqual(first.findtext("price"), "1800.00")
+        self.assertEqual(first.findtext("priceDrop"), "1260.00")
         self.assertEqual(first.findtext("currencyId"), "UAH")
         self.assertEqual(first.findtext("categoryId"), str(self.category.id))
         self.assertEqual(first.findtext("quantity_in_stock"), "7")
         self.assertIsNone(first.find("url"))
-        self.assertIsNone(first.find("picture"))
+        self.assertTrue(first.findtext("picture").startswith("https://twocomms.shop/media/products/"))
         self.assertLessEqual(len(first.findtext("description_ua")), 3000)
         self.assertIn("Брендова футболка", first.findtext("description_ua"))
         self.assertNotIn("TwoComms", first.findtext("description_ua"))
@@ -285,8 +296,9 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertIn("<yml_catalog", buyme_xml)
         self.assertIn('group_id="buyme-', buyme_xml)
         self.assertIn("<price>1500.00</price>", buyme_xml)
-        self.assertIn("<priceDrop>450.00</priceDrop>", buyme_xml)
-        self.assertNotIn("TwoComms", buyme_xml)
+        self.assertIn("<priceDrop>1050.00</priceDrop>", buyme_xml)
+        self.assertIn("<picture>https://twocomms.shop/media/products/", buyme_xml)
+        self.assertNotIn("TwoComms</", buyme_xml)
         self.assertNotIn("<vendor>", buyme_xml)
         self.assertNotIn("<g:id>", buyme_xml)
         self.assertIn("<oldprice>1500</oldprice>", prom_xml)

@@ -407,10 +407,21 @@ def _buyme_offer_id(product_id: int, variant_id: int | None, size: str, color_ua
     return _truncate(f"buyme-{int(product_id)}-{variant_part}-{color_part}-{size_part}", 64)
 
 
-def _buyme_drop_discount_amount(product: Product, retail_price: int) -> Decimal:
+def _buyme_retail_price(offer: FeedOffer) -> int:
+    product = offer.product
+    candidates = [
+        int(offer.base_price or 0),
+        int(offer.old_price or 0),
+        int(getattr(product, "recommended_price", 0) or 0),
+    ]
+    return max(candidates)
+
+
+def _buyme_drop_price(product: Product, retail_price: int) -> Decimal:
     kind = _product_kind(product)
     rate = BUYME_DROP_DISCOUNT_RATES.get(kind, BUYME_DROP_DISCOUNT_RATES["apparel"])
-    return (Decimal(str(retail_price or 0)) * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    drop_multiplier = Decimal("1") - rate
+    return (Decimal(str(retail_price or 0)) * drop_multiplier).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def _buyme_description(product: Product, offer: FeedOffer) -> str:
@@ -954,8 +965,8 @@ def build_buyme_feed_xml(base_url: str | None = None) -> bytes:
     for offer in offers:
         product = offer.product
         offer_id = _buyme_offer_id(product.id, offer.variant_id, offer.size, offer.color_ua)
-        retail_price = int(offer.base_price or 0)
-        drop_discount = _buyme_drop_discount_amount(product, retail_price)
+        retail_price = _buyme_retail_price(offer)
+        drop_price = _buyme_drop_price(product, retail_price)
         offer_el = ET.SubElement(
             offers_el,
             "offer",
@@ -968,13 +979,12 @@ def build_buyme_feed_xml(base_url: str | None = None) -> bytes:
         ET.SubElement(offer_el, "name").text = _buyme_base_name(product)
         ET.SubElement(offer_el, "name_ua").text = _buyme_base_name(product)
         ET.SubElement(offer_el, "price").text = _format_buyme_price(retail_price)
-        ET.SubElement(offer_el, "priceDrop").text = _format_buyme_price(drop_discount)
+        ET.SubElement(offer_el, "priceDrop").text = _format_buyme_price(drop_price)
         ET.SubElement(offer_el, "currencyId").text = DEFAULT_CURRENCY
         ET.SubElement(offer_el, "categoryId").text = str(product.category_id)
 
         for image_url in offer.image_urls[:10]:
-            if not _contains_buyme_forbidden_brand(image_url):
-                ET.SubElement(offer_el, "picture").text = _truncate(image_url, 1999)
+            ET.SubElement(offer_el, "picture").text = _truncate(image_url, 1999)
 
         ET.SubElement(offer_el, "vendorCode").text = offer_id
         ET.SubElement(offer_el, "quantity_in_stock").text = str(offer.stock)
