@@ -88,6 +88,7 @@ from .static_pages import (
     robots_txt,
     llms_txt,
     static_sitemap,
+    buyme_feed_xml,
     google_merchant_feed,
     kasta_feed_xml,
     rozetka_feed_xml,
@@ -377,6 +378,7 @@ __all__ = [
 
     # Static Pages
     'robots_txt', 'llms_txt', 'static_sitemap', 'google_merchant_feed', 'rozetka_feed_xml', 'kasta_feed_xml',
+    'buyme_feed_xml',
     'static_verification_file', 'indexnow_key_file', 'about', 'contacts', 'custom_print', 'custom_print_lead',
     'custom_print_safe_exit', 'custom_print_add_to_cart', 'custom_print_remove',
     'custom_print_submit_review', 'custom_print_moderation_action',

@@ -280,6 +280,9 @@ urlpatterns = [
     # Kasta marketplace feed
     path('kasta-feed.xml', views.kasta_feed_xml, name='kasta_feed_xml'),
     path('kasta.xml', views.kasta_feed_xml, name='kasta_feed_xml_short'),
+    # BuyMe marketplace feed
+    path('buyme-feed.xml', views.buyme_feed_xml, name='buyme_feed_xml'),
+    path('buyme.xml', views.buyme_feed_xml, name='buyme_feed_xml_short'),
     # UAPROM-style product feed (legacy Bezet feed)
     path('products_feed.xml', views.uaprom_products_feed, name='uaprom_products_feed'),
     # New Dynamic Prom.ua feed
