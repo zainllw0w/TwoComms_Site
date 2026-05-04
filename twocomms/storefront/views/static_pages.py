@@ -438,7 +438,7 @@ def buyme_feed_xml(request):
 
 def uaprom_products_feed(request):
     """
-    Генерирует XML feed для Prom.ua / UAPROM.
+    Генерирует XML feed для Bezzet.
     Формат: legacy YML feed для marketplace-импорта.
 
     Обновленная версия:
@@ -452,6 +452,9 @@ def uaprom_products_feed(request):
     )
     response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
     response["Content-Disposition"] = 'inline; filename="products_feed.xml"'
+    response["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
     return response
 
 

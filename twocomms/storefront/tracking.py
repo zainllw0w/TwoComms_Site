@@ -68,6 +68,11 @@ class AnalyticsIdentityMiddleware(MiddlewareMixin):
     """
 
     def process_request(self, request):
+        if is_analytics_noise_path(request.path):
+            request.analytics_visitor_id = ''
+            request.analytics_first_touch_data = {}
+            return None
+
         visitor_id = (request.COOKIES.get(VISITOR_COOKIE_NAME) or '').strip()
         if not visitor_id:
             visitor_id = uuid.uuid4().hex

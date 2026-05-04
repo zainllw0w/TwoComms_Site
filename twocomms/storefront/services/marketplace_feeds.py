@@ -198,6 +198,7 @@ BUYME_DROP_DISCOUNT_RATES = {
     "apparel": Decimal("0.20"),
 }
 BUYME_MIN_QUANTITY = 100
+BEZZET_MIN_QUANTITY = 100
 
 CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 PRICE_TEXT_RE = re.compile(r"(?i)(ціна|цена|price)\s*[:\-]?[^\n<]*|\d+[\s.,]*(?:грн|uah|₴)")
@@ -427,6 +428,10 @@ def _buyme_drop_price(product: Product, retail_price: int) -> Decimal:
 
 def _buyme_quantity(offer: FeedOffer) -> int:
     return max(int(offer.stock or 0), BUYME_MIN_QUANTITY)
+
+
+def _bezzet_quantity(offer: FeedOffer) -> int:
+    return max(int(offer.stock or 0), BEZZET_MIN_QUANTITY)
 
 
 def _buyme_description(product: Product, offer: FeedOffer) -> str:
@@ -1093,7 +1098,7 @@ def build_google_merchant_feed_xml(base_url: str | None = None) -> bytes:
     return ET.tostring(rss, encoding="utf-8", xml_declaration=True)
 
 
-def _build_yml_feed_xml(*, base_url: str | None) -> bytes:
+def _build_yml_feed_xml(*, base_url: str | None, use_virtual_stock: bool = False) -> bytes:
     base_url = resolve_base_url(base_url)
     offers = iter_feed_offers(base_url)
 
@@ -1111,12 +1116,14 @@ def _build_yml_feed_xml(*, base_url: str | None) -> bytes:
     offers_el = ET.SubElement(shop, "offers")
     for offer in offers:
         product = offer.product
+        stock_quantity = _bezzet_quantity(offer) if use_virtual_stock else int(offer.stock or 0)
+        available = stock_quantity > 0 if use_virtual_stock else offer.available
         offer_el = ET.SubElement(
             offers_el,
             "offer",
             {
                 "id": offer.yml_offer_id,
-                "available": "true" if offer.available else "false",
+                "available": "true" if available else "false",
                 "group_id": str(product.id),
             },
         )
@@ -1132,7 +1139,9 @@ def _build_yml_feed_xml(*, base_url: str | None) -> bytes:
         ET.SubElement(offer_el, "name_ua").text = _truncate(f"{product.title} {offer.color_ua} {offer.size}", 255)
         ET.SubElement(offer_el, "vendor").text = SHOP_NAME
         ET.SubElement(offer_el, "vendorCode").text = offer.article
-        ET.SubElement(offer_el, "stock_quantity").text = str(offer.stock)
+        ET.SubElement(offer_el, "stock_quantity").text = str(stock_quantity)
+        if use_virtual_stock:
+            ET.SubElement(offer_el, "quantity_in_stock").text = str(stock_quantity)
         ET.SubElement(offer_el, "country_of_origin").text = "Україна"
         _append_cdata(offer_el, "description", offer.description_ua)
         _append_cdata(offer_el, "description_ua", offer.description_ua)
@@ -1149,8 +1158,8 @@ def _build_yml_feed_xml(*, base_url: str | None) -> bytes:
 
 
 def build_uaprom_products_feed_xml(base_url: str | None = None) -> bytes:
-    return _build_yml_feed_xml(base_url=base_url)
+    return _build_yml_feed_xml(base_url=base_url, use_virtual_stock=True)
 
 
 def build_prom_feed_xml(base_url: str | None = None) -> bytes:
-    return _build_yml_feed_xml(base_url=base_url)
+    return _build_yml_feed_xml(base_url=base_url, use_virtual_stock=False)

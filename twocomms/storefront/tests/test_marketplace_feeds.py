@@ -145,6 +145,33 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertIn(b"<priceDrop>", buyme.content)
         self.assertIn(b"<yml_catalog", buyme.content)
 
+    def test_bezzet_products_feed_keeps_zero_variant_stock_available(self):
+        from storefront.services.marketplace_feeds import build_uaprom_products_feed_xml
+
+        self.variant.stock = 0
+        self.variant.save(update_fields=["stock"])
+
+        root = ET.fromstring(build_uaprom_products_feed_xml(base_url="https://twocomms.shop"))
+        offers = root.findall("shop/offers/offer")
+
+        self.assertEqual(len(offers), 5)
+        self.assertTrue(all(offer.attrib["available"] == "true" for offer in offers))
+        self.assertTrue(all(offer.findtext("stock_quantity") == "100" for offer in offers))
+        self.assertTrue(all(offer.findtext("quantity_in_stock") == "100" for offer in offers))
+        self.assertTrue(all(offer.findtext("picture") for offer in offers))
+
+    def test_products_feed_bot_request_does_not_set_analytics_cookie(self):
+        response = self.client.get(
+            "/products_feed.xml",
+            secure=True,
+            HTTP_USER_AGENT="BezzetBot/1.0 (+feed import)",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/xml; charset=utf-8")
+        self.assertIn(b"<yml_catalog", response.content)
+        self.assertNotIn("twc_vid", response.cookies)
+
     def test_kasta_feed_uses_kasta_specific_grouping_names_and_descriptions(self):
         from storefront.services.marketplace_feeds import build_kasta_feed_xml
 
