@@ -8,10 +8,10 @@
 {% block og_type %}website{% endblock %}
 {% block og_title %}DTF-конфігуратор кастомного одягу — TwoComms{% endblock %}
 {% block og_description %}Збери річ під свій дизайн: обери основу, тканину, зони друку й макет. Конструктор покаже вигляд і вартість.{% endblock %}
-{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}{% endblock %}
+{% block og_image %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endblock %}
 {% block twitter_title %}DTF-конфігуратор кастомного одягу — TwoComms{% endblock %}
 {% block twitter_description %}Кастомний DTF-друк на худі, футболках, лонгслівах. Збери виріб під свій дизайн за лічені хвилини.{% endblock %}
-{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}{% endblock %}
+{% block twitter_image %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">

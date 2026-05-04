@@ -145,6 +145,20 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertIn(b"<priceDrop>", buyme.content)
         self.assertIn(b"<yml_catalog", buyme.content)
 
+    @override_settings(FEED_BASE_URL="")
+    def test_feed_routes_fallback_to_configured_https_origin_on_http_request(self):
+        response = self.client.get(
+            "/google_merchant_feed.xml",
+            secure=False,
+            HTTP_HOST="twocomms.shop",
+            SERVER_PORT="80",
+            **{"wsgi.url_scheme": "http"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"https://twocomms.shop", response.content)
+        self.assertNotIn(b"http://twocomms.shop", response.content)
+
     def test_bezzet_products_feed_keeps_zero_variant_stock_available(self):
         from storefront.services.marketplace_feeds import build_uaprom_products_feed_xml
 

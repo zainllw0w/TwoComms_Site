@@ -16,9 +16,9 @@ SEO мета-теги для товаров и категорий
   {% endif %}
   
   <!-- Twitter -->
-  <meta property="twitter:title" content="{{ meta_data.twitter_title }}">
-  <meta property="twitter:description" content="{{ meta_data.twitter_description }}">
+  <meta name="twitter:title" content="{{ meta_data.twitter_title }}">
+  <meta name="twitter:description" content="{{ meta_data.twitter_description }}">
   {% if meta_data.twitter_image %}
-    <meta property="twitter:image" content="{{ meta_data.twitter_image }}">
+    <meta name="twitter:image" content="{{ meta_data.twitter_image }}">
   {% endif %}
 {% endif %}

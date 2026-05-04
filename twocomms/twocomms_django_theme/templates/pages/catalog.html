@@ -13,41 +13,45 @@
 <link rel="stylesheet" href="{% static 'css/catalog-redesign.css' %}">
 {% endblock %}
 
-{% block title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
+{% block title %}{% if is_search_page %}Пошук{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
 
-{% block description %}{% if category %}Купити {{ category.name|lower }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні.{% else %}Каталог стріт & мілітарі одягу TwoComms: футболки, худі, лонгсліви та новинки бренду з характером.{% endif %}{% endblock %}
+{% block description %}{% if is_search_page %}Результати пошуку TwoComms{% if query %} за запитом «{{ query }}»{% endif %}. Сторінка відкрита для переходу по товарах, але не призначена для індексації.{% elif category %}Купити {{ category.name|lower }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні.{% else %}Каталог стріт & мілітарі одягу TwoComms: футболки, худі, лонгсліви та новинки бренду з характером.{% endif %}{% endblock %}
 
 {% block keywords %}{% if category %}{{ category.name|lower }}, {% endif %}стріт одяг, мілітарі одяг, футболки, худі,
 лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, каталог одягу{% endblock %}
 
 {% block robots %}{% if is_search_page %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 
-{% block canonical %}{% if page_obj and page_obj.number > 1 %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endif %}{% endblock %}
+{% block canonical %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block hreflang_uk %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block hreflang_x_default %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block og_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block twitter_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 
 {% block pagination_links %}
-{% if page_obj %}{% if page_obj.has_previous %}<link rel="prev" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% if page_obj.previous_page_number > 1 %}?page={{ page_obj.previous_page_number }}{% endif %}">{% endif %}{% if page_obj.has_next %}<link rel="next" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}?page={{ page_obj.next_page_number }}">{% endif %}{% endif %}
+{% if page_obj %}{% if page_obj.has_previous %}<link rel="prev" href="{{ site_base_url }}{{ request.path }}{% if page_obj.previous_page_number > 1 %}?page={{ page_obj.previous_page_number }}{% endif %}">{% endif %}{% if page_obj.has_next %}<link rel="next" href="{{ site_base_url }}{{ request.path }}?page={{ page_obj.next_page_number }}">{% endif %}{% endif %}
 {% endblock %}
 
 {% block og_type %}website{% endblock %}
-{% block og_title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
-{% block og_description %}{% if category %}{{ category.name }} з авторськими принтами від TwoComms. Стріт & мілітарі одяг.{% else %}Повний каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
-{% block og_image %}{% if category and category.cover %}{{ request.scheme }}://{{ request.get_host }}{{ category.cover.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
-{% block twitter_title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
-{% block twitter_description %}{% if category %}{{ category.name }} з авторськими принтами від TwoComms.{% else %}Каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
-{% block twitter_image %}{% if category and category.cover %}{{ request.scheme }}://{{ request.get_host }}{{ category.cover.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
+{% block og_title %}{% if is_search_page %}Пошук{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
+{% block og_description %}{% if is_search_page %}Результати пошуку TwoComms за товарами каталогу.{% elif category %}{{ category.name }} з авторськими принтами від TwoComms. Стріт & мілітарі одяг.{% else %}Повний каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
+{% block og_image %}{% if category and category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
+{% block twitter_title %}{% if is_search_page %}Пошук{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
+{% block twitter_description %}{% if is_search_page %}Результати пошуку TwoComms за товарами каталогу.{% elif category %}{{ category.name }} з авторськими принтами від TwoComms.{% else %}Каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
+{% block twitter_image %}{% if category and category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
 
 {% block breadcrumbs %}{% endblock %}
 
 {% block content %}
-{% if category %}
+{% if category and not is_search_page %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   "itemListElement": [
-    {"@type": "ListItem", "position": 1, "name": "Головна", "item": "{{ request.scheme }}://{{ request.get_host }}/"},
-    {"@type": "ListItem", "position": 2, "name": "Каталог", "item": "{{ request.scheme }}://{{ request.get_host }}{% url 'catalog' %}"},
-    {"@type": "ListItem", "position": 3, "name": "{{ category.name }}", "item": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}"}
+    {"@type": "ListItem", "position": 1, "name": "Головна", "item": "{{ site_base_url }}/"},
+    {"@type": "ListItem", "position": 2, "name": "Каталог", "item": "{{ site_base_url }}{% url 'catalog' %}"},
+    {"@type": "ListItem", "position": 3, "name": "{{ category.name }}", "item": "{{ site_base_url }}{{ request.path }}"}
   ]
 }
 </script>
@@ -57,7 +61,7 @@
   "@type": "CollectionPage",
   "name": "{{ category.name }} — TwoComms",
   "description": "Категорія {{ category.name|lower }} з авторськими принтами від TwoComms.",
-  "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
+  "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}",
   "mainEntity": {
     "@type": "ItemList",
     "itemListOrder": "https://schema.org/ItemListOrderDescending",
@@ -66,7 +70,7 @@
       {
         "@type": "ListItem",
         "position": {{ forloop.counter }},
-        "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'product' p.slug %}",
+        "url": "{{ site_base_url }}{% url 'product' p.slug %}",
         "name": "{{ p.title|escapejs }}"
       }{% if not forloop.last %},{% endif %}
       {% endfor %}
@@ -75,14 +79,14 @@
 }
 </script>
 {% endif %}
-{% if not category %}
+{% if not category and not is_search_page %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   "itemListElement": [
-    {"@type": "ListItem", "position": 1, "name": "Головна", "item": "{{ request.scheme }}://{{ request.get_host }}/"},
-    {"@type": "ListItem", "position": 2, "name": "Каталог", "item": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}"}
+    {"@type": "ListItem", "position": 1, "name": "Головна", "item": "{{ site_base_url }}/"},
+    {"@type": "ListItem", "position": 2, "name": "Каталог", "item": "{{ site_base_url }}{{ request.path }}"}
   ]
 }
 </script>
@@ -92,7 +96,7 @@
   "@type": "CollectionPage",
   "name": "Каталог TwoComms",
   "description": "Повний каталог стріт та мілітарі одягу TwoComms.",
-  "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
+  "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}",
   "mainEntity": {
     "@type": "ItemList",
     "itemListOrder": "https://schema.org/ItemListOrderDescending",
@@ -101,7 +105,7 @@
       {
         "@type": "ListItem",
         "position": {{ forloop.counter }},
-        "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'catalog_by_cat' c.slug %}",
+        "url": "{{ site_base_url }}{% url 'catalog_by_cat' c.slug %}",
         "name": "{{ c.name|escapejs }}"
       }{% if not forloop.last %},{% endif %}
       {% endfor %}

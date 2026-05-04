@@ -7,10 +7,10 @@
 {% block keywords %}співпраця TwoComms, дропшипінг одягу, опт одягу, бренд партнерство, співпраця з блогерами, співпраця з дизайнерами{% endblock %}
 {% block og_title %}Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства{% endblock %}
 {% block og_description %}Оберіть формат співпраці з TwoComms: дропшипінг, оптові закупівлі, спільні колекції, робота з дизайнерами, блогерами та медіа.{% endblock %}
-{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}{% endblock %}
+{% block og_image %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endblock %}
 {% block twitter_title %}Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства{% endblock %}
 {% block twitter_description %}TwoComms відкриває партнерські маршрути для магазинів, брендів, дизайнерів, блогерів та медіа.{% endblock %}
-{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}{% endblock %}
+{% block twitter_image %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
@@ -19,11 +19,11 @@
   "@type": "WebPage",
   "name": "Співпраця з TwoComms",
   "description": "Сторінка для партнерств, дропшипінгу, оптових закупівель, бренд-колаборацій і співпраці з дизайнерами або медіа.",
-  "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
+  "url": "{{ site_base_url }}{{ request.path }}",
   "isPartOf": {
     "@type": "WebSite",
     "name": "TwoComms",
-    "url": "{{ request.scheme }}://{{ request.get_host }}"
+    "url": "{{ site_base_url }}"
   },
   "publisher": {
     "@type": "Organization",

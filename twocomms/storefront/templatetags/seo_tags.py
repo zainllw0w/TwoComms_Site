@@ -3,6 +3,7 @@
 """
 from importlib import import_module
 import json
+from django.conf import settings
 from django import template
 from django.utils.safestring import mark_safe
 from django.urls import reverse
@@ -40,6 +41,10 @@ def _get_default_social_image_url():
 
 def _seo_content_optimizer():
     return _seo_utils().SEOContentOptimizer
+
+
+def _site_base_url():
+    return (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/")
 
 
 @register.simple_tag(takes_context=True)
@@ -247,7 +252,7 @@ def canonical_url(request):
     """
     Возвращает канонический URL для текущей страницы
     """
-    return f"{request.scheme}://{request.get_host()}{request.path}"
+    return f"{_site_base_url()}{request.path}"
 
 
 @register.simple_tag
@@ -261,7 +266,8 @@ def og_image_url(request, image_url=None):
     if image_url.startswith('http'):
         return image_url
 
-    return f"{request.scheme}://{request.get_host()}{image_url}"
+    normalized_path = image_url if image_url.startswith("/") else f"/{image_url}"
+    return f"{_site_base_url()}{normalized_path}"
 
 
 @register.inclusion_tag('partials/faq_schema.html')

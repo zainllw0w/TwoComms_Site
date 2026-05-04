@@ -10,7 +10,7 @@ from storefront.services.indexnow import get_core_indexnow_urls, submit_indexnow
 @override_settings(
     SITE_BASE_URL="https://twocomms.shop",
     INDEXNOW_ENABLED=True,
-    INDEXNOW_KEY="abc123",
+    INDEXNOW_KEY="abc12345",
     INDEXNOW_ENDPOINT="https://api.indexnow.org/indexnow",
     INDEXNOW_TIMEOUT=2.5,
 )
@@ -42,8 +42,8 @@ class IndexNowServiceTests(TestCase):
             post_mock.call_args.kwargs["json"],
             {
                 "host": "twocomms.shop",
-                "key": "abc123",
-                "keyLocation": "https://twocomms.shop/abc123.txt",
+                "key": "abc12345",
+                "keyLocation": "https://twocomms.shop/abc12345.txt",
                 "urlList": ["https://twocomms.shop/product/test-product/"],
             },
         )
@@ -57,10 +57,17 @@ class IndexNowServiceTests(TestCase):
         post_mock.assert_not_called()
 
     def test_indexnow_key_file_returns_configured_key(self):
-        response = self.client.get("/abc123.txt", secure=True)
+        response = self.client.get("/abc12345.txt", secure=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.content.decode("utf-8"), "abc123")
+        self.assertEqual(response.content.decode("utf-8"), "abc12345")
+
+    @override_settings(INDEXNOW_KEY="abc-1234")
+    def test_indexnow_key_file_accepts_official_hyphenated_key(self):
+        response = self.client.get("/abc-1234.txt", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content.decode("utf-8"), "abc-1234")
 
     def test_indexnow_key_file_returns_404_for_unknown_key(self):
         response = self.client.get("/wrong-key.txt", secure=True)
@@ -71,7 +78,7 @@ class IndexNowServiceTests(TestCase):
 @override_settings(
     SITE_BASE_URL="https://twocomms.shop",
     INDEXNOW_ENABLED=True,
-    INDEXNOW_KEY="abc123",
+    INDEXNOW_KEY="abc12345",
 )
 class IndexNowSignalTests(TestCase):
     def setUp(self):

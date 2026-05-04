@@ -97,6 +97,13 @@ def analytics_settings(request):
     }
 
 
+def site_urls(request):
+    """Canonical public origin for SEO, social previews, and structured data."""
+    return {
+        "site_base_url": (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/")
+    }
+
+
 def web_push_settings(request):
     base_url = (getattr(settings, "SITE_BASE_URL", "") or "").rstrip("/")
     icon_path = getattr(settings, "WEB_PUSH_ICON_PATH", "") or static("img/favicon-192x192.png")
@@ -126,8 +133,8 @@ def web_push_settings(request):
             profile = None
         if profile is not None:
             viewer_preferences = {
-                "marketingEnabled": bool(profile.push_marketing_enabled),
-                "orderUpdatesEnabled": bool(profile.push_order_updates_enabled),
+                "marketingEnabled": bool(getattr(profile, "push_marketing_enabled", True)),
+                "orderUpdatesEnabled": bool(getattr(profile, "push_order_updates_enabled", True)),
             }
 
     def _abs_url(path):

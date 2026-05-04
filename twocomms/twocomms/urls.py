@@ -3,23 +3,29 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.contrib.sitemaps import views as sitemap_views
 from django.views.generic.base import RedirectView
 from storefront import views as storefront_views
-from storefront.sitemaps import StaticViewSitemap, ProductSitemap, CategorySitemap
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-
-# Sitemap configuration
-sitemaps = {
-    'static': StaticViewSitemap,
-    'products': ProductSitemap,
-    'categories': CategorySitemap,
-}
 
 urlpatterns = [
     # PWA sw.js served directly to keep scope stable across browsers.
     path("sw.js", storefront_views.service_worker_script, name="service_worker_js"),
     path("site.webmanifest", storefront_views.web_manifest, name="site_webmanifest"),
+
+    # Root-level crawler/platform files must be resolved before storefront routes.
+    path('sitemap.xml', storefront_views.custom_sitemap, name='django.contrib.sitemaps.views.sitemap'),
+    path("favicon.ico", RedirectView.as_view(
+        url=staticfiles_storage.url("img/favicon.ico"), permanent=False
+    )),
+    path("robots.txt", storefront_views.robots_txt, name="robots_txt"),
+    # Fallback на случай, если где-то закешировался старый редирект на /static/robots.txt.
+    path("static/robots.txt", storefront_views.robots_txt),
+    path("llms.txt", storefront_views.llms_txt, name="llms_txt"),
+    path(".well-known/llms.txt", storefront_views.llms_txt, name="well_known_llms_txt"),
+    path("494cb80b2da94b4395dbbed566ab540d.txt", storefront_views.static_verification_file,
+         name="static_verification_file"),
+    re_path(r"^(?P<key>[A-Za-z0-9-]{8,128})\.txt$", storefront_views.indexnow_key_file, name="indexnow_key_file"),
+
     # Core - storefront include comes after root-level platform files.
     path("", include("storefront.urls")),
 
@@ -48,24 +54,6 @@ urlpatterns = [
 
     # Дропшип редирект
     path("dropshipper/", RedirectView.as_view(url="/orders/dropshipper/", permanent=False), name="dropshipper_redirect"),
-
-    # Sitemap — Django framework view with proper lastmod/changefreq/priority
-    path('sitemap.xml', sitemap_views.sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
-
-    # Явный маршрут для /favicon.ico → статический файл
-    path("favicon.ico", RedirectView.as_view(
-        url=staticfiles_storage.url("img/favicon.ico"), permanent=False
-    )),
-    # Явный маршрут для /robots.txt → прямая отдача, без статики
-    path("robots.txt", storefront_views.robots_txt, name="robots_txt"),
-    # Fallback на случай, если где-то закешировался старый редирект на /static/robots.txt
-    path("static/robots.txt", storefront_views.robots_txt),
-    path("llms.txt", storefront_views.llms_txt, name="llms_txt"),
-    path(".well-known/llms.txt", storefront_views.llms_txt, name="well_known_llms_txt"),
-    # Verification файл в корне сайта
-    path("494cb80b2da94b4395dbbed566ab540d.txt", storefront_views.static_verification_file,
-         name="static_verification_file"),
-    re_path(r"^(?P<key>[A-Za-z0-9]+)\.txt$", storefront_views.indexnow_key_file, name="indexnow_key_file"),
 
     # Google Merchant feed
     path('google_merchant_feed.xml', storefront_views.google_merchant_feed, name='google_merchant_feed'),

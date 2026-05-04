@@ -9,12 +9,12 @@
 {% block og_title %}TwoComms — харківський бренд одягу про характер, стійкість і продовження{% endblock %}
 {% block og_description %}TwoComms — український streetwear / military-adjacent бренд одягу з Харкова. Речі з кодом, сенсовими принтами, якісною базою і філософією: не крапка, а продовження.{% endblock %}
 {% block og_url %}{{ brand_page_url }}{% endblock %}
-{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/favicon-512x512.png' %}{% endblock %}
+{% block og_image %}{{ site_base_url }}{% static 'img/favicon-512x512.png' %}{% endblock %}
 {% block og_image_alt %}TwoComms — харківський бренд одягу, streetwear / military-adjacent естетика{% endblock %}
 {% block twitter_title %}TwoComms — не крапка. Продовження.{% endblock %}
 {% block twitter_description %}Одяг з кодом для людей, які тримають форму зсередини. Харківський streetwear / military-adjacent бренд TwoComms.{% endblock %}
 {% block twitter_url %}{{ brand_page_url }}{% endblock %}
-{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/favicon-512x512.png' %}{% endblock %}
+{% block twitter_image %}{{ site_base_url }}{% static 'img/favicon-512x512.png' %}{% endblock %}
 {% block twitter_image_alt %}TwoComms — одяг з характером, кодом і харківським походженням{% endblock %}
 {% block canonical %}{{ brand_page_url }}{% endblock %}
 

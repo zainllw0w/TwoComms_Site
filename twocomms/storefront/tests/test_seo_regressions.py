@@ -1,13 +1,45 @@
 from unittest.mock import patch
 
+import json
 from decimal import Decimal
 
+from django.contrib.sites.models import Site
 from django.test import Client, RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from orders.models import Order
+from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product
+from storefront.seo_utils import get_product_schema
 from storefront.views.static_pages import static_sitemap
+
+
+@override_settings(SITE_BASE_URL="https://twocomms.shop")
+class CanonicalHttpsRegressionTests(TestCase):
+    def setUp(self):
+        self.client = Client(
+            HTTP_HOST="twocomms.shop",
+            SERVER_PORT="80",
+            **{"wsgi.url_scheme": "http"},
+        )
+
+    def test_home_uses_configured_https_origin_for_seo_urls_on_http_request(self):
+        response = self.client.get(reverse("home"), secure=False, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        self.assertIn('href="https://twocomms.shop/"', html)
+        self.assertIn('content="https://twocomms.shop/"', html)
+        self.assertNotIn("http://twocomms.shop", html)
+
+    def test_catalog_uses_configured_https_origin_for_seo_urls_on_http_request(self):
+        response = self.client.get(reverse("catalog"), secure=False, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        self.assertIn('href="https://twocomms.shop/catalog/"', html)
+        self.assertIn('content="https://twocomms.shop/catalog/"', html)
+        self.assertNotIn("http://twocomms.shop", html)
 
 
 class ProductPageSeoRegressionTests(TestCase):
@@ -52,6 +84,19 @@ class ProductPageSeoRegressionTests(TestCase):
         self.assertContains(response, "social-preview.jpg", html=False)
         self.assertContains(response, 'property="og:image:alt"', html=False)
 
+    def test_product_schema_uses_variant_stock_for_availability(self):
+        color = Color.objects.create(name="Black", primary_hex="#000000")
+        variant = ProductColorVariant.objects.create(product=self.product, color=color, stock=0)
+
+        schema = json.loads(get_product_schema(self.product))
+        self.assertEqual(schema["offers"]["availability"], "https://schema.org/OutOfStock")
+
+        variant.stock = 3
+        variant.save(update_fields=["stock"])
+
+        schema = json.loads(get_product_schema(self.product))
+        self.assertEqual(schema["offers"]["availability"], "https://schema.org/InStock")
+
 
 class OrderSuccessSeoRegressionTests(TestCase):
     def setUp(self):
@@ -87,11 +132,11 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
         cases = [
             (
                 reverse("about"),
-                '<meta property="twitter:title" content="TwoComms — не крапка. Продовження.">',
+                '<meta name="twitter:title" content="TwoComms — не крапка. Продовження.">',
             ),
             (
                 reverse("contacts"),
-                '<meta property="twitter:title" content="Контакти — TwoComms">',
+                '<meta name="twitter:title" content="Контакти — TwoComms">',
             ),
             (
                 reverse("delivery"),
@@ -152,8 +197,8 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 200)
         body = response.content.decode("utf-8")
-        self.assertIn("https://testserver/pro-brand/", body)
-        self.assertNotIn("https://testserver/about/", body)
+        self.assertIn("https://twocomms.shop/pro-brand/", body)
+        self.assertNotIn("https://twocomms.shop/about/", body)
 
     def test_delivery_page_faq_schema_matches_visible_content(self):
         response = self.client.get(reverse("delivery"), follow=True)
@@ -217,7 +262,11 @@ class CategoryNavigationSeoRegressionTests(TestCase):
 
 class SitemapSeoRegressionTests(TestCase):
     def setUp(self):
-        self.client = Client()
+        self.client = Client(
+            HTTP_HOST="twocomms.shop",
+            SERVER_PORT="443",
+            **{"wsgi.url_scheme": "https"},
+        )
         self.factory = RequestFactory()
 
     def test_sitemap_prefers_pro_brand_url_and_not_legacy_about(self):
@@ -225,8 +274,35 @@ class SitemapSeoRegressionTests(TestCase):
         response = static_sitemap(request)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "https://testserver/pro-brand/")
-        self.assertNotContains(response, "https://testserver/about/")
+        self.assertContains(response, "https://twocomms.shop/pro-brand/")
+        self.assertNotContains(response, "https://twocomms.shop/about/")
+
+    def test_sitemap_does_not_set_analytics_cookie(self):
+        response = self.client.get(reverse("django.contrib.sitemaps.views.sitemap"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("twc_vid", response.cookies)
+
+    def test_sitemap_headers_are_crawler_safe(self):
+        response = self.client.get(reverse("django.contrib.sitemaps.views.sitemap"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/xml; charset=utf-8")
+        self.assertEqual(response["Cache-Control"], "public, max-age=3600")
+        self.assertNotIn("X-Robots-Tag", response)
+
+    @override_settings(SITE_BASE_URL="https://twocomms.shop", SITE_ID=1)
+    def test_django_sitemap_uses_configured_origin_not_sites_domain(self):
+        Site.objects.update_or_create(
+            id=1,
+            defaults={"domain": "example.com", "name": "Example"},
+        )
+
+        response = self.client.get(reverse("django.contrib.sitemaps.views.sitemap"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<loc>https://twocomms.shop/</loc>", html=False)
+        self.assertNotContains(response, "https://example.com", html=False)
 
 
 class HeaderCtaSeoRegressionTests(TestCase):
@@ -278,6 +354,15 @@ class PublicUrlIndexationSeoRegressionTests(TestCase):
                 response = self.client.get(url, follow=True)
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, 'content="noindex, follow"', html=False)
+
+    def test_private_user_flow_pages_are_noindex_nofollow(self):
+        cases = [reverse("cart"), reverse("login"), reverse("register")]
+
+        for url in cases:
+            with self.subTest(url=url):
+                response = self.client.get(url, follow=True)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'content="noindex, nofollow"', html=False)
 
 
 class CustomPrintSeoRegressionTests(TestCase):
@@ -343,6 +428,7 @@ class RobotsTxtAiSearchRegressionTests(TestCase):
         response = self.client.get(reverse("robots_txt"), secure=True)
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/plain; charset=utf-8")
         body = response.content.decode("utf-8")
 
         self.assertIn("User-agent: OAI-SearchBot\nAllow: /", body)
@@ -356,8 +442,32 @@ class RobotsTxtAiSearchRegressionTests(TestCase):
         self.assertIn("User-agent: CCBot\nAllow: /", body)
         self.assertIn("User-agent: ClaudeBot\nAllow: /", body)
         self.assertIn("User-agent: anthropic-ai\nAllow: /", body)
-        self.assertIn("Disallow: /search/", body)
+        self.assertIn("User-agent: Googlebot\nAllow: /", body)
+        self.assertIn("User-agent: AdsBot-Google\nAllow: /", body)
+        self.assertIn("User-agent: Storebot-Google\nAllow: /", body)
+        self.assertNotIn("Disallow: /search/", body)
         self.assertIn("Sitemap: https://twocomms.shop/sitemap.xml", body)
+
+    def test_ai_specific_robots_groups_keep_internal_paths_disallowed(self):
+        response = self.client.get(reverse("robots_txt"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        ai_group = body.split("# Explicitly allow AI search, citation and model discovery bots", 1)[1]
+
+        for path in ("/admin/", "/admin-panel/", "/accounts/", "/orders/", "/cart/", "/checkout/", "/api/"):
+            with self.subTest(path=path):
+                self.assertIn(f"Disallow: {path}", ai_group)
+
+    def test_search_page_is_crawlable_so_noindex_can_be_seen(self):
+        robots_response = self.client.get(reverse("robots_txt"), secure=True)
+        search_response = self.client.get(reverse("search"), {"q": "худі"}, secure=True)
+
+        self.assertEqual(search_response.status_code, 200)
+        self.assertContains(search_response, 'content="noindex, follow"', html=False)
+        self.assertContains(search_response, f'href="https://twocomms.shop{reverse("catalog")}"', html=False)
+        self.assertNotContains(search_response, '"@type": "CollectionPage"', html=False)
+        self.assertNotIn("Disallow: /search/", robots_response.content.decode("utf-8"))
 
 
 class LlmsTxtSeoRegressionTests(TestCase):
@@ -373,13 +483,28 @@ class LlmsTxtSeoRegressionTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/plain; charset=utf-8")
+        self.assertNotIn("twc_vid", response.cookies)
 
         body = response.content.decode("utf-8")
         self.assertIn("# TwoComms", body)
-        self.assertIn("https://twocomms.shop/custom-print/", body)
-        self.assertIn("https://twocomms.shop/wholesale/", body)
+        self.assertIn("- [Custom print](https://twocomms.shop/custom-print/):", body)
+        self.assertIn("- [Wholesale](https://twocomms.shop/wholesale/):", body)
+        self.assertIn("- [Catalog](https://twocomms.shop/catalog/):", body)
+        self.assertIn("- [XML sitemap](https://twocomms.shop/sitemap.xml):", body)
+        self.assertIn("## Optional", body)
+
+    def test_llms_txt_uses_configured_https_origin_on_http_request(self):
+        response = self.client.get(
+            reverse("llms_txt"),
+            secure=False,
+            SERVER_PORT="80",
+            **{"wsgi.url_scheme": "http"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
         self.assertIn("https://twocomms.shop/catalog/", body)
-        self.assertIn("https://twocomms.shop/sitemap.xml", body)
+        self.assertNotIn("http://twocomms.shop", body)
 
     def test_well_known_llms_txt_alias_resolves(self):
         primary = self.client.get(reverse("llms_txt"), secure=True)

@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 
 {% block title %}Оновлення замовлення {% if order %}{{ order.order_number }}{% else %}Telegram{% endif %}{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
 
 {% block extra_css %}
 <style>
