@@ -11,6 +11,7 @@ import logging
 from django.utils.deprecation import MiddlewareMixin
 from django.utils import timezone
 from django.db import transaction
+from .analytics_noise import is_analytics_noise_path
 from .models import UTMSession, SiteSession
 from .utm_utils import (
     get_client_ip,
@@ -43,8 +44,6 @@ class UTMTrackingMiddleware(MiddlewareMixin):
 
     UTM_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
     PLATFORM_PARAMS = ['fbclid', 'gclid', 'ttclid']
-    SKIP_PATHS = ['/admin', '/static', '/media', '/api', '/__debug__', '/favicon.ico']
-
     def process_request(self, request):
         """Захватывает UTM-параметры из URL и сохраняет в сессию"""
         try:
@@ -54,7 +53,7 @@ class UTMTrackingMiddleware(MiddlewareMixin):
                 return None
 
             # Пропускаем служебные пути
-            if any(request.path.startswith(path) for path in self.SKIP_PATHS):
+            if is_analytics_noise_path(request.path):
                 return None
 
             # Пропускаем ботов (опционально)
