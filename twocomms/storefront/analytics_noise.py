@@ -23,7 +23,11 @@ TRACKING_NOISE_EXACT_PATHS = frozenset(
         "/robots.txt",
         "/rozetka-feed.xml",
         "/rozetka.xml",
+        "/.well-known/llms.txt",
+        "/llms.txt",
+        "/sitemap.xml",
         "/site.webmanifest",
+        "/static/robots.txt",
         "/sw.js",
         "/xmlrpc.php",
     }

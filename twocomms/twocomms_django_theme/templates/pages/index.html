@@ -12,11 +12,15 @@
 {% block twitter_title %}TwoComms — стріт & мілітарі одяг{% endblock %}
 {% block twitter_description %}Ексклюзивні футболки, худі та лонгсліви з характером. Швидка доставка по Україні.{% endblock %}
 
-{% block canonical %}{% if page_obj and page_obj.number > 1 %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ request.scheme }}://{{ request.get_host }}/{% endif %}{% endblock %}
+{% block canonical %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
+{% block hreflang_uk %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
+{% block hreflang_x_default %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
+{% block og_url %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
+{% block twitter_url %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
 
 {% block pagination_links %}
-{% if page_obj and page_obj.has_previous %}<link rel="prev" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% if page_obj.previous_page_number > 1 %}?page={{ page_obj.previous_page_number }}{% endif %}">{% endif %}
-{% if page_obj and page_obj.has_next %}<link rel="next" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}?page={{ page_obj.next_page_number }}">{% endif %}
+{% if page_obj and page_obj.has_previous %}<link rel="prev" href="{{ site_base_url }}{{ request.path }}{% if page_obj.previous_page_number > 1 %}?page={{ page_obj.previous_page_number }}{% endif %}">{% endif %}
+{% if page_obj and page_obj.has_next %}<link rel="next" href="{{ site_base_url }}{{ request.path }}?page={{ page_obj.next_page_number }}">{% endif %}
 {% endblock %}
 
 {# Home не использует Font Awesome — отключаем загрузку CSS (~103 KB, ~99.7% unused). #}
@@ -34,11 +38,11 @@
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "TwoComms",
-    "url": "{{ request.scheme }}://{{ request.get_host }}",
+    "url": "{{ site_base_url }}",
     "description": "Магазин стріт & мілітарі одягу з ексклюзивним дизайном",
     "potentialAction": {
       "@type": "SearchAction",
-      "target": "{{ request.scheme }}://{{ request.get_host }}/search/?q={search_term_string}",
+      "target": "{{ site_base_url }}/search/?q={search_term_string}",
       "query-input": "required name=search_term_string"
     }
   },
@@ -47,8 +51,8 @@
     "@type": "WebPage",
     "name": "TwoComms — Головна",
     "description": "Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом.",
-    "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
-    "primaryImageOfPage": "{{ request.scheme }}://{{ request.get_host }}{% static 'img/social-preview.jpg' %}",
+    "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}",
+    "primaryImageOfPage": "{{ site_base_url }}{% static 'img/social-preview.jpg' %}",
     "mainEntity": {
       "@type": "ItemList",
       "itemListElement": [
@@ -57,7 +61,7 @@
           "@type": "ListItem",
           "position": {{ forloop.counter }},
           "name": "{{ c.name|escapejs }}",
-          "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'catalog_by_cat' c.slug %}"
+          "url": "{{ site_base_url }}{% url 'catalog_by_cat' c.slug %}"
         }{% if not forloop.last %},{% endif %}
         {% endfor %}
       ]

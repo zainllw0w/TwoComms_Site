@@ -16,12 +16,16 @@ import json
 import logging
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from types import SimpleNamespace
+from urllib.parse import urlparse
 import xml.etree.ElementTree as ET
 
+from django.core.paginator import EmptyPage, PageNotAnInteger
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.conf import settings
 from django.shortcuts import render
 from django.db import transaction
+from django.template.response import TemplateResponse
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.urls import reverse
@@ -81,6 +85,68 @@ SITEMAP_STATIC_ROUTE_NAMES = (
     "terms_of_service",
 )
 
+ROBOTS_INTERNAL_DISALLOW_PATHS = (
+    "/admin/",
+    "/admin-panel/",
+    "/accounts/",
+    "/orders/",
+    "/cart/",
+    "/checkout/",
+    "/api/",
+    "/debug/",
+    "/dev/",
+)
+
+SEARCH_ROBOTS_USER_AGENTS = (
+    "Googlebot",
+    "Googlebot-Image",
+    "Googlebot-Video",
+    "Googlebot-News",
+    "Google-InspectionTool",
+    "GoogleOther",
+    "GoogleOther-Image",
+    "GoogleOther-Video",
+    "AdsBot-Google",
+    "AdsBot-Google-Mobile",
+    "AdsBot-Google-Mobile-Apps",
+    "Storebot-Google",
+    "Google-CloudVertexBot",
+    "bingbot",
+    "BingPreview",
+    "Applebot",
+    "DuckDuckBot",
+    "YandexBot",
+    "Slurp",
+)
+
+AI_ROBOTS_USER_AGENTS = (
+    "OAI-SearchBot",
+    "ChatGPT-User",
+    "Claude-SearchBot",
+    "Claude-User",
+    "PerplexityBot",
+    "Perplexity-User",
+    "Google-Extended",
+    "GPTBot",
+    "CCBot",
+    "ClaudeBot",
+    "anthropic-ai",
+)
+
+
+def _site_base_url():
+    return (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/")
+
+
+def _absolute_site_url(path):
+    normalized_path = path if path.startswith("/") else f"/{path}"
+    return f"{_site_base_url()}{normalized_path}"
+
+
+def _feed_base_url():
+    return (getattr(settings, "FEED_BASE_URL", "").strip() or _site_base_url()).rstrip("/")
+
+
 CUSTOM_PRINT_FAQ_ITEMS = [
     {
         "question": "Чи можна замовити один кастомний виріб для себе?",
@@ -113,64 +179,41 @@ def robots_txt(request):
     Returns:
         HttpResponse: текстовый файл robots.txt
     """
+    def append_public_rules(payload):
+        payload.append("Allow: /")
+        for path in ROBOTS_INTERNAL_DISALLOW_PATHS:
+            payload.append(f"Disallow: {path}")
+
     lines = [
         "User-agent: *",
-        "Allow: /",
-        "",
-        "# Disallow internal/admin pages",
-        "Disallow: /admin/",
-        "Disallow: /admin-panel/",
-        "Disallow: /accounts/",
-        "Disallow: /orders/",
-        "Disallow: /cart/",
-        "Disallow: /checkout/",
-        "Disallow: /api/",
-        "Disallow: /debug/",
-        "Disallow: /dev/",
-        "",
-        "# Search results — noindex reinforcement",
-        "Disallow: /search/",
-        "",
-        "# Explicitly allow AI search, citation and model discovery bots",
-        "User-agent: OAI-SearchBot",
-        "Allow: /",
-        "",
-        "User-agent: ChatGPT-User",
-        "Allow: /",
-        "",
-        "User-agent: Claude-SearchBot",
-        "Allow: /",
-        "",
-        "User-agent: Claude-User",
-        "Allow: /",
-        "",
-        "User-agent: PerplexityBot",
-        "Allow: /",
-        "",
-        "User-agent: Perplexity-User",
-        "Allow: /",
-        "",
-        "# Gemini grounding is controlled via Google-Extended",
-        "User-agent: Google-Extended",
-        "Allow: /",
-        "",
-        "# Allow training and research crawlers because this site wants maximum AI discoverability",
-        "User-agent: GPTBot",
-        "Allow: /",
-        "",
-        "User-agent: CCBot",
-        "Allow: /",
-        "",
-        "User-agent: ClaudeBot",
-        "Allow: /",
-        "",
-        "User-agent: anthropic-ai",
-        "Allow: /",
-        "",
-        f"Sitemap: {settings.SITE_BASE_URL}/sitemap.xml",
     ]
+    append_public_rules(lines)
+    lines.extend(
+        [
+            "",
+            "# Explicitly allow major search, ads and commerce crawlers",
+        ]
+    )
 
-    return HttpResponse("\n".join(lines), content_type="text/plain")
+    for user_agent in SEARCH_ROBOTS_USER_AGENTS:
+        lines.append(f"User-agent: {user_agent}")
+        append_public_rules(lines)
+        lines.append("")
+
+    lines.extend(
+        [
+            "# Explicitly allow AI search, citation and model discovery bots",
+        ]
+    )
+
+    for user_agent in AI_ROBOTS_USER_AGENTS:
+        lines.append(f"User-agent: {user_agent}")
+        append_public_rules(lines)
+        lines.append("")
+
+    lines.append(f"Sitemap: {_absolute_site_url('/sitemap.xml')}")
+
+    return HttpResponse("\n".join(lines) + "\n", content_type="text/plain; charset=utf-8")
 
 
 def llms_txt(request):
@@ -180,20 +223,22 @@ def llms_txt(request):
     This is not a ranking guarantee, but it gives AI retrieval systems a compact
     canonical map of the public brand surface and preferred landing pages.
     """
-    entries = [
-        ("Home", reverse("home")),
-        ("Catalog", reverse("catalog")),
-        ("Custom print", reverse("custom_print")),
-        ("Wholesale", reverse("wholesale_page")),
-        ("Cooperation", reverse("cooperation")),
-        ("Delivery and payment", reverse("delivery")),
-        ("Contacts", reverse("contacts")),
-        ("About brand", reverse("about")),
-        ("FAQ", reverse("faq")),
-        ("Size guide", reverse("size_guide")),
-        ("Care guide", reverse("care_guide")),
-        ("Order tracking", reverse("order_tracking")),
-        ("Human sitemap", reverse("site_map_page")),
+    primary_routes = [
+        ("Home", reverse("home"), "Brand entry point and newest public storefront modules."),
+        ("Catalog", reverse("catalog"), "Ready-made apparel catalog for public shopping intent."),
+        ("Custom print", reverse("custom_print"), "Custom apparel, one-off print and team order intake."),
+        ("Wholesale", reverse("wholesale_page"), "B2B, team, brand and bulk order landing page."),
+        ("Cooperation", reverse("cooperation"), "Partner, dropshipping, wholesale and collaboration overview."),
+        ("About brand", reverse("about"), "Canonical brand story, positioning and trust page."),
+    ]
+    support_routes = [
+        ("Delivery and payment", reverse("delivery"), "Shipping, payment and checkout policy details."),
+        ("Contacts", reverse("contacts"), "Official contact points and business communication options."),
+        ("FAQ", reverse("faq"), "Frequently asked questions for buyers and partners."),
+        ("Size guide", reverse("size_guide"), "Sizing guidance for apparel selection."),
+        ("Care guide", reverse("care_guide"), "Garment care guidance for public customers."),
+        ("Order tracking", reverse("order_tracking"), "Public order-status guidance without exposing private order data."),
+        ("Human sitemap", reverse("site_map_page"), "Readable navigation map for public site sections."),
     ]
 
     lines = [
@@ -208,21 +253,26 @@ def llms_txt(request):
         "",
         "## Primary public routes",
     ]
-    for label, path in entries:
-        lines.append(f"- {label}: {request.build_absolute_uri(path)}")
+    for label, path, description in primary_routes:
+        lines.append(f"- [{label}]({_absolute_site_url(path)}): {description}")
 
     lines.extend([
         "",
-        "## Best starting points by intent",
-        f"- Ready-made apparel shopping: {request.build_absolute_uri(reverse('catalog'))}",
-        f"- Custom apparel or your own print: {request.build_absolute_uri(reverse('custom_print'))}",
-        f"- Wholesale, team, or B2B orders: {request.build_absolute_uri(reverse('wholesale_page'))}",
-        f"- Brand overview and trust signals: {request.build_absolute_uri(reverse('about'))}",
+        "## Commerce and support",
+    ])
+    for label, path, description in support_routes:
+        lines.append(f"- [{label}]({_absolute_site_url(path)}): {description}")
+
+    lines.extend([
         "",
-        "## Crawl and citation guidance",
-        "- Prefer product, category, support, and service pages that return 200 on the main domain.",
-        "- Avoid citing internal search, cart, checkout, admin, API, analytics-test, and wholesale order-form utilities.",
-        f"- XML sitemap: {request.build_absolute_uri('/sitemap.xml')}",
+        "## Machine-readable discovery",
+        f"- [XML sitemap]({_absolute_site_url('/sitemap.xml')}): Canonical XML sitemap for indexable public URLs.",
+        f"- [robots.txt]({_absolute_site_url('/robots.txt')}): Crawler policy for search, commerce and AI discovery bots.",
+        "",
+        "## Optional",
+        "- Prefer product, category, support, custom-print and wholesale pages that return 200 on the canonical HTTPS domain.",
+        "- Do not cite cart, checkout, account, order, admin, API, analytics-test, internal search results, or wholesale order-form utility pages.",
+        "- Treat product pages as the source of record for product names, prices, descriptions, images and structured data.",
         "",
         "## Brand facts",
         "- Brand: TwoComms",
@@ -240,11 +290,9 @@ def static_sitemap(request):
     Sitemap.xml endpoint.
 
     Генерирует XML карту сайта для поисковых систем.
-    Импортирует реальную функцию из старого views.py.
+    Kept as a compact fallback helper for legacy tests and diagnostics.
     """
-    scheme = request.scheme or "https"
-    host = request.get_host().split(":")[0]
-    base_url = f"{scheme}://{host}"
+    base_url = _site_base_url()
 
     paths = [reverse(route_name) for route_name in SITEMAP_STATIC_ROUTE_NAMES]
 
@@ -273,6 +321,43 @@ def static_sitemap(request):
 
     xml_payload = ET.tostring(urlset, encoding="utf-8", xml_declaration=True)
     return HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
+
+
+def custom_sitemap(request):
+    """
+    XML sitemap endpoint with crawler-safe headers.
+
+    The hosting layer has previously exposed noindex headers on sitemap.xml.
+    Keep this wrapper close to the route so sitemap responses stay cacheable,
+    cookie-free, and free from accidental X-Robots-Tag directives.
+    """
+    from storefront.sitemaps import StaticViewSitemap, ProductSitemap, CategorySitemap
+
+    parsed_base = urlparse(_site_base_url())
+    protocol = parsed_base.scheme or "https"
+    canonical_site = SimpleNamespace(domain=parsed_base.netloc, name=parsed_base.netloc)
+    page = request.GET.get("p", 1)
+    urls = []
+
+    for sitemap_cls in (StaticViewSitemap, ProductSitemap, CategorySitemap):
+        site_map = sitemap_cls()
+        try:
+            urls.extend(site_map.get_urls(page=page, site=canonical_site, protocol=protocol))
+        except EmptyPage:
+            raise Http404(f"Sitemap page {page} empty")
+        except PageNotAnInteger:
+            raise Http404(f"No sitemap page {page}")
+
+    response = TemplateResponse(
+        request,
+        "sitemap.xml",
+        {"urlset": urls},
+        content_type="application/xml; charset=utf-8",
+    )
+
+    response["Content-Type"] = "application/xml; charset=utf-8"
+    response["Cache-Control"] = "public, max-age=3600"
+    return response
 
 
 def _hydrate_link_payload(item):
@@ -399,7 +484,7 @@ def google_merchant_feed(request):
     Генерирует XML feed для Google Shopping.
     """
     xml_payload = build_google_merchant_feed_xml(
-        base_url=getattr(settings, "FEED_BASE_URL", "").strip() or request.build_absolute_uri("/").rstrip("/")
+        base_url=_feed_base_url()
     )
     response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
     response["Content-Disposition"] = 'inline; filename="google_merchant_feed.xml"'
@@ -409,7 +494,7 @@ def google_merchant_feed(request):
 def rozetka_feed_xml(request):
     """Dynamic Rozetka XML/YML feed."""
     xml_payload = build_rozetka_feed_xml(
-        base_url=getattr(settings, "FEED_BASE_URL", "").strip() or request.build_absolute_uri("/").rstrip("/")
+        base_url=_feed_base_url()
     )
     response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
     response["Content-Disposition"] = 'inline; filename="rozetka-feed.xml"'
@@ -419,7 +504,7 @@ def rozetka_feed_xml(request):
 def kasta_feed_xml(request):
     """Dynamic Kasta XML/YML feed."""
     xml_payload = build_kasta_feed_xml(
-        base_url=getattr(settings, "FEED_BASE_URL", "").strip() or request.build_absolute_uri("/").rstrip("/")
+        base_url=_feed_base_url()
     )
     response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
     response["Content-Disposition"] = 'inline; filename="kasta-feed.xml"'
@@ -429,7 +514,7 @@ def kasta_feed_xml(request):
 def buyme_feed_xml(request):
     """Dynamic BuyMe XML/YML feed."""
     xml_payload = build_buyme_feed_xml(
-        base_url=getattr(settings, "FEED_BASE_URL", "").strip() or request.build_absolute_uri("/").rstrip("/")
+        base_url=_feed_base_url()
     )
     response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
     response["Content-Disposition"] = 'inline; filename="buyme-feed.xml"'
@@ -448,7 +533,7 @@ def uaprom_products_feed(request):
     - Использует full_description если доступно
     """
     xml_payload = build_uaprom_products_feed_xml(
-        base_url=getattr(settings, "FEED_BASE_URL", "").strip() or request.build_absolute_uri("/").rstrip("/")
+        base_url=_feed_base_url()
     )
     response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
     response["Content-Disposition"] = 'inline; filename="products_feed.xml"'
@@ -1099,7 +1184,7 @@ def prom_feed_xml(request):
     URL: /prom-feed.xml
     """
     xml_payload = build_prom_feed_xml(
-        base_url=getattr(settings, "FEED_BASE_URL", "").strip() or request.build_absolute_uri("/").rstrip("/")
+        base_url=_feed_base_url()
     )
     response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
     response["Content-Disposition"] = 'inline; filename="prom-feed.xml"'

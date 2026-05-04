@@ -449,6 +449,23 @@ class StructuredDataGenerator:
         return (timezone.now().date() + timedelta(days=90)).isoformat()
 
     @staticmethod
+    def _get_product_availability(product: Product) -> str:
+        if not getattr(product, "is_dropship_available", True):
+            return "https://schema.org/OutOfStock"
+
+        try:
+            from productcolors.models import ProductColorVariant
+
+            variants = ProductColorVariant.objects.filter(product=product).only("stock")
+            if variants.exists():
+                has_stock = any(int(getattr(variant, "stock", 0) or 0) > 0 for variant in variants)
+                return "https://schema.org/InStock" if has_stock else "https://schema.org/OutOfStock"
+        except Exception:
+            pass
+
+        return "https://schema.org/InStock"
+
+    @staticmethod
     def _build_shipping_delivery_time() -> Dict:
         return {
             "@type": "ShippingDeliveryTime",
@@ -581,7 +598,7 @@ class StructuredDataGenerator:
                 "@type": "Offer",
                 "price": str(product.final_price),
                 "priceCurrency": "UAH",
-                "availability": "https://schema.org/InStock",
+                "availability": StructuredDataGenerator._get_product_availability(product),
                 "itemCondition": "https://schema.org/NewCondition",
                 "url": _build_absolute_url(f"product/{product.slug}/"),
                 "priceValidUntil": StructuredDataGenerator._get_dynamic_price_valid_until(),

@@ -20,11 +20,11 @@
       "@type": "{{ page.schema_type|default:'WebPage' }}",
       "name": "{{ page.hero_title|escapejs }}",
       "description": "{{ page.meta_description|escapejs }}",
-      "url": "{{ request.build_absolute_uri|escapejs }}",
+      "url": "{{ site_base_url }}{{ request.path|escapejs }}",
       "isPartOf": {
         "@type": "WebSite",
         "name": "TwoComms",
-        "url": "{{ request.scheme }}://{{ request.get_host }}"
+        "url": "{{ site_base_url }}"
       }
     },
     {
@@ -36,7 +36,7 @@
             "@type": "ListItem",
             "position": {{ forloop.counter }},
             "name": "{{ crumb.name|escapejs }}",
-            "item": "{% if forloop.last %}{{ request.build_absolute_uri|escapejs }}{% else %}{{ request.scheme }}://{{ request.get_host }}{{ crumb.url|escapejs }}{% endif %}"
+            "item": "{% if forloop.last %}{{ site_base_url }}{{ request.path|escapejs }}{% else %}{{ site_base_url }}{{ crumb.url|escapejs }}{% endif %}"
           }{% if not forloop.last %},{% endif %}
         {% endfor %}
       ]

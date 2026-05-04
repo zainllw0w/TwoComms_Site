@@ -2,7 +2,7 @@
 Динамический sitemap для SEO.
 
 Использует стандартный Django Sitemap framework.
-Конфигурация подключена в twocomms/urls.py через sitemaps dict.
+Конфигурация подключена в twocomms/urls.py через crawler-safe wrapper.
 """
 from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
