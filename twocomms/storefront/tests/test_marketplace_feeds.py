@@ -1,3 +1,4 @@
+from collections import defaultdict
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -173,6 +174,35 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertTrue(all(offer.findtext("stock_quantity") == "100" for offer in offers))
         self.assertTrue(all(offer.findtext("quantity_in_stock") == "100" for offer in offers))
         self.assertTrue(all(offer.findtext("picture") for offer in offers))
+
+    def test_bezzet_products_feed_groups_by_color_to_avoid_duplicate_sizes(self):
+        from storefront.services.marketplace_feeds import build_uaprom_products_feed_xml
+
+        white = Color.objects.create(name="Білий", primary_hex="#FFFFFF")
+        ProductColorVariant.objects.create(
+            product=self.product,
+            color=white,
+            sku="TWC-TEST-WHITE",
+            barcode="",
+            stock=5,
+        )
+
+        root = ET.fromstring(build_uaprom_products_feed_xml(base_url="https://twocomms.shop"))
+        offers = root.findall("shop/offers/offer")
+
+        sizes_by_group = defaultdict(list)
+        colors_by_group = defaultdict(set)
+        for offer in offers:
+            params = {param.attrib.get("name"): param.text for param in offer.findall("param")}
+            group_id = offer.attrib["group_id"]
+            sizes_by_group[group_id].append(params["Розмір"])
+            colors_by_group[group_id].add(params["Колір"])
+
+        self.assertEqual(len(offers), 10)
+        self.assertEqual(len(sizes_by_group), 2)
+        for group_id, sizes in sizes_by_group.items():
+            self.assertEqual(len(sizes), len(set(sizes)), group_id)
+            self.assertEqual(len(colors_by_group[group_id]), 1, group_id)
 
     def test_products_feed_bot_request_does_not_set_analytics_cookie(self):
         response = self.client.get(
