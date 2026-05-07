@@ -434,6 +434,14 @@ def _bezzet_quantity(offer: FeedOffer) -> int:
     return max(int(offer.stock or 0), BEZZET_MIN_QUANTITY)
 
 
+def _bezzet_group_id(offer: FeedOffer) -> str:
+    if offer.variant_id:
+        variant_part = str(offer.variant_id)
+    else:
+        variant_part = _ascii_token(offer.color_ua, "color").lower()
+    return _truncate(f"{int(offer.product.id)}-{variant_part}", 64)
+
+
 def _buyme_description(product: Product, offer: FeedOffer) -> str:
     name = _buyme_base_name(product)
     kind = _product_kind(product)
@@ -1098,7 +1106,7 @@ def build_google_merchant_feed_xml(base_url: str | None = None) -> bytes:
     return ET.tostring(rss, encoding="utf-8", xml_declaration=True)
 
 
-def _build_yml_feed_xml(*, base_url: str | None, use_virtual_stock: bool = False) -> bytes:
+def _build_yml_feed_xml(*, base_url: str | None, bezzet_mode: bool = False) -> bytes:
     base_url = resolve_base_url(base_url)
     offers = iter_feed_offers(base_url)
 
@@ -1116,15 +1124,16 @@ def _build_yml_feed_xml(*, base_url: str | None, use_virtual_stock: bool = False
     offers_el = ET.SubElement(shop, "offers")
     for offer in offers:
         product = offer.product
-        stock_quantity = _bezzet_quantity(offer) if use_virtual_stock else int(offer.stock or 0)
-        available = stock_quantity > 0 if use_virtual_stock else offer.available
+        stock_quantity = _bezzet_quantity(offer) if bezzet_mode else int(offer.stock or 0)
+        available = stock_quantity > 0 if bezzet_mode else offer.available
+        group_id = _bezzet_group_id(offer) if bezzet_mode else str(product.id)
         offer_el = ET.SubElement(
             offers_el,
             "offer",
             {
                 "id": offer.yml_offer_id,
                 "available": "true" if available else "false",
-                "group_id": str(product.id),
+                "group_id": group_id,
             },
         )
         ET.SubElement(offer_el, "url").text = offer.product_url
@@ -1140,7 +1149,7 @@ def _build_yml_feed_xml(*, base_url: str | None, use_virtual_stock: bool = False
         ET.SubElement(offer_el, "vendor").text = SHOP_NAME
         ET.SubElement(offer_el, "vendorCode").text = offer.article
         ET.SubElement(offer_el, "stock_quantity").text = str(stock_quantity)
-        if use_virtual_stock:
+        if bezzet_mode:
             ET.SubElement(offer_el, "quantity_in_stock").text = str(stock_quantity)
         ET.SubElement(offer_el, "country_of_origin").text = "Україна"
         _append_cdata(offer_el, "description", offer.description_ua)
@@ -1158,8 +1167,8 @@ def _build_yml_feed_xml(*, base_url: str | None, use_virtual_stock: bool = False
 
 
 def build_uaprom_products_feed_xml(base_url: str | None = None) -> bytes:
-    return _build_yml_feed_xml(base_url=base_url, use_virtual_stock=True)
+    return _build_yml_feed_xml(base_url=base_url, bezzet_mode=True)
 
 
 def build_prom_feed_xml(base_url: str | None = None) -> bytes:
-    return _build_yml_feed_xml(base_url=base_url, use_virtual_stock=False)
+    return _build_yml_feed_xml(base_url=base_url, bezzet_mode=False)
