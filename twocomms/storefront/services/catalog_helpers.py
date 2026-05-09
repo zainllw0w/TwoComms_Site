@@ -312,6 +312,7 @@ def get_detailed_color_variants(product) -> List[Dict[str, Any]]:
         variants.append(
             {
                 'id': variant.id,
+                'slug': getattr(variant, 'slug', '') or '',
                 'name': color_name,
                 'primary_hex': getattr(color, 'primary_hex', '') or '',
                 'secondary_hex': getattr(color, 'secondary_hex', '') or '',

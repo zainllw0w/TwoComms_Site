@@ -11,7 +11,7 @@ Product views - Детальная информация о товарах.
 import re
 
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.urls import reverse
 
 from ..models import Product
@@ -60,12 +60,18 @@ def _resolve_fit_options(product):
 
 # ВАЖНО: Не кэшируем страницу товара, так как нужен предвыбор размера/цвета из URL параметров
 # @cache_page_for_anon(600)  # Отключено для поддержки ?size=M и ?color=X
-def product_detail(request, slug):
+def product_detail(request, slug, v1=None, v2=None, v3=None):
     """
     Детальная страница товара.
 
     Args:
         slug (str): Уникальный slug товара
+        v1/v2/v3 (str|None): Phase 7.2 — optional path-style variant
+            segments. Each can carry a size code (e.g. ``m``), a colour
+            slug (e.g. ``black``) or a fit code (e.g. ``oversize``).
+            The view parses them content-addressably — order does not
+            matter — and 404s on any segment that matches none of the
+            product's known sizes / colour slugs / fit codes.
 
     Features:
     - Основная информация о товаре
@@ -75,6 +81,7 @@ def product_detail(request, slug):
     - SEO breadcrumbs
     - Рекомендованные товары (опционально)
     - Поддержка URL параметра ?size=X для предвыбора размера
+    - Поддержка path-URL ``/product/<slug>/<color>/<size>/<fit>/``
     - Генерация offer_ids для синхронизации с пикселями
 
     Context:
@@ -104,6 +111,7 @@ def product_detail(request, slug):
     # Читаем параметры из URL (?size=M&color=123)
     preselected_size = request.GET.get('size', '').upper()
     preselected_color_id = request.GET.get('color', '')  # ID цветового варианта
+    preselected_fit_from_query = str(request.GET.get('fit', '') or '').strip().lower()
 
     size_context = resolve_product_size_context(product, preselected_size)
     available_sizes = size_context["sizes"]
@@ -111,6 +119,53 @@ def product_detail(request, slug):
 
     # Варианты цветов с изображениями (если есть приложение и данные)
     color_variants = get_detailed_color_variants(product)
+
+    # Phase 7.2 — path-style variant URLs. Segments may arrive in any
+    # order; we dispatch content-addressably (a segment is a size if it
+    # matches ``available_sizes``, a colour if it matches a variant
+    # slug, a fit if it matches a fit code). Unknown segments 404.
+    # Path wins over query string.
+    path_segments = [s for s in (v1, v2, v3) if s]
+    path_fit_code = ""
+    if path_segments:
+        available_sizes_upper = {str(s).upper() for s in available_sizes}
+        color_slug_to_id = {
+            (cv.get('slug') or '').lower(): cv.get('id')
+            for cv in color_variants
+            if cv.get('slug')
+        }
+        fit_codes_lower = {
+            (opt.code or '').lower()
+            for opt in product.fit_options.filter(is_active=True)
+        }
+
+        parsed_size = None
+        parsed_color_id = None
+        parsed_fit = None
+        for segment in path_segments:
+            seg_upper = segment.upper()
+            seg_lower = segment.lower()
+            if parsed_size is None and seg_upper in available_sizes_upper:
+                parsed_size = seg_upper
+                continue
+            if parsed_color_id is None and seg_lower in color_slug_to_id:
+                parsed_color_id = color_slug_to_id[seg_lower]
+                continue
+            if parsed_fit is None and seg_lower in fit_codes_lower:
+                parsed_fit = seg_lower
+                continue
+            raise Http404(f"Unknown product variant segment: {segment!r}")
+
+        if parsed_size is not None:
+            preselected_size = parsed_size
+            # Re-resolve size context so ``selected_size`` reflects the
+            # path choice rather than the earlier query/default value.
+            size_context = resolve_product_size_context(product, parsed_size)
+            preselected_size = size_context["selected_size"]
+        if parsed_color_id is not None:
+            preselected_color_id = str(parsed_color_id)
+        if parsed_fit is not None:
+            path_fit_code = parsed_fit
     auto_select_first_color = False
     preselected_color = None  # Будем хранить выбранный цвет для шаблона
 
@@ -244,7 +299,9 @@ def product_detail(request, slug):
 
     public_product_order_version = get_public_product_order_version()
     fit_options = _resolve_fit_options(product)
-    requested_fit_code = str(request.GET.get('fit', '') or '').strip().lower()
+    # Phase 7.2 — path fit wins over query fit; fallback chain is
+    # path → ``?fit=`` query → default option.
+    requested_fit_code = path_fit_code or preselected_fit_from_query
     if fit_options:
         selected_fit = next((option for option in fit_options if option.code == requested_fit_code), None)
         if selected_fit is None:

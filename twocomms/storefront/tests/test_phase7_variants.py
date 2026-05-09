@@ -9,9 +9,10 @@ exercised by later sub-phases (7.2+) that build on top of this slug.
 from __future__ import annotations
 
 from django.test import TestCase
+from django.urls import reverse
 
 from productcolors.models import Color, ProductColorVariant
-from storefront.models import Category, Product
+from storefront.models import Category, Product, ProductFitOption
 
 
 class ProductColorVariantSlugTests(TestCase):
@@ -96,3 +97,131 @@ class ProductColorVariantSlugTests(TestCase):
 
         self.assertTrue(variant.slug)
         self.assertIn("a1b2c3", variant.slug)
+
+
+class PathVariantUrlTests(TestCase):
+    """Phase 7.2 — path-style variant URL routing + parser.
+
+    Segments can arrive in any order; the view dispatches them content-
+    addressably (size vs colour-slug vs fit-code), overrides query-string
+    preselections, and 404s on anything that doesn't match.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(
+            name="Футболки 7.2", slug="phase72-tshirts", is_active=True
+        )
+        cls.product = Product.objects.create(
+            title="Тестова футболка 7.2",
+            slug="phase72-tshirt",
+            category=cls.category,
+            price=1000,
+            description="Phase 7.2 routing coverage.",
+            status="published",
+        )
+        cls.black = Color.objects.create(name="Чорний", primary_hex="#000000")
+        cls.white = Color.objects.create(name="Білий", primary_hex="#FFFFFF")
+        cls.variant_black = ProductColorVariant.objects.create(
+            product=cls.product, color=cls.black, order=0, is_default=True
+        )
+        cls.variant_white = ProductColorVariant.objects.create(
+            product=cls.product, color=cls.white, order=1
+        )
+        ProductFitOption.objects.create(
+            product=cls.product,
+            code="classic",
+            label="Класичний",
+            is_default=True,
+            order=0,
+        )
+        ProductFitOption.objects.create(
+            product=cls.product,
+            code="oversize",
+            label="Оверсайз",
+            order=1,
+        )
+
+    def test_color_only_path_preselects_color_variant(self):
+        url = reverse("product", kwargs={"slug": self.product.slug, "v1": "white"})
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["preselected_color"], self.variant_white.pk)
+
+    def test_color_and_size_path_preselects_both(self):
+        url = reverse(
+            "product",
+            kwargs={"slug": self.product.slug, "v1": "white", "v2": "m"},
+        )
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["preselected_color"], self.variant_white.pk)
+        self.assertEqual(response.context["preselected_size"], "M")
+
+    def test_order_insensitive_parsing(self):
+        """Phase 7.2 parser is content-addressable — segment order
+        shouldn't matter. ``/white/m/`` and ``/m/white/`` are equivalent.
+        """
+        url = reverse(
+            "product",
+            kwargs={"slug": self.product.slug, "v1": "m", "v2": "white"},
+        )
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["preselected_color"], self.variant_white.pk)
+        self.assertEqual(response.context["preselected_size"], "M")
+
+    def test_fit_path_preselects_fit_code(self):
+        url = reverse(
+            "product",
+            kwargs={"slug": self.product.slug, "v1": "oversize"},
+        )
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["preselected_fit_code"], "oversize")
+
+    def test_three_segment_path_preselects_everything(self):
+        url = reverse(
+            "product",
+            kwargs={
+                "slug": self.product.slug,
+                "v1": "black",
+                "v2": "l",
+                "v3": "oversize",
+            },
+        )
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["preselected_color"], self.variant_black.pk)
+        self.assertEqual(response.context["preselected_size"], "L")
+        self.assertEqual(response.context["preselected_fit_code"], "oversize")
+
+    def test_unknown_segment_returns_404(self):
+        url = reverse(
+            "product", kwargs={"slug": self.product.slug, "v1": "not-a-real-variant"}
+        )
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_path_overrides_query_string(self):
+        """When both a path segment and a ``?color=`` query are present,
+        the path wins — single source of truth for canonical URLs.
+        """
+        base = reverse("product", kwargs={"slug": self.product.slug, "v1": "white"})
+
+        response = self.client.get(f"{base}?color={self.variant_black.pk}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["preselected_color"], self.variant_white.pk)
