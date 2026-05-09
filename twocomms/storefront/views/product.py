@@ -11,7 +11,7 @@ Product views - Детальная информация о товарах.
 import re
 
 from django.shortcuts import render, get_object_or_404
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponsePermanentRedirect, JsonResponse
 from django.urls import reverse
 
 from ..models import Product
@@ -57,6 +57,107 @@ def _resolve_fit_options(product):
     if not has_default:
         options[0].is_default = True
     return options
+
+
+# Phase 7.5 — query-string variant segments we know how to promote to
+# path URLs. All other query params (``utm_*`` / ``gclid`` / …) are
+# preserved verbatim on the redirect so analytics tracking survives.
+_REDIRECTABLE_VARIANT_QUERY_KEYS = ("size", "color", "fit")
+
+
+def _build_path_variant_redirect(
+    *,
+    request,
+    product,
+    available_sizes,
+    color_variants,
+):
+    """Build the ``/product/<slug>/<color>/<size>/<fit>/`` URL a legacy
+    ``?size=…&color=…&fit=…`` request should 301-redirect to, or return
+    ``None`` when no variant query is present / resolvable.
+
+    Contract:
+        * At least one of ``size`` / ``color`` / ``fit`` must be a
+          valid value for this product. If nothing resolves, we return
+          ``None`` so the view renders the base page normally (that's
+          what the old URLs did too).
+        * All OTHER query params are preserved verbatim on the
+          redirect target — utm, gclid, fbclid et al. must not get
+          stripped by a 301 or campaign tracking breaks.
+        * Segment order matches the canonical written elsewhere in
+          Phase 7: colour first, then size, then fit.
+    """
+    query = request.GET
+
+    raw_size = str(query.get("size") or "").strip().upper()
+    raw_color = str(query.get("color") or "").strip()
+    raw_fit = str(query.get("fit") or "").strip().lower()
+
+    if not (raw_size or raw_color or raw_fit):
+        return None
+
+    # Resolve size.
+    size_segment = ""
+    if raw_size:
+        available_upper = {str(s).upper() for s in available_sizes}
+        if raw_size in available_upper:
+            size_segment = raw_size.lower()
+
+    # Resolve colour: legacy URLs used numeric variant IDs.
+    color_segment = ""
+    if raw_color and color_variants:
+        try:
+            color_id = int(raw_color)
+        except (TypeError, ValueError):
+            color_id = None
+        if color_id is not None:
+            match = next(
+                (cv for cv in color_variants if cv.get("id") == color_id),
+                None,
+            )
+            if match and match.get("slug"):
+                color_segment = match["slug"]
+
+    # Resolve fit.
+    fit_segment = ""
+    if raw_fit:
+        valid_fit_codes = {
+            (opt.code or "").lower()
+            for opt in product.fit_options.filter(is_active=True)
+        }
+        if raw_fit in valid_fit_codes:
+            fit_segment = raw_fit
+
+    # Nothing resolved → let the view handle the stale params quietly.
+    # This keeps ``?color=junk`` from breaking the page.
+    if not (size_segment or color_segment or fit_segment):
+        return None
+
+    path_segments = [seg for seg in (color_segment, size_segment, fit_segment) if seg]
+    kwargs = {"slug": product.slug}
+    for index, seg in enumerate(path_segments, start=1):
+        kwargs[f"v{index}"] = seg
+    target_path = reverse("product", kwargs=kwargs)
+
+    # Preserve non-variant query params (utm_*, gclid, fbclid, ref, …).
+    preserved = [
+        (key, value)
+        for key, value in query.lists()
+        for value in (value if isinstance(value, list) else [value])
+        if key not in _REDIRECTABLE_VARIANT_QUERY_KEYS
+    ]
+    # ``lists()`` already decomposes multi-values — flatten defensively:
+    flat_preserved = []
+    for key in query:
+        if key in _REDIRECTABLE_VARIANT_QUERY_KEYS:
+            continue
+        for value in query.getlist(key):
+            flat_preserved.append((key, value))
+    if flat_preserved:
+        from urllib.parse import urlencode
+        target_path = f"{target_path}?{urlencode(flat_preserved, doseq=True)}"
+
+    return target_path
 
 
 # ВАЖНО: Не кэшируем страницу товара, так как нужен предвыбор размера/цвета из URL параметров
@@ -177,6 +278,19 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         path_parsed_size = parsed_size
         path_parsed_color_id = parsed_color_id
         path_parsed_color_slug = parsed_color_slug
+    else:
+        # Phase 7.5 — 301 redirect from legacy query-string variant
+        # form (``?size=M&color=123&fit=oversize``) to the canonical
+        # path-style URL. Only triggered on the base URL — if the
+        # request already has path segments, we honour them as-is.
+        redirect_url = _build_path_variant_redirect(
+            request=request,
+            product=product,
+            available_sizes=available_sizes,
+            color_variants=color_variants,
+        )
+        if redirect_url is not None:
+            return HttpResponsePermanentRedirect(redirect_url)
     auto_select_first_color = False
     preselected_color = None  # Будем хранить выбранный цвет для шаблона
 

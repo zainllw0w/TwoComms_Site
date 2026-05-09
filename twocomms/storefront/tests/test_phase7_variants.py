@@ -436,3 +436,123 @@ class ProductVariantSitemapTests(TestCase):
             f"/product/{self.product.slug}/black/m/",
             body,
         )
+
+
+class LegacyQueryStringRedirectTests(TestCase):
+    """Phase 7.5 — 301 redirect from legacy ``?size=M&color=<id>&fit=<code>``
+    to the canonical path-style URL so we consolidate signal and stop
+    Google seeing both URL forms.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(
+            name="Футболки 7.5", slug="phase75-tshirts", is_active=True
+        )
+        cls.product = Product.objects.create(
+            title="Тестова футболка 7.5",
+            slug="phase75-tshirt",
+            category=cls.category,
+            price=1000,
+            description="Phase 7.5 redirect coverage.",
+            status="published",
+        )
+        black = Color.objects.create(name="Чорний", primary_hex="#000000")
+        cls.variant_black = ProductColorVariant.objects.create(
+            product=cls.product, color=black, order=0, is_default=True
+        )
+        ProductFitOption.objects.create(
+            product=cls.product,
+            code="oversize",
+            label="Оверсайз",
+            is_active=True,
+            order=1,
+        )
+
+    def test_query_color_redirects_to_path(self):
+        base = reverse("product", kwargs={"slug": self.product.slug})
+
+        response = self.client.get(f"{base}?color={self.variant_black.pk}")
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(
+            response["Location"],
+            reverse("product", kwargs={"slug": self.product.slug, "v1": "black"}),
+        )
+
+    def test_query_color_plus_size_redirects_with_canonical_order(self):
+        """Canonical order is color → size → fit."""
+        base = reverse("product", kwargs={"slug": self.product.slug})
+
+        response = self.client.get(f"{base}?size=M&color={self.variant_black.pk}")
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(
+            response["Location"],
+            reverse(
+                "product",
+                kwargs={"slug": self.product.slug, "v1": "black", "v2": "m"},
+            ),
+        )
+
+    def test_query_all_three_redirects_to_three_segment_path(self):
+        base = reverse("product", kwargs={"slug": self.product.slug})
+
+        response = self.client.get(
+            f"{base}?size=L&color={self.variant_black.pk}&fit=oversize"
+        )
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(
+            response["Location"],
+            reverse(
+                "product",
+                kwargs={
+                    "slug": self.product.slug,
+                    "v1": "black",
+                    "v2": "l",
+                    "v3": "oversize",
+                },
+            ),
+        )
+
+    def test_utm_and_ad_click_params_are_preserved_on_redirect(self):
+        """Campaign tracking must survive the 301 — stripping utm_* on
+        a canonical redirect would break analytics attribution.
+        """
+        base = reverse("product", kwargs={"slug": self.product.slug})
+
+        response = self.client.get(
+            f"{base}?color={self.variant_black.pk}&utm_source=google&utm_medium=cpc&gclid=abc123"
+        )
+
+        self.assertEqual(response.status_code, 301)
+        target_path = reverse(
+            "product", kwargs={"slug": self.product.slug, "v1": "black"}
+        )
+        self.assertTrue(response["Location"].startswith(target_path + "?"))
+        self.assertIn("utm_source=google", response["Location"])
+        self.assertIn("utm_medium=cpc", response["Location"])
+        self.assertIn("gclid=abc123", response["Location"])
+
+    def test_invalid_query_does_not_redirect(self):
+        """Unknown color id / unknown size must NOT trigger a redirect —
+        we fall back to rendering the base page so users don't hit a
+        redirect loop on junk URLs.
+        """
+        base = reverse("product", kwargs={"slug": self.product.slug})
+
+        response = self.client.get(f"{base}?color=99999&size=XXXXXL")
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_path_url_is_not_redirected(self):
+        """When the request already arrives at a path-style URL we
+        never issue a second redirect, even if stale query params are
+        sitting on top of the path.
+        """
+        url = reverse("product", kwargs={"slug": self.product.slug, "v1": "black"})
+
+        response = self.client.get(f"{url}?color={self.variant_black.pk}")
+
+        self.assertEqual(response.status_code, 200)
