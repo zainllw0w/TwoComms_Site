@@ -396,10 +396,11 @@ def custom_sitemap(request):
     """sitemap.xml — sitemap-INDEX referencing per-section children.
 
     Children:
-        - /sitemap-static.xml      (curated static pages)
-        - /sitemap-products.xml    (every published product, lastmod from updated_at)
-        - /sitemap-categories.xml  (every active category, lastmod from updated_at)
-        - /sitemap-images.xml      (Google Image Sitemap with main_image per product)
+        - /sitemap-static.xml           (curated static pages)
+        - /sitemap-products.xml         (every published product, lastmod from updated_at)
+        - /sitemap-product-variants.xml (Phase 7.4 — 1-segment variant URLs)
+        - /sitemap-categories.xml       (every active category, lastmod from updated_at)
+        - /sitemap-images.xml           (Google Image Sitemap with main_image per product)
 
     Backwards-compatible: same URL `/sitemap.xml`, still cacheable, still
     cookie-free. Search Console auto-detects index format.
@@ -425,10 +426,14 @@ def custom_sitemap(request):
         .values_list("updated_at", flat=True)
         .first()
     )
+    # Phase 7.4 — variant pages inherit their lastmod from the parent
+    # product's ``updated_at``, so reusing ``product_lastmod`` here is
+    # correct (a new variant implies a product save).
 
     children = [
         ("/sitemap-static.xml", None),
         ("/sitemap-products.xml", product_lastmod),
+        ("/sitemap-product-variants.xml", product_lastmod),
         ("/sitemap-categories.xml", category_lastmod),
         ("/sitemap-images.xml", images_lastmod),
     ]
@@ -459,6 +464,19 @@ def sitemap_section_products(request):
     from storefront.sitemaps import ProductSitemap
 
     return _render_django_sitemap(request, [ProductSitemap])
+
+
+def sitemap_section_product_variants(request):
+    """Phase 7.4 — section sitemap for 1-segment path-style variant URLs
+    (``/product/<slug>/<color>/``, ``/<size>/``, ``/<fit>/``).
+
+    Multi-segment combos are deliberately omitted: per Phase 7.3 they
+    canonicalise to the base product URL, so listing them would only
+    waste crawl budget.
+    """
+    from storefront.sitemaps import ProductVariantSitemap
+
+    return _render_django_sitemap(request, [ProductVariantSitemap])
 
 
 def sitemap_section_categories(request):

@@ -17,6 +17,7 @@ urlpatterns = [
     # Phase 4 — sitemap-index children. /sitemap.xml is the index that points here.
     path('sitemap-static.xml', storefront_views.sitemap_section_static, name='sitemap_static'),
     path('sitemap-products.xml', storefront_views.sitemap_section_products, name='sitemap_products'),
+    path('sitemap-product-variants.xml', storefront_views.sitemap_section_product_variants, name='sitemap_product_variants'),
     path('sitemap-categories.xml', storefront_views.sitemap_section_categories, name='sitemap_categories'),
     path('sitemap-images.xml', storefront_views.sitemap_images, name='sitemap_images'),
     path("favicon.ico", RedirectView.as_view(

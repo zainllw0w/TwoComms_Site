@@ -344,3 +344,95 @@ class VariantCanonicalAndMetaTests(TestCase):
             f'<link rel="canonical"\n    href="https://twocomms.shop{url}"',
             html=False,
         )
+
+
+class ProductVariantSitemapTests(TestCase):
+    """Phase 7.4 — ``sitemap-product-variants.xml`` emits only the
+    1-segment variant URLs (canonical per Phase 7.3) and shows up in
+    the sitemap-index.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(
+            name="Футболки 7.4", slug="phase74-tshirts", is_active=True
+        )
+        cls.product = Product.objects.create(
+            title="Тестова футболка 7.4",
+            slug="phase74-tshirt",
+            category=cls.category,
+            price=1000,
+            description="Phase 7.4 sitemap coverage.",
+            status="published",
+        )
+        black = Color.objects.create(name="Чорний", primary_hex="#000000")
+        cls.variant_black = ProductColorVariant.objects.create(
+            product=cls.product, color=black, order=0, is_default=True
+        )
+        ProductFitOption.objects.create(
+            product=cls.product,
+            code="oversize",
+            label="Оверсайз",
+            is_active=True,
+            order=1,
+        )
+
+    def test_sitemap_index_references_variant_section(self):
+        response = self.client.get(
+            "/sitemap.xml",
+            HTTP_HOST="twocomms.shop",
+            secure=True,
+            **{"wsgi.url_scheme": "https"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "<loc>https://twocomms.shop/sitemap-product-variants.xml</loc>",
+            html=False,
+        )
+
+    def test_variant_sitemap_emits_color_and_fit_single_segment_urls(self):
+        response = self.client.get(
+            "/sitemap-product-variants.xml",
+            HTTP_HOST="twocomms.shop",
+            secure=True,
+            **{"wsgi.url_scheme": "https"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+
+        # Each 1-segment URL should appear exactly once per product.
+        self.assertIn(
+            f"https://twocomms.shop/product/{self.product.slug}/black/",
+            body,
+        )
+        self.assertIn(
+            f"https://twocomms.shop/product/{self.product.slug}/oversize/",
+            body,
+        )
+
+    def test_variant_sitemap_omits_multi_segment_combos(self):
+        """Two-segment URLs (color+size, color+fit, …) canonicalise to
+        the base in Phase 7.3, so they must NOT appear in the sitemap.
+        """
+        response = self.client.get(
+            "/sitemap-product-variants.xml",
+            HTTP_HOST="twocomms.shop",
+            secure=True,
+            **{"wsgi.url_scheme": "https"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+
+        # Sanity check: no black+oversize combined path.
+        self.assertNotIn(
+            f"/product/{self.product.slug}/black/oversize/",
+            body,
+        )
+        self.assertNotIn(
+            f"/product/{self.product.slug}/black/m/",
+            body,
+        )
