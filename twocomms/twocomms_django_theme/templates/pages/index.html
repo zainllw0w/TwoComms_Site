@@ -29,6 +29,7 @@
 {% block extra_css %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'css/home.css' %}">
+  <link rel="stylesheet" href="{% static 'css/color-filter.css' %}">
 {% endblock %}
 
 {% block structured_data %}
@@ -419,6 +420,35 @@
   </div>
 </section>
 {% endcache %}
+
+{% if home_color_chips %}
+<section class="home-color-filter mb-4 mb-md-5 reveal" aria-label="Перейти до каталогу за кольором">
+  <div class="home-color-filter__head">
+    <h2 class="home-color-filter__title">Обери за кольором</h2>
+    <a class="home-color-filter__link" href="{% url 'catalog' %}">
+      Усі кольори
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+    </a>
+  </div>
+  <ul class="color-filter-chips__list home-color-filter__list" role="list">
+    {% for chip in home_color_chips %}
+    <li class="color-filter-chips__item">
+      <a class="color-filter-chip"
+         href="{{ chip.url }}"
+         data-color-slug="{{ chip.slug }}"
+         title="{{ chip.label }} ({{ chip.count }})">
+        <span class="color-filter-chip__swatch"
+              style="--c1: {{ chip.primary_hex|default:'#666' }}; --c2: {{ chip.secondary_hex|default:chip.primary_hex|default:'#666' }};"
+              aria-hidden="true"></span>
+        <span class="color-filter-chip__label">{{ chip.label }}</span>
+        <span class="color-filter-chip__count" aria-hidden="true">{{ chip.count }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <section class="mb-4 mb-md-5 reveal" id="new-products-section">
   <div class="d-flex justify-content-between align-items-end mb-3">
     <h2 class="h5 mb-0">Новинки</h2>

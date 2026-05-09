@@ -40,6 +40,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 import json
+import os
 
 from orders.nova_poshta_documents import (
     build_order_payment_snapshot,
@@ -880,6 +881,9 @@ def admin_panel(request):
         context.update(_build_dispatcher_context(request))
     elif section == 'push_notifications':
         context.update(_build_push_notifications_context(request))
+    elif section == 'seo':
+        from storefront.services.seo_dashboard import build_seo_dashboard_context
+        context.update(build_seo_dashboard_context())
 
     html_content = render_to_string('pages/admin_panel.html', context, request=request)
     response = HttpResponse(html_content)
@@ -1945,6 +1949,108 @@ def admin_indexnow_submit(request):
                 else f'IndexNow повернув помилку для {len(urls)} URL(-ів). Деталі — у логах.'
             ),
         }
+    )
+
+
+@staff_member_required
+def admin_seo_ai_generate(request):
+    """Phase 11 — AJAX endpoint: regenerate AI keywords/description for one
+    Product or Category from the SEO admin section.
+
+    POST JSON body:
+        {"target": "product"|"category", "id": <int>}
+
+    Calls the existing ``generate_ai_content_for_*_task`` *body* directly
+    (sync) because the production host has no Celery worker. Returns the
+    refreshed object snapshot so the dashboard can update without a full
+    page reload.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+
+    target = (payload.get('target') or '').strip().lower()
+    try:
+        obj_id = int(payload.get('id'))
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid id'}, status=400)
+
+    api_key = getattr(settings, 'OPENAI_API_KEY', None) or os.environ.get('OPENAI_API_KEY')
+    if not api_key:
+        return JsonResponse(
+            {'success': False, 'error': 'OPENAI_API_KEY не задано на сервері.'},
+            status=503,
+        )
+    if not (getattr(settings, 'USE_AI_KEYWORDS', False) or
+            getattr(settings, 'USE_AI_DESCRIPTIONS', False)):
+        return JsonResponse(
+            {
+                'success': False,
+                'error': 'AI вимкнено: USE_AI_KEYWORDS і USE_AI_DESCRIPTIONS = False.',
+            },
+            status=503,
+        )
+
+    from storefront.tasks import (
+        generate_ai_content_for_category_task,
+        generate_ai_content_for_product_task,
+    )
+    from ..models import Category as _Category
+
+    if target == 'product':
+        obj = Product.objects.filter(pk=obj_id).first()
+        if not obj:
+            return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
+        if not obj.ai_generation_enabled:
+            return JsonResponse(
+                {'success': False, 'error': 'AI вимкнено для цього товару.'},
+                status=400,
+            )
+        # Underlying function — runs sync (no Celery on prod, see Phase 2).
+        try:
+            generate_ai_content_for_product_task(obj.id)
+        except Exception as exc:  # pragma: no cover - defensive
+            return JsonResponse({'success': False, 'error': str(exc)[:300]}, status=500)
+        obj.refresh_from_db()
+        return JsonResponse({
+            'success': True,
+            'target': 'product',
+            'id': obj.id,
+            'ai_content_generated': bool(obj.ai_content_generated),
+            'ai_keywords': (obj.ai_keywords or '')[:160],
+            'ai_description': (obj.ai_description or '')[:300],
+        })
+
+    if target == 'category':
+        obj = _Category.objects.filter(pk=obj_id).first()
+        if not obj:
+            return JsonResponse({'success': False, 'error': 'Category not found'}, status=404)
+        if not obj.ai_generation_enabled:
+            return JsonResponse(
+                {'success': False, 'error': 'AI вимкнено для цієї категорії.'},
+                status=400,
+            )
+        try:
+            generate_ai_content_for_category_task(obj.id)
+        except Exception as exc:  # pragma: no cover - defensive
+            return JsonResponse({'success': False, 'error': str(exc)[:300]}, status=500)
+        obj.refresh_from_db()
+        return JsonResponse({
+            'success': True,
+            'target': 'category',
+            'id': obj.id,
+            'ai_content_generated': bool(obj.ai_content_generated),
+            'ai_keywords': (obj.ai_keywords or '')[:160],
+            'ai_description': (obj.ai_description or '')[:300],
+        })
+
+    return JsonResponse(
+        {'success': False, 'error': 'Unknown target (use product|category)'},
+        status=400,
     )
 
 

@@ -16,6 +16,27 @@ class Category(models.Model):
     cover = models.ImageField(upload_to='category_covers/', blank=True, null=True)
     order = models.PositiveIntegerField(default=0)
     description = models.TextField(blank=True, null=True)
+    # Phase 10 — H2 over the long SEO text. Empty → use category.name.
+    seo_text_title = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='SEO-заголовок над описом',
+        help_text='H2 над довгим SEO-текстом категорії. Якщо порожньо — використовується назва категорії.',
+    )
+    # Phase 10b — short HTML intro shown ABOVE the products grid, with
+    # an optional "Розгорнути" collapsible. Mirrors the pattern from
+    # AAC.com.ua / retromagaz where the H1 is followed by 1–3 sentences
+    # of high-frequency keywords + a collapsed "what is X?" block.
+    seo_intro_html = models.TextField(
+        blank=True,
+        verbose_name='SEO-інтро над сіткою товарів',
+        help_text=(
+            'Короткий HTML-блок під H1 (1–3 речення з основними ключами + '
+            'опційно <details>...</details> або <div data-seo-collapsible> '
+            'для розгортуваного блоку). Не показується на /catalog/ без '
+            'фільтру категорії.'
+        ),
+    )
     is_active = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
     # AI-generated content fields
@@ -1895,3 +1916,92 @@ class PushNotificationDelivery(models.Model):
 
     def __str__(self):
         return f"Delivery #{self.pk} for campaign #{self.campaign_id}"
+
+
+# ===== Phase 10 — SEO blocks for category pages =====
+#
+# Структурированные блоки на странице категории (по образцу retromagaz/aac):
+# top_filters / top_queries / top_cards / top_menu / best_prices.
+# Длинный SEO-текст хранится в Category.description (уже существует);
+# H2-заголовок над ним — в Category.seo_text_title (Phase 10 добавляет).
+
+class CategorySeoBlock(models.Model):
+    """Один блок (рейка) на странице категории."""
+
+    BLOCK_TYPES = (
+        ("top_filters", "Топ фільтри"),
+        ("top_queries", "Топ запити"),
+        ("top_cards", "Топ карточки"),
+        ("top_menu", "Розділи категорії"),
+        ("best_prices", "Найкращі ціни"),
+    )
+
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        related_name="seo_blocks",
+        verbose_name="Категорія",
+    )
+    block_type = models.CharField(
+        max_length=20,
+        choices=BLOCK_TYPES,
+        verbose_name="Тип блоку",
+    )
+    title = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Заголовок (H2 / H3)",
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Активний")
+    order = models.PositiveIntegerField(default=0, verbose_name="Порядок")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+        verbose_name = "SEO-блок категорії"
+        verbose_name_plural = "SEO-блоки категорій"
+        indexes = [
+            models.Index(fields=["category", "is_active", "order"],
+                         name="idx_seoblock_cat_act_order"),
+            models.Index(fields=["block_type"], name="idx_seoblock_type"),
+        ]
+
+    def __str__(self):
+        return f"{self.category.name} · {self.get_block_type_display()}"
+
+
+class CategorySeoBlockItem(models.Model):
+    """Один элемент внутри SEO-блока: chip / ссылка / закреплённая карточка."""
+
+    block = models.ForeignKey(
+        CategorySeoBlock,
+        on_delete=models.CASCADE,
+        related_name="items",
+        verbose_name="Блок",
+    )
+    label = models.CharField(max_length=200, verbose_name="Текст")
+    url = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name="URL (відносний або абсолютний)",
+        help_text="Може бути порожнім для top_cards — тоді використовується extra.product_id.",
+    )
+    extra = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Додаткові дані",
+        help_text="Наприклад {'product_id': 42} для top_cards або {'price': 599} для best_prices.",
+    )
+    order = models.PositiveIntegerField(default=0, verbose_name="Порядок")
+
+    class Meta:
+        ordering = ["order", "id"]
+        verbose_name = "Елемент SEO-блоку"
+        verbose_name_plural = "Елементи SEO-блоків"
+        indexes = [
+            models.Index(fields=["block", "order"], name="idx_seoblock_item_order"),
+        ]
+
+    def __str__(self):
+        return f"{self.block_id} · {self.label}"

@@ -1,0 +1,34 @@
+{% comment %}
+  Phase 9 — colour filter chip strip.
+
+  Inputs (provided by catalog/search views):
+    available_colors           — list of dicts {slug, label, primary_hex,
+                                  secondary_hex, count, is_selected, url}
+    has_active_color_filter    — bool, controls visibility of "Reset" link
+    color_filter_reset_url     — URL with ``color=`` dropped
+{% endcomment %}
+{% if available_colors %}
+<nav class="color-filter-chips" aria-label="Фільтр за кольором">
+  <span class="color-filter-chips__label">Колір:</span>
+  <ul class="color-filter-chips__list" role="list">
+    {% for chip in available_colors %}
+    <li class="color-filter-chips__item">
+      <a class="color-filter-chip{% if chip.is_selected %} is-selected{% endif %}"
+         href="{{ chip.url }}"
+         data-color-slug="{{ chip.slug }}"
+         aria-pressed="{% if chip.is_selected %}true{% else %}false{% endif %}"
+         title="{{ chip.label }} ({{ chip.count }})">
+        <span class="color-filter-chip__swatch"
+              style="--c1: {{ chip.primary_hex|default:'#666' }}; --c2: {{ chip.secondary_hex|default:chip.primary_hex|default:'#666' }};"
+              aria-hidden="true"></span>
+        <span class="color-filter-chip__label">{{ chip.label }}</span>
+        <span class="color-filter-chip__count" aria-hidden="true">{{ chip.count }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if has_active_color_filter %}
+  <a class="color-filter-chips__reset" href="{{ color_filter_reset_url }}" rel="nofollow">Скинути</a>
+  {% endif %}
+</nav>
+{% endif %}

@@ -1,0 +1,117 @@
+/* ===== Phase 9 — Colour filter chips =====
+   Shared by /catalog/, search results, and the homepage chip strip.
+*/
+.color-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0.75rem 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+}
+.color-filter-chips__label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 0.02em;
+}
+.color-filter-chips__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.color-filter-chips__item { margin: 0; }
+.color-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.32rem 0.7rem 0.32rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.85rem;
+  text-decoration: none;
+  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.color-filter-chip:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.color-filter-chip.is-selected {
+  background: linear-gradient(135deg, rgba(120, 200, 140, 0.22), rgba(80, 160, 100, 0.18));
+  border-color: rgba(140, 220, 160, 0.55);
+  color: #fff;
+}
+.color-filter-chip.is-selected::after {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 0.15rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 2px rgba(140, 220, 160, 0.4);
+}
+.color-filter-chip__swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: linear-gradient(135deg, var(--c1, #666) 0 50%, var(--c2, var(--c1, #666)) 50% 100%);
+  flex: 0 0 auto;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.color-filter-chip__count {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+  margin-left: 0.1rem;
+}
+.color-filter-chips__reset {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.65);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  margin-left: auto;
+}
+.color-filter-chips__reset:hover { color: #fff; }
+
+/* Homepage variant — labelled block above the products grid. */
+.home-color-filter {
+  padding: 1rem 1.1rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.home-color-filter__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+.home-color-filter__title {
+  font-size: 1rem;
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.home-color-filter__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration: none;
+}
+.home-color-filter__link:hover { color: #fff; }
+.home-color-filter__list { margin: 0; }

@@ -1,0 +1,233 @@
+/* ===== Phase 10 / 10b — Category SEO blocks =====
+   Glass / neon aesthetic to match the rest of the site. Layout mirrors
+   AAC.com.ua / retromagaz: short intro above grid (with optional
+   collapsible), pricing table + tabbed link blocks below, long-form SEO
+   text at the very bottom (rendered by ``.catalog-description-panel``).
+*/
+
+/* ---------- Above-grid intro (Phase 10b) ---------- */
+.catalog-category-intro { margin-top: 1.25rem; }
+.catalog-intro-panel {
+  padding: 1.1rem 1.25rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(6px);
+  color: rgba(235, 240, 245, 0.9);
+  line-height: 1.55;
+}
+.catalog-intro-panel h2,
+.catalog-intro-panel h3 {
+  margin: 0.4rem 0 0.5rem;
+  color: rgba(255, 255, 255, 0.95);
+}
+.catalog-intro-panel h2 { font-size: 1.15rem; font-weight: 700; }
+.catalog-intro-panel h3 { font-size: 1rem; font-weight: 600; }
+.catalog-intro-panel p {
+  margin: 0 0 0.6rem;
+  font-size: 0.94rem;
+}
+.catalog-intro-panel a {
+  color: rgba(140, 200, 255, 0.95);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.catalog-intro-panel a:hover { color: #b9e8ff; }
+
+/* Optional ``<details>`` for collapsible "Що таке X?" block. */
+.catalog-intro-panel details {
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.catalog-intro-panel details > summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+  color: rgba(255, 200, 80, 0.95);
+  padding: 0.2rem 0;
+}
+.catalog-intro-panel details > summary::-webkit-details-marker { display: none; }
+.catalog-intro-panel details > summary::after {
+  content: " ▾";
+  color: rgba(255, 200, 80, 0.7);
+  transition: transform 0.18s ease;
+  display: inline-block;
+}
+.catalog-intro-panel details[open] > summary::after { transform: rotate(180deg); }
+.catalog-intro-panel details > *:not(summary) { margin-top: 0.45rem; }
+
+/* ---------- Container for the SEO blocks (below products) ---------- */
+.catalog-category-seo-blocks {
+  margin-top: 2rem;
+}
+.category-seo-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ---------- Pricing table ("Найкращі ціни") ---------- */
+.seo-pricing {
+  padding: 1.1rem 1.25rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(6px);
+}
+.seo-pricing__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+}
+.seo-pricing__table-wrap {
+  overflow-x: auto;
+}
+.seo-pricing__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.seo-pricing__table th,
+.seo-pricing__table td {
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  text-align: left;
+  vertical-align: middle;
+}
+.seo-pricing__table thead th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.6);
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+.seo-pricing__th-price,
+.seo-pricing__td-price {
+  text-align: right;
+  white-space: nowrap;
+  width: 1%;
+}
+.seo-pricing__td-price { font-weight: 600; color: rgba(140, 220, 160, 0.95); }
+.seo-pricing__link {
+  color: rgba(140, 200, 255, 0.92);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.seo-pricing__link:hover { color: #b9e8ff; }
+
+/* ---------- Tabs (top_menu / top_filters / top_queries / top_cards) ---------- */
+.seo-tabs {
+  padding: 1.1rem 1.25rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(6px);
+}
+.seo-tabs__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.seo-tab {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+.seo-tab:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #fff;
+}
+.seo-tab.is-active {
+  background: linear-gradient(135deg, rgba(255, 126, 41, 0.85), rgba(255, 90, 50, 0.85));
+  border-color: rgba(255, 126, 41, 0.7);
+  color: #fff;
+  box-shadow: 0 6px 22px rgba(255, 126, 41, 0.28);
+}
+.seo-tab.is-active:hover {
+  background: linear-gradient(135deg, rgba(255, 140, 60, 0.95), rgba(255, 100, 60, 0.95));
+}
+
+.seo-tab-panel { display: none; }
+.seo-tab-panel.is-active { display: block; }
+
+.seo-tab-panel__links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.seo-tab-panel__links--columns {
+  /* Multi-column layout matches the AAC screenshot (4-up on desktop). */
+  columns: 1;
+  column-gap: 1.5rem;
+}
+.seo-tab-panel__links--columns li {
+  break-inside: avoid;
+  padding: 0.18rem 0;
+}
+@media (min-width: 600px) {
+  .seo-tab-panel__links--columns { columns: 2; }
+}
+@media (min-width: 900px) {
+  .seo-tab-panel__links--columns { columns: 3; }
+}
+@media (min-width: 1200px) {
+  .seo-tab-panel__links--columns { columns: 4; }
+}
+.seo-tab-link {
+  display: inline;
+  color: rgba(140, 200, 255, 0.92);
+  text-decoration: none;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  border-bottom: 1px dashed transparent;
+  transition: color 0.18s ease, border-bottom-color 0.18s ease;
+}
+.seo-tab-link:hover {
+  color: #b9e8ff;
+  border-bottom-color: rgba(140, 200, 255, 0.5);
+}
+.seo-tab-link--card {
+  display: block;
+  padding: 0.5rem 0.7rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.seo-tab-panel__cards { margin-top: 0.4rem; }
+
+/* ---------- Long-form SEO text (.catalog-description-panel) overrides ---------- */
+.catalog-description-panel h2,
+.catalog-description-panel h3 {
+  color: rgba(255, 255, 255, 0.95);
+  margin-top: 1.2rem;
+  margin-bottom: 0.55rem;
+}
+.catalog-description-panel h2 { font-size: 1.15rem; font-weight: 700; }
+.catalog-description-panel h3 { font-size: 1rem;   font-weight: 600; }
+.catalog-description-panel p  { margin: 0 0 0.7rem; line-height: 1.6; }
+.catalog-description-panel a  {
+  color: rgba(140, 200, 255, 0.95);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.catalog-description-panel a:hover { color: #b9e8ff; }
+.catalog-description-panel ul,
+.catalog-description-panel ol { padding-left: 1.25rem; margin: 0 0 0.7rem; }

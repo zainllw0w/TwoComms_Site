@@ -1,6 +1,8 @@
 from django.contrib import admin, messages
 from .models import (
     Category,
+    CategorySeoBlock,
+    CategorySeoBlockItem,
     CustomPrintLead,
     CustomPrintLeadAttachment,
     PrintProposal,
@@ -76,7 +78,7 @@ class CategoryAdmin(admin.ModelAdmin):
     actions = (submit_categories_to_indexnow,)
     fieldsets = (
         ('Основне', {
-            'fields': ('name', 'slug', 'description', 'order', 'is_active', 'is_featured', 'icon', 'cover'),
+            'fields': ('name', 'slug', 'description', 'seo_text_title', 'seo_intro_html', 'order', 'is_active', 'is_featured', 'icon', 'cover'),
         }),
         ('AI-генерація SEO', {
             'fields': ('ai_generation_enabled', 'ai_keywords', 'ai_description', 'ai_content_generated'),
@@ -243,3 +245,27 @@ class PushNotificationCampaignAdmin(admin.ModelAdmin):
         'failed_count',
     )
     inlines = [PushNotificationDeliveryInline]
+
+
+# ===== Phase 10 — Category SEO blocks =====
+
+class CategorySeoBlockItemInline(admin.TabularInline):
+    model = CategorySeoBlockItem
+    extra = 1
+    fields = ('order', 'label', 'url', 'extra')
+    ordering = ('order', 'id')
+
+
+@admin.register(CategorySeoBlock)
+class CategorySeoBlockAdmin(admin.ModelAdmin):
+    list_display = ('category', 'block_type', 'title', 'is_active', 'order', 'updated_at')
+    list_filter = ('block_type', 'is_active', 'category')
+    search_fields = ('title', 'category__name', 'category__slug')
+    list_editable = ('is_active', 'order')
+    ordering = ('category', 'order', 'id')
+    inlines = [CategorySeoBlockItemInline]
+    fieldsets = (
+        ('Основне', {
+            'fields': ('category', 'block_type', 'title', 'is_active', 'order'),
+        }),
+    )

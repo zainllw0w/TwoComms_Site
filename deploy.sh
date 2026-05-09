@@ -46,6 +46,9 @@ sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${S
     echo "   🔎 Проверяем конфигурацию Django..."
     SECRET_KEY="${SECRET_KEY:-placeholder-deploy-secret}" python manage.py check --deploy
 
+    echo "   🗃️  Применяем миграции БД..."
+    python manage.py migrate --noinput
+
     echo "   🧩 Генерируем offline-compress бандлы..."
     python manage.py compress --force
 

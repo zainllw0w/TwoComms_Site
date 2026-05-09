@@ -587,6 +587,12 @@
           </svg>
           Диспетчер
         </a>
+        <a href="?section=seo" class="admin-nav-item {% if section == 'seo' %}active{% endif %}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M11 2a9 9 0 0 1 6.32 15.39l4.14 4.14-1.42 1.42-4.14-4.14A9 9 0 1 1 11 2zm0 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm-1 3h2v3h3v2h-3v3h-2v-3H7V10h3V7z"/>
+          </svg>
+          SEO
+        </a>
     </div>
   </div>
   </div>
@@ -2558,7 +2564,10 @@
 
     {% elif section == 'collaboration' %}
       {% include "partials/admin_collaboration_section.html" %}
-    
+
+    {% elif section == 'seo' %}
+      {% include "partials/admin_seo_dashboard.html" %}
+
     {% elif section == 'collaboration_old' %}
       {# Общая статистика #}
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">

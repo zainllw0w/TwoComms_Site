@@ -1,0 +1,172 @@
+{% comment %}
+  Phase 10 / 10b — Structured SEO blocks for category pages.
+
+  Inputs:
+    category_seo_layout — dict from ``services.category_seo_blocks
+        .get_category_seo_layout``:
+          {
+            "tab_blocks":  [{"block": CategorySeoBlock, "items": [...]}],
+            "best_prices": {"block": ..., "items": [...]} | None,
+            "has_any":     bool,
+          }
+        ``tab_blocks`` are rendered in a single tabbed component (mirrors
+        AAC.com.ua / retromagaz). ``best_prices`` is rendered as a real
+        ``<table>`` because it has table semantics (label + price).
+
+  Backwards compat: ``category_seo_blocks`` (flat list, Phase 10) is still
+  supplied by the view but no longer used in this partial.
+{% endcomment %}
+{% if category_seo_layout.has_any %}
+<div class="category-seo-blocks" aria-label="SEO-блоки категорії">
+
+  {# ---- Best-prices pricing table (above tabs, like AAC) ---- #}
+  {% if category_seo_layout.best_prices %}
+  {% with bp=category_seo_layout.best_prices %}
+  <section class="seo-pricing" aria-label="{{ bp.block.title|default:'Найкращі ціни' }}">
+    {% if bp.block.title %}
+    <h2 class="seo-pricing__title">{{ bp.block.title|safe }}</h2>
+    {% endif %}
+    <div class="seo-pricing__table-wrap">
+      <table class="seo-pricing__table">
+        <thead>
+          <tr>
+            <th scope="col">{{ category.name }}</th>
+            <th scope="col" class="seo-pricing__th-price">Ціна</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in bp.items %}
+          <tr>
+            <td>
+              <a class="seo-pricing__link" href="{{ item.url|default:'#' }}">
+                {% if item.product %}{{ item.product.title }}{% else %}{{ item.label }}{% endif %}
+              </a>
+            </td>
+            <td class="seo-pricing__td-price">
+              {% if item.extra.price %}
+                {{ item.extra.price }} грн
+              {% elif item.product and item.product.final_price %}
+                {{ item.product.final_price }} грн
+              {% else %}
+                —
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endwith %}
+  {% endif %}
+
+  {# ---- Tabbed SEO blocks (top_menu / top_filters / top_queries / top_cards) ---- #}
+  {% if category_seo_layout.tab_blocks %}
+  <section class="seo-tabs" data-seo-tabs aria-label="SEO-розділи категорії">
+    <div class="seo-tabs__nav" role="tablist">
+      {% for entry in category_seo_layout.tab_blocks %}
+      {% with block=entry.block %}
+      <button type="button"
+              class="seo-tab{% if forloop.first %} is-active{% endif %}"
+              role="tab"
+              data-seo-tab-trigger="{{ block.block_type }}"
+              data-seo-tab-target="seo-tab-panel-{{ block.block_type }}"
+              aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+              aria-controls="seo-tab-panel-{{ block.block_type }}">
+        {{ block.title|default:block.get_block_type_display }}
+      </button>
+      {% endwith %}
+      {% endfor %}
+    </div>
+
+    <div class="seo-tabs__panels">
+      {% for entry in category_seo_layout.tab_blocks %}
+      {% with block=entry.block items=entry.items %}
+      <div class="seo-tab-panel{% if forloop.first %} is-active{% endif %}"
+           id="seo-tab-panel-{{ block.block_type }}"
+           role="tabpanel"
+           data-seo-tab-panel="{{ block.block_type }}"
+           {% if not forloop.first %}hidden{% endif %}>
+
+        {% if block.block_type == "top_filters" or block.block_type == "top_menu" %}
+          <ul class="seo-tab-panel__links seo-tab-panel__links--columns" role="list">
+            {% for item in items %}
+            <li>
+              <a class="seo-tab-link" href="{{ item.url|default:'#' }}">{{ item.label }}</a>
+            </li>
+            {% endfor %}
+          </ul>
+
+        {% elif block.block_type == "top_queries" %}
+          <ul class="seo-tab-panel__links seo-tab-panel__links--columns" role="list">
+            {% for item in items %}
+            <li>
+              <a class="seo-tab-link" href="{{ item.url|default:'#' }}">{{ item.label }}</a>
+            </li>
+            {% endfor %}
+          </ul>
+
+        {% elif block.block_type == "top_cards" %}
+          {# Curated product cards: each item references a Product via extra.product_id. #}
+          <div class="seo-tab-panel__cards row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4">
+            {% for item in items %}
+            {% if item.product %}
+            <div class="col">
+              {% include "partials/product_card.html" with p=item.product home_card=True %}
+            </div>
+            {% else %}
+            <div class="col">
+              <a class="seo-tab-link seo-tab-link--card" href="{{ item.url|default:'#' }}">{{ item.label }}</a>
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+
+        {% else %}
+          <ul class="seo-tab-panel__links seo-tab-panel__links--columns" role="list">
+            {% for item in items %}
+            <li>
+              <a class="seo-tab-link" href="{{ item.url|default:'#' }}">{{ item.label }}</a>
+            </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+      {% endwith %}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+</div>
+
+<script>
+  // Phase 10b — single-component tab switcher. Vanilla, idempotent
+  // (registers once per component via ``data-seo-tabs-bound``).
+  (function () {
+    const components = document.querySelectorAll('[data-seo-tabs]:not([data-seo-tabs-bound])');
+    components.forEach(function (root) {
+      root.setAttribute('data-seo-tabs-bound', '1');
+      const triggers = root.querySelectorAll('[data-seo-tab-trigger]');
+      const panels = root.querySelectorAll('[data-seo-tab-panel]');
+      triggers.forEach(function (trigger) {
+        trigger.addEventListener('click', function (event) {
+          event.preventDefault();
+          const targetType = trigger.getAttribute('data-seo-tab-trigger');
+          triggers.forEach(function (t) {
+            const isActive = t === trigger;
+            t.classList.toggle('is-active', isActive);
+            t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+          });
+          panels.forEach(function (panel) {
+            const matches = panel.getAttribute('data-seo-tab-panel') === targetType;
+            panel.classList.toggle('is-active', matches);
+            if (matches) panel.removeAttribute('hidden');
+            else panel.setAttribute('hidden', '');
+          });
+        });
+      });
+    });
+  })();
+</script>
+{% endif %}

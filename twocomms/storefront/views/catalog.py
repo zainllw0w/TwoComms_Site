@@ -27,6 +27,17 @@ from ..services.catalog_helpers import (
     get_public_category_version,
     get_public_product_order_version,
 )
+from ..services.category_seo_blocks import (
+    get_category_seo_blocks,
+    get_category_seo_layout,
+)
+from ..services.color_filter import (
+    apply_color_filter,
+    build_available_colors,
+    build_home_color_chips,
+    build_reset_url,
+    parse_color_filter,
+)
 from ..services.survey_engine import load_survey_definition
 from ..utm_tracking import record_search
 from cache_utils import get_fragment_cache
@@ -204,6 +215,16 @@ def home(request):
         'Пройти опитування',
     )
 
+    # Phase 9 — colour chips near the categories block. Each chip
+    # links to ``/catalog/?color=<slug>``; no filter is applied to
+    # the homepage itself.
+    home_color_chips = build_home_color_chips(
+        apply_public_product_order(
+            _product_cards_queryset().filter(status='published')
+        ),
+        reverse('catalog'),
+    )
+
     return render(
         request,
         'pages/index.html',
@@ -226,6 +247,7 @@ def home(request):
             'survey_has_active': survey_has_active,
             'public_product_order_version': public_product_order_version,
             'public_category_version': public_category_version,
+            'home_color_chips': home_color_chips,
         }
     )
 
@@ -317,7 +339,7 @@ def catalog(request, cat_slug=None):
 
     if cat_slug:
         category = get_object_or_404(Category, slug=cat_slug, is_active=True)
-        product_qs = apply_public_product_order(
+        base_product_qs = apply_public_product_order(
             _product_cards_queryset().filter(
                 category=category,
                 status='published',
@@ -326,10 +348,26 @@ def catalog(request, cat_slug=None):
         show_category_cards = False
     else:
         category = None
-        product_qs = apply_public_product_order(
+        base_product_qs = apply_public_product_order(
             _product_cards_queryset().filter(status='published')
         )
         show_category_cards = True
+
+    # Phase 9 — colour filter (?color=black,red). Build chips from the
+    # *unfiltered* queryset so users can always OR-in another colour.
+    selected_color_slugs = parse_color_filter(request)
+    available_colors = build_available_colors(
+        base_product_qs, request, selected_color_slugs
+    )
+    has_active_color_filter = bool(selected_color_slugs)
+    color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
+    product_qs = apply_color_filter(base_product_qs, selected_color_slugs)
+
+    # When a colour filter is active on the catalog root we hide the
+    # category showcase cards and surface the matching products list
+    # instead — otherwise the user would see no products at all.
+    if has_active_color_filter:
+        show_category_cards = False
 
     # Pagination
     paginator = Paginator(product_qs, PRODUCTS_PER_PAGE)
@@ -361,6 +399,19 @@ def catalog(request, cat_slug=None):
             'paginator': paginator,
             'public_product_order_version': public_product_order_version,
             'public_category_version': public_category_version,
+            'available_colors': available_colors,
+            'selected_color_slugs': selected_color_slugs,
+            'has_active_color_filter': has_active_color_filter,
+            'color_filter_reset_url': color_filter_reset_url,
+            # Phase 10 — structured SEO blocks shown after the products grid.
+            'category_seo_blocks': get_category_seo_blocks(category) if category else [],
+            # Phase 10b — split layout: tabs (top_menu/top_filters/top_queries/
+            # top_cards) vs. best_prices pricing table. Empty for /catalog/
+            # without a category filter.
+            'category_seo_layout': (
+                get_category_seo_layout(category) if category
+                else {'tab_blocks': [], 'best_prices': None, 'has_any': False}
+            ),
         }
     )
 
@@ -412,7 +463,17 @@ def search(request):
         public_product_order_version = get_public_product_order_version(fragment_cache)
         public_category_version = get_public_category_version(fragment_cache)
 
-        product_list = list(apply_public_product_order(product_qs))
+        # Phase 9 — colour filter on search results.
+        base_search_qs = apply_public_product_order(product_qs)
+        selected_color_slugs = parse_color_filter(request)
+        available_colors = build_available_colors(
+            base_search_qs, request, selected_color_slugs
+        )
+        has_active_color_filter = bool(selected_color_slugs)
+        color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
+        filtered_search_qs = apply_color_filter(base_search_qs, selected_color_slugs)
+
+        product_list = list(filtered_search_qs)
         color_previews = build_color_preview_map(product_list)
 
         for product in product_list:
@@ -433,6 +494,10 @@ def search(request):
                 'is_search_page': True,
                 'public_product_order_version': public_product_order_version,
                 'public_category_version': public_category_version,
+                'available_colors': available_colors,
+                'selected_color_slugs': selected_color_slugs,
+                'has_active_color_filter': has_active_color_filter,
+                'color_filter_reset_url': color_filter_reset_url,
             }
         )
     except Exception as e:

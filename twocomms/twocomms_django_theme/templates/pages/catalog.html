@@ -11,6 +11,8 @@
 <link rel="preload" as="image" href="{% static 'img/catalog/catalog-hero.webp' %}" fetchpriority="high">
 <link rel="stylesheet" href="{% static 'css/home.css' %}">
 <link rel="stylesheet" href="{% static 'css/catalog-redesign.css' %}">
+<link rel="stylesheet" href="{% static 'css/color-filter.css' %}">
+<link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}">
 {% endblock %}
 
 {% block title %}{% if is_search_page %}Пошук{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
@@ -20,7 +22,7 @@
 {% block keywords %}{% if category %}{{ category.name|lower }}, {% endif %}стріт одяг, мілітарі одяг, футболки, худі,
 лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, каталог одягу{% endblock %}
 
-{% block robots %}{% if is_search_page %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
+{% block robots %}{% if is_search_page or has_active_color_filter %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 
 {% block canonical %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 {% block hreflang_uk %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
@@ -228,6 +230,7 @@
         </a>
         {% endfor %}
       </nav>
+      {% include "partials/color_filter_chips.html" %}
       {% endif %}
 
       {% if show_category_cards and catalog_showcase_cards %}
@@ -277,6 +280,17 @@
       {% endif %}
     </div>
   </section>
+
+  {% if category and category.seo_intro_html %}
+  {# Phase 10b — short intro under H1 with optional collapsible (mirrors AAC pattern). #}
+  <section class="catalog-category-intro" aria-label="Опис категорії">
+    <div class="catalog-redesign-container">
+      <div class="catalog-intro-panel">
+        {{ category.seo_intro_html|safe }}
+      </div>
+    </div>
+  </section>
+  {% endif %}
 
   {% if not show_category_cards %}
   <section class="catalog-products-section" aria-label="{% if is_search_page %}Результати пошуку{% else %}Товари категорії{% endif %}">
@@ -359,11 +373,19 @@
   </section>
   {% endif %}
 
+  {% if category and category_seo_layout.has_any %}
+  <section class="catalog-category-seo-blocks" aria-label="Додаткові розділи категорії">
+    <div class="catalog-redesign-container">
+      {% include "partials/category_seo_blocks.html" %}
+    </div>
+  </section>
+  {% endif %}
+
   {% if category and category.description %}
   <section class="catalog-category-description">
     <div class="catalog-redesign-container">
       <div class="catalog-description-panel">
-        <h2>{{ category.name }} — TwoComms</h2>
+        <h2>{{ category.seo_text_title|default:category.name }} — TwoComms</h2>
         <div>{{ category.description|safe }}</div>
       </div>
     </div>

@@ -595,13 +595,23 @@ path-формат.
 
 ### Чек-лист Phase 8
 
-- [ ] Endpoint `/api/product/<slug>/variant/` возвращает все нужные поля.
-- [ ] JS перехватывает клики по `<a data-variant-link>`.
-- [ ] pushState + popstate работают.
-- [ ] Все meta/og/canonical обновляются.
-- [ ] JSON-LD обновляется.
-- [ ] Lighthouse / без-JS проверка: страница отдаётся целиком и без AJAX.
-- [ ] Коммит + деплой.
+- [x] Клиент синхронизирует path-URL через `history.replaceState`
+      на изменение размера/цвета/кроя без перезагрузки
+      (`product-variant-history.js`, коммит `958efc91`).
+- [x] `document.title` и `<link rel=canonical>` обновляются по той
+      же стратегии Phase 7.3 (1-сегмент → self, 2+ → base).
+- [x] Шаблон карточки отдаёт `data-product-slug`,
+      `data-product-base-path`, `data-product-title-base` +
+      `data-variant-slug` на каждом swatch.
+- [x] Прогрессивное улучшение: ссылки `<a href>` остаются рабочими
+      без JS — клиент перехватывает клик и заменяет на pushState.
+- [x] Prod smoke: атрибуты доступны (`black`, `coyote`),
+      минифицированный JS отдаётся CDN.
+- [x] Коммит + деплой (`958efc91`, `def37265`).
+- [ ] Полный AJAX-эндпойнт `/api/product/<slug>/variant/`
+      (опциональное расширение: подмена цены/изображения/JSON-LD
+      без перехода). Не реализован — текущий path-вариант рендерит
+      сервер при прямом заходе, а клиент только синхронизирует URL.
 
 ---
 
@@ -611,6 +621,66 @@ path-формат.
 - URL: `/catalog/<cat>/?color=black,red`.
 - На карточке товара — мини-цветные точки (если есть варианты).
 - На главной странице рядом с категориями — chip фильтр по цветам.
+
+### Реализация (2026-05-09)
+
+**Backend.** `storefront/services/color_filter.py`:
+- `parse_color_filter(request)` — принимает и `?color=black,red`, и
+  повторённые `?color=black&color=red`; нормализует слаги
+  (`[a-z0-9-]+`), дедуплицирует, ограничивает 10 значениями.
+- `apply_color_filter(qs, slugs)` — `qs.filter(color_variants__slug__in=slugs).distinct()`,
+  то есть OR-match. Использует уникальный per-product `ProductColorVariant.slug`
+  (Phase 7.1) — ключ `black` стабильно соответствует одному «чорному» по всему каталогу.
+- `build_available_colors(base_qs, request, selected)` — агрегирует чипы по slug
+  с количеством товаров, наиболее частой парой hex и человеческим лейблом;
+  каждая чипа несёт `url`, тогглящий свой slug в `?color=` (другие GET-параметры
+  сохраняются, `page` сбрасывается).
+- `build_reset_url(request)` — путь без `color=`.
+- `build_home_color_chips(qs, target_path, limit=12)` — топ-12 цветов с прямыми
+  ссылками на `/catalog/?color=<slug>` для главной.
+
+**Views.** `storefront/views/catalog.py`:
+- `catalog()` строит `base_product_qs` ДО фильтра (для чипов), затем применяет
+  цвет; при активном фильтре скрывает showcase-cards на корневом `/catalog/`,
+  чтобы пользователь видел отфильтрованную сетку.
+- `search()` — те же шаги поверх результатов поиска.
+- `home()` строит `home_color_chips` через `build_home_color_chips`.
+- Кэш `cache_page_for_anon` уже включает querystring → `?color=` даёт собственный
+  ключ (см. `_build_anon_cache_key`).
+
+**Templates.**
+- `partials/color_filter_chips.html` — общий chip-strip с reset-ссылкой
+  (`rel="nofollow"`).
+- `pages/catalog.html` — включает партиал после `.catalog-filter-rail` и
+  возвращает `noindex, follow` для отфильтрованных URL (canonical при этом
+  ведёт на чистый путь — оставлен прежний блок `{% block canonical %}`).
+- `pages/index.html` — `home-color-filter` секция между блоком категорий и
+  «Новинки».
+- `static/css/color-filter.css` — единый стиль chip-strip + домашний вариант.
+
+**SEO.**
+- Robots: при любом `?color=` → `noindex, follow` (фильтрованные комбинации не
+  индексируем).
+- Canonical: всегда указывает на чистый путь (без `color=`); перенаправлений
+  нет — фильтр доступен напрямую.
+- Поиск (`is_search_page`) уже был `noindex` — поведение не изменилось.
+
+**Тесты.** `storefront/tests/test_phase9_color_filter.py` — 14 кейсов:
+парсинг (`comma`, `multi-param`, нормализация, дедуп), OR-фильтр,
+toggle-URL, reset-URL, домашние чипы; интеграционные — каталог
+(`?color=coyote` → правильные товары, `noindex`, скрытые showcase-cards),
+комбинированный `?color=black,coyote`, `?q=tee&color=coyote` в поиске,
+наличие чипов в `pages/catalog.html`, `home_color_chips` в контексте home.
+Команда: `python manage.py test storefront.tests.test_phase9_color_filter --settings=test_settings` → 14 passed. Регрессия: `storefront.tests.test_catalog` → 15 passed.
+
+**Файлы.**
+- `twocomms/storefront/services/color_filter.py` (new).
+- `twocomms/storefront/views/catalog.py` (catalog/search/home).
+- `twocomms/twocomms_django_theme/templates/partials/color_filter_chips.html` (new).
+- `twocomms/twocomms_django_theme/templates/pages/catalog.html` (chips + robots).
+- `twocomms/twocomms_django_theme/templates/pages/index.html` (home strip + CSS).
+- `twocomms/twocomms_django_theme/static/css/color-filter.css` (new).
+- `twocomms/storefront/tests/test_phase9_color_filter.py` (new).
 
 ---
 
@@ -672,6 +742,189 @@ class CategorySeoText(models.Model):
 Используем уже существующую glass/neon-эстетику сайта. Никаких новых CSS
 библиотек.
 
+### Реализация (2026-05-09)
+
+**Модели.** Прагматичная подгонка под существующую схему вместо буквального
+повторения трёх моделей из спека:
+
+- `Category.seo_text_title` — новый `CharField(blank=True)` для H2 над
+  длинным SEO-текстом. Если пусто — используется `category.name`.
+  Тело текста по-прежнему хранится в существующем `Category.description`
+  (rich-text как был, никаких миграций данных).
+- `CategorySeoBlock(category, block_type, title, is_active, order)` —
+  одна «рейка» на странице категории. `block_type` ∈ {`top_filters`,
+  `top_queries`, `top_cards`, `top_menu`, `best_prices`}. Индексы:
+  `(category, is_active, order)` + `(block_type)`.
+- `CategorySeoBlockItem(block, label, url, extra: JSONField, order)` —
+  элемент рейки. `extra` хранит, например, `{"product_id": 42}` для
+  `top_cards` или `{"price": 599}` для `best_prices`. Индекс
+  `(block, order)`.
+
+Миграция: `storefront/migrations/0051_phase10_category_seo_blocks.py`
+(+ 1 поле, + 2 модели, + 3 индекса).
+
+**Сервис.** `storefront/services/category_seo_blocks.py`:
+`get_category_seo_blocks(category)` загружает активные блоки с
+`prefetch_related('items')`, гидратирует `extra.product_id` живыми
+`Product`'ами (только `status='published'`), отбрасывает пустые
+блоки кроме `best_prices` (он может быть динамическим в будущем).
+
+**Views.** `catalog()` пробрасывает `category_seo_blocks` в контекст
+только для страниц с конкретной категорией; на корневом `/catalog/`
+передаётся пустой список. Поиск/главная блоки не получают.
+
+**Шаблоны.**
+- `partials/category_seo_blocks.html` — единый партиал с ветками по
+  `block_type`: `top_filters`/`top_menu` → chip-ссылки, `top_queries`
+  → текстовые ссылки, `top_cards` → используем существующий
+  `partials/product_card.html`, `best_prices` → строки `label / price`.
+- `pages/catalog.html` — секция `catalog-category-seo-blocks` между
+  гридом товаров и старым описанием категории. H2 описания теперь
+  использует `category.seo_text_title|default:category.name`.
+- `static/css/category-seo-blocks.css` — стиль рейок и chip-ссылок,
+  совместим с `color-filter.css` (тот же glass/neon).
+
+**Админка.** `CategoryAdmin` — добавлено поле `seo_text_title` в
+fieldset «Основне». `CategorySeoBlockAdmin` зарегистрирован с inline
+`CategorySeoBlockItemInline` (`extra=1`, ordering по `order, id`),
+`list_editable` для `is_active` и `order`, фильтры по типу/статусу/
+категории. Редактирование `extra` — через стандартный JSON-виджет
+Django (rich-text WYSIWYG отложен до Phase 11).
+
+**Тесты.** `storefront/tests/test_phase10_category_seo_blocks.py` —
+10 кейсов: возврат для `None`, пустого кэта, сортировка `order`,
+`is_active=False` отбрасывается, пустые блоки кроме `best_prices`
+скрываются, `top_cards` гидратирует только `published`-товары,
+изоляция per-category; интеграционные — `category_seo_blocks` в
+контексте `catalog_by_cat`, отсутствие на корневом `/catalog/`,
+`seo_text_title` → H2, fallback на `category.name`. Команда:
+`python manage.py test storefront.tests.test_phase10_category_seo_blocks --settings=test_settings` → 10 passed. Регрессия — `test_catalog` 15/15 + Phase 9 14/14.
+
+**Файлы.**
+- `twocomms/storefront/models.py` (Category.seo_text_title +
+  CategorySeoBlock + CategorySeoBlockItem).
+- `twocomms/storefront/migrations/0051_phase10_category_seo_blocks.py` (new).
+- `twocomms/storefront/services/category_seo_blocks.py` (new).
+- `twocomms/storefront/views/catalog.py` (catalog context).
+- `twocomms/storefront/admin.py` (CategoryAdmin + CategorySeoBlockAdmin).
+- `twocomms/twocomms_django_theme/templates/partials/category_seo_blocks.html` (new).
+- `twocomms/twocomms_django_theme/templates/pages/catalog.html` (section + H2).
+- `twocomms/twocomms_django_theme/static/css/category-seo-blocks.css` (new).
+- `twocomms/storefront/tests/test_phase10_category_seo_blocks.py` (new).
+
+**Отложено в Phase 11.**
+- WYSIWYG для `Category.description` (CKEditor / TinyMCE) — сейчас
+  Textarea + `|safe` рендер. Контент-менеджер пишет HTML вручную.
+- Автоматический `top_filters` (на основе самых популярных
+  `?color=`/`?size=`/`?fit=`-комбинаций) — пока ручное наполнение.
+
+### Доделка Phase 10b — табы / pricing-таблица / intro / seed (2026-05-09)
+
+После Phase 10 пользователь прислал референс с AAC.com.ua: блоки реализованы
+не вертикальными «рейками», а в виде **одного компонента-табов**
+(`ТОП меню / ТОП фільтри / ТОП запити / ТОП карточки`); pricing — настоящий
+`<table>`; над сеткой товаров — короткий intro с `<details>`-розворотом.
+Phase 10b догоняет паттерн.
+
+**Schema.**
+- `Category.seo_intro_html` — `TextField`, рендерится `|safe` над сеткой
+  товаров. Поддерживает `<details>/<summary>` для «Що таке X?»-блока.
+- Миграция `0052_phase10b_category_seo_intro.py`.
+
+**Service.** `services/category_seo_blocks.get_category_seo_layout(category)`
+возвращает `{tab_blocks, best_prices, has_any}`:
+- `tab_blocks` — блоки в каноническом порядке `TAB_BLOCK_TYPES =
+  (top_menu, top_filters, top_queries, top_cards)`, по одному на тип
+  (первый активный); пустые отброшены.
+- `best_prices` — отдельный блок (или `None`, если нет items), рендерится
+  как `<table>` независимо от табов.
+
+**View.** `views/catalog.py.catalog()` пробрасывает `category_seo_layout`
+в контекст; legacy `category_seo_blocks` остаётся для тестов/обратной
+совместимости.
+
+**Templates.**
+- `pages/catalog.html` — добавлена секция `.catalog-category-intro`
+  (между hero и products-grid), отображает `category.seo_intro_html|safe`.
+  Гейт SEO-блоков переключён на `category_seo_layout.has_any`.
+- `partials/category_seo_blocks.html` полностью переписан:
+  pricing-`<table>` сверху → tabs-component (`button[role=tab]` +
+  `div[role=tabpanel]`) с inline-JS-переключателем (idempotent
+  `data-seo-tabs-bound`), `top_cards` рендерится через `product_card.html`.
+
+**CSS.** `static/css/category-seo-blocks.css`:
+- `.catalog-intro-panel` (glass, кастомный `<details>` с
+  оранжевой стрелкой ▾, ротация при `[open]`).
+- `.seo-pricing__table` (sticky шапка, моноширинная цена справа,
+  `overflow-x:auto` для мобайла).
+- `.seo-tabs__nav` + `.seo-tab.is-active` — pill-кнопки, активная
+  заливается neon-orange-градиентом (`#ff7e29 → #ff5a32` + glow).
+- `.seo-tab-panel__links--columns` — `columns: 1/2/3/4` через
+  `@media`-брейкпоинты (mobile → desktop), как у AAC.
+- `.catalog-description-panel` — стилизованы `h2/h3/p/a/ul/ol` для
+  длинного SEO-текста снизу (без `|safe` html-bleed).
+
+**Admin.** `seo_intro_html` добавлен в `CategoryAdmin.fieldsets[0]`.
+
+**Seed (`0053_phase10b_seed_category_seo.py`).** Идемпотентная миграция
+заполняет SEO-копию для трёх живых категорий:
+- `hoodie` (Худі) / `tshirts` (Футболки) / `long-sleeve` (Лонгсліви).
+- `seo_intro_html` — короткий параграф с HF-ключами + `<details>` с
+  «Що таке X?»; внутренние ссылки на колор-фильтры и сестринские
+  категории.
+- `description` — длинная HTML-копия с H3-секциями (`Як обрати`, `Силуети`,
+  `Доставка та оплата`, `Чому TwoComms`), внутренней перелинковкой на
+  `/rozmirna-sitka/`, `/doglyad-za-odyagom/`, `/delivery/`, `/pro-brand/`.
+- `seo_text_title` — H2 над длинным текстом
+  (`«Худі TwoComms — патріотичний streetwear...»` и т.д.).
+- Tab-blocks: `top_menu` (5–6 ссылок), `top_filters` (9–10 цвет/размер/fit),
+  `top_queries` (14–16 LF/MF-фраз: «Купити худі ЗСУ», «Худі з тризубом»,
+  «Тактичне худі», «Худі oversize Україна», `Худі Київ/Львів`,
+  «Стрітвір худі» и т.д., каждая ссылается на осмысленный URL).
+- `best_prices` — динамически из реальных `Product.objects` (топ-8 по
+  `priority`, опубликованные); если категория пустая — блок не создаётся.
+- Идемпотентность: пропускает категорию, если у неё уже есть `description`,
+  и пропускает блоки, если для типа уже есть активный блок. Reverse —
+  no-op (не разрушает редакторский контент при rollback).
+
+**Tests.** `storefront/tests/test_phase10b_seo_layout.py` — 11 кейсов:
+- `get_category_seo_layout` — каноническая сортировка табов независимо
+  от `block.order`, `best_prices` отдельно от `tab_blocks`, отбрасывание
+  пустых, `None`-категория.
+- Catalog — intro-секция рендерится только при наличии `seo_intro_html`,
+  табы-компонент с тремя триггерами, pricing `<table>` с ценой+«грн»,
+  `category_seo_layout` в контексте.
+- Seed-смоук — функция `seed_seo_copy(apps, schema_editor)`
+  заполняет 3 категории; повторный запуск идемпотентен (не дублирует
+  блоки и не перезаписывает ручные правки).
+
+Tests Phase 10b → 11/11 passed; регрессия Phase 9+10+11+catalog → 61/61
+passed.
+
+**Файлы.**
+- `twocomms/storefront/models.py` (`Category.seo_intro_html`).
+- `twocomms/storefront/migrations/0052_phase10b_category_seo_intro.py` (new).
+- `twocomms/storefront/migrations/0053_phase10b_seed_category_seo.py` (new, RunPython).
+- `twocomms/storefront/services/category_seo_blocks.py`
+  (`TAB_BLOCK_TYPES`, `get_category_seo_layout`).
+- `twocomms/storefront/views/catalog.py` (`category_seo_layout` в контексте).
+- `twocomms/storefront/admin.py` (`seo_intro_html` в `CategoryAdmin`).
+- `twocomms/twocomms_django_theme/templates/pages/catalog.html`
+  (`catalog-category-intro` + новый гейт SEO-блоков).
+- `twocomms/twocomms_django_theme/templates/partials/category_seo_blocks.html`
+  (полностью переписан под табы/таблицу).
+- `twocomms/twocomms_django_theme/static/css/category-seo-blocks.css`
+  (полностью переписан под Phase 10b).
+- `twocomms/storefront/tests/test_phase10b_seo_layout.py` (new, 11 tests).
+- `twocomms/storefront/tests/test_phase10_category_seo_blocks.py`
+  (один ассерт обновлён под новые tab-data-атрибуты).
+
+**Ручной шаг при деплое.** На проде нужно `manage.py migrate storefront 0053`,
+после чего проверить контент в админке (`Категорії` → `Худі/Футболки/Лонгсліви`):
+поля `seo_intro_html`, `seo_text_title`, `description` заполнятся; каждая
+категория получит 3–4 активных `CategorySeoBlock`. Если контент-менеджер
+переписал `description` ДО миграции — она его сохранит.
+
 ---
 
 ## Phase 11 — Админ-раздел SEO
@@ -696,6 +949,83 @@ class CategorySeoText(models.Model):
   - Список товаров/категорий с включённым AI и статусом генерации.
   - Кнопка «Сгенерировать сейчас» для одного товара (вызывает
     `generate_ai_content` через subprocess или прямой вызов функции).
+
+### Реализация (2026-05-09)
+
+Кастомна адмін-панель (`/admin-panel/?section=...`), не Django-admin.
+Розкладено на сервіс + один частковий шаблон + AJAX-ендпоінт.
+
+**Сервіс.** `storefront/services/seo_dashboard.py`:
+- `build_sitemap_summary()` — повертає 5 під-sitemap-секцій + рядок
+  «Всього URL»: `static` (через `StaticViewSitemap().items()`),
+  `products`/`categories` (через `count()` ORM), `variants` (через
+  `ProductVariantSitemap().items()`), `images` (count товарів з
+  `main_image`).
+- `build_ai_panel()` — топ-50 товарів і категорій з
+  `ai_generation_enabled=True`, агрегати (`*_total`/`*_generated`),
+  стан фічa-флагів (`USE_AI_KEYWORDS`, `USE_AI_DESCRIPTIONS`,
+  `OPENAI_API_KEY`, `AUTO_GENERATE_AI_CONTENT_ON_CREATE`).
+- `build_seo_blocks_summary(limit=20)` — анотація `Count('seo_blocks',
+  filter=Q(seo_blocks__is_active=True))` для активних категорій.
+- `build_seo_dashboard_context()` — об'єднує три блоки в один dict.
+
+**Views.** `storefront/views/admin.py`:
+- `admin_panel(?section=seo)` — пробрасывает `build_seo_dashboard_context()`
+  в існуючий шаблон.
+- Новий `admin_seo_ai_generate(request)` — `@staff_member_required`,
+  POST JSON `{"target": "product"|"category", "id": <int>}`. Виклик
+  `generate_ai_content_for_*_task(obj.id)` напряму (sync, бо без Celery
+  на проді — Phase 2). Повертає `{success, ai_content_generated,
+  ai_keywords, ai_description}`. Помилки: 405/400/404/503/500.
+
+**URL.** `admin-panel/seo/ai/generate/` → `admin_seo_ai_generate`
+(`name='admin_seo_ai_generate'`).
+
+**Шаблон.** `partials/admin_seo_dashboard.html` — три картки:
+- **Sitemap** — grid тайлів з кількістю URL і прямими лінками.
+- **AI** — лічильники + дві таблиці (товари/категорії) з кнопками
+  «Згенерувати», `data-action="seo-ai-generate"`. Inline JS викликає
+  endpoint, оновлює пілку статусу in-place через `[data-seo-flag]`.
+- **Phase 10 SEO-блоки** — таблиця активних категорій з лічильниками
+  active/total та кнопкою «Редагувати» (Django-admin за filter
+  `category__id__exact=<id>`). Внизу — quick-links на `/sitemap.xml`,
+  `/robots.txt`, Django-admin Category/CategorySeoBlock.
+
+Бічна панель адмінки (`templates/pages/admin_panel.html`) отримала
+новий пункт «SEO» (іконка лупа+плюс) одразу після «Диспетчер».
+
+**Тести.** `storefront/tests/test_phase11_seo_admin.py` — 11 кейсів:
+- Сервіс — `sitemap_summary` (5+total, count ≥ фікстур),
+  `ai_panel.ai_counts`, `seo_blocks_summary` (active vs total).
+- View — staff бачить дашборд (sitemap/AI/SEO-блоки), не-staff
+  редіректиться на home.
+- Endpoint — 405 на GET, 503 без API-ключа, 503 з вимкнутими
+  фічa-флагами, 400 на невідомий target, 400 на не-opt-in товар,
+  200 + JSON-snapshot на happy-path (з замоканим
+  `generate_ai_content_for_product_task`).
+
+Команда: `python manage.py test storefront.tests.test_phase11_seo_admin --settings=test_settings` → 11 passed. Регрессія —
+Phase 9 + Phase 10 + `test_catalog` сумарно 50/50 passed.
+
+**Файли.**
+- `twocomms/storefront/services/seo_dashboard.py` (new).
+- `twocomms/storefront/views/admin.py` (`admin_seo_ai_generate` +
+  `?section=seo` бранч у `admin_panel`).
+- `twocomms/storefront/urls.py` (новий path).
+- `twocomms/twocomms_django_theme/templates/pages/admin_panel.html`
+  (sidebar + `{% elif section == 'seo' %}` бранч).
+- `twocomms/twocomms_django_theme/templates/partials/admin_seo_dashboard.html` (new).
+- `twocomms/storefront/tests/test_phase11_seo_admin.py` (new).
+
+**Відкладено в Phase 12 / окрема ітерація.**
+- WYSIWYG для `Category.description` (CKEditor / TinyMCE) — поки
+  стандартний Textarea + `|safe` рендер у каталозі.
+- Окремі сторінки «Глобальні SEO-налаштування» (variant title-templates,
+  список «значимих варіантів» для індексації, robots.txt-редактор) —
+  поки керується через `settings.py` + Django-admin для AI-полів.
+- Inline-редактор шаблонів variant-title (Phase 7.3 рендерить динамічно
+  з фіксованих рядків у view) — потребує окремої моделі
+  `SeoVariantTemplate`.
 
 ---
 
@@ -729,5 +1059,9 @@ class CategorySeoText(models.Model):
 | 2026-05-09 | 7.4 | `26310db5` → `a9001e15` | `sitemap-product-variants.xml`: 416 URL в виде 1-сегмент вариаций (65×L/M/XL/S/XXL, 24×XS, 22×oversize/classic, 12×black, 7×coyote...). Multi-segment омитнуты (канонизируются на base). Добавлен в sitemap-index. |
 | 2026-05-09 | 7.5 | `7327c354` | 301 redirect: legacy `?size=M&color=<id>&fit=<code>` → `/<color>/<size>/<fit>/`. Каноничный порядок (color → size → fit). UTM/gclid/fbclid/ref preserved. Invalid query → 200 fallback. Path-URL не редиректится повторно. Prod smoke: 4 сценария (3×301, 1×200). |
 | 2026-05-09 | 8   | `958efc91` | Phase 8 — `product-variant-history.js`: при изменении color/size/fit на странице товара клиент через `history.replaceState` синхронизирует path-URL без перезагрузки, обновляет `document.title` и `<link rel=canonical>` по той же стратегии (1-сегмент → self, 2+ → base). Шаблон отдаёт `data-product-slug`, `data-product-base-path`, `data-product-title-base` + `data-variant-slug` на swatch. Prod smoke: атрибуты доступны (`black`, `coyote`), минифицированный JS отдаётся CDN. |
+| 2026-05-09 | 9   | _pending_  | Phase 9 — colour filter. `storefront/services/color_filter.py`: `parse_color_filter` (comma + repeated `?color=`), `apply_color_filter` (OR-match по `ProductColorVariant.slug`), `build_available_colors` / `build_reset_url` (toggle-URL, сохраняет UTM/прочие GET, сбрасывает `page`), `build_home_color_chips` (топ-12 цветов → `/catalog/?color=<slug>`). Catalog/search: фильтр + `noindex, follow` на отфильтрованных URL, скрытие showcase-cards на корневом `/catalog/?color=…`. Home: chip-strip между блоком категорий и «Новинки». Партиал `partials/color_filter_chips.html`, `static/css/color-filter.css`. Tests: 14 кейсов (`storefront.tests.test_phase9_color_filter`) → all passed; регрессия `test_catalog` 15/15. |
+| 2026-05-09 | 10b | _pending_  | Phase 10b — догон под AAC-паттерн. `Category.seo_intro_html` + миграция `0052`. `services.category_seo_blocks.get_category_seo_layout` (`TAB_BLOCK_TYPES`, splits tabs vs `best_prices`). Полная переборка партиала: pricing `<table>` сверху + tabs-component (4 триггера, inline-JS, idempotent), CSS `.catalog-intro-panel`/`.seo-pricing__table`/`.seo-tabs__nav` с neon-orange-active-табой и `columns:1/2/3/4` на брейкпоинтах, `<details>`-розворот. Admin: `seo_intro_html` в `CategoryAdmin`. Seed-миграция `0053` (RunPython, idempotent, reverse=noop) — заполняет `seo_intro_html`/`seo_text_title`/`description` + 3–4 SEO-блока для `hoodie`/`tshirts`/`long-sleeve`: `top_menu` (5–6 ссылок), `top_filters` (9–10 цвет/размер/fit), `top_queries` (14–16 LF/MF: «купити худі ЗСУ», «тризуб футболка», «тактичний лонгслів» …), `best_prices` динамически из топ-8 опубликованных продуктов. Tests: 11 (`storefront.tests.test_phase10b_seo_layout`) → all passed; регрессия 9+10+11+catalog 61/61. Деплой: `migrate storefront 0053`. |
+| 2026-05-09 | 10  | _pending_  | Phase 10 — SEO-блоки в категории. Модели `CategorySeoBlock` + `CategorySeoBlockItem` (миграция `0051`), поле `Category.seo_text_title`. Сервис `category_seo_blocks.get_category_seo_blocks` (prefetch items, гидратация `extra.product_id`→Product, фильтр пустых кроме `best_prices`). Партиал `partials/category_seo_blocks.html` с ветками `top_filters`/`top_queries`/`top_cards`/`top_menu`/`best_prices`. Секция в `pages/catalog.html` между гридом и описанием; H2 описания → `seo_text_title|default:category.name`. CSS `category-seo-blocks.css` (glass/neon). Admin: `CategorySeoBlockAdmin` + inline + `list_editable`. Tests: 10 (`storefront.tests.test_phase10_category_seo_blocks`) → all passed; регрессия Phase 9 + test_catalog 29/29. |
+| 2026-05-09 | 11  | _pending_  | Phase 11 — SEO admin section. `?section=seo` у кастомній адмін-панелі: sitemap-counts (5 sub + total), AI-панель (opt-in товари/категорії з in-place "Згенерувати"), Phase-10 SEO-блоки (active/total + лінк на Django-admin). Сервіс `services/seo_dashboard.py`, шаблон `partials/admin_seo_dashboard.html`, AJAX-ендпоінт `admin_seo_ai_generate` (sync виклик `generate_ai_content_for_*_task` без Celery — Phase 2). Tests: 11 (`storefront.tests.test_phase11_seo_admin`) → all passed; регрессія Phase 9+10+catalog 50/50. Відкладено в окрему ітерацію: WYSIWYG для `Category.description`, редактор variant-title-шаблонів, robots.txt-редактор. |
 
 > Каждый раз после `git push` + деплоя — добавлять строку.

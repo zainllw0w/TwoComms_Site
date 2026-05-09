@@ -1,0 +1,386 @@
+{% comment %}
+  Phase 11 — SEO admin dashboard.
+
+  Inputs (from storefront.services.seo_dashboard.build_seo_dashboard_context):
+    sitemap_summary    — list of {key, label, url, count, is_total?}
+    ai_panel           — {ai_products, ai_categories, ai_settings, ai_counts}
+    seo_blocks_summary — list of {id, name, slug, blocks_total, blocks_active}
+{% endcomment %}
+{% load static %}
+
+<style>
+  .seo-admin {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .seo-admin .seo-card {
+    padding: 1.1rem 1.25rem;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+  }
+  .seo-admin .seo-card h3 {
+    margin: 0 0 0.75rem;
+    font-size: 1.05rem;
+    letter-spacing: 0.02em;
+  }
+  .seo-admin .seo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.75rem;
+  }
+  .seo-admin .seo-tile {
+    padding: 0.85rem 1rem;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .seo-admin .seo-tile.is-total {
+    background: linear-gradient(135deg, rgba(140,220,160,0.18), rgba(80,160,100,0.12));
+    border-color: rgba(140,220,160,0.4);
+  }
+  .seo-admin .seo-tile__count {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.95);
+    line-height: 1.1;
+  }
+  .seo-admin .seo-tile__label {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.65);
+    margin-top: 0.25rem;
+  }
+  .seo-admin .seo-tile__url {
+    font-size: 0.78rem;
+    color: rgba(120,200,250,0.85);
+    text-decoration: none;
+    word-break: break-all;
+  }
+  .seo-admin .seo-tile__url:hover { color: #8fdfff; }
+  .seo-admin table.seo-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  .seo-admin table.seo-table th,
+  .seo-admin table.seo-table td {
+    text-align: left;
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    vertical-align: middle;
+  }
+  .seo-admin table.seo-table th {
+    color: rgba(255,255,255,0.7);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .seo-admin .seo-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.85);
+  }
+  .seo-admin .seo-pill.is-on { background: rgba(140,220,160,0.18); color: #b6f5c4; }
+  .seo-admin .seo-pill.is-off { background: rgba(239,68,68,0.18); color: #fca5a5; }
+  .seo-admin .seo-btn-generate {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 10px;
+    border: 1px solid rgba(120,200,250,0.4);
+    background: rgba(120,200,250,0.12);
+    color: #b9e8ff;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .seo-admin .seo-btn-generate:hover { background: rgba(120,200,250,0.22); color: #fff; }
+  .seo-admin .seo-btn-generate[disabled] { opacity: 0.6; cursor: progress; }
+  .seo-admin .seo-quick-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .seo-admin .seo-quick-link {
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.92);
+    font-size: 0.85rem;
+    text-decoration: none;
+  }
+  .seo-admin .seo-quick-link:hover { background: rgba(255,255,255,0.09); color: #fff; }
+</style>
+
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+<div class="section-header" style="margin-bottom: 1rem;">
+  <h2 style="margin: 0;">SEO</h2>
+  <p style="margin: 0.25rem 0 0; color: rgba(255,255,255,0.6); font-size: 0.9rem;">
+    Стан sitemap, AI-генерації мета-тегів та Phase 10 SEO-блоків категорій.
+  </p>
+</div>
+
+<div class="seo-admin">
+
+  {# ---------- Sitemap summary ---------- #}
+  <section class="seo-card" aria-label="Sitemap summary">
+    <h3>Sitemap-index — кількість URL</h3>
+    <div class="seo-grid">
+      {% for s in sitemap_summary %}
+      <div class="seo-tile {% if s.is_total %}is-total{% endif %}">
+        <div class="seo-tile__count">{{ s.count }}</div>
+        <div class="seo-tile__label">{{ s.label }}</div>
+        <a class="seo-tile__url" href="{{ s.url }}" target="_blank" rel="noopener">
+          {{ s.url }}
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ---------- AI panel ---------- #}
+  <section class="seo-card" aria-label="AI generation status">
+    <h3>AI-генерація мета-тегів</h3>
+
+    <div class="seo-grid" style="margin-bottom: 1rem;">
+      <div class="seo-tile">
+        <div class="seo-tile__count">{{ ai_panel.ai_counts.products_total }}</div>
+        <div class="seo-tile__label">
+          Товарів з AI-opt-in · згенеровано {{ ai_panel.ai_counts.products_generated }}
+        </div>
+      </div>
+      <div class="seo-tile">
+        <div class="seo-tile__count">{{ ai_panel.ai_counts.categories_total }}</div>
+        <div class="seo-tile__label">
+          Категорій з AI-opt-in · згенеровано {{ ai_panel.ai_counts.categories_generated }}
+        </div>
+      </div>
+      <div class="seo-tile">
+        <div class="seo-tile__count">
+          {% if ai_panel.ai_settings.has_api_key %}<span class="seo-pill is-on">OPENAI_API_KEY</span>{% else %}<span class="seo-pill is-off">OPENAI_API_KEY</span>{% endif %}
+          {% if ai_panel.ai_settings.use_keywords %}<span class="seo-pill is-on">USE_AI_KEYWORDS</span>{% else %}<span class="seo-pill is-off">USE_AI_KEYWORDS</span>{% endif %}
+          {% if ai_panel.ai_settings.use_descriptions %}<span class="seo-pill is-on">USE_AI_DESCRIPTIONS</span>{% else %}<span class="seo-pill is-off">USE_AI_DESCRIPTIONS</span>{% endif %}
+        </div>
+        <div class="seo-tile__label">
+          Опт-ін обробляється тільки коли API-key + хоча б один із прапорів увімкнено
+          (autogen на створення: {{ ai_panel.ai_settings.auto_on_create|yesno:"on,off" }}).
+        </div>
+      </div>
+    </div>
+
+    {% if ai_panel.ai_products %}
+    <h4 style="margin: 0.75rem 0 0.4rem; font-size: 0.95rem;">Товари (топ 50 за updated_at)</h4>
+    <table class="seo-table">
+      <thead>
+        <tr>
+          <th>Товар</th>
+          <th>Slug</th>
+          <th>Статус</th>
+          <th>AI-контент</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for p in ai_panel.ai_products %}
+        <tr data-seo-row="product" data-seo-id="{{ p.id }}">
+          <td>{{ p.title }}</td>
+          <td><code>{{ p.slug }}</code></td>
+          <td>{{ p.status }}</td>
+          <td>
+            {% if p.ai_content_generated %}
+              <span class="seo-pill is-on" data-seo-flag>згенеровано</span>
+            {% else %}
+              <span class="seo-pill is-off" data-seo-flag>не згенеровано</span>
+            {% endif %}
+          </td>
+          <td>
+            <button type="button" class="seo-btn-generate"
+                    data-action="seo-ai-generate"
+                    data-target="product" data-id="{{ p.id }}">
+              Згенерувати
+            </button>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color: rgba(255,255,255,0.55); font-size: 0.88rem; margin: 0.4rem 0;">
+      Жоден товар не має <code>ai_generation_enabled=True</code>.
+    </p>
+    {% endif %}
+
+    {% if ai_panel.ai_categories %}
+    <h4 style="margin: 1rem 0 0.4rem; font-size: 0.95rem;">Категорії</h4>
+    <table class="seo-table">
+      <thead>
+        <tr>
+          <th>Категорія</th>
+          <th>Slug</th>
+          <th>AI-контент</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for c in ai_panel.ai_categories %}
+        <tr data-seo-row="category" data-seo-id="{{ c.id }}">
+          <td>{{ c.name }}</td>
+          <td><code>{{ c.slug }}</code></td>
+          <td>
+            {% if c.ai_content_generated %}
+              <span class="seo-pill is-on" data-seo-flag>згенеровано</span>
+            {% else %}
+              <span class="seo-pill is-off" data-seo-flag>не згенеровано</span>
+            {% endif %}
+          </td>
+          <td>
+            <button type="button" class="seo-btn-generate"
+                    data-action="seo-ai-generate"
+                    data-target="category" data-id="{{ c.id }}">
+              Згенерувати
+            </button>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color: rgba(255,255,255,0.55); font-size: 0.88rem; margin: 0.4rem 0;">
+      Жодна категорія не має <code>ai_generation_enabled=True</code>.
+    </p>
+    {% endif %}
+  </section>
+
+  {# ---------- Phase 10 SEO blocks ---------- #}
+  <section class="seo-card" aria-label="Category SEO blocks summary">
+    <h3>Phase 10 — SEO-блоки категорій</h3>
+    {% if seo_blocks_summary %}
+    <table class="seo-table">
+      <thead>
+        <tr>
+          <th>Категорія</th>
+          <th>Slug</th>
+          <th>SEO H2</th>
+          <th>Активних блоків</th>
+          <th>Всього</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in seo_blocks_summary %}
+        <tr>
+          <td>{{ row.name }}</td>
+          <td><code>{{ row.slug }}</code></td>
+          <td>{{ row.seo_text_title|default:"—" }}</td>
+          <td>{{ row.blocks_active }}</td>
+          <td>{{ row.blocks_total }}</td>
+          <td>
+            <a class="seo-quick-link"
+               href="/admin/storefront/categoryseoblock/?category__id__exact={{ row.id }}"
+               target="_blank" rel="noopener">
+              Редагувати
+            </a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color: rgba(255,255,255,0.55); font-size: 0.88rem; margin: 0.4rem 0;">
+      Активних категорій немає.
+    </p>
+    {% endif %}
+
+    <div class="seo-quick-links" style="margin-top: 1rem;">
+      <a class="seo-quick-link" href="/admin/storefront/category/" target="_blank" rel="noopener">
+        Категорії в Django-admin
+      </a>
+      <a class="seo-quick-link" href="/admin/storefront/categoryseoblock/" target="_blank" rel="noopener">
+        Усі SEO-блоки
+      </a>
+      <a class="seo-quick-link" href="/sitemap.xml" target="_blank" rel="noopener">
+        Sitemap-index
+      </a>
+      <a class="seo-quick-link" href="/robots.txt" target="_blank" rel="noopener">
+        robots.txt
+      </a>
+    </div>
+  </section>
+</div>
+
+<script>
+(function setupSeoAiGenerate() {
+  const ENDPOINT = "{% url 'admin_seo_ai_generate' %}";
+
+  document.addEventListener('click', function(event) {
+    const btn = event.target.closest('[data-action="seo-ai-generate"]');
+    if (!btn) return;
+    event.preventDefault();
+
+    const target = btn.dataset.target;
+    const id = btn.dataset.id;
+    if (!target || !id) return;
+
+    const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    const csrf = csrfInput ? csrfInput.value : '';
+
+    const originalLabel = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Генерую…';
+
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({ target: target, id: parseInt(id, 10) }),
+    })
+    .then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.success === false) {
+        const msg = (data && (data.error || data.message)) || ('AI: ' + response.status);
+        if (typeof showNotification === 'function') showNotification(msg, 'error');
+        else alert(msg);
+        return;
+      }
+      // Update the row's pill in-place.
+      const row = btn.closest('tr');
+      const pill = row ? row.querySelector('[data-seo-flag]') : null;
+      if (pill) {
+        if (data.ai_content_generated) {
+          pill.classList.remove('is-off');
+          pill.classList.add('is-on');
+          pill.textContent = 'згенеровано';
+        } else {
+          pill.classList.remove('is-on');
+          pill.classList.add('is-off');
+          pill.textContent = 'не згенеровано';
+        }
+      }
+      const msg = 'AI оновлено: ' + (data.ai_keywords ? data.ai_keywords.slice(0, 80) : '(порожньо)');
+      if (typeof showNotification === 'function') showNotification(msg, 'success');
+    })
+    .catch((err) => {
+      const msg = (err && err.message) || 'AI: помилка мережі';
+      if (typeof showNotification === 'function') showNotification(msg, 'error');
+      else alert(msg);
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = originalLabel;
+    });
+  });
+})();
+</script>

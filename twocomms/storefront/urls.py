@@ -129,6 +129,12 @@ urlpatterns = [
         _module_view('storefront.views.admin', 'admin_indexnow_submit'),
         name='admin_indexnow_submit',
     ),
+    # Phase 11 — SEO admin: regenerate AI keywords/description for one object.
+    path(
+        'admin-panel/seo/ai/generate/',
+        _module_view('storefront.views.admin', 'admin_seo_ai_generate'),
+        name='admin_seo_ai_generate',
+    ),
     path(
         'admin-panel/custom-print/<int:lead_id>/status/',
         _module_view('storefront.views.admin', 'admin_custom_print_lead_status'),

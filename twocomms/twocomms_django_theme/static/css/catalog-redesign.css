@@ -1135,3 +1135,5 @@ html.effects-lite .catalog-print-panel,
 html.perf-lite .catalog-print-panel {
   backdrop-filter: none;
 }
+
+/* Phase 9 colour filter chip styles live in css/color-filter.css. */
