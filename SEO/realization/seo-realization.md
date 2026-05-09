@@ -54,7 +54,7 @@
 | 4  | Sitemap: image-sitemap, sitemap-index, lastmod из БД       | DONE     |
 | 5  | Schema.org: Organization, WebSite, shipping/return policy   | DONE     |
 | 6  | robots.txt — дедупликация, UTM-noise, AdsBot+AI блоки       | DONE     |
-| 7  | Path-URL для вариантов товара (size / color / fit)         | IN PROGRESS |
+| 7  | Path-URL для вариантов товара (size / color / fit)         | DONE     |
 | 8  | AJAX-переключение вариантов без перезагрузки               | TODO     |
 | 9  | Цветовой фильтр в каталоге и на главной                    | TODO     |
 | 10 | SEO-блоки в категориях (топ-фильтры, топ-запросы и т. п.)  | TODO     |
@@ -726,5 +726,7 @@ class CategorySeoText(models.Model):
 | 2026-05-09 | 7.1 | `528654b4` → `b5b110a8` | `ProductColorVariant.slug` + точный EN-перевод (`чорний→black`, `кайот→coyote`, compound `біло-бордовий→white-burgundy`). 4 миграции: AddField → backfill translit → reslug to EN → normalize (size-reserved set). 121 вариантов на проде — чистые slug'и. |
 | 2026-05-09 | 7.2 | `24b2e9d9` | Path-URL роутинг: `/product/<slug>/[<v1>/[<v2>/[<v3>]]]/`. Content-addressable parser (order-insensitive), path overrides query, unknown-segment → 404. Smoke: 5 сценариев 200/200/200/200/404. |
 | 2026-05-09 | 7.3 | `35654d6c` | Variant-aware canonical + meta: base/1-segment → self, 2+ → base URL. Динамические title/description (`Купити X — кайот, розмір M — TwoComms`). Prod smoke: canonical на 3 URL'ах точно по стратегии. |
+| 2026-05-09 | 7.4 | `26310db5` → `a9001e15` | `sitemap-product-variants.xml`: 416 URL в виде 1-сегмент вариаций (65×L/M/XL/S/XXL, 24×XS, 22×oversize/classic, 12×black, 7×coyote...). Multi-segment омитнуты (канонизируются на base). Добавлен в sitemap-index. |
+| 2026-05-09 | 7.5 | `7327c354` | 301 redirect: legacy `?size=M&color=<id>&fit=<code>` → `/<color>/<size>/<fit>/`. Каноничный порядок (color → size → fit). UTM/gclid/fbclid/ref preserved. Invalid query → 200 fallback. Path-URL не редиректится повторно. Prod smoke: 4 сценария (3×301, 1×200). |
 
 > Каждый раз после `git push` + деплоя — добавлять строку.
