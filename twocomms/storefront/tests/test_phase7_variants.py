@@ -31,16 +31,33 @@ class ProductColorVariantSlugTests(TestCase):
             status="published",
         )
 
-    def test_slug_is_auto_generated_from_color_name(self):
+    def test_slug_uses_english_translation_for_known_colors(self):
         color = Color.objects.create(name="Чорний", primary_hex="#000000")
         variant = ProductColorVariant.objects.create(
             product=self.product, color=color, order=0, is_default=True
         )
 
-        self.assertTrue(variant.slug, msg="slug must be auto-generated on save")
-        # Cyrillic slugify should produce a transliterated/safe form.
-        self.assertNotIn("/", variant.slug)
+        # English translation map preferred over transliteration —
+        # "Чорний" → "black", not "chornyi".
+        self.assertEqual(variant.slug, "black")
+
+    def test_slug_falls_back_to_transliteration_for_unknown_colors(self):
+        color = Color.objects.create(name="Невідомий", primary_hex="#123456")
+        variant = ProductColorVariant.objects.create(
+            product=self.product, color=color, order=0
+        )
+
+        self.assertTrue(variant.slug)
         self.assertNotIn(" ", variant.slug)
+        self.assertNotEqual(variant.slug, "невідомий")  # must be ASCII
+
+    def test_slug_handles_compound_color_names(self):
+        color = Color.objects.create(name="Чорний + Білий", primary_hex="#000000")
+        variant = ProductColorVariant.objects.create(
+            product=self.product, color=color, order=0
+        )
+
+        self.assertEqual(variant.slug, "black-white")
 
     def test_short_slug_is_disambiguated_from_size_codes(self):
         """One/two-letter colour names like 'M' must not collide with

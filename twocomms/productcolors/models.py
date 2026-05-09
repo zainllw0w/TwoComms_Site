@@ -2,6 +2,8 @@ from django.db import models
 from dtf.utils import build_slug
 from storefront.models import Product
 
+from .color_slug_map import english_slug_for_color_name
+
 
 class Color(models.Model):
     """
@@ -80,13 +82,19 @@ class ProductColorVariant(models.Model):
         """
         base = ""
         color = getattr(self, "color", None)
-        if color is not None:
-            # ``build_slug`` first transliterates Cyrillic, then runs
-            # slugify(allow_unicode=False) so Ukrainian colour names
-            # like "Кайот" / "Чорний" become "kayot" / "chornyy".
-            base = build_slug(color.name or "", fallback="") if color.name else ""
-            if not base and getattr(color, "primary_hex", ""):
-                base = build_slug(color.primary_hex.lstrip("#"), fallback="")
+        if color is not None and color.name:
+            # Prefer an English translation when we have one — far better
+            # for international SEO and AI answer engines (``black`` reads
+            # as a real colour everywhere; ``chornyi`` only to Ukrainians).
+            mapped = english_slug_for_color_name(color.name)
+            if mapped:
+                base = mapped
+            else:
+                # Fallback: transliterate Cyrillic and slugify.
+                base = build_slug(color.name, fallback="")
+
+        if not base and color is not None and getattr(color, "primary_hex", ""):
+            base = build_slug(color.primary_hex.lstrip("#"), fallback="")
         if not base:
             base = "color"
 
