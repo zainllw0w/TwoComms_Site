@@ -54,7 +54,7 @@
 | 4  | Sitemap: image-sitemap, sitemap-index, lastmod из БД       | DONE     |
 | 5  | Schema.org: Organization, WebSite, shipping/return policy   | DONE     |
 | 6  | robots.txt — дедупликация, UTM-noise, AdsBot+AI блоки       | DONE     |
-| 7  | Path-URL для вариантов товара (size / color / fit)         | TODO     |
+| 7  | Path-URL для вариантов товара (size / color / fit)         | IN PROGRESS |
 | 8  | AJAX-переключение вариантов без перезагрузки               | TODO     |
 | 9  | Цветовой фильтр в каталоге и на главной                    | TODO     |
 | 10 | SEO-блоки в категориях (топ-фильтры, топ-запросы и т. п.)  | TODO     |
@@ -723,5 +723,8 @@ class CategorySeoText(models.Model):
 | 2026-05-09 | 4 | `4fb795c6` | Sitemap-INDEX `/sitemap.xml` + 4 дочірні (static / products / categories / images). lastmod з `updated_at`, image: namespace, `Cache-Control: public, max-age=3600`. Smoke: 4 секції, 18+65+3+64 `<loc>`. |
 | 2026-05-09 | 5 | `a31bc808` | Schema.org: `services/policy.py` (Нова Пошта 85/180/220 UAH, 14d return). Organization+WebSite+SearchAction на `/` через нові теги, стабільні `@id`. Smoke: 4 ld+json блоки, EntryPoint → `/search/`. |
 | 2026-05-09 | 6 | `532947b3` | robots.txt: 375→195 строк. Удалены дубли (Googlebot/bing/Applebot/DDG/Yandex — следуют `*`). Оставлены AdsBot ×3 (спека) и AI ×11 (opt-in). UTM/gclid/fbclid/sort noise. Cache-Control 1ч. |
+| 2026-05-09 | 7.1 | `528654b4` → `b5b110a8` | `ProductColorVariant.slug` + точный EN-перевод (`чорний→black`, `кайот→coyote`, compound `біло-бордовий→white-burgundy`). 4 миграции: AddField → backfill translit → reslug to EN → normalize (size-reserved set). 121 вариантов на проде — чистые slug'и. |
+| 2026-05-09 | 7.2 | `24b2e9d9` | Path-URL роутинг: `/product/<slug>/[<v1>/[<v2>/[<v3>]]]/`. Content-addressable parser (order-insensitive), path overrides query, unknown-segment → 404. Smoke: 5 сценариев 200/200/200/200/404. |
+| 2026-05-09 | 7.3 | `35654d6c` | Variant-aware canonical + meta: base/1-segment → self, 2+ → base URL. Динамические title/description (`Купити X — кайот, розмір M — TwoComms`). Prod smoke: canonical на 3 URL'ах точно по стратегии. |
 
 > Каждый раз после `git push` + деплоя — добавлять строку.
