@@ -52,7 +52,7 @@
 | 2  | Отказ от Celery, перенос на cron + sync on_commit          | DONE     |
 | 3  | IndexNow polish (sync, retry, manual reindex в админке)    | DONE     |
 | 4  | Sitemap: image-sitemap, sitemap-index, lastmod из БД       | DONE     |
-| 5  | Schema.org: точные shipping/return из реальных страниц     | TODO     |
+| 5  | Schema.org: Organization, WebSite, shipping/return policy   | DONE     |
 | 6  | robots.txt — финальная вычитка и нормализация              | TODO     |
 | 7  | Path-URL для вариантов товара (size / color / fit)         | TODO     |
 | 8  | AJAX-переключение вариантов без перезагрузки               | TODO     |
@@ -367,18 +367,63 @@ GET /sitemap-images.xml     → 200, 15590 байт, 64 <loc> + image: namespace
 
 ---
 
-## Phase 5 — Schema.org Product
+## Phase 5 — Schema.org
 
-- `Offer.priceValidUntil` — добавить.
-- `Offer.shippingDetails` — генерация из реальной страницы доставки
-  (Нова Пошта, тарифы по весу).
-- `Offer.hasMerchantReturnPolicy` — из реальной страницы возврата.
-- `Product.aggregateRating` — если есть отзывы.
-- На страницах вариантов: `Product` с конкретными `color`, `size`,
-  `additionalProperty` для крой (классика / оверсайз).
-- Добавить `Organization` schema на главной (есть ли — проверить),
-  `WebSite` с `SearchAction`.
-- BreadcrumbList — уже есть, проверить корректность.
+### Что сделано
+
+- **`storefront/services/policy.py`** — новый модуль, single source of
+  truth для тарифов Нова Пошти (UAH, weight-based: 85 / 180 / 220) и
+  правил повернення (14 днів, `MerchantReturnFiniteReturnWindow`,
+  `ReturnByMail`, `ReturnShippingFees`). Значення збігаються з реальними
+  сторінками `/delivery/` і `/returns/`.
+- **`StructuredDataGenerator.SHIPPING_OPTIONS`** тепер береться з
+  policy-модуля через `shipping_tiers_as_dicts()` (обратная
+  совместимость для зовнішнього коду).
+- **`generate_product_schema`** — `shippingDetails` /
+  `hasMerchantReturnPolicy` тепер на константах `CURRENCY`,
+  `APPLICABLE_COUNTRY`, `RETURN_POLICY` замість inline-літералів.
+  `priceValidUntil` дина­мічний (today + 90 днів).
+- **`generate_organization_schema()`** — стабільний `@id`
+  `https://twocomms.shop/#organization`, `sameAs`, `contactPoint`,
+  логотип. Ту саму payload раніше дублював `pro_brand.html` inline.
+- **`generate_website_schema()`** — `@id` `…/#website`, `SearchAction`
+  з `target=EntryPoint`, `urlTemplate` веде на реальний `/search/`.
+- **Шаблонні теги** `{% organization_schema %}` і `{% website_schema %}`
+  у `seo_tags.py`.
+- **`pages/index.html`** використовує нові теги (4 окремі
+  `<script type="application/ld+json">`: Organization, WebSite,
+  WebPage+ItemList, фрагменти від base-шаблону).
+- **`Product.aggregateRating`** — поки відкладено (модель `Product`
+  ще не має полів rating/review_count). Додамо разом із системою
+  відгуків.
+- **Variant schema** (color/size/fit additionalProperty) — увійде у
+  Phase 7 разом із path-URL.
+
+### Smoke на проді
+
+```
+GET / → 4 <script type="application/ld+json">:
+  Organization (@id …/#organization, sameAs, contactPoint)
+  WebSite      (@id …/#website, SearchAction → EntryPoint /search/)
+  WebPage + ItemList (top-8 categories)
+  base-template fragments
+GET /product/clasic-tshort/ → присутні priceValidUntil,
+  merchantReturnDays, OfferShippingDetails, shippingDetails,
+  shippingRate.
+```
+
+### Чек-лист Phase 5
+
+- [x] `services/policy.py` — single source для shipping & return.
+- [x] `Offer.priceValidUntil` (today + 90 днів).
+- [x] `Offer.shippingDetails` weight-based (3 tiers Нової Пошти).
+- [x] `Offer.hasMerchantReturnPolicy` (14 днів, ReturnByMail).
+- [x] Organization schema на `/` (стабільний `@id`).
+- [x] WebSite schema на `/` з SearchAction → `/search/`.
+- [x] Тести: `StructuredDataPhase5Tests` (4 нових кейси).
+- [ ] `Product.aggregateRating` — після появи відгуків.
+- [ ] Variant schema (color/size/fit) — увійде в Phase 7.
+- [x] Commit `a31bc808`, push, pull, restart, smoke OK.
 
 ---
 
@@ -630,5 +675,6 @@ class CategorySeoText(models.Model):
 | 2026-05-09 | 3 | `1b898845` | IndexNow polish: batching/retries в `submit_indexnow_urls`, команда `reindex_indexnow`, admin-actions для Product/Category. Smoke: `--core` → 18 URL accepted. |
 | 2026-05-09 | 3 | `c85525a7` | IndexNow controls в кастомній «Адмін-панелі» (`/admin-panel/?section=catalogs`): endpoint, кнопки на картках товарів/категорій, глобальна `IndexNow: усе`. URL резолвиться, шаблон містить контролі. |
 | 2026-05-09 | 4 | `4fb795c6` | Sitemap-INDEX `/sitemap.xml` + 4 дочірні (static / products / categories / images). lastmod з `updated_at`, image: namespace, `Cache-Control: public, max-age=3600`. Smoke: 4 секції, 18+65+3+64 `<loc>`. |
+| 2026-05-09 | 5 | `a31bc808` | Schema.org: `services/policy.py` (Нова Пошта 85/180/220 UAH, 14d return). Organization+WebSite+SearchAction на `/` через нові теги, стабільні `@id`. Smoke: 4 ld+json блоки, EntryPoint → `/search/`. |
 
 > Каждый раз после `git push` + деплоя — добавлять строку.
