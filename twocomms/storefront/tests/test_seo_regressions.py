@@ -11,6 +11,7 @@ from orders.models import Order
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product
 from storefront.seo_utils import (
+    SEOKeywordGenerator,
     SEOMetaGenerator,
     _pick_product_description_source,
     get_product_schema,
@@ -567,7 +568,7 @@ class AiOptInBehaviorTests(TestCase):
         self.product.ai_generation_enabled = False
         self.product.save(update_fields=["ai_generation_enabled"])
 
-        meta_desc = SEOMetaGenerator.generate_meta_description(self.product)
+        meta_desc = SEOKeywordGenerator.generate_meta_description(self.product)
 
         self.assertNotIn("AI-generated description", meta_desc)
         self.assertIn("Manual short description.", meta_desc)
@@ -577,7 +578,7 @@ class AiOptInBehaviorTests(TestCase):
         self.product.short_description = ""
         self.product.save(update_fields=["ai_generation_enabled", "short_description"])
 
-        meta_desc = SEOMetaGenerator.generate_meta_description(self.product)
+        meta_desc = SEOKeywordGenerator.generate_meta_description(self.product)
 
         self.assertIn("AI-generated description", meta_desc)
 
@@ -586,7 +587,7 @@ class AiOptInBehaviorTests(TestCase):
         self.product.seo_description = "Manual SEO description rules."
         self.product.save(update_fields=["ai_generation_enabled", "seo_description"])
 
-        meta_desc = SEOMetaGenerator.generate_meta_description(self.product)
+        meta_desc = SEOKeywordGenerator.generate_meta_description(self.product)
 
         self.assertEqual(meta_desc, "Manual SEO description rules.")
         self.assertNotIn("AI-generated", meta_desc)
@@ -601,8 +602,6 @@ class AiOptInBehaviorTests(TestCase):
         self.assertNotIn("AI-generated description", source)
 
     def test_ai_keywords_excluded_from_keyword_set_when_disabled(self):
-        from storefront.seo_utils import SEOKeywordGenerator
-
         self.product.ai_generation_enabled = False
         self.product.save(update_fields=["ai_generation_enabled"])
 
@@ -613,8 +612,6 @@ class AiOptInBehaviorTests(TestCase):
         self.assertNotIn("ai-keyword-2", flat)
 
     def test_ai_keywords_included_when_flag_enabled(self):
-        from storefront.seo_utils import SEOKeywordGenerator
-
         self.product.ai_generation_enabled = True
         self.product.save(update_fields=["ai_generation_enabled"])
 
