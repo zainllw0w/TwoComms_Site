@@ -286,6 +286,16 @@ def forward(apps, schema_editor):
 - **Django admin actions:** `Надіслати в IndexNow (поточні URL)` для
   Product и Category. Фильтрует неопубликованные/неактивные, дедуп,
   выводит результат через `messages`.
+- **Кастомна `Адмін-панель` (`/admin-panel/?section=catalogs`):** основная
+  админка проекта, не Django admin. Добавлено:
+  - Endpoint `POST /admin-panel/indexnow/submit/` (`admin_indexnow_submit`)
+    принимает `{type: product|category|core|all, ids: [...]}`.
+  - Кнопка `IndexNow` на каждой картке категории (рядом з «Видалити»).
+  - Кнопка `IndexNow` на каждой картке товара.
+  - Глобальная кнопка `IndexNow: усе` в шапке секції каталогів — с `confirm`,
+    шлёт core + все опубликованные товары + все активные категории.
+  - JS-обработчик в `admin_panel.html`: loading-state, тост через
+    существующий `showNotification`.
 
 ### Команды для регулярного использования
 
@@ -304,8 +314,9 @@ python manage.py reindex_indexnow --all --since-days=1
 - [x] Retry на 5xx и сетевые ошибки.
 - [x] Batching при больших списках.
 - [x] Команда `reindex_indexnow` написана и протестирована на проде.
-- [x] Admin-actions для Product и Category.
-- [x] Commit `1b898845`, push, pull, restart.
+- [x] Admin-actions для Product и Category (Django admin).
+- [x] Кнопки IndexNow в кастомній «Адмін-панелі» (categories / products / global).
+- [x] Commits `1b898845`, `c85525a7`, push, pull, restart, smoke OK.
 
 ---
 
@@ -581,5 +592,6 @@ class CategorySeoText(models.Model):
 | 2026-05-09 | 1 | `c83ef65a` | AI opt-in + fit toggle. Migrate applied on server; data-migration перенесла 52 товара. Smoke HTTP OK. |
 | 2026-05-09 | 2 | `9d2d5d19` | Celery-less сигналы: dirty-flag + cron `regenerate_feeds_if_dirty`. IndexNow и image-opt — sync через `on_commit`. Cron `*/10 *` добавлен. Smoke: `dirty=True` после save, `--force` фид сгенерирован за 0.8s, главная 200. |
 | 2026-05-09 | 3 | `1b898845` | IndexNow polish: batching/retries в `submit_indexnow_urls`, команда `reindex_indexnow`, admin-actions для Product/Category. Smoke: `--core` → 18 URL accepted. |
+| 2026-05-09 | 3 | `c85525a7` | IndexNow controls в кастомній «Адмін-панелі» (`/admin-panel/?section=catalogs`): endpoint, кнопки на картках товарів/категорій, глобальна `IndexNow: усе`. URL резолвиться, шаблон містить контролі. |
 
 > Каждый раз после `git push` + деплоя — добавлять строку.
