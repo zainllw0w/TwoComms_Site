@@ -298,6 +298,9 @@ class SitemapSeoRegressionTests(TestCase):
 
     @override_settings(SITE_BASE_URL="https://twocomms.shop", SITE_ID=1)
     def test_django_sitemap_uses_configured_origin_not_sites_domain(self):
+        # /sitemap.xml is now a sitemap-INDEX (Phase 4). It should reference
+        # children at the canonical SITE_BASE_URL, never the django.contrib.sites
+        # domain.
         Site.objects.update_or_create(
             id=1,
             defaults={"domain": "example.com", "name": "Example"},
@@ -306,8 +309,27 @@ class SitemapSeoRegressionTests(TestCase):
         response = self.client.get(reverse("django.contrib.sitemaps.views.sitemap"), secure=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "<loc>https://twocomms.shop/</loc>", html=False)
+        # Index format: <sitemapindex> with <sitemap><loc> children.
+        self.assertContains(response, "<sitemapindex", html=False)
+        self.assertContains(response, "<loc>https://twocomms.shop/sitemap-static.xml</loc>", html=False)
+        self.assertContains(response, "<loc>https://twocomms.shop/sitemap-products.xml</loc>", html=False)
+        self.assertContains(response, "<loc>https://twocomms.shop/sitemap-categories.xml</loc>", html=False)
+        self.assertContains(response, "<loc>https://twocomms.shop/sitemap-images.xml</loc>", html=False)
         self.assertNotContains(response, "https://example.com", html=False)
+
+    def test_sitemap_static_section_has_pro_brand(self):
+        response = self.client.get(reverse("sitemap_static"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/xml; charset=utf-8")
+        self.assertContains(response, "https://twocomms.shop/pro-brand/")
+
+    def test_sitemap_images_section_uses_image_namespace(self):
+        response = self.client.get(reverse("sitemap_images"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/xml; charset=utf-8")
+        self.assertContains(response, "xmlns:image=\"http://www.google.com/schemas/sitemap-image/1.1\"")
 
 
 class HeaderCtaSeoRegressionTests(TestCase):

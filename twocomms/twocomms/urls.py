@@ -14,6 +14,11 @@ urlpatterns = [
 
     # Root-level crawler/platform files must be resolved before storefront routes.
     path('sitemap.xml', storefront_views.custom_sitemap, name='django.contrib.sitemaps.views.sitemap'),
+    # Phase 4 — sitemap-index children. /sitemap.xml is the index that points here.
+    path('sitemap-static.xml', storefront_views.sitemap_section_static, name='sitemap_static'),
+    path('sitemap-products.xml', storefront_views.sitemap_section_products, name='sitemap_products'),
+    path('sitemap-categories.xml', storefront_views.sitemap_section_categories, name='sitemap_categories'),
+    path('sitemap-images.xml', storefront_views.sitemap_images, name='sitemap_images'),
     path("favicon.ico", RedirectView.as_view(
         url=staticfiles_storage.url("img/favicon.ico"), permanent=False
     )),

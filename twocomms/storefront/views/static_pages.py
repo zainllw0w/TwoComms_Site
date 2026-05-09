@@ -323,23 +323,26 @@ def static_sitemap(request):
     return HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
 
 
-def custom_sitemap(request):
-    """
-    XML sitemap endpoint with crawler-safe headers.
+def _sitemap_response(xml_payload):
+    """Common headers for all sitemap responses (XML + crawler-safe Cache-Control)."""
+    response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
+    response["Cache-Control"] = "public, max-age=3600"
+    return response
 
-    The hosting layer has previously exposed noindex headers on sitemap.xml.
-    Keep this wrapper close to the route so sitemap responses stay cacheable,
-    cookie-free, and free from accidental X-Robots-Tag directives.
-    """
-    from storefront.sitemaps import StaticViewSitemap, ProductSitemap, CategorySitemap
 
+def _render_django_sitemap(request, sitemap_classes):
+    """Render a list of Django Sitemap classes into an XML response.
+
+    Used by per-section views below. Honors the canonical SITE_BASE_URL,
+    not the django.contrib.sites domain (Phase 0 SEO contract).
+    """
     parsed_base = urlparse(_site_base_url())
     protocol = parsed_base.scheme or "https"
     canonical_site = SimpleNamespace(domain=parsed_base.netloc, name=parsed_base.netloc)
     page = request.GET.get("p", 1)
     urls = []
 
-    for sitemap_cls in (StaticViewSitemap, ProductSitemap, CategorySitemap):
+    for sitemap_cls in sitemap_classes:
         site_map = sitemap_cls()
         try:
             urls.extend(site_map.get_urls(page=page, site=canonical_site, protocol=protocol))
@@ -354,10 +357,147 @@ def custom_sitemap(request):
         {"urlset": urls},
         content_type="application/xml; charset=utf-8",
     )
-
+    # Force render so we can apply final Cache-Control without TemplateResponse weirdness.
+    response.render()
     response["Content-Type"] = "application/xml; charset=utf-8"
     response["Cache-Control"] = "public, max-age=3600"
     return response
+
+
+def _max_lastmod(*candidates):
+    """Return the latest non-None datetime from ``candidates``, or ``None``."""
+    valid = [dt for dt in candidates if dt is not None]
+    return max(valid) if valid else None
+
+
+def custom_sitemap(request):
+    """sitemap.xml — sitemap-INDEX referencing per-section children.
+
+    Children:
+        - /sitemap-static.xml      (curated static pages)
+        - /sitemap-products.xml    (every published product, lastmod from updated_at)
+        - /sitemap-categories.xml  (every active category, lastmod from updated_at)
+        - /sitemap-images.xml      (Google Image Sitemap with main_image per product)
+
+    Backwards-compatible: same URL `/sitemap.xml`, still cacheable, still
+    cookie-free. Search Console auto-detects index format.
+    """
+    base_url = _site_base_url()
+
+    product_lastmod = (
+        Product.objects.filter(status="published")
+        .order_by("-updated_at")
+        .values_list("updated_at", flat=True)
+        .first()
+    )
+    category_lastmod = (
+        Category.objects.filter(is_active=True)
+        .order_by("-updated_at")
+        .values_list("updated_at", flat=True)
+        .first()
+    )
+    images_lastmod = (
+        Product.objects.filter(status="published")
+        .exclude(main_image="")
+        .order_by("-updated_at")
+        .values_list("updated_at", flat=True)
+        .first()
+    )
+
+    children = [
+        ("/sitemap-static.xml", None),
+        ("/sitemap-products.xml", product_lastmod),
+        ("/sitemap-categories.xml", category_lastmod),
+        ("/sitemap-images.xml", images_lastmod),
+    ]
+
+    root = ET.Element(
+        "sitemapindex",
+        {"xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"},
+    )
+    for path, lastmod in children:
+        sm_el = ET.SubElement(root, "sitemap")
+        ET.SubElement(sm_el, "loc").text = f"{base_url}{path}"
+        if lastmod is not None:
+            ET.SubElement(sm_el, "lastmod").text = lastmod.strftime("%Y-%m-%dT%H:%M:%S%z") or lastmod.isoformat()
+
+    xml_payload = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+    return _sitemap_response(xml_payload)
+
+
+def sitemap_section_static(request):
+    """Section sitemap for curated static landing pages."""
+    from storefront.sitemaps import StaticViewSitemap
+
+    return _render_django_sitemap(request, [StaticViewSitemap])
+
+
+def sitemap_section_products(request):
+    """Section sitemap for published products (lastmod from updated_at)."""
+    from storefront.sitemaps import ProductSitemap
+
+    return _render_django_sitemap(request, [ProductSitemap])
+
+
+def sitemap_section_categories(request):
+    """Section sitemap for active categories (lastmod from updated_at)."""
+    from storefront.sitemaps import CategorySitemap
+
+    return _render_django_sitemap(request, [CategorySitemap])
+
+
+def sitemap_images(request):
+    """Google Image Sitemap.
+
+    Per https://developers.google.com/search/docs/crawling-indexing/sitemaps/image-sitemaps
+    each <url> may carry up to ~1000 <image:image> children. We emit the
+    main_image of every published product (one image per URL — most direct
+    win for product image search ranking).
+    """
+    base_url = _site_base_url()
+
+    products = (
+        Product.objects.filter(status="published")
+        .exclude(main_image="")
+        .only("slug", "title", "main_image")
+        .order_by("id")
+    )
+
+    urlset = ET.Element(
+        "urlset",
+        {
+            "xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9",
+            "xmlns:image": "http://www.google.com/schemas/sitemap-image/1.1",
+        },
+    )
+
+    for product in products:
+        if not product.slug:
+            continue
+        try:
+            image_path = product.main_image.url if product.main_image else ""
+        except (ValueError, AttributeError):
+            image_path = ""
+        if not image_path:
+            continue
+
+        # Normalize relative MEDIA URLs into absolute https URLs.
+        if image_path.startswith("/"):
+            image_url = f"{base_url}{image_path}"
+        elif image_path.startswith(("http://", "https://")):
+            image_url = image_path
+        else:
+            image_url = f"{base_url}/{image_path.lstrip('/')}"
+
+        url_el = ET.SubElement(urlset, "url")
+        ET.SubElement(url_el, "loc").text = f"{base_url}/product/{product.slug}/"
+        image_el = ET.SubElement(url_el, "image:image")
+        ET.SubElement(image_el, "image:loc").text = image_url
+        if product.title:
+            ET.SubElement(image_el, "image:title").text = product.title
+
+    xml_payload = ET.tostring(urlset, encoding="utf-8", xml_declaration=True)
+    return _sitemap_response(xml_payload)
 
 
 def _hydrate_link_payload(item):
