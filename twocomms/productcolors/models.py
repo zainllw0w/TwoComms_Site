@@ -1,5 +1,5 @@
 from django.db import models
-from django.utils.text import slugify
+from dtf.utils import build_slug
 from storefront.models import Product
 
 
@@ -81,9 +81,12 @@ class ProductColorVariant(models.Model):
         base = ""
         color = getattr(self, "color", None)
         if color is not None:
-            base = slugify(color.name or "") or ""
+            # ``build_slug`` first transliterates Cyrillic, then runs
+            # slugify(allow_unicode=False) so Ukrainian colour names
+            # like "Кайот" / "Чорний" become "kayot" / "chornyy".
+            base = build_slug(color.name or "", fallback="") if color.name else ""
             if not base and getattr(color, "primary_hex", ""):
-                base = slugify(color.primary_hex.lstrip("#")) or ""
+                base = build_slug(color.primary_hex.lstrip("#"), fallback="")
         if not base:
             base = "color"
 
