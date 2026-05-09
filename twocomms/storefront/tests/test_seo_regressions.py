@@ -537,9 +537,12 @@ class RobotsTxtAiSearchRegressionTests(TestCase):
         self.assertIn("User-agent: CCBot\nAllow: /", body)
         self.assertIn("User-agent: ClaudeBot\nAllow: /", body)
         self.assertIn("User-agent: anthropic-ai\nAllow: /", body)
-        self.assertIn("User-agent: Googlebot\nAllow: /", body)
+        # Phase 6: Googlebot, bingbot, Storebot-Google etc follow
+        # ``User-agent: *`` per spec, so we no longer emit duplicate
+        # explicit blocks for them. Keep AdsBot-* explicit because
+        # Google's ads crawlers do NOT obey ``*``.
         self.assertIn("User-agent: AdsBot-Google\nAllow: /", body)
-        self.assertIn("User-agent: Storebot-Google\nAllow: /", body)
+        self.assertIn("User-agent: AdsBot-Google-Mobile\nAllow: /", body)
         self.assertNotIn("Disallow: /search/", body)
         self.assertIn("Sitemap: https://twocomms.shop/sitemap.xml", body)
 
@@ -548,11 +551,27 @@ class RobotsTxtAiSearchRegressionTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         body = response.content.decode("utf-8")
-        ai_group = body.split("# Explicitly allow AI search, citation and model discovery bots", 1)[1]
+        ai_group = body.split(
+            "# AI answer engines: explicit opt-in for citations and model discovery.",
+            1,
+        )[1]
 
         for path in ("/admin/", "/admin-panel/", "/accounts/", "/orders/", "/cart/", "/checkout/", "/api/"):
             with self.subTest(path=path):
                 self.assertIn(f"Disallow: {path}", ai_group)
+
+    def test_robots_txt_blocks_utm_and_ad_click_query_noise(self):
+        """Phase 6: UTM / gclid / fbclid query variants waste crawl
+        budget and dilute canonicals. They must be disallowed globally.
+        """
+        response = self.client.get(reverse("robots_txt"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+
+        for pattern in ("/*?utm_*", "/*?gclid=", "/*?fbclid=", "/*?sort="):
+            with self.subTest(pattern=pattern):
+                self.assertIn(f"Disallow: {pattern}", body)
 
     def test_search_page_is_crawlable_so_noindex_can_be_seen(self):
         robots_response = self.client.get(reverse("robots_txt"), secure=True)

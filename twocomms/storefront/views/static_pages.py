@@ -97,28 +97,33 @@ ROBOTS_INTERNAL_DISALLOW_PATHS = (
     "/dev/",
 )
 
-SEARCH_ROBOTS_USER_AGENTS = (
-    "Googlebot",
-    "Googlebot-Image",
-    "Googlebot-Video",
-    "Googlebot-News",
-    "Google-InspectionTool",
-    "GoogleOther",
-    "GoogleOther-Image",
-    "GoogleOther-Video",
+# Query-string noise to de-duplicate canonicals. These are common UTM,
+# ad-click and sort parameters that produce infinite URL variants.
+ROBOTS_QUERY_NOISE_PATTERNS = (
+    "/*?utm_*",
+    "/*&utm_*",
+    "/*?gclid=",
+    "/*?fbclid=",
+    "/*?yclid=",
+    "/*?msclkid=",
+    "/*?ref=",
+    "/*?ref_=",
+    "/*?sort=",
+    "/*?order=",
+)
+
+# Ads bots that do NOT follow "User-agent: *" per Google's spec — each
+# one must be addressed explicitly or it won't crawl the storefront at
+# all, breaking Shopping / Performance Max ad previews.
+ADSBOT_USER_AGENTS = (
     "AdsBot-Google",
     "AdsBot-Google-Mobile",
     "AdsBot-Google-Mobile-Apps",
-    "Storebot-Google",
-    "Google-CloudVertexBot",
-    "bingbot",
-    "BingPreview",
-    "Applebot",
-    "DuckDuckBot",
-    "YandexBot",
-    "Slurp",
 )
 
+# Answer-engine / LLM crawlers. These do follow "*" but we list them
+# explicitly to make it obvious on audit that TwoComms opts IN to AI
+# discovery. Paired with llms.txt and AI-visible on-page SEO.
 AI_ROBOTS_USER_AGENTS = (
     "OAI-SearchBot",
     "ChatGPT-User",
@@ -173,39 +178,51 @@ CUSTOM_PRINT_FAQ_ITEMS = [
 # ==================== STATIC PAGES ====================
 
 def robots_txt(request):
-    """
-    Генерирует robots.txt файл.
+    """Generate the canonical robots.txt (Phase 6).
 
-    Returns:
-        HttpResponse: текстовый файл robots.txt
+    Strategy:
+        * One ``User-agent: *`` block covering all well-behaved crawlers,
+          including path disallows and query-string noise de-duplication.
+        * Explicit ``AdsBot-*`` blocks — Google's Ads crawlers do NOT
+          follow ``User-agent: *`` and MUST be addressed individually or
+          Shopping / PMax ad previews break.
+        * Explicit ``Allow`` for each AI / answer-engine crawler to
+          signal that TwoComms opts IN to AI discovery (paired with
+          ``llms.txt`` and AI-visible SEO blocks).
+        * Sitemap index (``/sitemap.xml``) at the end.
     """
+
     def append_public_rules(payload):
         payload.append("Allow: /")
         for path in ROBOTS_INTERNAL_DISALLOW_PATHS:
             payload.append(f"Disallow: {path}")
 
     lines = [
+        "# TwoComms robots.txt — canonical source.",
+        "# Primary rules apply to every crawler that honours User-agent: *.",
         "User-agent: *",
     ]
     append_public_rules(lines)
-    lines.extend(
-        [
-            "",
-            "# Explicitly allow major search, ads and commerce crawlers",
-        ]
-    )
+    # De-duplicate canonicals: UTM / ad-click / sort params produce
+    # infinite URL variants that waste crawl budget and dilute rankings.
+    for pattern in ROBOTS_QUERY_NOISE_PATTERNS:
+        lines.append(f"Disallow: {pattern}")
+    lines.append("")
 
-    for user_agent in SEARCH_ROBOTS_USER_AGENTS:
+    # Per robots.txt spec, specific user-agent blocks do NOT inherit
+    # rules from ``User-agent: *`` — they must repeat any required
+    # disallows, otherwise those bots will crawl /admin/, /cart/, …
+    lines.append(
+        "# Google Ads crawlers ignore User-agent: * per spec — explicit blocks required."
+    )
+    for user_agent in ADSBOT_USER_AGENTS:
         lines.append(f"User-agent: {user_agent}")
         append_public_rules(lines)
         lines.append("")
 
-    lines.extend(
-        [
-            "# Explicitly allow AI search, citation and model discovery bots",
-        ]
+    lines.append(
+        "# AI answer engines: explicit opt-in for citations and model discovery."
     )
-
     for user_agent in AI_ROBOTS_USER_AGENTS:
         lines.append(f"User-agent: {user_agent}")
         append_public_rules(lines)
@@ -213,7 +230,12 @@ def robots_txt(request):
 
     lines.append(f"Sitemap: {_absolute_site_url('/sitemap.xml')}")
 
-    return HttpResponse("\n".join(lines) + "\n", content_type="text/plain; charset=utf-8")
+    response = HttpResponse(
+        "\n".join(lines) + "\n", content_type="text/plain; charset=utf-8"
+    )
+    # robots.txt rarely changes; let crawlers cache it aggressively.
+    response["Cache-Control"] = "public, max-age=3600"
+    return response
 
 
 def llms_txt(request):
