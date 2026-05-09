@@ -225,3 +225,122 @@ class PathVariantUrlTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["preselected_color"], self.variant_white.pk)
+
+
+class VariantCanonicalAndMetaTests(TestCase):
+    """Phase 7.3 — canonical strategy + dynamic title/description.
+
+    Rules:
+    * Base URL           → canonical = self, meta = default product meta.
+    * 1-segment variant  → canonical = self (indexable long-tail),
+                           meta = enriched with the segment's value.
+    * 2+ segment variant → canonical = base URL (consolidate signal),
+                           meta = still enriched for the user on-page.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(
+            name="Футболки 7.3", slug="phase73-tshirts", is_active=True
+        )
+        cls.product = Product.objects.create(
+            title="Тестова футболка 7.3",
+            slug="phase73-tshirt",
+            category=cls.category,
+            price=1000,
+            description="Phase 7.3 canonical coverage.",
+            status="published",
+        )
+        black = Color.objects.create(name="Чорний", primary_hex="#000000")
+        ProductColorVariant.objects.create(
+            product=cls.product, color=black, order=0, is_default=True
+        )
+        ProductFitOption.objects.create(
+            product=cls.product,
+            code="oversize",
+            label="Оверсайз",
+            is_default=False,
+            order=1,
+        )
+        ProductFitOption.objects.create(
+            product=cls.product,
+            code="classic",
+            label="Класичний",
+            is_default=True,
+            order=0,
+        )
+
+    def test_base_url_is_self_canonical(self):
+        response = self.client.get(reverse("product", kwargs={"slug": self.product.slug}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["variant_canonical_path"],
+            reverse("product", kwargs={"slug": self.product.slug}),
+        )
+        self.assertTrue(response.context["variant_is_self_canonical"])
+        self.assertEqual(response.context["variant_page_title"], "")
+
+    def test_single_segment_variant_is_self_canonical(self):
+        url = reverse("product", kwargs={"slug": self.product.slug, "v1": "black"})
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["variant_canonical_path"], url)
+        self.assertTrue(response.context["variant_is_self_canonical"])
+        self.assertIn("чорний", response.context["variant_page_title"].lower())
+
+    def test_two_segment_variant_canonicalises_to_base(self):
+        base_url = reverse("product", kwargs={"slug": self.product.slug})
+        url = reverse(
+            "product",
+            kwargs={"slug": self.product.slug, "v1": "black", "v2": "m"},
+        )
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["variant_canonical_path"], base_url)
+        self.assertFalse(response.context["variant_is_self_canonical"])
+        # Title still enriched so the browser tab shows the selection.
+        title = response.context["variant_page_title"].lower()
+        self.assertIn("чорний", title)
+        self.assertIn("розмір m", title)
+
+    def test_three_segment_variant_canonicalises_to_base(self):
+        base_url = reverse("product", kwargs={"slug": self.product.slug})
+        url = reverse(
+            "product",
+            kwargs={
+                "slug": self.product.slug,
+                "v1": "black",
+                "v2": "l",
+                "v3": "oversize",
+            },
+        )
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["variant_canonical_path"], base_url)
+        self.assertFalse(response.context["variant_is_self_canonical"])
+        title = response.context["variant_page_title"].lower()
+        self.assertIn("оверсайз", title)
+
+    def test_canonical_link_renders_with_absolute_origin(self):
+        url = reverse("product", kwargs={"slug": self.product.slug, "v1": "black"})
+
+        response = self.client.get(
+            url,
+            HTTP_HOST="twocomms.shop",
+            secure=True,
+            **{"wsgi.url_scheme": "https"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'<link rel="canonical"\n    href="https://twocomms.shop{url}"',
+            html=False,
+        )

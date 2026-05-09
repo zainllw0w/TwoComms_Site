@@ -22,6 +22,7 @@ from ..services.catalog_helpers import (
 )
 from ..services.image_variants import build_optimized_image_payload
 from ..services.size_guides import resolve_product_size_context
+from ..services.variant_meta import VariantMetaInputs, build_variant_meta
 from ..recommendations import ProductRecommendationEngine
 from ..utm_tracking import record_product_view
 
@@ -127,6 +128,9 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     # Path wins over query string.
     path_segments = [s for s in (v1, v2, v3) if s]
     path_fit_code = ""
+    path_parsed_size = None
+    path_parsed_color_id = None
+    path_parsed_color_slug = None
     if path_segments:
         available_sizes_upper = {str(s).upper() for s in available_sizes}
         color_slug_to_id = {
@@ -141,6 +145,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
 
         parsed_size = None
         parsed_color_id = None
+        parsed_color_slug = None
         parsed_fit = None
         for segment in path_segments:
             seg_upper = segment.upper()
@@ -150,6 +155,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
                 continue
             if parsed_color_id is None and seg_lower in color_slug_to_id:
                 parsed_color_id = color_slug_to_id[seg_lower]
+                parsed_color_slug = seg_lower
                 continue
             if parsed_fit is None and seg_lower in fit_codes_lower:
                 parsed_fit = seg_lower
@@ -166,6 +172,11 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             preselected_color_id = str(parsed_color_id)
         if parsed_fit is not None:
             path_fit_code = parsed_fit
+
+        # Keep parsed values for Phase 7.3 canonical + meta building.
+        path_parsed_size = parsed_size
+        path_parsed_color_id = parsed_color_id
+        path_parsed_color_slug = parsed_color_slug
     auto_select_first_color = False
     preselected_color = None  # Будем хранить выбранный цвет для шаблона
 
@@ -312,6 +323,45 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     else:
         preselected_fit_code = ''
 
+    # Phase 7.3 — dynamic canonical + title/description for path-style
+    # variant URLs. Only the path (``/product/x/black/m/``) drives
+    # variant meta; ``?size=`` / ``?color=`` query params do NOT (those
+    # are a private UX affordance and must not fork canonicals).
+    base_path = reverse('product', kwargs={'slug': product.slug})
+    active_color_name = ""
+    active_color_slug = ""
+    if path_parsed_color_id is not None and color_variants:
+        active_variant_entry = next(
+            (v for v in color_variants if v.get('id') == path_parsed_color_id),
+            None,
+        )
+        if active_variant_entry is not None:
+            active_color_name = active_variant_entry.get('name') or ""
+            active_color_slug = active_variant_entry.get('slug') or path_parsed_color_slug or ""
+
+    active_fit_label = ""
+    if path_fit_code and fit_options:
+        active_fit_option = next(
+            (opt for opt in fit_options if opt.code == path_fit_code),
+            None,
+        )
+        if active_fit_option is not None:
+            active_fit_label = active_fit_option.label or ""
+
+    variant_meta = build_variant_meta(
+        VariantMetaInputs(
+            product_title=product.title,
+            base_path=base_path,
+            current_path=request.path,
+            segments_count=len(path_segments),
+            color_name=active_color_name or None,
+            color_slug=active_color_slug or None,
+            size_code=path_parsed_size or None,
+            fit_label=active_fit_label or None,
+            fit_code=path_fit_code or None,
+        )
+    )
+
     return render(
         request,
         'pages/product_detail.html',
@@ -339,6 +389,11 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             'fit_options': fit_options,
             'show_fit_selector': bool(fit_options),
             'preselected_fit_code': preselected_fit_code,
+            # Phase 7.3 — variant-aware SEO meta.
+            'variant_canonical_path': variant_meta['canonical_path'],
+            'variant_page_title': variant_meta['page_title'],
+            'variant_page_description': variant_meta['page_description'],
+            'variant_is_self_canonical': variant_meta['is_self_canonical'],
         }
     )
 
