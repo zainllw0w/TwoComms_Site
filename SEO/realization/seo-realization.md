@@ -50,7 +50,7 @@
 | 0  | Подготовка плана и инфраструктуры                          | DONE     |
 | 1  | AI opt-in: галочка у Product и Category, fallback chain    | DONE     |
 | 2  | Отказ от Celery, перенос на cron + sync on_commit          | DONE     |
-| 3  | IndexNow polish (sync, retry, manual reindex в админке)    | TODO     |
+| 3  | IndexNow polish (sync, retry, manual reindex в админке)    | DONE     |
 | 4  | Sitemap: image-sitemap, sitemap-index, lastmod из БД       | TODO     |
 | 5  | Schema.org: точные shipping/return из реальных страниц     | TODO     |
 | 6  | robots.txt — финальная вычитка и нормализация              | TODO     |
@@ -269,11 +269,43 @@ def forward(apps, schema_editor):
 
 ## Phase 3 — IndexNow polish
 
-- Проверить, что IndexNow ключ настроен (`/<key>.txt` на корне).
-- Sync-вызов в `on_commit`, `requests.post` с таймаутом 5 сек.
-- В админ-панели — кнопка «Переотправить URL в IndexNow» (для отдельного
-  товара и для всего сайта).
-- Команда `manage.py reindex_indexnow` для bulk-переотправки.
+### Что сделано
+
+- **Ключ проверен:** `https://twocomms.shop/fda0e47b6c894bcab3f42a5ddc4eb049.txt` → 200,
+  `is_indexnow_configured()` → True.
+- **`services/indexnow.submit_indexnow_urls`** теперь:
+  - батчит по 100 URL/запрос (`INDEXNOW_BATCH_SIZE`),
+  - таймаут поднят с 2.5 до 5 сек (`INDEXNOW_DEFAULT_TIMEOUT`),
+  - 2 ретрая на 5xx и сетевые таймауты (`INDEXNOW_DEFAULT_RETRIES`),
+  - возвращает `False` если хоть один батч не прошёл,
+  - 4xx — немедленно фатальная (нет смысла ретраить).
+- **`management/commands/reindex_indexnow.py`** — bulk-команда с флагами:
+  `--all`, `--core`, `--products`, `--categories`, `--since-days=N`,
+  `--limit=N`, `--batch-size=N`, `--retries=N`, `--dry-run`.
+  Smoke на сервере: `--core` → 18 URL → IndexNow accepted.
+- **Django admin actions:** `Надіслати в IndexNow (поточні URL)` для
+  Product и Category. Фильтрует неопубликованные/неактивные, дедуп,
+  выводит результат через `messages`.
+
+### Команды для регулярного использования
+
+```bash
+# Раз в неделю — переподтверждение всего каталога
+python manage.py reindex_indexnow --all
+
+# Ежедневно — только то, что менялось
+python manage.py reindex_indexnow --all --since-days=1
+```
+
+### Чек-лист Phase 3
+
+- [x] Ключ IndexNow доступен по своему URL.
+- [x] Sync через `on_commit`, таймаут 5 с (раньше было 2.5 с).
+- [x] Retry на 5xx и сетевые ошибки.
+- [x] Batching при больших списках.
+- [x] Команда `reindex_indexnow` написана и протестирована на проде.
+- [x] Admin-actions для Product и Category.
+- [x] Commit `1b898845`, push, pull, restart.
 
 ---
 
@@ -548,5 +580,6 @@ class CategorySeoText(models.Model):
 | 2026-05-08 | 0 | — | План создан, инфраструктура изучена. |
 | 2026-05-09 | 1 | `c83ef65a` | AI opt-in + fit toggle. Migrate applied on server; data-migration перенесла 52 товара. Smoke HTTP OK. |
 | 2026-05-09 | 2 | `9d2d5d19` | Celery-less сигналы: dirty-flag + cron `regenerate_feeds_if_dirty`. IndexNow и image-opt — sync через `on_commit`. Cron `*/10 *` добавлен. Smoke: `dirty=True` после save, `--force` фид сгенерирован за 0.8s, главная 200. |
+| 2026-05-09 | 3 | `1b898845` | IndexNow polish: batching/retries в `submit_indexnow_urls`, команда `reindex_indexnow`, admin-actions для Product/Category. Smoke: `--core` → 18 URL accepted. |
 
 > Каждый раз после `git push` + деплоя — добавлять строку.
