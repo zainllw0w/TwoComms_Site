@@ -55,7 +55,7 @@
 | 5  | Schema.org: Organization, WebSite, shipping/return policy   | DONE     |
 | 6  | robots.txt — дедупликация, UTM-noise, AdsBot+AI блоки       | DONE     |
 | 7  | Path-URL для вариантов товара (size / color / fit)         | DONE     |
-| 8  | AJAX-переключение вариантов без перезагрузки               | TODO     |
+| 8  | AJAX-переключение вариантов без перезагрузки               | DONE     |
 | 9  | Цветовой фильтр в каталоге и на главной                    | TODO     |
 | 10 | SEO-блоки в категориях (топ-фильтры, топ-запросы и т. п.)  | TODO     |
 | 11 | Раздел SEO в админ-панели (категории + блоки + настройки)  | TODO     |
@@ -728,5 +728,6 @@ class CategorySeoText(models.Model):
 | 2026-05-09 | 7.3 | `35654d6c` | Variant-aware canonical + meta: base/1-segment → self, 2+ → base URL. Динамические title/description (`Купити X — кайот, розмір M — TwoComms`). Prod smoke: canonical на 3 URL'ах точно по стратегии. |
 | 2026-05-09 | 7.4 | `26310db5` → `a9001e15` | `sitemap-product-variants.xml`: 416 URL в виде 1-сегмент вариаций (65×L/M/XL/S/XXL, 24×XS, 22×oversize/classic, 12×black, 7×coyote...). Multi-segment омитнуты (канонизируются на base). Добавлен в sitemap-index. |
 | 2026-05-09 | 7.5 | `7327c354` | 301 redirect: legacy `?size=M&color=<id>&fit=<code>` → `/<color>/<size>/<fit>/`. Каноничный порядок (color → size → fit). UTM/gclid/fbclid/ref preserved. Invalid query → 200 fallback. Path-URL не редиректится повторно. Prod smoke: 4 сценария (3×301, 1×200). |
+| 2026-05-09 | 8   | `958efc91` | Phase 8 — `product-variant-history.js`: при изменении color/size/fit на странице товара клиент через `history.replaceState` синхронизирует path-URL без перезагрузки, обновляет `document.title` и `<link rel=canonical>` по той же стратегии (1-сегмент → self, 2+ → base). Шаблон отдаёт `data-product-slug`, `data-product-base-path`, `data-product-title-base` + `data-variant-slug` на swatch. Prod smoke: атрибуты доступны (`black`, `coyote`), минифицированный JS отдаётся CDN. |
 
 > Каждый раз после `git push` + деплоя — добавлять строку.
