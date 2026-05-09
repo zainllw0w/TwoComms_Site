@@ -115,6 +115,11 @@ urlpatterns = [
     path('admin-panel/order/approve-payment/', _legacy_view('admin_approve_payment'), name='admin_approve_payment'),
     path('admin-panel/order/<int:pk>/delete/', _legacy_view('admin_order_delete'), name='admin_order_delete'),
     path(
+        'admin-panel/indexnow/submit/',
+        _module_view('storefront.views.admin', 'admin_indexnow_submit'),
+        name='admin_indexnow_submit',
+    ),
+    path(
         'admin-panel/custom-print/<int:lead_id>/status/',
         _module_view('storefront.views.admin', 'admin_custom_print_lead_status'),
         name='admin_custom_print_lead_status',

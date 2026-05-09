@@ -1603,6 +1603,12 @@
               </svg>
               <span id="products-count">{{ products|length }}</span>
             </div>
+            <button type="button" class="stat-badge" data-action="indexnow-submit" data-target-type="all" title="Надіслати в IndexNow усі публічні URL (core + товари + категорії)" style="border:none; cursor:pointer;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l4 4h-3v6h-2V6H8l4-4zm-7 18v-2h14v2H5z"/>
+              </svg>
+              <span>IndexNow: усе</span>
+            </button>
           </div>
         </div>
 
@@ -1695,6 +1701,12 @@
                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                     </svg>
                     Видалити
+                  </button>
+                  <button type="button" class="action-btn" data-action="indexnow-submit" data-target-type="category" data-target-id="{{ category.id }}" title="Надіслати URL цієї категорії в IndexNow">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2l4 4h-3v6h-2V6H8l4-4zm-7 18v-2h14v2H5z"/>
+                    </svg>
+                    IndexNow
                   </button>
                 </div>
               </div>
@@ -1846,6 +1858,12 @@
                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                     </svg>
                     Видалити
+                  </button>
+                  <button type="button" class="action-btn" data-action="indexnow-submit" data-target-type="product" data-target-id="{{ product.id }}" title="Надіслати URL цього товару в IndexNow">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2l4 4h-3v6h-2V6H8l4-4zm-7 18v-2h14v2H5z"/>
+                    </svg>
+                    IndexNow
                   </button>
                 </div>
               </div>
@@ -4575,6 +4593,86 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   initManagerToggles();
 });
+
+// =====================================================
+// IndexNow integration (Phase 3 / Адмін-панель)
+// =====================================================
+//
+// Кнопки [data-action="indexnow-submit"] на картках товарів і категорій,
+// плюс глобальна "IndexNow: усе" в шапці секції каталогів. POST у
+// /admin-panel/indexnow/submit/, бекенд - submit_indexnow_urls (батчинг,
+// retry, sync). Відображає тост через showNotification.
+(function setupIndexNow() {
+  const ENDPOINT = "{% url 'admin_indexnow_submit' %}";
+
+  document.addEventListener('click', function(event) {
+    const btn = event.target.closest('[data-action="indexnow-submit"]');
+    if (!btn) return;
+    event.preventDefault();
+
+    const targetType = btn.dataset.targetType;
+    if (!targetType) return;
+
+    const ids = [];
+    if (btn.dataset.targetId) {
+      ids.push(btn.dataset.targetId);
+    }
+
+    if (targetType === 'all' && !window.confirm('Надіслати ВСІ публічні URL у IndexNow? Це може зайняти декілька секунд.')) {
+      return;
+    }
+
+    const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    const csrf = csrfInput ? csrfInput.value : '';
+
+    const originalLabel = btn.innerHTML;
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+    btn.innerHTML = '<span style="opacity:.85">Надсилання…</span>';
+
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({ type: targetType, ids: ids }),
+    })
+    .then(async response => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.success === false) {
+        const msg = (data && (data.error || data.message)) || `IndexNow: ${response.status}`;
+        if (typeof showNotification === 'function') {
+          showNotification(msg, 'error');
+        } else {
+          alert(msg);
+        }
+        return;
+      }
+      const msg = data.message || `IndexNow прийняв ${data.count || 0} URL.`;
+      if (typeof showNotification === 'function') {
+        showNotification(msg, 'success');
+      } else {
+        alert(msg);
+      }
+    })
+    .catch(err => {
+      const msg = (err && err.message) || 'IndexNow: помилка мережі';
+      if (typeof showNotification === 'function') {
+        showNotification(msg, 'error');
+      } else {
+        alert(msg);
+      }
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.classList.remove('is-loading');
+      btn.innerHTML = originalLabel;
+    });
+  });
+})();
 </script>
 
 {% endblock %}

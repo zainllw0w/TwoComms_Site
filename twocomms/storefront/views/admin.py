@@ -107,6 +107,13 @@ from storefront.services.web_push import (
     is_web_push_configured,
     send_campaign,
 )
+from storefront.services.indexnow import (
+    get_category_public_url,
+    get_core_indexnow_urls,
+    get_product_public_url,
+    is_indexnow_configured,
+    submit_indexnow_urls,
+)
 
 
 # ==================== ADMIN VIEWS ====================
@@ -1849,6 +1856,96 @@ def inventory_management(request):
     """
     # TODO: Реализовать управление складом
     return render(request, 'admin/inventory.html')
+
+
+@staff_member_required
+def admin_indexnow_submit(request):
+    """AJAX endpoint: submit URLs to IndexNow from the custom admin panel.
+
+    POST JSON body:
+        {"type": "product"|"category"|"core"|"all", "ids": [..., ...]}
+
+    For ``type=product`` or ``type=category`` the ``ids`` array is required and
+    only objects with public URLs (published / active) are forwarded. ``core``
+    submits the curated list from ``CORE_INDEXNOW_ROUTE_NAMES``. ``all``
+    submits core + every published product + every active category.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+
+    if not is_indexnow_configured():
+        return JsonResponse(
+            {
+                'success': False,
+                'error': 'IndexNow не сконфігуровано (відсутній INDEXNOW_KEY).',
+            },
+            status=503,
+        )
+
+    target_type = (payload.get('type') or '').strip().lower()
+    raw_ids = payload.get('ids') or []
+    try:
+        ids = [int(value) for value in raw_ids if str(value).strip()]
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid ids'}, status=400)
+
+    urls: list[str] = []
+
+    if target_type == 'product':
+        if not ids:
+            return JsonResponse({'success': False, 'error': 'Empty ids list'}, status=400)
+        products = Product.objects.filter(pk__in=ids).only('slug', 'status')
+        urls = [u for u in (get_product_public_url(p) for p in products) if u]
+    elif target_type == 'category':
+        if not ids:
+            return JsonResponse({'success': False, 'error': 'Empty ids list'}, status=400)
+        categories = Category.objects.filter(pk__in=ids).only('slug', 'is_active')
+        urls = [u for u in (get_category_public_url(c) for c in categories) if u]
+    elif target_type == 'core':
+        urls = list(get_core_indexnow_urls())
+    elif target_type == 'all':
+        urls = list(get_core_indexnow_urls())
+        urls.extend(filter(None, (
+            get_product_public_url(p)
+            for p in Product.objects.filter(status='published').only('slug', 'status')
+        )))
+        urls.extend(filter(None, (
+            get_category_public_url(c)
+            for c in Category.objects.filter(is_active=True).only('slug', 'is_active')
+        )))
+    else:
+        return JsonResponse(
+            {'success': False, 'error': 'Unknown type (use product|category|core|all)'},
+            status=400,
+        )
+
+    urls = list(dict.fromkeys(urls))
+    if not urls:
+        return JsonResponse(
+            {
+                'success': False,
+                'error': 'Жодного публічного URL для надсилання (можливо, об’єкти неактивні).',
+            },
+            status=400,
+        )
+
+    ok = submit_indexnow_urls(urls)
+    return JsonResponse(
+        {
+            'success': bool(ok),
+            'count': len(urls),
+            'message': (
+                f'IndexNow прийняв {len(urls)} URL(-ів).'
+                if ok
+                else f'IndexNow повернув помилку для {len(urls)} URL(-ів). Деталі — у логах.'
+            ),
+        }
+    )
 
 
 def _build_dispatcher_context(request):
