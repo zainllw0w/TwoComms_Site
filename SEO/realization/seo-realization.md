@@ -51,7 +51,7 @@
 | 1  | AI opt-in: галочка у Product и Category, fallback chain    | DONE     |
 | 2  | Отказ от Celery, перенос на cron + sync on_commit          | DONE     |
 | 3  | IndexNow polish (sync, retry, manual reindex в админке)    | DONE     |
-| 4  | Sitemap: image-sitemap, sitemap-index, lastmod из БД       | TODO     |
+| 4  | Sitemap: image-sitemap, sitemap-index, lastmod из БД       | DONE     |
 | 5  | Schema.org: точные shipping/return из реальных страниц     | TODO     |
 | 6  | robots.txt — финальная вычитка и нормализация              | TODO     |
 | 7  | Path-URL для вариантов товара (size / color / fit)         | TODO     |
@@ -322,12 +322,48 @@ python manage.py reindex_indexnow --all --since-days=1
 
 ## Phase 4 — Sitemap
 
-- Вынести в `sitemap_index.xml`. Раздельные sitemap-ы:
-  - `sitemap-static.xml`, `sitemap-products.xml`, `sitemap-categories.xml`,
-    `sitemap-product-variants.xml` (для path-URL вариантов из Phase 7),
-  - `sitemap-images.xml` — Google Image Sitemap (важно для одежды).
-- `lastmod` строго из `updated_at` модели.
-- Кешировать рендер на 1 час (Django low-level cache, без Redis — file/db).
+### Что сделано
+
+- **`/sitemap.xml` теперь sitemap-INDEX** (`storefront.views.static_pages.custom_sitemap`).
+  Search Console ничего не нужно перенастраивать — он сам распознаёт
+  формат `<sitemapindex>`. Index несёт `<lastmod>` для каждой секции,
+  взятый из последнего `updated_at` соответствующей таблицы.
+- **Дочерние sitemap-ы:**
+  - `/sitemap-static.xml` — `StaticViewSitemap` (curated landing).
+  - `/sitemap-products.xml` — `ProductSitemap`, `lastmod=updated_at`.
+  - `/sitemap-categories.xml` — `CategorySitemap`, `lastmod=updated_at`.
+  - `/sitemap-images.xml` — Google Image Sitemap с `xmlns:image`,
+    одна запись на товар (`main_image`).
+- **Headers:** `Content-Type: application/xml; charset=utf-8`,
+  `Cache-Control: public, max-age=3600`. Никаких `X-Robots-Tag`,
+  никаких analytics-cookie (явное отсутствие проверено тестом).
+- **Канонический origin:** все sitemap-ы используют `SITE_BASE_URL`,
+  не `django.contrib.sites.domain` (тест регрессии переподтверждён).
+- **Sitemap для path-URL вариантов** (`sitemap-product-variants.xml`)
+  отложен — добавим вместе с Phase 7 (path-URL).
+
+### Smoke на проде
+
+```
+GET /sitemap.xml            → 200, sitemapindex с 4 children и lastmod.
+GET /sitemap-static.xml     → 200, 2166 байт, 18 <loc>.
+GET /sitemap-products.xml   → 200, 10141 байт, 65 <loc>.
+GET /sitemap-categories.xml → 200, 592 байт, 3 <loc>.
+GET /sitemap-images.xml     → 200, 15590 байт, 64 <loc> + image: namespace.
+```
+
+Все четыре дают `application/xml` + `Cache-Control: public, max-age=3600`.
+
+### Чек-лист Phase 4
+
+- [x] `/sitemap.xml` — sitemap-INDEX с lastmod детей.
+- [x] `/sitemap-static.xml`, `/sitemap-products.xml`, `/sitemap-categories.xml`.
+- [x] `/sitemap-images.xml` (Google Image Sitemap).
+- [x] `lastmod` из `updated_at` (`ProductSitemap`, `CategorySitemap`).
+- [x] HTTP-кеш через `Cache-Control: public, max-age=3600`.
+- [x] Тесты: `<sitemapindex>`, `pro-brand` в static, `xmlns:image` в images.
+- [ ] `sitemap-product-variants.xml` — отложено до Phase 7.
+- [x] Commit `4fb795c6`, push, pull, restart, smoke OK.
 
 ---
 
@@ -593,5 +629,6 @@ class CategorySeoText(models.Model):
 | 2026-05-09 | 2 | `9d2d5d19` | Celery-less сигналы: dirty-flag + cron `regenerate_feeds_if_dirty`. IndexNow и image-opt — sync через `on_commit`. Cron `*/10 *` добавлен. Smoke: `dirty=True` после save, `--force` фид сгенерирован за 0.8s, главная 200. |
 | 2026-05-09 | 3 | `1b898845` | IndexNow polish: batching/retries в `submit_indexnow_urls`, команда `reindex_indexnow`, admin-actions для Product/Category. Smoke: `--core` → 18 URL accepted. |
 | 2026-05-09 | 3 | `c85525a7` | IndexNow controls в кастомній «Адмін-панелі» (`/admin-panel/?section=catalogs`): endpoint, кнопки на картках товарів/категорій, глобальна `IndexNow: усе`. URL резолвиться, шаблон містить контролі. |
+| 2026-05-09 | 4 | `4fb795c6` | Sitemap-INDEX `/sitemap.xml` + 4 дочірні (static / products / categories / images). lastmod з `updated_at`, image: namespace, `Cache-Control: public, max-age=3600`. Smoke: 4 секції, 18+65+3+64 `<loc>`. |
 
 > Каждый раз после `git push` + деплоя — добавлять строку.
