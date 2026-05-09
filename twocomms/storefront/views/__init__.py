@@ -91,6 +91,7 @@ from .static_pages import (
     static_sitemap,
     sitemap_section_static,
     sitemap_section_products,
+    sitemap_section_product_variants,
     sitemap_section_categories,
     sitemap_images,
     buyme_feed_xml,
