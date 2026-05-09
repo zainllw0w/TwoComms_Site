@@ -53,7 +53,7 @@
 | 3  | IndexNow polish (sync, retry, manual reindex в админке)    | DONE     |
 | 4  | Sitemap: image-sitemap, sitemap-index, lastmod из БД       | DONE     |
 | 5  | Schema.org: Organization, WebSite, shipping/return policy   | DONE     |
-| 6  | robots.txt — финальная вычитка и нормализация              | TODO     |
+| 6  | robots.txt — дедупликация, UTM-noise, AdsBot+AI блоки       | DONE     |
 | 7  | Path-URL для вариантов товара (size / color / fit)         | TODO     |
 | 8  | AJAX-переключение вариантов без перезагрузки               | TODO     |
 | 9  | Цветовой фильтр в каталоге и на главной                    | TODO     |
@@ -429,10 +429,56 @@ GET /product/clasic-tshort/ → присутні priceValidUntil,
 
 ## Phase 6 — robots.txt
 
-- Удалить дубли.
-- Чёткие `Allow: /` + `Disallow:` для админки/корзины/профиля.
-- Sitemap-index в конце.
-- Добавить `Disallow: /*?utm_*=` через мета-canonical.
+### Что сделано
+
+- **Дедупликация.** Было 375 строк (блоки Googlebot /
+  Googlebot-Image / bingbot / Applebot / DuckDuckBot / YandexBot / Slurp
+  дублировали `User-agent: *`). Стало ровно **195 строк**.
+  Их правила полностью покрываются `*` по спеке.
+- **Специфичные блоки ОСТАВЛЕНЫ** только там, где это
+  технически обязательно или важно как сигнал:
+  - `AdsBot-Google`, `AdsBot-Google-Mobile`, `AdsBot-Google-Mobile-Apps`
+    — по спеке Google эти боты НЕ слушают `*`. Без явных
+    блоков Shopping/PMax превью перестают работать.
+  - `OAI-SearchBot`, `ChatGPT-User`, `Claude-SearchBot`, `Claude-User`,
+    `PerplexityBot`, `Perplexity-User`, `Google-Extended`, `GPTBot`,
+    `CCBot`, `ClaudeBot`, `anthropic-ai` — явный opt-in в AI
+    discovery (в паре с `llms.txt`).
+- **Disallow внутри каждого блока повторяются.** По спеке
+  robots.txt конкретный user-agent блок НЕ наследует правила
+  из `*` — иначе AdsBot и AI-боты разрешили бы себе `/admin/`,
+  `/cart/` и т. п. Обязательно повторяем.
+- **Query-noise блокировки** в `*` блоке: `?utm_*`, `&utm_*`,
+  `?gclid=`, `?fbclid=`, `?yclid=`, `?msclkid=`, `?ref=`, `?ref_=`,
+  `?sort=`, `?order=`. Это устраняет размывание canonical от рекламных
+  параметров и экономит crawl budget.
+- **`/search/` ОСТАЛСЯ доступным** для роботов. Страница
+  выдаёт `<meta name="robots" content="noindex, follow">`,
+  их нужно пустить внутрь, чтобы они увидели директиву.
+- **`Cache-Control: public, max-age=3600`** — robots.txt почти не
+  меняется, кэшируем агрессивно.
+- **Sitemap-index в конце** — `Sitemap: https://twocomms.shop/sitemap.xml`
+  (это именно индекс из Phase 4, а не плоский sitemap).
+
+### Smoke на проде
+
+```
+GET /robots.txt → 200, text/plain, 195 строк.
+User-agent блоков: 1×*, 3×AdsBot, 11×AI = 15.
+Disallow ноиса: utm_, gclid, fbclid, sort= — все присутствуют.
+Sitemap: https://twocomms.shop/sitemap.xml.
+```
+
+### Чек-лист Phase 6
+
+- [x] Удалены дубли (375 → 195 строк).
+- [x] Чёткие `Allow: /` + Disallow в `*`-блоке.
+- [x] AdsBot и AI-блоки с полным набором disallow.
+- [x] `Disallow: /*?utm_*` и родственники (gclid/fbclid/sort/...).
+- [x] Sitemap-index в конце.
+- [x] `Cache-Control: public, max-age=3600`.
+- [x] Тесты: AI bots, AdsBot, query-noise, crawlable `/search/`.
+- [x] Commit `532947b3`, push, pull, restart, smoke OK.
 
 ---
 
@@ -676,5 +722,6 @@ class CategorySeoText(models.Model):
 | 2026-05-09 | 3 | `c85525a7` | IndexNow controls в кастомній «Адмін-панелі» (`/admin-panel/?section=catalogs`): endpoint, кнопки на картках товарів/категорій, глобальна `IndexNow: усе`. URL резолвиться, шаблон містить контролі. |
 | 2026-05-09 | 4 | `4fb795c6` | Sitemap-INDEX `/sitemap.xml` + 4 дочірні (static / products / categories / images). lastmod з `updated_at`, image: namespace, `Cache-Control: public, max-age=3600`. Smoke: 4 секції, 18+65+3+64 `<loc>`. |
 | 2026-05-09 | 5 | `a31bc808` | Schema.org: `services/policy.py` (Нова Пошта 85/180/220 UAH, 14d return). Organization+WebSite+SearchAction на `/` через нові теги, стабільні `@id`. Smoke: 4 ld+json блоки, EntryPoint → `/search/`. |
+| 2026-05-09 | 6 | `532947b3` | robots.txt: 375→195 строк. Удалены дубли (Googlebot/bing/Applebot/DDG/Yandex — следуют `*`). Оставлены AdsBot ×3 (спека) и AI ×11 (opt-in). UTM/gclid/fbclid/sort noise. Cache-Control 1ч. |
 
 > Каждый раз после `git push` + деплоя — добавлять строку.
