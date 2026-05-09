@@ -10,7 +10,11 @@ from django.urls import reverse
 from orders.models import Order
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product
-from storefront.seo_utils import get_product_schema
+from storefront.seo_utils import (
+    SEOMetaGenerator,
+    _pick_product_description_source,
+    get_product_schema,
+)
 from storefront.views.static_pages import static_sitemap
 
 
@@ -532,3 +536,88 @@ class LlmsTxtSeoRegressionTests(TestCase):
         ):
             with self.subTest(disallowed_path=disallowed_path):
                 self.assertNotIn(disallowed_path, body)
+
+
+class AiOptInBehaviorTests(TestCase):
+    """Phase 1 — AI content is consulted ONLY when ai_generation_enabled=True.
+
+    These regression tests guard the strict opt-in behavior: meta description
+    generation, the description-source cascade and keyword merging must ignore
+    ai_* fields when the flag is off.
+    """
+
+    def setUp(self):
+        self.category = Category.objects.create(
+            name="AI Opt-In Test",
+            slug="ai-opt-in-test",
+            is_active=True,
+        )
+        self.product = Product.objects.create(
+            title="AI Opt-In Tee",
+            slug="ai-opt-in-tee",
+            category=self.category,
+            price=500,
+            short_description="Manual short description.",
+            ai_description="AI-generated description that must not leak.",
+            ai_keywords="ai-keyword-1, ai-keyword-2",
+            status="published",
+        )
+
+    def test_ai_description_ignored_when_flag_disabled(self):
+        self.product.ai_generation_enabled = False
+        self.product.save(update_fields=["ai_generation_enabled"])
+
+        meta_desc = SEOMetaGenerator.generate_meta_description(self.product)
+
+        self.assertNotIn("AI-generated description", meta_desc)
+        self.assertIn("Manual short description.", meta_desc)
+
+    def test_ai_description_used_as_seo_fallback_when_flag_enabled(self):
+        self.product.ai_generation_enabled = True
+        self.product.short_description = ""
+        self.product.save(update_fields=["ai_generation_enabled", "short_description"])
+
+        meta_desc = SEOMetaGenerator.generate_meta_description(self.product)
+
+        self.assertIn("AI-generated description", meta_desc)
+
+    def test_seo_description_always_wins_over_ai(self):
+        self.product.ai_generation_enabled = True
+        self.product.seo_description = "Manual SEO description rules."
+        self.product.save(update_fields=["ai_generation_enabled", "seo_description"])
+
+        meta_desc = SEOMetaGenerator.generate_meta_description(self.product)
+
+        self.assertEqual(meta_desc, "Manual SEO description rules.")
+        self.assertNotIn("AI-generated", meta_desc)
+
+    def test_description_source_cascade_skips_ai_when_flag_disabled(self):
+        self.product.ai_generation_enabled = False
+        self.product.short_description = ""
+        self.product.save(update_fields=["ai_generation_enabled", "short_description"])
+
+        # With AI off and no short/seo_description, must NOT pick ai_description.
+        source = _pick_product_description_source(self.product)
+        self.assertNotIn("AI-generated description", source)
+
+    def test_ai_keywords_excluded_from_keyword_set_when_disabled(self):
+        from storefront.seo_utils import SEOKeywordGenerator
+
+        self.product.ai_generation_enabled = False
+        self.product.save(update_fields=["ai_generation_enabled"])
+
+        keywords = SEOKeywordGenerator.generate_product_keywords(self.product)
+        flat = " ".join(keywords).lower()
+
+        self.assertNotIn("ai-keyword-1", flat)
+        self.assertNotIn("ai-keyword-2", flat)
+
+    def test_ai_keywords_included_when_flag_enabled(self):
+        from storefront.seo_utils import SEOKeywordGenerator
+
+        self.product.ai_generation_enabled = True
+        self.product.save(update_fields=["ai_generation_enabled"])
+
+        keywords = SEOKeywordGenerator.generate_product_keywords(self.product)
+        self.assertIn("ai-keyword-1", keywords)
+        self.assertIn("ai-keyword-2", keywords)

@@ -33,12 +33,19 @@ class Command(BaseCommand):
             action='store_true',
             help='Перегенерировать контент даже если он уже существует',
         )
+        parser.add_argument(
+            '--all',
+            action='store_true',
+            help='Обработать все товары/категории независимо от флажка ai_generation_enabled. '
+                 'По умолчанию генерация идёт только для объектов с включённым флажком.',
+        )
 
     def handle(self, *args, **options):
         dry_run = options['dry_run']
         products_only = options['products_only']
         categories_only = options['categories_only']
         force = options['force']
+        process_all = options['all']
 
         if dry_run:
             self.stdout.write(
@@ -69,7 +76,13 @@ class Command(BaseCommand):
         # Обрабатываем товары
         if not categories_only:
             self.stdout.write('Обрабатываем товары...')
+            # По умолчанию — только товары с явным опт-ин на AI; --all снимает фильтр.
             products = Product.objects.all()
+            if not process_all:
+                products = products.filter(ai_generation_enabled=True)
+                self.stdout.write(
+                    self.style.NOTICE(f'  Фильтр: ai_generation_enabled=True (найдено {products.count()})')
+                )
 
             for product in products:
                 try:
@@ -114,6 +127,11 @@ class Command(BaseCommand):
         if not products_only:
             self.stdout.write('Обрабатываем категории...')
             categories = Category.objects.all()
+            if not process_all:
+                categories = categories.filter(ai_generation_enabled=True)
+                self.stdout.write(
+                    self.style.NOTICE(f'  Фильтр: ai_generation_enabled=True (найдено {categories.count()})')
+                )
 
             for category in categories:
                 try:

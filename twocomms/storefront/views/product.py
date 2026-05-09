@@ -42,6 +42,9 @@ def _is_tshirt_product(product):
 
 
 def _resolve_fit_options(product):
+    # Per-product opt-out: admins can hide the fit selector entirely.
+    if not getattr(product, 'fit_selector_enabled', True):
+        return []
     if not _is_tshirt_product(product):
         return []
 

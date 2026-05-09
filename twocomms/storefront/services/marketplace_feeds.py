@@ -531,7 +531,15 @@ def _old_price(product: Product, base_price: int, sale_price: int) -> int | None
 
 
 def _source_description(product: Product) -> str:
-    for field_name in ("full_description", "description", "short_description", "seo_description", "ai_description"):
+    """Pick the best human-authored description for marketplace feeds.
+
+    Manual SEO fields take priority. AI description is consulted only when the
+    product opted into AI generation (ai_generation_enabled=True).
+    """
+    candidates = ["full_description", "description", "short_description", "seo_description"]
+    if getattr(product, "ai_generation_enabled", False):
+        candidates.append("ai_description")
+    for field_name in candidates:
         value = _collapse_plain_text(getattr(product, field_name, ""))
         if value:
             return value

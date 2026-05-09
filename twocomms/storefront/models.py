@@ -19,6 +19,12 @@ class Category(models.Model):
     is_active = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
     # AI-generated content fields
+    ai_generation_enabled = models.BooleanField(
+        default=False,
+        verbose_name='Дозволити AI-генерацію SEO',
+        help_text='Якщо вимкнено — AI ніколи не використовується для цієї категорії; '
+                  'мета-теги та Schema беруть лише вручну заповнені SEO-поля та fallback.'
+    )
     ai_keywords = models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
     ai_description = models.TextField(blank=True, null=True, verbose_name='AI-опис')
     ai_content_generated = models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
@@ -500,9 +506,21 @@ class Product(models.Model):
     dropship_note = models.CharField(max_length=200, blank=True, null=True, verbose_name='Примітка для дропшипа')
 
     # AI-generated content fields
+    ai_generation_enabled = models.BooleanField(
+        default=False,
+        verbose_name='Дозволити AI-генерацію SEO',
+        help_text='Якщо вимкнено — AI не використовується для цього товару. '
+                  'Мета-теги та Schema будуть братися лише з вручну заповнених SEO-полів та fallback.'
+    )
     ai_keywords = models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
     ai_description = models.TextField(blank=True, null=True, verbose_name='AI-опис')
     ai_content_generated = models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
+    # Fit selector visibility (classic / oversize)
+    fit_selector_enabled = models.BooleanField(
+        default=True,
+        verbose_name='Показувати селектор крою (класика / оверсайз)',
+        help_text='Якщо вимкнено — блок з вибором крою не відображається на сторінці товару.'
+    )
     # SEO timestamps for sitemap lastmod
     created_at = models.DateTimeField(auto_now_add=True, null=True, verbose_name='Створено')
     updated_at = models.DateTimeField(auto_now=True, null=True, verbose_name='Оновлено')

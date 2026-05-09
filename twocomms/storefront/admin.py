@@ -17,15 +17,89 @@ from .models import (
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'order'); prepopulated_fields = {'slug': ('name',)}
+    list_display = ('name', 'slug', 'order', 'is_active', 'ai_generation_enabled', 'ai_content_generated')
+    list_filter = ('is_active', 'is_featured', 'ai_generation_enabled', 'ai_content_generated')
+    search_fields = ('name', 'slug')
+    prepopulated_fields = {'slug': ('name',)}
+    readonly_fields = ('created_at', 'updated_at', 'ai_content_generated')
+    fieldsets = (
+        ('Основне', {
+            'fields': ('name', 'slug', 'description', 'order', 'is_active', 'is_featured', 'icon', 'cover'),
+        }),
+        ('AI-генерація SEO', {
+            'fields': ('ai_generation_enabled', 'ai_keywords', 'ai_description', 'ai_content_generated'),
+            'description': (
+                'AI використовується ЛИШЕ коли поставлено галочку '
+                '«Дозволити AI-генерацію SEO». За замовчуванням мета-теги '
+                'формуються з ручних SEO-полів та fallback.'
+            ),
+            'classes': ('collapse',),
+        }),
+        ('Службове', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
 
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('title', 'category', 'price', 'discount_percent', 'points_reward', 'featured', 'home_card_image')
-    list_filter = ('category', 'featured')
-    search_fields = ('title', 'slug')
+    list_display = (
+        'title', 'category', 'price', 'discount_percent', 'points_reward',
+        'featured', 'status', 'fit_selector_enabled', 'ai_generation_enabled',
+    )
+    list_filter = ('category', 'featured', 'status', 'fit_selector_enabled', 'ai_generation_enabled')
+    search_fields = ('title', 'slug', 'seo_title', 'seo_keywords')
     prepopulated_fields = {'slug': ('title',)}
+    readonly_fields = ('created_at', 'updated_at', 'ai_content_generated', 'published_at', 'last_reviewed_at')
+    fieldsets = (
+        ('Основне', {
+            'fields': (
+                'title', 'slug', 'category', 'catalog', 'size_grid',
+                'price', 'discount_percent', 'featured', 'priority',
+                'main_image', 'main_image_alt', 'home_card_image',
+            ),
+        }),
+        ('Описи', {
+            'fields': ('short_description', 'full_description', 'description', 'details_text', 'target_audience', 'care_instructions'),
+            'classes': ('collapse',),
+        }),
+        ('SEO (ручне керування)', {
+            'fields': ('seo_title', 'seo_description', 'seo_keywords', 'seo_schema'),
+            'description': (
+                'Заповніть ці поля, щоб повністю контролювати мета-теги і Schema. '
+                'AI ніколи не перезаписує ці поля автоматично.'
+            ),
+        }),
+        ('AI-генерація SEO', {
+            'fields': ('ai_generation_enabled', 'ai_keywords', 'ai_description', 'ai_content_generated'),
+            'description': (
+                'AI використовується тільки якщо поставлено галочку '
+                '«Дозволити AI-генерацію SEO». Після цього команда '
+                '`generate_ai_content` згенерує ai_keywords/ai_description, '
+                'які використовуються як fallback, коли ручні SEO-поля порожні.'
+            ),
+            'classes': ('collapse',),
+        }),
+        ('UX товару', {
+            'fields': ('fit_selector_enabled', 'recommendation_tags'),
+        }),
+        ('Дропшип', {
+            'fields': (
+                'is_dropship_available', 'drop_price', 'recommended_price',
+                'wholesale_price', 'dropship_note',
+            ),
+            'classes': ('collapse',),
+        }),
+        ('Публікація', {
+            'fields': ('status', 'published_at', 'last_reviewed_at', 'unpublished_reason', 'points_reward'),
+            'classes': ('collapse',),
+        }),
+        ('Службове', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
 
 
 @admin.register(ProductImage)

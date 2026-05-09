@@ -51,8 +51,26 @@ def _truncate_at_word_boundary(text: str, limit: int) -> str:
     return f"{cut}..."
 
 
+def _ai_enabled(obj) -> bool:
+    """Returns True only if the object explicitly opted into AI-driven SEO.
+
+    AI content (ai_keywords / ai_description) is used in fallbacks ONLY when
+    the corresponding ai_generation_enabled flag is True. Otherwise we treat
+    those fields as if they were empty.
+    """
+    return bool(getattr(obj, "ai_generation_enabled", False))
+
+
 def _pick_product_description_source(product: Product) -> str:
-    for attr in ("seo_description", "short_description", "ai_description", "full_description", "description"):
+    """Cascade through description fields in priority order.
+
+    AI description is consulted only when the product opted into AI generation.
+    """
+    candidates = ["seo_description", "short_description"]
+    if _ai_enabled(product):
+        candidates.append("ai_description")
+    candidates.extend(["full_description", "description"])
+    for attr in candidates:
         value = _clean_text(getattr(product, attr, ""))
         if value:
             return value
@@ -181,8 +199,8 @@ class SEOKeywordGenerator:
         except Exception:
             pass
 
-        # Добавляем сохраненные AI-ключевые слова, если они есть
-        if hasattr(product, 'ai_keywords') and product.ai_keywords:
+        # Добавляем сохраненные AI-ключевые слова ТОЛЬКО если AI явно включен
+        if _ai_enabled(product) and getattr(product, 'ai_keywords', None):
             ai_keywords = [kw.strip() for kw in product.ai_keywords.split(',') if kw.strip()]
             for kw in ai_keywords:
                 if kw and kw not in keywords:
@@ -262,8 +280,8 @@ class SEOKeywordGenerator:
             desc_keywords = cls.extract_keywords_from_text(category.description)
             keywords.extend(desc_keywords)
 
-        # Добавляем сохраненные AI-ключевые слова, если они есть
-        if hasattr(category, 'ai_keywords') and category.ai_keywords:
+        # Добавляем сохраненные AI-ключевые слова ТОЛЬКО если AI явно включен
+        if _ai_enabled(category) and getattr(category, 'ai_keywords', None):
             ai_keywords = [kw.strip() for kw in category.ai_keywords.split(',') if kw.strip()]
             for kw in ai_keywords:
                 if kw and kw not in keywords:
@@ -315,7 +333,9 @@ class SEOKeywordGenerator:
     @classmethod
     def generate_meta_description(cls, product: Product) -> str:
         """Генерирует мета-описание для товара"""
-        stored_description = _clean_text(getattr(product, "seo_description", "")) or _clean_text(getattr(product, "ai_description", ""))
+        stored_description = _clean_text(getattr(product, "seo_description", ""))
+        if not stored_description and _ai_enabled(product):
+            stored_description = _clean_text(getattr(product, "ai_description", ""))
         if stored_description:
             return _truncate_at_word_boundary(stored_description, 160)
 
@@ -379,8 +399,8 @@ class SEOMetaGenerator:
 
         title = f"{category.name} - TwoComms"
 
-        # Используем сохраненное AI-описание, если оно есть
-        if hasattr(category, 'ai_description') and category.ai_description:
+        # Используем сохраненное AI-описание ТОЛЬКО если AI явно включен для категории
+        if _ai_enabled(category) and getattr(category, 'ai_description', None):
             description = category.ai_description[:160]
         else:
             description = f"Купити {category.name.lower()} в TwoComms. Якісний одяг з ексклюзивним дизайном. Швидка доставка по Україні."
