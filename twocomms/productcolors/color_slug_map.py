@@ -164,7 +164,32 @@ COLOR_NAME_TO_EN_SLUG: dict[str, str] = {
     "бронзовый": "bronze",
     "мідний": "copper",
     "медный": "copper",
+    # ---------------- Compound prefixes ----------------
+    # Used when a colour name like "Біло-бордовий" or "Темно-зелений"
+    # is split on the hyphen — the prefix alone needs to translate too.
+    "біло": "white",
+    "бело": "white",
+    "чорно": "black",
+    "черно": "black",
+    "сіро": "gray",
+    "серо": "gray",
+    "темно": "dark",
+    "тёмно": "dark",
+    "світло": "light",
+    "светло": "light",
+    "ментол": "menthol",
+    "ментоловий": "menthol",
+    "ментоловый": "menthol",
 }
+
+# Slug bases that would collide with a real ``Product`` size code in
+# path-style URLs. We append ``-c`` only for these — colour names like
+# ``pink`` / ``blue`` / ``gold`` are never sizes and stay clean.
+SIZE_RESERVED_SLUG_BASES = frozenset({
+    "s", "m", "l",
+    "xs", "xl", "xxs", "xxl", "xxxs", "xxxl", "xxxxl",
+    "sm", "md", "lg",
+})
 
 # Tokens we always strip when splitting compound names.
 _SEPARATOR_RE = re.compile(r"[\s/+&,_–—-]+")

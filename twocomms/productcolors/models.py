@@ -2,7 +2,10 @@ from django.db import models
 from dtf.utils import build_slug
 from storefront.models import Product
 
-from .color_slug_map import english_slug_for_color_name
+from .color_slug_map import (
+    SIZE_RESERVED_SLUG_BASES,
+    english_slug_for_color_name,
+)
 
 
 class Color(models.Model):
@@ -98,9 +101,11 @@ class ProductColorVariant(models.Model):
         if not base:
             base = "color"
 
-        # Disambiguate one/two-letter slugs that would collide with
-        # size codes (S, M, L, XL, XXL, XXXL). Always append "-c".
-        if len(base) <= 4:
+        # Disambiguate slugs that exactly match a real size code
+        # (S/M/L/XS/XL/XXL/XXXL/SM/MD/LG). Append "-c" only in that
+        # narrow case — common colour words like ``pink``/``blue``/
+        # ``gold`` (4 chars) never collide and stay clean.
+        if base.lower() in SIZE_RESERVED_SLUG_BASES:
             base = f"{base}-c"
 
         candidate = base
