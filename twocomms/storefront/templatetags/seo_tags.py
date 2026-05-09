@@ -300,6 +300,29 @@ def faq_schema(faq_items):
 
 
 @register.simple_tag
+def organization_schema():
+    """JSON-LD <script> with the canonical Organization schema (Phase 5).
+
+    Single source of truth lives in ``StructuredDataGenerator``. Use this
+    tag on every page where you want Knowledge Graph eligibility — the
+    stable ``@id`` lets Google deduplicate instances.
+    """
+    schema = _seo_utils().StructuredDataGenerator.generate_organization_schema()
+    return mark_safe(
+        f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False, indent=2)}</script>'
+    )
+
+
+@register.simple_tag
+def website_schema():
+    """JSON-LD <script> with the WebSite + SearchAction schema (Phase 5)."""
+    schema = _seo_utils().StructuredDataGenerator.generate_website_schema()
+    return mark_safe(
+        f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False, indent=2)}</script>'
+    )
+
+
+@register.simple_tag
 def local_business_schema():
     """
     Возвращает LocalBusiness schema для организации

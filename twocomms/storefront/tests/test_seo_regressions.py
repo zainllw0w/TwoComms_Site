@@ -332,6 +332,74 @@ class SitemapSeoRegressionTests(TestCase):
         self.assertContains(response, "xmlns:image=\"http://www.google.com/schemas/sitemap-image/1.1\"")
 
 
+class StructuredDataPhase5Tests(TestCase):
+    """Phase 5 — Schema.org Organization, WebSite and policy regressions."""
+
+    def setUp(self):
+        self.client = Client(
+            HTTP_HOST="twocomms.shop",
+            SERVER_PORT="443",
+            **{"wsgi.url_scheme": "https"},
+        )
+
+    def test_home_page_includes_organization_schema_with_stable_id(self):
+        response = self.client.get(reverse("home"), secure=True, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '"@type": "Organization"', html=False)
+        self.assertContains(response, '"@id": "https://twocomms.shop/#organization"', html=False)
+        self.assertContains(response, '"sameAs"', html=False)
+
+    def test_home_page_includes_website_schema_with_searchaction(self):
+        response = self.client.get(reverse("home"), secure=True, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '"@type": "WebSite"', html=False)
+        self.assertContains(response, '"@id": "https://twocomms.shop/#website"', html=False)
+        self.assertContains(response, '"@type": "SearchAction"', html=False)
+        # SearchAction must use the real /search/ endpoint registered in storefront/urls.py.
+        self.assertContains(response, "search/?q={search_term_string}", html=False)
+
+    def test_organization_schema_has_logo_and_contact_point(self):
+        from storefront.seo_utils import StructuredDataGenerator
+
+        schema = StructuredDataGenerator.generate_organization_schema()
+
+        self.assertEqual(schema["@type"], "Organization")
+        self.assertTrue(schema["logo"].startswith("https://"))
+        self.assertEqual(schema["contactPoint"]["@type"], "ContactPoint")
+        self.assertIn("telephone", schema["contactPoint"])
+
+    def test_product_schema_uses_policy_module_constants(self):
+        """Phase 5 contract: SHIPPING_OPTIONS / RETURN_POLICY come from
+        ``services/policy.py`` so any tariff change updates the schema
+        in a single place.
+        """
+        from storefront.seo_utils import StructuredDataGenerator
+        from storefront.services.policy import (
+            APPLICABLE_COUNTRY,
+            CURRENCY,
+            RETURN_POLICY,
+            shipping_tiers_as_dicts,
+        )
+
+        # Policy-module dataclasses round-trip to legacy dict shape exactly.
+        self.assertEqual(
+            StructuredDataGenerator.SHIPPING_OPTIONS,
+            shipping_tiers_as_dicts(),
+        )
+
+        # Spot-check the wired constants land in the generated schema body.
+        details = StructuredDataGenerator._get_weight_based_shipping_details()
+        self.assertTrue(details, msg="weight-based shipping details must not be empty")
+        self.assertEqual(details[0]["shippingRate"]["currency"], CURRENCY)
+        self.assertEqual(
+            details[0]["shippingDestination"]["addressCountry"],
+            APPLICABLE_COUNTRY,
+        )
+        self.assertEqual(RETURN_POLICY["days"], 14)
+
+
 class HeaderCtaSeoRegressionTests(TestCase):
     def setUp(self):
         self.client = Client()

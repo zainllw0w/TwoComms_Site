@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load static %}{% load cache %}{% load responsive_images %}
+{% extends "base.html" %}{% load static %}{% load cache %}{% load responsive_images %}{% load seo_tags %}
 
 {% block title %}TwoComms — Стріт & Мілітарі Одяг | Головна{% endblock %}
 
@@ -32,42 +32,32 @@
 {% endblock %}
 
 {% block structured_data %}
+{# Phase 5 — canonical Organization + WebSite (with SearchAction) blocks. #}
+{# Each emits its own <script type="application/ld+json"> with stable @id. #}
+{% organization_schema %}
+{% website_schema %}
 <script type="application/ld+json">
-[
-  {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": "TwoComms",
-    "url": "{{ site_base_url }}",
-    "description": "Магазин стріт & мілітарі одягу з ексклюзивним дизайном",
-    "potentialAction": {
-      "@type": "SearchAction",
-      "target": "{{ site_base_url }}/search/?q={search_term_string}",
-      "query-input": "required name=search_term_string"
-    }
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    "name": "TwoComms — Головна",
-    "description": "Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом.",
-    "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}",
-    "primaryImageOfPage": "{{ site_base_url }}{% static 'img/social-preview.jpg' %}",
-    "mainEntity": {
-      "@type": "ItemList",
-      "itemListElement": [
-        {% for c in categories|slice:":8" %}
-        {
-          "@type": "ListItem",
-          "position": {{ forloop.counter }},
-          "name": "{{ c.name|escapejs }}",
-          "url": "{{ site_base_url }}{% url 'catalog_by_cat' c.slug %}"
-        }{% if not forloop.last %},{% endif %}
-        {% endfor %}
-      ]
-    }
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "TwoComms — Головна",
+  "description": "Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом.",
+  "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}",
+  "primaryImageOfPage": "{{ site_base_url }}{% static 'img/social-preview.jpg' %}",
+  "mainEntity": {
+    "@type": "ItemList",
+    "itemListElement": [
+      {% for c in categories|slice:":8" %}
+      {
+        "@type": "ListItem",
+        "position": {{ forloop.counter }},
+        "name": "{{ c.name|escapejs }}",
+        "url": "{{ site_base_url }}{% url 'catalog_by_cat' c.slug %}"
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ]
   }
-]
+}
 </script>
 {% endblock %}
 

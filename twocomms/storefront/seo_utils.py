@@ -12,6 +12,13 @@ from django.conf import settings
 from django.utils import timezone
 from .models import Product, Category
 from .services.size_guides import resolve_product_sizes
+from .services.policy import (
+    APPLICABLE_COUNTRY,
+    CURRENCY,
+    RETURN_POLICY,
+    SHIPPING_TIERS,
+    shipping_tiers_as_dicts,
+)
 
 SITE_BASE_URL = getattr(settings, 'SITE_BASE_URL', 'https://twocomms.shop')
 if not SITE_BASE_URL.endswith('/'):
@@ -428,11 +435,11 @@ class SEOMetaGenerator:
 class StructuredDataGenerator:
     """Генератор структурированных данных (Schema.org)"""
 
-    SHIPPING_OPTIONS = [
-        {"rate": "85", "max_weight": 2.0},
-        {"rate": "180", "min_weight": 2.01, "max_weight": 5.0},
-        {"rate": "220", "min_weight": 5.01}
-    ]
+    # Phase 5: SHIPPING_OPTIONS is now backed by the canonical
+    # SHIPPING_TIERS dataclasses in ``services/policy.py``. Leaving
+    # this attribute as a list-of-dicts for backwards compatibility
+    # with any external code that imported it.
+    SHIPPING_OPTIONS = shipping_tiers_as_dicts()
 
     @staticmethod
     def _format_decimal(value: Decimal) -> str:
@@ -460,7 +467,7 @@ class StructuredDataGenerator:
         return {
             "@type": "MonetaryAmount",
             "value": value,
-            "currency": "UAH"
+            "currency": CURRENCY,
         }
 
     @staticmethod
@@ -523,14 +530,14 @@ class StructuredDataGenerator:
                 "shippingRate": {
                     "@type": "MonetaryAmount",
                     "value": option["rate"],
-                    "currency": "UAH"
+                    "currency": CURRENCY,
                 },
                 "shippingDestination": {
                     "@type": "DefinedRegion",
-                    "addressCountry": "UA"
+                    "addressCountry": APPLICABLE_COUNTRY,
                 },
                 "deliveryTime": StructuredDataGenerator._build_shipping_delivery_time(),
-                "shippingWeight": weight_spec
+                "shippingWeight": weight_spec,
             })
 
         return shipping_details
@@ -624,12 +631,12 @@ class StructuredDataGenerator:
                 "priceValidUntil": StructuredDataGenerator._get_dynamic_price_valid_until(),
                 "hasMerchantReturnPolicy": {
                     "@type": "MerchantReturnPolicy",
-                    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-                    "merchantReturnDays": 14,
-                    "returnMethod": "https://schema.org/ReturnByMail",
-                    "returnFees": "https://schema.org/ReturnShippingFees",
+                    "returnPolicyCategory": RETURN_POLICY["category"],
+                    "merchantReturnDays": RETURN_POLICY["days"],
+                    "returnMethod": RETURN_POLICY["method"],
+                    "returnFees": RETURN_POLICY["fees_type"],
                     "returnShippingFeesAmount": StructuredDataGenerator._get_return_shipping_amount(),
-                    "applicableCountry": "UA"
+                    "applicableCountry": APPLICABLE_COUNTRY,
                 },
                 "seller": {
                     "@type": "Organization",
@@ -760,6 +767,66 @@ class StructuredDataGenerator:
             })
 
         return schema
+
+    @staticmethod
+    def generate_organization_schema() -> Dict:
+        """Generates the canonical Organization schema for TwoComms.
+
+        Phase 5 — single source of truth. This is the same payload that
+        ``pages/pro_brand.html`` previously hard-coded inline. The
+        ``@id`` is stable across pages so Google can deduplicate
+        instances of this Organization in the Knowledge Graph.
+        """
+        base_url = _build_absolute_url("")
+        logo_url = _build_absolute_url("static/img/logo.svg")
+        return {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "@id": f"{base_url}#organization",
+            "name": "TwoComms",
+            "url": base_url,
+            "logo": logo_url,
+            "description": (
+                "TwoComms — український streetwear / military-adjacent бренд "
+                "одягу з Харкова, створений навколо ідеї продовження після "
+                "критичної точки: не крапка, а продовження."
+            ),
+            "sameAs": [
+                "https://instagram.com/twocomms",
+                "https://t.me/twocomms",
+            ],
+            "contactPoint": {
+                "@type": "ContactPoint",
+                "telephone": "+380966543212",
+                "contactType": "customer support",
+                "availableLanguage": "uk",
+            },
+        }
+
+    @staticmethod
+    def generate_website_schema() -> Dict:
+        """Generates the WebSite schema with a SearchAction.
+
+        Phase 5 — single source of truth. The ``target`` URL points at
+        the real ``/search/`` route registered in ``storefront/urls.py``.
+        """
+        base_url = _build_absolute_url("")
+        return {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "@id": f"{base_url}#website",
+            "name": "TwoComms",
+            "url": base_url,
+            "description": "Магазин стріт & мілітарі одягу з ексклюзивним дизайном",
+            "potentialAction": {
+                "@type": "SearchAction",
+                "target": {
+                    "@type": "EntryPoint",
+                    "urlTemplate": f"{base_url}search/?q={{search_term_string}}",
+                },
+                "query-input": "required name=search_term_string",
+            },
+        }
 
     @staticmethod
     def generate_faq_schema(faq_items: List[Dict]) -> Dict:
