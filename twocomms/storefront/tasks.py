@@ -1,3 +1,15 @@
+"""Synchronous "tasks" used by signals and cron commands.
+
+Historically this module declared Celery ``@shared_task`` functions. The
+production host does not run a Celery worker, so the project migrated to a
+cron + sync-on-commit model (see ``services/feeds_queue.py`` and
+``signals.py``). Each function is now a plain callable that performs its
+work inline; for backwards compatibility and so that existing callers that
+do ``func.delay(...)`` keep working, ``shared_task`` is applied only when
+Celery is importable. If it isn't — we install a no-op shim that turns
+``.delay()`` / ``.apply_async()`` into direct sync calls.
+"""
+
 import logging
 import os
 import sys
@@ -5,7 +17,33 @@ from datetime import timedelta
 from pathlib import Path
 import html
 
-from celery import shared_task
+try:  # pragma: no cover - depends on environment
+    from celery import shared_task  # type: ignore
+except Exception:  # pragma: no cover - Celery not installed or unusable
+    def shared_task(*task_args, **task_kwargs):  # type: ignore
+        """Sync shim: makes @shared_task-decorated functions behave normally.
+
+        The wrapped function exposes ``.delay()``, ``.apply_async()`` and
+        ``.run()`` so legacy call sites keep working; all three simply execute
+        the callable inline. ``bind=True`` is ignored (our wrapped functions do
+        not use ``self``; they were already refactored to plain signatures).
+        """
+
+        def _wrap(func):
+            func.delay = lambda *a, **kw: func(*a, **kw)  # type: ignore[attr-defined]
+            func.run = lambda *a, **kw: func(*a, **kw)  # type: ignore[attr-defined]
+            func.apply_async = lambda args=None, kwargs=None, **_kw: func(  # type: ignore[attr-defined]
+                *(args or ()), **(kwargs or {})
+            )
+            func.apply = lambda args=None, kwargs=None, **_kw: func(  # type: ignore[attr-defined]
+                *(args or ()), **(kwargs or {})
+            )
+            return func
+
+        if task_args and callable(task_args[0]) and not task_kwargs:
+            return _wrap(task_args[0])
+        return _wrap
+
 from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
@@ -66,9 +104,13 @@ def generate_google_merchant_feed_task():
         logger.error(f"Error generating marketplace feeds: {e}", exc_info=True)
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 3})
-def submit_indexnow_urls_task(self, urls: list[str]) -> bool:
-    """Notify IndexNow about updated public URLs."""
+@shared_task
+def submit_indexnow_urls_task(urls: list[str]) -> bool:
+    """Notify IndexNow about updated public URLs.
+
+    Runs synchronously under our Celery-less shim; kept as @shared_task so any
+    remaining ``.delay()`` call sites continue to work without changes.
+    """
     from .services.indexnow import submit_indexnow_urls
 
     return submit_indexnow_urls(urls)
@@ -88,10 +130,15 @@ def _resolve_image_path(instance, field_name: str) -> Path | None:
     return path if path.exists() else None
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 3})
-def optimize_image_field_task(self, model_label: str, object_id: int, field_name: str) -> bool:
-    """
-    Celery task to generate optimized (WebP/AVIF + responsive) versions for a single FileField/ImageField.
+@shared_task
+def optimize_image_field_task(model_label: str, object_id: int, field_name: str) -> bool:
+    """Generate optimized (WebP/AVIF + responsive) variants for one image field.
+
+    Previously decorated with ``@shared_task(bind=True, ...)``; the ``bind``
+    flag required a ``self`` first argument that sync callers never provided,
+    so the inline fallback was silently broken. Now a plain three-arg callable
+    that still works with any existing ``.delay()`` / ``.apply_async()`` /
+    ``.run()`` call sites via the Celery (or shim) wrapper.
 
     Args:
         model_label: Full Django model label (e.g. 'storefront.Product')

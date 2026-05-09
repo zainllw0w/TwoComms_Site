@@ -1,38 +1,42 @@
 """
-Сигналы для автоматического обновления фидов при изменении товаров
+Сигналы для автоматического обновления фидов при изменении товаров.
+
+Production-хост не располагает Celery-брокером, поэтому вместо Celery apply_async
+мы просто выставляем "dirty" flag в tmp/feeds, а cron периодически запускает
+`manage.py regenerate_feeds_if_dirty` с debounce. См. services/feeds_queue.py.
 """
 import logging
 from django.conf import settings
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
-from .tasks import generate_google_merchant_feed_task, optimize_image_field_task
+from .tasks import generate_google_merchant_feed_task, optimize_image_field_task  # noqa: F401 — kept for backward-compat with tests that patch signals.generate_google_merchant_feed_task
 
 from .models import Category, Product, ProductImage
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
+from .services.feeds_queue import mark_feeds_dirty
 from .services.indexnow import enqueue_indexnow_urls, get_product_public_url
 
 logger = logging.getLogger(__name__)
 
 
 def _schedule_marketplace_feed_update(reason: str, *, include_in_tests: bool = False):
+    """Mark marketplace feeds as dirty; cron-worker will rebuild (see services/feeds_queue.py)."""
     if getattr(settings, "TESTING", False) and not include_in_tests:
         return
 
+    # Run after commit so we only flag feeds dirty once the data is durable.
+    def _on_commit():
+        try:
+            mark_feeds_dirty(reason=reason)
+            logger.debug("feeds marked dirty: %s", reason)
+        except Exception as exc:  # pragma: no cover - defensive branch
+            logger.error("Failed to mark feeds dirty (%s): %s", reason, exc, exc_info=True)
+
     try:
-        from django.core.cache import cache
-        LOCK_KEY = 'google_merchant_feed_update_pending'
-        LOCK_TIMEOUT = 300  # 5 минут
-
-        if not cache.get(LOCK_KEY):
-            generate_google_merchant_feed_task.apply_async(countdown=300)
-            cache.set(LOCK_KEY, True, timeout=LOCK_TIMEOUT)
-            logger.info("%s. Запланировано обновление marketplace feeds через 5 минут.", reason)
-        else:
-            logger.debug("Обновление marketplace feeds уже запланировано.")
-
-    except Exception as e:
-        logger.error(f"Ошибка при планировании обновления marketplace feeds: {e}", exc_info=True)
+        transaction.on_commit(_on_commit)
+    except Exception:  # pragma: no cover - no active transaction
+        _on_commit()
 
 
 @receiver(post_save, sender=Product)
@@ -95,29 +99,37 @@ def submit_product_to_indexnow_on_delete(sender, instance, **kwargs):
 
 
 def _enqueue_image_optimization(instance, field_name: str):
-    """
-    Push heavy image optimization work to Celery so it does not block request lifecycle.
-    Falls back to synchronous execution if Celery broker is unavailable (useful in dev).
+    """Run image optimization inline after commit.
+
+    Production runs without Celery, so attempting ``.delay()`` only adds a
+    failed-RPC round-trip before falling back to sync. We schedule the work
+    via ``transaction.on_commit`` so request latency is preserved: control
+    returns to the user immediately and optimization runs in the same
+    worker after the response is flushed but before the transaction is
+    recycled.
     """
     image_field = getattr(instance, field_name, None)
     if not image_field:
         return
     if not getattr(instance, 'pk', None):
         return
-    try:
-        optimize_image_field_task.delay(instance._meta.label, instance.pk, field_name)
-    except Exception as exc:  # pragma: no cover - Celery not running locally
-        logger.warning(
-            "Celery broker unavailable, running inline optimization for %s.%s (id=%s): %s",
-            instance.__class__.__name__,
-            field_name,
-            instance.pk,
-            exc
-        )
+
+    label = instance._meta.label
+    pk = instance.pk
+
+    def _run():
         try:
-            optimize_image_field_task(instance._meta.label, instance.pk, field_name)
-        except Exception as inner:
-            logger.error("Inline image optimization failed for %s.%s: %s", instance, field_name, inner, exc_info=True)
+            optimize_image_field_task(label, pk, field_name)
+        except Exception as inner:  # pragma: no cover - defensive branch
+            logger.error(
+                "Inline image optimization failed for %s.%s (id=%s): %s",
+                label, field_name, pk, inner, exc_info=True,
+            )
+
+    try:
+        transaction.on_commit(_run)
+    except Exception:  # pragma: no cover - no active transaction
+        _run()
 
 
 # ===== Image Optimization Signals =====

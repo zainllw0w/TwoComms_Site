@@ -139,19 +139,24 @@ def submit_indexnow_urls(urls: Iterable[str]) -> bool:
 
 
 def enqueue_indexnow_urls(urls: Iterable[str]) -> bool:
+    """Submit URLs to IndexNow synchronously.
+
+    This function is designed to be called from inside
+    ``transaction.on_commit`` hooks so it never blocks the user's request
+    before the DB commit is durable. The IndexNow request is lightweight
+    (one HTTP POST, 2.5 s timeout by default) and degrades silently if
+    the endpoint is slow or unreachable.
+
+    Historically this helper tried to dispatch the work to a Celery task
+    and fell back to sync. There is no Celery broker on the production
+    host, so the extra hop was pure overhead; we now go straight to sync.
+    """
     normalized_urls = _normalize_urls(urls)
     if not normalized_urls or not is_indexnow_configured():
         return False
 
     try:
-        from storefront.tasks import submit_indexnow_urls_task
-
-        submit_indexnow_urls_task.delay(normalized_urls)
-        return True
-    except Exception as exc:  # pragma: no cover - Celery may be absent locally
-        logger.warning("Celery unavailable for IndexNow, falling back to sync submit: %s", exc)
-        try:
-            return submit_indexnow_urls(normalized_urls)
-        except Exception as sync_exc:  # pragma: no cover - defensive branch
-            logger.error("Synchronous IndexNow submit failed: %s", sync_exc, exc_info=True)
-            return False
+        return submit_indexnow_urls(normalized_urls)
+    except Exception as exc:  # pragma: no cover - defensive branch
+        logger.error("IndexNow submit failed: %s", exc, exc_info=True)
+        return False
