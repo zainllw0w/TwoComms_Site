@@ -109,7 +109,37 @@ def _normalize_urls(urls: Iterable[str]) -> list[str]:
     return normalized
 
 
-def submit_indexnow_urls(urls: Iterable[str]) -> bool:
+INDEXNOW_BATCH_SIZE = 100
+INDEXNOW_DEFAULT_TIMEOUT = 5.0
+INDEXNOW_DEFAULT_RETRIES = 2
+
+
+def _chunked(items: list[str], size: int) -> Iterable[list[str]]:
+    if size <= 0:
+        size = INDEXNOW_BATCH_SIZE
+    for start in range(0, len(items), size):
+        yield items[start:start + size]
+
+
+def submit_indexnow_urls(
+    urls: Iterable[str],
+    *,
+    batch_size: int | None = None,
+    retries: int | None = None,
+) -> bool:
+    """POST batches of URLs to IndexNow, retrying transient failures.
+
+    Args:
+        urls: iterable of absolute URLs (any non-matching/foreign-host URLs
+            are filtered out by ``_normalize_urls``).
+        batch_size: max URLs per HTTP call (defaults to
+            ``settings.INDEXNOW_BATCH_SIZE`` or ``INDEXNOW_BATCH_SIZE``).
+        retries: per-batch retry attempts on transient errors (timeout, 5xx).
+            Defaults to ``settings.INDEXNOW_RETRIES`` or 2.
+
+    Returns:
+        ``True`` iff every batch was accepted by the IndexNow endpoint.
+    """
     normalized_urls = _normalize_urls(urls)
     if not normalized_urls:
         return False
@@ -118,24 +148,61 @@ def submit_indexnow_urls(urls: Iterable[str]) -> bool:
         logger.debug("IndexNow is not configured; skipped %s URLs", len(normalized_urls))
         return False
 
-    timeout = float(getattr(settings, "INDEXNOW_TIMEOUT", 2.5) or 2.5)
+    timeout = float(getattr(settings, "INDEXNOW_TIMEOUT", INDEXNOW_DEFAULT_TIMEOUT) or INDEXNOW_DEFAULT_TIMEOUT)
     endpoint = getattr(settings, "INDEXNOW_ENDPOINT", "https://api.indexnow.org/indexnow")
-    payload = {
+    effective_batch = int(batch_size or getattr(settings, "INDEXNOW_BATCH_SIZE", INDEXNOW_BATCH_SIZE) or INDEXNOW_BATCH_SIZE)
+    effective_retries = int(retries if retries is not None else getattr(settings, "INDEXNOW_RETRIES", INDEXNOW_DEFAULT_RETRIES))
+
+    base_payload = {
         "host": get_indexnow_host(),
         "key": get_indexnow_key(),
         "keyLocation": get_indexnow_key_location(),
-        "urlList": normalized_urls,
     }
 
-    response = requests.post(
-        endpoint,
-        json=payload,
-        headers={"Content-Type": "application/json; charset=utf-8"},
-        timeout=timeout,
-    )
-    response.raise_for_status()
-    logger.info("IndexNow accepted %s URL(s)", len(normalized_urls))
-    return True
+    accepted = 0
+    failed_batches = 0
+    for batch in _chunked(normalized_urls, effective_batch):
+        payload = {**base_payload, "urlList": batch}
+        last_exc: Exception | None = None
+        for attempt in range(effective_retries + 1):
+            try:
+                response = requests.post(
+                    endpoint,
+                    json=payload,
+                    headers={"Content-Type": "application/json; charset=utf-8"},
+                    timeout=timeout,
+                )
+                # IndexNow returns 200/202 on success; treat 4xx as fatal (not retryable).
+                if response.status_code in (200, 202):
+                    accepted += len(batch)
+                    last_exc = None
+                    break
+                if 500 <= response.status_code < 600:
+                    last_exc = RuntimeError(f"IndexNow {response.status_code}: {response.text[:200]}")
+                    logger.warning("IndexNow %s on attempt %s/%s: %s",
+                                   response.status_code, attempt + 1, effective_retries + 1, last_exc)
+                    continue
+                # 4xx — not retryable
+                logger.error("IndexNow rejected batch (%s): %s", response.status_code, response.text[:200])
+                last_exc = RuntimeError(f"IndexNow rejected ({response.status_code})")
+                break
+            except (requests.Timeout, requests.ConnectionError) as exc:
+                last_exc = exc
+                logger.warning("IndexNow transient error on attempt %s/%s: %s",
+                               attempt + 1, effective_retries + 1, exc)
+                continue
+            except Exception as exc:  # pragma: no cover - defensive
+                last_exc = exc
+                logger.error("IndexNow unexpected error: %s", exc, exc_info=True)
+                break
+        if last_exc is not None:
+            failed_batches += 1
+
+    if accepted:
+        logger.info("IndexNow accepted %s/%s URL(s) in %s batches",
+                    accepted, len(normalized_urls),
+                    (len(normalized_urls) + effective_batch - 1) // effective_batch)
+    return failed_batches == 0 and accepted > 0
 
 
 def enqueue_indexnow_urls(urls: Iterable[str]) -> bool:

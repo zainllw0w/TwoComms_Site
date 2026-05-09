@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from .models import (
     Category,
     CustomPrintLead,
@@ -13,6 +13,57 @@ from .models import (
     UserPromoCode,
     WebPushDeviceSubscription,
 )
+from .services.indexnow import (
+    get_category_public_url,
+    get_product_public_url,
+    is_indexnow_configured,
+    submit_indexnow_urls,
+)
+
+
+def _run_indexnow_action(modeladmin, request, queryset, url_resolver, label):
+    """Shared body for IndexNow admin actions on Product / Category querysets."""
+    if not is_indexnow_configured():
+        modeladmin.message_user(
+            request,
+            "IndexNow не сконфігуровано: задайте INDEXNOW_KEY у settings.",
+            level=messages.ERROR,
+        )
+        return
+
+    urls = [u for u in (url_resolver(obj) for obj in queryset) if u]
+    urls = list(dict.fromkeys(urls))  # dedupe, preserve order
+    if not urls:
+        modeladmin.message_user(
+            request,
+            f"Жодного публічного URL серед вибраних {label}: можливо, вони неактивні.",
+            level=messages.WARNING,
+        )
+        return
+
+    ok = submit_indexnow_urls(urls)
+    if ok:
+        modeladmin.message_user(
+            request,
+            f"IndexNow прийняв {len(urls)} URL(-ів) для {label}.",
+            level=messages.SUCCESS,
+        )
+    else:
+        modeladmin.message_user(
+            request,
+            f"IndexNow повернув помилку для {label}; деталі — у логах.",
+            level=messages.ERROR,
+        )
+
+
+@admin.action(description="Надіслати в IndexNow (поточні URL)")
+def submit_products_to_indexnow(modeladmin, request, queryset):
+    _run_indexnow_action(modeladmin, request, queryset, get_product_public_url, "товарів")
+
+
+@admin.action(description="Надіслати в IndexNow (поточні URL)")
+def submit_categories_to_indexnow(modeladmin, request, queryset):
+    _run_indexnow_action(modeladmin, request, queryset, get_category_public_url, "категорій")
 
 
 @admin.register(Category)
@@ -22,6 +73,7 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ('name', 'slug')
     prepopulated_fields = {'slug': ('name',)}
     readonly_fields = ('created_at', 'updated_at', 'ai_content_generated')
+    actions = (submit_categories_to_indexnow,)
     fieldsets = (
         ('Основне', {
             'fields': ('name', 'slug', 'description', 'order', 'is_active', 'is_featured', 'icon', 'cover'),
@@ -52,6 +104,7 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ('title', 'slug', 'seo_title', 'seo_keywords')
     prepopulated_fields = {'slug': ('title',)}
     readonly_fields = ('created_at', 'updated_at', 'ai_content_generated', 'published_at', 'last_reviewed_at')
+    actions = (submit_products_to_indexnow,)
     fieldsets = (
         ('Основне', {
             'fields': (
