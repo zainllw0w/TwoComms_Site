@@ -407,6 +407,54 @@
   </section>
   {% endif %}
 
+  {# 2026-05-11 — Sales-oriented SEO copy for the general /catalog/ root.
+     Three commercial H2s with high-frequency keywords ("купити одяг з
+     принтом", "замовити streetwear", "ціна") and the top-5 Ukrainian
+     cities surfaced in the heading itself for stronger ranking on local
+     queries. Renders only when no specific category and no colour
+     filter (the colour-aware block + per-category block already cover
+     those scenarios). #}
+  {% if not category and not has_active_color_filter %}
+  <section class="catalog-category-description catalog-category-description--general">
+    <div class="catalog-redesign-container">
+      <div class="catalog-description-panel">
+        <h2>Купити одяг з принтом онлайн в Україні — доставка Києвом, Харковом, Львовом</h2>
+        <div>
+          <p><strong>Купити одяг з принтом</strong> у TwoComms можна онлайн із
+          доставкою у будь-яке місто України: <strong>Київ, Харків, Львів,
+          Дніпро, Одеса, Запоріжжя, Вінниця, Полтава, Чернівці,
+          Івано-Франківськ, Тернопіль, Луцьк, Хмельницький, Ужгород,
+          Чернігів</strong>. У каталозі — <a href="/catalog/tshirts/">футболки</a>,
+          <a href="/catalog/hoodie/">худі</a> та <a href="/catalog/long-sleeve/">лонгсліви</a>
+          з авторськими принтами ЗСУ та streetwear-графікою. Доставка Новою
+          Поштою 1–2 дні, безкоштовний обмін розміру протягом 14 днів.</p>
+
+          <h2>Замовити чоловічий або жіночий streetwear від українського бренду TwoComms</h2>
+          <p><strong>Замовити streetwear-одяг</strong> онлайн — це спосіб
+          підтримати українське виробництво. Усі футболки, худі та лонгсліви
+          TwoComms шиємо в Україні з преміум-бавовни та трикотажу
+          щільністю 200–320 г/м². У каталозі є чоловічі моделі прямого крою,
+          жіночі фасони зі звуженою посадкою та унісекс-варіанти у розмірах
+          XS–XXL. Принти виконуємо в техніці DTF — стійкі до 30+ циклів
+          прання.</p>
+
+          <h2>Український патріотичний streetwear — авторські принти ЗСУ та колаборації</h2>
+          <p><strong>TwoComms</strong> — український streetwear-бренд із
+          мілітарним ДНК. Створюємо одяг для тих, хто живе в Україні,
+          підтримує ЗСУ та цінує спокійну, але сильну естетику. У каталозі —
+          колаборації з військовими підрозділами, авторські ілюстрації на
+          тему Збройних Сил України, тризуба й сучасної української
+          поп-культури. Частину прибутку від кожного замовлення направляємо
+          на потреби ЗСУ. Дізнайтеся більше про
+          <a href="/pro-brand/">філософію бренду</a> або обирайте
+          <a href="/custom-print/">кастомний друк</a> власного принта на
+          обраній моделі.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
   {# Phase 19g (2026-05-10): colour-aware SEO copy. Renders on /catalog/ root and on any catalog screen with ?color=<slug>. Skipped for /catalog/<cat>/ without a colour filter (existing category.description block above already covers SEO). #}
   {% if color_seo_copy %}
   <section class="catalog-category-description catalog-category-description--color-aware">

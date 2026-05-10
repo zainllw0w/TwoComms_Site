@@ -214,15 +214,7 @@
 .seo-tab-panel__cards { margin-top: 0.4rem; }
 
 /* ---------- Long-form SEO text (.catalog-description-panel) overrides ---------- */
-.catalog-description-panel h2,
-.catalog-description-panel h3 {
-  color: rgba(255, 255, 255, 0.95);
-  margin-top: 1.2rem;
-  margin-bottom: 0.55rem;
-}
-.catalog-description-panel h2 { font-size: 1.15rem; font-weight: 700; }
-.catalog-description-panel h3 { font-size: 1rem;   font-weight: 600; }
-.catalog-description-panel p  { margin: 0 0 0.7rem; line-height: 1.6; }
+.catalog-description-panel p  { margin: 0 0 0.85rem; line-height: 1.78; }
 .catalog-description-panel a  {
   color: rgba(140, 200, 255, 0.95);
   text-decoration: underline;
