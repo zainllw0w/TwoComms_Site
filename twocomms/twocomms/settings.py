@@ -183,6 +183,7 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
+                'django.template.context_processors.i18n',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'storefront.context_processors.orders_processing_count',
@@ -577,8 +578,25 @@ LANGUAGES = [
 TIME_ZONE = 'Europe/Kiev'
 
 USE_I18N = True
+USE_L10N = True
 
 USE_TZ = True
+
+# Phase 17 — i18n
+# Locale .po/.mo files live at <project>/locale/<lang>/LC_MESSAGES/django.{po,mo}
+LOCALE_PATHS = [BASE_DIR / "locale"]
+
+# Mapping of supported languages to OG/HTML locale tags (Phase 17a).
+LANGUAGE_OG_LOCALE = {
+    "uk": "uk_UA",
+    "ru": "ru_RU",
+    "en": "en_US",
+}
+LANGUAGE_HTML_LANG = {
+    "uk": "uk",
+    "ru": "ru",
+    "en": "en",
+}
 
 # DTF module defaults
 DTF_PRICING = {

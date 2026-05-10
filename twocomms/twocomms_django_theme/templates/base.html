@@ -5,7 +5,7 @@
 {% load image_optimization %}
 {% load inline_assets %}
 <!DOCTYPE html>
-<html lang='uk' data-bs-theme='dark' data-route-name="{{ request.resolver_match.url_name|default:'' }}" data-page-shell="{% if request.resolver_match.url_name == 'about' %}marketing{% else %}commerce{% endif %}" data-analytics-mode="{% if request.resolver_match.url_name == 'about' %}passive{% else %}default{% endif %}" {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
+<html lang='{{ LANGUAGE_CODE|default:"uk" }}' data-bs-theme='dark' data-route-name="{{ request.resolver_match.url_name|default:'' }}" data-page-shell="{% if request.resolver_match.url_name == 'about' %}marketing{% else %}commerce{% endif %}" data-analytics-mode="{% if request.resolver_match.url_name == 'about' %}passive{% else %}default{% endif %}" {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
   data-meta-pixel-id="823958313630148" {% endif %}
   data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}"{% if TIKTOK_TEST_EVENT_CODE %} data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}"{% endif %}>
 
@@ -72,8 +72,15 @@
   <link rel="canonical"
     href="{% block canonical %}{{ site_base_url }}{{ request.path }}{% endblock %}">
   {% block pagination_links %}{% endblock %}
-  <link rel="alternate" hreflang="uk" href="{% block hreflang_uk %}{{ site_base_url }}{{ request.path }}{% endblock %}">
-  <link rel="alternate" hreflang="x-default" href="{% block hreflang_x_default %}{{ site_base_url }}{{ request.path }}{% endblock %}">
+  {# Phase 17a — hreflang alternates. ``language_alternates`` tag returns a
+     dict {uk, ru, en, x-default} of absolute URLs computed from the current
+     request path with prefix stripping/swap. See storefront.templatetags.i18n_links. #}
+  {% load i18n_links %}
+  {% language_alternates as _lang_alts %}
+  <link rel="alternate" hreflang="uk" href="{% block hreflang_uk %}{{ _lang_alts.uk }}{% endblock %}">
+  <link rel="alternate" hreflang="ru" href="{% block hreflang_ru %}{{ _lang_alts.ru }}{% endblock %}">
+  <link rel="alternate" hreflang="en" href="{% block hreflang_en %}{{ _lang_alts.en }}{% endblock %}">
+  <link rel="alternate" hreflang="x-default" href="{% block hreflang_x_default %}{{ _lang_alts.x_default }}{% endblock %}">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
@@ -88,7 +95,13 @@
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:site_name" content="TwoComms">
-  <meta property="og:locale" content="uk_UA">
+  {# Phase 17a — locale-aware OG tags. ``og_locale_for_lang`` is provided by
+     i18n_links template tag library. Defaults to uk_UA. #}
+  <meta property="og:locale" content="{% og_locale_for_lang LANGUAGE_CODE %}">
+  {% og_locale_alternates as _og_alts %}
+  {% for _alt_code, _alt_og in _og_alts.items %}
+  <meta property="og:locale:alternate" content="{{ _alt_og }}">
+  {% endfor %}
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">

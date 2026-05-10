@@ -837,3 +837,105 @@
     transition: none;
   }
 }
+
+/* ============================================================
+ * Phase 17a — Footer language switcher (.footer-langs)
+ * Glass-pill group with neon-orange active state. Each language
+ * is a real anchor wrapped in a tiny hidden form, so JS-augmented
+ * clicks persist the django_language cookie via set_language.
+ * ============================================================ */
+.footer-langs {
+  margin: 1.6rem auto 0;
+  padding: 0.85rem 1rem;
+  border-radius: 1.1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  max-width: max-content;
+}
+.footer-langs__label {
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  margin-right: 0.25rem;
+}
+.footer-langs__group {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border-radius: 0.85rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.footer-langs__form {
+  margin: 0;
+  padding: 0;
+  display: inline-flex;
+}
+.footer-langs__link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  color: rgba(255, 246, 234, 0.78);
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+.footer-langs__link:hover {
+  color: #fff6ea;
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+.footer-langs__link.is-active {
+  color: #0b0b0d;
+  background: linear-gradient(135deg, #ff8a2c 0%, #ffb347 100%);
+  box-shadow: 0 6px 18px -10px rgba(255, 138, 44, 0.85);
+  cursor: default;
+}
+.footer-langs__link.is-active:hover {
+  transform: none;
+}
+.footer-langs__flag {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.footer-langs__short {
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  opacity: 0.55;
+  text-transform: uppercase;
+  margin-left: 0.15rem;
+}
+.footer-langs__link.is-active .footer-langs__short {
+  opacity: 0.85;
+}
+@media (max-width: 540px) {
+  .footer-langs {
+    gap: 0.55rem;
+    padding: 0.65rem 0.8rem;
+  }
+  .footer-langs__label { display: none; }
+  .footer-langs__name { display: none; }
+  .footer-langs__link {
+    padding: 0.45rem 0.7rem;
+    gap: 0.3rem;
+  }
+  .footer-langs__short { display: inline; opacity: 0.7; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .footer-langs__link { transition: none; }
+  .footer-langs__link:hover { transform: none; }
+}

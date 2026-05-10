@@ -1,6 +1,7 @@
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.conf.urls.i18n import i18n_patterns
 from django.contrib import admin
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
@@ -8,6 +9,10 @@ from storefront import views as storefront_views
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 urlpatterns = [
+    # Phase 17a — language switcher endpoint (POST). Stays outside i18n_patterns
+    # so it is reachable from any prefix.
+    path("i18n/", include("django.conf.urls.i18n")),
+
     # PWA sw.js served directly to keep scope stable across browsers.
     path("sw.js", storefront_views.service_worker_script, name="service_worker_js"),
     path("site.webmanifest", storefront_views.web_manifest, name="site_webmanifest"),
@@ -32,9 +37,6 @@ urlpatterns = [
          name="static_verification_file"),
     re_path(r"^(?P<key>[A-Za-z0-9-]{8,128})\.txt$", storefront_views.indexnow_key_file, name="indexnow_key_file"),
 
-    # Core - storefront include comes after root-level platform files.
-    path("", include("storefront.urls")),
-
     # ==================== API (Django REST Framework) ====================
     # REST API endpoints
     path("api/", include("storefront.api_urls")),
@@ -52,15 +54,6 @@ urlpatterns = [
     path('social/', include(('social_django.urls', 'social'), namespace='social_fallback')),  # fallback для старых ссылок
     path("admin/", admin.site.urls),
 
-    # Accounts
-    path("accounts/", include("accounts.urls")),
-
-    # Orders (включая дропшип)
-    path("orders/", include("orders.urls")),
-
-    # Phase 21 — product reviews (POST submit / vote endpoints).
-    path("reviews/", include("reviews.urls", namespace="reviews")),
-
     # Дропшип редирект
     path("dropshipper/", RedirectView.as_view(url="/orders/dropshipper/", permanent=False), name="dropshipper_redirect"),
 
@@ -75,6 +68,21 @@ urlpatterns = [
     path('buyme-feed.xml', storefront_views.buyme_feed_xml, name='buyme_feed_xml_root'),
     path('buyme.xml', storefront_views.buyme_feed_xml, name='buyme_feed_xml_short_root'),
 ]
+
+# Phase 17a — locale-prefixed routes. Ukrainian (LANGUAGE_CODE) stays at /,
+# Russian at /ru/, English at /en/. Sitemaps, robots, feeds, API, OAuth and the
+# Django admin remain unprefixed (above).
+urlpatterns += i18n_patterns(
+    # Storefront pages + actions (catalog/product/cart/checkout/static pages…)
+    path("", include("storefront.urls")),
+    # Auth + profile
+    path("accounts/", include("accounts.urls")),
+    # Orders (incl. dropship)
+    path("orders/", include("orders.urls")),
+    # Reviews — POST submit + vote endpoints.
+    path("reviews/", include("reviews.urls", namespace="reviews")),
+    prefix_default_language=False,
+)
 
 # Добавляем обработку медиа-файлов для разработки и продакшена
 if settings.DEBUG:
