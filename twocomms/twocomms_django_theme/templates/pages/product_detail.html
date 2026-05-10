@@ -55,8 +55,8 @@
 {% endblock %}
 
 {% block extra_css %}
-{# Above-fold (hero/gallery/buybox/fit-selector) — render-blocking is OK,
-   нужен сразу для корректного LCP/CLS. #}
+{% comment %}Above-fold (hero/gallery/buybox/fit-selector) — render-blocking is OK,
+   нужен сразу для корректного LCP/CLS.{% endcomment %}
 <link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-faq-alt-v1">
 <link rel="stylesheet" href="{% static 'css/product-media-fit.css' %}?v=20260428-media-fit-v1">
 {% comment %}

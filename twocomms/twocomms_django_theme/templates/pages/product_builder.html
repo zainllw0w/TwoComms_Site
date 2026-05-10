@@ -796,8 +796,8 @@
               </article>
             </div>
 
-            {# Legacy formset for advanced edits (regular / custom codes).
-               Hidden by default — only senior admins need it. #}
+            {% comment %}Legacy formset for advanced edits (regular / custom codes).
+               Hidden by default — only senior admins need it.{% endcomment %}
             {% if fit_formset and fit_formset.forms %}
             <details class="fit-toggle-advanced mt-3">
               <summary>Розширені налаштування (інші посадки, custom коди)</summary>
