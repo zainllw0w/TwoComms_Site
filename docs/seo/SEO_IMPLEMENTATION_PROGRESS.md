@@ -93,8 +93,8 @@
 ## PR-7: trust + a11y [partial — T19 done, T20 deferred]
 - [x] T19.1 Factual trust badges (Доставка 1-3 дні / Обмін 14 днів / Розмірна сітка) рядом с «Add to cart»
 - [x] T19.2 Баджи стали дееп-линками (focus-visible, hover affordance, focus ring от браузера)
-- [ ] T20.1 Lighthouse + ручная проверка ключевых страниц (после deploy)
-- [ ] T20.2 Touch targets / focus / contrast / lazy reviews — отложено (требует отдельного a11y аудита)
+- [x] T20.1 Lighthouse desktop audit (2026-05-10): home `perf=94 a11y=100`, /catalog/tshirts/ `perf=95 a11y=100`, PDP `perf=94 a11y=100`, SEO=100 везде. Отчёты в `output/lighthouse-2026-05-10/`
+- [x] T20.2 A11y top issues fixed: `aria-pressed`→`aria-current` на color-filter chips (`<a>` не допускает toggle-button attr); `role=list`→`role=group` на home-color-panel (дети — `<button>`, не listitems); `aria-hidden="true"` на визуальных badge-иконах cart/favorites + убран избыточный `aria-label` на `tc-related-link` (label-content-name-mismatch). + CLS: фиксированы width/height на footer logo и size-guide image (дименсии из ImageField)
 
 ---
 
