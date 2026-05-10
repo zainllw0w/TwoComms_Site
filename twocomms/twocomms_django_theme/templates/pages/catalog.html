@@ -15,9 +15,10 @@
 <link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}">
 {% endblock %}
 
-{% block title %}{% if is_search_page %}Пошук{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
+{# Phase 21 (2026-05-10) — prefer per-category manual SEO overrides over auto-generated boilerplate. #}
+{% block title %}{% if is_search_page %}Пошук{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
 
-{% block description %}{% if is_search_page %}Результати пошуку TwoComms{% if query %} за запитом «{{ query }}»{% endif %}. Сторінка відкрита для переходу по товарах, але не призначена для індексації.{% elif category %}Купити {{ category.name|lower }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні.{% else %}Каталог стріт & мілітарі одягу TwoComms: футболки, худі, лонгсліви та новинки бренду з характером.{% endif %}{% endblock %}
+{% block description %}{% if is_search_page %}Результати пошуку TwoComms{% if query %} за запитом «{{ query }}»{% endif %}. Сторінка відкрита для переходу по товарах, але не призначена для індексації.{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}Купити {{ category.name|lower }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні.{% endif %}{% else %}Каталог стріт & мілітарі одягу TwoComms: футболки, худі, лонгсліви та новинки бренду з характером.{% endif %}{% endblock %}
 
 {% block keywords %}{% if category %}{{ category.name|lower }}, {% endif %}стріт одяг, мілітарі одяг, футболки, худі,
 лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, каталог одягу{% endblock %}
@@ -35,11 +36,11 @@
 {% endblock %}
 
 {% block og_type %}website{% endblock %}
-{% block og_title %}{% if is_search_page %}Пошук{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
-{% block og_description %}{% if is_search_page %}Результати пошуку TwoComms за товарами каталогу.{% elif category %}{{ category.name }} з авторськими принтами від TwoComms. Стріт & мілітарі одяг.{% else %}Повний каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
+{% block og_title %}{% if is_search_page %}Пошук{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
+{% block og_description %}{% if is_search_page %}Результати пошуку TwoComms за товарами каталогу.{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}{{ category.name }} з авторськими принтами від TwoComms. Стріт & мілітарі одяг.{% endif %}{% else %}Повний каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
 {% block og_image %}{% if category and category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
-{% block twitter_title %}{% if is_search_page %}Пошук{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
-{% block twitter_description %}{% if is_search_page %}Результати пошуку TwoComms за товарами каталогу.{% elif category %}{{ category.name }} з авторськими принтами від TwoComms.{% else %}Каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
+{% block twitter_title %}{% if is_search_page %}Пошук{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
+{% block twitter_description %}{% if is_search_page %}Результати пошуку TwoComms за товарами каталогу.{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}{{ category.name }} з авторськими принтами від TwoComms.{% endif %}{% else %}Каталог стріт та мілітарі одягу TwoComms.{% endif %}{% endblock %}
 {% block twitter_image %}{% if category and category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
 
 {% block breadcrumbs %}{% endblock %}
@@ -139,7 +140,8 @@
           <p class="catalog-hero__signal">Streetwear / Military-adjacent / Made in Ukraine</p>
           <h1 id="catalog-title" class="catalog-hero__title">
             {% if category %}
-            {{ category.name }}
+            {# Phase 21 — manual SEO H1 override for unique long-tail copy. #}
+            {% if category.seo_h1 %}{{ category.seo_h1 }}{% else %}{{ category.name }}{% endif %}
             {% elif is_search_page %}
             Пошук у каталозі
             {% else %}

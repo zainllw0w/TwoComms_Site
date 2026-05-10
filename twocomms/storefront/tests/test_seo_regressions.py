@@ -258,6 +258,67 @@ class ProductVariantSitemapPhase21Tests(TestCase):
             self.assertNotIn(f"/product/phase21-tee{size}", urls)
 
 
+class CategorySeoOverridePhase21Tests(TestCase):
+    """Phase 21 — manual ``seo_title`` / ``seo_h1`` / ``seo_description``
+    on Category drive the catalog page when filled, and fall back to
+    the boilerplate when blank.
+    """
+
+    def setUp(self):
+        from django.core.cache import cache
+        from storefront.models import Category
+        # ``catalog`` view wraps responses in ``cache_page_for_anon`` — clear
+        # the cache so tests don't see each other's rendered output.
+        cache.clear()
+        self.category = Category.objects.create(
+            name="Категорія Тест",
+            slug="kateg-test",
+            is_active=True,
+        )
+        self.client = Client()
+
+    def _get(self):
+        return self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug}),
+            follow=True, secure=True, HTTP_HOST="twocomms.shop",
+        )
+
+    def test_blank_overrides_keep_boilerplate(self):
+        response = self._get()
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<title>Категорія Тест — TwoComms</title>", html=False)
+
+    def test_filled_overrides_replace_title_and_description(self):
+        self.category.seo_title = "Унікальний тайтл — TwoComms"
+        self.category.seo_h1 = "Унікальний H1 категорії"
+        self.category.seo_description = "Унікальний опис категорії для перевірки фолбеків."
+        self.category.save(update_fields=["seo_title", "seo_h1", "seo_description"])
+
+        response = self._get()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<title>Унікальний тайтл — TwoComms</title>", html=False)
+        self.assertContains(
+            response,
+            'content="Унікальний опис категорії для перевірки фолбеків."',
+            html=False,
+        )
+        self.assertContains(response, "Унікальний H1 категорії", html=False)
+
+
+class GeneralCatalogSeoColorlessQueriesTests(SimpleTestCase):
+    """Phase 21 — curated top queries on the bottom catalog block must
+    not link to ``?color=`` URLs (those pages are ``noindex, follow``).
+    """
+
+    def test_curated_top_queries_do_not_link_to_color_filtered_pages(self):
+        from storefront.services.general_catalog_seo import _CURATED_TOP_QUERIES
+
+        for entry in _CURATED_TOP_QUERIES:
+            with self.subTest(label=entry["label"]):
+                self.assertNotIn("?color=", entry["url"])
+
+
 class OrderSuccessSeoRegressionTests(TestCase):
     def setUp(self):
         self.client = Client()

@@ -64,21 +64,28 @@ def _item(
 # colour-filter syntax that the catalog view already understands.
 # ---------------------------------------------------------------------------
 
+# Phase 21 (2026-05-10) — every URL in this curated list MUST be
+# indexable. ``?color=`` filters live behind ``noindex, follow``
+# (see ``catalog.html`` robots block) so linking to them from
+# SEO-visible bottom-nav is wasted equity. Routes here therefore use
+# only category roots, ``/catalog/``, ``/custom-print/`` or
+# colour-variant PDPs once those exist. Re-add a colour query only
+# when that page becomes self-canonical and indexable.
 _CURATED_TOP_QUERIES: List[Dict[str, str]] = [
-    {"label": "Купити худі ЗСУ", "url": "/catalog/hoodie/?color=black"},
-    {"label": "Чорна футболка з принтом", "url": "/catalog/tshirts/?color=black"},
-    {"label": "Тризуб футболка", "url": "/catalog/tshirts/?color=black"},
-    {"label": "Лонгслів мілітарі", "url": "/catalog/long-sleeve/?color=coyote"},
+    {"label": "Купити худі ЗСУ", "url": "/catalog/hoodie/"},
+    {"label": "Чорна футболка з принтом", "url": "/catalog/tshirts/"},
+    {"label": "Тризуб футболка", "url": "/catalog/tshirts/"},
+    {"label": "Лонгслів мілітарі", "url": "/catalog/long-sleeve/"},
     {"label": "Худі streetwear", "url": "/catalog/hoodie/"},
     {"label": "Футболка унісекс TwoComms", "url": "/catalog/tshirts/"},
-    {"label": "Кайот худі", "url": "/catalog/hoodie/?color=coyote"},
-    {"label": "Чорний лонгслів", "url": "/catalog/long-sleeve/?color=black"},
+    {"label": "Кайот худі", "url": "/catalog/hoodie/"},
+    {"label": "Чорний лонгслів", "url": "/catalog/long-sleeve/"},
     {"label": "Власний принт на футболці", "url": "/custom-print/"},
-    {"label": "Подарунок захиснику", "url": "/catalog/?color=coyote"},
-    {"label": "Жіноча футболка з принтом", "url": "/catalog/tshirts/?color=black"},
+    {"label": "Подарунок захиснику", "url": "/catalog/"},
+    {"label": "Жіноча футболка з принтом", "url": "/catalog/tshirts/"},
     {"label": "Худі для пари", "url": "/catalog/hoodie/"},
     {"label": "Український стрітвір", "url": "/catalog/"},
-    {"label": "Donate to ZSU merch", "url": "/catalog/?color=coyote"},
+    {"label": "Donate to ZSU merch", "url": "/catalog/"},
 ]
 
 

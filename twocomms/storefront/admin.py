@@ -81,6 +81,17 @@ class CategoryAdmin(admin.ModelAdmin):
         ('Основне', {
             'fields': ('name', 'slug', 'description', 'seo_text_title', 'seo_intro_html', 'order', 'is_active', 'is_featured', 'icon', 'cover'),
         }),
+        # Phase 21 (2026-05-10) — manual SEO overrides per category.
+        # Empty values fall through to the existing boilerplate, so
+        # adding this section is safe for unedited categories.
+        ('SEO ручні поля', {
+            'fields': ('seo_title', 'seo_h1', 'seo_description'),
+            'description': (
+                'Кастомні <title>, H1 та meta description для сторінки '
+                'категорії. Якщо порожньо — використовується автогенерований '
+                'fallback («{Назва} - TwoComms» тощо).'
+            ),
+        }),
         ('Showcase-картка /catalog/', {
             'fields': ('showcase_swatch_hexes',),
             'description': (

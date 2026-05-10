@@ -54,6 +54,39 @@ class Category(models.Model):
     )
     is_active = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
+    # Phase 21 (2026-05-10) — manual SEO overrides per category. Used
+    # by ``pages/catalog.html`` and ``get_category_seo_meta`` so each
+    # category page (т-shirt, hoodie, long-sleeve…) can have unique
+    # ``<title>`` / ``<h1>`` / meta description copy without touching
+    # the visible category name. Empty values → fallback to existing
+    # boilerplate defaults (current behaviour preserved).
+    seo_title = models.CharField(
+        max_length=180,
+        blank=True,
+        verbose_name='SEO Title',
+        help_text=(
+            'Кастомний <title> для цієї категорії. Якщо порожньо — '
+            'використовується «{Назва} - TwoComms».'
+        ),
+    )
+    seo_h1 = models.CharField(
+        max_length=180,
+        blank=True,
+        verbose_name='SEO H1',
+        help_text=(
+            'Кастомний H1 для сторінки категорії (для випадку, коли '
+            'видимий заголовок має відрізнятися від назви в навігації).'
+        ),
+    )
+    seo_description = models.CharField(
+        max_length=320,
+        blank=True,
+        verbose_name='SEO Description',
+        help_text=(
+            'Мета-опис категорії (≤ 320 символів). Якщо порожньо — '
+            'використовується автогенерований fallback.'
+        ),
+    )
     # AI-generated content fields
     ai_generation_enabled = models.BooleanField(
         default=False,

@@ -38,16 +38,16 @@
 - [x] T7.2 `test_product_schema_url_uses_canonical_path_when_provided` (Offer.url тоже обновлён)
 - [~] T7.3 Реализовано для Product schema (variant images первыми); OG/Twitter изображения в base.html пока берут `og_image` block — добавить оверрайд в PDP на следующем шаге
 
-## PR-3: categories
-- [ ] T8.1 Добавить поля `seo_title`, `seo_h1`, `seo_description` в `Category`
-- [ ] T8.2 Обновить `CategoryAdmin`
-- [ ] T8.3 Миграция
-- [ ] T8.4 `pages/catalog.html` — fallback для title/H1/description/OG/Twitter
-- [ ] T9.1 Уникальная копия для `tshirts`, `hoodie`, `long-sleeve` (через админ/data migration)
-- [ ] T9.2 Production verify 3 категорий
-- [ ] T10.1 Сменить дублирующий H2 "Створи свій дизайн" на категорийный CTA
-- [ ] T10.2 `general_catalog_seo` — убрать ссылки на `?color=` (noindex)
-- [ ] T10.3 Регрессия: top query URLs без `?color=`
+## PR-3: categories [code+tests done, production verify pending]
+- [x] T8.1 Поля `seo_title`, `seo_h1`, `seo_description` добавлены в `Category`
+- [x] T8.2 `CategoryAdmin` показывает секцию «SEO ручні поля»
+- [x] T8.3 Миграции: `0057_category_seo_overrides` + `0058_phase21_seed_category_seo_overrides` (сиды)
+- [x] T8.4 `pages/catalog.html` — fallback для `title`, `description`, `og_title`, `og_description`, `twitter_*`, H1
+- [x] T9.1 Сиды уникальной копии для `tshirts`, `hoodie`, `long-sleeve` (только если поле пусто, safe для прода)
+- [ ] T9.2 Production verify 3 категорий (после деплоя)
+- [~] T10.1 «Create your design» дубль — не найден в current catalog.html (возможно уже правлено в Phase 10/15; проверить на live)
+- [x] T10.2 `_CURATED_TOP_QUERIES` очищен от `?color=` URL, регрессия `GeneralCatalogSeoColorlessQueriesTests`
+- [x] T10.3 Регрессия: top query URLs без `?color=` (`test_curated_top_queries_do_not_link_to_color_filtered_pages`)
 
 ## PR-4: reviews system (новый блок)
 - [ ] R1 Создать app `reviews` (или модуль в storefront), settings INSTALLED_APPS
