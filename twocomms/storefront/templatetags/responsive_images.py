@@ -10,6 +10,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from urllib.parse import unquote
 
 from django import template
 from django.conf import settings
@@ -179,6 +180,17 @@ def optimized_image(
             'img_srcset': ''
         }
 
+    # Bug-fix 2026-05-10: ``FileField.url`` always percent-encodes the
+    # storage path (e.g. ``апр.`` → ``%D0%B0%D0%BF%D1%80.``) so cards
+    # whose color-variant assets live under a Cyrillic filename were
+    # silently dropping into the unoptimized fallback branch — Path.stem
+    # produced a percent-encoded base_name which never matched the
+    # actual on-disk variant filenames. Decode once up-front so glob
+    # patterns work for both ASCII and Unicode filenames.
+    image_path = unquote(image_path)
+    # Сохраняем исходный URL для подстановки в <img src>; декодированный
+    # вариант используется только для файловых операций.
+    display_image_path = image_path
     # Преобразуем URL в файловый путь для проверки существования
     if image_path.startswith('/media/'):
         relative_path = image_path[7:]  # убираем '/media/'
@@ -322,6 +334,9 @@ def preload_image(image_path, sizes=None, *, max_width=None):
     """
     if not image_path:
         return ""
+    # Bug-fix 2026-05-10 (mirror of optimized_image): decode percent-
+    # encoded URLs so the on-disk glob matches Cyrillic filenames.
+    image_path = unquote(image_path)
     if image_path.startswith("/media/"):
         relative_path = image_path[7:]
         file_path = os.path.join(settings.MEDIA_ROOT, relative_path)
