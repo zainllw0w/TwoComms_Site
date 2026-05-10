@@ -886,6 +886,13 @@ def admin_panel(request):
     elif section == 'seo':
         from storefront.services.seo_dashboard import build_seo_dashboard_context
         context.update(build_seo_dashboard_context())
+    elif section == 'reviews':
+        # Phase 21 (PR-A1) — moderation queue inside the custom admin
+        # so the team doesn't need to bounce through Django-admin for
+        # day-to-day approve/reject flow. Heavy edits (raw text /
+        # photo attachments) still link out via ``admin_url``.
+        from storefront.services.admin_reviews import build_reviews_context
+        context.update(build_reviews_context())
 
     html_content = render_to_string('pages/admin_panel.html', context, request=request)
     response = HttpResponse(html_content)
@@ -2285,3 +2292,110 @@ def _build_dispatcher_context(request):
         }
 
     return context
+
+
+# ---------------------------------------------------------------------------
+# Phase 21 (PR-A1) — review moderation endpoints for the custom admin.
+# All accept POST only and return JSON; the admin_panel template wires
+# them up via fetch() in admin_reviews.html. Status transitions go
+# through ``Review.mark_*`` so signals (Telegram / IndexNow on first
+# approval) fire exactly once.
+# ---------------------------------------------------------------------------
+
+@staff_member_required
+def admin_review_action(request, review_id: int):
+    """Approve or reject a single review.
+
+    POST body (form-encoded): ``action`` ∈ {approve, reject},
+    optional ``note`` for the moderator memo.
+    """
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+    from reviews.models import Review
+
+    action = (request.POST.get("action") or "").strip().lower()
+    if action not in {"approve", "reject"}:
+        return JsonResponse({"ok": False, "error": "invalid action"}, status=400)
+
+    review = get_object_or_404(Review, pk=review_id)
+    note = (request.POST.get("note") or "").strip()
+
+    if action == "approve":
+        review.mark_approved(by=request.user, note=note)
+    else:
+        review.mark_rejected(by=request.user, note=note)
+
+    return JsonResponse({"ok": True, "id": review.pk, "status": review.status})
+
+
+@staff_member_required
+def admin_review_bulk(request):
+    """Bulk approve / reject. POST body must carry ``ids``
+    (comma-separated) and ``action`` ∈ {approve, reject}.
+    """
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+    from reviews.models import Review, ReviewStatus
+
+    action = (request.POST.get("action") or "").strip().lower()
+    raw_ids = (request.POST.get("ids") or "").strip()
+    if action not in {"approve", "reject"} or not raw_ids:
+        return JsonResponse({"ok": False, "error": "invalid payload"}, status=400)
+
+    try:
+        ids = [int(x) for x in raw_ids.split(",") if x.strip().isdigit()]
+    except ValueError:
+        return JsonResponse({"ok": False, "error": "invalid ids"}, status=400)
+    if not ids:
+        return JsonResponse({"ok": False, "error": "no ids"}, status=400)
+
+    target_status = ReviewStatus.APPROVED if action == "approve" else ReviewStatus.REJECTED
+    qs = Review.objects.filter(pk__in=ids).exclude(status=target_status)
+
+    # Walk row-by-row so signals fire (bulk update would skip them).
+    updated = 0
+    for review in qs:
+        if action == "approve":
+            review.mark_approved(by=request.user)
+        else:
+            review.mark_rejected(by=request.user)
+        updated += 1
+
+    return JsonResponse({"ok": True, "updated": updated})
+
+
+@staff_member_required
+def admin_seo_category_save(request):
+    """Phase 21 (PR-A2) — save manual SEO overrides for a Category
+    straight from the custom admin's SEO section, no Django-admin
+    bounce. POST body: ``category_id``, ``seo_title``, ``seo_h1``,
+    ``seo_description``.
+    """
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+    try:
+        category_id = int(request.POST.get("category_id") or 0)
+    except (TypeError, ValueError):
+        category_id = 0
+    if category_id <= 0:
+        return JsonResponse({"ok": False, "error": "invalid id"}, status=400)
+
+    from storefront.models import Category as _Category
+    category = get_object_or_404(_Category, pk=category_id)
+
+    # Cap lengths server-side; mirrors the model fields' max_length.
+    category.seo_title = (request.POST.get("seo_title") or "").strip()[:180]
+    category.seo_h1 = (request.POST.get("seo_h1") or "").strip()[:180]
+    category.seo_description = (request.POST.get("seo_description") or "").strip()[:320]
+    category.save(update_fields=["seo_title", "seo_h1", "seo_description"])
+
+    return JsonResponse({
+        "ok": True,
+        "id": category.pk,
+        "seo_title": category.seo_title,
+        "seo_h1": category.seo_h1,
+        "seo_description": category.seo_description,
+    })

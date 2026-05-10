@@ -99,6 +99,24 @@ urlpatterns = [
     path('profile/setup/', views.profile_setup_db, name='profile_setup'),
     # admin panel
     path('admin-panel/', admin_panel_view, name='admin_panel'),
+    # Phase 21 (PR-A1/A2) — review moderation + SEO overrides inside
+    # the custom admin. ``staff_member_required`` is enforced inside
+    # the view functions (they live in ``views.admin``).
+    path(
+        'admin-panel/reviews/<int:review_id>/action/',
+        _module_view('storefront.views.admin', 'admin_review_action'),
+        name='admin_review_action',
+    ),
+    path(
+        'admin-panel/reviews/bulk/',
+        _module_view('storefront.views.admin', 'admin_review_bulk'),
+        name='admin_review_bulk',
+    ),
+    path(
+        'admin-panel/seo/category/save/',
+        _module_view('storefront.views.admin', 'admin_seo_category_save'),
+        name='admin_seo_category_save',
+    ),
     path(
         'admin-panel/push-notifications/create/',
         _module_view('storefront.views.admin', 'admin_push_notifications_create'),

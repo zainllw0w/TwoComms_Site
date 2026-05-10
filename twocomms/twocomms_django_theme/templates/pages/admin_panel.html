@@ -593,6 +593,13 @@
           </svg>
           SEO
         </a>
+        {# Phase 21 (PR-A1) — reviews moderation tab. #}
+        <a href="?section=reviews" class="admin-nav-item {% if section == 'reviews' %}active{% endif %}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2 9.19 8.62 2 9.27l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7 5.46-4.73-7.19-.65L12 2Z"/>
+          </svg>
+          Відгуки
+        </a>
     </div>
   </div>
   </div>
@@ -2567,6 +2574,10 @@
 
     {% elif section == 'seo' %}
       {% include "partials/admin_seo_dashboard.html" %}
+
+    {% elif section == 'reviews' %}
+      {# Phase 21 (PR-A1) — review moderation queue. #}
+      {% include "partials/admin_reviews.html" %}
 
     {% elif section == 'collaboration_old' %}
       {# Общая статистика #}

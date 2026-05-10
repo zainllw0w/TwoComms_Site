@@ -197,6 +197,45 @@ def build_color_seo_overrides_summary(limit: int = 50) -> Dict[str, Any]:
     }
 
 
+def build_category_seo_overrides() -> List[Dict[str, Any]]:
+    """Phase 21 (PR-A2) — list of categories with their manual SEO
+    override fields exposed for inline editing in the custom admin's
+    SEO section. Returns dicts (not models) so the template stays
+    decoupled and so we can pre-compute fallback hints.
+    """
+    from ..models import Category
+
+    rows = []
+    for cat in (
+        Category.objects
+        .filter(is_active=True)
+        .order_by("order", "name")
+        .only(
+            "id", "name", "slug",
+            "seo_title", "seo_h1", "seo_description",
+        )
+    ):
+        rows.append({
+            "id": cat.id,
+            "name": cat.name,
+            "slug": cat.slug,
+            "seo_title": cat.seo_title or "",
+            "seo_h1": cat.seo_h1 or "",
+            "seo_description": cat.seo_description or "",
+            # Fallback strings shown as placeholders so the editor sees
+            # what the page renders when the override is empty.
+            "fallback_title": f"{cat.name} — TwoComms",
+            "fallback_h1": cat.name,
+            "fallback_description": (
+                f"Купити {cat.name.lower()} в TwoComms. Якісний стріт & "
+                "мілітарі одяг з ексклюзивним дизайном і швидкою доставкою "
+                "по Україні."
+            ),
+            "public_url": f"/catalog/{cat.slug}/",
+        })
+    return rows
+
+
 def build_seo_dashboard_context() -> Dict[str, Any]:
     """Top-level helper used by the ``?section=seo`` admin view."""
     return {
@@ -204,4 +243,7 @@ def build_seo_dashboard_context() -> Dict[str, Any]:
         "ai_panel": build_ai_panel(),
         "seo_blocks_summary": build_seo_blocks_summary(),
         "color_seo_overrides": build_color_seo_overrides_summary(),
+        # Phase 21 (PR-A2) — inline editor for category seo_title /
+        # seo_h1 / seo_description right inside the custom admin.
+        "category_seo_overrides": build_category_seo_overrides(),
     }
