@@ -793,8 +793,42 @@
   {% endif %}
   <!-- End Google Tag Manager -->
 
-  <!-- Analytics Loader - загружаем в head для ранней инициализации пикселей -->
-  <script defer src="{% static 'js/analytics-loader.js' %}?v=6"></script>
+  {% comment %}
+  Phase 19b (2026-05-10) — analytics-loader.js (~55 KB) теперь грузим
+  через requestIdleCallback вместо `<script defer>`. defer-парс блокирует
+  TBT окно даже несмотря на то, что внутри loader сам использует idle
+  callbacks для GTM/Pixel. Idle-инъекция переносит парсинг 55 КБ JS за
+  пределы TTI window. Fallback для браузеров без requestIdleCallback —
+  setTimeout(load, 1500). Network preload hint держит файл в HTTP-кэше
+  с медиа-приоритетом low, чтобы он скачался параллельно с критичными
+  ресурсами без конкуренции за полосу.
+  {% endcomment %}
+  <link rel="preload" as="script" href="{% static 'js/analytics-loader.js' %}?v=6" fetchpriority="low">
+  <script>
+    (function () {
+      var src = "{% static 'js/analytics-loader.js' %}?v=6";
+      function inject() {
+        var s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.fetchPriority = 'low';
+        (document.head || document.documentElement).appendChild(s);
+      }
+      if ('requestIdleCallback' in window) {
+        // 4 s timeout гарантирует, что Pixel/GTM не зависнут навсегда
+        // на машинах под постоянной нагрузкой.
+        window.requestIdleCallback(inject, { timeout: 4000 });
+      } else {
+        // Safari ещё не поддерживает rIC; даём браузеру 1.5 c после
+        // load-события и грузим — это всё ещё за пределами TBT/TTI.
+        if (document.readyState === 'complete') {
+          setTimeout(inject, 1500);
+        } else {
+          window.addEventListener('load', function () { setTimeout(inject, 1500); }, { once: true });
+        }
+      }
+    })();
+  </script>
   {% comment %}
   RUM beacon — Core Web Vitals на реальных устройствах. defer, 0 зависимостей,
   отправка единственным sendBeacon() на visibilitychange=hidden / pagehide.

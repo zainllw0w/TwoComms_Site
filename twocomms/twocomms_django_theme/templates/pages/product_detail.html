@@ -55,11 +55,28 @@
 {% endblock %}
 
 {% block extra_css %}
+{# Above-fold (hero/gallery/buybox/fit-selector) — render-blocking is OK,
+   нужен сразу для корректного LCP/CLS. #}
 <link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-faq-alt-v1">
 <link rel="stylesheet" href="{% static 'css/product-media-fit.css' %}?v=20260428-media-fit-v1">
-{# Phase 15 — reuse Phase 10b category SEO CSS for the per-product landing block. #}
-<link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}?v=20260510-phase15-v1">
-<link rel="stylesheet" href="{% static 'css/product-seo-landing.css' %}?v=20260510-phase15-v1">
+{% comment %}
+Phase 19c (2026-05-10) — below-fold CSS lazy-load.
+SEO landing block (Phase 15) и category-seo-blocks стили реально применяются
+только к контенту в самом низу страницы, ниже первого экрана. Грузим их
+через media=print + onload swap, чтобы не блокировать render критического
+fold. <noscript> fallback для no-JS браузеров. Экономия: ~12 KB unused
+CSS rules на mobile FCP/LCP window.
+{% endcomment %}
+<link rel="stylesheet"
+      href="{% static 'css/category-seo-blocks.css' %}?v=20260510-phase15-v1"
+      media="print" onload="this.media='all'">
+<link rel="stylesheet"
+      href="{% static 'css/product-seo-landing.css' %}?v=20260510-phase15-v1"
+      media="print" onload="this.media='all'">
+<noscript>
+  <link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}?v=20260510-phase15-v1">
+  <link rel="stylesheet" href="{% static 'css/product-seo-landing.css' %}?v=20260510-phase15-v1">
+</noscript>
 {% endblock %}
 
 {% block content %}
