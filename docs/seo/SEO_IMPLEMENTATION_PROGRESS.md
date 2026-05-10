@@ -29,14 +29,14 @@
 - [x] T4.1 Удалён `<meta name="keywords">` из `base.html` и `partials/seo_meta.html`
 - [ ] T4.2 Production curl verify (после деплоя)
 
-## PR-2: variants/canonical
-- [ ] T5.1 `ProductVariantSitemap` — исключить size-only one-segment URLs
-- [ ] T5.2 Регрессионный тест sitemap (size-only нет, color/fit есть)
-- [ ] T6.1 `variant_meta.build_variant_meta` — size-only one-segment → canonical=base, is_self_canonical=False
-- [ ] T6.2 Тесты canonical (`/product/x/m/`→base, `/product/x/black/`→self, `/product/x/oversize/`→self, `/product/x/black/m/`→base)
-- [ ] T7.1 `generate_product_schema` принимает canonical_path/selected_variant
-- [ ] T7.2 Product schema `url` совпадает с canonical
-- [ ] T7.3 Color image для Product schema/OG/Twitter
+## PR-2: variants/canonical [in progress — code+tests done, OG/Twitter image override pending]
+- [x] T5.1 `ProductVariantSitemap` — size-only урлы удалены (остались только color + fit)
+- [x] T5.2 `ProductVariantSitemapPhase21Tests.test_variant_sitemap_excludes_size_only_urls`
+- [x] T6.1 `variant_meta.build_variant_meta` — size-only single-segment → base canonical, `is_self_canonical=False`
+- [x] T6.2 `VariantCanonicalPhase21Tests` (4 кейса: M, black, oversize, black/m)
+- [x] T7.1 `generate_product_schema(canonical_path, selected_variant)` + `get_product_schema(...)` пропускает в генератор
+- [x] T7.2 `test_product_schema_url_uses_canonical_path_when_provided` (Offer.url тоже обновлён)
+- [~] T7.3 Реализовано для Product schema (variant images первыми); OG/Twitter изображения в base.html пока берут `og_image` block — добавить оверрайд в PDP на следующем шаге
 
 ## PR-3: categories
 - [ ] T8.1 Добавить поля `seo_title`, `seo_h1`, `seo_description` в `Category`

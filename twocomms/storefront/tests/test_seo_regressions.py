@@ -123,6 +123,27 @@ class ProductPageSeoRegressionTests(TestCase):
         html = response.content.decode("utf-8")
         self.assertEqual(html.count('"@id": "https://twocomms.shop/#organization"'), 1)
 
+    def test_product_schema_url_uses_canonical_path_when_provided(self):
+        """Phase 21 — Product schema ``url`` follows the page canonical.
+
+        Self-canonical colour PDP must emit the colour URL; size-only or
+        multi-segment combos must collapse back to the base URL.
+        """
+        schema_self = json.loads(get_product_schema(
+            self.product, canonical_path=f"/product/{self.product.slug}/black/"
+        ))
+        self.assertEqual(
+            schema_self["url"], f"https://twocomms.shop/product/{self.product.slug}/black/"
+        )
+        self.assertEqual(schema_self["offers"]["url"], schema_self["url"])
+
+        schema_base = json.loads(get_product_schema(
+            self.product, canonical_path=f"/product/{self.product.slug}/"
+        ))
+        self.assertEqual(
+            schema_base["url"], f"https://twocomms.shop/product/{self.product.slug}/"
+        )
+
     def test_product_schema_uses_variant_stock_for_availability(self):
         color = Color.objects.create(name="Black", primary_hex="#000000")
         variant = ProductColorVariant.objects.create(product=self.product, color=color, stock=0)
@@ -135,6 +156,106 @@ class ProductPageSeoRegressionTests(TestCase):
 
         schema = json.loads(get_product_schema(self.product))
         self.assertEqual(schema["offers"]["availability"], "https://schema.org/InStock")
+
+
+class VariantCanonicalPhase21Tests(SimpleTestCase):
+    """Phase 21 (2026-05-10) — size-only one-segment URLs collapse to
+    the base product canonical; colour and fit one-segment URLs stay
+    self-canonical.
+    """
+
+    def _build(self, *, segments, **kwargs):
+        from storefront.services.variant_meta import VariantMetaInputs, build_variant_meta
+        defaults = dict(
+            product_title="Tee",
+            base_path="/product/tee/",
+            current_path="/product/tee/m/",
+            segments_count=segments,
+            color_name=None,
+            color_slug=None,
+            size_code=None,
+            fit_label=None,
+            fit_code=None,
+        )
+        defaults.update(kwargs)
+        return build_variant_meta(VariantMetaInputs(**defaults))
+
+    def test_size_only_single_segment_canonical_collapses_to_base(self):
+        result = self._build(
+            segments=1,
+            current_path="/product/tee/m/",
+            size_code="M",
+        )
+        self.assertEqual(result["canonical_path"], "/product/tee/")
+        self.assertFalse(result["is_self_canonical"])
+
+    def test_color_only_single_segment_is_self_canonical(self):
+        result = self._build(
+            segments=1,
+            current_path="/product/tee/black/",
+            color_name="Чорний",
+            color_slug="black",
+        )
+        self.assertEqual(result["canonical_path"], "/product/tee/black/")
+        self.assertTrue(result["is_self_canonical"])
+
+    def test_fit_only_single_segment_is_self_canonical(self):
+        result = self._build(
+            segments=1,
+            current_path="/product/tee/oversize/",
+            fit_label="Оверсайз",
+            fit_code="oversize",
+        )
+        self.assertEqual(result["canonical_path"], "/product/tee/oversize/")
+        self.assertTrue(result["is_self_canonical"])
+
+    def test_color_plus_size_collapses_to_base(self):
+        result = self._build(
+            segments=2,
+            current_path="/product/tee/black/m/",
+            color_name="Чорний",
+            color_slug="black",
+            size_code="M",
+        )
+        self.assertEqual(result["canonical_path"], "/product/tee/")
+        self.assertFalse(result["is_self_canonical"])
+
+
+class ProductVariantSitemapPhase21Tests(TestCase):
+    """Phase 21 — size-only one-segment URLs are no longer in the
+    variant sitemap. Colour and fit URLs continue to appear.
+    """
+
+    def setUp(self):
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import Category, Product
+
+        self.category = Category.objects.create(
+            name="Sitemap Phase21",
+            slug="sitemap-phase21",
+            is_active=True,
+        )
+        self.product = Product.objects.create(
+            title="Phase21 Tee",
+            slug="phase21-tee",
+            category=self.category,
+            price=300,
+            status="published",
+        )
+        color = Color.objects.create(name="Black", primary_hex="#000000")
+        ProductColorVariant.objects.create(
+            product=self.product, color=color, slug="black", stock=5
+        )
+
+    def test_variant_sitemap_excludes_size_only_urls(self):
+        from storefront.sitemaps import ProductVariantSitemap
+
+        urls = {entry["loc"] for entry in ProductVariantSitemap().items()}
+
+        self.assertIn("/product/phase21-tee/black/", urls)
+        # Size-only paths must NOT appear; sample the most common sizes.
+        for size in ("/m/", "/l/", "/xl/", "/s/"):
+            self.assertNotIn(f"/product/phase21-tee{size}", urls)
 
 
 class OrderSuccessSeoRegressionTests(TestCase):

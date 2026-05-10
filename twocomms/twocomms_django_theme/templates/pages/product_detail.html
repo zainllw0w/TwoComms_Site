@@ -45,7 +45,13 @@
 {% block fontawesome_css %}{% endblock %}
 
 {% block structured_data %}
-  {% product_schema product %}
+  {% comment %}
+  Phase 21 (2026-05-10) — pass canonical_path + selected colour variant
+  to ``product_schema`` so the JSON-LD ``url`` matches the page's
+  ``<link rel=canonical>`` and the ``image`` slot leads with the
+  variant's photos on self-canonical colour PDPs.
+  {% endcomment %}
+  {% product_schema product canonical_path=variant_canonical_path selected_variant=selected_color_variant %}
   {% breadcrumb_schema breadcrumbs %}
   {% if product_faq_items %}{% faq_schema product_faq_items %}{% endif %}
 {% endblock %}

@@ -492,6 +492,24 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         )
     )
 
+    # Phase 21 (2026-05-10) — resolve the actual ProductColorVariant
+    # instance for the active colour so Product schema / OG / Twitter
+    # use variant images on a self-canonical colour PDP. Only fetches
+    # when the URL path explicitly selected a colour; ``?color=`` query
+    # params still don't fork canonical (Phase 7.3 contract).
+    selected_color_variant = None
+    if path_parsed_color_id is not None and variant_meta['is_self_canonical']:
+        try:
+            from productcolors.models import ProductColorVariant as _PCV
+            selected_color_variant = (
+                _PCV.objects
+                .prefetch_related('images')
+                .filter(product=product, pk=path_parsed_color_id)
+                .first()
+            )
+        except Exception:
+            selected_color_variant = None
+
     return render(
         request,
         'pages/product_detail.html',
@@ -525,6 +543,10 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             'variant_page_description': variant_meta['page_description'],
             'variant_page_keywords': variant_meta.get('page_keywords', ''),
             'variant_is_self_canonical': variant_meta['is_self_canonical'],
+            # Phase 21 — selected colour variant instance for Product
+            # schema, OG image and Twitter image on self-canonical
+            # colour PDPs. ``None`` everywhere else.
+            'selected_color_variant': selected_color_variant,
             # Phase 15 — per-product SEO landing block.
             'product_seo_landing': product_seo_landing,
         }

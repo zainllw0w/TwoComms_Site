@@ -97,26 +97,26 @@ class ProductVariantSitemap(Sitemap):
     """
     Phase 7.4 — sitemap для ONE-segment path-style variant URLs.
 
-    Canonical strategy (see Phase 7.3):
-        * Base ``/product/<slug>/``                   — self-canonical.
-        * 1-segment ``/product/<slug>/<color>/``      — self-canonical.
-        * 1-segment ``/product/<slug>/<size>/``       — self-canonical.
-        * 1-segment ``/product/<slug>/<fit>/``        — self-canonical.
-        * 2+ segments                                 — canonical → base.
+    Phase 21 (2026-05-10) — size-only one-segment variants removed
+    from this sitemap. ``/product/<slug>/m/`` is the same page with a
+    selected size: the visible content barely changes, and 349 of 418
+    pre-Phase-21 variant URLs were size-only — pure crawl waste. They
+    remain reachable for users (the URL still resolves) but canonical
+    on those pages now points to the base product (see
+    ``services.variant_meta``). The sitemap therefore lists only the
+    crawl-worthy 1-segment subset:
 
-    Only self-canonical variant URLs are crawl-worthy for indexing, so
-    this sitemap emits exactly the 1-segment set. Multi-segment combos
-    are reachable and parsable but deliberately absent: they'd dilute
-    crawl budget without winning anything (Google already consolidates
-    them to the base URL via ``rel=canonical``).
+        * Base ``/product/<slug>/``                   — self-canonical (ProductSitemap).
+        * 1-segment ``/product/<slug>/<color>/``      — self-canonical.
+        * 1-segment ``/product/<slug>/<fit>/``        — self-canonical.
+        * 1-segment ``/product/<slug>/<size>/``       — canonical→base, NOT in sitemap.
+        * 2+ segments                                 — canonical→base, NOT in sitemap.
     """
     changefreq = 'weekly'
     priority = 0.7
     protocol = 'https'
 
     def items(self):
-        from .services.size_guides import resolve_product_size_context
-
         products = (
             Product.objects
             .filter(status='published')
@@ -141,24 +141,6 @@ class ProductVariantSitemap(Sitemap):
                         'loc': f'{base_path}/{cv.slug}/',
                         'lastmod': lastmod,
                     })
-
-            # Sizes. ``resolve_product_size_context`` honours the
-            # catalog's option values first, then falls back to the
-            # size grid. Lowercase the code for URL-consistency with
-            # Phase 7.2's content-addressable parser.
-            try:
-                size_ctx = resolve_product_size_context(product)
-                for size in size_ctx.get('sizes', []):
-                    size_segment = str(size).lower().strip()
-                    if size_segment:
-                        entries.append({
-                            'loc': f'{base_path}/{size_segment}/',
-                            'lastmod': lastmod,
-                        })
-            except Exception:
-                # Defensive: never let one malformed product break the
-                # whole sitemap response. Skip sizes for this product.
-                pass
 
             # Fit options — only active ones are user-facing.
             for fit in product.fit_options.all():

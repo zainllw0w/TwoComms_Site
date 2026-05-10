@@ -88,11 +88,23 @@ def build_variant_meta(inputs: VariantMetaInputs) -> dict:
     suffix = _build_title_suffix(inputs)
 
     # Canonical strategy:
-    #   * 1 segment → self (indexable long-tail like ``/product/x/black/``).
-    #   * 2+ segments → base URL, consolidating signal on the main
-    #     product page. We still render rich per-variant meta so users
-    #     landing on the URL see the right title in the browser tab.
-    if inputs.segments_count == 1:
+    #   * 1 segment colour or fit → self (indexable long-tail like
+    #     ``/product/x/black/`` or ``/product/x/oversize/``).
+    #   * 1 segment size-only      → base URL. Phase 21 (2026-05-10):
+    #     ``/product/x/m/`` shows the same product with a preselected
+    #     size — the visible content is essentially identical to the
+    #     base PDP, so we consolidate signal on the base URL. The page
+    #     stays reachable for UX deep links.
+    #   * 2+ segments              → base URL, consolidating signal on
+    #     the main product page. We still render rich per-variant meta
+    #     so users landing on the URL see the right title in the tab.
+    is_size_only_single = (
+        inputs.segments_count == 1
+        and bool(inputs.size_code)
+        and not inputs.color_slug
+        and not inputs.fit_code
+    )
+    if inputs.segments_count == 1 and not is_size_only_single:
         canonical_path = inputs.current_path
         is_self_canonical = True
     else:

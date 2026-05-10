@@ -6,7 +6,7 @@ import json
 import os
 from datetime import timedelta
 from decimal import Decimal
-from typing import List, Dict
+from typing import List, Dict, Optional
 from urllib.parse import urljoin
 from django.conf import settings
 from django.utils import timezone
@@ -543,26 +543,61 @@ class StructuredDataGenerator:
         return shipping_details
 
     @staticmethod
-    def generate_product_schema(product: Product) -> Dict:
-        """Генерирует Product schema для товара (совместимо с Google Merchant Center)"""
+    def generate_product_schema(
+        product: Product,
+        canonical_path: Optional[str] = None,
+        selected_variant=None,
+    ) -> Dict:
+        """Генерирует Product schema для товара (совместимо с Google Merchant Center).
+
+        Phase 21 (2026-05-10) — accepts ``canonical_path`` and
+        ``selected_variant`` so schema ``url`` and ``image`` track the
+        page's canonical strategy:
+          * On a self-canonical colour/fit page, ``url`` is the variant
+            URL (matches ``<link rel=canonical>``).
+          * On a size-only page (canonical → base) or the base page,
+            ``url`` is the base product URL.
+          * If ``selected_variant`` (a ``ProductColorVariant``) is
+            provided, its images are surfaced first so OG/Twitter and
+            schema ``image`` reflect the visual on the page.
+        """
         # Базовые изображения
-        images = []
+        images: list[str] = []
+
+        # Phase 21 — variant images first when a variant is selected
+        # so the ``image[0]`` slot (used for OG/Twitter) matches the
+        # rendered hero image on a colour-variant PDP.
+        if selected_variant is not None:
+            try:
+                for img in selected_variant.images.all()[:3]:
+                    candidate = _build_absolute_url(img.image.url)
+                    if candidate not in images:
+                        images.append(candidate)
+            except Exception:
+                pass
+
         display_image = _safe_product_display_image(product)
         if display_image:
-            images.append(_build_absolute_url(display_image.url))
+            candidate = _build_absolute_url(display_image.url)
+            if candidate not in images:
+                images.append(candidate)
 
         # Добавляем дополнительные изображения
         try:
             for img in product.images.all()[:4]:  # Максимум 4 дополнительных изображения
-                images.append(_build_absolute_url(img.image.url))
+                candidate = _build_absolute_url(img.image.url)
+                if candidate not in images:
+                    images.append(candidate)
         except Exception:
             pass
 
-        # Добавляем изображения из цветовых вариантов
+        # Добавляем изображения из цветовых вариантов (для остальных вариантов)
         try:
             from productcolors.models import ProductColorVariant
             color_variants = ProductColorVariant.objects.filter(product=product).prefetch_related('images')
             for variant in color_variants[:2]:  # Максимум 2 цветовых варианта
+                if selected_variant is not None and getattr(variant, 'pk', None) == getattr(selected_variant, 'pk', None):
+                    continue
                 for img in variant.images.all()[:2]:
                     candidate = _build_absolute_url(img.image.url)
                     if candidate not in images:
@@ -580,6 +615,17 @@ class StructuredDataGenerator:
         )
         material = _guess_product_material(product)
 
+        # Phase 21 — schema URL must mirror the page's canonical strategy.
+        # ``canonical_path`` (if provided by the view) already reflects
+        # whether the variant page is self-canonical or collapses to the
+        # base product. Falls back to base for callers that don't yet
+        # pass it (e.g. Merchant feed, sitemap-images).
+        if canonical_path:
+            cp = canonical_path.lstrip("/")
+            product_canonical_url = _build_absolute_url(cp)
+        else:
+            product_canonical_url = _build_absolute_url(f"product/{product.slug}/")
+
         schema = {
             "@context": "https://schema.org",
             "@type": "Product",
@@ -587,7 +633,7 @@ class StructuredDataGenerator:
             "description": description,
             "sku": f"TC-{product.id}",
             "mpn": f"TC-{product.id}",  # Manufacturer Part Number
-            "url": _build_absolute_url(f"product/{product.slug}/"),
+            "url": product_canonical_url,
             "image": images[0] if len(images) == 1 else images,
             "material": material,
             "countryOfOrigin": {
@@ -627,7 +673,7 @@ class StructuredDataGenerator:
                 "priceCurrency": "UAH",
                 "availability": StructuredDataGenerator._get_product_availability(product),
                 "itemCondition": "https://schema.org/NewCondition",
-                "url": _build_absolute_url(f"product/{product.slug}/"),
+                "url": product_canonical_url,
                 "priceValidUntil": StructuredDataGenerator._get_dynamic_price_valid_until(),
                 "hasMerchantReturnPolicy": {
                     "@type": "MerchantReturnPolicy",
@@ -1001,13 +1047,19 @@ def get_category_seo_meta(category: Category) -> Dict[str, str]:
         }
 
 
-def get_product_schema(product: Product) -> str:
-    """Возвращает JSON-LD schema для товара"""
+def get_product_schema(product: Product, canonical_path: Optional[str] = None, selected_variant=None) -> str:
+    """Возвращает JSON-LD schema для товара.
+
+    Phase 21 — propagates ``canonical_path`` and ``selected_variant`` to
+    the underlying generator so the rendered Product schema's ``url``
+    and ``image`` always match what the page declares as canonical.
+    """
     try:
-        schema = StructuredDataGenerator.generate_product_schema(product)
+        schema = StructuredDataGenerator.generate_product_schema(
+            product, canonical_path=canonical_path, selected_variant=selected_variant
+        )
         return json.dumps(schema, ensure_ascii=False, indent=2)
-    except Exception as e:
-        # Возвращаем пустую строку в случае ошибки
+    except Exception:
         return ""
 
 
