@@ -1875,11 +1875,7 @@ html[data-route-name="product"] .breadcrumb-nav {
   color: #ffd24d;
 }
 .tc-purchase-side .tc-purchase-trust-link small {
-  display: block;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.7rem;
-  line-height: 1.2;
-  margin-top: 1px;
+  display: none;
 }
 
 .tc-points-line {
