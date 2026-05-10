@@ -238,10 +238,17 @@ SUPPORT_PAGE_DEFINITIONS = {
             "mono checkout",
             "tracking після відправлення",
         ],
+        # Phase 21 (PR-5 T13.2) — cross-link from /delivery/ to the
+        # main category landings so users can jump back into the
+        # catalog from a support page (and so Google sees in-context
+        # internal anchors with category-relevant text).
         "intro_links": [
             {"label": "Відстеження замовлення", "url_name": "order_tracking"},
             {"label": "Повернення та обмін", "url_name": "returns"},
             {"label": "FAQ", "url_name": "faq"},
+            {"label": "Купити футболку", "url_name": "catalog_by_cat", "url_kwargs": {"cat_slug": "tshirts"}},
+            {"label": "Купити худі", "url_name": "catalog_by_cat", "url_kwargs": {"cat_slug": "hoodie"}},
+            {"label": "Купити лонгслів", "url_name": "catalog_by_cat", "url_kwargs": {"cat_slug": "long-sleeve"}},
         ],
         "sections": [
             {
@@ -461,10 +468,17 @@ SUPPORT_PAGE_DEFINITIONS = {
             "підтверджені категорії",
             "без зайвого перевантаження",
         ],
+        # Phase 21 (PR-5 T13.2) — size_guide → catalog deep links.
+        # Users on the size guide are mid-funnel (already considering
+        # which fit fits), so direct anchors to category landings
+        # short-circuit the navigation back to the catalog tree.
         "intro_links": [
             {"label": "FAQ", "url_name": "faq"},
             {"label": "Допомога", "url_name": "help_center"},
             {"label": "Контакти", "url_name": "contacts"},
+            {"label": "Футболки", "url_name": "catalog_by_cat", "url_kwargs": {"cat_slug": "tshirts"}},
+            {"label": "Худі", "url_name": "catalog_by_cat", "url_kwargs": {"cat_slug": "hoodie"}},
+            {"label": "Лонгсліви", "url_name": "catalog_by_cat", "url_kwargs": {"cat_slug": "long-sleeve"}},
         ],
         "sections": [
             {
@@ -683,9 +697,16 @@ SUPPORT_PAGE_DEFINITIONS = {
         "hero_kicker": "After Purchase",
         "hero_title": "Повернення та обмін",
         "hero_intro": "Готові товари належної якості можна повернути або обміняти протягом 14 днів з моменту отримання відповідно до законодавства України. Кастомний одяг, виготовлений за індивідуальним замовленням, не підлягає поверненню чи обміну, якщо його виконано належним чином і він відповідає погодженим параметрам.",
+        # Phase 21 (PR-5 T13.2) — returns page is a high-trust touch
+        # point right after delivery; offering category links here
+        # nudges return-considering shoppers back into the catalog
+        # before they bounce.
         "intro_links": [
             {"label": "Допомога", "url_name": "help_center"},
             {"label": "Контакти", "url_name": "contacts"},
+            {"label": "Футболки", "url_name": "catalog_by_cat", "url_kwargs": {"cat_slug": "tshirts"}},
+            {"label": "Худі", "url_name": "catalog_by_cat", "url_kwargs": {"cat_slug": "hoodie"}},
+            {"label": "Лонгсліви", "url_name": "catalog_by_cat", "url_kwargs": {"cat_slug": "long-sleeve"}},
         ],
         "sections": [
             {

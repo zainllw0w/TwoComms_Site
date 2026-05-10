@@ -574,8 +574,13 @@ def sitemap_images(request):
 def _hydrate_link_payload(item):
     payload = deepcopy(item)
     url_name = payload.pop("url_name", None)
+    # Phase 21 (PR-5 T13.2) — let static-page link payloads point at
+    # parametrised routes (e.g. ``catalog_by_cat`` for category pages)
+    # by carrying optional ``url_kwargs``. Falls through to the legacy
+    # plain-``reverse(url_name)`` path when ``url_kwargs`` is absent.
+    url_kwargs = payload.pop("url_kwargs", None) or {}
     if url_name:
-        payload["url"] = reverse(url_name)
+        payload["url"] = reverse(url_name, kwargs=url_kwargs) if url_kwargs else reverse(url_name)
     return payload
 
 

@@ -75,14 +75,14 @@
 - [x] T12.2 `{% faq_schema product_faq_items %}` убран с PDP (FAQ остаётся видимым, без JSON-LD)
 - [x] T12.3 FAQPage schema остаётся на support_page.html в т.ч. /faq/, /delivery/, /povernennya-ta-obmin/, /cooperation/, /pro-brand/, /custom-print/, /wholesale/
 - [x] T13.1 PDP buybox-trust badges теперь ссылаются на /delivery/, /povernennya-ta-obmin/, /rozmirna-sitka/
-- [ ] T13.2 Support pages → category links (отложено — требует ревью SUPPORT_PAGE_DEFINITIONS)
+- [x] T13.2 Support pages → category links: `_hydrate_link_payload` теперь поддерживает `url_kwargs`; добавлены ссылки на `tshirts`/`hoodie`/`long-sleeve` в /delivery/, /rozmirna-sitka/, /povernennya-ta-obmin/
 - [ ] T14 Топ-20 unique copy (отдельным трекингом, требует ручной выверки)
 
 ## PR-6: schema graph + feed + images + IndexNow [partial — T16, T17 done]
 - [ ] T15.1 PDP `@graph`: Org, WebSite, Breadcrumb, Product (+rating), FAQPage if unique (пока выводятся отдельными `<script>` — работает, @graph cosmetic)
 - [ ] T15.2 Category/Home `@graph`
 - [x] T16.1 `sitemap-images.xml` расширен: main + gallery + color-variant images, dedupe, cap=50/url
-- [ ] T16.2 Команда отчёта о продуктах без картинок (отложено)
+- [x] T16.2 `manage.py audit_product_images` (CSV/--limit/--thin-threshold). Прод: 0 zero-image, 43 thin (<3). Регрессии: 4 теста
 - [x] T17.1 `g:gtin` уже был в feed (Phase «19»-era) — проверено
 - [x] T17.2 `g:custom_label_0..4` добавлены: theme/category/price-tier/discount/age cohort + регрессии
 - [ ] T17.3 OOS strategy alignment (deferred — требует ревью бизнес-логики)
