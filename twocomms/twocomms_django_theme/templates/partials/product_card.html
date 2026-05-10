@@ -3,8 +3,7 @@
 {# form_filters удалён #}
 {% with animate=animate|default_if_none:True %}
 {% if home_card %}
-{# Phase 14 — when a colour filter is active, show the matching variant's image
-   instead of homepage_image. ``preferred_card_image_url`` is set by the view. #}
+{# Phase 14 — when a colour filter is active, show preferred_card_image_url instead of homepage_image (set by view). #}
 {% with card_image=p.homepage_image preferred_image_url=p.preferred_card_image_url %}
 {% url 'product' p.slug as product_url %}
 <article
