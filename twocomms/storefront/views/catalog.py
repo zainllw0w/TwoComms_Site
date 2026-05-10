@@ -35,6 +35,7 @@ from ..services.category_seo_blocks import (
     get_category_seo_blocks,
     get_category_seo_layout,
 )
+from ..services.general_catalog_seo import get_general_catalog_seo_layout
 from ..services.color_filter import (
     apply_color_filter,
     build_available_colors,
@@ -416,11 +417,17 @@ def catalog(request, cat_slug=None):
             # Phase 10 — structured SEO blocks shown after the products grid.
             'category_seo_blocks': get_category_seo_blocks(category) if category else [],
             # Phase 10b — split layout: tabs (top_menu/top_filters/top_queries/
-            # top_cards) vs. best_prices pricing table. Empty for /catalog/
-            # without a category filter.
+            # top_cards) vs. best_prices pricing table. Per-category catalogs
+            # pull from CategorySeoBlock rows; the general /catalog/ root
+            # synthesises an in-memory layout (top_menu = all categories,
+            # top_filters = available colours, top_queries = curated set)
+            # so the same partial renders on every catalog screen.
             'category_seo_layout': (
                 get_category_seo_layout(category) if category
-                else {'tab_blocks': [], 'best_prices': None, 'has_any': False}
+                else get_general_catalog_seo_layout(
+                    categories=categories,
+                    available_colors=available_colors,
+                )
             ),
         }
     )

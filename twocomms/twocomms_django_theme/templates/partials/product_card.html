@@ -26,12 +26,7 @@ on the same colour the catalog showed (instead of defaulting to
   <a href="{{ product_url }}" class="home-product-media home-product-media-link" data-product-card-link
     data-twc-image-protected="true" aria-label="Переглянути {{ p.title }}">
     {% if preferred_image_url %}
-      {# Phase 18 fix (2026-05-10): originally Phase 14 rendered the
-         color-variant preview as a raw <img src> which forced the
-         browser to download the full-size original PNG/JPG (~1 MB
-         each) and downscale it for the catalog card — visible
-         quality loss reported in user feedback. Now routed through
-         optimized_image so browsers receive responsive AVIF/WebP. #}
+      {# Phase 18 fix (2026-05-10): preferred_image_url now goes through optimized_image to receive responsive AVIF/WebP. #}
       {% if eager|default_if_none:False %}
       {% optimized_image preferred_image_url p.preferred_card_image_alt|default:p.title "home-product-image product-main-image" 1080 1600 loading='eager' fetchpriority='auto' sizes='(max-width: 576px) 45vw, (max-width: 992px) 45vw, (max-width: 1400px) 23vw, 18vw' %}
       {% else %}

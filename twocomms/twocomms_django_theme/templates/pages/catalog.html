@@ -230,8 +230,9 @@
         </a>
         {% endfor %}
       </nav>
-      {% include "partials/color_filter_chips.html" %}
       {% endif %}
+      {# Phase 19f (2026-05-10): colour chips render on every catalog screen, including the general /catalog/ root, to expose colour gradation as a primary filter alongside category. #}
+      {% include "partials/color_filter_chips.html" %}
 
       {% if show_category_cards and catalog_showcase_cards %}
       <section class="catalog-showcase" aria-label="Категорії одягу TwoComms">
@@ -373,8 +374,16 @@
   </section>
   {% endif %}
 
-  {% if category and category_seo_layout.has_any %}
-  <section class="catalog-category-seo-blocks" aria-label="Додаткові розділи категорії">
+  {% comment %}
+  Phase 10b/Phase 19f (2026-05-10): the general /catalog/ root now also
+  receives a synthesised ``category_seo_layout`` (top_menu=all categories,
+  top_filters=available colours, top_queries=curated set) via
+  ``services.general_catalog_seo.get_general_catalog_seo_layout``. Drop
+  the legacy ``{% if category %}`` guard so the bottom SEO block renders
+  on every catalog screen.
+  {% endcomment %}
+  {% if category_seo_layout.has_any %}
+  <section class="catalog-category-seo-blocks" aria-label="Додаткові розділи каталогу">
     <div class="catalog-redesign-container">
       {% include "partials/category_seo_blocks.html" %}
     </div>

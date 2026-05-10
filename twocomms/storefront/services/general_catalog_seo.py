@@ -1,0 +1,156 @@
+"""Synthesize a Phase 10b SEO layout for the general ``/catalog/`` page.
+
+Per-category catalogs (hoodie / tshirts / long-sleeve) get their bottom
+SEO block from ``CategorySeoBlock`` rows. The general ``/catalog/`` root
+has no anchoring category and therefore no SEO block — but users still
+land on it from search and need the same kind of internal navigation
+to drill down into combinations of category + colour. This service
+builds an in-memory layout that mirrors the Phase 10b shape (tab_blocks
++ best_prices + has_any) so the existing ``partials/category_seo_blocks.html``
+partial can render it without changes.
+
+We intentionally keep this service *purely* in-memory (no DB rows): the
+general catalog rarely changes its top-level shape (it's the union of
+all categories + all colours), so synthesising on each request is
+cheap. The ``catalog`` view already caches per-anon for 10 minutes so
+the in-memory cost amortises to near zero.
+"""
+from __future__ import annotations
+
+from types import SimpleNamespace
+from typing import Any, Dict, List, Optional, Sequence
+
+
+def _block(block_type: str, title: str) -> SimpleNamespace:
+    """Build a synthetic block compatible with the existing template.
+
+    The template reads ``block.block_type``, ``block.title`` and calls
+    ``block.get_block_type_display`` (Django auto-invokes callables in
+    templates). SimpleNamespace satisfies all three accessors.
+    """
+    return SimpleNamespace(
+        block_type=block_type,
+        title=title,
+        get_block_type_display=lambda title=title: title,
+    )
+
+
+def _item(
+    label: str,
+    url: str,
+    *,
+    extra: Optional[Dict[str, Any]] = None,
+    product: Any = None,
+) -> SimpleNamespace:
+    """Build a synthetic item compatible with the existing template.
+
+    Template accessors: ``item.label``, ``item.url``, ``item.extra``,
+    ``item.product``. ``extra`` is a plain dict so chained dotted
+    lookups like ``{{ item.extra.price }}`` resolve via Django's
+    standard variable resolution.
+    """
+    return SimpleNamespace(
+        label=label,
+        url=url,
+        extra=dict(extra or {}),
+        product=product,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Curated top queries — high-intent, brand-relevant searches that funnel
+# users into a specific category + colour combination. Kept in code (not
+# DB) so the editorial set is reviewable in version control. URLs use the
+# colour-filter syntax that the catalog view already understands.
+# ---------------------------------------------------------------------------
+
+_CURATED_TOP_QUERIES: List[Dict[str, str]] = [
+    {"label": "Купити худі ЗСУ", "url": "/catalog/hoodie/?color=black"},
+    {"label": "Чорна футболка з принтом", "url": "/catalog/tshirts/?color=black"},
+    {"label": "Тризуб футболка", "url": "/catalog/tshirts/?color=black"},
+    {"label": "Лонгслів мілітарі", "url": "/catalog/long-sleeve/?color=coyote"},
+    {"label": "Худі streetwear", "url": "/catalog/hoodie/"},
+    {"label": "Футболка унісекс TwoComms", "url": "/catalog/tshirts/"},
+    {"label": "Кайот худі", "url": "/catalog/hoodie/?color=coyote"},
+    {"label": "Чорний лонгслів", "url": "/catalog/long-sleeve/?color=black"},
+    {"label": "Власний принт на футболці", "url": "/custom-print/"},
+    {"label": "Подарунок захиснику", "url": "/catalog/?color=coyote"},
+    {"label": "Жіноча футболка з принтом", "url": "/catalog/tshirts/?color=black"},
+    {"label": "Худі для пари", "url": "/catalog/hoodie/"},
+    {"label": "Український стрітвір", "url": "/catalog/"},
+    {"label": "Donate to ZSU merch", "url": "/catalog/?color=coyote"},
+]
+
+
+def _build_top_menu_items(categories) -> List[SimpleNamespace]:
+    return [
+        _item(label=c.name, url=f"/catalog/{c.slug}/")
+        for c in categories
+        if getattr(c, "is_active", True) and getattr(c, "slug", "")
+    ]
+
+
+def _build_top_filters_items(available_colors) -> List[SimpleNamespace]:
+    items: List[SimpleNamespace] = []
+    for chip in available_colors or []:
+        slug = (chip.get("slug") or "").strip()
+        label = chip.get("label") or slug.title()
+        if not slug:
+            continue
+        items.append(_item(label=label, url=f"/catalog/?color={slug}"))
+    return items
+
+
+def _build_top_queries_items() -> List[SimpleNamespace]:
+    return [_item(label=q["label"], url=q["url"]) for q in _CURATED_TOP_QUERIES]
+
+
+def get_general_catalog_seo_layout(
+    *,
+    categories: Sequence[Any],
+    available_colors: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Return a Phase 10b-shaped layout dict for the general /catalog/ page.
+
+    Args:
+        categories: iterable of ``Category`` instances (active only).
+            Used to build the ``top_menu`` (Розділи каталогу) tab.
+        available_colors: list of chip dicts produced by
+            ``services.color_filter.build_available_colors``. Used to
+            build the ``top_filters`` (Кольори) tab. Empty when no
+            published product carries any colour variant — in that
+            case the filter tab is dropped.
+
+    Returns:
+        ``{"tab_blocks": [...], "best_prices": None, "has_any": bool}``
+        — same shape as ``services.category_seo_blocks.get_category_seo_layout``
+        so the existing partial can render the result without edits.
+    """
+    tab_blocks: List[Dict[str, Any]] = []
+
+    menu_items = _build_top_menu_items(categories or [])
+    if menu_items:
+        tab_blocks.append({
+            "block": _block("top_menu", "Розділи каталогу"),
+            "items": menu_items,
+        })
+
+    filter_items = _build_top_filters_items(available_colors or [])
+    if filter_items:
+        tab_blocks.append({
+            "block": _block("top_filters", "Фільтр за кольором"),
+            "items": filter_items,
+        })
+
+    query_items = _build_top_queries_items()
+    if query_items:
+        tab_blocks.append({
+            "block": _block("top_queries", "Популярні запити"),
+            "items": query_items,
+        })
+
+    return {
+        "tab_blocks": tab_blocks,
+        "best_prices": None,
+        "has_any": bool(tab_blocks),
+    }

@@ -96,8 +96,16 @@ def attach_preferred_card_image(
                 # even when the image falls back to homepage_image.
                 if not preferred_slug:
                     preferred_slug = (variant.get("slug") or "").strip()
-                if variant.get("first_image_url"):
-                    url = variant["first_image_url"]
+                # Bug-fix 2026-05-10: prefer the un-optimised ``original_image_url``
+                # over ``first_image_url`` (a 320 px WebP thumbnail).
+                # ``optimized_image`` derives responsive variant filenames
+                # from the URL stem and falls back to rendering the input
+                # as-is when no siblings match — feeding it the thumbnail
+                # made cards render at 320 px stretched to ~480 px (soft
+                # / visibly blurry on Retina displays).
+                src_url = variant.get("original_image_url") or variant.get("first_image_url")
+                if src_url:
+                    url = src_url
                     name = (variant.get("name") or "").strip()
                     title = getattr(product, "title", "") or ""
                     alt = f"{title} — {name}" if name else title

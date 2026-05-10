@@ -235,9 +235,21 @@ def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str,
             images = list(variant.images.all()) if hasattr(variant, 'images') else []
 
         first_image = ''
+        original_image = ''
         if images:
             first_payload = build_optimized_image_payload(images[0].image, display_width=320)
+            # ``thumbnail_url`` is a small (~320 px wide) WebP suitable
+            # for JS hover-swap on chip clicks. ``original_url`` is the
+            # un-optimised source path; pass that through the
+            # ``optimized_image`` template tag so it can locate sibling
+            # responsive AVIF/WebP variants and emit a proper srcset
+            # (the tag derives variant filenames from the source stem
+            # — handing it a thumbnail URL like ``foo_320w.webp`` makes
+            # the tag look for ``foo_320w_*.{avif,webp}``, which never
+            # exist, so it falls back to rendering the 320 px asset
+            # at the card's full ~480 px width — visibly soft).
             first_image = first_payload.get('thumbnail_url') or first_payload.get('url') or ''
+            original_image = first_payload.get('original_url') or ''
         preview_map[variant.product_id].append(
             {
                 'id': variant.id,
@@ -245,6 +257,7 @@ def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str,
                 'primary_hex': getattr(color, 'primary_hex', '') or '',
                 'secondary_hex': getattr(color, 'secondary_hex', '') or '',
                 'first_image_url': first_image,
+                'original_image_url': original_image,
                 'is_default': bool(getattr(variant, 'is_default', False)),
             }
         )

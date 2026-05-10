@@ -161,10 +161,16 @@ class CatalogIntegrationTests(_BasePhase10Tests):
         self.assertContains(response, 'data-seo-tab-trigger="top_filters"')
         self.assertContains(response, "Чорні")
 
-    def test_root_catalog_has_no_seo_blocks(self):
+    def test_root_catalog_has_no_db_seo_blocks_but_renders_synthetic_layout(self):
+        # Phase 19f (2026-05-10): /catalog/ root no longer relies on
+        # CategorySeoBlock rows (still empty here) but now receives a
+        # synthesised layout via ``services.general_catalog_seo`` so
+        # the bottom SEO section IS rendered. The Phase 10 flat list
+        # (``category_seo_blocks``) remains empty for the root.
         response = self.client.get(reverse("catalog"))
         self.assertEqual(response.context["category_seo_blocks"], [])
-        self.assertNotContains(response, 'class="category-seo-blocks"')
+        self.assertTrue(response.context["category_seo_layout"]["has_any"])
+        self.assertContains(response, 'class="category-seo-blocks"')
 
     def test_category_h2_uses_seo_text_title_when_set(self):
         response = self.client.get(reverse("catalog_by_cat",
