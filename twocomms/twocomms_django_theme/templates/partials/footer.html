@@ -175,11 +175,11 @@
        discovery; clicking submits a hidden POST to ``/i18n/setlang/`` so the
        ``django_language`` cookie sticks. ``aria-current`` flags the active
        language for screen readers. CSS lives in ``footer.css`` (.footer-langs). #}
-    {% language_switch_links as _footer_langs %}
+    {% language_switch_links as footer_langs %}
     <div class="footer-langs" aria-label="{% trans 'Мова сайту' %}">
       <span class="footer-langs__label">{% trans 'Мова' %}</span>
       <div class="footer-langs__group" role="group">
-        {% for item in _footer_langs %}
+        {% for item in footer_langs %}
           <form class="footer-langs__form"
                 method="post"
                 action="{% url 'set_language' %}">

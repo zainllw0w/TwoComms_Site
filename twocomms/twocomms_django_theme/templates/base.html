@@ -76,11 +76,11 @@
      dict {uk, ru, en, x-default} of absolute URLs computed from the current
      request path with prefix stripping/swap. See storefront.templatetags.i18n_links. #}
   {% load i18n_links %}
-  {% language_alternates as _lang_alts %}
-  <link rel="alternate" hreflang="uk" href="{% block hreflang_uk %}{{ _lang_alts.uk }}{% endblock %}">
-  <link rel="alternate" hreflang="ru" href="{% block hreflang_ru %}{{ _lang_alts.ru }}{% endblock %}">
-  <link rel="alternate" hreflang="en" href="{% block hreflang_en %}{{ _lang_alts.en }}{% endblock %}">
-  <link rel="alternate" hreflang="x-default" href="{% block hreflang_x_default %}{{ _lang_alts.x_default }}{% endblock %}">
+  {% language_alternates as lang_alts %}
+  <link rel="alternate" hreflang="uk" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">
+  <link rel="alternate" hreflang="ru" href="{% block hreflang_ru %}{{ lang_alts.ru }}{% endblock %}">
+  <link rel="alternate" hreflang="en" href="{% block hreflang_en %}{{ lang_alts.en }}{% endblock %}">
+  <link rel="alternate" hreflang="x-default" href="{% block hreflang_x_default %}{{ lang_alts.x_default }}{% endblock %}">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
@@ -98,9 +98,9 @@
   {# Phase 17a — locale-aware OG tags. ``og_locale_for_lang`` is provided by
      i18n_links template tag library. Defaults to uk_UA. #}
   <meta property="og:locale" content="{% og_locale_for_lang LANGUAGE_CODE %}">
-  {% og_locale_alternates as _og_alts %}
-  {% for _alt_code, _alt_og in _og_alts.items %}
-  <meta property="og:locale:alternate" content="{{ _alt_og }}">
+  {% og_locale_alternates as og_alts %}
+  {% for alt_og in og_alts.values %}
+  <meta property="og:locale:alternate" content="{{ alt_og }}">
   {% endfor %}
 
   <!-- Twitter -->
