@@ -93,6 +93,18 @@ class ProductPageSeoRegressionTests(TestCase):
         self.assertContains(response, "social-preview.jpg", html=False)
         self.assertContains(response, 'property="og:image:alt"', html=False)
 
+    def test_product_page_does_not_emit_faq_page_schema(self):
+        """Phase 21 (PR-5, T12.2) — PDP no longer carries FAQPage JSON-LD;
+        identical FAQ content lives on dedicated support pages
+        (/faq/, /delivery/, /povernennya-ta-obmin/, categories).
+        """
+        response = self.client.get(reverse("product", kwargs={"slug": self.product.slug}), follow=True)
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        # The Product schema is still present and may carry a Question
+        # via "additionalProperty" — we only assert FAQPage isn't there.
+        self.assertNotIn('"@type": "FAQPage"', html)
+
     def test_product_page_does_not_render_meta_keywords(self):
         """Phase 21 — keep the ``<meta name="keywords">`` tag out of HTML."""
         response = self.client.get(reverse("product", kwargs={"slug": self.product.slug}), follow=True)

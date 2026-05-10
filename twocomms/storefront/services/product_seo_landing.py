@@ -336,13 +336,20 @@ def _top_queries_for_product(product, fit_code: Optional[str] = None) -> List[Di
             "url":   _product_variant_url(product, fit_code=code),
         })
 
-    # 3. City keywords (always present — link to category as fallback).
+    # 3. Phase 21 (2026-05-10) — city chips removed.
+    #
+    # Pre-Phase-21 we surfaced "Купити <product> Київ / Харків / Львів /
+    # Одеса" chips here. They linked to the category page with no
+    # city-specific content, so Google treated them as keyword-stuffing
+    # signals and the audit (TWOCOMMS_ECOMMERCE_SEO_AUDIT_2026-05-10.md
+    # §FAQ/Content) called them out as a ranking liability. Real city
+    # landing pages would need locally-relevant content (delivery times
+    # per branch, store list, etc.); we don't have that yet.
+    #
+    # The ``city_url`` shortcut is preserved here because the category
+    # fallback chip below (4-5) still uses it. ``CITY_KEYWORDS`` stays
+    # in the module-level constant for future opt-in.
     city_url = _category_url(cat_slug)
-    for city in CITY_KEYWORDS[:4]:
-        items.append({
-            "label": f"Купити {acc} {city}",
-            "url":   city_url,
-        })
 
     # 4. Custom print.
     items.append({

@@ -67,15 +67,15 @@
 - [x] R15 IndexNow ping при флипе status → approved (signal `post_save`, идемпотентно)
 - [x] R16 31 тест (aggregate/lifecycle/schema/submit/vote/permissions/signals/nested-review)
 
-## PR-5: content/FAQ
-- [ ] T11.1 Удалить `CITY_KEYWORDS` из `top_queries`
-- [ ] T11.2 Заменить SEO-видимый текст на buyer-facing
-- [ ] T11.3 Тест без city/SEO-операционных слов
-- [ ] T12.1 Не автогенерировать universal ProductFAQ
-- [ ] T12.2 FAQ остаётся UI, но без FAQPage JSON-LD при дублях
-- [ ] T12.3 FAQPage schema на /faq/, /delivery/, /povernennya-ta-obmin/, категорийных
-- [ ] T13.1 PDP cross-links → support pages
-- [ ] T13.2 Support pages → category links
+## PR-5: content/FAQ [code+tests done; T13 cross-linking deferred]
+- [x] T11.1 City chips block (Київ/Харків/Сample) вынесен из `_top_queries_for_product` с комментарием о причине
+- [~] T11.2 Бывшие 4 городские chips просто удалены (custom-print + category-fallback chips остались). Добавить buyer-facing chips в следующем iter
+- [x] T11.3 `test_does_not_include_city_chips` проверяет отсутствие городских слов
+- [x] T12.1 `ProductFAQ` уже был admin-driven (не автоген) — проверено
+- [x] T12.2 `{% faq_schema product_faq_items %}` убран с PDP (FAQ остаётся видимым, без JSON-LD)
+- [x] T12.3 FAQPage schema остаётся на support_page.html в т.ч. /faq/, /delivery/, /povernennya-ta-obmin/, /cooperation/, /pro-brand/, /custom-print/, /wholesale/
+- [ ] T13.1 PDP cross-links → support pages (отложено на следующую итерацию)
+- [ ] T13.2 Support pages → category links (отложено)
 - [ ] T14 Топ-20 unique copy (отдельным трекингом, требует ручной выверки)
 
 ## PR-6: schema graph + feed + images + IndexNow

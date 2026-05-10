@@ -104,11 +104,14 @@ class TopQueriesTests(_Base):
             urls,
         )
 
-    def test_includes_city_chips(self):
+    def test_does_not_include_city_chips(self):
+        """Phase 21 (PR-5) — city chips removed (would be keyword-stuffing
+        without real city landing pages).
+        """
         items = _top_queries_for_product(self.product)
         labels = " | ".join(i["label"] for i in items)
-        for city in ("Київ", "Харків", "Львів", "Одеса"):
-            self.assertIn(city, labels)
+        for city in ("Київ", "Харків", "Львів", "Одеса", "Дніпро"):
+            self.assertNotIn(city, labels)
 
     def test_includes_custom_print_chips(self):
         items = _top_queries_for_product(self.product)

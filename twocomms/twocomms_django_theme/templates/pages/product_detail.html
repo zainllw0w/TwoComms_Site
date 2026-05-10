@@ -53,7 +53,15 @@
   {% endcomment %}
   {% product_schema product canonical_path=variant_canonical_path selected_variant=selected_color_variant review_summary=product_review_summary %}
   {% breadcrumb_schema breadcrumbs %}
-  {% if product_faq_items %}{% faq_schema product_faq_items %}{% endif %}
+  {% comment %}
+  Phase 21 (PR-5, T12.2) — FAQPage JSON-LD removed from PDP. The same
+  FAQ entries are rendered on dedicated support pages (/faq/,
+  /delivery/, /povernennya-ta-obmin/) which carry the FAQPage schema
+  there. Keeping it on every PDP duplicated content across hundreds
+  of pages and Search Console flagged it as repeated structured data.
+  The FAQ itself stays visible to users via the tabs/section below —
+  this only removes the JSON-LD tag.
+  {% endcomment %}
 {% endblock %}
 
 {% block breadcrumbs %}
