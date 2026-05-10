@@ -594,7 +594,8 @@ CSS rules на mobile FCP/LCP window.
         <div class="tc-related-grid" aria-label="Рекомендовані товари">
           {% for rec_product in recommended_products|slice:":8" %}
             <article class="tc-related-card">
-              <a href="{% url 'product' rec_product.slug %}" class="tc-related-link" aria-label="{{ rec_product.title }}">
+              {# Phase 21 (T20 a11y) — drop aria-label so the link's accessible name is computed from the visible title/category/price text inside (resolves axe `label-content-name-mismatch`). #}
+              <a href="{% url 'product' rec_product.slug %}" class="tc-related-link">
                 <span class="tc-related-image-wrap">
                   {% if rec_product.display_image %}
                     <img src="{{ rec_product.display_image.url }}" alt="{{ rec_product.main_image_alt|default:rec_product.title }} — схожий товар TwoComms" loading="lazy" width="520" height="650">

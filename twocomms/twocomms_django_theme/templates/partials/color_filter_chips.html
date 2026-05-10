@@ -13,10 +13,11 @@
   <ul class="color-filter-chips__list" role="list">
     {% for chip in available_colors %}
     <li class="color-filter-chips__item">
+      {# Phase 21 (T20 a11y) — links have implicit role=link which doesn't allow `aria-pressed` (toggle-button attr). Use `aria-current="true"` for the active chip — proper ARIA for navigational state. #}
       <a class="color-filter-chip{% if chip.is_selected %} is-selected{% endif %}"
          href="{{ chip.url }}"
          data-color-slug="{{ chip.slug }}"
-         aria-pressed="{% if chip.is_selected %}true{% else %}false{% endif %}"
+         {% if chip.is_selected %}aria-current="true"{% endif %}
          title="{{ chip.label }} ({{ chip.count }})">
         <span class="color-filter-chip__swatch"
               style="--c1: {{ chip.primary_hex|default:'#666' }}; --c2: {{ chip.secondary_hex|default:chip.primary_hex|default:'#666' }};"

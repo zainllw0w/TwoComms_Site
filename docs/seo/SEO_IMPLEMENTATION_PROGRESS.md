@@ -85,7 +85,7 @@
 - [x] T16.2 `manage.py audit_product_images` (CSV/--limit/--thin-threshold). Прод: 0 zero-image, 43 thin (<3). Регрессии: 4 теста
 - [x] T17.1 `g:gtin` уже был в feed (Phase «19»-era) — проверено
 - [x] T17.2 `g:custom_label_0..4` добавлены: theme/category/price-tier/discount/age cohort + регрессии
-- [ ] T17.3 OOS strategy alignment (deferred — требует ревью бизнес-логики)
+- [x] T17.3 OOS strategy alignment (verified): published OOS-товары остаются в `sitemap-products.xml` и каталоге (preserves URL ranking); `availability` в Product JSON-LD корректно вычисляется (`_get_product_availability`: dropship-flag → variant stock → fallback InStock); Google Merchant feed маркирует `availability=out_of_stock` при `stock<=0`. Соответствует Google E-commerce SEO best-practices (не удалять OOS из индекса)
 - [x] T18.1 Prod: `INDEXNOW_ENABLED=True`, `INDEXNOW_KEY=fda0e47b...`, key-file отдаёт 200 на `/<key>.txt`
 - [x] T18.2 `reindex_indexnow --core --dry-run` → 18 URL; `--all --dry-run` → 86
 - [x] T18.3 Live submit: `reindex_indexnow --all` → «IndexNow accepted 86 URL(s)» (core+products+categories)

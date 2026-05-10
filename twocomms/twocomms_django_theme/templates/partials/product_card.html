@@ -82,7 +82,8 @@ on the same colour the catalog showed (instead of defaulting to
       </span>
       <span class="home-color-count">{{ p.colors_preview|length }}</span>
     </button>
-    <div class="home-color-panel" role="list" aria-label="Кольори товару">
+    {# Phase 21 (T20 a11y) — children are <button> (interactive), not <li>. `role="list"` requires `role="listitem"` children → switch to `role="group"` which is the correct ARIA role for a labelled set of related controls. #}
+    <div class="home-color-panel" role="group" aria-label="Кольори товару">
       {% for v in p.colors_preview %}
       <button type="button"
         class="home-color-dot color-dot{% if v.is_default %} active{% endif %}"
