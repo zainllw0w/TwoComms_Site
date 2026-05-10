@@ -9,6 +9,7 @@
 {% block extra_css %}
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'css/product-builder.css' %}?v=2026.04.28.001">
+<link rel="stylesheet" href="{% static 'css/admin-fit-toggle.css' %}?v=20260510-phase17-v1">
 {% endblock %}
 
 {% block content %}
@@ -732,54 +733,160 @@
           <div class="alert alert-warning">Formset кольорів не переданий у контекст.</div>
           {% endif %}
 
-          {% if fit_formset %}
-          <div class="mt-4">
+          {% if fit_toggle_form %}
+          <div class="mt-4 fit-toggle-section" data-fit-toggle>
             <h3 class="section-title">
-              <i class="fas fa-tshirt me-2"></i>Посадка товару
+              <i class="fas fa-tshirt me-2"></i>Посадка футболки
             </h3>
-            <p class="text-muted small mb-3">Для футболок ці опції показуються на сторінці товару як вибір крою.</p>
-            {{ fit_formset.management_form }}
-            <div class="row g-3">
-              {% for form in fit_formset %}
-              <div class="col-12 col-lg-6">
-                <article class="catalog-option-card h-100">
-                  {{ form.id }}
-                  {{ form.DELETE }}
-                  <div class="option-header">
-                    <div class="option-title">
-                      <i class="fas fa-ruler-combined"></i>
-                      <span>{{ form.label.value|default:"Посадка" }}</span>
-                    </div>
-                    <div class="form-check form-switch">
-                      {{ form.is_active }}
-                      <label class="form-check-label">Активна</label>
-                    </div>
+            <p class="text-muted small mb-3">
+              Для футболок на сторінці товару показується селектор посадки.
+              Виберіть, які варіанти включити, і яка посадка буде <strong>за замовчуванням</strong>.
+              Якщо вимкнути обидва — селектор взагалі не з’явиться.
+            </p>
+
+            <div class="fit-toggle-grid">
+              {# Card 1: Classic toggle. #}
+              <article class="fit-toggle-card" data-fit-card="classic">
+                <header class="fit-toggle-card__head">
+                  <div class="fit-toggle-card__icon" aria-hidden="true">
+                    <i class="fas fa-vest"></i>
                   </div>
-                  <div class="option-grid">
-                    <label class="form-label">Код</label>
-                    {{ form.code }}
-                    <label class="form-label">Назва</label>
-                    {{ form.label }}
-                    <label class="form-label">Опис</label>
-                    {{ form.description }}
-                    <label class="form-label">Іконка</label>
-                    {{ form.icon }}
-                    <div class="option-row">
-                      <div>
-                        <label class="form-label">Порядок</label>
-                        {{ form.order }}
-                      </div>
-                      <div class="option-switch">
-                        <label class="form-label">За замовчуванням</label>
-                        <div class="form-check form-switch">{{ form.is_default }}</div>
-                      </div>
-                    </div>
+                  <div class="fit-toggle-card__title">
+                    <strong>Класична</strong>
+                    <span class="fit-toggle-card__sub">Стандартна посадка по фігурі</span>
                   </div>
-                </article>
-              </div>
-              {% endfor %}
+                  <label class="fit-toggle-card__switch form-check form-switch m-0">
+                    {{ fit_toggle_form.fit_classic_enabled }}
+                    <span class="visually-hidden">Класична посадка увімкнена</span>
+                  </label>
+                </header>
+                <label class="fit-toggle-card__default">
+                  <input type="radio"
+                         name="{{ fit_toggle_form.fit_default.html_name }}"
+                         value="classic"
+                         {% if fit_toggle_form.fit_default.value == 'classic' %}checked{% endif %}
+                         data-fit-default-input>
+                  <span>За замовчуванням</span>
+                </label>
+              </article>
+
+              {# Card 2: Oversize toggle. #}
+              <article class="fit-toggle-card" data-fit-card="oversize">
+                <header class="fit-toggle-card__head">
+                  <div class="fit-toggle-card__icon" aria-hidden="true">
+                    <i class="fas fa-shirt"></i>
+                  </div>
+                  <div class="fit-toggle-card__title">
+                    <strong>Оверсайз</strong>
+                    <span class="fit-toggle-card__sub">Вільна посадка зі спущеним плечем</span>
+                  </div>
+                  <label class="fit-toggle-card__switch form-check form-switch m-0">
+                    {{ fit_toggle_form.fit_oversize_enabled }}
+                    <span class="visually-hidden">Оверсайз посадка увімкнена</span>
+                  </label>
+                </header>
+                <label class="fit-toggle-card__default">
+                  <input type="radio"
+                         name="{{ fit_toggle_form.fit_default.html_name }}"
+                         value="oversize"
+                         {% if fit_toggle_form.fit_default.value == 'oversize' %}checked{% endif %}
+                         data-fit-default-input>
+                  <span>За замовчуванням</span>
+                </label>
+              </article>
             </div>
+
+            {# Legacy formset for advanced edits (regular / custom codes).
+               Hidden by default — only senior admins need it. #}
+            {% if fit_formset and fit_formset.forms %}
+            <details class="fit-toggle-advanced mt-3">
+              <summary>Розширені налаштування (інші посадки, custom коди)</summary>
+              {{ fit_formset.management_form }}
+              <div class="row g-3 mt-1">
+                {% for form in fit_formset %}
+                {% with code_value=form.code.value|default:"" %}
+                {% if code_value != 'classic' and code_value != 'oversize' %}
+                <div class="col-12 col-lg-6">
+                  <article class="catalog-option-card h-100">
+                    {{ form.id }}
+                    {{ form.DELETE }}
+                    <div class="option-header">
+                      <div class="option-title">
+                        <i class="fas fa-ruler-combined"></i>
+                        <span>{{ form.label.value|default:"Інша посадка" }}</span>
+                      </div>
+                      <div class="form-check form-switch">
+                        {{ form.is_active }}
+                        <label class="form-check-label">Активна</label>
+                      </div>
+                    </div>
+                    <div class="option-grid">
+                      <label class="form-label">Код</label>
+                      {{ form.code }}
+                      <label class="form-label">Назва</label>
+                      {{ form.label }}
+                      <label class="form-label">Опис</label>
+                      {{ form.description }}
+                      <label class="form-label">Іконка</label>
+                      {{ form.icon }}
+                      <div class="option-row">
+                        <div>
+                          <label class="form-label">Порядок</label>
+                          {{ form.order }}
+                        </div>
+                        <div class="option-switch">
+                          <label class="form-label">За замовчуванням</label>
+                          <div class="form-check form-switch">{{ form.is_default }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+                {% else %}
+                  {# Render hidden id/DELETE so formset round-trips cleanly. #}
+                  <div class="d-none">{{ form.id }}{{ form.DELETE }}{{ form.code }}{{ form.label }}{{ form.description }}{{ form.icon }}{{ form.order }}{{ form.is_active }}{{ form.is_default }}</div>
+                {% endif %}
+                {% endwith %}
+                {% endfor %}
+              </div>
+            </details>
+            {% endif %}
           </div>
+          <script>
+            // Phase 17 — keep the radio "За замовчуванням" in sync with
+            // the on/off switch: when a fit is disabled, its default
+            // radio becomes inert and (if it was selected) the default
+            // jumps to the other active card. Idempotent.
+            (function () {
+              const root = document.querySelector('[data-fit-toggle]');
+              if (!root || root.dataset.fitToggleBound) return;
+              root.dataset.fitToggleBound = '1';
+              const cards = root.querySelectorAll('[data-fit-card]');
+              function refresh() {
+                let firstActive = null;
+                cards.forEach(function (card) {
+                  const sw = card.querySelector('input[type="checkbox"]');
+                  const radio = card.querySelector('input[type="radio"][data-fit-default-input]');
+                  const enabled = !!(sw && sw.checked);
+                  card.classList.toggle('is-active', enabled);
+                  card.classList.toggle('is-disabled', !enabled);
+                  if (radio) radio.disabled = !enabled;
+                  if (enabled && firstActive === null) firstActive = radio;
+                });
+                // If currently selected radio is disabled, push selection
+                // to the first active card.
+                const selected = root.querySelector('input[type="radio"][data-fit-default-input]:checked');
+                if ((!selected || selected.disabled) && firstActive) {
+                  firstActive.checked = true;
+                }
+              }
+              cards.forEach(function (card) {
+                const sw = card.querySelector('input[type="checkbox"]');
+                if (sw) sw.addEventListener('change', refresh);
+              });
+              refresh();
+            })();
+          </script>
           {% endif %}
         </div>
       </section>

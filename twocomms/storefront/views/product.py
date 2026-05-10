@@ -49,6 +49,15 @@ def _resolve_fit_options(product):
     if not _is_tshirt_product(product):
         return []
 
+    # Phase 17 — heal legacy tshirts created before the fit-toggle UI:
+    # if no fit_options rows exist yet, lazily create classic+oversize
+    # so the storefront selector stops being silently empty.
+    try:
+        from ..forms import ensure_default_fit_options_for_tshirt
+        ensure_default_fit_options_for_tshirt(product)
+    except Exception:
+        pass
+
     options = list(product.fit_options.filter(is_active=True).order_by('order', 'id'))
     if not options:
         return []

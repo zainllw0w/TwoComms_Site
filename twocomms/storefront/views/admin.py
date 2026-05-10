@@ -80,6 +80,8 @@ from ..forms import (
     CatalogOptionFormSet,
     build_color_variant_formset,
     build_product_fit_option_formset,
+    ProductFitToggleForm,
+    ensure_default_fit_options_for_tshirt,
 )
 from .utils import unique_slugify
 from accounts.models import FavoriteProduct, UserPoints, UserProfile
@@ -1334,6 +1336,14 @@ def admin_product_builder(request, product_id=None):
         data=request.POST if request.method == 'POST' else None,
         prefix='fit_options',
     )
+    # Phase 17 — simple toggle UI (classic/oversize). Coexists with the
+    # legacy formset; the formset stays for advanced edits (custom fit
+    # codes) but is hidden from the default product builder UI.
+    fit_toggle_form = ProductFitToggleForm(
+        data=request.POST if request.method == 'POST' else None,
+        product=product if getattr(product, 'pk', None) else None,
+        prefix='fit_toggle',
+    )
 
     option_formset = None
     option_formset_valid = True
@@ -1526,9 +1536,25 @@ def admin_product_builder(request, product_id=None):
                 if option_formset is not None and option_formset.is_bound and option_formset_valid and option_formset_has_changes:
                     option_formset.save()
 
-                # Сохранение вариантов посадки
+                # Сохранение вариантов посадки.
+                # Phase 17: legacy formset still runs (for non-classic/oversize
+                # custom rows), then the simple toggle form normalises the
+                # canonical pair (classic + oversize) and the default flag.
                 fit_formset.instance = product_obj
                 fit_formset.save()
+                # Apply the new toggle UI ONLY when its prefix is present in
+                # the POST. Otherwise (legacy admin scripts / API calls that
+                # only post the formset) we don't want the empty toggle form
+                # to silently disable freshly-saved rows.
+                _toggle_present = any(
+                    key.startswith('fit_toggle-') for key in request.POST.keys()
+                )
+                if _toggle_present and fit_toggle_form.is_valid():
+                    fit_toggle_form.save(product_obj)
+                # Auto-bootstrap: legacy tshirt products with zero fit_options
+                # (admin never opened the new UI) get a sane default pair so
+                # the storefront selector stops being silently empty.
+                ensure_default_fit_options_for_tshirt(product_obj)
                 active_fit_options = list(product_obj.fit_options.filter(is_active=True).order_by('order', 'id'))
                 default_options = [option for option in active_fit_options if option.is_default]
                 if default_options:
@@ -1615,6 +1641,7 @@ def admin_product_builder(request, product_id=None):
         'size_grid_form': size_grid_form,
         'color_formset': color_formset,
         'fit_formset': fit_formset,
+        'fit_toggle_form': fit_toggle_form,
         'option_formset': option_formset,
         'catalogs': catalogs,
         'selected_catalog': catalog_instance,

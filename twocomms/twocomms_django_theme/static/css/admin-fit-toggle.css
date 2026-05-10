@@ -1,0 +1,112 @@
+/* Phase 17 — Fit toggle UI for product builder.
+   Two side-by-side cards (Класична / Оверсайз) with a switch +
+   default radio. Clean, centred, accessible. Used only inside
+   the custom admin product editor. */
+
+.fit-toggle-section { margin-top: 1.5rem; }
+
+.fit-toggle-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+@media (min-width: 768px) {
+  .fit-toggle-grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
+}
+
+.fit-toggle-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.fit-toggle-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.fit-toggle-card.is-active {
+  border-color: rgba(255, 126, 41, 0.55);
+  box-shadow: 0 8px 24px rgba(255, 126, 41, 0.15);
+}
+.fit-toggle-card.is-disabled {
+  opacity: 0.55;
+}
+
+.fit-toggle-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.fit-toggle-card__icon {
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 126, 41, 0.85), rgba(255, 90, 50, 0.85));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.05rem;
+  flex: 0 0 auto;
+}
+.fit-toggle-card__title {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.fit-toggle-card__title strong {
+  font-size: 1.05rem;
+  color: #fff;
+  letter-spacing: 0.005em;
+}
+.fit-toggle-card__sub {
+  font-size: 0.82rem;
+  color: rgba(232, 240, 255, 0.62);
+  margin-top: 0.15rem;
+}
+.fit-toggle-card__switch {
+  flex: 0 0 auto;
+}
+.fit-toggle-card__switch .form-check-input {
+  width: 2.6rem;
+  height: 1.4rem;
+  cursor: pointer;
+}
+
+.fit-toggle-card__default {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  font-size: 0.85rem;
+  color: rgba(232, 240, 255, 0.78);
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.fit-toggle-card__default:hover { color: #fff; border-color: rgba(255, 255, 255, 0.24); }
+.fit-toggle-card__default input[type="radio"] {
+  accent-color: #ff7e29;
+  cursor: pointer;
+}
+.fit-toggle-card.is-disabled .fit-toggle-card__default {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.fit-toggle-advanced > summary {
+  cursor: pointer;
+  color: rgba(140, 200, 255, 0.85);
+  font-size: 0.9rem;
+  padding: 0.5rem 0;
+  user-select: none;
+}
+.fit-toggle-advanced > summary:hover { color: #b9e8ff; }

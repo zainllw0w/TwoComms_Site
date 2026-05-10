@@ -850,6 +850,238 @@ def build_product_fit_option_formset(product=None, data=None, prefix='fit_option
     )
 
 
+# ---------------------------------------------------------------------------
+# Phase 17 — Simple fit-toggle UI for the custom admin product builder.
+#
+# The legacy ``ProductFitOptionFormSet`` exposes the full row schema
+# (code/label/icon/description/order/is_default/is_active) which is
+# overwhelming for the only two real-world fits we ship — *classic* and
+# *oversize*. ``ProductFitToggleForm`` collapses the UI to:
+#
+#   - one switch per fit ("Класична", "Оверсайз")
+#   - one radio for the default fit
+#
+# On ``save(product)`` we ensure both rows exist with stable
+# code/label/order, flip ``is_active``, and elect the right default.
+# Any other rows the legacy formset created (regular / custom codes)
+# stay untouched.
+# ---------------------------------------------------------------------------
+
+FIT_TOGGLE_DEFINITIONS = (
+    {"code": "classic",  "label": "Класична",  "order": 0},
+    {"code": "oversize", "label": "Оверсайз", "order": 1},
+)
+FIT_TOGGLE_CODES = tuple(d["code"] for d in FIT_TOGGLE_DEFINITIONS)
+
+
+class ProductFitToggleForm(forms.Form):
+    """Compact UI for managing classic/oversize fit visibility per product."""
+
+    fit_classic_enabled = forms.BooleanField(
+        required=False,
+        label="Класична посадка",
+        initial=True,
+        widget=forms.CheckboxInput(attrs={
+            "class": "form-check-input",
+            "role": "switch",
+        }),
+    )
+    fit_oversize_enabled = forms.BooleanField(
+        required=False,
+        label="Оверсайз посадка",
+        initial=True,
+        widget=forms.CheckboxInput(attrs={
+            "class": "form-check-input",
+            "role": "switch",
+        }),
+    )
+    fit_default = forms.ChoiceField(
+        required=False,
+        choices=(("classic", "Класична"), ("oversize", "Оверсайз")),
+        widget=forms.RadioSelect,
+        initial="classic",
+        label="За замовчуванням",
+    )
+
+    def __init__(self, *args, product=None, **kwargs):
+        self.product = product
+        if product is not None and product.pk:
+            self._populate_initial_from_product(product, kwargs)
+        super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def _populate_initial_from_product(product, kwargs):
+        """Pre-fill ``initial`` from the product's existing fit_options.
+
+        Falls back to "both enabled, classic default" when the product
+        has no rows yet (typical for fresh tshirts before Phase 17).
+        """
+        initial = dict(kwargs.get("initial") or {})
+        rows = {opt.code: opt for opt in product.fit_options.all()}
+        classic = rows.get("classic")
+        oversize = rows.get("oversize")
+        if classic is None and oversize is None:
+            # New / legacy tshirt with no fit_options yet — both on.
+            initial.setdefault("fit_classic_enabled", True)
+            initial.setdefault("fit_oversize_enabled", True)
+            initial.setdefault("fit_default", "classic")
+        else:
+            initial.setdefault(
+                "fit_classic_enabled",
+                bool(classic and classic.is_active),
+            )
+            initial.setdefault(
+                "fit_oversize_enabled",
+                bool(oversize and oversize.is_active),
+            )
+            # Pick the row marked default; fall back to the first active.
+            default_code = ""
+            for code in FIT_TOGGLE_CODES:
+                row = rows.get(code)
+                if row and row.is_default and row.is_active:
+                    default_code = code
+                    break
+            if not default_code:
+                for code in FIT_TOGGLE_CODES:
+                    row = rows.get(code)
+                    if row and row.is_active:
+                        default_code = code
+                        break
+            initial.setdefault("fit_default", default_code or "classic")
+        kwargs["initial"] = initial
+
+    def clean(self):
+        cleaned = super().clean()
+        classic = bool(cleaned.get("fit_classic_enabled"))
+        oversize = bool(cleaned.get("fit_oversize_enabled"))
+        default = cleaned.get("fit_default") or ""
+        # Coerce the default to an *active* code; fall back gracefully
+        # so that an admin who flips both off doesn't crash the form.
+        if default == "classic" and not classic and oversize:
+            cleaned["fit_default"] = "oversize"
+        elif default == "oversize" and not oversize and classic:
+            cleaned["fit_default"] = "classic"
+        elif not classic and not oversize:
+            cleaned["fit_default"] = ""
+        return cleaned
+
+    def save(self, product):
+        """Persist toggle state. Creates rows lazily, never deletes
+        rows the legacy formset may have produced (e.g. ``regular``).
+        """
+        if product is None or not product.pk:
+            return
+        cleaned = self.cleaned_data
+        states = {
+            "classic":  bool(cleaned.get("fit_classic_enabled")),
+            "oversize": bool(cleaned.get("fit_oversize_enabled")),
+        }
+        default_code = cleaned.get("fit_default") or ""
+
+        existing = {opt.code: opt for opt in product.fit_options.all()}
+        for definition in FIT_TOGGLE_DEFINITIONS:
+            code = definition["code"]
+            row = existing.get(code)
+            wanted_active = states[code]
+            wanted_default = (default_code == code) and wanted_active
+            if row is None:
+                # Lazy-create. We only insert a row if we want it
+                # active; deactivated rows simply stay missing so the
+                # admin sees a clean slate the next time.
+                if wanted_active:
+                    ProductFitOption.objects.create(
+                        product=product,
+                        code=code,
+                        label=definition["label"],
+                        order=definition["order"],
+                        is_active=True,
+                        is_default=wanted_default,
+                    )
+            else:
+                changed = []
+                if row.is_active != wanted_active:
+                    row.is_active = wanted_active
+                    changed.append("is_active")
+                if row.is_default != wanted_default:
+                    row.is_default = wanted_default
+                    changed.append("is_default")
+                # Heal historical rows that are missing the canonical
+                # label/order from FIT_TOGGLE_DEFINITIONS.
+                if not (row.label or "").strip():
+                    row.label = definition["label"]
+                    changed.append("label")
+                if changed:
+                    row.save(update_fields=changed)
+
+        # Final defensive sweep: if no row is marked default but at
+        # least one is active, elect the first active one.
+        rows = list(product.fit_options.filter(is_active=True).order_by("order", "id"))
+        if rows and not any(r.is_default for r in rows):
+            head = rows[0]
+            head.is_default = True
+            head.save(update_fields=["is_default"])
+        # And conversely, never leave more than one default.
+        defaults = [r for r in rows if r.is_default]
+        if len(defaults) > 1:
+            keep = next(
+                (r for r in defaults if r.code == default_code),
+                defaults[0],
+            )
+            for r in defaults:
+                if r.pk != keep.pk:
+                    r.is_default = False
+                    r.save(update_fields=["is_default"])
+
+
+def ensure_default_fit_options_for_tshirt(product) -> bool:
+    """Auto-bootstrap classic+oversize for a tshirt product without rows.
+
+    Used at view boundaries (PDP load, admin save) to repair legacy
+    products created before Phase 17 where the admin never saw a fit
+    UI. Returns True when rows were created, False otherwise.
+    """
+    if product is None or not product.pk:
+        return False
+    if not getattr(product, "fit_selector_enabled", True):
+        return False
+    # Only auto-bootstrap when we recognise it as a tshirt product
+    # (mirrors storefront.views.product._is_tshirt_product without
+    # importing it — keeps forms decoupled from views).
+    candidates = " ".join(
+        str(getattr(product, attr, "") or "").lower()
+        for attr in ("title",)
+    )
+    cat = getattr(product, "category", None)
+    cat_text = " ".join(
+        str(getattr(cat, attr, "") or "").lower()
+        for attr in ("name", "slug")
+    ) if cat else ""
+    catalog = getattr(product, "catalog", None)
+    catalog_text = " ".join(
+        str(getattr(catalog, attr, "") or "").lower()
+        for attr in ("name", "slug")
+    ) if catalog else ""
+    haystack = f"{candidates} {cat_text} {catalog_text}"
+    import re
+    pattern = re.compile(r"(^|[^a-z0-9а-яіїєґ])(?:футбол\w*|t-?shirts?|tees?)(?=$|[^a-z0-9а-яіїєґ])")
+    if not pattern.search(haystack):
+        return False
+    if product.fit_options.exists():
+        return False
+    rows_created = False
+    for definition in FIT_TOGGLE_DEFINITIONS:
+        ProductFitOption.objects.create(
+            product=product,
+            code=definition["code"],
+            label=definition["label"],
+            order=definition["order"],
+            is_active=True,
+            is_default=(definition["code"] == "classic"),
+        )
+        rows_created = True
+    return rows_created
+
+
 def build_color_variant_formset(
     product=None,
     data=None,
