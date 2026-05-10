@@ -86,9 +86,9 @@
 - [x] T17.1 `g:gtin` уже был в feed (Phase «19»-era) — проверено
 - [x] T17.2 `g:custom_label_0..4` добавлены: theme/category/price-tier/discount/age cohort + регрессии
 - [ ] T17.3 OOS strategy alignment (deferred — требует ревью бизнес-логики)
-- [ ] T18.1 Verify INDEXNOW_ENABLED/KEY на проде
-- [ ] T18.2 Dry-run reindex_indexnow
-- [ ] T18.3 Логи accepted submissions
+- [x] T18.1 Prod: `INDEXNOW_ENABLED=True`, `INDEXNOW_KEY=fda0e47b...`, key-file отдаёт 200 на `/<key>.txt`
+- [x] T18.2 `reindex_indexnow --core --dry-run` → 18 URL; `--all --dry-run` → 86
+- [x] T18.3 Live submit: `reindex_indexnow --all` → «IndexNow accepted 86 URL(s)» (core+products+categories)
 
 ## PR-7: trust + a11y [partial — T19 done, T20 deferred]
 - [x] T19.1 Factual trust badges (Доставка 1-3 дні / Обмін 14 днів / Розмірна сітка) рядом с «Add to cart»
