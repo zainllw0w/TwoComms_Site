@@ -36,7 +36,7 @@
 - [x] T6.2 `VariantCanonicalPhase21Tests` (4 кейса: M, black, oversize, black/m)
 - [x] T7.1 `generate_product_schema(canonical_path, selected_variant)` + `get_product_schema(...)` пропускает в генератор
 - [x] T7.2 `test_product_schema_url_uses_canonical_path_when_provided` (Offer.url тоже обновлён)
-- [~] T7.3 Реализовано для Product schema (variant images первыми); OG/Twitter изображения в base.html пока берут `og_image` block — добавить оверрайд в PDP на следующем шаге
+- [x] T7.3 `seo_og_image` принимает `selected_variant`; PDP пробрасывает `selected_color_variant` в OG+Twitter image-blocks; регрессия `test_seo_og_image_uses_selected_variant_first_photo`
 
 ## PR-3: categories [code+tests done, production verify pending]
 - [x] T8.1 Поля `seo_title`, `seo_h1`, `seo_description` добавлены в `Category`

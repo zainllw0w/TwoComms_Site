@@ -84,9 +84,36 @@ def seo_keywords(context, product=None, category=None):
 
 
 @register.simple_tag(takes_context=True)
-def seo_og_image(context, product=None, category=None):
-    """Возвращает Open Graph изображение"""
+def seo_og_image(context, product=None, category=None, selected_variant=None):
+    """Returns the Open Graph / Twitter image URL.
+
+    Phase 21 (PR-2 T7.3) — accepts ``selected_variant`` (a
+    ``ProductColorVariant``). On a self-canonical colour PDP the OG
+    image leads with the variant's first photo so social embeds and
+    rich-result previews show the colour the user is actually
+    looking at, matching the Product schema's ``image`` array.
+    """
     if product:
+        # Variant-aware override — only when caller explicitly passed
+        # a selected variant (the view computes this from the URL
+        # path; ?color= query never forks canonical and never leads
+        # the OG image).
+        if selected_variant is not None:
+            try:
+                first_img = selected_variant.images.all().first()
+            except Exception:
+                first_img = None
+            if first_img and getattr(first_img, "image", None):
+                try:
+                    url = first_img.image.url
+                except (ValueError, AttributeError):
+                    url = ""
+                if url:
+                    base = (
+                        getattr(settings, "SITE_BASE_URL", "")
+                        or "https://twocomms.shop"
+                    ).rstrip("/")
+                    return url if url.startswith(("http://", "https://")) else f"{base}{url}"
         meta_data = _get_product_seo_meta(product)
         return meta_data.get('og_image', '')
     elif category:

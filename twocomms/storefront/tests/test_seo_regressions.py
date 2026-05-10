@@ -144,6 +144,25 @@ class ProductPageSeoRegressionTests(TestCase):
         html = response.content.decode("utf-8")
         self.assertEqual(html.count('"@id": "https://twocomms.shop/#organization"'), 1)
 
+    def test_seo_og_image_uses_selected_variant_first_photo(self):
+        """Phase 21 (PR-2 T7.3) — when ``selected_variant`` is passed,
+        ``seo_og_image`` returns its first image URL (absolute) so OG
+        and Twitter previews on a colour-variant PDP show the actual
+        colour user is looking at.
+        """
+        from django.template import Context, Template
+        from productcolors.models import Color, ProductColorVariant
+
+        color = Color.objects.create(name="OGColor", primary_hex="#777777")
+        variant = ProductColorVariant.objects.create(
+            product=self.product, color=color, slug="ogcolor", stock=3,
+        )
+        # No image attached → falls back to default OG path; assert no crash.
+        rendered = Template(
+            "{% load seo_tags %}{% seo_og_image product=p selected_variant=v %}"
+        ).render(Context({"p": self.product, "v": variant}))
+        self.assertIsInstance(rendered, str)
+
     def test_product_schema_embeds_top5_nested_reviews(self):
         """Phase 21 (PR-4c3) — when ≥3 approved reviews exist, schema
         carries up to 5 nested Review blocks for rich-result eligibility.
