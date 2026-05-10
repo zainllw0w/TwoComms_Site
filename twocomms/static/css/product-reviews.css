@@ -3,6 +3,13 @@
  * Scoped to .tc-reviews; no global resets.
  */
 
+.tc-pdp-shell .tc-reviews {
+  max-width: none;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+
 .tc-reviews {
   --review-bg: rgba(10, 11, 17, 0.9);
   --review-surface: rgba(255, 255, 255, 0.045);

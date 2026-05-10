@@ -78,7 +78,7 @@ html[data-route-name="product"] .breadcrumb-nav {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   gap: 24px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .tc-gallery-card,
@@ -91,9 +91,14 @@ html[data-route-name="product"] .breadcrumb-nav {
 }
 
 .tc-media-panel {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   min-width: 0;
+}
+
+.tc-media-panel > .tc-custom-print-card {
+  margin-top: auto;
 }
 
 .tc-gallery-card {
@@ -102,12 +107,10 @@ html[data-route-name="product"] .breadcrumb-nav {
 }
 
 .tc-product-panel {
-  position: sticky;
-  top: 88px;
-  max-height: calc(100vh - 112px);
+  position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
   padding: 15px 18px 10px;
   background:
     radial-gradient(circle at 88% 24%, rgba(141, 92, 255, 0.13), transparent 28%),
@@ -1554,7 +1557,7 @@ html[data-route-name="product"] .breadcrumb-nav {
   grid-template-columns: minmax(120px, 0.28fr) minmax(244px, 1fr) minmax(232px, 0.6fr);
   gap: 16px;
   align-items: stretch;
-  margin-top: 12px;
+  margin-top: auto;
   padding: 14px 18px;
   border: 1px solid rgba(141, 92, 255, 0.25);
   border-radius: var(--pdp-radius-md);
