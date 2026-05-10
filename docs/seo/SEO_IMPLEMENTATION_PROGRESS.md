@@ -78,14 +78,14 @@
 - [ ] T13.2 Support pages → category links (отложено)
 - [ ] T14 Топ-20 unique copy (отдельным трекингом, требует ручной выверки)
 
-## PR-6: schema graph + feed + images + IndexNow
-- [ ] T15.1 PDP `@graph`: Org, WebSite, Breadcrumb, Product (+rating), FAQPage if unique
+## PR-6: schema graph + feed + images + IndexNow [partial — T16, T17 done]
+- [ ] T15.1 PDP `@graph`: Org, WebSite, Breadcrumb, Product (+rating), FAQPage if unique (пока выводятся отдельными `<script>` — работает, @graph cosmetic)
 - [ ] T15.2 Category/Home `@graph`
-- [ ] T16.1 Image sitemap: main + display + gallery + color variants, dedupe
-- [ ] T16.2 Команда отчёта о продуктах без картинок
-- [ ] T17.1 `g:gtin` если barcode есть
-- [ ] T17.2 `g:custom_label_0..4`
-- [ ] T17.3 OOS strategy alignment
+- [x] T16.1 `sitemap-images.xml` расширен: main + gallery + color-variant images, dedupe, cap=50/url
+- [ ] T16.2 Команда отчёта о продуктах без картинок (отложено)
+- [x] T17.1 `g:gtin` уже был в feed (Phase «19»-era) — проверено
+- [x] T17.2 `g:custom_label_0..4` добавлены: theme/category/price-tier/discount/age cohort + регрессии
+- [ ] T17.3 OOS strategy alignment (deferred — требует ревью бизнес-логики)
 - [ ] T18.1 Verify INDEXNOW_ENABLED/KEY на проде
 - [ ] T18.2 Dry-run reindex_indexnow
 - [ ] T18.3 Логи accepted submissions

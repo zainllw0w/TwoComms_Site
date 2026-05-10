@@ -1039,6 +1039,65 @@ def build_buyme_feed_xml(base_url: str | None = None) -> bytes:
     return _finalize_xml(catalog)
 
 
+def _build_merchant_custom_labels(product, offer) -> list[str]:
+    """Phase 21 (PR-6, T17.2) — derive five Merchant Center custom_label
+    values for one offer. Returns a list of length 5, where empty slots
+    are emitted as empty strings (caller filters them out).
+
+    Stable ordering / value enumeration so dashboard saved-segments
+    survive rebuilds.
+    """
+    # 0 — theme keyword resolved from the product (uses the same
+    # mapping used by the on-site SEO landing copy so feed labels and
+    # SEO content stay consistent).
+    try:
+        from .product_seo_landing import get_theme_for_product as _theme
+        theme_payload = _theme(product) or {}
+        theme_key = (theme_payload.get("key") or "").strip().lower()
+    except Exception:
+        theme_key = ""
+
+    # 1 — category slug.
+    category_slug = ""
+    if getattr(product, "category", None) is not None:
+        category_slug = (getattr(product.category, "slug", "") or "").strip().lower()
+
+    # 2 — price tier.
+    try:
+        price_int = int(getattr(offer, "price", 0) or 0)
+    except (TypeError, ValueError):
+        price_int = 0
+    if price_int <= 0:
+        price_tier = ""
+    elif price_int < 500:
+        price_tier = "sub_500"
+    elif price_int < 1000:
+        price_tier = "500_1000"
+    else:
+        price_tier = "1000_plus"
+
+    # 3 — discount flag.
+    is_discounted = bool(getattr(product, "has_discount", False)) and bool(
+        getattr(offer, "base_price", 0) and offer.base_price > offer.price
+    )
+    discount_flag = "on_sale" if is_discounted else "regular"
+
+    # 4 — age cohort. Newly added products (≤90 days) flagged so smart
+    # bidding can prioritise them; older listings get ``classic``.
+    age_cohort = "classic"
+    created_at = getattr(product, "created_at", None) or getattr(product, "published_at", None)
+    if created_at is not None:
+        try:
+            from django.utils import timezone as _tz
+            from datetime import timedelta as _td
+            if _tz.now() - created_at <= _td(days=90):
+                age_cohort = "new_2026"
+        except Exception:
+            pass
+
+    return [theme_key, category_slug, price_tier, discount_flag, age_cohort]
+
+
 def build_google_merchant_feed_xml(base_url: str | None = None) -> bytes:
     base_url = resolve_base_url(base_url)
     offers = iter_feed_offers(base_url)
@@ -1087,6 +1146,21 @@ def build_google_merchant_feed_xml(base_url: str | None = None) -> bytes:
 
         if offer.video_link:
             ET.SubElement(item, f"{G}video_link").text = offer.video_link
+
+        # Phase 21 (PR-6, T17.2) — custom_label_0..4 for Merchant
+        # Center segmentation. These don't appear in PLAs / shopping
+        # results, but power smart-bidding rules and report filters.
+        # Order is stable so saved-segments don't drift between feed
+        # rebuilds:
+        #   0: theme key  (military / streetwear / patriotic / generic)
+        #   1: category slug (tshirts / hoodie / long-sleeve / …)
+        #   2: price tier (sub_500 / 500_1000 / 1000_plus)
+        #   3: discount flag (on_sale / regular)
+        #   4: age cohort (new_2026 / classic)
+        for idx, label in enumerate(_build_merchant_custom_labels(product, offer)):
+            if not label:
+                continue
+            ET.SubElement(item, f"{G}custom_label_{idx}").text = _truncate(label, 100)
 
         for highlight in [
             "Ексклюзивний дизайн TwoComms",

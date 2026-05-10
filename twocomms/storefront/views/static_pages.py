@@ -496,9 +496,17 @@ def sitemap_images(request):
     """
     base_url = _site_base_url()
 
+    # Phase 21 (PR-6, T16.1) — expanded image sitemap. Emits, per
+    # published product (deduped, capped at ~50 images per <url> to
+    # stay well under Google's 1000-per-URL limit while keeping the
+    # XML compact):
+    #   * ``main_image`` (hero / OG)
+    #   * ``display_image`` (catalog card image, if different)
+    #   * ``ProductImage`` gallery rows
+    #   * ``ProductColorVariant.images`` for every active colour variant
     products = (
         Product.objects.filter(status="published")
-        .exclude(main_image="")
+        .prefetch_related("images", "color_variants__images")
         .only("slug", "title", "main_image")
         .order_by("id")
     )
@@ -511,30 +519,53 @@ def sitemap_images(request):
         },
     )
 
+    def _absolute(url_value: str) -> str:
+        if not url_value:
+            return ""
+        if url_value.startswith(("http://", "https://")):
+            return url_value
+        if url_value.startswith("/"):
+            return f"{base_url}{url_value}"
+        return f"{base_url}/{url_value.lstrip('/')}"
+
+    def _safe_url(field) -> str:
+        try:
+            return field.url if field else ""
+        except (ValueError, AttributeError):
+            return ""
+
     for product in products:
         if not product.slug:
             continue
-        try:
-            image_path = product.main_image.url if product.main_image else ""
-        except (ValueError, AttributeError):
-            image_path = ""
-        if not image_path:
-            continue
 
-        # Normalize relative MEDIA URLs into absolute https URLs.
-        if image_path.startswith("/"):
-            image_url = f"{base_url}{image_path}"
-        elif image_path.startswith(("http://", "https://")):
-            image_url = image_path
-        else:
-            image_url = f"{base_url}/{image_path.lstrip('/')}"
+        seen: set[str] = set()
+        ordered: list[str] = []
+
+        def _add(url_value: str) -> None:
+            absolute = _absolute(url_value)
+            if not absolute or absolute in seen:
+                return
+            seen.add(absolute)
+            ordered.append(absolute)
+
+        _add(_safe_url(product.main_image))
+        _add(_safe_url(getattr(product, "display_image", None)))
+        for img in getattr(product, "images", []).all():
+            _add(_safe_url(getattr(img, "image", None)))
+        for variant in product.color_variants.all():
+            for img in variant.images.all():
+                _add(_safe_url(getattr(img, "image", None)))
+
+        if not ordered:
+            continue
 
         url_el = ET.SubElement(urlset, "url")
         ET.SubElement(url_el, "loc").text = f"{base_url}/product/{product.slug}/"
-        image_el = ET.SubElement(url_el, "image:image")
-        ET.SubElement(image_el, "image:loc").text = image_url
-        if product.title:
-            ET.SubElement(image_el, "image:title").text = product.title
+        for image_url in ordered[:50]:
+            image_el = ET.SubElement(url_el, "image:image")
+            ET.SubElement(image_el, "image:loc").text = image_url
+            if product.title:
+                ET.SubElement(image_el, "image:title").text = product.title
 
     xml_payload = ET.tostring(urlset, encoding="utf-8", xml_declaration=True)
     return _sitemap_response(xml_payload)
