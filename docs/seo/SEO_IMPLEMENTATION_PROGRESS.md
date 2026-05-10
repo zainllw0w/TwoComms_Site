@@ -27,7 +27,7 @@
 - [x] T3.3 Старый placeholder `local_business_schema` заменён на alias к `online_store_schema`
 - [x] T3.4 Регрессия: `test_product_page_does_not_emit_legacy_inline_organization` (count==1)
 - [x] T4.1 Удалён `<meta name="keywords">` из `base.html` и `partials/seo_meta.html`
-- [ ] T4.2 Production curl verify (после деплоя)
+- [x] T4.2 Production curl verify — `<meta name="keywords">` отсутствует на PDP/catalog (deploy fcb59822)
 
 ## PR-2: variants/canonical [in progress — code+tests done, OG/Twitter image override pending]
 - [x] T5.1 `ProductVariantSitemap` — size-only урлы удалены (остались только color + fit)
@@ -44,28 +44,28 @@
 - [x] T8.3 Миграции: `0057_category_seo_overrides` + `0058_phase21_seed_category_seo_overrides` (сиды)
 - [x] T8.4 `pages/catalog.html` — fallback для `title`, `description`, `og_title`, `og_description`, `twitter_*`, H1
 - [x] T9.1 Сиды уникальной копии для `tshirts`, `hoodie`, `long-sleeve` (только если поле пусто, safe для прода)
-- [ ] T9.2 Production verify 3 категорий (после деплоя)
+- [x] T9.2 Production verify 3 категорий (deploy fcb59822) — tshirts/hoodie/long-sleeve отдают уникальные SEO-тайтлы
 - [~] T10.1 «Create your design» дубль — не найден в current catalog.html (возможно уже правлено в Phase 10/15; проверить на live)
 - [x] T10.2 `_CURATED_TOP_QUERIES` очищен от `?color=` URL, регрессия `GeneralCatalogSeoColorlessQueriesTests`
 - [x] T10.3 Регрессия: top query URLs без `?color=` (`test_curated_top_queries_do_not_link_to_color_filtered_pages`)
 
-## PR-4: reviews system (новый блок)
-- [ ] R1 Создать app `reviews` (или модуль в storefront), settings INSTALLED_APPS
-- [ ] R2 Модели: Review, ReviewImage (max 5), ReviewVote
-- [ ] R3 Миграции
+## PR-4: reviews system [PR-4a complete: models+admin+aggregate+tests]
+- [x] R1 App `reviews` создан, INSTALLED_APPS обновлён
+- [x] R2 Модели: `Review`, `ReviewImage` (max 5 будет enforced в форме), `ReviewVote` с unique constraints (per-user / per-anon)
+- [x] R3 Миграция `reviews/0001_initial.py` + индексы `rev_pdp_lookup_idx` / `rev_status_product_idx`
 - [ ] R4 Forms: ReviewForm (auth + guest), валидация фото, honeypot
 - [ ] R5 Views: create, vote, helpful; rate-limit для гостей
 - [ ] R6 URL routes
-- [ ] R7 Admin: pending list, approve/reject bulk, moderation_note
+- [x] R7 Admin: pending list, approve/reject bulk-actions, moderation_note, inline ReviewImage
 - [ ] R8 Email/Telegram notify модератору о pending
 - [ ] R9 Permissions: registered может оставить отзыв только если есть оплаченный заказ с product
 - [ ] R10 Сводка/гистограмма/фильтры/сортировка в `pages/product_detail.html`
 - [ ] R11 Карточка отзыва (verified badge, фото lightbox, helpful)
 - [ ] R12 Личный кабинет — раздел "Мої відгуки"
-- [ ] R13 `aggregate_rating_for_product()` helper, AggregateRating только при ≥3 approved
+- [x] R13 `aggregate_rating_for_product()` + `ProductReviewSummary` датакласс; threshold=3 вынесён в `MIN_APPROVED_REVIEWS_FOR_RATING`
 - [ ] R14 Review JSON-LD nested в Product (топ-5)
 - [ ] R15 IndexNow trigger при approve (signal post_save)
-- [ ] R16 Тесты: модерация, verified, rating threshold, photo limit, regression PDP
+- [~] R16 Тесты: агрегат и lifecycle покрыты (`reviews.tests.test_aggregate`, 8 тестов); форма/PDP — в PR-4b
 
 ## PR-5: content/FAQ
 - [ ] T11.1 Удалить `CITY_KEYWORDS` из `top_queries`

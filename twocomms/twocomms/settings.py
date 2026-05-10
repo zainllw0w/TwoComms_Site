@@ -139,6 +139,7 @@ INSTALLED_APPS = [
     "accounts",                     # регистрируем приложение аккаунтов
     "orders.apps.OrdersConfig",     # заказы (корректный AppConfig)
     "productcolors.apps.ProductColorsConfig",  # цветовые варианты товаров
+    "reviews.apps.ReviewsConfig",   # Phase 21 — модерируемые отзывы товаров
     # Social auth
     "social_django",
 
