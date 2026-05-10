@@ -284,10 +284,16 @@
           <td>{{ row.blocks_active }}</td>
           <td>{{ row.blocks_total }}</td>
           <td>
+            {% comment %}
+            Phase 21 (PR-A3) — full nested editor for CategorySeoBlock+Items
+            requires its own UX iteration (it's a 3-level hierarchy).
+            For now keep the Django admin link as a fallback — there
+            are <10 categories so the impact is small.
+            {% endcomment %}
             <a class="seo-quick-link"
                href="/admin/storefront/categoryseoblock/?category__id__exact={{ row.id }}"
                target="_blank" rel="noopener">
-              Редагувати
+              Блоки →
             </a>
           </td>
         </tr>
@@ -301,17 +307,14 @@
     {% endif %}
 
     <div class="seo-quick-links" style="margin-top: 1rem;">
-      <a class="seo-quick-link" href="/admin/storefront/category/" target="_blank" rel="noopener">
-        Категорії в Django-admin
-      </a>
-      <a class="seo-quick-link" href="/admin/storefront/categoryseoblock/" target="_blank" rel="noopener">
-        Усі SEO-блоки
-      </a>
       <a class="seo-quick-link" href="/sitemap.xml" target="_blank" rel="noopener">
         Sitemap-index
       </a>
       <a class="seo-quick-link" href="/robots.txt" target="_blank" rel="noopener">
         robots.txt
+      </a>
+      <a class="seo-quick-link" href="?section=seo#seo-categories-edit" rel="noopener">
+        SEO ручні поля категорій ↓
       </a>
     </div>
   </section>
@@ -336,83 +339,133 @@
     </div>
     {% endif %}
 
+    {% comment %}
+    Phase 21 (PR-A3) — full inline CRUD for CatalogColorSeoOverride.
+    Each row is a collapsible <details> form so the dashboard stays
+    compact yet edits land without leaving the admin.
+    {% endcomment %}
     {% if color_seo_overrides.rows %}
-    <table class="seo-table">
-      <thead>
-        <tr>
-          <th>Контекст</th>
-          <th>Колір</th>
-          <th>Категорія</th>
-          <th>H2</th>
-          <th>Поля</th>
-          <th>Активний</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
+    <div class="csov-list">
       {% for row in color_seo_overrides.rows %}
-        <tr>
-          <td>{{ row.scope_label }}</td>
-          <td>{% if row.color_slug %}<code>{{ row.color_slug }}</code>{% else %}—{% endif %}</td>
-          <td>{% if row.category_name %}{{ row.category_name }}{% else %}—{% endif %}</td>
-          <td style="max-width: 320px;">{{ row.h2|default:"(курований)" }}</td>
-          <td>
-            {% if row.has_body %}<span class="seo-pill is-on">текст</span>{% endif %}
-            {% if row.has_queries %}<span class="seo-pill is-on">чипи</span>{% endif %}
-          </td>
-          <td>
-            {% if row.is_active %}
-              <span class="seo-pill is-on">так</span>
-            {% else %}
-              <span class="seo-pill is-off">ні</span>
-            {% endif %}
-          </td>
-          <td>
-            <a class="seo-quick-link"
-               href="/admin/storefront/catalogcolorseooverride/{{ row.id }}/change/"
-               target="_blank" rel="noopener">Редагувати</a>
-          </td>
-        </tr>
+        <details class="csov-row" data-csov-id="{{ row.id }}">
+          <summary class="csov-summary">
+            <span class="csov-scope">{{ row.scope_label }}</span>
+            {% if row.color_slug %}<code class="csov-slug">{{ row.color_slug }}</code>{% endif %}
+            {% if row.category_name %}<span class="csov-cat">{{ row.category_name }}</span>{% endif %}
+            <span class="csov-pills">
+              {% if row.has_body %}<span class="seo-pill is-on">текст</span>{% endif %}
+              {% if row.has_queries %}<span class="seo-pill is-on">чипи</span>{% endif %}
+              {% if row.is_active %}<span class="seo-pill is-on">активний</span>
+              {% else %}<span class="seo-pill is-off">неактивний</span>{% endif %}
+            </span>
+            <span class="csov-h2">{{ row.h2_preview|default:"(курований)" }}</span>
+            <span class="csov-arrow" aria-hidden="true">▾</span>
+          </summary>
+          <form class="csov-form" data-csov-form>
+            {% csrf_token %}
+            <label class="csov-field">
+              <span>H2 (≤ 300)</span>
+              <input type="text" name="h2" maxlength="300" value="{{ row.h2 }}"
+                     placeholder="Залиште порожнім, щоб використати курований H2">
+            </label>
+            <label class="csov-field">
+              <span>HTML-параграфи</span>
+              <textarea name="body_html" rows="5"
+                        placeholder="<p>...</p>">{{ row.body_html }}</textarea>
+            </label>
+            <label class="csov-field">
+              <span>queries_json (масив {label, url, freq})</span>
+              <textarea name="queries_json" rows="4"
+                        placeholder='[{"label": "...", "url": "/...", "freq": "hf"}]'>{{ row.queries_json_text }}</textarea>
+            </label>
+            <label class="csov-toggle">
+              <input type="checkbox" name="is_active" value="1" {% if row.is_active %}checked{% endif %}>
+              <span>Активний</span>
+            </label>
+            <div class="csov-actions">
+              <button type="submit" class="csov-save">Зберегти</button>
+              <button type="button" class="csov-delete" data-csov-delete>Видалити</button>
+              <span class="csov-status" aria-live="polite"></span>
+            </div>
+          </form>
+        </details>
       {% endfor %}
-      </tbody>
-    </table>
+    </div>
     {% else %}
     <p style="color: rgba(255,255,255,0.55); font-size: 0.88rem; margin: 0.4rem 0;">
       Override-ів ще немає — на сайті використовуються куровані тексти з коду.
-      Створіть перший override, щоб переписати конкретний H2/параграф/чипи.
+      Створіть перший override нижче.
     </p>
     {% endif %}
 
-    {% if color_seo_overrides.categories_with_swatches %}
-    <h4 style="margin: 1rem 0 0.4rem; font-size: 0.95rem;">
-      Свотчі категорій (override з адмінки)
+    {# ----- Create new override ----- #}
+    <details class="csov-create" style="margin-top: .8rem;">
+      <summary class="csov-create__head">
+        <strong>+ Створити новий override</strong>
+      </summary>
+      <form class="csov-form" data-csov-create>
+        {% csrf_token %}
+        <label class="csov-field">
+          <span>Контекст</span>
+          <select name="scope" data-csov-scope>
+            {% for s in color_seo_overrides.scope_choices %}
+              <option value="{{ s.value }}">{{ s.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="csov-field" data-csov-color-field>
+          <span>Slug кольору (для brand / category)</span>
+          <input type="text" name="color_slug" placeholder="black, coyote, olive…">
+        </label>
+        <label class="csov-field" data-csov-category-field style="display:none;">
+          <span>Категорія (для category-scope)</span>
+          <select name="category_id">
+            <option value="">— оберіть —</option>
+            {% for cat in color_seo_overrides.all_categories %}
+              <option value="{{ cat.id }}">{{ cat.name }} ({{ cat.slug }})</option>
+            {% endfor %}
+          </select>
+        </label>
+        <div class="csov-actions">
+          <button type="submit" class="csov-save">Створити</button>
+          <span class="csov-status" aria-live="polite"></span>
+        </div>
+      </form>
+    </details>
+
+    {# ----- Showcase swatches inline editor ----- #}
+    <h4 style="margin: 1.4rem 0 0.5rem; font-size: 0.95rem;">
+      Свотчі категорій (картки на /catalog/)
     </h4>
-    <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem;">
-      {% for cat in color_seo_overrides.categories_with_swatches %}
-      <li style="display: flex; align-items: center; gap: 0.6rem;">
-        <strong>{{ cat.name }}</strong>
-        <code style="opacity: 0.7;">{{ cat.slug }}</code>
-        <span style="display: inline-flex; gap: 4px;">
+    <p style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin: 0 0 .6rem;">
+      Список hex-кодів через кому (до 6). Якщо порожньо — свотчі обчислюються автоматично з товарів.
+    </p>
+    <div class="cat-swatches">
+      {% for cat in color_seo_overrides.all_categories %}
+      <form class="cat-swatches__row" data-cat-swatches data-cat-id="{{ cat.id }}">
+        {% csrf_token %}
+        <div class="cat-swatches__head">
+          <strong>{{ cat.name }}</strong>
+          <code style="opacity:.55;font-size:.78rem;">{{ cat.slug }}</code>
+        </div>
+        <div class="cat-swatches__preview">
           {% for hex in cat.showcase_swatch_hexes %}
             <span title="{{ hex }}"
-                  style="width:14px;height:14px;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:{{ hex }};"></span>
+                  style="width:18px;height:18px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:{{ hex }};display:inline-block;"></span>
+          {% empty %}
+            <span style="font-size:.78rem;color:rgba(255,255,255,.4)">авто</span>
           {% endfor %}
-        </span>
-        <a class="seo-quick-link"
-           href="/admin/storefront/category/{{ cat.id }}/change/"
-           target="_blank" rel="noopener">Редагувати</a>
-      </li>
+        </div>
+        <input type="text" name="swatches"
+               placeholder="#000000, #ffffff, #7a8b3a"
+               value="{% for h in cat.showcase_swatch_hexes %}{{ h }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+        <button type="submit" class="cat-swatches__save">Зберегти</button>
+        <span class="cat-swatches__status" aria-live="polite"></span>
+      </form>
       {% endfor %}
-    </ul>
-    {% endif %}
+    </div>
 
     <div class="seo-quick-links" style="margin-top: 1rem;">
-      <a class="seo-quick-link" href="/admin/storefront/catalogcolorseooverride/" target="_blank" rel="noopener">
-        Усі кольорові override-и
-      </a>
-      <a class="seo-quick-link" href="/admin/storefront/catalogcolorseooverride/add/" target="_blank" rel="noopener">
-        + Створити override
-      </a>
       <a class="seo-quick-link" href="/catalog/" target="_blank" rel="noopener">
         /catalog/
       </a>
@@ -627,6 +680,215 @@ placeholder. Editing here does NOT touch ai_keywords / ai_description.
       } catch (err) {
         btn.textContent = '✗ ' + (err.message || 'помилка');
         setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2200);
+      }
+    });
+  });
+})();
+</script>
+
+{% comment %}
+Phase 21 (PR-A3) — interactive bindings for CatalogColorSeoOverride
+inline editor + Category swatches editor. Pure vanilla JS, no
+bundler. CSRF cookie is the standard Django ``csrftoken``.
+{% endcomment %}
+<style>
+  .csov-list { display: flex; flex-direction: column; gap: .5rem; margin-top: .6rem; }
+  .csov-row { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); border-radius: 12px; }
+  .csov-row[open] { background: rgba(255,255,255,.05); }
+  .csov-summary {
+    list-style: none; cursor: pointer; padding: 10px 14px;
+    display: grid; grid-template-columns: auto auto auto auto 1fr auto; gap: 10px;
+    align-items: center; font-size: .9rem;
+  }
+  .csov-summary::-webkit-details-marker { display: none; }
+  .csov-scope { font-weight: 700; color: rgba(255,255,255,.85); }
+  .csov-slug { color: #ffd24d; font-size: .8rem; }
+  .csov-cat { font-size: .82rem; color: rgba(255,255,255,.6); }
+  .csov-pills { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+  .csov-h2 { color: rgba(255,255,255,.55); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .csov-arrow { color: rgba(255,255,255,.4); transition: transform .15s ease; }
+  .csov-row[open] .csov-arrow { transform: rotate(180deg); }
+  .csov-form { display: flex; flex-direction: column; gap: 10px; padding: 10px 14px 14px; }
+  .csov-field { display: flex; flex-direction: column; gap: 4px; font-size: .82rem; color: rgba(255,255,255,.7); }
+  .csov-field input, .csov-field textarea, .csov-field select {
+    width: 100%; padding: 8px 10px; border-radius: 8px;
+    background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.1);
+    color: #fff; font: inherit;
+  }
+  .csov-field textarea { resize: vertical; min-height: 70px; font-family: ui-monospace, Menlo, monospace; font-size: .82rem; }
+  .csov-toggle { display: inline-flex; gap: 8px; align-items: center; font-size: .82rem; color: rgba(255,255,255,.85); }
+  .csov-actions { display: flex; gap: 10px; align-items: center; }
+  .csov-save, .csov-delete {
+    padding: 7px 14px; border-radius: 8px; border: 0; cursor: pointer;
+    font-weight: 700; font-size: .82rem;
+  }
+  .csov-save { background: #ffd24d; color: #111; }
+  .csov-delete { background: rgba(255,80,80,.18); color: #ff8e8e; }
+  .csov-save:disabled, .csov-delete:disabled { opacity: .6; cursor: progress; }
+  .csov-save.is-saved { background: #5dd47e; color: #102a16; }
+  .csov-status { font-size: .82rem; color: rgba(255,255,255,.55); }
+
+  .csov-create__head { cursor: pointer; padding: 10px 14px; border: 1px dashed rgba(255,255,255,.15); border-radius: 12px; background: rgba(255,255,255,.02); list-style: none; }
+  .csov-create__head::-webkit-details-marker { display: none; }
+  .csov-create[open] .csov-create__head { border-style: solid; }
+
+  .cat-swatches { display: flex; flex-direction: column; gap: 8px; }
+  .cat-swatches__row {
+    display: grid; grid-template-columns: minmax(150px, 200px) 80px 1fr auto auto;
+    gap: 10px; align-items: center;
+    padding: 8px 12px; border-radius: 10px;
+    background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06);
+  }
+  .cat-swatches__head { display: flex; flex-direction: column; gap: 2px; }
+  .cat-swatches__preview { display: inline-flex; gap: 4px; align-items: center; }
+  .cat-swatches__row input[name="swatches"] {
+    padding: 7px 10px; border-radius: 8px;
+    background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.1);
+    color: #fff; font: inherit; font-size: .85rem;
+  }
+  .cat-swatches__save {
+    padding: 7px 12px; border-radius: 8px; border: 0; cursor: pointer;
+    background: #ffd24d; color: #111; font-weight: 700; font-size: .8rem;
+  }
+  .cat-swatches__save:disabled { opacity: .6; cursor: progress; }
+  .cat-swatches__save.is-saved { background: #5dd47e; color: #102a16; }
+  .cat-swatches__status { font-size: .78rem; color: rgba(255,255,255,.5); }
+  @media (max-width: 720px) {
+    .cat-swatches__row { grid-template-columns: 1fr; gap: 8px; }
+    .csov-summary { grid-template-columns: auto auto 1fr auto; }
+    .csov-h2 { display: none; }
+  }
+</style>
+
+<script>
+(function() {
+  const csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+
+  async function postForm(url, payload) {
+    const fd = payload instanceof FormData ? payload : new FormData();
+    if (!(payload instanceof FormData) && payload && typeof payload === 'object') {
+      Object.keys(payload).forEach(k => fd.append(k, payload[k]));
+    }
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+      body: fd,
+      credentials: 'same-origin',
+    });
+    return r.json().catch(() => ({ ok: false, error: 'invalid response' }));
+  }
+
+  function flashStatus(el, ok, msg) {
+    if (!el) return;
+    el.textContent = msg || (ok ? '✓ Збережено' : '✗ Помилка');
+    el.style.color = ok ? '#5dd47e' : '#ff8e8e';
+    setTimeout(() => { el.textContent = ''; }, 2200);
+  }
+
+  // ---- CatalogColorSeoOverride: save existing row ----
+  document.querySelectorAll('[data-csov-form]').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      // The "create" form lives inside [data-csov-create] and has no
+      // parent with data-csov-id — handled below.
+      const row = form.closest('[data-csov-id]');
+      if (!row) return;
+      const id = row.dataset.csovId;
+      const btn = form.querySelector('.csov-save');
+      const status = form.querySelector('.csov-status');
+      btn.disabled = true;
+      const result = await postForm(`/admin-panel/seo/color-override/${id}/save/`, new FormData(form));
+      btn.disabled = false;
+      flashStatus(status, !!result.ok, result.ok ? '✓ Збережено' : ('✗ ' + (result.error || 'помилка')));
+      if (result.ok) {
+        btn.classList.add('is-saved');
+        setTimeout(() => btn.classList.remove('is-saved'), 1400);
+      }
+    });
+  });
+
+  // ---- CatalogColorSeoOverride: delete row ----
+  document.querySelectorAll('[data-csov-delete]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('[data-csov-id]');
+      if (!row) return;
+      const id = row.dataset.csovId;
+      if (!confirm('Видалити цей override? Дія незворотна.')) return;
+      btn.disabled = true;
+      const result = await postForm(`/admin-panel/seo/color-override/${id}/delete/`, {});
+      if (result && result.ok) {
+        row.style.opacity = '.4';
+        row.style.pointerEvents = 'none';
+        // Soft-remove; reload after a tick so other rows reorder.
+        setTimeout(() => row.remove(), 300);
+      } else {
+        btn.disabled = false;
+        alert('Не вдалося видалити: ' + (result.error || 'помилка'));
+      }
+    });
+  });
+
+  // ---- CatalogColorSeoOverride: create form ----
+  document.querySelectorAll('[data-csov-create]').forEach(form => {
+    const scopeSel = form.querySelector('[data-csov-scope]');
+    const colorField = form.querySelector('[data-csov-color-field]');
+    const catField = form.querySelector('[data-csov-category-field]');
+    function syncFields() {
+      const v = scopeSel.value;
+      if (colorField) colorField.style.display = (v === 'general') ? 'none' : '';
+      if (catField) catField.style.display = (v === 'category') ? '' : 'none';
+    }
+    if (scopeSel) {
+      syncFields();
+      scopeSel.addEventListener('change', syncFields);
+    }
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('.csov-save');
+      const status = form.querySelector('.csov-status');
+      btn.disabled = true;
+      const result = await postForm('/admin-panel/seo/color-override/create/', new FormData(form));
+      btn.disabled = false;
+      if (result && result.ok) {
+        flashStatus(status, true, result.created ? '✓ Створено — перезавантажую…' : '✓ Вже існує');
+        // Reload to surface the new editable row.
+        setTimeout(() => window.location.reload(), 700);
+      } else {
+        flashStatus(status, false, '✗ ' + (result.error || 'помилка'));
+      }
+    });
+  });
+
+  // ---- Category swatches inline save ----
+  document.querySelectorAll('[data-cat-swatches]').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = form.dataset.catId;
+      const btn = form.querySelector('.cat-swatches__save');
+      const status = form.querySelector('.cat-swatches__status');
+      const fd = new FormData(form);
+      fd.append('category_id', id);
+      btn.disabled = true;
+      const result = await postForm('/admin-panel/seo/category/swatches/save/', fd);
+      btn.disabled = false;
+      if (result && result.ok) {
+        // Rebuild the preview chip strip from the server response so
+        // truncation / colour-validation by the backend is reflected.
+        const preview = form.querySelector('.cat-swatches__preview');
+        if (preview) {
+          if (result.swatches && result.swatches.length) {
+            preview.innerHTML = result.swatches.map(h =>
+              `<span title="${h}" style="width:18px;height:18px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:${h};display:inline-block;"></span>`
+            ).join('');
+          } else {
+            preview.innerHTML = '<span style="font-size:.78rem;color:rgba(255,255,255,.4)">авто</span>';
+          }
+        }
+        btn.classList.add('is-saved');
+        flashStatus(status, true, '✓ Збережено');
+        setTimeout(() => btn.classList.remove('is-saved'), 1400);
+      } else {
+        flashStatus(status, false, '✗ ' + (result.error || 'помилка'));
       }
     });
   });

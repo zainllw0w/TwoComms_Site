@@ -2367,6 +2367,138 @@ def admin_review_bulk(request):
 
 
 @staff_member_required
+def admin_color_seo_save(request, override_id: int):
+    """Phase 21 (PR-A3) — save fields on a ``CatalogColorSeoOverride``
+    row from the custom admin. POST body: ``h2``, ``body_html``,
+    ``queries_json`` (raw JSON string), ``is_active`` (truthy).
+    """
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+    from storefront.models import CatalogColorSeoOverride
+
+    row = get_object_or_404(CatalogColorSeoOverride, pk=override_id)
+
+    raw_queries = (request.POST.get("queries_json") or "").strip()
+    parsed_queries = []
+    if raw_queries:
+        try:
+            parsed = json.loads(raw_queries)
+        except json.JSONDecodeError as exc:
+            return JsonResponse(
+                {"ok": False, "error": f"invalid queries_json: {exc.msg}"},
+                status=400,
+            )
+        if not isinstance(parsed, list):
+            return JsonResponse({"ok": False, "error": "queries_json must be a list"}, status=400)
+        parsed_queries = parsed
+
+    row.h2 = (request.POST.get("h2") or "").strip()[:300]
+    row.body_html = (request.POST.get("body_html") or "").strip()
+    row.queries_json = parsed_queries
+    row.is_active = request.POST.get("is_active") in ("1", "true", "on", "yes")
+    row.save(update_fields=["h2", "body_html", "queries_json", "is_active", "updated_at"])
+
+    return JsonResponse({
+        "ok": True, "id": row.pk,
+        "h2": row.h2, "is_active": row.is_active,
+        "queries_count": len(row.queries_json or []),
+    })
+
+
+@staff_member_required
+def admin_color_seo_create(request):
+    """Create a new ``CatalogColorSeoOverride``. POST: ``scope``,
+    optional ``color_slug``, ``category_id``. Idempotent on the
+    unique tuple (``scope``, ``color_slug``, ``category_id``).
+    """
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+    from storefront.models import CatalogColorSeoOverride, Category
+
+    scope = (request.POST.get("scope") or "").strip()
+    valid_scopes = {c[0] for c in CatalogColorSeoOverride.SCOPE_CHOICES}
+    if scope not in valid_scopes:
+        return JsonResponse({"ok": False, "error": "invalid scope"}, status=400)
+
+    color_slug = (request.POST.get("color_slug") or "").strip().lower()
+    if scope in (CatalogColorSeoOverride.SCOPE_BRAND,
+                 CatalogColorSeoOverride.SCOPE_CATEGORY) and not color_slug:
+        return JsonResponse({"ok": False, "error": "color_slug required for this scope"}, status=400)
+
+    category = None
+    if scope == CatalogColorSeoOverride.SCOPE_CATEGORY:
+        try:
+            cat_id = int(request.POST.get("category_id") or 0)
+        except (TypeError, ValueError):
+            cat_id = 0
+        if cat_id <= 0:
+            return JsonResponse({"ok": False, "error": "category_id required"}, status=400)
+        category = get_object_or_404(Category, pk=cat_id)
+
+    obj, created = CatalogColorSeoOverride.objects.get_or_create(
+        scope=scope, color_slug=color_slug, category=category,
+        defaults={"is_active": True, "h2": "", "body_html": "", "queries_json": []},
+    )
+    return JsonResponse({
+        "ok": True, "id": obj.pk, "created": created,
+        "scope": obj.scope, "color_slug": obj.color_slug,
+        "category_id": obj.category_id,
+    })
+
+
+@staff_member_required
+def admin_color_seo_delete(request, override_id: int):
+    """Hard-delete a ``CatalogColorSeoOverride`` row."""
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+    from storefront.models import CatalogColorSeoOverride
+
+    row = get_object_or_404(CatalogColorSeoOverride, pk=override_id)
+    row_id = row.pk
+    row.delete()
+    return JsonResponse({"ok": True, "id": row_id, "deleted": True})
+
+
+@staff_member_required
+def admin_category_swatches_save(request):
+    """Save ``Category.showcase_swatch_hexes`` for the catalog showcase
+    cards. POST body: ``category_id``, ``swatches`` — comma-separated
+    hex tokens (e.g. ``#000000,#ffffff,#7a8b3a``). Empty resets to ``[]``.
+    """
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+    try:
+        cat_id = int(request.POST.get("category_id") or 0)
+    except (TypeError, ValueError):
+        cat_id = 0
+    if cat_id <= 0:
+        return JsonResponse({"ok": False, "error": "invalid id"}, status=400)
+
+    from storefront.models import Category as _Category
+    cat = get_object_or_404(_Category, pk=cat_id)
+
+    raw = (request.POST.get("swatches") or "").strip()
+    tokens: list[str] = []
+    for token in raw.split(","):
+        token = token.strip().lower()
+        if not token:
+            continue
+        if not token.startswith("#"):
+            token = "#" + token
+        # Accept #abc / #aabbcc only — silently drop anything else so a
+        # paste from the design tool doesn't poison the JSON column.
+        if len(token) in (4, 7) and all(c in "#0123456789abcdef" for c in token):
+            tokens.append(token)
+    cat.showcase_swatch_hexes = tokens[:6]  # cap UI footprint
+    cat.save(update_fields=["showcase_swatch_hexes"])
+    return JsonResponse({"ok": True, "id": cat.pk, "swatches": cat.showcase_swatch_hexes})
+
+
+@staff_member_required
 def admin_seo_category_save(request):
     """Phase 21 (PR-A2) — save manual SEO overrides for a Category
     straight from the custom admin's SEO section, no Django-admin

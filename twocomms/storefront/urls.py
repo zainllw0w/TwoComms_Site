@@ -117,6 +117,29 @@ urlpatterns = [
         _module_view('storefront.views.admin', 'admin_seo_category_save'),
         name='admin_seo_category_save',
     ),
+    # Phase 21 (PR-A3) — colour-aware SEO override CRUD inline in the
+    # custom admin (replaces Django-admin links in admin_seo_dashboard).
+    path(
+        'admin-panel/seo/color-override/<int:override_id>/save/',
+        _module_view('storefront.views.admin', 'admin_color_seo_save'),
+        name='admin_color_seo_save',
+    ),
+    path(
+        'admin-panel/seo/color-override/create/',
+        _module_view('storefront.views.admin', 'admin_color_seo_create'),
+        name='admin_color_seo_create',
+    ),
+    path(
+        'admin-panel/seo/color-override/<int:override_id>/delete/',
+        _module_view('storefront.views.admin', 'admin_color_seo_delete'),
+        name='admin_color_seo_delete',
+    ),
+    # Phase 21 (PR-A3) — Category showcase swatches (was Django admin only).
+    path(
+        'admin-panel/seo/category/swatches/save/',
+        _module_view('storefront.views.admin', 'admin_category_swatches_save'),
+        name='admin_category_swatches_save',
+    ),
     path(
         'admin-panel/push-notifications/create/',
         _module_view('storefront.views.admin', 'admin_push_notifications_create'),

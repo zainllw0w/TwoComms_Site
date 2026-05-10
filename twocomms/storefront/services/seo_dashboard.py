@@ -25,6 +25,17 @@ from django.conf import settings
 from django.db.models import Count, Q
 
 
+def _json_pretty(value) -> str:
+    """Pretty-print a JSON-able value for textarea pre-fill."""
+    import json as _json
+    if not value:
+        return ""
+    try:
+        return _json.dumps(value, ensure_ascii=False, indent=2)
+    except (TypeError, ValueError):
+        return ""
+
+
 def _has_openai_api_key() -> bool:
     return bool(
         getattr(settings, "OPENAI_API_KEY", None)
@@ -159,15 +170,23 @@ def build_color_seo_overrides_summary(limit: int = 50) -> Dict[str, Any]:
             .select_related("category")
             .order_by("scope", "color_slug", "category__order")[:limit]
         )
+        # Phase 21 (PR-A3) — surface raw ``h2``, ``body_html`` and
+        # ``queries_json`` so the inline editor can populate the form
+        # without an extra fetch. ``queries_json_text`` is a pretty-
+        # printed JSON string for the textarea.
         rows = [
             {
                 "id": row.id,
                 "scope": row.scope,
                 "scope_label": row.get_scope_display(),
                 "color_slug": row.color_slug,
+                "category_id": row.category_id,
                 "category_name": row.category.name if row.category_id else "",
                 "category_slug": row.category.slug if row.category_id else "",
-                "h2": (row.h2 or "")[:80],
+                "h2": row.h2 or "",
+                "h2_preview": (row.h2 or "")[:80],
+                "body_html": row.body_html or "",
+                "queries_json_text": _json_pretty(row.queries_json),
                 "is_active": row.is_active,
                 "has_body": bool(row.body_html),
                 "has_queries": bool(row.queries_json),
@@ -182,18 +201,31 @@ def build_color_seo_overrides_summary(limit: int = 50) -> Dict[str, Any]:
             "brand": CatalogColorSeoOverride.objects.filter(scope="brand").count(),
             "category": CatalogColorSeoOverride.objects.filter(scope="category").count(),
         }
-        categories_with_swatches = list(
+        # Phase 21 (PR-A3) — full category list (active) for the inline
+        # editor's "create override" form (scope=category) and for the
+        # showcase-swatches inline editor.
+        all_categories = list(
             Category.objects.filter(is_active=True)
-            .exclude(showcase_swatch_hexes=[])
+            .order_by("order", "name")
             .values("id", "name", "slug", "showcase_swatch_hexes")
         )
+        categories_with_swatches = [
+            cat for cat in all_categories
+            if cat.get("showcase_swatch_hexes")
+        ]
     except Exception:
-        return {"rows": [], "counts": {}, "categories_with_swatches": []}
+        return {"rows": [], "counts": {}, "categories_with_swatches": [],
+                "all_categories": []}
 
     return {
         "rows": rows,
         "counts": counts,
         "categories_with_swatches": categories_with_swatches,
+        "all_categories": all_categories,
+        "scope_choices": [
+            {"value": v, "label": l}
+            for v, l in CatalogColorSeoOverride.SCOPE_CHOICES
+        ],
     }
 
 

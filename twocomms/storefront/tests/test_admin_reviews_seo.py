@@ -135,6 +135,105 @@ class AdminCategorySeoSaveTests(TestCase):
         self.assertEqual(len(self.category.seo_title), 180)
 
 
+class AdminColorSeoOverrideTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.staff = User.objects.create_user(
+            username="csov-staff", password="x", is_staff=True,
+        )
+        cls.cat = Category.objects.create(
+            name="CSov Cat", slug="csov-cat", is_active=True,
+        )
+
+    def setUp(self):
+        self.client = Client()
+        self.client.force_login(self.staff)
+
+    def test_create_general_scope_idempotent(self):
+        from storefront.models import CatalogColorSeoOverride
+
+        url = reverse("admin_color_seo_create")
+        first = self.client.post(url, {"scope": "general"})
+        self.assertEqual(first.status_code, 200)
+        self.assertTrue(first.json().get("ok"))
+        self.assertTrue(first.json().get("created"))
+
+        second = self.client.post(url, {"scope": "general"})
+        self.assertTrue(second.json().get("ok"))
+        self.assertFalse(second.json().get("created"))
+        self.assertEqual(CatalogColorSeoOverride.objects.count(), 1)
+
+    def test_save_persists_h2_body_queries_and_active(self):
+        from storefront.models import CatalogColorSeoOverride
+
+        row = CatalogColorSeoOverride.objects.create(scope="general")
+        url = reverse("admin_color_seo_save", kwargs={"override_id": row.pk})
+        r = self.client.post(url, {
+            "h2": "Унікальний заголовок",
+            "body_html": "<p>тіло</p>",
+            "queries_json": '[{"label":"a","url":"/x","freq":"hf"}]',
+            "is_active": "1",
+        })
+        self.assertEqual(r.status_code, 200)
+        row.refresh_from_db()
+        self.assertEqual(row.h2, "Унікальний заголовок")
+        self.assertEqual(row.body_html, "<p>тіло</p>")
+        self.assertEqual(row.queries_json, [{"label": "a", "url": "/x", "freq": "hf"}])
+        self.assertTrue(row.is_active)
+
+    def test_save_rejects_malformed_json(self):
+        from storefront.models import CatalogColorSeoOverride
+
+        row = CatalogColorSeoOverride.objects.create(scope="general")
+        url = reverse("admin_color_seo_save", kwargs={"override_id": row.pk})
+        r = self.client.post(url, {"queries_json": "{not-json"})
+        self.assertEqual(r.status_code, 400)
+
+    def test_delete_removes_row(self):
+        from storefront.models import CatalogColorSeoOverride
+
+        row = CatalogColorSeoOverride.objects.create(scope="general")
+        url = reverse("admin_color_seo_delete", kwargs={"override_id": row.pk})
+        r = self.client.post(url)
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(CatalogColorSeoOverride.objects.filter(pk=row.pk).exists())
+
+
+class AdminCategorySwatchesTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.staff = User.objects.create_user(
+            username="sw-staff", password="x", is_staff=True,
+        )
+        cls.cat = Category.objects.create(
+            name="Sw Cat", slug="sw-cat", is_active=True,
+        )
+
+    def test_save_normalises_hex_tokens(self):
+        self.client = Client()
+        self.client.force_login(self.staff)
+        r = self.client.post(
+            reverse("admin_category_swatches_save"),
+            {"category_id": self.cat.pk, "swatches": "000000, #FFFFFF, badtoken, #abc"},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.cat.refresh_from_db()
+        self.assertEqual(self.cat.showcase_swatch_hexes, ["#000000", "#ffffff", "#abc"])
+
+    def test_save_caps_at_six_swatches(self):
+        self.client = Client()
+        self.client.force_login(self.staff)
+        long_list = ",".join([f"#{i:06d}" for i in range(10)])
+        self.client.post(
+            reverse("admin_category_swatches_save"),
+            {"category_id": self.cat.pk, "swatches": long_list},
+        )
+        self.cat.refresh_from_db()
+        self.assertEqual(len(self.cat.showcase_swatch_hexes), 6)
+
+
 class AdminPanelReviewsSectionRenderTests(TestCase):
     @classmethod
     def setUpTestData(cls):
