@@ -1,12 +1,5 @@
 {% load i18n %}
 {% load i18n_links %}
-{% comment %}
-  Phase 17a — language switcher. Rendered OUTSIDE the cached footer block
-  so the per-language URLs are computed from the current request path,
-  not the page that first warmed the cache. Each option is a real
-  <a hreflang> for crawler discovery; the wrapping form persists the
-  django_language cookie via set_language on JS-enabled clicks.
-{% endcomment %}
 {% language_switch_links as footer_langs %}
 <div class="footer-langs-wrap container-xxl">
   <div class="footer-langs" aria-label="{% trans 'Мова сайту' %}">
@@ -37,11 +30,6 @@
 </div>
 
 <script>
-  /* Phase 17a — progressive enhancement: when a footer language link is
-     clicked, intercept and POST through the wrapping form so Django's
-     ``set_language`` view persists the ``django_language`` cookie *and*
-     redirects to the localized URL. If JS is disabled the plain <a> link
-     still works (URL prefix carries the language). */
   (function () {
     var links = document.querySelectorAll('.footer-langs__link');
     for (var i = 0; i < links.length; i++) {

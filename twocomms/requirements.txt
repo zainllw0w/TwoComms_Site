@@ -41,6 +41,10 @@ python-dotenv==1.0.1
 # Социальная аутентификация (Google OAuth)
 social-auth-app-django==5.6.0
 
+# Phase 17c — DB translations for Product/Category/ProductFAQ.
+# Auto-generates per-language columns (name_uk, name_ru, name_en …).
+django-modeltranslation==0.20.3
+
 # Статика и кэширование (долгий Cache-Control, компрессия)
 whitenoise==6.7.0
 

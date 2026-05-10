@@ -72,7 +72,6 @@
   <link rel="canonical"
     href="{% block canonical %}{{ site_base_url }}{{ request.path }}{% endblock %}">
   {% block pagination_links %}{% endblock %}
-  {# Phase 17a — hreflang alternates from storefront.templatetags.i18n_links. #}
   {% load i18n_links %}
   {% language_alternates as lang_alts %}
   <link rel="alternate" hreflang="uk" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">
@@ -93,7 +92,6 @@
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:site_name" content="TwoComms">
-  {# Phase 17a — og:locale per current language; alternates listed below. #}
   <meta property="og:locale" content="{% og_locale_for_lang LANGUAGE_CODE %}">
   {% og_locale_alternates as og_alts %}
   {% for alt_og in og_alts.values %}
@@ -904,7 +902,6 @@
     {% block content %}{% endblock %}
   </main>
   {% block modals %}{% endblock %}
-  {# Phase 17a — footer cached per-language; switcher rendered uncached below. #}
   {% cache 86400 footer_block_v6_phase17a LANGUAGE_CODE using="fragments" %}
   {% include 'partials/footer.html' %}
   {% endcache %}

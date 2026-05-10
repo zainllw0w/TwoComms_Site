@@ -119,6 +119,9 @@ else:
 # Application definition
 
 INSTALLED_APPS = [
+    # Phase 17c — django-modeltranslation MUST come BEFORE django.contrib.admin
+    # so its admin patcher can extend ModelAdmin classes with translation fields.
+    "modeltranslation",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -597,6 +600,22 @@ LANGUAGE_HTML_LANG = {
     "ru": "ru",
     "en": "en",
 }
+
+# Phase 17c — django-modeltranslation. UA is the source of truth: when an
+# editor types in ``name`` it implicitly writes ``name_uk``. RU/EN values
+# stay blank until manually filled in admin; reads on a RU/EN page fall
+# back to UA via FALLBACK_LANGUAGES.
+MODELTRANSLATION_DEFAULT_LANGUAGE = "uk"
+MODELTRANSLATION_LANGUAGES = ("uk", "ru", "en")
+MODELTRANSLATION_FALLBACK_LANGUAGES = {
+    "default": ("uk",),
+    "ru": ("uk",),
+    "en": ("uk",),
+}
+# Inherit the existing field value into the default-language column on
+# the very first save after migration — keeps legacy code that touches
+# ``.name`` working without explicit ``update_translation_fields``.
+MODELTRANSLATION_AUTO_POPULATE = "default"
 
 # DTF module defaults
 DTF_PRICING = {
