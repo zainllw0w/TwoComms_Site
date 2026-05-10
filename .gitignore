@@ -195,3 +195,4 @@ REDIS_*.md
 node_modules/
 *.backup
 !twocomms/storefront/views.py.backup
+tmp/critical-extraction/
