@@ -3,6 +3,7 @@
 {% load compress %}
 {% load seo_tags %}
 {% load image_optimization %}
+{% load inline_assets %}
 <!DOCTYPE html>
 <html lang='uk' data-bs-theme='dark' data-route-name="{{ request.resolver_match.url_name|default:'' }}" data-page-shell="{% if request.resolver_match.url_name == 'about' %}marketing{% else %}commerce{% endif %}" data-analytics-mode="{% if request.resolver_match.url_name == 'about' %}passive{% else %}default{% endif %}" {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
   data-meta-pixel-id="823958313630148" {% endif %}
@@ -186,7 +187,20 @@
   {% endif %}
 
   {% if request.resolver_match.url_name == 'home' %}
-  <link rel="stylesheet" href="{% static 'css/bootstrap-home-subset.css' %}">
+  {% comment %}
+  Phase 21 (2026-05-10) — bootstrap-home-subset.css inlined directly
+  into <head>. Lighthouse mobile flagged this 10.5 KiB stylesheet as a
+  render-blocking request (~360 ms TTFB+download on 4G). The file ships
+  Bootstrap utilities used above-the-fold (grid / flex / spacing for
+  hero + survey + featured cards), so deferring it via the media=print
+  trick caused FOUC. Inlining trades one round-trip for ~10 KiB extra
+  HTML (after gzip ~ same payload as the standalone request would have
+  cost — but the request itself is gone). Repeat-visit cache loss is
+  acceptable: the same critical CSS already lives in this <head> via
+  the inline <style> block right above, so the cache benefit was
+  already partial. Cached read via ``inline_static`` lru_cache.
+  {% endcomment %}
+  <style>{% inline_static "css/bootstrap-home-subset.css" %}</style>
   {% else %}
   {% comment %}Phase 18c reverted (2026-05-10): block-loading Bootstrap on PDP
      fixed mobile CLS 0.019 → 0.000 *but* added +2.5 s to mobile LCP
