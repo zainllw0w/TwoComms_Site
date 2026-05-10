@@ -46,39 +46,41 @@
 {% block breadcrumbs %}{% endblock %}
 
 {% block content %}
+{# Phase 21 (PR-6 T15.2) — CollectionPage + BreadcrumbList unified into one @graph. #}
 {% if category and not is_search_page %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  "itemListElement": [
-    {"@type": "ListItem", "position": 1, "name": "Головна", "item": "{{ site_base_url }}/"},
-    {"@type": "ListItem", "position": 2, "name": "Каталог", "item": "{{ site_base_url }}{% url 'catalog' %}"},
-    {"@type": "ListItem", "position": 3, "name": "{{ category.name }}", "item": "{{ site_base_url }}{{ request.path }}"}
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "Головна", "item": "{{ site_base_url }}/"},
+        {"@type": "ListItem", "position": 2, "name": "Каталог", "item": "{{ site_base_url }}{% url 'catalog' %}"},
+        {"@type": "ListItem", "position": 3, "name": "{{ category.name }}", "item": "{{ site_base_url }}{{ request.path }}"}
+      ]
+    },
+    {
+      "@type": "CollectionPage",
+      "name": "{{ category.name }} — TwoComms",
+      "description": "Категорія {{ category.name|lower }} з авторськими принтами від TwoComms.",
+      "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}",
+      "mainEntity": {
+        "@type": "ItemList",
+        "itemListOrder": "https://schema.org/ItemListOrderDescending",
+        "itemListElement": [
+          {% for p in products|slice:":20" %}
+          {
+            "@type": "ListItem",
+            "position": {{ forloop.counter }},
+            "url": "{{ site_base_url }}{% url 'product' p.slug %}",
+            "name": "{{ p.title|escapejs }}"
+          }{% if not forloop.last %},{% endif %}
+          {% endfor %}
+        ]
+      }
+    }
   ]
-}
-</script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "CollectionPage",
-  "name": "{{ category.name }} — TwoComms",
-  "description": "Категорія {{ category.name|lower }} з авторськими принтами від TwoComms.",
-  "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}",
-  "mainEntity": {
-    "@type": "ItemList",
-    "itemListOrder": "https://schema.org/ItemListOrderDescending",
-    "itemListElement": [
-      {% for p in products|slice:":20" %}
-      {
-        "@type": "ListItem",
-        "position": {{ forloop.counter }},
-        "url": "{{ site_base_url }}{% url 'product' p.slug %}",
-        "name": "{{ p.title|escapejs }}"
-      }{% if not forloop.last %},{% endif %}
-      {% endfor %}
-    ]
-  }
 }
 </script>
 {% endif %}
@@ -86,34 +88,35 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  "itemListElement": [
-    {"@type": "ListItem", "position": 1, "name": "Головна", "item": "{{ site_base_url }}/"},
-    {"@type": "ListItem", "position": 2, "name": "Каталог", "item": "{{ site_base_url }}{{ request.path }}"}
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "Головна", "item": "{{ site_base_url }}/"},
+        {"@type": "ListItem", "position": 2, "name": "Каталог", "item": "{{ site_base_url }}{{ request.path }}"}
+      ]
+    },
+    {
+      "@type": "CollectionPage",
+      "name": "Каталог TwoComms",
+      "description": "Повний каталог стріт та мілітарі одягу TwoComms.",
+      "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}",
+      "mainEntity": {
+        "@type": "ItemList",
+        "itemListOrder": "https://schema.org/ItemListOrderDescending",
+        "itemListElement": [
+          {% for c in categories %}
+          {
+            "@type": "ListItem",
+            "position": {{ forloop.counter }},
+            "url": "{{ site_base_url }}{% url 'catalog_by_cat' c.slug %}",
+            "name": "{{ c.name|escapejs }}"
+          }{% if not forloop.last %},{% endif %}
+          {% endfor %}
+        ]
+      }
+    }
   ]
-}
-</script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "CollectionPage",
-  "name": "Каталог TwoComms",
-  "description": "Повний каталог стріт та мілітарі одягу TwoComms.",
-  "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}",
-  "mainEntity": {
-    "@type": "ItemList",
-    "itemListOrder": "https://schema.org/ItemListOrderDescending",
-    "itemListElement": [
-      {% for c in categories %}
-      {
-        "@type": "ListItem",
-        "position": {{ forloop.counter }},
-        "url": "{{ site_base_url }}{% url 'catalog_by_cat' c.slug %}",
-        "name": "{{ c.name|escapejs }}"
-      }{% if not forloop.last %},{% endif %}
-      {% endfor %}
-    ]
-  }
 }
 </script>
 {% endif %}
