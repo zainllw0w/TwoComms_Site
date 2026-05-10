@@ -694,6 +694,18 @@ html:has(.catalog-redesign-shell) .site-footer-premium {
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.42);
 }
 
+/* Phase 19i — split swatch (e.g. white/burgundy two-tone) renders as a
+   diagonal gradient mirroring the catalog filter chip. */
+.catalog-showcase-card__swatches span.catalog-showcase-card__swatch--split {
+  background: linear-gradient(
+    135deg,
+    var(--swatch) 0,
+    var(--swatch) 49%,
+    var(--swatch-2, var(--swatch)) 51%,
+    var(--swatch-2, var(--swatch)) 100%
+  );
+}
+
 .catalog-showcase-card__body {
   position: absolute;
   left: 24px;

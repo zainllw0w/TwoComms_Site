@@ -106,87 +106,94 @@ def _match_showcase_category(categories, config):
     return None
 
 
-def _compute_showcase_swatches(category_ids, fallback_per_category, *, min_usage=2):
-    """Phase 19g (2026-05-10): replace hard-coded swatches on showcase cards.
+def _compute_showcase_swatches(category_ids, fallback_per_category, *, min_usage=1):
+    """Phase 19i (2026-05-10): showcase swatches reflect REAL DB colours.
 
-    Build, per category, the list of up to 4 most-used colour hexes
-    derived from live ``ProductColorVariant`` rows of *published*
-    products. The legacy hard-coded palettes were category-agnostic
-    (every "tshirt" card showed the same 4 swatches even when the
-    catalogue carried a totally different colour mix), which the
-    user perceived as random. Returning real on-stock hexes makes
-    the showcase reflect actual inventory and doubles as a tiny SEO
-    signal (the swatches mirror the colours the catalogue can be
-    filtered by).
+    For each category, return ALL distinct colours stocked across
+    *published* products, ordered by usage (most-stocked first), as
+    rich dicts ``{primary, secondary}`` so the template can render
+    split swatches for two-tone colours like "white-burgundy" (where
+    secondary_hex is set on ``Color``).
+
+    Design decisions:
+    * No usage threshold by default (``min_usage=1``) — even a single
+      product's colour is shown so the card is honest about inventory.
+      Phase 19h's threshold caused the card to fall back to fake grey
+      ramps; the user wants real DB output even if it's only 1–2
+      swatches.
+    * No fallback padding when the category has any real colours;
+      cards visually adapt to 1–N swatches. Fallback is only used as
+      the very last resort for empty categories so the layout doesn't
+      break before any product exists.
+    * Up to 4 swatches per card to keep the visual rhythm consistent.
 
     Args:
         category_ids: iterable of category PKs to compute for.
         fallback_per_category: ``{cat_id: tuple(hex, ...)}`` defaults
-            used when a category has no published variants on file
-            (keeps the showcase visually intact for empty categories).
+            used ONLY when a category has zero published variants
+            (keeps an empty category card from rendering blank).
+        min_usage: minimum number of products required for a colour
+            to appear; defaults to 1 (no filtering).
 
     Returns:
-        ``{cat_id: tuple(hex, hex, hex, hex)}`` — always 4 hexes; the
-        list is padded from the fallback tuple if DB carries fewer.
+        ``{cat_id: tuple({'primary': hex, 'secondary': hex|None}, ...)}``
+        with at most 4 entries per category.
     """
     if not category_ids:
         return {}
 
     from productcolors.models import ProductColorVariant
 
-    # One query, grouped by (category_id, primary_hex). Unique colours
-    # per category sorted by usage so the most-stocked colour leads.
+    # One query grouped by (category_id, primary_hex, secondary_hex).
+    # Distinct-product count drives ordering — when one product carries
+    # multiple variants of the same colour we still want product-level
+    # usage to win, mirroring the chip counts above the catalog grid.
     rows = (
         ProductColorVariant.objects
         .filter(
             product__category_id__in=list(category_ids),
             product__status='published',
         )
-        .values('product__category_id', 'color__primary_hex')
-        .annotate(usage=Count('id'))
+        .values(
+            'product__category_id',
+            'color__primary_hex',
+            'color__secondary_hex',
+        )
+        .annotate(usage=Count('product_id', distinct=True))
         .order_by('product__category_id', '-usage')
     )
 
-    by_category: dict[int, list[str]] = defaultdict(list)
-    seen_per_category: dict[int, set[str]] = defaultdict(set)
+    by_category: dict[int, list[dict]] = defaultdict(list)
+    seen_per_category: dict[int, set[tuple[str, str]]] = defaultdict(set)
     for row in rows:
         cat_id = row['product__category_id']
-        hex_value = (row['color__primary_hex'] or '').strip()
-        if not hex_value:
+        primary = (row['color__primary_hex'] or '').strip()
+        secondary = (row['color__secondary_hex'] or '').strip() or None
+        if not primary:
             continue
-        # Phase 19h (2026-05-10): suppress one-product outliers — a
-        # colour represented by a single product was polluting the
-        # swatch palette (e.g. one pink hoodie among 23 black ones,
-        # one white-burgundy long-sleeve among 17 black). Threshold
-        # ``min_usage`` keeps the palette representative of stocked
-        # mainstream variants, while leaving the small-catalogue case
-        # fed from the legacy fallback below.
         if (row.get('usage') or 0) < min_usage:
             continue
-        if hex_value in seen_per_category[cat_id]:
+        key = (primary.lower(), (secondary or '').lower())
+        if key in seen_per_category[cat_id]:
             continue
         if len(by_category[cat_id]) >= 4:
             continue
-        by_category[cat_id].append(hex_value)
-        seen_per_category[cat_id].add(hex_value)
+        by_category[cat_id].append({'primary': primary, 'secondary': secondary})
+        seen_per_category[cat_id].add(key)
 
-    result: dict[int, tuple[str, ...]] = {}
+    result: dict[int, tuple[dict, ...]] = {}
     for cat_id in category_ids:
         live = by_category.get(cat_id, [])
-        fallback = list(fallback_per_category.get(cat_id, ('#050505',)))
-        # Pad to exactly 4 entries by topping up from the fallback
-        # (avoids a visually broken card when a category has 1 colour).
-        merged: list[str] = list(live)
-        for hex_value in fallback:
-            if len(merged) >= 4:
-                break
-            if hex_value not in merged:
-                merged.append(hex_value)
-        if not merged:
-            merged = list(fallback) or ['#050505']
-        while len(merged) < 4:
-            merged.append(merged[-1])
-        result[cat_id] = tuple(merged[:4])
+        if live:
+            # Honest reflection of inventory — no fake fallback padding.
+            result[cat_id] = tuple(live)
+        else:
+            # Empty category: keep the legacy palette so the layout
+            # doesn't break for a not-yet-stocked category.
+            fallback = list(fallback_per_category.get(cat_id, ('#050505',)))[:4]
+            result[cat_id] = tuple(
+                {'primary': hex_value, 'secondary': None} for hex_value in fallback
+            )
     return result
 
 
@@ -226,59 +233,84 @@ def _build_catalog_showcase_cards(categories):
         # Override the static config swatches with live ones when
         # available; preserve the rest of the config unchanged.
         card = {**config, 'category': category}
+        # Phase 19i: legacy ``swatches`` (tuple of hex strings) →
+        # ``swatch_specs`` (list of {primary, secondary}). Convert any
+        # static config palette so the template only needs one shape.
+        legacy_hexes = config.get('swatches') or ()
+        card['swatch_specs'] = [
+            {'primary': h, 'secondary': None} for h in legacy_hexes[:4]
+        ]
         if category:
-            # Phase 19h (2026-05-10): admin-managed override wins over
-            # live data; live data wins over hard-coded fallback. Manual
-            # override empties → fall through to live computation.
-            manual_hexes = _normalize_swatch_hexes(
+            # Phase 19h: admin override wins over live; live wins over
+            # legacy fallback. Empty override → fall through to live.
+            manual = _normalize_swatch_overrides(
                 getattr(category, 'showcase_swatch_hexes', None)
             )
-            if manual_hexes:
-                # Pad to 4 with the legacy fallback so the card layout
-                # stays consistent even when admin sets only 2 hexes.
-                fallback_for_pad = list(fallback_swatches.get(category.id, ('#050505',)))
-                merged = list(manual_hexes)
-                for hex_value in fallback_for_pad:
-                    if len(merged) >= 4:
-                        break
-                    if hex_value not in merged:
-                        merged.append(hex_value)
-                while len(merged) < 4:
-                    merged.append(merged[-1])
-                card['swatches'] = tuple(merged[:4])
+            if manual:
+                card['swatch_specs'] = list(manual[:4])
             elif category.id in live_swatches:
-                card['swatches'] = live_swatches[category.id]
+                card['swatch_specs'] = list(live_swatches[category.id][:4])
+        # Keep the legacy ``swatches`` key as a tuple of primaries for
+        # any code path that still consumes it (back-compat).
+        card['swatches'] = tuple(s['primary'] for s in card['swatch_specs'])
         card['product_count'] = product_counts.get(category.id, 0) if category else None
         cards.append(card)
     return cards
 
 
-def _normalize_swatch_hexes(value):
-    """Sanitize admin-entered list of hex strings (Phase 19h)."""
-    if not value:
+def _normalize_swatch_overrides(value):
+    """Phase 19h/i: sanitize admin-entered swatch override.
+
+    Accepts:
+    * list of hex strings: ``["#000000", "#fafafa"]``
+    * list of objects: ``[{"primary":"#fafafa","secondary":"#c1382f"}]``
+    * mixed.
+
+    Returns up to 4 ``{'primary', 'secondary'}`` dicts with normalised
+    lowercase hexes; invalid entries are dropped.
+    """
+    if not value or not isinstance(value, (list, tuple)):
         return ()
-    if not isinstance(value, (list, tuple)):
-        return ()
-    out = []
-    seen = set()
-    for raw in value:
+
+    def _norm_hex(raw):
         if not isinstance(raw, str):
-            continue
+            return None
         candidate = raw.strip()
         if not candidate:
-            continue
+            return None
         if not candidate.startswith('#'):
             candidate = '#' + candidate
         candidate = candidate.lower()
         if len(candidate) not in (4, 7):  # #abc or #aabbcc
+            return None
+        # Hex digits validation.
+        if any(ch not in '0123456789abcdef' for ch in candidate[1:]):
+            return None
+        return candidate
+
+    out = []
+    seen = set()
+    for raw in value:
+        primary = secondary = None
+        if isinstance(raw, dict):
+            primary = _norm_hex(raw.get('primary') or raw.get('hex') or '')
+            secondary = _norm_hex(raw.get('secondary') or '')
+        else:
+            primary = _norm_hex(raw)
+        if not primary:
             continue
-        if candidate in seen:
+        key = (primary, secondary or '')
+        if key in seen:
             continue
-        seen.add(candidate)
-        out.append(candidate)
+        seen.add(key)
+        out.append({'primary': primary, 'secondary': secondary})
         if len(out) >= 4:
             break
     return tuple(out)
+
+
+# Legacy alias kept for any external test imports.
+_normalize_swatch_hexes = _normalize_swatch_overrides
 
 def _product_cards_queryset():
     return Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(

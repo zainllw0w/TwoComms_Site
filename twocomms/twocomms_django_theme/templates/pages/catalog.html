@@ -249,8 +249,12 @@
             {% endif %}
           </span>
           <span class="catalog-showcase-card__swatches" aria-hidden="true">
-            {% for swatch in card.swatches %}
-            <span style="--swatch: {{ swatch }};"></span>
+            {# Phase 19i: each swatch is {primary, secondary?}. When
+               secondary is set we render a split (white/burgundy etc)
+               via a linear-gradient at 50/50. #}
+            {% for swatch in card.swatch_specs %}
+            <span class="catalog-showcase-card__swatch{% if swatch.secondary %} catalog-showcase-card__swatch--split{% endif %}"
+                  style="--swatch: {{ swatch.primary }}; {% if swatch.secondary %}--swatch-2: {{ swatch.secondary }};{% endif %}"></span>
             {% endfor %}
           </span>
           <span class="catalog-showcase-card__body">

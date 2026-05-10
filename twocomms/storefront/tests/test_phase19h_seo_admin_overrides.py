@@ -22,69 +22,99 @@ from storefront.services.color_seo_copy import build_catalog_color_seo
 from storefront.services.seo_dashboard import build_color_seo_overrides_summary
 from storefront.views.catalog import (
     _compute_showcase_swatches,
-    _normalize_swatch_hexes,
+    _normalize_swatch_overrides,
 )
 
 
-class SwatchOutlierThresholdTests(TestCase):
-    """Min-usage threshold filters out one-product colour outliers."""
+class ShowcaseSwatchesRealColoursTests(TestCase):
+    """Phase 19i: swatches reflect REAL DB colours, no fake padding.
+
+    The card honestly shows every distinct colour on stock, even
+    one-product outliers (admin can override per-category if they
+    want to hide them).
+    """
 
     @classmethod
     def setUpTestData(cls):
         cls.cat = Category.objects.create(name="Hoodie", slug="hoodie", order=3)
         cls.black = Color.objects.create(name="Чорний", primary_hex="#000000")
         cls.pink = Color.objects.create(name="Рожевий", primary_hex="#F7A1B9")
-        # 3 black hoodies, 1 pink hoodie — pink should be suppressed.
+        cls.split = Color.objects.create(
+            name="бело-бордовий", primary_hex="#fafafa", secondary_hex="#c1382f",
+        )
+        # 3 black, 1 pink, 1 white-burgundy.
         for n in range(3):
             p = Product.objects.create(
                 title=f"Hoodie black {n}", slug=f"hd-black-{n}",
                 category=cls.cat, status="published", price=1000,
             )
             ProductColorVariant.objects.create(product=p, color=cls.black, slug="black")
-        p = Product.objects.create(
-            title="Hoodie pink", slug="hd-pink", category=cls.cat,
-            status="published", price=1000,
-        )
-        ProductColorVariant.objects.create(product=p, color=cls.pink, slug="pink")
+        for clr, slug in [(cls.pink, "pink"), (cls.split, "wb")]:
+            p = Product.objects.create(
+                title=f"Hoodie {slug}", slug=f"hd-{slug}",
+                category=cls.cat, status="published", price=1000,
+            )
+            ProductColorVariant.objects.create(product=p, color=clr, slug=slug)
 
-    def test_pink_outlier_suppressed_by_default(self):
+    def test_returns_all_real_colours_no_padding(self):
         result = _compute_showcase_swatches(
-            [self.cat.id], {self.cat.id: ('#050505', '#6a6b60', '#e7e1d3', '#8c8f79')}
+            [self.cat.id], {self.cat.id: ('#050505', '#6a6b60')}
         )
-        # First swatch is live black; pink (1 usage) should NOT appear.
-        self.assertIn('#000000', result[self.cat.id])
-        self.assertNotIn('#F7A1B9', result[self.cat.id])
-        # Padding from fallback fills the rest.
-        self.assertEqual(len(result[self.cat.id]), 4)
+        primaries = [s['primary'] for s in result[self.cat.id]]
+        # All real colours present; none of the legacy fallback hexes leak in.
+        self.assertEqual(len(result[self.cat.id]), 3)
+        self.assertEqual(primaries[0], '#000000')  # black leads (3 products)
+        self.assertIn('#F7A1B9', primaries)
+        self.assertIn('#fafafa', primaries)
+        self.assertNotIn('#050505', primaries)
 
-    def test_min_usage_one_includes_outliers(self):
+    def test_split_colour_carries_secondary_hex(self):
+        result = _compute_showcase_swatches([self.cat.id], {})
+        wb = next(s for s in result[self.cat.id] if s['primary'] == '#fafafa')
+        self.assertEqual(wb['secondary'], '#c1382f')
+
+    def test_empty_category_falls_back_to_legacy(self):
+        empty = Category.objects.create(name="Empty", slug="empty", order=9)
         result = _compute_showcase_swatches(
-            [self.cat.id], {self.cat.id: ('#050505',)}, min_usage=1,
+            [empty.id], {empty.id: ('#111111', '#222222')}
         )
-        self.assertIn('#F7A1B9', result[self.cat.id])
+        primaries = [s['primary'] for s in result[empty.id]]
+        self.assertEqual(primaries, ['#111111', '#222222'])
+        self.assertTrue(all(s['secondary'] is None for s in result[empty.id]))
 
 
-class NormalizeSwatchHexesTests(TestCase):
-    def test_strips_invalid_entries_and_dedupes(self):
-        out = _normalize_swatch_hexes([
+class NormalizeSwatchOverridesTests(TestCase):
+    def test_accepts_hex_strings(self):
+        out = _normalize_swatch_overrides([
             "#000000", "FAFAFA", "  #b27815  ", "#000000", "not-a-hex",
             "#abcd", "#abc", 42, None,
         ])
-        # #000000 once, #fafafa (autoprefix), #b27815, #abc — and #abcd
-        # rejected (5-char), invalid strings rejected, duplicates dropped.
-        self.assertIn('#000000', out)
-        self.assertIn('#fafafa', out)
-        self.assertIn('#b27815', out)
-        self.assertNotIn('#abcd', out)
-        self.assertEqual(len(set(out)), len(out))
+        primaries = [s['primary'] for s in out]
+        self.assertIn('#000000', primaries)
+        self.assertIn('#fafafa', primaries)
+        self.assertIn('#b27815', primaries)
+        self.assertNotIn('#abcd', primaries)  # 5-char hex invalid
+        self.assertEqual(len(primaries), len(set(primaries)))
         self.assertLessEqual(len(out), 4)
+        self.assertTrue(all(s['secondary'] is None for s in out))
+
+    def test_accepts_split_objects(self):
+        out = _normalize_swatch_overrides([
+            {"primary": "#fafafa", "secondary": "#c1382f"},
+            "#000000",
+        ])
+        self.assertEqual(out[0], {"primary": "#fafafa", "secondary": "#c1382f"})
+        self.assertEqual(out[1], {"primary": "#000000", "secondary": None})
 
 
 class CategorySwatchOverrideTests(TestCase):
     def test_admin_override_wins_over_live(self):
         cat = Category.objects.create(
             name="Hoodie", slug="hoodie", order=1,
-            showcase_swatch_hexes=["#112233", "#445566"],
+            showcase_swatch_hexes=[
+                "#112233",
+                {"primary": "#fafafa", "secondary": "#c1382f"},
+            ],
         )
         clr = Color.objects.create(name="Чорний", primary_hex="#000000")
         for n in range(3):
@@ -93,16 +123,17 @@ class CategorySwatchOverrideTests(TestCase):
                 status="published", price=500,
             )
             ProductColorVariant.objects.create(product=p, color=clr, slug="black")
-        # Direct call to the higher-level builder — verify override is honoured.
         from storefront.views.catalog import _build_catalog_showcase_cards
         cards = _build_catalog_showcase_cards([cat])
-        # Find the card matching this hoodie category by slug match.
         card = next((c for c in cards if c.get('category') == cat), None)
         self.assertIsNotNone(card)
-        self.assertEqual(card['swatches'][0], '#112233')
-        self.assertEqual(card['swatches'][1], '#445566')
-        # Pad to 4 from fallback (legacy palette).
-        self.assertEqual(len(card['swatches']), 4)
+        # First swatch hex; second swatch carries split secondary.
+        self.assertEqual(card['swatch_specs'][0]['primary'], '#112233')
+        self.assertIsNone(card['swatch_specs'][0]['secondary'])
+        self.assertEqual(card['swatch_specs'][1]['primary'], '#fafafa')
+        self.assertEqual(card['swatch_specs'][1]['secondary'], '#c1382f')
+        # No padding — exactly 2 admin-defined swatches.
+        self.assertEqual(len(card['swatch_specs']), 2)
 
 
 class ColorSeoOverrideTests(TestCase):
