@@ -669,47 +669,19 @@
     }
   </style>
 
-  {% if request.resolver_match.url_name == 'home' %}
-  {% comment %}
-  Phase 21 (2026-05-11) — critical CSS strategy on the homepage.
-
-  We extracted the above-the-fold subset of the main bundle
-  (styles.purged + cls-ultimate + perf-lite) using Penthouse against
-  both 390x844 and 1440x900 viewports of the live home page. The
-  resulting ``critical-home.min.css`` is ~45 KiB raw / ~8 KiB gzipped
-  and is inlined here so the first paint never has to wait for an
-  external CSS download. A pixel diff between «full bundle» vs
-  «critical-only» renders showed 0.00 % difference on mobile and
-  0.01 % on desktop, so this is visually safe.
-
-  The full bundle is then loaded asynchronously via the standard
-  ``media=print onload="this.media='all'"`` swap so its rules take
-  over once the file arrives. ``<noscript>`` keeps the old
-  render-blocking link for crawlers and JS-disabled visitors.
-
-  All non-home routes keep the original render-blocking compress
-  block — they have a different above-the-fold profile and would
-  need their own critical extraction to defer safely.
-  {% endcomment %}
-  <style id="critical-home-css">{% inline_static "css/critical-home.min.css" %}</style>
-  {% compress css %}
-  <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}" media="print" onload="this.media='all';this.onload=null">
-  <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}" media="print" onload="this.media='all';this.onload=null">
-  <link rel="stylesheet" href="{% static 'css/perf-lite.css' %}" media="print" onload="this.media='all';this.onload=null">
-  {% endcompress %}
-  <noscript>
-    <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
-    <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
-    <link rel="stylesheet" href="{% static 'css/perf-lite.css' %}">
-  </noscript>
-  {% else %}
   <!-- Основные стили (standard load for stability) -->
+  {% comment %}
+  Phase 21 attempt (2026-05-11) — Penthouse-extracted critical CSS
+  inline + media=print deferral was reverted because it dropped some
+  above-fold rules (state-dependent / hover / dynamically inserted
+  components missed by Penthouse trace). Keeping the bundle render-
+  blocking until we have a more reliable extraction pipeline.
+  {% endcomment %}
   {% compress css %}
   <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
   <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
   <link rel="stylesheet" href="{% static 'css/perf-lite.css' %}">
   {% endcompress %}
-  {% endif %}
   {% comment %}
   support-hub.css — только классы .footer-* / .support-* (below-fold на /),
   грузим non-blocking через media=print-hack, чтобы не тормозить LCP.
