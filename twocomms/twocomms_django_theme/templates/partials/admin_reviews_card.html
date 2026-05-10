@@ -1,0 +1,55 @@
+{% comment %}
+Phase 21 (PR-A1) — single review row in the moderation queue.
+
+Receives ``r`` (dict from ``services.admin_reviews._augment``) and
+``is_pending`` (bool) controlling whether the bulk-select checkbox
+and the approve/reject buttons render.
+{% endcomment %}
+<article class="arev-card" data-arev-card="{{ r.id }}">
+  <div class="arev-card__check">
+    {% if is_pending %}
+      <input type="checkbox" data-arev-id="{{ r.id }}" aria-label="Виділити відгук #{{ r.id }}">
+    {% else %}
+      <span aria-hidden="true" style="color:rgba(255,255,255,.25);font-size:.85rem;">#{{ r.id }}</span>
+    {% endif %}
+  </div>
+
+  <div class="arev-card__main">
+    <div class="arev-card__head">
+      <span class="arev-card__stars" aria-label="{{ r.rating }} з 5">{{ r.stars_html }}</span>
+      {% if r.title %}<strong class="arev-card__title">{{ r.title }}</strong>{% endif %}
+      {% if r.is_verified_purchase %}
+        <span class="arev-card__verified">✓ Перевірена</span>
+      {% endif %}
+      {% if r.image_count %}
+        <span style="font-size:.72rem;color:rgba(255,255,255,.5)">📎 {{ r.image_count }} фото</span>
+      {% endif %}
+    </div>
+    <div class="arev-card__product">
+      <a href="{{ r.public_anchor }}" target="_blank" rel="noopener">{{ r.product.title|default:'—' }}</a>
+      {% if r.product.slug %} · /{{ r.product.slug }}/{% endif %}
+    </div>
+    <div class="arev-card__body">{{ r.body_preview }}</div>
+    <div class="arev-card__meta">
+      <span>👤 {{ r.author_name }}</span>
+      {% if r.user_id %}<span>· user #{{ r.user_id }}</span>{% endif %}
+      <span>· {{ r.created_at|date:'d.m.Y H:i' }}</span>
+      {% if r.helpful_count or r.unhelpful_count %}
+        <span>· 👍 {{ r.helpful_count }} / 👎 {{ r.unhelpful_count }}</span>
+      {% endif %}
+      {% if r.moderation_note %}
+        <span>· 📝 {{ r.moderation_note|truncatechars:80 }}</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="arev-card__actions">
+    {% if is_pending %}
+      <button type="button" class="ac-approve" data-arev-action="approve">Опублікувати</button>
+      <button type="button" class="ac-reject" data-arev-action="reject">Відхилити</button>
+    {% endif %}
+    {% if r.admin_url %}
+      <a class="ac-edit" href="{{ r.admin_url }}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;">Деталі</a>
+    {% endif %}
+  </div>
+</article>
