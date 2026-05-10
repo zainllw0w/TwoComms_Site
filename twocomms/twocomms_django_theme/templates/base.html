@@ -343,10 +343,21 @@
       /* Изолируем layout */
     }
 
-    /* Отступ сверху для main, чтобы контент не был под navbar */
-    main.container-xxl {
-      padding-top: calc(70px + 1rem) !important;
-      /* Высота navbar + оригинальный padding */
+    /* Отступ сверху для main, чтобы контент не был под navbar.
+       Phase 18 (CLS fix 2026-05-10): селектор поднят до `body
+       main.container-xxl`, чтобы быть специфичнее, чем
+       Bootstrap `.py-4 { padding-top: 1.5rem !important }`. До этого
+       Bootstrap (async-load) переопределял правило и контент
+       прыгал на ~62px вверх → CLS desktop = 0.128. */
+    body main.container-xxl {
+      padding-top: calc(70px + 1.5rem) !important;
+      padding-bottom: 1.5rem !important;
+    }
+    @media (min-width: 768px) {
+      body main.container-xxl {
+        padding-top: calc(70px + 3rem) !important;
+        padding-bottom: 3rem !important;
+      }
     }
 
     .hero-section {
