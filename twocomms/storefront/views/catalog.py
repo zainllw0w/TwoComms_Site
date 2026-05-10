@@ -19,6 +19,10 @@ from django.urls import reverse
 
 from ..models import Product, Category, SurveySession
 from ..pagination import build_homepage_pagination_items
+from ..services.card_preview import (
+    attach_preferred_card_image,
+    enrich_color_preview_with_slugs,
+)
 from ..services.catalog_helpers import (
     apply_public_product_order,
     build_color_preview_key,
@@ -385,6 +389,12 @@ def catalog(request, cat_slug=None):
         product.colors_preview = colors_preview
         product.colors_preview_key = build_color_preview_key(colors_preview)
 
+    # Phase 14 — color-filter-aware preview: when ``?color=...`` is set,
+    # show the matching variant's image on each card (instead of the
+    # default ``homepage_image``).
+    enrich_color_preview_with_slugs(products)
+    attach_preferred_card_image(products, selected_color_slugs)
+
     return render(
         request,
         'pages/catalog.html',
@@ -480,6 +490,10 @@ def search(request):
             colors_preview = color_previews.get(product.id, [])
             product.colors_preview = colors_preview
             product.colors_preview_key = build_color_preview_key(colors_preview)
+
+        # Phase 14 — color-filter-aware preview on search results too.
+        enrich_color_preview_with_slugs(product_list)
+        attach_preferred_card_image(product_list, selected_color_slugs)
 
         return render(
             request,

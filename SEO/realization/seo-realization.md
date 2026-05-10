@@ -1066,3 +1066,93 @@ Phase 9 + Phase 10 + `test_catalog` сумарно 50/50 passed.
 | 2026-05-09 | 11  | _pending_  | Phase 11 — SEO admin section. `?section=seo` у кастомній адмін-панелі: sitemap-counts (5 sub + total), AI-панель (opt-in товари/категорії з in-place "Згенерувати"), Phase-10 SEO-блоки (active/total + лінк на Django-admin). Сервіс `services/seo_dashboard.py`, шаблон `partials/admin_seo_dashboard.html`, AJAX-ендпоінт `admin_seo_ai_generate` (sync виклик `generate_ai_content_for_*_task` без Celery — Phase 2). Tests: 11 (`storefront.tests.test_phase11_seo_admin`) → all passed; регрессія Phase 9+10+catalog 50/50. Відкладено в окрему ітерацію: WYSIWYG для `Category.description`, редактор variant-title-шаблонів, robots.txt-редактор. |
 
 > Каждый раз после `git push` + деплоя — добавлять строку.
+
+---
+
+## Phase 13 — Автозаполнение SEO товаров (DONE)
+
+Команда `manage.py autofill_product_seo` + сервис `services/product_seo_autofill.py`.
+Заполняет пустые поля `seo_title`, `seo_description`, `seo_keywords`, `main_image_alt`,
+`short_description`, `full_description`, `care_instructions`, `target_audience` и создаёт
+5 стандартных FAQ. Идемпотентна. Прогон на проде: 64/65 товаров заполнено, 320 FAQ
+создано. Коммит: `db9a7b7f`.
+
+---
+
+## Phase 13.5 — Recraft в plain-text + theme-aware copy (DONE)
+
+**Проблема Phase 13**: HTML-теги (`<p>`, `<h3>`, `<ul>`) попадали в поля, рендерящиеся
+через `|linebreaksbr` — на странице товара отображались как сырой текст.
+
+**Фикс**:
+- `services/product_copy_v2.py` — plain-text генератор (paragraphs через `\n\n`).
+- `services/_product_themes.py` — **26 уникальных тем-карт** на 65 товаров (`classic`,
+  `my_little_baby`, `where_my_present`, `in_shee`, `business_money`, `last_breath`,
+  `kharkiv_district`, `pokrovsk_girl`, `death_grabs_ass`, `dvoznachni_summy`,
+  `lord_lending`, `red_leaves`, `na_toy_svit`, `kha_edition`, `kha_style`, `pojuy`,
+  `bentejne`, `limited_edition`, `t225`, `pokrovsk_v2`, `drones`, `silent_winter`,
+  `glory_ukraine`, `hool`, `idea_hd`, `reality_bends_pink`, `reality_dark_neon`,
+  `reality_mentol`, `beliveidea`). Каждая тема — уникальный intro, keywords, audience,
+  первый FAQ.
+- Безопасная перезапись по сигнатуре Phase 13.
+- `manage.py recraft_product_seo --dry-run/--slug/--include-drafts/--force`.
+- 12 тестов `storefront.tests.test_phase13b_recraft`.
+
+Прогон на проде: 64 товара пересозданы, 320 FAQ заменены. Коммит: `9a8cf591`.
+
+---
+
+## Phase 14 — UX-фиксы карточек товаров (PLAN)
+
+1. **CTA-кнопка** «Переглянути» → «Купити» в `partials/product_card.html`.
+2. **Color-filter-aware preview**: при `?color=<slug>` каждая карточка показывает
+   изображение варианта, чей slug совпадает с фильтром (фикс бага «выбрал чёрный, а
+   карточка кайот»). Ставим `product.preferred_card_image_url` в view'ах
+   `catalog`/`search`, и используем в `partials/product_card.html` ветке `home_card`.
+
+Тесты: расширение `test_phase9_color_filter` — 2 кейса на preview-mapping. Деплой:
+`collectstatic` + `restart`. Smoke: `/catalog/hoodie/?color=black` карточки чёрные.
+
+---
+
+## Phase 15 — Per-product SEO landing + dynamic top queries (PLAN)
+
+**Цель**: на каждой странице товара перед футером — блок такой же структуры, как
+в категории (top_filters / top_queries / top_menu + длинный текст), но с уникальным
+контентом per-product.
+
+**Архитектура**:
+
+- `services/product_seo_landing.py`:
+  - `build_landing(product, fit_code=None)` → генерит `landing_html` из темы Phase 13.5
+    + 2–3 параграфа с city-keys (Київ/Харків/Львів/Україна) + параграф про fit-варианты.
+    Уникальность гарантирована: используется title + theme + colors + fit_options.
+  - `build_top_queries(product)` → 10–14 chip'ов: категория+цвет, текущий товар в
+    другом цвете/посадке, `/custom-print/`, категория целиком, city-keyword chip'ы.
+- Опциональный admin override: `Product.seo_bottom_html` (TextField, blank=True),
+  миграция `0054`.
+- `top_filters` и `top_menu` блоки переиспользуем из `product.category` через
+  `get_category_seo_layout`.
+- Партиал `partials/product_seo_landing.html`. Внедрение в `pages/product_detail.html`
+  перед `recommended_products`.
+
+Тесты: 8–10 кейсов: уникальность, ключи, валидные href'ы, fallback, admin override.
+Деплой: `migrate storefront 0054`, `collectstatic`, `restart`.
+
+---
+
+## Phase 16 — Fit-aware SEO (PLAN)
+
+**Цель**: при выборе посадки meta description / H1 / landing адаптируются.
+
+- Используем существующий `preselected_fit_code` из `views/product.py`.
+- Передаём в `build_landing(product, fit_code=...)`.
+- Сервис вставляет «оверсайз»/«класична» в meta description, в H1/H2 landing, в
+  параграф про посадку, в top-queries chip про другую посадку.
+- **Canonical** остаётся базовым (Phase 7.3 уже так делает) — без дублей в индексе.
+
+Тесты: 5–7 кейсов. Деплой: `restart`.
+
+---
+
+> Phase 17+ (i18n RU/EN — бывшая Phase 14) — отложено в отдельную итерацию.
