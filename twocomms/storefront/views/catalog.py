@@ -9,6 +9,8 @@ Catalog views - Каталог товаров и категорий.
 - AJAX подгрузки товаров
 """
 
+from collections import defaultdict
+
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.core.paginator import Paginator, EmptyPage
@@ -36,6 +38,7 @@ from ..services.category_seo_blocks import (
     get_category_seo_layout,
 )
 from ..services.general_catalog_seo import get_general_catalog_seo_layout
+from ..services.color_seo_copy import build_catalog_color_seo
 from ..services.color_filter import (
     apply_color_filter,
     build_available_colors,
@@ -103,6 +106,81 @@ def _match_showcase_category(categories, config):
     return None
 
 
+def _compute_showcase_swatches(category_ids, fallback_per_category):
+    """Phase 19g (2026-05-10): replace hard-coded swatches on showcase cards.
+
+    Build, per category, the list of up to 4 most-used colour hexes
+    derived from live ``ProductColorVariant`` rows of *published*
+    products. The legacy hard-coded palettes were category-agnostic
+    (every "tshirt" card showed the same 4 swatches even when the
+    catalogue carried a totally different colour mix), which the
+    user perceived as random. Returning real on-stock hexes makes
+    the showcase reflect actual inventory and doubles as a tiny SEO
+    signal (the swatches mirror the colours the catalogue can be
+    filtered by).
+
+    Args:
+        category_ids: iterable of category PKs to compute for.
+        fallback_per_category: ``{cat_id: tuple(hex, ...)}`` defaults
+            used when a category has no published variants on file
+            (keeps the showcase visually intact for empty categories).
+
+    Returns:
+        ``{cat_id: tuple(hex, hex, hex, hex)}`` — always 4 hexes; the
+        list is padded from the fallback tuple if DB carries fewer.
+    """
+    if not category_ids:
+        return {}
+
+    from productcolors.models import ProductColorVariant
+
+    # One query, grouped by (category_id, primary_hex). Unique colours
+    # per category sorted by usage so the most-stocked colour leads.
+    rows = (
+        ProductColorVariant.objects
+        .filter(
+            product__category_id__in=list(category_ids),
+            product__status='published',
+        )
+        .values('product__category_id', 'color__primary_hex')
+        .annotate(usage=Count('id'))
+        .order_by('product__category_id', '-usage')
+    )
+
+    by_category: dict[int, list[str]] = defaultdict(list)
+    seen_per_category: dict[int, set[str]] = defaultdict(set)
+    for row in rows:
+        cat_id = row['product__category_id']
+        hex_value = (row['color__primary_hex'] or '').strip()
+        if not hex_value:
+            continue
+        if hex_value in seen_per_category[cat_id]:
+            continue
+        if len(by_category[cat_id]) >= 4:
+            continue
+        by_category[cat_id].append(hex_value)
+        seen_per_category[cat_id].add(hex_value)
+
+    result: dict[int, tuple[str, ...]] = {}
+    for cat_id in category_ids:
+        live = by_category.get(cat_id, [])
+        fallback = list(fallback_per_category.get(cat_id, ('#050505',)))
+        # Pad to exactly 4 entries by topping up from the fallback
+        # (avoids a visually broken card when a category has 1 colour).
+        merged: list[str] = list(live)
+        for hex_value in fallback:
+            if len(merged) >= 4:
+                break
+            if hex_value not in merged:
+                merged.append(hex_value)
+        if not merged:
+            merged = list(fallback) or ['#050505']
+        while len(merged) < 4:
+            merged.append(merged[-1])
+        result[cat_id] = tuple(merged[:4])
+    return result
+
+
 def _build_catalog_showcase_cards(categories):
     matched_categories = {}
     for config in CATALOG_SHOWCASE_CARD_CONFIG:
@@ -121,14 +199,28 @@ def _build_catalog_showcase_cards(categories):
             ).values('category_id').annotate(total=Count('id'))
         }
 
+    # Phase 19g: build per-category fallback map from the legacy
+    # hard-coded palettes so categories with no published variants
+    # still render visually identical to the pre-fix design.
+    fallback_swatches = {
+        category.id: next(
+            (cfg['swatches'] for cfg in CATALOG_SHOWCASE_CARD_CONFIG if cfg['key'] == key),
+            ('#050505',),
+        )
+        for key, category in matched_categories.items()
+    }
+    live_swatches = _compute_showcase_swatches(category_ids, fallback_swatches)
+
     cards = []
     for config in CATALOG_SHOWCASE_CARD_CONFIG:
         category = matched_categories.get(config['key'])
-        cards.append({
-            **config,
-            'category': category,
-            'product_count': product_counts.get(category.id, 0) if category else None,
-        })
+        # Override the static config swatches with live ones when
+        # available; preserve the rest of the config unchanged.
+        card = {**config, 'category': category}
+        if category and category.id in live_swatches:
+            card['swatches'] = live_swatches[category.id]
+        card['product_count'] = product_counts.get(category.id, 0) if category else None
+        cards.append(card)
     return cards
 
 def _product_cards_queryset():
@@ -428,6 +520,17 @@ def catalog(request, cat_slug=None):
                     categories=categories,
                     available_colors=available_colors,
                 )
+            ),
+            # Phase 19g — colour-aware SEO copy. Renders on /catalog/ root
+            # (brand-level landing) and on any catalog screen with an
+            # active colour filter (cross-category or per-category x
+            # colour). Returns None for /catalog/<cat>/ without a colour
+            # filter so we don't double-up on the existing
+            # ``category.description`` SEO text.
+            'color_seo_copy': build_catalog_color_seo(
+                category=category,
+                selected_color_slugs=selected_color_slugs,
+                available_colors=available_colors,
             ),
         }
     )

@@ -1,0 +1,40 @@
+{% comment %}
+  Phase 19g (2026-05-10) — colour-aware SEO copy block.
+
+  Inputs:
+    color_seo_copy — dict from
+      ``services.color_seo_copy.build_catalog_color_seo``:
+        {
+          "h2": str,
+          "paragraphs": [str, ...],   # raw HTML allowed (curated copy)
+          "queries":   [{"label", "url", "freq": "hf"|"mf"|"lf"}],
+          "color_slug": str | "",
+        }
+
+  Renders ``None`` when ``color_seo_copy`` is empty or missing.
+{% endcomment %}
+{% if color_seo_copy %}
+<section class="catalog-color-seo"
+         aria-label="SEO-опис {{ color_seo_copy.color_slug|default:'каталога' }}"
+         data-color-seo-color="{{ color_seo_copy.color_slug|default:'' }}">
+  <h2 class="catalog-color-seo__title">{{ color_seo_copy.h2 }}</h2>
+  <div class="catalog-color-seo__body">
+    {% for paragraph in color_seo_copy.paragraphs %}
+    <p>{{ paragraph|safe }}</p>
+    {% endfor %}
+  </div>
+
+  {% if color_seo_copy.queries %}
+  <div class="catalog-color-seo__queries" role="navigation"
+       aria-label="Популярні запити цього розділу">
+    {% for query in color_seo_copy.queries %}
+    <a class="catalog-color-seo__chip catalog-color-seo__chip--{{ query.freq }}"
+       href="{{ query.url }}"
+       data-freq="{{ query.freq }}">
+      {{ query.label }}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}

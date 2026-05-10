@@ -400,6 +400,17 @@
     </div>
   </section>
   {% endif %}
+
+  {# Phase 19g (2026-05-10): colour-aware SEO copy. Renders on /catalog/ root and on any catalog screen with ?color=<slug>. Skipped for /catalog/<cat>/ without a colour filter (existing category.description block above already covers SEO). #}
+  {% if color_seo_copy %}
+  <section class="catalog-category-description catalog-category-description--color-aware">
+    <div class="catalog-redesign-container">
+      <div class="catalog-description-panel">
+        {% include "partials/catalog_color_seo.html" %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
 </div>
 {% endblock %}
 
