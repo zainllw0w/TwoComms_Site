@@ -1,4 +1,5 @@
-{% extends "base.html" %}{% load static %}{% load cache %}{% load seo_tags %}{% load responsive_images %}{% load admin_filters %}
+{% extends "base.html" %}
+{% load i18n %}{% load static %}{% load cache %}{% load seo_tags %}{% load responsive_images %}{% load admin_filters %}
 
 {% comment %}
   Phase 7.3 — variant-aware SEO meta. When the URL carries path
@@ -103,7 +104,7 @@ CSS rules на mobile FCP/LCP window.
   <div class="tc-pdp-bg" aria-hidden="true"></div>
 
   <div class="tc-pdp-grid">
-    <section class="tc-media-panel" aria-label="Галерея товару">
+    <section class="tc-media-panel" aria-label="{% trans 'Галерея товару' %}">
       <div class="tc-gallery-card">
       <div class="tc-media-stage" id="mainImageWrapper">
         <div class="tc-media-ambient" aria-hidden="true"></div>
@@ -128,8 +129,8 @@ CSS rules на mobile FCP/LCP window.
             data-initial-image="{{ ph_url }}"
             data-zoom="{{ ph_url }}">
         {% endif %}
-        <div class="tc-media-controls" aria-label="Дії з фото">
-          <button type="button" class="tc-icon-btn" data-gallery-zoom aria-label="Збільшити фото">
+        <div class="tc-media-controls" aria-label="{% trans 'Дії з фото' %}">
+          <button type="button" class="tc-icon-btn" data-gallery-zoom aria-label="{% trans 'Збільшити фото' %}">
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Zm0-2a8 8 0 0 1 6.32 12.9l3.39 3.39-1.42 1.42-3.39-3.39A8 8 0 1 1 11 3Zm-1 4h2v3h3v2h-3v3h-2v-3H7v-2h3V7Z" fill="currentColor"/>
             </svg>
@@ -138,24 +139,24 @@ CSS rules на mobile FCP/LCP window.
       </div>
 
       <div class="tc-thumb-shell">
-        <button type="button" class="tc-thumb-nav" data-thumb-prev aria-label="Попереднє фото">‹</button>
-        <div class="tc-thumb-strip" id="productThumbnails" aria-label="Мініатюри товару"></div>
-        <button type="button" class="tc-thumb-nav" data-thumb-next aria-label="Наступне фото">›</button>
+        <button type="button" class="tc-thumb-nav" data-thumb-prev aria-label="{% trans 'Попереднє фото' %}">‹</button>
+        <div class="tc-thumb-strip" id="productThumbnails" aria-label="{% trans 'Мініатюри товару' %}"></div>
+        <button type="button" class="tc-thumb-nav" data-thumb-next aria-label="{% trans 'Наступне фото' %}">›</button>
       </div>
       </div>
 
-      <div class="tc-trust-strip" aria-label="Переваги покупки">
+      <div class="tc-trust-strip" aria-label="{% trans 'Переваги покупки' %}">
         <div class="tc-trust-item">
           <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h11v8h2.2l2-3H21v7h-2a3 3 0 0 1-6 0H9a3 3 0 0 1-6 0H1V8a2 2 0 0 1 2-2Zm0 2v8.18A3 3 0 0 1 8.82 16H12V8H3Zm13 5v3h1.18A3 3 0 0 1 19 16.18V13h-3ZM6 17.5A1.5 1.5 0 1 0 6 20a1.5 1.5 0 0 0 0-2.5Zm10 1A1.5 1.5 0 1 0 19 18.5a1.5 1.5 0 0 0-3 0Z" fill="currentColor"/></svg>
-          <span><strong>Швидка відправка</strong><small>1-2 дні по Україні</small></span>
+          <span><strong>{% trans 'Швидка відправка' %}</strong><small>{% trans '1-2 дні по Україні' %}</small></span>
         </div>
         <div class="tc-trust-item">
           <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm0 2.14L18 6.4V11c0 3.9-2.42 7.64-6 8.86C8.42 18.64 6 14.9 6 11V6.4l6-2.26Zm3.7 5.16 1.4 1.4-5.8 5.8-3.4-3.4 1.4-1.4 2 2 4.4-4.4Z" fill="currentColor"/></svg>
-          <span><strong>Індивідуальний підхід</strong><small>Допоможемо з вибором</small></span>
+          <span><strong>{% trans 'Індивідуальний підхід' %}</strong><small>{% trans 'Допоможемо з вибором' %}</small></span>
         </div>
         <div class="tc-trust-item">
           <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V6a6 6 0 1 1-5.3 3.2L5.24 7.74A8 8 0 1 0 17.65 6.35Z" fill="currentColor"/></svg>
-          <span><strong>Обмін розміру</strong><small>14 днів на обмін</small></span>
+          <span><strong>{% trans 'Обмін розміру' %}</strong><small>{% trans '14 днів на обмін' %}</small></span>
         </div>
       </div>
 
@@ -164,12 +165,12 @@ CSS rules на mobile FCP/LCP window.
           <img src="{% static 'img/logo.svg' %}" alt="" width="96" height="96" loading="lazy">
         </span>
         <span class="tc-custom-print-copy">
-          <strong>Індивідуальний позивний або бренд?</strong>
-          <small>Створимо принт з нуля під ваш позивний, логотип або ідею. Унікальна річ разом з TwoComms.</small>
+          <strong>{% trans 'Індивідуальний позивний або бренд?' %}</strong>
+          <small>{% trans 'Створимо принт з нуля під ваш позивний, логотип або ідею. Унікальна річ разом з TwoComms.' %}</small>
         </span>
         <span class="tc-custom-print-action">
           <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V21h3.75L18.8 9.95l-3.75-3.75L4 17.25Zm13.7-8.7-2.25-2.25 1.4-1.4a1.06 1.06 0 0 1 1.5 0l.75.75c.42.42.42 1.08 0 1.5l-1.4 1.4Z" fill="currentColor"/></svg>
-          Створити свій принт
+          {% trans 'Створити свій принт' %}
           <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="m13.17 12-4.58-4.59L10 6l6 6-6 6-1.41-1.41L13.17 12Z" fill="currentColor"/></svg>
         </span>
       </a>
@@ -189,11 +190,11 @@ CSS rules на mobile FCP/LCP window.
       data-product-slug="{{ product.slug }}"
       data-product-base-path="{% url 'product' slug=product.slug %}"
       data-product-title-base="{{ product.title|escapejs }}">
-      <div class="tc-product-panel-actions" aria-label="Дії з товаром">
-        <button type="button" class="tc-panel-icon-btn" data-product-id="{{ product.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати до обраних">
+      <div class="tc-product-panel-actions" aria-label="{% trans 'Дії з товаром' %}">
+        <button type="button" class="tc-panel-icon-btn" data-product-id="{{ product.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="{% trans 'Додати до обраних' %}">
           <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.1 20.55 12 20.65l-.11-.1C7.14 16.24 4 13.39 4 10.5A3.5 3.5 0 0 1 7.5 7c1.54 0 3.04.99 3.57 2.36h1.87A3.9 3.9 0 0 1 16.5 7a3.5 3.5 0 0 1 3.5 3.5c0 2.89-3.14 5.74-7.9 10.05ZM16.5 5c-1.74 0-3.41.81-4.5 2.08A5.96 5.96 0 0 0 7.5 5 5.5 5.5 0 0 0 2 10.5c0 3.75 3.4 6.84 8.55 11.51L12 23.35l1.45-1.32C18.6 17.34 22 14.25 22 10.5A5.5 5.5 0 0 0 16.5 5Z" fill="currentColor"/></svg>
         </button>
-        <button type="button" class="tc-panel-icon-btn" data-share-action="native" data-share-copy aria-label="Поділитися товаром">
+        <button type="button" class="tc-panel-icon-btn" data-share-action="native" data-share-copy aria-label="{% trans 'Поділитися товаром' %}">
           <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7a3.27 3.27 0 0 0 0-1.39l7.05-4.11A2.99 2.99 0 1 0 15 5c0 .24.03.47.08.69L8.03 9.8a3 3 0 1 0 0 4.4l7.11 4.17c-.04.2-.06.41-.06.63a2.92 2.92 0 1 0 2.92-2.92Z" fill="currentColor"/></svg>
         </button>
       </div>
@@ -210,18 +211,18 @@ CSS rules на mobile FCP/LCP window.
       {% endcomment %}
       {% if product_review_summary and product_review_summary.count >= 3 %}
       <div class="tc-product-meta">
-        <a href="#product-reviews" class="tc-rating-safe" aria-label="Рейтинг товару, {{ product_review_summary.count }} відгуків">
+        <a href="#product-reviews" class="tc-rating-safe" aria-label="{% blocktrans count counter=product_review_summary.count %}Рейтинг товару, {{ counter }} відгук{% plural %}Рейтинг товару, {{ counter }} відгуків{% endblocktrans %}">
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.97 6.02 6.64.97-4.8 4.68 1.13 6.61L12 17.16l-5.94 3.12 1.13-6.61-4.8-4.68 6.64-.97L12 2Z" fill="currentColor"/></svg>
           <strong>{{ product_review_summary.average|floatformat:1 }}</strong>
-          <span>({{ product_review_summary.count }} відгук{{ product_review_summary.count|pluralize:"и,ів" }})</span>
+          <span>({% blocktrans count counter=product_review_summary.count %}{{ counter }} відгук{% plural %}{{ counter }} відгуків{% endblocktrans %})</span>
         </a>
       </div>
       {% endif %}
 
-      <div class="tc-badge-row" aria-label="Особливості товару">
+      <div class="tc-badge-row" aria-label="{% trans 'Особливості товару' %}">
         <span class="tc-info-badge">
           <span class="tc-badge-emoji" aria-hidden="true">💎</span>
-          Преміум тканина
+          {% trans 'Преміум тканина' %}
         </span>
         <span class="tc-info-badge">
           <span class="tc-badge-emoji" aria-hidden="true">🇺🇦</span>
@@ -229,36 +230,36 @@ CSS rules на mobile FCP/LCP window.
         </span>
         <span class="tc-info-badge">
           <span class="tc-badge-emoji" aria-hidden="true">🔥</span>
-          Лімітований дроп
+          {% trans 'Лімітований дроп' %}
         </span>
       </div>
 
       <div class="tc-price-row">
         <div class="tc-price-values">
-          <span class="tc-current-price">{{ product.final_price }} грн</span>
+          <span class="tc-current-price">{{ product.final_price }} {% trans 'грн' %}</span>
           {% if product.has_discount %}
-            <span class="tc-old-price">{{ product.price }} грн</span>
+            <span class="tc-old-price">{{ product.price }} {% trans 'грн' %}</span>
             <span class="tc-discount-badge">-{{ product.discount_percent }}%</span>
           {% endif %}
         </div>
         {% if product.points_reward > 0 %}
-          <button type="button" class="tc-points-pill" data-bs-toggle="modal" data-bs-target="#pointsInfoModal" data-product-title="{{ product.title }}" data-points-amount="{{ product.points_reward }}" aria-label="Бонусні бали за покупку: {{ product.points_reward }}">
+          <button type="button" class="tc-points-pill" data-bs-toggle="modal" data-bs-target="#pointsInfoModal" data-product-title="{{ product.title }}" data-points-amount="{{ product.points_reward }}" aria-label="{% blocktrans with n=product.points_reward %}Бонусні бали за покупку: {{ n }}{% endblocktrans %}">
             <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.97 6.02 6.64.97-4.8 4.68 1.13 6.61L12 17.16l-5.94 3.12 1.13-6.61-4.8-4.68 6.64-.97L12 2Z" fill="currentColor"/></svg>
-            <span>+{{ product.points_reward }} балів</span>
+            <span>+{% blocktrans count counter=product.points_reward %}{{ counter }} бал{% plural %}{{ counter }} балів{% endblocktrans %}</span>
           </button>
         {% endif %}
       </div>
 
       <div class="tc-selector-block">
         <div class="tc-selector-head">
-          <span>Розмір</span>
+          <span>{% trans 'Розмір' %}</span>
           <a href="{% url 'size_guide' %}" class="tc-soft-link">
             <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V21h3.75L18.8 9.95l-3.75-3.75L4 17.25Zm13.7-8.7-2.25-2.25 1.4-1.4a1.06 1.06 0 0 1 1.5 0l.75.75c.42.42.42 1.08 0 1.5l-1.4 1.4Z" fill="currentColor"/></svg>
-            Як обрати розмір?
+            {% trans 'Як обрати розмір?' %}
           </a>
         </div>
         {% if available_sizes %}
-          <div class="tc-size-grid" role="radiogroup" aria-label="Розмір">
+          <div class="tc-size-grid" role="radiogroup" aria-label="{% trans 'Розмір' %}">
             {% for size in available_sizes %}
               <input
                 type="radio"
@@ -274,15 +275,15 @@ CSS rules на mobile FCP/LCP window.
             {% endfor %}
           </div>
         {% else %}
-          <p class="tc-muted-copy mb-0">Розміри уточнюються менеджером після замовлення.</p>
+          <p class="tc-muted-copy mb-0">{% trans 'Розміри уточнюються менеджером після замовлення.' %}</p>
         {% endif %}
       </div>
 
       <div class="tc-selector-split">
         <div class="tc-selector-block">
-          <div class="tc-selector-head"><span>Колір</span></div>
+          <div class="tc-selector-head"><span>{% trans 'Колір' %}</span></div>
           {% if color_variants %}
-            <div class="tc-color-row" id="color-picker" aria-label="Колір">
+            <div class="tc-color-row" id="color-picker" aria-label="{% trans 'Колір' %}">
               {% for v in color_variants %}
                 <span class="tc-color-choice">
                   <button
@@ -293,22 +294,22 @@ CSS rules на mobile FCP/LCP window.
                     data-primary="{{ v.primary_hex }}"
                     data-secondary="{{ v.secondary_hex|default:'' }}"
                     style="--primary-color: {{ v.primary_hex }}; --secondary-color: {{ v.secondary_hex|default:v.primary_hex }};"
-                    aria-label="Колір {{ v.name|default:forloop.counter }}">
+                    aria-label="{% trans 'Колір' %} {{ v.name|default:forloop.counter }}">
                     <span class="tc-color-dot"></span>
                   </button>
-                  <span>{{ v.name|default:"Колір" }}</span>
+                  <span>{{ v.name|default:_('Колір') }}</span>
                 </span>
               {% endfor %}
             </div>
           {% else %}
-            <p class="tc-muted-copy mb-0">Для цього товару доступний один колір.</p>
+            <p class="tc-muted-copy mb-0">{% trans 'Для цього товару доступний один колір.' %}</p>
           {% endif %}
         </div>
 
         {% if show_fit_selector %}
           <div class="tc-selector-block" data-fit-selector>
-            <div class="tc-selector-head"><span>Посадка</span></div>
-            <div class="tc-fit-grid" role="radiogroup" aria-label="Посадка">
+            <div class="tc-selector-head"><span>{% trans 'Посадка' %}</span></div>
+            <div class="tc-fit-grid" role="radiogroup" aria-label="{% trans 'Посадка' %}">
               {% for option in fit_options %}
                 <input
                   type="radio"
@@ -339,13 +340,13 @@ CSS rules на mobile FCP/LCP window.
       </div>
 
       <div class="tc-product-tabs" data-pdp-tabs>
-        <div class="tc-tab-list" role="tablist" aria-label="Інформація про товар">
-          <button type="button" class="tc-tab-btn active" id="tab-desc" role="tab" aria-controls="panel-desc" aria-selected="true" data-pdp-tab="desc">Опис</button>
-          <button type="button" class="tc-tab-btn" id="tab-size" role="tab" aria-controls="panel-size" aria-selected="false" data-pdp-tab="size">Розмірна сітка</button>
-          <button type="button" class="tc-tab-btn" id="tab-delivery" role="tab" aria-controls="panel-delivery" aria-selected="false" data-pdp-tab="delivery">Доставка</button>
-          <button type="button" class="tc-tab-btn" id="tab-care" role="tab" aria-controls="panel-care" aria-selected="false" data-pdp-tab="care">Догляд</button>
+        <div class="tc-tab-list" role="tablist" aria-label="{% trans 'Інформація про товар' %}">
+          <button type="button" class="tc-tab-btn active" id="tab-desc" role="tab" aria-controls="panel-desc" aria-selected="true" data-pdp-tab="desc">{% trans 'Опис' %}</button>
+          <button type="button" class="tc-tab-btn" id="tab-size" role="tab" aria-controls="panel-size" aria-selected="false" data-pdp-tab="size">{% trans 'Розмірна сітка' %}</button>
+          <button type="button" class="tc-tab-btn" id="tab-delivery" role="tab" aria-controls="panel-delivery" aria-selected="false" data-pdp-tab="delivery">{% trans 'Доставка' %}</button>
+          <button type="button" class="tc-tab-btn" id="tab-care" role="tab" aria-controls="panel-care" aria-selected="false" data-pdp-tab="care">{% trans 'Догляд' %}</button>
           {% if product_faq_items %}
-            <button type="button" class="tc-tab-btn" id="tab-faq" role="tab" aria-controls="panel-faq" aria-selected="false" data-pdp-tab="faq">FAQ товару</button>
+            <button type="button" class="tc-tab-btn" id="tab-faq" role="tab" aria-controls="panel-faq" aria-selected="false" data-pdp-tab="faq">{% trans 'FAQ товару' %}</button>
           {% endif %}
         </div>
 

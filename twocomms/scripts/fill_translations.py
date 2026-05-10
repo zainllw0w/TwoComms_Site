@@ -204,6 +204,65 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "%(counter)s товарів":    {"ru": "%(counter)s товаров", "en": "%(counter)s items"},
     "%(counter)s товар знайдено": {"ru": "%(counter)s товар найден", "en": "%(counter)s item found"},
     "%(counter)s товарів знайдено": {"ru": "%(counter)s товаров найдено", "en": "%(counter)s items found"},
+
+    # ===== Product detail page (PDP) =====
+    "Галерея товару":         {"ru": "Галерея товара",     "en": "Product gallery"},
+    "Дії з фото":             {"ru": "Действия с фото",    "en": "Photo actions"},
+    "Збільшити фото":         {"ru": "Увеличить фото",     "en": "Zoom photo"},
+    "Попереднє фото":         {"ru": "Предыдущее фото",    "en": "Previous photo"},
+    "Наступне фото":          {"ru": "Следующее фото",     "en": "Next photo"},
+    "Мініатюри товару":       {"ru": "Миниатюры товара",   "en": "Product thumbnails"},
+    "Переваги покупки":       {"ru": "Преимущества покупки", "en": "Purchase benefits"},
+    "Швидка відправка":       {"ru": "Быстрая отправка",   "en": "Fast shipping"},
+    "1-2 дні по Україні":     {"ru": "1-2 дня по Украине", "en": "1-2 days in Ukraine"},
+    "Індивідуальний підхід":  {"ru": "Индивидуальный подход", "en": "Personal approach"},
+    "Допоможемо з вибором":   {"ru": "Поможем с выбором",  "en": "We help with the choice"},
+    "Обмін розміру":          {"ru": "Обмен размера",      "en": "Size exchange"},
+    "14 днів на обмін":       {"ru": "14 дней на обмен",   "en": "14 days for exchange"},
+    "Індивідуальний позивний або бренд?": {
+        "ru": "Индивидуальный позывной или бренд?",
+        "en": "Custom call sign or brand?",
+    },
+    "Створимо принт з нуля під ваш позивний, логотип або ідею. Унікальна річ разом з TwoComms.": {
+        "ru": "Создадим принт с нуля под ваш позывной, логотип или идею. Уникальная вещь вместе с TwoComms.",
+        "en": "We'll design a print from scratch for your call sign, logo or idea. A unique piece with TwoComms.",
+    },
+    "Дії з товаром":          {"ru": "Действия с товаром", "en": "Product actions"},
+    "Поділитися товаром":     {"ru": "Поделиться товаром", "en": "Share product"},
+    "Особливості товару":     {"ru": "Особенности товара", "en": "Product features"},
+    "Преміум тканина":        {"ru": "Премиум ткань",      "en": "Premium fabric"},
+    "Лімітований дроп":       {"ru": "Лимитированный дроп", "en": "Limited drop"},
+    "Розмір":                 {"ru": "Размер",             "en": "Size"},
+    "Як обрати розмір?":      {"ru": "Как выбрать размер?", "en": "How to choose a size?"},
+    "Розміри уточнюються менеджером після замовлення.": {
+        "ru": "Размеры уточняются менеджером после заказа.",
+        "en": "Sizes are confirmed by the manager after the order is placed.",
+    },
+    "Для цього товару доступний один колір.": {
+        "ru": "Для этого товара доступен один цвет.",
+        "en": "Only one color is available for this product.",
+    },
+    "Посадка":                {"ru": "Посадка",            "en": "Fit"},
+    "Інформація про товар":   {"ru": "Информация о товаре", "en": "Product information"},
+    "Опис":                   {"ru": "Описание",           "en": "Description"},
+    "Розмірна сітка":         {"ru": "Размерная сетка",    "en": "Size guide"},
+    "Догляд":                 {"ru": "Уход",               "en": "Care"},
+    "FAQ товару":             {"ru": "FAQ товара",         "en": "Product FAQ"},
+    # PDP plurals + dynamic strings
+    "Рейтинг товару, %(counter)s відгук": {
+        "ru": "Рейтинг товара, %(counter)s отзыв",
+        "en": "Product rating, %(counter)s review",
+    },
+    "Рейтинг товару, %(counter)s відгуків": {
+        "ru": "Рейтинг товара, %(counter)s отзывов",
+        "en": "Product rating, %(counter)s reviews",
+    },
+    "%(counter)s відгук":     {"ru": "%(counter)s отзыв",  "en": "%(counter)s review"},
+    "%(counter)s відгуків":   {"ru": "%(counter)s отзывов", "en": "%(counter)s reviews"},
+    "Бонусні бали за покупку: %(n)s": {
+        "ru": "Бонусные баллы за покупку: %(n)s",
+        "en": "Bonus points for the purchase: %(n)s",
+    },
 }
 
 
