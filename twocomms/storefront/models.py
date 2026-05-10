@@ -37,6 +37,21 @@ class Category(models.Model):
             'фільтру категорії.'
         ),
     )
+    # Phase 19h (2026-05-10) — admin-editable showcase swatches.
+    # Optional list of hex strings (e.g. ["#000000","#fafafa"]) that
+    # OVERRIDES the live ``_compute_showcase_swatches`` output for this
+    # category on the catalog showcase card. Empty list → use live
+    # data (suppressing one-product outliers via min_usage threshold).
+    showcase_swatch_hexes = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='Свотчі на showcase-картці',
+        help_text=(
+            'Список hex-кольорів для картки в /catalog/ (наприклад '
+            '["#000000","#fafafa"]). Якщо порожньо — обчислюються '
+            'автоматично з товарів категорії (відсіюючи одиничні).'
+        ),
+    )
     is_active = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
     # AI-generated content fields
@@ -2015,3 +2030,100 @@ class CategorySeoBlockItem(models.Model):
 
     def __str__(self):
         return f"{self.block_id} · {self.label}"
+
+
+# ===== Phase 19h (2026-05-10) — admin-editable colour-aware SEO copy =====
+#
+# Curated copy for /catalog/ root, /catalog/?color=<slug> and
+# /catalog/<cat>/?color=<slug> lives in ``services/color_seo_copy.py``
+# as a hand-written palette. To let the team tune the wording without
+# a code deploy, this model captures per-(scope, color, category)
+# overrides that the service consults *before* falling back to the
+# curated palette.
+
+class CatalogColorSeoOverride(models.Model):
+    """Override for the colour-aware SEO copy on catalog screens."""
+
+    SCOPE_GENERAL = "general"     # /catalog/ (no colour, no category)
+    SCOPE_BRAND = "brand"         # /catalog/?color=<slug>
+    SCOPE_CATEGORY = "category"   # /catalog/<cat>/?color=<slug>
+
+    SCOPE_CHOICES = (
+        (SCOPE_GENERAL, "Загальний каталог /catalog/"),
+        (SCOPE_BRAND, "Каталог /catalog/?color=<колір>"),
+        (SCOPE_CATEGORY, "Категорія /catalog/<cat>/?color=<колір>"),
+    )
+
+    scope = models.CharField(
+        max_length=12,
+        choices=SCOPE_CHOICES,
+        verbose_name="Контекст",
+    )
+    color_slug = models.SlugField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="Slug кольору",
+        help_text=(
+            "Заповніть для контекстів «brand»/«category» (наприклад "
+            "«black», «coyote»). Залиште порожнім для «general»."
+        ),
+    )
+    category = models.ForeignKey(
+        Category,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="color_seo_overrides",
+        verbose_name="Категорія",
+        help_text="Заповніть для контексту «category»; залиште порожнім для «brand»/«general».",
+    )
+    h2 = models.CharField(
+        max_length=300,
+        blank=True,
+        verbose_name="Заголовок (H2)",
+        help_text="Якщо порожньо — використовується курований заголовок з коду.",
+    )
+    body_html = models.TextField(
+        blank=True,
+        verbose_name="HTML-параграфи",
+        help_text=(
+            "Параграфи у форматі HTML (наприклад '<p>Перший абзац…</p>"
+            "<p>Другий…</p>'). Дозволені теги <a>, <strong>, <em>. "
+            "Якщо порожньо — використовуються куровані параграфи з коду."
+        ),
+    )
+    queries_json = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Чипи-запити",
+        help_text=(
+            "JSON-масив об’єктів {label, url, freq}, де freq — 'hf' / "
+            "'mf' / 'lf'. Якщо порожньо — використовуються куровані з коду."
+        ),
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Активний")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+
+    class Meta:
+        verbose_name = "SEO-копія каталогу за кольором"
+        verbose_name_plural = "SEO-копії каталогу за кольорами"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["scope", "color_slug", "category"],
+                name="uq_color_seo_override_scope_slug_cat",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["scope", "color_slug"], name="idx_clrseo_scope_slug"),
+            models.Index(fields=["category"], name="idx_clrseo_category"),
+            models.Index(fields=["is_active"], name="idx_clrseo_active"),
+        ]
+
+    def __str__(self):  # pragma: no cover - admin display only
+        bits = [self.get_scope_display()]
+        if self.color_slug:
+            bits.append(self.color_slug)
+        if self.category_id:
+            bits.append(f"cat#{self.category_id}")
+        return " · ".join(bits)

@@ -315,6 +315,112 @@
       </a>
     </div>
   </section>
+
+  {# ---------- Phase 19h — colour-aware SEO copy + showcase swatches ---------- #}
+  <section class="seo-card" aria-label="Colour SEO overrides + showcase swatches">
+    <h3>Phase 19h — Кольорові SEO-блоки і свотчі каталогу</h3>
+    <p style="color: rgba(255,255,255,0.6); font-size: 0.88rem; margin: 0.25rem 0 0.75rem;">
+      Куровані SEO-тексти для <code>/catalog/</code>, <code>/catalog/?color=…</code> та
+      <code>/catalog/&lt;cat&gt;/?color=…</code> живуть у коді
+      (<code>services/color_seo_copy.py</code>). Тут можна <strong>override-ити</strong> H2,
+      параграфи й чипи — без деплою. Свотчі на головних картках каталогу беруться з
+      реальних товарів (відсіюючи одиничні цвіти); admin може задати власний список.
+    </p>
+
+    {% if color_seo_overrides.counts %}
+    <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0.5rem 0 0.75rem;">
+      <span class="seo-pill is-on">Активних: {{ color_seo_overrides.counts.active|default:0 }}</span>
+      <span class="seo-pill">general: {{ color_seo_overrides.counts.general|default:0 }}</span>
+      <span class="seo-pill">brand: {{ color_seo_overrides.counts.brand|default:0 }}</span>
+      <span class="seo-pill">category: {{ color_seo_overrides.counts.category|default:0 }}</span>
+    </div>
+    {% endif %}
+
+    {% if color_seo_overrides.rows %}
+    <table class="seo-table">
+      <thead>
+        <tr>
+          <th>Контекст</th>
+          <th>Колір</th>
+          <th>Категорія</th>
+          <th>H2</th>
+          <th>Поля</th>
+          <th>Активний</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in color_seo_overrides.rows %}
+        <tr>
+          <td>{{ row.scope_label }}</td>
+          <td>{% if row.color_slug %}<code>{{ row.color_slug }}</code>{% else %}—{% endif %}</td>
+          <td>{% if row.category_name %}{{ row.category_name }}{% else %}—{% endif %}</td>
+          <td style="max-width: 320px;">{{ row.h2|default:"(курований)" }}</td>
+          <td>
+            {% if row.has_body %}<span class="seo-pill is-on">текст</span>{% endif %}
+            {% if row.has_queries %}<span class="seo-pill is-on">чипи</span>{% endif %}
+          </td>
+          <td>
+            {% if row.is_active %}
+              <span class="seo-pill is-on">так</span>
+            {% else %}
+              <span class="seo-pill is-off">ні</span>
+            {% endif %}
+          </td>
+          <td>
+            <a class="seo-quick-link"
+               href="/admin/storefront/catalogcolorseooverride/{{ row.id }}/change/"
+               target="_blank" rel="noopener">Редагувати</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color: rgba(255,255,255,0.55); font-size: 0.88rem; margin: 0.4rem 0;">
+      Override-ів ще немає — на сайті використовуються куровані тексти з коду.
+      Створіть перший override, щоб переписати конкретний H2/параграф/чипи.
+    </p>
+    {% endif %}
+
+    {% if color_seo_overrides.categories_with_swatches %}
+    <h4 style="margin: 1rem 0 0.4rem; font-size: 0.95rem;">
+      Свотчі категорій (override з адмінки)
+    </h4>
+    <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem;">
+      {% for cat in color_seo_overrides.categories_with_swatches %}
+      <li style="display: flex; align-items: center; gap: 0.6rem;">
+        <strong>{{ cat.name }}</strong>
+        <code style="opacity: 0.7;">{{ cat.slug }}</code>
+        <span style="display: inline-flex; gap: 4px;">
+          {% for hex in cat.showcase_swatch_hexes %}
+            <span title="{{ hex }}"
+                  style="width:14px;height:14px;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:{{ hex }};"></span>
+          {% endfor %}
+        </span>
+        <a class="seo-quick-link"
+           href="/admin/storefront/category/{{ cat.id }}/change/"
+           target="_blank" rel="noopener">Редагувати</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <div class="seo-quick-links" style="margin-top: 1rem;">
+      <a class="seo-quick-link" href="/admin/storefront/catalogcolorseooverride/" target="_blank" rel="noopener">
+        Усі кольорові override-и
+      </a>
+      <a class="seo-quick-link" href="/admin/storefront/catalogcolorseooverride/add/" target="_blank" rel="noopener">
+        + Створити override
+      </a>
+      <a class="seo-quick-link" href="/catalog/" target="_blank" rel="noopener">
+        /catalog/
+      </a>
+      <a class="seo-quick-link" href="/catalog/?color=black" target="_blank" rel="noopener">
+        /catalog/?color=black
+      </a>
+    </div>
+  </section>
 </div>
 
 <script>

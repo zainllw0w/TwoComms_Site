@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 from .models import (
+    CatalogColorSeoOverride,
     Category,
     CategorySeoBlock,
     CategorySeoBlockItem,
@@ -79,6 +80,15 @@ class CategoryAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Основне', {
             'fields': ('name', 'slug', 'description', 'seo_text_title', 'seo_intro_html', 'order', 'is_active', 'is_featured', 'icon', 'cover'),
+        }),
+        ('Showcase-картка /catalog/', {
+            'fields': ('showcase_swatch_hexes',),
+            'description': (
+                'JSON-список hex-кольорів для свотчів на головній картці '
+                'каталогу (наприклад ["#000000","#fafafa"]). Якщо порожньо — '
+                'свотчі обчислюються автоматично з кольорів товарів категорії.'
+            ),
+            'classes': ('collapse',),
         }),
         ('AI-генерація SEO', {
             'fields': ('ai_generation_enabled', 'ai_keywords', 'ai_description', 'ai_content_generated'),
@@ -269,3 +279,39 @@ class CategorySeoBlockAdmin(admin.ModelAdmin):
             'fields': ('category', 'block_type', 'title', 'is_active', 'order'),
         }),
     )
+
+
+# ===== Phase 19h — colour-aware SEO copy overrides =====
+
+@admin.register(CatalogColorSeoOverride)
+class CatalogColorSeoOverrideAdmin(admin.ModelAdmin):
+    list_display = ('scope', 'color_slug', 'category', 'h2_short', 'is_active', 'updated_at')
+    list_filter = ('scope', 'is_active', 'category')
+    search_fields = ('color_slug', 'h2', 'body_html', 'category__slug', 'category__name')
+    list_editable = ('is_active',)
+    autocomplete_fields = ('category',)
+    fieldsets = (
+        ('Контекст', {
+            'fields': ('scope', 'color_slug', 'category', 'is_active'),
+            'description': (
+                'Виберіть, де саме застосувати цей override. '
+                '«general» — для /catalog/ без фільтра кольору (color_slug і '
+                'категорію залиште порожніми). «brand» — для /catalog/?color=… '
+                '(заповніть color_slug, категорію залиште порожньою). '
+                '«category» — для /catalog/&lt;cat&gt;/?color=… (заповніть і '
+                'color_slug, і категорію).'
+            ),
+        }),
+        ('Контент', {
+            'fields': ('h2', 'body_html', 'queries_json'),
+            'description': (
+                'Залиште поле порожнім, щоб використати курований варіант з '
+                'коду. Заповніть, щоб override-ити лише цю частину блоку.'
+            ),
+        }),
+    )
+
+    def h2_short(self, obj):  # pragma: no cover - admin display
+        text = (obj.h2 or '').strip()
+        return (text[:60] + '…') if len(text) > 60 else (text or '—')
+    h2_short.short_description = 'H2'

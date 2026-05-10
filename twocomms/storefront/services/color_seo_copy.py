@@ -390,6 +390,53 @@ def _build_queries_from_seed(color_data: Dict[str, Any]) -> List[Dict[str, str]]
     ]
 
 
+def _load_override(scope: str, color_slug: str, category) -> Optional[Dict[str, Any]]:
+    """Phase 19h: try to load an admin-managed override row.
+
+    Returns the curated payload merged with override fields (only the
+    non-empty fields override the defaults), or ``None`` when no
+    override exists / DB is not yet migrated.
+    """
+    try:  # late import — avoids circular import with models.
+        from ..models import CatalogColorSeoOverride
+    except Exception:
+        return None
+    try:
+        qs = CatalogColorSeoOverride.objects.filter(
+            scope=scope,
+            color_slug=(color_slug or "").lower(),
+            is_active=True,
+        )
+        if category is None:
+            qs = qs.filter(category__isnull=True)
+        else:
+            qs = qs.filter(category=category)
+        row = qs.first()
+    except Exception:
+        # Migration not applied yet, or DB error — silently bypass so
+        # the curated palette still renders.
+        return None
+    if row is None:
+        return None
+    return {
+        "h2": (row.h2 or "").strip(),
+        "body_html": (row.body_html or "").strip(),
+        "queries_json": list(row.queries_json or []),
+    }
+
+
+def _split_html_paragraphs(body_html: str) -> List[str]:
+    """Split admin-entered ``<p>...</p>`` HTML into paragraph strings."""
+    import re as _re
+    if not body_html:
+        return []
+    chunks = _re.findall(r"<p[^>]*>(.*?)</p>", body_html, flags=_re.S | _re.I)
+    if chunks:
+        return [c.strip() for c in chunks if c.strip()]
+    # No <p> tags — treat the entire blob as a single paragraph.
+    return [body_html.strip()]
+
+
 def build_catalog_color_seo(
     *,
     category: Optional[Any],
@@ -418,7 +465,17 @@ def build_catalog_color_seo(
         return None
 
     if color_slug is None:
-        # /catalog/ root — brand-level copy.
+        # /catalog/ root — brand-level copy. Phase 19h: admin override
+        # via CatalogColorSeoOverride(scope="general", color_slug="").
+        override = _load_override("general", "", None)
+        if override is not None:
+            return _merge_curated_with_override(
+                base_h2=GENERAL_CATALOG_SEO_COPY["h2"],
+                base_paragraphs=GENERAL_CATALOG_SEO_COPY["paragraphs"],
+                base_queries=GENERAL_CATALOG_SEO_COPY["queries"],
+                override=override,
+                color_slug="",
+            )
         return {
             "h2": GENERAL_CATALOG_SEO_COPY["h2"],
             "paragraphs": GENERAL_CATALOG_SEO_COPY["paragraphs"],
@@ -453,9 +510,63 @@ def build_catalog_color_seo(
             f"TwoComms — український стрітвір з принтом"
         )
 
+    base_paragraphs = _build_color_paragraphs(color_data, category)
+    base_queries = _build_queries_from_seed(color_data)
+
+    # Phase 19h: admin override (scope=brand for /catalog/?color=…,
+    # scope=category for /catalog/<cat>/?color=…). Only non-empty
+    # fields override the curated palette.
+    scope = "category" if category is not None else "brand"
+    override = _load_override(scope, color_slug, category)
+    if override is not None:
+        return _merge_curated_with_override(
+            base_h2=h2,
+            base_paragraphs=base_paragraphs,
+            base_queries=base_queries,
+            override=override,
+            color_slug=color_slug,
+        )
+
     return {
         "h2": h2,
-        "paragraphs": _build_color_paragraphs(color_data, category),
-        "queries": _build_queries_from_seed(color_data),
+        "paragraphs": base_paragraphs,
+        "queries": base_queries,
+        "color_slug": color_slug,
+    }
+
+
+def _merge_curated_with_override(
+    *,
+    base_h2: str,
+    base_paragraphs: List[str],
+    base_queries: List[Dict[str, str]],
+    override: Dict[str, Any],
+    color_slug: str,
+) -> Dict[str, Any]:
+    """Merge curated palette with non-empty override fields."""
+    h2 = override.get("h2") or base_h2
+    body_html = override.get("body_html") or ""
+    paragraphs = _split_html_paragraphs(body_html) if body_html else base_paragraphs
+    queries_override = override.get("queries_json") or []
+    if queries_override:
+        # Validate and pass through only well-shaped chips.
+        queries: List[Dict[str, str]] = []
+        for chip in queries_override:
+            if not isinstance(chip, dict):
+                continue
+            label = (chip.get("label") or "").strip()
+            url = (chip.get("url") or "").strip()
+            freq = (chip.get("freq") or "mf").strip().lower()
+            if not label or not url:
+                continue
+            if freq not in {"hf", "mf", "lf"}:
+                freq = "mf"
+            queries.append({"label": label, "url": url, "freq": freq})
+        if queries:
+            base_queries = queries
+    return {
+        "h2": h2,
+        "paragraphs": paragraphs,
+        "queries": base_queries,
         "color_slug": color_slug,
     }

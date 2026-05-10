@@ -367,6 +367,18 @@
         const label = selector.querySelector(`label[for="${input.id}"]`);
         if (label) label.classList.add('active');
         if (container) container.dataset.currentFit = input.value || '';
+
+        // Phase 19h (2026-05-10): fit toggle was JS-only — page kept
+        // serving the previous fit's bottom SEO copy (Phase 16). Now
+        // navigate with ``?fit=<code>`` so the server re-renders with
+        // the correct ``fit_code`` (Phase 7.5 then 301-redirects to
+        // canonical ``/<color>/<size>/<fit>/``).
+        const fitValue = (input.value || '').trim();
+        if (!fitValue) return;
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.searchParams.get('fit') === fitValue) return;
+        currentUrl.searchParams.set('fit', fitValue);
+        window.location.assign(currentUrl.toString());
       });
     });
   }

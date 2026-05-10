@@ -141,10 +141,67 @@ def build_seo_blocks_summary(limit: int = 20) -> List[Dict[str, Any]]:
     return list(rows[:limit])
 
 
+def build_color_seo_overrides_summary(limit: int = 50) -> Dict[str, Any]:
+    """Phase 19h — colour-aware SEO copy override summary.
+
+    Returns active overrides + counts by scope so the SEO dashboard
+    can surface "X overrides active" with deep links into the Django
+    admin changelist for editing.
+    """
+    try:
+        from ..models import CatalogColorSeoOverride, Category
+    except Exception:
+        return {"rows": [], "counts": {}, "categories_with_swatches": []}
+
+    try:
+        rows_qs = (
+            CatalogColorSeoOverride.objects
+            .select_related("category")
+            .order_by("scope", "color_slug", "category__order")[:limit]
+        )
+        rows = [
+            {
+                "id": row.id,
+                "scope": row.scope,
+                "scope_label": row.get_scope_display(),
+                "color_slug": row.color_slug,
+                "category_name": row.category.name if row.category_id else "",
+                "category_slug": row.category.slug if row.category_id else "",
+                "h2": (row.h2 or "")[:80],
+                "is_active": row.is_active,
+                "has_body": bool(row.body_html),
+                "has_queries": bool(row.queries_json),
+                "updated_at": row.updated_at,
+            }
+            for row in rows_qs
+        ]
+        counts = {
+            "total": CatalogColorSeoOverride.objects.count(),
+            "active": CatalogColorSeoOverride.objects.filter(is_active=True).count(),
+            "general": CatalogColorSeoOverride.objects.filter(scope="general").count(),
+            "brand": CatalogColorSeoOverride.objects.filter(scope="brand").count(),
+            "category": CatalogColorSeoOverride.objects.filter(scope="category").count(),
+        }
+        categories_with_swatches = list(
+            Category.objects.filter(is_active=True)
+            .exclude(showcase_swatch_hexes=[])
+            .values("id", "name", "slug", "showcase_swatch_hexes")
+        )
+    except Exception:
+        return {"rows": [], "counts": {}, "categories_with_swatches": []}
+
+    return {
+        "rows": rows,
+        "counts": counts,
+        "categories_with_swatches": categories_with_swatches,
+    }
+
+
 def build_seo_dashboard_context() -> Dict[str, Any]:
     """Top-level helper used by the ``?section=seo`` admin view."""
     return {
         "sitemap_summary": build_sitemap_summary(),
         "ai_panel": build_ai_panel(),
         "seo_blocks_summary": build_seo_blocks_summary(),
+        "color_seo_overrides": build_color_seo_overrides_summary(),
     }

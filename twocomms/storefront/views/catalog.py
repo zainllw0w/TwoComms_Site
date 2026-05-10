@@ -106,7 +106,7 @@ def _match_showcase_category(categories, config):
     return None
 
 
-def _compute_showcase_swatches(category_ids, fallback_per_category):
+def _compute_showcase_swatches(category_ids, fallback_per_category, *, min_usage=2):
     """Phase 19g (2026-05-10): replace hard-coded swatches on showcase cards.
 
     Build, per category, the list of up to 4 most-used colour hexes
@@ -153,6 +153,15 @@ def _compute_showcase_swatches(category_ids, fallback_per_category):
         cat_id = row['product__category_id']
         hex_value = (row['color__primary_hex'] or '').strip()
         if not hex_value:
+            continue
+        # Phase 19h (2026-05-10): suppress one-product outliers — a
+        # colour represented by a single product was polluting the
+        # swatch palette (e.g. one pink hoodie among 23 black ones,
+        # one white-burgundy long-sleeve among 17 black). Threshold
+        # ``min_usage`` keeps the palette representative of stocked
+        # mainstream variants, while leaving the small-catalogue case
+        # fed from the legacy fallback below.
+        if (row.get('usage') or 0) < min_usage:
             continue
         if hex_value in seen_per_category[cat_id]:
             continue
@@ -217,11 +226,59 @@ def _build_catalog_showcase_cards(categories):
         # Override the static config swatches with live ones when
         # available; preserve the rest of the config unchanged.
         card = {**config, 'category': category}
-        if category and category.id in live_swatches:
-            card['swatches'] = live_swatches[category.id]
+        if category:
+            # Phase 19h (2026-05-10): admin-managed override wins over
+            # live data; live data wins over hard-coded fallback. Manual
+            # override empties → fall through to live computation.
+            manual_hexes = _normalize_swatch_hexes(
+                getattr(category, 'showcase_swatch_hexes', None)
+            )
+            if manual_hexes:
+                # Pad to 4 with the legacy fallback so the card layout
+                # stays consistent even when admin sets only 2 hexes.
+                fallback_for_pad = list(fallback_swatches.get(category.id, ('#050505',)))
+                merged = list(manual_hexes)
+                for hex_value in fallback_for_pad:
+                    if len(merged) >= 4:
+                        break
+                    if hex_value not in merged:
+                        merged.append(hex_value)
+                while len(merged) < 4:
+                    merged.append(merged[-1])
+                card['swatches'] = tuple(merged[:4])
+            elif category.id in live_swatches:
+                card['swatches'] = live_swatches[category.id]
         card['product_count'] = product_counts.get(category.id, 0) if category else None
         cards.append(card)
     return cards
+
+
+def _normalize_swatch_hexes(value):
+    """Sanitize admin-entered list of hex strings (Phase 19h)."""
+    if not value:
+        return ()
+    if not isinstance(value, (list, tuple)):
+        return ()
+    out = []
+    seen = set()
+    for raw in value:
+        if not isinstance(raw, str):
+            continue
+        candidate = raw.strip()
+        if not candidate:
+            continue
+        if not candidate.startswith('#'):
+            candidate = '#' + candidate
+        candidate = candidate.lower()
+        if len(candidate) not in (4, 7):  # #abc or #aabbcc
+            continue
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        out.append(candidate)
+        if len(out) >= 4:
+            break
+    return tuple(out)
 
 def _product_cards_queryset():
     return Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
