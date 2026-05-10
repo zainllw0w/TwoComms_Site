@@ -176,28 +176,58 @@ def _encode_po_string(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', r"\"")
 
 
+_BLOCK_RE = re.compile(
+    r"((?:^#.*\n)*)(^msgid (?:\"[^\"]*\"\s*)+\n)((?:msgstr (?:\"[^\"]*\"\s*)+\n)+)",
+    re.MULTILINE,
+)
+
+
 def patch_po(path: Path, lang: str) -> tuple[int, int]:
-    """Fill empty msgstr for known msgids. Returns (filled, total_known_seen)."""
+    """Fill empty / fuzzy msgstr for known msgids. Returns (filled, matched).
+
+    Also strips ``#, fuzzy`` flags from blocks we override and removes
+    the speculative ``#| msgid ...`` previous-msgid hints, since our
+    explicit translation supersedes them.
+    """
     text = path.read_text(encoding="utf-8")
     filled = 0
     seen = 0
 
     def repl(m: re.Match) -> str:
         nonlocal filled, seen
-        msgid_block = m.group(1)
-        msgstr_block = m.group(2)
+        comments = m.group(1)
+        msgid_block = m.group(2)
+        msgstr_block = m.group(3)
         msgid_val = _decode_po_string(msgid_block)
         msgstr_val = _decode_po_string(msgstr_block)
-        if msgid_val in TRANSLATIONS and TRANSLATIONS[msgid_val].get(lang):
-            seen += 1
-            if msgstr_val.strip():
-                return m.group(0)
-            new_val = TRANSLATIONS[msgid_val][lang]
-            filled += 1
-            return f'{msgid_block}msgstr "{_encode_po_string(new_val)}"\n'
-        return m.group(0)
+        entry = TRANSLATIONS.get(msgid_val)
+        if not entry or not entry.get(lang):
+            return m.group(0)
+        seen += 1
+        is_fuzzy = bool(re.search(r"^#, .*fuzzy", comments, re.MULTILINE))
+        if msgstr_val.strip() and not is_fuzzy:
+            return m.group(0)
+        new_val = entry[lang]
+        filled += 1
+        # Remove fuzzy flag and previous-msgid speculation lines.
+        cleaned_comments = []
+        for line in comments.splitlines(keepends=True):
+            if line.startswith("#|"):
+                continue
+            if line.startswith("#,") and "fuzzy" in line:
+                stripped = re.sub(r",?\s*fuzzy", "", line)
+                if stripped.strip() in ("#", "#,"):
+                    continue
+                cleaned_comments.append(stripped)
+                continue
+            cleaned_comments.append(line)
+        return (
+            "".join(cleaned_comments)
+            + msgid_block
+            + f'msgstr "{_encode_po_string(new_val)}"\n'
+        )
 
-    new_text = _PO_ENTRY_RE.sub(repl, text)
+    new_text = _BLOCK_RE.sub(repl, text)
     if new_text != text:
         path.write_text(new_text, encoding="utf-8")
     return filled, seen
