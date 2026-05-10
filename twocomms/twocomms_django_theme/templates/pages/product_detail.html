@@ -454,7 +454,12 @@ CSS rules на mobile FCP/LCP window.
                 </div>
               {% elif resolved_size_guide.image_url %}
                 <a class="tc-size-image-link" href="{{ resolved_size_guide.image_url }}">
-                  <img src="{{ resolved_size_guide.image_url }}" alt="{{ resolved_size_guide.image_alt|default:resolved_size_guide.title }}" loading="lazy">
+                  {# Phase 21 — set intrinsic dimensions (resolved server-side from ImageField) so the browser reserves the aspect ratio before the image loads. Falls back to 800x600 if width/height are unknown (legacy rows). #}
+                  <img src="{{ resolved_size_guide.image_url }}"
+                       alt="{{ resolved_size_guide.image_alt|default:resolved_size_guide.title }}"
+                       width="{{ resolved_size_guide.image_width|default:800 }}"
+                       height="{{ resolved_size_guide.image_height|default:600 }}"
+                       loading="lazy" decoding="async">
                 </a>
               {% endif %}
 

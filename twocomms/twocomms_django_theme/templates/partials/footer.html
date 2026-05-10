@@ -6,7 +6,8 @@
       <div class="footer-tagline">{{ footer_content.brand.tagline|default:"Streetwear / Military-adjacent / Made in Ukraine" }}</div>
       <div class="footer-brand-lockup">
         <span class="footer-brand-logo">
-          <img src="{% static 'img/logo.svg' %}" alt="TWOCOMMS">
+          {# Phase 21 — explicit intrinsic size (viewBox 680.3x737) so the browser reserves the aspect ratio before CSS applies; prevents CLS in the footer brand block. #}
+          <img src="{% static 'img/logo.svg' %}" alt="TWOCOMMS" width="680" height="737" loading="lazy" decoding="async">
         </span>
         <h2 class="footer-brand-name">{{ footer_content.brand.name|default:"TWOCOMMS" }}</h2>
       </div>

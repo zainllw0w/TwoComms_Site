@@ -124,15 +124,29 @@ def _normalize_size_value(value):
 
 def _serialize_image_payload(size_grid):
     if not size_grid or not getattr(size_grid, "image", None):
-        return {"image_url": "", "image_alt": ""}
+        return {"image_url": "", "image_alt": "", "image_width": 0, "image_height": 0}
     try:
         image_url = size_grid.image.url
     except Exception:
         image_url = ""
     image_alt = f"{size_grid.name} — таблиця розмірів" if image_url else ""
+    # Phase 21 — surface intrinsic dimensions so the PDP template can
+    # set <img width/height> and prevent layout shift (CLS) when the
+    # size-guide image first paints.
+    image_width = 0
+    image_height = 0
+    if image_url:
+        try:
+            image_width = int(getattr(size_grid.image, "width", 0) or 0)
+            image_height = int(getattr(size_grid.image, "height", 0) or 0)
+        except Exception:
+            image_width = 0
+            image_height = 0
     return {
         "image_url": image_url,
         "image_alt": image_alt,
+        "image_width": image_width,
+        "image_height": image_height,
     }
 
 
