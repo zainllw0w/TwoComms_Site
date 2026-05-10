@@ -61,7 +61,7 @@
 - [x] R9 `has_paid_order_with_product()` — `is_verified_purchase` ставится автоматически при submit для auth с paid Order
 - [x] R10 `partials/product_reviews.html` — summary header + histogram (5✦05✦41☆), инлайн-форма через `<details>`, список одобренных; подключён в PDP
 - [x] R11 Карточка отзыва: stars, «Verified purchase» badge, фотогалерея (lazy + native lightbox через `<a target=_blank>`), helpful счётчик
-- [ ] R12 Личный кабинет — раздел "Мої відгуки"
+- [x] R12 Личный кабинет — раздел «Мої відгуки» (URL `/reviews/my/`, view `reviews.views.my_reviews`, template `pages/my_reviews.html`, навигация в header dropdown). Показывает все отзывы пользователя c фильтрацией по статусу, photos, moderation note. 4 регрессионных теста (`test_my_reviews.py`)
 - [x] R13 `aggregate_rating_for_product()` + `ProductReviewSummary` датакласс; threshold=3 вынесён в `MIN_APPROVED_REVIEWS_FOR_RATING`
 - [x] R14 `Product.aggregateRating` + nested top-5 Review JSON-LD в единый Product schema (только при `show_rating=True`)
 - [x] R15 IndexNow ping при флипе status → approved (signal `post_save`, идемпотентно)

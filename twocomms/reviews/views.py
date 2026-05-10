@@ -15,9 +15,10 @@ from typing import Optional
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.http import HttpRequest, HttpResponseBadRequest, HttpResponseRedirect, JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
@@ -232,3 +233,36 @@ def vote_review(request: HttpRequest, review_id: int):
     )
 
     return JsonResponse({"ok": True, "helpful": helpful, "unhelpful": unhelpful})
+
+
+@login_required
+def my_reviews(request: HttpRequest):
+    """Phase 21 (R12) — personal cabinet section listing the logged-in
+    user's reviews grouped by moderation status. Read-only — editing
+    requires re-submitting via the PDP form; rejections show the
+    moderator note so the user understands why.
+    """
+    reviews_qs = (
+        Review.objects
+        .filter(user=request.user)
+        .select_related("product")
+        .prefetch_related("images")
+        .order_by("-created_at")
+    )
+    counts = {
+        "approved": 0,
+        "pending": 0,
+        "rejected": 0,
+    }
+    for r in reviews_qs:
+        if r.status in counts:
+            counts[r.status] += 1
+    return render(
+        request,
+        "pages/my_reviews.html",
+        {
+            "reviews": reviews_qs,
+            "counts": counts,
+            "total_reviews": sum(counts.values()),
+        },
+    )

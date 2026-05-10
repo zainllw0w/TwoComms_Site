@@ -24,4 +24,6 @@ urlpatterns = [
         views.vote_review,
         name="vote",
     ),
+    # Phase 21 (R12) — personal cabinet «Мої відгуки» page.
+    path("my/", views.my_reviews, name="my_reviews"),
 ]

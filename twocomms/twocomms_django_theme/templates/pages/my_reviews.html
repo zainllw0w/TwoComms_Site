@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Мої відгуки — TwoComms{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block extra_head %}
+<style>
+  .my-reviews-page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 4rem;
+  }
+  .my-reviews-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .my-reviews-header h1 {
+    font-size: 1.5rem;
+    margin: 0;
+  }
+  .my-reviews-subtitle {
+    color: var(--text-muted, #888);
+    margin: 0.25rem 0 0;
+    font-size: 0.95rem;
+  }
+  .my-reviews-counts {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .my-reviews-counts .chip {
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    font-size: 0.9rem;
+  }
+  .my-reviews-counts .chip.approved { color: #4ade80; }
+  .my-reviews-counts .chip.pending { color: #facc15; }
+  .my-reviews-counts .chip.rejected { color: #f87171; }
+  .my-review-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 0.85rem;
+  }
+  .my-review-card__top {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+  .my-review-card__product a {
+    color: inherit;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .my-review-card__product a:hover { text-decoration: underline; }
+  .my-review-card__meta {
+    color: var(--text-muted, #888);
+    font-size: 0.85rem;
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+  }
+  .my-review-card__status {
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .status-approved { background: rgba(74,222,128,0.15); color: #4ade80; }
+  .status-pending  { background: rgba(250,204,21,0.15); color: #facc15; }
+  .status-rejected { background: rgba(248,113,113,0.15); color: #f87171; }
+  .my-review-card__stars {
+    color: #facc15;
+    letter-spacing: 0.05em;
+  }
+  .my-review-card__body { margin: 0.4rem 0 0.4rem; line-height: 1.45; }
+  .my-review-card__photos {
+    display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.4rem;
+  }
+  .my-review-card__photos img {
+    width: 64px; height: 64px; object-fit: cover; border-radius: 6px;
+  }
+  .my-review-card__mod-note {
+    margin-top: 0.5rem;
+    padding: 0.55rem 0.7rem;
+    border-left: 3px solid #f87171;
+    background: rgba(248,113,113,0.06);
+    border-radius: 6px;
+    font-size: 0.9rem;
+  }
+  .my-reviews-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--text-muted, #888);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="my-reviews-page">
+  <div class="my-reviews-header">
+    <div>
+      <h1>Мої відгуки</h1>
+      <p class="my-reviews-subtitle">Усі ваші відгуки про куплені товари TwoComms.</p>
+    </div>
+  </div>
+
+  <div class="my-reviews-counts" aria-label="Статистика відгуків">
+    <span class="chip approved">Опубліковано: {{ counts.approved }}</span>
+    <span class="chip pending">На модерації: {{ counts.pending }}</span>
+    <span class="chip rejected">Відхилено: {{ counts.rejected }}</span>
+  </div>
+
+  {% if reviews %}
+    {% for r in reviews %}
+      <article class="my-review-card" aria-label="Відгук про {{ r.product.title }}">
+        <div class="my-review-card__top">
+          <div class="my-review-card__product">
+            <a href="{% url 'product' r.product.slug %}#reviews">{{ r.product.title }}</a>
+          </div>
+          <div class="my-review-card__meta">
+            <span class="my-review-card__stars" aria-label="Оцінка {{ r.rating }} з 5">
+              {% for _ in '12345'|make_list %}{% if forloop.counter <= r.rating %}★{% else %}☆{% endif %}{% endfor %}
+            </span>
+            <span class="my-review-card__status status-{{ r.status }}">
+              {% if r.status == 'approved' %}Опубліковано{% elif r.status == 'pending' %}На модерації{% else %}Відхилено{% endif %}
+            </span>
+            <time datetime="{{ r.created_at|date:'c' }}">{{ r.created_at|date:'d.m.Y' }}</time>
+          </div>
+        </div>
+        {% if r.body %}<p class="my-review-card__body">{{ r.body|linebreaksbr }}</p>{% endif %}
+        {% if r.images.all %}
+          <div class="my-review-card__photos">
+            {% for img in r.images.all %}
+              <a href="{{ img.image.url }}" target="_blank" rel="noopener"><img src="{{ img.image.url }}" alt="Фото відгуку {{ forloop.counter }} про {{ r.product.title }}" loading="lazy" width="64" height="64"></a>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if r.status == 'rejected' and r.moderation_note %}
+          <div class="my-review-card__mod-note">
+            <strong>Причина відхилення:</strong> {{ r.moderation_note }}
+          </div>
+        {% endif %}
+      </article>
+    {% endfor %}
+  {% else %}
+    <div class="my-reviews-empty">
+      <p>Ви ще не залишили жодного відгуку.</p>
+      <p><a href="{% url 'my_orders' %}">Перейти до моїх замовлень</a> та поділіться враженнями про придбані товари.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
