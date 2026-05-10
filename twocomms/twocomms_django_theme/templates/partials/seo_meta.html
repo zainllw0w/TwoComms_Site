@@ -6,7 +6,7 @@ SEO мета-теги для товаров и категорий
   <!-- Динамические SEO Meta Tags -->
   <title>{{ meta_data.title }}</title>
   <meta name="description" content="{{ meta_data.description }}">
-  <meta name="keywords" content="{{ meta_data.keywords }}">
+  {% comment %}Phase 21 (2026-05-10) — meta keywords removed (Google ignores it){% endcomment %}
   
   <!-- Open Graph / Facebook -->
   <meta property="og:title" content="{{ meta_data.og_title }}">

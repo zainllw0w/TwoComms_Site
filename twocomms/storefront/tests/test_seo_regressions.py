@@ -85,9 +85,43 @@ class ProductPageSeoRegressionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "<title>SEO Title Override для товару</title>", html=False)
         self.assertContains(response, 'content="Акуратний SEO опис для перевірки метатегів без обривів."', html=False)
-        self.assertContains(response, 'content="seo override, twocomms, test product"', html=False)
+        # Phase 21 (2026-05-10) — public ``<meta name="keywords">`` removed.
+        # Internal seo_keywords field is preserved in DB but must not leak
+        # into rendered HTML (Google ignores the tag and the boilerplate
+        # listing creates noise / off-topic keyword stuffing risk).
+        self.assertNotContains(response, '<meta name="keywords"', html=False)
         self.assertContains(response, "social-preview.jpg", html=False)
         self.assertContains(response, 'property="og:image:alt"', html=False)
+
+    def test_product_page_does_not_render_meta_keywords(self):
+        """Phase 21 — keep the ``<meta name="keywords">`` tag out of HTML."""
+        response = self.client.get(reverse("product", kwargs={"slug": self.product.slug}), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, '<meta name="keywords"', html=False)
+
+    def test_product_page_does_not_render_fake_aggregate_rating(self):
+        """Phase 21 — fake ``4.9 (45 відгуків)`` block must be gone, and
+        ``aggregateRating`` must not appear until at least 3 approved
+        reviews are surfaced via ``product_review_summary``.
+        """
+        response = self.client.get(reverse("product", kwargs={"slug": self.product.slug}), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        self.assertNotIn("45 відгуків", html)
+        self.assertNotIn("aggregateRating", html)
+
+    def test_product_page_does_not_emit_legacy_inline_organization(self):
+        """Phase 21 — only the helper-driven Organization (with stable @id)
+        should appear; the legacy hardcoded inline copy in ``base.html``
+        is removed.
+        """
+        response = self.client.get(reverse("product", kwargs={"slug": self.product.slug}), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        self.assertEqual(html.count('"@id": "https://twocomms.shop/#organization"'), 1)
 
     def test_product_schema_uses_variant_stock_for_availability(self):
         color = Color.objects.create(name="Black", primary_hex="#000000")

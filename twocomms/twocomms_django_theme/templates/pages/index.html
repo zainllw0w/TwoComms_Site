@@ -33,10 +33,10 @@
 {% endblock %}
 
 {% block structured_data %}
-{# Phase 5 — canonical Organization + WebSite (with SearchAction) blocks. #}
-{# Each emits its own <script type="application/ld+json"> with stable @id. #}
-{% organization_schema %}
-{% website_schema %}
+{% comment %}
+Phase 21 (2026-05-10) — Organization + WebSite are now emitted globally
+in ``base.html``. Home page only adds its own WebPage/ItemList block.
+{% endcomment %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",

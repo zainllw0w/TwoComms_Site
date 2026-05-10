@@ -323,35 +323,66 @@ def website_schema():
 
 
 @register.simple_tag
-def local_business_schema():
+def online_store_schema():
+    """OnlineStore JSON-LD with verified phone and Ukraine-wide service area.
+
+    Phase 21 (2026-05-10) — replaces the previous ``local_business_schema``
+    helper. TwoComms has no physical retail address and no fixed business
+    hours, so emitting ``LocalBusiness`` with placeholder data was a
+    misleading-claims risk. ``OnlineStore`` accurately models the entity
+    (subtype of ``Store`` / ``Organization``), references the canonical
+    Organization ``@id`` for graph deduplication, and uses the verified
+    business phone ``+380966543212``.
     """
-    Возвращает LocalBusiness schema для организации
-    """
+    base_url = "https://twocomms.shop"
     schema = {
         "@context": "https://schema.org",
-        "@type": "LocalBusiness",
+        "@type": "OnlineStore",
+        "@id": f"{base_url}/#online-store",
         "name": "TwoComms",
-        "description": "Магазин стріт & мілітарі одягу з ексклюзивним дизайном",
-        "url": "https://twocomms.shop",
-        "telephone": "+380XXXXXXXXX",
-        "address": {
-            "@type": "PostalAddress",
-            "addressCountry": "UA",
-            "addressLocality": "Україна"
+        "url": base_url,
+        "description": (
+            "Український онлайн-магазин стріт- та мілітарі-одягу TwoComms: "
+            "футболки, худі, лонгсліви та кастомний DTF-друк."
+        ),
+        "telephone": "+380966543212",
+        "currenciesAccepted": "UAH",
+        "paymentAccepted": "Cash, Credit Card, Apple Pay, Google Pay",
+        "areaServed": {
+            "@type": "Country",
+            "name": "Ukraine",
         },
-        "openingHours": "Mo-Su 00:00-23:59",
-        "priceRange": "$$",
-        "paymentAccepted": "Cash, Credit Card",
-        "currenciesAccepted": "UAH"
+        "parentOrganization": {"@id": f"{base_url}/#organization"},
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+380966543212",
+            "contactType": "customer support",
+            "availableLanguage": ["uk", "ru"],
+            "areaServed": "UA",
+        },
     }
+    return mark_safe(
+        f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False, indent=2)}</script>'
+    )
 
-    return mark_safe(f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False, indent=2)}</script>')
+
+# Backwards-compat alias — old templates may still import the original
+# name. Routes safely to the new helper so a stale include never falls
+# back to placeholder ``LocalBusiness`` data.
+@register.simple_tag
+def local_business_schema():  # pragma: no cover - alias
+    return online_store_schema()
 
 
 @register.simple_tag
 def product_rating_schema(product, rating=None, review_count=None):
-    """
-    Возвращает Product schema с рейтингом
+    """Render Product JSON-LD with optional ``aggregateRating``.
+
+    Phase 21 (2026-05-10) — hardened. Only emits ``aggregateRating``
+    when *both* a numeric rating and ``review_count >= 3`` are supplied.
+    Defaults to ``None`` so callers must explicitly pass real,
+    moderation-approved review aggregates from the upcoming reviews app
+    (PR-4). This prevents accidental fake ratings from surfacing.
     """
     if not product:
         return ''
@@ -380,11 +411,17 @@ def product_rating_schema(product, rating=None, review_count=None):
         }
     }
 
-    if rating and review_count:
+    try:
+        review_count_int = int(review_count) if review_count is not None else 0
+    except (TypeError, ValueError):
+        review_count_int = 0
+    if rating and review_count_int >= 3:
         schema["aggregateRating"] = {
             "@type": "AggregateRating",
             "ratingValue": str(rating),
-            "reviewCount": str(review_count)
+            "reviewCount": str(review_count_int),
+            "bestRating": "5",
+            "worstRating": "1",
         }
 
     return mark_safe(f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False, indent=2)}</script>')

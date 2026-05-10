@@ -178,11 +178,27 @@ CSS rules на mobile FCP/LCP window.
       <h1 class="tc-product-title">{{ product.title }}</h1>
       <div class="tc-product-kicker">{{ product.category.name|default:"TwoComms drop" }}</div>
       <div class="tc-product-meta">
-        <span class="tc-rating-safe" aria-label="Рейтинг магазину TwoComms">
+        {% comment %}
+        Phase 21 (2026-05-10) — fake "4.9 (45 відгуків)" removed.
+        Real ``aggregateRating`` is rendered only when the reviews app
+        (PR-4) provides ``product_review_summary`` with ``count >= 3``
+        approved reviews. Until then we surface factual trust signals
+        only.
+        {% endcomment %}
+        {% if product_review_summary and product_review_summary.count >= 3 %}
+        <a href="#product-reviews" class="tc-rating-safe" aria-label="Рейтинг товару, {{ product_review_summary.count }} відгуків">
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.97 6.02 6.64.97-4.8 4.68 1.13 6.61L12 17.16l-5.94 3.12 1.13-6.61-4.8-4.68 6.64-.97L12 2Z" fill="currentColor"/></svg>
-          <strong>4.9</strong> <span>(45 відгуків)</span>
+          <strong>{{ product_review_summary.average|floatformat:1 }}</strong>
+          <span>({{ product_review_summary.count }} відгук{{ product_review_summary.count|pluralize:"и,ів" }})</span>
+        </a>
+        <span class="tc-meta-dot" aria-hidden="true">•</span>
+        {% else %}
+        <span class="tc-rating-safe tc-rating-trust" aria-label="Український бренд">
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z" fill="currentColor"/></svg>
+          <strong>Made in UA</strong>
         </span>
         <span class="tc-meta-dot" aria-hidden="true">•</span>
+        {% endif %}
         <span class="tc-sku-line">Артикул: <span>{{ default_offer_id|default:product.id }}</span></span>
       </div>
 
@@ -545,7 +561,8 @@ CSS rules на mobile FCP/LCP window.
                 <span class="tc-related-info">
                   <span class="tc-related-title">{{ rec_product.title }}</span>
                   <span class="tc-related-meta">
-                    <span class="tc-related-rating">4.9</span>
+                    {% comment %}Phase 21 — hardcoded "4.9" removed; show category as factual context.{% endcomment %}
+                    {% if rec_product.category %}<span class="tc-related-cat">{{ rec_product.category.name }}</span>{% endif %}
                     <span class="tc-related-price">{{ rec_product.final_price }} грн</span>
                   </span>
                 </span>
