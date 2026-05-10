@@ -3,1901 +3,3537 @@ msgid ""
 msgstr ""
 "Project-Id-Version: dtf 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-06 12:29+0200\n"
+"POT-Creation-Date: 2026-05-11 02:05+0300\n"
 "PO-Revision-Date: 2026-02-06 00:00+0000\n"
 "Language: en\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: admin.py:68 templates/dtf/base.html:44 templates/dtf/base.html:73
-#: templates/dtf/base.html:162 templates/dtf/status.html:7
-#: templates/dtf/thanks.html:15
+#: dtf/admin.py:104 dtf/templates/dtf/admin/tabs/blog.html:69
+#: dtf/templates/dtf/status.html:8 dtf/templates/dtf/thanks.html:16
 msgid "Статус"
 msgstr "Status"
 
-#: admin.py:70
+#: dtf/admin.py:106
 msgid "Підтвердити макет (AwaitingPayment)"
 msgstr "Confirm layout (AwaitingPayment)"
 
-#: admin.py:75 admin.py:82 admin.py:89
+#: dtf/admin.py:111 dtf/admin.py:118 dtf/admin.py:125
 #, python-format
 msgid "Оновлено %(count)s замовлень"
 msgstr "Updated %(count)s orders"
 
-#: admin.py:77
+#: dtf/admin.py:113
 msgid "Запросити правки (NeedFix)"
 msgstr "Request edits (NeedFix)"
 
-#: admin.py:84
+#: dtf/admin.py:120
 msgid "Надіслати посилання на оплату (AwaitingPayment)"
 msgstr "Send payment link (AwaitingPayment)"
 
-#: admin.py:91
+#: dtf/admin.py:127
 msgid "Позначити як оплачено (Paid)"
 msgstr "Mark as paid (Paid)"
 
-#: admin.py:95
+#: dtf/admin.py:134
 msgid "Сповіщення про оплату надіслано"
 msgstr "Payment notification sent"
 
-#: admin.py:97
+#: dtf/admin.py:136
 msgid "Відправлено (Shipped + ТТН)"
 msgstr "Sent (Shipped + TTN)"
 
-#: admin.py:108
+#: dtf/admin.py:148 dtf/admin.py:150
+#, fuzzy
+#| msgid "Замовлення не знайдено"
+msgid "Замовлення відправлено"
+msgstr "Order not found"
+
+#: dtf/admin.py:156
 #, python-format
 msgid "Відправлено %(count)s замовлень"
 msgstr "%(count)s orders shipped"
 
-#: admin.py:110
+#: dtf/admin.py:158
 msgid "Не знайдено ТТН для відправки"
 msgstr "No TTN found for sending"
 
-#: forms.py:60 forms.py:148 forms.py:207
+#: dtf/admin.py:160
+msgid "Lifecycle → Confirmed"
+msgstr ""
+
+#: dtf/admin.py:168
+#, fuzzy
+#| msgid "Фінальну суму підтвердить менеджер"
+msgid "Замовлення підтверджено менеджером"
+msgstr "The manager will confirm the final amount"
+
+#: dtf/admin.py:173 dtf/admin.py:188 dtf/admin.py:204 dtf/admin.py:219
+#, fuzzy, python-format
+#| msgid "Оновлено %(count)s замовлень"
+msgid "Оновлено %(count)s lifecycle-переходів"
+msgstr "Updated %(count)s orders"
+
+#: dtf/admin.py:175
+msgid "Lifecycle → In production"
+msgstr ""
+
+#: dtf/admin.py:183
+#, fuzzy
+#| msgid "Замовлення не знайдено"
+msgid "Замовлення передано у виробництво"
+msgstr "Order not found"
+
+#: dtf/admin.py:190
+msgid "Lifecycle → Delivered"
+msgstr ""
+
+#: dtf/admin.py:198 dtf/admin.py:200
+#, fuzzy
+#| msgid "Замовлення не знайдено"
+msgid "Замовлення доставлено"
+msgstr "Order not found"
+
+#: dtf/admin.py:206
+msgid "Lifecycle → Received"
+msgstr ""
+
+#: dtf/admin.py:214
+#, fuzzy
+#| msgid "Замовлення не знайдено"
+msgid "Замовлення отримано клієнтом"
+msgstr "Order not found"
+
+#: dtf/admin.py:255
+#, fuzzy
+#| msgid "Контакти"
+msgid "Контент"
+msgstr "Contacts"
+
+#: dtf/admin.py:258
+msgid "SEO"
+msgstr ""
+
+#: dtf/admin.py:261
+msgid "Службове"
+msgstr ""
+
+#: dtf/admin_panel_forms.py:54
+msgid "Вкажіть ТТН перед переходом у статус 'Відправлено'."
+msgstr ""
+
+#: dtf/admin_panel_forms.py:61
+msgid "Вкажіть кількість виробів для замовлення готового продукту."
+msgstr ""
+
+#: dtf/admin_panel_forms.py:105
+msgid "Додайте контент: Markdown або Rich HTML."
+msgstr ""
+
+#: dtf/admin_panel_forms.py:168
+#, fuzzy
+#| msgid "Довжина має бути більшою за нуль"
+msgid "Дата завершення має бути пізніше дати початку."
+msgstr "The length must be greater than zero"
+
+#: dtf/admin_panel_forms.py:172
+#, fuzzy
+#| msgid "Довжина має бути більшою за нуль"
+msgid "Значення знижки має бути більше нуля."
+msgstr "The length must be greater than zero"
+
+#: dtf/forms.py:77 dtf/forms.py:165 dtf/forms.py:233 dtf/forms.py:280
 msgid "Введіть коректний номер телефону"
 msgstr "Enter a valid phone number"
 
-#: forms.py:66
-msgid "Завантажте файл ганг-листа"
+#: dtf/forms.py:83
+#, fuzzy
+#| msgid "Завантажте файл ганг-листа"
+msgid "Завантажте макет 60 см (ганг-лист)"
 msgstr "Download the gang list file"
 
-#: forms.py:79
+#: dtf/forms.py:96
+#, fuzzy
+#| msgid ""
+#| "Формат файлу не підтримується для готового ганг-листа. Використайте PDF "
+#| "або PNG."
 msgid ""
-"Формат файлу не підтримується для готового ганг-листа. Використайте PDF або "
-"PNG."
+"Формат файлу не підтримується для готового макета 60 см (ганг-лист). "
+"Використайте PDF або PNG."
 msgstr ""
 "The file format is not supported for the finished gang list. Use PDF or PNG."
 
-#: forms.py:83
+#: dtf/forms.py:100 dtf/forms.py:360
 #, python-format
 msgid "Файл завеликий. Максимум %(max_size)s MB"
 msgstr "The file is huge. Maximum %(max_size)s MB"
 
-#: forms.py:85
+#: dtf/forms.py:102
 msgid "Файл не пройшов перевірку безпеки. Завантажте коректний PDF або PNG."
 msgstr ""
 "The file did not pass the security check. Download the correct PDF or PNG."
 
-#: forms.py:95
+#: dtf/forms.py:112
 msgid "Довжина має бути більшою за нуль"
 msgstr "The length must be greater than zero"
 
-#: forms.py:101
+#: dtf/forms.py:118
 msgid "Вкажіть кількість копій"
 msgstr "Specify the number of copies"
 
-#: forms.py:103
+#: dtf/forms.py:120
 msgid "Мінімум 1 копія"
 msgstr "At least 1 copy"
 
-#: forms.py:119
+#: dtf/forms.py:136
 msgid "Не вдалося визначити довжину файлу. Вкажіть вручну."
 msgstr "Failed to determine file length. Specify manually."
 
-#: forms.py:159
+#: dtf/forms.py:176
 msgid "Опишіть задачу"
 msgstr "Describe the task"
 
-#: forms.py:161
+#: dtf/forms.py:178
 msgid "Завантажте файли або додайте посилання на папку"
 msgstr "Upload files or add a link to a folder"
 
-#: forms.py:176
+#: dtf/forms.py:193
 msgid "Непідтримуваний формат файлу у вкладеннях."
 msgstr "Unsupported file format in attachments."
 
-#: forms.py:178
+#: dtf/forms.py:195
 #, python-format
 msgid "Один із файлів перевищує ліміт %(max_size)s MB."
 msgstr "One of the files exceeds the %(max_size)s MB limit."
 
-#: forms.py:180
+#: dtf/forms.py:197
 msgid "Один із файлів не пройшов перевірку безпеки."
 msgstr "One of the files failed the security check."
 
-#: models.py:11 templates/dtf/contacts.html:20
+#: dtf/forms.py:273
+msgid "Spam detected"
+msgstr ""
+
+#: dtf/forms.py:288
+msgid "Для A3 зразка позначте, що ви бренд або плануєте об'єм."
+msgstr ""
+
+#: dtf/forms.py:290
+#, fuzzy
+#| msgid "Потрібна допомога з розкладкою"
+msgid "Потрібна згода на обробку даних"
+msgstr "Need help with layout"
+
+#: dtf/forms.py:319 dtf/templates/dtf/constructor_app.html:63
+#, fuzzy
+#| msgid "Формат"
+msgid "Формат: S:10,M:20,L:5"
+msgstr "Format"
+
+#: dtf/forms.py:357
+msgid "Підтримуються лише PDF/PNG/JPG/WEBP"
+msgstr ""
+
+#: dtf/forms.py:362
+#, fuzzy
+#| msgid "Один із файлів не пройшов перевірку безпеки."
+msgid "Файл не пройшов перевірку безпеки"
+msgstr "One of the files failed the security check."
+
+#: dtf/forms.py:369
+#, fuzzy
+#| msgid "Мінімум 1 копія"
+msgid "Мінімум 1 шт"
+msgstr "At least 1 copy"
+
+#: dtf/forms.py:371
+msgid "Занадто велика кількість для MVP"
+msgstr ""
+
+#: dtf/forms.py:387
+msgid "Файл має критичні помилки preflight. Виправте перед відправкою."
+msgstr ""
+
+#: dtf/forms.py:389
+msgid "Підтвердіть ризики preflight, щоб продовжити."
+msgstr ""
+
+#: dtf/models.py:38
 msgid "Telegram"
 msgstr "Telegram"
 
-#: models.py:12
+#: dtf/models.py:39
 msgid "WhatsApp"
 msgstr "WhatsApp"
 
-#: models.py:13
+#: dtf/models.py:40
 msgid "Instagram"
 msgstr "Instagram"
 
-#: models.py:14
+#: dtf/models.py:41
 msgid "Телефонний дзвінок"
 msgstr "A phone call"
 
-#: models.py:18 models.py:120 templates/dtf/requirements.html:112
-#: templates/dtf/status.html:129
+#: dtf/models.py:45 dtf/models.py:160 dtf/templates/dtf/status.html:153
 msgid "Потрібна допомога"
 msgstr "Need help"
 
-#: models.py:19
+#: dtf/models.py:46
 msgid "Консультація"
 msgstr "Advice"
 
-#: models.py:20
+#: dtf/models.py:47
 msgid "Заявка з кнопки"
 msgstr "Application from the button"
 
-#: models.py:24
+#: dtf/models.py:51 dtf/models.py:612
 msgid "Нова"
 msgstr "Nova"
 
-#: models.py:25
+#: dtf/models.py:52 dtf/models.py:613
 msgid "В роботі"
 msgstr "At work"
 
-#: models.py:26
+#: dtf/models.py:53
 msgid "Закрита"
 msgstr "closed"
 
-#: models.py:107
+#: dtf/models.py:134
 msgid "Прийнято (заявка)"
 msgstr "Accepted (application)"
 
-#: models.py:108 views.py:35
+#: dtf/models.py:135 dtf/views.py:95
 msgid "Прийнято"
 msgstr "Accepted"
 
-#: models.py:109 templates/dtf/index.html:211 views.py:36
+#: dtf/models.py:136 dtf/views.py:96
 msgid "Перевірка макета"
 msgstr "Artwork review"
 
-#: models.py:110
+#: dtf/models.py:137
 msgid "Потрібні правки"
 msgstr "Needs edits"
 
-#: models.py:111 views.py:37
+#: dtf/models.py:138 dtf/views.py:97
 msgid "Очікує оплати"
 msgstr "Awaiting payment"
 
-#: models.py:112 views.py:38
+#: dtf/models.py:139 dtf/views.py:98
 msgid "У друці"
 msgstr "In print"
 
-#: models.py:113 views.py:39
+#: dtf/models.py:140 dtf/templates/dtf/constructor_app.html:277 dtf/views.py:99
 msgid "Готово"
 msgstr "Done"
 
-#: models.py:114 views.py:40
+#: dtf/models.py:141 dtf/models.py:152 dtf/models.py:614 dtf/views.py:100
+#: dtf/views.py:109
 msgid "Відправлено"
 msgstr "sent"
 
-#: models.py:115 views.py:41
+#: dtf/models.py:142 dtf/models.py:615 dtf/views.py:101
 msgid "Закрито"
 msgstr "Closed"
 
-#: models.py:119
-msgid "Готовий ганг-лист"
+#: dtf/models.py:146
+msgid "Нове"
+msgstr ""
+
+#: dtf/models.py:147
+#, fuzzy
+#| msgid "Потрібна перевірка"
+msgid "Потребує перевірки"
+msgstr "Verification required"
+
+#: dtf/models.py:148
+msgid "Підтверджено"
+msgstr ""
+
+#: dtf/models.py:149
+msgid "У виробництві"
+msgstr ""
+
+#: dtf/models.py:150 dtf/templates/dtf/about.html:28
+#, fuzzy
+#| msgid "Порівняння якості"
+msgid "Контроль якості"
+msgstr "Quality comparison"
+
+#: dtf/models.py:151
+msgid "Упаковано"
+msgstr ""
+
+#: dtf/models.py:153
+#, fuzzy
+#| msgid "Доставка"
+msgid "Доставлено"
+msgstr "Delivery"
+
+#: dtf/models.py:154 dtf/views.py:111
+msgid "Отримано"
+msgstr ""
+
+#: dtf/models.py:155
+msgid "Скасовано"
+msgstr ""
+
+#: dtf/models.py:159
+#, fuzzy
+#| msgid "Готовий ганг-лист"
+msgid "Макет 60 см (ганг-лист)"
 msgstr "Ready gang list"
 
-#: models.py:124
+#: dtf/models.py:164
+#, fuzzy
+#| msgid "Приклад DTF 01"
+msgid "Плівка DTF"
+msgstr "Example DTF 01"
+
+#: dtf/models.py:165
+#, fuzzy
+#| msgid "Продовжити як замовлення"
+msgid "Готовий виріб під замовлення"
+msgstr "Continue as an order"
+
+#: dtf/models.py:169
+#, fuzzy
+#| msgid "Написати менеджеру"
+msgid "На модерації менеджером"
+msgstr "Write to the manager"
+
+#: dtf/models.py:170 dtf/views.py:107
+#, fuzzy
+#| msgid "Очікує оплати"
+msgid "Очікує оплату"
+msgstr "Awaiting payment"
+
+#: dtf/models.py:171
+#, fuzzy
+#| msgid "Оплата"
+msgid "Оплачено"
+msgstr "Payment"
+
+#: dtf/models.py:172
+#, fuzzy
+#| msgid "Автовизначення"
+msgid "Частково оплачено"
+msgstr "Autodetection"
+
+#: dtf/models.py:173
+msgid "Оплата не пройшла"
+msgstr ""
+
+#: dtf/models.py:174
+#, fuzzy
+#| msgid "Повернення"
+msgid "Повернено"
+msgstr "Returns"
+
+#: dtf/models.py:178
 msgid "Ручний ввід"
 msgstr "Manual input"
 
-#: models.py:125
+#: dtf/models.py:179
 msgid "Автовизначення"
 msgstr "Autodetection"
 
-#: models.py:202 templates/dtf/gallery.html:59 templates/dtf/gallery.html:94
-#: templates/dtf/gallery.html:139 templates/dtf/index.html:280
-#: templates/dtf/index.html:284 templates/dtf/index.html:319
-#: templates/dtf/index.html:352
+#: dtf/models.py:412
+msgid "PASS"
+msgstr ""
+
+#: dtf/models.py:413
+msgid "WARN"
+msgstr ""
+
+#: dtf/models.py:414
+msgid "FAIL"
+msgstr ""
+
+#: dtf/models.py:474
+msgid "System"
+msgstr ""
+
+#: dtf/models.py:475
+msgid "Manager"
+msgstr ""
+
+#: dtf/models.py:476
+msgid "Customer"
+msgstr ""
+
+#: dtf/models.py:574 dtf/templates/dtf/gallery.html:60
+#: dtf/templates/dtf/gallery.html:104 dtf/templates/dtf/gallery.html:155
+#: dtf/templates/dtf/index.html:340 dtf/templates/dtf/index.html:344
+#: dtf/templates/dtf/index.html:392 dtf/templates/dtf/index.html:464
 msgid "Макро"
 msgstr "Macro"
 
-#: models.py:203 templates/dtf/gallery.html:60 templates/dtf/gallery.html:109
-#: templates/dtf/gallery.html:154 templates/dtf/index.html:292
-#: templates/dtf/index.html:297 templates/dtf/index.html:330
-#: templates/dtf/index.html:363
+#: dtf/models.py:575 dtf/templates/dtf/gallery.html:61
+#: dtf/templates/dtf/gallery.html:121 dtf/templates/dtf/gallery.html:172
+#: dtf/templates/dtf/index.html:352 dtf/templates/dtf/index.html:357
+#: dtf/templates/dtf/index.html:416 dtf/templates/dtf/index.html:488
 msgid "Процес"
 msgstr "Process"
 
-#: models.py:204
+#: dtf/models.py:576 dtf/views.py:167
 msgid "Готовий виріб"
 msgstr "The finished product"
 
-#: templates/dtf/404.html:4 templates/dtf/404.html:11
+#: dtf/models.py:606
+msgid "A4 sample"
+msgstr ""
+
+#: dtf/models.py:607
+msgid "A3 sample"
+msgstr ""
+
+#: dtf/models.py:608
+msgid "Calibration strip 60x10 cm"
+msgstr ""
+
+#: dtf/models.py:684 dtf/templates/dtf/admin/tabs/blog.html:20
+#: dtf/templates/dtf/admin/tabs/blog.html:72
+#, fuzzy
+#| msgid "Повернення"
+msgid "Чернетка"
+msgstr "Returns"
+
+#: dtf/models.py:685
+#, fuzzy
+#| msgid "Надіслати"
+msgid "Надіслано"
+msgstr "Send"
+
+#: dtf/models.py:689
+msgid "T-shirt"
+msgstr ""
+
+#: dtf/models.py:690
+msgid "Hoodie"
+msgstr ""
+
+#: dtf/models.py:691
+msgid "Tote"
+msgstr ""
+
+#: dtf/models.py:692
+msgid "My item"
+msgstr ""
+
+#: dtf/models.py:696
+msgid "Front"
+msgstr ""
+
+#: dtf/models.py:697
+msgid "Back"
+msgstr ""
+
+#: dtf/models.py:698
+msgid "Left chest"
+msgstr ""
+
+#: dtf/models.py:699
+msgid "Sleeve"
+msgstr ""
+
+#: dtf/templates/dtf/404.html:4 dtf/templates/dtf/404.html:11
 msgid "Сторінку не знайдено"
 msgstr "Page not found"
 
-#: templates/dtf/404.html:10
+#: dtf/templates/dtf/404.html:10
 msgid "Помилка 404"
 msgstr "Error 404"
 
-#: templates/dtf/404.html:12
+#: dtf/templates/dtf/404.html:12
 msgid "Можливо, посилання застаріло або сторінка була переміщена."
 msgstr "The link may be out of date or the page may have been moved."
 
-#: templates/dtf/404.html:14 templates/dtf/500.html:14
+#: dtf/templates/dtf/404.html:14 dtf/templates/dtf/500.html:14
 msgid "На головну"
 msgstr "On the main one"
 
-#: templates/dtf/404.html:15 templates/dtf/thanks.html:25
+#: dtf/templates/dtf/404.html:15 dtf/templates/dtf/thanks.html:30
 msgid "Створити замовлення"
 msgstr "Create order"
 
-#: templates/dtf/500.html:4
+#: dtf/templates/dtf/500.html:4
 msgid "Внутрішня помилка"
 msgstr "Internal error"
 
-#: templates/dtf/500.html:10
+#: dtf/templates/dtf/500.html:10
 msgid "Помилка 500"
 msgstr "Error 500"
 
-#: templates/dtf/500.html:11
+#: dtf/templates/dtf/500.html:11
 msgid "Щось пішло не так"
 msgstr "Something went wrong"
 
-#: templates/dtf/500.html:12
+#: dtf/templates/dtf/500.html:12
 msgid ""
 "Ми вже працюємо над цим. Спробуйте оновити сторінку або поверніться пізніше."
 msgstr ""
 "We are already working on it. Try refreshing the page or come back later."
 
-#: templates/dtf/500.html:15
+#: dtf/templates/dtf/500.html:15
 msgid "Зв'язатися"
 msgstr "Get in touch"
 
-#: templates/dtf/base.html:9
+#: dtf/templates/dtf/about.html:4
+#, fuzzy
+#| msgid "Приклад DTF 01"
+msgid "Про команду DTF"
+msgstr "Example DTF 01"
+
+#: dtf/templates/dtf/about.html:11
+msgid "Команда DTF TwoComms"
+msgstr ""
+
+#: dtf/templates/dtf/about.html:13
+msgid "Бренд-рівень процесу"
+msgstr ""
+
+#: dtf/templates/dtf/about.html:14
+#, fuzzy
+#| msgid "Консультація"
+msgid "24/7 комунікація"
+msgstr "Advice"
+
+#: dtf/templates/dtf/about.html:15
+msgid "без брака"
+msgstr ""
+
+#: dtf/templates/dtf/about.html:21
+#, fuzzy
+#| msgid "Менеджер зв'яжеться"
+msgid "Менеджер запуску"
+msgstr "Our manager will contact you"
+
+#: dtf/templates/dtf/about.html:22
+msgid "Підкаже формат, нюанси перевірки файлу і строки відправки."
+msgstr ""
+
+#: dtf/templates/dtf/about.html:23
+msgid "24/7"
+msgstr ""
+
+#: dtf/templates/dtf/about.html:26
+#, fuzzy
+#| msgid "Preflight перевірка файлу"
+msgid "Оператор перевірки файлу"
+msgstr "Preflight file check"
+
+#: dtf/templates/dtf/about.html:27
+#, fuzzy
+#| msgid "Ручна перевірка макета перед друком"
+msgid "Ручна перевірка макетів і контроль дрібних деталей."
+msgstr "Manual artwork check before printing"
+
+#: dtf/templates/dtf/about.html:31
+msgid "Production lead"
+msgstr ""
+
+#: dtf/templates/dtf/about.html:32
+msgid "Контроль переносу, кольору й стабільності партії."
+msgstr ""
+
+#: dtf/templates/dtf/about.html:33
+msgid "Гаряче зняття"
+msgstr "Hot release"
+
+#: dtf/templates/dtf/about.html:38
+msgid "3D Pin / Proof"
+msgstr ""
+
+#: dtf/templates/dtf/about.html:39
+msgid "Основний бренд і виробнича експертиза: TwoComms."
+msgstr ""
+
+#: dtf/templates/dtf/admin/panel.html:4
+msgid "DTF Admin Panel"
+msgstr ""
+
+#: dtf/templates/dtf/admin/panel.html:15
+msgid "DTF Control Center"
+msgstr ""
+
+#: dtf/templates/dtf/admin/panel.html:16
+msgid "Окрема адмін-панель субдомену DTF. Основний сайт не зачіпається."
+msgstr ""
+
+#: dtf/templates/dtf/admin/panel.html:30
+msgid "Розділи"
+msgstr ""
+
+#: dtf/templates/dtf/admin/panel.html:38
+#, fuzzy
+#| msgid "Закрити"
+msgid "Закрити меню"
+msgstr "Close"
+
+#: dtf/templates/dtf/admin/panel.html:43 dtf/templates/dtf/base.html:341
+#: dtf/templates/dtf/base.html:417 dtf/templates/dtf/base.html:483
+#: dtf/templates/dtf/base.html:509 dtf/templates/dtf/gallery.html:303
+#: dtf/templates/dtf/gallery.html:314 dtf/templates/dtf/index.html:707
+#: dtf/templates/dtf/partials/blog_overlay_content.html:14
+msgid "Закрити"
+msgstr "Close"
+
+#: dtf/templates/dtf/admin/panel.html:52
+msgid "Навігація DTF admin"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/blog.html:4
+msgid "Блог / База знань"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/blog.html:5
+msgid "CRUD, SEO і slug з транслітерацією для статей DTF."
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/blog.html:14
+#, fuzzy
+#| msgid "Основна навігація"
+msgid "Нова публікація"
+msgstr "Main navigation"
+
+#: dtf/templates/dtf/admin/tabs/blog.html:20
+#: dtf/templates/dtf/admin/tabs/blog.html:71
+msgid "Опубліковано"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/blog.html:40
+msgid "Поки немає публікацій."
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/blog.html:50
+#, fuzzy
+#| msgid "На головну"
+msgid "Заголовок"
+msgstr "On the main one"
+
+#: dtf/templates/dtf/admin/tabs/blog.html:57
+msgid "Auto"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/blog.html:61
+#, fuzzy
+#| msgid "Остаточний огляд"
+msgid "Короткий опис"
+msgstr "Final review"
+
+#: dtf/templates/dtf/admin/tabs/blog.html:65
+msgid "Дата публікації"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/blog.html:78
+msgid "Rich editor (шрифти, розмір, лінки, зображення через upload)"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/blog.html:84
+msgid "Markdown fallback"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/blog.html:94
+msgid "SEO keywords"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/blog.html:95
+msgid "через кому"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/blog.html:104
+#: dtf/templates/dtf/admin/tabs/orders.html:160
+#: dtf/templates/dtf/admin/tabs/promocodes.html:141
+msgid "Зберегти"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/blog.html:105
+#: dtf/templates/dtf/admin/tabs/promocodes.html:143
+#: dtf/templates/dtf/order.html:76
+msgid "Видалити"
+msgstr "Remove"
+
+#: dtf/templates/dtf/admin/tabs/dashboard.html:4
+msgid "Dashboard"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/dashboard.html:5
+msgid "Оглядовий розділ. Операційна статистика винесена в блок Замовлення."
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/dashboard.html:10
+msgid "План розвитку"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/dashboard.html:11
+msgid ""
+"Тут буде зведений огляд KPI, SLA менеджерів та фінансова аналітика в одному "
+"місці."
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/dashboard.html:14
+msgid "Швидкий перехід"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/dashboard.html:15
+msgid "Операційні дії та актуальна статистика доступні у розділі Замовлення."
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:4
+#: dtf/templates/dtf/cabinet_home.html:17
+#: dtf/templates/dtf/cabinet_orders.html:17
+#: dtf/templates/dtf/cabinet_sessions.html:16 dtf/templates/dtf/order.html:185
+#: dtf/templates/dtf/status.html:65 dtf/views.py:1507
+msgid "Замовлення"
+msgstr "Order"
+
+#: dtf/templates/dtf/admin/tabs/orders.html:5
+msgid "Керування статусами, оплатою, доставкою та деталями виробу."
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:10
+#, fuzzy
+#| msgid "Номер замовлення"
+msgid "Всього замовлень"
+msgstr "Order number"
+
+#: dtf/templates/dtf/admin/tabs/orders.html:14
+#: dtf/templates/dtf/admin/tabs/promocodes.html:17
+msgid "Активні"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:18
+#, fuzzy
+#| msgid "Очікує оплати"
+msgid "Очікують оплату"
+msgstr "Awaiting payment"
+
+#: dtf/templates/dtf/admin/tabs/orders.html:22
+#, fuzzy
+#| msgid "Відправлено"
+msgid "Відправлено сьогодні"
+msgstr "sent"
+
+#: dtf/templates/dtf/admin/tabs/orders.html:40
+#, fuzzy
+#| msgid "Розрахувати"
+msgid "Редагувати"
+msgstr "Calculate"
+
+#: dtf/templates/dtf/admin/tabs/orders.html:56
+msgid "Оплата"
+msgstr "Payment"
+
+#: dtf/templates/dtf/admin/tabs/orders.html:61
+#, fuzzy
+#| msgid "Менеджер зв'яжеться"
+msgid "Узгоджується"
+msgstr "Our manager will contact you"
+
+#: dtf/templates/dtf/admin/tabs/orders.html:66
+#: dtf/templates/dtf/admin/tabs/orders.html:119
+#: dtf/templates/dtf/cabinet_orders.html:61 dtf/templates/dtf/status.html:138
+msgid "ТТН"
+msgstr "TTN"
+
+#: dtf/templates/dtf/admin/tabs/orders.html:70
+#, fuzzy
+#| msgid "Доставка"
+msgid "Точка доставки"
+msgstr "Delivery"
+
+#: dtf/templates/dtf/admin/tabs/orders.html:74
+#, fuzzy
+#| msgid "Замовлення"
+msgid "Оновлено"
+msgstr "Order"
+
+#: dtf/templates/dtf/admin/tabs/orders.html:83
+msgid "Order status"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:91
+msgid "Lifecycle"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:99
+msgid "Payment status"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:107
+msgid "Payment amount"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:111
+msgid "Payment reference"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:115
+msgid "Payment link"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:123
+msgid "Delivery type"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:127
+msgid "Delivery code"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:131
+msgid "Delivery label"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:135
+msgid "Fulfillment kind"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:143
+msgid "Product type"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:147
+msgid "Print placement"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:151
+msgid "Product quantity"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:156
+msgid "Manager note"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/orders.html:161
+#, fuzzy
+#| msgid "Розрахувати"
+msgid "Скасувати"
+msgstr "Calculate"
+
+#: dtf/templates/dtf/admin/tabs/orders.html:168
+#, fuzzy
+#| msgid "Замовлення не знайдено"
+msgid "Замовлень ще немає."
+msgstr "Order not found"
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:4 dtf/views.py:1510
+msgid "Промокоди"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:5
+msgid "Керування промокодами в основній базі (shared users/data)."
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:9
+msgid "Модуль промокодів недоступний у поточній конфігурації."
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:13
+msgid "Всього"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:21
+msgid "Вичерпані"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:25
+#, fuzzy
+#| msgid "Опишіть задачу"
+msgid "Спливають за 7 днів"
+msgstr "Describe the task"
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:34
+msgid "Новий промокод"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:42
+#: dtf/templates/dtf/admin/tabs/promocodes.html:131
+msgid "Активний"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:42
+msgid "Вимкнений"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:67
+msgid "Промокодів поки немає."
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:78
+#, fuzzy
+#| msgid "Копії"
+msgid "Код"
+msgstr "Copies"
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:79
+msgid "автогенерація якщо порожньо"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:82
+msgid "Тип промокоду"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:84
+msgid "Звичайний"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:85
+msgid "Ваучер"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:86
+msgid "Груповий"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:90
+#, fuzzy
+#| msgid "Ціни та знижки"
+msgid "Тип знижки"
+msgstr "Pricing and discounts"
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:92
+#, fuzzy
+#| msgid "Відсутній"
+msgid "Відсоток"
+msgstr "Missing"
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:93
+msgid "Фіксована сума"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:97
+#, fuzzy
+#| msgid "Ціни та знижки"
+msgid "Значення знижки"
+msgstr "Pricing and discounts"
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:101
+msgid "Макс. використань (0 = безліміт)"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:105
+#, fuzzy
+#| msgid "Статус замовлення"
+msgid "Мін. сума замовлення"
+msgstr "Order status"
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:109
+msgid "Дійсний з"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:113
+#, fuzzy
+#| msgid "Ручний ввід"
+msgid "Дійсний до"
+msgstr "Manual input"
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:117
+msgid "Група"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:119
+msgid "Без групи"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:127
+msgid "Одноразове використання на користувача"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:136
+msgid "Опис"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/promocodes.html:142
+msgid "Увімк./Вимк."
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/users.html:4 dtf/views.py:1509
+#, fuzzy
+#| msgid "Як користуватись"
+msgid "Користувачі"
+msgstr "How to use"
+
+#: dtf/templates/dtf/admin/tabs/users.html:5
+msgid ""
+"Користувачі спільні з основним сайтом twocomms.shop (єдина авторизація)."
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/users.html:13 dtf/templates/dtf/base.html:289
+#: dtf/templates/dtf/base.html:302
+msgid "Логін"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/users.html:15
+#, fuzzy
+#| msgid "Реєстрація шарів"
+msgid "Дата реєстрації"
+msgstr "Layer registration"
+
+#: dtf/templates/dtf/admin/tabs/users.html:16
+msgid "Роль"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/users.html:28
+msgid "Superuser"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/users.html:30
+msgid "Staff"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/users.html:32
+msgid "User"
+msgstr ""
+
+#: dtf/templates/dtf/admin/tabs/users.html:38
+#, fuzzy
+#| msgid "Сторінку не знайдено"
+msgid "Користувачів не знайдено."
+msgstr "Page not found"
+
+#: dtf/templates/dtf/base.html:8
 msgid "DTF друк у рулоні 60 см — TwoComms"
 msgstr "DTF roll printing 60 cm — TwoComms"
 
-#: templates/dtf/base.html:10
+#: dtf/templates/dtf/base.html:9
 msgid ""
 "DTF друк 60 см: швидкий розрахунок метражу, перевірка макета та доставка НП."
 msgstr ""
 "DTF printing 60 cm: quick meter calculation, artwork check, and Nova Poshta "
 "delivery."
 
-#: templates/dtf/base.html:12
+#: dtf/templates/dtf/base.html:12
 msgid "DTF друк у рулоні 60 см"
 msgstr "DTF roll printing 60 cm"
 
-#: templates/dtf/base.html:13
+#: dtf/templates/dtf/base.html:13
 msgid "Прозорий розрахунок, ручна перевірка макета, доставка Новою Поштою."
 msgstr "Transparent pricing, manual artwork review, and Nova Poshta delivery."
 
-#: templates/dtf/base.html:27
+#: dtf/templates/dtf/base.html:144
 msgid "Перейти до контенту"
 msgstr "Skip to content"
 
-#: templates/dtf/base.html:39
+#: dtf/templates/dtf/base.html:161
+#, fuzzy
+#| msgid "Замовити"
+msgid "Зміна мови"
+msgstr "Order"
+
+#: dtf/templates/dtf/base.html:187
 msgid "Основна навігація"
 msgstr "Main navigation"
 
-#: templates/dtf/base.html:40 templates/dtf/base.html:69
-#: templates/dtf/base.html:156 templates/dtf/index.html:502
+#: dtf/templates/dtf/base.html:188 dtf/templates/dtf/base.html:344
+#: dtf/templates/dtf/base.html:456 dtf/templates/dtf/base.html:457
 msgid "Замовити"
 msgstr "Order"
 
-#: templates/dtf/base.html:41 templates/dtf/base.html:70
-#: templates/dtf/base.html:159 templates/dtf/price.html:7
-#: templates/dtf/price.html:33
+#: dtf/templates/dtf/base.html:190 dtf/templates/dtf/base.html:346
+#: dtf/templates/dtf/base.html:493 dtf/templates/dtf/price.html:17
 msgid "Ціни"
 msgstr "Prices"
 
-#: templates/dtf/base.html:42 templates/dtf/base.html:71
-#: templates/dtf/gallery.html:26
+#: dtf/templates/dtf/base.html:191 dtf/templates/dtf/base.html:347
+msgid "Вироби"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:192 dtf/templates/dtf/base.html:348
+#: dtf/templates/dtf/base.html:468 dtf/templates/dtf/base.html:469
+#: dtf/templates/dtf/gallery.html:27
 msgid "Галерея"
 msgstr "Gallery"
 
-#: templates/dtf/base.html:43 templates/dtf/base.html:72
-#: templates/dtf/requirements.html:35
+#: dtf/templates/dtf/base.html:194 dtf/templates/dtf/base.html:350
+#: dtf/templates/dtf/requirements.html:44
 msgid "Вимоги"
 msgstr "Requirements"
 
-#: templates/dtf/base.html:45 templates/dtf/base.html:74
-#: templates/dtf/base.html:165
-msgid "Допомога"
-msgstr "Help"
-
-#: templates/dtf/base.html:49
+#: dtf/templates/dtf/base.html:198
 msgid "Меню"
 msgstr "Menu"
 
-#: templates/dtf/base.html:56
-msgid "Розрахувати"
-msgstr "Calculate"
-
-#: templates/dtf/base.html:66 templates/dtf/gallery.html:281
-#: templates/dtf/index.html:458
-msgid "Закрити"
-msgstr "Close"
-
-#: templates/dtf/base.html:68 templates/dtf/base.html:154
-msgid "Мобільна навігація"
-msgstr "Mobile navigation"
-
-#: templates/dtf/base.html:95
-msgid "DTF друк рулоном 60 см. Ручна перевірка макета перед друком."
-msgstr "DTF roll printing 60 cm. Manual artwork check before printing."
-
-#: templates/dtf/base.html:98 templates/dtf/delivery_payment.html:4
-#: templates/dtf/delivery_payment.html:9 templates/dtf/index.html:499
-msgid "Доставка та оплата"
-msgstr "Delivery & payment"
-
-#: templates/dtf/base.html:99 templates/dtf/index.html:154
-#: templates/dtf/index.html:471 templates/dtf/requirements.html:4
-#: templates/dtf/requirements.html:61
-msgid "Вимоги до файлів"
-msgstr "File requirements"
-
-#: templates/dtf/base.html:100 templates/dtf/quality.html:35
-msgid "Quality"
-msgstr "Quality"
-
-#: templates/dtf/base.html:101 templates/dtf/templates.html:7
-msgid "Шаблони"
-msgstr "Templates"
-
-#: templates/dtf/base.html:102 templates/dtf/contacts.html:4
-#: templates/dtf/contacts.html:9 templates/dtf/order.html:230
-#: templates/dtf/preflight.html:114
+#: dtf/templates/dtf/base.html:200 dtf/templates/dtf/base.html:396
+#: dtf/templates/dtf/order.html:255 dtf/templates/dtf/preflight.html:121
 msgid "Контакти"
 msgstr "Contacts"
 
-#: templates/dtf/base.html:103
+#: dtf/templates/dtf/base.html:228
+#, fuzzy
+#| msgid "Мінімум 1 копія"
+msgid "Мінікабінет"
+msgstr "At least 1 copy"
+
+#: dtf/templates/dtf/base.html:230 dtf/templates/dtf/base.html:271
+msgid "Вхід до кабінету TwoComms"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:253
+msgid "Management-панель"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:255
+msgid "Вхід у Management"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:258
+msgid "Адмін-панель сайту"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:261
+msgid "Django admin (DTF)"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:266
+msgid "Вийти"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:272
+msgid "Ті самі облікові дані, що і на основному сайті."
+msgstr ""
+
+#: dtf/templates/dtf/base.html:275
+#, fuzzy
+#| msgid "Автовизначення"
+msgid "Авторизація"
+msgstr "Autodetection"
+
+#: dtf/templates/dtf/base.html:276
+msgid "Вхід"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:277
+#, fuzzy
+#| msgid "Реєстрація шарів"
+msgid "Реєстрація"
+msgstr "Layer registration"
+
+#: dtf/templates/dtf/base.html:279
+msgid "або"
+msgstr "or"
+
+#: dtf/templates/dtf/base.html:282
+msgid "Увійти через Google"
+msgstr "Sign in with Google"
+
+#: dtf/templates/dtf/base.html:293 dtf/templates/dtf/base.html:310
+msgid "Пароль"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:296
+msgid "Увійти"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:314
+#, fuzzy
+#| msgid "Повторити замовлення"
+msgid "Повторіть пароль"
+msgstr "Reorder"
+
+#: dtf/templates/dtf/base.html:317
+#, fuzzy
+#| msgid "Створити замовлення"
+msgid "Створити акаунт"
+msgstr "Create order"
+
+#: dtf/templates/dtf/base.html:319
+msgid "Повна форма входу"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:343 dtf/templates/dtf/base.html:491
+msgid "Мобільна навігація"
+msgstr "Mobile navigation"
+
+#: dtf/templates/dtf/base.html:386 dtf/templates/dtf/base.html:474
+#: dtf/templates/dtf/base.html:475 dtf/templates/dtf/base.html:485
+#: dtf/templates/dtf/blog.html:25 dtf/templates/dtf/blog_post.html:12
+#: dtf/templates/dtf/blog_post.html:70 dtf/templates/dtf/index.html:722
+#: dtf/templates/dtf/partials/blog_overlay_content.html:6
+msgid "База знань"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:390
+#, fuzzy
+#| msgid "Готовий виріб"
+msgid "Готові вироби"
+msgstr "The finished product"
+
+#: dtf/templates/dtf/base.html:391 dtf/templates/dtf/cabinet_home.html:11
+msgid "Кабінет"
+msgstr ""
+
+#: dtf/templates/dtf/base.html:392
+msgid "Доставка та оплата"
+msgstr "Delivery & payment"
+
+#: dtf/templates/dtf/base.html:393
+msgid "Вимоги до файлів"
+msgstr "File requirements"
+
+#: dtf/templates/dtf/base.html:395 dtf/templates/dtf/templates.html:8
+msgid "Шаблони"
+msgstr "Templates"
+
+#: dtf/templates/dtf/base.html:397
 msgid "Конфіденційність"
 msgstr "Privacy"
 
-#: templates/dtf/base.html:104
+#: dtf/templates/dtf/base.html:398
 msgid "Умови"
 msgstr "Terms"
 
-#: templates/dtf/base.html:105
+#: dtf/templates/dtf/base.html:399
 msgid "Повернення"
 msgstr "Returns"
 
-#: templates/dtf/base.html:106 templates/dtf/legal/requisites.html:4
-#: templates/dtf/legal/requisites.html:9
+#: dtf/templates/dtf/base.html:400
 msgid "Реквізити"
 msgstr "Requisites"
 
-#: templates/dtf/base.html:114 templates/dtf/base.html:116
-msgid "Менеджер"
-msgstr "Manager"
-
-#: templates/dtf/base.html:124
+#: dtf/templates/dtf/base.html:418
 msgid "Менеджер зв'яжеться"
 msgstr "Our manager will contact you"
 
-#: templates/dtf/base.html:125
+#: dtf/templates/dtf/base.html:419
 msgid "Залиште контакти та коротке питання."
 msgstr "Leave your contact details and a short question."
 
-#: templates/dtf/base.html:128 templates/dtf/order.html:136
-#: templates/dtf/order.html:234 templates/dtf/preflight.html:118
+#: dtf/templates/dtf/base.html:422 dtf/templates/dtf/constructor_app.html:196
+#: dtf/templates/dtf/order.html:161 dtf/templates/dtf/order.html:259
+#: dtf/templates/dtf/preflight.html:125 dtf/templates/dtf/sample.html:56
 msgid "Ім'я"
 msgstr "Name"
 
-#: templates/dtf/base.html:131 templates/dtf/contacts.html:16
-#: templates/dtf/order.html:139 templates/dtf/order.html:237
-#: templates/dtf/preflight.html:121 templates/dtf/status.html:45
+#: dtf/templates/dtf/base.html:425 dtf/templates/dtf/constructor_app.html:199
+#: dtf/templates/dtf/order.html:164 dtf/templates/dtf/order.html:262
+#: dtf/templates/dtf/preflight.html:128 dtf/templates/dtf/sample.html:57
+#: dtf/templates/dtf/status.html:48
 msgid "Телефон"
 msgstr "Phone"
 
-#: templates/dtf/base.html:134
+#: dtf/templates/dtf/base.html:428 dtf/templates/dtf/constructor_app.html:204
+#: dtf/templates/dtf/sample.html:58
 msgid "Канал"
 msgstr "Channel"
 
-#: templates/dtf/base.html:139
+#: dtf/templates/dtf/base.html:433 dtf/templates/dtf/constructor_app.html:209
 msgid "Дзвінок"
 msgstr "Phone call"
 
-#: templates/dtf/base.html:142 templates/dtf/order.html:145
-#: templates/dtf/order.html:243 templates/dtf/preflight.html:127
+#: dtf/templates/dtf/base.html:436 dtf/templates/dtf/order.html:170
+#: dtf/templates/dtf/order.html:268 dtf/templates/dtf/preflight.html:134
+#: dtf/templates/dtf/sample.html:76
 msgid "Нік/посилання"
 msgstr "Handle/link"
 
-#: templates/dtf/base.html:145
+#: dtf/templates/dtf/base.html:439
 msgid "Питання"
 msgstr "Question"
 
-#: templates/dtf/base.html:148
+#: dtf/templates/dtf/base.html:442 dtf/templates/dtf/constructor_app.html:256
 msgid "Надіслати"
 msgstr "Send"
 
-#: templates/dtf/base.html:149 templates/dtf/index.html:99
-#: templates/dtf/order.html:167
+#: dtf/templates/dtf/base.html:443 dtf/templates/dtf/order.html:192
 msgid "Ручна перевірка макета перед друком"
 msgstr "Manual artwork check before printing"
 
-#: templates/dtf/contacts.html:12
-msgid "Графік"
-msgstr "Schedule"
-
-#: templates/dtf/contacts.html:13
-msgid "Пн–Пт: 10:00–18:00"
-msgstr "Mon–Fri: 10:00–18:00"
-
-#: templates/dtf/delivery_payment.html:12 templates/dtf/order.html:132
-#: templates/dtf/status.html:112
-msgid "Доставка"
-msgstr "Delivery"
-
-#: templates/dtf/delivery_payment.html:13
-msgid "Нова Пошта по Україні. Вкажіть місто та відділення при оформленні."
+#: dtf/templates/dtf/base.html:453
+msgid "Швидкі дії"
 msgstr ""
-"Nova Poshta across Ukraine. Specify the city and department when ordering."
 
-#: templates/dtf/delivery_payment.html:16 templates/dtf/index.html:220
-msgid "Оплата"
-msgstr "Payment"
-
-#: templates/dtf/delivery_payment.html:17
-msgid ""
-"Оплата після перевірки макета. Надсилаємо реквізити у ваш канал зв'язку."
+#: dtf/templates/dtf/blog.html:81
+msgid "Читати в overlay"
 msgstr ""
-"Payment after checking the layout. We send details to your communication "
-"channel."
 
-#: templates/dtf/delivery_payment.html:20
-msgid "Юридичні"
-msgstr "Legal"
-
-#: templates/dtf/delivery_payment.html:21
-msgid "Оферта та політика конфіденційності надаються за запитом."
-msgstr "The offer and privacy policy are available upon request."
-
-#: templates/dtf/gallery.html:4
-msgid "Галерея робіт"
-msgstr "Gallery of works"
-
-#: templates/dtf/gallery.html:53
-msgid "Галерея DTF"
-msgstr "DTF gallery"
-
-#: templates/dtf/gallery.html:54
-msgid "Реальні кейси, макро‑деталі та порівняння до/після."
-msgstr "Real cases, macro details and before/after comparisons."
-
-#: templates/dtf/gallery.html:58
-msgid "Всі"
-msgstr "All"
-
-#: templates/dtf/gallery.html:61 templates/dtf/gallery.html:124
-#: templates/dtf/gallery.html:169 templates/dtf/index.html:305
-#: templates/dtf/index.html:310 templates/dtf/index.html:341
-#: templates/dtf/index.html:374
-msgid "Готове"
-msgstr "Done"
-
-#: templates/dtf/gallery.html:70 templates/dtf/gallery.html:93
-#: templates/dtf/gallery.html:108 templates/dtf/gallery.html:123
-#: templates/dtf/gallery.html:138 templates/dtf/gallery.html:153
-#: templates/dtf/gallery.html:168 templates/dtf/index.html:141
-#: templates/dtf/index.html:279 templates/dtf/index.html:294
-#: templates/dtf/index.html:318 templates/dtf/index.html:329
-#: templates/dtf/index.html:340 templates/dtf/index.html:351
-#: templates/dtf/index.html:362 templates/dtf/index.html:373
-msgid "60 см"
-msgstr "60 cm"
-
-#: templates/dtf/gallery.html:72 templates/dtf/gallery.html:82
-#: templates/dtf/gallery.html:95 templates/dtf/gallery.html:110
-#: templates/dtf/gallery.html:125 templates/dtf/gallery.html:140
-#: templates/dtf/gallery.html:155 templates/dtf/gallery.html:170
-#: templates/dtf/index.html:145 templates/dtf/index.html:281
-#: templates/dtf/index.html:320 templates/dtf/index.html:331
-#: templates/dtf/index.html:342 templates/dtf/index.html:353
-#: templates/dtf/index.html:364 templates/dtf/index.html:375
-msgid "24–48 год"
-msgstr "24–48 h"
-
-#: templates/dtf/gallery.html:76 templates/dtf/index.html:323
-#: templates/dtf/index.html:334 templates/dtf/index.html:345
-#: templates/dtf/index.html:356 templates/dtf/index.html:367
-#: templates/dtf/index.html:378 templates/dtf/price.html:63
-msgid "Приклад"
-msgstr "Example"
-
-#: templates/dtf/gallery.html:78
-msgid "Паспорт кейса"
-msgstr "Case passport"
-
-#: templates/dtf/gallery.html:80 templates/dtf/index.html:306
-msgid "Матеріал"
-msgstr "Material"
-
-#: templates/dtf/gallery.html:80
-msgid "бавовна"
-msgstr "cotton"
-
-#: templates/dtf/gallery.html:81 templates/dtf/index.html:245
-#: templates/dtf/partials/order_calc.html:4
-#: templates/dtf/partials/order_calc.html:17 templates/dtf/price.html:37
-#: views.py:238
-msgid "Метраж"
-msgstr "Meters"
-
-#: templates/dtf/gallery.html:81
-msgid "12 м"
-msgstr "12 m"
-
-#: templates/dtf/gallery.html:82
-msgid "Термін"
-msgstr "Term"
-
-#: templates/dtf/gallery.html:85 templates/dtf/gallery.html:101
-#: templates/dtf/gallery.html:116 templates/dtf/gallery.html:131
-#: templates/dtf/gallery.html:146 templates/dtf/gallery.html:161
-#: templates/dtf/gallery.html:176
-msgid "Зробити як тут"
-msgstr "Do as here"
-
-#: templates/dtf/gallery.html:91
-msgid "Галерея приклад 01"
-msgstr "Gallery example 01"
-
-#: templates/dtf/gallery.html:99 templates/dtf/gallery.html:114
-#: templates/dtf/gallery.html:129 templates/dtf/gallery.html:144
-#: templates/dtf/gallery.html:159 templates/dtf/gallery.html:174
-msgid "Кейс"
-msgstr "Case"
-
-#: templates/dtf/gallery.html:100 templates/dtf/gallery.html:115
-#: templates/dtf/gallery.html:130 templates/dtf/gallery.html:145
-#: templates/dtf/gallery.html:160 templates/dtf/gallery.html:175
-msgid "Додамо реальні роботи"
-msgstr "Let's add real jobs"
-
-#: templates/dtf/gallery.html:106
-msgid "Галерея приклад 02"
-msgstr "Gallery example 02"
-
-#: templates/dtf/gallery.html:121
-msgid "Галерея приклад 03"
-msgstr "Gallery example 03"
-
-#: templates/dtf/gallery.html:136
-msgid "Галерея приклад 04"
-msgstr "Gallery example 04"
-
-#: templates/dtf/gallery.html:151
-msgid "Галерея приклад 05"
-msgstr "Gallery example 05"
-
-#: templates/dtf/gallery.html:166
-msgid "Галерея приклад 06"
-msgstr "Gallery example 06"
-
-#: templates/dtf/gallery.html:189
-msgid "До друку — галерея кейс 1"
-msgstr "To print — gallery case 1"
-
-#: templates/dtf/gallery.html:196
-msgid "Після друку — галерея кейс 1"
-msgstr "After printing — case 1 gallery"
-
-#: templates/dtf/gallery.html:203 templates/dtf/gallery.html:229
-#: templates/dtf/gallery.html:255
-msgid "Порівняння"
-msgstr "Comparison"
-
-#: templates/dtf/gallery.html:205
-msgid "Контраст і білий"
-msgstr "Contrast and white"
-
-#: templates/dtf/gallery.html:206 templates/dtf/gallery.html:232
-#: templates/dtf/gallery.html:258
-msgid "До / Після"
-msgstr "Before / After"
-
-#: templates/dtf/gallery.html:215
-msgid "До друку — галерея кейс 2"
-msgstr "To print — case gallery 2"
-
-#: templates/dtf/gallery.html:222
-msgid "Після друку — галерея кейс 2"
-msgstr "After printing — case 2 gallery"
-
-#: templates/dtf/gallery.html:231
-msgid "Деталі дрібного тексту"
-msgstr "Details of small text"
-
-#: templates/dtf/gallery.html:241
-msgid "До друку — галерея кейс 3"
-msgstr "To print — case gallery 3"
-
-#: templates/dtf/gallery.html:248
-msgid "Після друку — галерея кейс 3"
-msgstr "After printing — case 3 gallery"
-
-#: templates/dtf/gallery.html:257
-msgid "Градієнт та напівтони"
-msgstr "Gradient and halftones"
-
-#: templates/dtf/gallery.html:265
-msgid "Макро-текстура DTF (галерея)"
-msgstr "Macro texture DTF (gallery)"
-
-#: templates/dtf/gallery.html:272
-msgid "Макро‑текстура"
-msgstr "Macro texture"
-
-#: templates/dtf/gallery.html:273 templates/dtf/index.html:447
-msgid "Наведення для збільшення"
-msgstr "Hover to zoom"
-
-#: templates/dtf/gallery.html:280 templates/dtf/index.html:457
-msgid "Збільшення"
-msgstr "Magnification"
-
-#: templates/dtf/gallery.html:284 templates/dtf/index.html:461
-msgid "Макро‑превʼю (placeholder)"
-msgstr "Macro preview"
-
-#: templates/dtf/how_to_press.html:4 templates/dtf/how_to_press.html:10
-msgid "Як переносити"
-msgstr "How to transfer"
-
-#: templates/dtf/how_to_press.html:11
-msgid "Базова інструкція для пресу та матеріалів."
-msgstr "Basic instructions for the press and materials."
-
-#: templates/dtf/how_to_press.html:16
-msgid "Стандарт"
-msgstr "Standard"
-
-#: templates/dtf/how_to_press.html:18
-msgid "Температура: 150–160°C"
-msgstr "Temperature: 150–160°C"
-
-#: templates/dtf/how_to_press.html:19
-msgid "Тиск: середній"
-msgstr "Pressure: medium"
-
-#: templates/dtf/how_to_press.html:20
-msgid "Час: 10–12 сек"
-msgstr "Hour: 10–12 sec"
-
-#: templates/dtf/how_to_press.html:24 templates/dtf/index.html:104
-#: templates/dtf/index.html:109 templates/dtf/index.html:293
-msgid "Hot Peel"
-msgstr "Hot Peel"
-
-#: templates/dtf/how_to_press.html:26
-msgid "Знімати плівку відразу"
-msgstr "Remove the film immediately"
-
-#: templates/dtf/how_to_press.html:27
-msgid "Фінальний прес 5–7 сек"
-msgstr "Final press 5–7 sec"
-
-#: templates/dtf/how_to_press.html:31
-msgid "Поради"
-msgstr "Because of"
-
-#: templates/dtf/how_to_press.html:33
-msgid "Тестуйте на обрізку"
-msgstr "Test for trimming"
-
-#: templates/dtf/how_to_press.html:34
-msgid "Уникайте вологи"
-msgstr "Avoid moisture"
-
-#: templates/dtf/index.html:6 templates/dtf/index.html:10
-#: templates/dtf/index.html:86 templates/dtf/index.html:90
-#: templates/dtf/index.html:103
-msgid "грн/м"
-msgstr "UAH/m"
-
-#: templates/dtf/index.html:16
-msgid "DTF друк рулоном 60 см"
-msgstr "DTF roll printing 60 cm"
-
-#: templates/dtf/index.html:17 templates/dtf/index.html:478
-msgid "Не відклеїться?"
-msgstr "Will it peel off?"
-
-#: templates/dtf/index.html:18 templates/dtf/index.html:479
-msgid "DTF витримує багато циклів прання за умови правильного переносу."
-msgstr "DTF withstands many wash cycles when transferred correctly."
-
-#: templates/dtf/index.html:19 templates/dtf/index.html:482
-msgid "Є білий шар?"
-msgstr "Is there a white underbase?"
-
-#: templates/dtf/index.html:20 templates/dtf/index.html:483
-msgid "Так, використовується білий підклад для насичених кольорів."
-msgstr "Yes, we use a white underbase for saturated colors."
-
-#: templates/dtf/index.html:82
-msgid "DTF друк в рулоні"
-msgstr "DTF roll printing"
-
-#: templates/dtf/index.html:85 templates/dtf/index.html:89
-msgid "60 см, Hot Peel, все включено"
-msgstr "60 cm, Hot Peel, all included"
-
-#: templates/dtf/index.html:94
-msgid ""
-"Швидкий розрахунок, ручна перевірка макета, друк та доставка Новою Поштою."
+#: dtf/templates/dtf/blog.html:82
+msgid "Окрема сторінка"
 msgstr ""
-"Quick calculation, manual artwork check, printing and Nova Poshta delivery."
 
-#: templates/dtf/index.html:96
-msgid "Розрахувати / Замовити"
-msgstr "Calculate / Order"
+#: dtf/templates/dtf/blog.html:90
+msgid "База знань готується"
+msgstr ""
 
-#: templates/dtf/index.html:97
+#: dtf/templates/dtf/blog.html:91
+msgid "Перші матеріали будуть опубліковані найближчим часом."
+msgstr ""
+
+#: dtf/templates/dtf/blog_post.html:78
 msgid "Потрібна допомога з макетом"
 msgstr "Need help with artwork"
 
-#: templates/dtf/index.html:110
-msgid "Гаряче зняття"
-msgstr "Hot release"
-
-#: templates/dtf/index.html:131
-msgid "Фото друкуючої головки DTF (hero)"
-msgstr "DTF printhead photo (hero)"
-
-#: templates/dtf/index.html:142
-msgid "Ширина рулону"
-msgstr "Roll width"
-
-#: templates/dtf/index.html:146
-msgid "Середній термін"
-msgstr "Average turnaround"
-
-#: templates/dtf/index.html:149
-msgid "НП"
-msgstr "NP"
-
-#: templates/dtf/index.html:150
-msgid "Доставка по Україні"
-msgstr "Delivery across Ukraine"
-
-#: templates/dtf/index.html:155
-msgid "PDF/PNG рекомендовано"
-msgstr "PDF/PNG recommended"
-
-#: templates/dtf/index.html:166
-msgid "МЕТРИ"
-msgstr "METERS"
-
-#: templates/dtf/index.html:176
-msgid "≈ ЦІНА"
-msgstr "≈ PRICE"
-
-#: templates/dtf/index.html:183
-msgid "Далі"
-msgstr "Next"
-
-#: templates/dtf/index.html:184
-msgid "Замовити без розрахунку"
-msgstr "Order without calculation"
-
-#: templates/dtf/index.html:193
-msgid "Як це працює"
-msgstr "How it works"
-
-#: templates/dtf/index.html:202
-msgid "Завантаження"
-msgstr "Upload"
-
-#: templates/dtf/index.html:203
-msgid "Надішліть ганг-лист або файли для допомоги."
-msgstr "Send your gang sheet or files for assistance."
-
-#: templates/dtf/index.html:212
-msgid "Менеджер перевіряє, підтверджує метраж та узгоджує правки."
-msgstr "Manager checks, confirms total meters, and agrees edits with you."
-
-#: templates/dtf/index.html:221
-msgid "Після перевірки надсилаємо реквізити у вибраний канал."
-msgstr "After review we send payment details via your chosen channel."
-
-#: templates/dtf/index.html:229
-msgid "Друк + НП"
-msgstr "Print + NP"
-
-#: templates/dtf/index.html:230
-msgid "Друкуємо, пакуємо і відправляємо Новою Поштою."
-msgstr "We print, pack, and ship via Nova Poshta."
-
-#: templates/dtf/index.html:240
-msgid "Ціни та знижки"
-msgstr "Pricing and discounts"
-
-#: templates/dtf/index.html:241
-msgid "Базова ціна та знижки від метражу. Точну суму підтвердить менеджер."
-msgstr "Base price and volume discounts. Final amount is confirmed by manager."
-
-#: templates/dtf/index.html:246 templates/dtf/price.html:38
-msgid "Ціна, грн/м"
-msgstr "Price, UAH/m"
-
-#: templates/dtf/index.html:247 templates/dtf/order.html:125
-#: templates/dtf/preflight.html:77 templates/dtf/price.html:39
-msgid "Коментар"
-msgstr "Comment"
-
-#: templates/dtf/index.html:250 templates/dtf/index.html:307
-#: templates/dtf/price.html:42
-msgid "1–9 м"
-msgstr "1–9 m"
-
-#: templates/dtf/index.html:252 templates/dtf/price.html:45
-msgid "Базова"
-msgstr "Base"
-
-#: templates/dtf/index.html:256 templates/dtf/price.html:52
-#, python-format
-msgid "Від %(min)s м"
-msgstr "From %(min)s m"
-
-#: templates/dtf/index.html:258 templates/dtf/price.html:55
-msgid "Знижка"
-msgstr "Discount"
-
-#: templates/dtf/index.html:268
-msgid "Наші роботи"
-msgstr "Our works"
-
-#: templates/dtf/index.html:269
-msgid "Кілька реальних прикладів з макро та готовим результатом."
-msgstr "Several real examples with macro and final result."
-
-#: templates/dtf/index.html:316
-msgid "Приклад DTF 01"
-msgstr "Example DTF 01"
-
-#: templates/dtf/index.html:327
-msgid "Приклад DTF 02"
-msgstr "Example of DTF 02"
-
-#: templates/dtf/index.html:338
-msgid "Приклад DTF 03"
-msgstr "Example of DTF 03"
-
-#: templates/dtf/index.html:349
-msgid "Приклад DTF 04"
-msgstr "Example of DTF 04"
-
-#: templates/dtf/index.html:360
-msgid "Приклад DTF 05"
-msgstr "Example of DTF 05"
-
-#: templates/dtf/index.html:371
-msgid "Приклад DTF 06"
-msgstr "Example of DTF 06"
-
-#: templates/dtf/index.html:389
-msgid "До друку — кейс 1"
-msgstr "Before print — case 1"
-
-#: templates/dtf/index.html:396
-msgid "Після друку — кейс 1"
-msgstr "After print — case 1"
-
-#: templates/dtf/index.html:403
-msgid "Порівняння якості"
-msgstr "Quality comparison"
-
-#: templates/dtf/index.html:405
-msgid "Стійкість фарби"
-msgstr "Ink durability"
-
-#: templates/dtf/index.html:406
-msgid "Макро + контроль підкладки"
-msgstr "Macro + underbase control"
-
-#: templates/dtf/index.html:415
-msgid "До друку — кейс 2"
-msgstr "Before print — case 2"
-
-#: templates/dtf/index.html:422
-msgid "Після друку — кейс 2"
-msgstr "After print — case 2"
-
-#: templates/dtf/index.html:429
-msgid "Порівняння деталей"
-msgstr "Detail comparison"
-
-#: templates/dtf/index.html:431 templates/dtf/quality.html:77
-msgid "Реєстрація шарів"
-msgstr "Layer registration"
-
-#: templates/dtf/index.html:432
-msgid "До / після очищення"
-msgstr "Before / after cleaning"
-
-#: templates/dtf/index.html:439
-msgid "Макро-текстура DTF"
-msgstr "Macro texture DTF"
-
-#: templates/dtf/index.html:446
-msgid "Текстура і край"
-msgstr "Texture and edge"
-
-#: templates/dtf/index.html:452
-msgid "Дивитись всі роботи"
-msgstr "View all works"
-
-#: templates/dtf/index.html:472
-msgid ""
-"PDF/PNG, ширина 60 см, прозорість для фону. Додаткові вимоги та шаблони — на "
-"окремій сторінці."
+#: dtf/templates/dtf/blog_post.html:79
+msgid "Всі статті"
 msgstr ""
-"PDF/PNG, 60 cm width, transparent background. More requirements and "
-"templates are on a separate page."
 
-#: templates/dtf/index.html:473
-msgid "Перейти до вимог"
-msgstr "Go to requirements"
-
-#: templates/dtf/index.html:476
-msgid "FAQ"
-msgstr "FAQ"
-
-#: templates/dtf/index.html:486
-msgid "Як переносити?"
-msgstr "How to transfer?"
-
-#: templates/dtf/index.html:487
-msgid "Надаємо інструкцію під ваш прес та матеріал."
-msgstr "We provide instructions for your press and material."
-
-#: templates/dtf/index.html:490
-msgid "Якщо макет слабкий?"
-msgstr "What if artwork quality is low?"
-
-#: templates/dtf/index.html:491
-msgid "Менеджер підкаже, як виправити, або запропонує допомогу."
-msgstr "Manager will suggest fixes or offer assistance."
-
-#: templates/dtf/index.html:500
-msgid ""
-"Нова Пошта по Україні. Оплата після перевірки макета. Реквізити надсилаємо у "
-"зручний канал."
+#: dtf/templates/dtf/blog_post.html:85
+msgid "Пов'язані матеріали"
 msgstr ""
-"Nova Poshta delivery across Ukraine. Payment after artwork review. We send "
-"details to your preferred channel."
 
-#: templates/dtf/index.html:503
-msgid "Детальніше"
-msgstr "Learn more"
-
-#: templates/dtf/legal/privacy.html:4 templates/dtf/legal/privacy.html:9
-msgid "Політика конфіденційності"
-msgstr "Privacy policy"
-
-#: templates/dtf/legal/privacy.html:10
-msgid ""
-"TEMP: Оновлюємо повний юридичний текст. Нижче коротка робоча версія для DTF "
-"сайту."
+#: dtf/templates/dtf/blog_post.html:92
+msgid "Незабаром додамо ще матеріали."
 msgstr ""
-"TEMP: Full legal text is being updated. Below is the short working version "
-"for the DTF site."
 
-#: templates/dtf/legal/privacy.html:12
-msgid ""
-"Ми використовуємо контактні дані лише для обробки звернень і замовлень DTF."
-msgstr "We use contact data only to process DTF inquiries and orders."
+#: dtf/templates/dtf/cabinet_home.html:4
+#, fuzzy
+#| msgid "Галерея DTF"
+msgid "Кабінет DTF"
+msgstr "DTF gallery"
 
-#: templates/dtf/legal/privacy.html:13
-msgid ""
-"Передача даних третім сторонам відбувається тільки для доставки, оплати або "
-"за вимогою закону."
+#: dtf/templates/dtf/cabinet_home.html:12
+msgid "Замовлення, сесії конструктора та лояльність."
 msgstr ""
-"Data is shared with third parties only for delivery, payment, or legal "
-"requirements."
 
-#: templates/dtf/legal/privacy.html:14
-msgid ""
-"Для видалення або уточнення ваших даних зверніться через сторінку Контактів."
-msgstr "To delete or clarify your data, contact us via the Contacts page."
-
-#: templates/dtf/legal/requisites.html:10
-msgid ""
-"TEMP: Публічні реквізити оновлюються. Актуальні реквізити менеджер надсилає "
-"перед оплатою."
+#: dtf/templates/dtf/cabinet_home.html:16
+#: dtf/templates/dtf/cabinet_orders.html:16
+#: dtf/templates/dtf/cabinet_sessions.html:15
+msgid "Огляд"
 msgstr ""
-"TEMP: Public payment details are being updated. Manager sends current "
-"details before payment."
 
-#: templates/dtf/legal/requisites.html:12
+#: dtf/templates/dtf/cabinet_home.html:18
+#: dtf/templates/dtf/cabinet_orders.html:18
+#: dtf/templates/dtf/cabinet_sessions.html:17
+msgid "Сесії"
+msgstr ""
+
+#: dtf/templates/dtf/cabinet_home.html:23
+#, fuzzy
+#| msgid "Тактильність"
+msgid "Лояльність"
+msgstr "Tactility"
+
+#: dtf/templates/dtf/cabinet_home.html:26
+#, fuzzy, python-format
+#| msgid "Номер замовлення"
+msgid "%(ppo)s pts за кожне замовлення."
+msgstr "Order number"
+
+#: dtf/templates/dtf/cabinet_home.html:30
+msgid "Badge: персональний менеджер активовано"
+msgstr ""
+
+#: dtf/templates/dtf/cabinet_home.html:32
+#, fuzzy, python-format
+#| msgid "Відправлено %(count)s замовлень"
+msgid "Badge після %(n)s замовлень"
+msgstr "%(count)s orders shipped"
+
+#: dtf/templates/dtf/cabinet_home.html:38
+#, fuzzy
+#| msgid "Статус замовлення"
+msgid "Останні замовлення"
+msgstr "Order status"
+
+#: dtf/templates/dtf/cabinet_home.html:46
+msgid "Поки що немає замовлень для вашого профілю."
+msgstr ""
+
+#: dtf/templates/dtf/cabinet_home.html:51
+msgid "Збережені сесії"
+msgstr ""
+
+#: dtf/templates/dtf/cabinet_home.html:57
+#: dtf/templates/dtf/cabinet_sessions.html:28
+#, fuzzy
+#| msgid "Закрити"
+msgid "Відкрити"
+msgstr "Close"
+
+#: dtf/templates/dtf/cabinet_home.html:62
+msgid "Ще немає сесій. Запустіть конструктор."
+msgstr ""
+
+#: dtf/templates/dtf/cabinet_orders.html:4
+#, fuzzy
+#| msgid "Надіслати замовлення"
+msgid "Кабінет: замовлення"
+msgstr "Send order"
+
+#: dtf/templates/dtf/cabinet_orders.html:11
+#, fuzzy
+#| msgid "Номер замовлення"
+msgid "Мої замовлення"
+msgstr "Order number"
+
+#: dtf/templates/dtf/cabinet_orders.html:12
+#, fuzzy
+#| msgid ""
+#| "Для отримання рахунку/реквізитів залиште заявку на сторінці замовлення."
 msgid ""
-"Оплата узгоджується після ручної перевірки макета і підтвердження деталей."
-msgstr "Payment is agreed after manual artwork review and detail confirmation."
-
-#: templates/dtf/legal/requisites.html:13
-msgid "Для отримання рахунку/реквізитів залиште заявку на сторінці замовлення."
+"Від модерації до отримання: повний трекінг, оплата і повторне замовлення."
 msgstr ""
 "To receive invoice/payment details, submit a request on the order page."
 
-#: templates/dtf/legal/requisites.html:14
-msgid "За потреби реквізити дублюються у Telegram/WhatsApp/Instagram."
+#: dtf/templates/dtf/cabinet_orders.html:47 dtf/templates/dtf/order.html:286
+#: dtf/templates/dtf/preflight.html:152 dtf/views.py:1008
+msgid "Формат"
+msgstr "Format"
+
+#: dtf/templates/dtf/cabinet_orders.html:51
+msgid "Сума"
 msgstr ""
-"If needed, payment details are duplicated in Telegram/WhatsApp/Instagram."
 
-#: templates/dtf/legal/returns.html:4 templates/dtf/legal/returns.html:9
-msgid "Повернення та рекламації"
-msgstr "Returns and claims"
-
-#: templates/dtf/legal/returns.html:10
-msgid "TEMP: Розділ уточнюється. Нижче діє базовий порядок для DTF замовлень."
+#: dtf/templates/dtf/cabinet_orders.html:56
+msgid "Уточнюється менеджером"
 msgstr ""
-"TEMP: This section is being refined. The basic procedure for DTF orders is "
-"active below."
 
-#: templates/dtf/legal/returns.html:12
-msgid ""
-"Якщо є виробничий брак, надішліть номер замовлення, фото/відео та опис "
-"проблеми."
+#: dtf/templates/dtf/cabinet_orders.html:65
+#: dtf/templates/dtf/constructor_app.html:36 dtf/templates/dtf/order.html:157
+#: dtf/templates/dtf/status.html:136
+msgid "Доставка"
+msgstr "Delivery"
+
+#: dtf/templates/dtf/cabinet_orders.html:85
+#, fuzzy
+#| msgid "Написати менеджеру"
+msgid "Зв'язатися з менеджером"
+msgstr "Write to the manager"
+
+#: dtf/templates/dtf/cabinet_orders.html:86 dtf/templates/dtf/status.html:149
+msgid "Повторити замовлення"
+msgstr "Reorder"
+
+#: dtf/templates/dtf/cabinet_orders.html:88
+msgid "Інтеграція оплати буде в наступному етапі"
 msgstr ""
-"If there is a production defect, send your order number, photos/video, and "
-"issue description."
 
-#: templates/dtf/legal/returns.html:13
-msgid ""
-"Рекламації розглядаються після перевірки файлу, партії друку та умов "
-"переносу."
+#: dtf/templates/dtf/cabinet_orders.html:89
+msgid "Оплатити (скоро)"
 msgstr ""
-"Claims are reviewed after checking the file, print batch, and transfer "
-"conditions."
 
-#: templates/dtf/legal/returns.html:14
-msgid "Рішення: переробка, часткова компенсація або інший узгоджений формат."
-msgstr "Resolution: reprint, partial compensation, or another agreed format."
+#: dtf/templates/dtf/cabinet_orders.html:98
+#, fuzzy
+#| msgid "Замовлення не знайдено"
+msgid "Замовлень поки немає."
+msgstr "Order not found"
 
-#: templates/dtf/legal/terms.html:4 templates/dtf/legal/terms.html:9
-msgid "Умови користування"
-msgstr "Terms of use"
+#: dtf/templates/dtf/cabinet_sessions.html:4
+msgid "Кабінет: сесії конструктора"
+msgstr ""
 
-#: templates/dtf/legal/terms.html:10
-msgid "TEMP: Повна публічна оферта буде розміщена після юридичного оновлення."
-msgstr "TEMP: The full public offer will be published after legal update."
+#: dtf/templates/dtf/cabinet_sessions.html:11
+msgid "Сесії конструктора"
+msgstr ""
 
-#: templates/dtf/legal/terms.html:12
-msgid ""
-"Остаточні параметри замовлення підтверджуються менеджером перед запуском у "
-"друк."
-msgstr "Final order parameters are confirmed by manager before printing."
+#: dtf/templates/dtf/cabinet_sessions.html:33
+msgid "Поки сесій немає."
+msgstr ""
 
-#: templates/dtf/legal/terms.html:13
-msgid ""
-"Підтвердження макета клієнтом означає згоду з метражем, строками та вартістю."
+#: dtf/templates/dtf/constructor_app.html:21
+msgid "Етапи конструктора"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_app.html:24
+msgid "Виріб"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_app.html:28
+#, fuzzy
+#| msgid "Друк + НП"
+msgid "Друк"
+msgstr "Print + NP"
+
+#: dtf/templates/dtf/constructor_app.html:32
+msgid "Завантаження"
+msgstr "Upload"
+
+#: dtf/templates/dtf/constructor_app.html:58
+msgid "Тип виробу"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_app.html:59
+msgid "Колір"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_app.html:60
+#, fuzzy
+#| msgid "Якість"
+msgid "Кількість"
+msgstr "Quality"
+
+#: dtf/templates/dtf/constructor_app.html:61
+#, fuzzy
+#| msgid "DPI / розміри"
+msgid "Розміри"
+msgstr "DPI / dimensions"
+
+#: dtf/templates/dtf/constructor_app.html:65
+#, fuzzy
+#| msgid "Ваше замовлення прийнято."
+msgid "Розміщення принта"
+msgstr "Your order has been received."
+
+#: dtf/templates/dtf/constructor_app.html:73
+#: dtf/templates/dtf/constructor_app.html:212 dtf/templates/dtf/order.html:173
+#: dtf/templates/dtf/order.html:271 dtf/templates/dtf/preflight.html:137
+#: dtf/templates/dtf/sample.html:77
+msgid "Місто"
+msgstr "City"
+
+#: dtf/templates/dtf/constructor_app.html:74
+#: dtf/templates/dtf/constructor_app.html:215 dtf/templates/dtf/order.html:176
+#: dtf/templates/dtf/order.html:274 dtf/templates/dtf/preflight.html:140
+#: dtf/templates/dtf/sample.html:78
+msgid "Відділення НП"
+msgstr "Nova Poshta branch"
+
+#: dtf/templates/dtf/constructor_app.html:75 dtf/templates/dtf/index.html:303
+#: dtf/templates/dtf/order.html:150 dtf/templates/dtf/preflight.html:84
+#: dtf/templates/dtf/sample.html:82
+msgid "Коментар"
+msgstr "Comment"
+
+#: dtf/templates/dtf/constructor_app.html:80
+msgid "Зберегти чернетку"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_app.html:201
+msgid "+380 XX XXX XX XX"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_app.html:201
+#, fuzzy
+#| msgid "Вкажіть номер і телефон"
+msgid "Ваш номер телефону"
+msgstr "Enter order number and phone"
+
+#: dtf/templates/dtf/constructor_app.html:222
+#: dtf/templates/dtf/constructor_app.html:252
+#, fuzzy
+#| msgid "Надіслати заявку"
+msgid "Надіслати запит"
+msgstr "Send request"
+
+#: dtf/templates/dtf/constructor_app.html:232
+msgid "Дії конструктора"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_app.html:233
+#, fuzzy
+#| msgid "Завантажте файл ганг-листа"
+msgid "Завантажити файл"
+msgstr "Download the gang list file"
+
+#: dtf/templates/dtf/constructor_app.html:237 dtf/views.py:988
+msgid "Файл"
+msgstr "File"
+
+#: dtf/templates/dtf/constructor_app.html:240
+#, fuzzy
+#| msgid "Обрати файл"
+msgid "Очистити файл"
+msgstr "Select a file"
+
+#: dtf/templates/dtf/constructor_app.html:244
+msgid "Очистити"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_app.html:276
+msgid "Надсилаємо..."
+msgstr ""
+
+#: dtf/templates/dtf/constructor_app.html:278
+#, fuzzy
+#| msgid "Помилка 404"
+msgid "Помилка"
+msgstr "Error 404"
+
+#: dtf/templates/dtf/constructor_landing.html:17
+msgid "Що можна зараз"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_landing.html:19
+msgid "Вибрати тип виробу, колір і кількість"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_landing.html:20
+msgid "Вибрати позицію друку (front/back/chest/sleeve)"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_landing.html:22
+msgid "Отримати 2D preview і відправити запит менеджеру"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_landing.html:26
+msgid "Куди далі"
+msgstr ""
+
+#: dtf/templates/dtf/constructor_landing.html:27
+#, fuzzy
+#| msgid ""
+#| "Підтвердження макета клієнтом означає згоду з метражем, строками та "
+#| "вартістю."
+msgid "Після підтвердження менеджером узгодимо матеріал, тираж і логістику."
 msgstr ""
 "Artwork approval by customer means agreement with total meters, timeline, "
 "and price."
 
-#: templates/dtf/legal/terms.html:14
-msgid ""
-"Терміни виконання залежать від завантаження виробництва та логістики "
-"перевізника."
-msgstr "Turnaround time depends on production load and carrier logistics."
+#: dtf/templates/dtf/effects_lab.html:67
+msgid "Локальна QA-сторінка для перевірки ефектів після змін та HTMX swap."
+msgstr ""
 
-#: templates/dtf/order.html:4
-msgid "Замовити DTF друк"
-msgstr "Order DTF printing"
+#: dtf/templates/dtf/effects_lab.html:71
+msgid "Simulation toggles"
+msgstr ""
 
-#: templates/dtf/order.html:11
-msgid "Замовлення DTF"
-msgstr "DTF order"
+#: dtf/templates/dtf/effects_lab.html:75
+msgid "Force reduced motion"
+msgstr ""
 
-#: templates/dtf/order.html:12
-msgid "Оберіть формат: готовий ганг-лист або допомога з підготовкою."
-msgstr "Choose the format: a ready-made gang list or help with preparation."
+#: dtf/templates/dtf/effects_lab.html:79
+msgid "Force coarse pointer"
+msgstr ""
 
-#: templates/dtf/order.html:16
-msgid "Є готовий ганг-лист (60 см)"
-msgstr "There is a ready-made gang list (60 cm)"
+#: dtf/templates/dtf/effects_lab.html:81
+msgid "Re-init effects"
+msgstr ""
 
-#: templates/dtf/order.html:17
-msgid "Потрібна допомога з розкладкою"
-msgstr "Need help with layout"
+#: dtf/templates/dtf/effects_lab.html:92
+msgid "Background beams"
+msgstr ""
 
-#: templates/dtf/order.html:41 templates/dtf/order.html:55
+#: dtf/templates/dtf/effects_lab.html:97
+msgid "Dotted glow + encrypted text"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:101
+#, fuzzy
+#| msgid "Деталі дрібного тексту"
+msgid "Наведи курсор на цей текст"
+msgstr "Details of small text"
+
+#: dtf/templates/dtf/effects_lab.html:106
+msgid "Compare — Drag mode"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:109
+#: dtf/templates/dtf/effects_lab.html:123
+#: dtf/templates/dtf/effects_lab.html:137
+msgid "Before"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:112
+#: dtf/templates/dtf/effects_lab.html:126
+#: dtf/templates/dtf/effects_lab.html:140
+msgid "After"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:116
+msgid "Compare drag"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:120
+msgid "Compare — Hover mode"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:130
+msgid "Compare hover"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:134
+msgid "Compare — Autoplay mode"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:144
+msgid "Compare autoplay"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:148
+msgid "Stateful button API"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:150
+#, fuzzy
+#| msgid "Заявка з кнопки"
+msgid "Тест кнопки"
+msgstr "Application from the button"
+
+#: dtf/templates/dtf/effects_lab.html:151
+msgid "Stateful link"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:159
+msgid "Tracing beam"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:161
 msgid "Upload"
 msgstr "Upload"
 
-#: templates/dtf/order.html:42
+#: dtf/templates/dtf/effects_lab.html:163
+msgid "Manager review"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:164
+msgid "Production"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:165
+#, fuzzy
+#| msgid "Ship"
+msgid "Shipping"
+msgstr "Ship"
+
+#: dtf/templates/dtf/effects_lab.html:166
+msgid "Delivery"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:171
+msgid "Infinite cards (SEO-safe marquee)"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:173
+msgid "Гаряче зняття для кращої стійкості"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:174
+#, fuzzy
+#| msgid "Ширина рулону"
+msgid "Ширина рулону для DTF друку"
+msgstr "Roll width"
+
+#: dtf/templates/dtf/effects_lab.html:175
+#, fuzzy
+#| msgid "Ручна перевірка макета перед друком"
+msgid "Ручна перевірка макета менеджером"
+msgstr "Manual artwork check before printing"
+
+#: dtf/templates/dtf/effects_lab.html:176
+#, fuzzy
+#| msgid "Середній термін"
+msgid "Середній термін виконання"
+msgstr "Average turnaround"
+
+#: dtf/templates/dtf/effects_lab.html:177
+#, fuzzy
+#| msgid "Доставка по Україні"
+msgid "Доставка по всій Україні"
+msgstr "Delivery across Ukraine"
+
+#: dtf/templates/dtf/effects_lab.html:182
+msgid "Speed / Tremble text"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:184
+#, fuzzy
+#| msgid "Друкуємо, пакуємо і відправляємо Новою Поштою."
+msgid "Друкуємо та відправляємо"
+msgstr "We print, pack, and ship via Nova Poshta."
+
+#: dtf/templates/dtf/effects_lab.html:185
+msgid "день в день"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:188
+msgid "Швидко!"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:193
+msgid "Vanish input"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:195
+msgid "Тестове поле (invalid при пустому)"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:197
+msgid "Введіть імʼя"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:197
+msgid "Наприклад: Олександр"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:197
+msgid "Або будь-яке інше"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:200 dtf/templates/dtf/status.html:53
+msgid "Перевірити"
+msgstr "Verify"
+
+#: dtf/templates/dtf/effects_lab.html:205
+msgid "Tooltip card"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:207
+msgid "Наведіть на"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:208
+msgid "DPI — щільність точок на дюйм. Для DTF друку рекомендовано ≥300 DPI."
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:211
+msgid "або на"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:212
+msgid ""
+"Safe margin — зона безпеки від краю файлу. Мінімум 20 пікселів, щоб уникнути "
+"обрізу."
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:213
+msgid "safe margin"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:219
+msgid "Text generate effect"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:220
+#: dtf/templates/dtf/effects_lab.html:221
+msgid ""
+"Файл пройшов автоматичну перевірку. Далі — ручний контроль менеджера перед "
+"друком."
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:226
+msgid "Images badge"
+msgstr ""
+
+#: dtf/templates/dtf/effects_lab.html:228
+#, fuzzy
+#| msgid "Завантаження"
+msgid "Файл завантажено"
+msgstr "Upload"
+
+#: dtf/templates/dtf/gallery.html:59
+msgid "Всі"
+msgstr "All"
+
+#: dtf/templates/dtf/gallery.html:62 dtf/templates/dtf/gallery.html:138
+#: dtf/templates/dtf/gallery.html:189 dtf/templates/dtf/index.html:365
+#: dtf/templates/dtf/index.html:370 dtf/templates/dtf/index.html:440
+#: dtf/templates/dtf/index.html:512
+msgid "Готове"
+msgstr "Done"
+
+#: dtf/templates/dtf/gallery.html:63
+msgid "Макро — крупний план, Процес — етапи друку, Готове — фінальний виріб."
+msgstr ""
+
+#: dtf/templates/dtf/gallery.html:72 dtf/templates/dtf/gallery.html:103
+#: dtf/templates/dtf/gallery.html:120 dtf/templates/dtf/gallery.html:137
+#: dtf/templates/dtf/gallery.html:154 dtf/templates/dtf/gallery.html:171
+#: dtf/templates/dtf/gallery.html:188 dtf/templates/dtf/index.html:339
+#: dtf/templates/dtf/index.html:354 dtf/templates/dtf/index.html:391
+#: dtf/templates/dtf/index.html:415 dtf/templates/dtf/index.html:439
+#: dtf/templates/dtf/index.html:463 dtf/templates/dtf/index.html:487
+#: dtf/templates/dtf/index.html:511
+msgid "60 см"
+msgstr "60 cm"
+
+#: dtf/templates/dtf/gallery.html:74 dtf/templates/dtf/gallery.html:84
+#: dtf/templates/dtf/gallery.html:105 dtf/templates/dtf/gallery.html:122
+#: dtf/templates/dtf/gallery.html:139 dtf/templates/dtf/gallery.html:156
+#: dtf/templates/dtf/gallery.html:173 dtf/templates/dtf/gallery.html:190
+#: dtf/templates/dtf/index.html:341 dtf/templates/dtf/index.html:393
+#: dtf/templates/dtf/index.html:417 dtf/templates/dtf/index.html:441
+#: dtf/templates/dtf/index.html:465 dtf/templates/dtf/index.html:489
+#: dtf/templates/dtf/index.html:513
+msgid "24–48 год"
+msgstr "24–48 h"
+
+#: dtf/templates/dtf/gallery.html:78 dtf/templates/dtf/index.html:396
+#: dtf/templates/dtf/index.html:420 dtf/templates/dtf/index.html:444
+#: dtf/templates/dtf/index.html:468 dtf/templates/dtf/index.html:492
+#: dtf/templates/dtf/index.html:516
+msgid "Приклад"
+msgstr "Example"
+
+#: dtf/templates/dtf/gallery.html:80
+msgid "Паспорт кейса"
+msgstr "Case passport"
+
+#: dtf/templates/dtf/gallery.html:82 dtf/templates/dtf/index.html:366
+msgid "Матеріал"
+msgstr "Material"
+
+#: dtf/templates/dtf/gallery.html:82
+msgid "бавовна"
+msgstr "cotton"
+
+#: dtf/templates/dtf/gallery.html:83 dtf/templates/dtf/index.html:301
+#: dtf/templates/dtf/partials/order_calc.html:4
+#: dtf/templates/dtf/partials/order_calc.html:17
+#: dtf/templates/dtf/price.html:66 dtf/templates/dtf/price.html:104
+#: dtf/views.py:993
+msgid "Метраж"
+msgstr "Meters"
+
+#: dtf/templates/dtf/gallery.html:83
+msgid "12 м"
+msgstr "12 m"
+
+#: dtf/templates/dtf/gallery.html:84
+msgid "Термін"
+msgstr "Term"
+
+#: dtf/templates/dtf/gallery.html:90 dtf/templates/dtf/gallery.html:112
+#: dtf/templates/dtf/gallery.html:129 dtf/templates/dtf/gallery.html:146
+#: dtf/templates/dtf/gallery.html:163 dtf/templates/dtf/gallery.html:180
+#: dtf/templates/dtf/gallery.html:197 dtf/templates/dtf/gallery.html:315
+#, fuzzy
+#| msgid "Кейс"
+msgid "Кейс DTF"
+msgstr "Case"
+
+#: dtf/templates/dtf/gallery.html:91
+msgid "Детальний перегляд кейса у модальному вікні."
+msgstr ""
+
+#: dtf/templates/dtf/gallery.html:93 dtf/templates/dtf/gallery.html:112
+#: dtf/templates/dtf/gallery.html:129 dtf/templates/dtf/gallery.html:146
+#: dtf/templates/dtf/gallery.html:163 dtf/templates/dtf/gallery.html:180
+#: dtf/templates/dtf/gallery.html:197
+#, fuzzy
+#| msgid "Паспорт кейса"
+msgid "Відкрити кейс"
+msgstr "Case passport"
+
+#: dtf/templates/dtf/gallery.html:95 dtf/templates/dtf/gallery.html:113
+#: dtf/templates/dtf/gallery.html:130 dtf/templates/dtf/gallery.html:147
+#: dtf/templates/dtf/gallery.html:164 dtf/templates/dtf/gallery.html:181
+#: dtf/templates/dtf/gallery.html:198
+msgid "Зробити як тут"
+msgstr "Do as here"
+
+#: dtf/templates/dtf/gallery.html:101
+msgid "Галерея приклад 01"
+msgstr "Gallery example 01"
+
+#: dtf/templates/dtf/gallery.html:110 dtf/templates/dtf/gallery.html:127
+#: dtf/templates/dtf/gallery.html:144 dtf/templates/dtf/gallery.html:161
+#: dtf/templates/dtf/gallery.html:178 dtf/templates/dtf/gallery.html:195
+msgid "Кейс"
+msgstr "Case"
+
+#: dtf/templates/dtf/gallery.html:112 dtf/templates/dtf/gallery.html:129
+#: dtf/templates/dtf/gallery.html:146 dtf/templates/dtf/gallery.html:163
+#: dtf/templates/dtf/gallery.html:180 dtf/templates/dtf/gallery.html:197
+msgid "Збільшений перегляд кейса."
+msgstr ""
+
+#: dtf/templates/dtf/gallery.html:118
+msgid "Галерея приклад 02"
+msgstr "Gallery example 02"
+
+#: dtf/templates/dtf/gallery.html:135
+msgid "Галерея приклад 03"
+msgstr "Gallery example 03"
+
+#: dtf/templates/dtf/gallery.html:152
+msgid "Галерея приклад 04"
+msgstr "Gallery example 04"
+
+#: dtf/templates/dtf/gallery.html:169
+msgid "Галерея приклад 05"
+msgstr "Gallery example 05"
+
+#: dtf/templates/dtf/gallery.html:186
+msgid "Галерея приклад 06"
+msgstr "Gallery example 06"
+
+#: dtf/templates/dtf/gallery.html:211
+msgid "До друку — галерея кейс 1"
+msgstr "To print — gallery case 1"
+
+#: dtf/templates/dtf/gallery.html:218
+msgid "Після друку — галерея кейс 1"
+msgstr "After printing — case 1 gallery"
+
+#: dtf/templates/dtf/gallery.html:225 dtf/templates/dtf/gallery.html:251
+#: dtf/templates/dtf/gallery.html:277
+msgid "Порівняння"
+msgstr "Comparison"
+
+#: dtf/templates/dtf/gallery.html:227
+msgid "Контраст і білий"
+msgstr "Contrast and white"
+
+#: dtf/templates/dtf/gallery.html:228 dtf/templates/dtf/gallery.html:254
+#: dtf/templates/dtf/gallery.html:280
+msgid "До / Після"
+msgstr "Before / After"
+
+#: dtf/templates/dtf/gallery.html:237
+msgid "До друку — галерея кейс 2"
+msgstr "To print — case gallery 2"
+
+#: dtf/templates/dtf/gallery.html:244
+msgid "Після друку — галерея кейс 2"
+msgstr "After printing — case 2 gallery"
+
+#: dtf/templates/dtf/gallery.html:253
+msgid "Деталі дрібного тексту"
+msgstr "Details of small text"
+
+#: dtf/templates/dtf/gallery.html:263
+msgid "До друку — галерея кейс 3"
+msgstr "To print — case gallery 3"
+
+#: dtf/templates/dtf/gallery.html:270
+msgid "Після друку — галерея кейс 3"
+msgstr "After printing — case 3 gallery"
+
+#: dtf/templates/dtf/gallery.html:279
+msgid "Градієнт та напівтони"
+msgstr "Gradient and halftones"
+
+#: dtf/templates/dtf/gallery.html:287
+msgid "Макро-текстура DTF (галерея)"
+msgstr "Macro texture DTF (gallery)"
+
+#: dtf/templates/dtf/gallery.html:294
+msgid "Макро‑текстура"
+msgstr "Macro texture"
+
+#: dtf/templates/dtf/gallery.html:295 dtf/templates/dtf/index.html:696
+msgid "Наведення для збільшення"
+msgstr "Hover to zoom"
+
+#: dtf/templates/dtf/gallery.html:302 dtf/templates/dtf/index.html:706
+msgid "Збільшення"
+msgstr "Magnification"
+
+#: dtf/templates/dtf/gallery.html:306 dtf/templates/dtf/index.html:710
+msgid "Макро‑превʼю (placeholder)"
+msgstr "Macro preview"
+
+#: dtf/templates/dtf/gallery.html:316
+#, fuzzy
+#| msgid "Паспорт кейса"
+msgid "Деталі кейса"
+msgstr "Case passport"
+
+#: dtf/templates/dtf/how_to_press.html:4 dtf/templates/dtf/how_to_press.html:11
+msgid "Як переносити"
+msgstr "How to transfer"
+
+#: dtf/templates/dtf/how_to_press.html:12
+msgid "Базова інструкція для пресу та матеріалів."
+msgstr "Basic instructions for the press and materials."
+
+#: dtf/templates/dtf/how_to_press.html:17
+msgid "Стандарт"
+msgstr "Standard"
+
+#: dtf/templates/dtf/how_to_press.html:19
+msgid "Температура: 150–160°C"
+msgstr "Temperature: 150–160°C"
+
+#: dtf/templates/dtf/how_to_press.html:20
+msgid "Тиск: середній"
+msgstr "Pressure: medium"
+
+#: dtf/templates/dtf/how_to_press.html:21
+msgid "Час: 10–12 сек"
+msgstr "Hour: 10–12 sec"
+
+#: dtf/templates/dtf/how_to_press.html:27
+msgid "Знімати плівку відразу"
+msgstr "Remove the film immediately"
+
+#: dtf/templates/dtf/how_to_press.html:28
+msgid "Фінальний прес 5–7 сек"
+msgstr "Final press 5–7 sec"
+
+#: dtf/templates/dtf/how_to_press.html:32
+msgid "Поради"
+msgstr "Because of"
+
+#: dtf/templates/dtf/how_to_press.html:34
+msgid "Тестуйте на обрізку"
+msgstr "Test for trimming"
+
+#: dtf/templates/dtf/how_to_press.html:35
+msgid "Уникайте вологи"
+msgstr "Avoid moisture"
+
+#: dtf/templates/dtf/index.html:25
+msgid "DTF друк рулоном 60 см"
+msgstr "DTF roll printing 60 cm"
+
+#: dtf/templates/dtf/index.html:174
+msgid "МЕТРИ"
+msgstr "METERS"
+
+#: dtf/templates/dtf/index.html:192
+msgid "Далі"
+msgstr "Next"
+
+#: dtf/templates/dtf/index.html:193
+msgid "Замовити без розрахунку"
+msgstr "Order without calculation"
+
+#: dtf/templates/dtf/index.html:224
+msgid "Як це працює"
+msgstr "How it works"
+
+#: dtf/templates/dtf/index.html:302 dtf/templates/dtf/price.html:67
+msgid "Ціна, грн/м"
+msgstr "Price, UAH/m"
+
+#: dtf/templates/dtf/index.html:306 dtf/templates/dtf/index.html:367
+#: dtf/templates/dtf/price.html:71
+msgid "1–9 м"
+msgstr "1–9 m"
+
+#: dtf/templates/dtf/index.html:308 dtf/templates/dtf/price.html:74
+msgid "Базова"
+msgstr "Base"
+
+#: dtf/templates/dtf/index.html:312 dtf/templates/dtf/price.html:81
+#, python-format
+msgid "Від %(min)s м"
+msgstr "From %(min)s m"
+
+#: dtf/templates/dtf/index.html:314 dtf/templates/dtf/price.html:84
+msgid "Знижка"
+msgstr "Discount"
+
+#: dtf/templates/dtf/index.html:383
+msgid "Приклад DTF 01"
+msgstr "Example DTF 01"
+
+#: dtf/templates/dtf/index.html:407
+msgid "Приклад DTF 02"
+msgstr "Example of DTF 02"
+
+#: dtf/templates/dtf/index.html:431
+msgid "Приклад DTF 03"
+msgstr "Example of DTF 03"
+
+#: dtf/templates/dtf/index.html:455
+msgid "Приклад DTF 04"
+msgstr "Example of DTF 04"
+
+#: dtf/templates/dtf/index.html:479
+msgid "Приклад DTF 05"
+msgstr "Example of DTF 05"
+
+#: dtf/templates/dtf/index.html:503
+msgid "Приклад DTF 06"
+msgstr "Example of DTF 06"
+
+#: dtf/templates/dtf/index.html:546
+msgid "До друку — кейс 1"
+msgstr "Before print — case 1"
+
+#: dtf/templates/dtf/index.html:575
+msgid "Після друку — кейс 1"
+msgstr "After print — case 1"
+
+#: dtf/templates/dtf/index.html:586 dtf/templates/dtf/quality.html:169
+msgid "Порівняння якості"
+msgstr "Quality comparison"
+
+#: dtf/templates/dtf/index.html:588
+msgid "Стійкість фарби"
+msgstr "Ink durability"
+
+#: dtf/templates/dtf/index.html:589
+msgid "Макро + контроль підкладки"
+msgstr "Macro + underbase control"
+
+#: dtf/templates/dtf/index.html:616
+msgid "До друку — кейс 2"
+msgstr "Before print — case 2"
+
+#: dtf/templates/dtf/index.html:645
+msgid "Після друку — кейс 2"
+msgstr "After print — case 2"
+
+#: dtf/templates/dtf/index.html:656
+msgid "Порівняння деталей"
+msgstr "Detail comparison"
+
+#: dtf/templates/dtf/index.html:658 dtf/templates/dtf/quality.html:78
+msgid "Реєстрація шарів"
+msgstr "Layer registration"
+
+#: dtf/templates/dtf/index.html:659
+msgid "До / після очищення"
+msgstr "Before / after cleaning"
+
+#: dtf/templates/dtf/index.html:684
+msgid "Макро-текстура DTF"
+msgstr "Macro texture DTF"
+
+#: dtf/templates/dtf/index.html:695
+msgid "Текстура і край"
+msgstr "Texture and edge"
+
+#: dtf/templates/dtf/index.html:723
+msgid ""
+"Короткі практичні матеріали, що допомагають уникати браку і прискорюють "
+"запуск друку."
+msgstr ""
+
+#: dtf/templates/dtf/index.html:740
+msgid "Кейс друку"
+msgstr ""
+
+#: dtf/templates/dtf/index.html:741
+msgid "Реальний результат друку для порівняння з рекомендаціями з бази знань."
+msgstr ""
+
+#: dtf/templates/dtf/order.html:46
 msgid "Перетягніть файл або натисніть, щоб обрати."
 msgstr "Drag a file or click to select."
 
-#: templates/dtf/order.html:45
+#: dtf/templates/dtf/order.html:49
 msgid "PDF/PNG до 50 МБ"
 msgstr "PDF/PNG up to 50 MB"
 
-#: templates/dtf/order.html:46
-msgid "Готовий ганг-лист 60 см"
-msgstr "Ready gang sheet 60 cm"
-
-#: templates/dtf/order.html:48
+#: dtf/templates/dtf/order.html:52
 msgid "Вставити з буфера"
 msgstr "Paste from clipboard"
 
-#: templates/dtf/order.html:49
+#: dtf/templates/dtf/order.html:53
 msgid "Обрати файл"
 msgstr "Select a file"
 
-#: templates/dtf/order.html:56 templates/dtf/preflight.html:4
-#: templates/dtf/preflight.html:7 templates/dtf/preflight.html:34
-#: templates/dtf/preflight.html:142 views.py:204
-msgid "Preflight"
-msgstr "Preflight"
-
-#: templates/dtf/order.html:57
-msgid "Ready"
-msgstr "Ready"
-
-#: templates/dtf/order.html:63
-msgid "Preview"
-msgstr "Preview"
-
-#: templates/dtf/order.html:64
-msgid "Перший кадр PDF або PNG (після завантаження)."
-msgstr "First frame PDF or PNG (after upload)."
-
-#: templates/dtf/order.html:67
+#: dtf/templates/dtf/order.html:72
 msgid "Прев'ю з'явиться після завантаження"
 msgstr "A preview will appear after upload"
 
-#: templates/dtf/order.html:70
+#: dtf/templates/dtf/order.html:75
 msgid "Замінити"
 msgstr "Replace"
 
-#: templates/dtf/order.html:71
-msgid "Видалити"
-msgstr "Remove"
-
-#: templates/dtf/order.html:75
+#: dtf/templates/dtf/order.html:80
 msgid "На чорній тканині (симуляція)"
 msgstr "On black fabric (simulation)"
 
-#: templates/dtf/order.html:81
-msgid "Preflight Terminal"
-msgstr "Preflight Terminal"
-
-#: templates/dtf/order.html:82
-msgid "Перевірки допомагають уникнути сюрпризів. WARN не блокує замовлення."
-msgstr "Inspections help to avoid surprises. WARN does not block orders."
-
-#: templates/dtf/order.html:90
-msgid "Тонкі лінії"
-msgstr "Thin lines"
-
-#: templates/dtf/order.html:91
-msgid "Можуть не пропечататись"
-msgstr "They may not be printed"
-
-#: templates/dtf/order.html:94
-msgid "Прозорість"
-msgstr "Transparency"
-
-#: templates/dtf/order.html:98
-msgid "Ширина"
-msgstr "Width"
-
-#: templates/dtf/order.html:99
-msgid "60 см — OK"
-msgstr "60 cm"
-
-#: templates/dtf/order.html:104
-msgid "Я розумію можливі ризики та погоджуюсь"
-msgstr "I understand the possible risks and agree"
-
-#: templates/dtf/order.html:112
+#: dtf/templates/dtf/order.html:137
 msgid "Параметри"
 msgstr "Parameters"
 
-#: templates/dtf/order.html:113
+#: dtf/templates/dtf/order.html:138
 msgid "Метраж і копії потрібні для точного розрахунку."
 msgstr "Meterage and copies are required for accurate calculation."
 
-#: templates/dtf/order.html:116
+#: dtf/templates/dtf/order.html:141
 msgid "Довжина файлу, м"
 msgstr "File length, m"
 
-#: templates/dtf/order.html:118
+#: dtf/templates/dtf/order.html:143
 msgid "Якщо не визначилось автоматично — вкажіть вручну"
 msgstr "If it is not determined automatically, enter it manually"
 
-#: templates/dtf/order.html:120 views.py:243
+#: dtf/templates/dtf/order.html:145 dtf/views.py:998
 msgid "Копії"
 msgstr "Copies"
 
-#: templates/dtf/order.html:122
+#: dtf/templates/dtf/order.html:147
 msgid "Наприклад: 1 м × 50 = 50 м без великого файлу"
 msgstr "For example: 1 m × 50 = 50 m without a large file"
 
-#: templates/dtf/order.html:133
+#: dtf/templates/dtf/order.html:158
 msgid "Нова Пошта, узгодимо відправку після перевірки."
 msgstr "Nova Poshta, we will arrange the shipment after checking."
 
-#: templates/dtf/order.html:142 templates/dtf/order.html:240
-#: templates/dtf/preflight.html:124
+#: dtf/templates/dtf/order.html:167 dtf/templates/dtf/order.html:265
+#: dtf/templates/dtf/preflight.html:131
 msgid "Канал зв'язку"
 msgstr "Communication channel"
 
-#: templates/dtf/order.html:148 templates/dtf/order.html:246
-#: templates/dtf/preflight.html:130
-msgid "Місто"
-msgstr "City"
-
-#: templates/dtf/order.html:151 templates/dtf/order.html:249
-#: templates/dtf/preflight.html:133
-msgid "Відділення НП"
-msgstr "Nova Poshta branch"
-
-#: templates/dtf/order.html:159 templates/dtf/order.html:257
-#: templates/dtf/preflight.html:141
-msgid "SUMMARY"
-msgstr "Summary"
-
-#: templates/dtf/order.html:160 templates/dtf/status.html:60
-msgid "Замовлення"
-msgstr "Order"
-
-#: templates/dtf/order.html:169
-msgid "Надіслати замовлення"
-msgstr "Send order"
-
-#: templates/dtf/order.html:170 templates/dtf/order.html:266
-#: templates/dtf/preflight.html:152
-msgid "Відповімо протягом робочого дня"
-msgstr "We will respond within one business day"
-
-#: templates/dtf/order.html:196
-msgid "Файли для розкладки"
-msgstr "Files for layout"
-
-#: templates/dtf/order.html:197
+#: dtf/templates/dtf/order.html:222
 msgid "Надішліть архів або посилання — менеджер допоможе з підготовкою."
 msgstr ""
 "Send an archive or a link - the manager will help with the preparation."
 
-#: templates/dtf/order.html:200 templates/dtf/preflight.html:59
+#: dtf/templates/dtf/order.html:225 dtf/templates/dtf/preflight.html:66
 msgid "Файли (multiple)"
 msgstr "Files (multiple)"
 
-#: templates/dtf/order.html:201
+#: dtf/templates/dtf/order.html:226
 msgid "PNG/PDF/ZIP"
 msgstr "PNG/PDF/ZIP"
 
-#: templates/dtf/order.html:203 templates/dtf/preflight.html:62
+#: dtf/templates/dtf/order.html:228 dtf/templates/dtf/preflight.html:69
 msgid "Обрати файли"
 msgstr "Select files"
 
-#: templates/dtf/order.html:208 templates/dtf/preflight.html:67
+#: dtf/templates/dtf/order.html:233 dtf/templates/dtf/preflight.html:74
 msgid "Посилання на папку"
 msgstr "Link to folder"
 
-#: templates/dtf/order.html:215
+#: dtf/templates/dtf/order.html:240
 msgid "Задача"
 msgstr "Task"
 
-#: templates/dtf/order.html:216
+#: dtf/templates/dtf/order.html:241
 msgid "Опишіть виріб, кількість і вимоги."
 msgstr "Describe the product, quantity and requirements."
 
-#: templates/dtf/order.html:218
+#: dtf/templates/dtf/order.html:243
 msgid "Задача / деталі"
 msgstr "Task / details"
 
-#: templates/dtf/order.html:221
+#: dtf/templates/dtf/order.html:246
 msgid "Терміни"
 msgstr "Deadlines"
 
-#: templates/dtf/order.html:231
+#: dtf/templates/dtf/order.html:256
 msgid "Ми підтвердимо метраж, вартість та строки."
 msgstr "We will confirm the footage, cost and terms."
 
-#: templates/dtf/order.html:258
+#: dtf/templates/dtf/order.html:283
 msgid "Заявка"
 msgstr "Request"
 
-#: templates/dtf/order.html:261 templates/dtf/preflight.html:145
-#: templates/dtf/requirements.html:64 views.py:253
-msgid "Формат"
-msgstr "Format"
-
-#: templates/dtf/order.html:262
+#: dtf/templates/dtf/order.html:287
 msgid "Допомога з розкладкою"
 msgstr "Help with layout"
 
-#: templates/dtf/order.html:264
-msgid "Менеджер підтвердить метраж та вартість"
-msgstr "The manager will confirm the footage and cost"
-
-#: templates/dtf/order.html:265
+#: dtf/templates/dtf/order.html:290
 msgid "Надіслати заявку"
 msgstr "Send request"
 
-#: templates/dtf/partials/estimate_result.html:3
-#: templates/dtf/partials/order_calc.html:9
+#: dtf/templates/dtf/partials/blog_overlay_content.html:15
+#, fuzzy
+#| msgid "Обрати файл"
+msgid "Читати окремо"
+msgstr "Select a file"
+
+#: dtf/templates/dtf/partials/estimate_result.html:3
+#: dtf/templates/dtf/partials/order_calc.html:9
 msgid "грн"
 msgstr "UAH"
 
-#: templates/dtf/partials/estimate_result.html:4
-#: templates/dtf/partials/order_calc.html:5
+#: dtf/templates/dtf/partials/estimate_result.html:4
+#: dtf/templates/dtf/partials/order_calc.html:5
 msgid "м"
 msgstr "m"
 
-#: templates/dtf/partials/order_calc.html:8
-#: templates/dtf/partials/order_calc.html:21
+#: dtf/templates/dtf/partials/order_calc.html:8
+#: dtf/templates/dtf/partials/order_calc.html:21
 msgid "≈ Ціна"
 msgstr "≈ Price"
 
-#: templates/dtf/partials/order_calc.html:11
-#: templates/dtf/partials/order_calc.html:24
+#: dtf/templates/dtf/partials/order_calc.html:11
+#: dtf/templates/dtf/partials/order_calc.html:24
 msgid "Фінальну суму підтвердить менеджер"
 msgstr "The manager will confirm the final amount"
 
-#: templates/dtf/partials/order_calc.html:13
-#: templates/dtf/partials/order_calc.html:26
+#: dtf/templates/dtf/partials/order_calc.html:13
+#: dtf/templates/dtf/partials/order_calc.html:26
+#: dtf/templates/dtf/price.html:113
 msgid "Оптовий метраж — уточнимо терміни та вартість"
 msgstr "Wholesale footage — we will specify the terms and cost"
 
-#: templates/dtf/preflight.html:35
+#: dtf/templates/dtf/preflight.html:9
+#, fuzzy
+#| msgid "Перевірити файл"
+msgid "Проверка файла"
+msgstr "Check the file"
+
+#: dtf/templates/dtf/preflight.html:11
+msgid "File check"
+msgstr ""
+
+#: dtf/templates/dtf/preflight.html:13
+#, fuzzy
+#| msgid "Перевірити файл"
+msgid "Перевірка файлу"
+msgstr "Check the file"
+
+#: dtf/templates/dtf/preflight.html:42
 msgid ""
 "Перевірка файла без замовлення. Отримаєте рекомендації та попередній звіт."
 msgstr ""
 "Checking the file without an order. You will receive recommendations and a "
 "preliminary report."
 
-#: templates/dtf/preflight.html:55
+#: dtf/templates/dtf/preflight.html:62
 msgid "Файли для перевірки"
 msgstr "Files to check"
 
-#: templates/dtf/preflight.html:56
+#: dtf/templates/dtf/preflight.html:63
 msgid "Завантажте PDF/PNG або посилання на папку."
 msgstr "Download PDF/PNG or link to folder."
 
-#: templates/dtf/preflight.html:60
+#: dtf/templates/dtf/preflight.html:67
 msgid "PDF/PNG/ZIP"
 msgstr "PDF/PNG/ZIP"
 
-#: templates/dtf/preflight.html:74
+#: dtf/templates/dtf/preflight.html:81
 msgid "Коментар до перевірки"
 msgstr "Comment to check"
 
-#: templates/dtf/preflight.html:75
+#: dtf/templates/dtf/preflight.html:82
 msgid "Опишіть виріб, матеріал і очікування."
 msgstr "Describe the product, material and expectations."
 
-#: templates/dtf/preflight.html:80
+#: dtf/templates/dtf/preflight.html:87
 msgid "Бажаний дедлайн"
 msgstr "Preferred deadline"
 
-#: templates/dtf/preflight.html:87
+#: dtf/templates/dtf/preflight.html:94
 msgid "Приклад звіту"
 msgstr "An example of a report"
 
-#: templates/dtf/preflight.html:88
-msgid "Після перевірки ви отримаєте список OK/WARN та рекомендації."
-msgstr ""
-"After verification, you will receive an OK/WARN list and recommendations."
-
-#: templates/dtf/preflight.html:92
+#: dtf/templates/dtf/preflight.html:99 dtf/templates/dtf/templates.html:51
 msgid "Формат файлу"
 msgstr "File format"
 
-#: templates/dtf/preflight.html:96
+#: dtf/templates/dtf/preflight.html:103
 msgid "DPI / розміри"
 msgstr "DPI / dimensions"
 
-#: templates/dtf/preflight.html:100
+#: dtf/templates/dtf/preflight.html:107
 msgid "Прозорість фону"
 msgstr "Background transparency"
 
-#: templates/dtf/preflight.html:105
+#: dtf/templates/dtf/preflight.html:112
 msgid "Продовжити як замовлення"
 msgstr "Continue as an order"
 
-#: templates/dtf/preflight.html:107
+#: dtf/templates/dtf/preflight.html:114
 msgid ""
 "Рекомендації носять консультативний характер — остаточне рішення за вами."
 msgstr "Recommendations are advisory in nature - the final decision is yours."
 
-#: templates/dtf/preflight.html:115
+#: dtf/templates/dtf/preflight.html:122
 msgid "Менеджер відповість і надішле звіт."
 msgstr "The manager will respond and send a report."
 
-#: templates/dtf/preflight.html:149
+#: dtf/templates/dtf/preflight.html:156
 msgid "Результат"
 msgstr "Result"
 
-#: templates/dtf/preflight.html:150
-msgid "OK/WARN звіт"
-msgstr "OK/WARN report"
+#: dtf/templates/dtf/preflight.html:159
+msgid "Відповімо протягом робочого дня"
+msgstr "We will respond within one business day"
 
-#: templates/dtf/preflight.html:153
+#: dtf/templates/dtf/preflight.html:160
 msgid "Надіслати на перевірку"
 msgstr "Send for verification"
 
-#: templates/dtf/price.html:4
-msgid "Ціни DTF"
-msgstr "DTF pricing"
+#: dtf/templates/dtf/price.html:61
+msgid "Приклад: файл 2.5 м × 10 копій = 25 м."
+msgstr ""
 
-#: templates/dtf/price.html:34
-msgid "Розрахунок: довжина файлу × кількість копій = загальний метраж."
-msgstr "Calculation: file length × number of copies = total meters."
+#: dtf/templates/dtf/price.html:68
+#, fuzzy
+#| msgid "Коментар"
+msgid "Коментар (знижка)"
+msgstr "Comment"
 
-#: templates/dtf/price.html:46
+#: dtf/templates/dtf/price.html:75
 msgid "Що входить у базову ціну"
 msgstr "What is included in the base price"
 
-#: templates/dtf/price.html:47
+#: dtf/templates/dtf/price.html:76
 msgid "Включено: базова перевірка файлу, друк, пакування."
 msgstr "Included: basic file verification, printing, packaging."
 
-#: templates/dtf/price.html:56
+#: dtf/templates/dtf/price.html:85
 msgid "Що входить у знижку"
 msgstr "What is included in the discount"
 
-#: templates/dtf/price.html:57
+#: dtf/templates/dtf/price.html:86
 msgid "Ті ж умови, нижча ціна за більший метраж."
 msgstr "Same terms, lower price for higher meterage."
 
-#: templates/dtf/price.html:64
-msgid "Файл 2.5 м × 10 копій = 25 м. Розрахунок за відповідною ціною."
+#: dtf/templates/dtf/price.html:109
+msgid "Вкажіть метраж → покажемо орієнтир"
 msgstr ""
-"File 2.5 m × 10 copies = 25 m. Pricing is based on the corresponding tier."
 
-#: templates/dtf/price.html:67
-msgid "Cutoff / терміни"
-msgstr "Cutoff / deadlines"
+#: dtf/templates/dtf/products.html:4
+#, fuzzy
+#| msgid "Готовий виріб"
+msgid "Готові вироби з DTF"
+msgstr "The finished product"
 
-#: templates/dtf/price.html:69
-msgid "Cutoff на виробництво: після підтвердження макета."
-msgstr "Production cutoff: after artwork approval."
+#: dtf/templates/dtf/products.html:11
+msgid "Готові вироби + DTF під ключ"
+msgstr ""
 
-#: templates/dtf/price.html:70
-msgid "Стандартний термін: 24–48 год (узгоджується менеджером)."
-msgstr "Standard turnaround: 24–48 hours (confirmed by manager)."
+#: dtf/templates/dtf/products.html:12
+msgid ""
+"Можемо підібрати blank-вироби, надрукувати і зібрати партію без окремого "
+"аутсорсу."
+msgstr ""
 
-#: templates/dtf/price.html:71
-msgid "Доставка: за тарифами Нової Пошти."
-msgstr "Delivery: according to Nova Poshta tariffs."
+#: dtf/templates/dtf/products.html:22
+#, fuzzy
+#| msgid "Консультація"
+msgid "Специфікація"
+msgstr "Advice"
 
-#: templates/dtf/quality.html:4 templates/dtf/quality.html:62
-msgid "Quality / Lab Proof"
-msgstr "Quality / Lab Proof"
+#: dtf/templates/dtf/products.html:26
+msgid "Запустити в конструкторі"
+msgstr ""
 
-#: templates/dtf/quality.html:7
-msgid "Які перевірки входять у QC?"
-msgstr "What inspections are included in QC?"
+#: dtf/templates/dtf/products.html:27
+#, fuzzy
+#| msgid "Написати менеджеру"
+msgid "Порадитись з менеджером"
+msgstr "Write to the manager"
 
-#: templates/dtf/quality.html:8
+#: dtf/templates/dtf/products.html:35
+msgid "Контроль якості підтверджений досвідом основного бренду."
+msgstr ""
+
+#: dtf/templates/dtf/quality.html:8
+#, fuzzy
+#| msgid "Ручна перевірка макета перед друком"
+msgid "Що перевіряєте перед друком?"
+msgstr "Manual artwork check before printing"
+
+#: dtf/templates/dtf/quality.html:9
 msgid "Перевіряємо прозорість, DPI, білу підкладку і тест переносу."
 msgstr "We check transparency, DPI, white underbase, and transfer test."
 
-#: templates/dtf/quality.html:9
+#: dtf/templates/dtf/quality.html:10
 msgid "Чи друкуєте без узгодження?"
 msgstr "Are you printing without approval?"
 
-#: templates/dtf/quality.html:10
+#: dtf/templates/dtf/quality.html:11
 msgid "Ні, при ризиках узгоджуємо правки до друку."
 msgstr "No, if there are risks, we agree on the edits before printing."
 
-#: templates/dtf/quality.html:63
-msgid "Контроль кольору, реєстрації та прання. Нічого зайвого — тільки факти."
-msgstr ""
-"Color registration and wash durability control. Nothing extra, only facts."
+#: dtf/templates/dtf/quality.html:36
+msgid "Quality"
+msgstr "Quality"
 
-#: templates/dtf/quality.html:71
-msgid "QC макро"
-msgstr "QC macro"
-
-#: templates/dtf/quality.html:78
+#: dtf/templates/dtf/quality.html:79
 msgid "Контроль суміщення"
 msgstr "Registration control"
 
-#: templates/dtf/quality.html:84
+#: dtf/templates/dtf/quality.html:85
 msgid "Текстура DTF"
 msgstr "DTF texture"
 
-#: templates/dtf/quality.html:90
+#: dtf/templates/dtf/quality.html:91
 msgid "Тактильність"
 msgstr "Tactility"
 
-#: templates/dtf/quality.html:91
+#: dtf/templates/dtf/quality.html:92
 msgid "Перевірка еластичності"
 msgstr "Elasticity test"
 
-#: templates/dtf/quality.html:97 templates/dtf/quality.html:103
+#: dtf/templates/dtf/quality.html:98 dtf/templates/dtf/quality.html:104
 msgid "Тест прання"
 msgstr "Washing test"
 
-#: templates/dtf/quality.html:104
+#: dtf/templates/dtf/quality.html:105
 msgid "Стійкість кольору"
 msgstr "Color fastness"
 
-#: templates/dtf/quality.html:110
-msgid "QC контроль білої підкладки"
-msgstr "QC control of the white substrate"
-
-#: templates/dtf/quality.html:116
+#: dtf/templates/dtf/quality.html:117
 msgid "Біла підкладка"
 msgstr "White underbase"
 
-#: templates/dtf/quality.html:117
+#: dtf/templates/dtf/quality.html:118
 msgid "Рівномірність підкладки"
 msgstr "Uniformity of the substrate"
 
-#: templates/dtf/quality.html:123
-msgid "QC контроль порошку"
-msgstr "QC control of the powder"
-
-#: templates/dtf/quality.html:129
+#: dtf/templates/dtf/quality.html:130
 msgid "Порошок"
 msgstr "Powder"
 
-#: templates/dtf/quality.html:130
+#: dtf/templates/dtf/quality.html:131
 msgid "Рівномірне нанесення"
 msgstr "Even application"
 
-#: templates/dtf/quality.html:136
-msgid "QC фінішний огляд"
-msgstr "QC finish inspection"
-
-#: templates/dtf/quality.html:142
+#: dtf/templates/dtf/quality.html:143
 msgid "Фініш"
 msgstr "Finish"
 
-#: templates/dtf/quality.html:143
+#: dtf/templates/dtf/quality.html:144
 msgid "Остаточний огляд"
 msgstr "Final review"
 
-#: templates/dtf/quality.html:150
-msgid "QC чек"
-msgstr "QC check"
-
-#: templates/dtf/quality.html:152
+#: dtf/templates/dtf/quality.html:181
 msgid "Перевірка файлу на прозорість і DPI"
 msgstr "File check for transparency and DPI"
 
-#: templates/dtf/quality.html:153
+#: dtf/templates/dtf/quality.html:182
 msgid "Контроль білої підкладки"
 msgstr "White underbase control"
 
-#: templates/dtf/quality.html:154
+#: dtf/templates/dtf/quality.html:183
 msgid "Тест на перенесення"
 msgstr "Transfer test"
 
-#: templates/dtf/quality.html:158
+#: dtf/templates/dtf/quality.html:187
 msgid "Гарантія"
 msgstr "Guarantee"
 
-#: templates/dtf/quality.html:159
+#: dtf/templates/dtf/quality.html:188
 msgid "Не запускаємо друк без узгодження при ризиках."
 msgstr "We do not start printing without approval when risks are detected."
 
-#: templates/dtf/quality.html:160
+#: dtf/templates/dtf/quality.html:189
 msgid "Перевірити файл"
 msgstr "Check the file"
 
-#: templates/dtf/requirements.html:7
+#: dtf/templates/dtf/requirements.html:16
 msgid "Який формат файлів приймаєте?"
 msgstr "What file format do you accept?"
 
-#: templates/dtf/requirements.html:8
+#: dtf/templates/dtf/requirements.html:17
 msgid "PDF або PNG, ширина рулону 60 см, прозорий фон."
 msgstr "PDF or PNG, roll width 60 cm, transparent background."
 
-#: templates/dtf/requirements.html:9
+#: dtf/templates/dtf/requirements.html:18
 msgid "Яка рекомендована якість?"
 msgstr "What is the recommended quality?"
 
-#: templates/dtf/requirements.html:10
+#: dtf/templates/dtf/requirements.html:19
 msgid "Рекомендовано 300 DPI, без зайвих відступів."
 msgstr "300 DPI is recommended, with no extra padding."
 
-#: templates/dtf/requirements.html:66
-msgid "PDF або PNG"
-msgstr "PDF or PNG"
+#: dtf/templates/dtf/requirements.html:87
+msgid "Чому важливий правильний формат файлу"
+msgstr ""
 
-#: templates/dtf/requirements.html:67
-msgid "Ширина 60 см"
-msgstr "Width 60 cm"
+#: dtf/templates/dtf/requirements.html:91
+#, fuzzy
+#| msgid "Розмістіть макети в межах 60 см"
+msgid "Чому важлива ширина 60 см"
+msgstr "Place the layouts within 60 cm"
 
-#: templates/dtf/requirements.html:68
-msgid "Прозорий фон"
-msgstr "Transparent background"
+#: dtf/templates/dtf/requirements.html:95
+#, fuzzy
+#| msgid "Прозорість фону"
+msgid "Чому важлива прозорість фону"
+msgstr "Background transparency"
 
-#: templates/dtf/requirements.html:72
-msgid "Якість"
-msgstr "Quality"
+#: dtf/templates/dtf/requirements.html:99
+msgid "Чому важливий DPI"
+msgstr ""
 
-#: templates/dtf/requirements.html:74
-msgid "Рекомендовано 300 DPI"
-msgstr "300 DPI is recommended"
-
-#: templates/dtf/requirements.html:75
-msgid "Без зайвих відступів"
-msgstr "Without unnecessary indents"
-
-#: templates/dtf/requirements.html:76
-msgid "Кольори у CMYK/RGB"
-msgstr "Colors in CMYK/RGB"
-
-#: templates/dtf/requirements.html:80
-msgid "Типові помилки"
-msgstr "Typical mistakes"
-
-#: templates/dtf/requirements.html:82
+#: dtf/templates/dtf/requirements.html:110
 msgid "Дуже тонкі лінії"
 msgstr "Very thin lines"
 
-#: templates/dtf/requirements.html:83
+#: dtf/templates/dtf/requirements.html:111
 msgid "Низька роздільна здатність"
 msgstr "Low resolution"
 
-#: templates/dtf/requirements.html:84
+#: dtf/templates/dtf/requirements.html:112
 msgid "Відсутній білий підклад"
 msgstr "The white lining is missing"
 
-#: templates/dtf/requirements.html:93
-msgid "Приклад OK vs RISK"
-msgstr "An example of OK vs RISK"
+#: dtf/templates/dtf/sample.html:19
+#, fuzzy
+#| msgid "Контроль білої підкладки"
+msgid "Тест адгезії та білої підкладки"
+msgstr "White underbase control"
 
-#: templates/dtf/requirements.html:101 templates/dtf/templates.html:4
-#: templates/dtf/templates.html:34
-msgid "Шаблони 60 см"
-msgstr "The template is 60 cm"
+#: dtf/templates/dtf/sample.html:21
+#, fuzzy
+#| msgid "Політика конфіденційності"
+msgid "Оцінка кольору та щільності"
+msgstr "Privacy policy"
 
-#: templates/dtf/requirements.html:104
-msgid "Скачати шаблон 60 см"
-msgstr "Download template 60 cm"
+#: dtf/templates/dtf/sample.html:30
+#, fuzzy
+#| msgid "Відправлено"
+msgid "Відправка НП"
+msgstr "sent"
 
-#: templates/dtf/requirements.html:105
-msgid "Перейти до шаблонів"
-msgstr "Go to templates"
+#: dtf/templates/dtf/sample.html:39
+#, fuzzy
+#| msgid "Заявка прийнята. Менеджер зв'яжеться з вами."
+msgid "Заявку прийнято. Менеджер підтвердить формат і відправку."
+msgstr "Your request has been received. Manager will contact you."
 
-#: templates/dtf/requirements.html:110
-msgid "Не вмієте підготувати?"
-msgstr "Don't know how to prepare?"
+#: dtf/templates/dtf/sample.html:72
+msgid "Я бренд / планую об'єм (потрібен A3 або серійний запуск)"
+msgstr ""
 
-#: templates/dtf/requirements.html:111
-msgid "Надішліть файли — менеджер допоможе з розкладкою."
-msgstr "Send the files - the manager will help with the layout."
+#: dtf/templates/dtf/sample.html:79
+msgid "Ніша"
+msgstr ""
 
-#: templates/dtf/status.html:4 templates/dtf/status.html:34
+#: dtf/templates/dtf/sample.html:80
+#, fuzzy
+#| msgid "Остаточний огляд"
+msgid "Орієнтовний обсяг/міс"
+msgstr "Final review"
+
+#: dtf/templates/dtf/sample.html:97
+msgid "Погоджуюсь на обробку персональних даних"
+msgstr ""
+
+#: dtf/templates/dtf/status.html:4 dtf/templates/dtf/status.html:35
 msgid "Статус замовлення"
 msgstr "Order status"
 
-#: templates/dtf/status.html:35
+#: dtf/templates/dtf/status.html:36
 msgid "Контроль виробництва та трекінг без зайвих деталей."
 msgstr "Production control and tracking without unnecessary details."
 
-#: templates/dtf/status.html:42 templates/dtf/thanks.html:13
+#: dtf/templates/dtf/status.html:43 dtf/templates/dtf/thanks.html:14
 msgid "Номер замовлення"
 msgstr "Order number"
 
-#: templates/dtf/status.html:48
-msgid "Перевірити"
-msgstr "Verify"
+#: dtf/templates/dtf/status.html:45
+msgid "Номер із листа або чату"
+msgstr ""
 
-#: templates/dtf/status.html:66
+#: dtf/templates/dtf/status.html:50
+#, fuzzy
+#| msgid "Номер замовлення"
+msgid "Телефон із замовлення"
+msgstr "Order number"
+
+#: dtf/templates/dtf/status.html:71
 msgid "Скопіювати лінк"
 msgstr "Copy the link"
 
-#: templates/dtf/status.html:69
+#: dtf/templates/dtf/status.html:74
 msgid "Share"
 msgstr "Share"
 
-#: templates/dtf/status.html:76
-msgid "Pipeline"
-msgstr "Production stages"
-
-#: templates/dtf/status.html:88
+#: dtf/templates/dtf/status.html:93
 msgid "Поточний етап"
 msgstr "Current stage"
 
-#: templates/dtf/status.html:98
-msgid "QC Report"
-msgstr "QC report"
+#: dtf/templates/dtf/status.html:102
+#, fuzzy
+#| msgid "Бажаний дедлайн"
+msgid "Таймлайн"
+msgstr "Preferred deadline"
 
-#: templates/dtf/status.html:107
+#: dtf/templates/dtf/status.html:116
+#, fuzzy
+#| msgid "Прев'ю з'явиться після завантаження"
+msgid "Події з'являться після зміни етапів."
+msgstr "A preview will appear after upload"
+
+#: dtf/templates/dtf/status.html:131
 msgid "PDF сертифікат"
 msgstr "PDF certificate"
 
-#: templates/dtf/status.html:114
-msgid "ТТН"
-msgstr "TTN"
-
-#: templates/dtf/status.html:115
+#: dtf/templates/dtf/status.html:139
 msgid "Відстежити"
 msgstr "Track shipment"
 
-#: templates/dtf/status.html:117
+#: dtf/templates/dtf/status.html:141
 msgid "Трекінг буде після відправки"
 msgstr "Tracking number appears after dispatch"
 
-#: templates/dtf/status.html:123
+#: dtf/templates/dtf/status.html:147
 msgid "Повторити"
 msgstr "Reorder"
 
-#: templates/dtf/status.html:124
+#: dtf/templates/dtf/status.html:148
 msgid "Створіть нове замовлення за цим кейсом."
 msgstr "Create a new order for this case."
 
-#: templates/dtf/status.html:125
-msgid "Повторити замовлення"
-msgstr "Reorder"
-
-#: templates/dtf/status.html:130
+#: dtf/templates/dtf/status.html:154
 msgid "Менеджер підкаже щодо файлу або термінів."
 msgstr "A manager will advise on file quality and lead times."
 
-#: templates/dtf/status.html:131
+#: dtf/templates/dtf/status.html:155
 msgid "Написати менеджеру"
 msgstr "Write to the manager"
 
-#: templates/dtf/templates.html:35
-msgid "PDF/AI/Figma для швидкої підготовки ганг-листів."
-msgstr "PDF/AI/Figma for quick preparation of gang lists."
-
-#: templates/dtf/templates.html:43
+#: dtf/templates/dtf/templates.html:44
 msgid "Preview шаблону 60 см"
 msgstr "Preview template 60 cm"
 
-#: templates/dtf/templates.html:48
+#: dtf/templates/dtf/templates.html:49
 msgid "Шаблон 60 см"
 msgstr "Template 60 cm"
 
-#: templates/dtf/templates.html:49
+#: dtf/templates/dtf/templates.html:50
 msgid "PDF, AI, Figma"
 msgstr "PDF, AI, Figma"
 
-#: templates/dtf/templates.html:51
-msgid "Download PDF"
-msgstr "Download PDF"
-
-#: templates/dtf/templates.html:52
-msgid "Adobe Illustrator"
-msgstr "Adobe Illustrator"
-
-#: templates/dtf/templates.html:53
-msgid "Figma"
-msgstr "Figma"
-
-#: templates/dtf/templates.html:57
-msgid "Як користуватись"
-msgstr "How to use"
-
-#: templates/dtf/templates.html:59
+#: dtf/templates/dtf/templates.html:69
 msgid "Відкрийте шаблон"
 msgstr "Open the template"
 
-#: templates/dtf/templates.html:60
-msgid "Розмістіть макети в межах 60 см"
-msgstr "Place the layouts within 60 cm"
-
-#: templates/dtf/templates.html:61
+#: dtf/templates/dtf/templates.html:71
 msgid "Експортуйте PDF/PNG"
 msgstr "Export PDF/PNG"
 
-#: templates/dtf/thanks.html:4
+#: dtf/templates/dtf/thanks.html:4
 msgid "Дякуємо"
 msgstr "Thank you"
 
-#: templates/dtf/thanks.html:9
+#: dtf/templates/dtf/thanks.html:24
 msgid "Дякуємо!"
 msgstr "Thank you!"
 
-#: templates/dtf/thanks.html:11
-msgid "Ваше замовлення прийнято."
-msgstr "Your order has been received."
-
-#: templates/dtf/thanks.html:17
-msgid "Реквізити на оплату надішлемо після перевірки макета."
-msgstr "Payment details will be sent after artwork review."
-
-#: templates/dtf/thanks.html:18
-msgid "Перевірити статус"
-msgstr "Check status"
-
-#: templates/dtf/thanks.html:20
+#: dtf/templates/dtf/thanks.html:25
 msgid "Заявка прийнята. Менеджер зв'яжеться з вами."
 msgstr "Your request has been received. Manager will contact you."
 
-#: templates/dtf/thanks.html:22
+#: dtf/templates/dtf/thanks.html:27
 msgid "Номер заявки"
 msgstr "Request number"
 
-#: views.py:188
-msgid "Вкажіть номер і телефон"
-msgstr "Enter order number and phone"
+#: dtf/views.py:106 dtf/views.py:206 dtf/views.py:246
+msgid "На модерації"
+msgstr ""
 
-#: views.py:192 views.py:200
-msgid "Замовлення не знайдено"
+#: dtf/views.py:108
+#, fuzzy
+#| msgid "Прийнято (заявка)"
+msgid "Прийнято в роботу / друк"
+msgstr "Accepted (application)"
+
+#: dtf/views.py:110
+msgid "Доставлено у відділення / поштомат"
+msgstr ""
+
+#: dtf/views.py:171
+#, python-format
+msgid "%(product)s · %(placement)s · %(qty)s шт"
+msgstr ""
+
+#: dtf/views.py:176
+#, python-format
+msgid "%(product)s · %(qty)s шт"
+msgstr ""
+
+#: dtf/views.py:178 dtf/views.py:183
+#, python-format
+msgid "%(meters)s пог.м · %(copies)s коп."
+msgstr ""
+
+#: dtf/views.py:187
+#, fuzzy
+#| msgid "Ціни DTF"
+msgid "Фільм DTF"
+msgstr "DTF pricing"
+
+#: dtf/views.py:232
+#, python-format
+msgid "Конструктор: %(product)s · %(placement)s · %(qty)s шт"
+msgstr ""
+
+#: dtf/views.py:247
+#, fuzzy
+#| msgid "Надіслати замовлення"
+msgid "Сума після узгодження"
+msgstr "Send order"
+
+#: dtf/views.py:327 dtf/views.py:473
+#, fuzzy
+#| msgid "Якість"
+msgid "Гість"
+msgstr "Quality"
+
+#: dtf/views.py:827
+#, fuzzy
+#| msgid "Замовлення не знайдено"
+msgid "Замовлення створено"
 msgstr "Order not found"
 
-#: views.py:195
-msgid "Телефон не збігається із замовленням"
-msgstr "Phone does not match the order"
+#: dtf/views.py:833
+#, fuzzy
+#| msgid "Потрібна перевірка"
+msgid "Потрібна перевірка менеджером"
+msgstr "Verification required"
 
-#: views.py:203
+#: dtf/views.py:872
+msgid "Ви вийшли з акаунту"
+msgstr ""
+
+#: dtf/views.py:893
+#, fuzzy
+#| msgid "Створіть нове замовлення за цим кейсом."
+msgid "Не вдалося знайти замовлення за цими даними"
+msgstr "Create a new order for this case."
+
+#: dtf/views.py:901
+msgid "Тимчасово обмежено. Спробуйте трохи пізніше"
+msgstr ""
+
+#: dtf/views.py:947
 msgid "Intake"
 msgstr "Intake"
 
-#: views.py:205
+#: dtf/views.py:948
+msgid "Preflight"
+msgstr "Preflight"
+
+#: dtf/views.py:949
 msgid "Print"
 msgstr "Print"
 
-#: views.py:206
+#: dtf/views.py:950
 msgid "Powder"
 msgstr "Powder"
 
-#: views.py:207
+#: dtf/views.py:951
 msgid "Cure"
 msgstr "Cure"
 
-#: views.py:208
+#: dtf/views.py:952
 msgid "Pack"
 msgstr "Pack"
 
-#: views.py:209
+#: dtf/views.py:953
 msgid "Ship"
 msgstr "Ship"
 
-#: views.py:233
-msgid "Файл"
-msgstr "File"
-
-#: views.py:235
+#: dtf/views.py:990
 msgid "Відсутній"
 msgstr "Missing"
 
-#: views.py:240 views.py:255
+#: dtf/views.py:995 dtf/views.py:1010
 msgid "Невідомо"
 msgstr "Unknown"
 
-#: views.py:248
+#: dtf/views.py:1003
 msgid "Оптовий метраж"
 msgstr "Bulk meterage"
 
-#: views.py:250
+#: dtf/views.py:1005
 msgid "Потрібна перевірка"
 msgstr "Verification required"
 
-#: views.py:250
+#: dtf/views.py:1005
 msgid "OK"
 msgstr "OK"
 
-#: views.py:383
+#: dtf/views.py:1078
+msgid "Забагато спроб. Спробуйте трохи пізніше."
+msgstr ""
+
+#: dtf/views.py:1107
+msgid "Худі"
+msgstr ""
+
+#: dtf/views.py:1108
+msgid "Щільні худі під DTF: підбір blank + друк + контроль якості."
+msgstr ""
+
+#: dtf/views.py:1109
+msgid "Щільність 280–420 gsm, front/back/left chest"
+msgstr ""
+
+#: dtf/views.py:1113
+msgid "Футболки"
+msgstr ""
+
+#: dtf/views.py:1114
+msgid "Базові та преміум футболки, підібрані під ваш бренд."
+msgstr ""
+
+#: dtf/views.py:1115
+msgid "S–XXL, білий/чорний/кольори, опт і дрібні партії"
+msgstr ""
+
+#: dtf/views.py:1119
+msgid "Шопери"
+msgstr ""
+
+#: dtf/views.py:1120
+msgid "Готові шопери з нанесенням під запуск мерчу чи промо."
+msgstr ""
+
+#: dtf/views.py:1121
+msgid "Бавовна/саржа, front print, серійні тиражі"
+msgstr ""
+
+#: dtf/views.py:1217
+msgid "Чернетку конструктора збережено"
+msgstr ""
+
+#: dtf/views.py:1238
+msgid "Session ID required"
+msgstr ""
+
+#: dtf/views.py:1243
+msgid "Too many submissions. Try later."
+msgstr ""
+
+#: dtf/views.py:1253
+msgid "Provide valid name and phone"
+msgstr ""
+
+#: dtf/views.py:1259
+msgid "Fix critical preflight issues before submit"
+msgstr ""
+
+#: dtf/views.py:1261
+msgid "Please accept preflight risks to continue"
+msgstr ""
+
+#: dtf/views.py:1400
 msgid "Preflight перевірка файлу"
 msgstr "Preflight file check"
 
-#: templates/dtf/base.html:156
-msgid "або"
-msgstr "or"
+#: dtf/views.py:1506
+msgid "Статистика / Dashboard"
+msgstr ""
 
-#: templates/dtf/base.html:159
-msgid "Увійти через Google"
-msgstr "Sign in with Google"
+#: dtf/views.py:1508
+msgid "Блог"
+msgstr ""
+
+#: dtf/views.py:1661
+msgid "Статус оновлено менеджером в DTF Admin"
+msgstr ""
+
+#: dtf/views.py:1675
+#, fuzzy
+#| msgid "Замовлення не знайдено"
+msgid "Замовлення оновлено"
+msgstr "Order not found"
+
+#: dtf/views.py:1690
+msgid "Публікацію створено"
+msgstr ""
+
+#: dtf/views.py:1712
+#, fuzzy
+#| msgid "Надіслати замовлення"
+msgid "Публікацію оновлено"
+msgstr "Send order"
+
+#: dtf/views.py:1729
+msgid "Публікацію видалено"
+msgstr ""
+
+#: dtf/views.py:1747
+#, fuzzy
+#| msgid "Файли для перевірки"
+msgid "Файл не передано"
+msgstr "Files to check"
+
+#: dtf/views.py:1758
+#, fuzzy
+#| msgid "Непідтримуваний формат файлу у вкладеннях."
+msgid "Недопустимий формат або розмір файлу"
+msgstr "Unsupported file format in attachments."
+
+#: dtf/views.py:1799
+msgid "Промокод створено"
+msgstr ""
+
+#: dtf/views.py:1817
+#, fuzzy
+#| msgid "Продовжити як замовлення"
+msgid "Промокод оновлено"
+msgstr "Continue as an order"
+
+#: dtf/views.py:1833
+#, fuzzy
+#| msgid "Статус замовлення"
+msgid "Статус промокоду змінено"
+msgstr "Order status"
+
+#: dtf/views.py:1846
+msgid "Промокод видалено"
+msgstr ""
+
+#~ msgid "Допомога"
+#~ msgstr "Help"
+
+#~ msgid "DTF друк рулоном 60 см. Ручна перевірка макета перед друком."
+#~ msgstr "DTF roll printing 60 cm. Manual artwork check before printing."
+
+#~ msgid "Менеджер"
+#~ msgstr "Manager"
+
+#~ msgid "Графік"
+#~ msgstr "Schedule"
+
+#~ msgid "Пн–Пт: 10:00–18:00"
+#~ msgstr "Mon–Fri: 10:00–18:00"
+
+#~ msgid "Нова Пошта по Україні. Вкажіть місто та відділення при оформленні."
+#~ msgstr ""
+#~ "Nova Poshta across Ukraine. Specify the city and department when ordering."
+
+#~ msgid ""
+#~ "Оплата після перевірки макета. Надсилаємо реквізити у ваш канал зв'язку."
+#~ msgstr ""
+#~ "Payment after checking the layout. We send details to your communication "
+#~ "channel."
+
+#~ msgid "Юридичні"
+#~ msgstr "Legal"
+
+#~ msgid "Оферта та політика конфіденційності надаються за запитом."
+#~ msgstr "The offer and privacy policy are available upon request."
+
+#~ msgid "Галерея робіт"
+#~ msgstr "Gallery of works"
+
+#~ msgid "Реальні кейси, макро‑деталі та порівняння до/після."
+#~ msgstr "Real cases, macro details and before/after comparisons."
+
+#~ msgid "Додамо реальні роботи"
+#~ msgstr "Let's add real jobs"
+
+#~ msgid "Hot Peel"
+#~ msgstr "Hot Peel"
+
+#~ msgid "грн/м"
+#~ msgstr "UAH/m"
+
+#~ msgid "Не відклеїться?"
+#~ msgstr "Will it peel off?"
+
+#~ msgid "DTF витримує багато циклів прання за умови правильного переносу."
+#~ msgstr "DTF withstands many wash cycles when transferred correctly."
+
+#~ msgid "Є білий шар?"
+#~ msgstr "Is there a white underbase?"
+
+#~ msgid "Так, використовується білий підклад для насичених кольорів."
+#~ msgstr "Yes, we use a white underbase for saturated colors."
+
+#~ msgid "DTF друк в рулоні"
+#~ msgstr "DTF roll printing"
+
+#~ msgid "60 см, Hot Peel, все включено"
+#~ msgstr "60 cm, Hot Peel, all included"
+
+#~ msgid ""
+#~ "Швидкий розрахунок, ручна перевірка макета, друк та доставка Новою Поштою."
+#~ msgstr ""
+#~ "Quick calculation, manual artwork check, printing and Nova Poshta "
+#~ "delivery."
+
+#~ msgid "Розрахувати / Замовити"
+#~ msgstr "Calculate / Order"
+
+#~ msgid "Фото друкуючої головки DTF (hero)"
+#~ msgstr "DTF printhead photo (hero)"
+
+#~ msgid "НП"
+#~ msgstr "NP"
+
+#~ msgid "PDF/PNG рекомендовано"
+#~ msgstr "PDF/PNG recommended"
+
+#~ msgid "≈ ЦІНА"
+#~ msgstr "≈ PRICE"
+
+#~ msgid "Надішліть ганг-лист або файли для допомоги."
+#~ msgstr "Send your gang sheet or files for assistance."
+
+#~ msgid "Менеджер перевіряє, підтверджує метраж та узгоджує правки."
+#~ msgstr "Manager checks, confirms total meters, and agrees edits with you."
+
+#~ msgid "Після перевірки надсилаємо реквізити у вибраний канал."
+#~ msgstr "After review we send payment details via your chosen channel."
+
+#~ msgid "Базова ціна та знижки від метражу. Точну суму підтвердить менеджер."
+#~ msgstr ""
+#~ "Base price and volume discounts. Final amount is confirmed by manager."
+
+#~ msgid "Наші роботи"
+#~ msgstr "Our works"
+
+#~ msgid "Кілька реальних прикладів з макро та готовим результатом."
+#~ msgstr "Several real examples with macro and final result."
+
+#~ msgid "Дивитись всі роботи"
+#~ msgstr "View all works"
+
+#~ msgid ""
+#~ "PDF/PNG, ширина 60 см, прозорість для фону. Додаткові вимоги та шаблони — "
+#~ "на окремій сторінці."
+#~ msgstr ""
+#~ "PDF/PNG, 60 cm width, transparent background. More requirements and "
+#~ "templates are on a separate page."
+
+#~ msgid "Перейти до вимог"
+#~ msgstr "Go to requirements"
+
+#~ msgid "FAQ"
+#~ msgstr "FAQ"
+
+#~ msgid "Як переносити?"
+#~ msgstr "How to transfer?"
+
+#~ msgid "Надаємо інструкцію під ваш прес та матеріал."
+#~ msgstr "We provide instructions for your press and material."
+
+#~ msgid "Якщо макет слабкий?"
+#~ msgstr "What if artwork quality is low?"
+
+#~ msgid "Менеджер підкаже, як виправити, або запропонує допомогу."
+#~ msgstr "Manager will suggest fixes or offer assistance."
+
+#~ msgid ""
+#~ "Нова Пошта по Україні. Оплата після перевірки макета. Реквізити "
+#~ "надсилаємо у зручний канал."
+#~ msgstr ""
+#~ "Nova Poshta delivery across Ukraine. Payment after artwork review. We "
+#~ "send details to your preferred channel."
+
+#~ msgid "Детальніше"
+#~ msgstr "Learn more"
+
+#~ msgid ""
+#~ "TEMP: Оновлюємо повний юридичний текст. Нижче коротка робоча версія для "
+#~ "DTF сайту."
+#~ msgstr ""
+#~ "TEMP: Full legal text is being updated. Below is the short working "
+#~ "version for the DTF site."
+
+#~ msgid ""
+#~ "Ми використовуємо контактні дані лише для обробки звернень і замовлень "
+#~ "DTF."
+#~ msgstr "We use contact data only to process DTF inquiries and orders."
+
+#~ msgid ""
+#~ "Передача даних третім сторонам відбувається тільки для доставки, оплати "
+#~ "або за вимогою закону."
+#~ msgstr ""
+#~ "Data is shared with third parties only for delivery, payment, or legal "
+#~ "requirements."
+
+#~ msgid ""
+#~ "Для видалення або уточнення ваших даних зверніться через сторінку "
+#~ "Контактів."
+#~ msgstr "To delete or clarify your data, contact us via the Contacts page."
+
+#~ msgid ""
+#~ "TEMP: Публічні реквізити оновлюються. Актуальні реквізити менеджер "
+#~ "надсилає перед оплатою."
+#~ msgstr ""
+#~ "TEMP: Public payment details are being updated. Manager sends current "
+#~ "details before payment."
+
+#~ msgid ""
+#~ "Оплата узгоджується після ручної перевірки макета і підтвердження деталей."
+#~ msgstr ""
+#~ "Payment is agreed after manual artwork review and detail confirmation."
+
+#~ msgid "За потреби реквізити дублюються у Telegram/WhatsApp/Instagram."
+#~ msgstr ""
+#~ "If needed, payment details are duplicated in Telegram/WhatsApp/Instagram."
+
+#~ msgid "Повернення та рекламації"
+#~ msgstr "Returns and claims"
+
+#~ msgid ""
+#~ "TEMP: Розділ уточнюється. Нижче діє базовий порядок для DTF замовлень."
+#~ msgstr ""
+#~ "TEMP: This section is being refined. The basic procedure for DTF orders "
+#~ "is active below."
+
+#~ msgid ""
+#~ "Якщо є виробничий брак, надішліть номер замовлення, фото/відео та опис "
+#~ "проблеми."
+#~ msgstr ""
+#~ "If there is a production defect, send your order number, photos/video, "
+#~ "and issue description."
+
+#~ msgid ""
+#~ "Рекламації розглядаються після перевірки файлу, партії друку та умов "
+#~ "переносу."
+#~ msgstr ""
+#~ "Claims are reviewed after checking the file, print batch, and transfer "
+#~ "conditions."
+
+#~ msgid ""
+#~ "Рішення: переробка, часткова компенсація або інший узгоджений формат."
+#~ msgstr ""
+#~ "Resolution: reprint, partial compensation, or another agreed format."
+
+#~ msgid "Умови користування"
+#~ msgstr "Terms of use"
+
+#~ msgid ""
+#~ "TEMP: Повна публічна оферта буде розміщена після юридичного оновлення."
+#~ msgstr "TEMP: The full public offer will be published after legal update."
+
+#~ msgid ""
+#~ "Остаточні параметри замовлення підтверджуються менеджером перед запуском "
+#~ "у друк."
+#~ msgstr "Final order parameters are confirmed by manager before printing."
+
+#~ msgid ""
+#~ "Терміни виконання залежать від завантаження виробництва та логістики "
+#~ "перевізника."
+#~ msgstr "Turnaround time depends on production load and carrier logistics."
+
+#~ msgid "Замовити DTF друк"
+#~ msgstr "Order DTF printing"
+
+#~ msgid "Замовлення DTF"
+#~ msgstr "DTF order"
+
+#~ msgid "Оберіть формат: готовий ганг-лист або допомога з підготовкою."
+#~ msgstr "Choose the format: a ready-made gang list or help with preparation."
+
+#~ msgid "Є готовий ганг-лист (60 см)"
+#~ msgstr "There is a ready-made gang list (60 cm)"
+
+#~ msgid "Готовий ганг-лист 60 см"
+#~ msgstr "Ready gang sheet 60 cm"
+
+#~ msgid "Ready"
+#~ msgstr "Ready"
+
+#~ msgid "Preview"
+#~ msgstr "Preview"
+
+#~ msgid "Перший кадр PDF або PNG (після завантаження)."
+#~ msgstr "First frame PDF or PNG (after upload)."
+
+#~ msgid "Preflight Terminal"
+#~ msgstr "Preflight Terminal"
+
+#~ msgid "Перевірки допомагають уникнути сюрпризів. WARN не блокує замовлення."
+#~ msgstr "Inspections help to avoid surprises. WARN does not block orders."
+
+#~ msgid "Тонкі лінії"
+#~ msgstr "Thin lines"
+
+#~ msgid "Можуть не пропечататись"
+#~ msgstr "They may not be printed"
+
+#~ msgid "Прозорість"
+#~ msgstr "Transparency"
+
+#~ msgid "Ширина"
+#~ msgstr "Width"
+
+#~ msgid "60 см — OK"
+#~ msgstr "60 cm"
+
+#~ msgid "Я розумію можливі ризики та погоджуюсь"
+#~ msgstr "I understand the possible risks and agree"
+
+#~ msgid "SUMMARY"
+#~ msgstr "Summary"
+
+#~ msgid "Файли для розкладки"
+#~ msgstr "Files for layout"
+
+#~ msgid "Менеджер підтвердить метраж та вартість"
+#~ msgstr "The manager will confirm the footage and cost"
+
+#~ msgid "Після перевірки ви отримаєте список OK/WARN та рекомендації."
+#~ msgstr ""
+#~ "After verification, you will receive an OK/WARN list and recommendations."
+
+#~ msgid "OK/WARN звіт"
+#~ msgstr "OK/WARN report"
+
+#~ msgid "Розрахунок: довжина файлу × кількість копій = загальний метраж."
+#~ msgstr "Calculation: file length × number of copies = total meters."
+
+#~ msgid "Файл 2.5 м × 10 копій = 25 м. Розрахунок за відповідною ціною."
+#~ msgstr ""
+#~ "File 2.5 m × 10 copies = 25 m. Pricing is based on the corresponding tier."
+
+#~ msgid "Cutoff / терміни"
+#~ msgstr "Cutoff / deadlines"
+
+#~ msgid "Cutoff на виробництво: після підтвердження макета."
+#~ msgstr "Production cutoff: after artwork approval."
+
+#~ msgid "Стандартний термін: 24–48 год (узгоджується менеджером)."
+#~ msgstr "Standard turnaround: 24–48 hours (confirmed by manager)."
+
+#~ msgid "Доставка: за тарифами Нової Пошти."
+#~ msgstr "Delivery: according to Nova Poshta tariffs."
+
+#~ msgid "Quality / Lab Proof"
+#~ msgstr "Quality / Lab Proof"
+
+#~ msgid "Які перевірки входять у QC?"
+#~ msgstr "What inspections are included in QC?"
+
+#~ msgid ""
+#~ "Контроль кольору, реєстрації та прання. Нічого зайвого — тільки факти."
+#~ msgstr ""
+#~ "Color registration and wash durability control. Nothing extra, only facts."
+
+#~ msgid "QC макро"
+#~ msgstr "QC macro"
+
+#~ msgid "QC контроль білої підкладки"
+#~ msgstr "QC control of the white substrate"
+
+#~ msgid "QC контроль порошку"
+#~ msgstr "QC control of the powder"
+
+#~ msgid "QC фінішний огляд"
+#~ msgstr "QC finish inspection"
+
+#~ msgid "QC чек"
+#~ msgstr "QC check"
+
+#~ msgid "PDF або PNG"
+#~ msgstr "PDF or PNG"
+
+#~ msgid "Ширина 60 см"
+#~ msgstr "Width 60 cm"
+
+#~ msgid "Прозорий фон"
+#~ msgstr "Transparent background"
+
+#~ msgid "Рекомендовано 300 DPI"
+#~ msgstr "300 DPI is recommended"
+
+#~ msgid "Без зайвих відступів"
+#~ msgstr "Without unnecessary indents"
+
+#~ msgid "Кольори у CMYK/RGB"
+#~ msgstr "Colors in CMYK/RGB"
+
+#~ msgid "Типові помилки"
+#~ msgstr "Typical mistakes"
+
+#~ msgid "Приклад OK vs RISK"
+#~ msgstr "An example of OK vs RISK"
+
+#~ msgid "Шаблони 60 см"
+#~ msgstr "The template is 60 cm"
+
+#~ msgid "Скачати шаблон 60 см"
+#~ msgstr "Download template 60 cm"
+
+#~ msgid "Перейти до шаблонів"
+#~ msgstr "Go to templates"
+
+#~ msgid "Не вмієте підготувати?"
+#~ msgstr "Don't know how to prepare?"
+
+#~ msgid "Надішліть файли — менеджер допоможе з розкладкою."
+#~ msgstr "Send the files - the manager will help with the layout."
+
+#~ msgid "Pipeline"
+#~ msgstr "Production stages"
+
+#~ msgid "QC Report"
+#~ msgstr "QC report"
+
+#~ msgid "PDF/AI/Figma для швидкої підготовки ганг-листів."
+#~ msgstr "PDF/AI/Figma for quick preparation of gang lists."
+
+#~ msgid "Download PDF"
+#~ msgstr "Download PDF"
+
+#~ msgid "Adobe Illustrator"
+#~ msgstr "Adobe Illustrator"
+
+#~ msgid "Figma"
+#~ msgstr "Figma"
+
+#~ msgid "Реквізити на оплату надішлемо після перевірки макета."
+#~ msgstr "Payment details will be sent after artwork review."
+
+#~ msgid "Перевірити статус"
+#~ msgstr "Check status"
+
+#~ msgid "Телефон не збігається із замовленням"
+#~ msgstr "Phone does not match the order"
 
 #~ msgid "Від %(tier.min)s м"
 #~ msgstr "From %(tier.min)s m"

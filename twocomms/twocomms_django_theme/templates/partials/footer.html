@@ -15,7 +15,7 @@
       </div>
 
       {% if footer_content.socials %}
-        <div class="footer-socials" aria-label="Соцмережі TwoComms">
+        <div class="footer-socials" aria-label="{% trans 'Соцмережі TwoComms' %}">
           {% for item in footer_content.socials %}
             {% with social_label=item.label|default:"Соцмережа" social_url=item.url|default:"#"%}
               {% if "instagram" in social_label|lower or "instagram" in social_url|lower %}
@@ -64,7 +64,7 @@
           {% endfor %}
         </div>
       {% else %}
-        <div class="footer-socials" aria-label="Соцмережі TwoComms">
+        <div class="footer-socials" aria-label="{% trans 'Соцмережі TwoComms' %}">
           <a class="footer-social-link footer-social-link--instagram"
              href="https://instagram.com/twocomms"
              target="_blank"
@@ -115,39 +115,39 @@
     {% else %}
       <div class="footer-grid">
         <section class="footer-column">
-          <div class="footer-column-title">Покупка</div>
+          <div class="footer-column-title">{% trans 'Покупка' %}</div>
           <ul class="footer-link-list">
-            <li><a href="{% url 'catalog' %}">Каталог</a></li>
-            <li><a href="{% url 'delivery' %}">Доставка і оплата</a></li>
-            <li><a href="{% url 'custom_print' %}">Кастомний принт</a></li>
-            <li><a href="{% url 'cooperation' %}">Співпраця</a></li>
+            <li><a href="{% url 'catalog' %}">{% trans 'Каталог' %}</a></li>
+            <li><a href="{% url 'delivery' %}">{% trans 'Доставка і оплата' %}</a></li>
+            <li><a href="{% url 'custom_print' %}">{% trans 'Кастомний принт' %}</a></li>
+            <li><a href="{% url 'cooperation' %}">{% trans 'Співпраця' %}</a></li>
           </ul>
         </section>
         <section class="footer-column">
-          <div class="footer-column-title">Підтримка</div>
+          <div class="footer-column-title">{% trans 'Підтримка' %}</div>
           <ul class="footer-link-list">
-            <li><a href="{% url 'help_center' %}">Допомога</a></li>
-            <li><a href="{% url 'faq' %}">FAQ</a></li>
-            <li><a href="{% url 'returns' %}">Повернення та обмін</a></li>
-            <li><a href="{% url 'care_guide' %}">Догляд за одягом</a></li>
+            <li><a href="{% url 'help_center' %}">{% trans 'Допомога' %}</a></li>
+            <li><a href="{% url 'faq' %}">{% trans 'FAQ' %}</a></li>
+            <li><a href="{% url 'returns' %}">{% trans 'Повернення та обмін' %}</a></li>
+            <li><a href="{% url 'care_guide' %}">{% trans 'Догляд за одягом' %}</a></li>
           </ul>
         </section>
         <section class="footer-column">
-          <div class="footer-column-title">Бренд</div>
+          <div class="footer-column-title">{% trans 'Бренд' %}</div>
           <ul class="footer-link-list">
-            <li><a href="{% url 'about' %}">Про бренд</a></li>
-            <li><a href="{% url 'news' %}">Новини</a></li>
-            <li><a href="{% url 'contacts' %}">Контакти</a></li>
-            <li><a href="{% url 'site_map_page' %}">Карта сайту</a></li>
+            <li><a href="{% url 'about' %}">{% trans 'Про бренд' %}</a></li>
+            <li><a href="{% url 'news' %}">{% trans 'Новини' %}</a></li>
+            <li><a href="{% url 'contacts' %}">{% trans 'Контакти' %}</a></li>
+            <li><a href="{% url 'site_map_page' %}">{% trans 'Карта сайту' %}</a></li>
           </ul>
         </section>
         <section class="footer-column">
-          <div class="footer-column-title">Швидкий доступ</div>
+          <div class="footer-column-title">{% trans 'Швидкий доступ' %}</div>
           <ul class="footer-link-list">
-            <li><a href="{% url 'size_guide' %}">Розмірна сітка</a></li>
-            <li><a href="{% url 'order_tracking' %}">Відстеження замовлення</a></li>
-            <li><a href="{% url 'privacy_policy' %}">Політика конфіденційності</a></li>
-            <li><a href="{% url 'terms_of_service' %}">Умови використання</a></li>
+            <li><a href="{% url 'size_guide' %}">{% trans 'Розмірна сітка' %}</a></li>
+            <li><a href="{% url 'order_tracking' %}">{% trans 'Відстеження замовлення' %}</a></li>
+            <li><a href="{% url 'privacy_policy' %}">{% trans 'Політика конфіденційності' %}</a></li>
+            <li><a href="{% url 'terms_of_service' %}">{% trans 'Умови використання' %}</a></li>
           </ul>
         </section>
       </div>
@@ -160,7 +160,7 @@
     site. ``tel:`` link is mobile-friendly and hands off to the OS
     dialer; copy renders the human-readable spaced format.
     {% endcomment %}
-    <div class="footer-contact" aria-label="Контакти TwoComms">
+    <div class="footer-contact" aria-label="{% trans 'Контакти TwoComms' %}">
       <a class="footer-contact__link" href="tel:+380966543212">
         <span aria-hidden="true">☎</span>
         <span>+38 (096) 654-32-12</span>
@@ -171,10 +171,7 @@
       </a>
     </div>
 
-    {# Phase 17a — language switcher rendered separately via
-       ``partials/language_switcher.html`` (included from ``base.html``
-       OUTSIDE the cached fragment so URLs reflect the current request
-       path instead of whichever page warmed the cache). #}
+    {# Phase 17a — language switcher rendered separately, see partials/language_switcher.html #}
 
     <div class="footer-bottom">
       <div class="footer-rights">{{ footer_content.rights|default:"All Rights Reserved © TWOCOMMS, 2026" }}</div>

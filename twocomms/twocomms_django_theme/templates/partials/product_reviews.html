@@ -86,10 +86,7 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
     </aside>
   </div>
 
-  {# Phase 21+ (2026-05-11) — surface messages ABOVE the toggle so the
-     submission status is always visible (the <details> is collapsed by
-     default; without lifting messages out, users hit submit and see
-     only a page reload). #}
+  {# Phase 21+ — surface messages ABOVE the <details> so submit status is always visible. #}
   {% if messages %}
     <div class="tc-reviews__messages" role="status" data-pdp-review-flash>
       {% for m in messages %}

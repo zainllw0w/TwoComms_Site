@@ -1,10 +1,12 @@
 {% load i18n %}
 {% load i18n_links %}
-{# Phase 17a — language switcher. Rendered OUTSIDE the cached footer block
-   so the per-language URLs are computed from the current request path,
-   not the page that first warmed the cache. Each option is a real
-   ``<a hreflang>`` for crawler discovery; the wrapping form persists the
-   ``django_language`` cookie via ``set_language`` on JS-enabled clicks. #}
+{% comment %}
+  Phase 17a — language switcher. Rendered OUTSIDE the cached footer block
+  so the per-language URLs are computed from the current request path,
+  not the page that first warmed the cache. Each option is a real
+  <a hreflang> for crawler discovery; the wrapping form persists the
+  django_language cookie via set_language on JS-enabled clicks.
+{% endcomment %}
 {% language_switch_links as footer_langs %}
 <div class="footer-langs-wrap container-xxl">
   <div class="footer-langs" aria-label="{% trans 'Мова сайту' %}">
