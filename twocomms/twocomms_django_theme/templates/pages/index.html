@@ -28,8 +28,19 @@
 
 {% block extra_css %}
   {{ block.super }}
+  {% comment %}
+  Phase 21 (2026-05-10) — wrap home/color-filter CSS in a compress
+  block so Django Compressor minifies + concatenates them into a
+  single hashed asset. Previously these two files shipped raw
+  (~13 KB home.css + ~3 KB color-filter.css with comments/whitespace),
+  which Lighthouse flagged as «Уменьшите размер кода CSS — 2.8 KiB».
+  Behavior unchanged — same selectors, same load order; only the
+  bytes-on-wire decrease.
+  {% endcomment %}
+  {% compress css %}
   <link rel="stylesheet" href="{% static 'css/home.css' %}">
   <link rel="stylesheet" href="{% static 'css/color-filter.css' %}">
+  {% endcompress %}
 {% endblock %}
 
 {% block structured_data %}
@@ -172,7 +183,8 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
               <h2 class="sr-title">
                 Допоможи покращити
                 <span class="sr-brand-wrapper">
-                  <img src="{% static 'img/logo.svg' %}" alt="TwoComms" class="sr-brand-logo">
+                  {# Phase 21 — explicit width/height + aspect-ratio so the browser reserves space before CSS resolves the 0.85em height (fixes CLS warning). Actual rendered size still comes from .sr-brand-logo in home.css. #}
+                  <img src="{% static 'img/logo.svg' %}" alt="TwoComms" class="sr-brand-logo" width="680" height="737">
                   <span class="sr-brand-text">TWOCOMMS</span>
                 </span>
               </h2>

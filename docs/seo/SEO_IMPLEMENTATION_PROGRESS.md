@@ -80,7 +80,7 @@
 
 ## PR-6: schema graph + feed + images + IndexNow [partial — T16, T17 done]
 - [x] T15.1 PDP `@graph`: Product + BreadcrumbList объединены через `{% product_graph %}` (deploy 7567c30c, verified live: один `<script>` с `@graph`). Org/WebSite остаются глобальными в base.html со стабильными `@id` для cross-graph reference
-- [ ] T15.2 Category/Home `@graph`
+- [x] T15.2 Category/Home `@graph`: catalog category-страницы и root catalog отдают `@graph: [BreadcrumbList, CollectionPage]` одним `<script>` (deploy 1984b121, verified live). Home — единственная WebPage-сущность, отдельный `@graph` не нужен (Org/WebSite остаются глобальными)
 - [x] T16.1 `sitemap-images.xml` расширен: main + gallery + color-variant images, dedupe, cap=50/url
 - [x] T16.2 `manage.py audit_product_images` (CSV/--limit/--thin-threshold). Прод: 0 zero-image, 43 thin (<3). Регрессии: 4 теста
 - [x] T17.1 `g:gtin` уже был в feed (Phase «19»-era) — проверено
