@@ -1,16 +1,16 @@
-{% extends "base.html" %}{% load static %}{% load cache %}{% load responsive_images %}{% load seo_tags %}{% load compress %}
+{% extends "base.html" %}{% load static %}{% load cache %}{% load responsive_images %}{% load seo_tags %}{% load compress %}{% load i18n %}
 
-{% block title %}TwoComms — Стріт & Мілітарі Одяг | Головна{% endblock %}
+{% block title %}{% trans 'TwoComms — Стріт & Мілітарі Одяг | Головна' %}{% endblock %}
 
-{% block description %}TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні.{% endblock %}
+{% block description %}{% trans 'TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні.' %}{% endblock %}
 
 {% block keywords %}стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль{% endblock %}
 
 {% block og_type %}website{% endblock %}
-{% block og_title %}TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном{% endblock %}
-{% block og_description %}Футболки, худі та лонгсліви з авторськими принтами. Бренд TwoComms — українське виробництво, швидка доставка.{% endblock %}
-{% block twitter_title %}TwoComms — стріт & мілітарі одяг{% endblock %}
-{% block twitter_description %}Ексклюзивні футболки, худі та лонгсліви з характером. Швидка доставка по Україні.{% endblock %}
+{% block og_title %}{% trans 'TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном' %}{% endblock %}
+{% block og_description %}{% trans 'Футболки, худі та лонгсліви з авторськими принтами. Бренд TwoComms — українське виробництво, швидка доставка.' %}{% endblock %}
+{% block twitter_title %}{% trans 'TwoComms — стріт & мілітарі одяг' %}{% endblock %}
+{% block twitter_description %}{% trans 'Ексклюзивні футболки, худі та лонгсліви з характером. Швидка доставка по Україні.' %}{% endblock %}
 
 {% block canonical %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
 {% block hreflang_uk %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
@@ -74,12 +74,12 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
 {% endblock %}
 
 {% block content %}
-{% cache 1800 hero_block using="fragments" %}
+{% cache 1800 hero_block_v2_i18n LANGUAGE_CODE using="fragments" %}
 <section class="hero-section mb-4 mb-md-5 reveal">
   <!-- Фоновый логотип -->
   <div class="hero-logo-bg">
     {% static 'img/logo.svg' as hero_logo_url %}
-    <img src="{{ hero_logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="600" height="600" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="sync">
+    <img src="{{ hero_logo_url }}" alt="{% trans 'TwoComms логотип — стріт & мілітарі одяг' %}" width="600" height="600" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="sync">
   </div>
   
   <div class="hero-container row align-items-center g-4">
@@ -87,14 +87,14 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
     <div class="col-12 hero-content">
       <div class="hero-text-section">
         <h1 class="hero-title">
-          <span class="visually-hidden">TwoComms — бренд: </span>
-          <span class="hero-title-main">Стріт & мілітарі</span>
-          <span class="hero-title-accent">одяг</span>
+          <span class="visually-hidden">{% trans 'TwoComms — бренд:' %} </span>
+          <span class="hero-title-main">{% trans 'Стріт & мілітарі' %}</span>
+          <span class="hero-title-accent">{% trans 'одяг' %}</span>
         </h1>
-        <p class="hero-subtitle">Ексклюзивні футболки, худі та лонгсліви. Бренд TwoComms — дизайн з характером.</p>
+        <p class="hero-subtitle">{% trans 'Ексклюзивні футболки, худі та лонгсліви. Бренд TwoComms — дизайн з характером.' %}</p>
         <div class="hero-actions">
           <a class="hero-btn-primary" href="{% url 'catalog' %}">
-            <span>Перейти в каталог</span>
+            <span>{% trans 'Перейти в каталог' %}</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
             </svg>
@@ -103,7 +103,7 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
-            <span>Ексклюзивний дизайн</span>
+            <span>{% trans 'Ексклюзивний дизайн' %}</span>
           </div>
         </div>
       </div>

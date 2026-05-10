@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-11 02:05+0300\n"
+"POT-Creation-Date: 2026-05-11 02:23+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,6 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
 #: management/forms.py:8 management/forms.py:247 management/models.py:759
 msgid "Email отримувача"
 msgstr ""
@@ -127,10 +128,11 @@ msgstr ""
 
 #: management/forms.py:85
 #: twocomms_django_theme/templates/partials/footer.html:120
-#: twocomms_django_theme/templates/partials/header.html:16
-#: twocomms_django_theme/templates/partials/header.html:397
+#: twocomms_django_theme/templates/partials/header.html:15
+#: twocomms_django_theme/templates/partials/header.html:396
 msgid "Каталог"
 msgstr "Catalog"
+
 #: management/forms.py:86 management/models.py:612 management/models.py:743
 msgid "Опт"
 msgstr ""
@@ -1189,8 +1191,9 @@ msgid "Розмір"
 msgstr ""
 
 #: management/models.py:1044 storefront/models.py:142
+#: twocomms_django_theme/templates/partials/product_card.html:82
 msgid "Колір"
-msgstr ""
+msgstr "Color"
 
 #: management/models.py:1046
 msgid "Зміна кількості (±)"
@@ -2148,9 +2151,10 @@ msgid "Профілі робочого календаря"
 msgstr ""
 
 #: management/models.py:2119 management/models.py:2148
-#: twocomms_django_theme/templates/partials/header.html:459
+#: twocomms_django_theme/templates/partials/header.html:458
 msgid "Профіль"
 msgstr "Profile"
+
 #: management/models.py:2121
 msgid "Діє з"
 msgstr ""
@@ -2513,203 +2517,381 @@ msgstr ""
 msgid "Недійсна підписка"
 msgstr ""
 
-#: twocomms/settings.py:573
+#: twocomms/settings.py:576
 msgid "Ukrainian"
 msgstr ""
 
-#: twocomms/settings.py:574
+#: twocomms/settings.py:577
 msgid "Russian"
 msgstr ""
 
-#: twocomms/settings.py:575
+#: twocomms/settings.py:578
 msgid "English"
 msgstr ""
 
+#: twocomms_django_theme/templates/pages/index.html:3
+#, fuzzy
+#| msgid "TwoComms логотип — стріт & мілітарі одяг"
+msgid "TwoComms — Стріт & Мілітарі Одяг | Головна"
+msgstr "TwoComms logo — street & military apparel"
+
+#: twocomms_django_theme/templates/pages/index.html:5
+msgid ""
+"TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, "
+"лонгсліви, кастомний друк і швидка доставка по Україні."
+msgstr "TwoComms — Ukrainian streetwear & military apparel store: t-shirts, hoodies, longsleeves, custom print and fast Ukraine-wide shipping."
+#: twocomms_django_theme/templates/pages/index.html:10
+#, fuzzy
+#| msgid "TwoComms логотип — стріт & мілітарі одяг"
+msgid "TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном"
+msgstr "TwoComms logo — street & military apparel"
+
+#: twocomms_django_theme/templates/pages/index.html:11
+msgid ""
+"Футболки, худі та лонгсліви з авторськими принтами. Бренд TwoComms — "
+"українське виробництво, швидка доставка."
+msgstr "T-shirts, hoodies and longsleeves with original prints. TwoComms — Ukrainian production with fast delivery."
+#: twocomms_django_theme/templates/pages/index.html:12
+#, fuzzy
+#| msgid "TwoComms логотип — стріт & мілітарі одяг"
+msgid "TwoComms — стріт & мілітарі одяг"
+msgstr "TwoComms logo — street & military apparel"
+
+#: twocomms_django_theme/templates/pages/index.html:13
+msgid ""
+"Ексклюзивні футболки, худі та лонгсліви з характером. Швидка доставка по "
+"Україні."
+msgstr "Exclusive t-shirts, hoodies and longsleeves with character. Fast Ukraine-wide shipping."
+#: twocomms_django_theme/templates/pages/index.html:83
+#: twocomms_django_theme/templates/partials/header.html:7
+msgid "TwoComms логотип — стріт & мілітарі одяг"
+msgstr "TwoComms logo — street & military apparel"
+
+#: twocomms_django_theme/templates/pages/index.html:91
+msgid "TwoComms — бренд:"
+msgstr "TwoComms — the brand:"
+#: twocomms_django_theme/templates/pages/index.html:92
+msgid "Стріт & мілітарі"
+msgstr "Street & military"
+#: twocomms_django_theme/templates/pages/index.html:93
+msgid "одяг"
+msgstr "apparel"
+#: twocomms_django_theme/templates/pages/index.html:95
+msgid ""
+"Ексклюзивні футболки, худі та лонгсліви. Бренд TwoComms — дизайн з "
+"характером."
+msgstr "Exclusive t-shirts, hoodies and longsleeves. TwoComms — design with character."
+#: twocomms_django_theme/templates/pages/index.html:98
+#, fuzzy
+#| msgid "Перейти до обраних товарів"
+msgid "Перейти в каталог"
+msgstr "Go to favorites"
+
+#: twocomms_django_theme/templates/pages/index.html:107
+msgid "Ексклюзивний дизайн"
+msgstr "Exclusive design"
 #: twocomms_django_theme/templates/partials/footer.html:18
 #: twocomms_django_theme/templates/partials/footer.html:67
 msgid "Соцмережі TwoComms"
 msgstr "TwoComms socials"
+
 #: twocomms_django_theme/templates/partials/footer.html:118
 msgid "Покупка"
 msgstr "Shopping"
+
 #: twocomms_django_theme/templates/partials/footer.html:121
-#: twocomms_django_theme/templates/partials/header.html:17
+#: twocomms_django_theme/templates/partials/header.html:16
 msgid "Доставка і оплата"
 msgstr "Delivery & payment"
+
 #: twocomms_django_theme/templates/partials/footer.html:122
 msgid "Кастомний принт"
 msgstr "Custom print"
+
 #: twocomms_django_theme/templates/partials/footer.html:123
-#: twocomms_django_theme/templates/partials/header.html:18
+#: twocomms_django_theme/templates/partials/header.html:17
 msgid "Співпраця"
 msgstr "Cooperation"
+
 #: twocomms_django_theme/templates/partials/footer.html:127
 msgid "Підтримка"
 msgstr "Support"
+
 #: twocomms_django_theme/templates/partials/footer.html:129
 msgid "Допомога"
 msgstr "Help"
+
 #: twocomms_django_theme/templates/partials/footer.html:130
 msgid "FAQ"
 msgstr "FAQ"
+
 #: twocomms_django_theme/templates/partials/footer.html:131
 msgid "Повернення та обмін"
 msgstr "Returns & exchanges"
+
 #: twocomms_django_theme/templates/partials/footer.html:132
 msgid "Догляд за одягом"
 msgstr "Garment care"
+
 #: twocomms_django_theme/templates/partials/footer.html:136
 msgid "Бренд"
 msgstr "Brand"
+
 #: twocomms_django_theme/templates/partials/footer.html:138
-#: twocomms_django_theme/templates/partials/header.html:19
+#: twocomms_django_theme/templates/partials/header.html:18
 msgid "Про бренд"
 msgstr "About the brand"
+
 #: twocomms_django_theme/templates/partials/footer.html:139
 msgid "Новини"
 msgstr "News"
+
 #: twocomms_django_theme/templates/partials/footer.html:140
-#: twocomms_django_theme/templates/partials/header.html:20
+#: twocomms_django_theme/templates/partials/header.html:19
 msgid "Контакти"
 msgstr "Contacts"
+
 #: twocomms_django_theme/templates/partials/footer.html:141
 msgid "Карта сайту"
 msgstr "Site map"
+
 #: twocomms_django_theme/templates/partials/footer.html:145
 msgid "Швидкий доступ"
 msgstr "Quick links"
+
 #: twocomms_django_theme/templates/partials/footer.html:147
 msgid "Розмірна сітка"
 msgstr "Size guide"
+
 #: twocomms_django_theme/templates/partials/footer.html:148
 msgid "Відстеження замовлення"
 msgstr "Order tracking"
+
 #: twocomms_django_theme/templates/partials/footer.html:149
 msgid "Політика конфіденційності"
 msgstr "Privacy policy"
+
 #: twocomms_django_theme/templates/partials/footer.html:150
 msgid "Умови використання"
 msgstr "Terms of use"
+
 #: twocomms_django_theme/templates/partials/footer.html:164
 msgid "Контакти TwoComms"
 msgstr "TwoComms contacts"
-#: twocomms_django_theme/templates/partials/header.html:7
-msgid "TwoComms логотип — стріт & мілітарі одяг"
-msgstr "TwoComms logo — street & military apparel"
+
 #: twocomms_django_theme/templates/partials/header.html:9
 msgid "Перемикач навігації"
 msgstr "Navigation toggler"
-#: twocomms_django_theme/templates/partials/header.html:24
+
+#: twocomms_django_theme/templates/partials/header.html:23
 msgid "Пошук…"
 msgstr "Search…"
-#: twocomms_django_theme/templates/partials/header.html:24
+
+#: twocomms_django_theme/templates/partials/header.html:23
 msgid "Пошук"
 msgstr "Search"
-#: twocomms_django_theme/templates/partials/header.html:31
+
+#: twocomms_django_theme/templates/partials/header.html:30
 msgid "Створити свій принт"
 msgstr "Create your print"
-#: twocomms_django_theme/templates/partials/header.html:39
+
+#: twocomms_django_theme/templates/partials/header.html:38
 msgid "Перейти до обраних товарів"
 msgstr "Go to favorites"
-#: twocomms_django_theme/templates/partials/header.html:54
-#: twocomms_django_theme/templates/partials/header.html:402
+
+#: twocomms_django_theme/templates/partials/header.html:53
+#: twocomms_django_theme/templates/partials/header.html:401
 msgid "Відкрити міні-корзину"
 msgstr "Open mini cart"
-#: twocomms_django_theme/templates/partials/header.html:85
-#: twocomms_django_theme/templates/partials/header.html:412
+
+#: twocomms_django_theme/templates/partials/header.html:84
+#: twocomms_django_theme/templates/partials/header.html:411
 msgid "Кошик"
 msgstr "Cart"
-#: twocomms_django_theme/templates/partials/header.html:86
-#: twocomms_django_theme/templates/partials/header.html:182
-#: twocomms_django_theme/templates/partials/header.html:331
+
+#: twocomms_django_theme/templates/partials/header.html:85
+#: twocomms_django_theme/templates/partials/header.html:181
+#: twocomms_django_theme/templates/partials/header.html:330
 msgid "Закрити"
 msgstr "Close"
-#: twocomms_django_theme/templates/partials/header.html:97
+
+#: twocomms_django_theme/templates/partials/header.html:96
 msgid "Завантаження…"
 msgstr "Loading…"
-#: twocomms_django_theme/templates/partials/header.html:109
+
+#: twocomms_django_theme/templates/partials/header.html:108
 msgid "Умови доставки і оплати"
 msgstr "Delivery & payment terms"
-#: twocomms_django_theme/templates/partials/header.html:126
+
+#: twocomms_django_theme/templates/partials/header.html:125
 msgid "Залишайте заявку на сайті або оплачуйте миттєво через mono checkout"
 msgstr "Submit an order on the site or pay instantly via mono checkout"
-#: twocomms_django_theme/templates/partials/header.html:134
-#: twocomms_django_theme/templates/partials/header.html:430
+
+#: twocomms_django_theme/templates/partials/header.html:133
+#: twocomms_django_theme/templates/partials/header.html:429
 msgid "Відкрити панель користувача"
 msgstr "Open user panel"
-#: twocomms_django_theme/templates/partials/header.html:137
-#: twocomms_django_theme/templates/partials/header.html:139
-#: twocomms_django_theme/templates/partials/header.html:141
-#: twocomms_django_theme/templates/partials/header.html:164
-#: twocomms_django_theme/templates/partials/header.html:166
-#: twocomms_django_theme/templates/partials/header.html:168
-#: twocomms_django_theme/templates/partials/header.html:433
-#: twocomms_django_theme/templates/partials/header.html:435
-#: twocomms_django_theme/templates/partials/header.html:437
+
+#: twocomms_django_theme/templates/partials/header.html:136
+#: twocomms_django_theme/templates/partials/header.html:138
+#: twocomms_django_theme/templates/partials/header.html:140
+#: twocomms_django_theme/templates/partials/header.html:163
+#: twocomms_django_theme/templates/partials/header.html:165
+#: twocomms_django_theme/templates/partials/header.html:167
+#: twocomms_django_theme/templates/partials/header.html:432
+#: twocomms_django_theme/templates/partials/header.html:434
+#: twocomms_django_theme/templates/partials/header.html:436
 msgid "Аватар користувача — TwoComms"
 msgstr "User avatar — TwoComms"
-#: twocomms_django_theme/templates/partials/header.html:178
+
+#: twocomms_django_theme/templates/partials/header.html:177
 msgid "Телефон не вказано"
 msgstr "Phone not specified"
-#: twocomms_django_theme/templates/partials/header.html:214
+
+#: twocomms_django_theme/templates/partials/header.html:213
 msgid "Ваші бали"
 msgstr "Your points"
-#: twocomms_django_theme/templates/partials/header.html:216
+
+#: twocomms_django_theme/templates/partials/header.html:215
 msgid "Знижки • Промокоди • Підтримка ЗСУ"
 msgstr "Discounts • Promo codes • UA Army support"
-#: twocomms_django_theme/templates/partials/header.html:230
+
+#: twocomms_django_theme/templates/partials/header.html:229
 msgid "Налаштування профілю"
 msgstr "Profile settings"
-#: twocomms_django_theme/templates/partials/header.html:244
+
+#: twocomms_django_theme/templates/partials/header.html:243
 msgid "Мої замовлення"
 msgstr "My orders"
-#: twocomms_django_theme/templates/partials/header.html:259
+
+#: twocomms_django_theme/templates/partials/header.html:258
 msgid "Мої відгуки"
 msgstr "My reviews"
-#: twocomms_django_theme/templates/partials/header.html:273
+
+#: twocomms_django_theme/templates/partials/header.html:272
 msgid "Обрані товари"
 msgstr "Favorite items"
-#: twocomms_django_theme/templates/partials/header.html:274
-#: twocomms_django_theme/templates/partials/header.html:422
+
+#: twocomms_django_theme/templates/partials/header.html:273
+#: twocomms_django_theme/templates/partials/header.html:421
 msgid "Кількість товарів у обраних"
 msgstr "Number of favorites"
-#: twocomms_django_theme/templates/partials/header.html:288
+
+#: twocomms_django_theme/templates/partials/header.html:287
 msgid "Мої промокоди"
 msgstr "My promo codes"
-#: twocomms_django_theme/templates/partials/header.html:303
+
+#: twocomms_django_theme/templates/partials/header.html:302
 msgid "Панель адміністратора"
 msgstr "Admin panel"
-#: twocomms_django_theme/templates/partials/header.html:319
+
+#: twocomms_django_theme/templates/partials/header.html:318
 msgid "Вийти"
 msgstr "Sign out"
-#: twocomms_django_theme/templates/partials/header.html:330
+
+#: twocomms_django_theme/templates/partials/header.html:329
 msgid "Вхід в акаунт"
 msgstr "Sign in"
-#: twocomms_django_theme/templates/partials/header.html:343
-#: twocomms_django_theme/templates/partials/header.html:459
+
+#: twocomms_django_theme/templates/partials/header.html:342
+#: twocomms_django_theme/templates/partials/header.html:458
 msgid "Увійти"
 msgstr "Sign in"
-#: twocomms_django_theme/templates/partials/header.html:350
+
+#: twocomms_django_theme/templates/partials/header.html:349
 msgid "Зареєструватись"
 msgstr "Sign up"
-#: twocomms_django_theme/templates/partials/header.html:354
+
+#: twocomms_django_theme/templates/partials/header.html:353
 msgid "Вхід через Google — TwoComms"
 msgstr "Sign in with Google — TwoComms"
-#: twocomms_django_theme/templates/partials/header.html:355
+
+#: twocomms_django_theme/templates/partials/header.html:354
 msgid "Увійти через Google"
 msgstr "Sign in with Google"
-#: twocomms_django_theme/templates/partials/header.html:366
+
+#: twocomms_django_theme/templates/partials/header.html:365
 msgid "Авторизуйтесь, щоб не вводити дані кожного разу та накопичувати бали"
 msgstr "Sign in to skip re-entering details and earn points"
-#: twocomms_django_theme/templates/partials/header.html:387
+
+#: twocomms_django_theme/templates/partials/header.html:386
 msgid "Головна"
 msgstr "Home"
-#: twocomms_django_theme/templates/partials/header.html:424
+
+#: twocomms_django_theme/templates/partials/header.html:423
 msgid "Обране"
 msgstr "Favorites"
-#: twocomms_django_theme/templates/partials/language_switcher.html:12
+
+#: twocomms_django_theme/templates/partials/language_switcher.html:5
 msgid "Мова сайту"
 msgstr "Site language"
-#: twocomms_django_theme/templates/partials/language_switcher.html:13
+
+#: twocomms_django_theme/templates/partials/language_switcher.html:6
 msgid "Мова"
 msgstr "Language"
+
+#: twocomms_django_theme/templates/partials/product_card.html:17
+#, python-format
+msgid "Переглянути %(title)s"
+msgstr "View %(title)s"
+
+#: twocomms_django_theme/templates/partials/product_card.html:48
+#: twocomms_django_theme/templates/partials/product_card.html:150
+#, fuzzy
+#| msgid "Перейти до обраних товарів"
+msgid "Додати до обраних"
+msgstr "Go to favorites"
+
+#: twocomms_django_theme/templates/partials/product_card.html:63
+#, fuzzy
+#| msgid "Доставка і оплата"
+msgid "Доступні кольори"
+msgstr "Delivery & payment"
+
+#: twocomms_django_theme/templates/partials/product_card.html:66
+#, python-format
+msgid "Показати кольори %(title)s"
+msgstr "Show colors of %(title)s"
+
+#: twocomms_django_theme/templates/partials/product_card.html:75
+#, fuzzy
+#| msgid "Обрані товари"
+msgid "Кольори товару"
+msgstr "Favorite items"
+
+#: twocomms_django_theme/templates/partials/product_card.html:82
+msgid "плюс"
+msgstr "plus"
+
+#: twocomms_django_theme/templates/partials/product_card.html:92
+#: twocomms_django_theme/templates/partials/product_card.html:169
+#, fuzzy
+#| msgid "Бренд"
+msgid "грн"
+msgstr "Brand"
+
+#: twocomms_django_theme/templates/partials/product_card.html:106
+#: twocomms_django_theme/templates/partials/product_card.html:191
+#, python-format
+msgid "%(counter)s бал"
+msgid_plural "%(counter)s балів"
+msgstr[0] ""
+msgstr[1] ""
+
+#: twocomms_django_theme/templates/partials/product_card.html:106
+msgid "0 балів"
+msgstr "0 points"
+
+#: twocomms_django_theme/templates/partials/product_card.html:108
+#, python-format
+msgid "Купити %(title)s"
+msgstr "Buy %(title)s"
+
+#: twocomms_django_theme/templates/partials/product_card.html:109
+#: twocomms_django_theme/templates/partials/product_card.html:208
+msgid "Купити"
+msgstr "Buy"
+
+#: twocomms_django_theme/templates/partials/product_card.html:196
+msgid "Дізнатись про бали"
+msgstr "About points"

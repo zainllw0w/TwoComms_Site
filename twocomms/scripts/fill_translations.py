@@ -93,6 +93,56 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "Головна":                {"ru": "Главная",            "en": "Home"},
     "Обране":                 {"ru": "Избранное",          "en": "Favorites"},
     "Профіль":                {"ru": "Профиль",            "en": "Profile"},
+
+    # ===== Product card =====
+    "Купити":                 {"ru": "Купить",             "en": "Buy"},
+    "Додати до обраних":      {"ru": "Добавить в избранное", "en": "Add to favorites"},
+    "Дізнатись про бали":     {"ru": "Узнать о баллах",    "en": "About points"},
+    "Доступні кольори":       {"ru": "Доступные цвета",    "en": "Available colors"},
+    "Кольори товару":         {"ru": "Цвета товара",       "en": "Product colors"},
+    "Колір":                  {"ru": "Цвет",               "en": "Color"},
+    "плюс":                   {"ru": "плюс",               "en": "plus"},
+    "грн":                    {"ru": "грн",                "en": "UAH"},
+    "0 балів":                {"ru": "0 баллов",           "en": "0 points"},
+    # blocktrans plural strings — Django stores them with msgid/msgid_plural
+    "Переглянути %(title)s":  {"ru": "Просмотреть %(title)s", "en": "View %(title)s"},
+    "Купити %(title)s":       {"ru": "Купить %(title)s",   "en": "Buy %(title)s"},
+    "Показати кольори %(title)s": {"ru": "Показать цвета %(title)s", "en": "Show colors of %(title)s"},
+
+    # ===== Home page (index.html) =====
+    "TwoComms — Стріт & Мілітарі Одяг | Головна": {
+        "ru": "TwoComms — стрит & милитари одежда | Главная",
+        "en": "TwoComms — Street & Military Apparel | Home",
+    },
+    "TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні.": {
+        "ru": "TwoComms — украинский магазин стрит и милитари одежды: футболки, худи, лонгсливы, кастомный принт и быстрая доставка по Украине.",
+        "en": "TwoComms — Ukrainian streetwear & military apparel store: t-shirts, hoodies, longsleeves, custom print and fast Ukraine-wide shipping.",
+    },
+    "TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном": {
+        "ru": "TwoComms — стрит & милитари одежда с эксклюзивным дизайном",
+        "en": "TwoComms — street & military apparel with exclusive design",
+    },
+    "Футболки, худі та лонгсліви з авторськими принтами. Бренд TwoComms — українське виробництво, швидка доставка.": {
+        "ru": "Футболки, худи и лонгсливы с авторскими принтами. Бренд TwoComms — украинское производство, быстрая доставка.",
+        "en": "T-shirts, hoodies and longsleeves with original prints. TwoComms — Ukrainian production with fast delivery.",
+    },
+    "TwoComms — стріт & мілітарі одяг": {
+        "ru": "TwoComms — стрит & милитари одежда",
+        "en": "TwoComms — street & military apparel",
+    },
+    "Ексклюзивні футболки, худі та лонгсліви з характером. Швидка доставка по Україні.": {
+        "ru": "Эксклюзивные футболки, худи и лонгсливы с характером. Быстрая доставка по Украине.",
+        "en": "Exclusive t-shirts, hoodies and longsleeves with character. Fast Ukraine-wide shipping.",
+    },
+    "TwoComms — бренд:":      {"ru": "TwoComms — бренд:",  "en": "TwoComms — the brand:"},
+    "Стріт & мілітарі":       {"ru": "Стрит & милитари",   "en": "Street & military"},
+    "одяг":                   {"ru": "одежда",             "en": "apparel"},
+    "Ексклюзивні футболки, худі та лонгсліви. Бренд TwoComms — дизайн з характером.": {
+        "ru": "Эксклюзивные футболки, худи и лонгсливы. Бренд TwoComms — дизайн с характером.",
+        "en": "Exclusive t-shirts, hoodies and longsleeves. TwoComms — design with character.",
+    },
+    "Перейти в каталог":      {"ru": "Перейти в каталог",  "en": "Go to catalog"},
+    "Ексклюзивний дизайн":    {"ru": "Эксклюзивный дизайн", "en": "Exclusive design"},
 }
 
 

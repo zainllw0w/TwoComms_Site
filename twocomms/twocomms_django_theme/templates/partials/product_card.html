@@ -1,19 +1,9 @@
 {% load static %}
 {% load responsive_images %}
-{# form_filters удалён #}
+{% load i18n %}
 {% with animate=animate|default_if_none:True %}
 {% if home_card %}
-{# Phase 14 — when a colour filter is active, show preferred_card_image_url instead of homepage_image (set by view). #}
 {% with card_image=p.homepage_image preferred_image_url=p.preferred_card_image_url %}
-{% comment %}
-Bug-fix 2026-05-10: respect the active colour filter when generating the
-card link. ``attach_preferred_card_image`` populates ``preferred_color_slug``
-when the user picked a colour chip and the product carries a matching
-``ProductColorVariant``; build a path-style variant URL so the PDP opens
-on the same colour the catalog showed (instead of defaulting to
-"Coyote", the legacy first row in DB order). Falls back to the plain
-``/product/<slug>/`` URL when no colour filter is active.
-{% endcomment %}
 {% if p.preferred_color_slug %}
   {% url 'product' p.slug p.preferred_color_slug as product_url %}
 {% else %}
@@ -24,7 +14,7 @@ on the same colour the catalog showed (instead of defaulting to
   data-product-id="{{ p.id }}" data-product-title="{{ p.title|escapejs }}" data-product-price="{{ p.final_price }}"
   data-product-category="{{ p.category.name|default_if_none:''|escapejs }}" data-product-url="{{ product_url }}">
   <a href="{{ product_url }}" class="home-product-media home-product-media-link" data-product-card-link
-    data-twc-image-protected="true" aria-label="Переглянути {{ p.title }}">
+    data-twc-image-protected="true" aria-label="{% blocktrans with title=p.title %}Переглянути {{ title }}{% endblocktrans %}">
     {% if preferred_image_url %}
       {# Phase 18 fix (2026-05-10): preferred_image_url now goes through optimized_image to receive responsive AVIF/WebP. #}
       {% if eager|default_if_none:False %}
@@ -55,7 +45,7 @@ on the same colour the catalog showed (instead of defaulting to
 
   <button type="button" class="favorite-btn home-favorite-btn" data-product-id="{{ p.id }}"
     onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);"
-    aria-label="Додати до обраних">
+    aria-label="{% trans 'Додати до обраних' %}">
     <div class="favorite-btn-icon">
       <svg class="favorite-icon-empty" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
         <path
@@ -70,10 +60,10 @@ on the same colour the catalog showed (instead of defaulting to
   </button>
 
   {% if p.colors_preview %}
-  <div class="home-product-colors" aria-label="Доступні кольори">
+  <div class="home-product-colors" aria-label="{% trans 'Доступні кольори' %}">
     <button type="button" class="home-color-trigger"
       onclick="event.stopPropagation();"
-      aria-label="Показати кольори {{ p.title }}">
+      aria-label="{% blocktrans with title=p.title %}Показати кольори {{ title }}{% endblocktrans %}">
       <span class="home-color-trigger-stack" aria-hidden="true">
         {% for v in p.colors_preview|slice:":3" %}
         <span class="home-color-mini-swatch"
@@ -82,15 +72,14 @@ on the same colour the catalog showed (instead of defaulting to
       </span>
       <span class="home-color-count">{{ p.colors_preview|length }}</span>
     </button>
-    {# Phase 21 (T20 a11y) — children are <button> (interactive), not <li>. `role="list"` requires `role="listitem"` children → switch to `role="group"` which is the correct ARIA role for a labelled set of related controls. #}
-    <div class="home-color-panel" role="group" aria-label="Кольори товару">
+    <div class="home-color-panel" role="group" aria-label="{% trans 'Кольори товару' %}">
       {% for v in p.colors_preview %}
       <button type="button"
         class="home-color-dot color-dot{% if v.is_default %} active{% endif %}"
         title="{% if v.name %}{{ v.name }}{% else %}{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}{% endif %}"
         style="--c1: {{ v.primary_hex }}; --c2: {% if v.secondary_hex %}{{ v.secondary_hex }}{% else %}{{ v.primary_hex }}{% endif %};"
         data-image-url="{{ v.first_image_url|default:'' }}"
-        aria-label="Колір {% if v.name %}{{ v.name }}{% else %}{{ v.primary_hex }}{% if v.secondary_hex %} плюс {{ v.secondary_hex }}{% endif %}{% endif %}"></button>
+        aria-label="{% trans 'Колір' %} {% if v.name %}{{ v.name }}{% else %}{{ v.primary_hex }}{% if v.secondary_hex %} {% trans 'плюс' %} {{ v.secondary_hex }}{% endif %}{% endif %}"></button>
       {% endfor %}
     </div>
   </div>
@@ -100,7 +89,7 @@ on the same colour the catalog showed (instead of defaulting to
     <a href="{{ product_url }}" class="home-product-title" data-product-card-link>{{ p.title }}</a>
 
     <div class="home-product-price-row">
-      <span class="home-product-price">{{ p.final_price }} грн</span>
+      <span class="home-product-price">{{ p.final_price }} {% trans 'грн' %}</span>
       {% if p.has_discount %}
       <span class="home-product-old-price">{{ p.price }}</span>
       {% endif %}
@@ -114,10 +103,10 @@ on the same colour the catalog showed (instead of defaulting to
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>
-        <span>{% if p.points_reward %}{{ p.points_reward }} балів{% else %}0 балів{% endif %}</span>
+        <span>{% if p.points_reward %}{% blocktrans count counter=p.points_reward %}{{ counter }} бал{% plural %}{{ counter }} балів{% endblocktrans %}{% else %}{% trans '0 балів' %}{% endif %}</span>
       </div>
-      <a href="{{ product_url }}" class="home-product-cta" data-product-card-link aria-label="Купити {{ p.title }}">
-        <span>Купити</span>
+      <a href="{{ product_url }}" class="home-product-cta" data-product-card-link aria-label="{% blocktrans with title=p.title %}Купити {{ title }}{% endblocktrans %}">
+        <span>{% trans 'Купити' %}</span>
         <span class="home-product-cta-icon" aria-hidden="true">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
             <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
@@ -158,7 +147,7 @@ on the same colour the catalog showed (instead of defaulting to
     <!-- Кнопка избранного -->
     <button type="button" class="favorite-btn" data-product-id="{{ p.id }}"
       onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);"
-      aria-label="Додати до обраних">
+      aria-label="{% trans 'Додати до обраних' %}">
       <div class="favorite-btn-icon">
         <svg class="favorite-icon-empty" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
           <path
@@ -177,7 +166,7 @@ on the same colour the catalog showed (instead of defaulting to
     <a href="{% url 'product' p.slug %}"
       class="stretched-link text-decoration-none fw-semibold text-body product-title">{{ p.title }}</a>
     <div class="d-flex align-items-center gap-2 price-row">
-      <div class="fw-semibold price-text" data-price="{{ p.final_price }} грн">{{ p.final_price }} грн</div>
+      <div class="fw-semibold price-text" data-price="{{ p.final_price }} {% trans 'грн' %}">{{ p.final_price }} {% trans 'грн' %}</div>
       {% if p.has_discount %}
       <div class="text-secondary text-decoration-line-through small price-text">{{ p.price }} ₴</div>
       {% else %}
@@ -199,12 +188,12 @@ on the same colour the catalog showed (instead of defaulting to
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
           </svg>
         </div>
-        <span class="points-text-small">{{ p.points_reward }} балів</span>
+        <span class="points-text-small">{% blocktrans count counter=p.points_reward %}{{ counter }} бал{% plural %}{{ counter }} балів{% endblocktrans %}</span>
       </div>
       <!-- Кнопка информации о баллах - поверх блока с баллами -->
       <button type="button" class="points-info-overlay-btn" data-bs-toggle="modal" data-bs-target="#pointsInfoModal"
         data-product-title="{{ p.title }}" data-points-amount="{{ p.points_reward }}" onclick="event.stopPropagation();"
-        aria-label="Дізнатись про бали">
+        aria-label="{% trans 'Дізнатись про бали' %}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
         </svg>
@@ -216,7 +205,7 @@ on the same colour the catalog showed (instead of defaulting to
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
           </svg>
         </div>
-        <span class="points-text-small text-secondary">Купити</span>
+        <span class="points-text-small text-secondary">{% trans 'Купити' %}</span>
       </div>
       {% endif %}
     </div>
