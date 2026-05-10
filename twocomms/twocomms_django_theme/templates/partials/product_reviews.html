@@ -58,27 +58,32 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
       </div>
     {% else %}
       <div class="tc-reviews__summary tc-reviews__summary--quiet" role="group" aria-label="Статус рейтингу">
-        <div class="tc-reviews__avg">
-          <strong>{% if product_review_summary.count %}Рейтинг скоро{% else %}Поки без відгуків{% endif %}</strong>
-          {% if product_review_summary.count %}
-            <span class="tc-reviews__avg-count">Після 3 перевірених публікацій.</span>
-          {% endif %}
+        <div class="tc-reviews__status">
+          <span class="tc-reviews__status-mark" aria-hidden="true"></span>
+          <div class="tc-reviews__status-copy">
+            <strong>{% if product_review_summary.count %}Рейтинг скоро{% else %}Поки без відгуків{% endif %}</strong>
+            <span>{% if product_review_summary.count %}Після 3 перевірених публікацій.{% else %}Перший відгук сформує рейтинг.{% endif %}</span>
+          </div>
         </div>
       </div>
     {% endif %}
 
     <aside class="tc-reviews__identity" aria-label="Ваш статус для відгуку">
       {% if request.user.is_authenticated %}
-        <span class="tc-reviews__identity-kicker">Ви увійшли як клієнт</span>
-        <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+        <div class="tc-reviews__identity-copy">
+          <span class="tc-reviews__identity-kicker">Ви увійшли як клієнт</span>
+          <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+        </div>
         {% if product_customer_has_paid_order %}
           <span class="tc-reviews__identity-pill tc-reviews__identity-pill--ok">Купівля цього товару підтверджена</span>
         {% else %}
           <span class="tc-reviews__identity-pill">Покупка цього товару ще не підтверджена</span>
         {% endif %}
       {% else %}
-        <span class="tc-reviews__identity-kicker">Гостьовий відгук</span>
-        <strong>Увійдіть, щоб підтягнути профіль</strong>
+        <div class="tc-reviews__identity-copy">
+          <span class="tc-reviews__identity-kicker">Гостьовий відгук</span>
+          <strong>Увійдіть, щоб підтягнути профіль</strong>
+        </div>
         <a href="{% url 'login' %}?next={{ request.path }}#product-reviews" class="tc-reviews__identity-link">Увійти перед відгуком</a>
       {% endif %}
     </aside>

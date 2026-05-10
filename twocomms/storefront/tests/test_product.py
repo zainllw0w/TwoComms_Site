@@ -127,7 +127,7 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'data-add-to-cart=', html=False)
         self.assertContains(response, 'product-detail.css?v=20260510-pdp-reviews-v1', html=False)
         self.assertContains(response, 'product-media-fit.css?v=20260428-media-fit-v1', html=False)
-        self.assertContains(response, 'product-reviews.css?v=20260510-pdp-reviews-v1', html=False)
+        self.assertContains(response, 'product-reviews.css?v=20260510-pdp-reviews-v2', html=False)
         self.assertContains(response, 'product-detail.js?v=20260428-image-alt-faq-v1', html=False)
         self.assertContains(response, 'product-media-fit.js?v=20260428-media-fit-v1', html=False)
 
