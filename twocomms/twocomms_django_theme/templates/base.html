@@ -907,9 +907,15 @@
     {% block content %}{% endblock %}
   </main>
   {% block modals %}{% endblock %}
-  {% cache 86400 footer_block_v5_phase21 using="fragments" %}
+  {# Phase 17a — bump cache key to invalidate v5 fragment that lacked the
+     language switcher. The fragment is also language-keyed so each locale
+     gets its own cached HTML. #}
+  {% cache 86400 footer_block_v6_phase17a LANGUAGE_CODE using="fragments" %}
   {% include 'partials/footer.html' %}
   {% endcache %}
+  {# Phase 17a — language switcher rendered uncached so URLs follow the
+     current request path. #}
+  {% include 'partials/language_switcher.html' %}
 
   <!-- Мобильные мини-панели (только для мобильной версии) -->
   <div id="mini-cart-panel-mobile" class="cart-panel d-none d-md-none">
