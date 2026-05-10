@@ -291,3 +291,66 @@ def image_srcset(image_path, sizes=None):
             srcset_items.append(f"{webp_path} {size}w")
 
     return ", ".join(srcset_items)
+
+
+# ---------------------------------------------------------------------------
+# Phase 18 — LCP preload hint.
+#
+# Renders ``<link rel="preload" as="image" imagesrcset=... imagesizes=...
+# type="image/avif">`` for the LCP image. AVIF is preferred (it's what
+# modern Chrome/Edge/Firefox/Safari pick when available); browsers that
+# don't support AVIF gracefully ignore the hint and fetch the regular
+# <img> source instead, so there's zero risk of a wrong format being
+# downloaded.
+#
+# Why this matters: on the PDP, the hero image is the LCP element. Without
+# a preload, browsers only learn about it after parsing <body>, by which
+# time render-blocking CSS and font requests have already crowded the
+# connection. On a slow 4G handset (Lighthouse mobile preset) this costs
+# us ~2–3 seconds of LCP. The preload moves the request earlier in the
+# critical path so it lands in parallel with the CSS download.
+# ---------------------------------------------------------------------------
+
+@register.simple_tag
+def preload_image(image_path, sizes=None, *, max_width=None):
+    """Return preload <link> markup for the given image, or "" if there
+    are no AVIF variants available.
+
+    The output is *not* marked safe automatically — callers must wrap it
+    in ``{% autoescape off %}`` or use the ``|safe`` filter. This is a
+    defensive default so the tag can never inject untrusted content.
+    """
+    if not image_path:
+        return ""
+    if image_path.startswith("/media/"):
+        relative_path = image_path[7:]
+        file_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+        base_url = os.path.dirname(image_path)
+    else:
+        file_path = image_path
+        base_url = os.path.dirname(image_path)
+    base_path = Path(file_path)
+    base_name = base_path.stem
+    optimized_dir = base_path.parent / "optimized"
+    if not optimized_dir.exists():
+        return ""
+    try:
+        max_w = int(max_width) if max_width else None
+    except (TypeError, ValueError):
+        max_w = None
+    avif_sources = _responsive_sources(
+        optimized_dir, base_name, "avif", image_path, base_url, max_w
+    )
+    if not avif_sources:
+        return ""
+    srcset = ", ".join(f"{s['url']} {s['size']}" for s in avif_sources)
+    sizes_attr = sizes or "(max-width: 768px) 94vw, (max-width: 992px) 90vw, (max-width: 1600px) 46vw, 720px"
+    # Use fetchpriority=high so the preload jumps the queue. ``imagesrcset``
+    # plus ``imagesizes`` is the responsive-image variant of preload that
+    # Chrome and Firefox both support since 2022.
+    from django.utils.html import format_html
+    return format_html(
+        '<link rel="preload" as="image" imagesrcset="{}" imagesizes="{}" '
+        'type="image/avif" fetchpriority="high">',
+        srcset, sizes_attr,
+    )

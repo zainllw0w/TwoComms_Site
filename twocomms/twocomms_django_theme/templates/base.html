@@ -35,6 +35,11 @@
   <link rel="preload" href="{% static 'fonts/Inter-Bold.woff2' %}" as="font" type="font/woff2" crossorigin>
   {% endif %}
 
+  {# Phase 18 — per-page preload hints (LCP image, etc). Pages
+     override this block to push the LCP image into the discovery
+     queue before <body> parses. Must stay above render-blocking CSS. #}
+  {% block preload_hints %}{% endblock %}
+
   {% comment %}
   Font Awesome: non-blocking load (icons not critical for first paint).
   Pages without FA icons (e.g. home) override the `fontawesome_css` block to skip the load.

@@ -21,6 +21,17 @@
 {% block twitter_image %}{% seo_og_image product=product %}{% endblock %}
 {% block twitter_image_alt %}{{ primary_image_alt|default:product.title }}{% endblock %}
 
+{% comment %}
+  Phase 18 — preload the LCP hero image (AVIF responsive). Browsers that
+  don't support AVIF gracefully ignore the hint and use the regular
+  <picture> sources from <body>. ``sizes`` matches the <img> sizes attr.
+{% endcomment %}
+{% block preload_hints %}
+  {% if product.display_image %}
+    {% preload_image product.display_image.url "(max-width: 768px) 94vw, (max-width: 992px) 90vw, (max-width: 1600px) 46vw, 720px" %}
+  {% endif %}
+{% endblock %}
+
 {% block structured_data %}
   {% product_schema product %}
   {% breadcrumb_schema breadcrumbs %}
