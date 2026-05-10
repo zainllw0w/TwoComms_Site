@@ -32,6 +32,18 @@
   {% endif %}
 {% endblock %}
 
+{% comment %}
+  Phase 19a (2026-05-10): the PDP markup contains zero FontAwesome
+  icons (verified via grep over rendered HTML). The shared base
+  template still loads vendor/fontawesome/css/all.min.css (~21 KB
+  unused on PDP per Lighthouse). Override the block with an empty
+  body so the request is dropped entirely on this route — saves the
+  ~150 ms of CSS download + parse the audit attributes to "unused
+  css rules" and shaves ~21 KB of compressed bytes off the wire.
+  All icon usage on PDP routed through inline SVG / pure CSS chips.
+{% endcomment %}
+{% block fontawesome_css %}{% endblock %}
+
 {% block structured_data %}
   {% product_schema product %}
   {% breadcrumb_schema breadcrumbs %}
