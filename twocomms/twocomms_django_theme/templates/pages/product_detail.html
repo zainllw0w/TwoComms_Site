@@ -79,7 +79,7 @@
 {% block extra_css %}
 {% comment %}Above-fold (hero/gallery/buybox/fit-selector) — render-blocking is OK,
    нужен сразу для корректного LCP/CLS.{% endcomment %}
-<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260511-pdp-layout-v5">
+<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260511-pdp-layout-v6">
 <link rel="stylesheet" href="{% static 'css/product-media-fit.css' %}?v=20260428-media-fit-v1">
 {% comment %}
 Phase 19c (2026-05-10) — below-fold CSS lazy-load.
@@ -92,11 +92,11 @@ CSS rules на mobile FCP/LCP window.
 <link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}?v=20260510-phase15-v1" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="{% static 'css/product-seo-landing.css' %}?v=20260510-phase15-v1" media="print" onload="this.media='all'">
 {# Phase 21 — review block (loaded async, below the fold). #}
-<link rel="stylesheet" href="{% static 'css/product-reviews.css' %}?v=20260511-pdp-layout-v5" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="{% static 'css/product-reviews.css' %}?v=20260511-pdp-layout-v6" media="print" onload="this.media='all'">
 <noscript>
   <link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}?v=20260510-phase15-v1">
   <link rel="stylesheet" href="{% static 'css/product-seo-landing.css' %}?v=20260510-phase15-v1">
-  <link rel="stylesheet" href="{% static 'css/product-reviews.css' %}?v=20260511-pdp-layout-v5">
+  <link rel="stylesheet" href="{% static 'css/product-reviews.css' %}?v=20260511-pdp-layout-v6">
 </noscript>
 {% endblock %}
 
@@ -673,7 +673,7 @@ CSS rules на mobile FCP/LCP window.
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/product-detail.js' %}?v=20260511-pdp-layout-v5" defer></script>
+<script src="{% static 'js/product-detail.js' %}?v=20260511-pdp-layout-v6" defer></script>
 <script src="{% static 'js/product-media-fit.js' %}?v=20260428-media-fit-v1" defer></script>
 <script src="{% static 'js/product-variant-history.js' %}?v=20260509-phase8-v1" defer></script>
 {% endblock %}
