@@ -32,6 +32,9 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260428-faq-alt-v1">
 <link rel="stylesheet" href="{% static 'css/product-media-fit.css' %}?v=20260428-media-fit-v1">
+{# Phase 15 — reuse Phase 10b category SEO CSS for the per-product landing block. #}
+<link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}?v=20260510-phase15-v1">
+<link rel="stylesheet" href="{% static 'css/product-seo-landing.css' %}?v=20260510-phase15-v1">
 {% endblock %}
 
 {% block content %}
@@ -537,6 +540,12 @@
     </button>
   </div>
 </div>
+
+{# Phase 15 — per-product SEO landing block (theme copy + per-product top
+   queries + reused category top_filters/top_menu). Rendered before the
+   footer and outside the PDP shell so that the layout matches catalog
+   pages exactly. #}
+{% include 'partials/product_seo_landing.html' %}
 
 {{ color_variants|json_script:"variant-data" }}
 {{ extra_image_urls|json_script:"product-extra-images" }}

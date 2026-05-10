@@ -1,0 +1,62 @@
+/* Phase 15 — Per-product SEO landing block.
+   Styling philosophy: keep wrapper neutral, delegate tabs/links to
+   category-seo-blocks.css to ensure visual parity with catalog pages. */
+
+.product-seo-landing {
+  /* Same horizontal padding as PDP shell. */
+  padding: 3rem 1rem 1.5rem;
+  margin-top: -0.25rem; /* tighten gap with sticky-mobile bar */
+}
+
+.product-seo-landing__container {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.product-seo-landing__copy {
+  padding: 1.25rem 1.5rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(6px);
+  color: rgba(232, 240, 255, 0.92);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.product-seo-landing__copy h2,
+.product-seo-landing__title {
+  font-size: clamp(1.4rem, 2.2vw, 1.8rem);
+  margin: 0 0 0.9rem;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.product-seo-landing__copy p {
+  margin: 0 0 0.85rem;
+}
+.product-seo-landing__copy p:last-child {
+  margin-bottom: 0;
+}
+
+.product-seo-landing__copy a {
+  color: rgba(140, 200, 255, 0.95);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(140, 200, 255, 0.4);
+  transition: color 0.18s ease, border-bottom-color 0.18s ease;
+}
+.product-seo-landing__copy a:hover {
+  color: #b9e8ff;
+  border-bottom-color: rgba(140, 200, 255, 0.85);
+}
+
+.product-seo-landing__copy strong { color: #ffd9a8; }
+
+@media (max-width: 575px) {
+  .product-seo-landing { padding: 2rem 0.75rem 1.25rem; }
+  .product-seo-landing__copy { padding: 1rem 1.1rem; }
+}

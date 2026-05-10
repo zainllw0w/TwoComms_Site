@@ -1,0 +1,132 @@
+{% comment %}
+  Phase 15 — Per-product SEO landing block (rendered before footer).
+
+  Inputs (from view's ``product_seo_landing`` context):
+    {
+      "override_html":      "<...>" or "",     # admin override path
+      "landing_html":       "<h2>...</h2>...", # auto-generated theme + meta paragraphs
+      "top_queries_items":  [{"label", "url"}, ...],
+      "category_layout":    {"tab_blocks": [...], "best_prices": None, "has_any": bool},
+      "fit_code":           "" | "oversize" | "classic" | ...
+    }
+
+  Renders only when at least one of (override_html, landing_html,
+  top_queries_items, category_layout.has_any) is non-empty.
+{% endcomment %}
+
+{% if product_seo_landing %}
+{% with psl=product_seo_landing %}
+{% if psl.override_html or psl.landing_html or psl.top_queries_items or psl.category_layout.has_any %}
+<section class="product-seo-landing" aria-label="Деталі та підбір моделі">
+  <div class="product-seo-landing__container">
+
+    {# 1. Long SEO copy: admin override has priority. #}
+    {% if psl.override_html %}
+      <div class="product-seo-landing__copy">{{ psl.override_html|safe }}</div>
+    {% elif psl.landing_html %}
+      <div class="product-seo-landing__copy">{{ psl.landing_html|safe }}</div>
+    {% endif %}
+
+    {# 2. Tabbed block: top_queries (per-product) + top_filters/top_menu (from category). #}
+    {% if psl.top_queries_items or psl.category_layout.tab_blocks %}
+    <div class="product-seo-landing__tabs seo-tabs" data-seo-tabs aria-label="Розділи товару">
+      <div class="seo-tabs__nav" role="tablist">
+        {% if psl.top_queries_items %}
+        <button type="button"
+                class="seo-tab is-active"
+                role="tab"
+                data-seo-tab-trigger="product_top_queries"
+                data-seo-tab-target="seo-tab-panel-product_top_queries"
+                aria-selected="true"
+                aria-controls="seo-tab-panel-product_top_queries">
+          Топ запити для цієї моделі
+        </button>
+        {% endif %}
+        {% for entry in psl.category_layout.tab_blocks %}
+        {% with block=entry.block %}
+        <button type="button"
+                class="seo-tab{% if not psl.top_queries_items and forloop.first %} is-active{% endif %}"
+                role="tab"
+                data-seo-tab-trigger="cat_{{ block.block_type }}"
+                data-seo-tab-target="seo-tab-panel-cat_{{ block.block_type }}"
+                aria-selected="{% if not psl.top_queries_items and forloop.first %}true{% else %}false{% endif %}"
+                aria-controls="seo-tab-panel-cat_{{ block.block_type }}">
+          {{ block.title|default:block.get_block_type_display }}
+        </button>
+        {% endwith %}
+        {% endfor %}
+      </div>
+
+      <div class="seo-tabs__panels">
+        {# Per-product queries panel. #}
+        {% if psl.top_queries_items %}
+        <div class="seo-tab-panel is-active"
+             id="seo-tab-panel-product_top_queries"
+             role="tabpanel"
+             data-seo-tab-panel="product_top_queries">
+          <ul class="seo-tab-panel__links seo-tab-panel__links--columns" role="list">
+            {% for item in psl.top_queries_items %}
+            <li>
+              <a class="seo-tab-link" href="{{ item.url }}">{{ item.label }}</a>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        {# Category-level tabs (top_filters, top_menu). #}
+        {% for entry in psl.category_layout.tab_blocks %}
+        {% with block=entry.block items=entry.items %}
+        <div class="seo-tab-panel{% if not psl.top_queries_items and forloop.first %} is-active{% endif %}"
+             id="seo-tab-panel-cat_{{ block.block_type }}"
+             role="tabpanel"
+             data-seo-tab-panel="cat_{{ block.block_type }}"
+             {% if psl.top_queries_items or not forloop.first %}hidden{% endif %}>
+          <ul class="seo-tab-panel__links seo-tab-panel__links--columns" role="list">
+            {% for item in items %}
+            <li>
+              <a class="seo-tab-link" href="{{ item.url|default:'#' }}">{{ item.label }}</a>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endwith %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</section>
+
+<script>
+  // Phase 15 — same idempotent tab switcher as Phase 10b.
+  (function () {
+    const components = document.querySelectorAll('[data-seo-tabs]:not([data-seo-tabs-bound])');
+    components.forEach(function (root) {
+      root.setAttribute('data-seo-tabs-bound', '1');
+      const triggers = root.querySelectorAll('[data-seo-tab-trigger]');
+      const panels = root.querySelectorAll('[data-seo-tab-panel]');
+      triggers.forEach(function (trigger) {
+        trigger.addEventListener('click', function (event) {
+          event.preventDefault();
+          const targetType = trigger.getAttribute('data-seo-tab-trigger');
+          triggers.forEach(function (t) {
+            const isActive = t === trigger;
+            t.classList.toggle('is-active', isActive);
+            t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+          });
+          panels.forEach(function (panel) {
+            const matches = panel.getAttribute('data-seo-tab-panel') === targetType;
+            panel.classList.toggle('is-active', matches);
+            if (matches) panel.removeAttribute('hidden');
+            else panel.setAttribute('hidden', '');
+          });
+        });
+      });
+    });
+  })();
+</script>
+{% endif %}
+{% endwith %}
+{% endif %}

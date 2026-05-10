@@ -512,6 +512,16 @@ class Product(models.Model):
     seo_title = models.CharField(max_length=160, blank=True, verbose_name='SEO Title')
     seo_description = models.CharField(max_length=320, blank=True, verbose_name='SEO Description')
     seo_keywords = models.CharField(max_length=300, blank=True, verbose_name='SEO ключові слова')
+    # Phase 15 — optional admin override for the bottom SEO landing block.
+    seo_bottom_html = models.TextField(
+        blank=True, default='',
+        verbose_name='SEO-блок внизу сторінки (опційно)',
+        help_text=(
+            'Опційний HTML-блок, який рендериться у нижній частині картки '
+            'товару перед футером. Якщо порожній — генерується автоматично '
+            'з тем та категорії товару.'
+        ),
+    )
     seo_schema = models.JSONField(blank=True, default=dict, verbose_name='Structured data')
     recommendation_tags = models.JSONField(blank=True, default=list, verbose_name='Теги рекомендацій')
 
