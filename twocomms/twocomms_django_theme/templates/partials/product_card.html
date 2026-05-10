@@ -5,7 +5,20 @@
 {% if home_card %}
 {# Phase 14 — when a colour filter is active, show preferred_card_image_url instead of homepage_image (set by view). #}
 {% with card_image=p.homepage_image preferred_image_url=p.preferred_card_image_url %}
-{% url 'product' p.slug as product_url %}
+{% comment %}
+Bug-fix 2026-05-10: respect the active colour filter when generating the
+card link. ``attach_preferred_card_image`` populates ``preferred_color_slug``
+when the user picked a colour chip and the product carries a matching
+``ProductColorVariant``; build a path-style variant URL so the PDP opens
+on the same colour the catalog showed (instead of defaulting to
+"Coyote", the legacy first row in DB order). Falls back to the plain
+``/product/<slug>/`` URL when no colour filter is active.
+{% endcomment %}
+{% if p.preferred_color_slug %}
+  {% url 'product' p.slug p.preferred_color_slug as product_url %}
+{% else %}
+  {% url 'product' p.slug as product_url %}
+{% endif %}
 <article
   class="home-product-card card product h-100 {% if animate %}{% if stagger %}reveal-stagger stagger-item{% else %}reveal-fast{% endif %}{% else %}no-reveal{% endif %}"
   data-product-id="{{ p.id }}" data-product-title="{{ p.title|escapejs }}" data-product-price="{{ p.final_price }}"

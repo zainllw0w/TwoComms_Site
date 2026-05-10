@@ -76,11 +76,27 @@ def attach_preferred_card_image(
     for product in products:
         url = ""
         alt = ""
+        # Bug-fix 2026-05-10: when the catalog has an active colour
+        # filter, also propagate the matching variant's slug so the
+        # card link can navigate to ``/product/<slug>/<color>/``. Then
+        # the PDP preselects the colour the user actually filtered on
+        # (instead of falling back to the first variant in DB order,
+        # which is often "Coyote" for legacy reasons). The slug is
+        # captured for the FIRST matching colour so a multi-colour
+        # filter (?color=black,red) still resolves deterministically.
+        preferred_slug = ""
         if slugs:
             colors_preview = getattr(product, "colors_preview", None) or []
             for slug in slugs:
                 variant = _variant_for_slug(colors_preview, slug)
-                if variant and variant.get("first_image_url"):
+                if variant is None:
+                    continue
+                # Capture variant slug regardless of whether a card
+                # image is available — the link itself is meaningful
+                # even when the image falls back to homepage_image.
+                if not preferred_slug:
+                    preferred_slug = (variant.get("slug") or "").strip()
+                if variant.get("first_image_url"):
                     url = variant["first_image_url"]
                     name = (variant.get("name") or "").strip()
                     title = getattr(product, "title", "") or ""
@@ -91,6 +107,7 @@ def attach_preferred_card_image(
         # empty string is clearer in tests + debugging).
         setattr(product, "preferred_card_image_url", url)
         setattr(product, "preferred_card_image_alt", alt)
+        setattr(product, "preferred_color_slug", preferred_slug)
 
 
 # ---------------------------------------------------------------------------
