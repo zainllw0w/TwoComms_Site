@@ -54,8 +54,13 @@
   ``<link rel=canonical>`` and the ``image`` slot leads with the
   variant's photos on self-canonical colour PDPs.
   {% endcomment %}
-  {% product_schema product canonical_path=variant_canonical_path selected_variant=selected_color_variant review_summary=product_review_summary %}
-  {% breadcrumb_schema breadcrumbs %}
+  {% comment %}
+  Phase 21 (PR-6 T15.1) — Product + BreadcrumbList unified into one
+  ``@graph`` JSON-LD. Organization / WebSite remain global (base.html)
+  with stable ``@id``, so Search Console still resolves them across
+  the page graph.
+  {% endcomment %}
+  {% product_graph product breadcrumbs=breadcrumbs canonical_path=variant_canonical_path selected_variant=selected_color_variant review_summary=product_review_summary %}
   {% comment %}
   Phase 21 (PR-5, T12.2) — FAQPage JSON-LD removed from PDP. The same
   FAQ entries are rendered on dedicated support pages (/faq/,

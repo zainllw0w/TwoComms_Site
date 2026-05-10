@@ -446,7 +446,17 @@ def custom_sitemap(request):
         sm_el = ET.SubElement(root, "sitemap")
         ET.SubElement(sm_el, "loc").text = f"{base_url}{path}"
         if lastmod is not None:
-            ET.SubElement(sm_el, "lastmod").text = lastmod.strftime("%Y-%m-%dT%H:%M:%S%z") or lastmod.isoformat()
+            # Phase 21 (2026-05-10) — Google Search Console rejected the
+            # previous ``strftime("%z")`` output (``+0000``) as
+            # «Неправильно введена дата». W3C Datetime / sitemaps spec
+            # requires the offset with a colon (``+00:00``) or the
+            # ``Z`` shorthand. ``datetime.isoformat()`` on a tz-aware
+            # value emits the colon form natively; for naive datetimes
+            # we fall back to a date-only string (also W3C-valid).
+            if lastmod.tzinfo is not None:
+                ET.SubElement(sm_el, "lastmod").text = lastmod.isoformat(timespec="seconds")
+            else:
+                ET.SubElement(sm_el, "lastmod").text = lastmod.strftime("%Y-%m-%d")
 
     xml_payload = ET.tostring(root, encoding="utf-8", xml_declaration=True)
     return _sitemap_response(xml_payload)

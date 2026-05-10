@@ -202,6 +202,50 @@ def breadcrumb_schema(breadcrumbs):
     return mark_safe(f'<script type="application/ld+json">{schema}</script>')
 
 
+@register.simple_tag
+def product_graph(product, breadcrumbs=None, canonical_path=None,
+                  selected_variant=None, review_summary=None):
+    """Phase 21 (PR-6 T15.1) — emit Product + BreadcrumbList together
+    inside a single ``@graph`` JSON-LD block.
+
+    This is what Google's structured-data guidance recommends for
+    pages that carry multiple inter-related entities: Search Console
+    parses one script, joins to the global Organization / WebSite
+    nodes (still emitted from base.html with stable ``@id`` so the
+    @graph references resolve), and reports a single rich-result
+    candidate instead of two disjoint schemas.
+    """
+    if not product:
+        return ''
+
+    product_node = _seo_utils().StructuredDataGenerator.generate_product_schema(
+        product,
+        canonical_path=canonical_path,
+        selected_variant=selected_variant,
+        review_summary=review_summary,
+    )
+    # Drop the stand-alone @context — it lives on the wrapper graph.
+    product_node.pop("@context", None)
+
+    nodes = [product_node]
+    if breadcrumbs:
+        breadcrumb_node = (
+            _seo_utils().StructuredDataGenerator.generate_breadcrumb_schema(breadcrumbs)
+        )
+        breadcrumb_node.pop("@context", None)
+        nodes.append(breadcrumb_node)
+
+    graph = {
+        "@context": "https://schema.org",
+        "@graph": nodes,
+    }
+    return mark_safe(
+        f'<script type="application/ld+json">'
+        f'{json.dumps(graph, ensure_ascii=False, indent=2)}'
+        f'</script>'
+    )
+
+
 @register.inclusion_tag('partials/breadcrumbs.html')
 def breadcrumbs(request, product=None, category=None, current_name=None):
     """
