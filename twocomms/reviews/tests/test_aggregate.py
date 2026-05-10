@@ -87,6 +87,14 @@ class AggregateRatingTests(TestCase):
         for r in (1, 2, 3, 4):
             self.assertEqual(s.histogram[r], 0)
 
+    def test_average_alias_matches_avg(self):
+        for r in (5, 5, 4):
+            self._make_review(rating=r)
+        s = aggregate_rating_for_product(self.product)
+        # ``average`` is a backwards-compat alias used by the PDP
+        # template (``{{ product_review_summary.average }}``).
+        self.assertEqual(s.average, s.avg)
+
     def test_avg_rounded_to_one_decimal(self):
         for r in (5, 4, 3):  # avg = 4.0
             self._make_review(rating=r)

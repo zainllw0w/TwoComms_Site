@@ -40,6 +40,13 @@ class ProductReviewSummary:
     def has_any_approved(self) -> bool:
         return self.count > 0
 
+    # Templates predating this datastore were hardcoded to access
+    # ``.average`` (see ``pages/product_detail.html`` line ~197). Keep
+    # the alias to avoid forking copy across templates.
+    @property
+    def average(self) -> Optional[float]:
+        return self.avg
+
 
 def aggregate_rating_for_product(product) -> ProductReviewSummary:
     """Compute the public review summary for a single product.

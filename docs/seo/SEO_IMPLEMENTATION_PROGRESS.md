@@ -49,7 +49,7 @@
 - [x] T10.2 `_CURATED_TOP_QUERIES` очищен от `?color=` URL, регрессия `GeneralCatalogSeoColorlessQueriesTests`
 - [x] T10.3 Регрессия: top query URLs без `?color=` (`test_curated_top_queries_do_not_link_to_color_filtered_pages`)
 
-## PR-4: reviews system [PR-4a complete: models+admin+aggregate+tests]
+## PR-4: reviews system [PR-4b complete: PDP read-only + schema integration]
 - [x] R1 App `reviews` создан, INSTALLED_APPS обновлён
 - [x] R2 Модели: `Review`, `ReviewImage` (max 5 будет enforced в форме), `ReviewVote` с unique constraints (per-user / per-anon)
 - [x] R3 Миграция `reviews/0001_initial.py` + индексы `rev_pdp_lookup_idx` / `rev_status_product_idx`
@@ -59,13 +59,13 @@
 - [x] R7 Admin: pending list, approve/reject bulk-actions, moderation_note, inline ReviewImage
 - [ ] R8 Email/Telegram notify модератору о pending
 - [ ] R9 Permissions: registered может оставить отзыв только если есть оплаченный заказ с product
-- [ ] R10 Сводка/гистограмма/фильтры/сортировка в `pages/product_detail.html`
+- [~] R10 PDP context получает `product_review_summary` + `approved_reviews` (топ-10 по helpful_count). UI-блок (гистограмма/фильтры/сортировка) в PR-4c
 - [ ] R11 Карточка отзыва (verified badge, фото lightbox, helpful)
 - [ ] R12 Личный кабинет — раздел "Мої відгуки"
 - [x] R13 `aggregate_rating_for_product()` + `ProductReviewSummary` датакласс; threshold=3 вынесён в `MIN_APPROVED_REVIEWS_FOR_RATING`
-- [ ] R14 Review JSON-LD nested в Product (топ-5)
+- [x] R14 `Product.aggregateRating` встраивается в единую Product JSON-LD при `show_rating=True` (≥3 approved). nested Review JSON-LD (топ-5) в PR-4c
 - [ ] R15 IndexNow trigger при approve (signal post_save)
-- [~] R16 Тесты: агрегат и lifecycle покрыты (`reviews.tests.test_aggregate`, 8 тестов); форма/PDP — в PR-4b
+- [~] R16 Тесты: агрегат/lifecycle/schema-threshold покрыты (10 тестов); форма/permissions/UI — в PR-4c
 
 ## PR-5: content/FAQ
 - [ ] T11.1 Удалить `CITY_KEYWORDS` из `top_queries`

@@ -51,7 +51,7 @@
   ``<link rel=canonical>`` and the ``image`` slot leads with the
   variant's photos on self-canonical colour PDPs.
   {% endcomment %}
-  {% product_schema product canonical_path=variant_canonical_path selected_variant=selected_color_variant %}
+  {% product_schema product canonical_path=variant_canonical_path selected_variant=selected_color_variant review_summary=product_review_summary %}
   {% breadcrumb_schema breadcrumbs %}
   {% if product_faq_items %}{% faq_schema product_faq_items %}{% endif %}
 {% endblock %}

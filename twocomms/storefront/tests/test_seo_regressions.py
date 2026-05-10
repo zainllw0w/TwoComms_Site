@@ -123,6 +123,42 @@ class ProductPageSeoRegressionTests(TestCase):
         html = response.content.decode("utf-8")
         self.assertEqual(html.count('"@id": "https://twocomms.shop/#organization"'), 1)
 
+    def test_product_schema_embeds_aggregate_rating_only_above_threshold(self):
+        """Phase 21 (PR-4b) — Product schema's ``aggregateRating`` block
+        is gated by ``ProductReviewSummary.show_rating`` (i.e. ≥3
+        approved reviews). Below threshold or no summary → no rating.
+        """
+        from reviews.models import Review, ReviewStatus
+        from reviews.services.aggregate import aggregate_rating_for_product
+
+        # No reviews → no aggregateRating, no review_summary passed.
+        schema = json.loads(get_product_schema(self.product))
+        self.assertNotIn("aggregateRating", schema)
+
+        # 2 approved reviews → still no aggregateRating (below 3).
+        for r in (5, 4):
+            Review.objects.create(
+                product=self.product, author_name="A", anon_key="k",
+                rating=r, body="x" * 30, status=ReviewStatus.APPROVED,
+            )
+        summary = aggregate_rating_for_product(self.product)
+        schema = json.loads(get_product_schema(self.product, review_summary=summary))
+        self.assertFalse(summary.show_rating)
+        self.assertNotIn("aggregateRating", schema)
+
+        # 3rd approved review crosses the threshold.
+        Review.objects.create(
+            product=self.product, author_name="A", anon_key="k",
+            rating=5, body="x" * 30, status=ReviewStatus.APPROVED,
+        )
+        summary = aggregate_rating_for_product(self.product)
+        schema = json.loads(get_product_schema(self.product, review_summary=summary))
+        self.assertTrue(summary.show_rating)
+        self.assertIn("aggregateRating", schema)
+        self.assertEqual(schema["aggregateRating"]["reviewCount"], "3")
+        self.assertEqual(schema["aggregateRating"]["bestRating"], "5")
+        self.assertEqual(schema["aggregateRating"]["worstRating"], "1")
+
     def test_product_schema_url_uses_canonical_path_when_provided(self):
         """Phase 21 — Product schema ``url`` follows the page canonical.
 

@@ -127,16 +127,17 @@ def seo_meta_tags(context, product=None, category=None):
 
 
 @register.simple_tag
-def product_schema(product, canonical_path=None, selected_variant=None):
+def product_schema(product, canonical_path=None, selected_variant=None, review_summary=None):
     """
     Возвращает JSON-LD schema для товара.
 
     Phase 21 (2026-05-10) — accepts ``canonical_path`` (the page's
-    actual ``<link rel=canonical>`` target) and ``selected_variant``
-    (a ``ProductColorVariant`` instance) so the schema's ``url`` and
-    ``image`` mirror what the user is looking at. Both args default to
-    ``None`` for backwards compatibility — callers that omit them get
-    the base product URL and the default image set.
+    actual ``<link rel=canonical>`` target), ``selected_variant``
+    (a ``ProductColorVariant`` instance) and ``review_summary``
+    (a ``reviews.services.aggregate.ProductReviewSummary``) so the
+    schema's ``url``, ``image`` and ``aggregateRating`` mirror what
+    the user is looking at. All optional — when omitted the schema
+    falls back to base URL, default image set, and no rating block.
     """
     if not product:
         return ''
@@ -145,6 +146,7 @@ def product_schema(product, canonical_path=None, selected_variant=None):
         product,
         canonical_path=canonical_path,
         selected_variant=selected_variant,
+        review_summary=review_summary,
     )
     return mark_safe(f'<script type="application/ld+json">{schema}</script>')
 

@@ -547,6 +547,7 @@ class StructuredDataGenerator:
         product: Product,
         canonical_path: Optional[str] = None,
         selected_variant=None,
+        review_summary=None,
     ) -> Dict:
         """Генерирует Product schema для товара (совместимо с Google Merchant Center).
 
@@ -697,6 +698,23 @@ class StructuredDataGenerator:
                 "shippingDetails": StructuredDataGenerator._get_weight_based_shipping_details()
             },
         }
+
+        # Phase 21 (2026-05-10) — embed AggregateRating only when the
+        # caller passes a ``review_summary`` whose ``show_rating`` is
+        # True (i.e. >=3 approved reviews). Mirrors the rule in
+        # ``reviews.services.aggregate.MIN_APPROVED_REVIEWS_FOR_RATING``
+        # so we never emit fake or thin rating signals to Google.
+        if review_summary is not None and getattr(review_summary, "show_rating", False):
+            avg = getattr(review_summary, "avg", None)
+            count = int(getattr(review_summary, "count", 0) or 0)
+            if avg is not None and count >= 1:
+                schema["aggregateRating"] = {
+                    "@type": "AggregateRating",
+                    "ratingValue": f"{float(avg):.1f}",
+                    "reviewCount": str(count),
+                    "bestRating": "5",
+                    "worstRating": "1",
+                }
 
         # Merchant-level properties (age_group, gender, google_product_category)
         age_group = "adult"
@@ -1047,16 +1065,25 @@ def get_category_seo_meta(category: Category) -> Dict[str, str]:
         }
 
 
-def get_product_schema(product: Product, canonical_path: Optional[str] = None, selected_variant=None) -> str:
+def get_product_schema(
+    product: Product,
+    canonical_path: Optional[str] = None,
+    selected_variant=None,
+    review_summary=None,
+) -> str:
     """Возвращает JSON-LD schema для товара.
 
-    Phase 21 — propagates ``canonical_path`` and ``selected_variant`` to
-    the underlying generator so the rendered Product schema's ``url``
-    and ``image`` always match what the page declares as canonical.
+    Phase 21 — propagates ``canonical_path``, ``selected_variant`` and
+    ``review_summary`` to the underlying generator so the rendered
+    Product schema's ``url``, ``image`` and ``aggregateRating`` always
+    match what the page declares as canonical / approved.
     """
     try:
         schema = StructuredDataGenerator.generate_product_schema(
-            product, canonical_path=canonical_path, selected_variant=selected_variant
+            product,
+            canonical_path=canonical_path,
+            selected_variant=selected_variant,
+            review_summary=review_summary,
         )
         return json.dumps(schema, ensure_ascii=False, indent=2)
     except Exception:

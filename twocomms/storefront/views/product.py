@@ -492,6 +492,23 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         )
     )
 
+    # Phase 21 (2026-05-10) — review summary + approved review list for
+    # the PDP. Summary feeds the ``aggregateRating`` block (rendered
+    # only at >=3 approved reviews via ``product_review_summary``) and
+    # the rating chip near the H1. Approved reviews list is paginated
+    # at the template layer; we surface the most-recent 10 here as
+    # initial render, with helpful_count first as a tie-breaker.
+    from reviews.models import Review as _Review, ReviewStatus as _RS
+    from reviews.services.aggregate import aggregate_rating_for_product as _aggregate
+    product_review_summary = _aggregate(product)
+    approved_reviews = list(
+        _Review.objects
+        .filter(product=product, status=_RS.APPROVED)
+        .select_related("user")
+        .prefetch_related("images")
+        .order_by("-helpful_count", "-created_at")[:10]
+    )
+
     # Phase 21 (2026-05-10) — resolve the actual ProductColorVariant
     # instance for the active colour so Product schema / OG / Twitter
     # use variant images on a self-canonical colour PDP. Only fetches
@@ -547,6 +564,12 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             # schema, OG image and Twitter image on self-canonical
             # colour PDPs. ``None`` everywhere else.
             'selected_color_variant': selected_color_variant,
+            # Phase 21 — review aggregate + approved review list.
+            # ``product_review_summary`` exposes ``count``/``average``/
+            # ``histogram``/``show_rating``; templates already check
+            # ``count >= 3`` before rendering the rating chip.
+            'product_review_summary': product_review_summary,
+            'approved_reviews': approved_reviews,
             # Phase 15 — per-product SEO landing block.
             'product_seo_landing': product_seo_landing,
         }
