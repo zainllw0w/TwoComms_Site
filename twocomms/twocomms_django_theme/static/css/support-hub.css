@@ -728,6 +728,32 @@
   color: #fff6ea;
 }
 
+/* Phase 21 G1 — NAP-consistent contact line above copyright. */
+.footer-contact {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px 28px;
+  padding: 18px 0 12px;
+  margin-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.footer-contact__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff6ea;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  transition: color 120ms ease;
+}
+.footer-contact__link:hover,
+.footer-contact__link:focus-visible {
+  color: #ffd24d;
+}
+
 .footer-bottom {
   display: flex;
   justify-content: center;

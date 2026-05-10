@@ -93,6 +93,15 @@ class ProductPageSeoRegressionTests(TestCase):
         self.assertContains(response, "social-preview.jpg", html=False)
         self.assertContains(response, 'property="og:image:alt"', html=False)
 
+    def test_footer_renders_canonical_phone(self):
+        """Phase 21 (Cross-cutting G1) — footer surfaces +380 96 654-32-12
+        as a tel: link, matching the Organization JSON-LD contactPoint
+        and the Contacts page (NAP consistency).
+        """
+        response = self.client.get(reverse("product", kwargs={"slug": self.product.slug}), follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="tel:+380966543212"', html=False)
+
     def test_product_page_does_not_emit_faq_page_schema(self):
         """Phase 21 (PR-5, T12.2) — PDP no longer carries FAQPage JSON-LD;
         identical FAQ content lives on dedicated support pages

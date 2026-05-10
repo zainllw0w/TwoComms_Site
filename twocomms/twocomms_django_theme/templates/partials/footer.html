@@ -150,6 +150,24 @@
       </div>
     {% endif %}
 
+    {% comment %}
+    Phase 21 (Cross-cutting G1) — surface phone + email in the footer.
+    Same number as Organization JSON-LD ``contactPoint`` and the
+    Contacts page so crawlers see consistent NAP signal across the
+    site. ``tel:`` link is mobile-friendly and hands off to the OS
+    dialer; copy renders the human-readable spaced format.
+    {% endcomment %}
+    <div class="footer-contact" aria-label="Контакти TwoComms">
+      <a class="footer-contact__link" href="tel:+380966543212">
+        <span aria-hidden="true">☎</span>
+        <span>+38 (096) 654-32-12</span>
+      </a>
+      <a class="footer-contact__link" href="mailto:info@twocomms.shop">
+        <span aria-hidden="true">✉</span>
+        <span>info@twocomms.shop</span>
+      </a>
+    </div>
+
     <div class="footer-bottom">
       <div class="footer-rights">{{ footer_content.rights|default:"All Rights Reserved © TWOCOMMS, 2026" }}</div>
     </div>

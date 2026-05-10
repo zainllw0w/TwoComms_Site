@@ -99,9 +99,9 @@
 ---
 
 ## Cross-cutting (этап G)
-- [ ] G1 Footer/contacts: tel:+380966543212
-- [ ] G2 online_store_schema use phone
-- [ ] G3 Order email/Telegram notify use phone
+- [x] G1 Footer NAP блок: `tel:+380966543212` + email, регрессия `test_footer_renders_canonical_phone`
+- [x] G2 `online_store_schema` использует +380966543212 (PR-1)
+- [ ] G3 Order email/Telegram notify use phone (проверить в рамках ops)
 
 ---
 
