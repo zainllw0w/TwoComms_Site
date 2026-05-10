@@ -97,6 +97,10 @@ html[data-route-name="product"] .breadcrumb-nav {
   min-width: 0;
 }
 
+.tc-media-panel > .tc-custom-print-card {
+  margin-top: auto;
+}
+
 
 .tc-gallery-card {
   padding: 16px;
@@ -1641,7 +1645,7 @@ html[data-route-name="product"] .breadcrumb-nav {
   grid-template-columns: minmax(120px, 0.28fr) minmax(244px, 1fr) minmax(232px, 0.6fr);
   gap: 14px;
   align-items: center;
-  margin-top: 14px;
+  margin-top: auto;
   padding: 10px 14px;
   border: 1px solid rgba(141, 92, 255, 0.25);
   border-radius: var(--pdp-radius-md);
