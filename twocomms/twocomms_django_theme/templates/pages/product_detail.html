@@ -9,7 +9,7 @@
 {% endcomment %}
 {% block title %}{% if variant_page_title %}{{ variant_page_title }}{% else %}{% seo_title product=product %}{% endif %}{% endblock %}
 {% block description %}{% if variant_page_description %}{{ variant_page_description }}{% else %}{% seo_description product=product %}{% endif %}{% endblock %}
-{% block keywords %}{% seo_keywords product=product %}{% endblock %}
+{% block keywords %}{% if variant_page_keywords %}{{ variant_page_keywords }}{% else %}{% seo_keywords product=product %}{% endif %}{% endblock %}
 {% block canonical %}{{ site_base_url }}{{ variant_canonical_path|default:request.path }}{% endblock %}
 {% block og_type %}product{% endblock %}
 {% block og_title %}{% if variant_page_title %}{{ variant_page_title }}{% else %}{% seo_title product=product %}{% endif %}{% endblock %}

@@ -61,6 +61,51 @@ FIT_LABELS_NOM = {
     "regular":  "регуляр",
 }
 
+# Phase 16 — fit-specific SEO paragraph templates. Rendered ONLY when
+# the user is on a path-fit URL (``/product/<slug>/<fit>/``) so the page
+# carries unique content distinct from the base PDP. Each template ends
+# with a soft CTA pointing back to the alternate fit so internal
+# linking signal is bidirectional.
+FIT_SEO_COPY: Dict[str, Dict[str, str]] = {
+    "oversize": {
+        "h3": "Чому оверсайз-посадка",
+        "body": (
+            "Оверсайз — це посадка з широкою лінією плечей, подовженим "
+            "корпусом і вільним рукавом. Вона додає об'єму силуету, "
+            "візуально розслаблює образ і добре поєднується з шарами "
+            "(лонгслів під низ, легка куртка зверху). Оверсайз-фіт від "
+            "TwoComms шиється з власних лекал: плечі довші на 4–6 см "
+            "проти класичної посадки, корпус — на 5–7 см. Ідеально "
+            "підходить для streetwear-образів і повсякденного носіння, "
+            "коли вам потрібна свобода руху без втрати характеру."
+        ),
+    },
+    "classic": {
+        "h3": "Чому класична посадка",
+        "body": (
+            "Класична посадка тримає тіло природньо: плечовий шов "
+            "на місці плеча, корпус прямий, рукав — стандартної довжини. "
+            "Це універсальний фіт, який легко поєднується з будь-яким "
+            "стилем — від casual до бізнес-кежуала під сорочку чи "
+            "піджак. Класика від TwoComms відшивається з тих самих "
+            "матеріалів, що й оверсайз: щільна бавовна 280–320 г/м² "
+            "і DTF-друк, який витримує понад 50 циклів прання. "
+            "Обирайте класику, якщо цінуєте лаконічну форму без "
+            "акцентів на об'ємі."
+        ),
+    },
+    "regular": {
+        "h3": "Чому регуляр-посадка",
+        "body": (
+            "Регуляр — золота середина між класикою і оверсайзом: трохи "
+            "ширша лінія плечей, дещо подовжений корпус, але без "
+            "вираженого «упалого» плеча. Підійде тим, хто хоче більше "
+            "свободи, ніж дає класична посадка, але не готовий до "
+            "повного оверсайз-силуету."
+        ),
+    },
+}
+
 
 # --------------------------------------------------------------- helpers
 
@@ -230,6 +275,16 @@ def _build_landing_html(product, fit_code: Optional[str] = None) -> str:
     fit_html = _fit_paragraph(product, cat_slug, fit_code=fit_code)
     if fit_html:
         parts.append(f"<p>{fit_html}</p>")
+
+    # Phase 16 — fit-specific unique SEO paragraph (oversize/classic/regular).
+    # Rendered only when a path-fit is actively selected so the page text
+    # differs from the base PDP and from the alternate-fit page.
+    if fit_code and fit_code in FIT_SEO_COPY:
+        fit_copy = FIT_SEO_COPY[fit_code]
+        parts.append(
+            f'<h3 class="product-seo-landing__fit-h3">{escape(fit_copy["h3"])}</h3>'
+        )
+        parts.append(f'<p>{escape(fit_copy["body"])}</p>')
 
     # City keywords paragraph.
     parts.append(f"<p>{escape(_city_paragraph(product, cat_slug, fit_code=fit_code))}</p>")

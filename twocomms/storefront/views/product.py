@@ -514,6 +514,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             'variant_canonical_path': variant_meta['canonical_path'],
             'variant_page_title': variant_meta['page_title'],
             'variant_page_description': variant_meta['page_description'],
+            'variant_page_keywords': variant_meta.get('page_keywords', ''),
             'variant_is_self_canonical': variant_meta['is_self_canonical'],
             # Phase 15 — per-product SEO landing block.
             'product_seo_landing': product_seo_landing,

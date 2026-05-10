@@ -80,6 +80,7 @@ def build_variant_meta(inputs: VariantMetaInputs) -> dict:
             "canonical_path": inputs.base_path,
             "page_title": "",
             "page_description": "",
+            "page_keywords": "",
             "title_suffix": "",
             "is_self_canonical": True,
         }
@@ -99,19 +100,49 @@ def build_variant_meta(inputs: VariantMetaInputs) -> dict:
         is_self_canonical = False
 
     if suffix:
-        page_title = f"Купити {inputs.product_title} — {suffix} — TwoComms"
-        page_description = (
-            f"Купити {inputs.product_title} ({suffix}) в TwoComms. "
-            "Якісний стріт & мілітарі одяг з ексклюзивним дизайном."
-        )
+        # Phase 16 — fit-aware enrichment. When the user is on a
+        # ``/product/<slug>/<fit>/`` page (1-segment fit), promote the
+        # fit term to the *front* of both title and description so it
+        # carries Google's primary keyword weight. Multi-segment combos
+        # keep the suffix order (color → size → fit).
+        fit_lead = inputs.fit_label and inputs.segments_count == 1
+        if fit_lead:
+            page_title = (
+                f"{inputs.fit_label} {inputs.product_title} — "
+                f"купити в TwoComms"
+            )
+            page_description = (
+                f"{inputs.fit_label} посадка «{inputs.product_title}»: щільна бавовна, "
+                f"DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. "
+                f"Обирайте {_lowercase_first(inputs.fit_label)}-фіт — лаконічний стрітвеар від українського бренду."
+            )
+        else:
+            page_title = f"Купити {inputs.product_title} — {suffix} — TwoComms"
+            page_description = (
+                f"Купити {inputs.product_title} ({suffix}) в TwoComms. "
+                "Якісний стріт & мілітарі одяг з ексклюзивним дизайном."
+            )
     else:
         page_title = ""
         page_description = ""
+
+    # Phase 16 — keywords meta. Only filled when *fit* is the active
+    # 1-segment variant; otherwise empty (the standard ``seo_keywords``
+    # template tag stays in charge for the base PDP).
+    page_keywords = ""
+    if inputs.fit_label and inputs.fit_code and inputs.segments_count == 1:
+        fit_lc = _lowercase_first(inputs.fit_label)
+        page_keywords = (
+            f"{fit_lc} {inputs.product_title.lower()}, "
+            f"купити {fit_lc} {inputs.product_title.lower()}, "
+            f"{fit_lc} посадка, {inputs.fit_code}"
+        )
 
     return {
         "canonical_path": canonical_path,
         "page_title": page_title,
         "page_description": page_description,
+        "page_keywords": page_keywords,
         "title_suffix": suffix,
         "is_self_canonical": is_self_canonical,
     }

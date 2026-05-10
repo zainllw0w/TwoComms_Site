@@ -56,6 +56,15 @@
 
 .product-seo-landing__copy strong { color: #ffd9a8; }
 
+/* Phase 16 — fit-specific H3 (oversize/classic/regular paragraph). */
+.product-seo-landing__fit-h3 {
+  font-size: clamp(1.05rem, 1.4vw, 1.2rem);
+  margin: 1.1rem 0 0.5rem;
+  color: #ffd9a8;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
 @media (max-width: 575px) {
   .product-seo-landing { padding: 2rem 0.75rem 1.25rem; }
   .product-seo-landing__copy { padding: 1rem 1.1rem; }
