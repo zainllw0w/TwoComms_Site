@@ -461,7 +461,11 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 14px 18px 0;
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--review-radius-md);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .tc-reviews__message {
