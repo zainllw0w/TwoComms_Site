@@ -58,6 +58,9 @@ urlpatterns = [
     # Orders (включая дропшип)
     path("orders/", include("orders.urls")),
 
+    # Phase 21 — product reviews (POST submit / vote endpoints).
+    path("reviews/", include("reviews.urls", namespace="reviews")),
+
     # Дропшип редирект
     path("dropshipper/", RedirectView.as_view(url="/orders/dropshipper/", permanent=False), name="dropshipper_redirect"),
 
