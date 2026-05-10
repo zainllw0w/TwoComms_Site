@@ -351,6 +351,23 @@ def _top_queries_for_product(product, fit_code: Optional[str] = None) -> List[Di
     # in the module-level constant for future opt-in.
     city_url = _category_url(cat_slug)
 
+    # 3b. Phase 21 (PR-5 T11.2) — buyer-facing chips replacing the
+    # removed city chips. Each links to a support page that already
+    # carries unique content (covered by FAQPage schema there) so we
+    # get topical relevance without thin city-page duplication.
+    items.append({
+        "label": "Доставка Новою Поштою 1-3 дні",
+        "url":   "/delivery/",
+    })
+    items.append({
+        "label": "Розмірна сітка та посадка",
+        "url":   "/rozmirna-sitka/",
+    })
+    items.append({
+        "label": "Повернення та обмін за 14 днів",
+        "url":   "/povernennya-ta-obmin/",
+    })
+
     # 4. Custom print.
     items.append({
         "label": "Замовити кастомний друк свого принта",

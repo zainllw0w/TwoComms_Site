@@ -45,7 +45,7 @@
 - [x] T8.4 `pages/catalog.html` — fallback для `title`, `description`, `og_title`, `og_description`, `twitter_*`, H1
 - [x] T9.1 Сиды уникальной копии для `tshirts`, `hoodie`, `long-sleeve` (только если поле пусто, safe для прода)
 - [x] T9.2 Production verify 3 категорий (deploy fcb59822) — tshirts/hoodie/long-sleeve отдают уникальные SEO-тайтлы
-- [~] T10.1 «Create your design» дубль — не найден в current catalog.html (возможно уже правлено в Phase 10/15; проверить на live)
+- [x] T10.1 «Create your design» дубль не существует (catalog.html: aria-label на aside; один H2 «Створити свій принт» остался как primary CTA)
 - [x] T10.2 `_CURATED_TOP_QUERIES` очищен от `?color=` URL, регрессия `GeneralCatalogSeoColorlessQueriesTests`
 - [x] T10.3 Регрессия: top query URLs без `?color=` (`test_curated_top_queries_do_not_link_to_color_filtered_pages`)
 
@@ -69,7 +69,7 @@
 
 ## PR-5: content/FAQ [code+tests done; T13 cross-linking deferred]
 - [x] T11.1 City chips block (Київ/Харків/Сample) вынесен из `_top_queries_for_product` с комментарием о причине
-- [~] T11.2 Бывшие 4 городские chips просто удалены (custom-print + category-fallback chips остались). Добавить buyer-facing chips в следующем iter
+- [x] T11.2 Буяер-facing chips: «Доставка 1-3 дні» (/delivery/), «Розмірна сітка» (/rozmirna-sitka/), «Повернення за 14 днів» (/povernennya-ta-obmin/) + регрессия
 - [x] T11.3 `test_does_not_include_city_chips` проверяет отсутствие городских слов
 - [x] T12.1 `ProductFAQ` уже был admin-driven (не автоген) — проверено
 - [x] T12.2 `{% faq_schema product_faq_items %}` убран с PDP (FAQ остаётся видимым, без JSON-LD)

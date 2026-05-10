@@ -113,6 +113,16 @@ class TopQueriesTests(_Base):
         for city in ("Київ", "Харків", "Львів", "Одеса", "Дніпро"):
             self.assertNotIn(city, labels)
 
+    def test_includes_buyer_facing_support_chips(self):
+        """Phase 21 (PR-5 T11.2) — replacement chips link to factual
+        support pages (delivery / size guide / returns) rather than
+        thin city landings.
+        """
+        items = _top_queries_for_product(self.product)
+        urls = [i["url"] for i in items]
+        for url in ("/delivery/", "/rozmirna-sitka/", "/povernennya-ta-obmin/"):
+            self.assertIn(url, urls)
+
     def test_includes_custom_print_chips(self):
         items = _top_queries_for_product(self.product)
         urls = [i["url"] for i in items]
