@@ -28,8 +28,8 @@
   position: relative;
   isolation: isolate;
   max-width: 1120px;
-  margin: 42px auto 48px;
-  padding: 28px;
+  margin: 28px auto 32px;
+  padding: 20px 22px;
   overflow: hidden;
   color: var(--review-text);
   border: 1px solid var(--review-border);
@@ -66,7 +66,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .tc-reviews__headline {
@@ -87,10 +87,10 @@
 }
 
 .tc-reviews__title {
-  margin: 10px 0 5px;
+  margin: 8px 0 0;
   color: #fff;
-  font-size: 1.62rem;
-  line-height: 1.12;
+  font-size: 1.38rem;
+  line-height: 1.14;
   font-weight: 900;
 }
 
@@ -135,9 +135,9 @@
 .tc-reviews__insight-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 14px;
   align-items: stretch;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .tc-reviews:has(.tc-reviews__summary--quiet) .tc-reviews__insight-grid {
@@ -150,8 +150,8 @@
   gap: 22px;
   align-items: center;
   height: 100%;
-  min-height: 124px;
-  padding: 16px 18px;
+  min-height: 92px;
+  padding: 14px 16px;
   border: 1px solid var(--review-border-soft);
   border-radius: var(--review-radius-md);
   background:
@@ -161,8 +161,8 @@
 
 .tc-reviews__summary--quiet {
   grid-template-columns: 1fr;
-  min-height: 140px;
-  padding: 22px 24px;
+  min-height: 92px;
+  padding: 14px 18px;
   align-content: center;
   justify-items: start;
 }
@@ -297,11 +297,11 @@
   display: grid;
   align-content: center;
   justify-items: start;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   height: 100%;
-  min-height: 140px;
-  padding: 22px 24px;
+  min-height: 92px;
+  padding: 14px 18px;
   border: 1px solid rgba(102, 200, 255, 0.22);
   border-radius: var(--review-radius-md);
   background:
@@ -368,7 +368,7 @@
 }
 
 .tc-reviews__form-wrap {
-  margin: 18px 0 22px;
+  margin: 14px 0 0;
   overflow: hidden;
   border: 1px solid var(--review-border-soft);
   border-radius: var(--review-radius-md);
@@ -380,8 +380,8 @@
   grid-template-columns: 30px minmax(0, auto) minmax(0, 1fr) 22px;
   align-items: center;
   gap: 14px;
-  min-height: 64px;
-  padding: 10px 20px;
+  min-height: 54px;
+  padding: 8px 18px;
   color: #fff;
   cursor: pointer;
   list-style: none;

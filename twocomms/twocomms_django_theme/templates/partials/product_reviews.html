@@ -19,9 +19,6 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
     <div class="tc-reviews__headline">
       <span class="tc-reviews__eyebrow">Досвід клієнтів</span>
       <h2 id="tc-reviews-title" class="tc-reviews__title">Відгуки про товар</h2>
-      <p class="tc-reviews__lead">
-        Модерація і статус покупки — коротко, чесно, без зайвого шуму.
-      </p>
     </div>
     <div class="tc-reviews__counter" aria-label="Кількість опублікованих відгуків">
       <strong>{{ product_review_summary.count|default:0 }}</strong>
@@ -71,20 +68,20 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
     <aside class="tc-reviews__identity" aria-label="Ваш статус для відгуку">
       {% if request.user.is_authenticated %}
         <div class="tc-reviews__identity-copy">
-          <span class="tc-reviews__identity-kicker">Ви увійшли як клієнт</span>
+          <span class="tc-reviews__identity-kicker">Підпис відгуку</span>
           <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
         </div>
         {% if product_customer_has_paid_order %}
-          <span class="tc-reviews__identity-pill tc-reviews__identity-pill--ok">Купівля цього товару підтверджена</span>
+          <span class="tc-reviews__identity-pill tc-reviews__identity-pill--ok">Покупка підтверджена</span>
         {% else %}
-          <span class="tc-reviews__identity-pill">Покупка цього товару ще не підтверджена</span>
+          <span class="tc-reviews__identity-pill">Гостьовий статус</span>
         {% endif %}
       {% else %}
         <div class="tc-reviews__identity-copy">
           <span class="tc-reviews__identity-kicker">Гостьовий відгук</span>
-          <strong>Увійдіть, щоб підтягнути профіль</strong>
+          <strong>Увійдіть для профілю</strong>
         </div>
-        <a href="{% url 'login' %}?next={{ request.path }}#product-reviews" class="tc-reviews__identity-link">Увійти перед відгуком</a>
+        <a href="{% url 'login' %}?next={{ request.path }}#product-reviews" class="tc-reviews__identity-link">Увійти</a>
       {% endif %}
     </aside>
   </div>

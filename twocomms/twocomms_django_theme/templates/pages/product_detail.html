@@ -79,7 +79,7 @@
 {% block extra_css %}
 {% comment %}Above-fold (hero/gallery/buybox/fit-selector) — render-blocking is OK,
    нужен сразу для корректного LCP/CLS.{% endcomment %}
-<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260511-pdp-layout-v2">
+<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260511-pdp-layout-v3">
 <link rel="stylesheet" href="{% static 'css/product-media-fit.css' %}?v=20260428-media-fit-v1">
 {% comment %}
 Phase 19c (2026-05-10) — below-fold CSS lazy-load.
@@ -92,11 +92,11 @@ CSS rules на mobile FCP/LCP window.
 <link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}?v=20260510-phase15-v1" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="{% static 'css/product-seo-landing.css' %}?v=20260510-phase15-v1" media="print" onload="this.media='all'">
 {# Phase 21 — review block (loaded async, below the fold). #}
-<link rel="stylesheet" href="{% static 'css/product-reviews.css' %}?v=20260511-pdp-layout-v2" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="{% static 'css/product-reviews.css' %}?v=20260511-pdp-layout-v3" media="print" onload="this.media='all'">
 <noscript>
   <link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}?v=20260510-phase15-v1">
   <link rel="stylesheet" href="{% static 'css/product-seo-landing.css' %}?v=20260510-phase15-v1">
-  <link rel="stylesheet" href="{% static 'css/product-reviews.css' %}?v=20260511-pdp-layout-v2">
+  <link rel="stylesheet" href="{% static 'css/product-reviews.css' %}?v=20260511-pdp-layout-v3">
 </noscript>
 {% endblock %}
 
@@ -202,30 +202,23 @@ CSS rules на mobile FCP/LCP window.
 
       <h1 class="tc-product-title">{{ product.title }}</h1>
       <div class="tc-product-kicker">{{ product.category.name|default:"TwoComms drop" }}</div>
+      {% comment %}
+      Phase 21+ (2026-05-11) — meta line redesigned.
+      Visible SKU and trust-fallback removed (Made-in-UA still surfaced
+      via the badge row below for SEO/structured-data parity). The
+      aggregate rating link is the only factual signal kept here, and
+      the entire row is omitted when no real ``aggregateRating`` is
+      eligible (count >= 3 approved reviews).
+      {% endcomment %}
+      {% if product_review_summary and product_review_summary.count >= 3 %}
       <div class="tc-product-meta">
-        {% comment %}
-        Phase 21 (2026-05-10) — fake "4.9 (45 відгуків)" removed.
-        Real ``aggregateRating`` is rendered only when the reviews app
-        (PR-4) provides ``product_review_summary`` with ``count >= 3``
-        approved reviews. Until then we surface factual trust signals
-        only.
-        {% endcomment %}
-        {% if product_review_summary and product_review_summary.count >= 3 %}
         <a href="#product-reviews" class="tc-rating-safe" aria-label="Рейтинг товару, {{ product_review_summary.count }} відгуків">
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.97 6.02 6.64.97-4.8 4.68 1.13 6.61L12 17.16l-5.94 3.12 1.13-6.61-4.8-4.68 6.64-.97L12 2Z" fill="currentColor"/></svg>
           <strong>{{ product_review_summary.average|floatformat:1 }}</strong>
           <span>({{ product_review_summary.count }} відгук{{ product_review_summary.count|pluralize:"и,ів" }})</span>
         </a>
-        <span class="tc-meta-dot" aria-hidden="true">•</span>
-        {% else %}
-        <span class="tc-rating-safe tc-rating-trust" aria-label="Український бренд">
-          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z" fill="currentColor"/></svg>
-          <strong>Made in UA</strong>
-        </span>
-        <span class="tc-meta-dot" aria-hidden="true">•</span>
-        {% endif %}
-        <span class="tc-sku-line">Артикул: <span>{{ default_offer_id|default:product.id }}</span></span>
       </div>
+      {% endif %}
 
       <div class="tc-badge-row" aria-label="Особливості товару">
         <span class="tc-info-badge">
@@ -250,6 +243,12 @@ CSS rules на mobile FCP/LCP window.
             <span class="tc-discount-badge">-{{ product.discount_percent }}%</span>
           {% endif %}
         </div>
+        {% if product.points_reward > 0 %}
+          <button type="button" class="tc-points-pill" data-bs-toggle="modal" data-bs-target="#pointsInfoModal" data-product-title="{{ product.title }}" data-points-amount="{{ product.points_reward }}" aria-label="Бонусні бали за покупку: {{ product.points_reward }}">
+            <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.97 6.02 6.64.97-4.8 4.68 1.13 6.61L12 17.16l-5.94 3.12 1.13-6.61-4.8-4.68 6.64-.97L12 2Z" fill="currentColor"/></svg>
+            <span>+{{ product.points_reward }} балів</span>
+          </button>
+        {% endif %}
       </div>
 
       <div class="tc-selector-block">
@@ -395,7 +394,13 @@ CSS rules на mobile FCP/LCP window.
               data-less-label="Згорнути"
               aria-expanded="false"
               aria-controls="tc-desc-content-{{ product.id }}">
-              Показати більше
+              <span class="tc-desc-more__arrow tc-desc-more__arrow--left" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M6.75 9.75 12 15l5.25-5.25"/></svg>
+              </span>
+              <span class="tc-desc-more__label">Показати більше</span>
+              <span class="tc-desc-more__arrow tc-desc-more__arrow--right" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M6.75 9.75 12 15l5.25-5.25"/></svg>
+              </span>
             </button>
             <noscript>
               <style>
@@ -573,7 +578,8 @@ CSS rules на mobile FCP/LCP window.
         </div>
       </div>
 
-      {% if product.points_reward > 0 %}
+      {# Phase 21+ (2026-05-11) — points line moved next to price as a compact pill (.tc-points-pill). #}
+      {% if False %}
         <button type="button" class="tc-points-line" data-bs-toggle="modal" data-bs-target="#pointsInfoModal" data-product-title="{{ product.title }}" data-points-amount="{{ product.points_reward }}">
           <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.97 6.02 6.64.97-4.8 4.68 1.13 6.61L12 17.16l-5.94 3.12 1.13-6.61-4.8-4.68 6.64-.97L12 2Z" fill="currentColor"/></svg>
           Отримайте {{ product.points_reward }} балів за покупку цього товару
@@ -667,7 +673,7 @@ CSS rules на mobile FCP/LCP window.
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/product-detail.js' %}?v=20260428-image-alt-faq-v1" defer></script>
+<script src="{% static 'js/product-detail.js' %}?v=20260511-pdp-layout-v3" defer></script>
 <script src="{% static 'js/product-media-fit.js' %}?v=20260428-media-fit-v1" defer></script>
 <script src="{% static 'js/product-variant-history.js' %}?v=20260509-phase8-v1" defer></script>
 {% endblock %}

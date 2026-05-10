@@ -446,10 +446,16 @@
       return Number.isFinite(parsed) && parsed > 0 ? parsed : 278;
     };
 
+    const toggleLabel = toggle.querySelector('.tc-desc-more__label');
     const setToggleText = (expanded) => {
-      toggle.textContent = expanded
+      const text = expanded
         ? (toggle.dataset.lessLabel || 'Згорнути')
         : (toggle.dataset.moreLabel || 'Показати більше');
+      if (toggleLabel) {
+        toggleLabel.textContent = text;
+      } else {
+        toggle.textContent = text;
+      }
     };
 
     const updateState = () => {
