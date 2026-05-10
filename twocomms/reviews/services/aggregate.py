@@ -47,6 +47,16 @@ class ProductReviewSummary:
     def average(self) -> Optional[float]:
         return self.avg
 
+    @property
+    def histogram_rows(self) -> list[dict]:
+        """Iterable form of ``histogram`` ordered 5★ → 1★ for templates.
+
+        Django templates can't index a dict by a variable key, so we
+        materialise the rows here. Each row is ``{"star": int, "count":
+        int}``; safe to iterate with ``{% for row in ... %}``.
+        """
+        return [{"star": s, "count": int(self.histogram.get(s, 0))} for s in (5, 4, 3, 2, 1)]
+
 
 def aggregate_rating_for_product(product) -> ProductReviewSummary:
     """Compute the public review summary for a single product.

@@ -1,0 +1,195 @@
+{% load static %}
+{% comment %}
+Phase 21 (2026-05-10) — product reviews block.
+
+Surfaces ONLY moderator-approved reviews. The rating header is gated
+by ``product_review_summary.show_rating`` (≥3 reviews) so the page
+never advertises a thin rating to humans or to Google. The submission
+form is always visible (auth-aware copy below) — pending reviews go
+through the moderation queue and don't pollute the public list.
+
+Context contract (from ``storefront.views.product.product_detail``):
+  - ``product``                 — Product instance
+  - ``product_review_summary``  — ``reviews.services.aggregate.ProductReviewSummary``
+  - ``approved_reviews``        — list of ``Review`` (top-10, prefetched images)
+  - ``request.user``            — for auth-aware submit form
+{% endcomment %}
+<section id="product-reviews" class="tc-reviews" aria-labelledby="tc-reviews-title">
+  <header class="tc-reviews__head">
+    <h2 id="tc-reviews-title" class="tc-reviews__title">Відгуки покупців</h2>
+    <p class="tc-reviews__count">
+      {% if product_review_summary.count %}
+        {{ product_review_summary.count }} опубліковано{% if product_review_summary.count|pluralize:"й,них" %}{% endif %}
+      {% else %}
+        Будьте першим, хто залишить відгук
+      {% endif %}
+    </p>
+  </header>
+
+  {% if product_review_summary.show_rating %}
+    <div class="tc-reviews__summary" role="group" aria-label="Зведений рейтинг">
+      <div class="tc-reviews__avg">
+        <strong>{{ product_review_summary.average|floatformat:1 }}</strong>
+        <span aria-hidden="true" class="tc-reviews__avg-stars">
+          {% with avg=product_review_summary.avg %}
+            {% for i in "12345" %}{% if forloop.counter <= avg %}★{% else %}☆{% endif %}{% endfor %}
+          {% endwith %}
+        </span>
+        <span class="tc-reviews__avg-count">з {{ product_review_summary.count }} відгуків</span>
+      </div>
+      {% comment %}
+      Histogram. Django templates can't index a dict with a variable
+      key, so the view exposes ``product_review_summary.histogram`` as
+      a plain ``dict[int, int]`` and we render it via the dataclass
+      property below — see ``ProductReviewSummary.histogram_rows``.
+      {% endcomment %}
+      <ul class="tc-reviews__histogram" aria-label="Розподіл оцінок">
+        {% for row in product_review_summary.histogram_rows %}
+          <li class="tc-reviews__bar-row">
+            <span class="tc-reviews__bar-label">{{ row.star }}★</span>
+            <span class="tc-reviews__bar" aria-hidden="true">
+              {% if product_review_summary.count %}
+                <span class="tc-reviews__bar-fill"
+                      style="width: {% widthratio row.count product_review_summary.count 100 %}%"></span>
+              {% endif %}
+            </span>
+            <span class="tc-reviews__bar-count">{{ row.count }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  {% comment %}
+  Submission form. Always visible — server-side validation (see
+  ``reviews.forms.ReviewForm``) handles bad input. ``website`` is the
+  honeypot — visually hidden via .tc-reviews-honeypot in CSS.
+  Authenticated users with a paid order will get
+  ``is_verified_purchase=True`` automatically (server-side).
+  {% endcomment %}
+  <details class="tc-reviews__form-wrap">
+    <summary class="tc-reviews__form-toggle">
+      <span aria-hidden="true">＋</span> Залишити відгук
+    </summary>
+    {% if messages %}
+      <div class="tc-reviews__messages" role="status">
+        {% for m in messages %}
+          <p class="tc-reviews__message tc-reviews__message--{{ m.tags|default:'info' }}">{{ m }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <form method="post"
+          enctype="multipart/form-data"
+          action="{% url 'reviews:submit' product_slug=product.slug %}"
+          class="tc-reviews__form"
+          novalidate>
+      {% csrf_token %}
+      <fieldset class="tc-reviews__rating-field">
+        <legend>Ваша оцінка</legend>
+        <div class="tc-reviews__rating-stars" role="radiogroup">
+          {% for v in "54321" %}
+            <label class="tc-reviews__rating-star">
+              <input type="radio" name="rating" value="{{ v }}" required>
+              <span aria-label="{{ v }} зірок">★</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <label class="tc-reviews__field">
+        <span>Заголовок (необовʼязково)</span>
+        <input type="text" name="title" maxlength="120" autocomplete="off">
+      </label>
+
+      <label class="tc-reviews__field">
+        <span>Розкажіть про досвід *</span>
+        <textarea name="body" rows="4" minlength="20" maxlength="4000" required
+                  placeholder="Якість тканини, посадка, друк, порівняння з очікуваннями…"></textarea>
+      </label>
+
+      <div class="tc-reviews__row">
+        <label class="tc-reviews__field">
+          <span>Імʼя для публікації *</span>
+          {% if request.user.is_authenticated %}
+            <input type="text" name="author_name" maxlength="80" required
+                   value="{{ request.user.get_full_name|default:request.user.username }}">
+          {% else %}
+            <input type="text" name="author_name" maxlength="80" required>
+          {% endif %}
+        </label>
+        <label class="tc-reviews__field">
+          <span>Email{% if request.user.is_authenticated %} (вже у профілі){% else %} (для зворотного звʼязку){% endif %}</span>
+          <input type="email" name="email"
+                 {% if request.user.is_authenticated %}value="{{ request.user.email }}"{% endif %}>
+        </label>
+      </div>
+
+      <label class="tc-reviews__field">
+        <span>Фото (до 5, JPEG/PNG/WebP, до 5 МБ кожне)</span>
+        <input type="file" name="images" accept="image/jpeg,image/png,image/webp" multiple>
+      </label>
+
+      {# Honeypot — bots fill it, humans never see it. #}
+      <label class="tc-reviews-honeypot" aria-hidden="true">
+        Website
+        <input type="text" name="website" tabindex="-1" autocomplete="off">
+      </label>
+
+      <button type="submit" class="tc-reviews__submit">Надіслати на модерацію</button>
+      <p class="tc-reviews__form-hint">
+        Відгук зʼявиться на сторінці після перевірки модератором.
+        {% if not request.user.is_authenticated %}
+          <a href="{% url 'login' %}?next={{ request.path }}#product-reviews">Увійдіть</a>,
+          щоб ваш відгук одразу був помічений як «перевірена покупка».
+        {% endif %}
+      </p>
+    </form>
+  </details>
+
+  {% if approved_reviews %}
+    <ol class="tc-reviews__list" aria-label="Список відгуків">
+      {% for r in approved_reviews %}
+        <li class="tc-review" id="review-{{ r.pk }}">
+          <header class="tc-review__head">
+            <span class="tc-review__stars" aria-label="{{ r.rating }} з 5">
+              {% for i in "12345" %}{% if forloop.counter <= r.rating %}★{% else %}☆{% endif %}{% endfor %}
+            </span>
+            {% if r.title %}
+              <strong class="tc-review__title">{{ r.title }}</strong>
+            {% endif %}
+            {% if r.is_verified_purchase %}
+              <span class="tc-review__verified" title="Перевірена покупка"
+                    aria-label="Перевірена покупка">
+                <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 16.2 4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z" fill="currentColor"/>
+                </svg>
+                Перевірена покупка
+              </span>
+            {% endif %}
+          </header>
+          <p class="tc-review__body">{{ r.body|linebreaksbr }}</p>
+          {% if r.images.all %}
+            <ul class="tc-review__photos" aria-label="Фото відгуку">
+              {% for img in r.images.all %}
+                <li>
+                  <a href="{{ img.image.url }}" target="_blank" rel="noopener">
+                    <img src="{{ img.image.url }}" alt="Фото відгуку" loading="lazy" decoding="async" width="120" height="120">
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          <footer class="tc-review__foot">
+            <span class="tc-review__author">{{ r.author_name }}</span>
+            <span class="tc-review__sep" aria-hidden="true">·</span>
+            <time datetime="{{ r.created_at|date:'c' }}">{{ r.created_at|date:'d.m.Y' }}</time>
+            {% if r.helpful_count or r.unhelpful_count %}
+              <span class="tc-review__sep" aria-hidden="true">·</span>
+              <span class="tc-review__helpful">👍 {{ r.helpful_count }}</span>
+            {% endif %}
+          </footer>
+        </li>
+      {% endfor %}
+    </ol>
+  {% endif %}
+</section>

@@ -75,9 +75,12 @@ CSS rules на mobile FCP/LCP window.
 {% endcomment %}
 <link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}?v=20260510-phase15-v1" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="{% static 'css/product-seo-landing.css' %}?v=20260510-phase15-v1" media="print" onload="this.media='all'">
+{# Phase 21 — review block (loaded async, below the fold). #}
+<link rel="stylesheet" href="{% static 'css/product-reviews.css' %}?v=20260510-phase21-v1" media="print" onload="this.media='all'">
 <noscript>
   <link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}?v=20260510-phase15-v1">
   <link rel="stylesheet" href="{% static 'css/product-seo-landing.css' %}?v=20260510-phase15-v1">
+  <link rel="stylesheet" href="{% static 'css/product-reviews.css' %}?v=20260510-phase21-v1">
 </noscript>
 {% endblock %}
 
@@ -541,6 +544,8 @@ CSS rules на mobile FCP/LCP window.
       {% endif %}
     </section>
   </div>
+
+  {% include "partials/product_reviews.html" %}
 
   {% if recommended_products %}
     {% cache 3600 product_detail_recommendations product.id public_product_order_version recommended_product_ids using="fragments" %}
