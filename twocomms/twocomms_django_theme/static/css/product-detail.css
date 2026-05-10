@@ -1730,7 +1730,8 @@ html[data-route-name="product"] .breadcrumb-nav {
   line-height: 1.25;
 }
 
-.tc-purchase-side span {
+.tc-purchase-side span,
+.tc-purchase-side .tc-purchase-trust-link {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 8px;
@@ -1739,6 +1740,35 @@ html[data-route-name="product"] .breadcrumb-nav {
 
 .tc-purchase-side svg {
   color: rgba(255, 255, 255, 0.56);
+  flex-shrink: 0;
+}
+
+/* Phase 21 (PR-7) — trust badges as deep links to support pages.
+ * Visually identical to the prior <span> chips; we only paint a
+ * subtle hover so users get the affordance hint without breaking
+ * the existing buybox layout. */
+.tc-purchase-side .tc-purchase-trust-link {
+  color: var(--pdp-soft);
+  text-decoration: none;
+  border-radius: 8px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  transition: background 120ms ease, color 120ms ease;
+}
+.tc-purchase-side .tc-purchase-trust-link:hover,
+.tc-purchase-side .tc-purchase-trust-link:focus-visible {
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+}
+.tc-purchase-side .tc-purchase-trust-link:hover svg,
+.tc-purchase-side .tc-purchase-trust-link:focus-visible svg {
+  color: #ffd24d;
+}
+.tc-purchase-side .tc-purchase-trust-link small {
+  display: block;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.72rem;
+  margin-top: 1px;
 }
 
 .tc-points-line {

@@ -74,8 +74,8 @@
 - [x] T12.1 `ProductFAQ` уже был admin-driven (не автоген) — проверено
 - [x] T12.2 `{% faq_schema product_faq_items %}` убран с PDP (FAQ остаётся видимым, без JSON-LD)
 - [x] T12.3 FAQPage schema остаётся на support_page.html в т.ч. /faq/, /delivery/, /povernennya-ta-obmin/, /cooperation/, /pro-brand/, /custom-print/, /wholesale/
-- [ ] T13.1 PDP cross-links → support pages (отложено на следующую итерацию)
-- [ ] T13.2 Support pages → category links (отложено)
+- [x] T13.1 PDP buybox-trust badges теперь ссылаются на /delivery/, /povernennya-ta-obmin/, /rozmirna-sitka/
+- [ ] T13.2 Support pages → category links (отложено — требует ревью SUPPORT_PAGE_DEFINITIONS)
 - [ ] T14 Топ-20 unique copy (отдельным трекингом, требует ручной выверки)
 
 ## PR-6: schema graph + feed + images + IndexNow [partial — T16, T17 done]
@@ -90,11 +90,11 @@
 - [ ] T18.2 Dry-run reindex_indexnow
 - [ ] T18.3 Логи accepted submissions
 
-## PR-7: trust + a11y
-- [ ] T19.1 Factual badges около CTA в PDP
-- [ ] T19.2 Линки на support pages
-- [ ] T20.1 Lighthouse + ручная проверка ключевых страниц
-- [ ] T20.2 Touch targets, focus, contrast, lazy-load reviews
+## PR-7: trust + a11y [partial — T19 done, T20 deferred]
+- [x] T19.1 Factual trust badges (Доставка 1-3 дні / Обмін 14 днів / Розмірна сітка) рядом с «Add to cart»
+- [x] T19.2 Баджи стали дееп-линками (focus-visible, hover affordance, focus ring от браузера)
+- [ ] T20.1 Lighthouse + ручная проверка ключевых страниц (после deploy)
+- [ ] T20.2 Touch targets / focus / contrast / lazy reviews — отложено (требует отдельного a11y аудита)
 
 ---
 
