@@ -92,7 +92,11 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
   <details class="tc-reviews__form-wrap">
     <summary class="tc-reviews__form-toggle">
       <span class="tc-reviews__form-plus" aria-hidden="true"></span>
-      <span>Залишити відгук</span>
+      <span class="tc-reviews__form-toggle-label">Залишити відгук</span>
+      <span class="tc-reviews__form-toggle-hint">Поділіться досвідом — модерація 1–2 дні</span>
+      <span class="tc-reviews__form-toggle-chev" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path d="M7.4 5.6 6 7l5 5-5 5 1.4 1.4L13.8 12 7.4 5.6Z" fill="currentColor"/></svg>
+      </span>
     </summary>
     {% if messages %}
       <div class="tc-reviews__messages" role="status">

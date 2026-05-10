@@ -1551,11 +1551,11 @@ html[data-route-name="product"] .breadcrumb-nav {
 
 .tc-purchase-bar {
   display: grid;
-  grid-template-columns: minmax(112px, 0.24fr) minmax(252px, 1fr) minmax(218px, 0.54fr);
-  gap: 12px;
-  align-items: center;
+  grid-template-columns: minmax(120px, 0.28fr) minmax(244px, 1fr) minmax(232px, 0.6fr);
+  gap: 16px;
+  align-items: stretch;
   margin-top: 12px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border: 1px solid rgba(141, 92, 255, 0.25);
   border-radius: var(--pdp-radius-md);
   background:
@@ -1734,8 +1734,10 @@ html[data-route-name="product"] .breadcrumb-nav {
 .tc-purchase-side {
   display: grid;
   grid-template-columns: 1fr;
-  align-content: center;
-  gap: 7px;
+  grid-auto-rows: 1fr;
+  align-content: stretch;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
   color: var(--pdp-soft);
   font-size: 0.76rem;
@@ -1768,9 +1770,9 @@ html[data-route-name="product"] .breadcrumb-nav {
   text-decoration: none;
   border-radius: 8px;
   min-width: 0;
-  min-height: 34px;
-  padding: 5px 7px;
-  margin: -3px -7px;
+  min-height: 38px;
+  padding: 6px 8px;
+  margin: 0;
   transition: background 120ms ease, color 120ms ease;
 }
 .tc-purchase-side .tc-purchase-trust-link:hover,
