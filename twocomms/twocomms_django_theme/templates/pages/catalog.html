@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load static %}
 {% load cache %}
 {% load responsive_images %}
@@ -127,84 +128,84 @@
     <div class="catalog-hero__smoke catalog-hero__smoke--right" aria-hidden="true"></div>
     <div class="catalog-redesign-container">
       <nav class="catalog-breadcrumb" aria-label="breadcrumb">
-        <a href="{% url 'home' %}">Головна</a>
+        <a href="{% url 'home' %}">{% trans 'Головна' %}</a>
         <span aria-hidden="true">›</span>
         {% if category %}
-        <a href="{% url 'catalog' %}">Каталог</a>
+        <a href="{% url 'catalog' %}">{% trans 'Каталог' %}</a>
         <span aria-hidden="true">›</span>
         <span>{{ category.name }}</span>
         {% else %}
-        <span>Каталог</span>
+        <span>{% trans 'Каталог' %}</span>
         {% endif %}
       </nav>
 
       <div class="catalog-hero__grid">
         <header class="catalog-hero__copy">
-          <p class="catalog-hero__signal">Streetwear / Military-adjacent / Made in Ukraine</p>
+          <p class="catalog-hero__signal">{% trans 'Streetwear / Military-adjacent / Made in Ukraine' %}</p>
           <h1 id="catalog-title" class="catalog-hero__title">
             {% if category %}
             {# Phase 21 — manual SEO H1 override for unique long-tail copy. #}
             {% if category.seo_h1 %}{{ category.seo_h1 }}{% else %}{{ category.name }}{% endif %}
             {% elif is_search_page %}
-            Пошук у каталозі
+            {% trans 'Пошук у каталозі' %}
             {% else %}
-            Каталог<br>одягу
+            {% trans 'Каталог' %}<br>{% trans 'одягу' %}
             {% endif %}
           </h1>
           {% if category and category.description %}
           <p class="catalog-hero__lead">{{ category.description|striptags|truncatewords:25 }}</p>
           {% elif is_search_page %}
-          <p class="catalog-hero__lead">Результати за запитом «{{ query|default:"" }}» у каталозі TwoComms.</p>
+          <p class="catalog-hero__lead">{% blocktrans with q=query|default:'' %}Результати за запитом «{{ q }}» у каталозі TwoComms.{% endblocktrans %}</p>
           {% else %}
-          <p class="catalog-hero__lead">Обирайте футболки, худі та лонгсліви з авторськими принтами, українським виробництвом та швидкою доставкою по всій країні.</p>
+          <p class="catalog-hero__lead">{% trans 'Обирайте футболки, худі та лонгсліви з авторськими принтами, українським виробництвом та швидкою доставкою по всій країні.' %}</p>
           {% endif %}
 
-          <div class="catalog-hero__features" aria-label="Переваги TwoComms">
+          <div class="catalog-hero__features" aria-label="{% trans 'Переваги TwoComms' %}">
             <div class="catalog-feature">
               <span class="catalog-feature__icon" aria-hidden="true">
                 <img src="{% static 'img/logo1.svg' %}" width="22" height="22" alt="">
               </span>
-              <span><strong>Дизайни</strong><small>власного виробництва</small></span>
+              <span><strong>{% trans 'Дизайни' %}</strong><small>{% trans 'власного виробництва' %}</small></span>
             </div>
             <div class="catalog-feature">
               <span class="catalog-feature__icon" aria-hidden="true">
                 <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M12 3 4.5 6v5.4c0 4.5 3.1 8.7 7.5 9.8 4.4-1.1 7.5-5.3 7.5-9.8V6L12 3Zm0 2.2 5.5 2.2v4c0 3.3-2.2 6.5-5.5 7.6-3.3-1.1-5.5-4.3-5.5-7.6v-4L12 5.2Zm3.4 5.1-4.2 4.2-2.1-2.1-1.3 1.4 3.4 3.4 5.5-5.5-1.3-1.4Z"/></svg>
               </span>
-              <span><strong>Якість</strong><small>преміум матеріалів</small></span>
+              <span><strong>{% trans 'Якість' %}</strong><small>{% trans 'преміум матеріалів' %}</small></span>
             </div>
             <div class="catalog-feature">
               <span class="catalog-feature__icon" aria-hidden="true">
                 <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H15v4h2.9L21 11.7V17h-2.1a3 3 0 0 1-5.8 0H10a3 3 0 0 1-5.8 0H3V6.5ZM5.5 6a.5.5 0 0 0-.5.5V15h.8a3 3 0 0 1 3.4 0H13V6H5.5ZM15 10v5h.8a3 3 0 0 1 3.2 0v-2.6L17 10h-2Zm-8 7a1 1 0 1 0 2 0 1 1 0 0 0-2 0Zm8 0a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z"/></svg>
               </span>
-              <span><strong>Доставка</strong><small>по всій Україні</small></span>
+              <span><strong>{% trans 'Доставка' %}</strong><small>{% trans 'по всій Україні' %}</small></span>
             </div>
           </div>
         </header>
 
-        <aside class="catalog-print-panel" aria-label="Створити свій дизайн" data-catalog-print-panel>
+        <aside class="catalog-print-panel" aria-label="{% trans 'Створити свій дизайн' %}" data-catalog-print-panel>
           <div class="catalog-print-panel__copy">
-            <h2>Створи свій<br>дизайн</h2>
-            <p>Свій принт. Своя ідея.<br>Своє розташування.</p>
+            <h2>{% trans 'Створи свій' %}<br>{% trans 'дизайн' %}</h2>
+            <p>{% trans 'Свій принт. Своя ідея.' %}<br>{% trans 'Своє розташування.' %}</p>
           </div>
-          <div class="catalog-print-tools" aria-label="Етапи створення принта">
+          <div class="catalog-print-tools" aria-label="{% trans 'Етапи створення принта' %}">
             <button type="button" class="catalog-print-tool is-active" data-print-mode="print" aria-pressed="true">
               <svg width="26" height="26" viewBox="0 0 24 24" focusable="false"><path d="M5 5h14v14H5V5Zm2 2v7.6l2.4-2.4 2.7 2.7 3.1-3.8L17 13.3V7H7Zm0 10h10l-1.7-2-3 3-2.9-2.9L7 17Zm3-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/></svg>
-              Свій принт
+              {% trans 'Свій принт' %}
             </button>
             <button type="button" class="catalog-print-tool" data-print-mode="idea" aria-pressed="false">
               <svg width="26" height="26" viewBox="0 0 24 24" focusable="false"><path d="M11 3h2v3h-2V3Zm7.1 2.5 1.4 1.4-2.1 2.1L16 7.6l2.1-2.1ZM4.5 6.9l1.4-1.4L8 7.6 6.6 9 4.5 6.9ZM12 8a5 5 0 0 1 3 9v2H9v-2a5 5 0 0 1 3-9Zm0 2a3 3 0 0 0-1.7 5.5l.7.5v1h2v-1l.7-.5A3 3 0 0 0 12 10Zm-3 10h6v2H9v-2Z"/></svg>
-              Своя ідея
+              {% trans 'Своя ідея' %}
             </button>
             <button type="button" class="catalog-print-tool" data-print-mode="placement" aria-pressed="false">
               <svg width="26" height="26" viewBox="0 0 24 24" focusable="false"><path d="m7 4 3 2h4l3-2 4 4-3 3v9H6v-9L3 8l4-4Zm.3 2.5L5.8 8 8 10.2V18h8v-7.8L18.2 8l-1.5-1.5-2.1 1.4H9.4L7.3 6.5Z"/></svg>
-              Своє розташування
+              {% trans 'Своє розташування' %}
             </button>
           </div>
           <div class="catalog-print-preview" data-print-preview data-print-mode="print">
-            <img src="{% static 'img/catalog/catalog-hoodies.webp' %}" width="1280" height="853" alt="Приклад чорного худі TwoComms з власним принтом" loading="eager" decoding="async" fetchpriority="low">
+            <img src="{% static 'img/catalog/catalog-hoodies.webp' %}" width="1280" height="853" alt="{% trans 'Приклад чорного худі TwoComms з власним принтом' %}" loading="eager" decoding="async" fetchpriority="low">
             <span class="catalog-print-preview__mist" aria-hidden="true"></span>
             <span class="catalog-print-zone" aria-hidden="true">
-              <span class="catalog-print-zone__label">Зона друку</span>
+              <span class="catalog-print-zone__label">{% trans 'Зона друку' %}</span>
               <span class="catalog-print-zone__handle catalog-print-zone__handle--tl"></span>
               <span class="catalog-print-zone__handle catalog-print-zone__handle--tr"></span>
               <span class="catalog-print-zone__handle catalog-print-zone__handle--br"></span>
@@ -212,17 +213,17 @@
             </span>
           </div>
           <a class="catalog-print-cta" href="{% url 'custom_print' %}">
-            <span>Створити свій принт</span>
+            <span>{% trans 'Створити свій принт' %}</span>
             <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 20 12l-6.5 6.5-1.4-1.4 4.1-4.1H4v-2h12.2l-4.1-4.1 1.4-1.4Z"/></svg>
           </a>
-          <p class="catalog-print-panel__note">Від 1 одиниці • Швидке виготовлення</p>
+          <p class="catalog-print-panel__note">{% trans 'Від 1 одиниці • Швидке виготовлення' %}</p>
         </aside>
       </div>
 
       {% if not show_category_cards %}
-      <nav class="catalog-filter-rail" aria-label="Фільтр категорій">
+      <nav class="catalog-filter-rail" aria-label="{% trans 'Фільтр категорій' %}">
         <a href="{% url 'catalog' %}" class="{% if not category and not is_search_page %}is-active{% endif %}">
-          <img src="{% static 'img/icons/all.svg' %}" width="18" height="18" alt=""> Усі товари
+          <img src="{% static 'img/icons/all.svg' %}" width="18" height="18" alt=""> {% trans 'Усі товари' %}
         </a>
         {% for c in categories %}
         <a href="{% url 'catalog_by_cat' c.slug %}" class="{% if category and category.id == c.id %}is-active{% endif %}">
@@ -240,7 +241,7 @@
       {% include "partials/color_filter_chips.html" %}
 
       {% if show_category_cards and catalog_showcase_cards %}
-      <section class="catalog-showcase" aria-label="Категорії одягу TwoComms">
+      <section class="catalog-showcase" aria-label="{% trans 'Категорії одягу TwoComms' %}">
         {% for card in catalog_showcase_cards %}
         <a class="catalog-showcase-card catalog-showcase-card--{{ card.key }}" href="{% if card.category %}{% url 'catalog_by_cat' card.category.slug %}{% else %}{% url 'catalog' %}{% endif %}">
           <span class="catalog-showcase-card__media">
@@ -250,7 +251,7 @@
           <span class="catalog-showcase-card__meta">
             <span class="catalog-showcase-card__number">{{ card.number }}</span>
             {% if card.product_count != None %}
-            <span class="catalog-showcase-card__count">{{ card.product_count }} товарів</span>
+            <span class="catalog-showcase-card__count">{% blocktrans count counter=card.product_count %}{{ counter }} товар{% plural %}{{ counter }} товарів{% endblocktrans %}</span>
             {% endif %}
           </span>
           <span class="catalog-showcase-card__swatches" aria-hidden="true">
@@ -269,9 +270,9 @@
         </a>
         {% endfor %}
       </section>
-      <nav class="catalog-filter-rail catalog-filter-rail--after-showcase" aria-label="Усі категорії">
+      <nav class="catalog-filter-rail catalog-filter-rail--after-showcase" aria-label="{% trans 'Усі категорії' %}">
         <a href="{% url 'catalog' %}" class="is-active">
-          <img src="{% static 'img/icons/all.svg' %}" width="18" height="18" alt=""> Усі товари
+          <img src="{% static 'img/icons/all.svg' %}" width="18" height="18" alt=""> {% trans 'Усі товари' %}
         </a>
         {% for c in categories %}
         <a href="{% url 'catalog_by_cat' c.slug %}">
@@ -290,7 +291,7 @@
 
   {% if category and category.seo_intro_html %}
   {# Phase 10b — short intro under H1 with optional collapsible (mirrors AAC pattern). #}
-  <section class="catalog-category-intro" aria-label="Опис категорії">
+  <section class="catalog-category-intro" aria-label="{% trans 'Опис категорії' %}">
     <div class="catalog-redesign-container">
       <div class="catalog-intro-panel">
         {{ category.seo_intro_html|safe }}
@@ -300,12 +301,12 @@
   {% endif %}
 
   {% if not show_category_cards %}
-  <section class="catalog-products-section" aria-label="{% if is_search_page %}Результати пошуку{% else %}Товари категорії{% endif %}">
+  <section class="catalog-products-section" aria-label="{% if is_search_page %}{% trans 'Результати пошуку' %}{% else %}{% trans 'Товари категорії' %}{% endif %}">
     <div class="catalog-redesign-container">
       {% if is_search_page %}
       <div class="catalog-section-head">
-        <h2>Результати пошуку</h2>
-        <p>{{ results_count|default:0 }} товарів знайдено</p>
+        <h2>{% trans 'Результати пошуку' %}</h2>
+        <p>{% blocktrans count counter=results_count|default:0 %}{{ counter }} товар знайдено{% plural %}{{ counter }} товарів знайдено{% endblocktrans %}</p>
       </div>
       {% endif %}
 
@@ -322,7 +323,7 @@
           {% endcache %}
           {% if p.colors_preview %}
           <div class="product-card-dots">
-            <span class="text-secondary small me-1">Кольори:</span>
+            <span class="text-secondary small me-1">{% trans 'Кольори:' %}</span>
             <div class="d-flex align-items-center gap-1">
               {% for v in p.colors_preview %}
               <span class="color-dot" title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}"
@@ -334,7 +335,7 @@
           {% endif %}
         </div>
         {% empty %}
-        <div class="text-secondary small">Немає товарів.</div>
+        <div class="text-secondary small">{% trans 'Немає товарів.' %}</div>
         {% endfor %}
       </div>
       {% endcache %}
@@ -344,7 +345,7 @@
         <ul class="pagination justify-content-center">
           {% if page_obj.has_previous %}
           <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Попередня">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="{% trans 'Попередня' %}">
               <span aria-hidden="true">&laquo;</span>
             </a>
           </li>
@@ -364,7 +365,7 @@
 
           {% if page_obj.has_next %}
           <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Наступна">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="{% trans 'Наступна' %}">
               <span aria-hidden="true">&raquo;</span>
             </a>
           </li>
@@ -389,7 +390,7 @@
   on every catalog screen.
   {% endcomment %}
   {% if category_seo_layout.has_any %}
-  <section class="catalog-category-seo-blocks" aria-label="Додаткові розділи каталогу">
+  <section class="catalog-category-seo-blocks" aria-label="{% trans 'Додаткові розділи каталогу' %}">
     <div class="catalog-redesign-container">
       {% include "partials/category_seo_blocks.html" %}
     </div>
