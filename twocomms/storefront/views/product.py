@@ -500,6 +500,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     # initial render, with helpful_count first as a tie-breaker.
     from reviews.models import Review as _Review, ReviewStatus as _RS
     from reviews.services.aggregate import aggregate_rating_for_product as _aggregate
+    from reviews.services.permissions import has_paid_order_with_product as _has_paid_order
     product_review_summary = _aggregate(product)
     approved_reviews = list(
         _Review.objects
@@ -508,6 +509,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         .prefetch_related("images")
         .order_by("-helpful_count", "-created_at")[:10]
     )
+    product_customer_has_paid_order = _has_paid_order(request.user, product)
 
     # Phase 21 (2026-05-10) — resolve the actual ProductColorVariant
     # instance for the active colour so Product schema / OG / Twitter
@@ -570,6 +572,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             # ``count >= 3`` before rendering the rating chip.
             'product_review_summary': product_review_summary,
             'approved_reviews': approved_reviews,
+            'product_customer_has_paid_order': product_customer_has_paid_order,
             # Phase 15 — per-product SEO landing block.
             'product_seo_landing': product_seo_landing,
         }

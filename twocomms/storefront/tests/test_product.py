@@ -14,7 +14,9 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from orders.models import Order, OrderItem
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
+from reviews.models import Review, ReviewStatus
 from storefront.models import Category, Product, ProductFAQ, ProductFitOption, ProductImage
 
 PNG_PIXEL = (
@@ -123,8 +125,9 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'data-pdp-tab="delivery"', html=False)
         self.assertContains(response, 'id="panel-delivery"', html=False)
         self.assertContains(response, 'data-add-to-cart=', html=False)
-        self.assertContains(response, 'product-detail.css?v=20260428-faq-alt-v1', html=False)
+        self.assertContains(response, 'product-detail.css?v=20260510-pdp-reviews-v1', html=False)
         self.assertContains(response, 'product-media-fit.css?v=20260428-media-fit-v1', html=False)
+        self.assertContains(response, 'product-reviews.css?v=20260510-pdp-reviews-v1', html=False)
         self.assertContains(response, 'product-detail.js?v=20260428-image-alt-faq-v1', html=False)
         self.assertContains(response, 'product-media-fit.js?v=20260428-media-fit-v1', html=False)
 
@@ -161,6 +164,85 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertIn("flex: 0 0 68px", css)
         self.assertIn(".btn-check:focus-visible + .tc-size-option", css)
         self.assertNotIn("grid-template-columns: repeat(5, 68px)", css)
+
+    def test_product_detail_purchase_bar_cta_does_not_stretch_to_trust_column(self):
+        css_path = Path(__file__).resolve().parents[2] / "twocomms_django_theme/static/css/product-detail.css"
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertIn("grid-template-columns: minmax(112px, 0.24fr) minmax(252px, 1fr) minmax(218px, 0.54fr)", css)
+        self.assertIn("align-items: center", css)
+        self.assertIn("height: 62px", css)
+        self.assertIn("max-height: 68px", css)
+        self.assertIn(".tc-purchase-side .tc-purchase-trust-link span", css)
+        self.assertIn('body:has(#product-reviews .tc-reviews__form-wrap[open]) .tc-sticky-mobile', css)
+
+    def test_product_detail_reviews_prefill_registered_buyer_identity(self):
+        User = get_user_model()
+        user = User.objects.create_user(
+            username="reviewbuyer",
+            password="x",
+            first_name="Олена",
+            last_name="Клієнт",
+            email="buyer@example.com",
+        )
+        order = Order.objects.create(
+            user=user,
+            full_name="Олена Клієнт",
+            phone="+380991112233",
+            email="buyer@example.com",
+            city="Kyiv",
+            np_office="1",
+            pay_type="cod",
+            payment_status="paid",
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            qty=1,
+            unit_price=1000,
+            line_total=1000,
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse("product", args=[self.product.slug]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["product_customer_has_paid_order"])
+        self.assertContains(response, "Ви увійшли як клієнт")
+        self.assertContains(response, "Олена Клієнт")
+        self.assertContains(response, "Купівля цього товару підтверджена")
+        self.assertContains(response, 'value="Олена Клієнт"', html=False)
+        self.assertContains(response, 'value="buyer@example.com"', html=False)
+
+    def test_product_detail_review_cards_show_account_and_purchase_statuses(self):
+        User = get_user_model()
+        buyer = User.objects.create_user(username="verified-reviewer", password="x")
+        Review.objects.create(
+            product=self.product,
+            user=buyer,
+            author_name="Покупець",
+            rating=5,
+            title="Сильна якість",
+            body="Тканина щільна, посадка рівна, принт після прання без змін.",
+            status=ReviewStatus.APPROVED,
+            is_verified_purchase=True,
+        )
+        Review.objects.create(
+            product=self.product,
+            author_name="Гість",
+            rating=4,
+            body="Гарний товар, але покупку на акаунт не привʼязував.",
+            status=ReviewStatus.APPROVED,
+            is_verified_purchase=False,
+        )
+
+        response = self.client.get(reverse("product", args=[self.product.slug]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Зареєстрований користувач")
+        self.assertContains(response, "Купив товар")
+        self.assertContains(response, "Гостьовий відгук")
+        self.assertContains(response, "Покупка не підтверджена")
 
     def test_product_detail_media_fit_assets_define_wide_only_cover_mode(self):
         static_root = Path(__file__).resolve().parents[2] / "twocomms_django_theme/static"
@@ -200,9 +282,11 @@ class ProductDetailTests(ProductViewTestCase):
         response = self.client.get(
             reverse("product", args=[self.product.slug]),
             {"color": str(selected_variant.pk)},
+            follow=True,
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.redirect_chain[0][1], 301)
         self.assertEqual(response.context["preselected_color"], selected_variant.pk)
         self.assertEqual(response.context["color_variants"][0]["id"], selected_variant.pk)
 
@@ -271,9 +355,14 @@ class ProductDetailTests(ProductViewTestCase):
             order=1,
         )
 
-        response = self.client.get(reverse("product", args=[product.slug]), {"fit": "oversize"})
+        response = self.client.get(
+            reverse("product", args=[product.slug]),
+            {"fit": "oversize"},
+            follow=True,
+        )
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.redirect_chain[0][1], 301)
         self.assertEqual(response.context["preselected_fit_code"], "oversize")
         self.assertContains(response, 'id="fit-oversize"', html=False)
         self.assertContains(response, 'value="oversize"', html=False)
@@ -331,7 +420,7 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'id="panel-faq"', html=False)
         self.assertContains(response, "FAQ товару")
         self.assertContains(response, "Це футболка унісекс.")
-        self.assertContains(response, '"@type": "FAQPage"', html=False)
+        self.assertNotContains(response, '"@type": "FAQPage"', html=False)
         self.assertNotContains(response, "Неактивне питання")
 
 
