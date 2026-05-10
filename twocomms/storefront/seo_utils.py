@@ -716,6 +716,42 @@ class StructuredDataGenerator:
                     "worstRating": "1",
                 }
 
+                # Nested top-5 Review JSON-LD. Live-queried here so the
+                # schema mirrors what's currently on the page; the same
+                # threshold (>=3 approved) gates surfacing — sub-3 sites
+                # don't get rich-result review snippets either.
+                try:
+                    from reviews.models import Review as _Review, ReviewStatus as _RS
+                    top_reviews = list(
+                        _Review.objects
+                        .filter(product=product, status=_RS.APPROVED)
+                        .order_by("-helpful_count", "-created_at")[:5]
+                    )
+                except Exception:
+                    top_reviews = []
+                review_blocks = []
+                for r in top_reviews:
+                    block = {
+                        "@type": "Review",
+                        "reviewRating": {
+                            "@type": "Rating",
+                            "ratingValue": str(int(r.rating)),
+                            "bestRating": "5",
+                            "worstRating": "1",
+                        },
+                        "author": {"@type": "Person", "name": r.author_name or "TwoComms клієнт"},
+                        "datePublished": r.created_at.date().isoformat() if r.created_at else "",
+                    }
+                    if r.title:
+                        block["name"] = r.title
+                    if r.body:
+                        # Cap to 600 chars — Google ignores giant review
+                        # bodies and we don't want to bloat per-page schema.
+                        block["reviewBody"] = (r.body[:600] + "…") if len(r.body) > 600 else r.body
+                    review_blocks.append(block)
+                if review_blocks:
+                    schema["review"] = review_blocks
+
         # Merchant-level properties (age_group, gender, google_product_category)
         age_group = "adult"
         gender = "unisex"

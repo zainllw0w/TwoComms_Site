@@ -123,6 +123,29 @@ class ProductPageSeoRegressionTests(TestCase):
         html = response.content.decode("utf-8")
         self.assertEqual(html.count('"@id": "https://twocomms.shop/#organization"'), 1)
 
+    def test_product_schema_embeds_top5_nested_reviews(self):
+        """Phase 21 (PR-4c3) — when ≥3 approved reviews exist, schema
+        carries up to 5 nested Review blocks for rich-result eligibility.
+        """
+        from reviews.models import Review, ReviewStatus
+        from reviews.services.aggregate import aggregate_rating_for_product
+
+        for i in range(6):
+            Review.objects.create(
+                product=self.product, author_name=f"Reviewer {i}",
+                anon_key=f"k{i}", rating=5 - (i % 5),
+                body="Чудовий товар, рекомендую усім друзям. " * 3,
+                status=ReviewStatus.APPROVED, helpful_count=6 - i,
+            )
+        summary = aggregate_rating_for_product(self.product)
+        schema = json.loads(get_product_schema(self.product, review_summary=summary))
+        self.assertIn("review", schema)
+        self.assertEqual(len(schema["review"]), 5)
+        for block in schema["review"]:
+            self.assertEqual(block["@type"], "Review")
+            self.assertIn("reviewRating", block)
+            self.assertIn("author", block)
+
     def test_product_schema_embeds_aggregate_rating_only_above_threshold(self):
         """Phase 21 (PR-4b) — Product schema's ``aggregateRating`` block
         is gated by ``ProductReviewSummary.show_rating`` (i.e. ≥3
