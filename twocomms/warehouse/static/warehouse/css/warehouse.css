@@ -32,6 +32,15 @@
     box-sizing: border-box;
 }
 
+/* Flex/grid items default to min-content; let them shrink inside their parent */
+.wh-app, .wh-main, .wh-card, .wh-list__item, .wh-list__body,
+.wh-subcat-block, .wh-subcat-block__head, .wh-subcat-block__title,
+.wh-mc, .wh-mc__head, .wh-mc__color,
+.wh-product-picker, .wh-product-picker__toolbar,
+.wh-pp-group, .wh-pp-group__head, .wh-pp-card, .wh-pp-card__body {
+    min-width: 0;
+}
+
 html, body {
     margin: 0;
     padding: 0;
@@ -42,6 +51,23 @@ html, body {
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Lock horizontal page scroll — only vertical panning */
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+    /* Disable iOS Safari rubber-band horizontal drag */
+    overscroll-behavior-x: none;
+    /* Tell touch-screen browsers we only handle vertical gestures */
+    touch-action: pan-y;
+}
+
+html {
+    /* Belt-and-suspenders: nothing in <html> may overflow horizontally */
+    overflow-x: clip;
+}
+
+body {
+    position: relative;
 }
 
 a {
@@ -60,6 +86,10 @@ a:hover {
     padding-bottom: 80px; /* room for bottom nav */
     display: flex;
     flex-direction: column;
+    /* Belt-and-suspenders horizontal lock — anything overflowing must scroll internally */
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: clip;
 }
 
 .wh-header {
@@ -132,6 +162,10 @@ a:hover {
     max-width: 720px;
     width: 100%;
     margin: 0 auto;
+    /* Prevent inline content (long words / pre / urls) from pushing past viewport */
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 @media (min-width: 920px) {
@@ -150,6 +184,37 @@ a:hover {
     padding: 16px;
     margin-bottom: 14px;
     box-shadow: var(--shadow-card);
+    /* Card never extends past parent — children must scroll internally if needed */
+    max-width: 100%;
+    min-width: 0;
+}
+
+/* <pre>/<code> blocks must scroll internally and never bust the layout */
+.wh-app pre {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: pre;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+}
+
+.wh-app code {
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    max-width: 100%;
+}
+
+.wh-app pre code {
+    /* Keep formatting inside <pre>; do not break */
+    word-break: normal;
+    overflow-wrap: normal;
+}
+
+/* Images: never overflow */
+.wh-app img {
+    max-width: 100%;
+    height: auto;
 }
 
 .wh-card--accent {
@@ -295,6 +360,18 @@ a:hover {
     flex-direction: column;
     gap: 6px;
     margin-bottom: 14px;
+    /* Critical for nested flex/grid: allow shrinking below intrinsic width */
+    min-width: 0;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
 }
 
 .form-field label {
@@ -321,6 +398,15 @@ textarea {
     min-height: 44px;
     outline: none;
     transition: border-color 0.15s ease;
+    /* Critical: prevent select/textarea from growing wider than their parent
+       when a long <option> is present (iPhone SE 320px) */
+    max-width: 100%;
+    width: 100%;
+}
+
+/* Selects with long options should not expand the parent container */
+select {
+    text-overflow: ellipsis;
 }
 
 input:focus, select:focus, textarea:focus {
@@ -343,6 +429,8 @@ textarea {
 .wh-card:has(> .wh-table) {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    /* Allow horizontal pan inside (overrides body pan-y) */
+    touch-action: pan-x pan-y;
 }
 
 .wh-table {
@@ -389,6 +477,8 @@ textarea {
     border: 1px solid var(--border-soft);
     border-radius: var(--radius-sm);
     background: var(--bg-card);
+    /* Allow horizontal pan inside even though body locks it to pan-y */
+    touch-action: pan-x pan-y;
     /* Scroll-shadow: gradient on right edge to hint "scroll here" */
     background-image:
         linear-gradient(to right, var(--bg-card), var(--bg-card)),
