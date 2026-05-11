@@ -599,6 +599,11 @@ def _build_page_context(request, page_key):
         raise Http404("Support page not found")
 
     page = deepcopy(SUPPORT_PAGE_DEFINITIONS[page_key])
+    # Phase 17d.7 — translate top-level meta + hero fields per active language.
+    from ..support_translations import apply_language_overrides
+    page = apply_language_overrides(
+        page, page_key, getattr(request, "LANGUAGE_CODE", "uk") or "uk"
+    )
     page["key"] = page_key
     page["schema_type"] = page.get("schema_type") or ("CollectionPage" if page_key in {"faq", "site_map_page", "news"} else "WebPage")
     page["intro_links"] = [_hydrate_link_payload(link) for link in page.get("intro_links", [])]
