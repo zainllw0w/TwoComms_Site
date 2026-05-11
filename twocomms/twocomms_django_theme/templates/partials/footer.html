@@ -5,7 +5,7 @@
 <footer class="site-footer-premium">
   <div class="container-xxl">
     <div class="footer-signature">
-      <div class="footer-tagline">{{ footer_content.brand.tagline|default:"Streetwear / Military-adjacent / Made in Ukraine" }}</div>
+      <div class="footer-tagline">{% if footer_content.brand.tagline %}{{ footer_content.brand.tagline }}{% else %}{% trans 'Streetwear / Military-adjacent / Made in Ukraine' %}{% endif %}</div>
       <div class="footer-brand-lockup">
         <span class="footer-brand-logo">
           {# Phase 21 — explicit intrinsic size (viewBox 680.3x737) so the browser reserves the aspect ratio before CSS applies; prevents CLS in the footer brand block. #}
@@ -172,7 +172,7 @@
     </div>
 
     <div class="footer-bottom">
-      <div class="footer-rights">{{ footer_content.rights|default:"All Rights Reserved © TWOCOMMS, 2026" }}</div>
+      <div class="footer-rights">{% if footer_content.rights %}{{ footer_content.rights }}{% else %}{% trans 'All Rights Reserved © TWOCOMMS, 2026' %}{% endif %}</div>
     </div>
   </div>
 </footer>
