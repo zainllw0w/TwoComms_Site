@@ -92,6 +92,12 @@ urlpatterns = [
         views.settings_subcategory_toggle,
         name="settings_subcategory_toggle",
     ),
+    path("settings/telegram/", views.settings_telegram, name="settings_telegram"),
+    path(
+        "settings/telegram/test/",
+        views.settings_telegram_test,
+        name="settings_telegram_test",
+    ),
     path("settings/colors/", views.settings_colors, name="settings_colors"),
     path(
         "settings/colors/new/",

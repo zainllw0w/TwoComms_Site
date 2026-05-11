@@ -24,8 +24,13 @@
             </option>
             {% endfor %}
         </select>
-        <span class="form-help">Немає потрібної? <a href="{% url 'warehouse:settings_subcategory_new' %}">Створити нову</a></span>
+        <span class="form-help">
+            Немає потрібної? <a href="{% url 'warehouse:settings_subcategory_new' %}">Створити нову</a>
+            · Кольори фільтруються за обраним кроєм (якщо задано).
+        </span>
     </div>
+
+    <script id="sub-colors-map" type="application/json">{{ sub_colors_map_json|safe }}</script>
 
     <div class="form-field">
         <label for="cost_price">Собівартість одиниці (₴)</label>
@@ -140,10 +145,46 @@
         const addBtn = document.getElementById('bulk-add-row');
         const rowsContainer = document.getElementById('bulk-rows');
         const tpl = document.getElementById('bulk-row-template');
+        const subSelect = document.getElementById('subcategory_id');
+
+        // Subcategory → allowed color_ids mapping (empty = no restriction)
+        let subColorsMap = {};
+        try {
+            subColorsMap = JSON.parse(document.getElementById('sub-colors-map').textContent || '{}');
+        } catch (e) { subColorsMap = {}; }
+
+        function applyColorFilter() {
+            const subId = subSelect ? subSelect.value : '';
+            const allowed = subColorsMap[subId];  // undefined OR array of ids (as numbers)
+            const allowSet = allowed ? new Set(allowed.map(String)) : null;
+            document.querySelectorAll('select.color-select').forEach(function (sel) {
+                let firstVisible = null;
+                Array.from(sel.options).forEach(function (opt) {
+                    // Always keep "" (none) and "+ create" options
+                    if (opt.value === '' || opt.value === '__new__') {
+                        opt.hidden = false;
+                        return;
+                    }
+                    const ok = !allowSet || allowSet.has(opt.value);
+                    opt.hidden = !ok;
+                    if (ok && firstVisible === null) firstVisible = opt;
+                });
+                // If current selection is hidden — reset to first visible (or empty)
+                if (sel.value && sel.selectedOptions[0] && sel.selectedOptions[0].hidden) {
+                    sel.value = firstVisible ? firstVisible.value : '';
+                }
+            });
+        }
+
+        if (subSelect) {
+            subSelect.addEventListener('change', applyColorFilter);
+            applyColorFilter();  // run once on load
+        }
 
         addBtn.addEventListener('click', function () {
             const clone = tpl.content.cloneNode(true);
             rowsContainer.appendChild(clone);
+            applyColorFilter();
         });
 
         rowsContainer.addEventListener('click', function (e) {

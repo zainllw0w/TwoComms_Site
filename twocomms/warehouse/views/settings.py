@@ -17,6 +17,13 @@ from warehouse.models import (
     StorageSubcategory,
 )
 from warehouse.permissions import warehouse_admin_required
+from warehouse.services.telegram_storage import (
+    build_evening_reminder_keyboard,
+    build_evening_reminder_text,
+    get_admin_chat_ids,
+    get_bot_token,
+    send_message,
+)
 
 
 _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -60,6 +67,10 @@ def settings_index(request):
     subcategories_active = StorageSubcategory.objects.filter(is_active=True).count()
     colors_count = Color.objects.count()
 
+    # Telegram bot status
+    bot_token_set = bool(get_bot_token())
+    bot_chat_ids_count = len(get_admin_chat_ids()) if bot_token_set else 0
+
     context = {
         "active_section": "settings",
         "stats": {
@@ -68,6 +79,8 @@ def settings_index(request):
             "subcategories": subcategories_count,
             "subcategories_active": subcategories_active,
             "colors": colors_count,
+            "bot_token_set": bot_token_set,
+            "bot_chat_ids_count": bot_chat_ids_count,
         },
     }
     return render(request, "warehouse/settings/index.html", context)
@@ -212,6 +225,11 @@ def settings_subcategory_form(request, pk: int | None = None):
         messages.error(request, "Спочатку створіть хоча б одну категорію")
         return redirect("warehouse:settings_categories")
 
+    all_colors = Color.objects.all().order_by("name", "primary_hex")
+    selected_color_ids = (
+        list(instance.colors.values_list("id", flat=True)) if instance else []
+    )
+
     if request.method == "POST":
         name = (request.POST.get("name") or "").strip()
         category_id_raw = request.POST.get("category_id")
@@ -229,6 +247,15 @@ def settings_subcategory_form(request, pk: int | None = None):
         is_active = request.POST.get("is_active") == "on"
         is_default = request.POST.get("is_default") == "on"
 
+        # Зчитуємо обрані кольори
+        color_ids_raw = request.POST.getlist("color_ids")
+        color_ids: list[int] = []
+        for cid in color_ids_raw:
+            try:
+                color_ids.append(int(cid))
+            except (ValueError, TypeError):
+                continue
+
         if instance is None:
             instance = StorageSubcategory(category=category, name=name)
         else:
@@ -240,12 +267,20 @@ def settings_subcategory_form(request, pk: int | None = None):
         instance.is_default = is_default
         instance.save()
 
+        # Sync M2M колірів
+        if color_ids:
+            instance.colors.set(Color.objects.filter(pk__in=color_ids))
+        else:
+            instance.colors.clear()
+
         messages.success(request, f"Підкатегорію «{instance.name}» збережено")
         return redirect(f"{reverse('warehouse:settings_subcategories')}?category={category.slug}")
 
     context = {
         "instance": instance,
         "categories": categories,
+        "all_colors": all_colors,
+        "selected_color_ids": set(selected_color_ids),
         "active_section": "settings",
     }
     return render(request, "warehouse/settings/subcategory_form.html", context)
@@ -325,6 +360,133 @@ def settings_color_form(request, pk: int | None = None):
         "active_section": "settings",
     }
     return render(request, "warehouse/settings/color_form.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Telegram bot diagnostics + test broadcast
+# ---------------------------------------------------------------------------
+
+
+@warehouse_admin_required
+def settings_telegram(request):
+    """Сторінка діагностики Storage-бота: статус токена, список адмінів, тестова відправка."""
+    from warehouse.models import WarehouseSettings
+    from django.contrib.auth import get_user_model
+    from django.db.models import Q
+    from warehouse.permissions import WAREHOUSE_GROUP_NAME
+
+    token = get_bot_token()
+    token_masked = (token[:6] + "…" + token[-4:]) if token else ""
+    chat_ids = get_admin_chat_ids()
+
+    User = get_user_model()
+    admins_qs = User.objects.filter(
+        Q(is_superuser=True) | Q(is_staff=True, groups__name=WAREHOUSE_GROUP_NAME),
+        is_active=True,
+    ).distinct().select_related("userprofile")
+
+    admins = []
+    for u in admins_qs:
+        profile = getattr(u, "userprofile", None)
+        tg_id = getattr(profile, "telegram_id", None) if profile else None
+        admins.append(
+            {
+                "user": u,
+                "telegram_id": tg_id,
+                "has_tg": bool(tg_id),
+            }
+        )
+
+    ws = WarehouseSettings.load()
+
+    context = {
+        "token_set": bool(token),
+        "token_masked": token_masked,
+        "chat_ids": chat_ids,
+        "chat_ids_count": len(chat_ids),
+        "admins": admins,
+        "ws": ws,
+        "active_section": "settings",
+    }
+    return render(request, "warehouse/settings/telegram.html", context)
+
+
+@warehouse_admin_required
+@require_POST
+def settings_telegram_test(request):
+    """Відправити тестове повідомлення усім warehouse-адмінам."""
+    mode = (request.POST.get("mode") or "test").strip()
+    only_me = request.POST.get("only_me") == "on"
+
+    if not get_bot_token():
+        messages.error(request, "Токен Storage-бота не налаштований у .env")
+        return redirect("warehouse:settings_telegram")
+
+    if only_me:
+        # Спроба знайти chat_id поточного юзера
+        profile = getattr(request.user, "userprofile", None)
+        tg_id = getattr(profile, "telegram_id", None) if profile else None
+        if not tg_id:
+            messages.error(
+                request,
+                "У вашому профілі не вказано telegram_id. "
+                "Або додайте його, або зніміть прапорець «тільки мені».",
+            )
+            return redirect("warehouse:settings_telegram")
+        chat_ids = [str(tg_id)]
+    else:
+        chat_ids = get_admin_chat_ids()
+        if not chat_ids:
+            messages.error(
+                request,
+                "Не знайдено жодного chat_id. Перевірте, що в адмінів заповнено telegram_id у профілі.",
+            )
+            return redirect("warehouse:settings_telegram")
+
+    if mode == "evening":
+        from django.utils import timezone as _tz
+
+        today = _tz.localdate()
+        text = build_evening_reminder_text(
+            movements_count=0,
+            unverified_count=0,
+            today_str=today.strftime("%d.%m.%Y") + " (тест)",
+        )
+        from django.urls import reverse as _reverse
+
+        base_url = getattr(__import__("django.conf").conf.settings, "WAREHOUSE_SUBDOMAIN_URL", "https://storage.twocomms.shop").rstrip("/")
+        keyboard = build_evening_reminder_keyboard(f"{base_url}/today/")
+    else:
+        from django.utils import timezone as _tz
+
+        text = (
+            "🧪 <b>Тестове повідомлення Storage-бота</b>\n\n"
+            f"Відправник: {request.user.username}\n"
+            f"Час: {_tz.localtime().strftime('%d.%m.%Y %H:%M')}\n\n"
+            "Якщо ви бачите це — ви у списку warehouse-адмінів. "
+            "Щоденні нагадування приходять о 22:00 (Київ)."
+        )
+        keyboard = None
+
+    sent = 0
+    failed = 0
+    for cid in chat_ids:
+        result = send_message(cid, text, reply_markup=keyboard)
+        if result and result.get("ok"):
+            sent += 1
+        else:
+            failed += 1
+
+    if sent and not failed:
+        messages.success(request, f"Відправлено {sent} повідомлень ✅")
+    elif sent and failed:
+        messages.warning(
+            request, f"Відправлено {sent} з {sent + failed}. Перевірте chat_id для тих, кому не дійшло."
+        )
+    else:
+        messages.error(request, "Жодне повідомлення не доставлено. Перевірте токен та chat_ids.")
+
+    return redirect("warehouse:settings_telegram")
 
 
 @warehouse_admin_required

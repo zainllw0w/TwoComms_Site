@@ -59,6 +59,17 @@
         addColor.value = '';
         addQty.value = '1';
         addCost.value = '0';
+
+        // Filter color options by allowed colors of this subcategory.
+        // data-allowed-colors is a comma-separated list of color ids; empty = no restriction.
+        const raw = btn.dataset.allowedColors || '';
+        const allowed = raw ? raw.split(',').map(function (s) { return s.trim(); }).filter(Boolean) : null;
+        const allowSet = allowed && allowed.length ? new Set(allowed) : null;
+        Array.from(addColor.options).forEach(function (opt) {
+            if (opt.value === '') { opt.hidden = false; return; }
+            opt.hidden = !!(allowSet && !allowSet.has(opt.value));
+        });
+
         addSheet.classList.add('open');
         backdrop.classList.add('open');
     }

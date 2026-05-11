@@ -22,7 +22,21 @@
 
 {% if matrix.subcategories %}
 {% for sub in matrix.subcategories %}
-<h2 class="wh-section-title">{{ sub.name }}</h2>
+<div class="wh-subcat-block">
+<div class="wh-subcat-block__head">
+    <h2 class="wh-subcat-block__title">{{ sub.name }}</h2>
+    {% if sub.allowed_colors %}
+    <div class="wh-subcat-block__colors" title="Колір цього крою">
+        {% for c in sub.allowed_colors %}
+        <span class="wh-subcat-color-pill">
+            <span class="wh-subcat-color-pill__swatch"
+                  style="background:{{ c.hex }};{% if c.secondary_hex %}background:linear-gradient(135deg,{{ c.hex }} 50%,{{ c.secondary_hex }} 50%);{% endif %}"></span>
+            {{ c.name }}
+        </span>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
 <div class="wh-matrix-wrap">
     <table class="wh-matrix">
         <thead>
@@ -72,10 +86,12 @@
     <button type="button"
             class="btn btn--ghost btn--small wh-add-row-btn"
             data-subcategory-id="{{ sub.id }}"
-            data-subcategory-name="{{ sub.name }}">
+            data-subcategory-name="{{ sub.name }}"
+            data-allowed-colors="{% for c in sub.allowed_colors %}{{ c.id }}{% if not forloop.last %},{% endif %}{% endfor %}">
         + Нова позиція
     </button>
 </div>
+</div><!-- /.wh-subcat-block -->
 {% endfor %}
 {% else %}
 <div class="wh-card text-muted text-center">

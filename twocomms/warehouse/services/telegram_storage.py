@@ -21,19 +21,95 @@ API_BASE = "https://api.telegram.org/bot{token}"
 
 
 def get_bot_token() -> str:
-    return os.environ.get("TELEGRAM_STORAGE_BOT_TOKEN") or getattr(
-        settings, "TELEGRAM_STORAGE_BOT_TOKEN", ""
+    """Знаходить токен Storage-бота.
+
+    Перевіряє у такому порядку (case-insensitive для env):
+    1. ``TELEGRAM_STORAGE_BOT_TOKEN``
+    2. ``telegram_storage_API`` (як зручний alias)
+    3. ``settings.TELEGRAM_STORAGE_BOT_TOKEN``
+    """
+    candidates = (
+        "TELEGRAM_STORAGE_BOT_TOKEN",
+        "telegram_storage_API",
+        "TELEGRAM_STORAGE_API",
+        "telegram_storage_api",
     )
+    for key in candidates:
+        value = os.environ.get(key)
+        if value:
+            return value.strip()
+    return (getattr(settings, "TELEGRAM_STORAGE_BOT_TOKEN", "") or "").strip()
 
 
 def get_default_chat_ids() -> list[str]:
-    """Default chat ids from env or settings (fallback)."""
+    """Default chat ids from env or settings (fallback).
+
+    Цей метод використовує ТІЛЬКИ env / settings — для повного списку
+    адмінів використовуйте :func:`get_admin_chat_ids`.
+    """
     raw = os.environ.get("TELEGRAM_STORAGE_CHAT_IDS", "") or getattr(
         settings, "TELEGRAM_STORAGE_CHAT_IDS", ""
     )
     if not raw:
         return []
     return [c.strip() for c in str(raw).replace(";", ",").split(",") if c.strip()]
+
+
+def get_admin_chat_ids() -> list[str]:
+    """Повертає унікальний список chat_id для розсилки warehouse-адмінам.
+
+    Джерела (об'єднуються, дублікати видаляються):
+    1. ``WarehouseSettings.evening_reminder_chat_ids`` — ручний список.
+    2. ``UserProfile.telegram_id`` усіх warehouse-адмінів (group + superusers),
+       які мають заповнений ``telegram_id``.
+    3. ``TELEGRAM_STORAGE_CHAT_IDS`` env — fallback.
+    """
+    seen: list[str] = []
+
+    def _add(value) -> None:
+        if value is None:
+            return
+        s = str(value).strip()
+        if s and s not in seen:
+            seen.append(s)
+
+    # 1) Manual chat_ids saved in WarehouseSettings
+    try:
+        from warehouse.models import WarehouseSettings
+
+        ws = WarehouseSettings.load()
+        for cid in ws.reminder_chat_ids_list:
+            _add(cid)
+    except Exception as exc:  # pragma: no cover
+        logger.debug("get_admin_chat_ids: WarehouseSettings load failed: %s", exc)
+
+    # 2) telegram_id з UserProfile усіх warehouse-адмінів
+    try:
+        from django.contrib.auth import get_user_model
+        from django.db.models import Q
+
+        from warehouse.permissions import WAREHOUSE_GROUP_NAME
+
+        User = get_user_model()
+        admins = User.objects.filter(
+            Q(is_superuser=True)
+            | Q(is_staff=True, groups__name=WAREHOUSE_GROUP_NAME),
+            is_active=True,
+        ).distinct()
+        for admin in admins:
+            profile = getattr(admin, "userprofile", None)
+            if profile is None:
+                continue
+            tg_id = getattr(profile, "telegram_id", None)
+            _add(tg_id)
+    except Exception as exc:  # pragma: no cover
+        logger.debug("get_admin_chat_ids: user lookup failed: %s", exc)
+
+    # 3) Fallback з env
+    for cid in get_default_chat_ids():
+        _add(cid)
+
+    return seen
 
 
 def _post(method: str, payload: dict, *, timeout: int = 10):

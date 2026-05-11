@@ -27,7 +27,7 @@ def send_evening_reminder_task():
     """
     from warehouse.models import StockMovement, WarehouseSettings
     from warehouse.services.telegram_storage import (
-        get_default_chat_ids,
+        get_admin_chat_ids,
         send_evening_reminder,
     )
 
@@ -36,7 +36,7 @@ def send_evening_reminder_task():
         logger.info("Storage evening reminder disabled in settings.")
         return {"sent": 0, "skipped": True}
 
-    chat_ids = ws.reminder_chat_ids_list or get_default_chat_ids()
+    chat_ids = get_admin_chat_ids()
     if not chat_ids:
         logger.info("Storage evening reminder: no chat_ids configured.")
         return {"sent": 0, "skipped": True, "reason": "no_chat_ids"}

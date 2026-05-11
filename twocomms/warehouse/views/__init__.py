@@ -28,4 +28,6 @@ from .settings import (  # noqa: F401
     settings_colors,
     settings_color_form,
     settings_color_create_ajax,
+    settings_telegram,
+    settings_telegram_test,
 )

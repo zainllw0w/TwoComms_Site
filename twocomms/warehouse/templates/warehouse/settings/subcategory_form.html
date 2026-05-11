@@ -59,9 +59,71 @@
         <span class="form-help">У межах однієї категорії за замовчуванням може бути тільки одна підкатегорія.</span>
     </div>
 
+    <h3 class="wh-section-title" style="margin-top:24px;">Доступні кольори цього крою</h3>
+    <p class="text-small text-muted mb-12">
+        Оберіть кольори, в яких випускається цей крій. Це фільтр для зручного додавання партій
+        (напр. «Термо» — тільки рожевий і зелений, «Оверсайз» — тільки чорний/білий).
+        <b>Якщо нічого не обрати</b> — у партії буде доступний будь-який колір.
+    </p>
+
+    <div class="form-field">
+        <input type="text" id="color-search" placeholder="🔍 Пошук кольору..." autocomplete="off"
+               style="margin-bottom:8px;">
+    </div>
+
+    <div class="wh-color-grid" id="color-grid">
+        {% for c in all_colors %}
+        {% with cid=c.id %}
+        <label class="wh-color-pill" data-name="{{ c.name|default:c.primary_hex|lower }}">
+            <input type="checkbox" name="color_ids" value="{{ cid }}"
+                   {% if cid in selected_color_ids %}checked{% endif %}>
+            <span class="wh-color-pill__swatch"
+                  style="background:{{ c.primary_hex }};{% if c.secondary_hex %}background:linear-gradient(135deg,{{ c.primary_hex }} 50%,{{ c.secondary_hex }} 50%);{% endif %}"></span>
+            <span class="wh-color-pill__label">{{ c.name|default:c.primary_hex }}</span>
+        </label>
+        {% endwith %}
+        {% empty %}
+        <p class="text-muted text-small">Ще немає кольорів. <a href="{% url 'warehouse:settings_color_new' %}">Додати</a></p>
+        {% endfor %}
+    </div>
+
+    <div class="flex-gap-8 mt-12">
+        <button type="button" class="btn btn--ghost btn--small" id="select-all-colors">Обрати всі</button>
+        <button type="button" class="btn btn--ghost btn--small" id="clear-all-colors">Зняти всі</button>
+        <a href="{% url 'warehouse:settings_color_new' %}" class="btn btn--ghost btn--small">+ Новий колір</a>
+    </div>
+
     <div class="flex-gap-8 mt-16">
         <a href="{% url 'warehouse:settings_subcategories' %}" class="btn btn--ghost flex-1">Скасувати</a>
         <button type="submit" class="btn btn--primary flex-1">Зберегти</button>
     </div>
 </form>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const search = document.getElementById('color-search');
+    const grid = document.getElementById('color-grid');
+    const selectAll = document.getElementById('select-all-colors');
+    const clearAll = document.getElementById('clear-all-colors');
+    if (!grid) return;
+
+    if (search) {
+        search.addEventListener('input', function () {
+            const q = this.value.trim().toLowerCase();
+            grid.querySelectorAll('.wh-color-pill').forEach(function (pill) {
+                const name = pill.getAttribute('data-name') || '';
+                pill.style.display = (!q || name.includes(q)) ? '' : 'none';
+            });
+        });
+    }
+    if (selectAll) selectAll.addEventListener('click', function () {
+        grid.querySelectorAll('input[type="checkbox"]:not([style*="display: none"])').forEach(function (i) { i.checked = true; });
+    });
+    if (clearAll) clearAll.addEventListener('click', function () {
+        grid.querySelectorAll('input[type="checkbox"]').forEach(function (i) { i.checked = false; });
+    });
+});
+</script>
 {% endblock %}

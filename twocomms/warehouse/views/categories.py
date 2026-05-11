@@ -194,11 +194,19 @@ def stock_bulk_add(request, slug):
             messages.success(request, f"Додано {rows_added} рядків у партію.")
         return redirect("warehouse:category_detail", slug=slug)
 
+    # Build sub→color_ids mapping for client-side filtering
+    sub_colors_map = {}
+    for sub in subcategories:
+        ids = list(sub.colors.values_list("id", flat=True))
+        if ids:
+            sub_colors_map[sub.id] = ids
+
     context = {
         "category": category,
         "subcategories": subcategories,
         "colors": colors,
         "category_sizes": category.get_sizes(),
+        "sub_colors_map_json": __import__("json").dumps(sub_colors_map),
         "active_section": "categories",
     }
     return render(request, "warehouse/stock_bulk_add.html", context)

@@ -148,6 +148,16 @@ class StorageSubcategory(models.Model):
     is_default = models.BooleanField(default=False, help_text="Підкатегорія за замовчуванням під час списання")
     order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    colors = models.ManyToManyField(
+        "productcolors.Color",
+        blank=True,
+        related_name="storage_subcategories",
+        verbose_name="Доступні кольори",
+        help_text=(
+            "Список кольорів, у яких випускається цей крій. "
+            "Якщо порожній — у партії можна обрати будь-який колір."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -159,6 +169,18 @@ class StorageSubcategory(models.Model):
 
     def __str__(self) -> str:
         return f"{self.category.name} / {self.name}"
+
+    def get_allowed_colors(self):
+        """Повертає QuerySet кольорів, з якими можна додавати в цей крій.
+
+        Якщо у підкатегорії явно задані кольори — повертає їх.
+        Якщо порожньо — повертає всі кольори (free choice).
+        """
+        from productcolors.models import Color
+        m2m = self.colors.all()
+        if m2m.exists():
+            return m2m.order_by("name", "primary_hex")
+        return Color.objects.all().order_by("name", "primary_hex")
 
     def save(self, *args, **kwargs):
         if not self.slug:

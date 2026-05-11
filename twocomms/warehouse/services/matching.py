@@ -88,6 +88,7 @@ def stock_matrix_for_category(category: StorageCategory) -> dict:
     items = (
         StockItem.objects.filter(subcategory__category=category)
         .select_related("subcategory", "color")
+        .prefetch_related("subcategory__colors")
         .order_by("subcategory__order", "subcategory__name", "color__name", "size")
     )
 
@@ -96,10 +97,22 @@ def stock_matrix_for_category(category: StorageCategory) -> dict:
     for item in items:
         sub = item.subcategory
         if sub.id not in subcat_buckets:
+            allowed = list(
+                sub.colors.all().values("id", "name", "primary_hex", "secondary_hex")
+            )
             subcat_buckets[sub.id] = {
                 "id": sub.id,
                 "name": sub.name,
                 "slug": sub.slug,
+                "allowed_colors": [
+                    {
+                        "id": c["id"],
+                        "name": c["name"] or c["primary_hex"],
+                        "hex": c["primary_hex"],
+                        "secondary_hex": c.get("secondary_hex") or "",
+                    }
+                    for c in allowed
+                ],
                 "rows": {},  # (color_id, color_name, hex) -> {size: qty}
             }
         sizes_set.add(item.size)
@@ -145,6 +158,7 @@ def stock_matrix_for_category(category: StorageCategory) -> dict:
                 "id": sub_id,
                 "name": sub_data["name"],
                 "slug": sub_data["slug"],
+                "allowed_colors": sub_data["allowed_colors"],
                 "rows_by_color": rows_by_color,
                 "subtotal_by_size": subtotal_by_size,
                 "subtotal": subtotal,

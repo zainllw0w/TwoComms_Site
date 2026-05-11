@@ -1,0 +1,134 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Storage-бот — Налаштування{% endblock %}
+{% block header_title %}Storage-бот{% endblock %}
+
+{% block content %}
+<a href="{% url 'warehouse:settings' %}" class="text-muted text-small">← Назад до налаштувань</a>
+
+<h2 class="wh-section-title">Стан бота</h2>
+<div class="wh-card">
+    <div class="wh-card__row">
+        <span>Токен бота</span>
+        {% if token_set %}
+            <span class="wh-badge wh-badge--success">✓ налаштовано</span>
+        {% else %}
+            <span class="wh-badge wh-badge--danger">✗ не задано</span>
+        {% endif %}
+    </div>
+    {% if token_set %}
+    <div class="wh-card__row">
+        <span class="text-muted text-small">Маска токена</span>
+        <code>{{ token_masked }}</code>
+    </div>
+    {% endif %}
+    <div class="wh-card__row">
+        <span>Вечірні нагадування о 22:00</span>
+        {% if ws.evening_reminder_enabled %}
+            <span class="wh-badge wh-badge--success">✓ увімкнено</span>
+        {% else %}
+            <span class="wh-badge">⚪ вимкнено</span>
+        {% endif %}
+    </div>
+    <div class="wh-card__row">
+        <span>Адресатів буде</span>
+        <span class="text-bold">{{ chat_ids_count }}</span>
+    </div>
+</div>
+
+{% if not token_set %}
+<div class="wh-card" style="border-color:var(--danger);background:var(--danger-soft);">
+    <div class="text-bold mb-8">⚠️ Токен бота не знайдено</div>
+    <p class="text-small mb-8">Додайте у .env (production) одну з цих змінних:</p>
+    <pre style="background:var(--bg-soft);padding:8px;border-radius:8px;overflow-x:auto;font-size:12px;"><code>TELEGRAM_STORAGE_BOT_TOKEN=123456:ABC...
+# або
+telegram_storage_API=123456:ABC...</code></pre>
+</div>
+{% endif %}
+
+<h2 class="wh-section-title">Адміни складу ({{ admins|length }})</h2>
+<ul class="wh-list">
+{% for a in admins %}
+    <li class="wh-list__item">
+        <div class="wh-list__icon">
+            {% if a.user.is_superuser %}👑{% else %}👤{% endif %}
+        </div>
+        <div class="wh-list__body">
+            <div class="wh-list__title">
+                {{ a.user.username }}
+                {% if a.user.is_superuser %}<span class="wh-badge wh-badge--accent">superuser</span>{% endif %}
+            </div>
+            <div class="wh-list__meta">
+                {% if a.has_tg %}
+                    <span class="text-success">✓ telegram_id: <code>{{ a.telegram_id }}</code></span>
+                {% else %}
+                    <span class="text-danger">✗ telegram_id не вказано</span>
+                    <span class="text-dim">— цей адмін НЕ отримуватиме сповіщень</span>
+                {% endif %}
+            </div>
+        </div>
+    </li>
+{% endfor %}
+</ul>
+
+<h2 class="wh-section-title">Підсумковий список chat_id (broadcast)</h2>
+<div class="wh-card">
+{% if chat_ids %}
+    <div class="text-small text-muted mb-8">Об'єднано з: профілів адмінів + WarehouseSettings + env</div>
+    <ul style="list-style:none;padding:0;margin:0;">
+    {% for cid in chat_ids %}
+        <li style="padding:6px 0;border-bottom:1px solid var(--border-soft);">
+            <code>{{ cid }}</code>
+        </li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p class="text-muted mb-0">
+        Список порожній. Додайте <code>telegram_id</code> у профіль адміна
+        (через адмінку сайту) або задайте <code>TELEGRAM_STORAGE_CHAT_IDS</code> у env.
+    </p>
+{% endif %}
+</div>
+
+<h2 class="wh-section-title">Тестова відправка</h2>
+<form method="post" action="{% url 'warehouse:settings_telegram_test' %}" class="wh-card">
+    {% csrf_token %}
+    <p class="text-small text-muted mb-12">
+        Відправити повідомлення зараз для перевірки. Це безпечно — рядки не дублюються,
+        і це не вимикає щоденне розсилання.
+    </p>
+
+    <div class="form-field">
+        <label for="mode">Тип повідомлення</label>
+        <select name="mode" id="mode">
+            <option value="test">🧪 Звичайне тест-повідомлення</option>
+            <option value="evening">🌙 Як виглядає вечірнє нагадування (з кнопками)</option>
+        </select>
+    </div>
+
+    <div class="form-field">
+        <label class="flex" style="align-items:center;gap:8px;">
+            <input type="checkbox" name="only_me" style="width:auto;min-height:auto;">
+            Надіслати тільки мені (не всім адмінам)
+        </label>
+    </div>
+
+    <button type="submit" class="btn btn--primary btn--block"
+            {% if not token_set or chat_ids_count == 0 %}disabled{% endif %}>
+        📨 Надіслати тест
+    </button>
+    {% if not token_set %}
+        <p class="text-small text-danger mt-8 mb-0">Спочатку налаштуйте токен.</p>
+    {% elif chat_ids_count == 0 %}
+        <p class="text-small text-danger mt-8 mb-0">Немає жодного отримувача.</p>
+    {% endif %}
+</form>
+
+<h2 class="wh-section-title">Як отримати chat_id</h2>
+<div class="wh-card">
+    <ol class="text-small" style="margin:0;padding-left:18px;">
+        <li>Відкрийте <code>@TwoComms_storage_bot</code> у Telegram (або як вашого бота звуть)</li>
+        <li>Натисніть <b>Start</b> — бот автоматично запам'ятає ваш chat_id</li>
+        <li>Або: вкажіть <code>telegram_id</code> у своєму <a href="/cabinet/" target="_blank">профілі сайту</a></li>
+    </ol>
+</div>
+{% endblock %}
