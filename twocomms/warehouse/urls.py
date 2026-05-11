@@ -92,6 +92,26 @@ urlpatterns = [
         views.settings_subcategory_toggle,
         name="settings_subcategory_toggle",
     ),
+    path(
+        "settings/print-categories/",
+        views.settings_print_categories,
+        name="settings_print_categories",
+    ),
+    path(
+        "settings/print-categories/new/",
+        views.settings_print_category_form,
+        name="settings_print_category_new",
+    ),
+    path(
+        "settings/print-categories/<int:pk>/edit/",
+        views.settings_print_category_form,
+        name="settings_print_category_edit",
+    ),
+    path(
+        "settings/print-categories/<int:pk>/toggle/",
+        views.settings_print_category_toggle,
+        name="settings_print_category_toggle",
+    ),
     path("settings/telegram/", views.settings_telegram, name="settings_telegram"),
     path(
         "settings/telegram/test/",

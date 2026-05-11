@@ -12,10 +12,95 @@
     const qtyPlus = document.getElementById('qty-plus');
     const qtyValue = document.getElementById('qty-value');
     const qtySet = document.getElementById('qty-set');
-    const costSet = document.getElementById('cost-set');
+    const costSet = document.getElementById('cost-set');         // delta-mode (purchase price)
+    const costSetAbs = document.getElementById('cost-set-abs');  // set-mode (override)
     const commentSet = document.getElementById('comment-set');
     const saveBtn = document.getElementById('wh-sheet-save');
     const cancelBtn = document.getElementById('wh-sheet-cancel');
+
+    // Summary widgets
+    const adjustCurrentQty = document.getElementById('adjust-current-qty');
+    const adjustCurrentCost = document.getElementById('adjust-current-cost');
+    const adjustPreviewRow = document.getElementById('adjust-preview-row');
+    const adjustPreviewQty = document.getElementById('adjust-preview-qty');
+    const adjustPreviewCost = document.getElementById('adjust-preview-cost');
+    const adjustDeltaBadge = document.getElementById('adjust-delta-badge');
+    const costFieldDelta = document.getElementById('cost-field-delta');
+
+    // Tabs
+    const tabs = sheet.querySelectorAll('.wh-adjust-tab');
+    const panes = sheet.querySelectorAll('.wh-adjust-pane');
+    let currentTab = 'delta';
+
+    function setTab(name) {
+        currentTab = name;
+        tabs.forEach(function (t) {
+            t.classList.toggle('is-active', t.dataset.tab === name);
+        });
+        panes.forEach(function (p) {
+            p.hidden = p.dataset.pane !== name;
+        });
+        updatePreview();
+    }
+    tabs.forEach(function (t) {
+        t.addEventListener('click', function () { setTab(t.dataset.tab); });
+    });
+
+    function fmtMoney(d) {
+        if (isNaN(d) || d === null) return '0';
+        return (Math.round(parseFloat(d) * 100) / 100).toFixed(2).replace(/\.?0+$/, '');
+    }
+
+    function updatePreview() {
+        if (!currentCell) return;
+        const oldQty = parseInt(currentCell.dataset.quantity, 10) || 0;
+        const oldCost = parseFloat(currentCell.dataset.cost) || 0;
+
+        let newQty, newCost, delta;
+        if (currentTab === 'delta') {
+            const enteredCost = parseFloat(costSet.value);
+            newQty = oldQty + pendingDelta;
+            delta = pendingDelta;
+            // WAC only applies on positive delta with cost specified
+            if (pendingDelta > 0 && !isNaN(enteredCost) && enteredCost >= 0) {
+                if (oldQty === 0) {
+                    newCost = enteredCost;
+                } else {
+                    newCost = (oldQty * oldCost + pendingDelta * enteredCost) / newQty;
+                }
+            } else {
+                newCost = oldCost;
+            }
+            // Hide cost field when removing (delta < 0)
+            if (costFieldDelta) {
+                costFieldDelta.style.opacity = pendingDelta < 0 ? '0.4' : '';
+                costFieldDelta.style.pointerEvents = pendingDelta < 0 ? 'none' : '';
+            }
+        } else {
+            // set-mode
+            const absQty = parseInt(qtySet.value, 10);
+            if (isNaN(absQty)) { adjustPreviewRow.hidden = true; return; }
+            const enteredCost = parseFloat(costSetAbs.value);
+            newQty = Math.max(absQty, 0);
+            delta = newQty - oldQty;
+            newCost = !isNaN(enteredCost) && enteredCost >= 0 ? enteredCost : oldCost;
+        }
+
+        const changed = (newQty !== oldQty) || (Math.abs(newCost - oldCost) > 0.005);
+        adjustPreviewRow.hidden = !changed;
+        if (changed) {
+            adjustPreviewQty.textContent = newQty;
+            adjustPreviewCost.textContent = fmtMoney(newCost);
+            if (delta !== 0) {
+                adjustDeltaBadge.textContent = (delta > 0 ? '+' : '') + delta;
+                adjustDeltaBadge.classList.remove('is-positive', 'is-negative');
+                adjustDeltaBadge.classList.add(delta > 0 ? 'is-positive' : 'is-negative');
+                adjustDeltaBadge.hidden = false;
+            } else {
+                adjustDeltaBadge.hidden = true;
+            }
+        }
+    }
 
     const addSheet = document.getElementById('wh-add-sheet');
     const addCancel = document.getElementById('wh-add-cancel');
@@ -37,11 +122,25 @@
         const size = cell.dataset.size || '';
         const colorName = cell.dataset.colorName || '';
         const qty = parseInt(cell.dataset.quantity, 10) || 0;
+        const cost = parseFloat(cell.dataset.cost) || 0;
         sheetTitle.textContent = subName + ' · ' + colorName + ' · ' + size;
-        qtyValue.textContent = qty;
-        qtySet.value = '';
-        costSet.value = '';
-        commentSet.value = '';
+
+        // Summary
+        adjustCurrentQty.textContent = qty;
+        adjustCurrentCost.textContent = fmtMoney(cost);
+        adjustPreviewRow.hidden = true;
+
+        // Delta pane defaults
+        qtyValue.textContent = '0';
+        if (costSet) costSet.value = '';
+        // Set pane defaults
+        if (qtySet) qtySet.value = '';
+        if (costSetAbs) costSetAbs.value = '';
+        if (commentSet) commentSet.value = '';
+
+        // Always start on Delta tab
+        setTab('delta');
+
         sheet.classList.add('open');
         backdrop.classList.add('open');
     }
@@ -85,8 +184,11 @@
         return 'qty-positive';
     }
 
-    function updateCellQty(cell, newQty) {
+    function updateCellQty(cell, newQty, newCost) {
         cell.dataset.quantity = String(newQty);
+        if (newCost !== undefined && newCost !== null) {
+            cell.dataset.cost = String(newCost);
+        }
         const cls = qtyClass(newQty);
         // Mobile card cell — preserve .wh-mc__size and only swap qty span
         const qtySpan = cell.querySelector('.wh-mc__qty');
@@ -116,17 +218,28 @@
     addCancel.addEventListener('click', closeAddSheet);
     backdrop.addEventListener('click', function () { closeSheet(); closeAddSheet(); });
 
+    // Delta is signed (− or +). qtyValue shows the magnitude OR signed delta.
+    // We use a signed approach: display "0" initially, +1/-1 per click.
     qtyMinus.addEventListener('click', function () {
         const cur = parseInt(qtyValue.textContent, 10) || 0;
-        const newQty = Math.max(cur - 1, 0);
-        qtyValue.textContent = newQty;
-        pendingDelta = newQty - (parseInt(currentCell.dataset.quantity, 10) || 0);
+        const oldQty = parseInt(currentCell.dataset.quantity, 10) || 0;
+        // Don't allow delta that goes below 0 total
+        if (oldQty + (cur - 1) < 0) return;
+        pendingDelta = cur - 1;
+        qtyValue.textContent = (pendingDelta > 0 ? '+' : '') + pendingDelta;
+        updatePreview();
     });
     qtyPlus.addEventListener('click', function () {
         const cur = parseInt(qtyValue.textContent, 10) || 0;
-        qtyValue.textContent = cur + 1;
-        pendingDelta = (cur + 1) - (parseInt(currentCell.dataset.quantity, 10) || 0);
+        pendingDelta = cur + 1;
+        qtyValue.textContent = (pendingDelta > 0 ? '+' : '') + pendingDelta;
+        updatePreview();
     });
+
+    // Live preview reacts to typing
+    if (costSet) costSet.addEventListener('input', updatePreview);
+    if (costSetAbs) costSetAbs.addEventListener('input', updatePreview);
+    if (qtySet) qtySet.addEventListener('input', updatePreview);
 
     saveBtn.addEventListener('click', function () {
         if (!currentCell) return;
@@ -135,25 +248,28 @@
         fd.append('size', currentCell.dataset.size);
         fd.append('color_id', currentCell.dataset.colorId || '');
         fd.append('comment', commentSet.value || '');
-        if (costSet.value) fd.append('cost_price', costSet.value);
 
-        if (qtySet.value !== '') {
+        if (currentTab === 'set') {
+            if (qtySet.value === '') { closeSheet(); return; }
             fd.append('mode', 'set');
             fd.append('quantity', qtySet.value);
-        } else if (pendingDelta !== 0) {
+            if (costSetAbs.value) fd.append('cost_price', costSetAbs.value);
+        } else {
+            if (pendingDelta === 0) { closeSheet(); return; }
             fd.append('mode', 'delta');
             fd.append('delta', String(pendingDelta));
             fd.append('reason', pendingDelta > 0 ? 'manual_add' : 'manual_remove');
-        } else {
-            closeSheet();
-            return;
+            // Only send purchase price when adding
+            if (pendingDelta > 0 && costSet.value) {
+                fd.append('cost_price', costSet.value);
+            }
         }
 
         saveBtn.disabled = true;
         W.postForm(window.__warehouse__.urls.stockAdjust, fd).then(function (data) {
             saveBtn.disabled = false;
             if (data.ok) {
-                updateCellQty(currentCell, data.quantity);
+                updateCellQty(currentCell, data.quantity, data.cost_price);
                 W.flash('Збережено', 'success');
                 closeSheet();
             } else {

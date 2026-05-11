@@ -7,24 +7,70 @@
 {% endblock %}
 
 {% block content %}
-<div class="wh-grid wh-grid-2">
-    {% for pr in prints %}
-    <a href="{{ pr.get_absolute_url }}" class="wh-card" style="text-decoration: none; color: inherit;">
-        {% if pr.main_image %}
-        <img src="{{ pr.main_image.url }}" alt="{{ pr.name }}"
-             style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-sm); margin-bottom: 8px;">
-        {% else %}
-        <div style="aspect-ratio: 1; background: var(--bg-soft); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; color: var(--text-dim); margin-bottom: 8px;">
-            (без фото)
-        </div>
-        {% endif %}
-        <div class="text-bold">{{ pr.name }}</div>
-        <div class="text-muted text-small">{{ pr.total_quantity }} шт · {{ pr.color_variants.count }} кольорів</div>
+<form method="get" class="wh-pp-search">
+    <input type="text" name="q" value="{{ query }}"
+           class="wh-product-picker__search"
+           placeholder="🔍 Пошук принта…">
+    {% if selected_cat %}<input type="hidden" name="category" value="{{ selected_cat }}">{% endif %}
+</form>
+
+<div class="wh-chip-row">
+    <a href="{% url 'warehouse:print_list' %}{% if query %}?q={{ query }}{% endif %}"
+       class="wh-chip{% if not selected_cat %} is-active{% endif %}">
+        Усі <span class="wh-chip__count">{{ total_count }}</span>
     </a>
-    {% empty %}
-    <div class="wh-card text-muted text-center" style="grid-column: 1 / -1;">
-        Принтів ще немає. Натисни «+ Принт».
-    </div>
+    {% for cat in all_categories %}
+    <a href="?category={{ cat.slug }}{% if query %}&q={{ query }}{% endif %}"
+       class="wh-chip{% if selected_cat == cat.slug %} is-active{% endif %}">
+        {% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}
+        <span class="wh-chip__count">{{ cat.prints_count }}</span>
+    </a>
     {% endfor %}
+    {% if has_uncategorized %}
+    <a href="?category=_none{% if query %}&q={{ query }}{% endif %}"
+       class="wh-chip{% if selected_cat == '_none' %} is-active{% endif %}">
+        Без категорії
+    </a>
+    {% endif %}
 </div>
+
+{% for group in groups %}
+<div class="wh-print-group">
+    <h3 class="wh-print-group__head">
+        {% if group.category %}
+            {% if group.category.icon %}<span class="wh-print-group__icon">{{ group.category.icon }}</span>{% endif %}
+            {{ group.category.name }}
+        {% else %}
+            <span class="wh-print-group__icon">📦</span> Без категорії
+        {% endif %}
+        <span class="wh-print-group__count">{{ group.prints|length }}</span>
+    </h3>
+
+    <div class="wh-grid wh-grid-2">
+        {% for pr in group.prints %}
+        <a href="{{ pr.get_absolute_url }}" class="wh-card wh-print-card">
+            {% if pr.main_image %}
+            <img src="{{ pr.main_image.url }}" alt="{{ pr.name }}"
+                 class="wh-print-card__img">
+            {% else %}
+            <div class="wh-print-card__no-img">(без фото)</div>
+            {% endif %}
+            <div class="wh-print-card__title">{{ pr.name }}</div>
+            <div class="wh-print-card__meta">
+                {{ pr.total_quantity }} шт · {{ pr.color_variants.count }} кольорів
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% empty %}
+<div class="wh-card text-muted text-center">
+    {% if query or selected_cat %}
+        Нічого не знайдено за вашим запитом.
+        <a href="{% url 'warehouse:print_list' %}">Скинути фільтр</a>
+    {% else %}
+        Принтів ще немає. Натисни «+ Принт».
+    {% endif %}
+</div>
+{% endfor %}
 {% endblock %}

@@ -270,11 +270,64 @@ class StockItem(models.Model):
 # ---------------------------------------------------------------------------
 
 
+class PrintCategory(models.Model):
+    """Категорія для групування принтів (Військові, Гумор, Природа, Україна тощо).
+
+    Чисто внутрішня класифікація для зручного сортування і пошуку в списку принтів.
+    """
+
+    name = models.CharField(max_length=120, verbose_name="Назва")
+    slug = models.SlugField(max_length=140, unique=True, blank=True)
+    description = models.CharField(max_length=255, blank=True, default="")
+    icon = models.CharField(
+        max_length=8,
+        blank=True,
+        default="",
+        verbose_name="Іконка (emoji)",
+        help_text="Опціонально: одна emoji для індикатора (🎯 ⚔️ 🌿)",
+    )
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["order", "name"]
+        verbose_name = "Категорія принтів"
+        verbose_name_plural = "Категорії принтів"
+
+    def __str__(self) -> str:
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base = _slugify(self.name, fallback="print-cat")
+            slug = base
+            i = 2
+            while PrintCategory.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{i}"
+                i += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    @property
+    def prints_count(self) -> int:
+        return self.prints.filter(is_active=True).count()
+
+
 class Print(models.Model):
     """Принт як окрема сутність (фото + назва, можливо різні кольори друку)."""
 
     name = models.CharField(max_length=160, verbose_name="Назва")
     slug = models.SlugField(max_length=180, unique=True, blank=True)
+    category = models.ForeignKey(
+        PrintCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="prints",
+        verbose_name="Категорія",
+    )
     main_image = models.ImageField(
         upload_to="warehouse/prints/", blank=True, null=True, verbose_name="Основне фото"
     )
@@ -291,7 +344,7 @@ class Print(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering = ["category__order", "category__name", "name"]
         verbose_name = "Принт"
         verbose_name_plural = "Принти"
 

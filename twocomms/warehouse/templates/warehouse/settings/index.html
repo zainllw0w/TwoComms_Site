@@ -40,6 +40,18 @@
     <div class="wh-list__action">›</div>
 </a>
 
+<a href="{% url 'warehouse:settings_print_categories' %}" class="wh-list__item" style="text-decoration:none;">
+    <div class="wh-list__icon">🏷️</div>
+    <div class="wh-list__body">
+        <div class="wh-list__title">Категорії принтів</div>
+        <div class="wh-list__meta">
+            {{ stats.print_categories_active }} активних з {{ stats.print_categories }} ·
+            тематичні групи для сортування
+        </div>
+    </div>
+    <div class="wh-list__action">›</div>
+</a>
+
 <a href="{% url 'warehouse:settings_telegram' %}" class="wh-list__item" style="text-decoration:none;">
     <div class="wh-list__icon">🤖</div>
     <div class="wh-list__body">

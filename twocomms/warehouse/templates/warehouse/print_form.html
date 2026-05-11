@@ -15,6 +15,23 @@
     </div>
 
     <div class="form-field">
+        <label for="category_id">Категорія</label>
+        <select name="category_id" id="category_id">
+            <option value="">— без категорії —</option>
+            {% for cat in print_categories %}
+            <option value="{{ cat.id }}"
+                    {% if print and print.category_id == cat.id %}selected{% endif %}>
+                {% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}
+            </option>
+            {% endfor %}
+        </select>
+        <span class="form-help">
+            Опціонально. <a href="{% url 'warehouse:settings_print_categories' %}" target="_blank">
+            Керувати категоріями</a>.
+        </span>
+    </div>
+
+    <div class="form-field">
         <label for="main_image">Основне фото</label>
         <input type="file" id="main_image" name="main_image" accept="image/*">
         {% if print and print.main_image %}

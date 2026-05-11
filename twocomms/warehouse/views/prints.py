@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from storefront.models import Product
-from warehouse.models import MovementReason, Print, PrintColorVariant
+from warehouse.models import MovementReason, Print, PrintCategory, PrintColorVariant
 from warehouse.permissions import warehouse_admin_required
 from warehouse.services.inventory import (
     adjust_print_variant,
@@ -19,11 +19,50 @@ from warehouse.services.inventory import (
 
 @warehouse_admin_required
 def print_list(request):
-    prints = Print.objects.filter(is_active=True).order_by("name").prefetch_related(
-        "color_variants"
+    selected_cat = (request.GET.get("category") or "").strip()
+    q = (request.GET.get("q") or "").strip()
+
+    prints = (
+        Print.objects.filter(is_active=True)
+        .select_related("category")
+        .prefetch_related("color_variants")
+        .order_by("category__order", "category__name", "name")
     )
+    if selected_cat:
+        if selected_cat == "_none":
+            prints = prints.filter(category__isnull=True)
+        else:
+            prints = prints.filter(category__slug=selected_cat)
+    if q:
+        prints = prints.filter(name__icontains=q)
+
+    # Group by category for the cards view
+    groups: list[dict] = []
+    buckets: dict[int, list] = {}
+    cat_objs: dict[int, PrintCategory | None] = {}
+    none_key = -1
+    for pr in prints:
+        key = pr.category_id or none_key
+        buckets.setdefault(key, []).append(pr)
+        if key != none_key and key not in cat_objs:
+            cat_objs[key] = pr.category
+    # ordered: by category.order then "no category" last
+    for cid in sorted(cat_objs.keys(), key=lambda k: (cat_objs[k].order, cat_objs[k].name)):
+        groups.append({"category": cat_objs[cid], "prints": buckets[cid]})
+    if none_key in buckets:
+        groups.append({"category": None, "prints": buckets[none_key]})
+
+    # Tabs / filter chips
+    all_categories = PrintCategory.objects.filter(is_active=True).order_by("order", "name")
+    has_uncategorized = Print.objects.filter(is_active=True, category__isnull=True).exists()
+
     context = {
-        "prints": prints,
+        "groups": groups,
+        "all_categories": all_categories,
+        "has_uncategorized": has_uncategorized,
+        "selected_cat": selected_cat,
+        "query": q,
+        "total_count": sum(len(g["prints"]) for g in groups),
         "active_section": "prints",
     }
     return render(request, "warehouse/print_list.html", context)
@@ -68,9 +107,11 @@ def print_create(request):
     if request.method == "POST":
         return _save_print(request, instance=None)
     product_groups = _build_product_groups()
+    print_categories = PrintCategory.objects.filter(is_active=True).order_by("order", "name")
     context = {
         "product_groups": product_groups,
         "selected_product_ids": set(),
+        "print_categories": print_categories,
         "active_section": "prints",
     }
     return render(request, "warehouse/print_form.html", context)
@@ -83,11 +124,13 @@ def print_edit(request, slug):
         return _save_print(request, instance=pr)
     product_groups = _build_product_groups()
     selected_product_ids = set(pr.default_products.values_list("id", flat=True))
+    print_categories = PrintCategory.objects.filter(is_active=True).order_by("order", "name")
     context = {
         "print": pr,
         "variants": pr.color_variants.order_by("order", "id"),
         "product_groups": product_groups,
         "selected_product_ids": selected_product_ids,
+        "print_categories": print_categories,
         "active_section": "prints",
     }
     return render(request, "warehouse/print_form.html", context)
@@ -103,12 +146,19 @@ def _save_print(request, instance):
     is_active = bool(request.POST.get("is_active"))
     product_ids = [int(x) for x in request.POST.getlist("default_products[]") if x.isdigit()]
 
+    # Print category (FK)
+    category_id_raw = (request.POST.get("category_id") or "").strip()
+    category = None
+    if category_id_raw and category_id_raw.isdigit():
+        category = PrintCategory.objects.filter(pk=int(category_id_raw)).first()
+
     if instance is None:
-        instance = Print(name=name, description=description, is_active=is_active)
+        instance = Print(name=name, description=description, is_active=is_active, category=category)
     else:
         instance.name = name
         instance.description = description
         instance.is_active = is_active
+        instance.category = category
 
     if request.FILES.get("main_image"):
         instance.main_image = request.FILES["main_image"]

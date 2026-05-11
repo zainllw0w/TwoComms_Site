@@ -30,4 +30,7 @@ from .settings import (  # noqa: F401
     settings_color_create_ajax,
     settings_telegram,
     settings_telegram_test,
+    settings_print_categories,
+    settings_print_category_form,
+    settings_print_category_toggle,
 )

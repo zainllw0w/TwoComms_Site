@@ -61,7 +61,7 @@
                     <span class="wh-color-name">{{ row.color_name }}</span>
                 </td>
                 {% for size in matrix.sizes %}
-                {% with qty=row.by_size|dictkey:size|default:0 %}
+                {% with qty=row.by_size|dictkey:size|default:0 cost=row.by_size_cost|dictkey:size|default:'0' %}
                 <td class="qty-cell"
                     data-subcategory-id="{{ sub.id }}"
                     data-subcategory-name="{{ sub.name }}"
@@ -69,7 +69,8 @@
                     data-color-id="{{ row.color_id|default:'' }}"
                     data-color-name="{{ row.color_name }}"
                     data-color-hex="{{ row.color_hex }}"
-                    data-quantity="{{ qty }}">
+                    data-quantity="{{ qty }}"
+                    data-cost="{{ cost }}">
                     <span class="{{ qty|qty_class }}">{{ qty }}</span>
                 </td>
                 {% endwith %}
@@ -103,7 +104,7 @@
         </div>
         <div class="wh-mc__grid">
             {% for size in matrix.sizes %}
-            {% with qty=row.by_size|dictkey:size|default:0 %}
+            {% with qty=row.by_size|dictkey:size|default:0 cost=row.by_size_cost|dictkey:size|default:'0' %}
             <button type="button" class="wh-mc__cell qty-cell {{ qty|qty_class }}"
                     data-subcategory-id="{{ sub.id }}"
                     data-subcategory-name="{{ sub.name }}"
@@ -111,7 +112,8 @@
                     data-color-id="{{ row.color_id|default:'' }}"
                     data-color-name="{{ row.color_name }}"
                     data-color-hex="{{ row.color_hex }}"
-                    data-quantity="{{ qty }}">
+                    data-quantity="{{ qty }}"
+                    data-cost="{{ cost }}">
                 <span class="wh-mc__size">{{ size }}</span>
                 <span class="wh-mc__qty">{{ qty }}</span>
             </button>
@@ -145,28 +147,70 @@
     <div class="wh-sheet__grip"></div>
     <h3 class="wh-sheet__title" id="wh-sheet-title">Позиція</h3>
 
-    <div class="form-field">
-        <label>Поточна кількість</label>
-        <div class="qty-controls">
-            <button type="button" class="qty-btn" id="qty-minus">−</button>
-            <span class="qty-value" id="qty-value">0</span>
-            <button type="button" class="qty-btn" id="qty-plus">+</button>
+    <div class="wh-adjust-summary">
+        <div class="wh-adjust-summary__row">
+            <span class="wh-adjust-summary__label">Зараз</span>
+            <span class="wh-adjust-summary__value">
+                <span id="adjust-current-qty">0</span> шт
+                · <span id="adjust-current-cost">0</span> ₴/од
+            </span>
+        </div>
+        <div class="wh-adjust-summary__row" id="adjust-preview-row" hidden>
+            <span class="wh-adjust-summary__label">Стане</span>
+            <span class="wh-adjust-summary__value wh-adjust-summary__value--preview">
+                <span id="adjust-preview-qty">0</span> шт
+                · <span id="adjust-preview-cost">0</span> ₴/од
+                <span class="wh-adjust-summary__delta" id="adjust-delta-badge"></span>
+            </span>
+        </div>
+    </div>
+
+    <div class="wh-adjust-tabs">
+        <button type="button" class="wh-adjust-tab is-active" data-tab="delta">± Змінити</button>
+        <button type="button" class="wh-adjust-tab" data-tab="set">Встановити</button>
+    </div>
+
+    <div class="wh-adjust-pane" data-pane="delta">
+        <div class="form-field">
+            <label>На скільки змінити</label>
+            <div class="qty-controls qty-controls--centered">
+                <button type="button" class="qty-btn" id="qty-minus">−</button>
+                <span class="qty-value" id="qty-value">0</span>
+                <button type="button" class="qty-btn" id="qty-plus">+</button>
+            </div>
+            <span class="form-help">Плюс — прихід, мінус — списання/продаж.</span>
+        </div>
+
+        <div class="form-field" id="cost-field-delta">
+            <label for="cost-set">
+                <span id="cost-label-text">Ціна закупки цієї партії (₴)</span>
+            </label>
+            <input type="number" id="cost-set" min="0" step="0.01" placeholder="напр. 550">
+            <span class="form-help" id="cost-help-text">
+                Залиште порожнім — поточна середня збережеться.
+                Якщо введете — застосуємо <b>середньозважену</b>:<br>
+                <code>(старі × стара + нові × нова) / усього</code>
+            </span>
+        </div>
+    </div>
+
+    <div class="wh-adjust-pane" data-pane="set" hidden>
+        <div class="form-field">
+            <label for="qty-set">Встановити кількість</label>
+            <input type="number" id="qty-set" min="0" placeholder="напр. 12">
+            <span class="form-help">Використовуйте для інвентаризації — записує абсолютне значення.</span>
+        </div>
+
+        <div class="form-field">
+            <label for="cost-set-abs">Перевизначити собівартість (₴, опц.)</label>
+            <input type="number" id="cost-set-abs" min="0" step="0.01" placeholder="0">
+            <span class="form-help">Залиште порожнім — собівартість збережеться без змін.</span>
         </div>
     </div>
 
     <div class="form-field">
-        <label for="qty-set">Встановити число</label>
-        <input type="number" id="qty-set" min="0" placeholder="напр. 12">
-    </div>
-
-    <div class="form-field">
-        <label for="cost-set">Собівартість одиниці (₴)</label>
-        <input type="number" id="cost-set" min="0" step="0.01" placeholder="0">
-    </div>
-
-    <div class="form-field">
-        <label for="comment-set">Коментар</label>
-        <input type="text" id="comment-set" placeholder="Опційно">
+        <label for="comment-set">Коментар (опц.)</label>
+        <input type="text" id="comment-set" placeholder="напр. «закупка 12.05»">
     </div>
 
     <div class="flex-gap-8 mt-12">

@@ -20,6 +20,7 @@ from warehouse.services.inventory import (
     adjust_print_variant,
     adjust_stock_item,
     set_stock_quantity,
+    weighted_average_cost,
 )
 
 User = get_user_model()
@@ -85,6 +86,80 @@ class StockItemTests(TestCase):
         movement = StockMovement.objects.filter(object_id=item.pk).order_by("-id").first()
         self.assertIsNotNone(movement)
         self.assertEqual(movement.delta, 7)
+
+    def test_weighted_average_cost_pure_helper(self):
+        """Класична бухгалтерська формула WAC."""
+        # 5 шт по 500 + 7 шт по 550 = 12 шт
+        # (5*500 + 7*550) / 12 = (2500 + 3850) / 12 = 6350 / 12 ≈ 529.17
+        result = weighted_average_cost(
+            old_qty=5, old_cost=Decimal("500"),
+            add_qty=7, add_cost=Decimal("550"),
+        )
+        self.assertEqual(result, Decimal("529.17"))
+
+    def test_weighted_average_cost_first_purchase(self):
+        """Якщо нічого не було — нова ціна = ціна партії."""
+        result = weighted_average_cost(
+            old_qty=0, old_cost=Decimal("0"),
+            add_qty=10, add_cost=Decimal("450"),
+        )
+        self.assertEqual(result, Decimal("450.00"))
+
+    def test_adjust_stock_item_blends_cost_on_positive_delta(self):
+        """Прихід з ціною повинен застосувати WAC, не перезаписати."""
+        item = StockItem.objects.create(
+            subcategory=self.sub, size="M",
+            quantity=5, cost_price=Decimal("500.00"),
+        )
+        adjust_stock_item(
+            stock_item=item, delta=7, user=self.user,
+            cost_price_override=Decimal("550.00"),
+        )
+        item.refresh_from_db()
+        self.assertEqual(item.quantity, 12)
+        # WAC: (5*500 + 7*550)/12 = 529.17
+        self.assertEqual(item.cost_price, Decimal("529.17"))
+
+    def test_adjust_stock_item_keeps_cost_on_negative_delta(self):
+        """Списання НЕ повинно зачіпати cost_price."""
+        item = StockItem.objects.create(
+            subcategory=self.sub, size="M",
+            quantity=10, cost_price=Decimal("500.00"),
+        )
+        # Спроба передати cost_price при списанні — повинна ігноруватись
+        adjust_stock_item(
+            stock_item=item, delta=-3, user=self.user,
+            cost_price_override=Decimal("999.00"),
+            reason=MovementReason.MANUAL_REMOVE,
+        )
+        item.refresh_from_db()
+        self.assertEqual(item.quantity, 7)
+        self.assertEqual(item.cost_price, Decimal("500.00"))  # лишилось як було
+
+    def test_adjust_stock_item_no_cost_keeps_old(self):
+        """Прихід без ціни не змінює cost_price."""
+        item = StockItem.objects.create(
+            subcategory=self.sub, size="M",
+            quantity=5, cost_price=Decimal("500.00"),
+        )
+        adjust_stock_item(stock_item=item, delta=3, user=self.user)
+        item.refresh_from_db()
+        self.assertEqual(item.quantity, 8)
+        self.assertEqual(item.cost_price, Decimal("500.00"))
+
+    def test_adjust_stock_item_first_purchase(self):
+        """Перша партія — ціна стає cost_price."""
+        item = StockItem.objects.create(
+            subcategory=self.sub, size="M",
+            quantity=0, cost_price=Decimal("0"),
+        )
+        adjust_stock_item(
+            stock_item=item, delta=10, user=self.user,
+            cost_price_override=Decimal("450.00"),
+        )
+        item.refresh_from_db()
+        self.assertEqual(item.quantity, 10)
+        self.assertEqual(item.cost_price, Decimal("450.00"))
 
     def test_frozen_value(self):
         item = StockItem.objects.create(
