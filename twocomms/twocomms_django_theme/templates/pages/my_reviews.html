@@ -1,7 +1,8 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}Мої відгуки — TwoComms{% endblock %}
+{% block title %}{% trans 'Мої відгуки' %} — TwoComms{% endblock %}
 {% block robots %}noindex, nofollow{% endblock %}
 
 {% block extra_head %}
@@ -110,30 +111,30 @@
 <div class="my-reviews-page">
   <div class="my-reviews-header">
     <div>
-      <h1>Мої відгуки</h1>
-      <p class="my-reviews-subtitle">Усі ваші відгуки про куплені товари TwoComms.</p>
+      <h1>{% trans 'Мої відгуки' %}</h1>
+      <p class="my-reviews-subtitle">{% trans 'Усі ваші відгуки про куплені товари TwoComms.' %}</p>
     </div>
   </div>
 
-  <div class="my-reviews-counts" aria-label="Статистика відгуків">
-    <span class="chip approved">Опубліковано: {{ counts.approved }}</span>
-    <span class="chip pending">На модерації: {{ counts.pending }}</span>
-    <span class="chip rejected">Відхилено: {{ counts.rejected }}</span>
+  <div class="my-reviews-counts" aria-label="{% trans 'Статистика відгуків' %}">
+    <span class="chip approved">{% trans 'Опубліковано' %}: {{ counts.approved }}</span>
+    <span class="chip pending">{% trans 'На модерації' %}: {{ counts.pending }}</span>
+    <span class="chip rejected">{% trans 'Відхилено' %}: {{ counts.rejected }}</span>
   </div>
 
   {% if reviews %}
     {% for r in reviews %}
-      <article class="my-review-card" aria-label="Відгук про {{ r.product.title }}">
+      <article class="my-review-card" aria-label="{% blocktrans with t=r.product.title %}Відгук про {{ t }}{% endblocktrans %}">
         <div class="my-review-card__top">
           <div class="my-review-card__product">
             <a href="{% url 'product' r.product.slug %}#reviews">{{ r.product.title }}</a>
           </div>
           <div class="my-review-card__meta">
-            <span class="my-review-card__stars" aria-label="Оцінка {{ r.rating }} з 5">
+            <span class="my-review-card__stars" aria-label="{% blocktrans with n=r.rating %}Оцінка {{ n }} з 5{% endblocktrans %}">
               {% for _ in '12345'|make_list %}{% if forloop.counter <= r.rating %}★{% else %}☆{% endif %}{% endfor %}
             </span>
             <span class="my-review-card__status status-{{ r.status }}">
-              {% if r.status == 'approved' %}Опубліковано{% elif r.status == 'pending' %}На модерації{% else %}Відхилено{% endif %}
+              {% if r.status == 'approved' %}{% trans 'Опубліковано' %}{% elif r.status == 'pending' %}{% trans 'На модерації' %}{% else %}{% trans 'Відхилено' %}{% endif %}
             </span>
             <time datetime="{{ r.created_at|date:'c' }}">{{ r.created_at|date:'d.m.Y' }}</time>
           </div>
@@ -142,21 +143,21 @@
         {% if r.images.all %}
           <div class="my-review-card__photos">
             {% for img in r.images.all %}
-              <a href="{{ img.image.url }}" target="_blank" rel="noopener"><img src="{{ img.image.url }}" alt="Фото відгуку {{ forloop.counter }} про {{ r.product.title }}" loading="lazy" width="64" height="64"></a>
+              <a href="{{ img.image.url }}" target="_blank" rel="noopener"><img src="{{ img.image.url }}" alt="{% blocktrans with n=forloop.counter t=r.product.title %}Фото відгуку {{ n }} про {{ t }}{% endblocktrans %}" loading="lazy" width="64" height="64"></a>
             {% endfor %}
           </div>
         {% endif %}
         {% if r.status == 'rejected' and r.moderation_note %}
           <div class="my-review-card__mod-note">
-            <strong>Причина відхилення:</strong> {{ r.moderation_note }}
+            <strong>{% trans 'Причина відхилення:' %}</strong> {{ r.moderation_note }}
           </div>
         {% endif %}
       </article>
     {% endfor %}
   {% else %}
     <div class="my-reviews-empty">
-      <p>Ви ще не залишили жодного відгуку.</p>
-      <p><a href="{% url 'my_orders' %}">Перейти до моїх замовлень</a> та поділіться враженнями про придбані товари.</p>
+      <p>{% trans 'Ви ще не залишили жодного відгуку.' %}</p>
+      <p><a href="{% url 'my_orders' %}">{% trans 'Перейти до моїх замовлень' %}</a> {% trans 'та поділіться враженнями про придбані товари.' %}</p>
     </div>
   {% endif %}
 </div>

@@ -417,6 +417,120 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "en": "After placing the order, the manager will contact you at the phone number provided to confirm details and arrange delivery.",
     },
     "Заробите %(n)s балів":   {"ru": "Заработаете %(n)s баллов", "en": "Earn %(n)s points"},
+
+    # ===== Accounts =====
+    "Вхід":                   {"ru": "Вход",               "en": "Sign in"},
+    "Вхід до акаунту":        {"ru": "Вход в аккаунт",     "en": "Sign in to account"},
+    "Швидкий доступ до замовлень, балів та обраного": {
+        "ru": "Быстрый доступ к заказам, баллам и избранному",
+        "en": "Quick access to orders, points and favorites",
+    },
+    "Вхід через Google - TwoComms": {"ru": "Вход через Google - TwoComms", "en": "Sign in via Google - TwoComms"},
+    "Увійти через Google":    {"ru": "Войти через Google", "en": "Continue with Google"},
+    "Продовжуючи, ви погоджуєтесь з умовами використання": {
+        "ru": "Продолжая, вы соглашаетесь с условиями использования",
+        "en": "By continuing, you agree to the terms of use",
+    },
+    "Логін":                  {"ru": "Логин",              "en": "Login"},
+    "Використовуйте свій нікнейм. Реєстрація — за хвилину.": {
+        "ru": "Используйте свой никнейм. Регистрация — за минуту.",
+        "en": "Use your nickname. Registration takes a minute.",
+    },
+    "Пароль":                 {"ru": "Пароль",             "en": "Password"},
+    "Показати пароль":        {"ru": "Показать пароль",    "en": "Show password"},
+    "Увійти":                 {"ru": "Войти",              "en": "Sign in"},
+    "Немає облікового запису?": {"ru": "Нет аккаунта?",    "en": "No account yet?"},
+    "Зареєструватись":        {"ru": "Зарегистрироваться", "en": "Sign up"},
+    "Реєстрація":             {"ru": "Регистрация",        "en": "Sign up"},
+    "Створення акаунту":      {"ru": "Создание аккаунта",  "en": "Create account"},
+    "Отримуйте бонуси, спостерігайте за замовленнями та обраним": {
+        "ru": "Получайте бонусы, следите за заказами и избранным",
+        "en": "Earn bonuses, track your orders and favorites",
+    },
+    "Продовжити через Google": {"ru": "Продолжить через Google", "en": "Continue with Google"},
+    "Ми створимо акаунт на основі вашого Google профілю": {
+        "ru": "Мы создадим аккаунт на основе вашего Google-профиля",
+        "en": "We'll create an account based on your Google profile",
+    },
+    "Мін. 3 символи, латиниця/цифри/._-": {
+        "ru": "Мин. 3 символа, латиница/цифры/._-",
+        "en": "Min. 3 characters, Latin letters/digits/._-",
+    },
+    "8+ символів, бажано букви велики/малі та цифри": {
+        "ru": "8+ символов, желательно большие/маленькие буквы и цифры",
+        "en": "8+ characters, ideally mixed case and digits",
+    },
+    "Складність паролю":      {"ru": "Сложность пароля",   "en": "Password strength"},
+    "Повтор паролю":          {"ru": "Повтор пароля",      "en": "Repeat password"},
+    "Створити акаунт":        {"ru": "Создать аккаунт",    "en": "Create account"},
+    "Вже маєте акаунт?":      {"ru": "Уже есть аккаунт?",  "en": "Already have an account?"},
+
+    # favorites
+    "Обрані товари":          {"ru": "Избранные товары",   "en": "Favorite items"},
+    "Перейти в каталог":      {"ru": "Перейти в каталог",  "en": "Go to catalog"},
+    "Кольори:":               {"ru": "Цвета:",             "en": "Colors:"},
+    "Увага!":                 {"ru": "Внимание!",          "en": "Notice!"},
+    "Ви переглядаєте обрані товари як гість.": {
+        "ru": "Вы просматриваете избранные товары как гость.",
+        "en": "You're viewing favorites as a guest.",
+    },
+    "Увійдіть в акаунт":      {"ru": "Войдите в аккаунт",  "en": "Sign in"},
+    "або":                    {"ru": "или",                "en": "or"},
+    "зареєструйтесь":         {"ru": "зарегистрируйтесь",  "en": "sign up"},
+    "щоб зберегти обрані товари назавжди.": {
+        "ru": "чтобы сохранить избранные товары навсегда.",
+        "en": "to save your favorites permanently.",
+    },
+    "У вас поки немає обраних товарів": {
+        "ru": "У вас пока нет избранных товаров",
+        "en": "You don't have any favorites yet",
+    },
+    "Додавайте товари до обраного, натискаючи на сердечко на карточці товару": {
+        "ru": "Добавляйте товары в избранное, нажимая на сердечко на карточке товара",
+        "en": "Add items to favorites by clicking the heart on a product card",
+    },
+
+    # my_orders
+    "Мої замовлення":         {"ru": "Мои заказы",         "en": "My orders"},
+    "Відстежуйте статус ваших замовлень": {
+        "ru": "Отслеживайте статус своих заказов",
+        "en": "Track the status of your orders",
+    },
+
+    # my_reviews
+    "Мої відгуки":            {"ru": "Мои отзывы",         "en": "My reviews"},
+    "Усі ваші відгуки про куплені товари TwoComms.": {
+        "ru": "Все ваши отзывы о купленных товарах TwoComms.",
+        "en": "All your reviews of TwoComms products you've purchased.",
+    },
+    "Статистика відгуків":    {"ru": "Статистика отзывов", "en": "Reviews statistics"},
+    "Опубліковано":           {"ru": "Опубликовано",       "en": "Published"},
+    "На модерації":           {"ru": "На модерации",       "en": "Pending"},
+    "Відхилено":              {"ru": "Отклонено",          "en": "Rejected"},
+    "Відгук про %(t)s":       {"ru": "Отзыв о %(t)s",      "en": "Review of %(t)s"},
+    "Оцінка %(n)s з 5":       {"ru": "Оценка %(n)s из 5",  "en": "Rating %(n)s out of 5"},
+    "Фото відгуку %(n)s про %(t)s": {
+        "ru": "Фото отзыва %(n)s о %(t)s",
+        "en": "Review photo %(n)s of %(t)s",
+    },
+    "Причина відхилення:":    {"ru": "Причина отклонения:", "en": "Rejection reason:"},
+    "Ви ще не залишили жодного відгуку.": {
+        "ru": "Вы ещё не оставили ни одного отзыва.",
+        "en": "You haven't left any reviews yet.",
+    },
+    "Перейти до моїх замовлень": {"ru": "Перейти к моим заказам", "en": "Go to my orders"},
+    "та поділіться враженнями про придбані товари.": {
+        "ru": "и поделитесь впечатлениями о купленных товарах.",
+        "en": "and share your impressions of the purchased items.",
+    },
+
+    # profile_setup
+    "Профіль":                {"ru": "Профиль",            "en": "Profile"},
+    "Налаштування профілю":   {"ru": "Настройки профиля",  "en": "Profile settings"},
+    "Заповніть інформацію для зручного замовлення": {
+        "ru": "Заполните информацию для удобного оформления заказа",
+        "en": "Fill in your details for a smooth checkout",
+    },
 }
 
 

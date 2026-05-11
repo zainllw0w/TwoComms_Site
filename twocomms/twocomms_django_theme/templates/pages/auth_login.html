@@ -1,4 +1,4 @@
-{% extends 'base.html' %}{% load static %}{% block title %}Вхід — TwoComms{% endblock %}{% block robots %}noindex, nofollow{% endblock %}{% block content %}
+{% extends 'base.html' %}{% load static %}{% load i18n %}{% block title %}{% trans 'Вхід' %} — TwoComms{% endblock %}{% block robots %}noindex, nofollow{% endblock %}{% block content %}
 <div class="row justify-content-center">
   <div class="col-12 col-md-7 col-lg-5">
     <div class="card glass p-3 p-md-4">
@@ -7,16 +7,16 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5z"/></svg>
         </div>
         <div>
-          <h1 class="h5 fw-bold mb-0">Вхід до акаунту</h1>
-          <div class="text-secondary small">Швидкий доступ до замовлень, балів та обраного</div>
+          <h1 class="h5 fw-bold mb-0">{% trans 'Вхід до акаунту' %}</h1>
+          <div class="text-secondary small">{% trans 'Швидкий доступ до замовлень, балів та обраного' %}</div>
         </div>
       </div>
 
       <a href="{% url 'social:begin' 'google-oauth2' %}" class="btn btn-outline-light w-100 mb-3 d-flex align-items-center justify-content-center" style="gap:.5rem">
-        <img src="{% static 'img/google.svg' %}" alt="Вхід через Google - TwoComms" width="18" height="18" loading="lazy">
-        <span>Увійти через Google</span>
+        <img src="{% static 'img/google.svg' %}" alt="{% trans 'Вхід через Google - TwoComms' %}" width="18" height="18" loading="lazy">
+        <span>{% trans 'Увійти через Google' %}</span>
       </a>
-      <div class="text-secondary small mb-3">Продовжуючи, ви погоджуєтесь з умовами використання</div>
+      <div class="text-secondary small mb-3">{% trans 'Продовжуючи, ви погоджуєтесь з умовами використання' %}</div>
 
       {% if form.non_field_errors %}
       <div class="alert alert-danger" role="alert">
@@ -32,9 +32,9 @@
       <form method="post" novalidate class="vstack gap-3 position-relative">{% csrf_token %}
         {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
         <div>
-          <label for="id_username" class="form-label">Логін</label>
+          <label for="id_username" class="form-label">{% trans 'Логін' %}</label>
           {{ form.username }}
-          <div class="form-text">Використовуйте свій нікнейм. Реєстрація — за хвилину.</div>
+          <div class="form-text">{% trans 'Використовуйте свій нікнейм. Реєстрація — за хвилину.' %}</div>
           {% if form.username.errors %}
             <div class="invalid-feedback d-block">
               {% for e in form.username.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
@@ -42,10 +42,10 @@
           {% endif %}
         </div>
         <div>
-          <label for="id_password" class="form-label">Пароль</label>
+          <label for="id_password" class="form-label">{% trans 'Пароль' %}</label>
           <div class="input-group">
             {{ form.password }}
-            <button class="btn btn-outline-secondary" type="button" data-toggle-password aria-label="Показати пароль">👁</button>
+            <button class="btn btn-outline-secondary" type="button" data-toggle-password aria-label="{% trans 'Показати пароль' %}">👁</button>
           </div>
           {% if form.password.errors %}
             <div class="invalid-feedback d-block">
@@ -56,11 +56,11 @@
         <button class="btn btn-cta d-inline-flex align-items-center" type="submit" data-submit-btn style="gap:.5rem">
           <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5z"/></svg>
-          <span>Увійти</span>
+          <span>{% trans 'Увійти' %}</span>
         </button>
       </form>
 
-      <div class="text-secondary small mt-3">Немає облікового запису? <a href="{% url 'register' %}">Зареєструватись</a></div>
+      <div class="text-secondary small mt-3">{% trans 'Немає облікового запису?' %} <a href="{% url 'register' %}">{% trans 'Зареєструватись' %}</a></div>
     </div>
   </div>
 </div>
