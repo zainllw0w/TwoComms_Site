@@ -93,6 +93,8 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get
     'mail.twocomms.shop',  # Added for mail subdomain
     'management.twocomms.shop',
     'www.management.twocomms.shop',
+    'storage.twocomms.shop',
+    'www.storage.twocomms.shop',
 ]
 
 
@@ -148,6 +150,9 @@ INSTALLED_APPS = [
 
     # Management Subdomain App
     "management",
+
+    # Warehouse / Storage Subdomain App
+    "warehouse.apps.WarehouseConfig",
 ]
 
 # Явно переопределим список middleware, чтобы исключить любые лишние строки
@@ -998,6 +1003,8 @@ CSRF_TRUSTED_ORIGINS = [
     'https://www.dtf.twocomms.shop',
     'https://management.twocomms.shop',
     'https://www.management.twocomms.shop',
+    'https://storage.twocomms.shop',
+    'https://www.storage.twocomms.shop',
     'https://*.twocomms.shop',
     # удалён домен pythonanywhere по требованию
 ]
@@ -1113,6 +1120,19 @@ TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 
 # Telegram Chat ID для получения уведомлений о заказах
 TELEGRAM_ADMIN_CHAT_ID = os.environ.get('TELEGRAM_ADMIN_CHAT_ID', '')
+
+# ==================== WAREHOUSE / STORAGE SUBDOMAIN ====================
+
+# Окремий Telegram-бот для складу (вечірні нагадування + verify callbacks)
+TELEGRAM_STORAGE_BOT_TOKEN = os.environ.get('TELEGRAM_STORAGE_BOT_TOKEN', '')
+TELEGRAM_STORAGE_CHAT_IDS = os.environ.get('TELEGRAM_STORAGE_CHAT_IDS', '')
+TELEGRAM_STORAGE_WEBHOOK_SECRET = os.environ.get('TELEGRAM_STORAGE_WEBHOOK_SECRET', '')
+
+# Базовий URL warehouse-сабдомену (для побудови deeplink'ів та URL у листах від бота)
+WAREHOUSE_SUBDOMAIN_URL = os.environ.get(
+    'WAREHOUSE_SUBDOMAIN_URL',
+    'https://storage.twocomms.shop',
+).rstrip('/')
 
 # ==================== MONOBANK / MONOPAY ====================
 

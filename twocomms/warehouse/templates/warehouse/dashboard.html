@@ -1,0 +1,98 @@
+{% extends "warehouse/base.html" %}
+{% load static %}
+{% block title %}Склад — головна{% endblock %}
+{% block header_title %}{{ today|date:"d.m.Y" }}{% endblock %}
+
+{% block content %}
+<div class="wh-grid wh-grid-2">
+    <div class="wh-card wh-card--accent">
+        <p class="wh-card__title">Заморожено грошей</p>
+        <p class="wh-card__value wh-card__value--accent">{{ total_frozen|floatformat:0 }} ₴</p>
+        <p class="wh-card__hint">Сумарна собівартість одягу та принтів</p>
+    </div>
+    <div class="wh-card">
+        <p class="wh-card__title">Сьогодні рухів</p>
+        <p class="wh-card__value">{{ today_movements|length }}</p>
+        {% if unverified_today %}
+        <p class="wh-card__hint">
+            <span class="wh-badge wh-badge--warning">{{ unverified_today }} не перевірено</span>
+        </p>
+        {% else %}
+        <p class="wh-card__hint text-success">Все перевірено ✓</p>
+        {% endif %}
+    </div>
+</div>
+
+<h2 class="wh-section-title">Категорії одягу</h2>
+<div class="wh-list">
+    {% for row in frozen_by_category %}
+    <a href="{{ row.category.get_absolute_url }}" class="wh-list__item">
+        <span class="wh-list__icon">{{ row.category.name|slice:":1" }}</span>
+        <span class="wh-list__body">
+            <span class="wh-list__title">{{ row.category.name }}</span>
+            <span class="wh-list__meta">
+                {{ row.qty }} шт · {{ row.value|floatformat:0 }} ₴
+            </span>
+        </span>
+        <span class="wh-list__action">›</span>
+    </a>
+    {% empty %}
+    <div class="wh-card text-muted text-center">
+        Категорій ще немає. Додайте їх у Django адмінці.
+    </div>
+    {% endfor %}
+</div>
+
+{% if frozen_by_print %}
+<h2 class="wh-section-title">Принти</h2>
+<div class="wh-list">
+    {% for row in frozen_by_print|slice:":5" %}
+    <a href="{{ row.print.get_absolute_url }}" class="wh-list__item">
+        <span class="wh-list__icon">P</span>
+        <span class="wh-list__body">
+            <span class="wh-list__title">{{ row.print.name }}</span>
+            <span class="wh-list__meta">{{ row.qty }} шт · {{ row.value|floatformat:0 }} ₴</span>
+        </span>
+        <span class="wh-list__action">›</span>
+    </a>
+    {% endfor %}
+    {% if frozen_by_print|length > 5 %}
+    <a href="{% url 'warehouse:print_list' %}" class="btn btn--ghost btn--block mt-8">
+        Усі принти ({{ frozen_by_print|length }})
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+
+<h2 class="wh-section-title">Останні рухи сьогодні</h2>
+{% if today_movements %}
+<div class="wh-card" style="padding: 0;">
+    <table class="wh-table" style="margin: 0;">
+        <thead>
+            <tr>
+                <th>Час</th>
+                <th>Δ</th>
+                <th>Причина</th>
+                <th>Хто</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in today_movements %}
+            <tr>
+                <td class="text-muted">{{ m.created_at|date:"H:i" }}</td>
+                <td class="{% if m.delta > 0 %}text-success{% else %}text-danger{% endif %} text-bold">
+                    {% if m.delta > 0 %}+{% endif %}{{ m.delta }}
+                </td>
+                <td>{{ m.get_reason_display }}</td>
+                <td class="text-muted">{{ m.created_by.username|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<a href="{% url 'warehouse:today' %}" class="btn btn--ghost btn--block mt-12">Перейти до перевірки</a>
+{% else %}
+<div class="wh-card text-muted text-center">Сьогодні рухів ще не було.</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,28 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Немає доступу — TwoComms Склад</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'warehouse/css/warehouse.css' %}">
+</head>
+<body>
+<div class="wh-auth">
+    <div class="wh-auth__card text-center">
+        <h1 class="wh-auth__title">🔒 Немає доступу</h1>
+        <p class="wh-auth__sub">
+            Користувач <strong>{{ username }}</strong> не входить у групу <code>warehouse_admins</code>.
+        </p>
+        <p class="text-muted text-small">
+            Зверніться до адміністратора, щоб отримати доступ до складу.
+        </p>
+        <div class="flex-gap-8 mt-16" style="justify-content: center;">
+            <a href="{% url 'warehouse:logout' %}" class="btn btn--ghost">Вийти</a>
+            <a href="https://twocomms.shop/" class="btn btn--primary">Головний сайт</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,88 @@
+{% extends "warehouse/base.html" %}
+{% load static warehouse_tags %}
+{% block title %}Фінанси — Склад{% endblock %}
+{% block header_title %}Фінанси{% endblock %}
+
+{% block content %}
+<div class="wh-card wh-card--accent">
+    <p class="wh-card__title">Заморожено грошей</p>
+    <p class="wh-card__value wh-card__value--accent">{{ total_frozen|ua_money }}</p>
+    <p class="wh-card__hint">Сумарна собівартість одягу + принтів</p>
+</div>
+
+<h2 class="wh-section-title">За категоріями одягу</h2>
+<div class="wh-card" style="padding: 0;">
+    <table class="wh-table" style="margin: 0;">
+        <thead>
+            <tr><th>Категорія</th><th>Шт.</th><th>Сума</th></tr>
+        </thead>
+        <tbody>
+            {% for row in by_category %}
+            <tr>
+                <td><a href="{{ row.category.get_absolute_url }}">{{ row.category.name }}</a></td>
+                <td class="text-bold">{{ row.qty }}</td>
+                <td class="text-bold text-accent">{{ row.value|ua_money }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted text-center">Категорій ще немає.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h2 class="wh-section-title">За принтами</h2>
+<div class="wh-card" style="padding: 0;">
+    <table class="wh-table" style="margin: 0;">
+        <thead>
+            <tr><th>Принт</th><th>Шт.</th><th>Сума</th></tr>
+        </thead>
+        <tbody>
+            {% for row in by_print %}
+            <tr>
+                <td><a href="{{ row.print.get_absolute_url }}">{{ row.print.name }}</a></td>
+                <td class="text-bold">{{ row.qty }}</td>
+                <td class="text-bold text-accent">{{ row.value|ua_money }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted text-center">Принтів ще немає.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h2 class="wh-section-title">Динаміка за 30 днів</h2>
+<div class="wh-card">
+    <canvas id="chart-movements" style="max-height: 240px;"></canvas>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const data = {{ chart_json|safe }};
+        const ctx = document.getElementById('chart-movements');
+        if (!ctx || !window.Chart) return;
+        new window.Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    { label: 'Надходження', data: data.in_series, backgroundColor: '#2ec27e' },
+                    { label: 'Списання',    data: data.out_series, backgroundColor: '#ff5b6d' },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, ticks: { color: '#9ba0b3' }, grid: { display: false } },
+                    y: { stacked: true, ticks: { color: '#9ba0b3' }, grid: { color: '#1e2230' } },
+                },
+                plugins: { legend: { labels: { color: '#e6e8ee' } } },
+            },
+        });
+    });
+</script>
+{% endblock %}

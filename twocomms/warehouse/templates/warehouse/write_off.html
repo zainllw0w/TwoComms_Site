@@ -1,0 +1,87 @@
+{% extends "warehouse/base.html" %}
+{% load static %}
+{% block title %}Списання — #{{ order.order_number }}{% endblock %}
+{% block header_title %}Замовлення #{{ order.order_number }}{% endblock %}
+
+{% block content %}
+<div class="wh-card">
+    <div class="text-tiny text-muted">Клієнт</div>
+    <div class="text-bold">{{ order.full_name }}</div>
+    <div class="text-muted text-small">{{ order.phone }} · {{ order.city }} · {{ order.np_office }}</div>
+    {% if order.tracking_number %}
+    <div class="mt-8"><span class="wh-badge wh-badge--success">ТТН: {{ order.tracking_number }}</span></div>
+    {% endif %}
+</div>
+
+<form method="post" action="{% url 'warehouse:write_off_submit' token=wo_request.token %}">
+    {% csrf_token %}
+
+    <h2 class="wh-section-title">Позиції замовлення</h2>
+
+    {% for row in rows %}
+    <div class="wh-card">
+        <div class="flex-between mb-8">
+            <div>
+                <div class="text-bold">{{ row.item.title }}</div>
+                <div class="text-muted text-small">
+                    {% if row.item.size %}Розмір: <b>{{ row.item.size }}</b>{% endif %}
+                    {% if row.item.color_variant %} · {{ row.item.color_variant.color.name|default:row.item.color_variant.color.primary_hex }}{% endif %}
+                </div>
+            </div>
+            <div class="text-right">
+                <div class="text-tiny text-muted">К-сть</div>
+                <div class="text-bold" style="font-size: 22px;">×{{ row.item.qty }}</div>
+            </div>
+        </div>
+
+        <div class="form-field">
+            <label>Підкатегорія (крій) для списання</label>
+            <select name="item_{{ row.item.id }}_stock_id" required>
+                <option value="">— оберіть підкатегорію —</option>
+                {% for stock in row.candidates %}
+                <option value="{{ stock.id }}"
+                        {% if stock.quantity == 0 %}disabled{% endif %}>
+                    {{ stock.subcategory.name }}
+                    · {{ stock.color_display }}
+                    · {{ stock.size }}
+                    (наявно: {{ stock.quantity }})
+                </option>
+                {% endfor %}
+            </select>
+            {% if not row.candidates %}
+            <span class="form-help text-danger">Не знайдено жодної відповідної позиції на складі (розмір/колір/категорія).</span>
+            {% endif %}
+        </div>
+
+        <div class="form-field">
+            <label>Принт</label>
+            <select name="item_{{ row.item.id }}_print_variant_id">
+                <option value="">— без принта / нічого не списувати —</option>
+                {% for p in row.all_prints %}
+                    {% for v in p.color_variants.all %}
+                    <option value="{{ v.id }}"
+                            {% if row.default_print and row.default_print.id == p.id and v.is_default %}selected{% endif %}>
+                        {{ p.name }} / {{ v.color_name }} (наявно: {{ v.quantity }})
+                    </option>
+                    {% endfor %}
+                {% endfor %}
+            </select>
+            {% if row.default_print %}
+            <span class="form-help">Запропоновано: <b>{{ row.default_print.name }}</b></span>
+            {% endif %}
+        </div>
+
+        <div class="form-field">
+            <label>Списати штук</label>
+            <input type="number" name="item_{{ row.item.id }}_qty"
+                   min="0" max="{{ row.item.qty }}" value="{{ row.item.qty }}" required>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="flex-gap-8 mt-16">
+        <a href="{% url 'warehouse:dashboard' %}" class="btn btn--ghost flex-1">Скасувати</a>
+        <button type="submit" class="btn btn--danger flex-1">📦 Списати</button>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,175 @@
+{% extends "warehouse/base.html" %}
+{% load static warehouse_tags %}
+{% block title %}{{ category.name }} — Склад{% endblock %}
+{% block header_title %}{{ category.name }}{% endblock %}
+{% block header_actions %}
+<a href="{% url 'warehouse:category_bulk_add' slug=category.slug %}" class="btn btn--primary btn--small">
+    + Партія
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="wh-card flex-between">
+    <div>
+        <div class="text-tiny text-muted">Сумарно</div>
+        <div style="font-size: 22px; font-weight: 700;">{{ matrix.total }} шт</div>
+    </div>
+    <div class="text-right">
+        <div class="text-tiny text-muted">Заморожено</div>
+        <div class="text-accent" style="font-size: 22px; font-weight: 700;">{{ category.total_frozen_value|floatformat:0 }} ₴</div>
+    </div>
+</div>
+
+{% if matrix.subcategories %}
+{% for sub in matrix.subcategories %}
+<h2 class="wh-section-title">{{ sub.name }}</h2>
+<div class="wh-matrix-wrap">
+    <table class="wh-matrix">
+        <thead>
+            <tr>
+                <th></th>
+                {% for size in matrix.sizes %}
+                <th>{{ size }}</th>
+                {% endfor %}
+                <th>Σ</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in sub.rows_by_color %}
+            <tr>
+                <td class="size-col">
+                    {% if row.color_hex %}<span class="wh-color-dot" style="background:{{ row.color_hex }};"></span>{% endif %}
+                    {{ row.color_name }}
+                </td>
+                {% for size in matrix.sizes %}
+                {% with qty=row.by_size|dictkey:size|default:0 %}
+                <td class="qty-cell"
+                    data-subcategory-id="{{ sub.id }}"
+                    data-subcategory-name="{{ sub.name }}"
+                    data-size="{{ size }}"
+                    data-color-id="{{ row.color_id|default:'' }}"
+                    data-color-name="{{ row.color_name }}"
+                    data-color-hex="{{ row.color_hex }}"
+                    data-quantity="{{ qty }}">
+                    <span class="{{ qty|qty_class }}">{{ qty }}</span>
+                </td>
+                {% endwith %}
+                {% endfor %}
+                <td class="text-bold">{{ row.row_total }}</td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <td class="size-col text-muted text-tiny">Усього</td>
+                {% for size in matrix.sizes %}
+                <td class="text-bold">{{ sub.subtotal_by_size|dictkey:size|default:0 }}</td>
+                {% endfor %}
+                <td class="text-bold text-accent">{{ sub.subtotal }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<div class="flex-gap-8 mb-16">
+    <button type="button"
+            class="btn btn--ghost btn--small wh-add-row-btn"
+            data-subcategory-id="{{ sub.id }}"
+            data-subcategory-name="{{ sub.name }}">
+        + Нова позиція
+    </button>
+</div>
+{% endfor %}
+{% else %}
+<div class="wh-card text-muted text-center">
+    Поки що жодної позиції. Натисни «+ Партія» вище, щоб додати першу.
+</div>
+{% endif %}
+
+<!-- Bottom sheet for quick adjust -->
+<div class="wh-sheet-backdrop" id="wh-sheet-backdrop"></div>
+<div class="wh-sheet" id="wh-sheet">
+    <div class="wh-sheet__grip"></div>
+    <h3 class="wh-sheet__title" id="wh-sheet-title">Позиція</h3>
+
+    <div class="form-field">
+        <label>Поточна кількість</label>
+        <div class="qty-controls">
+            <button type="button" class="qty-btn" id="qty-minus">−</button>
+            <span class="qty-value" id="qty-value">0</span>
+            <button type="button" class="qty-btn" id="qty-plus">+</button>
+        </div>
+    </div>
+
+    <div class="form-field">
+        <label for="qty-set">Встановити число</label>
+        <input type="number" id="qty-set" min="0" placeholder="напр. 12">
+    </div>
+
+    <div class="form-field">
+        <label for="cost-set">Собівартість одиниці (₴)</label>
+        <input type="number" id="cost-set" min="0" step="0.01" placeholder="0">
+    </div>
+
+    <div class="form-field">
+        <label for="comment-set">Коментар</label>
+        <input type="text" id="comment-set" placeholder="Опційно">
+    </div>
+
+    <div class="flex-gap-8 mt-12">
+        <button type="button" class="btn btn--ghost flex-1" id="wh-sheet-cancel">Скасувати</button>
+        <button type="button" class="btn btn--primary flex-1" id="wh-sheet-save">Зберегти</button>
+    </div>
+</div>
+
+<!-- Add row sheet (with size + color selectors) -->
+<div class="wh-sheet" id="wh-add-sheet">
+    <div class="wh-sheet__grip"></div>
+    <h3 class="wh-sheet__title" id="wh-add-title">Нова позиція</h3>
+    <input type="hidden" id="add-subcategory-id">
+
+    <div class="form-field">
+        <label for="add-size">Розмір</label>
+        <input type="text" id="add-size" placeholder="напр. M" autocomplete="off">
+    </div>
+
+    <div class="form-field">
+        <label for="add-color">Колір</label>
+        <select id="add-color">
+            <option value="">— без кольору —</option>
+            {% for c in colors %}
+            <option value="{{ c.id }}">{{ c.name|default:c.primary_hex }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-field">
+        <label for="add-qty">Кількість</label>
+        <input type="number" id="add-qty" min="1" value="1">
+    </div>
+
+    <div class="form-field">
+        <label for="add-cost">Собівартість (₴)</label>
+        <input type="number" id="add-cost" min="0" step="0.01" value="0">
+    </div>
+
+    <div class="flex-gap-8 mt-12">
+        <button type="button" class="btn btn--ghost flex-1" id="wh-add-cancel">Скасувати</button>
+        <button type="button" class="btn btn--primary flex-1" id="wh-add-save">Додати</button>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_head %}
+<script>
+    window.__warehouse__ = {
+        csrfToken: '{{ csrf_token }}',
+        urls: {
+            stockAdjust: '{% url "warehouse:api_stock_adjust" %}',
+        },
+        categorySlug: '{{ category.slug }}',
+    };
+</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'warehouse/js/category-detail.js' %}" defer></script>
+{% endblock %}

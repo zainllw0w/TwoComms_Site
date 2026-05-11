@@ -1,0 +1,126 @@
+{% extends "warehouse/base.html" %}
+{% load static %}
+{% block title %}Історія — Склад{% endblock %}
+{% block header_title %}Історія рухів{% endblock %}
+
+{% block content %}
+<form method="get" class="wh-card mb-16">
+    <div class="wh-grid wh-grid-2">
+        <div class="form-field">
+            <label for="filter_reason">Причина</label>
+            <select id="filter_reason" name="reason">
+                <option value="">Усі</option>
+                {% for code, label in reasons %}
+                <option value="{{ code }}" {% if code == filter_reason %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-field">
+            <label for="filter_verified">Перевірено</label>
+            <select id="filter_verified" name="verified">
+                <option value="">Усі</option>
+                <option value="yes" {% if filter_verified == 'yes' %}selected{% endif %}>Тільки перевірені</option>
+                <option value="no" {% if filter_verified == 'no' %}selected{% endif %}>Тільки неперевірені</option>
+            </select>
+        </div>
+    </div>
+    <div class="wh-grid wh-grid-2">
+        <div class="form-field">
+            <label for="date_from">Від</label>
+            <input type="date" id="date_from" name="date_from" value="{{ filter_date_from }}">
+        </div>
+        <div class="form-field">
+            <label for="date_to">До</label>
+            <input type="date" id="date_to" name="date_to" value="{{ filter_date_to }}">
+        </div>
+    </div>
+    <button type="submit" class="btn btn--primary btn--block">Застосувати</button>
+</form>
+
+<div class="wh-card" style="padding: 0;">
+    <table class="wh-table" style="margin: 0;">
+        <thead>
+            <tr>
+                <th>Час</th>
+                <th>Δ</th>
+                <th>Причина</th>
+                <th>Хто</th>
+                <th>Перевір.</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in page.object_list %}
+            <tr>
+                <td class="text-muted text-small">{{ m.created_at|date:"d.m H:i" }}</td>
+                <td class="{% if m.delta > 0 %}text-success{% else %}text-danger{% endif %} text-bold">
+                    {% if m.delta > 0 %}+{% endif %}{{ m.delta }}
+                </td>
+                <td class="text-small">
+                    {{ m.get_reason_display }}
+                    {% if m.order %}<br><span class="text-muted text-tiny">#{{ m.order.order_number }}</span>{% endif %}
+                </td>
+                <td class="text-small">{{ m.created_by.username|default:"—" }}</td>
+                <td>
+                    {% if m.verified %}
+                    <span class="wh-badge wh-badge--success">✓</span>
+                    {% else %}
+                    <button type="button" class="btn btn--small history-verify-btn" data-movement-id="{{ m.id }}">Так</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-muted text-center" style="padding: 24px;">Записів не знайдено.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if page.has_other_pages %}
+<div class="flex-gap-8 mt-16">
+    {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}{% if filter_reason %}&reason={{ filter_reason }}{% endif %}{% if filter_verified %}&verified={{ filter_verified }}{% endif %}{% if filter_date_from %}&date_from={{ filter_date_from }}{% endif %}{% if filter_date_to %}&date_to={{ filter_date_to }}{% endif %}" class="btn btn--ghost flex-1">← Назад</a>
+    {% endif %}
+    <span class="text-muted text-center flex-1" style="line-height: 44px;">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}{% if filter_reason %}&reason={{ filter_reason }}{% endif %}{% if filter_verified %}&verified={{ filter_verified }}{% endif %}{% if filter_date_from %}&date_from={{ filter_date_from }}{% endif %}{% if filter_date_to %}&date_to={{ filter_date_to }}{% endif %}" class="btn btn--ghost flex-1">Далі →</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_head %}
+<script>
+    window.__warehouse__ = {
+        csrfToken: '{{ csrf_token }}',
+        urls: { historyVerify: '{% url "warehouse:history_verify" %}' },
+    };
+</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.history-verify-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const id = btn.dataset.movementId;
+                const fd = new FormData();
+                fd.append('movement_id', id);
+                fetch(window.__warehouse__.urls.historyVerify, {
+                    method: 'POST',
+                    body: fd,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': window.__warehouse__.csrfToken,
+                    },
+                }).then(function (r) { return r.json(); })
+                  .then(function (data) {
+                      if (data.ok) {
+                          btn.outerHTML = '<span class="wh-badge wh-badge--success">✓</span>';
+                      }
+                  });
+            });
+        });
+    });
+</script>
+{% endblock %}

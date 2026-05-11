@@ -1,0 +1,9 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Невалідне посилання{% endblock %}
+{% block content %}
+<div class="wh-card text-center">
+    <h1>Посилання застаріло</h1>
+    <p class="text-muted">Запит на списання не знайдено або токен невалідний. Спробуйте відкрити кнопку зі свіжого повідомлення Telegram.</p>
+    <a href="{% url 'warehouse:dashboard' %}" class="btn btn--primary mt-12">На головну</a>
+</div>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "warehouse/base.html" %}
+{% load static %}
+{% block title %}{{ print.name }} — Принти{% endblock %}
+{% block header_title %}{{ print.name }}{% endblock %}
+{% block header_actions %}
+<a href="{% url 'warehouse:print_edit' slug=print.slug %}" class="btn btn--ghost btn--small">Редагувати</a>
+{% endblock %}
+
+{% block content %}
+{% if print.main_image %}
+<img src="{{ print.main_image.url }}" alt="{{ print.name }}"
+     style="width: 100%; max-height: 320px; object-fit: contain; border-radius: var(--radius); margin-bottom: 16px; background: var(--bg-card);">
+{% endif %}
+
+<div class="wh-card flex-between">
+    <div>
+        <div class="text-tiny text-muted">Усього</div>
+        <div style="font-size: 22px; font-weight: 700;">{{ print.total_quantity }} шт</div>
+    </div>
+    <div class="text-right">
+        <div class="text-tiny text-muted">Заморожено</div>
+        <div class="text-accent" style="font-size: 22px; font-weight: 700;">{{ print.total_frozen_value|floatformat:0 }} ₴</div>
+    </div>
+</div>
+
+<h2 class="wh-section-title">Варіанти кольорів</h2>
+<div class="wh-list">
+    {% for v in variants %}
+    <div class="wh-list__item" data-variant-id="{{ v.id }}">
+        <span class="wh-color-dot" style="background:{{ v.color_hex|default:'#888' }};"></span>
+        <div class="wh-list__body">
+            <div class="wh-list__title">{{ v.color_name }}{% if v.is_default %} <span class="wh-badge wh-badge--accent">default</span>{% endif %}</div>
+            <div class="wh-list__meta">{{ v.quantity }} шт · {{ v.cost_price|floatformat:0 }} ₴/шт</div>
+        </div>
+        <div class="qty-controls">
+            <button type="button" class="qty-btn print-variant-minus"
+                    data-variant-id="{{ v.id }}">−</button>
+            <span class="qty-value" data-variant-qty="{{ v.id }}">{{ v.quantity }}</span>
+            <button type="button" class="qty-btn print-variant-plus"
+                    data-variant-id="{{ v.id }}">+</button>
+        </div>
+    </div>
+    {% empty %}
+    <div class="wh-card text-muted text-center">
+        Жодного варіанта. Додайте через
+        <a href="{% url 'warehouse:print_edit' slug=print.slug %}">редагування принта</a>.
+    </div>
+    {% endfor %}
+</div>
+
+{% if print.default_products.all %}
+<h2 class="wh-section-title">Пропонується для товарів</h2>
+<div class="wh-list">
+    {% for p in print.default_products.all %}
+    <div class="wh-list__item">
+        <span class="wh-list__icon">{{ p.title|slice:":1" }}</span>
+        <div class="wh-list__body">
+            <div class="wh-list__title">{{ p.title }}</div>
+            <div class="wh-list__meta">{{ p.category.name }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if print.description %}
+<h2 class="wh-section-title">Опис</h2>
+<div class="wh-card text-muted">{{ print.description|linebreaks }}</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_head %}
+<script>
+    window.__warehouse__ = {
+        csrfToken: '{{ csrf_token }}',
+        urls: {
+            printAdjust: '{% url "warehouse:api_print_adjust" %}',
+        },
+    };
+</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'warehouse/js/print-detail.js' %}" defer></script>
+{% endblock %}

@@ -89,6 +89,10 @@ if _allowed_hosts_env:
         ALLOWED_HOSTS.append('dtf.twocomms.shop')
     if 'www.dtf.twocomms.shop' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append('www.dtf.twocomms.shop')
+    if 'storage.twocomms.shop' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('storage.twocomms.shop')
+    if 'www.storage.twocomms.shop' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('www.storage.twocomms.shop')
 else:
     # Значения по умолчанию: ваш домен(ы)
     ALLOWED_HOSTS = [
@@ -103,6 +107,8 @@ else:
         'testserver',  # Для Django тестового клиента
         'management.twocomms.shop',
         'www.management.twocomms.shop',
+        'storage.twocomms.shop',
+        'www.storage.twocomms.shop',
     ]
 
 _csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS')
@@ -121,7 +127,7 @@ if 'https://twocomms.shop' in CSRF_TRUSTED_ORIGINS and 'https://www.twocomms.sho
 if 'http://twocomms.shop' in CSRF_TRUSTED_ORIGINS and 'http://www.twocomms.shop' not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.extend(['http://www.twocomms.shop'])
 
-# Add management + dtf subdomain to CSRF sources
+# Add management + dtf + storage subdomain to CSRF sources
 CSRF_TRUSTED_ORIGINS.extend([
     'https://management.twocomms.shop',
     'http://management.twocomms.shop',
@@ -129,6 +135,10 @@ CSRF_TRUSTED_ORIGINS.extend([
     'http://dtf.twocomms.shop',
     'https://www.dtf.twocomms.shop',
     'http://www.dtf.twocomms.shop',
+    'https://storage.twocomms.shop',
+    'http://storage.twocomms.shop',
+    'https://www.storage.twocomms.shop',
+    'http://www.storage.twocomms.shop',
 ])
 CSRF_FAILURE_VIEW = 'twocomms.csrf.csrf_failure'
 

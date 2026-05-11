@@ -1,0 +1,153 @@
+{% extends "warehouse/base.html" %}
+{% load static %}
+{% block title %}{% if print %}{{ print.name }} — редагування{% else %}Новий принт{% endif %}{% endblock %}
+{% block header_title %}{% if print %}Редагування{% else %}Новий принт{% endif %}{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data"
+      action="{% if print %}{% url 'warehouse:print_edit' slug=print.slug %}{% else %}{% url 'warehouse:print_create' %}{% endif %}">
+    {% csrf_token %}
+
+    <div class="form-field">
+        <label for="name">Назва</label>
+        <input type="text" id="name" name="name" required
+               value="{{ print.name|default:'' }}" placeholder="напр. «Сабли»">
+    </div>
+
+    <div class="form-field">
+        <label for="main_image">Основне фото</label>
+        <input type="file" id="main_image" name="main_image" accept="image/*">
+        {% if print and print.main_image %}
+        <span class="form-help">Поточне: <a href="{{ print.main_image.url }}" target="_blank">переглянути</a></span>
+        {% endif %}
+    </div>
+
+    <div class="form-field">
+        <label for="description">Опис</label>
+        <textarea id="description" name="description" rows="3">{{ print.description|default:'' }}</textarea>
+    </div>
+
+    <div class="form-field">
+        <label>
+            <input type="checkbox" name="is_active" {% if not print or print.is_active %}checked{% endif %}>
+            Активний (відображається на складі)
+        </label>
+    </div>
+
+    <h3 class="wh-section-title">Варіанти кольорів</h3>
+    <div id="variant-rows">
+        {% for v in variants %}
+        <div class="wh-card variant-row" data-index="{{ forloop.counter0 }}">
+            <input type="hidden" name="variant_id[]" value="{{ v.id }}">
+            <div class="wh-grid wh-grid-2">
+                <div class="form-field">
+                    <label>Назва кольору</label>
+                    <input type="text" name="variant_color_name[]" value="{{ v.color_name }}" required>
+                </div>
+                <div class="form-field">
+                    <label>HEX (опц.)</label>
+                    <input type="text" name="variant_color_hex[]" value="{{ v.color_hex }}" placeholder="#0ABF52">
+                </div>
+            </div>
+            <div class="wh-grid wh-grid-2">
+                <div class="form-field">
+                    <label>Кількість</label>
+                    <input type="number" name="variant_quantity[]" min="0" value="{{ v.quantity }}">
+                </div>
+                <div class="form-field">
+                    <label>Собівартість (₴)</label>
+                    <input type="number" name="variant_cost[]" min="0" step="0.01" value="{{ v.cost_price }}">
+                </div>
+            </div>
+            <div class="form-field">
+                <label>
+                    <input type="radio" name="variant_default" value="{{ forloop.counter0 }}" {% if v.is_default %}checked{% endif %}>
+                    За замовчуванням
+                </label>
+            </div>
+            <button type="button" class="btn btn--ghost btn--small variant-remove">Прибрати</button>
+        </div>
+        {% endfor %}
+    </div>
+    <button type="button" class="btn btn--ghost btn--block mt-12" id="add-variant">+ Додати варіант</button>
+
+    <h3 class="wh-section-title">Пропонувати для товарів сайту</h3>
+    <div class="form-field">
+        <select name="default_products[]" multiple size="8" style="height: auto;">
+            {% for p in products %}
+            <option value="{{ p.id }}"
+                    {% if p.id in selected_product_ids %}selected{% endif %}>
+                {{ p.title }}
+            </option>
+            {% endfor %}
+        </select>
+        <span class="form-help">Утримуй Ctrl/Cmd для множинного вибору. При списанні цей принт буде підставлений автоматично.</span>
+    </div>
+
+    <div class="flex-gap-8 mt-16">
+        <a href="{% url 'warehouse:print_list' %}" class="btn btn--ghost flex-1">Скасувати</a>
+        <button type="submit" class="btn btn--primary flex-1">Зберегти</button>
+    </div>
+</form>
+
+<template id="variant-template">
+    <div class="wh-card variant-row">
+        <input type="hidden" name="variant_id[]" value="">
+        <div class="wh-grid wh-grid-2">
+            <div class="form-field">
+                <label>Назва кольору</label>
+                <input type="text" name="variant_color_name[]" required>
+            </div>
+            <div class="form-field">
+                <label>HEX (опц.)</label>
+                <input type="text" name="variant_color_hex[]" placeholder="#0ABF52">
+            </div>
+        </div>
+        <div class="wh-grid wh-grid-2">
+            <div class="form-field">
+                <label>Кількість</label>
+                <input type="number" name="variant_quantity[]" min="0" value="0">
+            </div>
+            <div class="form-field">
+                <label>Собівартість (₴)</label>
+                <input type="number" name="variant_cost[]" min="0" step="0.01" value="0">
+            </div>
+        </div>
+        <div class="form-field">
+            <label>
+                <input type="radio" name="variant_default" value="">
+                За замовчуванням
+            </label>
+        </div>
+        <button type="button" class="btn btn--ghost btn--small variant-remove">Прибрати</button>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const container = document.getElementById('variant-rows');
+        const tpl = document.getElementById('variant-template');
+        const addBtn = document.getElementById('add-variant');
+
+        function nextIndex() {
+            return container.querySelectorAll('.variant-row').length;
+        }
+        addBtn.addEventListener('click', function () {
+            const idx = nextIndex();
+            const clone = tpl.content.cloneNode(true);
+            const radio = clone.querySelector('input[type=radio]');
+            if (radio) radio.value = idx;
+            const row = clone.querySelector('.variant-row');
+            if (row) row.dataset.index = idx;
+            container.appendChild(clone);
+        });
+        container.addEventListener('click', function (e) {
+            if (e.target.classList.contains('variant-remove')) {
+                e.target.closest('.variant-row').remove();
+            }
+        });
+    });
+</script>
+{% endblock %}

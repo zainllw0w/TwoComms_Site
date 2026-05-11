@@ -1,0 +1,184 @@
+"""Зв'язування витринних товарів з позиціями складу.
+
+Логіка: на основі OrderItem (product.category + size + color) знаходимо
+відповідні StockItem'и. Підкатегорія вручну обирається адміном під час
+списання — тут ми просто повертаємо всі можливі варіанти.
+"""
+from __future__ import annotations
+
+from typing import Iterable
+
+from warehouse.models import Print, StockItem, StorageCategory
+
+
+def find_stock_items_for_order_item(order_item) -> list[StockItem]:
+    """Повертає список StockItem, які потенційно підходять для OrderItem.
+
+    Логіка матчингу:
+    - storefront.Category з товару → StorageCategory.linked_storefront_category
+    - size з OrderItem.size
+    - color з OrderItem.color_variant.color (якщо є)
+    """
+    storefront_category = getattr(order_item.product, "category", None)
+    if storefront_category is None:
+        return []
+
+    queryset = StockItem.objects.select_related(
+        "subcategory__category",
+        "color",
+    ).filter(
+        subcategory__category__linked_storefront_category=storefront_category,
+        subcategory__is_active=True,
+        subcategory__category__is_active=True,
+    )
+
+    size = (order_item.size or "").strip()
+    if size:
+        queryset = queryset.filter(size__iexact=size)
+
+    color_variant = getattr(order_item, "color_variant", None)
+    if color_variant and color_variant.color_id:
+        queryset = queryset.filter(color_id=color_variant.color_id)
+
+    return list(queryset.order_by("subcategory__order", "subcategory__name"))
+
+
+def find_default_print_for_order_item(order_item) -> Print | None:
+    """Підставляє принт за замовчуванням для позиції замовлення.
+
+    Шукає Print, що в default_products містить order_item.product.
+    """
+    return (
+        Print.objects.filter(
+            default_products=order_item.product, is_active=True
+        )
+        .order_by("name")
+        .first()
+    )
+
+
+def stock_matrix_for_category(category: StorageCategory) -> dict:
+    """Побудувати матрицю остатків для категорії.
+
+    Повертає структуру:
+        {
+            "sizes": ["S", "M", "L", ...],
+            "subcategories": [
+                {
+                    "id": int, "name": str, "slug": str,
+                    "rows_by_color": [
+                        {
+                            "color_id": int|None,
+                            "color_name": str,
+                            "color_hex": str,
+                            "by_size": {"S": qty, "M": qty, ...},
+                            "row_total": int,
+                        },
+                        ...
+                    ],
+                    "subtotal_by_size": {"S": qty, ...},
+                    "subtotal": int,
+                },
+                ...
+            ],
+            "total_by_size": {"S": qty, ...},
+            "total": int,
+        }
+    """
+    items = (
+        StockItem.objects.filter(subcategory__category=category)
+        .select_related("subcategory", "color")
+        .order_by("subcategory__order", "subcategory__name", "color__name", "size")
+    )
+
+    sizes_set: set[str] = set()
+    subcat_buckets: dict[int, dict] = {}
+    for item in items:
+        sub = item.subcategory
+        if sub.id not in subcat_buckets:
+            subcat_buckets[sub.id] = {
+                "id": sub.id,
+                "name": sub.name,
+                "slug": sub.slug,
+                "rows": {},  # (color_id, color_name, hex) -> {size: qty}
+            }
+        sizes_set.add(item.size)
+        color_id = item.color_id
+        color_name = item.color_display
+        color_hex = item.color.primary_hex if item.color else ""
+        key = (color_id, color_name, color_hex)
+        bucket = subcat_buckets[sub.id]["rows"].setdefault(
+            key, {"_total": 0, "_sizes": {}}
+        )
+        bucket["_sizes"][item.size] = bucket["_sizes"].get(item.size, 0) + item.quantity
+        bucket["_total"] += item.quantity
+
+    sizes = _sort_sizes(sizes_set)
+
+    subcategories = []
+    total_by_size = {s: 0 for s in sizes}
+    grand_total = 0
+    for sub_id, sub_data in subcat_buckets.items():
+        rows_by_color = []
+        subtotal_by_size = {s: 0 for s in sizes}
+        subtotal = 0
+        for (color_id, color_name, color_hex), bucket in sub_data["rows"].items():
+            by_size = {s: bucket["_sizes"].get(s, 0) for s in sizes}
+            row_total = bucket["_total"]
+            for s, q in by_size.items():
+                subtotal_by_size[s] += q
+                total_by_size[s] += q
+            subtotal += row_total
+            grand_total += row_total
+            rows_by_color.append(
+                {
+                    "color_id": color_id,
+                    "color_name": color_name,
+                    "color_hex": color_hex,
+                    "by_size": by_size,
+                    "row_total": row_total,
+                }
+            )
+        # also include subcategories that have no items? — skipped to keep matrix dense
+        subcategories.append(
+            {
+                "id": sub_id,
+                "name": sub_data["name"],
+                "slug": sub_data["slug"],
+                "rows_by_color": rows_by_color,
+                "subtotal_by_size": subtotal_by_size,
+                "subtotal": subtotal,
+            }
+        )
+
+    return {
+        "sizes": sizes,
+        "subcategories": subcategories,
+        "total_by_size": total_by_size,
+        "total": grand_total,
+    }
+
+
+_SIZE_ORDER = [
+    "XXS",
+    "XS",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "XXL",
+    "XXXL",
+    "4XL",
+    "5XL",
+]
+
+
+def _sort_sizes(sizes: Iterable[str]) -> list[str]:
+    known, others = [], []
+    upper_to_orig: dict[str, str] = {s.upper(): s for s in sizes}
+    for s in _SIZE_ORDER:
+        if s in upper_to_orig:
+            known.append(upper_to_orig[s])
+    rest = [s for s in sizes if s.upper() not in _SIZE_ORDER]
+    others = sorted(rest)
+    return known + others

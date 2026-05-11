@@ -487,12 +487,30 @@ class TelegramNotifier:
 
         return message
 
+    def _build_storage_writeoff_button(self, order):
+        """Кнопка «Списати зі складу» — веде на storage субдомен з UUID-токеном.
+
+        Повертає dict (рядок inline-кнопок) або None якщо warehouse-app
+        недоступний/неактивний.
+        """
+        try:
+            from warehouse.services.order_links import build_storage_writeoff_url
+        except Exception:
+            return None
+        try:
+            writeoff_url = build_storage_writeoff_url(order)
+        except Exception:
+            return None
+        return {"text": "📦 Списати зі складу", "url": writeoff_url}
+
     def _build_order_management_reply_markup(self, order):
         if (
             not getattr(order, "pk", None)
             or getattr(order, "status", "") in {"done", "cancelled"}
         ):
             return None
+
+        writeoff_button = self._build_storage_writeoff_button(order)
 
         if getattr(order, "nova_poshta_document_ref", None):
             try:
@@ -505,18 +523,16 @@ class TelegramNotifier:
             except Exception:
                 return None
 
-            return {
-                "inline_keyboard": [
-                    [
-                        {
-                            "text": "🗑 Видалити ТТН НП",
-                            "url": delete_waybill_url,
-                        }
-                    ],
-                ]
-            }
+            keyboard_rows = [
+                [{"text": "🗑 Видалити ТТН НП", "url": delete_waybill_url}],
+            ]
+            if writeoff_button:
+                keyboard_rows.append([writeoff_button])
+            return {"inline_keyboard": keyboard_rows}
 
         if getattr(order, "tracking_number", None):
+            if writeoff_button:
+                return {"inline_keyboard": [[writeoff_button]]}
             return None
 
         action = get_telegram_status_action('ship')
@@ -533,22 +549,13 @@ class TelegramNotifier:
         except Exception:
             return None
 
-        return {
-            "inline_keyboard": [
-                [
-                    {
-                        "text": "📦 Створити ТТН НП",
-                        "url": create_waybill_url,
-                    }
-                ],
-                [
-                    {
-                        "text": action["button_text"],
-                        "url": ship_url,
-                    }
-                ]
-            ]
-        }
+        keyboard_rows = [
+            [{"text": "📦 Створити ТТН НП", "url": create_waybill_url}],
+            [{"text": action["button_text"], "url": ship_url}],
+        ]
+        if writeoff_button:
+            keyboard_rows.append([writeoff_button])
+        return {"inline_keyboard": keyboard_rows}
 
     def send_new_order_notification(self, order):
         """Отправляет уведомление о новом заказе"""

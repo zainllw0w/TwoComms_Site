@@ -1,0 +1,114 @@
+{% extends "warehouse/base.html" %}
+{% load static %}
+{% block title %}Додати партію — {{ category.name }}{% endblock %}
+{% block header_title %}Партія: {{ category.name }}{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'warehouse:category_bulk_add' slug=category.slug %}">
+    {% csrf_token %}
+
+    <div class="form-field">
+        <label for="subcategory_id">Підкатегорія (крій)</label>
+        <select id="subcategory_id" name="subcategory_id" required>
+            {% for sub in subcategories %}
+            <option value="{{ sub.id }}" {% if sub.is_default %}selected{% endif %}>
+                {{ sub.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-field">
+        <label for="cost_price">Собівартість одиниці (₴)</label>
+        <input type="number" id="cost_price" name="cost_price" min="0" step="0.01" value="0">
+        <span class="form-help">Застосується до всіх позицій партії</span>
+    </div>
+
+    <h3 class="wh-section-title">Позиції</h3>
+    <div id="bulk-rows">
+        <div class="wh-card bulk-row">
+            <div class="wh-grid wh-grid-2">
+                <div class="form-field">
+                    <label>Розмір</label>
+                    <input type="text" name="size[]" placeholder="M" required>
+                </div>
+                <div class="form-field">
+                    <label>Колір</label>
+                    <select name="color_id[]">
+                        <option value="">— без кольору —</option>
+                        {% for c in colors %}
+                        <option value="{{ c.id }}">{{ c.name|default:c.primary_hex }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-field">
+                <label>Кількість</label>
+                <input type="number" name="quantity[]" min="1" value="1" required>
+            </div>
+            <button type="button" class="btn btn--ghost btn--small bulk-remove">Прибрати</button>
+        </div>
+    </div>
+
+    <button type="button" class="btn btn--ghost btn--block mt-12" id="bulk-add-row">+ Додати ще рядок</button>
+
+    <div class="form-field mt-16">
+        <label for="comment">Коментар (необов'язково)</label>
+        <input type="text" id="comment" name="comment" placeholder="напр. «закупка 15.05»">
+    </div>
+
+    <div class="flex-gap-8 mt-16">
+        <a href="{% url 'warehouse:category_detail' slug=category.slug %}" class="btn btn--ghost flex-1">Скасувати</a>
+        <button type="submit" class="btn btn--primary flex-1">Зберегти партію</button>
+    </div>
+</form>
+
+<template id="bulk-row-template">
+    <div class="wh-card bulk-row">
+        <div class="wh-grid wh-grid-2">
+            <div class="form-field">
+                <label>Розмір</label>
+                <input type="text" name="size[]" placeholder="M" required>
+            </div>
+            <div class="form-field">
+                <label>Колір</label>
+                <select name="color_id[]">
+                    <option value="">— без кольору —</option>
+                    {% for c in colors %}
+                    <option value="{{ c.id }}">{{ c.name|default:c.primary_hex }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="form-field">
+            <label>Кількість</label>
+            <input type="number" name="quantity[]" min="1" value="1" required>
+        </div>
+        <button type="button" class="btn btn--ghost btn--small bulk-remove">Прибрати</button>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const addBtn = document.getElementById('bulk-add-row');
+        const rowsContainer = document.getElementById('bulk-rows');
+        const tpl = document.getElementById('bulk-row-template');
+
+        addBtn.addEventListener('click', function () {
+            const clone = tpl.content.cloneNode(true);
+            rowsContainer.appendChild(clone);
+        });
+
+        rowsContainer.addEventListener('click', function (e) {
+            if (e.target.classList.contains('bulk-remove')) {
+                const card = e.target.closest('.bulk-row');
+                if (rowsContainer.querySelectorAll('.bulk-row').length > 1) {
+                    card.remove();
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

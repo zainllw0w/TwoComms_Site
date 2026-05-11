@@ -1,0 +1,81 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{% block title %}TwoComms Склад{% endblock %}</title>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'warehouse/css/warehouse.css' %}">
+
+    <!-- PWA -->
+    <link rel="manifest" href="{% static 'warehouse/manifest.json' %}">
+    <meta name="theme-color" content="#0b0e14">
+    <meta name="application-name" content="TwoComms Склад">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="2C Склад">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'warehouse/icons/icon-180.png' %}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{% static 'warehouse/icons/icon-192.png' %}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{% static 'warehouse/icons/icon-512.png' %}">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+<div class="wh-app">
+    <header class="wh-header">
+        <div class="wh-header__brand">
+            <span class="badge">2C</span>
+            <span>Склад</span>
+        </div>
+        <div class="wh-header__title">{% block header_title %}{% endblock %}</div>
+        <div class="wh-header__actions">
+            {% block header_actions %}{% endblock %}
+        </div>
+    </header>
+
+    {% if messages %}
+    <div class="wh-messages">
+        {% for message in messages %}
+        <div class="wh-message wh-message--{{ message.tags|default:'info' }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <main class="wh-main">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% if request.user.is_authenticated %}
+    {% include "warehouse/partials/bottom_nav.html" %}
+    {% endif %}
+</div>
+
+<script src="{% static 'warehouse/js/warehouse.js' %}" defer></script>
+<script>
+    // Register service worker for PWA
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('{% static "warehouse/js/sw-storage.js" %}', { scope: '/' }).catch(function (err) {
+                console.warn('SW registration failed', err);
+            });
+        });
+    }
+    // Auto-hide messages after 4s
+    setTimeout(function () {
+        document.querySelectorAll('.wh-message').forEach(function (el) {
+            el.style.opacity = '0';
+            el.style.transition = 'opacity 0.3s ease';
+            setTimeout(function () { el.remove(); }, 350);
+        });
+    }, 4000);
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

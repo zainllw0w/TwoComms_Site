@@ -1,0 +1,59 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вхід — TwoComms Склад</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'warehouse/css/warehouse.css' %}">
+    <meta name="theme-color" content="#0b0e14">
+</head>
+<body>
+<div class="wh-auth">
+    <div class="wh-auth__card">
+        <h1 class="wh-auth__title">2C Склад</h1>
+        <p class="wh-auth__sub">Доступ тільки для warehouse-адмінів</p>
+
+        {% if messages %}
+        <div style="margin-bottom: 16px;">
+            {% for message in messages %}
+            <div class="wh-message wh-message--{{ message.tags|default:'info' }}" style="position: static;">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <a href="{% url 'social:begin' 'google-oauth2' %}?next={{ next|urlencode }}"
+           class="btn btn--ghost btn--block" style="gap: 12px; min-height: 48px;">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                 alt="Google" width="20" height="20" loading="lazy">
+            <span>Увійти через Google</span>
+        </a>
+
+        <div class="flex" style="align-items: center; gap: 10px; margin: 18px 0;">
+            <div style="flex: 1; height: 1px; background: var(--border-soft);"></div>
+            <span class="text-muted text-tiny">або</span>
+            <div style="flex: 1; height: 1px; background: var(--border-soft);"></div>
+        </div>
+
+        <form method="post" action="{% url 'warehouse:login' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next }}">
+            <div class="form-field">
+                <label for="username">Логін</label>
+                <input id="username" type="text" name="username" autocomplete="username" required>
+            </div>
+            <div class="form-field">
+                <label for="password">Пароль</label>
+                <input id="password" type="password" name="password" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn btn--primary btn--block">Увійти</button>
+        </form>
+
+        <p class="text-muted text-small text-center mt-16">
+            Маєте проблеми з доступом? Зверніться до адміністратора.
+        </p>
+    </div>
+</div>
+</body>
+</html>

@@ -95,6 +95,11 @@ class SubdomainURLRoutingMiddleware(MiddlewareMixin):
             request.urlconf = 'twocomms.urls_management'
             return None
 
+        # Storage / warehouse поддомен
+        if host.startswith('storage.'):
+            request.urlconf = 'twocomms.urls_storage'
+            return None
+
         # Продолжаем обычную обработку
         return None
 

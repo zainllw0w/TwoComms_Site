@@ -1,0 +1,25 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Категорії — Склад{% endblock %}
+{% block header_title %}Одяг{% endblock %}
+
+{% block content %}
+<div class="wh-list">
+    {% for cat in categories %}
+    <a href="{{ cat.get_absolute_url }}" class="wh-list__item">
+        <span class="wh-list__icon">{{ cat.name|slice:":1" }}</span>
+        <span class="wh-list__body">
+            <span class="wh-list__title">{{ cat.name }}</span>
+            <span class="wh-list__meta">
+                {{ cat.total_quantity }} шт ·
+                {{ cat.total_frozen_value|floatformat:0 }} ₴
+            </span>
+        </span>
+        <span class="wh-list__action">›</span>
+    </a>
+    {% empty %}
+    <div class="wh-card text-muted text-center">
+        Категорій ще немає. Додайте їх через Django адмінку.
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

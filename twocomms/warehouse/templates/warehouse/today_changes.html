@@ -1,0 +1,63 @@
+{% extends "warehouse/base.html" %}
+{% load static %}
+{% block title %}Сьогодні — Склад{% endblock %}
+{% block header_title %}{{ target_date|date:"d.m.Y" }}{% endblock %}
+
+{% block content %}
+<div class="wh-grid wh-grid-2">
+    <div class="wh-card">
+        <p class="wh-card__title">Усього рухів</p>
+        <p class="wh-card__value">{{ total_count }}</p>
+    </div>
+    <div class="wh-card {% if total_count == verified_count %}wh-card--accent{% endif %}">
+        <p class="wh-card__title">Перевірено</p>
+        <p class="wh-card__value">{{ verified_count }}/{{ total_count }}</p>
+    </div>
+</div>
+
+{% if total_count and total_count > verified_count %}
+<form method="post" action="{% url 'warehouse:today_verify_all' %}" class="mt-12">
+    {% csrf_token %}
+    <button type="submit" class="btn btn--success btn--block">✅ Перевірити всі за день</button>
+</form>
+{% endif %}
+
+<h2 class="wh-section-title">Рухи</h2>
+<div class="wh-card" style="padding: 0;">
+    <table class="wh-table" style="margin: 0;">
+        <thead>
+            <tr>
+                <th>Час</th>
+                <th>Δ</th>
+                <th>Причина</th>
+                <th>Коментар</th>
+                <th>Хто</th>
+                <th>✓</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in movements %}
+            <tr>
+                <td class="text-muted text-small">{{ m.created_at|date:"H:i" }}</td>
+                <td class="{% if m.delta > 0 %}text-success{% else %}text-danger{% endif %} text-bold">
+                    {% if m.delta > 0 %}+{% endif %}{{ m.delta }}
+                </td>
+                <td class="text-small">{{ m.get_reason_display }}</td>
+                <td class="text-muted text-small">{{ m.comment|default:"—" }}</td>
+                <td class="text-small">{{ m.created_by.username|default:"—" }}</td>
+                <td>
+                    {% if m.verified %}
+                    <span class="wh-badge wh-badge--success">✓</span>
+                    {% else %}
+                    <span class="wh-badge wh-badge--warning">…</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-muted text-center" style="padding: 24px;">За цей день рухів немає.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
