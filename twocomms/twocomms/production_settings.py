@@ -20,7 +20,7 @@ _loaded_env = False
 if _explicit_env_file:
     explicit_path = Path(_explicit_env_file)
     if explicit_path.exists():
-        load_dotenv(explicit_path)
+        load_dotenv(explicit_path, override=True)
         _loaded_env = True
 
 if not _loaded_env:
@@ -31,7 +31,7 @@ if not _loaded_env:
         BASE_DIR.parent / ".env",
     ):
         if candidate.exists():
-            load_dotenv(candidate)
+            load_dotenv(candidate, override=True)
             os.environ['DJANGO_ENV_FILE'] = str(candidate)
             break
 

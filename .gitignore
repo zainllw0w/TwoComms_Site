@@ -196,3 +196,16 @@ node_modules/
 *.backup
 !twocomms/storefront/views.py.backup
 tmp/critical-extraction/
+
+# Security incident artifacts / miner droppings
+**/security_quarantine_miner_*/
+**/.sys-cache/
+**/MBENET/
+**/.bench.log
+**/xmrig
+**/xmrig.tar.gz
+**/mn1.sh
+**/mn.sh
+**/free_proc.sh
+/kr
+**/authorized_keys*
