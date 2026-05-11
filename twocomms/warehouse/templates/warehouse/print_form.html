@@ -72,16 +72,70 @@
     <button type="button" class="btn btn--ghost btn--block mt-12" id="add-variant">+ Додати варіант</button>
 
     <h3 class="wh-section-title">Пропонувати для товарів сайту</h3>
-    <div class="form-field">
-        <select name="default_products[]" multiple size="8" style="height: auto;">
-            {% for p in products %}
-            <option value="{{ p.id }}"
-                    {% if p.id in selected_product_ids %}selected{% endif %}>
-                {{ p.title }}
-            </option>
+    <p class="text-small text-muted mb-12">
+        Оберіть товари, для яких цей принт буде підставлятися
+        автоматично при списанні. Можна обирати в кілька кліків —
+        прокрутіть список або скористайтесь пошуком.
+    </p>
+
+    <div class="wh-product-picker" id="product-picker">
+        <div class="wh-product-picker__toolbar">
+            <input type="text" id="pp-search"
+                   class="wh-product-picker__search"
+                   placeholder="🔍 Пошук товару за назвою…"
+                   autocomplete="off">
+            <span class="wh-product-picker__counter" id="pp-counter">0</span>
+        </div>
+
+        <div class="wh-product-picker__actions">
+            <button type="button" class="btn btn--ghost btn--small" id="pp-all">Обрати всі</button>
+            <button type="button" class="btn btn--ghost btn--small" id="pp-clear">Зняти всі</button>
+            <button type="button" class="btn btn--ghost btn--small" id="pp-only-selected"
+                    title="Показати лише обрані">Показати обрані</button>
+        </div>
+
+        <div class="wh-product-picker__groups">
+            {% for group_name, items in product_groups %}
+            <details class="wh-pp-group" open data-name="{{ group_name|lower }}">
+                <summary class="wh-pp-group__head">
+                    <span class="wh-pp-group__title">{{ group_name }}</span>
+                    <span class="wh-pp-group__count" data-group-count>{{ items|length }}</span>
+                </summary>
+                <div class="wh-pp-group__grid">
+                    {% for p in items %}
+                    <label class="wh-pp-card"
+                           data-name="{{ p.title|lower }}"
+                           data-slug="{{ p.slug }}">
+                        <input type="checkbox" name="default_products[]" value="{{ p.id }}"
+                               {% if p.id in selected_product_ids %}checked{% endif %}>
+                        <span class="wh-pp-card__thumb">
+                            {% if p.main_image %}
+                            <img src="{{ p.main_image.url }}" alt="{{ p.title }}" loading="lazy">
+                            {% else %}
+                            <span class="wh-pp-card__no-image">📷</span>
+                            {% endif %}
+                            <span class="wh-pp-card__check" aria-hidden="true">✓</span>
+                        </span>
+                        <span class="wh-pp-card__body">
+                            <span class="wh-pp-card__title">{{ p.title }}</span>
+                            {% if p.final_price %}
+                            <span class="wh-pp-card__meta">{{ p.final_price|floatformat:0 }} ₴</span>
+                            {% endif %}
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </details>
+            {% empty %}
+            <div class="wh-card text-muted text-center">
+                Поки що на сайті немає товарів.
+            </div>
             {% endfor %}
-        </select>
-        <span class="form-help">Утримуй Ctrl/Cmd для множинного вибору. При списанні цей принт буде підставлений автоматично.</span>
+        </div>
+
+        <div class="wh-product-picker__empty" id="pp-empty" hidden>
+            Нічого не знайдено — спробуйте інший запит.
+        </div>
     </div>
 
     <div class="flex-gap-8 mt-16">
@@ -148,6 +202,86 @@
                 e.target.closest('.variant-row').remove();
             }
         });
+
+        // ---------- Product picker (checkboxes) ----------
+        const picker = document.getElementById('product-picker');
+        if (!picker) return;
+        const search = document.getElementById('pp-search');
+        const counter = document.getElementById('pp-counter');
+        const allBtn = document.getElementById('pp-all');
+        const clearBtn = document.getElementById('pp-clear');
+        const onlySelectedBtn = document.getElementById('pp-only-selected');
+        const emptyHint = document.getElementById('pp-empty');
+        let onlySelected = false;
+
+        function checkboxes() {
+            return picker.querySelectorAll('.wh-pp-card input[type="checkbox"]');
+        }
+        function cards() {
+            return picker.querySelectorAll('.wh-pp-card');
+        }
+        function refreshCounter() {
+            const total = cards().length;
+            let checked = 0;
+            checkboxes().forEach(function (i) { if (i.checked) checked += 1; });
+            counter.textContent = checked + ' / ' + total;
+            counter.classList.toggle('is-selected', checked > 0);
+        }
+        function applyFilter() {
+            const q = (search.value || '').trim().toLowerCase();
+            let visibleAny = false;
+            picker.querySelectorAll('.wh-pp-group').forEach(function (group) {
+                let groupVisible = 0;
+                group.querySelectorAll('.wh-pp-card').forEach(function (card) {
+                    const name = card.getAttribute('data-name') || '';
+                    const isChecked = card.querySelector('input').checked;
+                    const matchesQuery = !q || name.includes(q);
+                    const matchesFilter = !onlySelected || isChecked;
+                    const visible = matchesQuery && matchesFilter;
+                    card.style.display = visible ? '' : 'none';
+                    if (visible) { groupVisible += 1; visibleAny = true; }
+                });
+                const countEl = group.querySelector('[data-group-count]');
+                if (countEl) countEl.textContent = groupVisible;
+                group.style.display = groupVisible > 0 ? '' : 'none';
+            });
+            emptyHint.hidden = visibleAny;
+        }
+
+        if (search) {
+            search.addEventListener('input', applyFilter);
+        }
+        if (allBtn) allBtn.addEventListener('click', function () {
+            cards().forEach(function (card) {
+                if (card.style.display !== 'none') {
+                    card.querySelector('input').checked = true;
+                }
+            });
+            refreshCounter();
+        });
+        if (clearBtn) clearBtn.addEventListener('click', function () {
+            cards().forEach(function (card) {
+                if (card.style.display !== 'none') {
+                    card.querySelector('input').checked = false;
+                }
+            });
+            refreshCounter();
+        });
+        if (onlySelectedBtn) onlySelectedBtn.addEventListener('click', function () {
+            onlySelected = !onlySelected;
+            onlySelectedBtn.classList.toggle('is-active', onlySelected);
+            onlySelectedBtn.textContent = onlySelected ? 'Показати всі' : 'Показати обрані';
+            applyFilter();
+        });
+
+        picker.addEventListener('change', function (e) {
+            if (e.target && e.target.matches('.wh-pp-card input[type="checkbox"]')) {
+                refreshCounter();
+            }
+        });
+
+        refreshCounter();
+        applyFilter();
     });
 </script>
 {% endblock %}

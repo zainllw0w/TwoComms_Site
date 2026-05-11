@@ -41,13 +41,36 @@ def print_detail(request, slug):
     return render(request, "warehouse/print_detail.html", context)
 
 
+def _build_product_groups():
+    """Повертає список (category_name, [products]) для UI вибору.
+
+    Тільки активні товари, відсортовано по категорії й title. Підтягуємо
+    main_image окремо щоб не робити N+1 на колір-варіанти.
+    """
+    qs = (
+        Product.objects.select_related("category")
+        .order_by("category__order", "category__name", "title")
+    )
+    groups: list[tuple[str, list]] = []
+    bucket: dict[int, list] = {}
+    cat_names: dict[int, str] = {}
+    for p in qs:
+        cat_id = p.category_id or 0
+        cat_names[cat_id] = p.category.name if p.category_id else "Без категорії"
+        bucket.setdefault(cat_id, []).append(p)
+    for cat_id, items in bucket.items():
+        groups.append((cat_names[cat_id], items))
+    return groups
+
+
 @warehouse_admin_required
 def print_create(request):
     if request.method == "POST":
         return _save_print(request, instance=None)
-    products = Product.objects.all().order_by("title")[:500]
+    product_groups = _build_product_groups()
     context = {
-        "products": products,
+        "product_groups": product_groups,
+        "selected_product_ids": set(),
         "active_section": "prints",
     }
     return render(request, "warehouse/print_form.html", context)
@@ -58,12 +81,12 @@ def print_edit(request, slug):
     pr = get_object_or_404(Print, slug=slug)
     if request.method == "POST":
         return _save_print(request, instance=pr)
-    products = Product.objects.all().order_by("title")[:500]
-    selected_product_ids = list(pr.default_products.values_list("id", flat=True))
+    product_groups = _build_product_groups()
+    selected_product_ids = set(pr.default_products.values_list("id", flat=True))
     context = {
         "print": pr,
         "variants": pr.color_variants.order_by("order", "id"),
-        "products": products,
+        "product_groups": product_groups,
         "selected_product_ids": selected_product_ids,
         "active_section": "prints",
     }
