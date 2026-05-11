@@ -1,5 +1,6 @@
 {% load static %}
 {% load responsive_images %}
+{% load i18n %}
 <div class="vstack gap-3" style="min-width: 300px;">
   {% if has_any_items %}
     {% if custom_items %}
@@ -13,20 +14,20 @@
               </svg>
             </div>
             <div style="min-width: 0; overflow: hidden;">
-              <div class="fw-semibold small text-truncate" style="color:#fde68a;">Кастомний друк{% if ci.lead_number %} · №{{ ci.lead_number }}{% endif %}</div>
+              <div class="fw-semibold small text-truncate" style="color:#fde68a;">{% trans 'Кастомний друк' %}{% if ci.lead_number %} · №{{ ci.lead_number }}{% endif %}</div>
               <div class="small text-truncate" title="{{ ci.label }}">{{ ci.label }}</div>
               <div class="text-secondary" style="font-size:11px;">×{{ ci.quantity }}{% if ci.moderation_status_label %} · {{ ci.moderation_status_label }}{% endif %}</div>
             </div>
           </div>
           <div class="d-flex align-items-center gap-2 flex-shrink-0">
-            <div class="text-nowrap small fw-semibold">{{ ci.line_total }} грн</div>
+            <div class="text-nowrap small fw-semibold">{{ ci.line_total }} {% trans 'грн' %}</div>
             <button type="button"
                     class="btn btn-sm btn-outline-light"
                     data-custom-remove
                     data-key="{{ ci.key }}"
                     data-lead-id="{{ ci.lead_id }}"
                     onclick="if (window.CustomCartRemove) { window.CustomCartRemove(this); } return false;"
-                    aria-label="Видалити кастомну позицію">×</button>
+                    aria-label="{% trans 'Видалити кастомну позицію' %}">×</button>
           </div>
         </div>
       {% endfor %}
@@ -58,9 +59,9 @@
           <div>
             <div class="fw-semibold small">{{ it.product.title }}</div>
             <div class="text-secondary small">
-              Розмір: {{ it.size }} • ×{{ it.qty }}
+              {% trans 'Розмір' %}: {{ it.size }} • ×{{ it.qty }}
               {% if it.fit_label %}
-              <br>Посадка: {{ it.fit_label }}
+              <br>{% trans 'Посадка' %}: {{ it.fit_label }}
               {% endif %}
               {% if it.color_variant %}
               <br>
@@ -71,35 +72,35 @@
                       data-secondary="{{ s|default:'' }}">
                 </span>
                 {% endwith %}
-                <span>{{ it.color_label|default:'Колір' }}</span>
+                <span>{{ it.color_label|default:_('Колір') }}</span>
               </div>
               {% endif %}
             </div>
           </div>
         </div>
         <div class="d-flex align-items-center gap-2">
-          <div class="text-nowrap small fw-semibold">{{ it.line_total }} грн</div>
+          <div class="text-nowrap small fw-semibold">{{ it.line_total }} {% trans 'грн' %}</div>
           <button type="button"
                   class="btn btn-sm btn-outline-light"
                   onclick="CartRemoveKey('{{ it.key }}', this); return false;"
-                  aria-label="Видалити">×</button>
+                  aria-label="{% trans 'Видалити' %}">×</button>
         </div>
       </div>
     {% endfor %}
     <div class="d-flex justify-content-between align-items-center">
-      <div class="fw-semibold">Разом</div>
-      <div class="fw-semibold">{{ combined_total|default:total }} грн</div>
+      <div class="fw-semibold">{% trans 'Разом' %}</div>
+      <div class="fw-semibold">{{ combined_total|default:total }} {% trans 'грн' %}</div>
     </div>
     {% if custom_items %}
     <div class="text-secondary small" style="margin-top:-6px;">
-      Кастомні позиції очікують підтвердження менеджером. Фінальну ціну узгоджуєте в кошику.
+      {% trans 'Кастомні позиції очікують підтвердження менеджером. Фінальну ціну узгоджуєте в кошику.' %}
     </div>
     {% endif %}
-    <a href="{% url 'cart' %}" class="btn btn-cta w-100">Оформити на сайті</a>
+    <a href="{% url 'cart' %}" class="btn btn-cta w-100">{% trans 'Оформити на сайті' %}</a>
     {% if not custom_items %}
     <div class="mono-checkout-mini" data-mono-status-scope>
       <button type="button" class="btn btn-outline-light w-100 mono-checkout-btn-mini" data-mono-checkout-trigger="mini">
-        <span class="mono-checkout-label">Оформити через</span>
+        <span class="mono-checkout-label">{% trans 'Оформити через' %}</span>
         <span class="mono-checkout-logo" aria-hidden="true">
           <svg class="mono-cat-icon" viewBox="0 0 32 32" role="presentation" focusable="false">
             <path class="mono-cat-head" d="M6 6.5V18c0 4.7 3.8 8.5 8.5 8.5h3c4.7 0 8.5-3.8 8.5-8.5V6.5l-3.8-2.2-5.7 3-5.7-3z"/>
@@ -115,6 +116,6 @@
     </div>
     {% endif %}
   {% else %}
-    <div class="text-secondary small">Кошик порожній.</div>
+    <div class="text-secondary small">{% trans 'Кошик порожній.' %}</div>
   {% endif %}
 </div>

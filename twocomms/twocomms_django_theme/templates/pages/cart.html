@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load i18n %}
 {% load static %}
 {% load math_filters %}
 {% load responsive_images %}
@@ -33,15 +34,15 @@
       </svg>
     </div>
     <div class="cart-page-header-content">
-      <h1 class="cart-page-title">Кошик</h1>
-      <p class="cart-page-subtitle">Ваші вибрані товари</p>
+      <h1 class="cart-page-title">{% trans 'Кошик' %}</h1>
+      <p class="cart-page-subtitle">{% trans 'Ваші вибрані товари' %}</p>
     </div>
     {% if has_any_items %}
     <button type="button" class="cart-clear-btn" onclick="cleanCart()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
         <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
       </svg>
-      Очистити
+      {% trans 'Очистити' %}
     </button>
     {% endif %}
   </div>
@@ -329,9 +330,9 @@
                   </div>
                   <span class="cart-item-points-text">
                     {% if it.product.points_reward %}
-                      Заробите {{ it.product.points_reward|multiply:it.qty }} балів
+                      {% blocktrans with n=it.product.points_reward|multiply:it.qty %}Заробите {{ n }} балів{% endblocktrans %}
                     {% else %}
-                      Бали не нараховуються
+                      {% trans 'Бали не нараховуються' %}
                     {% endif %}
                   </span>
                 </div>
@@ -359,13 +360,13 @@
               <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
             </svg>
           </div>
-          <h2 class="cart-empty-title">Кошик порожній</h2>
-          <p class="cart-empty-text">Додайте товари до кошика, щоб зробити замовлення</p>
+          <h2 class="cart-empty-title">{% trans 'Кошик порожній' %}</h2>
+          <p class="cart-empty-text">{% trans 'Додайте товари до кошика, щоб зробити замовлення' %}</p>
           <a href="{% url 'home' %}" class="cart-empty-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
-            Перейти до покупок
+            {% trans 'Перейти до покупок' %}
           </a>
         </div>
       {% endif %}
@@ -382,7 +383,7 @@
                 <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
               </svg>
             </div>
-            <h3 class="cart-sidebar-card-title">Доставка</h3>
+            <h3 class="cart-sidebar-card-title">{% trans 'Доставка' %}</h3>
           </div>
           
           {% with prof=request.user.userprofile %}
@@ -468,12 +469,11 @@
             
             <!-- Кнопка консультации -->
             <div class="cart-form-group">
-              <button type="button" class="btn-contact-manager" id="contactManagerBtn">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
                   <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
                   <path d="M7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/>
                 </svg>
-                💬 Потрібна консультація?
+                  💬 {% trans 'Потрібна консультація?' %}
               </button>
             </div>
             
@@ -481,7 +481,7 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
-              Зберегти зміни
+              {% trans 'Зберегти зміни' %}
             </button>
           </form>
           {% endwith %}
@@ -495,12 +495,12 @@
                 <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
               </svg>
             </div>
-            <h3 class="cart-sidebar-card-title">Доставка</h3>
+            <h3 class="cart-sidebar-card-title">{% trans 'Доставка' %}</h3>
             <a href="{% url 'login' %}" class="cart-auth-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
               </svg>
-              Авторизація
+              {% trans 'Авторизація' %}
             </a>
           </div>
           
@@ -508,7 +508,7 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
             </svg>
-            Щоб не вводити дані кожного разу — авторизуйтесь і накопичуйте бали.
+            {% trans 'Щоб не вводити дані кожного разу — авторизуйтесь і накопичуйте бали.' %}
           </div>
           
           <form method="post" class="cart-sidebar-form" id="guest-form" data-np-form="guest">
@@ -516,9 +516,9 @@
             <input type="hidden" name="form_type" value="guest_order">
             
             <div class="cart-form-group">
-              <label class="cart-form-label">ПІБ *</label>
+              <label class="cart-form-label">{% trans 'ПІБ' %} *</label>
               <div class="cart-form-input-wrapper">
-                <input type="text" name="full_name" class="cart-form-input" placeholder="Прізвище Ім'я По батькові" required>
+                <input type="text" name="full_name" class="cart-form-input" placeholder="{% trans 'Прізвище Імʼя По батькові' %}" required>
                 <div class="cart-form-input-glow"></div>
               </div>
               {% if guest_form.full_name.errors %}
@@ -527,14 +527,14 @@
             </div>
             
             <div class="cart-form-group">
-              <label class="cart-form-label">Телефон *</label>
+              <label class="cart-form-label">{% trans 'Телефон' %} *</label>
               <div class="cart-form-input-wrapper">
-                <input type="tel" name="phone" class="cart-form-input" placeholder="0931234567"
+                <input type="tel" name="phone" class="cart-form-input" placeholder="{% trans '0931234567' %}"
                        pattern="[+0-9\s\-()]{7,20}" inputmode="tel" autocomplete="tel" required>
                 <div class="cart-form-input-glow"></div>
               </div>
               <div class="cart-form-hint text-secondary small mt-2" data-phone-hint>
-                Можна вводити 093..., 809..., 380... або +380... — номер приведемо до потрібного формату.
+                {% trans 'Можна вводити 093..., 809..., 380... або +380... — номер приведемо до потрібного формату.' %}
               </div>
               {% if guest_form.phone.errors %}
                 <div class="cart-form-error">{{ guest_form.phone.errors.0 }}</div>
@@ -542,9 +542,9 @@
             </div>
 
             <div class="cart-form-group">
-              <label class="cart-form-label">Email (опціонально)</label>
+              <label class="cart-form-label">{% trans 'Email' %} (опціонально)</label>
               <div class="cart-form-input-wrapper">
-                <input type="email" name="email" class="cart-form-input" placeholder="your@email.com">
+                <input type="email" name="email" class="cart-form-input" placeholder="{% trans 'your@email.com' %}">
                 <div class="cart-form-input-glow"></div>
               </div>
               {% if guest_form.email.errors %}
@@ -553,9 +553,9 @@
             </div>
             
             <div class="cart-form-group">
-              <label class="cart-form-label">Місто *</label>
+              <label class="cart-form-label">{% trans 'Місто' %} *</label>
               <div class="cart-form-input-wrapper np-selector" data-np-city-selector>
-                <input type="text" name="city" class="cart-form-input" placeholder="Почніть вводити місто Нової пошти"
+                <input type="text" name="city" class="cart-form-input" placeholder="{% trans 'Почніть вводити місто Нової пошти' %}"
                        required autocomplete="off" spellcheck="false"
                        data-np-city-input aria-autocomplete="list" aria-expanded="false">
                 <input type="hidden" name="np_settlement_ref" data-np-settlement-ref>
@@ -565,7 +565,7 @@
                 <div class="np-selector-results" data-np-city-results hidden></div>
               </div>
               <div class="np-selector-status" data-np-city-status>
-                Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти.
+                {% trans 'Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти.' %}
               </div>
               {% if guest_form.city.errors %}
                 <div class="cart-form-error">{{ guest_form.city.errors.0 }}</div>
@@ -573,9 +573,9 @@
             </div>
             
             <div class="cart-form-group">
-              <label class="cart-form-label">Відділення / Поштомат НП *</label>
+              <label class="cart-form-label">{% trans 'Відділення / Поштомат НП' %} *</label>
               <div class="cart-form-input-wrapper np-selector" data-np-warehouse-selector>
-                <input type="text" name="np_office" class="cart-form-input" placeholder="Оберіть відділення або поштомат"
+                <input type="text" name="np_office" class="cart-form-input" placeholder="{% trans 'Оберіть відділення або поштомат' %}"
                        required autocomplete="off" spellcheck="false"
                        data-np-warehouse-input aria-autocomplete="list" aria-expanded="false">
                 <input type="hidden" name="np_warehouse_ref" data-np-warehouse-ref>
@@ -584,12 +584,12 @@
                 <div class="np-selector-results" data-np-warehouse-results hidden></div>
               </div>
               <div class="np-selector-kind" data-np-kind-toggle>
-                <button type="button" class="np-selector-kind-btn is-active" data-kind="all">Усі пункти</button>
-                <button type="button" class="np-selector-kind-btn" data-kind="branch">Відділення</button>
-                <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
+                <button type="button" class="np-selector-kind-btn is-active" data-kind="all">{% trans 'Усі пункти' %}</button>
+                <button type="button" class="np-selector-kind-btn" data-kind="branch">{% trans 'Відділення' %}</button>
+                <button type="button" class="np-selector-kind-btn" data-kind="postomat">{% trans 'Поштомат' %}</button>
               </div>
-              <div class="np-selector-status" data-np-warehouse-status>
-                Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти.
+              <div class="np-selector-status" data-np-warehouse-status">
+                {% trans 'Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти.' %}
               </div>
               {% if guest_form.np_office.errors %}
                 <div class="cart-form-error">{{ guest_form.np_office.errors.0 }}</div>
@@ -597,16 +597,16 @@
             </div>
             
             <div class="cart-form-group">
-              <label class="cart-form-label">Тип оплати *</label>
+              <label class="cart-form-label">{% trans 'Тип оплати' %} *</label>
               <div class="cart-form-input-wrapper">
-                <select name="pay_type" class="cart-form-select" id="pay_type_guest" required aria-label="Тип оплати">
-                  <option value="">Оберіть тип оплати</option>
-                  <option value="online_full">Онлайн оплата (повна сума)</option>
-                  <option value="prepay_200" {% if not prepay_allowed %}disabled{% endif %}>Передплата 200 грн (решта при отриманні){% if not prepay_allowed %} — недоступно з кастомним принтом{% endif %}</option>
+                <select name="pay_type" class="cart-form-select" id="pay_type_guest" required aria-label="{% trans 'Тип оплати' %}">
+                  <option value="">{% trans 'Оберіть тип оплати' %}</option>
+                  <option value="online_full">{% trans 'Онлайн оплата (повна сума)' %}</option>
+                  <option value="prepay_200" {% if not prepay_allowed %}disabled{% endif %}>{% trans 'Передплата 200 грн (решта при отриманні)' %}{% if not prepay_allowed %} — {% trans 'недоступно з кастомним принтом' %}{% endif %}</option>
                 </select>
                 {% if has_custom_items %}
                 <div class="cart-form-hint text-secondary small mt-2">
-                  У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — менеджер узгодить фінальну ціну.
+                  {% trans 'У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — менеджер узгодить фінальну ціну.' %}
                 </div>
                 {% endif %}
                 <div class="cart-form-input-glow"></div>
@@ -623,7 +623,7 @@
                   <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
                   <path d="M7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/>
                 </svg>
-                💬 Потрібна консультація?
+                  💬 {% trans 'Потрібна консультація?' %}
               </button>
             </div>
           </form>
@@ -638,9 +638,9 @@
               <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
             </svg>
           </div>
-          <h3 class="cart-sidebar-card-title">Промокод</h3>
+          <h3 class="cart-sidebar-card-title">{% trans 'Промокод' %}</h3>
           {% if applied_promo %}
-            <span class="cart-promo-badge">Застосовано</span>
+            <span class="cart-promo-badge">{% trans 'Застосовано' %}</span>
           {% endif %}
         </div>
         
@@ -648,7 +648,7 @@
           <div class="cart-promo-applied">
             <div class="cart-promo-applied-content">
               <div class="cart-promo-applied-code">{{ applied_promo.code }}</div>
-              <div class="cart-promo-applied-discount">Знижка: {{ discount }} грн</div>
+              <div class="cart-promo-applied-discount">{% trans 'Знижка:' %} {{ discount }} грн</div>
             </div>
             <button type="button" class="cart-promo-remove-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -659,7 +659,7 @@
         {% else %}
           <div class="cart-promo-input-group">
             <div class="cart-promo-input-wrapper">
-              <input type="text" id="promo-code-input" class="cart-promo-input" placeholder="Введіть код промокоду" maxlength="20">
+              <input type="text" id="promo-code-input" class="cart-promo-input" placeholder="{% trans 'Введіть код промокоду' %}" maxlength="20">
               <div class="cart-promo-input-glow"></div>
             </div>
             <button type="button" class="cart-promo-apply-btn">
@@ -681,14 +681,14 @@
             </svg>
           </div>
           <div class="cart-checkout-header-content">
-            <h3 class="cart-checkout-title">Оформлення замовлення</h3>
-            <p class="cart-checkout-subtitle">Підсумок вашого замовлення</p>
+            <h3 class="cart-checkout-title">{% trans 'Оформлення замовлення' %}</h3>
+            <p class="cart-checkout-subtitle">{% trans 'Підсумок вашого замовлення' %}</p>
           </div>
         </div>
         
         <div class="cart-checkout-summary" id="cart-summary">
           <div class="cart-summary-row">
-            <span class="cart-summary-label" id="cart-items-label">Товари ({{ items_total_qty|default:cart_count }}):</span>
+            <span class="cart-summary-label" id="cart-items-label">{% trans 'Товари' %} ({{ items_total_qty|default:cart_count }}):</span>
             <span class="cart-summary-value" id="cart-subtotal-value">{{ original_subtotal|floatformat:2 }} грн</span>
           </div>
 
@@ -699,7 +699,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 2l2.4 4.86 5.37.78-3.88 3.78.91 5.35L12 14.9l-4.8 2.52.91-5.35L4.23 8.3l5.37-.78L12 2z"/>
                 </svg>
-                {% if any_pending_review %}Орієнтовно за кастомний друк{% else %}Кастомний друк{% endif %} ({{ custom_items_qty }}):
+                {% if any_pending_review %}{% trans 'Орієнтовно за кастомний друк' %}{% else %}{% trans 'Кастомний друк' %}{% endif %} ({{ custom_items_qty }}):
               </div>
             </span>
             <span class="cart-summary-value">{{ custom_items_total|floatformat:2 }} грн</span>
@@ -707,7 +707,7 @@
           {% endif %}
 
           <div class="cart-summary-row cart-summary-site-discount {% if site_discount_total <= 0 %}d-none{% endif %}" id="cart-site-discount-row">
-            <span class="cart-summary-label">Знижка магазину</span>
+            <span class="cart-summary-label">{% trans 'Знижка магазину' %}</span>
             <span class="cart-summary-value" id="cart-site-discount-value">-{{ site_discount_total|floatformat:2 }} грн</span>
           </div>
 
@@ -717,31 +717,31 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01Л12 2z"/>
                 </svg>
-                Знижка промокоду
+                {% trans 'Знижка промокоду' %}
               </div>
             </span>
             <span class="cart-summary-value" id="cart-discount-value">-{{ discount|floatformat:2 }} грн</span>
           </div>
 
           <div class="cart-summary-row cart-summary-total" id="pay-now-row">
-            <span class="cart-summary-label" id="pay-now-label">До сплати:</span>
+            <span class="cart-summary-label" id="pay-now-label">{% trans 'До сплати:' %}</span>
             <span class="cart-summary-value"
                   id="pay-now-amount"
                   data-total="{{ approved_total|default:total|floatformat:'2' }}"
                   data-prepay="200">{% if pay_now_amount %}{{ pay_now_amount|floatformat:2 }} грн{% else %}{{ approved_total|default:total|floatformat:2 }} грн{% endif %}</span>
           </div>
           <div class="cart-summary-row cart-summary-prepay d-none" id="prepay-remaining-row">
-            <span class="cart-summary-label">Залишок при отриманні:</span>
+            <span class="cart-summary-label">{% trans 'Залишок при отриманні:' %}</span>
             <span class="cart-summary-value" id="prepay-remaining-amount">{{ total|floatformat:2 }} грн</span>
           </div>
           <p class="cart-summary-note d-none" id="prepay-note">
-            Це додаткова передоплата для вас — решту сплатите при отриманні.
+            {% trans 'Це додаткова передоплата для вас — решту сплатите при отриманні.' %}
           </p>
         </div>
         
         <div class="cart-savings-info {% if site_discount_total <= 0 and discount <= 0 %}d-none{% endif %}" id="cart-savings-info">
           <div class="cart-savings-line {% if site_discount_total <= 0 %}d-none{% endif %}" id="cart-savings-site">
-            <span class="cart-savings-label">Знижка від TwoComms</span>
+            <span class="cart-savings-label">{% trans 'Знижка від TwoComms' %}</span>
             <span class="cart-savings-amount" id="cart-savings-site-amount">{{ site_discount_total|floatformat:2 }} грн</span>
           </div>
           <div class="cart-savings-line {% if discount <= 0 %}d-none{% endif %}" id="cart-savings-promo">
@@ -751,7 +751,7 @@
             <span class="cart-savings-amount" id="cart-savings-promo-amount">{{ discount|floatformat:2 }} грн</span>
           </div>
           <div class="cart-savings-total {% if site_discount_total <= 0 and discount <= 0 %}d-none{% endif %}" id="cart-savings-total">
-            <span class="cart-savings-label">Разом ви економите</span>
+            <span class="cart-savings-label">{% trans 'Разом ви економите' %}</span>
             <span class="cart-savings-amount" id="cart-savings-total-amount">{{ total_savings|floatformat:2 }} грн</span>
           </div>
         </div>
@@ -764,14 +764,14 @@
                 <path d="M12 2l3.09 6.26L22 9.27л-5 4.87 1.18 6.88Л12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01Л12 2z"/>
               </svg>
             </div>
-            <span class="cart-points-title">Бали за замовлення</span>
+            <span class="cart-points-title">{% trans 'Бали за замовлення' %}</span>
           </div>
           <div class="cart-points-earned {% if total_points <= 0 %}d-none{% endif %}" id="cart-points-earned">
-            <span class="cart-points-amount" id="cart-points-amount">+{{ total_points }} балів</span>
-            <span class="cart-points-description">буде нараховано після отримання товару</span>
+            <span class="cart-points-amount" id="cart-points-amount">+{% blocktrans count counter=total_points %}{{ counter }} бал{% plural %}{{ counter }} балів{% endblocktrans %}</span>
+            <span class="cart-points-description">{% trans 'буде нараховано після отримання товару' %}</span>
           </div>
           <div class="cart-points-none {% if total_points > 0 %}d-none{% endif %}" id="cart-points-none">
-            <span class="cart-points-text">Бали не нараховуються</span>
+            <span class="cart-points-text">{% trans 'Бали не нараховуються' %}</span>
           </div>
           {% if not request.user.is_authenticated %}
           <div class="cart-points-guest" id="cart-points-guest">
@@ -779,13 +779,13 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2в6zm0-8h-2V7h2в2з"/>
               </svg>
-              <span>Для отримання балів потрібно авторизуватися</span>
+              <span>{% trans 'Для отримання балів потрібно авторизуватися' %}</span>
             </div>
             <a href="{% url 'login' %}" class="cart-points-login-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M11 7L9.6 8.4л2.6 2.6H2v2h10.2л-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8в14з"/>
               </svg>
-              Авторизуватися
+              {% trans 'Авторизуватися' %}
             </a>
           </div>
           {% endif %}
@@ -795,7 +795,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
           </svg>
-          Доставка оплачується згідно тарифів перевізника.
+          {% trans 'Доставка оплачується згідно тарифів перевізника.' %}
         </div>
 
 <div class="cart-checkout-actions"
@@ -807,11 +807,11 @@
     <div class="cart-custom-moderation-block" data-custom-moderation>
       {% if all_approved %}
         <div class="cart-custom-moderation-note cart-custom-moderation-note--approved">
-          ✅ Менеджер погодив усі кастомні позиції. Тепер можна оплатити все замовлення разом.
+          ✅ {% trans 'Менеджер погодив усі кастомні позиції. Тепер можна оплатити все замовлення разом.' %}
         </div>
       {% elif any_pending_review %}
         <div class="cart-custom-moderation-note cart-custom-moderation-note--pending">
-          ⏳ Кастомний одяг уже переданий менеджеру на перевірку. Поки триває модерація, позиція відображається в кошику окремо і <strong>не входить до суми оплати зараз</strong>. Щойно менеджер погодить деталі та фінальну ціну — кастом автоматично приєднається до рахунку.
+          ⏳ {% trans 'Кастомний одяг уже переданий менеджеру на перевірку. Поки триває модерація, позиція відображається в кошику окремо і <strong>не входить до суми оплати зараз</strong>. Щойно менеджер погодить деталі та фінальну ціну — кастом автоматично приєднається до рахунку.' %}
         </div>
         <a href="https://t.me/twocomms"
            target="_blank"
@@ -820,15 +820,15 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.04-2.98-1.94 1.88c-.23.23-.42.42-.83.42z"/>
           </svg>
-          <span>Написати менеджеру в Telegram</span>
+          <span>{% trans 'Написати менеджеру в Telegram' %}</span>
         </a>
       {% elif any_rejected %}
         <div class="cart-custom-moderation-note">
-          Менеджер відхилив попередню заявку. Перегляньте деталі вище та надішліть її повторно, або ж оформіть замовлення <strong>без кастомних позицій</strong>.
+          {% trans 'Менеджер відхилив попередню заявку. Перегляньте деталі вище та надішліть її повторно, або ж оформіть замовлення <strong>без кастомних позицій</strong>.' %}
         </div>
       {% else %}
         <div class="cart-custom-moderation-note">
-          Менеджер уже працює з вашим кастомним запитом. Коли модерацію буде завершено, позиція автоматично стане доступною для оплати в цьому ж кошику.
+          {% trans 'Менеджер уже працює з вашим кастомним запитом. Коли модерацію буде завершено, позиція автоматично стане доступною для оплати в цьому ж кошику.' %}
         </div>
       {% endif %}
     </div>
@@ -841,15 +841,15 @@
         <span class="mono">mono</span><span class="dot">·</span><span class="pay">pay</span>
       </span>
       <span class="cart-monobank-details">
-        <span class="cart-monobank-text">Онлайн оплата карткою{% if has_custom_items and not all_approved %} <span class="cart-monobank-subtext" data-without-custom-label>(без урахування кастомного одягу)</span>{% endif %}</span>
+        <span class="cart-monobank-text">{% trans 'Онлайн оплата карткою' %}{% if has_custom_items and not all_approved %} <span class="cart-monobank-subtext" data-without-custom-label">{% trans '(без урахування кастомного одягу)' %}</span>{% endif %}</span>
         <span class="cart-monobank-badges" aria-hidden="true">
           <span class="cart-monobank-badge cart-monobank-badge-gpay" role="presentation">
             <span class="badge-symbol">G</span>
-            <span class="badge-text">Pay</span>
+            <span class="badge-text">{% trans 'Pay' %}</span>
           </span>
           <span class="cart-monobank-badge cart-monobank-badge-apple" role="presentation">
             <span class="badge-symbol" aria-hidden="true"></span>
-            <span class="badge-text">Pay</span>
+            <span class="badge-text">{% trans 'Pay' %}</span>
           </span>
         </span>
       </span>
@@ -870,7 +870,7 @@
                 <span class="cart-cta-hover"></span>
               </span>
               <span class="cart-cta-content">
-                <span class="cart-cta-text">Оформити замовлення{% if has_custom_items and not all_approved %} <span class="cart-cta-suffix" data-without-custom-label>(без урахування кастомного одягу)</span>{% endif %}</span>
+                <span class="cart-cta-text">{% trans 'Оформити замовлення' %}{% if has_custom_items and not all_approved %} <span class="cart-cta-suffix" data-without-custom-label">{% trans '(без урахування кастомного одягу)' %}</span>{% endif %}</span>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cart-cta-icon">
                   <path d="M5 12h14"></path>
                   <path d="m12 5 7 7-7 7"></path>
@@ -888,7 +888,7 @@
                 <span class="cart-cta-hover"></span>
               </span>
               <span class="cart-cta-content">
-                <span class="cart-cta-text">Замовити як гість{% if has_custom_items and not all_approved %} <span class="cart-cta-suffix" data-without-custom-label>(без урахування кастомного одягу)</span>{% endif %}</span>
+                <span class="cart-cta-text">{% trans 'Замовити як гість' %}{% if has_custom_items and not all_approved %} <span class="cart-cta-suffix" data-without-custom-label">{% trans '(без урахування кастомного одягу)' %}</span>{% endif %}</span>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cart-cta-icon">
                   <path d="M5 12h14"></path>
                   <path d="m12 5 7 7-7 7"></path>
@@ -898,11 +898,11 @@
           {% endif %}
           <div class="cart-checkout-note text-secondary mt-3">
             {% if has_custom_items and not has_payable_items %}
-              Оплата стане доступною після погодження менеджером. Зараз у кошику немає позицій, які можна оплатити окремо.
+              {% trans 'Оплата стане доступною після погодження менеджером. Зараз у кошику немає позицій, які можна оплатити окремо.' %}
             {% elif has_custom_items and not all_approved %}
-              Оплата покриє лише звичайні товари. Кастомна позиція приєднається до замовлення автоматично після погодження менеджером — на ваш номер надійде додаткове повідомлення з фінальною ціною.
+              {% trans 'Оплата покриє лише звичайні товари. Кастомна позиція приєднається до замовлення автоматично після погодження менеджером — на ваш номер надійде додаткове повідомлення з фінальною ціною.' %}
             {% else %}
-              Після оформлення замовлення менеджер зв'яжеться з вами за вказаним номером телефону, щоб підтвердити деталі та узгодити доставку.
+              {% trans 'Після оформлення замовлення менеджер звʼяжеться з вами за вказаним номером телефону, щоб підтвердити деталі та узгодити доставку.' %}
             {% endif %}
           </div>
         </div>
@@ -931,11 +931,11 @@
 <div id="contactManagerModal" class="contact-modal-overlay" aria-hidden="true" role="dialog" aria-labelledby="contactModalTitle">
   <div class="contact-modal-container">
     <div class="contact-modal-header">
-      <h3 id="contactModalTitle">💬 Безкоштовна консультація</h3>
-      <button type="button" class="contact-modal-close" aria-label="Закрити">&times;</button>
+          <h3 id="contactModalTitle">💬 {% trans 'Безкоштовна консультація' %}</h3>
+      <button type="button" class="contact-modal-close" aria-label="{% trans 'Закрити' %}">&times;</button>
     </div>
     <div class="contact-modal-body">
-      <p style="margin-bottom: 1.5rem; color: #64748b; text-align: center;">Залиште свої контактні дані, і наш менеджер зв'яжеться з вами найближчим часом для консультації</p>
+      <p style="margin-bottom: 1.5rem; color: #64748b; text-align: center;">{% trans 'Залиште свої контактні дані, і наш менеджер звʼяжеться з вами найближчим часом для консультації' %}</p>
       <form id="contactManagerForm">
         {% csrf_token %}
         

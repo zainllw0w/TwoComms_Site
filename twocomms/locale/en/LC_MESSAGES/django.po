@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-11 02:33+0300\n"
+"POT-Creation-Date: 2026-05-11 07:46+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -105,9 +105,9 @@ msgstr ""
 #: management/forms.py:71 management/forms.py:72 management/models.py:448
 #: management/models.py:631 management/models.py:834 management/models.py:935
 #: management/models.py:1930 storefront/models.py:299
+#: twocomms_django_theme/templates/pages/cart.html:530
 msgid "Телефон"
-msgstr ""
-
+msgstr "Phone"
 #: management/forms.py:74 management/forms.py:75 management/models.py:835
 msgid "Viber"
 msgstr ""
@@ -306,9 +306,9 @@ msgid "Ключ збігу сайту"
 msgstr ""
 
 #: management/models.py:148 management/models.py:229
+#: twocomms_django_theme/templates/pages/cart.html:519
 msgid "ПІБ"
-msgstr ""
-
+msgstr "Full name"
 #: management/models.py:149 management/models.py:242
 msgid "Статус"
 msgstr ""
@@ -421,10 +421,9 @@ msgid "Де взяли контакт"
 msgstr ""
 
 #: management/models.py:234 management/models.py:444 management/models.py:485
-#: management/models.py:883
+#: management/models.py:883 twocomms_django_theme/templates/pages/cart.html:556
 msgid "Місто"
-msgstr ""
-
+msgstr "City"
 #: management/models.py:235
 msgid "Ключове слово парсера"
 msgstr ""
@@ -1192,13 +1191,16 @@ msgstr ""
 #: management/models.py:1043 storefront/models.py:140
 #: twocomms_django_theme/templates/pages/product_detail.html:260
 #: twocomms_django_theme/templates/pages/product_detail.html:267
+#: twocomms_django_theme/templates/partials/mini_cart.html:62
 msgid "Розмір"
 msgstr "Size"
+
 #: management/models.py:1044 storefront/models.py:142
 #: twocomms_django_theme/templates/pages/product_detail.html:289
 #: twocomms_django_theme/templates/pages/product_detail.html:291
 #: twocomms_django_theme/templates/pages/product_detail.html:302
 #: twocomms_django_theme/templates/pages/product_detail.html:305
+#: twocomms_django_theme/templates/partials/mini_cart.html:75
 #: twocomms_django_theme/templates/partials/product_card.html:82
 msgid "Колір"
 msgstr "Color"
@@ -2342,9 +2344,9 @@ msgid "Денні факти менеджера"
 msgstr ""
 
 #: management/models.py:2417
+#: twocomms_django_theme/templates/pages/cart.html:643
 msgid "Застосовано"
-msgstr ""
-
+msgstr "Applied"
 #: management/models.py:2420
 msgid "Ключ поправки"
 msgstr ""
@@ -2537,6 +2539,266 @@ msgstr ""
 msgid "English"
 msgstr ""
 
+#: twocomms_django_theme/templates/pages/cart.html:37
+#: twocomms_django_theme/templates/partials/header.html:84
+#: twocomms_django_theme/templates/partials/header.html:411
+msgid "Кошик"
+msgstr "Cart"
+
+#: twocomms_django_theme/templates/pages/cart.html:38
+msgid "Ваші вибрані товари"
+msgstr "Your selected items"
+#: twocomms_django_theme/templates/pages/cart.html:45
+msgid "Очистити"
+msgstr "Clear"
+#: twocomms_django_theme/templates/pages/cart.html:333
+#, python-format
+msgid "Заробите %(n)s балів"
+msgstr "Earn %(n)s points"
+#: twocomms_django_theme/templates/pages/cart.html:335
+#: twocomms_django_theme/templates/pages/cart.html:774
+msgid "Бали не нараховуються"
+msgstr "No points awarded"
+#: twocomms_django_theme/templates/pages/cart.html:363
+msgid "Кошик порожній"
+msgstr "Cart is empty"
+#: twocomms_django_theme/templates/pages/cart.html:364
+msgid "Додайте товари до кошика, щоб зробити замовлення"
+msgstr "Add products to the cart to place an order"
+#: twocomms_django_theme/templates/pages/cart.html:369
+msgid "Перейти до покупок"
+msgstr "Continue shopping"
+#: twocomms_django_theme/templates/pages/cart.html:386
+#: twocomms_django_theme/templates/pages/cart.html:498
+#: twocomms_django_theme/templates/pages/catalog.html:180
+#: twocomms_django_theme/templates/pages/product_detail.html:351
+msgid "Доставка"
+msgstr "Delivery"
+
+#: twocomms_django_theme/templates/pages/cart.html:476
+#: twocomms_django_theme/templates/pages/cart.html:626
+msgid "Потрібна консультація?"
+msgstr "Need a consultation?"
+#: twocomms_django_theme/templates/pages/cart.html:484
+msgid "Зберегти зміни"
+msgstr "Save changes"
+#: twocomms_django_theme/templates/pages/cart.html:503
+msgid "Авторизація"
+msgstr "Sign in"
+#: twocomms_django_theme/templates/pages/cart.html:511
+msgid "Щоб не вводити дані кожного разу — авторизуйтесь і накопичуйте бали."
+msgstr "Skip re-entering details next time — sign in and earn points."
+#: twocomms_django_theme/templates/pages/cart.html:521
+msgid "Прізвище Імʼя По батькові"
+msgstr "Last First Middle name"
+#: twocomms_django_theme/templates/pages/cart.html:532
+msgid "0931234567"
+msgstr "+380931234567"
+#: twocomms_django_theme/templates/pages/cart.html:537
+msgid ""
+"Можна вводити 093..., 809..., 380... або +380... — номер приведемо до "
+"потрібного формату."
+msgstr "You can enter 093..., 809..., 380... or +380... — we'll normalize the format."
+#: twocomms_django_theme/templates/pages/cart.html:545
+msgid "Email"
+msgstr "Email"
+#: twocomms_django_theme/templates/pages/cart.html:547
+msgid "your@email.com"
+msgstr "your@email.com"
+#: twocomms_django_theme/templates/pages/cart.html:558
+msgid "Почніть вводити місто Нової пошти"
+msgstr "Start typing a Nova Poshta city"
+#: twocomms_django_theme/templates/pages/cart.html:568
+msgid ""
+"Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової "
+"пошти."
+msgstr "Start typing the city name and pick a confirmed Nova Poshta option from the list."
+#: twocomms_django_theme/templates/pages/cart.html:576
+msgid "Відділення / Поштомат НП"
+msgstr "NP branch / parcel locker"
+#: twocomms_django_theme/templates/pages/cart.html:578
+msgid "Оберіть відділення або поштомат"
+msgstr "Choose a branch or parcel locker"
+#: twocomms_django_theme/templates/pages/cart.html:587
+msgid "Усі пункти"
+msgstr "All points"
+#: twocomms_django_theme/templates/pages/cart.html:588
+msgid "Відділення"
+msgstr "Branch"
+#: twocomms_django_theme/templates/pages/cart.html:589
+msgid "Поштомат"
+msgstr "Parcel locker"
+#: twocomms_django_theme/templates/pages/cart.html:592
+msgid ""
+"Після вибору міста почніть вводити номер або адресу і виберіть відділення чи "
+"поштомат зі списку Нової пошти."
+msgstr "After choosing a city, start typing a number or address and pick a branch or parcel locker from the Nova Poshta list."
+#: twocomms_django_theme/templates/pages/cart.html:600
+#: twocomms_django_theme/templates/pages/cart.html:602
+msgid "Тип оплати"
+msgstr "Payment type"
+#: twocomms_django_theme/templates/pages/cart.html:603
+msgid "Оберіть тип оплати"
+msgstr "Choose payment type"
+#: twocomms_django_theme/templates/pages/cart.html:604
+msgid "Онлайн оплата (повна сума)"
+msgstr "Online payment (full amount)"
+#: twocomms_django_theme/templates/pages/cart.html:605
+msgid "Передплата 200 грн (решта при отриманні)"
+msgstr "Prepayment UAH 200 (remainder on delivery)"
+#: twocomms_django_theme/templates/pages/cart.html:605
+msgid "недоступно з кастомним принтом"
+msgstr "unavailable with custom print"
+#: twocomms_django_theme/templates/pages/cart.html:609
+msgid ""
+"У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — "
+"менеджер узгодить фінальну ціну."
+msgstr "There's a custom print in the cart, so the UAH 200 prepayment is temporarily unavailable — the manager will confirm the final price."
+#: twocomms_django_theme/templates/pages/cart.html:641
+msgid "Промокод"
+msgstr "Promo code"
+#: twocomms_django_theme/templates/pages/cart.html:651
+msgid "Знижка:"
+msgstr "Discount:"
+#: twocomms_django_theme/templates/pages/cart.html:662
+msgid "Введіть код промокоду"
+msgstr "Enter promo code"
+#: twocomms_django_theme/templates/pages/cart.html:684
+msgid "Оформлення замовлення"
+msgstr "Checkout"
+#: twocomms_django_theme/templates/pages/cart.html:685
+msgid "Підсумок вашого замовлення"
+msgstr "Your order summary"
+#: twocomms_django_theme/templates/pages/cart.html:691
+msgid "Товари"
+msgstr "Items"
+#: twocomms_django_theme/templates/pages/cart.html:702
+msgid "Орієнтовно за кастомний друк"
+msgstr "Estimated for custom print"
+#: twocomms_django_theme/templates/pages/cart.html:702
+#: twocomms_django_theme/templates/partials/mini_cart.html:17
+msgid "Кастомний друк"
+msgstr "Custom print"
+#: twocomms_django_theme/templates/pages/cart.html:710
+msgid "Знижка магазину"
+msgstr "Store discount"
+#: twocomms_django_theme/templates/pages/cart.html:720
+msgid "Знижка промокоду"
+msgstr "Promo discount"
+#: twocomms_django_theme/templates/pages/cart.html:727
+msgid "До сплати:"
+msgstr "Total to pay:"
+#: twocomms_django_theme/templates/pages/cart.html:734
+msgid "Залишок при отриманні:"
+msgstr "Remainder on delivery:"
+#: twocomms_django_theme/templates/pages/cart.html:738
+msgid "Це додаткова передоплата для вас — решту сплатите при отриманні."
+msgstr "This is an extra prepayment — pay the remainder on delivery."
+#: twocomms_django_theme/templates/pages/cart.html:744
+msgid "Знижка від TwoComms"
+msgstr "TwoComms discount"
+#: twocomms_django_theme/templates/pages/cart.html:754
+msgid "Разом ви економите"
+msgstr "You save in total"
+#: twocomms_django_theme/templates/pages/cart.html:767
+msgid "Бали за замовлення"
+msgstr "Order points"
+#: twocomms_django_theme/templates/pages/cart.html:770
+#: twocomms_django_theme/templates/pages/product_detail.html:253
+#: twocomms_django_theme/templates/partials/product_card.html:106
+#: twocomms_django_theme/templates/partials/product_card.html:191
+#, python-format
+msgid "%(counter)s бал"
+msgid_plural "%(counter)s балів"
+msgstr[0] ""
+msgstr[1] ""
+
+#: twocomms_django_theme/templates/pages/cart.html:771
+msgid "буде нараховано після отримання товару"
+msgstr "will be credited after receipt"
+#: twocomms_django_theme/templates/pages/cart.html:782
+msgid "Для отримання балів потрібно авторизуватися"
+msgstr "Sign in to earn points"
+#: twocomms_django_theme/templates/pages/cart.html:788
+msgid "Авторизуватися"
+msgstr "Sign in"
+#: twocomms_django_theme/templates/pages/cart.html:798
+msgid "Доставка оплачується згідно тарифів перевізника."
+msgstr "Delivery is paid according to the carrier's tariffs."
+#: twocomms_django_theme/templates/pages/cart.html:810
+msgid ""
+"Менеджер погодив усі кастомні позиції. Тепер можна оплатити все замовлення "
+"разом."
+msgstr "The manager has approved all custom items. You can now pay for the entire order."
+#: twocomms_django_theme/templates/pages/cart.html:814
+msgid ""
+"Кастомний одяг уже переданий менеджеру на перевірку. Поки триває модерація, "
+"позиція відображається в кошику окремо і <strong>не входить до суми оплати "
+"зараз</strong>. Щойно менеджер погодить деталі та фінальну ціну — кастом "
+"автоматично приєднається до рахунку."
+msgstr "The custom item has been sent to the manager for review. While moderation is in progress, the item is shown separately and <strong>not included in the current payment total</strong>. Once the manager approves the details and final price, the custom item will be added to the invoice automatically."
+#: twocomms_django_theme/templates/pages/cart.html:823
+msgid "Написати менеджеру в Telegram"
+msgstr "Message the manager on Telegram"
+#: twocomms_django_theme/templates/pages/cart.html:827
+msgid ""
+"Менеджер відхилив попередню заявку. Перегляньте деталі вище та надішліть її "
+"повторно, або ж оформіть замовлення <strong>без кастомних позицій</strong>."
+msgstr "The manager rejected the previous request. Review the details above and resubmit, or place the order <strong>without custom items</strong>."
+#: twocomms_django_theme/templates/pages/cart.html:831
+msgid ""
+"Менеджер уже працює з вашим кастомним запитом. Коли модерацію буде "
+"завершено, позиція автоматично стане доступною для оплати в цьому ж кошику."
+msgstr "The manager is already handling your custom request. Once moderation finishes, the item will automatically become available for payment in this cart."
+#: twocomms_django_theme/templates/pages/cart.html:844
+msgid "Онлайн оплата карткою"
+msgstr "Online card payment"
+#: twocomms_django_theme/templates/pages/cart.html:844
+#: twocomms_django_theme/templates/pages/cart.html:873
+#: twocomms_django_theme/templates/pages/cart.html:891
+msgid "(без урахування кастомного одягу)"
+msgstr "(custom items not included)"
+#: twocomms_django_theme/templates/pages/cart.html:848
+#: twocomms_django_theme/templates/pages/cart.html:852
+msgid "Pay"
+msgstr "Pay"
+#: twocomms_django_theme/templates/pages/cart.html:873
+msgid "Оформити замовлення"
+msgstr "Place order"
+#: twocomms_django_theme/templates/pages/cart.html:891
+msgid "Замовити як гість"
+msgstr "Order as guest"
+#: twocomms_django_theme/templates/pages/cart.html:901
+msgid ""
+"Оплата стане доступною після погодження менеджером. Зараз у кошику немає "
+"позицій, які можна оплатити окремо."
+msgstr "Payment becomes available after manager approval. Currently there are no items in the cart that can be paid separately."
+#: twocomms_django_theme/templates/pages/cart.html:903
+msgid ""
+"Оплата покриє лише звичайні товари. Кастомна позиція приєднається до "
+"замовлення автоматично після погодження менеджером — на ваш номер надійде "
+"додаткове повідомлення з фінальною ціною."
+msgstr "Payment will cover only standard items. The custom item will be added to the order automatically after manager approval — you'll receive an additional message with the final price."
+#: twocomms_django_theme/templates/pages/cart.html:905
+msgid ""
+"Після оформлення замовлення менеджер звʼяжеться з вами за вказаним номером "
+"телефону, щоб підтвердити деталі та узгодити доставку."
+msgstr "After placing the order, the manager will contact you at the phone number provided to confirm details and arrange delivery."
+#: twocomms_django_theme/templates/pages/cart.html:934
+msgid "Безкоштовна консультація"
+msgstr "Free consultation"
+#: twocomms_django_theme/templates/pages/cart.html:935
+#: twocomms_django_theme/templates/partials/header.html:85
+#: twocomms_django_theme/templates/partials/header.html:181
+#: twocomms_django_theme/templates/partials/header.html:330
+msgid "Закрити"
+msgstr "Close"
+
+#: twocomms_django_theme/templates/pages/cart.html:938
+msgid ""
+"Залиште свої контактні дані, і наш менеджер звʼяжеться з вами найближчим "
+"часом для консультації"
+msgstr "Leave your contact details and our manager will reach out shortly for a consultation"
 #: twocomms_django_theme/templates/pages/catalog.html:131
 #: twocomms_django_theme/templates/partials/header.html:386
 msgid "Головна"
@@ -2586,11 +2848,6 @@ msgstr "Quality"
 #: twocomms_django_theme/templates/pages/catalog.html:174
 msgid "преміум матеріалів"
 msgstr "premium materials"
-
-#: twocomms_django_theme/templates/pages/catalog.html:180
-#: twocomms_django_theme/templates/pages/product_detail.html:351
-msgid "Доставка"
-msgstr "Delivery"
 
 #: twocomms_django_theme/templates/pages/catalog.html:180
 msgid "по всій Україні"
@@ -2786,53 +3043,71 @@ msgstr "Exclusive design"
 #: twocomms_django_theme/templates/pages/product_detail.html:111
 msgid "Галерея товару"
 msgstr "Product gallery"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:136
 msgid "Дії з фото"
 msgstr "Photo actions"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:137
 msgid "Збільшити фото"
 msgstr "Zoom photo"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:146
 msgid "Попереднє фото"
 msgstr "Previous photo"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:147
 msgid "Мініатюри товару"
 msgstr "Product thumbnails"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:148
 msgid "Наступне фото"
 msgstr "Next photo"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:152
 msgid "Переваги покупки"
 msgstr "Purchase benefits"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:155
 msgid "Швидка відправка"
 msgstr "Fast shipping"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:155
 msgid "1-2 дні по Україні"
 msgstr "1-2 days in Ukraine"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:159
 msgid "Індивідуальний підхід"
 msgstr "Personal approach"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:159
 msgid "Допоможемо з вибором"
 msgstr "We help with the choice"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:163
 msgid "Обмін розміру"
 msgstr "Size exchange"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:163
 msgid "14 днів на обмін"
 msgstr "14 days for exchange"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:172
 msgid "Індивідуальний позивний або бренд?"
 msgstr "Custom call sign or brand?"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:173
 msgid ""
 "Створимо принт з нуля під ваш позивний, логотип або ідею. Унікальна річ "
 "разом з TwoComms."
-msgstr "We'll design a print from scratch for your call sign, logo or idea. A unique piece with TwoComms."
+msgstr ""
+"We'll design a print from scratch for your call sign, logo or idea. A unique "
+"piece with TwoComms."
+
 #: twocomms_django_theme/templates/pages/product_detail.html:197
 msgid "Дії з товаром"
 msgstr "Product actions"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:198
 #: twocomms_django_theme/templates/partials/product_card.html:48
 #: twocomms_django_theme/templates/partials/product_card.html:150
@@ -2842,6 +3117,7 @@ msgstr "Add to favorites"
 #: twocomms_django_theme/templates/pages/product_detail.html:201
 msgid "Поділитися товаром"
 msgstr "Share product"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:219
 #, python-format
 msgid "Рейтинг товару, %(counter)s відгук"
@@ -2859,14 +3135,20 @@ msgstr[1] ""
 #: twocomms_django_theme/templates/pages/product_detail.html:227
 msgid "Особливості товару"
 msgstr "Product features"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:230
 msgid "Преміум тканина"
 msgstr "Premium fabric"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:238
 msgid "Лімітований дроп"
 msgstr "Limited drop"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:244
 #: twocomms_django_theme/templates/pages/product_detail.html:246
+#: twocomms_django_theme/templates/partials/mini_cart.html:23
+#: twocomms_django_theme/templates/partials/mini_cart.html:82
+#: twocomms_django_theme/templates/partials/mini_cart.html:92
 #: twocomms_django_theme/templates/partials/product_card.html:92
 #: twocomms_django_theme/templates/partials/product_card.html:169
 msgid "грн"
@@ -2876,34 +3158,33 @@ msgstr "UAH"
 #, python-format
 msgid "Бонусні бали за покупку: %(n)s"
 msgstr "Bonus points for the purchase: %(n)s"
-#: twocomms_django_theme/templates/pages/product_detail.html:253
-#: twocomms_django_theme/templates/partials/product_card.html:106
-#: twocomms_django_theme/templates/partials/product_card.html:191
-#, python-format
-msgid "%(counter)s бал"
-msgid_plural "%(counter)s балів"
-msgstr[0] ""
-msgstr[1] ""
 
 #: twocomms_django_theme/templates/pages/product_detail.html:263
 msgid "Як обрати розмір?"
 msgstr "How to choose a size?"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:283
 msgid "Розміри уточнюються менеджером після замовлення."
 msgstr "Sizes are confirmed by the manager after the order is placed."
+
 #: twocomms_django_theme/templates/pages/product_detail.html:310
 msgid "Для цього товару доступний один колір."
 msgstr "Only one color is available for this product."
+
 #: twocomms_django_theme/templates/pages/product_detail.html:316
 #: twocomms_django_theme/templates/pages/product_detail.html:317
+#: twocomms_django_theme/templates/partials/mini_cart.html:64
 msgid "Посадка"
 msgstr "Fit"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:348
 msgid "Інформація про товар"
 msgstr "Product information"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:349
 msgid "Опис"
 msgstr "Description"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:350
 #: twocomms_django_theme/templates/partials/footer.html:147
 msgid "Розмірна сітка"
@@ -2912,9 +3193,11 @@ msgstr "Size guide"
 #: twocomms_django_theme/templates/pages/product_detail.html:352
 msgid "Догляд"
 msgstr "Care"
+
 #: twocomms_django_theme/templates/pages/product_detail.html:354
 msgid "FAQ товару"
 msgstr "Product FAQ"
+
 #: twocomms_django_theme/templates/partials/footer.html:18
 #: twocomms_django_theme/templates/partials/footer.html:67
 msgid "Соцмережі TwoComms"
@@ -3020,17 +3303,6 @@ msgstr "Go to favorites"
 #: twocomms_django_theme/templates/partials/header.html:401
 msgid "Відкрити міні-корзину"
 msgstr "Open mini cart"
-
-#: twocomms_django_theme/templates/partials/header.html:84
-#: twocomms_django_theme/templates/partials/header.html:411
-msgid "Кошик"
-msgstr "Cart"
-
-#: twocomms_django_theme/templates/partials/header.html:85
-#: twocomms_django_theme/templates/partials/header.html:181
-#: twocomms_django_theme/templates/partials/header.html:330
-msgid "Закрити"
-msgstr "Close"
 
 #: twocomms_django_theme/templates/partials/header.html:96
 msgid "Завантаження…"
@@ -3143,6 +3415,29 @@ msgstr "Site language"
 msgid "Мова"
 msgstr "Language"
 
+#: twocomms_django_theme/templates/partials/mini_cart.html:30
+msgid "Видалити кастомну позицію"
+msgstr "Remove custom item"
+#: twocomms_django_theme/templates/partials/mini_cart.html:86
+msgid "Видалити"
+msgstr "Remove"
+#: twocomms_django_theme/templates/partials/mini_cart.html:91
+msgid "Разом"
+msgstr "Total"
+#: twocomms_django_theme/templates/partials/mini_cart.html:96
+msgid ""
+"Кастомні позиції очікують підтвердження менеджером. Фінальну ціну узгоджуєте "
+"в кошику."
+msgstr "Custom items await manager confirmation. The final price is agreed in the cart."
+#: twocomms_django_theme/templates/partials/mini_cart.html:99
+msgid "Оформити на сайті"
+msgstr "Checkout on site"
+#: twocomms_django_theme/templates/partials/mini_cart.html:103
+msgid "Оформити через"
+msgstr "Checkout via"
+#: twocomms_django_theme/templates/partials/mini_cart.html:119
+msgid "Кошик порожній."
+msgstr "Cart is empty."
 #: twocomms_django_theme/templates/partials/product_card.html:17
 #, python-format
 msgid "Переглянути %(title)s"
