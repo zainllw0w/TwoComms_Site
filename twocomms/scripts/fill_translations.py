@@ -672,6 +672,142 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "Відправляється...": {"ru": "Отправляется...", "en": "Sending..."},
     "Чек буде відправлено на": {"ru": "Чек будет отправлен на", "en": "Receipt will be sent to"},
     "Функціонал буде додано найближчим часом.": {"ru": "Функционал будет добавлен в ближайшее время.", "en": "This feature will be added shortly."},
+
+    # ===== Phase 17g — home page survey card =====
+    "Бонус за фідбек":            {"ru": "Бонус за фидбэк",                 "en": "Feedback bonus"},
+    "грн":                          {"ru": "грн",                              "en": "UAH"},
+    "Промокод активується автоматично одразу після проходження та діє на весь асортимент.": {
+        "ru": "Промокод активируется автоматически сразу после прохождения и действует на весь ассортимент.",
+        "en": "The promo code is activated automatically right after completion and applies to the entire range.",
+    },
+    "≈ 5 хвилин часу":             {"ru": "≈ 5 минут времени",                "en": "≈ 5 minutes"},
+    "Один раз на рік":             {"ru": "Один раз в год",                   "en": "Once a year"},
+    "Можна повернутись потім":     {"ru": "Можно вернуться позже",            "en": "Can return later"},
+    "Допоможи покращити":          {"ru": "Помоги улучшить",                  "en": "Help us improve"},
+    "Коротке опитування без довгої анкети: відповіді допоможуть нам стати кращими.": {
+        "ru": "Короткий опрос без длинной анкеты: ответы помогут нам стать лучше.",
+        "en": "A short survey — no lengthy form. Your answers help us improve.",
+    },
+    "БІЛЬШЕ НЕ ПОКАЗУВАТИ":         {"ru": "БОЛЬШЕ НЕ ПОКАЗЫВАТЬ",             "en": "DO NOT SHOW AGAIN"},
+    "ВИГРАЙ %(amount)s ГРН":        {"ru": "ВЫИГРАЙ %(amount)s ГРН",           "en": "WIN %(amount)s UAH"},
+    "ЗА ОПИТУВАННЯ!":              {"ru": "ЗА ОПРОС!",                        "en": "FOR THE SURVEY!"},
+    "Дай відповідь на кілька запитань та забери свій промокод!": {
+        "ru": "Ответь на несколько вопросов и забери свой промокод!",
+        "en": "Answer a few questions and grab your promo code!",
+    },
+    "Без форми на одну сторінку":  {"ru": "Без формы на одну страницу",       "en": "No single-page form"},
+    "Лише для зареєстрованих користувачів": {
+        "ru": "Только для зарегистрированных пользователей",
+        "en": "Registered users only",
+    },
+    "Пройти опитування":           {"ru": "Пройти опрос",                     "en": "Take the survey"},
+    "Продовжити опитування":       {"ru": "Продолжить опрос",                 "en": "Continue the survey"},
+    "Опитування":                  {"ru": "Опрос",                            "en": "Survey"},
+    "Коротке опитування про TWOCOMMS": {
+        "ru": "Короткий опрос о TWOCOMMS",
+        "en": "Short survey about TWOCOMMS",
+    },
+    "Твої відповіді допоможуть покращити сайт і колекції. Орієнтовно 5 хвилин.": {
+        "ru": "Твои ответы помогут улучшить сайт и коллекции. Примерно 5 минут.",
+        "en": "Your answers will help improve the site and collections. Around 5 minutes.",
+    },
+    "Ми використовуємо відповіді лише для аналітики та покращення сервісу. Контактні дані — лише за твоєю згодою.": {
+        "ru": "Мы используем ответы только для аналитики и улучшения сервиса. Контактные данные — только с твоего согласия.",
+        "en": "We use answers solely for analytics and service improvement. Contact details — only with your consent.",
+    },
+    "Завантаження…":               {"ru": "Загрузка…",                        "en": "Loading…"},
+    "Далі":                         {"ru": "Далее",                            "en": "Next"},
+    "Повернутись на 1 крок":       {"ru": "Вернуться на 1 шаг",               "en": "Back one step"},
+    "Закрити":                     {"ru": "Закрыть",                          "en": "Close"},
+    "Пропустити":                  {"ru": "Пропустить",                       "en": "Skip"},
+    "Дякуємо!":                    {"ru": "Спасибо!",                         "en": "Thank you!"},
+    "Твій промокод готовий.":      {"ru": "Твой промокод готов.",             "en": "Your promo code is ready."},
+    "Скопіювати код":              {"ru": "Скопировать код",                  "en": "Copy code"},
+
+    # ===== Phase 17g — home categories + custom-design CTA =====
+    "Категорії":                   {"ru": "Категории",                        "en": "Categories"},
+    "Перейти в каталог":           {"ru": "Перейти в каталог",                "en": "Go to catalog"},
+    "Згорнути/розгорнути категорії": {"ru": "Свернуть/развернуть категории",  "en": "Collapse/expand categories"},
+    "Згорнути":                    {"ru": "Свернуть",                         "en": "Collapse"},
+    "Весь каталог":                {"ru": "Весь каталог",                     "en": "Full catalog"},
+    "Замовити кастомний одяг":     {"ru": "Заказать кастомную одежду",        "en": "Order custom apparel"},
+    "Свій дизайн":                 {"ru": "Свой дизайн",                      "en": "Your design"},
+    "Збери одяг під себе":         {"ru": "Собери одежду под себя",           "en": "Build your own apparel"},
+    "Обери основу, свій принт, матеріали й деталі — вартість побачиш одразу.": {
+        "ru": "Выбери основу, свой принт, материалы и детали — стоимость увидишь сразу.",
+        "en": "Pick the base, your print, materials and details — see the price instantly.",
+    },
+    "Спробувати конструктор":      {"ru": "Попробовать конструктор",          "en": "Try the builder"},
+    "Потрібна допомога? Менеджер підкаже.": {
+        "ru": "Нужна помощь? Менеджер подскажет.",
+        "en": "Need help? Our manager will assist you.",
+    },
+
+    # ===== Phase 17g — home color filter + new products =====
+    "Перейти до каталогу за кольором": {
+        "ru": "Перейти к каталогу по цвету",
+        "en": "Browse catalog by colour",
+    },
+    "Обери за кольором":           {"ru": "Выбери по цвету",                  "en": "Choose by colour"},
+    "Усі кольори":                 {"ru": "Все цвета",                        "en": "All colours"},
+    "Новинки":                     {"ru": "Новинки",                          "en": "New arrivals"},
+    "Немає товарів.":              {"ru": "Нет товаров.",                     "en": "No products."},
+    "Показати ще":                 {"ru": "Показать ещё",                     "en": "Show more"},
+    "Завантаження...":             {"ru": "Загрузка...",                      "en": "Loading..."},
+    "Наступна сторінка":           {"ru": "Следующая страница",               "en": "Next page"},
+
+    # ===== Phase 17g — product detail recommendations =====
+    "Схожі товари":                {"ru": "Похожие товары",                   "en": "Related products"},
+    "Переглянути всі":             {"ru": "Смотреть все",                     "en": "View all"},
+    "Рекомендовані товари":        {"ru": "Рекомендуемые товары",             "en": "Recommended products"},
+
+    # ===== Phase 17g — catalog general SEO H2 block =====
+    "Купити одяг з принтом онлайн в Україні — доставка Києвом, Харковом, Львовом": {
+        "ru": "Купить одежду с принтом онлайн в Украине — доставка по Киеву, Харькову, Львову",
+        "en": "Buy printed apparel online in Ukraine — delivery to Kyiv, Kharkiv, Lviv",
+    },
+    "<strong>Купити одяг з принтом</strong> у TwoComms можна онлайн із доставкою у будь-яке місто України: <strong>Київ, Харків, Львів, Дніпро, Одеса, Запоріжжя, Вінниця, Полтава, Чернівці, Івано-Франківськ, Тернопіль, Луцьк, Хмельницький, Ужгород, Чернігів</strong>. У каталозі — <a href=\"/catalog/tshirts/\">футболки</a>, <a href=\"/catalog/hoodie/\">худі</a> та <a href=\"/catalog/long-sleeve/\">лонгсліви</a> з авторськими принтами ЗСУ та streetwear-графікою. Доставка Новою Поштою 1–2 дні, безкоштовний обмін розміру протягом 14 днів.": {
+        "ru": "<strong>Купить одежду с принтом</strong> в TwoComms можно онлайн с доставкой в любой город Украины: <strong>Киев, Харьков, Львов, Днепр, Одесса, Запорожье, Винница, Полтава, Черновцы, Ивано-Франковск, Тернополь, Луцк, Хмельницкий, Ужгород, Чернигов</strong>. В каталоге — <a href=\"/catalog/tshirts/\">футболки</a>, <a href=\"/catalog/hoodie/\">худи</a> и <a href=\"/catalog/long-sleeve/\">лонгсливы</a> с авторскими принтами ВСУ и streetwear-графикой. Доставка Новой Почтой 1–2 дня, бесплатный обмен размера в течение 14 дней.",
+        "en": "<strong>Buy printed apparel</strong> at TwoComms online with delivery to any city in Ukraine: <strong>Kyiv, Kharkiv, Lviv, Dnipro, Odesa, Zaporizhzhia, Vinnytsia, Poltava, Chernivtsi, Ivano-Frankivsk, Ternopil, Lutsk, Khmelnytskyi, Uzhhorod, Chernihiv</strong>. The catalog features <a href=\"/catalog/tshirts/\">t-shirts</a>, <a href=\"/catalog/hoodie/\">hoodies</a> and <a href=\"/catalog/long-sleeve/\">longsleeves</a> with original Armed Forces and streetwear artwork. Nova Poshta delivery in 1–2 days, free size exchange within 14 days.",
+    },
+    "Замовити чоловічий або жіночий streetwear від українського бренду TwoComms": {
+        "ru": "Заказать мужской или женский streetwear от украинского бренда TwoComms",
+        "en": "Order men's or women's streetwear from the Ukrainian brand TwoComms",
+    },
+    "<strong>Замовити streetwear-одяг</strong> онлайн — це спосіб підтримати українське виробництво. Усі футболки, худі та лонгсліви TwoComms шиємо в Україні з преміум-бавовни та трикотажу щільністю 200–320 г/м². У каталозі є чоловічі моделі прямого крою, жіночі фасони зі звуженою посадкою та унісекс-варіанти у розмірах XS–XXL. Принти виконуємо в техніці DTF — стійкі до 30+ циклів прання.": {
+        "ru": "<strong>Заказать streetwear-одежду</strong> онлайн — это способ поддержать украинское производство. Все футболки, худи и лонгсливы TwoComms мы шьём в Украине из премиум-хлопка и трикотажа плотностью 200–320 г/м². В каталоге есть мужские модели прямого кроя, женские фасоны с приталенной посадкой и унисекс-варианты в размерах XS–XXL. Принты выполняем по технологии DTF — устойчивы к 30+ циклам стирки.",
+        "en": "<strong>Order streetwear apparel</strong> online — your way to support Ukrainian production. All TwoComms t-shirts, hoodies and longsleeves are made in Ukraine from premium cotton and 200–320 g/m² jersey. The catalog includes straight-cut men's models, fitted women's silhouettes and unisex options in sizes XS–XXL. Prints are produced using DTF technology — they survive 30+ wash cycles.",
+    },
+    "Український патріотичний streetwear — авторські принти ЗСУ та колаборації": {
+        "ru": "Украинский патриотический streetwear — авторские принты ВСУ и коллаборации",
+        "en": "Ukrainian patriotic streetwear — original Armed Forces prints and collaborations",
+    },
+    "<strong>TwoComms</strong> — український streetwear-бренд із мілітарним ДНК. Створюємо одяг для тих, хто живе в Україні, підтримує ЗСУ та цінує спокійну, але сильну естетику. У каталозі — колаборації з військовими підрозділами, авторські ілюстрації на тему Збройних Сил України, тризуба й сучасної української поп-культури. Частину прибутку від кожного замовлення направляємо на потреби ЗСУ. Дізнайтеся більше про <a href=\"/pro-brand/\">філософію бренду</a> або обирайте <a href=\"/custom-print/\">кастомний друк</a> власного принта на обраній моделі.": {
+        "ru": "<strong>TwoComms</strong> — украинский streetwear-бренд с милитари-ДНК. Создаём одежду для тех, кто живёт в Украине, поддерживает ВСУ и ценит спокойную, но сильную эстетику. В каталоге — коллаборации с военными подразделениями, авторские иллюстрации на тему Вооружённых Сил Украины, тризуба и современной украинской поп-культуры. Часть прибыли с каждого заказа направляем на нужды ВСУ. Узнайте больше о <a href=\"/pro-brand/\">философии бренда</a> или выбирайте <a href=\"/custom-print/\">кастомную печать</a> собственного принта на выбранной модели.",
+        "en": "<strong>TwoComms</strong> is a Ukrainian streetwear brand with military DNA. We make apparel for people who live in Ukraine, support the Armed Forces and value calm yet powerful aesthetics. The catalog includes collaborations with military units, original illustrations dedicated to the Armed Forces of Ukraine, the trident and contemporary Ukrainian pop culture. We donate a share of every order to the Armed Forces. Learn more about <a href=\"/pro-brand/\">our brand philosophy</a> or choose <a href=\"/custom-print/\">custom printing</a> of your own artwork on a selected model.",
+    },
+
+    # ===== Phase 17g — general catalog SEO panel (color_seo_copy.py) =====
+    "Каталог одягу TwoComms — український стрітвір з характером": {
+        "ru": "Каталог одежды TwoComms — украинский стритвир с характером",
+        "en": "TwoComms apparel catalog — Ukrainian streetwear with character",
+    },
+    "TwoComms — це український бренд одягу, який створює стрітвір у трьох ключових категоріях: <a href=\"/catalog/hoodie/\">худі</a>, <a href=\"/catalog/tshirts/\">футболки</a> й <a href=\"/catalog/long-sleeve/\">лонгсліви</a>. Усі моделі ми розробляємо в Україні, друкуємо принти на власному обладнанні за технологією DTF і підбираємо тканини так, щоб одяг витримував щоденне носіння, прання й любий клімат — від літньої спеки до сирої осені.": {
+        "ru": "TwoComms — это украинский бренд одежды, который создаёт стритвир в трёх ключевых категориях: <a href=\"/catalog/hoodie/\">худи</a>, <a href=\"/catalog/tshirts/\">футболки</a> и <a href=\"/catalog/long-sleeve/\">лонгсливы</a>. Все модели мы разрабатываем в Украине, печатаем принты на собственном оборудовании по технологии DTF и подбираем ткани так, чтобы одежда выдерживала ежедневную носку, стирку и любой климат — от летней жары до сырой осени.",
+        "en": "TwoComms is a Ukrainian apparel brand creating streetwear in three core categories: <a href=\"/catalog/hoodie/\">hoodies</a>, <a href=\"/catalog/tshirts/\">t-shirts</a> and <a href=\"/catalog/long-sleeve/\">longsleeves</a>. Every model is designed in Ukraine, printed on our own DTF equipment, and made from fabrics chosen to withstand daily wear, laundering and any climate — from summer heat to damp autumn.",
+    },
+    "Кожен товар у каталозі доступний у кількох кольорах: класичний <a href=\"/catalog/?color=black\">чорний</a> для тих, хто шукає універсальну базу під будь-який принт; <a href=\"/catalog/?color=coyote\">кайот</a> і <a href=\"/catalog/?color=olive\">олива</a> для прихильників мілітарної естетики; нейтральний <a href=\"/catalog/?color=grey\">сірий</a> і чистий <a href=\"/catalog/?color=white\">білий</a> для весняно-літніх образів. Усі кольори перевіряються на стійкість до УФ та перфектне зберігання форми навіть після 30+ циклів прання.": {
+        "ru": "Каждый товар в каталоге доступен в нескольких цветах: классический <a href=\"/catalog/?color=black\">чёрный</a> для тех, кто ищет универсальную базу под любой принт; <a href=\"/catalog/?color=coyote\">койот</a> и <a href=\"/catalog/?color=olive\">олива</a> для поклонников милитари-эстетики; нейтральный <a href=\"/catalog/?color=grey\">серый</a> и чистый <a href=\"/catalog/?color=white\">белый</a> для весенне-летних образов. Все цвета проверяются на устойчивость к УФ и идеально держат форму даже после 30+ циклов стирки.",
+        "en": "Every item in the catalog comes in several colours: classic <a href=\"/catalog/?color=black\">black</a> for those who want a universal base for any print; <a href=\"/catalog/?color=coyote\">coyote</a> and <a href=\"/catalog/?color=olive\">olive</a> for fans of military aesthetics; neutral <a href=\"/catalog/?color=grey\">grey</a> and clean <a href=\"/catalog/?color=white\">white</a> for spring–summer looks. All colours are tested for UV resistance and hold their shape even after 30+ wash cycles.",
+    },
+    "Більшість принтів TwoComms — це авторські ілюстрації на тему патріотизму, ЗСУ, української історії та сучасної поп-культури. Ми передаємо частину прибутку на підтримку Збройних Сил України, тому кожна покупка — це одночасно вибір якісного одягу й вклад у перемогу. На сторінці кожного товару ви знайдете розмірну сітку, детальні фото матеріалу, відгуки клієнтів і прозору інформацію про склад тканини.": {
+        "ru": "Большинство принтов TwoComms — это авторские иллюстрации на тему патриотизма, ВСУ, украинской истории и современной поп-культуры. Мы передаём часть прибыли на поддержку Вооружённых Сил Украины, поэтому каждая покупка — это одновременно выбор качественной одежды и вклад в победу. На странице каждого товара вы найдёте размерную сетку, детальные фото материала, отзывы клиентов и прозрачную информацию о составе ткани.",
+        "en": "Most TwoComms prints are original illustrations on themes of patriotism, the Armed Forces, Ukrainian history and contemporary pop culture. We donate a portion of the profit to the Armed Forces of Ukraine, so every purchase combines quality apparel with a contribution to victory. On every product page you'll find a size guide, detailed material photos, customer reviews and transparent fabric composition.",
+    },
+    "Якщо ви не знайшли потрібну графіку — спробуйте розділ <a href=\"/custom-print/\">«Власний принт»</a>: ми надрукуємо будь-яку ілюстрацію на обраній моделі від однієї одиниці. Доставка по Україні — Новою Поштою на відділення або в поштомат за 1–2 дні. Оплата — карткою через Monobank/LiqPay або накладеним платежем. Усі товари мають 14 днів на повернення, якщо не підійшов розмір.": {
+        "ru": "Если вы не нашли нужную графику — попробуйте раздел <a href=\"/custom-print/\">«Собственный принт»</a>: мы напечатаем любую иллюстрацию на выбранной модели от одной единицы. Доставка по Украине — Новой Почтой в отделение или почтомат за 1–2 дня. Оплата — картой через Monobank/LiqPay или наложенным платежом. У всех товаров есть 14 дней на возврат, если не подошёл размер.",
+        "en": "If you didn't find the right artwork — try the <a href=\"/custom-print/\">Custom Print</a> section: we'll print any illustration on the selected model from a single unit. Delivery within Ukraine — via Nova Poshta to a branch or parcel locker in 1–2 days. Payment — by card through Monobank/LiqPay or cash on delivery. Every item can be returned within 14 days if the size doesn't fit.",
+    },
 }
 
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-11 14:22+0300\n"
+"POT-Creation-Date: 2026-05-11 15:15+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2544,6 +2544,24 @@ msgstr ""
 msgid "Недійсна підписка"
 msgstr ""
 
+#: storefront/services/color_seo_copy.py:244
+msgid "Каталог одягу TwoComms — український стрітвір з характером"
+msgstr "TwoComms apparel catalog — Ukrainian streetwear with character"
+#: storefront/services/color_seo_copy.py:247
+msgid "TwoComms — це український бренд одягу, який створює стрітвір у трьох ключових категоріях: <a href=\"/catalog/hoodie/\">худі</a>, <a href=\"/catalog/tshirts/\">футболки</a> й <a href=\"/catalog/long-sleeve/\">лонгсліви</a>. Усі моделі ми розробляємо в Україні, друкуємо принти на власному обладнанні за технологією DTF і підбираємо тканини так, щоб одяг витримував щоденне носіння, прання й любий клімат — від літньої спеки до сирої осені."
+msgstr ""
+
+#: storefront/services/color_seo_copy.py:258
+msgid "Кожен товар у каталозі доступний у кількох кольорах: класичний <a href=\"/catalog/?color=black\">чорний</a> для тих, хто шукає універсальну базу під будь-який принт; <a href=\"/catalog/?color=coyote\">кайот</a> і <a href=\"/catalog/?color=olive\">олива</a> для прихильників мілітарної естетики; нейтральний <a href=\"/catalog/?color=grey\">сірий</a> і чистий <a href=\"/catalog/?color=white\">білий</a> для весняно-літніх образів. Усі кольори перевіряються на стійкість до УФ та перфектне зберігання форми навіть після 30+ циклів прання."
+msgstr ""
+
+#: storefront/services/color_seo_copy.py:271
+msgid "Більшість принтів TwoComms — це авторські ілюстрації на тему патріотизму, ЗСУ, української історії та сучасної поп-культури. Ми передаємо частину прибутку на підтримку Збройних Сил України, тому кожна покупка — це одночасно вибір якісного одягу й вклад у перемогу. На сторінці кожного товару ви знайдете розмірну сітку, детальні фото матеріалу, відгуки клієнтів і прозору інформацію про склад тканини."
+msgstr "Most TwoComms prints are original illustrations on themes of patriotism, the Armed Forces, Ukrainian history and contemporary pop culture. We donate a portion of the profit to the Armed Forces of Ukraine, so every purchase combines quality apparel with a contribution to victory. On every product page you'll find a size guide, detailed material photos, customer reviews and transparent fabric composition."
+#: storefront/services/color_seo_copy.py:281
+msgid "Якщо ви не знайшли потрібну графіку — спробуйте розділ <a href=\"/custom-print/\">«Власний принт»</a>: ми надрукуємо будь-яку ілюстрацію на обраній моделі від однієї одиниці. Доставка по Україні — Новою Поштою на відділення або в поштомат за 1–2 дні. Оплата — карткою через Monobank/LiqPay або накладеним платежем. Усі товари мають 14 днів на повернення, якщо не підійшов розмір."
+msgstr ""
+
 #: storefront/support_content.py:106
 #: twocomms_django_theme/templates/pages/catalog.html:144
 #: twocomms_django_theme/templates/partials/footer.html:8
@@ -2672,6 +2690,8 @@ msgstr "Sign in"
 
 #: twocomms_django_theme/templates/base.html:1129
 #: twocomms_django_theme/templates/pages/cart.html:935
+#: twocomms_django_theme/templates/pages/index.html:582
+#: twocomms_django_theme/templates/pages/index.html:590
 #: twocomms_django_theme/templates/partials/header.html:85
 #: twocomms_django_theme/templates/partials/header.html:181
 #: twocomms_django_theme/templates/partials/header.html:330
@@ -3246,6 +3266,7 @@ msgid "Кольори:"
 msgstr "Colors:"
 
 #: twocomms_django_theme/templates/pages/catalog.html:338
+#: twocomms_django_theme/templates/pages/index.html:482
 msgid "Немає товарів."
 msgstr "No products."
 
@@ -3261,6 +3282,26 @@ msgstr "Next"
 msgid "Додаткові розділи каталогу"
 msgstr "More catalog sections"
 
+#: twocomms_django_theme/templates/pages/catalog.html:426
+msgid "Купити одяг з принтом онлайн в Україні — доставка Києвом, Харковом, Львовом"
+msgstr "Buy printed apparel online in Ukraine — delivery to Kyiv, Kharkiv, Lviv"
+#: twocomms_django_theme/templates/pages/catalog.html:428
+msgid "<strong>Купити одяг з принтом</strong> у TwoComms можна онлайн із доставкою у будь-яке місто України: <strong>Київ, Харків, Львів, Дніпро, Одеса, Запоріжжя, Вінниця, Полтава, Чернівці, Івано-Франківськ, Тернопіль, Луцьк, Хмельницький, Ужгород, Чернігів</strong>. У каталозі — <a href=\"/catalog/tshirts/\">футболки</a>, <a href=\"/catalog/hoodie/\">худі</a> та <a href=\"/catalog/long-sleeve/\">лонгсліви</a> з авторськими принтами ЗСУ та streetwear-графікою. Доставка Новою Поштою 1–2 дні, безкоштовний обмін розміру протягом 14 днів."
+msgstr ""
+
+#: twocomms_django_theme/templates/pages/catalog.html:430
+msgid "Замовити чоловічий або жіночий streetwear від українського бренду TwoComms"
+msgstr "Order men's or women's streetwear from the Ukrainian brand TwoComms"
+#: twocomms_django_theme/templates/pages/catalog.html:431
+msgid "<strong>Замовити streetwear-одяг</strong> онлайн — це спосіб підтримати українське виробництво. Усі футболки, худі та лонгсліви TwoComms шиємо в Україні з преміум-бавовни та трикотажу щільністю 200–320 г/м². У каталозі є чоловічі моделі прямого крою, жіночі фасони зі звуженою посадкою та унісекс-варіанти у розмірах XS–XXL. Принти виконуємо в техніці DTF — стійкі до 30+ циклів прання."
+msgstr "<strong>Order streetwear apparel</strong> online — your way to support Ukrainian production. All TwoComms t-shirts, hoodies and longsleeves are made in Ukraine from premium cotton and 200–320 g/m² jersey. The catalog includes straight-cut men's models, fitted women's silhouettes and unisex options in sizes XS–XXL. Prints are produced using DTF technology — they survive 30+ wash cycles."
+#: twocomms_django_theme/templates/pages/catalog.html:433
+msgid "Український патріотичний streetwear — авторські принти ЗСУ та колаборації"
+msgstr "Ukrainian patriotic streetwear — original Armed Forces prints and collaborations"
+#: twocomms_django_theme/templates/pages/catalog.html:434
+msgid "<strong>TwoComms</strong> — український streetwear-бренд із мілітарним ДНК. Створюємо одяг для тих, хто живе в Україні, підтримує ЗСУ та цінує спокійну, але сильну естетику. У каталозі — колаборації з військовими підрозділами, авторські ілюстрації на тему Збройних Сил України, тризуба й сучасної української поп-культури. Частину прибутку від кожного замовлення направляємо на потреби ЗСУ. Дізнайтеся більше про <a href=\"/pro-brand/\">філософію бренду</a> або обирайте <a href=\"/custom-print/\">кастомний друк</a> власного принта на обраній моделі."
+msgstr ""
+
 #: twocomms_django_theme/templates/pages/favorites.html:5
 #: twocomms_django_theme/templates/pages/favorites.html:10
 #: twocomms_django_theme/templates/partials/header.html:272
@@ -3270,6 +3311,7 @@ msgstr "Favorite items"
 #: twocomms_django_theme/templates/pages/favorites.html:11
 #: twocomms_django_theme/templates/pages/favorites.html:68
 #: twocomms_django_theme/templates/pages/index.html:98
+#: twocomms_django_theme/templates/pages/index.html:342
 msgid "Перейти в каталог"
 msgstr "Go to catalog"
 
@@ -3354,6 +3396,159 @@ msgstr "Exclusive t-shirts, hoodies and longsleeves. TwoComms — design with ch
 msgid "Ексклюзивний дизайн"
 msgstr "Exclusive design"
 
+#: twocomms_django_theme/templates/pages/index.html:168
+msgid "Бонус за фідбек"
+msgstr "Feedback bonus"
+#: twocomms_django_theme/templates/pages/index.html:169
+#: twocomms_django_theme/templates/pages/order_success.html:1366
+#: twocomms_django_theme/templates/pages/order_success.html:1370
+#: twocomms_django_theme/templates/pages/order_success.html:1493
+#: twocomms_django_theme/templates/pages/order_success.html:1522
+#: twocomms_django_theme/templates/pages/order_success.html:1539
+#: twocomms_django_theme/templates/pages/order_success.html:1580
+#: twocomms_django_theme/templates/pages/product_detail.html:244
+#: twocomms_django_theme/templates/pages/product_detail.html:246
+#: twocomms_django_theme/templates/partials/mini_cart.html:23
+#: twocomms_django_theme/templates/partials/mini_cart.html:82
+#: twocomms_django_theme/templates/partials/mini_cart.html:92
+#: twocomms_django_theme/templates/partials/product_card.html:92
+#: twocomms_django_theme/templates/partials/product_card.html:169
+msgid "грн"
+msgstr "UAH"
+
+#: twocomms_django_theme/templates/pages/index.html:172
+msgid "Промокод активується автоматично одразу після проходження та діє на весь асортимент."
+msgstr "The promo code is activated automatically right after completion and applies to the entire range."
+#: twocomms_django_theme/templates/pages/index.html:174
+msgid "≈ 5 хвилин часу"
+msgstr "≈ 5 minutes"
+#: twocomms_django_theme/templates/pages/index.html:175
+msgid "Один раз на рік"
+msgstr "Once a year"
+#: twocomms_django_theme/templates/pages/index.html:176
+msgid "Можна повернутись потім"
+msgstr "Can return later"
+#: twocomms_django_theme/templates/pages/index.html:185
+msgid "Допоможи покращити"
+msgstr "Help us improve"
+#: twocomms_django_theme/templates/pages/index.html:192
+msgid "Коротке опитування без довгої анкети: відповіді допоможуть нам стати кращими."
+msgstr "A short survey — no lengthy form. Your answers help us improve."
+#: twocomms_django_theme/templates/pages/index.html:195
+msgid "БІЛЬШЕ НЕ ПОКАЗУВАТИ"
+msgstr "DO NOT SHOW AGAIN"
+#: twocomms_django_theme/templates/pages/index.html:202
+#, python-format
+msgid "ВИГРАЙ %(amount)s ГРН"
+msgstr "WIN %(amount)s UAH"
+#: twocomms_django_theme/templates/pages/index.html:202
+msgid "ЗА ОПИТУВАННЯ!"
+msgstr "FOR THE SURVEY!"
+#: twocomms_django_theme/templates/pages/index.html:205
+msgid "Дай відповідь на кілька запитань та забери свій промокод!"
+msgstr "Answer a few questions and grab your promo code!"
+#: twocomms_django_theme/templates/pages/index.html:277
+msgid "Без форми на одну сторінку"
+msgstr "No single-page form"
+#: twocomms_django_theme/templates/pages/index.html:278
+msgid "Лише для зареєстрованих користувачів"
+msgstr "Registered users only"
+#: twocomms_django_theme/templates/pages/index.html:285
+#: twocomms_django_theme/templates/pages/index.html:290
+msgid "Пройти опитування"
+msgstr "Take the survey"
+#: twocomms_django_theme/templates/pages/index.html:286
+msgid "Продовжити опитування"
+msgstr "Continue the survey"
+#: twocomms_django_theme/templates/pages/index.html:341
+msgid "Категорії"
+msgstr "Categories"
+#: twocomms_django_theme/templates/pages/index.html:352
+msgid "Згорнути/розгорнути категорії"
+msgstr "Collapse/expand categories"
+#: twocomms_django_theme/templates/pages/index.html:359
+msgid "Згорнути"
+msgstr "Collapse"
+#: twocomms_django_theme/templates/pages/index.html:366
+msgid "Весь каталог"
+msgstr "Full catalog"
+#: twocomms_django_theme/templates/pages/index.html:402
+msgid "Замовити кастомний одяг"
+msgstr "Order custom apparel"
+#: twocomms_django_theme/templates/pages/index.html:410
+msgid "Свій дизайн"
+msgstr "Your design"
+#: twocomms_django_theme/templates/pages/index.html:411
+msgid "Збери одяг під себе"
+msgstr "Build your own apparel"
+#: twocomms_django_theme/templates/pages/index.html:413
+msgid "Обери основу, свій принт, матеріали й деталі — вартість побачиш одразу."
+msgstr "Pick the base, your print, materials and details — see the price instantly."
+#: twocomms_django_theme/templates/pages/index.html:418
+msgid "Спробувати конструктор"
+msgstr "Try the builder"
+#: twocomms_django_theme/templates/pages/index.html:424
+msgid "Потрібна допомога? Менеджер підкаже."
+msgstr "Need help? Our manager will assist you."
+#: twocomms_django_theme/templates/pages/index.html:438
+msgid "Перейти до каталогу за кольором"
+msgstr "Browse catalog by colour"
+#: twocomms_django_theme/templates/pages/index.html:440
+msgid "Обери за кольором"
+msgstr "Choose by colour"
+#: twocomms_django_theme/templates/pages/index.html:442
+msgid "Усі кольори"
+msgstr "All colours"
+#: twocomms_django_theme/templates/pages/index.html:467
+msgid "Новинки"
+msgstr "New arrivals"
+#: twocomms_django_theme/templates/pages/index.html:492
+msgid "Показати ще"
+msgstr "Show more"
+#: twocomms_django_theme/templates/pages/index.html:495
+msgid "Завантаження..."
+msgstr "Loading..."
+#: twocomms_django_theme/templates/pages/index.html:501
+msgid "Наступна сторінка"
+msgstr "Next page"
+#: twocomms_django_theme/templates/pages/index.html:580
+#: twocomms_django_theme/templates/pages/index.html:626
+msgid "Далі"
+msgstr "Next"
+#: twocomms_django_theme/templates/pages/index.html:581
+#: twocomms_django_theme/templates/pages/index.html:620
+msgid "Повернутись на 1 крок"
+msgstr "Back one step"
+#: twocomms_django_theme/templates/pages/index.html:583
+#: twocomms_django_theme/templates/pages/index.html:623
+msgid "Пропустити"
+msgstr "Skip"
+#: twocomms_django_theme/templates/pages/index.html:584
+msgid "Дякуємо!"
+msgstr "Thank you!"
+#: twocomms_django_theme/templates/pages/index.html:585
+msgid "Твій промокод готовий."
+msgstr "Your promo code is ready."
+#: twocomms_django_theme/templates/pages/index.html:586
+msgid "Скопіювати код"
+msgstr "Copy code"
+#: twocomms_django_theme/templates/pages/index.html:598
+msgid "Опитування"
+msgstr "Survey"
+#: twocomms_django_theme/templates/pages/index.html:600
+msgid "Коротке опитування про TWOCOMMS"
+msgstr "Short survey about TWOCOMMS"
+#: twocomms_django_theme/templates/pages/index.html:603
+msgid "Твої відповіді допоможуть покращити сайт і колекції. Орієнтовно 5 хвилин."
+msgstr "Your answers will help improve the site and collections. Around 5 minutes."
+#: twocomms_django_theme/templates/pages/index.html:606
+msgid "Ми використовуємо відповіді лише для аналітики та покращення сервісу. Контактні дані — лише за твоєю згодою."
+msgstr "We use answers solely for analytics and service improvement. Contact details — only with your consent."
+#: twocomms_django_theme/templates/pages/index.html:612
+#: twocomms_django_theme/templates/partials/header.html:96
+msgid "Завантаження…"
+msgstr "Loading…"
+
 #: twocomms_django_theme/templates/pages/my_orders.html:5
 #: twocomms_django_theme/templates/pages/my_orders.html:20
 #: twocomms_django_theme/templates/pages/order_success.html:1640
@@ -3414,138 +3609,158 @@ msgstr "and share your impressions of the purchased items."
 #: twocomms_django_theme/templates/pages/order_failed.html:15
 msgid "Оплату не завершено"
 msgstr "Payment not completed"
+
 #: twocomms_django_theme/templates/pages/order_failed.html:16
 msgid "Платіж не пройшов. Спробуйте ще раз або оберіть інший спосіб оплати."
 msgstr "The payment did not go through. Try again or choose another payment method."
+
 #: twocomms_django_theme/templates/pages/order_failed.html:18
 msgid "Повернутися в кошик"
 msgstr "Back to cart"
+
 #: twocomms_django_theme/templates/pages/order_failed.html:19
 msgid "На головну"
 msgstr "Back to home"
+
 #: twocomms_django_theme/templates/pages/order_success.html:5
 msgid "Замовлення оформлено"
 msgstr "Order placed"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1300
 msgid "Замовлення успішно оформлено!"
 msgstr "Order placed successfully!"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1303
 #: twocomms_django_theme/templates/pages/order_success.html:1316
 msgid "Номер замовлення:"
 msgstr "Order number:"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1311
 msgid "Переглянути деталі замовлення"
 msgstr "View order details"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1338
 msgid "Оплата успішно пройшла!"
 msgstr "Payment completed successfully!"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1340
 msgid "Дякуємо, брат! Твоє замовлення оплачено та відправлено в обробку. Ми розпочнемо підготовку найближчим часом."
 msgstr "Thanks, brother! Your order is paid and is being processed. We'll start preparing it shortly."
+
 #: twocomms_django_theme/templates/pages/order_success.html:1342
 msgid "Дякуємо за покупку! Твоє замовлення оплачено через Monobank та відправлено в обробку. Ми розпочнемо підготовку найближчим часом."
 msgstr "Thanks for your purchase! Your order is paid via Monobank and is being processed. We'll start preparing it shortly."
+
 #: twocomms_django_theme/templates/pages/order_success.html:1345
 msgid "Передплата внесена!"
 msgstr "Prepayment received!"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1347
 msgid "Дякуємо, брат! Передплата внесена. Залишок оплатиш при отриманні на Новій Пошті. Ми розпочнемо підготовку та відправимо на вказане відділення."
 msgstr "Thanks, brother! Prepayment received. You'll pay the remainder on pickup at Nova Poshta. We'll start preparing and ship to the chosen branch."
+
 #: twocomms_django_theme/templates/pages/order_success.html:1349
 msgid "Дякуємо за покупку! Передплата внесена. Залишок необхідно оплатити при отриманні посилки на відділенні Нової Пошти. Ми розпочнемо підготовку та відправимо на вказане відділення."
 msgstr "Thanks for your purchase! Prepayment received. The remainder is payable on pickup at the Nova Poshta branch. We'll start preparing and ship to the chosen branch."
+
 #: twocomms_django_theme/templates/pages/order_success.html:1352
 msgid "Ваша заявка відправлена в обробку"
 msgstr "Your request has been submitted"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1354
 msgid "Дякуємо, брат! Замовлення відправлено в обробку. Статус надійде в Telegram."
 msgstr "Thanks, brother! The order is in processing. You'll get status updates in Telegram."
+
 #: twocomms_django_theme/templates/pages/order_success.html:1356
 msgid "Дякуємо за замовлення! Заявка відправлена в обробку."
 msgstr "Thanks for your order! The request has been submitted."
+
 #: twocomms_django_theme/templates/pages/order_success.html:1365
 msgid "Внесена передплата:"
 msgstr "Prepayment made:"
-#: twocomms_django_theme/templates/pages/order_success.html:1366
-#: twocomms_django_theme/templates/pages/order_success.html:1370
-#: twocomms_django_theme/templates/pages/order_success.html:1493
-#: twocomms_django_theme/templates/pages/order_success.html:1522
-#: twocomms_django_theme/templates/pages/order_success.html:1539
-#: twocomms_django_theme/templates/pages/order_success.html:1580
-#: twocomms_django_theme/templates/pages/product_detail.html:244
-#: twocomms_django_theme/templates/pages/product_detail.html:246
-#: twocomms_django_theme/templates/partials/mini_cart.html:23
-#: twocomms_django_theme/templates/partials/mini_cart.html:82
-#: twocomms_django_theme/templates/partials/mini_cart.html:92
-#: twocomms_django_theme/templates/partials/product_card.html:92
-#: twocomms_django_theme/templates/partials/product_card.html:169
-msgid "грн"
-msgstr "UAH"
 
 #: twocomms_django_theme/templates/pages/order_success.html:1369
 msgid "Залишок (при отриманні):"
 msgstr "Remainder (on pickup):"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1385
 #: twocomms_django_theme/templates/pages/order_success.html:1424
 msgid "Дякуємо за вибір стилю TwoComms!"
 msgstr "Thanks for choosing TwoComms style!"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1386
 #: twocomms_django_theme/templates/pages/order_success.html:1425
 msgid "Твій стиль — твоя сильна сторона. Ми цінуємо, що ти обрав саме нас для свого образу."
 msgstr "Your style is your strength. We appreciate you choosing us for your look."
+
 #: twocomms_django_theme/templates/pages/order_success.html:1389
 #: twocomms_django_theme/templates/pages/order_success.html:1428
 msgid "Є питання чи потрібна допомога?"
 msgstr "Have questions or need help?"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1394
 #: twocomms_django_theme/templates/pages/order_success.html:1433
 msgid "Написати в Telegram"
 msgstr "Message us on Telegram"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1409
 msgid "Демо режим"
 msgstr "Demo mode"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1410
 msgid "Це тестовий перегляд сторінки. Для реального замовлення дані будуть заповнені автоматично."
 msgstr "This is a preview page. Real order data will be filled in automatically."
+
 #: twocomms_django_theme/templates/pages/order_success.html:1449
 msgid "Деталі замовлення"
 msgstr "Order details"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1456
 #: twocomms_django_theme/templates/pages/order_success.html:1462
 #: twocomms_django_theme/templates/pages/order_success.html:1468
 #: twocomms_django_theme/templates/pages/order_success.html:1474
 msgid "Не вказано"
 msgstr "Not provided"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1472
 #: twocomms_django_theme/templates/pages/order_success.html:1571
 msgid "Відділення НП"
 msgstr "Nova Poshta branch"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1481
 msgid "Передплата 200 грн"
 msgstr "Prepayment 200 UAH"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1485
 msgid "Оплата при отриманні"
 msgstr "Cash on delivery"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1492
 #: twocomms_django_theme/templates/pages/order_success.html:1579
 msgid "Сума замовлення"
 msgstr "Order total"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1500
 msgid "Товари в замовленні:"
 msgstr "Items in order:"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1517
 msgid "Розмір:"
 msgstr "Size:"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1518
 msgid "Посадка:"
 msgstr "Fit:"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1519
 msgid "Колір:"
 msgstr "Colour:"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1520
 #: twocomms_django_theme/templates/pages/order_success.html:1537
 msgid "Кількість:"
 msgstr "Quantity:"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1535
 #, fuzzy, python-format
 #| msgid "Кастомний друк"
@@ -3555,54 +3770,71 @@ msgstr "Custom print"
 #: twocomms_django_theme/templates/pages/order_success.html:1537
 msgid "Тип:"
 msgstr "Type:"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1537
 msgid "Статус: погоджено"
 msgstr "Status: approved"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1555
 msgid "Деталі замовлення (демо)"
 msgstr "Order details (demo)"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1614
 msgid "Система балів"
 msgstr "Points programme"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1618
 msgid "Дякуємо, брат! Твоє замовлення оформлено. Бали будуть нараховані після отримання товару."
 msgstr "Thanks, brother! The order is placed. Points will be credited after you receive the item."
+
 #: twocomms_django_theme/templates/pages/order_success.html:1627
 msgid "Статус замовлення приходить в Telegram"
 msgstr "Order status is sent to Telegram"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1628
 msgid "Оновлення про твоє замовлення надсилаються автоматично"
 msgstr "Updates about your order are sent automatically"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1644
 msgid "Створіть акаунт або увійдіть в систему, щоб отримувати бали за покупки!"
 msgstr "Create an account or log in to earn points on your purchases!"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1650
 msgid "Накопичувати бали за покупки"
 msgstr "Earn points on purchases"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1656
 msgid "Відстежувати статус замовлень"
 msgstr "Track order statuses"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1664
 msgid "Зберігати історію покупок"
 msgstr "Keep purchase history"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1670
 msgid "Отримувати персональні пропозиції"
 msgstr "Receive personal offers"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1691
 msgid "Якщо ви зареєструєтесь, це замовлення автоматично привʼяжеться до вашого акаунту"
 msgstr "If you register, this order will automatically be linked to your account"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1704
 msgid "Отримати чек на email"
 msgstr "Get the receipt by email"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1706
 msgid "Введіть вашу email адресу, і ми надішлемо чек про оплату"
 msgstr "Enter your email and we'll send you the payment receipt"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1714
 msgid "Відправити чек"
 msgstr "Send receipt"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1729
 msgid "Залиште відгук в Instagram"
 msgstr "Leave a review on Instagram"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1731
 #, python-format
 msgid "Поділіться своїми враженнями про покупку! Залиште відгук в Instagram з відміткою нашої сторінки, і ми даруємо вам промокод на знижку 10%% на наступне замовлення!"
@@ -3611,6 +3843,7 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/order_success.html:1734
 msgid "Ваш промокод на знижку"
 msgstr "Your discount code"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1736
 #, fuzzy, python-format
 #| msgid "Бали за замовлення"
@@ -3620,24 +3853,31 @@ msgstr "Order points"
 #: twocomms_django_theme/templates/pages/order_success.html:1743
 msgid "Відкрити Instagram"
 msgstr "Open Instagram"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1755
 msgid "Повернутись на головну"
 msgstr "Back to home"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1764
 msgid "Переглянути каталог"
 msgstr "Browse catalog"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1782
 msgid "Будь ласка, введіть коректну email адресу"
 msgstr "Please enter a valid email address"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1788
 msgid "Відправляється..."
 msgstr "Sending..."
+
 #: twocomms_django_theme/templates/pages/order_success.html:1790
 msgid "Чек буде відправлено на"
 msgstr "Receipt will be sent to"
+
 #: twocomms_django_theme/templates/pages/order_success.html:1790
 msgid "Функціонал буде додано найближчим часом."
 msgstr "This feature will be added shortly."
+
 #: twocomms_django_theme/templates/pages/product_detail.html:111
 msgid "Галерея товару"
 msgstr "Product gallery"
@@ -3777,6 +4017,15 @@ msgstr "Care"
 msgid "FAQ товару"
 msgstr "Product FAQ"
 
+#: twocomms_django_theme/templates/pages/product_detail.html:602
+msgid "Схожі товари"
+msgstr "Related products"
+#: twocomms_django_theme/templates/pages/product_detail.html:603
+msgid "Переглянути всі"
+msgstr "View all"
+#: twocomms_django_theme/templates/pages/product_detail.html:605
+msgid "Рекомендовані товари"
+msgstr "Recommended products"
 #: twocomms_django_theme/templates/partials/footer.html:18
 #: twocomms_django_theme/templates/partials/footer.html:67
 msgid "Соцмережі TwoComms"
@@ -3809,10 +4058,6 @@ msgstr "Go to favorites"
 #: twocomms_django_theme/templates/partials/header.html:401
 msgid "Відкрити міні-корзину"
 msgstr "Open mini cart"
-
-#: twocomms_django_theme/templates/partials/header.html:96
-msgid "Завантаження…"
-msgstr "Loading…"
 
 #: twocomms_django_theme/templates/partials/header.html:108
 msgid "Умови доставки і оплати"

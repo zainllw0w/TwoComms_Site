@@ -164,15 +164,15 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
               </svg>
             </div>
             <div class="sl-bonus-info">
-              <span class="sl-kicker">Бонус за фідбек</span>
-              <span class="sl-amount">-{{ survey_reward.amount_uah|default:200 }} грн</span>
+              <span class="sl-kicker">{% trans 'Бонус за фідбек' %}</span>
+              <span class="sl-amount">-{{ survey_reward.amount_uah|default:200 }} {% trans 'грн' %}</span>
             </div>
           </div>
-          <p class="sl-desc">Промокод активується автоматично одразу після проходження та діє на весь асортимент.</p>
+          <p class="sl-desc">{% trans 'Промокод активується автоматично одразу після проходження та діє на весь асортимент.' %}</p>
           <div class="sl-tags">
-            <div class="sl-tag">≈ 5 хвилин часу</div>
-            <div class="sl-tag">Один раз на рік</div>
-            <div class="sl-tag">Можна повернутись потім</div>
+            <div class="sl-tag">{% trans '≈ 5 хвилин часу' %}</div>
+            <div class="sl-tag">{% trans 'Один раз на рік' %}</div>
+            <div class="sl-tag">{% trans 'Можна повернутись потім' %}</div>
           </div>
         </div>
 
@@ -181,27 +181,27 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
           <div class="sr-header-row">
             <div>
               <h2 class="sr-title">
-                Допоможи покращити
+                {% trans 'Допоможи покращити' %}
                 <span class="sr-brand-wrapper">
                   {# Phase 21 — explicit width/height + aspect-ratio so the browser reserves space before CSS resolves the 0.85em height (fixes CLS warning). Actual rendered size still comes from .sr-brand-logo in home.css. #}
                   <img src="{% static 'img/logo.svg' %}" alt="TwoComms" class="sr-brand-logo" width="680" height="737">
                   <span class="sr-brand-text">TWOCOMMS</span>
                 </span>
               </h2>
-              <p class="sr-subtitle">Коротке опитування без довгої анкети: відповіді допоможуть нам стати кращими.</p>
+              <p class="sr-subtitle">{% trans 'Коротке опитування без довгої анкети: відповіді допоможуть нам стати кращими.' %}</p>
             </div>
             <button type="button" class="sr-dismiss" id="featuredToggle">
-              БІЛЬШЕ НЕ ПОКАЗУВАТИ
+              {% trans 'БІЛЬШЕ НЕ ПОКАЗУВАТИ' %}
             </button>
           </div>
 
           <div class="survey-panel-dark sr-banner">
             <div class="sr-banner-text">
               <h3 class="sr-banner-title">
-                ВИГРАЙ {{ survey_reward.amount_uah|default:200 }} ГРН<br>ЗА ОПИТУВАННЯ!
+                {% blocktrans with amount=survey_reward.amount_uah|default:200 %}ВИГРАЙ {{ amount }} ГРН{% endblocktrans %}<br>{% trans 'ЗА ОПИТУВАННЯ!' %}
               </h3>
               <p class="sr-banner-desc">
-                Дай відповідь на кілька запитань та забери свій промокод!
+                {% trans 'Дай відповідь на кілька запитань та забери свій промокод!' %}
               </p>
             </div>
             <div class="sr-banner-icon" id="survey-gift-icon-container">
@@ -273,20 +273,20 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
 
           <div class="sr-footer">
             <div class="sr-footer-pills">
-              <span class="sr-pill"><span class="sr-pill-dot"></span> Без форми на одну сторінку</span>
-              <span class="sr-pill"><span class="sr-pill-dot"></span> Лише для зареєстрованих користувачів</span>
+              <span class="sr-pill"><span class="sr-pill-dot"></span> {% trans 'Без форми на одну сторінку' %}</span>
+              <span class="sr-pill"><span class="sr-pill-dot"></span> {% trans 'Лише для зареєстрованих користувачів' %}</span>
             </div>
             <button
               type="button"
               class="sr-cta"
               data-survey-cta
               data-survey-key="{{ survey_key }}"
-              data-survey-start-text="{{ survey_ui_home.cta_start_uk|default:'Пройти опитування' }}"
-              data-survey-continue-text="{{ survey_ui_home.cta_continue_uk|default:'Продовжити опитування' }}"
+              data-survey-start-text="{% trans 'Пройти опитування' %}"
+              data-survey-continue-text="{% trans 'Продовжити опитування' %}"
               data-survey-authenticated="{% if request.user.is_authenticated %}1{% else %}0{% endif %}"
               data-login-url="{% url 'login' %}?next={{ request.path }}"
             >
-              <span>Пройти опитування</span>
+              <span>{% trans 'Пройти опитування' %}</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
               </svg>
@@ -298,7 +298,7 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
     </div>
 
 </section>
-{% cache 1800 categories_block public_category_version using="fragments" %}
+{% cache 1800 categories_block_i18n LANGUAGE_CODE public_category_version using="fragments" %}
 <section class="mb-4 mb-md-5 reveal categories-section">
   <!-- Единый блок категорий без разделения -->
   <div class="categories-unified-block">
@@ -337,8 +337,8 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
       <div class="d-flex justify-content-between align-items-center">
         <div class="categories-title-compact">
           <div class="title-with-catalog-icon">
-            <h2 class="categories-title-text">Категорії</h2>
-            <a href="{% url 'catalog' %}" class="catalog-icon-mobile" aria-label="Перейти в каталог">
+            <h2 class="categories-title-text">{% trans 'Категорії' %}</h2>
+            <a href="{% url 'catalog' %}" class="catalog-icon-mobile" aria-label="{% trans 'Перейти в каталог' %}">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
               </svg>
@@ -348,21 +348,21 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
         </div>
         
         <!-- Кнопка сворачивания в центре -->
-        <button class="categories-toggle-btn" id="categoriesToggle" aria-label="Згорнути/розгорнути категорії">
+        <button class="categories-toggle-btn" id="categoriesToggle" aria-label="{% trans 'Згорнути/розгорнути категорії' %}">
           <div class="toggle-btn-content">
             <div class="toggle-icon">
               <svg class="toggle-arrow" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
               </svg>
             </div>
-            <span class="toggle-text">Згорнути</span>
+            <span class="toggle-text">{% trans 'Згорнути' %}</span>
           </div>
           <div class="toggle-btn-glow"></div>
           <div class="toggle-btn-ripple"></div>
         </button>
         
         <a href="{% url 'catalog' %}" class="catalog-link-compact">
-          <span class="catalog-text">Весь каталог</span>
+          <span class="catalog-text">{% trans 'Весь каталог' %}</span>
           <svg class="catalog-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
           </svg>
@@ -398,7 +398,7 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
         </div>
 
         <div class="categories-cta-wrap">
-          <div class="category-card-compact category-card-custom" title="Замовити кастомний одяг">
+          <div class="category-card-compact category-card-custom" title="{% trans 'Замовити кастомний одяг' %}">
             <div class="card-bg-dark">
               <div class="card-glow-dark"></div>
               <div class="card-ripple-dark"></div>
@@ -406,21 +406,21 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
             <div class="card-content-compact category-card-custom-content">
               <div class="category-card-custom-inner category-card-custom-panel">
                 <div class="category-card-custom-copy">
-                  <span class="category-card-custom-kicker">Свій дизайн</span>
-                  <h3 class="category-card-custom-title">Збери одяг під себе</h3>
+                  <span class="category-card-custom-kicker">{% trans 'Свій дизайн' %}</span>
+                  <h3 class="category-card-custom-title">{% trans 'Збери одяг під себе' %}</h3>
                   <p class="category-card-custom-text">
-                    Обери основу, свій принт, матеріали й деталі — вартість побачиш одразу.
+                    {% trans 'Обери основу, свій принт, матеріали й деталі — вартість побачиш одразу.' %}
                   </p>
                 </div>
                 <div class="category-card-custom-action-wrapper">
                   <a href="{% url 'custom_print' %}" class="category-card-custom-action">
-                    Спробувати конструктор
+                    {% trans 'Спробувати конструктор' %}
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
                     </svg>
                   </a>
                   <span class="category-card-custom-helptext">
-                    Потрібна допомога? Менеджер підкаже.
+                    {% trans 'Потрібна допомога? Менеджер підкаже.' %}
                   </span>
                 </div>
               </div>
@@ -434,11 +434,11 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
 {% endcache %}
 
 {% if home_color_chips %}
-<section class="home-color-filter mb-4 mb-md-5 reveal" aria-label="Перейти до каталогу за кольором">
+<section class="home-color-filter mb-4 mb-md-5 reveal" aria-label="{% trans 'Перейти до каталогу за кольором' %}">
   <div class="home-color-filter__head">
-    <h2 class="home-color-filter__title">Обери за кольором</h2>
+    <h2 class="home-color-filter__title">{% trans 'Обери за кольором' %}</h2>
     <a class="home-color-filter__link" href="{% url 'catalog' %}">
-      Усі кольори
+      {% trans 'Усі кольори' %}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
     </a>
   </div>
@@ -463,7 +463,7 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
 
 <section class="mb-4 mb-md-5 reveal" id="new-products-section">
   <div class="d-flex justify-content-between align-items-end mb-3">
-    <h2 class="h5 mb-0">Новинки</h2>
+    <h2 class="h5 mb-0">{% trans 'Новинки' %}</h2>
   </div>
   
   <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4 home-products-grid" data-stagger-grid id="products-container" data-mobile-stagger="true">
@@ -478,7 +478,7 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
       {% endcache %}
     </div>
     {% empty %}
-    <div class="text-secondary small">Немає товарів.</div>
+    <div class="text-secondary small">{% trans 'Немає товарів.' %}</div>
     {% endfor %}
   </div>
   
@@ -488,16 +488,16 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
        data-current-page="{{ page_obj.number }}"
        {% if not has_more_products %}style="display: none;"{% endif %}>
     <button class="btn btn-outline-primary" id="load-more-btn" data-page="{% if page_obj.has_next %}{{ page_obj.next_page_number }}{% endif %}"{% if not has_more_products %} disabled{% endif %}>
-      <span class="btn-text">Показати ще</span>
+      <span class="btn-text">{% trans 'Показати ще' %}</span>
       <span class="btn-spinner d-none">
         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-        Завантаження...
+        {% trans 'Завантаження...' %}
       </span>
     </button>
     {% if has_more_products %}
     <noscript>
       <div class="mt-3">
-        <a class="btn btn-outline-primary" href="?page={{ page_obj.next_page_number }}">Наступна сторінка</a>
+        <a class="btn btn-outline-primary" href="?page={{ page_obj.next_page_number }}">{% trans 'Наступна сторінка' %}</a>
       </div>
     </noscript>
     {% endif %}
@@ -576,17 +576,17 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
     class="survey-modal"
     id="survey-modal"
     aria-hidden="true"
-    data-button-next="{{ survey_ui_modal.button_next_uk|default:'Далі' }}"
-    data-button-back="{{ survey_ui_modal.button_back_once_uk|default:'Повернутись на 1 крок' }}"
-    data-button-close="{{ survey_ui_modal.button_close_uk|default:'Закрити' }}"
-    data-button-skip="{{ survey_ui_modal.button_skip_uk|default:'Пропустити' }}"
-    data-thanks-title="{{ survey_ui_modal.thanks_title_uk|default:'Дякуємо!' }}"
-    data-thanks-text="{{ survey_ui_modal.thanks_text_uk|default:'Твій промокод готовий.' }}"
-    data-copy-code="{{ survey_ui_modal.copy_code_uk|default:'Скопіювати код' }}"
+    data-button-next="{% trans 'Далі' %}"
+    data-button-back="{% trans 'Повернутись на 1 крок' %}"
+    data-button-close="{% trans 'Закрити' %}"
+    data-button-skip="{% trans 'Пропустити' %}"
+    data-thanks-title="{% trans 'Дякуємо!' %}"
+    data-thanks-text="{% trans 'Твій промокод готовий.' %}"
+    data-copy-code="{% trans 'Скопіювати код' %}"
   >
     <div class="survey-overlay" data-survey-close></div>
     <div class="survey-dialog" role="dialog" aria-modal="true" aria-labelledby="survey-modal-title">
-      <button type="button" class="survey-close" data-survey-close aria-label="{{ survey_ui_modal.button_close_uk|default:'Закрити' }}">
+      <button type="button" class="survey-close" data-survey-close aria-label="{% trans 'Закрити' %}">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
           <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
         </svg>
@@ -594,23 +594,21 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
 
       <div class="survey-header">
         <div class="survey-header-main">
-          <div class="survey-badge">{{ survey_ui_home.badge_uk|default:"Опитування" }}</div>
+          <div class="survey-badge">{% trans 'Опитування' %}</div>
           <h3 class="survey-modal-title" id="survey-modal-title">
-            {{ survey_ui_modal.title_uk|default:"Коротке опитування про TWOCOMMS" }}
+            {% trans 'Коротке опитування про TWOCOMMS' %}
           </h3>
           <p class="survey-modal-subtitle">
-            {{ survey_ui_modal.subtitle_uk|default:"Твої відповіді допоможуть покращити сайт." }}
+            {% trans 'Твої відповіді допоможуть покращити сайт і колекції. Орієнтовно 5 хвилин.' %}
           </p>
         </div>
-        {% if survey_ui_modal.privacy_hint_uk %}
-        <p class="survey-modal-privacy">{{ survey_ui_modal.privacy_hint_uk }}</p>
-        {% endif %}
+        <p class="survey-modal-privacy">{% trans 'Ми використовуємо відповіді лише для аналітики та покращення сервісу. Контактні дані — лише за твоєю згодою.' %}</p>
       </div>
 
       <div class="survey-body" id="survey-body">
         <div class="survey-loading">
           <div class="survey-spinner"></div>
-          <div class="survey-loading-text">Завантаження…</div>
+          <div class="survey-loading-text">{% trans 'Завантаження…' %}</div>
         </div>
       </div>
 
@@ -618,13 +616,13 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
         <div class="survey-soft-hint" id="survey-soft-hint"></div>
         <div class="survey-actions-row">
           <button type="button" class="survey-btn survey-btn-ghost" data-survey-back>
-            {{ survey_ui_modal.button_back_once_uk|default:"Повернутись на 1 крок" }}
+            {% trans 'Повернутись на 1 крок' %}
           </button>
           <button type="button" class="survey-btn survey-btn-ghost" data-survey-skip>
-            {{ survey_ui_modal.button_skip_uk|default:"Пропустити" }}
+            {% trans 'Пропустити' %}
           </button>
           <button type="button" class="survey-btn survey-btn-primary" data-survey-next>
-            {{ survey_ui_modal.button_next_uk|default:"Далі" }}
+            {% trans 'Далі' %}
           </button>
         </div>
       </div>

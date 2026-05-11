@@ -590,13 +590,13 @@ CSS rules на mobile FCP/LCP window.
   {% include "partials/product_reviews.html" %}
 
   {% if recommended_products %}
-    {% cache 3600 product_detail_recommendations product.id public_product_order_version recommended_product_ids using="fragments" %}
+    {% cache 3600 product_detail_recommendations_i18n LANGUAGE_CODE product.id public_product_order_version recommended_product_ids using="fragments" %}
       <section class="tc-related-panel" aria-labelledby="tc-related-title">
         <div class="tc-related-head">
-          <h2 id="tc-related-title">Схожі товари</h2>
-          <a href="{% url 'catalog' %}">Переглянути всі</a>
+          <h2 id="tc-related-title">{% trans 'Схожі товари' %}</h2>
+          <a href="{% url 'catalog' %}">{% trans 'Переглянути всі' %}</a>
         </div>
-        <div class="tc-related-grid" aria-label="Рекомендовані товари">
+        <div class="tc-related-grid" aria-label="{% trans 'Рекомендовані товари' %}">
           {% for rec_product in recommended_products|slice:":8" %}
             <article class="tc-related-card">
               {# Phase 21 (T20 a11y) — drop aria-label so the link's accessible name is computed from the visible title/category/price text inside (resolves axe `label-content-name-mismatch`). #}
