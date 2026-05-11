@@ -1,4 +1,12 @@
-"""Structured content for support, brand, and utility pages."""
+"""Structured content for support, brand, and utility pages.
+
+Phase 17d.6 (2026-05-11) — user-facing strings are wrapped in
+``gettext_lazy`` so they resolve in the active language whenever a
+view hands the dict to the template (the values are lazy proxies; the
+dict itself is module-level constant).
+"""
+
+from django.utils.translation import gettext_lazy as _
 
 
 HELP_FAQ_ITEMS = [
@@ -95,7 +103,7 @@ PRO_BRAND_FAQ_ITEMS = [
 
 FOOTER_CONTENT = {
     "brand": {
-        "tagline": "Streetwear / Military-adjacent / Made in Ukraine",
+        "tagline": _("Streetwear / Military-adjacent / Made in Ukraine"),
         "name": "TWOCOMMS",
     },
     "socials": [
@@ -104,43 +112,43 @@ FOOTER_CONTENT = {
     ],
     "columns": [
         {
-            "title": "Покупка",
+            "title": _("Покупка"),
             "links": [
-                {"label": "Каталог", "url_name": "catalog"},
-                {"label": "Доставка і оплата", "url_name": "delivery"},
-                {"label": "Кастомний принт", "url_name": "custom_print"},
-                {"label": "Співпраця", "url_name": "cooperation"},
+                {"label": _("Каталог"), "url_name": "catalog"},
+                {"label": _("Доставка і оплата"), "url_name": "delivery"},
+                {"label": _("Кастомний принт"), "url_name": "custom_print"},
+                {"label": _("Співпраця"), "url_name": "cooperation"},
             ],
         },
         {
-            "title": "Підтримка",
+            "title": _("Підтримка"),
             "links": [
-                {"label": "Допомога", "url_name": "help_center"},
+                {"label": _("Допомога"), "url_name": "help_center"},
                 {"label": "FAQ", "url_name": "faq"},
-                {"label": "Повернення та обмін", "url_name": "returns"},
-                {"label": "Догляд за одягом", "url_name": "care_guide"},
+                {"label": _("Повернення та обмін"), "url_name": "returns"},
+                {"label": _("Догляд за одягом"), "url_name": "care_guide"},
             ],
         },
         {
-            "title": "Бренд",
+            "title": _("Бренд"),
             "links": [
-                {"label": "Про бренд", "url_name": "about"},
-                {"label": "Новини", "url_name": "news"},
-                {"label": "Контакти", "url_name": "contacts"},
-                {"label": "Карта сайту", "url_name": "site_map_page"},
+                {"label": _("Про бренд"), "url_name": "about"},
+                {"label": _("Новини"), "url_name": "news"},
+                {"label": _("Контакти"), "url_name": "contacts"},
+                {"label": _("Карта сайту"), "url_name": "site_map_page"},
             ],
         },
         {
-            "title": "Швидкий доступ",
+            "title": _("Швидкий доступ"),
             "links": [
-                {"label": "Розмірна сітка", "url_name": "size_guide"},
-                {"label": "Відстеження замовлення", "url_name": "order_tracking"},
-                {"label": "Політика конфіденційності", "url_name": "privacy_policy"},
-                {"label": "Умови використання", "url_name": "terms_of_service"},
+                {"label": _("Розмірна сітка"), "url_name": "size_guide"},
+                {"label": _("Відстеження замовлення"), "url_name": "order_tracking"},
+                {"label": _("Політика конфіденційності"), "url_name": "privacy_policy"},
+                {"label": _("Умови використання"), "url_name": "terms_of_service"},
             ],
         },
     ],
-    "rights": "All Rights Reserved © TWOCOMMS, 2026",
+    "rights": _("All Rights Reserved © TWOCOMMS, 2026"),
 }
 
 

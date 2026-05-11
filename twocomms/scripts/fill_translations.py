@@ -524,6 +524,24 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "en": "and share your impressions of the purchased items.",
     },
 
+    # support_content (footer)
+    "Streetwear / Military-adjacent / Made in Ukraine": {
+        "ru": "Стритвир / Military-adjacent / сделано в Украине",
+        "en": "Streetwear / Military-adjacent / Made in Ukraine",
+    },
+    "All Rights Reserved © TWOCOMMS, 2026": {
+        "ru": "Все права защищены © TWOCOMMS, 2026",
+        "en": "All Rights Reserved © TWOCOMMS, 2026",
+    },
+    "Швидкий доступ":         {"ru": "Быстрый доступ",     "en": "Quick access"},
+    "Доставка і оплата":      {"ru": "Доставка и оплата",  "en": "Delivery & payment"},
+    "Кастомний принт":        {"ru": "Кастомный принт",    "en": "Custom print"},
+    "Догляд за одягом":       {"ru": "Уход за одеждой",    "en": "Garment care"},
+    "Розмірна сітка":         {"ru": "Размерная сетка",    "en": "Size guide"},
+    "Відстеження замовлення": {"ru": "Отслеживание заказа","en": "Order tracking"},
+    "Політика конфіденційності": {"ru": "Политика конфиденциальности", "en": "Privacy Policy"},
+    "Умови використання":     {"ru": "Условия использования", "en": "Terms of Service"},
+
     # profile_setup
     "Профіль":                {"ru": "Профиль",            "en": "Profile"},
     "Налаштування профілю":   {"ru": "Настройки профиля",  "en": "Profile settings"},
@@ -593,7 +611,12 @@ def patch_po(path: Path, lang: str) -> tuple[int, int]:
             return m.group(0)
         seen += 1
         is_fuzzy = bool(re.search(r"^#, .*fuzzy", comments, re.MULTILINE))
-        if msgstr_val.strip() and not is_fuzzy:
+        # Phase 17d.6 — also override msgstr that equals msgid (Django's
+        # makemessages auto-copies msgid into msgstr for some entries;
+        # those placeholder values should be replaced with our explicit
+        # translation when one exists).
+        is_placeholder = msgstr_val == msgid_val
+        if msgstr_val.strip() and not is_fuzzy and not is_placeholder:
             return m.group(0)
         new_val = entry[lang]
         filled += 1
