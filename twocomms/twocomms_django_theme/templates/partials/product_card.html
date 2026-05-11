@@ -1,6 +1,7 @@
 {% load static %}
 {% load responsive_images %}
 {% load i18n %}
+{% load color_filters %}
 {% with animate=animate|default_if_none:True %}
 {% if home_card %}
 {% with card_image=p.homepage_image preferred_image_url=p.preferred_card_image_url %}
@@ -76,10 +77,10 @@
       {% for v in p.colors_preview %}
       <button type="button"
         class="home-color-dot color-dot{% if v.is_default %} active{% endif %}"
-        title="{% if v.name %}{{ v.name }}{% else %}{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}{% endif %}"
+        title="{% if v.name %}{{ v.name|translate_color }}{% else %}{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}{% endif %}"
         style="--c1: {{ v.primary_hex }}; --c2: {% if v.secondary_hex %}{{ v.secondary_hex }}{% else %}{{ v.primary_hex }}{% endif %};"
         data-image-url="{{ v.first_image_url|default:'' }}"
-        aria-label="{% trans 'Колір' %} {% if v.name %}{{ v.name }}{% else %}{{ v.primary_hex }}{% if v.secondary_hex %} {% trans 'плюс' %} {{ v.secondary_hex }}{% endif %}{% endif %}"></button>
+        aria-label="{% trans 'Колір' %} {% if v.name %}{{ v.name|translate_color }}{% else %}{{ v.primary_hex }}{% if v.secondary_hex %} {% trans 'плюс' %} {{ v.secondary_hex }}{% endif %}{% endif %}"></button>
       {% endfor %}
     </div>
   </div>

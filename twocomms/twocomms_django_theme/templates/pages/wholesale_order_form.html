@@ -2,6 +2,7 @@
 {% load static %}
 {% load math_filters %}
 {% load responsive_images %}
+{% load color_filters %}
 
 {% block title %}Формування оптового замовлення - TwoComms{% endblock %}
 {% block robots %}noindex, follow{% endblock %}
@@ -2515,7 +2516,7 @@
                                     {% for color_variant in product.color_variants.all|slice:":3" %}
                                         <span class="color-item" data-color-name="{{ color_variant.color.name|default:'Чорний' }}" data-color-hex="{{ color_variant.color.primary_hex }}" data-color-image="{% if color_variant.images.first %}{{ color_variant.images.first.image.url }}{% else %}{{ product.main_image.url|default:'' }}{% endif %}">
                                             <span class="color-dot" data-color="{{ color_variant.color.primary_hex|default:'#000000' }}"></span>
-                                            <span class="color-name">{{ color_variant.color.name|default:"Чорний" }}</span>
+                                            <span class="color-name">{{ color_variant.color.name|default:"Чорний"|translate_color }}</span>
                                         </span>
                                     {% empty %}
                                         <span class="color-item" data-color-name="Чорний" data-color-hex="#000000" data-color-image="{{ product.main_image.url|default:'' }}">

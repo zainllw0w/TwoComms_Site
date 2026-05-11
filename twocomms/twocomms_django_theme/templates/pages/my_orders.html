@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load color_filters %}
 
 {% block title %}{% trans 'Мої замовлення' %} — TwoComms{% endblock %}
 {% block robots %}noindex, nofollow{% endblock %}
@@ -270,7 +271,7 @@
                                 data-primary="{{ it.color_variant.color.primary_hex }}" 
                                 data-secondary="{{ it.color_variant.color.secondary_hex|default:'' }}">
                           </span>
-                          <span class="color-name">{{ it.color_variant.color.name }}</span>
+                          <span class="color-name">{{ it.color_variant.color.name|translate_color }}</span>
                         </div>
                       </div>
                       {% endif %}

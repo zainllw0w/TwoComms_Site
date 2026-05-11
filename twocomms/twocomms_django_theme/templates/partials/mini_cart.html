@@ -1,6 +1,7 @@
 {% load static %}
 {% load responsive_images %}
 {% load i18n %}
+{% load color_filters %}
 <div class="vstack gap-3" style="min-width: 300px;">
   {% if has_any_items %}
     {% if custom_items %}
@@ -72,7 +73,7 @@
                       data-secondary="{{ s|default:'' }}">
                 </span>
                 {% endwith %}
-                <span>{{ it.color_label|default:_('Колір') }}</span>
+                <span>{{ it.color_label|translate_color|default:_('Колір') }}</span>
               </div>
               {% endif %}
             </div>

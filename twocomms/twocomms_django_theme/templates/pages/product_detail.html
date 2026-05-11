@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}{% load static %}{% load cache %}{% load seo_tags %}{% load responsive_images %}{% load admin_filters %}
+{% load i18n %}{% load static %}{% load cache %}{% load seo_tags %}{% load responsive_images %}{% load admin_filters %}{% load color_filters %}
 
 {% comment %}
   Phase 7.3 — variant-aware SEO meta. When the URL carries path
@@ -294,10 +294,10 @@ CSS rules на mobile FCP/LCP window.
                     data-primary="{{ v.primary_hex }}"
                     data-secondary="{{ v.secondary_hex|default:'' }}"
                     style="--primary-color: {{ v.primary_hex }}; --secondary-color: {{ v.secondary_hex|default:v.primary_hex }};"
-                    aria-label="{% trans 'Колір' %} {{ v.name|default:forloop.counter }}">
+                    aria-label="{% trans 'Колір' %} {{ v.name|translate_color|default:forloop.counter }}">
                     <span class="tc-color-dot"></span>
                   </button>
-                  <span>{{ v.name|default:_('Колір') }}</span>
+                  <span>{{ v.name|translate_color|default:_('Колір') }}</span>
                 </span>
               {% endfor %}
             </div>

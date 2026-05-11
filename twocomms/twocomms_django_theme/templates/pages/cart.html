@@ -3,6 +3,7 @@
 {% load static %}
 {% load math_filters %}
 {% load responsive_images %}
+{% load color_filters %}
 
 {% block title %}Кошик — TwoComms{% endblock %}
 {% block robots %}noindex, nofollow{% endblock %}
@@ -307,7 +308,7 @@
                             data-secondary="{{ s|default:'' }}">
                       </span>
                       {% endwith %}
-                      <span class="cart-item-color-name">{{ it.color_label|default:'—' }}</span>
+                      <span class="cart-item-color-name">{{ it.color_label|translate_color|default:'—' }}</span>
                     </div>
                   </div>
                   {% endif %}

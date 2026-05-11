@@ -1,3 +1,4 @@
+{% load color_filters %}
 <div class="ds-container">
   <section class="ds-section ds-orders-hero" data-animate>
     <header class="ds-section__header">
@@ -404,7 +405,7 @@
                             {{ item.product.title }}
                             {% if item.size %} · {{ item.size }}{% endif %}
                             {% if item.fit_label %} · {{ item.fit_label }}{% endif %}
-                            {% if item.color_variant %} · {{ item.color_variant.color.name }}{% endif %}
+                            {% if item.color_variant %} · {{ item.color_variant.color.name|translate_color }}{% endif %}
                           </span>
                         </div>
                         <span style="color: #60a5fa; font-size: 1.05rem; font-weight: 700; white-space: nowrap;">
