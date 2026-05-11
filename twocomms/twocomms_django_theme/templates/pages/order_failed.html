@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Оплату не завершено — TwoComms{% endblock %}
+{% load i18n %}
+{% block title %}{% trans 'Оплату не завершено' %} — TwoComms{% endblock %}
 {% block robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
@@ -11,11 +12,11 @@
           <div class="mb-3">
             <span class="display-5 text-danger">⚠️</span>
           </div>
-          <h3 class="mb-3">Оплату не завершено</h3>
-          <p class="text-muted mb-4">Платіж не пройшов. Спробуйте ще раз або оберіть інший спосіб оплати.</p>
+          <h3 class="mb-3">{% trans 'Оплату не завершено' %}</h3>
+          <p class="text-muted mb-4">{% trans 'Платіж не пройшов. Спробуйте ще раз або оберіть інший спосіб оплати.' %}</p>
           <div class="d-flex gap-2 justify-content-center">
-            <a class="btn btn-primary" href="/cart/">Повернутися в кошик</a>
-            <a class="btn btn-outline-secondary" href="/">На головну</a>
+            <a class="btn btn-primary" href="/cart/">{% trans 'Повернутися в кошик' %}</a>
+            <a class="btn btn-outline-secondary" href="/">{% trans 'На головну' %}</a>
           </div>
         </div>
       </div>
