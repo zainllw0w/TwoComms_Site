@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-11 07:58+0300\n"
+"POT-Creation-Date: 2026-05-11 07:59+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -381,6 +381,7 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/my_reviews.html:137
 msgid "На модерації"
 msgstr "На модерации"
+
 #: management/models.py:207
 msgid "У базі"
 msgstr ""
@@ -1733,6 +1734,7 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/my_reviews.html:137
 msgid "Відхилено"
 msgstr "Отклонено"
+
 #: management/models.py:1566
 msgid "Snapshot"
 msgstr ""
@@ -2493,6 +2495,7 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/my_reviews.html:137
 msgid "Опубліковано"
 msgstr "Опубликовано"
+
 #: storefront/models.py:507
 msgid "Архів"
 msgstr ""
@@ -2549,43 +2552,25 @@ msgstr ""
 msgid "English"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/auth_login.html:1
-msgid "Вхід"
-msgstr "Вход"
-#: twocomms_django_theme/templates/pages/auth_login.html:10
-msgid "Вхід до акаунту"
-msgstr "Вход в аккаунт"
-#: twocomms_django_theme/templates/pages/auth_login.html:11
-msgid "Швидкий доступ до замовлень, балів та обраного"
-msgstr "Быстрый доступ к заказам, баллам и избранному"
-#: twocomms_django_theme/templates/pages/auth_login.html:16
-#: twocomms_django_theme/templates/pages/auth_register.html:16
-msgid "Вхід через Google - TwoComms"
-msgstr "Вход через Google - TwoComms"
-#: twocomms_django_theme/templates/pages/auth_login.html:17
-#: twocomms_django_theme/templates/partials/header.html:354
-msgid "Увійти через Google"
-msgstr "Войти через Google"
+#: twocomms_django_theme/templates/base.html:1115
+#: twocomms_django_theme/templates/partials/header.html:318
+msgid "Вийти"
+msgstr "Выйти"
 
-#: twocomms_django_theme/templates/pages/auth_login.html:19
-msgid "Продовжуючи, ви погоджуєтесь з умовами використання"
-msgstr "Продолжая, вы соглашаетесь с условиями использования"
-#: twocomms_django_theme/templates/pages/auth_login.html:35
-#: twocomms_django_theme/templates/pages/auth_register.html:29
-msgid "Логін"
-msgstr "Логин"
-#: twocomms_django_theme/templates/pages/auth_login.html:37
-msgid "Використовуйте свій нікнейм. Реєстрація — за хвилину."
-msgstr "Используйте свой никнейм. Регистрация — за минуту."
-#: twocomms_django_theme/templates/pages/auth_login.html:45
-#: twocomms_django_theme/templates/pages/auth_register.html:39
-msgid "Пароль"
-msgstr "Пароль"
-#: twocomms_django_theme/templates/pages/auth_login.html:48
-#: twocomms_django_theme/templates/pages/auth_register.html:42
-#: twocomms_django_theme/templates/pages/auth_register.html:58
-msgid "Показати пароль"
-msgstr "Показать пароль"
+#: twocomms_django_theme/templates/base.html:1127
+#: twocomms_django_theme/templates/partials/header.html:329
+msgid "Вхід в акаунт"
+msgstr "Вход в аккаунт"
+
+#: twocomms_django_theme/templates/base.html:1128
+#: twocomms_django_theme/templates/pages/cart.html:935
+#: twocomms_django_theme/templates/partials/header.html:85
+#: twocomms_django_theme/templates/partials/header.html:181
+#: twocomms_django_theme/templates/partials/header.html:330
+msgid "Закрити"
+msgstr "Закрыть"
+
+#: twocomms_django_theme/templates/base.html:1142
 #: twocomms_django_theme/templates/pages/auth_login.html:59
 #: twocomms_django_theme/templates/pages/auth_register.html:73
 #: twocomms_django_theme/templates/partials/header.html:342
@@ -2593,13 +2578,68 @@ msgstr "Показать пароль"
 msgid "Увійти"
 msgstr "Войти"
 
-#: twocomms_django_theme/templates/pages/auth_login.html:63
-msgid "Немає облікового запису?"
-msgstr "Нет аккаунта?"
+#: twocomms_django_theme/templates/base.html:1150
 #: twocomms_django_theme/templates/pages/auth_login.html:63
 #: twocomms_django_theme/templates/partials/header.html:349
 msgid "Зареєструватись"
 msgstr "Зарегистрироваться"
+
+#: twocomms_django_theme/templates/base.html:1154
+#: twocomms_django_theme/templates/pages/auth_login.html:16
+#: twocomms_django_theme/templates/pages/auth_register.html:16
+msgid "Вхід через Google - TwoComms"
+msgstr "Вход через Google - TwoComms"
+
+#: twocomms_django_theme/templates/base.html:1156
+#: twocomms_django_theme/templates/pages/auth_login.html:17
+#: twocomms_django_theme/templates/partials/header.html:354
+msgid "Увійти через Google"
+msgstr "Войти через Google"
+
+#: twocomms_django_theme/templates/base.html:1167
+#: twocomms_django_theme/templates/partials/header.html:365
+msgid "Авторизуйтесь, щоб не вводити дані кожного разу та накопичувати бали"
+msgstr "Авторизуйтесь, чтобы не вводить данные каждый раз и копить баллы"
+
+#: twocomms_django_theme/templates/pages/auth_login.html:1
+msgid "Вхід"
+msgstr "Вход"
+
+#: twocomms_django_theme/templates/pages/auth_login.html:10
+msgid "Вхід до акаунту"
+msgstr "Вход в аккаунт"
+
+#: twocomms_django_theme/templates/pages/auth_login.html:11
+msgid "Швидкий доступ до замовлень, балів та обраного"
+msgstr "Быстрый доступ к заказам, баллам и избранному"
+
+#: twocomms_django_theme/templates/pages/auth_login.html:19
+msgid "Продовжуючи, ви погоджуєтесь з умовами використання"
+msgstr "Продолжая, вы соглашаетесь с условиями использования"
+
+#: twocomms_django_theme/templates/pages/auth_login.html:35
+#: twocomms_django_theme/templates/pages/auth_register.html:29
+msgid "Логін"
+msgstr "Логин"
+
+#: twocomms_django_theme/templates/pages/auth_login.html:37
+msgid "Використовуйте свій нікнейм. Реєстрація — за хвилину."
+msgstr "Используйте свой никнейм. Регистрация — за минуту."
+
+#: twocomms_django_theme/templates/pages/auth_login.html:45
+#: twocomms_django_theme/templates/pages/auth_register.html:39
+msgid "Пароль"
+msgstr "Пароль"
+
+#: twocomms_django_theme/templates/pages/auth_login.html:48
+#: twocomms_django_theme/templates/pages/auth_register.html:42
+#: twocomms_django_theme/templates/pages/auth_register.html:58
+msgid "Показати пароль"
+msgstr "Показать пароль"
+
+#: twocomms_django_theme/templates/pages/auth_login.html:63
+msgid "Немає облікового запису?"
+msgstr "Нет аккаунта?"
 
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:22
 #: twocomms_django_theme/templates/partials/header.html:229
@@ -2609,39 +2649,51 @@ msgstr "Настройки профиля"
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:23
 msgid "Заповніть інформацію для зручного замовлення"
 msgstr "Заполните информацию для удобного оформления заказа"
+
 #: twocomms_django_theme/templates/pages/auth_register.html:1
 msgid "Реєстрація"
 msgstr "Регистрация"
+
 #: twocomms_django_theme/templates/pages/auth_register.html:10
 msgid "Створення акаунту"
 msgstr "Создание аккаунта"
+
 #: twocomms_django_theme/templates/pages/auth_register.html:11
 msgid "Отримуйте бонуси, спостерігайте за замовленнями та обраним"
 msgstr "Получайте бонусы, следите за заказами и избранным"
+
 #: twocomms_django_theme/templates/pages/auth_register.html:17
 msgid "Продовжити через Google"
 msgstr "Продолжить через Google"
+
 #: twocomms_django_theme/templates/pages/auth_register.html:19
 msgid "Ми створимо акаунт на основі вашого Google профілю"
 msgstr "Мы создадим аккаунт на основе вашего Google-профиля"
+
 #: twocomms_django_theme/templates/pages/auth_register.html:31
 msgid "Мін. 3 символи, латиниця/цифри/._-"
 msgstr "Мин. 3 символа, латиница/цифры/._-"
+
 #: twocomms_django_theme/templates/pages/auth_register.html:44
 msgid "8+ символів, бажано букви велики/малі та цифри"
 msgstr "8+ символов, желательно большие/маленькие буквы и цифры"
+
 #: twocomms_django_theme/templates/pages/auth_register.html:46
 msgid "Складність паролю"
 msgstr "Сложность пароля"
+
 #: twocomms_django_theme/templates/pages/auth_register.html:55
 msgid "Повтор паролю"
 msgstr "Повтор пароля"
+
 #: twocomms_django_theme/templates/pages/auth_register.html:69
 msgid "Створити акаунт"
 msgstr "Создать аккаунт"
+
 #: twocomms_django_theme/templates/pages/auth_register.html:73
 msgid "Вже маєте акаунт?"
 msgstr "Уже есть аккаунт?"
+
 #: twocomms_django_theme/templates/pages/cart.html:37
 #: twocomms_django_theme/templates/partials/header.html:84
 #: twocomms_django_theme/templates/partials/header.html:411
@@ -2982,13 +3034,6 @@ msgstr ""
 msgid "Безкоштовна консультація"
 msgstr "Бесплатная консультация"
 
-#: twocomms_django_theme/templates/pages/cart.html:935
-#: twocomms_django_theme/templates/partials/header.html:85
-#: twocomms_django_theme/templates/partials/header.html:181
-#: twocomms_django_theme/templates/partials/header.html:330
-msgid "Закрити"
-msgstr "Закрыть"
-
 #: twocomms_django_theme/templates/pages/cart.html:938
 msgid ""
 "Залиште свої контактні дані, і наш менеджер звʼяжеться з вами найближчим "
@@ -3189,27 +3234,35 @@ msgstr "Перейти в каталог"
 #: twocomms_django_theme/templates/pages/favorites.html:46
 msgid "Увага!"
 msgstr "Внимание!"
+
 #: twocomms_django_theme/templates/pages/favorites.html:46
 msgid "Ви переглядаєте обрані товари як гість."
 msgstr "Вы просматриваете избранные товары как гость."
+
 #: twocomms_django_theme/templates/pages/favorites.html:47
 msgid "Увійдіть в акаунт"
 msgstr "Войдите в аккаунт"
+
 #: twocomms_django_theme/templates/pages/favorites.html:47
 msgid "або"
 msgstr "или"
+
 #: twocomms_django_theme/templates/pages/favorites.html:48
 msgid "зареєструйтесь"
 msgstr "зарегистрируйтесь"
+
 #: twocomms_django_theme/templates/pages/favorites.html:49
 msgid "щоб зберегти обрані товари назавжди."
 msgstr "чтобы сохранить избранные товары навсегда."
+
 #: twocomms_django_theme/templates/pages/favorites.html:62
 msgid "У вас поки немає обраних товарів"
 msgstr "У вас пока нет избранных товаров"
+
 #: twocomms_django_theme/templates/pages/favorites.html:63
 msgid "Додавайте товари до обраного, натискаючи на сердечко на карточці товару"
 msgstr "Добавляйте товары в избранное, нажимая на сердечко на карточке товара"
+
 #: twocomms_django_theme/templates/pages/index.html:3
 msgid "TwoComms — Стріт & Мілітарі Одяг | Головна"
 msgstr "TwoComms — стрит & милитари одежда | Главная"
@@ -3284,6 +3337,7 @@ msgstr "Мои заказы"
 #: twocomms_django_theme/templates/pages/my_orders.html:21
 msgid "Відстежуйте статус ваших замовлень"
 msgstr "Отслеживайте статус своих заказов"
+
 #: twocomms_django_theme/templates/pages/my_reviews.html:5
 #: twocomms_django_theme/templates/pages/my_reviews.html:114
 #: twocomms_django_theme/templates/partials/header.html:258
@@ -3293,33 +3347,42 @@ msgstr "Мои отзывы"
 #: twocomms_django_theme/templates/pages/my_reviews.html:115
 msgid "Усі ваші відгуки про куплені товари TwoComms."
 msgstr "Все ваши отзывы о купленных товарах TwoComms."
+
 #: twocomms_django_theme/templates/pages/my_reviews.html:119
 msgid "Статистика відгуків"
 msgstr "Статистика отзывов"
+
 #: twocomms_django_theme/templates/pages/my_reviews.html:127
 #, python-format
 msgid "Відгук про %(t)s"
 msgstr "Отзыв о %(t)s"
+
 #: twocomms_django_theme/templates/pages/my_reviews.html:133
 #, python-format
 msgid "Оцінка %(n)s з 5"
 msgstr "Оценка %(n)s из 5"
+
 #: twocomms_django_theme/templates/pages/my_reviews.html:146
 #, python-format
 msgid "Фото відгуку %(n)s про %(t)s"
 msgstr "Фото отзыва %(n)s о %(t)s"
+
 #: twocomms_django_theme/templates/pages/my_reviews.html:152
 msgid "Причина відхилення:"
 msgstr "Причина отклонения:"
+
 #: twocomms_django_theme/templates/pages/my_reviews.html:159
 msgid "Ви ще не залишили жодного відгуку."
 msgstr "Вы ещё не оставили ни одного отзыва."
+
 #: twocomms_django_theme/templates/pages/my_reviews.html:160
 msgid "Перейти до моїх замовлень"
 msgstr "Перейти к моим заказам"
+
 #: twocomms_django_theme/templates/pages/my_reviews.html:160
 msgid "та поділіться враженнями про придбані товари."
 msgstr "и поделитесь впечатлениями о купленных товарах."
+
 #: twocomms_django_theme/templates/pages/product_detail.html:111
 msgid "Галерея товару"
 msgstr "Галерея товара"
@@ -3643,21 +3706,9 @@ msgstr "Мои промокоды"
 msgid "Панель адміністратора"
 msgstr "Панель администратора"
 
-#: twocomms_django_theme/templates/partials/header.html:318
-msgid "Вийти"
-msgstr "Выйти"
-
-#: twocomms_django_theme/templates/partials/header.html:329
-msgid "Вхід в акаунт"
-msgstr "Вход в аккаунт"
-
 #: twocomms_django_theme/templates/partials/header.html:353
 msgid "Вхід через Google — TwoComms"
 msgstr "Вход через Google — TwoComms"
-
-#: twocomms_django_theme/templates/partials/header.html:365
-msgid "Авторизуйтесь, щоб не вводити дані кожного разу та накопичувати бали"
-msgstr "Авторизуйтесь, чтобы не вводить данные каждый раз и копить баллы"
 
 #: twocomms_django_theme/templates/partials/header.html:423
 msgid "Обране"
