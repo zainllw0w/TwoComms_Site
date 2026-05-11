@@ -1,4 +1,5 @@
 from django.contrib import admin, messages
+from modeltranslation.admin import TabbedTranslationAdmin
 from .models import (
     CatalogColorSeoOverride,
     Category,
@@ -70,7 +71,7 @@ def submit_categories_to_indexnow(modeladmin, request, queryset):
 
 
 @admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
+class CategoryAdmin(TabbedTranslationAdmin):
     list_display = ('name', 'slug', 'order', 'is_active', 'ai_generation_enabled', 'ai_content_generated')
     list_filter = ('is_active', 'is_featured', 'ai_generation_enabled', 'ai_content_generated')
     search_fields = ('name', 'slug')
@@ -118,7 +119,7 @@ class CategoryAdmin(admin.ModelAdmin):
 
 
 @admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
+class ProductAdmin(TabbedTranslationAdmin):
     list_display = (
         'title', 'category', 'price', 'discount_percent', 'points_reward',
         'featured', 'status', 'fit_selector_enabled', 'ai_generation_enabled',
