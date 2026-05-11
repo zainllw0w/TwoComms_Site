@@ -469,7 +469,7 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
   <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4 home-products-grid" data-stagger-grid id="products-container" data-mobile-stagger="true">
     {% for p in products %}
     <div class="col product-card-wrap stagger-item reveal-stagger">
-      {% cache 900 product_card_home_v3_i18n LANGUAGE_CODE p.id p.updated_at|date:'U' p.final_price p.discount_percent p.home_card_image.name p.display_image.name p.category_id p.colors_preview_key forloop.counter0 using="fragments" %}
+      {% cache 900 product_card_home_v4_i18n_color LANGUAGE_CODE p.id p.updated_at|date:'U' p.final_price p.discount_percent p.home_card_image.name p.display_image.name p.category_id p.colors_preview_key forloop.counter0 using="fragments" %}
         {% if forloop.counter0 < 2 %}
           {% include "partials/product_card.html" with p=p stagger=True eager=True home_card=True %}
         {% else %}
