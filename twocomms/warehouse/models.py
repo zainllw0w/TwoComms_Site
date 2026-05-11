@@ -61,7 +61,19 @@ class StorageCategory(models.Model):
         blank=True,
         related_name="storage_categories",
         verbose_name="Пов'язана категорія сайту",
-        help_text="Використовується для співпадіння OrderItem → склад",
+        help_text=(
+            "Використовується для співпадіння OrderItem → склад. "
+            "Можна залишити порожнім — тоді категорія буде тільки для внутрішнього обліку (warehouse-only)."
+        ),
+    )
+    sizes = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Розміри",
+        help_text=(
+            "Список розмірів, доступних для цієї категорії (наприклад [\"XS\",\"S\",\"M\",\"L\",\"XL\"]). "
+            "Якщо порожній — береться з товарів сайту або стандартний набір."
+        ),
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -104,6 +116,21 @@ class StorageCategory(models.Model):
             v=Sum(F("quantity") * F("cost_price"))
         )
         return Decimal(agg["v"] or 0)
+
+    DEFAULT_SIZES = ("XS", "S", "M", "L", "XL", "XXL")
+
+    def get_sizes(self) -> list[str]:
+        """Повертає впорядкований список розмірів цієї категорії.
+
+        1. Якщо ``self.sizes`` непорожній — використовуємо його.
+        2. Інакше — стандартний набір ``DEFAULT_SIZES``.
+
+        Розміри можна задати у налаштуваннях категорії — підтримуються довільні
+        значення (наприклад ``"42-44"``, ``"One Size"``).
+        """
+        if isinstance(self.sizes, list) and self.sizes:
+            return [str(s).strip() for s in self.sizes if str(s).strip()]
+        return list(self.DEFAULT_SIZES)
 
 
 class StorageSubcategory(models.Model):

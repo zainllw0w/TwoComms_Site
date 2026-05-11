@@ -4,6 +4,14 @@
 {% block header_title %}Партія: {{ category.name }}{% endblock %}
 
 {% block content %}
+<div class="wh-card mb-16" style="background:var(--bg-soft);">
+    <p class="text-small text-muted mb-0">
+        💡 <b>Як це працює:</b> оберіть підкатегорію та задайте спільну собівартість.
+        Кожен <b>«рядок»</b> = одна комбінація «розмір + колір» і її кількість.
+        Натисніть «+ Додати рядок» для кожної нової позиції (напр. M · Чорний · 10шт, L · Чорний · 8шт).
+    </p>
+</div>
+
 <form method="post" action="{% url 'warehouse:category_bulk_add' slug=category.slug %}">
     {% csrf_token %}
 
@@ -16,29 +24,35 @@
             </option>
             {% endfor %}
         </select>
+        <span class="form-help">Немає потрібної? <a href="{% url 'warehouse:settings_subcategory_new' %}">Створити нову</a></span>
     </div>
 
     <div class="form-field">
         <label for="cost_price">Собівартість одиниці (₴)</label>
         <input type="number" id="cost_price" name="cost_price" min="0" step="0.01" value="0">
-        <span class="form-help">Застосується до всіх позицій партії</span>
+        <span class="form-help">Застосовується до всіх рядків цієї партії. Якщо є позиції з різною ціною — робіть дві партії.</span>
     </div>
 
-    <h3 class="wh-section-title">Позиції</h3>
+    <datalist id="size-suggestions">
+        {% for s in category_sizes %}<option value="{{ s }}">{% endfor %}
+    </datalist>
+
+    <h3 class="wh-section-title">Позиції партії</h3>
     <div id="bulk-rows">
         <div class="wh-card bulk-row">
             <div class="wh-grid wh-grid-2">
                 <div class="form-field">
                     <label>Розмір</label>
-                    <input type="text" name="size[]" placeholder="M" required>
+                    <input type="text" name="size[]" placeholder="M" required list="size-suggestions" autocomplete="off">
                 </div>
                 <div class="form-field">
                     <label>Колір</label>
-                    <select name="color_id[]">
+                    <select name="color_id[]" class="color-select">
                         <option value="">— без кольору —</option>
                         {% for c in colors %}
-                        <option value="{{ c.id }}">{{ c.name|default:c.primary_hex }}</option>
+                        <option value="{{ c.id }}" data-hex="{{ c.primary_hex }}">{{ c.name|default:c.primary_hex }}</option>
                         {% endfor %}
+                        <option value="__new__" data-create="1">+ Додати новий колір…</option>
                     </select>
                 </div>
             </div>
@@ -68,15 +82,16 @@
         <div class="wh-grid wh-grid-2">
             <div class="form-field">
                 <label>Розмір</label>
-                <input type="text" name="size[]" placeholder="M" required>
+                <input type="text" name="size[]" placeholder="M" required list="size-suggestions" autocomplete="off">
             </div>
             <div class="form-field">
                 <label>Колір</label>
-                <select name="color_id[]">
+                <select name="color_id[]" class="color-select">
                     <option value="">— без кольору —</option>
                     {% for c in colors %}
-                    <option value="{{ c.id }}">{{ c.name|default:c.primary_hex }}</option>
+                    <option value="{{ c.id }}" data-hex="{{ c.primary_hex }}">{{ c.name|default:c.primary_hex }}</option>
                     {% endfor %}
+                    <option value="__new__" data-create="1">+ Додати новий колір…</option>
                 </select>
             </div>
         </div>
@@ -87,6 +102,36 @@
         <button type="button" class="btn btn--ghost btn--small bulk-remove">Прибрати</button>
     </div>
 </template>
+
+<!-- Inline color creation modal -->
+<div class="wh-sheet-backdrop" id="color-modal-backdrop"></div>
+<div class="wh-sheet" id="color-modal">
+    <div class="wh-sheet__grip"></div>
+    <h3 class="wh-sheet__title">Новий колір (warehouse-only)</h3>
+    <div class="form-field">
+        <label for="nc-name">Назва</label>
+        <input type="text" id="nc-name" placeholder="напр. «Оливковий»">
+    </div>
+    <div class="form-field">
+        <label for="nc-primary">Основний HEX *</label>
+        <div class="flex-gap-8" style="align-items:center;">
+            <input type="color" id="nc-picker" value="#000000" style="width:50px;height:44px;padding:0;">
+            <input type="text" id="nc-primary" placeholder="#RRGGBB" maxlength="7" style="flex:1;">
+        </div>
+    </div>
+    <div class="form-field">
+        <label for="nc-secondary">Додатковий HEX (опціонально)</label>
+        <input type="text" id="nc-secondary" placeholder="#RRGGBB" maxlength="7">
+    </div>
+    <div class="flex-gap-8 mt-16">
+        <button type="button" class="btn btn--ghost flex-1" id="nc-cancel">Скасувати</button>
+        <button type="button" class="btn btn--primary flex-1" id="nc-save">Зберегти колір</button>
+    </div>
+    <p class="text-small text-muted mt-12 mb-0">
+        Колір буде додано до спільної бази кольорів. Його можна буде використовувати
+        як на складі, так і на сайті (при потребі).
+    </p>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -108,6 +153,102 @@
                     card.remove();
                 }
             }
+        });
+
+        // ---- Inline color creation ----
+        const modal = document.getElementById('color-modal');
+        const backdrop = document.getElementById('color-modal-backdrop');
+        const ncName = document.getElementById('nc-name');
+        const ncPrimary = document.getElementById('nc-primary');
+        const ncSecondary = document.getElementById('nc-secondary');
+        const ncPicker = document.getElementById('nc-picker');
+        const ncCancel = document.getElementById('nc-cancel');
+        const ncSave = document.getElementById('nc-save');
+        let activeSelect = null;
+
+        function openModal() {
+            modal.classList.add('open');
+            backdrop.classList.add('open');
+            ncName.value = '';
+            ncPrimary.value = '';
+            ncSecondary.value = '';
+            ncPicker.value = '#000000';
+            setTimeout(function () { ncName.focus(); }, 100);
+        }
+        function closeModal(resetSelect) {
+            modal.classList.remove('open');
+            backdrop.classList.remove('open');
+            if (resetSelect && activeSelect) { activeSelect.value = ''; }
+            activeSelect = null;
+        }
+
+        ncPicker.addEventListener('input', function () { ncPrimary.value = this.value; });
+        ncPrimary.addEventListener('input', function () {
+            if (/^#?[0-9a-fA-F]{6}$/.test(this.value.trim())) {
+                const v = this.value.startsWith('#') ? this.value : '#' + this.value;
+                ncPicker.value = v;
+            }
+        });
+
+        ncCancel.addEventListener('click', function () { closeModal(true); });
+        backdrop.addEventListener('click', function () { closeModal(true); });
+
+        rowsContainer.addEventListener('change', function (e) {
+            if (e.target.classList.contains('color-select') && e.target.value === '__new__') {
+                activeSelect = e.target;
+                openModal();
+            }
+        });
+
+        function getCsrf() {
+            const m = document.querySelector('input[name=csrfmiddlewaretoken]');
+            return m ? m.value : '';
+        }
+
+        ncSave.addEventListener('click', function () {
+            const primary = ncPrimary.value.trim();
+            if (!/^#?[0-9a-fA-F]{6}$/.test(primary)) {
+                alert('Введіть валідний HEX (#RRGGBB)');
+                return;
+            }
+            const form = new FormData();
+            form.append('name', ncName.value.trim());
+            form.append('primary_hex', primary);
+            form.append('secondary_hex', ncSecondary.value.trim());
+            fetch('{% url "warehouse:api_color_create" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCsrf() },
+                body: form,
+                credentials: 'same-origin',
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.ok) {
+                        alert(data.error || 'Помилка');
+                        return;
+                    }
+                    // Додаємо опцію у ВСІ селекти (щоб новий колір був доступний скрізь)
+                    document.querySelectorAll('select.color-select').forEach(function (sel) {
+                        // не дублюємо
+                        if (sel.querySelector('option[value="' + data.id + '"]')) return;
+                        const opt = document.createElement('option');
+                        opt.value = data.id;
+                        opt.textContent = data.name;
+                        opt.setAttribute('data-hex', data.primary_hex);
+                        // вставити перед "+ Додати новий колір..."
+                        const createOpt = sel.querySelector('option[data-create="1"]');
+                        if (createOpt) {
+                            sel.insertBefore(opt, createOpt);
+                        } else {
+                            sel.appendChild(opt);
+                        }
+                    });
+                    if (activeSelect) { activeSelect.value = data.id; }
+                    closeModal(false);
+                })
+                .catch(function (e) {
+                    alert('Не вдалося створити колір: ' + e);
+                });
         });
     });
 </script>

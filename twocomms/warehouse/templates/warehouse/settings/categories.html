@@ -1,0 +1,48 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Категорії — Налаштування{% endblock %}
+{% block header_title %}Категорії{% endblock %}
+{% block header_actions %}
+<a href="{% url 'warehouse:settings_category_new' %}" class="btn btn--primary btn--small">+ Нова</a>
+{% endblock %}
+
+{% block content %}
+<a href="{% url 'warehouse:settings' %}" class="text-muted text-small">← Назад до налаштувань</a>
+
+<p class="text-muted text-small mt-12 mb-16">
+    Категорії можна повʼязати з категорією сайту (тоді списання за замовленням знаходить позиції автоматично)
+    або залишити warehouse-only.
+</p>
+
+<ul class="wh-list">
+{% for cat in categories %}
+    <li class="wh-list__item">
+        <div class="wh-list__icon">{{ cat.icon|default:"📁" }}</div>
+        <div class="wh-list__body">
+            <div class="wh-list__title">
+                {{ cat.name }}
+                {% if not cat.is_active %}<span class="wh-badge">прихована</span>{% endif %}
+                {% if cat.linked_storefront_category %}
+                    <span class="wh-badge wh-badge--accent">🌐 {{ cat.linked_storefront_category.title }}</span>
+                {% else %}
+                    <span class="wh-badge">⚪ warehouse-only</span>
+                {% endif %}
+            </div>
+            <div class="wh-list__meta">
+                {{ cat.sub_count }} підкатегорій · {{ cat.stock_total|default:0 }} шт на залишку · slug «{{ cat.slug }}»
+            </div>
+        </div>
+        <div class="flex-gap-8">
+            <a href="{% url 'warehouse:settings_category_edit' slug=cat.slug %}" class="btn btn--ghost btn--small">Редагувати</a>
+            <form method="post" action="{% url 'warehouse:settings_category_toggle' slug=cat.slug %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn--ghost btn--small">
+                    {% if cat.is_active %}Приховати{% else %}Активувати{% endif %}
+                </button>
+            </form>
+        </div>
+    </li>
+{% empty %}
+    <li class="wh-card text-center text-muted">Категорій ще немає. <a href="{% url 'warehouse:settings_category_new' %}">Створити першу</a></li>
+{% endfor %}
+</ul>
+{% endblock %}

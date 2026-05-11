@@ -1,0 +1,57 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Підкатегорії — Налаштування{% endblock %}
+{% block header_title %}Підкатегорії{% endblock %}
+{% block header_actions %}
+<a href="{% url 'warehouse:settings_subcategory_new' %}" class="btn btn--primary btn--small">+ Нова</a>
+{% endblock %}
+
+{% block content %}
+<a href="{% url 'warehouse:settings' %}" class="text-muted text-small">← Назад до налаштувань</a>
+
+<form method="get" class="mt-12 mb-16">
+    <div class="form-field" style="margin-bottom:0;">
+        <label for="filter-cat">Фільтр за категорією</label>
+        <select id="filter-cat" name="category" onchange="this.form.submit()">
+            <option value="">— усі категорії —</option>
+            {% for c in categories %}
+                <option value="{{ c.slug }}" {% if selected_category and selected_category.slug == c.slug %}selected{% endif %}>
+                    {{ c.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+</form>
+
+<ul class="wh-list">
+{% for sub in subcategories %}
+    <li class="wh-list__item">
+        <div class="wh-list__icon">✂️</div>
+        <div class="wh-list__body">
+            <div class="wh-list__title">
+                {{ sub.name }}
+                {% if sub.is_default %}<span class="wh-badge wh-badge--accent">за замовч.</span>{% endif %}
+                {% if not sub.is_active %}<span class="wh-badge">прихована</span>{% endif %}
+            </div>
+            <div class="wh-list__meta">
+                <b>{{ sub.category.name }}</b> · {{ sub.stock_lines|default:0 }} ліній · {{ sub.stock_total|default:0 }} шт
+                {% if sub.description %}<br><span class="text-dim">{{ sub.description }}</span>{% endif %}
+            </div>
+        </div>
+        <div class="flex-gap-8">
+            <a href="{% url 'warehouse:settings_subcategory_edit' pk=sub.pk %}" class="btn btn--ghost btn--small">Редагувати</a>
+            <form method="post" action="{% url 'warehouse:settings_subcategory_toggle' pk=sub.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn--ghost btn--small">
+                    {% if sub.is_active %}Приховати{% else %}Активувати{% endif %}
+                </button>
+            </form>
+        </div>
+    </li>
+{% empty %}
+    <li class="wh-card text-center text-muted">
+        Підкатегорій {% if selected_category %}у цій категорії {% endif %}немає.
+        <a href="{% url 'warehouse:settings_subcategory_new' %}">Створити</a>
+    </li>
+{% endfor %}
+</ul>
+{% endblock %}

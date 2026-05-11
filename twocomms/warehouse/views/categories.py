@@ -198,6 +198,7 @@ def stock_bulk_add(request, slug):
         "category": category,
         "subcategories": subcategories,
         "colors": colors,
+        "category_sizes": category.get_sizes(),
         "active_section": "categories",
     }
     return render(request, "warehouse/stock_bulk_add.html", context)

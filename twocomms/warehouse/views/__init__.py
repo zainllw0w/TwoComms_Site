@@ -17,3 +17,15 @@ from .history import history_list, history_verify  # noqa: F401
 from .finance import finance_dashboard  # noqa: F401
 from .auth_views import login_view, logout_view  # noqa: F401
 from .errors import handler404, handler500  # noqa: F401
+from .settings import (  # noqa: F401
+    settings_index,
+    settings_categories,
+    settings_category_form,
+    settings_category_toggle,
+    settings_subcategories,
+    settings_subcategory_form,
+    settings_subcategory_toggle,
+    settings_colors,
+    settings_color_form,
+    settings_color_create_ajax,
+)

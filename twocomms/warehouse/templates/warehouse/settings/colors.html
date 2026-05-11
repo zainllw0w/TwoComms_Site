@@ -1,0 +1,46 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Кольори — Налаштування{% endblock %}
+{% block header_title %}Кольори{% endblock %}
+{% block header_actions %}
+<a href="{% url 'warehouse:settings_color_new' %}" class="btn btn--primary btn--small">+ Новий</a>
+{% endblock %}
+
+{% block content %}
+<a href="{% url 'warehouse:settings' %}" class="text-muted text-small">← Назад до налаштувань</a>
+
+<p class="text-muted text-small mt-12 mb-16">
+    Тут перелічені <b>усі</b> кольори системи. Якщо колір використовується тільки на складі (не пов'язаний
+    із жодним товаром сайту) — це <i>warehouse-only</i>.
+</p>
+
+<ul class="wh-list">
+{% for color in colors %}
+    <li class="wh-list__item">
+        <div class="wh-list__icon" style="background:{{ color.primary_hex }};
+            {% if color.secondary_hex %}background:linear-gradient(135deg, {{ color.primary_hex }} 50%, {{ color.secondary_hex }} 50%);{% endif %}
+            color:transparent;">·</div>
+        <div class="wh-list__body">
+            <div class="wh-list__title">
+                {{ color.name|default:color.primary_hex }}
+                {% if color.used_on_site == 0 %}
+                    <span class="wh-badge">⚪ warehouse-only</span>
+                {% else %}
+                    <span class="wh-badge wh-badge--accent">🌐 на сайті ({{ color.used_on_site }})</span>
+                {% endif %}
+            </div>
+            <div class="wh-list__meta">
+                <code>{{ color.primary_hex }}</code>{% if color.secondary_hex %} + <code>{{ color.secondary_hex }}</code>{% endif %}
+                · склад: {{ color.used_warehouse }}
+            </div>
+        </div>
+        <div>
+            <a href="{% url 'warehouse:settings_color_edit' pk=color.pk %}" class="btn btn--ghost btn--small">Редагувати</a>
+        </div>
+    </li>
+{% empty %}
+    <li class="wh-card text-center text-muted">
+        Кольорів ще немає. <a href="{% url 'warehouse:settings_color_new' %}">Створити перший</a>
+    </li>
+{% endfor %}
+</ul>
+{% endblock %}

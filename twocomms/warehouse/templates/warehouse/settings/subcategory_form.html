@@ -1,0 +1,67 @@
+{% extends "warehouse/base.html" %}
+{% block title %}{% if instance %}{{ instance.name }}{% else %}Нова підкатегорія{% endif %} — Налаштування{% endblock %}
+{% block header_title %}{% if instance %}Редагування підкатегорії{% else %}Нова підкатегорія{% endif %}{% endblock %}
+
+{% block content %}
+<a href="{% url 'warehouse:settings_subcategories' %}" class="text-muted text-small">← До списку підкатегорій</a>
+
+<form method="post" class="mt-16">
+    {% csrf_token %}
+
+    <div class="form-field">
+        <label for="name">Назва крою / типу *</label>
+        <input id="name" type="text" name="name" required maxlength="120"
+               placeholder="напр. Оверсайз ERC, Жіноча, Бамбукова"
+               value="{{ instance.name|default:'' }}">
+    </div>
+
+    <div class="form-field">
+        <label for="category_id">Категорія *</label>
+        <select id="category_id" name="category_id" required>
+            {% for c in categories %}
+                <option value="{{ c.id }}"
+                  {% if instance and instance.category_id == c.id %}selected{% endif %}>
+                    {{ c.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-field">
+        <label for="description">Опис (необов'язково)</label>
+        <input id="description" type="text" name="description" maxlength="255"
+               value="{{ instance.description|default:'' }}"
+               placeholder="внутрішня примітка для адмінів">
+    </div>
+
+    <div class="wh-grid wh-grid-2">
+        <div class="form-field">
+            <label for="order">Порядок</label>
+            <input id="order" type="number" name="order" min="0" value="{{ instance.order|default:0 }}">
+        </div>
+        <div class="form-field">
+            <label for="is_active" class="flex" style="align-items:center;gap:8px;">
+                <input id="is_active" type="checkbox" name="is_active"
+                       {% if not instance or instance.is_active %}checked{% endif %}
+                       style="width:auto;min-height:auto;">
+                Активна
+            </label>
+        </div>
+    </div>
+
+    <div class="form-field">
+        <label for="is_default" class="flex" style="align-items:center;gap:8px;">
+            <input id="is_default" type="checkbox" name="is_default"
+                   {% if instance and instance.is_default %}checked{% endif %}
+                   style="width:auto;min-height:auto;">
+            Підкатегорія за замовчуванням (пропонується при списанні)
+        </label>
+        <span class="form-help">У межах однієї категорії за замовчуванням може бути тільки одна підкатегорія.</span>
+    </div>
+
+    <div class="flex-gap-8 mt-16">
+        <a href="{% url 'warehouse:settings_subcategories' %}" class="btn btn--ghost flex-1">Скасувати</a>
+        <button type="submit" class="btn btn--primary flex-1">Зберегти</button>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Налаштування — TwoComms Склад{% endblock %}
+{% block header_title %}Налаштування{% endblock %}
+
+{% block content %}
+<p class="text-muted mb-16">
+    Управління складом: категорії, крої, розміри та кольори (включно з warehouse-only).
+</p>
+
+<a href="{% url 'warehouse:settings_categories' %}" class="wh-list__item" style="text-decoration:none;">
+    <div class="wh-list__icon">📁</div>
+    <div class="wh-list__body">
+        <div class="wh-list__title">Категорії</div>
+        <div class="wh-list__meta">
+            {{ stats.categories_active }} активних з {{ stats.categories }} · можна додавати warehouse-only
+        </div>
+    </div>
+    <div class="wh-list__action">›</div>
+</a>
+
+<a href="{% url 'warehouse:settings_subcategories' %}" class="wh-list__item" style="text-decoration:none;">
+    <div class="wh-list__icon">✂️</div>
+    <div class="wh-list__body">
+        <div class="wh-list__title">Підкатегорії (крої)</div>
+        <div class="wh-list__meta">
+            {{ stats.subcategories_active }} активних з {{ stats.subcategories }} · показуються тільки в адмінці
+        </div>
+    </div>
+    <div class="wh-list__action">›</div>
+</a>
+
+<a href="{% url 'warehouse:settings_colors' %}" class="wh-list__item" style="text-decoration:none;">
+    <div class="wh-list__icon">🎨</div>
+    <div class="wh-list__body">
+        <div class="wh-list__title">Кольори</div>
+        <div class="wh-list__meta">
+            {{ stats.colors }} у системі · додати warehouse-only колір (якого ще немає на сайті)
+        </div>
+    </div>
+    <div class="wh-list__action">›</div>
+</a>
+
+<div class="wh-card mt-24">
+    <div class="wh-card__title">Підказка</div>
+    <p class="text-small text-muted mb-0">
+        Категорії можуть бути <b>пов'язані</b> з категорією сайту (тоді списання за замовленням
+        автоматично знаходить позиції), або існувати тільки на складі (warehouse-only).
+        Розміри задаються на рівні категорії — список доступний при додаванні партії.
+    </p>
+</div>
+{% endblock %}

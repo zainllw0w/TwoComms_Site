@@ -1,0 +1,46 @@
+{% extends "warehouse/base.html" %}
+{% block title %}{% if instance %}{{ instance.name|default:instance.primary_hex }}{% else %}Новий колір{% endif %} — Налаштування{% endblock %}
+{% block header_title %}{% if instance %}Редагування кольору{% else %}Новий колір{% endif %}{% endblock %}
+
+{% block content %}
+<a href="{% url 'warehouse:settings_colors' %}" class="text-muted text-small">← До списку кольорів</a>
+
+<form method="post" class="mt-16">
+    {% csrf_token %}
+
+    <div class="form-field">
+        <label for="name">Назва</label>
+        <input id="name" type="text" name="name" maxlength="100"
+               value="{{ instance.name|default:'' }}"
+               placeholder="напр. «Темно-зелений», «Олива»">
+        <span class="form-help">Якщо порожньо — назва буде встановлена як HEX.</span>
+    </div>
+
+    <div class="form-field">
+        <label for="primary_hex">Основний HEX *</label>
+        <input id="primary_hex" type="text" name="primary_hex" required maxlength="7"
+               value="{{ instance.primary_hex|default:'' }}"
+               placeholder="#RRGGBB" pattern="^#?[0-9a-fA-F]{6}$">
+        <input type="color" id="primary_hex_picker"
+               value="{{ instance.primary_hex|default:'#000000' }}"
+               oninput="document.getElementById('primary_hex').value = this.value;"
+               style="margin-top:6px;width:60px;height:40px;padding:0;border:1px solid var(--border);">
+    </div>
+
+    <div class="form-field">
+        <label for="secondary_hex">Додатковий HEX (для двокольорових)</label>
+        <input id="secondary_hex" type="text" name="secondary_hex" maxlength="7"
+               value="{{ instance.secondary_hex|default:'' }}"
+               placeholder="#RRGGBB або залиш пустим" pattern="^#?[0-9a-fA-F]{6}$">
+        <input type="color" id="secondary_hex_picker"
+               value="{{ instance.secondary_hex|default:'#ffffff' }}"
+               oninput="document.getElementById('secondary_hex').value = this.value;"
+               style="margin-top:6px;width:60px;height:40px;padding:0;border:1px solid var(--border);">
+    </div>
+
+    <div class="flex-gap-8 mt-16">
+        <a href="{% url 'warehouse:settings_colors' %}" class="btn btn--ghost flex-1">Скасувати</a>
+        <button type="submit" class="btn btn--primary flex-1">Зберегти</button>
+    </div>
+</form>
+{% endblock %}

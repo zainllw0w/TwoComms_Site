@@ -1,0 +1,68 @@
+{% extends "warehouse/base.html" %}
+{% block title %}{% if instance %}{{ instance.name }}{% else %}Нова категорія{% endif %} — Налаштування{% endblock %}
+{% block header_title %}{% if instance %}Редагування{% else %}Нова категорія{% endif %}{% endblock %}
+
+{% block content %}
+<a href="{% url 'warehouse:settings_categories' %}" class="text-muted text-small">← До списку категорій</a>
+
+<form method="post" class="mt-16">
+    {% csrf_token %}
+
+    <div class="form-field">
+        <label for="name">Назва *</label>
+        <input id="name" type="text" name="name" required maxlength="120"
+               value="{{ instance.name|default:'' }}">
+    </div>
+
+    <div class="form-field">
+        <label for="icon">Іконка (emoji або lucide-назва)</label>
+        <input id="icon" type="text" name="icon" maxlength="64"
+               placeholder="напр. 👕 або shirt"
+               value="{{ instance.icon|default:'' }}">
+    </div>
+
+    <div class="form-field">
+        <label for="linked_storefront_category">Пов'язана категорія сайту</label>
+        <select id="linked_storefront_category" name="linked_storefront_category">
+            <option value="">— warehouse-only (без зв'язку з сайтом) —</option>
+            {% for sf in storefront_categories %}
+                <option value="{{ sf.id }}"
+                  {% if instance and instance.linked_storefront_category_id == sf.id %}selected{% endif %}>
+                    {{ sf.title }}
+                </option>
+            {% endfor %}
+        </select>
+        <span class="form-help">Якщо вибрано — позиції замовлень з цієї категорії автоматично знаходяться на складі.</span>
+    </div>
+
+    <div class="form-field">
+        <label for="sizes">Розміри (через кому або кожен на новому рядку)</label>
+        <textarea id="sizes" name="sizes" rows="2"
+                  placeholder="{{ default_sizes }}">{% if instance and instance.sizes %}{{ instance.sizes|join:", " }}{% endif %}</textarea>
+        <span class="form-help">
+            Якщо пусто — використовується стандартний набір: {{ default_sizes }}.
+            Підтримуються довільні значення: <code>One Size</code>, <code>42-44</code> тощо.
+        </span>
+    </div>
+
+    <div class="wh-grid wh-grid-2">
+        <div class="form-field">
+            <label for="order">Порядок</label>
+            <input id="order" type="number" name="order" min="0" value="{{ instance.order|default:0 }}">
+        </div>
+        <div class="form-field">
+            <label for="is_active" class="flex" style="align-items:center;gap:8px;">
+                <input id="is_active" type="checkbox" name="is_active"
+                       {% if not instance or instance.is_active %}checked{% endif %}
+                       style="width:auto;min-height:auto;">
+                Активна (показувати у списках)
+            </label>
+        </div>
+    </div>
+
+    <div class="flex-gap-8 mt-16">
+        <a href="{% url 'warehouse:settings_categories' %}" class="btn btn--ghost flex-1">Скасувати</a>
+        <button type="submit" class="btn btn--primary flex-1">Зберегти</button>
+    </div>
+</form>
+{% endblock %}

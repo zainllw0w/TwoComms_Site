@@ -1,6 +1,6 @@
 {
     "name": "TwoComms Склад",
-    "short_name": "2C Склад",
+    "short_name": "TwoComms",
     "description": "Внутрішній склад TwoComms — облік одягу та принтів",
     "start_url": "/",
     "scope": "/",

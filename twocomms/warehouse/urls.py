@@ -54,9 +54,64 @@ urlpatterns = [
     # Finance
     path("finance/", views.finance_dashboard, name="finance"),
 
+    # Settings
+    path("settings/", views.settings_index, name="settings"),
+    path("settings/categories/", views.settings_categories, name="settings_categories"),
+    path(
+        "settings/categories/new/",
+        views.settings_category_form,
+        name="settings_category_new",
+    ),
+    path(
+        "settings/categories/<slug:slug>/edit/",
+        views.settings_category_form,
+        name="settings_category_edit",
+    ),
+    path(
+        "settings/categories/<slug:slug>/toggle/",
+        views.settings_category_toggle,
+        name="settings_category_toggle",
+    ),
+    path(
+        "settings/subcategories/",
+        views.settings_subcategories,
+        name="settings_subcategories",
+    ),
+    path(
+        "settings/subcategories/new/",
+        views.settings_subcategory_form,
+        name="settings_subcategory_new",
+    ),
+    path(
+        "settings/subcategories/<int:pk>/edit/",
+        views.settings_subcategory_form,
+        name="settings_subcategory_edit",
+    ),
+    path(
+        "settings/subcategories/<int:pk>/toggle/",
+        views.settings_subcategory_toggle,
+        name="settings_subcategory_toggle",
+    ),
+    path("settings/colors/", views.settings_colors, name="settings_colors"),
+    path(
+        "settings/colors/new/",
+        views.settings_color_form,
+        name="settings_color_new",
+    ),
+    path(
+        "settings/colors/<int:pk>/edit/",
+        views.settings_color_form,
+        name="settings_color_edit",
+    ),
+
     # AJAX endpoints
     path("api/stock-adjust/", views.stock_adjust, name="api_stock_adjust"),
     path("api/print-adjust/", views.print_adjust, name="api_print_adjust"),
+    path(
+        "api/colors/create/",
+        views.settings_color_create_ajax,
+        name="api_color_create",
+    ),
 
     # Telegram webhook
     path("tg/webhook/<str:secret>/", storage_telegram_webhook, name="telegram_webhook"),
