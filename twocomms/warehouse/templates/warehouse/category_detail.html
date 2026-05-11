@@ -24,7 +24,10 @@
 {% for sub in matrix.subcategories %}
 <div class="wh-subcat-block">
 <div class="wh-subcat-block__head">
-    <h2 class="wh-subcat-block__title">{{ sub.name }}</h2>
+    <h2 class="wh-subcat-block__title">
+        {{ sub.name }}
+        <span class="wh-subcat-block__total">{{ sub.subtotal }} шт</span>
+    </h2>
     {% if sub.allowed_colors %}
     <div class="wh-subcat-block__colors" title="Колір цього крою">
         {% for c in sub.allowed_colors %}
@@ -37,11 +40,13 @@
     </div>
     {% endif %}
 </div>
+
+{# Desktop / tablet — table with sticky first column #}
 <div class="wh-matrix-wrap">
     <table class="wh-matrix">
         <thead>
             <tr>
-                <th></th>
+                <th class="size-col">Колір</th>
                 {% for size in matrix.sizes %}
                 <th>{{ size }}</th>
                 {% endfor %}
@@ -53,7 +58,7 @@
             <tr>
                 <td class="size-col">
                     {% if row.color_hex %}<span class="wh-color-dot" style="background:{{ row.color_hex }};"></span>{% endif %}
-                    {{ row.color_name }}
+                    <span class="wh-color-name">{{ row.color_name }}</span>
                 </td>
                 {% for size in matrix.sizes %}
                 {% with qty=row.by_size|dictkey:size|default:0 %}
@@ -72,7 +77,7 @@
                 <td class="text-bold">{{ row.row_total }}</td>
             </tr>
             {% endfor %}
-            <tr>
+            <tr class="wh-matrix__total-row">
                 <td class="size-col text-muted text-tiny">Усього</td>
                 {% for size in matrix.sizes %}
                 <td class="text-bold">{{ sub.subtotal_by_size|dictkey:size|default:0 }}</td>
@@ -82,6 +87,41 @@
         </tbody>
     </table>
 </div>
+
+{# Mobile — card stack per color #}
+<div class="wh-matrix-cards">
+    {% for row in sub.rows_by_color %}
+    <div class="wh-mc">
+        <div class="wh-mc__head">
+            <div class="wh-mc__color">
+                {% if row.color_hex %}
+                <span class="wh-mc__swatch" style="background:{{ row.color_hex }};"></span>
+                {% endif %}
+                <span class="wh-mc__name">{{ row.color_name }}</span>
+            </div>
+            <div class="wh-mc__total">{{ row.row_total }} шт</div>
+        </div>
+        <div class="wh-mc__grid">
+            {% for size in matrix.sizes %}
+            {% with qty=row.by_size|dictkey:size|default:0 %}
+            <button type="button" class="wh-mc__cell qty-cell {{ qty|qty_class }}"
+                    data-subcategory-id="{{ sub.id }}"
+                    data-subcategory-name="{{ sub.name }}"
+                    data-size="{{ size }}"
+                    data-color-id="{{ row.color_id|default:'' }}"
+                    data-color-name="{{ row.color_name }}"
+                    data-color-hex="{{ row.color_hex }}"
+                    data-quantity="{{ qty }}">
+                <span class="wh-mc__size">{{ size }}</span>
+                <span class="wh-mc__qty">{{ qty }}</span>
+            </button>
+            {% endwith %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
 <div class="flex-gap-8 mb-16">
     <button type="button"
             class="btn btn--ghost btn--small wh-add-row-btn"

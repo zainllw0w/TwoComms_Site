@@ -79,13 +79,27 @@
         backdrop.classList.remove('open');
     }
 
+    function qtyClass(n) {
+        if (n <= 0) return 'qty-zero';
+        if (n < 3) return 'qty-low';
+        return 'qty-positive';
+    }
+
     function updateCellQty(cell, newQty) {
         cell.dataset.quantity = String(newQty);
+        const cls = qtyClass(newQty);
+        // Mobile card cell — preserve .wh-mc__size and only swap qty span
+        const qtySpan = cell.querySelector('.wh-mc__qty');
+        if (qtySpan) {
+            cell.classList.remove('qty-zero', 'qty-low', 'qty-positive');
+            cell.classList.add(cls);
+            qtySpan.textContent = newQty;
+            return;
+        }
+        // Table cell — rewrite inner span
         cell.innerHTML = '';
         const span = document.createElement('span');
-        if (newQty <= 0) span.className = 'qty-zero';
-        else if (newQty < 3) span.className = 'qty-low';
-        else span.className = 'qty-positive';
+        span.className = cls;
         span.textContent = newQty;
         cell.appendChild(span);
     }

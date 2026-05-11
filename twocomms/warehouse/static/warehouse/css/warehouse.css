@@ -339,8 +339,15 @@ textarea {
 
 /* ============= Tables / Matrix ============= */
 
+/* Generic table cards (history / today / finance / dashboard) — horizontal scroll */
+.wh-card:has(> .wh-table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .wh-table {
     width: 100%;
+    min-width: max-content;
     border-collapse: separate;
     border-spacing: 0;
     background: var(--bg-card);
@@ -376,40 +383,81 @@ textarea {
 
 .wh-matrix-wrap {
     overflow-x: auto;
-    margin: 0 -16px;
-    padding: 0 16px;
+    overflow-y: hidden;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    /* Scroll-shadow: gradient on right edge to hint "scroll here" */
+    background-image:
+        linear-gradient(to right, var(--bg-card), var(--bg-card)),
+        linear-gradient(to right, var(--bg-card), var(--bg-card)),
+        linear-gradient(to right, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0)),
+        linear-gradient(to left, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0));
+    background-position: left center, right center, left center, right center;
+    background-repeat: no-repeat;
+    background-size: 30px 100%, 30px 100%, 14px 100%, 14px 100%;
+    background-attachment: local, local, scroll, scroll;
+    -webkit-overflow-scrolling: touch;
 }
 
 .wh-matrix {
     border-collapse: separate;
     border-spacing: 0;
     width: 100%;
-    min-width: 480px;
+    min-width: max-content;
 }
 
 .wh-matrix th,
 .wh-matrix td {
-    padding: 8px 10px;
+    padding: 10px 12px;
     text-align: center;
     border-bottom: 1px solid var(--border-soft);
-    border-right: 1px solid var(--border-soft);
     font-size: 14px;
-    min-width: 50px;
+    min-width: 56px;
+    white-space: nowrap;
+}
+
+.wh-matrix tbody tr:last-child td {
+    border-bottom: none;
 }
 
 .wh-matrix th {
     background: var(--bg-soft);
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
+    letter-spacing: 0.04em;
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
+/* Sticky first column (color) */
+.wh-matrix th.size-col,
 .wh-matrix td.size-col {
     background: var(--bg-soft);
     font-weight: 600;
     text-align: left;
-    min-width: 60px;
+    min-width: 130px;
+    max-width: 180px;
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    box-shadow: 4px 0 6px -3px rgba(0, 0, 0, 0.35);
+}
+
+.wh-matrix th.size-col { z-index: 4; }
+
+.wh-matrix .wh-color-name {
+    display: inline-block;
+    vertical-align: middle;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .wh-matrix .qty-cell {
@@ -419,8 +467,10 @@ textarea {
     color: var(--text);
 }
 
-.wh-matrix .qty-cell:hover {
+.wh-matrix .qty-cell:hover,
+.wh-matrix .qty-cell:focus-visible {
     background: var(--accent-soft);
+    outline: none;
 }
 
 .wh-matrix .qty-zero {
@@ -434,6 +484,116 @@ textarea {
 
 .wh-matrix .qty-low {
     color: var(--warning);
+}
+
+.wh-matrix__total-row td {
+    background: var(--bg-soft);
+}
+
+/* ============= Mobile matrix cards (per-color) ============= */
+.wh-matrix-cards { display: none; }
+
+.wh-mc {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+}
+
+.wh-mc__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.wh-mc__color {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.wh-mc__swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.wh-mc__name {
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.wh-mc__total {
+    font-size: 13px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.wh-mc__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 6px;
+}
+
+.wh-mc__cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 4px;
+    min-height: 56px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.1s ease;
+    font-family: inherit;
+}
+
+.wh-mc__cell:active {
+    transform: scale(0.97);
+    background: var(--accent-soft);
+}
+
+.wh-mc__cell.qty-zero {
+    opacity: 0.55;
+}
+
+.wh-mc__size {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.wh-mc__qty {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.wh-mc__cell.qty-positive .wh-mc__qty { color: var(--success); }
+.wh-mc__cell.qty-low .wh-mc__qty { color: var(--warning); }
+.wh-mc__cell.qty-zero .wh-mc__qty { color: var(--text-dim); }
+
+/* Toggle: show cards on mobile, table on tablet+ */
+@media (max-width: 599px) {
+    .wh-matrix-wrap { display: none; }
+    .wh-matrix-cards { display: block; }
 }
 
 /* ============= Color indicator ============= */
@@ -525,29 +685,44 @@ textarea {
 
 /* Subcategory color section in category_detail (grouped view) */
 .wh-subcat-block {
-    margin-bottom: 28px;
+    margin-bottom: 24px;
 }
 
 .wh-subcat-block__head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .wh-subcat-block__title {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
     margin: 0;
     font-size: 17px;
     font-weight: 600;
     color: var(--text);
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.wh-subcat-block__total {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--bg-soft);
+    padding: 2px 10px;
+    border-radius: 99px;
 }
 
 .wh-subcat-block__colors {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    max-width: 100%;
 }
 
 .wh-subcat-color-pill {
@@ -560,6 +735,10 @@ textarea {
     border-radius: 99px;
     font-size: 12px;
     color: var(--text-muted);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .wh-subcat-color-pill__swatch {
@@ -567,6 +746,7 @@ textarea {
     height: 14px;
     border-radius: 50%;
     border: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 /* ============= Bottom navigation ============= */
