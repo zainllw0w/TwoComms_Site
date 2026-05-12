@@ -2,14 +2,18 @@
 
 Closes findings (MM) and (H) of the master audit:
 
-* (MM) HTML entity double-encoding. Several ``Product.title`` rows were
-  imported with already-escaped strings (`Худі &quot;Дрони...&quot;`).
-  Django's auto-escape then escaped them a second time when rendering
-  ``<title>`` and ``<h1>``, so visitors saw raw `&quot;` glyphs in the
-  browser tab and SERP snippet, and Facebook/Telegram previews leaked
-  `&quot;` into the share card. Decode them once at the data layer so
-  every downstream consumer (template, JSON-LD, OG, sitemap, feeds)
-  gets clean Unicode quotes.
+* (MM) HTML entity double-encoding observed on PDP <title> / <h1>:
+  product titles authored with straight ASCII quotes («Худі "Дрони…"»)
+  pass through Django's autoescape layer twice when they land inside
+  the ``{% block title %}`` (the parent layout already escapes the
+  block output once), producing `&quot;` glyphs in the browser tab,
+  SERP snippet, Facebook share card and Telegram preview. The right
+  data-layer fix is to convert the straight ASCII quotes into the
+  Ukrainian typographic pair `«…»` once and for all: they are
+  semantically the correct quote character for UA copy AND they're
+  not in the HTML escape set, so Django leaves them untouched. This
+  command also still decodes literal `&quot;` strings should any
+  legacy row contain them.
 
 * (H) Category SEO titles longer than 60 characters get clipped by
   Google's mobile SERP. The current admin-authored copy on
@@ -29,6 +33,7 @@ Usage:
 from __future__ import annotations
 
 import html as html_lib
+import re
 
 from django.core.management.base import BaseCommand
 
@@ -36,6 +41,11 @@ from storefront.models import Category, Product
 
 
 CATEGORY_TITLE_MAX = 60
+
+# Pattern matches a balanced pair of ASCII double-quotes around any run of
+# characters that doesn't itself contain a quote. Used to upgrade the
+# legacy «"Дрони навколо"» wording to typographic «Дрони навколо».
+_ASCII_QUOTE_PAIR_RE = re.compile(r'"([^"\n]+?)"')
 
 
 def _decode_html_entities(value: str) -> str:
@@ -46,6 +56,18 @@ def _decode_html_entities(value: str) -> str:
     # Run twice in case of double-encoding («&amp;quot;» → «&quot;» → «"»).
     decoded = html_lib.unescape(decoded)
     return decoded
+
+
+def _upgrade_quotes(value: str) -> str:
+    """Replace ASCII ``"..."`` pairs with typographic ``«...»``.
+
+    Idempotent: if the string contains no straight ASCII pair the input
+    is returned unchanged. Stray solo ASCII quotes are left as-is to
+    avoid corrupting code-like strings or product SKUs.
+    """
+    if not value or '"' not in value:
+        return value
+    return _ASCII_QUOTE_PAIR_RE.sub(lambda m: f"«{m.group(1)}»", value)
 
 
 def _trim_to_word_boundary(value: str, max_len: int) -> str:
@@ -114,9 +136,13 @@ class Command(BaseCommand):
                     current = getattr(product, attr, None)
                     if not isinstance(current, str):
                         continue
+                    # Two-pass normalisation:
+                    # 1. decode legacy `&quot;` style entity strings;
+                    # 2. upgrade straight ASCII `"…"` pairs to «…».
                     decoded = _decode_html_entities(current)
-                    if decoded != current:
-                        setattr(product, attr, decoded)
+                    upgraded = _upgrade_quotes(decoded)
+                    if upgraded != current:
+                        setattr(product, attr, upgraded)
                         update_fields.append(attr)
                         per_field[attr] = per_field.get(attr, 0) + 1
             if update_fields and not dry_run:
@@ -140,15 +166,16 @@ class Command(BaseCommand):
 
         for category in Category.objects.all().iterator():
             update_fields: list[str] = []
-            # 1) HTML entity decode.
+            # 1) HTML entity decode + ASCII→typographic quote upgrade.
             for field in self.CATEGORY_TEXT_FIELDS:
                 for attr in self._field_variants(field, category):
                     current = getattr(category, attr, None)
                     if not isinstance(current, str):
                         continue
                     decoded = _decode_html_entities(current)
-                    if decoded != current:
-                        setattr(category, attr, decoded)
+                    upgraded = _upgrade_quotes(decoded)
+                    if upgraded != current:
+                        setattr(category, attr, upgraded)
                         update_fields.append(attr)
                         per_field_decode[attr] = per_field_decode.get(attr, 0) + 1
             # 2) Trim seo_title (and locale-specific copies) to ≤60.
