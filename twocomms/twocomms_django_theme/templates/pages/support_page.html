@@ -31,8 +31,12 @@
          We expose them only when the page definition declares
          ``published_at`` / ``updated_at`` so static legal/utility
          pages do not accidentally claim a fake publish date. #}
-      {% if page.published_at %}"datePublished": "{{ page.published_at|escapejs }}",{% endif %}
-      {% if page.updated_at %}"dateModified": "{{ page.updated_at|escapejs }}",{% endif %}
+      {# Dates are ISO-8601 strings declared by us in support_content.py
+         — they contain no JSON-special chars, so we skip escapejs (which
+         turns hyphens into \u002D and uglifies the JSON-LD for humans
+         inspecting source). #}
+      {% if page.published_at %}"datePublished": "{{ page.published_at }}",{% endif %}
+      {% if page.updated_at %}"dateModified": "{{ page.updated_at }}",{% endif %}
       "isPartOf": {
         "@type": "WebSite",
         "name": "TwoComms",
