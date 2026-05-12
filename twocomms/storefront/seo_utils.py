@@ -630,6 +630,14 @@ class StructuredDataGenerator:
         schema = {
             "@context": "https://schema.org",
             "@type": "Product",
+            # SEO v1.0 Phase 4 (2026-05-12) — finding (HHH). Google's
+            # multilingual rich-result eligibility requires Product
+            # nodes to declare ``inLanguage`` so the snippet language
+            # is bound to the catalog source. Hard-code uk-UA because
+            # all Product entries are authored in Ukrainian; the
+            # parallel RU/EN renders are noindex (Phase 1 Path A) so
+            # they don't generate competing schema.
+            "inLanguage": "uk-UA",
             "name": product.title,
             "description": description,
             "sku": f"TC-{product.id}",
@@ -849,15 +857,27 @@ class StructuredDataGenerator:
 
     @staticmethod
     def generate_breadcrumb_schema(breadcrumbs: List[Dict]) -> Dict:
-        """Генерирует BreadcrumbList schema"""
+        """Generate BreadcrumbList schema.
+
+        SEO v1.0 Phase 4 (2026-05-12) — finding (B24). The previous
+        payload only annotated the leaf ListItem nodes with ``@id``; the
+        parent ``BreadcrumbList`` had none, so when the same trail was
+        emitted on multiple pages (PDP + variant + parent category)
+        Google could not deduplicate them via the @graph reference
+        pattern. Derive a deterministic ``@id`` from the trail itself —
+        a hash over the ordered URL list — so identical breadcrumb
+        chains share a single node in the Knowledge Graph.
+        """
         schema = {
             "@context": "https://schema.org",
             "@type": "BreadcrumbList",
             "itemListElement": []
         }
 
+        item_urls: List[str] = []
         for i, breadcrumb in enumerate(breadcrumbs):
             item_url = _build_absolute_url(breadcrumb.get("url", ""))
+            item_urls.append(item_url)
             schema["itemListElement"].append({
                 "@type": "ListItem",
                 "@id": item_url,
@@ -865,6 +885,12 @@ class StructuredDataGenerator:
                 "name": breadcrumb.get("name", ""),
                 "item": item_url
             })
+
+        # Stable @id — last item's URL with a #breadcrumbs anchor lets
+        # Google merge identical trails across PDP / variant pages while
+        # still being human-meaningful when inspected in Search Console.
+        if item_urls:
+            schema["@id"] = f"{item_urls[-1].rstrip('/')}/#breadcrumbs"
 
         return schema
 

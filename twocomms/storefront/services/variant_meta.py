@@ -129,10 +129,24 @@ def build_variant_meta(inputs: VariantMetaInputs) -> dict:
                 f"Обирайте {_lowercase_first(inputs.fit_label)}-фіт — лаконічний стрітвеар від українського бренду."
             )
         else:
-            page_title = f"Купити {inputs.product_title} — {suffix} — TwoComms"
+            # SEO v1.0 Phase 4 (2026-05-12) — finding (III). The earlier
+            # «Купити {product_title} — {suffix}» pattern requires the
+            # transitive verb «купити» to take ``product_title`` in the
+            # accusative case, but ``Product.title`` is stored in the
+            # nominative (e.g. «Футболка класична»). The result was
+            # «Купити Футболка класична — чорна — TwoComms», which
+            # parrots the same grammar bug we fixed in finding (A).
+            # Reorder the elements so the verb falls at the end and the
+            # nominative title sits at the start — that's grammatical
+            # AND the variant tokens stay early enough in the title to
+            # carry Google's primary keyword weight.
+            page_title = (
+                f"{inputs.product_title} — {suffix} — TwoComms"
+            )
             page_description = (
-                f"Купити {inputs.product_title} ({suffix}) в TwoComms. "
-                "Якісний стріт & мілітарі одяг з ексклюзивним дизайном."
+                f"{inputs.product_title} ({suffix}) — авторський "
+                f"streetwear від TwoComms. Якісний стріт & мілітарі "
+                f"одяг з ексклюзивним дизайном, доставка Новою Поштою."
             )
     else:
         page_title = ""
