@@ -238,7 +238,8 @@ class FeedOffer:
 
     @property
     def available(self) -> bool:
-        return self.stock > 0
+        # Всі товари у фідах позначаємо як «в наявності» незалежно від поточних залишків.
+        return True
 
 
 def resolve_base_url(base_url: str | None = None) -> str:
@@ -999,7 +1000,7 @@ def build_buyme_feed_xml(base_url: str | None = None) -> bytes:
             "offer",
             {
                 "id": offer_id,
-                "available": "true" if quantity > 0 else "false",
+                "available": "true",
                 "group_id": f"buyme-{int(product.id)}",
             },
         )
@@ -1207,7 +1208,7 @@ def _build_yml_feed_xml(*, base_url: str | None, bezzet_mode: bool = False) -> b
     for offer in offers:
         product = offer.product
         stock_quantity = _bezzet_quantity(offer) if bezzet_mode else int(offer.stock or 0)
-        available = stock_quantity > 0 if bezzet_mode else offer.available
+        available = True
         group_id = _bezzet_group_id(offer) if bezzet_mode else str(product.id)
         offer_el = ET.SubElement(
             offers_el,
