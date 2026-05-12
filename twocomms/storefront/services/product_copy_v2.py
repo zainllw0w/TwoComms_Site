@@ -214,8 +214,21 @@ _PHASE13_SIGNATURES = {
         "Прання при 30 °C у режимі для бавовни, без агресивних"),
     "target_audience":   lambda v: v.lstrip().startswith(
         "Тим, хто живе в Україні й цінує мілітарну"),
-    "seo_title":         lambda v: v.endswith(" — TwoComms") and
-                                   v.startswith("Купити "),
+    # SEO v1.0 Phase 2 (2026-05-12) — recognise three historical auto-
+    # generator formats so the regeneration command picks them all up
+    # without needing ``--force`` (which would blow away hand-edited
+    # copy). The original Phase 13 autofill emitted «Купити … —
+    # TwoComms»; Phase 13.5 emitted «… — купити <category> TwoComms»
+    # with the nominative form (finding A); both must be rewritten.
+    "seo_title":         lambda v: (
+        v.endswith(" — TwoComms") and (
+            v.startswith("Купити ") or
+            " — купити футболка TwoComms" in v or
+            " — купити худі TwoComms" in v or
+            " — купити лонгслів TwoComms" in v or
+            " — купити товар TwoComms" in v
+        )
+    ),
 }
 
 _PHASE13_FAQ_Q_PREFIXES = (
@@ -309,11 +322,33 @@ def build_copy(product) -> dict:
         )
         alt_short = "авторський принт"
 
-    # SEO title: «{product.title} — купити {nom} TwoComms»
+    # SEO title: «{product.title} — купити {acc} TwoComms»
+    #
+    # SEO v1.0 Phase 2 (2026-05-12) — finding (A) in the master audit.
+    # Ukrainian grammar requires the accusative case after the transitive
+    # verb «купити» («buy»). The Phase 13.5 implementation hardcoded the
+    # nominative (`_nom`) and produced ungrammatical artefacts like
+    # «купити футболка» / «купити лонгслів TwoComms». Google's 2024
+    # scaled-content-abuse spam policy treats systematic grammar errors
+    # as a strong machine-generated-content signal — the longer this
+    # bug persisted the higher the algorithmic suppression risk. Switch
+    # to `_acc` so the template renders «купити футболку TwoComms».
+    # The 60-char truncate ceiling (was 160) closes finding (B); we
+    # also tightened it from the historical phase-13 limit because the
+    # full SERP title display cap on Google mobile in 2026 is ~60 chars.
     t = product.title.strip()
-    seo_title = f"{t} — купити {_nom(cat)} TwoComms"
-    if len(seo_title) > 160:
-        seo_title = t[:160 - len(" — TwoComms")] + " — TwoComms"
+    seo_title = f"{t} — купити {_acc(cat)} TwoComms"
+    SEO_TITLE_MAX = 60
+    if len(seo_title) > SEO_TITLE_MAX:
+        # Trim the product title (preserving the suffix) and avoid
+        # cutting inside a word so the truncated string still reads.
+        suffix = " — TwoComms"
+        budget = SEO_TITLE_MAX - len(suffix)
+        if budget > 0 and len(t) > budget:
+            head = t[:budget].rsplit(" ", 1)[0]
+        else:
+            head = t[:budget] if budget > 0 else t
+        seo_title = head + suffix
 
     # SEO description (≤320): intro_short + short call-to-action.
     seo_description = (

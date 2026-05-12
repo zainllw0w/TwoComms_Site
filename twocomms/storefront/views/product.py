@@ -473,9 +473,19 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
 
     # Phase 15 — per-product SEO landing block (theme-aware copy + per-product
     # top queries + category top_filters/top_menu reuse).
+    #
+    # SEO v1.0 Phase 2 (2026-05-12) — finding (E) in the master audit.
+    # The original call fell back to ``preselected_fit_code`` (the
+    # category default) whenever no fit was present in the URL path.
+    # That meant the *base* PDP still rendered «Футболка класична
+    # (Класична) — деталі моделі» and the fit-specific paragraph —
+    # identical copy as ``/product/<slug>/classic/``, i.e. a duplicate.
+    # Restrict fit-aware landing generation to requests that actually
+    # carry the fit segment in the URL so the base page gets clean,
+    # non-duplicate copy and ``/classic/`` retains its unique content.
     from ..services.product_seo_landing import build_landing as _build_product_landing
     product_seo_landing = _build_product_landing(
-        product, fit_code=path_fit_code or preselected_fit_code or None
+        product, fit_code=path_fit_code or None
     )
 
     variant_meta = build_variant_meta(

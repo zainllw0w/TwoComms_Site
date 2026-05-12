@@ -41,17 +41,38 @@ def _labels(category_slug: str | None) -> tuple[str, str, str]:
     return CATEGORY_LABEL.get((category_slug or "").lower(), DEFAULT_LABEL)
 
 
+SEO_TITLE_MAX = 60
+
+
 def _build_seo_title(product) -> str:
-    """80-160 char SEO title with brand suffix."""
-    nom, _, _ = _labels(getattr(product.category, "slug", None))
+    """≤60-char SEO title with brand suffix.
+
+    SEO v1.0 Phase 2 (2026-05-12) — finding (A)+(B) in the master audit.
+    The Phase 13 implementation interpolated the *nominative* form of
+    the category label after the transitive verb «купити», producing
+    «Купити X (футболка) — TwoComms» where Ukrainian grammar requires
+    the accusative «(футболку)». Fix the case and tighten the length
+    cap from 160 to 60: Google's mobile SERP truncates titles past
+    ~60 chars, so the historical 160-char buffer just generated noise.
+    """
+    nom, _, acc = _labels(getattr(product.category, "slug", None))
     base = product.title.strip()
     suffix = " — TwoComms"
-    # Add category if title doesn't already contain it.
+    # Add category if title doesn't already contain it (use accusative
+    # because the leading «Купити» is a transitive verb).
     if nom not in base.lower():
-        candidate = f"Купити {base} ({nom}){suffix}"
+        candidate = f"Купити {base} ({acc}){suffix}"
     else:
         candidate = f"Купити {base}{suffix}"
-    return candidate[:160]
+    if len(candidate) <= SEO_TITLE_MAX:
+        return candidate
+    # Trim the title body, not the suffix; avoid cutting inside a word.
+    budget = SEO_TITLE_MAX - len(suffix)
+    if budget > 0 and len(base) > budget:
+        head = base[:budget].rsplit(" ", 1)[0]
+    else:
+        head = base[:budget] if budget > 0 else base
+    return head + suffix
 
 
 def _build_seo_description(product) -> str:

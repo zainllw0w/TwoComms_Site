@@ -189,7 +189,12 @@
           <span class="cp-hero-badge">Кастомний одяг TwoComms</span>
         </div>
         
-        <h1 class="cp-hero-title cp-animate-in cp-delay-3">Створи річ,<br>що&nbsp;говорить <span>за тебе</span></h1>
+        {# SEO v1.0 Phase 2 (2026-05-12) — finding (B2). Add a space
+           before <br> so the plaintext extraction (`textContent`) used
+           by Google/SGE/screen-readers reads «Створи річ, що говорить
+           за тебе» instead of the run-on «Створи річ,що говорить за
+           тебе». WCAG 1.3.1 information-and-relationships fix. #}
+        <h1 class="cp-hero-title cp-animate-in cp-delay-3">Створи річ, <br>що&nbsp;говорить <span>за тебе</span></h1>
         <p class="cp-hero-desc cp-animate-in cp-delay-4">
           Кастомний одяг та аксесуари під ваші ідеї. Будь-який дизайн, будь-який колір, преміальна якість без компромісів.
         </p>
