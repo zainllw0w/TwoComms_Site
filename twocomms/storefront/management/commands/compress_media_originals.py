@@ -140,6 +140,8 @@ class Command(BaseCommand):
         parser.add_argument("--backup-suffix", default="",
                             help="If set, keep the original under this suffix "
                                  "(e.g. '.bak') before overwriting.")
+        parser.add_argument("--verbose-skip", action="store_true",
+                            help="Print the reason for every skipped file.")
 
     # ------------------------------------------------------------------ entrypoint
 
@@ -158,6 +160,7 @@ class Command(BaseCommand):
         self.webp_quality = int(opts["webp_quality"])
         self.min_saving = float(opts["min_saving_ratio"])
         self.backup_suffix = (opts["backup_suffix"] or "").strip()
+        self.verbose_skip = bool(opts.get("verbose_skip"))
 
         targets = self._resolve_targets(opts["models"])
         stats = RunStats()
@@ -229,6 +232,11 @@ class Command(BaseCommand):
             stats.bytes_after += result.after
             if result.skipped_reason:
                 stats.skipped += 1
+                if self.verbose_skip:
+                    self.stdout.write(
+                        f"  SKIP  {disk_path.name:60s}  {result.before/1024:8.0f}KB  "
+                        f"→  {result.after/1024:8.0f}KB  ({result.skipped_reason})"
+                    )
                 continue
             if result.before <= 0:
                 stats.failed += 1
