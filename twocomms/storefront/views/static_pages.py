@@ -877,6 +877,32 @@ def news(request):
     return _render_support_page(request, "news")
 
 
+def healthz(request):
+    """Cheap liveness probe.
+
+    SEO v1.0 Phase 8 (2026-05-12) — finding (B21). External monitoring
+    services (UptimeRobot, BetterStack, Pingdom, Cronitor, etc.) need a
+    deterministic 200-OK endpoint that neither hits the database nor
+    triggers expensive middleware so they can poll every 30-60 s
+    without distorting analytics or holding DB connections. Return a
+    minimal JSON payload — Cache-Control: no-store keeps any
+    intermediate caches honest, ``server-timing`` lets monitoring
+    services chart server-side latency without a separate trace pass.
+    """
+    response = JsonResponse(
+        {
+            "status": "ok",
+            "service": "twocomms",
+            "timestamp": timezone.now().isoformat(),
+        },
+        json_dumps_params={"ensure_ascii": False},
+    )
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    response["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
+
 def custom_print(request):
     """
     Guided DTF-only configurator на основном сайте.

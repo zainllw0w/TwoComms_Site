@@ -329,6 +329,10 @@ urlpatterns = [
     path('vidstezhennya-zamovlennya/', _module_view('storefront.views.static_pages', 'order_tracking'), name='order_tracking'),
     path('mapa-saytu/', _module_view('storefront.views.static_pages', 'site_map_page'), name='site_map_page'),
     path('novyny/', _module_view('storefront.views.static_pages', 'news'), name='news'),
+    # SEO v1.0 Phase 8 (2026-05-12) — finding (B21). Liveness probe used
+    # by external uptime monitoring (BetterStack/UptimeRobot/Pingdom).
+    # Returns 200 with a minimal JSON payload, no DB hits.
+    path('healthz/', _module_view('storefront.views.static_pages', 'healthz'), name='healthz'),
     path('povernennya-ta-obmin/', _module_view('storefront.views.static_pages', 'returns'), name='returns'),
     path('polityka-konfidentsiynosti/', _module_view('storefront.views.static_pages', 'privacy_policy'), name='privacy_policy'),
     path('umovy-vykorystannya/', _module_view('storefront.views.static_pages', 'terms_of_service'), name='terms_of_service'),
