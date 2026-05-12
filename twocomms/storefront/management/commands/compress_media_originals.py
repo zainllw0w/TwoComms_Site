@@ -56,21 +56,39 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TARGETS: list[tuple[str, str, str]] = [
     # (app_label, model_name, field_name) — order matters: heavier first.
+    # Per finding (B22) of the audit, /media/product_colors/ files are
+    # colour swatches and should never need to be wider than 800 px.
+    # We override the global default in ``_max_dim_for`` for that field.
     ("storefront", "ProductImage", "image"),
-    ("productcolors", "ProductColorVariantImage", "image"),
+    ("productcolors", "ProductColorImage", "image"),
     ("storefront", "Product", "main_image"),
     ("storefront", "Product", "home_card_image"),
     ("storefront", "Category", "cover"),
     ("storefront", "Category", "icon"),
     ("storefront", "PrintProposal", "image"),
     ("warehouse", "Print", "main_image"),
-    ("warehouse", "PrintVariant", "image"),
+    ("warehouse", "PrintColorVariant", "image"),
     ("reviews", "ReviewImage", "image"),
     ("dtf", "DtfWork", "image"),
     ("management", "Shop", "photo"),
-    ("accounts", "Profile", "avatar"),
-    ("accounts", "Profile", "ubd_doc"),
+    ("accounts", "UserProfile", "avatar"),
+    ("accounts", "UserProfile", "ubd_doc"),
 ]
+
+
+# Per-target dimension overrides. Keys may be either a 2-tuple
+# (app_label, model_name) or a 3-tuple (app_label, model_name,
+# field_name). Field-specific overrides win over model-level ones.
+TARGET_DIM_OVERRIDES: dict[tuple, tuple[int, int]] = {
+    # (B22) /media/product_colors/ stores 64-120 px swatches — there is
+    # zero benefit to keeping a 1600 px source. Cap at 800 px so the
+    # iPhone PNGs that admins keep dropping in shrink another order of
+    # magnitude.
+    ("productcolors", "ProductColorImage", "image"): (800, 800),
+    # Category icons render at 24-48 px in chips and at 96-160 px in
+    # the «top categories» grid. 480 px source is more than enough.
+    ("storefront", "Category", "icon"): (480, 480),
+}
 
 
 @dataclass
@@ -153,7 +171,11 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(
                     f"  skip (model not found): {app_label}.{model_name}"))
                 continue
-            self._process_model(model, field_name, stats)
+            override = (
+                TARGET_DIM_OVERRIDES.get((app_label, model_name, field_name))
+                or TARGET_DIM_OVERRIDES.get((app_label, model_name))
+            )
+            self._process_model(model, field_name, stats, override=override)
             if self.limit and stats.touched >= self.limit:
                 break
 
@@ -174,9 +196,11 @@ class Command(BaseCommand):
             wanted.append((app_label, model_name, field_name))
         return wanted
 
-    def _process_model(self, model, field_name: str, stats: RunStats):
+    def _process_model(self, model, field_name: str, stats: RunStats,
+                       *, override: Optional[tuple[int, int]] = None):
         if not hasattr(model, field_name):
             return
+        max_w, max_h = override if override else (self.max_width, self.max_height)
         qs = model.objects.exclude(**{f"{field_name}": ""}).only("id", field_name)
         n_seen = 0
         for instance in qs.iterator(chunk_size=200):
@@ -200,7 +224,7 @@ class Command(BaseCommand):
             if self.limit and stats.touched >= self.limit:
                 return
 
-            result = self._compress_one(disk_path)
+            result = self._compress_one(disk_path, max_w=max_w, max_h=max_h)
             stats.bytes_before += result.before
             stats.bytes_after += result.after
             if result.skipped_reason:
@@ -218,11 +242,14 @@ class Command(BaseCommand):
                 f"{result.after/1024:8.0f}KB  (-{result.ratio*100:4.1f}%)"
             )
 
-    def _compress_one(self, path: Path) -> FileResult:
+    def _compress_one(self, path: Path, *, max_w: Optional[int] = None,
+                      max_h: Optional[int] = None) -> FileResult:
         from PIL import Image, ImageOps
 
         result = FileResult(path=str(path), before=path.stat().st_size)
         ext = path.suffix.lower()
+        eff_max_w = max_w if max_w else self.max_width
+        eff_max_h = max_h if max_h else self.max_height
 
         try:
             with Image.open(path) as img:
@@ -239,8 +266,8 @@ class Command(BaseCommand):
                     return result
 
                 scale = min(
-                    self.max_width / src_w,
-                    self.max_height / src_h,
+                    eff_max_w / src_w,
+                    eff_max_h / src_h,
                     1.0,
                 )
                 if scale < 1.0:
