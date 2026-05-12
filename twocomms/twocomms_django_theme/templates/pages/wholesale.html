@@ -2267,15 +2267,16 @@
     
               <div class="hero-content">
                 <div class="hero-text-section">
-                  {# SEO v1.0 Phase 2 (2026-05-12) — finding (OO). The
-                     wholesale hub previously rendered the page title in
-                     a generic ``<div class="hero-title">`` so the entire
-                     B2B funnel had no H1 at all. Lift the title to
-                     ``<h1>`` keeping the existing visual layout so the
-                     page exposes its primary heading to Google/SGE and
-                     screen readers. The two ``<span>`` children
-                     preserve the typographic split between body and
-                     accent line. #}
+                  {% comment %}
+                  SEO v1.0 Phase 2 (2026-05-12) — finding (OO). The
+                  wholesale hub previously rendered the page title in a
+                  generic <div class="hero-title"> so the entire B2B
+                  funnel had no H1 at all. Promote the title element to
+                  <h1> while keeping the existing visual layout so the
+                  page exposes its primary heading to Google/SGE and
+                  screen readers. The two <span> children preserve the
+                  typographic split between body and accent line.
+                  {% endcomment %}
                   <h1 class="hero-title">
                     <span class="hero-title-main">Оптові закупівлі</span>
                     <span class="hero-title-accent">TwoComms</span>
