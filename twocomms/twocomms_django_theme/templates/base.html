@@ -119,6 +119,28 @@
   <meta property="og:locale:alternate" content="{{ alt_og }}">
   {% endfor %}
 
+  {% comment %}
+  SEO v1.0 Phase 11 (2026-05-12) — finding (UU). Hook for child
+  templates (PDP only) to inject the canonical Open Graph Product
+  namespace tags (price, currency, availability, brand, retailer
+  item id, condition). Default body is empty so non-product pages
+  emit zero extra meta — keeps the head clean for catalog/static
+  routes that don't have a single product context.
+  {% endcomment %}
+  {% block product_og_meta %}{% endblock %}
+
+  {% comment %}
+  SEO v1.0 Phase 11 (2026-05-12) — finding (B17). iOS Safari aggressively
+  auto-detects strings that *look* like phone numbers, postal addresses,
+  email addresses or dates and silently wraps them in `<a href="tel:…">`
+  / `mailto:` etc. anchors, which (1) break product copy that contains
+  numbers like «розмір 50, см 70», (2) leak fake `tel:` outbound links
+  into Search Console's Links report, and (3) trigger CLS when the
+  injected anchors expand the line height. Disable the detector at the
+  document level for every visitor.
+  {% endcomment %}
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url"

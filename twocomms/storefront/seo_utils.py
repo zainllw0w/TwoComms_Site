@@ -477,6 +477,32 @@ class StructuredDataGenerator:
 
     @staticmethod
     def _get_product_availability(product: Product) -> str:
+        """Return the canonical Schema.org availability URI for a product.
+
+        SEO v1.0 Phase 11 (2026-05-12) — finding (QQ). Live prod observation
+        showed *every* PDP returning ``OutOfStock`` because the per-colour
+        ``ProductColorVariant.stock`` row defaults to 0 in the admin and the
+        old logic only flipped to ``InStock`` when at least one variant had
+        an explicit positive stock count. TwoComms produces every garment
+        on demand via DTF print after the order is placed, so the legacy
+        boolean «do we hold a finished SKU on the shelf?» is the wrong
+        question — and emitting OutOfStock blocks the catalogue from
+        Google Shopping, Facebook Catalog, Pinterest Rich Pins and
+        Perplexity / SGE shopping answers.
+
+        New rules (in priority order):
+
+        1. ``is_dropship_available=False`` → admin explicitly disabled
+           sale of the product → OutOfStock (true negative).
+        2. Any colour variant with ``stock > 0`` → InStock (kept for the
+           rare cases when admins do track finished pieces).
+        3. Variants exist but all stock=0 → ``MadeToOrder`` — the
+           Schema.org-blessed value for on-demand items. Google's rich
+           result spec accepts MadeToOrder as a valid availability state
+           and surfaces the product without the «out of stock» badge.
+        4. No variants at all → InStock (legacy fallback for products
+           authored before the colour matrix was introduced).
+        """
         if not getattr(product, "is_dropship_available", True):
             return "https://schema.org/OutOfStock"
 
@@ -486,7 +512,12 @@ class StructuredDataGenerator:
             variants = ProductColorVariant.objects.filter(product=product).only("stock")
             if variants.exists():
                 has_stock = any(int(getattr(variant, "stock", 0) or 0) > 0 for variant in variants)
-                return "https://schema.org/InStock" if has_stock else "https://schema.org/OutOfStock"
+                if has_stock:
+                    return "https://schema.org/InStock"
+                # All variants report stock=0 → DTF on-demand. Use the
+                # Schema.org MadeToOrder URI so Google still considers
+                # the product purchasable.
+                return "https://schema.org/MadeToOrder"
         except Exception:
             pass
 

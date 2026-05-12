@@ -27,6 +27,28 @@ from ..recommendations import ProductRecommendationEngine
 from ..utm_tracking import record_product_view
 
 
+def _resolve_og_availability_flag(product) -> bool:
+    """Return True when the product can be sold (Open Graph `instock`).
+
+    SEO v1.0 Phase 11 (2026-05-12) — finding (UU)+(QQ). Open Graph's
+    ``product:availability`` only knows two binary states (`instock` /
+    `out of stock`), so we collapse the richer Schema.org availability
+    URI from ``StructuredDataGenerator._get_product_availability`` —
+    which now also emits ``MadeToOrder`` for DTF on-demand items
+    (finding QQ) — into a single boolean. Both ``InStock`` and
+    ``MadeToOrder`` map to True so Facebook Catalog / Pinterest Rich
+    Pins / Telegram previews treat on-demand prints as purchasable.
+    Only ``OutOfStock`` (admin disabled the product) maps to False.
+    """
+    from ..seo_utils import StructuredDataGenerator
+
+    try:
+        availability = StructuredDataGenerator._get_product_availability(product)
+    except Exception:
+        return True
+    return not availability.endswith("/OutOfStock")
+
+
 # ==================== PRODUCT VIEWS ====================
 
 def _is_tshirt_product(product):
@@ -585,6 +607,16 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             'product_customer_has_paid_order': product_customer_has_paid_order,
             # Phase 15 — per-product SEO landing block.
             'product_seo_landing': product_seo_landing,
+            # SEO v1.0 Phase 11 (2026-05-12) — finding (UU). Pre-resolve
+            # the in-stock flag at the view layer so the OG product
+            # meta in the template doesn't have to import / call the
+            # availability helper. Mirrors the same logic Schema.org
+            # Product.offers.availability uses (StructuredDataGenerator
+            # ._get_product_availability) but bound to the simpler
+            # OG vocabulary (`instock` / `out of stock`). Stays True
+            # for DTF on-demand catalogue per finding (QQ) so we don't
+            # accidentally suppress products that print on demand.
+            'product_in_stock_for_og': _resolve_og_availability_flag(product),
         }
     )
 

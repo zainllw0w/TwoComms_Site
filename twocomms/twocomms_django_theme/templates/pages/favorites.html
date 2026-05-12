@@ -4,6 +4,17 @@
 
 {% block title %}{% trans 'Обрані товари' %} — TwoComms{% endblock %}
 
+{% comment %}
+SEO v1.0 Phase 11 (2026-05-12) — finding (XX). /favorites/ holds the
+per-user wishlist. For an unauthenticated visitor it renders an empty
+state; for the same authenticated visitor the contents change every
+session. Either way the page must not be indexed: the URL is the same
+for every user but the content is private/dynamic, so any cached SERP
+snippet would be stale or misleading. Pin to noindex,follow so Google
+still walks the navigation links but never lists the page itself.
+{% endcomment %}
+{% block robots %}noindex, follow{% endblock %}
+
 {% block content %}
 <section class="mb-4 mb-md-5 reveal">
   <div class="d-flex justify-content-between align-items-end mb-3">

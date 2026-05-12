@@ -625,6 +625,61 @@ def catalog(request, cat_slug=None):
     )
 
 
+_SEARCH_SYNONYMS = {
+    # Latin-keyboard / English / transliterated → UA canonical tokens
+    "tshirt":     ["футболк", "тішк", "t-shirt", "tee", "ts"],
+    "t-shirt":    ["футболк", "тішк", "tee", "ts"],
+    "tee":        ["футболк", "тішк"],
+    "hoodie":     ["худі", "hoody", "hd"],
+    "hoody":      ["худі", "hoodie", "hd"],
+    "longsleeve": ["лонгслів", "long-sleeve", "ls"],
+    "long-sleeve": ["лонгслів", "longsleeve", "ls"],
+    "sweatshirt": ["світшот", "светшот", "пуловер"],
+    "twocomms":   ["twocomms", "ту комс", "ту-комс", "тукомс", "twcomms"],
+    "streetwear": ["стрітвеар", "стрітвір", "стрит", "streetwear"],
+    "military":   ["мілітарі", "військов"],
+    # Generic transliteration shortcuts users type after Cyrillic auto-
+    # complete fails (e.g. iOS QWERTY → typed «futbolka»).
+    "futbolka":   ["футболк"],
+    "khudi":      ["худі"],
+    "longsliv":   ["лонгслів"],
+}
+
+
+def _build_search_tokens(query: str) -> list[str]:
+    """Expand a free-text query into a list of search tokens.
+
+    SEO v1.0 Phase 11 (2026-05-12) — finding (B5). The original search
+    only matched the literal query string against UA fields; English
+    tokens (tshirt/hoodie/longsleeve/twocomms) returned 0 results.
+    Expand each query word against ``_SEARCH_SYNONYMS`` to reach the UA
+    catalogue with the same query. Always include the raw query as
+    fallback so existing matches still work.
+    """
+    raw = (query or "").strip()
+    if not raw:
+        return []
+    tokens: list[str] = [raw]
+    for word in raw.lower().split():
+        synonyms = _SEARCH_SYNONYMS.get(word)
+        if synonyms:
+            tokens.extend(synonyms)
+        # Also try a hyphen-stripped variant (long-sleeve → longsleeve).
+        if "-" in word:
+            normalized = word.replace("-", "")
+            if normalized in _SEARCH_SYNONYMS:
+                tokens.extend(_SEARCH_SYNONYMS[normalized])
+    # Deduplicate, preserve order.
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for tok in tokens:
+        key = tok.strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            deduped.append(tok.strip())
+    return deduped
+
+
 def search(request):
     """
     Поиск товаров.
@@ -650,12 +705,27 @@ def search(request):
         product_qs = _product_cards_queryset().filter(status='published')
 
         if query:
-            product_qs = product_qs.filter(
-                Q(title__icontains=query)
-                | Q(description__icontains=query)
-                | Q(full_description__icontains=query)
-                | Q(short_description__icontains=query)
-            )
+            # SEO v1.0 Phase 11 (2026-05-12) — finding (B5). The previous
+            # search only ran ICONTAINS against UA-only text fields, so
+            # users with the English keyboard layout (Windows default)
+            # who typed «tshirt» / «hoodie» / «longsleeve» / «twocomms»
+            # got zero results — even though the catalogue has matching
+            # products under «футболка» / «худі» / «лонгслів». That's a
+            # textbook 0-results spike in Google Search Console «Site
+            # search» queries. Build the lookup over a synonym-expanded
+            # token set so the search box behaves like the public-facing
+            # brand search the audit assumes.
+            tokens = _build_search_tokens(query)
+            search_q = Q()
+            for token in tokens:
+                search_q |= (
+                    Q(title__icontains=token)
+                    | Q(slug__icontains=token)
+                    | Q(description__icontains=token)
+                    | Q(full_description__icontains=token)
+                    | Q(short_description__icontains=token)
+                )
+            product_qs = product_qs.filter(search_q)
             record_search(request, query)
 
         # Фильтрация по категории

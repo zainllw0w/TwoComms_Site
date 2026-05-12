@@ -3,6 +3,26 @@
 
 {% block title %}404 — Щось пішло не так{% endblock %}
 
+{% comment %}
+SEO v1.0 Phase 11 (2026-05-12) — finding (WW). The original 404 template
+inherited the default base.html block robots (`index, follow,
+max-image-preview:large, max-snippet:-1, max-video-preview:-1`) and
+the default canonical (`request.path`), so every 404 hit advertised
+itself as an indexable page pointing at its own dead URL. Although
+Google generally drops 404 status codes from the index, the wrong
+robots directive plus a self-canonical confuses Bing/Yandex and
+sometimes Google in soft-404 cases. Override both: noindex,follow
+keeps PageRank flowing back through the navigation links rendered
+on the error page, and a canonical pointing at the homepage avoids
+ever consolidating ranking signals onto a non-existent URL.
+{% endcomment %}
+{% block robots %}noindex, follow{% endblock %}
+{% block canonical %}{{ site_base_url }}/{% endblock %}
+{% block hreflang_uk %}{{ site_base_url }}/{% endblock %}
+{% block hreflang_x_default %}{{ site_base_url }}/{% endblock %}
+{% block og_url %}{{ site_base_url }}/{% endblock %}
+{% block twitter_url %}{{ site_base_url }}/{% endblock %}
+
 {% block content %}
 <style>
 /* CSS Reset specifically for the canvas full screen vibe if needed, but we keep the main container */

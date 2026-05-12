@@ -12,7 +12,41 @@
 {% block description %}{% if variant_page_description %}{{ variant_page_description }}{% else %}{% seo_description product=product %}{% endif %}{% endblock %}
 {% block keywords %}{% if variant_page_keywords %}{{ variant_page_keywords }}{% else %}{% seo_keywords product=product %}{% endif %}{% endblock %}
 {% block canonical %}{{ site_base_url }}{{ variant_canonical_path|default:request.path }}{% endblock %}
+{% comment %}
+SEO v1.0 Phase 11 (2026-05-12) — finding (B11). Query-string variant
+URLs (`?color=…`, `?fit=…`, `?size=…`) render the same canonical PDP
+markup the user sees on `/product/<slug>/`, only with a different
+swatch pre-selected. The canonical link already collapses them to the
+base PDP, but Google still spent crawl budget pinging each combination
+before honouring the canonical hint. Switch to noindex,follow whenever
+any of these query keys are present so Googlebot drops them from the
+index altogether (and recovers the crawl budget for new products).
+RU/EN renders keep the original Phase 1 noindex behaviour.
+{% endcomment %}
+{% block robots %}{% if LANGUAGE_CODE and LANGUAGE_CODE != 'uk' %}noindex, follow, max-image-preview:large{% elif request.GET.color or request.GET.fit or request.GET.size %}noindex, follow, max-image-preview:large{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 {% block og_type %}product{% endblock %}
+{% comment %}
+SEO v1.0 Phase 11 (2026-05-12) — finding (UU). The product detail page
+declared og:type=product without ANY of the canonical Open Graph
+Product properties (price, currency, availability, brand, retailer
+item id, condition). Facebook Catalog auto-import, Pinterest Rich
+Pins and Telegram/Slack/Discord previews all need these tags to
+render price + availability in their cards; without them they fall
+back to the generic `summary_large_image` layout and the catalog is
+silently dropped from FB Commerce Manager. Add the standard product
+namespace + the legacy og:price aliases for the older social parsers.
+{% endcomment %}
+{% block product_og_meta %}
+  <meta property="product:price:amount" content="{{ product.final_price }}">
+  <meta property="product:price:currency" content="UAH">
+  <meta property="product:availability" content="{% if product_in_stock_for_og %}instock{% else %}out of stock{% endif %}">
+  <meta property="product:retailer_item_id" content="TC-{{ product.id }}">
+  <meta property="product:condition" content="new">
+  <meta property="product:brand" content="TwoComms">
+  <meta property="og:price:amount" content="{{ product.final_price }}">
+  <meta property="og:price:currency" content="UAH">
+  <meta property="og:availability" content="{% if product_in_stock_for_og %}instock{% else %}out of stock{% endif %}">
+{% endblock %}
 {% block og_title %}{% if variant_page_title %}{{ variant_page_title }}{% else %}{% seo_title product=product %}{% endif %}{% endblock %}
 {% block og_description %}{% if variant_page_description %}{{ variant_page_description }}{% else %}{% seo_description product=product %}{% endif %}{% endblock %}
 {# Phase 21 (PR-2 T7.3) — variant-aware OG/Twitter image; see seo_og_image template tag. #}
