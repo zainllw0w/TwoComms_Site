@@ -235,3 +235,53 @@ def optimize_size_grid_image(sender, instance, created=False, update_fields=None
 def optimize_print_proposal_image(sender, instance, created=False, update_fields=None, **kwargs):
     if _should_enqueue_image_optimization(instance, "image", created=created, update_fields=update_fields):
         _enqueue_image_optimization(instance, 'image')
+
+
+# ===== Auto-resize + WebP intake hook (B22 root) =====
+#
+# Closes the original-bloat problem at the source: every new upload
+# through any of the catalog-image fields is downscaled to 1600x2000
+# and re-encoded as WebP *before* the row hits the DB. The legacy
+# post_save responsive-variant pipeline above stays in place so the
+# storefront still gets `<dir>/optimized/<stem>_<width>w.{webp,avif}`
+# siblings for the srcset rendering — image_intake just makes sure
+# the **original** that those siblings derive from is already small.
+from .services.image_intake import process_image_field as _intake_process
+
+_INTAKE_TARGETS = {
+    Product: ("main_image", "home_card_image"),
+    ProductImage: ("image",),
+    ProductColorImage: ("image",),
+    Category: ("cover", "icon"),
+    CatalogOptionValue: ("image",),
+    SizeGrid: ("image",),
+    PrintProposal: ("image",),
+}
+
+
+@receiver(pre_save)
+def compress_uploaded_image_originals(sender, instance, raw=False, **kwargs):
+    """Pillow-resize + WebP-encode any freshly-uploaded image fields.
+
+    Hooked as a global pre_save with an explicit sender dispatch so we
+    do not pay reflection cost on hot non-image models (Order, Cart,
+    Session, …). Skips ``raw=True`` saves (fixtures, dumpdata) and
+    silently no-ops on DB reads where ``FieldFile.file`` is the on-disk
+    handle rather than an incoming upload — see ``_should_process``.
+    """
+    if raw:
+        return
+    field_names = _INTAKE_TARGETS.get(sender)
+    if not field_names:
+        return
+    for fname in field_names:
+        field = getattr(instance, fname, None)
+        if not field:
+            continue
+        try:
+            _intake_process(field)
+        except Exception as exc:  # pragma: no cover - defensive branch
+            logger.warning(
+                "compress_uploaded_image_originals failed on %s.%s (id=%s): %s",
+                sender.__name__, fname, getattr(instance, "pk", None), exc,
+            )

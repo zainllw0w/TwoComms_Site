@@ -30,12 +30,20 @@
     })();
   </script>
 
-  <!-- Home relies on inline @font-face + font-display: swap to avoid competing
-       with render-blocking CSS on slow mobile connections. -->
-  {% if request.resolver_match.url_name != 'home' %}
-  <link rel="preload" href="{% static 'fonts/Inter-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="{% static 'fonts/Inter-Bold.woff2' %}" as="font" type="font/woff2" crossorigin>
-  {% endif %}
+  {% comment %}
+  Phase 22 (2026-05-12) — preload Inter on EVERY route, including home.
+  Previous experiment kept home off the preload list to avoid bandwidth
+  contention with render-blocking CSS, but Lighthouse mobile showed
+  Inter-Regular/Inter-Bold racing the CSS download chain (1.7-1.8 s on
+  slow 4G) because the browser only discovered the inline @font-face
+  rules AFTER parsing render-blocking CSS — so the fonts loaded *after*
+  CSS parse + paint instead of in parallel with it. With `fetchpriority="high"`
+  the woff2 files now sit in the H/2 priority queue beside the CSS
+  bundle. Net result: navbar-brand text (LCP element on home) paints
+  the moment the CSS arrives instead of waiting for the swap timer.
+  {% endcomment %}
+  <link rel="preload" href="{% static 'fonts/Inter-Regular.woff2' %}" as="font" type="font/woff2" crossorigin fetchpriority="high">
+  <link rel="preload" href="{% static 'fonts/Inter-Bold.woff2' %}" as="font" type="font/woff2" crossorigin fetchpriority="high">
 
   {% comment %}Phase 18 — per-page preload hints (LCP image, etc). Pages
      override this block to push the LCP image into the discovery
@@ -1217,12 +1225,22 @@
   the browser can't discover them until after main.js downloads +
   parses, which Lighthouse logged as a 7s critical-path chain on
   mobile. With modulepreload they fetch in parallel with main.js,
-  cutting the chain to a single round-trip. Dynamic imports
-  (web-push / pwa-install / homepage / product-media) stay deferred
-  on purpose and are NOT preloaded.
+  cutting the chain to a single round-trip.
+
+  Phase 22 (2026-05-12) — extended modulepreload to homepage/product-media
+  on routes that actually use them. Lighthouse reported a 5.9 s critical
+  path because these dynamic imports were only discovered AFTER main.js
+  finished parsing. With targeted modulepreload they fetch in parallel
+  with main.js, cutting ~3 s off the critical chain on mobile.
   {% endcomment %}
   <link rel="modulepreload" href="{% static 'js/modules/shared.js' %}" crossorigin="anonymous">
   <link rel="modulepreload" href="{% static 'js/modules/optimizers.js' %}" crossorigin="anonymous">
+  {% if request.resolver_match.url_name == 'home' %}
+  <link rel="modulepreload" href="{% static 'js/modules/product-media.js' %}" crossorigin="anonymous">
+  <link rel="modulepreload" href="{% static 'js/modules/homepage.js' %}?v=20260427-pagination-transition" crossorigin="anonymous">
+  {% elif request.resolver_match.url_name == 'product_detail' %}
+  <link rel="modulepreload" href="{% static 'js/modules/product-media.js' %}" crossorigin="anonymous">
+  {% endif %}
   <script type="module" src="{% static 'js/main.js' %}?v=20260428-pdp-fit-v2" onload="this.classList.add('script-loaded')"
     onerror="this.classList.add('script-error')" crossorigin="anonymous"></script>
 

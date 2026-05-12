@@ -21,6 +21,18 @@
       "name": "{{ page.hero_title|escapejs }}",
       "description": "{{ page.meta_description|escapejs }}",
       "url": "{{ site_base_url }}{{ request.path|escapejs }}",
+      {# SEO v1.0 Phase 12 (2026-05-12) — finding (BBB). AboutPage and
+         CollectionPage entries (e.g. /pro-brand/, /novyny/) were
+         missing both datePublished and dateModified, which Google
+         Search Console flagged as "missing field" warnings on
+         structured data. Both fields are optional in the spec but
+         their presence unlocks the "Last updated" timestamp in SERP
+         and feeds AI surfaces (SGE/Perplexity) with freshness signal.
+         We expose them only when the page definition declares
+         ``published_at`` / ``updated_at`` so static legal/utility
+         pages do not accidentally claim a fake publish date. #}
+      {% if page.published_at %}"datePublished": "{{ page.published_at|escapejs }}",{% endif %}
+      {% if page.updated_at %}"dateModified": "{{ page.updated_at|escapejs }}",{% endif %}
       "isPartOf": {
         "@type": "WebSite",
         "name": "TwoComms",

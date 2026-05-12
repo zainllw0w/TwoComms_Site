@@ -10,6 +10,17 @@
 {% block twitter_description %}Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання.{% endblock %}
 
 {% block structured_data %}
+{# SEO v1.0 Phase 12 (2026-05-12) — finding (HHH). The /contacts/ page
+   was returning a generic Organization node inside the ContactPage
+   mainEntity, which Google maps to «business unknown» rather than to
+   the «online clothing store» category. Upgrading the @type to
+   ClothingStore (sub-class of Store ⊂ LocalBusiness ⊂ Organization)
+   lights up the e-commerce treatment in Knowledge Graph + Google
+   Shopping panel without requiring a physical postal address: the
+   spec allows omitting `address` when the entity is an online-only
+   store. Adds `areaServed`, `priceRange`, `currenciesAccepted` and
+   `paymentAccepted` so AI surfaces (SGE/Perplexity) can answer
+   «where does TwoComms ship / what does it cost» with grounded data. #}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -17,15 +28,30 @@
   "name": "Контакти TwoComms",
   "url": "{{ site_base_url }}{{ request.path }}",
   "mainEntity": {
-    "@type": "Organization",
+    "@type": "ClothingStore",
+    "@id": "https://twocomms.shop/#store",
     "name": "TwoComms",
+    "alternateName": "TwoComms — стріт і мілітарі одяг",
     "url": "https://twocomms.shop",
+    "logo": "{{ site_base_url }}{% static 'img/logo.svg' %}",
+    "image": "{{ site_base_url }}{% static 'img/social-preview.jpg' %}",
+    "description": "TwoComms — український онлайн-магазин стрітвір- і мілітарі-одягу: футболки, худі, лонгсліви та кастомний DTF-друк.",
+    "telephone": "+380966543212",
+    "email": "info@twocomms.shop",
+    "areaServed": {
+      "@type": "Country",
+      "name": "Україна"
+    },
+    "currenciesAccepted": "UAH",
+    "paymentAccepted": "Cash, Credit Card, Apple Pay, Google Pay, Bank transfer",
+    "priceRange": "₴₴",
     "contactPoint": [
       {
         "@type": "ContactPoint",
         "telephone": "+380966543212",
         "contactType": "customer service",
-        "availableLanguage": ["Ukrainian", "Russian"]
+        "availableLanguage": ["Ukrainian", "Russian"],
+        "areaServed": "UA"
       }
     ],
     "sameAs": [

@@ -17,15 +17,23 @@
 {% endblock %}
 
 {# Phase 21 (2026-05-10) — prefer per-category manual SEO overrides over auto-generated boilerplate. #}
-{% block title %}{% if is_search_page %}Пошук{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
+{# SEO v1.0 Phase 12 (2026-05-12) — finding (VV)+(B19). Page > 1 gets a "сторінка N" suffix so Search Console stops flagging duplicate-title across the catalog paginator; the same applies to /?sort=new|sale|price_asc|price_desc which previously rendered identical titles to the base catalog. #}
+{% block title %}{% if is_search_page %}Пошук{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}Каталог одягу — TwoComms{% endif %}{% if page_obj and page_obj.number > 1 %} — сторінка {{ page_obj.number }}{% endif %}{% endblock %}
 
 {% block description %}{% if is_search_page %}Результати пошуку TwoComms{% if query %} за запитом «{{ query }}»{% endif %}. Сторінка відкрита для переходу по товарах, але не призначена для індексації.{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}Купити {{ category.name|lower }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні.{% endif %}{% else %}Каталог стріт & мілітарі одягу TwoComms: футболки, худі, лонгсліви та новинки бренду з характером.{% endif %}{% endblock %}
 
 {% block keywords %}{% if category %}{{ category.name|lower }}, {% endif %}стріт одяг, мілітарі одяг, футболки, худі,
 лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, каталог одягу{% endblock %}
 
-{% comment %}SEO v1.0 Phase 1 — RU/EN renders are noindex (Path A); UA renders keep the existing search-vs-filter override.{% endcomment %}
-{% block robots %}{% if LANGUAGE_CODE and LANGUAGE_CODE != 'uk' %}noindex, follow, max-image-preview:large{% elif is_search_page or has_active_color_filter %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
+{% comment %}
+SEO v1.0 Phase 1 — RU/EN renders are noindex (Path A); UA renders keep the existing search-vs-filter override.
+
+SEO v1.0 Phase 12 (2026-05-12) — finding (B19). ``?sort=new|sale|price_asc|price_desc``
+re-orders the same products on the same canonical URL; Google was indexing each
+variation as a separate page (duplicate-title warning in Search Console).
+Treat them like any other facet: noindex, follow + canonical → base catalog.
+{% endcomment %}
+{% block robots %}{% if LANGUAGE_CODE and LANGUAGE_CODE != 'uk' %}noindex, follow, max-image-preview:large{% elif is_search_page or has_active_color_filter or request.GET.sort %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 
 {% block canonical %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 {% block hreflang_uk %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}

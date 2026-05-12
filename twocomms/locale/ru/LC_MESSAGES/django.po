@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-11 15:15+0300\n"
+"POT-Creation-Date: 2026-05-13 01:24+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,3016 +16,2297 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || (n%100>=11 && n%100<=14)? 2 : 3);\n"
+"Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || "
+"(n%100>=11 && n%100<=14)? 2 : 3);\n"
 
-#: management/forms.py:8 management/forms.py:247 management/models.py:759
 msgid "Email отримувача"
 msgstr ""
 
-#: management/forms.py:9 management/models.py:760
 msgid "Імʼя/компанія отримувача"
 msgstr ""
 
-#: management/forms.py:26
 msgid "Режим"
 msgstr ""
 
-#: management/forms.py:27
 msgid "Сегмент"
 msgstr ""
 
-#: management/forms.py:28 management/models.py:761
 msgid "Тема листа"
 msgstr ""
 
-#: management/forms.py:29 management/models.py:698 management/models.py:786
 msgid "Кастомна тема"
 msgstr ""
 
-#: management/forms.py:43
 msgid "База входу"
 msgstr ""
 
-#: management/forms.py:44
 msgid "Опт: обсяг"
 msgstr ""
 
-#: management/forms.py:45
 msgid "Дроп: футболка (грн)"
 msgstr ""
 
-#: management/forms.py:46
 msgid "Дроп: худі (грн)"
 msgstr ""
 
-#: management/forms.py:47
 msgid "Бонус дроп -10"
 msgstr ""
 
-#: management/forms.py:59 management/models.py:670 management/models.py:792
 msgid "CTA тип"
 msgstr ""
 
-#: management/forms.py:60
 msgid "Текст CTA"
 msgstr ""
 
-#: management/forms.py:61 management/models.py:794
 msgid "CTA URL"
 msgstr ""
 
-#: management/forms.py:62 management/models.py:674 management/models.py:797
 msgid "Мікротекст під CTA"
 msgstr ""
 
-#: management/forms.py:64 management/models.py:700 management/models.py:824
 msgid "Вхід футболка (грн)"
 msgstr ""
 
-#: management/forms.py:65 management/models.py:701 management/models.py:825
 msgid "Роздріб футболка (приклад, грн)"
 msgstr ""
 
-#: management/forms.py:66 management/models.py:702 management/models.py:827
 msgid "Вхід худі (грн)"
 msgstr ""
 
-#: management/forms.py:67 management/models.py:703 management/models.py:828
 msgid "Роздріб худі (приклад, грн)"
 msgstr ""
 
-#: management/forms.py:69 management/models.py:628 management/models.py:831
 msgid "Показувати менеджера"
 msgstr ""
 
-#: management/forms.py:70 management/models.py:629 management/models.py:832
 msgid "Імʼя менеджера"
 msgstr ""
 
-#: management/forms.py:71 management/forms.py:72 management/models.py:448
-#: management/models.py:631 management/models.py:834 management/models.py:935
-#: management/models.py:1930 storefront/models.py:299
-#: twocomms_django_theme/templates/pages/cart.html:530
-#: twocomms_django_theme/templates/pages/order_success.html:1460
-#: twocomms_django_theme/templates/pages/order_success.html:1563
 msgid "Телефон"
 msgstr "Телефон"
-#: management/forms.py:74 management/forms.py:75 management/models.py:835
 msgid "Viber"
 msgstr ""
 
-#: management/forms.py:77 management/forms.py:78 management/models.py:836
-#: storefront/models.py:298
 msgid "WhatsApp"
 msgstr ""
 
-#: management/forms.py:80 management/forms.py:81 management/models.py:837
-#: storefront/models.py:297
 msgid "Telegram"
 msgstr ""
 
-#: management/forms.py:83 management/models.py:799
 msgid "Резервний Telegram"
 msgstr ""
 
-#: management/forms.py:85 storefront/support_content.py:117
-#: twocomms_django_theme/templates/pages/catalog.html:134
-#: twocomms_django_theme/templates/pages/catalog.html:138
-#: twocomms_django_theme/templates/pages/catalog.html:152
-#: twocomms_django_theme/templates/partials/footer.html:120
-#: twocomms_django_theme/templates/partials/header.html:15
-#: twocomms_django_theme/templates/partials/header.html:396
 msgid "Каталог"
 msgstr "Каталог"
-#: management/forms.py:86 management/models.py:612 management/models.py:743
 msgid "Опт"
 msgstr ""
 
-#: management/forms.py:87 management/models.py:613 management/models.py:744
 msgid "Дроп"
 msgstr ""
 
-#: management/forms.py:88
 msgid "Instagram"
 msgstr ""
 
-#: management/forms.py:89 management/models.py:146 management/models.py:232
-#: management/models.py:449 management/models.py:887
 msgid "Сайт"
 msgstr ""
 
-#: management/forms.py:91
 msgid "Галерея Neutral"
 msgstr ""
 
-#: management/forms.py:92
 msgid "Галерея Edgy"
 msgstr ""
 
-#: management/forms.py:182
 msgid "Вкажіть кастомну тему листа."
 msgstr ""
 
-#: management/forms.py:190
 msgid "Вкажіть URL для CTA."
 msgstr ""
 
-#: management/forms.py:224
 msgid "Вкажіть телефон менеджера або вимкніть цей контакт."
 msgstr ""
 
-#: management/forms.py:226
 msgid "Телефон має бути у форматі +380XXXXXXXXX."
 msgstr ""
 
-#: management/forms.py:233
 #, python-format
 msgid "Вкажіть контакт для %(label)s."
 msgstr ""
 
-#: management/models.py:115
 msgid "Управляючий"
 msgstr ""
 
-#: management/models.py:116 management/models.py:178 management/models.py:525
-#: management/models.py:624 management/models.py:755 management/models.py:928
-#: management/models.py:1127 management/models.py:1309
-#: management/models.py:1465 management/models.py:1506
-#: management/models.py:1560 management/models.py:1619
-#: management/models.py:1679 management/models.py:1769
-#: management/models.py:1920 management/models.py:2026
-#: management/models.py:2089 management/models.py:2113
-#: management/models.py:2156 management/models.py:2205
-#: management/models.py:2256 management/models.py:2300
-#: management/models.py:2344 management/models.py:2378
-#: management/models.py:2425
 msgid "Менеджер"
 msgstr ""
 
-#: management/models.py:117 management/models.py:1773
 msgid "Реалізатор"
 msgstr ""
 
-#: management/models.py:118 management/models.py:927
 msgid "Власник"
 msgstr ""
 
-#: management/models.py:119 management/models.py:135 management/models.py:1108
 msgid "Інше"
 msgstr ""
 
-#: management/models.py:122
 msgid "Оформив замовлення"
 msgstr ""
 
-#: management/models.py:123
 msgid "Відправили КП на e-mail"
 msgstr ""
 
-#: management/models.py:124
 msgid "Відправили КП у месенджери"
 msgstr ""
 
-#: management/models.py:125
 msgid "Написали в Instagram"
 msgstr ""
 
-#: management/models.py:126
 msgid "Не відповідає"
 msgstr ""
 
-#: management/models.py:127
 msgid "Не цікавить"
 msgstr ""
 
-#: management/models.py:128
 msgid "Номер недоступний"
 msgstr ""
 
-#: management/models.py:129
 msgid "Підключив XML"
 msgstr ""
 
-#: management/models.py:130
 msgid "Подумає"
 msgstr ""
 
-#: management/models.py:131
 msgid "Дорого"
 msgstr ""
 
-#: management/models.py:132
 msgid "Очікується оплата"
 msgstr ""
 
-#: management/models.py:133
 msgid "Очікується передоплата"
 msgstr ""
 
-#: management/models.py:134
 msgid "Замовив тестову партію"
 msgstr ""
 
-#: management/models.py:137
 msgid "Назва магазину / Instagram"
 msgstr ""
 
-#: management/models.py:138 management/models.py:221
 msgid "Номер телефону"
 msgstr ""
 
-#: management/models.py:139 management/models.py:222
 msgid "Нормалізований номер"
 msgstr ""
 
-#: management/models.py:140 management/models.py:223
 msgid "Останні 7 цифр"
 msgstr ""
 
-#: management/models.py:141 management/models.py:224
 msgid "Нормалізоване ім'я"
 msgstr ""
 
-#: management/models.py:142 management/models.py:225
 msgid "Ключ збігу імені"
 msgstr ""
 
-#: management/models.py:143 management/models.py:226
 msgid "Спільний номер"
 msgstr ""
 
-#: management/models.py:144 management/models.py:227
 msgid "ID групи номера"
 msgstr ""
 
-#: management/models.py:145 management/models.py:228
 msgid "Причина спільного номера"
 msgstr ""
 
-#: management/models.py:147 management/models.py:233
 msgid "Ключ збігу сайту"
 msgstr ""
 
-#: management/models.py:148 management/models.py:229
-#: twocomms_django_theme/templates/pages/cart.html:519
-#: twocomms_django_theme/templates/pages/order_success.html:1454
-#: twocomms_django_theme/templates/pages/order_success.html:1559
 msgid "ПІБ"
 msgstr "ФИО"
 
-#: management/models.py:149 management/models.py:242
 msgid "Статус"
 msgstr ""
 
-#: management/models.py:150
 msgid "Джерело контакту"
 msgstr ""
 
-#: management/models.py:151
 msgid "Підсумок розмови"
 msgstr ""
 
-#: management/models.py:152
 msgid "Кастомні бали"
 msgstr ""
 
-#: management/models.py:153
 msgid "Код причини підсумку"
 msgstr ""
 
-#: management/models.py:154
 msgid "Уточнення причини"
 msgstr ""
 
-#: management/models.py:155
 msgid "Контекст підсумку"
 msgstr ""
 
-#: management/models.py:156
 msgid "Деталі підсумку"
 msgstr ""
 
-#: management/models.py:157 management/models.py:1572
 msgid "Нотатка менеджера"
 msgstr ""
 
-#: management/models.py:164
 msgid "Коренева фаза"
 msgstr ""
 
-#: management/models.py:172
 msgid "Попередня фаза"
 msgstr ""
 
-#: management/models.py:174 management/models.py:2267
 msgid "Номер фази"
 msgstr ""
 
-#: management/models.py:175 management/models.py:1316
 msgid "Наступний дзвінок"
 msgstr ""
 
-#: management/models.py:188 management/models.py:1121 management/models.py:1301
-#: management/models.py:1374 management/models.py:1832
-#: management/models.py:2199 management/models.py:2248
-#: management/models.py:2292 management/models.py:2336
 msgid "Клієнт"
 msgstr ""
 
-#: management/models.py:189
 msgid "Клієнти"
 msgstr ""
 
-#: management/models.py:206 storefront/models.py:504
-#: twocomms_django_theme/templates/pages/my_reviews.html:121
-#: twocomms_django_theme/templates/pages/my_reviews.html:137
 msgid "На модерації"
 msgstr "На модерации"
 
-#: management/models.py:207
 msgid "У базі"
 msgstr ""
 
-#: management/models.py:208 management/models.py:1873
 msgid "Оброблено"
 msgstr ""
 
-#: management/models.py:209
 msgid "Не підходить"
 msgstr ""
 
-#: management/models.py:212
 msgid "Ручне додавання"
 msgstr ""
 
-#: management/models.py:213
 msgid "Парсинг"
 msgstr ""
 
-#: management/models.py:216
 msgid "Нішевий"
 msgstr ""
 
-#: management/models.py:217
 msgid "Під питанням"
 msgstr ""
 
-#: management/models.py:218
 msgid "Не нішевий"
 msgstr ""
 
-#: management/models.py:220 management/models.py:857
 msgid "Назва магазину"
 msgstr ""
 
-#: management/models.py:230
 msgid "Статус людини"
 msgstr ""
 
-#: management/models.py:231
 msgid "Де взяли контакт"
 msgstr ""
 
-#: management/models.py:234 management/models.py:444 management/models.py:485
-#: management/models.py:883 twocomms_django_theme/templates/pages/cart.html:556
-#: twocomms_django_theme/templates/pages/order_success.html:1466
-#: twocomms_django_theme/templates/pages/order_success.html:1567
 msgid "Місто"
 msgstr "Город"
 
-#: management/models.py:235
 msgid "Ключове слово парсера"
 msgstr ""
 
-#: management/models.py:236
 msgid "Пошуковий запит"
 msgstr ""
 
-#: management/models.py:237
 msgid "Google Place ID"
 msgstr ""
 
-#: management/models.py:238 management/models.py:450
 msgid "Google Maps URL"
 msgstr ""
 
-#: management/models.py:239 management/models.py:1315
 msgid "Деталі"
 msgstr ""
 
-#: management/models.py:240
 msgid "Коментарі"
 msgstr ""
 
-#: management/models.py:241
 msgid "Сирі дані"
 msgstr ""
 
-#: management/models.py:243
 msgid "Джерело ліда"
 msgstr ""
 
-#: management/models.py:244
 msgid "Нішевість"
 msgstr ""
 
-#: management/models.py:245
 msgid "Потрібно дозаповнити телефон"
 msgstr ""
 
-#: management/models.py:246 management/models.py:1781
 msgid "Причина відхилення"
 msgstr ""
 
-#: management/models.py:249
 msgid "Додав"
 msgstr ""
 
-#: management/models.py:257
 msgid "Модератор"
 msgstr ""
 
-#: management/models.py:265
 msgid "Обробив"
 msgstr ""
 
-#: management/models.py:273
 msgid "Створений клієнт"
 msgstr ""
 
-#: management/models.py:281 management/models.py:433 management/models.py:482
 msgid "Сесія парсингу"
 msgstr ""
 
-#: management/models.py:287
 msgid "Додано у базу"
 msgstr ""
 
-#: management/models.py:292 management/models.py:441 management/models.py:1833
 msgid "Лід"
 msgstr ""
 
-#: management/models.py:293
 msgid "Ліди"
 msgstr ""
 
-#: management/models.py:323
 msgid "Працює"
 msgstr ""
 
-#: management/models.py:324
 msgid "Пауза"
 msgstr ""
 
-#: management/models.py:325
 msgid "Зупинено"
 msgstr ""
 
-#: management/models.py:326
 msgid "Завершено"
 msgstr ""
 
-#: management/models.py:327 management/models.py:427 management/models.py:718
-#: management/models.py:840 management/models.py:1416 management/models.py:1874
-#: management/models.py:1882 storefront/models.py:1805
-#: storefront/models.py:1918
 msgid "Помилка"
 msgstr ""
 
-#: management/models.py:335 management/models.py:975 management/models.py:1004
-#: management/models.py:1051
 msgid "Створив"
 msgstr ""
 
-#: management/models.py:338
 msgid "Ключові слова (raw)"
 msgstr ""
 
-#: management/models.py:339
 msgid "Міста (raw)"
 msgstr ""
 
-#: management/models.py:340
 msgid "Ключові слова"
 msgstr ""
 
-#: management/models.py:341
 msgid "Міста"
 msgstr ""
 
-#: management/models.py:342
 msgid "Ліміт запитів"
 msgstr ""
 
-#: management/models.py:343
 msgid "Ціль по лідах"
 msgstr ""
 
-#: management/models.py:344
 msgid "Виконано запитів"
 msgstr ""
 
-#: management/models.py:345
 msgid "Запитів за хвилину"
 msgstr ""
 
-#: management/models.py:346
 msgid "Lookback по історії, днів"
 msgstr ""
 
-#: management/models.py:347
 msgid "Зберігати ліди без телефону"
 msgstr ""
 
-#: management/models.py:348 management/models.py:486
 msgid "Google Places type"
 msgstr ""
 
-#: management/models.py:349
 msgid "Google Places types"
 msgstr ""
 
-#: management/models.py:350
 msgid "Strict type filtering"
 msgstr ""
 
-#: management/models.py:351
 msgid "Успішних API запитів"
 msgstr ""
 
-#: management/models.py:352
 msgid "Помилок API"
 msgstr ""
 
-#: management/models.py:388
 msgid "Сесія парсингу лідів"
 msgstr ""
 
-#: management/models.py:389
 msgid "Сесії парсингу лідів"
 msgstr ""
 
-#: management/models.py:407
 msgid "Активна сесія"
 msgstr ""
 
-#: management/models.py:412
 msgid "Глобальний lock парсингу"
 msgstr ""
 
-#: management/models.py:413
 msgid "Глобальні lock-и парсингу"
 msgstr ""
 
-#: management/models.py:421
 msgid "Додано до модерації"
 msgstr ""
 
-#: management/models.py:422
 msgid "Додано до модерації без телефону"
 msgstr ""
 
-#: management/models.py:423
 msgid "Службове повідомлення"
 msgstr ""
 
-#: management/models.py:424
 msgid "Дубль"
 msgstr ""
 
-#: management/models.py:425
 msgid "Без телефону"
 msgstr ""
 
-#: management/models.py:426
 msgid "Раніше відхилено"
 msgstr ""
 
-#: management/models.py:443 management/models.py:484
 msgid "Ключове слово"
 msgstr ""
 
-#: management/models.py:445
 msgid "Запит"
 msgstr ""
 
-#: management/models.py:446
 msgid "Place ID"
 msgstr ""
 
-#: management/models.py:447
 msgid "Назва"
 msgstr ""
 
-#: management/models.py:452 management/models.py:1571 management/models.py:1854
-#: management/models.py:2446
 msgid "Причина"
 msgstr ""
 
-#: management/models.py:453 management/models.py:1312 management/models.py:1570
-#: management/models.py:2311
 msgid "Код причини"
 msgstr ""
 
-#: management/models.py:454 management/models.py:1518 management/models.py:1855
-#: management/models.py:1881 management/models.py:1938
-#: management/models.py:2037 management/models.py:2062
-#: management/models.py:2226 management/models.py:2270
-#: management/models.py:2314 management/models.py:2357
-#: management/models.py:2395 management/models.py:2447
 msgid "Payload"
 msgstr ""
 
-#: management/models.py:458
 msgid "Результат парсингу"
 msgstr ""
 
-#: management/models.py:459
 msgid "Результати парсингу"
 msgstr ""
 
-#: management/models.py:474 management/models.py:2094
 msgid "Активний"
 msgstr ""
 
-#: management/models.py:475
 msgid "Вичерпано"
 msgstr ""
 
-#: management/models.py:476
 msgid "Аномалія"
 msgstr ""
 
-#: management/models.py:487
 msgid "Текстовий запит"
 msgstr ""
 
-#: management/models.py:504
 msgid "Стан query парсингу"
 msgstr ""
 
-#: management/models.py:505
 msgid "Стани query парсингу"
 msgstr ""
 
-#: management/models.py:536
 msgid "Звіт"
 msgstr ""
 
-#: management/models.py:537
 msgid "Звіти"
 msgstr ""
 
-#: management/models.py:559 management/models.py:1081 management/models.py:1180
 msgid "Користувач"
 msgstr ""
 
-#: management/models.py:566
 msgid "Прочитане нагадування"
 msgstr ""
 
-#: management/models.py:567
 msgid "Прочитані нагадування"
 msgstr ""
 
-#: management/models.py:575 management/models.py:1627
 msgid "Накладна"
 msgstr ""
 
-#: management/models.py:577 management/models.py:1813
 msgid "Telegram chat id (адмін)"
 msgstr ""
 
-#: management/models.py:578 management/models.py:1814
 msgid "Message id запиту"
 msgstr ""
 
-#: management/models.py:579 management/models.py:1815
 msgid "Активний запит"
 msgstr ""
 
-#: management/models.py:583
 msgid "Запит причини відхилення накладної"
 msgstr ""
 
-#: management/models.py:584
 msgid "Запити причин відхилення накладних"
 msgstr ""
 
-#: management/models.py:590 management/models.py:721
 msgid "Light"
 msgstr ""
 
-#: management/models.py:591 management/models.py:722
 msgid "Visual"
 msgstr ""
 
-#: management/models.py:594 management/models.py:725
 msgid "Neutral"
 msgstr ""
 
-#: management/models.py:595 management/models.py:726
 msgid "Edgy"
 msgstr ""
 
-#: management/models.py:598 management/models.py:729
 msgid "Preset 1"
 msgstr ""
 
-#: management/models.py:599 management/models.py:730
 msgid "Preset 2"
 msgstr ""
 
-#: management/models.py:600 management/models.py:731
 msgid "Preset 3"
 msgstr ""
 
-#: management/models.py:601 management/models.py:732
 msgid "Custom"
 msgstr ""
 
-#: management/models.py:604 management/models.py:735
 msgid "Telegram менеджера"
 msgstr ""
 
-#: management/models.py:605 management/models.py:736
 msgid "WhatsApp менеджера"
 msgstr ""
 
-#: management/models.py:606 management/models.py:737
 msgid "Telegram загальний"
 msgstr ""
 
-#: management/models.py:607 management/models.py:738
 msgid "Email cooperation@"
 msgstr ""
 
-#: management/models.py:608 management/models.py:739
 msgid "Відповідь на лист (без лінка)"
 msgstr ""
 
-#: management/models.py:609 management/models.py:740
 msgid "Custom URL"
 msgstr ""
 
-#: management/models.py:616 management/models.py:747
 msgid "8–15"
 msgstr ""
 
-#: management/models.py:617 management/models.py:748
 msgid "16–31"
 msgstr ""
 
-#: management/models.py:618 management/models.py:749
 msgid "32–63"
 msgstr ""
 
-#: management/models.py:619 management/models.py:750
 msgid "64–99"
 msgstr ""
 
-#: management/models.py:620 management/models.py:751
 msgid "100+"
 msgstr ""
 
-#: management/models.py:630 management/models.py:833
 msgid "Телефон увімкнено"
 msgstr ""
 
-#: management/models.py:633
 msgid "Viber увімкнено"
 msgstr ""
 
-#: management/models.py:634
 msgid "Viber (номер)"
 msgstr ""
 
-#: management/models.py:636
 msgid "WhatsApp увімкнено"
 msgstr ""
 
-#: management/models.py:637
 msgid "WhatsApp (номер)"
 msgstr ""
 
-#: management/models.py:639
 msgid "Telegram увімкнено"
 msgstr ""
 
-#: management/models.py:640
 msgid "Telegram (@username або номер)"
 msgstr ""
 
-#: management/models.py:642
 msgid "Резервний Telegram (канал/чат)"
 msgstr ""
 
-#: management/models.py:648 management/models.py:804
 msgid "База входу (опт/дроп)"
 msgstr ""
 
-#: management/models.py:654 management/models.py:810
 msgid "Опт: обсяг (tier)"
 msgstr ""
 
-#: management/models.py:656 management/models.py:812
 msgid "Дроп ціна футболка (грн)"
 msgstr ""
 
-#: management/models.py:657 management/models.py:813
 msgid "Дроп ціна худі (грн)"
 msgstr ""
 
-#: management/models.py:658 management/models.py:814
 msgid "Дроп бонус (-10 грн)"
 msgstr ""
 
-#: management/models.py:660
 msgid "Додавати лінк на каталог"
 msgstr ""
 
-#: management/models.py:661
 msgid "Додавати лінк на опт"
 msgstr ""
 
-#: management/models.py:662
 msgid "Додавати лінк на дроп"
 msgstr ""
 
-#: management/models.py:663
 msgid "Додавати Instagram"
 msgstr ""
 
-#: management/models.py:664
 msgid "Додавати сайт"
 msgstr ""
 
-#: management/models.py:672 management/models.py:795
 msgid "CTA custom URL"
 msgstr ""
 
-#: management/models.py:673 management/models.py:796
 msgid "Текст CTA кнопки"
 msgstr ""
 
-#: management/models.py:676
 msgid "Галерея налаштована"
 msgstr ""
 
-#: management/models.py:677
 msgid "Галерея (Neutral)"
 msgstr ""
 
-#: management/models.py:678
 msgid "Галерея (Edgy)"
 msgstr ""
 
-#: management/models.py:684 management/models.py:770
 msgid "Режим шаблону"
 msgstr ""
 
-#: management/models.py:690 management/models.py:777
 msgid "Сегмент контенту"
 msgstr ""
 
-#: management/models.py:696 management/models.py:784
 msgid "Пресет теми"
 msgstr ""
 
-#: management/models.py:708 management/models.py:709
 msgid "Налаштування КП на e-mail"
 msgstr ""
 
-#: management/models.py:717 storefront/models.py:1803 storefront/models.py:1914
 msgid "Надіслано"
 msgstr ""
 
-#: management/models.py:762
 msgid "Preheader"
 msgstr ""
 
-#: management/models.py:763
 msgid "HTML листа"
 msgstr ""
 
-#: management/models.py:764
 msgid "Текст листа"
 msgstr ""
 
-#: management/models.py:815
 msgid "Каталог (лінк)"
 msgstr ""
 
-#: management/models.py:816
 msgid "Опт (лінк)"
 msgstr ""
 
-#: management/models.py:817
 msgid "Дроп (лінк)"
 msgstr ""
 
-#: management/models.py:818
 msgid "Instagram (лінк)"
 msgstr ""
 
-#: management/models.py:819
 msgid "Сайт (лінк)"
 msgstr ""
 
-#: management/models.py:821
 msgid "Галерея URL (ввід)"
 msgstr ""
 
-#: management/models.py:822
 msgid "Галерея (використано)"
 msgstr ""
 
-#: management/models.py:826
 msgid "Прибуток футболка (приклад, грн)"
 msgstr ""
 
-#: management/models.py:829
 msgid "Прибуток худі (приклад, грн)"
 msgstr ""
 
-#: management/models.py:844
 msgid "Відправлена КП (лог)"
 msgstr ""
 
-#: management/models.py:845
 msgid "Відправлені КП (лог)"
 msgstr ""
 
-#: management/models.py:854
 msgid "Опт / повний магазин"
 msgstr ""
 
-#: management/models.py:855
 msgid "Тестова партія"
 msgstr ""
 
-#: management/models.py:858
 msgid "Фото магазину"
 msgstr ""
 
-#: management/models.py:860
 msgid "ПІБ власника"
 msgstr ""
 
-#: management/models.py:864
 msgid "Додав (менеджер)"
 msgstr ""
 
-#: management/models.py:872
 msgid "Веде (менеджер)"
 msgstr ""
 
-#: management/models.py:879
 msgid "Тип магазину"
 msgstr ""
 
-#: management/models.py:881
 msgid "Місце реєстрації"
 msgstr ""
 
-#: management/models.py:882
 msgid "Фізичний магазин"
 msgstr ""
 
-#: management/models.py:884
 msgid "Адреса"
 msgstr ""
 
-#: management/models.py:888
 msgid "Instagram / Instashop"
 msgstr ""
 
-#: management/models.py:889
 msgid "Prom.ua"
 msgstr ""
 
-#: management/models.py:890
 msgid "Інше (де ще продають)"
 msgstr ""
 
-#: management/models.py:895
 msgid "Тестова партія: товар"
 msgstr ""
 
-#: management/models.py:901
 msgid "Тестова партія: комплектація"
 msgstr ""
 
-#: management/models.py:902
 msgid "Договір (тест)"
 msgstr ""
 
-#: management/models.py:903
 msgid "Дата підключення (старт 14 днів)"
 msgstr ""
 
-#: management/models.py:904
 msgid "Тривалість тесту (днів)"
 msgstr ""
 
-#: management/models.py:906
 msgid "Наступний контакт"
 msgstr ""
 
-#: management/models.py:907 management/models.py:1240 management/models.py:2001
 msgid "Нотатки"
 msgstr ""
 
-#: management/models.py:913 management/models.py:932 management/models.py:952
-#: management/models.py:997 management/models.py:1030 management/models.py:1834
 msgid "Магазин"
 msgstr ""
 
-#: management/models.py:914
 msgid "Магазини"
 msgstr ""
 
-#: management/models.py:929
 msgid "Адміністратор"
 msgstr ""
 
-#: management/models.py:930
 msgid "Інший"
 msgstr ""
 
-#: management/models.py:933
 msgid "Роль"
 msgstr ""
 
-#: management/models.py:934
 msgid "Хто це (якщо інший)"
 msgstr ""
 
-#: management/models.py:936
 msgid "Основний"
 msgstr ""
 
-#: management/models.py:937
 msgid "Порядок"
 msgstr ""
 
-#: management/models.py:940
 msgid "Контакт магазину"
 msgstr ""
 
-#: management/models.py:941
 msgid "Контакти магазину"
 msgstr ""
 
-#: management/models.py:953 management/models.py:1037
 msgid "ТТН"
 msgstr ""
 
-#: management/models.py:954
 msgid "Дата відправки"
 msgstr ""
 
-#: management/models.py:958
 msgid "Накладна (система)"
 msgstr ""
 
-#: management/models.py:965
 msgid "Накладна (Excel файл)"
 msgstr ""
 
-#: management/models.py:970
 msgid "Сводка накладной"
 msgstr ""
 
-#: management/models.py:971
 msgid "Сума накладної"
 msgstr ""
 
-#: management/models.py:985
 msgid "Відправка (ТТН)"
 msgstr ""
 
-#: management/models.py:986
 msgid "Відправки (ТТН)"
 msgstr ""
 
-#: management/models.py:998
 msgid "Коли звʼязувались"
 msgstr ""
 
-#: management/models.py:999
 msgid "З ким"
 msgstr ""
 
-#: management/models.py:1000
 msgid "Номер"
 msgstr ""
 
-#: management/models.py:1001
 msgid "Нотатка"
 msgstr ""
 
-#: management/models.py:1013
 msgid "Комунікація (магазин)"
 msgstr ""
 
-#: management/models.py:1014
 msgid "Комунікації (магазин)"
 msgstr ""
 
-#: management/models.py:1026
 msgid "Надходження"
 msgstr ""
 
-#: management/models.py:1027
 msgid "Продаж"
 msgstr ""
 
-#: management/models.py:1028
 msgid "Коригування"
 msgstr ""
 
-#: management/models.py:1039
 msgid "Тип"
 msgstr ""
 
-#: management/models.py:1041
 msgid "Товар"
 msgstr ""
 
-#: management/models.py:1042
 msgid "Категорія"
 msgstr ""
 
-#: management/models.py:1043 storefront/models.py:140
-#: twocomms_django_theme/templates/pages/product_detail.html:260
-#: twocomms_django_theme/templates/pages/product_detail.html:267
-#: twocomms_django_theme/templates/partials/mini_cart.html:62
 msgid "Розмір"
 msgstr "Размер"
 
-#: management/models.py:1044 storefront/models.py:142
-#: twocomms_django_theme/templates/pages/product_detail.html:289
-#: twocomms_django_theme/templates/pages/product_detail.html:291
-#: twocomms_django_theme/templates/pages/product_detail.html:302
-#: twocomms_django_theme/templates/pages/product_detail.html:305
-#: twocomms_django_theme/templates/partials/mini_cart.html:75
-#: twocomms_django_theme/templates/partials/product_card.html:82
 msgid "Колір"
 msgstr "Цвет"
 
-#: management/models.py:1046
 msgid "Зміна кількості (±)"
 msgstr ""
 
-#: management/models.py:1047
 msgid "Коментар"
 msgstr ""
 
-#: management/models.py:1060 management/models.py:1061
 msgid "Рух товару (магазин)"
 msgstr ""
 
-#: management/models.py:1083 management/models.py:1132
 msgid "Дата (локальна)"
 msgstr ""
 
-#: management/models.py:1084
 msgid "Активний час (сек)"
 msgstr ""
 
-#: management/models.py:1085
 msgid "Остання активність"
 msgstr ""
 
-#: management/models.py:1091 management/models.py:1092
 msgid "Активність менеджера (доба)"
 msgstr ""
 
-#: management/models.py:1105
 msgid "Передзвон"
 msgstr ""
 
-#: management/models.py:1106
 msgid "Обіцянка / очікування"
 msgstr ""
 
-#: management/models.py:1107
 msgid "Догрів / продовження контакту"
 msgstr ""
 
-#: management/models.py:1111 management/models.py:1255
-#: management/models.py:1552 management/models.py:2183
 msgid "Відкрито"
 msgstr ""
 
-#: management/models.py:1112
 msgid "Виконано"
 msgstr ""
 
-#: management/models.py:1113
 msgid "Перенесено"
 msgstr ""
 
-#: management/models.py:1114
 msgid "Скасовано"
 msgstr ""
 
-#: management/models.py:1115 management/models.py:1875
 msgid "Пропущено"
 msgstr ""
 
-#: management/models.py:1130
 msgid "Створено"
 msgstr ""
 
-#: management/models.py:1131
 msgid "Коли передзвонити"
 msgstr ""
 
-#: management/models.py:1136 management/models.py:2219
 msgid "Причина закриття"
 msgstr ""
 
-#: management/models.py:1137 management/models.py:2220
 msgid "Якість виконання"
 msgstr ""
 
-#: management/models.py:1138 management/models.py:1256
-#: management/models.py:2184 storefront/models.py:1917
 msgid "Закрито"
 msgstr ""
 
-#: management/models.py:1139
 msgid "Пільгове вікно до"
 msgstr ""
 
-#: management/models.py:1140
 msgid "Останнє нагадування"
 msgstr ""
 
-#: management/models.py:1141
 msgid "Рівень ескалації"
 msgstr ""
 
-#: management/models.py:1142
 msgid "Кількість переносів"
 msgstr ""
 
-#: management/models.py:1143 management/models.py:2225
 msgid "Знімок пріоритету"
 msgstr ""
 
-#: management/models.py:1150
 msgid "Початкова взаємодія"
 msgstr ""
 
-#: management/models.py:1158
 msgid "Закрито звітом"
 msgstr ""
 
-#: management/models.py:1160 management/models.py:1185
-#: management/models.py:1241 management/models.py:1425
-#: management/models.py:1472 management/models.py:2095
-#: management/models.py:2124 management/models.py:2162
 msgid "Мета"
 msgstr ""
 
-#: management/models.py:1163
 msgid "Передзвон (клієнт)"
 msgstr ""
 
-#: management/models.py:1164
 msgid "Передзвони (клієнти)"
 msgstr ""
 
-#: management/models.py:1182
 msgid "Ключ"
 msgstr ""
 
-#: management/models.py:1183
 msgid "Коли приховано"
 msgstr ""
 
-#: management/models.py:1184 management/models.py:2122
 msgid "Діє до"
 msgstr ""
 
-#: management/models.py:1188
 msgid "Прихована порада (статистика)"
 msgstr ""
 
-#: management/models.py:1189
 msgid "Приховані поради (статистика)"
 msgstr ""
 
-#: management/models.py:1205
 msgid "Ваги КПД"
 msgstr ""
 
-#: management/models.py:1206
 msgid "Пороги порад"
 msgstr ""
 
-#: management/models.py:1207 management/models.py:1509
 msgid "Версія формули"
 msgstr ""
 
-#: management/models.py:1208
 msgid "Версія legacy КПД"
 msgstr ""
 
-#: management/models.py:1209
 msgid "Версія shadow MOSAIC"
 msgstr ""
 
-#: management/models.py:1210 management/models.py:1510
 msgid "Версія дефолтів"
 msgstr ""
 
-#: management/models.py:1211 management/models.py:1511
 msgid "Версія snapshot-схеми"
 msgstr ""
 
-#: management/models.py:1212 management/models.py:1512
 msgid "Версія payload"
 msgstr ""
 
-#: management/models.py:1213
 msgid "Стан rollout"
 msgstr ""
 
-#: management/models.py:1214
 msgid "Feature flags"
 msgstr ""
 
-#: management/models.py:1215
 msgid "Дефолти формул"
 msgstr ""
 
-#: management/models.py:1216
 msgid "Конфіг MOSAIC"
 msgstr ""
 
-#: management/models.py:1217
 msgid "Конфіг payroll"
 msgstr ""
 
-#: management/models.py:1218
 msgid "Конфіг forecast"
 msgstr ""
 
-#: management/models.py:1219
 msgid "Конфіг телфонії"
 msgstr ""
 
-#: management/models.py:1220
 msgid "UI конфіг"
 msgstr ""
 
-#: management/models.py:1221
 msgid "Стан валідації"
 msgstr ""
 
-#: management/models.py:1225 management/models.py:1226
 msgid "Налаштування статистики"
 msgstr ""
 
-#: management/models.py:1234
 msgid "Активно"
 msgstr ""
 
-#: management/models.py:1235
 msgid "Тіньовий режим"
 msgstr ""
 
-#: management/models.py:1236
 msgid "Неактивно"
 msgstr ""
 
-#: management/models.py:1238
 msgid "Компонент"
 msgstr ""
 
-#: management/models.py:1245
 msgid "Готовність компонента"
 msgstr ""
 
-#: management/models.py:1246
 msgid "Готовність компонентів"
 msgstr ""
 
-#: management/models.py:1262
 msgid "Ініціатор"
 msgstr ""
 
-#: management/models.py:1264
 msgid "Зона"
 msgstr ""
 
-#: management/models.py:1265
 msgid "Вхідна назва"
 msgstr ""
 
-#: management/models.py:1266
 msgid "Вхідний номер"
 msgstr ""
 
-#: management/models.py:1267
 msgid "Вхідні дані"
 msgstr ""
 
-#: management/models.py:1268
 msgid "Кандидати"
 msgstr ""
 
-#: management/models.py:1278
 msgid "Закрив"
 msgstr ""
 
-#: management/models.py:1280
 msgid "Нотатка по рішенню"
 msgstr ""
 
-#: management/models.py:1283 management/models.py:1346
 msgid "Перевірка дубля"
 msgstr ""
 
-#: management/models.py:1284
 msgid "Перевірки дублів"
 msgstr ""
 
-#: management/models.py:1293
 msgid "Самозвіт"
 msgstr ""
 
-#: management/models.py:1294
 msgid "Підтверджено доказом"
 msgstr ""
 
-#: management/models.py:1295
 msgid "З override перевіркою"
 msgstr ""
 
-#: management/models.py:1311
 msgid "Підсумок"
 msgstr ""
 
-#: management/models.py:1313
 msgid "Коментар причини"
 msgstr ""
 
-#: management/models.py:1314
 msgid "Контекст"
 msgstr ""
 
-#: management/models.py:1318 management/models.py:2354
 msgid "Рівень верифікації"
 msgstr ""
 
-#: management/models.py:1330
 msgid "Пов'язаний магазин"
 msgstr ""
 
-#: management/models.py:1338 management/models.py:1380
 msgid "Лог КП"
 msgstr ""
 
-#: management/models.py:1348
 msgid "Причина override"
 msgstr ""
 
-#: management/models.py:1349
 msgid "Месенджер"
 msgstr ""
 
-#: management/models.py:1350
 msgid "Режим цілі месенджера"
 msgstr ""
 
-#: management/models.py:1351
 msgid "Ціль месенджера"
 msgstr ""
 
-#: management/models.py:1352
 msgid "XML платформа"
 msgstr ""
 
-#: management/models.py:1353
 msgid "XML ресурс"
 msgstr ""
 
-#: management/models.py:1357
 msgid "Спроба взаємодії з клієнтом"
 msgstr ""
 
-#: management/models.py:1358
 msgid "Спроби взаємодії з клієнтами"
 msgstr ""
 
-#: management/models.py:1388
 msgid "Прив'язав"
 msgstr ""
 
-#: management/models.py:1396
 msgid "Спроба взаємодії"
 msgstr ""
 
-#: management/models.py:1401
 msgid "Зв'язок клієнта з КП"
 msgstr ""
 
-#: management/models.py:1402
 msgid "Зв'язки клієнтів з КП"
 msgstr ""
 
-#: management/models.py:1414
 msgid "Виконується"
 msgstr ""
 
-#: management/models.py:1415
 msgid "Успішно"
 msgstr ""
 
-#: management/models.py:1417
 msgid "Частково"
 msgstr ""
 
-#: management/models.py:1419
 msgid "Команда"
 msgstr ""
 
-#: management/models.py:1420
 msgid "Ключ запуску"
 msgstr ""
 
-#: management/models.py:1422
 msgid "Оброблено рядків"
 msgstr ""
 
-#: management/models.py:1423
 msgid "Попереджень"
 msgstr ""
 
-#: management/models.py:1424
 msgid "Короткий текст помилки"
 msgstr ""
 
-#: management/models.py:1430
 msgid "Лог запуску команди"
 msgstr ""
 
-#: management/models.py:1431
 msgid "Логи запуску команд"
 msgstr ""
 
-#: management/models.py:1452
 msgid "Робочий день"
 msgstr ""
 
-#: management/models.py:1453 management/models.py:1904
 msgid "Вихідний"
 msgstr ""
 
-#: management/models.py:1454
 msgid "Свято"
 msgstr ""
 
-#: management/models.py:1455
 msgid "Відпустка"
 msgstr ""
 
-#: management/models.py:1456
 msgid "Лікарняний"
 msgstr ""
 
-#: management/models.py:1457
 msgid "Погоджена відсутність"
 msgstr ""
 
-#: management/models.py:1458
 msgid "Технічний збій"
 msgstr ""
 
-#: management/models.py:1459
 msgid "Форс-мажор"
 msgstr ""
 
-#: management/models.py:1467 management/models.py:2158
-#: management/models.py:2380
 msgid "День"
 msgstr ""
 
-#: management/models.py:1469 management/models.py:2160
-#: management/models.py:2384
 msgid "Фактор доступності"
 msgstr ""
 
-#: management/models.py:1470 management/models.py:2161
 msgid "Причина / джерело"
 msgstr ""
 
-#: management/models.py:1471
 msgid "Період повернення"
 msgstr ""
 
-#: management/models.py:1477
 msgid "Статус дня менеджера"
 msgstr ""
 
-#: management/models.py:1478
 msgid "Статуси днів менеджера"
 msgstr ""
 
-#: management/models.py:1508
 msgid "Локальна дата"
 msgstr ""
 
-#: management/models.py:1513
 msgid "KPD"
 msgstr ""
 
-#: management/models.py:1514
 msgid "MOSAIC"
 msgstr ""
 
-#: management/models.py:1515
 msgid "Рівень довіри"
 msgstr ""
 
-#: management/models.py:1516
 msgid "Фактор робочого дня"
 msgstr ""
 
-#: management/models.py:1517 management/models.py:2061
-#: management/models.py:2394
 msgid "Freshness, сек"
 msgstr ""
 
-#: management/models.py:1525
 msgid "Лог запуску"
 msgstr ""
 
-#: management/models.py:1531
 msgid "Нічний snapshot score"
 msgstr ""
 
-#: management/models.py:1532
 msgid "Нічні snapshot-и score"
 msgstr ""
 
-#: management/models.py:1547
 msgid "Score"
 msgstr ""
 
-#: management/models.py:1548
 msgid "Freeze"
 msgstr ""
 
-#: management/models.py:1549
 msgid "Ownership"
 msgstr ""
 
-#: management/models.py:1553 management/models.py:1793
 msgid "Підтверджено"
 msgstr ""
 
-#: management/models.py:1554 management/models.py:1668
-#: management/models.py:2418
-#: twocomms_django_theme/templates/pages/my_reviews.html:122
-#: twocomms_django_theme/templates/pages/my_reviews.html:137
 msgid "Відхилено"
 msgstr "Отклонено"
 
-#: management/models.py:1566
 msgid "Snapshot"
 msgstr ""
 
-#: management/models.py:1573
 msgid "Докази"
 msgstr ""
 
-#: management/models.py:1574 management/models.py:1646
 msgid "Payload доказів"
 msgstr ""
 
-#: management/models.py:1575
 msgid "Рішення"
 msgstr ""
 
-#: management/models.py:1582
 msgid "Розглянув"
 msgstr ""
 
-#: management/models.py:1590 management/models.py:1591
 msgid "Оскарження score"
 msgstr ""
 
-#: management/models.py:1609
 msgid "Новий"
 msgstr ""
 
-#: management/models.py:1610
 msgid "Повторний"
 msgstr ""
 
-#: management/models.py:1611
 msgid "Реактивація"
 msgstr ""
 
-#: management/models.py:1612
 msgid "Rescue SPIFF"
 msgstr ""
 
-#: management/models.py:1613
 msgid "Ручне"
 msgstr ""
 
-#: management/models.py:1635
 msgid "Source snapshot"
 msgstr ""
 
-#: management/models.py:1639
 msgid "База (грн)"
 msgstr ""
 
-#: management/models.py:1640
 msgid "Відсоток"
 msgstr ""
 
-#: management/models.py:1641
 msgid "Нараховано (грн)"
 msgstr ""
 
-#: management/models.py:1642
 msgid "Пояснення"
 msgstr ""
 
-#: management/models.py:1643
 msgid "Код причини заморозки"
 msgstr ""
 
-#: management/models.py:1644
 msgid "Причина заморозки"
 msgstr ""
 
-#: management/models.py:1645
 msgid "Working factor"
 msgstr ""
 
-#: management/models.py:1648
 msgid "Заморожено до"
 msgstr ""
 
-#: management/models.py:1652 management/models.py:1653
 msgid "Нарахування менеджера"
 msgstr ""
 
-#: management/models.py:1666
 msgid "В обробці"
 msgstr ""
 
-#: management/models.py:1667
 msgid "Схвалено"
 msgstr ""
 
-#: management/models.py:1669
 msgid "Виплачено"
 msgstr ""
 
-#: management/models.py:1672
 msgid "Запит менеджера"
 msgstr ""
 
-#: management/models.py:1673
 msgid "Ручний запис"
 msgstr ""
 
-#: management/models.py:1683
 msgid "Сума (грн)"
 msgstr ""
 
-#: management/models.py:1686
 msgid "Причина (якщо відхилено)"
 msgstr ""
 
-#: management/models.py:1694
 msgid "Обробив (адмін)"
 msgstr ""
 
-#: management/models.py:1707
 msgid "Запит на виплату"
 msgstr ""
 
-#: management/models.py:1708
 msgid "Запити на виплату"
 msgstr ""
 
-#: management/models.py:1731
 msgid "Причина відхилення виплати (запит)"
 msgstr ""
 
-#: management/models.py:1732
 msgid "Причини відхилення виплати (запити)"
 msgstr ""
 
-#: management/models.py:1748 management/models.py:1749
 msgid "Нумерація договорів (рік)"
 msgstr ""
 
-#: management/models.py:1771
 msgid "Номер договору"
 msgstr ""
 
-#: management/models.py:1772
 msgid "Дата договору"
 msgstr ""
 
-#: management/models.py:1774
 msgid "Шлях до файлу"
 msgstr ""
 
-#: management/models.py:1779
 msgid "Статус перевірки"
 msgstr ""
 
-#: management/models.py:1782
 msgid "Дата перевірки"
 msgstr ""
 
-#: management/models.py:1789
 msgid "Перевірив (адмін)"
 msgstr ""
 
-#: management/models.py:1791
 msgid "Telegram admin chat id"
 msgstr ""
 
-#: management/models.py:1792
 msgid "Telegram admin message id"
 msgstr ""
 
-#: management/models.py:1794
 msgid "Дані договору"
 msgstr ""
 
-#: management/models.py:1798
 msgid "Договір (менеджмент)"
 msgstr ""
 
-#: management/models.py:1799
 msgid "Договори (менеджмент)"
 msgstr ""
 
-#: management/models.py:1811
 msgid "Договір"
 msgstr ""
 
-#: management/models.py:1819
 msgid "Запит причини відхилення договору"
 msgstr ""
 
-#: management/models.py:1820
 msgid "Запити причин відхилення договорів"
 msgstr ""
 
-#: management/models.py:1836
 msgid "Тип сутності"
 msgstr ""
 
-#: management/models.py:1837
 msgid "ID сутності"
 msgstr ""
 
-#: management/models.py:1844
 msgid "Попередній owner"
 msgstr ""
 
-#: management/models.py:1852
 msgid "Новий owner"
 msgstr ""
 
-#: management/models.py:1859
 msgid "Лог зміни ownership"
 msgstr ""
 
-#: management/models.py:1860
 msgid "Логи зміни ownership"
 msgstr ""
 
-#: management/models.py:1872 management/models.py:2416
-#: storefront/models.py:1913
 msgid "Очікує"
 msgstr ""
 
-#: management/models.py:1877 management/models.py:1912
-#: management/models.py:1964
 msgid "Провайдер"
 msgstr ""
 
-#: management/models.py:1878
 msgid "Зовнішній event ID"
 msgstr ""
 
-#: management/models.py:1879 management/models.py:2215
 msgid "Тип події"
 msgstr ""
 
-#: management/models.py:1887
 msgid "Webhook IP-телефонії"
 msgstr ""
 
-#: management/models.py:1888
 msgid "Webhook-и IP-телефонії"
 msgstr ""
 
-#: management/models.py:1903
 msgid "Вхідний"
 msgstr ""
 
-#: management/models.py:1905
 msgid "Невідомо"
 msgstr ""
 
-#: management/models.py:1908
 msgid "Очікує QA"
 msgstr ""
 
-#: management/models.py:1909
 msgid "Перевірено"
 msgstr ""
 
-#: management/models.py:1910
 msgid "Без QA"
 msgstr ""
 
-#: management/models.py:1913
 msgid "Зовнішній call ID"
 msgstr ""
 
-#: management/models.py:1928
 msgid "Матчений клієнт"
 msgstr ""
 
-#: management/models.py:1934
 msgid "Тривалість, сек"
 msgstr ""
 
-#: management/models.py:1935
 msgid "Recording URL"
 msgstr ""
 
-#: management/models.py:1936
 msgid "Уривок транскрипту"
 msgstr ""
 
-#: management/models.py:1943
 msgid "Запис дзвінка"
 msgstr ""
 
-#: management/models.py:1944
 msgid "Записи дзвінків"
 msgstr ""
 
-#: management/models.py:1960
 msgid "Здорово"
 msgstr ""
 
-#: management/models.py:1961 management/models.py:2055
 msgid "Деградація"
 msgstr ""
 
-#: management/models.py:1962
 msgid "Недоступно"
 msgstr ""
 
-#: management/models.py:1966
 msgid "Усього подій"
 msgstr ""
 
-#: management/models.py:1967
 msgid "Не змечені дзвінки"
 msgstr ""
 
-#: management/models.py:1968
 msgid "Backlog"
 msgstr ""
 
-#: management/models.py:1969
 msgid "Meta"
 msgstr ""
 
-#: management/models.py:1973
 msgid "Health snapshot IP-телефонії"
 msgstr ""
 
-#: management/models.py:1974
 msgid "Health snapshot-и IP-телефонії"
 msgstr ""
 
-#: management/models.py:1986
 msgid "ОК"
 msgstr ""
 
-#: management/models.py:1987
 msgid "Потрібен коучинг"
 msgstr ""
 
-#: management/models.py:1988
 msgid "Провал"
 msgstr ""
 
-#: management/models.py:1990
 msgid "Дзвінок"
 msgstr ""
 
-#: management/models.py:1997
 msgid "Перевірив"
 msgstr ""
 
-#: management/models.py:1999
 msgid "QA score"
 msgstr ""
 
-#: management/models.py:2005
 msgid "QA review дзвінка"
 msgstr ""
 
-#: management/models.py:2006
 msgid "QA reviews дзвінків"
 msgstr ""
 
-#: management/models.py:2015
 msgid "Коучинг"
 msgstr ""
 
-#: management/models.py:2016
 msgid "Ескалація"
 msgstr ""
 
-#: management/models.py:2017
 msgid "Override freeze"
 msgstr ""
 
-#: management/models.py:2018
 msgid "Рішення по апеляції"
 msgstr ""
 
-#: management/models.py:2034
 msgid "Хто виконав"
 msgstr ""
 
-#: management/models.py:2041
 msgid "Лог дії супервайзера"
 msgstr ""
 
-#: management/models.py:2042
 msgid "Логи дій супервайзера"
 msgstr ""
 
-#: management/models.py:2054
 msgid "Актуально"
 msgstr ""
 
-#: management/models.py:2056
 msgid "Застаріло"
 msgstr ""
 
-#: management/models.py:2058
 msgid "Ключ джерела"
 msgstr ""
 
-#: management/models.py:2059
 msgid "Дата snapshot"
 msgstr ""
 
-#: management/models.py:2067
 msgid "DTF bridge snapshot"
 msgstr ""
 
-#: management/models.py:2068
 msgid "DTF bridge snapshots"
 msgstr ""
 
-#: management/models.py:2082
 msgid "Назва профілю"
 msgstr ""
 
-#: management/models.py:2091
 msgid "Таймзона"
 msgstr ""
 
-#: management/models.py:2092
 msgid "Тижневий шаблон"
 msgstr ""
 
-#: management/models.py:2093
 msgid "Шаблон доступності"
 msgstr ""
 
-#: management/models.py:2100
 msgid "Профіль робочого календаря"
 msgstr ""
 
-#: management/models.py:2101
 msgid "Профілі робочого календаря"
 msgstr ""
 
-#: management/models.py:2119 management/models.py:2148
-#: twocomms_django_theme/templates/pages/auth_profile_setup.html:5
-#: twocomms_django_theme/templates/partials/header.html:458
 msgid "Профіль"
 msgstr "Профиль"
 
-#: management/models.py:2121
 msgid "Діє з"
 msgstr ""
 
-#: management/models.py:2123
 msgid "Пріоритет"
 msgstr ""
 
-#: management/models.py:2129
 msgid "Призначення робочого календаря"
 msgstr ""
 
-#: management/models.py:2130
 msgid "Призначення робочих календарів"
 msgstr ""
 
-#: management/models.py:2167
 msgid "Виняток робочого календаря"
 msgstr ""
 
-#: management/models.py:2168
 msgid "Винятки робочого календаря"
 msgstr ""
 
-#: management/models.py:2185
 msgid "Нагадування відправлено"
 msgstr ""
 
-#: management/models.py:2186
 msgid "Скориговано"
 msgstr ""
 
-#: management/models.py:2188 management/models.py:2243
 msgid "Ключ події"
 msgstr ""
 
-#: management/models.py:2193
 msgid "Follow-up"
 msgstr ""
 
-#: management/models.py:2213
 msgid "Джерело взаємодії"
 msgstr ""
 
-#: management/models.py:2217
 msgid "Статус до"
 msgstr ""
 
-#: management/models.py:2218
 msgid "Статус після"
 msgstr ""
 
-#: management/models.py:2221
 msgid "Due at"
 msgstr ""
 
-#: management/models.py:2222
 msgid "Due date"
 msgstr ""
 
-#: management/models.py:2223 management/models.py:2269
-#: management/models.py:2313 management/models.py:2356
 msgid "Коли"
 msgstr ""
 
-#: management/models.py:2224
 msgid "Джерело"
 msgstr ""
 
-#: management/models.py:2230
 msgid "Подія follow-up"
 msgstr ""
 
-#: management/models.py:2231
 msgid "Події follow-up"
 msgstr ""
 
-#: management/models.py:2264 management/models.py:2308
-#: management/models.py:2352
 msgid "Взаємодія"
 msgstr ""
 
-#: management/models.py:2266
 msgid "Код стадії"
 msgstr ""
 
-#: management/models.py:2268 management/models.py:2310
 msgid "Результат"
 msgstr ""
 
-#: management/models.py:2274
 msgid "Подія стадії клієнта"
 msgstr ""
 
-#: management/models.py:2275
 msgid "Події стадій клієнта"
 msgstr ""
 
-#: management/models.py:2287
 msgid "Ключ сигналу"
 msgstr ""
 
-#: management/models.py:2312
 msgid "Якість сигналу"
 msgstr ""
 
-#: management/models.py:2318
 msgid "Сигнал причини"
 msgstr ""
 
-#: management/models.py:2319 management/models.py:2387
 msgid "Сигнали причин"
 msgstr ""
 
-#: management/models.py:2331
 msgid "Ключ верифікації"
 msgstr ""
 
-#: management/models.py:2355
 msgid "Тип доказу"
 msgstr ""
 
-#: management/models.py:2361
 msgid "Подія підтвердженої роботи"
 msgstr ""
 
-#: management/models.py:2362
 msgid "Події підтвердженої роботи"
 msgstr ""
 
-#: management/models.py:2381
 msgid "Ключ факту"
 msgstr ""
 
-#: management/models.py:2382
 msgid "Версія схеми"
 msgstr ""
 
-#: management/models.py:2385
 msgid "Всього взаємодій"
 msgstr ""
 
-#: management/models.py:2386
 msgid "Верифіковані взаємодії"
 msgstr ""
 
-#: management/models.py:2388
 msgid "Відкриті follow-up"
 msgstr ""
 
-#: management/models.py:2389
 msgid "Закриті follow-up"
 msgstr ""
 
-#: management/models.py:2390
 msgid "Виконані follow-up"
 msgstr ""
 
-#: management/models.py:2391
 msgid "Прострочені follow-up"
 msgstr ""
 
-#: management/models.py:2392
 msgid "Відкриті promise"
 msgstr ""
 
-#: management/models.py:2393
 msgid "Відкриті nurture"
 msgstr ""
 
-#: management/models.py:2399
 msgid "Денний факт менеджера"
 msgstr ""
 
-#: management/models.py:2400
 msgid "Денні факти менеджера"
 msgstr ""
 
-#: management/models.py:2417
-#: twocomms_django_theme/templates/pages/cart.html:643
 msgid "Застосовано"
 msgstr "Применён"
 
-#: management/models.py:2420
 msgid "Ключ поправки"
 msgstr ""
 
-#: management/models.py:2427
 msgid "Дата дії"
 msgstr ""
 
-#: management/models.py:2434
 msgid "Факт дня"
 msgstr ""
 
-#: management/models.py:2442
 msgid "Апеляція"
 msgstr ""
 
-#: management/models.py:2445
 msgid "Зміна score"
 msgstr ""
 
-#: management/models.py:2452
 msgid "Поправка до score"
 msgstr ""
 
-#: management/models.py:2453
 msgid "Поправки до score"
 msgstr ""
 
-#: storefront/models.py:141
 msgid "Матеріал"
 msgstr ""
 
-#: storefront/models.py:143
 msgid "Кастомна опція"
 msgstr ""
 
-#: storefront/models.py:262
 msgid "Нова"
 msgstr ""
 
-#: storefront/models.py:263
 msgid "В роботі"
 msgstr ""
 
-#: storefront/models.py:264
 msgid "Закрита"
 msgstr ""
 
-#: storefront/models.py:268
 msgid "Маю готовий файл"
 msgstr ""
 
-#: storefront/models.py:269
 msgid "Потрібно допрацювати файл"
 msgstr ""
 
-#: storefront/models.py:270
 msgid "Потрібен дизайн з нуля"
 msgstr ""
 
-#: storefront/models.py:274
 msgid "Футболка"
 msgstr ""
 
-#: storefront/models.py:275
 msgid "Худі"
 msgstr ""
 
-#: storefront/models.py:276
 msgid "Лонгслів"
 msgstr ""
 
-#: storefront/models.py:277
 msgid "Свій одяг"
 msgstr ""
 
-#: storefront/models.py:281
 msgid "Для себе"
 msgstr ""
 
-#: storefront/models.py:282
 msgid "Для бренду / команди / події"
 msgstr ""
 
-#: storefront/models.py:286
 msgid "Оптова партія"
 msgstr ""
 
-#: storefront/models.py:287
 msgid "Брендування / мерч"
 msgstr ""
 
-#: storefront/models.py:291
 msgid "Один розмір"
 msgstr ""
 
-#: storefront/models.py:292
 msgid "Мікс"
 msgstr ""
 
-#: storefront/models.py:293
 msgid "Уточню з менеджером"
 msgstr ""
 
-#: storefront/models.py:303 storefront/models.py:503 storefront/models.py:1801
 msgid "Чернетка"
 msgstr ""
 
-#: storefront/models.py:304
 msgid "На перевірці менеджера"
 msgstr ""
 
-#: storefront/models.py:305
 msgid "Погоджено — оплата доступна"
 msgstr ""
 
-#: storefront/models.py:306
 msgid "Відхилено менеджером"
 msgstr ""
 
-#: storefront/models.py:474
 msgid "Макет / дизайн"
 msgstr ""
 
-#: storefront/models.py:475
 msgid "Референс"
 msgstr ""
 
-#: storefront/models.py:505
 msgid "Заплановано"
 msgstr ""
 
-#: storefront/models.py:506
-#: twocomms_django_theme/templates/pages/my_reviews.html:120
-#: twocomms_django_theme/templates/pages/my_reviews.html:137
 msgid "Опубліковано"
 msgstr "Опубликовано"
 
-#: storefront/models.py:507
 msgid "Архів"
 msgstr ""
 
-#: storefront/models.py:1704
 msgid "Desktop"
 msgstr ""
 
-#: storefront/models.py:1705
 msgid "Mobile"
 msgstr ""
 
-#: storefront/models.py:1706
 msgid "Tablet"
 msgstr ""
 
-#: storefront/models.py:1707
 msgid "Unknown"
 msgstr ""
 
-#: storefront/models.py:1802
 msgid "Надсилання"
 msgstr ""
 
-#: storefront/models.py:1804
 msgid "Частково доставлено"
 msgstr ""
 
-#: storefront/models.py:1808
 msgid "Усі активні підписки"
 msgstr ""
 
-#: storefront/models.py:1915
 msgid "Показано"
 msgstr ""
 
-#: storefront/models.py:1916
 msgid "Клік"
 msgstr ""
 
-#: storefront/models.py:1919
 msgid "Недійсна підписка"
 msgstr ""
 
-#: storefront/services/color_seo_copy.py:244
+msgid "вибраний"
+msgstr "выбранный"
+#, python-format
+msgid ""
+"Колір «%(label)s» у каталозі TwoComms — це вибір для тих, хто хоче відійти "
+"від базової палітри, але не готовий поступатися якістю принту. Ми друкуємо "
+"на цьому відтінку DTF-технологією з підвищеним базовим шаром, тому "
+"ілюстрація не «провалюється» у тон тканини й залишається насиченою після "
+"десятків прань."
+msgstr "Цвет «%(label)s» в каталоге TwoComms — это выбор для тех, кто хочет отойти от базовой палитры, но не готов уступать в качестве печати. Мы печатаем на этом оттенке по технологии DTF с усиленным базовым слоем, поэтому иллюстрация не «проваливается» в тон ткани и остаётся насыщенной после десятков стирок."
+#, python-format
+msgid "Купити %(color)s худі"
+msgstr "Купить %(color)s худи"
+#, python-format
+msgid "%(color)s футболка з принтом"
+msgstr "%(color)s футболка с принтом"
+#, python-format
+msgid "%(color)s лонгслів"
+msgstr "%(color)s лонгслив"
+#, python-format
+msgid "%(color)s стрітвір TwoComms"
+msgstr "%(color)s стритвир TwoComms"
+#, python-format
+msgid "%(color)s одяг ЗСУ донат"
+msgstr "%(color)s одежда ВСУ донат"
+#, python-format
+msgid "%(color)s футболка з тризубом купити Україна"
+msgstr "%(color)s футболка с тризубом купить Украина"
+#, python-format
+msgid "%(color)s худі з патріотичним принтом"
+msgstr "%(color)s худи с патриотическим принтом"
 msgid "Каталог одягу TwoComms — український стрітвір з характером"
 msgstr "Каталог одежды TwoComms — украинский стритвир с характером"
-#: storefront/services/color_seo_copy.py:247
-msgid "TwoComms — це український бренд одягу, який створює стрітвір у трьох ключових категоріях: <a href=\"/catalog/hoodie/\">худі</a>, <a href=\"/catalog/tshirts/\">футболки</a> й <a href=\"/catalog/long-sleeve/\">лонгсліви</a>. Усі моделі ми розробляємо в Україні, друкуємо принти на власному обладнанні за технологією DTF і підбираємо тканини так, щоб одяг витримував щоденне носіння, прання й любий клімат — від літньої спеки до сирої осені."
-msgstr ""
 
-#: storefront/services/color_seo_copy.py:258
-msgid "Кожен товар у каталозі доступний у кількох кольорах: класичний <a href=\"/catalog/?color=black\">чорний</a> для тих, хто шукає універсальну базу під будь-який принт; <a href=\"/catalog/?color=coyote\">кайот</a> і <a href=\"/catalog/?color=olive\">олива</a> для прихильників мілітарної естетики; нейтральний <a href=\"/catalog/?color=grey\">сірий</a> і чистий <a href=\"/catalog/?color=white\">білий</a> для весняно-літніх образів. Усі кольори перевіряються на стійкість до УФ та перфектне зберігання форми навіть після 30+ циклів прання."
+msgid ""
+"TwoComms — це український бренд одягу, який створює стрітвір у трьох "
+"ключових категоріях: <a href=\"/catalog/hoodie/\">худі</a>, <a href=\"/"
+"catalog/tshirts/\">футболки</a> й <a href=\"/catalog/long-sleeve/"
+"\">лонгсліви</a>. Усі моделі ми розробляємо в Україні, друкуємо принти на "
+"власному обладнанні за технологією DTF і підбираємо тканини так, щоб одяг "
+"витримував щоденне носіння, прання й любий клімат — від літньої спеки до "
+"сирої осені."
+msgstr "TwoComms — это украинский бренд одежды, который создаёт стритвир в трёх ключевых категориях: <a href=\"/catalog/hoodie/\">худи</a>, <a href=\"/catalog/tshirts/\">футболки</a> и <a href=\"/catalog/long-sleeve/\">лонгсливы</a>. Все модели мы разрабатываем в Украине, печатаем принты на собственном оборудовании по технологии DTF и подбираем ткани так, чтобы одежда выдерживала ежедневную носку, стирку и любой климат — от летней жары до сырой осени."
+msgid ""
+"Кожен товар у каталозі доступний у кількох кольорах: класичний <a href=\"/"
+"catalog/?color=black\">чорний</a> для тих, хто шукає універсальну базу під "
+"будь-який принт; <a href=\"/catalog/?color=coyote\">кайот</a> і <a href=\"/"
+"catalog/?color=olive\">олива</a> для прихильників мілітарної естетики; "
+"нейтральний <a href=\"/catalog/?color=grey\">сірий</a> і чистий <a href=\"/"
+"catalog/?color=white\">білий</a> для весняно-літніх образів. Усі кольори "
+"перевіряються на стійкість до УФ та перфектне зберігання форми навіть після "
+"30+ циклів прання."
+msgstr "Каждый товар в каталоге доступен в нескольких цветах: классический <a href=\"/catalog/?color=black\">чёрный</a> для тех, кто ищет универсальную базу под любой принт; <a href=\"/catalog/?color=coyote\">койот</a> и <a href=\"/catalog/?color=olive\">олива</a> для поклонников милитари-эстетики; нейтральный <a href=\"/catalog/?color=grey\">серый</a> и чистый <a href=\"/catalog/?color=white\">белый</a> для весенне-летних образов. Все цвета проверяются на устойчивость к УФ и идеально держат форму даже после 30+ циклов стирки."
+msgid ""
+"Більшість принтів TwoComms — це авторські ілюстрації на тему патріотизму, "
+"ЗСУ, української історії та сучасної поп-культури. Ми передаємо частину "
+"прибутку на підтримку Збройних Сил України, тому кожна покупка — це "
+"одночасно вибір якісного одягу й вклад у перемогу. На сторінці кожного "
+"товару ви знайдете розмірну сітку, детальні фото матеріалу, відгуки клієнтів "
+"і прозору інформацію про склад тканини."
 msgstr ""
+"Большинство принтов TwoComms — это авторские иллюстрации на тему "
+"патриотизма, ВСУ, украинской истории и современной поп-культуры. Мы передаём "
+"часть прибыли на поддержку Вооружённых Сил Украины, поэтому каждая покупка — "
+"это одновременно выбор качественной одежды и вклад в победу. На странице "
+"каждого товара вы найдёте размерную сетку, детальные фото материала, отзывы "
+"клиентов и прозрачную информацию о составе ткани."
 
-#: storefront/services/color_seo_copy.py:271
-msgid "Більшість принтів TwoComms — це авторські ілюстрації на тему патріотизму, ЗСУ, української історії та сучасної поп-культури. Ми передаємо частину прибутку на підтримку Збройних Сил України, тому кожна покупка — це одночасно вибір якісного одягу й вклад у перемогу. На сторінці кожного товару ви знайдете розмірну сітку, детальні фото матеріалу, відгуки клієнтів і прозору інформацію про склад тканини."
-msgstr "Большинство принтов TwoComms — это авторские иллюстрации на тему патриотизма, ВСУ, украинской истории и современной поп-культуры. Мы передаём часть прибыли на поддержку Вооружённых Сил Украины, поэтому каждая покупка — это одновременно выбор качественной одежды и вклад в победу. На странице каждого товара вы найдёте размерную сетку, детальные фото материала, отзывы клиентов и прозрачную информацию о составе ткани."
-#: storefront/services/color_seo_copy.py:281
-msgid "Якщо ви не знайшли потрібну графіку — спробуйте розділ <a href=\"/custom-print/\">«Власний принт»</a>: ми надрукуємо будь-яку ілюстрацію на обраній моделі від однієї одиниці. Доставка по Україні — Новою Поштою на відділення або в поштомат за 1–2 дні. Оплата — карткою через Monobank/LiqPay або накладеним платежем. Усі товари мають 14 днів на повернення, якщо не підійшов розмір."
-msgstr ""
-
-#: storefront/support_content.py:106
-#: twocomms_django_theme/templates/pages/catalog.html:144
-#: twocomms_django_theme/templates/partials/footer.html:8
+msgid ""
+"Якщо ви не знайшли потрібну графіку — спробуйте розділ <a href=\"/custom-"
+"print/\">«Власний принт»</a>: ми надрукуємо будь-яку ілюстрацію на обраній "
+"моделі від однієї одиниці. Доставка по Україні — Новою Поштою на відділення "
+"або в поштомат за 1–2 дні. Оплата — карткою через Monobank/LiqPay або "
+"накладеним платежем. Усі товари мають 14 днів на повернення, якщо не "
+"підійшов розмір."
+msgstr "Если вы не нашли нужную графику — попробуйте раздел <a href=\"/custom-print/\">«Собственный принт»</a>: мы напечатаем любую иллюстрацию на выбранной модели от одной единицы. Доставка по Украине — Новой Почтой в отделение или почтомат за 1–2 дня. Оплата — картой через Monobank/LiqPay или наложенным платежом. У всех товаров есть 14 дней на возврат, если не подошёл размер."
+msgid "Купити худі"
+msgstr "Купить худи"
+msgid "Купити футболку з принтом"
+msgstr "Купить футболку с принтом"
+msgid "Купити лонгслів"
+msgstr "Купить лонгслив"
+msgid "Український стрітвір"
+msgstr "Украинский стритвир"
+msgid "Худі ЗСУ"
+msgstr "Худи ВСУ"
+msgid "Чорна футболка з тризубом"
+msgstr "Чёрная футболка с тризубом"
+msgid "Кайотовий лонгслів"
+msgstr "Койотовый лонгслив"
+msgid "Оливкове худі мілітарі"
+msgstr "Оливковое худи милитари"
+msgid "Подарунок захиснику український бренд"
+msgstr "Подарок защитнику украинский бренд"
+msgid "Худі з патріотичним принтом купити Київ"
+msgstr "Худи с патриотическим принтом купить Киев"
+msgid "Футболка ЗСУ донат на ЗСУ Україна"
+msgstr "Футболка ВСУ донат на ВСУ Украина"
+msgid "Власний принт на одязі від 1 одиниці"
+msgstr "Собственный принт на одежде от 1 единицы"
+#, python-format
+msgid ""
+"У каталозі TwoComms ви знайдете %(adj_n)s <a href=\"/catalog/hoodie/?"
+"color=%(slug)s\">худі</a>, <a href=\"/catalog/tshirts/?"
+"color=%(slug)s\">футболки</a> та <a href=\"/catalog/long-sleeve/?"
+"color=%(slug)s\">лонгсліви</a> з авторськими принтами. Усі моделі шиємо в "
+"Україні з натуральних тканин, друкуємо DTF-технологією й перевіряємо на "
+"стійкість кольору до прання. %(adj_n_cap)s одяг легко комбінувати з "
+"джинсами, карго-штанами та мілітарними аксесуарами."
+msgstr "В каталоге TwoComms вы найдёте <a href=\"/catalog/hoodie/?color=%(slug)s\">худи</a>, <a href=\"/catalog/tshirts/?color=%(slug)s\">футболки</a> и <a href=\"/catalog/long-sleeve/?color=%(slug)s\">лонгсливы</a> в оттенке %(adj_n)s, с авторскими принтами. Все модели шьём в Украине из натуральных тканей, печатаем по технологии DTF и проверяем на устойчивость цвета к стирке. Одежду такого оттенка легко комбинировать с джинсами, карго-штанами и милитари-аксессуарами."
+#, python-format
+msgid ""
+"Якщо вас цікавить конкретний принт у %(name)s — скористайтесь сторінкою <a "
+"href=\"/custom-print/\">«Власний принт»</a>: ми надрукуємо будь-яку "
+"ілюстрацію на обраній моделі від однієї одиниці. Доставка Новою Поштою по "
+"всій Україні — 1–2 дні; оплата карткою або накладеним платежем; повернення "
+"впродовж 14 днів, якщо не підійшов розмір."
+msgstr "Если вас интересует конкретный принт в %(name)s — воспользуйтесь страницей <a href=\"/custom-print/\">«Собственный принт»</a>: мы напечатаем любую иллюстрацию на выбранной модели от одной единицы. Доставка Новой Почтой по всей Украине — 1–2 дня; оплата картой или наложенным платежом; возврат в течение 14 дней, если не подошёл размер."
+#, python-format
+msgid ""
+"У категорії «%(cat)s» %(adj_n)s TwoComms — це поєднання якісної тканини, "
+"насиченого друку й продуманої посадки. Ми використовуємо щільні полотна, так "
+"що принт не просвічується, а сам одяг тримає форму після десятків прань. "
+"Звертайте увагу на розмірну сітку — %(cat)s у TwoComms ідуть у двох "
+"посадках: класична та оверсайз."
+msgstr "В категории «%(cat)s» %(adj_n)s TwoComms — это сочетание качественной ткани, насыщенной печати и продуманной посадки. Мы используем плотные полотна, поэтому принт не просвечивает, а сама одежда держит форму после десятков стирок. Обратите внимание на размерную сетку — %(cat)s в TwoComms идут в двух посадках: классическая и оверсайз."
+#, python-format
+msgid ""
+"Подивіться також %(adj_n)s <a href=\"/catalog/?color=%(slug)s\">в інших "
+"категоріях</a> або оберіть інший відтінок цієї ж категорії — <a href=\"/"
+"catalog/%(cat_slug)s/\">%(cat)s TwoComms</a>. Якщо потрібен конкретний принт "
+"— скористайтесь сторінкою <a href=\"/custom-print/\">«Власний принт»</a>: ми "
+"надрукуємо вашу ілюстрацію на обраній моделі від однієї одиниці."
+msgstr "Посмотрите также %(adj_n)s <a href=\"/catalog/?color=%(slug)s\">в других категориях</a> или выберите другой оттенок этой же категории — <a href=\"/catalog/%(cat_slug)s/\">%(cat)s TwoComms</a>. Если нужен конкретный принт — воспользуйтесь страницей <a href=\"/custom-print/\">«Собственный принт»</a>: мы напечатаем вашу иллюстрацию на выбранной модели от одной единицы."
+#, python-format
+msgid "%(adj_m_cap)s одяг TwoComms — стрітвір у відтінку «%(name)s»"
+msgstr "Одежда TwoComms в оттенке «%(name)s» — украинский стритвир"
+#, python-format
+msgid "%(adj_n_cap)s %(cat)s TwoComms — український стрітвір з принтом"
+msgstr "%(adj_n_cap)s %(cat)s TwoComms — украинский стритвир с принтом"
 msgid "Streetwear / Military-adjacent / Made in Ukraine"
 msgstr "Стритвир / Military-adjacent / сделано в Украине"
 
-#: storefront/support_content.py:115
-#: twocomms_django_theme/templates/partials/footer.html:118
 msgid "Покупка"
 msgstr "Покупка"
-#: storefront/support_content.py:118
-#: twocomms_django_theme/templates/partials/footer.html:121
-#: twocomms_django_theme/templates/partials/header.html:16
 msgid "Доставка і оплата"
 msgstr "Доставка и оплата"
 
-#: storefront/support_content.py:119
-#: twocomms_django_theme/templates/partials/footer.html:122
 msgid "Кастомний принт"
 msgstr "Кастомный принт"
 
-#: storefront/support_content.py:120
-#: twocomms_django_theme/templates/partials/footer.html:123
-#: twocomms_django_theme/templates/partials/header.html:17
 msgid "Співпраця"
 msgstr "Сотрудничество"
 
-#: storefront/support_content.py:124
-#: twocomms_django_theme/templates/partials/footer.html:127
 msgid "Підтримка"
 msgstr "Поддержка"
 
-#: storefront/support_content.py:126
-#: twocomms_django_theme/templates/partials/footer.html:129
 msgid "Допомога"
 msgstr "Помощь"
 
-#: storefront/support_content.py:128
-#: twocomms_django_theme/templates/partials/footer.html:131
 msgid "Повернення та обмін"
 msgstr "Возврат и обмен"
 
-#: storefront/support_content.py:129
-#: twocomms_django_theme/templates/partials/footer.html:132
 msgid "Догляд за одягом"
 msgstr "Уход за одеждой"
 
-#: storefront/support_content.py:133
-#: twocomms_django_theme/templates/partials/footer.html:136
 msgid "Бренд"
 msgstr "Бренд"
-#: storefront/support_content.py:135
-#: twocomms_django_theme/templates/partials/footer.html:138
-#: twocomms_django_theme/templates/partials/header.html:18
 msgid "Про бренд"
 msgstr "О бренде"
 
-#: storefront/support_content.py:136
-#: twocomms_django_theme/templates/partials/footer.html:139
 msgid "Новини"
 msgstr "Новости"
 
-#: storefront/support_content.py:137
-#: twocomms_django_theme/templates/partials/footer.html:140
-#: twocomms_django_theme/templates/partials/header.html:19
 msgid "Контакти"
 msgstr "Контакты"
 
-#: storefront/support_content.py:138
-#: twocomms_django_theme/templates/partials/footer.html:141
 msgid "Карта сайту"
 msgstr "Карта сайта"
 
-#: storefront/support_content.py:142
-#: twocomms_django_theme/templates/partials/footer.html:145
 msgid "Швидкий доступ"
 msgstr "Быстрый доступ"
 
-#: storefront/support_content.py:144
-#: twocomms_django_theme/templates/pages/product_detail.html:350
-#: twocomms_django_theme/templates/partials/footer.html:147
 msgid "Розмірна сітка"
 msgstr "Размерная сетка"
 
-#: storefront/support_content.py:145
-#: twocomms_django_theme/templates/partials/footer.html:148
 msgid "Відстеження замовлення"
 msgstr "Отслеживание заказа"
 
-#: storefront/support_content.py:146
-#: twocomms_django_theme/templates/partials/footer.html:149
 msgid "Політика конфіденційності"
 msgstr "Политика конфиденциальности"
 
-#: storefront/support_content.py:147
-#: twocomms_django_theme/templates/partials/footer.html:150
 msgid "Умови використання"
 msgstr "Условия использования"
 
-#: storefront/support_content.py:151
-#: twocomms_django_theme/templates/partials/footer.html:176
 msgid "All Rights Reserved © TWOCOMMS, 2026"
 msgstr "Все права защищены © TWOCOMMS, 2026"
 
-#: twocomms/settings.py:576
 msgid "Ukrainian"
 msgstr ""
 
-#: twocomms/settings.py:577
 msgid "Russian"
 msgstr ""
 
-#: twocomms/settings.py:578
 msgid "English"
 msgstr ""
 
-#: twocomms_django_theme/templates/base.html:1116
-#: twocomms_django_theme/templates/partials/header.html:318
 msgid "Вийти"
 msgstr "Выйти"
 
-#: twocomms_django_theme/templates/base.html:1128
-#: twocomms_django_theme/templates/partials/header.html:329
 msgid "Вхід в акаунт"
 msgstr "Вход в аккаунт"
 
-#: twocomms_django_theme/templates/base.html:1129
-#: twocomms_django_theme/templates/pages/cart.html:935
-#: twocomms_django_theme/templates/pages/index.html:582
-#: twocomms_django_theme/templates/pages/index.html:590
-#: twocomms_django_theme/templates/partials/header.html:85
-#: twocomms_django_theme/templates/partials/header.html:181
-#: twocomms_django_theme/templates/partials/header.html:330
 msgid "Закрити"
 msgstr "Закрыть"
 
-#: twocomms_django_theme/templates/base.html:1143
-#: twocomms_django_theme/templates/pages/auth_login.html:59
-#: twocomms_django_theme/templates/pages/auth_register.html:73
-#: twocomms_django_theme/templates/pages/order_success.html:1678
-#: twocomms_django_theme/templates/partials/header.html:342
-#: twocomms_django_theme/templates/partials/header.html:458
 msgid "Увійти"
 msgstr "Войти"
 
-#: twocomms_django_theme/templates/base.html:1151
-#: twocomms_django_theme/templates/pages/auth_login.html:63
-#: twocomms_django_theme/templates/pages/order_success.html:1687
-#: twocomms_django_theme/templates/partials/header.html:349
 msgid "Зареєструватись"
 msgstr "Зарегистрироваться"
 
-#: twocomms_django_theme/templates/base.html:1155
-#: twocomms_django_theme/templates/pages/auth_login.html:16
-#: twocomms_django_theme/templates/pages/auth_register.html:16
 msgid "Вхід через Google - TwoComms"
 msgstr "Вход через Google - TwoComms"
 
-#: twocomms_django_theme/templates/base.html:1157
-#: twocomms_django_theme/templates/pages/auth_login.html:17
-#: twocomms_django_theme/templates/partials/header.html:354
 msgid "Увійти через Google"
 msgstr "Войти через Google"
 
-#: twocomms_django_theme/templates/base.html:1168
-#: twocomms_django_theme/templates/partials/header.html:365
 msgid "Авторизуйтесь, щоб не вводити дані кожного разу та накопичувати бали"
 msgstr "Авторизуйтесь, чтобы не вводить данные каждый раз и копить баллы"
 
-#: twocomms_django_theme/templates/pages/auth_login.html:1
 msgid "Вхід"
 msgstr "Вход"
 
-#: twocomms_django_theme/templates/pages/auth_login.html:10
 msgid "Вхід до акаунту"
 msgstr "Вход в аккаунт"
 
-#: twocomms_django_theme/templates/pages/auth_login.html:11
 msgid "Швидкий доступ до замовлень, балів та обраного"
 msgstr "Быстрый доступ к заказам, баллам и избранному"
 
-#: twocomms_django_theme/templates/pages/auth_login.html:19
 msgid "Продовжуючи, ви погоджуєтесь з умовами використання"
 msgstr "Продолжая, вы соглашаетесь с условиями использования"
 
-#: twocomms_django_theme/templates/pages/auth_login.html:35
-#: twocomms_django_theme/templates/pages/auth_register.html:29
 msgid "Логін"
 msgstr "Логин"
 
-#: twocomms_django_theme/templates/pages/auth_login.html:37
 msgid "Використовуйте свій нікнейм. Реєстрація — за хвилину."
 msgstr "Используйте свой никнейм. Регистрация — за минуту."
 
-#: twocomms_django_theme/templates/pages/auth_login.html:45
-#: twocomms_django_theme/templates/pages/auth_register.html:39
 msgid "Пароль"
 msgstr "Пароль"
-#: twocomms_django_theme/templates/pages/auth_login.html:48
-#: twocomms_django_theme/templates/pages/auth_register.html:42
-#: twocomms_django_theme/templates/pages/auth_register.html:58
 msgid "Показати пароль"
 msgstr "Показать пароль"
 
-#: twocomms_django_theme/templates/pages/auth_login.html:63
 msgid "Немає облікового запису?"
 msgstr "Нет аккаунта?"
 
-#: twocomms_django_theme/templates/pages/auth_profile_setup.html:22
-#: twocomms_django_theme/templates/partials/header.html:229
 msgid "Налаштування профілю"
 msgstr "Настройки профиля"
 
-#: twocomms_django_theme/templates/pages/auth_profile_setup.html:23
 msgid "Заповніть інформацію для зручного замовлення"
 msgstr "Заполните информацию для удобного оформления заказа"
 
-#: twocomms_django_theme/templates/pages/auth_register.html:1
 msgid "Реєстрація"
 msgstr "Регистрация"
 
-#: twocomms_django_theme/templates/pages/auth_register.html:10
 msgid "Створення акаунту"
 msgstr "Создание аккаунта"
 
-#: twocomms_django_theme/templates/pages/auth_register.html:11
 msgid "Отримуйте бонуси, спостерігайте за замовленнями та обраним"
 msgstr "Получайте бонусы, следите за заказами и избранным"
 
-#: twocomms_django_theme/templates/pages/auth_register.html:17
 msgid "Продовжити через Google"
 msgstr "Продолжить через Google"
 
-#: twocomms_django_theme/templates/pages/auth_register.html:19
 msgid "Ми створимо акаунт на основі вашого Google профілю"
 msgstr "Мы создадим аккаунт на основе вашего Google-профиля"
 
-#: twocomms_django_theme/templates/pages/auth_register.html:31
 msgid "Мін. 3 символи, латиниця/цифри/._-"
 msgstr "Мин. 3 символа, латиница/цифры/._-"
 
-#: twocomms_django_theme/templates/pages/auth_register.html:44
 msgid "8+ символів, бажано букви велики/малі та цифри"
 msgstr "8+ символов, желательно большие/маленькие буквы и цифры"
 
-#: twocomms_django_theme/templates/pages/auth_register.html:46
 msgid "Складність паролю"
 msgstr "Сложность пароля"
 
-#: twocomms_django_theme/templates/pages/auth_register.html:55
 msgid "Повтор паролю"
 msgstr "Повтор пароля"
 
-#: twocomms_django_theme/templates/pages/auth_register.html:69
 msgid "Створити акаунт"
 msgstr "Создать аккаунт"
 
-#: twocomms_django_theme/templates/pages/auth_register.html:73
 msgid "Вже маєте акаунт?"
 msgstr "Уже есть аккаунт?"
 
-#: twocomms_django_theme/templates/pages/cart.html:37
-#: twocomms_django_theme/templates/partials/header.html:84
-#: twocomms_django_theme/templates/partials/header.html:411
 msgid "Кошик"
 msgstr "Корзина"
 
-#: twocomms_django_theme/templates/pages/cart.html:38
 msgid "Ваші вибрані товари"
 msgstr "Ваши выбранные товары"
 
-#: twocomms_django_theme/templates/pages/cart.html:45
 msgid "Очистити"
 msgstr "Очистить"
 
-#: twocomms_django_theme/templates/pages/cart.html:333
 #, python-format
 msgid "Заробите %(n)s балів"
 msgstr "Заработаете %(n)s баллов"
 
-#: twocomms_django_theme/templates/pages/cart.html:335
-#: twocomms_django_theme/templates/pages/cart.html:774
 msgid "Бали не нараховуються"
 msgstr "Баллы не начисляются"
 
-#: twocomms_django_theme/templates/pages/cart.html:363
 msgid "Кошик порожній"
 msgstr "Корзина пуста"
 
-#: twocomms_django_theme/templates/pages/cart.html:364
 msgid "Додайте товари до кошика, щоб зробити замовлення"
 msgstr "Добавьте товары в корзину, чтобы оформить заказ"
 
-#: twocomms_django_theme/templates/pages/cart.html:369
 msgid "Перейти до покупок"
 msgstr "Перейти к покупкам"
 
-#: twocomms_django_theme/templates/pages/cart.html:386
-#: twocomms_django_theme/templates/pages/cart.html:498
-#: twocomms_django_theme/templates/pages/catalog.html:180
-#: twocomms_django_theme/templates/pages/product_detail.html:351
 msgid "Доставка"
 msgstr "Доставка"
-#: twocomms_django_theme/templates/pages/cart.html:476
-#: twocomms_django_theme/templates/pages/cart.html:626
 msgid "Потрібна консультація?"
 msgstr "Нужна консультация?"
 
-#: twocomms_django_theme/templates/pages/cart.html:484
 msgid "Зберегти зміни"
 msgstr "Сохранить изменения"
 
-#: twocomms_django_theme/templates/pages/cart.html:503
 msgid "Авторизація"
 msgstr "Авторизация"
 
-#: twocomms_django_theme/templates/pages/cart.html:511
 msgid "Щоб не вводити дані кожного разу — авторизуйтесь і накопичуйте бали."
 msgstr "Чтобы не вводить данные каждый раз — авторизуйтесь и копите баллы."
 
-#: twocomms_django_theme/templates/pages/cart.html:521
 msgid "Прізвище Імʼя По батькові"
 msgstr "Фамилия Имя Отчество"
 
-#: twocomms_django_theme/templates/pages/cart.html:532
 msgid "0931234567"
 msgstr "0931234567"
-#: twocomms_django_theme/templates/pages/cart.html:537
-msgid "Можна вводити 093..., 809..., 380... або +380... — номер приведемо до потрібного формату."
-msgstr "Можно вводить 093..., 809..., 380... или +380... — номер приведём к нужному формату."
+msgid ""
+"Можна вводити 093..., 809..., 380... або +380... — номер приведемо до "
+"потрібного формату."
+msgstr ""
+"Можно вводить 093..., 809..., 380... или +380... — номер приведём к нужному "
+"формату."
 
-#: twocomms_django_theme/templates/pages/cart.html:545
 msgid "Email"
 msgstr "Email"
-#: twocomms_django_theme/templates/pages/cart.html:547
 msgid "your@email.com"
 msgstr "your@email.com"
-#: twocomms_django_theme/templates/pages/cart.html:558
 msgid "Почніть вводити місто Нової пошти"
 msgstr "Начните вводить город Новой почты"
 
-#: twocomms_django_theme/templates/pages/cart.html:568
-msgid "Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти."
-msgstr "Начните вводить название города и выберите подтверждённый вариант из списка Новой почты."
+msgid ""
+"Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової "
+"пошти."
+msgstr ""
+"Начните вводить название города и выберите подтверждённый вариант из списка "
+"Новой почты."
 
-#: twocomms_django_theme/templates/pages/cart.html:576
 msgid "Відділення / Поштомат НП"
 msgstr "Отделение / Почтомат НП"
 
-#: twocomms_django_theme/templates/pages/cart.html:578
 msgid "Оберіть відділення або поштомат"
 msgstr "Выберите отделение или почтомат"
 
-#: twocomms_django_theme/templates/pages/cart.html:587
 msgid "Усі пункти"
 msgstr "Все пункты"
 
-#: twocomms_django_theme/templates/pages/cart.html:588
 msgid "Відділення"
 msgstr "Отделение"
 
-#: twocomms_django_theme/templates/pages/cart.html:589
 msgid "Поштомат"
 msgstr "Почтомат"
 
-#: twocomms_django_theme/templates/pages/cart.html:592
-msgid "Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти."
-msgstr "После выбора города начните вводить номер или адрес и выберите отделение или почтомат из списка Новой почты."
+msgid ""
+"Після вибору міста почніть вводити номер або адресу і виберіть відділення чи "
+"поштомат зі списку Нової пошти."
+msgstr ""
+"После выбора города начните вводить номер или адрес и выберите отделение или "
+"почтомат из списка Новой почты."
 
-#: twocomms_django_theme/templates/pages/cart.html:600
-#: twocomms_django_theme/templates/pages/cart.html:602
-#: twocomms_django_theme/templates/pages/order_success.html:1478
-#: twocomms_django_theme/templates/pages/order_success.html:1575
 msgid "Тип оплати"
 msgstr "Тип оплаты"
 
-#: twocomms_django_theme/templates/pages/cart.html:603
 msgid "Оберіть тип оплати"
 msgstr "Выберите тип оплаты"
 
-#: twocomms_django_theme/templates/pages/cart.html:604
-#: twocomms_django_theme/templates/pages/order_success.html:1483
-#: twocomms_django_theme/templates/pages/order_success.html:1576
 msgid "Онлайн оплата (повна сума)"
 msgstr "Онлайн оплата (полная сумма)"
 
-#: twocomms_django_theme/templates/pages/cart.html:605
 msgid "Передплата 200 грн (решта при отриманні)"
 msgstr "Предоплата 200 грн (остаток при получении)"
 
-#: twocomms_django_theme/templates/pages/cart.html:605
 msgid "недоступно з кастомним принтом"
 msgstr "недоступно с кастомным принтом"
 
-#: twocomms_django_theme/templates/pages/cart.html:609
-msgid "У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — менеджер узгодить фінальну ціну."
-msgstr "В корзине есть кастомный принт, поэтому предоплата 200 грн временно недоступна — менеджер согласует финальную цену."
+msgid ""
+"У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — "
+"менеджер узгодить фінальну ціну."
+msgstr ""
+"В корзине есть кастомный принт, поэтому предоплата 200 грн временно "
+"недоступна — менеджер согласует финальную цену."
 
-#: twocomms_django_theme/templates/pages/cart.html:641
 msgid "Промокод"
 msgstr "Промокод"
-#: twocomms_django_theme/templates/pages/cart.html:651
 msgid "Знижка:"
 msgstr "Скидка:"
 
-#: twocomms_django_theme/templates/pages/cart.html:662
 msgid "Введіть код промокоду"
 msgstr "Введите код промокода"
 
-#: twocomms_django_theme/templates/pages/cart.html:684
 msgid "Оформлення замовлення"
 msgstr "Оформление заказа"
 
-#: twocomms_django_theme/templates/pages/cart.html:685
 msgid "Підсумок вашого замовлення"
 msgstr "Итог вашего заказа"
 
-#: twocomms_django_theme/templates/pages/cart.html:691
 msgid "Товари"
 msgstr "Товары"
 
-#: twocomms_django_theme/templates/pages/cart.html:702
 msgid "Орієнтовно за кастомний друк"
 msgstr "Ориентировочно за кастомный принт"
 
-#: twocomms_django_theme/templates/pages/cart.html:702
-#: twocomms_django_theme/templates/partials/mini_cart.html:17
 msgid "Кастомний друк"
 msgstr "Кастомный принт"
 
-#: twocomms_django_theme/templates/pages/cart.html:710
 msgid "Знижка магазину"
 msgstr "Скидка магазина"
 
-#: twocomms_django_theme/templates/pages/cart.html:720
 msgid "Знижка промокоду"
 msgstr "Скидка по промокоду"
 
-#: twocomms_django_theme/templates/pages/cart.html:727
 msgid "До сплати:"
 msgstr "К оплате:"
 
-#: twocomms_django_theme/templates/pages/cart.html:734
 msgid "Залишок при отриманні:"
 msgstr "Остаток при получении:"
 
-#: twocomms_django_theme/templates/pages/cart.html:738
 msgid "Це додаткова передоплата для вас — решту сплатите при отриманні."
 msgstr "Это дополнительная предоплата — остаток оплатите при получении."
 
-#: twocomms_django_theme/templates/pages/cart.html:744
 msgid "Знижка від TwoComms"
 msgstr "Скидка от TwoComms"
 
-#: twocomms_django_theme/templates/pages/cart.html:754
 msgid "Разом ви економите"
 msgstr "Всего вы экономите"
 
-#: twocomms_django_theme/templates/pages/cart.html:767
 msgid "Бали за замовлення"
 msgstr "Баллы за заказ"
 
-#: twocomms_django_theme/templates/pages/cart.html:770
-#: twocomms_django_theme/templates/pages/product_detail.html:253
-#: twocomms_django_theme/templates/partials/product_card.html:106
-#: twocomms_django_theme/templates/partials/product_card.html:191
 #, python-format
 msgid "%(counter)s бал"
 msgid_plural "%(counter)s балів"
@@ -3034,197 +2315,186 @@ msgstr[1] ""
 msgstr[2] ""
 msgstr[3] ""
 
-#: twocomms_django_theme/templates/pages/cart.html:771
 msgid "буде нараховано після отримання товару"
 msgstr "будут начислены после получения товара"
 
-#: twocomms_django_theme/templates/pages/cart.html:782
 msgid "Для отримання балів потрібно авторизуватися"
 msgstr "Чтобы получать баллы, необходимо авторизоваться"
 
-#: twocomms_django_theme/templates/pages/cart.html:788
 msgid "Авторизуватися"
 msgstr "Авторизоваться"
 
-#: twocomms_django_theme/templates/pages/cart.html:798
 msgid "Доставка оплачується згідно тарифів перевізника."
 msgstr "Доставка оплачивается согласно тарифам перевозчика."
 
-#: twocomms_django_theme/templates/pages/cart.html:810
-msgid "Менеджер погодив усі кастомні позиції. Тепер можна оплатити все замовлення разом."
-msgstr "Менеджер согласовал все кастомные позиции. Теперь можно оплатить весь заказ сразу."
+msgid ""
+"Менеджер погодив усі кастомні позиції. Тепер можна оплатити все замовлення "
+"разом."
+msgstr ""
+"Менеджер согласовал все кастомные позиции. Теперь можно оплатить весь заказ "
+"сразу."
 
-#: twocomms_django_theme/templates/pages/cart.html:814
-msgid "Кастомний одяг уже переданий менеджеру на перевірку. Поки триває модерація, позиція відображається в кошику окремо і <strong>не входить до суми оплати зараз</strong>. Щойно менеджер погодить деталі та фінальну ціну — кастом автоматично приєднається до рахунку."
-msgstr "Кастомная одежда уже передана менеджеру на проверку. Пока идёт модерация, позиция отображается в корзине отдельно и <strong>не входит в сумму оплаты сейчас</strong>. Как только менеджер согласует детали и финальную цену — кастом автоматически добавится к счёту."
+msgid ""
+"Кастомний одяг уже переданий менеджеру на перевірку. Поки триває модерація, "
+"позиція відображається в кошику окремо і <strong>не входить до суми оплати "
+"зараз</strong>. Щойно менеджер погодить деталі та фінальну ціну — кастом "
+"автоматично приєднається до рахунку."
+msgstr ""
+"Кастомная одежда уже передана менеджеру на проверку. Пока идёт модерация, "
+"позиция отображается в корзине отдельно и <strong>не входит в сумму оплаты "
+"сейчас</strong>. Как только менеджер согласует детали и финальную цену — "
+"кастом автоматически добавится к счёту."
 
-#: twocomms_django_theme/templates/pages/cart.html:823
 msgid "Написати менеджеру в Telegram"
 msgstr "Написать менеджеру в Telegram"
 
-#: twocomms_django_theme/templates/pages/cart.html:827
-msgid "Менеджер відхилив попередню заявку. Перегляньте деталі вище та надішліть її повторно, або ж оформіть замовлення <strong>без кастомних позицій</strong>."
-msgstr "Менеджер отклонил предыдущую заявку. Просмотрите детали выше и отправьте её повторно, либо оформите заказ <strong>без кастомных позиций</strong>."
+msgid ""
+"Менеджер відхилив попередню заявку. Перегляньте деталі вище та надішліть її "
+"повторно, або ж оформіть замовлення <strong>без кастомних позицій</strong>."
+msgstr ""
+"Менеджер отклонил предыдущую заявку. Просмотрите детали выше и отправьте её "
+"повторно, либо оформите заказ <strong>без кастомных позиций</strong>."
 
-#: twocomms_django_theme/templates/pages/cart.html:831
-msgid "Менеджер уже працює з вашим кастомним запитом. Коли модерацію буде завершено, позиція автоматично стане доступною для оплати в цьому ж кошику."
-msgstr "Менеджер уже работает с вашим кастомным запросом. Когда модерация завершится, позиция автоматически станет доступной для оплаты в этой же корзине."
+msgid ""
+"Менеджер уже працює з вашим кастомним запитом. Коли модерацію буде "
+"завершено, позиція автоматично стане доступною для оплати в цьому ж кошику."
+msgstr ""
+"Менеджер уже работает с вашим кастомным запросом. Когда модерация "
+"завершится, позиция автоматически станет доступной для оплаты в этой же "
+"корзине."
 
-#: twocomms_django_theme/templates/pages/cart.html:844
 msgid "Онлайн оплата карткою"
 msgstr "Онлайн оплата картой"
 
-#: twocomms_django_theme/templates/pages/cart.html:844
-#: twocomms_django_theme/templates/pages/cart.html:873
-#: twocomms_django_theme/templates/pages/cart.html:891
 msgid "(без урахування кастомного одягу)"
 msgstr "(без учёта кастомной одежды)"
 
-#: twocomms_django_theme/templates/pages/cart.html:848
-#: twocomms_django_theme/templates/pages/cart.html:852
 msgid "Pay"
 msgstr "Pay"
-#: twocomms_django_theme/templates/pages/cart.html:873
 msgid "Оформити замовлення"
 msgstr "Оформить заказ"
 
-#: twocomms_django_theme/templates/pages/cart.html:891
 msgid "Замовити як гість"
 msgstr "Заказать как гость"
 
-#: twocomms_django_theme/templates/pages/cart.html:901
-msgid "Оплата стане доступною після погодження менеджером. Зараз у кошику немає позицій, які можна оплатити окремо."
-msgstr "Оплата станет доступной после согласования менеджером. Сейчас в корзине нет позиций, которые можно оплатить отдельно."
+msgid ""
+"Оплата стане доступною після погодження менеджером. Зараз у кошику немає "
+"позицій, які можна оплатити окремо."
+msgstr ""
+"Оплата станет доступной после согласования менеджером. Сейчас в корзине нет "
+"позиций, которые можно оплатить отдельно."
 
-#: twocomms_django_theme/templates/pages/cart.html:903
-msgid "Оплата покриє лише звичайні товари. Кастомна позиція приєднається до замовлення автоматично після погодження менеджером — на ваш номер надійде додаткове повідомлення з фінальною ціною."
-msgstr "Оплата покроет только обычные товары. Кастомная позиция добавится к заказу автоматически после согласования менеджером — на ваш номер придёт дополнительное сообщение с финальной ценой."
+msgid ""
+"Оплата покриє лише звичайні товари. Кастомна позиція приєднається до "
+"замовлення автоматично після погодження менеджером — на ваш номер надійде "
+"додаткове повідомлення з фінальною ціною."
+msgstr ""
+"Оплата покроет только обычные товары. Кастомная позиция добавится к заказу "
+"автоматически после согласования менеджером — на ваш номер придёт "
+"дополнительное сообщение с финальной ценой."
 
-#: twocomms_django_theme/templates/pages/cart.html:905
-msgid "Після оформлення замовлення менеджер звʼяжеться з вами за вказаним номером телефону, щоб підтвердити деталі та узгодити доставку."
-msgstr "После оформления заказа менеджер свяжется с вами по указанному номеру телефона, чтобы подтвердить детали и согласовать доставку."
+msgid ""
+"Після оформлення замовлення менеджер звʼяжеться з вами за вказаним номером "
+"телефону, щоб підтвердити деталі та узгодити доставку."
+msgstr ""
+"После оформления заказа менеджер свяжется с вами по указанному номеру "
+"телефона, чтобы подтвердить детали и согласовать доставку."
 
-#: twocomms_django_theme/templates/pages/cart.html:934
 msgid "Безкоштовна консультація"
 msgstr "Бесплатная консультация"
 
-#: twocomms_django_theme/templates/pages/cart.html:938
-msgid "Залиште свої контактні дані, і наш менеджер звʼяжеться з вами найближчим часом для консультації"
-msgstr "Оставьте свои контактные данные, и наш менеджер свяжется с вами в ближайшее время для консультации"
+msgid ""
+"Залиште свої контактні дані, і наш менеджер звʼяжеться з вами найближчим "
+"часом для консультації"
+msgstr ""
+"Оставьте свои контактные данные, и наш менеджер свяжется с вами в ближайшее "
+"время для консультации"
 
-#: twocomms_django_theme/templates/pages/catalog.html:131
-#: twocomms_django_theme/templates/partials/header.html:386
 msgid "Головна"
 msgstr "Главная"
 
-#: twocomms_django_theme/templates/pages/catalog.html:150
 msgid "Пошук у каталозі"
 msgstr "Поиск в каталоге"
 
-#: twocomms_django_theme/templates/pages/catalog.html:152
 msgid "одягу"
 msgstr "одежды"
 
-#: twocomms_django_theme/templates/pages/catalog.html:158
 #, python-format
 msgid "Результати за запитом «%(q)s» у каталозі TwoComms."
 msgstr "Результаты по запросу «%(q)s» в каталоге TwoComms."
 
-#: twocomms_django_theme/templates/pages/catalog.html:160
-msgid "Обирайте футболки, худі та лонгсліви з авторськими принтами, українським виробництвом та швидкою доставкою по всій країні."
-msgstr "Выбирайте футболки, худи и лонгсливы с авторскими принтами, украинским производством и быстрой доставкой по всей стране."
+msgid ""
+"Обирайте футболки, худі та лонгсліви з авторськими принтами, українським "
+"виробництвом та швидкою доставкою по всій країні."
+msgstr ""
+"Выбирайте футболки, худи и лонгсливы с авторскими принтами, украинским "
+"производством и быстрой доставкой по всей стране."
 
-#: twocomms_django_theme/templates/pages/catalog.html:163
 msgid "Переваги TwoComms"
 msgstr "Преимущества TwoComms"
 
-#: twocomms_django_theme/templates/pages/catalog.html:168
 msgid "Дизайни"
 msgstr "Дизайны"
 
-#: twocomms_django_theme/templates/pages/catalog.html:168
 msgid "власного виробництва"
 msgstr "собственного производства"
 
-#: twocomms_django_theme/templates/pages/catalog.html:174
 msgid "Якість"
 msgstr "Качество"
 
-#: twocomms_django_theme/templates/pages/catalog.html:174
 msgid "преміум матеріалів"
 msgstr "премиум материалов"
 
-#: twocomms_django_theme/templates/pages/catalog.html:180
 msgid "по всій Україні"
 msgstr "по всей Украине"
 
-#: twocomms_django_theme/templates/pages/catalog.html:185
 msgid "Створити свій дизайн"
 msgstr "Создать свой дизайн"
 
-#: twocomms_django_theme/templates/pages/catalog.html:187
 msgid "Створи свій"
 msgstr "Создай свой"
 
-#: twocomms_django_theme/templates/pages/catalog.html:187
 msgid "дизайн"
 msgstr "дизайн"
-#: twocomms_django_theme/templates/pages/catalog.html:188
 msgid "Свій принт. Своя ідея."
 msgstr "Свой принт. Своя идея."
 
-#: twocomms_django_theme/templates/pages/catalog.html:188
 msgid "Своє розташування."
 msgstr "Своё расположение."
 
-#: twocomms_django_theme/templates/pages/catalog.html:190
 msgid "Етапи створення принта"
 msgstr "Этапы создания принта"
 
-#: twocomms_django_theme/templates/pages/catalog.html:193
 msgid "Свій принт"
 msgstr "Свой принт"
 
-#: twocomms_django_theme/templates/pages/catalog.html:197
 msgid "Своя ідея"
 msgstr "Своя идея"
 
-#: twocomms_django_theme/templates/pages/catalog.html:201
 msgid "Своє розташування"
 msgstr "Своё расположение"
 
-#: twocomms_django_theme/templates/pages/catalog.html:205
 msgid "Приклад чорного худі TwoComms з власним принтом"
 msgstr "Пример чёрного худи TwoComms с собственным принтом"
 
-#: twocomms_django_theme/templates/pages/catalog.html:208
 msgid "Зона друку"
 msgstr "Зона печати"
 
-#: twocomms_django_theme/templates/pages/catalog.html:216
-#: twocomms_django_theme/templates/pages/product_detail.html:177
-#: twocomms_django_theme/templates/partials/header.html:30
 msgid "Створити свій принт"
 msgstr "Создать свой принт"
 
-#: twocomms_django_theme/templates/pages/catalog.html:219
 msgid "Від 1 одиниці • Швидке виготовлення"
 msgstr "От 1 единицы • Быстрое изготовление"
 
-#: twocomms_django_theme/templates/pages/catalog.html:224
 msgid "Фільтр категорій"
 msgstr "Фильтр категорий"
 
-#: twocomms_django_theme/templates/pages/catalog.html:226
-#: twocomms_django_theme/templates/pages/catalog.html:275
 msgid "Усі товари"
 msgstr "Все товары"
 
-#: twocomms_django_theme/templates/pages/catalog.html:244
 msgid "Категорії одягу TwoComms"
 msgstr "Категории одежды TwoComms"
 
-#: twocomms_django_theme/templates/pages/catalog.html:254
 #, python-format
 msgid "%(counter)s товар"
 msgid_plural "%(counter)s товарів"
@@ -3233,24 +2503,18 @@ msgstr[1] ""
 msgstr[2] ""
 msgstr[3] ""
 
-#: twocomms_django_theme/templates/pages/catalog.html:273
 msgid "Усі категорії"
 msgstr "Все категории"
 
-#: twocomms_django_theme/templates/pages/catalog.html:294
 msgid "Опис категорії"
 msgstr "Описание категории"
 
-#: twocomms_django_theme/templates/pages/catalog.html:304
-#: twocomms_django_theme/templates/pages/catalog.html:308
 msgid "Результати пошуку"
 msgstr "Результаты поиска"
 
-#: twocomms_django_theme/templates/pages/catalog.html:304
 msgid "Товари категорії"
 msgstr "Товары категории"
 
-#: twocomms_django_theme/templates/pages/catalog.html:309
 #, python-format
 msgid "%(counter)s товар знайдено"
 msgid_plural "%(counter)s товарів знайдено"
@@ -3259,693 +2523,622 @@ msgstr[1] ""
 msgstr[2] ""
 msgstr[3] ""
 
-#: twocomms_django_theme/templates/pages/catalog.html:326
-#: twocomms_django_theme/templates/pages/favorites.html:25
 msgid "Кольори:"
 msgstr "Цвета:"
 
-#: twocomms_django_theme/templates/pages/catalog.html:338
-#: twocomms_django_theme/templates/pages/index.html:482
 msgid "Немає товарів."
 msgstr "Нет товаров."
 
-#: twocomms_django_theme/templates/pages/catalog.html:348
 msgid "Попередня"
 msgstr "Предыдущая"
 
-#: twocomms_django_theme/templates/pages/catalog.html:368
 msgid "Наступна"
 msgstr "Следующая"
 
-#: twocomms_django_theme/templates/pages/catalog.html:394
 msgid "Додаткові розділи каталогу"
 msgstr "Дополнительные разделы каталога"
 
-#: twocomms_django_theme/templates/pages/catalog.html:426
-msgid "Купити одяг з принтом онлайн в Україні — доставка Києвом, Харковом, Львовом"
-msgstr "Купить одежду с принтом онлайн в Украине — доставка по Киеву, Харькову, Львову"
-#: twocomms_django_theme/templates/pages/catalog.html:428
-msgid "<strong>Купити одяг з принтом</strong> у TwoComms можна онлайн із доставкою у будь-яке місто України: <strong>Київ, Харків, Львів, Дніпро, Одеса, Запоріжжя, Вінниця, Полтава, Чернівці, Івано-Франківськ, Тернопіль, Луцьк, Хмельницький, Ужгород, Чернігів</strong>. У каталозі — <a href=\"/catalog/tshirts/\">футболки</a>, <a href=\"/catalog/hoodie/\">худі</a> та <a href=\"/catalog/long-sleeve/\">лонгсліви</a> з авторськими принтами ЗСУ та streetwear-графікою. Доставка Новою Поштою 1–2 дні, безкоштовний обмін розміру протягом 14 днів."
+msgid ""
+"Купити одяг з принтом онлайн в Україні — доставка Києвом, Харковом, Львовом"
 msgstr ""
+"Купить одежду с принтом онлайн в Украине — доставка по Киеву, Харькову, "
+"Львову"
 
-#: twocomms_django_theme/templates/pages/catalog.html:430
-msgid "Замовити чоловічий або жіночий streetwear від українського бренду TwoComms"
+msgid ""
+"<strong>Купити одяг з принтом</strong> у TwoComms можна онлайн із доставкою "
+"у будь-яке місто України: <strong>Київ, Харків, Львів, Дніпро, Одеса, "
+"Запоріжжя, Вінниця, Полтава, Чернівці, Івано-Франківськ, Тернопіль, Луцьк, "
+"Хмельницький, Ужгород, Чернігів</strong>. У каталозі — <a href=\"/catalog/"
+"tshirts/\">футболки</a>, <a href=\"/catalog/hoodie/\">худі</a> та <a href=\"/"
+"catalog/long-sleeve/\">лонгсліви</a> з авторськими принтами ЗСУ та "
+"streetwear-графікою. Доставка Новою Поштою 1–2 дні, безкоштовний обмін "
+"розміру протягом 14 днів."
+msgstr "<strong>Купить одежду с принтом</strong> в TwoComms можно онлайн с доставкой в любой город Украины: <strong>Киев, Харьков, Львов, Днепр, Одесса, Запорожье, Винница, Полтава, Черновцы, Ивано-Франковск, Тернополь, Луцк, Хмельницкий, Ужгород, Чернигов</strong>. В каталоге — <a href=\"/catalog/tshirts/\">футболки</a>, <a href=\"/catalog/hoodie/\">худи</a> и <a href=\"/catalog/long-sleeve/\">лонгсливы</a> с авторскими принтами ВСУ и streetwear-графикой. Доставка Новой Почтой 1–2 дня, бесплатный обмен размера в течение 14 дней."
+msgid ""
+"Замовити чоловічий або жіночий streetwear від українського бренду TwoComms"
 msgstr "Заказать мужской или женский streetwear от украинского бренда TwoComms"
-#: twocomms_django_theme/templates/pages/catalog.html:431
-msgid "<strong>Замовити streetwear-одяг</strong> онлайн — це спосіб підтримати українське виробництво. Усі футболки, худі та лонгсліви TwoComms шиємо в Україні з преміум-бавовни та трикотажу щільністю 200–320 г/м². У каталозі є чоловічі моделі прямого крою, жіночі фасони зі звуженою посадкою та унісекс-варіанти у розмірах XS–XXL. Принти виконуємо в техніці DTF — стійкі до 30+ циклів прання."
-msgstr "<strong>Заказать streetwear-одежду</strong> онлайн — это способ поддержать украинское производство. Все футболки, худи и лонгсливы TwoComms мы шьём в Украине из премиум-хлопка и трикотажа плотностью 200–320 г/м². В каталоге есть мужские модели прямого кроя, женские фасоны с приталенной посадкой и унисекс-варианты в размерах XS–XXL. Принты выполняем по технологии DTF — устойчивы к 30+ циклам стирки."
-#: twocomms_django_theme/templates/pages/catalog.html:433
-msgid "Український патріотичний streetwear — авторські принти ЗСУ та колаборації"
-msgstr "Украинский патриотический streetwear — авторские принты ВСУ и коллаборации"
-#: twocomms_django_theme/templates/pages/catalog.html:434
-msgid "<strong>TwoComms</strong> — український streetwear-бренд із мілітарним ДНК. Створюємо одяг для тих, хто живе в Україні, підтримує ЗСУ та цінує спокійну, але сильну естетику. У каталозі — колаборації з військовими підрозділами, авторські ілюстрації на тему Збройних Сил України, тризуба й сучасної української поп-культури. Частину прибутку від кожного замовлення направляємо на потреби ЗСУ. Дізнайтеся більше про <a href=\"/pro-brand/\">філософію бренду</a> або обирайте <a href=\"/custom-print/\">кастомний друк</a> власного принта на обраній моделі."
-msgstr ""
 
-#: twocomms_django_theme/templates/pages/favorites.html:5
-#: twocomms_django_theme/templates/pages/favorites.html:10
-#: twocomms_django_theme/templates/partials/header.html:272
+msgid ""
+"<strong>Замовити streetwear-одяг</strong> онлайн — це спосіб підтримати "
+"українське виробництво. Усі футболки, худі та лонгсліви TwoComms шиємо в "
+"Україні з преміум-бавовни та трикотажу щільністю 200–320 г/м². У каталозі є "
+"чоловічі моделі прямого крою, жіночі фасони зі звуженою посадкою та унісекс-"
+"варіанти у розмірах XS–XXL. Принти виконуємо в техніці DTF — стійкі до 30+ "
+"циклів прання."
+msgstr ""
+"<strong>Заказать streetwear-одежду</strong> онлайн — это способ поддержать "
+"украинское производство. Все футболки, худи и лонгсливы TwoComms мы шьём в "
+"Украине из премиум-хлопка и трикотажа плотностью 200–320 г/м². В каталоге "
+"есть мужские модели прямого кроя, женские фасоны с приталенной посадкой и "
+"унисекс-варианты в размерах XS–XXL. Принты выполняем по технологии DTF — "
+"устойчивы к 30+ циклам стирки."
+
+msgid ""
+"Український патріотичний streetwear — авторські принти ЗСУ та колаборації"
+msgstr ""
+"Украинский патриотический streetwear — авторские принты ВСУ и коллаборации"
+
+msgid ""
+"<strong>TwoComms</strong> — український streetwear-бренд із мілітарним ДНК. "
+"Створюємо одяг для тих, хто живе в Україні, підтримує ЗСУ та цінує спокійну, "
+"але сильну естетику. У каталозі — колаборації з військовими підрозділами, "
+"авторські ілюстрації на тему Збройних Сил України, тризуба й сучасної "
+"української поп-культури. Частину прибутку від кожного замовлення "
+"направляємо на потреби ЗСУ. Дізнайтеся більше про <a href=\"/pro-brand/"
+"\">філософію бренду</a> або обирайте <a href=\"/custom-print/\">кастомний "
+"друк</a> власного принта на обраній моделі."
+msgstr "<strong>TwoComms</strong> — украинский streetwear-бренд с милитари-ДНК. Создаём одежду для тех, кто живёт в Украине, поддерживает ВСУ и ценит спокойную, но сильную эстетику. В каталоге — коллаборации с военными подразделениями, авторские иллюстрации на тему Вооружённых Сил Украины, тризуба и современной украинской поп-культуры. Часть прибыли с каждого заказа направляем на нужды ВСУ. Узнайте больше о <a href=\"/pro-brand/\">философии бренда</a> или выбирайте <a href=\"/custom-print/\">кастомную печать</a> собственного принта на выбранной модели."
 msgid "Обрані товари"
 msgstr "Избранные товары"
 
-#: twocomms_django_theme/templates/pages/favorites.html:11
-#: twocomms_django_theme/templates/pages/favorites.html:68
-#: twocomms_django_theme/templates/pages/index.html:98
-#: twocomms_django_theme/templates/pages/index.html:342
 msgid "Перейти в каталог"
 msgstr "Перейти в каталог"
-#: twocomms_django_theme/templates/pages/favorites.html:46
 msgid "Увага!"
 msgstr "Внимание!"
 
-#: twocomms_django_theme/templates/pages/favorites.html:46
 msgid "Ви переглядаєте обрані товари як гість."
 msgstr "Вы просматриваете избранные товары как гость."
 
-#: twocomms_django_theme/templates/pages/favorites.html:47
 msgid "Увійдіть в акаунт"
 msgstr "Войдите в аккаунт"
 
-#: twocomms_django_theme/templates/pages/favorites.html:47
 msgid "або"
 msgstr "или"
 
-#: twocomms_django_theme/templates/pages/favorites.html:48
 msgid "зареєструйтесь"
 msgstr "зарегистрируйтесь"
 
-#: twocomms_django_theme/templates/pages/favorites.html:49
 msgid "щоб зберегти обрані товари назавжди."
 msgstr "чтобы сохранить избранные товары навсегда."
 
-#: twocomms_django_theme/templates/pages/favorites.html:62
 msgid "У вас поки немає обраних товарів"
 msgstr "У вас пока нет избранных товаров"
 
-#: twocomms_django_theme/templates/pages/favorites.html:63
 msgid "Додавайте товари до обраного, натискаючи на сердечко на карточці товару"
 msgstr "Добавляйте товары в избранное, нажимая на сердечко на карточке товара"
 
-#: twocomms_django_theme/templates/pages/index.html:3
 msgid "TwoComms — Стріт & Мілітарі Одяг | Головна"
 msgstr "TwoComms — стрит & милитари одежда | Главная"
 
-#: twocomms_django_theme/templates/pages/index.html:5
-msgid "TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні."
-msgstr "TwoComms — украинский магазин стрит и милитари одежды: футболки, худи, лонгсливы, кастомный принт и быстрая доставка по Украине."
+msgid ""
+"TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, "
+"лонгсліви, кастомний друк і швидка доставка по Україні."
+msgstr ""
+"TwoComms — украинский магазин стрит и милитари одежды: футболки, худи, "
+"лонгсливы, кастомный принт и быстрая доставка по Украине."
 
-#: twocomms_django_theme/templates/pages/index.html:10
 msgid "TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном"
 msgstr "TwoComms — стрит & милитари одежда с эксклюзивным дизайном"
 
-#: twocomms_django_theme/templates/pages/index.html:11
-msgid "Футболки, худі та лонгсліви з авторськими принтами. Бренд TwoComms — українське виробництво, швидка доставка."
-msgstr "Футболки, худи и лонгсливы с авторскими принтами. Бренд TwoComms — украинское производство, быстрая доставка."
+msgid ""
+"Футболки, худі та лонгсліви з авторськими принтами. Бренд TwoComms — "
+"українське виробництво, швидка доставка."
+msgstr ""
+"Футболки, худи и лонгсливы с авторскими принтами. Бренд TwoComms — "
+"украинское производство, быстрая доставка."
 
-#: twocomms_django_theme/templates/pages/index.html:12
 msgid "TwoComms — стріт & мілітарі одяг"
 msgstr "TwoComms — стрит & милитари одежда"
 
-#: twocomms_django_theme/templates/pages/index.html:13
-msgid "Ексклюзивні футболки, худі та лонгсліви з характером. Швидка доставка по Україні."
-msgstr "Эксклюзивные футболки, худи и лонгсливы с характером. Быстрая доставка по Украине."
+msgid ""
+"Ексклюзивні футболки, худі та лонгсліви з характером. Швидка доставка по "
+"Україні."
+msgstr ""
+"Эксклюзивные футболки, худи и лонгсливы с характером. Быстрая доставка по "
+"Украине."
 
-#: twocomms_django_theme/templates/pages/index.html:83
-#: twocomms_django_theme/templates/partials/header.html:7
 msgid "TwoComms логотип — стріт & мілітарі одяг"
 msgstr "TwoComms логотип — стрит & милитари одежда"
 
-#: twocomms_django_theme/templates/pages/index.html:91
 msgid "TwoComms — бренд:"
 msgstr "TwoComms — бренд:"
-#: twocomms_django_theme/templates/pages/index.html:92
 msgid "Стріт & мілітарі"
 msgstr "Стрит & милитари"
 
-#: twocomms_django_theme/templates/pages/index.html:93
 msgid "одяг"
 msgstr "одежда"
 
-#: twocomms_django_theme/templates/pages/index.html:95
-msgid "Ексклюзивні футболки, худі та лонгсліви. Бренд TwoComms — дизайн з характером."
-msgstr "Эксклюзивные футболки, худи и лонгсливы. Бренд TwoComms — дизайн с характером."
+msgid ""
+"Ексклюзивні футболки, худі та лонгсліви. Бренд TwoComms — дизайн з "
+"характером."
+msgstr ""
+"Эксклюзивные футболки, худи и лонгсливы. Бренд TwoComms — дизайн с "
+"характером."
 
-#: twocomms_django_theme/templates/pages/index.html:107
 msgid "Ексклюзивний дизайн"
 msgstr "Эксклюзивный дизайн"
 
-#: twocomms_django_theme/templates/pages/index.html:168
 msgid "Бонус за фідбек"
 msgstr "Бонус за фидбэк"
-#: twocomms_django_theme/templates/pages/index.html:169
-#: twocomms_django_theme/templates/pages/order_success.html:1366
-#: twocomms_django_theme/templates/pages/order_success.html:1370
-#: twocomms_django_theme/templates/pages/order_success.html:1493
-#: twocomms_django_theme/templates/pages/order_success.html:1522
-#: twocomms_django_theme/templates/pages/order_success.html:1539
-#: twocomms_django_theme/templates/pages/order_success.html:1580
-#: twocomms_django_theme/templates/pages/product_detail.html:244
-#: twocomms_django_theme/templates/pages/product_detail.html:246
-#: twocomms_django_theme/templates/partials/mini_cart.html:23
-#: twocomms_django_theme/templates/partials/mini_cart.html:82
-#: twocomms_django_theme/templates/partials/mini_cart.html:92
-#: twocomms_django_theme/templates/partials/product_card.html:92
-#: twocomms_django_theme/templates/partials/product_card.html:169
+
 msgid "грн"
 msgstr "грн"
-#: twocomms_django_theme/templates/pages/index.html:172
-msgid "Промокод активується автоматично одразу після проходження та діє на весь асортимент."
-msgstr "Промокод активируется автоматически сразу после прохождения и действует на весь ассортимент."
-#: twocomms_django_theme/templates/pages/index.html:174
+msgid ""
+"Промокод активується автоматично одразу після проходження та діє на весь "
+"асортимент."
+msgstr ""
+"Промокод активируется автоматически сразу после прохождения и действует на "
+"весь ассортимент."
+
 msgid "≈ 5 хвилин часу"
 msgstr "≈ 5 минут времени"
-#: twocomms_django_theme/templates/pages/index.html:175
+
 msgid "Один раз на рік"
 msgstr "Один раз в год"
-#: twocomms_django_theme/templates/pages/index.html:176
+
 msgid "Можна повернутись потім"
 msgstr "Можно вернуться позже"
-#: twocomms_django_theme/templates/pages/index.html:185
+
 msgid "Допоможи покращити"
 msgstr "Помоги улучшить"
-#: twocomms_django_theme/templates/pages/index.html:192
-msgid "Коротке опитування без довгої анкети: відповіді допоможуть нам стати кращими."
+
+msgid ""
+"Коротке опитування без довгої анкети: відповіді допоможуть нам стати кращими."
 msgstr "Короткий опрос без длинной анкеты: ответы помогут нам стать лучше."
-#: twocomms_django_theme/templates/pages/index.html:195
+
 msgid "БІЛЬШЕ НЕ ПОКАЗУВАТИ"
 msgstr "БОЛЬШЕ НЕ ПОКАЗЫВАТЬ"
-#: twocomms_django_theme/templates/pages/index.html:202
+
 #, python-format
 msgid "ВИГРАЙ %(amount)s ГРН"
 msgstr "ВЫИГРАЙ %(amount)s ГРН"
-#: twocomms_django_theme/templates/pages/index.html:202
+
 msgid "ЗА ОПИТУВАННЯ!"
 msgstr "ЗА ОПРОС!"
-#: twocomms_django_theme/templates/pages/index.html:205
+
 msgid "Дай відповідь на кілька запитань та забери свій промокод!"
 msgstr "Ответь на несколько вопросов и забери свой промокод!"
-#: twocomms_django_theme/templates/pages/index.html:277
+
 msgid "Без форми на одну сторінку"
 msgstr "Без формы на одну страницу"
-#: twocomms_django_theme/templates/pages/index.html:278
+
 msgid "Лише для зареєстрованих користувачів"
 msgstr "Только для зарегистрированных пользователей"
-#: twocomms_django_theme/templates/pages/index.html:285
-#: twocomms_django_theme/templates/pages/index.html:290
+
 msgid "Пройти опитування"
 msgstr "Пройти опрос"
-#: twocomms_django_theme/templates/pages/index.html:286
+
 msgid "Продовжити опитування"
 msgstr "Продолжить опрос"
-#: twocomms_django_theme/templates/pages/index.html:341
+
 msgid "Категорії"
 msgstr "Категории"
-#: twocomms_django_theme/templates/pages/index.html:352
+
 msgid "Згорнути/розгорнути категорії"
 msgstr "Свернуть/развернуть категории"
-#: twocomms_django_theme/templates/pages/index.html:359
+
 msgid "Згорнути"
 msgstr "Свернуть"
-#: twocomms_django_theme/templates/pages/index.html:366
+
 msgid "Весь каталог"
 msgstr "Весь каталог"
-#: twocomms_django_theme/templates/pages/index.html:402
 msgid "Замовити кастомний одяг"
 msgstr "Заказать кастомную одежду"
-#: twocomms_django_theme/templates/pages/index.html:410
+
 msgid "Свій дизайн"
 msgstr "Свой дизайн"
-#: twocomms_django_theme/templates/pages/index.html:411
+
 msgid "Збери одяг під себе"
 msgstr "Собери одежду под себя"
-#: twocomms_django_theme/templates/pages/index.html:413
+
 msgid "Обери основу, свій принт, матеріали й деталі — вартість побачиш одразу."
-msgstr "Выбери основу, свой принт, материалы и детали — стоимость увидишь сразу."
-#: twocomms_django_theme/templates/pages/index.html:418
+msgstr ""
+"Выбери основу, свой принт, материалы и детали — стоимость увидишь сразу."
+
 msgid "Спробувати конструктор"
 msgstr "Попробовать конструктор"
-#: twocomms_django_theme/templates/pages/index.html:424
+
 msgid "Потрібна допомога? Менеджер підкаже."
 msgstr "Нужна помощь? Менеджер подскажет."
-#: twocomms_django_theme/templates/pages/index.html:438
+
 msgid "Перейти до каталогу за кольором"
 msgstr "Перейти к каталогу по цвету"
-#: twocomms_django_theme/templates/pages/index.html:440
+
 msgid "Обери за кольором"
 msgstr "Выбери по цвету"
-#: twocomms_django_theme/templates/pages/index.html:442
+
 msgid "Усі кольори"
 msgstr "Все цвета"
-#: twocomms_django_theme/templates/pages/index.html:467
+
 msgid "Новинки"
 msgstr "Новинки"
-#: twocomms_django_theme/templates/pages/index.html:492
 msgid "Показати ще"
 msgstr "Показать ещё"
-#: twocomms_django_theme/templates/pages/index.html:495
+
 msgid "Завантаження..."
 msgstr "Загрузка..."
-#: twocomms_django_theme/templates/pages/index.html:501
+
 msgid "Наступна сторінка"
 msgstr "Следующая страница"
-#: twocomms_django_theme/templates/pages/index.html:580
-#: twocomms_django_theme/templates/pages/index.html:626
+
 msgid "Далі"
 msgstr "Далее"
-#: twocomms_django_theme/templates/pages/index.html:581
-#: twocomms_django_theme/templates/pages/index.html:620
+
 msgid "Повернутись на 1 крок"
 msgstr "Вернуться на 1 шаг"
-#: twocomms_django_theme/templates/pages/index.html:583
-#: twocomms_django_theme/templates/pages/index.html:623
+
 msgid "Пропустити"
 msgstr "Пропустить"
-#: twocomms_django_theme/templates/pages/index.html:584
+
 msgid "Дякуємо!"
 msgstr "Спасибо!"
-#: twocomms_django_theme/templates/pages/index.html:585
+
 msgid "Твій промокод готовий."
 msgstr "Твой промокод готов."
-#: twocomms_django_theme/templates/pages/index.html:586
+
 msgid "Скопіювати код"
 msgstr "Скопировать код"
-#: twocomms_django_theme/templates/pages/index.html:598
+
 msgid "Опитування"
 msgstr "Опрос"
-#: twocomms_django_theme/templates/pages/index.html:600
+
 msgid "Коротке опитування про TWOCOMMS"
 msgstr "Короткий опрос о TWOCOMMS"
-#: twocomms_django_theme/templates/pages/index.html:603
-msgid "Твої відповіді допоможуть покращити сайт і колекції. Орієнтовно 5 хвилин."
+
+msgid ""
+"Твої відповіді допоможуть покращити сайт і колекції. Орієнтовно 5 хвилин."
 msgstr "Твои ответы помогут улучшить сайт и коллекции. Примерно 5 минут."
-#: twocomms_django_theme/templates/pages/index.html:606
-msgid "Ми використовуємо відповіді лише для аналітики та покращення сервісу. Контактні дані — лише за твоєю згодою."
-msgstr "Мы используем ответы только для аналитики и улучшения сервиса. Контактные данные — только с твоего согласия."
-#: twocomms_django_theme/templates/pages/index.html:612
-#: twocomms_django_theme/templates/partials/header.html:96
+
+msgid ""
+"Ми використовуємо відповіді лише для аналітики та покращення сервісу. "
+"Контактні дані — лише за твоєю згодою."
+msgstr ""
+"Мы используем ответы только для аналитики и улучшения сервиса. Контактные "
+"данные — только с твоего согласия."
+
 msgid "Завантаження…"
 msgstr "Загрузка…"
 
-#: twocomms_django_theme/templates/pages/my_orders.html:5
-#: twocomms_django_theme/templates/pages/my_orders.html:20
-#: twocomms_django_theme/templates/pages/order_success.html:1640
-#: twocomms_django_theme/templates/partials/header.html:243
 msgid "Мої замовлення"
 msgstr "Мои заказы"
 
-#: twocomms_django_theme/templates/pages/my_orders.html:21
 msgid "Відстежуйте статус ваших замовлень"
 msgstr "Отслеживайте статус своих заказов"
 
-#: twocomms_django_theme/templates/pages/my_reviews.html:5
-#: twocomms_django_theme/templates/pages/my_reviews.html:114
-#: twocomms_django_theme/templates/partials/header.html:258
 msgid "Мої відгуки"
 msgstr "Мои отзывы"
 
-#: twocomms_django_theme/templates/pages/my_reviews.html:115
 msgid "Усі ваші відгуки про куплені товари TwoComms."
 msgstr "Все ваши отзывы о купленных товарах TwoComms."
 
-#: twocomms_django_theme/templates/pages/my_reviews.html:119
 msgid "Статистика відгуків"
 msgstr "Статистика отзывов"
 
-#: twocomms_django_theme/templates/pages/my_reviews.html:127
 #, python-format
 msgid "Відгук про %(t)s"
 msgstr "Отзыв о %(t)s"
 
-#: twocomms_django_theme/templates/pages/my_reviews.html:133
 #, python-format
 msgid "Оцінка %(n)s з 5"
 msgstr "Оценка %(n)s из 5"
 
-#: twocomms_django_theme/templates/pages/my_reviews.html:146
 #, python-format
 msgid "Фото відгуку %(n)s про %(t)s"
 msgstr "Фото отзыва %(n)s о %(t)s"
 
-#: twocomms_django_theme/templates/pages/my_reviews.html:152
 msgid "Причина відхилення:"
 msgstr "Причина отклонения:"
 
-#: twocomms_django_theme/templates/pages/my_reviews.html:159
 msgid "Ви ще не залишили жодного відгуку."
 msgstr "Вы ещё не оставили ни одного отзыва."
 
-#: twocomms_django_theme/templates/pages/my_reviews.html:160
 msgid "Перейти до моїх замовлень"
 msgstr "Перейти к моим заказам"
 
-#: twocomms_django_theme/templates/pages/my_reviews.html:160
 msgid "та поділіться враженнями про придбані товари."
 msgstr "и поделитесь впечатлениями о купленных товарах."
 
-#: twocomms_django_theme/templates/pages/order_failed.html:3
-#: twocomms_django_theme/templates/pages/order_failed.html:15
 msgid "Оплату не завершено"
 msgstr "Оплата не завершена"
 
-#: twocomms_django_theme/templates/pages/order_failed.html:16
 msgid "Платіж не пройшов. Спробуйте ще раз або оберіть інший спосіб оплати."
-msgstr "Платёж не прошёл. Попробуйте ещё раз или выберите другой способ оплаты."
+msgstr ""
+"Платёж не прошёл. Попробуйте ещё раз или выберите другой способ оплаты."
 
-#: twocomms_django_theme/templates/pages/order_failed.html:18
 msgid "Повернутися в кошик"
 msgstr "Вернуться в корзину"
 
-#: twocomms_django_theme/templates/pages/order_failed.html:19
 msgid "На головну"
 msgstr "На главную"
 
-#: twocomms_django_theme/templates/pages/order_success.html:5
 msgid "Замовлення оформлено"
 msgstr "Заказ оформлен"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1300
 msgid "Замовлення успішно оформлено!"
 msgstr "Заказ успешно оформлен!"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1303
-#: twocomms_django_theme/templates/pages/order_success.html:1316
 msgid "Номер замовлення:"
 msgstr "Номер заказа:"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1311
 msgid "Переглянути деталі замовлення"
 msgstr "Посмотреть детали заказа"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1338
 msgid "Оплата успішно пройшла!"
 msgstr "Оплата прошла успешно!"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1340
-msgid "Дякуємо, брат! Твоє замовлення оплачено та відправлено в обробку. Ми розпочнемо підготовку найближчим часом."
-msgstr "Спасибо, брат! Твой заказ оплачен и отправлен в обработку. Мы начнём подготовку в ближайшее время."
+msgid ""
+"Дякуємо, брат! Твоє замовлення оплачено та відправлено в обробку. Ми "
+"розпочнемо підготовку найближчим часом."
+msgstr ""
+"Спасибо, брат! Твой заказ оплачен и отправлен в обработку. Мы начнём "
+"подготовку в ближайшее время."
 
-#: twocomms_django_theme/templates/pages/order_success.html:1342
-msgid "Дякуємо за покупку! Твоє замовлення оплачено через Monobank та відправлено в обробку. Ми розпочнемо підготовку найближчим часом."
-msgstr "Спасибо за покупку! Ваш заказ оплачен через Monobank и отправлен в обработку. Мы начнём подготовку в ближайшее время."
+msgid ""
+"Дякуємо за покупку! Твоє замовлення оплачено через Monobank та відправлено в "
+"обробку. Ми розпочнемо підготовку найближчим часом."
+msgstr ""
+"Спасибо за покупку! Ваш заказ оплачен через Monobank и отправлен в "
+"обработку. Мы начнём подготовку в ближайшее время."
 
-#: twocomms_django_theme/templates/pages/order_success.html:1345
 msgid "Передплата внесена!"
 msgstr "Предоплата внесена!"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1347
-msgid "Дякуємо, брат! Передплата внесена. Залишок оплатиш при отриманні на Новій Пошті. Ми розпочнемо підготовку та відправимо на вказане відділення."
-msgstr "Спасибо, брат! Предоплата внесена. Остаток оплатишь при получении в Новой Почте. Мы начнём подготовку и отправим на указанное отделение."
+msgid ""
+"Дякуємо, брат! Передплата внесена. Залишок оплатиш при отриманні на Новій "
+"Пошті. Ми розпочнемо підготовку та відправимо на вказане відділення."
+msgstr ""
+"Спасибо, брат! Предоплата внесена. Остаток оплатишь при получении в Новой "
+"Почте. Мы начнём подготовку и отправим на указанное отделение."
 
-#: twocomms_django_theme/templates/pages/order_success.html:1349
-msgid "Дякуємо за покупку! Передплата внесена. Залишок необхідно оплатити при отриманні посилки на відділенні Нової Пошти. Ми розпочнемо підготовку та відправимо на вказане відділення."
-msgstr "Спасибо за покупку! Предоплата внесена. Остаток необходимо оплатить при получении посылки в отделении Новой Почты. Мы начнём подготовку и отправим на указанное отделение."
+msgid ""
+"Дякуємо за покупку! Передплата внесена. Залишок необхідно оплатити при "
+"отриманні посилки на відділенні Нової Пошти. Ми розпочнемо підготовку та "
+"відправимо на вказане відділення."
+msgstr ""
+"Спасибо за покупку! Предоплата внесена. Остаток необходимо оплатить при "
+"получении посылки в отделении Новой Почты. Мы начнём подготовку и отправим "
+"на указанное отделение."
 
-#: twocomms_django_theme/templates/pages/order_success.html:1352
 msgid "Ваша заявка відправлена в обробку"
 msgstr "Ваша заявка отправлена в обработку"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1354
-msgid "Дякуємо, брат! Замовлення відправлено в обробку. Статус надійде в Telegram."
+msgid ""
+"Дякуємо, брат! Замовлення відправлено в обробку. Статус надійде в Telegram."
 msgstr "Спасибо, брат! Заказ отправлен в обработку. Статус придёт в Telegram."
 
-#: twocomms_django_theme/templates/pages/order_success.html:1356
 msgid "Дякуємо за замовлення! Заявка відправлена в обробку."
 msgstr "Спасибо за заказ! Заявка отправлена в обработку."
 
-#: twocomms_django_theme/templates/pages/order_success.html:1365
 msgid "Внесена передплата:"
 msgstr "Внесённая предоплата:"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1369
 msgid "Залишок (при отриманні):"
 msgstr "Остаток (при получении):"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1385
-#: twocomms_django_theme/templates/pages/order_success.html:1424
 msgid "Дякуємо за вибір стилю TwoComms!"
 msgstr "Спасибо за выбор стиля TwoComms!"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1386
-#: twocomms_django_theme/templates/pages/order_success.html:1425
-msgid "Твій стиль — твоя сильна сторона. Ми цінуємо, що ти обрав саме нас для свого образу."
-msgstr "Твой стиль — твоя сильная сторона. Мы ценим, что ты выбрал именно нас для своего образа."
+msgid ""
+"Твій стиль — твоя сильна сторона. Ми цінуємо, що ти обрав саме нас для свого "
+"образу."
+msgstr ""
+"Твой стиль — твоя сильная сторона. Мы ценим, что ты выбрал именно нас для "
+"своего образа."
 
-#: twocomms_django_theme/templates/pages/order_success.html:1389
-#: twocomms_django_theme/templates/pages/order_success.html:1428
 msgid "Є питання чи потрібна допомога?"
 msgstr "Есть вопросы или нужна помощь?"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1394
-#: twocomms_django_theme/templates/pages/order_success.html:1433
 msgid "Написати в Telegram"
 msgstr "Написать в Telegram"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1409
 msgid "Демо режим"
 msgstr "Демо режим"
-#: twocomms_django_theme/templates/pages/order_success.html:1410
-msgid "Це тестовий перегляд сторінки. Для реального замовлення дані будуть заповнені автоматично."
-msgstr "Это тестовый просмотр страницы. Для реального заказа данные заполнятся автоматически."
+msgid ""
+"Це тестовий перегляд сторінки. Для реального замовлення дані будуть "
+"заповнені автоматично."
+msgstr ""
+"Это тестовый просмотр страницы. Для реального заказа данные заполнятся "
+"автоматически."
 
-#: twocomms_django_theme/templates/pages/order_success.html:1449
 msgid "Деталі замовлення"
 msgstr "Детали заказа"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1456
-#: twocomms_django_theme/templates/pages/order_success.html:1462
-#: twocomms_django_theme/templates/pages/order_success.html:1468
-#: twocomms_django_theme/templates/pages/order_success.html:1474
 msgid "Не вказано"
 msgstr "Не указано"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1472
-#: twocomms_django_theme/templates/pages/order_success.html:1571
 msgid "Відділення НП"
 msgstr "Отделение НП"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1481
 msgid "Передплата 200 грн"
 msgstr "Предоплата 200 грн"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1485
 msgid "Оплата при отриманні"
 msgstr "Оплата при получении"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1492
-#: twocomms_django_theme/templates/pages/order_success.html:1579
 msgid "Сума замовлення"
 msgstr "Сумма заказа"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1500
 msgid "Товари в замовленні:"
 msgstr "Товары в заказе:"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1517
 msgid "Розмір:"
 msgstr "Размер:"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1518
 msgid "Посадка:"
 msgstr "Посадка:"
-#: twocomms_django_theme/templates/pages/order_success.html:1519
 msgid "Колір:"
 msgstr "Цвет:"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1520
-#: twocomms_django_theme/templates/pages/order_success.html:1537
 msgid "Кількість:"
 msgstr "Количество:"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1535
 #, fuzzy, python-format
 #| msgid "Кастомний друк"
 msgid "Кастомний виріб %(number)s"
 msgstr "Кастомный принт"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1537
 msgid "Тип:"
 msgstr "Тип:"
-#: twocomms_django_theme/templates/pages/order_success.html:1537
 msgid "Статус: погоджено"
 msgstr "Статус: согласовано"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1555
 msgid "Деталі замовлення (демо)"
 msgstr "Детали заказа (демо)"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1614
 msgid "Система балів"
 msgstr "Система баллов"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1618
-msgid "Дякуємо, брат! Твоє замовлення оформлено. Бали будуть нараховані після отримання товару."
-msgstr "Спасибо, брат! Заказ оформлен. Баллы будут начислены после получения товара."
+msgid ""
+"Дякуємо, брат! Твоє замовлення оформлено. Бали будуть нараховані після "
+"отримання товару."
+msgstr ""
+"Спасибо, брат! Заказ оформлен. Баллы будут начислены после получения товара."
 
-#: twocomms_django_theme/templates/pages/order_success.html:1627
 msgid "Статус замовлення приходить в Telegram"
 msgstr "Статус заказа приходит в Telegram"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1628
 msgid "Оновлення про твоє замовлення надсилаються автоматично"
 msgstr "Обновления по твоему заказу отправляются автоматически"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1644
 msgid "Створіть акаунт або увійдіть в систему, щоб отримувати бали за покупки!"
-msgstr "Создайте аккаунт или войдите в систему, чтобы получать баллы за покупки!"
+msgstr ""
+"Создайте аккаунт или войдите в систему, чтобы получать баллы за покупки!"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1650
 msgid "Накопичувати бали за покупки"
 msgstr "Копить баллы за покупки"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1656
 msgid "Відстежувати статус замовлень"
 msgstr "Отслеживать статус заказов"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1664
 msgid "Зберігати історію покупок"
 msgstr "Хранить историю покупок"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1670
 msgid "Отримувати персональні пропозиції"
 msgstr "Получать персональные предложения"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1691
-msgid "Якщо ви зареєструєтесь, це замовлення автоматично привʼяжеться до вашого акаунту"
-msgstr "Если вы зарегистрируетесь, этот заказ автоматически привяжется к вашему аккаунту"
+msgid ""
+"Якщо ви зареєструєтесь, це замовлення автоматично привʼяжеться до вашого "
+"акаунту"
+msgstr ""
+"Если вы зарегистрируетесь, этот заказ автоматически привяжется к вашему "
+"аккаунту"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1704
 msgid "Отримати чек на email"
 msgstr "Получить чек на email"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1706
 msgid "Введіть вашу email адресу, і ми надішлемо чек про оплату"
 msgstr "Введите ваш email, и мы пришлём чек об оплате"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1714
 msgid "Відправити чек"
 msgstr "Отправить чек"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1729
 msgid "Залиште відгук в Instagram"
 msgstr "Оставьте отзыв в Instagram"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1731
 #, python-format
-msgid "Поділіться своїми враженнями про покупку! Залиште відгук в Instagram з відміткою нашої сторінки, і ми даруємо вам промокод на знижку 10%% на наступне замовлення!"
+msgid ""
+"Поділіться своїми враженнями про покупку! Залиште відгук в Instagram з "
+"відміткою нашої сторінки, і ми даруємо вам промокод на знижку 10%% на "
+"наступне замовлення!"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/order_success.html:1734
 msgid "Ваш промокод на знижку"
 msgstr "Ваш промокод на скидку"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1736
 #, fuzzy, python-format
 #| msgid "Бали за замовлення"
 msgid "10%% знижка на наступне замовлення"
 msgstr "Баллы за заказ"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1743
 msgid "Відкрити Instagram"
 msgstr "Открыть Instagram"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1755
 msgid "Повернутись на головну"
 msgstr "Вернуться на главную"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1764
 msgid "Переглянути каталог"
 msgstr "Посмотреть каталог"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1782
 msgid "Будь ласка, введіть коректну email адресу"
 msgstr "Пожалуйста, введите корректный email адрес"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1788
 msgid "Відправляється..."
 msgstr "Отправляется..."
 
-#: twocomms_django_theme/templates/pages/order_success.html:1790
 msgid "Чек буде відправлено на"
 msgstr "Чек будет отправлен на"
 
-#: twocomms_django_theme/templates/pages/order_success.html:1790
 msgid "Функціонал буде додано найближчим часом."
 msgstr "Функционал будет добавлен в ближайшее время."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:111
 msgid "Галерея товару"
 msgstr "Галерея товара"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:136
 msgid "Дії з фото"
 msgstr "Действия с фото"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:137
 msgid "Збільшити фото"
 msgstr "Увеличить фото"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:146
 msgid "Попереднє фото"
 msgstr "Предыдущее фото"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:147
 msgid "Мініатюри товару"
 msgstr "Миниатюры товара"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:148
 msgid "Наступне фото"
 msgstr "Следующее фото"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:152
 msgid "Переваги покупки"
 msgstr "Преимущества покупки"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:155
 msgid "Швидка відправка"
 msgstr "Быстрая отправка"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:155
 msgid "1-2 дні по Україні"
 msgstr "1-2 дня по Украине"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:159
 msgid "Індивідуальний підхід"
 msgstr "Индивидуальный подход"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:159
 msgid "Допоможемо з вибором"
 msgstr "Поможем с выбором"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:163
 msgid "Обмін розміру"
 msgstr "Обмен размера"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:163
 msgid "14 днів на обмін"
 msgstr "14 дней на обмен"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:172
 msgid "Індивідуальний позивний або бренд?"
 msgstr "Индивидуальный позывной или бренд?"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:173
-msgid "Створимо принт з нуля під ваш позивний, логотип або ідею. Унікальна річ разом з TwoComms."
-msgstr "Создадим принт с нуля под ваш позывной, логотип или идею. Уникальная вещь вместе с TwoComms."
+msgid ""
+"Створимо принт з нуля під ваш позивний, логотип або ідею. Унікальна річ "
+"разом з TwoComms."
+msgstr ""
+"Создадим принт с нуля под ваш позывной, логотип или идею. Уникальная вещь "
+"вместе с TwoComms."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:197
 msgid "Дії з товаром"
 msgstr "Действия с товаром"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:198
-#: twocomms_django_theme/templates/partials/product_card.html:48
-#: twocomms_django_theme/templates/partials/product_card.html:150
 msgid "Додати до обраних"
 msgstr "Добавить в избранное"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:201
 msgid "Поділитися товаром"
 msgstr "Поделиться товаром"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:219
 #, python-format
 msgid "Рейтинг товару, %(counter)s відгук"
 msgid_plural "Рейтинг товару, %(counter)s відгуків"
@@ -3954,7 +3147,6 @@ msgstr[1] ""
 msgstr[2] ""
 msgstr[3] ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:222
 #, python-format
 msgid "%(counter)s відгук"
 msgid_plural "%(counter)s відгуків"
@@ -3963,227 +3155,179 @@ msgstr[1] ""
 msgstr[2] ""
 msgstr[3] ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:227
 msgid "Особливості товару"
 msgstr "Особенности товара"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:230
 msgid "Преміум тканина"
 msgstr "Премиум ткань"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:238
 msgid "Лімітований дроп"
 msgstr "Лимитированный дроп"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:251
 #, python-format
 msgid "Бонусні бали за покупку: %(n)s"
 msgstr "Бонусные баллы за покупку: %(n)s"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:263
 msgid "Як обрати розмір?"
 msgstr "Как выбрать размер?"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:283
 msgid "Розміри уточнюються менеджером після замовлення."
 msgstr "Размеры уточняются менеджером после заказа."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:310
 msgid "Для цього товару доступний один колір."
 msgstr "Для этого товара доступен один цвет."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:316
-#: twocomms_django_theme/templates/pages/product_detail.html:317
-#: twocomms_django_theme/templates/partials/mini_cart.html:64
 msgid "Посадка"
 msgstr "Посадка"
-#: twocomms_django_theme/templates/pages/product_detail.html:348
 msgid "Інформація про товар"
 msgstr "Информация о товаре"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:349
 msgid "Опис"
 msgstr "Описание"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:352
 msgid "Догляд"
 msgstr "Уход"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:354
 msgid "FAQ товару"
 msgstr "FAQ товара"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:602
 msgid "Схожі товари"
 msgstr "Похожие товары"
-#: twocomms_django_theme/templates/pages/product_detail.html:603
+
 msgid "Переглянути всі"
 msgstr "Смотреть все"
-#: twocomms_django_theme/templates/pages/product_detail.html:605
+
 msgid "Рекомендовані товари"
 msgstr "Рекомендуемые товары"
-#: twocomms_django_theme/templates/partials/footer.html:18
-#: twocomms_django_theme/templates/partials/footer.html:67
+
 msgid "Соцмережі TwoComms"
 msgstr "Соцсети TwoComms"
 
-#: twocomms_django_theme/templates/partials/footer.html:130
 msgid "FAQ"
 msgstr "FAQ"
-#: twocomms_django_theme/templates/partials/footer.html:164
 msgid "Контакти TwoComms"
 msgstr "Контакты TwoComms"
 
-#: twocomms_django_theme/templates/partials/header.html:9
 msgid "Перемикач навігації"
 msgstr "Переключатель навигации"
 
-#: twocomms_django_theme/templates/partials/header.html:23
 msgid "Пошук…"
 msgstr "Поиск…"
 
-#: twocomms_django_theme/templates/partials/header.html:23
 msgid "Пошук"
 msgstr "Поиск"
 
-#: twocomms_django_theme/templates/partials/header.html:38
 msgid "Перейти до обраних товарів"
 msgstr "Перейти к избранным товарам"
 
-#: twocomms_django_theme/templates/partials/header.html:53
-#: twocomms_django_theme/templates/partials/header.html:401
 msgid "Відкрити міні-корзину"
 msgstr "Открыть мини-корзину"
 
-#: twocomms_django_theme/templates/partials/header.html:108
 msgid "Умови доставки і оплати"
 msgstr "Условия доставки и оплаты"
 
-#: twocomms_django_theme/templates/partials/header.html:125
 msgid "Залишайте заявку на сайті або оплачуйте миттєво через mono checkout"
-msgstr "Оставляйте заявку на сайте или оплачивайте моментально через mono checkout"
+msgstr ""
+"Оставляйте заявку на сайте или оплачивайте моментально через mono checkout"
 
-#: twocomms_django_theme/templates/partials/header.html:133
-#: twocomms_django_theme/templates/partials/header.html:429
 msgid "Відкрити панель користувача"
 msgstr "Открыть панель пользователя"
 
-#: twocomms_django_theme/templates/partials/header.html:136
-#: twocomms_django_theme/templates/partials/header.html:138
-#: twocomms_django_theme/templates/partials/header.html:140
-#: twocomms_django_theme/templates/partials/header.html:163
-#: twocomms_django_theme/templates/partials/header.html:165
-#: twocomms_django_theme/templates/partials/header.html:167
-#: twocomms_django_theme/templates/partials/header.html:432
-#: twocomms_django_theme/templates/partials/header.html:434
-#: twocomms_django_theme/templates/partials/header.html:436
 msgid "Аватар користувача — TwoComms"
 msgstr "Аватар пользователя — TwoComms"
 
-#: twocomms_django_theme/templates/partials/header.html:177
 msgid "Телефон не вказано"
 msgstr "Телефон не указан"
 
-#: twocomms_django_theme/templates/partials/header.html:213
 msgid "Ваші бали"
 msgstr "Ваши баллы"
 
-#: twocomms_django_theme/templates/partials/header.html:215
 msgid "Знижки • Промокоди • Підтримка ЗСУ"
 msgstr "Скидки • Промокоды • Поддержка ВСУ"
 
-#: twocomms_django_theme/templates/partials/header.html:273
-#: twocomms_django_theme/templates/partials/header.html:421
 msgid "Кількість товарів у обраних"
 msgstr "Количество товаров в избранном"
 
-#: twocomms_django_theme/templates/partials/header.html:287
 msgid "Мої промокоди"
 msgstr "Мои промокоды"
 
-#: twocomms_django_theme/templates/partials/header.html:302
 msgid "Панель адміністратора"
 msgstr "Панель администратора"
 
-#: twocomms_django_theme/templates/partials/header.html:353
 msgid "Вхід через Google — TwoComms"
 msgstr "Вход через Google — TwoComms"
 
-#: twocomms_django_theme/templates/partials/header.html:423
 msgid "Обране"
 msgstr "Избранное"
 
-#: twocomms_django_theme/templates/partials/language_switcher.html:5
 msgid "Мова сайту"
 msgstr "Язык сайта"
 
-#: twocomms_django_theme/templates/partials/language_switcher.html:6
 msgid "Мова"
 msgstr "Язык"
 
-#: twocomms_django_theme/templates/partials/mini_cart.html:30
 msgid "Видалити кастомну позицію"
 msgstr "Удалить кастомную позицию"
 
-#: twocomms_django_theme/templates/partials/mini_cart.html:86
 msgid "Видалити"
 msgstr "Удалить"
 
-#: twocomms_django_theme/templates/partials/mini_cart.html:91
 msgid "Разом"
 msgstr "Итого"
 
-#: twocomms_django_theme/templates/partials/mini_cart.html:96
-msgid "Кастомні позиції очікують підтвердження менеджером. Фінальну ціну узгоджуєте в кошику."
-msgstr "Кастомные позиции ожидают подтверждения менеджером. Финальную цену согласуете в корзине."
+msgid ""
+"Кастомні позиції очікують підтвердження менеджером. Фінальну ціну узгоджуєте "
+"в кошику."
+msgstr ""
+"Кастомные позиции ожидают подтверждения менеджером. Финальную цену "
+"согласуете в корзине."
 
-#: twocomms_django_theme/templates/partials/mini_cart.html:99
-msgid "Оформити на сайті"
-msgstr "Оформить на сайте"
+#, fuzzy
+#| msgid "Переваги покупки"
+msgid "Продовжити покупки"
+msgstr "Преимущества покупки"
 
-#: twocomms_django_theme/templates/partials/mini_cart.html:103
-msgid "Оформити через"
+#, fuzzy
+#| msgid "Увійти через Google"
+msgid "Оплатити через mono checkout"
+msgstr "Войти через Google"
+
+#, fuzzy
+#| msgid "Оформити через"
+msgid "Оплатити через"
 msgstr "Оформить через"
 
-#: twocomms_django_theme/templates/partials/mini_cart.html:119
 msgid "Кошик порожній."
 msgstr "Корзина пуста."
 
-#: twocomms_django_theme/templates/partials/product_card.html:17
 #, python-format
 msgid "Переглянути %(title)s"
 msgstr "Просмотреть %(title)s"
 
-#: twocomms_django_theme/templates/partials/product_card.html:63
 msgid "Доступні кольори"
 msgstr "Доступные цвета"
 
-#: twocomms_django_theme/templates/partials/product_card.html:66
 #, python-format
 msgid "Показати кольори %(title)s"
 msgstr "Показать цвета %(title)s"
 
-#: twocomms_django_theme/templates/partials/product_card.html:75
 msgid "Кольори товару"
 msgstr "Цвета товара"
 
-#: twocomms_django_theme/templates/partials/product_card.html:82
 msgid "плюс"
 msgstr "плюс"
-#: twocomms_django_theme/templates/partials/product_card.html:106
 msgid "0 балів"
 msgstr "0 баллов"
 
-#: twocomms_django_theme/templates/partials/product_card.html:108
 #, python-format
 msgid "Купити %(title)s"
 msgstr "Купить %(title)s"
 
-#: twocomms_django_theme/templates/partials/product_card.html:109
-#: twocomms_django_theme/templates/partials/product_card.html:208
 msgid "Купити"
 msgstr "Купить"
 
-#: twocomms_django_theme/templates/partials/product_card.html:196
 msgid "Дізнатись про бали"
 msgstr "Узнать о баллах"
+
+#~ msgid "Оформити на сайті"
+#~ msgstr "Оформить на сайте"

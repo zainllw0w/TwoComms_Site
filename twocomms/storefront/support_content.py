@@ -6,7 +6,22 @@ view hands the dict to the template (the values are lazy proxies; the
 dict itself is module-level constant).
 """
 
+from datetime import date
+
 from django.utils.translation import gettext_lazy as _
+
+
+# SEO v1.0 Phase 12 (2026-05-12) — finding (BBB).
+# We expose a static "today" string here so AboutPage / CollectionPage
+# JSON-LD blocks (e.g. /pro-brand/, /novyny/) can advertise a
+# ``dateModified``. The constant is evaluated once at import time, i.e.
+# whenever the Django worker process boots — that's a reasonable
+# refresh cadence for evergreen brand pages (every Passenger restart),
+# avoids the "future-dated dateModified" trap that fully-dynamic
+# ``{% now %}`` rendering can hit when the clock crosses midnight
+# during a long-running request, and keeps the JSON deterministic for
+# template-fragment caches.
+_TODAY_ISO = date.today().isoformat()
 
 
 HELP_FAQ_ITEMS = [
@@ -65,6 +80,42 @@ DELIVERY_FAQ_ITEMS = [
     {
         "question": "Чи можлива доставка за кордон?",
         "answer": "Так, міжнародні відправлення можливі. Умови, вартість і строки залежать від країни призначення та логістичного сценарію.",
+    },
+]
+
+
+HELP_CENTER_FAQ_ITEMS = [
+    # SEO v1.0 Phase 12 (2026-05-12) — finding (B8). The /dopomoga/
+    # service-manual page rendered no FAQPage JSON-LD, so Search
+    # Console missed the rich-result eligibility entirely. We mint a
+    # dedicated set of 5 short Q&A here (rather than reusing
+    # HELP_FAQ_ITEMS which already powers /faq/) because Google
+    # only surfaces a FAQ rich result for *one* URL per cluster of
+    # identical questions — duplicating the same questions on two
+    # pages cannibalises whichever one Google picks. The questions
+    # below intentionally rephrase the /faq/ topics around the
+    # "manual / how the storefront flow itself works" angle that
+    # /dopomoga/ owns; the questions on /faq/ retain their
+    # "answer-style" phrasing.
+    {
+        "question": "З чого почати оформлення замовлення на TwoComms?",
+        "answer": "Оберіть товар у каталозі, додайте розмір і колір у кошик, перейдіть до оформлення, заповніть контакти, спосіб доставки і оплату. Після підтвердження замовлення потрапить в обробку і ви отримаєте лист зі статусом.",
+    },
+    {
+        "question": "Як працюють бонусні бали та промокоди?",
+        "answer": "Бонуси нараховуються після оплачених замовлень і відображаються в особистому кабінеті. Промокоди застосовуються в кошику і не складаються між собою. Для переказу балів у знижку використовуйте чинні правила лояльності, описані в кабінеті.",
+    },
+    {
+        "question": "Що робити, якщо потрібна допомога з кастомним замовленням?",
+        "answer": "Перейдіть на сторінку «Кастомний друк» — там ви можете надіслати макет, бриф або просто описати ідею. Менеджер погодить файл, параметри та вартість, після чого замовлення запускається в роботу.",
+    },
+    {
+        "question": "Як подати сервісне звернення після отримання замовлення?",
+        "answer": "Готові товари належної якості повертаються або обмінюються протягом 14 днів за умови збереженого товарного вигляду. Сервісне звернення подається через сторінку «Повернення та обмін» або «Контакти» — додайте номер замовлення, опис ситуації та фото.",
+    },
+    {
+        "question": "Куди звертатися, якщо я не знайшов відповіді в Help-центрі?",
+        "answer": "Скористайтеся FAQ для коротких відповідей або сторінкою Контакти, щоб написати напряму. Для статусних питань — відкрийте «Відстеження замовлення», там видно поточний етап і рекомендовані дії.",
     },
 ]
 
@@ -401,6 +452,7 @@ SUPPORT_PAGE_DEFINITIONS = {
                 ],
             },
         ],
+        "faq_items": HELP_CENTER_FAQ_ITEMS,
         "cta": {
             "title": "Потрібна швидка відповідь?",
             "text": "Для частих питань відкрийте FAQ. Якщо потрібна жива комунікація, переходьте в контакти.",
@@ -654,6 +706,15 @@ SUPPORT_PAGE_DEFINITIONS = {
         "template": "pages/support_page.html",
         "variant": "brand",
         "schema_type": "CollectionPage",
+        # SEO v1.0 Phase 12 (2026-05-12) — finding (BBB). CollectionPage
+        # JSON-LD is most useful to Google when ``datePublished`` /
+        # ``dateModified`` are present (it powers the "Last updated"
+        # SERP timestamp + the AI freshness signal). The Updates hub
+        # at /novyny/ has been live since the brand launched; we
+        # advertise that as the publish anchor and let the module-import
+        # timestamp drive the "modified" claim.
+        "published_at": "2022-09-15",
+        "updated_at": _TODAY_ISO,
         "page_title": "Новини — TwoComms",
         "meta_title": "Новини, новинки та апдейти бренду | TwoComms",
         "meta_description": "Новини TwoComms: новинки каталогу, апдейти бренду, сервісні оновлення і маршрути до актуального асортименту.",

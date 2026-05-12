@@ -119,14 +119,31 @@ def build_variant_meta(inputs: VariantMetaInputs) -> dict:
         # keep the suffix order (color → size → fit).
         fit_lead = inputs.fit_label and inputs.segments_count == 1
         if fit_lead:
+            # SEO v1.0 Phase 12 (2026-05-12) — finding (III) follow-up.
+            # The «{fit_label} {product_title} — купити в TwoComms» pattern
+            # generated three different problems at once:
+            #   1. Grammar: «Оверсайз Футболка класична — купити в TwoComms»
+            #      — the verb «купити» has no direct object, the bare «в
+            #      TwoComms» reads as «buy *in* TwoComms» rather than «купити
+            #      … у TwoComms».
+            #   2. Tautology: «Класичний Футболка класична — купити в …»
+            #      ships the fit-name «класичний» twice ({fit_label} +
+            #      {product_title}).
+            #   3. Promotes a non-canonical fit-token to the front of the
+            #      title and pushes the product name out of the first 60
+            #      characters Google previews in SERPs.
+            # Reorder to the underscore pattern used by the multi-segment
+            # branch below: «{product} — {fit-lowercase} посадка — TwoComms».
+            # That keeps the brand-trailing template Google rewards, drops
+            # the «купити в» bug, and reads naturally for users.
+            fit_lc = _lowercase_first(inputs.fit_label)
             page_title = (
-                f"{inputs.fit_label} {inputs.product_title} — "
-                f"купити в TwoComms"
+                f"{inputs.product_title} — {fit_lc} посадка — TwoComms"
             )
             page_description = (
-                f"{inputs.fit_label} посадка «{inputs.product_title}»: щільна бавовна, "
+                f"{inputs.product_title}, {fit_lc} посадка — щільна бавовна, "
                 f"DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. "
-                f"Обирайте {_lowercase_first(inputs.fit_label)}-фіт — лаконічний стрітвеар від українського бренду."
+                f"Лаконічний стрітвеар від українського бренду TwoComms."
             )
         else:
             # SEO v1.0 Phase 4 (2026-05-12) — finding (III). The earlier

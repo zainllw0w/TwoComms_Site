@@ -810,9 +810,104 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 }
 
+# ===========================================================================
+# Phase 17i (2026-05-12) — color_seo_copy.py dynamic + GENERAL chip labels.
+# Kept in a separate dict so we can grow the curated set without ballooning
+# the original TRANSLATIONS dict. Merged into TRANSLATIONS below.
+# ===========================================================================
+TRANSLATIONS_PHASE_17I: dict[str, dict[str, str]] = {
+    # H2 templates with %(adj_*)s / %(name)s / %(cat)s placeholders.
+    # Note: source uses ``adj_m`` (Ukrainian: «чорний одяг» — masculine noun
+    # «одяг»). Russian noun «одежда» is feminine, so we drop the leading
+    # adjective and let «%(name)s» carry the colour. English has no gender,
+    # so we keep the natural attributive order.
+    "%(adj_m_cap)s одяг TwoComms — стрітвір у відтінку «%(name)s»": {
+        "ru": "Одежда TwoComms в оттенке «%(name)s» — украинский стритвир",
+        "en": "%(adj_m_cap)s TwoComms apparel — streetwear in the %(name)s tone",
+    },
+    "%(adj_n_cap)s %(cat)s TwoComms — український стрітвір з принтом": {
+        "ru": "%(adj_n_cap)s %(cat)s TwoComms — украинский стритвир с принтом",
+        "en": "%(adj_n_cap)s %(cat)s TwoComms — Ukrainian streetwear with print",
+    },
+
+    # Cross-category landing paragraphs.
+    # RU rewording: source uses neuter «%(adj_n_cap)s одяг» (Ukrainian
+    # «одяг» = masculine singular). Russian «одежда» is feminine — keep
+    # the colour reference but drop the strict adjective agreement.
+    "У каталозі TwoComms ви знайдете %(adj_n)s <a href=\"/catalog/hoodie/?color=%(slug)s\">худі</a>, <a href=\"/catalog/tshirts/?color=%(slug)s\">футболки</a> та <a href=\"/catalog/long-sleeve/?color=%(slug)s\">лонгсліви</a> з авторськими принтами. Усі моделі шиємо в Україні з натуральних тканин, друкуємо DTF-технологією й перевіряємо на стійкість кольору до прання. %(adj_n_cap)s одяг легко комбінувати з джинсами, карго-штанами та мілітарними аксесуарами.": {
+        "ru": "В каталоге TwoComms вы найдёте <a href=\"/catalog/hoodie/?color=%(slug)s\">худи</a>, <a href=\"/catalog/tshirts/?color=%(slug)s\">футболки</a> и <a href=\"/catalog/long-sleeve/?color=%(slug)s\">лонгсливы</a> в оттенке %(adj_n)s, с авторскими принтами. Все модели шьём в Украине из натуральных тканей, печатаем по технологии DTF и проверяем на устойчивость цвета к стирке. Одежду такого оттенка легко комбинировать с джинсами, карго-штанами и милитари-аксессуарами.",
+        "en": "In the TwoComms catalogue you'll find %(adj_n)s <a href=\"/catalog/hoodie/?color=%(slug)s\">hoodies</a>, <a href=\"/catalog/tshirts/?color=%(slug)s\">t-shirts</a> and <a href=\"/catalog/long-sleeve/?color=%(slug)s\">long sleeves</a> with original prints. Every model is made in Ukraine from natural fabrics, printed with DTF and colour-tested for laundering. %(adj_n_cap)s pieces pair easily with jeans, cargo trousers and tactical accessories.",
+    },
+    "Якщо вас цікавить конкретний принт у %(name)s — скористайтесь сторінкою <a href=\"/custom-print/\">«Власний принт»</a>: ми надрукуємо будь-яку ілюстрацію на обраній моделі від однієї одиниці. Доставка Новою Поштою по всій Україні — 1–2 дні; оплата карткою або накладеним платежем; повернення впродовж 14 днів, якщо не підійшов розмір.": {
+        "ru": "Если вас интересует конкретный принт в %(name)s — воспользуйтесь страницей <a href=\"/custom-print/\">«Собственный принт»</a>: мы напечатаем любую иллюстрацию на выбранной модели от одной единицы. Доставка Новой Почтой по всей Украине — 1–2 дня; оплата картой или наложенным платежом; возврат в течение 14 дней, если не подошёл размер.",
+        "en": "Looking for a specific print in %(name)s? Use the <a href=\"/custom-print/\">Custom Print</a> page: we'll print any artwork on the chosen model from a single unit. Nova Poshta delivery across Ukraine in 1–2 days; card payment or cash on delivery; 14-day return window if the size doesn't fit.",
+    },
+
+    # Category × colour paragraphs.
+    "У категорії «%(cat)s» %(adj_n)s TwoComms — це поєднання якісної тканини, насиченого друку й продуманої посадки. Ми використовуємо щільні полотна, так що принт не просвічується, а сам одяг тримає форму після десятків прань. Звертайте увагу на розмірну сітку — %(cat)s у TwoComms ідуть у двох посадках: класична та оверсайз.": {
+        "ru": "В категории «%(cat)s» %(adj_n)s TwoComms — это сочетание качественной ткани, насыщенной печати и продуманной посадки. Мы используем плотные полотна, поэтому принт не просвечивает, а сама одежда держит форму после десятков стирок. Обратите внимание на размерную сетку — %(cat)s в TwoComms идут в двух посадках: классическая и оверсайз.",
+        "en": "In the %(cat)s category, %(adj_n)s TwoComms gear combines quality fabric, saturated print and a thought-through fit. We use heavy knits so the print doesn't show through, and the garment keeps its shape after dozens of washes. Check the size chart — TwoComms %(cat)s come in two cuts: classic and oversized.",
+    },
+    "Подивіться також %(adj_n)s <a href=\"/catalog/?color=%(slug)s\">в інших категоріях</a> або оберіть інший відтінок цієї ж категорії — <a href=\"/catalog/%(cat_slug)s/\">%(cat)s TwoComms</a>. Якщо потрібен конкретний принт — скористайтесь сторінкою <a href=\"/custom-print/\">«Власний принт»</a>: ми надрукуємо вашу ілюстрацію на обраній моделі від однієї одиниці.": {
+        "ru": "Посмотрите также %(adj_n)s <a href=\"/catalog/?color=%(slug)s\">в других категориях</a> или выберите другой оттенок этой же категории — <a href=\"/catalog/%(cat_slug)s/\">%(cat)s TwoComms</a>. Если нужен конкретный принт — воспользуйтесь страницей <a href=\"/custom-print/\">«Собственный принт»</a>: мы напечатаем вашу иллюстрацию на выбранной модели от одной единицы.",
+        "en": "Also see %(adj_n)s <a href=\"/catalog/?color=%(slug)s\">across the other categories</a> or pick a different shade in this category — <a href=\"/catalog/%(cat_slug)s/\">%(cat)s TwoComms</a>. Need a specific print? Use the <a href=\"/custom-print/\">Custom Print</a> page: we'll print your artwork on the chosen model from a single unit.",
+    },
+
+    # Generic fallback (uncurated colour) tone paragraph + chips.
+    "Колір «%(label)s» у каталозі TwoComms — це вибір для тих, хто хоче відійти від базової палітри, але не готовий поступатися якістю принту. Ми друкуємо на цьому відтінку DTF-технологією з підвищеним базовим шаром, тому ілюстрація не «провалюється» у тон тканини й залишається насиченою після десятків прань.": {
+        "ru": "Цвет «%(label)s» в каталоге TwoComms — это выбор для тех, кто хочет отойти от базовой палитры, но не готов уступать в качестве печати. Мы печатаем на этом оттенке по технологии DTF с усиленным базовым слоем, поэтому иллюстрация не «проваливается» в тон ткани и остаётся насыщенной после десятков стирок.",
+        "en": "The %(label)s shade at TwoComms is the pick for anyone who wants to leave the basic palette behind without compromising on print quality. We print on this colour with DTF and a boosted base layer, so the artwork doesn't blend into the fabric and stays saturated after dozens of washes.",
+    },
+    "вибраний": {"ru": "выбранный", "en": "selected"},
+    "Купити %(color)s худі":            {"ru": "Купить %(color)s худи",           "en": "Buy %(color)s hoodie"},
+    "%(color)s футболка з принтом":     {"ru": "%(color)s футболка с принтом",    "en": "%(color)s t-shirt with print"},
+    "%(color)s лонгслів":               {"ru": "%(color)s лонгслив",              "en": "%(color)s long sleeve"},
+    "%(color)s стрітвір TwoComms":      {"ru": "%(color)s стритвир TwoComms",     "en": "%(color)s streetwear TwoComms"},
+    "%(color)s одяг ЗСУ донат":         {"ru": "%(color)s одежда ВСУ донат",      "en": "%(color)s clothing AFU donation"},
+    "%(color)s футболка з тризубом купити Україна": {
+        "ru": "%(color)s футболка с тризубом купить Украина",
+        "en": "%(color)s t-shirt with trident buy Ukraine",
+    },
+    "%(color)s худі з патріотичним принтом": {
+        "ru": "%(color)s худи с патриотическим принтом",
+        "en": "%(color)s hoodie with patriotic print",
+    },
+
+    # GENERAL_CATALOG_SEO_COPY chip labels.
+    "Купити худі":                           {"ru": "Купить худи",                       "en": "Buy a hoodie"},
+    "Купити футболку з принтом":             {"ru": "Купить футболку с принтом",         "en": "Buy a printed t-shirt"},
+    "Купити лонгслів":                       {"ru": "Купить лонгслив",                   "en": "Buy a long sleeve"},
+    "Український стрітвір":                  {"ru": "Украинский стритвир",               "en": "Ukrainian streetwear"},
+    "Худі ЗСУ":                              {"ru": "Худи ВСУ",                          "en": "AFU hoodie"},
+    "Чорна футболка з тризубом":             {"ru": "Чёрная футболка с тризубом",        "en": "Black t-shirt with trident"},
+    "Кайотовий лонгслів":                    {"ru": "Койотовый лонгслив",                "en": "Coyote long sleeve"},
+    "Оливкове худі мілітарі":                {"ru": "Оливковое худи милитари",           "en": "Olive military hoodie"},
+    "Подарунок захиснику український бренд": {"ru": "Подарок защитнику украинский бренд","en": "Soldier gift Ukrainian brand"},
+    "Худі з патріотичним принтом купити Київ": {
+        "ru": "Худи с патриотическим принтом купить Киев",
+        "en": "Hoodie with patriotic print buy Kyiv",
+    },
+    "Футболка ЗСУ донат на ЗСУ Україна": {
+        "ru": "Футболка ВСУ донат на ВСУ Украина",
+        "en": "AFU t-shirt donation to Armed Forces Ukraine",
+    },
+    "Власний принт на одязі від 1 одиниці": {
+        "ru": "Собственный принт на одежде от 1 единицы",
+        "en": "Custom print on clothing from 1 unit",
+    },
+}
+TRANSLATIONS.update(TRANSLATIONS_PHASE_17I)
+
+
+# Phase 17i fix: original `[^"]*` failed on multi-line msgid blocks
+# whose continuation strings contain escaped quotes (e.g. ``href=\"…\"`` in
+# the catalogue SEO paragraphs). The dotted alternative
+# ``(?:[^"\\]|\\.)*`` walks escape sequences as a unit so the regex stops
+# only at unescaped closing quotes.
+_PO_STRING = r'"(?:[^"\\]|\\.)*"'
 
 _PO_ENTRY_RE = re.compile(
-    r'(^msgid (?:"[^"]*"\s*)+\n)((?:msgstr (?:"[^"]*"\s*)+\n)+)',
+    rf'(^msgid (?:{_PO_STRING}\s*)+\n)((?:msgstr (?:{_PO_STRING}\s*)+\n)+)',
     re.MULTILINE,
 )
 
@@ -842,7 +937,7 @@ def _encode_po_string(s: str) -> str:
 
 
 _BLOCK_RE = re.compile(
-    r"((?:^#.*\n)*)(^msgid (?:\"[^\"]*\"\s*)+\n)((?:msgstr (?:\"[^\"]*\"\s*)+\n)+)",
+    rf"((?:^#.*\n)*)(^msgid (?:{_PO_STRING}\s*)+\n)((?:msgstr (?:{_PO_STRING}\s*)+\n)+)",
     re.MULTILINE,
 )
 
