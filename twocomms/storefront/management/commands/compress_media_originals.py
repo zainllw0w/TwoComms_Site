@@ -116,7 +116,7 @@ class Command(BaseCommand):
         parser.add_argument("--webp-quality", type=int, default=82)
         parser.add_argument("--min-saving-ratio", type=float, default=0.05,
                             help="Only commit if the new file is at least this "
-                                 "much smaller (0.05 = 5%).")
+                                 "much smaller (0.05 = five percent).")
         parser.add_argument("--models", nargs="+", default=None,
                             help="Restrict to <app>.<model>.<field> selectors.")
         parser.add_argument("--backup-suffix", default="",
