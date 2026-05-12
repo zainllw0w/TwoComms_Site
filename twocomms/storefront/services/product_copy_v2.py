@@ -218,16 +218,20 @@ _PHASE13_SIGNATURES = {
     # generator formats so the regeneration command picks them all up
     # without needing ``--force`` (which would blow away hand-edited
     # copy). The original Phase 13 autofill emitted «Купити … —
-    # TwoComms»; Phase 13.5 emitted «… — купити <category> TwoComms»
-    # with the nominative form (finding A); both must be rewritten.
+    # TwoComms» (ends with " — TwoComms"); Phase 13.5 emitted
+    # «… — купити <category> TwoComms» with the nominative form
+    # (finding A) and ENDS with «<NOM> TwoComms» (no em-dash before
+    # TwoComms). Earlier signature only checked for the v0 ending,
+    # which is why the regeneration silently no-op'd on every v1
+    # title. Match both endings explicitly.
     "seo_title":         lambda v: (
-        v.endswith(" — TwoComms") and (
-            v.startswith("Купити ") or
-            " — купити футболка TwoComms" in v or
-            " — купити худі TwoComms" in v or
-            " — купити лонгслів TwoComms" in v or
-            " — купити товар TwoComms" in v
-        )
+        # v0 — Phase 13 autofill format «Купити X — TwoComms».
+        (v.endswith(" — TwoComms") and v.startswith("Купити ")) or
+        # v1 — Phase 13.5 nominative bug «X — купити <NOM> TwoComms».
+        v.endswith(" — купити футболка TwoComms") or
+        v.endswith(" — купити худі TwoComms") or
+        v.endswith(" — купити лонгслів TwoComms") or
+        v.endswith(" — купити товар TwoComms")
     ),
 }
 
