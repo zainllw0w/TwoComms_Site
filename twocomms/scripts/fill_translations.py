@@ -1071,6 +1071,269 @@ TRANSLATIONS_PHASE_17J: dict[str, dict[str, str]] = {
 TRANSLATIONS.update(TRANSLATIONS_PHASE_17J)
 
 
+# ===========================================================================
+# Phase 17k (2026-05-13) — cart.html wrappings (custom + regular items,
+# delivery form, summary block, consultation modal).
+# ===========================================================================
+TRANSLATIONS_PHASE_17K: dict[str, dict[str, str]] = {
+    "Кошик": {"ru": "Корзина", "en": "Cart"},
+    "Ваші вибрані товари": {"ru": "Ваши выбранные товары", "en": "Your selected items"},
+    "Очистити": {"ru": "Очистить", "en": "Clear"},
+    "Кастомний друк": {"ru": "Кастомная печать", "en": "Custom print"},
+    "Передаємо менеджеру на перевірку": {
+        "ru": "Передаём менеджеру на проверку",
+        "en": "Sending to the manager for review",
+    },
+    "На перевірці менеджера": {"ru": "На проверке менеджера", "en": "Under manager review"},
+    "✅ Погоджено — можна оплачувати": {
+        "ru": "✅ Согласовано — можно оплачивать",
+        "en": "✅ Approved — ready for payment",
+    },
+    "❌ Відхилено менеджером": {
+        "ru": "❌ Отклонено менеджером",
+        "en": "❌ Rejected by the manager",
+    },
+    "Коментар менеджера: %(note)s": {
+        "ru": "Комментарий менеджера: %(note)s",
+        "en": "Manager note: %(note)s",
+    },
+    "Виріб:": {"ru": "Изделие:", "en": "Item:"},
+    "Розміщення:": {"ru": "Размещение:", "en": "Placement:"},
+    "Кількість:": {"ru": "Количество:", "en": "Quantity:"},
+    "Режим розмірів:": {"ru": "Режим размеров:", "en": "Size mode:"},
+    "Розміри:": {"ru": "Размеры:", "en": "Sizes:"},
+    "Крій:": {"ru": "Крой:", "en": "Cut:"},
+    "Тканина:": {"ru": "Ткань:", "en": "Fabric:"},
+    "Колір:": {"ru": "Цвет:", "en": "Colour:"},
+    "Послуга:": {"ru": "Услуга:", "en": "Service:"},
+    "Підготовка файлу:": {"ru": "Подготовка файла:", "en": "File preparation:"},
+    "Додатково:": {"ru": "Дополнительно:", "en": "Add-ons:"},
+    "Коментар до розміщення:": {"ru": "Комментарий к размещению:", "en": "Placement note:"},
+    "🎁 Подарунок:": {"ru": "🎁 Подарок:", "en": "🎁 Gift:"},
+    "Упаковка + промокод 10%": {"ru": "Упаковка + промокод 10%", "en": "Packaging + 10% promo code"},
+    "B2B знижка:": {"ru": "B2B скидка:", "en": "B2B discount:"},
+    "грн/шт": {"ru": "грн/шт", "en": "UAH/pc"},
+    "Разом:": {"ru": "Итого:", "en": "Total:"},
+    "Після погодження": {"ru": "После согласования", "en": "After approval"},
+    "Орієнтовно %(amount)s грн": {
+        "ru": "Ориентировочно %(amount)s грн",
+        "en": "Approximately %(amount)s UAH",
+    },
+    "Написати менеджеру": {"ru": "Написать менеджеру", "en": "Message the manager"},
+    "Видалити": {"ru": "Удалить", "en": "Remove"},
+    "%(title)s - товар у кошику TwoComms": {
+        "ru": "%(title)s — товар в корзине TwoComms",
+        "en": "%(title)s — item in the TwoComms cart",
+    },
+
+    "Розмір:": {"ru": "Размер:", "en": "Size:"},
+    "Посадка:": {"ru": "Посадка:", "en": "Fit:"},
+    "Ціна:": {"ru": "Цена:", "en": "Price:"},
+    "грн": {"ru": "грн", "en": "UAH"},
+
+    # Empty cart.
+    "Кошик порожній": {"ru": "Корзина пуста", "en": "Cart is empty"},
+    "Додайте товари до кошика, щоб зробити замовлення": {
+        "ru": "Добавьте товары в корзину, чтобы оформить заказ",
+        "en": "Add items to the cart to place an order",
+    },
+    "Перейти до покупок": {"ru": "Перейти к покупкам", "en": "Start shopping"},
+
+    # Sidebar / delivery form.
+    "Доставка": {"ru": "Доставка", "en": "Delivery"},
+    "Авторизація": {"ru": "Авторизация", "en": "Sign in"},
+    "Щоб не вводити дані кожного разу — авторизуйтесь і накопичуйте бали.": {
+        "ru": "Чтобы не вводить данные каждый раз — авторизуйтесь и копите баллы.",
+        "en": "Sign in so you don't have to re-enter data every time — and earn points.",
+    },
+    "ПІБ": {"ru": "ФИО", "en": "Full name"},
+    "ПІБ *": {"ru": "ФИО *", "en": "Full name *"},
+    "Прізвище Ім'я По батькові": {
+        "ru": "Фамилия Имя Отчество",
+        "en": "Last name First name Patronymic",
+    },
+    "Прізвище Імʼя По батькові": {
+        "ru": "Фамилия Имя Отчество",
+        "en": "Last name First name Patronymic",
+    },
+    "Телефон *": {"ru": "Телефон *", "en": "Phone *"},
+    "0931234567": {"ru": "0931234567", "en": "0931234567"},
+    "Можна вводити 093..., 809..., 380... або +380... — номер приведемо до потрібного формату.": {
+        "ru": "Можно вводить 093..., 809..., 380... или +380... — номер приведём к нужному формату.",
+        "en": "You can type 093…, 809…, 380… or +380… — we'll normalise the format.",
+    },
+    "Місто *": {"ru": "Город *", "en": "City *"},
+    "Місто": {"ru": "Город", "en": "City"},
+    "Почніть вводити місто Нової пошти": {
+        "ru": "Начните вводить город Новой почты",
+        "en": "Start typing a Nova Poshta city",
+    },
+    "Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти.": {
+        "ru": "Начните вводить название города и выберите подтверждённый вариант из списка Новой почты.",
+        "en": "Start typing the city name and pick a confirmed option from the Nova Poshta list.",
+    },
+    "Відділення / Поштомат НП *": {
+        "ru": "Отделение / Почтомат НП *",
+        "en": "Branch / Nova Poshta parcel locker *",
+    },
+    "Відділення / Поштомат НП": {
+        "ru": "Отделение / Почтомат НП",
+        "en": "Branch / Nova Poshta parcel locker",
+    },
+    "Оберіть відділення або поштомат": {
+        "ru": "Выберите отделение или почтомат",
+        "en": "Choose a branch or parcel locker",
+    },
+    "Усі пункти": {"ru": "Все пункты", "en": "All points"},
+    "Відділення": {"ru": "Отделение", "en": "Branch"},
+    "Поштомат": {"ru": "Почтомат", "en": "Parcel locker"},
+    "Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти.": {
+        "ru": "После выбора города начните вводить номер или адрес и выберите отделение или почтомат из списка Новой почты.",
+        "en": "After picking a city, start typing the number or address and select a branch or parcel locker from the Nova Poshta list.",
+    },
+    "Тип оплати *": {"ru": "Тип оплаты *", "en": "Payment method *"},
+    "Тип оплати": {"ru": "Тип оплаты", "en": "Payment method"},
+    "Оберіть тип оплати": {"ru": "Выберите тип оплаты", "en": "Choose a payment method"},
+    "Онлайн оплата (повна сума)": {
+        "ru": "Онлайн-оплата (полная сумма)",
+        "en": "Online payment (full amount)",
+    },
+    "Передплата 200 грн (решта при отриманні)": {
+        "ru": "Предоплата 200 грн (остаток при получении)",
+        "en": "200 UAH prepayment (rest on delivery)",
+    },
+    "— недоступно з кастомним принтом": {
+        "ru": "— недоступно с кастомным принтом",
+        "en": "— unavailable with a custom print",
+    },
+    "недоступно з кастомним принтом": {
+        "ru": "недоступно с кастомным принтом",
+        "en": "unavailable with a custom print",
+    },
+    "У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — менеджер узгодить фінальну ціну.": {
+        "ru": "В корзине есть кастомный принт, поэтому предоплата 200 грн временно недоступна — менеджер согласует финальную цену.",
+        "en": "Your cart contains a custom print, so the 200 UAH prepayment is temporarily disabled — the manager will confirm the final price.",
+    },
+    "Потрібна консультація?": {"ru": "Нужна консультация?", "en": "Need a consultation?"},
+    "Зберегти зміни": {"ru": "Сохранить изменения", "en": "Save changes"},
+    "Email": {"ru": "Email", "en": "Email"},
+    "your@email.com": {"ru": "your@email.com", "en": "your@email.com"},
+
+    # Promocode + summary.
+    "Промокод": {"ru": "Промокод", "en": "Promo code"},
+    "Застосовано": {"ru": "Применено", "en": "Applied"},
+    "Знижка:": {"ru": "Скидка:", "en": "Discount:"},
+    "Введіть код промокоду": {"ru": "Введите код промокода", "en": "Enter the promo code"},
+    "Оформлення замовлення": {"ru": "Оформление заказа", "en": "Checkout"},
+    "Підсумок вашого замовлення": {
+        "ru": "Итог вашего заказа",
+        "en": "Your order summary",
+    },
+    "Товари": {"ru": "Товары", "en": "Items"},
+    "Орієнтовно за кастомний друк": {
+        "ru": "Ориентировочно за кастомную печать",
+        "en": "Approximate cost for custom print",
+    },
+    "Знижка магазину": {"ru": "Скидка магазина", "en": "Store discount"},
+    "Знижка промокоду": {"ru": "Скидка по промокоду", "en": "Promo code discount"},
+    "До сплати:": {"ru": "К оплате:", "en": "To pay:"},
+    "Залишок при отриманні:": {"ru": "Остаток при получении:", "en": "Balance on delivery:"},
+    "Це додаткова передоплата для вас — решту сплатите при отриманні.": {
+        "ru": "Это дополнительная предоплата для вас — остальное оплатите при получении.",
+        "en": "This is an additional prepayment — pay the remainder upon delivery.",
+    },
+    "Знижка від TwoComms": {"ru": "Скидка от TwoComms", "en": "TwoComms discount"},
+    "Разом ви економите": {"ru": "Всего вы экономите", "en": "You save in total"},
+    "Бали за замовлення": {"ru": "Баллы за заказ", "en": "Points for the order"},
+    "буде нараховано після отримання товару": {
+        "ru": "будут начислены после получения товара",
+        "en": "will be credited after the item is received",
+    },
+    "Бали не нараховуються": {"ru": "Баллы не начисляются", "en": "No points awarded"},
+    "Для отримання балів потрібно авторизуватися": {
+        "ru": "Чтобы получать баллы, нужно авторизоваться",
+        "en": "Sign in to earn points",
+    },
+    "Авторизуватися": {"ru": "Авторизоваться", "en": "Sign in"},
+    "Доставка оплачується згідно тарифів перевізника.": {
+        "ru": "Доставка оплачивается по тарифам перевозчика.",
+        "en": "Delivery is paid according to the carrier's tariff.",
+    },
+
+    # CTA buttons + checkout notes.
+    "Онлайн оплата карткою": {
+        "ru": "Онлайн-оплата картой",
+        "en": "Online card payment",
+    },
+    "(без урахування кастомного одягу)": {
+        "ru": "(без учёта кастомной одежды)",
+        "en": "(excluding custom apparel)",
+    },
+    "Pay": {"ru": "Pay", "en": "Pay"},
+    "Оформити замовлення": {"ru": "Оформить заказ", "en": "Place order"},
+    "Замовити як гість": {"ru": "Заказать как гость", "en": "Order as a guest"},
+    "Оплата стане доступною після погодження менеджером. Зараз у кошику немає позицій, які можна оплатити окремо.": {
+        "ru": "Оплата станет доступной после согласования менеджером. Сейчас в корзине нет позиций, которые можно оплатить отдельно.",
+        "en": "Payment will be available after the manager approves it. Right now the cart has no items that can be paid separately.",
+    },
+    "Оплата покриє лише звичайні товари. Кастомна позиція приєднається до замовлення автоматично після погодження менеджером — на ваш номер надійде додаткове повідомлення з фінальною ціною.": {
+        "ru": "Оплата покроет только обычные товары. Кастомная позиция автоматически присоединится к заказу после согласования менеджером — на ваш номер придёт дополнительное сообщение с финальной ценой.",
+        "en": "The payment will cover regular items only. The custom item will join the order automatically once the manager approves it — you'll get a follow-up message with the final price.",
+    },
+    "Після оформлення замовлення менеджер звʼяжеться з вами за вказаним номером телефону, щоб підтвердити деталі та узгодити доставку.": {
+        "ru": "После оформления заказа менеджер свяжется с вами по указанному номеру телефона, чтобы подтвердить детали и согласовать доставку.",
+        "en": "After you place the order, the manager will reach out via the phone number you provided to confirm details and arrange delivery.",
+    },
+    "Менеджер погодив усі кастомні позиції. Тепер можна оплатити все замовлення разом.": {
+        "ru": "Менеджер согласовал все кастомные позиции. Теперь можно оплатить весь заказ сразу.",
+        "en": "The manager has approved all custom items. You can now pay for the whole order at once.",
+    },
+    "Кастомний одяг уже переданий менеджеру на перевірку. Поки триває модерація, позиція відображається в кошику окремо і <strong>не входить до суми оплати зараз</strong>. Щойно менеджер погодить деталі та фінальну ціну — кастом автоматично приєднається до рахунку.": {
+        "ru": "Кастомная одежда уже передана менеджеру на проверку. Пока идёт модерация, позиция отображается в корзине отдельно и <strong>не входит в сумму оплаты сейчас</strong>. Как только менеджер согласует детали и финальную цену — кастом автоматически присоединится к счёту.",
+        "en": "The custom apparel has been forwarded to the manager for review. During moderation it stays in the cart separately and <strong>is not included in the payable amount yet</strong>. As soon as the manager confirms the details and the final price, the custom item will join the invoice automatically.",
+    },
+    "Написати менеджеру в Telegram": {
+        "ru": "Написать менеджеру в Telegram",
+        "en": "Message the manager on Telegram",
+    },
+    "Менеджер відхилив попередню заявку. Перегляньте деталі вище та надішліть її повторно, або ж оформіть замовлення <strong>без кастомних позицій</strong>.": {
+        "ru": "Менеджер отклонил предыдущую заявку. Просмотрите детали выше и отправьте её повторно, либо оформите заказ <strong>без кастомных позиций</strong>.",
+        "en": "The manager has rejected the previous request. Review the details above and resubmit it, or place the order <strong>without the custom items</strong>.",
+    },
+    "Менеджер уже працює з вашим кастомним запитом. Коли модерацію буде завершено, позиція автоматично стане доступною для оплати в цьому ж кошику.": {
+        "ru": "Менеджер уже работает с вашим кастомным запросом. Когда модерация завершится, позиция автоматически станет доступна для оплаты в этой же корзине.",
+        "en": "The manager is already handling your custom request. Once moderation is complete, the item will be ready for payment in the same cart.",
+    },
+
+    # Consultation modal.
+    "Безкоштовна консультація": {
+        "ru": "Бесплатная консультация",
+        "en": "Free consultation",
+    },
+    "Закрити": {"ru": "Закрыть", "en": "Close"},
+    "Залиште свої контактні дані, і наш менеджер звʼяжеться з вами найближчим часом для консультації": {
+        "ru": "Оставьте свои контактные данные, и наш менеджер свяжется с вами в ближайшее время для консультации",
+        "en": "Leave your contact details and our manager will reach out shortly for a consultation",
+    },
+    "Введіть ваше ПІБ": {"ru": "Введите ваше ФИО", "en": "Enter your full name"},
+    "@username або номер телефону": {
+        "ru": "@username или номер телефона",
+        "en": "@username or phone number",
+    },
+    "Опціонально, але допоможе зв'язатися швидше": {
+        "ru": "Опционально, но поможет связаться быстрее",
+        "en": "Optional, but helps us reach you faster",
+    },
+    "Опціонально": {"ru": "Опционально", "en": "Optional"},
+    "Зв'язатися зі мною": {"ru": "Связаться со мной", "en": "Get in touch with me"},
+    "Заробите %(n)s бал": {"ru": "Заработаете %(n)s балл", "en": "You'll earn %(n)s point"},
+    "Заробите %(n)s балів": {"ru": "Заработаете %(n)s баллов", "en": "You'll earn %(n)s points"},
+    "%(counter)s бал": {"ru": "%(counter)s балл", "en": "%(counter)s point"},
+    "%(counter)s балів": {"ru": "%(counter)s баллов", "en": "%(counter)s points"},
+}
+TRANSLATIONS.update(TRANSLATIONS_PHASE_17K)
+
+
 # Phase 17i fix: original `[^"]*` failed on multi-line msgid blocks
 # whose continuation strings contain escaped quotes (e.g. ``href=\"…\"`` in
 # the catalogue SEO paragraphs). The dotted alternative

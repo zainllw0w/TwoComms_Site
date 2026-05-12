@@ -5,7 +5,7 @@
 {% load responsive_images %}
 {% load color_filters %}
 
-{% block title %}Кошик — TwoComms{% endblock %}
+{% block title %}{% trans 'Кошик' %} — TwoComms{% endblock %}
 {% block robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
@@ -106,105 +106,105 @@
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                     </svg>
-                    Кастомний друк {% if ci.lead_number %}· №{{ ci.lead_number }}{% endif %}
+                    {% trans 'Кастомний друк' %} {% if ci.lead_number %}· №{{ ci.lead_number }}{% endif %}
                   </div>
                   <div class="cart-item-moderation" data-status="{{ ci.moderation_status }}">
                     {% if ci.is_pending %}
                       <span class="cart-item-moderation-badge cart-item-moderation-badge--pending">
                         <span class="cart-item-status-spinner" aria-hidden="true"></span>
-                        {% if ci.is_draft %}Передаємо менеджеру на перевірку{% else %}На перевірці менеджера{% endif %}
+                        {% if ci.is_draft %}{% trans 'Передаємо менеджеру на перевірку' %}{% else %}{% trans 'На перевірці менеджера' %}{% endif %}
                       </span>
                     {% elif ci.is_approved %}
-                      <span class="cart-item-moderation-badge cart-item-moderation-badge--approved">✅ Погоджено — можна оплачувати</span>
+                      <span class="cart-item-moderation-badge cart-item-moderation-badge--approved">{% trans '✅ Погоджено — можна оплачувати' %}</span>
                     {% elif ci.is_rejected %}
-                      <span class="cart-item-moderation-badge cart-item-moderation-badge--rejected">❌ Відхилено менеджером</span>
+                      <span class="cart-item-moderation-badge cart-item-moderation-badge--rejected">{% trans '❌ Відхилено менеджером' %}</span>
                     {% endif %}
                     {% if ci.manager_note %}
-                      <div class="cart-item-manager-note">Коментар менеджера: {{ ci.manager_note }}</div>
+                      <div class="cart-item-manager-note">{% blocktrans with note=ci.manager_note %}Коментар менеджера: {{ note }}{% endblocktrans %}</div>
                     {% endif %}
                   </div>
                   <h3 class="cart-item-title">{{ ci.label }}</h3>
                   <div class="cart-item-details">
                     {% if ci.product_label %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Виріб:</span>
+                      <span class="cart-item-label">{% trans 'Виріб:' %}</span>
                       <span class="cart-item-value">{{ ci.product_label }}</span>
                     </div>
                     {% endif %}
                     {% if ci.placements_display %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Розміщення:</span>
+                      <span class="cart-item-label">{% trans 'Розміщення:' %}</span>
                       <span class="cart-item-value">{{ ci.placements_display }}</span>
                     </div>
                     {% endif %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Кількість:</span>
+                      <span class="cart-item-label">{% trans 'Кількість:' %}</span>
                       <span class="cart-item-value">{{ ci.quantity }}</span>
                     </div>
                     {% if ci.size_mode_label %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Режим розмірів:</span>
+                      <span class="cart-item-label">{% trans 'Режим розмірів:' %}</span>
                       <span class="cart-item-value">{{ ci.size_mode_label }}</span>
                     </div>
                     {% endif %}
                     {% if ci.size_breakdown_display %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Розміри:</span>
+                      <span class="cart-item-label">{% trans 'Розміри:' %}</span>
                       <span class="cart-item-value">{{ ci.size_breakdown_display }}</span>
                     </div>
                     {% endif %}
                     {% if ci.fit_label %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Крій:</span>
+                      <span class="cart-item-label">{% trans 'Крій:' %}</span>
                       <span class="cart-item-value">{{ ci.fit_label }}</span>
                     </div>
                     {% endif %}
                     {% if ci.fabric_label %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Тканина:</span>
+                      <span class="cart-item-label">{% trans 'Тканина:' %}</span>
                       <span class="cart-item-value">{{ ci.fabric_label }}</span>
                     </div>
                     {% endif %}
                     {% if ci.color %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Колір:</span>
+                      <span class="cart-item-label">{% trans 'Колір:' %}</span>
                       <span class="cart-item-value">{{ ci.color }}</span>
                     </div>
                     {% endif %}
                     {% if ci.service_kind_label %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Послуга:</span>
+                      <span class="cart-item-label">{% trans 'Послуга:' %}</span>
                       <span class="cart-item-value">{{ ci.service_kind_label }}</span>
                     </div>
                     {% endif %}
                     {% if ci.file_triage_label %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Підготовка файлу:</span>
+                      <span class="cart-item-label">{% trans 'Підготовка файлу:' %}</span>
                       <span class="cart-item-value">{{ ci.file_triage_label }}</span>
                     </div>
                     {% endif %}
                     {% if ci.add_on_labels %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Додатково:</span>
+                      <span class="cart-item-label">{% trans 'Додатково:' %}</span>
                       <span class="cart-item-value">{{ ci.add_on_labels|join:", " }}</span>
                     </div>
                     {% endif %}
                     {% if ci.placement_note %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">Коментар до розміщення:</span>
+                      <span class="cart-item-label">{% trans 'Коментар до розміщення:' %}</span>
                       <span class="cart-item-value">{{ ci.placement_note }}</span>
                     </div>
                     {% endif %}
                     {% if ci.gift_enabled %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">🎁 Подарунок:</span>
-                      <span class="cart-item-value">{{ ci.gift_text|default:"Упаковка + промокод 10%" }}</span>
+                      <span class="cart-item-label">{% trans '🎁 Подарунок:' %}</span>
+                      <span class="cart-item-value">{{ ci.gift_text|default:_('Упаковка + промокод 10%') }}</span>
                     </div>
                     {% endif %}
                     {% if ci.mode == 'brand' and ci.b2b_discount_per_unit %}
                     <div class="cart-item-detail">
-                      <span class="cart-item-label">B2B знижка:</span>
-                      <span class="cart-item-value">-{{ ci.b2b_discount_per_unit }} грн/шт</span>
+                      <span class="cart-item-label">{% trans 'B2B знижка:' %}</span>
+                      <span class="cart-item-value">-{{ ci.b2b_discount_per_unit }} {% trans 'грн/шт' %}</span>
                     </div>
                     {% endif %}
                   </div>
@@ -227,9 +227,9 @@
                     {% if ci.included_in_payment %}
                     <span class="cart-item-total-value">{{ ci.final_total|floatformat:2 }} грн</span>
                     {% else %}
-                    <span class="cart-item-total-value cart-item-total-value--muted">Після погодження</span>
+                    <span class="cart-item-total-value cart-item-total-value--muted">{% trans 'Після погодження' %}</span>
                     {% if ci.final_total > 0 %}
-                    <div class="cart-item-total-note">Орієнтовно {{ ci.final_total|floatformat:2 }} грн</div>
+                    <div class="cart-item-total-note">{% blocktrans with amount=ci.final_total|floatformat:2 %}Орієнтовно {{ amount }} грн{% endblocktrans %}</div>
                     {% endif %}
                     {% endif %}
                   </div>
@@ -238,14 +238,14 @@
                      target="_blank"
                      rel="noopener noreferrer"
                      class="cart-item-manager-link">
-                    Написати менеджеру
+                    {% trans 'Написати менеджеру' %}
                   </a>
                   {% endif %}
                   <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="{{ ci.key }}" data-lead-id="{{ ci.lead_id }}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                     </svg>
-                    Видалити
+                    {% trans 'Видалити' %}
                   </button>
                 </div>
               </div>
@@ -263,18 +263,18 @@
               <div class="cart-item-image">
                 {% if it.color_variant and it.color_variant.images.exists %}
                   <img src="{{ it.color_variant.images.first.image.url }}" 
-                       alt="{{ it.product.title }} - товар у кошику TwoComms" 
+                       alt="{% blocktrans with title=it.product.title %}{{ title }} - товар у кошику TwoComms{% endblocktrans %}" 
                        class="cart-item-img"
                        width="80" height="80">
                 {% elif it.product.main_image %}
                   <img src="{{ it.product.main_image.url }}" 
-                       alt="{{ it.product.title }} - товар у кошику TwoComms" 
+                       alt="{% blocktrans with title=it.product.title %}{{ title }} - товар у кошику TwoComms{% endblocktrans %}" 
                        class="cart-item-img"
                        width="80" height="80">
                 {% else %}
                   {% static 'img/placeholder.jpg' as ph_url %}
                   <img src="{{ ph_url }}" 
-                       alt="{{ it.product.title }} - товар у кошику TwoComms" 
+                       alt="{% blocktrans with title=it.product.title %}{{ title }} - товар у кошику TwoComms{% endblocktrans %}" 
                        class="cart-item-img"
                        width="80" height="80">
                 {% endif %}
@@ -285,22 +285,22 @@
                 <h3 class="cart-item-title">{{ it.product.title }}</h3>
                 <div class="cart-item-details">
                   <div class="cart-item-detail">
-                    <span class="cart-item-label">Розмір:</span>
+                    <span class="cart-item-label">{% trans 'Розмір:' %}</span>
                     <span class="cart-item-value">{{ it.size }}</span>
                   </div>
                   <div class="cart-item-detail">
-                    <span class="cart-item-label">Кількість:</span>
+                    <span class="cart-item-label">{% trans 'Кількість:' %}</span>
                     <span class="cart-item-value">{{ it.qty }}</span>
                   </div>
                   {% if it.fit_label %}
                   <div class="cart-item-detail">
-                    <span class="cart-item-label">Посадка:</span>
+                    <span class="cart-item-label">{% trans 'Посадка:' %}</span>
                     <span class="cart-item-value">{{ it.fit_label }}</span>
                   </div>
                   {% endif %}
                   {% if it.color_variant %}
                   <div class="cart-item-detail">
-                    <span class="cart-item-label">Колір:</span>
+                    <span class="cart-item-label">{% trans 'Колір:' %}</span>
                     <div class="cart-item-color d-flex align-items-center gap-2">
                       {% with p=it.color_variant.color.primary_hex s=it.color_variant.color.secondary_hex %}
                       <span class="cart-item-swatch swatch"
@@ -314,7 +314,7 @@
                   {% endif %}
                 </div>
                 <div class="cart-item-price">
-                  <span class="cart-item-price-label">Ціна:</span>
+                  <span class="cart-item-price-label">{% trans 'Ціна:' %}</span>
                   <span class="cart-item-price-value">
                     {% if it.original_unit_price and it.original_unit_price > it.unit_price %}
                       <span class="cart-item-price-old">{{ it.original_unit_price|floatformat:2 }} грн</span>
@@ -341,14 +341,14 @@
               
                 <div class="cart-item-actions">
                   <div class="cart-item-total">
-                    <span class="cart-item-total-label">Разом:</span>
-                    <span class="cart-item-total-value">{{ it.line_total|floatformat:2 }} грн</span>
+                    <span class="cart-item-total-label">{% trans 'Разом:' %}</span>
+                    <span class="cart-item-total-value">{{ it.line_total|floatformat:2 }} {% trans 'грн' %}</span>
                   </div>
                 <button type="button" class="cart-item-remove-btn" data-key="{{ it.key }}">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                   </svg>
-                  Видалити
+                  {% trans 'Видалити' %}
                 </button>
               </div>
             </div>
@@ -393,30 +393,30 @@
             <input type="hidden" name="form_type" value="update_profile" id="form_type_input">
             
             <div class="cart-form-group">
-              <label class="cart-form-label">ПІБ *</label>
+              <label class="cart-form-label">{% trans 'ПІБ *' %}</label>
               <div class="cart-form-input-wrapper">
-                <input type="text" name="full_name" class="cart-form-input" placeholder="Прізвище Ім'я По батькові"
+                <input type="text" name="full_name" class="cart-form-input" placeholder="{% trans "Прізвище Ім'я По батькові" %}"
                        value="{{ prof.full_name|default:'' }}" required>
                 <div class="cart-form-input-glow"></div>
               </div>
             </div>
             
             <div class="cart-form-group">
-              <label class="cart-form-label">Телефон *</label>
+              <label class="cart-form-label">{% trans 'Телефон *' %}</label>
               <div class="cart-form-input-wrapper">
                 <input type="tel" name="phone" class="cart-form-input" placeholder="0931234567"
                        value="{{ prof.phone|default:'' }}" pattern="[+0-9\s\-()]{7,20}" inputmode="tel" autocomplete="tel" required>
                 <div class="cart-form-input-glow"></div>
               </div>
               <div class="cart-form-hint text-secondary small mt-2" data-phone-hint>
-                Можна вводити 093..., 809..., 380... або +380... — номер приведемо до потрібного формату.
+                {% trans 'Можна вводити 093..., 809..., 380... або +380... — номер приведемо до потрібного формату.' %}
               </div>
             </div>
             
             <div class="cart-form-group">
-              <label class="cart-form-label">Місто *</label>
+              <label class="cart-form-label">{% trans 'Місто *' %}</label>
               <div class="cart-form-input-wrapper np-selector" data-np-city-selector>
-                <input type="text" name="city" class="cart-form-input" placeholder="Почніть вводити місто Нової пошти"
+                <input type="text" name="city" class="cart-form-input" placeholder="{% trans 'Почніть вводити місто Нової пошти' %}"
                        value="{{ prof.city|default:'' }}" required autocomplete="off" spellcheck="false"
                        data-np-city-input aria-autocomplete="list" aria-expanded="false">
                 <input type="hidden" name="np_settlement_ref" value="{{ prof.np_settlement_ref|default:'' }}" data-np-settlement-ref>
@@ -426,14 +426,14 @@
                 <div class="np-selector-results" data-np-city-results hidden></div>
               </div>
               <div class="np-selector-status" data-np-city-status>
-                Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти.
+                {% trans 'Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти.' %}
               </div>
             </div>
             
             <div class="cart-form-group">
-              <label class="cart-form-label">Відділення / Поштомат НП *</label>
+              <label class="cart-form-label">{% trans 'Відділення / Поштомат НП *' %}</label>
               <div class="cart-form-input-wrapper np-selector" data-np-warehouse-selector>
-                <input type="text" name="np_office" class="cart-form-input" placeholder="Оберіть відділення або поштомат"
+                <input type="text" name="np_office" class="cart-form-input" placeholder="{% trans 'Оберіть відділення або поштомат' %}"
                        value="{{ prof.np_office|default:'' }}" required autocomplete="off" spellcheck="false"
                        data-np-warehouse-input aria-autocomplete="list" aria-expanded="false">
                 <input type="hidden" name="np_warehouse_ref" value="{{ prof.np_warehouse_ref|default:'' }}" data-np-warehouse-ref>
@@ -442,26 +442,26 @@
                 <div class="np-selector-results" data-np-warehouse-results hidden></div>
               </div>
               <div class="np-selector-kind" data-np-kind-toggle>
-                <button type="button" class="np-selector-kind-btn is-active" data-kind="all">Усі пункти</button>
-                <button type="button" class="np-selector-kind-btn" data-kind="branch">Відділення</button>
-                <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
+                <button type="button" class="np-selector-kind-btn is-active" data-kind="all">{% trans 'Усі пункти' %}</button>
+                <button type="button" class="np-selector-kind-btn" data-kind="branch">{% trans 'Відділення' %}</button>
+                <button type="button" class="np-selector-kind-btn" data-kind="postomat">{% trans 'Поштомат' %}</button>
               </div>
               <div class="np-selector-status" data-np-warehouse-status>
-                Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти.
+                {% trans 'Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти.' %}
               </div>
             </div>
             
             <div class="cart-form-group">
-              <label class="cart-form-label">Тип оплати *</label>
+              <label class="cart-form-label">{% trans 'Тип оплати *' %}</label>
               <div class="cart-form-input-wrapper">
-                <select name="pay_type" class="cart-form-select" id="pay_type_auth" required aria-label="Тип оплати">
-                  <option value="">Оберіть тип оплати</option>
-                  <option value="online_full">Онлайн оплата (повна сума)</option>
-                  <option value="prepay_200" {% if not prepay_allowed %}disabled{% endif %}>Передплата 200 грн (решта при отриманні){% if not prepay_allowed %} — недоступно з кастомним принтом{% endif %}</option>
+                <select name="pay_type" class="cart-form-select" id="pay_type_auth" required aria-label="{% trans 'Тип оплати' %}">
+                  <option value="">{% trans 'Оберіть тип оплати' %}</option>
+                  <option value="online_full">{% trans 'Онлайн оплата (повна сума)' %}</option>
+                  <option value="prepay_200" {% if not prepay_allowed %}disabled{% endif %}>{% trans 'Передплата 200 грн (решта при отриманні)' %}{% if not prepay_allowed %} {% trans '— недоступно з кастомним принтом' %}{% endif %}</option>
                 </select>
                 {% if has_custom_items %}
                 <div class="cart-form-hint text-secondary small mt-2">
-                  У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — менеджер узгодить фінальну ціну.
+                  {% trans 'У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — менеджер узгодить фінальну ціну.' %}
                 </div>
                 {% endif %}
                 <div class="cart-form-input-glow"></div>
@@ -747,7 +747,7 @@
           </div>
           <div class="cart-savings-line {% if discount <= 0 %}d-none{% endif %}" id="cart-savings-promo">
             <span class="cart-savings-label">
-              Промокод <span class="cart-savings-highlight" id="cart-savings-promo-code">{% if promo_code %}{{ promo_code.code }}{% endif %}</span>
+              {% trans 'Промокод' %} <span class="cart-savings-highlight" id="cart-savings-promo-code">{% if promo_code %}{{ promo_code.code }}{% endif %}</span>
             </span>
             <span class="cart-savings-amount" id="cart-savings-promo-amount">{{ discount|floatformat:2 }} грн</span>
           </div>
@@ -942,14 +942,14 @@
         
         <div class="contact-modal-form-group">
           <label class="contact-modal-label" for="contactModalFullName">
-            ПІБ <span style="color: #e53e3e;">*</span>
+            {% trans 'ПІБ' %} <span style="color: #e53e3e;">*</span>
           </label>
           <input 
             type="text" 
             id="contactModalFullName" 
             name="full_name" 
             class="contact-modal-input" 
-            placeholder="Введіть ваше ПІБ" 
+            placeholder="{% trans 'Введіть ваше ПІБ' %}" 
             required
             minlength="3"
           >
@@ -957,7 +957,7 @@
         
         <div class="contact-modal-form-group">
           <label class="contact-modal-label" for="contactModalPhone">
-            Телефон <span style="color: #e53e3e;">*</span>
+            {% trans 'Телефон' %} <span style="color: #e53e3e;">*</span>
           </label>
           <input 
             type="tel" 
@@ -979,9 +979,9 @@
             id="contactModalTelegram" 
             name="telegram" 
             class="contact-modal-input" 
-            placeholder="@username або номер телефону"
+            placeholder="{% trans '@username або номер телефону' %}"
           >
-          <div class="contact-modal-help-text">Опціонально, але допоможе зв'язатися швидше</div>
+          <div class="contact-modal-help-text">{% trans "Опціонально, але допоможе зв'язатися швидше" %}</div>
         </div>
         
         <div class="contact-modal-form-group">
@@ -996,11 +996,11 @@
             placeholder="+380 XX XXX XX XX"
             pattern="[+]?[0-9\s\-\(\)]+"
           >
-          <div class="contact-modal-help-text">Опціонально</div>
+          <div class="contact-modal-help-text">{% trans 'Опціонально' %}</div>
         </div>
         
         <button type="submit" class="contact-modal-submit-btn">
-          📲 Зв'язатися зі мною
+          📲 {% trans "Зв'язатися зі мною" %}
         </button>
       </form>
     </div>

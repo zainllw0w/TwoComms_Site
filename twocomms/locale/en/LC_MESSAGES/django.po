@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-13 02:41+0300\n"
+"POT-Creation-Date: 2026-05-13 02:47+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -318,6 +318,7 @@ msgstr ""
 
 msgid "Деталі"
 msgstr "Details"
+
 msgid "Коментарі"
 msgstr ""
 
@@ -1801,8 +1802,7 @@ msgid "Чернетка"
 msgstr ""
 
 msgid "На перевірці менеджера"
-msgstr ""
-
+msgstr "Under manager review"
 msgid "Погоджено — оплата доступна"
 msgstr ""
 
@@ -2234,12 +2234,84 @@ msgstr "Your selected items"
 msgid "Очистити"
 msgstr "Clear"
 
+msgid "Кастомний друк"
+msgstr "Custom print"
+
+msgid "Передаємо менеджеру на перевірку"
+msgstr "Sending to the manager for review"
+msgid "✅ Погоджено — можна оплачувати"
+msgstr "✅ Approved — ready for payment"
+msgid "❌ Відхилено менеджером"
+msgstr "❌ Rejected by the manager"
+#, python-format
+msgid "Коментар менеджера: %(note)s"
+msgstr "Manager note: %(note)s"
+msgid "Виріб:"
+msgstr "Item:"
+msgid "Розміщення:"
+msgstr "Placement:"
+msgid "Кількість:"
+msgstr "Quantity:"
+
+msgid "Режим розмірів:"
+msgstr "Size mode:"
+msgid "Розміри:"
+msgstr "Sizes:"
+msgid "Крій:"
+msgstr "Cut:"
+msgid "Тканина:"
+msgstr "Fabric:"
+msgid "Колір:"
+msgstr "Colour:"
+
+msgid "Послуга:"
+msgstr "Service:"
+msgid "Підготовка файлу:"
+msgstr "File preparation:"
+msgid "Додатково:"
+msgstr "Add-ons:"
+msgid "Коментар до розміщення:"
+msgstr "Placement note:"
+msgid "🎁 Подарунок:"
+msgstr "🎁 Gift:"
+msgid "Упаковка + промокод 10%"
+msgstr "Packaging + 10% promo code"
+msgid "B2B знижка:"
+msgstr "B2B discount:"
+msgid "грн/шт"
+msgstr "UAH/pc"
+msgid "Після погодження"
+msgstr "After approval"
+#, python-format
+msgid "Орієнтовно %(amount)s грн"
+msgstr "Approximately %(amount)s UAH"
+msgid "Написати менеджеру"
+msgstr "Message the manager"
+msgid "Видалити"
+msgstr "Remove"
+
+#, python-format
+msgid "%(title)s - товар у кошику TwoComms"
+msgstr "%(title)s — item in the TwoComms cart"
+msgid "Розмір:"
+msgstr "Size:"
+
+msgid "Посадка:"
+msgstr "Fit:"
+
+msgid "Ціна:"
+msgstr "Price:"
 #, python-format
 msgid "Заробите %(n)s балів"
 msgstr "Earn %(n)s points"
 
 msgid "Бали не нараховуються"
 msgstr "No points awarded"
+
+msgid "Разом:"
+msgstr "Total:"
+msgid "грн"
+msgstr "UAH"
 
 msgid "Кошик порожній"
 msgstr "Cart is empty"
@@ -2253,34 +2325,20 @@ msgstr "Continue shopping"
 msgid "Доставка"
 msgstr "Delivery"
 
-msgid "Потрібна консультація?"
-msgstr "Need a consultation?"
-
-msgid "Зберегти зміни"
-msgstr "Save changes"
-
-msgid "Авторизація"
-msgstr "Sign in"
-
-msgid "Щоб не вводити дані кожного разу — авторизуйтесь і накопичуйте бали."
-msgstr "Skip re-entering details next time — sign in and earn points."
-
-msgid "Прізвище Імʼя По батькові"
-msgstr "Last First Middle name"
-
-msgid "0931234567"
-msgstr "+380931234567"
-
+msgid "ПІБ *"
+msgstr "Full name *"
+msgid "Прізвище Ім'я По батькові"
+msgstr "Last name First name Patronymic"
+msgid "Телефон *"
+msgstr "Phone *"
 msgid ""
 "Можна вводити 093..., 809..., 380... або +380... — номер приведемо до "
 "потрібного формату."
 msgstr ""
 "You can enter 093..., 809..., 380... or +380... — we'll normalize the format."
 
-msgid "Email"
-msgstr "Email"
-msgid "your@email.com"
-msgstr "your@email.com"
+msgid "Місто *"
+msgstr "City *"
 msgid "Почніть вводити місто Нової пошти"
 msgstr "Start typing a Nova Poshta city"
 
@@ -2291,9 +2349,8 @@ msgstr ""
 "Start typing the city name and pick a confirmed Nova Poshta option from the "
 "list."
 
-msgid "Відділення / Поштомат НП"
-msgstr "NP branch / parcel locker"
-
+msgid "Відділення / Поштомат НП *"
+msgstr "Branch / Nova Poshta parcel locker *"
 msgid "Оберіть відділення або поштомат"
 msgstr "Choose a branch or parcel locker"
 
@@ -2313,6 +2370,8 @@ msgstr ""
 "After choosing a city, start typing a number or address and pick a branch or "
 "parcel locker from the Nova Poshta list."
 
+msgid "Тип оплати *"
+msgstr "Payment method *"
 msgid "Тип оплати"
 msgstr "Payment type"
 
@@ -2325,15 +2384,42 @@ msgstr "Online payment (full amount)"
 msgid "Передплата 200 грн (решта при отриманні)"
 msgstr "Prepayment UAH 200 (remainder on delivery)"
 
-msgid "недоступно з кастомним принтом"
-msgstr "unavailable with custom print"
-
+msgid "— недоступно з кастомним принтом"
+msgstr "— unavailable with a custom print"
 msgid ""
 "У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — "
 "менеджер узгодить фінальну ціну."
 msgstr ""
 "There's a custom print in the cart, so the UAH 200 prepayment is temporarily "
 "unavailable — the manager will confirm the final price."
+
+msgid "Потрібна консультація?"
+msgstr "Need a consultation?"
+
+msgid "Зберегти зміни"
+msgstr "Save changes"
+
+msgid "Авторизація"
+msgstr "Sign in"
+
+msgid "Щоб не вводити дані кожного разу — авторизуйтесь і накопичуйте бали."
+msgstr "Skip re-entering details next time — sign in and earn points."
+
+msgid "Прізвище Імʼя По батькові"
+msgstr "Last First Middle name"
+
+msgid "0931234567"
+msgstr "+380931234567"
+
+msgid "Email"
+msgstr "Email"
+msgid "your@email.com"
+msgstr "your@email.com"
+msgid "Відділення / Поштомат НП"
+msgstr "NP branch / parcel locker"
+
+msgid "недоступно з кастомним принтом"
+msgstr "unavailable with custom print"
 
 msgid "Промокод"
 msgstr "Promo code"
@@ -2355,9 +2441,6 @@ msgstr "Items"
 
 msgid "Орієнтовно за кастомний друк"
 msgstr "Estimated for custom print"
-
-msgid "Кастомний друк"
-msgstr "Custom print"
 
 msgid "Знижка магазину"
 msgstr "Store discount"
@@ -2484,6 +2567,16 @@ msgstr ""
 "Leave your contact details and our manager will reach out shortly for a "
 "consultation"
 
+msgid "Введіть ваше ПІБ"
+msgstr "Enter your full name"
+msgid "@username або номер телефону"
+msgstr "@username or phone number"
+msgid "Опціонально, але допоможе зв'язатися швидше"
+msgstr "Optional, but helps us reach you faster"
+msgid "Опціонально"
+msgstr "Optional"
+msgid "Зв'язатися зі мною"
+msgstr "Get in touch with me"
 msgid "Головна"
 msgstr "Home"
 
@@ -2680,51 +2773,79 @@ msgstr ""
 msgid ""
 "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Офіційні магазини та "
 "форма зворотного зв'язку."
-msgstr "Get in touch with TwoComms: phone, Telegram, Instagram. Official stores and a contact form."
+msgstr ""
+"Get in touch with TwoComms: phone, Telegram, Instagram. Official stores and "
+"a contact form."
+
 msgid ""
 "контакти TwoComms, телефон, telegram, instagram, зворотній зв’язок, магазини "
 "TwoComms"
-msgstr "TwoComms contacts, phone, telegram, instagram, feedback, TwoComms stores"
+msgstr ""
+"TwoComms contacts, phone, telegram, instagram, feedback, TwoComms stores"
+
 msgid ""
 "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на "
 "будь-які питання."
-msgstr "Reach out to TwoComms: phone, Telegram, Instagram. Quick answers to any question."
+msgstr ""
+"Reach out to TwoComms: phone, Telegram, Instagram. Quick answers to any "
+"question."
+
 msgid "Зв'яжіться з нами будь-яким зручним способом"
 msgstr "Reach us in any way that suits you"
+
 msgid "Показати телефон"
 msgstr "Show phone"
+
 msgid "Наші магазини"
 msgstr "Our stores"
+
 msgid "Відвідайте наші партнерські магазини"
 msgstr "Visit our partner stores"
+
 msgid "Магазин №1"
 msgstr "Store #1"
+
 msgid ""
 "вул. Хрещатик, 22<br>\n"
 "                Київ, 01001"
-msgstr "22 Khreshchatyk St.<br>\n                Kyiv, 01001"
+msgstr ""
+"22 Khreshchatyk St.<br>\n"
+"                Kyiv, 01001"
+
 msgid "Графік роботи:"
 msgstr "Working hours:"
+
 msgid "Пн-Нд: 10:00 - 22:00"
 msgstr "Mon-Sun: 10:00 - 22:00"
+
 msgid "Магазин №2"
 msgstr "Store #2"
+
 msgid ""
 "пр. Соборний, 15<br>\n"
 "                Львів, 79000"
-msgstr "15 Sobornyi Ave.<br>\n                Lviv, 79000"
+msgstr ""
+"15 Sobornyi Ave.<br>\n"
+"                Lviv, 79000"
+
 msgid "Написати нам"
 msgstr "Write to us"
+
 msgid "Маєте питання? Залиште повідомлення і ми зв'яжемося з вами"
 msgstr "Got a question? Leave a message and we'll get back to you"
+
 msgid "Ім'я"
 msgstr "Name"
+
 msgid "Тема"
 msgstr "Subject"
+
 msgid "Повідомлення"
 msgstr "Message"
+
 msgid "Надіслати повідомлення"
 msgstr "Send message"
+
 msgid "Обрані товари"
 msgstr "Favorite items"
 
@@ -2809,9 +2930,6 @@ msgstr "Exclusive design"
 
 msgid "Бонус за фідбек"
 msgstr "Feedback bonus"
-
-msgid "грн"
-msgstr "UAH"
 
 msgid ""
 "Промокод активується автоматично одразу після проходження та діє на весь "
@@ -3115,18 +3233,6 @@ msgstr "Order total"
 msgid "Товари в замовленні:"
 msgstr "Items in order:"
 
-msgid "Розмір:"
-msgstr "Size:"
-
-msgid "Посадка:"
-msgstr "Fit:"
-
-msgid "Колір:"
-msgstr "Colour:"
-
-msgid "Кількість:"
-msgstr "Quantity:"
-
 #, fuzzy, python-format
 #| msgid "Кастомний друк"
 msgid "Кастомний виріб %(number)s"
@@ -3336,10 +3442,14 @@ msgstr "Product FAQ"
 #, python-format
 msgid "%(title)s — це не просто одяг. Це стан."
 msgstr "%(title)s is more than apparel. It's a mindset."
+
 msgid ""
 "Створений для тих, хто йде своїм шляхом, навіть коли все навколо летить під "
 "три чорти."
-msgstr "Made for those who walk their own path even when everything around falls apart."
+msgstr ""
+"Made for those who walk their own path even when everything around falls "
+"apart."
+
 #, python-format
 msgid ""
 "Матеріал: 95%% бавовна, 5%% еластан — преміум якість, щільність 190 г/м²"
@@ -3347,69 +3457,101 @@ msgstr ""
 
 msgid "М'який та приємний до тіла, дихає і не сковує рухів"
 msgstr "Soft and pleasant on the skin, breathable and unrestrictive"
+
 msgid "Підсилені шви та еластичні манжети для довговічності"
 msgstr "Reinforced seams and elastic cuffs for durability"
+
 msgid "Принт витримує багато прань — не тріскається та не вигорає"
 msgstr "The print survives many washes — no cracking, no fading"
+
 msgid "Зроблено в Україні з любов'ю та увагою до деталей"
 msgstr "Made in Ukraine with love and attention to detail"
+
 msgid "Кому підійде"
 msgstr "Who it suits"
+
 msgid "Показати більше"
 msgstr "Show more"
+
 msgid "Рекомендації по посадці"
 msgstr "Fit recommendations"
+
 msgid "Підбір розміру"
 msgstr "Size selection"
+
 msgid ""
 "Відкрийте загальну розмірну сітку TwoComms або напишіть нам для уточнення "
 "посадки."
-msgstr "Open the general TwoComms size chart or write to us to clarify the fit."
+msgstr ""
+"Open the general TwoComms size chart or write to us to clarify the fit."
+
 msgid "Допомога з вибором"
 msgstr "Help with selection"
+
 msgid "Відправка"
 msgstr "Shipping"
+
 msgid "1–2 дні по Україні після підтвердження замовлення."
 msgstr "1–2 days across Ukraine after the order is confirmed."
+
 msgid "Оплата"
 msgstr "Payment"
+
 msgid "Онлайн або після узгодження деталей з менеджером."
 msgstr "Online, or after the manager confirms the details."
+
 msgid "Обмін"
 msgstr "Exchange"
+
 msgid "14 днів на обмін розміру, якщо річ не була у використанні."
 msgstr "14 days to exchange the size if the item hasn't been worn."
+
 msgid "Прання"
 msgstr "Washing"
+
 msgid "30°C, делікатний режим, навиворіт."
 msgstr "30°C, delicate cycle, inside out."
+
 msgid "Принт"
 msgstr "Print"
+
 msgid "Не прасувати напряму по нанесенню."
 msgstr "Do not iron directly over the print."
+
 msgid "Сушка"
 msgstr "Drying"
+
 msgid "Без агресивної машинної сушки."
 msgstr "Avoid aggressive tumble drying."
+
 msgid "Кількість"
 msgstr "Quantity"
+
 msgid "Зменшити кількість"
 msgstr "Decrease quantity"
+
 msgid "Збільшити кількість"
 msgstr "Increase quantity"
+
 msgid "ДОДАТИ В КОШИК"
 msgstr "ADD TO CART"
+
 msgid "Швидка доставка"
 msgstr "Fast delivery"
+
 msgid "1-3 дні Новою Поштою"
 msgstr "1-3 days via Nova Poshta"
+
 msgid "14 днів на повернення"
 msgstr "14-day returns"
+
 msgid "Гайд по посадці"
 msgstr "Fit guide"
+
 #, python-format
 msgid "Отримайте %(points)s балів за покупку цього товару"
 msgstr "Earn %(points)s points for buying this product"
+
 msgid "Схожі товари"
 msgstr "Related products"
 
@@ -3421,13 +3563,17 @@ msgstr "Recommended products"
 
 msgid "— схожий товар TwoComms"
 msgstr "— related TwoComms product"
+
 #, python-format
 msgid "Додати %(title)s до обраних"
 msgstr "Add %(title)s to favourites"
+
 msgid "Нещодавно переглядали"
 msgstr "Recently viewed"
+
 msgid "До каталогу"
 msgstr "Back to catalog"
+
 msgid "Соцмережі TwoComms"
 msgstr "TwoComms socials"
 
@@ -3495,9 +3641,6 @@ msgstr "Language"
 
 msgid "Видалити кастомну позицію"
 msgstr "Remove custom item"
-
-msgid "Видалити"
-msgstr "Remove"
 
 msgid "Разом"
 msgstr "Total"
