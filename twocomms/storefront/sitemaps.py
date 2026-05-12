@@ -44,17 +44,19 @@ class StaticViewSitemap(Sitemap):
     - wholesale добавлен (B2B hub)
     - lastmod = None для статических страниц (честнее чем timezone.now())
 
-    Phase 17e (2026-05-11) — ``i18n=True`` makes Django emit one
-    ``<url>`` per active language, and ``alternates=True`` adds
-    ``<xhtml:link rel="alternate" hreflang="...">`` entries pointing
-    at every other language variant. ``x_default=True`` adds the
-    canonical x-default fallback (defaults to LANGUAGE_CODE = uk).
+    SEO v1.0 Phase 1 (2026-05-12) — Path A multilingual fix. The Phase
+    17e setup (``i18n=True`` + ``alternates=True`` + ``x_default=True``)
+    emitted three ``<url>`` entries (uk/ru/en) per static route, each
+    pointing to the same path, and listed reciprocal ``<xhtml:link>``
+    pairs even though RU/EN copies share UA content. Google
+    consolidates the duplicates and Ahrefs reports them as missing
+    reciprocal hreflang (258 URLs in the 2026-05-11 CSV). Under Path A
+    only the UA URL is indexable, so we collapse the i18n options and
+    emit one entry per route. Restore the flags once the RU/EN copy
+    decks are actually translated.
     """
     changefreq = 'weekly'
     protocol = 'https'
-    i18n = True
-    alternates = True
-    x_default = True
 
     def items(self):
         return PUBLIC_STATIC_ROUTE_NAMES
@@ -80,14 +82,15 @@ class ProductSitemap(Sitemap):
     """
     Sitemap для товаров.
     - lastmod использует updated_at (если доступно) или published_at
-    Phase 17e — i18n alternates per language.
+
+    SEO v1.0 Phase 1 (2026-05-12) — Path A multilingual fix. See
+    ``StaticViewSitemap`` docstring for the rationale; collapsing the
+    ×3 duplication drops the live ``sitemap-products.xml`` payload from
+    195 ``<loc>`` rows back to 65 (one per published product).
     """
     changefreq = 'weekly'
     priority = 0.9
     protocol = 'https'
-    i18n = True
-    alternates = True
-    x_default = True
 
     def items(self):
         return (
@@ -124,14 +127,15 @@ class ProductVariantSitemap(Sitemap):
         * 1-segment ``/product/<slug>/<fit>/``        — self-canonical.
         * 1-segment ``/product/<slug>/<size>/``       — canonical→base, NOT in sitemap.
         * 2+ segments                                 — canonical→base, NOT in sitemap.
-    Phase 17e — i18n alternates per language.
+
+    SEO v1.0 Phase 1 (2026-05-12) — Path A multilingual fix. Collapsed
+    the i18n duplication for the same reason as ``StaticViewSitemap``;
+    keeping the variant URLs in the sitemap (without alternates) is
+    still useful so Google discovers them quickly.
     """
     changefreq = 'weekly'
     priority = 0.7
     protocol = 'https'
-    i18n = True
-    alternates = True
-    x_default = True
 
     def items(self):
         products = (
@@ -180,14 +184,13 @@ class CategorySitemap(Sitemap):
     """
     Sitemap для категорий.
     - lastmod использует updated_at (если доступно)
-    Phase 17e — i18n alternates per language.
+
+    SEO v1.0 Phase 1 (2026-05-12) — Path A multilingual fix; see
+    ``StaticViewSitemap``.
     """
     changefreq = 'monthly'
     priority = 0.8
     protocol = 'https'
-    i18n = True
-    alternates = True
-    x_default = True
 
     def items(self):
         return (

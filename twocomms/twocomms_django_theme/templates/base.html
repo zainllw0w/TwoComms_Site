@@ -56,8 +56,18 @@
   <!-- Расширенные SEO Meta Tags -->
   {% block seo_meta %}
   <title>{% block title %}TwoComms — Стріт & Мілітарі Одяг{% endblock %}</title>
+  {% comment %}
+  SEO v1.0 Phase 1 (2026-05-12) — multilingual root-cause fix (Path A):
+  RU/EN copies share the same URL path with UK content but the underlying
+  Product.title/description/etc. translation matrices are unpopulated.
+  Indexing them creates duplicate-content footprint + 258 hreflang
+  reciprocity errors (confirmed via Ahrefs CSV 2026-05-11). Until the
+  RU/EN content is fully translated, force ``noindex,follow`` on every
+  non-uk render so Google/Bing drop the duplicates from the index but
+  still follow links to discover/refresh the canonical UA pages.
+  {% endcomment %}
   <meta name="robots"
-    content="{% block robots %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endblock %}">
+    content="{% block robots %}{% if LANGUAGE_CODE and LANGUAGE_CODE != 'uk' %}noindex, follow, max-image-preview:large{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}">
   <meta name="description"
     content="{% block description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.{% endblock %}">
   {% comment %}
@@ -75,10 +85,20 @@
   {% block pagination_links %}{% endblock %}
   {% load i18n_links %}
   {% language_alternates as lang_alts %}
+  {% comment %}
+  SEO v1.0 Phase 1 (2026-05-12) — emit hreflang only on indexable pages.
+  When current render is uk (the only indexable language under Path A),
+  advertise the canonical UA URL as both ``hreflang="uk"`` and
+  ``hreflang="x-default"`` (single-language site). RU/EN pages are
+  ``noindex`` so hreflang would be ignored anyway; emitting reciprocal
+  links from there only inflates Ahrefs/GSC false-positive reports. We
+  keep the override blocks so per-page templates can still customise
+  the canonical/x-default URL (e.g. paginated catalog pages).
+  {% endcomment %}
+  {% if not LANGUAGE_CODE or LANGUAGE_CODE == 'uk' %}
   <link rel="alternate" hreflang="uk" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">
-  <link rel="alternate" hreflang="ru" href="{% block hreflang_ru %}{{ lang_alts.ru }}{% endblock %}">
-  <link rel="alternate" hreflang="en" href="{% block hreflang_en %}{{ lang_alts.en }}{% endblock %}">
   <link rel="alternate" hreflang="x-default" href="{% block hreflang_x_default %}{{ lang_alts.x_default }}{% endblock %}">
+  {% endif %}
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
