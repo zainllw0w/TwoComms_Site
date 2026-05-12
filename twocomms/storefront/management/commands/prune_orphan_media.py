@@ -37,27 +37,21 @@ from typing import Iterable
 from django.apps import apps
 from django.conf import settings
 from django.core.management.base import BaseCommand
+from django.db.models import FileField
 
 
-# (app_label, model_name, field_name, /media/ subpath)
-TARGETS: list[tuple[str, str, str, str]] = [
-    ("storefront", "ProductImage", "image", "products/extra"),
-    ("storefront", "Product", "main_image", "products"),
-    ("storefront", "Product", "home_card_image", "products/home_cards"),
-    ("productcolors", "ProductColorImage", "image", "product_colors"),
-    ("storefront", "Category", "cover", "category_covers"),
-    ("storefront", "Category", "icon", "category_icons"),
-    ("storefront", "PrintProposal", "image", "print_proposals"),
-    ("warehouse", "Print", "main_image", "prints"),
-    ("warehouse", "PrintColorVariant", "image", "prints/colors"),
-    ("reviews", "ReviewImage", "image", "reviews"),
-    ("dtf", "DtfWork", "image", "dtf"),
-    ("management", "Shop", "photo", "shops"),
-    ("accounts", "UserProfile", "avatar", "avatars"),
-    ("accounts", "UserProfile", "ubd_doc", "ubd_docs"),
-]
-
-
+# Folders inside MEDIA_ROOT that the prune command must never touch:
+# they hold either generated cache (managed by other tools) or
+# user-uploaded data that lives outside the audited FileField set
+# (e.g. logs, exports).
+IGNORE_TOP_DIRS = {
+    "optimized_cache",        # WhiteNoise / Django thumbnail cache
+    "survey_reports",         # admin one-off reports
+    "contracts",              # legal docs not modeled as FileField
+    "reports",                # one-off CSV exports
+    "invoices",               # invoice exports kept for compliance
+    "category_covers_old",    # archive
+}
 IGNORE_DIR_NAMES = {"__optimized__", "CACHE", "thumbnails", "thumbs"}
 IGNORE_FILE_PREFIX = (".",)
 IGNORE_FILE_SUFFIX = (".bak", ".tmp", ".old", ".orig")
@@ -85,6 +79,8 @@ class Command(BaseCommand):
                             help="Only delete files older than N days.")
         parser.add_argument("--show", type=int, default=15,
                             help="Show the N biggest orphans in the report.")
+        parser.add_argument("--list-fields", action="store_true",
+                            help="List the discovered FileField targets and exit.")
 
     # ------------------------------------------------------------------ entrypoint
 
@@ -92,48 +88,63 @@ class Command(BaseCommand):
         self.apply = bool(opts["apply"])
         self.min_age = int(opts["min_age_days"]) * 86400
         self.show_n = int(opts["show"])
-        wanted_paths = set(opts["paths"] or [])
+        wanted_paths = [p.strip("/") for p in (opts["paths"] or [])]
 
-        media_root = Path(getattr(settings, "MEDIA_ROOT", ""))
+        media_root = Path(getattr(settings, "MEDIA_ROOT", "")).resolve()
         if not media_root or not media_root.is_dir():
             self.stderr.write(self.style.ERROR(
                 f"MEDIA_ROOT invalid: {media_root!r}"))
             return
 
-        targets = [t for t in TARGETS
-                   if not wanted_paths or t[3] in wanted_paths]
+        # 1) Auto-discover every FileField (and subclasses, including
+        #    ImageField) across every installed model. Skip abstract
+        #    and proxy models. Returns a list of (model, field) tuples.
+        targets = self._discover_targets()
+        if opts["list_fields"]:
+            self.stdout.write(self.style.NOTICE(
+                f"Discovered {len(targets)} FileField targets:"))
+            for model, field in targets:
+                self.stdout.write(
+                    f"  {model._meta.app_label}.{model.__name__}.{field.name}  "
+                    f"(upload_to={getattr(field, 'upload_to', '')!r})"
+                )
+            return
 
-        # 1) Collect the set of relative paths referenced by the DB,
-        #    grouped by /media/ subpath so we can compare per-folder.
-        refs_by_path: dict[str, set[str]] = {}
-        for app_label, model_name, field_name, subpath in targets:
+        # 2) Collect the global set of referenced absolute paths. We
+        #    work in absolute-path space so prefix-overlap subpaths
+        #    (`products/` vs `products/extra/`) cannot create false
+        #    orphan reports.
+        referenced_abs: set[str] = set()
+        for model, field in targets:
             try:
-                model = apps.get_model(app_label, model_name)
-            except LookupError:
+                names = (model.objects
+                         .exclude(**{f"{field.name}": ""})
+                         .values_list(field.name, flat=True))
+            except Exception:
                 continue
-            if not hasattr(model, field_name):
-                continue
-            names = (model.objects
-                     .exclude(**{f"{field_name}": ""})
-                     .values_list(field_name, flat=True))
-            refs_by_path.setdefault(subpath, set())
             for n in names:
                 if not n:
                     continue
-                # Strip any leading slash; keep relative path
-                refs_by_path[subpath].add(n.lstrip("/"))
+                rel = n.lstrip("/")
+                referenced_abs.add(str((media_root / rel).resolve()))
 
-        # 2) Walk each subpath, classify files.
+        self.stdout.write(self.style.NOTICE(
+            f"Discovered {len(targets)} FileField targets, "
+            f"{len(referenced_abs)} referenced files in DB."))
+
+        # 3) Walk MEDIA_ROOT exactly once. Skip ignored top-level dirs
+        #    and known cache dirs at any depth.
         stats = Stats()
         candidates: list[tuple[int, Path]] = []
-        for subpath, referenced in refs_by_path.items():
-            folder = media_root / subpath
-            if not folder.is_dir():
+        for top_entry in sorted(os.listdir(media_root)):
+            if top_entry in IGNORE_TOP_DIRS:
                 continue
-            self.stdout.write(self.style.NOTICE(
-                f"\nSCAN  /media/{subpath}/  (referenced: {len(referenced)})"))
-            for root, dirs, files in os.walk(folder):
-                # Skip ignored caches in-place.
+            top_path = media_root / top_entry
+            if not top_path.is_dir():
+                continue
+            if wanted_paths and top_entry not in wanted_paths:
+                continue
+            for root, dirs, files in os.walk(top_path):
                 dirs[:] = [d for d in dirs if d not in IGNORE_DIR_NAMES]
                 for fname in files:
                     if fname.startswith(IGNORE_FILE_PREFIX):
@@ -141,12 +152,9 @@ class Command(BaseCommand):
                     if fname.endswith(IGNORE_FILE_SUFFIX):
                         continue
                     abs_path = Path(root) / fname
-                    try:
-                        rel = abs_path.relative_to(media_root).as_posix()
-                    except ValueError:
-                        continue
+                    abs_str = str(abs_path.resolve())
                     stats.scanned += 1
-                    if rel in referenced:
+                    if abs_str in referenced_abs:
                         stats.referenced += 1
                         continue
                     try:
@@ -158,7 +166,9 @@ class Command(BaseCommand):
                     stats.orphan += 1
                     candidates.append((st.st_size, abs_path))
 
-        # 3) Report + optionally delete.
+        # 4) Report + optionally delete.
+        self.stdout.write(self.style.NOTICE(
+            f"Scanned: {stats.scanned}, referenced: {stats.referenced}."))
         candidates.sort(reverse=True)
         total_bytes = sum(s for s, _ in candidates)
         self.stdout.write("")
@@ -196,3 +206,18 @@ class Command(BaseCommand):
             f"Deleted: {stats.deleted} files, "
             f"{stats.bytes_freed/1_048_576:.1f} MB freed."
         ))
+
+    # ------------------------------------------------------------------ helpers
+
+    @staticmethod
+    def _discover_targets() -> list[tuple]:
+        """Return every concrete (model, FileField) pair across apps."""
+        out: list[tuple] = []
+        for model in apps.get_models():
+            if model._meta.abstract or model._meta.proxy:
+                continue
+            for field in model._meta.get_fields():
+                # FileField covers ImageField too.
+                if isinstance(field, FileField):
+                    out.append((model, field))
+        return out
