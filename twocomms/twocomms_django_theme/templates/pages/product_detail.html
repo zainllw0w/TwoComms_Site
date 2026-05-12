@@ -389,8 +389,8 @@ CSS rules на mobile FCP/LCP window.
             <div class="tc-desc-collapse-content" id="tc-desc-content-{{ product.id }}" data-pdp-description-content>
               <div class="tc-desc-layout">
                 <div class="tc-desc-copy">
-                  <p class="tc-lead-copy">{{ product.title }} — це не просто одяг. Це стан.</p>
-                  <p class="tc-muted-copy">Створений для тих, хто йде своїм шляхом, навіть коли все навколо летить під три чорти.</p>
+                  <p class="tc-lead-copy">{% blocktrans with title=product.title %}{{ title }} — це не просто одяг. Це стан.{% endblocktrans %}</p>
+                  <p class="tc-muted-copy">{% trans 'Створений для тих, хто йде своїм шляхом, навіть коли все навколо летить під три чорти.' %}</p>
                   {% if product.full_description %}
                     <div class="tc-rich-copy tc-rich-copy--compact">{{ product.full_description|linebreaksbr }}</div>
                   {% elif product.description %}
@@ -398,21 +398,21 @@ CSS rules на mobile FCP/LCP window.
                   {% endif %}
                   {% if product.details_text %}
                     <div class="tc-desc-section">
-                      <h2>Деталі</h2>
+                      <h2>{% trans 'Деталі' %}</h2>
                       <div class="tc-rich-copy tc-rich-copy--compact">{{ product.details_text|linebreaksbr }}</div>
                     </div>
                   {% else %}
                     <div class="tc-check-list tc-desc-checks tc-desc-bullets">
-                      <div>Матеріал: 95% бавовна, 5% еластан — преміум якість, щільність 190 г/м²</div>
-                      <div>М'який та приємний до тіла, дихає і не сковує рухів</div>
-                      <div>Підсилені шви та еластичні манжети для довговічності</div>
-                      <div>Принт витримує багато прань — не тріскається та не вигорає</div>
-                      <div>Зроблено в Україні з любов'ю та увагою до деталей</div>
+                      <div>{% trans 'Матеріал: 95% бавовна, 5% еластан — преміум якість, щільність 190 г/м²' %}</div>
+                      <div>{% trans "М'який та приємний до тіла, дихає і не сковує рухів" %}</div>
+                      <div>{% trans 'Підсилені шви та еластичні манжети для довговічності' %}</div>
+                      <div>{% trans 'Принт витримує багато прань — не тріскається та не вигорає' %}</div>
+                      <div>{% trans "Зроблено в Україні з любов'ю та увагою до деталей" %}</div>
                     </div>
                   {% endif %}
                   {% if product.target_audience %}
                     <div class="tc-desc-section">
-                      <h2>Кому підійде</h2>
+                      <h2>{% trans 'Кому підійде' %}</h2>
                       <div class="tc-rich-copy tc-rich-copy--compact">{{ product.target_audience|linebreaksbr }}</div>
                     </div>
                   {% endif %}
@@ -423,14 +423,14 @@ CSS rules на mobile FCP/LCP window.
               type="button"
               class="tc-desc-more"
               data-pdp-description-toggle
-              data-more-label="Показати більше"
-              data-less-label="Згорнути"
+              data-more-label="{% trans 'Показати більше' %}"
+              data-less-label="{% trans 'Згорнути' %}"
               aria-expanded="false"
               aria-controls="tc-desc-content-{{ product.id }}">
               <span class="tc-desc-more__arrow tc-desc-more__arrow--left" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M6.75 9.75 12 15l5.25-5.25"/></svg>
               </span>
-              <span class="tc-desc-more__label">Показати більше</span>
+              <span class="tc-desc-more__label">{% trans 'Показати більше' %}</span>
               <span class="tc-desc-more__arrow tc-desc-more__arrow--right" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M6.75 9.75 12 15l5.25-5.25"/></svg>
               </span>
@@ -510,7 +510,7 @@ CSS rules на mobile FCP/LCP window.
               {% endif %}
 
               {% if resolved_size_guide.fit_notes %}
-                <div class="tc-guide-subtitle">Рекомендації по посадці</div>
+                <div class="tc-guide-subtitle">{% trans 'Рекомендації по посадці' %}</div>
                 <div class="tc-check-list">
                   {% for note in resolved_size_guide.fit_notes %}
                     <div>{{ note }}</div>
@@ -527,11 +527,11 @@ CSS rules на mobile FCP/LCP window.
             </div>
           {% else %}
             <div class="tc-size-guide-card">
-              <h2 class="tc-guide-title">Підбір розміру</h2>
-              <p class="tc-muted-copy">Відкрийте загальну розмірну сітку TwoComms або напишіть нам для уточнення посадки.</p>
+              <h2 class="tc-guide-title">{% trans 'Підбір розміру' %}</h2>
+              <p class="tc-muted-copy">{% trans 'Відкрийте загальну розмірну сітку TwoComms або напишіть нам для уточнення посадки.' %}</p>
               <div class="tc-guide-actions">
-                <a class="tc-outline-link" href="{% url 'size_guide' %}">Розмірна сітка</a>
-                <a class="tc-outline-link" href="{% url 'contacts' %}">Допомога з вибором</a>
+                <a class="tc-outline-link" href="{% url 'size_guide' %}">{% trans 'Розмірна сітка' %}</a>
+                <a class="tc-outline-link" href="{% url 'contacts' %}">{% trans 'Допомога з вибором' %}</a>
               </div>
             </div>
           {% endif %}
@@ -539,9 +539,9 @@ CSS rules на mobile FCP/LCP window.
 
         <div class="tc-tab-panel" id="panel-delivery" role="tabpanel" aria-labelledby="tab-delivery" data-pdp-panel="delivery" hidden>
           <div class="tc-delivery-grid">
-            <div class="tc-care-item"><strong>Відправка</strong><span>1–2 дні по Україні після підтвердження замовлення.</span></div>
-            <div class="tc-care-item"><strong>Оплата</strong><span>Онлайн або після узгодження деталей з менеджером.</span></div>
-            <div class="tc-care-item"><strong>Обмін</strong><span>14 днів на обмін розміру, якщо річ не була у використанні.</span></div>
+            <div class="tc-care-item"><strong>{% trans 'Відправка' %}</strong><span>{% trans '1–2 дні по Україні після підтвердження замовлення.' %}</span></div>
+            <div class="tc-care-item"><strong>{% trans 'Оплата' %}</strong><span>{% trans 'Онлайн або після узгодження деталей з менеджером.' %}</span></div>
+            <div class="tc-care-item"><strong>{% trans 'Обмін' %}</strong><span>{% trans '14 днів на обмін розміру, якщо річ не була у використанні.' %}</span></div>
           </div>
         </div>
 
@@ -550,9 +550,9 @@ CSS rules на mobile FCP/LCP window.
             <div class="tc-care-copy">{{ product.care_instructions|linebreaksbr }}</div>
           {% else %}
             <div class="tc-care-grid">
-              <div class="tc-care-item"><strong>Прання</strong><span>30°C, делікатний режим, навиворіт.</span></div>
-              <div class="tc-care-item"><strong>Принт</strong><span>Не прасувати напряму по нанесенню.</span></div>
-              <div class="tc-care-item"><strong>Сушка</strong><span>Без агресивної машинної сушки.</span></div>
+              <div class="tc-care-item"><strong>{% trans 'Прання' %}</strong><span>{% trans '30°C, делікатний режим, навиворіт.' %}</span></div>
+              <div class="tc-care-item"><strong>{% trans 'Принт' %}</strong><span>{% trans 'Не прасувати напряму по нанесенню.' %}</span></div>
+              <div class="tc-care-item"><strong>{% trans 'Сушка' %}</strong><span>{% trans 'Без агресивної машинної сушки.' %}</span></div>
             </div>
           {% endif %}
         </div>
@@ -572,11 +572,11 @@ CSS rules на mobile FCP/LCP window.
 
       <div class="tc-purchase-bar" id="product-action-bar" data-product-container>
         <div class="tc-qty-wrap">
-          <span>Кількість</span>
+          <span>{% trans 'Кількість' %}</span>
           <div class="tc-qty-control" data-qty>
-            <button type="button" onclick="QtyDec('#qty'); return false;" aria-label="Зменшити кількість">−</button>
-            <input type="number" id="qty" min="1" value="1" inputmode="numeric" aria-label="Кількість">
-            <button type="button" onclick="QtyInc('#qty'); return false;" aria-label="Збільшити кількість">+</button>
+            <button type="button" onclick="QtyDec('#qty'); return false;" aria-label="{% trans 'Зменшити кількість' %}">−</button>
+            <input type="number" id="qty" min="1" value="1" inputmode="numeric" aria-label="{% trans 'Кількість' %}">
+            <button type="button" onclick="QtyInc('#qty'); return false;" aria-label="{% trans 'Збільшити кількість' %}">+</button>
           </div>
         </div>
         <button
@@ -586,7 +586,7 @@ CSS rules на mobile FCP/LCP window.
           data-product-name="{{ product.title|escapejs }}"
           data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
           data-product-price="{{ product.final_price }}">
-          <span>ДОДАТИ В КОШИК</span>
+          <span>{% trans 'ДОДАТИ В КОШИК' %}</span>
           <svg class="tc-add-cart-icon" width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 18.4a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6Zm9.8 0a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6ZM2 3h2.75l2.7 10.08A2.6 2.6 0 0 0 10 15h7.45a2.6 2.6 0 0 0 2.48-1.82L22 6.5H7.07L6.55 4.55A2.1 2.1 0 0 0 4.52 3H2Zm5.6 5.5h11.7l-1.28 4.05a.6.6 0 0 1-.57.45H10a.6.6 0 0 1-.58-.45L7.6 8.5Z" fill="currentColor"/></svg>
         </button>
         {% comment %}
@@ -598,15 +598,15 @@ CSS rules на mobile FCP/LCP window.
         <div class="tc-purchase-side">
           <a href="{% url 'delivery' %}" class="tc-purchase-trust-link" rel="noopener">
             <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h11v8h2l2-3h3v7h-2a3 3 0 0 1-6 0H9a3 3 0 0 1-6 0H1V8a2 2 0 0 1 2-2Zm0 2v8.2A3 3 0 0 1 8.8 16H12V8H3Zm13 5v3h1.2A3 3 0 0 1 19 16.2V13h-3Z" fill="currentColor"/></svg>
-            <span>Швидка доставка <small>1-3 дні Новою Поштою</small></span>
+            <span>{% trans 'Швидка доставка' %} <small>{% trans '1-3 дні Новою Поштою' %}</small></span>
           </a>
           <a href="{% url 'returns' %}" class="tc-purchase-trust-link" rel="noopener">
             <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.7 6.3A8 8 0 0 0 12 4V1L7 6l5 5V6a6 6 0 1 1-5.3 3.2L5.2 7.7A8 8 0 1 0 17.7 6.3Z" fill="currentColor"/></svg>
-            <span>Обмін розміру <small>14 днів на повернення</small></span>
+            <span>{% trans 'Обмін розміру' %} <small>{% trans '14 днів на повернення' %}</small></span>
           </a>
           <a href="{% url 'size_guide' %}" class="tc-purchase-trust-link" rel="noopener">
             <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v3H4V4Zm0 5h16v3H4V9Zm0 5h16v6H4v-6Z" fill="currentColor"/></svg>
-            <span>Розмірна сітка <small>Гайд по посадці</small></span>
+            <span>{% trans 'Розмірна сітка' %} <small>{% trans 'Гайд по посадці' %}</small></span>
           </a>
         </div>
       </div>
@@ -615,7 +615,7 @@ CSS rules на mobile FCP/LCP window.
       {% if False %}
         <button type="button" class="tc-points-line" data-bs-toggle="modal" data-bs-target="#pointsInfoModal" data-product-title="{{ product.title }}" data-points-amount="{{ product.points_reward }}">
           <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.97 6.02 6.64.97-4.8 4.68 1.13 6.61L12 17.16l-5.94 3.12 1.13-6.61-4.8-4.68 6.64-.97L12 2Z" fill="currentColor"/></svg>
-          Отримайте {{ product.points_reward }} балів за покупку цього товару
+          {% blocktrans with points=product.points_reward %}Отримайте {{ points }} балів за покупку цього товару{% endblocktrans %}
         </button>
       {% endif %}
     </section>
@@ -637,10 +637,10 @@ CSS rules на mobile FCP/LCP window.
               <a href="{% url 'product' rec_product.slug %}" class="tc-related-link">
                 <span class="tc-related-image-wrap">
                   {% if rec_product.display_image %}
-                    <img src="{{ rec_product.display_image.url }}" alt="{{ rec_product.main_image_alt|default:rec_product.title }} — схожий товар TwoComms" loading="lazy" width="520" height="650">
+                    <img src="{{ rec_product.display_image.url }}" alt="{{ rec_product.main_image_alt|default:rec_product.title }} {% trans '— схожий товар TwoComms' %}" loading="lazy" width="520" height="650">
                   {% else %}
                     {% static 'img/placeholder.jpg' as ph_url %}
-                    <img src="{{ ph_url }}" alt="{{ rec_product.title }} — схожий товар TwoComms" loading="lazy" width="520" height="650">
+                    <img src="{{ ph_url }}" alt="{{ rec_product.title }} {% trans '— схожий товар TwoComms' %}" loading="lazy" width="520" height="650">
                   {% endif %}
                   {% if rec_product.has_discount %}
                     <span class="tc-related-discount">-{{ rec_product.discount_percent }}%</span>
@@ -655,7 +655,7 @@ CSS rules на mobile FCP/LCP window.
                   </span>
                 </span>
               </a>
-              <button type="button" class="tc-related-fav" data-product-id="{{ rec_product.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати {{ rec_product.title }} до обраних">
+              <button type="button" class="tc-related-fav" data-product-id="{{ rec_product.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="{% blocktrans with title=rec_product.title %}Додати {{ title }} до обраних{% endblocktrans %}">
                 <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.1 20.55 12 20.65l-.11-.1C7.14 16.24 4 13.39 4 10.5A3.5 3.5 0 0 1 7.5 7c1.54 0 3.04.99 3.57 2.36h1.87A3.9 3.9 0 0 1 16.5 7a3.5 3.5 0 0 1 3.5 3.5c0 2.89-3.14 5.74-7.9 10.05ZM16.5 5c-1.74 0-3.41.81-4.5 2.08A5.96 5.96 0 0 0 7.5 5 5.5 5.5 0 0 0 2 10.5c0 3.75 3.4 6.84 8.55 11.51L12 23.35l1.45-1.32C18.6 17.34 22 14.25 22 10.5A5.5 5.5 0 0 0 16.5 5Z" fill="currentColor"/></svg>
               </button>
             </article>
@@ -667,8 +667,8 @@ CSS rules на mobile FCP/LCP window.
 
   <section class="tc-recent-panel" data-recent-viewed-panel hidden aria-labelledby="tc-recent-title">
     <div class="tc-related-head">
-      <h2 id="tc-recent-title">Нещодавно переглядали</h2>
-      <a href="{% url 'catalog' %}">До каталогу</a>
+      <h2 id="tc-recent-title">{% trans 'Нещодавно переглядали' %}</h2>
+      <a href="{% url 'catalog' %}">{% trans 'До каталогу' %}</a>
     </div>
     <div class="tc-recent-grid" data-recent-viewed-list></div>
   </section>
@@ -679,7 +679,7 @@ CSS rules на mobile FCP/LCP window.
       {% if product.has_discount %}<small>{{ product.price }} грн</small>{% endif %}
     </div>
     <button type="button" class="tc-sticky-add-btn" data-pdp-sticky-add>
-      <span>ДОДАТИ В КОШИК</span>
+      <span>{% trans 'ДОДАТИ В КОШИК' %}</span>
     </button>
   </div>
 </div>

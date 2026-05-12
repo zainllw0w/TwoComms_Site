@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Контакти — TwoComms{% endblock %}
-{% block description %}Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Офіційні магазини та форма зворотного зв'язку.{% endblock %}
-{% block keywords %}контакти TwoComms, телефон, telegram, instagram, зворотній зв'язок, магазини TwoComms{% endblock %}
-{% block og_title %}Контакти — TwoComms{% endblock %}
-{% block og_description %}Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання.{% endblock %}
-{% block twitter_title %}Контакти — TwoComms{% endblock %}
-{% block twitter_description %}Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання.{% endblock %}
+{% block title %}{% trans 'Контакти' %} — TwoComms{% endblock %}
+{% block description %}{% trans "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Офіційні магазини та форма зворотного зв'язку." %}{% endblock %}
+{% block keywords %}{% trans 'контакти TwoComms, телефон, telegram, instagram, зворотній зв’язок, магазини TwoComms' %}{% endblock %}
+{% block og_title %}{% trans 'Контакти' %} — TwoComms{% endblock %}
+{% block og_description %}{% trans "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання." %}{% endblock %}
+{% block twitter_title %}{% trans 'Контакти' %} — TwoComms{% endblock %}
+{% block twitter_description %}{% trans "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання." %}{% endblock %}
 
 {% block structured_data %}
 {# SEO v1.0 Phase 12 (2026-05-12) — finding (HHH). The /contacts/ page
@@ -94,9 +94,9 @@
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
           </div>
-          <h1 class="hero-title">Контакти</h1>
+          <h1 class="hero-title">{% trans 'Контакти' %}</h1>
           <p class="hero-subtitle">
-            Зв'яжіться з нами будь-яким зручним способом
+            {% trans "Зв'яжіться з нами будь-яким зручним способом" %}
           </p>
         </div>
       </div>
@@ -114,13 +114,13 @@
             </svg>
           </div>
           <div class="method-content">
-            <h3 class="method-title">Телефон</h3>
+            <h3 class="method-title">{% trans 'Телефон' %}</h3>
             <div class="phone-container">
               <button id="show-phone-btn" class="show-phone-btn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                 </svg>
-                Показати телефон
+                {% trans 'Показати телефон' %}
               </button>
               <a id="phone-number" href="tel:+380966543212" class="phone-number" style="display: none;">
                 +38 (096) 654-32-12
@@ -165,9 +165,9 @@
     <div class="col-12">
       <div class="store-locations">
         <div class="locations-header">
-          <h2 class="locations-title">Наші магазини</h2>
+          <h2 class="locations-title">{% trans 'Наші магазини' %}</h2>
           <p class="locations-subtitle">
-            Відвідайте наші партнерські магазини
+            {% trans 'Відвідайте наші партнерські магазини' %}
           </p>
         </div>
         
@@ -179,14 +179,14 @@
               </svg>
             </div>
             <div class="location-content">
-              <h3 class="location-title">Магазин №1</h3>
+              <h3 class="location-title">{% blocktrans %}Магазин №1{% endblocktrans %}</h3>
               <p class="location-address blurred">
-                вул. Хрещатик, 22<br>
-                Київ, 01001
+                {% blocktrans %}вул. Хрещатик, 22<br>
+                Київ, 01001{% endblocktrans %}
               </p>
               <div class="location-hours">
-                <span class="hours-label">Графік роботи:</span>
-                <span class="hours-time">Пн-Нд: 10:00 - 22:00</span>
+                <span class="hours-label">{% trans 'Графік роботи:' %}</span>
+                <span class="hours-time">{% trans 'Пн-Нд: 10:00 - 22:00' %}</span>
               </div>
             </div>
           </div>
@@ -198,14 +198,14 @@
               </svg>
             </div>
             <div class="location-content">
-              <h3 class="location-title">Магазин №2</h3>
+              <h3 class="location-title">{% blocktrans %}Магазин №2{% endblocktrans %}</h3>
               <p class="location-address blurred">
-                пр. Соборний, 15<br>
-                Львів, 79000
+                {% blocktrans %}пр. Соборний, 15<br>
+                Львів, 79000{% endblocktrans %}
               </p>
               <div class="location-hours">
-                <span class="hours-label">Графік роботи:</span>
-                <span class="hours-time">Пн-Нд: 10:00 - 22:00</span>
+                <span class="hours-label">{% trans 'Графік роботи:' %}</span>
+                <span class="hours-time">{% trans 'Пн-Нд: 10:00 - 22:00' %}</span>
               </div>
             </div>
           </div>
@@ -219,16 +219,16 @@
     <div class="col-12">
       <div class="contact-form-section">
         <div class="form-header">
-          <h2 class="form-title">Написати нам</h2>
+          <h2 class="form-title">{% trans 'Написати нам' %}</h2>
           <p class="form-subtitle">
-            Маєте питання? Залиште повідомлення і ми зв'яжемося з вами
+            {% trans "Маєте питання? Залиште повідомлення і ми зв'яжемося з вами" %}
           </p>
         </div>
         
         <form class="contact-form">
           <div class="form-row">
             <div class="form-group">
-              <label for="name" class="form-label">Ім'я</label>
+              <label for="name" class="form-label">{% trans "Ім'я" %}</label>
               <input type="text" id="name" name="name" class="form-input" required>
             </div>
             <div class="form-group">
@@ -238,12 +238,12 @@
           </div>
           
           <div class="form-group">
-            <label for="subject" class="form-label">Тема</label>
+            <label for="subject" class="form-label">{% trans 'Тема' %}</label>
             <input type="text" id="subject" name="subject" class="form-input" required>
           </div>
           
           <div class="form-group">
-            <label for="message" class="form-label">Повідомлення</label>
+            <label for="message" class="form-label">{% trans 'Повідомлення' %}</label>
             <textarea id="message" name="message" class="form-textarea" rows="5" required></textarea>
           </div>
           
@@ -251,7 +251,7 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
             </svg>
-            Надіслати повідомлення
+            {% trans 'Надіслати повідомлення' %}
           </button>
         </form>
       </div>

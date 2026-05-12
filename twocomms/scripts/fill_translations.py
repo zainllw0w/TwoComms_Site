@@ -899,6 +899,178 @@ TRANSLATIONS_PHASE_17I: dict[str, dict[str, str]] = {
 TRANSLATIONS.update(TRANSLATIONS_PHASE_17I)
 
 
+# ===========================================================================
+# Phase 17j (2026-05-13) — contacts.html + product_detail.html wrappings.
+# ===========================================================================
+TRANSLATIONS_PHASE_17J: dict[str, dict[str, str]] = {
+    # ----- contacts.html -----
+    "Контакти": {"ru": "Контакты", "en": "Contacts"},
+    "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Офіційні магазини та форма зворотного зв'язку.": {
+        "ru": "Свяжитесь с TwoComms: телефон, Telegram, Instagram. Официальные магазины и форма обратной связи.",
+        "en": "Get in touch with TwoComms: phone, Telegram, Instagram. Official stores and a contact form.",
+    },
+    "контакти TwoComms, телефон, telegram, instagram, зворотній зв’язок, магазини TwoComms": {
+        "ru": "контакты TwoComms, телефон, telegram, instagram, обратная связь, магазины TwoComms",
+        "en": "TwoComms contacts, phone, telegram, instagram, feedback, TwoComms stores",
+    },
+    "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання.": {
+        "ru": "Свяжитесь с TwoComms: телефон, Telegram, Instagram. Быстрый ответ на любые вопросы.",
+        "en": "Reach out to TwoComms: phone, Telegram, Instagram. Quick answers to any question.",
+    },
+    "Зв'яжіться з нами будь-яким зручним способом": {
+        "ru": "Свяжитесь с нами любым удобным способом",
+        "en": "Reach us in any way that suits you",
+    },
+    "Телефон": {"ru": "Телефон", "en": "Phone"},
+    "Показати телефон": {"ru": "Показать телефон", "en": "Show phone"},
+    "Наші магазини": {"ru": "Наши магазины", "en": "Our stores"},
+    "Відвідайте наші партнерські магазини": {
+        "ru": "Посетите наши партнёрские магазины",
+        "en": "Visit our partner stores",
+    },
+    "Магазин №1": {"ru": "Магазин №1", "en": "Store #1"},
+    "Магазин №2": {"ru": "Магазин №2", "en": "Store #2"},
+    "вул. Хрещатик, 22<br>\n                Київ, 01001": {
+        "ru": "ул. Крещатик, 22<br>\n                Киев, 01001",
+        "en": "22 Khreshchatyk St.<br>\n                Kyiv, 01001",
+    },
+    "пр. Соборний, 15<br>\n                Львів, 79000": {
+        "ru": "пр. Соборный, 15<br>\n                Львов, 79000",
+        "en": "15 Sobornyi Ave.<br>\n                Lviv, 79000",
+    },
+    "Графік роботи:": {"ru": "График работы:", "en": "Working hours:"},
+    "Пн-Нд: 10:00 - 22:00": {"ru": "Пн-Вс: 10:00 - 22:00", "en": "Mon-Sun: 10:00 - 22:00"},
+    "Написати нам": {"ru": "Написать нам", "en": "Write to us"},
+    "Маєте питання? Залиште повідомлення і ми зв'яжемося з вами": {
+        "ru": "Есть вопрос? Оставьте сообщение, и мы свяжемся с вами",
+        "en": "Got a question? Leave a message and we'll get back to you",
+    },
+    "Ім'я": {"ru": "Имя", "en": "Name"},
+    "Тема": {"ru": "Тема", "en": "Subject"},
+    "Повідомлення": {"ru": "Сообщение", "en": "Message"},
+    "Надіслати повідомлення": {"ru": "Отправить сообщение", "en": "Send message"},
+
+    # ----- product_detail.html: copy block -----
+    "%(title)s — це не просто одяг. Це стан.": {
+        "ru": "%(title)s — это не просто одежда. Это состояние.",
+        "en": "%(title)s is more than apparel. It's a mindset.",
+    },
+    "Створений для тих, хто йде своїм шляхом, навіть коли все навколо летить під три чорти.": {
+        "ru": "Создано для тех, кто идёт своим путём, даже когда всё вокруг рушится.",
+        "en": "Made for those who walk their own path even when everything around falls apart.",
+    },
+    "Деталі": {"ru": "Детали", "en": "Details"},
+    "Матеріал: 95% бавовна, 5% еластан — преміум якість, щільність 190 г/м²": {
+        "ru": "Материал: 95% хлопок, 5% эластан — премиум-качество, плотность 190 г/м²",
+        "en": "Fabric: 95% cotton, 5% elastane — premium quality, 190 g/m²",
+    },
+    "М'який та приємний до тіла, дихає і не сковує рухів": {
+        "ru": "Мягкий и приятный к телу, дышит и не сковывает движений",
+        "en": "Soft and pleasant on the skin, breathable and unrestrictive",
+    },
+    "Підсилені шви та еластичні манжети для довговічності": {
+        "ru": "Усиленные швы и эластичные манжеты для долговечности",
+        "en": "Reinforced seams and elastic cuffs for durability",
+    },
+    "Принт витримує багато прань — не тріскається та не вигорає": {
+        "ru": "Принт выдерживает много стирок — не трескается и не выгорает",
+        "en": "The print survives many washes — no cracking, no fading",
+    },
+    "Зроблено в Україні з любов'ю та увагою до деталей": {
+        "ru": "Сделано в Украине с любовью и вниманием к деталям",
+        "en": "Made in Ukraine with love and attention to detail",
+    },
+    "Кому підійде": {"ru": "Кому подойдёт", "en": "Who it suits"},
+    "Показати більше": {"ru": "Показать больше", "en": "Show more"},
+    "Згорнути": {"ru": "Свернуть", "en": "Collapse"},
+    "Рекомендації по посадці": {"ru": "Рекомендации по посадке", "en": "Fit recommendations"},
+    "Підбір розміру": {"ru": "Подбор размера", "en": "Size selection"},
+    "Відкрийте загальну розмірну сітку TwoComms або напишіть нам для уточнення посадки.": {
+        "ru": "Откройте общую размерную сетку TwoComms или напишите нам, чтобы уточнить посадку.",
+        "en": "Open the general TwoComms size chart or write to us to clarify the fit.",
+    },
+    "Розмірна сітка": {"ru": "Размерная сетка", "en": "Size chart"},
+    "Допомога з вибором": {"ru": "Помощь с выбором", "en": "Help with selection"},
+
+    "Відправка": {"ru": "Отправка", "en": "Shipping"},
+    "1–2 дні по Україні після підтвердження замовлення.": {
+        "ru": "1–2 дня по Украине после подтверждения заказа.",
+        "en": "1–2 days across Ukraine after the order is confirmed.",
+    },
+    "Оплата": {"ru": "Оплата", "en": "Payment"},
+    "Онлайн або після узгодження деталей з менеджером.": {
+        "ru": "Онлайн или после согласования деталей с менеджером.",
+        "en": "Online, or after the manager confirms the details.",
+    },
+    "Обмін": {"ru": "Обмен", "en": "Exchange"},
+    "14 днів на обмін розміру, якщо річ не була у використанні.": {
+        "ru": "14 дней на обмен размера, если вещь не была в использовании.",
+        "en": "14 days to exchange the size if the item hasn't been worn.",
+    },
+
+    "Прання": {"ru": "Стирка", "en": "Washing"},
+    "30°C, делікатний режим, навиворіт.": {
+        "ru": "30°C, деликатный режим, наизнанку.",
+        "en": "30°C, delicate cycle, inside out.",
+    },
+    "Принт": {"ru": "Принт", "en": "Print"},
+    "Не прасувати напряму по нанесенню.": {
+        "ru": "Не гладить напрямую по принту.",
+        "en": "Do not iron directly over the print.",
+    },
+    "Сушка": {"ru": "Сушка", "en": "Drying"},
+    "Без агресивної машинної сушки.": {
+        "ru": "Без агрессивной машинной сушки.",
+        "en": "Avoid aggressive tumble drying.",
+    },
+
+    "Кількість": {"ru": "Количество", "en": "Quantity"},
+    "Зменшити кількість": {"ru": "Уменьшить количество", "en": "Decrease quantity"},
+    "Збільшити кількість": {"ru": "Увеличить количество", "en": "Increase quantity"},
+    "ДОДАТИ В КОШИК": {"ru": "ДОБАВИТЬ В КОРЗИНУ", "en": "ADD TO CART"},
+
+    "Швидка доставка": {"ru": "Быстрая доставка", "en": "Fast delivery"},
+    "1-3 дні Новою Поштою": {"ru": "1-3 дня Новой Почтой", "en": "1-3 days via Nova Poshta"},
+    "Обмін розміру": {"ru": "Обмен размера", "en": "Size exchange"},
+    "14 днів на повернення": {"ru": "14 дней на возврат", "en": "14-day returns"},
+    "Гайд по посадці": {"ru": "Гайд по посадке", "en": "Fit guide"},
+
+    "Отримайте %(points)s балів за покупку цього товару": {
+        "ru": "Получите %(points)s баллов за покупку этого товара",
+        "en": "Earn %(points)s points for buying this product",
+    },
+
+    "Нещодавно переглядали": {"ru": "Недавно просмотренные", "en": "Recently viewed"},
+    "До каталогу": {"ru": "В каталог", "en": "Back to catalog"},
+    "— схожий товар TwoComms": {
+        "ru": "— похожий товар TwoComms",
+        "en": "— related TwoComms product",
+    },
+    "Додати %(title)s до обраних": {
+        "ru": "Добавить %(title)s в избранное",
+        "en": "Add %(title)s to favourites",
+    },
+
+    # Phase 19c FAQ tab label.
+    "FAQ товару": {"ru": "FAQ товара", "en": "Product FAQ"},
+
+    # Recurring tiny labels.
+    "Швидка відправка": {"ru": "Быстрая отправка", "en": "Fast shipping"},
+    "1-2 дні по Україні": {"ru": "1-2 дня по Украине", "en": "1-2 days across Ukraine"},
+    "Індивідуальний підхід": {"ru": "Индивидуальный подход", "en": "Personal approach"},
+    "Допоможемо з вибором": {"ru": "Поможем с выбором", "en": "We'll help you choose"},
+    "14 днів на обмін": {"ru": "14 дней на обмен", "en": "14 days to exchange"},
+    "Галерея товару": {"ru": "Галерея товара", "en": "Product gallery"},
+    "Дії з фото": {"ru": "Действия с фото", "en": "Photo actions"},
+    "Збільшити фото": {"ru": "Увеличить фото", "en": "Zoom photo"},
+    "Попереднє фото": {"ru": "Предыдущее фото", "en": "Previous photo"},
+    "Наступне фото": {"ru": "Следующее фото", "en": "Next photo"},
+    "Мініатюри товару": {"ru": "Миниатюры товара", "en": "Product thumbnails"},
+    "Переваги покупки": {"ru": "Преимущества покупки", "en": "Purchase benefits"},
+}
+TRANSLATIONS.update(TRANSLATIONS_PHASE_17J)
+
+
 # Phase 17i fix: original `[^"]*` failed on multi-line msgid blocks
 # whose continuation strings contain escaped quotes (e.g. ``href=\"…\"`` in
 # the catalogue SEO paragraphs). The dotted alternative
@@ -932,8 +1104,20 @@ def _decode_po_string(block: str) -> str:
 
 
 def _encode_po_string(s: str) -> str:
-    """Encode a string for a single-line PO value."""
-    return s.replace("\\", "\\\\").replace('"', r"\"")
+    """Encode a string for a single-line PO value.
+
+    PO files use C-style escapes; real newline / tab / CR characters
+    cannot appear inside a quoted string. Translate them to backslash
+    sequences so multi-line msgstr values (e.g. address blocks with
+    embedded ``\\n``) compile correctly under ``msgfmt``.
+    """
+    return (
+        s.replace("\\", "\\\\")
+        .replace('"', r"\"")
+        .replace("\n", "\\n")
+        .replace("\t", "\\t")
+        .replace("\r", "\\r")
+    )
 
 
 _BLOCK_RE = re.compile(
