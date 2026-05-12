@@ -295,7 +295,6 @@ class Command(BaseCommand):
                 os.replace(tmp_path, dst_path)
                 # Build the new FileField name relative to the
                 # storage root so ``instance.image.url`` keeps working.
-                storage = getattr(instance, field_name).storage
                 rel_old = getattr(instance, field_name).name
                 rel_new = self._swap_extension(rel_old, ".webp")
                 # When the relative path already pointed at a .webp
@@ -303,13 +302,23 @@ class Command(BaseCommand):
                 if rel_new == rel_old:
                     result.skipped_reason = "name-already-webp"
                     return result
-                # Ensure the storage knows about the new file.
-                if not storage.exists(rel_new):
-                    # Race-safe: the file is already on disk (we just
-                    # wrote it), but some storages cache `exists`.
-                    pass
-                setattr(instance, field_name, rel_new)
-                instance.save(update_fields=[field_name])
+                # IMPORTANT: use queryset .update() instead of
+                # instance.save() — the storefront has post_save signals
+                # that synchronously call optimize_image_field_task,
+                # which would re-encode every file to WebP/AVIF copies
+                # in /optimized/ and add 5-15s of latency per row,
+                # turning a 30-minute batch into a ~24-hour one.
+                # ``.update()`` issues a single UPDATE SQL with no
+                # ORM signal traffic; the file system already holds
+                # the new ``.webp``, so the field name swap is the
+                # only DB change we need.
+                rows = type(instance).objects.filter(pk=instance.pk).update(
+                    **{field_name: rel_new}
+                )
+                if rows == 0:
+                    raise RuntimeError(
+                        f"failed to update {type(instance).__name__}.{field_name}"
+                    )
                 if not self.keep_source:
                     try:
                         src_path.unlink(missing_ok=True)
