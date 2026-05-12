@@ -137,11 +137,20 @@ def build_variant_meta(inputs: VariantMetaInputs) -> dict:
             # That keeps the brand-trailing template Google rewards, drops
             # the «купити в» bug, and reads naturally for users.
             fit_lc = _lowercase_first(inputs.fit_label)
+            # NOTE: «посадка» is feminine in Ukrainian, so combining it
+            # with a masculine fit_label («Класичний посадка») produces
+            # an agreement error. The fit terms we actually use
+            # («Оверсайз», «Класичний», «Релакс») are a mix of
+            # genders/indeclinable forms, so the safest copy template
+            # is «{product} — {fit} фіт — TwoComms» — «фіт» is
+            # masculine + works for any fit label without case
+            # gymnastics, and «фіт» is the term already used in our
+            # /rozmirna-sitka/ copy.
             page_title = (
-                f"{inputs.product_title} — {fit_lc} посадка — TwoComms"
+                f"{inputs.product_title} — {fit_lc} фіт — TwoComms"
             )
             page_description = (
-                f"{inputs.product_title}, {fit_lc} посадка — щільна бавовна, "
+                f"{inputs.product_title}, {fit_lc} фіт — щільна бавовна, "
                 f"DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. "
                 f"Лаконічний стрітвеар від українського бренду TwoComms."
             )
