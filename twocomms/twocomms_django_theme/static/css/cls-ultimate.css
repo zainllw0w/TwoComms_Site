@@ -30,6 +30,28 @@
   will-change: auto;
 }
 
+/* ============================================================================
+   Phase 22g (2026-05-13) — system font for LCP element (navbar-brand).
+   ============================================================================
+   Lighthouse mobile flagged LCP element-render delay = 2530 ms on Moto G
+   Power slow-4G. The element is the navbar-brand "TwoComms" text rendered
+   in fw-bold (700), so it waits for Inter-Bold.woff2 (114 KB) to load
+   before the LCP timestamp settles — even though font-display: swap shows
+   a fallback first, the swap event itself shifts the LCP timestamp.
+
+   By pinning navbar-brand to the system font stack, the LCP element
+   paints at its FINAL state immediately after the inline CSS parses. The
+   rest of the site keeps Inter and gets the swap with no perceptible
+   FOUT — only this single above-fold text drops Inter, which actually
+   looks fine because the brand mark is dominated by the SVG logo to its
+   left and the system bold is recognizably "native UI".
+*/
+.navbar-brand {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: 0.01em;
+}
+
 main.container-xxl {
   min-height: calc(100vh - 70px - 120px); /* viewport - navbar - footer approx */
   contain: layout;
