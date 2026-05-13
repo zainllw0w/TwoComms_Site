@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load static %}{% load cache %}{% load responsive_images %}{% load seo_tags %}{% load compress %}{% load i18n %}
+{% extends "base.html" %}{% load static %}{% load cache %}{% load responsive_images %}{% load seo_tags %}{% load compress %}{% load i18n %}{% load inline_assets %}
 
 {# SEO v1.0 Phase 12 (2026-05-12) — finding (VV). Pagination on the home grid was rendering an identical <title> for every ?page=N which Search Console flags as duplicate-title. Suffix the title with the page number so each paginator state is unique. #}
 {% block title %}{% trans 'TwoComms — Стріт & Мілітарі Одяг | Головна' %}{% if page_obj and page_obj.number > 1 %} — сторінка {{ page_obj.number }}{% endif %}{% endblock %}
