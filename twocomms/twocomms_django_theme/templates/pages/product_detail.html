@@ -543,6 +543,15 @@ CSS rules на mobile FCP/LCP window.
         </div>
 
         <div class="tc-tab-panel" id="panel-delivery" role="tabpanel" aria-labelledby="tab-delivery" data-pdp-panel="delivery" hidden>
+          {# SEO v1.0 Phase 12 (2026-05-13) — finding (L). PDP delivery #}
+          {# and care panels lacked H2 headings; the audit ranks them as #}
+          {# the «cheapest content-section win» for PDP topical coverage #}
+          {# because they let Google list a Sitelinks-style anchor under #}
+          {# the product title in the SERP and feed long-tail queries    #}
+          {# like «{товар} доставка», «{товар} догляд». Title is product- #}
+          {# scoped so each PDP carries a unique <h2> string, avoiding   #}
+          {# duplicate-heading clustering. #}
+          <h2 class="tc-tab-panel-title">{% blocktrans with title=product.title %}Доставка {{ title }} по Україні{% endblocktrans %}</h2>
           <div class="tc-delivery-grid">
             <div class="tc-care-item"><strong>{% trans 'Відправка' %}</strong><span>{% trans '1–2 дні по Україні після підтвердження замовлення.' %}</span></div>
             <div class="tc-care-item"><strong>{% trans 'Оплата' %}</strong><span>{% trans 'Онлайн або після узгодження деталей з менеджером.' %}</span></div>
@@ -551,6 +560,10 @@ CSS rules на mobile FCP/LCP window.
         </div>
 
         <div class="tc-tab-panel" id="panel-care" role="tabpanel" aria-labelledby="tab-care" data-pdp-panel="care" hidden>
+          {# SEO v1.0 Phase 12 (2026-05-13) — finding (L). See sibling #}
+          {# comment on the delivery panel above. Unique product-scoped #}
+          {# H2 anchors the «{товар} догляд» long-tail intent. #}
+          <h2 class="tc-tab-panel-title">{% blocktrans with title=product.title %}Догляд за {{ title }}{% endblocktrans %}</h2>
           {% if product.care_instructions %}
             <div class="tc-care-copy">{{ product.care_instructions|linebreaksbr }}</div>
           {% else %}

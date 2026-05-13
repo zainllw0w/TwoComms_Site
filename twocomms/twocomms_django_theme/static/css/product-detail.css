@@ -1412,6 +1412,16 @@ html[data-route-name="product"] .breadcrumb-nav {
   font-weight: 900;
 }
 
+/* SEO v1.0 Phase 12 (2026-05-13) — finding (L). H2 for "Доставка"
+   and "Догляд" panels. Reuses the same typography as the in-desc
+   H2 so the visual hierarchy stays uniform across PDP tabs. */
+.tc-tab-panel-title {
+  margin: 0 0 10px;
+  color: var(--pdp-text);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
 .tc-size-guide-card {
   display: grid;
   gap: 14px;
