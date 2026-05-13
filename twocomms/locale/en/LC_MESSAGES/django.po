@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-13 02:47+0300\n"
+"POT-Creation-Date: 2026-05-13 02:50+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1322,8 +1322,7 @@ msgid "Нарахування менеджера"
 msgstr ""
 
 msgid "В обробці"
-msgstr ""
-
+msgstr "Processing"
 msgid "Схвалено"
 msgstr ""
 
@@ -1803,6 +1802,7 @@ msgstr ""
 
 msgid "На перевірці менеджера"
 msgstr "Under manager review"
+
 msgid "Погоджено — оплата доступна"
 msgstr ""
 
@@ -2239,60 +2239,82 @@ msgstr "Custom print"
 
 msgid "Передаємо менеджеру на перевірку"
 msgstr "Sending to the manager for review"
+
 msgid "✅ Погоджено — можна оплачувати"
 msgstr "✅ Approved — ready for payment"
+
 msgid "❌ Відхилено менеджером"
 msgstr "❌ Rejected by the manager"
+
 #, python-format
 msgid "Коментар менеджера: %(note)s"
 msgstr "Manager note: %(note)s"
+
 msgid "Виріб:"
 msgstr "Item:"
+
 msgid "Розміщення:"
 msgstr "Placement:"
+
 msgid "Кількість:"
 msgstr "Quantity:"
 
 msgid "Режим розмірів:"
 msgstr "Size mode:"
+
 msgid "Розміри:"
 msgstr "Sizes:"
+
 msgid "Крій:"
 msgstr "Cut:"
+
 msgid "Тканина:"
 msgstr "Fabric:"
+
 msgid "Колір:"
 msgstr "Colour:"
 
 msgid "Послуга:"
 msgstr "Service:"
+
 msgid "Підготовка файлу:"
 msgstr "File preparation:"
+
 msgid "Додатково:"
 msgstr "Add-ons:"
+
 msgid "Коментар до розміщення:"
 msgstr "Placement note:"
+
 msgid "🎁 Подарунок:"
 msgstr "🎁 Gift:"
+
 msgid "Упаковка + промокод 10%"
 msgstr "Packaging + 10% promo code"
+
 msgid "B2B знижка:"
 msgstr "B2B discount:"
+
 msgid "грн/шт"
 msgstr "UAH/pc"
+
 msgid "Після погодження"
 msgstr "After approval"
+
 #, python-format
 msgid "Орієнтовно %(amount)s грн"
 msgstr "Approximately %(amount)s UAH"
+
 msgid "Написати менеджеру"
 msgstr "Message the manager"
+
 msgid "Видалити"
 msgstr "Remove"
 
 #, python-format
 msgid "%(title)s - товар у кошику TwoComms"
 msgstr "%(title)s — item in the TwoComms cart"
+
 msgid "Розмір:"
 msgstr "Size:"
 
@@ -2301,6 +2323,7 @@ msgstr "Fit:"
 
 msgid "Ціна:"
 msgstr "Price:"
+
 #, python-format
 msgid "Заробите %(n)s балів"
 msgstr "Earn %(n)s points"
@@ -2310,6 +2333,7 @@ msgstr "No points awarded"
 
 msgid "Разом:"
 msgstr "Total:"
+
 msgid "грн"
 msgstr "UAH"
 
@@ -2327,10 +2351,13 @@ msgstr "Delivery"
 
 msgid "ПІБ *"
 msgstr "Full name *"
+
 msgid "Прізвище Ім'я По батькові"
 msgstr "Last name First name Patronymic"
+
 msgid "Телефон *"
 msgstr "Phone *"
+
 msgid ""
 "Можна вводити 093..., 809..., 380... або +380... — номер приведемо до "
 "потрібного формату."
@@ -2339,6 +2366,7 @@ msgstr ""
 
 msgid "Місто *"
 msgstr "City *"
+
 msgid "Почніть вводити місто Нової пошти"
 msgstr "Start typing a Nova Poshta city"
 
@@ -2351,6 +2379,7 @@ msgstr ""
 
 msgid "Відділення / Поштомат НП *"
 msgstr "Branch / Nova Poshta parcel locker *"
+
 msgid "Оберіть відділення або поштомат"
 msgstr "Choose a branch or parcel locker"
 
@@ -2372,6 +2401,7 @@ msgstr ""
 
 msgid "Тип оплати *"
 msgstr "Payment method *"
+
 msgid "Тип оплати"
 msgstr "Payment type"
 
@@ -2386,6 +2416,7 @@ msgstr "Prepayment UAH 200 (remainder on delivery)"
 
 msgid "— недоступно з кастомним принтом"
 msgstr "— unavailable with a custom print"
+
 msgid ""
 "У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — "
 "менеджер узгодить фінальну ціну."
@@ -2569,14 +2600,19 @@ msgstr ""
 
 msgid "Введіть ваше ПІБ"
 msgstr "Enter your full name"
+
 msgid "@username або номер телефону"
 msgstr "@username or phone number"
+
 msgid "Опціонально, але допоможе зв'язатися швидше"
 msgstr "Optional, but helps us reach you faster"
+
 msgid "Опціонально"
 msgstr "Optional"
+
 msgid "Зв'язатися зі мною"
 msgstr "Get in touch with me"
+
 msgid "Головна"
 msgstr "Home"
 
@@ -3076,6 +3112,113 @@ msgstr "My orders"
 msgid "Відстежуйте статус ваших замовлень"
 msgstr "Track the status of your orders"
 
+msgid "Отримано"
+msgstr "Received"
+msgid "Очікується"
+msgstr "Pending"
+msgid "Оформлено"
+msgstr "Placed"
+msgid "Важливо"
+msgstr "Important"
+msgid "Ваше замовлення в обробці"
+msgstr "Your order is being processed"
+msgid ""
+"Очікуйте: з вами зв'яжеться менеджер для підтвердження деталей. Або ви "
+"можете <strong>оплатити прямо зараз</strong> — так ми відправимо швидше."
+msgstr "Please wait: a manager will reach out to confirm the details. Or you can <strong>pay right now</strong> so we can ship faster."
+msgid "ТТН очікується"
+msgstr "Tracking number pending"
+#, python-format
+msgid "Статус посилки: %(status)s"
+msgstr "Parcel status: %(status)s"
+msgid "Отримувати сповіщення"
+msgstr "Receive notifications"
+msgid "Готується"
+msgstr "Preparing"
+msgid "Відправлено"
+msgstr "Shipped"
+msgid "Товари в замовленні"
+msgstr "Order items"
+msgid "шт"
+msgstr "pcs"
+#, python-format
+msgid "Кастомний виріб %(number)s"
+msgstr "Custom item %(number)s"
+msgid "Тип:"
+msgstr "Type:"
+
+msgid "Статус:"
+msgstr "Status:"
+msgid "Погоджено менеджером"
+msgstr "Approved by the manager"
+msgid "Кастомне замовлення"
+msgstr "Custom order"
+msgid "Передплата 200 грн"
+msgstr "Prepayment 200 UAH"
+
+msgid "Оплата при отриманні"
+msgstr "Cash on delivery"
+
+msgid "Змінити спосіб оплати"
+msgstr "Change payment method"
+msgid "Оплачено повністю"
+msgstr "Paid in full"
+msgid "Внесена передплата"
+msgstr "Prepayment received"
+msgid "На перевірці"
+msgstr "Under review"
+msgid "Не оплачено"
+msgstr "Not paid"
+msgid "Часткова оплата"
+msgstr "Partial payment"
+msgid "Повна оплата"
+msgstr "Full payment"
+msgid "Зберегти"
+msgstr "Save"
+msgid "Внести передплату"
+msgstr "Submit prepayment"
+msgid "Оплатити повністю"
+msgstr "Pay in full"
+msgid "У вас ще немає замовлень"
+msgstr "You don't have any orders yet"
+msgid "Зробіть перше замовлення, щоб побачити його тут"
+msgstr "Place your first order to see it here"
+msgid "Внесення передплати"
+msgstr "Submit prepayment"
+msgid "Інструкція по внесенню передплати"
+msgstr "Prepayment instructions"
+msgid ""
+"Передплата у розмірі <strong>200 грн</strong> необхідна для забезпечення "
+"безпеки компанії у випадку, якщо посилка буде відправлена, а користувач або "
+"не забере її, або розмір не підійде."
+msgstr "A <strong>200 UAH prepayment</strong> protects the company in case the parcel ships but the customer doesn't pick it up or the size doesn't fit."
+msgid "Номер замовлення:"
+msgstr "Order number:"
+
+msgid "Реквізити для оплати:"
+msgstr "Payment details:"
+msgid "Отримувач:"
+msgstr "Recipient:"
+msgid "ІПН/ЄДРПОУ:"
+msgstr "Tax ID:"
+msgid "Призначення платежу:"
+msgstr "Payment purpose:"
+msgid "АБО"
+msgstr "OR"
+msgid "Карта Монобанк:"
+msgstr "Monobank card:"
+msgid "Завантажте скріншот оплати:"
+msgstr "Upload a payment screenshot:"
+msgid ""
+"Скріншот необхідний для забезпечення гарантій та підтвердження оплати. Будь "
+"ласка, зробіть знімок екрану з підтвердженням транзакції."
+msgstr "A screenshot ensures guarantees and confirms the payment. Please take a screenshot of the transaction confirmation."
+msgid "Натисніть для завантаження скріншоту"
+msgstr "Click to upload a screenshot"
+msgid "PNG, JPG або JPEG (макс. 5MB)"
+msgstr "PNG, JPG or JPEG (max. 5 MB)"
+msgid "Оплатив"
+msgstr "I have paid"
 msgid "Мої відгуки"
 msgstr "My reviews"
 
@@ -3127,9 +3270,6 @@ msgstr "Order placed"
 
 msgid "Замовлення успішно оформлено!"
 msgstr "Order placed successfully!"
-
-msgid "Номер замовлення:"
-msgstr "Order number:"
 
 msgid "Переглянути деталі замовлення"
 msgstr "View order details"
@@ -3221,25 +3361,11 @@ msgstr "Not provided"
 msgid "Відділення НП"
 msgstr "Nova Poshta branch"
 
-msgid "Передплата 200 грн"
-msgstr "Prepayment 200 UAH"
-
-msgid "Оплата при отриманні"
-msgstr "Cash on delivery"
-
 msgid "Сума замовлення"
 msgstr "Order total"
 
 msgid "Товари в замовленні:"
 msgstr "Items in order:"
-
-#, fuzzy, python-format
-#| msgid "Кастомний друк"
-msgid "Кастомний виріб %(number)s"
-msgstr "Custom print"
-
-msgid "Тип:"
-msgstr "Type:"
 
 msgid "Статус: погоджено"
 msgstr "Status: approved"

@@ -65,7 +65,7 @@
                         </svg>
                       </div>
                     </div>
-                    <div class="points-label">Отримано</div>
+                    <div class="points-label">{% trans 'Отримано' %}</div>
                   </div>
                 {% else %}
                   <div class="points-status pending">
@@ -77,7 +77,7 @@
                         </svg>
                       </div>
                     </div>
-                    <div class="points-label">Очікується</div>
+                    <div class="points-label">{% trans 'Очікується' %}</div>
                   </div>
                 {% endif %}
               </div>
@@ -90,7 +90,7 @@
                 </svg>
               </div>
               <div class="date-card-content">
-                <div class="date-label">Оформлено</div>
+                <div class="date-label">{% trans 'Оформлено' %}</div>
                 <div class="date-value">{{ o.created|date:"d.m.Y о H:i" }}</div>
               </div>
             </div>
@@ -100,14 +100,14 @@
         {% if o.status == 'new' %}
         <div class="featured-unified-block" style="margin:12px 16px 0 16px;">
           <div class="featured-content-unified" style="display:flex;align-items:flex-start;gap:12px;">
-            <span class="featured-badge-compact" title="Важливо" aria-hidden="true" style="flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;">
+            <span class="featured-badge-compact" title="{% trans 'Важливо' %}" aria-hidden="true" style="flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
               </svg>
             </span>
             <div>
-              <div class="featured-title-compact">Ваше замовлення в обробці</div>
-              <div class="featured-subtitle-compact">Очікуйте: з вами зв'яжеться менеджер для підтвердження деталей. Або ви можете <strong>оплатити прямо зараз</strong> — так ми відправимо швидше.</div>
+              <div class="featured-title-compact">{% trans 'Ваше замовлення в обробці' %}</div>
+              <div class="featured-subtitle-compact">{% trans "Очікуйте: з вами зв'яжеться менеджер для підтвердження деталей. Або ви можете <strong>оплатити прямо зараз</strong> — так ми відправимо швидше." %}</div>
             </div>
           </div>
         </div>
@@ -135,7 +135,7 @@
               {% if o.tracking_number %}
                 {{ o.tracking_number }}
               {% else %}
-                <span class="ttn-pending">ТТН очікується</span>
+                <span class="ttn-pending">{% trans 'ТТН очікується' %}</span>
               {% endif %}
             </span>
           </div>
@@ -144,7 +144,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
-            <span class="shipment-status" title="Статус посылки: {{ o.shipment_status }}">
+            <span class="shipment-status" title="{% blocktrans with status=o.shipment_status %}Статус посилки: {{ status }}{% endblocktrans %}">
               📦 {{ o.shipment_status|truncatechars:30 }}
             </span>
           </div>
@@ -158,7 +158,7 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.14 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06-.01.13-.02.2z"/>
               </svg>
-              📱 Получать уведомления
+              📱 {% trans 'Отримувати сповіщення' %}
             </button>
           </div>
           {% endif %}
@@ -172,7 +172,7 @@
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
             </div>
-            <div class="status-step-label">В обробці</div>
+            <div class="status-step-label">{% trans 'В обробці' %}</div>
           </div>
           
           <div class="status-connector {% if o.status in 'prep,ship,done' %}completed{% endif %}"></div>
@@ -183,7 +183,7 @@
                 <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
               </svg>
             </div>
-            <div class="status-step-label">Готується</div>
+            <div class="status-step-label">{% trans 'Готується' %}</div>
           </div>
           
           <div class="status-connector {% if o.status in 'ship,done' %}completed{% endif %}"></div>
@@ -194,7 +194,7 @@
                 <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
               </svg>
             </div>
-            <div class="status-step-label">Відправлено</div>
+            <div class="status-step-label">{% trans 'Відправлено' %}</div>
           </div>
           
           <div class="status-connector {% if o.status == 'done' %}completed{% endif %}"></div>
@@ -205,7 +205,7 @@
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
             </div>
-            <div class="status-step-label">Отримано</div>
+            <div class="status-step-label">{% trans 'Отримано' %}</div>
           </div>
         </div>
 
@@ -224,7 +224,7 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
               </svg>
-              Товари в замовленні
+              {% trans 'Товари в замовленні' %}
             </div>
           </div>
           
@@ -250,22 +250,22 @@
                     <div class="order-item-title">{{ it.title }}</div>
                     <div class="order-item-specs">
                       <div class="order-item-spec">
-                        <span class="spec-label">Розмір:</span>
+                        <span class="spec-label">{% trans 'Розмір:' %}</span>
                         <span class="spec-value">{{ it.size }}</span>
                       </div>
                       <div class="order-item-spec">
-                        <span class="spec-label">Кількість:</span>
-                        <span class="spec-value">{{ it.qty }} шт</span>
+                        <span class="spec-label">{% trans 'Кількість:' %}</span>
+                        <span class="spec-value">{{ it.qty }} {% trans 'шт' %}</span>
                       </div>
                       {% if it.fit_label %}
                       <div class="order-item-spec">
-                        <span class="spec-label">Посадка:</span>
+                        <span class="spec-label">{% trans 'Посадка:' %}</span>
                         <span class="spec-value">{{ it.fit_label }}</span>
                       </div>
                       {% endif %}
                       {% if it.color_variant %}
                       <div class="order-item-spec">
-                        <span class="spec-label">Колір:</span>
+                        <span class="spec-label">{% trans 'Колір:' %}</span>
                         <div class="order-item-color">
                           <span class="order-item-swatch" 
                                 data-primary="{{ it.color_variant.color.primary_hex }}" 
@@ -297,26 +297,26 @@
 
                 <div class="order-item-content">
                   <div class="order-item-main">
-                    <div class="order-item-title">Кастомний виріб {{ lead.lead_number }}</div>
+                    <div class="order-item-title">{% blocktrans with number=lead.lead_number %}Кастомний виріб {{ number }}{% endblocktrans %}</div>
                     <div class="order-item-specs">
                       <div class="order-item-spec">
-                        <span class="spec-label">Тип:</span>
+                        <span class="spec-label">{% trans 'Тип:' %}</span>
                         <span class="spec-value">{{ lead.get_product_type_display }}</span>
                       </div>
                       <div class="order-item-spec">
-                        <span class="spec-label">Кількість:</span>
-                        <span class="spec-value">{{ lead.quantity }} шт</span>
+                        <span class="spec-label">{% trans 'Кількість:' %}</span>
+                        <span class="spec-value">{{ lead.quantity }} {% trans 'шт' %}</span>
                       </div>
                       <div class="order-item-spec">
-                        <span class="spec-label">Статус:</span>
-                        <span class="spec-value">Погоджено менеджером</span>
+                        <span class="spec-label">{% trans 'Статус:' %}</span>
+                        <span class="spec-value">{% trans 'Погоджено менеджером' %}</span>
                       </div>
                     </div>
                   </div>
 
                   <div class="order-item-side">
                     <div class="order-item-price">{{ lead.final_price_value }} грн</div>
-                    <div class="order-item-unit-price">Кастомне замовлення</div>
+                    <div class="order-item-unit-price">{% trans 'Кастомне замовлення' %}</div>
                   </div>
                 </div>
               </div>
@@ -356,16 +356,16 @@
                 <div class="payment-method-label">
                   <span class="method-text">
                     {% if o.pay_type == 'full' or o.pay_type == 'online_full' %}
-                      Онлайн оплата (повна сума)
+                      {% trans 'Онлайн оплата (повна сума)' %}
                     {% elif o.pay_type == 'prepay_200' or o.pay_type == 'partial' %}
-                      Передплата 200 грн
+                      {% trans 'Передплата 200 грн' %}
                     {% elif o.pay_type == 'cod' %}
-                      Оплата при отриманні
+                      {% trans 'Оплата при отриманні' %}
                     {% else %}
                       {{ o.get_pay_type_display|default:o.pay_type }}
                     {% endif %}
                   </span>
-                  <button class="edit-method-btn" onclick="togglePaymentMethodEdit('{{ o.id }}')" title="Змінити спосіб оплати">
+                  <button class="edit-method-btn" onclick="togglePaymentMethodEdit('{{ o.id }}')" title="{% trans 'Змінити спосіб оплати' %}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                     </svg>
@@ -373,13 +373,13 @@
                 </div>
                 <div class="payment-status" id="payment-status-{{ o.id }}">
                   {% if o.payment_status == 'paid' %}
-                    <span class="status-paid">Оплачено повністю</span>
+                    <span class="status-paid">{% trans 'Оплачено повністю' %}</span>
                   {% elif o.payment_status == 'prepaid' or o.payment_status == 'partial' %}
-                    <span class="status-partial">Внесена передплата</span>
+                    <span class="status-partial">{% trans 'Внесена передплата' %}</span>
                   {% elif o.payment_status == 'checking' %}
-                    <span class="status-checking">На перевірці</span>
+                    <span class="status-checking">{% trans 'На перевірці' %}</span>
                   {% else %}
-                    <span class="status-unpaid">Не оплачено</span>
+                    <span class="status-unpaid">{% trans 'Не оплачено' %}</span>
                   {% endif %}
                 </div>
               </div>
@@ -388,7 +388,7 @@
             <div class="payment-method-actions">
               <div class="payment-method-editor" id="payment-editor-{{ o.id }}" style="display: none;">
                 <div class="editor-header">
-                  <span class="editor-title">Змінити спосіб оплати</span>
+                  <span class="editor-title">{% trans 'Змінити спосіб оплати' %}</span>
                   <button class="close-editor-btn" onclick="closePaymentMethodEdit('{{ o.id }}')">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -402,7 +402,7 @@
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                       </svg>
-                      Часткова оплата
+                      {% trans 'Часткова оплата' %}
                     </span>
                   </label>
                   <label class="option-item">
@@ -411,7 +411,7 @@
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
                       </svg>
-                      Повна оплата
+                      {% trans 'Повна оплата' %}
                     </span>
                   </label>
                 </div>
@@ -420,7 +420,7 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                     </svg>
-                    Зберегти
+                    {% trans 'Зберегти' %}
                   </button>
                 </div>
               </div>
@@ -431,14 +431,14 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
-                    Внести передплату
+                    {% trans 'Внести передплату' %}
                   </button>
                 {% elif o.pay_type == 'full' or o.pay_type == 'online_full' %}
                   <button class="payment-btn payment-btn-full" onclick="payFull('{{ o.id }}')">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
                     </svg>
-                    Оплатити повністю
+                    {% trans 'Оплатити повністю' %}
                   </button>
                 {% endif %}
               {% endif %}
@@ -446,7 +446,7 @@
           </div>
           
           <div class="order-final-compact">
-            <span class="order-final-label">Разом:</span>
+            <span class="order-final-label">{% trans 'Разом:' %}</span>
             <span class="order-final-amount">{{ o.total_sum }} грн</span>
           </div>
         </div>
@@ -458,13 +458,13 @@
             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
           </svg>
         </div>
-        <h2 class="orders-empty-title">У вас ще немає замовлень</h2>
-        <p class="orders-empty-text">Зробіть перше замовлення, щоб побачити його тут</p>
+        <h2 class="orders-empty-title">{% trans 'У вас ще немає замовлень' %}</h2>
+        <p class="orders-empty-text">{% trans 'Зробіть перше замовлення, щоб побачити його тут' %}</p>
         <a href="{% url 'home' %}" class="orders-empty-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
           </svg>
-          Перейти до покупок
+          {% trans 'Перейти до покупок' %}
         </a>
       </div>
     {% endfor %}
@@ -480,7 +480,7 @@
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
         </svg>
-        Внесення передплати
+        {% trans 'Внесення передплати' %}
       </h3>
       <button class="payment-modal-close" onclick="closePaymentModal()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -492,14 +492,14 @@
     <div class="payment-modal-body">
       <div class="payment-instruction">
         <div class="instruction-header">
-          <h4>Інструкція по внесенню передплати</h4>
+          <h4>{% trans 'Інструкція по внесенню передплати' %}</h4>
           <p class="instruction-description">
-            Передплата у розмірі <strong>200 грн</strong> необхідна для забезпечення безпеки компанії у випадку, якщо посилка буде відправлена, а користувач або не забере її, або розмір не підійде.
+            {% trans 'Передплата у розмірі <strong>200 грн</strong> необхідна для забезпечення безпеки компанії у випадку, якщо посилка буде відправлена, а користувач або не забере її, або розмір не підійде.' %}
           </p>
         </div>
         
         <div class="order-number-section">
-          <label>Номер замовлення:</label>
+          <label>{% trans 'Номер замовлення:' %}</label>
           <button class="order-number-copy" id="modal-order-number" onclick="copyOrderNumberFromModal()">
             <span class="order-number-text"></span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -509,10 +509,10 @@
         </div>
         
         <div class="payment-details">
-          <h5>Реквізити для оплати:</h5>
+          <h5>{% trans 'Реквізити для оплати:' %}</h5>
           <div class="payment-details-grid">
             <div class="detail-item">
-              <label>Отримувач:</label>
+              <label>{% trans 'Отримувач:' %}</label>
               <button class="copyable-text" onclick="copyToClipboard('Синіло Артем Віталійович')">
                 Синіло Артем Віталійович
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -532,7 +532,7 @@
             </div>
             
             <div class="detail-item">
-              <label>ІПН/ЄДРПОУ:</label>
+              <label>{% trans 'ІПН/ЄДРПОУ:' %}</label>
               <button class="copyable-text" onclick="copyToClipboard('3490607272')">
                 3490607272
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -542,7 +542,7 @@
             </div>
             
             <div class="detail-item">
-              <label>Призначення платежу:</label>
+              <label>{% trans 'Призначення платежу:' %}</label>
               <button class="copyable-text" id="modal-payment-purpose" onclick="copyPaymentPurpose()">
                 <span class="purpose-text"></span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -552,11 +552,11 @@
             </div>
             
             <div class="payment-method-separator">
-              <span>АБО</span>
+              <span>{% trans 'АБО' %}</span>
             </div>
             
             <div class="detail-item">
-              <label>Карта Монобанк:</label>
+              <label>{% trans 'Карта Монобанк:' %}</label>
               <button class="copyable-text" onclick="copyToClipboard('4441111140615463')">
                 4441111140615463
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -568,9 +568,9 @@
         </div>
         
         <div class="payment-upload">
-          <h5>Завантажте скріншот оплати:</h5>
+          <h5>{% trans 'Завантажте скріншот оплати:' %}</h5>
           <p class="upload-description">
-            Скріншот необхідний для забезпечення гарантій та підтвердження оплати. Будь ласка, зробіть знімок екрану з підтвердженням транзакції.
+            {% trans 'Скріншот необхідний для забезпечення гарантій та підтвердження оплати. Будь ласка, зробіть знімок екрану з підтвердженням транзакції.' %}
           </p>
           <div class="upload-area" id="upload-area">
             <input type="file" id="payment-screenshot" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
@@ -578,8 +578,8 @@
               <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/>
               </svg>
-              <p>Натисніть для завантаження скріншоту</p>
-              <span>PNG, JPG або JPEG (макс. 5MB)</span>
+              <p>{% trans 'Натисніть для завантаження скріншоту' %}</p>
+              <span>{% trans 'PNG, JPG або JPEG (макс. 5MB)' %}</span>
             </div>
             <div class="upload-preview" id="upload-preview" style="display: none;">
               <img id="preview-image" src="" alt="Preview">
@@ -599,7 +599,7 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
           <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
         </svg>
-        Оплатив
+        {% trans 'Оплатив' %}
       </button>
     </div>
   </div>

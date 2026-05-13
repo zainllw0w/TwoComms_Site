@@ -1334,6 +1334,106 @@ TRANSLATIONS_PHASE_17K: dict[str, dict[str, str]] = {
 TRANSLATIONS.update(TRANSLATIONS_PHASE_17K)
 
 
+# ===========================================================================
+# Phase 17l (2026-05-13) — my_orders.html wrappings (order card, payment
+# modal, status labels).
+# ===========================================================================
+TRANSLATIONS_PHASE_17L: dict[str, dict[str, str]] = {
+    "Мої замовлення": {"ru": "Мои заказы", "en": "My orders"},
+    "Відстежуйте статус ваших замовлень": {
+        "ru": "Отслеживайте статус ваших заказов",
+        "en": "Track the status of your orders",
+    },
+    "Отримано": {"ru": "Получено", "en": "Received"},
+    "Очікується": {"ru": "Ожидается", "en": "Pending"},
+    "Оформлено": {"ru": "Оформлено", "en": "Placed"},
+    "Важливо": {"ru": "Важно", "en": "Important"},
+    "Ваше замовлення в обробці": {
+        "ru": "Ваш заказ в обработке",
+        "en": "Your order is being processed",
+    },
+    "Очікуйте: з вами зв'яжеться менеджер для підтвердження деталей. Або ви можете <strong>оплатити прямо зараз</strong> — так ми відправимо швидше.": {
+        "ru": "Ожидайте: с вами свяжется менеджер для подтверждения деталей. Или вы можете <strong>оплатить прямо сейчас</strong> — так мы отправим быстрее.",
+        "en": "Please wait: a manager will reach out to confirm the details. Or you can <strong>pay right now</strong> so we can ship faster.",
+    },
+    "ТТН очікується": {"ru": "ТТН ожидается", "en": "Tracking number pending"},
+    "Статус посилки: %(status)s": {
+        "ru": "Статус посылки: %(status)s",
+        "en": "Parcel status: %(status)s",
+    },
+    "Отримувати сповіщення": {"ru": "Получать уведомления", "en": "Receive notifications"},
+    "В обробці": {"ru": "В обработке", "en": "Processing"},
+    "Готується": {"ru": "Готовится", "en": "Preparing"},
+    "Відправлено": {"ru": "Отправлено", "en": "Shipped"},
+    "Товари в замовленні": {"ru": "Товары в заказе", "en": "Order items"},
+    "шт": {"ru": "шт", "en": "pcs"},
+    "Тип:": {"ru": "Тип:", "en": "Type:"},
+    "Кастомний виріб %(number)s": {
+        "ru": "Кастомное изделие %(number)s",
+        "en": "Custom item %(number)s",
+    },
+    "Статус:": {"ru": "Статус:", "en": "Status:"},
+    "Погоджено менеджером": {"ru": "Согласовано менеджером", "en": "Approved by the manager"},
+    "Кастомне замовлення": {"ru": "Кастомный заказ", "en": "Custom order"},
+    "Передплата 200 грн": {"ru": "Предоплата 200 грн", "en": "200 UAH prepayment"},
+    "Оплата при отриманні": {"ru": "Оплата при получении", "en": "Payment on delivery"},
+    "Змінити спосіб оплати": {"ru": "Изменить способ оплаты", "en": "Change payment method"},
+    "Оплачено повністю": {"ru": "Оплачено полностью", "en": "Paid in full"},
+    "Внесена передплата": {"ru": "Внесена предоплата", "en": "Prepayment received"},
+    "На перевірці": {"ru": "На проверке", "en": "Under review"},
+    "Не оплачено": {"ru": "Не оплачено", "en": "Not paid"},
+    "Часткова оплата": {"ru": "Частичная оплата", "en": "Partial payment"},
+    "Повна оплата": {"ru": "Полная оплата", "en": "Full payment"},
+    "Зберегти": {"ru": "Сохранить", "en": "Save"},
+    "Внести передплату": {"ru": "Внести предоплату", "en": "Submit prepayment"},
+    "Оплатити повністю": {"ru": "Оплатить полностью", "en": "Pay in full"},
+
+    "У вас ще немає замовлень": {
+        "ru": "У вас ещё нет заказов",
+        "en": "You don't have any orders yet",
+    },
+    "Зробіть перше замовлення, щоб побачити його тут": {
+        "ru": "Сделайте первый заказ, чтобы увидеть его здесь",
+        "en": "Place your first order to see it here",
+    },
+
+    "Внесення передплати": {"ru": "Внесение предоплаты", "en": "Submit prepayment"},
+    "Інструкція по внесенню передплати": {
+        "ru": "Инструкция по внесению предоплаты",
+        "en": "Prepayment instructions",
+    },
+    "Передплата у розмірі <strong>200 грн</strong> необхідна для забезпечення безпеки компанії у випадку, якщо посилка буде відправлена, а користувач або не забере її, або розмір не підійде.": {
+        "ru": "Предоплата в размере <strong>200 грн</strong> необходима для обеспечения безопасности компании на случай, если посылка будет отправлена, а пользователь её не заберёт или размер не подойдёт.",
+        "en": "A <strong>200 UAH prepayment</strong> protects the company in case the parcel ships but the customer doesn't pick it up or the size doesn't fit.",
+    },
+    "Номер замовлення:": {"ru": "Номер заказа:", "en": "Order number:"},
+    "Реквізити для оплати:": {"ru": "Реквизиты для оплаты:", "en": "Payment details:"},
+    "Отримувач:": {"ru": "Получатель:", "en": "Recipient:"},
+    "ІПН/ЄДРПОУ:": {"ru": "ИНН/ЕГРПОУ:", "en": "Tax ID:"},
+    "Призначення платежу:": {"ru": "Назначение платежа:", "en": "Payment purpose:"},
+    "АБО": {"ru": "ИЛИ", "en": "OR"},
+    "Карта Монобанк:": {"ru": "Карта Монобанк:", "en": "Monobank card:"},
+    "Завантажте скріншот оплати:": {
+        "ru": "Загрузите скриншот оплаты:",
+        "en": "Upload a payment screenshot:",
+    },
+    "Скріншот необхідний для забезпечення гарантій та підтвердження оплати. Будь ласка, зробіть знімок екрану з підтвердженням транзакції.": {
+        "ru": "Скриншот необходим для обеспечения гарантий и подтверждения оплаты. Пожалуйста, сделайте снимок экрана с подтверждением транзакции.",
+        "en": "A screenshot ensures guarantees and confirms the payment. Please take a screenshot of the transaction confirmation.",
+    },
+    "Натисніть для завантаження скріншоту": {
+        "ru": "Нажмите, чтобы загрузить скриншот",
+        "en": "Click to upload a screenshot",
+    },
+    "PNG, JPG або JPEG (макс. 5MB)": {
+        "ru": "PNG, JPG или JPEG (макс. 5 МБ)",
+        "en": "PNG, JPG or JPEG (max. 5 MB)",
+    },
+    "Оплатив": {"ru": "Оплатил", "en": "I have paid"},
+}
+TRANSLATIONS.update(TRANSLATIONS_PHASE_17L)
+
+
 # Phase 17i fix: original `[^"]*` failed on multi-line msgid blocks
 # whose continuation strings contain escaped quotes (e.g. ``href=\"…\"`` in
 # the catalogue SEO paragraphs). The dotted alternative
