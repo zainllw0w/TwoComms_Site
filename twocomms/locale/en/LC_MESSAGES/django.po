@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-13 02:50+0300\n"
+"POT-Creation-Date: 2026-05-13 19:32+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1323,6 +1323,7 @@ msgstr ""
 
 msgid "В обробці"
 msgstr "Processing"
+
 msgid "Схвалено"
 msgstr ""
 
@@ -1858,17 +1859,8 @@ msgid "вибраний"
 msgstr "selected"
 
 #, python-format
-msgid ""
-"Колір «%(label)s» у каталозі TwoComms — це вибір для тих, хто хоче відійти "
-"від базової палітри, але не готовий поступатися якістю принту. Ми друкуємо "
-"на цьому відтінку DTF-технологією з підвищеним базовим шаром, тому "
-"ілюстрація не «провалюється» у тон тканини й залишається насиченою після "
-"десятків прань."
-msgstr ""
-"The %(label)s shade at TwoComms is the pick for anyone who wants to leave "
-"the basic palette behind without compromising on print quality. We print on "
-"this colour with DTF and a boosted base layer, so the artwork doesn't blend "
-"into the fabric and stays saturated after dozens of washes."
+msgid "Колір «%(label)s» у каталозі TwoComms — це вибір для тих, хто хоче відійти від базової палітри, але не готовий поступатися якістю принту. Ми друкуємо на цьому відтінку DTF-технологією з підвищеним базовим шаром, тому ілюстрація не «провалюється» у тон тканини й залишається насиченою після десятків прань."
+msgstr "The %(label)s shade at TwoComms is the pick for anyone who wants to leave the basic palette behind without compromising on print quality. We print on this colour with DTF and a boosted base layer, so the artwork doesn't blend into the fabric and stays saturated after dozens of washes."
 
 #, python-format
 msgid "Купити %(color)s худі"
@@ -1901,69 +1893,17 @@ msgstr "%(color)s hoodie with patriotic print"
 msgid "Каталог одягу TwoComms — український стрітвір з характером"
 msgstr "TwoComms apparel catalog — Ukrainian streetwear with character"
 
-msgid ""
-"TwoComms — це український бренд одягу, який створює стрітвір у трьох "
-"ключових категоріях: <a href=\"/catalog/hoodie/\">худі</a>, <a href=\"/"
-"catalog/tshirts/\">футболки</a> й <a href=\"/catalog/long-sleeve/"
-"\">лонгсліви</a>. Усі моделі ми розробляємо в Україні, друкуємо принти на "
-"власному обладнанні за технологією DTF і підбираємо тканини так, щоб одяг "
-"витримував щоденне носіння, прання й любий клімат — від літньої спеки до "
-"сирої осені."
-msgstr ""
-"TwoComms is a Ukrainian apparel brand creating streetwear in three core "
-"categories: <a href=\"/catalog/hoodie/\">hoodies</a>, <a href=\"/catalog/"
-"tshirts/\">t-shirts</a> and <a href=\"/catalog/long-sleeve/\">longsleeves</"
-"a>. Every model is designed in Ukraine, printed on our own DTF equipment, "
-"and made from fabrics chosen to withstand daily wear, laundering and any "
-"climate — from summer heat to damp autumn."
+msgid "TwoComms — це український бренд одягу, який створює стрітвір у трьох ключових категоріях: <a href=\"/catalog/hoodie/\">худі</a>, <a href=\"/catalog/tshirts/\">футболки</a> й <a href=\"/catalog/long-sleeve/\">лонгсліви</a>. Усі моделі ми розробляємо в Україні, друкуємо принти на власному обладнанні за технологією DTF і підбираємо тканини так, щоб одяг витримував щоденне носіння, прання й любий клімат — від літньої спеки до сирої осені."
+msgstr "TwoComms is a Ukrainian apparel brand creating streetwear in three core categories: <a href=\"/catalog/hoodie/\">hoodies</a>, <a href=\"/catalog/tshirts/\">t-shirts</a> and <a href=\"/catalog/long-sleeve/\">longsleeves</a>. Every model is designed in Ukraine, printed on our own DTF equipment, and made from fabrics chosen to withstand daily wear, laundering and any climate — from summer heat to damp autumn."
 
-msgid ""
-"Кожен товар у каталозі доступний у кількох кольорах: класичний <a href=\"/"
-"catalog/?color=black\">чорний</a> для тих, хто шукає універсальну базу під "
-"будь-який принт; <a href=\"/catalog/?color=coyote\">кайот</a> і <a href=\"/"
-"catalog/?color=olive\">олива</a> для прихильників мілітарної естетики; "
-"нейтральний <a href=\"/catalog/?color=grey\">сірий</a> і чистий <a href=\"/"
-"catalog/?color=white\">білий</a> для весняно-літніх образів. Усі кольори "
-"перевіряються на стійкість до УФ та перфектне зберігання форми навіть після "
-"30+ циклів прання."
-msgstr ""
-"Every item in the catalog comes in several colours: classic <a href=\"/"
-"catalog/?color=black\">black</a> for those who want a universal base for any "
-"print; <a href=\"/catalog/?color=coyote\">coyote</a> and <a href=\"/catalog/?"
-"color=olive\">olive</a> for fans of military aesthetics; neutral <a href=\"/"
-"catalog/?color=grey\">grey</a> and clean <a href=\"/catalog/?"
-"color=white\">white</a> for spring–summer looks. All colours are tested for "
-"UV resistance and hold their shape even after 30+ wash cycles."
+msgid "Кожен товар у каталозі доступний у кількох кольорах: класичний <a href=\"/catalog/?color=black\">чорний</a> для тих, хто шукає універсальну базу під будь-який принт; <a href=\"/catalog/?color=coyote\">кайот</a> і <a href=\"/catalog/?color=olive\">олива</a> для прихильників мілітарної естетики; нейтральний <a href=\"/catalog/?color=grey\">сірий</a> і чистий <a href=\"/catalog/?color=white\">білий</a> для весняно-літніх образів. Усі кольори перевіряються на стійкість до УФ та перфектне зберігання форми навіть після 30+ циклів прання."
+msgstr "Every item in the catalog comes in several colours: classic <a href=\"/catalog/?color=black\">black</a> for those who want a universal base for any print; <a href=\"/catalog/?color=coyote\">coyote</a> and <a href=\"/catalog/?color=olive\">olive</a> for fans of military aesthetics; neutral <a href=\"/catalog/?color=grey\">grey</a> and clean <a href=\"/catalog/?color=white\">white</a> for spring–summer looks. All colours are tested for UV resistance and hold their shape even after 30+ wash cycles."
 
-msgid ""
-"Більшість принтів TwoComms — це авторські ілюстрації на тему патріотизму, "
-"ЗСУ, української історії та сучасної поп-культури. Ми передаємо частину "
-"прибутку на підтримку Збройних Сил України, тому кожна покупка — це "
-"одночасно вибір якісного одягу й вклад у перемогу. На сторінці кожного "
-"товару ви знайдете розмірну сітку, детальні фото матеріалу, відгуки клієнтів "
-"і прозору інформацію про склад тканини."
-msgstr ""
-"Most TwoComms prints are original illustrations on themes of patriotism, the "
-"Armed Forces, Ukrainian history and contemporary pop culture. We donate a "
-"portion of the profit to the Armed Forces of Ukraine, so every purchase "
-"combines quality apparel with a contribution to victory. On every product "
-"page you'll find a size guide, detailed material photos, customer reviews "
-"and transparent fabric composition."
+msgid "Більшість принтів TwoComms — це авторські ілюстрації на тему патріотизму, ЗСУ, української історії та сучасної поп-культури. Ми передаємо частину прибутку на підтримку Збройних Сил України, тому кожна покупка — це одночасно вибір якісного одягу й вклад у перемогу. На сторінці кожного товару ви знайдете розмірну сітку, детальні фото матеріалу, відгуки клієнтів і прозору інформацію про склад тканини."
+msgstr "Most TwoComms prints are original illustrations on themes of patriotism, the Armed Forces, Ukrainian history and contemporary pop culture. We donate a portion of the profit to the Armed Forces of Ukraine, so every purchase combines quality apparel with a contribution to victory. On every product page you'll find a size guide, detailed material photos, customer reviews and transparent fabric composition."
 
-msgid ""
-"Якщо ви не знайшли потрібну графіку — спробуйте розділ <a href=\"/custom-"
-"print/\">«Власний принт»</a>: ми надрукуємо будь-яку ілюстрацію на обраній "
-"моделі від однієї одиниці. Доставка по Україні — Новою Поштою на відділення "
-"або в поштомат за 1–2 дні. Оплата — карткою через Monobank/LiqPay або "
-"накладеним платежем. Усі товари мають 14 днів на повернення, якщо не "
-"підійшов розмір."
-msgstr ""
-"If you didn't find the right artwork — try the <a href=\"/custom-print/"
-"\">Custom Print</a> section: we'll print any illustration on the selected "
-"model from a single unit. Delivery within Ukraine — via Nova Poshta to a "
-"branch or parcel locker in 1–2 days. Payment — by card through Monobank/"
-"LiqPay or cash on delivery. Every item can be returned within 14 days if the "
-"size doesn't fit."
+msgid "Якщо ви не знайшли потрібну графіку — спробуйте розділ <a href=\"/custom-print/\">«Власний принт»</a>: ми надрукуємо будь-яку ілюстрацію на обраній моделі від однієї одиниці. Доставка по Україні — Новою Поштою на відділення або в поштомат за 1–2 дні. Оплата — карткою через Monobank/LiqPay або накладеним платежем. Усі товари мають 14 днів на повернення, якщо не підійшов розмір."
+msgstr "If you didn't find the right artwork — try the <a href=\"/custom-print/\">Custom Print</a> section: we'll print any illustration on the selected model from a single unit. Delivery within Ukraine — via Nova Poshta to a branch or parcel locker in 1–2 days. Payment — by card through Monobank/LiqPay or cash on delivery. Every item can be returned within 14 days if the size doesn't fit."
 
 msgid "Купити худі"
 msgstr "Buy a hoodie"
@@ -2002,63 +1942,20 @@ msgid "Власний принт на одязі від 1 одиниці"
 msgstr "Custom print on clothing from 1 unit"
 
 #, python-format
-msgid ""
-"У каталозі TwoComms ви знайдете %(adj_n)s <a href=\"/catalog/hoodie/?"
-"color=%(slug)s\">худі</a>, <a href=\"/catalog/tshirts/?"
-"color=%(slug)s\">футболки</a> та <a href=\"/catalog/long-sleeve/?"
-"color=%(slug)s\">лонгсліви</a> з авторськими принтами. Усі моделі шиємо в "
-"Україні з натуральних тканин, друкуємо DTF-технологією й перевіряємо на "
-"стійкість кольору до прання. %(adj_n_cap)s одяг легко комбінувати з "
-"джинсами, карго-штанами та мілітарними аксесуарами."
-msgstr ""
-"In the TwoComms catalogue you'll find %(adj_n)s <a href=\"/catalog/hoodie/?"
-"color=%(slug)s\">hoodies</a>, <a href=\"/catalog/tshirts/?color=%(slug)s\">t-"
-"shirts</a> and <a href=\"/catalog/long-sleeve/?color=%(slug)s\">long "
-"sleeves</a> with original prints. Every model is made in Ukraine from "
-"natural fabrics, printed with DTF and colour-tested for laundering. "
-"%(adj_n_cap)s pieces pair easily with jeans, cargo trousers and tactical "
-"accessories."
+msgid "У каталозі TwoComms ви знайдете %(adj_n)s <a href=\"/catalog/hoodie/?color=%(slug)s\">худі</a>, <a href=\"/catalog/tshirts/?color=%(slug)s\">футболки</a> та <a href=\"/catalog/long-sleeve/?color=%(slug)s\">лонгсліви</a> з авторськими принтами. Усі моделі шиємо в Україні з натуральних тканин, друкуємо DTF-технологією й перевіряємо на стійкість кольору до прання. %(adj_n_cap)s одяг легко комбінувати з джинсами, карго-штанами та мілітарними аксесуарами."
+msgstr "In the TwoComms catalogue you'll find %(adj_n)s <a href=\"/catalog/hoodie/?color=%(slug)s\">hoodies</a>, <a href=\"/catalog/tshirts/?color=%(slug)s\">t-shirts</a> and <a href=\"/catalog/long-sleeve/?color=%(slug)s\">long sleeves</a> with original prints. Every model is made in Ukraine from natural fabrics, printed with DTF and colour-tested for laundering. %(adj_n_cap)s pieces pair easily with jeans, cargo trousers and tactical accessories."
 
 #, python-format
-msgid ""
-"Якщо вас цікавить конкретний принт у %(name)s — скористайтесь сторінкою <a "
-"href=\"/custom-print/\">«Власний принт»</a>: ми надрукуємо будь-яку "
-"ілюстрацію на обраній моделі від однієї одиниці. Доставка Новою Поштою по "
-"всій Україні — 1–2 дні; оплата карткою або накладеним платежем; повернення "
-"впродовж 14 днів, якщо не підійшов розмір."
-msgstr ""
-"Looking for a specific print in %(name)s? Use the <a href=\"/custom-print/"
-"\">Custom Print</a> page: we'll print any artwork on the chosen model from a "
-"single unit. Nova Poshta delivery across Ukraine in 1–2 days; card payment "
-"or cash on delivery; 14-day return window if the size doesn't fit."
+msgid "Якщо вас цікавить конкретний принт у %(name)s — скористайтесь сторінкою <a href=\"/custom-print/\">«Власний принт»</a>: ми надрукуємо будь-яку ілюстрацію на обраній моделі від однієї одиниці. Доставка Новою Поштою по всій Україні — 1–2 дні; оплата карткою або накладеним платежем; повернення впродовж 14 днів, якщо не підійшов розмір."
+msgstr "Looking for a specific print in %(name)s? Use the <a href=\"/custom-print/\">Custom Print</a> page: we'll print any artwork on the chosen model from a single unit. Nova Poshta delivery across Ukraine in 1–2 days; card payment or cash on delivery; 14-day return window if the size doesn't fit."
 
 #, python-format
-msgid ""
-"У категорії «%(cat)s» %(adj_n)s TwoComms — це поєднання якісної тканини, "
-"насиченого друку й продуманої посадки. Ми використовуємо щільні полотна, так "
-"що принт не просвічується, а сам одяг тримає форму після десятків прань. "
-"Звертайте увагу на розмірну сітку — %(cat)s у TwoComms ідуть у двох "
-"посадках: класична та оверсайз."
-msgstr ""
-"In the %(cat)s category, %(adj_n)s TwoComms gear combines quality fabric, "
-"saturated print and a thought-through fit. We use heavy knits so the print "
-"doesn't show through, and the garment keeps its shape after dozens of "
-"washes. Check the size chart — TwoComms %(cat)s come in two cuts: classic "
-"and oversized."
+msgid "У категорії «%(cat)s» %(adj_n)s TwoComms — це поєднання якісної тканини, насиченого друку й продуманої посадки. Ми використовуємо щільні полотна, так що принт не просвічується, а сам одяг тримає форму після десятків прань. Звертайте увагу на розмірну сітку — %(cat)s у TwoComms ідуть у двох посадках: класична та оверсайз."
+msgstr "In the %(cat)s category, %(adj_n)s TwoComms gear combines quality fabric, saturated print and a thought-through fit. We use heavy knits so the print doesn't show through, and the garment keeps its shape after dozens of washes. Check the size chart — TwoComms %(cat)s come in two cuts: classic and oversized."
 
 #, python-format
-msgid ""
-"Подивіться також %(adj_n)s <a href=\"/catalog/?color=%(slug)s\">в інших "
-"категоріях</a> або оберіть інший відтінок цієї ж категорії — <a href=\"/"
-"catalog/%(cat_slug)s/\">%(cat)s TwoComms</a>. Якщо потрібен конкретний принт "
-"— скористайтесь сторінкою <a href=\"/custom-print/\">«Власний принт»</a>: ми "
-"надрукуємо вашу ілюстрацію на обраній моделі від однієї одиниці."
-msgstr ""
-"Also see %(adj_n)s <a href=\"/catalog/?color=%(slug)s\">across the other "
-"categories</a> or pick a different shade in this category — <a href=\"/"
-"catalog/%(cat_slug)s/\">%(cat)s TwoComms</a>. Need a specific print? Use the "
-"<a href=\"/custom-print/\">Custom Print</a> page: we'll print your artwork "
-"on the chosen model from a single unit."
+msgid "Подивіться також %(adj_n)s <a href=\"/catalog/?color=%(slug)s\">в інших категоріях</a> або оберіть інший відтінок цієї ж категорії — <a href=\"/catalog/%(cat_slug)s/\">%(cat)s TwoComms</a>. Якщо потрібен конкретний принт — скористайтесь сторінкою <a href=\"/custom-print/\">«Власний принт»</a>: ми надрукуємо вашу ілюстрацію на обраній моделі від однієї одиниці."
+msgstr "Also see %(adj_n)s <a href=\"/catalog/?color=%(slug)s\">across the other categories</a> or pick a different shade in this category — <a href=\"/catalog/%(cat_slug)s/\">%(cat)s TwoComms</a>. Need a specific print? Use the <a href=\"/custom-print/\">Custom Print</a> page: we'll print your artwork on the chosen model from a single unit."
 
 #, python-format
 msgid "%(adj_m_cap)s одяг TwoComms — стрітвір у відтінку «%(name)s»"
@@ -2225,6 +2122,73 @@ msgstr "Create account"
 msgid "Вже маєте акаунт?"
 msgstr "Already have an account?"
 
+msgid "Купівля за бали"
+msgstr ""
+
+msgid "Використовуйте ваші бали для отримання знижок та підтримки ЗСУ"
+msgstr ""
+
+#, fuzzy
+#| msgid "Система балів"
+msgid "Ваш баланс балів"
+msgstr "Points programme"
+
+#, fuzzy
+#| msgid "0 балів"
+msgid "балів"
+msgstr "0 points"
+
+#, fuzzy
+#| msgid "Оформлено"
+msgid "Зароблено:"
+msgstr "Placed"
+
+#, fuzzy
+#| msgid "Не оплачено"
+msgid "Витрачено:"
+msgstr "Not paid"
+
+#, fuzzy
+#| msgid "Якість"
+msgid "Вартість:"
+msgstr "Quality"
+
+#, fuzzy
+#| msgid "Зареєструватись"
+msgid "Пожертвувати"
+msgstr "Sign up"
+
+msgid "Купити"
+msgstr "Buy"
+
+#, fuzzy
+#| msgid "Система балів"
+msgid "Недостатньо балів"
+msgstr "Points programme"
+
+msgid "Як працюють бали?"
+msgstr ""
+
+msgid "Бали нараховуються за кожну покупку в нашому магазині"
+msgstr ""
+
+msgid "1 бал = 1 гривня з вашої покупки"
+msgstr ""
+
+msgid "Бали можна використовувати для отримання знижок"
+msgstr ""
+
+msgid "Або пожертвувати на підтримку ЗСУ"
+msgstr ""
+
+#, fuzzy
+#| msgid "Підтримка"
+msgid "Підтримка ЗСУ"
+msgstr "Support"
+
+msgid "Кожна пожертва допомагає нашим захисникам. Ваші бали будуть конвертовані в реальну допомогу для Збройних Сил України."
+msgstr ""
+
 msgid "Кошик"
 msgstr "Cart"
 
@@ -2358,11 +2322,8 @@ msgstr "Last name First name Patronymic"
 msgid "Телефон *"
 msgstr "Phone *"
 
-msgid ""
-"Можна вводити 093..., 809..., 380... або +380... — номер приведемо до "
-"потрібного формату."
-msgstr ""
-"You can enter 093..., 809..., 380... or +380... — we'll normalize the format."
+msgid "Можна вводити 093..., 809..., 380... або +380... — номер приведемо до потрібного формату."
+msgstr "You can enter 093..., 809..., 380... or +380... — we'll normalize the format."
 
 msgid "Місто *"
 msgstr "City *"
@@ -2370,12 +2331,8 @@ msgstr "City *"
 msgid "Почніть вводити місто Нової пошти"
 msgstr "Start typing a Nova Poshta city"
 
-msgid ""
-"Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової "
-"пошти."
-msgstr ""
-"Start typing the city name and pick a confirmed Nova Poshta option from the "
-"list."
+msgid "Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти."
+msgstr "Start typing the city name and pick a confirmed Nova Poshta option from the list."
 
 msgid "Відділення / Поштомат НП *"
 msgstr "Branch / Nova Poshta parcel locker *"
@@ -2392,12 +2349,8 @@ msgstr "Branch"
 msgid "Поштомат"
 msgstr "Parcel locker"
 
-msgid ""
-"Після вибору міста почніть вводити номер або адресу і виберіть відділення чи "
-"поштомат зі списку Нової пошти."
-msgstr ""
-"After choosing a city, start typing a number or address and pick a branch or "
-"parcel locker from the Nova Poshta list."
+msgid "Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти."
+msgstr "After choosing a city, start typing a number or address and pick a branch or parcel locker from the Nova Poshta list."
 
 msgid "Тип оплати *"
 msgstr "Payment method *"
@@ -2417,12 +2370,8 @@ msgstr "Prepayment UAH 200 (remainder on delivery)"
 msgid "— недоступно з кастомним принтом"
 msgstr "— unavailable with a custom print"
 
-msgid ""
-"У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — "
-"менеджер узгодить фінальну ціну."
-msgstr ""
-"There's a custom print in the cart, so the UAH 200 prepayment is temporarily "
-"unavailable — the manager will confirm the final price."
+msgid "У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — менеджер узгодить фінальну ціну."
+msgstr "There's a custom print in the cart, so the UAH 200 prepayment is temporarily unavailable — the manager will confirm the final price."
 
 msgid "Потрібна консультація?"
 msgstr "Need a consultation?"
@@ -2515,41 +2464,20 @@ msgstr "Sign in"
 msgid "Доставка оплачується згідно тарифів перевізника."
 msgstr "Delivery is paid according to the carrier's tariffs."
 
-msgid ""
-"Менеджер погодив усі кастомні позиції. Тепер можна оплатити все замовлення "
-"разом."
-msgstr ""
-"The manager has approved all custom items. You can now pay for the entire "
-"order."
+msgid "Менеджер погодив усі кастомні позиції. Тепер можна оплатити все замовлення разом."
+msgstr "The manager has approved all custom items. You can now pay for the entire order."
 
-msgid ""
-"Кастомний одяг уже переданий менеджеру на перевірку. Поки триває модерація, "
-"позиція відображається в кошику окремо і <strong>не входить до суми оплати "
-"зараз</strong>. Щойно менеджер погодить деталі та фінальну ціну — кастом "
-"автоматично приєднається до рахунку."
-msgstr ""
-"The custom item has been sent to the manager for review. While moderation is "
-"in progress, the item is shown separately and <strong>not included in the "
-"current payment total</strong>. Once the manager approves the details and "
-"final price, the custom item will be added to the invoice automatically."
+msgid "Кастомний одяг уже переданий менеджеру на перевірку. Поки триває модерація, позиція відображається в кошику окремо і <strong>не входить до суми оплати зараз</strong>. Щойно менеджер погодить деталі та фінальну ціну — кастом автоматично приєднається до рахунку."
+msgstr "The custom item has been sent to the manager for review. While moderation is in progress, the item is shown separately and <strong>not included in the current payment total</strong>. Once the manager approves the details and final price, the custom item will be added to the invoice automatically."
 
 msgid "Написати менеджеру в Telegram"
 msgstr "Message the manager on Telegram"
 
-msgid ""
-"Менеджер відхилив попередню заявку. Перегляньте деталі вище та надішліть її "
-"повторно, або ж оформіть замовлення <strong>без кастомних позицій</strong>."
-msgstr ""
-"The manager rejected the previous request. Review the details above and "
-"resubmit, or place the order <strong>without custom items</strong>."
+msgid "Менеджер відхилив попередню заявку. Перегляньте деталі вище та надішліть її повторно, або ж оформіть замовлення <strong>без кастомних позицій</strong>."
+msgstr "The manager rejected the previous request. Review the details above and resubmit, or place the order <strong>without custom items</strong>."
 
-msgid ""
-"Менеджер уже працює з вашим кастомним запитом. Коли модерацію буде "
-"завершено, позиція автоматично стане доступною для оплати в цьому ж кошику."
-msgstr ""
-"The manager is already handling your custom request. Once moderation "
-"finishes, the item will automatically become available for payment in this "
-"cart."
+msgid "Менеджер уже працює з вашим кастомним запитом. Коли модерацію буде завершено, позиція автоматично стане доступною для оплати в цьому ж кошику."
+msgstr "The manager is already handling your custom request. Once moderation finishes, the item will automatically become available for payment in this cart."
 
 msgid "Онлайн оплата карткою"
 msgstr "Online card payment"
@@ -2565,38 +2493,20 @@ msgstr "Place order"
 msgid "Замовити як гість"
 msgstr "Order as guest"
 
-msgid ""
-"Оплата стане доступною після погодження менеджером. Зараз у кошику немає "
-"позицій, які можна оплатити окремо."
-msgstr ""
-"Payment becomes available after manager approval. Currently there are no "
-"items in the cart that can be paid separately."
+msgid "Оплата стане доступною після погодження менеджером. Зараз у кошику немає позицій, які можна оплатити окремо."
+msgstr "Payment becomes available after manager approval. Currently there are no items in the cart that can be paid separately."
 
-msgid ""
-"Оплата покриє лише звичайні товари. Кастомна позиція приєднається до "
-"замовлення автоматично після погодження менеджером — на ваш номер надійде "
-"додаткове повідомлення з фінальною ціною."
-msgstr ""
-"Payment will cover only standard items. The custom item will be added to the "
-"order automatically after manager approval — you'll receive an additional "
-"message with the final price."
+msgid "Оплата покриє лише звичайні товари. Кастомна позиція приєднається до замовлення автоматично після погодження менеджером — на ваш номер надійде додаткове повідомлення з фінальною ціною."
+msgstr "Payment will cover only standard items. The custom item will be added to the order automatically after manager approval — you'll receive an additional message with the final price."
 
-msgid ""
-"Після оформлення замовлення менеджер звʼяжеться з вами за вказаним номером "
-"телефону, щоб підтвердити деталі та узгодити доставку."
-msgstr ""
-"After placing the order, the manager will contact you at the phone number "
-"provided to confirm details and arrange delivery."
+msgid "Після оформлення замовлення менеджер звʼяжеться з вами за вказаним номером телефону, щоб підтвердити деталі та узгодити доставку."
+msgstr "After placing the order, the manager will contact you at the phone number provided to confirm details and arrange delivery."
 
 msgid "Безкоштовна консультація"
 msgstr "Free consultation"
 
-msgid ""
-"Залиште свої контактні дані, і наш менеджер звʼяжеться з вами найближчим "
-"часом для консультації"
-msgstr ""
-"Leave your contact details and our manager will reach out shortly for a "
-"consultation"
+msgid "Залиште свої контактні дані, і наш менеджер звʼяжеться з вами найближчим часом для консультації"
+msgstr "Leave your contact details and our manager will reach out shortly for a consultation"
 
 msgid "Введіть ваше ПІБ"
 msgstr "Enter your full name"
@@ -2613,6 +2523,62 @@ msgstr "Optional"
 msgid "Зв'язатися зі мною"
 msgstr "Get in touch with me"
 
+msgid "Пошук"
+msgstr "Search"
+
+#, fuzzy
+#| msgid "Каталог"
+msgid "Каталог одягу"
+msgstr "Catalog"
+
+#, python-format
+msgid "сторінка %(n)s"
+msgstr "page %(n)s"
+#, fuzzy
+#| msgid "Результати пошуку"
+msgid "Результати пошуку TwoComms"
+msgstr "Search results"
+
+#, python-format
+msgid "за запитом «%(q)s»"
+msgstr ""
+
+msgid "Сторінка відкрита для переходу по товарах, але не призначена для індексації."
+msgstr ""
+
+#, fuzzy, python-format
+#| msgid "TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні."
+msgid "Купити %(cat)s в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні."
+msgstr "TwoComms — Ukrainian streetwear & military apparel store: t-shirts, hoodies, longsleeves, custom print and fast Ukraine-wide shipping."
+
+#, fuzzy
+#| msgid "TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні."
+msgid "Каталог стріт & мілітарі одягу TwoComms: футболки, худі, лонгсліви та новинки бренду з характером."
+msgstr "TwoComms — Ukrainian streetwear & military apparel store: t-shirts, hoodies, longsleeves, custom print and fast Ukraine-wide shipping."
+
+#, fuzzy
+#| msgid "Результати за запитом «%(q)s» у каталозі TwoComms."
+msgid "Результати пошуку TwoComms за товарами каталогу."
+msgstr "Results for «%(q)s» in the TwoComms catalog."
+
+#, python-format
+msgid "%(cat)s з авторськими принтами від TwoComms. Стріт & мілітарі одяг."
+msgstr ""
+
+#, fuzzy
+#| msgid "TwoComms логотип — стріт & мілітарі одяг"
+msgid "Повний каталог стріт та мілітарі одягу TwoComms."
+msgstr "TwoComms logo — street & military apparel"
+
+#, python-format
+msgid "%(cat)s з авторськими принтами від TwoComms."
+msgstr ""
+
+#, fuzzy
+#| msgid "Категорії одягу TwoComms"
+msgid "Каталог стріт та мілітарі одягу TwoComms."
+msgstr "TwoComms apparel categories"
+
 msgid "Головна"
 msgstr "Home"
 
@@ -2626,12 +2592,8 @@ msgstr "of apparel"
 msgid "Результати за запитом «%(q)s» у каталозі TwoComms."
 msgstr "Results for «%(q)s» in the TwoComms catalog."
 
-msgid ""
-"Обирайте футболки, худі та лонгсліви з авторськими принтами, українським "
-"виробництвом та швидкою доставкою по всій країні."
-msgstr ""
-"Pick t-shirts, hoodies and longsleeves with original prints — Ukrainian "
-"production with fast country-wide delivery."
+msgid "Обирайте футболки, худі та лонгсліви з авторськими принтами, українським виробництвом та швидкою доставкою по всій країні."
+msgstr "Pick t-shirts, hoodies and longsleeves with original prints — Ukrainian production with fast country-wide delivery."
 
 msgid "Переваги TwoComms"
 msgstr "TwoComms advantages"
@@ -2738,93 +2700,32 @@ msgstr "Next"
 msgid "Додаткові розділи каталогу"
 msgstr "More catalog sections"
 
-msgid ""
-"Купити одяг з принтом онлайн в Україні — доставка Києвом, Харковом, Львовом"
-msgstr ""
-"Buy printed apparel online in Ukraine — delivery to Kyiv, Kharkiv, Lviv"
+msgid "Купити одяг з принтом онлайн в Україні — доставка Києвом, Харковом, Львовом"
+msgstr "Buy printed apparel online in Ukraine — delivery to Kyiv, Kharkiv, Lviv"
 
-msgid ""
-"<strong>Купити одяг з принтом</strong> у TwoComms можна онлайн із доставкою "
-"у будь-яке місто України: <strong>Київ, Харків, Львів, Дніпро, Одеса, "
-"Запоріжжя, Вінниця, Полтава, Чернівці, Івано-Франківськ, Тернопіль, Луцьк, "
-"Хмельницький, Ужгород, Чернігів</strong>. У каталозі — <a href=\"/catalog/"
-"tshirts/\">футболки</a>, <a href=\"/catalog/hoodie/\">худі</a> та <a href=\"/"
-"catalog/long-sleeve/\">лонгсліви</a> з авторськими принтами ЗСУ та "
-"streetwear-графікою. Доставка Новою Поштою 1–2 дні, безкоштовний обмін "
-"розміру протягом 14 днів."
-msgstr ""
-"<strong>Buy printed apparel</strong> at TwoComms online with delivery to any "
-"city in Ukraine: <strong>Kyiv, Kharkiv, Lviv, Dnipro, Odesa, Zaporizhzhia, "
-"Vinnytsia, Poltava, Chernivtsi, Ivano-Frankivsk, Ternopil, Lutsk, "
-"Khmelnytskyi, Uzhhorod, Chernihiv</strong>. The catalog features <a href=\"/"
-"catalog/tshirts/\">t-shirts</a>, <a href=\"/catalog/hoodie/\">hoodies</a> "
-"and <a href=\"/catalog/long-sleeve/\">longsleeves</a> with original Armed "
-"Forces and streetwear artwork. Nova Poshta delivery in 1–2 days, free size "
-"exchange within 14 days."
+msgid "<strong>Купити одяг з принтом</strong> у TwoComms можна онлайн із доставкою у будь-яке місто України: <strong>Київ, Харків, Львів, Дніпро, Одеса, Запоріжжя, Вінниця, Полтава, Чернівці, Івано-Франківськ, Тернопіль, Луцьк, Хмельницький, Ужгород, Чернігів</strong>. У каталозі — <a href=\"/catalog/tshirts/\">футболки</a>, <a href=\"/catalog/hoodie/\">худі</a> та <a href=\"/catalog/long-sleeve/\">лонгсліви</a> з авторськими принтами ЗСУ та streetwear-графікою. Доставка Новою Поштою 1–2 дні, безкоштовний обмін розміру протягом 14 днів."
+msgstr "<strong>Buy printed apparel</strong> at TwoComms online with delivery to any city in Ukraine: <strong>Kyiv, Kharkiv, Lviv, Dnipro, Odesa, Zaporizhzhia, Vinnytsia, Poltava, Chernivtsi, Ivano-Frankivsk, Ternopil, Lutsk, Khmelnytskyi, Uzhhorod, Chernihiv</strong>. The catalog features <a href=\"/catalog/tshirts/\">t-shirts</a>, <a href=\"/catalog/hoodie/\">hoodies</a> and <a href=\"/catalog/long-sleeve/\">longsleeves</a> with original Armed Forces and streetwear artwork. Nova Poshta delivery in 1–2 days, free size exchange within 14 days."
 
-msgid ""
-"Замовити чоловічий або жіночий streetwear від українського бренду TwoComms"
+msgid "Замовити чоловічий або жіночий streetwear від українського бренду TwoComms"
 msgstr "Order men's or women's streetwear from the Ukrainian brand TwoComms"
 
-msgid ""
-"<strong>Замовити streetwear-одяг</strong> онлайн — це спосіб підтримати "
-"українське виробництво. Усі футболки, худі та лонгсліви TwoComms шиємо в "
-"Україні з преміум-бавовни та трикотажу щільністю 200–320 г/м². У каталозі є "
-"чоловічі моделі прямого крою, жіночі фасони зі звуженою посадкою та унісекс-"
-"варіанти у розмірах XS–XXL. Принти виконуємо в техніці DTF — стійкі до 30+ "
-"циклів прання."
-msgstr ""
-"<strong>Order streetwear apparel</strong> online — your way to support "
-"Ukrainian production. All TwoComms t-shirts, hoodies and longsleeves are "
-"made in Ukraine from premium cotton and 200–320 g/m² jersey. The catalog "
-"includes straight-cut men's models, fitted women's silhouettes and unisex "
-"options in sizes XS–XXL. Prints are produced using DTF technology — they "
-"survive 30+ wash cycles."
+msgid "<strong>Замовити streetwear-одяг</strong> онлайн — це спосіб підтримати українське виробництво. Усі футболки, худі та лонгсліви TwoComms шиємо в Україні з преміум-бавовни та трикотажу щільністю 200–320 г/м². У каталозі є чоловічі моделі прямого крою, жіночі фасони зі звуженою посадкою та унісекс-варіанти у розмірах XS–XXL. Принти виконуємо в техніці DTF — стійкі до 30+ циклів прання."
+msgstr "<strong>Order streetwear apparel</strong> online — your way to support Ukrainian production. All TwoComms t-shirts, hoodies and longsleeves are made in Ukraine from premium cotton and 200–320 g/m² jersey. The catalog includes straight-cut men's models, fitted women's silhouettes and unisex options in sizes XS–XXL. Prints are produced using DTF technology — they survive 30+ wash cycles."
 
-msgid ""
-"Український патріотичний streetwear — авторські принти ЗСУ та колаборації"
-msgstr ""
-"Ukrainian patriotic streetwear — original Armed Forces prints and "
-"collaborations"
+msgid "Український патріотичний streetwear — авторські принти ЗСУ та колаборації"
+msgstr "Ukrainian patriotic streetwear — original Armed Forces prints and collaborations"
 
-msgid ""
-"<strong>TwoComms</strong> — український streetwear-бренд із мілітарним ДНК. "
-"Створюємо одяг для тих, хто живе в Україні, підтримує ЗСУ та цінує спокійну, "
-"але сильну естетику. У каталозі — колаборації з військовими підрозділами, "
-"авторські ілюстрації на тему Збройних Сил України, тризуба й сучасної "
-"української поп-культури. Частину прибутку від кожного замовлення "
-"направляємо на потреби ЗСУ. Дізнайтеся більше про <a href=\"/pro-brand/"
-"\">філософію бренду</a> або обирайте <a href=\"/custom-print/\">кастомний "
-"друк</a> власного принта на обраній моделі."
-msgstr ""
-"<strong>TwoComms</strong> is a Ukrainian streetwear brand with military DNA. "
-"We make apparel for people who live in Ukraine, support the Armed Forces and "
-"value calm yet powerful aesthetics. The catalog includes collaborations with "
-"military units, original illustrations dedicated to the Armed Forces of "
-"Ukraine, the trident and contemporary Ukrainian pop culture. We donate a "
-"share of every order to the Armed Forces. Learn more about <a href=\"/pro-"
-"brand/\">our brand philosophy</a> or choose <a href=\"/custom-print/"
-"\">custom printing</a> of your own artwork on a selected model."
+msgid "<strong>TwoComms</strong> — український streetwear-бренд із мілітарним ДНК. Створюємо одяг для тих, хто живе в Україні, підтримує ЗСУ та цінує спокійну, але сильну естетику. У каталозі — колаборації з військовими підрозділами, авторські ілюстрації на тему Збройних Сил України, тризуба й сучасної української поп-культури. Частину прибутку від кожного замовлення направляємо на потреби ЗСУ. Дізнайтеся більше про <a href=\"/pro-brand/\">філософію бренду</a> або обирайте <a href=\"/custom-print/\">кастомний друк</a> власного принта на обраній моделі."
+msgstr "<strong>TwoComms</strong> is a Ukrainian streetwear brand with military DNA. We make apparel for people who live in Ukraine, support the Armed Forces and value calm yet powerful aesthetics. The catalog includes collaborations with military units, original illustrations dedicated to the Armed Forces of Ukraine, the trident and contemporary Ukrainian pop culture. We donate a share of every order to the Armed Forces. Learn more about <a href=\"/pro-brand/\">our brand philosophy</a> or choose <a href=\"/custom-print/\">custom printing</a> of your own artwork on a selected model."
 
-msgid ""
-"Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Офіційні магазини та "
-"форма зворотного зв'язку."
-msgstr ""
-"Get in touch with TwoComms: phone, Telegram, Instagram. Official stores and "
-"a contact form."
+msgid "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Офіційні магазини та форма зворотного зв'язку."
+msgstr "Get in touch with TwoComms: phone, Telegram, Instagram. Official stores and a contact form."
 
-msgid ""
-"контакти TwoComms, телефон, telegram, instagram, зворотній зв’язок, магазини "
-"TwoComms"
-msgstr ""
-"TwoComms contacts, phone, telegram, instagram, feedback, TwoComms stores"
+msgid "контакти TwoComms, телефон, telegram, instagram, зворотній зв’язок, магазини TwoComms"
+msgstr "TwoComms contacts, phone, telegram, instagram, feedback, TwoComms stores"
 
-msgid ""
-"Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на "
-"будь-які питання."
-msgstr ""
-"Reach out to TwoComms: phone, Telegram, Instagram. Quick answers to any "
-"question."
+msgid "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання."
+msgstr "Reach out to TwoComms: phone, Telegram, Instagram. Quick answers to any question."
 
 msgid "Зв'яжіться з нами будь-яким зручним способом"
 msgstr "Reach us in any way that suits you"
@@ -2915,33 +2816,27 @@ msgstr "Add items to favorites by clicking the heart on a product card"
 msgid "TwoComms — Стріт & Мілітарі Одяг | Головна"
 msgstr "TwoComms — Street & Military Apparel | Home"
 
-msgid ""
-"TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, "
-"лонгсліви, кастомний друк і швидка доставка по Україні."
-msgstr ""
-"TwoComms — Ukrainian streetwear & military apparel store: t-shirts, hoodies, "
-"longsleeves, custom print and fast Ukraine-wide shipping."
+msgid "TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні."
+msgstr "TwoComms — Ukrainian streetwear & military apparel store: t-shirts, hoodies, longsleeves, custom print and fast Ukraine-wide shipping."
 
+msgid "стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль"
+msgstr "streetwear, military style apparel, t-shirts, hoodies, longsleeves, TwoComms, exclusive design, quality clothing, statement apparel, street style, military style"
 msgid "TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном"
 msgstr "TwoComms — street & military apparel with exclusive design"
 
-msgid ""
-"Футболки, худі та лонгсліви з авторськими принтами. Бренд TwoComms — "
-"українське виробництво, швидка доставка."
-msgstr ""
-"T-shirts, hoodies and longsleeves with original prints. TwoComms — Ukrainian "
-"production with fast delivery."
+msgid "Футболки, худі та лонгсліви з авторськими принтами. Бренд TwoComms — українське виробництво, швидка доставка."
+msgstr "T-shirts, hoodies and longsleeves with original prints. TwoComms — Ukrainian production with fast delivery."
 
 msgid "TwoComms — стріт & мілітарі одяг"
 msgstr "TwoComms — street & military apparel"
 
-msgid ""
-"Ексклюзивні футболки, худі та лонгсліви з характером. Швидка доставка по "
-"Україні."
-msgstr ""
-"Exclusive t-shirts, hoodies and longsleeves with character. Fast Ukraine-"
-"wide shipping."
+msgid "Ексклюзивні футболки, худі та лонгсліви з характером. Швидка доставка по Україні."
+msgstr "Exclusive t-shirts, hoodies and longsleeves with character. Fast Ukraine-wide shipping."
 
+msgid "TwoComms — Головна"
+msgstr "TwoComms — Home"
+msgid "Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом."
+msgstr "TwoComms brand home page featuring category catalogue, custom print and the current line-up."
 msgid "TwoComms логотип — стріт & мілітарі одяг"
 msgstr "TwoComms logo — street & military apparel"
 
@@ -2954,12 +2849,8 @@ msgstr "Street & military"
 msgid "одяг"
 msgstr "apparel"
 
-msgid ""
-"Ексклюзивні футболки, худі та лонгсліви. Бренд TwoComms — дизайн з "
-"характером."
-msgstr ""
-"Exclusive t-shirts, hoodies and longsleeves. TwoComms — design with "
-"character."
+msgid "Ексклюзивні футболки, худі та лонгсліви. Бренд TwoComms — дизайн з характером."
+msgstr "Exclusive t-shirts, hoodies and longsleeves. TwoComms — design with character."
 
 msgid "Ексклюзивний дизайн"
 msgstr "Exclusive design"
@@ -2967,12 +2858,8 @@ msgstr "Exclusive design"
 msgid "Бонус за фідбек"
 msgstr "Feedback bonus"
 
-msgid ""
-"Промокод активується автоматично одразу після проходження та діє на весь "
-"асортимент."
-msgstr ""
-"The promo code is activated automatically right after completion and applies "
-"to the entire range."
+msgid "Промокод активується автоматично одразу після проходження та діє на весь асортимент."
+msgstr "The promo code is activated automatically right after completion and applies to the entire range."
 
 msgid "≈ 5 хвилин часу"
 msgstr "≈ 5 minutes"
@@ -2986,8 +2873,7 @@ msgstr "Can return later"
 msgid "Допоможи покращити"
 msgstr "Help us improve"
 
-msgid ""
-"Коротке опитування без довгої анкети: відповіді допоможуть нам стати кращими."
+msgid "Коротке опитування без довгої анкети: відповіді допоможуть нам стати кращими."
 msgstr "A short survey — no lengthy form. Your answers help us improve."
 
 msgid "БІЛЬШЕ НЕ ПОКАЗУВАТИ"
@@ -3015,6 +2901,10 @@ msgstr "Take the survey"
 msgid "Продовжити опитування"
 msgstr "Continue the survey"
 
+msgid "TwoComms логотип"
+msgstr "TwoComms logo"
+msgid "TwoComms логотип — декоративний"
+msgstr "TwoComms logo — decorative"
 msgid "Категорії"
 msgstr "Categories"
 
@@ -3027,6 +2917,9 @@ msgstr "Collapse"
 msgid "Весь каталог"
 msgstr "Full catalog"
 
+#, python-format
+msgid "%(name)s категорія — TwoComms"
+msgstr "%(name)s category — TwoComms"
 msgid "Замовити кастомний одяг"
 msgstr "Order custom apparel"
 
@@ -3037,8 +2930,7 @@ msgid "Збери одяг під себе"
 msgstr "Build your own apparel"
 
 msgid "Обери основу, свій принт, матеріали й деталі — вартість побачиш одразу."
-msgstr ""
-"Pick the base, your print, materials and details — see the price instantly."
+msgstr "Pick the base, your print, materials and details — see the price instantly."
 
 msgid "Спробувати конструктор"
 msgstr "Try the builder"
@@ -3091,17 +2983,11 @@ msgstr "Survey"
 msgid "Коротке опитування про TWOCOMMS"
 msgstr "Short survey about TWOCOMMS"
 
-msgid ""
-"Твої відповіді допоможуть покращити сайт і колекції. Орієнтовно 5 хвилин."
-msgstr ""
-"Your answers will help improve the site and collections. Around 5 minutes."
+msgid "Твої відповіді допоможуть покращити сайт і колекції. Орієнтовно 5 хвилин."
+msgstr "Your answers will help improve the site and collections. Around 5 minutes."
 
-msgid ""
-"Ми використовуємо відповіді лише для аналітики та покращення сервісу. "
-"Контактні дані — лише за твоєю згодою."
-msgstr ""
-"We use answers solely for analytics and service improvement. Contact details "
-"— only with your consent."
+msgid "Ми використовуємо відповіді лише для аналітики та покращення сервісу. Контактні дані — лише за твоєю згодою."
+msgstr "We use answers solely for analytics and service improvement. Contact details — only with your consent."
 
 msgid "Завантаження…"
 msgstr "Loading…"
@@ -3114,45 +3000,60 @@ msgstr "Track the status of your orders"
 
 msgid "Отримано"
 msgstr "Received"
+
 msgid "Очікується"
 msgstr "Pending"
+
 msgid "Оформлено"
 msgstr "Placed"
+
 msgid "Важливо"
 msgstr "Important"
+
 msgid "Ваше замовлення в обробці"
 msgstr "Your order is being processed"
-msgid ""
-"Очікуйте: з вами зв'яжеться менеджер для підтвердження деталей. Або ви "
-"можете <strong>оплатити прямо зараз</strong> — так ми відправимо швидше."
+
+msgid "Очікуйте: з вами зв'яжеться менеджер для підтвердження деталей. Або ви можете <strong>оплатити прямо зараз</strong> — так ми відправимо швидше."
 msgstr "Please wait: a manager will reach out to confirm the details. Or you can <strong>pay right now</strong> so we can ship faster."
+
 msgid "ТТН очікується"
 msgstr "Tracking number pending"
+
 #, python-format
 msgid "Статус посилки: %(status)s"
 msgstr "Parcel status: %(status)s"
+
 msgid "Отримувати сповіщення"
 msgstr "Receive notifications"
+
 msgid "Готується"
 msgstr "Preparing"
+
 msgid "Відправлено"
 msgstr "Shipped"
+
 msgid "Товари в замовленні"
 msgstr "Order items"
+
 msgid "шт"
 msgstr "pcs"
+
 #, python-format
 msgid "Кастомний виріб %(number)s"
 msgstr "Custom item %(number)s"
+
 msgid "Тип:"
 msgstr "Type:"
 
 msgid "Статус:"
 msgstr "Status:"
+
 msgid "Погоджено менеджером"
 msgstr "Approved by the manager"
+
 msgid "Кастомне замовлення"
 msgstr "Custom order"
+
 msgid "Передплата 200 грн"
 msgstr "Prepayment 200 UAH"
 
@@ -3161,64 +3062,156 @@ msgstr "Cash on delivery"
 
 msgid "Змінити спосіб оплати"
 msgstr "Change payment method"
+
 msgid "Оплачено повністю"
 msgstr "Paid in full"
+
 msgid "Внесена передплата"
 msgstr "Prepayment received"
+
 msgid "На перевірці"
 msgstr "Under review"
+
 msgid "Не оплачено"
 msgstr "Not paid"
+
 msgid "Часткова оплата"
 msgstr "Partial payment"
+
 msgid "Повна оплата"
 msgstr "Full payment"
+
 msgid "Зберегти"
 msgstr "Save"
+
 msgid "Внести передплату"
 msgstr "Submit prepayment"
+
 msgid "Оплатити повністю"
 msgstr "Pay in full"
+
 msgid "У вас ще немає замовлень"
 msgstr "You don't have any orders yet"
+
 msgid "Зробіть перше замовлення, щоб побачити його тут"
 msgstr "Place your first order to see it here"
+
 msgid "Внесення передплати"
 msgstr "Submit prepayment"
+
 msgid "Інструкція по внесенню передплати"
 msgstr "Prepayment instructions"
-msgid ""
-"Передплата у розмірі <strong>200 грн</strong> необхідна для забезпечення "
-"безпеки компанії у випадку, якщо посилка буде відправлена, а користувач або "
-"не забере її, або розмір не підійде."
+
+msgid "Передплата у розмірі <strong>200 грн</strong> необхідна для забезпечення безпеки компанії у випадку, якщо посилка буде відправлена, а користувач або не забере її, або розмір не підійде."
 msgstr "A <strong>200 UAH prepayment</strong> protects the company in case the parcel ships but the customer doesn't pick it up or the size doesn't fit."
+
 msgid "Номер замовлення:"
 msgstr "Order number:"
 
 msgid "Реквізити для оплати:"
 msgstr "Payment details:"
+
 msgid "Отримувач:"
 msgstr "Recipient:"
+
 msgid "ІПН/ЄДРПОУ:"
 msgstr "Tax ID:"
+
 msgid "Призначення платежу:"
 msgstr "Payment purpose:"
+
 msgid "АБО"
 msgstr "OR"
+
 msgid "Карта Монобанк:"
 msgstr "Monobank card:"
+
 msgid "Завантажте скріншот оплати:"
 msgstr "Upload a payment screenshot:"
-msgid ""
-"Скріншот необхідний для забезпечення гарантій та підтвердження оплати. Будь "
-"ласка, зробіть знімок екрану з підтвердженням транзакції."
+
+msgid "Скріншот необхідний для забезпечення гарантій та підтвердження оплати. Будь ласка, зробіть знімок екрану з підтвердженням транзакції."
 msgstr "A screenshot ensures guarantees and confirms the payment. Please take a screenshot of the transaction confirmation."
+
 msgid "Натисніть для завантаження скріншоту"
 msgstr "Click to upload a screenshot"
+
 msgid "PNG, JPG або JPEG (макс. 5MB)"
 msgstr "PNG, JPG or JPEG (max. 5 MB)"
+
 msgid "Оплатив"
 msgstr "I have paid"
+
+msgid "Мої промокоди"
+msgstr "My promo codes"
+
+msgid "Історія використаних промокодів"
+msgstr ""
+
+#, fuzzy
+#| msgid "Мої промокоди"
+msgid "Активні промокоди"
+msgstr "My promo codes"
+
+msgid "Діє до:"
+msgstr ""
+
+#, fuzzy
+#| msgid "Умови використання"
+msgid "Промокод готовий до використання"
+msgstr "Terms of use"
+
+msgid "Термін дії минув"
+msgstr ""
+
+msgid "Недійсний"
+msgstr ""
+
+msgid "Діяв до:"
+msgstr ""
+
+#, fuzzy
+#| msgid "Мої промокоди"
+msgid "Використані промокоди"
+msgstr "My promo codes"
+
+#, fuzzy
+#| msgid "Умови використання"
+msgid "Використано"
+msgstr "Terms of use"
+
+#, fuzzy
+#| msgid "Умови використання"
+msgid "Дата використання:"
+msgstr "Terms of use"
+
+#, fuzzy
+#| msgid "Мої замовлення"
+msgid "Замовлення:"
+msgstr "My orders"
+
+#, fuzzy
+#| msgid "Сума замовлення"
+msgid "Сума замовлення:"
+msgstr "Order total"
+
+#, fuzzy
+#| msgid "Умови використання"
+msgid "Промокод використано успішно"
+msgstr "Terms of use"
+
+#, fuzzy
+#| msgid "Знижка промокоду"
+msgid "Поки що немає промокодів"
+msgstr "Promo discount"
+
+msgid "Aктивні та використані промокоди зʼявляться тут"
+msgstr ""
+
+#, fuzzy
+#| msgid "Перейти в каталог"
+msgid "Перейти до каталогу"
+msgstr "Go to catalog"
+
 msgid "Мої відгуки"
 msgstr "My reviews"
 
@@ -3256,8 +3249,7 @@ msgid "Оплату не завершено"
 msgstr "Payment not completed"
 
 msgid "Платіж не пройшов. Спробуйте ще раз або оберіть інший спосіб оплати."
-msgstr ""
-"The payment did not go through. Try again or choose another payment method."
+msgstr "The payment did not go through. Try again or choose another payment method."
 
 msgid "Повернутися в кошик"
 msgstr "Back to cart"
@@ -3277,47 +3269,26 @@ msgstr "View order details"
 msgid "Оплата успішно пройшла!"
 msgstr "Payment completed successfully!"
 
-msgid ""
-"Дякуємо, брат! Твоє замовлення оплачено та відправлено в обробку. Ми "
-"розпочнемо підготовку найближчим часом."
-msgstr ""
-"Thanks, brother! Your order is paid and is being processed. We'll start "
-"preparing it shortly."
+msgid "Дякуємо, брат! Твоє замовлення оплачено та відправлено в обробку. Ми розпочнемо підготовку найближчим часом."
+msgstr "Thanks, brother! Your order is paid and is being processed. We'll start preparing it shortly."
 
-msgid ""
-"Дякуємо за покупку! Твоє замовлення оплачено через Monobank та відправлено в "
-"обробку. Ми розпочнемо підготовку найближчим часом."
-msgstr ""
-"Thanks for your purchase! Your order is paid via Monobank and is being "
-"processed. We'll start preparing it shortly."
+msgid "Дякуємо за покупку! Твоє замовлення оплачено через Monobank та відправлено в обробку. Ми розпочнемо підготовку найближчим часом."
+msgstr "Thanks for your purchase! Your order is paid via Monobank and is being processed. We'll start preparing it shortly."
 
 msgid "Передплата внесена!"
 msgstr "Prepayment received!"
 
-msgid ""
-"Дякуємо, брат! Передплата внесена. Залишок оплатиш при отриманні на Новій "
-"Пошті. Ми розпочнемо підготовку та відправимо на вказане відділення."
-msgstr ""
-"Thanks, brother! Prepayment received. You'll pay the remainder on pickup at "
-"Nova Poshta. We'll start preparing and ship to the chosen branch."
+msgid "Дякуємо, брат! Передплата внесена. Залишок оплатиш при отриманні на Новій Пошті. Ми розпочнемо підготовку та відправимо на вказане відділення."
+msgstr "Thanks, brother! Prepayment received. You'll pay the remainder on pickup at Nova Poshta. We'll start preparing and ship to the chosen branch."
 
-msgid ""
-"Дякуємо за покупку! Передплата внесена. Залишок необхідно оплатити при "
-"отриманні посилки на відділенні Нової Пошти. Ми розпочнемо підготовку та "
-"відправимо на вказане відділення."
-msgstr ""
-"Thanks for your purchase! Prepayment received. The remainder is payable on "
-"pickup at the Nova Poshta branch. We'll start preparing and ship to the "
-"chosen branch."
+msgid "Дякуємо за покупку! Передплата внесена. Залишок необхідно оплатити при отриманні посилки на відділенні Нової Пошти. Ми розпочнемо підготовку та відправимо на вказане відділення."
+msgstr "Thanks for your purchase! Prepayment received. The remainder is payable on pickup at the Nova Poshta branch. We'll start preparing and ship to the chosen branch."
 
 msgid "Ваша заявка відправлена в обробку"
 msgstr "Your request has been submitted"
 
-msgid ""
-"Дякуємо, брат! Замовлення відправлено в обробку. Статус надійде в Telegram."
-msgstr ""
-"Thanks, brother! The order is in processing. You'll get status updates in "
-"Telegram."
+msgid "Дякуємо, брат! Замовлення відправлено в обробку. Статус надійде в Telegram."
+msgstr "Thanks, brother! The order is in processing. You'll get status updates in Telegram."
 
 msgid "Дякуємо за замовлення! Заявка відправлена в обробку."
 msgstr "Thanks for your order! The request has been submitted."
@@ -3331,11 +3302,8 @@ msgstr "Remainder (on pickup):"
 msgid "Дякуємо за вибір стилю TwoComms!"
 msgstr "Thanks for choosing TwoComms style!"
 
-msgid ""
-"Твій стиль — твоя сильна сторона. Ми цінуємо, що ти обрав саме нас для свого "
-"образу."
-msgstr ""
-"Your style is your strength. We appreciate you choosing us for your look."
+msgid "Твій стиль — твоя сильна сторона. Ми цінуємо, що ти обрав саме нас для свого образу."
+msgstr "Your style is your strength. We appreciate you choosing us for your look."
 
 msgid "Є питання чи потрібна допомога?"
 msgstr "Have questions or need help?"
@@ -3346,11 +3314,8 @@ msgstr "Message us on Telegram"
 msgid "Демо режим"
 msgstr "Demo mode"
 
-msgid ""
-"Це тестовий перегляд сторінки. Для реального замовлення дані будуть "
-"заповнені автоматично."
-msgstr ""
-"This is a preview page. Real order data will be filled in automatically."
+msgid "Це тестовий перегляд сторінки. Для реального замовлення дані будуть заповнені автоматично."
+msgstr "This is a preview page. Real order data will be filled in automatically."
 
 msgid "Деталі замовлення"
 msgstr "Order details"
@@ -3376,12 +3341,8 @@ msgstr "Order details (demo)"
 msgid "Система балів"
 msgstr "Points programme"
 
-msgid ""
-"Дякуємо, брат! Твоє замовлення оформлено. Бали будуть нараховані після "
-"отримання товару."
-msgstr ""
-"Thanks, brother! The order is placed. Points will be credited after you "
-"receive the item."
+msgid "Дякуємо, брат! Твоє замовлення оформлено. Бали будуть нараховані після отримання товару."
+msgstr "Thanks, brother! The order is placed. Points will be credited after you receive the item."
 
 msgid "Статус замовлення приходить в Telegram"
 msgstr "Order status is sent to Telegram"
@@ -3404,11 +3365,8 @@ msgstr "Keep purchase history"
 msgid "Отримувати персональні пропозиції"
 msgstr "Receive personal offers"
 
-msgid ""
-"Якщо ви зареєструєтесь, це замовлення автоматично привʼяжеться до вашого "
-"акаунту"
-msgstr ""
-"If you register, this order will automatically be linked to your account"
+msgid "Якщо ви зареєструєтесь, це замовлення автоматично привʼяжеться до вашого акаунту"
+msgstr "If you register, this order will automatically be linked to your account"
 
 msgid "Отримати чек на email"
 msgstr "Get the receipt by email"
@@ -3423,10 +3381,7 @@ msgid "Залиште відгук в Instagram"
 msgstr "Leave a review on Instagram"
 
 #, python-format
-msgid ""
-"Поділіться своїми враженнями про покупку! Залиште відгук в Instagram з "
-"відміткою нашої сторінки, і ми даруємо вам промокод на знижку 10%% на "
-"наступне замовлення!"
+msgid "Поділіться своїми враженнями про покупку! Залиште відгук в Instagram з відміткою нашої сторінки, і ми даруємо вам промокод на знижку 10%% на наступне замовлення!"
 msgstr ""
 
 msgid "Ваш промокод на знижку"
@@ -3457,6 +3412,50 @@ msgstr "Receipt will be sent to"
 
 msgid "Функціонал буде додано найближчим часом."
 msgstr "This feature will be added shortly."
+
+msgid "Оптовий прайс-лист TwoComms — гуртові ціни на одяг"
+msgstr ""
+
+msgid "Оптовий прайс-лист TwoComms для футболок і худі: актуальні гуртові ціни, пороги по кількості, базові умови співпраці та завантаження XLSX-файлу."
+msgstr ""
+
+msgid "оптовий прайс-лист, гуртові ціни TwoComms, опт футболки, опт худі, прайс-лист одягу"
+msgstr ""
+
+msgid "Актуальний прайс-лист TwoComms для гуртових замовлень: футболки, худі, пороги за кількістю та завантаження XLSX."
+msgstr ""
+
+#, fuzzy
+#| msgid "Переваги TwoComms"
+msgid "Оптові ціни TwoComms"
+msgstr "TwoComms advantages"
+
+msgid "Скачайте актуальний прайс-лист оптових цін на футболки та худі."
+msgstr ""
+
+msgid "Мінімальне замовлення по моделі — від 8 шт. і кратно 8."
+msgstr ""
+
+#, fuzzy
+#| msgid "Завантажте скріншот оплати:"
+msgid "Завантажити прайс-лист (XLSX)"
+msgstr "Upload a payment screenshot:"
+
+#, fuzzy
+#| msgid "Умови використання"
+msgid "Умови опту:"
+msgstr "Terms of use"
+
+msgid "Футболки:"
+msgstr ""
+
+msgid "грн (за 8-15/16-31/32-63/64-99/100+ шт.)"
+msgstr ""
+
+#, fuzzy
+#| msgid "Худі ЗСУ"
+msgid "Худі:"
+msgstr "AFU hoodie"
 
 msgid "Галерея товару"
 msgstr "Product gallery"
@@ -3500,12 +3499,8 @@ msgstr "14 days for exchange"
 msgid "Індивідуальний позивний або бренд?"
 msgstr "Custom call sign or brand?"
 
-msgid ""
-"Створимо принт з нуля під ваш позивний, логотип або ідею. Унікальна річ "
-"разом з TwoComms."
-msgstr ""
-"We'll design a print from scratch for your call sign, logo or idea. A unique "
-"piece with TwoComms."
+msgid "Створимо принт з нуля під ваш позивний, логотип або ідею. Унікальна річ разом з TwoComms."
+msgstr "We'll design a print from scratch for your call sign, logo or idea. A unique piece with TwoComms."
 
 msgid "Дії з товаром"
 msgstr "Product actions"
@@ -3569,16 +3564,11 @@ msgstr "Product FAQ"
 msgid "%(title)s — це не просто одяг. Це стан."
 msgstr "%(title)s is more than apparel. It's a mindset."
 
-msgid ""
-"Створений для тих, хто йде своїм шляхом, навіть коли все навколо летить під "
-"три чорти."
-msgstr ""
-"Made for those who walk their own path even when everything around falls "
-"apart."
+msgid "Створений для тих, хто йде своїм шляхом, навіть коли все навколо летить під три чорти."
+msgstr "Made for those who walk their own path even when everything around falls apart."
 
 #, python-format
-msgid ""
-"Матеріал: 95%% бавовна, 5%% еластан — преміум якість, щільність 190 г/м²"
+msgid "Матеріал: 95%% бавовна, 5%% еластан — преміум якість, щільність 190 г/м²"
 msgstr ""
 
 msgid "М'який та приємний до тіла, дихає і не сковує рухів"
@@ -3605,11 +3595,8 @@ msgstr "Fit recommendations"
 msgid "Підбір розміру"
 msgstr "Size selection"
 
-msgid ""
-"Відкрийте загальну розмірну сітку TwoComms або напишіть нам для уточнення "
-"посадки."
-msgstr ""
-"Open the general TwoComms size chart or write to us to clarify the fit."
+msgid "Відкрийте загальну розмірну сітку TwoComms або напишіть нам для уточнення посадки."
+msgstr "Open the general TwoComms size chart or write to us to clarify the fit."
 
 msgid "Допомога з вибором"
 msgstr "Help with selection"
@@ -3700,6 +3687,111 @@ msgstr "Recently viewed"
 msgid "До каталогу"
 msgstr "Back to catalog"
 
+#, fuzzy
+#| msgid "Перемикач навігації"
+msgid "Швидка навігація"
+msgstr "Navigation toggler"
+
+#, fuzzy
+#| msgid "Перейти в каталог"
+msgid "Перейти"
+msgstr "Go to catalog"
+
+#, fuzzy
+#| msgid "Відкрити міні-корзину"
+msgid "Відкрити розділ"
+msgstr "Open mini cart"
+
+#, fuzzy
+#| msgid "Згорнути/розгорнути категорії"
+msgid "Підтверджені сітки по категоріях"
+msgstr "Collapse/expand categories"
+
+#, fuzzy
+#| msgid "Гайд по посадці"
+msgid "Поради по посадці"
+msgstr "Fit guide"
+
+#, fuzzy
+#| msgid "Ваші вибрані товари"
+msgid "Інші візуальні схеми"
+msgstr "Your selected items"
+
+#, fuzzy
+#| msgid "Наступна сторінка"
+msgid "Свіжі товарні сторінки"
+msgstr "Next page"
+
+msgid "Прямий перехід до актуальної картки товару."
+msgstr ""
+
+#, fuzzy
+#| msgid "Пройти опитування"
+msgid "Поширені запитання"
+msgstr "Take the survey"
+
+#, fuzzy
+#| msgid "Ваші бали"
+msgid "Мої бали"
+msgstr "Your points"
+
+msgid "Накопичуйте бали за покупки та використовуйте їх для отримання знижок"
+msgstr ""
+
+#, fuzzy
+#| msgid "Кастомний принт"
+msgid "Поточний баланс"
+msgstr "Custom print"
+
+#, fuzzy
+#| msgid "Відправлено"
+msgid "Всього зароблено"
+msgstr "Shipped"
+
+#, fuzzy
+#| msgid "Не оплачено"
+msgid "Всього витрачено"
+msgstr "Not paid"
+
+#, fuzzy
+#| msgid "Заробите %(n)s балів"
+msgid "Заробляйте бали"
+msgstr "Earn %(n)s points"
+
+#, fuzzy
+#| msgid "Отримайте %(points)s балів за покупку цього товару"
+msgid "Отримуйте бали за кожну покупку. Кількість балів залежить від товару."
+msgstr "Earn %(points)s points for buying this product"
+
+#, fuzzy
+#| msgid "Дізнатись про бали"
+msgid "Використовуйте бали"
+msgstr "About points"
+
+msgid "Обмінюйте бали на промокоди або жертвуйте на ЗСУ."
+msgstr ""
+
+#, fuzzy
+#| msgid "Система балів"
+msgid "Історія балів"
+msgstr "Points programme"
+
+#, fuzzy
+#| msgid "Ваші бали"
+msgid "Операція з балами"
+msgstr "Your points"
+
+msgid "Баланс:"
+msgstr ""
+
+msgid "Поки що немає операцій з балами"
+msgstr ""
+
+#, fuzzy
+#| msgid "Зробіть перше замовлення, щоб побачити його тут"
+msgid "Зробіть першу покупку, щоб почати заробляти бали!"
+msgstr "Place your first order to see it here"
+
 msgid "Соцмережі TwoComms"
 msgstr "TwoComms socials"
 
@@ -3713,9 +3805,6 @@ msgstr "Navigation toggler"
 
 msgid "Пошук…"
 msgstr "Search…"
-
-msgid "Пошук"
-msgstr "Search"
 
 msgid "Перейти до обраних товарів"
 msgstr "Go to favorites"
@@ -3747,9 +3836,6 @@ msgstr "Discounts • Promo codes • UA Army support"
 msgid "Кількість товарів у обраних"
 msgstr "Number of favorites"
 
-msgid "Мої промокоди"
-msgstr "My promo codes"
-
 msgid "Панель адміністратора"
 msgstr "Admin panel"
 
@@ -3771,12 +3857,8 @@ msgstr "Remove custom item"
 msgid "Разом"
 msgstr "Total"
 
-msgid ""
-"Кастомні позиції очікують підтвердження менеджером. Фінальну ціну узгоджуєте "
-"в кошику."
-msgstr ""
-"Custom items await manager confirmation. The final price is agreed in the "
-"cart."
+msgid "Кастомні позиції очікують підтвердження менеджером. Фінальну ціну узгоджуєте в кошику."
+msgstr "Custom items await manager confirmation. The final price is agreed in the cart."
 
 #, fuzzy
 #| msgid "Переваги покупки"
@@ -3819,9 +3901,6 @@ msgstr "0 points"
 #, python-format
 msgid "Купити %(title)s"
 msgstr "Buy %(title)s"
-
-msgid "Купити"
-msgstr "Buy"
 
 msgid "Дізнатись про бали"
 msgstr "About points"

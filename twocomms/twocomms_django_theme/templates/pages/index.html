@@ -1,11 +1,11 @@
 {% extends "base.html" %}{% load static %}{% load cache %}{% load responsive_images %}{% load seo_tags %}{% load compress %}{% load i18n %}{% load inline_assets %}
 
 {# SEO v1.0 Phase 12 (2026-05-12) — finding (VV). Pagination on the home grid was rendering an identical <title> for every ?page=N which Search Console flags as duplicate-title. Suffix the title with the page number so each paginator state is unique. #}
-{% block title %}{% trans 'TwoComms — Стріт & Мілітарі Одяг | Головна' %}{% if page_obj and page_obj.number > 1 %} — сторінка {{ page_obj.number }}{% endif %}{% endblock %}
+{% block title %}{% trans 'TwoComms — Стріт & Мілітарі Одяг | Головна' %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}{% endblock %}
 
 {% block description %}{% trans 'TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні.' %}{% endblock %}
 
-{% block keywords %}стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль{% endblock %}
+{% block keywords %}{% trans 'стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль' %}{% endblock %}
 
 {% block og_type %}website{% endblock %}
 {% block og_title %}{% trans 'TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном' %}{% endblock %}
@@ -56,8 +56,8 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "name": "TwoComms — Головна",
-  "description": "Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом.",
+  "name": "{% trans 'TwoComms — Головна' %}",
+  "description": "{% trans 'Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом.' %}",
   "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}",
   "primaryImageOfPage": "{{ site_base_url }}{% static 'img/social-preview.jpg' %}",
   "mainEntity": {
@@ -143,13 +143,13 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
       <div class="featured-gradient-2"></div>
       <div class="featured-floating-logos">
               <div class="floating-logo logo-1">
-                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - стріт & мілітарі одяг" width="14" height="14" loading="lazy" decoding="async">
+                <img src="{% static 'img/logo.svg' %}" alt="{% trans 'TwoComms логотип — стріт & мілітарі одяг' %}" width="14" height="14" loading="lazy" decoding="async">
               </div>
               <div class="floating-logo logo-2">
-                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - стріт & мілітарі одяг" width="12" height="12" loading="lazy" decoding="async">
+                <img src="{% static 'img/logo.svg' %}" alt="{% trans 'TwoComms логотип — стріт & мілітарі одяг' %}" width="12" height="12" loading="lazy" decoding="async">
               </div>
               <div class="floating-logo logo-3">
-                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - стріт & мілітарі одяг" width="16" height="16" loading="lazy" decoding="async">
+                <img src="{% static 'img/logo.svg' %}" alt="{% trans 'TwoComms логотип — стріт & мілітарі одяг' %}" width="16" height="16" loading="lazy" decoding="async">
               </div>
       </div>
     </div>
@@ -319,19 +319,19 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
       <div class="dark-gradient-2"></div>
       <div class="floating-logos">
         <div class="floating-logo logo-1">
-          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="16" height="16" loading="lazy" decoding="async">
+          <img src="{% static 'img/logo.svg' %}" alt="{% trans 'TwoComms логотип' %}" width="16" height="16" loading="lazy" decoding="async">
         </div>
         <div class="floating-logo logo-2">
-                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - декоративний" width="14" height="14" loading="lazy" decoding="async">
+                <img src="{% static 'img/logo.svg' %}" alt="{% trans 'TwoComms логотип — декоративний' %}" width="14" height="14" loading="lazy" decoding="async">
         </div>
         <div class="floating-logo logo-3">
-          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="18" height="18" loading="lazy" decoding="async">
+          <img src="{% static 'img/logo.svg' %}" alt="{% trans 'TwoComms логотип' %}" width="18" height="18" loading="lazy" decoding="async">
         </div>
         <div class="floating-logo logo-4">
-          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="12" height="12" loading="lazy" decoding="async">
+          <img src="{% static 'img/logo.svg' %}" alt="{% trans 'TwoComms логотип' %}" width="12" height="12" loading="lazy" decoding="async">
         </div>
         <div class="floating-logo logo-5">
-          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="15" height="15" loading="lazy" decoding="async">
+          <img src="{% static 'img/logo.svg' %}" alt="{% trans 'TwoComms логотип' %}" width="15" height="15" loading="lazy" decoding="async">
         </div>
       </div>
     </div>
@@ -388,9 +388,9 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
             <div class="card-content-compact">
               <div class="card-icon-compact">
                 {% if c.icon %}
-                  <img src="{{ c.icon.url }}" width="24" height="24" alt="{{ c.name }} категорія - TwoComms" loading="lazy" decoding="async">
+                  <img src="{{ c.icon.url }}" width="24" height="24" alt="{% blocktrans with name=c.name %}{{ name }} категорія — TwoComms{% endblocktrans %}" loading="lazy" decoding="async">
                 {% else %}
-                  <img src="{% static 'img/icons/default.svg' %}" width="24" height="24" alt="{{ c.name }} категорія - TwoComms" loading="lazy" decoding="async">
+                  <img src="{% static 'img/icons/default.svg' %}" width="24" height="24" alt="{% blocktrans with name=c.name %}{{ name }} категорія — TwoComms{% endblocktrans %}" loading="lazy" decoding="async">
                 {% endif %}
               </div>
               <div class="card-text-compact">

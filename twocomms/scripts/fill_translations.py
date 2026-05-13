@@ -1593,6 +1593,46 @@ TRANSLATIONS_PHASE_17M: dict[str, dict[str, str]] = {
 TRANSLATIONS.update(TRANSLATIONS_PHASE_17M)
 
 
+# Phase 17o — index.html meta keywords, structured data, decorative alt texts,
+# pagination suffix, dynamic category icon alt (blocktrans).
+TRANSLATIONS_PHASE_17O: dict[str, dict[str, str]] = {
+    # Pagination suffix in <title>
+    "сторінка %(n)s": {
+        "ru": "страница %(n)s",
+        "en": "page %(n)s",
+    },
+    # Meta keywords
+    "стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль": {
+        "ru": "стрит одежда, милитари одежда, футболки, худи, лонгсливы, TwoComms, эксклюзивный дизайн, качественная одежда, одежда с характером, стрит стиль, милитари стиль",
+        "en": "streetwear, military style apparel, t-shirts, hoodies, longsleeves, TwoComms, exclusive design, quality clothing, statement apparel, street style, military style",
+    },
+    # Home page structured data
+    "TwoComms — Головна": {
+        "ru": "TwoComms — Главная",
+        "en": "TwoComms — Home",
+    },
+    "Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом.": {
+        "ru": "Главная страница бренда TwoComms с каталогом категорий, кастомной печатью и актуальным ассортиментом.",
+        "en": "TwoComms brand home page featuring category catalogue, custom print and the current line-up.",
+    },
+    # Decorative alt texts on the home page
+    "TwoComms логотип": {
+        "ru": "Логотип TwoComms",
+        "en": "TwoComms logo",
+    },
+    "TwoComms логотип — декоративний": {
+        "ru": "Логотип TwoComms — декоративный",
+        "en": "TwoComms logo — decorative",
+    },
+    # Dynamic blocktrans for category icon alt
+    "%(name)s категорія — TwoComms": {
+        "ru": "Категория %(name)s — TwoComms",
+        "en": "%(name)s category — TwoComms",
+    },
+}
+TRANSLATIONS.update(TRANSLATIONS_PHASE_17O)
+
+
 # Phase 17i fix: original `[^"]*` failed on multi-line msgid blocks
 # whose continuation strings contain escaped quotes (e.g. ``href=\"…\"`` in
 # the catalogue SEO paragraphs). The dotted alternative
