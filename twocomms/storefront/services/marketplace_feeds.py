@@ -199,6 +199,11 @@ BUYME_DROP_DISCOUNT_RATES = {
 }
 BUYME_MIN_QUANTITY = 100
 BEZZET_MIN_QUANTITY = 100
+# Floor для всіх marketplace-фідів: TwoComms працює як DTF / made-to-order,
+# тому залишок завжди має бути «у наявності». Інакше Rozetka / Kasta / Prom
+# / Bezzet тощо інтерпретують stock_quantity=0 як «немає в наявності»
+# незалежно від атрибута available="true".
+FEED_MIN_QUANTITY = 100
 
 CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 PRICE_TEXT_RE = re.compile(r"(?i)(ціна|цена|price)\s*[:\-]?[^\n<]*|\d+[\s.,]*(?:грн|uah|₴)")
@@ -433,6 +438,17 @@ def _buyme_quantity(offer: FeedOffer) -> int:
 
 def _bezzet_quantity(offer: FeedOffer) -> int:
     return max(int(offer.stock or 0), BEZZET_MIN_QUANTITY)
+
+
+def _feed_stock_quantity(offer: FeedOffer) -> int:
+    """Уніфікований floor для tag <stock_quantity> у фідах.
+
+    Поверне max(offer.stock, FEED_MIN_QUANTITY). Це гарантує, що навіть
+    коли всі ProductColorVariant мають stock=0 у БД (made-to-order DTF
+    модель), фіди Rozetka / Kasta / Prom все одно показують товар як
+    у наявності, а не sold out.
+    """
+    return max(int(offer.stock or 0), FEED_MIN_QUANTITY)
 
 
 def _bezzet_group_id(offer: FeedOffer) -> str:
@@ -872,7 +888,7 @@ def build_rozetka_feed_xml(base_url: str | None = None) -> bytes:
             ET.SubElement(offer_el, "picture").text = _truncate(image_url, 1999)
         ET.SubElement(offer_el, "vendor").text = SHOP_NAME
         ET.SubElement(offer_el, "article").text = offer.article
-        ET.SubElement(offer_el, "stock_quantity").text = str(offer.stock)
+        ET.SubElement(offer_el, "stock_quantity").text = str(_feed_stock_quantity(offer))
 
         name_ru = _truncate(f"{_uk_text_to_ru(product.title)} {offer.color_ru} {offer.size}", 255)
         name_ua = _truncate(f"{product.title} {offer.color_ua} {offer.size}", 255)
@@ -940,7 +956,7 @@ def build_kasta_feed_xml(base_url: str | None = None) -> bytes:
             ET.SubElement(offer_el, "picture").text = _truncate(image_url, 1999)
         ET.SubElement(offer_el, "vendor").text = SHOP_NAME
         ET.SubElement(offer_el, "article").text = _kasta_article_for_product(product)
-        ET.SubElement(offer_el, "stock_quantity").text = str(offer.stock)
+        ET.SubElement(offer_el, "stock_quantity").text = str(_feed_stock_quantity(offer))
 
         base_title = _truncate(_clean_xml_text(product.title) or f"{SHOP_NAME} одяг", 255)
         name_ru = _truncate(_kasta_name_ru(base_title) or base_title, 255)
@@ -1207,7 +1223,7 @@ def _build_yml_feed_xml(*, base_url: str | None, bezzet_mode: bool = False) -> b
     offers_el = ET.SubElement(shop, "offers")
     for offer in offers:
         product = offer.product
-        stock_quantity = _bezzet_quantity(offer) if bezzet_mode else int(offer.stock or 0)
+        stock_quantity = _bezzet_quantity(offer) if bezzet_mode else _feed_stock_quantity(offer)
         available = True
         group_id = _bezzet_group_id(offer) if bezzet_mode else str(product.id)
         offer_el = ET.SubElement(

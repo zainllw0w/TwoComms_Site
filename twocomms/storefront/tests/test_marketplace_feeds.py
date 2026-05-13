@@ -82,7 +82,11 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertEqual(first.findtext("currencyId"), "UAH")
         self.assertEqual(first.findtext("categoryId"), str(self.category.id))
         self.assertEqual(first.findtext("vendor"), "TwoComms")
-        self.assertEqual(first.findtext("stock_quantity"), "7")
+        # stock_quantity має бути floor=100 (FEED_MIN_QUANTITY), бо TwoComms працює як
+        # made-to-order DTF — реальне variant.stock у БД може бути 0/7/3, але фід
+        # завжди декларує наявність ≥100, інакше Rozetka / Kasta / Prom показують
+        # товар як «sold out».
+        self.assertEqual(first.findtext("stock_quantity"), "100")
         self.assertTrue(first.findtext("picture").startswith("https://twocomms.shop/media/products/"))
         self.assertIn("Чорний", first.findtext("name_ua"))
         self.assertIn("Черная футболка унисекс TwoComms", first.findtext("name"))
@@ -174,6 +178,55 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertTrue(all(offer.findtext("stock_quantity") == "100" for offer in offers))
         self.assertTrue(all(offer.findtext("quantity_in_stock") == "100" for offer in offers))
         self.assertTrue(all(offer.findtext("picture") for offer in offers))
+
+    def test_all_marketplace_feeds_keep_zero_variant_stock_available(self):
+        """Регресійний тест для багу 2026-05-13: коли variant.stock=0 (made-to-order),
+        Rozetka / Kasta / Prom раніше віддавали stock_quantity=0, через що Bezzet
+        та інші marketplaces позначали товари як «sold out» попри available="true".
+        """
+        from storefront.services.marketplace_feeds import (
+            build_buyme_feed_xml,
+            build_google_merchant_feed_xml,
+            build_kasta_feed_xml,
+            build_prom_feed_xml,
+            build_rozetka_feed_xml,
+            build_uaprom_products_feed_xml,
+        )
+
+        # variant.stock=0 у setUp вже передбачено для іншого тесту, тут зануляємо явно
+        self.variant.stock = 0
+        self.variant.save(update_fields=["stock"])
+
+        for label, build in (
+            ("rozetka", build_rozetka_feed_xml),
+            ("kasta", build_kasta_feed_xml),
+            ("prom", build_prom_feed_xml),
+            ("bezzet", build_uaprom_products_feed_xml),
+        ):
+            with self.subTest(feed=label):
+                root = ET.fromstring(build(base_url="https://twocomms.shop"))
+                offers = root.findall("shop/offers/offer")
+                self.assertEqual(len(offers), 5, f"{label}: expected 5 offers")
+                for offer in offers:
+                    self.assertEqual(offer.attrib.get("available"), "true", label)
+                    sq = offer.findtext("stock_quantity") or ""
+                    self.assertTrue(sq.isdigit(), f"{label}: stock_quantity not numeric ({sq!r})")
+                    self.assertGreaterEqual(int(sq), 100, f"{label}: stock_quantity < 100")
+
+        # BuyMe використовує quantity_in_stock замість stock_quantity
+        root = ET.fromstring(build_buyme_feed_xml(base_url="https://twocomms.shop"))
+        for offer in root.findall("shop/offers/offer"):
+            self.assertEqual(offer.attrib.get("available"), "true")
+            qis = offer.findtext("quantity_in_stock") or ""
+            self.assertTrue(qis.isdigit(), f"buyme quantity_in_stock not numeric ({qis!r})")
+            self.assertGreaterEqual(int(qis), 100)
+
+        # Google Merchant: лише g:availability, без stock_quantity
+        root = ET.fromstring(build_google_merchant_feed_xml(base_url="https://twocomms.shop"))
+        ns = {"g": "http://base.google.com/ns/1.0"}
+        items = root.findall("./channel/item")
+        for item in items:
+            self.assertEqual(item.findtext("g:availability", namespaces=ns), "in_stock")
 
     def test_bezzet_products_feed_groups_by_color_to_avoid_duplicate_sizes(self):
         from storefront.services.marketplace_feeds import build_uaprom_products_feed_xml
