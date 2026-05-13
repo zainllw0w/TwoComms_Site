@@ -26,6 +26,7 @@ from django.conf import settings
 from django.shortcuts import render
 from django.db import transaction
 from django.template.response import TemplateResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.urls import reverse
@@ -176,6 +177,59 @@ CUSTOM_PRINT_FAQ_ITEMS = [
 ]
 
 # ==================== STATIC PAGES ====================
+
+
+@csrf_exempt
+@require_POST
+def csp_report(request):
+    """CSP violation report receiver (Phase 22d, 2026-05-13).
+
+    Receives ``application/csp-report`` POSTs from browsers when a script,
+    image, font, frame or AJAX request is blocked by our Content Security
+    Policy. Used as a tripwire to detect third-party injections (e.g.
+    malicious GTM tags, browser-extension-injected RTB pixels) that would
+    otherwise slip past code review.
+
+    The endpoint:
+      * Accepts both legacy ``application/csp-report`` and the newer
+        ``application/reports+json`` content types.
+      * Writes a single-line JSON record to ``logger("csp")`` with a
+        ``csp_violation`` event name so it can be filtered out easily.
+      * Returns 204 No Content (browsers ignore the body, but a 204 keeps
+        the trace tiny).
+      * Drops noisy violations from third-party browser extensions
+        (``chrome-extension://``, ``moz-extension://``) — those are not
+        actionable from our side.
+    """
+    try:
+        if request.content_type in ("application/csp-report", "application/json", "application/reports+json"):
+            payload = json.loads(request.body.decode("utf-8") or "{}")
+        else:
+            return HttpResponse(status=204)
+    except (ValueError, UnicodeDecodeError):
+        return HttpResponse(status=204)
+
+    report = payload.get("csp-report") or payload
+    blocked = (report.get("blocked-uri") or report.get("blockedURL") or "").strip()
+    if blocked.startswith(("chrome-extension://", "moz-extension://", "safari-extension://")):
+        return HttpResponse(status=204)
+    if not blocked or blocked in ("self", "inline", "eval", "data"):
+        return HttpResponse(status=204)
+
+    logger = logging.getLogger("csp")
+    logger.warning(
+        "csp_violation",
+        extra={
+            "csp_event": "csp_violation",
+            "blocked_uri": blocked,
+            "document_uri": report.get("document-uri") or report.get("documentURL"),
+            "violated_directive": report.get("violated-directive") or report.get("effectiveDirective"),
+            "referrer": report.get("referrer"),
+            "user_agent": request.META.get("HTTP_USER_AGENT", "")[:200],
+        },
+    )
+    return HttpResponse(status=204)
+
 
 def robots_txt(request):
     """Generate the canonical robots.txt (Phase 6).

@@ -85,6 +85,7 @@ from .cart import (
 
 # Статические страницы
 from .static_pages import (
+    csp_report,
     robots_txt,
     llms_txt,
     custom_sitemap,
@@ -383,6 +384,7 @@ __all__ = [
     'nova_poshta_city_search', 'nova_poshta_warehouse_search',
 
     # Static Pages
+    'csp_report',
     'robots_txt', 'llms_txt', 'custom_sitemap', 'static_sitemap', 'google_merchant_feed', 'rozetka_feed_xml', 'kasta_feed_xml',
     'buyme_feed_xml',
     'static_verification_file', 'indexnow_key_file', 'about', 'contacts', 'custom_print', 'custom_print_lead',

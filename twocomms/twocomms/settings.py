@@ -967,7 +967,13 @@ _CSP_DEFAULT = (
     "base-uri 'self'; "
     "form-action 'self'; "
     "frame-ancestors 'self'; "
-    "upgrade-insecure-requests"
+    "upgrade-insecure-requests; "
+    # Phase 22d (2026-05-13) — report-to endpoint so we can monitor
+    # unauthorised 3rd-party injections (e.g. malicious GTM tags or
+    # browser-extension-injected RTB pixels like kingsideaconnections.org).
+    # We deliberately use the Django CSP report endpoint built into the
+    # storefront app — see urls.py / views_security.py for the receiver.
+    "report-uri /csp-report/"
 )
 CONTENT_SECURITY_POLICY = os.environ.get('CONTENT_SECURITY_POLICY', _CSP_DEFAULT)
 X_XSS_PROTECTION = os.environ.get('X_XSS_PROTECTION', '1; mode=block')

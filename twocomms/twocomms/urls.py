@@ -17,6 +17,11 @@ urlpatterns = [
     path("sw.js", storefront_views.service_worker_script, name="service_worker_js"),
     path("site.webmanifest", storefront_views.web_manifest, name="site_webmanifest"),
 
+    # Phase 22d (2026-05-13) — CSP violation report endpoint. Browsers
+    # POST here when a script/img/frame violates the policy. Used as a
+    # tripwire to detect third-party injections that slip past code review.
+    path("csp-report/", storefront_views.csp_report, name="csp_report"),
+
     # Root-level crawler/platform files must be resolved before storefront routes.
     path('sitemap.xml', storefront_views.custom_sitemap, name='django.contrib.sitemaps.views.sitemap'),
     # Phase 4 — sitemap-index children. /sitemap.xml is the index that points here.
