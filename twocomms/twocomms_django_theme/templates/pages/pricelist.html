@@ -1,13 +1,14 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}Оптовий прайс-лист TwoComms — гуртові ціни на одяг{% endblock %}
-{% block description %}Оптовий прайс-лист TwoComms для футболок і худі: актуальні гуртові ціни, пороги по кількості, базові умови співпраці та завантаження XLSX-файлу.{% endblock %}
-{% block keywords %}оптовий прайс-лист, гуртові ціни TwoComms, опт футболки, опт худі, прайс-лист одягу{% endblock %}
-{% block og_title %}Оптовий прайс-лист TwoComms — гуртові ціни на одяг{% endblock %}
-{% block og_description %}Актуальний прайс-лист TwoComms для гуртових замовлень: футболки, худі, пороги за кількістю та завантаження XLSX.{% endblock %}
-{% block twitter_title %}Оптовий прайс-лист TwoComms — гуртові ціни на одяг{% endblock %}
-{% block twitter_description %}Актуальний прайс-лист TwoComms для гуртових замовлень: футболки, худі, пороги за кількістю та завантаження XLSX.{% endblock %}
+{% block title %}{% trans 'Оптовий прайс-лист TwoComms — гуртові ціни на одяг' %}{% endblock %}
+{% block description %}{% trans 'Оптовий прайс-лист TwoComms для футболок і худі: актуальні гуртові ціни, пороги по кількості, базові умови співпраці та завантаження XLSX-файлу.' %}{% endblock %}
+{% block keywords %}{% trans 'оптовий прайс-лист, гуртові ціни TwoComms, опт футболки, опт худі, прайс-лист одягу' %}{% endblock %}
+{% block og_title %}{% trans 'Оптовий прайс-лист TwoComms — гуртові ціни на одяг' %}{% endblock %}
+{% block og_description %}{% trans 'Актуальний прайс-лист TwoComms для гуртових замовлень: футболки, худі, пороги за кількістю та завантаження XLSX.' %}{% endblock %}
+{% block twitter_title %}{% trans 'Оптовий прайс-лист TwoComms — гуртові ціни на одяг' %}{% endblock %}
+{% block twitter_description %}{% trans 'Актуальний прайс-лист TwoComms для гуртових замовлень: футболки, худі, пороги за кількістю та завантаження XLSX.' %}{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
@@ -15,20 +16,20 @@
         <div class="col-md-8">
             <div class="card">
                 <div class="card-body text-center">
-                    <h1 class="card-title mb-4">Оптові ціни TwoComms</h1>
+                    <h1 class="card-title mb-4">{% trans 'Оптові ціни TwoComms' %}</h1>
                     <p class="card-text mb-4">
-                        Скачайте актуальний прайс-лист оптових цен на футболки и худи.
-                        Мінімальне замовлення по моделі — від 8 шт. і кратно 8.
+                        {% trans 'Скачайте актуальний прайс-лист оптових цін на футболки та худі.' %}
+                        {% trans 'Мінімальне замовлення по моделі — від 8 шт. і кратно 8.' %}
                     </p>
                     <a href="{% url 'wholesale_prices_xlsx' %}" class="btn btn-primary btn-lg" download>
                         <i class="fas fa-download me-2"></i>
-                        Скачать прайс-лист (XLSX)
+                        {% trans 'Завантажити прайс-лист (XLSX)' %}
                     </a>
                     <div class="mt-4">
-                        <h5>Умови опта:</h5>
+                        <h5>{% trans 'Умови опту:' %}</h5>
                         <ul class="list-unstyled">
-                            <li><strong>Футболки:</strong> 540/520/500/490/480 грн (за 8-15/16-31/32-63/64-99/100+ шт.)</li>
-                            <li><strong>Худи:</strong> 1300/1250/1200/1175/1150 грн (за 8-15/16-31/32-63/64-99/100+ шт.)</li>
+                            <li><strong>{% trans 'Футболки:' %}</strong> 540/520/500/490/480 {% trans 'грн (за 8-15/16-31/32-63/64-99/100+ шт.)' %}</li>
+                            <li><strong>{% trans 'Худі:' %}</strong> 1300/1250/1200/1175/1150 {% trans 'грн (за 8-15/16-31/32-63/64-99/100+ шт.)' %}</li>
                         </ul>
                     </div>
                 </div>

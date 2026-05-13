@@ -152,6 +152,29 @@
   {% endcomment %}
   <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
 
+  {% comment %}
+  Phase 17n (2026-05-13) — REGIONAL SEO SIGNALS. Three complementary
+  meta tags tell crawlers (Google, Bing, Yandex) that every page on the
+  domain targets the Ukrainian market, regardless of language:
+
+  • ``http-equiv="content-language"`` mirrors the HTML ``lang`` regional
+    code so legacy crawlers without BCP-47 parsing still receive a
+    region hint. Modern Google relies on ``hreflang`` instead, but Bing
+    still honours this tag.
+  • ``geo.region`` (ISO 3166-2 ``UA`` for Ukraine country code, no
+    sub-region) and ``geo.placename`` ("Ukraine") are legacy Dublin
+    Core / "geo tag" attributes. Yandex and some specialised crawlers
+    pick them up. They are zero-cost insurance against bad regional
+    targeting.
+  • ``geo.position`` (lat;lng of Kyiv) is harmless when present and
+    helps a handful of map-aware crawlers.
+  {% endcomment %}
+  <meta http-equiv="content-language" content="{{ html_lang_attr }}">
+  <meta name="geo.region" content="UA">
+  <meta name="geo.placename" content="Ukraine">
+  <meta name="geo.position" content="50.4501;30.5234">
+  <meta name="ICBM" content="50.4501, 30.5234">
+
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url"
