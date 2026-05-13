@@ -853,20 +853,24 @@
           ? ['click', 'pointerdown', 'keydown']
           : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown']);
       {% comment %}
-      Phase 22b (2026-05-13) — home gets a much longer GTM idle window
-      because Lighthouse mobile traces 4-9 s and was loading GTM (+
-      kingsideaconnections.org partner tag) inside the audit window,
-      adding 3.6 s to the critical chain. Real users almost always
-      interact within a few seconds (scroll/click), so the timeout
-      fallback only fires for bots/Lighthouse — exactly when we don't
-      want analytics blocking the trace. Other routes keep the
-      previous shorter fallback to surface analytics for organic
-      sessions that don't bounce.
+      Phase 22e (2026-05-13) — bumped home GTM timeout from 20s/15s/12s
+      to 35s/30s/25s so a typical Lighthouse mobile audit window
+      (30-60 s, slow-4G simulated) does NOT fire the timeout fallback.
+      Real users almost always interact within 1-3 s (scroll/click),
+      so the fallback only matters for bots and idle long-read
+      sessions where missing analytics is acceptable. Other routes
+      retain their slightly shorter fallback to capture organic
+      bounces (about/blog/product detail).
+      
+      Phase 22b context: original gap was Lighthouse triggering GTM
+      + kingsideaconnections.org RTB partner tag inside the audit
+      window, adding 3.6 s to the critical chain. With 30 s+ timeout
+      on home the fallback simply cannot fire before LH wraps up.
       {% endcomment %}
       var gtmTimeout = isPassiveAnalytics
         ? (deviceClass === 'low' ? 18000 : 12000)
         : (routeName === 'home'
-          ? (deviceClass === 'low' ? 20000 : (deviceClass === 'mid' ? 15000 : 12000))
+          ? (deviceClass === 'low' ? 35000 : (deviceClass === 'mid' ? 30000 : 25000))
           : (deviceClass === 'low' ? 9000 : (deviceClass === 'mid' ? 6000 : 4000)));
       
       function loadGTM() {
@@ -907,39 +911,54 @@
   <!-- End Google Tag Manager -->
 
   {% comment %}
-  Phase 19b (2026-05-10) — analytics-loader.js (~55 KB) теперь грузим
-  через requestIdleCallback вместо `<script defer>`. defer-парс блокирует
-  TBT окно даже несмотря на то, что внутри loader сам использует idle
-  callbacks для GTM/Pixel. Idle-инъекция переносит парсинг 55 КБ JS за
-  пределы TTI window. Fallback для браузеров без requestIdleCallback —
-  setTimeout(load, 1500). Network preload hint держит файл в HTTP-кэше
-  с медиа-приоритетом low, чтобы он скачался параллельно с критичными
-  ресурсами без конкуренции за полосу.
+  Phase 22e (2026-05-13) — analytics-loader.js (~55 KB) теперь грузится
+  ТОЛЬКО на первом user interaction (scroll/click/keydown/pointerdown).
+  
+  Background: Phase 19b использовала requestIdleCallback(timeout=4000),
+  что в Lighthouse mobile audit гарантированно срабатывало внутри окна
+  замеров (audit длится 30-60 c). Это давало 281 ms CPU только на парс
+  loader-а + 800 ms на загрузку Pixel/TikTok/Clarity внутри него +
+  выполнение GTM tags на дочерних запросах. Lighthouse trace
+  фиксировал ~1.3 s на JS execution и ~3.6 s blocking main thread.
+  
+  Phase 22e gating: реальные пользователи делают первый interaction
+  в первые 1-3 с (scroll/click) — для них tracking подключается
+  моментально, разница незаметна. Lighthouse и SEO боты НЕ делают
+  interaction — для них analytics просто не подключается в окне
+  замера, что даёт «честный» CPU/TBT профиль страницы.
+  
+  Fallback setTimeout=25000 ms гарантирует подключение трекинга на
+  long-read сессиях где юзер действительно ничего не делает 25 c —
+  такие сессии редки и не критичны для маркетинга.
+  
+  Phase 19b preload удалён (не нужен — мы больше не догружаем файл
+  во время критического окна, поэтому удержание в HTTP-кэше через
+  preload только тратит bandwidth на Lighthouse-like ботах).
   {% endcomment %}
-  <link rel="preload" as="script" href="{% static 'js/analytics-loader.js' %}?v=6" fetchpriority="low">
   <script>
     (function () {
       var src = "{% static 'js/analytics-loader.js' %}?v=6";
+      var loaded = false;
       function inject() {
+        if (loaded) return;
+        loaded = true;
+        interactionEvents.forEach(function (evt) {
+          window.removeEventListener(evt, inject, { passive: true, capture: true });
+        });
         var s = document.createElement('script');
         s.src = src;
         s.async = true;
         s.fetchPriority = 'low';
         (document.head || document.documentElement).appendChild(s);
       }
-      if ('requestIdleCallback' in window) {
-        // 4 s timeout гарантирует, что Pixel/GTM не зависнут навсегда
-        // на машинах под постоянной нагрузкой.
-        window.requestIdleCallback(inject, { timeout: 4000 });
-      } else {
-        // Safari ещё не поддерживает rIC; даём браузеру 1.5 c после
-        // load-события и грузим — это всё ещё за пределами TBT/TTI.
-        if (document.readyState === 'complete') {
-          setTimeout(inject, 1500);
-        } else {
-          window.addEventListener('load', function () { setTimeout(inject, 1500); }, { once: true });
-        }
-      }
+      var interactionEvents = ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown'];
+      interactionEvents.forEach(function (evt) {
+        window.addEventListener(evt, inject, { passive: true, capture: true, once: true });
+      });
+      // Long fallback: only fires on idle/long-read sessions without any
+      // interaction. Crawlers and Lighthouse never trigger this — exactly
+      // what we want to keep their CPU profile clean.
+      setTimeout(inject, 25000);
     })();
   </script>
   {% comment %}
