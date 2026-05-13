@@ -73,6 +73,48 @@
   "url": "https://twocomms.shop/"
 }
 </script>
+{% comment %}
+SEO v1.0 Phase 12 (2026-05-13) — finding (CCC). The brand page now
+emits an OfferCatalog node so AI search engines (Perplexity, ChatGPT
+Search, Google SGE) can answer the question «what does TwoComms
+sell?» with a single structured-data citation. Each child Offer
+points at the canonical category landing URL; we deliberately omit
+the price field at this level because the per-product Offer schema
+already carries it on the PDP. Items are listed in the order they
+appear in the public catalog navigation.
+{% endcomment %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "OfferCatalog",
+  "@id": "https://twocomms.shop/#offer-catalog",
+  "name": "Каталог TwoComms",
+  "url": "https://twocomms.shop/catalog/",
+  "provider": {
+    "@id": "https://twocomms.shop/#organization"
+  },
+  "itemListElement": [
+    {
+      "@type": "OfferCatalog",
+      "name": "Футболки TwoComms",
+      "url": "https://twocomms.shop/catalog/tshirts/",
+      "description": "Авторські футболки з DTF-друком і мілітарними принтами."
+    },
+    {
+      "@type": "OfferCatalog",
+      "name": "Худі TwoComms",
+      "url": "https://twocomms.shop/catalog/hoodie/",
+      "description": "Худі зі стрітвеар-принтами, утеплене начосом, бавовна."
+    },
+    {
+      "@type": "OfferCatalog",
+      "name": "Лонгсліви TwoComms",
+      "url": "https://twocomms.shop/catalog/long-sleeve/",
+      "description": "Лонгсліви з авторськими принтами, базовий і оверсайз-крій."
+    }
+  ]
+}
+</script>
 {% breadcrumb_schema breadcrumb_items %}
 {% faq_schema faq_items %}
 {% endblock %}
