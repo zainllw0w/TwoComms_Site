@@ -1,8 +1,10 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load math_filters %}
+{% load i18n %}
 
-{% block title %}Мої бали — TwoComms{% endblock %}
+{% block title %}{% trans 'Мої бали' %} — TwoComms{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
 <div class="container-xxl py-4">
@@ -17,8 +19,8 @@
             </svg>
           </div>
           <div>
-            <h1 class="h4 mb-1">Мої бали</h1>
-            <p class="text-secondary mb-0">Накопичуйте бали за покупки та використовуйте їх для отримання знижок</p>
+            <h1 class="h4 mb-1">{% trans 'Мої бали' %}</h1>
+            <p class="text-secondary mb-0">{% trans 'Накопичуйте бали за покупки та використовуйте їх для отримання знижок' %}</p>
           </div>
         </div>
       </div>
@@ -29,19 +31,19 @@
           <div class="col-4">
             <div class="points-stat">
               <div class="points-value">{{ user_points.points }}</div>
-              <div class="points-label">Поточний баланс</div>
+              <div class="points-label">{% trans 'Поточний баланс' %}</div>
             </div>
           </div>
           <div class="col-4">
             <div class="points-stat">
               <div class="points-value earned">{{ user_points.total_earned }}</div>
-              <div class="points-label">Всього зароблено</div>
+              <div class="points-label">{% trans 'Всього зароблено' %}</div>
             </div>
           </div>
           <div class="col-4">
             <div class="points-stat">
               <div class="points-value spent">{{ user_points.total_spent }}</div>
-              <div class="points-label">Всього витрачено</div>
+              <div class="points-label">{% trans 'Всього витрачено' %}</div>
             </div>
           </div>
         </div>
@@ -49,7 +51,7 @@
 
       <!-- Информация о системе баллов -->
       <div class="card glass p-4 mb-4">
-        <h3 class="h5 mb-3">Як працюють бали?</h3>
+        <h3 class="h5 mb-3">{% trans 'Як працюють бали?' %}</h3>
         <div class="row">
           <div class="col-md-6">
             <div class="info-item">
@@ -59,8 +61,8 @@
                 </svg>
               </div>
               <div class="info-content">
-                <h4>Заробляйте бали</h4>
-                <p>Отримуйте бали за кожну покупку. Кількість балів залежить від товару.</p>
+                <h4>{% trans 'Заробляйте бали' %}</h4>
+                <p>{% trans 'Отримуйте бали за кожну покупку. Кількість балів залежить від товару.' %}</p>
               </div>
             </div>
           </div>
@@ -72,8 +74,8 @@
                 </svg>
               </div>
               <div class="info-content">
-                <h4>Використовуйте бали</h4>
-                <p>Обмінюйте бали на промокоди або жертвуйте на ЗСУ.</p>
+                <h4>{% trans 'Використовуйте бали' %}</h4>
+                <p>{% trans 'Обмінюйте бали на промокоди або жертвуйте на ЗСУ.' %}</p>
               </div>
             </div>
           </div>
@@ -82,7 +84,7 @@
 
       <!-- История баллов -->
       <div class="card glass p-4">
-        <h3 class="h5 mb-3">Історія балів</h3>
+        <h3 class="h5 mb-3">{% trans 'Історія балів' %}</h3>
         {% if history %}
           <div class="points-history">
             {% for record in history %}
@@ -100,13 +102,13 @@
               </div>
               <div class="history-content">
                 <div class="history-amount {% if record.change_type == 'earned' %}earned{% else %}spent{% endif %}">
-                  {% if record.change_type == 'earned' %}+{% else %}-{% endif %}{{ record.points_change|abs_value }} балів
+                  {% if record.change_type == 'earned' %}+{% else %}-{% endif %}{{ record.points_change|abs_value }} {% trans 'балів' %}
                 </div>
-                <div class="history-reason">{{ record.reason|default:"Операція з балів" }}</div>
+                <div class="history-reason">{{ record.reason|default:_('Операція з балами') }}</div>
                 <div class="history-date">{{ record.created_at|date:"d.m.Y H:i" }}</div>
               </div>
               <div class="history-balance">
-                Баланс: {{ record.balance_after }}
+                {% trans 'Баланс:' %} {{ record.balance_after }}
               </div>
             </div>
             {% endfor %}
@@ -116,8 +118,8 @@
             <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" class="mb-3 opacity-50">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
-            <p>Поки що немає операцій з балами</p>
-            <p class="small">Зробіть першу покупку, щоб почати заробляти бали!</p>
+            <p>{% trans 'Поки що немає операцій з балами' %}</p>
+            <p class="small">{% trans 'Зробіть першу покупку, щоб почати заробляти бали!' %}</p>
           </div>
         {% endif %}
       </div>
