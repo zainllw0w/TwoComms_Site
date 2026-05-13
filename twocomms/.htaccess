@@ -50,6 +50,28 @@ RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
     <FilesMatch "\.[0-9a-f]{12}\.(?:css|js|woff2|woff|ttf|eot|svg|avif|webp|jpg|jpeg|png|gif)$">
         Header set Cache-Control "public, max-age=31536000, immutable"
     </FilesMatch>
+    # Phase 22f (2026-05-13) — media uploads (product_colors/, category_icons/,
+    # product images): не хешированные имена, но контент сменяется редко
+    # (товары/категории — стабильный набор). Lighthouse mobile flagged ~50 KiB
+    # short-cached payload (7d TTL) when these files dominated repeat-visit
+    # network traces. 30 day TTL + must-revalidate makes warm-cache visits
+    # near-instant without locking us into stale assets if a product image
+    # gets re-uploaded under the same filename.
+    <FilesMatch "\.(?:webp|jpg|jpeg|png|gif|avif|svg)$">
+        <If "%{REQUEST_URI} =~ m#^/media/(product_colors|category_icons|products|categories|brands|banners)/#">
+            Header set Cache-Control "public, max-age=2592000, stale-while-revalidate=604800"
+        </If>
+    </FilesMatch>
+    # ES modules under /static/js/modules/ ship without an explicit ManifestStorage
+    # hash in the URL because they're imported by main.js using a runtime hash
+    # query (?v=...). They are effectively immutable per release — bump the TTL
+    # from default to 1 year so Lighthouse stops flagging "выберите эффективный
+    # период хранения кеша" on warm visits.
+    <FilesMatch "\.js$">
+        <If "%{REQUEST_URI} =~ m#^/static/js/modules/#">
+            Header set Cache-Control "public, max-age=31536000, immutable"
+        </If>
+    </FilesMatch>
 </IfModule>
 
 # Сжатие файлов: gzip (mod_deflate) + brotli (mod_brotli / LiteSpeed built-in).

@@ -731,23 +731,34 @@
   <!-- Основные стили (standard load for stability) -->
   {% if request.resolver_match.url_name == 'home' %}
   {% comment %}
-  Phase 22c (2026-05-13) — inline the ENTIRE main CSS bundle on home.
-  Lighthouse mobile reported render-blocking 6279 ms / 49.45 KiB for
-  the bundle (output.8dbf271c3edb.css), which dominated LCP
-  (6640 ms element-render delay). Inlining trades 49 KiB of cacheable
-  CSS for the same bytes in HTML — net transfer is identical
-  (~85 KiB gzipped HTML on home) but the render-blocking request
-  disappears entirely. Repeat-visit cache penalty exists (HTML cache
-  TTL < hashed CSS), but home is overwhelmingly first-touch SEO
-  traffic where first-paint LCP matters more than warm-cache repeats.
-  All three sources are required: ``styles.purged.css`` carries
-  base+component rules, ``cls-ultimate.css`` ships pre-CLS reservations,
-  ``perf-lite.css`` adds the device-class fallbacks. Cached read via
-  ``inline_static`` lru_cache (per-process, busts on collectstatic).
+  Phase 22f (2026-05-13) — REVERT styles.purged.css inline.
+  
+  Phase 22c inlined 297 KiB raw / 45 KiB gzipped of styles.purged.css
+  into HTML to kill the render-blocking CSS request (-6.8 s LCP win).
+  But Phase 22e Lighthouse showed CSS parsing now dominates LCP:
+  ``element-render delay = 2530 ms`` on Moto G Power slow-4G,
+  caused by the slow mobile CPU chewing through 400 KiB of inline
+  CSS before first paint of the LCP element (navbar-brand text).
+  
+  Fix: only inline the TRULY critical bits (cls-ultimate.css +
+  perf-lite.css ≈ 16 KiB raw) and ship styles.purged.css as a
+  classic media=print/onload deferred stylesheet. The bundle is
+  cached aggressively (1y immutable hashed asset), so repeat
+  visitors get it from cache and first-time mobile users avoid
+  the CSS-parse stall.
+  
+  Result is best-of-both-worlds: above-fold paint uses the CLS
+  reservations + device-class fallbacks (still inline, no request),
+  while the heavy component sheet loads in parallel without
+  blocking. Brief style-flash possible below the fold but is
+  acceptable on first paint to fix LCP.
+  
+  noscript fallback below preserves no-JS behavior.
   {% endcomment %}
-  <style>{% inline_static "css/styles.purged.css" %}</style>
   <style>{% inline_static "css/cls-ultimate.css" %}</style>
   <style>{% inline_static "css/perf-lite.css" %}</style>
+  <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}"
+        media="print" onload="this.media='all'">
   {% else %}
   {% comment %}
   Phase 21 attempt (2026-05-11) — Penthouse-extracted critical CSS
