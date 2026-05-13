@@ -1,8 +1,8 @@
-{% load static %}
+{% load static i18n %}
 {% for p in products %}
 <div class="col product-card-wrap">
   {% include "partials/product_card.html" with p=p stagger=False eager=False home_card=True %}
 </div>
 {% empty %}
-<div class="text-secondary small">Немає товарів.</div>
+<div class="text-secondary small">{% trans 'Немає товарів.' %}</div>
 {% endfor %}
