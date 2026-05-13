@@ -156,7 +156,18 @@ Treat them like any other facet: noindex, follow + canonical → base catalog.
             {# Phase 21 — manual SEO H1 override for unique long-tail copy. #}
             {% if category.seo_h1 %}{{ category.seo_h1 }}{% else %}{{ category.name }}{% endif %}
             {% elif is_search_page %}
-            {% trans 'Пошук у каталозі' %}
+            {# SEO v1.0 Phase 12 (2026-05-13) — finding (OO). The search
+               results page previously rendered the same H1 (`Пошук у
+               каталозі`) for every query, which Search Console treats
+               as duplicate content across hundreds of synthetic
+               `?q=…` URLs. We keep the page itself ``noindex,follow``
+               (set in ``base.html``) but still want a UNIQUE,
+               human-readable H1 per query for analytics, accessibility
+               and any partial cache/snippet that escapes the
+               ``noindex`` filter (e.g. Telegram preview, screen
+               readers). Falls back to the generic label only when
+               ``?q`` is empty. #}
+            {% if query %}{% blocktrans with q=query %}Результати пошуку: «{{ q }}»{% endblocktrans %}{% else %}{% trans 'Пошук у каталозі' %}{% endif %}
             {% else %}
             {% trans 'Каталог' %}<br>{% trans 'одягу' %}
             {% endif %}
