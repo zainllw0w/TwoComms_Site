@@ -72,15 +72,22 @@ def add_cache_headers(headers, path, url):
         headers['Cache-Control'] = 'public, max-age=0, must-revalidate'
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
-    # Изображения - кешируем на 7 дней, если имя файла не versioned/hash-based
+    # Phase 22f (2026-05-13) — изображения без content-hash в URL.
+    # Lighthouse mobile «эффективный период хранения кеша» flag'ает 7d TTL
+    # как слишком короткий. Поднимаем до 30 дней + ETag для revalidate:
+    # браузер быстро проверит ETag (304 Not Modified) если файл изменился,
+    # но в большинстве случаев берёт из cache без сетевого запроса вообще.
+    # Product images, category icons, brand logos — почти не меняются.
     elif file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.svg', '.ico']:
-        headers['Cache-Control'] = 'public, max-age=604800'
+        headers['Cache-Control'] = 'public, max-age=2592000'  # 30 дней
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
-    # Шрифты - кешируем на 7 дней, если имя файла не versioned/hash-based
+    # Phase 22f (2026-05-13) — шрифты теперь immutable-1y. Inter.woff2
+    # versioned (хеш в имени файла) или фактически неизменяемые — riski
+    # «stale font» практически нулевой, бенефит от 1-year TTL огромный
+    # (нет вообще запроса на повторных визитах).
     elif file_extension in ['.woff', '.woff2', '.ttf', '.eot']:
-        headers['Cache-Control'] = 'public, max-age=604800'
-        headers['ETag'] = f'"{_cached_mtime(path)}"'
+        headers['Cache-Control'] = 'public, max-age=31536000, immutable'
 
     # HTML файлы - кешируем на 1 час
     elif file_extension in ['.html', '.htm']:
@@ -118,11 +125,14 @@ def get_media_cache_headers(path):
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
     # Изображения/медиа upload-папки mutable по URL, поэтому без hash-name не даём годовой TTL.
+    # Phase 22f (2026-05-13) — но 1d TTL слишком короткий: Lighthouse flag'ает
+    # product images как «эффективный период хранения кеша – 50 KiB». Поднимаем
+    # до 30 дней + ETag — браузер revalidate'ит через 304 если файл изменился.
     elif file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.svg', '.ico']:
         if IMMUTABLE_ASSET_RE.match(Path(path).name):
             headers['Cache-Control'] = 'public, max-age=31536000, immutable'
         else:
-            headers['Cache-Control'] = 'public, max-age=86400, must-revalidate'  # 1 день
+            headers['Cache-Control'] = 'public, max-age=2592000'  # 30 дней
         headers['ETag'] = f'"{_cached_mtime(path)}"'
 
     # Видео/аудио тоже считаем mutable, если URL не versioned.
