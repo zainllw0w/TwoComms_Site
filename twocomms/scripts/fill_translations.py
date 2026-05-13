@@ -1434,6 +1434,165 @@ TRANSLATIONS_PHASE_17L: dict[str, dict[str, str]] = {
 TRANSLATIONS.update(TRANSLATIONS_PHASE_17L)
 
 
+# ===========================================================================
+# Phase 17m (2026-05-13) — order_success.html translations (status, points,
+# Instagram review, email receipt, action buttons).
+# ===========================================================================
+TRANSLATIONS_PHASE_17M: dict[str, dict[str, str]] = {
+    "Замовлення оформлено": {"ru": "Заказ оформлен", "en": "Order placed"},
+    "Замовлення успішно оформлено!": {
+        "ru": "Заказ успешно оформлен!",
+        "en": "Order placed successfully!",
+    },
+    "Переглянути деталі замовлення": {
+        "ru": "Посмотреть детали заказа",
+        "en": "View order details",
+    },
+    "Оплата успішно пройшла!": {
+        "ru": "Оплата успешно прошла!",
+        "en": "Payment successful!",
+    },
+    "Дякуємо, брат! Твоє замовлення оплачено та відправлено в обробку. Ми розпочнемо підготовку найближчим часом.": {
+        "ru": "Спасибо, бро! Твой заказ оплачен и отправлен в обработку. Мы начнём подготовку в ближайшее время.",
+        "en": "Thanks, bro! Your order is paid and queued for processing. We'll start preparing it shortly.",
+    },
+    "Дякуємо за покупку! Твоє замовлення оплачено через Monobank та відправлено в обробку. Ми розпочнемо підготовку найближчим часом.": {
+        "ru": "Спасибо за покупку! Ваш заказ оплачен через Monobank и отправлен в обработку. Мы начнём подготовку в ближайшее время.",
+        "en": "Thanks for your purchase! Your order has been paid via Monobank and is queued for processing. We'll start preparing it shortly.",
+    },
+    "Передплата внесена!": {"ru": "Предоплата внесена!", "en": "Prepayment received!"},
+    "Дякуємо, брат! Передплата внесена. Залишок оплатиш при отриманні на Новій Пошті. Ми розпочнемо підготовку та відправимо на вказане відділення.": {
+        "ru": "Спасибо, бро! Предоплата внесена. Остаток оплатишь при получении на Новой Почте. Мы начнём подготовку и отправим в указанное отделение.",
+        "en": "Thanks, bro! Prepayment received. You'll pay the balance when picking up the parcel at Nova Poshta. We'll start preparing and ship to the chosen branch.",
+    },
+    "Дякуємо за покупку! Передплата внесена. Залишок необхідно оплатити при отриманні посилки на відділенні Нової Пошти. Ми розпочнемо підготовку та відправимо на вказане відділення.": {
+        "ru": "Спасибо за покупку! Предоплата внесена. Остаток нужно оплатить при получении посылки в отделении Новой Почты. Мы начнём подготовку и отправим в указанное отделение.",
+        "en": "Thanks for your purchase! Prepayment received. The balance must be paid when picking up the parcel at the Nova Poshta branch. We'll start preparing and ship to the chosen branch.",
+    },
+    "Ваша заявка відправлена в обробку": {
+        "ru": "Ваша заявка отправлена в обработку",
+        "en": "Your order is being processed",
+    },
+    "Дякуємо, брат! Замовлення відправлено в обробку. Статус надійде в Telegram.": {
+        "ru": "Спасибо, бро! Заказ отправлен в обработку. Статус придёт в Telegram.",
+        "en": "Thanks, bro! Your order is being processed. The status will arrive in Telegram.",
+    },
+    "Дякуємо за замовлення! Заявка відправлена в обробку.": {
+        "ru": "Спасибо за заказ! Заявка отправлена в обработку.",
+        "en": "Thank you for your order! It has been sent for processing.",
+    },
+    "Внесена передплата:": {"ru": "Внесена предоплата:", "en": "Prepayment received:"},
+    "Залишок (при отриманні):": {
+        "ru": "Остаток (при получении):",
+        "en": "Balance (on delivery):",
+    },
+    "Дякуємо за вибір стилю TwoComms!": {
+        "ru": "Спасибо за выбор стиля TwoComms!",
+        "en": "Thanks for choosing the TwoComms style!",
+    },
+    "Твій стиль — твоя сильна сторона. Ми цінуємо, що ти обрав саме нас для свого образу.": {
+        "ru": "Твой стиль — твоя сильная сторона. Мы ценим, что ты выбрал именно нас для своего образа.",
+        "en": "Your style is your strength. We appreciate that you chose us for your look.",
+    },
+    "Є питання чи потрібна допомога?": {
+        "ru": "Есть вопросы или нужна помощь?",
+        "en": "Got questions or need help?",
+    },
+    "Написати в Telegram": {"ru": "Написать в Telegram", "en": "Message us on Telegram"},
+    "Демо режим": {"ru": "Демо-режим", "en": "Demo mode"},
+    "Це тестовий перегляд сторінки. Для реального замовлення дані будуть заповнені автоматично.": {
+        "ru": "Это тестовый просмотр страницы. Для реального заказа данные будут заполнены автоматически.",
+        "en": "This is a test preview of the page. For a real order, the fields will be populated automatically.",
+    },
+    "Деталі замовлення": {"ru": "Детали заказа", "en": "Order details"},
+    "Деталі замовлення (демо)": {
+        "ru": "Детали заказа (демо)",
+        "en": "Order details (demo)",
+    },
+    "Не вказано": {"ru": "Не указано", "en": "Not specified"},
+    "Відділення НП": {"ru": "Отделение НП", "en": "Nova Poshta branch"},
+    "Сума замовлення": {"ru": "Сумма заказа", "en": "Order total"},
+    "Товари в замовленні:": {"ru": "Товары в заказе:", "en": "Order items:"},
+    "Статус: погоджено": {"ru": "Статус: согласовано", "en": "Status: approved"},
+    "Система балів": {"ru": "Система баллов", "en": "Points system"},
+    "Дякуємо, брат! Твоє замовлення оформлено. Бали будуть нараховані після отримання товару.": {
+        "ru": "Спасибо, бро! Твой заказ оформлен. Баллы будут начислены после получения товара.",
+        "en": "Thanks, bro! Your order is placed. Points will be awarded once you receive the parcel.",
+    },
+    "Статус замовлення приходить в Telegram": {
+        "ru": "Статус заказа приходит в Telegram",
+        "en": "Order status arrives via Telegram",
+    },
+    "Оновлення про твоє замовлення надсилаються автоматично": {
+        "ru": "Обновления о твоём заказе отправляются автоматически",
+        "en": "Updates about your order are sent automatically",
+    },
+    "Створіть акаунт або увійдіть в систему, щоб отримувати бали за покупки!": {
+        "ru": "Создайте аккаунт или войдите в систему, чтобы получать баллы за покупки!",
+        "en": "Create an account or sign in to earn points for your purchases!",
+    },
+    "Накопичувати бали за покупки": {
+        "ru": "Накапливать баллы за покупки",
+        "en": "Accumulate points for purchases",
+    },
+    "Відстежувати статус замовлень": {
+        "ru": "Отслеживать статус заказов",
+        "en": "Track the status of your orders",
+    },
+    "Зберігати історію покупок": {
+        "ru": "Сохранять историю покупок",
+        "en": "Keep your purchase history",
+    },
+    "Отримувати персональні пропозиції": {
+        "ru": "Получать персональные предложения",
+        "en": "Get personalised offers",
+    },
+    "Увійти": {"ru": "Войти", "en": "Sign in"},
+    "Зареєструватись": {"ru": "Зарегистрироваться", "en": "Sign up"},
+    "Якщо ви зареєструєтесь, це замовлення автоматично привʼяжеться до вашого акаунту": {
+        "ru": "Если вы зарегистрируетесь, этот заказ автоматически привяжется к вашему аккаунту",
+        "en": "If you sign up, this order will be linked to your account automatically",
+    },
+    "Отримати чек на email": {"ru": "Получить чек на email", "en": "Receive receipt by email"},
+    "Введіть вашу email адресу, і ми надішлемо чек про оплату": {
+        "ru": "Введите ваш email, и мы пришлём чек об оплате",
+        "en": "Enter your email and we'll send you the payment receipt",
+    },
+    "Відправити чек": {"ru": "Отправить чек", "en": "Send receipt"},
+    "Будь ласка, введіть коректну email адресу": {
+        "ru": "Пожалуйста, введите корректный email",
+        "en": "Please enter a valid email address",
+    },
+    "Відправляється...": {"ru": "Отправляется...", "en": "Sending..."},
+    "Чек буде відправлено на": {
+        "ru": "Чек будет отправлен на",
+        "en": "The receipt will be sent to",
+    },
+    "Функціонал буде додано найближчим часом.": {
+        "ru": "Функционал будет добавлен в ближайшее время.",
+        "en": "This feature is coming soon.",
+    },
+    "Залиште відгук в Instagram": {
+        "ru": "Оставьте отзыв в Instagram",
+        "en": "Leave a review on Instagram",
+    },
+    "Поділіться своїми враженнями про покупку! Залиште відгук в Instagram з відміткою нашої сторінки, і ми даруємо вам промокод на знижку 10% на наступне замовлення!": {
+        "ru": "Поделитесь впечатлениями о покупке! Оставьте отзыв в Instagram с отметкой нашей страницы, и мы подарим вам промокод на скидку 10% на следующий заказ!",
+        "en": "Share your purchase experience! Leave a review on Instagram tagging our page, and we'll gift you a 10% discount promo code for your next order!",
+    },
+    "Ваш промокод на знижку": {"ru": "Ваш промокод на скидку", "en": "Your discount promo code"},
+    "10% знижка на наступне замовлення": {
+        "ru": "10% скидка на следующий заказ",
+        "en": "10% off your next order",
+    },
+    "Відкрити Instagram": {"ru": "Открыть Instagram", "en": "Open Instagram"},
+    "Повернутись на головну": {"ru": "Вернуться на главную", "en": "Back to home"},
+    "Переглянути каталог": {"ru": "Посмотреть каталог", "en": "Browse catalogue"},
+    "Відділення НП": {"ru": "Отделение НП", "en": "Nova Poshta branch"},
+}
+TRANSLATIONS.update(TRANSLATIONS_PHASE_17M)
+
+
 # Phase 17i fix: original `[^"]*` failed on multi-line msgid blocks
 # whose continuation strings contain escaped quotes (e.g. ``href=\"…\"`` in
 # the catalogue SEO paragraphs). The dotted alternative
