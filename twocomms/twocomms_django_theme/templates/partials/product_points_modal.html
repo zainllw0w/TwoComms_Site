@@ -9,7 +9,13 @@
             </svg>
           </div>
           <div class="modal-title-content-modern">
-            <h5 class="modal-title-modern" id="pointsInfoModalLabel">Система балів</h5>
+            {# SEO v1.0 Phase 12 (2026-05-13) — finding (AAA). H5 in #}
+            {# modal headers without a preceding H4 violated WCAG +  #}
+            {# Lighthouse «heading hierarchy» audit. Lifted to H3 so #}
+            {# the PDP outline stays H1 → H2 → H3 with no gaps; the #}
+            {# Bootstrap CSS uses ``.modal-title-modern`` for sizing #}
+            {# so the visual rendering is unchanged. #}
+            <h3 class="modal-title-modern" id="pointsInfoModalLabel">Система балів</h3>
             <p class="modal-subtitle-modern">Як працюють бали за покупки</p>
           </div>
         </div>
