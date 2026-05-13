@@ -594,16 +594,41 @@ USE_TZ = True
 # Locale .po/.mo files live at <project>/locale/<lang>/LC_MESSAGES/django.{po,mo}
 LOCALE_PATHS = [BASE_DIR / "locale"]
 
-# Mapping of supported languages to OG/HTML locale tags (Phase 17a).
+# Mapping of supported languages to OG/HTML locale tags.
+# Phase 17a (2026-04-XX) — initial mapping (uk_UA / ru_RU / en_US).
+# Phase 17n (2026-05-13) — REGIONAL CORRECTION. TwoComms targets the
+# Ukrainian market exclusively (we do not serve Russia). The OG locale
+# for Russian must therefore be ``ru_UA`` (Russian for Ukraine), not
+# ``ru_RU`` (Russian for Russia) — Facebook's OG locale list officially
+# supports ``ru_UA``. ``en_US`` stays because Facebook does not list
+# ``en_UA``; the HTML lang attribute carries the regional qualifier
+# instead (``en-UA`` → see ``LANGUAGE_HTML_LANG``). Search engines (Google,
+# Bing, Yandex) use BCP-47 region subtags from the HTML lang + hreflang
+# attributes to identify regional intent, while OG locales drive social
+# previews.
 LANGUAGE_OG_LOCALE = {
     "uk": "uk_UA",
-    "ru": "ru_RU",
+    "ru": "ru_UA",
     "en": "en_US",
 }
+# Phase 17n — BCP-47 regional codes for ``<html lang>`` + hreflang. Using
+# the regional subtag tells crawlers that ``/ru/`` is Ukrainian-Russian
+# (not Russian-Russian), which keeps the site out of Russia-localised
+# SERP buckets and aligns with our political stance.
 LANGUAGE_HTML_LANG = {
-    "uk": "uk",
-    "ru": "ru",
-    "en": "en",
+    "uk": "uk-UA",
+    "ru": "ru-UA",
+    "en": "en-UA",
+}
+# Phase 17n — explicit BCP-47 hreflang values (one per language). The
+# Ukrainian render is the canonical/x-default; the other two reference
+# the Ukrainian region so Google/Bing/Yandex don't accidentally serve
+# our RU pages to Russian users (and vice-versa for international EN
+# audiences).
+LANGUAGE_HREFLANG = {
+    "uk": "uk-UA",
+    "ru": "ru-UA",
+    "en": "en-UA",
 }
 
 # Phase 17c — django-modeltranslation. UA is the source of truth: when an

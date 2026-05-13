@@ -5,8 +5,10 @@
 {% load seo_tags %}
 {% load image_optimization %}
 {% load inline_assets %}
+{% load i18n_links %}
+{% html_lang_for LANGUAGE_CODE as html_lang_attr %}
 <!DOCTYPE html>
-<html lang='{{ LANGUAGE_CODE|default:"uk" }}' data-bs-theme='dark' data-route-name="{{ request.resolver_match.url_name|default:'' }}" data-page-shell="{% if request.resolver_match.url_name == 'about' %}marketing{% else %}commerce{% endif %}" data-analytics-mode="{% if request.resolver_match.url_name == 'about' %}passive{% else %}default{% endif %}" {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
+<html lang='{{ html_lang_attr }}' data-bs-theme='dark' data-route-name="{{ request.resolver_match.url_name|default:'' }}" data-page-shell="{% if request.resolver_match.url_name == 'about' %}marketing{% else %}commerce{% endif %}" data-analytics-mode="{% if request.resolver_match.url_name == 'about' %}passive{% else %}default{% endif %}" {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
   data-meta-pixel-id="823958313630148" {% endif %}
   data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}"{% if TIKTOK_TEST_EVENT_CODE %} data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}"{% endif %}>
 
@@ -91,20 +93,21 @@
   <link rel="canonical"
     href="{% block canonical %}{{ site_base_url }}{{ request.path }}{% endblock %}">
   {% block pagination_links %}{% endblock %}
-  {% load i18n_links %}
   {% language_alternates as lang_alts %}
   {% comment %}
   SEO v1.0 Phase 1 (2026-05-12) — emit hreflang only on indexable pages.
-  When current render is uk (the only indexable language under Path A),
-  advertise the canonical UA URL as both ``hreflang="uk"`` and
-  ``hreflang="x-default"`` (single-language site). RU/EN pages are
-  ``noindex`` so hreflang would be ignored anyway; emitting reciprocal
-  links from there only inflates Ahrefs/GSC false-positive reports. We
-  keep the override blocks so per-page templates can still customise
-  the canonical/x-default URL (e.g. paginated catalog pages).
+  Phase 17n (2026-05-13) — REGIONAL CORRECTION. Use the BCP-47 regional
+  subtag ``uk-UA`` (not bare ``uk``) so Google/Bing/Yandex understand
+  that the canonical URL targets the Ukrainian region. We keep RU/EN
+  noindex until their product copy (Product.title_ru / description_ru,
+  etc.) is fully populated — emitting reciprocal hreflang from
+  ``noindex`` pages only inflates Ahrefs/GSC false-positive reports.
+  Once the modeltranslation backfill ships, flip the ``noindex`` toggle
+  above and add ``ru-UA`` + ``en-UA`` alternates here so search engines
+  serve the right language variant per region.
   {% endcomment %}
   {% if not LANGUAGE_CODE or LANGUAGE_CODE == 'uk' %}
-  <link rel="alternate" hreflang="uk" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">
+  <link rel="alternate" hreflang="uk-UA" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">
   <link rel="alternate" hreflang="x-default" href="{% block hreflang_x_default %}{{ lang_alts.x_default }}{% endblock %}">
   {% endif %}
 

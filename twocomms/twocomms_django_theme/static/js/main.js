@@ -1225,7 +1225,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Tunables. Kept named so the next maintainer can grok the UX intent
     // without re-deriving thresholds from scroll math.
     const SHOW_AT_TOP_PX      = 80;   // Always visible within first viewport.
-    const SHOW_NEAR_BOTTOM_PX = 120;  // Always visible near the page footer.
+    const HIDE_NEAR_BOTTOM_PX = 260;  // Phase 22i — hide near footer so the
+                                      // language switcher and footer links
+                                      // are not covered by the dock. 260 px
+                                      // ≈ height of footer brand block +
+                                      // language switcher (so the dock
+                                      // disappears the moment the user
+                                      // starts to see the footer signature).
     const HIDE_AFTER_DOWN_PX  = 24;   // Cumulative scroll-down delta to hide.
     const SHOW_AFTER_UP_PX    = 12;   // Cumulative scroll-up delta to reveal.
     const MICRO_NOISE_PX      = 1;    // Sub-pixel jitter is ignored.
@@ -1275,11 +1281,14 @@ document.addEventListener('DOMContentLoaded', () => {
         setHidden(false);
         return;
       }
+      // Phase 22i — when the user reaches the footer area, hide the dock so
+      // the language switcher and footer links are accessible. This inverts
+      // the previous "always show near bottom" rule which obscured them.
       const docH = document.documentElement.scrollHeight;
       const viewH = window.innerHeight;
-      if (currentY + viewH >= docH - SHOW_NEAR_BOTTOM_PX) {
+      if (currentY + viewH >= docH - HIDE_NEAR_BOTTOM_PX) {
         resetAccumulators();
-        setHidden(false);
+        setHidden(true);
         return;
       }
 

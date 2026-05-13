@@ -150,6 +150,27 @@ def og_locale_for_lang(code: str | None) -> str:
     return mapping.get((code or _DEFAULT_LANG), "uk_UA")
 
 
+@register.simple_tag
+def html_lang_for(code: str | None) -> str:
+    """Return the BCP-47 regional code for ``<html lang>`` (Phase 17n).
+
+    Maps ``uk``/``ru``/``en`` to ``uk-UA``/``ru-UA``/``en-UA`` so search
+    engines understand that every language variant targets the Ukrainian
+    market. The default fallback is ``uk-UA``.
+    """
+
+    mapping = getattr(settings, "LANGUAGE_HTML_LANG", {})
+    return mapping.get((code or _DEFAULT_LANG), "uk-UA")
+
+
+@register.simple_tag
+def hreflang_for(code: str | None) -> str:
+    """Return the BCP-47 hreflang code for the given language (Phase 17n)."""
+
+    mapping = getattr(settings, "LANGUAGE_HREFLANG", {})
+    return mapping.get((code or _DEFAULT_LANG), "uk-UA")
+
+
 @register.simple_tag(takes_context=True)
 def og_locale_alternates(context) -> Dict[str, str]:
     request = context.get("request")
