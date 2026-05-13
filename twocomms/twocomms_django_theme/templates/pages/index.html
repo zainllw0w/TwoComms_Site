@@ -9,9 +9,10 @@
 
 {% block og_type %}website{% endblock %}
 {% block og_title %}{% trans 'TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном' %}{% endblock %}
-{% block og_description %}{% trans 'Футболки, худі та лонгсліви з авторськими принтами. Бренд TwoComms — українське виробництво, швидка доставка.' %}{% endblock %}
+{# SEO v1.0 Phase 12 (2026-05-13) — finding (T). og:description previously contained no LocalSEO geo-signal; appending «харківський бренд» because the catalogue is shipped from Kharkiv and the audit ranks Kharkiv-aware copy as the cheapest LocalSEO signal for OG previews and AI snippets. #}
+{% block og_description %}{% trans 'Футболки, худі та лонгсліви з авторськими принтами. TwoComms — харківський стрітвеар-бренд, українське виробництво, швидка доставка Новою Поштою.' %}{% endblock %}
 {% block twitter_title %}{% trans 'TwoComms — стріт & мілітарі одяг' %}{% endblock %}
-{% block twitter_description %}{% trans 'Ексклюзивні футболки, худі та лонгсліви з характером. Швидка доставка по Україні.' %}{% endblock %}
+{% block twitter_description %}{% trans 'Ексклюзивні футболки, худі та лонгсліви від харківського бренду TwoComms. Швидка доставка по Україні.' %}{% endblock %}
 
 {% block canonical %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
 {% block hreflang_uk %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
