@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-13 19:32+0300\n"
+"POT-Creation-Date: 2026-05-14 01:33+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2056,6 +2056,31 @@ msgstr "Sign in with Google"
 msgid "Авторизуйтесь, щоб не вводити дані кожного разу та накопичувати бали"
 msgstr "Sign in to skip re-entering details and earn points"
 
+msgid "Система балів"
+msgstr "Points programme"
+
+msgid "Як працюють бали за покупки"
+msgstr "How points work on purchases"
+msgid "балів за цей товар"
+msgstr "points for this item"
+msgid "Назва товару"
+msgstr "Product name"
+msgid "Нарахування балів:"
+msgstr "Earning points:"
+msgid "Бали нараховуються автоматично після підтвердження замовлення"
+msgstr "Points are credited automatically once your order is confirmed"
+msgid "Використання балів:"
+msgstr "Spending points:"
+msgid "Зареєстровані користувачі можуть витратити бали у кабінеті"
+msgstr "Registered shoppers can redeem points from the personal dashboard"
+msgid "Можливості:"
+msgstr "Possibilities:"
+msgid "Обмін на промокоди або пожертвування на ЗСУ"
+msgstr "Exchange for promo codes or donate to the Armed Forces of Ukraine"
+msgid "Перейти до балів"
+msgstr "Open points dashboard"
+msgid "Увійти для накопичення балів"
+msgstr "Sign in to earn points"
 msgid "Вхід"
 msgstr "Sign in"
 
@@ -2167,8 +2192,7 @@ msgid "Недостатньо балів"
 msgstr "Points programme"
 
 msgid "Як працюють бали?"
-msgstr ""
-
+msgstr "How do points work?"
 msgid "Бали нараховуються за кожну покупку в нашому магазині"
 msgstr ""
 
@@ -2526,14 +2550,12 @@ msgstr "Get in touch with me"
 msgid "Пошук"
 msgstr "Search"
 
-#, fuzzy
-#| msgid "Каталог"
-msgid "Каталог одягу"
-msgstr "Catalog"
-
+msgid "Каталог TwoComms — футболки, худі, лонгсліви з принтами"
+msgstr "TwoComms catalogue — t-shirts, hoodies and longsleeves with prints"
 #, python-format
 msgid "сторінка %(n)s"
 msgstr "page %(n)s"
+
 #, fuzzy
 #| msgid "Результати пошуку"
 msgid "Результати пошуку TwoComms"
@@ -2551,11 +2573,8 @@ msgstr ""
 msgid "Купити %(cat)s в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні."
 msgstr "TwoComms — Ukrainian streetwear & military apparel store: t-shirts, hoodies, longsleeves, custom print and fast Ukraine-wide shipping."
 
-#, fuzzy
-#| msgid "TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні."
-msgid "Каталог стріт & мілітарі одягу TwoComms: футболки, худі, лонгсліви та новинки бренду з характером."
-msgstr "TwoComms — Ukrainian streetwear & military apparel store: t-shirts, hoodies, longsleeves, custom print and fast Ukraine-wide shipping."
-
+msgid "Каталог стріт-мілітарі одягу TwoComms: футболки, худі, лонгсліви з авторськими принтами, DTF-друк, бавовна. Доставка Новою Поштою від 1 дня по Україні."
+msgstr "TwoComms street & military apparel catalogue: t-shirts, hoodies and longsleeves with original prints, DTF print, cotton. Nova Poshta delivery in 1 day across Ukraine."
 #, fuzzy
 #| msgid "Результати за запитом «%(q)s» у каталозі TwoComms."
 msgid "Результати пошуку TwoComms за товарами каталогу."
@@ -2581,6 +2600,11 @@ msgstr "TwoComms apparel categories"
 
 msgid "Головна"
 msgstr "Home"
+
+#, fuzzy, python-format
+#| msgid "Результати пошуку"
+msgid "Результати пошуку: «%(q)s»"
+msgstr "Search results"
 
 msgid "Пошук у каталозі"
 msgstr "Search the catalog"
@@ -2727,6 +2751,14 @@ msgstr "TwoComms contacts, phone, telegram, instagram, feedback, TwoComms stores
 msgid "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання."
 msgstr "Reach out to TwoComms: phone, Telegram, Instagram. Quick answers to any question."
 
+msgid "TwoComms — контакти"
+msgstr "TwoComms — contacts"
+msgid "TwoComms — стріт і мілітарі одяг"
+msgstr "TwoComms — street & military apparel"
+msgid "TwoComms — український онлайн-магазин стрітвір- і мілітарі-одягу: футболки, худі, лонгсліви та кастомний DTF-друк."
+msgstr "TwoComms is the Ukrainian online store of streetwear and military-style apparel: t-shirts, hoodies, longsleeves and custom DTF print."
+msgid "Україна"
+msgstr "Ukraine"
 msgid "Зв'яжіться з нами будь-яким зручним способом"
 msgstr "Reach us in any way that suits you"
 
@@ -2821,22 +2853,23 @@ msgstr "TwoComms — Ukrainian streetwear & military apparel store: t-shirts, ho
 
 msgid "стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль"
 msgstr "streetwear, military style apparel, t-shirts, hoodies, longsleeves, TwoComms, exclusive design, quality clothing, statement apparel, street style, military style"
+
 msgid "TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном"
 msgstr "TwoComms — street & military apparel with exclusive design"
 
-msgid "Футболки, худі та лонгсліви з авторськими принтами. Бренд TwoComms — українське виробництво, швидка доставка."
-msgstr "T-shirts, hoodies and longsleeves with original prints. TwoComms — Ukrainian production with fast delivery."
-
+msgid "Футболки, худі та лонгсліви з авторськими принтами. TwoComms — харківський стрітвеар-бренд, українське виробництво, швидка доставка Новою Поштою."
+msgstr "T-shirts, hoodies and longsleeves with original prints. TwoComms is a Kharkiv-based streetwear brand, made in Ukraine, fast Nova Poshta delivery."
 msgid "TwoComms — стріт & мілітарі одяг"
 msgstr "TwoComms — street & military apparel"
 
-msgid "Ексклюзивні футболки, худі та лонгсліви з характером. Швидка доставка по Україні."
-msgstr "Exclusive t-shirts, hoodies and longsleeves with character. Fast Ukraine-wide shipping."
-
+msgid "Ексклюзивні футболки, худі та лонгсліви від харківського бренду TwoComms. Швидка доставка по Україні."
+msgstr "Exclusive t-shirts, hoodies and longsleeves by Kharkiv-based TwoComms brand. Fast delivery across Ukraine."
 msgid "TwoComms — Головна"
 msgstr "TwoComms — Home"
+
 msgid "Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом."
 msgstr "TwoComms brand home page featuring category catalogue, custom print and the current line-up."
+
 msgid "TwoComms логотип — стріт & мілітарі одяг"
 msgstr "TwoComms logo — street & military apparel"
 
@@ -2903,8 +2936,10 @@ msgstr "Continue the survey"
 
 msgid "TwoComms логотип"
 msgstr "TwoComms logo"
+
 msgid "TwoComms логотип — декоративний"
 msgstr "TwoComms logo — decorative"
+
 msgid "Категорії"
 msgstr "Categories"
 
@@ -2920,6 +2955,7 @@ msgstr "Full catalog"
 #, python-format
 msgid "%(name)s категорія — TwoComms"
 msgstr "%(name)s category — TwoComms"
+
 msgid "Замовити кастомний одяг"
 msgstr "Order custom apparel"
 
@@ -3338,9 +3374,6 @@ msgstr "Status: approved"
 msgid "Деталі замовлення (демо)"
 msgstr "Order details (demo)"
 
-msgid "Система балів"
-msgstr "Points programme"
-
 msgid "Дякуємо, брат! Твоє замовлення оформлено. Бали будуть нараховані після отримання товару."
 msgstr "Thanks, brother! The order is placed. Points will be credited after you receive the item."
 
@@ -3601,6 +3634,9 @@ msgstr "Open the general TwoComms size chart or write to us to clarify the fit."
 msgid "Допомога з вибором"
 msgstr "Help with selection"
 
+#, python-format
+msgid "Доставка %(title)s по Україні"
+msgstr "Delivery of %(title)s across Ukraine"
 msgid "Відправка"
 msgstr "Shipping"
 
@@ -3619,6 +3655,9 @@ msgstr "Exchange"
 msgid "14 днів на обмін розміру, якщо річ не була у використанні."
 msgstr "14 days to exchange the size if the item hasn't been worn."
 
+#, python-format
+msgid "Догляд за %(title)s"
+msgstr "Care guide for %(title)s"
 msgid "Прання"
 msgstr "Washing"
 
@@ -3904,6 +3943,11 @@ msgstr "Buy %(title)s"
 
 msgid "Дізнатись про бали"
 msgstr "About points"
+
+#, fuzzy
+#~| msgid "Каталог"
+#~ msgid "Каталог одягу"
+#~ msgstr "Catalog"
 
 #~ msgid "Оформити на сайті"
 #~ msgstr "Checkout on site"

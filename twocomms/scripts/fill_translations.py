@@ -1633,6 +1633,92 @@ TRANSLATIONS_PHASE_17O: dict[str, dict[str, str]] = {
 TRANSLATIONS.update(TRANSLATIONS_PHASE_17O)
 
 
+# Phase 17p — points info modal (base.html + product_points_modal partial),
+# contacts.html structured data, expanded SEO copy in catalog/index/PDP.
+TRANSLATIONS_PHASE_17P: dict[str, dict[str, str]] = {
+    # ===== base.html / partials/product_points_modal points modal =====
+    "Як працюють бали за покупки": {
+        "ru": "Как работают баллы за покупки",
+        "en": "How points work on purchases",
+    },
+    "Як працюють бали?": {
+        "ru": "Как работают баллы?",
+        "en": "How do points work?",
+    },
+    "балів за цей товар": {
+        "ru": "баллов за этот товар",
+        "en": "points for this item",
+    },
+    "Назва товару": {"ru": "Название товара", "en": "Product name"},
+    "Нарахування балів:": {"ru": "Начисление баллов:", "en": "Earning points:"},
+    "Бали нараховуються автоматично після підтвердження замовлення": {
+        "ru": "Баллы начисляются автоматически после подтверждения заказа",
+        "en": "Points are credited automatically once your order is confirmed",
+    },
+    "Використання балів:": {"ru": "Использование баллов:", "en": "Spending points:"},
+    "Зареєстровані користувачі можуть витратити бали у кабінеті": {
+        "ru": "Зарегистрированные пользователи могут потратить баллы в личном кабинете",
+        "en": "Registered shoppers can redeem points from the personal dashboard",
+    },
+    "Можливості:": {"ru": "Возможности:", "en": "Possibilities:"},
+    "Обмін на промокоди або пожертвування на ЗСУ": {
+        "ru": "Обмен на промокоды или пожертвования на ВСУ",
+        "en": "Exchange for promo codes or donate to the Armed Forces of Ukraine",
+    },
+    "Перейти до балів": {"ru": "Перейти к баллам", "en": "Open points dashboard"},
+    "Увійти для накопичення балів": {
+        "ru": "Войти, чтобы копить баллы",
+        "en": "Sign in to earn points",
+    },
+
+    # ===== contacts.html structured data =====
+    "TwoComms — контакти": {
+        "ru": "TwoComms — контакты",
+        "en": "TwoComms — contacts",
+    },
+    "TwoComms — стріт і мілітарі одяг": {
+        "ru": "TwoComms — стрит и милитари одежда",
+        "en": "TwoComms — street & military apparel",
+    },
+    "TwoComms — український онлайн-магазин стрітвір- і мілітарі-одягу: футболки, худі, лонгсліви та кастомний DTF-друк.": {
+        "ru": "TwoComms — украинский онлайн-магазин стритвир- и милитари-одежды: футболки, худи, лонгсливы и кастомная DTF-печать.",
+        "en": "TwoComms is the Ukrainian online store of streetwear and military-style apparel: t-shirts, hoodies, longsleeves and custom DTF print.",
+    },
+    "Україна": {"ru": "Украина", "en": "Ukraine"},
+
+    # ===== catalog.html — expanded title/description (SEO Phase 12 finding N) =====
+    "Каталог TwoComms — футболки, худі, лонгсліви з принтами": {
+        "ru": "Каталог TwoComms — футболки, худи, лонгсливы с принтами",
+        "en": "TwoComms catalogue — t-shirts, hoodies and longsleeves with prints",
+    },
+    "Каталог стріт-мілітарі одягу TwoComms: футболки, худі, лонгсліви з авторськими принтами, DTF-друк, бавовна. Доставка Новою Поштою від 1 дня по Україні.": {
+        "ru": "Каталог стрит-милитари одежды TwoComms: футболки, худи, лонгсливы с авторскими принтами, DTF-печать, хлопок. Доставка Новой Почтой от 1 дня по Украине.",
+        "en": "TwoComms street & military apparel catalogue: t-shirts, hoodies and longsleeves with original prints, DTF print, cotton. Nova Poshta delivery in 1 day across Ukraine.",
+    },
+
+    # ===== index.html — expanded OG/Twitter description (SEO Phase 12 finding T) =====
+    "Футболки, худі та лонгсліви з авторськими принтами. TwoComms — харківський стрітвеар-бренд, українське виробництво, швидка доставка Новою Поштою.": {
+        "ru": "Футболки, худи и лонгсливы с авторскими принтами. TwoComms — харьковский стритвир-бренд, украинское производство, быстрая доставка Новой Почтой.",
+        "en": "T-shirts, hoodies and longsleeves with original prints. TwoComms is a Kharkiv-based streetwear brand, made in Ukraine, fast Nova Poshta delivery.",
+    },
+    "Ексклюзивні футболки, худі та лонгсліви від харківського бренду TwoComms. Швидка доставка по Україні.": {
+        "ru": "Эксклюзивные футболки, худи и лонгсливы от харьковского бренда TwoComms. Быстрая доставка по Украине.",
+        "en": "Exclusive t-shirts, hoodies and longsleeves by Kharkiv-based TwoComms brand. Fast delivery across Ukraine.",
+    },
+
+    # ===== product_detail.html — PDP delivery & care H2 (Phase 12 finding L) =====
+    "Доставка %(title)s по Україні": {
+        "ru": "Доставка %(title)s по Украине",
+        "en": "Delivery of %(title)s across Ukraine",
+    },
+    "Догляд за %(title)s": {
+        "ru": "Уход за %(title)s",
+        "en": "Care guide for %(title)s",
+    },
+}
+TRANSLATIONS.update(TRANSLATIONS_PHASE_17P)
+
+
 # Phase 17i fix: original `[^"]*` failed on multi-line msgid blocks
 # whose continuation strings contain escaped quotes (e.g. ``href=\"…\"`` in
 # the catalogue SEO paragraphs). The dotted alternative

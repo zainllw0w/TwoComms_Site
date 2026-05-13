@@ -1,3 +1,4 @@
+{% load i18n %}
 <div class="modal fade product-modal-fullscreen" id="pointsInfoModal" tabindex="-1" aria-labelledby="pointsInfoModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content points-info-modal-modern">
@@ -15,8 +16,8 @@
             {# the PDP outline stays H1 → H2 → H3 with no gaps; the #}
             {# Bootstrap CSS uses ``.modal-title-modern`` for sizing #}
             {# so the visual rendering is unchanged. #}
-            <h3 class="modal-title-modern" id="pointsInfoModalLabel">Система балів</h3>
-            <p class="modal-subtitle-modern">Як працюють бали за покупки</p>
+            <h3 class="modal-title-modern" id="pointsInfoModalLabel">{% trans 'Система балів' %}</h3>
+            <p class="modal-subtitle-modern">{% trans 'Як працюють бали за покупки' %}</p>
           </div>
         </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -26,9 +27,9 @@
           <div class="product-points-info-modern">
             <div class="product-points-badge-modern">
               <span class="points-amount-modern" id="modalPointsAmount">0</span>
-              <span class="points-label-modern">балів за цей товар</span>
+              <span class="points-label-modern">{% trans 'балів за цей товар' %}</span>
             </div>
-            <div class="product-title-modern-modal" id="modalProductTitle">Назва товару</div>
+            <div class="product-title-modern-modal" id="modalProductTitle">{% trans 'Назва товару' %}</div>
           </div>
           
           <div class="points-explanation-modern">
@@ -39,7 +40,7 @@
                 </svg>
               </div>
               <div class="explanation-text-modern">
-                <strong>Нарахування балів:</strong> Бали нараховуються автоматично після підтвердження замовлення
+                <strong>{% trans 'Нарахування балів:' %}</strong> {% trans 'Бали нараховуються автоматично після підтвердження замовлення' %}
               </div>
             </div>
             
@@ -50,7 +51,7 @@
                 </svg>
               </div>
               <div class="explanation-text-modern">
-                <strong>Використання балів:</strong> Зареєстровані користувачі можуть витратити бали у кабінеті
+                <strong>{% trans 'Використання балів:' %}</strong> {% trans 'Зареєстровані користувачі можуть витратити бали у кабінеті' %}
               </div>
             </div>
             
@@ -61,7 +62,7 @@
                 </svg>
               </div>
               <div class="explanation-text-modern">
-                <strong>Можливості:</strong> Обмін на промокоди або пожертвування на ЗСУ
+                <strong>{% trans 'Можливості:' %}</strong> {% trans 'Обмін на промокоди або пожертвування на ЗСУ' %}
               </div>
             </div>
           </div>
@@ -72,14 +73,14 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                 </svg>
-                Перейти до балів
+                {% trans 'Перейти до балів' %}
               </a>
             {% else %}
               <a href="{% url 'login' %}" class="btn btn-outline-primary-modern points-action-btn-modern">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l6-6-6-6zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
                 </svg>
-                Увійти для накопичення балів
+                {% trans 'Увійти для накопичення балів' %}
               </a>
             {% endif %}
           </div>

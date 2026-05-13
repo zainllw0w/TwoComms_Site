@@ -25,22 +25,22 @@
 {
   "@context": "https://schema.org",
   "@type": "ContactPage",
-  "name": "Контакти TwoComms",
+  "name": "{% trans 'TwoComms — контакти' %}",
   "url": "{{ site_base_url }}{{ request.path }}",
   "mainEntity": {
     "@type": "ClothingStore",
     "@id": "https://twocomms.shop/#store",
     "name": "TwoComms",
-    "alternateName": "TwoComms — стріт і мілітарі одяг",
+    "alternateName": "{% trans 'TwoComms — стріт і мілітарі одяг' %}",
     "url": "https://twocomms.shop",
     "logo": "{{ site_base_url }}{% static 'img/logo.svg' %}",
     "image": "{{ site_base_url }}{% static 'img/social-preview.jpg' %}",
-    "description": "TwoComms — український онлайн-магазин стрітвір- і мілітарі-одягу: футболки, худі, лонгсліви та кастомний DTF-друк.",
+    "description": "{% trans 'TwoComms — український онлайн-магазин стрітвір- і мілітарі-одягу: футболки, худі, лонгсліви та кастомний DTF-друк.' %}",
     "telephone": "+380966543212",
     "email": "info@twocomms.shop",
     "areaServed": {
       "@type": "Country",
-      "name": "Україна"
+      "name": "{% trans 'Україна' %}"
     },
     "currenciesAccepted": "UAH",
     "paymentAccepted": "Cash, Credit Card, Apple Pay, Google Pay, Bank transfer",
