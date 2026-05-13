@@ -1199,167 +1199,176 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 150));
 
   // ===== Мобильное нижнее меню: скрытие/показ по скроллу, фокусу и свайпу =====
+  //
+  // Phase 22h (2026-05-13) — refactored. The previous implementation gated
+  // hide-on-scroll behind `!isSmallScreen && deviceClass === 'high'`, which
+  // disabled the dock on every actual mobile device after commit f8320893
+  // ("calm mobile dock"). User-visible result: the dock stayed pinned and
+  // obscured content while scrolling. Rewritten with three goals:
+  //   1. Enable on ALL mobile widths (≤ 991 px, matching the CSS breakpoint).
+  //   2. Replace the momentum/cooldown/threshold machinery with a clean
+  //      direction-change accumulator — instant feedback, no flicker, no
+  //      jank. Always-show rules at the top and near the bottom keep the
+  //      dock available where users actually need it.
+  //   3. Keep focus-on-input hiding, touch swipe gestures and the
+  //      first-session hint-wiggle — those are good UX patterns.
   (function () {
     const bottomNav = document.querySelector('.bottom-nav');
     if (!bottomNav) return;
-    const bottomNavDeviceClass = (document.documentElement.dataset.deviceClass || 'high').toLowerCase();
-    const isSmallScreen = window.matchMedia('(max-width: 768px)').matches;
-    const scrollAdaptiveEnabled = !isSmallScreen && bottomNavDeviceClass === 'high';
-    bottomNav.dataset.scrollMode = scrollAdaptiveEnabled ? 'adaptive' : 'static';
 
-    let lastScrollY = PerformanceOptimizer.getScrollY();
+    // Media-query the breakpoint instead of hard-coding 768 px so a single
+    // source of truth (the CSS `@media (min-width: 992px)` that hides the
+    // dock on desktop) drives the JS too. matchMedia is live — if the user
+    // resizes (Chrome DevTools mobile emulator), the listener flips state.
+    const mq = window.matchMedia('(max-width: 991.98px)');
+
+    // Tunables. Kept named so the next maintainer can grok the UX intent
+    // without re-deriving thresholds from scroll math.
+    const SHOW_AT_TOP_PX      = 80;   // Always visible within first viewport.
+    const SHOW_NEAR_BOTTOM_PX = 120;  // Always visible near the page footer.
+    const HIDE_AFTER_DOWN_PX  = 24;   // Cumulative scroll-down delta to hide.
+    const SHOW_AFTER_UP_PX    = 12;   // Cumulative scroll-up delta to reveal.
+    const MICRO_NOISE_PX      = 1;    // Sub-pixel jitter is ignored.
+    const HINT_WIGGLE_DELAY   = 1200; // First-load nudge after LCP settles.
+
     let hidden = false;
     let hintShown = sessionStorage.getItem('bottom-nav-hint') === '1';
+    let lastScrollY = PerformanceOptimizer.getScrollY();
+    let downAccum = 0;
+    let upAccum = 0;
     let touchStartY = null;
     let touchStartX = null;
-    let touchMoved = false;
-    let isScrolling = false;
-    let scrollEndTimer = null;
 
-    // Улучшенная система предотвращения мерцания
-    let scrollDirection = 0; // -1 = вверх, 1 = вниз, 0 = нет
-    let scrollMomentum = 0; // Накопленный импульс скролла
-    let lastToggleTime = 0;
-    const TOGGLE_COOLDOWN = 400; // Минимальная пауза между переключениями
-
-    const setHidden = (v, force = false) => {
-      if (hidden === v) return;
-
-      // Защита от частых переключений
-      const now = Date.now();
-      if (!force && now - lastToggleTime < TOGGLE_COOLDOWN) return;
-
-      hidden = v;
-      lastToggleTime = now;
-      scrollMomentum = 0; // Полный сброс при переключении
-
-      PerformanceOptimizer.batchDOMOperations([
-        () => bottomNav.classList.toggle('bottom-nav--hidden', hidden)
-      ]);
+    const setHidden = (value) => {
+      if (hidden === value) return;
+      hidden = value;
+      // No batching: a single classList toggle inside an rAF tick is
+      // already paint-coalesced, and batching through the optimizer
+      // delayed the toggle by another frame (visible lag on real devices).
+      bottomNav.classList.toggle('bottom-nav--hidden', hidden);
     };
 
-    const maybeShowHint = () => {
-      if (!scrollAdaptiveEnabled) return;
-      if (hintShown) return;
-      if (prefersReducedMotion || PERF_LITE) { hintShown = true; return; }
+    const showHint = () => {
+      if (hintShown || prefersReducedMotion || PERF_LITE) {
+        hintShown = true;
+        return;
+      }
       bottomNav.classList.add('hint-wiggle');
       setTimeout(() => bottomNav.classList.remove('hint-wiggle'), 950);
       sessionStorage.setItem('bottom-nav-hint', '1');
       hintShown = true;
     };
 
-    if (scrollAdaptiveEnabled) {
-      // Оптимизированная обработка скролла
-      PerformanceOptimizer.onScrollChange = (currentY, lastY) => {
-        const dy = currentY - lastY;
-        if (Math.abs(dy) < 1) return; // Игнорируем микро-движения
+    const resetAccumulators = () => {
+      downAccum = 0;
+      upAccum = 0;
+    };
 
-        isScrolling = true;
-        clearTimeout(scrollEndTimer);
-        scrollEndTimer = setTimeout(() => {
-          isScrolling = false;
-          scrollMomentum = 0; // Сброс после остановки скролла
-        }, 150);
+    const handleScroll = (currentY) => {
+      const dy = currentY - lastScrollY;
+      lastScrollY = currentY;
+      if (Math.abs(dy) < MICRO_NOISE_PX) return;
 
-        // Определяем направление с гистерезисом
-        const currentDirection = dy > 2 ? 1 : (dy < -2 ? -1 : 0);
-
-        // Сброс импульса при смене направления
-        if (currentDirection !== 0 && scrollDirection !== 0 && currentDirection !== scrollDirection) {
-          scrollMomentum = 0;
-        }
-        scrollDirection = currentDirection;
-
-        // Накапливаем импульс
-        scrollMomentum += dy;
-
-        // Разные пороги для скрытия и показа (гистерезис)
-        const HIDE_THRESHOLD = 50;  // Нужно проскроллить вниз 50px
-        const SHOW_THRESHOLD = -20; // Нужно проскроллить вверх 20px
-
-        // Скрытие меню - только при значительном скролле вниз
-        if (!hidden && scrollMomentum > HIDE_THRESHOLD) {
-          setHidden(true);
-        }
-        // Показ меню - при любом скролле вверх (если скрыто)
-        else if (hidden && scrollMomentum < SHOW_THRESHOLD) {
-          setHidden(false);
-        }
-
-        // Ограничиваем импульс
-        scrollMomentum = Math.max(-100, Math.min(100, scrollMomentum));
-      };
-
-      // Инициализируем оптимизированный скролл
-      PerformanceOptimizer.initScrollOptimization();
-    } else {
-      bottomNav.classList.remove('bottom-nav--hidden', 'hint-wiggle');
-      hidden = false;
-    }
-
-    // Фокус в полях ввода — скрыть; блюр — показать
-    document.addEventListener('focusin', (e) => {
-      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
-        setHidden(true);
+      // Hard overrides — these always win against momentum.
+      if (currentY <= SHOW_AT_TOP_PX) {
+        resetAccumulators();
+        setHidden(false);
+        return;
       }
+      const docH = document.documentElement.scrollHeight;
+      const viewH = window.innerHeight;
+      if (currentY + viewH >= docH - SHOW_NEAR_BOTTOM_PX) {
+        resetAccumulators();
+        setHidden(false);
+        return;
+      }
+
+      // Direction-change accumulator. The first scroll in a new direction
+      // resets the opposite accumulator, so a user who scrolls down 200 px
+      // then up 15 px sees the dock instantly — no momentum-debt to pay off.
+      if (dy > 0) {
+        downAccum += dy;
+        upAccum = 0;
+        if (!hidden && downAccum >= HIDE_AFTER_DOWN_PX) setHidden(true);
+      } else {
+        upAccum -= dy;
+        downAccum = 0;
+        if (hidden && upAccum >= SHOW_AFTER_UP_PX) setHidden(false);
+      }
+    };
+
+    const attachScrollListener = () => {
+      // PerformanceOptimizer.onScrollChange is already rAF-throttled inside
+      // initScrollOptimization() and shared with other features, so we plug
+      // into it instead of adding a second scroll listener.
+      PerformanceOptimizer.onScrollChange = (currentY) => handleScroll(currentY);
+      PerformanceOptimizer.initScrollOptimization();
+    };
+
+    const detachScrollListener = () => {
+      // No formal teardown API in the optimizer; setting a no-op is enough
+      // because no other feature shares this exact callback at the moment.
+      PerformanceOptimizer.onScrollChange = () => {};
+      setHidden(false);
+      resetAccumulators();
+    };
+
+    const syncMode = () => {
+      if (mq.matches) {
+        bottomNav.dataset.scrollMode = 'adaptive';
+        attachScrollListener();
+        setTimeout(showHint, HINT_WIGGLE_DELAY);
+      } else {
+        bottomNav.dataset.scrollMode = 'desktop';
+        detachScrollListener();
+      }
+    };
+
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', syncMode);
+    } else if (typeof mq.addListener === 'function') {
+      mq.addListener(syncMode); // Safari < 14
+    }
+    syncMode();
+
+    // Focus on a text input — hide so the on-screen keyboard doesn't fight
+    // the dock for space. Restore on blur and re-show the hint if the user
+    // has never seen it.
+    const isTextField = (el) => el && (
+      el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable
+    );
+    document.addEventListener('focusin', (e) => {
+      if (isTextField(e.target)) setHidden(true);
     });
     document.addEventListener('focusout', (e) => {
-      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
+      if (isTextField(e.target)) {
         setHidden(false);
-        if (scrollAdaptiveEnabled) {
-          maybeShowHint();
-        }
+        if (mq.matches) showHint();
       }
     });
 
-    if (scrollAdaptiveEnabled) {
-      // Свайпы - только для явных жестов, не конфликтующих со скроллом
-      const onTouchStart = (e) => {
-        const t = e.touches ? e.touches[0] : e;
-        touchStartY = t.clientY;
-        touchStartX = t.clientX;
-        touchMoved = false;
-      };
-      const onTouchMove = (e) => {
-        touchMoved = true;
-      };
-      const onTouchEnd = (e) => {
-        if (touchStartY == null) return;
-
-        // Игнорируем тач-события во время активного скролла
-        if (isScrolling) {
-          touchStartY = touchStartX = null;
-          touchMoved = false;
-          return;
-        }
-
-        const t = (e.changedTouches && e.changedTouches[0]) || e;
-        const dy = (t.clientY - touchStartY) || 0;
-        const dx = (t.clientX - touchStartX) || 0;
-        const absY = Math.abs(dy), absX = Math.abs(dx);
-
-        // Только явные вертикальные свайпы (не скролл!)
-        // Увеличенный порог для предотвращения ложных срабатываний
-        if (absY > 40 && absY > absX * 2) {
-          if (dy > 0) {
-            setHidden(true, true); // force = true для свайпов
-          } else if (hidden) {
-            setHidden(false, true);
-          }
-          maybeShowHint();
-        }
-        touchStartY = touchStartX = null;
-        touchMoved = false;
-      };
-
-      // Навешиваем только на меню (не глобально, чтобы не конфликтовать со скроллом)
-      bottomNav.addEventListener('touchstart', onTouchStart, { passive: true });
-      bottomNav.addEventListener('touchmove', onTouchMove, { passive: true });
-      bottomNav.addEventListener('touchend', onTouchEnd, { passive: true });
-
-      // Первичная ненавязчивая подсказка — один раз за сессию
-      setTimeout(() => { maybeShowHint(); }, 800);
-    }
+    // Explicit vertical swipe ON the dock itself — this lets users tuck it
+    // away or pull it back deliberately. Threshold is intentionally high
+    // (40 px + 2× horizontal) so a horizontal tab-swap inside the dock
+    // never collapses it accidentally.
+    const onTouchStart = (e) => {
+      const t = e.touches ? e.touches[0] : e;
+      touchStartY = t.clientY;
+      touchStartX = t.clientX;
+    };
+    const onTouchEnd = (e) => {
+      if (touchStartY == null) return;
+      const t = (e.changedTouches && e.changedTouches[0]) || e;
+      const dy = (t.clientY - touchStartY) || 0;
+      const dx = (t.clientX - touchStartX) || 0;
+      touchStartY = touchStartX = null;
+      if (Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx) * 2) {
+        setHidden(dy > 0);
+        showHint();
+      }
+    };
+    bottomNav.addEventListener('touchstart', onTouchStart, { passive: true });
+    bottomNav.addEventListener('touchend', onTouchEnd, { passive: true });
   })();
 });
 
