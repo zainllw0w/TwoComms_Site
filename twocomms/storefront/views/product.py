@@ -600,8 +600,12 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             'selected_color_variant': selected_color_variant,
             # Phase 21 — review aggregate + approved review list.
             # ``product_review_summary`` exposes ``count``/``average``/
-            # ``histogram``/``show_rating``; templates already check
-            # ``count >= 3`` before rendering the rating chip.
+            # ``histogram``/``show_rating``. Templates read
+            # ``show_rating`` (not a hard-coded count) so the rating
+            # chip threshold stays anchored to the single source of
+            # truth in ``reviews.services.aggregate``. SEO v1.0
+            # Phase 12 (2026-05-13) — finding (M) lowered the
+            # threshold from 3 to 1.
             'product_review_summary': product_review_summary,
             'approved_reviews': approved_reviews,
             'product_customer_has_paid_order': product_customer_has_paid_order,

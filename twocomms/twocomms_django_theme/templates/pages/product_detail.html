@@ -241,9 +241,14 @@ CSS rules на mobile FCP/LCP window.
       via the badge row below for SEO/structured-data parity). The
       aggregate rating link is the only factual signal kept here, and
       the entire row is omitted when no real ``aggregateRating`` is
-      eligible (count >= 3 approved reviews).
+      eligible. SEO v1.0 Phase 12 (2026-05-13) — finding (M) lowered
+      the threshold from 3 to 1 (see
+      ``reviews.services.aggregate.MIN_APPROVED_REVIEWS_FOR_RATING``)
+      so the rating chip appears on the very first approved review;
+      we read ``show_rating`` instead of hard-coding the count to
+      keep this template aligned with the single source of truth.
       {% endcomment %}
-      {% if product_review_summary and product_review_summary.count >= 3 %}
+      {% if product_review_summary and product_review_summary.show_rating %}
       <div class="tc-product-meta">
         <a href="#product-reviews" class="tc-rating-safe" aria-label="{% blocktrans count counter=product_review_summary.count %}Рейтинг товару, {{ counter }} відгук{% plural %}Рейтинг товару, {{ counter }} відгуків{% endblocktrans %}">
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.97 6.02 6.64.97-4.8 4.68 1.13 6.61L12 17.16l-5.94 3.12 1.13-6.61-4.8-4.68 6.64-.97L12 2Z" fill="currentColor"/></svg>

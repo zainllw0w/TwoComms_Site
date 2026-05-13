@@ -60,16 +60,24 @@ class AggregateRatingTests(TestCase):
         self.assertEqual(s.count, 0)
         self.assertIsNone(s.avg)
 
-    def test_below_threshold_keeps_show_rating_false(self):
-        for r in (5, 4):
-            self._make_review(rating=r)
-        s = aggregate_rating_for_product(self.product)
-        self.assertEqual(s.count, 2)
-        self.assertEqual(s.avg, 4.5)
-        self.assertFalse(s.show_rating)
-        self.assertEqual(MIN_APPROVED_REVIEWS_FOR_RATING, 3)
+    def test_threshold_constant_is_one(self):
+        # SEO v1.0 Phase 12 (2026-05-13) — finding (M). The legacy
+        # threshold (3) starved cold-start PDP from earning the
+        # SERP star-rating rich result; lowered to 1 so a single
+        # approved review unlocks ``aggregateRating`` JSON-LD.
+        self.assertEqual(MIN_APPROVED_REVIEWS_FOR_RATING, 1)
 
-    def test_at_threshold_flips_show_rating_true(self):
+    def test_single_approved_review_flips_show_rating_true(self):
+        # At the new threshold (1) one approved review is enough
+        # to render the rating chip and emit AggregateRating.
+        self._make_review(rating=5)
+        s = aggregate_rating_for_product(self.product)
+        self.assertEqual(s.count, 1)
+        self.assertEqual(s.avg, 5.0)
+        self.assertTrue(s.show_rating)
+        self.assertEqual(s.histogram[5], 1)
+
+    def test_at_three_reviews_show_rating_remains_true(self):
         for r in (5, 5, 4):
             self._make_review(rating=r)
         s = aggregate_rating_for_product(self.product)

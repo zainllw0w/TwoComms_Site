@@ -463,10 +463,13 @@ def product_rating_schema(product, rating=None, review_count=None):
     """Render Product JSON-LD with optional ``aggregateRating``.
 
     Phase 21 (2026-05-10) — hardened. Only emits ``aggregateRating``
-    when *both* a numeric rating and ``review_count >= 3`` are supplied.
-    Defaults to ``None`` so callers must explicitly pass real,
-    moderation-approved review aggregates from the upcoming reviews app
-    (PR-4). This prevents accidental fake ratings from surfacing.
+    when *both* a numeric rating and ``review_count`` >=
+    ``MIN_APPROVED_REVIEWS_FOR_RATING`` (currently 1, lowered from
+    3 in SEO v1.0 Phase 12 — finding (M)) are supplied. Defaults to
+    ``None`` so callers must explicitly pass real, moderation-
+    approved review aggregates. This still prevents accidental fake
+    ratings, but at the lower threshold the rich result becomes
+    available the moment a single approved review lands.
     """
     if not product:
         return ''
@@ -499,7 +502,12 @@ def product_rating_schema(product, rating=None, review_count=None):
         review_count_int = int(review_count) if review_count is not None else 0
     except (TypeError, ValueError):
         review_count_int = 0
-    if rating and review_count_int >= 3:
+    # SEO v1.0 Phase 12 (2026-05-13) — finding (M). Threshold lowered
+    # from 3 to ``MIN_APPROVED_REVIEWS_FOR_RATING`` (1) to give cold-
+    # start PDP access to the SERP star-rating rich result on the
+    # very first approved review.
+    from reviews.services.aggregate import MIN_APPROVED_REVIEWS_FOR_RATING
+    if rating and review_count_int >= MIN_APPROVED_REVIEWS_FOR_RATING:
         schema["aggregateRating"] = {
             "@type": "AggregateRating",
             "ratingValue": str(rating),

@@ -123,8 +123,13 @@ class ProductPageSeoRegressionTests(TestCase):
 
     def test_product_page_does_not_render_fake_aggregate_rating(self):
         """Phase 21 — fake ``4.9 (45 відгуків)`` block must be gone, and
-        ``aggregateRating`` must not appear until at least 3 approved
-        reviews are surfaced via ``product_review_summary``.
+        ``aggregateRating`` must not appear until the configured
+        threshold of approved reviews is reached. SEO v1.0 Phase 12
+        (2026-05-13) — finding (M) lowered that threshold to 1 (see
+        ``reviews.services.aggregate.MIN_APPROVED_REVIEWS_FOR_RATING``);
+        with no reviews on the fixture product the rich-result block
+        must still be absent so we keep this regression strictly
+        anchored on the no-reviews case.
         """
         response = self.client.get(reverse("product", kwargs={"slug": self.product.slug}), follow=True)
 
@@ -188,8 +193,15 @@ class ProductPageSeoRegressionTests(TestCase):
 
     def test_product_schema_embeds_aggregate_rating_only_above_threshold(self):
         """Phase 21 (PR-4b) — Product schema's ``aggregateRating`` block
-        is gated by ``ProductReviewSummary.show_rating`` (i.e. ≥3
-        approved reviews). Below threshold or no summary → no rating.
+        is gated by ``ProductReviewSummary.show_rating``. SEO v1.0
+        Phase 12 (2026-05-13) — finding (M) lowered the threshold
+        from 3 to 1 (see
+        ``reviews.services.aggregate.MIN_APPROVED_REVIEWS_FOR_RATING``)
+        so the rich result is now available the moment a single
+        approved review is moderated. The regression preserves the
+        contract: with zero approved reviews no rating block must
+        leak; with one or more it must appear and carry the exact
+        ``reviewCount`` Google reads in the rich-result preview.
         """
         from reviews.models import Review, ReviewStatus
         from reviews.services.aggregate import aggregate_rating_for_product
@@ -198,18 +210,7 @@ class ProductPageSeoRegressionTests(TestCase):
         schema = json.loads(get_product_schema(self.product))
         self.assertNotIn("aggregateRating", schema)
 
-        # 2 approved reviews → still no aggregateRating (below 3).
-        for r in (5, 4):
-            Review.objects.create(
-                product=self.product, author_name="A", anon_key="k",
-                rating=r, body="x" * 30, status=ReviewStatus.APPROVED,
-            )
-        summary = aggregate_rating_for_product(self.product)
-        schema = json.loads(get_product_schema(self.product, review_summary=summary))
-        self.assertFalse(summary.show_rating)
-        self.assertNotIn("aggregateRating", schema)
-
-        # 3rd approved review crosses the threshold.
+        # 1st approved review crosses the (new) threshold immediately.
         Review.objects.create(
             product=self.product, author_name="A", anon_key="k",
             rating=5, body="x" * 30, status=ReviewStatus.APPROVED,
@@ -218,9 +219,20 @@ class ProductPageSeoRegressionTests(TestCase):
         schema = json.loads(get_product_schema(self.product, review_summary=summary))
         self.assertTrue(summary.show_rating)
         self.assertIn("aggregateRating", schema)
-        self.assertEqual(schema["aggregateRating"]["reviewCount"], "3")
+        self.assertEqual(schema["aggregateRating"]["reviewCount"], "1")
         self.assertEqual(schema["aggregateRating"]["bestRating"], "5")
         self.assertEqual(schema["aggregateRating"]["worstRating"], "1")
+
+        # Adding more approved reviews keeps the block and updates count.
+        for r in (4, 5):
+            Review.objects.create(
+                product=self.product, author_name="A", anon_key="k",
+                rating=r, body="x" * 30, status=ReviewStatus.APPROVED,
+            )
+        summary = aggregate_rating_for_product(self.product)
+        schema = json.loads(get_product_schema(self.product, review_summary=summary))
+        self.assertTrue(summary.show_rating)
+        self.assertEqual(schema["aggregateRating"]["reviewCount"], "3")
 
     def test_product_schema_url_uses_canonical_path_when_provided(self):
         """Phase 21 — Product schema ``url`` follows the page canonical.

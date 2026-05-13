@@ -740,7 +740,10 @@ class StructuredDataGenerator:
 
         # Phase 21 (2026-05-10) — embed AggregateRating only when the
         # caller passes a ``review_summary`` whose ``show_rating`` is
-        # True (i.e. >=3 approved reviews). Mirrors the rule in
+        # True. SEO v1.0 Phase 12 (2026-05-13) — finding (M) lowered
+        # the underlying ``MIN_APPROVED_REVIEWS_FOR_RATING`` from 3
+        # to 1, so this branch now activates the moment a single
+        # approved review exists on the product. Mirrors the rule in
         # ``reviews.services.aggregate.MIN_APPROVED_REVIEWS_FOR_RATING``
         # so we never emit fake or thin rating signals to Google.
         if review_summary is not None and getattr(review_summary, "show_rating", False):
@@ -757,8 +760,11 @@ class StructuredDataGenerator:
 
                 # Nested top-5 Review JSON-LD. Live-queried here so the
                 # schema mirrors what's currently on the page; the same
-                # threshold (>=3 approved) gates surfacing — sub-3 sites
-                # don't get rich-result review snippets either.
+                # threshold (``MIN_APPROVED_REVIEWS_FOR_RATING``, lowered
+                # from 3 to 1 in SEO v1.0 Phase 12 — finding (M)) gates
+                # surfacing, so once a single approved review exists the
+                # nested ``Review`` blocks ride along with
+                # ``aggregateRating`` and feed the rich-result snippet.
                 try:
                     from reviews.models import Review as _Review, ReviewStatus as _RS
                     top_reviews = list(
