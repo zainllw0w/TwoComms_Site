@@ -729,18 +729,40 @@
   </style>
 
   <!-- Основные стили (standard load for stability) -->
+  {% if request.resolver_match.url_name == 'home' %}
+  {% comment %}
+  Phase 22c (2026-05-13) — inline the ENTIRE main CSS bundle on home.
+  Lighthouse mobile reported render-blocking 6279 ms / 49.45 KiB for
+  the bundle (output.8dbf271c3edb.css), which dominated LCP
+  (6640 ms element-render delay). Inlining trades 49 KiB of cacheable
+  CSS for the same bytes in HTML — net transfer is identical
+  (~85 KiB gzipped HTML on home) but the render-blocking request
+  disappears entirely. Repeat-visit cache penalty exists (HTML cache
+  TTL < hashed CSS), but home is overwhelmingly first-touch SEO
+  traffic where first-paint LCP matters more than warm-cache repeats.
+  All three sources are required: ``styles.purged.css`` carries
+  base+component rules, ``cls-ultimate.css`` ships pre-CLS reservations,
+  ``perf-lite.css`` adds the device-class fallbacks. Cached read via
+  ``inline_static`` lru_cache (per-process, busts on collectstatic).
+  {% endcomment %}
+  <style>{% inline_static "css/styles.purged.css" %}</style>
+  <style>{% inline_static "css/cls-ultimate.css" %}</style>
+  <style>{% inline_static "css/perf-lite.css" %}</style>
+  {% else %}
   {% comment %}
   Phase 21 attempt (2026-05-11) — Penthouse-extracted critical CSS
   inline + media=print deferral was reverted because it dropped some
   above-fold rules (state-dependent / hover / dynamically inserted
-  components missed by Penthouse trace). Keeping the bundle render-
-  blocking until we have a more reliable extraction pipeline.
+  components missed by Penthouse trace). On non-home routes the
+  bundle stays render-blocking until we have a more reliable
+  extraction pipeline.
   {% endcomment %}
   {% compress css %}
   <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
   <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
   <link rel="stylesheet" href="{% static 'css/perf-lite.css' %}">
   {% endcompress %}
+  {% endif %}
   {% comment %}
   support-hub.css — только классы .footer-* / .support-* (below-fold на /),
   грузим non-blocking через media=print-hack, чтобы не тормозить LCP.

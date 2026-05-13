@@ -30,18 +30,21 @@
 {% block extra_css %}
   {{ block.super }}
   {% comment %}
-  Phase 21 (2026-05-10) — wrap home/color-filter CSS in a compress
-  block so Django Compressor minifies + concatenates them into a
-  single hashed asset. Previously these two files shipped raw
-  (~13 KB home.css + ~3 KB color-filter.css with comments/whitespace),
-  which Lighthouse flagged as «Уменьшите размер кода CSS — 2.8 KiB».
-  Behavior unchanged — same selectors, same load order; only the
-  bytes-on-wire decrease.
+  Phase 22c (2026-05-13) — inline home.css + color-filter.css.
+  Lighthouse mobile reported 534 ms render-blocking on the bundle
+  (output.378f4ff587f6.css = 11.5 KiB gzipped). Combined with the
+  base CSS bundle inlined in base.html this fully eliminates the
+  CSS render-blocking critical path on home. Files together =
+  57 KiB raw / ~11 KiB gzipped — adds <1 KB to the already
+  inlined HTML payload. Cached read via inline_static lru_cache.
+
+  Original Phase 21 (2026-05-10) note kept for context: previously
+  these two files shipped raw, then Django Compressor minified them
+  into a single hashed asset. Now we skip the network round-trip
+  entirely on home only (other routes don't need home.css).
   {% endcomment %}
-  {% compress css %}
-  <link rel="stylesheet" href="{% static 'css/home.css' %}">
-  <link rel="stylesheet" href="{% static 'css/color-filter.css' %}">
-  {% endcompress %}
+  <style>{% inline_static "css/home.css" %}</style>
+  <style>{% inline_static "css/color-filter.css" %}</style>
 {% endblock %}
 
 {% block structured_data %}
