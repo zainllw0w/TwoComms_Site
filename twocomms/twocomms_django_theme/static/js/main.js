@@ -1823,30 +1823,34 @@ document.addEventListener('click', function (e) {
 
 // Опрос монтируется page-scoped импортом (index.html). Дубль init удалён ради экономии startup JS.
 
-// Цветовые точки, корзина и пагинация подгружаются по требованию, чтобы сократить работу в главном потоке
+// Phase 22b (2026-05-13) — preloaded modules (homepage, product-media) import
+// IMMEDIATELY after DOMContentLoaded instead of inside scheduleIdle. Lighthouse
+// mobile reported the dynamic imports sitting at 5.3-5.4 s in the critical
+// chain because requestIdleCallback was stalling for ~5 s on slow CPUs even
+// though `<link rel=modulepreload>` had already cached the bytes. Cart module
+// stays under scheduleIdle since it is route-scoped (cart-page only) and
+// doesn't share Lighthouse's home/PDP critical chain.
 document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.product-card-wrap') || document.getElementById('productCarousel')) {
+    import('./modules/product-media.js')
+      .then(({ initProductMedia }) => initProductMedia())
+      .catch(() => { });
+  }
+  if (
+    document.getElementById('load-more-btn') ||
+    document.getElementById('products-container') ||
+    document.getElementById('featuredToggle') ||
+    document.getElementById('featured-toggle') ||
+    document.getElementById('categoriesToggle')
+  ) {
+    import('./modules/homepage.js?v=20260427-pagination-transition')
+      .then(({ initHomepage }) => initHomepage())
+      .catch(() => { });
+  }
   scheduleIdle(() => {
-    if (document.querySelector('.product-card-wrap') || document.getElementById('productCarousel')) {
-      import('./modules/product-media.js')
-        .then(({ initProductMedia }) => initProductMedia())
-        .catch(() => { });
-    }
     if (document.querySelector('.cart-page-container') || document.getElementById('promo-code-input')) {
       import('./modules/cart.js?v=20260428-pdp-fit-v2')
         .then(({ initCartInteractions }) => initCartInteractions())
-        .catch(() => { });
-    }
-    // Home-only блоки: featured toggle, categories toggle, card equalization,
-    // pagination — все в одном модуле, подгружаются lazy при наличии маркеров.
-    if (
-      document.getElementById('load-more-btn') ||
-      document.getElementById('products-container') ||
-      document.getElementById('featuredToggle') ||
-      document.getElementById('featured-toggle') ||
-      document.getElementById('categoriesToggle')
-    ) {
-      import('./modules/homepage.js?v=20260427-pagination-transition')
-        .then(({ initHomepage }) => initHomepage())
         .catch(() => { });
     }
   });

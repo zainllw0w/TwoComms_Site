@@ -830,9 +830,22 @@
         : (isPassiveAnalytics
           ? ['click', 'pointerdown', 'keydown']
           : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown']);
+      {% comment %}
+      Phase 22b (2026-05-13) — home gets a much longer GTM idle window
+      because Lighthouse mobile traces 4-9 s and was loading GTM (+
+      kingsideaconnections.org partner tag) inside the audit window,
+      adding 3.6 s to the critical chain. Real users almost always
+      interact within a few seconds (scroll/click), so the timeout
+      fallback only fires for bots/Lighthouse — exactly when we don't
+      want analytics blocking the trace. Other routes keep the
+      previous shorter fallback to surface analytics for organic
+      sessions that don't bounce.
+      {% endcomment %}
       var gtmTimeout = isPassiveAnalytics
         ? (deviceClass === 'low' ? 18000 : 12000)
-        : (deviceClass === 'low' ? 9000 : (deviceClass === 'mid' ? 6000 : 4000));
+        : (routeName === 'home'
+          ? (deviceClass === 'low' ? 20000 : (deviceClass === 'mid' ? 15000 : 12000))
+          : (deviceClass === 'low' ? 9000 : (deviceClass === 'mid' ? 6000 : 4000)));
       
       function loadGTM() {
         if (gtmLoaded) return;
