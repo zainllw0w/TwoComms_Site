@@ -1,4 +1,12 @@
-"""Optional external analytics connectors for the admin dashboard."""
+"""Optional external analytics connectors for the admin dashboard.
+
+This module is intentionally defensive: GA4 and Clarity are *secondary*
+data sources, the dashboard MUST stay usable even when both providers are
+down for days at a time. The caching layer therefore implements
+stale-while-revalidate with very long fallback windows and per-provider
+retry / quota policies so a Microsoft outage does not torch our daily
+rate-limit budget.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +16,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Iterable
 
 import requests
@@ -23,22 +31,35 @@ GA4_SCOPES = ["https://www.googleapis.com/auth/analytics.readonly"]
 # day even with active staff usage.
 GA4_CACHE_TTL = 60 * 30
 # Microsoft Clarity caps the Data Export API at 10 requests/project/day.
-# We currently issue 2 different dimension calls per dashboard load, so we
-# need at least a 4-hour TTL to stay safely under the limit even with two
-# admins refreshing throughout the day. Status pings are cached separately.
+# We issue 2 different dimension calls per dashboard load, so we need at
+# least a 4-hour TTL to stay safely under the limit even with two admins
+# refreshing throughout the day. Status pings are cached separately.
 CLARITY_CACHE_TTL = 60 * 60 * 4
+# Hard daily ceiling enforced in-process (matches the API's published cap).
+CLARITY_DAILY_BUDGET = 10
+# Soft reserve so manual probes / status pings always have headroom.
+CLARITY_BUDGET_RESERVE = 2
 
 # Resilience tunables. Once a remote API has failed we keep its last good
 # response in cache for ``STALE_TTL`` seconds and refuse to retry the live
 # call for ``FAILURE_TTL`` seconds. This prevents the dashboard from melting
 # down with a long retry loop if GA4/Clarity are degraded.
-STALE_TTL = 60 * 60 * 24 * 3  # keep last good payload around for 3 days
-FAILURE_TTL = 60 * 30          # backoff window during outages (Clarity 429s)
+STALE_TTL = 60 * 60 * 24 * 30  # serve last good payload for 30 days
+FAILURE_TTL = 60 * 60          # backoff window during outages (1h)
 STATUS_CACHE_TTL = 60 * 60 * 6  # cache successful status pings for 6h
 STATUS_FAILURE_CACHE_TTL = 60 * 30
-HTTP_RETRY_STATUSES = {500, 502, 503, 504}  # do NOT retry 429 (use backoff cache)
+HTTP_RETRY_STATUSES_DEFAULT = {500, 502, 503, 504}
 HTTP_RETRY_MAX = 2  # i.e. 3 attempts total
 HTTP_RETRY_BACKOFF = 0.4  # seconds, exponential
+
+# Clarity-specific: never retry server errors. A 500 from Clarity is almost
+# always a Microsoft-side issue that won't resolve in the next 0.8 seconds,
+# and each retry burns one of our 10 daily quota slots.
+CLARITY_RETRY_STATUSES: set[int] = set()
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @dataclass(frozen=True)
@@ -73,14 +94,38 @@ def _failure_key(key: str) -> str:
     return f"{key}:fail"
 
 
-def _cache_get_or_set(prefix: str, payload: dict[str, Any], ttl: int, builder):
+def _meta_key(key: str) -> str:
+    """Key for storing metadata (timestamp / source) alongside cached data."""
+    return f"{key}:meta"
+
+
+def _read_cache_meta(prefix: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Return metadata for the latest successful fetch, if any."""
+    key = _cache_key(prefix, payload)
+    meta = cache.get(_meta_key(key)) or {}
+    failure = cache.get(_failure_key(key))
+    if failure:
+        meta = dict(meta)
+        meta["last_error"] = failure
+    return meta
+
+
+def _cache_get_or_set(
+    prefix: str,
+    payload: dict[str, Any],
+    ttl: int,
+    builder,
+    *,
+    failure_ttl: int = FAILURE_TTL,
+    stale_ttl: int = STALE_TTL,
+):
     """
     Cache wrapper that survives transient API failures.
 
     Behaviour:
     - return live cache if fresh;
-    - if a recent failure was recorded (FAILURE_TTL window), serve stale data
-      and avoid retrying the API;
+    - if a recent failure was recorded (``failure_ttl`` window), serve stale
+      data and avoid retrying the API;
     - otherwise call the builder, persisting both fresh and stale copies on
       success and recording the failure on exception.
 
@@ -93,20 +138,29 @@ def _cache_get_or_set(prefix: str, payload: dict[str, Any], ttl: int, builder):
 
     stale_key = _stale_key(key)
     failure_key = _failure_key(key)
+    meta_key = _meta_key(key)
 
     failure_marker = cache.get(failure_key)
     if failure_marker:
         stale = cache.get(stale_key)
         if stale is not None:
             return stale
-        # No stale data — propagate the recorded failure as exception so the
-        # caller can render an error state.
         raise RuntimeError(failure_marker)
 
     try:
         result = builder()
     except Exception as exc:
-        cache.set(failure_key, str(exc) or exc.__class__.__name__, FAILURE_TTL)
+        cache.set(failure_key, str(exc) or exc.__class__.__name__, failure_ttl)
+        existing_meta = cache.get(meta_key) or {}
+        cache.set(
+            meta_key,
+            {
+                **existing_meta,
+                "last_error_at": _now_iso(),
+                "last_error": str(exc) or exc.__class__.__name__,
+            },
+            stale_ttl,
+        )
         stale = cache.get(stale_key)
         if stale is not None:
             logger.warning("%s call failed, serving stale data: %s", prefix, exc)
@@ -114,13 +168,33 @@ def _cache_get_or_set(prefix: str, payload: dict[str, Any], ttl: int, builder):
         raise
 
     cache.set(key, result, ttl)
-    cache.set(stale_key, result, STALE_TTL)
+    cache.set(stale_key, result, stale_ttl)
+    cache.set(
+        meta_key,
+        {
+            "last_success_at": _now_iso(),
+            "ttl": ttl,
+        },
+        stale_ttl,
+    )
     cache.delete(failure_key)
     return result
 
 
-def _http_get_with_retry(url: str, *, params: dict, headers: dict, timeout: int) -> requests.Response:
-    """GET with exponential backoff for transient HTTP errors."""
+def _http_get_with_retry(
+    url: str,
+    *,
+    params: dict,
+    headers: dict,
+    timeout: int,
+    retry_statuses: set[int] | None = None,
+) -> requests.Response:
+    """GET with exponential backoff for transient HTTP errors.
+
+    ``retry_statuses`` can be an empty set to disable status-based retries
+    entirely (e.g. for Clarity, where 5xx burns daily quota).
+    """
+    retry_statuses = retry_statuses if retry_statuses is not None else HTTP_RETRY_STATUSES_DEFAULT
     last_exc: Exception | None = None
     for attempt in range(HTTP_RETRY_MAX + 1):
         try:
@@ -132,7 +206,7 @@ def _http_get_with_retry(url: str, *, params: dict, headers: dict, timeout: int)
             time.sleep(HTTP_RETRY_BACKOFF * (2 ** attempt))
             continue
 
-        if response.status_code in HTTP_RETRY_STATUSES and attempt < HTTP_RETRY_MAX:
+        if response.status_code in retry_statuses and attempt < HTTP_RETRY_MAX:
             time.sleep(HTTP_RETRY_BACKOFF * (2 ** attempt))
             continue
         return response
@@ -140,6 +214,55 @@ def _http_get_with_retry(url: str, *, params: dict, headers: dict, timeout: int)
     if last_exc is not None:
         raise last_exc
     raise RuntimeError("HTTP retry loop exhausted without response")
+
+
+# ---------------------------------------------------------------------------
+# Clarity daily quota tracker
+# ---------------------------------------------------------------------------
+
+def _clarity_quota_key() -> str:
+    """Per-UTC-day Redis counter that mirrors Clarity's published cap."""
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return f"external_analytics:clarity:quota:{today}"
+
+
+def get_clarity_quota_state() -> dict[str, int]:
+    """Return ``{used, remaining, limit}`` for the current UTC day."""
+    used = int(cache.get(_clarity_quota_key()) or 0)
+    return {
+        "used": used,
+        "remaining": max(0, CLARITY_DAILY_BUDGET - used),
+        "limit": CLARITY_DAILY_BUDGET,
+        "reserve": CLARITY_BUDGET_RESERVE,
+    }
+
+
+def _clarity_budget_allows_call(*, allow_reserve: bool = False) -> bool:
+    """
+    Check if we still have budget to call Clarity.
+
+    Normal callers must leave the reserve untouched (so manual status pings
+    can always succeed); pass ``allow_reserve=True`` for those probes.
+    """
+    state = get_clarity_quota_state()
+    floor = 0 if allow_reserve else CLARITY_BUDGET_RESERVE
+    return state["used"] < (CLARITY_DAILY_BUDGET - floor)
+
+
+def _record_clarity_call() -> int:
+    """Atomically increment the daily counter. Returns the new total."""
+    key = _clarity_quota_key()
+    # ``Django.core.cache`` may not implement ``incr`` for all backends. The
+    # Redis backend used in production does. Fall back to set-after-get for
+    # local/test environments.
+    try:
+        # Initialize if missing.
+        cache.add(key, 0, 60 * 60 * 26)  # 26h so we comfortably cross UTC midnight
+        return cache.incr(key, 1)
+    except (ValueError, NotImplementedError):
+        current = int(cache.get(key) or 0) + 1
+        cache.set(key, current, 60 * 60 * 26)
+        return current
 
 
 def _env_first(*names: str) -> str:
@@ -630,8 +753,32 @@ def get_clarity_status(test_connection: bool = False) -> dict[str, Any]:
             details={"configured": False},
         ).as_dict()
 
-    details = {"configured": True}
+    # Pull metadata about the latest successful overview fetch so admins can
+    # see "data from 2h ago" even when the live ping is failing.
+    overview_meta = _read_cache_meta(
+        "clarity_live_insights",
+        {"num_of_days": 1, "dimension1": "", "dimension2": "", "dimension3": ""},
+    )
+    quota = get_clarity_quota_state()
+    details: dict[str, Any] = {
+        "configured": True,
+        "last_success_at": overview_meta.get("last_success_at", ""),
+        "last_error_at": overview_meta.get("last_error_at", ""),
+        "daily_quota_used": quota["used"],
+        "daily_quota_remaining": quota["remaining"],
+        "daily_quota_limit": quota["limit"],
+    }
+
     if not test_connection:
+        # Cheap path: trust whatever the cache+DB knows, no live call.
+        if overview_meta.get("last_success_at"):
+            return ConnectorStatus(
+                key="clarity",
+                label="Microsoft Clarity",
+                status="healthy",
+                message=f"Останнє оновлення: {overview_meta['last_success_at']}.",
+                details=details,
+            ).as_dict()
         return ConnectorStatus(
             key="clarity",
             label="Microsoft Clarity",
@@ -640,16 +787,49 @@ def get_clarity_status(test_connection: bool = False) -> dict[str, Any]:
             details=details,
         ).as_dict()
 
+    # If quota is exhausted, do not attempt a live ping; surface the cached
+    # state to the admin instead.
+    if not _clarity_budget_allows_call(allow_reserve=True):
+        result = ConnectorStatus(
+            key="clarity",
+            label="Microsoft Clarity",
+            status="warning",
+            message=(
+                f"Clarity API: добова квота вичерпана ({quota['used']}/{quota['limit']}). "
+                "Лічильник скидається о 00:00 UTC."
+            ),
+            details=details,
+        ).as_dict()
+        cache.set("external_analytics:clarity:status:test", result, STATUS_FAILURE_CACHE_TTL)
+        return result
+
     try:
-        _clarity_request(num_of_days=1, use_cache=False)
+        _clarity_request(num_of_days=1, use_cache=False, allow_reserve=True)
+        quota = get_clarity_quota_state()
+        details["daily_quota_used"] = quota["used"]
+        details["daily_quota_remaining"] = quota["remaining"]
+        details["last_success_at"] = _now_iso()
         result = ConnectorStatus(
             key="clarity",
             label="Microsoft Clarity",
             status="healthy",
-            message="З’єднання з Clarity успішне.",
+            message=(
+                f"З'єднання з Clarity успішне. Квота: {quota['used']}/{quota['limit']} за добу."
+            ),
             details=details,
         ).as_dict()
         cache.set("external_analytics:clarity:status:test", result, STATUS_CACHE_TTL)
+        return result
+    except ClarityQuotaExhausted as exc:
+        details["connection_error"] = str(exc)
+        result = ConnectorStatus(
+            key="clarity",
+            label="Microsoft Clarity",
+            status="warning",
+            message=f"Clarity API: добова квота вичерпана ({quota['used']}/{quota['limit']}).",
+            details=details,
+        ).as_dict()
+        cache.set("external_analytics:clarity:status:test", result, STATUS_FAILURE_CACHE_TTL)
         return result
     except Exception as exc:
         http_status = None
@@ -657,19 +837,39 @@ def get_clarity_status(test_connection: bool = False) -> dict[str, Any]:
             http_status = exc.response.status_code
             details["http_status"] = http_status
         details["connection_error"] = str(exc)
+        # Refresh quota snapshot in case the failed call still consumed a slot
+        quota = get_clarity_quota_state()
+        details["daily_quota_used"] = quota["used"]
+        details["daily_quota_remaining"] = quota["remaining"]
 
-        # Rate-limit (Clarity caps at 10 req/project/day) deserves a softer
-        # warning so the dashboard does not flash red every time the daily
-        # quota is exhausted.
+        # Customise the message based on the failure mode so admins see what
+        # action is actually required.
         if http_status == 429:
-            message = "Clarity API: добова квота 10 запитів вичерпана. Дані повернуться завтра."
+            message = "Clarity API: добова квота 10 запитів вичерпана (HTTP 429)."
             status = "warning"
         elif http_status in (401, 403):
-            message = "Clarity API token відхилено (401/403). Перегенеруйте токен в Clarity → Settings → Data Export."
+            message = (
+                "Clarity API token відхилено (HTTP "
+                f"{http_status}). Перегенеруйте токен у Clarity → Settings → Data Export."
+            )
             status = "error"
+        elif http_status is not None and 500 <= http_status < 600:
+            message = (
+                f"Microsoft Clarity тимчасово недоступний (HTTP {http_status}). "
+                "Дані оновляться автоматично, коли сервіс відновиться."
+            )
+            status = "warning"
         else:
-            message = "Не вдалося отримати live insights з Clarity (перевірте мережу та токен)."
+            message = (
+                "Не вдалося отримати live insights з Clarity "
+                f"({exc.__class__.__name__}). Перевірте токен та мережу."
+            )
             status = "error"
+
+        # Annotate with "last good" timestamp so the warning still feels
+        # useful while Clarity is degraded.
+        if overview_meta.get("last_success_at"):
+            message = f"{message} Останнє успішне оновлення: {overview_meta['last_success_at']}."
 
         result = ConnectorStatus(
             key="clarity",
@@ -682,6 +882,10 @@ def get_clarity_status(test_connection: bool = False) -> dict[str, Any]:
         return result
 
 
+class ClarityQuotaExhausted(RuntimeError):
+    """Raised when the daily 10-call Clarity budget is depleted."""
+
+
 def _clarity_request(
     *,
     num_of_days: int = 1,
@@ -689,6 +893,7 @@ def _clarity_request(
     dimension2: str = "",
     dimension3: str = "",
     use_cache: bool = True,
+    allow_reserve: bool = False,
 ) -> list[dict[str, Any]]:
     token = _clarity_token()
     if not token:
@@ -702,6 +907,13 @@ def _clarity_request(
     }
 
     def _builder():
+        # Pre-flight: never make a call that would push us past the daily cap.
+        if not _clarity_budget_allows_call(allow_reserve=allow_reserve):
+            state = get_clarity_quota_state()
+            raise ClarityQuotaExhausted(
+                f"Clarity daily budget exhausted ({state['used']}/{state['limit']})"
+            )
+
         params = {"numOfDays": max(1, min(int(num_of_days), 3))}
         if dimension1:
             params["dimension1"] = dimension1
@@ -709,6 +921,10 @@ def _clarity_request(
             params["dimension2"] = dimension2
         if dimension3:
             params["dimension3"] = dimension3
+
+        # Increment counter BEFORE the call so even network errors count
+        # against quota (each attempt hits Clarity infra once).
+        _record_clarity_call()
 
         response = _http_get_with_retry(
             "https://www.clarity.ms/export-data/api/v1/project-live-insights",
@@ -718,6 +934,7 @@ def _clarity_request(
                 "Content-Type": "application/json",
             },
             timeout=20,
+            retry_statuses=CLARITY_RETRY_STATUSES,  # never retry 5xx (saves quota)
         )
         response.raise_for_status()
         data = response.json()
@@ -727,7 +944,12 @@ def _clarity_request(
 
     if not use_cache:
         return _builder()
-    return _cache_get_or_set("clarity_live_insights", payload, CLARITY_CACHE_TTL, _builder)
+    return _cache_get_or_set(
+        "clarity_live_insights",
+        payload,
+        CLARITY_CACHE_TTL,
+        _builder,
+    )
 
 
 def fetch_clarity_overview(*, num_of_days: int = 1) -> dict[str, Any]:
