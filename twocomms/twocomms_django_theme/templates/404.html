@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}404 — Щось пішло не так{% endblock %}
+{% block title %}{% trans '404 — Щось пішло не так' %}{% endblock %}
 
 {% comment %}
 SEO v1.0 Phase 11 (2026-05-12) — finding (WW). The original 404 template
@@ -203,17 +203,17 @@ ever consolidating ranking signals onto a non-existent URL.
 <div class="container-xxl px-0 px-md-3">
     <div class="error-404-wrapper">
         <canvas id="spermCanvas"></canvas>
-        <div id="spermBubble" class="sperm-bubble">(Щось ми не туди припливли...)</div>
+        <div id="spermBubble" class="sperm-bubble">{% trans '(Щось ми не туди припливли...)' %}</div>
         
         <div class="error-404-content">
             <h1 class="title-404">404</h1>
-            <h2 class="subtitle-404">Упс, глухий кут</h2>
+            <h2 class="subtitle-404">{% trans 'Упс, глухий кут' %}</h2>
             <p class="text-404">
-                Схоже, ми припливли <strong>кудись не туди</strong>.<br>
-                Сторінка, яку ви шукаєте, <strong>не існує</strong> або була переміщена.
+                {% blocktrans %}Схоже, ми припливли <strong>кудись не туди</strong>.<br>
+                Сторінка, яку ви шукаєте, <strong>не існує</strong> або була переміщена.{% endblocktrans %}
             </p>
             <a href="{% url 'home' %}" class="btn-home">
-                Повернутися на головну
+                {% trans 'Повернутися на головну' %}
             </a>
         </div>
     </div>

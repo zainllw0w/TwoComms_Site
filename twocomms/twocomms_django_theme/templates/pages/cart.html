@@ -223,9 +223,9 @@
 
                 <div class="cart-item-actions">
                   <div class="cart-item-total">
-                    <span class="cart-item-total-label">Разом:</span>
+                    <span class="cart-item-total-label">{% trans 'Разом:' %}</span>
                     {% if ci.included_in_payment %}
-                    <span class="cart-item-total-value">{{ ci.final_total|floatformat:2 }} грн</span>
+                    <span class="cart-item-total-value">{{ ci.final_total|floatformat:2 }} {% trans 'грн' %}</span>
                     {% else %}
                     <span class="cart-item-total-value cart-item-total-value--muted">{% trans 'Після погодження' %}</span>
                     {% if ci.final_total > 0 %}
@@ -317,9 +317,9 @@
                   <span class="cart-item-price-label">{% trans 'Ціна:' %}</span>
                   <span class="cart-item-price-value">
                     {% if it.original_unit_price and it.original_unit_price > it.unit_price %}
-                      <span class="cart-item-price-old">{{ it.original_unit_price|floatformat:2 }} грн</span>
+                      <span class="cart-item-price-old">{{ it.original_unit_price|floatformat:2 }} {% trans 'грн' %}</span>
                     {% endif %}
-                    <span class="cart-item-price-current">{{ it.unit_price|floatformat:2 }} грн</span>
+                    <span class="cart-item-price-current">{{ it.unit_price|floatformat:2 }} {% trans 'грн' %}</span>
                   </span>
                 </div>
                 <!-- Информация о баллах -->
@@ -543,7 +543,7 @@
             </div>
 
             <div class="cart-form-group">
-              <label class="cart-form-label">{% trans 'Email' %} (опціонально)</label>
+              <label class="cart-form-label">{% trans 'Email' %} ({% trans 'опціонально' %})</label>
               <div class="cart-form-input-wrapper">
                 <input type="email" name="email" class="cart-form-input" placeholder="{% trans 'your@email.com' %}">
                 <div class="cart-form-input-glow"></div>
@@ -649,7 +649,7 @@
           <div class="cart-promo-applied">
             <div class="cart-promo-applied-content">
               <div class="cart-promo-applied-code">{{ applied_promo.code }}</div>
-              <div class="cart-promo-applied-discount">{% trans 'Знижка:' %} {{ discount }} грн</div>
+              <div class="cart-promo-applied-discount">{% trans 'Знижка:' %} {{ discount }} {% trans 'грн' %}</div>
             </div>
             <button type="button" class="cart-promo-remove-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -690,7 +690,7 @@
         <div class="cart-checkout-summary" id="cart-summary">
           <div class="cart-summary-row">
             <span class="cart-summary-label" id="cart-items-label">{% trans 'Товари' %} ({{ items_total_qty|default:cart_count }}):</span>
-            <span class="cart-summary-value" id="cart-subtotal-value">{{ original_subtotal|floatformat:2 }} грн</span>
+            <span class="cart-summary-value" id="cart-subtotal-value">{{ original_subtotal|floatformat:2 }} {% trans 'грн' %}</span>
           </div>
 
           {% if custom_items %}
@@ -703,25 +703,25 @@
                 {% if any_pending_review %}{% trans 'Орієнтовно за кастомний друк' %}{% else %}{% trans 'Кастомний друк' %}{% endif %} ({{ custom_items_qty }}):
               </div>
             </span>
-            <span class="cart-summary-value">{{ custom_items_total|floatformat:2 }} грн</span>
+            <span class="cart-summary-value">{{ custom_items_total|floatformat:2 }} {% trans 'грн' %}</span>
           </div>
           {% endif %}
 
           <div class="cart-summary-row cart-summary-site-discount {% if site_discount_total <= 0 %}d-none{% endif %}" id="cart-site-discount-row">
             <span class="cart-summary-label">{% trans 'Знижка магазину' %}</span>
-            <span class="cart-summary-value" id="cart-site-discount-value">-{{ site_discount_total|floatformat:2 }} грн</span>
+            <span class="cart-summary-value" id="cart-site-discount-value">-{{ site_discount_total|floatformat:2 }} {% trans 'грн' %}</span>
           </div>
 
           <div class="cart-summary-row cart-summary-discount {% if discount <= 0 %}d-none{% endif %}" id="cart-discount-row">
             <span class="cart-summary-label">
               <div class="cart-discount-label">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01Л12 2z"/>
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
                 {% trans 'Знижка промокоду' %}
               </div>
             </span>
-            <span class="cart-summary-value" id="cart-discount-value">-{{ discount|floatformat:2 }} грн</span>
+            <span class="cart-summary-value" id="cart-discount-value">-{{ discount|floatformat:2 }} {% trans 'грн' %}</span>
           </div>
 
           <div class="cart-summary-row cart-summary-total" id="pay-now-row">
@@ -729,11 +729,11 @@
             <span class="cart-summary-value"
                   id="pay-now-amount"
                   data-total="{{ approved_total|default:total|floatformat:'2' }}"
-                  data-prepay="200">{% if pay_now_amount %}{{ pay_now_amount|floatformat:2 }} грн{% else %}{{ approved_total|default:total|floatformat:2 }} грн{% endif %}</span>
+                  data-prepay="200">{% if pay_now_amount %}{{ pay_now_amount|floatformat:2 }} {% trans 'грн' %}{% else %}{{ approved_total|default:total|floatformat:2 }} {% trans 'грн' %}{% endif %}</span>
           </div>
           <div class="cart-summary-row cart-summary-prepay d-none" id="prepay-remaining-row">
             <span class="cart-summary-label">{% trans 'Залишок при отриманні:' %}</span>
-            <span class="cart-summary-value" id="prepay-remaining-amount">{{ total|floatformat:2 }} грн</span>
+            <span class="cart-summary-value" id="prepay-remaining-amount">{{ total|floatformat:2 }} {% trans 'грн' %}</span>
           </div>
           <p class="cart-summary-note d-none" id="prepay-note">
             {% trans 'Це додаткова передоплата для вас — решту сплатите при отриманні.' %}
@@ -743,17 +743,17 @@
         <div class="cart-savings-info {% if site_discount_total <= 0 and discount <= 0 %}d-none{% endif %}" id="cart-savings-info">
           <div class="cart-savings-line {% if site_discount_total <= 0 %}d-none{% endif %}" id="cart-savings-site">
             <span class="cart-savings-label">{% trans 'Знижка від TwoComms' %}</span>
-            <span class="cart-savings-amount" id="cart-savings-site-amount">{{ site_discount_total|floatformat:2 }} грн</span>
+            <span class="cart-savings-amount" id="cart-savings-site-amount">{{ site_discount_total|floatformat:2 }} {% trans 'грн' %}</span>
           </div>
           <div class="cart-savings-line {% if discount <= 0 %}d-none{% endif %}" id="cart-savings-promo">
             <span class="cart-savings-label">
               {% trans 'Промокод' %} <span class="cart-savings-highlight" id="cart-savings-promo-code">{% if promo_code %}{{ promo_code.code }}{% endif %}</span>
             </span>
-            <span class="cart-savings-amount" id="cart-savings-promo-amount">{{ discount|floatformat:2 }} грн</span>
+            <span class="cart-savings-amount" id="cart-savings-promo-amount">{{ discount|floatformat:2 }} {% trans 'грн' %}</span>
           </div>
           <div class="cart-savings-total {% if site_discount_total <= 0 and discount <= 0 %}d-none{% endif %}" id="cart-savings-total">
             <span class="cart-savings-label">{% trans 'Разом ви економите' %}</span>
-            <span class="cart-savings-amount" id="cart-savings-total-amount">{{ total_savings|floatformat:2 }} грн</span>
+            <span class="cart-savings-amount" id="cart-savings-total-amount">{{ total_savings|floatformat:2 }} {% trans 'грн' %}</span>
           </div>
         </div>
         
@@ -762,7 +762,7 @@
           <div class="cart-points-header">
             <div class="cart-points-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l3.09 6.26L22 9.27л-5 4.87 1.18 6.88Л12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01Л12 2z"/>
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
               </svg>
             </div>
             <span class="cart-points-title">{% trans 'Бали за замовлення' %}</span>
@@ -778,13 +778,13 @@
           <div class="cart-points-guest" id="cart-points-guest">
             <div class="cart-points-guest-info">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2в6zm0-8h-2V7h2в2з"/>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
               </svg>
               <span>{% trans 'Для отримання балів потрібно авторизуватися' %}</span>
             </div>
             <a href="{% url 'login' %}" class="cart-points-login-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M11 7L9.6 8.4л2.6 2.6H2v2h10.2л-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8в14з"/>
+                <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
               </svg>
               {% trans 'Авторизуватися' %}
             </a>

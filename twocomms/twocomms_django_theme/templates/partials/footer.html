@@ -17,7 +17,7 @@
       {% if footer_content.socials %}
         <div class="footer-socials" aria-label="{% trans 'Соцмережі TwoComms' %}">
           {% for item in footer_content.socials %}
-            {% with social_label=item.label|default:"Соцмережа" social_url=item.url|default:"#"%}
+            {% with social_label=item.label|default:_("Соцмережа") social_url=item.url|default:"#"%}
               {% if "instagram" in social_label|lower or "instagram" in social_url|lower %}
                 <a class="footer-social-link footer-social-link--instagram"
                    href="{{ social_url }}"
