@@ -17,18 +17,26 @@ from django.core.cache import cache
 logger = logging.getLogger(__name__)
 
 GA4_SCOPES = ["https://www.googleapis.com/auth/analytics.readonly"]
-GA4_CACHE_TTL = 60 * 5
-CLARITY_CACHE_TTL = 60 * 5
+# GA4 default per-property quotas are generous, but each dashboard render
+# fires multiple reports (channel groups / sources / devices / countries /
+# landing pages). 30 min cache reduces that to ~50 calls per dimension per
+# day even with active staff usage.
+GA4_CACHE_TTL = 60 * 30
+# Microsoft Clarity caps the Data Export API at 10 requests/project/day.
+# We currently issue 2 different dimension calls per dashboard load, so we
+# need at least a 4-hour TTL to stay safely under the limit even with two
+# admins refreshing throughout the day. Status pings are cached separately.
+CLARITY_CACHE_TTL = 60 * 60 * 4
 
 # Resilience tunables. Once a remote API has failed we keep its last good
 # response in cache for ``STALE_TTL`` seconds and refuse to retry the live
 # call for ``FAILURE_TTL`` seconds. This prevents the dashboard from melting
 # down with a long retry loop if GA4/Clarity are degraded.
-STALE_TTL = 60 * 60 * 24  # keep last good payload around for a full day
-FAILURE_TTL = 60 * 5      # backoff window during outages
-STATUS_CACHE_TTL = 60 * 2  # status pings: cache success for 2 min
-STATUS_FAILURE_CACHE_TTL = 60 * 5
-HTTP_RETRY_STATUSES = {429, 500, 502, 503, 504}
+STALE_TTL = 60 * 60 * 24 * 3  # keep last good payload around for 3 days
+FAILURE_TTL = 60 * 30          # backoff window during outages (Clarity 429s)
+STATUS_CACHE_TTL = 60 * 60 * 6  # cache successful status pings for 6h
+STATUS_FAILURE_CACHE_TTL = 60 * 30
+HTTP_RETRY_STATUSES = {500, 502, 503, 504}  # do NOT retry 429 (use backoff cache)
 HTTP_RETRY_MAX = 2  # i.e. 3 attempts total
 HTTP_RETRY_BACKOFF = 0.4  # seconds, exponential
 
@@ -197,16 +205,65 @@ def _ga4_property_id() -> str:
     return normalized if normalized.isdigit() else ""
 
 
+def _resolve_ga4_credentials_file() -> str:
+    """
+    Return an existing service-account JSON path or empty string.
+
+    Order of resolution:
+    1. ``GA4_SERVICE_ACCOUNT_FILE`` env var (verbatim if file exists).
+    2. ``GOOGLE_APPLICATION_CREDENTIALS`` env var.
+    3. Auto-discovery: any ``*service*account*.json`` or
+       ``gen-lang-client-*.json`` file under ``BASE_DIR/Anl`` or
+       ``BASE_DIR.parent/Anl``. Useful when the env var path is stale and
+       the file moved between deploys.
+    """
+    explicit = _env_first("GA4_SERVICE_ACCOUNT_FILE", "GOOGLE_APPLICATION_CREDENTIALS")
+    if explicit and os.path.isfile(explicit):
+        return explicit
+
+    try:
+        from django.conf import settings as _django_settings
+
+        base_dir = getattr(_django_settings, "BASE_DIR", None)
+    except Exception:
+        base_dir = None
+
+    candidates: list[str] = []
+    if base_dir is not None:
+        for parent in (str(base_dir), os.path.dirname(str(base_dir))):
+            candidates.append(os.path.join(parent, "Anl"))
+            candidates.append(os.path.join(parent, "credentials"))
+
+    for directory in candidates:
+        if not os.path.isdir(directory):
+            continue
+        try:
+            entries = os.listdir(directory)
+        except OSError:
+            continue
+        for name in entries:
+            if not name.endswith(".json"):
+                continue
+            lower = name.lower()
+            if (
+                "gen-lang-client" in lower
+                or "service-account" in lower
+                or "service_account" in lower
+                or "google-credentials" in lower
+            ):
+                full = os.path.join(directory, name)
+                if os.path.isfile(full):
+                    return full
+    return explicit if explicit else ""
+
+
 def _build_ga4_client():
     deps = _load_ga4_dependencies()
     client_class = deps["client_class"]
     service_account = deps["service_account"]
     google_default_credentials = deps["google_default_credentials"]
 
-    credentials_file = _env_first(
-        "GA4_SERVICE_ACCOUNT_FILE",
-        "GOOGLE_APPLICATION_CREDENTIALS",
-    )
+    credentials_file = _resolve_ga4_credentials_file()
     credentials_json = _env_first(
         "GA4_SERVICE_ACCOUNT_JSON",
         "GOOGLE_SERVICE_ACCOUNT_JSON",
@@ -218,6 +275,10 @@ def _build_ga4_client():
         return client_class(credentials=credentials), "service_account_json"
 
     if credentials_file and service_account is not None:
+        if not os.path.isfile(credentials_file):
+            raise FileNotFoundError(
+                f"GA4 service account file not found at {credentials_file}"
+            )
         credentials = service_account.Credentials.from_service_account_file(
             credentials_file,
             scopes=GA4_SCOPES,
@@ -264,8 +325,16 @@ def get_ga4_status(test_connection: bool = False) -> dict[str, Any]:
             key="ga4",
             label="GA4 Data API",
             status="warning",
-            message="Google Analytics Data API залежності не встановлені.",
+            message="Google Analytics Data API залежності не встановлені (pip install google-analytics-data google-auth).",
             details={"property_id": property_id, "configured": True, "dependency_error": str(exc)},
+        ).as_dict()
+    except FileNotFoundError as exc:
+        return ConnectorStatus(
+            key="ga4",
+            label="GA4 Data API",
+            status="warning",
+            message="Service-account JSON для GA4 не знайдено. Завантажте файл у /Anl або задайте GA4_SERVICE_ACCOUNT_JSON.",
+            details={"property_id": property_id, "configured": True, "error": str(exc)},
         ).as_dict()
     except Exception as exc:
         return ConnectorStatus(
@@ -583,14 +652,30 @@ def get_clarity_status(test_connection: bool = False) -> dict[str, Any]:
         cache.set("external_analytics:clarity:status:test", result, STATUS_CACHE_TTL)
         return result
     except Exception as exc:
+        http_status = None
         if isinstance(exc, requests.HTTPError) and exc.response is not None:
-            details["http_status"] = exc.response.status_code
+            http_status = exc.response.status_code
+            details["http_status"] = http_status
         details["connection_error"] = str(exc)
+
+        # Rate-limit (Clarity caps at 10 req/project/day) deserves a softer
+        # warning so the dashboard does not flash red every time the daily
+        # quota is exhausted.
+        if http_status == 429:
+            message = "Clarity API: добова квота 10 запитів вичерпана. Дані повернуться завтра."
+            status = "warning"
+        elif http_status in (401, 403):
+            message = "Clarity API token відхилено (401/403). Перегенеруйте токен в Clarity → Settings → Data Export."
+            status = "error"
+        else:
+            message = "Не вдалося отримати live insights з Clarity (перевірте мережу та токен)."
+            status = "error"
+
         result = ConnectorStatus(
             key="clarity",
             label="Microsoft Clarity",
-            status="error",
-            message="Не вдалося отримати live insights з Clarity.",
+            status=status,
+            message=message,
             details=details,
         ).as_dict()
         cache.set("external_analytics:clarity:status:test", result, STATUS_FAILURE_CACHE_TTL)

@@ -660,17 +660,54 @@ def _count_distinct_visitors(site_qs) -> int:
     )
 
 
+SESSION_DURATION_CAP_SECONDS = 30 * 60  # 30 minutes — GA4-style inactivity timeout
+
+
+def _format_duration_human(seconds: int | float | None) -> str:
+    """Render a seconds value as a compact ``mm:ss`` / ``hh:mm:ss`` label."""
+    try:
+        total = int(seconds or 0)
+    except (TypeError, ValueError):
+        return "0с"
+    if total <= 0:
+        return "0с"
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}год {minutes:02d}хв"
+    if minutes:
+        return f"{minutes}хв {secs:02d}с"
+    return f"{secs}с"
+
+
 def _average_session_seconds(site_qs) -> int:
     """
-    Mean session duration in seconds. Single-page sessions where
-    ``last_seen == first_seen`` would otherwise drag the mean toward zero, so
-    we drop sessions with ``duration <= 0`` from the aggregate.
+    Mean session duration in seconds.
+
+    Two pitfalls we guard against:
+    * Single-page sessions where ``last_seen == first_seen`` collapse the mean
+      toward zero, so we drop ``duration <= 0`` from the aggregate.
+    * Long-lived browser tabs can keep ``last_seen`` ticking for hours/days,
+      producing absurd 9h+ averages. Like GA4, we cap any single session to
+      ``SESSION_DURATION_CAP_SECONDS`` (30 min of inactivity).
     """
+    cap = timedelta(seconds=SESSION_DURATION_CAP_SECONDS)
     qs_with_duration = site_qs.annotate(
-        duration=ExpressionWrapper(F("last_seen") - F("first_seen"), output_field=DurationField())
-    ).filter(duration__gt=timedelta(seconds=0))
-    duration = qs_with_duration.aggregate(avg_duration=Avg("duration"))["avg_duration"]
-    return int(duration.total_seconds()) if duration else 0
+        raw_duration=ExpressionWrapper(F("last_seen") - F("first_seen"), output_field=DurationField())
+    ).filter(raw_duration__gt=timedelta(seconds=0))
+
+    total_seconds = 0
+    counted = 0
+    for value in qs_with_duration.values_list("raw_duration", flat=True).iterator(chunk_size=2000):
+        if value is None:
+            continue
+        seconds = int(value.total_seconds())
+        if seconds <= 0:
+            continue
+        total_seconds += min(seconds, SESSION_DURATION_CAP_SECONDS)
+        counted += 1
+
+    return total_seconds // counted if counted else 0
 
 
 def _tracked_from(*action_types: str) -> str | None:
@@ -757,6 +794,7 @@ def _build_overview_cards(filters: AnalyticsFilters) -> dict[str, Any]:
             "aov": aov,
             "conversion_rate": conversion_rate,
             "avg_session_seconds": avg_duration,
+            "avg_session_label": _format_duration_human(avg_duration),
             "bounce_rate": bounce_rate,
             "page_views": pageviews_qs.count(),
             "cart_adds": cart_adds,
@@ -1558,11 +1596,15 @@ def _integration_status_data() -> dict[str, Any]:
 
     warnings = []
     if internal_status["details"]["ip_capture_ratio"] < 75:
-        warnings.append("IP capture нижче 75%: перед використанням unique-IP KPI перевірити production reverse proxy.")
+        warnings.append(
+            "IP capture нижче 75%: перед використанням unique-IP KPI перевірити production reverse proxy."
+        )
     if ga4_status["status"] != "healthy":
-        warnings.append("GA4 backend недоступний або не налаштований: traffic tab працює з fallback на внутрішні дані.")
+        # Surface the actual connector message (file missing / quota / etc.)
+        # instead of a generic "недоступний" warning that hides the real cause.
+        warnings.append(f"GA4: {ga4_status.get('message', 'недоступний')}")
     if clarity_status["status"] != "healthy":
-        warnings.append("Clarity token відсутній або live export недоступний: UX tab без live-insights.")
+        warnings.append(f"Clarity: {clarity_status.get('message', 'недоступний')}")
 
     return {
         "integrations": [internal_status, ga4_status, clarity_status],
