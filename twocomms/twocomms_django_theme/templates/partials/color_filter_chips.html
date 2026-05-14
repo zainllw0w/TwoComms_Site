@@ -1,3 +1,4 @@
+{% load i18n %}
 {% comment %}
   Phase 9 — colour filter chip strip.
 
@@ -8,8 +9,8 @@
     color_filter_reset_url     — URL with ``color=`` dropped
 {% endcomment %}
 {% if available_colors %}
-<nav class="color-filter-chips" aria-label="Фільтр за кольором">
-  <span class="color-filter-chips__label">Колір:</span>
+<nav class="color-filter-chips" aria-label="{% trans 'Фільтр за кольором' %}">
+  <span class="color-filter-chips__label">{% trans 'Колір:' %}</span>
   <ul class="color-filter-chips__list" role="list">
     {% for chip in available_colors %}
     <li class="color-filter-chips__item">
@@ -29,7 +30,7 @@
     {% endfor %}
   </ul>
   {% if has_active_color_filter %}
-  <a class="color-filter-chips__reset" href="{{ color_filter_reset_url }}" rel="nofollow">Скинути</a>
+  <a class="color-filter-chips__reset" href="{{ color_filter_reset_url }}" rel="nofollow">{% trans 'Скинути' %}</a>
   {% endif %}
 </nav>
 {% endif %}

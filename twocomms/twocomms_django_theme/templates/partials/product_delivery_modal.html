@@ -1,3 +1,4 @@
+{% load i18n %}
 <div class="modal fade product-modal-fullscreen" id="deliveryInfoModal" tabindex="-1" aria-labelledby="deliveryInfoModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content delivery-info-modal-modern">
@@ -12,8 +13,8 @@
             {# SEO v1.0 Phase 12 (2026-05-13) — finding (AAA). See sibling #}
             {# product_points_modal.html for the rationale. Lifted H5 to #}
             {# H3 to close the heading-hierarchy gap on PDP. #}
-            <h3 class="modal-title-modern" id="deliveryInfoModalLabel">Доставка та оплата</h3>
-            <p class="modal-subtitle-modern">Умови доставки замовлень</p>
+            <h3 class="modal-title-modern" id="deliveryInfoModalLabel">{% trans 'Доставка та оплата' %}</h3>
+            <p class="modal-subtitle-modern">{% trans 'Умови доставки замовлень' %}</p>
           </div>
         </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -27,8 +28,8 @@
               </svg>
             </div>
             <div class="delivery-text-modern">
-              <strong>Нова Пошта</strong><br>
-              Доставка по всій Україні. Вартість від 60 грн, термін доставки 1-3 дні.
+              <strong>{% trans 'Нова Пошта' %}</strong><br>
+              {% trans 'Доставка по всій Україні. Вартість від 60 грн, термін доставки 1-3 дні.' %}
             </div>
           </div>
           
@@ -39,8 +40,8 @@
               </svg>
             </div>
             <div class="delivery-text-modern">
-              <strong>Самовивіз</strong><br>
-              Можливий самовивіз з нашого складу. Деталі узгоджуються з менеджером.
+              <strong>{% trans 'Самовивіз' %}</strong><br>
+              {% trans 'Можливий самовивіз з нашого складу. Деталі узгоджуються з менеджером.' %}
             </div>
           </div>
           
@@ -51,8 +52,8 @@
               </svg>
             </div>
             <div class="delivery-text-modern">
-              <strong>Оплата</strong><br>
-              Можлива оплата картою онлайн, накладним платежем або передоплатою.
+              <strong>{% trans 'Оплата' %}</strong><br>
+              {% trans 'Можлива оплата картою онлайн, накладним платежем або передоплатою.' %}
             </div>
           </div>
         </div>

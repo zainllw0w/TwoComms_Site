@@ -1,4 +1,4 @@
-{% load static %}
+{% load static i18n %}
 {% comment %}
 Phase 21+ — product reviews block.
 
@@ -17,18 +17,18 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
 
   <div class="tc-reviews__topline">
     <div class="tc-reviews__headline">
-      <span class="tc-reviews__eyebrow">Досвід клієнтів</span>
-      <h2 id="tc-reviews-title" class="tc-reviews__title">Відгуки про товар</h2>
+      <span class="tc-reviews__eyebrow">{% trans 'Досвід клієнтів' %}</span>
+      <h2 id="tc-reviews-title" class="tc-reviews__title">{% trans 'Відгуки про товар' %}</h2>
     </div>
-    <div class="tc-reviews__counter" aria-label="Кількість опублікованих відгуків">
+    <div class="tc-reviews__counter" aria-label="{% trans 'Кількість опублікованих відгуків' %}">
       <strong>{{ product_review_summary.count|default:0 }}</strong>
-      <span>відгуків</span>
+      <span>{% trans 'відгуків' %}</span>
     </div>
   </div>
 
   <div class="tc-reviews__insight-grid">
     {% if product_review_summary.show_rating %}
-      <div class="tc-reviews__summary" role="group" aria-label="Зведений рейтинг">
+      <div class="tc-reviews__summary" role="group" aria-label="{% trans 'Зведений рейтинг' %}">
         <div class="tc-reviews__avg">
           <strong>{{ product_review_summary.average|floatformat:1 }}</strong>
           <span aria-hidden="true" class="tc-reviews__avg-stars">
@@ -36,9 +36,9 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
               {% for i in "12345" %}{% if forloop.counter <= avg %}★{% else %}☆{% endif %}{% endfor %}
             {% endwith %}
           </span>
-          <span class="tc-reviews__avg-count">на основі {{ product_review_summary.count }} відгуків</span>
+          <span class="tc-reviews__avg-count">{% blocktrans count counter=product_review_summary.count %}на основі {{ counter }} відгуку{% plural %}на основі {{ counter }} відгуків{% endblocktrans %}</span>
         </div>
-        <ul class="tc-reviews__histogram" aria-label="Розподіл оцінок">
+        <ul class="tc-reviews__histogram" aria-label="{% trans 'Розподіл оцінок' %}">
           {% for row in product_review_summary.histogram_rows %}
             <li class="tc-reviews__bar-row">
               <span class="tc-reviews__bar-label">{{ row.star }}★</span>
@@ -54,34 +54,34 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
         </ul>
       </div>
     {% else %}
-      <div class="tc-reviews__summary tc-reviews__summary--quiet" role="group" aria-label="Статус рейтингу">
+      <div class="tc-reviews__summary tc-reviews__summary--quiet" role="group" aria-label="{% trans 'Статус рейтингу' %}">
         <div class="tc-reviews__status">
           <span class="tc-reviews__status-mark" aria-hidden="true"></span>
           <div class="tc-reviews__status-copy">
-            <strong>{% if product_review_summary.count %}Рейтинг скоро{% else %}Поки без відгуків{% endif %}</strong>
-            <span>{% if product_review_summary.count %}Після 3 перевірених публікацій.{% else %}Перший відгук сформує рейтинг.{% endif %}</span>
+            <strong>{% if product_review_summary.count %}{% trans 'Рейтинг скоро' %}{% else %}{% trans 'Поки без відгуків' %}{% endif %}</strong>
+            <span>{% if product_review_summary.count %}{% trans 'Після 3 перевірених публікацій.' %}{% else %}{% trans 'Перший відгук сформує рейтинг.' %}{% endif %}</span>
           </div>
         </div>
       </div>
     {% endif %}
 
-    <aside class="tc-reviews__identity" aria-label="Ваш статус для відгуку">
+    <aside class="tc-reviews__identity" aria-label="{% trans 'Ваш статус для відгуку' %}">
       {% if request.user.is_authenticated %}
         <div class="tc-reviews__identity-copy">
-          <span class="tc-reviews__identity-kicker">Підпис відгуку</span>
+          <span class="tc-reviews__identity-kicker">{% trans 'Підпис відгуку' %}</span>
           <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
         </div>
         {% if product_customer_has_paid_order %}
-          <span class="tc-reviews__identity-pill tc-reviews__identity-pill--ok">Покупка підтверджена</span>
+          <span class="tc-reviews__identity-pill tc-reviews__identity-pill--ok">{% trans 'Покупка підтверджена' %}</span>
         {% else %}
-          <span class="tc-reviews__identity-pill">Гостьовий статус</span>
+          <span class="tc-reviews__identity-pill">{% trans 'Гостьовий статус' %}</span>
         {% endif %}
       {% else %}
         <div class="tc-reviews__identity-copy">
-          <span class="tc-reviews__identity-kicker">Гостьовий відгук</span>
-          <strong>Увійдіть для профілю</strong>
+          <span class="tc-reviews__identity-kicker">{% trans 'Гостьовий відгук' %}</span>
+          <strong>{% trans 'Увійдіть для профілю' %}</strong>
         </div>
-        <a href="{% url 'login' %}?next={{ request.path }}#product-reviews" class="tc-reviews__identity-link">Увійти</a>
+        <a href="{% url 'login' %}?next={{ request.path }}#product-reviews" class="tc-reviews__identity-link">{% trans 'Увійти' %}</a>
       {% endif %}
     </aside>
   </div>
@@ -98,8 +98,8 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
   <details class="tc-reviews__form-wrap"{% if messages %} open{% endif %}>
     <summary class="tc-reviews__form-toggle">
       <span class="tc-reviews__form-plus" aria-hidden="true"></span>
-      <span class="tc-reviews__form-toggle-label">Залишити відгук</span>
-      <span class="tc-reviews__form-toggle-hint">Поділіться досвідом — модерація 1–2 дні</span>
+      <span class="tc-reviews__form-toggle-label">{% trans 'Залишити відгук' %}</span>
+      <span class="tc-reviews__form-toggle-hint">{% trans 'Поділіться досвідом — модерація 1–2 дні' %}</span>
       <span class="tc-reviews__form-toggle-chev" aria-hidden="true">
         <svg width="16" height="16" viewBox="0 0 24 24"><path d="M7.4 5.6 6 7l5 5-5 5 1.4 1.4L13.8 12 7.4 5.6Z" fill="currentColor"/></svg>
       </span>
@@ -112,12 +112,12 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
       {% csrf_token %}
 
       <fieldset class="tc-reviews__rating-field">
-        <legend>Ваша оцінка</legend>
+        <legend>{% trans 'Ваша оцінка' %}</legend>
         <div class="tc-reviews__rating-stars" role="radiogroup">
           {% for v in "54321" %}
             <label class="tc-reviews__rating-star">
               <input type="radio" name="rating" value="{{ v }}" required>
-              <span aria-label="{{ v }} зірок">★</span>
+              <span aria-label="{% blocktrans count counter=v|add:0 %}{{ counter }} зірка{% plural %}{{ counter }} зірок{% endblocktrans %}">★</span>
             </label>
           {% endfor %}
         </div>
@@ -125,25 +125,25 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
 
       <div class="tc-reviews__row">
         <label class="tc-reviews__field">
-          <span>Заголовок</span>
+          <span>{% trans 'Заголовок' %}</span>
           <input type="text" name="title" maxlength="120" autocomplete="off"
-                 placeholder="Наприклад: сіла краще, ніж очікував">
+                 placeholder="{% trans 'Наприклад: сіла краще, ніж очікував' %}">
         </label>
         <label class="tc-reviews__field">
-          <span>Фото до відгуку</span>
+          <span>{% trans 'Фото до відгуку' %}</span>
           <input type="file" name="images" accept="image/jpeg,image/png,image/webp" multiple>
         </label>
       </div>
 
       <label class="tc-reviews__field">
-        <span>Ваш досвід *</span>
+        <span>{% trans 'Ваш досвід *' %}</span>
         <textarea name="body" rows="4" minlength="20" maxlength="4000" required
-                  placeholder="Посадка, тканина, друк, доставка, що сподобалось або що варто знати іншим покупцям"></textarea>
+                  placeholder="{% trans 'Посадка, тканина, друк, доставка, що сподобалось або що варто знати іншим покупцям' %}"></textarea>
       </label>
 
       <div class="tc-reviews__row">
         <label class="tc-reviews__field">
-          <span>Імʼя для публікації *</span>
+          <span>{% trans 'Імʼя для публікації *' %}</span>
           {% if request.user.is_authenticated %}
             <input type="text" name="author_name" maxlength="80" required
                    value="{{ request.user.get_full_name|default:request.user.username }}">
@@ -152,7 +152,7 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
           {% endif %}
         </label>
         <label class="tc-reviews__field">
-          <span>Email{% if request.user.is_authenticated %} з профілю{% else %} для звʼязку{% endif %}</span>
+          <span>Email{% if request.user.is_authenticated %} {% trans 'з профілю' %}{% else %} {% trans 'для звʼязку' %}{% endif %}</span>
           <input type="email" name="email"
                  {% if request.user.is_authenticated %}value="{{ request.user.email|default:'' }}"{% endif %}>
         </label>
@@ -164,16 +164,16 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
       </label>
 
       <div class="tc-reviews__submit-row">
-        <button type="submit" class="tc-reviews__submit">Надіслати на модерацію</button>
+        <button type="submit" class="tc-reviews__submit">{% trans 'Надіслати на модерацію' %}</button>
         <p class="tc-reviews__form-hint">
-          Після перевірки відгук зʼявиться на сторінці. Для зареєстрованих покупців статус покупки підтягується автоматично.
+          {% trans 'Після перевірки відгук зʼявиться на сторінці. Для зареєстрованих покупців статус покупки підтягується автоматично.' %}
         </p>
       </div>
     </form>
   </details>
 
   {% if approved_reviews %}
-    <ol class="tc-reviews__list" aria-label="Список відгуків">
+    <ol class="tc-reviews__list" aria-label="{% trans 'Список відгуків' %}">
       {% for r in approved_reviews %}
         <li class="tc-review" id="review-{{ r.pk }}">
           <div class="tc-review__avatar" aria-hidden="true">{{ r.author_name|slice:":1"|upper }}</div>
@@ -184,27 +184,27 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
                 <span class="tc-review__meta">
                   <time datetime="{{ r.created_at|date:'c' }}">{{ r.created_at|date:'d.m.Y' }}</time>
                   {% if r.user %}
-                    <span>Зареєстрований користувач</span>
+                    <span>{% trans 'Зареєстрований користувач' %}</span>
                   {% else %}
-                    <span>Гостьовий відгук</span>
+                    <span>{% trans 'Гостьовий відгук' %}</span>
                   {% endif %}
                 </span>
               </div>
-              <span class="tc-review__stars" aria-label="{{ r.rating }} з 5">
+              <span class="tc-review__stars" aria-label="{% blocktrans with rating=r.rating %}{{ rating }} з 5{% endblocktrans %}">
                 {% for i in "12345" %}{% if forloop.counter <= r.rating %}★{% else %}☆{% endif %}{% endfor %}
               </span>
             </header>
 
-            <div class="tc-review__badges" aria-label="Статуси відгуку">
+            <div class="tc-review__badges" aria-label="{% trans 'Статуси відгуку' %}">
               {% if r.user %}
-                <span class="tc-review__badge tc-review__badge--account">Зареєстрований</span>
+                <span class="tc-review__badge tc-review__badge--account">{% trans 'Зареєстрований' %}</span>
               {% else %}
-                <span class="tc-review__badge">Гість</span>
+                <span class="tc-review__badge">{% trans 'Гість' %}</span>
               {% endif %}
               {% if r.is_verified_purchase %}
-                <span class="tc-review__badge tc-review__badge--verified">Купив товар</span>
+                <span class="tc-review__badge tc-review__badge--verified">{% trans 'Купив товар' %}</span>
               {% else %}
-                <span class="tc-review__badge tc-review__badge--neutral">Покупка не підтверджена</span>
+                <span class="tc-review__badge tc-review__badge--neutral">{% trans 'Покупка не підтверджена' %}</span>
               {% endif %}
             </div>
 
@@ -214,11 +214,11 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
             <p class="tc-review__body">{{ r.body|linebreaksbr }}</p>
 
             {% if r.images.all %}
-              <ul class="tc-review__photos" aria-label="Фото відгуку">
+              <ul class="tc-review__photos" aria-label="{% trans 'Фото відгуку' %}">
                 {% for img in r.images.all %}
                   <li>
                     <a href="{{ img.image.url }}" target="_blank" rel="noopener">
-                      <img src="{{ img.image.url }}" alt="Фото відгуку {{ r.author_name }}" loading="lazy" decoding="async" width="120" height="120">
+                      <img src="{{ img.image.url }}" alt="{% blocktrans with author=r.author_name %}Фото відгуку {{ author }}{% endblocktrans %}" loading="lazy" decoding="async" width="120" height="120">
                     </a>
                   </li>
                 {% endfor %}
@@ -227,7 +227,7 @@ Aggregate rating is surfaced only when ``product_review_summary.show_rating`` is
 
             {% if r.helpful_count or r.unhelpful_count %}
               <footer class="tc-review__foot">
-                <span>Корисно: {{ r.helpful_count }}</span>
+                <span>{% blocktrans with count=r.helpful_count %}Корисно: {{ count }}{% endblocktrans %}</span>
               </footer>
             {% endif %}
           </article>

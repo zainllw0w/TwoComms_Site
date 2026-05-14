@@ -1,3 +1,4 @@
+{% load i18n %}
 {% comment %}
   Phase 19g (2026-05-10) — colour-aware SEO copy block.
 
@@ -15,7 +16,7 @@
 {% endcomment %}
 {% if color_seo_copy %}
 <section class="catalog-color-seo"
-         aria-label="SEO-опис {{ color_seo_copy.color_slug|default:'каталога' }}"
+         aria-label="{% blocktrans with slug=color_seo_copy.color_slug|default:_('каталога') %}SEO-опис {{ slug }}{% endblocktrans %}"
          data-color-seo-color="{{ color_seo_copy.color_slug|default:'' }}">
   <h2 class="catalog-color-seo__title">{{ color_seo_copy.h2 }}</h2>
   <div class="catalog-color-seo__body">
@@ -26,7 +27,7 @@
 
   {% if color_seo_copy.queries %}
   <div class="catalog-color-seo__queries" role="navigation"
-       aria-label="Популярні запити цього розділу">
+       aria-label="{% trans 'Популярні запити цього розділу' %}">
     {% for query in color_seo_copy.queries %}
     <a class="catalog-color-seo__chip catalog-color-seo__chip--{{ query.freq }}"
        href="{{ query.url }}"

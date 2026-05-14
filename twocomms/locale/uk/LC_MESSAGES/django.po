@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-14 01:33+0300\n"
+"POT-Creation-Date: 2026-05-15 01:21+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3763,6 +3763,34 @@ msgstr ""
 msgid "Зробіть першу покупку, щоб почати заробляти бали!"
 msgstr ""
 
+msgid "каталога"
+msgstr ""
+
+#, python-format
+msgid "SEO-опис %(slug)s"
+msgstr ""
+
+msgid "Популярні запити цього розділу"
+msgstr ""
+
+msgid "SEO-блоки категорії"
+msgstr ""
+
+msgid "Найкращі ціни"
+msgstr ""
+
+msgid "Ціна"
+msgstr ""
+
+msgid "SEO-розділи категорії"
+msgstr ""
+
+msgid "Фільтр за кольором"
+msgstr ""
+
+msgid "Скинути"
+msgstr ""
+
 msgid "Соцмережі TwoComms"
 msgstr ""
 
@@ -3817,6 +3845,9 @@ msgstr ""
 msgid "Обране"
 msgstr ""
 
+msgid "Навігація по новинках"
+msgstr ""
+
 msgid "Мова сайту"
 msgstr ""
 
@@ -3869,4 +3900,176 @@ msgid "Купити %(title)s"
 msgstr ""
 
 msgid "Дізнатись про бали"
+msgstr ""
+
+msgid "Доставка та оплата"
+msgstr ""
+
+msgid "Умови доставки замовлень"
+msgstr ""
+
+msgid "Нова Пошта"
+msgstr ""
+
+msgid "Доставка по всій Україні. Вартість від 60 грн, термін доставки 1-3 дні."
+msgstr ""
+
+msgid "Самовивіз"
+msgstr ""
+
+msgid "Можливий самовивіз з нашого складу. Деталі узгоджуються з менеджером."
+msgstr ""
+
+msgid "Можлива оплата картою онлайн, накладним платежем або передоплатою."
+msgstr ""
+
+msgid "Досвід клієнтів"
+msgstr ""
+
+msgid "Відгуки про товар"
+msgstr ""
+
+msgid "Кількість опублікованих відгуків"
+msgstr ""
+
+msgid "відгуків"
+msgstr ""
+
+msgid "Зведений рейтинг"
+msgstr ""
+
+#, python-format
+msgid "на основі %(counter)s відгуку"
+msgid_plural "на основі %(counter)s відгуків"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+msgid "Розподіл оцінок"
+msgstr ""
+
+msgid "Статус рейтингу"
+msgstr ""
+
+msgid "Рейтинг скоро"
+msgstr ""
+
+msgid "Поки без відгуків"
+msgstr ""
+
+msgid "Після 3 перевірених публікацій."
+msgstr ""
+
+msgid "Перший відгук сформує рейтинг."
+msgstr ""
+
+msgid "Ваш статус для відгуку"
+msgstr ""
+
+msgid "Підпис відгуку"
+msgstr ""
+
+msgid "Покупка підтверджена"
+msgstr ""
+
+msgid "Гостьовий статус"
+msgstr ""
+
+msgid "Гостьовий відгук"
+msgstr ""
+
+msgid "Увійдіть для профілю"
+msgstr ""
+
+msgid "Залишити відгук"
+msgstr ""
+
+msgid "Поділіться досвідом — модерація 1–2 дні"
+msgstr ""
+
+msgid "Ваша оцінка"
+msgstr ""
+
+#, python-format
+msgid "%(counter)s зірка"
+msgid_plural "%(counter)s зірок"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+msgid "Заголовок"
+msgstr ""
+
+msgid "Наприклад: сіла краще, ніж очікував"
+msgstr ""
+
+msgid "Фото до відгуку"
+msgstr ""
+
+msgid "Ваш досвід *"
+msgstr ""
+
+msgid "Посадка, тканина, друк, доставка, що сподобалось або що варто знати іншим покупцям"
+msgstr ""
+
+msgid "Імʼя для публікації *"
+msgstr ""
+
+msgid "з профілю"
+msgstr ""
+
+msgid "для звʼязку"
+msgstr ""
+
+msgid "Надіслати на модерацію"
+msgstr ""
+
+msgid "Після перевірки відгук зʼявиться на сторінці. Для зареєстрованих покупців статус покупки підтягується автоматично."
+msgstr ""
+
+msgid "Список відгуків"
+msgstr ""
+
+msgid "Зареєстрований користувач"
+msgstr ""
+
+#, python-format
+msgid "%(rating)s з 5"
+msgstr ""
+
+msgid "Статуси відгуку"
+msgstr ""
+
+msgid "Зареєстрований"
+msgstr ""
+
+msgid "Гість"
+msgstr ""
+
+msgid "Купив товар"
+msgstr ""
+
+msgid "Покупка не підтверджена"
+msgstr ""
+
+msgid "Фото відгуку"
+msgstr ""
+
+#, python-format
+msgid "Фото відгуку %(author)s"
+msgstr ""
+
+#, python-format
+msgid "Корисно: %(count)s"
+msgstr ""
+
+msgid "Деталі та підбір моделі"
+msgstr ""
+
+msgid "Розділи товару"
+msgstr ""
+
+msgid "Топ запити для цієї моделі"
 msgstr ""

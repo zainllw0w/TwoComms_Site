@@ -1,6 +1,7 @@
+{% load i18n %}
 <div class="product-quick-view">
   <h3>{{ product.title }}</h3>
-  <p class="product-quick-view__price">{{ product.final_price }} грн</p>
+  <p class="product-quick-view__price">{{ product.final_price }} {% trans 'грн' %}</p>
   {% if product.short_description %}
     <p>{{ product.short_description }}</p>
   {% elif product.description %}

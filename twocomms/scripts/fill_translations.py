@@ -822,7 +822,7 @@ TRANSLATIONS_PHASE_17I: dict[str, dict[str, str]] = {
     # adjective and let «%(name)s» carry the colour. English has no gender,
     # so we keep the natural attributive order.
     "%(adj_m_cap)s одяг TwoComms — стрітвір у відтінку «%(name)s»": {
-        "ru": "Одежда TwoComms в оттенке «%(name)s» — украинский стритвир",
+        "ru": "%(adj_m_cap)s одежда TwoComms — стритвир в оттенке «%(name)s»",
         "en": "%(adj_m_cap)s TwoComms apparel — streetwear in the %(name)s tone",
     },
     "%(adj_n_cap)s %(cat)s TwoComms — український стрітвір з принтом": {
@@ -835,7 +835,7 @@ TRANSLATIONS_PHASE_17I: dict[str, dict[str, str]] = {
     # «одяг» = masculine singular). Russian «одежда» is feminine — keep
     # the colour reference but drop the strict adjective agreement.
     "У каталозі TwoComms ви знайдете %(adj_n)s <a href=\"/catalog/hoodie/?color=%(slug)s\">худі</a>, <a href=\"/catalog/tshirts/?color=%(slug)s\">футболки</a> та <a href=\"/catalog/long-sleeve/?color=%(slug)s\">лонгсліви</a> з авторськими принтами. Усі моделі шиємо в Україні з натуральних тканин, друкуємо DTF-технологією й перевіряємо на стійкість кольору до прання. %(adj_n_cap)s одяг легко комбінувати з джинсами, карго-штанами та мілітарними аксесуарами.": {
-        "ru": "В каталоге TwoComms вы найдёте <a href=\"/catalog/hoodie/?color=%(slug)s\">худи</a>, <a href=\"/catalog/tshirts/?color=%(slug)s\">футболки</a> и <a href=\"/catalog/long-sleeve/?color=%(slug)s\">лонгсливы</a> в оттенке %(adj_n)s, с авторскими принтами. Все модели шьём в Украине из натуральных тканей, печатаем по технологии DTF и проверяем на устойчивость цвета к стирке. Одежду такого оттенка легко комбинировать с джинсами, карго-штанами и милитари-аксессуарами.",
+        "ru": "В каталоге TwoComms вы найдёте %(adj_n)s <a href=\"/catalog/hoodie/?color=%(slug)s\">худи</a>, <a href=\"/catalog/tshirts/?color=%(slug)s\">футболки</a> и <a href=\"/catalog/long-sleeve/?color=%(slug)s\">лонгсливы</a> с авторскими принтами. Все модели шьём в Украине из натуральных тканей, печатаем по технологии DTF и проверяем на устойчивость цвета к стирке. %(adj_n_cap)s одежду легко комбинировать с джинсами, карго-штанами и милитари-аксессуарами.",
         "en": "In the TwoComms catalogue you'll find %(adj_n)s <a href=\"/catalog/hoodie/?color=%(slug)s\">hoodies</a>, <a href=\"/catalog/tshirts/?color=%(slug)s\">t-shirts</a> and <a href=\"/catalog/long-sleeve/?color=%(slug)s\">long sleeves</a> with original prints. Every model is made in Ukraine from natural fabrics, printed with DTF and colour-tested for laundering. %(adj_n_cap)s pieces pair easily with jeans, cargo trousers and tactical accessories.",
     },
     "Якщо вас цікавить конкретний принт у %(name)s — скористайтесь сторінкою <a href=\"/custom-print/\">«Власний принт»</a>: ми надрукуємо будь-яку ілюстрацію на обраній моделі від однієї одиниці. Доставка Новою Поштою по всій Україні — 1–2 дні; оплата карткою або накладеним платежем; повернення впродовж 14 днів, якщо не підійшов розмір.": {
@@ -1717,6 +1717,186 @@ TRANSLATIONS_PHASE_17P: dict[str, dict[str, str]] = {
     },
 }
 TRANSLATIONS.update(TRANSLATIONS_PHASE_17P)
+
+
+# Phase 17q — partials sweep: category_seo_blocks, product_seo_landing,
+# catalog_color_seo, color_filter_chips, product_delivery_modal,
+# product_quick_view, product_reviews, home_pagination.
+TRANSLATIONS_PHASE_17Q: dict[str, dict[str, str]] = {
+    # ===== category_seo_blocks.html =====
+    "SEO-блоки категорії": {
+        "ru": "SEO-блоки категории",
+        "en": "Category SEO blocks",
+    },
+    "SEO-розділи категорії": {
+        "ru": "SEO-разделы категории",
+        "en": "Category SEO sections",
+    },
+    "Найкращі ціни": {"ru": "Лучшие цены", "en": "Best prices"},
+    "Ціна": {"ru": "Цена", "en": "Price"},
+
+    # ===== product_seo_landing.html =====
+    "Деталі та підбір моделі": {
+        "ru": "Детали и подбор модели",
+        "en": "Details & fit guide",
+    },
+    "Розділи товару": {"ru": "Разделы товара", "en": "Product sections"},
+    "Топ запити для цієї моделі": {
+        "ru": "Топ-запросы для этой модели",
+        "en": "Top queries for this model",
+    },
+
+    # ===== catalog_color_seo.html =====
+    "SEO-опис %(slug)s": {
+        "ru": "SEO-описание %(slug)s",
+        "en": "SEO description for %(slug)s",
+    },
+    "Популярні запити цього розділу": {
+        "ru": "Популярные запросы этого раздела",
+        "en": "Popular queries in this section",
+    },
+    "каталога": {"ru": "каталога", "en": "catalogue"},
+
+    # ===== color_filter_chips.html =====
+    "Фільтр за кольором": {"ru": "Фильтр по цвету", "en": "Filter by colour"},
+    "Колір:": {"ru": "Цвет:", "en": "Colour:"},
+    "Скинути": {"ru": "Сбросить", "en": "Reset"},
+
+    # ===== product_delivery_modal.html =====
+    "Доставка та оплата": {"ru": "Доставка и оплата", "en": "Delivery & payment"},
+    "Умови доставки замовлень": {
+        "ru": "Условия доставки заказов",
+        "en": "Order delivery terms",
+    },
+    "Нова Пошта": {"ru": "Новая Почта", "en": "Nova Poshta"},
+    "Доставка по всій Україні. Вартість від 60 грн, термін доставки 1-3 дні.": {
+        "ru": "Доставка по всей Украине. Стоимость от 60 грн, срок доставки 1-3 дня.",
+        "en": "Delivery across Ukraine. Price from UAH 60, delivery in 1–3 days.",
+    },
+    "Самовивіз": {"ru": "Самовывоз", "en": "Self pickup"},
+    "Можливий самовивіз з нашого складу. Деталі узгоджуються з менеджером.": {
+        "ru": "Возможен самовывоз с нашего склада. Детали согласуются с менеджером.",
+        "en": "Self pickup from our warehouse is available. Details are agreed with the manager.",
+    },
+    "Оплата": {"ru": "Оплата", "en": "Payment"},
+    "Можлива оплата картою онлайн, накладним платежем або передоплатою.": {
+        "ru": "Возможна оплата картой онлайн, наложенным платежом или предоплатой.",
+        "en": "Card online, cash on delivery or prepayment are all accepted.",
+    },
+
+    # ===== product_reviews.html =====
+    "Досвід клієнтів": {"ru": "Опыт клиентов", "en": "Customer experience"},
+    "Відгуки про товар": {"ru": "Отзывы о товаре", "en": "Product reviews"},
+    "Кількість опублікованих відгуків": {
+        "ru": "Количество опубликованных отзывов",
+        "en": "Published review count",
+    },
+    "відгуків": {"ru": "отзывов", "en": "reviews"},
+    "Зведений рейтинг": {"ru": "Сводный рейтинг", "en": "Aggregate rating"},
+    "Розподіл оцінок": {
+        "ru": "Распределение оценок",
+        "en": "Rating distribution",
+    },
+    "Статус рейтингу": {"ru": "Статус рейтинга", "en": "Rating status"},
+    "Рейтинг скоро": {"ru": "Рейтинг скоро", "en": "Rating coming soon"},
+    "Поки без відгуків": {"ru": "Пока без отзывов", "en": "No reviews yet"},
+    "Після 3 перевірених публікацій.": {
+        "ru": "После 3 проверенных публикаций.",
+        "en": "After 3 verified publications.",
+    },
+    "Перший відгук сформує рейтинг.": {
+        "ru": "Первый отзыв сформирует рейтинг.",
+        "en": "The first review will set the rating.",
+    },
+    "Ваш статус для відгуку": {
+        "ru": "Ваш статус для отзыва",
+        "en": "Your status for a review",
+    },
+    "Підпис відгуку": {"ru": "Подпись отзыва", "en": "Review signature"},
+    "Покупка підтверджена": {"ru": "Покупка подтверждена", "en": "Verified purchase"},
+    "Гостьовий статус": {"ru": "Гостевой статус", "en": "Guest status"},
+    "Гостьовий відгук": {"ru": "Гостевой отзыв", "en": "Guest review"},
+    "Увійдіть для профілю": {
+        "ru": "Войдите для профиля",
+        "en": "Sign in for a profile",
+    },
+    "Увійти": {"ru": "Войти", "en": "Sign in"},
+    "Залишити відгук": {"ru": "Оставить отзыв", "en": "Leave a review"},
+    "Поділіться досвідом — модерація 1–2 дні": {
+        "ru": "Поделитесь опытом — модерация 1–2 дня",
+        "en": "Share your experience — moderation takes 1–2 days",
+    },
+    "Ваша оцінка": {"ru": "Ваша оценка", "en": "Your rating"},
+    "Заголовок": {"ru": "Заголовок", "en": "Title"},
+    "Наприклад: сіла краще, ніж очікував": {
+        "ru": "Например: села лучше, чем ожидал",
+        "en": "For example: fits better than expected",
+    },
+    "Фото до відгуку": {"ru": "Фото к отзыву", "en": "Review photo"},
+    "Ваш досвід *": {"ru": "Ваш опыт *", "en": "Your experience *"},
+    "Посадка, тканина, друк, доставка, що сподобалось або що варто знати іншим покупцям": {
+        "ru": "Посадка, ткань, печать, доставка, что понравилось или что стоит знать другим покупателям",
+        "en": "Fit, fabric, print, delivery — what you liked or what other shoppers should know",
+    },
+    "Імʼя для публікації *": {
+        "ru": "Имя для публикации *",
+        "en": "Display name *",
+    },
+    "з профілю": {"ru": "из профиля", "en": "from profile"},
+    "для звʼязку": {"ru": "для связи", "en": "for contact"},
+    "Надіслати на модерацію": {
+        "ru": "Отправить на модерацию",
+        "en": "Submit for moderation",
+    },
+    "Після перевірки відгук зʼявиться на сторінці. Для зареєстрованих покупців статус покупки підтягується автоматично.": {
+        "ru": "После проверки отзыв появится на странице. Для зарегистрированных покупателей статус покупки подтягивается автоматически.",
+        "en": "Once approved the review appears on the page. Purchase status is auto-detected for registered shoppers.",
+    },
+    "Список відгуків": {"ru": "Список отзывов", "en": "Review list"},
+    "Зареєстрований користувач": {
+        "ru": "Зарегистрированный пользователь",
+        "en": "Registered user",
+    },
+    "Статуси відгуку": {"ru": "Статусы отзыва", "en": "Review statuses"},
+    "Зареєстрований": {"ru": "Зарегистрированный", "en": "Registered"},
+    "Гість": {"ru": "Гость", "en": "Guest"},
+    "Купив товар": {"ru": "Купил товар", "en": "Verified buyer"},
+    "Покупка не підтверджена": {
+        "ru": "Покупка не подтверждена",
+        "en": "Purchase not verified",
+    },
+    "Фото відгуку": {"ru": "Фото отзыва", "en": "Review photo"},
+
+    # Pluralised forms in product_reviews.html (blocktrans count)
+    "на основі %(counter)s відгуку": {
+        "ru": "на основе %(counter)s отзыва",
+        "en": "based on %(counter)s review",
+    },
+    "на основі %(counter)s відгуків": {
+        "ru": "на основе %(counter)s отзывов",
+        "en": "based on %(counter)s reviews",
+    },
+    "%(counter)s зірка": {"ru": "%(counter)s звезда", "en": "%(counter)s star"},
+    "%(counter)s зірок": {"ru": "%(counter)s звёзд", "en": "%(counter)s stars"},
+    "%(rating)s з 5": {"ru": "%(rating)s из 5", "en": "%(rating)s of 5"},
+    "Фото відгуку %(author)s": {
+        "ru": "Фото отзыва %(author)s",
+        "en": "Review photo by %(author)s",
+    },
+    "Корисно: %(count)s": {
+        "ru": "Полезно: %(count)s",
+        "en": "Helpful: %(count)s",
+    },
+
+    # ===== home_pagination.html =====
+    "Навігація по новинках": {
+        "ru": "Навигация по новинкам",
+        "en": "New arrivals pagination",
+    },
+    "Попередня": {"ru": "Предыдущая", "en": "Previous"},
+    "Наступна": {"ru": "Следующая", "en": "Next"},
+}
+TRANSLATIONS.update(TRANSLATIONS_PHASE_17Q)
 
 
 # Phase 17i fix: original `[^"]*` failed on multi-line msgid blocks

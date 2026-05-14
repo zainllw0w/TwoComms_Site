@@ -1,3 +1,4 @@
+{% load i18n %}
 {% comment %}
   Phase 10 / 10b — Structured SEO blocks for category pages.
 
@@ -17,12 +18,12 @@
   supplied by the view but no longer used in this partial.
 {% endcomment %}
 {% if category_seo_layout.has_any %}
-<div class="category-seo-blocks" aria-label="SEO-блоки категорії">
+<div class="category-seo-blocks" aria-label="{% trans 'SEO-блоки категорії' %}">
 
   {# ---- Best-prices pricing table (above tabs, like AAC) ---- #}
   {% if category_seo_layout.best_prices %}
   {% with bp=category_seo_layout.best_prices %}
-  <section class="seo-pricing" aria-label="{{ bp.block.title|default:'Найкращі ціни' }}">
+  <section class="seo-pricing" aria-label="{{ bp.block.title|default:_('Найкращі ціни') }}">
     {% if bp.block.title %}
     <h2 class="seo-pricing__title">{{ bp.block.title|safe }}</h2>
     {% endif %}
@@ -31,7 +32,7 @@
         <thead>
           <tr>
             <th scope="col">{{ category.name }}</th>
-            <th scope="col" class="seo-pricing__th-price">Ціна</th>
+            <th scope="col" class="seo-pricing__th-price">{% trans 'Ціна' %}</th>
           </tr>
         </thead>
         <tbody>
@@ -44,9 +45,9 @@
             </td>
             <td class="seo-pricing__td-price">
               {% if item.extra.price %}
-                {{ item.extra.price }} грн
+                {{ item.extra.price }} {% trans 'грн' %}
               {% elif item.product and item.product.final_price %}
-                {{ item.product.final_price }} грн
+                {{ item.product.final_price }} {% trans 'грн' %}
               {% else %}
                 —
               {% endif %}
@@ -62,7 +63,7 @@
 
   {# ---- Tabbed SEO blocks (top_menu / top_filters / top_queries / top_cards) ---- #}
   {% if category_seo_layout.tab_blocks %}
-  <section class="seo-tabs" data-seo-tabs aria-label="SEO-розділи категорії">
+  <section class="seo-tabs" data-seo-tabs aria-label="{% trans 'SEO-розділи категорії' %}">
     <div class="seo-tabs__nav" role="tablist">
       {% for entry in category_seo_layout.tab_blocks %}
       {% with block=entry.block %}

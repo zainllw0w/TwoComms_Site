@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-14 01:33+0300\n"
+"POT-Creation-Date: 2026-05-15 01:21+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2061,26 +2061,37 @@ msgstr "Points programme"
 
 msgid "Як працюють бали за покупки"
 msgstr "How points work on purchases"
+
 msgid "балів за цей товар"
 msgstr "points for this item"
+
 msgid "Назва товару"
 msgstr "Product name"
+
 msgid "Нарахування балів:"
 msgstr "Earning points:"
+
 msgid "Бали нараховуються автоматично після підтвердження замовлення"
 msgstr "Points are credited automatically once your order is confirmed"
+
 msgid "Використання балів:"
 msgstr "Spending points:"
+
 msgid "Зареєстровані користувачі можуть витратити бали у кабінеті"
 msgstr "Registered shoppers can redeem points from the personal dashboard"
+
 msgid "Можливості:"
 msgstr "Possibilities:"
+
 msgid "Обмін на промокоди або пожертвування на ЗСУ"
 msgstr "Exchange for promo codes or donate to the Armed Forces of Ukraine"
+
 msgid "Перейти до балів"
 msgstr "Open points dashboard"
+
 msgid "Увійти для накопичення балів"
 msgstr "Sign in to earn points"
+
 msgid "Вхід"
 msgstr "Sign in"
 
@@ -2193,6 +2204,7 @@ msgstr "Points programme"
 
 msgid "Як працюють бали?"
 msgstr "How do points work?"
+
 msgid "Бали нараховуються за кожну покупку в нашому магазині"
 msgstr ""
 
@@ -2552,6 +2564,7 @@ msgstr "Search"
 
 msgid "Каталог TwoComms — футболки, худі, лонгсліви з принтами"
 msgstr "TwoComms catalogue — t-shirts, hoodies and longsleeves with prints"
+
 #, python-format
 msgid "сторінка %(n)s"
 msgstr "page %(n)s"
@@ -2575,6 +2588,7 @@ msgstr "TwoComms — Ukrainian streetwear & military apparel store: t-shirts, ho
 
 msgid "Каталог стріт-мілітарі одягу TwoComms: футболки, худі, лонгсліви з авторськими принтами, DTF-друк, бавовна. Доставка Новою Поштою від 1 дня по Україні."
 msgstr "TwoComms street & military apparel catalogue: t-shirts, hoodies and longsleeves with original prints, DTF print, cotton. Nova Poshta delivery in 1 day across Ukraine."
+
 #, fuzzy
 #| msgid "Результати за запитом «%(q)s» у каталозі TwoComms."
 msgid "Результати пошуку TwoComms за товарами каталогу."
@@ -2753,12 +2767,16 @@ msgstr "Reach out to TwoComms: phone, Telegram, Instagram. Quick answers to any 
 
 msgid "TwoComms — контакти"
 msgstr "TwoComms — contacts"
+
 msgid "TwoComms — стріт і мілітарі одяг"
 msgstr "TwoComms — street & military apparel"
+
 msgid "TwoComms — український онлайн-магазин стрітвір- і мілітарі-одягу: футболки, худі, лонгсліви та кастомний DTF-друк."
 msgstr "TwoComms is the Ukrainian online store of streetwear and military-style apparel: t-shirts, hoodies, longsleeves and custom DTF print."
+
 msgid "Україна"
 msgstr "Ukraine"
+
 msgid "Зв'яжіться з нами будь-яким зручним способом"
 msgstr "Reach us in any way that suits you"
 
@@ -2859,11 +2877,13 @@ msgstr "TwoComms — street & military apparel with exclusive design"
 
 msgid "Футболки, худі та лонгсліви з авторськими принтами. TwoComms — харківський стрітвеар-бренд, українське виробництво, швидка доставка Новою Поштою."
 msgstr "T-shirts, hoodies and longsleeves with original prints. TwoComms is a Kharkiv-based streetwear brand, made in Ukraine, fast Nova Poshta delivery."
+
 msgid "TwoComms — стріт & мілітарі одяг"
 msgstr "TwoComms — street & military apparel"
 
 msgid "Ексклюзивні футболки, худі та лонгсліви від харківського бренду TwoComms. Швидка доставка по Україні."
 msgstr "Exclusive t-shirts, hoodies and longsleeves by Kharkiv-based TwoComms brand. Fast delivery across Ukraine."
+
 msgid "TwoComms — Головна"
 msgstr "TwoComms — Home"
 
@@ -3637,6 +3657,7 @@ msgstr "Help with selection"
 #, python-format
 msgid "Доставка %(title)s по Україні"
 msgstr "Delivery of %(title)s across Ukraine"
+
 msgid "Відправка"
 msgstr "Shipping"
 
@@ -3658,6 +3679,7 @@ msgstr "14 days to exchange the size if the item hasn't been worn."
 #, python-format
 msgid "Догляд за %(title)s"
 msgstr "Care guide for %(title)s"
+
 msgid "Прання"
 msgstr "Washing"
 
@@ -3831,6 +3853,25 @@ msgstr ""
 msgid "Зробіть першу покупку, щоб почати заробляти бали!"
 msgstr "Place your first order to see it here"
 
+msgid "каталога"
+msgstr "catalogue"
+#, python-format
+msgid "SEO-опис %(slug)s"
+msgstr "SEO description for %(slug)s"
+msgid "Популярні запити цього розділу"
+msgstr "Popular queries in this section"
+msgid "SEO-блоки категорії"
+msgstr "Category SEO blocks"
+msgid "Найкращі ціни"
+msgstr "Best prices"
+msgid "Ціна"
+msgstr "Price"
+msgid "SEO-розділи категорії"
+msgstr "Category SEO sections"
+msgid "Фільтр за кольором"
+msgstr "Filter by colour"
+msgid "Скинути"
+msgstr "Reset"
 msgid "Соцмережі TwoComms"
 msgstr "TwoComms socials"
 
@@ -3884,6 +3925,8 @@ msgstr "Sign in with Google — TwoComms"
 msgid "Обране"
 msgstr "Favorites"
 
+msgid "Навігація по новинках"
+msgstr "New arrivals pagination"
 msgid "Мова сайту"
 msgstr "Site language"
 
@@ -3944,6 +3987,123 @@ msgstr "Buy %(title)s"
 msgid "Дізнатись про бали"
 msgstr "About points"
 
+msgid "Доставка та оплата"
+msgstr "Delivery & payment"
+msgid "Умови доставки замовлень"
+msgstr "Order delivery terms"
+msgid "Нова Пошта"
+msgstr "Nova Poshta"
+msgid "Доставка по всій Україні. Вартість від 60 грн, термін доставки 1-3 дні."
+msgstr "Delivery across Ukraine. Price from UAH 60, delivery in 1–3 days."
+msgid "Самовивіз"
+msgstr "Self pickup"
+msgid "Можливий самовивіз з нашого складу. Деталі узгоджуються з менеджером."
+msgstr "Self pickup from our warehouse is available. Details are agreed with the manager."
+msgid "Можлива оплата картою онлайн, накладним платежем або передоплатою."
+msgstr "Card online, cash on delivery or prepayment are all accepted."
+msgid "Досвід клієнтів"
+msgstr "Customer experience"
+msgid "Відгуки про товар"
+msgstr "Product reviews"
+msgid "Кількість опублікованих відгуків"
+msgstr "Published review count"
+msgid "відгуків"
+msgstr "reviews"
+msgid "Зведений рейтинг"
+msgstr "Aggregate rating"
+#, python-format
+msgid "на основі %(counter)s відгуку"
+msgid_plural "на основі %(counter)s відгуків"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Розподіл оцінок"
+msgstr "Rating distribution"
+msgid "Статус рейтингу"
+msgstr "Rating status"
+msgid "Рейтинг скоро"
+msgstr "Rating coming soon"
+msgid "Поки без відгуків"
+msgstr "No reviews yet"
+msgid "Після 3 перевірених публікацій."
+msgstr "After 3 verified publications."
+msgid "Перший відгук сформує рейтинг."
+msgstr "The first review will set the rating."
+msgid "Ваш статус для відгуку"
+msgstr "Your status for a review"
+msgid "Підпис відгуку"
+msgstr "Review signature"
+msgid "Покупка підтверджена"
+msgstr "Verified purchase"
+msgid "Гостьовий статус"
+msgstr "Guest status"
+msgid "Гостьовий відгук"
+msgstr "Guest review"
+msgid "Увійдіть для профілю"
+msgstr "Sign in for a profile"
+msgid "Залишити відгук"
+msgstr "Leave a review"
+msgid "Поділіться досвідом — модерація 1–2 дні"
+msgstr "Share your experience — moderation takes 1–2 days"
+msgid "Ваша оцінка"
+msgstr "Your rating"
+#, python-format
+msgid "%(counter)s зірка"
+msgid_plural "%(counter)s зірок"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Заголовок"
+msgstr "Title"
+msgid "Наприклад: сіла краще, ніж очікував"
+msgstr "For example: fits better than expected"
+msgid "Фото до відгуку"
+msgstr "Review photo"
+msgid "Ваш досвід *"
+msgstr "Your experience *"
+msgid "Посадка, тканина, друк, доставка, що сподобалось або що варто знати іншим покупцям"
+msgstr "Fit, fabric, print, delivery — what you liked or what other shoppers should know"
+msgid "Імʼя для публікації *"
+msgstr "Display name *"
+msgid "з профілю"
+msgstr "from profile"
+msgid "для звʼязку"
+msgstr "for contact"
+msgid "Надіслати на модерацію"
+msgstr "Submit for moderation"
+msgid "Після перевірки відгук зʼявиться на сторінці. Для зареєстрованих покупців статус покупки підтягується автоматично."
+msgstr "Once approved the review appears on the page. Purchase status is auto-detected for registered shoppers."
+msgid "Список відгуків"
+msgstr "Review list"
+msgid "Зареєстрований користувач"
+msgstr "Registered user"
+#, python-format
+msgid "%(rating)s з 5"
+msgstr "%(rating)s of 5"
+msgid "Статуси відгуку"
+msgstr "Review statuses"
+msgid "Зареєстрований"
+msgstr "Registered"
+msgid "Гість"
+msgstr "Guest"
+msgid "Купив товар"
+msgstr "Verified buyer"
+msgid "Покупка не підтверджена"
+msgstr "Purchase not verified"
+msgid "Фото відгуку"
+msgstr "Review photo"
+#, python-format
+msgid "Фото відгуку %(author)s"
+msgstr "Review photo by %(author)s"
+#, python-format
+msgid "Корисно: %(count)s"
+msgstr "Helpful: %(count)s"
+msgid "Деталі та підбір моделі"
+msgstr "Details & fit guide"
+msgid "Розділи товару"
+msgstr "Product sections"
+msgid "Топ запити для цієї моделі"
+msgstr "Top queries for this model"
 #, fuzzy
 #~| msgid "Каталог"
 #~ msgid "Каталог одягу"
