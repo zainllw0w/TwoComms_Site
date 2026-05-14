@@ -1,16 +1,16 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% load seo_tags %}
 
-{% block title %}DTF-конфігуратор кастомного одягу — TwoComms{% endblock %}
-{% block description %}Кастомний DTF-конфігуратор для худі, футболок, лонгслівів і свого одягу. Зберіть виріб, зони друку, файл або ідею і передайте весь контекст менеджеру або одразу в кошик.{% endblock %}
-{% block keywords %}dtf друк, кастомний принт, друк на худі, друк на футболках, кастомний одяг, twocomms, dtf конфігуратор{% endblock %}
+{% block title %}{% trans 'DTF-конфігуратор кастомного одягу — TwoComms' %}{% endblock %}
+{% block description %}{% trans 'Кастомний DTF-конфігуратор для худі, футболок, лонгслівів і свого одягу. Зберіть виріб, зони друку, файл або ідею і передайте весь контекст менеджеру або одразу в кошик.' %}{% endblock %}
+{% block keywords %}{% trans 'dtf друк, кастомний принт, друк на худі, друк на футболках, кастомний одяг, twocomms, dtf конфігуратор' %}{% endblock %}
 {% block og_type %}website{% endblock %}
-{% block og_title %}DTF-конфігуратор кастомного одягу — TwoComms{% endblock %}
-{% block og_description %}Збери річ під свій дизайн: обери основу, тканину, зони друку й макет. Конструктор покаже вигляд і вартість.{% endblock %}
+{% block og_title %}{% trans 'DTF-конфігуратор кастомного одягу — TwoComms' %}{% endblock %}
+{% block og_description %}{% trans 'Збери річ під свій дизайн: обери основу, тканину, зони друку й макет. Конструктор покаже вигляд і вартість.' %}{% endblock %}
 {% block og_image %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endblock %}
-{% block twitter_title %}DTF-конфігуратор кастомного одягу — TwoComms{% endblock %}
-{% block twitter_description %}Кастомний DTF-друк на худі, футболках, лонгслівах. Збери виріб під свій дизайн за лічені хвилини.{% endblock %}
+{% block twitter_title %}{% trans 'DTF-конфігуратор кастомного одягу — TwoComms' %}{% endblock %}
+{% block twitter_description %}{% trans 'Кастомний DTF-друк на худі, футболках, лонгслівах. Збери виріб під свій дизайн за лічені хвилини.' %}{% endblock %}
 {% block twitter_image %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endblock %}
 
 {% block structured_data %}
@@ -18,13 +18,13 @@
 {
   "@context": "https://schema.org",
   "@type": "Service",
-  "name": "Кастомний DTF-друк на одязі",
+  "name": "{% trans 'Кастомний DTF-друк на одязі' %}",
   "provider": {
     "@type": "Organization",
     "name": "TwoComms",
     "url": "https://twocomms.shop"
   },
-  "description": "Кастомний DTF-конфігуратор для худі, футболок, лонгслівів. Обери основу, тканину, зони друку й макет.",
+  "description": "{% trans 'Кастомний DTF-конфігуратор для худі, футболок, лонгслівів. Обери основу, тканину, зони друку й макет.' %}",
   "url": "https://twocomms.shop/custom-print/",
   "areaServed": "UA",
   "serviceType": "DTF Printing"
@@ -180,13 +180,13 @@
             </span>
             <div class="cp-hero-brandcopy">
               <strong>TwoComms Custom Print</strong>
-              <span>Худі, футболки, лонгсліви та ваші речі під DTF-друк.</span>
+              <span>{% trans 'Худі, футболки, лонгсліви та ваші речі під DTF-друк.' %}</span>
             </div>
           </div>
         </div>
 
         <div class="cp-animate-in cp-delay-2">
-          <span class="cp-hero-badge">Кастомний одяг TwoComms</span>
+          <span class="cp-hero-badge">{% trans 'Кастомний одяг TwoComms' %}</span>
         </div>
         
         {% comment %}
@@ -196,55 +196,55 @@
         «Створи річ, що говорить за тебе» instead of the run-on
         «Створи річ,що говорить за тебе». WCAG 1.3.1 fix.
         {% endcomment %}
-        <h1 class="cp-hero-title cp-animate-in cp-delay-3">Створи річ, <br>що&nbsp;говорить <span>за тебе</span></h1>
+        <h1 class="cp-hero-title cp-animate-in cp-delay-3">{% blocktrans %}Створи річ, <br>що&nbsp;говорить <span>за тебе</span>{% endblocktrans %}</h1>
         <p class="cp-hero-desc cp-animate-in cp-delay-4">
-          Кастомний одяг та аксесуари під ваші ідеї. Будь-який дизайн, будь-який колір, преміальна якість без компромісів.
+          {% trans 'Кастомний одяг та аксесуари під ваші ідеї. Будь-який дизайн, будь-який колір, преміальна якість без компромісів.' %}
         </p>
 
         <div class="cp-hero-actions cp-animate-in cp-delay-5">
           <button class="cp-btn cp-btn--primary cp-btn--glow" type="button" data-start-flow>
             <span class="cp-btn-shimmer"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="m16.24 7.76 2.83-2.83"/></svg>
-            Почати створення
+            {% trans 'Почати створення' %}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
           </button>
 
           <a class="cp-btn cp-btn--telegram cp-btn--glass" href="https://t.me/twocomms" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            Написати нам у Telegram
+            {% trans 'Написати нам у Telegram' %}
           </a>
         </div>
 
-        <div class="cp-hero-proof-row cp-animate-in cp-delay-6" aria-label="Переваги кастомного друку">
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/><path d="m9 12 2 2 4-5"/></svg>Преміум якість друку</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7h-5l-2-3h-2L9 7H4l2 13h12l2-13Z"/><path d="M9 7c0 1.5 1.2 3 3 3s3-1.5 3-3"/></svg>Будь-який тип одягу</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="12" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="10.5" cy="17.5" r="2.5"/></svg>Будь-який колір та дизайн</span>
+        <div class="cp-hero-proof-row cp-animate-in cp-delay-6" aria-label="{% trans 'Переваги кастомного друку' %}">
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/><path d="m9 12 2 2 4-5"/></svg>{% trans 'Преміум якість друку' %}</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7h-5l-2-3h-2L9 7H4l2 13h12l2-13Z"/><path d="M9 7c0 1.5 1.2 3 3 3s3-1.5 3-3"/></svg>{% trans 'Будь-який тип одягу' %}</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="12" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="10.5" cy="17.5" r="2.5"/></svg>{% trans 'Будь-який колір та дизайн' %}</span>
         </div>
 
-        <div class="cp-hero-signature cp-animate-in cp-delay-6" data-text="твій стиль, твої правила." aria-hidden="true">твій стиль, твої правила.</div>
+        <div class="cp-hero-signature cp-animate-in cp-delay-6" data-text="{% trans 'твій стиль, твої правила.' %}" aria-hidden="true">{% trans 'твій стиль, твої правила.' %}</div>
       </div>
 
-      <div class="cp-hero-theatre cp-animate-in cp-delay-3" aria-label="Приклад кастомного одягу TwoComms">
+      <div class="cp-hero-theatre cp-animate-in cp-delay-3" aria-label="{% trans 'Приклад кастомного одягу TwoComms' %}">
         <figure class="cp-hero-stage">
-          <img src="{% static 'img/configurator/hero/custom-print-stage.jpg' %}" alt="Худі, футболка та лонгслів з кастомним друком TwoComms" loading="eager" fetchpriority="high">
+          <img src="{% static 'img/configurator/hero/custom-print-stage.jpg' %}" alt="{% trans 'Худі, футболка та лонгслів з кастомним друком TwoComms' %}" loading="eager" fetchpriority="high">
 
-          <figcaption class="visually-hidden">Три чорні речі на подіумі з логотипами TwoComms: худі, футболка та лонгслів.</figcaption>
+          <figcaption class="visually-hidden">{% trans 'Три чорні речі на подіумі з логотипами TwoComms: худі, футболка та лонгслів.' %}</figcaption>
 
-          <span class="cp-hero-garment-label cp-hero-garment-label--hoodie">Худі</span>
-          <span class="cp-hero-garment-label cp-hero-garment-label--tee">Футболка</span>
-          <span class="cp-hero-garment-label cp-hero-garment-label--longsleeve">Лонгслів</span>
+          <span class="cp-hero-garment-label cp-hero-garment-label--hoodie">{% trans 'Худі' %}</span>
+          <span class="cp-hero-garment-label cp-hero-garment-label--tee">{% trans 'Футболка' %}</span>
+          <span class="cp-hero-garment-label cp-hero-garment-label--longsleeve">{% trans 'Лонгслів' %}</span>
 
           <span class="cp-hero-print-zone cp-hero-print-zone--hoodie" aria-hidden="true">
             <span class="cp-hero-print-zone__frame cp-hero-print-zone__frame--a6">
-              <span>ваш принт</span>
+              <span>{% trans 'ваш принт' %}</span>
               <strong>A6</strong>
             </span>
             <span class="cp-hero-print-zone__frame cp-hero-print-zone__frame--a5">
-              <span>ваш принт</span>
+              <span>{% trans 'ваш принт' %}</span>
               <strong>A5</strong>
             </span>
             <span class="cp-hero-print-zone__frame cp-hero-print-zone__frame--a4">
-              <span>ваш принт</span>
+              <span>{% trans 'ваш принт' %}</span>
               <strong>A4</strong>
             </span>
           </span>
@@ -255,22 +255,22 @@
           </span>
           <span class="cp-hero-print-zone cp-hero-print-zone--longsleeve" aria-hidden="true">
             <span class="cp-hero-print-zone__frame cp-hero-print-zone__frame--a6">
-              <span>ваш принт</span>
+              <span>{% trans 'ваш принт' %}</span>
               <strong>A6</strong>
             </span>
             <span class="cp-hero-print-zone__frame cp-hero-print-zone__frame--a5">
-              <span>ваш принт</span>
+              <span>{% trans 'ваш принт' %}</span>
               <strong>A5</strong>
             </span>
             <span class="cp-hero-print-zone__frame cp-hero-print-zone__frame--a4">
-              <span>ваш принт</span>
+              <span>{% trans 'ваш принт' %}</span>
               <strong>A4</strong>
             </span>
           </span>
         </figure>
 
-        <div class="cp-hero-palette" aria-label="Приклади кольорів">
-          <span>Будь-який колір з палітри</span>
+        <div class="cp-hero-palette" aria-label="{% trans 'Приклади кольорів' %}">
+          <span>{% trans 'Будь-який колір з палітри' %}</span>
           <i style="--swatch:#090909"></i>
           <i style="--swatch:#f3f4f6"></i>
           <i style="--swatch:#d9bd93"></i>
@@ -279,19 +279,19 @@
           <i style="--swatch:#5a2bbf"></i>
           <i style="--swatch:#c92516"></i>
           <i class="cp-hero-swatch-rainbow"></i>
-          <b>20+ кольорів</b>
-          <button type="button" data-start-flow aria-label="Перейти до вибору кольору">+</button>
+          <b>{% trans '20+ кольорів' %}</b>
+          <button type="button" data-start-flow aria-label="{% trans 'Перейти до вибору кольору' %}">+</button>
         </div>
       </div>
 
-      <aside class="cp-hero-options cp-animate-in cp-delay-4" aria-label="Можливості конфігуратора">
+      <aside class="cp-hero-options cp-animate-in cp-delay-4" aria-label="{% trans 'Можливості конфігуратора' %}">
         <div class="cp-hero-option">
           <span class="cp-hero-option-icon cp-hero-option-icon--violet" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 3.7 16.2 2a4.6 4.6 0 0 1-8.4 0L3.6 3.7A2.2 2.2 0 0 0 2.3 6l.6 3.7a2.2 2.2 0 0 0 2.2 1.85H6V22h12V11.55h.9a2.2 2.2 0 0 0 2.2-1.85L21.7 6a2.2 2.2 0 0 0-1.3-2.3Z"/><path d="M8 2c.65 2 1.98 3 4 3s3.35-1 4-3"/></svg>
           </span>
           <div>
-            <strong>Тип одягу</strong>
-            <p>Худі, футболки, лонгсліви та інший одяг на вибір</p>
+            <strong>{% trans 'Тип одягу' %}</strong>
+            <p>{% trans 'Худі, футболки, лонгсліви та інший одяг на вибір' %}</p>
           </div>
         </div>
 
@@ -300,8 +300,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="12" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="10.5" cy="17.5" r="2.5"/></svg>
           </span>
           <div>
-            <strong>Колір</strong>
-            <p>Обери свій колір або будь-який з палітри</p>
+            <strong>{% trans 'Колір' %}</strong>
+            <p>{% trans 'Обери свій колір або будь-який з палітри' %}</p>
             <span class="cp-hero-mini-swatches" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
           </div>
         </div>
@@ -311,8 +311,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2" stroke-dasharray="4 3"/><path d="M3 9V5a2 2 0 0 1 2-2h4"/><path d="M15 3h4a2 2 0 0 1 2 2v4"/><path d="M21 15v4a2 2 0 0 1-2 2h-4"/><path d="M9 21H5a2 2 0 0 1-2-2v-4"/></svg>
           </span>
           <div>
-            <strong>Зона друку</strong>
-            <p>Перед, спинка, рукави або будь-яка інша зона</p>
+            <strong>{% trans 'Зона друку' %}</strong>
+            <p>{% trans 'Перед, спинка, рукави або будь-яка інша зона' %}</p>
           </div>
         </div>
 
@@ -321,21 +321,21 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.4"/><circle cx="5.4" cy="7.2" r="2.1"/><circle cx="18.6" cy="7.2" r="2.1"/><circle cx="5.8" cy="17.4" r="2.1"/><circle cx="18.2" cy="17.4" r="2.1"/><path d="m7.1 8.45 3 2.15"/><path d="m16.9 8.45-3 2.15"/><path d="m7.55 16.15 2.65-2.35"/><path d="m16.45 16.15-2.65-2.35"/></svg>
           </span>
           <div>
-            <strong>Матеріал</strong>
-            <p>Преміальні тканини та унікальна термотканина, що змінює відтінок від температури.</p>
+            <strong>{% trans 'Матеріал' %}</strong>
+            <p>{% trans 'Преміальні тканини та унікальна термотканина, що змінює відтінок від температури.' %}</p>
           </div>
         </div>
       </aside>
 
       <a class="cp-btn cp-btn--telegram cp-btn--glass cp-hero-telegram-mobile" href="https://t.me/twocomms" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        Написати нам у Telegram
+        {% trans 'Написати нам у Telegram' %}
       </a>
     </header>
 
     <form id="customPrintConfiguratorForm" class="cp-configurator" novalidate>
       <div class="cp-build-strip-shell" data-progress-shell hidden>
-        <div class="cp-build-strip" data-progress-strip aria-label="Прогрес конфігурації"></div>
+        <div class="cp-build-strip" data-progress-strip aria-label="{% trans 'Прогрес конфігурації' %}"></div>
       </div>
 
       <div class="cp-workbench" data-workbench>
@@ -344,17 +344,17 @@
         <aside class="cp-stage-card is-hidden" aria-labelledby="cp-stage-title" data-stage-card>
           <div class="cp-card-head">
             <div>
-              <span class="cp-card-eyebrow">Виріб на сцені</span>
-              <h2 id="cp-stage-title" data-stage-label>Виріб і зона друку</h2>
+              <span class="cp-card-eyebrow">{% trans 'Виріб на сцені' %}</span>
+              <h2 id="cp-stage-title" data-stage-label>{% trans 'Виріб і зона друку' %}</h2>
             </div>
-            <div class="cp-stage-view-switch" role="group" aria-label="Сторона виробу">
+            <div class="cp-stage-view-switch" role="group" aria-label="{% trans 'Сторона виробу' %}">
               <button type="button" class="is-active" data-stage-view="front">
-                <img src="{% static 'img/configurator/ui/view-front.svg' %}" alt="Спереди" width="20" aria-hidden="true">
-                <span>Спереди</span>
+                <img src="{% static 'img/configurator/ui/view-front.svg' %}" alt="{% trans 'Спереди' %}" width="20" aria-hidden="true">
+                <span>{% trans 'Спереди' %}</span>
               </button>
               <button type="button" data-stage-view="back">
-                <img src="{% static 'img/configurator/ui/view-back.svg' %}" alt="Зі спини" width="20" aria-hidden="true">
-                <span>Зі спини</span>
+                <img src="{% static 'img/configurator/ui/view-back.svg' %}" alt="{% trans 'Зі спини' %}" width="20" aria-hidden="true">
+                <span>{% trans 'Зі спини' %}</span>
               </button>
             </div>
           </div>
@@ -370,26 +370,26 @@
               <div class="cp-stage-ground"></div>
               <div class="cp-stage-overlay" data-stage-overlay aria-hidden="true"></div>
               <div class="cp-garment cp-garment--hoodie cp-garment--front" data-garment aria-hidden="true"></div>
-              <div class="cp-zone-layer" data-zone-layer aria-label="Доступні зони друку"></div>
+              <div class="cp-zone-layer" data-zone-layer aria-label="{% trans 'Доступні зони друку' %}"></div>
             </div>
           </div>
 
           <div class="cp-stage-guide" data-stage-guide>
-            Торкніться мітки, щоб подивитися placement на виробі.
+            {% trans 'Торкніться мітки, щоб подивитися placement на виробі.' %}
           </div>
 
-          <div class="cp-stage-legend" data-stage-legend aria-label="Зони друку на сцені"></div>
+          <div class="cp-stage-legend" data-stage-legend aria-label="{% trans 'Зони друку на сцені' %}"></div>
 
           <div class="cp-stage-meta">
             <div class="cp-stage-copy">
-              <small data-stage-eyebrow>Виріб</small>
+              <small data-stage-eyebrow>{% trans 'Виріб' %}</small>
               <strong data-stage-title-secondary>—</strong>
-              <span data-stage-note>Оберіть виріб, щоб побачити деталі.</span>
+              <span data-stage-note>{% trans 'Оберіть виріб, щоб побачити деталі.' %}</span>
             </div>
             <div class="cp-stage-copy">
-              <small>Активні зони</small>
+              <small>{% trans 'Активні зони' %}</small>
               <strong data-stage-zones>—</strong>
-              <span data-stage-addons>Без додаткових деталей.</span>
+              <span data-stage-addons>{% trans 'Без додаткових деталей.' %}</span>
             </div>
           </div>
 
@@ -397,16 +397,16 @@
           <div class="cp-stage-receipt" data-stage-receipt>
             <div class="cp-stage-receipt-head">
               <div>
-                <small>Підсумок</small>
-                <strong data-receipt-total>Ціну побачите після першого вибору</strong>
+                <small>{% trans 'Підсумок' %}</small>
+                <strong data-receipt-total>{% trans 'Ціну побачите після першого вибору' %}</strong>
               </div>
-              <span class="cp-stage-receipt-mode" data-receipt-mode>Базова конфігурація</span>
+              <span class="cp-stage-receipt-mode" data-receipt-mode>{% trans 'Базова конфігурація' %}</span>
             </div>
             <ul class="cp-stage-receipt-list" data-receipt-list>
-              <li class="is-empty">Поки що нічого не додано — оберіть виріб, щоб побачити прорахунок.</li>
+              <li class="is-empty">{% trans 'Поки що нічого не додано — оберіть виріб, щоб побачити прорахунок.' %}</li>
             </ul>
             <div class="cp-stage-receipt-foot" data-receipt-foot>
-              <span data-receipt-hint>Ціна оновлюється в реальному часі.</span>
+              <span data-receipt-hint>{% trans 'Ціна оновлюється в реальному часі.' %}</span>
             </div>
           </div>
         </aside>
@@ -420,21 +420,21 @@
             <div class="cp-step-summary" data-step-summary-row>
               <span class="cp-step-summary-num">1</span>
               <div class="cp-step-summary-text">
-                <small>Формат</small>
+                <small>{% trans 'Формат' %}</small>
                 <strong data-step-summary-value="mode">—</strong>
               </div>
-              <button type="button" class="cp-step-summary-edit" data-step-edit="mode">Змінити</button>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="mode">{% trans 'Змінити' %}</button>
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">1. Формат</span>
-                <h2>Для кого збираємо?</h2>
-                <p>Один виріб для себе чи партія для команди/бренду — від цього залежить ціна, розміри й наступні кроки.</p>
+                <span class="cp-card-eyebrow">{% trans '1. Формат' %}</span>
+                <h2>{% trans 'Для кого збираємо?' %}</h2>
+                <p>{% trans 'Один виріб для себе чи партія для команди/бренду — від цього залежить ціна, розміри й наступні кроки.' %}</p>
               </div>
               <div class="cp-option-grid cp-option-grid--two" data-mode-list>
                 {% for item in custom_print_config.modes %}
                   <button type="button" class="cp-option-card" data-choice-value="{{ item.value }}">
-                    <small>Формат</small>
+                    <small>{% trans 'Формат' %}</small>
                     <strong>{{ item.label }}</strong>
                     <span>{{ item.hint }}</span>
                   </button>
@@ -448,16 +448,16 @@
             <div class="cp-step-summary" data-step-summary-row>
               <span class="cp-step-summary-num">2</span>
               <div class="cp-step-summary-text">
-                <small>Виріб</small>
+                <small>{% trans 'Виріб' %}</small>
                 <strong data-step-summary-value="product">—</strong>
               </div>
-              <button type="button" class="cp-step-summary-edit" data-step-edit="product">Змінити</button>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="product">{% trans 'Змінити' %}</button>
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">2. Виріб</span>
-                <h2>Обери основу</h2>
-                <p>На чому буде твій дизайн?</p>
+                <span class="cp-card-eyebrow">{% trans '2. Виріб' %}</span>
+                <h2>{% trans 'Обери основу' %}</h2>
+                <p>{% trans 'На чому буде твій дизайн?' %}</p>
               </div>
               <div class="cp-product-grid" data-product-list>
                 {% for value, product in custom_print_config.products.items %}
@@ -476,31 +476,31 @@
             <div class="cp-step-summary" data-step-summary-row>
               <span class="cp-step-summary-num">3</span>
               <div class="cp-step-summary-text">
-                <small>Налаштування</small>
+                <small>{% trans 'Налаштування' %}</small>
                 <strong data-step-summary-value="config">—</strong>
               </div>
-              <button type="button" class="cp-step-summary-edit" data-step-edit="config">Змінити</button>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="config">{% trans 'Змінити' %}</button>
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">3. Налаштування</span>
-                <h2>Налаштуй вигляд і відчуття</h2>
-                <p>Обери посадку, тканину, колір і деталі. Доплати видно одразу — без сюрпризів у фіналі.</p>
+                <span class="cp-card-eyebrow">{% trans '3. Налаштування' %}</span>
+                <h2>{% trans 'Налаштуй вигляд і відчуття' %}</h2>
+                <p>{% trans 'Обери посадку, тканину, колір і деталі. Доплати видно одразу — без сюрпризів у фіналі.' %}</p>
               </div>
 
               <div class="cp-config-cluster" data-hoodie-config>
                 <div class="cp-config-block" data-fit-block>
                   <div class="cp-subhead">
-                    <strong>Посадка</strong>
-                    <span>Як річ сидітиме на тілі.</span>
+                    <strong>{% trans 'Посадка' %}</strong>
+                    <span>{% trans 'Як річ сидітиме на тілі.' %}</span>
                   </div>
                   <div class="cp-fit-grid" data-fit-list></div>
                 </div>
 
                 <div class="cp-config-block" data-fabric-block>
                   <div class="cp-subhead">
-                    <strong>Тканина</strong>
-                    <span>Від легкої бази до щільнішого варіанту.</span>
+                    <strong>{% trans 'Тканина' %}</strong>
+                    <span>{% trans 'Від легкої бази до щільнішого варіанту.' %}</span>
                   </div>
                   <div class="cp-fabric-row" data-fabric-list></div>
                 </div>
@@ -508,23 +508,23 @@
 
               <div class="cp-config-block">
                 <div class="cp-subhead">
-                  <strong>Колір виробу</strong>
-                  <span>Сцена показує відтінок максимально близько до реального.</span>
+                  <strong>{% trans 'Колір виробу' %}</strong>
+                  <span>{% trans 'Сцена показує відтінок максимально близько до реального.' %}</span>
                 </div>
                 <div class="cp-swatch-row" data-color-list></div>
               </div>
 
               <div class="cp-config-block" data-addons-wrap hidden>
                 <div class="cp-subhead">
-                  <strong>Деталі худі</strong>
-                  <span>Апгрейди, які роблять річ більш зібраною.</span>
+                  <strong>{% trans 'Деталі худі' %}</strong>
+                  <span>{% trans 'Апгрейди, які роблять річ більш зібраною.' %}</span>
                 </div>
                 <div class="cp-addon-grid" data-addons-list></div>
               </div>
 
               <div class="cp-step-actions">
-                <button type="button" class="cp-secondary-button" data-step-back="product">Назад</button>
-                <button type="button" class="cp-link cp-link--primary" data-step-next="zones">Далі до зон</button>
+                <button type="button" class="cp-secondary-button" data-step-back="product">{% trans 'Назад' %}</button>
+                <button type="button" class="cp-link cp-link--primary" data-step-next="zones">{% trans 'Далі до зон' %}</button>
               </div>
             </div>
           </section>
@@ -534,50 +534,50 @@
             <div class="cp-step-summary" data-step-summary-row>
               <span class="cp-step-summary-num">4</span>
               <div class="cp-step-summary-text">
-                <small>Зони друку</small>
+                <small>{% trans 'Зони друку' %}</small>
                 <strong data-step-summary-value="zones">—</strong>
               </div>
-              <button type="button" class="cp-step-summary-edit" data-step-edit="zones">Змінити</button>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="zones">{% trans 'Змінити' %}</button>
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">4. Зони друку</span>
-                <h2>Де буде принт?</h2>
-                <p>Обери одну або кілька зон. Перший друк входить у базову ціну, додаткові зони додаються окремо.</p>
+                <span class="cp-card-eyebrow">{% trans '4. Зони друку' %}</span>
+                <h2>{% trans 'Де буде принт?' %}</h2>
+                <p>{% trans 'Обери одну або кілька зон. Перший друк входить у базову ціну, додаткові зони додаються окремо.' %}</p>
               </div>
 
               <div class="cp-config-block">
                 <div class="cp-subhead">
-                  <strong>Активні зони</strong>
-                  <span>Перший друк входить у базову ціну. Додаткові зони можна вмикати і вимикати прямо на сцені.</span>
+                  <strong>{% trans 'Активні зони' %}</strong>
+                  <span>{% trans 'Перший друк входить у базову ціну. Додаткові зони можна вмикати і вимикати прямо на сцені.' %}</span>
                 </div>
                 <div class="cp-mini-chip-row cp-mini-chip-row--zones" data-zone-list></div>
                 <label class="cp-field" for="cp-placement-note" data-placement-note-wrap hidden>
-                  <span>Нестандартна зона</span>
-                  <textarea id="cp-placement-note" name="placement_note" rows="3" data-placement-note-input placeholder="Опиши ідею — менеджер перевірить, чи можемо зробити."></textarea>
+                  <span>{% trans 'Нестандартна зона' %}</span>
+                  <textarea id="cp-placement-note" name="placement_note" rows="3" data-placement-note-input placeholder="{% trans 'Опиши ідею — менеджер перевірить, чи можемо зробити.' %}"></textarea>
                 </label>
               </div>
 
               <div class="cp-config-block" data-front-size-wrap hidden>
                 <div class="cp-subhead">
-                  <strong>Спереду</strong>
-                  <span>Класичне розміщення для головного принта.</span>
+                  <strong>{% trans 'Спереду' %}</strong>
+                  <span>{% trans 'Класичне розміщення для головного принта.' %}</span>
                 </div>
                 <div class="cp-front-size-row" data-front-size-list></div>
               </div>
 
               <div class="cp-config-block" data-back-size-wrap hidden>
                 <div class="cp-subhead">
-                  <strong>Спина</strong>
-                  <span>Більший формат для сильного візуалу.</span>
+                  <strong>{% trans 'Спина' %}</strong>
+                  <span>{% trans 'Більший формат для сильного візуалу.' %}</span>
                 </div>
                 <div class="cp-front-size-row" data-back-size-list></div>
               </div>
 
               <div class="cp-config-block" data-sleeve-wrap hidden>
                 <div class="cp-subhead">
-                  <strong>Рукави</strong>
-                  <span>Текст, символи або невеликі деталі.</span>
+                  <strong>{% trans 'Рукави' %}</strong>
+                  <span>{% trans 'Текст, символи або невеликі деталі.' %}</span>
                 </div>
 
                 <div class="cp-sleeve-side-row" data-sleeve-side-list></div>
@@ -585,33 +585,33 @@
                 <div class="cp-sleeve-editor-grid">
                   <div class="cp-sleeve-editor" data-sleeve-editor="left" hidden>
                     <div class="cp-sleeve-editor-head">
-                      <strong>Лівий рукав</strong>
-                      <span>Покажемо вибраний режим прямо на сцені.</span>
+                      <strong>{% trans 'Лівий рукав' %}</strong>
+                      <span>{% trans 'Покажемо вибраний режим прямо на сцені.' %}</span>
                     </div>
                     <div class="cp-front-size-row" data-sleeve-mode-list="left"></div>
                     <label class="cp-field" data-sleeve-text-wrap="left" hidden>
-                      <span>Текст для лівого рукава</span>
-                      <input type="text" data-sleeve-text-input="left" maxlength="120" placeholder="Наприклад: TWOCOMMS CLUB">
+                      <span>{% trans 'Текст для лівого рукава' %}</span>
+                      <input type="text" data-sleeve-text-input="left" maxlength="120" placeholder="{% trans 'Наприклад: TWOCOMMS CLUB' %}">
                     </label>
                   </div>
 
                   <div class="cp-sleeve-editor" data-sleeve-editor="right" hidden>
                     <div class="cp-sleeve-editor-head">
-                      <strong>Правий рукав</strong>
-                      <span>Другий рукав рахується як окрема платна зона.</span>
+                      <strong>{% trans 'Правий рукав' %}</strong>
+                      <span>{% trans 'Другий рукав рахується як окрема платна зона.' %}</span>
                     </div>
                     <div class="cp-front-size-row" data-sleeve-mode-list="right"></div>
                     <label class="cp-field" data-sleeve-text-wrap="right" hidden>
-                      <span>Текст для правого рукава</span>
-                      <input type="text" data-sleeve-text-input="right" maxlength="120" placeholder="Наприклад: EST. 2014">
+                      <span>{% trans 'Текст для правого рукава' %}</span>
+                      <input type="text" data-sleeve-text-input="right" maxlength="120" placeholder="{% trans 'Наприклад: EST. 2014' %}">
                     </label>
                   </div>
                 </div>
               </div>
 
               <div class="cp-step-actions">
-                <button type="button" class="cp-secondary-button" data-step-back="config">Назад</button>
-                <button type="button" class="cp-link cp-link--primary" data-step-next="artwork">Далі до макета</button>
+                <button type="button" class="cp-secondary-button" data-step-back="config">{% trans 'Назад' %}</button>
+                <button type="button" class="cp-link cp-link--primary" data-step-next="artwork">{% trans 'Далі до макета' %}</button>
               </div>
             </div>
           </section>
@@ -621,16 +621,16 @@
             <div class="cp-step-summary" data-step-summary-row>
               <span class="cp-step-summary-num">5</span>
               <div class="cp-step-summary-text">
-                <small>Макет</small>
+                <small>{% trans 'Макет' %}</small>
                 <strong data-step-summary-value="artwork">—</strong>
               </div>
-              <button type="button" class="cp-step-summary-edit" data-step-edit="artwork">Змінити</button>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="artwork">{% trans 'Змінити' %}</button>
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">5. Макет</span>
-                <h2>У тебе є готовий файл чи тільки ідея?</h2>
-                <p>Завантаж макет або коротко опиши, що хочеш отримати. Ми підкажемо, якщо файл треба підготувати до друку.</p>
+                <span class="cp-card-eyebrow">{% trans '5. Макет' %}</span>
+                <h2>{% trans 'У тебе є готовий файл чи тільки ідея?' %}</h2>
+                <p>{% trans 'Завантаж макет або коротко опиши, що хочеш отримати. Ми підкажемо, якщо файл треба підготувати до друку.' %}</p>
               </div>
 
               <div class="cp-artwork-services" data-artwork-service-list>
@@ -646,17 +646,17 @@
               </div>
 
               <div class="cp-dropzone-grid" data-dropzone-grid>
-                <p class="cp-dropzone-empty" data-dropzone-empty>Спочатку оберіть зони друку — для кожної зʼявиться окреме поле завантаження.</p>
+                <p class="cp-dropzone-empty" data-dropzone-empty>{% trans 'Спочатку оберіть зони друку — для кожної зʼявиться окреме поле завантаження.' %}</p>
               </div>
 
               <label class="cp-field" for="cp-brief">
-                <span>Бриф / завдання</span>
-                <textarea id="cp-brief" name="brief" rows="4" data-brief-input placeholder="Опишіть ідею, стиль або референси. Якщо потрібен дизайн — це обовʼязково."></textarea>
+                <span>{% trans 'Бриф / завдання' %}</span>
+                <textarea id="cp-brief" name="brief" rows="4" data-brief-input placeholder="{% trans 'Опишіть ідею, стиль або референси. Якщо потрібен дизайн — це обовʼязково.' %}"></textarea>
               </label>
 
               <div class="cp-step-actions">
-                <button type="button" class="cp-secondary-button" data-step-back="zones">Назад</button>
-                <button type="button" class="cp-link cp-link--primary" data-step-next="quantity">Далі до кількості</button>
+                <button type="button" class="cp-secondary-button" data-step-back="zones">{% trans 'Назад' %}</button>
+                <button type="button" class="cp-link cp-link--primary" data-step-next="quantity">{% trans 'Далі до кількості' %}</button>
               </div>
             </div>
           </section>
@@ -666,53 +666,53 @@
             <div class="cp-step-summary" data-step-summary-row>
               <span class="cp-step-summary-num">6</span>
               <div class="cp-step-summary-text">
-                <small>Кількість</small>
+                <small>{% trans 'Кількість' %}</small>
                 <strong data-step-summary-value="quantity">—</strong>
               </div>
-              <button type="button" class="cp-step-summary-edit" data-step-edit="quantity">Змінити</button>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="quantity">{% trans 'Змінити' %}</button>
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">6. Кількість і розміри</span>
-                <h2>Скільки речей потрібно?</h2>
-                <p data-quantity-hint>Вкажи кількість і розміри. Якщо ще не знаєш точні розміри — можна уточнити з менеджером.</p>
+                <span class="cp-card-eyebrow">{% trans '6. Кількість і розміри' %}</span>
+                <h2>{% trans 'Скільки речей потрібно?' %}</h2>
+                <p data-quantity-hint>{% trans 'Вкажи кількість і розміри. Якщо ще не знаєш точні розміри — можна уточнити з менеджером.' %}</p>
               </div>
 
               <div class="cp-qty-bar">
                 <div class="cp-qty-bar-counter">
-                  <button type="button" class="cp-qty-step" data-qty-step="-1" aria-label="Зменшити">−</button>
+                  <button type="button" class="cp-qty-step" data-qty-step="-1" aria-label="{% trans 'Зменшити' %}">−</button>
                   <input id="cp-quantity" name="quantity" type="number" min="1" inputmode="numeric" placeholder="0" data-quantity-input>
-                  <button type="button" class="cp-qty-step" data-qty-step="1" aria-label="Збільшити">+</button>
+                  <button type="button" class="cp-qty-step" data-qty-step="1" aria-label="{% trans 'Збільшити' %}">+</button>
                 </div>
                 <div class="cp-qty-bar-meta" data-b2b-meta hidden>
-                  <small>B2B знижка</small>
-                  <strong data-b2b-discount>0 грн / шт</strong>
+                  <small>{% trans 'B2B знижка' %}</small>
+                  <strong data-b2b-discount>{% trans '0 грн / шт' %}</strong>
                 </div>
               </div>
 
               <div class="cp-size-block" data-size-block hidden>
                 <div class="cp-subhead">
-                  <strong>Розмір</strong>
-                  <span data-size-hint>Один клік — і розмір зафіксовано.</span>
+                  <strong>{% trans 'Розмір' %}</strong>
+                  <span data-size-hint>{% trans 'Один клік — і розмір зафіксовано.' %}</span>
                 </div>
                 <div class="cp-size-grid" data-size-grid hidden></div>
                 <div class="cp-size-matrix" data-size-matrix hidden></div>
                 <div class="cp-size-warning" data-size-warning hidden></div>
-                <button type="button" class="cp-secondary-button cp-secondary-button--ghost" data-size-manager hidden>Уточнити розміри з менеджером</button>
+                <button type="button" class="cp-secondary-button cp-secondary-button--ghost" data-size-manager hidden>{% trans 'Уточнити розміри з менеджером' %}</button>
                 <label class="cp-field" data-sizes-note-wrap hidden>
-                  <span>Примітка по розмірах</span>
-                  <textarea name="sizes_note" rows="2" data-sizes-note-input placeholder="Якщо потрібні особливі розміри або примітки"></textarea>
+                  <span>{% trans 'Примітка по розмірах' %}</span>
+                  <textarea name="sizes_note" rows="2" data-sizes-note-input placeholder="{% trans 'Якщо потрібні особливі розміри або примітки' %}"></textarea>
                 </label>
               </div>
 
               <label class="cp-field" for="cp-garment-note" data-garment-note-wrap hidden>
-                <span>Опис свого виробу</span>
-                <textarea id="cp-garment-note" name="garment_note" rows="3" data-garment-note-input placeholder="Матеріал, колір, крій, стан виробу та все, що важливо для прорахунку"></textarea>
+                <span>{% trans 'Опис свого виробу' %}</span>
+                <textarea id="cp-garment-note" name="garment_note" rows="3" data-garment-note-input placeholder="{% trans 'Матеріал, колір, крій, стан виробу та все, що важливо для прорахунку' %}"></textarea>
               </label>
 
               <div class="cp-step-actions">
-                <button type="button" class="cp-secondary-button" data-step-back="artwork">Назад</button>
-                <button type="button" class="cp-link cp-link--primary" data-step-next="gift">Далі до подарунку</button>
+                <button type="button" class="cp-secondary-button" data-step-back="artwork">{% trans 'Назад' %}</button>
+                <button type="button" class="cp-link cp-link--primary" data-step-next="gift">{% trans 'Далі до подарунку' %}</button>
               </div>
             </div>
           </section>
@@ -722,16 +722,16 @@
             <div class="cp-step-summary" data-step-summary-row>
               <span class="cp-step-summary-num">7</span>
               <div class="cp-step-summary-text">
-                <small>Подарунок</small>
+                <small>{% trans 'Подарунок' %}</small>
                 <strong data-step-summary-value="gift">—</strong>
               </div>
-              <button type="button" class="cp-step-summary-edit" data-step-edit="gift">Змінити</button>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="gift">{% trans 'Змінити' %}</button>
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">7. Подарунок</span>
-                <h2>Потрібна подарункова упаковка?</h2>
-                <p>Додамо крафт-пакування, листівку й приберемо цінники.</p>
+                <span class="cp-card-eyebrow">{% trans '7. Подарунок' %}</span>
+                <h2>{% trans 'Потрібна подарункова упаковка?' %}</h2>
+                <p>{% trans 'Додамо крафт-пакування, листівку й приберемо цінники.' %}</p>
               </div>
 
               <button type="button" class="cp-addon-card cp-addon-card--gift" data-gift-toggle data-price-modifier="{{ custom_print_config.gift_service.price }}">
@@ -745,22 +745,22 @@
                   </svg>
                 </span>
                 <span class="cp-addon-card-body">
-                  <strong>Подарункова упаковка</strong>
-                  <span class="cp-addon-card-badge">+{{ custom_print_config.gift_service.price }} грн</span>
+                  <strong>{% trans 'Подарункова упаковка' %}</strong>
+                  <span class="cp-addon-card-badge">+{{ custom_print_config.gift_service.price }} {% trans 'грн' %}</span>
                   <span class="cp-addon-card-hint">{{ custom_print_config.gift_service.note }}</span>
                   <span class="cp-addon-card-bonus">{{ custom_print_config.gift_service.bonus_note }}</span>
                 </span>
               </button>
 
               <label class="cp-field" data-gift-text-wrap hidden>
-                <span>Текст побажання (необовʼязково)</span>
-                <textarea rows="3" data-gift-text-input placeholder="Введіть текст для листівки. Або залиште пустим — ми покладемо чисту листівку для вашого почерку."></textarea>
+                <span>{% trans 'Текст побажання (необовʼязково)' %}</span>
+                <textarea rows="3" data-gift-text-input placeholder="{% trans 'Введіть текст для листівки. Або залиште пустим — ми покладемо чисту листівку для вашого почерку.' %}"></textarea>
               </label>
 
               <div class="cp-step-actions">
-                <button type="button" class="cp-secondary-button" data-step-back="quantity">Назад</button>
-                <button type="button" class="cp-link cp-link--primary" data-step-next="contact">Додати упаковку</button>
-                <button type="button" class="cp-tertiary-button" data-step-skip="contact">Пропустити</button>
+                <button type="button" class="cp-secondary-button" data-step-back="quantity">{% trans 'Назад' %}</button>
+                <button type="button" class="cp-link cp-link--primary" data-step-next="contact">{% trans 'Додати упаковку' %}</button>
+                <button type="button" class="cp-tertiary-button" data-step-skip="contact">{% trans 'Пропустити' %}</button>
               </div>
             </div>
           </section>
@@ -770,44 +770,44 @@
             <div class="cp-step-summary" data-step-summary-row>
               <span class="cp-step-summary-num">8</span>
               <div class="cp-step-summary-text">
-                <small>Контакт</small>
+                <small>{% trans 'Контакт' %}</small>
                 <strong data-step-summary-value="contact">—</strong>
               </div>
-              <button type="button" class="cp-step-summary-edit" data-step-edit="contact">Змінити</button>
+              <button type="button" class="cp-step-summary-edit" data-step-edit="contact">{% trans 'Змінити' %}</button>
             </div>
             <div class="cp-step-body">
               <div class="cp-step-head">
-                <span class="cp-card-eyebrow">8. Контакт і фінал</span>
-                <h2>Куди надіслати результат?</h2>
-                <p>Додай контакт, щоб ми могли підтвердити деталі. Можеш додати конфігурацію в кошик або одразу передати менеджеру.</p>
+                <span class="cp-card-eyebrow">{% trans '8. Контакт і фінал' %}</span>
+                <h2>{% trans 'Куди надіслати результат?' %}</h2>
+                <p>{% trans 'Додай контакт, щоб ми могли підтвердити деталі. Можеш додати конфігурацію в кошик або одразу передати менеджеру.' %}</p>
               </div>
 
               <div class="cp-inline-fields">
                 <label class="cp-field" for="cp-contact-name">
-                  <span>Ваше імʼя</span>
-                  <input id="cp-contact-name" name="contact_name" type="text" data-name-input placeholder="Ім'я для менеджера">
+                  <span>{% trans 'Ваше імʼя' %}</span>
+                  <input id="cp-contact-name" name="contact_name" type="text" data-name-input placeholder="{% trans "Ім'я для менеджера" %}">
                 </label>
                 <label class="cp-field" for="cp-brand-name" data-brand-fields hidden>
-                  <span>Бренд / Instagram</span>
-                  <input id="cp-brand-name" name="brand_name" type="text" data-brand-name-input placeholder="Назва бренду або @instagram">
+                  <span>{% trans 'Бренд / Instagram' %}</span>
+                  <input id="cp-brand-name" name="brand_name" type="text" data-brand-name-input placeholder="{% trans 'Назва бренду або @instagram' %}">
                 </label>
               </div>
 
               <div class="cp-config-block">
                 <div class="cp-subhead">
-                  <strong>Канал звʼязку</strong>
-                  <span>Telegram / WhatsApp / телефон.</span>
+                  <strong>{% trans 'Канал звʼязку' %}</strong>
+                  <span>{% trans 'Telegram / WhatsApp / телефон.' %}</span>
                 </div>
                 <div class="cp-mini-chip-row" data-contact-channel-list></div>
               </div>
 
               <label class="cp-field" for="cp-contact-value">
-                <span>Контакт</span>
-                <input id="cp-contact-value" name="contact_value" type="text" data-contact-value-input placeholder="@username або +380...">
+                <span>{% trans 'Контакт' %}</span>
+                <input id="cp-contact-value" name="contact_value" type="text" data-contact-value-input placeholder="{% trans '@username або +380...' %}">
               </label>
 
               <div class="cp-status-box" data-status-box aria-live="polite">
-                Контакт + кнопка нижче. Чорнетка відразу зберігається локально.
+                {% trans 'Контакт + кнопка нижче. Чорнетка відразу зберігається локально.' %}
               </div>
 
               <div class="cp-final-actions" data-final-actions>
@@ -820,8 +820,8 @@
                     </svg>
                   </span>
                   <span class="cp-final-button-text">
-                    <strong>Додати в кошик</strong>
-                    <small data-cart-action-hint>Передзамовлення зі снимком конфігурації</small>
+                    <strong>{% trans 'Додати в кошик' %}</strong>
+                    <small data-cart-action-hint>{% trans 'Передзамовлення зі снимком конфігурації' %}</small>
                   </span>
                 </button>
                 <button type="submit" class="cp-final-button cp-final-button--secondary" data-action-submit-lead>
@@ -831,13 +831,13 @@
                     </svg>
                   </span>
                   <span class="cp-final-button-text">
-                    <strong>Надіслати менеджеру</strong>
-                    <small data-lead-action-hint>Бот відправить заявку в Telegram</small>
+                    <strong>{% trans 'Надіслати менеджеру' %}</strong>
+                    <small data-lead-action-hint>{% trans 'Бот відправить заявку в Telegram' %}</small>
                   </span>
                 </button>
               </div>
 
-              <button type="button" class="cp-tertiary-button cp-tertiary-button--center" data-safe-exit-trigger>Зберегти чернетку і відкрити Telegram</button>
+              <button type="button" class="cp-tertiary-button cp-tertiary-button--center" data-safe-exit-trigger>{% trans 'Зберегти чернетку і відкрити Telegram' %}</button>
             </div>
           </section>
           </div>
@@ -847,9 +847,9 @@
 
     <div class="cp-support-stack">
       <section class="cp-support-section" aria-labelledby="custom-print-faq-title">
-        <h2 id="custom-print-faq-title">Поширені питання про кастомний друк</h2>
-        <p>Цей блок закриває часті заперечення до заявки: чи можна зробити один виріб, що робити без готового файлу, як працювати зі своїм одягом і як запускати партію для бренду чи команди.</p>
-        <p>Важливо: готові товари належної якості можна повернути або обміняти протягом 14 днів згідно із законодавством України, але кастомний одяг, виготовлений за індивідуальним замовленням, не підлягає поверненню чи обміну, якщо його виконано належним чином.</p>
+        <h2 id="custom-print-faq-title">{% trans 'Поширені питання про кастомний друк' %}</h2>
+        <p>{% trans 'Цей блок закриває часті заперечення до заявки: чи можна зробити один виріб, що робити без готового файлу, як працювати зі своїм одягом і як запускати партію для бренду чи команди.' %}</p>
+        <p>{% trans 'Важливо: готові товари належної якості можна повернути або обміняти протягом 14 днів згідно із законодавством України, але кастомний одяг, виготовлений за індивідуальним замовленням, не підлягає поверненню чи обміну, якщо його виконано належним чином.' %}</p>
 
         <div class="cp-faq-list">
           {% for item in faq_items %}
@@ -862,26 +862,26 @@
       </section>
 
       <section class="cp-support-section" aria-labelledby="custom-print-links-title">
-        <h2 id="custom-print-links-title">Що ще подивитися перед заявкою</h2>
-        <p>Це допоміжний внутрішній хаб навколо кастомного друку: опт, контакти та умови оформлення, які часто потрібні до підтвердження макета або тиражу.</p>
+        <h2 id="custom-print-links-title">{% trans 'Що ще подивитися перед заявкою' %}</h2>
+        <p>{% trans 'Це допоміжний внутрішній хаб навколо кастомного друку: опт, контакти та умови оформлення, які часто потрібні до підтвердження макета або тиражу.' %}</p>
 
         <div class="cp-link-grid">
           <a class="cp-link-card" href="{% url 'delivery' %}">
-            <small>Умови</small>
-            <strong>Доставка і оплата</strong>
-            <span>Подивіться, як відбувається відправка, оплата та підтвердження замовлень по Україні.</span>
+            <small>{% trans 'Умови' %}</small>
+            <strong>{% trans 'Доставка і оплата' %}</strong>
+            <span>{% trans 'Подивіться, як відбувається відправка, оплата та підтвердження замовлень по Україні.' %}</span>
           </a>
 
           <a class="cp-link-card" href="{% url 'wholesale_page' %}">
             <small>B2B</small>
-            <strong>Опт і дропшипінг</strong>
-            <span>Окрема сторінка для брендів, команд, магазинів і тих, кому потрібні партії або партнерський формат.</span>
+            <strong>{% trans 'Опт і дропшипінг' %}</strong>
+            <span>{% trans 'Окрема сторінка для брендів, команд, магазинів і тих, кому потрібні партії або партнерський формат.' %}</span>
           </a>
 
           <a class="cp-link-card" href="{% url 'contacts' %}">
-            <small>Зв'язок</small>
-            <strong>Контакти TwoComms</strong>
-            <span>Коли потрібно швидко підтвердити макет, дедлайн або специфіку друку без довгого листування.</span>
+            <small>{% trans "Зв'язок" %}</small>
+            <strong>{% trans 'Контакти TwoComms' %}</strong>
+            <span>{% trans 'Коли потрібно швидко підтвердити макет, дедлайн або специфіку друку без довгого листування.' %}</span>
           </a>
         </div>
       </section>
