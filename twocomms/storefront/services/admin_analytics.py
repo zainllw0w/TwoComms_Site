@@ -12,8 +12,8 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.cache import cache
-from django.db.models import Avg, CharField, Count, DurationField, Exists, ExpressionWrapper, F, Min, OuterRef, Q, Subquery, Sum
-from django.db.models.functions import Coalesce
+from django.db.models import Avg, Case, CharField, Count, DurationField, Exists, ExpressionWrapper, F, Min, OuterRef, Q, Subquery, Sum, Value, When
+from django.db.models.functions import Coalesce, NullIf
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
@@ -30,6 +30,14 @@ from ..models import (
     UserAction,
     UTMSession,
 )
+from ..analytics_exclusions import (
+    action_exclusion_q,
+    order_exclusion_q,
+    pageview_exclusion_q,
+    session_exclusion_q,
+    utm_session_exclusion_q,
+)
+from ..models import AnalyticsExclusion
 from ..analytics_noise import analytics_noise_q
 from ..utm_utils import get_client_ip
 from .external_analytics import (
@@ -452,6 +460,10 @@ def classify_order_source(order: Order) -> str:
 def _resolve_scope(filters: AnalyticsFilters) -> AnalyticsScope:
     site_qs = SiteSession.objects.select_related("utm_data").all()
     site_qs = _apply_range(site_qs, "first_seen", filters)
+    # Drop everything that admins explicitly excluded (offices, staff, bot agents…)
+    site_exclusion = session_exclusion_q()
+    if site_exclusion:
+        site_qs = site_qs.exclude(site_exclusion)
     human_pageviews = (
         PageView.objects.filter(session_id=OuterRef("pk"))
         .exclude(analytics_noise_q("path"))
@@ -483,6 +495,9 @@ def _resolve_scope(filters: AnalyticsFilters) -> AnalyticsScope:
 
     utm_qs = UTMSession.objects.select_related("session").all()
     utm_qs = _apply_range(utm_qs, "first_seen", filters)
+    utm_exclusion = utm_session_exclusion_q()
+    if utm_exclusion:
+        utm_qs = utm_qs.exclude(utm_exclusion)
     if filters.device_type != "all":
         utm_qs = utm_qs.filter(device_type=filters.device_type)
     if filters.utm_source:
@@ -500,6 +515,9 @@ def _resolve_scope(filters: AnalyticsFilters) -> AnalyticsScope:
 def _orders_queryset(filters: AnalyticsFilters, scope: AnalyticsScope):
     qs = Order.objects.select_related("utm_session", "user").prefetch_related("items", "items__product")
     qs = _apply_range(qs, "created", filters)
+    order_exclusion = order_exclusion_q()
+    if order_exclusion:
+        qs = qs.exclude(order_exclusion)
     if filters.utm_source:
         qs = qs.filter(utm_source=filters.utm_source)
     if filters.utm_medium:
@@ -516,6 +534,9 @@ def _orders_queryset(filters: AnalyticsFilters, scope: AnalyticsScope):
 def _actions_queryset(filters: AnalyticsFilters, scope: AnalyticsScope):
     qs = UserAction.objects.select_related("site_session", "utm_session")
     qs = _apply_range(qs, "timestamp", filters)
+    action_exclusion = action_exclusion_q()
+    if action_exclusion:
+        qs = qs.exclude(action_exclusion)
     if filters.product_id:
         qs = qs.filter(product_id=filters.product_id)
     if filters.utm_source:
@@ -540,6 +561,9 @@ def _pageviews_queryset(filters: AnalyticsFilters, scope: AnalyticsScope):
     qs = PageView.objects.select_related("session")
     qs = _apply_range(qs, "when", filters)
     qs = qs.exclude(analytics_noise_q("path"))
+    pv_exclusion = pageview_exclusion_q()
+    if pv_exclusion:
+        qs = qs.exclude(pv_exclusion)
     if not filters.include_bots:
         qs = qs.filter(is_bot=False)
     if scope.session_keys is not None:
@@ -616,8 +640,20 @@ def _comparison_summary(current_value: float, previous_value: float) -> dict[str
 
 
 def _count_distinct_visitors(site_qs) -> int:
+    """
+    Count distinct visitors falling back from ``visitor_id`` (twc_vid cookie) to
+    ``session_key`` when the cookie is missing. ``Coalesce`` alone is not enough
+    because empty strings are non-NULL, so we route them through ``NullIf`` to
+    treat them as missing.
+    """
     return (
-        site_qs.annotate(visitor_key=Coalesce("visitor_id", "session_key", output_field=CharField()))
+        site_qs.annotate(
+            visitor_key=Coalesce(
+                NullIf(F("visitor_id"), Value("")),
+                F("session_key"),
+                output_field=CharField(),
+            )
+        )
         .values("visitor_key")
         .distinct()
         .count()
@@ -625,9 +661,15 @@ def _count_distinct_visitors(site_qs) -> int:
 
 
 def _average_session_seconds(site_qs) -> int:
-    duration = site_qs.annotate(
+    """
+    Mean session duration in seconds. Single-page sessions where
+    ``last_seen == first_seen`` would otherwise drag the mean toward zero, so
+    we drop sessions with ``duration <= 0`` from the aggregate.
+    """
+    qs_with_duration = site_qs.annotate(
         duration=ExpressionWrapper(F("last_seen") - F("first_seen"), output_field=DurationField())
-    ).aggregate(avg_duration=Avg("duration"))["avg_duration"]
+    ).filter(duration__gt=timedelta(seconds=0))
+    duration = qs_with_duration.aggregate(avg_duration=Avg("duration"))["avg_duration"]
     return int(duration.total_seconds()) if duration else 0
 
 
@@ -1586,6 +1628,15 @@ def build_admin_analytics_context(request) -> dict[str, Any]:
         },
         "legacyDispatcherUrl": f"?section=dispatcher&period={filters.period}",
     }
+    exclusions = list(
+        AnalyticsExclusion.objects.order_by("-is_active", "kind", "value").values(
+            "id", "kind", "value", "note", "is_active", "updated_at"
+        )
+    )
+    exclusion_kinds = [
+        {"value": choice.value, "label": choice.label}
+        for choice in AnalyticsExclusion.Kind
+    ]
     return {
         "analytics_dashboard": {
             "filters": filters,
@@ -1602,5 +1653,9 @@ def build_admin_analytics_context(request) -> dict[str, Any]:
             "product_options": product_options,
             "config": config,
             "legacy_dispatcher_url": config["legacyDispatcherUrl"],
+            "exclusions": exclusions,
+            "exclusion_kinds": exclusion_kinds,
+            "exclusions_count": len(exclusions),
+            "exclusions_active": sum(1 for e in exclusions if e["is_active"]),
         }
     }

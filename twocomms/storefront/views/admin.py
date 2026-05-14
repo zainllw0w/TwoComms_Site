@@ -94,6 +94,11 @@ from orders.models import (
     WholesaleInvoice,
 )
 from .promo import get_promo_admin_context
+from storefront.analytics_exclusions import (
+    order_exclusion_q,
+    pageview_exclusion_q,
+    session_exclusion_q,
+)
 from storefront.services.catalog import (
     append_product_gallery,
     formset_to_variant_payloads,
@@ -219,6 +224,20 @@ def _build_stats(period_param):
             page_views_qs = PageView.objects.filter(is_bot=False)
             sessions_qs = SiteSession.objects.filter(is_bot=False)
 
+        # Apply admin-managed exclusions (offices, staff, bot agents) before counting.
+        site_excl = session_exclusion_q()
+        if site_excl:
+            sessions_qs = sessions_qs.exclude(site_excl)
+        pv_excl = pageview_exclusion_q()
+        if pv_excl:
+            page_views_qs = page_views_qs.exclude(pv_excl)
+        order_excl = order_exclusion_q()
+        if order_excl:
+            orders_qs = orders_qs.exclude(order_excl)
+            order_items_qs = order_items_qs.exclude(
+                order__in=Order.objects.filter(order_excl)
+            )
+
         stats['orders_count'] = orders_qs.count()
         stats['orders_today'] = Order.objects.filter(created__date=today).count()
 
@@ -253,30 +272,40 @@ def _build_stats(period_param):
         stats['favorites_count'] = FavoriteProduct.objects.count()
 
         online_threshold = timezone.now() - timedelta(minutes=5)
-        stats['online_users'] = SiteSession.objects.filter(
-            last_seen__gte=online_threshold, is_bot=False
-        ).count()
-        stats['unique_visitors_today'] = SiteSession.objects.filter(
-            first_seen__date=today, is_bot=False
-        ).count()
-        stats['page_views_today'] = PageView.objects.filter(
-            when__date=today, is_bot=False
-        ).count()
+        online_qs = SiteSession.objects.filter(last_seen__gte=online_threshold, is_bot=False)
+        unique_today_qs = SiteSession.objects.filter(first_seen__date=today, is_bot=False)
+        page_views_today_qs = PageView.objects.filter(when__date=today, is_bot=False)
+        today_sessions = SiteSession.objects.filter(first_seen__date=today, is_bot=False)
+        if site_excl:
+            online_qs = online_qs.exclude(site_excl)
+            unique_today_qs = unique_today_qs.exclude(site_excl)
+            today_sessions = today_sessions.exclude(site_excl)
+        if pv_excl:
+            page_views_today_qs = page_views_today_qs.exclude(pv_excl)
+        stats['online_users'] = online_qs.count()
+        stats['unique_visitors_today'] = unique_today_qs.count()
+        stats['page_views_today'] = page_views_today_qs.count()
 
         stats['page_views_period'] = page_views_qs.count()
         stats['sessions_period'] = sessions_qs.count()
 
-        today_sessions = SiteSession.objects.filter(first_seen__date=today, is_bot=False)
         if today_sessions.exists():
             single_page_sessions = today_sessions.filter(pageviews__lte=1).count()
             stats['bounce_rate'] = round(
                 single_page_sessions / today_sessions.count() * 100, 2
             )
-            durations = today_sessions.annotate(
-                dur=ExpressionWrapper(F('last_seen') - F('first_seen'), output_field=DurationField())
-            ).values_list('dur', flat=True)
-            total_seconds = sum((d.total_seconds() for d in durations if d), 0)
-            stats['avg_session_duration'] = int(total_seconds / max(len(durations), 1))
+            # Bug fix: only count sessions with measurable duration so a flood of
+            # single-page sessions does not dilute the average toward zero.
+            durations = list(
+                today_sessions.annotate(
+                    dur=ExpressionWrapper(F('last_seen') - F('first_seen'), output_field=DurationField())
+                ).values_list('dur', flat=True)
+            )
+            valid_seconds = [d.total_seconds() for d in durations if d and d.total_seconds() > 0]
+            if valid_seconds:
+                stats['avg_session_duration'] = int(sum(valid_seconds) / len(valid_seconds))
+            else:
+                stats['avg_session_duration'] = 0
 
         if stats['sessions_period']:
             stats['conversion_rate'] = round(

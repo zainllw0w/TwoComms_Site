@@ -11,6 +11,7 @@
 
 import logging
 from typing import Optional
+from .analytics_exclusions import is_request_excluded
 from .models import UTMSession, SiteSession, UserAction
 from .utm_utils import calculate_action_points
 
@@ -46,6 +47,10 @@ def record_user_action(
         UserAction или None
     """
     try:
+        # Skip writes for explicitly excluded entities (admin office, staff users, etc.).
+        if is_request_excluded(request):
+            return None
+
         # Получаем session_key
         session_key = request.session.session_key
         if not session_key:

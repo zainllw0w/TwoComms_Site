@@ -398,6 +398,164 @@
     font-size: 0.88rem;
   }
 
+  /* Exclusion + Session panels */
+  .analytics-exclusion-form {
+    display: grid;
+    grid-template-columns: 180px 1fr 1fr auto;
+    gap: 0.6rem;
+    align-items: end;
+    margin-bottom: 1rem;
+  }
+  .analytics-exclusion-form input,
+  .analytics-exclusion-form select {
+    min-height: 42px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(15,23,42,0.82);
+    color: #f8fafc;
+    padding: 0.55rem 0.75rem;
+  }
+  .analytics-exclusion-form button {
+    min-height: 42px;
+    padding: 0.55rem 1rem;
+    border-radius: 12px;
+    border: 0;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: white;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .analytics-exclusion-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 1fr auto auto;
+    gap: 0.55rem;
+    align-items: center;
+    padding: 0.65rem 0.85rem;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: #e2e8f0;
+    font-size: 0.92rem;
+  }
+  .analytics-exclusion-row.is-inactive {
+    opacity: 0.55;
+  }
+  .analytics-exclusion-row code {
+    background: rgba(15,23,42,0.6);
+    padding: 0.18rem 0.45rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+  .analytics-exclusion-row button {
+    min-height: 36px;
+    padding: 0.4rem 0.75rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+    color: #e2e8f0;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .analytics-exclusion-row button.is-danger {
+    background: rgba(127,29,29,0.4);
+    border-color: rgba(239,68,68,0.5);
+    color: #fecaca;
+  }
+  .analytics-session-row {
+    display: grid;
+    grid-template-columns: 180px 1fr 110px 90px 110px;
+    gap: 0.55rem;
+    align-items: center;
+    padding: 0.6rem 0.85rem;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: #e2e8f0;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .analytics-session-row:hover {
+    background: rgba(56,189,248,0.12);
+    border-color: rgba(56,189,248,0.34);
+  }
+  .analytics-session-row.is-bot {
+    opacity: 0.55;
+  }
+  .analytics-session-row code {
+    background: rgba(15,23,42,0.6);
+    padding: 0.15rem 0.4rem;
+    border-radius: 5px;
+    font-size: 0.78rem;
+  }
+  .analytics-session-detail {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(56,189,248,0.34);
+    background: rgba(15,23,42,0.85);
+  }
+  .analytics-session-detail h4 {
+    margin: 0 0 0.45rem;
+    color: #f8fafc;
+    font-size: 1rem;
+  }
+  .analytics-session-detail-grid {
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    margin-bottom: 0.85rem;
+  }
+  .analytics-session-detail-grid div {
+    padding: 0.5rem 0.6rem;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    font-size: 0.85rem;
+  }
+  .analytics-session-detail-grid strong {
+    display: block;
+    color: rgba(191,219,254,0.78);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.72rem;
+    margin-bottom: 0.18rem;
+  }
+  .analytics-session-pageviews {
+    display: grid;
+    gap: 0.4rem;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .analytics-session-pageview {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    font-size: 0.82rem;
+  }
+  .analytics-session-pageview small {
+    color: rgba(148,163,184,0.85);
+  }
+  .analytics-toolbar-tools {
+    display: flex;
+    gap: 0.55rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 0.9rem;
+  }
+  .analytics-toolbar-tools input,
+  .analytics-toolbar-tools select {
+    min-height: 38px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(15,23,42,0.82);
+    color: #f8fafc;
+    padding: 0.45rem 0.65rem;
+  }
+
   @media (max-width: 1180px) {
     .analytics-filter-grid,
     .analytics-grid-3 {
@@ -406,6 +564,12 @@
 
     .analytics-grid-2 {
       grid-template-columns: 1fr;
+    }
+    .analytics-exclusion-form {
+      grid-template-columns: 1fr 1fr;
+    }
+    .analytics-session-row {
+      grid-template-columns: 1fr 1fr;
     }
   }
 
@@ -618,6 +782,8 @@
       <button type="button" class="analytics-tab-btn" data-analytics-tab="custom-print">Кастомний принт</button>
       <button type="button" class="analytics-tab-btn" data-analytics-tab="survey">Опитування</button>
       <button type="button" class="analytics-tab-btn" data-analytics-tab="ux">UX / Якість даних</button>
+      <button type="button" class="analytics-tab-btn" data-analytics-tab="sessions">Сесії</button>
+      <button type="button" class="analytics-tab-btn" data-analytics-tab="exclusions">Виключення ({{ analytics_dashboard.exclusions_active|default:0 }})</button>
     </div>
 
     <section class="analytics-panel is-active" data-analytics-panel="overview">
@@ -821,9 +987,55 @@
         </div>
       </div>
     </section>
+
+    {# Sessions drill-down — list of recent visitors with click-through detail. #}
+    <section class="analytics-panel" data-analytics-panel="sessions">
+      <div class="analytics-card">
+        <h3>Сесії відвідувачів (без виключень)</h3>
+        <p class="analytics-footnote">Клікніть рядок щоб побачити поведінку: послідовність сторінок, час між кліками, UTM-розмітку та зафіксовані дії.</p>
+        <div class="analytics-toolbar-tools">
+          <select id="analyticsSessionsDays">
+            <option value="1">Сьогодні</option>
+            <option value="7" selected>7 днів</option>
+            <option value="30">30 днів</option>
+            <option value="90">90 днів</option>
+          </select>
+          <input id="analyticsSessionsSearch" type="search" placeholder="IP / username / visitor_id">
+          <label class="analytics-checkbox" style="color:rgba(226,232,240,0.85);">
+            <input type="checkbox" id="analyticsSessionsIncludeBots"> Показати ботів
+          </label>
+          <button type="button" id="analyticsSessionsRefresh" class="analytics-tab-btn">Оновити</button>
+        </div>
+        <div id="analyticsSessionsList" class="analytics-list"></div>
+        <div id="analyticsSessionsPager" class="analytics-footnote" style="margin-top:0.6rem;"></div>
+        <div id="analyticsSessionDetail" class="analytics-session-detail" hidden></div>
+      </div>
+    </section>
+
+    {# Exclusions panel: admin-managed list of IP / user / UA filters that
+       removes office traffic, staff, and noisy bots from every widget. #}
+    <section class="analytics-panel" data-analytics-panel="exclusions">
+      <div class="analytics-card">
+        <h3>Виключення зі статистики</h3>
+        <p class="analytics-footnote">Все що додано тут — буде проігноровано і при записі нових сесій (middleware), і у вже накопичених метриках (queryset filter). Кеш скидається миттєво.</p>
+        <form id="analyticsExclusionForm" class="analytics-exclusion-form">
+          <select name="kind" required>
+            {% for kind in analytics_dashboard.exclusion_kinds %}
+              <option value="{{ kind.value }}">{{ kind.label }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="value" placeholder="Значення (192.168.0.1 / /admin / Mozilla…)" required>
+          <input type="text" name="note" placeholder="Коментар (офіс, тестовий акаунт…)" maxlength="255">
+          <button type="submit">Додати</button>
+        </form>
+        <div id="analyticsExclusionMsg" class="analytics-footnote"></div>
+        <div id="analyticsExclusionList" class="analytics-list" style="margin-top:0.85rem;"></div>
+      </div>
+    </section>
   </div>
 {% endwith %}
 
 {{ analytics_dashboard.config|json_script:"adminAnalyticsConfig" }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
 <script src="{% static 'js/admin-analytics-dashboard.js' %}?v=20260422" defer></script>
+<script src="{% static 'js/admin-analytics-extras.js' %}?v=20260514" defer></script>

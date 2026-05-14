@@ -1,6 +1,7 @@
 from django.contrib import admin, messages
 from modeltranslation.admin import TabbedTranslationAdmin
 from .models import (
+    AnalyticsExclusion,
     CatalogColorSeoOverride,
     Category,
     CategorySeoBlock,
@@ -327,3 +328,31 @@ class CatalogColorSeoOverrideAdmin(admin.ModelAdmin):
         text = (obj.h2 or '').strip()
         return (text[:60] + '…') if len(text) > 60 else (text or '—')
     h2_short.short_description = 'H2'
+
+
+@admin.register(AnalyticsExclusion)
+class AnalyticsExclusionAdmin(admin.ModelAdmin):
+    list_display = ('kind', 'value', 'note', 'is_active', 'updated_at')
+    list_filter = ('kind', 'is_active')
+    list_editable = ('is_active',)
+    search_fields = ('value', 'note')
+    readonly_fields = ('created_at', 'updated_at', 'created_by')
+    fieldsets = (
+        (None, {
+            'fields': ('kind', 'value', 'note', 'is_active'),
+            'description': (
+                'Виключення трафіку зі статистики. IP підтримує CIDR (10.0.0.0/24). '
+                'User-Agent зрівнюється як підрядок (icontains). Шляхи — як префікс. '
+                'Зміни застосовуються миттєво (кеш скидається сигналом).'
+            ),
+        }),
+        ('Метадані', {
+            'classes': ('collapse',),
+            'fields': ('created_at', 'updated_at', 'created_by'),
+        }),
+    )
+
+    def save_model(self, request, obj, form, change):  # pragma: no cover
+        if not obj.pk and not obj.created_by_id:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)

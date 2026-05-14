@@ -8,7 +8,8 @@ from django.dispatch import receiver
 from cache_utils import get_fragment_cache
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
 
-from .models import Category, Product
+from .analytics_exclusions import invalidate_snapshot as invalidate_analytics_exclusions
+from .models import AnalyticsExclusion, Category, Product
 from .services.catalog_helpers import (
     bump_public_category_version,
     bump_public_product_order_version,
@@ -72,3 +73,9 @@ def submit_category_to_indexnow_on_delete(sender, instance, **kwargs):
         return
 
     transaction.on_commit(lambda: enqueue_indexnow_urls([public_url]))
+
+
+@receiver([post_save, post_delete], sender=AnalyticsExclusion)
+def invalidate_analytics_exclusion_cache(sender, **kwargs):
+    """Drop the cached exclusion snapshot whenever the admin edits the list."""
+    invalidate_analytics_exclusions()

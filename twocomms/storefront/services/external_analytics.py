@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Iterable
@@ -18,6 +19,18 @@ logger = logging.getLogger(__name__)
 GA4_SCOPES = ["https://www.googleapis.com/auth/analytics.readonly"]
 GA4_CACHE_TTL = 60 * 5
 CLARITY_CACHE_TTL = 60 * 5
+
+# Resilience tunables. Once a remote API has failed we keep its last good
+# response in cache for ``STALE_TTL`` seconds and refuse to retry the live
+# call for ``FAILURE_TTL`` seconds. This prevents the dashboard from melting
+# down with a long retry loop if GA4/Clarity are degraded.
+STALE_TTL = 60 * 60 * 24  # keep last good payload around for a full day
+FAILURE_TTL = 60 * 5      # backoff window during outages
+STATUS_CACHE_TTL = 60 * 2  # status pings: cache success for 2 min
+STATUS_FAILURE_CACHE_TTL = 60 * 5
+HTTP_RETRY_STATUSES = {429, 500, 502, 503, 504}
+HTTP_RETRY_MAX = 2  # i.e. 3 attempts total
+HTTP_RETRY_BACKOFF = 0.4  # seconds, exponential
 
 
 @dataclass(frozen=True)
@@ -44,14 +57,81 @@ def _cache_key(prefix: str, payload: dict[str, Any]) -> str:
     return f"external_analytics:{prefix}:{digest}"
 
 
+def _stale_key(key: str) -> str:
+    return f"{key}:stale"
+
+
+def _failure_key(key: str) -> str:
+    return f"{key}:fail"
+
+
 def _cache_get_or_set(prefix: str, payload: dict[str, Any], ttl: int, builder):
+    """
+    Cache wrapper that survives transient API failures.
+
+    Behaviour:
+    - return live cache if fresh;
+    - if a recent failure was recorded (FAILURE_TTL window), serve stale data
+      and avoid retrying the API;
+    - otherwise call the builder, persisting both fresh and stale copies on
+      success and recording the failure on exception.
+
+    Raises only when there is no cached fallback so callers can decide.
+    """
     key = _cache_key(prefix, payload)
     cached = cache.get(key)
     if cached is not None:
         return cached
-    result = builder()
+
+    stale_key = _stale_key(key)
+    failure_key = _failure_key(key)
+
+    failure_marker = cache.get(failure_key)
+    if failure_marker:
+        stale = cache.get(stale_key)
+        if stale is not None:
+            return stale
+        # No stale data — propagate the recorded failure as exception so the
+        # caller can render an error state.
+        raise RuntimeError(failure_marker)
+
+    try:
+        result = builder()
+    except Exception as exc:
+        cache.set(failure_key, str(exc) or exc.__class__.__name__, FAILURE_TTL)
+        stale = cache.get(stale_key)
+        if stale is not None:
+            logger.warning("%s call failed, serving stale data: %s", prefix, exc)
+            return stale
+        raise
+
     cache.set(key, result, ttl)
+    cache.set(stale_key, result, STALE_TTL)
+    cache.delete(failure_key)
     return result
+
+
+def _http_get_with_retry(url: str, *, params: dict, headers: dict, timeout: int) -> requests.Response:
+    """GET with exponential backoff for transient HTTP errors."""
+    last_exc: Exception | None = None
+    for attempt in range(HTTP_RETRY_MAX + 1):
+        try:
+            response = requests.get(url, params=params, headers=headers, timeout=timeout)
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            last_exc = exc
+            if attempt >= HTTP_RETRY_MAX:
+                raise
+            time.sleep(HTTP_RETRY_BACKOFF * (2 ** attempt))
+            continue
+
+        if response.status_code in HTTP_RETRY_STATUSES and attempt < HTTP_RETRY_MAX:
+            time.sleep(HTTP_RETRY_BACKOFF * (2 ** attempt))
+            continue
+        return response
+
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("HTTP retry loop exhausted without response")
 
 
 def _env_first(*names: str) -> str:
@@ -152,6 +232,12 @@ def _build_ga4_client():
 
 
 def get_ga4_status(test_connection: bool = False) -> dict[str, Any]:
+    """Return health status for GA4. Caches successful test_connection results."""
+    if test_connection:
+        cache_key = "external_analytics:ga4:status:test"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
     raw_property_id = _ga4_property_id_raw()
     property_id = _ga4_property_id()
     if not raw_property_id:
@@ -218,22 +304,26 @@ def get_ga4_status(test_connection: bool = False) -> dict[str, Any]:
         response = client.run_report(request)
         quota = getattr(response, "property_quota", None)
         details["quota"] = str(quota) if quota else ""
-        return ConnectorStatus(
+        result = ConnectorStatus(
             key="ga4",
             label="GA4 Data API",
             status="healthy",
             message="З’єднання з GA4 успішне.",
             details=details,
         ).as_dict()
+        cache.set("external_analytics:ga4:status:test", result, STATUS_CACHE_TTL)
+        return result
     except Exception as exc:
         details["connection_error"] = str(exc)
-        return ConnectorStatus(
+        result = ConnectorStatus(
             key="ga4",
             label="GA4 Data API",
             status="error",
             message="Не вдалося отримати тестовий звіт з GA4.",
             details=details,
         ).as_dict()
+        cache.set("external_analytics:ga4:status:test", result, STATUS_FAILURE_CACHE_TTL)
+        return result
 
 
 def _build_ga4_dimension_filter(
@@ -455,6 +545,12 @@ def _clarity_token() -> str:
 
 
 def get_clarity_status(test_connection: bool = False) -> dict[str, Any]:
+    """Return health status for Clarity. Caches successful test pings."""
+    if test_connection:
+        cache_key = "external_analytics:clarity:status:test"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
     token = _clarity_token()
     if not token:
         return ConnectorStatus(
@@ -477,24 +573,28 @@ def get_clarity_status(test_connection: bool = False) -> dict[str, Any]:
 
     try:
         _clarity_request(num_of_days=1, use_cache=False)
-        return ConnectorStatus(
+        result = ConnectorStatus(
             key="clarity",
             label="Microsoft Clarity",
             status="healthy",
             message="З’єднання з Clarity успішне.",
             details=details,
         ).as_dict()
+        cache.set("external_analytics:clarity:status:test", result, STATUS_CACHE_TTL)
+        return result
     except Exception as exc:
         if isinstance(exc, requests.HTTPError) and exc.response is not None:
             details["http_status"] = exc.response.status_code
         details["connection_error"] = str(exc)
-        return ConnectorStatus(
+        result = ConnectorStatus(
             key="clarity",
             label="Microsoft Clarity",
             status="error",
             message="Не вдалося отримати live insights з Clarity.",
             details=details,
         ).as_dict()
+        cache.set("external_analytics:clarity:status:test", result, STATUS_FAILURE_CACHE_TTL)
+        return result
 
 
 def _clarity_request(
@@ -525,7 +625,7 @@ def _clarity_request(
         if dimension3:
             params["dimension3"] = dimension3
 
-        response = requests.get(
+        response = _http_get_with_retry(
             "https://www.clarity.ms/export-data/api/v1/project-live-insights",
             params=params,
             headers={

@@ -9,13 +9,22 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 
+from .analytics_exclusions import is_request_excluded
 from .analytics_noise import is_analytics_noise_path
 from .models import PageView, SiteSession
 from .utm_utils import get_client_ip, sanitize_utm_param
 
 
 BOT_SIGNALS = (
-    'bot', 'crawl', 'spider', 'slurp', 'bingpreview', 'crawler', 'baiduspider', 'petalbot', 'duckduckbot', 'semrush'
+    # Generic crawler tokens.
+    'bot', 'crawl', 'spider', 'crawler', 'slurp', 'preview',
+    # Specific crawlers commonly hitting the site.
+    'baiduspider', 'petalbot', 'duckduckbot', 'semrush', 'ahrefs', 'mj12', 'dotbot',
+    'googlebot', 'bingbot', 'yandex', 'facebookexternalhit', 'facebot', 'embedly',
+    'applebot', 'twitterbot', 'linkedinbot', 'pinterestbot', 'whatsapp', 'telegrambot',
+    # Headless / synthetic agents that we treat as non-human traffic.
+    'headless', 'phantomjs', 'puppeteer', 'playwright', 'selenium', 'wget', 'curl',
+    'python-requests', 'go-http-client', 'pytest', 'lighthouse', 'pagespeed',
 )
 
 VISITOR_COOKIE_NAME = 'twc_vid'
@@ -148,6 +157,10 @@ class SimpleAnalyticsMiddleware(MiddlewareMixin):
                 or (fetch_mode and fetch_mode not in {'navigate', 'nested-navigate'})
             ):
                 return None  # Пропускаем ботов дальше по цепочке middleware
+
+            # Skip writes for IPs / users / agents listed in AnalyticsExclusion.
+            if is_request_excluded(request, user_agent=ua, path=path):
+                return None
 
             # Для анонимов не создаём новую серверную сессию на простых GET (избежим write I/O)
             if not request.user.is_authenticated:

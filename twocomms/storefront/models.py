@@ -2160,3 +2160,73 @@ class CatalogColorSeoOverride(models.Model):
         if self.category_id:
             bits.append(f"cat#{self.category_id}")
         return " · ".join(bits)
+
+
+# ===== Аналітичні виключення (внутрішні IP, тестові акаунти, бот-агенти) =====
+
+class AnalyticsExclusion(models.Model):
+    """
+    Дозволяє виключити трафік від певних IP / користувачів / visitor_id /
+    user-agent-патернів / шляхів зі статистики адмін-панелі.
+
+    На відміну від `analytics_noise`, цей список редагується з UI і
+    застосовується як до запису нових сесій, так і до фільтрації
+    існуючих даних під час побудови віджетів.
+    """
+
+    class Kind(models.TextChoices):
+        IP = "ip", "IP-адреса"
+        USER = "user", "Користувач (ID)"
+        VISITOR = "visitor", "Visitor cookie (twc_vid)"
+        USER_AGENT = "user_agent", "User-Agent (substring)"
+        PATH = "path", "Шлях (startswith)"
+
+    kind = models.CharField(
+        max_length=16,
+        choices=Kind.choices,
+        default=Kind.IP,
+        db_index=True,
+        verbose_name="Тип",
+    )
+    value = models.CharField(
+        max_length=512,
+        verbose_name="Значення",
+        help_text=(
+            "IP-адреса (192.168.0.1 або CIDR 10.0.0.0/8), user_id, visitor_id, "
+            "підрядок User-Agent чи префікс шляху."
+        ),
+    )
+    note = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Коментар",
+        help_text="Для чого додано (наприклад: «офіс», «менеджер», «перевірка ботів»).",
+    )
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name="Активне")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="analytics_exclusions",
+        verbose_name="Створив",
+    )
+
+    class Meta:
+        verbose_name = "Аналітичне виключення"
+        verbose_name_plural = "Аналітичні виключення"
+        ordering = ("-updated_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["kind", "value"],
+                name="uq_analytics_exclusion_kind_value",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["kind", "is_active"], name="idx_analytics_excl_kind_act"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - admin display only
+        return f"{self.get_kind_display()}: {self.value}"

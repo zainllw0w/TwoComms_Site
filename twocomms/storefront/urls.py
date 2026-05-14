@@ -163,6 +163,32 @@ urlpatterns = [
         _module_view('storefront.views.admin', 'admin_order_payment_snapshots'),
         name='admin_order_payment_snapshots',
     ),
+    # Analytics: managed exclusion list + session drilldown.
+    path(
+        'admin-panel/analytics/exclusions/',
+        _module_view('storefront.views.admin_analytics_extras', 'admin_analytics_exclusions_list'),
+        name='admin_analytics_exclusions_list',
+    ),
+    path(
+        'admin-panel/analytics/exclusions/create/',
+        _module_view('storefront.views.admin_analytics_extras', 'admin_analytics_exclusion_create'),
+        name='admin_analytics_exclusion_create',
+    ),
+    path(
+        'admin-panel/analytics/exclusions/<int:pk>/',
+        _module_view('storefront.views.admin_analytics_extras', 'admin_analytics_exclusion_update'),
+        name='admin_analytics_exclusion_update',
+    ),
+    path(
+        'admin-panel/analytics/sessions/',
+        _module_view('storefront.views.admin_analytics_extras', 'admin_analytics_sessions'),
+        name='admin_analytics_sessions',
+    ),
+    path(
+        'admin-panel/analytics/sessions/<int:session_id>/',
+        _module_view('storefront.views.admin_analytics_extras', 'admin_analytics_session_detail'),
+        name='admin_analytics_session_detail',
+    ),
     path('admin-panel/order/approve-payment/', _legacy_view('admin_approve_payment'), name='admin_approve_payment'),
     path('admin-panel/order/<int:pk>/delete/', _legacy_view('admin_order_delete'), name='admin_order_delete'),
     path(

@@ -11,6 +11,7 @@ import logging
 from django.utils.deprecation import MiddlewareMixin
 from django.utils import timezone
 from django.db import transaction
+from .analytics_exclusions import is_request_excluded
 from .analytics_noise import is_analytics_noise_path
 from .models import UTMSession, SiteSession
 from .utm_utils import (
@@ -60,6 +61,10 @@ class UTMTrackingMiddleware(MiddlewareMixin):
             user_agent = request.META.get('HTTP_USER_AGENT', '')
             if is_bot_user_agent(user_agent):
                 logger.debug(f"Skipping bot: {user_agent[:100]}")
+                return None
+
+            # Skip writes for explicitly excluded entities (admin office IPs, staff users, etc.).
+            if is_request_excluded(request, user_agent=user_agent):
                 return None
 
             # Получаем UTM-параметры из GET-запроса
