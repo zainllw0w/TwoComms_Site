@@ -33,9 +33,9 @@
               </svg>
             </div>
             <div class="points-content">
-              <h3 class="points-title">Ваші бали</h3>
-              <div class="points-amount">{% if user.points %}{{ user.points.points|default:0 }}{% else %}0{% endif %} балів</div>
-              <p class="points-description">Зароблено: {% if user.points %}{{ user.points.total_earned|default:0 }}{% else %}0{% endif %} | Витрачено: {% if user.points %}{{ user.points.total_spent|default:0 }}{% else %}0{% endif %}</p>
+              <h3 class="points-title">{% trans 'Ваші бали' %}</h3>
+              <div class="points-amount">{% if user.points %}{{ user.points.points|default:0 }}{% else %}0{% endif %} {% trans 'балів' %}</div>
+              <p class="points-description">{% trans 'Зароблено:' %} {% if user.points %}{{ user.points.total_earned|default:0 }}{% else %}0{% endif %} | {% trans 'Витрачено:' %} {% if user.points %}{{ user.points.total_spent|default:0 }}{% else %}0{% endif %}</p>
             </div>
           </div>
       </div>
@@ -49,9 +49,9 @@
             </svg>
           </div>
           <div class="points-content">
-            <h3 class="points-title">Бали не найдены</h3>
-            <div class="points-amount">0 балів</div>
-            <p class="points-description">Объект UserPoints не создан для пользователя</p>
+            <h3 class="points-title">{% trans 'Бали не знайдено' %}</h3>
+            <div class="points-amount">0 {% trans 'балів' %}</div>
+            <p class="points-description">{% trans "Об'єкт UserPoints не створено для користувача" %}</p>
           </div>
         </div>
       </div>
@@ -67,7 +67,7 @@
             <div class="avatar-upload-container">
               <div class="avatar-preview">
                 {% if profile.avatar %}
-                  <img src="{{ profile.avatar.url }}" alt="Аватар користувача - TwoComms" class="avatar-image" id="avatar-preview">
+                  <img src="{{ profile.avatar.url }}" alt="{% trans 'Аватар користувача - TwoComms' %}" class="avatar-image" id="avatar-preview">
                 {% else %}
                   <div class="avatar-placeholder" id="avatar-preview">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
@@ -82,8 +82,8 @@
                 </div>
               </div>
               <div class="avatar-info">
-                <label for="{{ form.avatar.id_for_label }}" class="avatar-label">Фото профілю</label>
-                <p class="avatar-hint">Натисніть на фото для завантаження (JPG, PNG до 5 МБ)</p>
+                <label for="{{ form.avatar.id_for_label }}" class="avatar-label">{% trans 'Фото профілю' %}</label>
+                <p class="avatar-hint">{% trans 'Натисніть на фото для завантаження (JPG, PNG до 5 МБ)' %}</p>
                 {{ form.avatar }}
               </div>
             </div>
@@ -97,7 +97,7 @@
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.57L19 8l-9 9z"/>
                 </svg>
               </div>
-              <h3 class="section-title">Основна інформація</h3>
+              <h3 class="section-title">{% trans 'Основна інформація' %}</h3>
             </div>
             
         <div class="row g-3">
@@ -126,7 +126,7 @@
                     </svg>
                     {{ form.phone }}
                   </div>
-                  <small class="form-hint">Префікс +380 підставимо автоматично.</small>
+                  <small class="form-hint">{% trans 'Префікс +380 підставимо автоматично.' %}</small>
                   {% if form.phone.errors %}
                     <div class="error-message">{{ form.phone.errors.0 }}</div>
                   {% endif %}
@@ -144,7 +144,7 @@
                     </svg>
                     {{ form.email }}
                   </div>
-                  <small class="form-hint">Може допомогти у відновленні акаунту або зв'язку</small>
+                  <small class="form-hint">{% trans "Може допомогти у відновленні акаунту або зв'язку" %}</small>
                   {% if form.email.errors %}
                     <div class="error-message">{{ form.email.errors.0 }}</div>
                   {% endif %}
@@ -167,9 +167,9 @@
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                           </svg>
-                          Підтверджено
+                          {% trans 'Підтверджено' %}
                         </button>
-                        <button type="button" class="btn btn-danger btn-sm" onclick="resetTelegram()" title="Переприв'язати Telegram" style="
+                        <button type="button" class="btn btn-danger btn-sm" onclick="resetTelegram()" title="{% trans "Переприв'язати Telegram" %}" style="
                           padding: 4px 8px;
                           font-size: 16px;
                           line-height: 1;
@@ -185,7 +185,7 @@
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.14 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06-.01.13-.02.2z"/>
                           </svg>
-                          📱 Получать статусы
+                          📱 {% trans 'Отримувати статуси' %}
                         </button>
                       {% endif %}
                     </div>
@@ -205,10 +205,10 @@
                     </svg>
                     <div style="flex: 1;">
                       <p style="margin: 0 0 8px 0; color: rgba(229,231,235,.9); font-size: 0.95rem; line-height: 1.5;">
-                        <strong style="color: #a78bfa;">📱 Отримуйте сповіщення в Telegram!</strong> Миттєві сповіщення про нові замовлення, зміну статусів та відстеження посилок.
+                        {% blocktrans %}<strong style="color: #a78bfa;">📱 Отримуйте сповіщення в Telegram!</strong> Миттєві сповіщення про нові замовлення, зміну статусів та відстеження посилок.{% endblocktrans %}
                       </p>
                       <p style="margin: 0; color: rgba(229,231,235,.7); font-size: 0.85rem; line-height: 1.4;">
-                        <strong style="color: #fbbf24;">📝 Як підключити:</strong> Натисніть "Получать статусы", потім <strong>напишіть боту будь-яке повідомлення протягом 5 хвилин</strong> для підтвердження.
+                        {% blocktrans %}<strong style="color: #fbbf24;">📝 Як підключити:</strong> Натисніть "Отримувати статуси", потім <strong>напишіть боту будь-яке повідомлення протягом 5 хвилин</strong> для підтвердження.{% endblocktrans %}
                       </p>
                     </div>
                   </div>
@@ -229,7 +229,7 @@
                     </svg>
                     {{ form.instagram }}
                   </div>
-                  <small class="form-hint">Потрібен для перевірки підписки у випадку конкурсів</small>
+                  <small class="form-hint">{% trans 'Потрібен для перевірки підписки у випадку конкурсів' %}</small>
                   {% if form.instagram.errors %}
                     <div class="error-message">{{ form.instagram.errors.0 }}</div>
                   {% endif %}
@@ -246,7 +246,7 @@
                   <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
                 </svg>
               </div>
-              <h3 class="section-title">Доставка</h3>
+              <h3 class="section-title">{% trans 'Доставка' %}</h3>
             </div>
             
             <div class="row g-3">
@@ -265,7 +265,7 @@
                     {{ form.np_city_token }}
                     <div class="np-selector-results" data-np-city-results hidden></div>
                   </div>
-                  <small class="form-hint np-selector-status" data-np-city-status">Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти.</small>
+                  <small class="form-hint np-selector-status" data-np-city-status>{% trans 'Почніть вводити назву міста і виберіть підтверджений варіант зі списку Нової пошти.' %}</small>
                   {% if form.city.errors %}
                     <div class="error-message">{{ form.city.errors.0 }}</div>
                   {% endif %}
@@ -287,11 +287,11 @@
                     <div class="np-selector-results" data-np-warehouse-results hidden></div>
                   </div>
                   <div class="np-selector-kind" data-np-kind-toggle>
-                    <button type="button" class="np-selector-kind-btn is-active" data-kind="all">Усі пункти</button>
-                    <button type="button" class="np-selector-kind-btn" data-kind="branch">Відділення</button>
-                    <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
+                    <button type="button" class="np-selector-kind-btn is-active" data-kind="all">{% trans 'Усі пункти' %}</button>
+                    <button type="button" class="np-selector-kind-btn" data-kind="branch">{% trans 'Відділення' %}</button>
+                    <button type="button" class="np-selector-kind-btn" data-kind="postomat">{% trans 'Поштомат' %}</button>
                   </div>
-                  <small class="form-hint np-selector-status" data-np-warehouse-status">Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти.</small>
+                  <small class="form-hint np-selector-status" data-np-warehouse-status>{% trans 'Після вибору міста почніть вводити номер або адресу і виберіть відділення чи поштомат зі списку Нової пошти.' %}</small>
                   {% if form.np_office.errors %}
                     <div class="error-message">{{ form.np_office.errors.0 }}</div>
                   {% endif %}
@@ -320,7 +320,7 @@
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
               </div>
-              <h3 class="section-title">Статус УБД</h3>
+              <h3 class="section-title">{% trans 'Статус УБД' %}</h3>
             </div>
             
             <div class="ubd-toggle-container">
@@ -333,8 +333,8 @@
                   </label>
                 </div>
                 <div class="ubd-info">
-                  <p class="ubd-description">Я є учасником бойових дій</p>
-                  <p class="ubd-benefits">Отримайте спеціальні умови та знижки</p>
+                  <p class="ubd-description">{% trans 'Я є учасником бойових дій' %}</p>
+                  <p class="ubd-benefits">{% trans 'Отримайте спеціальні умови та знижки' %}</p>
                 </div>
               </div>
             </div>
@@ -343,7 +343,7 @@
               <div class="document-upload-container">
                 <div class="document-preview" id="ubd-doc-preview">
                   {% if profile.ubd_doc %}
-                    <img src="{{ profile.ubd_doc.url }}" alt="Документ УБД" class="document-image">
+                    <img src="{{ profile.ubd_doc.url }}" alt="{% trans 'Документ УБД' %}" class="document-image">
                     <div class="document-overlay">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/>
@@ -362,7 +362,7 @@
                     {{ form.ubd_doc.label }}
                     <span class="required">*</span>
                   </label>
-                  <p class="document-hint">Завантажте фото посвідчення УБД</p>
+                  <p class="document-hint">{% trans 'Завантажте фото посвідчення УБД' %}</p>
                   {{ form.ubd_doc }}
                   {% if form.ubd_doc.errors %}
                     <div class="error-message">{{ form.ubd_doc.errors.0 }}</div>
@@ -378,10 +378,10 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
-              Зберегти зміни
+              {% trans 'Зберегти зміни' %}
             </button>
             <a href="{% url 'home' %}" class="btn btn-outline-secondary btn-cancel">
-              Скасувати
+              {% trans 'Скасувати' %}
             </a>
           </div>
         </form>
@@ -395,23 +395,23 @@
                 <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm6-6V11a6 6 0 1 0-12 0v5L4 18v1h16v-1l-2-2z"/>
               </svg>
             </div>
-            <h3 class="section-title">Push-сповіщення</h3>
+            <h3 class="section-title">{% trans 'Push-сповіщення' %}</h3>
           </div>
 
           <div class="push-device-card">
             <div class="push-device-copy">
-              <div class="push-device-badge">Цей браузер</div>
-              <h3 data-web-push-profile-status aria-live="polite">Перевіряємо стан push…</h3>
+              <div class="push-device-badge">{% trans 'Цей браузер' %}</div>
+              <h3 data-web-push-profile-status aria-live="polite">{% trans 'Перевіряємо стан push…' %}</h3>
               <p data-web-push-profile-detail aria-live="polite">
-                Зараз визначимо, чи може цей пристрій отримувати системні сповіщення від TwoComms.
+                {% trans 'Зараз визначимо, чи може цей пристрій отримувати системні сповіщення від TwoComms.' %}
               </p>
             </div>
             <div class="push-actions">
               <button type="button" class="btn btn-primary btn-save" data-web-push-profile-enable>
-                Увімкнути в цьому браузері
+                {% trans 'Увімкнути в цьому браузері' %}
               </button>
               <button type="button" class="btn btn-outline-secondary btn-cancel" data-web-push-profile-disable hidden>
-                Вимкнути в цьому браузері
+                {% trans 'Вимкнути в цьому браузері' %}
               </button>
             </div>
           </div>
@@ -424,28 +424,28 @@
               <label class="push-pref-option">
                 <input type="checkbox" class="form-check-input" name="push_marketing_enabled" {% if profile.push_marketing_enabled %}checked{% endif %}>
                 <div>
-                  <h4>Нові дропи та спецпропозиції</h4>
-                  <p>Запуски нових колекцій, важливі анонси та релевантні пропозиції, коли вони дійсно можуть бути корисними.</p>
+                  <h4>{% trans 'Нові дропи та спецпропозиції' %}</h4>
+                  <p>{% trans 'Запуски нових колекцій, важливі анонси та релевантні пропозиції, коли вони дійсно можуть бути корисними.' %}</p>
                 </div>
               </label>
 
               <label class="push-pref-option">
                 <input type="checkbox" class="form-check-input" name="push_order_updates_enabled" {% if profile.push_order_updates_enabled %}checked{% endif %}>
                 <div>
-                  <h4>Статуси замовлення та доставки</h4>
-                  <p>Оперативні повідомлення про підтвердження, відправлення, рух посилки та інші персональні оновлення по ваших замовленнях.</p>
+                  <h4>{% trans 'Статуси замовлення та доставки' %}</h4>
+                  <p>{% trans 'Оперативні повідомлення про підтвердження, відправлення, рух посилки та інші персональні оновлення по ваших замовленнях.' %}</p>
                 </div>
               </label>
             </div>
 
             <div class="push-note">
-              <strong>iPhone та iPad: як увімкнути push правильно</strong>
+              <strong>{% trans 'iPhone та iPad: як увімкнути push правильно' %}</strong>
               <ol>
-                <li>У Safari або іншому браузері відкрийте меню “Поділитися”.</li>
-                <li>Натисніть “На екран Додому”, а потім відкрийте TwoComms з іконки.</li>
-                <li>Після запуску як вебзастосунку дозвольте системні push-сповіщення.</li>
+                <li>{% trans 'У Safari або іншому браузері відкрийте меню “Поділитися”.' %}</li>
+                <li>{% trans 'Натисніть “На екран Додому”, а потім відкрийте TwoComms з іконки.' %}</li>
+                <li>{% trans 'Після запуску як вебзастосунку дозвольте системні push-сповіщення.' %}</li>
               </ol>
-              <p>Це встановлює TwoComms як швидкий вебзастосунок, без App Store. На desktop, Android і сучасних мобільних браузерах достатньо дозволити сповіщення для цього сайту.</p>
+              <p>{% trans 'Це встановлює TwoComms як швидкий вебзастосунок, без App Store. На desktop, Android і сучасних мобільних браузерах достатньо дозволити сповіщення для цього сайту.' %}</p>
             </div>
 
             <div class="form-actions" style="padding-top: 1.25rem;">
@@ -453,7 +453,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                 </svg>
-                Зберегти push-налаштування
+                {% trans 'Зберегти push-налаштування' %}
               </button>
             </div>
           </form>
@@ -469,8 +469,8 @@
             </svg>
           </div>
           <div class="info-content">
-            <h4>Обов'язкові поля</h4>
-            <p>Поля з позначкою <span class="required">*</span> є обов'язковими для заповнення</p>
+            <h4>{% trans "Обов'язкові поля" %}</h4>
+            <p>{% blocktrans %}Поля з позначкою <span class="required">*</span> є обов'язковими для заповнення{% endblocktrans %}</p>
           </div>
         </div>
         
@@ -483,8 +483,8 @@
             </svg>
           </div>
           <div class="info-content">
-            <h4>Статус УБД</h4>
-            <p>Якщо ви є учасником бойових дій, відмітьте це та завантажте фото посвідчення для отримання спеціальних умов</p>
+            <h4>{% trans 'Статус УБД' %}</h4>
+            <p>{% trans 'Якщо ви є учасником бойових дій, відмітьте це та завантажте фото посвідчення для отримання спеціальних умов' %}</p>
           </div>
         </div>
       </div>
