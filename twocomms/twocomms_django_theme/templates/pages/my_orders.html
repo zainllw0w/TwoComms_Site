@@ -91,7 +91,7 @@
               </div>
               <div class="date-card-content">
                 <div class="date-label">{% trans 'Оформлено' %}</div>
-                <div class="date-value">{{ o.created|date:"d.m.Y о H:i" }}</div>
+                <div class="date-value">{{ o.created|date:"d.m.Y" }} {% trans 'о' %} {{ o.created|date:"H:i" }}</div>
               </div>
             </div>
           </div>
@@ -279,8 +279,8 @@
                   </div>
                   
                   <div class="order-item-side">
-                    <div class="order-item-price">{{ it.line_total }} грн</div>
-                    <div class="order-item-unit-price">{{ it.price }} грн/шт</div>
+                    <div class="order-item-price">{{ it.line_total }} {% trans 'грн' %}</div>
+                    <div class="order-item-unit-price">{{ it.price }} {% trans 'грн/шт' %}</div>
                   </div>
                 </div>
               </div>
@@ -315,7 +315,7 @@
                   </div>
 
                   <div class="order-item-side">
-                    <div class="order-item-price">{{ lead.final_price_value }} грн</div>
+                    <div class="order-item-price">{{ lead.final_price_value }} {% trans 'грн' %}</div>
                     <div class="order-item-unit-price">{% trans 'Кастомне замовлення' %}</div>
                   </div>
                 </div>
@@ -331,7 +331,7 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
               </svg>
-              <span>{{ o.promo_code.code }} (-{{ o.discount_amount }} грн)</span>
+              <span>{{ o.promo_code.code }} (-{{ o.discount_amount }} {% trans 'грн' %})</span>
             </div>
           {% endif %}
           
@@ -447,7 +447,7 @@
           
           <div class="order-final-compact">
             <span class="order-final-label">{% trans 'Разом:' %}</span>
-            <span class="order-final-amount">{{ o.total_sum }} грн</span>
+            <span class="order-final-amount">{{ o.total_sum }} {% trans 'грн' %}</span>
           </div>
         </div>
       </div>
@@ -513,8 +513,9 @@
           <div class="payment-details-grid">
             <div class="detail-item">
               <label>{% trans 'Отримувач:' %}</label>
-              <button class="copyable-text" onclick="copyToClipboard('Синіло Артем Віталійович')">
-                Синіло Артем Віталійович
+              {% trans 'Синіло Артем Віталійович' as recipient_name %}
+              <button class="copyable-text" onclick="copyToClipboard('{{ recipient_name|escapejs }}')">
+                {{ recipient_name }}
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
                 </svg>

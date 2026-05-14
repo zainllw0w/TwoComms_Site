@@ -1,15 +1,15 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static i18n %}
 {% load seo_tags %}
 
-{% block title %}Співпраця з TwoComms{% endblock %}
-{% block description %}Співпраця з TwoComms для магазинів, шоурумів, дропшиперів, дизайнерів, блогерів і брендів. Окремі маршрути для опта, партнерств, контенту та запуску спільних проєктів.{% endblock %}
-{% block keywords %}співпраця TwoComms, дропшипінг одягу, опт одягу, бренд партнерство, співпраця з блогерами, співпраця з дизайнерами{% endblock %}
-{% block og_title %}Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства{% endblock %}
-{% block og_description %}Оберіть формат співпраці з TwoComms: дропшипінг, оптові закупівлі, спільні колекції, робота з дизайнерами, блогерами та медіа.{% endblock %}
+{% block title %}{% trans 'Співпраця з TwoComms' %}{% endblock %}
+{% block description %}{% trans 'Співпраця з TwoComms для магазинів, шоурумів, дропшиперів, дизайнерів, блогерів і брендів. Окремі маршрути для опта, партнерств, контенту та запуску спільних проєктів.' %}{% endblock %}
+{% block keywords %}{% trans 'співпраця TwoComms, дропшипінг одягу, опт одягу, бренд партнерство, співпраця з блогерами, співпраця з дизайнерами' %}{% endblock %}
+{% block og_title %}{% trans 'Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства' %}{% endblock %}
+{% block og_description %}{% trans 'Оберіть формат співпраці з TwoComms: дропшипінг, оптові закупівлі, спільні колекції, робота з дизайнерами, блогерами та медіа.' %}{% endblock %}
 {% block og_image %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endblock %}
-{% block twitter_title %}Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства{% endblock %}
-{% block twitter_description %}TwoComms відкриває партнерські маршрути для магазинів, брендів, дизайнерів, блогерів та медіа.{% endblock %}
+{% block twitter_title %}{% trans 'Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства' %}{% endblock %}
+{% block twitter_description %}{% trans 'TwoComms відкриває партнерські маршрути для магазинів, брендів, дизайнерів, блогерів та медіа.' %}{% endblock %}
 {% block twitter_image %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endblock %}
 
 {% block structured_data %}
@@ -17,8 +17,8 @@
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "name": "Співпраця з TwoComms",
-  "description": "Сторінка для партнерств, дропшипінгу, оптових закупівель, бренд-колаборацій і співпраці з дизайнерами або медіа.",
+  "name": "{% trans 'Співпраця з TwoComms' %}",
+  "description": "{% trans 'Сторінка для партнерств, дропшипінгу, оптових закупівель, бренд-колаборацій і співпраці з дизайнерами або медіа.' %}",
   "url": "{{ site_base_url }}{{ request.path }}",
   "isPartOf": {
     "@type": "WebSite",
@@ -240,11 +240,11 @@
           
           <div class="hero-text">
             <h1 class="hero-title">
-              <span class="title-line">Співпраця з</span>
+              <span class="title-line">{% trans 'Співпраця з' %}</span>
               <span class="title-line gradient-text">TwoComms</span>
             </h1>
             <p class="hero-subtitle">
-              Приєднуйтесь до нашої мережі партнерів та розвивайте свій бізнес разом з нами
+              {% trans 'Приєднуйтесь до нашої мережі партнерів та розвивайте свій бізнес разом з нами' %}
             </p>
           </div>
 
@@ -256,8 +256,8 @@
                 </svg>
               </div>
               <div class="feature-content">
-                <h3 class="feature-title">Якість</h3>
-                <p class="feature-desc">Преміум товари</p>
+                <h3 class="feature-title">{% trans 'Якість' %}</h3>
+                <p class="feature-desc">{% trans 'Преміум товари' %}</p>
               </div>
             </div>
             
@@ -268,8 +268,8 @@
                 </svg>
               </div>
               <div class="feature-content">
-                <h3 class="feature-title">Надійність</h3>
-                <p class="feature-desc">Перевірені партнери</p>
+                <h3 class="feature-title">{% trans 'Надійність' %}</h3>
+                <p class="feature-desc">{% trans 'Перевірені партнери' %}</p>
               </div>
             </div>
             
@@ -280,15 +280,15 @@
                 </svg>
               </div>
               <div class="feature-content">
-                <h3 class="feature-title">Підтримка</h3>
-                <p class="feature-desc">24/7 консультації</p>
+                <h3 class="feature-title">{% trans 'Підтримка' %}</h3>
+                <p class="feature-desc">{% trans '24/7 консультації' %}</p>
               </div>
             </div>
           </div>
 
           <div class="hero-cta">
             <a href="#partnership-types" class="cta-button">
-              <span>Дізнатися більше</span>
+              <span>{% trans 'Дізнатися більше' %}</span>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M7 10l5 5 5-5z"/>
               </svg>
@@ -303,8 +303,8 @@
   <div class="row mb-5" id="partnership-types">
     <div class="col-12">
       <div class="section-header">
-        <h2 class="section-title">Типи співпраці</h2>
-        <p class="section-subtitle">Оберіть найкращий варіант для вашого бізнесу</p>
+        <h2 class="section-title">{% trans 'Типи співпраці' %}</h2>
+        <p class="section-subtitle">{% trans 'Оберіть найкращий варіант для вашого бізнесу' %}</p>
       </div>
     </div>
   </div>
@@ -325,24 +325,24 @@
         </div>
         <h3 class="partnership-title">Dropshipping</h3>
         <p class="partnership-description">
-          Продавайте наші товари без вкладень у склад. Ми відправляємо замовлення вашим клієнтам.
+          {% trans 'Продавайте наші товари без вкладень у склад. Ми відправляємо замовлення вашим клієнтам.' %}
         </p>
         <ul class="partnership-benefits">
-          <li>Без вкладень у товар</li>
-          <li>Автоматична обробка замовлень</li>
-          <li>Висока маржинальність</li>
-          <li>Підтримка 24/7</li>
-          <li>Фіксовані ціни на футболки та худі за договором</li>
+          <li>{% trans 'Без вкладень у товар' %}</li>
+          <li>{% trans 'Автоматична обробка замовлень' %}</li>
+          <li>{% trans 'Висока маржинальність' %}</li>
+          <li>{% trans 'Підтримка 24/7' %}</li>
+          <li>{% trans 'Фіксовані ціни на футболки та худі за договором' %}</li>
         </ul>
         <div class="partnership-commission">
-          <span class="commission-label">Комісія:</span>
+          <span class="commission-label">{% trans 'Комісія:' %}</span>
           <span class="commission-value">5-20%</span>
         </div>
         <a href="/dropshipper/" class="partnership-btn">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
           </svg>
-          Почати співпрацю
+          {% trans 'Почати співпрацю' %}
         </a>
       </div>
     </div>
@@ -360,26 +360,25 @@
             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
           </svg>
         </div>
-        <h3 class="partnership-title">Оптові продажі</h3>
+        <h3 class="partnership-title">{% trans 'Оптові продажі' %}</h3>
         <p class="partnership-description">
-          Працюємо напряму з магазинами та мережами: гнучкі прайси, швидке відвантаження зі складу та 
-          зручні онлайн-інструменти для оформлення накладних.
+          {% trans 'Працюємо напряму з магазинами та мережами: гнучкі прайси, швидке відвантаження зі складу та зручні онлайн-інструменти для оформлення накладних.' %}
         </p>
         <ul class="partnership-benefits">
-          <li>Старт від 8 одиниць на замовлення</li>
-          <li>Зручне формування накладної прямо на сайті</li>
-          <li>Оперативне відвантаження зі складу по всій Україні</li>
-          <li>Готові медіаматеріали та персональний менеджер 24/7</li>
+          <li>{% trans 'Старт від 8 одиниць на замовлення' %}</li>
+          <li>{% trans 'Зручне формування накладної прямо на сайті' %}</li>
+          <li>{% trans 'Оперативне відвантаження зі складу по всій Україні' %}</li>
+          <li>{% trans 'Готові медіаматеріали та персональний менеджер 24/7' %}</li>
         </ul>
         <div class="partnership-commission">
-          <span class="commission-label">Знижка:</span>
-          <span class="commission-value">Вигідні оптові тарифи</span>
+          <span class="commission-label">{% trans 'Знижка:' %}</span>
+          <span class="commission-value">{% trans 'Вигідні оптові тарифи' %}</span>
         </div>
         <a href="{% url 'wholesale_page' %}" class="partnership-btn">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
           </svg>
-          Перейти до оптових умов
+          {% trans 'Перейти до оптових умов' %}
         </a>
       </div>
     </div>
@@ -397,25 +396,25 @@
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
           </svg>
         </div>
-        <h3 class="partnership-title">Бренд-партнерство</h3>
+        <h3 class="partnership-title">{% trans 'Бренд-партнерство' %}</h3>
         <p class="partnership-description">
-          Створюйте ексклюзивні колекції разом з нами. Для великих брендів та дизайнерів.
+          {% trans 'Створюйте ексклюзивні колекції разом з нами. Для великих брендів та дизайнерів.' %}
         </p>
         <ul class="partnership-benefits">
-          <li>Ексклюзивні колекції</li>
-          <li>Спільний маркетинг</li>
-          <li>Високі комісії</li>
-          <li>Персональний менеджер</li>
+          <li>{% trans 'Ексклюзивні колекції' %}</li>
+          <li>{% trans 'Спільний маркетинг' %}</li>
+          <li>{% trans 'Високі комісії' %}</li>
+          <li>{% trans 'Персональний менеджер' %}</li>
         </ul>
         <div class="partnership-commission">
-          <span class="commission-label">Комісія:</span>
+          <span class="commission-label">{% trans 'Комісія:' %}</span>
           <span class="commission-value">30-50%</span>
         </div>
         <a href="https://t.me/twocomms" class="partnership-btn" target="_blank">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
           </svg>
-          Обговорити проект
+          {% trans 'Обговорити проект' %}
         </a>
       </div>
     </div>
@@ -437,35 +436,35 @@
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
           </div>
-          <h2 class="designers-title">Для дизайнерів</h2>
+          <h2 class="designers-title">{% trans 'Для дизайнерів' %}</h2>
           <p class="designers-description">
-            Ваші ідеї можуть стати реальністю! Створюйте принти та отримуйте винагороду за кожен успішний продаж.
+            {% trans 'Ваші ідеї можуть стати реальністю! Створюйте принти та отримуйте винагороду за кожен успішний продаж.' %}
           </p>
           <div class="designers-benefits">
             <div class="benefit-item">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
-              <span>15-30% від продажів</span>
+              <span>{% trans '15-30% від продажів' %}</span>
             </div>
             <div class="benefit-item">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
-              <span>Швидка реалізація</span>
+              <span>{% trans 'Швидка реалізація' %}</span>
             </div>
             <div class="benefit-item">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
-              <span>Підтримка команди</span>
+              <span>{% trans 'Підтримка команди' %}</span>
             </div>
           </div>
           <a href="{% url 'add_print' %}" class="designers-btn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 15v4H5v-4H3v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4h-2zM11 8.414V20h2V8.414l3.293 3.293 1.414-1.414L12 4.586 6.293 10.293l1.414 1.414L11 8.414z"/>
             </svg>
-            Запропонувати принт
+            {% trans 'Запропонувати принт' %}
           </a>
         </div>
       </div>
@@ -487,35 +486,35 @@
               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
             </svg>
           </div>
-          <h2 class="models-title">Для моделей</h2>
+          <h2 class="models-title">{% trans 'Для моделей' %}</h2>
           <p class="models-description">
-            Демонструйте наші товари та отримуйте винагороду за кожну фотосесію. Станьте частиною нашої команди!
+            {% trans 'Демонструйте наші товари та отримуйте винагороду за кожну фотосесію. Станьте частиною нашої команди!' %}
           </p>
           <div class="models-benefits">
             <div class="benefit-item">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
-              <span>Оплата речами</span>
+              <span>{% trans 'Оплата речами' %}</span>
             </div>
             <div class="benefit-item">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
-              <span>Безкоштовні товари</span>
+              <span>{% trans 'Безкоштовні товари' %}</span>
             </div>
             <div class="benefit-item">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
-              <span>Розвиток портфоліо</span>
+              <span>{% trans 'Розвиток портфоліо' %}</span>
             </div>
           </div>
           <a href="https://t.me/twocomms" class="models-btn" target="_blank">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
-            Стати моделлю
+            {% trans 'Стати моделлю' %}
           </a>
         </div>
       </div>
@@ -538,41 +537,41 @@
               <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
             </svg>
           </div>
-          <h2 class="bloggers-title">Для блогерів та медіа</h2>
+          <h2 class="bloggers-title">{% trans 'Для блогерів та медіа' %}</h2>
           <p class="bloggers-description">
-            Співпрацюйте з нами для створення якісного контенту та розвивайте свій бренд разом з TwoComms.
+            {% trans 'Співпрацюйте з нами для створення якісного контенту та розвивайте свій бренд разом з TwoComms.' %}
           </p>
           <div class="bloggers-benefits">
             <div class="benefit-item">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
-              <span>Грошова винагорода</span>
+              <span>{% trans 'Грошова винагорода' %}</span>
             </div>
             <div class="benefit-item">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
-              <span>Безкоштовні товари</span>
+              <span>{% trans 'Безкоштовні товари' %}</span>
             </div>
             <div class="benefit-item">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
-              <span>Ексклюзивний контент</span>
+              <span>{% trans 'Ексклюзивний контент' %}</span>
             </div>
             <div class="benefit-item">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
-              <span>Довгострокова співпраця</span>
+              <span>{% trans 'Довгострокова співпраця' %}</span>
             </div>
           </div>
           <a href="https://t.me/twocomms" class="bloggers-btn" target="_blank">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
-            Почати співпрацю
+            {% trans 'Почати співпрацю' %}
           </a>
         </div>
       </div>
@@ -584,22 +583,22 @@
     <div class="col-12">
       <div class="contact-section">
         <div class="contact-content">
-          <h2 class="contact-title">Готові почати співпрацю?</h2>
+          <h2 class="contact-title">{% trans 'Готові почати співпрацю?' %}</h2>
           <p class="contact-description">
-            Зв'яжіться з нами в Telegram для обговорення деталей
+            {% trans "Зв'яжіться з нами в Telegram для обговорення деталей" %}
           </p>
           <div class="contact-buttons">
             <a href="https://t.me/twocomms" class="contact-btn primary" target="_blank">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
-              Загальні питання
+              {% trans 'Загальні питання' %}
             </a>
             <a href="https://t.me/twocomms" class="contact-btn secondary" target="_blank">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
-              Технічна підтримка
+              {% trans 'Технічна підтримка' %}
             </a>
           </div>
         </div>
@@ -609,10 +608,9 @@
 
   <section class="cooperation-seo-stack" aria-label="Cooperation SEO layer">
     <div class="cooperation-seo-card">
-      <h2>Поширені питання про співпрацю</h2>
+      <h2>{% trans 'Поширені питання про співпрацю' %}</h2>
       <p>
-        Якщо ви вибираєте між дропшипінгом, оптовим запуском, бренд-проєктом або контентною
-        колаборацією, почніть з цих відповідей і переходьте в потрібний сценарій без зайвого шуму.
+        {% trans 'Якщо ви вибираєте між дропшипінгом, оптовим запуском, бренд-проєктом або контентною колаборацією, почніть з цих відповідей і переходьте в потрібний сценарій без зайвого шуму.' %}
       </p>
       <div class="cooperation-faq-list">
         {% for faq in faq_items %}
@@ -625,26 +623,25 @@
     </div>
 
     <div class="cooperation-seo-card">
-      <h2>Швидкі маршрути для партнерів</h2>
+      <h2>{% trans 'Швидкі маршрути для партнерів' %}</h2>
       <p>
-        Ці сторінки закривають найчастіші next step сценарії: оптові закупівлі, кастомний друк для партій,
-        а також прямий контакт з командою для нестандартних колаборацій.
+        {% trans 'Ці сторінки закривають найчастіші next step сценарії: оптові закупівлі, кастомний друк для партій, а також прямий контакт з командою для нестандартних колаборацій.' %}
       </p>
       <div class="cooperation-link-grid">
         <a class="cooperation-link-card" href="{% url 'wholesale_page' %}">
           <small>Wholesale</small>
-          <strong>Оптові умови та прайс</strong>
-          <span>Для магазинів, шоурумів, мереж і дропшиперів, яким потрібні обсяги та комерційні умови.</span>
+          <strong>{% trans 'Оптові умови та прайс' %}</strong>
+          <span>{% trans 'Для магазинів, шоурумів, мереж і дропшиперів, яким потрібні обсяги та комерційні умови.' %}</span>
         </a>
         <a class="cooperation-link-card" href="{% url 'custom_print' %}">
           <small>Custom print</small>
-          <strong>Кастомний принт для брендів</strong>
-          <span>Для мерчу, команд, подій і партій зі своїм дизайном або приватним лейблом.</span>
+          <strong>{% trans 'Кастомний принт для брендів' %}</strong>
+          <span>{% trans 'Для мерчу, команд, подій і партій зі своїм дизайном або приватним лейблом.' %}</span>
         </a>
         <a class="cooperation-link-card" href="{% url 'contacts' %}">
           <small>Contacts</small>
-          <strong>Прямий контакт з командою</strong>
-          <span>Переходьте до контактів, якщо потрібен нестандартний формат співпраці або швидкий запуск.</span>
+          <strong>{% trans 'Прямий контакт з командою' %}</strong>
+          <span>{% trans 'Переходьте до контактів, якщо потрібен нестандартний формат співпраці або швидкий запуск.' %}</span>
         </a>
       </div>
     </div>
