@@ -42,8 +42,15 @@ _SHORT_LABELS = {
 }
 _FLAGS = {
     "uk": "🇺🇦",
-    "ru": "🌐",  # neutral globe (no flag rendering for RU per political stance)
+    "ru": "",  # rendered as image (see _FLAG_IMAGES) per political stance
     "en": "🇬🇧",
+}
+# Phase 17r — image-based language icons. When set, the language switcher
+# template renders ``<img>`` instead of the emoji fallback. Russian uses a
+# satirical PTN icon (BrandDNA/ptn.png) per the brand's positioning toward
+# the russian federation.
+_FLAG_IMAGES = {
+    "ru": "img/lang/ptn.png",
 }
 
 
@@ -127,16 +134,21 @@ def language_alternates(context) -> Dict[str, str]:
 
 @register.simple_tag(takes_context=True)
 def language_switch_links(context) -> list[dict]:
+    from django.templatetags.static import static
+
     request = context.get("request")
     current = getattr(request, "LANGUAGE_CODE", _DEFAULT_LANG) if request else _DEFAULT_LANG
     items = []
     for code in _SUPPORTED:
+        flag_image_rel = _FLAG_IMAGES.get(code, "")
+        flag_image_url = static(flag_image_rel) if flag_image_rel else ""
         items.append(
             {
                 "code": code,
                 "label": _NATIVE_LABELS.get(code, code.upper()),
                 "short": _SHORT_LABELS.get(code, code.upper()),
                 "flag": _FLAGS.get(code, ""),
+                "flag_image_url": flag_image_url,
                 "url": _path_for_language(request, code),
                 "is_current": (code == current),
             }

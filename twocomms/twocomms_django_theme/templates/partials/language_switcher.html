@@ -19,7 +19,19 @@
              rel="alternate"
              data-lang-code="{{ item.code }}"
              {% if item.is_current %}aria-current="true"{% endif %}>
-            <span class="footer-langs__flag" aria-hidden="true">{{ item.flag }}</span>
+            <span class="footer-langs__flag" aria-hidden="true">
+              {% if item.flag_image_url %}
+                <img class="footer-langs__flag-img"
+                     src="{{ item.flag_image_url }}"
+                     alt=""
+                     width="20"
+                     height="20"
+                     loading="lazy"
+                     decoding="async">
+              {% else %}
+                {{ item.flag }}
+              {% endif %}
+            </span>
             <span class="footer-langs__name">{{ item.label }}</span>
             <span class="footer-langs__short" aria-hidden="true">{{ item.short }}</span>
           </a>

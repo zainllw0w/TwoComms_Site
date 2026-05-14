@@ -918,6 +918,17 @@
 .footer-langs__flag {
   font-size: 1.05rem;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.footer-langs__flag-img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  background: rgba(255, 255, 255, 0.05);
 }
 .footer-langs__short {
   font-size: 0.7rem;
