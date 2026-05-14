@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from datetime import date, timedelta
 
 from django.core.management.base import BaseCommand
 
@@ -70,8 +71,12 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("Skipping GA4 prefetch (status != healthy)."))
             return
 
+        # Match the default window used by the admin overview tab so the
+        # prefetched cache hits the same key.
+        end_date = date.today()
+        start_date = end_date - timedelta(days=7)
         try:
-            ext.fetch_ga4_acquisition_snapshot()
+            ext.fetch_ga4_acquisition_snapshot(start_date=start_date, end_date=end_date)
             self.stdout.write(self.style.SUCCESS("GA4 acquisition snapshot refreshed."))
         except Exception as exc:  # noqa: BLE001
             self.stdout.write(self.style.WARNING(f"GA4 acquisition snapshot: {exc}"))
