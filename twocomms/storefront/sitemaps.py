@@ -54,9 +54,18 @@ class StaticViewSitemap(Sitemap):
     only the UA URL is indexable, so we collapse the i18n options and
     emit one entry per route. Restore the flags once the RU/EN copy
     decks are actually translated.
+
+    SEO v1.1 Phase 2 (2026-05-15) — RESTORED. RU/EN are no longer
+    noindex (per ownership directive). Re-enable ``i18n=True`` +
+    ``alternates=True`` + ``x_default=True`` so Google receives proper
+    reciprocal hreflang triples and clusters the variants instead of
+    flagging them as duplicates.
     """
     changefreq = 'weekly'
     protocol = 'https'
+    i18n = True
+    alternates = True
+    x_default = True
 
     def items(self):
         return PUBLIC_STATIC_ROUTE_NAMES
@@ -87,10 +96,16 @@ class ProductSitemap(Sitemap):
     ``StaticViewSitemap`` docstring for the rationale; collapsing the
     ×3 duplication drops the live ``sitemap-products.xml`` payload from
     195 ``<loc>`` rows back to 65 (one per published product).
+
+    SEO v1.1 Phase 2 (2026-05-15) — RESTORED i18n alternates so RU/EN
+    PDPs are discoverable and properly clustered with their UA twin.
     """
     changefreq = 'weekly'
     priority = 0.9
     protocol = 'https'
+    i18n = True
+    alternates = True
+    x_default = True
 
     def items(self):
         return (
@@ -187,10 +202,15 @@ class CategorySitemap(Sitemap):
 
     SEO v1.0 Phase 1 (2026-05-12) — Path A multilingual fix; see
     ``StaticViewSitemap``.
+
+    SEO v1.1 Phase 2 (2026-05-15) — RESTORED i18n alternates.
     """
     changefreq = 'monthly'
     priority = 0.8
     protocol = 'https'
+    i18n = True
+    alternates = True
+    x_default = True
 
     def items(self):
         return (
@@ -214,10 +234,16 @@ class CategoryColorLandingSitemap(Sitemap):
     landings with ``is_published=True`` and an active parent category;
     Search Console gets a clean signal that draft landings should not
     be crawled.
+
+    SEO v1.1 Phase 2 (2026-05-15) — i18n alternates so the new
+    landing pages are discoverable in every locale.
     """
     changefreq = 'weekly'
     priority = 0.7
     protocol = 'https'
+    i18n = True
+    alternates = True
+    x_default = True
 
     def items(self):
         from .models import CategoryColorLanding

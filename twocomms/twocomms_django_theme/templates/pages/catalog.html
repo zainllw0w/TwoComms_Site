@@ -34,7 +34,7 @@ re-orders the same products on the same canonical URL; Google was indexing each
 variation as a separate page (duplicate-title warning in Search Console).
 Treat them like any other facet: noindex, follow + canonical → base catalog.
 {% endcomment %}
-{% block robots %}{% if LANGUAGE_CODE and LANGUAGE_CODE != 'uk' %}noindex, follow, max-image-preview:large{% elif is_search_page or has_active_color_filter or request.GET.sort %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
+{% block robots %}{% if is_search_page or has_active_color_filter or request.GET.sort %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 
 {% block canonical %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 {% block hreflang_uk %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}

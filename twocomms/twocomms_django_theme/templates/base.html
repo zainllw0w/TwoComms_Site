@@ -75,9 +75,20 @@
   RU/EN content is fully translated, force ``noindex,follow`` on every
   non-uk render so Google/Bing drop the duplicates from the index but
   still follow links to discover/refresh the canonical UA pages.
+
+  SEO v1.1 Phase 2 (2026-05-15) — multilingual REOPEN. Per request from
+  ownership: restore index, follow on RU/EN renders so /ru/ and /en/
+  variants accumulate organic traffic from Russian- and English-speaking
+  Ukrainian users (and any DE/PL/CZ visitors who fall through). Risk
+  control: emit reciprocal hreflang (uk-UA / ru-UA / en-UA / x-default)
+  on every indexable page so Google clusters the variants instead of
+  flagging them as duplicates. Where modeltranslation has no translated
+  copy, the active language renders the UA fallback — Google tolerates
+  partial translation, but bumping ``Product.title_ru`` /
+  ``description_en`` etc. is the long-term fix.
   {% endcomment %}
   <meta name="robots"
-    content="{% block robots %}{% if LANGUAGE_CODE and LANGUAGE_CODE != 'uk' %}noindex, follow, max-image-preview:large{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}">
+    content="{% block robots %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endblock %}">
   <meta name="description"
     content="{% block description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.{% endblock %}">
   {% comment %}
@@ -95,21 +106,17 @@
   {% block pagination_links %}{% endblock %}
   {% language_alternates as lang_alts %}
   {% comment %}
-  SEO v1.0 Phase 1 (2026-05-12) — emit hreflang only on indexable pages.
-  Phase 17n (2026-05-13) — REGIONAL CORRECTION. Use the BCP-47 regional
-  subtag ``uk-UA`` (not bare ``uk``) so Google/Bing/Yandex understand
-  that the canonical URL targets the Ukrainian region. We keep RU/EN
-  noindex until their product copy (Product.title_ru / description_ru,
-  etc.) is fully populated — emitting reciprocal hreflang from
-  ``noindex`` pages only inflates Ahrefs/GSC false-positive reports.
-  Once the modeltranslation backfill ships, flip the ``noindex`` toggle
-  above and add ``ru-UA`` + ``en-UA`` alternates here so search engines
-  serve the right language variant per region.
+  SEO v1.1 Phase 2 (2026-05-15) — reciprocal hreflang for every locale.
+  Each indexable page lists itself + every sibling locale + ``x-default``
+  (which mirrors the UA URL because UA is our primary market). Google
+  uses these triples to cluster the variants and serve the right
+  language per user — without this, RU/EN renders would compete with
+  UA in the same SERP and trigger duplicate-content warnings.
   {% endcomment %}
-  {% if not LANGUAGE_CODE or LANGUAGE_CODE == 'uk' %}
   <link rel="alternate" hreflang="uk-UA" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">
+  <link rel="alternate" hreflang="ru-UA" href="{% block hreflang_ru %}{{ lang_alts.ru }}{% endblock %}">
+  <link rel="alternate" hreflang="en-UA" href="{% block hreflang_en %}{{ lang_alts.en }}{% endblock %}">
   <link rel="alternate" hreflang="x-default" href="{% block hreflang_x_default %}{{ lang_alts.x_default }}{% endblock %}">
-  {% endif %}
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">

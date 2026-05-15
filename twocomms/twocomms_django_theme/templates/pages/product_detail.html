@@ -22,8 +22,13 @@ before honouring the canonical hint. Switch to noindex,follow whenever
 any of these query keys are present so Googlebot drops them from the
 index altogether (and recovers the crawl budget for new products).
 RU/EN renders keep the original Phase 1 noindex behaviour.
+
+SEO v1.1 Phase 2 (2026-05-15) — RU/EN are no longer noindex (see
+``base.html`` rationale). Facet ``?color=``/``?fit=``/``?size=`` still
+get noindex,follow on every locale to prevent duplicate-listing churn
+from canonical+facet combos.
 {% endcomment %}
-{% block robots %}{% if LANGUAGE_CODE and LANGUAGE_CODE != 'uk' %}noindex, follow, max-image-preview:large{% elif request.GET.color or request.GET.fit or request.GET.size %}noindex, follow, max-image-preview:large{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
+{% block robots %}{% if request.GET.color or request.GET.fit or request.GET.size %}noindex, follow, max-image-preview:large{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 {% block og_type %}product{% endblock %}
 {% comment %}
 SEO v1.0 Phase 11 (2026-05-12) — finding (UU). The product detail page
