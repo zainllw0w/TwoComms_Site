@@ -1899,6 +1899,769 @@ TRANSLATIONS_PHASE_17Q: dict[str, dict[str, str]] = {
 TRANSLATIONS.update(TRANSLATIONS_PHASE_17Q)
 
 
+# ===========================================================================
+# Phase 17R (2026-05-15) — bulk customer-facing strings from product/catalog/
+# co-op/404/builder/wholesale templates and brand copy.
+# ===========================================================================
+TRANSLATIONS_PHASE_17R: dict[str, dict[str, str]] = {
+    # ===== Currency / units =====
+    "грн": {"ru": "грн", "en": "UAH"},
+    "грн/шт": {"ru": "грн/шт", "en": "UAH/pc"},
+    "0 грн / шт": {"ru": "0 грн / шт", "en": "0 UAH / pc"},
+    "шт": {"ru": "шт", "en": "pcs"},
+    "б.": {"ru": "б.", "en": "pts"},
+
+    # ===== Product detail =====
+    "Розмір": {"ru": "Размер", "en": "Size"},
+    "Колір": {"ru": "Цвет", "en": "Color"},
+    "Кількість": {"ru": "Количество", "en": "Quantity"},
+    "Зменшити": {"ru": "Уменьшить", "en": "Decrease"},
+    "Збільшити": {"ru": "Увеличить", "en": "Increase"},
+    "Немає в наявності": {"ru": "Нет в наличии", "en": "Out of stock"},
+    "Додати в кошик": {"ru": "Добавить в корзину", "en": "Add to cart"},
+    "Додати до обраних": {"ru": "Добавить в избранное", "en": "Add to favorites"},
+    "Дізнатись про бали": {"ru": "Узнать о баллах", "en": "Learn about points"},
+    "Інформація про доставку": {"ru": "Информация о доставке", "en": "Delivery info"},
+    "Поділитися:": {"ru": "Поделиться:", "en": "Share:"},
+    "Поділитися у Facebook": {"ru": "Поделиться в Facebook", "en": "Share on Facebook"},
+    "Поділитися у Twitter": {"ru": "Поделиться в Twitter", "en": "Share on Twitter"},
+    "Поділитися у Telegram": {"ru": "Поделиться в Telegram", "en": "Share on Telegram"},
+    "Скопіювати посилання": {"ru": "Скопировать ссылку", "en": "Copy link"},
+    "Опис": {"ru": "Описание", "en": "Description"},
+    "Розмірна сітка": {"ru": "Размерная сетка", "en": "Size guide"},
+    "Догляд": {"ru": "Уход", "en": "Care"},
+    "Опис товару буде додано найближчим часом.": {
+        "ru": "Описание товара будет добавлено в ближайшее время.",
+        "en": "Product description will be added soon.",
+    },
+    "Таблиця розмірів": {"ru": "Таблица размеров", "en": "Size chart"},
+    "Груди (см)": {"ru": "Грудь (см)", "en": "Chest (cm)"},
+    "Талія (см)": {"ru": "Талия (см)", "en": "Waist (cm)"},
+    "Стегна (см)": {"ru": "Бёдра (см)", "en": "Hips (cm)"},
+    "Як виміряти:": {"ru": "Как измерить:", "en": "How to measure:"},
+    "• Груди: навколо найширшої частини грудей": {
+        "ru": "• Грудь: вокруг самой широкой части груди",
+        "en": "• Chest: around the widest part of the chest",
+    },
+    "• Талія: навколо найвужчої частини талії": {
+        "ru": "• Талия: вокруг самой узкой части талии",
+        "en": "• Waist: around the narrowest part of the waist",
+    },
+    "• Стегна: навколо найширшої частини стегон": {
+        "ru": "• Бёдра: вокруг самой широкой части бёдер",
+        "en": "• Hips: around the widest part of the hips",
+    },
+    "Матеріал:": {"ru": "Материал:", "en": "Material:"},
+    "Матеріал": {"ru": "Материал", "en": "Material"},
+    "100% бавовна преміум-якості": {
+        "ru": "100% хлопок премиум-качества",
+        "en": "100% premium-quality cotton",
+    },
+    "100%% бавовна преміум-якості": {
+        "ru": "100%% хлопок премиум-качества",
+        "en": "100%% premium-quality cotton",
+    },
+    "Стирання:": {"ru": "Стирка:", "en": "Washing:"},
+    "Машинне або ручне стирання при 30°C, не відбілювати": {
+        "ru": "Машинная или ручная стирка при 30°C, не отбеливать",
+        "en": "Machine or hand wash at 30°C, do not bleach",
+    },
+    "Прасування:": {"ru": "Глажка:", "en": "Ironing:"},
+    "Прасування на середній температурі, краще з вивороту": {
+        "ru": "Глажка на средней температуре, лучше с изнанки",
+        "en": "Iron on medium heat, preferably inside out",
+    },
+    "Вам також сподобається": {"ru": "Вам также понравится", "en": "You may also like"},
+    "Колір {{ hex }}": {"ru": "Цвет {{ hex }}", "en": "Color {{ hex }}"},
+
+    # ===== 404 page =====
+    "404 — Щось пішло не так": {
+        "ru": "404 — Что-то пошло не так",
+        "en": "404 — Something went wrong",
+    },
+    "Упс, глухий кут": {"ru": "Упс, тупик", "en": "Oops, dead end"},
+    "(Щось ми не туди припливли...)": {
+        "ru": "(Что-то мы не туда заплыли...)",
+        "en": "(Looks like we drifted off course...)",
+    },
+    "Назад": {"ru": "Назад", "en": "Back"},
+    "ОК": {"ru": "ОК", "en": "OK"},
+
+    # ===== Catalog / counters =====
+    "%(counter)s товар": {"ru": "%(counter)s товар", "en": "%(counter)s product"},
+    "%(counter)s товар знайдено": {
+        "ru": "%(counter)s товар найдено",
+        "en": "%(counter)s product found",
+    },
+    "%(counter)s бал": {"ru": "%(counter)s балл", "en": "%(counter)s point"},
+    "%(counter)s відгук": {"ru": "%(counter)s отзыв", "en": "%(counter)s review"},
+    "%(counter)s зірка": {"ru": "%(counter)s звезда", "en": "%(counter)s star"},
+    "Рейтинг товару, %(counter)s відгук": {
+        "ru": "Рейтинг товара, %(counter)s отзыв",
+        "en": "Product rating, %(counter)s review",
+    },
+    "за запитом «%(q)s»": {
+        "ru": "по запросу «%(q)s»",
+        "en": "for query \"%(q)s\"",
+    },
+    "Категорія %(cat)s з авторськими принтами від TwoComms.": {
+        "ru": "Категория %(cat)s с авторскими принтами от TwoComms.",
+        "en": "%(cat)s category with original prints by TwoComms.",
+    },
+    "%(cat)s з авторськими принтами від TwoComms.": {
+        "ru": "%(cat)s с авторскими принтами от TwoComms.",
+        "en": "%(cat)s with original prints by TwoComms.",
+    },
+    "%(cat)s з авторськими принтами від TwoComms. Стріт & мілітарі одяг.": {
+        "ru": "%(cat)s с авторскими принтами от TwoComms. Стрит & милитари одежда.",
+        "en": "%(cat)s with original prints by TwoComms. Street & military apparel.",
+    },
+
+    # ===== Categories =====
+    "Футболка": {"ru": "Футболка", "en": "T-shirt"},
+    "Футболки": {"ru": "Футболки", "en": "T-shirts"},
+    "Футболки:": {"ru": "Футболки:", "en": "T-shirts:"},
+    "Худі": {"ru": "Худи", "en": "Hoodie"},
+    "Худі [фліс]": {"ru": "Худи [флис]", "en": "Hoodie [fleece]"},
+    "Худі [фліс] опт": {"ru": "Худи [флис] опт", "en": "Hoodie [fleece] wholesale"},
+    "[фліс]": {"ru": "[флис]", "en": "[fleece]"},
+    "Лонгслів": {"ru": "Лонгслив", "en": "Longsleeve"},
+
+    # ===== Brand / about / pro_brand =====
+    "TwoComms — не крапка. Продовження.": {
+        "ru": "TwoComms — не точка. Продолжение.",
+        "en": "TwoComms — not a period. A continuation.",
+    },
+    "не крапка.": {"ru": "не точка.", "en": "not a period."},
+    "Характер. Харків. Продовження.": {
+        "ru": "Характер. Харьков. Продолжение.",
+        "en": "Character. Kharkiv. Continuation.",
+    },
+    "Харків": {"ru": "Харьков", "en": "Kharkiv"},
+    "ХАРКІВ": {"ru": "ХАРЬКОВ", "en": "KHARKIV"},
+    "Київ": {"ru": "Киев", "en": "Kyiv"},
+    "Харків як ДНК": {"ru": "Харьков как ДНК", "en": "Kharkiv as DNA"},
+    "Харківський бренд одягу": {
+        "ru": "Харьковский бренд одежды",
+        "en": "Kharkiv apparel brand",
+    },
+    "Місто як характер": {"ru": "Город как характер", "en": "City as character"},
+    "Код Харкова": {"ru": "Код Харькова", "en": "Kharkiv code"},
+    "TwoComms не можна відділити від Харкова.": {
+        "ru": "TwoComms нельзя отделить от Харькова.",
+        "en": "TwoComms is inseparable from Kharkiv.",
+    },
+    "Харківський код і дисципліна залишаються основою кожної нової речі.": {
+        "ru": "Харьковский код и дисциплина остаются основой каждой новой вещи.",
+        "en": "The Kharkiv code and discipline stay the backbone of every new piece.",
+    },
+    "TwoComms — одяг з характером, кодом і харківським походженням": {
+        "ru": "TwoComms — одежда с характером, кодом и харьковским происхождением",
+        "en": "TwoComms — apparel with character, code and Kharkiv origin",
+    },
+    "Що означає назва TwoComms": {
+        "ru": "Что означает название TwoComms",
+        "en": "What the name TwoComms means",
+    },
+    "У назві TwoComms закладено дві коми.": {
+        "ru": "В названии TwoComms заложены две запятые.",
+        "en": "The name TwoComms contains two commas.",
+    },
+    "Знак для своїх": {"ru": "Знак для своих", "en": "A mark for our own"},
+    "Знак": {"ru": "Знак", "en": "Mark"},
+    "Ми знаємо свій знак.": {"ru": "Мы знаем свой знак.", "en": "We know our mark."},
+    "Ми знаємо, звідки ми.": {
+        "ru": "Мы знаем, откуда мы.",
+        "en": "We know where we come from.",
+    },
+    "Ми не ставимо крапку.": {
+        "ru": "Мы не ставим точку.",
+        "en": "We don't put a period.",
+    },
+    "Не шум. Не роль.": {
+        "ru": "Не шум. Не роль.",
+        "en": "Not noise. Not a role.",
+    },
+    "Сенси": {"ru": "Смыслы", "en": "Meanings"},
+    "Сенсовий принт TwoComms Довіряй своїй божевільній ідеї": {
+        "ru": "Смысловой принт TwoComms Доверяй своей безумной идее",
+        "en": "TwoComms statement print: Trust your crazy idea",
+    },
+    "Сенсовий принт TwoComms Рабів до раю не пускають": {
+        "ru": "Смысловой принт TwoComms Рабов в рай не пускают",
+        "en": "TwoComms statement print: No slaves in heaven",
+    },
+    "Довіряй своїй божевільній ідеї": {
+        "ru": "Доверяй своей безумной идее",
+        "en": "Trust your crazy idea",
+    },
+    "Рабів до раю не пускають": {
+        "ru": "Рабов в рай не пускают",
+        "en": "No slaves are allowed in heaven",
+    },
+    "Код свободи": {"ru": "Код свободы", "en": "Code of freedom"},
+    "Одяг з кодом": {"ru": "Одежда с кодом", "en": "Apparel with a code"},
+    "Куди ми йдемо": {"ru": "Куда мы идём", "en": "Where we are going"},
+    "Якість, яка доводить ідею": {
+        "ru": "Качество, которое доказывает идею",
+        "en": "Quality that backs the idea",
+    },
+    "Візуальна мова": {"ru": "Визуальный язык", "en": "Visual language"},
+    "Власна візуальна мова не розчиняється в трендах і випадкових жестах.": {
+        "ru": "Собственный визуальный язык не растворяется в трендах и случайных жестах.",
+        "en": "An original visual language does not dissolve into trends or random gestures.",
+    },
+    "Форма, яка тримає людину": {
+        "ru": "Форма, которая держит человека",
+        "en": "Form that holds the wearer",
+    },
+    "Форма без зайвого шуму: річ має сидіти впевнено і не сковувати рух.": {
+        "ru": "Форма без лишнего шума: вещь должна сидеть уверенно и не сковывать движения.",
+        "en": "Form without noise: the piece must sit confidently and not restrict movement.",
+    },
+    "Принт має бути частиною речі, а не випадковою картинкою на поверхні.": {
+        "ru": "Принт должен быть частью вещи, а не случайной картинкой на поверхности.",
+        "en": "A print must be part of the piece, not a random image on the surface.",
+    },
+    "Кожен дроп продовжує ідею бренду, а не запускає її заново.": {
+        "ru": "Каждый дроп продолжает идею бренда, а не запускает её заново.",
+        "en": "Each drop continues the brand idea instead of restarting it.",
+    },
+    "Річ, що тримає стан": {
+        "ru": "Вещь, которая держит состояние",
+        "en": "A piece that holds a state",
+    },
+    "Ключові характеристики бренду": {
+        "ru": "Ключевые характеристики бренда",
+        "en": "Key brand traits",
+    },
+
+    # ===== Cooperation page =====
+    "Опт": {"ru": "Опт", "en": "Wholesale"},
+    "Дроп": {"ru": "Дропшипинг", "en": "Dropshipping"},
+    "Опт / повний магазин": {
+        "ru": "Опт / полный магазин",
+        "en": "Wholesale / full store",
+    },
+    "Опт і дропшипінг": {"ru": "Опт и дропшипинг", "en": "Wholesale & dropshipping"},
+    "Бренд-партнерство": {"ru": "Бренд-партнёрство", "en": "Brand partnership"},
+    "Брендування / мерч": {"ru": "Брендирование / мерч", "en": "Branding / merch"},
+    "Для бренду / команди / події": {
+        "ru": "Для бренда / команды / события",
+        "en": "For brand / team / event",
+    },
+    "Для брендів, подій, команд і корпоративного мерчу зі своїм принтом.": {
+        "ru": "Для брендов, событий, команд и корпоративного мерча со своим принтом.",
+        "en": "For brands, events, teams and corporate merch with your own print.",
+    },
+    "Оптова партія": {"ru": "Оптовая партия", "en": "Wholesale batch"},
+    "Тестова партія": {"ru": "Тестовая партия", "en": "Trial batch"},
+    "Тестова партія: комплектація": {
+        "ru": "Тестовая партия: комплектация",
+        "en": "Trial batch: composition",
+    },
+    "Тестова партія: товар": {
+        "ru": "Тестовая партия: товар",
+        "en": "Trial batch: item",
+    },
+    "Оптові закупівлі та дропшипінг TwoComms": {
+        "ru": "Оптовые закупки и дропшипинг TwoComms",
+        "en": "TwoComms wholesale and dropshipping",
+    },
+    "TwoComms — оптові закупівлі та дропшипінг українського стріт одягу": {
+        "ru": "TwoComms — оптовые закупки и дропшипинг украинской стрит-одежды",
+        "en": "TwoComms — wholesale and dropshipping of Ukrainian streetwear",
+    },
+    "Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства": {
+        "ru": "Сотрудничество с TwoComms — дропшипинг, опт и бренд-партнёрства",
+        "en": "Partnerships with TwoComms — dropshipping, wholesale and brand collabs",
+    },
+    "Оптовий прайс-лист TwoComms — гуртові ціни на одяг": {
+        "ru": "Оптовый прайс-лист TwoComms — оптовые цены на одежду",
+        "en": "TwoComms wholesale price list — wholesale apparel prices",
+    },
+    "Оптові умови та прайс": {
+        "ru": "Оптовые условия и прайс",
+        "en": "Wholesale terms and price list",
+    },
+    "Скачайте актуальний прайс-лист оптових цін на футболки та худі.": {
+        "ru": "Скачайте актуальный прайс-лист оптовых цен на футболки и худи.",
+        "en": "Download the current wholesale price list for tees and hoodies.",
+    },
+    "Спеціальні ціни для худі з флісом. М'який та зручний матеріал.": {
+        "ru": "Специальные цены на худи с флисом. Мягкий и удобный материал.",
+        "en": "Special prices on fleece hoodies. Soft and comfortable material.",
+    },
+    "М'який фліс": {"ru": "Мягкий флис", "en": "Soft fleece"},
+    "Поширені питання про оптові закупівлі": {
+        "ru": "Частые вопросы про оптовые закупки",
+        "en": "Wholesale FAQ",
+    },
+    "Що ще подивитися перед запуском опта": {
+        "ru": "Что ещё посмотреть перед запуском опта",
+        "en": "What else to review before launching wholesale",
+    },
+    "Що ще подивитися перед заявкою": {
+        "ru": "Что ещё посмотреть перед заявкой",
+        "en": "What else to review before applying",
+    },
+    "Швидкі маршрути для партнерів": {
+        "ru": "Быстрые маршруты для партнёров",
+        "en": "Quick routes for partners",
+    },
+    "Прозорі та вигідні умови для всіх типів співпраці": {
+        "ru": "Прозрачные и выгодные условия для всех типов сотрудничества",
+        "en": "Transparent and rewarding terms for every form of cooperation",
+    },
+    "Оберіть найкращий варіант для вашого бізнесу": {
+        "ru": "Выберите лучший вариант для вашего бизнеса",
+        "en": "Pick the best option for your business",
+    },
+    "Вигідні оптові тарифи": {
+        "ru": "Выгодные оптовые тарифы",
+        "en": "Competitive wholesale rates",
+    },
+    "Висока маржинальність": {"ru": "Высокая маржа", "en": "High margin"},
+    "Високі комісії": {"ru": "Высокие комиссии", "en": "High commissions"},
+    "Максимальна вигода": {"ru": "Максимальная выгода", "en": "Maximum benefit"},
+    "Грошова винагорода": {"ru": "Денежное вознаграждение", "en": "Cash reward"},
+    "Готові медіаматеріали та персональний менеджер 24/7": {
+        "ru": "Готовые медиаматериалы и персональный менеджер 24/7",
+        "en": "Ready media kit and a personal manager 24/7",
+    },
+    "Оперативне відвантаження зі складу по всій Україні": {
+        "ru": "Оперативная отгрузка со склада по всей Украине",
+        "en": "Fast shipping from the warehouse across Ukraine",
+    },
+    "Зручне формування накладної прямо на сайті": {
+        "ru": "Удобное оформление накладной прямо на сайте",
+        "en": "Convenient waybill creation right on the site",
+    },
+    "Прямий контакт з командою": {
+        "ru": "Прямой контакт с командой",
+        "en": "Direct contact with the team",
+    },
+    "Контакти без прихованих умов": {
+        "ru": "Контакты без скрытых условий",
+        "en": "Contacts with no hidden terms",
+    },
+    "Довгострокова співпраця": {
+        "ru": "Долгосрочное сотрудничество",
+        "en": "Long-term cooperation",
+    },
+    "Фіксовані ціни на футболки та худі за договором": {
+        "ru": "Фиксированные цены на футболки и худи по договору",
+        "en": "Contract-fixed prices on tees and hoodies",
+    },
+    "Для блогерів та медіа": {"ru": "Для блогеров и медиа", "en": "For bloggers & media"},
+    "Для моделей": {"ru": "Для моделей", "en": "For models"},
+    "Для себе": {"ru": "Для себя", "en": "For yourself"},
+    "Для бренду / команди / події": {
+        "ru": "Для бренда / команды / события",
+        "en": "For brand / team / event",
+    },
+
+    # ===== Wholesale form =====
+    "Email отримувача": {"ru": "Email получателя", "en": "Recipient email"},
+    "Імʼя/компанія отримувача": {
+        "ru": "Имя/компания получателя",
+        "en": "Recipient name/company",
+    },
+    "Назва бренду або @instagram": {
+        "ru": "Название бренда или @instagram",
+        "en": "Brand name or @instagram",
+    },
+    "@username або +380...": {
+        "ru": "@username или +380...",
+        "en": "@username or +380...",
+    },
+    "Назва магазину / Instagram": {
+        "ru": "Название магазина / Instagram",
+        "en": "Store name / Instagram",
+    },
+    "Номер телефону": {"ru": "Номер телефона", "en": "Phone number"},
+    "Скільки речей потрібно?": {
+        "ru": "Сколько вещей нужно?",
+        "en": "How many items do you need?",
+    },
+    "Куди надіслати результат?": {
+        "ru": "Куда отправить результат?",
+        "en": "Where to send the result?",
+    },
+    "Якщо потрібні особливі розміри або примітки": {
+        "ru": "Если нужны особые размеры или примечания",
+        "en": "If you need special sizes or notes",
+    },
+    "Бот відправить заявку в Telegram": {
+        "ru": "Бот отправит заявку в Telegram",
+        "en": "The bot will send the application to Telegram",
+    },
+    "Зберегти чернетку і відкрити Telegram": {
+        "ru": "Сохранить черновик и открыть Telegram",
+        "en": "Save draft and open Telegram",
+    },
+    "Контакт + кнопка нижче. Чорнетка відразу зберігається локально.": {
+        "ru": "Контакт + кнопка ниже. Черновик сразу сохраняется локально.",
+        "en": "Contact + button below. The draft is saved locally instantly.",
+    },
+    "Префікс +380 підставимо автоматично.": {
+        "ru": "Префикс +380 подставим автоматически.",
+        "en": "We will add the +380 prefix automatically.",
+    },
+    "Один клік — і розмір зафіксовано.": {
+        "ru": "Один клик — и размер зафиксирован.",
+        "en": "One click and the size is locked in.",
+    },
+    "Один розмір": {"ru": "Один размер", "en": "One size"},
+
+    # ===== Builder / custom print =====
+    "Створи річ, <br>що&nbsp;говорить <span>за тебе</span>": {
+        "ru": "Создай вещь, <br>которая&nbsp;говорит <span>за тебя</span>",
+        "en": "Create a piece <br>that&nbsp;speaks <span>for you</span>",
+    },
+    "твій стиль, твої правила.": {
+        "ru": "твой стиль, твои правила.",
+        "en": "your style, your rules.",
+    },
+    "У тебе є готовий файл чи тільки ідея?": {
+        "ru": "У тебя есть готовый файл или только идея?",
+        "en": "Do you have a ready file or just an idea?",
+    },
+    "Маю готовий файл": {"ru": "Есть готовый файл", "en": "I have a ready file"},
+    "Опиши ідею — менеджер перевірить, чи можемо зробити.": {
+        "ru": "Опиши идею — менеджер проверит, сможем ли мы её сделать.",
+        "en": "Describe the idea — the manager will confirm whether we can do it.",
+    },
+    "Потрібен дизайн з нуля": {
+        "ru": "Нужен дизайн с нуля",
+        "en": "I need a design from scratch",
+    },
+    "Потрібно допрацювати файл": {
+        "ru": "Нужно доработать файл",
+        "en": "I need to refine the file",
+    },
+    "Уточню з менеджером": {
+        "ru": "Уточню с менеджером",
+        "en": "I'll clarify with the manager",
+    },
+    "1. Формат": {"ru": "1. Формат", "en": "1. Format"},
+    "5. Макет": {"ru": "5. Макет", "en": "5. Design"},
+    "Формат": {"ru": "Формат", "en": "Format"},
+    "Макет": {"ru": "Макет", "en": "Design"},
+    "Макет / дизайн": {"ru": "Макет / дизайн", "en": "Design"},
+    "Цей браузер": {"ru": "Этот браузер", "en": "This browser"},
+    "Чорний": {"ru": "Чёрный", "en": "Black"},
+    "Чорний, Кайот": {"ru": "Чёрный, Койот", "en": "Black, Coyote"},
+    "Будь-який колір з палітри": {
+        "ru": "Любой цвет из палитры",
+        "en": "Any color from the palette",
+    },
+    "Будь-який колір та дизайн": {
+        "ru": "Любой цвет и дизайн",
+        "en": "Any color and design",
+    },
+    "Обери свій колір або будь-який з палітри": {
+        "ru": "Выбери свой цвет или любой из палитры",
+        "en": "Pick your color or any from the palette",
+    },
+    "Сцена показує відтінок максимально близько до реального.": {
+        "ru": "Сцена показывает оттенок максимально близко к реальному.",
+        "en": "The stage shows the shade as close to the real one as possible.",
+    },
+    "Покажемо вибраний режим прямо на сцені.": {
+        "ru": "Покажем выбранный режим прямо на сцене.",
+        "en": "We'll show the selected mode right on the stage.",
+    },
+    "Поки що нічого не додано — оберіть виріб, щоб побачити прорахунок.": {
+        "ru": "Пока ничего не добавлено — выберите изделие, чтобы увидеть расчёт.",
+        "en": "Nothing added yet — choose an item to see the calculation.",
+    },
+    "Ціну побачите після першого вибору": {
+        "ru": "Цену увидите после первого выбора",
+        "en": "The price will appear after the first selection",
+    },
+    "Ціна оновлюється в реальному часі.": {
+        "ru": "Цена обновляется в реальном времени.",
+        "en": "The price updates in real time.",
+    },
+    "Як річ сидітиме на тілі.": {
+        "ru": "Как вещь будет сидеть на теле.",
+        "en": "How the piece will fit the body.",
+    },
+    "Торкніться мітки, щоб подивитися placement на виробі.": {
+        "ru": "Коснитесь метки, чтобы посмотреть размещение на изделии.",
+        "en": "Tap the marker to view the placement on the garment.",
+    },
+    "Перед, спинка, рукави або будь-яка інша зона": {
+        "ru": "Перед, спинка, рукава или любая другая зона",
+        "en": "Front, back, sleeves or any other zone",
+    },
+    "Зі спини": {"ru": "Со спины", "en": "Back view"},
+    "Спина": {"ru": "Спина", "en": "Back"},
+    "Рукави": {"ru": "Рукава", "en": "Sleeves"},
+    "Лівий рукав": {"ru": "Левый рукав", "en": "Left sleeve"},
+    "Правий рукав": {"ru": "Правый рукав", "en": "Right sleeve"},
+    "Текст для лівого рукава": {"ru": "Текст для левого рукава", "en": "Text for the left sleeve"},
+    "Текст для правого рукава": {"ru": "Текст для правого рукава", "en": "Text for the right sleeve"},
+    "Другий рукав рахується як окрема платна зона.": {
+        "ru": "Второй рукав считается как отдельная платная зона.",
+        "en": "The second sleeve counts as a separate paid zone.",
+    },
+    "Текст, символи або невеликі деталі.": {
+        "ru": "Текст, символы или небольшие детали.",
+        "en": "Text, symbols or small details.",
+    },
+    "Класичне розміщення для головного принта.": {
+        "ru": "Классическое размещение для главного принта.",
+        "en": "Classic placement for the main print.",
+    },
+    "Більший формат для сильного візуалу.": {
+        "ru": "Бóльший формат для сильного визуала.",
+        "en": "A bigger format for a strong visual.",
+    },
+    "Апгрейди, які роблять річ більш зібраною.": {
+        "ru": "Апгрейды, которые делают вещь более собранной.",
+        "en": "Upgrades that make the piece feel more polished.",
+    },
+    "Від легкої бази до щільнішого варіанту.": {
+        "ru": "От лёгкой базы до более плотного варианта.",
+        "en": "From a light base to a denser option.",
+    },
+    "Подарункова упаковка": {"ru": "Подарочная упаковка", "en": "Gift packaging"},
+    "Додамо крафт-пакування, листівку й приберемо цінники.": {
+        "ru": "Добавим крафт-упаковку, открытку и уберём ценники.",
+        "en": "We'll add craft packaging, a postcard and remove price tags.",
+    },
+    "Текст побажання (необовʼязково)": {
+        "ru": "Текст пожелания (необязательно)",
+        "en": "Wish text (optional)",
+    },
+    "Наприклад: TWOCOMMS CLUB": {
+        "ru": "Например: TWOCOMMS CLUB",
+        "en": "For example: TWOCOMMS CLUB",
+    },
+    "Наприклад: EST. 2014": {
+        "ru": "Например: EST. 2014",
+        "en": "For example: EST. 2014",
+    },
+    "Друк": {"ru": "Печать", "en": "Print"},
+    "Свій одяг": {"ru": "Своя одежда", "en": "Your own apparel"},
+    "Худі, футболки, лонгсліви та ваші речі під DTF-друк.": {
+        "ru": "Худи, футболки, лонгсливы и ваши вещи под DTF-печать.",
+        "en": "Hoodies, tees, longsleeves and your own items for DTF print.",
+    },
+    "Худі, футболки, лонгсліви та інший одяг на вибір": {
+        "ru": "Худи, футболки, лонгсливы и другая одежда на выбор",
+        "en": "Hoodies, tees, longsleeves and other apparel to choose from",
+    },
+    "Худі, футболка та лонгслів з кастомним друком TwoComms": {
+        "ru": "Худи, футболка и лонгслив с кастомной печатью TwoComms",
+        "en": "Hoodie, T-shirt and longsleeve with custom TwoComms print",
+    },
+    "Матеріал, колір, крій, стан виробу та все, що важливо для прорахунку": {
+        "ru": "Материал, цвет, крой, состояние изделия и всё, что важно для расчёта",
+        "en": "Material, color, cut, item condition and anything else relevant for the quote",
+    },
+    "Зміна кількості (±)": {"ru": "Изменение количества (±)", "en": "Quantity change (±)"},
+    "Мінімальне замовлення по моделі — від 8 шт. і кратно 8.": {
+        "ru": "Минимальный заказ по модели — от 8 шт. и кратно 8.",
+        "en": "Minimum order per model — from 8 pcs and in multiples of 8.",
+    },
+
+    # ===== Quantities / tiers =====
+    "8-15 шт": {"ru": "8-15 шт", "en": "8-15 pcs"},
+    "8–15": {"ru": "8–15", "en": "8–15"},
+    "16-31 шт": {"ru": "16-31 шт", "en": "16-31 pcs"},
+    "16–31": {"ru": "16–31", "en": "16–31"},
+    "32-63 шт": {"ru": "32-63 шт", "en": "32-63 pcs"},
+    "32–63": {"ru": "32–63", "en": "32–63"},
+    "64-99 шт": {"ru": "64-99 шт", "en": "64-99 pcs"},
+    "64–99": {"ru": "64–99", "en": "64–99"},
+    "100+": {"ru": "100+", "en": "100+"},
+    "100+ шт": {"ru": "100+ шт", "en": "100+ pcs"},
+    "грн (за 8-15/16-31/32-63/64-99/100+ шт.)": {
+        "ru": "грн (за 8-15/16-31/32-63/64-99/100+ шт.)",
+        "en": "UAH (per 8-15/16-31/32-63/64-99/100+ pcs)",
+    },
+    "15-30%% від продажів": {"ru": "15-30%% от продаж", "en": "15-30%% of sales"},
+
+    # ===== Promo / loyalty =====
+    "Aктивні та використані промокоди зʼявляться тут": {
+        "ru": "Активные и использованные промокоды появятся здесь",
+        "en": "Active and used promo codes will appear here",
+    },
+    "Історія використаних промокодів": {
+        "ru": "История использованных промокодов",
+        "en": "Used promo codes history",
+    },
+    "Поки що немає операцій з балами": {
+        "ru": "Пока нет операций с баллами",
+        "en": "No point transactions yet",
+    },
+    "1 бал = 1 гривня з вашої покупки": {
+        "ru": "1 балл = 1 гривна с вашей покупки",
+        "en": "1 point = 1 UAH from your purchase",
+    },
+    "Бали можна використовувати для отримання знижок": {
+        "ru": "Баллы можно использовать для получения скидок",
+        "en": "Points can be used to get discounts",
+    },
+    "Бали нараховуються за кожну покупку в нашому магазині": {
+        "ru": "Баллы начисляются за каждую покупку в нашем магазине",
+        "en": "Points are credited for every purchase in our store",
+    },
+    "Накопичуйте бали за покупки та використовуйте їх для отримання знижок": {
+        "ru": "Накапливайте баллы за покупки и используйте их для получения скидок",
+        "en": "Earn points for purchases and use them for discounts",
+    },
+    "Використовуйте ваші бали для отримання знижок та підтримки ЗСУ": {
+        "ru": "Используйте ваши баллы для получения скидок и поддержки ВСУ",
+        "en": "Use your points for discounts and to support the UA Army",
+    },
+    "Або пожертвувати на підтримку ЗСУ": {
+        "ru": "Или пожертвовать на поддержку ВСУ",
+        "en": "Or donate to support the UA Army",
+    },
+    "Обмінюйте бали на промокоди або жертвуйте на ЗСУ.": {
+        "ru": "Обменивайте баллы на промокоды или жертвуйте на ВСУ.",
+        "en": "Exchange points for promo codes or donate to the UA Army.",
+    },
+    "Купівля за бали": {"ru": "Покупка за баллы", "en": "Purchase with points"},
+    "Баланс:": {"ru": "Баланс:", "en": "Balance:"},
+
+    # ===== Misc UI =====
+    "о": {"ru": "из", "en": "of"},
+    "Кому": {"ru": "Кому", "en": "To"},
+    "Коли": {"ru": "Когда", "en": "When"},
+    "Хто це (якщо інший)": {"ru": "Кто это (если другой)", "en": "Who is it (if different)"},
+    "Хто виконав": {"ru": "Кто выполнил", "en": "Performed by"},
+    "Я є учасником бойових дій": {
+        "ru": "Я являюсь участником боевых действий",
+        "en": "I am a combat veteran",
+    },
+    "Документ УБД": {"ru": "Документ УБД", "en": "Combat veteran document"},
+    "Може допомогти у відновленні акаунту або зв'язку": {
+        "ru": "Может помочь в восстановлении аккаунта или связи",
+        "en": "May help with account recovery or contact",
+    },
+    "Потрібен для перевірки підписки у випадку конкурсів": {
+        "ru": "Нужен для проверки подписки в случае конкурсов",
+        "en": "Required to verify subscription for giveaways",
+    },
+    "Назва профілю": {"ru": "Название профиля", "en": "Profile name"},
+    "Адреса": {"ru": "Адрес", "en": "Address"},
+    "Місце реєстрації": {"ru": "Место регистрации", "en": "Place of registration"},
+    "Будь-який колір з палітри": {
+        "ru": "Любой цвет из палитры",
+        "en": "Any color from the palette",
+    },
+    "Прямий перехід до актуальної картки товару.": {
+        "ru": "Прямой переход к актуальной карточке товара.",
+        "en": "Direct link to the up-to-date product page.",
+    },
+    "Діє з": {"ru": "Действует с", "en": "Valid from"},
+    "Діє до": {"ru": "Действует до", "en": "Valid until"},
+    "Діє до:": {"ru": "Действует до:", "en": "Valid until:"},
+    "Діяв до:": {"ru": "Действовал до:", "en": "Was valid until:"},
+    "Період повернення": {"ru": "Период возврата", "en": "Return period"},
+    "Термін дії минув": {"ru": "Срок действия истёк", "en": "Expired"},
+    "Вичерпано": {"ru": "Исчерпано", "en": "Used up"},
+    "Активний": {"ru": "Активный", "en": "Active"},
+    "Активно": {"ru": "Активно", "en": "Active"},
+    "Неактивно": {"ru": "Неактивно", "en": "Inactive"},
+    "Невідомо": {"ru": "Неизвестно", "en": "Unknown"},
+    "Недоступно": {"ru": "Недоступно", "en": "Unavailable"},
+    "Тип": {"ru": "Тип", "en": "Type"},
+    "Назва": {"ru": "Название", "en": "Name"},
+    "Звіт": {"ru": "Отчёт", "en": "Report"},
+    "Звіти": {"ru": "Отчёты", "en": "Reports"},
+    "Стан": {"ru": "Состояние", "en": "Status"},
+    "Статус": {"ru": "Статус", "en": "Status"},
+    "Користувач": {"ru": "Пользователь", "en": "User"},
+    "Адміністратор": {"ru": "Администратор", "en": "Administrator"},
+    "Модератор": {"ru": "Модератор", "en": "Moderator"},
+    "Без QA": {"ru": "Без QA", "en": "Without QA"},
+    "Помилка": {"ru": "Ошибка", "en": "Error"},
+    "Здорово": {"ru": "Здорово", "en": "Healthy"},
+    "Аномалія": {"ru": "Аномалия", "en": "Anomaly"},
+    "Деградація": {"ru": "Деградация", "en": "Degradation"},
+    "Ескалація": {"ru": "Эскалация", "en": "Escalation"},
+    "Працює": {"ru": "Работает", "en": "Working"},
+    "Зупинено": {"ru": "Остановлено", "en": "Stopped"},
+    "Виконано": {"ru": "Выполнено", "en": "Completed"},
+    "Виконується": {"ru": "Выполняется", "en": "In progress"},
+    "Завершено": {"ru": "Завершено", "en": "Finished"},
+    "Заплановано": {"ru": "Запланировано", "en": "Scheduled"},
+    "Створено": {"ru": "Создано", "en": "Created"},
+    "Скасовано": {"ru": "Отменено", "en": "Cancelled"},
+    "Закрито": {"ru": "Закрыто", "en": "Closed"},
+    "Закрита": {"ru": "Закрыта", "en": "Closed"},
+    "Відкрито": {"ru": "Открыто", "en": "Open"},
+    "Перевірено": {"ru": "Проверено", "en": "Verified"},
+    "Підтверджено": {"ru": "Подтверждено", "en": "Confirmed"},
+    "Схвалено": {"ru": "Одобрено", "en": "Approved"},
+    "Скориговано": {"ru": "Скорректировано", "en": "Adjusted"},
+    "Виплачено": {"ru": "Выплачено", "en": "Paid out"},
+    "Надіслано": {"ru": "Отправлено", "en": "Sent"},
+    "Показано": {"ru": "Показано", "en": "Shown"},
+    "Перенесено": {"ru": "Перенесено", "en": "Rescheduled"},
+    "Дубль": {"ru": "Дубль", "en": "Duplicate"},
+    "Backlog": {"ru": "Бэклог", "en": "Backlog"},
+    "В роботі": {"ru": "В работе", "en": "In progress"},
+    "Чернетка": {"ru": "Черновик", "en": "Draft"},
+    "Архів": {"ru": "Архив", "en": "Archive"},
+    "Пауза": {"ru": "Пауза", "en": "Paused"},
+    "Свято": {"ru": "Праздник", "en": "Holiday"},
+    "Лікарняний": {"ru": "Больничный", "en": "Sick leave"},
+    "Відпустка": {"ru": "Отпуск", "en": "Vacation"},
+    "Робочий день": {"ru": "Рабочий день", "en": "Working day"},
+    "Вихідний": {"ru": "Выходной", "en": "Day off"},
+    "Форс-мажор": {"ru": "Форс-мажор", "en": "Force majeure"},
+    "Нова": {"ru": "Новая", "en": "New"},
+    "Новий": {"ru": "Новый", "en": "New"},
+    "Інший": {"ru": "Другой", "en": "Other"},
+    "Інше": {"ru": "Другое", "en": "Other"},
+    "Меньше": {"ru": "Меньше", "en": "Less"},
+    "Без телефону": {"ru": "Без телефона", "en": "Without phone"},
+    "Телефон": {"ru": "Телефон", "en": "Phone"},
+    "Каталог": {"ru": "Каталог", "en": "Catalog"},
+    "Категорія": {"ru": "Категория", "en": "Category"},
+
+    # ===== Push / iOS =====
+    "iPhone та iPad: як увімкнути push правильно": {
+        "ru": "iPhone и iPad: как включить push правильно",
+        "en": "iPhone & iPad: how to enable push correctly",
+    },
+    "У Safari або іншому браузері відкрийте меню “Поділитися”.": {
+        "ru": "В Safari или другом браузере откройте меню «Поделиться».",
+        "en": "In Safari or another browser open the \"Share\" menu.",
+    },
+    "Натисніть “На екран Додому”, а потім відкрийте TwoComms з іконки.": {
+        "ru": "Нажмите «На экран Домой», затем откройте TwoComms с иконки.",
+        "en": "Tap \"Add to Home Screen\", then open TwoComms from the icon.",
+    },
+    "Після запуску як вебзастосунку дозвольте системні push-сповіщення.": {
+        "ru": "После запуска как веб-приложения разрешите системные push-уведомления.",
+        "en": "After launching as a web app, allow system push notifications.",
+    },
+    "Перевіряємо стан push…": {"ru": "Проверяем состояние push…", "en": "Checking push status…"},
+    "Увімкнути в цьому браузері": {"ru": "Включить в этом браузере", "en": "Enable in this browser"},
+    "Вимкнути в цьому браузері": {"ru": "Отключить в этом браузере", "en": "Disable in this browser"},
+    "Усі активні підписки": {"ru": "Все активные подписки", "en": "All active subscriptions"},
+    "Активна сесія": {"ru": "Активная сессия", "en": "Active session"},
+    "Недійсна підписка": {"ru": "Недействительная подписка", "en": "Invalid subscription"},
+    "Недійсний": {"ru": "Недействительный", "en": "Invalid"},
+
+    # ===== Brand intro on cooperation =====
+    "Іван Петренко": {"ru": "Иван Петренко", "en": "Ivan Petrenko"},
+    "Синіло Артем Віталійович": {
+        "ru": "Синило Артём Витальевич",
+        "en": "Artem Synilo",
+    },
+}
+TRANSLATIONS.update(TRANSLATIONS_PHASE_17R)
+
+
 # Phase 17i fix: original `[^"]*` failed on multi-line msgid blocks
 # whose continuation strings contain escaped quotes (e.g. ``href=\"…\"`` in
 # the catalogue SEO paragraphs). The dotted alternative

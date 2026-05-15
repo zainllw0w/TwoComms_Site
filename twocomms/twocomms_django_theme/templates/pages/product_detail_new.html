@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load static %}{% load cache %}{% load seo_tags %}{% load responsive_images %}
+{% extends "base.html" %}{% load static %}{% load cache %}{% load seo_tags %}{% load responsive_images %}{% load i18n %}
 
 {% block title %}{% seo_title product=product %}{% endblock %}
 {% block description %}{% seo_description product=product %}{% endblock %}
@@ -88,7 +88,7 @@
             {% endif %}
             
             <!-- Кнопка избранного -->
-            <button type="button" class="product-favorite-btn" data-product-id="{{ product.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати до обраних">
+            <button type="button" class="product-favorite-btn" data-product-id="{{ product.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="{% trans 'Додати до обраних' %}">
               <svg class="favorite-icon-empty" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
@@ -120,9 +120,9 @@
           <!-- Блок 1: Цена с баллами -->
           <div class="product-card-modern product-price-card">
             <div class="product-price-main-row">
-              <div class="product-price-current">{{ product.final_price }} грн</div>
+              <div class="product-price-current">{{ product.final_price }} {% trans 'грн' %}</div>
               {% if product.has_discount %}
-                <div class="product-price-old">{{ product.price }} грн</div>
+                <div class="product-price-old">{{ product.price }} {% trans 'грн' %}</div>
                 <span class="product-discount-badge">-{{ product.discount_percent }}%</span>
               {% endif %}
               {% if product.points_reward > 0 %}
@@ -130,11 +130,11 @@
                   <button type="button" class="points-mini-btn" 
                           data-bs-toggle="modal" data-bs-target="#pointsInfoModal"
                           data-product-title="{{ product.title }}" data-points-amount="{{ product.points_reward }}"
-                          aria-label="Дізнатись про бали">
+                          aria-label="{% trans 'Дізнатись про бали' %}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                     </svg>
-                    <span class="points-mini-text">{{ product.points_reward }} б.</span>
+                    <span class="points-mini-text">{{ product.points_reward }} {% trans 'б.' %}</span>
                   </button>
                 </div>
               {% endif %}
@@ -146,7 +146,7 @@
             <div class="product-selection-row">
               <!-- Размеры -->
               <div class="product-selection-group sizes-group">
-                <div class="product-section-label-small">Розмір</div>
+                <div class="product-section-label-small">{% trans 'Розмір' %}</div>
                 <div class="product-sizes-compact">
                   <input type="radio" class="btn-check size-radio" name="size" id="size-s" value="S" autocomplete="off" {% if request.GET.size != 'M' and request.GET.size != 'L' and request.GET.size != 'XL' and request.GET.size != 'XXL' %}checked{% endif %}>
                   <label class="product-size-btn-compact" for="size-s">S</label>
@@ -157,14 +157,14 @@
                   <input type="radio" class="btn-check size-radio" name="size" id="size-xl" value="XL" autocomplete="off" {% if request.GET.size == 'XL' %}checked{% endif %}>
                   <label class="product-size-btn-compact" for="size-xl">XL</label>
                   <input type="radio" class="btn-check size-radio" name="size" id="size-xxl" value="XXL" autocomplete="off" disabled {% if request.GET.size == 'XXL' %}checked{% endif %}>
-                  <label class="product-size-btn-compact product-size-unavailable" for="size-xxl" title="Немає в наявності">XXL</label>
+                  <label class="product-size-btn-compact product-size-unavailable" for="size-xxl" title="{% trans 'Немає в наявності' %}">XXL</label>
                 </div>
               </div>
               
               <!-- Цвета -->
               {% if color_variants %}
               <div class="product-selection-group colors-group">
-                <div class="product-section-label-small">Колір</div>
+                <div class="product-section-label-small">{% trans 'Колір' %}</div>
                 <div class="product-colors-compact" id="colorPicker">
                   {% for v in color_variants %}
                     <button type="button"
@@ -172,7 +172,7 @@
                             data-variant="{{ v.id }}"
                             data-primary="{{ v.primary_hex }}"
                             data-secondary="{{ v.secondary_hex|default:'' }}"
-                            aria-label="Колір {{ v.primary_hex }}">
+                            aria-label="{% blocktrans with hex=v.primary_hex %}Колір {{ hex }}{% endblocktrans %}">
                       <span class="color-swatch-inner-compact" 
                             style="--primary-color: {{ v.primary_hex }}; --secondary-color: {{ v.secondary_hex|default:'' }};">
                         {% if v.secondary_hex %}
@@ -198,9 +198,9 @@
           <div class="product-card-modern product-action-card">
             <div class="product-action-row">
               <div class="product-qty-compact">
-                <button type="button" class="qty-btn-compact qty-minus" onclick="QtyDec('#productQty'); return false;" aria-label="Зменшити">−</button>
+                <button type="button" class="qty-btn-compact qty-minus" onclick="QtyDec('#productQty'); return false;" aria-label="{% trans 'Зменшити' %}">−</button>
                 <input type="number" id="productQty" min="1" value="1" inputmode="numeric" class="qty-input-compact">
-                <button type="button" class="qty-btn-compact qty-plus" onclick="QtyInc('#productQty'); return false;" aria-label="Збільшити">+</button>
+                <button type="button" class="qty-btn-compact qty-plus" onclick="QtyInc('#productQty'); return false;" aria-label="{% trans 'Збільшити' %}">+</button>
               </div>
               <button type="button"
                       class="product-add-to-cart-btn-compact"
@@ -209,7 +209,7 @@
                       data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
                       data-product-price="{{ product.final_price }}"
                       id="addToCartBtn">
-                <span class="btn-text">Додати в кошик</span>
+                <span class="btn-text">{% trans 'Додати в кошик' %}</span>
                 <span class="btn-icon">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
@@ -222,7 +222,7 @@
             <div class="product-delivery-compact">
               <button type="button" class="delivery-icon-round" 
                       data-bs-toggle="modal" data-bs-target="#deliveryInfoModal"
-                      aria-label="Інформація про доставку">
+                      aria-label="{% trans 'Інформація про доставку' %}">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4z"/>
                 </svg>
@@ -232,13 +232,13 @@
 
           <!-- Блок 4: Шаринг -->
           <div class="product-card-modern product-share-card">
-            <div class="product-section-label-small">Поділитися:</div>
+            <div class="product-section-label-small">{% trans 'Поділитися:' %}</div>
             <div class="product-share-buttons">
               <a href="https://www.facebook.com/sharer/sharer.php?u={{ site_base_url|add:request.path|urlencode }}"
                  target="_blank"
                  rel="noopener noreferrer"
                  class="share-btn share-facebook"
-                 aria-label="Поділитися у Facebook">
+                 aria-label="{% trans 'Поділитися у Facebook' %}">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/>
                 </svg>
@@ -247,7 +247,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  class="share-btn share-twitter"
-                 aria-label="Поділитися у Twitter">
+                 aria-label="{% trans 'Поділитися у Twitter' %}">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/>
                 </svg>
@@ -256,7 +256,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  class="share-btn share-telegram"
-                 aria-label="Поділитися у Telegram">
+                 aria-label="{% trans 'Поділитися у Telegram' %}">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/>
                 </svg>
@@ -264,7 +264,7 @@
                 <button type="button" 
                       class="share-btn share-copy"
                       onclick="navigator.clipboard.writeText('{{ site_base_url }}{{ request.path }}'); this.classList.add('copied'); setTimeout(() => { this.classList.remove('copied'); }, 2000);"
-                      aria-label="Скопіювати посилання">
+                      aria-label="{% trans 'Скопіювати посилання' %}">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
                 </svg>
@@ -276,9 +276,9 @@
           <div class="product-card-modern product-tabs-card">
             <div class="product-tabs-modern">
               <div class="product-tabs-header-modern">
-                <button class="product-tab-btn-modern active" data-tab="desc">Опис</button>
-                <button class="product-tab-btn-modern" data-tab="size">Розмірна сітка</button>
-                <button class="product-tab-btn-modern" data-tab="care">Догляд</button>
+                <button class="product-tab-btn-modern active" data-tab="desc">{% trans 'Опис' %}</button>
+                <button class="product-tab-btn-modern" data-tab="size">{% trans 'Розмірна сітка' %}</button>
+                <button class="product-tab-btn-modern" data-tab="care">{% trans 'Догляд' %}</button>
               </div>
               <div class="product-tabs-content-modern">
               <div id="tab-desc" class="product-tab-pane-modern active">
@@ -290,20 +290,20 @@
                 {% elif product.description %}
                   <div class="product-description-text">{{ product.description|linebreaksbr }}</div>
                 {% else %}
-                  <div class="product-description-text">Опис товару буде додано найближчим часом.</div>
+                  <div class="product-description-text">{% trans 'Опис товару буде додано найближчим часом.' %}</div>
                 {% endif %}
               </div>
               <div id="tab-size" class="product-tab-pane-modern">
                 <div class="product-size-chart">
-                  <h6 class="size-chart-title">Таблиця розмірів</h6>
+                  <h6 class="size-chart-title">{% trans 'Таблиця розмірів' %}</h6>
                   <div class="table-responsive">
                     <table class="size-table">
                       <thead>
                         <tr>
-                          <th>Розмір</th>
-                          <th>Груди (см)</th>
-                          <th>Талія (см)</th>
-                          <th>Стегна (см)</th>
+                          <th>{% trans 'Розмір' %}</th>
+                          <th>{% trans 'Груди (см)' %}</th>
+                          <th>{% trans 'Талія (см)' %}</th>
+                          <th>{% trans 'Стегна (см)' %}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -316,10 +316,10 @@
                     </table>
                   </div>
                   <div class="size-measurement-info">
-                    <strong>Як виміряти:</strong><br>
-                    • Груди: навколо найширшої частини грудей<br>
-                    • Талія: навколо найвужчої частини талії<br>
-                    • Стегна: навколо найширшої частини стегон
+                    <strong>{% trans 'Як виміряти:' %}</strong><br>
+                    {% trans '• Груди: навколо найширшої частини грудей' %}<br>
+                    {% trans '• Талія: навколо найвужчої частини талії' %}<br>
+                    {% trans '• Стегна: навколо найширшої частини стегон' %}
                   </div>
                 </div>
               </div>
@@ -332,7 +332,7 @@
                       </svg>
                     </div>
                     <div class="care-text">
-                      <strong>Матеріал:</strong> 100% бавовна преміум-якості
+                      <strong>{% trans 'Матеріал:' %}</strong> {% trans '100% бавовна преміум-якості' %}
                     </div>
                   </div>
                   <div class="care-item">
@@ -342,7 +342,7 @@
                       </svg>
                     </div>
                     <div class="care-text">
-                      <strong>Стирання:</strong> Машинне або ручне стирання при 30°C, не відбілювати
+                      <strong>{% trans 'Стирання:' %}</strong> {% trans 'Машинне або ручне стирання при 30°C, не відбілювати' %}
                     </div>
                   </div>
                   <div class="care-item">
@@ -352,7 +352,7 @@
                       </svg>
                     </div>
                     <div class="care-text">
-                      <strong>Прасування:</strong> Прасування на середній температурі, краще з вивороту
+                      <strong>{% trans 'Прасування:' %}</strong> {% trans 'Прасування на середній температурі, краще з вивороту' %}
                     </div>
                   </div>
                 </div>
@@ -368,7 +368,7 @@
     {% if recommended_products %}
     <section class="product-recommendations-section">
       <div class="recommendations-header">
-        <h2 class="recommendations-title">Вам також сподобається</h2>
+        <h2 class="recommendations-title">{% trans 'Вам також сподобається' %}</h2>
       </div>
       <div class="recommendations-carousel-wrapper">
         <div class="swiper recommendations-swiper" id="recommendationsSwiper">
@@ -399,9 +399,9 @@
                   <div class="recommendation-info">
                     <div class="recommendation-title">{{ rec_product.title }}</div>
                     <div class="recommendation-price-row">
-                      <span class="recommendation-price">{{ rec_product.final_price }} грн</span>
+                      <span class="recommendation-price">{{ rec_product.final_price }} {% trans 'грн' %}</span>
                       {% if rec_product.has_discount %}
-                        <span class="recommendation-price-old">{{ rec_product.price }} грн</span>
+                        <span class="recommendation-price-old">{{ rec_product.price }} {% trans 'грн' %}</span>
                       {% endif %}
                     </div>
                   </div>
@@ -421,7 +421,7 @@
 
   <!-- Sticky кнопка для мобильных -->
   <div class="product-sticky-mobile" id="productStickyMobile">
-    <div class="sticky-price">{{ product.final_price }} грн</div>
+    <div class="sticky-price">{{ product.final_price }} {% trans 'грн' %}</div>
     <button type="button"
             class="sticky-add-btn"
             data-add-to-cart="{{ product.id }}"
@@ -429,7 +429,7 @@
             data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
             data-product-price="{{ product.final_price }}"
             id="stickyAddToCartBtn">
-      <span>Додати в кошик</span>
+      <span>{% trans 'Додати в кошик' %}</span>
     </button>
   </div>
 </div>
