@@ -211,7 +211,7 @@
                   <div class="cart-item-price">
                     <span class="cart-item-price-label">{{ ci.price_caption }}:</span>
                     <span class="cart-item-price-value">
-                      <span class="cart-item-price-current">{{ ci.unit_total|floatformat:2 }} грн / шт</span>
+                      <span class="cart-item-price-current">{{ ci.unit_total|floatformat:2 }} {% trans 'грн / шт' %}</span>
                     </span>
                     {% if ci.pending_price_note %}
                     <div class="cart-item-price-note">{{ ci.pending_price_note }}</div>
