@@ -496,11 +496,25 @@ def custom_sitemap(request):
     # product's ``updated_at``, so reusing ``product_lastmod`` here is
     # correct (a new variant implies a product save).
 
+    # color-category-landings spec — separate sub-sitemap so Search
+    # Console reports thin-content / index-coverage issues for the new
+    # URL pattern in isolation.
+    from storefront.models import CategoryColorLanding
+    color_landing_lastmod = (
+        CategoryColorLanding.objects.filter(
+            is_published=True, category__is_active=True,
+        )
+        .order_by("-updated_at")
+        .values_list("updated_at", flat=True)
+        .first()
+    )
+
     children = [
         ("/sitemap-static.xml", None),
         ("/sitemap-products.xml", product_lastmod),
         ("/sitemap-product-variants.xml", product_lastmod),
         ("/sitemap-categories.xml", category_lastmod),
+        ("/sitemap-color-categories.xml", color_landing_lastmod),
         ("/sitemap-images.xml", images_lastmod),
     ]
 
@@ -560,6 +574,17 @@ def sitemap_section_categories(request):
     from storefront.sitemaps import CategorySitemap
 
     return _render_django_sitemap(request, [CategorySitemap])
+
+
+def sitemap_section_color_categories(request):
+    """Section sitemap for indexable colour×category landing pages.
+
+    Spec: ``.kiro/specs/color-category-landings``. Includes only
+    ``CategoryColorLanding`` rows with ``is_published=True``.
+    """
+    from storefront.sitemaps import CategoryColorLandingSitemap
+
+    return _render_django_sitemap(request, [CategoryColorLandingSitemap])
 
 
 def sitemap_images(request):

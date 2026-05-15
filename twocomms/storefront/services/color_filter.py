@@ -89,11 +89,20 @@ def build_available_colors(
     base_queryset: QuerySet,
     request,
     selected_slugs: Iterable[str],
+    *,
+    category=None,
 ) -> List[Dict[str, Any]]:
     """Return chip descriptors for every distinct colour slug in ``base_queryset``.
 
     ``base_queryset`` is the *pre-colour-filter* queryset so users can
     always OR-in any colour available in the current category/search.
+
+    When ``category`` is provided **and** a published
+    ``CategoryColorLanding`` exists for ``(category, slug)``, the chip's
+    ``url`` is swapped from ``?color=<slug>`` to the dedicated landing
+    URL (e.g. ``/catalog/tshirts/black/``). This routes organic
+    traffic — and PageRank — toward the indexable landing while
+    preserving the legacy filter for unmapped colours.
     """
     selected = list(selected_slugs or [])
     selected_set = set(selected)
@@ -148,6 +157,30 @@ def build_available_colors(
         entry["hexes"][(primary, secondary)] += 1
 
     chips: List[Dict[str, Any]] = []
+    # Look up which colour slugs in this category have a published
+    # landing page; chips for those slugs link to the landing URL
+    # rather than ``?color=<slug>``. One cheap query gated on the
+    # (category, is_published) compound index.
+    landing_url_by_slug: Dict[str, str] = {}
+    if category is not None:
+        try:
+            CategoryColorLanding = apps.get_model("storefront", "CategoryColorLanding")
+        except LookupError:
+            CategoryColorLanding = None
+        if CategoryColorLanding is not None:
+            try:
+                cat_slug = getattr(category, "slug", "")
+                if cat_slug:
+                    for slug in (
+                        CategoryColorLanding.objects
+                        .filter(category=category, is_published=True)
+                        .values_list("color_slug", flat=True)
+                    ):
+                        if slug:
+                            landing_url_by_slug[slug] = f"/catalog/{cat_slug}/{slug}/"
+            except DatabaseError:
+                landing_url_by_slug = {}
+
     for slug, entry in bucket.items():
         # Most common label / hex-pair wins; ties resolved by sort stability.
         label = ""
@@ -165,6 +198,17 @@ def build_available_colors(
             next_slugs = [s for s in selected if s != slug]
         else:
             next_slugs = selected + [slug]
+        # Default URL: the legacy ``?color=`` toggle. If a published
+        # colour-category landing exists for this slug, swap to the
+        # dedicated landing URL — but only when the chip would *enter*
+        # the filter (not when un-selecting, where the toggle URL
+        # should remove the slug from the existing query string).
+        landing_url = landing_url_by_slug.get(slug)
+        if landing_url and not is_selected:
+            chip_url = landing_url
+        else:
+            chip_url = _build_chip_url(request, next_slugs)
+
         chips.append({
             "slug": slug,
             "label": label,
@@ -172,7 +216,8 @@ def build_available_colors(
             "secondary_hex": secondary,
             "count": entry["count"],
             "is_selected": is_selected,
-            "url": _build_chip_url(request, next_slugs),
+            "url": chip_url,
+            "is_landing": bool(landing_url and not is_selected),
         })
 
     chips.sort(key=lambda c: (-c["count"], c["slug"]))

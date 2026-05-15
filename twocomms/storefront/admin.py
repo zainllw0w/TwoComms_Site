@@ -4,6 +4,7 @@ from .models import (
     AnalyticsExclusion,
     CatalogColorSeoOverride,
     Category,
+    CategoryColorLanding,
     CategorySeoBlock,
     CategorySeoBlockItem,
     CustomPrintLead,
@@ -356,3 +357,69 @@ class AnalyticsExclusionAdmin(admin.ModelAdmin):
         if not obj.pk and not obj.created_by_id:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+
+
+
+# ===== Color × Category landing pages =====
+@admin.register(CategoryColorLanding)
+class CategoryColorLandingAdmin(admin.ModelAdmin):
+    """Admin for indexable colour×category landing pages."""
+
+    list_display = (
+        "category",
+        "color_slug",
+        "seo_title_short",
+        "is_published",
+        "editorial_length",
+        "order",
+        "updated_at",
+    )
+    list_filter = ("is_published", "category")
+    list_editable = ("is_published", "order")
+    search_fields = (
+        "color_slug",
+        "seo_title",
+        "seo_h1",
+        "seo_description",
+        "editorial_html",
+        "category__name",
+        "category__slug",
+        "color__name",
+    )
+    autocomplete_fields = ("category",)
+    raw_id_fields = ("color",)
+    readonly_fields = ("created_at", "updated_at", "editorial_length")
+    fieldsets = (
+        ("Контекст", {
+            "fields": ("category", "color", "color_slug", "is_published", "order"),
+            "description": (
+                "URL формується як <code>/catalog/&lt;cat&gt;/&lt;color_slug&gt;/</code>. "
+                "<b>color_slug</b> заповниться автоматично з імені кольору, але "
+                "ви можете задати кастомне значення вручну."
+            ),
+        }),
+        ("SEO meta", {
+            "fields": ("seo_title", "seo_h1", "seo_description"),
+        }),
+        ("Контент", {
+            "fields": ("editorial_html", "editorial_length", "faq_items"),
+            "description": (
+                "Editorial copy має містити мінімум 800 символів для публікації "
+                "(анти-thin-content guard). FAQ — список словників з полями "
+                "<code>question</code> і <code>answer</code>."
+            ),
+        }),
+        ("Службове", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",),
+        }),
+    )
+
+    def seo_title_short(self, obj):  # pragma: no cover - admin display
+        text = (obj.seo_title or "").strip()
+        return (text[:60] + "…") if len(text) > 60 else (text or "—")
+    seo_title_short.short_description = "SEO Title"
+
+    def editorial_length(self, obj):  # pragma: no cover - admin display
+        return len(obj.editorial_html or "")
+    editorial_length.short_description = "Довжина editorial (символів)"

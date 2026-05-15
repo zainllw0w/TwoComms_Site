@@ -12,7 +12,7 @@ from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 from .tasks import generate_google_merchant_feed_task, optimize_image_field_task  # noqa: F401 — kept for backward-compat with tests that patch signals.generate_google_merchant_feed_task
 
-from .models import Category, Product, ProductImage
+from .models import Category, CategoryColorLanding, Product, ProductImage
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
 from .services.feeds_queue import mark_feeds_dirty
 from .services.indexnow import enqueue_indexnow_urls, get_product_public_url
@@ -285,3 +285,78 @@ def compress_uploaded_image_originals(sender, instance, raw=False, **kwargs):
                 "compress_uploaded_image_originals failed on %s.%s (id=%s): %s",
                 sender.__name__, fname, getattr(instance, "pk", None), exc,
             )
+
+
+
+# ===== Color × Category landing pages — IndexNow =====
+
+@receiver(pre_save, sender=CategoryColorLanding)
+def remember_previous_color_landing_state(sender, instance, **kwargs):
+    """Capture the previous public URL & published flag before save.
+
+    We need both to (a) ping IndexNow when a landing flips published →
+    unpublished (the URL becomes a 404 and Google should drop it) and
+    (b) ping when an existing landing's slug or category changes.
+    """
+    if not instance.pk:
+        instance._indexnow_previous_url = None
+        instance._indexnow_previously_published = False
+        return
+
+    previous = (
+        CategoryColorLanding.objects
+        .filter(pk=instance.pk)
+        .select_related("category")
+        .only("color_slug", "is_published", "category__slug")
+        .first()
+    )
+    if previous is None or not previous.category_id or not previous.color_slug:
+        instance._indexnow_previous_url = None
+        instance._indexnow_previously_published = False
+        return
+
+    instance._indexnow_previous_url = (
+        f"/catalog/{previous.category.slug}/{previous.color_slug}/"
+    )
+    instance._indexnow_previously_published = bool(previous.is_published)
+
+
+@receiver(post_save, sender=CategoryColorLanding)
+def submit_color_landing_to_indexnow(sender, instance, **kwargs):
+    """Ping IndexNow when a colour-category landing changes visibility.
+
+    Cases:
+        * New publication → ping the new URL.
+        * URL slug or category changed while published → ping both old
+          and new URLs (old becomes 404 → drop from index).
+        * Unpublication → ping the old URL so search engines re-crawl.
+    """
+    previous_url = getattr(instance, "_indexnow_previous_url", None)
+    previously_published = getattr(instance, "_indexnow_previously_published", False)
+
+    current_url = ""
+    if instance.is_published and instance.category_id and instance.color_slug:
+        current_url = f"/catalog/{instance.category.slug}/{instance.color_slug}/"
+
+    urls = []
+    if previously_published and previous_url and previous_url != current_url:
+        urls.append(previous_url)
+    if instance.is_published and current_url:
+        urls.append(current_url)
+    # Dedupe while preserving order.
+    urls = list(dict.fromkeys(u for u in urls if u))
+    if not urls:
+        return
+
+    transaction.on_commit(lambda: enqueue_indexnow_urls(urls))
+
+
+@receiver(post_delete, sender=CategoryColorLanding)
+def submit_color_landing_to_indexnow_on_delete(sender, instance, **kwargs):
+    if not instance.is_published or not instance.category_id or not instance.color_slug:
+        return
+    try:
+        url = f"/catalog/{instance.category.slug}/{instance.color_slug}/"
+    except Exception:  # pragma: no cover - defensive
+        return
+    transaction.on_commit(lambda: enqueue_indexnow_urls([url]))

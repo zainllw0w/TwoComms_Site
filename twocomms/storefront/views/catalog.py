@@ -12,14 +12,14 @@ Catalog views - Каталог товаров и категорий.
 from collections import defaultdict
 
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 from django.core.paginator import Paginator, EmptyPage
 from django.db.models import Count, Q
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.template.loader import render_to_string
 from django.urls import reverse
 
-from ..models import Product, Category, SurveySession
+from ..models import CategoryColorLanding, Product, Category, SurveySession
 from ..pagination import build_homepage_pagination_items
 from ..services.card_preview import (
     attach_preferred_card_image,
@@ -543,7 +543,7 @@ def catalog(request, cat_slug=None):
     # *unfiltered* queryset so users can always OR-in another colour.
     selected_color_slugs = parse_color_filter(request)
     available_colors = build_available_colors(
-        base_product_qs, request, selected_color_slugs
+        base_product_qs, request, selected_color_slugs, category=category,
     )
     has_active_color_filter = bool(selected_color_slugs)
     color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
@@ -746,7 +746,8 @@ def search(request):
         base_search_qs = apply_public_product_order(product_qs)
         selected_color_slugs = parse_color_filter(request)
         available_colors = build_available_colors(
-            base_search_qs, request, selected_color_slugs
+            base_search_qs, request, selected_color_slugs,
+            category=selected_category,
         )
         has_active_color_filter = bool(selected_color_slugs)
         color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
@@ -816,3 +817,126 @@ def search(request):
                 'public_category_version': public_category_version,
             }
         )
+
+
+
+# ==================== COLOR × CATEGORY LANDING ====================
+
+def category_color_landing(request, cat_slug, color_slug):
+    """Render an indexable colour×category SEO landing page.
+
+    URL: ``/catalog/<cat_slug>/<color_slug>/`` (e.g. ``/catalog/tshirts/black/``).
+
+    Behaviour:
+        * 404 if the landing is not published, the category is inactive,
+          the colour slug doesn't match a stored landing, or there are
+          zero matching live products (anti-thin-content guard).
+        * Renders ``pages/category_color_landing.html`` with the
+          editorial copy, a paginated product grid filtered to the
+          ``(category, colour)`` slice, FAQ, and structured data.
+    """
+    landing = (
+        CategoryColorLanding.objects
+        .select_related("category", "color")
+        .filter(
+            category__slug=cat_slug,
+            color_slug=color_slug,
+            is_published=True,
+            category__is_active=True,
+        )
+        .first()
+    )
+    if landing is None:
+        raise Http404("Color-category landing not found.")
+
+    base_qs = (
+        _product_cards_queryset()
+        .filter(
+            category=landing.category,
+            status="published",
+            color_variants__color=landing.color,
+        )
+        .distinct()
+    )
+    product_qs = apply_public_product_order(base_qs)
+
+    if not product_qs.exists():
+        # Empty grids would create a thin-content / soft-404 risk — refuse
+        # to render the page until inventory is replenished.
+        raise Http404("No products available for this colour-category combination.")
+
+    paginator = Paginator(product_qs, PRODUCTS_PER_PAGE)
+    try:
+        page_obj = paginator.get_page(request.GET.get("page"))
+    except EmptyPage:
+        page_obj = paginator.get_page(paginator.num_pages)
+
+    products = list(page_obj.object_list)
+    color_previews = build_color_preview_map(products)
+    for product in products:
+        colors_preview = color_previews.get(product.id, [])
+        product.colors_preview = colors_preview
+        product.colors_preview_key = build_color_preview_key(colors_preview)
+    enrich_color_preview_with_slugs(products)
+    # Pin every card preview to the landing's colour, so the grid reads
+    # as a coherent collection at a glance.
+    attach_preferred_card_image(products, [landing.color_slug])
+
+    breadcrumb_items = [
+        {"name": "Головна", "url": "/"},
+        {"name": "Каталог", "url": reverse("catalog")},
+        {
+            "name": landing.category.name,
+            "url": reverse("catalog_by_cat", kwargs={"cat_slug": landing.category.slug}),
+        },
+        {"name": landing.display_h1, "url": request.path},
+    ]
+
+    # Surface up to 5 sibling colours of the same category, plus up to 3
+    # cross-category landings for the same colour. Cheap queries — both
+    # use the (category, is_published) and (color, is_published) indexes.
+    sibling_landings = list(
+        CategoryColorLanding.objects
+        .filter(
+            category=landing.category,
+            is_published=True,
+            category__is_active=True,
+        )
+        .exclude(pk=landing.pk)
+        .select_related("color")
+        .order_by("order", "color_slug")[:5]
+    )
+    cross_category_landings = list(
+        CategoryColorLanding.objects
+        .filter(
+            color=landing.color,
+            is_published=True,
+            category__is_active=True,
+        )
+        .exclude(pk=landing.pk)
+        .select_related("category")
+        .order_by("category__order", "order")[:3]
+    )
+
+    canonical_path = request.path
+    site_base = request.build_absolute_uri("/").rstrip("/")
+    canonical_url = f"{site_base}{canonical_path}"
+
+    return render(
+        request,
+        "pages/category_color_landing.html",
+        {
+            "landing": landing,
+            "category": landing.category,
+            "color": landing.color,
+            "products": products,
+            "page_obj": page_obj,
+            "paginator": paginator,
+            "breadcrumb_items": breadcrumb_items,
+            "canonical_url": canonical_url,
+            "canonical_path": canonical_path,
+            "faq_items": landing.faq_items or [],
+            "sibling_landings": sibling_landings,
+            "cross_category_landings": cross_category_landings,
+        },
+    )

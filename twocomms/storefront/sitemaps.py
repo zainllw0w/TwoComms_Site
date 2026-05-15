@@ -204,3 +204,31 @@ class CategorySitemap(Sitemap):
 
     def location(self, obj):
         return reverse('catalog_by_cat', kwargs={'cat_slug': obj.slug})
+
+
+
+class CategoryColorLandingSitemap(Sitemap):
+    """Sitemap section for indexable colour×category landing pages.
+
+    Spec: ``.kiro/specs/color-category-landings``. Includes only
+    landings with ``is_published=True`` and an active parent category;
+    Search Console gets a clean signal that draft landings should not
+    be crawled.
+    """
+    changefreq = 'weekly'
+    priority = 0.7
+    protocol = 'https'
+
+    def items(self):
+        from .models import CategoryColorLanding
+        return (
+            CategoryColorLanding.objects
+            .filter(is_published=True, category__is_active=True)
+            .select_related('category', 'color')
+        )
+
+    def lastmod(self, obj):
+        return getattr(obj, 'updated_at', None)
+
+    def location(self, obj):
+        return f"/catalog/{obj.category.slug}/{obj.color_slug}/"

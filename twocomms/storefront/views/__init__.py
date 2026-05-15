@@ -54,6 +54,7 @@ from .catalog import (
     home,
     load_more_products,
     catalog,
+    category_color_landing,
     search,
 )
 
@@ -94,6 +95,7 @@ from .static_pages import (
     sitemap_section_products,
     sitemap_section_product_variants,
     sitemap_section_categories,
+    sitemap_section_color_categories,
     sitemap_images,
     buyme_feed_xml,
     google_merchant_feed,
@@ -372,7 +374,7 @@ __all__ = [
     'login_view', 'register_view', 'logout_view',
 
     # Catalog
-    'home', 'load_more_products', 'catalog', 'search',
+    'home', 'load_more_products', 'catalog', 'category_color_landing', 'search',
 
     # Product
     'product_detail', 'get_product_images', 'get_product_variants', 'quick_view',

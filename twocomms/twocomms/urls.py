@@ -29,6 +29,7 @@ urlpatterns = [
     path('sitemap-products.xml', storefront_views.sitemap_section_products, name='sitemap_products'),
     path('sitemap-product-variants.xml', storefront_views.sitemap_section_product_variants, name='sitemap_product_variants'),
     path('sitemap-categories.xml', storefront_views.sitemap_section_categories, name='sitemap_categories'),
+    path('sitemap-color-categories.xml', storefront_views.sitemap_section_color_categories, name='sitemap_color_categories'),
     path('sitemap-images.xml', storefront_views.sitemap_images, name='sitemap_images'),
     path("favicon.ico", RedirectView.as_view(
         url=staticfiles_storage.url("img/favicon.ico"), permanent=False

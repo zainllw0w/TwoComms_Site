@@ -55,6 +55,11 @@ urlpatterns = [
     path('load-more-products/', views.load_more_products, name='load_more_products'),
     path('catalog/', views.catalog, name='catalog'),
     path('catalog/<slug:cat_slug>/', views.catalog, name='catalog_by_cat'),
+    path(
+        'catalog/<slug:cat_slug>/<slug:color_slug>/',
+        views.category_color_landing,
+        name='catalog_by_cat_color',
+    ),
     path('product/<slug:slug>/', views.product_detail, name='product'),
     # Phase 7.2 — path-style variant URLs. Up to three ``slug`` segments
     # capture any combination of size code / colour slug / fit code.

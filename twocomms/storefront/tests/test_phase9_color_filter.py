@@ -187,7 +187,7 @@ class CatalogColorFilterIntegrationTests(_BaseColorFilterTests):
         chips = response.context["home_color_chips"]
         self.assertTrue(chips)
         self.assertContains(response, 'class="home-color-filter')
-        self.assertContains(response, "Обери за кольором")
+        self.assertContains(response, "Обери одяг за кольором")
 
     def test_search_view_applies_color_filter(self):
         response = self.client.get(reverse("search") + "?q=tee&color=coyote")

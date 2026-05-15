@@ -2230,3 +2230,185 @@ class AnalyticsExclusion(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - admin display only
         return f"{self.get_kind_display()}: {self.value}"
+
+
+# ===== Color × Category landing pages (Phase: color-category-landings) =====
+#
+# Indexable SEO landing pages for colour × category combinations
+# (e.g. /catalog/tshirts/black/). Created from the Django admin by the
+# content team, with hand-written editorial copy. Anti-thin guard
+# refuses publication when ``editorial_html`` is too short.
+
+class CategoryColorLanding(models.Model):
+    """SEO landing page combining a category with a colour.
+
+    Renders at ``/catalog/<cat_slug>/<color_slug>/``. The ``color_slug``
+    is auto-derived from ``color.name`` via
+    ``productcolors.color_slug_map.english_slug_for_color_name`` so
+    landing URLs stay stable even if a colour is renamed.
+
+    A landing returns 404 unless ``is_published=True`` AND the matching
+    ``(category, colour)`` slice has at least one published product.
+    """
+
+    MIN_EDITORIAL_LENGTH = 800
+
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        related_name="color_landings",
+        verbose_name="Категорія",
+    )
+    color = models.ForeignKey(
+        "productcolors.Color",
+        on_delete=models.CASCADE,
+        related_name="category_landings",
+        verbose_name="Колір",
+    )
+    color_slug = models.SlugField(
+        max_length=64,
+        verbose_name="URL slug кольору",
+        help_text=(
+            "Англійський slug кольору (наприклад 'black' або "
+            "'navy-blue'). Заповнюється автоматично з імені кольору."
+        ),
+    )
+
+    # SEO meta
+    seo_title = models.CharField(
+        max_length=180,
+        verbose_name="SEO Title",
+        help_text="<title> сторінки. До 60 символів — оптимум для Google.",
+    )
+    seo_h1 = models.CharField(
+        max_length=180,
+        blank=True,
+        verbose_name="SEO H1",
+        help_text="Якщо порожньо — використовується SEO Title.",
+    )
+    seo_description = models.CharField(
+        max_length=320,
+        verbose_name="SEO Description",
+        help_text="meta description. 140–160 символів — оптимум.",
+    )
+
+    # Content
+    editorial_html = models.TextField(
+        verbose_name="Editorial copy (HTML)",
+        help_text=(
+            "Унікальний редакційний текст українською (HTML). "
+            "Для публікації потрібно мінімум 800 символів."
+        ),
+    )
+    faq_items = models.JSONField(
+        blank=True,
+        default=list,
+        verbose_name="FAQ Q/A пари",
+        help_text=(
+            "Список словників: [{'question': '...', 'answer': '...'}, ...]. "
+            "Рекомендовано 4–6 пунктів."
+        ),
+    )
+
+    # Publishing
+    is_published = models.BooleanField(default=False, verbose_name="Опубліковано")
+    order = models.PositiveIntegerField(default=0, verbose_name="Порядок")
+
+    # Audit
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+
+    class Meta:
+        verbose_name = "Color-category landing"
+        verbose_name_plural = "Color-category landings"
+        ordering = ["category__order", "order", "color_slug"]
+        unique_together = (("category", "color_slug"),)
+        indexes = [
+            models.Index(fields=["is_published"], name="idx_cclanding_published"),
+            models.Index(fields=["category", "is_published"], name="idx_cclanding_cat_pub"),
+        ]
+
+    def __str__(self):
+        cat_name = getattr(self.category, "name", self.category_id) or self.category_id
+        return f"{cat_name} / {self.color_slug or self.color_id}"
+
+    # ---- Auto-fill ----
+
+    def _derive_color_slug(self) -> str:
+        """Compute the URL slug from the related Colour object.
+
+        Prefers the curated English mapping (so ``Чорний`` → ``black``
+        rather than a transliterated ``chornyi``); falls back to a
+        slugified hex value when no mapping exists.
+        """
+        from dtf.utils import build_slug
+        from productcolors.color_slug_map import english_slug_for_color_name
+
+        if not self.color_id:
+            return ""
+        # ``self.color`` may not be loaded yet on a fresh instance.
+        try:
+            color = self.color
+        except Exception:  # pragma: no cover - safety net
+            return ""
+        name = (getattr(color, "name", "") or "").strip()
+        if name:
+            mapped = english_slug_for_color_name(name)
+            if mapped:
+                return mapped
+            slugified = build_slug(name, fallback="")
+            if slugified:
+                return slugified
+        primary = (getattr(color, "primary_hex", "") or "").lstrip("#")
+        if primary:
+            return build_slug(primary, fallback="") or ""
+        return ""
+
+    def save(self, *args, **kwargs):
+        if not self.color_slug and self.color_id:
+            derived = self._derive_color_slug()
+            if derived:
+                self.color_slug = derived
+        super().save(*args, **kwargs)
+
+    # ---- Validation ----
+
+    def full_clean(self, *args, **kwargs):
+        """Derive ``color_slug`` before per-field validation runs.
+
+        ``color_slug`` is normally auto-populated in ``save()``, but admin
+        forms and ``ModelForm.is_valid()`` invoke ``full_clean()`` first,
+        which would otherwise complain about an empty SlugField.
+        """
+        if not self.color_slug and self.color_id:
+            derived = self._derive_color_slug()
+            if derived:
+                self.color_slug = derived
+        return super().full_clean(*args, **kwargs)
+
+    def clean(self):
+        """Anti-thin-content guard: published landings must have body copy."""
+        from django.core.exceptions import ValidationError
+
+        super().clean()
+        if self.is_published:
+            length = len((self.editorial_html or "").strip())
+            if length < self.MIN_EDITORIAL_LENGTH:
+                raise ValidationError({
+                    "editorial_html": (
+                        "Для публікації потрібно мінімум "
+                        f"{self.MIN_EDITORIAL_LENGTH} символів editorial copy "
+                        f"(зараз: {length})."
+                    ),
+                })
+
+    # ---- URL helpers ----
+
+    def get_absolute_url(self) -> str:
+        if not self.category_id or not self.color_slug:
+            return ""
+        return f"/catalog/{self.category.slug}/{self.color_slug}/"
+
+    @property
+    def display_h1(self) -> str:
+        return (self.seo_h1 or "").strip() or (self.seo_title or "").strip()

@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+{% load static i18n %}
+{% load seo_tags %}
+
+{# ===== SEO meta ===== #}
+{% block title %}{{ landing.seo_title }}{% endblock %}
+{% block description %}{{ landing.seo_description }}{% endblock %}
+
+{% block canonical %}{{ canonical_url }}{% endblock %}
+{% block og_url %}{{ canonical_url }}{% endblock %}
+
+{% block og_type %}website{% endblock %}
+{% block og_title %}{{ landing.seo_title }}{% endblock %}
+{% block og_description %}{{ landing.seo_description }}{% endblock %}
+{% block og_image %}{% if category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
+
+{% block twitter_url %}{{ canonical_url }}{% endblock %}
+{% block twitter_title %}{{ landing.seo_title }}{% endblock %}
+{% block twitter_description %}{{ landing.seo_description }}{% endblock %}
+
+{% block hreflang_uk %}{{ canonical_url }}{% endblock %}
+{% block hreflang_x_default %}{{ canonical_url }}{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "{{ canonical_url }}#breadcrumbs",
+      "itemListElement": [
+      {% for crumb in breadcrumb_items %}
+        {
+          "@type": "ListItem",
+          "position": {{ forloop.counter }},
+          "name": "{{ crumb.name|escapejs }}",
+          "item": "{% if forloop.last %}{{ canonical_url }}{% else %}{{ site_base_url }}{{ crumb.url }}{% endif %}"
+        }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+      ]
+    },
+    {
+      "@type": "CollectionPage",
+      "@id": "{{ canonical_url }}#collection",
+      "url": "{{ canonical_url }}",
+      "name": "{{ landing.seo_title|escapejs }}",
+      "description": "{{ landing.seo_description|escapejs }}",
+      "isPartOf": {
+        "@type": "WebSite",
+        "name": "TwoComms",
+        "url": "{{ site_base_url }}"
+      },
+      "breadcrumb": { "@id": "{{ canonical_url }}#breadcrumbs" },
+      "mainEntity": {
+        "@type": "ItemList",
+        "numberOfItems": {{ paginator.count }},
+        "itemListElement": [
+        {% for p in products %}
+          {
+            "@type": "ListItem",
+            "position": {{ forloop.counter }},
+            "url": "{{ site_base_url }}{% url 'product' p.slug %}"
+          }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+        ]
+      }
+    }{% if faq_items %},
+    {
+      "@type": "FAQPage",
+      "@id": "{{ canonical_url }}#faq",
+      "mainEntity": [
+      {% for item in faq_items %}
+        {
+          "@type": "Question",
+          "name": "{{ item.question|escapejs }}",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "{{ item.answer|escapejs }}"
+          }
+        }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+      ]
+    }{% endif %}
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4 color-category-landing">
+
+  <nav class="color-cat-breadcrumbs" aria-label="Breadcrumb">
+    {% for crumb in breadcrumb_items %}
+      {% if forloop.last %}
+        <span aria-current="page">{{ crumb.name }}</span>
+      {% else %}
+        <a href="{{ crumb.url }}">{{ crumb.name }}</a>
+        <span aria-hidden="true">/</span>
+      {% endif %}
+    {% endfor %}
+  </nav>
+
+  <header class="color-cat-header mb-4">
+    <h1 class="color-cat-h1">{{ landing.display_h1 }}</h1>
+  </header>
+
+  <section class="color-cat-editorial mb-4">
+    {{ landing.editorial_html|safe }}
+  </section>
+
+  <section class="color-cat-products mb-5">
+    <div class="row g-3 g-md-4">
+      {% for p in products %}
+        <div class="col-6 col-md-4 col-lg-3">
+          {% include 'partials/product_card.html' with p=p home_card=True animate=False %}
+        </div>
+      {% empty %}
+        <div class="col-12">
+          <p class="text-muted">{% trans 'У цій категорії наразі немає товарів цього кольору.' %}</p>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if paginator.num_pages > 1 %}
+    <nav class="mt-4" aria-label="{% trans 'Сторінки' %}">
+      <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+          <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a></li>
+        {% endif %}
+        {% for num in paginator.page_range %}
+          <li class="page-item {% if num == page_obj.number %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+          </li>
+        {% endfor %}
+        {% if page_obj.has_next %}
+          <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+  </section>
+
+  {% if faq_items %}
+  <section class="color-cat-faq mb-5">
+    <h2 class="h4">{% trans 'Поширені запитання' %}</h2>
+    <div class="accordion" id="colorCatFaq">
+      {% for item in faq_items %}
+        <details class="color-cat-faq-item">
+          <summary>{{ item.question }}</summary>
+          <div class="color-cat-faq-answer">{{ item.answer|safe }}</div>
+        </details>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="color-cat-internal-links">
+    {% if sibling_landings %}
+      <div class="mb-3">
+        <h3 class="h6 text-uppercase text-muted">{% trans 'Інші кольори у категорії' %}</h3>
+        <ul class="list-inline">
+          {% for sibling in sibling_landings %}
+            <li class="list-inline-item">
+              <a href="{{ sibling.get_absolute_url }}">{{ sibling.display_h1 }}</a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    {% if cross_category_landings %}
+      <div class="mb-3">
+        <h3 class="h6 text-uppercase text-muted">{% trans 'Цей колір в інших категоріях' %}</h3>
+        <ul class="list-inline">
+          {% for other in cross_category_landings %}
+            <li class="list-inline-item">
+              <a href="{{ other.get_absolute_url }}">{{ other.display_h1 }}</a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <div>
+      <a class="btn btn-outline-light btn-sm" href="{% url 'catalog_by_cat' cat_slug=category.slug %}">
+        {% blocktrans with cat=category.name %}Усі товари: {{ cat }}{% endblocktrans %}
+      </a>
+    </div>
+  </section>
+</div>
+
+<style>
+  .color-category-landing { color: rgba(255,255,255,0.92); }
+  .color-cat-breadcrumbs { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1rem; color:rgba(255,255,255,.7); font-size:.95rem; }
+  .color-cat-breadcrumbs a { color:rgba(255,255,255,.86); text-decoration:none; }
+  .color-cat-breadcrumbs a:hover { color:#fff; text-decoration:underline; }
+  .color-cat-h1 { font-size: clamp(1.6rem, 3.6vw, 2.4rem); margin:0 0 .25rem; line-height:1.2; }
+  .color-cat-editorial { line-height:1.6; }
+  .color-cat-editorial h2, .color-cat-editorial h3 { margin-top:1.5rem; }
+  .color-cat-faq-item { padding: .85rem 1rem; border:1px solid rgba(255,255,255,.12); border-radius:10px; margin-bottom:.5rem; background:rgba(255,255,255,.03); }
+  .color-cat-faq-item summary { cursor:pointer; font-weight:600; }
+  .color-cat-faq-answer { padding-top:.5rem; color:rgba(255,255,255,.85); }
+  .color-cat-internal-links { margin-top:2rem; padding-top:1.25rem; border-top:1px solid rgba(255,255,255,.08); }
+  .color-cat-internal-links ul { padding-left:0; margin-bottom:0; }
+  .color-cat-internal-links a { color:rgba(255,255,255,.86); text-decoration:none; padding:.25rem .6rem; border:1px solid rgba(255,255,255,.18); border-radius:999px; display:inline-block; font-size:.92rem; }
+  .color-cat-internal-links a:hover { color:#fff; border-color:rgba(255,255,255,.4); }
+</style>
+{% endblock %}
