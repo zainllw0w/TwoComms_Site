@@ -36,9 +36,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from translations._constants import (  # type: ignore[import-not-found]  # noqa: E402
     CARE,
+    MATERIAL_PARAGRAPH,
     PTYPE_KW_TAIL,
     PTYPES,
     SEO_TAIL,
+    STYLING_PARAGRAPH,
     TARGET_TAIL,
 )
 from translations._categories import CATEGORIES  # type: ignore[import-not-found]  # noqa: E402
@@ -189,6 +191,27 @@ def build_product_translation(product: dict) -> dict:
         care = CARE[ptype][lang]
         keywords = f"{kw_seed}, {PTYPE_KW_TAIL[ptype][lang]}".strip(", ")
 
+        # Build the rich full_description (4 paragraphs).
+        narrative_intro_parts = []
+        if not is_classic:
+            theme_name = _theme_display_name(theme, lang)
+            if pitch:
+                narrative_intro_parts.append(
+                    f"«{theme_name}» — авторський принт TwoComms: {pitch}."
+                    if lang == "uk"
+                    else f"«{theme_name}» — авторский принт TwoComms: {pitch}."
+                    if lang == "ru"
+                    else f"«{theme_name}» is a TwoComms author print: {pitch}."
+                )
+        else:
+            if pitch:
+                narrative_intro_parts.append(short)
+        material = MATERIAL_PARAGRAPH[ptype][lang]
+        styling = STYLING_PARAGRAPH[ptype][lang]
+        full_desc = "\n\n".join(
+            x for x in [*narrative_intro_parts, material, styling, target_audience] if x
+        )
+
         out.setdefault("title", {})[lang] = title
         if short:
             out.setdefault("short_description", {})[lang] = short
@@ -204,6 +227,11 @@ def build_product_translation(product: dict) -> dict:
             out.setdefault("care_instructions", {})[lang] = care
         if keywords:
             out.setdefault("seo_keywords", {})[lang] = keywords
+        if full_desc:
+            out.setdefault("full_description", {})[lang] = full_desc
+            # ``description`` is a legacy short body. Use the short_description
+            # as its content so feed/card consumers also get a localized copy.
+            out.setdefault("description", {})[lang] = short or full_desc
 
     return out
 

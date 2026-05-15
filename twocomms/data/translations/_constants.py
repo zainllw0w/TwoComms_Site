@@ -55,6 +55,48 @@ TARGET_TAIL = {
     "en": "A perfect pick for anyone seeking a basic yet author-driven piece — no mass market, no Western brand knock-offs. Made for daily city wear, active leisure or a gift for patriotic friends and family.",
 }
 
+# ---------------------------------------------------------------------------
+# FULL DESCRIPTION building blocks (per product type)
+# ---------------------------------------------------------------------------
+# Paragraph 2 — material & construction. Used in ``full_description``.
+MATERIAL_PARAGRAPH = {
+    "tshirt": {
+        "uk": "Виготовлена зі щільного бавовняного трикотажу 180–220 г/м²: не просвічується, добре тримає форму після прання, м'яка до шкіри. Принт нанесено методом DTF-друку — насичені кольори, тонкі деталі та стійкість до 50+ циклів прання при дотриманні правил догляду.",
+        "ru": "Изготовлена из плотного хлопкового трикотажа 180–220 г/м²: не просвечивает, хорошо держит форму после стирки, мягкая к коже. Принт нанесён методом DTF-печати — насыщенные цвета, тонкие детали и стойкость к 50+ циклам стирки при соблюдении правил ухода.",
+        "en": "Built from dense cotton jersey at 180–220 g/m²: opaque, holds its shape after washing, soft to the skin. The print is applied by DTF printing — saturated colours, fine detail and a lifespan of 50+ wash cycles when care instructions are followed.",
+    },
+    "hoodie": {
+        "uk": "Худі виготовлене зі щільного трикотажу з начосом 280–320 г/м²: тримає тепло, добре сидить, не витягується після прання. Капюшон двошаровий, із плетеним шнурком; манжети та низ — посилена резинка. Принт нанесено DTF-друком — стійка фарба, що передає всі деталі ілюстрації.",
+        "ru": "Худи изготовлено из плотного трикотажа с начёсом 280–320 г/м²: держит тепло, хорошо сидит, не растягивается после стирки. Капюшон двухслойный, с плетёным шнурком; манжеты и низ — усиленная резинка. Принт нанесён DTF-печатью — стойкая краска, передающая все детали иллюстрации.",
+        "en": "The hoodie is crafted from dense brushed-back jersey at 280–320 g/m²: holds heat, fits well, doesn't sag after washing. A double-layer hood with a braided drawstring; reinforced ribbed cuffs and hem. The print is applied by DTF printing — durable ink that preserves every illustrative detail.",
+    },
+    "longsleeve": {
+        "uk": "Лонгслів виготовлений з бавовняного трикотажу 200–240 г/м² — щільнішого за футбольний, легшого за худі. Манжети — двошарова резинка, тримає рукав на місці. Принт нанесено DTF-друком: насичені стійкі кольори, тонкі деталі.",
+        "ru": "Лонгслив выполнен из хлопкового трикотажа 200–240 г/м² — плотнее футболочного, легче худи. Манжеты — двухслойная резинка, держит рукав на месте. Принт нанесён DTF-печатью: насыщенные стойкие цвета, тонкие детали.",
+        "en": "The longsleeve is made from cotton jersey at 200–240 g/m² — denser than tee fabric, lighter than a hoodie. Cuffs feature a two-layer rib that keeps sleeves in place. The print is applied by DTF: saturated, durable colours and fine detail.",
+    },
+}
+
+# Paragraph 3 — universal styling / sizing. Used in ``full_description``.
+STYLING_PARAGRAPH = {
+    "tshirt": {
+        "uk": "Універсальна форма: пасує і для сольного носіння, і для шарування під сорочку, худі або легку куртку. Поєднується з джинсами, карго-штанами, шортами чи спідницею. Доступні regular та oversize-силуети, розміри XS–XXL.",
+        "ru": "Универсальная форма: подходит и для одиночной носки, и для лайеринга под рубашку, худи или лёгкую куртку. Сочетается с джинсами, карго-штанами, шортами или юбкой. Доступны regular и oversize силуэты, размеры XS–XXL.",
+        "en": "A universal shape: works solo or layered under a shirt, hoodie or light jacket. Pairs with jeans, cargo pants, shorts or a skirt. Available in regular and oversize silhouettes, sizes XS–XXL.",
+    },
+    "hoodie": {
+        "uk": "Базовий шар streetwear-гардероба: сидить як у regular, так і в oversize-силуеті, поєднується з футболкою, лонгслівом або сорочкою. Підходить для прохолодної погоди, активного відпочинку та щоденного носіння. Розміри XS–XXL.",
+        "ru": "Базовый слой streetwear-гардероба: сидит и в regular, и в oversize-силуэте, сочетается с футболкой, лонгсливом или рубашкой. Подходит для прохладной погоды, активного отдыха и повседневной носки. Размеры XS–XXL.",
+        "en": "A streetwear-wardrobe staple: works in regular or oversize fits, pairs with a tee, longsleeve or shirt. Built for cool weather, active leisure and daily wear. Sizes XS–XXL.",
+    },
+    "longsleeve": {
+        "uk": "Універсальний базовий шар streetwear-гардероба: можна носити окремо у прохолодну погоду, шарувати під худі або легку куртку. Поєднується з джинсами, карго та темним низом. Силуети — regular та oversize, розміри XS–XXL.",
+        "ru": "Универсальный базовый слой streetwear-гардероба: можно носить отдельно в прохладную погоду, лайерить под худи или лёгкую куртку. Сочетается с джинсами, карго и тёмным низом. Силуэты — regular и oversize, размеры XS–XXL.",
+        "en": "A universal streetwear base layer: wear solo in cool weather, layer under a hoodie or light jacket. Pairs with jeans, cargos and dark bottoms. Available in regular and oversize fits, sizes XS–XXL.",
+    },
+}
+
+
 CARE = {
     "tshirt": {
         "uk": "Прати при 30 °C у режимі для бавовни, навиворіт, без агресивних відбілювачів. Сушити на повітрі, без сушильної машини. Прасувати з вивороту або через тканину — не торкайтеся праскою принта.",
