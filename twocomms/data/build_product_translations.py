@@ -141,19 +141,19 @@ def build_product_translation(product: dict) -> dict:
 
     ptype_data = PTYPES[ptype]
 
+    # Classic basics are detected by presence of ``uk_name`` absence AND
+    # ``title`` presence in the theme payload. Themed prints expose
+    # ``uk_name``/``ru_name``/``en_name`` keys.
+    is_classic = "uk_name" not in theme
+
     for lang in LANGS:
         nom = ptype_data[lang]["nom"]
         gen = ptype_data[lang]["gen"]
-        # Theme display name (with proper quotes or for classics, no quotes).
-        is_classic = theme.get("title") is not None
         if is_classic:
             title = theme["title"].get(lang, "")
         else:
             theme_name = _theme_display_name(theme, lang)
-            if lang == "en":
-                title = f"{nom} «{theme_name}»"
-            else:
-                title = f"{nom} «{theme_name}»"
+            title = f"{nom} «{theme_name}»"
 
         pitch = theme.get("pitch", {}).get(lang, "")
         alt = theme.get("alt", {}).get(lang, "")
@@ -175,9 +175,12 @@ def build_product_translation(product: dict) -> dict:
         if "seo_title" in theme:
             seo_title = theme["seo_title"].get(lang, seo_title)
         else:
-            # Reconstruct the typical SEO title shape
-            verb = {"ru": "купить", "en": "buy"}[lang]
-            seo_title = f"{title} — {verb} {gen} TwoComms"
+            # Reconstruct the typical SEO title shape per language.
+            if lang == "ru":
+                seo_title = f"{title} — купить {gen} TwoComms"
+            else:
+                # EN reads more naturally without "buy <gen> TwoComms".
+                seo_title = f"{title} — buy at TwoComms"
 
         seo_desc = f"{short} {SEO_TAIL[lang]}".strip()
         target_audience = (
