@@ -14,6 +14,22 @@ function buildPageHref(basePath, page) {
   return `${safeBasePath}?page=${page}`;
 }
 
+// Phase 17a — preserve the active language prefix when calling AJAX endpoints
+// declared inside ``i18n_patterns`` (e.g. ``/load-more-products/``). Without
+// this prefix the request resolves to the default Ukrainian locale even when
+// the user has switched to ``/ru/`` or ``/en/``, which causes the load-more
+// button to return UA content on translated pages.
+function getLanguagePrefix() {
+  try {
+    const path = window.location.pathname || '/';
+    const match = path.match(/^\/(ru|en)(?:\/|$)/);
+    if (match) {
+      return `/${match[1]}`;
+    }
+  } catch (_) {}
+  return '';
+}
+
 function isMobilePaginationViewport() {
   return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
 }
@@ -430,7 +446,7 @@ export function initHomepagePagination() {
       pageRequestToken = requestToken;
       setPagingBusy(true, mode);
 
-      return fetch(`/load-more-products/?page=${encodeURIComponent(targetPage)}`, {
+      return fetch(`${getLanguagePrefix()}/load-more-products/?page=${encodeURIComponent(targetPage)}`, {
         credentials: 'same-origin',
         headers: {
           Accept: 'application/json',

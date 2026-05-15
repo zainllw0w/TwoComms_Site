@@ -1861,7 +1861,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('featured-toggle') ||
     document.getElementById('categoriesToggle')
   ) {
-    import('./modules/homepage.js?v=20260427-pagination-transition')
+    import('./modules/homepage.js?v=20260515-i18n-loadmore')
       .then(({ initHomepage }) => initHomepage())
       .catch(() => { });
   }
