@@ -2662,6 +2662,913 @@ TRANSLATIONS_PHASE_17R: dict[str, dict[str, str]] = {
 TRANSLATIONS.update(TRANSLATIONS_PHASE_17R)
 
 
+# ============================================================
+# Phase 17z — pro_brand / cooperation / wholesale / custom_print /
+# user_points / promocodes / add-print / profile / search.
+# ============================================================
+TRANSLATIONS_PHASE_17Z: dict[str, dict[str, str]] = {
+    # ----- 404 / generic -----
+    "Повернутися на головну": {"ru": "Вернуться на главную", "en": "Return to home"},
+
+    # ----- add-print (UGC) -----
+    "Запропонувати принт — TwoComms": {
+        "ru": "Предложить принт — TwoComms",
+        "en": "Suggest a print — TwoComms",
+    },
+    "Запропонувати принт": {"ru": "Предложить принт", "en": "Suggest a print"},
+    "Сторінка для пропозицій принтів від спільноти TwoComms. Надішліть ідею, файл або посилання та отримайте винагороду після модерації. Службовий UGC-розділ, не основна сторінка кастомного друку.": {
+        "ru": "Страница для предложений принтов от сообщества TwoComms. Отправьте идею, файл или ссылку и получите вознаграждение после модерации. Служебный UGC-раздел, не основная страница кастомной печати.",
+        "en": "Page for print suggestions from the TwoComms community. Send an idea, file or link and receive a reward after moderation. Service UGC section, not the main custom print page.",
+    },
+    "Надішліть ідею принта для TwoComms, щоб отримати промокод або бали після модерації. Для замовлення свого принта використовуйте окремий конфігуратор кастомного друку.": {
+        "ru": "Отправьте идею принта для TwoComms, чтобы получить промокод или баллы после модерации. Для заказа своего принта используйте отдельный конфигуратор кастомной печати.",
+        "en": "Send a print idea for TwoComms to get a promo code or points after moderation. To order your own print use the dedicated custom print configurator.",
+    },
+    "UGC-сторінка для ідей принтів TwoComms. Для кастомного друку на замовлення використовуйте окремий конфігуратор бренду.": {
+        "ru": "UGC-страница для идей принтов TwoComms. Для кастомной печати на заказ используйте отдельный конфигуратор бренда.",
+        "en": "UGC page for TwoComms print ideas. For custom print on demand use the brand's dedicated configurator.",
+    },
+    "Поділись ідеєю — отримай винагороду": {
+        "ru": "Поделись идеей — получи вознаграждение",
+        "en": "Share an idea — get rewarded",
+    },
+    "Унікальні принти з брендовим написом або логотипом можуть принести <strong>бали</strong> або <strong>промокод 200–1000 грн</strong>.": {
+        "ru": "Уникальные принты с брендовой надписью или логотипом могут принести <strong>баллы</strong> или <strong>промокод 200–1000 грн</strong>.",
+        "en": "Unique prints with brand wording or logo can earn you <strong>points</strong> or a <strong>promo code worth 200–1000 UAH</strong>.",
+    },
+    "Промокод 200–1000 грн": {"ru": "Промокод 200–1000 грн", "en": "Promo code 200–1000 UAH"},
+    "Для унікальних принтів з брендовим написом або логотипом.": {
+        "ru": "Для уникальных принтов с брендовой надписью или логотипом.",
+        "en": "For unique prints with brand wording or logo.",
+    },
+    "Бали до профілю": {"ru": "Баллы в профиль", "en": "Points to your profile"},
+    "Накопичуйте бали і обмінюйте їх на знижки або добрі справи.": {
+        "ru": "Накапливайте баллы и обменивайте их на скидки или добрые дела.",
+        "en": "Accumulate points and exchange them for discounts or good deeds.",
+    },
+    "Зв’язок з нами": {"ru": "Связь с нами", "en": "Get in touch"},
+    "Вкажіть <a href=\"%(profile_setup_url)s\">Telegram/Instagram</a> у профілі — ми зв’яжемось.": {
+        "ru": "Укажите <a href=\"%(profile_setup_url)s\">Telegram/Instagram</a> в профиле — мы свяжемся.",
+        "en": "Add <a href=\"%(profile_setup_url)s\">Telegram/Instagram</a> to your profile — we'll reach out.",
+    },
+    "Надіслати пропозицію принта": {
+        "ru": "Отправить предложение принта",
+        "en": "Submit a print proposal",
+    },
+    "до 10 МБ": {"ru": "до 10 МБ", "en": "up to 10 MB"},
+    "Антиспам 1 хв": {"ru": "Антиспам 1 мин", "en": "Anti-spam 1 min"},
+    "Занадто часто. Спробуйте ще раз за хвилину.": {
+        "ru": "Слишком часто. Попробуйте снова через минуту.",
+        "en": "Too frequent. Try again in a minute.",
+    },
+    "Помилка:": {"ru": "Ошибка:", "en": "Error:"},
+    "Перетягніть зображення сюди або натисніть для вибору": {
+        "ru": "Перетащите изображение сюда или нажмите для выбора",
+        "en": "Drag an image here or click to select",
+    },
+    "Очистити": {"ru": "Очистить", "en": "Clear"},
+    "Або посилання на зображення": {
+        "ru": "Или ссылка на изображение",
+        "en": "Or a link to the image",
+    },
+    "Опис / примітки": {"ru": "Описание / заметки", "en": "Description / notes"},
+    "Опишіть ідею принта та деталі": {
+        "ru": "Опишите идею принта и детали",
+        "en": "Describe your print idea and details",
+    },
+    "Вкажіть <a href=\"%(profile_setup_url)s\">Telegram або Instagram у налаштуваннях профілю</a>, щоб ми могли зв’язатися.": {
+        "ru": "Укажите <a href=\"%(profile_setup_url)s\">Telegram или Instagram в настройках профиля</a>, чтобы мы могли связаться.",
+        "en": "Add <a href=\"%(profile_setup_url)s\">Telegram or Instagram to your profile settings</a> so we can contact you.",
+    },
+    "Надіслати": {"ru": "Отправить", "en": "Send"},
+    "Співпраця для дизайнерів": {
+        "ru": "Сотрудничество для дизайнеров",
+        "en": "Collaboration for designers",
+    },
+    "Мої принти на розгляді": {"ru": "Мои принты на рассмотрении", "en": "My prints under review"},
+    "Останні 10": {"ru": "Последние 10", "en": "Last 10"},
+    "+%(pts)s балів": {"ru": "+%(pts)s баллов", "en": "+%(pts)s points"},
+    "Промокод:": {"ru": "Промокод:", "en": "Promo code:"},
+    "Поки немає заявок": {"ru": "Пока нет заявок", "en": "No submissions yet"},
+    "Авторизація потрібна": {"ru": "Требуется авторизация", "en": "Sign-in required"},
+    "Авторизуйтеся, щоб мати можливість запропонувати принт та накопичувати бали.": {
+        "ru": "Авторизуйтесь, чтобы предлагать принты и накапливать баллы.",
+        "en": "Sign in to be able to suggest prints and earn points.",
+    },
+    "Будь ласка, завантажте зображення або введіть посилання на зображення": {
+        "ru": "Пожалуйста, загрузите изображение или введите ссылку на изображение",
+        "en": "Please upload an image or enter an image URL",
+    },
+    "Відправляємо...": {"ru": "Отправляем...", "en": "Sending..."},
+    "Принт успішно відправлено на розгляд!": {
+        "ru": "Принт успешно отправлен на рассмотрение!",
+        "en": "Print submitted for review!",
+    },
+    "Балів": {"ru": "Баллов", "en": "Points"},
+    "балів": {"ru": "баллов", "en": "points"},
+    "Помилка відправки:": {"ru": "Ошибка отправки:", "en": "Submission error:"},
+    "Невідома помилка": {"ru": "Неизвестная ошибка", "en": "Unknown error"},
+    "Помилка відправки форми": {"ru": "Ошибка отправки формы", "en": "Form submission error"},
+    "Зареєструватись": {"ru": "Зарегистрироваться", "en": "Sign up"},
+
+    # ----- pro_brand.html -----
+    "Про бренд TwoComms": {"ru": "О бренде TwoComms", "en": "About TwoComms brand"},
+    "Продовження.": {"ru": "Продолжение.", "en": "A continuation."},
+    "Дивитись каталог": {"ru": "Смотреть каталог", "en": "Browse catalog"},
+    "Зрозуміти бренд": {"ru": "Понять бренд", "en": "Understand the brand"},
+    "Український streetwear": {"ru": "Украинский streetwear", "en": "Ukrainian streetwear"},
+    "Що таке TwoComms": {"ru": "Что такое TwoComms", "en": "What TwoComms is"},
+    "Походження": {"ru": "Происхождение", "en": "Origins"},
+    "Принти": {"ru": "Принты", "en": "Prints"},
+    "Код бренду": {"ru": "Код бренда", "en": "Brand code"},
+    "Назва бренду": {"ru": "Название бренда", "en": "Brand name"},
+    "Походження бренду": {"ru": "Происхождение бренда", "en": "Brand origin"},
+    "Візуальна історія": {"ru": "Визуальная история", "en": "Visual story"},
+    "ДНК Бренду": {"ru": "ДНК бренда", "en": "Brand DNA"},
+    "Харків у ДНК TwoComms": {
+        "ru": "Харьков в ДНК TwoComms",
+        "en": "Kharkiv in TwoComms DNA",
+    },
+    "Принти як": {"ru": "Принты как", "en": "Prints as"},
+    "візуальні коди": {"ru": "визуальные коды", "en": "visual codes"},
+    "Код ідеї": {"ru": "Код идеи", "en": "Idea code"},
+    "Харківський код TwoComms у принті про характер міста": {
+        "ru": "Харьковский код TwoComms в принте о характере города",
+        "en": "Kharkiv code of TwoComms in a print about the city's character",
+    },
+    "Контроль": {"ru": "Контроль", "en": "Control"},
+    "Маршрут покупки": {"ru": "Маршрут покупки", "en": "Purchase journey"},
+    "Повага після покупки": {"ru": "Уважение после покупки", "en": "Respect after the purchase"},
+    "14 днів для готових товарів": {
+        "ru": "14 дней для готовых товаров",
+        "en": "14 days for ready-made items",
+    },
+    "Для кого TwoComms": {"ru": "Для кого TwoComms", "en": "Who TwoComms is for"},
+    "Наступний контур": {"ru": "Следующий контур", "en": "Next contour"},
+    "Ми продовжуємо.": {"ru": "Мы продолжаем.", "en": "We continue."},
+    "Відповіді": {"ru": "Ответы", "en": "Answers"},
+    "Запитання про бренд": {"ru": "Вопросы о бренде", "en": "Brand questions"},
+    "Фінальний крок": {"ru": "Финальный шаг", "en": "Final step"},
+    "Обери свою форму продовження": {
+        "ru": "Выбери свою форму продолжения",
+        "en": "Choose your form of continuation",
+    },
+    "Колір %(hex)s": {"ru": "Цвет %(hex)s", "en": "Color %(hex)s"},
+    "Швидка навігація": {"ru": "Быстрая навигация", "en": "Quick navigation"},
+    "Перейти": {"ru": "Перейти", "en": "Go"},
+    "Відкрити розділ": {"ru": "Открыть раздел", "en": "Open section"},
+    "Підтверджені сітки по категоріях": {
+        "ru": "Подтверждённые сетки по категориям",
+        "en": "Confirmed grids by category",
+    },
+    "Поради по посадці": {"ru": "Советы по посадке", "en": "Fit tips"},
+    "Інші візуальні схеми": {"ru": "Другие визуальные схемы", "en": "Other visual schemes"},
+    "Свіжі товарні сторінки": {"ru": "Свежие карточки товаров", "en": "Fresh product pages"},
+    "Поширені запитання": {"ru": "Часто задаваемые вопросы", "en": "Frequently asked questions"},
+
+    # ----- user_points.html -----
+    "Мої бали": {"ru": "Мои баллы", "en": "My points"},
+    "Поточний баланс": {"ru": "Текущий баланс", "en": "Current balance"},
+    "Всього зароблено": {"ru": "Всего заработано", "en": "Total earned"},
+    "Всього витрачено": {"ru": "Всего потрачено", "en": "Total spent"},
+    "Заробляйте бали": {"ru": "Зарабатывайте баллы", "en": "Earn points"},
+    "Отримуйте бали за кожну покупку. Кількість балів залежить від товару.": {
+        "ru": "Получайте баллы за каждую покупку. Количество зависит от товара.",
+        "en": "Earn points on every purchase. The amount depends on the item.",
+    },
+    "Використовуйте бали": {"ru": "Используйте баллы", "en": "Use your points"},
+    "Історія балів": {"ru": "История баллов", "en": "Points history"},
+    "Операція з балами": {"ru": "Операция с баллами", "en": "Points operation"},
+    "Зробіть першу покупку, щоб почати заробляти бали!": {
+        "ru": "Сделайте первую покупку, чтобы начать зарабатывать баллы!",
+        "en": "Make your first purchase to start earning points!",
+    },
+    "Зароблено:": {"ru": "Заработано:", "en": "Earned:"},
+    "Витрачено:": {"ru": "Потрачено:", "en": "Spent:"},
+    "Бали не знайдено": {"ru": "Баллы не найдены", "en": "Points not found"},
+    "Об'єкт UserPoints не створено для користувача": {
+        "ru": "Объект UserPoints не создан для пользователя",
+        "en": "UserPoints object not created for user",
+    },
+    "Ваш баланс балів": {"ru": "Ваш баланс баллов", "en": "Your points balance"},
+    "Вартість:": {"ru": "Стоимость:", "en": "Cost:"},
+    "Пожертвувати": {"ru": "Пожертвовать", "en": "Donate"},
+    "Недостатньо балів": {"ru": "Недостаточно баллов", "en": "Not enough points"},
+    "Підтримка ЗСУ": {"ru": "Поддержка ВСУ", "en": "UA Army support"},
+    "опціонально": {"ru": "опционально", "en": "optional"},
+
+    # ----- profile setup -----
+    "Аватар користувача - TwoComms": {
+        "ru": "Аватар пользователя - TwoComms",
+        "en": "User avatar - TwoComms",
+    },
+    "Фото профілю": {"ru": "Фото профиля", "en": "Profile photo"},
+    "Натисніть на фото для завантаження (JPG, PNG до 5 МБ)": {
+        "ru": "Нажмите на фото для загрузки (JPG, PNG до 5 МБ)",
+        "en": "Click the photo to upload (JPG, PNG up to 5 MB)",
+    },
+    "Основна інформація": {"ru": "Основная информация", "en": "Main info"},
+    "Переприв'язати Telegram": {"ru": "Перепривязать Telegram", "en": "Relink Telegram"},
+    "Отримувати статуси": {"ru": "Получать статусы", "en": "Receive status updates"},
+    "Статус УБД": {"ru": "Статус УБД", "en": "Combatant (UBD) status"},
+    "Отримайте спеціальні умови та знижки": {
+        "ru": "Получите особые условия и скидки",
+        "en": "Get special terms and discounts",
+    },
+    "Завантажте фото посвідчення УБД": {
+        "ru": "Загрузите фото удостоверения УБД",
+        "en": "Upload a photo of your UBD certificate",
+    },
+    "Скасувати": {"ru": "Отменить", "en": "Cancel"},
+    "Push-сповіщення": {"ru": "Push-уведомления", "en": "Push notifications"},
+    "Нові дропи та спецпропозиції": {
+        "ru": "Новые дропы и спецпредложения",
+        "en": "New drops and special offers",
+    },
+    "Статуси замовлення та доставки": {
+        "ru": "Статусы заказа и доставки",
+        "en": "Order and delivery status",
+    },
+    "Зберегти push-налаштування": {
+        "ru": "Сохранить push-настройки",
+        "en": "Save push settings",
+    },
+
+    # ----- search results -----
+    "Результати пошуку TwoComms": {
+        "ru": "Результаты поиска TwoComms",
+        "en": "TwoComms search results",
+    },
+    "Купити %(cat)s в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні.": {
+        "ru": "Купить %(cat)s в TwoComms. Качественная стрит & милитари одежда с эксклюзивным дизайном и быстрой доставкой по Украине.",
+        "en": "Buy %(cat)s at TwoComms. Quality street & military apparel with exclusive design and fast shipping across Ukraine.",
+    },
+    "стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, каталог одягу": {
+        "ru": "стрит одежда, милитари одежда, футболки, худи, лонгсливы, TwoComms, эксклюзивный дизайн, качественная одежда, каталог одежды",
+        "en": "street apparel, military apparel, t-shirts, hoodies, longsleeves, TwoComms, exclusive design, quality clothing, apparel catalog",
+    },
+    "Результати пошуку TwoComms за товарами каталогу.": {
+        "ru": "Результаты поиска TwoComms по товарам каталога.",
+        "en": "TwoComms search results across catalog items.",
+    },
+    "Повний каталог стріт та мілітарі одягу TwoComms.": {
+        "ru": "Полный каталог стрит и милитари одежды TwoComms.",
+        "en": "Full TwoComms street & military apparel catalog.",
+    },
+    "Каталог стріт та мілітарі одягу TwoComms.": {
+        "ru": "Каталог стрит и милитари одежды TwoComms.",
+        "en": "TwoComms street & military apparel catalog.",
+    },
+    "Каталог TwoComms": {"ru": "Каталог TwoComms", "en": "TwoComms catalog"},
+    "Результати пошуку: «%(q)s»": {
+        "ru": "Результаты поиска: «%(q)s»",
+        "en": "Search results: \"%(q)s\"",
+    },
+
+    # ----- cooperation -----
+    "Співпраця з TwoComms": {"ru": "Сотрудничество с TwoComms", "en": "Cooperation with TwoComms"},
+    "Співпраця з": {"ru": "Сотрудничество с", "en": "Cooperation with"},
+    "Преміум товари": {"ru": "Премиум-товары", "en": "Premium goods"},
+    "Надійність": {"ru": "Надёжность", "en": "Reliability"},
+    "Перевірені партнери": {"ru": "Проверенные партнёры", "en": "Verified partners"},
+    "24/7 консультації": {"ru": "Консультации 24/7", "en": "24/7 consultations"},
+    "Дізнатися більше": {"ru": "Узнать больше", "en": "Learn more"},
+    "Типи співпраці": {"ru": "Типы сотрудничества", "en": "Cooperation types"},
+    "Без вкладень у товар": {"ru": "Без вложений в товар", "en": "No upfront stock investment"},
+    "Автоматична обробка замовлень": {
+        "ru": "Автоматическая обработка заказов",
+        "en": "Automated order processing",
+    },
+    "Підтримка 24/7": {"ru": "Поддержка 24/7", "en": "24/7 support"},
+    "Почати співпрацю": {"ru": "Начать сотрудничество", "en": "Start the partnership"},
+    "Оптові продажі": {"ru": "Оптовые продажи", "en": "Wholesale sales"},
+    "Старт від 8 одиниць на замовлення": {
+        "ru": "Старт от 8 единиц на заказ",
+        "en": "Start from 8 units per order",
+    },
+    "Перейти до оптових умов": {"ru": "Перейти к оптовым условиям", "en": "View wholesale terms"},
+    "Ексклюзивні колекції": {"ru": "Эксклюзивные коллекции", "en": "Exclusive collections"},
+    "Спільний маркетинг": {"ru": "Совместный маркетинг", "en": "Joint marketing"},
+    "Персональний менеджер": {"ru": "Персональный менеджер", "en": "Personal manager"},
+    "Обговорити проект": {"ru": "Обсудить проект", "en": "Discuss the project"},
+    "Для дизайнерів": {"ru": "Для дизайнеров", "en": "For designers"},
+    "Швидка реалізація": {"ru": "Быстрая реализация", "en": "Fast turnaround"},
+    "Підтримка команди": {"ru": "Поддержка команды", "en": "Team support"},
+    "Оплата речами": {"ru": "Оплата вещами", "en": "Payment in goods"},
+    "Безкоштовні товари": {"ru": "Бесплатные товары", "en": "Complimentary items"},
+    "Розвиток портфоліо": {"ru": "Развитие портфолио", "en": "Portfolio growth"},
+    "Стати моделлю": {"ru": "Стать моделью", "en": "Become a model"},
+    "Ексклюзивний контент": {"ru": "Эксклюзивный контент", "en": "Exclusive content"},
+    "Готові почати співпрацю?": {
+        "ru": "Готовы начать сотрудничество?",
+        "en": "Ready to start cooperating?",
+    },
+    "Зв'яжіться з нами в Telegram для обговорення деталей": {
+        "ru": "Свяжитесь с нами в Telegram для обсуждения деталей",
+        "en": "Reach us on Telegram to discuss the details",
+    },
+    "Загальні питання": {"ru": "Общие вопросы", "en": "General questions"},
+    "Технічна підтримка": {"ru": "Техническая поддержка", "en": "Technical support"},
+    "Поширені питання про співпрацю": {
+        "ru": "Часто задаваемые вопросы о сотрудничестве",
+        "en": "Cooperation FAQ",
+    },
+
+    # ----- custom_print / configurator -----
+    "Кастомний принт для брендів": {
+        "ru": "Кастомный принт для брендов",
+        "en": "Custom print for brands",
+    },
+    "DTF-конфігуратор кастомного одягу — TwoComms": {
+        "ru": "DTF-конфигуратор кастомной одежды — TwoComms",
+        "en": "DTF custom apparel configurator — TwoComms",
+    },
+    "Кастомний DTF-друк на одязі": {
+        "ru": "Кастомная DTF-печать на одежде",
+        "en": "Custom DTF print on apparel",
+    },
+    "Кастомний одяг TwoComms": {
+        "ru": "Кастомная одежда TwoComms",
+        "en": "TwoComms custom apparel",
+    },
+    "Почати створення": {"ru": "Начать создание", "en": "Start creating"},
+    "Написати нам у Telegram": {"ru": "Написать нам в Telegram", "en": "Message us on Telegram"},
+    "Переваги кастомного друку": {
+        "ru": "Преимущества кастомной печати",
+        "en": "Benefits of custom print",
+    },
+    "Преміум якість друку": {"ru": "Премиум-качество печати", "en": "Premium print quality"},
+    "Будь-який тип одягу": {"ru": "Любой тип одежды", "en": "Any garment type"},
+    "Приклад кастомного одягу TwoComms": {
+        "ru": "Пример кастомной одежды TwoComms",
+        "en": "Example of TwoComms custom apparel",
+    },
+    "ваш принт": {"ru": "ваш принт", "en": "your print"},
+    "Приклади кольорів": {"ru": "Примеры цветов", "en": "Color examples"},
+    "20+ кольорів": {"ru": "20+ цветов", "en": "20+ colors"},
+    "Перейти до вибору кольору": {"ru": "Перейти к выбору цвета", "en": "Go to color picker"},
+    "Можливості конфігуратора": {
+        "ru": "Возможности конфигуратора",
+        "en": "Configurator capabilities",
+    },
+    "Тип одягу": {"ru": "Тип одежды", "en": "Garment type"},
+    "Прогрес конфігурації": {"ru": "Прогресс конфигурации", "en": "Configuration progress"},
+    "Виріб на сцені": {"ru": "Изделие на сцене", "en": "Garment on stage"},
+    "Виріб і зона друку": {"ru": "Изделие и зона печати", "en": "Garment and print area"},
+    "Сторона виробу": {"ru": "Сторона изделия", "en": "Garment side"},
+    "Спереди": {"ru": "Спереди", "en": "Front"},
+    "Доступні зони друку": {"ru": "Доступные зоны печати", "en": "Available print zones"},
+    "Зони друку на сцені": {"ru": "Зоны печати на сцене", "en": "Print zones on stage"},
+    "Виріб": {"ru": "Изделие", "en": "Garment"},
+    "Оберіть виріб, щоб побачити деталі.": {
+        "ru": "Выберите изделие, чтобы увидеть детали.",
+        "en": "Pick a garment to view the details.",
+    },
+    "Активні зони": {"ru": "Активные зоны", "en": "Active zones"},
+    "Без додаткових деталей.": {"ru": "Без дополнительных деталей.", "en": "No extra details."},
+    "Базова конфігурація": {"ru": "Базовая конфигурация", "en": "Base configuration"},
+    "Для кого збираємо?": {"ru": "Для кого собираем?", "en": "Who is it for?"},
+    "2. Виріб": {"ru": "2. Изделие", "en": "2. Garment"},
+    "Обери основу": {"ru": "Выбери основу", "en": "Pick the base"},
+    "На чому буде твій дизайн?": {"ru": "На чём будет твой дизайн?", "en": "What will host your design?"},
+    "Налаштування": {"ru": "Настройки", "en": "Settings"},
+    "3. Налаштування": {"ru": "3. Настройки", "en": "3. Settings"},
+    "Налаштуй вигляд і відчуття": {"ru": "Настрой вид и ощущение", "en": "Tune look and feel"},
+    "Тканина": {"ru": "Ткань", "en": "Fabric"},
+    "Колір виробу": {"ru": "Цвет изделия", "en": "Garment color"},
+    "Деталі худі": {"ru": "Детали худи", "en": "Hoodie details"},
+    "Далі до зон": {"ru": "Дальше к зонам", "en": "Next: zones"},
+    "Зони друку": {"ru": "Зоны печати", "en": "Print zones"},
+    "4. Зони друку": {"ru": "4. Зоны печати", "en": "4. Print zones"},
+    "Де буде принт?": {"ru": "Где будет принт?", "en": "Where will the print go?"},
+    "Спереду": {"ru": "Спереди", "en": "Front"},
+    "Далі до макета": {"ru": "Дальше к макету", "en": "Next: layout"},
+    "Бриф / завдання": {"ru": "Бриф / задание", "en": "Brief / task"},
+    "Далі до кількості": {"ru": "Дальше к количеству", "en": "Next: quantity"},
+    "6. Кількість і розміри": {"ru": "6. Количество и размеры", "en": "6. Quantity & sizes"},
+    "B2B знижка": {"ru": "B2B скидка", "en": "B2B discount"},
+    "Уточнити розміри з менеджером": {
+        "ru": "Уточнить размеры с менеджером",
+        "en": "Clarify sizes with the manager",
+    },
+    "Примітка по розмірах": {"ru": "Примечание по размерам", "en": "Size note"},
+    "Опис свого виробу": {"ru": "Описание своего изделия", "en": "Describe your item"},
+    "Далі до подарунку": {"ru": "Дальше к подарку", "en": "Next: gift"},
+    "Подарунок": {"ru": "Подарок", "en": "Gift"},
+    "7. Подарунок": {"ru": "7. Подарок", "en": "7. Gift"},
+    "Потрібна подарункова упаковка?": {
+        "ru": "Нужна подарочная упаковка?",
+        "en": "Need gift wrap?",
+    },
+    "Додати упаковку": {"ru": "Добавить упаковку", "en": "Add gift wrap"},
+    "Контакт": {"ru": "Контакт", "en": "Contact"},
+    "8. Контакт і фінал": {"ru": "8. Контакт и финал", "en": "8. Contact & final"},
+    "Ім'я для менеджера": {"ru": "Имя для менеджера", "en": "Name for the manager"},
+    "Бренд / Instagram": {"ru": "Бренд / Instagram", "en": "Brand / Instagram"},
+    "Канал звʼязку": {"ru": "Канал связи", "en": "Contact channel"},
+    "Передзамовлення зі снимком конфігурації": {
+        "ru": "Предзаказ со снимком конфигурации",
+        "en": "Pre-order with configuration snapshot",
+    },
+    "Надіслати менеджеру": {"ru": "Отправить менеджеру", "en": "Send to manager"},
+    "Поширені питання про кастомний друк": {
+        "ru": "Часто задаваемые вопросы о кастомной печати",
+        "en": "Custom print FAQ",
+    },
+    "Умови": {"ru": "Условия", "en": "Terms"},
+    "Подивіться, як відбувається відправка, оплата та підтвердження замовлень по Україні.": {
+        "ru": "Посмотрите, как происходит отправка, оплата и подтверждение заказов по Украине.",
+        "en": "See how shipping, payment and order confirmation work across Ukraine.",
+    },
+
+    # ----- promocodes -----
+    "Активні промокоди": {"ru": "Активные промокоды", "en": "Active promo codes"},
+    "Промокод готовий до використання": {
+        "ru": "Промокод готов к использованию",
+        "en": "Promo code ready to use",
+    },
+    "Використані промокоди": {"ru": "Использованные промокоды", "en": "Used promo codes"},
+    "Використано": {"ru": "Использовано", "en": "Used"},
+    "Дата використання:": {"ru": "Дата использования:", "en": "Used on:"},
+    "Замовлення:": {"ru": "Заказ:", "en": "Order:"},
+    "Сума замовлення:": {"ru": "Сумма заказа:", "en": "Order total:"},
+    "Промокод використано успішно": {
+        "ru": "Промокод успешно использован",
+        "en": "Promo code applied successfully",
+    },
+    "Поки що немає промокодів": {"ru": "Пока нет промокодов", "en": "No promo codes yet"},
+    "Перейти до каталогу": {"ru": "Перейти в каталог", "en": "Go to catalog"},
+    "Відділення №1, вул. Хрещатик, 1": {
+        "ru": "Отделение №1, ул. Крещатик, 1",
+        "en": "Branch No. 1, 1 Khreshchatyk St.",
+    },
+    "10%% знижка на наступне замовлення": {
+        "ru": "10%% скидка на следующий заказ",
+        "en": "10%% off your next order",
+    },
+
+    # ----- wholesale -----
+    "Оптові закупівлі та дропшипінг одягу — TwoComms": {
+        "ru": "Оптовые закупки и дропшиппинг одежды — TwoComms",
+        "en": "Wholesale and dropshipping apparel — TwoComms",
+    },
+    "Оптові продажі та дропшипінг TwoComms": {
+        "ru": "Оптовые продажи и дропшиппинг TwoComms",
+        "en": "TwoComms wholesale and dropshipping",
+    },
+    "Оптові закупівлі": {"ru": "Оптовые закупки", "en": "Wholesale purchases"},
+    "Напишіть нам для співпраці в Telegram": {
+        "ru": "Напишите нам для сотрудничества в Telegram",
+        "en": "Message us on Telegram for cooperation",
+    },
+    "Сформувати замовлення": {"ru": "Сформировать заказ", "en": "Build order"},
+    "Завантажити прайс (Excel)": {
+        "ru": "Скачать прайс (Excel)",
+        "en": "Download price list (Excel)",
+    },
+    "Оптові ціни TwoComms": {"ru": "Оптовые цены TwoComms", "en": "TwoComms wholesale prices"},
+    "Завантажити прайс-лист (XLSX)": {
+        "ru": "Скачать прайс-лист (XLSX)",
+        "en": "Download price list (XLSX)",
+    },
+    "Умови опту:": {"ru": "Условия опта:", "en": "Wholesale terms:"},
+    "Худі:": {"ru": "Худи:", "en": "Hoodies:"},
+    "TwoComms логотип": {"ru": "TwoComms логотип", "en": "TwoComms logo"},
+    "TwoComms логотип - декоративний": {
+        "ru": "TwoComms логотип — декоративный",
+        "en": "TwoComms logo — decorative",
+    },
+    "Система ціноутворення": {"ru": "Система ценообразования", "en": "Pricing system"},
+    "Дроп ціни - TwoComms": {"ru": "Дроп-цены — TwoComms", "en": "Dropship prices — TwoComms"},
+    "Дроп ціни": {"ru": "Дроп-цены", "en": "Dropship prices"},
+    "Класичні футболки": {"ru": "Классические футболки", "en": "Classic t-shirts"},
+    "Футболки опт - TwoComms": {
+        "ru": "Футболки опт — TwoComms",
+        "en": "Wholesale t-shirts — TwoComms",
+    },
+    "Футболки опт": {"ru": "Футболки опт", "en": "Wholesale t-shirts"},
+    "Мінімальне замовлення": {"ru": "Минимальный заказ", "en": "Minimum order"},
+    "Середній обсяг": {"ru": "Средний объём", "en": "Medium volume"},
+    "Великий обсяг": {"ru": "Большой объём", "en": "Large volume"},
+    "Оптовий обсяг": {"ru": "Оптовый объём", "en": "Wholesale volume"},
+    "Худі опт - TwoComms": {"ru": "Худи опт — TwoComms", "en": "Wholesale hoodies — TwoComms"},
+    "Категорії товарів": {"ru": "Категории товаров", "en": "Product categories"},
+    "Всі товари": {"ru": "Все товары", "en": "All items"},
+    "Всі товари категорія - TwoComms": {
+        "ru": "Категория «Все товары» — TwoComms",
+        "en": "All products category — TwoComms",
+    },
+    "Худі категорія - TwoComms": {
+        "ru": "Категория «Худи» — TwoComms",
+        "en": "Hoodies category — TwoComms",
+    },
+    "Футболки категорія - TwoComms": {
+        "ru": "Категория «Футболки» — TwoComms",
+        "en": "T-shirts category — TwoComms",
+    },
+    "Наші товари": {"ru": "Наши товары", "en": "Our products"},
+    "Якісний стріт & мілітарі одяг з ексклюзивними принтами": {
+        "ru": "Качественная стрит & милитари одежда с эксклюзивными принтами",
+        "en": "Quality street & military apparel with exclusive prints",
+    },
+    "Оптові ціни:": {"ru": "Оптовые цены:", "en": "Wholesale prices:"},
+    "Кастомний друк для партій": {
+        "ru": "Кастомная печать для партий",
+        "en": "Custom print for batches",
+    },
+    "Зв'язок з менеджером": {"ru": "Связь с менеджером", "en": "Reach the manager"},
+    "Завантажуємо розділ…": {"ru": "Загружаем раздел…", "en": "Loading section…"},
+    "Соцмережа": {"ru": "Соцсеть", "en": "Social network"},
+    "Продовжити покупки": {"ru": "Продолжить покупки", "en": "Continue shopping"},
+    "Оплатити через mono checkout": {
+        "ru": "Оплатить через mono checkout",
+        "en": "Pay via mono checkout",
+    },
+    "Оплатити через": {"ru": "Оплатить через", "en": "Pay via"},
+    "Функція формування замовлень в розробці. Звертайтесь через Telegram: https://t.me/twocomms": {
+        "ru": "Функция формирования заказов в разработке. Свяжитесь через Telegram: https://t.me/twocomms",
+        "en": "Order generation feature is in development. Reach us via Telegram: https://t.me/twocomms",
+    },
+
+    # ----- product_detail_new generic UI -----
+    "грн / шт": {"ru": "грн / шт", "en": "UAH / pc"},
+    "грн/шт": {"ru": "грн/шт", "en": "UAH/pc"},
+    "Дізнатись про бали": {"ru": "Узнать о баллах", "en": "Learn about points"},
+    "б.": {"ru": "б.", "en": "pt"},
+    "Розмір": {"ru": "Размер", "en": "Size"},
+    "Колір": {"ru": "Цвет", "en": "Color"},
+    "Зменшити": {"ru": "Уменьшить", "en": "Decrease"},
+    "Збільшити": {"ru": "Увеличить", "en": "Increase"},
+    "Додати в кошик": {"ru": "Добавить в корзину", "en": "Add to cart"},
+    "Немає в наявності": {"ru": "Нет в наличии", "en": "Out of stock"},
+    "Додати до обраних": {"ru": "Добавить в избранное", "en": "Add to favorites"},
+
+    # ----- B2B / cart -----
+    "B2B знижка:": {"ru": "B2B скидка:", "en": "B2B discount:"},
+
+    # ----- pro_brand additional misc -----
+    "TwoComms — харківський бренд одягу про характер, стійкість і продовження": {
+        "ru": "TwoComms — харьковский бренд одежды о характере, стойкости и продолжении",
+        "en": "TwoComms — Kharkiv apparel brand about character, resilience and continuation",
+    },
+    "TwoComms — український streetwear / military-adjacent бренд одягу з Харкова. Речі з кодом, сенсовими принтами, якісною базою і філософією: не крапка, а продовження.": {
+        "ru": "TwoComms — украинский streetwear / military-adjacent бренд одежды из Харькова. Вещи с кодом, смысловыми принтами, качественной базой и философией: не точка, а продолжение.",
+        "en": "TwoComms — Ukrainian streetwear / military-adjacent apparel brand from Kharkiv. Items with code, meaningful prints, a quality base and the philosophy of continuation, not a full stop.",
+    },
+    "TwoComms — харківський бренд одягу, streetwear / military-adjacent естетика": {
+        "ru": "TwoComms — харьковский бренд одежды, streetwear / military-adjacent эстетика",
+        "en": "TwoComms — Kharkiv apparel brand, streetwear / military-adjacent aesthetic",
+    },
+    "TwoComms — не крапка. Продовження.": {
+        "ru": "TwoComms — не точка. Продолжение.",
+        "en": "TwoComms — not a full stop. A continuation.",
+    },
+    "Одяг з кодом для людей, які тримають форму зсередини. Харківський streetwear / military-adjacent бренд TwoComms.": {
+        "ru": "Одежда с кодом для людей, которые держат форму изнутри. Харьковский streetwear / military-adjacent бренд TwoComms.",
+        "en": "Apparel with code for people who hold their form from within. The Kharkiv streetwear / military-adjacent brand TwoComms.",
+    },
+    "TwoComms — одяг з характером, кодом і харківським походженням": {
+        "ru": "TwoComms — одежда с характером, кодом и харьковским происхождением",
+        "en": "TwoComms — apparel with character, code and Kharkiv origin",
+    },
+    "TwoComms — український streetwear / military-adjacent бренд одягу з Харкова, створений навколо ідеї продовження після критичної точки: не крапка, а продовження.": {
+        "ru": "TwoComms — украинский streetwear / military-adjacent бренд одежды из Харькова, созданный вокруг идеи продолжения после критической точки: не точка, а продолжение.",
+        "en": "TwoComms — Ukrainian streetwear / military-adjacent apparel brand from Kharkiv built around the idea of continuation after a critical point: not a full stop, a continuation.",
+    },
+    "Харківський бренд одягу": {
+        "ru": "Харьковский бренд одежды",
+        "en": "Kharkiv apparel brand",
+    },
+    "не крапка.": {"ru": "не точка.", "en": "not a full stop."},
+    "Харківський бренд streetwear / military-adjacent одягу про характер, внутрішню дисципліну і рух далі після критичної точки.": {
+        "ru": "Харьковский бренд streetwear / military-adjacent одежды о характере, внутренней дисциплине и движении после критической точки.",
+        "en": "Kharkiv streetwear / military-adjacent apparel brand about character, inner discipline and continuing forward after a critical point.",
+    },
+    "Ми створюємо речі з кодом: сенсові принти, щільна база, чиста посадка, харківський характер і філософія продовження. TwoComms — це не військовий мерч і не патріотичний шум. Це одяг для людей, які тримають форму зсередини.": {
+        "ru": "Мы создаём вещи с кодом: смысловые принты, плотная база, чистая посадка, харьковский характер и философия продолжения. TwoComms — это не военный мерч и не патриотический шум. Это одежда для людей, которые держат форму изнутри.",
+        "en": "We make items with code: meaningful prints, dense base, clean fit, Kharkiv character and the philosophy of continuation. TwoComms is not military merch nor patriotic noise. It is apparel for people who hold their form from within.",
+    },
+    "Ключові характеристики бренду": {
+        "ru": "Ключевые характеристики бренда",
+        "en": "Key brand traits",
+    },
+}
+TRANSLATIONS.update(TRANSLATIONS_PHASE_17Z)
+
+
+# ============================================================
+# Phase 17z2 — extended public-facing copy: long body of
+# pro_brand / wholesale / cooperation / custom_print + plurals
+# and counter strings.
+# ============================================================
+TRANSLATIONS_PHASE_17Z2: dict[str, dict[str, str]] = {
+    # ----- Plurals / counters -----
+    "%(counter)s відгук": {"ru": "%(counter)s отзывов", "en": "%(counter)s reviews"},
+    "%(counter)s бал": {"ru": "%(counter)s баллов", "en": "%(counter)s points"},
+    "%(counter)s товар": {"ru": "%(counter)s товаров", "en": "%(counter)s items"},
+    "%(counter)s товар знайдено": {
+        "ru": "Найдено %(counter)s товаров",
+        "en": "%(counter)s items found",
+    },
+    "%(counter)s зірка": {"ru": "%(counter)s звёзд", "en": "%(counter)s stars"},
+    "Рейтинг товару, %(counter)s відгук": {
+        "ru": "Рейтинг товара, %(counter)s отзывов",
+        "en": "Product rating, %(counter)s reviews",
+    },
+    "на основі %(counter)s відгуку": {
+        "ru": "на основе %(counter)s отзывов",
+        "en": "based on %(counter)s reviews",
+    },
+    "за запитом «%(q)s»": {"ru": "по запросу «%(q)s»", "en": "for query \"%(q)s\""},
+
+    # ----- pro_brand body / manifesto -----
+    "База": {"ru": "База", "en": "Base"},
+    "Щільна тканина, яка тримає силует і дає речі фізичну вагу.": {
+        "ru": "Плотная ткань, которая держит силуэт и даёт вещи физический вес.",
+        "en": "Dense fabric that holds the silhouette and gives the item physical weight.",
+    },
+    "Перед відправкою ми перевіряємо вигляд, друк, базу і загальне відчуття речі.": {
+        "ru": "Перед отправкой мы проверяем вид, печать, базу и общее ощущение вещи.",
+        "en": "Before shipping we check the look, the print, the base and the overall feel.",
+    },
+    "Нормальний зв'язок": {"ru": "Нормальная связь", "en": "Normal connection"},
+    "Позиція": {"ru": "Позиция", "en": "Position"},
+    "Зв’язок із фронтом": {"ru": "Связь с фронтом", "en": "Frontline connection"},
+    "TwoComms має реальний зв’язок із військовим контекстом, але не продає війну як естетику. Для нас фронт — не декорація і не рекламний важіль. Це джерело відповідальності, пам’яті, стандарту і поваги до людей, які знають ціну речам.": {
+        "ru": "TwoComms имеет реальную связь с военным контекстом, но не продаёт войну как эстетику. Для нас фронт — не декорация и не рекламный рычаг. Это источник ответственности, памяти, стандарта и уважения к людям, которые знают цену вещам.",
+        "en": "TwoComms has a real connection with the military context, but it does not sell war as aesthetics. For us the front is not decor or a marketing lever. It is a source of responsibility, memory, standard and respect for people who know the value of things.",
+    },
+    "Цей зв’язок проявляється в походженні бренду, окремих принтах, колабораціях, підтримці ЗСУ і ставленні до якості. Ми не використовуємо військовий досвід як позу. Ми переводимо його в дисципліну, сенс і речі, які не мають бути випадковими.": {
+        "ru": "Эта связь проявляется в происхождении бренда, отдельных принтах, коллаборациях, поддержке ВСУ и отношении к качеству. Мы не используем военный опыт как позу. Мы переводим его в дисциплину, смысл и вещи, которые не должны быть случайными.",
+        "en": "This connection shows in the brand's origin, particular prints, collaborations, support of the Armed Forces of Ukraine, and our attitude to quality. We do not use military experience as a pose. We translate it into discipline, meaning, and items that must not be random.",
+    },
+    "Аудиторія": {"ru": "Аудитория", "en": "Audience"},
+    "TwoComms не намагається подобатися всім. Це бренд для людей, яким близькі характер, український контекст, внутрішня дисципліна і речі з причиною існування.": {
+        "ru": "TwoComms не пытается нравиться всем. Это бренд для людей, которым близки характер, украинский контекст, внутренняя дисциплина и вещи с причиной существования.",
+        "en": "TwoComms does not try to please everyone. It is a brand for people who relate to character, Ukrainian context, inner discipline and items that exist for a reason.",
+    },
+    "Його можуть носити військові, ветерани, волонтери, цивільні, харків’яни і ті, хто підтримує Україну з різних міст і країн. Головне не статус. Головне — здатність зчитати сенс і носити його без зайвого шуму.": {
+        "ru": "Его могут носить военные, ветераны, волонтёры, гражданские, харьковчане и те, кто поддерживает Украину из разных городов и стран. Главное не статус. Главное — способность считать смысл и носить его без лишнего шума.",
+        "en": "It can be worn by service members, veterans, volunteers, civilians, Kharkivites and those who support Ukraine from different cities and countries. Status is not the point. The point is the ability to read the meaning and carry it without unnecessary noise.",
+    },
+    "Основа незмінна: сенс, форма, якість і продовження. Система розширюватиметься: від футболок і худі до складніших силуетів, аксесуарів та речей із тихим, архітектурним характером.": {
+        "ru": "Основа неизменна: смысл, форма, качество и продолжение. Система будет расширяться: от футболок и худи к более сложным силуэтам, аксессуарам и вещам с тихим, архитектурным характером.",
+        "en": "The core stays the same: meaning, form, quality and continuation. The system will keep expanding: from t-shirts and hoodies to more complex silhouettes, accessories and items with a quiet, architectural character.",
+    },
+    "Розширюємо бренд як систему: не шумом, а послідовними кроками, які тримають характер, знак і внутрішню дисципліну.": {
+        "ru": "Расширяем бренд как систему: не шумом, а последовательными шагами, которые держат характер, знак и внутреннюю дисциплину.",
+        "en": "We grow the brand as a system: not through noise but through consistent steps that hold the character, the mark and inner discipline.",
+    },
+    "Від базових форм до тихіших складніших силуетів, аксесуарів і цілісної системи.": {
+        "ru": "От базовых форм к более тихим сложным силуэтам, аксессуарам и целостной системе.",
+        "en": "From basic forms to quieter, more complex silhouettes, accessories and a holistic system.",
+    },
+    "Видимі відповіді для людей і для пошуку: що означає назва, як TwoComms пов’язаний із Харковом, і чому це не зводиться лише до військового мерчу.": {
+        "ru": "Видимые ответы для людей и для поиска: что означает название, как TwoComms связан с Харьковом и почему это не сводится только к военному мерчу.",
+        "en": "Visible answers for people and search engines: what the name means, how TwoComms is connected with Kharkiv, and why it isn't just military merch.",
+    },
+    "Кожна річ TwoComms починається з ідеї, але має закінчуватися на людині. Знайди код, який відгукується, і носи стан, який хочеш тримати.": {
+        "ru": "Каждая вещь TwoComms начинается с идеи, но должна заканчиваться на человеке. Найди код, который откликается, и носи состояние, которое хочешь держать.",
+        "en": "Every TwoComms item starts with an idea but must end on a person. Find a code that resonates and carry the state you want to hold.",
+    },
+
+    # ----- product detail extra -----
+    "Матеріал: 95%% бавовна, 5%% еластан — преміум якість, щільність 190 г/м²": {
+        "ru": "Материал: 95%% хлопок, 5%% эластан — премиум-качество, плотность 190 г/м²",
+        "en": "Material: 95%% cotton, 5%% elastane — premium quality, 190 g/m² density",
+    },
+
+    # ----- wholesale long copy -----
+    "Оптовий одяг TwoComms: футболки та худі з фірмовим дизайном, старт від 8 одиниць, персональні прайси, швидке відвантаження та підтримка менеджера. Дропшипінг і класичний опт для магазинів та мереж.": {
+        "ru": "Оптовая одежда TwoComms: футболки и худи с фирменным дизайном, старт от 8 единиц, персональные прайсы, быстрая отгрузка и поддержка менеджера. Дропшиппинг и классический опт для магазинов и сетей.",
+        "en": "TwoComms wholesale apparel: t-shirts and hoodies with branded design, start from 8 units, personal price lists, fast shipping and manager support. Dropshipping and classic wholesale for stores and chains.",
+    },
+    "оптові закупівлі одягу, футболки оптом, худі оптом, оптовий одяг TwoComms, дропшипінг одягу, оптовий прайс, український бренд одягу, партнерська програма TwoComms": {
+        "ru": "оптовые закупки одежды, футболки оптом, худи оптом, оптовая одежда TwoComms, дропшиппинг одежды, оптовый прайс, украинский бренд одежды, партнёрская программа TwoComms",
+        "en": "wholesale apparel, t-shirts wholesale, hoodies wholesale, TwoComms wholesale apparel, apparel dropshipping, wholesale price list, Ukrainian apparel brand, TwoComms partnership program",
+    },
+    "Отримайте вигідні умови для магазинів та дропшиперів: старт від 8 одиниць, фіксовані ціни за договором, швидке відвантаження та підтримка менеджера бренду TwoComms.": {
+        "ru": "Получите выгодные условия для магазинов и дропшиперов: старт от 8 единиц, фиксированные цены по договору, быстрая отгрузка и поддержка менеджера бренда TwoComms.",
+        "en": "Get favorable terms for stores and dropshippers: start from 8 units, fixed contract prices, fast shipping and TwoComms brand manager support.",
+    },
+    "Підключайтесь до партнерської програми TwoComms: опт і дропшипінг українського стріт одягу з гнучкими умовами та підтримкою.": {
+        "ru": "Подключайтесь к партнёрской программе TwoComms: опт и дропшиппинг украинского стрит-одежды с гибкими условиями и поддержкой.",
+        "en": "Join the TwoComms partnership program: wholesale and dropshipping of Ukrainian streetwear with flexible terms and support.",
+    },
+    "Оптові закупівлі та дропшипінг стріт-одягу TwoComms: футболки, худі, аксесуари. Старт від 8 одиниць, персональні прайси, швидке відвантаження та підтримка менеджера.": {
+        "ru": "Оптовые закупки и дропшиппинг стрит-одежды TwoComms: футболки, худи, аксессуары. Старт от 8 единиц, персональные прайсы, быстрая отгрузка и поддержка менеджера.",
+        "en": "Wholesale and dropshipping of TwoComms streetwear: t-shirts, hoodies, accessories. Start from 8 units, personal price lists, fast shipping and manager support.",
+    },
+    "Вигідні ціни для дропшипінгу та оптових закупівель.<br>": {
+        "ru": "Выгодные цены для дропшиппинга и оптовых закупок.<br>",
+        "en": "Favorable prices for dropshipping and wholesale.<br>",
+    },
+    "Фіксовані ціни незалежно від кількості замовлення. Ідеально для дропшипінгу та роздрібної торгівлі.": {
+        "ru": "Фиксированные цены независимо от количества в заказе. Идеально для дропшиппинга и розничной торговли.",
+        "en": "Fixed prices regardless of order quantity. Ideal for dropshipping and retail.",
+    },
+    "Вигідні ціни залежно від обсягу замовлення. Чим більше замовляєте, тим менше платите за одиницю.": {
+        "ru": "Выгодные цены в зависимости от объёма заказа. Чем больше заказываете, тем меньше платите за единицу.",
+        "en": "Favorable prices based on order volume. The more you order, the less you pay per unit.",
+    },
+    "Дроп:": {"ru": "Дроп:", "en": "Drop:"},
+    "Дроп ціна:": {"ru": "Дроп-цена:", "en": "Drop price:"},
+    "90%% Бавовна, 10%% Поліестер<br>": {
+        "ru": "90%% хлопок, 10%% полиэстер<br>",
+        "en": "90%% cotton, 10%% polyester<br>",
+    },
+    "95%% Бавовна, 5%% Еластан<br>": {
+        "ru": "95%% хлопок, 5%% эластан<br>",
+        "en": "95%% cotton, 5%% elastane<br>",
+    },
+    "Оптовий SEO layer": {"ru": "Оптовый SEO-блок", "en": "Wholesale SEO layer"},
+    "Тут зібрані ключові відповіді для магазинів, шоурумів, дропшиперів і команд, які планують запускати продажі або закупівлі через TwoComms на основному домені.": {
+        "ru": "Здесь собраны ключевые ответы для магазинов, шоурумов, дропшиперов и команд, которые планируют запускать продажи или закупки через TwoComms на основном домене.",
+        "en": "Here are key answers for stores, showrooms, dropshippers and teams planning to launch sales or purchases through TwoComms on the main domain.",
+    },
+    "Якщо вам потрібно не просто скачати прайс, а швидко узгодити умови, зразки або паралельний кастомний сценарій, переходьте в суміжні money pages без зайвого пошуку по сайту.": {
+        "ru": "Если вам нужно не просто скачать прайс, а быстро согласовать условия, образцы или параллельный кастомный сценарий, переходите на смежные money-страницы без лишнего поиска по сайту.",
+        "en": "If you need more than the price list — quick alignment on terms, samples or a parallel custom scenario — jump straight into the adjacent money pages without searching the site.",
+    },
+    "Перевірте логістику, умови відправки, дедлайни та базові правила оформлення.": {
+        "ru": "Проверьте логистику, условия отправки, дедлайны и базовые правила оформления.",
+        "en": "Check logistics, shipping terms, deadlines and basic order rules.",
+    },
+    "Швидкий перехід у канал, де можна узгодити асортимент, документи й запуск продажів.": {
+        "ru": "Быстрый переход в канал, где можно согласовать ассортимент, документы и запуск продаж.",
+        "en": "Quickly jump into the channel where you can align assortment, documents and launching sales.",
+    },
+
+    # ----- cooperation long copy -----
+    "TwoComms відкриває партнерські маршрути для магазинів, брендів, дизайнерів, блогерів та медіа.": {
+        "ru": "TwoComms открывает партнёрские маршруты для магазинов, брендов, дизайнеров, блогеров и медиа.",
+        "en": "TwoComms opens partnership routes for stores, brands, designers, bloggers and media.",
+    },
+    "Сторінка для партнерств, дропшипінгу, оптових закупівель, бренд-колаборацій і співпраці з дизайнерами або медіа.": {
+        "ru": "Страница для партнёрств, дропшиппинга, оптовых закупок, бренд-коллабораций и сотрудничества с дизайнерами или медиа.",
+        "en": "Page for partnerships, dropshipping, wholesale, brand collaborations and cooperation with designers or media.",
+    },
+    "Приєднуйтесь до нашої мережі партнерів та розвивайте свій бізнес разом з нами": {
+        "ru": "Присоединяйтесь к нашей сети партнёров и развивайте свой бизнес вместе с нами",
+        "en": "Join our partner network and grow your business with us",
+    },
+    "Продавайте наші товари без вкладень у склад. Ми відправляємо замовлення вашим клієнтам.": {
+        "ru": "Продавайте наши товары без вложений в склад. Мы отправляем заказы вашим клиентам.",
+        "en": "Sell our products without stock investment. We ship orders to your customers.",
+    },
+    "Комісія:": {"ru": "Комиссия:", "en": "Commission:"},
+    "Працюємо напряму з магазинами та мережами: гнучкі прайси, швидке відвантаження зі складу та зручні онлайн-інструменти для оформлення накладних.": {
+        "ru": "Работаем напрямую с магазинами и сетями: гибкие прайсы, быстрая отгрузка со склада и удобные онлайн-инструменты для оформления накладных.",
+        "en": "We work directly with stores and chains: flexible prices, fast warehouse shipping and convenient online tools for invoice processing.",
+    },
+    "Створюйте ексклюзивні колекції разом з нами. Для великих брендів та дизайнерів.": {
+        "ru": "Создавайте эксклюзивные коллекции вместе с нами. Для больших брендов и дизайнеров.",
+        "en": "Build exclusive collections with us. For large brands and designers.",
+    },
+    "Ваші ідеї можуть стати реальністю! Створюйте принти та отримуйте винагороду за кожен успішний продаж.": {
+        "ru": "Ваши идеи могут стать реальностью! Создавайте принты и получайте вознаграждение за каждую успешную продажу.",
+        "en": "Your ideas can become real! Create prints and earn a reward for every successful sale.",
+    },
+    "Демонструйте наші товари та отримуйте винагороду за кожну фотосесію. Станьте частиною нашої команди!": {
+        "ru": "Демонстрируйте наши товары и получайте вознаграждение за каждую фотосессию. Станьте частью нашей команды!",
+        "en": "Showcase our items and earn a reward for every photo shoot. Become part of our team!",
+    },
+    "Співпрацюйте з нами для створення якісного контенту та розвивайте свій бренд разом з TwoComms.": {
+        "ru": "Сотрудничайте с нами для создания качественного контента и развивайте свой бренд вместе с TwoComms.",
+        "en": "Collaborate with us to create quality content and grow your brand together with TwoComms.",
+    },
+    "Якщо ви вибираєте між дропшипінгом, оптовим запуском, бренд-проєктом або контентною колаборацією, почніть з цих відповідей і переходьте в потрібний сценарій без зайвого шуму.": {
+        "ru": "Если вы выбираете между дропшиппингом, оптовым запуском, бренд-проектом или контентной коллаборацией, начните с этих ответов и переходите в нужный сценарий без лишнего шума.",
+        "en": "If you're choosing between dropshipping, wholesale launch, brand project or content collaboration, start with these answers and move into the right scenario without noise.",
+    },
+    "Ці сторінки закривають найчастіші next step сценарії: оптові закупівлі, кастомний друк для партій, а також прямий контакт з командою для нестандартних колаборацій.": {
+        "ru": "Эти страницы закрывают самые частые next-step сценарии: оптовые закупки, кастомная печать для партий и прямой контакт с командой для нестандартных коллабораций.",
+        "en": "These pages cover the most common next-step scenarios: wholesale, custom print for batches, and direct contact with the team for non-standard collaborations.",
+    },
+    "Для магазинів, шоурумів, мереж і дропшиперів, яким потрібні обсяги та комерційні умови.": {
+        "ru": "Для магазинов, шоурумов, сетей и дропшиперов, которым нужны объёмы и коммерческие условия.",
+        "en": "For stores, showrooms, chains and dropshippers who need volume and commercial terms.",
+    },
+    "Для мерчу, команд, подій і партій зі своїм дизайном або приватним лейблом.": {
+        "ru": "Для мерча, команд, событий и партий со своим дизайном или частным лейблом.",
+        "en": "For merch, teams, events and batches with custom design or a private label.",
+    },
+    "Переходьте до контактів, якщо потрібен нестандартний формат співпраці або швидкий запуск.": {
+        "ru": "Переходите в контакты, если нужен нестандартный формат сотрудничества или быстрый запуск.",
+        "en": "Go to contacts if you need a non-standard cooperation format or a fast launch.",
+    },
+
+    # ----- custom_print copy -----
+    "Кастомний DTF-конфігуратор для худі, футболок, лонгслівів і свого одягу. Зберіть виріб, зони друку, файл або ідею і передайте весь контекст менеджеру або одразу в кошик.": {
+        "ru": "Кастомный DTF-конфигуратор для худи, футболок, лонгсливов и своей одежды. Соберите изделие, зоны печати, файл или идею и передайте весь контекст менеджеру или сразу в корзину.",
+        "en": "Custom DTF configurator for hoodies, t-shirts, longsleeves and your own apparel. Assemble the item, print zones, file or idea and pass the full context to the manager or drop it straight into the cart.",
+    },
+    "dtf друк, кастомний принт, друк на худі, друк на футболках, кастомний одяг, twocomms, dtf конфігуратор": {
+        "ru": "dtf печать, кастомный принт, печать на худи, печать на футболках, кастомная одежда, twocomms, dtf конфигуратор",
+        "en": "dtf print, custom print, print on hoodies, print on t-shirts, custom apparel, twocomms, dtf configurator",
+    },
+    "Збери річ під свій дизайн: обери основу, тканину, зони друку й макет. Конструктор покаже вигляд і вартість.": {
+        "ru": "Соберите вещь под свой дизайн: выберите основу, ткань, зоны печати и макет. Конструктор покажет вид и стоимость.",
+        "en": "Build an item around your design: pick the base, fabric, print zones and layout. The configurator shows the look and the price.",
+    },
+    "Кастомний DTF-друк на худі, футболках, лонгслівах. Збери виріб під свій дизайн за лічені хвилини.": {
+        "ru": "Кастомная DTF-печать на худи, футболках, лонгсливах. Соберите изделие под свой дизайн за считанные минуты.",
+        "en": "Custom DTF print on hoodies, t-shirts, longsleeves. Build an item around your design in minutes.",
+    },
+    "Кастомний DTF-конфігуратор для худі, футболок, лонгслівів. Обери основу, тканину, зони друку й макет.": {
+        "ru": "Кастомный DTF-конфигуратор для худи, футболок, лонгсливов. Выберите основу, ткань, зоны печати и макет.",
+        "en": "Custom DTF configurator for hoodies, t-shirts, longsleeves. Pick the base, fabric, print zones and layout.",
+    },
+    "Кастомний одяг та аксесуари під ваші ідеї. Будь-який дизайн, будь-який колір, преміальна якість без компромісів.": {
+        "ru": "Кастомная одежда и аксессуары под ваши идеи. Любой дизайн, любой цвет, премиальное качество без компромиссов.",
+        "en": "Custom apparel and accessories tailored to your ideas. Any design, any color, premium quality with no compromise.",
+    },
+    "Три чорні речі на подіумі з логотипами TwoComms: худі, футболка та лонгслів.": {
+        "ru": "Три чёрные вещи на подиуме с логотипами TwoComms: худи, футболка и лонгслив.",
+        "en": "Three black items on a podium with TwoComms logos: hoodie, t-shirt and longsleeve.",
+    },
+    "Преміальні тканини та унікальна термотканина, що змінює відтінок від температури.": {
+        "ru": "Премиальные ткани и уникальная термоткань, меняющая оттенок от температуры.",
+        "en": "Premium fabrics and a unique thermal fabric that shifts shade with temperature.",
+    },
+    "Змінити": {"ru": "Изменить", "en": "Change"},
+    "Один виріб для себе чи партія для команди/бренду — від цього залежить ціна, розміри й наступні кроки.": {
+        "ru": "Одна вещь для себя или партия для команды/бренда — от этого зависят цена, размеры и следующие шаги.",
+        "en": "A single item for yourself or a batch for a team/brand — that defines the price, the sizes and the next steps.",
+    },
+    "Обери посадку, тканину, колір і деталі. Доплати видно одразу — без сюрпризів у фіналі.": {
+        "ru": "Выберите посадку, ткань, цвет и детали. Доплаты видны сразу — без сюрпризов в финале.",
+        "en": "Pick the fit, fabric, color and details. Surcharges are visible immediately — no surprises at checkout.",
+    },
+    "Обери одну або кілька зон. Перший друк входить у базову ціну, додаткові зони додаються окремо.": {
+        "ru": "Выберите одну или несколько зон. Первая печать входит в базовую цену, дополнительные зоны добавляются отдельно.",
+        "en": "Pick one or several zones. The first print is included in the base price; additional zones are added separately.",
+    },
+    "Перший друк входить у базову ціну. Додаткові зони можна вмикати і вимикати прямо на сцені.": {
+        "ru": "Первая печать входит в базовую цену. Дополнительные зоны можно включать и выключать прямо на сцене.",
+        "en": "The first print is included in the base price. Extra zones can be toggled on and off directly on the stage.",
+    },
+    "Нестандартна зона": {"ru": "Нестандартная зона", "en": "Custom zone"},
+    "Завантаж макет або коротко опиши, що хочеш отримати. Ми підкажемо, якщо файл треба підготувати до друку.": {
+        "ru": "Загрузите макет или кратко опишите, что хотите получить. Мы подскажем, если файл нужно подготовить к печати.",
+        "en": "Upload artwork or briefly describe what you want. We'll let you know if the file needs prep before printing.",
+    },
+    "Спочатку оберіть зони друку — для кожної зʼявиться окреме поле завантаження.": {
+        "ru": "Сначала выберите зоны печати — для каждой появится отдельное поле загрузки.",
+        "en": "First pick the print zones — each will get its own upload field.",
+    },
+    "Опишіть ідею, стиль або референси. Якщо потрібен дизайн — це обовʼязково.": {
+        "ru": "Опишите идею, стиль или референсы. Если нужен дизайн — это обязательно.",
+        "en": "Describe the idea, style or references. If a design is required, this field is mandatory.",
+    },
+    "Вкажи кількість і розміри. Якщо ще не знаєш точні розміри — можна уточнити з менеджером.": {
+        "ru": "Укажите количество и размеры. Если ещё не знаете точные размеры — можно уточнить с менеджером.",
+        "en": "Specify quantity and sizes. If you don't know the exact sizes yet, you can clarify them with the manager.",
+    },
+    "Введіть текст для листівки. Або залиште пустим — ми покладемо чисту листівку для вашого почерку.": {
+        "ru": "Введите текст для открытки. Или оставьте пустым — мы вложим чистую открытку для вашего почерка.",
+        "en": "Enter text for the card. Or leave it empty — we'll include a blank card for your handwriting.",
+    },
+    "Додай контакт, щоб ми могли підтвердити деталі. Можеш додати конфігурацію в кошик або одразу передати менеджеру.": {
+        "ru": "Добавьте контакт, чтобы мы могли подтвердить детали. Можно добавить конфигурацию в корзину или сразу передать менеджеру.",
+        "en": "Add a contact so we can confirm the details. You can drop the configuration into the cart or pass it directly to the manager.",
+    },
+    "Ваше імʼя": {"ru": "Ваше имя", "en": "Your name"},
+    "Telegram / WhatsApp / телефон.": {
+        "ru": "Telegram / WhatsApp / телефон.",
+        "en": "Telegram / WhatsApp / phone.",
+    },
+    "Цей блок закриває часті заперечення до заявки: чи можна зробити один виріб, що робити без готового файлу, як працювати зі своїм одягом і як запускати партію для бренду чи команди.": {
+        "ru": "Этот блок закрывает частые возражения к заявке: можно ли сделать одну вещь, что делать без готового файла, как работать со своей одеждой и как запускать партию для бренда или команды.",
+        "en": "This block addresses common objections before submitting a request: can we make a single item, what to do without a ready file, how to work with your own apparel and how to launch a batch for a brand or team.",
+    },
+    "Важливо: готові товари належної якості можна повернути або обміняти протягом 14 днів згідно із законодавством України, але кастомний одяг, виготовлений за індивідуальним замовленням, не підлягає поверненню чи обміну, якщо його виконано належним чином.": {
+        "ru": "Важно: готовые товары надлежащего качества можно вернуть или обменять в течение 14 дней согласно законодательству Украины, но кастомная одежда, изготовленная по индивидуальному заказу, не подлежит возврату или обмену, если она выполнена надлежащим образом.",
+        "en": "Important: ready-made items of proper quality can be returned or exchanged within 14 days under Ukrainian law, but custom apparel made to individual order is not subject to return or exchange when produced properly.",
+    },
+    "Це допоміжний внутрішній хаб навколо кастомного друку: опт, контакти та умови оформлення, які часто потрібні до підтвердження макета або тиражу.": {
+        "ru": "Это вспомогательный внутренний хаб вокруг кастомной печати: опт, контакты и условия оформления, которые часто нужны до утверждения макета или тиража.",
+        "en": "This is an internal hub around custom print: wholesale, contacts and ordering terms that are often required before approving artwork or a run.",
+    },
+    "Окрема сторінка для брендів, команд, магазинів і тих, кому потрібні партії або партнерський формат.": {
+        "ru": "Отдельная страница для брендов, команд, магазинов и тех, кому нужны партии или партнёрский формат.",
+        "en": "A dedicated page for brands, teams, stores and those who need batches or a partnership format.",
+    },
+    "Зв'язок": {"ru": "Связь", "en": "Contact"},
+
+    # pro_brand long copy
+    "Сильний сенс не працює на слабкій базі. Тому TwoComms починається не з принта, а з речі: тканини, посадки, друку, швів і контролю.": {
+        "ru": "Сильный смысл не работает на слабой базе. Поэтому TwoComms начинается не с принта, а с вещи: ткани, посадки, печати, швов и контроля.",
+        "en": "Strong meaning doesn't work on a weak base. That's why TwoComms starts not from a print but from the item itself: fabric, fit, print, seams and control.",
+    },
+    "Ми не робимо принт на випадковій основі. Якщо річ говорить про характер, вона сама має мати характер: щільність, чисту форму, витриманий друк і відчуття предмета, який не купили випадково.": {
+        "ru": "Мы не делаем принт на случайной основе. Если вещь говорит о характере, она сама должна иметь характер: плотность, чистую форму, выдержанную печать и ощущение предмета, который не купили случайно.",
+        "en": "We don't put prints on a random base. If an item speaks of character, it must have character itself: density, clean form, restrained print and the feel of an object you didn't buy by chance.",
+    },
+}
+TRANSLATIONS.update(TRANSLATIONS_PHASE_17Z2)
+
+
 # Phase 17i fix: original `[^"]*` failed on multi-line msgid blocks
 # whose continuation strings contain escaped quotes (e.g. ``href=\"…\"`` in
 # the catalogue SEO paragraphs). The dotted alternative
