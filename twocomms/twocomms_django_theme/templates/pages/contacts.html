@@ -1,12 +1,17 @@
 {% extends 'base.html' %}
 {% load static i18n %}
 
-{% block title %}{% trans 'Контакти' %} — TwoComms{% endblock %}
+{# SEO Audit 2026-05-15 (Part 4) — contacts title was 20 chars, the
+   shortest meta_title across the storefront. Extended with the channel
+   inventory (телефон, Telegram, Instagram) and a geo qualifier so the
+   page can rank on "TwoComms контакти Харків" / "TwoComms телефон"
+   long-tail queries. #}
+{% block title %}{% trans 'Контакти TwoComms — телефон, Telegram, Instagram | Харків' %}{% endblock %}
 {% block description %}{% trans "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Офіційні магазини та форма зворотного зв'язку." %}{% endblock %}
 {% block keywords %}{% trans 'контакти TwoComms, телефон, telegram, instagram, зворотній зв’язок, магазини TwoComms' %}{% endblock %}
-{% block og_title %}{% trans 'Контакти' %} — TwoComms{% endblock %}
+{% block og_title %}{% trans 'Контакти TwoComms — телефон, Telegram, Instagram | Харків' %}{% endblock %}
 {% block og_description %}{% trans "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання." %}{% endblock %}
-{% block twitter_title %}{% trans 'Контакти' %} — TwoComms{% endblock %}
+{% block twitter_title %}{% trans 'Контакти TwoComms — телефон, Telegram, Instagram | Харків' %}{% endblock %}
 {% block twitter_description %}{% trans "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання." %}{% endblock %}
 
 {% block structured_data %}

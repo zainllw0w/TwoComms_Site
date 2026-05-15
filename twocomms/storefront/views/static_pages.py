@@ -100,6 +100,18 @@ ROBOTS_INTERNAL_DISALLOW_PATHS = (
 
 # Query-string noise to de-duplicate canonicals. These are common UTM,
 # ad-click and sort parameters that produce infinite URL variants.
+#
+# IMPORTANT: variant facets (``?color=`` / ``?fit=`` / ``?size=``)
+# are *not* listed here on purpose. Those URLs already emit
+# ``<meta name="robots" content="noindex, follow">`` and a
+# ``<link rel="canonical">`` pointing at the base PDP — that is the
+# Google-recommended pattern for facet pages. If we additionally
+# blocked them in robots.txt, Googlebot would never load the page,
+# never see the canonical/noindex hints, and would still index the
+# URL on the strength of inbound links — but with the wrong signal,
+# yielding the dreaded "Indexed, though blocked by robots.txt"
+# warning in Search Console plus broken internal PageRank flow
+# from color-filter chips.
 ROBOTS_QUERY_NOISE_PATTERNS = (
     "/*?utm_*",
     "/*&utm_*",

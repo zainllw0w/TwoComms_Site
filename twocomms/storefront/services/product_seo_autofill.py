@@ -129,8 +129,36 @@ def _build_short_description(product) -> str:
 
 
 def _build_care_instructions(product) -> str:
-    """Standard care text (≤500 chars)."""
+    """Standard care text (≤500 chars).
+
+    SEO Audit 2026-05-15 (Part 6) — Phase 13 emitted the same care
+    paragraph for every category which produced near-duplicate content
+    across futbolki/худі/лонгсліви and (more importantly) leaked an
+    incorrect fabric spec ("190 г/м²") onto hoodies that are actually
+    320 г/м² трьохнитка. Branch on category so each PDP gets a
+    physically accurate paragraph.
+    """
     nom, _, _ = _labels(getattr(product.category, "slug", None))
+    slug = (getattr(product.category, "slug", None) or "").lower()
+    if slug == "hoodie":
+        return (
+            "Прання при 30 °C у режимі для трикотажу, бажано вивернути "
+            "наввиворіт перед завантаженням. Без агресивних відбілювачів. "
+            "Сушити горизонтально на рушнику — у сушильну машину не "
+            "відправляємо, інакше трьохнитка сяде. Прасування з вивороту "
+            "на середній температурі або відпарювачем. Капюшон зберігайте "
+            "розправленим, щоб петлі-куліски не деформувалися."
+        )
+    if slug == "long-sleeve":
+        return (
+            "Прання при 30 °C у режимі для бавовни. Вивернути виріб перед "
+            "пранням, щоб подовжити життя принту. Сушити природним способом "
+            "у горизонтальному положенні, уникаючи прямого сонця. "
+            "Прасувати з вивороту або через марлю — на принт не наводимо "
+            "розпечену праску. Лонгслів може мінімально сісти при першому "
+            "пранні (до 2%) — це природна властивість бавовни."
+        )
+    # tshirts + fallback
     return (
         f"Прання при 30 °C у режимі для бавовни, без агресивних "
         f"відбілювачів. Сушити природним способом, без сушильної "
@@ -142,13 +170,39 @@ def _build_care_instructions(product) -> str:
 
 
 def _build_target_audience(product) -> str:
-    """Standard target audience text."""
+    """Per-category target audience text.
+
+    SEO Audit 2026-05-15 (Part 6) — historical implementation hard-coded
+    one paragraph for all 65 products which Google treats as
+    near-duplicate descriptive content. Provide 3 category-specific
+    variants so each PDP describes a slightly different buyer persona.
+    """
+    slug = (getattr(product.category, "slug", None) or "").lower()
+    if slug == "hoodie":
+        return (
+            "Тим, хто шукає тепле худі з характером — без зайвого пафосу, "
+            "з авторськими принтами, які легко комбінуються з джинсами, "
+            "карго або базовим темним низом. Пасує для прохолодного "
+            "сезону в місті, для активного відпочинку, для шарів під "
+            "куртку. Підходить як подарунок патріотичним рідним, друзям "
+            "або колегам, що цінують український streetwear із сенсом."
+        )
+    if slug == "long-sleeve":
+        return (
+            "Тим, хто будує гардероб на лонгслівах: під сорочку, під "
+            "толстовку, або як самостійний шар у міжсезоння. Підходить "
+            "тим, хто цінує лаконічний streetwear із натяком на "
+            "мілітарну графіку, без агресивної подачі. Хороший вибір як "
+            "подарунок для тих, хто живе в Україні, підтримує ЗСУ й "
+            "шукає одяг з характером, що працює і на роботу, і на пробіжку."
+        )
+    # tshirts + fallback
     return (
         "Тим, хто живе в Україні й цінує мілітарну streetwear-естетику. "
-        "Тим, хто підтримує ЗСУ та шукає одяг з характером — без зайвого "
-        "пафосу, з авторськими принтами та якісним пошиттям. Підходить "
-        "для щоденного носіння у місті, активного відпочинку та як "
-        "подарунок патріотичним рідним і друзям."
+        "Тим, хто підтримує ЗСУ та шукає футболку з характером — без "
+        "зайвого пафосу, з авторськими принтами та якісним пошиттям. "
+        "Підходить для щоденного носіння у місті, активного відпочинку, "
+        "пробіжок та як подарунок патріотичним рідним і друзям."
     )
 
 
@@ -184,11 +238,18 @@ def _build_full_description(product) -> str:
 
 
 # Standard FAQ template per category. Each entry: (question, answer).
-# Most answers are universal — only the {nom} variable differs.
+# Most answers are universal — only the {nom}/{title} variables differ.
+#
+# SEO Audit 2026-05-15 (Part 6) — Q1/Q2/Q3 anchor on the product title
+# so the universal answers no longer collapse into 65 identical FAQ
+# rich-result candidates. The size-, washing- and shipping-question
+# bodies remain universal because the underlying policy is universal,
+# but Google's question-clustering uses the question string for dedup,
+# so we get distinct questions per PDP.
 
 UNIVERSAL_FAQS = [
     (
-        "Як обрати розмір {nom}?",
+        "Як підібрати розмір {nom_acc} «{title}»?",
         "Орієнтуйтеся на нашу <a href=\"/rozmirna-sitka/\">розмірну "
         "сітку</a>: для класичного силуету беріть свій звичний розмір; "
         "для oversize — на 1 більший, якщо хочете виразний оверсайз, "
@@ -196,27 +257,27 @@ UNIVERSAL_FAQS = [
         "розмірами ми рекомендуємо більший.",
     ),
     (
-        "Чи можна прати {nom_acc} в машинці?",
+        "Чи можна прати {nom_acc} «{title}» в машинці?",
         "Так — у режимі для бавовни при 30 °C, без агресивних "
         "відбілювачів. Сушити рекомендуємо природним способом, без "
         "сушильної машини. DTF-принт витримує 50+ циклів прання за "
         "умов правильного догляду.",
     ),
     (
-        "Скільки триває доставка?",
-        "По Україні — 1–3 робочі дні Новою Поштою. Адресна доставка "
-        "доступна у більшості міст. Деталі — на сторінці "
-        "<a href=\"/delivery/\">доставки</a>.",
+        "Скільки триватиме доставка {nom_acc} «{title}»?",
+        "По Україні — 1–3 робочі дні Новою Поштою після відправлення. "
+        "Адресна доставка доступна у більшості міст. Деталі — на "
+        "сторінці <a href=\"/delivery/\">доставки та оплати</a>.",
     ),
     (
-        "Як повернути або обміняти товар?",
-        "Протягом 14 днів з моменту отримання — за умови збереження "
+        "Як повернути або обміняти {nom_acc} «{title}»?",
+        "Протягом 14 днів з моменту отримання — за умови збереженого "
         "товарного вигляду та етикеток. Повернення безкоштовне у "
         "разі браку. Подробиці на сторінці "
         "<a href=\"/povernennya-ta-obmin/\">повернення та обмін</a>.",
     ),
     (
-        "Чи можна замовити з власним принтом?",
+        "Чи можна замовити {nom_acc} з власним принтом?",
         "Так — у TwoComms працює сервіс "
         "<a href=\"/custom-print/\">кастомного друку</a>: надішліть "
         "макет, оберіть колір і розмір виробу, ми надрукуємо й "
@@ -228,11 +289,12 @@ UNIVERSAL_FAQS = [
 def _build_faqs(product) -> list[tuple[str, str]]:
     """Generate 5 standard FAQ Q/A pairs for a product."""
     nom, gen, acc = _labels(getattr(product.category, "slug", None))
+    title = (product.title or "").strip()
     out = []
     for q, a in UNIVERSAL_FAQS:
         out.append((
-            q.format(nom=nom, nom_gen=gen, nom_acc=acc),
-            a.format(nom=nom, nom_gen=gen, nom_acc=acc),
+            q.format(nom=nom, nom_gen=gen, nom_acc=acc, title=title),
+            a.format(nom=nom, nom_gen=gen, nom_acc=acc, title=title),
         ))
     return out
 

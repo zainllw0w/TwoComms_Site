@@ -286,7 +286,14 @@ SUPPORT_PAGE_DEFINITIONS = {
         "template": "pages/support_page.html",
         "variant": "service",
         "page_title": "Доставка та оплата — TwoComms",
-        "meta_title": "Доставка і оплата — TwoComms",
+        # SEO Audit 2026-05-15 (Part 4) — extended meta_title from 28 chars
+        # to 58 chars to use the full SERP title budget. Audit logged the
+        # old "Доставка і оплата — TwoComms" string as one of five short
+        # titles wasting CTR opportunity. New title front-loads the topic,
+        # adds the carrier ("Нова Пошта"), the average lead-time ("1-2 дні")
+        # and the geo qualifier ("Україна") — every signal Search Console
+        # treats as a refinement keyword for shipping queries.
+        "meta_title": "Доставка і оплата TwoComms — Нова Пошта, 1-2 дні по Україні",
         "meta_description": "Умови доставки та оплати TwoComms: строки по Україні, міжнародні відправлення, оплата, післяплата і відстеження замовлення.",
         "meta_keywords": "TwoComms доставка, оплата, післяплата, mono checkout, міжнародна доставка",
         "hero_kicker": "Delivery & Payment",
@@ -571,7 +578,12 @@ SUPPORT_PAGE_DEFINITIONS = {
         "template": "pages/support_page.html",
         "variant": "quiet",
         "page_title": "Догляд за одягом — TwoComms",
-        "meta_title": "Догляд за одягом TwoComms",
+        # SEO Audit 2026-05-15 (Part 4) — care_guide title was 25 chars,
+        # the shortest of the five flagged short titles. Extended with
+        # the actionable verbs Google's "How to" topic cluster expects
+        # ("як прати, зберігати"), and a process keyword ("DTF-принт")
+        # so Performance reports see real query coverage.
+        "meta_title": "Догляд за одягом TwoComms — як прати, зберігати DTF-принт",
         "meta_description": "Як доглядати за одягом TwoComms: прання, сушіння, прасування та базові поради для збереження форми і принта.",
         "meta_keywords": "догляд за одягом, прання футболок, прання худі, догляд за принтом",
         "hero_kicker": "Care",

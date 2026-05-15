@@ -2,7 +2,11 @@
 {% load static i18n %}
 {% load seo_tags %}
 
-{% block title %}{% trans 'Співпраця з TwoComms' %}{% endblock %}
+{# SEO Audit 2026-05-15 (Part 4) — title was 21 chars; extended to
+   match the og_title pattern already used on this page so the SERP
+   snippet gains the partnership-keyword cluster (дропшипінг / опт /
+   бренд-партнерства) without further tweaks. #}
+{% block title %}{% trans 'Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства' %}{% endblock %}
 {% block description %}{% trans 'Співпраця з TwoComms для магазинів, шоурумів, дропшиперів, дизайнерів, блогерів і брендів. Окремі маршрути для опта, партнерств, контенту та запуску спільних проєктів.' %}{% endblock %}
 {% block keywords %}{% trans 'співпраця TwoComms, дропшипінг одягу, опт одягу, бренд партнерство, співпраця з блогерами, співпраця з дизайнерами' %}{% endblock %}
 {% block og_title %}{% trans 'Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства' %}{% endblock %}

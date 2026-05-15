@@ -1,7 +1,8 @@
 {% extends "base.html" %}{% load static %}{% load cache %}{% load responsive_images %}{% load seo_tags %}{% load compress %}{% load i18n %}{% load inline_assets %}
 
 {# SEO v1.0 Phase 12 (2026-05-12) — finding (VV). Pagination on the home grid was rendering an identical <title> for every ?page=N which Search Console flags as duplicate-title. Suffix the title with the page number so each paginator state is unique. #}
-{% block title %}{% trans 'TwoComms — Стріт & Мілітарі Одяг | Головна' %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}{% endblock %}
+{# SEO Audit 2026-05-15 (Part 4) — homepage title cleanup. The legacy "| Головна" suffix was a navigation echo that wasted ~9 chars of SERP real estate without adding semantic value. Replace with "з Харкова" (geo-signal) to push LocalSEO and free up the truncation budget for the brand line. #}
+{% block title %}{% trans 'TwoComms — стріт & мілітарі одяг з Харкова' %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}{% endblock %}
 
 {% block description %}{% trans 'TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні.' %}{% endblock %}
 
@@ -342,7 +343,7 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
       <div class="d-flex justify-content-between align-items-center">
         <div class="categories-title-compact">
           <div class="title-with-catalog-icon">
-            <h2 class="categories-title-text">{% trans 'Категорії' %}</h2>
+            <h2 class="categories-title-text">{% trans 'Категорії одягу TwoComms' %}</h2>
             <a href="{% url 'catalog' %}" class="catalog-icon-mobile" aria-label="{% trans 'Перейти в каталог' %}">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
@@ -441,7 +442,7 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
 {% if home_color_chips %}
 <section class="home-color-filter mb-4 mb-md-5 reveal" aria-label="{% trans 'Перейти до каталогу за кольором' %}">
   <div class="home-color-filter__head">
-    <h2 class="home-color-filter__title">{% trans 'Обери за кольором' %}</h2>
+    <h2 class="home-color-filter__title">{% trans 'Обери одяг за кольором' %}</h2>
     <a class="home-color-filter__link" href="{% url 'catalog' %}">
       {% trans 'Усі кольори' %}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
@@ -468,7 +469,7 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
 
 <section class="mb-4 mb-md-5 reveal" id="new-products-section">
   <div class="d-flex justify-content-between align-items-end mb-3">
-    <h2 class="h5 mb-0">{% trans 'Новинки' %}</h2>
+    <h2 class="h5 mb-0">{% trans 'Новинки каталогу — футболки, худі, лонгсліви' %}</h2>
   </div>
   
   <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4 home-products-grid" data-stagger-grid id="products-container" data-mobile-stagger="true">

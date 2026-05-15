@@ -468,11 +468,17 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
             ),
             (
                 reverse("contacts"),
-                '<meta name="twitter:title" content="Контакти — TwoComms">',
+                # SEO Audit 2026-05-15 (Part 4) — extended contacts title
+                # to add channel inventory + geo signal. The original 20-char
+                # title was the shortest meta_title across the storefront.
+                '<meta name="twitter:title" content="Контакти TwoComms — телефон, Telegram, Instagram | Харків">',
             ),
             (
                 reverse("delivery"),
-                '<meta property="og:title" content="Доставка і оплата — TwoComms">',
+                # SEO Audit 2026-05-15 (Part 4) — extended delivery title
+                # from 28 to 58 chars: front-loads carrier (Нова Пошта),
+                # lead-time (1-2 дні) and geo (Україна).
+                '<meta property="og:title" content="Доставка і оплата TwoComms — Нова Пошта, 1-2 дні по Україні">',
             ),
             (
                 reverse("cooperation"),

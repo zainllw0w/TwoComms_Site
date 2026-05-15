@@ -115,6 +115,131 @@ def _gen(cat):     return LABEL_GEN.get(cat, "товару")
 def _nom_cap(cat): return _nom(cat).capitalize()
 
 
+# SEO Audit 2026-05-15 (Part 4) — sibling-design cross-link map.
+# Same-design garments share a slug stem like ``my-little-baby``,
+# ``my-little-baby-hd`` (hoodie), ``my-little-baby-ls`` (longsleeve).
+# We strip the trailing category marker to derive the design family.
+_SLUG_CATEGORY_MARKERS = ("-hd", "-ls", "-ts")
+# Phase ordering: ts → tshirts (no suffix), hd → hoodie, ls → long-sleeve.
+_CATEGORY_TO_MARKER = {
+    "tshirts":     "",
+    "hoodie":      "-hd",
+    "long-sleeve": "-ls",
+}
+_MARKER_TO_CATEGORY = {marker: cat for cat, marker in _CATEGORY_TO_MARKER.items() if marker}
+
+
+def _design_family_stem(slug: str) -> str:
+    """Strip the category marker so siblings share a stem.
+
+    Examples:
+        ``my-little-baby``      → ``my-little-baby``
+        ``my-little-baby-hd``   → ``my-little-baby``
+        ``my-little-baby-ls``   → ``my-little-baby``
+        ``-225-tshirt-`` (legacy) → ``-225-tshirt-`` (no marker → unchanged)
+    """
+    if not slug:
+        return ""
+    for marker in _SLUG_CATEGORY_MARKERS:
+        if slug.endswith(marker):
+            stem = slug[: -len(marker)]
+            return stem.rstrip("-")
+    return slug
+
+
+def _design_family_siblings(product) -> List[Dict[str, str]]:
+    """Find sibling products (same design, different category).
+
+    SEO Audit 2026-05-15 (Part 4) recommended cross-linking the three
+    variants (футболка / худі / лонгслів) of each design so internal
+    PageRank flows between them and Google can cluster the design
+    semantically. The lookup is purely heuristic on slug stems —
+    works for ~80% of the catalogue where slugs follow the convention.
+
+    Returns a list of dicts ``{"label": str, "url": str, "title": str}``
+    suitable for both the landing block and the top_queries chips.
+    """
+    try:
+        # Local import to avoid circular deps at module load.
+        from storefront.models import Product  # type: ignore
+    except Exception:
+        return []
+
+    base_slug = product.slug or ""
+    stem = _design_family_stem(base_slug)
+    if not stem or stem == base_slug and not any(
+        base_slug.endswith(m) for m in _SLUG_CATEGORY_MARKERS
+    ):
+        # No recognisable family marker on this product → still try to
+        # find siblings by attaching markers to the (unchanged) stem.
+        pass
+
+    candidate_slugs = {stem}
+    for marker in _CATEGORY_TO_MARKER.values():
+        if marker:
+            candidate_slugs.add(f"{stem}{marker}")
+
+    # Exclude the current product.
+    candidate_slugs.discard(base_slug)
+    if not candidate_slugs:
+        return []
+
+    qs = (
+        Product.objects.filter(slug__in=candidate_slugs)
+        .select_related("category")
+        .only("id", "slug", "title", "category__slug", "category__name", "status")
+    )
+
+    siblings: List[Dict[str, str]] = []
+    for sibling in qs:
+        # Only surface siblings that are publishable.
+        status = getattr(sibling, "status", "")
+        if status and str(status).lower() not in {"published", "active", "publish", "live"}:
+            continue
+        cat = getattr(sibling, "category", None)
+        cat_slug = getattr(cat, "slug", "") or ""
+        cat_label = _nom(cat_slug) or "товар"
+        siblings.append({
+            "url":      f"/product/{sibling.slug}/",
+            "label":    cat_label,           # «худі», «футболка», «лонгслів»
+            "title":    sibling.title or "",
+            "cat_slug": cat_slug,
+        })
+
+    # Stable ordering: tshirts → hoodie → long-sleeve.
+    order = {"tshirts": 0, "hoodie": 1, "long-sleeve": 2}
+    siblings.sort(key=lambda s: order.get(s["cat_slug"], 99))
+    return siblings
+
+
+def _siblings_paragraph(product) -> str:
+    """Render the sibling-design paragraph for the SEO landing block.
+
+    Returns empty string if there are no siblings — keeping the block
+    short on standalone designs avoids artificially-empty paragraphs.
+    """
+    siblings = _design_family_siblings(product)
+    if not siblings:
+        return ""
+
+    parts = [
+        f'<a href="{escape(s["url"])}">{escape(s["label"])}</a>'
+        for s in siblings
+    ]
+    if len(parts) == 1:
+        anchors = parts[0]
+    elif len(parts) == 2:
+        anchors = f"{parts[0]} та {parts[1]}"
+    else:
+        anchors = ", ".join(parts[:-1]) + f" та {parts[-1]}"
+
+    return (
+        f"Дизайн «{escape(product.title)}» доступний також у форматі "
+        f"{anchors} — щоб ви могли зібрати капсулу одного принту під "
+        f"різну погоду."
+    )
+
+
 def _category_url(cat_slug: str, **params) -> str:
     base = f"/catalog/{cat_slug}/" if cat_slug else "/catalog/"
     if params:
@@ -141,16 +266,53 @@ def _product_variant_url(product, *, color_slug: str = "", fit_code: str = "") -
 # ----------------------------------------------------- landing_html
 
 def _city_paragraph(product, cat_slug: str, fit_code: Optional[str] = None) -> str:
+    """Geo-aware delivery paragraph.
+
+    SEO Audit 2026-05-15 (Part 6) — the legacy implementation listed
+    eight cities in a single sentence and added "доставка день у день
+    при замовленні до 14:00", which (a) was identical across all 65
+    PDPs (only the title changed) and (b) over-promised an hourly SLA
+    that is not part of the live delivery policy.
+
+    The new copy keeps the geo signal (Ukraine + 4 anchor cities) and
+    adds a *fit-aware* sentence so each PDP renders a unique bottom
+    paragraph: classic / oversize / regular each get their own clause.
+    The "до 14:00" courier promise is dropped.
+    """
     cat_name_acc = _acc(cat_slug)
     fit_acc = FIT_LABELS.get(fit_code or "")
     fit_phrase = f"{fit_acc} " if fit_acc else ""
+
+    fit_clause_map = {
+        "oversize": (
+            "Oversize-силует тримає форму на росту 165–195 см і виглядає "
+            "однаково добре і поверх лонгсліва, і самостійно."
+        ),
+        "classic": (
+            "Класичний крій підходить тим, хто шукає чисту базу під "
+            "джинси, карго або шари у міжсезоння."
+        ),
+        "regular": (
+            "Помірний regular-силует — між класикою й оверсайзом, "
+            "коли треба універсальний шар на щодня."
+        ),
+        "slim": (
+            "Slim-силует акцентує посадку — підходить тим, хто будує "
+            "комплекти з лаконічним низом."
+        ),
+        "loose": (
+            "Loose-силует залишає простір для шарів і вільної посадки "
+            "без агресивного оверсайзу."
+        ),
+    }
+    fit_clause = fit_clause_map.get(fit_code or "", "")
+
     return (
         f"Замовити {fit_phrase}{cat_name_acc} «{product.title}» можна по "
-        f"всій Україні: Київ, Харків, Львів, Одеса, Дніпро, Запоріжжя, "
-        f"Вінниця, Івано-Франківськ та інші міста. Доставка Новою Поштою "
-        f"за 1–3 робочі дні; для Києва й Харкова доступна кур'єрська "
-        f"доставка день у день при замовленні до 14:00."
-    )
+        f"всій Україні: Київ, Харків, Львів, Одеса, Дніпро та інші міста. "
+        f"Доставка Новою Поштою — 1–3 робочі дні після відправлення, "
+        f"відстеження по TTN. {fit_clause}"
+    ).strip()
 
 
 def _color_paragraph(product, cat_slug: str) -> str:
@@ -271,6 +433,16 @@ def _build_landing_html(product, fit_code: Optional[str] = None) -> str:
     if color_html:
         parts.append(f"<p>{color_html}</p>")
 
+    # SEO Audit 2026-05-15 (Part 4) — sibling-design cross-link
+    # paragraph. Each design has up to 3 garments (футболка/худі/
+    # лонгслів) sharing a slug stem; surfacing them here gives Google
+    # an explicit signal that the variants belong to one product
+    # cluster and lets buyers pivot between formats without leaving
+    # the design.
+    siblings_html = _siblings_paragraph(product)
+    if siblings_html:
+        parts.append(f"<p>{siblings_html}</p>")
+
     # Fit paragraph (skip when no fit options).
     fit_html = _fit_paragraph(product, cat_slug, fit_code=fit_code)
     if fit_html:
@@ -319,6 +491,19 @@ def _top_queries_for_product(product, fit_code: Optional[str] = None) -> List[Di
         items.append({
             "label": f"Купити {acc} «{title}» — {color_name.lower()}",
             "url":   _product_variant_url(product, color_slug=slug),
+        })
+
+    # 1b. Sibling-design chips (Part 4 cross-links). Inserted right
+    # after the color chips so Google sees variant-cluster signal
+    # near the top of the chip strip rather than buried at the end.
+    for sibling in _design_family_siblings(product):
+        sibling_label = (sibling.get("label") or "").strip()
+        sibling_url = sibling.get("url") or ""
+        if not (sibling_label and sibling_url):
+            continue
+        items.append({
+            "label": f"Цей дизайн у форматі «{sibling_label}»",
+            "url":   sibling_url,
         })
 
     # 2. Fit options.
