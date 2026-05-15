@@ -37,8 +37,12 @@ Treat them like any other facet: noindex, follow + canonical → base catalog.
 {% block robots %}{% if is_search_page or has_active_color_filter or request.GET.sort %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 
 {% block canonical %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
-{% block hreflang_uk %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
-{% block hreflang_x_default %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% comment %}
+SEO v1.1 Phase 2 (2026-05-15) — base.html emits four hreflang entries
+via language_alternates. Don't override hreflang_uk / hreflang_x_default
+here so /ru/ and /en/ catalog pages publish reciprocal alternates that
+point at themselves.
+{% endcomment %}
 {% block og_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 {% block twitter_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 

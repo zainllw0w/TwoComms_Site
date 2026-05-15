@@ -15,11 +15,16 @@
 {% block twitter_title %}{% trans 'TwoComms — стріт & мілітарі одяг' %}{% endblock %}
 {% block twitter_description %}{% trans 'Ексклюзивні футболки, худі та лонгсліви від харківського бренду TwoComms. Швидка доставка по Україні.' %}{% endblock %}
 
-{% block canonical %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
-{% block hreflang_uk %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
-{% block hreflang_x_default %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
-{% block og_url %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
-{% block twitter_url %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}{% endblock %}
+{% block canonical %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% comment %}
+SEO v1.1 Phase 2 (2026-05-15) — base.html emits four hreflang entries
+via the language_alternates tag (uk-UA / ru-UA / en-UA / x-default).
+We do NOT override hreflang_* blocks here so that each locale renders
+its own self-referential alternate triple. The previous overrides
+hard-coded the UA URL and broke reciprocity for /ru/ and /en/ visitors.
+{% endcomment %}
+{% block og_url %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block twitter_url %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 
 {% block pagination_links %}
 {% if page_obj and page_obj.has_previous %}<link rel="prev" href="{{ site_base_url }}{{ request.path }}{% if page_obj.previous_page_number > 1 %}?page={{ page_obj.previous_page_number }}{% endif %}">{% endif %}
