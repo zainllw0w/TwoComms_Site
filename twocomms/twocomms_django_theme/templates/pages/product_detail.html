@@ -676,7 +676,11 @@ CSS rules на mobile FCP/LCP window.
           {% for rec_product in recommended_products|slice:":8" %}
             <article class="tc-related-card">
               {# Phase 21 (T20 a11y) — drop aria-label so the link's accessible name is computed from the visible title/category/price text inside (resolves axe `label-content-name-mismatch`). #}
-              <a href="{% url 'product' rec_product.slug %}" class="tc-related-link">
+              {# SEO molecular-upgrade US-6 (2026-05-16) — keyword-rich anchor #}
+              {# title attribute that surfaces in tab tooltips and is read by AI #}
+              {# crawlers as additional context (eg "Футболка business-money — стрітвір TwoComms"). #}
+              <a href="{% url 'product' rec_product.slug %}" class="tc-related-link"
+                 title="{% if rec_product.category %}{{ rec_product.category.name }} {{ rec_product.title }} — стрітвір TwoComms{% else %}{{ rec_product.title }} — стрітвір TwoComms{% endif %}">
                 <span class="tc-related-image-wrap">
                   {% if rec_product.display_image %}
                     <img src="{{ rec_product.display_image.url }}" alt="{{ rec_product.main_image_alt|default:rec_product.title }} {% trans '— схожий товар TwoComms' %}" loading="lazy" width="520" height="650">
@@ -698,6 +702,7 @@ CSS rules на mobile FCP/LCP window.
                 </span>
               </a>
               <button type="button" class="tc-related-fav" data-product-id="{{ rec_product.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="{% blocktrans with title=rec_product.title %}Додати {{ title }} до обраних{% endblocktrans %}">
+
                 <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.1 20.55 12 20.65l-.11-.1C7.14 16.24 4 13.39 4 10.5A3.5 3.5 0 0 1 7.5 7c1.54 0 3.04.99 3.57 2.36h1.87A3.9 3.9 0 0 1 16.5 7a3.5 3.5 0 0 1 3.5 3.5c0 2.89-3.14 5.74-7.9 10.05ZM16.5 5c-1.74 0-3.41.81-4.5 2.08A5.96 5.96 0 0 0 7.5 5 5.5 5.5 0 0 0 2 10.5c0 3.75 3.4 6.84 8.55 11.51L12 23.35l1.45-1.32C18.6 17.34 22 14.25 22 10.5A5.5 5.5 0 0 0 16.5 5Z" fill="currentColor"/></svg>
               </button>
             </article>
