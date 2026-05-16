@@ -172,14 +172,48 @@ def _homepage_price_range_text() -> str:
 def _organization_same_as() -> List[str]:
     """Curated ``sameAs`` list for Organization / OnlineStore.
 
-    Owner-confirmed handles only; placeholders for unconfirmed channels
-    must be added by the owner in a follow-up task (US-13). Adding a
-    fake handle would mislead AI Knowledge Graphs.
+    Composes confirmed social profiles in a stable order so the
+    Knowledge Graph can deduplicate the entity. Owner-confirmed
+    handles only — placeholder/empty values from settings are
+    silently dropped, never emitted as fake links.
+
+    Configurable additions go through environment variables:
+
+    * ``BRAND_FACEBOOK_URL``
+    * ``BRAND_TIKTOK_URL``
+    * ``BRAND_YOUTUBE_URL``
+    * ``BRAND_PINTEREST_URL``
+    * ``BRAND_TWITTER_URL``
+    * ``BRAND_WIKIDATA_URL`` (full https://www.wikidata.org/wiki/Q… URL)
+
+    The Instagram + Telegram base entries stay hard-coded because
+    they're already public on the site footer and verified by the
+    owner.
     """
-    return [
+    extras = []
+    for env_key in (
+        "BRAND_FACEBOOK_URL",
+        "BRAND_TIKTOK_URL",
+        "BRAND_YOUTUBE_URL",
+        "BRAND_PINTEREST_URL",
+        "BRAND_TWITTER_URL",
+        "BRAND_WIKIDATA_URL",
+    ):
+        value = (getattr(settings, env_key, "") or os.environ.get(env_key, "") or "").strip()
+        if value and value.startswith(("http://", "https://")):
+            extras.append(value)
+    base = [
         "https://instagram.com/twocomms",
         "https://t.me/twocomms",
     ]
+    # Preserve order, drop dupes
+    seen = set()
+    out: List[str] = []
+    for url in base + extras:
+        if url not in seen:
+            seen.add(url)
+            out.append(url)
+    return out
 
 
 class SEOKeywordGenerator:

@@ -87,15 +87,22 @@ the misleading price snippet.
   "about": {"@id": "{{ site_base_url }}/#organization"},
   "primaryImageOfPage": "{{ site_base_url }}{% static 'img/social-preview.jpg' %}",
   "breadcrumb": {"@id": "{{ site_base_url }}/#breadcrumbs"},
+  "speakable": {
+    "@type": "SpeakableSpecification",
+    "cssSelector": ["h1", ".hero-subtitle", "[data-speakable]"]
+  },
   "mainEntity": {
     "@type": "ItemList",
+    "name": "{% trans 'Новинки каталогу TwoComms' %}",
+    "itemListOrder": "https://schema.org/ItemListOrderDescending",
+    "numberOfItems": {{ products|length }},
     "itemListElement": [
-      {% for c in categories|slice:":8" %}
+      {% for p in products|slice:":12" %}
       {
         "@type": "ListItem",
         "position": {{ forloop.counter }},
-        "name": "{{ c.name|escapejs }}",
-        "url": "{{ site_base_url }}{% url 'catalog_by_cat' c.slug %}"
+        "url": "{{ site_base_url }}{% url 'product' p.slug %}",
+        "name": "{{ p.title|escapejs }}"
       }{% if not forloop.last %},{% endif %}
       {% endfor %}
     ]
