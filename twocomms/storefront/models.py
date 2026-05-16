@@ -390,6 +390,15 @@ class CustomPrintLead(models.Model):
         verbose_name="Токен для дій менеджера",
     )
     reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="Коли відреаговано")
+    last_notification_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Останнє Telegram-сповіщення",
+    )
+    notification_count = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Лічильник Telegram-сповіщень",
+    )
     order = models.ForeignKey(
         "orders.Order",
         on_delete=models.SET_NULL,

@@ -1,8 +1,11 @@
 import logging
 import mimetypes
 import os
+from datetime import timedelta
 from html import escape
 from pathlib import Path
+
+from django.utils import timezone
 
 from orders.telegram_notifications import TelegramNotifier
 from storefront.custom_print_config import (
@@ -22,6 +25,19 @@ logger = logging.getLogger(__name__)
 
 MAIN_PUBLIC_BASE_URL = "https://twocomms.shop"
 
+# Минимальный интервал между Telegram-уведомлениями для одного лида.
+# Защищает от шторма (race-conditions, двойные сабмиты, повторные рендеры корзины).
+NOTIFICATION_THROTTLE_SECONDS = 90
+
+# Telegram ограничивает media group на 10 элементов и подпись 1024 символа.
+TELEGRAM_MEDIA_GROUP_LIMIT = 10
+TELEGRAM_CAPTION_LIMIT = 1024
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
 
 def _first_env(*keys: str) -> str:
     for key in keys:
@@ -40,13 +56,6 @@ def _build_notifier() -> TelegramNotifier:
     )
 
 
-def _placements_text(lead) -> str:
-    items = [_format_placement_descriptor(spec, include_text=True) for spec in _placement_specs_for_lead(lead)]
-    if lead.placement_note:
-        items.append(f"Примітка: {lead.placement_note}")
-    return " | ".join(filter(None, items)) or "—"
-
-
 def _placement_specs_for_lead(lead) -> list[dict]:
     placement_specs = getattr(lead, "placement_specs_json", None) or []
     if placement_specs:
@@ -57,13 +66,15 @@ def _placement_specs_for_lead(lead) -> list[dict]:
             "placement_key": zone,
             "label": ZONE_LABELS.get(zone, zone),
         }
-        for zone in (lead.placements or [])
+        for zone in (getattr(lead, "placements", None) or [])
     ]
 
 
 def _format_placement_descriptor(spec: dict, *, include_text: bool) -> str:
     placement_key = spec.get("placement_key") or spec.get("zone")
-    label = spec.get("label") or ZONE_LABELS.get(placement_key or spec.get("zone"), spec.get("zone") or "—")
+    label = spec.get("label") or ZONE_LABELS.get(
+        placement_key or spec.get("zone"), spec.get("zone") or "—"
+    )
     parts = [label]
     if spec.get("size_preset"):
         parts.append(str(spec["size_preset"]).upper())
@@ -85,8 +96,18 @@ def _placement_descriptor_by_key(lead) -> dict[str, str]:
 
 
 def _build_attachment_caption(lead, placement_key: str, index: int, total: int) -> str:
-    descriptor = _placement_descriptor_by_key(lead).get(placement_key) or ZONE_LABELS.get(placement_key, placement_key or "Файл")
+    descriptor = _placement_descriptor_by_key(lead).get(placement_key) or ZONE_LABELS.get(
+        placement_key, placement_key or "Файл"
+    )
     return f"{index}/{total} · {descriptor}"
+
+
+def _is_image_attachment(attachment) -> bool:
+    file_name = getattr(getattr(attachment, "file", None), "name", "")
+    mime_type, _ = mimetypes.guess_type(file_name)
+    if mime_type:
+        return mime_type.startswith("image/")
+    return Path(file_name).suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 
 def _collect_attachment_payloads(lead) -> list[dict]:
@@ -117,7 +138,9 @@ def _collect_attachment_payloads(lead) -> list[dict]:
             {
                 "path": file_path,
                 "is_image": _is_image_attachment(attachment),
-                "caption": _build_attachment_caption(lead, getattr(attachment, "placement_zone", ""), index, total),
+                "caption": _build_attachment_caption(
+                    lead, getattr(attachment, "placement_zone", ""), index, total
+                ),
             }
         )
     return payloads
@@ -125,6 +148,72 @@ def _collect_attachment_payloads(lead) -> list[dict]:
 
 def _build_admin_panel_link(lead) -> str:
     return f"{MAIN_PUBLIC_BASE_URL}/admin-panel/?section=custom_print_orders&lead={lead.pk}"
+
+
+def _build_moderation_action_url(lead, action: str) -> str:
+    """Build absolute signed URL for telegram moderation action (approve/reject)."""
+    from storefront.views.static_pages import _custom_print_action_signature
+
+    lead.ensure_moderation_token()
+    token = lead.moderation_token
+    signature = _custom_print_action_signature(lead.pk, action, token)
+    return (
+        f"{MAIN_PUBLIC_BASE_URL}/custom-print/moderation/{lead.pk}/{action}/"
+        f"?token={token}&sig={signature}"
+    )
+
+
+def _normalize_phone_digits(value: str) -> str:
+    return "".join(ch for ch in (value or "") if ch.isdigit() or ch == "+")
+
+
+def _build_contact_links(lead) -> dict[str, str]:
+    """Возвращает набор готовых ссылок для быстрой связи с клиентом."""
+    channel = (getattr(lead, "contact_channel", "") or "").strip().lower()
+    raw_value = (getattr(lead, "contact_value", "") or "").strip()
+    cleaned = raw_value.lstrip("@").replace(" ", "")
+
+    links: dict[str, str] = {}
+
+    if channel == "telegram" and cleaned:
+        if cleaned.startswith("http"):
+            links["telegram"] = cleaned
+        else:
+            links["telegram"] = f"https://t.me/{cleaned.lstrip('@')}"
+    elif channel == "whatsapp":
+        digits = _normalize_phone_digits(raw_value).lstrip("+")
+        if digits:
+            links["whatsapp"] = f"https://wa.me/{digits}"
+    elif channel == "phone":
+        digits = _normalize_phone_digits(raw_value)
+        if digits:
+            links["phone"] = f"tel:{digits}"
+
+    # Если нашли телефон в любом формате (например клиент написал "+380..." в телеграм-канале)
+    digits = _normalize_phone_digits(raw_value)
+    if digits and "phone" not in links and len(digits) >= 9:
+        links.setdefault("phone", f"tel:{digits}")
+
+    return links
+
+
+def _primary_contact_link(lead) -> str:
+    """Возвращает основную ссылку для кнопки «Звʼязатися з клієнтом»."""
+    links = _build_contact_links(lead)
+    channel = (getattr(lead, "contact_channel", "") or "").strip().lower()
+    return links.get(channel) or next(iter(links.values()), TELEGRAM_MANAGER_URL)
+
+
+def _channel_display(lead) -> str:
+    channel = (getattr(lead, "contact_channel", "") or "").strip().lower()
+    return {"telegram": "Telegram", "whatsapp": "WhatsApp", "phone": "Телефон"}.get(
+        channel, getattr(lead, "get_contact_channel_display", lambda: "")() or "—"
+    )
+
+
+def _channel_emoji(lead) -> str:
+    channel = (getattr(lead, "contact_channel", "") or "").strip().lower()
+    return {"telegram": "✈️", "whatsapp": "💬", "phone": "📞"}.get(channel, "📨")
 
 
 def _pricing_text(lead) -> str:
@@ -151,159 +240,259 @@ def _pricing_text(lead) -> str:
     return ", ".join(parts) or "Уточнюється менеджером"
 
 
-def _reply_markup(lead):
+# ---------------------------------------------------------------------------
+# Inline keyboards
+# ---------------------------------------------------------------------------
+
+
+def _info_reply_markup(lead):
     if lead is None:
         return None
-    return {
-        "inline_keyboard": [
-            [
-                {
-                    "text": "Відкрити в панелі",
-                    "url": _build_admin_panel_link(lead),
-                }
-            ]
-        ]
-    }
 
+    rows = [[
+        {"text": "🗂 Відкрити в панелі", "url": _build_admin_panel_link(lead)},
+    ]]
 
-def _build_moderation_action_url(lead, action: str) -> str:
-    """Build absolute signed URL for telegram moderation action (approve/reject)."""
-    from storefront.views.static_pages import _custom_print_action_signature
-    lead.ensure_moderation_token()
-    token = lead.moderation_token
-    signature = _custom_print_action_signature(lead.pk, action, token)
-    return f"{MAIN_PUBLIC_BASE_URL}/custom-print/moderation/{lead.pk}/{action}/?token={token}&sig={signature}"
+    contact_url = _primary_contact_link(lead)
+    if contact_url and contact_url != TELEGRAM_MANAGER_URL:
+        emoji = _channel_emoji(lead)
+        rows.append([
+            {"text": f"{emoji} Звʼязатися з клієнтом", "url": contact_url},
+        ])
 
-
-def _build_contact_client_url(lead) -> str:
-    """Build the tg.me/wa.me/tel: URL for the customer's preferred channel."""
-    channel = (getattr(lead, "contact_channel", "") or "").strip().lower()
-    raw_value = (getattr(lead, "contact_value", "") or "").strip()
-    cleaned = raw_value.lstrip("@").replace(" ", "")
-    if channel == "telegram":
-        handle = cleaned.lstrip("@")
-        if handle.startswith("http"):
-            return handle
-        return f"https://t.me/{handle}" if handle else TELEGRAM_MANAGER_URL
-    if channel == "whatsapp":
-        digits = "".join(ch for ch in raw_value if ch.isdigit())
-        return f"https://wa.me/{digits}" if digits else TELEGRAM_MANAGER_URL
-    if channel == "phone":
-        digits = "".join(ch for ch in raw_value if ch.isdigit() or ch == "+")
-        return f"tel:{digits}" if digits else TELEGRAM_MANAGER_URL
-    return TELEGRAM_MANAGER_URL
+    return {"inline_keyboard": rows}
 
 
 def _moderation_reply_markup(lead):
-    """Approve / Reject / Contact client inline keyboard for the manager's chat."""
+    """Approve / Reject / Contact / Open keyboard for the manager's chat."""
     if lead is None:
         return None
     approve_url = _build_moderation_action_url(lead, "approve")
     reject_url = _build_moderation_action_url(lead, "reject")
-    contact_url = _build_contact_client_url(lead)
-    channel = (getattr(lead, "contact_channel", "") or "").strip().lower()
-    channel_emoji = {"telegram": "✈️", "whatsapp": "💬", "phone": "📞"}.get(channel, "📨")
-    contact_label = f"{channel_emoji} Звʼязатися з клієнтом"
-    return {
-        "inline_keyboard": [
-            [
-                {"text": "✅ Погодити", "url": approve_url},
-                {"text": "❌ Відхилити", "url": reject_url},
-            ],
-            [
-                {"text": contact_label, "url": contact_url},
-            ],
-            [
-                {"text": "Відкрити в панелі", "url": _build_admin_panel_link(lead)},
-            ],
-        ]
-    }
+    contact_url = _primary_contact_link(lead)
+    emoji = _channel_emoji(lead)
 
-
-def _is_image_attachment(attachment) -> bool:
-    file_name = getattr(getattr(attachment, "file", None), "name", "")
-    mime_type, _ = mimetypes.guess_type(file_name)
-    if mime_type:
-        return mime_type.startswith("image/")
-    return Path(file_name).suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-
-
-def _build_message(lead) -> str:
-    attachment_count = lead.attachments.count() if getattr(lead, "pk", None) else 0
-    product_parts = [escape(lead.get_product_type_display())]
-    if getattr(lead, "fit", ""):
-        product_parts.append(escape(FIT_LABELS.get(lead.fit, lead.fit)))
-    if getattr(lead, "fabric", ""):
-        product_parts.append(escape(FABRIC_LABELS.get(lead.fabric, lead.fabric)))
-    if getattr(lead, "color_choice", ""):
-        product_parts.append(escape(lead.color_choice))
-
-    parts = [
-        "<b>Кастомний принт: нова заявка</b>",
-        "",
-        "<b>Заявка</b>",
-        f"• <b>Номер:</b> <code>{escape(lead.lead_number)}</code>",
-        f"• <b>Сценарій:</b> {escape(lead.get_client_kind_display())}",
-        f"• <b>Послуга:</b> {escape(lead.get_service_kind_display())}",
-    ]
-    if getattr(lead, "business_kind", ""):
-        parts.append(f"• <b>B2B:</b> {escape(lead.get_business_kind_display())}")
-    if getattr(lead, "brand_name", ""):
-        parts.append(f"• <b>Бренд / команда:</b> {escape(lead.brand_name)}")
-
-    parts.extend(
+    rows = [
         [
-            "",
-            "<b>Виріб</b>",
-            f"• <b>Конфігурація:</b> {' / '.join(product_parts)}",
+            {"text": "✅ Погодити", "url": approve_url},
+            {"text": "❌ Відхилити", "url": reject_url},
         ]
-    )
+    ]
+    if contact_url and contact_url != TELEGRAM_MANAGER_URL:
+        rows.append([{"text": f"{emoji} Звʼязатися з клієнтом", "url": contact_url}])
+    rows.append([{"text": "🗂 Відкрити в панелі", "url": _build_admin_panel_link(lead)}])
+    return {"inline_keyboard": rows}
+
+
+# ---------------------------------------------------------------------------
+# Message body
+# ---------------------------------------------------------------------------
+
+
+def _bold(label: str, value: str | int) -> str:
+    """Single-line `• <b>Label:</b> value` block."""
+    return f"• <b>{escape(str(label))}:</b> {escape(str(value))}"
+
+
+def _section_header(emoji: str, title: str) -> str:
+    return f"{emoji} <b>{escape(title)}</b>"
+
+
+def _format_lead_attachments_summary(lead) -> str:
+    attachments = list(getattr(lead.attachments, "all", lambda: [])()) if getattr(lead, "pk", None) else []
+    if not attachments:
+        return "немає"
+
+    images = sum(1 for a in attachments if _is_image_attachment(a))
+    docs = len(attachments) - images
+    parts = []
+    if images:
+        parts.append(f"{images} фото")
+    if docs:
+        parts.append(f"{docs} документ(и)")
+    return ", ".join(parts) or f"{len(attachments)} файл(ів)"
+
+
+def _format_pricing_block(lead) -> list[str]:
+    final_value = getattr(lead, "final_price_value", 0)
+    try:
+        from decimal import Decimal
+
+        final_value = Decimal(str(final_value or 0))
+    except Exception:
+        final_value = 0
+
+    rows = [
+        _bold("Кількість", lead.quantity),
+        _bold(
+            "Розміри",
+            (lead.sizes_note or "—") + (
+                f" ({lead.get_size_mode_display()})" if getattr(lead, "size_mode", "") else ""
+            ),
+        ),
+    ]
+    rows.append(_bold("Прорахунок", _pricing_text(lead)))
+    if final_value and float(final_value) > 0:
+        rows.append(_bold("Підсумок із розрахунку", f"{final_value} грн"))
+    return rows
+
+
+def _format_product_block(lead) -> list[str]:
+    parts = [escape(lead.get_product_type_display())]
+    if getattr(lead, "fit", ""):
+        parts.append(escape(FIT_LABELS.get(lead.fit, lead.fit)))
+    if getattr(lead, "fabric", ""):
+        parts.append(escape(FABRIC_LABELS.get(lead.fabric, lead.fabric)))
+    if getattr(lead, "color_choice", ""):
+        parts.append(escape(lead.color_choice))
+
+    rows = [f"• <b>Виріб:</b> {' / '.join(parts)}"]
     if getattr(lead, "add_ons", None):
         mapped_addons = [ADDON_LABELS.get(a, a) for a in lead.add_ons]
-        parts.append(f"• <b>Доповнення:</b> {escape(', '.join(mapped_addons))}")
-
+        if mapped_addons:
+            rows.append(_bold("Доповнення", ", ".join(mapped_addons)))
     if getattr(lead, "garment_note", ""):
-        parts.append(f"• <b>Опис виробу:</b> {escape(lead.garment_note)}")
+        rows.append(_bold("Опис виробу", lead.garment_note))
     if getattr(lead, "file_triage_status", ""):
-        parts.append(f"• <b>File triage:</b> {escape(lead.file_triage_status)}")
+        rows.append(_bold("Triage", TRIAGE_LABELS.get(lead.file_triage_status, lead.file_triage_status)))
+    return rows
 
-    placement_lines = [f"• {escape(_format_placement_descriptor(spec, include_text=True))}" for spec in _placement_specs_for_lead(lead)]
-    parts.extend(
-        [
-            "",
-            "<b>Макет / зони</b>",
-            *(placement_lines if placement_lines else ["• —"]),
-            f"• <b>Файлів:</b> {attachment_count}",
-        ]
-    )
+
+def _format_placement_block(lead) -> list[str]:
+    placement_lines = [
+        f"  ◦ {escape(_format_placement_descriptor(spec, include_text=True))}"
+        for spec in _placement_specs_for_lead(lead)
+    ]
+    rows = ["• <b>Зони друку:</b>"] if placement_lines else ["• <b>Зони друку:</b> —"]
+    rows.extend(placement_lines)
     if getattr(lead, "placement_note", ""):
-        parts.append(f"• <b>Примітка:</b> {escape(lead.placement_note)}")
+        rows.append(_bold("Примітка по зонам", lead.placement_note))
+    rows.append(_bold("Файли", _format_lead_attachments_summary(lead)))
+    return rows
 
-    parts.extend(
-        [
-            "",
-            "<b>Кількість / ціна</b>",
-            f"• <b>Кількість:</b> {lead.quantity}",
-            f"• <b>Режим розмірів:</b> {escape(getattr(lead, 'get_size_mode_display', lambda: '—')() or '—')}",
-            f"• <b>Розміри:</b> {escape(lead.sizes_note or '—')}",
-            f"• <b>Прорахунок:</b> {escape(_pricing_text(lead))}",
-            "",
-            "<b>Контакт</b>",
-            f"• <b>Ім'я:</b> {escape(lead.name)}",
-            f"• <b>Канал:</b> {escape(lead.get_contact_channel_display())}",
-            f"• <b>Контакт:</b> {escape(lead.contact_value)}",
-            "",
-            "<b>Бриф / завдання</b>",
-            escape((lead.brief or "—")[:1200]),
-            "",
-            f'• <a href="{_build_admin_panel_link(lead)}">Відкрити в панелі</a>',
-        ]
-    )
+
+def _format_contact_block(lead) -> list[str]:
+    raw_contact = (getattr(lead, "contact_value", "") or "").strip()
+    rows = [
+        _bold("Імʼя", lead.name or "—"),
+        _bold("Канал звʼязку", _channel_display(lead)),
+        _bold("Контакт", raw_contact or "—"),
+    ]
+    digits = _normalize_phone_digits(raw_contact)
+    if digits and len(digits) >= 9 and (getattr(lead, "contact_channel", "") or "").lower() != "phone":
+        rows.append(_bold("Телефон у контакті", digits))
+    if getattr(lead, "brand_name", ""):
+        rows.append(_bold("Бренд / команда", lead.brand_name))
+    return rows
+
+
+def _build_lead_message(lead, *, header_emoji: str, header_title: str, intro_lines: list[str] | None = None) -> str:
+    """Compact, ordered, manager-friendly Telegram message."""
+    intro_lines = intro_lines or []
+    parts = [
+        f"{header_emoji} <b>{escape(header_title)}</b>",
+        f"<code>{escape(lead.lead_number or f'CP-{lead.pk}')}</code>",
+        "",
+        _section_header("👤", "Контакт"),
+        *_format_contact_block(lead),
+        "",
+        _section_header("👕", "Замовлення"),
+        *_format_product_block(lead),
+        "",
+        _section_header("🎨", "Друк"),
+        *_format_placement_block(lead),
+        "",
+        _section_header("💰", "Кількість і ціна"),
+        *_format_pricing_block(lead),
+    ]
+
+    if intro_lines:
+        parts.extend(["", *intro_lines])
+
+    if getattr(lead, "brief", ""):
+        brief = lead.brief.strip()
+        if brief:
+            parts.extend([
+                "",
+                _section_header("📝", "Бриф"),
+                escape(brief[:1500]),
+            ])
+
+    if getattr(lead, "client_kind", "") == "brand":
+        parts.append("")
+        parts.append(_bold("Сценарій", lead.get_client_kind_display()))
+        if getattr(lead, "business_kind", ""):
+            parts.append(_bold("B2B", lead.get_business_kind_display()))
+
+    parts.append("")
+    parts.append(f'🔗 <a href="{_build_admin_panel_link(lead)}">Відкрити заявку в панелі</a>')
+
     return "\n".join(parts)
 
 
-def _snapshot_mode_label(snapshot: dict) -> str:
-    return "Для команди / бренду" if (snapshot.get("mode") == "brand") else "Для себе"
+def _build_message(lead) -> str:
+    """Backward-compatible wrapper (used in tests)."""
+    return _build_lead_message(
+        lead,
+        header_emoji="🆕",
+        header_title="Нова заявка на кастомний принт",
+    )
+
+
+def _build_safe_exit_message(snapshot: dict, lead=None) -> str:
+    artwork = snapshot.get("artwork") or {}
+    order = snapshot.get("order") or {}
+    ui = snapshot.get("ui") or {}
+    contact = snapshot.get("contact") or {}
+    channel = (contact.get("channel") or "").strip()
+    channel_label = {
+        "telegram": "Telegram",
+        "whatsapp": "WhatsApp",
+        "phone": "Телефон",
+    }.get(channel, "Не вказано")
+
+    parts = [
+        "🚪 <b>Кастомний принт: пользователь покинул конфігуратор</b>",
+    ]
+    if lead is not None:
+        parts.append(f"<code>{escape(lead.lead_number)}</code>")
+
+    parts.extend([
+        "",
+        _section_header("👤", "Контакт"),
+        _bold("Імʼя", (contact.get("name") or "").strip() or "—"),
+        _bold("Канал звʼязку", channel_label),
+        _bold("Контакт", (contact.get("value") or "").strip() or "—"),
+        "",
+        _section_header("👕", "Замовлення"),
+        _bold("Виріб", _snapshot_product_label(snapshot)),
+        _bold("Послуга", SERVICE_LABELS.get(artwork.get("service_kind"), artwork.get("service_kind") or "—")),
+        _bold("Зони", _snapshot_placements_text(snapshot)),
+        _bold("Кількість", str(order.get("quantity") or "—")),
+        _bold("Розміри", order.get("sizes_note") or "—"),
+        "",
+        _section_header("💰", "Прорахунок"),
+        _bold("Розрахунок", _snapshot_pricing_text(snapshot)),
+        _bold("Поточний крок", ui.get("current_step") or "—"),
+    ])
+
+    if order.get("gift"):
+        parts.append("")
+        parts.append("🎁 <b>Подарунок:</b> так")
+
+    if lead is not None:
+        parts.append("")
+        parts.append(f'🔗 <a href="{_build_admin_panel_link(lead)}">Відкрити заявку в панелі</a>')
+    else:
+        parts.append("")
+        parts.append(f'<a href="{TELEGRAM_MANAGER_URL}">Відкрити чат менеджера</a>')
+
+    return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Snapshot helpers (для safe-exit без записанного лида)
+# ---------------------------------------------------------------------------
 
 
 def _snapshot_product_label(snapshot: dict) -> str:
@@ -333,7 +522,9 @@ def _snapshot_placements_text(snapshot: dict) -> str:
     if placement_specs:
         items = []
         for spec in placement_specs:
-            label = spec.get("label") or ZONE_LABELS.get(spec.get("placement_key") or spec.get("zone"), spec.get("zone") or "—")
+            label = spec.get("label") or ZONE_LABELS.get(
+                spec.get("placement_key") or spec.get("zone"), spec.get("zone") or "—"
+            )
             if spec.get("size_preset"):
                 label = f"{label} · {spec['size_preset']}"
             elif spec.get("zone") == "sleeve":
@@ -372,150 +563,209 @@ def _snapshot_pricing_text(snapshot: dict) -> str:
     return ", ".join(parts) or "Уточнюється менеджером"
 
 
-def _snapshot_contact_text(snapshot: dict) -> tuple[str, str]:
-    contact = snapshot.get("contact") or {}
-    channel = (contact.get("channel") or "").strip()
-    channel_map = {
-        "telegram": "Telegram",
-        "whatsapp": "WhatsApp",
-        "phone": "Телефон",
-    }
-    return channel_map.get(channel, "Не вказано"), (contact.get("value") or "").strip() or "—"
+# ---------------------------------------------------------------------------
+# Throttle
+# ---------------------------------------------------------------------------
 
 
-def _build_safe_exit_message(snapshot: dict, lead=None) -> str:
-    artwork = snapshot.get("artwork") or {}
-    order = snapshot.get("order") or {}
-    ui = snapshot.get("ui") or {}
-    channel_label, contact_value = _snapshot_contact_text(snapshot)
+def _claim_notification_slot(lead, *, scope: str) -> bool:
+    """Атомарно резервирует «слот» уведомления для лида.
 
-    parts = [
-        "<b>Кастомний принт: safe exit</b>",
-        f"• <b>Режим:</b> {escape(_snapshot_mode_label(snapshot))}",
-        f"• <b>Виріб:</b> {escape(_snapshot_product_label(snapshot))}",
-        f"• <b>Послуга:</b> {escape(SERVICE_LABELS.get(artwork.get('service_kind'), artwork.get('service_kind') or '—'))}",
-        f"• <b>File triage:</b> {escape(TRIAGE_LABELS.get(artwork.get('triage_status'), artwork.get('triage_status') or 'needs-review'))}",
-        f"• <b>Зони:</b> {escape(_snapshot_placements_text(snapshot))}",
-        f"• <b>Кількість:</b> {escape(str(order.get('quantity') or '—'))}",
-        f"• <b>Розміри:</b> {escape(order.get('sizes_note') or '—')}",
-        f"• <b>Поточний крок:</b> {escape(ui.get('current_step') or '—')}",
-        f"• <b>Прорахунок:</b> {escape(_snapshot_pricing_text(snapshot))}",
-        f"• <b>Канал:</b> {escape(channel_label)}",
-        f"• <b>Контакт:</b> {escape(contact_value)}",
-    ]
-    contact_name = ((snapshot.get("contact") or {}).get("name") or "").strip()
-    if contact_name:
-        parts.append(f"• <b>Ім'я:</b> {escape(contact_name)}")
-    if (order.get("gift")):
-        parts.append("• <b>Подарунок:</b> так")
-    if lead is not None:
-        parts.insert(1, f"• <b>Номер:</b> <code>{escape(lead.lead_number)}</code>")
-        parts.append("")
-        parts.append(f'• <a href="{_build_admin_panel_link(lead)}">Відкрити в панелі</a>')
-    else:
-        parts.append("")
-        parts.append(f'• <a href="{TELEGRAM_MANAGER_URL}">Відкрити Telegram</a>')
-    return "\n".join(parts)
+    Возвращает True, если можно отправлять (и пишет timestamp), False — если
+    в течение NOTIFICATION_THROTTLE_SECONDS уже было уведомление того же scope.
+
+    Использует .filter().update() с условием, что запись не менялась с момента
+    последнего чтения — это даёт защиту даже от параллельных запросов.
+    """
+    if not lead or not getattr(lead, "pk", None):
+        return True
+
+    try:
+        from storefront.models import CustomPrintLead  # local import to avoid cycles
+    except Exception:
+        return True
+
+    now = timezone.now()
+    threshold = now - timedelta(seconds=NOTIFICATION_THROTTLE_SECONDS)
+
+    try:
+        # Атомарно: разрешаем отправку если last_notification_at NULL или старше threshold.
+        updated = CustomPrintLead.objects.filter(pk=lead.pk).filter(
+            models_q_filter_or_old(threshold)
+        ).update(
+            last_notification_at=now,
+            notification_count=models_F_increment(),
+        )
+    except Exception:
+        # Не блокируем уведомление, если БД временно недоступна (тесты,
+        # отсутствие миграции и т.п.) — лучше отправить, чем потерять.
+        logger.exception("Custom print notification slot check failed for lead %s", lead.pk)
+        return True
+
+    if updated:
+        # Синхронизируем in-memory объект, чтобы дальше не было путаницы
+        lead.last_notification_at = now
+        lead.notification_count = (lead.notification_count or 0) + 1
+        return True
+
+    logger.info(
+        "Skip duplicate custom-print notification for lead %s scope=%s (throttled)",
+        lead.pk,
+        scope,
+    )
+    return False
+
+
+def models_q_filter_or_old(threshold):
+    """Q(last_notification_at__isnull=True) | Q(last_notification_at__lt=threshold)."""
+    from django.db.models import Q
+
+    return Q(last_notification_at__isnull=True) | Q(last_notification_at__lt=threshold)
+
+
+def models_F_increment():
+    from django.db.models import F
+
+    return F("notification_count") + 1
+
+
+# ---------------------------------------------------------------------------
+# Compact attachment delivery
+# ---------------------------------------------------------------------------
+
+
+def _send_attachments(notifier: TelegramNotifier, lead) -> bool:
+    """Send attachments compactly: one media group for images, one albumed
+    document burst for the rest. Минимизируем число «карточек» в Telegram.
+    """
+    payloads = _collect_attachment_payloads(lead)
+    if not payloads:
+        return False
+
+    image_payloads = [p for p in payloads if p["is_image"]]
+    document_payloads = [p for p in payloads if not p["is_image"]]
+
+    success = False
+
+    # Photos: режем на пачки до 10, каждый media_group — одна «карточка-альбом» в чате.
+    for batch in _chunk(image_payloads, TELEGRAM_MEDIA_GROUP_LIMIT):
+        if len(batch) > 1:
+            success = notifier.send_admin_media_group(
+                [p["path"] for p in batch],
+                captions=[p["caption"] for p in batch],
+                parse_mode="HTML",
+            ) or success
+        elif batch:
+            success = notifier.send_admin_photo(
+                batch[0]["path"], caption=batch[0]["caption"], parse_mode="HTML"
+            ) or success
+
+    # Documents: media_group умеет тип "document". Пробуем сначала альбом,
+    # если бот не справится — fallback на по одному.
+    if document_payloads:
+        sent_as_group = False
+        for batch in _chunk(document_payloads, TELEGRAM_MEDIA_GROUP_LIMIT):
+            if len(batch) > 1 and hasattr(notifier, "send_admin_document_group"):
+                if notifier.send_admin_document_group(
+                    [p["path"] for p in batch],
+                    captions=[p["caption"] for p in batch],
+                    parse_mode="HTML",
+                ):
+                    sent_as_group = True
+                    success = True
+                    continue
+            for payload in batch:
+                success = notifier.send_admin_document(
+                    payload["path"],
+                    caption=payload["caption"],
+                    filename=Path(payload["path"]).name,
+                    parse_mode="HTML",
+                ) or success
+
+        if not sent_as_group and not document_payloads:
+            pass  # already logged
+
+    return success
+
+
+def _chunk(seq, size):
+    for i in range(0, len(seq), size):
+        yield seq[i : i + size]
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 
 def notify_new_custom_print_lead(lead) -> bool:
+    """Заявка прийшла з кнопки «Надіслати менеджеру»."""
     try:
+        if not _claim_notification_slot(lead, scope="new_lead"):
+            return False
         notifier = _build_notifier()
         if not notifier.is_configured():
             logger.warning("Custom print Telegram notifier is not configured.")
             return False
 
-        success = notifier.send_admin_message(
-            _build_message(lead),
-            parse_mode="HTML",
-            reply_markup=_reply_markup(lead),
+        message = _build_lead_message(
+            lead,
+            header_emoji="🆕",
+            header_title="Нова заявка на кастомний принт",
+            intro_lines=[
+                "👉 Зв'яжіться з клієнтом якнайшвидше — нижче кнопки для дзвінка / месенджера.",
+            ],
         )
-        payloads = _collect_attachment_payloads(lead)
-        image_payloads = [payload for payload in payloads if payload["is_image"]]
-        document_payloads = [payload for payload in payloads if not payload["is_image"]]
-
-        if len(image_payloads) > 1:
-            success = notifier.send_admin_media_group(
-                [payload["path"] for payload in image_payloads],
-                captions=[payload["caption"] for payload in image_payloads],
-                parse_mode="HTML",
-            ) or success
-        elif len(image_payloads) == 1:
-            success = notifier.send_admin_photo(
-                image_payloads[0]["path"],
-                caption=image_payloads[0]["caption"],
-                parse_mode="HTML",
-            ) or success
-
-        for payload in document_payloads:
-            success = notifier.send_admin_document(
-                payload["path"],
-                caption=payload["caption"],
-                filename=Path(payload["path"]).name,
-                parse_mode="HTML",
-            ) or success
-
+        success = notifier.send_admin_message(
+            message,
+            parse_mode="HTML",
+            reply_markup=_info_reply_markup(lead),
+        )
+        success = _send_attachments(notifier, lead) or success
         return success
     except Exception as exc:
         logger.warning("Custom print Telegram notify failed: %s", exc, exc_info=True)
         return False
 
 
-def _build_moderation_request_message(lead) -> str:
-    base = _build_message(lead)
-    header = (
-        "<b>🛒 Кастомний кошик: потрібна перевірка</b>\n"
-        f"• <b>Ціна зі знижкою клієнта:</b> {escape(str(lead.final_price_value))} грн\n"
-        "• Натисніть «Погодити», щоб клієнт міг оплатити, або «Відхилити».\n"
-        "• Для уточнення — «Звʼязатися з клієнтом».\n\n"
-    )
-    return header + base
-
-
 def notify_custom_print_moderation_request(lead) -> bool:
-    """Send notification to manager when user submits the custom cart for review.
-
-    Includes full lead details, attached images/documents, and approve/reject/contact
-    inline buttons.
-    """
+    """Клієнт додав кастом у кошик / просить погодити."""
     try:
+        if not _claim_notification_slot(lead, scope="moderation_request"):
+            return False
         notifier = _build_notifier()
         if not notifier.is_configured():
             logger.warning("Custom print moderation notifier is not configured.")
             return False
 
         lead.ensure_moderation_token()
-        markup = _moderation_reply_markup(lead)
-        success = notifier.send_admin_message(
-            _build_moderation_request_message(lead),
-            parse_mode="HTML",
-            reply_markup=markup,
+
+        try:
+            from decimal import Decimal
+
+            final_price = Decimal(str(getattr(lead, "final_price_value", 0) or 0))
+        except Exception:
+            final_price = 0
+
+        intro = [
+            "<b>🛒 Клієнт чекає погодження кастомного кошика.</b>",
+            "Натисніть «✅ Погодити», щоб клієнт зміг сплатити, або «❌ Відхилити» з коментарем.",
+        ]
+        if final_price and float(final_price) > 0:
+            intro.append(f"💵 <b>Запитувана сума:</b> {escape(str(final_price))} грн")
+
+        message = _build_lead_message(
+            lead,
+            header_emoji="🛒",
+            header_title="Кастом-кошик: потрібна модерація",
+            intro_lines=intro,
         )
-        payloads = _collect_attachment_payloads(lead)
-        image_payloads = [payload for payload in payloads if payload["is_image"]]
-        document_payloads = [payload for payload in payloads if not payload["is_image"]]
-
-        if len(image_payloads) > 1:
-            success = notifier.send_admin_media_group(
-                [payload["path"] for payload in image_payloads],
-                captions=[payload["caption"] for payload in image_payloads],
-                parse_mode="HTML",
-            ) or success
-        elif len(image_payloads) == 1:
-            success = notifier.send_admin_photo(
-                image_payloads[0]["path"],
-                caption=image_payloads[0]["caption"],
-                parse_mode="HTML",
-            ) or success
-
-        for payload in document_payloads:
-            success = notifier.send_admin_document(
-                payload["path"],
-                caption=payload["caption"],
-                filename=Path(payload["path"]).name,
-                parse_mode="HTML",
-            ) or success
-
+        success = notifier.send_admin_message(
+            message,
+            parse_mode="HTML",
+            reply_markup=_moderation_reply_markup(lead),
+        )
+        success = _send_attachments(notifier, lead) or success
         return success
     except Exception as exc:
         logger.warning("Custom print moderation notify failed: %s", exc, exc_info=True)
@@ -523,12 +773,7 @@ def notify_custom_print_moderation_request(lead) -> bool:
 
 
 def notify_custom_print_moderation_result(lead) -> bool:
-    """Notify the customer (best-effort) about the outcome of moderation.
-
-    Sends a concise message to the manager chat so the manager can forward or
-    contact the customer. If there's a structured customer telegram handle we
-    could extend later to send DM.
-    """
+    """Notify the manager about manual approve/reject decision."""
     try:
         notifier = _build_notifier()
         if not notifier.is_configured():
@@ -536,28 +781,33 @@ def notify_custom_print_moderation_result(lead) -> bool:
         status = getattr(lead, "moderation_status", "")
         if status == "approved":
             emoji = "✅"
-            title = "Схвалено менеджером"
+            title = "Заявку погоджено"
         elif status == "rejected":
             emoji = "❌"
-            title = "Відхилено менеджером"
+            title = "Заявку відхилено"
         else:
             return False
+
         price_line = ""
-        try:
-            if getattr(lead, "approved_price", None):
-                price_line = f"\n<b>Фінальна ціна:</b> {lead.approved_price} грн"
-        except Exception:
-            pass
+        if getattr(lead, "approved_price", None):
+            price_line = f"\n• <b>Фінальна ціна:</b> {lead.approved_price} грн"
+
         note_line = ""
         note = (getattr(lead, "manager_note", "") or "").strip()
         if note:
-            note_line = f"\n<b>Коментар менеджера:</b> {note}"
+            note_line = f"\n• <b>Коментар:</b> {escape(note)}"
+
         message = (
-            f"{emoji} <b>Заявка {getattr(lead, 'lead_number', lead.pk)} — {title}</b>"
-            f"{price_line}"
-            f"{note_line}"
+            f"{emoji} <b>{escape(title)}</b>\n"
+            f"<code>{escape(getattr(lead, 'lead_number', '') or f'CP-{lead.pk}')}</code>"
+            f"{price_line}{note_line}\n\n"
+            f'🔗 <a href="{_build_admin_panel_link(lead)}">Відкрити заявку в панелі</a>'
         )
-        return notifier.send_admin_message(message, parse_mode="HTML")
+        return notifier.send_admin_message(
+            message,
+            parse_mode="HTML",
+            reply_markup=_info_reply_markup(lead),
+        )
     except Exception as exc:
         logger.warning("Custom print moderation-result notify failed: %s", exc, exc_info=True)
         return False
@@ -565,6 +815,8 @@ def notify_custom_print_moderation_result(lead) -> bool:
 
 def notify_custom_print_safe_exit(*, snapshot: dict, lead=None) -> bool:
     try:
+        if lead is not None and not _claim_notification_slot(lead, scope="safe_exit"):
+            return False
         notifier = _build_notifier()
         if not notifier.is_configured():
             logger.warning("Custom print safe-exit notifier is not configured.")
@@ -573,7 +825,7 @@ def notify_custom_print_safe_exit(*, snapshot: dict, lead=None) -> bool:
         return notifier.send_admin_message(
             _build_safe_exit_message(snapshot, lead=lead),
             parse_mode="HTML",
-            reply_markup=_reply_markup(lead),
+            reply_markup=_info_reply_markup(lead) if lead is not None else None,
         )
     except Exception as exc:
         logger.warning("Custom print safe-exit notify failed: %s", exc, exc_info=True)

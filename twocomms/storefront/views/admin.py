@@ -716,14 +716,21 @@ def _build_custom_print_orders_context(request):
     business_kind_filter = (request.GET.get("custom_print_business_kind") or "all").strip()
     product_type_filter = (request.GET.get("custom_print_product_type") or "all").strip()
     has_files_filter = (request.GET.get("custom_print_has_files") or "all").strip()
+    moderation_filter = (request.GET.get("custom_print_moderation") or "all").strip()
     query = (request.GET.get("custom_print_q") or "").strip()
     selected_lead_id = (request.GET.get("lead") or "").strip()
 
-    base_qs = CustomPrintLead.objects.prefetch_related("attachments").order_by("-created_at")
+    base_qs = (
+        CustomPrintLead.objects.prefetch_related("attachments")
+        .select_related("order")
+        .order_by("-created_at")
+    )
     leads_qs = base_qs
 
     if status_filter != "all":
         leads_qs = leads_qs.filter(status=status_filter)
+    if moderation_filter != "all":
+        leads_qs = leads_qs.filter(moderation_status=moderation_filter)
     if client_kind_filter != "all":
         leads_qs = leads_qs.filter(client_kind=client_kind_filter)
     if business_kind_filter != "all":
@@ -770,13 +777,20 @@ def _build_custom_print_orders_context(request):
         if selected_index + 1 < len(leads):
             next_lead = leads[selected_index + 1]
 
+    contact_links = _custom_print_contact_links(selected_lead) if selected_lead else {}
+    attachment_cards = _custom_print_attachment_cards(selected_lead) if selected_lead else []
+
     return {
         "custom_print_orders": leads,
         "custom_print_total": base_qs.count(),
         "custom_print_new_count": base_qs.filter(status=CustomPrintLeadStatus.NEW).count(),
         "custom_print_in_progress_count": base_qs.filter(status=CustomPrintLeadStatus.IN_PROGRESS).count(),
         "custom_print_closed_count": base_qs.filter(status=CustomPrintLeadStatus.CLOSED).count(),
+        "custom_print_awaiting_count": base_qs.filter(
+            moderation_status="awaiting_review"
+        ).count(),
         "custom_print_status_filter": status_filter,
+        "custom_print_moderation_filter": moderation_filter,
         "custom_print_client_kind_filter": client_kind_filter,
         "custom_print_business_kind_filter": business_kind_filter,
         "custom_print_product_type_filter": product_type_filter,
@@ -784,13 +798,95 @@ def _build_custom_print_orders_context(request):
         "custom_print_query": query,
         "custom_print_selected_lead": selected_lead,
         "custom_print_selected_lead_groups": selected_lead_groups,
+        "custom_print_selected_lead_attachments": attachment_cards,
+        "custom_print_selected_contact_links": contact_links,
         "custom_print_previous_lead": previous_lead,
         "custom_print_next_lead": next_lead,
         "custom_print_statuses": CustomPrintLeadStatus.choices,
+        "custom_print_moderation_choices": [
+            ("draft", "Чернетка"),
+            ("awaiting_review", "На перевірці"),
+            ("approved", "Погоджено"),
+            ("rejected", "Відхилено"),
+        ],
         "custom_print_client_kinds": CustomPrintClientKind.choices,
         "custom_print_business_kinds": CustomPrintBusinessKind.choices,
         "custom_print_product_types": CustomPrintProductType.choices,
     }
+
+
+def _custom_print_contact_links(lead) -> dict:
+    """Quick-action ссылки для кнопок «Зателефонувати / Telegram / WhatsApp / Скопіювати»."""
+    if not lead:
+        return {}
+    raw_value = (getattr(lead, "contact_value", "") or "").strip()
+    channel = (getattr(lead, "contact_channel", "") or "").strip().lower()
+    digits = "".join(ch for ch in raw_value if ch.isdigit() or ch == "+")
+    cleaned_handle = raw_value.lstrip("@").replace(" ", "")
+
+    links = {"raw": raw_value, "channel": channel}
+
+    if channel == "telegram" and cleaned_handle:
+        if cleaned_handle.startswith("http"):
+            links["telegram"] = cleaned_handle
+        else:
+            links["telegram"] = f"https://t.me/{cleaned_handle.lstrip('@')}"
+    elif channel == "whatsapp":
+        wa_digits = digits.lstrip("+")
+        if wa_digits:
+            links["whatsapp"] = f"https://wa.me/{wa_digits}"
+    elif channel == "phone" and digits:
+        links["phone"] = f"tel:{digits}"
+
+    # Если в контакте лежит телефон при любом канале — даём кнопку звонка
+    if digits and len(digits) >= 9 and "phone" not in links:
+        links["phone"] = f"tel:{digits}"
+
+    return links
+
+
+def _custom_print_attachment_cards(lead) -> list:
+    """Подготовленные карточки файлов с превью/типом, удобные для шаблона."""
+    import mimetypes
+
+    if not lead:
+        return []
+    cards = []
+    for attachment in lead.attachments.all().order_by("placement_zone", "sort_order", "id"):
+        file_field = getattr(attachment, "file", None)
+        if not file_field:
+            continue
+        file_name = getattr(file_field, "name", "") or ""
+        url = ""
+        try:
+            url = file_field.url
+        except Exception:
+            url = ""
+        mime_type, _ = mimetypes.guess_type(file_name)
+        is_image = bool(mime_type and mime_type.startswith("image/"))
+        if not mime_type:
+            ext = file_name.lower().rsplit(".", 1)[-1] if "." in file_name else ""
+            is_image = ext in {"jpg", "jpeg", "png", "webp", "gif"}
+        zone_label = {
+            "front": "На грудях",
+            "back": "На спині",
+            "sleeve": "На рукаві",
+            "sleeve_left": "Лівий рукав",
+            "sleeve_right": "Правий рукав",
+            "custom": "Інше",
+        }.get(attachment.placement_zone or "", attachment.placement_zone or "Без прив'язки")
+        ext_label = ""
+        if "." in file_name:
+            ext_label = file_name.rsplit(".", 1)[-1].upper()[:5]
+
+        cards.append({
+            "url": url,
+            "name": file_name.split("/")[-1],
+            "is_image": is_image,
+            "zone": zone_label,
+            "ext_label": ext_label or "FILE",
+        })
+    return cards
 
 
 def _build_collaboration_context():

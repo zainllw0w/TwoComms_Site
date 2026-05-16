@@ -301,6 +301,56 @@ class TelegramNotifier:
                     handle.close()
         return success
 
+    def send_admin_document_group(self, file_paths, captions=None, parse_mode='HTML'):
+        """Отправляет группу документов админу одним альбомом (sendMediaGroup type=document).
+
+        Telegram Bot API позволяет смешать до 10 документов в одном sendMediaGroup,
+        что превращает «7 отдельных карточек» в одну компактную пачку.
+        """
+        if not self.is_configured():
+            return False
+
+        file_paths = [str(path) for path in (file_paths or []) if path]
+        if not file_paths:
+            return False
+
+        target_ids = self._resolve_targets(admin=True)
+        if not target_ids:
+            return False
+
+        captions = captions or []
+        success = False
+        for target_id in target_ids:
+            files = {}
+            media = []
+            handles = []
+            try:
+                for index, file_path in enumerate(file_paths):
+                    handle = open(file_path, 'rb')
+                    handles.append(handle)
+                    attach_name = f"file{index}"
+                    files[attach_name] = (Path(file_path).name, handle)
+                    item = {
+                        'type': 'document',
+                        'media': f'attach://{attach_name}',
+                    }
+                    if index < len(captions) and captions[index]:
+                        item['caption'] = captions[index]
+                        item['parse_mode'] = parse_mode
+                    media.append(item)
+                data = {
+                    'chat_id': target_id,
+                    'media': json.dumps(media, ensure_ascii=False),
+                }
+                success = self._post("sendMediaGroup", data=data, files=files, timeout=60) or success
+            except Exception as e:
+                print(f"Ошибка при отправке document group в Telegram: {e}")
+            finally:
+                for handle in handles:
+                    handle.close()
+        return success
+
+
     def send_personal_message(self, telegram_id, message, parse_mode='HTML'):
         """Отправляет личное сообщение пользователю по telegram_id"""
         print(f"🔵 send_personal_message: telegram_id={telegram_id}, bot_token={'SET' if self.bot_token else 'NOT SET'}")

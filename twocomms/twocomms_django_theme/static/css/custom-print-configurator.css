@@ -5608,10 +5608,39 @@ main {
   }
 }
 
+/*
+ * Защита от overlap на широких экранах 1320–1700px:
+ * исходный stage (`width: min(150%, 1180px)` + `transform: translateX(-50%)`)
+ * на этой ширине физически перекрывает левую/правую колонки hero.
+ * Сужаем stage до своей колонки и компенсируем визуальный масштаб
+ * чуть большим max-width, чтобы он всё равно оставался крупным.
+ */
+@media (min-width: 1321px) and (max-width: 1700px) {
+  .cp-hero--reference {
+    grid-template-columns: minmax(320px, 0.74fr) minmax(0, 1.42fr) minmax(264px, 0.56fr);
+    column-gap: clamp(0.7rem, 1.2vw, 1.1rem);
+  }
+
+  .cp-hero-stage {
+    width: min(118%, 980px);
+  }
+
+  .cp-hero-options {
+    width: min(100%, 296px);
+    margin-top: 24px;
+  }
+
+  .cp-hero-palette {
+    right: 4%;
+    left: 4%;
+  }
+}
+
 @media (max-width: 1320px) {
   .cp-hero--reference {
-    grid-template-columns: minmax(270px, 0.68fr) minmax(430px, 1.28fr) minmax(244px, 0.58fr);
+    grid-template-columns: minmax(270px, 0.68fr) minmax(0, 1.32fr) minmax(244px, 0.58fr);
     padding-inline: 24px;
+    column-gap: clamp(0.6rem, 1vw, 0.95rem);
   }
 
   .cp-hero--reference .cp-hero-title {
@@ -5619,12 +5648,17 @@ main {
   }
 
   .cp-hero-stage {
-    width: min(140%, 1060px);
+    width: min(112%, 940px);
+  }
+
+  .cp-hero-palette {
+    right: 4%;
+    left: 4%;
   }
 
   .cp-hero-options {
-    width: min(100%, 294px);
-    margin-top: 34px;
+    width: min(100%, 280px);
+    margin-top: 28px;
   }
 
   .cp-hero-proof-row {
