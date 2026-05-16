@@ -763,6 +763,13 @@ class StructuredDataGenerator:
         schema = {
             "@context": "https://schema.org",
             "@type": "Product",
+            # SEO molecular-upgrade US-8 (2026-05-16) — stable @id so AI
+            # knowledge graphs can deduplicate Product entities across
+            # variant URLs and sitemap rebuilds. Anchored to canonical
+            # URL so colour/fit variants (whose canonical_path includes
+            # the variant slug) get their own ID; size-only facets
+            # collapse to the base.
+            "@id": f"{product_canonical_url}#product",
             # SEO v1.1 (2026-05-16) — Phase 17v. Derive inLanguage from
             # the active locale so /ru/ and /en/ Product schemas declare
             # the correct language. Previously hardcoded uk-UA, which
@@ -802,14 +809,10 @@ class StructuredDataGenerator:
                 },
             ],
             "brand": {
-                "@type": "Brand",
-                "name": "TwoComms",
-                "url": _build_absolute_url("")
+                "@id": f"{_build_absolute_url('')}#brand"
             },
             "manufacturer": {
-                "@type": "Organization",
-                "name": "TwoComms",
-                "url": _build_absolute_url("")
+                "@id": f"{_build_absolute_url('')}#organization"
             },
             "offers": {
                 "@type": "Offer",
@@ -829,14 +832,7 @@ class StructuredDataGenerator:
                     "applicableCountry": APPLICABLE_COUNTRY,
                 },
                 "seller": {
-                    "@type": "Organization",
-                    "name": "TwoComms",
-                    "url": _build_absolute_url(""),
-                    "address": {
-                        "@type": "PostalAddress",
-                        "addressCountry": "UA",
-                        "addressLocality": _("Харків"),
-                    }
+                    "@id": f"{_build_absolute_url('')}#organization"
                 },
                 "shippingDetails": StructuredDataGenerator._get_weight_based_shipping_details()
             },
@@ -938,6 +934,27 @@ class StructuredDataGenerator:
                 gender = "male"
             elif any(word in category_name for word in ['жіноч', 'женск', 'women']):
                 gender = "female"
+
+        # SEO molecular-upgrade US-8 (2026-05-16) — explicit
+        # PeopleAudience so Google Shopping / AI Search can resolve
+        # gender targeting without parsing additionalProperty. Maps the
+        # already-derived ``gender`` to schema.org audienceType vocab.
+        audience_type_map = {
+            "male": "Men",
+            "female": "Women",
+            "unisex": "Adults",
+        }
+        suggested_gender_map = {
+            "male": "https://schema.org/Male",
+            "female": "https://schema.org/Female",
+            "unisex": "https://schema.org/Unisex",
+        }
+        schema["audience"] = {
+            "@type": "PeopleAudience",
+            "audienceType": audience_type_map.get(gender, "Adults"),
+            "suggestedGender": suggested_gender_map.get(gender, "https://schema.org/Unisex"),
+            "suggestedMinAge": 16,
+        }
 
         schema["additionalProperty"].extend([
             {"@type": "PropertyValue", "name": "age_group", "value": age_group},

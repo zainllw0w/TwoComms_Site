@@ -362,6 +362,8 @@
 
 ### US-8: PDP Schema enhance (@id, gtin, audience, ProductGroup)
 
+**Status:** 🟡 **PARTIAL DONE** (stable `@id` + `audience` PeopleAudience + brand/manufacturer/seller refs на Organization добавлены в коммите [hash]. Остаются: gtin поля per-product (требует БД), ProductGroup для variant URLs).
+
 **As** Google Shopping bot и AI-search
 **I want** видеть на PDP полный entity graph с stable @id, gtin, audience, ProductGroup (для variant-страниц)
 **So that** товары попадали в Shopping eligibility, variant-URL индексировались как уникальные, и AI мог linking-вать продукт к Organization в knowledge graph.
@@ -490,6 +492,8 @@
 
 ### US-11: ItemList на /catalog/ → реальные товары
 
+**Status:** 🟡 **PARTIAL DONE** (homepage WebPage.mainEntity = ItemList с реальными товарами добавлено в коммите `ad748adf`; для `/catalog/` основного listing — отдельный коммит).
+
 **As** Google и customer
 **I want** видеть на `/catalog/` (главный каталог-listing) ItemList с реальными товарами вместо 3 категорий
 **So that** schema корректно описывала каталог и Google понимал что на странице 65 продуктов, а не 3 рубрики.
@@ -520,6 +524,8 @@
 ---
 
 ### US-12: Speakable schema на ключевых страницах
+
+**Status:** 🟡 **PARTIAL DONE** (homepage WebPage.speakable + pro-brand AboutPage.speakable добавлены в коммите `ad748adf`; FAQPage.speakable + top-3 PDP — отдельная под-задача).
 
 **As** Google Assistant / Yandex Алиса / Siri (голосовой поиск)
 **I want** иметь Speakable hints на главной, /pro-brand/, /faq/, top-3 PDP
@@ -552,6 +558,8 @@
 ---
 
 ### US-13: Brand authority — sameAs, Wikidata, brand mentions
+
+**Status:** 🟡 **PARTIAL DONE** (Organization.sameAs стало конфигурируемым через env vars `BRAND_FACEBOOK_URL`/`BRAND_TIKTOK_URL`/`BRAND_YOUTUBE_URL`/`BRAND_PINTEREST_URL`/`BRAND_TWITTER_URL`/`BRAND_WIKIDATA_URL` в коммите `ad748adf`. Owner добавит реальные handles в `.env` сервера).
 
 **As** AI-search и Knowledge Graph builders
 **I want** видеть TwoComms как entity с расширенным `sameAs` (Instagram, Telegram, Facebook, TikTok, Pinterest, YouTube, Wikidata)
