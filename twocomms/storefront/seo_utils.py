@@ -1038,6 +1038,35 @@ class StructuredDataGenerator:
                 }
             }
 
+        # SEO molecular-upgrade US-8 finishing (2026-05-16) — variant
+        # URLs declare ``isVariantOf`` ref on the base product node so
+        # Google Shopping / AI Search can model the colour/fit hierarchy
+        # without a full ProductGroup migration. The base product gets a
+        # ``hasVariant`` array if any colour variants exist. Stable @ids
+        # let the references resolve across crawls.
+        base_product_url = _build_absolute_url(f"product/{product.slug}/")
+        base_product_id = f"{base_product_url}#product"
+        is_variant_render = (
+            selected_variant is not None
+            and product_canonical_url != base_product_url
+        )
+        if is_variant_render:
+            schema["isVariantOf"] = {"@id": base_product_id}
+        else:
+            try:
+                from productcolors.models import ProductColorVariant
+                variant_ids: list[Dict[str, str]] = []
+                for variant in ProductColorVariant.objects.filter(product=product):
+                    slug = (getattr(variant, "slug", "") or "").strip()
+                    if not slug:
+                        continue
+                    variant_url = _build_absolute_url(f"product/{product.slug}/{slug}/")
+                    variant_ids.append({"@id": f"{variant_url}#product"})
+                if variant_ids:
+                    schema["hasVariant"] = variant_ids
+            except Exception:
+                pass
+
         # Respect product.seo_schema as JSON override (merge with generated)
         if product.seo_schema and isinstance(product.seo_schema, dict):
             for key, value in product.seo_schema.items():
