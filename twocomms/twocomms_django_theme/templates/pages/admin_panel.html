@@ -4722,8 +4722,84 @@ document.addEventListener('DOMContentLoaded', function() {
 // послідовно перебирає список і повертає кількість успішних
 // нотифікацій. Підтримує URL_UPDATED (за замовчуванням) і
 // URL_DELETED (через data-notification="URL_DELETED" на кнопці).
+//
+// Якщо у кнопки є data-respect-controls="1", JS дивиться на чекбокси
+// #gix-skip-existing і #gix-respect-quota у SEO-секції та передає
+// відповідні прапорці у бекенд (skip_existing / respect_quota), що
+// дозволяє не перевитрачати денний ліміт квоти.
 (function setupGoogleIndexing() {
   const ENDPOINT = "{% url 'admin_google_indexing_submit' %}";
+  const HISTORY_ENDPOINT = "{% url 'admin_google_indexing_history' %}";
+
+  function getControls(btn) {
+    if (!btn || !btn.dataset || btn.dataset.respectControls !== '1') {
+      return { skip: false, quota: false };
+    }
+    const skipEl = document.getElementById('gix-skip-existing');
+    const quotaEl = document.getElementById('gix-respect-quota');
+    return {
+      skip: skipEl ? !!skipEl.checked : false,
+      quota: quotaEl ? !!quotaEl.checked : false,
+    };
+  }
+
+  function applySummary(summary) {
+    if (!summary) return;
+    const map = {
+      submitted: summary.submitted_today,
+      success: summary.succeeded_today,
+      failed: summary.failed_today,
+      remaining: summary.remaining_quota,
+    };
+    Object.keys(map).forEach(key => {
+      document.querySelectorAll(`[data-gix-stat="${key}"]`).forEach(el => {
+        el.textContent = map[key] != null ? map[key] : '—';
+      });
+    });
+  }
+
+  function renderHistory(rows) {
+    const tbody = document.querySelector('#gix-history tbody');
+    if (!tbody) return;
+    if (!rows || !rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color: rgba(255,255,255,0.55); font-size: 0.85rem; padding: 0.6rem;">Поки що жодного запиту в Google Indexing API не зафіксовано.</td></tr>';
+      return;
+    }
+    const fmtTime = (iso) => {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleString('uk-UA'); } catch (_) { return iso; }
+    };
+    const escape = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    tbody.innerHTML = rows.map(r => {
+      const okPill = r.status === 'success'
+        ? '<span class="seo-pill is-on">OK</span>'
+        : `<span class="seo-pill is-off" title="${escape(r.error_message || '')}">FAIL</span>`;
+      return `<tr>
+        <td style="white-space: nowrap; font-size: 0.78rem; color: rgba(255,255,255,0.65);">${escape(fmtTime(r.submitted_at))}</td>
+        <td>${okPill}</td>
+        <td style="font-size: 0.8rem;">${r.http_status != null ? escape(r.http_status) : '—'}</td>
+        <td style="font-size: 0.78rem; color: rgba(255,255,255,0.55);">${escape(r.source || '—')}</td>
+        <td><a class="seo-tile__url" href="${escape(r.url)}" target="_blank" rel="noopener">${escape(r.url)}</a></td>
+        <td style="font-size: 0.78rem; color: rgba(255,255,255,0.55);">${escape(r.notification_type || '')}</td>
+      </tr>`;
+    }).join('');
+    const counter = document.querySelector('[data-gix-stat="recent-count"]');
+    if (counter) counter.textContent = rows.length;
+  }
+
+  async function refreshHistory() {
+    try {
+      const response = await fetch(HISTORY_ENDPOINT + '?limit=50', {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      applySummary(data.summary);
+      renderHistory(data.recent || []);
+    } catch (_) { /* tolerate offline */ }
+  }
 
   document.addEventListener('click', function(event) {
     const btn = event.target.closest('[data-action="google-indexing-submit"]');
@@ -4739,8 +4815,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const notification = (btn.dataset.notification || 'URL_UPDATED').toUpperCase();
+    const controls = getControls(btn);
 
-    if (targetType === 'all' && !window.confirm(
+    if (targetType === 'all' && !controls.quota && !window.confirm(
       'Надіслати ВСІ публічні URL у Google Indexing API?\n' +
       'Google за замовчуванням дозволяє ~200 запитів на день, тож це може ' +
       'спалити денну квоту. Продовжити?'
@@ -4768,6 +4845,8 @@ document.addEventListener('DOMContentLoaded', function() {
         type: targetType,
         ids: ids,
         notification: notification,
+        skip_existing: controls.skip,
+        respect_quota: controls.quota,
       }),
     })
     .then(async response => {
@@ -4779,14 +4858,19 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           alert(msg);
         }
+        if (data && data.summary) applySummary(data.summary);
         return;
       }
       const msg = data.message || `Google Indexing API прийняв ${data.submitted || 0}/${data.count || 0} URL.`;
+      const tone = (data.submitted === data.count && (data.skipped_quota || 0) === 0) ? 'success' : 'warning';
       if (typeof showNotification === 'function') {
-        showNotification(msg, data.submitted === data.count ? 'success' : 'warning');
+        showNotification(msg, tone);
       } else {
         alert(msg);
       }
+      if (data.summary) applySummary(data.summary);
+      // Re-pull history so new rows show up immediately.
+      refreshHistory();
     })
     .catch(err => {
       const msg = (err && err.message) || 'Google Indexing API: помилка мережі';
@@ -4800,6 +4884,20 @@ document.addEventListener('DOMContentLoaded', function() {
       btn.disabled = false;
       btn.classList.remove('is-loading');
       btn.innerHTML = originalLabel;
+    });
+  });
+
+  // Manual refresh of the history table.
+  document.addEventListener('click', function(event) {
+    const btn = event.target.closest('#gix-history-refresh');
+    if (!btn) return;
+    event.preventDefault();
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.innerHTML = '<span style="opacity:.85">…</span>';
+    refreshHistory().finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = original;
     });
   });
 })();

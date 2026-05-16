@@ -2412,3 +2412,74 @@ class CategoryColorLanding(models.Model):
     @property
     def display_h1(self) -> str:
         return (self.seo_h1 or "").strip() or (self.seo_title or "").strip()
+
+
+# ===== Phase 22 — Google Indexing API audit log =====
+
+class GoogleIndexingSubmission(models.Model):
+    """Per-URL audit trail for the Google Indexing API.
+
+    Every notification we send (via ``submit_google_indexing_urls``)
+    lands in this table so the admin can see what was indexed today,
+    what failed, and which URLs are still pending against the daily
+    quota (~200/day by default).
+
+    The unique-per-day key is ``(url, notification_type, day)`` so a
+    rerun on the same calendar day can dedupe URLs we already accepted
+    instead of burning another quota slot. We keep the raw
+    ``submitted_at`` timestamp for analytics and add a denormalised
+    ``submission_date`` to make "today's" queries index-friendly.
+    """
+
+    NOTIFICATION_URL_UPDATED = "URL_UPDATED"
+    NOTIFICATION_URL_DELETED = "URL_DELETED"
+    NOTIFICATION_CHOICES = [
+        (NOTIFICATION_URL_UPDATED, _("URL_UPDATED")),
+        (NOTIFICATION_URL_DELETED, _("URL_DELETED")),
+    ]
+
+    STATUS_SUCCESS = "success"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = [
+        (STATUS_SUCCESS, _("Прийнято")),
+        (STATUS_FAILED, _("Помилка")),
+    ]
+
+    url = models.CharField(max_length=512, verbose_name="URL")
+    notification_type = models.CharField(
+        max_length=16,
+        choices=NOTIFICATION_CHOICES,
+        default=NOTIFICATION_URL_UPDATED,
+    )
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES)
+    http_status = models.PositiveSmallIntegerField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+    source = models.CharField(
+        max_length=32,
+        blank=True,
+        help_text="Звідки прилетів пінг: 'admin', 'signal', 'cron', 'manual'.",
+    )
+
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    submission_date = models.DateField(
+        db_index=True,
+        help_text="Денна агрегація (UTC дата відправлення) — для дешевих 'сьогодні' запитів.",
+    )
+
+    class Meta:
+        verbose_name = "Google Indexing submission"
+        verbose_name_plural = "Google Indexing submissions"
+        ordering = ["-submitted_at"]
+        indexes = [
+            models.Index(fields=["submission_date", "status"], name="idx_gix_date_status"),
+            models.Index(fields=["-submitted_at"], name="idx_gix_submitted_desc"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - representation only
+        return f"{self.submission_date} {self.status} {self.url}"
+
+    def save(self, *args, **kwargs):
+        if not self.submission_date:
+            now = timezone.now()
+            self.submission_date = now.date()
+        super().save(*args, **kwargs)

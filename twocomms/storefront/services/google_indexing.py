@@ -50,6 +50,7 @@ GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 GOOGLE_INDEXING_SCOPE = "https://www.googleapis.com/auth/indexing"
 GOOGLE_INDEXING_DEFAULT_TIMEOUT = 10.0
 GOOGLE_INDEXING_DEFAULT_RETRIES = 2
+GOOGLE_INDEXING_DEFAULT_DAILY_QUOTA = 200
 
 # Google's Indexing API allows two notification types:
 #   URL_UPDATED  → page is new or its content changed
@@ -126,6 +127,157 @@ def get_google_indexing_status() -> dict[str, Any]:
         "credentials_present": exists,
         "configured": exists and is_google_indexing_enabled(),
     }
+
+
+def get_daily_quota() -> int:
+    """Return the configured daily quota (default 200, Google's free tier)."""
+    raw = getattr(settings, "GOOGLE_INDEXING_DAILY_QUOTA", GOOGLE_INDEXING_DEFAULT_DAILY_QUOTA)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = GOOGLE_INDEXING_DEFAULT_DAILY_QUOTA
+    return max(1, value)
+
+
+# ---------------------------------------------------------------------------
+# Submission audit log helpers (Phase 22)
+# ---------------------------------------------------------------------------
+
+def _today_local() -> "date":  # noqa: F821 — runtime forward ref
+    from datetime import date
+    return date.today() if not getattr(settings, "USE_TZ", False) else _today_aware()
+
+
+def _today_aware():
+    from datetime import datetime
+    from django.utils import timezone as djtz
+    return djtz.localdate()
+
+
+def get_today() -> "date":  # noqa: F821
+    """Return the current date in the active timezone (settings.TIME_ZONE)."""
+    from django.utils import timezone as djtz
+    return djtz.localdate()
+
+
+def get_urls_already_submitted_today(
+    urls: Iterable[str],
+    *,
+    notification_type: str = NOTIFICATION_URL_UPDATED,
+) -> set[str]:
+    """Return URLs that already have a successful submission for today.
+
+    Used to deduplicate manual bulk reruns so we don't burn quota on
+    pages Google has already accepted in this calendar day.
+    """
+    try:
+        from storefront.models import GoogleIndexingSubmission
+    except Exception:  # pragma: no cover - defensive (model may not be migrated yet)
+        return set()
+
+    url_list = [u for u in urls if u]
+    if not url_list:
+        return set()
+
+    today = get_today()
+    qs = GoogleIndexingSubmission.objects.filter(
+        submission_date=today,
+        notification_type=notification_type,
+        status="success",
+        url__in=url_list,
+    ).values_list("url", flat=True)
+    return set(qs)
+
+
+def get_today_summary() -> dict[str, Any]:
+    """Quota/throughput snapshot for the admin dashboard."""
+    try:
+        from storefront.models import GoogleIndexingSubmission
+    except Exception:  # pragma: no cover
+        return {
+            "today": str(get_today()),
+            "quota": get_daily_quota(),
+            "submitted_today": 0,
+            "succeeded_today": 0,
+            "failed_today": 0,
+            "remaining_quota": get_daily_quota(),
+            "last_submitted_at": None,
+        }
+
+    today = get_today()
+    qs = GoogleIndexingSubmission.objects.filter(submission_date=today)
+    total = qs.count()
+    succeeded = qs.filter(status="success").count()
+    failed = total - succeeded
+    last = qs.order_by("-submitted_at").values_list("submitted_at", flat=True).first()
+
+    quota = get_daily_quota()
+    return {
+        "today": str(today),
+        "quota": quota,
+        "submitted_today": total,
+        "succeeded_today": succeeded,
+        "failed_today": failed,
+        "remaining_quota": max(0, quota - total),
+        "last_submitted_at": last.isoformat() if last else None,
+    }
+
+
+def get_recent_submissions(*, limit: int = 50) -> list[dict[str, Any]]:
+    """Return the latest submission entries for the admin history view."""
+    try:
+        from storefront.models import GoogleIndexingSubmission
+    except Exception:  # pragma: no cover
+        return []
+
+    rows = (
+        GoogleIndexingSubmission.objects
+        .order_by("-submitted_at")
+        .values(
+            "id", "url", "status", "http_status",
+            "notification_type", "submitted_at", "submission_date",
+            "source", "error_message",
+        )[: max(1, limit)]
+    )
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        out.append({
+            "id": row["id"],
+            "url": row["url"],
+            "status": row["status"],
+            "http_status": row["http_status"],
+            "notification_type": row["notification_type"],
+            "submitted_at": row["submitted_at"].isoformat() if row["submitted_at"] else None,
+            "submission_date": str(row["submission_date"]) if row["submission_date"] else None,
+            "source": row["source"],
+            "error_message": (row["error_message"] or "")[:300],
+        })
+    return out
+
+
+def _log_submission(
+    *,
+    url: str,
+    notification_type: str,
+    status: str,
+    http_status: int | None,
+    error_message: str = "",
+    source: str = "",
+) -> None:
+    try:
+        from storefront.models import GoogleIndexingSubmission
+        from django.utils import timezone as djtz
+        GoogleIndexingSubmission.objects.create(
+            url=url,
+            notification_type=notification_type,
+            status=status,
+            http_status=http_status,
+            error_message=(error_message or "")[:2000],
+            source=source[:32],
+            submission_date=djtz.localdate(),
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("Google Indexing audit-log write failed: %s", exc, exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -248,8 +400,12 @@ def _send_one(
     access_token: str,
     timeout: float,
     retries: int,
-) -> tuple[bool, str | None]:
-    """POST a single URL notification. Returns (ok, error_message)."""
+) -> tuple[bool, str | None, int | None]:
+    """POST a single URL notification.
+
+    Returns ``(ok, error_message, http_status)``. ``http_status`` is
+    ``None`` if the request never reached Google (timeout, DNS, etc.).
+    """
     payload = {"url": url, "type": notification_type}
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -257,6 +413,7 @@ def _send_one(
     }
 
     last_error: str | None = None
+    last_status: int | None = None
     for attempt in range(retries + 1):
         try:
             response = requests.post(
@@ -267,6 +424,7 @@ def _send_one(
             )
         except (requests.Timeout, requests.ConnectionError) as exc:
             last_error = f"{type(exc).__name__}: {exc}"
+            last_status = None
             logger.warning(
                 "Google Indexing transient error on attempt %s/%s for %s: %s",
                 attempt + 1, retries + 1, url, exc,
@@ -275,10 +433,11 @@ def _send_one(
         except Exception as exc:  # pragma: no cover - defensive
             last_error = f"{type(exc).__name__}: {exc}"
             logger.error("Google Indexing unexpected error: %s", exc, exc_info=True)
-            return False, last_error
+            return False, last_error, last_status
 
+        last_status = response.status_code
         if response.status_code == 200:
-            return True, None
+            return True, None, last_status
         if response.status_code in (429,) or 500 <= response.status_code < 600:
             last_error = f"HTTP {response.status_code}: {response.text[:200]}"
             logger.warning(
@@ -289,8 +448,8 @@ def _send_one(
         # 4xx (other than 429) is not retryable.
         last_error = f"HTTP {response.status_code}: {response.text[:200]}"
         logger.error("Google Indexing rejected %s: %s", url, last_error)
-        return False, last_error
-    return False, last_error or "unknown error"
+        return False, last_error, last_status
+    return False, (last_error or "unknown error"), last_status
 
 
 def submit_google_indexing_urls(
@@ -299,16 +458,36 @@ def submit_google_indexing_urls(
     notification_type: str = NOTIFICATION_URL_UPDATED,
     timeout: float | None = None,
     retries: int | None = None,
+    source: str = "",
+    skip_already_submitted_today: bool = False,
+    quota_limit: int | None = None,
 ) -> dict[str, Any]:
     """Submit a list of URLs to the Google Indexing API.
+
+    Args:
+        urls: iterable of absolute URLs (off-host URLs are filtered out).
+        notification_type: ``URL_UPDATED`` (default) or ``URL_DELETED``.
+        timeout / retries: HTTP knobs (defaults via ``settings``).
+        source: short label that ends up in the audit log
+            (e.g. ``"admin"``, ``"signal"``, ``"cron"``).
+        skip_already_submitted_today: when True, URLs that already have
+            a *successful* submission for today are dropped before any
+            HTTP call. Use this for manual bulk reruns so the daily
+            quota is not burned on duplicates.
+        quota_limit: if set, caps the number of HTTP calls so the
+            daily Google quota is not exceeded. Combined with
+            ``skip_already_submitted_today`` it lets the admin keep
+            sending until the quota is empty without retrying URLs.
 
     Returns a dict::
 
         {
-            "ok": bool,            # True iff every URL accepted
-            "submitted": int,      # number of URLs accepted (HTTP 200)
-            "total": int,          # total URLs after normalization
-            "failures": [{"url": ..., "error": ...}, ...],
+            "ok": bool,
+            "submitted": int,
+            "total": int,             # URLs after host filter
+            "skipped_already": int,   # already accepted today
+            "skipped_quota": int,     # not sent due to quota_limit
+            "failures": [{"url": ..., "error": ..., "http_status": ...}, ...],
             "configured": bool,
             "message": str,
         }
@@ -318,6 +497,8 @@ def submit_google_indexing_urls(
             "ok": False,
             "submitted": 0,
             "total": 0,
+            "skipped_already": 0,
+            "skipped_quota": 0,
             "failures": [],
             "configured": is_google_indexing_configured(),
             "message": f"Invalid notification type: {notification_type!r}",
@@ -330,6 +511,8 @@ def submit_google_indexing_urls(
             "ok": False,
             "submitted": 0,
             "total": 0,
+            "skipped_already": 0,
+            "skipped_quota": 0,
             "failures": [],
             "configured": is_google_indexing_configured(),
             "message": "No valid URLs to submit (host filter or empty input).",
@@ -340,11 +523,44 @@ def submit_google_indexing_urls(
             "ok": False,
             "submitted": 0,
             "total": total,
+            "skipped_already": 0,
+            "skipped_quota": 0,
             "failures": [],
             "configured": False,
             "message": (
                 "Google Indexing API не сконфігуровано: відсутній або вимкнений "
                 "сервісний акаунт."
+            ),
+        }
+
+    skipped_already = 0
+    if skip_already_submitted_today:
+        already = get_urls_already_submitted_today(
+            normalized, notification_type=notification_type
+        )
+        if already:
+            skipped_already = len(already)
+            normalized = [u for u in normalized if u not in already]
+
+    skipped_quota = 0
+    if quota_limit is not None and quota_limit > 0 and len(normalized) > quota_limit:
+        skipped_quota = len(normalized) - quota_limit
+        normalized = normalized[:quota_limit]
+
+    if not normalized:
+        return {
+            "ok": True if skipped_already else False,
+            "submitted": 0,
+            "total": total,
+            "skipped_already": skipped_already,
+            "skipped_quota": skipped_quota,
+            "failures": [],
+            "configured": True,
+            "message": (
+                f"Усі {skipped_already} URL уже відправлено сьогодні — "
+                "немає що індексувати повторно."
+                if skipped_already
+                else "Жодного URL для відправки після фільтрації."
             ),
         }
 
@@ -368,15 +584,17 @@ def submit_google_indexing_urls(
             "ok": False,
             "submitted": 0,
             "total": total,
+            "skipped_already": skipped_already,
+            "skipped_quota": skipped_quota,
             "failures": [{"url": "*", "error": str(exc)}],
             "configured": True,
             "message": f"Не вдалося отримати OAuth2 token: {exc}",
         }
 
     submitted = 0
-    failures: list[dict[str, str]] = []
+    failures: list[dict[str, Any]] = []
     for url in normalized:
-        ok, err = _send_one(
+        ok, err, http_status = _send_one(
             url,
             notification_type,
             access_token=access_token,
@@ -385,35 +603,57 @@ def submit_google_indexing_urls(
         )
         if ok:
             submitted += 1
+            _log_submission(
+                url=url,
+                notification_type=notification_type,
+                status="success",
+                http_status=http_status,
+                source=source,
+            )
         else:
-            failures.append({"url": url, "error": err or "unknown error"})
+            failures.append({"url": url, "error": err or "unknown error", "http_status": http_status})
+            _log_submission(
+                url=url,
+                notification_type=notification_type,
+                status="failed",
+                http_status=http_status,
+                error_message=err or "",
+                source=source,
+            )
 
     if submitted:
         logger.info(
-            "Google Indexing accepted %s/%s URL(s) (type=%s)",
-            submitted, total, notification_type,
+            "Google Indexing accepted %s/%s URL(s) (type=%s, skipped_already=%s, skipped_quota=%s)",
+            submitted, total, notification_type, skipped_already, skipped_quota,
         )
 
-    if submitted == total:
-        message = f"Google Indexing API прийняв {submitted}/{total} URL."
+    attempted = len(normalized)
+    if submitted == attempted and submitted > 0:
+        msg_parts = [f"Google Indexing API прийняв {submitted}/{total} URL."]
     elif submitted == 0:
-        message = (
-            f"Google Indexing API відхилив усі {total} URL. "
-            "Перевірте логи й денний квоту проєкту."
-        )
+        msg_parts = [
+            f"Google Indexing API відхилив усі {attempted} URL.",
+            "Перевірте логи й денний квоту проєкту.",
+        ]
     else:
-        message = (
-            f"Google Indexing API прийняв {submitted}/{total} URL, "
-            f"{total - submitted} відхилив(но). Деталі — у логах."
-        )
+        msg_parts = [
+            f"Google Indexing API прийняв {submitted}/{attempted} URL,",
+            f"{attempted - submitted} відхилив(но). Деталі — у логах.",
+        ]
+    if skipped_already:
+        msg_parts.append(f"Пропущено вже надісланих сьогодні: {skipped_already}.")
+    if skipped_quota:
+        msg_parts.append(f"Залишилось понад ліміт: {skipped_quota}.")
 
     return {
-        "ok": submitted == total,
+        "ok": submitted == attempted and submitted > 0,
         "submitted": submitted,
         "total": total,
+        "skipped_already": skipped_already,
+        "skipped_quota": skipped_quota,
         "failures": failures,
         "configured": True,
-        "message": message,
+        "message": " ".join(msg_parts),
     }
 
 
@@ -421,6 +661,7 @@ def enqueue_google_indexing_urls(
     urls: Iterable[str],
     *,
     notification_type: str = NOTIFICATION_URL_UPDATED,
+    source: str = "signal",
 ) -> bool:
     """Fire-and-forget helper for use inside ``transaction.on_commit``.
 
@@ -432,7 +673,9 @@ def enqueue_google_indexing_urls(
         return False
     try:
         result = submit_google_indexing_urls(
-            normalized, notification_type=notification_type
+            normalized,
+            notification_type=notification_type,
+            source=source,
         )
     except Exception as exc:  # pragma: no cover - defensive
         logger.error("Google Indexing enqueue failed: %s", exc, exc_info=True)
@@ -449,6 +692,10 @@ __all__ = [
     "is_google_indexing_configured",
     "get_google_indexing_status",
     "get_credentials_path",
+    "get_daily_quota",
+    "get_today_summary",
+    "get_recent_submissions",
+    "get_urls_already_submitted_today",
     "reset_token_cache",
     "submit_google_indexing_urls",
     "enqueue_google_indexing_urls",

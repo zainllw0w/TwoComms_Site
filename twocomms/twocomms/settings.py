@@ -273,6 +273,12 @@ try:
     GOOGLE_INDEXING_RETRIES = int(os.environ.get("GOOGLE_INDEXING_RETRIES", "2"))
 except (TypeError, ValueError):
     GOOGLE_INDEXING_RETRIES = 2
+try:
+    # Google's free tier is ~200 URL notifications/day per project. Override
+    # if you have an approved quota increase from Cloud Console.
+    GOOGLE_INDEXING_DAILY_QUOTA = int(os.environ.get("GOOGLE_INDEXING_DAILY_QUOTA", "200"))
+except (TypeError, ValueError):
+    GOOGLE_INDEXING_DAILY_QUOTA = 200
 
 # URL для входа в систему
 LOGIN_URL = '/login/'

@@ -125,7 +125,11 @@ from storefront.services.indexnow import (
 from storefront.services.google_indexing import (
     NOTIFICATION_URL_DELETED,
     NOTIFICATION_URL_UPDATED,
+    get_daily_quota,
     get_google_indexing_status,
+    get_recent_submissions,
+    get_today_summary,
+    get_urls_already_submitted_today,
     is_google_indexing_configured,
     submit_google_indexing_urls,
 )
@@ -2069,6 +2073,9 @@ def admin_google_indexing_submit(request):
             status=400,
         )
 
+    skip_existing = bool(payload.get('skip_existing'))
+    respect_quota = bool(payload.get('respect_quota'))
+
     try:
         ids = [int(value) for value in raw_ids if str(value).strip()]
     except (TypeError, ValueError):
@@ -2114,20 +2121,63 @@ def admin_google_indexing_submit(request):
             status=400,
         )
 
-    result = submit_google_indexing_urls(urls, notification_type=notification)
+    quota_limit = None
+    if respect_quota:
+        summary = get_today_summary()
+        remaining = max(0, int(summary.get('remaining_quota') or 0))
+        quota_limit = remaining
+
+    result = submit_google_indexing_urls(
+        urls,
+        notification_type=notification,
+        source='admin',
+        skip_already_submitted_today=skip_existing,
+        quota_limit=quota_limit,
+    )
     return JsonResponse(
         {
             'success': bool(result.get('ok')),
             'count': result.get('total', len(urls)),
             'submitted': result.get('submitted', 0),
+            'skipped_already': result.get('skipped_already', 0),
+            'skipped_quota': result.get('skipped_quota', 0),
             'failures': result.get('failures', []),
             'notification': notification,
+            'summary': get_today_summary(),
             'message': result.get(
                 'message',
                 f'Google Indexing API: {result.get("submitted", 0)}/{len(urls)} URL.',
             ),
         }
     )
+
+
+@staff_member_required
+def admin_google_indexing_history(request):
+    """JSON endpoint for the SEO dashboard "Indexing log" widget.
+
+    Returns today's quota stats and the most recent submissions so the
+    admin can see at a glance which URLs were accepted, which failed,
+    and how many quota slots are still available.
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+    try:
+        limit = int(request.GET.get('limit') or 50)
+    except (TypeError, ValueError):
+        limit = 50
+    limit = max(1, min(200, limit))
+
+    summary = get_today_summary()
+    recent = get_recent_submissions(limit=limit)
+    return JsonResponse({
+        'success': True,
+        'summary': summary,
+        'recent': recent,
+        'configured': is_google_indexing_configured(),
+        'status': get_google_indexing_status(),
+    })
 
 
 @staff_member_required

@@ -148,7 +148,7 @@
   </section>
 
   {# ---------- Phase 22 — Indexing API panel (Bing IndexNow + Google) ---------- #}
-  <section class="seo-card" aria-label="Indexing API panel">
+  <section class="seo-card" aria-label="Indexing API panel" id="indexing-panel" data-history-endpoint="{% url 'admin_google_indexing_history' %}">
     <h3>Індексація · IndexNow + Google Indexing API</h3>
     <p style="color: rgba(255,255,255,0.6); font-size: 0.88rem; margin: 0.25rem 0 0.75rem;">
       IndexNow стукає в Bing/Yandex, Google Indexing API — у Googlebot.
@@ -196,6 +196,38 @@
       </div>
     </div>
 
+    {# ---------- Quota / today's progress ---------- #}
+    <div class="seo-grid" style="margin-bottom: 0.85rem;">
+      <div class="seo-tile is-total">
+        <div class="seo-tile__count" data-gix-stat="remaining">{{ indexing_status.google.summary.remaining_quota|default:"—" }}</div>
+        <div class="seo-tile__label">
+          Залишок квоти на сьогодні (з {{ indexing_status.google.summary.quota|default:"200" }})
+        </div>
+      </div>
+      <div class="seo-tile">
+        <div class="seo-tile__count" data-gix-stat="submitted">{{ indexing_status.google.summary.submitted_today|default:0 }}</div>
+        <div class="seo-tile__label">
+          Відправлено за {{ indexing_status.google.summary.today|default:"сьогодні" }}
+          (<span style="color:#b6f5c4;">прийнято <span data-gix-stat="success">{{ indexing_status.google.summary.succeeded_today|default:0 }}</span></span>
+          / <span style="color:#fca5a5;">помилок <span data-gix-stat="failed">{{ indexing_status.google.summary.failed_today|default:0 }}</span></span>)
+        </div>
+      </div>
+      <div class="seo-tile">
+        <div class="seo-tile__count">
+          <label style="display:flex; gap:.4rem; align-items:center; font-size: 0.85rem; cursor:pointer;">
+            <input type="checkbox" id="gix-skip-existing" checked>
+            <span>Пропускати вже надіслані сьогодні</span>
+          </label>
+        </div>
+        <div class="seo-tile__label">
+          <label style="display:flex; gap:.4rem; align-items:center; font-size: 0.85rem; cursor:pointer;">
+            <input type="checkbox" id="gix-respect-quota" checked>
+            <span>Не виходити за денний ліміт ({{ indexing_status.google.summary.quota|default:"200" }})</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
     <div class="seo-quick-links">
       <button type="button" class="seo-btn-generate"
               data-action="indexnow-submit"
@@ -212,18 +244,70 @@
       <button type="button" class="seo-btn-generate"
               data-action="google-indexing-submit"
               data-target-type="all"
+              data-respect-controls="1"
               {% if not indexing_status.google.configured %}disabled aria-disabled="true"{% endif %}
-              title="Послідовно надсилає кожен URL у Google Indexing API. Стандартна квота — 200/добу.">
+              title="Послідовно надсилає кожен URL у Google Indexing API. Перемикачі вище керують пропуском дублів і дотриманням квоти.">
         Google · усі URL
       </button>
       <button type="button" class="seo-btn-generate"
               data-action="google-indexing-submit"
               data-target-type="core"
+              data-respect-controls="1"
               {% if not indexing_status.google.configured %}disabled aria-disabled="true"{% endif %}
               title="Надіслати у Google Indexing API лише ключові статичні сторінки (home, catalog, contacts, ...).">
         Google · core
       </button>
+      <button type="button" class="seo-btn-generate"
+              id="gix-history-refresh"
+              {% if not indexing_status.google.configured %}disabled aria-disabled="true"{% endif %}>
+        ↻ Оновити історію
+      </button>
     </div>
+
+    {# ---------- History table ---------- #}
+    <details class="seo-history" style="margin-top: 1rem;" open>
+      <summary style="cursor: pointer; padding: 0.45rem 0; font-size: 0.92rem; color: rgba(255,255,255,0.85);">
+        Останні відправки у Google Indexing API
+        (<span data-gix-stat="recent-count">{{ indexing_status.google.recent|length|default:0 }}</span>)
+      </summary>
+      <table class="seo-table" id="gix-history" style="margin-top: 0.4rem;">
+        <thead>
+          <tr>
+            <th>Час</th>
+            <th>Статус</th>
+            <th>HTTP</th>
+            <th>Джерело</th>
+            <th>URL</th>
+            <th>Тип</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in indexing_status.google.recent %}
+            <tr>
+              <td style="white-space: nowrap; font-size: 0.78rem; color: rgba(255,255,255,0.65);">{{ row.submitted_at }}</td>
+              <td>
+                {% if row.status == 'success' %}
+                  <span class="seo-pill is-on">OK</span>
+                {% else %}
+                  <span class="seo-pill is-off" title="{{ row.error_message }}">FAIL</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 0.8rem;">{{ row.http_status|default:"—" }}</td>
+              <td style="font-size: 0.78rem; color: rgba(255,255,255,0.55);">{{ row.source|default:"—" }}</td>
+              <td><a class="seo-tile__url" href="{{ row.url }}" target="_blank" rel="noopener">{{ row.url }}</a></td>
+              <td style="font-size: 0.78rem; color: rgba(255,255,255,0.55);">{{ row.notification_type }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" style="color: rgba(255,255,255,0.55); font-size: 0.85rem; padding: 0.6rem;">
+                Поки що жодного запиту в Google Indexing API не зафіксовано.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+
     <p style="color: rgba(255,255,255,0.45); font-size: 0.78rem; margin-top: 0.6rem;">
       Google Indexing API офіційно обмежено типами JobPosting та
       BroadcastEvent, але приймає й інші URL як підказку. Стежте за

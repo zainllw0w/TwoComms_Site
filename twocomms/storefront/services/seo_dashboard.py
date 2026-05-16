@@ -275,9 +275,15 @@ def build_seo_dashboard_context() -> Dict[str, Any]:
         get_indexnow_key,
         get_indexnow_key_location,
     )
-    from .google_indexing import get_google_indexing_status
+    from .google_indexing import (
+        get_google_indexing_status,
+        get_today_summary,
+        get_recent_submissions,
+    )
 
     google_status = get_google_indexing_status()
+    google_summary = get_today_summary()
+    google_recent = get_recent_submissions(limit=50)
 
     return {
         "sitemap_summary": build_sitemap_summary(),
@@ -299,6 +305,8 @@ def build_seo_dashboard_context() -> Dict[str, Any]:
                 "configured": google_status.get("configured"),
                 "credentials_present": google_status.get("credentials_present"),
                 "credentials_path": google_status.get("credentials_path"),
+                "summary": google_summary,
+                "recent": google_recent,
             },
         },
     }
