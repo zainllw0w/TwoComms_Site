@@ -784,6 +784,7 @@ def custom_sitemap(request):
         ("/sitemap-product-variants.xml", product_lastmod),
         ("/sitemap-categories.xml", category_lastmod),
         ("/sitemap-color-categories.xml", color_landing_lastmod),
+        ("/sitemap-thematic.xml", None),
         ("/sitemap-images.xml", images_lastmod),
     ]
 
@@ -854,6 +855,18 @@ def sitemap_section_color_categories(request):
     from storefront.sitemaps import CategoryColorLandingSitemap
 
     return _render_django_sitemap(request, [CategoryColorLandingSitemap])
+
+
+def sitemap_section_thematic(request):
+    """Section sitemap for thematic landings (US-5).
+
+    Lists the four indexable themes registered in
+    ``storefront.views.catalog.THEMATIC_LANDINGS_CONFIG`` —
+    military / streetwear / patriotic / kharkiv-edition.
+    """
+    from storefront.sitemaps import ThematicLandingSitemap
+
+    return _render_django_sitemap(request, [ThematicLandingSitemap])
 
 
 def sitemap_images(request):

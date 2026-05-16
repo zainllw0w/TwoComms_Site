@@ -258,3 +258,36 @@ class CategoryColorLandingSitemap(Sitemap):
 
     def location(self, obj):
         return f"/catalog/{obj.category.slug}/{obj.color_slug}/"
+
+
+class ThematicLandingSitemap(Sitemap):
+    """SEO molecular-upgrade US-5 — sitemap section for thematic landings.
+
+    Lists the four indexable themes (military / streetwear / patriotic /
+    kharkiv-edition) registered in
+    ``storefront.views.catalog.THEMATIC_LANDINGS_CONFIG``. Each theme
+    is publishable across all three locales via i18n alternates.
+    """
+
+    changefreq = 'weekly'
+    priority = 0.7
+    protocol = 'https'
+    i18n = True
+    alternates = True
+    x_default = True
+
+    def items(self):
+        # Hard-coded theme slugs match THEMATIC_LANDINGS_CONFIG keys.
+        # Keep in sync if a new theme is added to the view module.
+        return [
+            'military',
+            'streetwear',
+            'patriotic',
+            'kharkiv-edition',
+        ]
+
+    def location(self, item):
+        return f"/catalog/theme/{item}/"
+
+    def lastmod(self, item):
+        return None

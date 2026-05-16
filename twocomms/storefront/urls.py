@@ -93,6 +93,14 @@ urlpatterns = [
         views.category_color_landing,
         name='catalog_by_cat_color',
     ),
+    # SEO molecular-upgrade US-5 (2026-05-16) — thematic landings.
+    # See ``views.catalog.thematic_landing`` for the keyword-match
+    # algorithm and editorial copy table.
+    path(
+        'catalog/theme/<slug:theme_slug>/',
+        views.thematic_landing,
+        name='catalog_theme_landing',
+    ),
     path('product/<slug:slug>/', views.product_detail, name='product'),
     # Phase 7.2 — path-style variant URLs. Up to three ``slug`` segments
     # capture any combination of size code / colour slug / fit code.

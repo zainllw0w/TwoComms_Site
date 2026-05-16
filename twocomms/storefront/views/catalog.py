@@ -941,3 +941,233 @@ def category_color_landing(request, cat_slug, color_slug):
             "cross_category_landings": cross_category_landings,
         },
     )
+
+
+# ==================== THEMATIC LANDINGS (US-5) ====================
+#
+# Lightweight thematic SEO landings — `/catalog/theme/<theme_slug>/`.
+# No new model, no migration: products are filtered by slug / title /
+# topic_keywords keywords using the same topic-detection logic that
+# powers ``storefront.services.product_seo_block`` (US-3).
+#
+# Four indexable themes ship out of the box:
+#   * military       → military / тактичний / 225 / штурмовий
+#   * streetwear     → streetwear / стріт / urban
+#   * patriotic      → glory of ukraine / patriotic / ЗСУ / 225
+#   * kharkiv-edition → kharkiv / kha-style / харків / pokrovsk
+#
+# Each landing reuses the existing /catalog/ template stack but
+# injects a custom ``thematic_landing`` context with editorial copy and
+# a curated breadcrumb so the page is unique enough to index without a
+# new template/landing model.
+
+THEMATIC_LANDINGS_CONFIG = {
+    "military": {
+        "h1": "Військовий стрітвір TwoComms — мілітарі-одяг із харківським кодом",
+        "title": "Купити мілітарі футболки, худі та лонгсліви — TwoComms",
+        "description": (
+            "Військовий streetwear від ветеранського бренду TwoComms: футболки, "
+            "худі і лонгсліви з мілітарі-кодом, авторськими принтами 225-го ОШП "
+            "і Pokrovsk Girl. Виробництво в Харкові."
+        ),
+        "intro": (
+            "Військова естетика TwoComms — це не косплей і не агітка. Це "
+            "щоденний одяг для людей, які тримають форму зсередини: бойових "
+            "ветеранів, активних резервістів, цивільних, які знають контекст. "
+            "Принти серії 225-го ОШП, харківські відсилки, патріотичні мотиви "
+            "без галасу. Виробництво у Харкові, контроль якості у одному цеху, "
+            "тираж не масштабується заради знижок."
+        ),
+        "keywords": (
+            "мілітарі, military, тактичний, 225, штурмовий, ошп, kharkiv, "
+            "pokrovsk, glory-of-ukraine, war, soldier, "
+            "патріотичний, патриотический"
+        ),
+        "match_keywords": [
+            "military", "мілітар", "милитар", "tactical", "тактич", "225",
+            "ошп", "штурм", "war", "soldier", "armed", "warrior", "warfare",
+        ],
+    },
+    "streetwear": {
+        "h1": "Стрітвір TwoComms — авторський streetwear із Харкова",
+        "title": "Купити streetwear футболки, худі, лонгсліви — TwoComms",
+        "description": (
+            "Streetwear від TwoComms: футболки, худі та лонгсліви з авторським "
+            "DTF-друком, oversize-кроєм, харківським ДНК. Streetwear як код, не "
+            "декорація. Доставка по Україні."
+        ),
+        "intro": (
+            "Streetwear-крило TwoComms — це чистий міський код без військових "
+            "цитат і політичних маркерів. Авторські принти, акуратні графіки, "
+            "сильні шрифти, продумана посадка. Streetwear як шифр, який "
+            "зчитують ті, хто розуміє контекст. Тут немає випадкових "
+            "колаборацій з невідомими виробниками: усе шиється у Харкові, "
+            "перевіряється у одному цеху, пакується вручну."
+        ),
+        "keywords": (
+            "стрітвір, streetwear, urban, street, культовий одяг, авторський "
+            "принт, oversize, харківський streetwear"
+        ),
+        "match_keywords": [
+            "street", "стрит", "стріт", "urban", "skate", "punk", "graff",
+            "reality-bends", "future", "business",
+        ],
+    },
+    "patriotic": {
+        "h1": "Патріотичний одяг TwoComms — український streetwear із характером",
+        "title": "Патріотичні футболки і худі з принтом ЗСУ — TwoComms",
+        "description": (
+            "Патріотичний одяг TwoComms: футболки, худі та лонгсліви з "
+            "принтами Glory of Ukraine, ЗСУ, харківської серії. Без галасу, "
+            "без фейку — реальна підтримка ветеранських проєктів."
+        ),
+        "intro": (
+            "Патріотична лінія TwoComms — це спокійна українська ідентичність "
+            "без агітки. Ми не пишемо «слава Україні» гігантськими літерами — "
+            "ми вкладаємо знак у графіку, яку зчитують свої. Принти серії "
+            "Glory of Ukraine, харківські відсилки, мотиви, повʼязані з "
+            "225-м ОШП. Частина прибутку — на підтримку ветеранських "
+            "ініціатив через Український ветеранський фонд."
+        ),
+        "keywords": (
+            "патріотичний одяг, glory of ukraine, патриотический, ЗСУ, "
+            "слава україні, kharkiv edition"
+        ),
+        "match_keywords": [
+            "glory", "ukraine", "україн", "украин", "патріот", "патриот",
+            "kha", "harkiv", "харків", "харьков", "pokrovsk", "покров",
+        ],
+    },
+    "kharkiv-edition": {
+        "h1": "Харківський одяг TwoComms — Kharkiv Edition streetwear",
+        "title": "Купити одяг із принтом «Харків» — TwoComms Kharkiv Edition",
+        "description": (
+            "Колекція Kharkiv Edition від TwoComms: футболки, худі та "
+            "лонгсліви з харківськими принтами, Pokrovsk Girl, Kha Style. "
+            "Виробництво у Харкові."
+        ),
+        "intro": (
+            "Kharkiv Edition — це харківський бренд про харківську оптику. "
+            "TwoComms виріс у місті, де зараз і щодня тестується. У серії — "
+            "принти, які працюють як знаки для тих, хто розуміє контекст: "
+            "Pokrovsk Girl, Kha Style, харківська обласна графіка. Це не "
+            "туристичний мерч і не патріотична агітка, а щоденний код міста."
+        ),
+        "keywords": (
+            "харківський одяг, kharkiv edition, харків стрітвір, "
+            "kha-style, pokrovsk girl"
+        ),
+        "match_keywords": [
+            "kharkiv", "kha-", "харків", "харьков", "pokrovsk", "покров",
+            "district",
+        ],
+    },
+}
+
+
+@cache_page_for_anon(600, key_prefix=public_product_listing_cache_prefix)
+def thematic_landing(request, theme_slug):
+    """Render an indexable thematic SEO landing.
+
+    URL: ``/catalog/theme/<theme_slug>/``.
+
+    Filters published products by slug / title keyword match against
+    ``THEMATIC_LANDINGS_CONFIG[theme]["match_keywords"]``. The landing
+    reuses the existing catalog template but injects a thematic intro
+    + curated breadcrumb so the URL stays unique-enough to index.
+    """
+    config = THEMATIC_LANDINGS_CONFIG.get(theme_slug)
+    if not config:
+        raise Http404("Unknown theme")
+
+    fragment_cache = get_fragment_cache()
+    categories = get_categories_cached(fragment_cache)
+    public_product_order_version = get_public_product_order_version(fragment_cache)
+    public_category_version = get_public_category_version(fragment_cache)
+
+    # Build keyword-OR filter from match_keywords.
+    keyword_q = Q()
+    for keyword in config["match_keywords"]:
+        keyword_q |= Q(slug__icontains=keyword) | Q(title__icontains=keyword)
+    base_qs = apply_public_product_order(
+        _product_cards_queryset().filter(status="published").filter(keyword_q)
+    )
+
+    # Fall back to all products if the theme matches nothing — surface
+    # at least the catalogue rather than a 404, and never show an empty
+    # SEO landing (would be flagged as soft-404 by Google).
+    if not base_qs.exists():
+        base_qs = apply_public_product_order(
+            _product_cards_queryset().filter(status="published")
+        )
+
+    # Phase 9 colour filter still works on top of the theme.
+    selected_color_slugs = parse_color_filter(request)
+    available_colors = build_available_colors(
+        base_qs, request, selected_color_slugs, category=None
+    )
+    has_active_color_filter = bool(selected_color_slugs)
+    color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
+    product_qs = apply_color_filter(base_qs, selected_color_slugs)
+
+    paginator = Paginator(product_qs, PRODUCTS_PER_PAGE)
+    page_number = request.GET.get('page')
+    try:
+        page_obj = paginator.get_page(page_number)
+    except EmptyPage:
+        page_obj = paginator.get_page(paginator.num_pages)
+
+    products = list(page_obj.object_list)
+    color_previews = build_color_preview_map(products)
+    for product in products:
+        colors_preview = color_previews.get(product.id, [])
+        product.colors_preview = colors_preview
+        product.colors_preview_key = build_color_preview_key(colors_preview)
+    enrich_color_preview_with_slugs(products)
+    attach_preferred_card_image(products, selected_color_slugs)
+
+    canonical_path = f"/catalog/theme/{theme_slug}/"
+    canonical_url = (
+        request.build_absolute_uri(canonical_path)
+        .split('?', 1)[0]
+        .rstrip('/') + '/'
+    )
+
+    return render(
+        request,
+        'pages/catalog.html',
+        {
+            'categories': categories,
+            'category': None,
+            'thematic_landing': {
+                'slug': theme_slug,
+                'h1': config["h1"],
+                'title': config["title"],
+                'description': config["description"],
+                'intro': config["intro"],
+                'keywords': config["keywords"],
+            },
+            'products': products,
+            'show_category_cards': False,
+            'catalog_showcase_cards': [],
+            'cat_slug': '',
+            'page_obj': page_obj,
+            'paginator': paginator,
+            'public_product_order_version': public_product_order_version,
+            'public_category_version': public_category_version,
+            'available_colors': available_colors,
+            'selected_color_slugs': selected_color_slugs,
+            'has_active_color_filter': has_active_color_filter,
+            'color_filter_reset_url': color_filter_reset_url,
+            'category_seo_blocks': [],
+            'category_seo_layout': None,
+            'color_seo_copy': None,
+            'thematic_canonical_url': canonical_url,
+            'thematic_canonical_path': canonical_path,
+            'breadcrumb_items': [
+                {'name': 'Головна', 'url': '/'},
+                {'name': 'Каталог', 'url': '/catalog/'},
+                {'name': config["h1"], 'url': canonical_path},
+            ],
+        }
+    )
