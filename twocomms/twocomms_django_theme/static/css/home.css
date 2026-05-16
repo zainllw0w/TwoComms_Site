@@ -2406,3 +2406,113 @@ html[data-reduced-motion="1"] *::after {
   content-visibility: auto;
   contain-intrinsic-size: 1px 520px;
 }
+
+
+/* =========================================================================
+   SEO molecular-upgrade US-7 — homepage long-form prose block.
+   Sits below the catalogue grid; gives the page ~600–800 words of
+   factual TLDR + brand narrative + categories + USPs for SEO and AI
+   citation. Keep typography readable, density modest, no decorative
+   backgrounds that compete with the catalogue cards above.
+   ========================================================================= */
+
+.home-seo-prose {
+  margin-top: clamp(28px, 5vw, 56px);
+  padding: clamp(24px, 4vw, 40px) clamp(20px, 4vw, 32px);
+  background: rgba(15, 18, 24, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+}
+
+.home-seo-prose__heading {
+  margin: 0 0 18px;
+  font-size: clamp(1.2rem, 2vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.home-seo-prose__tldr {
+  list-style: none;
+  margin: 0 0 28px;
+  padding: 18px 22px;
+  background: rgba(99, 102, 241, 0.08);
+  border-left: 3px solid rgba(167, 139, 250, 0.7);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-seo-prose__tldr li {
+  font-size: 0.96rem;
+  line-height: 1.5;
+  color: rgba(229, 231, 235, 0.92);
+  position: relative;
+  padding-left: 18px;
+}
+
+.home-seo-prose__tldr li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: rgba(167, 139, 250, 0.85);
+}
+
+.home-seo-prose__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(20px, 3vw, 28px);
+}
+
+@media (min-width: 768px) {
+  .home-seo-prose__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.home-seo-prose__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.home-seo-prose__card-heading {
+  margin: 0;
+  font-size: clamp(1.02rem, 1.4vw, 1.15rem);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.home-seo-prose__card p {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.65;
+  color: rgba(229, 231, 235, 0.82);
+}
+
+.home-seo-prose__bullets {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-seo-prose__bullets li {
+  font-size: 0.94rem;
+  line-height: 1.55;
+  color: rgba(229, 231, 235, 0.84);
+}
+
+.home-seo-prose__bullets li a {
+  color: rgba(167, 139, 250, 0.95);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(167, 139, 250, 0.4);
+}
+
+.home-seo-prose__bullets li a:hover {
+  color: rgba(196, 181, 253, 1);
+  border-bottom-color: rgba(196, 181, 253, 0.8);
+}

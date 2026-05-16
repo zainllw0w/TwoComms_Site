@@ -598,6 +598,96 @@ canonical entry point for the brand's URL graph.
   {% endif %}
 </section>
 
+{% comment %}
+SEO molecular-upgrade US-7 (2026-05-16) — homepage long-form content.
+
+Why this section exists
+-----------------------
+Audit/01_content_findings.md measured the homepage at 391 words and
+flagged the top-3 lemmas as UI tokens (баллів, грн, опитування) instead
+of brand/category SEO tokens. The page therefore failed to rank for any
+brand-plus-category combination and offered nothing for AI search to cite.
+
+This block adds ~600–800 words of factual long-form copy split into a
+TLDR factbox (5 bullets, AI-extractive friendly), a short brand
+narrative, an explicit categories index, four USP facts, and a social
+mission paragraph. All copy is structured around the brand brief in
+SEO/napolke-veteran-brands-2026.md (founder Artem Synylo, Kharkiv,
+2022, ties with the 225th regiment, веran-founded streetwear).
+
+The block is rendered last in the content flow so the existing UI
+above stays intact; CSS keeps it visually separate from the catalogue
+grid. Mark-up uses ``data-speakable`` hooks for the SpeakableSpec node
+emitted in WebPage schema (US-12).
+{% endcomment %}
+<section class="home-seo-prose mb-4 mb-md-5 reveal" aria-labelledby="home-seo-prose-heading">
+  <h2 class="home-seo-prose__heading" id="home-seo-prose-heading">
+    {% trans 'TwoComms — український streetwear-бренд із Харкова' %}
+  </h2>
+
+  <ul class="home-seo-prose__tldr" data-speakable="true" aria-label="{% trans 'Ключові факти про TwoComms' %}">
+    <li>{% trans 'Український streetwear / military-adjacent бренд одягу. Засновано 1 липня 2025 року в Харкові.' %}</li>
+    <li>{% trans 'Засновник — бойовий ветеран Артем Синіло, розвідник з досвідом харківського напрямку.' %}</li>
+    <li>{% trans 'Асортимент: футболки, худі, лонгсліви, кастомний DTF-друк. Виробництво в Україні.' %}</li>
+    <li>{% trans 'Цінова категорія 880–2 550 грн. Доставка Новою Поштою, Укрпоштою або кур’єром у Києві / Харкові.' %}</li>
+    <li>{% trans 'Принти створюються як коди: 225-й ОШП, «Reality Bends», харківські серії, патріотичні мотиви.' %}</li>
+  </ul>
+
+  <div class="home-seo-prose__grid">
+    <article class="home-seo-prose__card">
+      <h3 class="home-seo-prose__card-heading">{% trans 'Філософія: не крапка, а продовження' %}</h3>
+      <p>
+        {% blocktrans %}TwoComms виріс з ідеї, що життя після критичної точки не закінчується — воно продовжується. Дві коми у назві бренду — символ продовження після ситуації, в якій інші ставлять крапку. Засновник пройшов шлях від важкого поранення (осколок 120-мм міни, ризик ампутації) до запуску власного streetwear-проєкту в Харкові.{% endblocktrans %}
+      </p>
+      <p>
+        {% blocktrans %}Тому кожен принт TwoComms має причину існування: ми не випускаємо одяг заради сезону, не масштабуємо тиражі заради знижки і не вдягаємо людей у графіку, яку самі не розуміємо. Бренд має реальну біографію, реальне виробництво, реальних людей у Харкові — і одягає так, щоб це було видно у дрібницях, а не у логотипах.{% endblocktrans %}
+      </p>
+    </article>
+
+    <article class="home-seo-prose__card">
+      <h3 class="home-seo-prose__card-heading">{% trans 'Категорії одягу та що ви знайдете в каталозі' %}</h3>
+      <ul class="home-seo-prose__bullets">
+        <li>
+          <a href="{% url 'catalog_by_cat' 'tshirts' %}">{% trans 'Футболки' %}</a> —
+          {% trans 'щільна бавовна, авторський DTF-друк, посадка regular і oversize. Базовий шар гардероба, який тримає лінію.' %}
+        </li>
+        <li>
+          <a href="{% url 'catalog_by_cat' 'hoodie' %}">{% trans 'Худі' %}</a> —
+          {% trans 'трьохнитка з начосом, oversize-крій, кишеня-кенгуру. Тепла база на міжсезоння, працює у шарі і соло.' %}
+        </li>
+        <li>
+          <a href="{% url 'catalog_by_cat' 'long-sleeve' %}">{% trans 'Лонгсліви' %}</a> —
+          {% trans 'бавовняна основа з рукавами, акуратна посадка, авторський принт. Працюють як base layer і як самостійний верх.' %}
+        </li>
+        <li>
+          <a href="{% url 'custom_print' %}">{% trans 'Кастомний DTF-друк' %}</a> —
+          {% trans 'свій принт на наших речах. Підходить для команд, корпоративного мерчу, особистих проєктів. Тиражі від 1 одиниці.' %}
+        </li>
+      </ul>
+    </article>
+
+    <article class="home-seo-prose__card">
+      <h3 class="home-seo-prose__card-heading">{% trans 'Чому TwoComms' %}</h3>
+      <ul class="home-seo-prose__bullets">
+        <li>{% trans 'Реальне ветеранське походження бренду — біографія засновника публічна, не маркетингова.' %}</li>
+        <li>{% trans 'Харківська локалізація: дизайн, друк, контроль якості — у одному цеху, без офшорних ланцюгів.' %}</li>
+        <li>{% trans 'Авторські принти-коди: 225-й ОШП (інтерес командира — Героя України Олега Ширяєва), «Reality Bends», харківські серії, патріотичні мотиви.' %}</li>
+        <li>{% trans 'Доставка по Україні за 1–2 робочі дні. Безкоштовно при замовленні від 2 500 грн на основні відділення Нової Пошти / Укрпошти.' %}</li>
+      </ul>
+    </article>
+
+    <article class="home-seo-prose__card">
+      <h3 class="home-seo-prose__card-heading">{% trans 'Соціальна місія і колаборації' %}</h3>
+      <p>
+        {% blocktrans %}TwoComms — головний спонсор чемпіонату України зі стрільби «Перший Постріл» у Києві. У публічних колабораціях бренду — Євген Клопотенко (через Український ветеранський фонд), сюжети на «1+1» і «Громадському». Частина прибутку спрямовується на підтримку 225-го окремого штурмового полку та ветеранських ініціатив.{% endblocktrans %}
+      </p>
+      <p>
+        {% blocktrans %}Це не «бренд про війну». Це бренд людини, яка з війни вийшла і будує систему далі — у вигляді одягу з кодом для людей, які тримають форму зсередини. Ми не плутаємо патріотизм із галасом і не косплеїмо мілітарі, але також не вдаємо, ніби нічого не сталося.{% endblocktrans %}
+      </p>
+    </article>
+  </div>
+</section>
+
 {% endblock %}
 
 {% block extra_js %}
