@@ -1,0 +1,1310 @@
+{
+  "total_routes": 182,
+  "unused_by_name": 130,
+  "truly_unused_count": 2,
+  "maybe_unused_count": 128,
+  "truly_unused": [
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 58,
+      "name": "api-schema",
+      "url": "api/docs/",
+      "func": "path",
+      "app_name": null,
+      "full": "api-schema",
+      "url_referenced": false
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 60,
+      "name": "api-schema",
+      "url": "api/redoc/",
+      "func": "path",
+      "app_name": null,
+      "full": "api-schema",
+      "url_referenced": false
+    }
+  ],
+  "maybe_unused": [
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 17,
+      "name": "service_worker_js",
+      "url": "sw.js",
+      "func": "path",
+      "app_name": null,
+      "full": "service_worker_js",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 23,
+      "name": "csp_report",
+      "url": "csp-report/",
+      "func": "path",
+      "app_name": null,
+      "full": "csp_report",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 26,
+      "name": "django.contrib.sitemaps.views.sitemap",
+      "url": "sitemap.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "django.contrib.sitemaps.views.sitemap",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 28,
+      "name": "sitemap_static",
+      "url": "sitemap-static.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "sitemap_static",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 29,
+      "name": "sitemap_products",
+      "url": "sitemap-products.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "sitemap_products",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 30,
+      "name": "sitemap_product_variants",
+      "url": "sitemap-product-variants.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "sitemap_product_variants",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 31,
+      "name": "sitemap_categories",
+      "url": "sitemap-categories.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "sitemap_categories",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 32,
+      "name": "sitemap_color_categories",
+      "url": "sitemap-color-categories.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "sitemap_color_categories",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 33,
+      "name": "sitemap_images",
+      "url": "sitemap-images.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "sitemap_images",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 37,
+      "name": "robots_txt",
+      "url": "robots.txt",
+      "func": "path",
+      "app_name": null,
+      "full": "robots_txt",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 40,
+      "name": "llms_txt",
+      "url": "llms.txt",
+      "func": "path",
+      "app_name": null,
+      "full": "llms_txt",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 41,
+      "name": "well_known_llms_txt",
+      "url": ".well-known/llms.txt",
+      "func": "path",
+      "app_name": null,
+      "full": "well_known_llms_txt",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 46,
+      "name": "llms_full_txt",
+      "url": "llms-full.txt",
+      "func": "path",
+      "app_name": null,
+      "full": "llms_full_txt",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 47,
+      "name": "well_known_llms_full_txt",
+      "url": ".well-known/llms-full.txt",
+      "func": "path",
+      "app_name": null,
+      "full": "well_known_llms_full_txt",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 48,
+      "name": "static_verification_file",
+      "url": "494cb80b2da94b4395dbbed566ab540d.txt",
+      "func": "path",
+      "app_name": null,
+      "full": "static_verification_file",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 50,
+      "name": "indexnow_key_file",
+      "url": "^(?P<key>[A-Za-z0-9-]{8,128})\\.txt$",
+      "func": "re_path",
+      "app_name": null,
+      "full": "indexnow_key_file",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 73,
+      "name": "google_merchant_feed",
+      "url": "google_merchant_feed.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "google_merchant_feed",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 74,
+      "name": "google_merchant_feed_v2_root",
+      "url": "google-merchant-feed-v2.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "google_merchant_feed_v2_root",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 75,
+      "name": "google_merchant_feed_plain",
+      "url": "merchant/product-feed",
+      "func": "path",
+      "app_name": null,
+      "full": "google_merchant_feed_plain",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 76,
+      "name": "rozetka_feed_xml_root",
+      "url": "rozetka-feed.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "rozetka_feed_xml_root",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 77,
+      "name": "rozetka_feed_xml_short_root",
+      "url": "rozetka.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "rozetka_feed_xml_short_root",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 78,
+      "name": "kasta_feed_xml_root",
+      "url": "kasta-feed.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "kasta_feed_xml_root",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 79,
+      "name": "kasta_feed_xml_short_root",
+      "url": "kasta.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "kasta_feed_xml_short_root",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 80,
+      "name": "buyme_feed_xml_root",
+      "url": "buyme-feed.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "buyme_feed_xml_root",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/twocomms/urls.py",
+      "line": 81,
+      "name": "buyme_feed_xml_short_root",
+      "url": "buyme.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "buyme_feed_xml_short_root",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 55,
+      "name": "load_more_products",
+      "url": "load-more-products/",
+      "func": "path",
+      "app_name": null,
+      "full": "load_more_products",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 58,
+      "name": "catalog_by_cat_color",
+      "url": "catalog/<slug:cat_slug>/<slug:color_slug>/",
+      "func": "path",
+      "app_name": null,
+      "full": "catalog_by_cat_color",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 74,
+      "name": "get_product_images",
+      "url": "product/<int:product_id>/images/",
+      "func": "path",
+      "app_name": null,
+      "full": "get_product_images",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 75,
+      "name": "get_product_variants",
+      "url": "product/<int:product_id>/variants/",
+      "func": "path",
+      "app_name": null,
+      "full": "get_product_variants",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 76,
+      "name": "quick_view",
+      "url": "product/<int:product_id>/quick-view/",
+      "func": "path",
+      "app_name": null,
+      "full": "quick_view",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 77,
+      "name": "add_product",
+      "url": "add-product/",
+      "func": "path",
+      "app_name": null,
+      "full": "add_product",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 78,
+      "name": "admin_add_product",
+      "url": "admin-panel/product/add/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_add_product",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 81,
+      "name": "cart_add",
+      "url": "cart/add/",
+      "func": "path",
+      "app_name": null,
+      "full": "cart_add",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 82,
+      "name": "update_cart",
+      "url": "cart/update/",
+      "func": "path",
+      "app_name": null,
+      "full": "update_cart",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 83,
+      "name": "cart_remove",
+      "url": "cart/remove/",
+      "func": "path",
+      "app_name": null,
+      "full": "cart_remove",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 84,
+      "name": "get_cart_count",
+      "url": "cart/count/",
+      "func": "path",
+      "app_name": null,
+      "full": "get_cart_count",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 87,
+      "name": "cart_mini",
+      "url": "cart/mini/",
+      "func": "path",
+      "app_name": null,
+      "full": "cart_mini",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 98,
+      "name": "clean_cart",
+      "url": "cart/clean/",
+      "func": "path",
+      "app_name": null,
+      "full": "clean_cart",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 99,
+      "name": "checkout",
+      "url": "checkout/",
+      "func": "path",
+      "app_name": null,
+      "full": "checkout",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 221,
+      "name": "order_create",
+      "url": "orders/create/",
+      "func": "path",
+      "app_name": null,
+      "full": "order_create",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 223,
+      "name": "order_success_preview",
+      "url": "orders/success-preview/",
+      "func": "path",
+      "app_name": null,
+      "full": "order_success_preview",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 243,
+      "name": "user_points",
+      "url": "user/points/",
+      "func": "path",
+      "app_name": null,
+      "full": "user_points",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 261,
+      "name": "admin_reorder_products",
+      "url": "admin-panel/products/reorder/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_reorder_products",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 262,
+      "name": "admin_update_product_status",
+      "url": "admin-panel/products/update-status/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_update_product_status",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 266,
+      "name": "admin_promocode_edit",
+      "url": "admin-panel/promocode/<int:pk>/edit/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_promocode_edit",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 268,
+      "name": "admin_promocode_delete",
+      "url": "admin-panel/promocode/<int:pk>/delete/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_promocode_delete",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 275,
+      "name": "admin_promo_stats",
+      "url": "admin-panel/promo-stats/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_promo_stats",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 277,
+      "name": "admin_promo_export",
+      "url": "admin-panel/promo-export/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_promo_export",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 279,
+      "name": "admin_promocode_get_form",
+      "url": "admin-panel/promocode/<int:pk>/get-form/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_promocode_get_form",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 280,
+      "name": "admin_promocode_edit_ajax",
+      "url": "admin-panel/promocode/<int:pk>/edit-ajax/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_promocode_edit_ajax",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 281,
+      "name": "admin_promocode_change_group",
+      "url": "admin-panel/promocode/<int:pk>/change-group/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_promocode_change_group",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 282,
+      "name": "admin_promo_group_get_form",
+      "url": "admin-panel/promo-group/<int:pk>/get-form/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_promo_group_get_form",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 283,
+      "name": "admin_promo_group_edit_ajax",
+      "url": "admin-panel/promo-group/<int:pk>/edit-ajax/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_promo_group_edit_ajax",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 284,
+      "name": "admin_toggle_manager",
+      "url": "admin-panel/user/<int:user_id>/toggle-manager/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_toggle_manager",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 289,
+      "name": "admin_offline_store_toggle",
+      "url": "admin-panel/offline-store/<int:pk>/toggle/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_offline_store_toggle",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 290,
+      "name": "admin_offline_store_delete",
+      "url": "admin-panel/offline-store/<int:pk>/delete/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_offline_store_delete",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 293,
+      "name": "admin_store_add_product_to_order",
+      "url": "admin-panel/offline-store/<int:store_id>/add-to-order/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_store_add_product_to_order",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 294,
+      "name": "admin_store_get_order_items",
+      "url": "admin-panel/offline-store/<int:store_id>/order/<int:order_id>/items/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_store_get_order_items",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 295,
+      "name": "admin_store_get_product_colors",
+      "url": "admin-panel/offline-store/<int:store_id>/product/<int:product_id>/colors/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_store_get_product_colors",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 296,
+      "name": "admin_store_remove_product_from_order",
+      "url": "admin-panel/offline-store/<int:store_id>/order/<int:order_id>/remove-item/<int:item_id>/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_store_remove_product_from_order",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 297,
+      "name": "admin_store_add_products_to_store",
+      "url": "admin-panel/offline-store/<int:store_id>/add-to-store/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_store_add_products_to_store",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 298,
+      "name": "admin_store_generate_invoice",
+      "url": "admin-panel/offline-store/<int:store_id>/generate-invoice/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_store_generate_invoice",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 299,
+      "name": "admin_store_update_product",
+      "url": "admin-panel/offline-store/<int:store_id>/product/<int:product_id>/update/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_store_update_product",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 300,
+      "name": "admin_store_mark_product_sold",
+      "url": "admin-panel/offline-store/<int:store_id>/product/<int:product_id>/mark-sold/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_store_mark_product_sold",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 301,
+      "name": "admin_store_remove_product",
+      "url": "admin-panel/offline-store/<int:store_id>/product/<int:product_id>/remove/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_store_remove_product",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 303,
+      "name": "admin_print_proposal_update_status",
+      "url": "admin-panel/print-proposal/update-status/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_print_proposal_update_status",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 304,
+      "name": "admin_print_proposal_award_points",
+      "url": "admin-panel/print-proposal/award-points/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_print_proposal_award_points",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 305,
+      "name": "admin_print_proposal_award_promocode",
+      "url": "admin-panel/print-proposal/award-promocode/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_print_proposal_award_promocode",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 307,
+      "name": "apply_promo_code",
+      "url": "cart/apply-promo/",
+      "func": "path",
+      "app_name": null,
+      "full": "apply_promo_code",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 308,
+      "name": "remove_promo_code",
+      "url": "cart/remove-promo/",
+      "func": "path",
+      "app_name": null,
+      "full": "remove_promo_code",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 312,
+      "name": "monobank_create_invoice",
+      "url": "cart/monobank/create-invoice/",
+      "func": "path",
+      "app_name": null,
+      "full": "monobank_create_invoice",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 314,
+      "name": "monobank_return",
+      "url": "payments/monobank/return/",
+      "func": "path",
+      "app_name": null,
+      "full": "monobank_return",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 318,
+      "name": "debug_media",
+      "url": "debug/media/",
+      "func": "path",
+      "app_name": null,
+      "full": "debug_media",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 319,
+      "name": "debug_media_page",
+      "url": "debug/media-page/",
+      "func": "path",
+      "app_name": null,
+      "full": "debug_media_page",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 320,
+      "name": "debug_product_images",
+      "url": "debug/product-images/",
+      "func": "path",
+      "app_name": null,
+      "full": "debug_product_images",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 322,
+      "name": "dev_grant_admin",
+      "url": "dev/grant-admin/",
+      "func": "path",
+      "app_name": null,
+      "full": "dev_grant_admin",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 371,
+      "name": "google_merchant_feed",
+      "url": "google-merchant-feed.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "google_merchant_feed",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 373,
+      "name": "google_merchant_feed_v2",
+      "url": "google-merchant-feed-v2.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "google_merchant_feed_v2",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 375,
+      "name": "rozetka_feed_xml",
+      "url": "rozetka-feed.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "rozetka_feed_xml",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 376,
+      "name": "rozetka_feed_xml_short",
+      "url": "rozetka.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "rozetka_feed_xml_short",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 378,
+      "name": "kasta_feed_xml",
+      "url": "kasta-feed.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "kasta_feed_xml",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 379,
+      "name": "kasta_feed_xml_short",
+      "url": "kasta.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "kasta_feed_xml_short",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 381,
+      "name": "buyme_feed_xml",
+      "url": "buyme-feed.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "buyme_feed_xml",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 382,
+      "name": "buyme_feed_xml_short",
+      "url": "buyme.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "buyme_feed_xml_short",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 384,
+      "name": "uaprom_products_feed",
+      "url": "products_feed.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "uaprom_products_feed",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 386,
+      "name": "prom_feed_xml",
+      "url": "prom-feed.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "prom_feed_xml",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 388,
+      "name": "prom_feed_xml_legacy_path",
+      "url": "media/prom-feed.xml",
+      "func": "path",
+      "app_name": null,
+      "full": "prom_feed_xml_legacy_path",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 393,
+      "name": "test_analytics",
+      "url": "test-analytics/",
+      "func": "path",
+      "app_name": null,
+      "full": "test_analytics",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 396,
+      "name": "toggle_favorite",
+      "url": "favorites/toggle/<int:product_id>/",
+      "func": "path",
+      "app_name": null,
+      "full": "toggle_favorite",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 397,
+      "name": "check_favorite_status",
+      "url": "favorites/check/<int:product_id>/",
+      "func": "path",
+      "app_name": null,
+      "full": "check_favorite_status",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 398,
+      "name": "favorites_count",
+      "url": "favorites/count/",
+      "func": "path",
+      "app_name": null,
+      "full": "favorites_count",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 400,
+      "name": "survey_start_or_resume",
+      "url": "survey/print-feedback/start/",
+      "func": "path",
+      "app_name": null,
+      "full": "survey_start_or_resume",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 401,
+      "name": "survey_current_question",
+      "url": "survey/print-feedback/current/",
+      "func": "path",
+      "app_name": null,
+      "full": "survey_current_question",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 402,
+      "name": "survey_submit_answer",
+      "url": "survey/print-feedback/answer/",
+      "func": "path",
+      "app_name": null,
+      "full": "survey_submit_answer",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 403,
+      "name": "survey_back_one_step",
+      "url": "survey/print-feedback/back/",
+      "func": "path",
+      "app_name": null,
+      "full": "survey_back_one_step",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 404,
+      "name": "survey_close",
+      "url": "survey/print-feedback/close/",
+      "func": "path",
+      "app_name": null,
+      "full": "survey_close",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 405,
+      "name": "survey_complete",
+      "url": "survey/print-feedback/complete/",
+      "func": "path",
+      "app_name": null,
+      "full": "survey_complete",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 423,
+      "name": "admin_update_invoice_status",
+      "url": "admin-panel/invoices/update-status/<int:invoice_id>/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_update_invoice_status",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 424,
+      "name": "toggle_invoice_approval",
+      "url": "admin-panel/invoices/toggle-approval/<int:invoice_id>/",
+      "func": "path",
+      "app_name": null,
+      "full": "toggle_invoice_approval",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 425,
+      "name": "toggle_invoice_payment_status",
+      "url": "admin-panel/invoices/toggle-payment/<int:invoice_id>/",
+      "func": "path",
+      "app_name": null,
+      "full": "toggle_invoice_payment_status",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 426,
+      "name": "reset_all_invoices_status",
+      "url": "admin-panel/invoices/reset-all-status/",
+      "func": "path",
+      "app_name": null,
+      "full": "reset_all_invoices_status",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 428,
+      "name": "admin_update_dropship_status",
+      "url": "admin-panel/dropship/update-status/<int:order_id>/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_update_dropship_status",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 429,
+      "name": "admin_get_dropship_order",
+      "url": "admin-panel/dropship/get-order/<int:order_id>/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_get_dropship_order",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 430,
+      "name": "admin_update_dropship_order",
+      "url": "admin-panel/dropship/update-order/<int:order_id>/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_update_dropship_order",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/urls.py",
+      "line": 431,
+      "name": "admin_delete_dropship_order",
+      "url": "admin-panel/dropship/delete-order/<int:order_id>/",
+      "func": "path",
+      "app_name": null,
+      "full": "admin_delete_dropship_order",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/storefront/api_urls.py",
+      "line": 39,
+      "name": "api-utm-export-csv",
+      "url": "utm/export-csv/",
+      "func": "path",
+      "app_name": null,
+      "full": "api-utm-export-csv",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/accounts/urls.py",
+      "line": 9,
+      "name": "telegram_webhook",
+      "url": "telegram/webhook/",
+      "func": "path",
+      "app_name": null,
+      "full": "telegram_webhook",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/accounts/urls.py",
+      "line": 10,
+      "name": "link_telegram_account",
+      "url": "telegram/link/",
+      "func": "path",
+      "app_name": null,
+      "full": "link_telegram_account",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/accounts/urls.py",
+      "line": 11,
+      "name": "check_telegram_status",
+      "url": "telegram/status/",
+      "func": "path",
+      "app_name": null,
+      "full": "check_telegram_status",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/accounts/urls.py",
+      "line": 12,
+      "name": "unlink_telegram",
+      "url": "telegram/unlink/",
+      "func": "path",
+      "app_name": null,
+      "full": "unlink_telegram",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/accounts/urls.py",
+      "line": 13,
+      "name": "get_telegram_id",
+      "url": "telegram/get-id/",
+      "func": "path",
+      "app_name": null,
+      "full": "get_telegram_id",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/accounts/urls.py",
+      "line": 16,
+      "name": "ajax_login",
+      "url": "ajax/login/",
+      "func": "path",
+      "app_name": null,
+      "full": "ajax_login",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/accounts/urls.py",
+      "line": 17,
+      "name": "ajax_register",
+      "url": "ajax/register/",
+      "func": "path",
+      "app_name": null,
+      "full": "ajax_register",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 16,
+      "name": "create_dropshipper_order",
+      "url": "dropshipper/api/create-order/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:create_dropshipper_order",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 17,
+      "name": "update_order_status",
+      "url": "dropshipper/api/update-order-status/<int:order_id>/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:update_order_status",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 18,
+      "name": "request_payout",
+      "url": "dropshipper/api/request-payout/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:request_payout",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 19,
+      "name": "get_product_details",
+      "url": "dropshipper/api/product/<int:product_id>/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:get_product_details",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 22,
+      "name": "add_to_cart",
+      "url": "dropshipper/api/cart/add/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:add_to_cart",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 23,
+      "name": "get_cart",
+      "url": "dropshipper/api/cart/get/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:get_cart",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 24,
+      "name": "remove_from_cart",
+      "url": "dropshipper/api/cart/remove/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:remove_from_cart",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 25,
+      "name": "clear_cart",
+      "url": "dropshipper/api/cart/clear/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:clear_cart",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 28,
+      "name": "create_dropshipper_monobank_payment",
+      "url": "dropshipper/monobank/create/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:create_dropshipper_monobank_payment",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 29,
+      "name": "dropshipper_monobank_callback",
+      "url": "dropshipper/monobank/callback/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:dropshipper_monobank_callback",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 30,
+      "name": "dropshipper_monobank_return",
+      "url": "dropshipper/monobank/return/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:dropshipper_monobank_return",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 33,
+      "name": "admin_update_dropship_status",
+      "url": "admin/dropship/update-status/<int:order_id>/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:admin_update_dropship_status",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 34,
+      "name": "admin_check_np_status",
+      "url": "admin/dropship/check-np/<int:order_id>/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:admin_check_np_status",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/orders/urls.py",
+      "line": 35,
+      "name": "admin_update_payout_status",
+      "url": "admin/payout/update-status/<int:payout_id>/",
+      "func": "path",
+      "app_name": "orders",
+      "full": "orders:admin_update_payout_status",
+      "url_referenced": true
+    },
+    {
+      "path": "twocomms/reviews/urls.py",
+      "line": 22,
+      "name": "vote",
+      "url": "vote/<int:review_id>/",
+      "func": "path",
+      "app_name": "reviews",
+      "full": "reviews:vote",
+      "url_referenced": true
+    }
+  ]
+}

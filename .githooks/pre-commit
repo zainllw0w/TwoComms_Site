@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+# pre-commit guard against secret leaks.
+# Установка: git config core.hooksPath .githooks  (делается при настройке проекта)
+#
+# Защищает от:
+#  - SSH паролей (sshpass -p '...')
+#  - API ключей (Telegram BOT_TOKEN, Monobank, Stripe, OpenAI)
+#  - Redis URLs с паролем
+#  - .env файлов
+#  - Приватных ключей (BEGIN PRIVATE KEY)
+#  - Файлов вида .tmp_ssh_run.sh
+#
+# Если ОЧЕНЬ нужно закоммитить файл который попадает под фильтр,
+# например тест на детектор секретов:
+#   git commit --no-verify
+
+set -e
+
+REASON_LIST=()
+
+# Получаем список добавляемых файлов (Added/Copied/Modified)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -z "$STAGED" ]; then
+    exit 0
+fi
+
+# === Whitelist файлов (не сканировать ни имя ни содержимое) ===
+FILE_WHITELIST=(
+    '\.githooks/pre-commit$'
+    '^\.env\.(example|sample|template)$'
+    '/\.env\.(example|sample|template)$'
+)
+
+is_file_whitelisted() {
+    local f="$1"
+    for wl in "${FILE_WHITELIST[@]}"; do
+        if echo "$f" | grep -qE "$wl"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# === 1. Блокируем имена файлов ===
+NAME_BLOCK_PATTERNS=(
+    '^\.tmp_'
+    '/\.tmp_'
+    '^\.env$'
+    '^\.env\.production$'
+    '^\.env\.local$'
+    '^\.env\.dev$'
+    '^\.env\.prod$'
+    '/\.env$'
+    '/\.env\.production$'
+    '/\.env\.local$'
+    '/\.env\.dev$'
+    '/\.env\.prod$'
+    '^secrets\.(json|yaml|yml)$'
+    '\.pem$'
+    '\.p12$'
+    '\.pfx$'
+    '/id_rsa$'
+    '/id_rsa\.'
+    '/id_ed25519$'
+    '/id_ed25519\.'
+    '\.htpasswd$'
+    '/credentials\.json$'
+    '/service_account.*\.json$'
+)
+
+for f in $STAGED; do
+    if is_file_whitelisted "$f"; then
+        continue
+    fi
+    for pat in "${NAME_BLOCK_PATTERNS[@]}"; do
+        if echo "$f" | grep -qE "$pat"; then
+            REASON_LIST+=("file:$f matches blocked pattern '$pat'")
+        fi
+    done
+done
+
+# === 2. Сканируем содержимое diff'а на секрет-шаблоны ===
+# Собираем diff только для файлов, которые НЕ в whitelist
+NON_WL_FILES=""
+for f in $STAGED; do
+    if ! is_file_whitelisted "$f"; then
+        NON_WL_FILES="$NON_WL_FILES $f"
+    fi
+done
+
+if [ -z "$NON_WL_FILES" ]; then
+    exit 0
+fi
+
+DIFF=$(git diff --cached --no-color --unified=0 -- $NON_WL_FILES)
+
+CONTENT_PATTERNS=(
+    "sshpass[[:space:]]+-p[[:space:]]+['\"][^'\" \\\$]{4,}"
+    "TELEGRAM_BOT_TOKEN[[:space:]]*=[[:space:]]*[\"'][0-9]{6,}:[A-Za-z0-9_-]{30,}"
+    "MONOBANK_TOKEN[[:space:]]*=[[:space:]]*['\"][A-Za-z0-9_-]{20,}"
+    "AKIA[0-9A-Z]{16}"
+    "aws_secret_access_key[[:space:]]*=[[:space:]]*['\"][^'\"]{30,}"
+    "AIza[0-9A-Za-z_-]{35}"
+    "sk_live_[0-9a-zA-Z]{20,}"
+    "sk_test_[0-9a-zA-Z]{20,}"
+    "rk_live_[0-9a-zA-Z]{20,}"
+    "BEGIN (RSA |OPENSSH |EC |DSA |PGP )?PRIVATE KEY"
+    "redis(s)?://[^[:space:]\"']+:[^[:space:]\"'\\\$\\{]{6,}@"
+    "DATABASE_URL[[:space:]]*=[[:space:]]*['\"]?[a-z]+://[^[:space:]\"'\\\$]+:[^[:space:]\"'\\\$]+@"
+)
+
+# Whitelist строк-матчей (placeholder значения)
+LINE_WHITELIST=(
+    "sshpass.*\\\$\\{?(SSH_PASS|TWC_SSH_PASS|SERVER_PASSWORD|SSH_PASSWORD|DEPLOY_PASS)"
+    "sshpass.*\"\\\$"
+    "sshpass.*'PASSWORD'"
+    "sshpass.*'XXXX'"
+    "sshpass.*'password'"
+    "sshpass.*\\[REDACTED"
+    "sshpass.*'\\*\\*\\*"
+)
+
+is_line_whitelisted() {
+    local line="$1"
+    for wl in "${LINE_WHITELIST[@]}"; do
+        if echo "$line" | grep -qE "$wl"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+for pat in "${CONTENT_PATTERNS[@]}"; do
+    matches=$(echo "$DIFF" | grep -aE "$pat" || true)
+    if [ -n "$matches" ]; then
+        filtered=""
+        while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            if ! is_line_whitelisted "$line"; then
+                filtered="$filtered$line"$'\n'
+            fi
+        done <<< "$matches"
+        if [ -n "$filtered" ]; then
+            REASON_LIST+=("content matches secret pattern '$pat':")
+            REASON_LIST+=("$(echo "$filtered" | head -3)")
+        fi
+    fi
+done
+
+# === 3. Если что-то сматчилось — блокируем коммит ===
+if [ ${#REASON_LIST[@]} -gt 0 ]; then
+    echo "❌ pre-commit guard: найдены потенциальные секреты в коммите"
+    echo
+    for r in "${REASON_LIST[@]}"; do
+        echo "  - $r"
+    done
+    echo
+    echo "Если это false-positive и тебе действительно нужно закоммитить:"
+    echo "  git commit --no-verify"
+    echo
+    echo "Лучше:"
+    echo "  - вынести секрет в .env (он в .gitignore)"
+    echo "  - использовать переменную окружения: \"\$VAR_NAME\""
+    echo "  - заменить на placeholder: '<REDACTED>'"
+    exit 1
+fi
+
+exit 0

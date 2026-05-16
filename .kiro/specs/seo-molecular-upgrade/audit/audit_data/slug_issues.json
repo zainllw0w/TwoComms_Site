@@ -1,0 +1,393 @@
+[
+  {
+    "slug": "my-little-baby-hd",
+    "title": "Худі «My Little Baby»",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "my-little-baby-ls",
+    "title": "Лонгслів «My Little Baby»",
+    "issues": [],
+    "misspell": [
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "where-mi-present-ts",
+    "title": "Футболка «Де Мої Подарунки, Мразота?»",
+    "issues": [],
+    "misspell": [
+      "ts→tshirt (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "where-mi-present-hd",
+    "title": "Худі «Де Мої Подарунки, Мразота?»",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "where-mi-present-ls",
+    "title": "Лонгслів «Де Мої Подарунки, Мразота?»",
+    "issues": [],
+    "misspell": [
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "in-shee",
+    "title": "Футболка «Тильний В Єб*Ло»",
+    "issues": [],
+    "misspell": [
+      "shee→face (obscure_word)"
+    ]
+  },
+  {
+    "slug": "in-shee-hd",
+    "title": "Худі «Тильний В Єбало»",
+    "issues": [],
+    "misspell": [
+      "shee→face (obscure_word)",
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "in-shee-ls",
+    "title": "Лонгслів «Тильний В Єб*Ло»",
+    "issues": [],
+    "misspell": [
+      "shee→face (obscure_word)",
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "business-money-hd",
+    "title": "Худі «Бізнес — Це Математика»",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "business-money-ls",
+    "title": "Лонгслів «Бізнес — Це Математика»",
+    "issues": [],
+    "misspell": [
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "last-breath-hd",
+    "title": "Худі «Череп З Трояндою»",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "last-breath-ls",
+    "title": "Лонгслів «Череп З Трояндою»",
+    "issues": [],
+    "misspell": [
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "kharkiv-district-ts",
+    "title": "Футболка «Харківська Область»",
+    "issues": [],
+    "misspell": [
+      "ts→tshirt (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "kharkiv-district-hd",
+    "title": "Худі «Харківська Область»",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "kharkiv-district-ls",
+    "title": "Лонгслів «Харківська Область»",
+    "issues": [],
+    "misspell": [
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "pokrovsk-girl-hd",
+    "title": "Худі «Дівчина З Покровська»",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "pokrovsk-girl-ls",
+    "title": "Лонгслів «Дівчина З Покровська»",
+    "issues": [],
+    "misspell": [
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "death-grabs-ass-hd",
+    "title": "Худі «Серце Та Грощі»",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "death-grabs-ass-ls",
+    "title": "Лонгслів «Серце Та Грощі»",
+    "issues": [],
+    "misspell": [
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "dvoznachni-summy-hd",
+    "title": "Худі «Річ Йде Про Двозначні Суми»",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "dvoznachni-summy-ls",
+    "title": "Лонгслів «Річ Йде Про Двозначні Суми»",
+    "issues": [],
+    "misspell": [
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "lord-of-the-lending-hd",
+    "title": "Худі «Це Моя Посадка»",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "lord-of-the-lending-ls",
+    "title": "Лонгслів «Це Моя Посадка»",
+    "issues": [],
+    "misspell": [
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "red-leaves-ts",
+    "title": "Футболка «Red Leaves»",
+    "issues": [],
+    "misspell": [
+      "ts→tshirt (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "red-leaves-hd",
+    "title": "Худі «Red Leaves»",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "red-leaves-ls",
+    "title": "Лонгслів «Red Leaves»",
+    "issues": [],
+    "misspell": [
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "death-gbs-ass-ts",
+    "title": "Футболка «Череп с дупою»",
+    "issues": [],
+    "misspell": [
+      "gbs→grabs (abbreviated_word)",
+      "ts→tshirt (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "death-gbs-ass-hd",
+    "title": "Худі «Череп с дупою»",
+    "issues": [],
+    "misspell": [
+      "gbs→grabs (abbreviated_word)",
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "death-gbs-ass-ls",
+    "title": "Лонгслів «Череп с дупою»",
+    "issues": [],
+    "misspell": [
+      "gbs→grabs (abbreviated_word)",
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "kha-edition-ts",
+    "title": "Футболка «Харків Edition»",
+    "issues": [],
+    "misspell": [
+      "kha→kharkiv (abbreviated_word)",
+      "ts→tshirt (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "kha-edition-hd",
+    "title": "Худі «Харків Edition»",
+    "issues": [],
+    "misspell": [
+      "kha→kharkiv (abbreviated_word)",
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "kha-edition-ls",
+    "title": "Лонгслів «Харків Edition»",
+    "issues": [],
+    "misspell": [
+      "kha→kharkiv (abbreviated_word)",
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "kha-style-ts",
+    "title": "Футболка «Харків / Стиль — Це Все»",
+    "issues": [],
+    "misspell": [
+      "kha→kharkiv (abbreviated_word)",
+      "ts→tshirt (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "kha-style-hd",
+    "title": "Худі «Харків / Стиль — Це Все»",
+    "issues": [],
+    "misspell": [
+      "kha→kharkiv (abbreviated_word)",
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "kha-style-ls",
+    "title": "Лонгслів «Харків - Стиль Це Все»",
+    "issues": [],
+    "misspell": [
+      "kha→kharkiv (abbreviated_word)",
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "pojuy-ts",
+    "title": "ФУТБОЛКА «мені поЖуй — це філософія»",
+    "issues": [],
+    "misspell": [
+      "pojuy→pofuy (transliteration_inconsistency)",
+      "ts→tshirt (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "pojuy-hd",
+    "title": "ХУДІ «мені поЖуй — це філософія»",
+    "issues": [],
+    "misspell": [
+      "pojuy→pofuy (transliteration_inconsistency)",
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "pojuy-ls",
+    "title": "ЛОНГСЛІВ «мені поЖуй — це філософія»",
+    "issues": [],
+    "misspell": [
+      "pojuy→pofuy (transliteration_inconsistency)",
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "bentejne-ts",
+    "title": "Футболка «Життя Бентежне»",
+    "issues": [],
+    "misspell": [
+      "ts→tshirt (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "bentejne-hd",
+    "title": "Худі «Життя Бентежне»",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "bentejne-ls",
+    "title": "Лонгслів «Життя Бентежне»",
+    "issues": [],
+    "misspell": [
+      "ls→longsleeve (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "glory-of-ukraine-hd",
+    "title": "Худі «Glory of Ukraine»",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "hool-ts",
+    "title": "Футболка «Печатка Хулігана»",
+    "issues": [],
+    "misspell": [
+      "ts→tshirt (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "idea-hd",
+    "title": "Худі «Довіряй Своїй Божевільній Ідеї»\"",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "hd-twocomms-reality-bends-future-2026",
+    "title": "Худі TWOCOMMS «Reality Bends»: Колекція Future 2026",
+    "issues": [],
+    "misspell": [
+      "hd→hoodie (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "ts-twocomms-reality-bends-mentol",
+    "title": "Футболка TWOCOMMS «Reality Bends»: Ментол",
+    "issues": [],
+    "misspell": [
+      "ts→tshirt (abbreviated_garment_suffix)"
+    ]
+  },
+  {
+    "slug": "twocomms-beliveidea-ts",
+    "title": "Чорна футболка унісекс TwoComms «Довіряй своїй божевільній ідеї»",
+    "issues": [],
+    "misspell": [
+      "beliveidea→believe-idea (spaceless_compound)",
+      "ts→tshirt (abbreviated_garment_suffix)"
+    ]
+  }
+]

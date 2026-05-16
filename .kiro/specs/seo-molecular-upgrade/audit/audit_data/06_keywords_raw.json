@@ -1,0 +1,384 @@
+{
+  "metadata": {
+    "date": "2026-05-16",
+    "scope": "TwoComms ecommerce keywords",
+    "languages": ["uk-UA", "ru-UA", "en-UA"],
+    "intent_types": ["brand", "commercial", "informational", "long_tail", "local"],
+    "frequency_classes": ["HF", "MF", "LF", "ultra-LF"],
+    "method": "Relative volume estimation via SERP-competition + autocomplete + keyword length. No Ahrefs/Semrush API used.",
+    "limitations": "Точні volumes потребують paid keyword research tool (Ahrefs / Semrush / Serpstat) для production-приоритизації."
+  },
+  "brand_keywords": {
+    "uk-UA": [
+      {"keyword": "twocomms", "volume": "LF (~50-150/міс)", "target": "/", "competition": "none"},
+      {"keyword": "TWOCOMMS", "volume": "LF (~30-80/міс)", "target": "/", "competition": "none"},
+      {"keyword": "twocomms shop", "volume": "LF (~20-60/міс)", "target": "/", "competition": "none"},
+      {"keyword": "twocomms бренд", "volume": "LF", "target": "/pro-brand/", "competition": "none"},
+      {"keyword": "twocomms харків", "volume": "LF", "target": "/pro-brand/", "competition": "none"},
+      {"keyword": "твокомс", "volume": "LF", "target": "/", "competition": "none"},
+      {"keyword": "твокомс одяг", "volume": "ultra-LF", "target": "/catalog/", "competition": "none"},
+      {"keyword": "твокомс купити", "volume": "ultra-LF", "target": "/catalog/", "competition": "none"},
+      {"keyword": "twocomms reality bends", "volume": "ultra-LF", "target": "/product/twocomms-reality-bends-future-2026/", "competition": "none"},
+      {"keyword": "twocomms відгуки", "volume": "LF", "target": "/pro-brand/", "competition": "empty SERP"}
+    ],
+    "ru-UA": [
+      {"keyword": "twocomms купить", "volume": "ultra-LF", "target": "/ru/catalog/", "competition": "none"},
+      {"keyword": "twocomms харьков", "volume": "ultra-LF", "target": "/ru/pro-brand/", "competition": "none"},
+      {"keyword": "два коммс", "volume": "ultra-LF", "target": "/ru/", "competition": "none"}
+    ],
+    "en-UA": [
+      {"keyword": "twocomms.shop", "volume": "LF", "target": "/", "competition": "none"},
+      {"keyword": "twocomms ukraine", "volume": "LF", "target": "/en/", "competition": "none"},
+      {"keyword": "twocomms streetwear", "volume": "LF", "target": "/en/pro-brand/", "competition": "none"},
+      {"keyword": "two comms", "volume": "ultra-LF", "target": "/en/pro-brand/", "competition": "Two Comms Communications disambig risk"}
+    ]
+  },
+  "clusters": [
+    {
+      "name": "t-shirts",
+      "lang": "uk-UA",
+      "target_page": "/catalog/tshirts/",
+      "HF": ["купити футболку", "футболка", "чоловіча футболка", "жіноча футболка", "теніска"],
+      "MF": ["купити футболку з принтом", "чорна футболка", "біла футболка", "унісекс футболка", "оверсайз футболка", "футболка україна", "купити футболку онлайн", "чоловіча футболка з принтом", "жіноча футболка з принтом", "унісекс футболка з принтом", "бавовняна футболка", "футболка чорна оверсайз", "чорна футболка з принтом купити", "футболка з малюнком"],
+      "LF": ["купити чорну унісекс футболку oversize", "футболка з принтом ЗСУ купити", "чорна оверсайз футболка з принтом купити", "бавовняна чорна футболка з принтом TwoComms", "футболка з мілітарі принтом купити Україна", "оверсайз футболка з принтом для хлопця", "футболка унісекс з авторським принтом", "купити футболку TwoComms у Києві", "чорна жіноча футболка з принтом купити Україна", "мілітарі футболка з принтом купити онлайн", "патріотична футболка з принтом ЗСУ купити", "чорна оверсайз футболка з мілітарі принтом", "темна футболка з авторським принтом онлайн магазин", "чорна оверсайз футболка з принтом «Reality Bends»", "футболка унісекс з принтом для команди", "чорна футболка з принтом ЗСУ оверсайз"],
+      "volume_estimate": "HF 1k-10k/міс; MF 100-1k/міс; LF 10-100/міс"
+    },
+    {
+      "name": "t-shirts",
+      "lang": "ru-UA",
+      "target_page": "/ru/catalog/tshirts/",
+      "HF": ["купить футболку", "футболка", "мужская футболка", "женская футболка"],
+      "MF": ["купить футболку с принтом", "чёрная футболка", "белая футболка", "унисекс футболка", "оверсайз футболка", "футболка Украина", "купить футболку онлайн", "мужская футболка с принтом", "чёрная футболка с принтом купить", "хлопковая футболка", "футболка чёрная оверсайз", "футболка с рисунком", "футболка с авторским принтом", "оригинальная футболка купить"],
+      "LF": ["купить чёрную унисекс футболку оверсайз", "футболка с принтом ВСУ купить", "чёрная оверсайз футболка с принтом купить", "хлопковая футболка с принтом TwoComms", "футболка с милитари-принтом купить Украина", "оверсайз футболка с принтом для парня", "футболка унисекс с авторским принтом", "купить футболку TwoComms в Киеве", "чёрная женская футболка с принтом купить Украина", "милитари футболка с принтом купить онлайн", "патриотическая футболка с принтом ВСУ купить", "чёрная футболка оверсайз с принтами", "хлопковая футболка с кастомным принтом онлайн", "чёрная футболка с принтом ВСУ оверсайз", "тёмная футболка с авторским принтом интернет-магазин", "чёрная оверсайз футболка с принтом «Reality Bends»", "футболка унисекс с принтом для команды"],
+      "volume_estimate": "HF 500-5k/міс; MF 50-500/міс; LF 5-50/міс"
+    },
+    {
+      "name": "t-shirts",
+      "lang": "en-UA",
+      "target_page": "/en/catalog/tshirts/",
+      "HF": ["buy t-shirt", "t-shirt", "men t-shirt", "women t-shirt", "unisex t-shirt"],
+      "MF": ["buy graphic t-shirt", "black t-shirt", "white t-shirt", "oversize t-shirt", "ukrainian t-shirt", "t-shirt with print", "men's graphic t-shirt", "women's graphic t-shirt", "cotton t-shirt", "oversize black t-shirt", "streetwear t-shirt", "ukrainian streetwear t-shirt", "military t-shirt", "ukraine support t-shirt"],
+      "LF": ["buy black unisex oversize t-shirt", "ukrainian streetwear t-shirt with print", "kharkiv military t-shirt", "oversize black graphic t-shirt ukraine", "ukrainian patriotic t-shirt buy online", "support ukraine t-shirt with print", "ukraine military adjacent t-shirt", "ukrainian designer t-shirt streetwear", "black oversize cotton t-shirt with print", "oversize t-shirt ukraine support", "kharkiv streetwear t-shirt buy", "ukrainian armed forces t-shirt buy", "made in ukraine streetwear t-shirt", "black graphic t-shirt twocomms", "ukrainian brand t-shirt with print online", "custom dtf t-shirt ukraine", "oversize black streetwear t-shirt buy", "twocomms reality bends t-shirt black", "ukrainian zsu t-shirt buy online", "kyiv streetwear t-shirt buy"],
+      "volume_estimate": "HF 200-2k/міс; MF 30-300/міс; LF 5-30/міс"
+    },
+    {
+      "name": "hoodies",
+      "lang": "uk-UA",
+      "target_page": "/catalog/hoodie/",
+      "HF": ["купити худі", "худі", "чоловіче худі", "жіноче худі", "oversize худі"],
+      "MF": ["купити худі з принтом", "чорне худі", "oversize худі купити", "унісекс худі", "тепле худі", "флісове худі", "худі чоловіче чорне", "худі бавовняне", "худі з принтом ЗСУ", "патріотичне худі", "мілітарі худі", "худі український бренд", "худі streetwear купити", "худі регулярне", "класичне худі купити"],
+      "LF": ["купити чорне oversize худі з принтом", "чорне oversize худі чоловіче купити Україна", "тепле флісове худі з принтом ЗСУ", "мілітарі худі унісекс купити", "чорне худі з принтом для хлопця", "худі streetwear оверсайз чорний", "унісекс oversize худі з принтом TwoComms", "флісове чорне oversize худі купити Київ", "патріотичне худі з принтом ЗСУ купити онлайн", "чорне худі з мілітарі принтом купити Харків", "oversize чорне худі з принтом купити Львів", "чорне oversize худі з принтом ЗСУ для чоловіка", "тепле зимове худі з принтом купити", "чорне oversize худі з принтом для команди", "худі чорне з кишенею кенгуру з принтом купити", "худі унісекс oversize з принтом купити Україна", "чорне oversize худі з принтом мілітарі купити Дніпро", "тепле флісове худі чорне з принтом ЗСУ", "oversize чорне худі з авторським принтом купити", "худі з принтом «My Little Baby» чорне oversize", "чорне худі з принтом «Reality Bends» купити", "тепле флісове патріотичне худі купити Україна"],
+      "volume_estimate": "HF 1k-10k/міс; MF 100-1k/міс; LF 10-100/міс"
+    },
+    {
+      "name": "hoodies",
+      "lang": "ru-UA",
+      "target_page": "/ru/catalog/hoodie/",
+      "HF": ["купить худи", "худи", "мужское худи", "женское худи", "толстовка"],
+      "MF": ["купить худи с принтом", "чёрное худи", "оверсайз худи купить", "унисекс худи", "тёплое худи", "флисовое худи", "худи мужское чёрное", "худи хлопковое", "худи с принтом ВСУ", "патриотическое худи", "милитари худи", "худи украинский бренд", "худи streetwear купить", "классическое худи купить", "чёрное худи оверсайз"],
+      "LF": ["купить чёрное оверсайз худи с принтом", "чёрное оверсайз худи мужское купить Украина", "тёплое флисовое худи с принтом ВСУ", "милитари худи унисекс купить", "чёрное худи с принтом для парня", "худи streetwear оверсайз чёрный", "унисекс оверсайз худи с принтом TwoComms", "флисовое чёрное оверсайз худи купить Киев", "патриотическое худи с принтом ВСУ купить онлайн", "чёрное худи с милитари принтом купить Харьков", "оверсайз чёрное худи с принтом купить Львов", "чёрное оверсайз худи с принтом ВСУ для мужчины", "тёплое зимнее худи с принтом купить", "чёрное оверсайз худи с принтом для команды", "худи чёрное с карманом кенгуру с принтом купить", "худи унисекс оверсайз с принтом купить Украина", "чёрное оверсайз худи с принтом милитари купить Днепр", "тёплое флисовое худи чёрное с принтом ВСУ", "оверсайз чёрное худи с авторским принтом купить", "худи с принтом «My Little Baby» чёрное оверсайз", "чёрное худи с принтом «Reality Bends» купить"],
+      "volume_estimate": "HF 500-5k/міс; MF 50-500/міс; LF 5-50/міс"
+    },
+    {
+      "name": "hoodies",
+      "lang": "en-UA",
+      "target_page": "/en/catalog/hoodie/",
+      "HF": ["buy hoodie", "hoodie", "men hoodie", "women hoodie", "oversize hoodie"],
+      "MF": ["buy graphic hoodie", "black hoodie", "oversize hoodie buy", "unisex hoodie", "fleece hoodie", "ukrainian hoodie", "hoodie with print", "hoodie streetwear", "men's black hoodie", "ukrainian brand hoodie", "military hoodie", "patriotic hoodie ukraine", "kharkiv hoodie", "ukraine support hoodie"],
+      "LF": ["buy black oversize hoodie with print", "ukrainian streetwear hoodie buy online", "kharkiv military hoodie", "oversize black graphic hoodie ukraine", "ukrainian patriotic hoodie buy", "support ukraine hoodie with print", "ukraine military adjacent hoodie", "ukrainian designer hoodie streetwear", "black oversize fleece hoodie with print", "oversize hoodie ukraine zsu", "kharkiv streetwear hoodie buy", "ukrainian armed forces hoodie buy", "made in ukraine streetwear hoodie", "black graphic hoodie twocomms", "ukrainian brand hoodie with print online", "custom dtf hoodie ukraine", "oversize black streetwear hoodie buy", "twocomms reality bends hoodie black", "ukrainian zsu hoodie buy online", "kyiv streetwear hoodie buy", "support ukraine military hoodie buy", "kharkiv edition hoodie buy ukraine"],
+      "volume_estimate": "HF 200-2k/міс; MF 30-300/міс; LF 5-30/міс"
+    },
+    {
+      "name": "long-sleeves",
+      "lang": "uk-UA",
+      "target_page": "/catalog/long-sleeve/",
+      "HF": ["купити лонгслів", "лонгслів", "чоловічий лонгслів", "жіночий лонгслів"],
+      "MF": ["лонгслів з принтом", "чорний лонгслів", "oversize лонгслів", "унісекс лонгслів", "бавовняний лонгслів", "лонгслів streetwear", "лонгслів з мілітарі принтом", "лонгслів з принтом ЗСУ", "лонгслів український бренд", "лонгслів з довгим рукавом", "чорний лонгслів з принтом", "лонгслів патріотичний", "лонгслів класичний купити"],
+      "LF": ["купити чорний лонгслів з принтом", "чорний oversize лонгслів унісекс купити", "лонгслів з принтом ЗСУ купити", "мілітарі лонгслів унісекс купити Україна", "чорний лонгслів з принтом для хлопця", "лонгслів streetwear oversize чорний", "унісекс oversize лонгслів з принтом TwoComms", "бавовняний чорний oversize лонгслів купити Київ", "патріотичний лонгслів з принтом ЗСУ купити онлайн", "чорний лонгслів з мілітарі принтом купити Харків", "oversize чорний лонгслів з принтом купити Львів", "чорний oversize лонгслів з принтом ЗСУ для чоловіка", "лонгслів унісекс з принтом для команди", "чорний лонгслів з кишенею з принтом купити", "лонгслів з принтом «Reality Bends» чорний", "лонгслів з принтом «Kharkiv Edition» чорний", "лонгслів унісекс з принтом «Pokrovsk Girl»", "лонгслів з довгим рукавом і авторським принтом купити", "oversize чорний лонгслів патріотичний купити", "лонгслів streetwear бавовняний oversize чорний"],
+      "volume_estimate": "HF 100-1k/міс; MF 50-500/міс; LF 5-50/міс"
+    },
+    {
+      "name": "custom-print",
+      "lang": "uk-UA",
+      "target_page": "/custom-print/",
+      "HF": ["DTF друк", "друк на футболці", "свій принт", "друк на одязі"],
+      "MF": ["DTF друк Україна", "замовити свій принт на футболці", "DTF друк Київ", "друк на худі", "друк на лонгсліві", "надрукувати свій принт", "кастомний друк футболки", "друк на одязі ціна", "DTF друк ціна", "друк футболок Київ", "надрукувати футболку зі своїм принтом", "замовити свою футболку з принтом", "DTF друк Харків", "друк на одязі онлайн", "свій логотип на футболці", "DTF трансфер", "кастомний принт ціна", "виготовити футболку з принтом"],
+      "LF": ["надрукувати футболку зі своїм принтом онлайн", "замовити кастомну футболку з власним принтом", "DTF друк ціна за см² Україна", "виготовити худі з власним принтом для команди", "надрукувати свій логотип на футболці оптом", "замовити DTF друк на футболці Харків", "друк на одязі для бренду маленький тираж", "DTF друк свій дизайн купити онлайн", "кастомний DTF друк на чорній футболці", "надрукувати худі зі своїм принтом TwoComms", "замовити свою футболку з логотипом для команди", "надрукувати свою назву бренду на одязі", "DTF друк на лонгсліві ціна Україна", "кастомний DTF друк для дропшипінгу", "надрукувати свій принт на бавовняній футболці", "DTF друк маленьким тиражем для івенту", "замовити одяг з принтом для весілля", "DTF друк свого логотипу на одязі для команди", "кастомний друк футболки до дня народження", "надрукувати футболку зі своїм мемом ЗСУ", "замовити свій принт на жіночій футболці Україна", "DTF друк свого зображення на чорному худі"],
+      "volume_estimate": "HF 200-2k/міс; MF 50-500/міс; LF 5-50/міс"
+    },
+    {
+      "name": "wholesale-b2b",
+      "lang": "uk-UA",
+      "target_page": "/wholesale/",
+      "HF": ["купити футболки оптом", "оптом одяг", "оптовий продаж одягу"],
+      "MF": ["купити футболки оптом Україна", "купити худі оптом", "мерч для команди", "мерч для івенту", "корпоративний мерч", "дропшипінг одягу", "корпоративні футболки", "оптовий продаж футболок", "мерч для бренду", "постачальник одягу для магазину", "оптом футболки з принтом"],
+      "LF": ["купити футболки оптом Україна виробник", "оптовий продаж худі від виробника", "мерч для команди з власним принтом", "дропшипінг streetwear-одягу від виробника Україна", "оптовий продаж патріотичного одягу", "корпоративний мерч для івенту з логотипом", "оптом футболки для дропшипінгу Харків", "постачальник streetwear для магазину Україна", "мерч для бренду маленький тираж", "корпоративні футболки з логотипом замовити", "оптовий продаж лонгслівів Україна виробник", "мерч для волонтерського проекту", "оптом одяг для маркетплейсу", "постачальник кастомного одягу для дропшипінгу", "оптовий продаж streetwear для українського магазину", "мерч для команди з логотипом і DTF друком", "корпоративний мерч від українського бренду", "оптом футболки ЗСУ для магазину", "мерч для тімбілдінгу з власним принтом", "оптовий продаж бавовняних футболок Україна"],
+      "volume_estimate": "HF 200-2k/міс; MF 50-500/міс; LF 5-50/міс"
+    },
+    {
+      "name": "streetwear-brand-style",
+      "lang": "uk-UA",
+      "target_page": "/pro-brand/",
+      "HF": ["streetwear", "стрітвір", "стрітвір бренд", "український streetwear"],
+      "MF": ["український streetwear бренд", "streetwear магазин Україна", "стрітвір одяг купити", "streetwear онлайн магазин Україна", "streetwear Харків", "streetwear Київ", "стрітвір з характером", "streetwear-бренд патріотичний", "streetwear український дизайнер", "streetwear-бренди України список"],
+      "LF": ["який український streetwear бренд варто купити", "кращі streetwear бренди України 2025", "де купити український streetwear онлайн", "streetwear-одяг від українського виробника", "streetwear-магазин Київ Харків Львів", "що таке streetwear український бренд", "український streetwear-бренд з характером", "streetwear-одяг від військового бренду України", "патріотичний streetwear з мілітарі-принтом", "streetwear український дизайнер з Харкова", "як обрати український streetwear-бренд", "streetwear для тих хто підтримує ЗСУ", "streetwear-одяг від українського ветерана", "новий український streetwear-бренд 2025", "streetwear для команди і друзів український бренд"],
+      "volume_estimate": "HF 1k-10k/міс; MF 100-1k/міс; LF 10-100/міс"
+    }
+  ],
+  "informational_keywords": {
+    "care_guides_uk": ["як прати футболку з принтом", "як прати худі з принтом", "як прати флісове худі", "при якій температурі прати футболку з DTF принтом", "чи можна прати худі в машинці", "як зберігати худі з принтом", "чи злазить DTF принт після прання", "догляд за streetwear-одягом", "як зберегти яскравість принту", "як прасувати футболку з DTF принтом", "чим відрізняється DTF принт від шовкографії в догляді", "як видалити пляму з футболки з принтом", "як вибілити білу футболку без шкоди для принту"],
+    "size_guides_uk": ["як обрати розмір футболки", "як обрати розмір худі", "як обрати розмір oversize худі", "розмірна сітка футболок Україна", "розмірна сітка худі чоловічого", "як виміряти розмір футболки", "розмірна сітка лонгслівів", "oversize розмірна сітка", "як обрати розмір футболки в подарунок", "розмір M худі скільки см обхват грудей", "чи мала розміриться футболка після прання", "розмірна сітка чоловічих футболок українського виробника", "як обрати посадку футболки oversize чи classic"],
+    "definitions_uk": ["що таке streetwear", "що таке стрітвір", "що таке oversize", "що таке DTF друк", "що таке мілітарі стиль", "streetwear vs casual", "oversize vs classic fit", "що значить «military adjacent»", "streetwear для початківців", "як одягатися в streetwear стилі", "streetwear історія український", "streetwear культура що це", "streetwear бренд з характером визначення"],
+    "comparisons_uk": ["DTF vs шовкографія", "oversize vs classic fit", "бавовна vs поліестер футболка", "лонгслів vs футболка з довгим рукавом", "худі vs світшот різниця", "флісове vs бавовняне худі", "TwoComms vs Saint Javelin", "TwoComms vs Hygge Hoodie", "TwoComms vs Phantom Cat", "TwoComms vs Syndicate", "TwoComms vs Everfox DTF друк", "Український streetwear vs зарубіжний"]
+  },
+  "local_seo": {
+    "kharkiv_uk": ["купити футболку Харків", "купити худі Харків", "купити лонгслів Харків", "streetwear Харків", "streetwear бренд з Харкова", "магазин одягу streetwear Харків", "одяг з принтом Харків", "доставка одягу по Харкову", "мілітарі одяг Харків", "TwoComms Харків магазин", "Харків бренд одягу streetwear"],
+    "kyiv_uk": ["купити футболку Київ", "купити худі Київ", "купити лонгслів Київ", "streetwear Київ", "streetwear магазин Київ", "доставка одягу Київ", "Нова Пошта Київ доставка одягу", "вуличний одяг Київ", "магазин streetwear онлайн Київ", "streetwear бренд з Києва"],
+    "lviv_uk": ["купити футболку Львів", "купити худі Львів", "streetwear Львів", "streetwear магазин Львів", "доставка одягу Львів", "streetwear бренд Львів купити онлайн"],
+    "odesa_uk": ["купити футболку Одеса", "купити худі Одеса", "streetwear Одеса", "streetwear магазин Одеса"],
+    "dnipro_uk": ["купити футболку Дніпро", "купити худі Дніпро", "streetwear Дніпро", "streetwear магазин Дніпро"],
+    "kharkiv_ru": ["купить футболку Харьков", "купить худи Харьков", "streetwear Харьков купить", "магазин одежды streetwear Харьков"],
+    "kyiv_ru": ["купить футболку Киев", "купить худи Киев", "streetwear Киев", "streetwear магазин Киев"],
+    "kharkiv_en": ["buy streetwear kharkiv", "kharkiv streetwear brand"],
+    "kyiv_en": ["buy streetwear kyiv", "kyiv streetwear brand", "ukrainian streetwear kyiv buy"]
+  },
+  "ai_search_visible_uk": [
+    "що таке український streetwear бренд",
+    "що таке streetwear з характером",
+    "що таке мілітарі adjacent одяг",
+    "що таке DTF друк простими словами",
+    "як обрати український streetwear бренд",
+    "як обрати розмір худі oversize",
+    "як прати футболку з DTF принтом",
+    "як зберегти яскравість DTF принту",
+    "чим відрізняється DTF друк від шовкографії",
+    "чим відрізняється oversize від classic fit",
+    "чим відрізняється худі від світшоту",
+    "як одягатися в streetwear стилі чоловіку",
+    "як одягатися в streetwear стилі жінці",
+    "як обрати футболку в подарунок чоловіку",
+    "як обрати худі в подарунок дівчині",
+    "який український бренд streetwear з Харкова варто купити",
+    "який streetwear бренд України підтримує ЗСУ",
+    "де купити патріотичний streetwear онлайн",
+    "де купити мілітарі футболку з принтом ЗСУ",
+    "чи можна замовити власний принт на футболці в Україні",
+    "як замовити кастомний друк на одязі",
+    "скільки коштує DTF друк в Україні",
+    "яка щільність бавовни найкраща для футболки",
+    "яка тканина найкраща для худі взимку",
+    "як TwoComms відрізняється від інших streetwear брендів України",
+    "чи робить TwoComms кастомний DTF друк",
+    "чи доставляє TwoComms по всій Україні Новою Поштою",
+    "чи можна купити TwoComms у Києві / Харкові / Львові",
+    "як влаштована розмірна сітка TwoComms",
+    "як TwoComms допомагає ЗСУ і ветеранам",
+    "чи можна повернути товар TwoComms протягом 14 днів",
+    "чи дає TwoComms знижку на оптові замовлення для команди",
+    "історія українського streetwear-бренду TwoComms",
+    "як заснований streetwear-бренд TwoComms з Харкова"
+  ],
+  "ai_search_visible_en": [
+    "what is ukrainian streetwear",
+    "what is military adjacent clothing",
+    "what is dtf print",
+    "what is dtf vs screen print",
+    "how to choose ukrainian streetwear brand",
+    "how to choose oversize hoodie size",
+    "how to wash dtf print t-shirt",
+    "how does dtf print differ from screen printing",
+    "what is the difference between oversize and classic fit",
+    "what is the difference between hoodie and sweatshirt",
+    "how to dress in streetwear style",
+    "how to choose t-shirt as a gift for men",
+    "which ukrainian streetwear brand from kharkiv to buy",
+    "which ukrainian streetwear brand supports zsu",
+    "where to buy ukrainian patriotic streetwear online",
+    "where to buy ukrainian military adjacent t-shirt with zsu print",
+    "can i order custom print on t-shirt in ukraine",
+    "how much does dtf print cost in ukraine",
+    "is twocomms a kharkiv streetwear brand",
+    "who founded twocomms streetwear brand"
+  ],
+  "long_tail_goldmines_uk": [
+    "чорна оверсайз футболка з принтом купити Київ",
+    "чорна оверсайз футболка з мілітарі принтом Харків",
+    "чорне oversize худі з принтом ЗСУ Львів",
+    "чорний oversize лонгслів з принтом купити Україна",
+    "кайот футболка з принтом купити Україна виробник",
+    "рожеве худі з мілітарі принтом купити онлайн",
+    "ментолова футболка з принтом купити Україна",
+    "оверсайз чорна жіноча футболка з принтом ЗСУ",
+    "чорне зимове флісове худі з мілітарі принтом купити",
+    "футболка в подарунок чоловіку 30 років",
+    "футболка в подарунок хлопцю 18-25",
+    "худі в подарунок чоловіку 35 років",
+    "футболка в подарунок ветерану ЗСУ",
+    "худі в подарунок волонтеру",
+    "оригінальний подарунок футболка з принтом для друга",
+    "подарунок до 23 серпня Дня прапора футболка",
+    "подарунок до 24 серпня Дня незалежності худі",
+    "подарунок до 14 жовтня Дня Захисника футболка",
+    "подарунок на корпоратив команді з логотипом",
+    "чорна футболка не злазить принт після прання купити",
+    "худі що не сідає після прання купити Україна",
+    "футболка з принтом яка не злиняє купити",
+    "розмір 4XL чоловіче худі купити Україна",
+    "розмір XS жіноче худі oversize купити",
+    "футболка унісекс для повних людей купити Україна",
+    "чорне худі без капюшона купити (свитшот)",
+    "футболка чий збір допомагає ЗСУ купити",
+    "худі купити підтримати ЗСУ Україна",
+    "одяг бренду який допомагає ветеранам купити",
+    "купити одяг ветеранського бренду Україна",
+    "подарунок волонтеру з мілітарі-принтом",
+    "купити одяг від бренду який підтримує військових ЗСУ",
+    "одяг харківського бренду купити онлайн підтримати Україну",
+    "купити patriotic streetwear від українського ветерана",
+    "streetwear для скейтерів Київ купити",
+    "streetwear для рейверів Харків купити",
+    "streetwear для волонтерів Україна купити",
+    "streetwear для ветеранів ЗСУ купити онлайн",
+    "streetwear для української молоді 18-25 купити",
+    "streetwear для тих хто слухає реп Україна",
+    "streetwear для геймерів та стрімерів Україна купити"
+  ],
+  "competitors": [
+    {
+      "domain": "everfox.com.ua",
+      "type": "Custom DTF-друк + готовий одяг з принтом на замовлення",
+      "top_keywords": ["dtf друк", "dtf друк україна", "свій принт на футболці", "кастомний друк футболки", "dtf трансфер купити", "друк на одязі", "термонаклейка на одяг", "друк на одязі ціна", "одяг з принтом на замовлення", "конструктор принтів онлайн"],
+      "sameAs": ["instagram.com/everfox.ua", "tiktok.com/@everfox.ua", "youtube.com/@Everfox_ua", "facebook.com/share/18p375sffm/", "wa.me/380978003399", "t.me/everfox_ua", "tel:+380978003399"],
+      "content_strategy": "B2C-DIY через online-конструктор, дешеві базові ціни (160-790 грн). Без блогу, без бренд-сторінки. FAQ мінімальний.",
+      "price_segment": "budget (160-1410 грн)",
+      "differentiation_for_twocomms": "TwoComms бере на нішу «streetwear з характером, не just custom print»"
+    },
+    {
+      "domain": "hygge-hoodie.com",
+      "type": "Український streetwear-бренд базового одягу",
+      "top_keywords": ["купити худі україна", "базовий одяг український бренд", "футболка classic premium", "худі чорне oversize", "zip-худі купити", "світшоти український бренд", "базова футболка чорна", "худі бавовняне oversize", "чорне oversize худі чоловіче", "джогери преміум український бренд"],
+      "sameAs": ["instagram.com/hygge_hoodie"],
+      "content_strategy": "6 років на ринку, focus на BASIC (без принтів), широкий розмірний ряд, програма re:wear. Блог не виявлено. FAQ є.",
+      "price_segment": "mid (560-940 грн футболка, 1890-2390 грн худі)",
+      "differentiation_for_twocomms": "hygge — basic streetwear без характеру; TwoComms — character-driven streetwear з принтами і брендовою історією"
+    },
+    {
+      "domain": "phantomcat.com.ua",
+      "type": "Український streetwear з мемним/кіношним/етно-принтом",
+      "top_keywords": ["футболка з мемним принтом купити", "кіношні футболки купити", "худі з мемним принтом", "етно футболка купити", "текстова футболка з принтом", "купити футболку з принтом український бренд", "оригінальний одяг власного виробництва", "розпродаж футболок україна", "кепки український бренд", "шорти streetwear український"],
+      "sameAs": ["t.me/phantomcat"],
+      "content_strategy": "focus на стилизацію по принту (мемні / кіношні / етно), regular розіграші, мінімалістичний UX, 5-question FAQ. На Weblium. Без блогу.",
+      "price_segment": "mid-low",
+      "differentiation_for_twocomms": "phantomcat не має військової / патріотичної лінії. TwoComms — єдиний бренд з реальним military-adjacent storytelling від ветерана"
+    },
+    {
+      "domain": "syndicate (sndct.kyiv)",
+      "type": "Premium Kyiv streetwear (з 2010 — найстарший street brand в Україні)",
+      "top_keywords": ["syndicate kyiv streetwear", "syndicate brand ukraine", "ukrainian streetwear brand", "premium streetwear kyiv", "limited edition streetwear ukraine", "ukrainian basic apparel", "syndicate t-shirt buy", "syndicate hoodie buy", "ukrainian streetwear founded 2010", "kyiv streetwear concept store"],
+      "sameAs": ["instagram.com/sndct_kyiv", "tiktok.com/@sndct_kyiv", "pinterest.com/sndct_Kyiv", "behance.net/gallery/156963175"],
+      "content_strategy": "brand-driven, історія і авторитет, drop-model. Сильні media mentions (highsnobiety, kyivpost, the village). Сайт примітивний.",
+      "price_segment": "premium (1500-3500 грн)",
+      "differentiation_for_twocomms": "Syndicate не має кастомного DTF друку, не націлений на ZSU/military-adjacent. Різні ніші"
+    },
+    {
+      "domain": "saintjavelin.com",
+      "type": "Patriotic / Ukraine support streetwear, 25%+ donate to charity",
+      "top_keywords": ["saint javelin t-shirt", "ukraine support t-shirt", "made in ukraine streetwear", "ukrainian patriotic streetwear", "saint javelin merch", "support ukraine clothing", "ukraine charity merch", "zelensky merch", "virgin mary javelin t-shirt", "ukraine resistance streetwear"],
+      "sameAs": ["instagram.com/saintjavelin", "twitter.com/saintjavelin", "tiktok.com/@saintjavelin", "shopify-store"],
+      "content_strategy": "viral marketing через memes (Saint Javelin icon), сильна charity story, donate flow прозорий. Має блог + Our Story + Made-in-Ukraine page. Domain authority дуже високий.",
+      "price_segment": "mid ($25-50 t-shirt, $50-100 hoodie)",
+      "differentiation_for_twocomms": "Saint Javelin — charity-driven мерч від канадського підприємця. У TwoComms unique angle — 'бренд від реального українця з реальним харківським досвідом'"
+    }
+  ],
+  "page_targeting": {
+    "/": {
+      "primary": "streetwear бренд Україна",
+      "secondary": ["streetwear Україна купити", "streetwear магазин Україна", "streetwear онлайн", "український streetwear бренд", "streetwear з характером"],
+      "lf_support_count": 10,
+      "anchor_patterns_uk": ["TwoComms", "TWOCOMMS", "streetwear бренд TwoComms", "український streetwear-бренд", "головна TwoComms"]
+    },
+    "/catalog/": {
+      "primary": "купити одяг streetwear онлайн",
+      "secondary": ["купити streetwear онлайн Україна", "каталог streetwear одягу", "купити одяг з принтом онлайн Україна"],
+      "anchor_patterns_uk": ["Каталог", "Каталог streetwear", "Каталог одягу TwoComms", "Перейти в каталог"]
+    },
+    "/catalog/tshirts/": {
+      "primary": "купити футболку з принтом",
+      "secondary": ["купити футболку з принтом Україна", "купити чорну унісекс футболку oversize", "купити патріотичну футболку ЗСУ", "купити мілітарі футболку Україна", "купити streetwear футболку чоловічу"]
+    },
+    "/catalog/hoodie/": {
+      "primary": "купити худі з принтом",
+      "secondary": ["купити чорне oversize худі", "тепле флісове худі купити", "мілітарі худі з принтом ЗСУ", "патріотичне худі купити Україна", "купити худі streetwear Україна"]
+    },
+    "/catalog/long-sleeve/": {
+      "primary": "купити лонгслів з принтом",
+      "secondary": ["чорний лонгслів з принтом", "oversize лонгслів купити", "унісекс лонгслів з принтом ЗСУ", "мілітарі лонгслів купити Україна", "бавовняний лонгслів streetwear"]
+    },
+    "/custom-print/": {
+      "primary": "замовити свій принт на футболці",
+      "secondary": ["DTF друк Україна", "кастомний друк на одязі", "замовити кастомну футболку", "надрукувати свій принт на одязі", "DTF друк Київ Харків"]
+    },
+    "/wholesale/": {
+      "primary": "купити футболки оптом Україна виробник",
+      "secondary": ["оптовий продаж streetwear", "мерч для команди", "корпоративний мерч", "дропшипінг одягу Україна", "постачальник streetwear для магазину"]
+    },
+    "/cooperation/": {
+      "primary": "співпраця з українським streetwear-брендом",
+      "secondary": ["дропшипінг одягу Україна", "корпоративний мерч", "мерч для команди", "амбасадорство streetwear-бренду"]
+    },
+    "/pro-brand/": {
+      "primary": "TwoComms бренд",
+      "secondary": ["історія TwoComms", "що таке TwoComms", "український streetwear-бренд з Харкова", "streetwear-бренд з характером", "який український streetwear-бренд варто купити"]
+    },
+    "/delivery/": {
+      "primary": "доставка одягу Нова Пошта Україна",
+      "secondary": ["доставка TwoComms Нова Пошта", "доставка одягу Харків", "доставка одягу Київ", "доставка одягу Львів", "оплата онлайн Україна"]
+    },
+    "/rozmirna-sitka/": {
+      "primary": "розмірна сітка футболки худі лонгслів",
+      "secondary": ["як обрати розмір футболки", "як обрати розмір худі", "oversize розмірна сітка", "розмірна сітка чоловіча", "розмірна сітка жіноча"]
+    },
+    "/doglyad-za-odyagom/": {
+      "primary": "догляд за одягом з принтом DTF",
+      "secondary": ["як прати футболку з принтом", "як прати худі з принтом", "при якій температурі прати DTF принт", "чи злазить DTF принт після прання", "як зберігати streetwear-одяг"]
+    }
+  },
+  "gaps_and_priorities": {
+    "category_coverage_gaps": [
+      "Немає /catalog/military/ — military-кластер розпорошений",
+      "Немає /catalog/patriotic/ — патріотичний кластер розпорошений",
+      "Color-categories landings не існують (sitemap-color-categories.xml порожній)",
+      "Гео-landings не існують для 5 міст × 3 категорії = 15 lost LF-сторінок"
+    ],
+    "content_gaps": [
+      "PDP мають однакові FAQ-блоки на 14 запитань (дублювання)",
+      "Немає /blog/ для інформаційних запитів",
+      "Немає comparison-сторінок (DTF vs шовкографія, TwoComms vs конкуренти)",
+      "Немає /team/ або /founder/ для AI-цитування brand-story"
+    ],
+    "multilang_gaps": [
+      "RU/EN PDP дають часткові переклади і утікають на uk-PDP через i18n-link bleed (37 ссилок з ru-PDP на uk)",
+      "EN-локаль слабко перекладена для міжнародної діаспори"
+    ],
+    "schema_gaps": [
+      "Organization schema без sameAs-ссилок на соцмережі",
+      "WebSite schema без SearchAction",
+      "Product schema без additionalProperty для color/fit",
+      "Немає LocalBusiness schema"
+    ],
+    "top_5_actions_60_days": [
+      "Створити color-categories landings (9 нових сторінок)",
+      "Створити /catalog/military/ і /catalog/patriotic/ (2 collection-сторінки)",
+      "Виправити i18n-link bleed на RU/EN PDP",
+      "Запустити блог з 5 стартовими постами",
+      "Зачистити slug-неймминг 47 PDP"
+    ],
+    "top_5_actions_180_days": [
+      "Гео-landings для 5 міст × 3 категорії = 15 сторінок",
+      "Заповнити blog 15+ постами",
+      "Перекласти EN-локаль повністю",
+      "Добудувати schema (sameAs, LocalBusiness, ProfilePage, ProductGroup, OfferShippingDetails)",
+      "AI-search-optimization (TL;DR factbox-блоки на /pro-brand/, /custom-print/, категоріях)"
+    ]
+  }
+}
