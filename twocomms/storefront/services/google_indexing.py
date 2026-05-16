@@ -189,6 +189,43 @@ def get_urls_already_submitted_today(
     return set(qs)
 
 
+def get_urls_successful_in_last_days(
+    urls: Iterable[str],
+    *,
+    days: int,
+    notification_type: str = NOTIFICATION_URL_UPDATED,
+) -> set[str]:
+    """Return URLs that had a successful submission in the last ``days`` days
+    (calendar days, inclusive of today).
+
+    ``days=0`` is a no-op (returns empty set).
+    ``days=1`` means "today only" — equivalent to
+    :func:`get_urls_already_submitted_today` but allows arbitrary
+    rolling windows so the operator can build a "send a different
+    third of the catalog every day" rotation.
+    """
+    if days <= 0:
+        return set()
+    try:
+        from storefront.models import GoogleIndexingSubmission
+    except Exception:  # pragma: no cover
+        return set()
+
+    url_list = [u for u in urls if u]
+    if not url_list:
+        return set()
+
+    from datetime import timedelta
+    cutoff = get_today() - timedelta(days=max(0, days - 1))
+    qs = GoogleIndexingSubmission.objects.filter(
+        submission_date__gte=cutoff,
+        notification_type=notification_type,
+        status="success",
+        url__in=url_list,
+    ).values_list("url", flat=True)
+    return set(qs)
+
+
 def get_today_summary() -> dict[str, Any]:
     """Quota/throughput snapshot for the admin dashboard."""
     try:
@@ -460,6 +497,7 @@ def submit_google_indexing_urls(
     retries: int | None = None,
     source: str = "",
     skip_already_submitted_today: bool = False,
+    skip_recent_success_days: int = 0,
     quota_limit: int | None = None,
 ) -> dict[str, Any]:
     """Submit a list of URLs to the Google Indexing API.
@@ -474,10 +512,15 @@ def submit_google_indexing_urls(
             a *successful* submission for today are dropped before any
             HTTP call. Use this for manual bulk reruns so the daily
             quota is not burned on duplicates.
+        skip_recent_success_days: when >0, drop URLs that had any
+            successful submission in the rolling window of N calendar
+            days (inclusive of today). Lets the operator rotate a
+            large catalog over multiple days inside the daily quota.
+            ``1`` is equivalent to ``skip_already_submitted_today``.
         quota_limit: if set, caps the number of HTTP calls so the
             daily Google quota is not exceeded. Combined with
-            ``skip_already_submitted_today`` it lets the admin keep
-            sending until the quota is empty without retrying URLs.
+            the skip-flags above it lets the admin keep sending until
+            the quota is empty without retrying URLs.
 
     Returns a dict::
 
@@ -485,7 +528,7 @@ def submit_google_indexing_urls(
             "ok": bool,
             "submitted": int,
             "total": int,             # URLs after host filter
-            "skipped_already": int,   # already accepted today
+            "skipped_already": int,   # already accepted today / window
             "skipped_quota": int,     # not sent due to quota_limit
             "failures": [{"url": ..., "error": ..., "http_status": ...}, ...],
             "configured": bool,
@@ -534,9 +577,16 @@ def submit_google_indexing_urls(
         }
 
     skipped_already = 0
-    if skip_already_submitted_today:
-        already = get_urls_already_submitted_today(
-            normalized, notification_type=notification_type
+    # Combine the two skip-by-history switches: ``days`` is the
+    # canonical knob, ``skip_already_submitted_today`` is just shorthand
+    # for "1 day". Take the larger window when both are passed so the
+    # caller never indexes a URL inside the explicit rotation window.
+    effective_days = int(skip_recent_success_days or 0)
+    if skip_already_submitted_today and effective_days < 1:
+        effective_days = 1
+    if effective_days > 0:
+        already = get_urls_successful_in_last_days(
+            normalized, days=effective_days, notification_type=notification_type
         )
         if already:
             skipped_already = len(already)
@@ -696,6 +746,7 @@ __all__ = [
     "get_today_summary",
     "get_recent_submissions",
     "get_urls_already_submitted_today",
+    "get_urls_successful_in_last_days",
     "reset_token_cache",
     "submit_google_indexing_urls",
     "enqueue_google_indexing_urls",

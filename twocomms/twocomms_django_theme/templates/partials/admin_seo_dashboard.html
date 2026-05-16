@@ -379,6 +379,73 @@
     max-height: 480px;
     overflow-y: auto;
   }
+
+  .seo-indexing__rotation {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+  }
+  .seo-indexing__rotation-input {
+    width: 88px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 1rem;
+  }
+  .seo-indexing__rotation-suffix {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.6);
+  }
+  .seo-indexing__rotation-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-left: 0.4rem;
+  }
+  .seo-indexing__chip.is-static {
+    appearance: none;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.85);
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .seo-indexing__chip.is-static:hover {
+    background: rgba(120,200,250,0.15);
+    border-color: rgba(120,200,250,0.4);
+    color: #fff;
+  }
+  .seo-indexing__chip.is-static.is-active {
+    background: rgba(120,200,250,0.22);
+    border-color: rgba(120,200,250,0.55);
+    color: #fff;
+  }
+  .seo-indexing__rotation-hint {
+    flex: 1 1 100%;
+    margin: 0.4rem 0 0;
+    color: rgba(255,255,255,0.55);
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+  .seo-indexing__rotation-hint code {
+    background: rgba(255,255,255,0.07);
+    padding: 0 0.32rem;
+    border-radius: 5px;
+    font-size: 0.85em;
+  }
+
+  /* Smooth progress bar — long transition + linear easing so per-batch
+     bumps look like continuous flow rather than jumps. The intra-batch
+     "predictive" tick is driven from JS using requestAnimationFrame. */
+  .seo-indexing__progress-fill {
+    transition: width 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  .seo-indexing__progress--predictive .seo-indexing__progress-fill {
+    transition: width 0.18s linear;
+  }
 </style>
 
 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
@@ -529,6 +596,26 @@
               <span>Дублювати в IndexNow (Bing/Yandex)</span>
             </label>
           </div>
+
+          <label class="seo-indexing__form-title" style="margin-top: 0.7rem;">Ротація · пропускати за останні</label>
+          <div class="seo-indexing__rotation">
+            <input type="number" id="gix-skip-days" min="0" max="60" step="1" value="1" class="seo-indexing__input seo-indexing__rotation-input">
+            <span class="seo-indexing__rotation-suffix">днів</span>
+            <div class="seo-indexing__rotation-presets">
+              <button type="button" class="seo-indexing__chip is-static" data-gix-days="0">0 (відключено)</button>
+              <button type="button" class="seo-indexing__chip is-static" data-gix-days="1">1 (сьогодні)</button>
+              <button type="button" class="seo-indexing__chip is-static" data-gix-days="3">3 (ротація 600/200)</button>
+              <button type="button" class="seo-indexing__chip is-static" data-gix-days="7">7 (тиждень)</button>
+              <button type="button" class="seo-indexing__chip is-static" data-gix-days="30">30 (місяць)</button>
+            </div>
+            <p class="seo-indexing__rotation-hint">
+              При <code>0</code> система не звертає уваги на історію.
+              При <code>1</code> пропускає лише сьогодні.
+              <strong>Для 600+ URL з лімітом 200/добу — ставте <code>3</code></strong> і запускайте 3 дні поспіль:
+              кожен день індексується свіжа третина каталогу.
+            </p>
+          </div>
+
           <label class="seo-indexing__form-title" style="margin-top: 0.6rem;">Тип нотифікації</label>
           <div class="seo-indexing__toggles">
             <label class="seo-indexing__radio">

@@ -4730,14 +4730,23 @@ document.addEventListener('DOMContentLoaded', function() {
   const SUBMIT_ENDPOINT  = panel.dataset.submitEndpoint  || "{% url 'admin_google_indexing_submit' %}";
   const HISTORY_ENDPOINT = panel.dataset.historyEndpoint || "{% url 'admin_google_indexing_history' %}";
   const PREVIEW_ENDPOINT = panel.dataset.previewEndpoint || "{% url 'admin_google_indexing_preview' %}";
+  const RESOLVE_ENDPOINT = "{% url 'admin_google_indexing_resolve' %}";
   const INDEXNOW_ENDPOINT = "{% url 'admin_indexnow_submit' %}";
 
-  const BATCH_SIZE = 10;          // URL/HTTP волна — баланс UX vs latency
-  const PER_URL_DELAY_MS = 80;    // мʼякий троттлінг між волнами
+  // Smaller chunk + tighter pacing → smoother progress (frequent
+  // server responses give the bar more "real" data points to land on).
+  const BATCH_SIZE = 8;
+  const PER_URL_DELAY_MS = 60;
+  // Seconds we expect a single chunk to take. Used as a *predictive*
+  // ceiling for the linear animation between server responses so the
+  // bar never overshoots before the real number lands. ~700 ms per
+  // URL × BATCH_SIZE × safety factor.
+  const CHUNK_BUDGET_MS = 800 * BATCH_SIZE;
+
   const csrf = (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '';
 
-  let currentJob = null; // {abort: bool, totals: {...}, ...}
-  let lastPreviewUrls = [];
+  let currentJob = null; // {abort, total, sent, success, fail, predictive}
+  let predictiveRaf = 0;
 
   // ---- helpers ----
   const $$ = (sel, root) => Array.from((root || panel).querySelectorAll(sel));
@@ -4752,6 +4761,13 @@ document.addEventListener('DOMContentLoaded', function() {
     try { return new Date(iso).toLocaleString('uk-UA'); } catch (_) { return iso; }
   };
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const readSkipDays = () => {
+    const el = $('#gix-skip-days');
+    if (!el) return 0;
+    const n = parseInt(el.value, 10);
+    return clamp(isNaN(n) ? 0 : n, 0, 60);
+  };
 
   function applySummary(summary) {
     if (!summary) return;
@@ -4815,7 +4831,8 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     try {
-      const url = `${PREVIEW_ENDPOINT}?groups=${encodeURIComponent(groups.join(','))}&languages=${encodeURIComponent(langs.join(','))}`;
+      const skipDays = readSkipDays();
+      const url = `${PREVIEW_ENDPOINT}?groups=${encodeURIComponent(groups.join(','))}&languages=${encodeURIComponent(langs.join(','))}&skip_recent_days=${skipDays}`;
       const response = await fetch(url, {
         method: 'GET',
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -4823,14 +4840,20 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       if (!response.ok) throw new Error('preview failed');
       const data = await response.json();
-      lastPreviewUrls = data.preview ? data.preview.slice() : [];
       const total = data.total || 0;
-      const already = data.already_submitted_today || 0;
-      const willSend = Math.max(0, total - already);
-      setPreviewText(total, `(${already} вже надіслано сьогодні · готово до відправки ${willSend})`);
+      const alreadyWindow = data.already_in_window != null ? data.already_in_window : (data.already_submitted_today || 0);
+      const willSend = data.pending_count != null ? data.pending_count : Math.max(0, total - alreadyWindow);
+      let metaText;
+      if (skipDays > 0) {
+        metaText = `(${alreadyWindow} вже в індексі за останні ${skipDays} ${skipDays === 1 ? 'день' : 'днів'} · готово ${willSend})`;
+      } else {
+        metaText = `(${alreadyWindow} вже сьогодні · готово ${willSend})`;
+      }
+      setPreviewText(`${total} → ${willSend}`, metaText);
       const list = $('[data-gix-preview-list]');
       if (list) {
-        list.innerHTML = (data.preview || []).slice(0, 25).map(u => `<li>${escape(u)}</li>`).join('') || '<li style="color: rgba(255,255,255,0.4);">Список порожній.</li>';
+        const previewSrc = (data.pending_preview && data.pending_preview.length) ? data.pending_preview : (data.preview || []);
+        list.innerHTML = previewSrc.slice(0, 25).map(u => `<li>${escape(u)}</li>`).join('') || '<li style="color: rgba(255,255,255,0.4);">Список порожній.</li>';
       }
       if (data.summary) applySummary(data.summary);
     } catch (e) {
@@ -4871,23 +4894,67 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (_) {}
   }
 
-  // ---- chunked submission ----
+  // ---- chunked submission with smooth progress ----
+  function startPredictiveProgress(job) {
+    cancelAnimationFrame(predictiveRaf);
+    const fill = $('[data-gix-job-fill]');
+    if (!fill) return;
+    const wrap = $('[data-gix-job]');
+    if (wrap) wrap.classList.add('seo-indexing__progress--predictive');
+
+    const startedAt = performance.now();
+    const startSent = job.sent;
+    // Predictive end: assume the chunk completes in CHUNK_BUDGET_MS,
+    // never exceeding the chunk size and never exceeding the total.
+    const chunkSize = Math.min(BATCH_SIZE, job.total - startSent);
+    if (chunkSize <= 0) return;
+    const targetSent = startSent + chunkSize;
+
+    const tick = (now) => {
+      if (job !== currentJob) return; // job replaced
+      const elapsed = now - startedAt;
+      const t = clamp(elapsed / CHUNK_BUDGET_MS, 0, 0.92); // never reach 100% predictively
+      const projected = startSent + chunkSize * t;
+      const value = Math.min(projected, targetSent - 0.5);
+      const pct = job.total ? clamp(value / job.total * 100, 0, 99.5) : 0;
+      fill.style.width = pct.toFixed(2) + '%';
+      predictiveRaf = requestAnimationFrame(tick);
+    };
+    predictiveRaf = requestAnimationFrame(tick);
+  }
+
+  function commitProgress(job, options) {
+    cancelAnimationFrame(predictiveRaf);
+    const wrap = $('[data-gix-job]');
+    if (wrap) wrap.classList.remove('seo-indexing__progress--predictive');
+    const fill = $('[data-gix-job-fill]');
+    if (fill) {
+      const pct = job.total ? clamp(job.sent / job.total * 100, 0, 100) : 0;
+      fill.style.width = pct.toFixed(2) + '%';
+    }
+    showJobUi(job, (options || {}).status);
+  }
+
   async function submitInChunks(urls, opts) {
     if (!urls || !urls.length) return;
     opts = opts || {};
     const total = urls.length;
-    const job = { abort: false, sent: 0, success: 0, fail: 0, total: total };
+    const job = {
+      abort: false,
+      sent: 0,
+      success: 0,
+      fail: 0,
+      total: total,
+      notification: opts.notification || 'URL_UPDATED',
+      alsoIndexNow: !!opts.alsoIndexNow,
+    };
     currentJob = job;
     showJobUi(job, 'Готую партії…');
-
-    const notification = ($('input[name="gix-notification"]:checked') || {}).value || 'URL_UPDATED';
-    const skipExisting = ($('#gix-skip-existing') || {}).checked;
-    const respectQuota = ($('#gix-respect-quota') || {}).checked;
-    const alsoIndexNow = ($('#gix-also-indexnow') || {}).checked;
 
     for (let i = 0; i < urls.length; i += BATCH_SIZE) {
       if (job.abort) break;
       const chunk = urls.slice(i, i + BATCH_SIZE);
+      startPredictiveProgress(job);
       try {
         const response = await fetch(SUBMIT_ENDPOINT, {
           method: 'POST',
@@ -4899,9 +4966,11 @@ document.addEventListener('DOMContentLoaded', function() {
           credentials: 'same-origin',
           body: JSON.stringify({
             urls: chunk,
-            notification: notification,
-            skip_existing: skipExisting,
-            respect_quota: respectQuota,
+            notification: job.notification,
+            // Per-chunk sends already pre-filtered; do not double-skip.
+            skip_existing: false,
+            skip_recent_days: 0,
+            respect_quota: false,
           }),
         });
         const data = await response.json().catch(() => ({}));
@@ -4910,13 +4979,22 @@ document.addEventListener('DOMContentLoaded', function() {
           job.sent += chunk.length;
           job.success += data.submitted || 0;
           job.fail += (data.failures || []).length;
-          showJobUi(job, data.message || `Надіслано ${job.success}/${total}`);
+          commitProgress(job, { status: `Прийнято ${job.success} / ${total}` });
+          // Auto-stop on quota exhaustion or 429s in the chunk.
+          const exhausted = data.summary && (data.summary.remaining_quota || 0) <= 0;
+          const has429 = (data.failures || []).some(f => (f.http_status === 429));
+          if (exhausted || has429) {
+            showJobUi(job, has429 ? 'Google повернув 429 — зупиняюсь.' : 'Денний ліміт вичерпано — зупиняюсь.');
+            break;
+          }
         } else {
           job.fail += chunk.length;
-          showJobUi(job, (data && (data.error || data.message)) || `Помилка ${response.status}`);
+          job.sent += chunk.length;
+          commitProgress(job, { status: (data && (data.error || data.message)) || `Помилка ${response.status}` });
+          if (response.status === 503) break;
         }
-        if (alsoIndexNow) {
-          // fire-and-forget IndexNow ping with the same chunk
+
+        if (job.alsoIndexNow) {
           fetch(INDEXNOW_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' },
@@ -4924,27 +5002,30 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify({ type: 'urls', urls: chunk }),
           }).catch(() => {});
         }
-        if (respectQuota && data && data.summary && (data.summary.remaining_quota || 0) <= 0) {
-          showJobUi(job, 'Денний ліміт вичерпано — зупиняюсь.');
-          break;
-        }
       } catch (e) {
         job.fail += chunk.length;
-        showJobUi(job, 'Мережева помилка партії, продовжую далі.');
+        job.sent += chunk.length;
+        commitProgress(job, { status: 'Мережева помилка партії, продовжую далі.' });
       }
       await sleep(PER_URL_DELAY_MS);
     }
 
-    // Final state.
-    const msg = job.abort
+    cancelAnimationFrame(predictiveRaf);
+    const wrap = $('[data-gix-job]');
+    if (wrap) wrap.classList.remove('seo-indexing__progress--predictive');
+    const fill = $('[data-gix-job-fill]');
+    if (fill && job.total) fill.style.width = clamp(job.sent / job.total * 100, 0, 100).toFixed(2) + '%';
+
+    const finalMsg = job.abort
       ? `Зупинено. Надіслано ${job.success}/${total}, помилок ${job.fail}.`
       : `Готово. Надіслано ${job.success}/${total}, помилок ${job.fail}.`;
-    showJobUi(job, msg);
+    showJobUi(job, finalMsg);
     if (typeof showNotification === 'function') {
-      showNotification(msg, job.fail === 0 && !job.abort ? 'success' : 'warning');
+      const tone = (job.fail === 0 && !job.abort && job.success === total) ? 'success' : 'warning';
+      showNotification(finalMsg, tone);
     }
     refreshHistory();
-    setTimeout(() => hideJobUi(), 4000);
+    setTimeout(() => hideJobUi(), 5000);
     currentJob = null;
   }
 
@@ -4970,7 +5051,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const cancelBtn = $('#gix-cancel-btn'); if (cancelBtn) cancelBtn.disabled = true;
   }
 
-  // ---- run-now: fetch URL list from preview, then chunk-submit ----
+  // ---- run-now: resolve final URL list, then chunk-submit smoothly ----
   async function runIndexing() {
     const groups = csvFromBoxes('[data-gix-groups]');
     const langs = csvFromBoxes('[data-gix-langs]');
@@ -4978,70 +5059,14 @@ document.addEventListener('DOMContentLoaded', function() {
       alert('Виберіть хоча б одну секцію й мову.');
       return;
     }
-    // Pull the canonical, deduped URL list from the server (preview
-    // is capped at 20 — but here we want all of them, so we ask the
-    // submit endpoint for a dry-run).
     const respectQuota = ($('#gix-respect-quota') || {}).checked;
-    const skipExisting = ($('#gix-skip-existing') || {}).checked;
-    const dryResp = await fetch(SUBMIT_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrf,
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      credentials: 'same-origin',
-      body: JSON.stringify({
-        type: 'all',
-        groups: groups,
-        languages: langs,
-        dry_run: true,
-        skip_existing: skipExisting,
-      }),
-    });
-    if (!dryResp.ok) {
-      const data = await dryResp.json().catch(() => ({}));
-      alert((data && data.error) || `Помилка превʼю: ${dryResp.status}`);
-      return;
-    }
-    // Server returned just the preview top-25 — for full list we
-    // POST again as urls. The preview list is enough to confirm,
-    // but the actual chunk submission below uses /preview/ on the
-    // matching groups+langs which already returns full set via the
-    // submit endpoint's normalization. To get the full list, we
-    // call the submit endpoint *again* with type=all (no dry_run)
-    // — but that defeats chunking. Better: ask the preview endpoint
-    // to return the full list when "dry_run=full" — but we did not
-    // implement that. Pragmatic path: split the work server-side
-    // by passing type=all directly without chunking. The server
-    // already handles batching at the HTTP-call level.
-    const dryData = await dryResp.json();
-    const total = dryData.count || 0;
-    const willSend = (dryData.snapshot && dryData.snapshot.total) || total;
-    if (!total) {
-      alert('Немає URL для відправки після фільтрації.');
-      return;
-    }
-    if (!confirm(`Запустити індексацію?\nГотово до відправки: ${total - (dryData.skip_existing_count || 0)} URL\n(зайдуть партіями по ${BATCH_SIZE}). Підтвердити?`)) {
-      return;
-    }
+    const skipDays = readSkipDays();
+    const notification = ($('input[name="gix-notification"]:checked') || {}).value || 'URL_UPDATED';
+    const alsoIndexNow = ($('#gix-also-indexnow') || {}).checked;
 
-    // Pull full list via dedicated client-side fetch: we re-use
-    // /preview/?groups=...&languages=... which returns up to 20
-    // — that's not enough. Solution: ask the server for the urls
-    // explicitly via a POST that returns the snapshot. We do that
-    // by calling submit_endpoint with dry_run=false but type=all
-    // and let the server do the chunking. The chunking-with-progress
-    // UX comes from the server's per-URL response time (~700ms each).
-    //
-    // For richer chunked progress we POST type=all and trust the
-    // single response. The "live progress" then becomes a single
-    // 30-60s wait. That's acceptable: the daily quota caps us at
-    // 200 anyway. Show indeterminate progress meanwhile.
-    showJobUi({ sent: 0, total: total, success: 0, fail: 0, abort: false }, 'Надсилаю партію в Google…');
-
+    let resolvedData;
     try {
-      const response = await fetch(SUBMIT_ENDPOINT, {
+      const resp = await fetch(RESOLVE_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -5050,41 +5075,43 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         credentials: 'same-origin',
         body: JSON.stringify({
-          type: 'all',
           groups: groups,
           languages: langs,
-          notification: ($('input[name="gix-notification"]:checked') || {}).value || 'URL_UPDATED',
-          skip_existing: skipExisting,
+          notification: notification,
+          skip_recent_days: skipDays,
           respect_quota: respectQuota,
         }),
       });
-      const data = await response.json().catch(() => ({}));
-      if (response.ok && data.summary) applySummary(data.summary);
-      if (!response.ok || data.success === false) {
-        const msg = (data && (data.error || data.message)) || `Помилка ${response.status}`;
-        if (typeof showNotification === 'function') showNotification(msg, 'error');
-        else alert(msg);
-        return;
-      }
-      const finishMsg = data.message || `Прийнято ${data.submitted || 0}/${data.count || 0} URL.`;
-      if (typeof showNotification === 'function') {
-        showNotification(finishMsg, (data.submitted === data.count && (data.skipped_quota || 0) === 0) ? 'success' : 'warning');
-      } else {
-        alert(finishMsg);
-      }
-      // IndexNow doubling, if requested.
-      if (($('#gix-also-indexnow') || {}).checked) {
-        fetch(INDEXNOW_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ type: 'all' }),
-        }).catch(() => {});
-      }
-      refreshHistory();
-    } finally {
-      setTimeout(() => hideJobUi(), 1500);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      resolvedData = await resp.json();
+    } catch (e) {
+      alert(`Не вдалося зарезолвити URL: ${e.message || e}`);
+      return;
     }
+
+    const urls = resolvedData.urls || [];
+    const skippedRecent = resolvedData.skipped_recent || 0;
+    const skippedQuota = resolvedData.skipped_quota || 0;
+
+    if (!urls.length) {
+      const reason = skippedRecent > 0
+        ? `Усі URL уже надіслані за останні ${skipDays} днів.`
+        : 'Немає URL для відправки після фільтрації.';
+      alert(reason);
+      return;
+    }
+
+    const lines = [
+      `Готово до відправки: ${urls.length} URL`,
+      `Партіями по ${BATCH_SIZE}, очікуваний час ≈ ${Math.ceil(urls.length * 0.7 / 60)} хв`,
+    ];
+    if (skippedRecent) lines.push(`Пропущено за ${skipDays} днів: ${skippedRecent}`);
+    if (skippedQuota) lines.push(`Обрізано за квотою: ${skippedQuota}`);
+    if (!confirm(lines.join('\n') + '\n\nЗапустити?')) return;
+
+    if (resolvedData.summary) applySummary(resolvedData.summary);
+
+    await submitInChunks(urls, { notification, alsoIndexNow });
   }
 
   // ---- single URL resubmit ----
@@ -5125,32 +5152,41 @@ document.addEventListener('DOMContentLoaded', function() {
       alert('Виберіть хоча б одну мову.');
       return;
     }
-    if (!confirm(`Доіндексувати "${group}" (тільки те, що ще не надіслано сьогодні)?`)) return;
-    const response = await fetch(SUBMIT_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrf,
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      credentials: 'same-origin',
-      body: JSON.stringify({
-        type: 'all',
-        groups: [group],
-        languages: langs,
-        notification: 'URL_UPDATED',
-        skip_existing: true,
-        respect_quota: true,
-      }),
+    const skipDays = readSkipDays();
+    if (!confirm(`Доіндексувати "${group}" (тільки те, що ще не надіслано за останні ${skipDays || 1} днів)?`)) return;
+    let resolvedData;
+    try {
+      const resp = await fetch(RESOLVE_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          groups: [group],
+          languages: langs,
+          notification: 'URL_UPDATED',
+          skip_recent_days: skipDays || 1,
+          respect_quota: true,
+        }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      resolvedData = await resp.json();
+    } catch (e) {
+      alert(`Не вдалося зарезолвити URL: ${e.message || e}`);
+      return;
+    }
+    const urls = resolvedData.urls || [];
+    if (!urls.length) {
+      alert(`У групі "${group}" немає URL для відправки (усі вже в індексі за останні ${skipDays || 1} днів).`);
+      return;
+    }
+    if (resolvedData.summary) applySummary(resolvedData.summary);
+    await submitInChunks(urls, {
+      notification: 'URL_UPDATED',
+      alsoIndexNow: ($('#gix-also-indexnow') || {}).checked,
     });
-    const data = await response.json().catch(() => ({}));
-    if (data.summary) applySummary(data.summary);
-    const msg = data.message || (response.ok ? 'Готово' : `Помилка ${response.status}`);
-    if (typeof showNotification === 'function') showNotification(msg, response.ok ? 'success' : 'warning');
-    refreshHistory();
   }
 
-  // ---- tab switching ----
+  // ---- tab switching & quick actions ----
   panel.addEventListener('click', function(event) {
     const tab = event.target.closest('[data-tab]');
     if (tab) {
@@ -5161,6 +5197,18 @@ document.addEventListener('DOMContentLoaded', function() {
         p.hidden = !isActive;
       });
       if (tab.dataset.tab === 'history') refreshHistory();
+      return;
+    }
+    const dayPreset = event.target.closest('[data-gix-days]');
+    if (dayPreset) {
+      event.preventDefault();
+      const v = parseInt(dayPreset.dataset.gixDays, 10);
+      const input = $('#gix-skip-days');
+      if (input && !isNaN(v)) {
+        input.value = v;
+        $$('#indexing-panel [data-gix-days]').forEach(b => b.classList.toggle('is-active', b === dayPreset));
+        refreshPreview();
+      }
       return;
     }
     if (event.target.closest('#gix-preview-btn')) {
@@ -5197,10 +5245,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Keep preview reactive to checkbox changes.
+  // Reactive preview / history.
   ['change', 'input'].forEach(evt => {
     panel.addEventListener(evt, function(event) {
-      if (event.target.matches('[data-gix-groups] input, [data-gix-langs] input')) {
+      if (event.target.matches('[data-gix-groups] input, [data-gix-langs] input, #gix-skip-days')) {
+        // Mark matching preset chip.
+        if (event.target.id === 'gix-skip-days') {
+          const v = parseInt(event.target.value, 10);
+          $$('#indexing-panel [data-gix-days]').forEach(b => {
+            b.classList.toggle('is-active', parseInt(b.dataset.gixDays, 10) === v);
+          });
+        }
         refreshPreview();
       }
       if (event.target.matches('#gix-history-search, #gix-history-status, #gix-history-source, #gix-history-date, #gix-history-limit')) {

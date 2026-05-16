@@ -1,7 +1,7 @@
 from django.urls import path
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import RedirectView
-from django.http import Http404
+from django.http import Http404, HttpResponsePermanentRedirect
 from . import views
 from .view_loader import load_view_attr
 # Import auth views from the modular auth.py module
@@ -44,6 +44,26 @@ def _module_view(module_path, attr_name):
     return _wrapped
 
 
+def _legacy_pagination_redirect(request, page=None):
+    """SEO 2026-05-16 — 301 from legacy /page/N/ → /?page=N (homepage paginator).
+
+    Search Console reported a cluster of /page/2/, /page/3/, … entries flagged
+    "Crawled, currently not indexed" (the URL pattern was reachable on an older
+    deploy and external links still point at it). Returning a permanent
+    redirect to the canonical paginator URL preserves any inbound link equity
+    and lets Google retire the dead pattern from the index.
+    """
+    try:
+        page_number = int(page or 1)
+    except (TypeError, ValueError):
+        page_number = 1
+    if page_number <= 1:
+        target = "/"
+    else:
+        target = f"/?page={page_number}"
+    return HttpResponsePermanentRedirect(target)
+
+
 def admin_panel_view(request, *args, **kwargs):
     from .views.admin import admin_panel as _admin_panel
 
@@ -52,8 +72,21 @@ def admin_panel_view(request, *args, **kwargs):
 
 urlpatterns = [
     path('', views.home, name='home'),
+    # SEO 2026-05-16 — legacy paginator URL pattern (existed on a previous
+    # deploy, still receives external links). 301 to /?page=N consolidates
+    # link equity instead of leaking it into a 404 cluster that Search
+    # Console flags as "Crawled, currently not indexed".
+    path('page/<int:page>/', _legacy_pagination_redirect, name='home_pagination_legacy'),
     path('load-more-products/', views.load_more_products, name='load_more_products'),
     path('catalog/', views.catalog, name='catalog'),
+    # SEO 2026-05-16 — same legacy paginator pattern fix as on the homepage.
+    path(
+        'catalog/page/<int:page>/',
+        lambda request, page: HttpResponsePermanentRedirect(
+            f"/catalog/?page={page}" if int(page) > 1 else "/catalog/"
+        ),
+        name='catalog_pagination_legacy',
+    ),
     path('catalog/<slug:cat_slug>/', views.catalog, name='catalog_by_cat'),
     path(
         'catalog/<slug:cat_slug>/<slug:color_slug>/',
@@ -215,6 +248,11 @@ urlpatterns = [
         'admin-panel/google-indexing/preview/',
         _module_view('storefront.views.admin', 'admin_google_indexing_preview'),
         name='admin_google_indexing_preview',
+    ),
+    path(
+        'admin-panel/google-indexing/resolve/',
+        _module_view('storefront.views.admin', 'admin_google_indexing_resolve'),
+        name='admin_google_indexing_resolve',
     ),
     # Phase 11 — SEO admin: regenerate AI keywords/description for one object.
     path(

@@ -130,6 +130,7 @@ from storefront.services.google_indexing import (
     get_recent_submissions,
     get_today_summary,
     get_urls_already_submitted_today,
+    get_urls_successful_in_last_days,
     is_google_indexing_configured,
     submit_google_indexing_urls,
 )
@@ -2102,6 +2103,11 @@ def admin_google_indexing_submit(request):
     raw_groups = payload.get('groups') or None
     raw_languages = payload.get('languages') or None
     explicit_urls = payload.get('urls') or None
+    try:
+        skip_recent_days = int(payload.get('skip_recent_days') or 0)
+    except (TypeError, ValueError):
+        skip_recent_days = 0
+    skip_recent_days = max(0, min(60, skip_recent_days))
 
     try:
         ids = [int(value) for value in raw_ids if str(value).strip()]
@@ -2155,19 +2161,29 @@ def admin_google_indexing_submit(request):
     if dry_run:
         # Preview-only mode — used by the JS panel to confirm size
         # before firing real requests.
-        already_today = get_urls_already_submitted_today(
-            urls, notification_type=notification
-        ) if skip_existing else set()
+        # Effective rotation window: explicit days override the
+        # legacy "today only" toggle but the latter still works as
+        # a shorthand for "days=1".
+        effective_days = skip_recent_days
+        if skip_existing and effective_days < 1:
+            effective_days = 1
+        if effective_days > 0:
+            already_filter = get_urls_successful_in_last_days(
+                urls, days=effective_days, notification_type=notification
+            )
+        else:
+            already_filter = set()
         return JsonResponse({
             'success': True,
             'dry_run': True,
             'count': len(urls),
             'preview': urls[:25],
             'snapshot': snapshot_meta,
-            'skip_existing_count': len(already_today),
+            'skip_existing_count': len(already_filter),
+            'skip_recent_days': effective_days,
             'summary': get_today_summary(),
-            'message': f'Готово до відправки: {len(urls) - len(already_today)} URL '
-                       f'(пропущено вже надісланих сьогодні: {len(already_today)}).',
+            'message': f'Готово до відправки: {len(urls) - len(already_filter)} URL '
+                       f'(пропущено за {effective_days or 0} днів: {len(already_filter)}).',
         })
 
     quota_limit = None
@@ -2181,6 +2197,7 @@ def admin_google_indexing_submit(request):
         notification_type=notification,
         source='admin',
         skip_already_submitted_today=skip_existing,
+        skip_recent_success_days=skip_recent_days,
         quota_limit=quota_limit,
     )
     return JsonResponse(
@@ -2208,8 +2225,12 @@ def admin_google_indexing_preview(request):
 
     Used by the SEO dashboard so the operator can see exactly how many
     URLs (and which) will be submitted before the actual quota burn.
-    Query params: ``groups`` (comma-separated) and ``languages``
-    (comma-separated). Both default to "all".
+
+    Query params:
+        ``groups``            — comma-separated subset of ALL_GROUPS.
+        ``languages``         — comma-separated subset of LANGUAGES.
+        ``skip_recent_days``  — rolling window (0-60) of days to dedupe
+                                successful submissions against.
     """
     if request.method != 'GET':
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
@@ -2218,11 +2239,28 @@ def admin_google_indexing_preview(request):
     langs_raw = (request.GET.get('languages') or '').strip()
     groups = [g.strip() for g in groups_raw.split(',') if g.strip()] or list(ALL_GROUPS)
     languages = [l.strip() for l in langs_raw.split(',') if l.strip()] or get_supported_languages()
+    try:
+        skip_recent_days = int(request.GET.get('skip_recent_days') or 0)
+    except (TypeError, ValueError):
+        skip_recent_days = 0
+    skip_recent_days = max(0, min(60, skip_recent_days))
 
     snapshot = build_targets(groups=groups, languages=languages)
-    already = get_urls_already_submitted_today(
-        snapshot.all_urls, notification_type=NOTIFICATION_URL_UPDATED,
+    all_urls = snapshot.all_urls
+    already_today = get_urls_already_submitted_today(
+        all_urls, notification_type=NOTIFICATION_URL_UPDATED,
     )
+    if skip_recent_days > 0:
+        already_window = get_urls_successful_in_last_days(
+            all_urls,
+            days=skip_recent_days,
+            notification_type=NOTIFICATION_URL_UPDATED,
+        )
+    else:
+        already_window = set(already_today)
+
+    pending = [u for u in all_urls if u not in already_window]
+
     result = snapshot.to_dict(preview_limit=20)
     result.update({
         'success': True,
@@ -2230,10 +2268,111 @@ def admin_google_indexing_preview(request):
         'group_labels': GROUP_LABELS,
         'supported_languages': get_supported_languages(),
         'default_language': get_default_language(),
-        'already_submitted_today': len(already),
+        'already_submitted_today': len(already_today),
+        'already_in_window': len(already_window),
+        'skip_recent_days': skip_recent_days,
+        'pending_count': len(pending),
+        'pending_preview': pending[:20],
         'summary': get_today_summary(),
     })
     return JsonResponse(result)
+
+
+@staff_member_required
+def admin_google_indexing_resolve(request):
+    """POST endpoint: resolve the final URL list to submit.
+
+    Returns an *exact* deduped list of URLs ready to be sent to Google,
+    after applying the ``skip_recent_days`` rotation window and the
+    per-quota cap. The JS panel uses this to drive a smooth chunked
+    progress bar — instead of sending one giant request and waiting
+    30-60 s for a single response, it pulls the resolved list, then
+    submits in chunks of N URLs and animates progress between calls.
+
+    Body (JSON):
+        {
+            "groups": [...],
+            "languages": [...],
+            "skip_recent_days": int,
+            "respect_quota": bool,
+            "notification": "URL_UPDATED" | "URL_DELETED",
+            "limit": int (cap on returned URL count)
+        }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+
+    groups = payload.get('groups') or list(ALL_GROUPS)
+    languages = payload.get('languages') or get_supported_languages()
+    notification = (payload.get('notification') or NOTIFICATION_URL_UPDATED).strip().upper()
+    if notification not in {NOTIFICATION_URL_UPDATED, NOTIFICATION_URL_DELETED}:
+        return JsonResponse(
+            {'success': False, 'error': f'Unknown notification: {notification}'},
+            status=400,
+        )
+
+    try:
+        skip_recent_days = int(payload.get('skip_recent_days') or 0)
+    except (TypeError, ValueError):
+        skip_recent_days = 0
+    skip_recent_days = max(0, min(60, skip_recent_days))
+
+    respect_quota = bool(payload.get('respect_quota'))
+    explicit_urls = payload.get('urls') or None
+
+    if isinstance(explicit_urls, list) and explicit_urls:
+        all_urls = [str(u).strip() for u in explicit_urls if str(u).strip()]
+        snapshot_meta = {'mode': 'explicit', 'count': len(all_urls)}
+    else:
+        snapshot = build_targets(groups=groups, languages=languages)
+        all_urls = snapshot.all_urls
+        snapshot_meta = snapshot.to_dict(preview_limit=10)
+
+    all_urls = list(dict.fromkeys(all_urls))
+
+    # Filter by rotation window.
+    skipped_recent = 0
+    if skip_recent_days > 0:
+        already = get_urls_successful_in_last_days(
+            all_urls, days=skip_recent_days, notification_type=notification,
+        )
+        if already:
+            skipped_recent = len(already)
+            all_urls = [u for u in all_urls if u not in already]
+
+    # Cap by today's remaining quota.
+    summary = get_today_summary()
+    remaining = max(0, int(summary.get('remaining_quota') or 0))
+    skipped_quota = 0
+    if respect_quota and remaining < len(all_urls):
+        skipped_quota = len(all_urls) - remaining
+        all_urls = all_urls[:remaining]
+
+    # Optional hard cap via ``limit``.
+    try:
+        limit = int(payload.get('limit') or 0)
+    except (TypeError, ValueError):
+        limit = 0
+    if limit > 0 and len(all_urls) > limit:
+        skipped_quota += len(all_urls) - limit
+        all_urls = all_urls[:limit]
+
+    return JsonResponse({
+        'success': True,
+        'count': len(all_urls),
+        'urls': all_urls,
+        'snapshot': snapshot_meta,
+        'skipped_recent': skipped_recent,
+        'skipped_quota': skipped_quota,
+        'skip_recent_days': skip_recent_days,
+        'remaining_quota': remaining,
+        'summary': summary,
+    })
 
 
 @staff_member_required
