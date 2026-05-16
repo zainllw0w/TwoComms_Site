@@ -22,7 +22,11 @@
 {% block title %}{% if is_search_page %}{% trans 'Пошук' %}{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}{% trans 'Каталог TwoComms — футболки, худі, лонгсліви з принтами' %}{% endif %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}{% endblock %}
 
 {# SEO v1.0 Phase 12 (2026-05-13) — finding (N). Description for catalog root was 99 chars; expanded to ~155 chars to use the full SERP cap and surface DTF, fabric and Nova Poshta delivery USPs that the audit ranks as «highest CTR levers» for catalog landing intents. #}
-{% block description %}{% if is_search_page %}{% trans 'Результати пошуку TwoComms' %}{% if query %} {% blocktrans with q=query %}за запитом «{{ q }}»{% endblocktrans %}{% endif %}. {% trans 'Сторінка відкрита для переходу по товарах, але не призначена для індексації.' %}{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}{% blocktrans with cat=category.name|lower %}Купити {{ cat }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні.{% endblocktrans %}{% endif %}{% else %}{% trans 'Каталог стріт-мілітарі одягу TwoComms: футболки, худі, лонгсліви з авторськими принтами, DTF-друк, бавовна. Доставка Новою Поштою від 1 дня по Україні.' %}{% endif %}{% endblock %}
+{# SEO 2026-05-16 — uniqueness fix for "Crawled, currently not indexed" on /catalog/?page=N. The base #}
+{# description above is reused on every paginator state, so Google sees a thin near-duplicate. The #}
+{# block now appends "сторінка N з M" when N>1, mirroring the title fix and giving the paginator URL #}
+{# enough uniqueness signal to be indexed alongside the canonical /catalog/ root. #}
+{% block description %}{% if is_search_page %}{% trans 'Результати пошуку TwoComms' %}{% if query %} {% blocktrans with q=query %}за запитом «{{ q }}»{% endblocktrans %}{% endif %}. {% trans 'Сторінка відкрита для переходу по товарах, але не призначена для індексації.' %}{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}{% blocktrans with cat=category.name|lower %}Купити {{ cat }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні.{% endblocktrans %}{% endif %}{% if page_obj and page_obj.number > 1 %} {% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }}.{% endblocktrans %}{% endif %}{% else %}{% trans 'Каталог стріт-мілітарі одягу TwoComms: футболки, худі, лонгсліви з авторськими принтами, DTF-друк, бавовна. Доставка Новою Поштою від 1 дня по Україні.' %}{% if page_obj and page_obj.number > 1 %} {% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }}.{% endblocktrans %}{% endif %}{% endif %}{% endblock %}
 
 {% block keywords %}{% if category %}{{ category.name|lower }}, {% endif %}{% trans 'стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, каталог одягу' %}{% endblock %}
 
@@ -34,22 +38,25 @@ re-orders the same products on the same canonical URL; Google was indexing each
 variation as a separate page (duplicate-title warning in Search Console).
 Treat them like any other facet: noindex, follow + canonical → base catalog.
 {% endcomment %}
-{# SEO 2026-05-16 — finding (Crawled, currently not indexed). Catalog paginator pages were treated by #}
-{# Google as thin near-duplicates of the catalog root because the previous canonical was self-referential #}
-{# (?page=N pointed to itself). Pagination above page 1 now renders noindex,follow + a sticky canonical #}
-{# back to the un-paginated catalog/category URL so PageRank consolidates upstream. rel=prev/next + the #}
-{# in-page paginator links still let Googlebot crawl deeper to discover products. #}
-{% block robots %}{% if is_search_page or has_active_color_filter or request.GET.sort %}noindex, follow{% elif page_obj and page_obj.number > 1 %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
+{# SEO 2026-05-16 — pagination (?page=N where N>1) stays INDEXABLE because each paginator state is a #}
+{# unique resource: shows a unique slice of products with a disambiguated title ("сторінка N"). Search #}
+{# Console "Crawled, currently not indexed" is solved by stronger uniqueness signals (title/H1/JSON-LD #}
+{# ItemList) — NOT by hiding pagination from the index, which would block discovery of products only #}
+{# reachable via the paginator. Sort/colour-filter facets keep noindex,follow because they re-order #}
+{# the same dataset on the same canonical URL. #}
+{% block robots %}{% if is_search_page or has_active_color_filter or request.GET.sort %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 
-{% block canonical %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{# SEO 2026-05-16 — self-canonical on every paginator state (Google explicitly recommends "do not designate the first page as the canonical for paginator pages — give each its own canonical URL"; #}
+{# https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading). #}
+{% block canonical %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 {% comment %}
 SEO v1.1 Phase 2 (2026-05-15) — base.html emits four hreflang entries
 via language_alternates. Don't override hreflang_uk / hreflang_x_default
 here so /ru/ and /en/ catalog pages publish reciprocal alternates that
 point at themselves.
 {% endcomment %}
-{% block og_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
-{% block twitter_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block og_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block twitter_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 
 {% block pagination_links %}
 {% if page_obj %}{% if page_obj.has_previous %}<link rel="prev" href="{{ site_base_url }}{{ request.path }}{% if page_obj.previous_page_number > 1 %}?page={{ page_obj.previous_page_number }}{% endif %}">{% endif %}{% if page_obj.has_next %}<link rel="next" href="{{ site_base_url }}{{ request.path }}?page={{ page_obj.next_page_number }}">{% endif %}{% endif %}
@@ -82,12 +89,16 @@ point at themselves.
     },
     {
       "@type": "CollectionPage",
-      "name": "{{ category.name }} — TwoComms",
-      "description": "{% blocktrans with cat=category.name|lower %}Категорія {{ cat }} з авторськими принтами від TwoComms.{% endblocktrans %}",
+      {# SEO 2026-05-16 — page-specific @id so each paginator state is a distinct entity #}
+      {# in the knowledge graph; same pattern as the catalog root above. #}
+      "@id": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}#collection{% else %}{{ site_base_url }}{{ request.path }}#collection{% endif %}",
+      "name": "{{ category.name }} — TwoComms{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}",
+      "description": "{% blocktrans with cat=category.name|lower %}Категорія {{ cat }} з авторськими принтами від TwoComms.{% endblocktrans %}{% if page_obj and page_obj.number > 1 %} {% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }}.{% endblocktrans %}{% endif %}",
       "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}",
       "mainEntity": {
         "@type": "ItemList",
         "itemListOrder": "https://schema.org/ItemListOrderDescending",
+        "numberOfItems": {{ products|length }},
         "itemListElement": [
           {% for p in products|slice:":20" %}
           {
@@ -118,19 +129,29 @@ point at themselves.
     },
     {
       "@type": "CollectionPage",
-      "name": "{% trans 'Каталог TwoComms' %}",
-      "description": "{% trans 'Повний каталог стріт та мілітарі одягу TwoComms.' %}",
+      {# SEO 2026-05-16 — unique CollectionPage @id per paginator state. Without a #}
+      {# stable, page-specific @id Google was conflating ?page=N with the catalog #}
+      {# root and counting them as one entity, contributing to "Crawled, currently #}
+      {# not indexed" on the paginator URLs. #}
+      "@id": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}#collection{% else %}{{ site_base_url }}{{ request.path }}#collection{% endif %}",
+      "name": "{% trans 'Каталог TwoComms' %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}",
+      "description": "{% trans 'Повний каталог стріт та мілітарі одягу TwoComms.' %}{% if page_obj and page_obj.number > 1 %} {% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }}.{% endblocktrans %}{% endif %}",
       "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}",
       "mainEntity": {
         "@type": "ItemList",
+        {# SEO 2026-05-16 — emit the actual products visible on this page (not the category #}
+        {# list). The visible content is products, so the schema must mirror it; previously #}
+        {# Google saw a Category ItemList here while the page rendered Product cards, which #}
+        {# is a "schema-vs-content mismatch" signal that depresses indexing confidence. #}
         "itemListOrder": "https://schema.org/ItemListOrderDescending",
+        "numberOfItems": {{ products|length }},
         "itemListElement": [
-          {% for c in categories %}
+          {% for p in products|slice:":20" %}
           {
             "@type": "ListItem",
             "position": {{ forloop.counter }},
-            "url": "{{ site_base_url }}{% url 'catalog_by_cat' c.slug %}",
-            "name": "{{ c.name|escapejs }}"
+            "url": "{{ site_base_url }}{% url 'product' p.slug %}",
+            "name": "{{ p.title|escapejs }}"
           }{% if not forloop.last %},{% endif %}
           {% endfor %}
         ]

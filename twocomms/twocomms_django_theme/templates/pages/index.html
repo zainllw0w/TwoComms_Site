@@ -4,17 +4,14 @@
 {# SEO Audit 2026-05-15 (Part 4) — homepage title cleanup. The legacy "| Головна" suffix was a navigation echo that wasted ~9 chars of SERP real estate without adding semantic value. Replace with "з Харкова" (geo-signal) to push LocalSEO and free up the truncation budget for the brand line. #}
 {% block title %}{% trans 'TwoComms — стріт & мілітарі одяг з Харкова' %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}{% endblock %}
 
-{% block description %}{% trans 'TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні.' %}{% endblock %}
+{# SEO 2026-05-16 — uniqueness fix for "Crawled, currently not indexed" on /?page=N. Search Console #}
+{# treats paginated pages as thin near-duplicates when meta description is identical. Each paginator #}
+{# state now declares which page it is + a hint at the unique product slice it lists, while keeping the #}
+{# canonical UVP for /?page=1. Combined with the existing per-page <title> ("сторінка N") and a #}
+{# self-canonical on each paginator URL, this gives Google enough uniqueness signal to index the page. #}
+{% block description %}{% if page_obj and page_obj.number > 1 %}{% blocktrans with n=page_obj.number total=paginator.num_pages %}TwoComms — каталог стрітвір та мілітарі одягу, сторінка {{ n }} з {{ total }}. Нові футболки, худі, лонгсліви з авторськими принтами та швидка доставка по Україні.{% endblocktrans %}{% else %}{% trans 'TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні.' %}{% endif %}{% endblock %}
 
 {% block keywords %}{% trans 'стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль' %}{% endblock %}
-
-{# SEO 2026-05-16 — finding (Crawled, currently not indexed). Pagination URLs (/?page=N where N>1) #}
-{# rendered with index,follow + self-canonical were treated by Google as thin near-duplicates of the #}
-{# homepage and flagged "просканировано — не проиндексировано". Fix: noindex,follow on every paginated #}
-{# state above the first; canonical collapses to the homepage so PageRank consolidates upstream. The #}
-{# rel=prev/next pagination_links + on-page <a href="?page=…"> still let Googlebot crawl the deeper #}
-{# pages to discover products that haven't been seen yet. #}
-{% block robots %}{% if page_obj and page_obj.number > 1 %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 
 {% block og_type %}website{% endblock %}
 {% block og_title %}{% trans 'TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном' %}{% endblock %}
@@ -23,10 +20,12 @@
 {% block twitter_title %}{% trans 'TwoComms — стріт & мілітарі одяг' %}{% endblock %}
 {% block twitter_description %}{% trans 'Ексклюзивні футболки, худі та лонгсліви від харківського бренду TwoComms. Швидка доставка по Україні.' %}{% endblock %}
 
-{# SEO 2026-05-16 — sticky canonical to the homepage (sans ?page=N). Self-canonical on paginator pages #}
-{# was making Google treat each ?page=N as a separate index target; combined with the new noindex,follow #}
-{# above, the consolidated canonical guarantees ranking signals stack on twocomms.shop/. #}
-{% block canonical %}{{ site_base_url }}{{ request.path }}{% endblock %}
+{# SEO 2026-05-16 — finding (Crawled, currently not indexed). Pagination URLs (/?page=N where N>1) need #}
+{# to stay INDEXABLE so every product (page 1 shows only 8 of N) is discoverable AND indexable via the #}
+{# paginator. The previous self-canonical on ?page=N is the Google-recommended pattern (each page is a #}
+{# unique resource because it lists a unique slice of products). Title already disambiguates with #}
+{# "сторінка N" so duplicate-title is not a concern. Combined with rel=prev/next semantic hints below. #}
+{% block canonical %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 {% comment %}
 SEO v1.1 Phase 2 (2026-05-15) — base.html emits four hreflang entries
 via the language_alternates tag (uk-UA / ru-UA / en-UA / x-default).
@@ -34,8 +33,8 @@ We do NOT override hreflang_* blocks here so that each locale renders
 its own self-referential alternate triple. The previous overrides
 hard-coded the UA URL and broke reciprocity for /ru/ and /en/ visitors.
 {% endcomment %}
-{% block og_url %}{{ site_base_url }}{{ request.path }}{% endblock %}
-{% block twitter_url %}{{ site_base_url }}{{ request.path }}{% endblock %}
+{% block og_url %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block twitter_url %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 
 {% block pagination_links %}
 {% if page_obj and page_obj.has_previous %}<link rel="prev" href="{{ site_base_url }}{{ request.path }}{% if page_obj.previous_page_number > 1 %}?page={{ page_obj.previous_page_number }}{% endif %}">{% endif %}
@@ -89,9 +88,14 @@ the misleading price snippet.
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "@id": "{{ site_base_url }}/#webpage",
-  "name": "{% trans 'TwoComms — Головна' %}",
-  "description": "{% trans 'Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом.' %}",
+  {# SEO 2026-05-16 — unique WebPage @id per paginator state. Previously every #}
+  {# /?page=N declared the same #webpage id as the homepage, telling Google "I am #}
+  {# the same WebPage entity" — a duplication signal that contributed to the #}
+  {# "Crawled, currently not indexed" cluster. Each paginator URL now has its #}
+  {# own stable @id while page 1 keeps the canonical /#webpage anchor. #}
+  "@id": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}/?page={{ page_obj.number }}#webpage{% else %}{{ site_base_url }}/#webpage{% endif %}",
+  "name": "{% trans 'TwoComms — Головна' %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}",
+  "description": "{% if page_obj and page_obj.number > 1 %}{% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }} каталогу TwoComms — підбірка стрітвір та мілітарі товарів цієї сторінки.{% endblocktrans %}{% else %}{% trans 'Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом.' %}{% endif %}",
   "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}",
   "inLanguage": "{{ LANGUAGE_CODE|default:'uk' }}-UA",
   "isPartOf": {"@id": "{{ site_base_url }}/#website"},
@@ -104,7 +108,7 @@ the misleading price snippet.
   },
   "mainEntity": {
     "@type": "ItemList",
-    "name": "{% trans 'Новинки каталогу TwoComms' %}",
+    "name": "{% trans 'Новинки каталогу TwoComms' %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}",
     "itemListOrder": "https://schema.org/ItemListOrderDescending",
     "numberOfItems": {{ products|length }},
     "itemListElement": [
@@ -596,96 +600,6 @@ canonical entry point for the brand's URL graph.
     </div>
   </div>
   {% endif %}
-</section>
-
-{% comment %}
-SEO molecular-upgrade US-7 (2026-05-16) — homepage long-form content.
-
-Why this section exists
------------------------
-Audit/01_content_findings.md measured the homepage at 391 words and
-flagged the top-3 lemmas as UI tokens (баллів, грн, опитування) instead
-of brand/category SEO tokens. The page therefore failed to rank for any
-brand-plus-category combination and offered nothing for AI search to cite.
-
-This block adds ~600–800 words of factual long-form copy split into a
-TLDR factbox (5 bullets, AI-extractive friendly), a short brand
-narrative, an explicit categories index, four USP facts, and a social
-mission paragraph. All copy is structured around the brand brief in
-SEO/napolke-veteran-brands-2026.md (founder Artem Synylo, Kharkiv,
-2022, ties with the 225th regiment, веran-founded streetwear).
-
-The block is rendered last in the content flow so the existing UI
-above stays intact; CSS keeps it visually separate from the catalogue
-grid. Mark-up uses ``data-speakable`` hooks for the SpeakableSpec node
-emitted in WebPage schema (US-12).
-{% endcomment %}
-<section class="home-seo-prose mb-4 mb-md-5 reveal" aria-labelledby="home-seo-prose-heading">
-  <h2 class="home-seo-prose__heading" id="home-seo-prose-heading">
-    {% trans 'TwoComms — український streetwear-бренд із Харкова' %}
-  </h2>
-
-  <ul class="home-seo-prose__tldr" data-speakable="true" aria-label="{% trans 'Ключові факти про TwoComms' %}">
-    <li>{% trans 'Український streetwear / military-adjacent бренд одягу. Засновано 1 липня 2025 року в Харкові.' %}</li>
-    <li>{% trans 'Засновник — бойовий ветеран Артем Синіло, розвідник з досвідом харківського напрямку.' %}</li>
-    <li>{% trans 'Асортимент: футболки, худі, лонгсліви, кастомний DTF-друк. Виробництво в Україні.' %}</li>
-    <li>{% trans 'Цінова категорія 880–2 550 грн. Доставка Новою Поштою, Укрпоштою або кур’єром у Києві / Харкові.' %}</li>
-    <li>{% trans 'Принти створюються як коди: 225-й ОШП, «Reality Bends», харківські серії, патріотичні мотиви.' %}</li>
-  </ul>
-
-  <div class="home-seo-prose__grid">
-    <article class="home-seo-prose__card">
-      <h3 class="home-seo-prose__card-heading">{% trans 'Філософія: не крапка, а продовження' %}</h3>
-      <p>
-        {% blocktrans %}TwoComms виріс з ідеї, що життя після критичної точки не закінчується — воно продовжується. Дві коми у назві бренду — символ продовження після ситуації, в якій інші ставлять крапку. Засновник пройшов шлях від важкого поранення (осколок 120-мм міни, ризик ампутації) до запуску власного streetwear-проєкту в Харкові.{% endblocktrans %}
-      </p>
-      <p>
-        {% blocktrans %}Тому кожен принт TwoComms має причину існування: ми не випускаємо одяг заради сезону, не масштабуємо тиражі заради знижки і не вдягаємо людей у графіку, яку самі не розуміємо. Бренд має реальну біографію, реальне виробництво, реальних людей у Харкові — і одягає так, щоб це було видно у дрібницях, а не у логотипах.{% endblocktrans %}
-      </p>
-    </article>
-
-    <article class="home-seo-prose__card">
-      <h3 class="home-seo-prose__card-heading">{% trans 'Категорії одягу та що ви знайдете в каталозі' %}</h3>
-      <ul class="home-seo-prose__bullets">
-        <li>
-          <a href="{% url 'catalog_by_cat' 'tshirts' %}">{% trans 'Футболки' %}</a> —
-          {% trans 'щільна бавовна, авторський DTF-друк, посадка regular і oversize. Базовий шар гардероба, який тримає лінію.' %}
-        </li>
-        <li>
-          <a href="{% url 'catalog_by_cat' 'hoodie' %}">{% trans 'Худі' %}</a> —
-          {% trans 'трьохнитка з начосом, oversize-крій, кишеня-кенгуру. Тепла база на міжсезоння, працює у шарі і соло.' %}
-        </li>
-        <li>
-          <a href="{% url 'catalog_by_cat' 'long-sleeve' %}">{% trans 'Лонгсліви' %}</a> —
-          {% trans 'бавовняна основа з рукавами, акуратна посадка, авторський принт. Працюють як base layer і як самостійний верх.' %}
-        </li>
-        <li>
-          <a href="{% url 'custom_print' %}">{% trans 'Кастомний DTF-друк' %}</a> —
-          {% trans 'свій принт на наших речах. Підходить для команд, корпоративного мерчу, особистих проєктів. Тиражі від 1 одиниці.' %}
-        </li>
-      </ul>
-    </article>
-
-    <article class="home-seo-prose__card">
-      <h3 class="home-seo-prose__card-heading">{% trans 'Чому TwoComms' %}</h3>
-      <ul class="home-seo-prose__bullets">
-        <li>{% trans 'Реальне ветеранське походження бренду — біографія засновника публічна, не маркетингова.' %}</li>
-        <li>{% trans 'Харківська локалізація: дизайн, друк, контроль якості — у одному цеху, без офшорних ланцюгів.' %}</li>
-        <li>{% trans 'Авторські принти-коди: 225-й ОШП (інтерес командира — Героя України Олега Ширяєва), «Reality Bends», харківські серії, патріотичні мотиви.' %}</li>
-        <li>{% trans 'Доставка по Україні за 1–2 робочі дні. Безкоштовно при замовленні від 2 500 грн на основні відділення Нової Пошти / Укрпошти.' %}</li>
-      </ul>
-    </article>
-
-    <article class="home-seo-prose__card">
-      <h3 class="home-seo-prose__card-heading">{% trans 'Соціальна місія і колаборації' %}</h3>
-      <p>
-        {% blocktrans %}TwoComms — головний спонсор чемпіонату України зі стрільби «Перший Постріл» у Києві. У публічних колабораціях бренду — Євген Клопотенко (через Український ветеранський фонд), сюжети на «1+1» і «Громадському». Частина прибутку спрямовується на підтримку 225-го окремого штурмового полку та ветеранських ініціатив.{% endblocktrans %}
-      </p>
-      <p>
-        {% blocktrans %}Це не «бренд про війну». Це бренд людини, яка з війни вийшла і будує систему далі — у вигляді одягу з кодом для людей, які тримають форму зсередини. Ми не плутаємо патріотизм із галасом і не косплеїмо мілітарі, але також не вдаємо, ніби нічого не сталося.{% endblocktrans %}
-      </p>
-    </article>
-  </div>
 </section>
 
 {% endblock %}

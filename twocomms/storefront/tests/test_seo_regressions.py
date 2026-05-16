@@ -792,6 +792,30 @@ class PublicUrlIndexationSeoRegressionTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, 'content="noindex, nofollow"', html=False)
 
+    def test_legacy_page_pagination_url_redirects_to_querystring(self):
+        """SEO 2026-05-16 — /page/N/ legacy URL must 301 to /?page=N so
+        Search Console can retire the dead pattern and external links
+        keep their equity flowing into the canonical paginator URL."""
+        response = self.client.get("/page/2/", secure=True, follow=False)
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response["Location"], "/?page=2")
+
+    def test_legacy_page_pagination_first_page_redirects_to_homepage(self):
+        """SEO 2026-05-16 — /page/1/ collapses to / (no ?page=1 needed)."""
+        response = self.client.get("/page/1/", secure=True, follow=False)
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response["Location"], "/")
+
+    def test_legacy_catalog_page_pagination_redirects_to_querystring(self):
+        """SEO 2026-05-16 — /catalog/page/N/ legacy URL must 301 to
+        /catalog/?page=N for the same reason as the homepage paginator."""
+        response = self.client.get("/catalog/page/3/", secure=True, follow=False)
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response["Location"], "/catalog/?page=3")
+
 
 class CustomPrintSeoRegressionTests(TestCase):
     def setUp(self):
@@ -889,7 +913,12 @@ class RobotsTxtAiSearchRegressionTests(TestCase):
             1,
         )[1]
 
-        for path in ("/admin/", "/admin-panel/", "/accounts/", "/orders/", "/cart/", "/checkout/", "/api/"):
+        # SEO 2026-05-16 — /cart/, /accounts/ removed from Disallow so
+        # Googlebot can fetch the page, see the meta noindex, and exclude
+        # the URL cleanly. The Disallow’d set now lists only routes that
+        # have NO public HTML body to noindex (admin, api, internal),
+        # which is the Google-recommended pattern.
+        for path in ("/admin/", "/admin-panel/", "/orders/", "/checkout/", "/api/"):
             with self.subTest(path=path):
                 self.assertIn(f"Disallow: {path}", ai_group)
 
