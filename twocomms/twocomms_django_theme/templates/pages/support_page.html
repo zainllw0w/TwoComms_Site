@@ -13,6 +13,36 @@
   {% if faq_items %}
     {% faq_schema faq_items %}
   {% endif %}
+  {% comment %}
+  SEO 2026-05-16 (P1-2) — emit a HowTo JSON-LD when the page
+  definition (in ``storefront/support_content.py``) carries a
+  ``how_to`` block. Used on /doglyad-za-odyagom/ (HowTo wash + care
+  for DTF print) and /rozmirna-sitka/ (HowTo measure and pick a size).
+  Pages without ``how_to`` render zero extra JSON-LD.
+  {% endcomment %}
+  {% if page.how_to %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "{{ page.how_to.name|escapejs }}",
+    "description": "{{ page.how_to.description|escapejs }}",
+    {% if page.how_to.total_time %}"totalTime": "{{ page.how_to.total_time }}",{% endif %}
+    {% if page.how_to.tool %}"tool": [{% for t in page.how_to.tool %}{"@type":"HowToTool","name":"{{ t|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}],{% endif %}
+    {% if page.how_to.supply %}"supply": [{% for s in page.how_to.supply %}{"@type":"HowToSupply","name":"{{ s|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}],{% endif %}
+    "step": [
+      {% for step in page.how_to.step %}
+      {
+        "@type": "HowToStep",
+        "position": {{ forloop.counter }},
+        "name": "{{ step.name|escapejs }}",
+        "text": "{{ step.text|escapejs }}"
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ]
+  }
+  </script>
+  {% endif %}
   <script type="application/ld+json">
   [
     {

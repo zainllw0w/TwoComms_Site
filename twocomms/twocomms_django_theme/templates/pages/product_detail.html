@@ -100,14 +100,22 @@ namespace + the legacy og:price aliases for the older social parsers.
   {% endcomment %}
   {% product_graph product breadcrumbs=breadcrumbs canonical_path=variant_canonical_path selected_variant=selected_color_variant review_summary=product_review_summary %}
   {% comment %}
-  Phase 21 (PR-5, T12.2) — FAQPage JSON-LD removed from PDP. The same
-  FAQ entries are rendered on dedicated support pages (/faq/,
-  /delivery/, /povernennya-ta-obmin/) which carry the FAQPage schema
-  there. Keeping it on every PDP duplicated content across hundreds
-  of pages and Search Console flagged it as repeated structured data.
-  The FAQ itself stays visible to users via the tabs/section below —
-  this only removes the JSON-LD tag.
+  SEO 2026-05-16 (P1-1) — restored a per-product FAQPage JSON-LD,
+  but ONLY when ``product_faq_items`` is non-empty. The previous
+  blanket FAQPage was removed in Phase 21 because it duplicated the
+  /faq/, /delivery/ and /povernennya-ta-obmin/ schema across hundreds
+  of pages (Search Console: «repeated structured data»). The new
+  behaviour is safe because ``product_faq_items`` is sourced from
+  ``product.faqs`` — a manually curated, per-product Q&A collection
+  with zero overlap with the global FAQ matrix. Pages that have no
+  product-specific FAQ render zero FAQPage JSON-LD. AI answer engines
+  (Perplexity, ChatGPT Search, Google AI Overviews) preferentially
+  cite product-scoped FAQPage entries for long-tail queries like
+  «чи дає {товар} усадку після прання».
   {% endcomment %}
+  {% if product_faq_items %}
+    {% faq_schema product_faq_items %}
+  {% endif %}
 {% endblock %}
 
 {% block breadcrumbs %}

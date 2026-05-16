@@ -25,16 +25,26 @@
    spec allows omitting `address` when the entity is an online-only
    store. Adds `areaServed`, `priceRange`, `currenciesAccepted` and
    `paymentAccepted` so AI surfaces (SGE/Perplexity) can answer
-   «where does TwoComms ship / what does it cost» with grounded data. #}
+   «where does TwoComms ship / what does it cost» with grounded data.
+
+   SEO 2026-05-16 (P1-3 / P1-7) — added ``parentOrganization`` link to
+   the canonical Organization node so AI knowledge graphs treat the
+   ClothingStore as a sub-entity of the same brand instead of a
+   separate company. ``address.addressLocality`` updated to «Харків»
+   and ``address.addressRegion`` to ``UA-63`` so NAP is consistent
+   with the rest of the brand surface. #}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "ContactPage",
   "name": "{% trans 'TwoComms — контакти' %}",
   "url": "{{ site_base_url }}{{ request.path }}",
+  "isPartOf": {"@id": "https://twocomms.shop/#website"},
+  "about": {"@id": "https://twocomms.shop/#organization"},
   "mainEntity": {
     "@type": "ClothingStore",
     "@id": "https://twocomms.shop/#store",
+    "parentOrganization": {"@id": "https://twocomms.shop/#organization"},
     "name": "TwoComms",
     "alternateName": "{% trans 'TwoComms — стріт і мілітарі одяг' %}",
     "url": "https://twocomms.shop",
@@ -43,6 +53,12 @@
     "description": "{% trans 'TwoComms — український онлайн-магазин стрітвір- і мілітарі-одягу: футболки, худі, лонгсліви та кастомний DTF-друк.' %}",
     "telephone": "+380966543212",
     "email": "info@twocomms.shop",
+    "address": {
+      "@type": "PostalAddress",
+      "addressCountry": "UA",
+      "addressRegion": "UA-63",
+      "addressLocality": "{% trans 'Харків' %}"
+    },
     "areaServed": {
       "@type": "Country",
       "name": "{% trans 'Україна' %}"
@@ -66,6 +82,8 @@
   }
 }
 </script>
+{# SEO 2026-05-16 (P1-3) — explicit BreadcrumbList Home → Contacts. #}
+{% breadcrumb_schema breadcrumb_items %}
 {% endblock %}
 
 {% block extra_css %}
@@ -120,17 +138,18 @@
           </div>
           <div class="method-content">
             <h3 class="method-title">{% trans 'Телефон' %}</h3>
-            <div class="phone-container">
-              <button id="show-phone-btn" class="show-phone-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
-                {% trans 'Показати телефон' %}
-              </button>
-              <a id="phone-number" href="tel:+380966543212" class="phone-number" style="display: none;">
-                +38 (096) 654-32-12
-              </a>
-            </div>
+            {% comment %}
+            SEO 2026-05-16 — finding (P0-4). Phone number was hidden via
+            ``style="display:none"`` and only revealed by JS click. AI
+            crawlers without full JS rendering (ChatGPT-User, Claude-User,
+            PerplexityBot in the «no-render» tier) never saw the number,
+            and Search Console treated it as cloaked content. Render it
+            inline like Telegram and Instagram below — JSON-LD already
+            exposes the canonical ``ContactPoint.telephone``.
+            {% endcomment %}
+            <a href="tel:+380966543212" class="contact-link" aria-label="{% trans 'Зателефонувати в TwoComms' %}">
+              +38 (096) 654-32-12
+            </a>
           </div>
         </div>
 
@@ -266,14 +285,9 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  const showPhoneBtn = document.getElementById('show-phone-btn');
-  const phoneNumber = document.getElementById('phone-number');
-  
-  showPhoneBtn.addEventListener('click', function() {
-    phoneNumber.style.display = 'inline-block';
-    showPhoneBtn.style.display = 'none';
-    try{ if(window.trackEvent){ window.trackEvent('Contact', {method: 'phone_reveal'}); } }catch(_){ }
-  });
+  // SEO 2026-05-16 (P0-4) — phone number now rendered inline (visible to
+  // AI crawlers without JS). The reveal-on-click pattern was removed,
+  // but we still emit the page_view + form_submit analytics events.
   try{ if(window.trackEvent){ window.trackEvent('Contact', {method: 'page_view'}); } }catch(_){ }
   const form = document.querySelector('.contact-form');
   if(form){

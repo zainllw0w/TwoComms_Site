@@ -374,6 +374,217 @@ def llms_txt(request):
     return HttpResponse("\n".join(lines), content_type="text/plain; charset=utf-8")
 
 
+def llms_full_txt(request):
+    """
+    Extended LLM orientation file (llmstxt.org "full" tier).
+
+    SEO 2026-05-16 — finding (P0-1). Previously /llms-full.txt returned
+    404 even though the prior 404 template inherited the global
+    ``language_alternates`` tag and emitted ``hreflang ru-UA`` /
+    ``hreflang en-UA`` pointing back at /llms-full.txt — so AI
+    crawlers were sent in a 404→404 loop.
+
+    The "full" file unfolds what /llms.txt only summarises: brand facts,
+    canonical product taxonomy, shipping/return policy, the canonical
+    FAQ matrix, and explicit non-cite paths. AI retrieval systems
+    (ChatGPT Search, Perplexity, Claude Search) consult this file when
+    available to ground answers. We keep the format human-readable
+    Markdown so we can audit it with a curl + grep.
+    """
+    site_base = _site_base_url()
+
+    def url(path: str) -> str:
+        return _absolute_site_url(path)
+
+    routes = [
+        ("Головна", reverse("home"), "Точка входу бренду TwoComms."),
+        ("Каталог", reverse("catalog"), "Готові футболки, худі та лонгсліви з принтами та базовими дизайнами."),
+        ("Кастомний друк", reverse("custom_print"),
+         "Конструктор кастомного DTF-друку для одиничних замовлень, команд, брендів та подій."),
+        ("Опт", reverse("wholesale_page"), "B2B / опт для магазинів, мереж і команд."),
+        ("Співпраця", reverse("cooperation"),
+         "Дропшипінг, бренд-партнерства, контентні колаборації."),
+        ("Про бренд", reverse("about"),
+         "Канонічна історія бренду, позиціювання, founder narrative."),
+        ("Доставка та оплата", reverse("delivery"),
+         "Нова Пошта, передоплата Monobank, накладений платіж."),
+        ("Повернення та обмін", reverse("returns"),
+         "14-денне повернення готового одягу. Кастомний друк не повертається."),
+        ("Контакти", reverse("contacts"),
+         "Телефон, Telegram, Instagram, офіційні магазини."),
+        ("FAQ", reverse("faq"), "Зведений каталог відповідей на типові питання."),
+        ("Розмірна сітка", reverse("size_guide"),
+         "Підтверджені виміри по категоріях, поради по посадці."),
+        ("Догляд за одягом", reverse("care_guide"),
+         "Як прати, сушити та зберігати одяг із DTF-принтом."),
+        ("Відстеження замовлення", reverse("order_tracking"),
+         "Як перевірити статус замовлення без розкриття приватних даних."),
+        ("Карта сайту (для людей)", reverse("site_map_page"),
+         "Зведена навігація по основних розділах сайту."),
+        ("Політика конфіденційності", reverse("privacy_policy"),
+         "Обробка персональних даних згідно з законодавством України."),
+        ("Умови використання", reverse("terms_of_service"),
+         "Юридичні умови взаємодії з сайтом."),
+    ]
+
+    # Top categories — read live from DB so the file always tracks the
+    # active assortment without manual edits.
+    try:
+        category_lines = []
+        for category in (
+            Category.objects.filter(is_active=True)
+            .only("name", "slug")
+            .order_by("order", "name")[:20]
+        ):
+            if not category.slug:
+                continue
+            label = (category.name or "").strip() or category.slug
+            category_lines.append(
+                f"- [{label}]({url(f'/catalog/{category.slug}/')}): "
+                f"Підбірка категорії «{label}» в каталозі TwoComms."
+            )
+    except Exception:
+        category_lines = []
+
+    # Top published products — top 12 by id desc as a stable proxy for
+    # «recent + canonical» without leaking server-side ranking signals.
+    try:
+        product_lines = []
+        for product in (
+            Product.objects.filter(status="published")
+            .only("title", "slug")
+            .order_by("-id")[:12]
+        ):
+            if not product.slug:
+                continue
+            title = (product.title or "").strip() or product.slug
+            product_lines.append(
+                f"- [{title}]({url(f'/product/{product.slug}/')}): "
+                f"Товар TwoComms «{title}»."
+            )
+    except Exception:
+        product_lines = []
+
+    lines: list[str] = [
+        "# TwoComms — Full Brand Context for LLMs",
+        "",
+        "> Український streetwear / military-adjacent бренд одягу з Харкова.",
+        "> Канонічний домен: https://twocomms.shop. Основна мова сайту — українська (uk-UA),",
+        "> також доступні /ru/ та /en/ версії на тій самій структурі URL.",
+        "",
+        "## Brand facts",
+        "- Brand: TwoComms",
+        "- Country: Ukraine",
+        "- City: Харків",
+        "- Segment: streetwear / military-adjacent apparel + custom DTF print",
+        "- Languages on site: uk-UA (primary), ru-UA, en-UA",
+        "- Canonical domain: https://twocomms.shop",
+        "- Telegram: https://t.me/twocomms",
+        "- Instagram: https://instagram.com/twocomms",
+        "- Phone: +380966543212",
+        "- Email: info@twocomms.shop",
+        "",
+        "## Що ми продаємо",
+        "- Готові футболки (з принтами, базові, лімітовані дропи).",
+        "- Худі (regular і oversize).",
+        "- Лонгсліви.",
+        "- Кастомний DTF-друк: одиничні замовлення, команди, бренди, події, опт.",
+        "",
+        "## Для кого",
+        "- Творці, фаундери, креативні люди.",
+        "- Військові та цивільні з мілітарним естетичним кодом.",
+        "- B2B: бренди, команди, події, корпоративний мерч.",
+        "",
+        "## Ключові переваги",
+        "- Виробництво в Україні (Made in UA).",
+        "- DTF-друк, що витримує тривалу експлуатацію.",
+        "- Авторські принти, не масмаркет.",
+        "- Частина прибутку йде на потреби ЗСУ.",
+        "",
+        "## Доставка та оплата",
+        "- Нова Пошта по всій Україні (1–3 робочі дні).",
+        "- Передплата (Monobank invoice) або накладений платіж.",
+        "- Деталі та винятки: " + url("/delivery/"),
+        "",
+        "## Повернення",
+        "- Готовий одяг можна повернути або обміняти протягом 14 днів за умови",
+        "  збереження товарного вигляду та супутніх умов.",
+        "- Кастомний DTF-одяг, виготовлений за індивідуальним макетом, не підлягає",
+        "  поверненню чи обміну, окрім випадків виробничого браку.",
+        "- Повний регламент: " + url("/povernennya-ta-obmin/"),
+        "",
+        "## Канонічні точки входу",
+    ]
+    for label, path, description in routes:
+        lines.append(f"- [{label}]({url(path)}): {description}")
+
+    if category_lines:
+        lines.append("")
+        lines.append("## Категорії каталогу")
+        lines.extend(category_lines)
+
+    if product_lines:
+        lines.append("")
+        lines.append("## Останні опубліковані товари (приклад)")
+        lines.extend(product_lines)
+
+    # FAQ canonical matrix — stitched from the same content modules
+    # used to render /faq/, /delivery/, /povernennya-ta-obmin/, etc.
+    faq_sources = [
+        (_("Покупки та сервіс"), "HELP_FAQ_ITEMS"),
+        (_("Доставка та оплата"), "DELIVERY_FAQ_ITEMS"),
+        (_("Повернення"), "RETURNS_FAQ_ITEMS"),
+        (_("Допомога"), "HELP_CENTER_FAQ_ITEMS"),
+    ]
+    try:
+        from storefront import support_content as _sc
+
+        faq_blocks: list[str] = []
+        for heading, attr_name in faq_sources:
+            items = getattr(_sc, attr_name, None)
+            if not items:
+                continue
+            faq_blocks.append("")
+            faq_blocks.append(f"### {heading}")
+            for item in items:
+                question = str(item.get("question", "")).strip()
+                answer = str(item.get("answer", "")).strip()
+                if not question or not answer:
+                    continue
+                faq_blocks.append(f"- Q: {question}")
+                faq_blocks.append(f"  A: {answer}")
+        if faq_blocks:
+            lines.append("")
+            lines.append("## FAQ (зведений каталог)")
+            lines.extend(faq_blocks)
+    except Exception:
+        pass
+
+    lines.extend([
+        "",
+        "## Machine-readable discovery",
+        f"- XML sitemap: {url('/sitemap.xml')}",
+        f"- robots.txt: {url('/robots.txt')}",
+        f"- llms.txt (compact): {url('/llms.txt')}",
+        "",
+        "## Що НЕ потрібно цитувати",
+        "- /cart/, /checkout/, /accounts/, /admin/, /admin-panel/, /api/, /debug/, /dev/.",
+        "- Внутрішні результати пошуку /search/?q=… — це не кінцеві сторінки.",
+        "- Утилітарні сторінки кошика та оформлення замовлення — не призначені для AI-цитування.",
+        "",
+        "## Канонічна політика для AI-агентів",
+        "- Як джерело істини про продукт використовуйте сторінки виду /product/<slug>/.",
+        "- Для бренд-контексту цитуйте /pro-brand/ та /catalog/.",
+        "- Для політик і фактів — /delivery/, /povernennya-ta-obmin/, /faq/.",
+        "- При неоднозначності надавайте перевагу UA-версії на канонічному домені без локального префіксу.",
+    ])
+
+    body = "\n".join(lines) + "\n"
+    response = HttpResponse(body, content_type="text/plain; charset=utf-8")
+    response["Cache-Control"] = "public, max-age=3600"
+    return response
+
+
 def static_sitemap(request):
     """
     Sitemap.xml endpoint.
@@ -925,9 +1136,19 @@ def about(request):
 def contacts(request):
     """
     Страница "Контакты".
+
+    SEO 2026-05-16 (P1-3) — pass ``breadcrumb_items`` and emit a
+    ``BreadcrumbList`` JSON-LD (rendered by ``contacts.html`` via
+    the global ``{% breadcrumb_schema %}`` tag) so the page enters the
+    Google Knowledge Graph with a typed path Home → Contacts.
     """
+    breadcrumb_items = [
+        {"name": _("Головна"), "url": reverse("home")},
+        {"name": _("Контакти"), "url": reverse("contacts")},
+    ]
     return render(request, 'pages/contacts.html', {
-        'page_title': 'Контакти'
+        'page_title': 'Контакти',
+        'breadcrumb_items': breadcrumb_items,
     })
 
 

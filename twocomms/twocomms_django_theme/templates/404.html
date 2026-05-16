@@ -19,6 +19,17 @@ ever consolidating ranking signals onto a non-existent URL.
 {% block robots %}noindex, follow{% endblock %}
 {% block canonical %}{{ site_base_url }}/{% endblock %}
 {% block hreflang_uk %}{{ site_base_url }}/{% endblock %}
+{% comment %}
+SEO 2026-05-16 — finding (P0-1). Without overriding hreflang_ru and
+hreflang_en the global ``language_alternates`` template tag substituted
+the requested 404 path into every locale URL — so /llms-full.txt /404
+emitted ``<link rel=alternate hreflang="ru-UA" href=".../llms-full.txt">``
+sending AI crawlers in a 404→404 loop. Override all four locale
+alternates to point at the canonical homepage on every 404, matching
+the canonical/og overrides above.
+{% endcomment %}
+{% block hreflang_ru %}{{ site_base_url }}/{% endblock %}
+{% block hreflang_en %}{{ site_base_url }}/{% endblock %}
 {% block hreflang_x_default %}{{ site_base_url }}/{% endblock %}
 {% block og_url %}{{ site_base_url }}/{% endblock %}
 {% block twitter_url %}{{ site_base_url }}/{% endblock %}

@@ -742,6 +742,34 @@ class StructuredDataGenerator:
             },
         }
 
+        # SEO 2026-05-16 (P1-9) — emit ``releaseDate`` and ``dateModified``
+        # so AI search engines (Perplexity, ChatGPT Search, Google AI
+        # Overviews) can score freshness per product. Mirrors what we
+        # already do on Article schema for the DTF blog. Skip silently
+        # if the underlying datetimes are missing (e.g. fixtures-only
+        # rows during tests) — the rest of the schema stays valid.
+        try:
+            created_at = getattr(product, "created_at", None)
+            updated_at = getattr(product, "updated_at", None)
+            if created_at is not None:
+                if hasattr(created_at, "isoformat"):
+                    schema["releaseDate"] = created_at.isoformat() if getattr(
+                        created_at, "tzinfo", None
+                    ) else created_at.date().isoformat()
+                else:
+                    schema["releaseDate"] = str(created_at)
+            if updated_at is not None:
+                if hasattr(updated_at, "isoformat"):
+                    schema["dateModified"] = updated_at.isoformat() if getattr(
+                        updated_at, "tzinfo", None
+                    ) else updated_at.date().isoformat()
+                else:
+                    schema["dateModified"] = str(updated_at)
+        except Exception:
+            # Defensive: never break the whole schema over a
+            # date-formatting hiccup.
+            pass
+
         # Phase 21 (2026-05-10) — embed AggregateRating only when the
         # caller passes a ``review_summary`` whose ``show_rating`` is
         # True. SEO v1.0 Phase 12 (2026-05-13) — finding (M) lowered
@@ -981,6 +1009,13 @@ class StructuredDataGenerator:
         ``pages/pro_brand.html`` previously hard-coded inline. The
         ``@id`` is stable across pages so Google can deduplicate
         instances of this Organization in the Knowledge Graph.
+
+        SEO 2026-05-16 (P1-5/P1-7) — added ``founder`` reference,
+        ``foundingDate``, ``foundingLocation`` and an ``address`` block
+        with the canonical Kharkiv NAP signals so AI knowledge graphs
+        and Google's Knowledge Panel can resolve TwoComms as a
+        Kharkiv-rooted brand instead of inferring "Ukraine, location
+        unknown" from the contact channels alone.
         """
         base_url = _build_absolute_url("")
         logo_url = _build_absolute_url("static/img/logo.svg")
@@ -996,6 +1031,24 @@ class StructuredDataGenerator:
                 "одягу з Харкова, створений навколо ідеї продовження після "
                 "критичної точки: не крапка, а продовження."
             ),
+            "foundingDate": "2022",
+            "foundingLocation": {
+                "@type": "Place",
+                "name": _("Харків, Україна"),
+                "address": {
+                    "@type": "PostalAddress",
+                    "addressCountry": "UA",
+                    "addressRegion": "UA-63",
+                    "addressLocality": _("Харків"),
+                },
+            },
+            "address": {
+                "@type": "PostalAddress",
+                "addressCountry": "UA",
+                "addressRegion": "UA-63",
+                "addressLocality": _("Харків"),
+            },
+            "founder": {"@id": f"{base_url}#founder"},
             "sameAs": [
                 "https://instagram.com/twocomms",
                 "https://t.me/twocomms",

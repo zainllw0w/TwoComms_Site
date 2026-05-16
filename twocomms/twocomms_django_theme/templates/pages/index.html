@@ -58,15 +58,25 @@ hard-coded the UA URL and broke reciprocity for /ru/ and /en/ visitors.
 {% comment %}
 Phase 21 (2026-05-10) — Organization + WebSite are now emitted globally
 in ``base.html``. Home page only adds its own WebPage/ItemList block.
+
+SEO 2026-05-16 (P1-3 / P3.5) — added stable ``@id`` for the WebPage
+node so it can be referenced from BreadcrumbList and so AI knowledge
+graphs can deduplicate the home page across crawls. Added explicit
+``isPartOf`` / ``about`` links pointing at WebSite + Organization.
 {% endcomment %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
+  "@id": "{{ site_base_url }}/#webpage",
   "name": "{% trans 'TwoComms — Головна' %}",
   "description": "{% trans 'Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом.' %}",
   "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}/{% endif %}",
+  "inLanguage": "{{ LANGUAGE_CODE|default:'uk' }}-UA",
+  "isPartOf": {"@id": "{{ site_base_url }}/#website"},
+  "about": {"@id": "{{ site_base_url }}/#organization"},
   "primaryImageOfPage": "{{ site_base_url }}{% static 'img/social-preview.jpg' %}",
+  "breadcrumb": {"@id": "{{ site_base_url }}/#breadcrumbs"},
   "mainEntity": {
     "@type": "ItemList",
     "itemListElement": [
@@ -80,6 +90,24 @@ in ``base.html``. Home page only adds its own WebPage/ItemList block.
       {% endfor %}
     ]
   }
+}
+</script>
+{# SEO 2026-05-16 (P1-3) — explicit BreadcrumbList for the homepage.
+   Single-item breadcrumb is accepted by Google and gives AI agents
+   the canonical entry point for the brand's URL graph. #}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "@id": "{{ site_base_url }}/#breadcrumbs",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "{% trans 'Головна' %}",
+      "item": "{{ site_base_url }}/"
+    }
+  ]
 }
 </script>
 {% endblock %}

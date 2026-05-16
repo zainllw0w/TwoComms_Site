@@ -115,6 +115,39 @@ appear in the public catalog navigation.
   ]
 }
 </script>
+{% comment %}
+SEO 2026-05-16 (P1-5) — finding. /pro-brand/ is the canonical home of
+the founder narrative but had no Person schema. AI knowledge graphs
+(ChatGPT Search, Perplexity, Google AI Overviews) build entity
+relations through ``Organization.founder`` ↔ ``Person.worksFor`` and
+heavily favour brands with identifiable people. The Organization node
+above already declares ``"founder": {"@id": "…/#founder"}`` (from
+``StructuredDataGenerator.generate_organization_schema``) so this
+node closes the link.
+{% endcomment %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "@id": "https://twocomms.shop/#founder",
+  "name": "Bohdan",
+  "jobTitle": "{% trans 'Засновник TwoComms' %}",
+  "worksFor": {"@id": "https://twocomms.shop/#organization"},
+  "url": "{{ brand_page_url }}",
+  "image": "https://twocomms.shop{% static 'img/logo.svg' %}",
+  "description": "{% trans 'Засновник TwoComms, харків’янин, побудував бренд як ідею продовження після критичної точки.' %}",
+  "knowsAbout": [
+    "{% trans 'streetwear' %}",
+    "{% trans 'мілітарна естетика' %}",
+    "{% trans 'DTF-друк' %}",
+    "{% trans 'український streetwear' %}"
+  ],
+  "nationality": {
+    "@type": "Country",
+    "name": "{% trans 'Україна' %}"
+  }
+}
+</script>
 {% breadcrumb_schema breadcrumb_items %}
 {% faq_schema faq_items %}
 {% endblock %}

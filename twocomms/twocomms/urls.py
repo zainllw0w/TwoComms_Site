@@ -39,6 +39,12 @@ urlpatterns = [
     path("static/robots.txt", storefront_views.robots_txt),
     path("llms.txt", storefront_views.llms_txt, name="llms_txt"),
     path(".well-known/llms.txt", storefront_views.llms_txt, name="well_known_llms_txt"),
+    # llmstxt.org "full" tier — extended brand context for AI retrieval.
+    # Previously /llms-full.txt returned 404 even though 404.html emitted
+    # ``hreflang ru-UA`` / ``hreflang en-UA`` pointing back here, sending
+    # AI crawlers in a 404 loop. Audit P0-1 (2026-05-16).
+    path("llms-full.txt", storefront_views.llms_full_txt, name="llms_full_txt"),
+    path(".well-known/llms-full.txt", storefront_views.llms_full_txt, name="well_known_llms_full_txt"),
     path("494cb80b2da94b4395dbbed566ab540d.txt", storefront_views.static_verification_file,
          name="static_verification_file"),
     re_path(r"^(?P<key>[A-Za-z0-9-]{8,128})\.txt$", storefront_views.indexnow_key_file, name="indexnow_key_file"),
