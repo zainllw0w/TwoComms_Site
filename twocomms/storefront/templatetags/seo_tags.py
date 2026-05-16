@@ -369,12 +369,16 @@ def faq_schema(faq_items):
     }
 
     for faq in faq_items:
+        # SEO v1.1 (2026-05-15): question/answer may be gettext_lazy proxies
+        # (see storefront/support_content.py). Force-resolve to str so
+        # json.dumps doesn't blow up with "Object of type __proxy__ is not
+        # JSON serializable" — and so the FAQ JSON-LD localizes per locale.
         schema["mainEntity"].append({
             "@type": "Question",
-            "name": faq["question"],
+            "name": str(faq["question"]),
             "acceptedAnswer": {
                 "@type": "Answer",
-                "text": faq["answer"]
+                "text": str(faq["answer"])
             }
         })
 

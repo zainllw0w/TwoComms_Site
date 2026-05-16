@@ -1,0 +1,34 @@
+SEO i18n backfill — translate 137 fuzzy + lazy-i18n support_content + reciprocal hreflang
+
+Translation backfill (RU/EN):
+- support_content.py: wrap all public strings (FAQ, brand, support pages,
+  hero, navigation, OfferCatalog) in gettext_lazy so /ru/ and /en/ render
+  proper translations instead of UA fallback.
+- locale/{ru,en}/LC_MESSAGES/django.po: resolve all 137 fuzzy entries with
+  high-quality manual translations. Translated count 1532 -> 1669; fuzzy 137 -> 0.
+  Glossary observed: TwoComms, Kharkiv/Kharkov, AFU/VSU, not-a-period/ne tochka,
+  continuation/prodolzheniye, hoodie/khudi, long sleeve/longsliv, shaka,
+  Nova Poshta/Novaya Pochta, cart/korzina.
+- Recompile .mo for ru/en. Also seeds dtf/locale/{ru,en} translations.
+
+Reciprocal hreflang fixes:
+- pages/index.html, pages/catalog.html: drop hreflang_uk / hreflang_x_default
+  block overrides that hard-coded the UA URL. base.html
+  language_alternates tag now emits four alternates (uk-UA, ru-UA, en-UA,
+  x-default) self-referential per locale.
+- pages/index.html: canonical now points to request.path so /ru/ and
+  /en/ canonicalize to themselves instead of /.
+- pages/pro_brand.html: wrap OfferCatalog JSON-LD names/descriptions in
+  trans tags so RU/EN structured data localizes correctly.
+
+Comment hygiene:
+- Replace multi-line Django comments containing template tags with proper
+  comment/endcomment blocks in index.html and catalog.html.
+
+Tests:
+- storefront.tests.test_seo_multilingual_index_2026_05_15 - 20/20 OK
+- storefront.tests.test_color_category_landing_view - 13/13 OK
+- storefront.tests.test_phase9_color_filter - 12/12 OK
+- compilemessages -l ru -l en clean.
+
+Refs: SEO Audit 2026-05-15 part 7.
