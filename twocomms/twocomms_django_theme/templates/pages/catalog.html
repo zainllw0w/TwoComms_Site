@@ -34,17 +34,22 @@ re-orders the same products on the same canonical URL; Google was indexing each
 variation as a separate page (duplicate-title warning in Search Console).
 Treat them like any other facet: noindex, follow + canonical → base catalog.
 {% endcomment %}
-{% block robots %}{% if is_search_page or has_active_color_filter or request.GET.sort %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
+{# SEO 2026-05-16 — finding (Crawled, currently not indexed). Catalog paginator pages were treated by #}
+{# Google as thin near-duplicates of the catalog root because the previous canonical was self-referential #}
+{# (?page=N pointed to itself). Pagination above page 1 now renders noindex,follow + a sticky canonical #}
+{# back to the un-paginated catalog/category URL so PageRank consolidates upstream. rel=prev/next + the #}
+{# in-page paginator links still let Googlebot crawl deeper to discover products. #}
+{% block robots %}{% if is_search_page or has_active_color_filter or request.GET.sort %}noindex, follow{% elif page_obj and page_obj.number > 1 %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 
-{% block canonical %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block canonical %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 {% comment %}
 SEO v1.1 Phase 2 (2026-05-15) — base.html emits four hreflang entries
 via language_alternates. Don't override hreflang_uk / hreflang_x_default
 here so /ru/ and /en/ catalog pages publish reciprocal alternates that
 point at themselves.
 {% endcomment %}
-{% block og_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
-{% block twitter_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block og_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block twitter_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 
 {% block pagination_links %}
 {% if page_obj %}{% if page_obj.has_previous %}<link rel="prev" href="{{ site_base_url }}{{ request.path }}{% if page_obj.previous_page_number > 1 %}?page={{ page_obj.previous_page_number }}{% endif %}">{% endif %}{% if page_obj.has_next %}<link rel="next" href="{{ site_base_url }}{{ request.path }}?page={{ page_obj.next_page_number }}">{% endif %}{% endif %}

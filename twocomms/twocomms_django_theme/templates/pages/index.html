@@ -8,6 +8,14 @@
 
 {% block keywords %}{% trans 'стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль' %}{% endblock %}
 
+{# SEO 2026-05-16 — finding (Crawled, currently not indexed). Pagination URLs (/?page=N where N>1) #}
+{# rendered with index,follow + self-canonical were treated by Google as thin near-duplicates of the #}
+{# homepage and flagged "просканировано — не проиндексировано". Fix: noindex,follow on every paginated #}
+{# state above the first; canonical collapses to the homepage so PageRank consolidates upstream. The #}
+{# rel=prev/next pagination_links + on-page <a href="?page=…"> still let Googlebot crawl the deeper #}
+{# pages to discover products that haven't been seen yet. #}
+{% block robots %}{% if page_obj and page_obj.number > 1 %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
+
 {% block og_type %}website{% endblock %}
 {% block og_title %}{% trans 'TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном' %}{% endblock %}
 {# SEO v1.0 Phase 12 (2026-05-13) — finding (T). og:description previously contained no LocalSEO geo-signal; appending «харківський бренд» because the catalogue is shipped from Kharkiv and the audit ranks Kharkiv-aware copy as the cheapest LocalSEO signal for OG previews and AI snippets. #}
@@ -15,7 +23,10 @@
 {% block twitter_title %}{% trans 'TwoComms — стріт & мілітарі одяг' %}{% endblock %}
 {% block twitter_description %}{% trans 'Ексклюзивні футболки, худі та лонгсліви від харківського бренду TwoComms. Швидка доставка по Україні.' %}{% endblock %}
 
-{% block canonical %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{# SEO 2026-05-16 — sticky canonical to the homepage (sans ?page=N). Self-canonical on paginator pages #}
+{# was making Google treat each ?page=N as a separate index target; combined with the new noindex,follow #}
+{# above, the consolidated canonical guarantees ranking signals stack on twocomms.shop/. #}
+{% block canonical %}{{ site_base_url }}{{ request.path }}{% endblock %}
 {% comment %}
 SEO v1.1 Phase 2 (2026-05-15) — base.html emits four hreflang entries
 via the language_alternates tag (uk-UA / ru-UA / en-UA / x-default).
@@ -23,8 +34,8 @@ We do NOT override hreflang_* blocks here so that each locale renders
 its own self-referential alternate triple. The previous overrides
 hard-coded the UA URL and broke reciprocity for /ru/ and /en/ visitors.
 {% endcomment %}
-{% block og_url %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
-{% block twitter_url %}{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block og_url %}{{ site_base_url }}{{ request.path }}{% endblock %}
+{% block twitter_url %}{{ site_base_url }}{{ request.path }}{% endblock %}
 
 {% block pagination_links %}
 {% if page_obj and page_obj.has_previous %}<link rel="prev" href="{{ site_base_url }}{{ request.path }}{% if page_obj.previous_page_number > 1 %}?page={{ page_obj.previous_page_number }}{% endif %}">{% endif %}

@@ -177,40 +177,52 @@ def _organization_same_as() -> List[str]:
     handles only — placeholder/empty values from settings are
     silently dropped, never emitted as fake links.
 
-    Configurable additions go through environment variables:
+    Configurable additions go through environment variables (read at
+    request time so a server restart is enough — no code change):
 
-    * ``BRAND_FACEBOOK_URL``
+    * ``BRAND_INSTAGRAM_URL`` (default https://instagram.com/twocomms)
+    * ``BRAND_TELEGRAM_URL`` (default https://t.me/twocomms)
     * ``BRAND_TIKTOK_URL``
+    * ``BRAND_THREADS_URL``
+    * ``BRAND_FACEBOOK_URL``
     * ``BRAND_YOUTUBE_URL``
     * ``BRAND_PINTEREST_URL``
-    * ``BRAND_TWITTER_URL``
+    * ``BRAND_TWITTER_URL`` (X / Twitter)
+    * ``BRAND_LINKEDIN_URL``
     * ``BRAND_WIKIDATA_URL`` (full https://www.wikidata.org/wiki/Q… URL)
 
-    The Instagram + Telegram base entries stay hard-coded because
-    they're already public on the site footer and verified by the
-    owner.
+    Each value must start with ``http://`` or ``https://`` to land in
+    the schema; anything else is silently skipped. The Instagram +
+    Telegram defaults match the verified handles already published in
+    the site footer so the helper is non-empty out of the box.
     """
-    extras = []
-    for env_key in (
-        "BRAND_FACEBOOK_URL",
-        "BRAND_TIKTOK_URL",
-        "BRAND_YOUTUBE_URL",
-        "BRAND_PINTEREST_URL",
-        "BRAND_TWITTER_URL",
-        "BRAND_WIKIDATA_URL",
-    ):
-        value = (getattr(settings, env_key, "") or os.environ.get(env_key, "") or "").strip()
+
+    def _read(env_key: str, default: str = "") -> str:
+        value = (
+            getattr(settings, env_key, "")
+            or os.environ.get(env_key, "")
+            or default
+        ).strip()
         if value and value.startswith(("http://", "https://")):
-            extras.append(value)
-    base = [
-        "https://instagram.com/twocomms",
-        "https://t.me/twocomms",
+            return value
+        return ""
+
+    candidates = [
+        _read("BRAND_INSTAGRAM_URL", default="https://instagram.com/twocomms"),
+        _read("BRAND_TELEGRAM_URL", default="https://t.me/twocomms"),
+        _read("BRAND_TIKTOK_URL"),
+        _read("BRAND_THREADS_URL"),
+        _read("BRAND_FACEBOOK_URL"),
+        _read("BRAND_YOUTUBE_URL"),
+        _read("BRAND_PINTEREST_URL"),
+        _read("BRAND_TWITTER_URL"),
+        _read("BRAND_LINKEDIN_URL"),
+        _read("BRAND_WIKIDATA_URL"),
     ]
-    # Preserve order, drop dupes
     seen = set()
     out: List[str] = []
-    for url in base + extras:
-        if url not in seen:
+    for url in candidates:
+        if url and url not in seen:
             seen.add(url)
             out.append(url)
     return out
