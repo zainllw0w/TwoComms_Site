@@ -133,6 +133,13 @@ from storefront.services.google_indexing import (
     is_google_indexing_configured,
     submit_google_indexing_urls,
 )
+from storefront.services.index_targets import (
+    ALL_GROUPS,
+    GROUP_LABELS,
+    build_targets,
+    get_default_language,
+    get_supported_languages,
+)
 
 
 # ==================== ADMIN VIEWS ====================
@@ -1967,6 +1974,7 @@ def admin_indexnow_submit(request):
 
     target_type = (payload.get('type') or '').strip().lower()
     raw_ids = payload.get('ids') or []
+    raw_urls = payload.get('urls') or []
     try:
         ids = [int(value) for value in raw_ids if str(value).strip()]
     except (TypeError, ValueError):
@@ -1974,7 +1982,9 @@ def admin_indexnow_submit(request):
 
     urls: list[str] = []
 
-    if target_type == 'product':
+    if target_type == 'urls' or (raw_urls and not target_type):
+        urls = [str(u).strip() for u in raw_urls if str(u).strip()]
+    elif target_type == 'product':
         if not ids:
             return JsonResponse({'success': False, 'error': 'Empty ids list'}, status=400)
         products = Product.objects.filter(pk__in=ids).only('slug', 'status')
@@ -1998,7 +2008,7 @@ def admin_indexnow_submit(request):
         )))
     else:
         return JsonResponse(
-            {'success': False, 'error': 'Unknown type (use product|category|core|all)'},
+            {'success': False, 'error': 'Unknown type (use product|category|core|all|urls)'},
             status=400,
         )
 
@@ -2030,12 +2040,25 @@ def admin_indexnow_submit(request):
 def admin_google_indexing_submit(request):
     """AJAX endpoint: submit URLs to Google Indexing API.
 
-    Mirrors :func:`admin_indexnow_submit` so the admin panel can ping
-    Google in addition to Bing/Yandex via IndexNow. POST JSON body::
+    Accepts POST JSON body with one of three URL-selection modes:
 
-        {"type": "product"|"category"|"core"|"all",
-         "ids": [..., ...],
-         "notification": "URL_UPDATED"|"URL_DELETED"}
+    * ``type="product"|"category"`` + ``ids=[...]`` — submit specific
+      DB-bound objects (mirrors :func:`admin_indexnow_submit`).
+    * ``type="core"|"all"`` + optional ``groups`` / ``languages`` —
+      bulk submit all known indexable URLs. ``core`` is the curated
+      static-page list; ``all`` adds products/categories/variants/
+      colour landings. ``groups`` (subset of
+      ``services.index_targets.ALL_GROUPS``) and ``languages``
+      (defaults to all from ``settings.LANGUAGES``) trim the set.
+    * ``urls=[...]`` — submit an explicit URL list (the JS preview
+      panel uses this for chunked submission).
+
+    Common knobs:
+
+    * ``notification`` — ``URL_UPDATED`` (default) or ``URL_DELETED``.
+    * ``skip_existing=True`` — drop URLs already accepted today.
+    * ``respect_quota=True`` — cap to today's remaining quota.
+    * ``dry_run=True`` — return the URL preview without sending.
 
     Google's Indexing API accepts only one URL per HTTP call, so this
     view loops the list server-side. Failures are tallied and returned
@@ -2075,6 +2098,10 @@ def admin_google_indexing_submit(request):
 
     skip_existing = bool(payload.get('skip_existing'))
     respect_quota = bool(payload.get('respect_quota'))
+    dry_run = bool(payload.get('dry_run'))
+    raw_groups = payload.get('groups') or None
+    raw_languages = payload.get('languages') or None
+    explicit_urls = payload.get('urls') or None
 
     try:
         ids = [int(value) for value in raw_ids if str(value).strip()]
@@ -2082,8 +2109,12 @@ def admin_google_indexing_submit(request):
         return JsonResponse({'success': False, 'error': 'Invalid ids'}, status=400)
 
     urls: list[str] = []
+    snapshot_meta = None
 
-    if target_type == 'product':
+    if isinstance(explicit_urls, list) and explicit_urls:
+        urls = [str(u).strip() for u in explicit_urls if str(u).strip()]
+        snapshot_meta = {'mode': 'explicit', 'count': len(urls)}
+    elif target_type == 'product':
         if not ids:
             return JsonResponse({'success': False, 'error': 'Empty ids list'}, status=400)
         products = Product.objects.filter(pk__in=ids).only('slug', 'status')
@@ -2094,20 +2125,20 @@ def admin_google_indexing_submit(request):
         categories = Category.objects.filter(pk__in=ids).only('slug', 'is_active')
         urls = [u for u in (get_category_public_url(c) for c in categories) if u]
     elif target_type == 'core':
-        urls = list(get_core_indexnow_urls())
-    elif target_type == 'all':
-        urls = list(get_core_indexnow_urls())
-        urls.extend(filter(None, (
-            get_product_public_url(p)
-            for p in Product.objects.filter(status='published').only('slug', 'status')
-        )))
-        urls.extend(filter(None, (
-            get_category_public_url(c)
-            for c in Category.objects.filter(is_active=True).only('slug', 'is_active')
-        )))
+        groups = raw_groups or ['static']
+        languages = raw_languages or get_supported_languages()
+        snapshot = build_targets(groups=groups, languages=languages)
+        urls = snapshot.all_urls
+        snapshot_meta = snapshot.to_dict(preview_limit=10)
+    elif target_type == 'all' or (raw_groups and not target_type):
+        groups = raw_groups or list(ALL_GROUPS)
+        languages = raw_languages or get_supported_languages()
+        snapshot = build_targets(groups=groups, languages=languages)
+        urls = snapshot.all_urls
+        snapshot_meta = snapshot.to_dict(preview_limit=10)
     else:
         return JsonResponse(
-            {'success': False, 'error': 'Unknown type (use product|category|core|all)'},
+            {'success': False, 'error': 'Unknown type (use product|category|core|all|urls)'},
             status=400,
         )
 
@@ -2116,10 +2147,28 @@ def admin_google_indexing_submit(request):
         return JsonResponse(
             {
                 'success': False,
-                'error': 'Жодного публічного URL для надсилання (можливо, об’єкти неактивні).',
+                'error': 'Жодного публічного URL для надсилання (можливо, фільтри занадто вузькі).',
             },
             status=400,
         )
+
+    if dry_run:
+        # Preview-only mode — used by the JS panel to confirm size
+        # before firing real requests.
+        already_today = get_urls_already_submitted_today(
+            urls, notification_type=notification
+        ) if skip_existing else set()
+        return JsonResponse({
+            'success': True,
+            'dry_run': True,
+            'count': len(urls),
+            'preview': urls[:25],
+            'snapshot': snapshot_meta,
+            'skip_existing_count': len(already_today),
+            'summary': get_today_summary(),
+            'message': f'Готово до відправки: {len(urls) - len(already_today)} URL '
+                       f'(пропущено вже надісланих сьогодні: {len(already_today)}).',
+        })
 
     quota_limit = None
     if respect_quota:
@@ -2143,6 +2192,7 @@ def admin_google_indexing_submit(request):
             'skipped_quota': result.get('skipped_quota', 0),
             'failures': result.get('failures', []),
             'notification': notification,
+            'snapshot': snapshot_meta,
             'summary': get_today_summary(),
             'message': result.get(
                 'message',
@@ -2153,12 +2203,53 @@ def admin_google_indexing_submit(request):
 
 
 @staff_member_required
+def admin_google_indexing_preview(request):
+    """GET endpoint: preview the URL set produced by groups/languages.
+
+    Used by the SEO dashboard so the operator can see exactly how many
+    URLs (and which) will be submitted before the actual quota burn.
+    Query params: ``groups`` (comma-separated) and ``languages``
+    (comma-separated). Both default to "all".
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+    groups_raw = (request.GET.get('groups') or '').strip()
+    langs_raw = (request.GET.get('languages') or '').strip()
+    groups = [g.strip() for g in groups_raw.split(',') if g.strip()] or list(ALL_GROUPS)
+    languages = [l.strip() for l in langs_raw.split(',') if l.strip()] or get_supported_languages()
+
+    snapshot = build_targets(groups=groups, languages=languages)
+    already = get_urls_already_submitted_today(
+        snapshot.all_urls, notification_type=NOTIFICATION_URL_UPDATED,
+    )
+    result = snapshot.to_dict(preview_limit=20)
+    result.update({
+        'success': True,
+        'configured': is_google_indexing_configured(),
+        'group_labels': GROUP_LABELS,
+        'supported_languages': get_supported_languages(),
+        'default_language': get_default_language(),
+        'already_submitted_today': len(already),
+        'summary': get_today_summary(),
+    })
+    return JsonResponse(result)
+
+
+@staff_member_required
 def admin_google_indexing_history(request):
     """JSON endpoint for the SEO dashboard "Indexing log" widget.
 
     Returns today's quota stats and the most recent submissions so the
     admin can see at a glance which URLs were accepted, which failed,
     and how many quota slots are still available.
+
+    Query params:
+        ``limit``    — page size (default 50, max 200).
+        ``status``   — ``success`` / ``failed`` / blank (all).
+        ``date``     — ``YYYY-MM-DD`` to scope to a specific date.
+        ``q``        — substring filter on URL.
+        ``source``   — ``admin`` / ``signal`` / ``cron`` / ``manual``.
     """
     if request.method != 'GET':
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
@@ -2169,14 +2260,89 @@ def admin_google_indexing_history(request):
         limit = 50
     limit = max(1, min(200, limit))
 
+    status_filter = (request.GET.get('status') or '').strip().lower()
+    date_filter = (request.GET.get('date') or '').strip()
+    q_filter = (request.GET.get('q') or '').strip()
+    source_filter = (request.GET.get('source') or '').strip().lower()
+
+    from storefront.models import GoogleIndexingSubmission
+    qs = GoogleIndexingSubmission.objects.order_by('-submitted_at')
+    if status_filter in {'success', 'failed'}:
+        qs = qs.filter(status=status_filter)
+    if date_filter:
+        try:
+            from datetime import datetime
+            d = datetime.strptime(date_filter, '%Y-%m-%d').date()
+            qs = qs.filter(submission_date=d)
+        except ValueError:
+            pass
+    if q_filter:
+        qs = qs.filter(url__icontains=q_filter)
+    if source_filter:
+        qs = qs.filter(source__iexact=source_filter)
+
+    rows = list(qs.values(
+        'id', 'url', 'status', 'http_status',
+        'notification_type', 'submitted_at', 'submission_date',
+        'source', 'error_message',
+    )[:limit])
+    recent = []
+    for row in rows:
+        recent.append({
+            'id': row['id'],
+            'url': row['url'],
+            'status': row['status'],
+            'http_status': row['http_status'],
+            'notification_type': row['notification_type'],
+            'submitted_at': row['submitted_at'].isoformat() if row['submitted_at'] else None,
+            'submission_date': str(row['submission_date']) if row['submission_date'] else None,
+            'source': row['source'],
+            'error_message': (row['error_message'] or '')[:300],
+        })
+
     summary = get_today_summary()
-    recent = get_recent_submissions(limit=limit)
+
+    # Per-group breakdown for today (using the canonical target builder).
+    group_breakdown = []
+    today = summary.get('today')
+    if today:
+        from storefront.services.index_targets import (
+            ALL_GROUPS as TGT_GROUPS,
+            GROUP_LABELS as TGT_LABELS,
+            build_targets,
+        )
+        snapshot = build_targets()
+        for group in TGT_GROUPS:
+            urls = snapshot.per_group.get(group) or []
+            if not urls:
+                continue
+            sent_today = (
+                GoogleIndexingSubmission.objects
+                .filter(submission_date=today, url__in=urls, status='success')
+                .values('url').distinct().count()
+            )
+            group_breakdown.append({
+                'group': group,
+                'label': TGT_LABELS.get(group, group),
+                'total': len(urls),
+                'submitted_today': sent_today,
+                'pending_today': max(0, len(urls) - sent_today),
+            })
+
     return JsonResponse({
         'success': True,
         'summary': summary,
         'recent': recent,
         'configured': is_google_indexing_configured(),
         'status': get_google_indexing_status(),
+        'group_breakdown': group_breakdown,
+        'filters': {
+            'status': status_filter,
+            'date': date_filter,
+            'q': q_filter,
+            'source': source_filter,
+            'limit': limit,
+        },
     })
 
 

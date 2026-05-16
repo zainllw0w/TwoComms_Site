@@ -118,6 +118,267 @@
     text-decoration: none;
   }
   .seo-admin .seo-quick-link:hover { background: rgba(255,255,255,0.09); color: #fff; }
+
+  /* ===== Phase 22 — Indexing panel ===== */
+  .seo-indexing { padding: 0; overflow: hidden; }
+  .seo-indexing__header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 1.1rem 1.25rem 0.5rem;
+  }
+  .seo-indexing__statuses { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .seo-indexing__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.65rem;
+    padding: 0.5rem 1.25rem 0.85rem;
+  }
+  .seo-indexing__stat {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .seo-indexing__stat.is-quota {
+    background: linear-gradient(135deg, rgba(120,200,250,0.18), rgba(99,102,241,0.12));
+    border-color: rgba(120,200,250,0.35);
+  }
+  .seo-indexing__stat.is-success {
+    background: linear-gradient(135deg, rgba(140,220,160,0.18), rgba(80,160,100,0.12));
+    border-color: rgba(140,220,160,0.35);
+  }
+  .seo-indexing__stat.is-error {
+    background: linear-gradient(135deg, rgba(239,68,68,0.16), rgba(239,68,68,0.06));
+    border-color: rgba(239,68,68,0.32);
+  }
+  .seo-indexing__stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.95);
+    line-height: 1.05;
+  }
+  .seo-indexing__stat-label {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.65);
+  }
+  .seo-indexing__stat-hint {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.5);
+    margin-top: 0.15rem;
+  }
+  .seo-indexing__progress {
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.4rem;
+  }
+  .seo-indexing__progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #8fdfff, #6366f1);
+    transition: width 0.25s ease;
+  }
+  .seo-indexing__tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    margin-top: 0.25rem;
+  }
+  .seo-indexing__tab {
+    appearance: none;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.65rem 0.85rem;
+    color: rgba(255,255,255,0.65);
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .seo-indexing__tab:hover { color: #fff; }
+  .seo-indexing__tab.is-active {
+    color: #fff;
+    border-bottom-color: #8fdfff;
+  }
+  .seo-indexing__panel { padding: 1rem 1.25rem 1.1rem; }
+  .seo-indexing__panel[hidden] { display: none; }
+  .seo-indexing__hint {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.84rem;
+    margin: 0 0 0.85rem;
+  }
+  .seo-indexing__form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .seo-indexing__form-block {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 0.75rem 0.9rem;
+  }
+  .seo-indexing__form-title {
+    display: block;
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+  .seo-indexing__pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .seo-indexing__chip {
+    display: inline-flex;
+    gap: 0.4rem;
+    align-items: center;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.85);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .seo-indexing__chip:has(input:checked) {
+    background: rgba(120,200,250,0.18);
+    border-color: rgba(120,200,250,0.4);
+    color: #fff;
+  }
+  .seo-indexing__chip input { accent-color: #8fdfff; cursor: pointer; }
+  .seo-indexing__toggles {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .seo-indexing__toggle,
+  .seo-indexing__radio {
+    display: inline-flex;
+    gap: 0.45rem;
+    align-items: center;
+    font-size: 0.85rem;
+    cursor: pointer;
+    color: rgba(255,255,255,0.85);
+  }
+  .seo-indexing__toggle input,
+  .seo-indexing__radio input { accent-color: #8fdfff; cursor: pointer; }
+  .seo-indexing__preview {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.85rem;
+  }
+  .seo-indexing__preview-headline {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.9rem;
+  }
+  .seo-indexing__preview-count {
+    font-weight: 700;
+    color: #8fdfff;
+    font-size: 1.05rem;
+  }
+  .seo-indexing__preview-meta { color: rgba(255,255,255,0.55); font-size: 0.8rem; }
+  .seo-indexing__preview-list {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.7);
+  }
+  .seo-indexing__preview-list li {
+    padding: 0.18rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    word-break: break-all;
+  }
+  .seo-indexing__actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.6rem;
+  }
+  .seo-indexing__btn {
+    appearance: none;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.92);
+    padding: 0.55rem 1rem;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.05s;
+  }
+  .seo-indexing__btn:hover { background: rgba(255,255,255,0.09); }
+  .seo-indexing__btn:active { transform: translateY(1px); }
+  .seo-indexing__btn.is-primary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-color: rgba(120,120,250,0.5);
+    color: #fff;
+    font-weight: 600;
+  }
+  .seo-indexing__btn.is-primary:hover {
+    box-shadow: 0 6px 18px rgba(120,120,250,0.35);
+  }
+  .seo-indexing__btn.is-small {
+    padding: 0.3rem 0.65rem;
+    font-size: 0.78rem;
+    border-radius: 8px;
+  }
+  .seo-indexing__btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+  .seo-indexing__progress-bar {
+    margin-top: 0.4rem;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 0.7rem 0.9rem;
+  }
+  .seo-indexing__progress-text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.7);
+    margin-top: 0.4rem;
+  }
+  .seo-indexing__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.65rem;
+  }
+  .seo-indexing__input {
+    appearance: none;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.92);
+    padding: 0.45rem 0.7rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+  }
+  .seo-indexing__input:focus {
+    outline: none;
+    border-color: rgba(120,200,250,0.5);
+  }
+  .seo-indexing__history-wrap {
+    max-height: 480px;
+    overflow-y: auto;
+  }
 </style>
 
 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
@@ -148,171 +409,280 @@
   </section>
 
   {# ---------- Phase 22 — Indexing API panel (Bing IndexNow + Google) ---------- #}
-  <section class="seo-card" aria-label="Indexing API panel" id="indexing-panel" data-history-endpoint="{% url 'admin_google_indexing_history' %}">
-    <h3>Індексація · IndexNow + Google Indexing API</h3>
-    <p style="color: rgba(255,255,255,0.6); font-size: 0.88rem; margin: 0.25rem 0 0.75rem;">
-      IndexNow стукає в Bing/Yandex, Google Indexing API — у Googlebot.
-      Обидві системи отримують пінг автоматично, коли ви публікуєте,
-      редагуєте або знімаєте з публікації товар чи категорію. Кнопки
-      нижче дозволяють перевідправити вручну (наприклад, після
-      масової міграції).
-    </p>
+  <section class="seo-card seo-indexing" aria-label="Indexing API panel" id="indexing-panel"
+           data-history-endpoint="{% url 'admin_google_indexing_history' %}"
+           data-preview-endpoint="{% url 'admin_google_indexing_preview' %}"
+           data-submit-endpoint="{% url 'admin_google_indexing_submit' %}"
+           data-supported-languages="{{ indexing_status.google.supported_languages_csv|default:'uk,ru,en' }}"
+           data-default-language="{{ indexing_status.google.default_language|default:'uk' }}">
+    <div class="seo-indexing__header">
+      <div>
+        <h3 style="margin: 0;">Індексація · IndexNow + Google Indexing API</h3>
+        <p style="color: rgba(255,255,255,0.6); font-size: 0.86rem; margin: 0.3rem 0 0;">
+          IndexNow стукає в Bing/Yandex, Google Indexing API — у Googlebot.
+          При публікації, редагуванні чи видаленні товарів сайт сам
+          надсилає пінг в обидві системи. Нижче — ручне керування й
+          лог відправлень із врахуванням денної квоти Google.
+        </p>
+      </div>
+      <div class="seo-indexing__statuses">
+        {% if indexing_status.indexnow.configured %}
+          <span class="seo-pill is-on" title="IndexNow ключ знайдено й відповідає host'у">IndexNow OK</span>
+        {% else %}
+          <span class="seo-pill is-off" title="IndexNow ключ відсутній або не відповідає">IndexNow ✕</span>
+        {% endif %}
+        {% if indexing_status.google.configured %}
+          <span class="seo-pill is-on" title="Service-account JSON знайдено й активований">Google OK</span>
+        {% elif indexing_status.google.credentials_present %}
+          <span class="seo-pill is-off" title="Креденшіали є, але GOOGLE_INDEXING_ENABLED=false">Google вимкнено</span>
+        {% else %}
+          <span class="seo-pill is-off" title="Service-account JSON не знайдено">Google ✕</span>
+        {% endif %}
+      </div>
+    </div>
 
-    <div class="seo-grid" style="margin-bottom: 1rem;">
-      <div class="seo-tile">
-        <div class="seo-tile__count">
-          {% if indexing_status.indexnow.configured %}
-            <span class="seo-pill is-on">IndexNow активний</span>
-          {% else %}
-            <span class="seo-pill is-off">IndexNow не сконфігуровано</span>
-          {% endif %}
+    {# ---------- Top stats: today's quota, throughput, last submission ---------- #}
+    <div class="seo-indexing__stats">
+      <div class="seo-indexing__stat is-quota">
+        <span class="seo-indexing__stat-value" data-gix-stat="remaining">{{ indexing_status.google.summary.remaining_quota|default:"—" }}</span>
+        <span class="seo-indexing__stat-label">Залишок квоти на {{ indexing_status.google.summary.today|default:"сьогодні" }}</span>
+        <div class="seo-indexing__progress" aria-hidden="true">
+          {% with submitted=indexing_status.google.summary.submitted_today|default:0 quota=indexing_status.google.summary.quota|default:200 %}
+            <div class="seo-indexing__progress-fill" data-gix-progress style="width: {% widthratio submitted quota 100 %}%"></div>
+          {% endwith %}
         </div>
-        <div class="seo-tile__label">
-          {% if indexing_status.indexnow.key_location %}
-            Ключ: <a class="seo-tile__url" href="{{ indexing_status.indexnow.key_location }}" target="_blank" rel="noopener">{{ indexing_status.indexnow.key_location }}</a>
-          {% else %}
-            Задайте <code>INDEXNOW_KEY</code> у середовищі.
-          {% endif %}
+        <span class="seo-indexing__stat-hint">
+          з ліміту <span data-gix-stat="quota">{{ indexing_status.google.summary.quota|default:200 }}</span>/добу
+        </span>
+      </div>
+      <div class="seo-indexing__stat">
+        <span class="seo-indexing__stat-value" data-gix-stat="submitted">{{ indexing_status.google.summary.submitted_today|default:0 }}</span>
+        <span class="seo-indexing__stat-label">Відправлено за сьогодні</span>
+      </div>
+      <div class="seo-indexing__stat is-success">
+        <span class="seo-indexing__stat-value" data-gix-stat="success">{{ indexing_status.google.summary.succeeded_today|default:0 }}</span>
+        <span class="seo-indexing__stat-label">Прийнято Google</span>
+      </div>
+      <div class="seo-indexing__stat is-error">
+        <span class="seo-indexing__stat-value" data-gix-stat="failed">{{ indexing_status.google.summary.failed_today|default:0 }}</span>
+        <span class="seo-indexing__stat-label">Помилок</span>
+      </div>
+    </div>
+
+    {# ---------- Tabs ---------- #}
+    <div class="seo-indexing__tabs" role="tablist">
+      <button type="button" class="seo-indexing__tab is-active" data-tab="submit" role="tab" aria-selected="true">
+        Запустити індексацію
+      </button>
+      <button type="button" class="seo-indexing__tab" data-tab="breakdown" role="tab" aria-selected="false">
+        Розбивка по групах
+      </button>
+      <button type="button" class="seo-indexing__tab" data-tab="history" role="tab" aria-selected="false">
+        Історія відправок
+      </button>
+    </div>
+
+    {# ===== Tab 1: Submit ===== #}
+    <div class="seo-indexing__panel is-active" data-tab-panel="submit" role="tabpanel">
+      <p class="seo-indexing__hint">
+        Виберіть секції сайту й мови для відправки. Превʼю покаже точну кількість URL та скільки з них уже надіслано сьогодні. Усе, що показується, — це той самий перелік URL, що і у sitemap.xml.
+      </p>
+
+      <div class="seo-indexing__form">
+        <div class="seo-indexing__form-block">
+          <label class="seo-indexing__form-title">Секції сайту</label>
+          <div class="seo-indexing__pills" data-gix-groups>
+            {% for group_key, group_label in indexing_status.google.group_choices %}
+              <label class="seo-indexing__chip">
+                <input type="checkbox" name="gix-group" value="{{ group_key }}" checked>
+                <span>{{ group_label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="seo-indexing__form-block">
+          <label class="seo-indexing__form-title">Мови</label>
+          <div class="seo-indexing__pills" data-gix-langs>
+            {% for lang_code in indexing_status.google.supported_languages %}
+              <label class="seo-indexing__chip">
+                <input type="checkbox" name="gix-lang" value="{{ lang_code }}" checked>
+                <span>{{ lang_code|upper }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="seo-indexing__form-block">
+          <label class="seo-indexing__form-title">Параметри</label>
+          <div class="seo-indexing__toggles">
+            <label class="seo-indexing__toggle">
+              <input type="checkbox" id="gix-skip-existing" checked>
+              <span>Пропускати вже надіслані сьогодні</span>
+            </label>
+            <label class="seo-indexing__toggle">
+              <input type="checkbox" id="gix-respect-quota" checked>
+              <span>Не виходити за денний ліміт</span>
+            </label>
+            <label class="seo-indexing__toggle">
+              <input type="checkbox" id="gix-also-indexnow">
+              <span>Дублювати в IndexNow (Bing/Yandex)</span>
+            </label>
+          </div>
+          <label class="seo-indexing__form-title" style="margin-top: 0.6rem;">Тип нотифікації</label>
+          <div class="seo-indexing__toggles">
+            <label class="seo-indexing__radio">
+              <input type="radio" name="gix-notification" value="URL_UPDATED" checked>
+              <span>URL_UPDATED (новий / оновлений)</span>
+            </label>
+            <label class="seo-indexing__radio">
+              <input type="radio" name="gix-notification" value="URL_DELETED">
+              <span>URL_DELETED (сторінка зникла)</span>
+            </label>
+          </div>
         </div>
       </div>
-      <div class="seo-tile">
-        <div class="seo-tile__count">
-          {% if indexing_status.google.configured %}
-            <span class="seo-pill is-on">Google Indexing активний</span>
-          {% elif indexing_status.google.credentials_present %}
-            <span class="seo-pill is-off">Google вимкнено (env)</span>
-          {% else %}
-            <span class="seo-pill is-off">Google: нема креденшіалів</span>
-          {% endif %}
+
+      <div class="seo-indexing__preview" data-gix-preview>
+        <div class="seo-indexing__preview-headline">
+          <strong>Готується до відправки:</strong>
+          <span class="seo-indexing__preview-count" data-gix-preview-count>—</span>
+          <span class="seo-indexing__preview-meta" data-gix-preview-meta></span>
         </div>
-        <div class="seo-tile__label">
-          {% if indexing_status.google.credentials_path %}
-            Service account: <code style="word-break: break-all;">{{ indexing_status.google.credentials_path }}</code>
-          {% else %}
-            Завантажте JSON service account у <code>json/</code> або задайте
-            <code>GOOGLE_INDEXING_CREDENTIALS_PATH</code>.
-          {% endif %}
+        <ul class="seo-indexing__preview-list" data-gix-preview-list></ul>
+      </div>
+
+      <div class="seo-indexing__actions">
+        <button type="button" class="seo-indexing__btn is-primary" id="gix-submit-btn"
+                {% if not indexing_status.google.configured %}disabled aria-disabled="true"{% endif %}>
+          ▶ Запустити індексацію
+        </button>
+        <button type="button" class="seo-indexing__btn" id="gix-cancel-btn" disabled aria-disabled="true">
+          ⏹ Зупинити
+        </button>
+        <button type="button" class="seo-indexing__btn" id="gix-preview-btn">
+          🔍 Оновити превʼю
+        </button>
+      </div>
+
+      <div class="seo-indexing__progress-bar" data-gix-job style="display: none;">
+        <div class="seo-indexing__progress" aria-hidden="true">
+          <div class="seo-indexing__progress-fill" data-gix-job-fill style="width: 0%;"></div>
+        </div>
+        <div class="seo-indexing__progress-text">
+          <span data-gix-job-status>—</span>
+          <span data-gix-job-counter>0 / 0</span>
         </div>
       </div>
     </div>
 
-    {# ---------- Quota / today's progress ---------- #}
-    <div class="seo-grid" style="margin-bottom: 0.85rem;">
-      <div class="seo-tile is-total">
-        <div class="seo-tile__count" data-gix-stat="remaining">{{ indexing_status.google.summary.remaining_quota|default:"—" }}</div>
-        <div class="seo-tile__label">
-          Залишок квоти на сьогодні (з {{ indexing_status.google.summary.quota|default:"200" }})
-        </div>
-      </div>
-      <div class="seo-tile">
-        <div class="seo-tile__count" data-gix-stat="submitted">{{ indexing_status.google.summary.submitted_today|default:0 }}</div>
-        <div class="seo-tile__label">
-          Відправлено за {{ indexing_status.google.summary.today|default:"сьогодні" }}
-          (<span style="color:#b6f5c4;">прийнято <span data-gix-stat="success">{{ indexing_status.google.summary.succeeded_today|default:0 }}</span></span>
-          / <span style="color:#fca5a5;">помилок <span data-gix-stat="failed">{{ indexing_status.google.summary.failed_today|default:0 }}</span></span>)
-        </div>
-      </div>
-      <div class="seo-tile">
-        <div class="seo-tile__count">
-          <label style="display:flex; gap:.4rem; align-items:center; font-size: 0.85rem; cursor:pointer;">
-            <input type="checkbox" id="gix-skip-existing" checked>
-            <span>Пропускати вже надіслані сьогодні</span>
-          </label>
-        </div>
-        <div class="seo-tile__label">
-          <label style="display:flex; gap:.4rem; align-items:center; font-size: 0.85rem; cursor:pointer;">
-            <input type="checkbox" id="gix-respect-quota" checked>
-            <span>Не виходити за денний ліміт ({{ indexing_status.google.summary.quota|default:"200" }})</span>
-          </label>
-        </div>
-      </div>
-    </div>
-
-    <div class="seo-quick-links">
-      <button type="button" class="seo-btn-generate"
-              data-action="indexnow-submit"
-              data-target-type="all"
-              {% if not indexing_status.indexnow.configured %}disabled aria-disabled="true"{% endif %}>
-        IndexNow · усі URL
-      </button>
-      <button type="button" class="seo-btn-generate"
-              data-action="indexnow-submit"
-              data-target-type="core"
-              {% if not indexing_status.indexnow.configured %}disabled aria-disabled="true"{% endif %}>
-        IndexNow · core
-      </button>
-      <button type="button" class="seo-btn-generate"
-              data-action="google-indexing-submit"
-              data-target-type="all"
-              data-respect-controls="1"
-              {% if not indexing_status.google.configured %}disabled aria-disabled="true"{% endif %}
-              title="Послідовно надсилає кожен URL у Google Indexing API. Перемикачі вище керують пропуском дублів і дотриманням квоти.">
-        Google · усі URL
-      </button>
-      <button type="button" class="seo-btn-generate"
-              data-action="google-indexing-submit"
-              data-target-type="core"
-              data-respect-controls="1"
-              {% if not indexing_status.google.configured %}disabled aria-disabled="true"{% endif %}
-              title="Надіслати у Google Indexing API лише ключові статичні сторінки (home, catalog, contacts, ...).">
-        Google · core
-      </button>
-      <button type="button" class="seo-btn-generate"
-              id="gix-history-refresh"
-              {% if not indexing_status.google.configured %}disabled aria-disabled="true"{% endif %}>
-        ↻ Оновити історію
-      </button>
-    </div>
-
-    {# ---------- History table ---------- #}
-    <details class="seo-history" style="margin-top: 1rem;" open>
-      <summary style="cursor: pointer; padding: 0.45rem 0; font-size: 0.92rem; color: rgba(255,255,255,0.85);">
-        Останні відправки у Google Indexing API
-        (<span data-gix-stat="recent-count">{{ indexing_status.google.recent|length|default:0 }}</span>)
-      </summary>
-      <table class="seo-table" id="gix-history" style="margin-top: 0.4rem;">
+    {# ===== Tab 2: Breakdown ===== #}
+    <div class="seo-indexing__panel" data-tab-panel="breakdown" role="tabpanel" hidden>
+      <p class="seo-indexing__hint">
+        Скільки URL у кожній секції сайту й скільки з них вже надіслано сьогодні. Pending — це стільки залишається доіндексувати протягом дня.
+      </p>
+      <table class="seo-table" id="gix-breakdown">
         <thead>
           <tr>
-            <th>Час</th>
-            <th>Статус</th>
-            <th>HTTP</th>
-            <th>Джерело</th>
-            <th>URL</th>
-            <th>Тип</th>
+            <th>Секція</th>
+            <th>Усього URL</th>
+            <th>Надіслано сьогодні</th>
+            <th>Залишилось</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          {% for row in indexing_status.google.recent %}
+          {% for row in indexing_status.google.breakdown %}
             <tr>
-              <td style="white-space: nowrap; font-size: 0.78rem; color: rgba(255,255,255,0.65);">{{ row.submitted_at }}</td>
+              <td>{{ row.label }}</td>
+              <td>{{ row.total }}</td>
+              <td><span class="seo-pill is-on">{{ row.submitted_today }}</span></td>
+              <td>{% if row.pending_today %}<span class="seo-pill is-off">{{ row.pending_today }}</span>{% else %}<span class="seo-pill is-on">0</span>{% endif %}</td>
               <td>
-                {% if row.status == 'success' %}
-                  <span class="seo-pill is-on">OK</span>
-                {% else %}
-                  <span class="seo-pill is-off" title="{{ row.error_message }}">FAIL</span>
-                {% endif %}
+                <button type="button" class="seo-indexing__btn is-small" data-gix-quick-group="{{ row.group }}" data-gix-quick-pending="{{ row.pending_today }}">
+                  Дослати
+                </button>
               </td>
-              <td style="font-size: 0.8rem;">{{ row.http_status|default:"—" }}</td>
-              <td style="font-size: 0.78rem; color: rgba(255,255,255,0.55);">{{ row.source|default:"—" }}</td>
-              <td><a class="seo-tile__url" href="{{ row.url }}" target="_blank" rel="noopener">{{ row.url }}</a></td>
-              <td style="font-size: 0.78rem; color: rgba(255,255,255,0.55);">{{ row.notification_type }}</td>
             </tr>
           {% empty %}
-            <tr>
-              <td colspan="6" style="color: rgba(255,255,255,0.55); font-size: 0.85rem; padding: 0.6rem;">
-                Поки що жодного запиту в Google Indexing API не зафіксовано.
-              </td>
-            </tr>
+            <tr><td colspan="5" style="color: rgba(255,255,255,0.55); font-size: 0.85rem; padding: 0.6rem;">Розбивка зʼявиться після першого превʼю.</td></tr>
           {% endfor %}
         </tbody>
       </table>
-    </details>
+    </div>
 
-    <p style="color: rgba(255,255,255,0.45); font-size: 0.78rem; margin-top: 0.6rem;">
+    {# ===== Tab 3: History ===== #}
+    <div class="seo-indexing__panel" data-tab-panel="history" role="tabpanel" hidden>
+      <div class="seo-indexing__filters">
+        <input type="search" id="gix-history-search" placeholder="Пошук URL…" class="seo-indexing__input">
+        <select id="gix-history-status" class="seo-indexing__input">
+          <option value="">Усі статуси</option>
+          <option value="success">Прийнято</option>
+          <option value="failed">Помилки</option>
+        </select>
+        <select id="gix-history-source" class="seo-indexing__input">
+          <option value="">Усі джерела</option>
+          <option value="admin">admin (ручні)</option>
+          <option value="signal">signal (авто)</option>
+          <option value="manual-test">manual-test</option>
+        </select>
+        <input type="date" id="gix-history-date" class="seo-indexing__input">
+        <select id="gix-history-limit" class="seo-indexing__input">
+          <option value="50">50</option>
+          <option value="100" selected>100</option>
+          <option value="200">200</option>
+        </select>
+        <button type="button" class="seo-indexing__btn is-small" id="gix-history-refresh">↻</button>
+      </div>
+      <div class="seo-indexing__history-wrap">
+        <table class="seo-table" id="gix-history">
+          <thead>
+            <tr>
+              <th>Час</th>
+              <th>Статус</th>
+              <th>HTTP</th>
+              <th>Джерело</th>
+              <th>URL</th>
+              <th>Тип</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in indexing_status.google.recent %}
+              <tr>
+                <td style="white-space: nowrap; font-size: 0.78rem; color: rgba(255,255,255,0.65);">{{ row.submitted_at }}</td>
+                <td>
+                  {% if row.status == 'success' %}
+                    <span class="seo-pill is-on">OK</span>
+                  {% else %}
+                    <span class="seo-pill is-off" title="{{ row.error_message }}">FAIL</span>
+                  {% endif %}
+                </td>
+                <td style="font-size: 0.8rem;">{{ row.http_status|default:"—" }}</td>
+                <td style="font-size: 0.78rem; color: rgba(255,255,255,0.55);">{{ row.source|default:"—" }}</td>
+                <td><a class="seo-tile__url" href="{{ row.url }}" target="_blank" rel="noopener">{{ row.url }}</a></td>
+                <td style="font-size: 0.78rem; color: rgba(255,255,255,0.55);">{{ row.notification_type }}</td>
+                <td><button type="button" class="seo-indexing__btn is-small" data-gix-resubmit="{{ row.url }}" title="Перевідправити цей URL">↻</button></td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="7" style="color: rgba(255,255,255,0.55); font-size: 0.85rem; padding: 0.6rem;">
+                  Поки що жодного запиту в Google Indexing API не зафіксовано.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <p style="color: rgba(255,255,255,0.45); font-size: 0.78rem; margin-top: 0.85rem;">
       Google Indexing API офіційно обмежено типами JobPosting та
       BroadcastEvent, але приймає й інші URL як підказку. Стежте за
       квотою у
       <a href="https://console.cloud.google.com/apis/api/indexing.googleapis.com/quotas" target="_blank" rel="noopener" class="seo-tile__url">Cloud Console &rarr; Quotas</a>.
+      {% if indexing_status.indexnow.key_location %}IndexNow ключ:
+      <a class="seo-tile__url" href="{{ indexing_status.indexnow.key_location }}" target="_blank" rel="noopener">{{ indexing_status.indexnow.key_location }}</a>.{% endif %}
     </p>
   </section>
 

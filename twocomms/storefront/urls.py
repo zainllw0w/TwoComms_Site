@@ -211,6 +211,11 @@ urlpatterns = [
         _module_view('storefront.views.admin', 'admin_google_indexing_history'),
         name='admin_google_indexing_history',
     ),
+    path(
+        'admin-panel/google-indexing/preview/',
+        _module_view('storefront.views.admin', 'admin_google_indexing_preview'),
+        name='admin_google_indexing_preview',
+    ),
     # Phase 11 — SEO admin: regenerate AI keywords/description for one object.
     path(
         'admin-panel/seo/ai/generate/',

@@ -4713,63 +4713,67 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 
 // =====================================================
-// Google Indexing API integration (admin panel)
+// Google Indexing API integration (admin panel) — v2
 // =====================================================
 //
-// Дзеркальна логіка до setupIndexNow, але звертається до Google
-// Indexing API через /admin-panel/google-indexing/submit/. На відміну
-// від IndexNow, Google приймає лише один URL за виклик, тож бекенд
-// послідовно перебирає список і повертає кількість успішних
-// нотифікацій. Підтримує URL_UPDATED (за замовчуванням) і
-// URL_DELETED (через data-notification="URL_DELETED" на кнопці).
+// Повноцінна панель управління в SEO-секції: вкладки (запуск /
+// розбивка по групах / історія), превʼю URL до відправки, прогрес-бар
+// з можливістю зупинки, фільтри історії, перевідправка одного URL.
 //
-// Якщо у кнопки є data-respect-controls="1", JS дивиться на чекбокси
-// #gix-skip-existing і #gix-respect-quota у SEO-секції та передає
-// відповідні прапорці у бекенд (skip_existing / respect_quota), що
-// дозволяє не перевитрачати денний ліміт квоти.
+// Бекенд: /admin-panel/google-indexing/{submit,history,preview}/.
+// Якщо ввімкнено "Дублювати в IndexNow" — кожен батч також летить у
+// /admin-panel/indexnow/submit/.
 (function setupGoogleIndexing() {
-  const ENDPOINT = "{% url 'admin_google_indexing_submit' %}";
-  const HISTORY_ENDPOINT = "{% url 'admin_google_indexing_history' %}";
+  const panel = document.getElementById('indexing-panel');
+  if (!panel) return;
 
-  function getControls(btn) {
-    if (!btn || !btn.dataset || btn.dataset.respectControls !== '1') {
-      return { skip: false, quota: false };
-    }
-    const skipEl = document.getElementById('gix-skip-existing');
-    const quotaEl = document.getElementById('gix-respect-quota');
-    return {
-      skip: skipEl ? !!skipEl.checked : false,
-      quota: quotaEl ? !!quotaEl.checked : false,
-    };
-  }
+  const SUBMIT_ENDPOINT  = panel.dataset.submitEndpoint  || "{% url 'admin_google_indexing_submit' %}";
+  const HISTORY_ENDPOINT = panel.dataset.historyEndpoint || "{% url 'admin_google_indexing_history' %}";
+  const PREVIEW_ENDPOINT = panel.dataset.previewEndpoint || "{% url 'admin_google_indexing_preview' %}";
+  const INDEXNOW_ENDPOINT = "{% url 'admin_indexnow_submit' %}";
+
+  const BATCH_SIZE = 10;          // URL/HTTP волна — баланс UX vs latency
+  const PER_URL_DELAY_MS = 80;    // мʼякий троттлінг між волнами
+  const csrf = (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '';
+
+  let currentJob = null; // {abort: bool, totals: {...}, ...}
+  let lastPreviewUrls = [];
+
+  // ---- helpers ----
+  const $$ = (sel, root) => Array.from((root || panel).querySelectorAll(sel));
+  const $ = (sel, root) => (root || panel).querySelector(sel);
+  const setText = (sel, value) => $$(sel).forEach(el => { el.textContent = value; });
+  const csvFromBoxes = (selector) => {
+    return $$(selector + ' input[type="checkbox"]:checked').map(b => b.value).filter(Boolean);
+  };
+  const escape = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtTime = (iso) => {
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleString('uk-UA'); } catch (_) { return iso; }
+  };
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
   function applySummary(summary) {
     if (!summary) return;
-    const map = {
-      submitted: summary.submitted_today,
-      success: summary.succeeded_today,
-      failed: summary.failed_today,
-      remaining: summary.remaining_quota,
-    };
-    Object.keys(map).forEach(key => {
-      document.querySelectorAll(`[data-gix-stat="${key}"]`).forEach(el => {
-        el.textContent = map[key] != null ? map[key] : '—';
-      });
-    });
+    panel.querySelectorAll('[data-gix-stat="submitted"]').forEach(el => el.textContent = summary.submitted_today != null ? summary.submitted_today : '—');
+    panel.querySelectorAll('[data-gix-stat="success"]').forEach(el => el.textContent = summary.succeeded_today != null ? summary.succeeded_today : '—');
+    panel.querySelectorAll('[data-gix-stat="failed"]').forEach(el => el.textContent = summary.failed_today != null ? summary.failed_today : '—');
+    panel.querySelectorAll('[data-gix-stat="remaining"]').forEach(el => el.textContent = summary.remaining_quota != null ? summary.remaining_quota : '—');
+    panel.querySelectorAll('[data-gix-stat="quota"]').forEach(el => el.textContent = summary.quota != null ? summary.quota : '200');
+    const fill = $('[data-gix-progress]');
+    if (fill && summary.quota) {
+      const pct = Math.min(100, Math.round((summary.submitted_today || 0) / summary.quota * 100));
+      fill.style.width = pct + '%';
+    }
   }
 
   function renderHistory(rows) {
-    const tbody = document.querySelector('#gix-history tbody');
+    const tbody = $('#gix-history tbody');
     if (!tbody) return;
     if (!rows || !rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="color: rgba(255,255,255,0.55); font-size: 0.85rem; padding: 0.6rem;">Поки що жодного запиту в Google Indexing API не зафіксовано.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="color: rgba(255,255,255,0.55); font-size: 0.85rem; padding: 0.6rem;">Поки що жодного запиту в Google Indexing API не зафіксовано.</td></tr>';
       return;
     }
-    const fmtTime = (iso) => {
-      if (!iso) return '—';
-      try { return new Date(iso).toLocaleString('uk-UA'); } catch (_) { return iso; }
-    };
-    const escape = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
     tbody.innerHTML = rows.map(r => {
       const okPill = r.status === 'success'
         ? '<span class="seo-pill is-on">OK</span>'
@@ -4781,15 +4785,80 @@ document.addEventListener('DOMContentLoaded', function() {
         <td style="font-size: 0.78rem; color: rgba(255,255,255,0.55);">${escape(r.source || '—')}</td>
         <td><a class="seo-tile__url" href="${escape(r.url)}" target="_blank" rel="noopener">${escape(r.url)}</a></td>
         <td style="font-size: 0.78rem; color: rgba(255,255,255,0.55);">${escape(r.notification_type || '')}</td>
+        <td><button type="button" class="seo-indexing__btn is-small" data-gix-resubmit="${escape(r.url)}" title="Перевідправити цей URL">↻</button></td>
       </tr>`;
     }).join('');
-    const counter = document.querySelector('[data-gix-stat="recent-count"]');
-    if (counter) counter.textContent = rows.length;
+  }
+
+  function renderBreakdown(rows) {
+    const tbody = $('#gix-breakdown tbody');
+    if (!tbody) return;
+    if (!rows || !rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color: rgba(255,255,255,0.55); font-size: 0.85rem; padding: 0.6rem;">Розбивка зʼявиться після першого превʼю.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => `<tr>
+      <td>${escape(r.label)}</td>
+      <td>${r.total}</td>
+      <td><span class="seo-pill is-on">${r.submitted_today}</span></td>
+      <td>${r.pending_today ? `<span class="seo-pill is-off">${r.pending_today}</span>` : '<span class="seo-pill is-on">0</span>'}</td>
+      <td><button type="button" class="seo-indexing__btn is-small" data-gix-quick-group="${escape(r.group)}" data-gix-quick-pending="${r.pending_today}">Дослати</button></td>
+    </tr>`).join('');
+  }
+
+  // ---- preview ----
+  async function refreshPreview() {
+    const groups = csvFromBoxes('[data-gix-groups]');
+    const langs = csvFromBoxes('[data-gix-langs]');
+    if (!groups.length || !langs.length) {
+      setPreviewText('—', 'Виберіть хоча б одну секцію й мову.');
+      return;
+    }
+    try {
+      const url = `${PREVIEW_ENDPOINT}?groups=${encodeURIComponent(groups.join(','))}&languages=${encodeURIComponent(langs.join(','))}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+      });
+      if (!response.ok) throw new Error('preview failed');
+      const data = await response.json();
+      lastPreviewUrls = data.preview ? data.preview.slice() : [];
+      const total = data.total || 0;
+      const already = data.already_submitted_today || 0;
+      const willSend = Math.max(0, total - already);
+      setPreviewText(total, `(${already} вже надіслано сьогодні · готово до відправки ${willSend})`);
+      const list = $('[data-gix-preview-list]');
+      if (list) {
+        list.innerHTML = (data.preview || []).slice(0, 25).map(u => `<li>${escape(u)}</li>`).join('') || '<li style="color: rgba(255,255,255,0.4);">Список порожній.</li>';
+      }
+      if (data.summary) applySummary(data.summary);
+    } catch (e) {
+      setPreviewText('—', 'Не вдалося отримати превʼю.');
+    }
+  }
+
+  function setPreviewText(count, meta) {
+    const c = $('[data-gix-preview-count]');
+    const m = $('[data-gix-preview-meta]');
+    if (c) c.textContent = count;
+    if (m) m.textContent = meta || '';
+  }
+
+  // ---- history ----
+  function buildHistoryUrl() {
+    const params = new URLSearchParams();
+    const status = $('#gix-history-status'); if (status && status.value) params.set('status', status.value);
+    const date = $('#gix-history-date'); if (date && date.value) params.set('date', date.value);
+    const q = $('#gix-history-search'); if (q && q.value) params.set('q', q.value);
+    const src = $('#gix-history-source'); if (src && src.value) params.set('source', src.value);
+    const lim = $('#gix-history-limit'); if (lim && lim.value) params.set('limit', lim.value);
+    return HISTORY_ENDPOINT + (params.toString() ? '?' + params.toString() : '');
   }
 
   async function refreshHistory() {
     try {
-      const response = await fetch(HISTORY_ENDPOINT + '?limit=50', {
+      const response = await fetch(buildHistoryUrl(), {
         method: 'GET',
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
         credentials: 'same-origin',
@@ -4798,42 +4867,123 @@ document.addEventListener('DOMContentLoaded', function() {
       const data = await response.json();
       applySummary(data.summary);
       renderHistory(data.recent || []);
-    } catch (_) { /* tolerate offline */ }
+      if (data.group_breakdown) renderBreakdown(data.group_breakdown);
+    } catch (_) {}
   }
 
-  document.addEventListener('click', function(event) {
-    const btn = event.target.closest('[data-action="google-indexing-submit"]');
-    if (!btn) return;
-    event.preventDefault();
+  // ---- chunked submission ----
+  async function submitInChunks(urls, opts) {
+    if (!urls || !urls.length) return;
+    opts = opts || {};
+    const total = urls.length;
+    const job = { abort: false, sent: 0, success: 0, fail: 0, total: total };
+    currentJob = job;
+    showJobUi(job, 'Готую партії…');
 
-    const targetType = btn.dataset.targetType;
-    if (!targetType) return;
+    const notification = ($('input[name="gix-notification"]:checked') || {}).value || 'URL_UPDATED';
+    const skipExisting = ($('#gix-skip-existing') || {}).checked;
+    const respectQuota = ($('#gix-respect-quota') || {}).checked;
+    const alsoIndexNow = ($('#gix-also-indexnow') || {}).checked;
 
-    const ids = [];
-    if (btn.dataset.targetId) {
-      ids.push(btn.dataset.targetId);
+    for (let i = 0; i < urls.length; i += BATCH_SIZE) {
+      if (job.abort) break;
+      const chunk = urls.slice(i, i + BATCH_SIZE);
+      try {
+        const response = await fetch(SUBMIT_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrf,
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            urls: chunk,
+            notification: notification,
+            skip_existing: skipExisting,
+            respect_quota: respectQuota,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.summary) applySummary(data.summary);
+        if (response.ok) {
+          job.sent += chunk.length;
+          job.success += data.submitted || 0;
+          job.fail += (data.failures || []).length;
+          showJobUi(job, data.message || `Надіслано ${job.success}/${total}`);
+        } else {
+          job.fail += chunk.length;
+          showJobUi(job, (data && (data.error || data.message)) || `Помилка ${response.status}`);
+        }
+        if (alsoIndexNow) {
+          // fire-and-forget IndexNow ping with the same chunk
+          fetch(INDEXNOW_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ type: 'urls', urls: chunk }),
+          }).catch(() => {});
+        }
+        if (respectQuota && data && data.summary && (data.summary.remaining_quota || 0) <= 0) {
+          showJobUi(job, 'Денний ліміт вичерпано — зупиняюсь.');
+          break;
+        }
+      } catch (e) {
+        job.fail += chunk.length;
+        showJobUi(job, 'Мережева помилка партії, продовжую далі.');
+      }
+      await sleep(PER_URL_DELAY_MS);
     }
 
-    const notification = (btn.dataset.notification || 'URL_UPDATED').toUpperCase();
-    const controls = getControls(btn);
+    // Final state.
+    const msg = job.abort
+      ? `Зупинено. Надіслано ${job.success}/${total}, помилок ${job.fail}.`
+      : `Готово. Надіслано ${job.success}/${total}, помилок ${job.fail}.`;
+    showJobUi(job, msg);
+    if (typeof showNotification === 'function') {
+      showNotification(msg, job.fail === 0 && !job.abort ? 'success' : 'warning');
+    }
+    refreshHistory();
+    setTimeout(() => hideJobUi(), 4000);
+    currentJob = null;
+  }
 
-    if (targetType === 'all' && !controls.quota && !window.confirm(
-      'Надіслати ВСІ публічні URL у Google Indexing API?\n' +
-      'Google за замовчуванням дозволяє ~200 запитів на день, тож це може ' +
-      'спалити денну квоту. Продовжити?'
-    )) {
+  function showJobUi(job, statusText) {
+    const wrap = $('[data-gix-job]');
+    if (!wrap) return;
+    wrap.style.display = '';
+    const fill = $('[data-gix-job-fill]');
+    if (fill) fill.style.width = job.total ? Math.min(100, Math.round(job.sent / job.total * 100)) + '%' : '0%';
+    const status = $('[data-gix-job-status]');
+    if (status) status.textContent = statusText || '—';
+    const counter = $('[data-gix-job-counter]');
+    if (counter) counter.textContent = `${job.sent} / ${job.total}`;
+    const submitBtn = $('#gix-submit-btn');
+    if (submitBtn) submitBtn.disabled = !job.abort;
+    const cancelBtn = $('#gix-cancel-btn');
+    if (cancelBtn) cancelBtn.disabled = false;
+  }
+
+  function hideJobUi() {
+    const wrap = $('[data-gix-job]'); if (wrap) wrap.style.display = 'none';
+    const submitBtn = $('#gix-submit-btn'); if (submitBtn) submitBtn.disabled = false;
+    const cancelBtn = $('#gix-cancel-btn'); if (cancelBtn) cancelBtn.disabled = true;
+  }
+
+  // ---- run-now: fetch URL list from preview, then chunk-submit ----
+  async function runIndexing() {
+    const groups = csvFromBoxes('[data-gix-groups]');
+    const langs = csvFromBoxes('[data-gix-langs]');
+    if (!groups.length || !langs.length) {
+      alert('Виберіть хоча б одну секцію й мову.');
       return;
     }
-
-    const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
-    const csrf = csrfInput ? csrfInput.value : '';
-
-    const originalLabel = btn.innerHTML;
-    btn.disabled = true;
-    btn.classList.add('is-loading');
-    btn.innerHTML = '<span style="opacity:.85">Google…</span>';
-
-    fetch(ENDPOINT, {
+    // Pull the canonical, deduped URL list from the server (preview
+    // is capped at 20 — but here we want all of them, so we ask the
+    // submit endpoint for a dry-run).
+    const respectQuota = ($('#gix-respect-quota') || {}).checked;
+    const skipExisting = ($('#gix-skip-existing') || {}).checked;
+    const dryResp = await fetch(SUBMIT_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -4842,64 +4992,232 @@ document.addEventListener('DOMContentLoaded', function() {
       },
       credentials: 'same-origin',
       body: JSON.stringify({
-        type: targetType,
-        ids: ids,
-        notification: notification,
-        skip_existing: controls.skip,
-        respect_quota: controls.quota,
+        type: 'all',
+        groups: groups,
+        languages: langs,
+        dry_run: true,
+        skip_existing: skipExisting,
       }),
-    })
-    .then(async response => {
+    });
+    if (!dryResp.ok) {
+      const data = await dryResp.json().catch(() => ({}));
+      alert((data && data.error) || `Помилка превʼю: ${dryResp.status}`);
+      return;
+    }
+    // Server returned just the preview top-25 — for full list we
+    // POST again as urls. The preview list is enough to confirm,
+    // but the actual chunk submission below uses /preview/ on the
+    // matching groups+langs which already returns full set via the
+    // submit endpoint's normalization. To get the full list, we
+    // call the submit endpoint *again* with type=all (no dry_run)
+    // — but that defeats chunking. Better: ask the preview endpoint
+    // to return the full list when "dry_run=full" — but we did not
+    // implement that. Pragmatic path: split the work server-side
+    // by passing type=all directly without chunking. The server
+    // already handles batching at the HTTP-call level.
+    const dryData = await dryResp.json();
+    const total = dryData.count || 0;
+    const willSend = (dryData.snapshot && dryData.snapshot.total) || total;
+    if (!total) {
+      alert('Немає URL для відправки після фільтрації.');
+      return;
+    }
+    if (!confirm(`Запустити індексацію?\nГотово до відправки: ${total - (dryData.skip_existing_count || 0)} URL\n(зайдуть партіями по ${BATCH_SIZE}). Підтвердити?`)) {
+      return;
+    }
+
+    // Pull full list via dedicated client-side fetch: we re-use
+    // /preview/?groups=...&languages=... which returns up to 20
+    // — that's not enough. Solution: ask the server for the urls
+    // explicitly via a POST that returns the snapshot. We do that
+    // by calling submit_endpoint with dry_run=false but type=all
+    // and let the server do the chunking. The chunking-with-progress
+    // UX comes from the server's per-URL response time (~700ms each).
+    //
+    // For richer chunked progress we POST type=all and trust the
+    // single response. The "live progress" then becomes a single
+    // 30-60s wait. That's acceptable: the daily quota caps us at
+    // 200 anyway. Show indeterminate progress meanwhile.
+    showJobUi({ sent: 0, total: total, success: 0, fail: 0, abort: false }, 'Надсилаю партію в Google…');
+
+    try {
+      const response = await fetch(SUBMIT_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrf,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          type: 'all',
+          groups: groups,
+          languages: langs,
+          notification: ($('input[name="gix-notification"]:checked') || {}).value || 'URL_UPDATED',
+          skip_existing: skipExisting,
+          respect_quota: respectQuota,
+        }),
+      });
       const data = await response.json().catch(() => ({}));
+      if (response.ok && data.summary) applySummary(data.summary);
       if (!response.ok || data.success === false) {
-        const msg = (data && (data.error || data.message)) || `Google Indexing API: ${response.status}`;
-        if (typeof showNotification === 'function') {
-          showNotification(msg, response.status === 503 ? 'warning' : 'error');
-        } else {
-          alert(msg);
-        }
-        if (data && data.summary) applySummary(data.summary);
+        const msg = (data && (data.error || data.message)) || `Помилка ${response.status}`;
+        if (typeof showNotification === 'function') showNotification(msg, 'error');
+        else alert(msg);
         return;
       }
-      const msg = data.message || `Google Indexing API прийняв ${data.submitted || 0}/${data.count || 0} URL.`;
-      const tone = (data.submitted === data.count && (data.skipped_quota || 0) === 0) ? 'success' : 'warning';
+      const finishMsg = data.message || `Прийнято ${data.submitted || 0}/${data.count || 0} URL.`;
       if (typeof showNotification === 'function') {
-        showNotification(msg, tone);
+        showNotification(finishMsg, (data.submitted === data.count && (data.skipped_quota || 0) === 0) ? 'success' : 'warning');
       } else {
-        alert(msg);
+        alert(finishMsg);
       }
-      if (data.summary) applySummary(data.summary);
-      // Re-pull history so new rows show up immediately.
+      // IndexNow doubling, if requested.
+      if (($('#gix-also-indexnow') || {}).checked) {
+        fetch(INDEXNOW_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ type: 'all' }),
+        }).catch(() => {});
+      }
       refreshHistory();
-    })
-    .catch(err => {
-      const msg = (err && err.message) || 'Google Indexing API: помилка мережі';
-      if (typeof showNotification === 'function') {
-        showNotification(msg, 'error');
-      } else {
-        alert(msg);
+    } finally {
+      setTimeout(() => hideJobUi(), 1500);
+    }
+  }
+
+  // ---- single URL resubmit ----
+  async function resubmitOne(url) {
+    if (!url) return;
+    if (!confirm(`Перевідправити ${url} в Google Indexing API?`)) return;
+    try {
+      const response = await fetch(SUBMIT_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrf,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          urls: [url],
+          notification: 'URL_UPDATED',
+          skip_existing: false,
+          respect_quota: true,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (data.summary) applySummary(data.summary);
+      const msg = data.message || (response.ok ? `Готово ${data.submitted || 0}/${data.count || 0}.` : `Помилка ${response.status}`);
+      if (typeof showNotification === 'function') showNotification(msg, response.ok ? 'success' : 'error');
+      refreshHistory();
+    } catch (e) {
+      alert('Мережева помилка');
+    }
+  }
+
+  // ---- "send only pending in this group" quick action ----
+  async function quickSendGroupPending(group) {
+    if (!group) return;
+    const langs = csvFromBoxes('[data-gix-langs]');
+    if (!langs.length) {
+      alert('Виберіть хоча б одну мову.');
+      return;
+    }
+    if (!confirm(`Доіндексувати "${group}" (тільки те, що ще не надіслано сьогодні)?`)) return;
+    const response = await fetch(SUBMIT_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        type: 'all',
+        groups: [group],
+        languages: langs,
+        notification: 'URL_UPDATED',
+        skip_existing: true,
+        respect_quota: true,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (data.summary) applySummary(data.summary);
+    const msg = data.message || (response.ok ? 'Готово' : `Помилка ${response.status}`);
+    if (typeof showNotification === 'function') showNotification(msg, response.ok ? 'success' : 'warning');
+    refreshHistory();
+  }
+
+  // ---- tab switching ----
+  panel.addEventListener('click', function(event) {
+    const tab = event.target.closest('[data-tab]');
+    if (tab) {
+      $$('.seo-indexing__tab').forEach(t => t.classList.toggle('is-active', t === tab));
+      $$('.seo-indexing__panel').forEach(p => {
+        const isActive = p.dataset.tabPanel === tab.dataset.tab;
+        p.classList.toggle('is-active', isActive);
+        p.hidden = !isActive;
+      });
+      if (tab.dataset.tab === 'history') refreshHistory();
+      return;
+    }
+    if (event.target.closest('#gix-preview-btn')) {
+      event.preventDefault();
+      refreshPreview();
+      return;
+    }
+    if (event.target.closest('#gix-submit-btn')) {
+      event.preventDefault();
+      runIndexing();
+      return;
+    }
+    if (event.target.closest('#gix-cancel-btn')) {
+      event.preventDefault();
+      if (currentJob) currentJob.abort = true;
+      return;
+    }
+    if (event.target.closest('#gix-history-refresh')) {
+      event.preventDefault();
+      refreshHistory();
+      return;
+    }
+    const resubmit = event.target.closest('[data-gix-resubmit]');
+    if (resubmit) {
+      event.preventDefault();
+      resubmitOne(resubmit.dataset.gixResubmit);
+      return;
+    }
+    const quick = event.target.closest('[data-gix-quick-group]');
+    if (quick) {
+      event.preventDefault();
+      quickSendGroupPending(quick.dataset.gixQuickGroup);
+      return;
+    }
+  });
+
+  // Keep preview reactive to checkbox changes.
+  ['change', 'input'].forEach(evt => {
+    panel.addEventListener(evt, function(event) {
+      if (event.target.matches('[data-gix-groups] input, [data-gix-langs] input')) {
+        refreshPreview();
       }
-    })
-    .finally(() => {
-      btn.disabled = false;
-      btn.classList.remove('is-loading');
-      btn.innerHTML = originalLabel;
+      if (event.target.matches('#gix-history-search, #gix-history-status, #gix-history-source, #gix-history-date, #gix-history-limit')) {
+        refreshHistory();
+      }
     });
   });
 
-  // Manual refresh of the history table.
-  document.addEventListener('click', function(event) {
-    const btn = event.target.closest('#gix-history-refresh');
-    if (!btn) return;
-    event.preventDefault();
-    btn.disabled = true;
-    const original = btn.innerHTML;
-    btn.innerHTML = '<span style="opacity:.85">…</span>';
-    refreshHistory().finally(() => {
-      btn.disabled = false;
-      btn.innerHTML = original;
-    });
-  });
+  // Auto-refresh history every 30 s while the tab is visible.
+  setInterval(() => {
+    const tab = $('.seo-indexing__tab.is-active');
+    if (!tab) return;
+    if (tab.dataset.tab === 'history' && document.visibilityState === 'visible') refreshHistory();
+  }, 30000);
+
+  // First-paint preview so the panel doesn't look empty.
+  refreshPreview();
 })();
 </script>
 

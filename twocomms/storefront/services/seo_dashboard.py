@@ -280,10 +280,49 @@ def build_seo_dashboard_context() -> Dict[str, Any]:
         get_today_summary,
         get_recent_submissions,
     )
+    from .index_targets import (
+        ALL_GROUPS,
+        GROUP_LABELS,
+        build_targets,
+        get_default_language,
+        get_supported_languages,
+    )
 
     google_status = get_google_indexing_status()
     google_summary = get_today_summary()
     google_recent = get_recent_submissions(limit=50)
+
+    # Per-section breakdown for today: how many URLs in each group,
+    # how many already submitted today (success), how many remain.
+    breakdown: list[dict] = []
+    try:
+        snapshot = build_targets()
+        if google_summary.get("today"):
+            from storefront.models import GoogleIndexingSubmission
+            for group in ALL_GROUPS:
+                urls = snapshot.per_group.get(group) or []
+                if not urls:
+                    continue
+                sent_today = (
+                    GoogleIndexingSubmission.objects
+                    .filter(
+                        submission_date=google_summary["today"],
+                        url__in=urls,
+                        status="success",
+                    )
+                    .values("url").distinct().count()
+                )
+                breakdown.append({
+                    "group": group,
+                    "label": GROUP_LABELS.get(group, group),
+                    "total": len(urls),
+                    "submitted_today": sent_today,
+                    "pending_today": max(0, len(urls) - sent_today),
+                })
+    except Exception:
+        breakdown = []
+
+    supported_languages = get_supported_languages()
 
     return {
         "sitemap_summary": build_sitemap_summary(),
@@ -307,6 +346,11 @@ def build_seo_dashboard_context() -> Dict[str, Any]:
                 "credentials_path": google_status.get("credentials_path"),
                 "summary": google_summary,
                 "recent": google_recent,
+                "breakdown": breakdown,
+                "group_choices": [(g, GROUP_LABELS.get(g, g)) for g in ALL_GROUPS],
+                "supported_languages": supported_languages,
+                "supported_languages_csv": ",".join(supported_languages),
+                "default_language": get_default_language(),
             },
         },
     }
