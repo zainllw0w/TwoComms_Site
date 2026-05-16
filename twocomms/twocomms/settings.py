@@ -175,6 +175,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "twocomms.middleware.SubdomainRedirectFallbackMiddleware",  # SEO редиректы (skip dtf.*)
+    "accounts.cart_middleware.CartSyncMiddleware",  # синхронизация корзины между устройствами
     "storefront.tracking.AnalyticsIdentityMiddleware",  # first-party analytics identity cookies
     "storefront.utm_middleware.UTMTrackingMiddleware",  # UTM tracking (ПЕРЕД SimpleAnalyticsMiddleware!)
     "storefront.tracking.SimpleAnalyticsMiddleware",  # простая аналитика посещений

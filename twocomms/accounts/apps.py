@@ -8,3 +8,5 @@ class AccountsConfig(AppConfig):
     def ready(self):
         # импорт сигналов, чтобы отработало авто‑создание профиля
         from . import models  # noqa
+        # Подключаем сигналы синхронизации корзины между устройствами.
+        from . import cart_signals  # noqa: F401
